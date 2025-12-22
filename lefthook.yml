@@ -1,0 +1,14 @@
+pre-commit:
+  parallel: true
+  commands:
+    format:
+      run: cd packages/wskill && bun run format
+    lint:
+      run: cd packages/wskill && bun run lint
+
+pre-push:
+  commands:
+    test:
+      run: cd packages/wskill && bun test
+    build:
+      run: cd packages/wskill && bun run build

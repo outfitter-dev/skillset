@@ -1,0 +1,13 @@
+node_modules
+bun.lockb
+.DS_Store
+dist
+.idea
+.vscode
+.env
+*.log
+.wskill-legacy/
+# Additional ignores
+*.backup
+.claude/*/config.local.json
+.claude/*/logs/

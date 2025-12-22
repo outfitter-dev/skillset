@@ -1,0 +1,13 @@
+{
+  "name": "wskill",
+  "version": "0.1.0",
+  "description": "Deterministic skill invocation via w/alias syntax",
+  "author": {
+    "name": "Matt Galligan",
+    "url": "https://github.com/galligan"
+  },
+  "repository": "https://github.com/galligan/wskill",
+  "license": "MIT",
+  "keywords": ["skills", "deterministic", "invocation"],
+  "hooks": "./hooks/hooks.json"
+}

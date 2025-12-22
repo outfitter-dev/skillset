@@ -1,0 +1,7 @@
+{
+	"testKey": "testValue",
+	"mode": "strict",
+	"scopeTest": "project-value",
+	"testScope": "test-local",
+	"finalTest": "project-scope"
+}
