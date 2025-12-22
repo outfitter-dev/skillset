@@ -1,3 +1,4 @@
+import { logUsage } from "@skillset/shared";
 import { loadCaches } from "../cache";
 import { loadConfig } from "../config";
 import { formatOutcome } from "../format";
@@ -21,7 +22,7 @@ export async function runUserPromptSubmitHook(stdin: string): Promise<string> {
     cache = loadCaches(); // Reload after indexing
   }
 
-  // Extract w/<alias> tokens from prompt
+  // Extract $<ref> (kebab-case, optional namespace) tokens from prompt
   const tokens = tokenizePrompt(promptValue);
 
   // If no tokens found, return empty response
@@ -36,8 +37,22 @@ export async function runUserPromptSubmitHook(stdin: string): Promise<string> {
 
   // Resolve tokens to skills and format for injection
   const config = loadConfig();
+  const startTime = Date.now();
   const results = resolveTokens(tokens, config, cache);
   const outcome = formatOutcome(results, config);
+
+  // Log usage for each resolved skill
+  const duration_ms = Date.now() - startTime;
+  for (const result of results) {
+    if (result.skill) {
+      logUsage({
+        action: "inject",
+        skill: result.skill.skillRef,
+        source: "hook",
+        duration_ms,
+      });
+    }
+  }
 
   return JSON.stringify({
     hookSpecificOutput: {

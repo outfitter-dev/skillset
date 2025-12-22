@@ -88,7 +88,7 @@ describe("resolveToken", () => {
       namespace: undefined,
     };
     const result = resolveToken(token, configWithBadMapping, cache);
-    expect(result.reason).toContain("missing skillRef");
+    expect(result.reason).toContain("missing ref");
   });
 
   it("filters by namespace when provided", () => {

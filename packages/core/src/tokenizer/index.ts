@@ -6,7 +6,12 @@ const TOKEN_REGEX =
   /\$(?:(skill|set):)?([a-z0-9]+(?:-[a-z0-9]+)*(?::[a-z0-9]+(?:-[a-z0-9]+)*)*)/g;
 
 function isBoundary(char: string | undefined): boolean {
-  return char === undefined || /[\s[{(<"'`.,;:!?)]/.test(char);
+  return char === undefined || /[\s[{(<"'`.,;!?)]/.test(char);
+}
+
+function isAfterBoundary(char: string | undefined): boolean {
+  // After a token, colon is NOT a valid boundary (it could be $set: which is invalid)
+  return char === undefined || /[\s[{(<"'`.,;!?)\]]/.test(char);
 }
 
 export function tokenizePrompt(prompt: string): InvocationToken[] {
@@ -21,7 +26,7 @@ export function tokenizePrompt(prompt: string): InvocationToken[] {
       const end = start + match[0].length;
       const before = segment.text[start - 1];
       const after = segment.text[end];
-      if (!(isBoundary(before) && isBoundary(after))) {
+      if (!(isBoundary(before) && isAfterBoundary(after))) {
         match = TOKEN_REGEX.exec(segment.text);
         continue;
       }
@@ -31,15 +36,20 @@ export function tokenizePrompt(prompt: string): InvocationToken[] {
         match = TOKEN_REGEX.exec(segment.text);
         continue;
       }
-      const [maybeNamespace, maybeAlias] = captured.includes(":")
-        ? captured.split(":")
-        : [undefined, captured];
-      tokens.push({
+      // Split namespace from alias: "project:deep:nested" -> namespace="project", alias="deep:nested"
+      const colonIndex = captured.indexOf(":");
+      const maybeNamespace = colonIndex >= 0 ? captured.slice(0, colonIndex) : undefined;
+      const maybeAlias = colonIndex >= 0 ? captured.slice(colonIndex + 1) : captured;
+
+      const token: InvocationToken = {
         raw: match[0],
-        alias: maybeAlias ?? captured,
+        alias: maybeAlias,
         namespace: maybeNamespace,
-        kind,
-      });
+      };
+      if (kind) {
+        token.kind = kind;
+      }
+      tokens.push(token);
       match = TOKEN_REGEX.exec(segment.text);
     }
   }
