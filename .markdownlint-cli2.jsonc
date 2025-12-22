@@ -34,7 +34,8 @@
     // "MD030": true, // list-marker-space
     // "MD031": true, // blanks-around-fences
     "MD032": false, // blanks-around-lists
-    "MD033": { // no-inline-html
+    "MD033": {
+      // no-inline-html
       "allowed_elements": ["details", "summary", "br", "sup", "sub", "kbd"]
     },
     // "MD034": true, // no-bare-urls
@@ -53,7 +54,7 @@
     // "MD047": true, // single-trailing-newline
     // "MD048": true, // code-fence-style
     "MD049": { "style": "asterisk" }, // emphasis-style
-    "MD050": { "style": "asterisk" }, // strong-style
+    "MD050": { "style": "asterisk" } // strong-style
     // "MD051": true, // link-fragments
     // "MD052": true, // reference-links-images
     // "MD053": true, // link-image-reference-definitions

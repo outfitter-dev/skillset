@@ -6,5 +6,19 @@
     "clientKind": "git",
     "useIgnoreFile": true,
     "defaultBranch": "main"
-  }
+  },
+  "javascript": {
+    "globals": ["Bun"]
+  },
+  "overrides": [
+    {
+      "includes": ["*.jsonc"],
+      "json": {
+        "parser": {
+          "allowComments": true,
+          "allowTrailingCommas": true
+        }
+      }
+    }
+  ]
 }
