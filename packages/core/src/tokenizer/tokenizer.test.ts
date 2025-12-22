@@ -14,11 +14,11 @@ describe("tokenizePrompt", () => {
   });
 
   it("parses namespace:alias format", () => {
-    const tokens = tokenizePrompt("use $project:frontend-design for this");
+    const tokens = tokenizePrompt("use $Project:FrontEnd_Design for this");
     expect(tokens).toHaveLength(1);
     expect(tokens[0]?.namespace).toBe("project");
-    expect(tokens[0]?.alias).toBe("frontend-design");
-    expect(tokens[0]?.raw).toBe("$project:frontend-design");
+    expect(tokens[0]?.alias).toBe("front-end-design");
+    expect(tokens[0]?.raw).toBe("$Project:FrontEnd_Design");
   });
 
   it("returns empty array for prompt without tokens", () => {
@@ -46,9 +46,16 @@ describe("tokenizePrompt", () => {
     expect(tokens.map((t) => t.alias)).toEqual(["start", "end"]);
   });
 
-  it("only matches kebab-case (no underscores, no uppercase)", () => {
-    const tokens = tokenizePrompt("$my_skill $Another-Skill $valid-skill");
-    expect(tokens.map((t) => t.alias)).toEqual(["valid-skill"]);
+  it("normalizes non-kebab-case tokens", () => {
+    const tokens = tokenizePrompt(
+      "$my_skill $AnotherSkill $double__underscore $bad--token"
+    );
+    expect(tokens.map((t) => t.alias)).toEqual([
+      "my-skill",
+      "another-skill",
+      "double-underscore",
+      "bad-token",
+    ]);
   });
 
   it("does NOT match old w/ syntax", () => {
@@ -82,8 +89,7 @@ describe("tokenizePrompt", () => {
   });
 
   it("does NOT match invalid patterns", () => {
-    const invalid =
-      "$ALLCAPS $Debug $snake_case $bad--token $double__underscore";
+    const invalid = "$bad/thing $trailing:colon: $-dash";
     const tokens = tokenizePrompt(invalid);
     expect(tokens).toEqual([]);
   });

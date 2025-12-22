@@ -1,9 +1,10 @@
 import type { InvocationToken } from "@skillset/types";
+import { normalizeTokenRef } from "../normalize";
 
-// Match: $[(skill|set):]<kebab-case-ref>[:kebab-case-namespace]*
-// Capture groups: 1=kind (optional), 2=full ref (kebab-case segments)
+// Match: $[(skill|set):]<ref>[:ref]* (ref segments allow mixed case/underscores)
+// Capture groups: 1=kind (optional), 2=full ref
 const TOKEN_REGEX =
-  /\$(?:(skill|set):)?([a-z0-9]+(?:-[a-z0-9]+)*(?::[a-z0-9]+(?:-[a-z0-9]+)*)*)/g;
+  /\$(?:(skill|set):)?([A-Za-z0-9_][A-Za-z0-9_-]*(?::[A-Za-z0-9_][A-Za-z0-9_-]*)*)/gi;
 
 function isBoundary(char: string | undefined): boolean {
   return char === undefined || /[\s[{(<"'`.,;!?)]/.test(char);
@@ -30,23 +31,38 @@ export function tokenizePrompt(prompt: string): InvocationToken[] {
         match = TOKEN_REGEX.exec(segment.text);
         continue;
       }
-      const kind = match[1] as "skill" | "set" | undefined; // Capture group 1: kind
+      const kindRaw = match[1]; // Capture group 1: kind
+      const kind = kindRaw
+        ? (kindRaw.toLowerCase() as "skill" | "set")
+        : undefined;
       const captured = match[2]; // Capture group 2: full ref
       if (!captured) {
         match = TOKEN_REGEX.exec(segment.text);
         continue;
       }
-      // Split namespace from alias: "project:deep:nested" -> namespace="project", alias="deep:nested"
-      const colonIndex = captured.indexOf(":");
-      const maybeNamespace =
-        colonIndex >= 0 ? captured.slice(0, colonIndex) : undefined;
-      const maybeAlias =
-        colonIndex >= 0 ? captured.slice(colonIndex + 1) : captured;
+      const normalizedRef = normalizeTokenRef(captured);
+      if (!normalizedRef) {
+        match = TOKEN_REGEX.exec(segment.text);
+        continue;
+      }
+      const parts = normalizedRef.split(":").filter(Boolean);
+      const maybeNamespace = parts.length > 1 ? parts[0] : undefined;
+      const maybeAlias = parts.length > 1 ? parts.slice(1).join(":") : parts[0];
+      if (!maybeAlias) {
+        match = TOKEN_REGEX.exec(segment.text);
+        continue;
+      }
+      const normalizedNamespace = maybeNamespace;
+      const normalizedAlias = maybeAlias;
+      if (!normalizedAlias) {
+        match = TOKEN_REGEX.exec(segment.text);
+        continue;
+      }
 
       const token: InvocationToken = {
         raw: match[0],
-        alias: maybeAlias,
-        namespace: maybeNamespace,
+        alias: normalizedAlias,
+        namespace: normalizedNamespace,
       };
       if (kind) {
         token.kind = kind;

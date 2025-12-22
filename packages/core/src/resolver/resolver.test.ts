@@ -53,6 +53,16 @@ describe("resolveToken", () => {
     expect(result.skill?.skillRef).toBe(frontendSkill.skillRef);
   });
 
+  it("normalizes aliases before matching", () => {
+    const token: InvocationToken = {
+      raw: "$FrontEndDesign",
+      alias: "FrontEndDesign",
+      namespace: undefined,
+    };
+    const result = resolveToken(token, config, cache);
+    expect(result.skill?.skillRef).toBe(frontendSkill.skillRef);
+  });
+
   it("returns unmatched when absent", () => {
     const token: InvocationToken = {
       raw: "$missing",
