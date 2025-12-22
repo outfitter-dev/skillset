@@ -1,8 +1,12 @@
-# Phase 2: Invocation Syntax (w/ → $)
+# Phase 2: Invocation Syntax (w/ → `$<ref>`)
 
 ## Scope
 
-Replace the `w/<alias>` invocation pattern with `$<alias>` throughout the codebase.
+Replace the `w/<alias>` invocation pattern with `$<ref>` tokens in prompt text.
+
+**No backward compatibility:** remove all `w/` parsing immediately in this phase. There is no legacy support or fallback.
+
+**Important:** `$` tokens are for prompt text only. CLI commands should accept plain refs (no `$`) to avoid shell expansion.
 
 ## Dependencies
 
@@ -14,17 +18,47 @@ Replace the `w/<alias>` invocation pattern with `$<alias>` throughout the codeba
 | --- | --- | ------- |
 | `w/<alias>` | `$<alias>` | `$debug` |
 | `w/<ns>:<alias>` | `$<ns>:<alias>` | `$project:debug` |
-| `w/...` (literal) | `$...` | Documentation text |
+| `w/kit:<name>` | `$<name>` or `$set:<name>` | `$frontend` / `$set:frontend` |
+| `w/...` (literal) | `$...` (literal) | Documentation text |
+
+**Note:** `$<ref>` is interchangeable for skills and sets. If a name collides, use `$set:<ref>` to force a set or follow the resolution rules (Phase 4 / Phase 8).
+
+## Token Rules (tightened)
+
+- Prefix must be **exactly** `$`.
+- Optional explicit kind prefixes: `$set:<ref>` forces set resolution, `$skill:<ref>` forces skill resolution.
+- `<ref>` is one or more colon-separated **kebab-case** segments.
+  - Segment regex: `[a-z0-9]+(?:-[a-z0-9]+)*`
+  - Full ref: `segment(:segment)*`
+- **Invalid**: uppercase, underscores, camelCase, spaces, or empty segments.
+- Double-dollar prefixes are **not** supported.
+- The `set:` and `skill:` prefixes are reserved (cannot be used as namespace names).
+
+Valid examples:
+- `$debug`
+- `$project:frontend-design`
+- `$frontend`
+- `$set:frontend`
+- `$set:project:frontend`
+- `$skill:frontend`
+
+Invalid examples (must NOT match):
+- `$ALLCAPS`
+- `$Debug`
+- `$my_skill`
+- `$set:` (missing ref)
+- `$skill:` (missing ref)
+- `$project:`
 
 ## Files to Modify
 
 ### Core Tokenizer
 
-| File | Line | Change |
-| ---- | ---- | ------ |
-| `packages/core/src/tokenizer/index.ts` | regex | `w/` → `$` in token pattern |
+| File | Change |
+| ---- | ------ |
+| `packages/core/src/tokenizer/index.ts` | Update token regex + parsing for `$<ref>` with kebab-case-only refs |
 
-### Resolver
+### Resolver / CLI
 
 | File | Change |
 | ---- | ------ |
@@ -44,39 +78,50 @@ Replace the `w/<alias>` invocation pattern with `$<alias>` throughout the codeba
 
 | File | Change |
 | ---- | ------ |
-| `packages/core/src/hooks/hook-runner.ts:25` | Comment `// Extract w/<alias>` → `// Extract $<alias>` |
+| `packages/core/src/hooks/hook-runner.ts:25` | Comment `// Extract w/<alias>` → `// Extract $<ref> (kebab-case, optional namespace)` |
 
 ## Regex Update
 
-The tokenizer needs a new regex pattern. Current likely pattern:
+Tokenizer should only match lowercase kebab-case refs, with optional `set:` or `skill:` prefixes.
 
 ```typescript
-/\bw\/([a-zA-Z0-9_:-]+)/g
+// Capture: optional kind ("skill" | "set"), ref (kebab-case segments with optional namespaces)
+/\$(?:(skill|set):)?([a-z0-9]+(?:-[a-z0-9]+)*(?::[a-z0-9]+(?:-[a-z0-9]+)*)*)/g
 ```
 
-New pattern:
-
-```typescript
-/\$([a-zA-Z0-9_:-]+)/g
-```
-
-**Note**: The `$` character needs no escape in regex (it's only special at end of pattern).
+**Note:** In JS regex literals, `$` must be escaped to match a literal dollar sign.
 
 ## Checklist
 
-- [ ] Update tokenizer regex in `packages/core/src/tokenizer/index.ts`
+- [ ] Update tokenizer regex + parsing for `$<ref>`
 - [ ] Update `startsWith("w/")` checks in `apps/cli/src/doctor.ts`
 - [ ] Update `startsWith("w/")` checks in `apps/cli/src/cli.ts`
-- [ ] Update template literals `w/${...}` in `apps/cli/src/doctor.ts`
-- [ ] Update template literals `w/${...}` in `apps/cli/src/cli.ts`
+- [ ] Update template literals `w/${...}` in `apps/cli/src/doctor.ts` and `apps/cli/src/cli.ts`
 - [ ] Update format strings in `packages/core/src/format/index.ts`
 - [ ] Update comment in `packages/core/src/hooks/hook-runner.ts`
 
 ## Validation
 
 ```bash
-# Tokenizer should extract $ tokens
-echo 'test $debug and $project:auth' | bun run apps/cli/src/index.ts inject -
+# Tokenizer should extract $ tokens (prompt text via here-doc)
+cat <<'PROMPT' | bun run apps/cli/src/index.ts inject -
+test $debug and $project:auth and $frontend
+PROMPT
+
+# Explicit set token should match
+cat <<'PROMPT' | bun run apps/cli/src/index.ts inject -
+load $set:frontend
+PROMPT
+
+# Explicit skill token should match
+cat <<'PROMPT' | bun run apps/cli/src/index.ts inject -
+load $skill:frontend
+PROMPT
+
+# Tokenizer should NOT match w/ tokens
+cat <<'PROMPT' | bun run apps/cli/src/index.ts inject -
+test w/debug
+PROMPT
 
 # Search should return 0 results for w/ pattern (excluding tests/notes)
 grep -r "w/" apps/ packages/ --include="*.ts" | grep -v ".test.ts" | grep -v "// " | grep -v "w/o"
@@ -84,10 +129,9 @@ grep -r "w/" apps/ packages/ --include="*.ts" | grep -v ".test.ts" | grep -v "//
 
 ## Edge Cases
 
-- Shell variable syntax: `$VAR` vs `$skill` - distinguishable by:
-  - Skills require lowercase letters after `$`
-  - Shell vars typically UPPERCASE
-  - Context: within prompts vs shell scripts
-
-- Consider: Should we require `$` to be word-boundary? (e.g., not match `$$skill`)
-  - Decision: Yes, but `$$` is reserved for sets (Phase 4)
+- `$ALLCAPS` must never match.
+- `$snake_case` must never match.
+- Double-dollar prefixes must never match.
+- `$set:` without a ref must never match.
+- `$skill:` without a ref must never match.
+- `$` tokens are for prompt text; CLI args should not require `$`.

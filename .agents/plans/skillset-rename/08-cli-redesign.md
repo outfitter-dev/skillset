@@ -45,6 +45,12 @@ Applied to any command:
 -s / --source <ns>  # Filter by source namespace (project, user, plugin:name)
 ```
 
+**Ref disambiguation flags (commands that accept `<ref>`):**
+
+```bash
+--kind <skill|set>  # Resolve collisions when both a skill and set share a name
+```
+
 ### Source Filter (`-s/--source`)
 
 Variadic disambiguator for when multiple skills share the same alias:
@@ -63,6 +69,18 @@ skillset list -s project                 # Only project skills
 skillset list -s plugin:baselayer        # Only baselayer plugin skills
 ```
 
+### Kind Disambiguation (`--kind`)
+
+Because `$<ref>` can refer to a skill or a set, commands that accept `<ref>` should:
+
+- Prefer an explicit alias mapping when present.
+- If a single match exists, resolve directly.
+- If both exist:
+  - **TTY**: prompt to choose (skill vs set).
+  - **Non-TTY**: error with guidance to use `--kind` or create an alias.
+
+**Prompt tokens:** `$set:<ref>` forces set resolution; `$skill:<ref>` forces skill resolution. Both skip ambiguity prompts.
+
 ## Environment Variables
 
 Override CLI behavior via environment:
@@ -72,6 +90,7 @@ Override CLI behavior via environment:
 | `SKILLSET_SOURCE` | Default source filter | `SKILLSET_SOURCE=project skillset list` |
 | `SKILLSET_OUTPUT` | Default output format | `SKILLSET_OUTPUT=json skillset show debug` |
 | `SKILLSET_CONFIG` | Custom config path | `SKILLSET_CONFIG=~/.myconfig/skillset skillset list` |
+| `SKILLSET_KIND` | Default kind disambiguation | `SKILLSET_KIND=skill skillset show design` |
 | `NO_COLOR` | Disable colors | `NO_COLOR=1 skillset list` (standard) |
 
 ```typescript
@@ -80,6 +99,7 @@ export const SKILLSET_ENV = {
   source: process.env.SKILLSET_SOURCE,
   output: process.env.SKILLSET_OUTPUT as "json" | "raw" | undefined,
   config: process.env.SKILLSET_CONFIG,
+  kind: process.env.SKILLSET_KIND as "skill" | "set" | undefined,
   noColor: process.env.NO_COLOR === "1",
 };
 ```
@@ -95,10 +115,10 @@ When args are omitted in a TTY, drop into interactive mode instead of erroring.
 ```bash
 $ skillset alias debug
 
-? Select skill for alias 'debug':
-  ▸ project:systematic-debugging    "Evidence-based debugging workflow"
-    user:quick-debug                "Fast debug checklist"
-    plugin:baselayer:debug          "Baselayer debugging skill"
+? Select target for alias 'debug':
+  ▸ skill  project:systematic-debugging    "Evidence-based debugging workflow"
+    skill  user:quick-debug                "Fast debug checklist"
+    set    project:frontend                "Frontend review set"
 
   Type to filter... (fzf-style)
 ```
@@ -129,6 +149,20 @@ $ skillset unalias
   Type to filter...
 ```
 
+### Ambiguity Prompt (TTY)
+
+If a name maps to both a skill and a set:
+
+```bash
+$ skillset show design
+
+? "design" matches multiple targets:
+  ▸ skill  project:design
+    set    project:design
+
+Use arrow keys to choose.
+```
+
 ### TTY Detection
 
 | Context | Behavior |
@@ -137,7 +171,7 @@ $ skillset unalias
 | Pipe / non-TTY | Error with usage hint |
 
 ```typescript
-if (process.stdout.isTTY) {
+if (process.stdout.isTTY && process.stdin.isTTY) {
   // Interactive mode
 } else {
   // Error: "Missing argument <ref>. See --help"
@@ -196,7 +230,7 @@ skillset list --source plugin:baselayer
 
 ```bash
 skillset show debug              # Show skill metadata
-skillset show set:designer       # Show set metadata (lists included skills)
+skillset show design --kind set  # Show set metadata
 skillset show debug --json       # JSON output
 ```
 
@@ -210,7 +244,7 @@ Output includes:
 
 ```bash
 skillset load debug              # SKILL.md content
-skillset load set:designer       # Expanded set (all skills concatenated)
+skillset load design --kind set  # Expanded set (all skills concatenated)
 skillset load debug --json       # Wrapped with metadata
 ```
 
@@ -242,6 +276,8 @@ Targets configured in `.skillset/config.json`:
   }
 }
 ```
+
+**Codex note:** Codex can load skills from multiple repo/user paths. Prefer syncing to `.codex/skills` at repo root for project scope and `~/.codex/skills` (or `$CODEX_HOME/skills`) for user scope.
 
 ## Shell Completions
 
@@ -402,6 +438,7 @@ skillset stats --since 2025-12-01 # Filter by date
 - [ ] Add `--quiet / -q` flag (suppress non-essential output)
 - [ ] Add `--verbose / -v` flag (extra detail)
 - [ ] Add `-s / --source` flag (source filter)
+- [ ] Add `--kind` flag (skill vs set disambiguation)
 - [ ] Add TTY detection for interactive modes
 - [ ] Add fzf-style filtering using inquirer or similar
 
@@ -410,6 +447,7 @@ skillset stats --since 2025-12-01 # Filter by date
 - [ ] Implement `SKILLSET_SOURCE` env var
 - [ ] Implement `SKILLSET_OUTPUT` env var
 - [ ] Implement `SKILLSET_CONFIG` env var
+- [ ] Implement `SKILLSET_KIND` env var
 - [ ] Implement `NO_COLOR` support
 - [ ] Add env helpers to `@skillset/shared`
 
@@ -449,7 +487,7 @@ skillset list --source plugin:baselayer
 
 # Show should display metadata
 skillset show <existing-skill>
-skillset show <existing-skill> --json
+skillset show <existing-set> --kind set
 
 # Source filter works
 skillset load debug -s project
@@ -464,6 +502,7 @@ echo "" | skillset alias test-alias  # Should error with usage
 # Environment variables work
 SKILLSET_SOURCE=project skillset list
 SKILLSET_OUTPUT=json skillset show debug
+SKILLSET_KIND=set skillset show design
 NO_COLOR=1 skillset list
 
 # Shell completions generate
@@ -482,4 +521,5 @@ cat ~/.local/share/skillset/logs/usage.jsonl  # Linux
 2. **Interactive modes**: Reduces friction, leverages indexed skills
 3. **Global flags**: Consistent output control across all commands
 4. **TTY detection**: Graceful degradation for scripts vs humans
-5. **fzf-style filtering**: Fast skill discovery without memorizing names
+5. **Disambiguation**: Explicit `--kind` + interactive resolution prevents hidden collisions
+6. **fzf-style filtering**: Fast skill discovery without memorizing names

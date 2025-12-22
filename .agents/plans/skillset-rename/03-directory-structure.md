@@ -42,6 +42,21 @@ The XDG spec defines standard locations for user data. We follow this with a mac
 
 **Note**: The `.skillset/` location is intentionally tool-agnostic (not `.claude/skillset/`) to support cross-host skill management across Claude, Codex, Copilot, etc.
 
+## Codex Skill Locations (for sync targets)
+
+Codex loads skills from multiple scopes with precedence. Use these for `skillset sync` defaults and migration guidance:
+
+| Scope | Location | Notes |
+| ----- | -------- | ----- |
+| REPO | `$CWD/.codex/skills` | Working directory scope |
+| REPO | `$CWD/../.codex/skills` | Parent scope inside repo |
+| REPO | `$REPO_ROOT/.codex/skills` | Repo root scope |
+| USER | `$CODEX_HOME/skills` (default `~/.codex/skills`) | User scope |
+| ADMIN | `/etc/codex/skills` | System scope |
+| SYSTEM | Bundled with Codex | Built-in skills; can be overridden by higher scopes |
+
+These locations override lower-precedence scopes when names collide.
+
 ### Environment Variable Overrides
 
 Users can override any XDG path:

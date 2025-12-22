@@ -15,11 +15,12 @@ Update all documentation to reflect the new naming and syntax.
 | Section | Changes |
 | ------- | ------- |
 | Title | `# wskill` → `# skillset` |
-| Description | `w/<alias>` → `$<alias>` |
+| Description | `w/<alias>` → `$<alias>` (prompt tokens); `$set:<ref>` forces set resolution |
 | Commands | All `wskill` → `skillset` |
 | Paths | `.claude/wskill/` → `.skillset/` |
 | Structure | Update to reflect monorepo structure (`packages/core`, `apps/cli`) |
 | Structure | `plugins/wskill` → `plugins/skillset` |
+| Notes | `$<ref>` tokens are for prompt text; CLI args use plain refs |
 
 ### CLAUDE.md
 
@@ -28,11 +29,11 @@ Update all documentation to reflect the new naming and syntax.
 | Overview | `wskill provides...` → `skillset provides...` |
 | Overview | `w/<alias>` → `$<alias>` |
 | Commands | Update all paths to use monorepo structure |
-| Architecture | Tokenizer extracts `$<alias>` not `w/<alias>` |
+| Architecture | Tokenizer extracts `$<ref>` (kebab-case only) |
 | Architecture | Cache path `.skillset/cache.json` |
 | Architecture | Update to reflect `packages/core` and `apps/cli` structure |
 | Plugin Integration | `plugins/skillset/` |
-| Key Types | `InvocationToken` - Parsed `$<alias>` token |
+| Key Types | `InvocationToken` - Parsed `$<ref>` token |
 | Testing | Update test commands to reflect monorepo |
 | Publishing | Update publishing workflow to reflect monorepo packages |
 
@@ -74,7 +75,7 @@ Use `$<alias>` in prompts to inject explicit Skills
 bun run src/index.ts resolve w/foo
 
 # New
-bun run apps/cli/src/index.ts resolve $foo
+bun run apps/cli/src/index.ts resolve foo
 ```
 
 ### CLI Command Documentation
@@ -89,8 +90,8 @@ wskill kit <name>             # Load kit
 
 # New
 skillset list                 # List all skills/sets
-skillset show <ref>           # Show skill metadata
-skillset load <ref>           # Load skill content
+skillset show <ref>           # Show skill or set metadata
+skillset load <ref>           # Load skill or set content
 skillset alias [name] [ref]   # Manage aliases (interactive if args omitted)
 skillset unalias [name]       # Remove alias (interactive if arg omitted)
 skillset sync                 # Sync to tool directories
@@ -105,6 +106,8 @@ Document global flags:
 - `--raw` - Minimal/unformatted output
 - `--quiet` / `-q` - Suppress non-essential output
 - `--verbose` / `-v` - Extra detail
+- `-s / --source` - Source filter (project/user/plugin)
+- `--kind` - Disambiguate skill vs set when names collide
 
 ## Checklist
 
@@ -113,6 +116,7 @@ Document global flags:
 - [ ] Update `AGENTS.md`
 - [ ] Document new CLI command structure
 - [ ] Document interactive modes for alias/unalias
+- [ ] Document collision handling (`--kind`, interactive selection)
 - [ ] Document global flags
 - [ ] Verify no broken references
 - [ ] Verify examples are accurate

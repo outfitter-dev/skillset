@@ -14,34 +14,25 @@ Update tests, run full validation suite, and verify the refactor is complete.
 
 **File**: `packages/core/src/tokenizer/tokenizer.test.ts`
 
-| Line | Old | New |
-| ---- | --- | --- |
-| 6 | `"w/frontend-design"` | `"$frontend-design"` |
-| 6 | `"w/ship"` | `"$ship"` |
-| 11 | `w/frontend-design` in code block | `$frontend-design` |
-| 11 | `` `w/ship` `` | `` `$ship` `` |
-| 11 | `w/real` | `$real` |
-| 17 | `"w/project:frontend-design"` | `"$project:frontend-design"` |
-| 21 | `.raw` assertion | Update expected value |
-| 30 | All `w/` patterns | `$` patterns |
-| 40 | `"checkw/skill"` | Update or remove (boundary test) |
-| 45 | `"w/start"`, `"w/end"` | `"$start"`, `"$end"` |
-| 50 | `"w/my_skill"`, `"w/another-skill"` | `"$my_skill"`, `"$another-skill"` |
+- Replace all `w/` fixtures with `$` equivalents.
+- Add negative cases to ensure **no** matches for uppercase or snake_case.
+- Add negative cases to ensure `w/` is never matched.
+
+Suggested new cases:
+- `$frontend-design` → matches
+- `$project:frontend-design` → matches
+- `$set:frontend-design` → matches (explicit set)
+- `$skill:frontend-design` → matches (explicit skill)
+- `$ALLCAPS` → no match
+- `$snake_case` → no match
+- `$bad--token` → no match
 
 ### Resolver Tests
 
 **File**: `packages/core/src/resolver/resolver.test.ts`
 
-| Line | Old | New |
-| ---- | --- | --- |
-| 48 | `raw: "w/frontend-design"` | `raw: "$frontend-design"` |
-| 58 | `raw: "w/missing"` | `raw: "$missing"` |
-| 72 | `raw: "w/fe"` | `raw: "$fe"` |
-| 86 | `raw: "w/broken"` | `raw: "$broken"` |
-| 96 | `raw: "w/user:auth"` | `raw: "$user:auth"` |
-| 113 | `raw: "w/design"` | `raw: "$design"` |
-| 127 | `raw: "w/frontend-design"` | `raw: "$frontend-design"` |
-| 131 | `raw: "w/backend-api"` | `raw: "$backend-api"` |
+- Replace all `w/` raw values with `$<ref>` (no `$skill:` prefix).
+- Add ambiguity tests if both skill and set share the same name.
 
 ## Validation Checklist
 
@@ -86,7 +77,7 @@ Update tests, run full validation suite, and verify the refactor is complete.
 
 ```bash
 # These should show interactive picker in TTY
-skillset alias test-alias      # Should show skill picker
+skillset alias test-alias      # Should show skill/set picker
 skillset unalias               # Should show alias picker
 ```
 
@@ -96,6 +87,20 @@ skillset unalias               # Should show alias picker
 # Should error with usage hint, not hang
 echo "" | skillset alias test-alias
 echo "" | skillset unalias
+```
+
+**Ambiguity handling:**
+
+```bash
+# If both a skill and set named "design" exist, TTY should prompt
+skillset show design
+
+# Non-TTY should error with guidance
+printf '%s' "" | skillset show design
+
+# Explicit disambiguation
+skillset show design --kind skill
+skillset show design --kind set
 ```
 
 **Command functionality:**
@@ -108,10 +113,11 @@ skillset list --skills
 
 # Show should display metadata
 skillset show <existing-skill>
-skillset show <existing-skill> --json
+skillset show <existing-set> --kind set
 
 # Load should output content
 skillset load <existing-skill>
+skillset load <existing-set> --kind set
 ```
 
 ### Integration Validation
@@ -124,11 +130,10 @@ echo "# Test Skill\nThis is a test." > .claude/skills/test-skill/SKILL.md
 # Index it
 bun run apps/cli/src/index.ts index
 
-# Resolve with new syntax
-bun run apps/cli/src/index.ts resolve '$test-skill'
-
-# Inject with new syntax
-echo 'Hello $test-skill world' | bun run apps/cli/src/index.ts inject -
+# Resolve with new syntax (prompt text)
+cat <<'PROMPT' | bun run apps/cli/src/index.ts inject -
+Hello $test-skill world
+PROMPT
 
 # Clean up
 rm -rf .claude/skills/test-skill
@@ -149,6 +154,7 @@ grep "wskill" README.md CLAUDE.md AGENTS.md && echo "FAIL: wskill in docs" || ec
 
 echo "=== Checking for w/ patterns ==="
 grep -r "w/" apps/ packages/ --include="*.ts" | grep -v "\.test\.ts" | grep -v "//" && echo "FAIL: w/ found" || echo "OK"
+
 ```
 
 ## Final Checklist
@@ -172,7 +178,7 @@ After validation passes:
 
    ```bash
    git add -A
-   git commit -m "refactor: rename wskill to skillset with \$ invocation syntax"
+   git commit -m "refactor: rename wskill to skillset with $ invocation syntax"
    ```
 
 2. **Create GitHub repo** (if not exists):

@@ -58,7 +58,7 @@ Phase 0 (Monorepo Conversion - FIRST)
 | CLI command | `wskill` | `skillset` |
 | Skill invocation | `w/<alias>` | `$<alias>` |
 | Namespaced | `w/namespace:alias` | `$namespace:alias` |
-| Set invocation | `w/kit:name` | `$$name` |
+| Set invocation | `w/kit:name` | `$<alias>` (same as skills) or `$set:<alias>` (explicit) |
 | Config paths | `.claude/wskill/` | `.skillset/` (project root) |
 | User config | `~/.claude/wskill/` | `~/.skillset/` |
 | Plugin dir | `plugins/wskill/` | `plugins/skillset/` |
@@ -71,7 +71,7 @@ Phase 0 (Monorepo Conversion - FIRST)
 ### Source Code (after Phase 0 monorepo conversion)
 
 - `apps/cli/src/cli.ts` - CLI name, descriptions, patterns
-- `packages/core/src/tokenizer/index.ts` - Token regex (`w/` → `$`)
+- `packages/core/src/tokenizer/index.ts` - Token regex (`w/` → `$`, optional `set:` prefix)
 - `packages/core/src/tokenizer/tokenizer.test.ts` - Test patterns
 - `packages/core/src/resolver/index.ts` - Namespace parsing
 - `packages/core/src/resolver/resolver.test.ts` - Test patterns
@@ -137,9 +137,9 @@ bun run apps/cli/src/index.ts --help
 
 ## Questions Resolved
 
-1. **Invocation syntax** - Using `$` prefix (shell-like, not `@` or `!`)
-2. **Backward compatibility** - Clean break, no `w/` support
-3. **Set syntax** - `$$name` for skill sets (double-dollar)
+1. **Invocation syntax** - Using `$<ref>` tokens in prompt text (no `$` required in CLI args)
+2. **Backward compatibility** - None; `w/` support removed in Phase 2, and validation ensures no remnants
+3. **Set syntax** - Uses the same `$<ref>` token as skills; `$set:<ref>` forces set resolution; collisions resolved via alias/interactive disambiguation
 4. **Monorepo structure** - Bun workspaces with `packages/core` and `apps/cli` (Phase 0, runs first)
 5. **Core package name** - `@skillset/core` (Phase 0)
 6. **MCP server** - Scaffolded at `apps/mcp`, private until ready (Phase 0)
