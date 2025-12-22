@@ -16,12 +16,12 @@ import {
   writeConfig,
 } from "@skillset/core";
 import {
-  getSkillsetEnv,
   detectLegacyPaths,
-  migrateLegacyUserPaths,
-  migrateLegacyProjectPaths,
-  removeLegacyPaths,
+  getSkillsetEnv,
   getSkillsetPaths,
+  migrateLegacyProjectPaths,
+  migrateLegacyUserPaths,
+  removeLegacyPaths,
 } from "@skillset/shared";
 import chalk from "chalk";
 import { Command } from "commander";
@@ -47,7 +47,9 @@ export function buildCli() {
 
   program
     .name("skillset")
-    .description("Deterministic skill invocation for AI coding agents via $skill syntax")
+    .description(
+      "Deterministic skill invocation for AI coding agents via $skill syntax"
+    )
     .version("0.1.0");
 
   // Global options

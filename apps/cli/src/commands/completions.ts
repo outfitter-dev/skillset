@@ -16,15 +16,15 @@ _skillset_completions() {
   local cur=\${COMP_WORDS[COMP_CWORD]}
   local cmd=\${COMP_WORDS[1]}
 
-  if [[ \$COMP_CWORD == 1 ]]; then
-    COMPREPLY=($(compgen -W "list show load sync alias unalias config doctor index init completions" -- \$cur))
-  elif [[ \$cmd == "show" || \$cmd == "load" ]]; then
+  if [[ $COMP_CWORD == 1 ]]; then
+    COMPREPLY=($(compgen -W "list show load sync alias unalias config doctor index init completions" -- $cur))
+  elif [[ $cmd == "show" || $cmd == "load" ]]; then
     # Complete with skill names from cache
-    COMPREPLY=($(compgen -W "$(skillset list --raw 2>/dev/null)" -- \$cur))
-  elif [[ \$cmd == "completions" ]]; then
-    COMPREPLY=($(compgen -W "bash zsh fish powershell" -- \$cur))
-  elif [[ \$cmd == "config" ]]; then
-    COMPREPLY=($(compgen -W "get set" -- \$cur))
+    COMPREPLY=($(compgen -W "$(skillset list --raw 2>/dev/null)" -- $cur))
+  elif [[ $cmd == "completions" ]]; then
+    COMPREPLY=($(compgen -W "bash zsh fish powershell" -- $cur))
+  elif [[ $cmd == "config" ]]; then
+    COMPREPLY=($(compgen -W "get set" -- $cur))
   fi
 }
 complete -F _skillset_completions skillset
@@ -178,7 +178,9 @@ function generateCompletions(shell: ShellType): void {
       break;
     default:
       console.error(chalk.red(`Unknown shell: ${shell}`));
-      console.error(chalk.yellow("Supported shells: bash, zsh, fish, powershell"));
+      console.error(
+        chalk.yellow("Supported shells: bash, zsh, fish, powershell")
+      );
       process.exit(1);
   }
 
@@ -196,7 +198,9 @@ export function registerCompletionsCommand(program: Command): void {
       const validShells: ShellType[] = ["bash", "zsh", "fish", "powershell"];
       if (!validShells.includes(shell as ShellType)) {
         console.error(chalk.red(`Unknown shell: ${shell}`));
-        console.error(chalk.yellow("Supported shells: bash, zsh, fish, powershell"));
+        console.error(
+          chalk.yellow("Supported shells: bash, zsh, fish, powershell")
+        );
         process.exit(1);
       }
       generateCompletions(shell as ShellType);

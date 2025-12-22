@@ -84,7 +84,11 @@ export function resolveToken(
   if (token.kind === "skill") {
     let skillCandidates = matchSkillAlias(c, token.alias);
     if (namespace) {
-      skillCandidates = filterByNamespace(skillCandidates, namespace, (s) => s.skillRef);
+      skillCandidates = filterByNamespace(
+        skillCandidates,
+        namespace,
+        (s) => s.skillRef
+      );
     }
 
     if (skillCandidates.length === 0) {
@@ -93,13 +97,21 @@ export function resolveToken(
     if (skillCandidates.length === 1 && skillCandidates[0]) {
       return { invocation: token, skill: skillCandidates[0] };
     }
-    return { invocation: token, reason: "ambiguous", candidates: skillCandidates };
+    return {
+      invocation: token,
+      reason: "ambiguous",
+      candidates: skillCandidates,
+    };
   }
 
   if (token.kind === "set") {
     let setCandidates = matchSetAlias(c, token.alias);
     if (namespace) {
-      setCandidates = filterByNamespace(setCandidates, namespace, (s) => s.setRef);
+      setCandidates = filterByNamespace(
+        setCandidates,
+        namespace,
+        (s) => s.setRef
+      );
     }
 
     if (setCandidates.length === 0) {
@@ -116,8 +128,16 @@ export function resolveToken(
   let setCandidates = matchSetAlias(c, token.alias);
 
   if (namespace) {
-    skillCandidates = filterByNamespace(skillCandidates, namespace, (s) => s.skillRef);
-    setCandidates = filterByNamespace(setCandidates, namespace, (s) => s.setRef);
+    skillCandidates = filterByNamespace(
+      skillCandidates,
+      namespace,
+      (s) => s.skillRef
+    );
+    setCandidates = filterByNamespace(
+      setCandidates,
+      namespace,
+      (s) => s.setRef
+    );
   }
 
   // Check for collision: both skill and set match
@@ -135,7 +155,11 @@ export function resolveToken(
     if (skillCandidates.length === 1 && skillCandidates[0]) {
       return { invocation: token, skill: skillCandidates[0] };
     }
-    return { invocation: token, reason: "ambiguous", candidates: skillCandidates };
+    return {
+      invocation: token,
+      reason: "ambiguous",
+      candidates: skillCandidates,
+    };
   }
 
   // Only set matches
