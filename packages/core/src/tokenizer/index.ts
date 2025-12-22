@@ -1,6 +1,9 @@
 import type { InvocationToken } from "@skillset/types";
 
-const TOKEN_REGEX = /\bw\/([a-zA-Z0-9_-]+(?::[a-zA-Z0-9_-]+)?)/g;
+// Match: $[(skill|set):]<kebab-case-ref>[:kebab-case-namespace]*
+// Capture groups: 1=kind (optional), 2=full ref (kebab-case segments)
+const TOKEN_REGEX =
+  /\$(?:(skill|set):)?([a-z0-9]+(?:-[a-z0-9]+)*(?::[a-z0-9]+(?:-[a-z0-9]+)*)*)/g;
 
 function isBoundary(char: string | undefined): boolean {
   return char === undefined || /[\s[{(<"'`.,;:!?)]/.test(char);
@@ -22,7 +25,8 @@ export function tokenizePrompt(prompt: string): InvocationToken[] {
         match = TOKEN_REGEX.exec(segment.text);
         continue;
       }
-      const captured = match[1];
+      const kind = match[1] as "skill" | "set" | undefined; // Capture group 1: kind
+      const captured = match[2]; // Capture group 2: full ref
       if (!captured) {
         match = TOKEN_REGEX.exec(segment.text);
         continue;
@@ -34,6 +38,7 @@ export function tokenizePrompt(prompt: string): InvocationToken[] {
         raw: match[0],
         alias: maybeAlias ?? captured,
         namespace: maybeNamespace,
+        kind,
       });
       match = TOKEN_REGEX.exec(segment.text);
     }

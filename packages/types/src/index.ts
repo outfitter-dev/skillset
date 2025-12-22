@@ -4,33 +4,31 @@
 
 // Re-export useful type-fest utilities
 export type {
-  JsonValue,
   JsonObject,
-  Simplify,
-  SetRequired,
-  SetOptional,
+  JsonValue,
   PartialDeep,
   RequiredDeep,
+  SetOptional,
+  SetRequired,
+  Simplify,
 } from "type-fest";
-
-// Skill types
-export type {
-  Skill,
-  SkillRef,
-  SkillSource,
-  InvocationToken,
-  ResolveResult,
-} from "./skill";
+// Common types
+export type { InjectOutcome } from "./common";
 
 // Config types
 export type {
-  Mode,
+  CacheSchema,
   ConfigSchema,
   MappingEntry,
-  CacheSchema,
+  Mode,
+  SetDefinition,
 } from "./config";
-
-// Common types
+// Skill types
 export type {
-  InjectOutcome,
-} from "./common";
+  InvocationToken,
+  ResolveResult,
+  Skill,
+  SkillRef,
+  SkillSet,
+  SkillSource,
+} from "./skill";

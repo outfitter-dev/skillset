@@ -83,7 +83,9 @@ export function buildCli() {
       const cache = loadCaches();
       const skills = Object.values(cache.skills);
       if (!skills.length) {
-        console.log(chalk.yellow("No skills indexed. Run skillset index first."));
+        console.log(
+          chalk.yellow("No skills indexed. Run skillset index first.")
+        );
         return;
       }
       const answers = await inquirer.prompt([

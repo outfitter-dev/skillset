@@ -16,15 +16,28 @@ export interface Skill {
   cachedAt: string | undefined;
 }
 
+/**
+ * A SkillSet is a bundled collection of skills that can be invoked together
+ */
+export interface SkillSet {
+  setRef: string; // stable identifier, e.g., "project:frontend"
+  name: string;
+  description: string | undefined;
+  skillRefs: string[]; // references to skills included in this set
+}
+
 export interface InvocationToken {
   raw: string;
   alias: string;
   namespace: string | undefined;
+  kind?: "skill" | "set";
 }
 
 export interface ResolveResult {
   invocation: InvocationToken;
   skill?: Skill;
+  set?: SkillSet;
   reason?: string;
   candidates?: Skill[];
+  setCandidates?: SkillSet[];
 }

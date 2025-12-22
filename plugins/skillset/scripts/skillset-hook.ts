@@ -1,5 +1,5 @@
 /**
- * Plugin hook entrypoint for wskill.
+ * Plugin hook entrypoint for skillset.
  *
  * Attempts to import from the installed npm package first,
  * falling back to the local monorepo path for development.
@@ -10,12 +10,12 @@ type HookRunner = (stdin: string) => Promise<string>;
 async function loadHookRunner(): Promise<HookRunner> {
   try {
     // Try npm package first (for installed plugins)
-    const mod = await import("wskill/hook");
+    const mod = await import("skillset/hook");
     return mod.runUserPromptSubmitHook;
   } catch {
     // Fall back to monorepo path (for development)
     const mod = await import(
-      "../../../packages/wskill/src/hooks/hook-runner.ts"
+      "../../../packages/skillset/src/hooks/hook-runner.ts"
     );
     return mod.runUserPromptSubmitHook;
   }

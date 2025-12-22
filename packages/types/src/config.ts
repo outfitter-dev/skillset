@@ -16,13 +16,21 @@ export interface ConfigSchema {
   maxLines: number;
   mappings: Record<string, MappingEntry>;
   namespaceAliases: Record<string, string>;
+  sets?: Record<string, SetDefinition>;
+}
+
+export interface SetDefinition {
+  name: string;
+  description?: string;
+  skillRefs: string[];
 }
 
 export interface CacheSchema {
   version: number;
   structureTTL: number;
   skills: Record<string, Skill>;
+  sets?: Record<string, SkillSet>;
 }
 
-// Import Skill type for CacheSchema
-import type { Skill } from "./skill";
+// Import Skill and SkillSet types for CacheSchema
+import type { Skill, SkillSet } from "./skill";

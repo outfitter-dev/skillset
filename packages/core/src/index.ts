@@ -6,60 +6,53 @@
 
 // Re-export types from @skillset/types
 export type {
+  CacheSchema,
+  ConfigSchema,
+  InjectOutcome,
+  InvocationToken,
+  MappingEntry,
   Mode,
+  ResolveResult,
   Skill,
   SkillRef,
   SkillSource,
-  CacheSchema,
-  MappingEntry,
-  ConfigSchema,
-  ResolveResult,
-  InvocationToken,
-  InjectOutcome,
 } from "@skillset/types";
-
+// Cache
+export {
+  CACHE_PATHS,
+  isStructureFresh,
+  loadCaches,
+  updateCacheSync,
+  writeCacheSync,
+} from "./cache";
+// Config
+export {
+  CONFIG_PATHS,
+  getConfigPath,
+  getConfigValue,
+  loadConfig,
+  modeLabel,
+  readConfigByScope,
+  setConfigValue,
+  writeConfig,
+} from "./config";
+// Format
+export { formatOutcome, stripFrontmatter } from "./format";
+// Hooks
+export { runUserPromptSubmitHook } from "./hooks/hook-runner";
+// Indexer
+export { indexSkills } from "./indexer";
+// Resolver
+export { resolveToken, resolveTokens } from "./resolver";
 // Tokenizer
 export { tokenizePrompt } from "./tokenizer";
 
-// Resolver
-export { resolveToken, resolveTokens } from "./resolver";
-
-// Indexer
-export { indexSkills } from "./indexer";
-
-// Cache
-export {
-  loadCaches,
-  writeCacheSync,
-  updateCacheSync,
-  isStructureFresh,
-  CACHE_PATHS,
-} from "./cache";
-
-// Config
-export {
-  loadConfig,
-  writeConfig,
-  readConfigByScope,
-  getConfigPath,
-  getConfigValue,
-  setConfigValue,
-  modeLabel,
-  CONFIG_PATHS,
-} from "./config";
-
-// Format
-export { formatOutcome, stripFrontmatter } from "./format";
-
-// Hooks
-export { runUserPromptSubmitHook } from "./hooks/hook-runner";
-
 // Tree
 export {
-  buildSkillTree,
   buildNamespaceTree,
   buildPathTree,
+  buildSkillTree,
+  headingsToTreeObject,
   isNamespaceRef,
   parseMarkdownHeadings,
-  headingsToTreeObject,
 } from "./tree";

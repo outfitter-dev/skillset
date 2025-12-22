@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { ConfigSchema, Mode } from "@skillset/types";
 import { getConfigDir } from "@skillset/shared";
+import type { ConfigSchema, Mode } from "@skillset/types";
 
 const DEFAULT_CONFIG: ConfigSchema = {
   version: 1,

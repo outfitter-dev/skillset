@@ -13,8 +13,6 @@
     "skipLibCheck": true,
     "types": ["bun-types"]
   },
-  "references": [
-    { "path": "../types" }
-  ],
+  "references": [{ "path": "../types" }],
   "include": ["src/**/*"]
 }

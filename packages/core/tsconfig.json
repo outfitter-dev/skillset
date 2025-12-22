@@ -16,10 +16,7 @@
     "skipLibCheck": true,
     "types": ["bun-types"]
   },
-  "references": [
-    { "path": "../types" },
-    { "path": "../shared" }
-  ],
+  "references": [{ "path": "../types" }, { "path": "../shared" }],
   "include": ["src/**/*"],
   "exclude": ["src/**/*.test.ts"]
 }
