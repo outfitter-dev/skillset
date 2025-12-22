@@ -14,8 +14,11 @@ function pickSkillByRef(cache: CacheSchema, ref: string): Skill | undefined {
   return cache.skills[ref];
 }
 
-function pickSetByRef(cache: CacheSchema, ref: string): SkillSet | undefined {
-  return cache.sets?.[ref];
+function pickSetByRef(
+  sets: Record<string, SkillSet>,
+  ref: string
+): SkillSet | undefined {
+  return sets[ref];
 }
 
 function matchSkillAlias(cache: CacheSchema, alias: string): Skill[] {
@@ -34,12 +37,18 @@ function matchSkillAlias(cache: CacheSchema, alias: string): Skill[] {
   });
 }
 
-function matchSetAlias(cache: CacheSchema, alias: string): SkillSet[] {
-  if (!cache.sets) return [];
+function matchSetAlias(
+  sets: Record<string, SkillSet>,
+  alias: string
+): SkillSet[] {
+  const values = Object.values(sets);
+  if (values.length === 0) return [];
   const normalized = alias.toLowerCase();
-  return Object.values(cache.sets).filter((set) => {
+  return values.filter((set) => {
     const parts = set.setRef.toLowerCase();
-    const nameMatch = set.name.toLowerCase() === normalized;
+    const nameMatch =
+      normalizeTokenSegment(set.name) === normalized ||
+      set.name.toLowerCase() === normalized;
     const refMatch =
       parts.endsWith(`/${normalized}`) ||
       parts.endsWith(`:${normalized}`) ||
@@ -78,6 +87,33 @@ function findMapping(
   return undefined;
 }
 
+function buildSetIndex(
+  cache: CacheSchema,
+  config: ConfigSchema
+): Record<string, SkillSet> {
+  const sets: Record<string, SkillSet> = {};
+  if (cache.sets) {
+    for (const set of Object.values(cache.sets)) {
+      const ref = normalizeTokenRef(set.setRef);
+      if (!ref) continue;
+      sets[ref] = { ...set, setRef: ref };
+    }
+  }
+  if (config.sets) {
+    for (const [key, definition] of Object.entries(config.sets)) {
+      const ref = normalizeTokenRef(key);
+      if (!ref) continue;
+      sets[ref] = {
+        setRef: ref,
+        name: definition.name,
+        description: definition.description,
+        skillRefs: definition.skillRefs,
+      };
+    }
+  }
+  return sets;
+}
+
 export function resolveToken(
   token: InvocationToken,
   config?: ConfigSchema,
@@ -85,6 +121,7 @@ export function resolveToken(
 ): ResolveResult {
   const cfg = config ?? loadConfig();
   const c = cache ?? loadCaches();
+  const setsIndex = buildSetIndex(c, cfg);
   const normalizedAlias = normalizeTokenRef(token.alias);
   if (!normalizedAlias) {
     return { invocation: token, reason: "unmatched" };
@@ -100,7 +137,9 @@ export function resolveToken(
       pickSkillByRef(c, mapping.skillRef) ?? pickSkillByRef(c, normalizedRef);
     if (skill) return { invocation: token, skill };
 
-    const set = pickSetByRef(c, mapping.skillRef);
+    const set =
+      pickSetByRef(setsIndex, mapping.skillRef) ??
+      pickSetByRef(setsIndex, normalizedRef);
     if (set) return { invocation: token, set };
 
     return {
@@ -134,7 +173,7 @@ export function resolveToken(
   }
 
   if (token.kind === "set") {
-    let setCandidates = matchSetAlias(c, normalizedAlias);
+    let setCandidates = matchSetAlias(setsIndex, normalizedAlias);
     if (namespace) {
       setCandidates = filterByNamespace(
         setCandidates,
@@ -154,7 +193,7 @@ export function resolveToken(
 
   // 3) No kind specified - search both skills and sets
   let skillCandidates = matchSkillAlias(c, normalizedAlias);
-  let setCandidates = matchSetAlias(c, normalizedAlias);
+  let setCandidates = matchSetAlias(setsIndex, normalizedAlias);
 
   if (namespace) {
     skillCandidates = filterByNamespace(
