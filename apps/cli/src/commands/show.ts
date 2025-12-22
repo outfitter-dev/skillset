@@ -12,10 +12,12 @@ import {
   resolveToken,
   type Skill,
 } from "@skillset/core";
+import { getSkillsetEnv } from "@skillset/shared";
 import chalk from "chalk";
 import type { Command } from "commander";
 import type { GlobalOptions, OutputFormat } from "../types";
 import { determineFormat } from "../utils/format";
+import { normalizeInvocation } from "../utils/normalize";
 
 interface ShowOptions extends GlobalOptions {
   ref: string;
@@ -66,7 +68,8 @@ async function resolveInput(
   input: string,
   cache: ReturnType<typeof loadCaches>,
   config: ReturnType<typeof loadConfig>,
-  sourceFilters?: string[]
+  sourceFilters?: string[],
+  kindOverride?: "skill" | "set"
 ): Promise<ResolveInputResult> {
   // Check if it's a file/directory path
   const resolvedPath = isAbsolute(input)
@@ -117,7 +120,7 @@ async function resolveInput(
   }
 
   // Try to resolve as an alias
-  const token = normalizeAlias(input);
+  const token = normalizeInvocation(input, kindOverride);
   const result = resolveToken(token, config, cache);
 
   if (result.skill) {
@@ -132,6 +135,13 @@ async function resolveInput(
       };
     }
     return { type: "skill", skill: result.skill };
+  }
+
+  if (result.set) {
+    return {
+      type: "error",
+      message: `Alias "${input}" resolved to a set. Use 'skillset set show ${input}' instead.`,
+    };
   }
 
   if (result.reason === "ambiguous" && result.candidates) {
@@ -165,6 +175,20 @@ async function resolveInput(
       type: "error",
       message: `Ambiguous alias "${input}"`,
       candidates,
+    };
+  }
+
+  if (result.reason === "ambiguous-set") {
+    return {
+      type: "error",
+      message: `Ambiguous set "${input}". Use $set: or a more specific name.`,
+    };
+  }
+
+  if (result.reason === "skill-set-collision") {
+    return {
+      type: "error",
+      message: `Alias "${input}" matches both a skill and a set. Use $skill:, $set:, or --kind to disambiguate.`,
     };
   }
 
@@ -225,26 +249,26 @@ function extractSkillDescription(content: string): string | undefined {
   return undefined;
 }
 
-function normalizeAlias(raw: string) {
-  const cleaned = raw.startsWith("$") ? raw.slice(1) : raw;
-  const [ns, alias] = cleaned.includes(":")
-    ? cleaned.split(":")
-    : [undefined, cleaned];
-  return { raw: `$${cleaned}`, alias: alias ?? cleaned, namespace: ns };
-}
-
 /**
  * Show skill metadata
  */
 async function showSkill(
   ref: string,
   sourceFilters: string[] | undefined,
-  format: OutputFormat
+  format: OutputFormat,
+  kindOverride?: "skill" | "set"
 ): Promise<void> {
   const cache = loadCaches();
   const config = loadConfig();
+  const env = getSkillsetEnv();
 
-  const result = await resolveInput(ref, cache, config, sourceFilters);
+  const result = await resolveInput(
+    ref,
+    cache,
+    config,
+    sourceFilters,
+    kindOverride ?? env.kind
+  );
 
   if (result.type === "error") {
     if (format === "json") {
@@ -350,6 +374,6 @@ export function registerShowCommand(program: Command): void {
     .description("Show skill metadata")
     .action(async (ref: string, options: GlobalOptions) => {
       const format = determineFormat(options);
-      await showSkill(ref, options.source, format);
+      await showSkill(ref, options.source, format, options.kind);
     });
 }

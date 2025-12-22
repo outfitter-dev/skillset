@@ -10,17 +10,7 @@ import {
 } from "@skillset/core";
 import { getSkillsetPaths } from "@skillset/shared";
 import chalk from "chalk";
-
-/**
- * Helper to normalize alias for resolution
- */
-function normalizeAlias(raw: string) {
-  const cleaned = raw.startsWith("$") ? raw.slice(1) : raw;
-  const [ns, alias] = cleaned.includes(":")
-    ? cleaned.split(":")
-    : [undefined, cleaned];
-  return { raw: `$${cleaned}`, alias: alias ?? cleaned, namespace: ns };
-}
+import { normalizeInvocation } from "./utils/normalize";
 
 /**
  * Run full diagnostic check
@@ -225,7 +215,7 @@ export async function runSkillDiagnostic(skillAlias: string): Promise<void> {
   const config = loadConfig();
 
   // Normalize the alias
-  const token = normalizeAlias(skillAlias);
+  const token = normalizeInvocation(skillAlias);
 
   console.log(chalk.bold("\nResolution:"));
   console.log(`  Input: ${chalk.cyan(skillAlias)}`);

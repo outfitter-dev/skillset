@@ -17,7 +17,6 @@ import {
 } from "@skillset/core";
 import {
   detectLegacyPaths,
-  getSkillsetEnv,
   getSkillsetPaths,
   migrateLegacyProjectPaths,
   migrateLegacyUserPaths,
@@ -43,7 +42,6 @@ import {
 import type { ConfigScope } from "./types";
 
 export function buildCli() {
-  const env = getSkillsetEnv();
   const program = new Command();
 
   program

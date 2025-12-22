@@ -5,7 +5,7 @@
 import { loadCaches, loadConfig, type Skill } from "@skillset/core";
 import chalk from "chalk";
 import type { Command } from "commander";
-import type { GlobalOptions, OutputFormat } from "../types";
+import type { GlobalOptions } from "../types";
 import { determineFormat } from "../utils/format";
 
 interface ListOptions extends GlobalOptions {
@@ -100,8 +100,8 @@ function printSkills(
 
   const filterMsg =
     sourceFilters && sourceFilters.length > 0
-    ? ` (filtered by: ${sourceFilters.join(", ")})`
-    : "";
+      ? ` (filtered by: ${sourceFilters.join(", ")})`
+      : "";
   console.log(chalk.bold(`${skills.length} skills indexed${filterMsg}\n`));
 
   for (const namespace of sortedNamespaces) {
