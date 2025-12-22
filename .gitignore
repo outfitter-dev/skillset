@@ -11,3 +11,4 @@ dist
 *.backup
 .claude/*/config.local.json
 .claude/*/logs/
+.archive/

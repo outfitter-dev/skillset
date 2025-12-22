@@ -1,7 +1,10 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.8.0/schema.json",
-  "extends": ["ultracite"],
-  "files": {
-    "ignore": ["dist", "node_modules", "bun.lockb"]
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "extends": ["ultracite/core"],
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true,
+    "defaultBranch": "main"
   }
 }

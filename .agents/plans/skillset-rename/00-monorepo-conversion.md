@@ -3,9 +3,18 @@
 ## Scope
 
 Restructure the skillset project from a flat package structure into a Bun workspaces monorepo with:
-- `packages/core` - Core library (tokenizer, resolver, indexer, cache, config, format, types)
+- `packages/types` - Shared type definitions (type-fest re-exports, common types)
+- `packages/shared` - Shared utilities (Pino logger, XDG paths)
+- `packages/core` - Core library (tokenizer, resolver, indexer, cache, config, format)
 - `apps/cli` - CLI application
 - `apps/mcp` - MCP server (future, scaffold only)
+
+**Dependency graph:**
+
+```text
+types ← shared ← core ← cli
+                     ↖ mcp
+```
 
 ## Dependencies
 
@@ -48,12 +57,27 @@ skillset/
 ├── tsconfig.json             # Root tsconfig (solution file)
 ├── biome.json                # Shared linting (root)
 ├── packages/
+│   ├── types/
+│   │   ├── package.json      # @skillset/types
+│   │   ├── tsconfig.json
+│   │   └── src/
+│   │       ├── index.ts      # Type exports + type-fest re-exports
+│   │       ├── skill.ts      # Skill-related types
+│   │       ├── config.ts     # Config types
+│   │       └── common.ts     # Common utility types
+│   ├── shared/
+│   │   ├── package.json      # @skillset/shared
+│   │   ├── tsconfig.json
+│   │   └── src/
+│   │       ├── index.ts      # Shared exports
+│   │       ├── logger.ts     # Pino logger setup
+│   │       ├── paths.ts      # XDG path resolution
+│   │       └── env.ts        # Environment variable helpers
 │   └── core/
-│       ├── package.json      # @outfitter/skillset-core
+│       ├── package.json      # @skillset/core
 │       ├── tsconfig.json
 │       └── src/
 │           ├── index.ts      # Core exports
-│           ├── types.ts
 │           ├── tokenizer/
 │           ├── resolver/
 │           ├── indexer/
@@ -61,7 +85,6 @@ skillset/
 │           ├── config/
 │           ├── format/
 │           ├── hooks/
-│           ├── logger/
 │           └── tree/
 ├── apps/
 │   ├── cli/
@@ -71,9 +94,10 @@ skillset/
 │   │       ├── index.ts      # CLI entry
 │   │       ├── hook.ts       # Hook entry
 │   │       ├── cli.ts
-│   │       └── doctor.ts
+│   │       ├── doctor.ts
+│   │       └── commands/     # Command implementations
 │   └── mcp/
-│       ├── package.json      # @outfitter/skillset-mcp
+│       ├── package.json      # @skillset/mcp
 │       ├── tsconfig.json
 │       └── src/
 │           └── index.ts      # Placeholder
@@ -95,6 +119,30 @@ skillset/
 | `scripts.fix` | `ultracite fix` |
 | `devDependencies` | Shared dev deps (biome, ultracite, typescript, bun-types) |
 
+### packages/types/package.json
+
+| Field | Value |
+| ----- | ----- |
+| `name` | `@skillset/types` |
+| `version` | `0.0.1` |
+| `type` | `module` |
+| `main` | `./dist/index.js` |
+| `types` | `./dist/types/index.d.ts` |
+| `exports."."` | `{ "types": "./dist/types/index.d.ts", "import": "./dist/index.js" }` |
+| `dependencies` | `type-fest: "^4.x"` |
+
+### packages/shared/package.json
+
+| Field | Value |
+| ----- | ----- |
+| `name` | `@skillset/shared` |
+| `version` | `0.0.1` |
+| `type` | `module` |
+| `main` | `./dist/index.js` |
+| `types` | `./dist/types/index.d.ts` |
+| `exports."."` | `{ "types": "./dist/types/index.d.ts", "import": "./dist/index.js" }` |
+| `dependencies` | `@skillset/types: "workspace:*"`, `pino: "^9.x"`, `pino-pretty: "^11.x"` |
+
 ### packages/core/package.json
 
 | Field | Value |
@@ -105,7 +153,7 @@ skillset/
 | `main` | `./dist/index.js` |
 | `types` | `./dist/types/index.d.ts` |
 | `exports."."` | `{ "types": "./dist/types/index.d.ts", "import": "./dist/index.js" }` |
-| `dependencies` | (none - core is dependency-free) |
+| `dependencies` | `@skillset/types: "workspace:*"`, `@skillset/shared: "workspace:*"` |
 
 ### apps/cli/package.json
 
@@ -115,7 +163,7 @@ skillset/
 | `version` | `0.0.1` |
 | `type` | `module` |
 | `bin.skillset` | `./dist/index.js` |
-| `dependencies` | `@skillset/core: "workspace:*"`, `chalk`, `commander`, `inquirer`, `ora`, `object-treeify` |
+| `dependencies` | `@skillset/core: "workspace:*"`, `@skillset/shared: "workspace:*"`, `chalk`, `commander`, `@inquirer/prompts`, `ora`, `object-treeify` |
 | `exports."."` | Main CLI export |
 | `exports."./hook"` | Hook entry for plugins |
 
@@ -137,10 +185,57 @@ skillset/
 {
   "files": [],
   "references": [
+    { "path": "./packages/types" },
+    { "path": "./packages/shared" },
     { "path": "./packages/core" },
     { "path": "./apps/cli" },
     { "path": "./apps/mcp" }
   ]
+}
+```
+
+### packages/types/tsconfig.json
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "outDir": "./dist/types",
+    "rootDir": "./src",
+    "types": ["bun-types"]
+  },
+  "include": ["src/**/*"]
+}
+```
+
+### packages/shared/tsconfig.json
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "outDir": "./dist/types",
+    "rootDir": "./src",
+    "types": ["bun-types"]
+  },
+  "references": [
+    { "path": "../types" }
+  ],
+  "include": ["src/**/*"]
 }
 ```
 
@@ -164,6 +259,10 @@ skillset/
     "rootDir": "./src",
     "types": ["bun-types"]
   },
+  "references": [
+    { "path": "../types" },
+    { "path": "../shared" }
+  ],
   "include": ["src/**/*"],
   "exclude": ["src/**/*.test.ts"]
 }
@@ -190,6 +289,8 @@ skillset/
     "types": ["bun-types"]
   },
   "references": [
+    { "path": "../../packages/types" },
+    { "path": "../../packages/shared" },
     { "path": "../../packages/core" }
   ],
   "include": ["src/**/*"]
@@ -200,7 +301,10 @@ skillset/
 
 | Current Location | Target Location | Notes |
 | ---------------- | ---------------- | ------ |
-| `src/types.ts` | `packages/core/src/types.ts` | Core types |
+| `src/types.ts` | `packages/types/src/` | Split into skill.ts, config.ts, common.ts |
+| `src/logger/` | `packages/shared/src/logger.ts` | Replace with Pino logger |
+| (new) | `packages/shared/src/paths.ts` | XDG path resolution |
+| (new) | `packages/shared/src/env.ts` | Environment variable helpers |
 | `src/tokenizer/` | `packages/core/src/tokenizer/` | Token extraction |
 | `src/resolver/` | `packages/core/src/resolver/` | Skill resolution |
 | `src/indexer/` | `packages/core/src/indexer/` | Skill indexing |
@@ -208,29 +312,130 @@ skillset/
 | `src/config/` | `packages/core/src/config/` | Config management |
 | `src/format/` | `packages/core/src/format/` | Output formatting |
 | `src/hooks/` | `packages/core/src/hooks/` | Hook runner |
-| `src/logger/` | `packages/core/src/logger/` | Logging |
 | `src/tree/` | `packages/core/src/tree/` | Tree utilities |
 | `src/cli.ts` | `apps/cli/src/cli.ts` | CLI implementation |
 | `src/index.ts` | `apps/cli/src/index.ts` | CLI entry |
 | `src/hook.ts` | `apps/cli/src/hook.ts` | Hook entry |
 | `src/doctor.ts` | `apps/cli/src/doctor.ts` | Diagnostics |
 
-## Core Library Exports
+## Package Exports
 
-The `packages/core/src/index.ts` barrel export:
+### packages/types/src/index.ts
 
 ```typescript
-// Types
+// Re-export useful type-fest utilities
+export type {
+  JsonValue,
+  JsonObject,
+  Simplify,
+  SetRequired,
+  SetOptional,
+  PartialDeep,
+  RequiredDeep,
+} from "type-fest";
+
+// Skill types
+export type {
+  Skill,
+  SkillRef,
+  SkillSource,
+  InvocationToken,
+  ResolveResult,
+} from "./skill";
+
+// Config types
+export type {
+  Mode,
+  ConfigSchema,
+  MappingEntry,
+  CacheSchema,
+} from "./config";
+
+// Common types
+export type {
+  InjectOutcome,
+} from "./common";
+```
+
+### packages/shared/src/index.ts
+
+```typescript
+// Logger (Pino)
+export { logger, createLogger } from "./logger";
+
+// XDG Paths
+export {
+  getConfigDir,
+  getDataDir,
+  getCacheDir,
+  getSkillsetPaths,
+} from "./paths";
+
+// Environment
+export {
+  getEnv,
+  getEnvBool,
+  SKILLSET_ENV,
+} from "./env";
+```
+
+### packages/shared/src/paths.ts
+
+```typescript
+import { homedir } from "node:os";
+import { join } from "node:path";
+
+/**
+ * XDG-compliant path resolution with macOS fallback
+ */
+export function getConfigDir(): string {
+  return process.env.XDG_CONFIG_HOME
+    ?? (process.platform === "darwin"
+      ? join(homedir(), ".skillset")
+      : join(homedir(), ".config", "skillset"));
+}
+
+export function getDataDir(): string {
+  return process.env.XDG_DATA_HOME
+    ? join(process.env.XDG_DATA_HOME, "skillset")
+    : (process.platform === "darwin"
+      ? join(homedir(), ".skillset")
+      : join(homedir(), ".local", "share", "skillset"));
+}
+
+export function getCacheDir(): string {
+  return process.env.XDG_CACHE_HOME
+    ? join(process.env.XDG_CACHE_HOME, "skillset")
+    : (process.platform === "darwin"
+      ? join(homedir(), ".skillset", "cache")
+      : join(homedir(), ".cache", "skillset"));
+}
+
+export function getSkillsetPaths() {
+  return {
+    config: getConfigDir(),
+    data: getDataDir(),
+    cache: getCacheDir(),
+    logs: join(getDataDir(), "logs"),
+  };
+}
+```
+
+### packages/core/src/index.ts
+
+```typescript
+// Re-export types from @skillset/types
 export type {
   Mode,
   Skill,
+  SkillRef,
   CacheSchema,
   MappingEntry,
   ConfigSchema,
   ResolveResult,
   InvocationToken,
   InjectOutcome,
-} from "./types";
+} from "@skillset/types";
 
 // Tokenizer
 export { tokenizePrompt } from "./tokenizer";
@@ -243,7 +448,6 @@ export { indexSkills } from "./indexer";
 
 // Cache
 export {
-  CACHE_PATHS,
   loadCaches,
   writeCacheSync,
   updateCacheSync,
@@ -252,7 +456,6 @@ export {
 
 // Config
 export {
-  CONFIG_PATHS,
   loadConfig,
   writeConfig,
   readConfigByScope,
@@ -267,9 +470,6 @@ export { formatOutcome, stripFrontmatter } from "./format";
 
 // Hooks
 export { runUserPromptSubmitHook } from "./hooks/hook-runner";
-
-// Logger
-export { logResults } from "./logger";
 
 // Tree
 export {
@@ -295,7 +495,10 @@ All imports in CLI code must be updated from relative to package imports:
 | `from "./indexer"` | `from "@skillset/core"` |
 | `from "./format"` | `from "@skillset/core"` |
 | `from "./tree"` | `from "@skillset/core"` |
-| `from "./types"` | `from "@skillset/core"` |
+| `from "./types"` | `from "@skillset/types"` (or via `@skillset/core` re-export) |
+| `from "./logger"` | `from "@skillset/shared"` |
+| (new) XDG paths | `from "@skillset/shared"` |
+| (new) env helpers | `from "@skillset/shared"` |
 
 ## npm Publishing Strategy
 
@@ -303,6 +506,8 @@ All imports in CLI code must be updated from relative to package imports:
 
 | Package | npm Name | Access | Notes |
 | --------- | --------- | ------ | ----- |
+| `packages/types` | `@skillset/types` | public | Shared type definitions |
+| `packages/shared` | `@skillset/shared` | public | Shared utilities (logger, paths) |
 | `packages/core` | `@skillset/core` | public | Core library for programmatic use |
 | `apps/cli` | `skillset` | public | CLI tool (main package) |
 | `apps/mcp` | `@skillset/mcp` | private (for now) | Future MCP server |
@@ -310,10 +515,18 @@ All imports in CLI code must be updated from relative to package imports:
 ### Publishing Order
 
 ```bash
-# Publish core first (it's a dependency)
+# Publish in dependency order: types → shared → core → cli
+
+# 1. Types (no dependencies)
+cd packages/types && bun run build && npm publish --access public
+
+# 2. Shared (depends on types)
+cd packages/shared && bun run build && npm publish --access public
+
+# 3. Core (depends on types, shared)
 cd packages/core && bun run build && npm publish --access public
 
-# Publish CLI
+# 4. CLI (depends on core, shared)
 cd apps/cli && bun run build && npm publish --access public
 ```
 
@@ -332,22 +545,33 @@ bunx changeset publish   # Publish all
 
 ### Setup Phase
 
-- [ ] Create directory structure: `packages/core/src/`, `apps/cli/src/`, `apps/mcp/src/`
+- [ ] Create directory structure: `packages/types/src/`, `packages/shared/src/`, `packages/core/src/`, `apps/cli/src/`, `apps/mcp/src/`
 - [ ] Create root `package.json` with workspaces config
+- [ ] Create `packages/types/package.json` (type-fest dependency)
+- [ ] Create `packages/shared/package.json` (pino, pino-pretty dependencies)
 - [ ] Create `packages/core/package.json`
 - [ ] Create `apps/cli/package.json`
 - [ ] Create `apps/mcp/package.json` (scaffold)
 - [ ] Update root `tsconfig.json` to be solution file
-- [ ] Create `packages/core/tsconfig.json` with composite
+- [ ] Create `packages/types/tsconfig.json` with composite
+- [ ] Create `packages/shared/tsconfig.json` with composite, references types
+- [ ] Create `packages/core/tsconfig.json` with composite, references types + shared
 - [ ] Create `apps/cli/tsconfig.json` with references
 - [ ] Create `apps/mcp/tsconfig.json` (scaffold)
 
 ### Migration Phase
 
+- [ ] Create `packages/types/src/` with type definitions split from `src/types.ts`
+- [ ] Create `packages/types/src/index.ts` with type-fest re-exports
+- [ ] Create `packages/shared/src/logger.ts` with Pino logger
+- [ ] Create `packages/shared/src/paths.ts` with XDG path resolution
+- [ ] Create `packages/shared/src/env.ts` with environment helpers
+- [ ] Create `packages/shared/src/index.ts` with exports
 - [ ] Move core modules to `packages/core/src/`
+- [ ] Update core modules to import from `@skillset/types` and `@skillset/shared`
 - [ ] Create `packages/core/src/index.ts` with exports
 - [ ] Move CLI modules to `apps/cli/src/`
-- [ ] Update imports in `apps/cli/src/` to use `@outfitter/skillset-core`
+- [ ] Update imports in `apps/cli/src/` to use `@skillset/core`, `@skillset/shared`
 - [ ] Create `apps/mcp/src/index.ts` placeholder
 - [ ] Remove old `src/` directory
 
@@ -363,8 +587,12 @@ bunx changeset publish   # Publish all
 - [ ] `bun run build` succeeds for all packages
 - [ ] `bun run test` passes for all packages
 - [ ] `bun run check` passes
+- [ ] Types package builds: `ls packages/types/dist/`
+- [ ] Shared package builds: `ls packages/shared/dist/`
+- [ ] Core package builds: `ls packages/core/dist/`
 - [ ] CLI runs correctly: `bun run apps/cli/src/index.ts --help`
 - [ ] Workspace dependencies resolve: `bun run apps/cli/src/index.ts index`
+- [ ] XDG paths resolve correctly (test on macOS and Linux if possible)
 
 ## Validation Commands
 
@@ -372,13 +600,13 @@ bunx changeset publish   # Publish all
 # Install workspace dependencies
 bun install
 
-# Build all packages
+# Build all packages (in dependency order)
 bun run build
 
-# Verify core builds
+# Verify each package builds
+ls packages/types/dist/
+ls packages/shared/dist/
 ls packages/core/dist/
-
-# Verify CLI builds
 ls apps/cli/dist/
 
 # Run all tests
@@ -394,6 +622,9 @@ bun run apps/cli/src/index.ts index
 
 # Verify workspace linking
 bun pm ls
+
+# Verify XDG paths resolve correctly
+bun run apps/cli/src/index.ts config --show-paths
 ```
 
 ## Notes

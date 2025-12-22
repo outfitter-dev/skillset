@@ -15,7 +15,7 @@ The canonical specification lives at **[agentskills.io](https://agentskills.io/)
 A skill is a **directory** containing:
 
 | File/Folder | Purpose |
-|-------------|---------|
+| ----------- | ------- |
 | `SKILL.md` | **Required.** YAML frontmatter + Markdown body defining the skill |
 | `scripts/` | Optional executable scripts the skill can invoke |
 | `references/` | Optional supporting documentation |
@@ -34,14 +34,14 @@ Most implementations follow **progressive disclosure** to minimize context usage
 Skills integrate with agents via two patterns:
 
 | Pattern | Description |
-|---------|-------------|
+| ------- | ----------- |
 | **Filesystem-based** | Model reads skill files directly via shell/file access |
 | **Tool-based** | Agent exposes tools that "activate" skills programmatically |
 
 ## Documentation Index
 
 | Document | Contents |
-|----------|----------|
+| -------- | -------- |
 | [skills-compatibility.md](./skills-compatibility.md) | Adopting tools, compatibility matrix, path conventions |
 | [skills-implementations.md](./skills-implementations.md) | Per-product implementation details |
 | [skills-invocations.md](./skills-invocations.md) | Invocation methods and activation patterns |

@@ -5,7 +5,7 @@ This document tracks which tools have adopted the Agent Skills standard and thei
 ## Adopting Tools
 
 | Tool | Vendor | Status | Notes |
-|------|--------|--------|-------|
+| ------ | -------- | -------- | ------- |
 | Claude Code | Anthropic | Stable | Origin of the `.claude/skills` convention |
 | Claude (claude.ai) | Anthropic | Stable | Custom skills via zip upload |
 | Claude API | Anthropic | Stable | Skills API endpoints |
@@ -23,7 +23,7 @@ This document tracks which tools have adopted the Agent Skills standard and thei
 Which skill paths each tool reads:
 
 | Tool | `.claude/skills/` | `.github/skills/` | Tool-specific path | User-level path |
-|------|:-----------------:|:-----------------:|:------------------:|:---------------:|
+| ------ | :-----------------: | :-----------------: | :------------------: | :---------------: |
 | **Claude Code** | ✅ Primary | — | — | `~/.claude/skills/` |
 | **GitHub Copilot** | ✅ Compat | ✅ Primary | — | — |
 | **VS Code (Copilot)** | ✅ Legacy | ✅ Primary | — | — |
@@ -63,7 +63,7 @@ GitHub/Microsoft are pushing `.github/skills` as the repo-native convention:
 Other ecosystems maintain their own scoped conventions while often reading `.claude/skills`:
 
 | Convention | Tools |
-|------------|-------|
+| ------------ | ------- |
 | `.codex/skills` | OpenAI Codex |
 | `.agents/skills` | Amp |
 | `.skills` | Letta |
@@ -73,7 +73,7 @@ Other ecosystems maintain their own scoped conventions while often reading `.cla
 ## Choosing a Path Convention
 
 | Goal | Recommended Path |
-|------|------------------|
+| ------ | ------------------ |
 | Maximum portability | `.claude/skills/` |
 | GitHub/VS Code native | `.github/skills/` |
 | Tool-specific optimization | Use tool's primary path |
@@ -84,7 +84,7 @@ Other ecosystems maintain their own scoped conventions while often reading `.cla
 For personal skills shared across projects:
 
 | Tool | User Path |
-|------|-----------|
+| ------ | ----------- |
 | Claude Code | `~/.claude/skills/` |
 | OpenAI Codex | `~/.codex/skills/` (via `$CODEX_HOME/skills`) |
 | Amp | `~/.config/amp/skills/` (per manual) |
@@ -99,7 +99,7 @@ For personal skills shared across projects:
 Some tools support organization-wide or system-level skills:
 
 | Tool | Admin Path | Notes |
-|------|------------|-------|
+| ------ | ------------ | ------- |
 | OpenAI Codex | `/etc/codex/skills` | System-wide |
 | Claude API | Org-wide via API | Skills API endpoints |
 | GitHub Copilot | — | Org/enterprise coming soon |

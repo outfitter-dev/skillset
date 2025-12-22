@@ -28,7 +28,7 @@ Bun runtime is required; target is Bun 1.3+.
 
 ## Project layout
 
-```
+```text
 PLAN.md
 packages/
   wskill/

@@ -5,7 +5,7 @@ How each tool activates and invokes skills.
 ## Invocation Patterns Overview
 
 | Tool | Pattern | Description |
-|------|---------|-------------|
+| ------ | --------- | ------------- |
 | Claude Code | Model-invoked | Agent autonomously decides based on request + description |
 | Claude (claude.ai) | Auto + Model | Pre-built skills auto-activate; custom skills when relevant |
 | GitHub Copilot | Model-invoked | Based on prompt + skill description |

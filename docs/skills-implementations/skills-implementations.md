@@ -11,7 +11,7 @@ The origin of the `.claude/skills` convention.
 **Storage Paths:**
 
 | Scope | Path |
-|-------|------|
+| ----- | ---- |
 | Personal | `~/.claude/skills/` |
 | Project | `.claude/skills/` |
 | Plugin | Bundled with installed plugins |
@@ -61,7 +61,7 @@ The origin of the `.claude/skills` convention.
 **Storage Paths:**
 
 | Scope | Path |
-|-------|------|
+| ----- | ---- |
 | Primary | `./.github/skills/<skill>/SKILL.md` |
 | Compatibility | `./.claude/skills/` |
 
@@ -77,7 +77,7 @@ The origin of the `.claude/skills` convention.
 **Storage Paths:**
 
 | Scope | Path |
-|-------|------|
+| ----- | ---- |
 | Recommended | `./.github/skills/` |
 | Legacy | `./.claude/skills/` |
 
@@ -94,7 +94,7 @@ The origin of the `.claude/skills` convention.
 **Storage Paths (with precedence, highest overrides lowest):**
 
 | Priority | Scope | Path | Use Case |
-|----------|-------|------|----------|
+| -------- | ----- | ---- | -------- |
 | 1 (highest) | Repo (CWD) | `$CWD/.codex/skills` | Skills for specific folder/microservice |
 | 2 | Repo (parent) | `$CWD/../.codex/skills` | Shared skills in parent folder |
 | 3 | Repo (root) | `$REPO_ROOT/.codex/skills` | Repository-wide skills |
@@ -134,7 +134,7 @@ The origin of the `.claude/skills` convention.
 **Storage Paths:**
 
 | Scope | Path |
-|-------|------|
+| ----- | ---- |
 | Workspace (default) | `.agents/skills/` |
 | User-level | `~/.config/amp/skills/` (per manual) |
 | User-level (alt) | `~/.config/agents/skills/` (per announcement) |
@@ -176,7 +176,7 @@ The origin of the `.claude/skills` convention.
 **Storage Paths (with precedence, highest first):**
 
 | Priority | Path |
-|----------|------|
+| -------- | ---- |
 | 1 (highest) | `./.goose/skills/` |
 | 2 | `./.claude/skills/` |
 | 3 | `~/.config/goose/skills/` |
@@ -205,7 +205,7 @@ Requires OpenCode SDK ≥ 1.0.126.
 **Storage Paths (precedence, highest first):**
 
 | Priority | Scope | Path |
-|----------|-------|------|
+| -------- | ----- | ---- |
 | 1 (highest) | Project | `.opencode/skills/` |
 | 2 | Custom | `$OPENCODE_CONFIG_DIR/skills/` |
 | 3 | Global | `~/.opencode/skills/` |
