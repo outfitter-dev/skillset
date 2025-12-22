@@ -1,26 +1,26 @@
 {
-	"extraKnownMarketplaces": {
-		"outfitter": {
-			"source": {
-				"source": "github",
-				"repo": "outfitter-dev/agents"
-			}
-		}
-	},
-	"enabledPlugins": {
-		"baselayer@outfitter": true
-	},
-	"hooks": {
-		"PostToolUse": [
-			{
-				"matcher": "Edit|Write",
-				"hooks": [
-					{
-						"type": "command",
-						"command": "bun \"$CLAUDE_PROJECT_DIR/.claude/hooks/format-markdown.ts\""
-					}
-				]
-			}
-		]
-	}
+  "extraKnownMarketplaces": {
+    "outfitter": {
+      "source": {
+        "source": "github",
+        "repo": "outfitter-dev/agents"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "baselayer@outfitter": true
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun \"$CLAUDE_PROJECT_DIR/.claude/hooks/format-markdown.ts\""
+          }
+        ]
+      }
+    ]
+  }
 }
