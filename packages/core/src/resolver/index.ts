@@ -8,6 +8,7 @@ import type {
 } from "@skillset/types";
 import { loadCaches } from "../cache";
 import { loadConfig } from "../config";
+import { normalizeTokenRef, normalizeTokenSegment } from "../normalize";
 
 function pickSkillByRef(cache: CacheSchema, ref: string): Skill | undefined {
   return cache.skills[ref];
@@ -52,7 +53,29 @@ function applyNamespaceAlias(
   config: ConfigSchema
 ): string | undefined {
   if (!namespace) return undefined;
-  return config.namespaceAliases[namespace] ?? namespace;
+  const normalized = normalizeTokenSegment(namespace);
+  return (
+    config.namespaceAliases[normalized] ??
+    config.namespaceAliases[namespace] ??
+    normalized
+  );
+}
+
+function findMapping(
+  mappings: Record<string, { skillRef: string }>,
+  alias: string,
+  normalizedAlias: string
+): { skillRef: string } | undefined {
+  if (mappings[alias]) return mappings[alias];
+  if (normalizedAlias && mappings[normalizedAlias]) {
+    return mappings[normalizedAlias];
+  }
+  const lower = alias.toLowerCase();
+  for (const [key, value] of Object.entries(mappings)) {
+    if (key.toLowerCase() === lower) return value;
+    if (normalizeTokenRef(key) === normalizedAlias) return value;
+  }
+  return undefined;
 }
 
 export function resolveToken(
@@ -62,13 +85,19 @@ export function resolveToken(
 ): ResolveResult {
   const cfg = config ?? loadConfig();
   const c = cache ?? loadCaches();
+  const normalizedAlias = normalizeTokenRef(token.alias);
+  if (!normalizedAlias) {
+    return { invocation: token, reason: "unmatched" };
+  }
   const namespace = applyNamespaceAlias(token.namespace, cfg);
 
   // 1) explicit mapping
-  const mapping = cfg.mappings[token.alias];
+  const mapping = findMapping(cfg.mappings, token.alias, normalizedAlias);
   if (mapping) {
     // Try skill first, then set
-    const skill = pickSkillByRef(c, mapping.skillRef);
+    const normalizedRef = normalizeTokenRef(mapping.skillRef);
+    const skill =
+      pickSkillByRef(c, mapping.skillRef) ?? pickSkillByRef(c, normalizedRef);
     if (skill) return { invocation: token, skill };
 
     const set = pickSetByRef(c, mapping.skillRef);
@@ -82,7 +111,7 @@ export function resolveToken(
 
   // 2) If kind is explicitly specified, only search that type
   if (token.kind === "skill") {
-    let skillCandidates = matchSkillAlias(c, token.alias);
+    let skillCandidates = matchSkillAlias(c, normalizedAlias);
     if (namespace) {
       skillCandidates = filterByNamespace(
         skillCandidates,
@@ -105,7 +134,7 @@ export function resolveToken(
   }
 
   if (token.kind === "set") {
-    let setCandidates = matchSetAlias(c, token.alias);
+    let setCandidates = matchSetAlias(c, normalizedAlias);
     if (namespace) {
       setCandidates = filterByNamespace(
         setCandidates,
@@ -124,8 +153,8 @@ export function resolveToken(
   }
 
   // 3) No kind specified - search both skills and sets
-  let skillCandidates = matchSkillAlias(c, token.alias);
-  let setCandidates = matchSetAlias(c, token.alias);
+  let skillCandidates = matchSkillAlias(c, normalizedAlias);
+  let setCandidates = matchSetAlias(c, normalizedAlias);
 
   if (namespace) {
     skillCandidates = filterByNamespace(
