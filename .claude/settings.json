@@ -5,10 +5,17 @@
         "source": "github",
         "repo": "outfitter-dev/agents"
       }
+    },
+    "superpowers-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "obra/superpowers"
+      }
     }
   },
   "enabledPlugins": {
-    "baselayer@outfitter": true
+    "baselayer@outfitter": true,
+    "episodic-memory@superpowers-marketplace": true
   },
   "hooks": {
     "PostToolUse": [
