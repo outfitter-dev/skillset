@@ -316,10 +316,14 @@ async function initConfig(scopeArg: string, force: boolean): Promise<void> {
         ]);
 
         if (removeAnswer.removeLegacy) {
-          const result = removeLegacyPaths({
-            user: legacy.hasLegacyUser ? legacy.userPath : undefined,
-            project: legacy.hasLegacyProject ? legacy.projectPath : undefined,
-          });
+          const pathsToRemove: { user?: string; project?: string } = {};
+          if (legacy.hasLegacyUser && legacy.userPath) {
+            pathsToRemove.user = legacy.userPath;
+          }
+          if (legacy.hasLegacyProject && legacy.projectPath) {
+            pathsToRemove.project = legacy.projectPath;
+          }
+          const result = removeLegacyPaths(pathsToRemove);
           if (result.success) {
             console.log(chalk.green("✓ Removed legacy directories"));
           } else {
