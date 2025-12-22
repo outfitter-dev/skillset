@@ -1,7 +1,7 @@
 import { readdirSync, statSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import treeify from "object-treeify";
 import type { CacheSchema, Skill } from "@skillset/types";
+import treeify from "object-treeify";
 import { headingsToTreeObject, parseMarkdownHeadings } from "./markdown";
 
 export { headingsToTreeObject, parseMarkdownHeadings } from "./markdown";

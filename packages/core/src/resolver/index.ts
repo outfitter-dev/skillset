@@ -1,5 +1,3 @@
-import { loadCaches } from "../cache";
-import { loadConfig } from "../config";
 import type {
   CacheSchema,
   ConfigSchema,
@@ -7,6 +5,8 @@ import type {
   ResolveResult,
   Skill,
 } from "@skillset/types";
+import { loadCaches } from "../cache";
+import { loadConfig } from "../config";
 
 function pickSkillByRef(cache: CacheSchema, ref: string): Skill | undefined {
   return cache.skills[ref];

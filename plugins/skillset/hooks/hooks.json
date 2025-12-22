@@ -1,12 +1,12 @@
 {
-  "description": "wskill: Deterministic skill invocation via w/alias syntax",
+  "description": "skillset: Deterministic skill invocation via $alias syntax",
   "hooks": {
     "UserPromptSubmit": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "bun run ${CLAUDE_PLUGIN_ROOT}/scripts/wskill-hook.ts",
+            "command": "bun run ${CLAUDE_PLUGIN_ROOT}/scripts/skillset-hook.ts",
             "timeout": 5
           }
         ]

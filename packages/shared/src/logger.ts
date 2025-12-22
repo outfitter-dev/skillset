@@ -8,32 +8,34 @@ import { getEnv, getEnvBool, SKILLSET_ENV } from "./env";
 /**
  * Create a Pino logger instance with optional pretty printing
  */
-export function createLogger(options: {
-  level?: string;
-  name?: string;
-  pretty?: boolean;
-} = {}) {
+export function createLogger(
+  options: { level?: string; name?: string; pretty?: boolean } = {}
+) {
   const {
     level = getEnv(SKILLSET_ENV.LOG_LEVEL, "info"),
     name = "skillset",
     pretty = getEnvBool(SKILLSET_ENV.DEBUG, false),
   } = options;
 
-  const transport = pretty && !getEnvBool(SKILLSET_ENV.NO_COLOR, false)
-    ? pino.transport({
-        target: "pino-pretty",
-        options: {
-          colorize: true,
-          translateTime: "HH:MM:ss",
-          ignore: "pid,hostname",
-        },
-      })
-    : undefined;
+  const transport =
+    pretty && !getEnvBool(SKILLSET_ENV.NO_COLOR, false)
+      ? pino.transport({
+          target: "pino-pretty",
+          options: {
+            colorize: true,
+            translateTime: "HH:MM:ss",
+            ignore: "pid,hostname",
+          },
+        })
+      : undefined;
 
-  return pino({
-    name,
-    level,
-  }, transport);
+  return pino(
+    {
+      name,
+      level,
+    },
+    transport
+  );
 }
 
 /**

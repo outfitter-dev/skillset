@@ -12,8 +12,6 @@
     "rootDir": "./src",
     "types": ["bun-types"]
   },
-  "references": [
-    { "path": "../../packages/core" }
-  ],
+  "references": [{ "path": "../../packages/core" }],
   "include": ["src/**/*"]
 }

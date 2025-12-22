@@ -266,7 +266,9 @@ export async function runSkillDiagnostic(skillAlias: string): Promise<void> {
     console.log();
     console.log(chalk.bold("Suggestions:"));
     console.log(`  • Run ${chalk.cyan("skillset index")} to refresh the cache`);
-    console.log(`  • Check that the skill exists with ${chalk.cyan("skillset")}`);
+    console.log(
+      `  • Check that the skill exists with ${chalk.cyan("skillset")}`
+    );
     console.log("  • Try a different alias or namespace");
   } else {
     console.log(

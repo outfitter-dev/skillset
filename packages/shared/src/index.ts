@@ -2,20 +2,25 @@
  * @skillset/shared - Shared utilities for skillset
  */
 
-// Logger (Pino)
-export { logger, createLogger } from "./logger";
-
-// XDG Paths
-export {
-  getConfigDir,
-  getDataDir,
-  getCacheDir,
-  getSkillsetPaths,
-} from "./paths";
-
 // Environment
 export {
   getEnv,
   getEnvBool,
+  getSkillsetEnv,
   SKILLSET_ENV,
+  type SkillsetEnvConfig,
 } from "./env";
+// Logger (Pino)
+export { createLogger, logger } from "./logger";
+// XDG Paths
+export {
+  getCacheDir,
+  getConfigDir,
+  getDataDir,
+  getSkillsetPaths,
+} from "./paths";
+// Usage Statistics
+export {
+  logUsage,
+  type UsageEntry,
+} from "./stats";

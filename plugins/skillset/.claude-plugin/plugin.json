@@ -1,12 +1,12 @@
 {
-  "name": "wskill",
+  "name": "skillset",
   "version": "0.1.0",
-  "description": "Deterministic skill invocation via w/alias syntax",
+  "description": "Deterministic skill invocation via $alias syntax",
   "author": {
     "name": "Matt Galligan",
     "url": "https://github.com/galligan"
   },
-  "repository": "https://github.com/galligan/wskill",
+  "repository": "https://github.com/outfitter-dev/skillset",
   "license": "MIT",
   "keywords": ["skills", "deterministic", "invocation"],
   "hooks": "./hooks/hooks.json"

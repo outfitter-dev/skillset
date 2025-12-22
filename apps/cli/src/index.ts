@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
-import { buildCli } from "./cli";
 import { runUserPromptSubmitHook } from "@skillset/core";
+import { buildCli } from "./cli";
 
 async function main() {
   const [cmd] = process.argv.slice(2);

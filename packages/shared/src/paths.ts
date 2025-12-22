@@ -13,9 +13,9 @@ import { join } from "node:path";
 export function getConfigDir(): string {
   return process.env.XDG_CONFIG_HOME
     ? join(process.env.XDG_CONFIG_HOME, "skillset")
-    : (process.platform === "darwin"
+    : process.platform === "darwin"
       ? join(homedir(), ".skillset")
-      : join(homedir(), ".config", "skillset"));
+      : join(homedir(), ".config", "skillset");
 }
 
 /**
@@ -26,9 +26,9 @@ export function getConfigDir(): string {
 export function getDataDir(): string {
   return process.env.XDG_DATA_HOME
     ? join(process.env.XDG_DATA_HOME, "skillset")
-    : (process.platform === "darwin"
+    : process.platform === "darwin"
       ? join(homedir(), ".skillset")
-      : join(homedir(), ".local", "share", "skillset"));
+      : join(homedir(), ".local", "share", "skillset");
 }
 
 /**
@@ -39,9 +39,9 @@ export function getDataDir(): string {
 export function getCacheDir(): string {
   return process.env.XDG_CACHE_HOME
     ? join(process.env.XDG_CACHE_HOME, "skillset")
-    : (process.platform === "darwin"
+    : process.platform === "darwin"
       ? join(homedir(), ".skillset", "cache")
-      : join(homedir(), ".cache", "skillset"));
+      : join(homedir(), ".cache", "skillset");
 }
 
 /**

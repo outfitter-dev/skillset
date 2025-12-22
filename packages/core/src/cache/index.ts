@@ -6,8 +6,8 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
-import type { CacheSchema, Skill } from "@skillset/types";
 import { getCacheDir } from "@skillset/shared";
+import type { CacheSchema, Skill } from "@skillset/types";
 
 const DEFAULT_CACHE: CacheSchema = {
   version: 1,

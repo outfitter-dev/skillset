@@ -45,7 +45,7 @@ const config: ConfigSchema = {
 describe("resolveToken", () => {
   it("resolves by alias match", () => {
     const token: InvocationToken = {
-      raw: "w/frontend-design",
+      raw: "$frontend-design",
       alias: "frontend-design",
       namespace: undefined,
     };
@@ -55,7 +55,7 @@ describe("resolveToken", () => {
 
   it("returns unmatched when absent", () => {
     const token: InvocationToken = {
-      raw: "w/missing",
+      raw: "$missing",
       alias: "missing",
       namespace: undefined,
     };
@@ -69,7 +69,7 @@ describe("resolveToken", () => {
       mappings: { fe: { skillRef: "project:frontend-design" } },
     };
     const token: InvocationToken = {
-      raw: "w/fe",
+      raw: "$fe",
       alias: "fe",
       namespace: undefined,
     };
@@ -83,7 +83,7 @@ describe("resolveToken", () => {
       mappings: { broken: { skillRef: "nonexistent:skill" } },
     };
     const token: InvocationToken = {
-      raw: "w/broken",
+      raw: "$broken",
       alias: "broken",
       namespace: undefined,
     };
@@ -93,7 +93,7 @@ describe("resolveToken", () => {
 
   it("filters by namespace when provided", () => {
     const token: InvocationToken = {
-      raw: "w/user:auth",
+      raw: "$user:auth",
       alias: "auth",
       namespace: "user",
     };
@@ -110,7 +110,7 @@ describe("resolveToken", () => {
       },
     };
     const token: InvocationToken = {
-      raw: "w/design",
+      raw: "$design",
       alias: "design",
       namespace: undefined,
     };
@@ -124,11 +124,11 @@ describe("resolveTokens", () => {
   it("resolves multiple tokens at once", () => {
     const tokens: InvocationToken[] = [
       {
-        raw: "w/frontend-design",
+        raw: "$frontend-design",
         alias: "frontend-design",
         namespace: undefined,
       },
-      { raw: "w/backend-api", alias: "backend-api", namespace: undefined },
+      { raw: "$backend-api", alias: "backend-api", namespace: undefined },
     ];
     const results = resolveTokens(tokens, config, cache);
     expect(results).toHaveLength(2);
