@@ -82,7 +82,8 @@ describe("tokenizePrompt", () => {
   });
 
   it("does NOT match invalid patterns", () => {
-    const invalid = "$ALLCAPS $Debug $snake_case";
+    const invalid =
+      "$ALLCAPS $Debug $snake_case $bad--token $double__underscore";
     const tokens = tokenizePrompt(invalid);
     expect(tokens).toEqual([]);
   });
@@ -100,5 +101,25 @@ describe("tokenizePrompt", () => {
     expect(tokens).toHaveLength(1);
     expect(tokens[0]?.namespace).toBe("project");
     expect(tokens[0]?.alias).toBe("deep:nested:skill");
+  });
+
+  it("parses $set:frontend-design with both kind and namespace", () => {
+    const tokens = tokenizePrompt("apply $set:frontend-design please");
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0]?.kind).toBe("set");
+    expect(tokens[0]?.alias).toBe("frontend-design");
+    expect(tokens[0]?.raw).toBe("$set:frontend-design");
+  });
+
+  it("parses all variations of frontend-design syntax", () => {
+    const tokens = tokenizePrompt(
+      "$frontend-design $project:frontend-design $set:frontend-design"
+    );
+    expect(tokens).toHaveLength(3);
+    expect(tokens.map((t) => t.raw)).toEqual([
+      "$frontend-design",
+      "$project:frontend-design",
+      "$set:frontend-design",
+    ]);
   });
 });

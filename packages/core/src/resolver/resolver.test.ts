@@ -118,6 +118,58 @@ describe("resolveToken", () => {
     expect(result.reason).toBe("ambiguous");
     expect(result.candidates?.length).toBeGreaterThan(1);
   });
+
+  it("resolves skill with explicit $skill: prefix when both skill and set exist", () => {
+    const cacheWithSkillAndSet: CacheSchema = {
+      ...cache,
+      skills: {
+        ...cache.skills,
+        "project:dashboard": createSkill("project:dashboard", "Dashboard"),
+      },
+      sets: {
+        "project:dashboard": {
+          setRef: "project:dashboard",
+          name: "Dashboard",
+          description: undefined,
+          skillRefs: ["project:frontend-design"],
+        },
+      },
+    };
+    const token: InvocationToken = {
+      raw: "$skill:dashboard",
+      alias: "dashboard",
+      namespace: undefined,
+      kind: "skill",
+    };
+    const result = resolveToken(token, config, cacheWithSkillAndSet);
+    expect(result.skill?.skillRef).toBe("project:dashboard");
+  });
+
+  it("resolves set with explicit $set: prefix when both skill and set exist", () => {
+    const cacheWithSkillAndSet: CacheSchema = {
+      ...cache,
+      skills: {
+        ...cache.skills,
+        "project:dashboard": createSkill("project:dashboard", "Dashboard"),
+      },
+      sets: {
+        "project:dashboard": {
+          setRef: "project:dashboard",
+          name: "Dashboard",
+          description: undefined,
+          skillRefs: ["project:frontend-design"],
+        },
+      },
+    };
+    const token: InvocationToken = {
+      raw: "$set:dashboard",
+      alias: "dashboard",
+      namespace: undefined,
+      kind: "set",
+    };
+    const result = resolveToken(token, config, cacheWithSkillAndSet);
+    expect(result.set?.setRef).toBe("project:dashboard");
+  });
 });
 
 describe("resolveTokens", () => {
