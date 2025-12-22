@@ -15,6 +15,7 @@ dist
 .skillset/config.local.json
 .skillset/cache.json
 .skillset/logs/
+.skillset-harness/
 
 # Additional ignores
 *.backup
