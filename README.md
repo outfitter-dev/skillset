@@ -1,51 +1,104 @@
-# wskill
+# skillset
 
-Deterministic Skill invocation for Claude Code and coding agents. Use `w/<alias>` in prompts to inject explicit Skills instead of relying on fuzzy matching.
+Deterministic Skill invocation for Claude Code and coding agents. Use `$<alias>` in prompts to inject explicit Skills instead of relying on fuzzy matching.
 
-This repo includes:
+This repo is organized as a Bun monorepo:
 
-- `packages/wskill`: Bun/TypeScript CLI and shared logic (index, resolve, inject, hook runner).
-- `plugins/wskill`: Claude Code plugin scaffold with hooks and slash command stubs.
+- `packages/core`: Core indexing, resolution, and injection logic
+- `packages/shared`: Shared utilities and constants
+- `packages/types`: TypeScript type definitions
+- `apps/cli`: CLI application and commands
+- `plugins/skillset`: Claude Code plugin scaffold with hooks and slash command stubs
 
 ## Quick start (local)
 
 ```bash
-bun install      # if using dependencies later; not required today
-bun run packages/wskill/src/index.ts help
+bun install
+bun run apps/cli/src/index.ts help
 ```
 
-Useful commands:
+## CLI Commands
 
-- `bun run packages/wskill/src/index.ts index` — scan for `SKILL.md` under `.claude/skills` and `~/.claude/skills` and refresh cache.
-- `bun run packages/wskill/src/index.ts resolve w/frontend-design` — resolve a single alias.
-- `bun run packages/wskill/src/index.ts inject "please w/frontend-design"` — emit injected markdown context.
-- `bun run packages/wskill/src/index.ts hook < hook-input.json` — run the UserPromptSubmit hook path (used by plugin).
-- `bun run lint` / `bun run format` — Biome + Ultracite.
-- `bun run build` — bundles CLI + hook and emits `dist/types/**/*.d.ts` for npm.
-- `bunx lefthook install` — install git hooks (pre-commit runs format+lint, pre-push runs tests+build).
+```bash
+# Core commands
+skillset list                  # List all available skills
+skillset show <ref>            # Show skill details
+skillset load <path>           # Load skill from file
+
+# Alias management
+skillset alias <name> <ref>    # Create alias
+skillset unalias <name>        # Remove alias
+
+# System commands
+skillset sync                  # Sync and refresh skill cache
+skillset config                # Show current configuration
+skillset doctor                # Diagnose configuration issues
+skillset init                  # Initialize skillset in current project
+
+# Development commands
+skillset resolve $foo          # Resolve a single alias
+skillset inject "text"         # Parse prompt and emit injected context
+```
+
+## Development Commands
+
+```bash
+# Quality
+bun run lint                   # Biome check
+bun run format                 # Ultracite fix
+bun run test                   # Run tests
+bun run build                  # Bundle CLI + hook, emit type declarations
+
+# Git hooks (via lefthook)
+bunx lefthook install          # Install pre-commit (format, lint) and pre-push (test, build)
+```
 
 Bun runtime is required; target is Bun 1.3+.
 
 ## Project layout
 
 ```text
-PLAN.md
 packages/
-  wskill/
-    src/...
+  core/                # Core indexing, resolution, injection
+    src/
+      indexer/
+      resolver/
+      tokenizer/
+      format/
+      cache/
+      config/
+  shared/              # Shared utilities
+  types/               # Type definitions
+apps/
+  cli/                 # CLI application
+    src/
+      commands/        # Command implementations
+      index.ts         # CLI entry point
 plugins/
-  wskill/
+  skillset/
     .claude-plugin/plugin.json
     hooks/hooks.json
-    scripts/wskill-hook.ts
+    scripts/skillset-hook.ts
     commands/*.md
-    skills/wskill/SKILL.md
+    skills/skillset/SKILL.md
 ```
+
+## Configuration
+
+Skills are indexed from:
+- `{cwd}/.claude/skills/` - Project skills
+- `~/.claude/skills/` - User skills
+- `~/.claude/plugins/` - Plugin skills
+
+Cache and configuration stored at:
+- `.skillset/cache.json` - Indexed skills cache
+- `.skillset/config.json` - Project configuration
+- `~/.skillset/config.json` - User configuration
 
 ## Publishing to npm
 
 ```bash
-cd packages/wskill
+cd apps/cli
 bun run build          # produces dist/ and dist/types
 npm publish --access public
 ```
