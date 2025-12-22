@@ -2,7 +2,7 @@
  * skillset list command
  */
 
-import { loadCaches, type Skill } from "@skillset/core";
+import { loadCaches, loadConfig, type Skill } from "@skillset/core";
 import chalk from "chalk";
 import type { Command } from "commander";
 import type { GlobalOptions, OutputFormat } from "../types";
@@ -51,66 +51,33 @@ function matchesSourceFilter(
 /**
  * List all indexed skills
  */
-function listAllSkills(
-  sourceFilters: string[] | undefined,
-  format: OutputFormat,
-  options: ListOptions
-): void {
+function getSkills(sourceFilters: string[] | undefined): Skill[] {
   const cache = loadCaches();
   let skills = Object.values(cache.skills);
-
-  // Filter by --skills or --sets flag
-  // TODO: When sets are implemented, filter accordingly
-  // For now, we only have skills
-
-  if (skills.length === 0) {
-    const message = "No skills indexed. Run 'skillset index' first.";
-    if (format === "json") {
-      console.log(JSON.stringify({ error: message, skills: [] }, null, 2));
-    } else {
-      console.log(chalk.yellow(message));
-    }
-    return;
-  }
 
   // Filter by source if specified
   if (sourceFilters && sourceFilters.length > 0) {
     skills = skills.filter((skill) =>
       matchesSourceFilter(skill.skillRef, sourceFilters)
     );
-
-    if (skills.length === 0) {
-      const message = `No skills match source filter(s): ${sourceFilters.join(", ")}`;
-      if (format === "json") {
-        console.log(
-          JSON.stringify(
-            { error: message, filters: sourceFilters, skills: [] },
-            null,
-            2
-          )
-        );
-      } else {
-        console.log(chalk.yellow(message));
-      }
-      return;
-    }
   }
 
-  if (format === "json") {
-    console.log(JSON.stringify(skills, null, 2));
-    return;
-  }
+  return skills;
+}
 
-  if (format === "raw") {
-    // One skill ref per line for piping
-    for (const skill of skills.sort((a, b) =>
-      a.skillRef.localeCompare(b.skillRef)
-    )) {
-      console.log(skill.skillRef);
-    }
-    return;
-  }
+function getSets() {
+  const config = loadConfig();
+  const sets = config.sets ?? {};
+  return Object.entries(sets).map(([key, def]) => ({
+    key,
+    ...def,
+  }));
+}
 
+function printSkills(
+  skills: Skill[],
+  sourceFilters: string[] | undefined
+): void {
   // Format: text (default)
   // Group skills by namespace
   const byNamespace = new Map<string, Skill[]>();
@@ -131,7 +98,8 @@ function listAllSkills(
     return a.localeCompare(b);
   });
 
-  const filterMsg = sourceFilters
+  const filterMsg =
+    sourceFilters && sourceFilters.length > 0
     ? ` (filtered by: ${sourceFilters.join(", ")})`
     : "";
   console.log(chalk.bold(`${skills.length} skills indexed${filterMsg}\n`));
@@ -153,6 +121,27 @@ function listAllSkills(
   }
 }
 
+function printSets(sets: ReturnType<typeof getSets>): void {
+  if (sets.length === 0) {
+    console.log(chalk.yellow("No sets defined in configuration."));
+    console.log(
+      chalk.dim("Define sets in your config file under the 'sets' key.")
+    );
+    return;
+  }
+
+  console.log(chalk.bold(`${sets.length} sets defined\n`));
+  for (const set of sets) {
+    console.log(chalk.green(set.name));
+    console.log(`  ${chalk.dim(`Key: ${set.key}`)}`);
+    if (set.description) {
+      console.log(`  ${set.description}`);
+    }
+    console.log(`  ${chalk.dim(`Skills: ${set.skillRefs.length}`)}`);
+    console.log();
+  }
+}
+
 /**
  * Register the list command
  */
@@ -164,6 +153,57 @@ export function registerListCommand(program: Command): void {
     .option("--sets", "Only list sets (no skills)")
     .action((options: ListOptions) => {
       const format = determineFormat(options);
-      listAllSkills(options.source, format, options);
+      const includeSkills = options.sets ? false : true;
+      const includeSets = options.skills ? false : true;
+      const skills = includeSkills ? getSkills(options.source) : [];
+      const sets = includeSets ? getSets() : [];
+
+      if (format === "json") {
+        if (includeSkills && includeSets) {
+          console.log(JSON.stringify({ skills, sets }, null, 2));
+          return;
+        }
+        if (includeSets) {
+          console.log(JSON.stringify(sets, null, 2));
+          return;
+        }
+        console.log(JSON.stringify(skills, null, 2));
+        return;
+      }
+
+      if (format === "raw") {
+        if (includeSets && !includeSkills) {
+          for (const set of sets) {
+            console.log(set.key);
+          }
+          return;
+        }
+        for (const skill of skills.sort((a, b) =>
+          a.skillRef.localeCompare(b.skillRef)
+        )) {
+          console.log(skill.skillRef);
+        }
+        return;
+      }
+
+      if (includeSkills) {
+        if (skills.length === 0) {
+          const message =
+            options.source && options.source.length > 0
+              ? `No skills match source filter(s): ${options.source.join(", ")}`
+              : "No skills indexed. Run 'skillset index' first.";
+          console.log(chalk.yellow(message));
+        } else {
+          printSkills(skills, options.source);
+        }
+      }
+
+      if (includeSets) {
+        if (includeSkills) {
+          console.log(chalk.bold("Sets"));
+          console.log();
+        }
+        printSets(sets);
+      }
     });
 }

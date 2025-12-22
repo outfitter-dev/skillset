@@ -17,10 +17,12 @@ _skillset_completions() {
   local cmd=\${COMP_WORDS[1]}
 
   if [[ $COMP_CWORD == 1 ]]; then
-    COMPREPLY=($(compgen -W "list show load sync alias unalias config doctor index init completions" -- $cur))
+    COMPREPLY=($(compgen -W "list show load set sync alias unalias config doctor index init completions" -- $cur))
   elif [[ $cmd == "show" || $cmd == "load" ]]; then
     # Complete with skill names from cache
-    COMPREPLY=($(compgen -W "$(skillset list --raw 2>/dev/null)" -- $cur))
+    COMPREPLY=($(compgen -W "$(skillset list --raw --skills 2>/dev/null)" -- $cur))
+  elif [[ $cmd == "set" ]]; then
+    COMPREPLY=($(compgen -W "list show load" -- $cur))
   elif [[ $cmd == "completions" ]]; then
     COMPREPLY=($(compgen -W "bash zsh fish powershell" -- $cur))
   elif [[ $cmd == "config" ]]; then
@@ -43,6 +45,7 @@ _skillset() {
     'list:List all skills and sets'
     'show:Show skill metadata'
     'load:Load and output skill content'
+    'set:Manage skill sets (groups of skills)'
     'sync:Sync skills to configured targets'
     'alias:Add or update a skill alias'
     'unalias:Remove a skill alias'
@@ -58,7 +61,10 @@ _skillset() {
   else
     case "\${words[2]}" in
       show|load)
-        _values 'skills' $(skillset list --raw 2>/dev/null)
+        _values 'skills' $(skillset list --raw --skills 2>/dev/null)
+        ;;
+      set)
+        _values 'subcommand' list show load
         ;;
       completions)
         _values 'shell' bash zsh fish powershell
@@ -84,6 +90,7 @@ function generateFishCompletions(): string {
 complete -c skillset -f -n "__fish_use_subcommand" -a "list" -d "List all skills and sets"
 complete -c skillset -f -n "__fish_use_subcommand" -a "show" -d "Show skill metadata"
 complete -c skillset -f -n "__fish_use_subcommand" -a "load" -d "Load and output skill content"
+complete -c skillset -f -n "__fish_use_subcommand" -a "set" -d "Manage skill sets (groups of skills)"
 complete -c skillset -f -n "__fish_use_subcommand" -a "sync" -d "Sync skills to configured targets"
 complete -c skillset -f -n "__fish_use_subcommand" -a "alias" -d "Add or update a skill alias"
 complete -c skillset -f -n "__fish_use_subcommand" -a "unalias" -d "Remove a skill alias"
@@ -106,6 +113,9 @@ complete -c skillset -f -n "__fish_seen_subcommand_from completions" -a "bash zs
 
 # Config subcommand
 complete -c skillset -f -n "__fish_seen_subcommand_from config" -a "get set"
+
+# Set subcommand
+complete -c skillset -f -n "__fish_seen_subcommand_from set" -a "list show load"
 `;
 }
 
@@ -122,6 +132,7 @@ Register-ArgumentCompleter -Native -CommandName skillset -ScriptBlock {
         'list',
         'show',
         'load',
+        'set',
         'sync',
         'alias',
         'unalias',
@@ -143,6 +154,11 @@ Register-ArgumentCompleter -Native -CommandName skillset -ScriptBlock {
             }
             'config' {
                 @('get', 'set') | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
+                    [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+                }
+            }
+            'set' {
+                @('list', 'show', 'load') | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
                     [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
                 }
             }

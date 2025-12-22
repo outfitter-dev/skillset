@@ -38,12 +38,12 @@ export {
 } from "./config";
 // Format
 export { formatOutcome, stripFrontmatter } from "./format";
-// Normalize
-export { normalizeTokenRef, normalizeTokenSegment } from "./normalize";
 // Hooks
 export { runUserPromptSubmitHook } from "./hooks/hook-runner";
 // Indexer
 export { indexSkills } from "./indexer";
+// Normalize
+export { normalizeTokenRef, normalizeTokenSegment } from "./normalize";
 // Resolver
 export { resolveToken, resolveTokens } from "./resolver";
 // Tokenizer

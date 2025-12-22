@@ -180,6 +180,27 @@ describe("resolveToken", () => {
     const result = resolveToken(token, config, cacheWithSkillAndSet);
     expect(result.set?.setRef).toBe("project:dashboard");
   });
+
+  it("resolves sets defined in config", () => {
+    const configWithSet: ConfigSchema = {
+      ...config,
+      sets: {
+        frontend: {
+          name: "Frontend",
+          description: "Frontend bundle",
+          skillRefs: ["project:frontend-design"],
+        },
+      },
+    };
+    const token: InvocationToken = {
+      raw: "$set:frontend",
+      alias: "frontend",
+      namespace: undefined,
+      kind: "set",
+    };
+    const result = resolveToken(token, configWithSet, cache);
+    expect(result.set?.setRef).toBe("frontend");
+  });
 });
 
 describe("resolveTokens", () => {
