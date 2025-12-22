@@ -7,7 +7,7 @@ import type {
 } from "@skillset/types";
 
 function header() {
-  return "## skillset: Resolved Skills\n\nThe user invoked skills explicitly via `w/alias`. These are loaded below. Ignore the literal `w/...` tokens in the prompt.\n\n---";
+  return "## skillset: Resolved Skills\n\nThe user invoked skills explicitly via `$alias`. These are loaded below. Ignore the literal `$...` tokens in the prompt.\n\n---";
 }
 
 function formatSkill(result: ResolveResult, config: ConfigSchema): string {

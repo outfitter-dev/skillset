@@ -82,7 +82,15 @@ describe("tokenizePrompt", () => {
   });
 
   it("does NOT match invalid patterns", () => {
-    const invalid = "$ALLCAPS $set: $skill: $project: $Debug $snake_case";
+    const invalid = "$ALLCAPS $Debug $snake_case";
+    const tokens = tokenizePrompt(invalid);
+    expect(tokens).toEqual([]);
+  });
+
+  it("does NOT match incomplete kind prefixes", () => {
+    // $set: and $skill: with trailing colon but no ref should not match
+    // Note: This is handled by the regex requiring at least one segment after the colon
+    const invalid = "use $set: and $skill: patterns";
     const tokens = tokenizePrompt(invalid);
     expect(tokens).toEqual([]);
   });

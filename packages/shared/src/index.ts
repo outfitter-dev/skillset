@@ -24,3 +24,11 @@ export {
   logUsage,
   type UsageEntry,
 } from "./stats";
+// Migration
+export {
+  detectLegacyPaths,
+  migrateLegacyUserPaths,
+  migrateLegacyProjectPaths,
+  removeLegacyPaths,
+  type LegacyPaths,
+} from "./migration";
