@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "outDir": "./dist/types",
+    "rootDir": "./src",
+    "skipLibCheck": true,
+    "types": ["bun-types"]
+  },
+  "include": ["src/**/*"]
+}

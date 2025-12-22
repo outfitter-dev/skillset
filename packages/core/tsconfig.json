@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": true,
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "outDir": "./dist/types",
+    "rootDir": "./src",
+    "skipLibCheck": true,
+    "types": ["bun-types"]
+  },
+  "references": [
+    { "path": "../types" },
+    { "path": "../shared" }
+  ],
+  "include": ["src/**/*"],
+  "exclude": ["src/**/*.test.ts"]
+}
