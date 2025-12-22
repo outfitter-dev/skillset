@@ -226,11 +226,11 @@ function extractSkillDescription(content: string): string | undefined {
 }
 
 function normalizeAlias(raw: string) {
-  const cleaned = raw.startsWith("w/") ? raw.slice(2) : raw;
+  const cleaned = raw.startsWith("$") ? raw.slice(1) : raw;
   const [ns, alias] = cleaned.includes(":")
     ? cleaned.split(":")
     : [undefined, cleaned];
-  return { raw: `w/${cleaned}`, alias: alias ?? cleaned, namespace: ns };
+  return { raw: `$${cleaned}`, alias: alias ?? cleaned, namespace: ns };
 }
 
 /**
