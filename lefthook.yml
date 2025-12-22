@@ -15,3 +15,6 @@ pre-push:
       run: bun test
     build:
       run: bun run build
+    markdown:
+      glob: "*.md"
+      run: bun run format:md
