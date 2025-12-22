@@ -9,8 +9,8 @@
 
 import {
   mkdirSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -18,6 +18,16 @@ import { join, relative, sep } from "node:path";
 
 type ToolName = "skillset" | "hook" | "claude" | "codex";
 type CoreModule = typeof import("../packages/core/src/index.ts");
+
+interface SkillCacheEntry {
+  skillRef: string;
+  path: string;
+  name: string;
+  description?: string;
+  structure?: string;
+  lineCount: number;
+  cachedAt: string;
+}
 
 interface RunResult {
   tool: ToolName;
@@ -131,6 +141,8 @@ const jsonSchema = {
   },
   required: ["used_skills", "evidence"],
 };
+
+const LINE_SPLIT_REGEX = /\r?\n/;
 
 if (options.cleanAll) {
   rmSync(harnessRoot, { recursive: true, force: true });
@@ -310,8 +322,7 @@ async function runHook(): Promise<RunResult> {
       core.runUserPromptSubmitHook(payload)
     );
     const parsed = safeJson(output);
-    const context =
-      parsed?.hookSpecificOutput?.additionalContext ?? "";
+    const context = parsed?.hookSpecificOutput?.additionalContext ?? "";
     const evidence = skills.map((skill) => ({
       id: skill.id,
       seen: String(context).includes(skill.sentinel),
@@ -348,9 +359,7 @@ async function runClaude(): Promise<RunResult> {
   const usagePath = join(xdgData, "skillset", "logs", "usage.jsonl");
   try {
     const claudeCmd = process.env.SKILLSET_HARNESS_CLAUDE_CMD ?? "claude";
-    const extraArgs = parseExtraArgs(
-      process.env.SKILLSET_HARNESS_CLAUDE_ARGS
-    );
+    const extraArgs = parseExtraArgs(process.env.SKILLSET_HARNESS_CLAUDE_ARGS);
     const schemaArg = JSON.stringify(jsonSchema);
     const args = [
       claudeCmd,
@@ -421,9 +430,7 @@ async function runCodex(): Promise<RunResult> {
   const responsePath = join(artifactsDir, "codex-response.json");
   try {
     const codexCmd = process.env.SKILLSET_HARNESS_CODEX_CMD ?? "codex";
-    const extraArgs = parseExtraArgs(
-      process.env.SKILLSET_HARNESS_CODEX_ARGS
-    );
+    const extraArgs = parseExtraArgs(process.env.SKILLSET_HARNESS_CODEX_ARGS);
     writeFileSync(schemaPath, JSON.stringify(jsonSchema, null, 2));
 
     const args = [
@@ -454,7 +461,7 @@ async function runCodex(): Promise<RunResult> {
     const evidence = skills.map((skill) => ({
       id: skill.id,
       seen:
-        (responseText && responseText.includes(skill.sentinel)) ||
+        responseText?.includes(skill.sentinel) ||
         result.stdout.includes(skill.sentinel),
     }));
 
@@ -518,7 +525,9 @@ function loadSetArtifacts(setKey: string) {
   const config = core.loadConfig();
   const cache = core.loadCaches();
   const setDef = config.sets?.[setKey];
-  if (!setDef) return null;
+  if (!setDef) {
+    return null;
+  }
   const resolved = setDef.skillRefs.map((ref) => {
     const skill = cache.skills[ref];
     if (!skill) {
@@ -549,7 +558,7 @@ function loadSetArtifacts(setKey: string) {
 function indexWorkspaceSkills() {
   const skillsRoot = join(workspaceRoot, ".claude", "skills");
   const files = walkForSkillFiles(skillsRoot);
-  const skills: Record<string, any> = {};
+  const skills: Record<string, SkillCacheEntry> = {};
 
   for (const file of files) {
     const meta = readSkillMetadata(file, skillsRoot);
@@ -592,7 +601,7 @@ function walkForSkillFiles(rootDir: string): string[] {
 
 function readSkillMetadata(path: string, skillsRoot: string) {
   const content = readFileSync(path, "utf8");
-  const lines = content.split(/\r?\n/);
+  const lines = content.split(LINE_SPLIT_REGEX);
   const firstHeading = lines.find((line) => line.startsWith("#"));
   const fallbackName = path.split(sep).slice(-2, -1)[0] ?? "unknown";
   const name = firstHeading
@@ -635,8 +644,13 @@ function parseTools(argv: string[]): ToolName[] | null {
 }
 
 function parseExtraArgs(value: string | undefined): string[] {
-  if (!value) return [];
-  return value.split(" ").map((arg) => arg.trim()).filter(Boolean);
+  if (!value) {
+    return [];
+  }
+  return value
+    .split(" ")
+    .map((arg) => arg.trim())
+    .filter(Boolean);
 }
 
 async function runCommand(
@@ -661,7 +675,10 @@ async function runCommand(
     const encoded = new TextEncoder().encode(stdinText);
     const stdin = proc.stdin as unknown;
     const streamWriter = stdin as {
-      getWriter?: () => { write: (chunk: Uint8Array) => void; close: () => void };
+      getWriter?: () => {
+        write: (chunk: Uint8Array) => void;
+        close: () => void;
+      };
     };
     if (streamWriter?.getWriter) {
       const writer = streamWriter.getWriter();
@@ -690,14 +707,20 @@ async function runCommand(
   const stderr = await new Response(proc.stderr).text();
   const exitCode = await proc.exited;
 
-  if (timeoutId) clearTimeout(timeoutId);
+  if (timeoutId) {
+    clearTimeout(timeoutId);
+  }
 
   return { stdout, stderr, exitCode };
 }
 
-function safeJson(text: string): Record<string, any> | null {
+function safeJson(text: string): Record<string, unknown> | null {
   try {
-    return JSON.parse(text) as Record<string, any>;
+    const parsed = JSON.parse(text);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+    return null;
   } catch {
     return null;
   }
@@ -711,32 +734,40 @@ function safeReadFile(path: string): string | null {
   }
 }
 
-function readUsageLog(
-  path: string
-): Array<{ action: string; skill: string }> {
+function readUsageLog(path: string): Array<{ action: string; skill: string }> {
   const data = safeReadFile(path);
-  if (!data) return [];
-  const lines = data.split(/\r?\n/).filter(Boolean);
+  if (!data) {
+    return [];
+  }
+  const lines = data.split(LINE_SPLIT_REGEX).filter(Boolean);
   const entries: Array<{ action: string; skill: string }> = [];
   for (const line of lines) {
     const parsed = safeJson(line);
-    if (!parsed) continue;
-    if (typeof parsed.action === "string" && typeof parsed.skill === "string") {
-      entries.push({ action: parsed.action, skill: parsed.skill });
+    if (!parsed) {
+      continue;
+    }
+    const action = parsed.action;
+    const skill = parsed.skill;
+    if (typeof action === "string" && typeof skill === "string") {
+      entries.push({ action, skill });
     }
   }
   return entries;
 }
 
 function toErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
+  if (error instanceof Error) {
+    return error.message;
+  }
   return String(error);
 }
 
 function toEnvRecord(env: NodeJS.ProcessEnv): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(env)) {
-    if (value !== undefined) out[key] = value;
+    if (value !== undefined) {
+      out[key] = value;
+    }
   }
   return out;
 }
