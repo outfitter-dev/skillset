@@ -2,13 +2,16 @@ pre-commit:
   parallel: true
   commands:
     format:
-      run: cd packages/wskill && bun run format
+      run: bun run fix
     lint:
-      run: cd packages/wskill && bun run lint
+      run: bun run check
+    markdown:
+      glob: "*.md"
+      run: bun run lint:md
 
 pre-push:
   commands:
     test:
-      run: cd packages/wskill && bun test
+      run: bun test
     build:
-      run: cd packages/wskill && bun run build
+      run: bun run build
