@@ -31,6 +31,7 @@ import { registerAliasCommand } from "./commands/alias";
 import { registerCompletionsCommand } from "./commands/completions";
 import { registerListCommand } from "./commands/list";
 import { registerLoadCommand } from "./commands/load";
+import { registerSetCommand } from "./commands/set";
 import { registerShowCommand } from "./commands/show";
 import { registerSyncCommand } from "./commands/sync";
 import { registerUnaliasCommand } from "./commands/unalias";
@@ -65,6 +66,7 @@ export function buildCli() {
   registerListCommand(program);
   registerShowCommand(program);
   registerLoadCommand(program);
+  registerSetCommand(program);
   registerSyncCommand(program);
   registerAliasCommand(program);
   registerUnaliasCommand(program);
