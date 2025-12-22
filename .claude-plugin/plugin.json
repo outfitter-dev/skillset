@@ -1,0 +1,12 @@
+{
+  "name": "skillset",
+  "version": "0.1.0",
+  "description": "Deterministic skill invocation for Claude Code and other coding agents",
+  "author": {
+    "name": "Matt Galligan",
+    "url": "https://github.com/galligan"
+  },
+  "repository": "https://github.com/outfitter-dev/skillset",
+  "license": "MIT",
+  "keywords": ["skills", "agent skills", "deterministic", "invocation", "claude-code"]
+}
