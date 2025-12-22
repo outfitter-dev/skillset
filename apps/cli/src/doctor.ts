@@ -1,25 +1,32 @@
 import { existsSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import {
+  CACHE_PATHS,
+  CONFIG_PATHS,
+  loadCaches,
+  loadConfig,
+  resolveToken,
+} from "@skillset/core";
+import { getSkillsetPaths } from "@skillset/shared";
 import chalk from "chalk";
-import { CACHE_PATHS, loadCaches, CONFIG_PATHS, loadConfig, resolveToken } from "@skillset/core";
 
 /**
  * Helper to normalize alias for resolution
  */
 function normalizeAlias(raw: string) {
-  const cleaned = raw.startsWith("w/") ? raw.slice(2) : raw;
+  const cleaned = raw.startsWith("$") ? raw.slice(1) : raw;
   const [ns, alias] = cleaned.includes(":")
     ? cleaned.split(":")
     : [undefined, cleaned];
-  return { raw: `w/${cleaned}`, alias: alias ?? cleaned, namespace: ns };
+  return { raw: `$${cleaned}`, alias: alias ?? cleaned, namespace: ns };
 }
 
 /**
  * Run full diagnostic check
  */
 export function runFullDiagnostic(): void {
-  console.log(chalk.bold("wskill doctor"));
+  console.log(chalk.bold("skillset doctor"));
   console.log("─".repeat(40));
 
   // Check config files
@@ -103,6 +110,15 @@ export function runFullDiagnostic(): void {
     }
   }
 
+  // Show resolved XDG paths
+  const skillsetPaths = getSkillsetPaths();
+  console.log();
+  console.log(chalk.bold("XDG Paths:"));
+  console.log(`  Config: ${skillsetPaths.config}`);
+  console.log(`  Data:   ${skillsetPaths.data}`);
+  console.log(`  Cache:  ${skillsetPaths.cache}`);
+  console.log(`  Logs:   ${skillsetPaths.logs}`);
+
   // Check for plugins
   const pluginsDir = join(homedir(), ".claude", "plugins");
   if (existsSync(pluginsDir)) {
@@ -113,11 +129,11 @@ export function runFullDiagnostic(): void {
     console.log(`${chalk.dim("○")} Plugins: directory not found`);
   }
 
-  // Hook detection (check if wskill plugin exists)
-  const wskillPluginDir = join(homedir(), ".claude", "plugins", "wskill");
-  if (existsSync(wskillPluginDir)) {
+  // Hook detection (check if skillset plugin exists)
+  const skillsetPluginDir = join(homedir(), ".claude", "plugins", "skillset");
+  if (existsSync(skillsetPluginDir)) {
     console.log(
-      `${chalk.green("✓")} Hook: Plugin detected (${wskillPluginDir})`
+      `${chalk.green("✓")} Hook: Plugin detected (${skillsetPluginDir})`
     );
   } else {
     console.log(`${chalk.yellow("⚠")} Hook: Plugin not detected`);
@@ -128,7 +144,7 @@ export function runFullDiagnostic(): void {
  * Run config-specific diagnostic
  */
 export function runConfigDiagnostic(): void {
-  console.log(chalk.bold("wskill doctor config"));
+  console.log(chalk.bold("skillset doctor config"));
   console.log("─".repeat(40));
 
   // Show which config files exist
@@ -202,7 +218,7 @@ export function runConfigDiagnostic(): void {
  * Run skill-specific diagnostic
  */
 export async function runSkillDiagnostic(skillAlias: string): Promise<void> {
-  console.log(chalk.bold(`wskill doctor ${skillAlias}`));
+  console.log(chalk.bold(`skillset doctor ${skillAlias}`));
   console.log("─".repeat(40));
 
   const cache = loadCaches();
@@ -249,8 +265,8 @@ export async function runSkillDiagnostic(skillAlias: string): Promise<void> {
     console.log(`  ${chalk.red("✗")} Not found`);
     console.log();
     console.log(chalk.bold("Suggestions:"));
-    console.log(`  • Run ${chalk.cyan("wskill index")} to refresh the cache`);
-    console.log(`  • Check that the skill exists with ${chalk.cyan("wskill")}`);
+    console.log(`  • Run ${chalk.cyan("skillset index")} to refresh the cache`);
+    console.log(`  • Check that the skill exists with ${chalk.cyan("skillset")}`);
     console.log("  • Try a different alias or namespace");
   } else {
     console.log(

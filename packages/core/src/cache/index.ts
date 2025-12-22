@@ -5,9 +5,9 @@ import {
   renameSync,
   writeFileSync,
 } from "node:fs";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import type { CacheSchema, Skill } from "@skillset/types";
+import { getCacheDir } from "@skillset/shared";
 
 const DEFAULT_CACHE: CacheSchema = {
   version: 1,
@@ -16,8 +16,8 @@ const DEFAULT_CACHE: CacheSchema = {
 };
 
 export const CACHE_PATHS = {
-  project: join(process.cwd(), ".claude", "wskill", "cache.json"),
-  user: join(homedir(), ".claude", "wskill", "cache.json"),
+  project: join(process.cwd(), ".skillset", "cache.json"),
+  user: join(getCacheDir(), "cache.json"),
 };
 
 function readCache(path: string): CacheSchema | null {
@@ -27,7 +27,7 @@ function readCache(path: string): CacheSchema | null {
     const parsed = JSON.parse(content) as CacheSchema;
     return parsed;
   } catch (err) {
-    console.warn(`wskill: failed to read cache ${path}:`, err);
+    console.warn(`skillset: failed to read cache ${path}:`, err);
     return null;
   }
 }

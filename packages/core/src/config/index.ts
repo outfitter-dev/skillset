@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import type { ConfigSchema, Mode } from "@skillset/types";
+import { getConfigDir } from "@skillset/shared";
 
 const DEFAULT_CONFIG: ConfigSchema = {
   version: 1,
@@ -13,9 +13,9 @@ const DEFAULT_CONFIG: ConfigSchema = {
 };
 
 export const CONFIG_PATHS = {
-  project: join(process.cwd(), ".claude", "wskill", "config.json"),
-  projectLocal: join(process.cwd(), ".claude", "wskill", "config.local.json"),
-  user: join(homedir(), ".claude", "wskill", "config.json"),
+  project: join(process.cwd(), ".skillset", "config.json"),
+  projectLocal: join(process.cwd(), ".skillset", "config.local.json"),
+  user: join(getConfigDir(), "config.json"),
 };
 
 function readConfig(path: string): Partial<ConfigSchema> | null {
@@ -24,7 +24,7 @@ function readConfig(path: string): Partial<ConfigSchema> | null {
     const content = readFileSync(path, "utf8");
     return JSON.parse(content) as ConfigSchema;
   } catch (err) {
-    console.warn(`wskill: failed to read config ${path}:`, err);
+    console.warn(`skillset: failed to read config ${path}:`, err);
     return null;
   }
 }
