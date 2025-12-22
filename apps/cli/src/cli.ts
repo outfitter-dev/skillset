@@ -1,28 +1,28 @@
 import { spawn } from "node:child_process";
 import { statSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
+import {
+  buildNamespaceTree,
+  CONFIG_PATHS,
+  formatOutcome,
+  getConfigPath,
+  getConfigValue,
+  indexSkills,
+  isNamespaceRef,
+  loadCaches,
+  loadConfig,
+  readConfigByScope,
+  resolveToken,
+  resolveTokens,
+  type Skill,
+  setConfigValue,
+  stripFrontmatter,
+  writeConfig,
+} from "@skillset/core";
 import chalk from "chalk";
 import { Command } from "commander";
 import inquirer from "inquirer";
 import ora from "ora";
-import {
-  loadCaches,
-  CONFIG_PATHS,
-  getConfigPath,
-  getConfigValue,
-  loadConfig,
-  readConfigByScope,
-  setConfigValue,
-  writeConfig,
-  formatOutcome,
-  stripFrontmatter,
-  indexSkills,
-  resolveToken,
-  resolveTokens,
-  buildNamespaceTree,
-  isNamespaceRef,
-  type Skill,
-} from "@skillset/core";
 import {
   runConfigDiagnostic,
   runFullDiagnostic,
@@ -34,7 +34,7 @@ type OutputFormat = "text" | "raw" | "json";
 export function buildCli() {
   const program = new Command();
   program
-    .name("wskill")
+    .name("skillset")
     .description("Deterministic skill invocation via w/<alias>")
     .version("0.1.0")
     .option("-s, --source <sources...>", "Filter by source(s)")
@@ -83,7 +83,7 @@ export function buildCli() {
       const cache = loadCaches();
       const skills = Object.values(cache.skills);
       if (!skills.length) {
-        console.log(chalk.yellow("No skills indexed. Run wskill index first."));
+        console.log(chalk.yellow("No skills indexed. Run skillset index first."));
         return;
       }
       const answers = await inquirer.prompt([
@@ -115,25 +115,25 @@ export function buildCli() {
   // Config command with subcommands
   const configCommand = program
     .command("config")
-    .description("Manage wskill configuration")
+    .description("Manage skillset configuration")
     .option("--edit", "Open config in $EDITOR")
     .option("-S, --scope <scope>", "Config scope: project, local, or user");
 
-  // wskill config (no args) - show merged config
+  // skillset config (no args) - show merged config
   configCommand.action(async (options: { edit?: boolean; scope?: string }) => {
     const scope = validateScope(options.scope);
 
-    // wskill config --edit
+    // skillset config --edit
     if (options.edit) {
       await editConfig(scope);
       return;
     }
 
-    // wskill config (show current merged config)
+    // skillset config (show current merged config)
     showConfig();
   });
 
-  // wskill config get <key>
+  // skillset config get <key>
   configCommand
     .command("get <key>")
     .description("Get a config value using dot notation")
@@ -141,7 +141,7 @@ export function buildCli() {
       getConfigCommand(key);
     });
 
-  // wskill config set <key> <value>
+  // skillset config set <key> <value>
   configCommand
     .command("set <key> <value>")
     .description("Set a config value using dot notation")
@@ -206,9 +206,9 @@ export function buildCli() {
     .action(notImplemented("completions"));
 
   program
-    .command("kit")
-    .description("Manage skill kits")
-    .action(notImplemented("kit"));
+    .command("set")
+    .description("Manage skill sets")
+    .action(notImplemented("set"));
 
   program
     .command("stats")
@@ -232,7 +232,7 @@ export function buildCli() {
 
   program
     .command("doctor")
-    .description("Check wskill installation and configuration")
+    .description("Check skillset installation and configuration")
     .argument(
       "[target]",
       "What to diagnose (config, skill name, or omit for full check)"
@@ -318,7 +318,7 @@ function listAllSkills(
   let skills = Object.values(cache.skills);
 
   if (skills.length === 0) {
-    const message = "No skills indexed. Run 'wskill index' first.";
+    const message = "No skills indexed. Run 'skillset index' first.";
     if (format === "json") {
       console.log(JSON.stringify({ error: message, skills: [] }, null, 2));
     } else {
@@ -939,7 +939,7 @@ async function handleUnaliasCommand(
 }
 
 /**
- * Initialize wskill configuration files
+ * Initialize skillset configuration files
  */
 function initConfig(scopeArg: string, force: boolean): void {
   const { existsSync, mkdirSync, writeFileSync } = require("node:fs");

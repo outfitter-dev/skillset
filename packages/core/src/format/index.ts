@@ -7,7 +7,7 @@ import type {
 } from "@skillset/types";
 
 function header() {
-  return "## wskill: Resolved Skills\n\nThe user invoked skills explicitly via `w/alias`. These are loaded below. Ignore the literal `w/...` tokens in the prompt.\n\n---";
+  return "## skillset: Resolved Skills\n\nThe user invoked skills explicitly via `w/alias`. These are loaded below. Ignore the literal `w/...` tokens in the prompt.\n\n---";
 }
 
 function formatSkill(result: ResolveResult, config: ConfigSchema): string {
@@ -77,7 +77,7 @@ function warningsSection(results: ResolveResult[]): string | null {
     }
   }
   if (!warnings.length) return null;
-  return ["---", "", "## wskill: Warnings", "", ...warnings].join("\n");
+  return ["---", "", "## skillset: Warnings", "", ...warnings].join("\n");
 }
 
 export function formatOutcome(
