@@ -14,6 +14,16 @@ export interface LegacyPaths {
   projectPath?: string;
 }
 
+function copyIfMissing(
+  source: string,
+  destination: string,
+  options: { recursive?: boolean } = {}
+) {
+  if (!existsSync(source)) return;
+  if (existsSync(destination)) return;
+  cpSync(source, destination, { ...options, force: false });
+}
+
 /**
  * Detect legacy .claude/wskill paths
  */
@@ -53,24 +63,15 @@ export function migrateLegacyUserPaths(legacyPath: string): {
 
     // Migrate config.json
     const legacyConfig = join(legacyPath, "config.json");
-    if (existsSync(legacyConfig)) {
-      cpSync(legacyConfig, join(configDir, "config.json"), { force: false });
-    }
+    copyIfMissing(legacyConfig, join(configDir, "config.json"));
 
     // Migrate cache.json
     const legacyCache = join(legacyPath, "cache.json");
-    if (existsSync(legacyCache)) {
-      cpSync(legacyCache, join(cacheDir, "cache.json"), { force: false });
-    }
+    copyIfMissing(legacyCache, join(cacheDir, "cache.json"));
 
     // Migrate logs/ directory
     const legacyLogs = join(legacyPath, "logs");
-    if (existsSync(legacyLogs)) {
-      cpSync(legacyLogs, join(dataDir, "logs"), {
-        recursive: true,
-        force: false,
-      });
-    }
+    copyIfMissing(legacyLogs, join(dataDir, "logs"), { recursive: true });
 
     return { success: true };
   } catch (err) {
@@ -96,32 +97,19 @@ export function migrateLegacyProjectPaths(legacyPath: string): {
 
     // Migrate config.json
     const legacyConfig = join(legacyPath, "config.json");
-    if (existsSync(legacyConfig)) {
-      cpSync(legacyConfig, join(targetPath, "config.json"), { force: false });
-    }
+    copyIfMissing(legacyConfig, join(targetPath, "config.json"));
 
     // Migrate config.local.json
     const legacyLocalConfig = join(legacyPath, "config.local.json");
-    if (existsSync(legacyLocalConfig)) {
-      cpSync(legacyLocalConfig, join(targetPath, "config.local.json"), {
-        force: false,
-      });
-    }
+    copyIfMissing(legacyLocalConfig, join(targetPath, "config.local.json"));
 
     // Migrate cache.json
     const legacyCache = join(legacyPath, "cache.json");
-    if (existsSync(legacyCache)) {
-      cpSync(legacyCache, join(targetPath, "cache.json"), { force: false });
-    }
+    copyIfMissing(legacyCache, join(targetPath, "cache.json"));
 
     // Migrate logs/ directory if present
     const legacyLogs = join(legacyPath, "logs");
-    if (existsSync(legacyLogs)) {
-      cpSync(legacyLogs, join(targetPath, "logs"), {
-        recursive: true,
-        force: false,
-      });
-    }
+    copyIfMissing(legacyLogs, join(targetPath, "logs"), { recursive: true });
 
     return { success: true };
   } catch (err) {

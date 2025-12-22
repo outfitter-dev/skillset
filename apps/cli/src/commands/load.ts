@@ -12,11 +12,12 @@ import {
   type Skill,
   stripFrontmatter,
 } from "@skillset/core";
-import { logUsage } from "@skillset/shared";
+import { getSkillsetEnv, logUsage } from "@skillset/shared";
 import chalk from "chalk";
 import type { Command } from "commander";
 import type { GlobalOptions, OutputFormat } from "../types";
 import { determineFormat } from "../utils/format";
+import { normalizeInvocation } from "../utils/normalize";
 
 interface LoadOptions extends GlobalOptions {
   ref: string;
@@ -67,7 +68,8 @@ async function resolveInput(
   input: string,
   cache: ReturnType<typeof loadCaches>,
   config: ReturnType<typeof loadConfig>,
-  sourceFilters?: string[]
+  sourceFilters?: string[],
+  kindOverride?: "skill" | "set"
 ): Promise<ResolveInputResult> {
   const resolvedPath = isAbsolute(input)
     ? input
@@ -114,7 +116,7 @@ async function resolveInput(
     }
   }
 
-  const token = normalizeAlias(input);
+  const token = normalizeInvocation(input, kindOverride);
   const result = resolveToken(token, config, cache);
 
   if (result.skill) {
@@ -129,6 +131,13 @@ async function resolveInput(
       };
     }
     return { type: "skill", skill: result.skill };
+  }
+
+  if (result.set) {
+    return {
+      type: "error",
+      message: `Alias "${input}" resolved to a set. Use 'skillset set load ${input}' instead.`,
+    };
   }
 
   if (result.reason === "ambiguous" && result.candidates) {
@@ -162,6 +171,20 @@ async function resolveInput(
       type: "error",
       message: `Ambiguous alias "${input}"`,
       candidates,
+    };
+  }
+
+  if (result.reason === "ambiguous-set") {
+    return {
+      type: "error",
+      message: `Ambiguous set "${input}". Use $set: or a more specific name.`,
+    };
+  }
+
+  if (result.reason === "skill-set-collision") {
+    return {
+      type: "error",
+      message: `Alias "${input}" matches both a skill and a set. Use $skill:, $set:, or --kind to disambiguate.`,
     };
   }
 
@@ -219,27 +242,27 @@ function extractSkillDescription(content: string): string | undefined {
   return undefined;
 }
 
-function normalizeAlias(raw: string) {
-  const cleaned = raw.startsWith("w/") ? raw.slice(2) : raw;
-  const [ns, alias] = cleaned.includes(":")
-    ? cleaned.split(":")
-    : [undefined, cleaned];
-  return { raw: `w/${cleaned}`, alias: alias ?? cleaned, namespace: ns };
-}
-
 /**
  * Load and output skill content
  */
 async function loadSkill(
   ref: string,
   sourceFilters: string[] | undefined,
-  format: OutputFormat
+  format: OutputFormat,
+  kindOverride?: "skill" | "set"
 ): Promise<void> {
   const cache = loadCaches();
   const config = loadConfig();
+  const env = getSkillsetEnv();
   const startTime = Date.now();
 
-  const result = await resolveInput(ref, cache, config, sourceFilters);
+  const result = await resolveInput(
+    ref,
+    cache,
+    config,
+    sourceFilters,
+    kindOverride ?? env.kind
+  );
 
   if (result.type === "error") {
     if (format === "json") {
@@ -360,6 +383,6 @@ export function registerLoadCommand(program: Command): void {
     .description("Load and output skill content")
     .action(async (ref: string, options: GlobalOptions) => {
       const format = determineFormat(options);
-      await loadSkill(ref, options.source, format);
+      await loadSkill(ref, options.source, format, options.kind);
     });
 }
