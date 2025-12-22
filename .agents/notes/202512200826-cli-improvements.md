@@ -60,6 +60,7 @@ SKILL.md always appears first in the listing.
 ### Output Modes
 
 **Human (default):**
+
 ```bash
 wskill get debug
 # Systematic Debugging
@@ -69,6 +70,7 @@ wskill get debug
 ```
 
 **Text (pipe-friendly):**
+
 ```bash
 wskill get debug path -t
 # /Users/mg/.claude/skills/systematic-debugging/SKILL.md
@@ -79,6 +81,7 @@ wskill get debug path name -t
 ```
 
 **JSON:**
+
 ```bash
 wskill get debug -j
 # {"ref":"user:systematic-debugging","path":"...","name":"...","desc":"...","content":"...","ns":"user"}
@@ -87,11 +90,13 @@ wskill get debug -j
 ## Files Added/Modified
 
 ### New Files
+
 - `src/tree/index.ts` - Tree building logic for directories and skills
 - `src/tree/markdown.ts` - Markdown heading parser for SKILL.md
 - `src/tree/object-treeify.d.ts` - Type declarations for object-treeify
 
 ### Modified Files
+
 - `src/cli.ts` - Replaced `resolve` with `get` command, async Bun APIs
 - `package.json` - Added `object-treeify` dependency
 

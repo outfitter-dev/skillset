@@ -80,11 +80,13 @@ For multiple skills:
 ## Implementation Notes
 
 Commander.js variadic option syntax:
+
 ```typescript
 .option('-s, --source <sources...>', 'Filter by source(s)')
 ```
 
 Output format resolution:
+
 ```typescript
 const format = options.json ? 'json'
   : options.raw ? 'raw'
@@ -210,6 +212,7 @@ wskill alias debug project:debugging
 ```
 
 When alias already exists:
+
 ```
 Alias 'debug' already exists → user:debugging
 Overwrite with project:debugging? [y/N]
@@ -225,6 +228,7 @@ wskill unalias debug
 ### Browse Command (Future)
 
 Reserved for marketplace/discovery features:
+
 ```bash
 wskill browse                     # Browse featured/marketplace
 wskill browse --featured          # Claude Code featured plugins
@@ -360,6 +364,7 @@ wskill suggest "frontend components" -s project
 ```
 
 Interactive by default in TTY, auto-selects best match when piped:
+
 ```bash
 wskill suggest "debugging" | pbcopy   # Best match content to clipboard
 ```
@@ -455,11 +460,13 @@ wskill kit frontend
 ### Kit + Hook Integration
 
 Kits could be auto-loaded via hook syntax:
+
 ```
 w/kit:frontend
 ```
 
 Or referenced in prompt:
+
 ```
 Using the frontend kit, help me build a new component...
 ```
@@ -551,16 +558,19 @@ This would enable:
 The `UserPromptSubmit` hook needs updates to align with new CLI:
 
 ### Current Hook Behavior
+
 - Parses `w/<alias>` tokens from prompt
 - Resolves and injects skill content
 
 ### Changes Needed
+
 - Use new resolution logic
 - Respect `--source` equivalent for disambiguation
 - Output format should match `--raw` (injection-ready)
 - Consider hook-specific config options
 
 ### Hook Config (Future)
+
 ```json
 {
   "hook": {

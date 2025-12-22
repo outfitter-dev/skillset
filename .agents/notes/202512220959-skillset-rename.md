@@ -18,7 +18,7 @@ Migrated wskill codebase to a new repository under the `skillset` name to align 
   - `bin: { "skillset": "./dist/index.js" }`
 - Published to npm using 1Password automation token (`4bow3fzr7ehnogrrmormumluou`)
 - Command: `npm publish --access public --ignore-scripts --userconfig ~/.npmrc.skillset`
-- Successfully reserved: https://www.npmjs.com/package/skillset
+- Successfully reserved: <https://www.npmjs.com/package/skillset>
 
 ### 2. Repository Migration
 
@@ -94,6 +94,7 @@ Before pushing to GitHub (`github.com/outfitter-dev/skillset`):
 ## NPM Token Setup
 
 For future publishes without 2FA prompts:
+
 ```bash
 TOKEN=$(op item get 4bow3fzr7ehnogrrmormumluou --fields credential --reveal)
 echo "//registry.npmjs.org/:_authToken=${TOKEN}" > ~/.npmrc.skillset
