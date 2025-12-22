@@ -2,11 +2,7 @@
  * skillset unalias command
  */
 
-import {
-  getConfigPath,
-  readConfigByScope,
-  writeConfig,
-} from "@skillset/core";
+import { getConfigPath, readConfigByScope, writeConfig } from "@skillset/core";
 import chalk from "chalk";
 import type { Command } from "commander";
 import inquirer from "inquirer";
@@ -33,12 +29,18 @@ function validateScope(scope: string | undefined): ConfigScope {
 /**
  * Get all aliases across all scopes
  */
-function getAllAliases(): Map<string, { skillRef: string; scope: ConfigScope }> {
+function getAllAliases(): Map<
+  string,
+  { skillRef: string; scope: ConfigScope }
+> {
   const projectConfig = readConfigByScope("project");
   const localConfig = readConfigByScope("local");
   const userConfig = readConfigByScope("user");
 
-  const allAliases = new Map<string, { skillRef: string; scope: ConfigScope }>();
+  const allAliases = new Map<
+    string,
+    { skillRef: string; scope: ConfigScope }
+  >();
 
   // Collect aliases from all scopes (user → local → project)
   if (userConfig.mappings) {

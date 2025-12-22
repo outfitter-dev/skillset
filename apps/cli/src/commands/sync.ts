@@ -17,7 +17,9 @@ interface SyncOptions extends GlobalOptions {
  */
 async function syncSkills(options: SyncOptions): Promise<void> {
   console.log(chalk.yellow("skillset sync: Not yet implemented"));
-  console.log(chalk.dim("This command will sync skills to configured tool directories"));
+  console.log(
+    chalk.dim("This command will sync skills to configured tool directories")
+  );
 
   if (options.dryRun) {
     console.log(chalk.dim("Dry run mode would be enabled"));

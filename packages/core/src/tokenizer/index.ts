@@ -38,8 +38,10 @@ export function tokenizePrompt(prompt: string): InvocationToken[] {
       }
       // Split namespace from alias: "project:deep:nested" -> namespace="project", alias="deep:nested"
       const colonIndex = captured.indexOf(":");
-      const maybeNamespace = colonIndex >= 0 ? captured.slice(0, colonIndex) : undefined;
-      const maybeAlias = colonIndex >= 0 ? captured.slice(colonIndex + 1) : captured;
+      const maybeNamespace =
+        colonIndex >= 0 ? captured.slice(0, colonIndex) : undefined;
+      const maybeAlias =
+        colonIndex >= 0 ? captured.slice(colonIndex + 1) : captured;
 
       const token: InvocationToken = {
         raw: match[0],

@@ -2,10 +2,10 @@
  * Legacy path detection and migration utilities
  */
 
-import { existsSync, mkdirSync, cpSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { getConfigDir, getDataDir, getCacheDir } from "./paths";
+import { getCacheDir, getConfigDir, getDataDir } from "./paths";
 
 export interface LegacyPaths {
   hasLegacyUser: boolean;
@@ -66,7 +66,10 @@ export function migrateLegacyUserPaths(legacyPath: string): {
     // Migrate logs/ directory
     const legacyLogs = join(legacyPath, "logs");
     if (existsSync(legacyLogs)) {
-      cpSync(legacyLogs, join(dataDir, "logs"), { recursive: true, force: false });
+      cpSync(legacyLogs, join(dataDir, "logs"), {
+        recursive: true,
+        force: false,
+      });
     }
 
     return { success: true };

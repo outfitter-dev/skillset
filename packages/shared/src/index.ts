@@ -12,6 +12,14 @@ export {
 } from "./env";
 // Logger (Pino)
 export { createLogger, logger } from "./logger";
+// Migration
+export {
+  detectLegacyPaths,
+  type LegacyPaths,
+  migrateLegacyProjectPaths,
+  migrateLegacyUserPaths,
+  removeLegacyPaths,
+} from "./migration";
 // XDG Paths
 export {
   getCacheDir,
@@ -24,11 +32,3 @@ export {
   logUsage,
   type UsageEntry,
 } from "./stats";
-// Migration
-export {
-  detectLegacyPaths,
-  migrateLegacyUserPaths,
-  migrateLegacyProjectPaths,
-  removeLegacyPaths,
-  type LegacyPaths,
-} from "./migration";

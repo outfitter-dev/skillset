@@ -7,7 +7,6 @@ import {
   loadCaches,
   readConfigByScope,
   writeConfig,
-  type Skill,
 } from "@skillset/core";
 import chalk from "chalk";
 import type { Command } from "commander";
@@ -73,7 +72,9 @@ function listAliases(): void {
   );
 
   for (const [name, { skillRef, scope }] of sortedAliases) {
-    console.log(`  ${chalk.green(name)} → ${skillRef} ${chalk.dim(`(${scope})`)}`);
+    console.log(
+      `  ${chalk.green(name)} → ${skillRef} ${chalk.dim(`(${scope})`)}`
+    );
   }
 }
 
@@ -216,7 +217,9 @@ export function registerAliasCommand(program: Command): void {
       "project"
     )
     .option("-f, --force", "Skip confirmation prompt")
-    .action(async (name?: string, skillRef?: string, options?: AliasOptions) => {
-      await handleAlias(name, skillRef, options);
-    });
+    .action(
+      async (name?: string, skillRef?: string, options?: AliasOptions) => {
+        await handleAlias(name, skillRef, options);
+      }
+    );
 }
