@@ -1,5 +1,5 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { relative, sep } from "node:path";
+import { readFileSync } from "node:fs";
+import { sep } from "node:path";
 import type {
   CacheSchema,
   ConfigSchema,
@@ -9,6 +9,7 @@ import type {
   SkillSet,
 } from "@skillset/types";
 import { normalizeTokenRef } from "../normalize";
+import { buildDirectoryTreeLines } from "../tree";
 
 function header() {
   return "## skillset: Resolved Skills\n\nThe user invoked skills explicitly via `$alias`. These are loaded below. Ignore the literal `$...` tokens in the prompt.\n\n---";
@@ -179,7 +180,10 @@ function skillsDirectorySection(
   }
   const lines: string[] = ["## skillset: Skills Directory"];
   for (const root of roots) {
-    const tree = buildSkillsTree(root, config);
+    const tree = buildDirectoryTreeLines(root, {
+      maxDepth: 6,
+      maxLines: config.maxLines,
+    });
     if (tree.length === 0) {
       continue;
     }
@@ -209,60 +213,4 @@ function findSkillsRoot(path: string): string | null {
     return null;
   }
   return path.slice(0, idx + marker.length - 1);
-}
-
-function buildSkillsTree(root: string, config: ConfigSchema): string[] {
-  const lines: string[] = [];
-  const maxDepth = 6;
-  walkDirectoryTree(root, "", 0, maxDepth, config.maxLines, lines);
-  return lines;
-}
-
-function walkDirectoryTree(
-  dirPath: string,
-  prefix: string,
-  depth: number,
-  maxDepth: number,
-  maxLines: number,
-  lines: string[]
-): void {
-  if (depth >= maxDepth) return;
-  let entries: string[];
-  try {
-    entries = readdirSync(dirPath);
-  } catch {
-    return;
-  }
-  const sorted = entries
-    .filter((entry) => !entry.startsWith("."))
-    .sort((a, b) => {
-      const aPath = `${dirPath}${sep}${a}`;
-      const bPath = `${dirPath}${sep}${b}`;
-      const aIsDir = statSync(aPath).isDirectory();
-      const bIsDir = statSync(bPath).isDirectory();
-      if (aIsDir && !bIsDir) return -1;
-      if (!aIsDir && bIsDir) return 1;
-      return a.localeCompare(b);
-    });
-
-  sorted.forEach((entry, index) => {
-    if (lines.length >= maxLines) return;
-    const entryPath = `${dirPath}${sep}${entry}`;
-    const isDir = statSync(entryPath).isDirectory();
-    const isLast = index === sorted.length - 1;
-    const branch = isLast ? "└──" : "├──";
-    lines.push(`${prefix}${branch} ${entry}${isDir ? "/" : ""}`);
-    if (lines.length >= maxLines) return;
-    if (isDir) {
-      const nextPrefix = `${prefix}${isLast ? "    " : "│   "}`;
-      walkDirectoryTree(
-        entryPath,
-        nextPrefix,
-        depth + 1,
-        maxDepth,
-        maxLines,
-        lines
-      );
-    }
-  });
 }

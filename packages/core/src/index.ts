@@ -52,6 +52,7 @@ export { tokenizePrompt } from "./tokenizer";
 // Tree
 export {
   buildNamespaceTree,
+  buildDirectoryTreeLines,
   buildPathTree,
   buildSkillTree,
   headingsToTreeObject,
