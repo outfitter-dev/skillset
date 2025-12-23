@@ -19,6 +19,13 @@ export function getConfigDir(): string {
 }
 
 /**
+ * Get project root (override with SKILLSET_PROJECT_ROOT)
+ */
+export function getProjectRoot(): string {
+  return process.env.SKILLSET_PROJECT_ROOT ?? process.cwd();
+}
+
+/**
  * Get XDG data directory for skillset
  * On macOS: ~/.skillset
  * On Linux: $XDG_DATA_HOME/skillset or ~/.local/share/skillset

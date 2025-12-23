@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { getConfigDir } from "@skillset/shared";
+import { getConfigDir, getProjectRoot } from "@skillset/shared";
 import type { ConfigSchema, Mode } from "@skillset/types";
 
 const DEFAULT_CONFIG: ConfigSchema = {
@@ -13,8 +13,8 @@ const DEFAULT_CONFIG: ConfigSchema = {
 };
 
 export const CONFIG_PATHS = {
-  project: join(process.cwd(), ".skillset", "config.json"),
-  projectLocal: join(process.cwd(), ".skillset", "config.local.json"),
+  project: join(getProjectRoot(), ".skillset", "config.json"),
+  projectLocal: join(getProjectRoot(), ".skillset", "config.local.json"),
   user: join(getConfigDir(), "config.json"),
 };
 

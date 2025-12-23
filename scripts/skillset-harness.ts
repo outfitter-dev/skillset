@@ -8,6 +8,7 @@
  */
 
 import {
+  chmodSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -17,6 +18,7 @@ import {
 import { join, relative, sep } from "node:path";
 
 type ToolName = "skillset" | "hook" | "claude" | "codex";
+type HookMode = "ci" | "cli";
 type CoreModule = typeof import("../packages/core/src/index.ts");
 
 interface SkillCacheEntry {
@@ -65,10 +67,12 @@ const options = {
   cleanAll: args.includes("--clean-all"),
   strict: args.includes("--strict"),
   tools: parseTools(args) ?? DEFAULT_TOOLS,
+  hookModes: parseHookModes(args) ?? ["ci", "cli"],
 };
 
 const root = process.cwd();
 const harnessRoot = join(root, ".skillset-harness");
+const binRoot = join(harnessRoot, "bin");
 const workspaceRoot = join(harnessRoot, "workspace");
 const reportsRoot = join(harnessRoot, "reports");
 const xdgRoot = join(harnessRoot, "xdg");
@@ -89,6 +93,7 @@ envBase.XDG_DATA_HOME = xdgData;
 envBase.CODEX_HOME = codexHome;
 envBase.NO_COLOR = "1";
 envBase.SKILLSET_OUTPUT = "json";
+envBase.SKILLSET_PROJECT_ROOT = workspaceRoot;
 
 for (const [key, value] of Object.entries(envBase)) {
   process.env[key] = value;
@@ -160,6 +165,7 @@ mkdirSync(reportsRoot, { recursive: true });
 mkdirSync(artifactsDir, { recursive: true });
 
 prepareWorkspace();
+ensureHarnessBin();
 const core: CoreModule = await loadCore();
 
 const results: RunResult[] = [];
@@ -168,7 +174,9 @@ results.push(await runIndex());
 results.push(await runSetLoad());
 
 if (options.tools.includes("hook")) {
-  results.push(await runHook());
+  for (const mode of options.hookModes) {
+    results.push(await runHook(mode));
+  }
 }
 
 if (options.tools.includes("claude")) {
@@ -246,6 +254,59 @@ function prepareWorkspace() {
   );
 }
 
+function ensureHarnessBin() {
+  mkdirSync(binRoot, { recursive: true });
+  const shimPath = join(binRoot, "skillset");
+  const cliEntry = join(root, "apps", "cli", "src", "index.ts");
+  const workspace = workspaceRoot;
+  const script = [
+    "#!/usr/bin/env sh",
+    `export SKILLSET_PROJECT_ROOT="${workspace}"`,
+    `cd "${root}"`,
+    `exec bun run "${cliEntry}" -- "$@"`,
+    "",
+  ].join("\n");
+  writeFileSync(shimPath, script);
+  chmodSync(shimPath, 0o755);
+}
+
+async function runHookViaPlugin(
+  payload: string,
+  mode: HookMode
+): Promise<string> {
+  const pluginScript = join(
+    root,
+    "plugins",
+    "skillset",
+    "scripts",
+    "skillset-hook.ts"
+  );
+  const basePath = envBase.PATH ?? "";
+  const env = {
+    ...envBase,
+    SKILLSET_HOOK_MODE: mode === "cli" ? "cli" : "module",
+    PATH: mode === "cli" ? `${binRoot}:${basePath}` : basePath,
+  };
+
+  const result = await runCommand(
+    ["bun", pluginScript],
+    {
+      cwd: workspaceRoot,
+      env,
+      stdinText: payload,
+      timeoutMs: 30_000,
+    }
+  );
+
+  if (result.exitCode !== 0) {
+    const stderr = result.stderr?.trim();
+    const errorDetails = stderr ? `: ${stderr}` : "";
+    throw new Error(`hook-${mode} failed with ${result.exitCode}${errorDetails}`);
+  }
+
+  return result.stdout;
+}
+
 function writeSkill(rootDir: string, id: string, content: string) {
   const dir = join(rootDir, id);
   mkdirSync(dir, { recursive: true });
@@ -314,20 +375,18 @@ async function runSetLoad(): Promise<RunResult> {
   }
 }
 
-async function runHook(): Promise<RunResult> {
+async function runHook(mode: HookMode): Promise<RunResult> {
   const start = Date.now();
   try {
     const payload = JSON.stringify({ prompt: hookPrompt });
-    const output = await withWorkspaceCwd(() =>
-      core.runUserPromptSubmitHook(payload)
-    );
+    const output = await runHookViaPlugin(payload, mode);
     const parsed = safeJson(output);
     const context = parsed?.hookSpecificOutput?.additionalContext ?? "";
     const evidence = skills.map((skill) => ({
       id: skill.id,
       seen: String(context).includes(skill.sentinel),
     }));
-    const outputPath = join(artifactsDir, "skillset-hook.json");
+    const outputPath = join(artifactsDir, `skillset-hook-${mode}.json`);
     writeFileSync(outputPath, `${output.trim()}\n`);
     return {
       tool: "hook",
@@ -335,7 +394,8 @@ async function runHook(): Promise<RunResult> {
       duration_ms: Date.now() - start,
       exitCode: 0,
       details: {
-        step: "hook",
+        step: `hook-${mode}`,
+        mode,
         evidence,
         outputPath,
       },
@@ -347,7 +407,7 @@ async function runHook(): Promise<RunResult> {
       duration_ms: Date.now() - start,
       exitCode: null,
       error: toErrorMessage(error),
-      details: { step: "hook" },
+      details: { step: `hook-${mode}`, mode },
     };
   }
 }
@@ -638,6 +698,28 @@ function parseTools(argv: string[]): ToolName[] | null {
         .split(",")
         .map((tool) => tool.trim())
         .filter(Boolean) as ToolName[];
+    }
+  }
+  return null;
+}
+
+function parseHookModes(argv: string[]): HookMode[] | null {
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === "--hook-mode" && argv[i + 1]) {
+      const modes = argv[i + 1]
+        .split(",")
+        .map((mode) => mode.trim().toLowerCase())
+        .filter((mode) => mode === "ci" || mode === "cli") as HookMode[];
+      return modes.length > 0 ? modes : null;
+    }
+    if (arg.startsWith("--hook-mode=")) {
+      const modes = arg
+        .slice("--hook-mode=".length)
+        .split(",")
+        .map((mode) => mode.trim().toLowerCase())
+        .filter((mode) => mode === "ci" || mode === "cli") as HookMode[];
+      return modes.length > 0 ? modes : null;
     }
   }
   return null;

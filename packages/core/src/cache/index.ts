@@ -6,7 +6,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
-import { getCacheDir } from "@skillset/shared";
+import { getCacheDir, getProjectRoot } from "@skillset/shared";
 import type { CacheSchema, Skill } from "@skillset/types";
 
 const DEFAULT_CACHE: CacheSchema = {
@@ -16,7 +16,7 @@ const DEFAULT_CACHE: CacheSchema = {
 };
 
 export const CACHE_PATHS = {
-  project: join(process.cwd(), ".skillset", "cache.json"),
+  project: join(getProjectRoot(), ".skillset", "cache.json"),
   user: join(getCacheDir(), "cache.json"),
 };
 
