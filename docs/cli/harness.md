@@ -30,6 +30,8 @@ Reports are written to:
 
 Each step includes status, duration, and sentinel evidence. When a step fails, inspect its stdout/stderr paths.
 
+Note: `.skillset-harness/` is fully generated at runtime (workspace + reports) and is gitignored. You do not need to check it in for the harness to work.
+
 ## Claude plugin hook
 
 The Claude plugin ships in `plugins/skillset/.claude-plugin` and references `hooks/hooks.json`.
