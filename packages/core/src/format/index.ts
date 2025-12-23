@@ -1,19 +1,26 @@
 import { readFileSync } from "node:fs";
 import type {
+  CacheSchema,
   ConfigSchema,
   InjectOutcome,
   ResolveResult,
   Skill,
+  SkillSet,
 } from "@skillset/types";
+import { normalizeTokenRef } from "../normalize";
 
 function header() {
   return "## skillset: Resolved Skills\n\nThe user invoked skills explicitly via `$alias`. These are loaded below. Ignore the literal `$...` tokens in the prompt.\n\n---";
 }
 
-function formatSkill(result: ResolveResult, config: ConfigSchema): string {
-  const skill = result.skill as Skill;
+function formatSkillBlock(
+  skill: Skill,
+  config: ConfigSchema,
+  heading: string,
+  label: string
+): string {
   const lines: string[] = [];
-  lines.push(`### ${result.invocation.raw}`);
+  lines.push(heading);
   lines.push("");
   lines.push(`- **Path:** ${skill.path}`);
   lines.push(`- **Name:** ${skill.name}`);
@@ -25,7 +32,7 @@ function formatSkill(result: ResolveResult, config: ConfigSchema): string {
     lines.push("```");
   }
   const content = loadContent(skill, config.maxLines);
-  lines.push(`\n\`\`\`markdown skill:${result.invocation.alias}`);
+  lines.push(`\n\`\`\`markdown skill:${label}`);
   lines.push(content.block);
   lines.push("```\n");
   if (content.truncated) {
@@ -35,6 +42,57 @@ function formatSkill(result: ResolveResult, config: ConfigSchema): string {
     );
     lines.push(
       `Continue: sed -n '${start},${skill.lineCount ?? ""}p' ${skill.path}`
+    );
+  }
+  return lines.join("\n");
+}
+
+function formatSkill(result: ResolveResult, config: ConfigSchema): string {
+  const skill = result.skill as Skill;
+  return formatSkillBlock(
+    skill,
+    config,
+    `### ${result.invocation.raw}`,
+    result.invocation.alias
+  );
+}
+
+function formatSet(
+  result: ResolveResult,
+  config: ConfigSchema,
+  cache: CacheSchema
+): string {
+  const set = result.set as SkillSet;
+  const lines: string[] = [];
+  lines.push(`### ${result.invocation.raw}`);
+  lines.push("");
+  lines.push(`- **Set:** ${set.setRef}`);
+  lines.push(`- **Name:** ${set.name}`);
+  if (set.description) lines.push(`- **Description:** ${set.description}`);
+  if (set.skillRefs.length) {
+    lines.push("- **Skills:**");
+    for (const ref of set.skillRefs) {
+      const normalized = normalizeTokenRef(ref);
+      const found = cache.skills[ref] ?? cache.skills[normalized];
+      lines.push(`  - ${ref}${found ? "" : " (missing)"}`);
+    }
+  }
+
+  const resolved: Skill[] = [];
+  for (const ref of set.skillRefs) {
+    const normalized = normalizeTokenRef(ref);
+    const skill = cache.skills[ref] ?? cache.skills[normalized];
+    if (skill) resolved.push(skill);
+  }
+  for (const skill of resolved) {
+    lines.push(
+      "",
+      formatSkillBlock(
+        skill,
+        config,
+        `#### ${skill.skillRef}`,
+        skill.skillRef
+      )
     );
   }
   return lines.join("\n");
@@ -82,12 +140,18 @@ function warningsSection(results: ResolveResult[]): string | null {
 
 export function formatOutcome(
   results: ResolveResult[],
-  config: ConfigSchema
+  config: ConfigSchema,
+  cache?: CacheSchema
 ): InjectOutcome {
   const blocks: string[] = [header()];
   for (const r of results) {
-    if (!r.skill) continue;
-    blocks.push("", formatSkill(r, config));
+    if (r.skill) {
+      blocks.push("", formatSkill(r, config));
+      continue;
+    }
+    if (r.set && cache) {
+      blocks.push("", formatSet(r, config, cache));
+    }
   }
   const warn = warningsSection(results);
   if (warn) blocks.push("", warn);

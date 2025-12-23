@@ -54,7 +54,7 @@ Use this checklist in order when a run fails or evidence is missing:
 2. If `stdoutPath`/`stderrPath` exist, read them for the error message.
 3. Confirm the workspace and XDG paths in the report (they must be under `.skillset-smoke/`).
 4. If a tool step is `skipped`, verify the CLI is installed and auth is valid.
-5. If `hook` evidence is missing for a set, rely on the `set-load` evidence instead (set tokens are not injected into hook output).
+5. If `hook` evidence is missing for a set, confirm the set resolves in `set-load` and re-run `--tools hook` to isolate hook output issues.
 6. If sentinels are missing for skills, confirm the smoke test created fixtures in `.skillset-smoke/workspace/.claude/skills`.
 7. Re-run with `--tools hook` to isolate local resolution issues before retrying full runs.
 
