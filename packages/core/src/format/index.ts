@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { relative, sep } from "node:path";
 import type {
   CacheSchema,
   ConfigSchema,
@@ -144,6 +145,12 @@ export function formatOutcome(
   cache?: CacheSchema
 ): InjectOutcome {
   const blocks: string[] = [header()];
+  if (cache) {
+    const directorySection = skillsDirectorySection(cache, config);
+    if (directorySection) {
+      blocks.push("", directorySection, "", "---");
+    }
+  }
   for (const r of results) {
     if (r.skill) {
       blocks.push("", formatSkill(r, config));
@@ -160,4 +167,90 @@ export function formatOutcome(
     warnings: warn ? [warn] : [],
     context: blocks.join("\n"),
   };
+}
+
+function skillsDirectorySection(
+  cache: CacheSchema,
+  config: ConfigSchema
+): string | null {
+  const roots = collectSkillsRoots(cache);
+  if (roots.length === 0) {
+    return null;
+  }
+  const lines: string[] = ["## skillset: Skills Directory"];
+  for (const root of roots) {
+    const tree = buildSkillsTree(root, cache);
+    if (tree.length === 0) {
+      continue;
+    }
+    lines.push("", `- **Root:** ${root}`, "", "```text");
+    const capped =
+      tree.length > config.maxLines
+        ? [...tree.slice(0, config.maxLines), "..."]
+        : tree;
+    lines.push(...capped, "```");
+  }
+  return lines.length > 1 ? lines.join("\n") : null;
+}
+
+function collectSkillsRoots(cache: CacheSchema): string[] {
+  const roots = new Set<string>();
+  for (const skill of Object.values(cache.skills)) {
+    const root = findSkillsRoot(skill.path);
+    if (root) roots.add(root);
+  }
+  return Array.from(roots).sort();
+}
+
+function findSkillsRoot(path: string): string | null {
+  const marker = `${sep}.claude${sep}skills${sep}`;
+  const idx = path.indexOf(marker);
+  if (idx === -1) {
+    return null;
+  }
+  return path.slice(0, idx + marker.length - 1);
+}
+
+function buildSkillsTree(root: string, cache: CacheSchema): string[] {
+  const node: TreeNode = { children: new Map() };
+  for (const skill of Object.values(cache.skills)) {
+    const skillRoot = findSkillsRoot(skill.path);
+    if (skillRoot !== root) continue;
+    const rel = relative(root, skill.path);
+    const parts = rel.split(sep).filter(Boolean);
+    if (parts.length === 0) continue;
+    addTreePath(node, parts);
+  }
+  const lines: string[] = [];
+  renderTree(node, "", lines);
+  return lines;
+}
+
+interface TreeNode {
+  children: Map<string, TreeNode>;
+}
+
+function addTreePath(node: TreeNode, parts: string[]) {
+  let current = node;
+  for (const part of parts) {
+    let child = current.children.get(part);
+    if (!child) {
+      child = { children: new Map() };
+      current.children.set(part, child);
+    }
+    current = child;
+  }
+}
+
+function renderTree(node: TreeNode, prefix: string, lines: string[]) {
+  const entries = Array.from(node.children.entries()).sort(([a], [b]) =>
+    a.localeCompare(b)
+  );
+  entries.forEach(([name, child], index) => {
+    const isLast = index === entries.length - 1;
+    const branch = isLast ? "└──" : "├──";
+    lines.push(`${prefix}${branch} ${name}`);
+    const nextPrefix = `${prefix}${isLast ? "    " : "│   "}`;
+    renderTree(child, nextPrefix, lines);
+  });
 }
