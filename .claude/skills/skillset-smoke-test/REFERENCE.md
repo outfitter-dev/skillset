@@ -38,6 +38,7 @@ Key fields:
 - `index` should show `skillCount: 2` for the two fixture skills.
 - `set-load` should show both sentinels as `seen: true`.
 - `hook` should show both `alpha-skill` and `beta-skill` sentinels when a set is used.
+- Hook output includes a tree of the discovered `.claude/skills` roots.
 
 ## Hook modes
 

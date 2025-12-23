@@ -23,6 +23,7 @@ The smoke test exercises two hook paths to mirror real deployments:
 Select modes with `--hook-mode ci|cli` (comma-separated for both).
 
 Set tokens (`$set:...` or `$StarterSet`) expand into their member skills in hook output.
+Hook output also includes a tree of the discovered `.claude/skills` roots for context.
 
 ## Reports
 
