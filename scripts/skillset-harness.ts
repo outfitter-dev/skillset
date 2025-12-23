@@ -63,7 +63,7 @@ const DEFAULT_TOOLS: ToolName[] = ["hook", "claude", "codex"];
 
 const args = process.argv.slice(2);
 const options = {
-  clean: args.includes("--clean"),
+  clean: parseClean(args),
   cleanAll: args.includes("--clean-all"),
   strict: args.includes("--strict"),
   tools: parseTools(args) ?? DEFAULT_TOOLS,
@@ -723,6 +723,16 @@ function parseHookModes(argv: string[]): HookMode[] | null {
     }
   }
   return null;
+}
+
+function parseClean(argv: string[]): boolean {
+  if (argv.includes("--no-clean")) {
+    return false;
+  }
+  if (argv.includes("--clean")) {
+    return true;
+  }
+  return true;
 }
 
 function parseExtraArgs(value: string | undefined): string[] {

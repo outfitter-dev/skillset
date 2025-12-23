@@ -52,13 +52,15 @@ Control modes with:
 - `--hook-mode cli` (only CLI path)
 - `--hook-mode ci,cli` (default)
 
+The harness cleans the sandbox by default. Use `--no-clean` to keep the workspace and XDG state.
+
 ## Common failures and fixes
 
 - `index` fails with module/import errors:
   - Ensure you are in repo root and using `bun run test:harness`.
 - `set-load` shows sentinels missing:
   - Confirm `.skillset-harness/workspace/.claude/skills` exists and has SKILL.md files.
-  - Re-run with `--clean`.
+  - Re-run (default clean) or force `--no-clean` if you need to inspect state.
 - `hook` shows no evidence:
   - Confirm `set-load` evidence is correct first.
   - Then inspect `.skillset-harness/reports/<runId>/skillset-hook.json`.

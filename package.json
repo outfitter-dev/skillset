@@ -18,6 +18,8 @@
     "test:core": "cd packages/core && bun test",
     "test:cli": "cd apps/cli && bun test",
     "test:harness": "bun run scripts/skillset-harness.ts",
+    "test:harness:ci": "bun run test:harness -- --tools hook --hook-mode ci",
+    "test:harness:cli": "bun run test:harness -- --tools hook --hook-mode cli",
     "check": "ultracite check",
     "fix": "ultracite fix",
     "format": "bun run fix",

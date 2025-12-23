@@ -13,6 +13,7 @@ export const SKILLSET_ENV = {
   OUTPUT: "SKILLSET_OUTPUT",
   CONFIG: "SKILLSET_CONFIG",
   KIND: "SKILLSET_KIND",
+  PROJECT_ROOT: "SKILLSET_PROJECT_ROOT",
 } as const;
 
 /**
@@ -39,6 +40,7 @@ export interface SkillsetEnvConfig {
   output?: "json" | "raw" | "text";
   config?: string;
   kind?: "skill" | "set";
+  projectRoot?: string;
   noColor: boolean;
 }
 
@@ -57,6 +59,7 @@ export function getSkillsetEnv(): SkillsetEnvConfig {
         : undefined,
     config: process.env.SKILLSET_CONFIG,
     kind: kind === "skill" || kind === "set" ? kind : undefined,
+    projectRoot: process.env.SKILLSET_PROJECT_ROOT,
     noColor: process.env.NO_COLOR === "1",
   };
 }

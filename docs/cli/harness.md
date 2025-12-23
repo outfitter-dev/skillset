@@ -5,11 +5,13 @@ The headless harness validates aliases, sets, and hook behavior without requirin
 ## Run
 
 - Hook only (CI mode):
-  - `bun run test:harness -- --tools hook --hook-mode ci --clean`
+  - `bun run test:harness:ci`
 - Hook CLI mode (plugin + CLI path):
-  - `bun run test:harness -- --tools hook --hook-mode cli --clean`
+  - `bun run test:harness:cli`
 - Full run (hook + Claude + Codex):
-  - `bun run test:harness -- --clean`
+  - `bun run test:harness`
+
+The harness cleans the sandbox by default. Use `--no-clean` to keep previous state.
 
 ## Hook modes
 

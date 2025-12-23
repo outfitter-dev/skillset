@@ -17,15 +17,17 @@ Keep this skill self-contained. If you need more detail, read `REFERENCE.md`.
 
 - Prefer the repo script so results are structured and gitignored.
 - Quick smoke (hook-only):
-  - `bun run test:harness -- --tools hook --hook-mode ci --clean`
+  - `bun run test:harness:ci`
+- Hook-only (CLI mode):
+  - `bun run test:harness:cli`
 - Full run (hook + Claude + Codex):
-  - `bun run test:harness -- --clean`
+  - `bun run test:harness`
 
 ## Options
 
 - `--tools hook,claude,codex` to limit which tools run.
 - `--hook-mode ci|cli` to choose the hook path (repeatable or comma-separated).
-- `--clean` to reset the sandbox workspace and XDG dirs.
+- `--no-clean` to preserve the sandbox workspace and XDG dirs.
 - `--clean-all` to wipe all harness artifacts (workspace + reports).
 - `--strict` to exit non-zero if any step fails.
 
@@ -42,6 +44,7 @@ Keep this skill self-contained. If you need more detail, read `REFERENCE.md`.
 - Check `steps[*].status` and `steps[*].details.evidence` for sentinel hits.
 - When a step fails, inspect its `stdoutPath`/`stderrPath` for errors.
   - Hook steps are labeled `hook-ci` and `hook-cli`.
+  - The harness cleans by default; re-run with `--no-clean` to keep state for debugging.
 
 ## Triage checklist
 
