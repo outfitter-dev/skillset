@@ -130,8 +130,8 @@ const sets: Record<
 };
 
 const hookPrompt =
-  "Use $AlphaSkill and $set:StarterSet. Respond with JSON that lists any " +
-  "SENTINEL_* values you see in the provided skill context.";
+  "Use $AlphaSkill, $set:StarterSet, and $StarterSet. Respond with JSON that " +
+  "lists any SENTINEL_* values you see in the provided skill context.";
 
 const codexPrompt =
   "Use $alpha-skill and $beta-skill. Respond with JSON including an array " +
@@ -169,6 +169,10 @@ ensureSmokeBin();
 const core: CoreModule = await loadCore();
 
 const results: RunResult[] = [];
+
+if (options.tools.includes("hook") && options.hookModes.includes("cli")) {
+  results.push(await runCoreBuild());
+}
 
 results.push(await runIndex());
 results.push(await runSetLoad());
@@ -408,6 +412,40 @@ async function runHook(mode: HookMode): Promise<RunResult> {
       exitCode: null,
       error: toErrorMessage(error),
       details: { step: `hook-${mode}`, mode },
+    };
+  }
+}
+
+async function runCoreBuild(): Promise<RunResult> {
+  const start = Date.now();
+  try {
+    const result = await runCommand(["bun", "run", "build:core"], {
+      cwd: root,
+      env: envBase,
+      timeoutMs: 120_000,
+    });
+    if (result.exitCode !== 0) {
+      const stderr = result.stderr?.trim();
+      const errorDetails = stderr ? `: ${stderr}` : "";
+      throw new Error(`build:core failed with ${result.exitCode}${errorDetails}`);
+    }
+    return {
+      tool: "skillset",
+      status: "ok",
+      duration_ms: Date.now() - start,
+      exitCode: 0,
+      details: {
+        step: "build-core",
+      },
+    };
+  } catch (error) {
+    return {
+      tool: "skillset",
+      status: "failed",
+      duration_ms: Date.now() - start,
+      exitCode: null,
+      error: toErrorMessage(error),
+      details: { step: "build-core" },
     };
   }
 }

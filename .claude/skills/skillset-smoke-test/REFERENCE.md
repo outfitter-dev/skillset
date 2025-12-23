@@ -8,12 +8,13 @@ This reference is for deeper context beyond the quick steps in SKILL.md.
 - Writes fixture skills into `.claude/skills` and `.codex/skills` inside the sandbox.
 - Writes `.skillset/config.json` and `.skillset/cache.json` for deterministic resolution.
 - Runs these steps in order:
-  1. `index` (builds cache from sandbox skills)
-  2. `set-load` (loads the configured set and checks sentinel evidence)
-  3. `hook-ci` (runs the plugin hook via module path)
-  4. `hook-cli` (runs the plugin hook via CLI shim)
-  5. `claude` (optional, headless CLI)
-  6. `codex` (optional, headless CLI)
+  1. `build-core` (when hook CLI mode is enabled)
+  2. `index` (builds cache from sandbox skills)
+  3. `set-load` (loads the configured set and checks sentinel evidence)
+  4. `hook-ci` (runs the plugin hook via module path)
+  5. `hook-cli` (runs the plugin hook via CLI shim)
+  6. `claude` (optional, headless CLI)
+  7. `codex` (optional, headless CLI)
 
 ## Report format
 
@@ -36,8 +37,7 @@ Key fields:
 
 - `index` should show `skillCount: 2` for the two fixture skills.
 - `set-load` should show both sentinels as `seen: true`.
-- `hook` should show `alpha-skill` sentinel as `seen: true` and may not show `beta-skill`.
-  - This is expected: set tokens are not expanded into injected skill content.
+- `hook` should show both `alpha-skill` and `beta-skill` sentinels when a set is used.
 
 ## Hook modes
 

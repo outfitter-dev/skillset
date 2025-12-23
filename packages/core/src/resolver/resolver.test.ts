@@ -201,6 +201,26 @@ describe("resolveToken", () => {
     const result = resolveToken(token, configWithSet, cache);
     expect(result.set?.setRef).toBe("frontend");
   });
+
+  it("resolves sets without explicit prefix", () => {
+    const configWithSet: ConfigSchema = {
+      ...config,
+      sets: {
+        "starter-set": {
+          name: "Starter Set",
+          description: "Starter bundle",
+          skillRefs: ["project:frontend-design"],
+        },
+      },
+    };
+    const token: InvocationToken = {
+      raw: "$StarterSet",
+      alias: "StarterSet",
+      namespace: undefined,
+    };
+    const result = resolveToken(token, configWithSet, cache);
+    expect(result.set?.setRef).toBe("starter-set");
+  });
 });
 
 describe("resolveTokens", () => {
