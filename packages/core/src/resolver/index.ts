@@ -22,17 +22,28 @@ function pickSetByRef(
 }
 
 function matchSkillAlias(cache: CacheSchema, alias: string): Skill[] {
-  const normalized = alias.toLowerCase();
+  const normalized = normalizeTokenSegment(alias);
+  const normalizedLoose = normalized.replace(/-/g, "");
   return Object.values(cache.skills).filter((skill) => {
-    const parts = skill.skillRef.toLowerCase();
+    const parts = normalizeTokenRef(skill.skillRef);
+    const partsLoose = parts.replace(/-/g, "");
+    const nameNormalized = normalizeTokenSegment(skill.name);
+    const nameLoose = nameNormalized.replace(/-/g, "");
     const nameMatch =
-      skill.name.toLowerCase() === normalized ||
-      skill.name.toLowerCase().includes(normalized);
+      nameNormalized === normalized ||
+      nameNormalized.includes(normalized) ||
+      nameLoose === normalizedLoose ||
+      nameLoose.includes(normalizedLoose);
     const refMatch =
       parts.endsWith(`/${normalized}`) ||
       parts.endsWith(`:${normalized}`) ||
-      parts === normalized;
-    const pathMatch = skill.path.toLowerCase().includes(normalized);
+      parts === normalized ||
+      partsLoose.endsWith(`/${normalizedLoose}`) ||
+      partsLoose.endsWith(`:${normalizedLoose}`) ||
+      partsLoose === normalizedLoose;
+    const pathLower = skill.path.toLowerCase();
+    const pathMatch =
+      pathLower.includes(normalized) || pathLower.includes(normalizedLoose);
     return nameMatch || refMatch || pathMatch;
   });
 }
@@ -43,16 +54,25 @@ function matchSetAlias(
 ): SkillSet[] {
   const values = Object.values(sets);
   if (values.length === 0) return [];
-  const normalized = alias.toLowerCase();
+  const normalized = normalizeTokenSegment(alias);
+  const normalizedLoose = normalized.replace(/-/g, "");
   return values.filter((set) => {
-    const parts = set.setRef.toLowerCase();
+    const parts = normalizeTokenRef(set.setRef);
+    const partsLoose = parts.replace(/-/g, "");
+    const nameNormalized = normalizeTokenSegment(set.name);
+    const nameLoose = nameNormalized.replace(/-/g, "");
     const nameMatch =
-      normalizeTokenSegment(set.name) === normalized ||
-      set.name.toLowerCase() === normalized;
+      nameNormalized === normalized ||
+      nameLoose === normalizedLoose ||
+      nameNormalized.includes(normalized) ||
+      nameLoose.includes(normalizedLoose);
     const refMatch =
       parts.endsWith(`/${normalized}`) ||
       parts.endsWith(`:${normalized}`) ||
-      parts === normalized;
+      parts === normalized ||
+      partsLoose.endsWith(`/${normalizedLoose}`) ||
+      partsLoose.endsWith(`:${normalizedLoose}`) ||
+      partsLoose === normalizedLoose;
     return nameMatch || refMatch;
   });
 }
