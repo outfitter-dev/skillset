@@ -39,10 +39,14 @@ export function normalizeInvocation(
       ? `$${trimmed.slice(2)}`
       : `$${kind ? `${kind}:` : ""}${cleaned}`;
 
-  return {
+  const resolvedKind = kind ?? kindOverride;
+  const invocation: NormalizedInvocation = {
     raw,
     alias,
     namespace,
-    kind: kind ?? kindOverride,
   };
+  if (resolvedKind) {
+    invocation.kind = resolvedKind;
+  }
+  return invocation;
 }
