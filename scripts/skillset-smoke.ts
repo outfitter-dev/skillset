@@ -238,6 +238,16 @@ function prepareWorkspace() {
     writeSkill(codexSkills, skill.id, content);
   }
 
+  const examplesDir = join(claudeSkills, "examples");
+  const examplesNested = join(examplesDir, "nested");
+  mkdirSync(examplesNested, { recursive: true });
+  writeFileSync(join(examplesDir, "README.md"), "# Examples\n");
+  writeFileSync(join(examplesDir, "sample.txt"), "Example file\n");
+  writeFileSync(
+    join(examplesNested, "example.json"),
+    JSON.stringify({ ok: true }, null, 2) + "\n"
+  );
+
   const configDir = join(workspaceRoot, ".skillset");
   mkdirSync(configDir, { recursive: true });
   const mappingConfig = Object.fromEntries(

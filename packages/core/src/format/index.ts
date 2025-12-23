@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { relative, sep } from "node:path";
 import type {
   CacheSchema,
@@ -179,7 +179,7 @@ function skillsDirectorySection(
   }
   const lines: string[] = ["## skillset: Skills Directory"];
   for (const root of roots) {
-    const tree = buildSkillsTree(root, cache);
+    const tree = buildSkillsTree(root, config);
     if (tree.length === 0) {
       continue;
     }
@@ -211,46 +211,58 @@ function findSkillsRoot(path: string): string | null {
   return path.slice(0, idx + marker.length - 1);
 }
 
-function buildSkillsTree(root: string, cache: CacheSchema): string[] {
-  const node: TreeNode = { children: new Map() };
-  for (const skill of Object.values(cache.skills)) {
-    const skillRoot = findSkillsRoot(skill.path);
-    if (skillRoot !== root) continue;
-    const rel = relative(root, skill.path);
-    const parts = rel.split(sep).filter(Boolean);
-    if (parts.length === 0) continue;
-    addTreePath(node, parts);
-  }
+function buildSkillsTree(root: string, config: ConfigSchema): string[] {
   const lines: string[] = [];
-  renderTree(node, "", lines);
+  const maxDepth = 6;
+  walkDirectoryTree(root, "", 0, maxDepth, config.maxLines, lines);
   return lines;
 }
 
-interface TreeNode {
-  children: Map<string, TreeNode>;
-}
-
-function addTreePath(node: TreeNode, parts: string[]) {
-  let current = node;
-  for (const part of parts) {
-    let child = current.children.get(part);
-    if (!child) {
-      child = { children: new Map() };
-      current.children.set(part, child);
-    }
-    current = child;
+function walkDirectoryTree(
+  dirPath: string,
+  prefix: string,
+  depth: number,
+  maxDepth: number,
+  maxLines: number,
+  lines: string[]
+): void {
+  if (depth >= maxDepth) return;
+  let entries: string[];
+  try {
+    entries = readdirSync(dirPath);
+  } catch {
+    return;
   }
-}
+  const sorted = entries
+    .filter((entry) => !entry.startsWith("."))
+    .sort((a, b) => {
+      const aPath = `${dirPath}${sep}${a}`;
+      const bPath = `${dirPath}${sep}${b}`;
+      const aIsDir = statSync(aPath).isDirectory();
+      const bIsDir = statSync(bPath).isDirectory();
+      if (aIsDir && !bIsDir) return -1;
+      if (!aIsDir && bIsDir) return 1;
+      return a.localeCompare(b);
+    });
 
-function renderTree(node: TreeNode, prefix: string, lines: string[]) {
-  const entries = Array.from(node.children.entries()).sort(([a], [b]) =>
-    a.localeCompare(b)
-  );
-  entries.forEach(([name, child], index) => {
-    const isLast = index === entries.length - 1;
+  sorted.forEach((entry, index) => {
+    if (lines.length >= maxLines) return;
+    const entryPath = `${dirPath}${sep}${entry}`;
+    const isDir = statSync(entryPath).isDirectory();
+    const isLast = index === sorted.length - 1;
     const branch = isLast ? "└──" : "├──";
-    lines.push(`${prefix}${branch} ${name}`);
-    const nextPrefix = `${prefix}${isLast ? "    " : "│   "}`;
-    renderTree(child, nextPrefix, lines);
+    lines.push(`${prefix}${branch} ${entry}${isDir ? "/" : ""}`);
+    if (lines.length >= maxLines) return;
+    if (isDir) {
+      const nextPrefix = `${prefix}${isLast ? "    " : "│   "}`;
+      walkDirectoryTree(
+        entryPath,
+        nextPrefix,
+        depth + 1,
+        maxDepth,
+        maxLines,
+        lines
+      );
+    }
   });
 }
