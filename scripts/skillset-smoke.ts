@@ -432,12 +432,12 @@ async function runClaude(): Promise<RunResult> {
       "--plugin-dir",
       join(root, "plugins", "skillset"),
       ...extraArgs,
-      hookPrompt,
     ];
 
     const result = await runCommand(args, {
       cwd: workspaceRoot,
       env: envBase,
+      stdinText: hookPrompt,
       timeoutMs: 120_000,
     });
 
