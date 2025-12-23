@@ -1,21 +1,21 @@
-# Skillset Harness
+# Skillset Smoke Test
 
-The headless harness validates aliases, sets, and hook behavior without requiring a full interactive agent session.
+The headless smoke test validates aliases, sets, and hook behavior without requiring a full interactive agent session.
 
 ## Run
 
 - Hook only (CI mode):
-  - `bun run test:harness:ci`
+  - `bun run test:smoke:ci`
 - Hook CLI mode (plugin + CLI path):
-  - `bun run test:harness:cli`
+  - `bun run test:smoke:cli`
 - Full run (hook + Claude + Codex):
-  - `bun run test:harness`
+  - `bun run test:smoke`
 
-The harness cleans the sandbox by default. Use `--no-clean` to keep previous state.
+The smoke test cleans the sandbox by default. Use `--no-clean` to keep previous state.
 
 ## Hook modes
 
-The harness exercises two hook paths to mirror real deployments:
+The smoke test exercises two hook paths to mirror real deployments:
 
 - **CI mode (`hook-ci`)**: Forces module execution (no CLI). Simulates CI or minimal installs.
 - **CLI mode (`hook-cli`)**: Uses a temporary `skillset` shim that runs the CLI entrypoint.
@@ -26,11 +26,11 @@ Select modes with `--hook-mode ci|cli` (comma-separated for both).
 
 Reports are written to:
 
-- `.skillset-harness/reports/<runId>/report.json`
+- `.skillset-smoke/reports/<runId>/report.json`
 
 Each step includes status, duration, and sentinel evidence. When a step fails, inspect its stdout/stderr paths.
 
-Note: `.skillset-harness/` is fully generated at runtime (workspace + reports) and is gitignored. You do not need to check it in for the harness to work.
+Note: `.skillset-smoke/` is fully generated at runtime (workspace + reports) and is gitignored. You do not need to check it in for the smoke test to work.
 
 ## Claude plugin hook
 

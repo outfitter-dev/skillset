@@ -1,10 +1,10 @@
-# Skillset Harness Reference
+# Skillset Smoke Test Reference
 
 This reference is for deeper context beyond the quick steps in SKILL.md.
 
-## What the harness does
+## What the smoke test does
 
-- Creates a sandbox workspace under `.skillset-harness/workspace/`.
+- Creates a sandbox workspace under `.skillset-smoke/workspace/`.
 - Writes fixture skills into `.claude/skills` and `.codex/skills` inside the sandbox.
 - Writes `.skillset/config.json` and `.skillset/cache.json` for deterministic resolution.
 - Runs these steps in order:
@@ -19,7 +19,7 @@ This reference is for deeper context beyond the quick steps in SKILL.md.
 
 Reports are written to:
 
-- `.skillset-harness/reports/<runId>/report.json`
+- `.skillset-smoke/reports/<runId>/report.json`
 
 Key fields:
 
@@ -41,7 +41,7 @@ Key fields:
 
 ## Hook modes
 
-The harness exercises two hook paths to mirror real environments:
+The smoke test exercises two hook paths to mirror real environments:
 
 - **CI mode (`hook-ci`)**: Forces module execution (no CLI). Simulates CI or minimal installs.
 - **CLI mode (`hook-cli`)**: Uses a temporary `skillset` shim that runs the CLI entrypoint.
@@ -52,18 +52,18 @@ Control modes with:
 - `--hook-mode cli` (only CLI path)
 - `--hook-mode ci,cli` (default)
 
-The harness cleans the sandbox by default. Use `--no-clean` to keep the workspace and XDG state.
+The smoke test cleans the sandbox by default. Use `--no-clean` to keep the workspace and XDG state.
 
 ## Common failures and fixes
 
 - `index` fails with module/import errors:
-  - Ensure you are in repo root and using `bun run test:harness`.
+  - Ensure you are in repo root and using `bun run test:smoke`.
 - `set-load` shows sentinels missing:
-  - Confirm `.skillset-harness/workspace/.claude/skills` exists and has SKILL.md files.
+  - Confirm `.skillset-smoke/workspace/.claude/skills` exists and has SKILL.md files.
   - Re-run (default clean) or force `--no-clean` if you need to inspect state.
 - `hook` shows no evidence:
   - Confirm `set-load` evidence is correct first.
-  - Then inspect `.skillset-harness/reports/<runId>/skillset-hook.json`.
+  - Then inspect `.skillset-smoke/reports/<runId>/skillset-hook.json`.
 - `claude` or `codex` step `skipped`:
   - CLI not installed or not in PATH.
   - Install the CLI and authenticate, then re-run.
@@ -72,12 +72,12 @@ The harness cleans the sandbox by default. Use `--no-clean` to keep the workspac
 
 ## Environment overrides
 
-- `SKILLSET_HARNESS_CLAUDE_CMD` (default: `claude`)
-- `SKILLSET_HARNESS_CLAUDE_ARGS` (extra args)
-- `SKILLSET_HARNESS_CODEX_CMD` (default: `codex`)
-- `SKILLSET_HARNESS_CODEX_ARGS` (extra args)
+- `SKILLSET_SMOKE_CLAUDE_CMD` (default: `claude`)
+- `SKILLSET_SMOKE_CLAUDE_ARGS` (extra args)
+- `SKILLSET_SMOKE_CODEX_CMD` (default: `codex`)
+- `SKILLSET_SMOKE_CODEX_ARGS` (extra args)
 - `SKILLSET_PROJECT_ROOT` (override project root for CLI mode)
 
 ## Where to change fixtures
 
-- Edit `scripts/skillset-harness.ts` to adjust skills, prompts, or sentinel values.
+- Edit `scripts/skillset-smoke.ts` to adjust skills, prompts, or sentinel values.

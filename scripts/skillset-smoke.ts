@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Skillset headless harness:
+ * Skillset smoke test:
  * - Creates a temporary workspace with skills, aliases, and sets
  * - Runs the skillset hook directly
  * - Optionally runs Claude Code and Codex in headless modes
@@ -42,7 +42,7 @@ interface RunResult {
   error?: string;
 }
 
-interface HarnessReport {
+interface SmokeReport {
   runId: string;
   createdAt: string;
   root: string;
@@ -71,22 +71,23 @@ const options = {
 };
 
 const root = process.cwd();
-const harnessRoot = join(root, ".skillset-harness");
-const binRoot = join(harnessRoot, "bin");
-const workspaceRoot = join(harnessRoot, "workspace");
-const reportsRoot = join(harnessRoot, "reports");
-const xdgRoot = join(harnessRoot, "xdg");
+const smokeRoot = join(root, ".skillset-smoke");
+const legacyHarnessRoot = join(root, ".skillset-harness");
+const binRoot = join(smokeRoot, "bin");
+const workspaceRoot = join(smokeRoot, "workspace");
+const reportsRoot = join(smokeRoot, "reports");
+const xdgRoot = join(smokeRoot, "xdg");
 const xdgConfig = join(xdgRoot, "config");
 const xdgCache = join(xdgRoot, "cache");
 const xdgData = join(xdgRoot, "data");
-const harnessHome = join(harnessRoot, "home");
-const codexHome = join(harnessRoot, "codex-home");
+const smokeHome = join(smokeRoot, "home");
+const codexHome = join(smokeRoot, "codex-home");
 
 const runId = new Date().toISOString().replace(/[:.]/g, "-");
 const artifactsDir = join(reportsRoot, runId);
 
 const envBase: Record<string, string> = toEnvRecord(process.env);
-envBase.HOME = harnessHome;
+envBase.HOME = smokeHome;
 envBase.XDG_CONFIG_HOME = xdgConfig;
 envBase.XDG_CACHE_HOME = xdgCache;
 envBase.XDG_DATA_HOME = xdgData;
@@ -124,7 +125,7 @@ const sets: Record<
 > = {
   "starter-set": {
     name: "Starter Set",
-    description: "Alpha + Beta for harness validation",
+    description: "Alpha + Beta for smoke test validation",
     skillRefs: ["project:alpha-skill", "project:beta-skill"],
   },
 };
@@ -150,14 +151,15 @@ const jsonSchema = {
 const LINE_SPLIT_REGEX = /\r?\n/;
 
 if (options.cleanAll) {
-  rmSync(harnessRoot, { recursive: true, force: true });
+  rmSync(smokeRoot, { recursive: true, force: true });
+  rmSync(legacyHarnessRoot, { recursive: true, force: true });
 }
 
 if (options.clean) {
   rmSync(workspaceRoot, { recursive: true, force: true });
   rmSync(xdgRoot, { recursive: true, force: true });
   rmSync(codexHome, { recursive: true, force: true });
-  rmSync(harnessHome, { recursive: true, force: true });
+  rmSync(smokeHome, { recursive: true, force: true });
 }
 
 mkdirSync(workspaceRoot, { recursive: true });
@@ -165,7 +167,7 @@ mkdirSync(reportsRoot, { recursive: true });
 mkdirSync(artifactsDir, { recursive: true });
 
 prepareWorkspace();
-ensureHarnessBin();
+ensureSmokeBin();
 const core: CoreModule = await loadCore();
 
 const results: RunResult[] = [];
@@ -187,7 +189,7 @@ if (options.tools.includes("codex")) {
   results.push(await runCodex());
 }
 
-const report: HarnessReport = {
+const report: SmokeReport = {
   runId,
   createdAt: new Date().toISOString(),
   root,
@@ -254,7 +256,7 @@ function prepareWorkspace() {
   );
 }
 
-function ensureHarnessBin() {
+function ensureSmokeBin() {
   mkdirSync(binRoot, { recursive: true });
   const shimPath = join(binRoot, "skillset");
   const cliEntry = join(root, "apps", "cli", "src", "index.ts");
@@ -418,8 +420,14 @@ async function runClaude(): Promise<RunResult> {
   const stderrPath = join(artifactsDir, "claude.stderr");
   const usagePath = join(xdgData, "skillset", "logs", "usage.jsonl");
   try {
-    const claudeCmd = process.env.SKILLSET_HARNESS_CLAUDE_CMD ?? "claude";
-    const extraArgs = parseExtraArgs(process.env.SKILLSET_HARNESS_CLAUDE_ARGS);
+    const claudeCmd =
+      process.env.SKILLSET_SMOKE_CLAUDE_CMD ??
+      process.env.SKILLSET_HARNESS_CLAUDE_CMD ??
+      "claude";
+    const extraArgs = parseExtraArgs(
+      process.env.SKILLSET_SMOKE_CLAUDE_ARGS ??
+        process.env.SKILLSET_HARNESS_CLAUDE_ARGS
+    );
     const schemaArg = JSON.stringify(jsonSchema);
     const args = [
       claudeCmd,
@@ -489,8 +497,14 @@ async function runCodex(): Promise<RunResult> {
   const schemaPath = join(artifactsDir, "codex-schema.json");
   const responsePath = join(artifactsDir, "codex-response.json");
   try {
-    const codexCmd = process.env.SKILLSET_HARNESS_CODEX_CMD ?? "codex";
-    const extraArgs = parseExtraArgs(process.env.SKILLSET_HARNESS_CODEX_ARGS);
+    const codexCmd =
+      process.env.SKILLSET_SMOKE_CODEX_CMD ??
+      process.env.SKILLSET_HARNESS_CODEX_CMD ??
+      "codex";
+    const extraArgs = parseExtraArgs(
+      process.env.SKILLSET_SMOKE_CODEX_ARGS ??
+        process.env.SKILLSET_HARNESS_CODEX_ARGS
+    );
     writeFileSync(schemaPath, JSON.stringify(jsonSchema, null, 2));
 
     const args = [
