@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, relative, sep } from "node:path";
 import type { CacheSchema, Skill } from "@skillset/types";
+import { getProjectRoot } from "@skillset/shared";
 import { updateCacheSync } from "../cache";
 
 const SKILL_FILENAME = "SKILL.md";
@@ -101,7 +102,7 @@ function generateStructure(path: string): string {
 }
 
 export function indexSkills(options: ScanOptions = {}): CacheSchema {
-  const projectRoot = options.projectRoot ?? process.cwd();
+  const projectRoot = options.projectRoot ?? getProjectRoot();
   const skills: Record<string, Skill> = {};
   const sources = [
     join(projectRoot, ".claude", "skills"),

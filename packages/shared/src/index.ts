@@ -25,6 +25,7 @@ export {
   getCacheDir,
   getConfigDir,
   getDataDir,
+  getProjectRoot,
   getSkillsetPaths,
 } from "./paths";
 // Usage Statistics

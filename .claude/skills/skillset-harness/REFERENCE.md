@@ -10,9 +10,10 @@ This reference is for deeper context beyond the quick steps in SKILL.md.
 - Runs these steps in order:
   1. `index` (builds cache from sandbox skills)
   2. `set-load` (loads the configured set and checks sentinel evidence)
-  3. `hook` (runs the user prompt hook and checks injected context)
-  4. `claude` (optional, headless CLI)
-  5. `codex` (optional, headless CLI)
+  3. `hook-ci` (runs the plugin hook via module path)
+  4. `hook-cli` (runs the plugin hook via CLI shim)
+  5. `claude` (optional, headless CLI)
+  6. `codex` (optional, headless CLI)
 
 ## Report format
 
@@ -38,6 +39,19 @@ Key fields:
 - `hook` should show `alpha-skill` sentinel as `seen: true` and may not show `beta-skill`.
   - This is expected: set tokens are not expanded into injected skill content.
 
+## Hook modes
+
+The harness exercises two hook paths to mirror real environments:
+
+- **CI mode (`hook-ci`)**: Forces module execution (no CLI). Simulates CI or minimal installs.
+- **CLI mode (`hook-cli`)**: Uses a temporary `skillset` shim that runs the CLI entrypoint.
+
+Control modes with:
+
+- `--hook-mode ci` (only module path)
+- `--hook-mode cli` (only CLI path)
+- `--hook-mode ci,cli` (default)
+
 ## Common failures and fixes
 
 - `index` fails with module/import errors:
@@ -60,6 +74,7 @@ Key fields:
 - `SKILLSET_HARNESS_CLAUDE_ARGS` (extra args)
 - `SKILLSET_HARNESS_CODEX_CMD` (default: `codex`)
 - `SKILLSET_HARNESS_CODEX_ARGS` (extra args)
+- `SKILLSET_PROJECT_ROOT` (override project root for CLI mode)
 
 ## Where to change fixtures
 
