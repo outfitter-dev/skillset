@@ -72,7 +72,6 @@ const options = {
 
 const root = process.cwd();
 const smokeRoot = join(root, ".skillset-smoke");
-const legacyHarnessRoot = join(root, ".skillset-harness");
 const binRoot = join(smokeRoot, "bin");
 const workspaceRoot = join(smokeRoot, "workspace");
 const reportsRoot = join(smokeRoot, "reports");
@@ -152,7 +151,6 @@ const LINE_SPLIT_REGEX = /\r?\n/;
 
 if (options.cleanAll) {
   rmSync(smokeRoot, { recursive: true, force: true });
-  rmSync(legacyHarnessRoot, { recursive: true, force: true });
 }
 
 if (options.clean) {
@@ -420,14 +418,8 @@ async function runClaude(): Promise<RunResult> {
   const stderrPath = join(artifactsDir, "claude.stderr");
   const usagePath = join(xdgData, "skillset", "logs", "usage.jsonl");
   try {
-    const claudeCmd =
-      process.env.SKILLSET_SMOKE_CLAUDE_CMD ??
-      process.env.SKILLSET_HARNESS_CLAUDE_CMD ??
-      "claude";
-    const extraArgs = parseExtraArgs(
-      process.env.SKILLSET_SMOKE_CLAUDE_ARGS ??
-        process.env.SKILLSET_HARNESS_CLAUDE_ARGS
-    );
+    const claudeCmd = process.env.SKILLSET_SMOKE_CLAUDE_CMD ?? "claude";
+    const extraArgs = parseExtraArgs(process.env.SKILLSET_SMOKE_CLAUDE_ARGS);
     const schemaArg = JSON.stringify(jsonSchema);
     const args = [
       claudeCmd,
@@ -497,14 +489,8 @@ async function runCodex(): Promise<RunResult> {
   const schemaPath = join(artifactsDir, "codex-schema.json");
   const responsePath = join(artifactsDir, "codex-response.json");
   try {
-    const codexCmd =
-      process.env.SKILLSET_SMOKE_CODEX_CMD ??
-      process.env.SKILLSET_HARNESS_CODEX_CMD ??
-      "codex";
-    const extraArgs = parseExtraArgs(
-      process.env.SKILLSET_SMOKE_CODEX_ARGS ??
-        process.env.SKILLSET_HARNESS_CODEX_ARGS
-    );
+    const codexCmd = process.env.SKILLSET_SMOKE_CODEX_CMD ?? "codex";
+    const extraArgs = parseExtraArgs(process.env.SKILLSET_SMOKE_CODEX_ARGS);
     writeFileSync(schemaPath, JSON.stringify(jsonSchema, null, 2));
 
     const args = [

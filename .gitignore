@@ -16,7 +16,6 @@ dist
 .skillset/cache.json
 .skillset/logs/
 .skillset-smoke/
-.skillset-harness/
 
 # Additional ignores
 *.backup
