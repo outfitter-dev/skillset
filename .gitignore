@@ -15,6 +15,7 @@ dist
 .skillset/config.local.json
 .skillset/cache.json
 .skillset/logs/
+.skillset-smoke/
 .skillset-harness/
 
 # Additional ignores
