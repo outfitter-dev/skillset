@@ -13,6 +13,35 @@ interface TreeOptions {
   maxDepth?: number;
 }
 
+interface DirectoryTreeOptions {
+  maxDepth?: number;
+  maxLines?: number;
+  includeHidden?: boolean;
+}
+
+/**
+ * Build a full directory tree for a path, including all files.
+ */
+export function buildDirectoryTreeLines(
+  path: string,
+  options: DirectoryTreeOptions = {}
+): string[] {
+  const lines: string[] = [];
+  const maxDepth = options.maxDepth ?? 6;
+  const maxLines = options.maxLines ?? Number.POSITIVE_INFINITY;
+  const includeHidden = options.includeHidden ?? false;
+  walkDirectoryTreeLines(
+    path,
+    "",
+    0,
+    maxDepth,
+    maxLines,
+    includeHidden,
+    lines
+  );
+  return lines;
+}
+
 /**
  * Build a tree for a single skill, showing its directory + SKILL.md headings.
  */
@@ -112,6 +141,57 @@ export async function buildPathTree(
     maxDepth
   );
   return treeify({ [dirName]: treeObj });
+}
+
+function walkDirectoryTreeLines(
+  dirPath: string,
+  prefix: string,
+  depth: number,
+  maxDepth: number,
+  maxLines: number,
+  includeHidden: boolean,
+  lines: string[]
+): void {
+  if (depth >= maxDepth || lines.length >= maxLines) return;
+  let entries: string[];
+  try {
+    entries = readdirSync(dirPath);
+  } catch {
+    return;
+  }
+  const sorted = entries
+    .filter((entry) => includeHidden || !entry.startsWith("."))
+    .sort((a, b) => {
+      const aPath = join(dirPath, a);
+      const bPath = join(dirPath, b);
+      const aIsDir = statSync(aPath).isDirectory();
+      const bIsDir = statSync(bPath).isDirectory();
+      if (aIsDir && !bIsDir) return -1;
+      if (!aIsDir && bIsDir) return 1;
+      return a.localeCompare(b);
+    });
+
+  sorted.forEach((entry, index) => {
+    if (lines.length >= maxLines) return;
+    const entryPath = join(dirPath, entry);
+    const isDir = statSync(entryPath).isDirectory();
+    const isLast = index === sorted.length - 1;
+    const branch = isLast ? "└──" : "├──";
+    lines.push(`${prefix}${branch} ${entry}${isDir ? "/" : ""}`);
+    if (lines.length >= maxLines) return;
+    if (isDir) {
+      const nextPrefix = `${prefix}${isLast ? "    " : "│   "}`;
+      walkDirectoryTreeLines(
+        entryPath,
+        nextPrefix,
+        depth + 1,
+        maxDepth,
+        maxLines,
+        includeHidden,
+        lines
+      );
+    }
+  });
 }
 
 /**

@@ -6,6 +6,7 @@ import { statSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import {
   buildNamespaceTree,
+  buildDirectoryTreeLines,
   isNamespaceRef,
   loadCaches,
   loadConfig,
@@ -21,6 +22,7 @@ import { normalizeInvocation } from "../utils/normalize";
 
 interface ShowOptions extends GlobalOptions {
   ref: string;
+  tree?: boolean;
 }
 
 type ResolveInputResult =
@@ -256,7 +258,8 @@ async function showSkill(
   ref: string,
   sourceFilters: string[] | undefined,
   format: OutputFormat,
-  kindOverride?: "skill" | "set"
+  kindOverride?: "skill" | "set",
+  showTree = false
 ): Promise<void> {
   const cache = loadCaches();
   const config = loadConfig();
@@ -310,6 +313,26 @@ async function showSkill(
     } else {
       const tree = await buildNamespaceTree(result.namespace, cache);
       console.log(tree);
+    }
+    return;
+  }
+
+  if (showTree) {
+    const treeRoot =
+      result.type === "path"
+        ? result.path.endsWith("SKILL.md")
+          ? dirname(result.path)
+          : result.path
+        : dirname(result.skill.path);
+    const treeLines = buildDirectoryTreeLines(treeRoot, {
+      maxDepth: 6,
+      maxLines: config.maxLines,
+    });
+    const treeText = treeLines.join("\n");
+    if (format === "json") {
+      console.log(JSON.stringify({ tree: treeText }, null, 2));
+    } else {
+      console.log(treeText);
     }
     return;
   }
@@ -372,8 +395,9 @@ export function registerShowCommand(program: Command): void {
   program
     .command("show <ref>")
     .description("Show skill metadata")
-    .action(async (ref: string, options: GlobalOptions) => {
+    .option("--tree", "Show a directory tree for the resolved skill")
+    .action(async (ref: string, options: ShowOptions) => {
       const format = determineFormat(options);
-      await showSkill(ref, options.source, format, options.kind);
+      await showSkill(ref, options.source, format, options.kind, options.tree);
     });
 }
