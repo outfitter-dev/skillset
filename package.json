@@ -27,7 +27,8 @@
     "lint:md": "markdownlint-cli2",
     "format:md": "markdownlint-cli2 --fix",
     "lint:actions": "actionlint",
-    "clean": "rm -rf packages/*/dist apps/*/dist"
+    "clean": "rm -rf packages/*/dist apps/*/dist",
+    "clean:generated": "rm -rf packages/*/dist apps/*/dist .skillset-smoke/* && mkdir -p .skillset-smoke"
   },
   "author": "Matt Galligan",
   "license": "MIT",

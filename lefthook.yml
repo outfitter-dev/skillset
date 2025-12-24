@@ -18,3 +18,13 @@ pre-push:
     markdown:
       glob: "*.md"
       run: bun run format:md
+
+post-checkout:
+  commands:
+    clean:
+      run: bun run clean:generated
+
+post-merge:
+  commands:
+    clean:
+      run: bun run clean:generated
