@@ -40,14 +40,17 @@ export function loadGeneratedConfig(path: string): GeneratedSettingsSchema {
   try {
     const content = readFileSync(path, "utf8");
     const parsed = JSON.parse(content) as Partial<GeneratedSettingsSchema>;
-    return {
+    const generated: GeneratedSettingsSchema = {
       _yaml_hashes: parsed._yaml_hashes ?? {},
-      skills: parsed.skills,
-      output: parsed.output,
-      rules: parsed.rules,
-      project_id_strategy: parsed.project_id_strategy,
       projects: parsed.projects ?? {},
     };
+    if (parsed.skills) generated.skills = parsed.skills;
+    if (parsed.output) generated.output = parsed.output;
+    if (parsed.rules) generated.rules = parsed.rules;
+    if (parsed.project_id_strategy) {
+      generated.project_id_strategy = parsed.project_id_strategy;
+    }
+    return generated;
   } catch (err) {
     console.warn(`skillset: failed to read generated config ${path}:`, err);
     return { ...DEFAULT_GENERATED };
@@ -101,28 +104,25 @@ export function applyGeneratedOverrides(
   return result;
 }
 
-export function cleanupStaleHashes<T extends Record<string, unknown>>(
-  target: T,
-  yamlConfig: Partial<ConfigSchema>
-): T {
-  if (!isRecord(target._yaml_hashes)) {
-    return target;
-  }
-
+export function cleanupStaleHashes<
+  T extends { _yaml_hashes?: Record<string, string> },
+>(target: T, yamlConfig: Partial<ConfigSchema>): T {
+  const hashes = target._yaml_hashes ?? {};
   let next = {
     ...target,
-    _yaml_hashes: { ...(target._yaml_hashes as Record<string, string>) },
-  } as T;
+    _yaml_hashes: { ...hashes },
+  } as T & { _yaml_hashes: Record<string, string> };
 
-  for (const keyPath of Object.keys(
-    next._yaml_hashes as Record<string, string>
-  )) {
+  for (const keyPath of Object.keys(next._yaml_hashes)) {
     const yamlValue = getValueAtPath(yamlConfig, keyPath);
     if (yamlValue === undefined) {
-      delete (next._yaml_hashes as Record<string, string>)[keyPath];
-      next = deleteValueAtPath(next, keyPath) as T;
+      delete next._yaml_hashes[keyPath];
+      next = deleteValueAtPath(
+        next as Record<string, unknown>,
+        keyPath
+      ) as typeof next;
     }
   }
 
-  return next;
+  return next as T;
 }

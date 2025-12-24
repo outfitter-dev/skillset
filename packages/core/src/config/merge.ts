@@ -4,7 +4,7 @@ export function mergeConfigs(
   base: ConfigSchema,
   overlay: Partial<ConfigSchema>
 ): ConfigSchema {
-  return {
+  const merged: ConfigSchema = {
     ...base,
     // Scalars: replace
     version: overlay.version ?? base.version,
@@ -14,12 +14,27 @@ export function mergeConfigs(
     output: { ...base.output, ...overlay.output },
     resolution: { ...base.resolution, ...overlay.resolution },
 
-    // Arrays: replace entirely if present
-    ignore_scopes: overlay.ignore_scopes ?? base.ignore_scopes,
-    tools: overlay.tools ?? base.tools,
-
     // Maps: key-level merge
     skills: { ...base.skills, ...overlay.skills },
-    sets: overlay.sets ? { ...(base.sets ?? {}), ...overlay.sets } : base.sets,
   };
+
+  if (overlay.ignore_scopes !== undefined) {
+    merged.ignore_scopes = overlay.ignore_scopes;
+  } else if (base.ignore_scopes !== undefined) {
+    merged.ignore_scopes = base.ignore_scopes;
+  }
+
+  if (overlay.tools !== undefined) {
+    merged.tools = overlay.tools;
+  } else if (base.tools !== undefined) {
+    merged.tools = base.tools;
+  }
+
+  if (overlay.sets !== undefined) {
+    merged.sets = { ...(base.sets ?? {}), ...overlay.sets };
+  } else if (base.sets !== undefined) {
+    merged.sets = base.sets;
+  }
+
+  return merged;
 }

@@ -89,7 +89,10 @@ export function setValueAtPath<T>(
     ? [...input]
     : { ...(input as Record<string, unknown>) };
 
-  let cursor = result as Record<string, unknown>;
+  let cursor = (Array.isArray(result) ? (result as unknown) : result) as Record<
+    string,
+    unknown
+  >;
   let original: unknown = input;
 
   for (let i = 0; i < parts.length - 1; i += 1) {
@@ -98,7 +101,7 @@ export function setValueAtPath<T>(
     const originalValue = isRecord(original)
       ? (original as Record<string, unknown>)[part]
       : Array.isArray(original)
-        ? (original as Record<string, unknown>)[part]
+        ? (original as unknown as Record<string, unknown>)[part]
         : undefined;
 
     const next = Array.isArray(originalValue)
@@ -108,7 +111,7 @@ export function setValueAtPath<T>(
         : {};
 
     cursor[part] = next;
-    cursor = next as Record<string, unknown>;
+    cursor = next as unknown as Record<string, unknown>;
     original = originalValue;
   }
 
@@ -131,7 +134,10 @@ export function deleteValueAtPath<T>(input: T, path: string | string[]): T {
     ? [...input]
     : { ...(input as Record<string, unknown>) };
 
-  let cursor = result as Record<string, unknown>;
+  let cursor = (Array.isArray(result) ? (result as unknown) : result) as Record<
+    string,
+    unknown
+  >;
   let original: unknown = input;
 
   for (let i = 0; i < parts.length - 1; i += 1) {
@@ -140,7 +146,7 @@ export function deleteValueAtPath<T>(input: T, path: string | string[]): T {
     const originalValue = isRecord(original)
       ? (original as Record<string, unknown>)[part]
       : Array.isArray(original)
-        ? (original as Record<string, unknown>)[part]
+        ? (original as unknown as Record<string, unknown>)[part]
         : undefined;
 
     if (!(isRecord(originalValue) || Array.isArray(originalValue))) {
@@ -152,7 +158,7 @@ export function deleteValueAtPath<T>(input: T, path: string | string[]): T {
       : { ...originalValue };
 
     cursor[part] = next as never;
-    cursor = next as Record<string, unknown>;
+    cursor = next as unknown as Record<string, unknown>;
     original = originalValue;
   }
 

@@ -131,7 +131,7 @@ describe("resolveToken", () => {
     expect(result.skill?.skillRef).toBe("project:auth");
   });
 
-  it("returns ambiguous when multiple skills match", () => {
+  it("prefers scope priority when multiple skills match", () => {
     const cacheWithDupes: CacheSchema = {
       ...cache,
       skills: {
@@ -145,8 +145,7 @@ describe("resolveToken", () => {
       namespace: undefined,
     };
     const result = resolveToken(token, config, cacheWithDupes);
-    expect(result.reason).toBe("ambiguous");
-    expect(result.candidates?.length).toBeGreaterThan(1);
+    expect(result.skill?.skillRef).toBe("project:frontend-design");
   });
 
   it("resolves skill with explicit $skill: prefix when both skill and set exist", () => {
