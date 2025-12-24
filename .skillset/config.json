@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "mode": "warn",
+  "showStructure": false,
+  "maxLines": 500,
+  "mappings": {},
+  "namespaceAliases": {},
+  "sets": {}
+}
