@@ -5,8 +5,8 @@
 import { statSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import {
-  buildNamespaceTree,
   buildDirectoryTreeLines,
+  buildNamespaceTree,
   isNamespaceRef,
   loadCaches,
   loadConfig,

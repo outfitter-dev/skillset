@@ -31,7 +31,7 @@ export function normalizeInvocation(
   const normalizedRef = normalizeTokenRef(cleaned);
   const parts = normalizedRef.split(":").filter(Boolean);
   const namespace = parts.length > 1 ? parts[0] : undefined;
-  const alias = parts.length > 1 ? parts.slice(1).join(":") : parts[0] ?? "";
+  const alias = parts.length > 1 ? parts.slice(1).join(":") : (parts[0] ?? "");
 
   const raw = hasDollar
     ? trimmed
