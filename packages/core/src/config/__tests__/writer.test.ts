@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { dump as dumpYaml } from "js-yaml";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ConfigSchema } from "@skillset/types";
+import { dump as dumpYaml } from "js-yaml";
 import { hashValue } from "../hash";
 import { loadGeneratedConfig } from "../loader";
 import { getProjectId } from "../project";
@@ -38,12 +38,7 @@ describe("config writer", () => {
   });
 
   test("setGeneratedValue stores hash and override", async () => {
-    await setGeneratedValue(
-      generatedPath,
-      yamlPath,
-      "output.max_lines",
-      300
-    );
+    await setGeneratedValue(generatedPath, yamlPath, "output.max_lines", 300);
 
     const generated = loadGeneratedConfig(generatedPath);
     expect(generated._yaml_hashes["output.max_lines"]).toBe(hashValue(500));
@@ -51,12 +46,7 @@ describe("config writer", () => {
   });
 
   test("resetGeneratedValue removes hash and override", async () => {
-    await setGeneratedValue(
-      generatedPath,
-      yamlPath,
-      "output.max_lines",
-      250
-    );
+    await setGeneratedValue(generatedPath, yamlPath, "output.max_lines", 250);
     await resetGeneratedValue(generatedPath, "output.max_lines");
 
     const generated = loadGeneratedConfig(generatedPath);

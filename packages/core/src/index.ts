@@ -47,8 +47,8 @@ export {
   resetGeneratedConfigValue,
   setConfigValue,
   setGeneratedConfigValue,
-  writeYamlConfig,
   writeGeneratedSettings,
+  writeYamlConfig,
 } from "./config";
 // Format
 export { formatOutcome, stripFrontmatter } from "./format";

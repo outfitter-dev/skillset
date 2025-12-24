@@ -1,16 +1,16 @@
 import { existsSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
-import * as lockfile from "proper-lockfile";
+import { dirname, join } from "node:path";
 import type {
   ConfigSchema,
   GeneratedSettingsSchema,
   ProjectSettings,
 } from "@skillset/types";
+import * as lockfile from "proper-lockfile";
 import { hashValue } from "./hash";
-import { deleteValueAtPath, getValueAtPath, setValueAtPath } from "./utils";
 import { loadGeneratedConfig, loadYamlConfig } from "./loader";
 import { getProjectId } from "./project";
+import { deleteValueAtPath, getValueAtPath, setValueAtPath } from "./utils";
 
 function ensureDir(path: string) {
   const dir = dirname(path);
@@ -27,7 +27,7 @@ async function atomicWriteJson(filePath: string, data: unknown): Promise<void> {
 
   const lockRelease = await lockfile.lock(filePath, {
     retries: { retries: 3, minTimeout: 100, maxTimeout: 1000 },
-    stale: 10000,
+    stale: 10_000,
   });
 
   const tempPath = join(

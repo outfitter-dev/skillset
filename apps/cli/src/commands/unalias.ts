@@ -2,7 +2,11 @@
  * skillset unalias command (deprecated; use skills remove)
  */
 
-import { getConfigPath, loadYamlConfigByScope, writeYamlConfig } from "@skillset/core";
+import {
+  getConfigPath,
+  loadYamlConfigByScope,
+  writeYamlConfig,
+} from "@skillset/core";
 import chalk from "chalk";
 import type { Command } from "commander";
 import inquirer from "inquirer";
@@ -93,7 +97,9 @@ function removeAlias(name: string, scope: ConfigScope): void {
   writeYamlConfig(getConfigPath(scope), updatedConfig, true);
 
   console.log(
-    chalk.green(`Removed alias '${name}' (was → ${JSON.stringify(existingMapping)})`)
+    chalk.green(
+      `Removed alias '${name}' (was → ${JSON.stringify(existingMapping)})`
+    )
   );
   console.log(chalk.dim(`Config: ${getConfigPath(scope)}`));
 }
@@ -127,13 +133,11 @@ export function registerUnaliasCommand(program: Command): void {
   program
     .command("unalias [name]")
     .description("Remove a skill alias (deprecated; use skills remove)")
-    .option(
-      "-S, --scope <scope>",
-      "Config scope: project or user",
-      "project"
-    )
+    .option("-S, --scope <scope>", "Config scope: project or user", "project")
     .action(async (name?: string, options?: UnaliasOptions) => {
-      console.log(chalk.dim("Unalias is deprecated. Use `skillset skills` instead."));
+      console.log(
+        chalk.dim("Unalias is deprecated. Use `skillset skills` instead.")
+      );
       await handleUnalias(name, options);
     });
 }

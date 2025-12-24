@@ -47,7 +47,9 @@ function listSkills(): void {
 
   if (allSkills.size === 0) {
     console.log(chalk.yellow("No skills defined"));
-    console.log(chalk.dim("Use 'skillset skills add <alias> <skill>' to add one"));
+    console.log(
+      chalk.dim("Use 'skillset skills add <alias> <skill>' to add one")
+    );
     return;
   }
 
@@ -135,7 +137,9 @@ async function addSkill(
   writeYamlConfig(getConfigPath(scope), updatedConfig, true);
 
   const action = existingMapping ? "Updated" : "Added";
-  console.log(chalk.green(`${action} skill '${name}' → ${skillRef} (${scope})`));
+  console.log(
+    chalk.green(`${action} skill '${name}' → ${skillRef} (${scope})`)
+  );
   console.log(chalk.dim(`Config: ${getConfigPath(scope)}`));
 }
 
@@ -159,7 +163,9 @@ function removeSkill(name: string, scope: ConfigScope): void {
   writeYamlConfig(getConfigPath(scope), updatedConfig, true);
 
   console.log(
-    chalk.green(`Removed skill '${name}' (was → ${JSON.stringify(existingMapping)})`)
+    chalk.green(
+      `Removed skill '${name}' (was → ${JSON.stringify(existingMapping)})`
+    )
   );
   console.log(chalk.dim(`Config: ${getConfigPath(scope)}`));
 }
@@ -182,25 +188,38 @@ export function registerSkillsCommand(program: Command): void {
     .description("Add or update a skill mapping")
     .option("-S, --scope <scope>", "Config scope: project or user", "project")
     .option("-f, --force", "Skip confirmation prompt")
-    .action(async (alias: string, skillRef: string | undefined, options: SkillsOptions) => {
-      const scope = validateScope(options.scope);
+    .action(
+      async (
+        alias: string,
+        skillRef: string | undefined,
+        options: SkillsOptions
+      ) => {
+        const scope = validateScope(options.scope);
 
-      if (!skillRef) {
-        if (isTTY()) {
-          console.log(chalk.dim(`Creating skill mapping '${alias}'`));
-          const selectedSkillRef = await selectSkill();
-          await addSkill(alias, selectedSkillRef, scope, options.force ?? false);
-          return;
+        if (!skillRef) {
+          if (isTTY()) {
+            console.log(chalk.dim(`Creating skill mapping '${alias}'`));
+            const selectedSkillRef = await selectSkill();
+            await addSkill(
+              alias,
+              selectedSkillRef,
+              scope,
+              options.force ?? false
+            );
+            return;
+          }
+
+          console.error(chalk.red("Missing argument: <skillRef>"));
+          console.error(
+            chalk.yellow("Usage: skillset skills add <alias> <skillRef>")
+          );
+          console.error(chalk.dim("Or run in a TTY for interactive mode"));
+          process.exit(1);
         }
 
-        console.error(chalk.red("Missing argument: <skillRef>"));
-        console.error(chalk.yellow("Usage: skillset skills add <alias> <skillRef>"));
-        console.error(chalk.dim("Or run in a TTY for interactive mode"));
-        process.exit(1);
+        await addSkill(alias, skillRef, scope, options.force ?? false);
       }
-
-      await addSkill(alias, skillRef, scope, options.force ?? false);
-    });
+    );
 
   skillsCommand
     .command("remove <alias>")
@@ -211,8 +230,7 @@ export function registerSkillsCommand(program: Command): void {
       removeSkill(alias, scope);
     });
 
-  skillsCommand
-    .action(() => {
-      listSkills();
-    });
+  skillsCommand.action(() => {
+    listSkills();
+  });
 }

@@ -3,8 +3,6 @@
  */
 
 import { spawn } from "node:child_process";
-import chalk from "chalk";
-import type { Command } from "commander";
 import {
   cleanupGeneratedConfig,
   getConfigPath,
@@ -17,6 +15,8 @@ import {
   writeGeneratedSettings,
 } from "@skillset/core";
 import { getProjectRoot } from "@skillset/shared";
+import chalk from "chalk";
+import type { Command } from "commander";
 import type { ConfigScope } from "../types";
 
 interface ConfigOptions {
@@ -76,7 +76,10 @@ async function setConfigCommand(
   );
 }
 
-async function resetConfigCommand(key: string, scope: ConfigScope): Promise<void> {
+async function resetConfigCommand(
+  key: string,
+  scope: ConfigScope
+): Promise<void> {
   const projectRoot = scope === "project" ? getProjectRoot() : undefined;
   await resetGeneratedConfigValue(key, projectRoot);
   const scopeLabel = scope === "project" ? "project" : "user";

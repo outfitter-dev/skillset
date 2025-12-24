@@ -1,10 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
-import { load as loadYaml } from "js-yaml";
 import type {
   ConfigSchema,
   GeneratedSettingsSchema,
   ProjectSettings,
 } from "@skillset/types";
+import { load as loadYaml } from "js-yaml";
 import { hashValue } from "./hash";
 import {
   deleteValueAtPath,
@@ -59,7 +59,10 @@ export function applyGeneratedOverrides(
   yamlConfig: Partial<ConfigSchema>,
   generated: GeneratedSettingsSchema | ProjectSettings
 ): ConfigSchema {
-  if (!generated._yaml_hashes || Object.keys(generated._yaml_hashes).length === 0) {
+  if (
+    !generated._yaml_hashes ||
+    Object.keys(generated._yaml_hashes).length === 0
+  ) {
     return baseConfig;
   }
 
@@ -85,7 +88,11 @@ export function applyGeneratedOverrides(
   };
 
   for (const [key, value] of Object.entries(generated)) {
-    if (key === "_yaml_hashes" || key === "projects" || key === "project_id_strategy") {
+    if (
+      key === "_yaml_hashes" ||
+      key === "projects" ||
+      key === "project_id_strategy"
+    ) {
       continue;
     }
     walk(value, [key]);
@@ -107,7 +114,9 @@ export function cleanupStaleHashes<T extends Record<string, unknown>>(
     _yaml_hashes: { ...(target._yaml_hashes as Record<string, string>) },
   } as T;
 
-  for (const keyPath of Object.keys(next._yaml_hashes as Record<string, string>)) {
+  for (const keyPath of Object.keys(
+    next._yaml_hashes as Record<string, string>
+  )) {
     const yamlValue = getValueAtPath(yamlConfig, keyPath);
     if (yamlValue === undefined) {
       delete (next._yaml_hashes as Record<string, string>)[keyPath];

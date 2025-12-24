@@ -68,7 +68,10 @@ describe("config loader", () => {
       projects: {},
     };
 
-    const cleaned = cleanupStaleHashes(generated, yaml) as GeneratedSettingsSchema;
+    const cleaned = cleanupStaleHashes(
+      generated,
+      yaml
+    ) as GeneratedSettingsSchema;
     expect(cleaned._yaml_hashes["output.max_lines"]).toBeUndefined();
   });
 });

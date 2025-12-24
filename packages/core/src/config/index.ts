@@ -1,18 +1,26 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { getConfigDir, getProjectRoot } from "@skillset/shared";
-import type { ConfigSchema, GeneratedSettingsSchema, ProjectSettings } from "@skillset/types";
+import type {
+  ConfigSchema,
+  GeneratedSettingsSchema,
+  ProjectSettings,
+} from "@skillset/types";
 import { dump as dumpYaml } from "js-yaml";
-import { mergeConfigs } from "./merge";
 import {
   applyGeneratedOverrides,
   cleanupStaleHashes,
   loadGeneratedConfig,
   loadYamlConfig,
 } from "./loader";
+import { mergeConfigs } from "./merge";
 import { getProjectId } from "./project";
 import { deleteValueAtPath, getValueAtPath, setValueAtPath } from "./utils";
-import { saveGeneratedConfig, resetGeneratedValue, setGeneratedValue } from "./writer";
+import {
+  resetGeneratedValue,
+  saveGeneratedConfig,
+  setGeneratedValue,
+} from "./writer";
 
 export const CONFIG_DEFAULTS: ConfigSchema = {
   version: 1,
@@ -129,7 +137,8 @@ export function loadYamlConfigByScope(
   scope: "project" | "user",
   projectRoot = getProjectRoot()
 ): Partial<ConfigSchema> {
-  const path = scope === "user" ? CONFIG_PATHS.user() : CONFIG_PATHS.project(projectRoot);
+  const path =
+    scope === "user" ? CONFIG_PATHS.user() : CONFIG_PATHS.project(projectRoot);
   return loadYamlConfig(path);
 }
 
@@ -172,7 +181,7 @@ export function cleanupGeneratedConfig(
   const generated = loadGeneratedConfig(CONFIG_PATHS.generated());
   const cleanedGlobal = cleanupStaleHashes(generated, userYaml);
 
-  if (!projectRoot || !projectYaml) {
+  if (!(projectRoot && projectYaml)) {
     return cleanedGlobal;
   }
 

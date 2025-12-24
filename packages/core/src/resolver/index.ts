@@ -51,7 +51,10 @@ function inferToolFromPath(path: string): Tool | undefined {
   return undefined;
 }
 
-function filterSkillsByConfig(cache: CacheSchema, config: ConfigSchema): Skill[] {
+function filterSkillsByConfig(
+  cache: CacheSchema,
+  config: ConfigSchema
+): Skill[] {
   const ignored = new Set(config.ignore_scopes ?? []);
   const tools = config.tools;
   return Object.values(cache.skills).filter((skill) => {
@@ -65,7 +68,10 @@ function filterSkillsByConfig(cache: CacheSchema, config: ConfigSchema): Skill[]
   });
 }
 
-function filterSetsByConfig(sets: Record<string, SkillSet>, config: ConfigSchema) {
+function filterSetsByConfig(
+  sets: Record<string, SkillSet>,
+  config: ConfigSchema
+) {
   const ignored = new Set(config.ignore_scopes ?? []);
   return Object.values(sets).filter((set) => {
     const scope = skillScope(set.setRef);
@@ -88,7 +94,8 @@ function matchSkillAlias(
     const nameLoose = nameNormalized.replace(/-/g, "");
     const pathLower = skill.path.toLowerCase();
 
-    const nameExact = nameNormalized === normalized || nameLoose === normalizedLoose;
+    const nameExact =
+      nameNormalized === normalized || nameLoose === normalizedLoose;
     const refExact =
       parts.endsWith(`/${normalized}`) ||
       parts.endsWith(`:${normalized}`) ||
@@ -102,7 +109,8 @@ function matchSkillAlias(
     }
 
     const nameMatch =
-      nameNormalized.includes(normalized) || nameLoose.includes(normalizedLoose);
+      nameNormalized.includes(normalized) ||
+      nameLoose.includes(normalizedLoose);
     const refMatch = refExact;
     const pathMatch =
       pathLower.includes(normalized) || pathLower.includes(normalizedLoose);
@@ -110,7 +118,11 @@ function matchSkillAlias(
   });
 }
 
-function matchSetAlias(sets: SkillSet[], alias: string, fuzzy: boolean): SkillSet[] {
+function matchSetAlias(
+  sets: SkillSet[],
+  alias: string,
+  fuzzy: boolean
+): SkillSet[] {
   if (sets.length === 0) return [];
   const normalized = normalizeTokenSegment(alias);
   const normalizedLoose = normalized.replace(/-/g, "");
@@ -120,7 +132,8 @@ function matchSetAlias(sets: SkillSet[], alias: string, fuzzy: boolean): SkillSe
     const nameNormalized = normalizeTokenSegment(set.name);
     const nameLoose = nameNormalized.replace(/-/g, "");
 
-    const nameExact = nameNormalized === normalized || nameLoose === normalizedLoose;
+    const nameExact =
+      nameNormalized === normalized || nameLoose === normalizedLoose;
     const refExact =
       parts.endsWith(`/${normalized}`) ||
       parts.endsWith(`:${normalized}`) ||
@@ -134,7 +147,8 @@ function matchSetAlias(sets: SkillSet[], alias: string, fuzzy: boolean): SkillSe
     }
 
     const nameMatch =
-      nameNormalized.includes(normalized) || nameLoose.includes(normalizedLoose);
+      nameNormalized.includes(normalized) ||
+      nameLoose.includes(normalizedLoose);
     const refMatch = refExact;
     return nameExact || nameMatch || refMatch;
   });
@@ -157,7 +171,11 @@ function findSkillEntry(
   return undefined;
 }
 
-function readSkillFromPath(path: string, aliasKey: string, projectRoot: string): Skill | undefined {
+function readSkillFromPath(
+  path: string,
+  aliasKey: string,
+  projectRoot: string
+): Skill | undefined {
   const resolved = isAbsolute(path) ? path : join(projectRoot, path);
   try {
     const content = readFileSync(resolved, "utf8");
@@ -167,7 +185,9 @@ function readSkillFromPath(path: string, aliasKey: string, projectRoot: string):
     const name = firstHeading
       ? firstHeading.replace(/^#+\s*/, "").trim()
       : fallbackName;
-    const description = lines.find((line) => line.trim().length > 0 && !line.startsWith("#"))?.trim();
+    const description = lines
+      .find((line) => line.trim().length > 0 && !line.startsWith("#"))
+      ?.trim();
     return {
       skillRef: `project:${normalizeTokenRef(aliasKey)}`,
       path: resolved,
@@ -200,10 +220,15 @@ function pickByScopePriority(
   config: ConfigSchema
 ): Skill | undefined {
   if (candidates.length <= 1) return candidates[0];
-  const priority =
-    config.resolution?.default_scope_priority ?? ["project", "user", "plugin"];
+  const priority = config.resolution?.default_scope_priority ?? [
+    "project",
+    "user",
+    "plugin",
+  ];
   for (const scope of priority) {
-    const scoped = candidates.filter((skill) => skillScope(skill.skillRef) === scope);
+    const scoped = candidates.filter(
+      (skill) => skillScope(skill.skillRef) === scope
+    );
     if (scoped.length === 1) return scoped[0];
     if (scoped.length > 1) return undefined;
   }
@@ -226,7 +251,11 @@ function resolveSkillEntry(
     const normalized = normalizeTokenRef(entry);
     const direct = cache.skills[entry] ?? cache.skills[normalized];
     if (direct) return { skill: direct };
-    const candidates = matchSkillAlias(skills, normalized, config.resolution?.fuzzy_matching ?? true);
+    const candidates = matchSkillAlias(
+      skills,
+      normalized,
+      config.resolution?.fuzzy_matching ?? true
+    );
     const selected = pickByScopePriority(candidates, config);
     if (selected) return { skill: selected };
     return candidates.length ? { candidates } : {};
@@ -360,7 +389,11 @@ export function resolveToken(
     );
     if (resolved.skill) return { invocation: token, skill: resolved.skill };
     if (resolved.candidates) {
-      return { invocation: token, reason: "ambiguous", candidates: resolved.candidates };
+      return {
+        invocation: token,
+        reason: "ambiguous",
+        candidates: resolved.candidates,
+      };
     }
     return {
       invocation: token,
@@ -401,7 +434,11 @@ export function resolveToken(
   if (token.kind === "set") {
     let setCandidates = matchSetAlias(filteredSets, normalizedAlias, fuzzy);
     if (namespace) {
-      setCandidates = filterByNamespace(setCandidates, namespace, (s) => s.setRef);
+      setCandidates = filterByNamespace(
+        setCandidates,
+        namespace,
+        (s) => s.setRef
+      );
     }
 
     if (setCandidates.length === 0) {
@@ -409,9 +446,7 @@ export function resolveToken(
     }
     if (setCandidates.length === 1 && setCandidates[0]) {
       const setSkills = setCandidates[0].skillRefs
-        .map((ref) =>
-          resolveAliasToSkill(ref, cfg, c, skills, projectRoot)
-        )
+        .map((ref) => resolveAliasToSkill(ref, cfg, c, skills, projectRoot))
         .filter((skill): skill is Skill => Boolean(skill));
       return { invocation: token, set: setCandidates[0], setSkills };
     }
@@ -423,8 +458,16 @@ export function resolveToken(
   let setCandidates = matchSetAlias(filteredSets, normalizedAlias, fuzzy);
 
   if (namespace) {
-    skillCandidates = filterByNamespace(skillCandidates, namespace, (s) => s.skillRef);
-    setCandidates = filterByNamespace(setCandidates, namespace, (s) => s.setRef);
+    skillCandidates = filterByNamespace(
+      skillCandidates,
+      namespace,
+      (s) => s.skillRef
+    );
+    setCandidates = filterByNamespace(
+      setCandidates,
+      namespace,
+      (s) => s.setRef
+    );
   }
 
   // Check for collision: both skill and set match
@@ -455,9 +498,7 @@ export function resolveToken(
   if (setCandidates.length > 0) {
     if (setCandidates.length === 1 && setCandidates[0]) {
       const setSkills = setCandidates[0].skillRefs
-        .map((ref) =>
-          resolveAliasToSkill(ref, cfg, c, skills, projectRoot)
-        )
+        .map((ref) => resolveAliasToSkill(ref, cfg, c, skills, projectRoot))
         .filter((skill): skill is Skill => Boolean(skill));
       return { invocation: token, set: setCandidates[0], setSkills };
     }

@@ -47,7 +47,9 @@ function listAliases(): void {
 
   if (allAliases.size === 0) {
     console.log(chalk.yellow("No aliases defined"));
-    console.log(chalk.dim("Use 'skillset skills add <alias> <skill>' to create one"));
+    console.log(
+      chalk.dim("Use 'skillset skills add <alias> <skill>' to create one")
+    );
     return;
   }
 
@@ -135,7 +137,9 @@ async function addAlias(
   writeYamlConfig(getConfigPath(scope), updatedConfig, true);
 
   const action = existingMapping ? "Updated" : "Added";
-  console.log(chalk.green(`${action} alias '${name}' → ${skillRef} (${scope})`));
+  console.log(
+    chalk.green(`${action} alias '${name}' → ${skillRef} (${scope})`)
+  );
   console.log(chalk.dim(`Config: ${getConfigPath(scope)}`));
 }
 
@@ -172,14 +176,14 @@ export function registerAliasCommand(program: Command): void {
   program
     .command("alias [name] [skillRef]")
     .description("Add or update a skill alias (deprecated; use skills)")
-    .option(
-      "-S, --scope <scope>",
-      "Config scope: project or user",
-      "project"
-    )
+    .option("-S, --scope <scope>", "Config scope: project or user", "project")
     .option("-f, --force", "Skip confirmation prompt")
-    .action(async (name?: string, skillRef?: string, options?: AliasOptions) => {
-      console.log(chalk.dim("Alias is deprecated. Use `skillset skills` instead."));
-      await handleAlias(name, skillRef, options);
-    });
+    .action(
+      async (name?: string, skillRef?: string, options?: AliasOptions) => {
+        console.log(
+          chalk.dim("Alias is deprecated. Use `skillset skills` instead.")
+        );
+        await handleAlias(name, skillRef, options);
+      }
+    );
 }

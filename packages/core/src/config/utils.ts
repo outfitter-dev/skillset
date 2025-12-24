@@ -65,7 +65,7 @@ export function getValueAtPath(
   let current: unknown = input;
 
   for (const part of parts) {
-    if (!isRecord(current) && !Array.isArray(current)) {
+    if (!(isRecord(current) || Array.isArray(current))) {
       return undefined;
     }
     current = (current as Record<string, unknown>)[part];
@@ -143,7 +143,7 @@ export function deleteValueAtPath<T>(input: T, path: string | string[]): T {
         ? (original as Record<string, unknown>)[part]
         : undefined;
 
-    if (!isRecord(originalValue) && !Array.isArray(originalValue)) {
+    if (!(isRecord(originalValue) || Array.isArray(originalValue))) {
       return input;
     }
 

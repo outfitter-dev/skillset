@@ -16,7 +16,10 @@ function header() {
   return "## skillset: Resolved Skills\n\nThe user invoked skills explicitly via `$alias`. These are loaded below. Ignore the literal `$...` tokens in the prompt.\n\n---";
 }
 
-function findSkillEntry(config: ConfigSchema, alias: string): SkillEntry | undefined {
+function findSkillEntry(
+  config: ConfigSchema,
+  alias: string
+): SkillEntry | undefined {
   if (config.skills[alias]) return config.skills[alias];
   const normalized = normalizeTokenSegment(alias);
   if (config.skills[normalized]) return config.skills[normalized];
@@ -31,11 +34,13 @@ function findSkillEntry(config: ConfigSchema, alias: string): SkillEntry | undef
 function resolveOutputOptions(config: ConfigSchema, entry?: SkillEntry) {
   const includeLayout =
     typeof entry === "object" && entry !== null && "include_layout" in entry
-      ? entry.include_layout ?? config.output.include_layout
+      ? (entry.include_layout ?? config.output.include_layout)
       : config.output.include_layout;
   const includeFull =
     typeof entry === "object" && entry !== null && entry.include_full === true;
-  const maxLines = includeFull ? Number.POSITIVE_INFINITY : config.output.max_lines;
+  const maxLines = includeFull
+    ? Number.POSITIVE_INFINITY
+    : config.output.max_lines;
   return { includeLayout, maxLines };
 }
 
@@ -124,7 +129,13 @@ function formatSet(
     const entry = findSkillEntry(config, alias);
     lines.push(
       "",
-      formatSkillBlock(skill, config, `#### ${skill.skillRef}`, skill.skillRef, entry)
+      formatSkillBlock(
+        skill,
+        config,
+        `#### ${skill.skillRef}`,
+        skill.skillRef,
+        entry
+      )
     );
   }
   return lines.join("\n");
@@ -153,7 +164,10 @@ export function stripFrontmatter(text: string): string {
   return text.slice(end + 4).trimStart();
 }
 
-function warningsSection(results: ResolveResult[], config: ConfigSchema): string | null {
+function warningsSection(
+  results: ResolveResult[],
+  config: ConfigSchema
+): string | null {
   const warnings: string[] = [];
   for (const r of results) {
     if (r.skill) continue;

@@ -3,8 +3,8 @@ import { homedir } from "node:os";
 import { join, relative, sep } from "node:path";
 import { getProjectRoot, SKILL_PATHS } from "@skillset/shared";
 import type { CacheSchema, ConfigSchema, Skill, Tool } from "@skillset/types";
-import { loadConfig } from "../config";
 import { updateCacheSync } from "../cache";
+import { loadConfig } from "../config";
 
 const SKILL_FILENAME = "SKILL.md";
 
@@ -43,10 +43,7 @@ function toolPrefix(tool?: Tool): string {
   return `${tool}/`;
 }
 
-function skillRefFromPath(
-  path: string,
-  source: SkillSourceRoot
-): string {
+function skillRefFromPath(path: string, source: SkillSourceRoot): string {
   if (source.scope === "plugin") {
     const rel = relative(source.root, path).split(sep);
     const namespace = rel[0];
@@ -126,7 +123,8 @@ function buildSources(projectRoot: string, tools: Tool[]): SkillSourceRoot[] {
 export function indexSkills(options: ScanOptions = {}): CacheSchema {
   const projectRoot = options.projectRoot ?? getProjectRoot();
   const config = options.config ?? loadConfig(projectRoot);
-  const tools = options.tools ?? config.tools ?? (Object.keys(SKILL_PATHS) as Tool[]);
+  const tools =
+    options.tools ?? config.tools ?? (Object.keys(SKILL_PATHS) as Tool[]);
 
   const skills: Record<string, Skill> = {};
   const sources = buildSources(projectRoot, tools);

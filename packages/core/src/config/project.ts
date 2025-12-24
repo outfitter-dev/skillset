@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, realpathSync } from "node:fs";
 import { createHash } from "node:crypto";
+import { existsSync, realpathSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { ProjectIdStrategy } from "@skillset/types";
 
@@ -25,14 +25,14 @@ export function findGitRoot(startPath: string): string {
 
 export function getGitRemoteUrl(repoRoot: string): string | undefined {
   try {
-    const output = execFileSync("git", [
-      "config",
-      "--get",
-      "remote.origin.url",
-    ], {
-      cwd: repoRoot,
-      stdio: ["ignore", "pipe", "ignore"],
-    });
+    const output = execFileSync(
+      "git",
+      ["config", "--get", "remote.origin.url"],
+      {
+        cwd: repoRoot,
+        stdio: ["ignore", "pipe", "ignore"],
+      }
+    );
     const value = output.toString().trim();
     return value.length ? value : undefined;
   } catch {
