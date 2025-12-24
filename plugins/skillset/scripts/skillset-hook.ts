@@ -45,9 +45,7 @@ async function loadModuleRunner(): Promise<HookRunner | null> {
   }
 
   try {
-    const mod = await import(
-      "../../../packages/core/src/hooks/hook-runner.ts"
-    );
+    const mod = await import("../../../packages/core/src/hooks/hook-runner.ts");
     return mod.runUserPromptSubmitHook;
   } catch {
     return null;

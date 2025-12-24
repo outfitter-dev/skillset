@@ -303,20 +303,19 @@ async function runHookViaPlugin(
     PATH: mode === "cli" ? `${binRoot}:${basePath}` : basePath,
   };
 
-  const result = await runCommand(
-    ["bun", pluginScript],
-    {
-      cwd: workspaceRoot,
-      env,
-      stdinText: payload,
-      timeoutMs: 30_000,
-    }
-  );
+  const result = await runCommand(["bun", pluginScript], {
+    cwd: workspaceRoot,
+    env,
+    stdinText: payload,
+    timeoutMs: 30_000,
+  });
 
   if (result.exitCode !== 0) {
     const stderr = result.stderr?.trim();
     const errorDetails = stderr ? `: ${stderr}` : "";
-    throw new Error(`hook-${mode} failed with ${result.exitCode}${errorDetails}`);
+    throw new Error(
+      `hook-${mode} failed with ${result.exitCode}${errorDetails}`
+    );
   }
 
   return result.stdout;
@@ -400,14 +399,11 @@ async function runShowTree(): Promise<RunResult> {
     PATH: `${binRoot}:${envBase.PATH ?? ""}`,
   };
   try {
-    const result = await runCommand(
-      ["skillset", "show", "--tree", skillsDir],
-      {
-        cwd: workspaceRoot,
-        env,
-        timeoutMs: 30_000,
-      }
-    );
+    const result = await runCommand(["skillset", "show", "--tree", skillsDir], {
+      cwd: workspaceRoot,
+      env,
+      timeoutMs: 30_000,
+    });
     writeFileSync(stdoutPath, result.stdout);
     writeFileSync(stderrPath, result.stderr);
     const parsed = safeJson(result.stdout);
@@ -494,7 +490,9 @@ async function runCoreBuild(): Promise<RunResult> {
     if (result.exitCode !== 0) {
       const stderr = result.stderr?.trim();
       const errorDetails = stderr ? `: ${stderr}` : "";
-      throw new Error(`build:core failed with ${result.exitCode}${errorDetails}`);
+      throw new Error(
+        `build:core failed with ${result.exitCode}${errorDetails}`
+      );
     }
     return {
       tool: "skillset",

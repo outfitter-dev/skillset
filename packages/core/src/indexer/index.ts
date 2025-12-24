@@ -1,8 +1,8 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, relative, sep } from "node:path";
-import type { CacheSchema, Skill } from "@skillset/types";
 import { getProjectRoot } from "@skillset/shared";
+import type { CacheSchema, Skill } from "@skillset/types";
 import { updateCacheSync } from "../cache";
 
 const SKILL_FILENAME = "SKILL.md";

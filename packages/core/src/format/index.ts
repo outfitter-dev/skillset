@@ -89,12 +89,7 @@ function formatSet(
   for (const skill of resolved) {
     lines.push(
       "",
-      formatSkillBlock(
-        skill,
-        config,
-        `#### ${skill.skillRef}`,
-        skill.skillRef
-      )
+      formatSkillBlock(skill, config, `#### ${skill.skillRef}`, skill.skillRef)
     );
   }
   return lines.join("\n");

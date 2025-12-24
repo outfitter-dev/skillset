@@ -30,15 +30,7 @@ export function buildDirectoryTreeLines(
   const maxDepth = options.maxDepth ?? 6;
   const maxLines = options.maxLines ?? Number.POSITIVE_INFINITY;
   const includeHidden = options.includeHidden ?? false;
-  walkDirectoryTreeLines(
-    path,
-    "",
-    0,
-    maxDepth,
-    maxLines,
-    includeHidden,
-    lines
-  );
+  walkDirectoryTreeLines(path, "", 0, maxDepth, maxLines, includeHidden, lines);
   return lines;
 }
 
