@@ -1,0 +1,122 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://unpkg.com/@skillset/types/schemas/config.schema.json",
+  "title": "Skillset Config",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "rules", "output", "skills"],
+  "properties": {
+    "version": {
+      "type": "number",
+      "description": "Config schema version"
+    },
+    "rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unresolved", "ambiguous"],
+      "properties": {
+        "unresolved": { "$ref": "#/definitions/ruleSeverity" },
+        "ambiguous": { "$ref": "#/definitions/ruleSeverity" }
+      }
+    },
+    "resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fuzzy_matching": {
+          "type": "boolean",
+          "description": "Enable fuzzy matching when exact match not found"
+        },
+        "default_scope_priority": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/scope" }
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_lines", "include_layout"],
+      "properties": {
+        "max_lines": {
+          "type": "number",
+          "description": "Maximum lines per skill"
+        },
+        "include_layout": {
+          "type": "boolean",
+          "description": "Include layout/structure info"
+        }
+      }
+    },
+    "ignore_scopes": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/scope" }
+    },
+    "tools": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/tool" }
+    },
+    "skills": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/skillEntry" }
+    },
+    "sets": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/setDefinition" }
+    }
+  },
+  "definitions": {
+    "tool": {
+      "type": "string",
+      "enum": ["claude", "codex", "copilot", "cursor", "amp", "goose"]
+    },
+    "scope": {
+      "type": "string",
+      "enum": ["project", "user", "plugin"]
+    },
+    "ruleSeverity": {
+      "type": "string",
+      "enum": ["ignore", "warn", "error"]
+    },
+    "skillEntry": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Skill name or explicit path"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "skill": { "type": "string" },
+            "path": { "type": "string" },
+            "scope": {
+              "anyOf": [
+                { "$ref": "#/definitions/scope" },
+                {
+                  "type": "array",
+                  "items": { "$ref": "#/definitions/scope" }
+                }
+              ]
+            },
+            "include_full": { "type": "boolean" },
+            "include_layout": { "type": "boolean" }
+          }
+        }
+      ]
+    },
+    "setDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "skills"],
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "skills": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

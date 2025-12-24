@@ -52,6 +52,58 @@ export function getCacheDir(): string {
 }
 
 /**
+ * Skill source paths by tool
+ */
+export const SKILL_PATHS = {
+  claude: {
+    project: (root: string) => join(root, ".claude", "skills"),
+    user: () => join(homedir(), ".claude", "skills"),
+  },
+  codex: {
+    project: (root: string) => join(root, ".codex", "skills"),
+    user: () =>
+      process.env.CODEX_HOME
+        ? join(process.env.CODEX_HOME, "skills")
+        : join(homedir(), ".codex", "skills"),
+  },
+  copilot: {
+    project: (root: string) => join(root, ".github", "skills"),
+    user: () => join(homedir(), ".github", "skills"),
+  },
+  cursor: {
+    project: (root: string) => join(root, ".cursor", "skills"),
+    user: () => join(homedir(), ".cursor", "skills"),
+  },
+  amp: {
+    project: (root: string) => join(root, ".amp", "skills"),
+    user: () => join(homedir(), ".amp", "skills"),
+  },
+  goose: {
+    project: (root: string) => join(root, ".goose", "skills"),
+    user: () => join(homedir(), ".goose", "skills"),
+  },
+} as const;
+
+export type ToolName = keyof typeof SKILL_PATHS;
+
+/**
+ * Get all skill paths for a given scope
+ */
+export function getSkillPaths(
+  scope: "project" | "user",
+  projectRoot?: string
+): Record<ToolName, string> {
+  const result: Record<string, string> = {};
+  for (const [tool, paths] of Object.entries(SKILL_PATHS)) {
+    result[tool] =
+      scope === "project" && projectRoot
+        ? paths.project(projectRoot)
+        : paths.user();
+  }
+  return result as Record<ToolName, string>;
+}
+
+/**
  * Get all skillset paths
  */
 export function getSkillsetPaths() {

@@ -16,9 +16,7 @@ describe("config utils", () => {
   });
 
   test("joinKeyPath escapes dots", () => {
-    expect(joinKeyPath(["skills", "tools.debug"])).toBe(
-      "skills.tools\\.debug"
-    );
+    expect(joinKeyPath(["skills", "tools.debug"])).toBe("skills.tools\\.debug");
   });
 
   test("get/set/delete value by path", () => {

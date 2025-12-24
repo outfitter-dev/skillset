@@ -326,7 +326,7 @@ async function showSkill(
         : dirname(result.skill.path);
     const treeLines = buildDirectoryTreeLines(treeRoot, {
       maxDepth: 6,
-      maxLines: config.maxLines,
+      maxLines: config.output.max_lines,
     });
     const treeText = treeLines.join("\n");
     if (format === "json") {

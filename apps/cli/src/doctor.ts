@@ -19,31 +19,30 @@ export function runFullDiagnostic(): void {
   console.log(chalk.bold("skillset doctor"));
   console.log("─".repeat(40));
 
-  // Check config files
-  const projectConfigExists = existsSync(CONFIG_PATHS.project);
-  const localConfigExists = existsSync(CONFIG_PATHS.projectLocal);
-  const userConfigExists = existsSync(CONFIG_PATHS.user);
+  const projectConfigPath = CONFIG_PATHS.project();
+  const userConfigPath = CONFIG_PATHS.user();
+  const generatedPath = CONFIG_PATHS.generated();
+
+  const projectConfigExists = existsSync(projectConfigPath);
+  const userConfigExists = existsSync(userConfigPath);
+  const generatedExists = existsSync(generatedPath);
 
   if (projectConfigExists) {
-    console.log(
-      `${chalk.green("✓")} Config: project (${CONFIG_PATHS.project})`
-    );
+    console.log(`${chalk.green("✓")} Config: project (${projectConfigPath})`);
   } else {
     console.log(`${chalk.dim("○")} Config: project (not found)`);
   }
 
-  if (localConfigExists) {
-    console.log(
-      `${chalk.green("✓")} Config: local (${CONFIG_PATHS.projectLocal})`
-    );
-  } else {
-    console.log(`${chalk.dim("○")} Config: local (not found)`);
-  }
-
   if (userConfigExists) {
-    console.log(`${chalk.green("✓")} Config: user (${CONFIG_PATHS.user})`);
+    console.log(`${chalk.green("✓")} Config: user (${userConfigPath})`);
   } else {
     console.log(`${chalk.dim("○")} Config: user (not found)`);
+  }
+
+  if (generatedExists) {
+    console.log(`${chalk.green("✓")} Config: generated (${generatedPath})`);
+  } else {
+    console.log(`${chalk.dim("○")} Config: generated (not found)`);
   }
 
   // Check cache
@@ -137,27 +136,29 @@ export function runConfigDiagnostic(): void {
   console.log(chalk.bold("skillset doctor config"));
   console.log("─".repeat(40));
 
-  // Show which config files exist
+  const projectConfigPath = CONFIG_PATHS.project();
+  const userConfigPath = CONFIG_PATHS.user();
+  const generatedPath = CONFIG_PATHS.generated();
   console.log(chalk.bold("\nConfig files:"));
 
-  const projectConfigExists = existsSync(CONFIG_PATHS.project);
-  const localConfigExists = existsSync(CONFIG_PATHS.projectLocal);
-  const userConfigExists = existsSync(CONFIG_PATHS.user);
+  const projectConfigExists = existsSync(projectConfigPath);
+  const userConfigExists = existsSync(userConfigPath);
+  const generatedExists = existsSync(generatedPath);
 
   console.log(
     `  Project: ${projectConfigExists ? chalk.green("exists") : chalk.dim("not found")}`
   );
-  console.log(`    ${chalk.dim(CONFIG_PATHS.project)}`);
-
-  console.log(
-    `  Local:   ${localConfigExists ? chalk.green("exists") : chalk.dim("not found")}`
-  );
-  console.log(`    ${chalk.dim(CONFIG_PATHS.projectLocal)}`);
+  console.log(`    ${chalk.dim(projectConfigPath)}`);
 
   console.log(
     `  User:    ${userConfigExists ? chalk.green("exists") : chalk.dim("not found")}`
   );
-  console.log(`    ${chalk.dim(CONFIG_PATHS.user)}`);
+  console.log(`    ${chalk.dim(userConfigPath)}`);
+
+  console.log(
+    `  Generated: ${generatedExists ? chalk.green("exists") : chalk.dim("not found")}`
+  );
+  console.log(`    ${chalk.dim(generatedPath)}`);
 
   // Try to load and validate merged config
   console.log(chalk.bold("\nMerged config:"));
@@ -172,20 +173,33 @@ export function runConfigDiagnostic(): void {
     if (typeof config.version !== "number") {
       errors.push("version must be a number");
     }
-    if (config.mode !== "warn" && config.mode !== "strict") {
-      errors.push("mode must be 'warn' or 'strict'");
+    if (
+      !config.rules ||
+      (config.rules.unresolved !== "ignore" &&
+        config.rules.unresolved !== "warn" &&
+        config.rules.unresolved !== "error")
+    ) {
+      errors.push("rules.unresolved must be 'ignore', 'warn', or 'error'");
     }
-    if (typeof config.showStructure !== "boolean") {
-      errors.push("showStructure must be a boolean");
+    if (
+      !config.rules ||
+      (config.rules.ambiguous !== "ignore" &&
+        config.rules.ambiguous !== "warn" &&
+        config.rules.ambiguous !== "error")
+    ) {
+      errors.push("rules.ambiguous must be 'ignore', 'warn', or 'error'");
     }
-    if (typeof config.maxLines !== "number") {
-      errors.push("maxLines must be a number");
+    if (!config.output || typeof config.output.max_lines !== "number") {
+      errors.push("output.max_lines must be a number");
     }
-    if (typeof config.mappings !== "object") {
-      errors.push("mappings must be an object");
+    if (!config.output || typeof config.output.include_layout !== "boolean") {
+      errors.push("output.include_layout must be a boolean");
     }
-    if (typeof config.namespaceAliases !== "object") {
-      errors.push("namespaceAliases must be an object");
+    if (typeof config.skills !== "object") {
+      errors.push("skills must be an object");
+    }
+    if (config.sets && typeof config.sets !== "object") {
+      errors.push("sets must be an object");
     }
 
     if (errors.length === 0) {

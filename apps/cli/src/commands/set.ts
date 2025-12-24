@@ -5,6 +5,7 @@
 import {
   loadCaches,
   loadConfig,
+  resolveToken,
   type Skill,
   stripFrontmatter,
 } from "@skillset/core";
@@ -13,12 +14,7 @@ import chalk from "chalk";
 import type { Command } from "commander";
 import type { GlobalOptions, OutputFormat } from "../types";
 import { determineFormat } from "../utils/format";
-
-interface SetDefinition {
-  name: string;
-  description?: string;
-  skillRefs: string[];
-}
+import { normalizeInvocation } from "../utils/normalize";
 
 interface SetListOptions extends GlobalOptions {}
 
@@ -29,7 +25,7 @@ interface SetLoadOptions extends GlobalOptions {}
 /**
  * List all defined sets
  */
-function listSets(format: OutputFormat, options: SetListOptions): void {
+function listSets(format: OutputFormat, _options: SetListOptions): void {
   const config = loadConfig();
   const sets = config.sets ?? {};
   const setEntries = Object.entries(sets);
@@ -73,9 +69,24 @@ function listSets(format: OutputFormat, options: SetListOptions): void {
     if (def.description) {
       console.log(`  ${def.description}`);
     }
-    console.log(`  ${chalk.dim(`Skills: ${def.skillRefs.length}`)}`);
+    console.log(`  ${chalk.dim(`Skills: ${def.skills.length}`)}`);
     console.log();
   }
+}
+
+function resolveSetSkills(
+  setDef: { skills: string[] },
+  config: ReturnType<typeof loadConfig>,
+  cache: ReturnType<typeof loadCaches>
+): Array<{ ref: string; skill?: Skill; error?: string }> {
+  return setDef.skills.map((ref) => {
+    const token = normalizeInvocation(ref, "skill");
+    const result = resolveToken(token, config, cache);
+    if (result.skill) {
+      return { ref, skill: result.skill };
+    }
+    return { ref, error: result.reason ?? "unmatched" };
+  });
 }
 
 /**
@@ -113,12 +124,7 @@ function showSet(name: string, format: OutputFormat): void {
     process.exit(1);
   }
 
-  // Resolve skill references to actual skills
-  const resolvedSkills: Array<{ ref: string; skill: Skill | undefined }> = [];
-  for (const skillRef of setDef.skillRefs) {
-    const skill = cache.skills[skillRef];
-    resolvedSkills.push({ ref: skillRef, skill: skill ?? undefined });
-  }
+  const resolvedSkills = resolveSetSkills(setDef, config, cache);
 
   if (format === "json") {
     console.log(
@@ -127,12 +133,12 @@ function showSet(name: string, format: OutputFormat): void {
           key: name,
           name: setDef.name,
           description: setDef.description,
-          skillRefs: setDef.skillRefs,
           skills: resolvedSkills.map((rs) => ({
             ref: rs.ref,
             found: !!rs.skill,
             name: rs.skill?.name,
             path: rs.skill?.path,
+            error: rs.error,
           })),
         },
         null,
@@ -172,7 +178,7 @@ function showSet(name: string, format: OutputFormat): void {
         }
       } else {
         console.log(`  ${chalk.red("✗")} ${rs.ref}`);
-        console.log(`    ${chalk.dim("(not found in cache)")}`);
+        console.log(`    ${chalk.dim(rs.error ?? "(not found)")}`);
       }
     }
   }
@@ -214,7 +220,8 @@ async function loadSet(name: string, format: OutputFormat): Promise<void> {
     process.exit(1);
   }
 
-  // Resolve and load all skills
+  const resolvedSkills = resolveSetSkills(setDef, config, cache);
+
   const loadedSkills: Array<{
     ref: string;
     skill?: Skill;
@@ -222,23 +229,19 @@ async function loadSet(name: string, format: OutputFormat): Promise<void> {
     error?: string;
   }> = [];
 
-  for (const skillRef of setDef.skillRefs) {
-    const skill = cache.skills[skillRef];
-    if (!skill) {
-      loadedSkills.push({
-        ref: skillRef,
-        error: "Skill not found in cache",
-      });
+  for (const rs of resolvedSkills) {
+    if (!rs.skill) {
+      loadedSkills.push({ ref: rs.ref, error: rs.error ?? "Skill not found" });
       continue;
     }
 
     try {
-      const content = await Bun.file(skill.path).text();
-      loadedSkills.push({ ref: skillRef, skill, content });
+      const content = await Bun.file(rs.skill.path).text();
+      loadedSkills.push({ ref: rs.ref, skill: rs.skill, content });
     } catch {
       loadedSkills.push({
-        ref: skillRef,
-        skill,
+        ref: rs.ref,
+        skill: rs.skill,
         error: "Failed to read skill file",
       });
     }
@@ -281,7 +284,7 @@ async function loadSet(name: string, format: OutputFormat): Promise<void> {
     for (const ls of loadedSkills) {
       if (ls.content) {
         console.log(ls.content);
-        console.log(); // Blank line between skills
+        console.log();
       }
     }
     return;
@@ -293,7 +296,7 @@ async function loadSet(name: string, format: OutputFormat): Promise<void> {
   if (setDef.description) {
     console.log(setDef.description);
   }
-  console.log(chalk.dim(`${setDef.skillRefs.length} skills\n`));
+  console.log(chalk.dim(`${setDef.skills.length} skills\n`));
 
   for (const ls of loadedSkills) {
     if (ls.error) {

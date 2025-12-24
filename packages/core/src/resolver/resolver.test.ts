@@ -35,11 +35,14 @@ const cache: CacheSchema = {
 
 const config: ConfigSchema = {
   version: 1,
-  mode: "warn",
-  showStructure: false,
-  maxLines: 500,
-  mappings: {},
-  namespaceAliases: {},
+  rules: { unresolved: "warn", ambiguous: "warn" },
+  output: { max_lines: 500, include_layout: false },
+  resolution: {
+    fuzzy_matching: true,
+    default_scope_priority: ["project", "user", "plugin"],
+  },
+  skills: {},
+  sets: {},
 };
 
 describe("resolveToken", () => {
@@ -76,7 +79,7 @@ describe("resolveToken", () => {
   it("resolves by explicit mapping", () => {
     const configWithMapping: ConfigSchema = {
       ...config,
-      mappings: { fe: { skillRef: "project:frontend-design" } },
+      skills: { fe: "project:frontend-design" },
     };
     const token: InvocationToken = {
       raw: "$fe",
@@ -90,7 +93,7 @@ describe("resolveToken", () => {
   it("returns error when mapping points to missing skill", () => {
     const configWithBadMapping: ConfigSchema = {
       ...config,
-      mappings: { broken: { skillRef: "nonexistent:skill" } },
+      skills: { broken: "nonexistent:skill" },
     };
     const token: InvocationToken = {
       raw: "$broken",
@@ -109,6 +112,23 @@ describe("resolveToken", () => {
     };
     const result = resolveToken(token, config, cache);
     expect(result.skill?.skillRef).toBe("user:auth");
+  });
+
+  it("supports namespace shortcuts", () => {
+    const cacheWithProjectAuth: CacheSchema = {
+      ...cache,
+      skills: {
+        ...cache.skills,
+        "project:auth": createSkill("project:auth", "Auth Project"),
+      },
+    };
+    const token: InvocationToken = {
+      raw: "$p:auth",
+      alias: "auth",
+      namespace: "p",
+    };
+    const result = resolveToken(token, config, cacheWithProjectAuth);
+    expect(result.skill?.skillRef).toBe("project:auth");
   });
 
   it("returns ambiguous when multiple skills match", () => {
@@ -188,7 +208,7 @@ describe("resolveToken", () => {
         frontend: {
           name: "Frontend",
           description: "Frontend bundle",
-          skillRefs: ["project:frontend-design"],
+          skills: ["project:frontend-design"],
         },
       },
     };
@@ -209,7 +229,7 @@ describe("resolveToken", () => {
         "starter-set": {
           name: "Starter Set",
           description: "Starter bundle",
-          skillRefs: ["project:frontend-design"],
+          skills: ["project:frontend-design"],
         },
       },
     };

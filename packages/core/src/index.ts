@@ -8,14 +8,21 @@
 export type {
   CacheSchema,
   ConfigSchema,
+  GeneratedSettingsSchema,
   InjectOutcome,
   InvocationToken,
-  MappingEntry,
-  Mode,
+  ProjectIdStrategy,
+  ProjectSettings,
   ResolveResult,
+  RuleSeverity,
+  Scope,
+  SetDefinition,
   Skill,
+  SkillEntry,
   SkillRef,
+  SkillSet,
   SkillSource,
+  Tool,
 } from "@skillset/types";
 // Cache
 export {
@@ -27,14 +34,21 @@ export {
 } from "./cache";
 // Config
 export {
+  CONFIG_DEFAULTS,
   CONFIG_PATHS,
+  cleanupGeneratedConfig,
+  deleteConfigValue,
+  ensureConfigFiles,
   getConfigPath,
   getConfigValue,
   loadConfig,
-  modeLabel,
-  readConfigByScope,
+  loadGeneratedSettings,
+  loadYamlConfigByScope,
+  resetGeneratedConfigValue,
   setConfigValue,
-  writeConfig,
+  setGeneratedConfigValue,
+  writeYamlConfig,
+  writeGeneratedSettings,
 } from "./config";
 // Format
 export { formatOutcome, stripFrontmatter } from "./format";

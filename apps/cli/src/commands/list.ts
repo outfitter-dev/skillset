@@ -137,7 +137,7 @@ function printSets(sets: ReturnType<typeof getSets>): void {
     if (set.description) {
       console.log(`  ${set.description}`);
     }
-    console.log(`  ${chalk.dim(`Skills: ${set.skillRefs.length}`)}`);
+    console.log(`  ${chalk.dim(`Skills: ${set.skills.length}`)}`);
     console.log();
   }
 }

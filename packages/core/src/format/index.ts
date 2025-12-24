@@ -6,41 +6,67 @@ import type {
   InjectOutcome,
   ResolveResult,
   Skill,
+  SkillEntry,
   SkillSet,
 } from "@skillset/types";
-import { normalizeTokenRef } from "../normalize";
+import { normalizeTokenRef, normalizeTokenSegment } from "../normalize";
 import { buildDirectoryTreeLines } from "../tree";
 
 function header() {
   return "## skillset: Resolved Skills\n\nThe user invoked skills explicitly via `$alias`. These are loaded below. Ignore the literal `$...` tokens in the prompt.\n\n---";
 }
 
+function findSkillEntry(config: ConfigSchema, alias: string): SkillEntry | undefined {
+  if (config.skills[alias]) return config.skills[alias];
+  const normalized = normalizeTokenSegment(alias);
+  if (config.skills[normalized]) return config.skills[normalized];
+  const lower = alias.toLowerCase();
+  for (const [key, entry] of Object.entries(config.skills)) {
+    if (key.toLowerCase() === lower) return entry;
+    if (normalizeTokenRef(key) === normalized) return entry;
+  }
+  return undefined;
+}
+
+function resolveOutputOptions(config: ConfigSchema, entry?: SkillEntry) {
+  const includeLayout =
+    typeof entry === "object" && entry !== null && "include_layout" in entry
+      ? entry.include_layout ?? config.output.include_layout
+      : config.output.include_layout;
+  const includeFull =
+    typeof entry === "object" && entry !== null && entry.include_full === true;
+  const maxLines = includeFull ? Number.POSITIVE_INFINITY : config.output.max_lines;
+  return { includeLayout, maxLines };
+}
+
 function formatSkillBlock(
   skill: Skill,
   config: ConfigSchema,
   heading: string,
-  label: string
+  label: string,
+  entry?: SkillEntry
 ): string {
+  const { includeLayout, maxLines } = resolveOutputOptions(config, entry);
   const lines: string[] = [];
   lines.push(heading);
   lines.push("");
   lines.push(`- **Path:** ${skill.path}`);
   lines.push(`- **Name:** ${skill.name}`);
   if (skill.description) lines.push(`- **Description:** ${skill.description}`);
-  if (config.showStructure && skill.structure) {
+  if (includeLayout && skill.structure) {
     lines.push("- **Structure:**");
     lines.push("```");
     lines.push(skill.structure.trim());
     lines.push("```");
   }
-  const content = loadContent(skill, config.maxLines);
+  const content = loadContent(skill, maxLines);
   lines.push(`\n\`\`\`markdown skill:${label}`);
   lines.push(content.block);
   lines.push("```\n");
   if (content.truncated) {
-    const start = config.maxLines + 1;
+    const start = maxLines + 1;
     lines.push(
-      `**Truncated:** Lines 1-${config.maxLines} of ${skill.lineCount ?? "?"}`
+      `**Truncated:** Lines 1-${maxLines} of ${skill.lineCount ?? "?"}`
     );
     lines.push(
       `Continue: sed -n '${start},${skill.lineCount ?? ""}p' ${skill.path}`
@@ -51,11 +77,13 @@ function formatSkillBlock(
 
 function formatSkill(result: ResolveResult, config: ConfigSchema): string {
   const skill = result.skill as Skill;
+  const entry = findSkillEntry(config, result.invocation.alias);
   return formatSkillBlock(
     skill,
     config,
     `### ${result.invocation.raw}`,
-    result.invocation.alias
+    result.invocation.alias,
+    entry
   );
 }
 
@@ -80,16 +108,23 @@ function formatSet(
     }
   }
 
-  const resolved: Skill[] = [];
-  for (const ref of set.skillRefs) {
-    const normalized = normalizeTokenRef(ref);
-    const skill = cache.skills[ref] ?? cache.skills[normalized];
-    if (skill) resolved.push(skill);
+  const resolved: Skill[] = result.setSkills ?? [];
+  if (resolved.length === 0) {
+    for (const ref of set.skillRefs) {
+      const normalized = normalizeTokenRef(ref);
+      const skill = cache.skills[ref] ?? cache.skills[normalized];
+      if (skill) resolved.push(skill);
+    }
   }
-  for (const skill of resolved) {
+
+  for (let i = 0; i < resolved.length; i += 1) {
+    const skill = resolved[i];
+    if (!skill) continue;
+    const alias = set.skillRefs[i] ?? skill.skillRef;
+    const entry = findSkillEntry(config, alias);
     lines.push(
       "",
-      formatSkillBlock(skill, config, `#### ${skill.skillRef}`, skill.skillRef)
+      formatSkillBlock(skill, config, `#### ${skill.skillRef}`, skill.skillRef, entry)
     );
   }
   return lines.join("\n");
@@ -102,7 +137,7 @@ function loadContent(
   try {
     const content = readFileSync(skill.path, "utf8");
     const lines = content.split(/\r?\n/);
-    const truncated = lines.length > maxLines;
+    const truncated = Number.isFinite(maxLines) && lines.length > maxLines;
     const slice = truncated ? lines.slice(0, maxLines) : lines;
     const withoutFrontmatter = stripFrontmatter(slice.join("\n"));
     return { block: withoutFrontmatter, truncated };
@@ -118,14 +153,16 @@ export function stripFrontmatter(text: string): string {
   return text.slice(end + 4).trimStart();
 }
 
-function warningsSection(results: ResolveResult[]): string | null {
+function warningsSection(results: ResolveResult[], config: ConfigSchema): string | null {
   const warnings: string[] = [];
   for (const r of results) {
     if (r.skill) continue;
     if (r.reason === "ambiguous" && r.candidates?.length) {
+      if (config.rules.ambiguous === "ignore") continue;
       const opts = r.candidates.map((c) => c.skillRef).join(", ");
       warnings.push(`- **Ambiguous:** ${r.invocation.raw} → ${opts}`);
     } else if (r.reason === "unmatched") {
+      if (config.rules.unresolved === "ignore") continue;
       warnings.push(`- **Unmatched:** ${r.invocation.raw}`);
     } else if (r.reason) {
       warnings.push(`- **${r.reason}:** ${r.invocation.raw}`);
@@ -156,7 +193,7 @@ export function formatOutcome(
       blocks.push("", formatSet(r, config, cache));
     }
   }
-  const warn = warningsSection(results);
+  const warn = warningsSection(results, config);
   if (warn) blocks.push("", warn);
   return {
     resolved: results,
@@ -177,15 +214,15 @@ function skillsDirectorySection(
   for (const root of roots) {
     const tree = buildDirectoryTreeLines(root, {
       maxDepth: 6,
-      maxLines: config.maxLines,
+      maxLines: config.output.max_lines,
     });
     if (tree.length === 0) {
       continue;
     }
     lines.push("", `- **Root:** ${root}`, "", "```text");
     const capped =
-      tree.length > config.maxLines
-        ? [...tree.slice(0, config.maxLines), "..."]
+      tree.length > config.output.max_lines
+        ? [...tree.slice(0, config.output.max_lines), "..."]
         : tree;
     lines.push(...capped, "```");
   }
@@ -202,10 +239,19 @@ function collectSkillsRoots(cache: CacheSchema): string[] {
 }
 
 function findSkillsRoot(path: string): string | null {
-  const marker = `${sep}.claude${sep}skills${sep}`;
-  const idx = path.indexOf(marker);
-  if (idx === -1) {
-    return null;
+  const markers = [
+    `${sep}.claude${sep}skills${sep}`,
+    `${sep}.codex${sep}skills${sep}`,
+    `${sep}.github${sep}skills${sep}`,
+    `${sep}.cursor${sep}skills${sep}`,
+    `${sep}.amp${sep}skills${sep}`,
+    `${sep}.goose${sep}skills${sep}`,
+  ];
+  for (const marker of markers) {
+    const idx = path.indexOf(marker);
+    if (idx !== -1) {
+      return path.slice(0, idx + marker.length - 1);
+    }
   }
-  return path.slice(0, idx + marker.length - 1);
+  return null;
 }

@@ -1,14 +1,23 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, relative, sep } from "node:path";
-import { getProjectRoot } from "@skillset/shared";
-import type { CacheSchema, Skill } from "@skillset/types";
+import { getProjectRoot, SKILL_PATHS } from "@skillset/shared";
+import type { CacheSchema, ConfigSchema, Skill, Tool } from "@skillset/types";
+import { loadConfig } from "../config";
 import { updateCacheSync } from "../cache";
 
 const SKILL_FILENAME = "SKILL.md";
 
 interface ScanOptions {
   projectRoot?: string;
+  tools?: Tool[];
+  config?: ConfigSchema;
+}
+
+interface SkillSourceRoot {
+  root: string;
+  scope: "project" | "user" | "plugin";
+  tool?: Tool;
 }
 
 function walkForSkillFiles(root: string): string[] {
@@ -29,30 +38,28 @@ function walkForSkillFiles(root: string): string[] {
   return results;
 }
 
-function skillRefFromPath(path: string, projectRoot: string): string {
-  const home = homedir();
-  if (path.startsWith(join(projectRoot, ".claude", "skills"))) {
-    const rel = relative(join(projectRoot, ".claude", "skills"), path).split(
-      sep
-    )[0];
-    return `project:${rel}`;
-  }
-  if (path.startsWith(join(home, ".claude", "skills"))) {
-    const rel = relative(join(home, ".claude", "skills"), path).split(sep)[0];
-    return `user:${rel}`;
-  }
-  const pluginsRoot = join(home, ".claude", "plugins");
-  if (path.startsWith(pluginsRoot)) {
-    const rel = relative(pluginsRoot, path).split(sep);
+function toolPrefix(tool?: Tool): string {
+  if (!tool || tool === "claude") return "";
+  return `${tool}/`;
+}
+
+function skillRefFromPath(
+  path: string,
+  source: SkillSourceRoot
+): string {
+  if (source.scope === "plugin") {
+    const rel = relative(source.root, path).split(sep);
     const namespace = rel[0];
     const alias = rel.slice(2)[0] ?? rel[0];
     return `plugin:${namespace}/${alias}`;
   }
-  // fallback
-  return `skill:${path.split(sep).slice(-2, -1)[0]}`;
+
+  const rel = relative(source.root, path).split(sep);
+  const alias = rel[0] ?? "unknown";
+  return `${source.scope}:${toolPrefix(source.tool)}${alias}`;
 }
 
-function readSkillMetadata(path: string, projectRoot: string): Skill {
+function readSkillMetadata(path: string, source: SkillSourceRoot): Skill {
   const content = readFileSync(path, "utf8");
   const lines = content.split(/\r?\n/);
   const firstHeading = lines.find((l) => l.startsWith("#"));
@@ -63,7 +70,7 @@ function readSkillMetadata(path: string, projectRoot: string): Skill {
   const description = lines
     .find((l) => l.trim().length > 0 && !l.startsWith("#"))
     ?.trim();
-  const skillRef = skillRefFromPath(path, projectRoot);
+  const skillRef = skillRefFromPath(path, source);
   return {
     skillRef,
     path,
@@ -101,18 +108,34 @@ function generateStructure(path: string): string {
   return lines.join("\n");
 }
 
+function buildSources(projectRoot: string, tools: Tool[]): SkillSourceRoot[] {
+  const sources: SkillSourceRoot[] = [];
+  for (const tool of tools) {
+    const projectRootPath = SKILL_PATHS[tool].project(projectRoot);
+    const userRootPath = SKILL_PATHS[tool].user();
+    sources.push({ root: projectRootPath, scope: "project", tool });
+    sources.push({ root: userRootPath, scope: "user", tool });
+  }
+  sources.push({
+    root: join(homedir(), ".claude", "plugins"),
+    scope: "plugin",
+  });
+  return sources;
+}
+
 export function indexSkills(options: ScanOptions = {}): CacheSchema {
   const projectRoot = options.projectRoot ?? getProjectRoot();
+  const config = options.config ?? loadConfig(projectRoot);
+  const tools = options.tools ?? config.tools ?? (Object.keys(SKILL_PATHS) as Tool[]);
+
   const skills: Record<string, Skill> = {};
-  const sources = [
-    join(projectRoot, ".claude", "skills"),
-    join(homedir(), ".claude", "skills"),
-    join(homedir(), ".claude"),
-  ];
-  const files = sources.flatMap((src) => walkForSkillFiles(src));
+  const sources = buildSources(projectRoot, tools);
+  const files = sources.flatMap((src) => walkForSkillFiles(src.root));
 
   for (const file of files) {
-    const meta = readSkillMetadata(file, projectRoot);
+    const source = sources.find((src) => file.startsWith(src.root));
+    if (!source) continue;
+    const meta = readSkillMetadata(file, source);
     skills[meta.skillRef] = { ...meta, structure: generateStructure(file) };
   }
 

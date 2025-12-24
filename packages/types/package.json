@@ -17,7 +17,8 @@
     "build": "bun run clean && bun build ./src/index.ts --outdir dist --target bun && bun run types"
   },
   "files": [
-    "dist"
+    "dist",
+    "schemas"
   ],
   "dependencies": {
     "type-fest": "^4.30.0"
