@@ -115,7 +115,7 @@ async function writeToStdin(
 async function main() {
   const runUserPromptSubmitHook = await loadHookRunner();
   const stdin = await Bun.stdin.text();
-  const output = await runUserPromptSubmitHook(stdin);
+  const output = runUserPromptSubmitHook(stdin);
   console.log(output);
 }
 
