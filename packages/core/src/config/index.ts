@@ -51,8 +51,12 @@ export function getConfigPath(
   scope: "project" | "user" | "generated",
   projectRoot?: string
 ): string {
-  if (scope === "user") return CONFIG_PATHS.user();
-  if (scope === "generated") return CONFIG_PATHS.generated();
+  if (scope === "user") {
+    return CONFIG_PATHS.user();
+  }
+  if (scope === "generated") {
+    return CONFIG_PATHS.generated();
+  }
   return CONFIG_PATHS.project(projectRoot);
 }
 
@@ -90,7 +94,9 @@ export function loadConfig(projectRoot = getProjectRoot()): ConfigSchema {
 export function ensureConfigFiles(projectRoot = getProjectRoot()) {
   for (const path of [CONFIG_PATHS.project(projectRoot), CONFIG_PATHS.user()]) {
     const dir = dirname(path);
-    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
     if (!existsSync(path)) {
       writeYamlConfig(path, CONFIG_DEFAULTS, true);
     }
@@ -107,7 +113,9 @@ export function writeYamlConfig(
     : "";
   const yamlDefaults = `${dumpYaml(config, { noRefs: true })}`;
   const dir = dirname(path);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
   writeFileSync(path, `${header}${yamlDefaults}`, "utf8");
 }
 
@@ -190,7 +198,9 @@ export function cleanupGeneratedConfig(
     generated.project_id_strategy ?? "path"
   );
   const projectSettings = cleanedGlobal.projects[projectId];
-  if (!projectSettings) return cleanedGlobal;
+  if (!projectSettings) {
+    return cleanedGlobal;
+  }
   cleanedGlobal.projects[projectId] = cleanupStaleHashes(
     projectSettings,
     projectYaml

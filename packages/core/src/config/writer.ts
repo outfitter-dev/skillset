@@ -6,7 +6,7 @@ import type {
   GeneratedSettingsSchema,
   ProjectSettings,
 } from "@skillset/types";
-import * as lockfile from "proper-lockfile";
+import { lock } from "proper-lockfile";
 import { hashValue } from "./hash";
 import { loadGeneratedConfig, loadYamlConfig } from "./loader";
 import { getProjectId } from "./project";
@@ -25,7 +25,7 @@ async function atomicWriteJson(filePath: string, data: unknown): Promise<void> {
     writeFileSync(filePath, "{}");
   }
 
-  const lockRelease = await lockfile.lock(filePath, {
+  const lockRelease = await lock(filePath, {
     retries: { retries: 3, minTimeout: 100, maxTimeout: 1000 },
     stale: 10_000,
   });
@@ -55,7 +55,7 @@ function ensureProjectSettings(
   projectId: string
 ): ProjectSettings {
   const existing = generated.projects[projectId];
-  if (existing && existing._yaml_hashes) {
+  if (existing?._yaml_hashes) {
     return existing;
   }
   const created: ProjectSettings = { _yaml_hashes: {} };

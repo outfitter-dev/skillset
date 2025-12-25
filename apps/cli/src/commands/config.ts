@@ -24,8 +24,12 @@ interface ConfigOptions {
 }
 
 function validateScope(scope: string | undefined): ConfigScope {
-  if (!scope || scope === "project") return "project";
-  if (scope === "user") return "user";
+  if (!scope || scope === "project") {
+    return "project";
+  }
+  if (scope === "user") {
+    return "user";
+  }
   console.error(
     chalk.red(`Invalid scope "${scope}". Must be: project or user`)
   );
@@ -86,7 +90,7 @@ async function resetConfigCommand(
   console.log(chalk.green(`✓ Reset ${key} (${scopeLabel})`));
 }
 
-async function editConfig(scope: ConfigScope): Promise<void> {
+function editConfig(scope: ConfigScope): Promise<void> {
   const configPath = getConfigPath(scope);
   const editor = process.env.EDITOR || process.env.VISUAL || "vim";
 

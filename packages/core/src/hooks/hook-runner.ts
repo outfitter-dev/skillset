@@ -7,14 +7,14 @@ import { normalizeTokenRef } from "../normalize";
 import { resolveTokens } from "../resolver";
 import { tokenizePrompt } from "../tokenizer";
 
-export async function runUserPromptSubmitHook(stdin: string): Promise<string> {
+export function runUserPromptSubmitHook(stdin: string): string {
   const payload = safeParse(stdin);
-  const promptValue =
-    typeof payload?.prompt === "string"
-      ? payload.prompt
-      : typeof payload?.inputText === "string"
-        ? payload.inputText
-        : stdin;
+  let promptValue = stdin;
+  if (typeof payload?.prompt === "string") {
+    promptValue = payload.prompt;
+  } else if (typeof payload?.inputText === "string") {
+    promptValue = payload.inputText;
+  }
 
   // Refresh cache lazily if empty
   let cache = loadCaches();

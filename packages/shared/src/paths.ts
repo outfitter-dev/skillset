@@ -11,11 +11,13 @@ import { join } from "node:path";
  * On Linux: $XDG_CONFIG_HOME/skillset or ~/.config/skillset
  */
 export function getConfigDir(): string {
-  return process.env.XDG_CONFIG_HOME
-    ? join(process.env.XDG_CONFIG_HOME, "skillset")
-    : process.platform === "darwin"
-      ? join(homedir(), ".skillset")
-      : join(homedir(), ".config", "skillset");
+  if (process.env.XDG_CONFIG_HOME) {
+    return join(process.env.XDG_CONFIG_HOME, "skillset");
+  }
+  if (process.platform === "darwin") {
+    return join(homedir(), ".skillset");
+  }
+  return join(homedir(), ".config", "skillset");
 }
 
 /**
@@ -31,11 +33,13 @@ export function getProjectRoot(): string {
  * On Linux: $XDG_DATA_HOME/skillset or ~/.local/share/skillset
  */
 export function getDataDir(): string {
-  return process.env.XDG_DATA_HOME
-    ? join(process.env.XDG_DATA_HOME, "skillset")
-    : process.platform === "darwin"
-      ? join(homedir(), ".skillset")
-      : join(homedir(), ".local", "share", "skillset");
+  if (process.env.XDG_DATA_HOME) {
+    return join(process.env.XDG_DATA_HOME, "skillset");
+  }
+  if (process.platform === "darwin") {
+    return join(homedir(), ".skillset");
+  }
+  return join(homedir(), ".local", "share", "skillset");
 }
 
 /**
@@ -44,11 +48,13 @@ export function getDataDir(): string {
  * On Linux: $XDG_CACHE_HOME/skillset or ~/.cache/skillset
  */
 export function getCacheDir(): string {
-  return process.env.XDG_CACHE_HOME
-    ? join(process.env.XDG_CACHE_HOME, "skillset")
-    : process.platform === "darwin"
-      ? join(homedir(), ".skillset", "cache")
-      : join(homedir(), ".cache", "skillset");
+  if (process.env.XDG_CACHE_HOME) {
+    return join(process.env.XDG_CACHE_HOME, "skillset");
+  }
+  if (process.platform === "darwin") {
+    return join(homedir(), ".skillset", "cache");
+  }
+  return join(homedir(), ".cache", "skillset");
 }
 
 /**

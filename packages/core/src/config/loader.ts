@@ -23,11 +23,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export function loadYamlConfig(path: string): Partial<ConfigSchema> {
-  if (!existsSync(path)) return {};
+  if (!existsSync(path)) {
+    return {};
+  }
   try {
     const content = readFileSync(path, "utf8");
     const parsed = loadYaml(content);
-    if (!isRecord(parsed)) return {};
+    if (!isRecord(parsed)) {
+      return {};
+    }
     return parsed as Partial<ConfigSchema>;
   } catch (err) {
     console.warn(`skillset: failed to read config ${path}:`, err);
@@ -36,7 +40,9 @@ export function loadYamlConfig(path: string): Partial<ConfigSchema> {
 }
 
 export function loadGeneratedConfig(path: string): GeneratedSettingsSchema {
-  if (!existsSync(path)) return { ...DEFAULT_GENERATED };
+  if (!existsSync(path)) {
+    return { ...DEFAULT_GENERATED };
+  }
   try {
     const content = readFileSync(path, "utf8");
     const parsed = JSON.parse(content) as Partial<GeneratedSettingsSchema>;
@@ -44,9 +50,15 @@ export function loadGeneratedConfig(path: string): GeneratedSettingsSchema {
       _yaml_hashes: parsed._yaml_hashes ?? {},
       projects: parsed.projects ?? {},
     };
-    if (parsed.skills) generated.skills = parsed.skills;
-    if (parsed.output) generated.output = parsed.output;
-    if (parsed.rules) generated.rules = parsed.rules;
+    if (parsed.skills) {
+      generated.skills = parsed.skills;
+    }
+    if (parsed.output) {
+      generated.output = parsed.output;
+    }
+    if (parsed.rules) {
+      generated.rules = parsed.rules;
+    }
     if (parsed.project_id_strategy) {
       generated.project_id_strategy = parsed.project_id_strategy;
     }

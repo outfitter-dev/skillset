@@ -5,14 +5,69 @@ import { normalizeTokenRef } from "../normalize";
 // Capture groups: 1=kind (optional), 2=full ref
 const TOKEN_REGEX =
   /\$(?:(skill|set):)?([A-Za-z0-9_][A-Za-z0-9_-]*(?::[A-Za-z0-9_][A-Za-z0-9_-]*)*)/gi;
+const BOUNDARY_REGEX = /[\s[{(<"'`.,;!?)]/;
+const AFTER_BOUNDARY_REGEX = /[\s[{(<"'`.,;!?)\]]/;
+const LINE_SPLIT_REGEX = /\r?\n/;
+const FENCE_REGEX = /^(?:```+|~~~+)/;
 
 function isBoundary(char: string | undefined): boolean {
-  return char === undefined || /[\s[{(<"'`.,;!?)]/.test(char);
+  return char === undefined || BOUNDARY_REGEX.test(char);
 }
 
 function isAfterBoundary(char: string | undefined): boolean {
   // After a token, colon is NOT a valid boundary (it could be $set: which is invalid)
-  return char === undefined || /[\s[{(<"'`.,;!?)\]]/.test(char);
+  return char === undefined || AFTER_BOUNDARY_REGEX.test(char);
+}
+
+function parseTokenKind(
+  kindRaw: string | undefined
+): "skill" | "set" | undefined {
+  if (!kindRaw) {
+    return undefined;
+  }
+  const lower = kindRaw.toLowerCase();
+  if (lower === "skill" || lower === "set") {
+    return lower;
+  }
+  return undefined;
+}
+
+function buildToken(
+  match: RegExpExecArray,
+  text: string
+): InvocationToken | undefined {
+  const start = match.index;
+  const end = start + match[0].length;
+  const before = text[start - 1];
+  const after = text[end];
+  if (!(isBoundary(before) && isAfterBoundary(after))) {
+    return undefined;
+  }
+  const captured = match[2]; // Capture group 2: full ref
+  if (!captured) {
+    return undefined;
+  }
+  const normalizedRef = normalizeTokenRef(captured);
+  if (!normalizedRef) {
+    return undefined;
+  }
+  const parts = normalizedRef.split(":").filter(Boolean);
+  const maybeNamespace = parts.length > 1 ? parts[0] : undefined;
+  const maybeAlias = parts.length > 1 ? parts.slice(1).join(":") : parts[0];
+  if (!maybeAlias) {
+    return undefined;
+  }
+
+  const token: InvocationToken = {
+    raw: match[0],
+    alias: maybeAlias,
+    namespace: maybeNamespace,
+  };
+  const kind = parseTokenKind(match[1]);
+  if (kind) {
+    token.kind = kind;
+  }
+  return token;
 }
 
 export function tokenizePrompt(prompt: string): InvocationToken[] {
@@ -23,51 +78,10 @@ export function tokenizePrompt(prompt: string): InvocationToken[] {
     TOKEN_REGEX.lastIndex = 0;
     let match: RegExpExecArray | null = TOKEN_REGEX.exec(segment.text);
     while (match !== null) {
-      const start = match.index;
-      const end = start + match[0].length;
-      const before = segment.text[start - 1];
-      const after = segment.text[end];
-      if (!(isBoundary(before) && isAfterBoundary(after))) {
-        match = TOKEN_REGEX.exec(segment.text);
-        continue;
+      const token = buildToken(match, segment.text);
+      if (token) {
+        tokens.push(token);
       }
-      const kindRaw = match[1]; // Capture group 1: kind
-      const kind = kindRaw
-        ? (kindRaw.toLowerCase() as "skill" | "set")
-        : undefined;
-      const captured = match[2]; // Capture group 2: full ref
-      if (!captured) {
-        match = TOKEN_REGEX.exec(segment.text);
-        continue;
-      }
-      const normalizedRef = normalizeTokenRef(captured);
-      if (!normalizedRef) {
-        match = TOKEN_REGEX.exec(segment.text);
-        continue;
-      }
-      const parts = normalizedRef.split(":").filter(Boolean);
-      const maybeNamespace = parts.length > 1 ? parts[0] : undefined;
-      const maybeAlias = parts.length > 1 ? parts.slice(1).join(":") : parts[0];
-      if (!maybeAlias) {
-        match = TOKEN_REGEX.exec(segment.text);
-        continue;
-      }
-      const normalizedNamespace = maybeNamespace;
-      const normalizedAlias = maybeAlias;
-      if (!normalizedAlias) {
-        match = TOKEN_REGEX.exec(segment.text);
-        continue;
-      }
-
-      const token: InvocationToken = {
-        raw: match[0],
-        alias: normalizedAlias,
-        namespace: normalizedNamespace,
-      };
-      if (kind) {
-        token.kind = kind;
-      }
-      tokens.push(token);
       match = TOKEN_REGEX.exec(segment.text);
     }
   }
@@ -79,15 +93,14 @@ interface Segment {
 }
 
 function stripCodeBlocks(input: string): Segment[] {
-  const lines = input.split(/\r?\n/);
+  const lines = input.split(LINE_SPLIT_REGEX);
   const segments: Segment[] = [];
   let inFence = false;
-  let fenceMarker = "```";
   let buffer: string[] = [];
 
   for (const line of lines) {
     const trimmed = line.trim();
-    const fenceMatch = trimmed.match(/^(?:```+|~~~+)/);
+    const fenceMatch = trimmed.match(FENCE_REGEX);
 
     if (fenceMatch) {
       const fence = fenceMatch[0];
@@ -104,25 +117,27 @@ function stripCodeBlocks(input: string): Segment[] {
       } else {
         // opening fence
         inFence = true;
-        fenceMarker = fence;
       }
       continue;
     }
 
-    if (inFence) continue;
+    if (inFence) {
+      continue;
+    }
 
     buffer.push(stripInlineCode(line));
   }
 
-  if (buffer.length) segments.push({ text: buffer.join("\n") });
+  if (buffer.length) {
+    segments.push({ text: buffer.join("\n") });
+  }
   return segments;
 }
 
 function stripInlineCode(line: string): string {
   let processed = "";
   let inInline = false;
-  for (let i = 0; i < line.length; i += 1) {
-    const char = line[i];
+  for (const char of line) {
     if (char === "`") {
       inInline = !inInline;
       processed += " ";

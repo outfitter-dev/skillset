@@ -54,6 +54,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function readValue(container: unknown, key: string): unknown {
+  if (isRecord(container) || Array.isArray(container)) {
+    return (container as Record<string, unknown>)[key];
+  }
+  return undefined;
+}
+
+function cloneContainer(value: unknown): Record<string, unknown> | unknown[] {
+  if (Array.isArray(value)) {
+    return [...value];
+  }
+  if (isRecord(value)) {
+    return { ...value };
+  }
+  return {};
+}
+
 /**
  * Get a value at path from object
  */
@@ -83,7 +100,9 @@ export function setValueAtPath<T>(
   value: unknown
 ): T {
   const parts = Array.isArray(path) ? path : splitKeyPath(path);
-  if (parts.length === 0) return input;
+  if (parts.length === 0) {
+    return input;
+  }
 
   const result: unknown = Array.isArray(input)
     ? [...input]
@@ -97,25 +116,18 @@ export function setValueAtPath<T>(
 
   for (let i = 0; i < parts.length - 1; i += 1) {
     const part = parts[i];
-    if (!part) continue;
-    const originalValue = isRecord(original)
-      ? (original as Record<string, unknown>)[part]
-      : Array.isArray(original)
-        ? (original as unknown as Record<string, unknown>)[part]
-        : undefined;
-
-    const next = Array.isArray(originalValue)
-      ? [...originalValue]
-      : isRecord(originalValue)
-        ? { ...originalValue }
-        : {};
+    if (!part) {
+      continue;
+    }
+    const originalValue = readValue(original, part);
+    const next = cloneContainer(originalValue);
 
     cursor[part] = next;
     cursor = next as unknown as Record<string, unknown>;
     original = originalValue;
   }
 
-  const last = parts[parts.length - 1];
+  const last = parts.at(-1);
   if (last) {
     cursor[last] = value as never;
   }
@@ -128,7 +140,9 @@ export function setValueAtPath<T>(
  */
 export function deleteValueAtPath<T>(input: T, path: string | string[]): T {
   const parts = Array.isArray(path) ? path : splitKeyPath(path);
-  if (parts.length === 0) return input;
+  if (parts.length === 0) {
+    return input;
+  }
 
   const result: unknown = Array.isArray(input)
     ? [...input]
@@ -142,27 +156,23 @@ export function deleteValueAtPath<T>(input: T, path: string | string[]): T {
 
   for (let i = 0; i < parts.length - 1; i += 1) {
     const part = parts[i];
-    if (!part) return input;
-    const originalValue = isRecord(original)
-      ? (original as Record<string, unknown>)[part]
-      : Array.isArray(original)
-        ? (original as unknown as Record<string, unknown>)[part]
-        : undefined;
+    if (!part) {
+      return input;
+    }
+    const originalValue = readValue(original, part);
 
     if (!(isRecord(originalValue) || Array.isArray(originalValue))) {
       return input;
     }
 
-    const next = Array.isArray(originalValue)
-      ? [...originalValue]
-      : { ...originalValue };
+    const next = cloneContainer(originalValue);
 
     cursor[part] = next as never;
     cursor = next as unknown as Record<string, unknown>;
     original = originalValue;
   }
 
-  const last = parts[parts.length - 1];
+  const last = parts.at(-1);
   if (last) {
     delete cursor[last];
   }

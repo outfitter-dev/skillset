@@ -7,6 +7,8 @@ import { updateCacheSync } from "../cache";
 import { loadConfig } from "../config";
 
 const SKILL_FILENAME = "SKILL.md";
+const LINE_BREAK_REGEX = /\r?\n/;
+const HEADING_PREFIX_REGEX = /^#+\s*/;
 
 interface ScanOptions {
   projectRoot?: string;
@@ -39,7 +41,9 @@ function walkForSkillFiles(root: string): string[] {
 }
 
 function toolPrefix(tool?: Tool): string {
-  if (!tool || tool === "claude") return "";
+  if (!tool || tool === "claude") {
+    return "";
+  }
   return `${tool}/`;
 }
 
@@ -47,7 +51,7 @@ function skillRefFromPath(path: string, source: SkillSourceRoot): string {
   if (source.scope === "plugin") {
     const rel = relative(source.root, path).split(sep);
     const namespace = rel[0];
-    const alias = rel.slice(2)[0] ?? rel[0];
+    const alias = rel.at(2) ?? rel[0];
     return `plugin:${namespace}/${alias}`;
   }
 
@@ -58,11 +62,11 @@ function skillRefFromPath(path: string, source: SkillSourceRoot): string {
 
 function readSkillMetadata(path: string, source: SkillSourceRoot): Skill {
   const content = readFileSync(path, "utf8");
-  const lines = content.split(/\r?\n/);
+  const lines = content.split(LINE_BREAK_REGEX);
   const firstHeading = lines.find((l) => l.startsWith("#"));
-  const fallbackName = path.split(sep).slice(-2, -1)[0] ?? "unknown";
+  const fallbackName = path.split(sep).at(-2) ?? "unknown";
   const name = firstHeading
-    ? firstHeading.replace(/^#+\s*/, "").trim()
+    ? firstHeading.replace(HEADING_PREFIX_REGEX, "").trim()
     : fallbackName;
   const description = lines
     .find((l) => l.trim().length > 0 && !l.startsWith("#"))
@@ -87,14 +91,18 @@ function generateStructure(path: string): string {
   const lines: string[] = [];
   while (stack.length) {
     const popped = stack.pop();
-    if (!popped) break;
+    if (!popped) {
+      break;
+    }
     const { path: current, depth } = popped;
     const entries = readdirSync(current, { withFileTypes: true }).sort((a, b) =>
       a.name.localeCompare(b.name)
     );
     for (let i = entries.length - 1; i >= 0; i -= 1) {
       const entry = entries[i];
-      if (!entry) continue;
+      if (!entry) {
+        continue;
+      }
       const prefix = `${"  ".repeat(depth)}${entry.isDirectory() ? "├──" : "├──"}`;
       lines.push(`${prefix} ${entry.name}`);
       if (entry.isDirectory()) {
@@ -132,7 +140,9 @@ export function indexSkills(options: ScanOptions = {}): CacheSchema {
 
   for (const file of files) {
     const source = sources.find((src) => file.startsWith(src.root));
-    if (!source) continue;
+    if (!source) {
+      continue;
+    }
     const meta = readSkillMetadata(file, source);
     skills[meta.skillRef] = { ...meta, structure: generateStructure(file) };
   }

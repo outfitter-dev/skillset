@@ -148,6 +148,7 @@ const jsonSchema = {
 };
 
 const LINE_SPLIT_REGEX = /\r?\n/;
+const HEADING_PREFIX_REGEX = /^#+\s*/;
 
 if (options.cleanAll) {
   rmSync(smokeRoot, { recursive: true, force: true });
@@ -174,7 +175,7 @@ if (options.tools.includes("hook") && options.hookModes.includes("cli")) {
   results.push(await runCoreBuild());
 }
 
-results.push(await runIndex());
+results.push(runIndex());
 results.push(await runSetLoad());
 results.push(await runShowTree());
 
@@ -246,7 +247,7 @@ function prepareWorkspace() {
   writeFileSync(join(examplesDir, "sample.txt"), "Example file\n");
   writeFileSync(
     join(examplesNested, "example.json"),
-    JSON.stringify({ ok: true }, null, 2) + "\n"
+    `${JSON.stringify({ ok: true }, null, 2)}\n`
   );
 
   const configDir = join(workspaceRoot, ".skillset");
@@ -327,7 +328,7 @@ function writeSkill(rootDir: string, id: string, content: string) {
   writeFileSync(join(dir, "SKILL.md"), content);
 }
 
-async function runIndex(): Promise<RunResult> {
+function runIndex(): RunResult {
   const start = Date.now();
   try {
     const cache = indexWorkspaceSkills();
@@ -766,9 +767,9 @@ function readSkillMetadata(path: string, skillsRoot: string) {
   const content = readFileSync(path, "utf8");
   const lines = content.split(LINE_SPLIT_REGEX);
   const firstHeading = lines.find((line) => line.startsWith("#"));
-  const fallbackName = path.split(sep).slice(-2, -1)[0] ?? "unknown";
+  const fallbackName = path.split(sep).at(-2) ?? "unknown";
   const name = firstHeading
-    ? firstHeading.replace(/^#+\s*/, "").trim()
+    ? firstHeading.replace(HEADING_PREFIX_REGEX, "").trim()
     : fallbackName;
   const description = lines
     .find((line) => line.trim().length > 0 && !line.startsWith("#"))

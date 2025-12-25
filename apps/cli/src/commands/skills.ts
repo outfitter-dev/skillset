@@ -20,8 +20,12 @@ interface SkillsOptions {
 }
 
 function validateScope(scope: string | undefined): ConfigScope {
-  if (!scope || scope === "project") return "project";
-  if (scope === "user") return "user";
+  if (!scope || scope === "project") {
+    return "project";
+  }
+  if (scope === "user") {
+    return "user";
+  }
   console.error(
     chalk.red(`Invalid scope "${scope}". Must be: project or user`)
   );

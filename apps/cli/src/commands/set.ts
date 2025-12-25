@@ -16,16 +16,10 @@ import type { GlobalOptions, OutputFormat } from "../types";
 import { determineFormat } from "../utils/format";
 import { normalizeInvocation } from "../utils/normalize";
 
-interface SetListOptions extends GlobalOptions {}
-
-interface SetShowOptions extends GlobalOptions {}
-
-interface SetLoadOptions extends GlobalOptions {}
-
 /**
  * List all defined sets
  */
-function listSets(format: OutputFormat, _options: SetListOptions): void {
+function listSets(format: OutputFormat): void {
   const config = loadConfig();
   const sets = config.sets ?? {};
   const setEntries = Object.entries(sets);
@@ -97,91 +91,21 @@ function showSet(name: string, format: OutputFormat): void {
   const cache = loadCaches();
   const sets = config.sets ?? {};
 
-  const setDef = sets[name];
-  if (!setDef) {
-    const message = `Set not found: ${name}`;
-    if (format === "json") {
-      console.log(
-        JSON.stringify(
-          {
-            error: message,
-            name,
-            availableSets: Object.keys(sets),
-          },
-          null,
-          2
-        )
-      );
-    } else {
-      console.error(chalk.red(message));
-      if (Object.keys(sets).length > 0) {
-        console.error(chalk.yellow("Available sets:"));
-        for (const key of Object.keys(sets)) {
-          console.error(chalk.yellow(`  ${key}`));
-        }
-      }
-    }
-    process.exit(1);
-  }
+  const setDef = getSetOrExit(name, sets, format);
 
   const resolvedSkills = resolveSetSkills(setDef, config, cache);
 
   if (format === "json") {
-    console.log(
-      JSON.stringify(
-        {
-          key: name,
-          name: setDef.name,
-          description: setDef.description,
-          skills: resolvedSkills.map((rs) => ({
-            ref: rs.ref,
-            found: !!rs.skill,
-            name: rs.skill?.name,
-            path: rs.skill?.path,
-            error: rs.error,
-          })),
-        },
-        null,
-        2
-      )
-    );
+    printSetJson(name, setDef, resolvedSkills);
     return;
   }
 
   if (format === "raw") {
-    console.log(name);
-    console.log(setDef.name);
-    for (const rs of resolvedSkills) {
-      console.log(rs.ref);
-    }
+    printSetRaw(name, setDef, resolvedSkills);
     return;
   }
 
-  // Format: text
-  console.log(chalk.bold(setDef.name));
-  console.log(chalk.dim(`Key: ${name}`));
-  if (setDef.description) {
-    console.log(setDef.description);
-  }
-  console.log();
-
-  console.log(chalk.bold("Skills:"));
-  if (resolvedSkills.length === 0) {
-    console.log(chalk.dim("  (none)"));
-  } else {
-    for (const rs of resolvedSkills) {
-      if (rs.skill) {
-        console.log(`  ${chalk.green("✓")} ${rs.skill.name}`);
-        console.log(`    ${chalk.dim(rs.ref)}`);
-        if (rs.skill.description) {
-          console.log(`    ${rs.skill.description}`);
-        }
-      } else {
-        console.log(`  ${chalk.red("✗")} ${rs.ref}`);
-        console.log(`    ${chalk.dim(rs.error ?? "(not found)")}`);
-      }
-    }
-  }
+  printSetText(name, setDef, resolvedSkills);
 }
 
 /**
@@ -193,32 +117,7 @@ async function loadSet(name: string, format: OutputFormat): Promise<void> {
   const sets = config.sets ?? {};
   const startTime = Date.now();
 
-  const setDef = sets[name];
-  if (!setDef) {
-    const message = `Set not found: ${name}`;
-    if (format === "json") {
-      console.log(
-        JSON.stringify(
-          {
-            error: message,
-            name,
-            availableSets: Object.keys(sets),
-          },
-          null,
-          2
-        )
-      );
-    } else {
-      console.error(chalk.red(message));
-      if (Object.keys(sets).length > 0) {
-        console.error(chalk.yellow("Available sets:"));
-        for (const key of Object.keys(sets)) {
-          console.error(chalk.yellow(`  ${key}`));
-        }
-      }
-    }
-    process.exit(1);
-  }
+  const setDef = getSetOrExit(name, sets, format);
 
   const resolvedSkills = resolveSetSkills(setDef, config, cache);
 
@@ -258,70 +157,16 @@ async function loadSet(name: string, format: OutputFormat): Promise<void> {
   });
 
   if (format === "json") {
-    console.log(
-      JSON.stringify(
-        {
-          set: name,
-          name: setDef.name,
-          description: setDef.description,
-          skills: loadedSkills.map((ls) => ({
-            ref: ls.ref,
-            name: ls.skill?.name,
-            path: ls.skill?.path,
-            content: ls.content,
-            error: ls.error,
-          })),
-        },
-        null,
-        2
-      )
-    );
+    printSetLoadJson(name, setDef, loadedSkills);
     return;
   }
 
   if (format === "raw") {
-    // Output all skill contents concatenated
-    for (const ls of loadedSkills) {
-      if (ls.content) {
-        console.log(ls.content);
-        console.log();
-      }
-    }
+    printSetLoadRaw(loadedSkills);
     return;
   }
 
-  // Format: text
-  console.log(chalk.bold(setDef.name));
-  console.log(chalk.dim(`Set: ${name}`));
-  if (setDef.description) {
-    console.log(setDef.description);
-  }
-  console.log(chalk.dim(`${setDef.skills.length} skills\n`));
-
-  for (const ls of loadedSkills) {
-    if (ls.error) {
-      console.log(chalk.red(`✗ ${ls.ref}`));
-      console.log(chalk.dim(`  ${ls.error}`));
-      console.log();
-      continue;
-    }
-
-    if (!(ls.skill && ls.content)) continue;
-
-    console.log(chalk.bold(ls.skill.name));
-    console.log(chalk.dim(ls.ref));
-    if (ls.skill.description) {
-      console.log(ls.skill.description);
-    }
-    console.log(chalk.dim(ls.skill.path));
-    console.log();
-
-    const strippedContent = stripFrontmatter(ls.content);
-    console.log(strippedContent);
-    console.log();
-    console.log(chalk.dim("─".repeat(80)));
-    console.log();
-  }
+  printSetLoadText(name, setDef, loadedSkills);
 }
 
 /**
@@ -337,7 +182,7 @@ export function registerSetCommand(program: Command): void {
     .description("List all defined sets")
     .action((options: GlobalOptions) => {
       const format = determineFormat(options);
-      listSets(format, options);
+      listSets(format);
     });
 
   setCommand
@@ -355,4 +200,195 @@ export function registerSetCommand(program: Command): void {
       const format = determineFormat(options);
       await loadSet(name, format);
     });
+}
+
+function getSetOrExit(
+  name: string,
+  sets: Record<
+    string,
+    { name: string; description?: string; skills: string[] }
+  >,
+  format: OutputFormat
+) {
+  const setDef = sets[name];
+  if (setDef) {
+    return setDef;
+  }
+
+  const message = `Set not found: ${name}`;
+  if (format === "json") {
+    console.log(
+      JSON.stringify(
+        {
+          error: message,
+          name,
+          availableSets: Object.keys(sets),
+        },
+        null,
+        2
+      )
+    );
+  } else {
+    console.error(chalk.red(message));
+    if (Object.keys(sets).length > 0) {
+      console.error(chalk.yellow("Available sets:"));
+      for (const key of Object.keys(sets)) {
+        console.error(chalk.yellow(`  ${key}`));
+      }
+    }
+  }
+  process.exit(1);
+}
+
+function printSetJson(
+  name: string,
+  setDef: { name: string; description?: string; skills: string[] },
+  resolvedSkills: Array<{ ref: string; skill?: Skill; error?: string }>
+): void {
+  console.log(
+    JSON.stringify(
+      {
+        key: name,
+        name: setDef.name,
+        description: setDef.description,
+        skills: resolvedSkills.map((rs) => ({
+          ref: rs.ref,
+          found: !!rs.skill,
+          name: rs.skill?.name,
+          path: rs.skill?.path,
+          error: rs.error,
+        })),
+      },
+      null,
+      2
+    )
+  );
+}
+
+function printSetRaw(
+  name: string,
+  setDef: { name: string; description?: string; skills: string[] },
+  resolvedSkills: Array<{ ref: string; skill?: Skill }>
+): void {
+  console.log(name);
+  console.log(setDef.name);
+  for (const rs of resolvedSkills) {
+    console.log(rs.ref);
+  }
+}
+
+function printSetText(
+  name: string,
+  setDef: { name: string; description?: string; skills: string[] },
+  resolvedSkills: Array<{ ref: string; skill?: Skill; error?: string }>
+): void {
+  console.log(chalk.bold(setDef.name));
+  console.log(chalk.dim(`Key: ${name}`));
+  if (setDef.description) {
+    console.log(setDef.description);
+  }
+  console.log();
+
+  console.log(chalk.bold("Skills:"));
+  if (resolvedSkills.length === 0) {
+    console.log(chalk.dim("  (none)"));
+    return;
+  }
+
+  for (const rs of resolvedSkills) {
+    if (rs.skill) {
+      console.log(`  ${chalk.green("✓")} ${rs.skill.name}`);
+      console.log(`    ${chalk.dim(rs.ref)}`);
+      if (rs.skill.description) {
+        console.log(`    ${rs.skill.description}`);
+      }
+    } else {
+      console.log(`  ${chalk.red("✗")} ${rs.ref}`);
+      console.log(`    ${chalk.dim(rs.error ?? "(not found)")}`);
+    }
+  }
+}
+
+function printSetLoadJson(
+  name: string,
+  setDef: { name: string; description?: string; skills: string[] },
+  loadedSkills: Array<{
+    ref: string;
+    skill?: Skill;
+    content?: string;
+    error?: string;
+  }>
+): void {
+  console.log(
+    JSON.stringify(
+      {
+        set: name,
+        name: setDef.name,
+        description: setDef.description,
+        skills: loadedSkills.map((ls) => ({
+          ref: ls.ref,
+          name: ls.skill?.name,
+          path: ls.skill?.path,
+          content: ls.content,
+          error: ls.error,
+        })),
+      },
+      null,
+      2
+    )
+  );
+}
+
+function printSetLoadRaw(loadedSkills: Array<{ content?: string }>): void {
+  for (const ls of loadedSkills) {
+    if (ls.content) {
+      console.log(ls.content);
+      console.log();
+    }
+  }
+}
+
+function printSetLoadText(
+  name: string,
+  setDef: { name: string; description?: string; skills: string[] },
+  loadedSkills: Array<{
+    ref: string;
+    skill?: Skill;
+    content?: string;
+    error?: string;
+  }>
+): void {
+  console.log(chalk.bold(setDef.name));
+  console.log(chalk.dim(`Set: ${name}`));
+  if (setDef.description) {
+    console.log(setDef.description);
+  }
+  console.log(chalk.dim(`${setDef.skills.length} skills\n`));
+
+  for (const ls of loadedSkills) {
+    if (ls.error) {
+      console.log(chalk.red(`✗ ${ls.ref}`));
+      console.log(chalk.dim(`  ${ls.error}`));
+      console.log();
+      continue;
+    }
+
+    if (!(ls.skill && ls.content)) {
+      continue;
+    }
+
+    console.log(chalk.bold(ls.skill.name));
+    console.log(chalk.dim(ls.ref));
+    if (ls.skill.description) {
+      console.log(ls.skill.description);
+    }
+    console.log(chalk.dim(ls.skill.path));
+    console.log();
+
+    const strippedContent = stripFrontmatter(ls.content);
+    console.log(strippedContent);
+    console.log();
+    console.log(chalk.dim("─".repeat(80)));
+    console.log();
+  }
 }

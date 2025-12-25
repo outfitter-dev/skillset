@@ -19,9 +19,10 @@ import type { GlobalOptions, OutputFormat } from "../types";
 import { determineFormat } from "../utils/format";
 import { normalizeInvocation } from "../utils/normalize";
 
-interface LoadOptions extends GlobalOptions {
-  ref: string;
-}
+const FRONTMATTER_REGEX = /^---\n([\s\S]*?)\n---/;
+const FRONTMATTER_NAME_REGEX = /^name:\s*(.+)$/m;
+const FRONTMATTER_DESC_REGEX = /^description:\s*(.+)$/m;
+const HEADING_REGEX = /^#\s+(.+)$/m;
 
 type ResolveInputResult =
   | { type: "skill"; skill: Skill }
@@ -41,14 +42,11 @@ function matchesSourceFilter(
   }
 
   for (const filter of sourceFilters) {
-    if (filter === "project" && skillRef.startsWith("project:")) {
-      return true;
-    }
-    if (filter === "user" && skillRef.startsWith("user:")) {
-      return true;
-    }
-    if (filter === "plugin" && skillRef.startsWith("plugin:")) {
-      return true;
+    if (filter === "project" || filter === "user" || filter === "plugin") {
+      if (skillRef.startsWith(`${filter}:`)) {
+        return true;
+      }
+      continue;
     }
     if (filter.startsWith("plugin:")) {
       const pluginName = filter.slice(7);
@@ -71,6 +69,37 @@ async function resolveInput(
   sourceFilters?: string[],
   kindOverride?: "skill" | "set"
 ): Promise<ResolveInputResult> {
+  const pathResult = await resolvePathInput(input);
+  if (pathResult) {
+    return pathResult;
+  }
+
+  if (isNamespaceRef(input)) {
+    return { type: "namespace", namespace: input };
+  }
+
+  const explicitNamespaceResult = resolveExplicitNamespaceSkill(
+    input,
+    cache,
+    sourceFilters
+  );
+  if (explicitNamespaceResult) {
+    return explicitNamespaceResult;
+  }
+
+  const tokenResult = resolveTokenInput(
+    input,
+    cache,
+    config,
+    sourceFilters,
+    kindOverride
+  );
+  return tokenResult;
+}
+
+async function resolvePathInput(
+  input: string
+): Promise<ResolveInputResult | undefined> {
   const resolvedPath = isAbsolute(input)
     ? input
     : resolve(process.cwd(), input);
@@ -89,33 +118,53 @@ async function resolveInput(
   } catch {
     // Path doesn't exist, continue
   }
+  return undefined;
+}
 
-  if (isNamespaceRef(input)) {
+function resolveExplicitNamespaceSkill(
+  input: string,
+  cache: ReturnType<typeof loadCaches>,
+  sourceFilters: string[] | undefined
+): ResolveInputResult | undefined {
+  if (!input.includes(":") || input.includes("/")) {
+    return undefined;
+  }
+
+  const [namespace] = input.split(":");
+  if (!namespace) {
+    return undefined;
+  }
+  if (!isNamespaceRef(namespace)) {
+    return undefined;
+  }
+
+  let matchingSkills = Object.values(cache.skills).filter(
+    (s) => s.skillRef === input || s.skillRef.startsWith(`${input}/`)
+  );
+
+  if (sourceFilters && sourceFilters.length > 0) {
+    matchingSkills = matchingSkills.filter((s) =>
+      matchesSourceFilter(s.skillRef, sourceFilters)
+    );
+  }
+
+  if (matchingSkills.length === 1 && matchingSkills[0]) {
+    return { type: "skill", skill: matchingSkills[0] };
+  }
+  if (matchingSkills.length > 1) {
     return { type: "namespace", namespace: input };
   }
 
-  if (input.includes(":") && !input.includes("/")) {
-    const [ns, name] = input.split(":");
-    if (ns && name && isNamespaceRef(ns)) {
-      let matchingSkills = Object.values(cache.skills).filter(
-        (s) => s.skillRef === input || s.skillRef.startsWith(`${input}/`)
-      );
+  return undefined;
+}
 
-      if (sourceFilters && sourceFilters.length > 0) {
-        matchingSkills = matchingSkills.filter((s) =>
-          matchesSourceFilter(s.skillRef, sourceFilters)
-        );
-      }
-
-      if (matchingSkills.length === 1 && matchingSkills[0]) {
-        return { type: "skill", skill: matchingSkills[0] };
-      }
-      if (matchingSkills.length > 1) {
-        return { type: "namespace", namespace: input };
-      }
-    }
-  }
-
+function resolveTokenInput(
+  input: string,
+  cache: ReturnType<typeof loadCaches>,
+  config: ReturnType<typeof loadConfig>,
+  sourceFilters: string[] | undefined,
+  kindOverride?: "skill" | "set"
+): ResolveInputResult {
   const token = normalizeInvocation(input, kindOverride);
   const result = resolveToken(token, config, cache);
 
@@ -141,37 +190,7 @@ async function resolveInput(
   }
 
   if (result.reason === "ambiguous" && result.candidates) {
-    const candidates = result.candidates;
-
-    if (sourceFilters && sourceFilters.length > 0) {
-      const filteredCandidates = candidates.filter((c) =>
-        matchesSourceFilter(c.skillRef, sourceFilters)
-      );
-
-      if (filteredCandidates.length === 1 && filteredCandidates[0]) {
-        return { type: "skill", skill: filteredCandidates[0] };
-      }
-
-      if (filteredCandidates.length > 1) {
-        return {
-          type: "error",
-          message: `Ambiguous alias "${input}" (after filtering by source: ${sourceFilters.join(", ")})`,
-          candidates: filteredCandidates,
-        };
-      }
-
-      return {
-        type: "error",
-        message: `No matches for "${input}" with source filter(s): ${sourceFilters.join(", ")}`,
-        candidates,
-      };
-    }
-
-    return {
-      type: "error",
-      message: `Ambiguous alias "${input}"`,
-      candidates,
-    };
+    return resolveAmbiguousResult(input, result.candidates, sourceFilters);
   }
 
   if (result.reason === "ambiguous-set") {
@@ -191,11 +210,49 @@ async function resolveInput(
   return { type: "error", message: `Could not resolve "${input}"` };
 }
 
+function resolveAmbiguousResult(
+  input: string,
+  candidates: Skill[],
+  sourceFilters: string[] | undefined
+): ResolveInputResult {
+  if (sourceFilters && sourceFilters.length > 0) {
+    const filteredCandidates = candidates.filter((c) =>
+      matchesSourceFilter(c.skillRef, sourceFilters)
+    );
+
+    if (filteredCandidates.length === 1 && filteredCandidates[0]) {
+      return { type: "skill", skill: filteredCandidates[0] };
+    }
+
+    if (filteredCandidates.length > 1) {
+      return {
+        type: "error",
+        message: `Ambiguous alias "${input}" (after filtering by source: ${sourceFilters.join(", ")})`,
+        candidates: filteredCandidates,
+      };
+    }
+
+    return {
+      type: "error",
+      message: `No matches for "${input}" with source filter(s): ${sourceFilters.join(", ")}`,
+      candidates,
+    };
+  }
+
+  return {
+    type: "error",
+    message: `Ambiguous alias "${input}"`,
+    candidates,
+  };
+}
+
 async function resolvePathToSkill(path: string): Promise<Skill | undefined> {
   const skillPath = path.endsWith("SKILL.md") ? path : join(path, "SKILL.md");
   const file = Bun.file(skillPath);
 
-  if (!(await file.exists())) return undefined;
+  if (!(await file.exists())) {
+    return undefined;
+  }
 
   try {
     const content = await file.text();
@@ -220,21 +277,21 @@ async function resolvePathToSkill(path: string): Promise<Skill | undefined> {
 }
 
 function extractSkillName(content: string): string | undefined {
-  const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+  const frontmatterMatch = content.match(FRONTMATTER_REGEX);
   if (frontmatterMatch?.[1]) {
-    const nameMatch = frontmatterMatch[1].match(/^name:\s*(.+)$/m);
+    const nameMatch = frontmatterMatch[1].match(FRONTMATTER_NAME_REGEX);
     if (nameMatch?.[1]) {
       return nameMatch[1].trim();
     }
   }
-  const headingMatch = content.match(/^#\s+(.+)$/m);
+  const headingMatch = content.match(HEADING_REGEX);
   return headingMatch?.[1]?.trim();
 }
 
 function extractSkillDescription(content: string): string | undefined {
-  const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+  const frontmatterMatch = content.match(FRONTMATTER_REGEX);
   if (frontmatterMatch?.[1]) {
-    const descMatch = frontmatterMatch[1].match(/^description:\s*(.+)$/m);
+    const descMatch = frontmatterMatch[1].match(FRONTMATTER_DESC_REGEX);
     if (descMatch?.[1]) {
       return descMatch[1].trim();
     }
@@ -265,38 +322,12 @@ async function loadSkill(
   );
 
   if (result.type === "error") {
-    if (format === "json") {
-      console.log(
-        JSON.stringify(
-          {
-            error: result.message,
-            ref,
-            candidates: result.candidates?.map((c) => c.skillRef) ?? [],
-          },
-          null,
-          2
-        )
-      );
-    } else {
-      console.error(chalk.red(result.message));
-      if (result.candidates && result.candidates.length > 0) {
-        console.error(chalk.yellow("Did you mean:"));
-        for (const c of result.candidates) {
-          console.error(chalk.yellow(`  ${c.skillRef}`));
-        }
-      }
-    }
-    process.exit(1);
+    reportLoadError(format, ref, result.message, result.candidates);
   }
 
   if (result.type === "namespace") {
     const message = `Cannot load namespace "${result.namespace}". Use a specific skill reference.`;
-    if (format === "json") {
-      console.log(JSON.stringify({ error: message }, null, 2));
-    } else {
-      console.error(chalk.red(message));
-    }
-    process.exit(1);
+    reportLoadError(format, ref, message);
   }
 
   const skill =
@@ -306,12 +337,7 @@ async function loadSkill(
 
   if (!skill) {
     const message = `Could not resolve skill: ${ref}`;
-    if (format === "json") {
-      console.log(JSON.stringify({ error: message, ref }, null, 2));
-    } else {
-      console.error(chalk.red(message));
-    }
-    process.exit(1);
+    reportLoadError(format, ref, message);
   }
 
   // Read skill content
@@ -328,20 +354,7 @@ async function loadSkill(
     });
 
     if (format === "json") {
-      console.log(
-        JSON.stringify(
-          {
-            skillRef: skill.skillRef,
-            name: skill.name,
-            description: skill.description,
-            path: skill.path,
-            content,
-            lineCount: skill.lineCount,
-          },
-          null,
-          2
-        )
-      );
+      printJsonSkill(skill, content);
       return;
     }
 
@@ -350,28 +363,73 @@ async function loadSkill(
       return;
     }
 
-    // Format: text (with metadata header and frontmatter stripped)
-    console.log(chalk.bold(skill.name));
-    console.log(chalk.dim(skill.skillRef));
-    if (skill.description) {
-      console.log(skill.description);
-    }
-    console.log(chalk.dim(skill.path));
-    console.log();
-
-    const strippedContent = stripFrontmatter(content);
-    console.log(strippedContent);
+    printTextSkill(skill, content);
   } catch {
     const message = `Could not read skill content: ${skill.path}`;
-    if (format === "json") {
-      console.log(
-        JSON.stringify({ error: message, ref, path: skill.path }, null, 2)
-      );
-    } else {
-      console.error(chalk.red(message));
-    }
-    process.exit(1);
+    reportLoadError(format, ref, message, undefined, skill.path);
   }
+}
+
+function reportLoadError(
+  format: OutputFormat,
+  ref: string,
+  message: string,
+  candidates?: Skill[],
+  path?: string
+): never {
+  if (format === "json") {
+    console.log(
+      JSON.stringify(
+        {
+          error: message,
+          ref,
+          path,
+          candidates: candidates?.map((c) => c.skillRef) ?? [],
+        },
+        null,
+        2
+      )
+    );
+  } else {
+    console.error(chalk.red(message));
+    if (candidates && candidates.length > 0) {
+      console.error(chalk.yellow("Did you mean:"));
+      for (const c of candidates) {
+        console.error(chalk.yellow(`  ${c.skillRef}`));
+      }
+    }
+  }
+  process.exit(1);
+}
+
+function printJsonSkill(skill: Skill, content: string): void {
+  console.log(
+    JSON.stringify(
+      {
+        skillRef: skill.skillRef,
+        name: skill.name,
+        description: skill.description,
+        path: skill.path,
+        content,
+        lineCount: skill.lineCount,
+      },
+      null,
+      2
+    )
+  );
+}
+
+function printTextSkill(skill: Skill, content: string): void {
+  console.log(chalk.bold(skill.name));
+  console.log(chalk.dim(skill.skillRef));
+  if (skill.description) {
+    console.log(skill.description);
+  }
+  console.log(chalk.dim(skill.path));
+  console.log();
+
+  const strippedContent = stripFrontmatter(content);
+  console.log(strippedContent);
 }
 
 /**

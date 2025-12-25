@@ -80,8 +80,8 @@ export function buildCli() {
       "both"
     )
     .option("-f, --force", "Overwrite existing config files", false)
-    .action(async (options: { scope: string; force: boolean }) => {
-      await initConfig(options.scope, options.force);
+    .action((options: { scope: string; force: boolean }) => {
+      initConfig(options.scope, options.force);
     });
 
   // Doctor command
@@ -92,13 +92,13 @@ export function buildCli() {
       "[target]",
       "What to diagnose (config, skill name, or omit for full check)"
     )
-    .action(async (target?: string) => {
+    .action((target?: string) => {
       if (!target) {
         runFullDiagnostic();
       } else if (target === "config") {
         runConfigDiagnostic();
       } else {
-        await runSkillDiagnostic(target);
+        runSkillDiagnostic(target);
       }
     });
 
@@ -108,13 +108,27 @@ export function buildCli() {
 /**
  * Initialize skillset configuration files
  */
-async function initConfig(scopeArg: string, force: boolean): Promise<void> {
+function initConfig(scopeArg: string, force: boolean): void {
+  const scopes = parseInitScopes(scopeArg);
+  let created = 0;
+  let skipped = 0;
+
+  for (const scope of scopes) {
+    const result = writeConfigForScope(scope, force);
+    if (result === "created") {
+      created += 1;
+    } else {
+      skipped += 1;
+    }
+  }
+
+  logInitSummary(created, skipped);
+}
+
+function parseInitScopes(scopeArg: string): ConfigScope[] {
   const validatedScope = scopeArg.toLowerCase();
-  if (
-    validatedScope !== "both" &&
-    validatedScope !== "project" &&
-    validatedScope !== "user"
-  ) {
+  const allowed = ["both", "project", "user"] as const;
+  if (!allowed.includes(validatedScope as (typeof allowed)[number])) {
     console.error(
       chalk.red(
         `Invalid scope: ${scopeArg}. Must be 'project', 'user', or 'both'`
@@ -123,48 +137,53 @@ async function initConfig(scopeArg: string, force: boolean): Promise<void> {
     process.exit(1);
   }
 
-  const scopes: ConfigScope[] = [];
   if (validatedScope === "both") {
-    scopes.push("project", "user");
+    return ["project", "user"];
+  }
+  return [validatedScope as ConfigScope];
+}
+
+function writeConfigForScope(
+  scope: ConfigScope,
+  force: boolean
+): "created" | "skipped" {
+  const configPath = getConfigPath(scope);
+  const exists = existsSync(configPath);
+
+  if (exists && !force) {
+    console.log(chalk.yellow(`Config already exists: ${configPath}`));
+    console.log(chalk.dim("Use --force to overwrite"));
+    return "skipped";
+  }
+
+  writeYamlConfig(configPath, CONFIG_DEFAULTS, true);
+
+  if (exists) {
+    console.log(chalk.green(`✓ Overwrote config: ${configPath}`));
   } else {
-    scopes.push(validatedScope as ConfigScope);
+    console.log(chalk.green(`✓ Created config: ${configPath}`));
   }
+  return "created";
+}
 
-  let created = 0;
-  let skipped = 0;
-
-  for (const scope of scopes) {
-    const configPath = getConfigPath(scope);
-    const exists = existsSync(configPath);
-
-    if (exists && !force) {
-      console.log(chalk.yellow(`Config already exists: ${configPath}`));
-      console.log(chalk.dim("Use --force to overwrite"));
-      skipped++;
-      continue;
-    }
-
-    writeYamlConfig(configPath, CONFIG_DEFAULTS, true);
-
-    if (exists) {
-      console.log(chalk.green(`✓ Overwrote config: ${configPath}`));
-    } else {
-      console.log(chalk.green(`✓ Created config: ${configPath}`));
-    }
-    created++;
-  }
-
+function logInitSummary(created: number, skipped: number): void {
   if (created > 0 && skipped === 0) {
     console.log(
       chalk.green(`\n✓ Successfully initialized ${created} config file(s)`)
     );
-  } else if (created > 0 && skipped > 0) {
+    return;
+  }
+
+  if (created > 0 && skipped > 0) {
     console.log(
       chalk.yellow(
         `\n✓ Initialized ${created} config file(s), skipped ${skipped}`
       )
     );
-  } else if (skipped > 0 && created === 0) {
+    return;
+  }
+
+  if (skipped > 0 && created === 0) {
     console.log(chalk.yellow("\nNo configs created (all already exist)"));
   }
 }

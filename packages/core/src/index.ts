@@ -25,6 +25,7 @@ export type {
   Tool,
 } from "@skillset/types";
 // Cache
+// biome-ignore lint/performance/noBarrelFile: public entrypoint re-exports
 export {
   CACHE_PATHS,
   isStructureFresh,

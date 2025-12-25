@@ -4,6 +4,7 @@ import type { CacheSchema, Skill } from "@skillset/types";
 import treeify from "object-treeify";
 import { headingsToTreeObject, parseMarkdownHeadings } from "./markdown";
 
+// biome-ignore lint/performance/noBarrelFile: tree helpers re-export markdown utilities
 export { headingsToTreeObject, parseMarkdownHeadings } from "./markdown";
 
 interface TreeOptions {
@@ -47,7 +48,6 @@ export async function buildSkillTree(
 
   const treeObj = await buildDirectoryTree(
     skillDir,
-    skill.path,
     includeMarkdown,
     0,
     options.maxDepth ?? 5
@@ -85,7 +85,6 @@ export async function buildNamespaceTree(
     const skillDirName = basename(skillDir);
     const dirTree = await buildDirectoryTree(
       skillDir,
-      skill.path,
       includeMarkdown,
       0,
       maxDepth
@@ -111,27 +110,13 @@ export async function buildPathTree(
     // It's a SKILL.md file
     const dir = dirname(path);
     const dirName = basename(dir);
-    const treeObj = await buildDirectoryTree(
-      dir,
-      path,
-      includeMarkdown,
-      0,
-      maxDepth
-    );
+    const treeObj = await buildDirectoryTree(dir, includeMarkdown, 0, maxDepth);
     return treeify({ [dirName]: treeObj });
   }
 
   // It's a directory - check for SKILL.md
-  const skillPath = join(path, "SKILL.md");
-  const hasSkill = await Bun.file(skillPath).exists();
   const dirName = basename(path);
-  const treeObj = await buildDirectoryTree(
-    path,
-    hasSkill ? skillPath : undefined,
-    includeMarkdown,
-    0,
-    maxDepth
-  );
+  const treeObj = await buildDirectoryTree(path, includeMarkdown, 0, maxDepth);
   return treeify({ [dirName]: treeObj });
 }
 
@@ -144,7 +129,9 @@ function walkDirectoryTreeLines(
   includeHidden: boolean,
   lines: string[]
 ): void {
-  if (depth >= maxDepth || lines.length >= maxLines) return;
+  if (depth >= maxDepth || lines.length >= maxLines) {
+    return;
+  }
   let entries: string[];
   try {
     entries = readdirSync(dirPath);
@@ -158,19 +145,27 @@ function walkDirectoryTreeLines(
       const bPath = join(dirPath, b);
       const aIsDir = statSync(aPath).isDirectory();
       const bIsDir = statSync(bPath).isDirectory();
-      if (aIsDir && !bIsDir) return -1;
-      if (!aIsDir && bIsDir) return 1;
+      if (aIsDir && !bIsDir) {
+        return -1;
+      }
+      if (!aIsDir && bIsDir) {
+        return 1;
+      }
       return a.localeCompare(b);
     });
 
   sorted.forEach((entry, index) => {
-    if (lines.length >= maxLines) return;
+    if (lines.length >= maxLines) {
+      return;
+    }
     const entryPath = join(dirPath, entry);
     const isDir = statSync(entryPath).isDirectory();
     const isLast = index === sorted.length - 1;
     const branch = isLast ? "└──" : "├──";
     lines.push(`${prefix}${branch} ${entry}${isDir ? "/" : ""}`);
-    if (lines.length >= maxLines) return;
+    if (lines.length >= maxLines) {
+      return;
+    }
     if (isDir) {
       const nextPrefix = `${prefix}${isLast ? "    " : "│   "}`;
       walkDirectoryTreeLines(
@@ -192,7 +187,6 @@ function walkDirectoryTreeLines(
  */
 async function buildDirectoryTree(
   dirPath: string,
-  skillPath: string | undefined,
   includeMarkdown: boolean,
   depth: number,
   maxDepth: number
@@ -203,68 +197,112 @@ async function buildDirectoryTree(
 
   const result: Record<string, unknown> = {};
 
-  let entries: string[];
-  try {
-    entries = readdirSync(dirPath);
-  } catch {
+  const entries = readDirectoryEntries(dirPath);
+  if (!entries) {
     return result;
   }
 
-  // Sort: SKILL.md first, then directories, then other files
-  const sorted = entries
-    .filter((e) => !e.startsWith("."))
-    .sort((a, b) => {
-      // SKILL.md always first
-      if (a === "SKILL.md") return -1;
-      if (b === "SKILL.md") return 1;
-
-      const aPath = join(dirPath, a);
-      const bPath = join(dirPath, b);
-      const aIsDir = statSync(aPath).isDirectory();
-      const bIsDir = statSync(bPath).isDirectory();
-      if (aIsDir && !bIsDir) return -1;
-      if (!aIsDir && bIsDir) return 1;
-      return a.localeCompare(b);
-    });
+  const sorted = sortEntries(entries, dirPath);
 
   for (const entry of sorted) {
     const entryPath = join(dirPath, entry);
     const stat = statSync(entryPath);
 
     if (stat.isDirectory()) {
-      // Check if this directory or its children contain SKILL.md
-      if (await hasSkillMdInSubtree(entryPath)) {
-        result[`${entry}/`] = await buildDirectoryTree(
-          entryPath,
-          undefined,
-          includeMarkdown,
-          depth + 1,
-          maxDepth
-        );
-      } else {
-        // Just show directory name without recursing deep
-        result[`${entry}/`] = null;
-      }
-    } else if (entry === "SKILL.md" && includeMarkdown) {
-      // This is a SKILL.md - inline its headings
-      try {
-        const content = await Bun.file(entryPath).text();
-        const headings = parseMarkdownHeadings(content);
-        if (headings.length > 0) {
-          result["SKILL.md"] = headingsToTreeObject(headings);
-        } else {
-          result["SKILL.md"] = null;
-        }
-      } catch {
-        result["SKILL.md"] = null;
-      }
-    } else {
-      // Regular file
-      result[entry] = null;
+      await addDirectoryEntry(
+        result,
+        entry,
+        entryPath,
+        includeMarkdown,
+        depth,
+        maxDepth
+      );
+      continue;
     }
+    if (entry === "SKILL.md" && includeMarkdown) {
+      await addSkillFileEntry(result, entryPath);
+      continue;
+    }
+
+    // Regular file
+    result[entry] = null;
   }
 
   return result;
+}
+
+function readDirectoryEntries(dirPath: string): string[] | null {
+  try {
+    return readdirSync(dirPath);
+  } catch {
+    return null;
+  }
+}
+
+function sortEntries(entries: string[], dirPath: string): string[] {
+  return entries
+    .filter((entry) => !entry.startsWith("."))
+    .sort((a, b) => {
+      // SKILL.md always first
+      if (a === "SKILL.md") {
+        return -1;
+      }
+      if (b === "SKILL.md") {
+        return 1;
+      }
+
+      const aPath = join(dirPath, a);
+      const bPath = join(dirPath, b);
+      const aIsDir = statSync(aPath).isDirectory();
+      const bIsDir = statSync(bPath).isDirectory();
+      if (aIsDir && !bIsDir) {
+        return -1;
+      }
+      if (!aIsDir && bIsDir) {
+        return 1;
+      }
+      return a.localeCompare(b);
+    });
+}
+
+async function addDirectoryEntry(
+  result: Record<string, unknown>,
+  entry: string,
+  entryPath: string,
+  includeMarkdown: boolean,
+  depth: number,
+  maxDepth: number
+): Promise<void> {
+  // Check if this directory or its children contain SKILL.md
+  if (await hasSkillMdInSubtree(entryPath)) {
+    result[`${entry}/`] = await buildDirectoryTree(
+      entryPath,
+      includeMarkdown,
+      depth + 1,
+      maxDepth
+    );
+    return;
+  }
+  // Just show directory name without recursing deep
+  result[`${entry}/`] = null;
+}
+
+async function addSkillFileEntry(
+  result: Record<string, unknown>,
+  entryPath: string
+): Promise<void> {
+  // This is a SKILL.md - inline its headings
+  try {
+    const content = await Bun.file(entryPath).text();
+    const headings = parseMarkdownHeadings(content);
+    if (headings.length > 0) {
+      result["SKILL.md"] = headingsToTreeObject(headings);
+    } else {
+      result["SKILL.md"] = null;
+    }
+  } catch {
+    result["SKILL.md"] = null;
+  }
 }
 
 /**
@@ -275,7 +313,9 @@ async function hasSkillMdInSubtree(dirPath: string): Promise<boolean> {
     const entries = readdirSync(dirPath);
 
     for (const entry of entries) {
-      if (entry === "SKILL.md") return true;
+      if (entry === "SKILL.md") {
+        return true;
+      }
 
       const entryPath = join(dirPath, entry);
       const stat = statSync(entryPath);
@@ -284,8 +324,9 @@ async function hasSkillMdInSubtree(dirPath: string): Promise<boolean> {
         stat.isDirectory() &&
         !entry.startsWith(".") &&
         (await hasSkillMdInSubtree(entryPath))
-      )
+      ) {
         return true;
+      }
     }
   } catch {
     // Ignore errors
