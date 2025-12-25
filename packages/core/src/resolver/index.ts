@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { isAbsolute, join, sep } from "node:path";
+import { isAbsolute, join, resolve, sep } from "node:path";
 import { getProjectRoot } from "@skillset/shared";
 import type {
   CacheSchema,
@@ -48,22 +48,33 @@ function skillScope(skillRef: string): Scope | undefined {
 }
 
 function inferToolFromPath(path: string): Tool | undefined {
-  if (path.includes(`${sep}.claude${sep}skills${sep}`)) {
+  const resolvedPath = isAbsolute(path) ? path : resolve(path);
+  const codexHome = process.env.CODEX_HOME;
+  if (codexHome) {
+    const codexSkills = resolve(codexHome, "skills");
+    if (
+      resolvedPath === codexSkills ||
+      resolvedPath.startsWith(`${codexSkills}${sep}`)
+    ) {
+      return "codex";
+    }
+  }
+  if (resolvedPath.includes(`${sep}.claude${sep}skills${sep}`)) {
     return "claude";
   }
-  if (path.includes(`${sep}.codex${sep}skills${sep}`)) {
+  if (resolvedPath.includes(`${sep}.codex${sep}skills${sep}`)) {
     return "codex";
   }
-  if (path.includes(`${sep}.github${sep}skills${sep}`)) {
+  if (resolvedPath.includes(`${sep}.github${sep}skills${sep}`)) {
     return "copilot";
   }
-  if (path.includes(`${sep}.cursor${sep}skills${sep}`)) {
+  if (resolvedPath.includes(`${sep}.cursor${sep}skills${sep}`)) {
     return "cursor";
   }
-  if (path.includes(`${sep}.amp${sep}skills${sep}`)) {
+  if (resolvedPath.includes(`${sep}.amp${sep}skills${sep}`)) {
     return "amp";
   }
-  if (path.includes(`${sep}.goose${sep}skills${sep}`)) {
+  if (resolvedPath.includes(`${sep}.goose${sep}skills${sep}`)) {
     return "goose";
   }
   return undefined;
@@ -432,9 +443,9 @@ function filterByNamespace<T>(
   return items.filter((item) => {
     const ref = getRef(item);
     return (
+      ref === namespace ||
       ref.startsWith(`${namespace}:`) ||
-      ref.startsWith(`${namespace}/`) ||
-      ref.startsWith(`${namespace}`)
+      ref.startsWith(`${namespace}/`)
     );
   });
 }

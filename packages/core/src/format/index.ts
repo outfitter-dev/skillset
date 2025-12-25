@@ -112,7 +112,7 @@ function formatSet(
   const set = result.set as SkillSet;
   const lines = formatSetIntro(result, set, cache);
   const resolved = resolveSetSkillsForFormat(result, set, cache);
-  const skillBlocks = formatSetSkillBlocks(resolved, set, config);
+  const skillBlocks = formatSetSkillBlocks(resolved, config);
   lines.push(...skillBlocks);
   return lines.join("\n");
 }
@@ -147,47 +147,55 @@ function formatSetSkillRefs(set: SkillSet, cache: CacheSchema): string[] {
   return lines;
 }
 
+interface SetSkillEntry {
+  ref: string;
+  skill: Skill;
+}
+
 function resolveSetSkillsForFormat(
   result: ResolveResult,
   set: SkillSet,
   cache: CacheSchema
-): Skill[] {
+): SetSkillEntry[] {
+  const resolvedByRef = new Map<string, Skill>();
   if (result.setSkills && result.setSkills.length > 0) {
-    return result.setSkills;
+    for (const skill of result.setSkills) {
+      resolvedByRef.set(skill.skillRef, skill);
+      resolvedByRef.set(normalizeTokenRef(skill.skillRef), skill);
+    }
   }
 
-  const resolved: Skill[] = [];
+  const resolved: SetSkillEntry[] = [];
   for (const ref of set.skillRefs) {
     const normalized = normalizeTokenRef(ref);
-    const skill = cache.skills[ref] ?? cache.skills[normalized];
+    const skill =
+      resolvedByRef.get(ref) ??
+      resolvedByRef.get(normalized) ??
+      cache.skills[ref] ??
+      cache.skills[normalized];
     if (skill) {
-      resolved.push(skill);
+      resolved.push({ ref, skill });
     }
   }
   return resolved;
 }
 
 function formatSetSkillBlocks(
-  resolved: Skill[],
-  set: SkillSet,
+  resolved: SetSkillEntry[],
   config: ConfigSchema
 ): string[] {
   const lines: string[] = [];
-  for (let i = 0; i < resolved.length; i += 1) {
-    const skill = resolved[i];
-    if (!skill) {
-      continue;
-    }
-    const alias = set.skillRefs[i] ?? skill.skillRef;
-    const entry = findSkillEntry(config, alias);
+  for (const entry of resolved) {
+    const alias = entry.ref;
+    const entryConfig = findSkillEntry(config, alias);
     lines.push(
       "",
       formatSkillBlock(
-        skill,
+        entry.skill,
         config,
-        `#### ${skill.skillRef}`,
-        skill.skillRef,
-        entry
+        `#### ${entry.skill.skillRef}`,
+        entry.skill.skillRef,
+        entryConfig
       )
     );
   }

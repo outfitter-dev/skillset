@@ -47,16 +47,24 @@ function toolPrefix(tool?: Tool): string {
   return `${tool}/`;
 }
 
+function getSkillPathSegments(root: string, path: string): string[] {
+  const rel = relative(root, path);
+  const parts = rel.split(sep).filter(Boolean);
+  if (parts.at(-1) === SKILL_FILENAME) {
+    parts.pop();
+  }
+  return parts;
+}
+
 function skillRefFromPath(path: string, source: SkillSourceRoot): string {
+  const parts = getSkillPathSegments(source.root, path);
   if (source.scope === "plugin") {
-    const rel = relative(source.root, path).split(sep);
-    const namespace = rel[0];
-    const alias = rel.at(2) ?? rel[0];
+    const namespace = parts[0] ?? "unknown";
+    const alias = parts[2] ?? parts[0] ?? "unknown";
     return `plugin:${namespace}/${alias}`;
   }
 
-  const rel = relative(source.root, path).split(sep);
-  const alias = rel[0] ?? "unknown";
+  const alias = parts[0] ?? path.split(sep).at(-2) ?? "unknown";
   return `${source.scope}:${toolPrefix(source.tool)}${alias}`;
 }
 
@@ -131,8 +139,11 @@ function buildSources(projectRoot: string, tools: Tool[]): SkillSourceRoot[] {
 export function indexSkills(options: ScanOptions = {}): CacheSchema {
   const projectRoot = options.projectRoot ?? getProjectRoot();
   const config = options.config ?? loadConfig(projectRoot);
+  const toolOverride = options.tools ?? config.tools;
   const tools =
-    options.tools ?? config.tools ?? (Object.keys(SKILL_PATHS) as Tool[]);
+    toolOverride && toolOverride.length > 0
+      ? toolOverride
+      : (Object.keys(SKILL_PATHS) as Tool[]);
 
   const skills: Record<string, Skill> = {};
   const sources = buildSources(projectRoot, tools);

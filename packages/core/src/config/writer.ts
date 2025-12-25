@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, renameSync } from "node:fs";
+import { existsSync, mkdirSync, renameSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type {
@@ -38,6 +38,13 @@ async function atomicWriteJson(filePath: string, data: unknown): Promise<void> {
   try {
     await Bun.write(tempPath, JSON.stringify(data, null, 2));
     renameSync(tempPath, filePath);
+  } catch (err) {
+    try {
+      rmSync(tempPath, { force: true });
+    } catch {
+      // ignore cleanup failures; original error is more actionable
+    }
+    throw err;
   } finally {
     await lockRelease();
   }
