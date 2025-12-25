@@ -70,7 +70,7 @@ function matchesSourceFilter(
  */
 async function resolveInput(
   input: string,
-  cache: ReturnType<typeof loadCaches>,
+  cache: Awaited<ReturnType<typeof loadCaches>>,
   config: Awaited<ReturnType<typeof loadConfig>>,
   sourceFilters?: string[],
   kindOverride?: "skill" | "set"
@@ -128,7 +128,7 @@ async function resolvePathInput(
 
 function resolveExplicitNamespaceSkill(
   input: string,
-  cache: ReturnType<typeof loadCaches>,
+  cache: Awaited<ReturnType<typeof loadCaches>>,
   sourceFilters: string[] | undefined
 ): ResolveInputResult | undefined {
   if (!input.includes(":") || input.includes("/")) {
@@ -165,7 +165,7 @@ function resolveExplicitNamespaceSkill(
 
 async function resolveTokenInput(
   input: string,
-  cache: ReturnType<typeof loadCaches>,
+  cache: Awaited<ReturnType<typeof loadCaches>>,
   config: Awaited<ReturnType<typeof loadConfig>>,
   sourceFilters: string[] | undefined,
   kindOverride?: "skill" | "set"
@@ -317,7 +317,7 @@ async function showSkill(
   kindOverride?: "skill" | "set",
   showTree = false
 ): Promise<void> {
-  const cache = loadCaches();
+  const cache = await loadCaches();
   const config = await loadConfig();
   const env = getSkillsetEnv();
 
@@ -404,7 +404,7 @@ function resolveTreeRoot(
 
 async function printNamespace(
   namespace: string,
-  cache: ReturnType<typeof loadCaches>,
+  cache: Awaited<ReturnType<typeof loadCaches>>,
   format: OutputFormat
 ): Promise<void> {
   if (format === "json") {

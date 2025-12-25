@@ -64,7 +64,7 @@ function matchesSourceFilter(
  */
 async function resolveInput(
   input: string,
-  cache: ReturnType<typeof loadCaches>,
+  cache: Awaited<ReturnType<typeof loadCaches>>,
   config: Awaited<ReturnType<typeof loadConfig>>,
   sourceFilters?: string[],
   kindOverride?: "skill" | "set"
@@ -123,7 +123,7 @@ async function resolvePathInput(
 
 function resolveExplicitNamespaceSkill(
   input: string,
-  cache: ReturnType<typeof loadCaches>,
+  cache: Awaited<ReturnType<typeof loadCaches>>,
   sourceFilters: string[] | undefined
 ): ResolveInputResult | undefined {
   if (!input.includes(":") || input.includes("/")) {
@@ -160,7 +160,7 @@ function resolveExplicitNamespaceSkill(
 
 async function resolveTokenInput(
   input: string,
-  cache: ReturnType<typeof loadCaches>,
+  cache: Awaited<ReturnType<typeof loadCaches>>,
   config: Awaited<ReturnType<typeof loadConfig>>,
   sourceFilters: string[] | undefined,
   kindOverride?: "skill" | "set"
@@ -308,7 +308,7 @@ async function loadSkill(
   format: OutputFormat,
   kindOverride?: "skill" | "set"
 ): Promise<void> {
-  const cache = loadCaches();
+  const cache = await loadCaches();
   const config = await loadConfig();
   const env = getSkillsetEnv();
   const startTime = Date.now();
@@ -346,7 +346,7 @@ async function loadSkill(
     const duration_ms = Date.now() - startTime;
 
     // Log usage
-    logUsage({
+    await logUsage({
       action: "load",
       skill: skill.skillRef,
       source: "cli",

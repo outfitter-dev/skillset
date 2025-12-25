@@ -16,12 +16,12 @@ import { normalizeInvocation } from "./utils/normalize";
 /**
  * Run full diagnostic check
  */
-export function runFullDiagnostic(): void {
+export async function runFullDiagnostic(): Promise<void> {
   console.log(chalk.bold("skillset doctor"));
   console.log("─".repeat(40));
 
   printConfigStatus();
-  printCacheStatus();
+  await printCacheStatus();
   printXdgPaths();
   printPluginStatus();
 }
@@ -44,7 +44,7 @@ export async function runSkillDiagnostic(skillAlias: string): Promise<void> {
   console.log(chalk.bold(`skillset doctor ${skillAlias}`));
   console.log("─".repeat(40));
 
-  const cache = loadCaches();
+  const cache = await loadCaches();
   const config = await loadConfig();
 
   // Normalize the alias
@@ -104,11 +104,11 @@ function logConfigStatus(label: string, path: string): void {
   }
 }
 
-function printCacheStatus(): void {
+async function printCacheStatus(): Promise<void> {
   const projectCacheExists = existsSync(CACHE_PATHS.project);
 
   try {
-    const cache = loadCaches();
+    const cache = await loadCaches();
     const skillCount = Object.keys(cache.skills).length;
     const sourceCounts = countSources(cache.skills);
     const cacheAge = projectCacheExists ? getCacheAge() : "unknown";

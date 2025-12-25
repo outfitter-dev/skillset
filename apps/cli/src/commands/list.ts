@@ -53,8 +53,10 @@ function matchesSourceFilter(
 /**
  * List all indexed skills
  */
-function getSkills(sourceFilters: string[] | undefined): Skill[] {
-  const cache = loadCaches();
+async function getSkills(
+  sourceFilters: string[] | undefined
+): Promise<Skill[]> {
+  const cache = await loadCaches();
   let skills = Object.values(cache.skills);
 
   // Filter by source if specified
@@ -167,7 +169,7 @@ async function handleListCommand(options: ListOptions): Promise<void> {
   const format = determineFormat(options);
   const includeSkills = !options.sets;
   const includeSets = !options.skills;
-  const skills = includeSkills ? getSkills(options.source) : [];
+  const skills = includeSkills ? await getSkills(options.source) : [];
   const sets = includeSets ? await getSets() : [];
 
   if (format === "json") {

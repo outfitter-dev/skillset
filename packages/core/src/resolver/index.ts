@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { isAbsolute, join, resolve, sep } from "node:path";
 import { getProjectRoot } from "@skillset/shared";
 import type {
@@ -214,14 +213,14 @@ function findSkillEntry(
   return undefined;
 }
 
-function readSkillFromPath(
+async function readSkillFromPath(
   path: string,
   aliasKey: string,
   projectRoot: string
-): Skill | undefined {
+): Promise<Skill | undefined> {
   const resolved = isAbsolute(path) ? path : join(projectRoot, path);
   try {
-    const content = readFileSync(resolved, "utf8");
+    const content = await Bun.file(resolved).text();
     const lines = content.split(LINE_SPLIT_REGEX);
     const firstHeading = lines.find((line) => line.startsWith("#"));
     const fallbackName = normalizeTokenSegment(aliasKey) || aliasKey;
@@ -286,16 +285,16 @@ function pickByScopePriority(
   return undefined;
 }
 
-function resolveSkillEntry(
+async function resolveSkillEntry(
   entry: SkillEntry,
   aliasKey: string,
   config: ConfigSchema,
   cache: CacheSchema,
   skills: Skill[],
   projectRoot: string
-): { skill?: Skill; candidates?: Skill[] } {
+): Promise<{ skill?: Skill; candidates?: Skill[] }> {
   if (typeof entry === "string") {
-    return resolveStringEntry(
+    return await resolveStringEntry(
       entry,
       aliasKey,
       config,
@@ -305,7 +304,7 @@ function resolveSkillEntry(
     );
   }
 
-  return resolveObjectEntry(
+  return await resolveObjectEntry(
     entry,
     aliasKey,
     config,
@@ -315,32 +314,32 @@ function resolveSkillEntry(
   );
 }
 
-function resolveStringEntry(
+async function resolveStringEntry(
   entry: string,
   aliasKey: string,
   config: ConfigSchema,
   cache: CacheSchema,
   skills: Skill[],
   projectRoot: string
-): { skill?: Skill; candidates?: Skill[] } {
+): Promise<{ skill?: Skill; candidates?: Skill[] }> {
   if (looksLikePath(entry)) {
-    const skill = readSkillFromPath(entry, aliasKey, projectRoot);
+    const skill = await readSkillFromPath(entry, aliasKey, projectRoot);
     return skill ? { skill } : {};
   }
 
   return resolveByAlias(entry, skills, config, cache);
 }
 
-function resolveObjectEntry(
+async function resolveObjectEntry(
   entry: Exclude<SkillEntry, string>,
   aliasKey: string,
   config: ConfigSchema,
   cache: CacheSchema,
   skills: Skill[],
   projectRoot: string
-): { skill?: Skill; candidates?: Skill[] } {
+): Promise<{ skill?: Skill; candidates?: Skill[] }> {
   if (entry.path) {
-    const skill = readSkillFromPath(entry.path, aliasKey, projectRoot);
+    const skill = await readSkillFromPath(entry.path, aliasKey, projectRoot);
     return skill ? { skill } : {};
   }
 
@@ -373,13 +372,13 @@ function resolveByAlias(
   return candidates.length ? { candidates } : {};
 }
 
-function resolveAliasToSkill(
+async function resolveAliasToSkill(
   alias: string,
   config: ConfigSchema,
   cache: CacheSchema,
   skills: Skill[],
   projectRoot: string
-): Skill | undefined {
+): Promise<Skill | undefined> {
   const normalized = normalizeTokenRef(alias);
   const direct = cache.skills[alias] ?? cache.skills[normalized];
   if (direct) {
@@ -388,7 +387,7 @@ function resolveAliasToSkill(
 
   const entryMatch = findSkillEntry(config.skills, alias, normalized);
   if (entryMatch) {
-    const resolved = resolveSkillEntry(
+    const resolved = await resolveSkillEntry(
       entryMatch.entry,
       entryMatch.key,
       config,
@@ -474,38 +473,40 @@ function resolveSkillCandidates(
   };
 }
 
-function resolveSetCandidates(
+async function resolveSetCandidates(
   invocation: InvocationToken,
   candidates: SkillSet[],
   config: ConfigSchema,
   cache: CacheSchema,
   skills: Skill[],
   projectRoot: string
-): ResolveResult {
+): Promise<ResolveResult> {
   if (candidates.length === 0) {
     return { invocation, reason: "unmatched" };
   }
   if (candidates.length === 1 && candidates[0]) {
     const set = candidates[0];
-    const setSkills = set.skillRefs
-      .map((ref) =>
-        resolveAliasToSkill(ref, config, cache, skills, projectRoot)
+    const setSkills = (
+      await Promise.all(
+        set.skillRefs.map((ref) =>
+          resolveAliasToSkill(ref, config, cache, skills, projectRoot)
+        )
       )
-      .filter((skill): skill is Skill => Boolean(skill));
+    ).filter((skill): skill is Skill => Boolean(skill));
     return { invocation, set, setSkills };
   }
 
   return { invocation, reason: "ambiguous-set", setCandidates: candidates };
 }
 
-function resolveFromConfigMapping(
+async function resolveFromConfigMapping(
   token: InvocationToken,
   normalizedAlias: string,
   config: ConfigSchema,
   cache: CacheSchema,
   skills: Skill[],
   projectRoot: string
-): ResolveResult | undefined {
+): Promise<ResolveResult | undefined> {
   const entryMatch = findSkillEntry(
     config.skills,
     token.alias,
@@ -514,7 +515,7 @@ function resolveFromConfigMapping(
   if (!entryMatch) {
     return undefined;
   }
-  const resolved = resolveSkillEntry(
+  const resolved = await resolveSkillEntry(
     entryMatch.entry,
     entryMatch.key,
     config,
@@ -538,7 +539,7 @@ function resolveFromConfigMapping(
   };
 }
 
-function resolveTokenByKind(
+async function resolveTokenByKind(
   token: InvocationToken,
   normalizedAlias: string,
   namespace: string | undefined,
@@ -547,7 +548,7 @@ function resolveTokenByKind(
   config: ConfigSchema,
   cache: CacheSchema,
   projectRoot: string
-): ResolveResult | undefined {
+): Promise<ResolveResult | undefined> {
   const fuzzy = config.resolution?.fuzzy_matching ?? true;
   if (token.kind === "skill") {
     let skillCandidates = matchSkillAlias(skills, normalizedAlias, fuzzy);
@@ -570,7 +571,7 @@ function resolveTokenByKind(
         (s) => s.setRef
       );
     }
-    return resolveSetCandidates(
+    return await resolveSetCandidates(
       token,
       setCandidates,
       config,
@@ -583,7 +584,7 @@ function resolveTokenByKind(
   return undefined;
 }
 
-function resolveTokenBySearch(
+async function resolveTokenBySearch(
   token: InvocationToken,
   normalizedAlias: string,
   namespace: string | undefined,
@@ -592,7 +593,7 @@ function resolveTokenBySearch(
   config: ConfigSchema,
   cache: CacheSchema,
   projectRoot: string
-): ResolveResult {
+): Promise<ResolveResult> {
   const fuzzy = config.resolution?.fuzzy_matching ?? true;
   let skillCandidates = matchSkillAlias(skills, normalizedAlias, fuzzy);
   let setCandidates = matchSetAlias(sets, normalizedAlias, fuzzy);
@@ -627,7 +628,7 @@ function resolveTokenBySearch(
 
   // Only set matches
   if (setCandidates.length > 0) {
-    return resolveSetCandidates(
+    return await resolveSetCandidates(
       token,
       setCandidates,
       config,
@@ -647,7 +648,7 @@ export async function resolveToken(
   cache?: CacheSchema
 ): Promise<ResolveResult> {
   const cfg = config ?? (await loadConfig());
-  const c = cache ?? loadCaches();
+  const c = cache ?? (await loadCaches());
   const projectRoot = getProjectRoot();
   const skills = filterSkillsByConfig(c, cfg);
   const setsIndex = buildSetIndex(c, cfg);
@@ -661,7 +662,7 @@ export async function resolveToken(
   const namespace = resolveNamespace(token.namespace);
 
   // 1) explicit mapping via config.skills
-  const mappingResult = resolveFromConfigMapping(
+  const mappingResult = await resolveFromConfigMapping(
     token,
     normalizedAlias,
     cfg,
@@ -674,7 +675,7 @@ export async function resolveToken(
   }
 
   // 2) If kind is explicitly specified, only search that type
-  const kindResult = resolveTokenByKind(
+  const kindResult = await resolveTokenByKind(
     token,
     normalizedAlias,
     namespace,
@@ -689,7 +690,7 @@ export async function resolveToken(
   }
 
   // 3) No kind specified - search both skills and sets
-  return resolveTokenBySearch(
+  return await resolveTokenBySearch(
     token,
     normalizedAlias,
     namespace,
@@ -707,7 +708,7 @@ export async function resolveTokens(
   cache?: CacheSchema
 ): Promise<ResolveResult[]> {
   const cfg = config ?? (await loadConfig());
-  const c = cache ?? loadCaches();
+  const c = cache ?? (await loadCaches());
   const results: ResolveResult[] = [];
   for (const token of tokens) {
     results.push(await resolveToken(token, cfg, c));

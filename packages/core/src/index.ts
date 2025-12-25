@@ -30,8 +30,8 @@ export {
   CACHE_PATHS,
   isStructureFresh,
   loadCaches,
-  updateCacheSync,
-  writeCacheSync,
+  updateCache,
+  writeCache,
 } from "./cache";
 // Config
 export {

@@ -71,7 +71,7 @@ async function listSets(format: OutputFormat): Promise<void> {
 async function resolveSetSkills(
   setDef: { skills: string[] },
   config: Awaited<ReturnType<typeof loadConfig>>,
-  cache: ReturnType<typeof loadCaches>
+  cache: Awaited<ReturnType<typeof loadCaches>>
 ): Promise<Array<{ ref: string; skill?: Skill; error?: string }>> {
   const resolved: Array<{ ref: string; skill?: Skill; error?: string }> = [];
   for (const ref of setDef.skills) {
@@ -91,7 +91,7 @@ async function resolveSetSkills(
  */
 async function showSet(name: string, format: OutputFormat): Promise<void> {
   const config = await loadConfig();
-  const cache = loadCaches();
+  const cache = await loadCaches();
   const sets = config.sets ?? {};
 
   const setDef = getSetOrExit(name, sets, format);
@@ -116,7 +116,7 @@ async function showSet(name: string, format: OutputFormat): Promise<void> {
  */
 async function loadSet(name: string, format: OutputFormat): Promise<void> {
   const config = await loadConfig();
-  const cache = loadCaches();
+  const cache = await loadCaches();
   const sets = config.sets ?? {};
   const startTime = Date.now();
 
@@ -152,7 +152,7 @@ async function loadSet(name: string, format: OutputFormat): Promise<void> {
   const duration_ms = Date.now() - startTime;
 
   // Log usage
-  logUsage({
+  await logUsage({
     action: "load",
     skill: `set:${name}`,
     source: "cli",

@@ -70,7 +70,7 @@ async function listSkills(): Promise<void> {
 }
 
 async function selectSkill(): Promise<string> {
-  const cache = loadCaches();
+  const cache = await loadCaches();
   const skills = Object.values(cache.skills);
 
   if (skills.length === 0) {

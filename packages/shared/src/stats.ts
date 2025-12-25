@@ -2,7 +2,7 @@
  * Usage statistics logging
  */
 
-import { appendFileSync, existsSync, mkdirSync } from "node:fs";
+import { appendFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { getSkillsetPaths } from "./paths";
 
@@ -20,16 +20,16 @@ export interface UsageEntry {
 /**
  * Log a usage entry to the JSONL log file
  */
-export function logUsage(entry: Omit<UsageEntry, "timestamp">): void {
+export async function logUsage(
+  entry: Omit<UsageEntry, "timestamp">
+): Promise<void> {
   try {
     const paths = getSkillsetPaths();
     const logDir = paths.logs;
     const logFile = join(logDir, "usage.jsonl");
 
     // Ensure log directory exists
-    if (!existsSync(logDir)) {
-      mkdirSync(logDir, { recursive: true });
-    }
+    await mkdir(logDir, { recursive: true });
 
     // Create the log entry
     const record: UsageEntry = {
@@ -38,7 +38,7 @@ export function logUsage(entry: Omit<UsageEntry, "timestamp">): void {
     };
 
     // Append to log file
-    appendFileSync(logFile, `${JSON.stringify(record)}\n`);
+    await appendFile(logFile, `${JSON.stringify(record)}\n`);
   } catch {
     // Silently fail - logging should never break the main flow
   }
