@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, renameSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type {
@@ -22,7 +22,7 @@ function ensureDir(path: string) {
 async function atomicWriteJson(filePath: string, data: unknown): Promise<void> {
   ensureDir(filePath);
   if (!existsSync(filePath)) {
-    writeFileSync(filePath, "{}");
+    await Bun.write(filePath, "{}");
   }
 
   const lockRelease = await lock(filePath, {
@@ -36,7 +36,7 @@ async function atomicWriteJson(filePath: string, data: unknown): Promise<void> {
   );
 
   try {
-    writeFileSync(tempPath, JSON.stringify(data, null, 2));
+    await Bun.write(tempPath, JSON.stringify(data, null, 2));
     renameSync(tempPath, filePath);
   } finally {
     await lockRelease();

@@ -6,7 +6,7 @@ import type {
   GeneratedSettingsSchema,
   ProjectSettings,
 } from "@skillset/types";
-import { dump as dumpYaml } from "js-yaml";
+import { YAML } from "bun";
 import {
   applyGeneratedOverrides,
   cleanupStaleHashes,
@@ -111,7 +111,7 @@ export function writeYamlConfig(
   const header = includeSchemaComment
     ? "# yaml-language-server: $schema=https://unpkg.com/@skillset/types/schemas/config.schema.json\n"
     : "";
-  const yamlDefaults = `${dumpYaml(config, { noRefs: true })}`;
+  const yamlDefaults = YAML.stringify(config, null, 2) ?? "";
   const dir = dirname(path);
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });

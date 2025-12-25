@@ -4,7 +4,7 @@ import type {
   GeneratedSettingsSchema,
   ProjectSettings,
 } from "@skillset/types";
-import { load as loadYaml } from "js-yaml";
+import { YAML } from "bun";
 import { hashValue } from "./hash";
 import {
   deleteValueAtPath,
@@ -28,7 +28,7 @@ export function loadYamlConfig(path: string): Partial<ConfigSchema> {
   }
   try {
     const content = readFileSync(path, "utf8");
-    const parsed = loadYaml(content);
+    const parsed = YAML.parse(content);
     if (!isRecord(parsed)) {
       return {};
     }
