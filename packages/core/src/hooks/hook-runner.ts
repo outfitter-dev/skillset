@@ -7,7 +7,7 @@ import { normalizeTokenRef } from "../normalize";
 import { resolveTokens } from "../resolver";
 import { tokenizePrompt } from "../tokenizer";
 
-export function runUserPromptSubmitHook(stdin: string): string {
+export async function runUserPromptSubmitHook(stdin: string): Promise<string> {
   const payload = safeParse(stdin);
   let promptValue = stdin;
   if (typeof payload?.prompt === "string") {
@@ -19,7 +19,7 @@ export function runUserPromptSubmitHook(stdin: string): string {
   // Refresh cache lazily if empty
   let cache = loadCaches();
   if (Object.keys(cache.skills).length === 0) {
-    indexSkills();
+    await indexSkills();
     cache = loadCaches(); // Reload after indexing
   }
 
@@ -37,9 +37,9 @@ export function runUserPromptSubmitHook(stdin: string): string {
   }
 
   // Resolve tokens to skills and format for injection
-  const config = loadConfig();
+  const config = await loadConfig();
   const startTime = Date.now();
-  const results = resolveTokens(tokens, config, cache);
+  const results = await resolveTokens(tokens, config, cache);
   const outcome = formatOutcome(results, config, cache);
 
   // Log usage for each resolved skill
@@ -63,7 +63,7 @@ export function runUserPromptSubmitHook(stdin: string): string {
 }
 
 function collectInjectedSkills(
-  results: ReturnType<typeof resolveTokens>,
+  results: Awaited<ReturnType<typeof resolveTokens>>,
   cache: ReturnType<typeof loadCaches>
 ) {
   const injected = new Map<string, (typeof cache.skills)[string]>();

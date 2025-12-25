@@ -1,4 +1,4 @@
-import { mkdirSync, renameSync, rmSync } from "node:fs";
+import { mkdir, rename } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { GeneratedSettingsSchema, ProjectSettings } from "@skillset/types";
@@ -8,33 +8,9 @@ import { loadGeneratedConfig, loadYamlConfig } from "./loader";
 import { getProjectId } from "./project";
 import { deleteValueAtPath, getValueAtPath, setValueAtPath } from "./utils";
 
-function ensureDir(path: string) {
+async function ensureDir(path: string): Promise<void> {
   const dir = dirname(path);
-  mkdirSync(dir, { recursive: true });
-}
-
-async function atomicWriteJson(filePath: string, data: unknown): Promise<void> {
-  ensureDir(filePath);
-  const lockRelease = await acquireLock(filePath);
-
-  const tempPath = join(
-    tmpdir(),
-    `skillset-${Date.now()}-${Math.random().toString(36).slice(2)}.json`
-  );
-
-  try {
-    await Bun.write(tempPath, JSON.stringify(data, null, 2));
-    renameSync(tempPath, filePath);
-  } catch (err) {
-    try {
-      rmSync(tempPath, { force: true });
-    } catch {
-      // ignore cleanup failures; original error is more actionable
-    }
-    throw err;
-  } finally {
-    await lockRelease();
-  }
+  await mkdir(dir, { recursive: true });
 }
 
 async function acquireLock(filePath: string) {
@@ -51,6 +27,30 @@ async function acquireLock(filePath: string) {
       return await lock(filePath, options);
     }
     throw err;
+  }
+}
+
+async function atomicWriteJson(filePath: string, data: unknown): Promise<void> {
+  await ensureDir(filePath);
+  const lockRelease = await acquireLock(filePath);
+
+  const tempPath = join(
+    tmpdir(),
+    `skillset-${Date.now()}-${Math.random().toString(36).slice(2)}.json`
+  );
+
+  try {
+    await Bun.write(tempPath, JSON.stringify(data, null, 2));
+    await rename(tempPath, filePath);
+  } catch (err) {
+    try {
+      await Bun.file(tempPath).delete();
+    } catch {
+      // ignore cleanup failures; original error is more actionable
+    }
+    throw err;
+  } finally {
+    await lockRelease();
   }
 }
 
@@ -81,8 +81,8 @@ export async function setGeneratedValue(
   newValue: unknown,
   projectPath?: string
 ): Promise<void> {
-  const generated = loadGeneratedConfig(generatedPath);
-  const yamlConfig = loadYamlConfig(yamlPath);
+  const generated = await loadGeneratedConfig(generatedPath);
+  const yamlConfig = await loadYamlConfig(yamlPath);
 
   const yamlValue = getValueAtPath(yamlConfig, keyPath);
   const yamlHash = hashValue(yamlValue);
@@ -112,7 +112,7 @@ export async function resetGeneratedValue(
   keyPath: string,
   projectPath?: string
 ): Promise<void> {
-  const generated = loadGeneratedConfig(generatedPath);
+  const generated = await loadGeneratedConfig(generatedPath);
 
   const projectId = projectPath
     ? getProjectId(projectPath, generated.project_id_strategy ?? "path")

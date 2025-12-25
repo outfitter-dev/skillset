@@ -32,9 +32,9 @@ function validateScope(scope: string | undefined): ConfigScope {
   process.exit(1);
 }
 
-function listAliases(): void {
-  const projectConfig = loadYamlConfigByScope("project");
-  const userConfig = loadYamlConfigByScope("user");
+async function listAliases(): Promise<void> {
+  const projectConfig = await loadYamlConfigByScope("project");
+  const userConfig = await loadYamlConfigByScope("user");
 
   const allAliases = new Map<string, { entry: unknown; scope: string }>();
 
@@ -114,7 +114,7 @@ async function addAlias(
   scope: ConfigScope,
   force: boolean
 ): Promise<void> {
-  const currentConfig = loadYamlConfigByScope(scope);
+  const currentConfig = await loadYamlConfigByScope(scope);
   const existingMapping = currentConfig.skills?.[name];
 
   if (existingMapping && !force) {
@@ -138,7 +138,7 @@ async function addAlias(
     },
   };
 
-  writeYamlConfig(getConfigPath(scope), updatedConfig, true);
+  await writeYamlConfig(getConfigPath(scope), updatedConfig, true);
 
   const action = existingMapping ? "Updated" : "Added";
   console.log(
@@ -155,7 +155,7 @@ async function handleAlias(
   const scope = validateScope(options.scope);
 
   if (!name) {
-    listAliases();
+    await listAliases();
     return;
   }
 

@@ -65,7 +65,7 @@ function matchesSourceFilter(
 async function resolveInput(
   input: string,
   cache: ReturnType<typeof loadCaches>,
-  config: ReturnType<typeof loadConfig>,
+  config: Awaited<ReturnType<typeof loadConfig>>,
   sourceFilters?: string[],
   kindOverride?: "skill" | "set"
 ): Promise<ResolveInputResult> {
@@ -87,7 +87,7 @@ async function resolveInput(
     return explicitNamespaceResult;
   }
 
-  const tokenResult = resolveTokenInput(
+  const tokenResult = await resolveTokenInput(
     input,
     cache,
     config,
@@ -158,15 +158,15 @@ function resolveExplicitNamespaceSkill(
   return undefined;
 }
 
-function resolveTokenInput(
+async function resolveTokenInput(
   input: string,
   cache: ReturnType<typeof loadCaches>,
-  config: ReturnType<typeof loadConfig>,
+  config: Awaited<ReturnType<typeof loadConfig>>,
   sourceFilters: string[] | undefined,
   kindOverride?: "skill" | "set"
-): ResolveInputResult {
+): Promise<ResolveInputResult> {
   const token = normalizeInvocation(input, kindOverride);
-  const result = resolveToken(token, config, cache);
+  const result = await resolveToken(token, config, cache);
 
   if (result.skill) {
     if (
@@ -309,7 +309,7 @@ async function loadSkill(
   kindOverride?: "skill" | "set"
 ): Promise<void> {
   const cache = loadCaches();
-  const config = loadConfig();
+  const config = await loadConfig();
   const env = getSkillsetEnv();
   const startTime = Date.now();
 

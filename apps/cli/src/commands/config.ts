@@ -44,13 +44,13 @@ function parseValue(valueStr: string): unknown {
   }
 }
 
-function showConfig(): void {
-  const config = loadConfig();
+async function showConfig(): Promise<void> {
+  const config = await loadConfig();
   console.log(JSON.stringify(config, null, 2));
 }
 
-function getConfigCommand(key: string): void {
-  const config = loadConfig();
+async function getConfigCommand(key: string): Promise<void> {
+  const config = await loadConfig();
   const value = getConfigValue(config, key);
 
   if (value === undefined) {
@@ -119,17 +119,21 @@ function editConfig(scope: ConfigScope): Promise<void> {
 
 async function gcConfig(): Promise<void> {
   const projectRoot = getProjectRoot();
-  const userYaml = loadYamlConfigByScope("user");
-  const projectYaml = loadYamlConfigByScope("project", projectRoot);
+  const userYaml = await loadYamlConfigByScope("user");
+  const projectYaml = await loadYamlConfigByScope("project", projectRoot);
 
-  const cleaned = cleanupGeneratedConfig(userYaml, projectYaml, projectRoot);
+  const cleaned = await cleanupGeneratedConfig(
+    userYaml,
+    projectYaml,
+    projectRoot
+  );
   await writeGeneratedSettings(cleaned);
 
   console.log(chalk.green("✓ Cleaned generated config hashes"));
 }
 
-function showGenerated(): void {
-  const generated = loadGeneratedSettings();
+async function showGenerated(): Promise<void> {
+  const generated = await loadGeneratedSettings();
   console.log(JSON.stringify(generated, null, 2));
 }
 
@@ -148,28 +152,28 @@ export function registerConfigCommand(program: Command): void {
       return;
     }
 
-    showConfig();
+    await showConfig();
   });
 
   configCommand
     .command("show")
     .description("Show merged configuration")
-    .action(() => {
-      showConfig();
+    .action(async () => {
+      await showConfig();
     });
 
   configCommand
     .command("generated")
     .description("Show generated config overrides")
-    .action(() => {
-      showGenerated();
+    .action(async () => {
+      await showGenerated();
     });
 
   configCommand
     .command("get <key>")
     .description("Get a config value using dot notation")
-    .action((key: string) => {
-      getConfigCommand(key);
+    .action(async (key: string) => {
+      await getConfigCommand(key);
     });
 
   configCommand

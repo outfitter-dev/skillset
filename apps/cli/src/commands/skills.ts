@@ -32,9 +32,9 @@ function validateScope(scope: string | undefined): ConfigScope {
   process.exit(1);
 }
 
-function listSkills(): void {
-  const projectConfig = loadYamlConfigByScope("project");
-  const userConfig = loadYamlConfigByScope("user");
+async function listSkills(): Promise<void> {
+  const projectConfig = await loadYamlConfigByScope("project");
+  const userConfig = await loadYamlConfigByScope("user");
 
   const allSkills = new Map<string, { entry: unknown; scope: string }>();
 
@@ -114,7 +114,7 @@ async function addSkill(
   scope: ConfigScope,
   force: boolean
 ): Promise<void> {
-  const currentConfig = loadYamlConfigByScope(scope);
+  const currentConfig = await loadYamlConfigByScope(scope);
   const existingMapping = currentConfig.skills?.[name];
 
   if (existingMapping && !force) {
@@ -138,7 +138,7 @@ async function addSkill(
     },
   };
 
-  writeYamlConfig(getConfigPath(scope), updatedConfig, true);
+  await writeYamlConfig(getConfigPath(scope), updatedConfig, true);
 
   const action = existingMapping ? "Updated" : "Added";
   console.log(
@@ -147,8 +147,8 @@ async function addSkill(
   console.log(chalk.dim(`Config: ${getConfigPath(scope)}`));
 }
 
-function removeSkill(name: string, scope: ConfigScope): void {
-  const currentConfig = loadYamlConfigByScope(scope);
+async function removeSkill(name: string, scope: ConfigScope): Promise<void> {
+  const currentConfig = await loadYamlConfigByScope(scope);
   const existingMapping = currentConfig.skills?.[name];
 
   if (!existingMapping) {
@@ -164,7 +164,7 @@ function removeSkill(name: string, scope: ConfigScope): void {
     skills: updatedSkills,
   };
 
-  writeYamlConfig(getConfigPath(scope), updatedConfig, true);
+  await writeYamlConfig(getConfigPath(scope), updatedConfig, true);
 
   console.log(
     chalk.green(
@@ -183,8 +183,8 @@ export function registerSkillsCommand(program: Command): void {
   skillsCommand
     .command("list")
     .description("List all skill mappings")
-    .action(() => {
-      listSkills();
+    .action(async () => {
+      await listSkills();
     });
 
   skillsCommand
@@ -229,9 +229,9 @@ export function registerSkillsCommand(program: Command): void {
     .command("remove <alias>")
     .description("Remove a skill mapping")
     .option("-S, --scope <scope>", "Config scope: project or user", "project")
-    .action((alias: string, options: SkillsOptions) => {
+    .action(async (alias: string, options: SkillsOptions) => {
       const scope = validateScope(options.scope);
-      removeSkill(alias, scope);
+      await removeSkill(alias, scope);
     });
 
   skillsCommand.action(() => {

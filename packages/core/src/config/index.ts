@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { getConfigDir, getProjectRoot } from "@skillset/shared";
 import type {
@@ -60,9 +60,11 @@ export function getConfigPath(
   return CONFIG_PATHS.project(projectRoot);
 }
 
-export function loadConfig(projectRoot = getProjectRoot()): ConfigSchema {
-  const userYaml = loadYamlConfig(CONFIG_PATHS.user());
-  const generated = loadGeneratedConfig(CONFIG_PATHS.generated());
+export async function loadConfig(
+  projectRoot = getProjectRoot()
+): Promise<ConfigSchema> {
+  const userYaml = await loadYamlConfig(CONFIG_PATHS.user());
+  const generated = await loadGeneratedConfig(CONFIG_PATHS.generated());
 
   const withUser = mergeConfigs(CONFIG_DEFAULTS, userYaml);
   const withGlobalOverrides = applyGeneratedOverrides(
@@ -71,7 +73,7 @@ export function loadConfig(projectRoot = getProjectRoot()): ConfigSchema {
     generated
   );
 
-  const projectYaml = loadYamlConfig(CONFIG_PATHS.project(projectRoot));
+  const projectYaml = await loadYamlConfig(CONFIG_PATHS.project(projectRoot));
   const withProject = mergeConfigs(withGlobalOverrides, projectYaml);
 
   const projectId = getProjectId(
@@ -91,32 +93,28 @@ export function loadConfig(projectRoot = getProjectRoot()): ConfigSchema {
   return applyGeneratedOverrides(withProject, projectYaml, projectGenerated);
 }
 
-export function ensureConfigFiles(projectRoot = getProjectRoot()) {
+export async function ensureConfigFiles(
+  projectRoot = getProjectRoot()
+): Promise<void> {
   for (const path of [CONFIG_PATHS.project(projectRoot), CONFIG_PATHS.user()]) {
-    const dir = dirname(path);
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
-    }
-    if (!existsSync(path)) {
-      writeYamlConfig(path, CONFIG_DEFAULTS, true);
+    await mkdir(dirname(path), { recursive: true });
+    if (!(await Bun.file(path).exists())) {
+      await writeYamlConfig(path, CONFIG_DEFAULTS, true);
     }
   }
 }
 
-export function writeYamlConfig(
+export async function writeYamlConfig(
   path: string,
   config: ConfigSchema | Partial<ConfigSchema>,
   includeSchemaComment = true
-): void {
+): Promise<void> {
   const header = includeSchemaComment
     ? "# yaml-language-server: $schema=https://unpkg.com/@skillset/types/schemas/config.schema.json\n"
     : "";
   const yamlDefaults = YAML.stringify(config, null, 2) ?? "";
-  const dir = dirname(path);
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
-  writeFileSync(path, `${header}${yamlDefaults}`, "utf8");
+  await mkdir(dirname(path), { recursive: true });
+  await Bun.write(path, `${header}${yamlDefaults}`);
 }
 
 export function getConfigValue(
@@ -141,17 +139,17 @@ export function deleteConfigValue(
   return deleteValueAtPath(config, key);
 }
 
-export function loadYamlConfigByScope(
+export async function loadYamlConfigByScope(
   scope: "project" | "user",
   projectRoot = getProjectRoot()
-): Partial<ConfigSchema> {
+): Promise<Partial<ConfigSchema>> {
   const path =
     scope === "user" ? CONFIG_PATHS.user() : CONFIG_PATHS.project(projectRoot);
-  return loadYamlConfig(path);
+  return await loadYamlConfig(path);
 }
 
-export function loadGeneratedSettings(): GeneratedSettingsSchema {
-  return loadGeneratedConfig(CONFIG_PATHS.generated());
+export async function loadGeneratedSettings(): Promise<GeneratedSettingsSchema> {
+  return await loadGeneratedConfig(CONFIG_PATHS.generated());
 }
 
 export async function writeGeneratedSettings(
@@ -181,12 +179,12 @@ export async function resetGeneratedConfigValue(
   await resetGeneratedValue(CONFIG_PATHS.generated(), keyPath, projectRoot);
 }
 
-export function cleanupGeneratedConfig(
+export async function cleanupGeneratedConfig(
   userYaml: Partial<ConfigSchema>,
   projectYaml?: Partial<ConfigSchema>,
   projectRoot?: string
-): GeneratedSettingsSchema {
-  const generated = loadGeneratedConfig(CONFIG_PATHS.generated());
+): Promise<GeneratedSettingsSchema> {
+  const generated = await loadGeneratedConfig(CONFIG_PATHS.generated());
   const cleanedGlobal = cleanupStaleHashes(generated, userYaml);
 
   if (!(projectRoot && projectYaml)) {

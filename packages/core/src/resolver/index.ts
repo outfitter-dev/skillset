@@ -641,12 +641,12 @@ function resolveTokenBySearch(
   return { invocation: token, reason: "unmatched" };
 }
 
-export function resolveToken(
+export async function resolveToken(
   token: InvocationToken,
   config?: ConfigSchema,
   cache?: CacheSchema
-): ResolveResult {
-  const cfg = config ?? loadConfig();
+): Promise<ResolveResult> {
+  const cfg = config ?? (await loadConfig());
   const c = cache ?? loadCaches();
   const projectRoot = getProjectRoot();
   const skills = filterSkillsByConfig(c, cfg);
@@ -701,12 +701,16 @@ export function resolveToken(
   );
 }
 
-export function resolveTokens(
+export async function resolveTokens(
   tokens: InvocationToken[],
   config?: ConfigSchema,
   cache?: CacheSchema
-): ResolveResult[] {
-  const cfg = config ?? loadConfig();
+): Promise<ResolveResult[]> {
+  const cfg = config ?? (await loadConfig());
   const c = cache ?? loadCaches();
-  return tokens.map((token) => resolveToken(token, cfg, c));
+  const results: ResolveResult[] = [];
+  for (const token of tokens) {
+    results.push(await resolveToken(token, cfg, c));
+  }
+  return results;
 }

@@ -1,4 +1,3 @@
-import { existsSync, readFileSync } from "node:fs";
 import type {
   ConfigSchema,
   GeneratedSettingsSchema,
@@ -22,12 +21,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function loadYamlConfig(path: string): Partial<ConfigSchema> {
-  if (!existsSync(path)) {
+export async function loadYamlConfig(
+  path: string
+): Promise<Partial<ConfigSchema>> {
+  const file = Bun.file(path);
+  if (!(await file.exists())) {
     return {};
   }
   try {
-    const content = readFileSync(path, "utf8");
+    const content = await file.text();
     const parsed = YAML.parse(content);
     if (!isRecord(parsed)) {
       return {};
@@ -39,13 +41,15 @@ export function loadYamlConfig(path: string): Partial<ConfigSchema> {
   }
 }
 
-export function loadGeneratedConfig(path: string): GeneratedSettingsSchema {
-  if (!existsSync(path)) {
+export async function loadGeneratedConfig(
+  path: string
+): Promise<GeneratedSettingsSchema> {
+  const file = Bun.file(path);
+  if (!(await file.exists())) {
     return { ...DEFAULT_GENERATED };
   }
   try {
-    const content = readFileSync(path, "utf8");
-    const parsed = JSON.parse(content) as Partial<GeneratedSettingsSchema>;
+    const parsed = (await file.json()) as Partial<GeneratedSettingsSchema>;
     const generated: GeneratedSettingsSchema = {
       _yaml_hashes: parsed._yaml_hashes ?? {},
       projects: parsed.projects ?? {},
