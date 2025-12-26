@@ -1,11 +1,7 @@
-import { existsSync, mkdirSync, renameSync, rmSync } from "node:fs";
+import { mkdirSync, renameSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import type {
-  ConfigSchema,
-  GeneratedSettingsSchema,
-  ProjectSettings,
-} from "@skillset/types";
+import type { GeneratedSettingsSchema, ProjectSettings } from "@skillset/types";
 import { lock } from "proper-lockfile";
 import { hashValue } from "./hash";
 import { loadGeneratedConfig, loadYamlConfig } from "./loader";
@@ -14,21 +10,12 @@ import { deleteValueAtPath, getValueAtPath, setValueAtPath } from "./utils";
 
 function ensureDir(path: string) {
   const dir = dirname(path);
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
+  mkdirSync(dir, { recursive: true });
 }
 
 async function atomicWriteJson(filePath: string, data: unknown): Promise<void> {
   ensureDir(filePath);
-  if (!existsSync(filePath)) {
-    await Bun.write(filePath, "{}");
-  }
-
-  const lockRelease = await lock(filePath, {
-    retries: { retries: 3, minTimeout: 100, maxTimeout: 1000 },
-    stale: 10_000,
-  });
+  const lockRelease = await acquireLock(filePath);
 
   const tempPath = join(
     tmpdir(),
@@ -47,6 +34,23 @@ async function atomicWriteJson(filePath: string, data: unknown): Promise<void> {
     throw err;
   } finally {
     await lockRelease();
+  }
+}
+
+async function acquireLock(filePath: string) {
+  const options = {
+    retries: { retries: 3, minTimeout: 100, maxTimeout: 1000 },
+    stale: 10_000,
+  };
+  try {
+    return await lock(filePath, options);
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException;
+    if (error?.code === "ENOENT") {
+      await Bun.write(filePath, "{}");
+      return await lock(filePath, options);
+    }
+    throw err;
   }
 }
 
@@ -78,7 +82,7 @@ export async function setGeneratedValue(
   projectPath?: string
 ): Promise<void> {
   const generated = loadGeneratedConfig(generatedPath);
-  const yamlConfig = loadYamlConfig(yamlPath) as ConfigSchema;
+  const yamlConfig = loadYamlConfig(yamlPath);
 
   const yamlValue = getValueAtPath(yamlConfig, keyPath);
   const yamlHash = hashValue(yamlValue);

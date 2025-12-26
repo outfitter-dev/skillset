@@ -5,7 +5,7 @@
  * Fallback: import the core hook runner for local monorepo development.
  */
 
-type HookRunner = (stdin: string) => Promise<string>;
+type HookRunner = (stdin: string) => string | Promise<string>;
 
 const HOOK_MODE = process.env.SKILLSET_HOOK_MODE?.toLowerCase();
 
@@ -115,7 +115,7 @@ async function writeToStdin(
 async function main() {
   const runUserPromptSubmitHook = await loadHookRunner();
   const stdin = await Bun.stdin.text();
-  const output = runUserPromptSubmitHook(stdin);
+  const output = await runUserPromptSubmitHook(stdin);
   console.log(output);
 }
 
