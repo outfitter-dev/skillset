@@ -15,7 +15,7 @@ interface SyncOptions extends GlobalOptions {
  * Sync skills to configured targets
  * TODO: Full implementation deferred to later phase
  */
-async function syncSkills(options: SyncOptions): Promise<void> {
+function syncSkills(options: SyncOptions): void {
   console.log(chalk.yellow("skillset sync: Not yet implemented"));
   console.log(
     chalk.dim("This command will sync skills to configured tool directories")
@@ -39,7 +39,7 @@ export function registerSyncCommand(program: Command): void {
     .description("Sync skills to configured targets")
     .option("--target <name>", "Sync to specific target (claude, codex, etc.)")
     .option("--dry-run", "Show what would be synced without making changes")
-    .action(async (options: SyncOptions) => {
-      await syncSkills(options);
+    .action((options: SyncOptions) => {
+      syncSkills(options);
     });
 }

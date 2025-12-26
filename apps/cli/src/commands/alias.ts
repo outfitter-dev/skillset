@@ -1,12 +1,12 @@
 /**
- * skillset alias command
+ * skillset alias command (deprecated; use skills)
  */
 
 import {
   getConfigPath,
   loadCaches,
-  readConfigByScope,
-  writeConfig,
+  loadYamlConfigByScope,
+  writeYamlConfig,
 } from "@skillset/core";
 import chalk from "chalk";
 import type { Command } from "commander";
@@ -19,49 +19,41 @@ interface AliasOptions {
   force?: boolean;
 }
 
-/**
- * Validate scope parameter
- */
 function validateScope(scope: string | undefined): ConfigScope {
-  if (!scope || scope === "project") return "project";
-  if (scope === "local") return "local";
-  if (scope === "user") return "user";
+  if (!scope || scope === "project") {
+    return "project";
+  }
+  if (scope === "user") {
+    return "user";
+  }
   console.error(
-    chalk.red(`Invalid scope "${scope}". Must be: project, local, or user`)
+    chalk.red(`Invalid scope "${scope}". Must be: project or user`)
   );
   process.exit(1);
 }
 
-/**
- * List all aliases
- */
 function listAliases(): void {
-  const projectConfig = readConfigByScope("project");
-  const localConfig = readConfigByScope("local");
-  const userConfig = readConfigByScope("user");
+  const projectConfig = loadYamlConfigByScope("project");
+  const userConfig = loadYamlConfigByScope("user");
 
-  const allAliases = new Map<string, { skillRef: string; scope: string }>();
+  const allAliases = new Map<string, { entry: unknown; scope: string }>();
 
-  // Collect aliases from all scopes (user → local → project)
-  if (userConfig.mappings) {
-    for (const [name, mapping] of Object.entries(userConfig.mappings)) {
-      allAliases.set(name, { skillRef: mapping.skillRef, scope: "user" });
+  if (userConfig.skills) {
+    for (const [name, entry] of Object.entries(userConfig.skills)) {
+      allAliases.set(name, { entry, scope: "user" });
     }
   }
-  if (localConfig.mappings) {
-    for (const [name, mapping] of Object.entries(localConfig.mappings)) {
-      allAliases.set(name, { skillRef: mapping.skillRef, scope: "local" });
-    }
-  }
-  if (projectConfig.mappings) {
-    for (const [name, mapping] of Object.entries(projectConfig.mappings)) {
-      allAliases.set(name, { skillRef: mapping.skillRef, scope: "project" });
+  if (projectConfig.skills) {
+    for (const [name, entry] of Object.entries(projectConfig.skills)) {
+      allAliases.set(name, { entry, scope: "project" });
     }
   }
 
   if (allAliases.size === 0) {
     console.log(chalk.yellow("No aliases defined"));
-    console.log(chalk.dim("Use 'skillset alias <name> <ref>' to create one"));
+    console.log(
+      chalk.dim("Use 'skillset skills add <alias> <skill>' to create one")
+    );
     return;
   }
 
@@ -71,16 +63,12 @@ function listAliases(): void {
     a[0].localeCompare(b[0])
   );
 
-  for (const [name, { skillRef, scope }] of sortedAliases) {
-    console.log(
-      `  ${chalk.green(name)} → ${skillRef} ${chalk.dim(`(${scope})`)}`
-    );
+  for (const [name, { entry, scope }] of sortedAliases) {
+    const value = typeof entry === "string" ? entry : JSON.stringify(entry);
+    console.log(`  ${chalk.green(name)} → ${value} ${chalk.dim(`(${scope})`)}`);
   }
 }
 
-/**
- * Interactive skill selection
- */
 async function selectSkill(): Promise<string> {
   const cache = loadCaches();
   const skills = Object.values(cache.skills);
@@ -105,12 +93,9 @@ async function selectSkill(): Promise<string> {
     },
   ]);
 
-  return answer.skillRef;
+  return answer.skillRef as string;
 }
 
-/**
- * Prompt user for confirmation
- */
 async function getUserConfirmation(): Promise<boolean> {
   const answer = await inquirer.prompt([
     {
@@ -120,26 +105,22 @@ async function getUserConfirmation(): Promise<boolean> {
       default: false,
     },
   ]);
-  return answer.confirmed;
+  return answer.confirmed as boolean;
 }
 
-/**
- * Add or update an alias
- */
 async function addAlias(
   name: string,
   skillRef: string,
   scope: ConfigScope,
   force: boolean
 ): Promise<void> {
-  const currentConfig = readConfigByScope(scope);
-  const existingMapping = currentConfig.mappings?.[name];
+  const currentConfig = loadYamlConfigByScope(scope);
+  const existingMapping = currentConfig.skills?.[name];
 
-  // Check if alias exists and prompt for confirmation if needed
   if (existingMapping && !force) {
     console.log(
       chalk.yellow(
-        `Alias '${name}' already exists → ${existingMapping.skillRef} (${scope})`
+        `Alias '${name}' already exists → ${JSON.stringify(existingMapping)} (${scope})`
       )
     );
     const confirmed = await getUserConfirmation();
@@ -149,16 +130,15 @@ async function addAlias(
     }
   }
 
-  // Update config
   const updatedConfig = {
     ...currentConfig,
-    mappings: {
-      ...currentConfig.mappings,
-      [name]: { skillRef },
+    skills: {
+      ...(currentConfig.skills ?? {}),
+      [name]: skillRef,
     },
   };
 
-  writeConfig(scope, updatedConfig);
+  writeYamlConfig(getConfigPath(scope), updatedConfig, true);
 
   const action = existingMapping ? "Updated" : "Added";
   console.log(
@@ -167,9 +147,6 @@ async function addAlias(
   console.log(chalk.dim(`Config: ${getConfigPath(scope)}`));
 }
 
-/**
- * Handle alias command
- */
 async function handleAlias(
   name?: string,
   skillRef?: string,
@@ -177,15 +154,12 @@ async function handleAlias(
 ): Promise<void> {
   const scope = validateScope(options.scope);
 
-  // No arguments: list all aliases
   if (!name) {
     listAliases();
     return;
   }
 
-  // Name provided, skillRef missing
   if (!skillRef) {
-    // Interactive mode: select skill
     if (isTTY()) {
       console.log(chalk.dim(`Creating alias '${name}'`));
       const selectedSkillRef = await selectSkill();
@@ -193,32 +167,26 @@ async function handleAlias(
       return;
     }
 
-    // Non-TTY: error
     console.error(chalk.red("Missing argument: <skillRef>"));
     console.error(chalk.yellow("Usage: skillset alias <name> <skillRef>"));
     console.error(chalk.dim("Or run in a TTY for interactive mode"));
     process.exit(1);
   }
 
-  // Both name and skillRef provided
   await addAlias(name, skillRef, scope, options.force ?? false);
 }
 
-/**
- * Register the alias command
- */
 export function registerAliasCommand(program: Command): void {
   program
     .command("alias [name] [skillRef]")
-    .description("Add or update a skill alias")
-    .option(
-      "-S, --scope <scope>",
-      "Config scope: project, local, or user",
-      "project"
-    )
+    .description("Add or update a skill alias (deprecated; use skills)")
+    .option("-S, --scope <scope>", "Config scope: project or user", "project")
     .option("-f, --force", "Skip confirmation prompt")
     .action(
       async (name?: string, skillRef?: string, options?: AliasOptions) => {
+        console.log(
+          chalk.dim("Alias is deprecated. Use `skillset skills` instead.")
+        );
         await handleAlias(name, skillRef, options);
       }
     );

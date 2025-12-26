@@ -4,7 +4,7 @@
 
 export type OutputFormat = "text" | "raw" | "json";
 
-export type ConfigScope = "project" | "local" | "user";
+export type ConfigScope = "project" | "user";
 
 export interface GlobalOptions {
   source?: string[];

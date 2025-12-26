@@ -8,16 +8,24 @@
 export type {
   CacheSchema,
   ConfigSchema,
+  GeneratedSettingsSchema,
   InjectOutcome,
   InvocationToken,
-  MappingEntry,
-  Mode,
+  ProjectIdStrategy,
+  ProjectSettings,
   ResolveResult,
+  RuleSeverity,
+  Scope,
+  SetDefinition,
   Skill,
+  SkillEntry,
   SkillRef,
+  SkillSet,
   SkillSource,
+  Tool,
 } from "@skillset/types";
 // Cache
+// biome-ignore lint/performance/noBarrelFile: public entrypoint re-exports
 export {
   CACHE_PATHS,
   isStructureFresh,
@@ -27,14 +35,21 @@ export {
 } from "./cache";
 // Config
 export {
+  CONFIG_DEFAULTS,
   CONFIG_PATHS,
+  cleanupGeneratedConfig,
+  deleteConfigValue,
+  ensureConfigFiles,
   getConfigPath,
   getConfigValue,
   loadConfig,
-  modeLabel,
-  readConfigByScope,
+  loadGeneratedSettings,
+  loadYamlConfigByScope,
+  resetGeneratedConfigValue,
   setConfigValue,
-  writeConfig,
+  setGeneratedConfigValue,
+  writeGeneratedSettings,
+  writeYamlConfig,
 } from "./config";
 // Format
 export { formatOutcome, stripFrontmatter } from "./format";

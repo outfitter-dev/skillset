@@ -1,14 +1,25 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, relative, sep } from "node:path";
-import { getProjectRoot } from "@skillset/shared";
-import type { CacheSchema, Skill } from "@skillset/types";
+import { getProjectRoot, SKILL_PATHS } from "@skillset/shared";
+import type { CacheSchema, ConfigSchema, Skill, Tool } from "@skillset/types";
 import { updateCacheSync } from "../cache";
+import { loadConfig } from "../config";
 
 const SKILL_FILENAME = "SKILL.md";
+const LINE_BREAK_REGEX = /\r?\n/;
+const HEADING_PREFIX_REGEX = /^#+\s*/;
 
 interface ScanOptions {
   projectRoot?: string;
+  tools?: Tool[];
+  config?: ConfigSchema;
+}
+
+interface SkillSourceRoot {
+  root: string;
+  scope: "project" | "user" | "plugin";
+  tool?: Tool;
 }
 
 function walkForSkillFiles(root: string): string[] {
@@ -29,41 +40,46 @@ function walkForSkillFiles(root: string): string[] {
   return results;
 }
 
-function skillRefFromPath(path: string, projectRoot: string): string {
-  const home = homedir();
-  if (path.startsWith(join(projectRoot, ".claude", "skills"))) {
-    const rel = relative(join(projectRoot, ".claude", "skills"), path).split(
-      sep
-    )[0];
-    return `project:${rel}`;
+function toolPrefix(tool?: Tool): string {
+  if (!tool || tool === "claude") {
+    return "";
   }
-  if (path.startsWith(join(home, ".claude", "skills"))) {
-    const rel = relative(join(home, ".claude", "skills"), path).split(sep)[0];
-    return `user:${rel}`;
-  }
-  const pluginsRoot = join(home, ".claude", "plugins");
-  if (path.startsWith(pluginsRoot)) {
-    const rel = relative(pluginsRoot, path).split(sep);
-    const namespace = rel[0];
-    const alias = rel.slice(2)[0] ?? rel[0];
-    return `plugin:${namespace}/${alias}`;
-  }
-  // fallback
-  return `skill:${path.split(sep).slice(-2, -1)[0]}`;
+  return `${tool}/`;
 }
 
-function readSkillMetadata(path: string, projectRoot: string): Skill {
+function getSkillPathSegments(root: string, path: string): string[] {
+  const rel = relative(root, path);
+  const parts = rel.split(sep).filter(Boolean);
+  if (parts.at(-1) === SKILL_FILENAME) {
+    parts.pop();
+  }
+  return parts;
+}
+
+function skillRefFromPath(path: string, source: SkillSourceRoot): string {
+  const parts = getSkillPathSegments(source.root, path);
+  if (source.scope === "plugin") {
+    const namespace = parts[0] ?? "unknown";
+    const alias = parts[2] ?? parts[0] ?? "unknown";
+    return `plugin:${namespace}/${alias}`;
+  }
+
+  const alias = parts[0] ?? path.split(sep).at(-2) ?? "unknown";
+  return `${source.scope}:${toolPrefix(source.tool)}${alias}`;
+}
+
+function readSkillMetadata(path: string, source: SkillSourceRoot): Skill {
   const content = readFileSync(path, "utf8");
-  const lines = content.split(/\r?\n/);
+  const lines = content.split(LINE_BREAK_REGEX);
   const firstHeading = lines.find((l) => l.startsWith("#"));
-  const fallbackName = path.split(sep).slice(-2, -1)[0] ?? "unknown";
+  const fallbackName = path.split(sep).at(-2) ?? "unknown";
   const name = firstHeading
-    ? firstHeading.replace(/^#+\s*/, "").trim()
+    ? firstHeading.replace(HEADING_PREFIX_REGEX, "").trim()
     : fallbackName;
   const description = lines
     .find((l) => l.trim().length > 0 && !l.startsWith("#"))
     ?.trim();
-  const skillRef = skillRefFromPath(path, projectRoot);
+  const skillRef = skillRefFromPath(path, source);
   return {
     skillRef,
     path,
@@ -83,14 +99,18 @@ function generateStructure(path: string): string {
   const lines: string[] = [];
   while (stack.length) {
     const popped = stack.pop();
-    if (!popped) break;
+    if (!popped) {
+      break;
+    }
     const { path: current, depth } = popped;
     const entries = readdirSync(current, { withFileTypes: true }).sort((a, b) =>
       a.name.localeCompare(b.name)
     );
     for (let i = entries.length - 1; i >= 0; i -= 1) {
       const entry = entries[i];
-      if (!entry) continue;
+      if (!entry) {
+        continue;
+      }
       const prefix = `${"  ".repeat(depth)}${entry.isDirectory() ? "├──" : "├──"}`;
       lines.push(`${prefix} ${entry.name}`);
       if (entry.isDirectory()) {
@@ -101,18 +121,40 @@ function generateStructure(path: string): string {
   return lines.join("\n");
 }
 
+function buildSources(projectRoot: string, tools: Tool[]): SkillSourceRoot[] {
+  const sources: SkillSourceRoot[] = [];
+  for (const tool of tools) {
+    const projectRootPath = SKILL_PATHS[tool].project(projectRoot);
+    const userRootPath = SKILL_PATHS[tool].user();
+    sources.push({ root: projectRootPath, scope: "project", tool });
+    sources.push({ root: userRootPath, scope: "user", tool });
+  }
+  sources.push({
+    root: join(homedir(), ".claude", "plugins"),
+    scope: "plugin",
+  });
+  return sources;
+}
+
 export function indexSkills(options: ScanOptions = {}): CacheSchema {
   const projectRoot = options.projectRoot ?? getProjectRoot();
+  const config = options.config ?? loadConfig(projectRoot);
+  const toolOverride = options.tools ?? config.tools;
+  const tools =
+    toolOverride && toolOverride.length > 0
+      ? toolOverride
+      : (Object.keys(SKILL_PATHS) as Tool[]);
+
   const skills: Record<string, Skill> = {};
-  const sources = [
-    join(projectRoot, ".claude", "skills"),
-    join(homedir(), ".claude", "skills"),
-    join(homedir(), ".claude"),
-  ];
-  const files = sources.flatMap((src) => walkForSkillFiles(src));
+  const sources = buildSources(projectRoot, tools);
+  const files = sources.flatMap((src) => walkForSkillFiles(src.root));
 
   for (const file of files) {
-    const meta = readSkillMetadata(file, projectRoot);
+    const source = sources.find((src) => file.startsWith(src.root));
+    if (!source) {
+      continue;
+    }
+    const meta = readSkillMetadata(file, source);
     skills[meta.skillRef] = { ...meta, structure: generateStructure(file) };
   }
 

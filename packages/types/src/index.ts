@@ -19,9 +19,14 @@ export type { InjectOutcome } from "./common";
 export type {
   CacheSchema,
   ConfigSchema,
-  MappingEntry,
-  Mode,
+  GeneratedSettingsSchema,
+  ProjectIdStrategy,
+  ProjectSettings,
+  RuleSeverity,
+  Scope,
   SetDefinition,
+  SkillEntry,
+  Tool,
 } from "./config";
 // Skill types
 export type {

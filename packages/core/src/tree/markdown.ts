@@ -9,6 +9,8 @@ export interface HeadingNode {
   children: HeadingNode[];
 }
 
+const HEADING_REGEX = /^(#{2,3})\s+(.+)$/;
+
 /**
  * Parse markdown content into a heading tree structure.
  * Only captures ## and ### headings (ignores # as that's usually the title).
@@ -26,10 +28,12 @@ export function parseMarkdownHeadings(content: string): HeadingNode[] {
       continue;
     }
 
-    if (inCodeBlock) continue;
+    if (inCodeBlock) {
+      continue;
+    }
 
     // Match ## and ### headings
-    const match = line.match(/^(#{2,3})\s+(.+)$/);
+    const match = line.match(HEADING_REGEX);
     if (match?.[1] && match[2]) {
       headings.push({
         level: match[1].length,
@@ -55,15 +59,17 @@ function buildHeadingTree(
 
     // Pop stack until we find a parent with lower level
     while (stack.length > 0) {
-      const last = stack[stack.length - 1];
-      if (last && last.level < level) break;
+      const last = stack.at(-1);
+      if (last && last.level < level) {
+        break;
+      }
       stack.pop();
     }
 
     if (stack.length === 0) {
       root.push(node);
     } else {
-      const parent = stack[stack.length - 1];
+      const parent = stack.at(-1);
       parent?.node.children.push(node);
     }
 

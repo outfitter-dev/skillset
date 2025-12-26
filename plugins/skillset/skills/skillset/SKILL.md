@@ -24,5 +24,5 @@ Deterministic Skill invocation for Claude Code via `$<alias>` syntax.
 ## Notes
 
 - Skills inside code fences are ignored to avoid accidental triggers.
-- In strict mode, ambiguous or missing invocations block the prompt; default is warn mode.
+- Resolution rules are configurable via `rules.unresolved` / `rules.ambiguous` (`ignore`, `warn`, `error`).
 - Structures are cached for speed. TTL defaults to 1 hour.

@@ -38,7 +38,7 @@ export function logUsage(entry: Omit<UsageEntry, "timestamp">): void {
     };
 
     // Append to log file
-    appendFileSync(logFile, JSON.stringify(record) + "\n");
+    appendFileSync(logFile, `${JSON.stringify(record)}\n`);
   } catch {
     // Silently fail - logging should never break the main flow
   }

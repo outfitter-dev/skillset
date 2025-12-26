@@ -18,11 +18,17 @@ export function determineFormat(options: {
   const env = getSkillsetEnv();
 
   // Explicit flags take precedence
-  if (options.json) return "json";
-  if (options.raw) return "raw";
+  if (options.json) {
+    return "json";
+  }
+  if (options.raw) {
+    return "raw";
+  }
 
   // Environment variable
-  if (env.output) return env.output;
+  if (env.output) {
+    return env.output;
+  }
 
   // Default: text in TTY, raw otherwise
   return isTTY() ? "text" : "raw";

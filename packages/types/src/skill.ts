@@ -37,6 +37,7 @@ export interface ResolveResult {
   invocation: InvocationToken;
   skill?: Skill;
   set?: SkillSet;
+  setSkills?: Skill[];
   reason?: string;
   candidates?: Skill[];
   setCandidates?: SkillSet[];

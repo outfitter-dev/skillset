@@ -1,5 +1,7 @@
 import { normalizeTokenRef } from "@skillset/core";
 
+const KIND_PREFIX_REGEX = /^(skill|set):/i;
+
 export type InvocationKind = "skill" | "set";
 
 export interface NormalizedInvocation {
@@ -22,7 +24,7 @@ export function normalizeInvocation(
   }
 
   let kind: InvocationKind | undefined;
-  const kindMatch = cleaned.match(/^(skill|set):/i);
+  const kindMatch = cleaned.match(KIND_PREFIX_REGEX);
   if (kindMatch?.[1]) {
     kind = kindMatch[1].toLowerCase() as InvocationKind;
     cleaned = cleaned.slice(kindMatch[0].length);
@@ -33,11 +35,14 @@ export function normalizeInvocation(
   const namespace = parts.length > 1 ? parts[0] : undefined;
   const alias = parts.length > 1 ? parts.slice(1).join(":") : (parts[0] ?? "");
 
-  const raw = hasDollar
-    ? trimmed
-    : hasLegacy
-      ? `$${trimmed.slice(2)}`
-      : `$${kind ? `${kind}:` : ""}${cleaned}`;
+  let raw: string;
+  if (hasDollar) {
+    raw = trimmed;
+  } else if (hasLegacy) {
+    raw = `$${trimmed.slice(2)}`;
+  } else {
+    raw = `$${kind ? `${kind}:` : ""}${cleaned}`;
+  }
 
   const resolvedKind = kind ?? kindOverride;
   const invocation: NormalizedInvocation = {

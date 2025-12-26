@@ -1,8 +1,12 @@
 /**
- * skillset unalias command
+ * skillset unalias command (deprecated; use skills remove)
  */
 
-import { getConfigPath, readConfigByScope, writeConfig } from "@skillset/core";
+import {
+  getConfigPath,
+  loadYamlConfigByScope,
+  writeYamlConfig,
+} from "@skillset/core";
 import chalk from "chalk";
 import type { Command } from "commander";
 import inquirer from "inquirer";
@@ -13,61 +17,41 @@ interface UnaliasOptions {
   scope?: string;
 }
 
-/**
- * Validate scope parameter
- */
 function validateScope(scope: string | undefined): ConfigScope {
-  if (!scope || scope === "project") return "project";
-  if (scope === "local") return "local";
-  if (scope === "user") return "user";
+  if (!scope || scope === "project") {
+    return "project";
+  }
+  if (scope === "user") {
+    return "user";
+  }
   console.error(
-    chalk.red(`Invalid scope "${scope}". Must be: project, local, or user`)
+    chalk.red(`Invalid scope "${scope}". Must be: project or user`)
   );
   process.exit(1);
 }
 
-/**
- * Get all aliases across all scopes
- */
-function getAllAliases(): Map<
-  string,
-  { skillRef: string; scope: ConfigScope }
-> {
-  const projectConfig = readConfigByScope("project");
-  const localConfig = readConfigByScope("local");
-  const userConfig = readConfigByScope("user");
+function getAllAliases(): Map<string, { entry: unknown; scope: ConfigScope }> {
+  const projectConfig = loadYamlConfigByScope("project");
+  const userConfig = loadYamlConfigByScope("user");
 
-  const allAliases = new Map<
-    string,
-    { skillRef: string; scope: ConfigScope }
-  >();
+  const allAliases = new Map<string, { entry: unknown; scope: ConfigScope }>();
 
-  // Collect aliases from all scopes (user → local → project)
-  if (userConfig.mappings) {
-    for (const [name, mapping] of Object.entries(userConfig.mappings)) {
-      allAliases.set(name, { skillRef: mapping.skillRef, scope: "user" });
+  if (userConfig.skills) {
+    for (const [name, entry] of Object.entries(userConfig.skills)) {
+      allAliases.set(name, { entry, scope: "user" });
     }
   }
-  if (localConfig.mappings) {
-    for (const [name, mapping] of Object.entries(localConfig.mappings)) {
-      allAliases.set(name, { skillRef: mapping.skillRef, scope: "local" });
-    }
-  }
-  if (projectConfig.mappings) {
-    for (const [name, mapping] of Object.entries(projectConfig.mappings)) {
-      allAliases.set(name, { skillRef: mapping.skillRef, scope: "project" });
+  if (projectConfig.skills) {
+    for (const [name, entry] of Object.entries(projectConfig.skills)) {
+      allAliases.set(name, { entry, scope: "project" });
     }
   }
 
   return allAliases;
 }
 
-/**
- * Interactive alias selection for removal
- */
 async function selectAliasToRemove(): Promise<{
   name: string;
-  skillRef: string;
   scope: ConfigScope;
 } | null> {
   const allAliases = getAllAliases();
@@ -79,9 +63,9 @@ async function selectAliasToRemove(): Promise<{
 
   const choices = Array.from(allAliases.entries())
     .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([name, { skillRef, scope }]) => ({
-      name: `${name} → ${skillRef} (${scope})`,
-      value: { name, skillRef, scope },
+    .map(([name, { entry, scope }]) => ({
+      name: `${name} → ${typeof entry === "string" ? entry : JSON.stringify(entry)} (${scope})`,
+      value: { name, scope },
     }));
 
   const answer = await inquirer.prompt([
@@ -94,48 +78,42 @@ async function selectAliasToRemove(): Promise<{
     },
   ]);
 
-  return answer.alias;
+  return answer.alias as { name: string; scope: ConfigScope };
 }
 
-/**
- * Remove an alias
- */
 function removeAlias(name: string, scope: ConfigScope): void {
-  const currentConfig = readConfigByScope(scope);
-  const existingMapping = currentConfig.mappings?.[name];
+  const currentConfig = loadYamlConfigByScope(scope);
+  const existingMapping = currentConfig.skills?.[name];
 
   if (!existingMapping) {
     console.error(chalk.red(`Alias '${name}' not found in ${scope} config`));
     process.exit(1);
   }
 
-  // Remove the alias
-  const updatedMappings = { ...currentConfig.mappings };
-  delete updatedMappings[name];
+  const updatedSkills = { ...(currentConfig.skills ?? {}) };
+  delete updatedSkills[name];
 
   const updatedConfig = {
     ...currentConfig,
-    mappings: updatedMappings,
+    skills: updatedSkills,
   };
 
-  writeConfig(scope, updatedConfig);
+  writeYamlConfig(getConfigPath(scope), updatedConfig, true);
 
   console.log(
-    chalk.green(`Removed alias '${name}' (was → ${existingMapping.skillRef})`)
+    chalk.green(
+      `Removed alias '${name}' (was → ${JSON.stringify(existingMapping)})`
+    )
   );
   console.log(chalk.dim(`Config: ${getConfigPath(scope)}`));
 }
 
-/**
- * Handle unalias command
- */
 async function handleUnalias(
   name?: string,
   options: UnaliasOptions = {}
 ): Promise<void> {
   const scope = validateScope(options.scope);
 
-  // No arguments: interactive mode
   if (!name) {
     if (isTTY()) {
       const selected = await selectAliasToRemove();
@@ -146,30 +124,24 @@ async function handleUnalias(
       return;
     }
 
-    // Non-TTY: error
     console.error(chalk.red("Missing argument: <name>"));
     console.error(chalk.yellow("Usage: skillset unalias <name>"));
     console.error(chalk.dim("Or run in a TTY for interactive mode"));
     process.exit(1);
   }
 
-  // Name provided
   removeAlias(name, scope);
 }
 
-/**
- * Register the unalias command
- */
 export function registerUnaliasCommand(program: Command): void {
   program
     .command("unalias [name]")
-    .description("Remove a skill alias")
-    .option(
-      "-S, --scope <scope>",
-      "Config scope: project, local, or user",
-      "project"
-    )
+    .description("Remove a skill alias (deprecated; use skills remove)")
+    .option("-S, --scope <scope>", "Config scope: project or user", "project")
     .action(async (name?: string, options?: UnaliasOptions) => {
+      console.log(
+        chalk.dim("Unalias is deprecated. Use `skillset skills` instead.")
+      );
       await handleUnalias(name, options);
     });
 }

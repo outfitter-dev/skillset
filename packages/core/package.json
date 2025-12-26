@@ -23,9 +23,13 @@
   "dependencies": {
     "@skillset/types": "workspace:*",
     "@skillset/shared": "workspace:*",
-    "object-treeify": "^5.0.1"
+    "json-stable-stringify": "^1.1.1",
+    "object-treeify": "^5.0.1",
+    "proper-lockfile": "^4.1.2"
   },
   "devDependencies": {
+    "@types/json-stable-stringify": "^1.0.36",
+    "@types/proper-lockfile": "^4.1.4",
     "bun-types": "^1.3.2",
     "typescript": "^5.6.3"
   },

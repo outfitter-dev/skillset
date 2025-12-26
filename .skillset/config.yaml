@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://unpkg.com/@skillset/types/schemas/config.schema.json
+version: 1
+
+rules:
+  unresolved: warn
+  ambiguous: warn
+
+resolution:
+  fuzzy_matching: true
+  default_scope_priority: [project, user, plugin]
+
+output:
+  max_lines: 500
+  include_layout: false
+
+# Ported from legacy .skillset/config.json (mappings -> skills, sets -> sets)
+skills: {}
+sets: {}
+

@@ -28,7 +28,9 @@ export function getEnv(key: string, fallback = ""): string {
  */
 export function getEnvBool(key: string, fallback = false): boolean {
   const value = process.env[key];
-  if (value === undefined) return fallback;
+  if (value === undefined) {
+    return fallback;
+  }
   return value === "true" || value === "1" || value === "yes";
 }
 

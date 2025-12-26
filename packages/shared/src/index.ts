@@ -3,6 +3,7 @@
  */
 
 // Environment
+// biome-ignore lint/performance/noBarrelFile: public entrypoint re-exports
 export {
   getEnv,
   getEnvBool,
@@ -12,21 +13,16 @@ export {
 } from "./env";
 // Logger (Pino)
 export { createLogger, logger } from "./logger";
-// Migration
-export {
-  detectLegacyPaths,
-  type LegacyPaths,
-  migrateLegacyProjectPaths,
-  migrateLegacyUserPaths,
-  removeLegacyPaths,
-} from "./migration";
 // XDG Paths
 export {
   getCacheDir,
   getConfigDir,
   getDataDir,
   getProjectRoot,
+  getSkillPaths,
   getSkillsetPaths,
+  SKILL_PATHS,
+  type ToolName,
 } from "./paths";
 // Usage Statistics
 export {

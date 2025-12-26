@@ -21,7 +21,9 @@ export const CACHE_PATHS = {
 };
 
 function readCache(path: string): CacheSchema | null {
-  if (!existsSync(path)) return null;
+  if (!existsSync(path)) {
+    return null;
+  }
   try {
     const content = readFileSync(path, "utf8");
     const parsed = JSON.parse(content) as CacheSchema;
@@ -47,7 +49,9 @@ export function loadCaches(): CacheSchema {
 
 function ensureDir(path: string) {
   const dir = dirname(path);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
 }
 
 export function writeCacheSync(path: string, cache: CacheSchema) {
@@ -68,7 +72,9 @@ export function updateCacheSync(
 }
 
 export function isStructureFresh(skill: Skill, ttlSeconds: number): boolean {
-  if (!skill.cachedAt) return false;
+  if (!skill.cachedAt) {
+    return false;
+  }
   const ageMs = Date.now() - new Date(skill.cachedAt).getTime();
   return ageMs < ttlSeconds * 1000;
 }

@@ -25,13 +25,20 @@ skillset list                  # List all available skills
 skillset show <ref>            # Show skill details
 skillset load <path>           # Load skill from file
 
-# Alias management
-skillset alias <name> <ref>    # Create alias
-skillset unalias <name>        # Remove alias
+# Skill mappings
+skillset skills list           # List skill mappings
+skillset skills add <alias> <ref>
+skillset skills remove <alias>
+skillset alias <name> <ref>    # Deprecated (use skills)
+skillset unalias <name>        # Deprecated (use skills)
 
 # System commands
 skillset sync                  # Sync and refresh skill cache
-skillset config                # Show current configuration
+skillset config                # Show merged configuration
+skillset config get <key>      # Read a config value
+skillset config set <key> <value>
+skillset config reset <key>
+skillset config gc             # Garbage-collect stale overrides
 skillset doctor                # Diagnose configuration issues
 skillset init                  # Initialize skillset in current project
 
@@ -85,15 +92,16 @@ plugins/
 
 ## Configuration
 
-Skills are indexed from:
-- `{cwd}/.claude/skills/` - Project skills
-- `~/.claude/skills/` - User skills
-- `~/.claude/plugins/` - Plugin skills
+Skills are indexed from tool-specific locations (per tool):
+- Project: `{cwd}/.claude/skills/`, `{cwd}/.codex/skills/`, `{cwd}/.cursor/skills/`, etc.
+- User: `~/.claude/skills/`, `~/.codex/skills/`, `~/.cursor/skills/`, etc.
+- Plugins: `~/.claude/plugins/`
 
 Cache and configuration stored at:
 - `.skillset/cache.json` - Indexed skills cache
-- `.skillset/config.json` - Project configuration
-- `~/.skillset/config.json` - User configuration
+- `.skillset/config.yaml` - Project configuration (checked into repo)
+- `~/.skillset/config.yaml` - User configuration
+- `~/.skillset/config.generated.json` - CLI-managed overrides
 
 ## Publishing to npm
 

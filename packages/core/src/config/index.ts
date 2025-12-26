@@ -1,176 +1,209 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { getConfigDir, getProjectRoot } from "@skillset/shared";
-import type { ConfigSchema, Mode } from "@skillset/types";
+import type {
+  ConfigSchema,
+  GeneratedSettingsSchema,
+  ProjectSettings,
+} from "@skillset/types";
+import { YAML } from "bun";
+import {
+  applyGeneratedOverrides,
+  cleanupStaleHashes,
+  loadGeneratedConfig,
+  loadYamlConfig,
+} from "./loader";
+import { mergeConfigs } from "./merge";
+import { getProjectId } from "./project";
+import { deleteValueAtPath, getValueAtPath, setValueAtPath } from "./utils";
+import {
+  resetGeneratedValue,
+  saveGeneratedConfig,
+  setGeneratedValue,
+} from "./writer";
 
-const DEFAULT_CONFIG: ConfigSchema = {
+export const CONFIG_DEFAULTS: ConfigSchema = {
   version: 1,
-  mode: "warn",
-  showStructure: false,
-  maxLines: 500,
-  mappings: {},
-  namespaceAliases: {},
+  rules: {
+    unresolved: "warn",
+    ambiguous: "warn",
+  },
+  resolution: {
+    fuzzy_matching: true,
+    default_scope_priority: ["project", "user", "plugin"],
+  },
+  output: {
+    max_lines: 500,
+    include_layout: false,
+  },
+  skills: {},
+  sets: {},
 };
 
 export const CONFIG_PATHS = {
-  project: join(getProjectRoot(), ".skillset", "config.json"),
-  projectLocal: join(getProjectRoot(), ".skillset", "config.local.json"),
-  user: join(getConfigDir(), "config.json"),
+  project: (projectRoot = getProjectRoot()) =>
+    join(projectRoot, ".skillset", "config.yaml"),
+  user: () => join(getConfigDir(), "config.yaml"),
+  generated: () => join(getConfigDir(), "config.generated.json"),
 };
 
-function readConfig(path: string): Partial<ConfigSchema> | null {
-  if (!existsSync(path)) return null;
-  try {
-    const content = readFileSync(path, "utf8");
-    return JSON.parse(content) as ConfigSchema;
-  } catch (err) {
-    console.warn(`skillset: failed to read config ${path}:`, err);
-    return null;
+export function getConfigPath(
+  scope: "project" | "user" | "generated",
+  projectRoot?: string
+): string {
+  if (scope === "user") {
+    return CONFIG_PATHS.user();
   }
+  if (scope === "generated") {
+    return CONFIG_PATHS.generated();
+  }
+  return CONFIG_PATHS.project(projectRoot);
 }
 
-function deepMerge<T extends object>(base: T, overrides: Partial<T>): T {
-  const result = { ...(base as object) } as T;
-  for (const [key, value] of Object.entries(overrides)) {
-    const k = key as keyof T;
-    if (value && typeof value === "object" && !Array.isArray(value)) {
-      result[k] = deepMerge(
-        (result[k] as object | undefined) ?? {},
-        value as Partial<T>
-      ) as T[keyof T];
-    } else if (value !== undefined) {
-      result[k] = value as T[keyof T];
-    }
-  }
-  return result;
-}
+export function loadConfig(projectRoot = getProjectRoot()): ConfigSchema {
+  const userYaml = loadYamlConfig(CONFIG_PATHS.user());
+  const generated = loadGeneratedConfig(CONFIG_PATHS.generated());
 
-export function loadConfig(): ConfigSchema {
-  const parts: Partial<ConfigSchema>[] = [
-    DEFAULT_CONFIG,
-    readConfig(CONFIG_PATHS.project) ?? {},
-    readConfig(CONFIG_PATHS.projectLocal) ?? {},
-    readConfig(CONFIG_PATHS.user) ?? {},
-  ];
-
-  const merged = parts.reduce<ConfigSchema>(
-    (acc, curr) => deepMerge(acc, curr),
-    DEFAULT_CONFIG
+  const withUser = mergeConfigs(CONFIG_DEFAULTS, userYaml);
+  const withGlobalOverrides = applyGeneratedOverrides(
+    withUser,
+    userYaml,
+    generated
   );
-  return merged;
+
+  const projectYaml = loadYamlConfig(CONFIG_PATHS.project(projectRoot));
+  const withProject = mergeConfigs(withGlobalOverrides, projectYaml);
+
+  const projectId = getProjectId(
+    projectRoot,
+    generated.project_id_strategy ?? "path"
+  );
+  const projectOverrides = generated.projects[projectId];
+  if (!projectOverrides) {
+    return withProject;
+  }
+
+  const projectGenerated = {
+    ...projectOverrides,
+    _yaml_hashes: projectOverrides._yaml_hashes ?? {},
+  } as ProjectSettings & Pick<GeneratedSettingsSchema, "_yaml_hashes">;
+
+  return applyGeneratedOverrides(withProject, projectYaml, projectGenerated);
 }
 
-export function ensureConfigFiles() {
-  for (const path of [
-    CONFIG_PATHS.project,
-    CONFIG_PATHS.projectLocal,
-    CONFIG_PATHS.user,
-  ]) {
-    const dir = path.split("/").slice(0, -1).join("/");
-    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+export function ensureConfigFiles(projectRoot = getProjectRoot()) {
+  for (const path of [CONFIG_PATHS.project(projectRoot), CONFIG_PATHS.user()]) {
+    const dir = dirname(path);
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
     if (!existsSync(path)) {
-      writeFileSync(path, JSON.stringify(DEFAULT_CONFIG, null, 2));
+      writeYamlConfig(path, CONFIG_DEFAULTS, true);
     }
   }
 }
 
-export function modeLabel(mode: Mode) {
-  return mode === "strict" ? "strict" : "warn";
-}
-
-/**
- * Write config to a specific file
- */
-export function writeConfig(
-  scope: "project" | "local" | "user",
-  config: Partial<ConfigSchema>
+export function writeYamlConfig(
+  path: string,
+  config: ConfigSchema | Partial<ConfigSchema>,
+  includeSchemaComment = true
 ): void {
-  const path =
-    scope === "local"
-      ? CONFIG_PATHS.projectLocal
-      : scope === "user"
-        ? CONFIG_PATHS.user
-        : CONFIG_PATHS.project;
-
-  const dir = path.split("/").slice(0, -1).join("/");
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`);
+  const header = includeSchemaComment
+    ? "# yaml-language-server: $schema=https://unpkg.com/@skillset/types/schemas/config.schema.json\n"
+    : "";
+  const yamlDefaults = YAML.stringify(config, null, 2) ?? "";
+  const dir = dirname(path);
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+  writeFileSync(path, `${header}${yamlDefaults}`, "utf8");
 }
 
-/**
- * Read config from a specific scope
- */
-export function readConfigByScope(
-  scope: "project" | "local" | "user"
-): Partial<ConfigSchema> {
-  const path =
-    scope === "local"
-      ? CONFIG_PATHS.projectLocal
-      : scope === "user"
-        ? CONFIG_PATHS.user
-        : CONFIG_PATHS.project;
-
-  return readConfig(path) ?? {};
-}
-
-/**
- * Get path for a specific config scope
- */
-export function getConfigPath(scope: "project" | "local" | "user"): string {
-  return scope === "local"
-    ? CONFIG_PATHS.projectLocal
-    : scope === "user"
-      ? CONFIG_PATHS.user
-      : CONFIG_PATHS.project;
-}
-
-/**
- * Get a config value using dot notation
- */
 export function getConfigValue(
   config: ConfigSchema,
   key: string
 ): unknown | undefined {
-  const parts = key.split(".");
-  let current: unknown = config;
-
-  for (const part of parts) {
-    if (typeof current !== "object" || current === null) {
-      return undefined;
-    }
-    current = (current as Record<string, unknown>)[part];
-  }
-
-  return current;
+  return getValueAtPath(config, key);
 }
 
-/**
- * Set a config value using dot notation
- */
 export function setConfigValue(
   config: Partial<ConfigSchema>,
   key: string,
   value: unknown
 ): Partial<ConfigSchema> {
-  const parts = key.split(".");
-  const result = JSON.parse(JSON.stringify(config)) as Partial<ConfigSchema>;
+  return setValueAtPath(config, key, value);
+}
 
-  let current: Record<string, unknown> = result as Record<string, unknown>;
+export function deleteConfigValue(
+  config: Partial<ConfigSchema>,
+  key: string
+): Partial<ConfigSchema> {
+  return deleteValueAtPath(config, key);
+}
 
-  for (let i = 0; i < parts.length - 1; i++) {
-    const part = parts[i];
-    if (!part) continue;
+export function loadYamlConfigByScope(
+  scope: "project" | "user",
+  projectRoot = getProjectRoot()
+): Partial<ConfigSchema> {
+  const path =
+    scope === "user" ? CONFIG_PATHS.user() : CONFIG_PATHS.project(projectRoot);
+  return loadYamlConfig(path);
+}
 
-    if (!(part in current) || typeof current[part] !== "object") {
-      current[part] = {};
-    }
-    current = current[part] as Record<string, unknown>;
+export function loadGeneratedSettings(): GeneratedSettingsSchema {
+  return loadGeneratedConfig(CONFIG_PATHS.generated());
+}
+
+export async function writeGeneratedSettings(
+  generated: GeneratedSettingsSchema
+): Promise<void> {
+  await saveGeneratedConfig(CONFIG_PATHS.generated(), generated);
+}
+
+export async function setGeneratedConfigValue(
+  keyPath: string,
+  newValue: unknown,
+  projectRoot?: string
+): Promise<void> {
+  await setGeneratedValue(
+    CONFIG_PATHS.generated(),
+    projectRoot ? CONFIG_PATHS.project(projectRoot) : CONFIG_PATHS.user(),
+    keyPath,
+    newValue,
+    projectRoot
+  );
+}
+
+export async function resetGeneratedConfigValue(
+  keyPath: string,
+  projectRoot?: string
+): Promise<void> {
+  await resetGeneratedValue(CONFIG_PATHS.generated(), keyPath, projectRoot);
+}
+
+export function cleanupGeneratedConfig(
+  userYaml: Partial<ConfigSchema>,
+  projectYaml?: Partial<ConfigSchema>,
+  projectRoot?: string
+): GeneratedSettingsSchema {
+  const generated = loadGeneratedConfig(CONFIG_PATHS.generated());
+  const cleanedGlobal = cleanupStaleHashes(generated, userYaml);
+
+  if (!(projectRoot && projectYaml)) {
+    return cleanedGlobal;
   }
 
-  const lastPart = parts[parts.length - 1];
-  if (lastPart) {
-    current[lastPart] = value;
+  const projectId = getProjectId(
+    projectRoot,
+    generated.project_id_strategy ?? "path"
+  );
+  const projectSettings = cleanedGlobal.projects[projectId];
+  if (!projectSettings) {
+    return cleanedGlobal;
   }
-
-  return result;
+  cleanedGlobal.projects[projectId] = cleanupStaleHashes(
+    projectSettings,
+    projectYaml
+  );
+  return cleanedGlobal;
 }
