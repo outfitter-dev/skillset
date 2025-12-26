@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { sep } from "node:path";
 import type {
   CacheSchema,
@@ -54,13 +53,13 @@ function resolveOutputOptions(config: ConfigSchema, entry?: SkillEntry) {
   return { includeLayout, maxLines };
 }
 
-function formatSkillBlock(
+async function formatSkillBlock(
   skill: Skill,
   config: ConfigSchema,
   heading: string,
   label: string,
   entry?: SkillEntry
-): string {
+): Promise<string> {
   const { includeLayout, maxLines } = resolveOutputOptions(config, entry);
   const lines: string[] = [];
   lines.push(heading);
@@ -76,7 +75,7 @@ function formatSkillBlock(
     lines.push(skill.structure.trim());
     lines.push("```");
   }
-  const content = loadContent(skill, maxLines);
+  const content = await loadContent(skill, maxLines);
   lines.push(`\n\`\`\`markdown skill:${label}`);
   lines.push(content.block);
   lines.push("```\n");
@@ -92,10 +91,13 @@ function formatSkillBlock(
   return lines.join("\n");
 }
 
-function formatSkill(result: ResolveResult, config: ConfigSchema): string {
+async function formatSkill(
+  result: ResolveResult,
+  config: ConfigSchema
+): Promise<string> {
   const skill = result.skill as Skill;
   const entry = findSkillEntry(config, result.invocation.alias);
-  return formatSkillBlock(
+  return await formatSkillBlock(
     skill,
     config,
     `### ${result.invocation.raw}`,
@@ -104,15 +106,15 @@ function formatSkill(result: ResolveResult, config: ConfigSchema): string {
   );
 }
 
-function formatSet(
+async function formatSet(
   result: ResolveResult,
   config: ConfigSchema,
   cache: CacheSchema
-): string {
+): Promise<string> {
   const set = result.set as SkillSet;
   const lines = formatSetIntro(result, set, cache);
   const resolved = resolveSetSkillsForFormat(result, set, cache);
-  const skillBlocks = formatSetSkillBlocks(resolved, config);
+  const skillBlocks = await formatSetSkillBlocks(resolved, config);
   lines.push(...skillBlocks);
   return lines.join("\n");
 }
@@ -180,17 +182,17 @@ function resolveSetSkillsForFormat(
   return resolved;
 }
 
-function formatSetSkillBlocks(
+async function formatSetSkillBlocks(
   resolved: SetSkillEntry[],
   config: ConfigSchema
-): string[] {
+): Promise<string[]> {
   const lines: string[] = [];
   for (const entry of resolved) {
     const alias = entry.ref;
     const entryConfig = findSkillEntry(config, alias);
     lines.push(
       "",
-      formatSkillBlock(
+      await formatSkillBlock(
         entry.skill,
         config,
         `#### ${entry.skill.skillRef}`,
@@ -202,12 +204,12 @@ function formatSetSkillBlocks(
   return lines;
 }
 
-function loadContent(
+async function loadContent(
   skill: Skill,
   maxLines: number
-): { block: string; truncated: boolean } {
+): Promise<{ block: string; truncated: boolean }> {
   try {
-    const content = readFileSync(skill.path, "utf8");
+    const content = await Bun.file(skill.path).text();
     const lines = content.split(LINE_BREAK_REGEX);
     const truncated = Number.isFinite(maxLines) && lines.length > maxLines;
     const slice = truncated ? lines.slice(0, maxLines) : lines;
@@ -275,11 +277,11 @@ function buildWarning(
   return null;
 }
 
-export function formatOutcome(
+export async function formatOutcome(
   results: ResolveResult[],
   config: ConfigSchema,
   cache?: CacheSchema
-): InjectOutcome {
+): Promise<InjectOutcome> {
   const blocks: string[] = [header()];
   if (cache) {
     const directorySection = skillsDirectorySection(cache, config);
@@ -289,11 +291,11 @@ export function formatOutcome(
   }
   for (const r of results) {
     if (r.skill) {
-      blocks.push("", formatSkill(r, config));
+      blocks.push("", await formatSkill(r, config));
       continue;
     }
     if (r.set && cache) {
-      blocks.push("", formatSet(r, config, cache));
+      blocks.push("", await formatSet(r, config, cache));
     }
   }
   const warn = warningsSection(results, config);

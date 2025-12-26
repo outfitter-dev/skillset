@@ -19,8 +19,8 @@ import { normalizeInvocation } from "../utils/normalize";
 /**
  * List all defined sets
  */
-function listSets(format: OutputFormat): void {
-  const config = loadConfig();
+async function listSets(format: OutputFormat): Promise<void> {
+  const config = await loadConfig();
   const sets = config.sets ?? {};
   const setEntries = Object.entries(sets);
 
@@ -68,32 +68,35 @@ function listSets(format: OutputFormat): void {
   }
 }
 
-function resolveSetSkills(
+async function resolveSetSkills(
   setDef: { skills: string[] },
-  config: ReturnType<typeof loadConfig>,
-  cache: ReturnType<typeof loadCaches>
-): Array<{ ref: string; skill?: Skill; error?: string }> {
-  return setDef.skills.map((ref) => {
+  config: Awaited<ReturnType<typeof loadConfig>>,
+  cache: Awaited<ReturnType<typeof loadCaches>>
+): Promise<Array<{ ref: string; skill?: Skill; error?: string }>> {
+  const resolved: Array<{ ref: string; skill?: Skill; error?: string }> = [];
+  for (const ref of setDef.skills) {
     const token = normalizeInvocation(ref, "skill");
-    const result = resolveToken(token, config, cache);
+    const result = await resolveToken(token, config, cache);
     if (result.skill) {
-      return { ref, skill: result.skill };
+      resolved.push({ ref, skill: result.skill });
+      continue;
     }
-    return { ref, error: result.reason ?? "unmatched" };
-  });
+    resolved.push({ ref, error: result.reason ?? "unmatched" });
+  }
+  return resolved;
 }
 
 /**
  * Show a set's metadata and contents
  */
-function showSet(name: string, format: OutputFormat): void {
-  const config = loadConfig();
-  const cache = loadCaches();
+async function showSet(name: string, format: OutputFormat): Promise<void> {
+  const config = await loadConfig();
+  const cache = await loadCaches();
   const sets = config.sets ?? {};
 
   const setDef = getSetOrExit(name, sets, format);
 
-  const resolvedSkills = resolveSetSkills(setDef, config, cache);
+  const resolvedSkills = await resolveSetSkills(setDef, config, cache);
 
   if (format === "json") {
     printSetJson(name, setDef, resolvedSkills);
@@ -112,14 +115,14 @@ function showSet(name: string, format: OutputFormat): void {
  * Load all skills in a set
  */
 async function loadSet(name: string, format: OutputFormat): Promise<void> {
-  const config = loadConfig();
-  const cache = loadCaches();
+  const config = await loadConfig();
+  const cache = await loadCaches();
   const sets = config.sets ?? {};
   const startTime = Date.now();
 
   const setDef = getSetOrExit(name, sets, format);
 
-  const resolvedSkills = resolveSetSkills(setDef, config, cache);
+  const resolvedSkills = await resolveSetSkills(setDef, config, cache);
 
   const loadedSkills: Array<{
     ref: string;
@@ -149,7 +152,7 @@ async function loadSet(name: string, format: OutputFormat): Promise<void> {
   const duration_ms = Date.now() - startTime;
 
   // Log usage
-  logUsage({
+  await logUsage({
     action: "load",
     skill: `set:${name}`,
     source: "cli",
@@ -180,17 +183,17 @@ export function registerSetCommand(program: Command): void {
   setCommand
     .command("list")
     .description("List all defined sets")
-    .action((options: GlobalOptions) => {
+    .action(async (options: GlobalOptions) => {
       const format = determineFormat(options);
-      listSets(format);
+      await listSets(format);
     });
 
   setCommand
     .command("show <name>")
     .description("Show a set's metadata and contents")
-    .action((name: string, options: GlobalOptions) => {
+    .action(async (name: string, options: GlobalOptions) => {
       const format = determineFormat(options);
-      showSet(name, format);
+      await showSet(name, format);
     });
 
   setCommand

@@ -13,6 +13,13 @@ interface ListOptions extends GlobalOptions {
   sets?: boolean;
 }
 
+type SetList = Array<{
+  key: string;
+  name: string;
+  description?: string;
+  skills: string[];
+}>;
+
 /**
  * Check if a skill's skillRef matches any of the source filters
  */
@@ -46,8 +53,10 @@ function matchesSourceFilter(
 /**
  * List all indexed skills
  */
-function getSkills(sourceFilters: string[] | undefined): Skill[] {
-  const cache = loadCaches();
+async function getSkills(
+  sourceFilters: string[] | undefined
+): Promise<Skill[]> {
+  const cache = await loadCaches();
   let skills = Object.values(cache.skills);
 
   // Filter by source if specified
@@ -60,8 +69,8 @@ function getSkills(sourceFilters: string[] | undefined): Skill[] {
   return skills;
 }
 
-function getSets() {
-  const config = loadConfig();
+async function getSets() {
+  const config = await loadConfig();
   const sets = config.sets ?? {};
   return Object.entries(sets).map(([key, def]) => ({
     key,
@@ -121,7 +130,7 @@ function printSkills(
   }
 }
 
-function printSets(sets: ReturnType<typeof getSets>): void {
+function printSets(sets: SetList): void {
   if (sets.length === 0) {
     console.log(chalk.yellow("No sets defined in configuration."));
     console.log(
@@ -151,17 +160,17 @@ export function registerListCommand(program: Command): void {
     .description("List all skills and sets")
     .option("--skills", "Only list skills (no sets)")
     .option("--sets", "Only list sets (no skills)")
-    .action((options: ListOptions) => {
-      handleListCommand(options);
+    .action(async (options: ListOptions) => {
+      await handleListCommand(options);
     });
 }
 
-function handleListCommand(options: ListOptions): void {
+async function handleListCommand(options: ListOptions): Promise<void> {
   const format = determineFormat(options);
   const includeSkills = !options.sets;
   const includeSets = !options.skills;
-  const skills = includeSkills ? getSkills(options.source) : [];
-  const sets = includeSets ? getSets() : [];
+  const skills = includeSkills ? await getSkills(options.source) : [];
+  const sets = includeSets ? await getSets() : [];
 
   if (format === "json") {
     printJsonList(skills, sets, includeSkills, includeSets);
@@ -178,7 +187,7 @@ function handleListCommand(options: ListOptions): void {
 
 function printJsonList(
   skills: Skill[],
-  sets: ReturnType<typeof getSets>,
+  sets: SetList,
   includeSkills: boolean,
   includeSets: boolean
 ): void {
@@ -195,7 +204,7 @@ function printJsonList(
 
 function printRawList(
   skills: Skill[],
-  sets: ReturnType<typeof getSets>,
+  sets: SetList,
   includeSkills: boolean,
   includeSets: boolean
 ): void {
@@ -214,7 +223,7 @@ function printRawList(
 
 function printTextList(
   skills: Skill[],
-  sets: ReturnType<typeof getSets>,
+  sets: SetList,
   includeSkills: boolean,
   includeSets: boolean,
   sourceFilters: string[] | undefined

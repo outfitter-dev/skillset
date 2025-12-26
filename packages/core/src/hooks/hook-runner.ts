@@ -7,7 +7,7 @@ import { normalizeTokenRef } from "../normalize";
 import { resolveTokens } from "../resolver";
 import { tokenizePrompt } from "../tokenizer";
 
-export function runUserPromptSubmitHook(stdin: string): string {
+export async function runUserPromptSubmitHook(stdin: string): Promise<string> {
   const payload = safeParse(stdin);
   let promptValue = stdin;
   if (typeof payload?.prompt === "string") {
@@ -17,10 +17,10 @@ export function runUserPromptSubmitHook(stdin: string): string {
   }
 
   // Refresh cache lazily if empty
-  let cache = loadCaches();
+  let cache = await loadCaches();
   if (Object.keys(cache.skills).length === 0) {
-    indexSkills();
-    cache = loadCaches(); // Reload after indexing
+    await indexSkills();
+    cache = await loadCaches(); // Reload after indexing
   }
 
   // Extract $<ref> (kebab-case, optional namespace) tokens from prompt
@@ -37,22 +37,24 @@ export function runUserPromptSubmitHook(stdin: string): string {
   }
 
   // Resolve tokens to skills and format for injection
-  const config = loadConfig();
+  const config = await loadConfig();
   const startTime = Date.now();
-  const results = resolveTokens(tokens, config, cache);
-  const outcome = formatOutcome(results, config, cache);
+  const results = await resolveTokens(tokens, config, cache);
+  const outcome = await formatOutcome(results, config, cache);
 
   // Log usage for each resolved skill
   const duration_ms = Date.now() - startTime;
   const injected = collectInjectedSkills(results, cache);
-  for (const skill of injected) {
-    logUsage({
-      action: "inject",
-      skill: skill.skillRef,
-      source: "hook",
-      duration_ms,
-    });
-  }
+  await Promise.all(
+    injected.map((skill) =>
+      logUsage({
+        action: "inject",
+        skill: skill.skillRef,
+        source: "hook",
+        duration_ms,
+      })
+    )
+  );
 
   return JSON.stringify({
     hookSpecificOutput: {
@@ -63,8 +65,8 @@ export function runUserPromptSubmitHook(stdin: string): string {
 }
 
 function collectInjectedSkills(
-  results: ReturnType<typeof resolveTokens>,
-  cache: ReturnType<typeof loadCaches>
+  results: Awaited<ReturnType<typeof resolveTokens>>,
+  cache: Awaited<ReturnType<typeof loadCaches>>
 ) {
   const injected = new Map<string, (typeof cache.skills)[string]>();
   for (const result of results) {

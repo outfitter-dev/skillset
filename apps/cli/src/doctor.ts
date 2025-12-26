@@ -1,6 +1,7 @@
 import { existsSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import type { ConfigSchema } from "@skillset/core";
 import {
   CACHE_PATHS,
   CONFIG_PATHS,
@@ -15,12 +16,12 @@ import { normalizeInvocation } from "./utils/normalize";
 /**
  * Run full diagnostic check
  */
-export function runFullDiagnostic(): void {
+export async function runFullDiagnostic(): Promise<void> {
   console.log(chalk.bold("skillset doctor"));
   console.log("─".repeat(40));
 
   printConfigStatus();
-  printCacheStatus();
+  await printCacheStatus();
   printXdgPaths();
   printPluginStatus();
 }
@@ -28,23 +29,23 @@ export function runFullDiagnostic(): void {
 /**
  * Run config-specific diagnostic
  */
-export function runConfigDiagnostic(): void {
+export async function runConfigDiagnostic(): Promise<void> {
   console.log(chalk.bold("skillset doctor config"));
   console.log("─".repeat(40));
 
   printConfigFiles();
-  printConfigValidation();
+  await printConfigValidation();
 }
 
 /**
  * Run skill-specific diagnostic
  */
-export function runSkillDiagnostic(skillAlias: string): void {
+export async function runSkillDiagnostic(skillAlias: string): Promise<void> {
   console.log(chalk.bold(`skillset doctor ${skillAlias}`));
   console.log("─".repeat(40));
 
-  const cache = loadCaches();
-  const config = loadConfig();
+  const cache = await loadCaches();
+  const config = await loadConfig();
 
   // Normalize the alias
   const token = normalizeInvocation(skillAlias);
@@ -54,7 +55,7 @@ export function runSkillDiagnostic(skillAlias: string): void {
   console.log(`  Token: ${chalk.dim(JSON.stringify(token))}`);
 
   // Try to resolve
-  const result = resolveToken(token, config, cache);
+  const result = await resolveToken(token, config, cache);
 
   if (result.skill) {
     printResolvedSkill(result.skill);
@@ -103,11 +104,11 @@ function logConfigStatus(label: string, path: string): void {
   }
 }
 
-function printCacheStatus(): void {
+async function printCacheStatus(): Promise<void> {
   const projectCacheExists = existsSync(CACHE_PATHS.project);
 
   try {
-    const cache = loadCaches();
+    const cache = await loadCaches();
     const skillCount = Object.keys(cache.skills).length;
     const sourceCounts = countSources(cache.skills);
     const cacheAge = projectCacheExists ? getCacheAge() : "unknown";
@@ -217,10 +218,10 @@ function printConfigFiles(): void {
   console.log(`    ${chalk.dim(generatedPath)}`);
 }
 
-function printConfigValidation(): void {
+async function printConfigValidation(): Promise<void> {
   console.log(chalk.bold("\nMerged config:"));
   try {
-    const config = loadConfig();
+    const config = await loadConfig();
     console.log(JSON.stringify(config, null, 2));
     console.log(chalk.bold("\nValidation:"));
 
@@ -242,7 +243,7 @@ function printConfigValidation(): void {
   }
 }
 
-function validateConfig(config: ReturnType<typeof loadConfig>): string[] {
+function validateConfig(config: ConfigSchema): string[] {
   const errors: string[] = [];
 
   if (typeof config.version !== "number") {

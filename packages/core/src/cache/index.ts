@@ -1,10 +1,4 @@
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  renameSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdir, rename } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { getCacheDir, getProjectRoot } from "@skillset/shared";
 import type { CacheSchema, Skill } from "@skillset/types";
@@ -20,13 +14,13 @@ export const CACHE_PATHS = {
   user: join(getCacheDir(), "cache.json"),
 };
 
-function readCache(path: string): CacheSchema | null {
-  if (!existsSync(path)) {
+async function readCache(path: string): Promise<CacheSchema | null> {
+  const file = Bun.file(path);
+  if (!(await file.exists())) {
     return null;
   }
   try {
-    const content = readFileSync(path, "utf8");
-    const parsed = JSON.parse(content) as CacheSchema;
+    const parsed = (await file.json()) as CacheSchema;
     return parsed;
   } catch (err) {
     console.warn(`skillset: failed to read cache ${path}:`, err);
@@ -34,41 +28,45 @@ function readCache(path: string): CacheSchema | null {
   }
 }
 
-export function loadCaches(): CacheSchema {
-  const project = readCache(CACHE_PATHS.project) ?? DEFAULT_CACHE;
-  const user = readCache(CACHE_PATHS.user) ?? DEFAULT_CACHE;
+export async function loadCaches(): Promise<CacheSchema> {
+  const [project, user] = await Promise.all([
+    readCache(CACHE_PATHS.project),
+    readCache(CACHE_PATHS.user),
+  ]);
+  const projectCache = project ?? DEFAULT_CACHE;
+  const userCache = user ?? DEFAULT_CACHE;
   // project overrides user for determinism within repo
   return {
     ...DEFAULT_CACHE,
-    skills: { ...user.skills, ...project.skills },
+    skills: { ...userCache.skills, ...projectCache.skills },
     structureTTL:
-      project.structureTTL ?? user.structureTTL ?? DEFAULT_CACHE.structureTTL,
+      projectCache.structureTTL ??
+      userCache.structureTTL ??
+      DEFAULT_CACHE.structureTTL,
     version: 1,
   };
 }
 
-function ensureDir(path: string) {
+async function ensureDir(path: string): Promise<void> {
   const dir = dirname(path);
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
+  await mkdir(dir, { recursive: true });
 }
 
-export function writeCacheSync(path: string, cache: CacheSchema) {
-  ensureDir(path);
+export async function writeCache(path: string, cache: CacheSchema) {
+  await ensureDir(path);
   const temp = `${path}.tmp`;
-  writeFileSync(temp, JSON.stringify(cache, null, 2));
-  renameSync(temp, path);
+  await Bun.write(temp, JSON.stringify(cache, null, 2));
+  await rename(temp, path);
 }
 
-export function updateCacheSync(
+export async function updateCache(
   target: "project" | "user",
   updater: (cache: CacheSchema) => CacheSchema
 ) {
   const path = CACHE_PATHS[target];
-  const current = readCache(path) ?? DEFAULT_CACHE;
+  const current = (await readCache(path)) ?? DEFAULT_CACHE;
   const next = updater(current);
-  writeCacheSync(path, next);
+  await writeCache(path, next);
 }
 
 export function isStructureFresh(skill: Skill, ttlSeconds: number): boolean {

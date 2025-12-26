@@ -64,8 +64,8 @@ function matchesSourceFilter(
  */
 async function resolveInput(
   input: string,
-  cache: ReturnType<typeof loadCaches>,
-  config: ReturnType<typeof loadConfig>,
+  cache: Awaited<ReturnType<typeof loadCaches>>,
+  config: Awaited<ReturnType<typeof loadConfig>>,
   sourceFilters?: string[],
   kindOverride?: "skill" | "set"
 ): Promise<ResolveInputResult> {
@@ -87,7 +87,7 @@ async function resolveInput(
     return explicitNamespaceResult;
   }
 
-  const tokenResult = resolveTokenInput(
+  const tokenResult = await resolveTokenInput(
     input,
     cache,
     config,
@@ -123,7 +123,7 @@ async function resolvePathInput(
 
 function resolveExplicitNamespaceSkill(
   input: string,
-  cache: ReturnType<typeof loadCaches>,
+  cache: Awaited<ReturnType<typeof loadCaches>>,
   sourceFilters: string[] | undefined
 ): ResolveInputResult | undefined {
   if (!input.includes(":") || input.includes("/")) {
@@ -158,15 +158,15 @@ function resolveExplicitNamespaceSkill(
   return undefined;
 }
 
-function resolveTokenInput(
+async function resolveTokenInput(
   input: string,
-  cache: ReturnType<typeof loadCaches>,
-  config: ReturnType<typeof loadConfig>,
+  cache: Awaited<ReturnType<typeof loadCaches>>,
+  config: Awaited<ReturnType<typeof loadConfig>>,
   sourceFilters: string[] | undefined,
   kindOverride?: "skill" | "set"
-): ResolveInputResult {
+): Promise<ResolveInputResult> {
   const token = normalizeInvocation(input, kindOverride);
-  const result = resolveToken(token, config, cache);
+  const result = await resolveToken(token, config, cache);
 
   if (result.skill) {
     if (
@@ -308,8 +308,8 @@ async function loadSkill(
   format: OutputFormat,
   kindOverride?: "skill" | "set"
 ): Promise<void> {
-  const cache = loadCaches();
-  const config = loadConfig();
+  const cache = await loadCaches();
+  const config = await loadConfig();
   const env = getSkillsetEnv();
   const startTime = Date.now();
 
@@ -346,7 +346,7 @@ async function loadSkill(
     const duration_ms = Date.now() - startTime;
 
     // Log usage
-    logUsage({
+    await logUsage({
       action: "load",
       skill: skill.skillRef,
       source: "cli",

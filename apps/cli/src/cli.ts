@@ -2,7 +2,6 @@
  * Skillset CLI - Verb-first command structure
  */
 
-import { existsSync } from "node:fs";
 import {
   CONFIG_DEFAULTS,
   getConfigPath,
@@ -64,9 +63,9 @@ export function buildCli() {
   program
     .command("index")
     .description("Scan for SKILL.md files and refresh cache")
-    .action(() => {
+    .action(async () => {
       const spinner = ora("Indexing skills...").start();
-      const cache = indexSkills();
+      const cache = await indexSkills();
       spinner.succeed(`Indexed ${Object.keys(cache.skills).length} skills`);
     });
 
@@ -80,8 +79,8 @@ export function buildCli() {
       "both"
     )
     .option("-f, --force", "Overwrite existing config files", false)
-    .action((options: { scope: string; force: boolean }) => {
-      initConfig(options.scope, options.force);
+    .action(async (options: { scope: string; force: boolean }) => {
+      await initConfig(options.scope, options.force);
     });
 
   // Doctor command
@@ -92,13 +91,13 @@ export function buildCli() {
       "[target]",
       "What to diagnose (config, skill name, or omit for full check)"
     )
-    .action((target?: string) => {
+    .action(async (target?: string) => {
       if (!target) {
-        runFullDiagnostic();
+        await runFullDiagnostic();
       } else if (target === "config") {
-        runConfigDiagnostic();
+        await runConfigDiagnostic();
       } else {
-        runSkillDiagnostic(target);
+        await runSkillDiagnostic(target);
       }
     });
 
@@ -108,13 +107,13 @@ export function buildCli() {
 /**
  * Initialize skillset configuration files
  */
-function initConfig(scopeArg: string, force: boolean): void {
+async function initConfig(scopeArg: string, force: boolean): Promise<void> {
   const scopes = parseInitScopes(scopeArg);
   let created = 0;
   let skipped = 0;
 
   for (const scope of scopes) {
-    const result = writeConfigForScope(scope, force);
+    const result = await writeConfigForScope(scope, force);
     if (result === "created") {
       created += 1;
     } else {
@@ -143,12 +142,12 @@ function parseInitScopes(scopeArg: string): ConfigScope[] {
   return [validatedScope as ConfigScope];
 }
 
-function writeConfigForScope(
+async function writeConfigForScope(
   scope: ConfigScope,
   force: boolean
-): "created" | "skipped" {
+): Promise<"created" | "skipped"> {
   const configPath = getConfigPath(scope);
-  const exists = existsSync(configPath);
+  const exists = await Bun.file(configPath).exists();
 
   if (exists && !force) {
     console.log(chalk.yellow(`Config already exists: ${configPath}`));
@@ -156,7 +155,7 @@ function writeConfigForScope(
     return "skipped";
   }
 
-  writeYamlConfig(configPath, CONFIG_DEFAULTS, true);
+  await writeYamlConfig(configPath, CONFIG_DEFAULTS, true);
 
   if (exists) {
     console.log(chalk.green(`✓ Overwrote config: ${configPath}`));

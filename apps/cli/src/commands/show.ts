@@ -70,8 +70,8 @@ function matchesSourceFilter(
  */
 async function resolveInput(
   input: string,
-  cache: ReturnType<typeof loadCaches>,
-  config: ReturnType<typeof loadConfig>,
+  cache: Awaited<ReturnType<typeof loadCaches>>,
+  config: Awaited<ReturnType<typeof loadConfig>>,
   sourceFilters?: string[],
   kindOverride?: "skill" | "set"
 ): Promise<ResolveInputResult> {
@@ -93,7 +93,13 @@ async function resolveInput(
     return explicitNamespaceResult;
   }
 
-  return resolveTokenInput(input, cache, config, sourceFilters, kindOverride);
+  return await resolveTokenInput(
+    input,
+    cache,
+    config,
+    sourceFilters,
+    kindOverride
+  );
 }
 
 async function resolvePathInput(
@@ -122,7 +128,7 @@ async function resolvePathInput(
 
 function resolveExplicitNamespaceSkill(
   input: string,
-  cache: ReturnType<typeof loadCaches>,
+  cache: Awaited<ReturnType<typeof loadCaches>>,
   sourceFilters: string[] | undefined
 ): ResolveInputResult | undefined {
   if (!input.includes(":") || input.includes("/")) {
@@ -157,15 +163,15 @@ function resolveExplicitNamespaceSkill(
   return undefined;
 }
 
-function resolveTokenInput(
+async function resolveTokenInput(
   input: string,
-  cache: ReturnType<typeof loadCaches>,
-  config: ReturnType<typeof loadConfig>,
+  cache: Awaited<ReturnType<typeof loadCaches>>,
+  config: Awaited<ReturnType<typeof loadConfig>>,
   sourceFilters: string[] | undefined,
   kindOverride?: "skill" | "set"
-): ResolveInputResult {
+): Promise<ResolveInputResult> {
   const token = normalizeInvocation(input, kindOverride);
-  const result = resolveToken(token, config, cache);
+  const result = await resolveToken(token, config, cache);
 
   if (result.skill) {
     if (
@@ -311,8 +317,8 @@ async function showSkill(
   kindOverride?: "skill" | "set",
   showTree = false
 ): Promise<void> {
-  const cache = loadCaches();
-  const config = loadConfig();
+  const cache = await loadCaches();
+  const config = await loadConfig();
   const env = getSkillsetEnv();
 
   const result = await resolveInput(
@@ -398,7 +404,7 @@ function resolveTreeRoot(
 
 async function printNamespace(
   namespace: string,
-  cache: ReturnType<typeof loadCaches>,
+  cache: Awaited<ReturnType<typeof loadCaches>>,
   format: OutputFormat
 ): Promise<void> {
   if (format === "json") {

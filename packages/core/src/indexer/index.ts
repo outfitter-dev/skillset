@@ -1,9 +1,9 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, relative, sep } from "node:path";
 import { getProjectRoot, SKILL_PATHS } from "@skillset/shared";
 import type { CacheSchema, ConfigSchema, Skill, Tool } from "@skillset/types";
-import { updateCacheSync } from "../cache";
+import { updateCache } from "../cache";
 import { loadConfig } from "../config";
 
 const SKILL_FILENAME = "SKILL.md";
@@ -22,14 +22,14 @@ interface SkillSourceRoot {
   tool?: Tool;
 }
 
-function walkForSkillFiles(root: string): string[] {
+async function walkForSkillFiles(root: string): Promise<string[]> {
   const results: string[] = [];
   try {
-    const items = readdirSync(root, { withFileTypes: true });
+    const items = await readdir(root, { withFileTypes: true });
     for (const entry of items) {
       const full = join(root, entry.name);
       if (entry.isDirectory()) {
-        results.push(...walkForSkillFiles(full));
+        results.push(...(await walkForSkillFiles(full)));
       } else if (entry.isFile() && entry.name === SKILL_FILENAME) {
         results.push(full);
       }
@@ -68,8 +68,11 @@ function skillRefFromPath(path: string, source: SkillSourceRoot): string {
   return `${source.scope}:${toolPrefix(source.tool)}${alias}`;
 }
 
-function readSkillMetadata(path: string, source: SkillSourceRoot): Skill {
-  const content = readFileSync(path, "utf8");
+async function readSkillMetadata(
+  path: string,
+  source: SkillSourceRoot
+): Promise<Skill> {
+  const content = await Bun.file(path).text();
   const lines = content.split(LINE_BREAK_REGEX);
   const firstHeading = lines.find((l) => l.startsWith("#"));
   const fallbackName = path.split(sep).at(-2) ?? "unknown";
@@ -91,34 +94,59 @@ function readSkillMetadata(path: string, source: SkillSourceRoot): Skill {
   };
 }
 
-function generateStructure(path: string): string {
-  const parts = path.split(sep);
-  parts.pop(); // remove SKILL.md
-  const root = parts.join(sep);
+async function generateStructure(path: string): Promise<string> {
+  const root = getStructureRoot(path);
   const stack: { path: string; depth: number }[] = [{ path: root, depth: 0 }];
   const lines: string[] = [];
   while (stack.length) {
-    const popped = stack.pop();
-    if (!popped) {
+    const current = stack.pop();
+    if (!current) {
       break;
     }
-    const { path: current, depth } = popped;
-    const entries = readdirSync(current, { withFileTypes: true }).sort((a, b) =>
-      a.name.localeCompare(b.name)
-    );
-    for (let i = entries.length - 1; i >= 0; i -= 1) {
-      const entry = entries[i];
-      if (!entry) {
-        continue;
-      }
-      const prefix = `${"  ".repeat(depth)}${entry.isDirectory() ? "├──" : "├──"}`;
-      lines.push(`${prefix} ${entry.name}`);
-      if (entry.isDirectory()) {
-        stack.push({ path: join(current, entry.name), depth: depth + 1 });
-      }
-    }
+    await appendStructureEntries(lines, stack, current);
   }
   return lines.join("\n");
+}
+
+function getStructureRoot(path: string): string {
+  const parts = path.split(sep);
+  parts.pop(); // remove SKILL.md
+  return parts.join(sep);
+}
+
+async function readStructureEntries(path: string) {
+  try {
+    return (await readdir(path, { withFileTypes: true })).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+  } catch {
+    return null;
+  }
+}
+
+async function appendStructureEntries(
+  lines: string[],
+  stack: Array<{ path: string; depth: number }>,
+  current: { path: string; depth: number }
+): Promise<void> {
+  const entries = await readStructureEntries(current.path);
+  if (!entries) {
+    return;
+  }
+  for (let i = entries.length - 1; i >= 0; i -= 1) {
+    const entry = entries[i];
+    if (!entry) {
+      continue;
+    }
+    const prefix = `${"  ".repeat(current.depth)}${entry.isDirectory() ? "├──" : "├──"}`;
+    lines.push(`${prefix} ${entry.name}`);
+    if (entry.isDirectory()) {
+      stack.push({
+        path: join(current.path, entry.name),
+        depth: current.depth + 1,
+      });
+    }
+  }
 }
 
 function buildSources(projectRoot: string, tools: Tool[]): SkillSourceRoot[] {
@@ -136,9 +164,11 @@ function buildSources(projectRoot: string, tools: Tool[]): SkillSourceRoot[] {
   return sources;
 }
 
-export function indexSkills(options: ScanOptions = {}): CacheSchema {
+export async function indexSkills(
+  options: ScanOptions = {}
+): Promise<CacheSchema> {
   const projectRoot = options.projectRoot ?? getProjectRoot();
-  const config = options.config ?? loadConfig(projectRoot);
+  const config = options.config ?? (await loadConfig(projectRoot));
   const toolOverride = options.tools ?? config.tools;
   const tools =
     toolOverride && toolOverride.length > 0
@@ -147,15 +177,21 @@ export function indexSkills(options: ScanOptions = {}): CacheSchema {
 
   const skills: Record<string, Skill> = {};
   const sources = buildSources(projectRoot, tools);
-  const files = sources.flatMap((src) => walkForSkillFiles(src.root));
+  const filesNested = await Promise.all(
+    sources.map((src) => walkForSkillFiles(src.root))
+  );
+  const files = filesNested.flat();
 
   for (const file of files) {
     const source = sources.find((src) => file.startsWith(src.root));
     if (!source) {
       continue;
     }
-    const meta = readSkillMetadata(file, source);
-    skills[meta.skillRef] = { ...meta, structure: generateStructure(file) };
+    const meta = await readSkillMetadata(file, source);
+    skills[meta.skillRef] = {
+      ...meta,
+      structure: await generateStructure(file),
+    };
   }
 
   const cache: CacheSchema = {
@@ -164,6 +200,6 @@ export function indexSkills(options: ScanOptions = {}): CacheSchema {
     skills,
   };
 
-  updateCacheSync("project", () => cache);
+  await updateCache("project", () => cache);
   return cache;
 }

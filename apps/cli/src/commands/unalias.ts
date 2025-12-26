@@ -30,9 +30,11 @@ function validateScope(scope: string | undefined): ConfigScope {
   process.exit(1);
 }
 
-function getAllAliases(): Map<string, { entry: unknown; scope: ConfigScope }> {
-  const projectConfig = loadYamlConfigByScope("project");
-  const userConfig = loadYamlConfigByScope("user");
+async function getAllAliases(): Promise<
+  Map<string, { entry: unknown; scope: ConfigScope }>
+> {
+  const projectConfig = await loadYamlConfigByScope("project");
+  const userConfig = await loadYamlConfigByScope("user");
 
   const allAliases = new Map<string, { entry: unknown; scope: ConfigScope }>();
 
@@ -54,7 +56,7 @@ async function selectAliasToRemove(): Promise<{
   name: string;
   scope: ConfigScope;
 } | null> {
-  const allAliases = getAllAliases();
+  const allAliases = await getAllAliases();
 
   if (allAliases.size === 0) {
     console.log(chalk.yellow("No aliases defined"));
@@ -81,8 +83,8 @@ async function selectAliasToRemove(): Promise<{
   return answer.alias as { name: string; scope: ConfigScope };
 }
 
-function removeAlias(name: string, scope: ConfigScope): void {
-  const currentConfig = loadYamlConfigByScope(scope);
+async function removeAlias(name: string, scope: ConfigScope): Promise<void> {
+  const currentConfig = await loadYamlConfigByScope(scope);
   const existingMapping = currentConfig.skills?.[name];
 
   if (!existingMapping) {
@@ -98,7 +100,7 @@ function removeAlias(name: string, scope: ConfigScope): void {
     skills: updatedSkills,
   };
 
-  writeYamlConfig(getConfigPath(scope), updatedConfig, true);
+  await writeYamlConfig(getConfigPath(scope), updatedConfig, true);
 
   console.log(
     chalk.green(
@@ -120,7 +122,7 @@ async function handleUnalias(
       if (!selected) {
         return;
       }
-      removeAlias(selected.name, selected.scope);
+      await removeAlias(selected.name, selected.scope);
       return;
     }
 
@@ -130,7 +132,7 @@ async function handleUnalias(
     process.exit(1);
   }
 
-  removeAlias(name, scope);
+  await removeAlias(name, scope);
 }
 
 export function registerUnaliasCommand(program: Command): void {
