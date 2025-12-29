@@ -205,3 +205,9 @@ export async function cleanupGeneratedConfig(
   );
   return cleanedGlobal;
 }
+
+export {
+  detectLegacyConfig,
+  migrateConfigFile,
+  migrateLegacyConfig,
+} from "./migrate";

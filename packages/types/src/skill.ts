@@ -41,4 +41,8 @@ export interface ResolveResult {
   reason?: string;
   candidates?: Skill[];
   setCandidates?: SkillSet[];
+  /** Per-skill override: include entire file (ignore max_lines) */
+  include_full?: boolean;
+  /** Per-skill override: include layout/structure info */
+  include_layout?: boolean;
 }

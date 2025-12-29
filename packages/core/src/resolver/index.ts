@@ -292,7 +292,12 @@ async function resolveSkillEntry(
   cache: CacheSchema,
   skills: Skill[],
   projectRoot: string
-): Promise<{ skill?: Skill; candidates?: Skill[] }> {
+): Promise<{
+  skill?: Skill;
+  candidates?: Skill[];
+  include_full?: boolean;
+  include_layout?: boolean;
+}> {
   if (typeof entry === "string") {
     return await resolveStringEntry(
       entry,
@@ -321,7 +326,12 @@ async function resolveStringEntry(
   cache: CacheSchema,
   skills: Skill[],
   projectRoot: string
-): Promise<{ skill?: Skill; candidates?: Skill[] }> {
+): Promise<{
+  skill?: Skill;
+  candidates?: Skill[];
+  include_full?: boolean;
+  include_layout?: boolean;
+}> {
   if (looksLikePath(entry)) {
     const skill = await readSkillFromPath(entry, aliasKey, projectRoot);
     return skill ? { skill } : {};
@@ -337,15 +347,48 @@ async function resolveObjectEntry(
   cache: CacheSchema,
   skills: Skill[],
   projectRoot: string
-): Promise<{ skill?: Skill; candidates?: Skill[] }> {
+): Promise<{
+  skill?: Skill;
+  candidates?: Skill[];
+  include_full?: boolean;
+  include_layout?: boolean;
+}> {
   if (entry.path) {
     const skill = await readSkillFromPath(entry.path, aliasKey, projectRoot);
-    return skill ? { skill } : {};
+    if (!skill) {
+      return {};
+    }
+    const result: {
+      skill: Skill;
+      include_full?: boolean;
+      include_layout?: boolean;
+    } = { skill };
+    if (entry.include_full !== undefined) {
+      result.include_full = entry.include_full;
+    }
+    if (entry.include_layout !== undefined) {
+      result.include_layout = entry.include_layout;
+    }
+    return result;
   }
 
   const target = entry.skill ?? aliasKey;
   const filtered = applyScopeFilter(skills, entry.scope);
-  return resolveByAlias(target, filtered, config, cache);
+  const baseResult = resolveByAlias(target, filtered, config, cache);
+
+  const result: {
+    skill?: Skill;
+    candidates?: Skill[];
+    include_full?: boolean;
+    include_layout?: boolean;
+  } = { ...baseResult };
+  if (entry.include_full !== undefined) {
+    result.include_full = entry.include_full;
+  }
+  if (entry.include_layout !== undefined) {
+    result.include_layout = entry.include_layout;
+  }
+  return result;
 }
 
 function resolveByAlias(
@@ -524,7 +567,17 @@ async function resolveFromConfigMapping(
     projectRoot
   );
   if (resolved.skill) {
-    return { invocation: token, skill: resolved.skill };
+    const result: ResolveResult = {
+      invocation: token,
+      skill: resolved.skill,
+    };
+    if (resolved.include_full !== undefined) {
+      result.include_full = resolved.include_full;
+    }
+    if (resolved.include_layout !== undefined) {
+      result.include_layout = resolved.include_layout;
+    }
+    return result;
   }
   if (resolved.candidates) {
     return {
