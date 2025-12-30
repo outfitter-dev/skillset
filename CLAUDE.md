@@ -14,8 +14,6 @@ bun install                    # Install dependencies
 bun run apps/cli/src/index.ts help  # Run CLI locally
 
 # CLI commands
-bun run apps/cli/src/index.ts list              # List all available skills
-bun run apps/cli/src/index.ts show <ref>        # Show skill details
 bun run apps/cli/src/index.ts load <path>       # Load skill from file
 bun run apps/cli/src/index.ts alias <name> <ref>  # Create alias
 bun run apps/cli/src/index.ts unalias <name>    # Remove alias
@@ -24,7 +22,6 @@ bun run apps/cli/src/index.ts config            # Show configuration
 bun run apps/cli/src/index.ts doctor            # Diagnose issues
 bun run apps/cli/src/index.ts init              # Initialize project
 bun run apps/cli/src/index.ts resolve $foo      # Resolve single alias
-bun run apps/cli/src/index.ts inject "text"     # Parse prompt, emit injected context
 
 # Quality
 bun run lint                   # Biome check

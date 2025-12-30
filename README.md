@@ -21,8 +21,6 @@ bun run apps/cli/src/index.ts help
 
 ```bash
 # Core commands
-skillset list                  # List all available skills
-skillset show <ref>            # Show skill details
 skillset load <path>           # Load skill from file
 
 # Skill mappings
@@ -44,7 +42,6 @@ skillset init                  # Initialize skillset in current project
 
 # Development commands
 skillset resolve $foo          # Resolve a single alias
-skillset inject "text"         # Parse prompt and emit injected context
 ```
 
 ## Development Commands

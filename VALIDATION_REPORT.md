@@ -39,8 +39,6 @@
 
 All commands verified working:
 - ✅ `skillset --help` - Shows updated syntax with $ references
-- ✅ `skillset list --help` - Command help working
-- ✅ `skillset show --help` - Command help working
 - ✅ `skillset doctor` - Diagnostic output correct
 
 #### Doctor Output
