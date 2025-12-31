@@ -21,11 +21,12 @@
     "dist"
   ],
   "dependencies": {
-    "@skillset/types": "workspace:*",
     "@skillset/shared": "workspace:*",
+    "@skillset/types": "workspace:*",
     "json-stable-stringify": "^1.1.1",
     "object-treeify": "^5.0.1",
-    "proper-lockfile": "^4.1.2"
+    "proper-lockfile": "^4.1.2",
+    "zod": "^4.3.2"
   },
   "devDependencies": {
     "@types/json-stable-stringify": "^1.0.36",

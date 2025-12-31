@@ -205,3 +205,23 @@ export async function cleanupGeneratedConfig(
   );
   return cleanedGlobal;
 }
+
+// Schemas
+// biome-ignore lint/performance/noBarrelFile: public entrypoint re-exports
+export {
+  ConfigSchema as ConfigZodSchema,
+  GeneratedSettingsSchema as GeneratedSettingsZodSchema,
+  ProjectIdStrategySchema,
+  ProjectSettingsSchema as ProjectSettingsZodSchema,
+  RuleSeveritySchema,
+  ScopeSchema,
+  SetDefinitionSchema,
+  SkillEntrySchema,
+  ToolSchema,
+} from "./schema";
+// Validation
+export {
+  validateConfig,
+  validateGeneratedSettings,
+  validateProjectSettings,
+} from "./validate";
