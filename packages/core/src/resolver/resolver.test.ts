@@ -263,3 +263,218 @@ describe("resolveTokens", () => {
     expect(results).toEqual([]);
   });
 });
+
+describe("resolveToken with object entry formats", () => {
+  it("resolves skill entry with path property", async () => {
+    const configWithPath: ConfigSchema = {
+      ...config,
+      skills: {
+        api: { path: "./docs/api.md" },
+      },
+    };
+    const token: InvocationToken = {
+      raw: "$api",
+      alias: "api",
+      namespace: undefined,
+    };
+    const result = await resolveToken(token, configWithPath, cache);
+    expect(result.invocation).toBe(token);
+  });
+
+  it("resolves skill entry with scope filter (single scope)", async () => {
+    const cacheWithDuplicates: CacheSchema = {
+      ...cache,
+      skills: {
+        ...cache.skills,
+        "project:debugging": createSkill("project:debugging", "Debugging"),
+        "user:debugging": createSkill("user:debugging", "Debugging"),
+      },
+    };
+    const configWithScope: ConfigSchema = {
+      ...config,
+      skills: {
+        debug: { skill: "debugging", scope: "user" },
+      },
+    };
+    const token: InvocationToken = {
+      raw: "$debug",
+      alias: "debug",
+      namespace: undefined,
+    };
+    const result = await resolveToken(
+      token,
+      configWithScope,
+      cacheWithDuplicates
+    );
+    expect(result.skill?.skillRef).toBe("user:debugging");
+  });
+
+  it("resolves skill entry with scope filter (multiple scopes)", async () => {
+    const cacheWithMultipleScopes: CacheSchema = {
+      ...cache,
+      skills: {
+        ...cache.skills,
+        "project:auth": createSkill("project:auth", "Auth"),
+        "user:auth": createSkill("user:auth", "Auth"),
+        "plugin:auth": createSkill("plugin:auth", "Auth"),
+      },
+    };
+    const configWithMultipleScopes: ConfigSchema = {
+      ...config,
+      skills: {
+        auth: { skill: "auth", scope: ["user", "project"] },
+      },
+    };
+    const token: InvocationToken = {
+      raw: "$auth",
+      alias: "auth",
+      namespace: undefined,
+    };
+    const result = await resolveToken(
+      token,
+      configWithMultipleScopes,
+      cacheWithMultipleScopes
+    );
+    const scope = result.skill?.skillRef.split(":")[0];
+    expect(["user", "project"]).toContain(scope);
+    expect(result.skill?.skillRef).not.toBe("plugin:auth");
+  });
+
+  it("resolves skill entry with include_full option", async () => {
+    const configWithIncludeFull: ConfigSchema = {
+      ...config,
+      skills: {
+        tdd: { skill: "frontend-design", include_full: true },
+      },
+    };
+    const token: InvocationToken = {
+      raw: "$tdd",
+      alias: "tdd",
+      namespace: undefined,
+    };
+    const result = await resolveToken(token, configWithIncludeFull, cache);
+    expect(result.skill?.skillRef).toBe(frontendSkill.skillRef);
+    expect(result.include_full).toBe(true);
+  });
+
+  it("resolves skill entry with include_layout option", async () => {
+    const configWithIncludeLayout: ConfigSchema = {
+      ...config,
+      skills: {
+        review: { skill: "backend-api", include_layout: true },
+      },
+    };
+    const token: InvocationToken = {
+      raw: "$review",
+      alias: "review",
+      namespace: undefined,
+    };
+    const result = await resolveToken(token, configWithIncludeLayout, cache);
+    expect(result.skill?.skillRef).toBe(backendSkill.skillRef);
+    expect(result.include_layout).toBe(true);
+  });
+
+  it("propagates both include_full and include_layout options", async () => {
+    const configWithBothOptions: ConfigSchema = {
+      ...config,
+      skills: {
+        detailed: {
+          skill: "frontend-design",
+          include_full: true,
+          include_layout: true,
+        },
+      },
+    };
+    const token: InvocationToken = {
+      raw: "$detailed",
+      alias: "detailed",
+      namespace: undefined,
+    };
+    const result = await resolveToken(token, configWithBothOptions, cache);
+    expect(result.skill?.skillRef).toBe(frontendSkill.skillRef);
+    expect(result.include_full).toBe(true);
+    expect(result.include_layout).toBe(true);
+  });
+
+  it("does not propagate options when not specified", async () => {
+    const configWithoutOptions: ConfigSchema = {
+      ...config,
+      skills: {
+        plain: { skill: "frontend-design" },
+      },
+    };
+    const token: InvocationToken = {
+      raw: "$plain",
+      alias: "plain",
+      namespace: undefined,
+    };
+    const result = await resolveToken(token, configWithoutOptions, cache);
+    expect(result.skill?.skillRef).toBe(frontendSkill.skillRef);
+    expect(result.include_full).toBeUndefined();
+    expect(result.include_layout).toBeUndefined();
+  });
+
+  it("resolves skill entry with skill property using alias key", async () => {
+    const configWithSkillProp: ConfigSchema = {
+      ...config,
+      skills: {
+        fe: { skill: "frontend-design" },
+      },
+    };
+    const token: InvocationToken = {
+      raw: "$fe",
+      alias: "fe",
+      namespace: undefined,
+    };
+    const result = await resolveToken(token, configWithSkillProp, cache);
+    expect(result.skill?.skillRef).toBe(frontendSkill.skillRef);
+  });
+
+  it("handles object entry with missing path", async () => {
+    const configWithBadPath: ConfigSchema = {
+      ...config,
+      skills: {
+        missing: { path: "./nonexistent.md" },
+      },
+    };
+    const token: InvocationToken = {
+      raw: "$missing",
+      alias: "missing",
+      namespace: undefined,
+    };
+    const result = await resolveToken(token, configWithBadPath, cache);
+    expect(result.reason).toBeDefined();
+  });
+
+  it("prioritizes scope filter over default scope priority", async () => {
+    const cacheWithScopes: CacheSchema = {
+      ...cache,
+      skills: {
+        ...cache.skills,
+        "project:test": createSkill("project:test", "Test"),
+        "user:test": createSkill("user:test", "Test"),
+      },
+    };
+    const configWithUserScope: ConfigSchema = {
+      ...config,
+      resolution: {
+        fuzzy_matching: true,
+        default_scope_priority: ["project", "user", "plugin"],
+      },
+      skills: {
+        test: { skill: "test", scope: "user" },
+      },
+    };
+    const token: InvocationToken = {
+      raw: "$test",
+      alias: "test",
+      namespace: undefined,
+    };
+    const result = await resolveToken(
+      token,
+      configWithUserScope,
+      cacheWithScopes
+    );
+    expect(result.skill?.skillRef).toBe("user:test");
+  });
+});
