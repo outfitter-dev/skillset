@@ -215,8 +215,14 @@ export async function cleanupGeneratedConfig(
   return cleanedGlobal;
 }
 
-// Schemas
+// Migration
 // biome-ignore lint/performance/noBarrelFile: public entrypoint re-exports
+export {
+  detectLegacyConfig,
+  migrateConfigFile,
+  migrateLegacyConfig,
+} from "./migrate";
+// Schemas
 export {
   ConfigSchema as ConfigZodSchema,
   GeneratedSettingsSchema as GeneratedSettingsZodSchema,

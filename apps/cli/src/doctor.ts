@@ -6,8 +6,8 @@ import {
   CONFIG_PATHS,
   loadCaches,
   loadConfig,
-  validateConfig,
   resolveToken,
+  validateConfig,
 } from "@skillset/core";
 import { getSkillsetPaths } from "@skillset/shared";
 import chalk from "chalk";
