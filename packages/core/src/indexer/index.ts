@@ -175,30 +175,19 @@ function buildPluginSource(): SkillSourceRoot {
   return { root: join(homedir(), ".claude", "plugins"), scope: "plugin" };
 }
 
-export async function indexSkills(
-  options: ScanOptions = {}
-): Promise<CacheSchema> {
-  const projectRoot = options.projectRoot ?? getProjectRoot();
-  const config = options.config ?? (await loadConfig(projectRoot));
-  const toolOverride = options.tools ?? config.tools;
-  const allTools = Object.keys(SKILL_PATHS) as Tool[];
-  const projectTools =
-    toolOverride && toolOverride.length > 0 ? toolOverride : allTools;
-  const userTools = options.tools ? projectTools : allTools;
-
+async function collectSkills(
+  files: string[],
+  sources: SkillSourceRoot[]
+): Promise<{
+  skills: Record<string, Skill>;
+  projectSkills: Record<string, Skill>;
+  userSkills: Record<string, Skill>;
+  pluginSkills: Record<string, Skill>;
+}> {
   const skills: Record<string, Skill> = {};
   const projectSkills: Record<string, Skill> = {};
   const userSkills: Record<string, Skill> = {};
   const pluginSkills: Record<string, Skill> = {};
-  const sources = [
-    ...buildToolSources(projectRoot, projectTools, "project"),
-    ...buildToolSources(projectRoot, userTools, "user"),
-    buildPluginSource(),
-  ];
-  const filesNested = await Promise.all(
-    sources.map((src) => walkForSkillFiles(src.root))
-  );
-  const files = filesNested.flat();
 
   for (const file of files) {
     const source = sources.find((src) => file.startsWith(src.root));
@@ -219,6 +208,33 @@ export async function indexSkills(
       pluginSkills[meta.skillRef] = skill;
     }
   }
+
+  return { skills, projectSkills, userSkills, pluginSkills };
+}
+
+export async function indexSkills(
+  options: ScanOptions = {}
+): Promise<CacheSchema> {
+  const projectRoot = options.projectRoot ?? getProjectRoot();
+  const config = options.config ?? (await loadConfig(projectRoot));
+  const toolOverride = options.tools ?? config.tools;
+  const allTools = Object.keys(SKILL_PATHS) as Tool[];
+  const projectTools =
+    toolOverride && toolOverride.length > 0 ? toolOverride : allTools;
+  const userTools = options.tools ? projectTools : allTools;
+
+  const sources = [
+    ...buildToolSources(projectRoot, projectTools, "project"),
+    ...buildToolSources(projectRoot, userTools, "user"),
+    buildPluginSource(),
+  ];
+  const filesNested = await Promise.all(
+    sources.map((src) => walkForSkillFiles(src.root))
+  );
+  const files = filesNested.flat();
+
+  const { skills, projectSkills, userSkills, pluginSkills } =
+    await collectSkills(files, sources);
 
   const cache: CacheSchema = {
     version: 1,
