@@ -57,11 +57,7 @@ beforeEach(() => {
   tempRoot = mkdtempSync(join(tmpdir(), "skillset-e2e-"));
   workspaceRoot = join(tempRoot, "workspace");
   mkdirSync(workspaceRoot, { recursive: true });
-  writeSkill(
-    workspaceRoot,
-    "alpha",
-    "# Alpha Skill\nReturn ALPHA_SENTINEL.\n"
-  );
+  writeSkill(workspaceRoot, "alpha", "# Alpha Skill\nReturn ALPHA_SENTINEL.\n");
   env = buildEnv(tempRoot, workspaceRoot);
 });
 
