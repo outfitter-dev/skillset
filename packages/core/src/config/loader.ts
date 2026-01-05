@@ -4,8 +4,8 @@ import type {
   ProjectSettings,
 } from "@skillset/types";
 import { YAML } from "bun";
-import { z } from "zod";
 import type { ZodIssue } from "zod";
+import { z } from "zod";
 import { hashValue } from "./hash";
 import {
   ConfigSchema as ConfigZodSchema,
@@ -59,6 +59,66 @@ function logConfigWarnings(path: string, warnings: string[]): void {
   }
 }
 
+function sanitizeGeneratedProjects(
+  value: unknown,
+  warnings: string[]
+): Record<string, ProjectSettings> | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!isRecord(value)) {
+    warnings.push("Ignored invalid generated config projects section");
+    return undefined;
+  }
+
+  const cleaned: Record<string, ProjectSettings> = {};
+  const invalid: string[] = [];
+
+  for (const [projectId, projectValue] of Object.entries(value)) {
+    const parsed = PROJECT_SETTINGS_PARTIAL_SCHEMA.safeParse(projectValue);
+    if (parsed.success) {
+      cleaned[projectId] = parsed.data as ProjectSettings;
+    } else {
+      invalid.push(projectId);
+    }
+  }
+
+  if (invalid.length > 0) {
+    warnings.push(
+      `Ignored invalid generated config project overrides: ${invalid.join(", ")}`
+    );
+  }
+
+  return cleaned;
+}
+
+function prepareGeneratedConfigInput(input: unknown, path: string): unknown {
+  if (!isRecord(input)) {
+    return input;
+  }
+
+  const warnings: string[] = [];
+  const next = { ...input } as Record<string, unknown> & { projects?: unknown };
+
+  if ("projects" in next) {
+    const sanitizedProjects = sanitizeGeneratedProjects(
+      next.projects,
+      warnings
+    );
+    if (sanitizedProjects === undefined) {
+      next.projects = undefined;
+    } else {
+      next.projects = sanitizedProjects;
+    }
+  }
+
+  if (warnings.length > 0) {
+    logConfigWarnings(path, warnings);
+  }
+
+  return next;
+}
+
 function sanitizeBySchema<T>(
   schema: {
     safeParse: (input: unknown) => {
@@ -71,7 +131,9 @@ function sanitizeBySchema<T>(
   path: string
 ): T {
   if (!isRecord(input)) {
-    logConfigWarnings(path, [`Invalid ${label} (expected object); using defaults`]);
+    logConfigWarnings(path, [
+      `Invalid ${label} (expected object); using defaults`,
+    ]);
     return {} as T;
   }
 
@@ -132,10 +194,11 @@ export async function loadGeneratedConfig(
     return { ...DEFAULT_GENERATED };
   }
   try {
-    const parsed = (await file.json()) as Partial<GeneratedSettingsSchema>;
+    const parsed = (await file.json()) as unknown;
+    const cleaned = prepareGeneratedConfigInput(parsed, path);
     const sanitized = sanitizeBySchema<Partial<GeneratedSettingsSchema>>(
       GENERATED_PARTIAL_SCHEMA,
-      parsed,
+      cleaned,
       "generated config",
       path
     );
