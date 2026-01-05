@@ -1,4 +1,4 @@
-import { readdirSync, statSync } from "node:fs";
+import { lstatSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import type { CacheSchema, Skill } from "@skillset/types";
 import treeify from "object-treeify";
@@ -20,6 +20,62 @@ interface DirectoryTreeOptions {
   includeHidden?: boolean;
 }
 
+function safeRealpath(path: string): string | null {
+  try {
+    return realpathSync(path);
+  } catch {
+    return null;
+  }
+}
+
+function beginVisit(
+  path: string,
+  visited: Set<string>
+): { allowed: boolean; token?: string } {
+  const resolved = safeRealpath(path);
+  if (!resolved) {
+    return { allowed: true };
+  }
+  if (visited.has(resolved)) {
+    return { allowed: false };
+  }
+  visited.add(resolved);
+  return { allowed: true, token: resolved };
+}
+
+function endVisit(token: string | undefined, visited: Set<string>): void {
+  if (token) {
+    visited.delete(token);
+  }
+}
+
+function isDirectoryPath(path: string): boolean {
+  try {
+    return statSync(path).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function resolveDirectoryEntry(entryPath: string): {
+  isDir: boolean;
+  resolvedPath: string;
+} {
+  try {
+    const stat = lstatSync(entryPath);
+    if (stat.isSymbolicLink()) {
+      const resolved = safeRealpath(entryPath);
+      if (resolved && isDirectoryPath(resolved)) {
+        return { isDir: true, resolvedPath: resolved };
+      }
+      return { isDir: false, resolvedPath: entryPath };
+    }
+    return { isDir: stat.isDirectory(), resolvedPath: entryPath };
+  } catch {
+    return { isDir: false, resolvedPath: entryPath };
+  }
+}
+
 /**
  * Build a full directory tree for a path, including all files.
  */
@@ -31,7 +87,17 @@ export function buildDirectoryTreeLines(
   const maxDepth = options.maxDepth ?? 6;
   const maxLines = options.maxLines ?? Number.POSITIVE_INFINITY;
   const includeHidden = options.includeHidden ?? false;
-  walkDirectoryTreeLines(path, "", 0, maxDepth, maxLines, includeHidden, lines);
+  const visited = new Set<string>();
+  walkDirectoryTreeLines(
+    path,
+    "",
+    0,
+    maxDepth,
+    maxLines,
+    includeHidden,
+    lines,
+    visited
+  );
   return lines;
 }
 
@@ -50,7 +116,8 @@ export async function buildSkillTree(
     skillDir,
     includeMarkdown,
     0,
-    options.maxDepth ?? 5
+    options.maxDepth ?? 5,
+    new Set()
   );
 
   return treeify({ [dirName]: treeObj });
@@ -87,7 +154,8 @@ export async function buildNamespaceTree(
       skillDir,
       includeMarkdown,
       0,
-      maxDepth
+      maxDepth,
+      new Set()
     );
     treeObj[skillDirName] = dirTree;
   }
@@ -110,13 +178,25 @@ export async function buildPathTree(
     // It's a SKILL.md file
     const dir = dirname(path);
     const dirName = basename(dir);
-    const treeObj = await buildDirectoryTree(dir, includeMarkdown, 0, maxDepth);
+    const treeObj = await buildDirectoryTree(
+      dir,
+      includeMarkdown,
+      0,
+      maxDepth,
+      new Set()
+    );
     return treeify({ [dirName]: treeObj });
   }
 
   // It's a directory - check for SKILL.md
   const dirName = basename(path);
-  const treeObj = await buildDirectoryTree(path, includeMarkdown, 0, maxDepth);
+  const treeObj = await buildDirectoryTree(
+    path,
+    includeMarkdown,
+    0,
+    maxDepth,
+    new Set()
+  );
   return treeify({ [dirName]: treeObj });
 }
 
@@ -127,58 +207,68 @@ function walkDirectoryTreeLines(
   maxDepth: number,
   maxLines: number,
   includeHidden: boolean,
-  lines: string[]
+  lines: string[],
+  visited: Set<string>
 ): void {
   if (depth >= maxDepth || lines.length >= maxLines) {
     return;
   }
-  let entries: string[];
-  try {
-    entries = readdirSync(dirPath);
-  } catch {
+  const visit = beginVisit(dirPath, visited);
+  if (!visit.allowed) {
     return;
   }
-  const sorted = entries
-    .filter((entry) => includeHidden || !entry.startsWith("."))
-    .sort((a, b) => {
-      const aPath = join(dirPath, a);
-      const bPath = join(dirPath, b);
-      const aIsDir = statSync(aPath).isDirectory();
-      const bIsDir = statSync(bPath).isDirectory();
-      if (aIsDir && !bIsDir) {
-        return -1;
-      }
-      if (!aIsDir && bIsDir) {
-        return 1;
-      }
-      return a.localeCompare(b);
-    });
+  try {
+    let entries: string[];
+    try {
+      entries = readdirSync(dirPath);
+    } catch {
+      return;
+    }
+    const sorted = entries
+      .filter((entry) => includeHidden || !entry.startsWith("."))
+      .sort((a, b) => {
+        const aPath = join(dirPath, a);
+        const bPath = join(dirPath, b);
+        const aIsDir = resolveDirectoryEntry(aPath).isDir;
+        const bIsDir = resolveDirectoryEntry(bPath).isDir;
+        if (aIsDir && !bIsDir) {
+          return -1;
+        }
+        if (!aIsDir && bIsDir) {
+          return 1;
+        }
+        return a.localeCompare(b);
+      });
 
-  sorted.forEach((entry, index) => {
-    if (lines.length >= maxLines) {
-      return;
-    }
-    const entryPath = join(dirPath, entry);
-    const isDir = statSync(entryPath).isDirectory();
-    const isLast = index === sorted.length - 1;
-    const branch = isLast ? "└──" : "├──";
-    lines.push(`${prefix}${branch} ${entry}${isDir ? "/" : ""}`);
-    if (lines.length >= maxLines) {
-      return;
-    }
-    if (isDir) {
-      const nextPrefix = `${prefix}${isLast ? "    " : "│   "}`;
-      walkDirectoryTreeLines(
-        entryPath,
-        nextPrefix,
-        depth + 1,
-        maxDepth,
-        maxLines,
-        includeHidden,
-        lines
-      );
-    }
-  });
+    sorted.forEach((entry, index) => {
+      if (lines.length >= maxLines) {
+        return;
+      }
+      const entryPath = join(dirPath, entry);
+      const { isDir, resolvedPath } = resolveDirectoryEntry(entryPath);
+      const isLast = index === sorted.length - 1;
+      const branch = isLast ? "└──" : "├──";
+      lines.push(`${prefix}${branch} ${entry}${isDir ? "/" : ""}`);
+      if (lines.length >= maxLines) {
+        return;
+      }
+      if (isDir) {
+        const nextPrefix = `${prefix}${isLast ? "    " : "│   "}`;
+        walkDirectoryTreeLines(
+          resolvedPath,
+          nextPrefix,
+          depth + 1,
+          maxDepth,
+          maxLines,
+          includeHidden,
+          lines,
+          visited
+        );
+      }
+    });
+  } finally {
+    endVisit(visit.token, visited);
+  }
 }
 
 /**
@@ -189,46 +279,55 @@ async function buildDirectoryTree(
   dirPath: string,
   includeMarkdown: boolean,
   depth: number,
-  maxDepth: number
+  maxDepth: number,
+  visited: Set<string>
 ): Promise<Record<string, unknown>> {
   if (depth >= maxDepth) {
     return { "...": null };
   }
+  const visit = beginVisit(dirPath, visited);
+  if (!visit.allowed) {
+    return { "...": null };
+  }
 
   const result: Record<string, unknown> = {};
+  try {
+    const entries = readDirectoryEntries(dirPath);
+    if (!entries) {
+      return result;
+    }
 
-  const entries = readDirectoryEntries(dirPath);
-  if (!entries) {
+    const sorted = sortEntries(entries, dirPath);
+
+    for (const entry of sorted) {
+      const entryPath = join(dirPath, entry);
+      const { isDir, resolvedPath } = resolveDirectoryEntry(entryPath);
+
+      if (isDir) {
+        await addDirectoryEntry(
+          result,
+          entry,
+          resolvedPath,
+          includeMarkdown,
+          depth,
+          maxDepth,
+          visited
+        );
+        continue;
+      }
+      if (entry === "SKILL.md" && includeMarkdown) {
+        await addSkillFileEntry(result, entryPath);
+        continue;
+      }
+
+      // Regular file
+      result[entry] = null;
+    }
+
     return result;
+  } finally {
+    endVisit(visit.token, visited);
   }
-
-  const sorted = sortEntries(entries, dirPath);
-
-  for (const entry of sorted) {
-    const entryPath = join(dirPath, entry);
-    const stat = statSync(entryPath);
-
-    if (stat.isDirectory()) {
-      await addDirectoryEntry(
-        result,
-        entry,
-        entryPath,
-        includeMarkdown,
-        depth,
-        maxDepth
-      );
-      continue;
-    }
-    if (entry === "SKILL.md" && includeMarkdown) {
-      await addSkillFileEntry(result, entryPath);
-      continue;
-    }
-
-    // Regular file
-    result[entry] = null;
-  }
-
-  return result;
 }
 
 function readDirectoryEntries(dirPath: string): string[] | null {
@@ -271,15 +370,17 @@ async function addDirectoryEntry(
   entryPath: string,
   includeMarkdown: boolean,
   depth: number,
-  maxDepth: number
+  maxDepth: number,
+  visited: Set<string>
 ): Promise<void> {
   // Check if this directory or its children contain SKILL.md
-  if (await hasSkillMdInSubtree(entryPath)) {
+  if (await hasSkillMdInSubtree(entryPath, visited)) {
     result[`${entry}/`] = await buildDirectoryTree(
       entryPath,
       includeMarkdown,
       depth + 1,
-      maxDepth
+      maxDepth,
+      visited
     );
     return;
   }
@@ -308,7 +409,14 @@ async function addSkillFileEntry(
 /**
  * Check if a directory or any of its subdirectories contains a SKILL.md file.
  */
-async function hasSkillMdInSubtree(dirPath: string): Promise<boolean> {
+async function hasSkillMdInSubtree(
+  dirPath: string,
+  visited = new Set<string>()
+): Promise<boolean> {
+  const visit = beginVisit(dirPath, visited);
+  if (!visit.allowed) {
+    return false;
+  }
   try {
     const entries = readdirSync(dirPath);
 
@@ -318,18 +426,20 @@ async function hasSkillMdInSubtree(dirPath: string): Promise<boolean> {
       }
 
       const entryPath = join(dirPath, entry);
-      const stat = statSync(entryPath);
+      const { isDir, resolvedPath } = resolveDirectoryEntry(entryPath);
 
       if (
-        stat.isDirectory() &&
+        isDir &&
         !entry.startsWith(".") &&
-        (await hasSkillMdInSubtree(entryPath))
+        (await hasSkillMdInSubtree(resolvedPath, visited))
       ) {
         return true;
       }
     }
   } catch {
     // Ignore errors
+  } finally {
+    endVisit(visit.token, visited);
   }
 
   return false;
