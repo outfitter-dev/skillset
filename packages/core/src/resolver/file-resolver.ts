@@ -1,5 +1,5 @@
 import { isAbsolute, join, resolve, sep } from "node:path";
-import type { Skill, Tool } from "@skillset/types";
+import type { Skill, SkillRef, Tool } from "@skillset/types";
 import { normalizeTokenRef, normalizeTokenSegment } from "../normalize";
 
 const LINE_SPLIT_REGEX = /\r?\n/;
@@ -70,7 +70,7 @@ export async function readSkillFromPath(
       .find((line) => line.trim().length > 0 && !line.startsWith("#"))
       ?.trim();
     return {
-      skillRef: `project:${normalizeTokenRef(aliasKey)}`,
+      skillRef: `project:${normalizeTokenRef(aliasKey)}` as SkillRef,
       path: resolved,
       name,
       description,

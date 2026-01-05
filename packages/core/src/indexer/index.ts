@@ -2,7 +2,13 @@ import { readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, relative, sep } from "node:path";
 import { getProjectRoot, SKILL_PATHS } from "@skillset/shared";
-import type { CacheSchema, ConfigSchema, Skill, Tool } from "@skillset/types";
+import type {
+  CacheSchema,
+  ConfigSchema,
+  Skill,
+  SkillRef,
+  Tool,
+} from "@skillset/types";
 import { updateCache } from "../cache";
 import { loadConfig } from "../config";
 
@@ -56,16 +62,16 @@ function getSkillPathSegments(root: string, path: string): string[] {
   return parts;
 }
 
-function skillRefFromPath(path: string, source: SkillSourceRoot): string {
+function skillRefFromPath(path: string, source: SkillSourceRoot): SkillRef {
   const parts = getSkillPathSegments(source.root, path);
   if (source.scope === "plugin") {
     const namespace = parts[0] ?? "unknown";
     const alias = parts[2] ?? parts[0] ?? "unknown";
-    return `plugin:${namespace}/${alias}`;
+    return `plugin:${namespace}/${alias}` as SkillRef;
   }
 
   const alias = parts[0] ?? path.split(sep).at(-2) ?? "unknown";
-  return `${source.scope}:${toolPrefix(source.tool)}${alias}`;
+  return `${source.scope}:${toolPrefix(source.tool)}${alias}` as SkillRef;
 }
 
 async function readSkillMetadata(

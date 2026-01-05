@@ -4,10 +4,24 @@
 
 export type SkillSource = "project" | "user" | "plugin";
 
-export type SkillRef = `${SkillSource}:${string}`;
+const SKILL_REF_PREFIXES = ["project", "user", "plugin", "path"] as const;
+export type SkillRefPrefix = (typeof SKILL_REF_PREFIXES)[number];
+
+export type SkillRef = `${SkillRefPrefix}:${string}` & {
+  readonly __skillRef: "SkillRef";
+};
+
+export function isSkillRef(value: string): value is SkillRef {
+  const idx = value.indexOf(":");
+  if (idx <= 0 || idx === value.length - 1) {
+    return false;
+  }
+  const prefix = value.slice(0, idx);
+  return (SKILL_REF_PREFIXES as readonly string[]).includes(prefix);
+}
 
 export interface Skill {
-  skillRef: string; // stable identifier, e.g., "project:frontend-design"
+  skillRef: SkillRef; // stable identifier, e.g., "project:frontend-design"
   path: string; // absolute path to SKILL.md
   name: string;
   description: string | undefined;
