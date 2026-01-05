@@ -36,6 +36,7 @@ function buildEnv(root: string, projectRoot: string): Record<string, string> {
     XDG_CACHE_HOME: join(xdgRoot, "cache"),
     XDG_DATA_HOME: join(xdgRoot, "data"),
     SKILLSET_PROJECT_ROOT: projectRoot,
+    SKILLSET_OUTPUT: "json",
     NO_COLOR: "1",
   };
 }
@@ -89,7 +90,7 @@ describe("cli e2e", () => {
     const indexResult = await runCli(["index"]);
     expect(indexResult.exitCode).toBe(0);
 
-    const result = await runCli(["load", "alpha", "--json"]);
+    const result = await runCli(["load", "alpha"]);
     expect(result.exitCode).toBe(0);
 
     const payload = JSON.parse(result.stdout) as {
@@ -104,7 +105,7 @@ describe("cli e2e", () => {
     const indexResult = await runCli(["index"]);
     expect(indexResult.exitCode).toBe(0);
 
-    const result = await runCli(["stats", "--json"]);
+    const result = await runCli(["stats"]);
     expect(result.exitCode).toBe(0);
 
     const payload = JSON.parse(result.stdout) as {
