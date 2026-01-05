@@ -66,6 +66,8 @@ export interface ConfigSchema {
     unresolved: RuleSeverity;
     /** What to do when multiple skills match an alias */
     ambiguous: RuleSeverity;
+    /** What to do when a set is missing one or more members */
+    missing_set_members?: RuleSeverity;
   };
 
   /**

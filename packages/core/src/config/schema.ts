@@ -70,6 +70,8 @@ export const ConfigSchema = z.object({
     unresolved: RuleSeveritySchema,
     /** What to do when multiple skills match an alias */
     ambiguous: RuleSeveritySchema,
+    /** What to do when a set is missing members */
+    missing_set_members: RuleSeveritySchema.optional(),
   }),
 
   /**
