@@ -43,6 +43,7 @@ export {
   getConfigPath,
   getConfigValue,
   loadConfig,
+  loadConfigResult,
   loadGeneratedSettings,
   loadYamlConfigByScope,
   resetGeneratedConfigValue,
