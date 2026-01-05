@@ -16,6 +16,7 @@ import {
 import { getSkillsetEnv, logUsage } from "@skillset/shared";
 import chalk from "chalk";
 import type { Command } from "commander";
+import { CLIError } from "../errors";
 import type { GlobalOptions, OutputFormat } from "../types";
 import { determineFormat } from "../utils/format";
 import { normalizeInvocation } from "../utils/normalize";
@@ -400,7 +401,7 @@ function reportLoadError(
       }
     }
   }
-  process.exit(1);
+  throw new CLIError(message, { alreadyLogged: true });
 }
 
 function printJsonSkill(skill: Skill, content: string): void {

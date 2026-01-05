@@ -10,6 +10,7 @@ import {
 import chalk from "chalk";
 import type { Command } from "commander";
 import inquirer from "inquirer";
+import { CLIError } from "../errors";
 import type { ConfigScope } from "../types";
 import { isTTY } from "../utils/tty";
 
@@ -24,10 +25,7 @@ function validateScope(scope: string | undefined): ConfigScope {
   if (scope === "user") {
     return "user";
   }
-  console.error(
-    chalk.red(`Invalid scope "${scope}". Must be: project or user`)
-  );
-  process.exit(1);
+  throw new CLIError(`Invalid scope "${scope}". Must be: project or user`);
 }
 
 async function getAllAliases(): Promise<
@@ -88,8 +86,7 @@ async function removeAlias(name: string, scope: ConfigScope): Promise<void> {
   const existingMapping = currentConfig.skills?.[name];
 
   if (!existingMapping) {
-    console.error(chalk.red(`Alias '${name}' not found in ${scope} config`));
-    process.exit(1);
+    throw new CLIError(`Alias '${name}' not found in ${scope} config`);
   }
 
   const updatedSkills = { ...(currentConfig.skills ?? {}) };
@@ -129,7 +126,7 @@ async function handleUnalias(
     console.error(chalk.red("Missing argument: <name>"));
     console.error(chalk.yellow("Usage: skillset unalias <name>"));
     console.error(chalk.dim("Or run in a TTY for interactive mode"));
-    process.exit(1);
+    throw new CLIError("Missing argument: <name>", { alreadyLogged: true });
   }
 
   await removeAlias(name, scope);
