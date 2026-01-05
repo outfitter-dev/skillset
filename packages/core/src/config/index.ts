@@ -27,6 +27,7 @@ export const CONFIG_DEFAULTS: ConfigSchema = {
   rules: {
     unresolved: "warn",
     ambiguous: "warn",
+    missing_set_members: "warn",
   },
   resolution: {
     fuzzy_matching: true,

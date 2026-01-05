@@ -265,6 +265,16 @@ function validateConfig(config: ConfigSchema): string[] {
   ) {
     errors.push("rules.ambiguous must be 'ignore', 'warn', or 'error'");
   }
+  if (
+    config.rules?.missing_set_members &&
+    config.rules.missing_set_members !== "ignore" &&
+    config.rules.missing_set_members !== "warn" &&
+    config.rules.missing_set_members !== "error"
+  ) {
+    errors.push(
+      "rules.missing_set_members must be 'ignore', 'warn', or 'error'"
+    );
+  }
   if (!config.output || typeof config.output.max_lines !== "number") {
     errors.push("output.max_lines must be a number");
   }

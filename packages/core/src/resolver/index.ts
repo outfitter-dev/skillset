@@ -146,14 +146,30 @@ async function resolveSetCandidates(
   }
   if (candidates.length === 1 && candidates[0]) {
     const set = candidates[0];
-    const setSkills = (
-      await Promise.all(
-        set.skillRefs.map((ref) =>
-          resolveAliasToSkill(ref, config, cache, skills, projectRoot)
-        )
-      )
-    ).filter((skill): skill is Skill => Boolean(skill));
-    return { invocation, set, setSkills };
+    const resolved = await Promise.all(
+      set.skillRefs.map(async (ref) => ({
+        ref,
+        skill: await resolveAliasToSkill(
+          ref,
+          config,
+          cache,
+          skills,
+          projectRoot
+        ),
+      }))
+    );
+    const setSkills = resolved
+      .map((entry) => entry.skill)
+      .filter((skill): skill is Skill => Boolean(skill));
+    const missingSkillRefs = resolved
+      .filter((entry) => !entry.skill)
+      .map((entry) => entry.ref);
+    return {
+      invocation,
+      set,
+      setSkills,
+      ...(missingSkillRefs.length > 0 ? { missingSkillRefs } : {}),
+    };
   }
 
   return { invocation, reason: "ambiguous-set", setCandidates: candidates };

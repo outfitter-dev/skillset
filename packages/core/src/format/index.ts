@@ -255,6 +255,18 @@ function buildWarning(
   result: ResolveResult,
   config: ConfigSchema
 ): string | null {
+  if (result.missingSkillRefs && result.missingSkillRefs.length > 0) {
+    const severity = config.rules.missing_set_members ?? "warn";
+    if (severity === "ignore") {
+      return null;
+    }
+    const label =
+      severity === "error"
+        ? "Missing set members (error)"
+        : "Missing set members";
+    return `- **${label}:** ${result.invocation.raw} → ${result.missingSkillRefs.join(", ")}`;
+  }
+
   if (result.reason === "ambiguous" && result.candidates?.length) {
     if (config.rules.ambiguous === "ignore") {
       return null;
