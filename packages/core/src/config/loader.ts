@@ -4,7 +4,14 @@ import type {
   ProjectSettings,
 } from "@skillset/types";
 import { YAML } from "bun";
+import type { ZodIssue } from "zod";
+import { z } from "zod";
 import { hashValue } from "./hash";
+import {
+  ConfigSchema as ConfigZodSchema,
+  GeneratedSettingsSchema as GeneratedSettingsZodSchema,
+  ProjectSettingsSchema,
+} from "./schema";
 import {
   deleteValueAtPath,
   getValueAtPath,
@@ -17,8 +24,144 @@ const DEFAULT_GENERATED: GeneratedSettingsSchema = {
   projects: {},
 };
 
+const CONFIG_PARTIAL_SCHEMA = ConfigZodSchema.extend({
+  rules: ConfigZodSchema.shape.rules.partial(),
+  output: ConfigZodSchema.shape.output.partial(),
+}).partial();
+
+const PROJECT_SETTINGS_PARTIAL_SCHEMA = ProjectSettingsSchema.partial();
+const GENERATED_PARTIAL_SCHEMA = GeneratedSettingsZodSchema.extend({
+  projects: z.record(z.string(), PROJECT_SETTINGS_PARTIAL_SCHEMA),
+}).partial();
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function collectTopLevelKeys(issues: ZodIssue[]): string[] {
+  const keys = new Set<string>();
+  for (const issue of issues) {
+    const key = issue.path[0];
+    if (typeof key === "string") {
+      keys.add(key);
+    }
+  }
+  return Array.from(keys);
+}
+
+function logConfigWarnings(path: string, warnings: string[]): void {
+  if (warnings.length === 0) {
+    return;
+  }
+  const hint = "Run 'skillset doctor config' for details.";
+  for (const warning of warnings) {
+    console.warn(`skillset: ${warning} (${path}). ${hint}`);
+  }
+}
+
+function sanitizeGeneratedProjects(
+  value: unknown,
+  warnings: string[]
+): Record<string, ProjectSettings> | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!isRecord(value)) {
+    warnings.push("Ignored invalid generated config projects section");
+    return undefined;
+  }
+
+  const cleaned: Record<string, ProjectSettings> = {};
+  const invalid: string[] = [];
+
+  for (const [projectId, projectValue] of Object.entries(value)) {
+    const parsed = PROJECT_SETTINGS_PARTIAL_SCHEMA.safeParse(projectValue);
+    if (parsed.success) {
+      cleaned[projectId] = parsed.data as ProjectSettings;
+    } else {
+      invalid.push(projectId);
+    }
+  }
+
+  if (invalid.length > 0) {
+    warnings.push(
+      `Ignored invalid generated config project overrides: ${invalid.join(", ")}`
+    );
+  }
+
+  return cleaned;
+}
+
+function prepareGeneratedConfigInput(input: unknown, path: string): unknown {
+  if (!isRecord(input)) {
+    return input;
+  }
+
+  const warnings: string[] = [];
+  const next = { ...input } as Record<string, unknown> & { projects?: unknown };
+
+  if ("projects" in next) {
+    const sanitizedProjects = sanitizeGeneratedProjects(
+      next.projects,
+      warnings
+    );
+    if (sanitizedProjects === undefined) {
+      next.projects = undefined;
+    } else {
+      next.projects = sanitizedProjects;
+    }
+  }
+
+  if (warnings.length > 0) {
+    logConfigWarnings(path, warnings);
+  }
+
+  return next;
+}
+
+function sanitizeBySchema<T>(
+  schema: {
+    safeParse: (input: unknown) => {
+      success: boolean;
+      error?: { issues: ZodIssue[] };
+    };
+  },
+  input: unknown,
+  label: string,
+  path: string
+): T {
+  if (!isRecord(input)) {
+    logConfigWarnings(path, [
+      `Invalid ${label} (expected object); using defaults`,
+    ]);
+    return {} as T;
+  }
+
+  const initial = schema.safeParse(input);
+  if (initial.success) {
+    return input as T;
+  }
+
+  const warnings: string[] = [];
+  const invalidKeys = collectTopLevelKeys(initial.error?.issues ?? []);
+  if (invalidKeys.length > 0) {
+    const cleaned = { ...input };
+    for (const key of invalidKeys) {
+      delete cleaned[key];
+    }
+    warnings.push(
+      `Ignored invalid ${label} section(s): ${invalidKeys.join(", ")}`
+    );
+    const retry = schema.safeParse(cleaned);
+    if (retry.success) {
+      logConfigWarnings(path, warnings);
+      return cleaned as T;
+    }
+  }
+
+  warnings.push(`Invalid ${label}; using defaults`);
+  logConfigWarnings(path, warnings);
+  return {} as T;
 }
 
 export async function loadYamlConfig(
@@ -31,10 +174,12 @@ export async function loadYamlConfig(
   try {
     const content = await file.text();
     const parsed = YAML.parse(content);
-    if (!isRecord(parsed)) {
-      return {};
-    }
-    return parsed as Partial<ConfigSchema>;
+    return sanitizeBySchema<Partial<ConfigSchema>>(
+      CONFIG_PARTIAL_SCHEMA,
+      parsed,
+      "config",
+      path
+    );
   } catch (err) {
     console.warn(`skillset: failed to read config ${path}:`, err);
     return {};
@@ -49,22 +194,29 @@ export async function loadGeneratedConfig(
     return { ...DEFAULT_GENERATED };
   }
   try {
-    const parsed = (await file.json()) as Partial<GeneratedSettingsSchema>;
+    const parsed = (await file.json()) as unknown;
+    const cleaned = prepareGeneratedConfigInput(parsed, path);
+    const sanitized = sanitizeBySchema<Partial<GeneratedSettingsSchema>>(
+      GENERATED_PARTIAL_SCHEMA,
+      cleaned,
+      "generated config",
+      path
+    );
     const generated: GeneratedSettingsSchema = {
-      _yaml_hashes: parsed._yaml_hashes ?? {},
-      projects: parsed.projects ?? {},
+      _yaml_hashes: sanitized._yaml_hashes ?? {},
+      projects: sanitized.projects ?? {},
     };
-    if (parsed.skills) {
-      generated.skills = parsed.skills;
+    if (sanitized.skills) {
+      generated.skills = sanitized.skills;
     }
-    if (parsed.output) {
-      generated.output = parsed.output;
+    if (sanitized.output) {
+      generated.output = sanitized.output;
     }
-    if (parsed.rules) {
-      generated.rules = parsed.rules;
+    if (sanitized.rules) {
+      generated.rules = sanitized.rules;
     }
-    if (parsed.project_id_strategy) {
-      generated.project_id_strategy = parsed.project_id_strategy;
+    if (sanitized.project_id_strategy) {
+      generated.project_id_strategy = sanitized.project_id_strategy;
     }
     return generated;
   } catch (err) {

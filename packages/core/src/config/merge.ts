@@ -1,40 +1,81 @@
 import type { ConfigSchema } from "@skillset/types";
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function recordOrUndefined<T extends Record<string, unknown>>(
+  value: T | undefined
+): T | undefined {
+  return isRecord(value) ? (value as T) : undefined;
+}
+
+function pickOptional<T>(
+  overlay: T | undefined,
+  base: T | undefined
+): T | undefined {
+  return overlay !== undefined ? overlay : base;
+}
+
+function mergeOptionalRecord<T extends Record<string, unknown>>(
+  base: T | undefined,
+  overlay: T | undefined
+): T | undefined {
+  if (overlay !== undefined) {
+    return { ...(base ?? {}), ...overlay };
+  }
+  return base;
+}
+
 export function mergeConfigs(
   base: ConfigSchema,
   overlay: Partial<ConfigSchema>
 ): ConfigSchema {
+  const overlayRules = recordOrUndefined<ConfigSchema["rules"]>(overlay.rules);
+  const overlayOutput = recordOrUndefined<ConfigSchema["output"]>(
+    overlay.output
+  );
+  const overlayResolution = recordOrUndefined<
+    NonNullable<ConfigSchema["resolution"]>
+  >(overlay.resolution);
+  const overlaySkills = recordOrUndefined<ConfigSchema["skills"]>(
+    overlay.skills
+  );
+
+  const baseResolution =
+    recordOrUndefined<NonNullable<ConfigSchema["resolution"]>>(
+      base.resolution
+    ) ?? {};
+  const mergedResolution =
+    overlayResolution || Object.keys(baseResolution).length > 0
+      ? { ...baseResolution, ...(overlayResolution ?? {}) }
+      : undefined;
+
+  const mergedIgnoreScopes = pickOptional(
+    overlay.ignore_scopes,
+    base.ignore_scopes
+  );
+  const mergedTools = pickOptional(overlay.tools, base.tools);
+  const mergedSets = mergeOptionalRecord(base.sets, overlay.sets);
+
   const merged: ConfigSchema = {
     ...base,
     // Scalars: replace
     version: overlay.version ?? base.version,
 
     // Shallow merge objects
-    rules: { ...base.rules, ...overlay.rules },
-    output: { ...base.output, ...overlay.output },
-    resolution: { ...base.resolution, ...overlay.resolution },
+    rules: { ...base.rules, ...(overlayRules ?? {}) },
+    output: { ...base.output, ...(overlayOutput ?? {}) },
 
     // Maps: key-level merge
-    skills: { ...base.skills, ...overlay.skills },
+    skills: { ...base.skills, ...(overlaySkills ?? {}) },
+    ...(mergedResolution ? { resolution: mergedResolution } : {}),
+    ...(mergedIgnoreScopes !== undefined
+      ? { ignore_scopes: mergedIgnoreScopes }
+      : {}),
+    ...(mergedTools !== undefined ? { tools: mergedTools } : {}),
+    ...(mergedSets !== undefined ? { sets: mergedSets } : {}),
   };
-
-  if (overlay.ignore_scopes !== undefined) {
-    merged.ignore_scopes = overlay.ignore_scopes;
-  } else if (base.ignore_scopes !== undefined) {
-    merged.ignore_scopes = base.ignore_scopes;
-  }
-
-  if (overlay.tools !== undefined) {
-    merged.tools = overlay.tools;
-  } else if (base.tools !== undefined) {
-    merged.tools = base.tools;
-  }
-
-  if (overlay.sets !== undefined) {
-    merged.sets = { ...(base.sets ?? {}), ...overlay.sets };
-  } else if (base.sets !== undefined) {
-    merged.sets = base.sets;
-  }
 
   return merged;
 }
