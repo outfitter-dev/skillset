@@ -1,12 +1,12 @@
 import { existsSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { ConfigSchema } from "@skillset/core";
 import {
   CACHE_PATHS,
   CONFIG_PATHS,
   loadCaches,
   loadConfig,
+  validateConfig,
   resolveToken,
 } from "@skillset/core";
 import { getSkillsetPaths } from "@skillset/shared";
@@ -225,14 +225,19 @@ async function printConfigValidation(): Promise<void> {
     console.log(JSON.stringify(config, null, 2));
     console.log(chalk.bold("\nValidation:"));
 
-    const errors = validateConfig(config);
-    if (errors.length === 0) {
+    const result = validateConfig(config);
+    if (result.ok) {
       console.log(`${chalk.green("✓")} Config schema is valid`);
       return;
     }
 
     console.log(`${chalk.red("✗")} Config schema has errors:`);
-    for (const error of errors) {
+    const issues = extractConfigIssues(result.error.context?.issues);
+    if (issues.length === 0) {
+      console.log(`  ${chalk.red("•")} ${result.error.message}`);
+      return;
+    }
+    for (const error of issues) {
       console.log(`  ${chalk.red("•")} ${error}`);
     }
   } catch (err) {
@@ -243,52 +248,27 @@ async function printConfigValidation(): Promise<void> {
   }
 }
 
-function validateConfig(config: ConfigSchema): string[] {
-  const errors: string[] = [];
-
-  if (typeof config.version !== "number") {
-    errors.push("version must be a number");
+function extractConfigIssues(issues: unknown): string[] {
+  if (!Array.isArray(issues)) {
+    return [];
   }
-  if (
-    !config.rules ||
-    (config.rules.unresolved !== "ignore" &&
-      config.rules.unresolved !== "warn" &&
-      config.rules.unresolved !== "error")
-  ) {
-    errors.push("rules.unresolved must be 'ignore', 'warn', or 'error'");
-  }
-  if (
-    !config.rules ||
-    (config.rules.ambiguous !== "ignore" &&
-      config.rules.ambiguous !== "warn" &&
-      config.rules.ambiguous !== "error")
-  ) {
-    errors.push("rules.ambiguous must be 'ignore', 'warn', or 'error'");
-  }
-  if (
-    config.rules?.missing_set_members &&
-    config.rules.missing_set_members !== "ignore" &&
-    config.rules.missing_set_members !== "warn" &&
-    config.rules.missing_set_members !== "error"
-  ) {
-    errors.push(
-      "rules.missing_set_members must be 'ignore', 'warn', or 'error'"
-    );
-  }
-  if (!config.output || typeof config.output.max_lines !== "number") {
-    errors.push("output.max_lines must be a number");
-  }
-  if (!config.output || typeof config.output.include_layout !== "boolean") {
-    errors.push("output.include_layout must be a boolean");
-  }
-  if (typeof config.skills !== "object") {
-    errors.push("skills must be an object");
-  }
-  if (config.sets && typeof config.sets !== "object") {
-    errors.push("sets must be an object");
-  }
-
-  return errors;
+  return issues
+    .map((issue) => {
+      if (!issue || typeof issue !== "object") {
+        return undefined;
+      }
+      const record = issue as { path?: unknown; message?: unknown };
+      const path = Array.isArray(record.path)
+        ? record.path.filter((segment) => typeof segment === "string").join(".")
+        : undefined;
+      const message =
+        typeof record.message === "string" ? record.message : undefined;
+      if (!message) {
+        return undefined;
+      }
+      return path ? `${path}: ${message}` : message;
+    })
+    .filter((value): value is string => Boolean(value));
 }
 
 function printResolvedSkill(skill: import("@skillset/core").Skill): void {

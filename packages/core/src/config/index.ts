@@ -16,6 +16,7 @@ import {
 import { mergeConfigs } from "./merge";
 import { getProjectId } from "./project";
 import { deleteValueAtPath, getValueAtPath, setValueAtPath } from "./utils";
+import { validateConfig } from "./validate";
 import {
   resetGeneratedValue,
   saveGeneratedConfig,
@@ -92,6 +93,13 @@ export async function loadConfig(
   } as ProjectSettings & Pick<GeneratedSettingsSchema, "_yaml_hashes">;
 
   return applyGeneratedOverrides(withProject, projectYaml, projectGenerated);
+}
+
+export async function loadConfigResult(
+  projectRoot = getProjectRoot()
+): Promise<ReturnType<typeof validateConfig>> {
+  const config = await loadConfig(projectRoot);
+  return validateConfig(config);
 }
 
 export async function ensureConfigFiles(
