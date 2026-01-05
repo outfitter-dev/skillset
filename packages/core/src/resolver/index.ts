@@ -168,7 +168,9 @@ async function resolveSetCandidates(
       invocation,
       set,
       setSkills,
-      missingSkillRefs: missingSkillRefs.length ? missingSkillRefs : undefined,
+      ...(missingSkillRefs.length > 0
+        ? { missingSkillRefs }
+        : {}),
     };
   }
 
