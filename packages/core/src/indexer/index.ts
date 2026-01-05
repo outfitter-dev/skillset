@@ -149,19 +149,23 @@ async function appendStructureEntries(
   }
 }
 
-function buildSources(projectRoot: string, tools: Tool[]): SkillSourceRoot[] {
-  const sources: SkillSourceRoot[] = [];
-  for (const tool of tools) {
-    const projectRootPath = SKILL_PATHS[tool].project(projectRoot);
-    const userRootPath = SKILL_PATHS[tool].user();
-    sources.push({ root: projectRootPath, scope: "project", tool });
-    sources.push({ root: userRootPath, scope: "user", tool });
-  }
-  sources.push({
-    root: join(homedir(), ".claude", "plugins"),
-    scope: "plugin",
-  });
-  return sources;
+function buildToolSources(
+  projectRoot: string,
+  tools: Tool[],
+  scope: "project" | "user"
+): SkillSourceRoot[] {
+  return tools.map((tool) => ({
+    root:
+      scope === "project"
+        ? SKILL_PATHS[tool].project(projectRoot)
+        : SKILL_PATHS[tool].user(),
+    scope,
+    tool,
+  }));
+}
+
+function buildPluginSource(): SkillSourceRoot {
+  return { root: join(homedir(), ".claude", "plugins"), scope: "plugin" };
 }
 
 export async function indexSkills(
@@ -170,13 +174,20 @@ export async function indexSkills(
   const projectRoot = options.projectRoot ?? getProjectRoot();
   const config = options.config ?? (await loadConfig(projectRoot));
   const toolOverride = options.tools ?? config.tools;
-  const tools =
-    toolOverride && toolOverride.length > 0
-      ? toolOverride
-      : (Object.keys(SKILL_PATHS) as Tool[]);
+  const allTools = Object.keys(SKILL_PATHS) as Tool[];
+  const projectTools =
+    toolOverride && toolOverride.length > 0 ? toolOverride : allTools;
+  const userTools = options.tools ? projectTools : allTools;
 
   const skills: Record<string, Skill> = {};
-  const sources = buildSources(projectRoot, tools);
+  const projectSkills: Record<string, Skill> = {};
+  const userSkills: Record<string, Skill> = {};
+  const pluginSkills: Record<string, Skill> = {};
+  const sources = [
+    ...buildToolSources(projectRoot, projectTools, "project"),
+    ...buildToolSources(projectRoot, userTools, "user"),
+    buildPluginSource(),
+  ];
   const filesNested = await Promise.all(
     sources.map((src) => walkForSkillFiles(src.root))
   );
@@ -188,10 +199,18 @@ export async function indexSkills(
       continue;
     }
     const meta = await readSkillMetadata(file, source);
-    skills[meta.skillRef] = {
+    const skill = {
       ...meta,
       structure: await generateStructure(file),
     };
+    skills[meta.skillRef] = skill;
+    if (source.scope === "project") {
+      projectSkills[meta.skillRef] = skill;
+    } else if (source.scope === "user") {
+      userSkills[meta.skillRef] = skill;
+    } else {
+      pluginSkills[meta.skillRef] = skill;
+    }
   }
 
   const cache: CacheSchema = {
@@ -200,6 +219,16 @@ export async function indexSkills(
     skills,
   };
 
-  await updateCache("project", () => cache);
+  const projectCache: CacheSchema = {
+    ...cache,
+    skills: projectSkills,
+  };
+  const userCache: CacheSchema = {
+    ...cache,
+    skills: { ...userSkills, ...pluginSkills },
+  };
+
+  await updateCache("project", () => projectCache);
+  await updateCache("user", () => userCache);
   return cache;
 }
