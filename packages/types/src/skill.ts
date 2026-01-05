@@ -38,6 +38,8 @@ export interface ResolveResult {
   skill?: Skill;
   set?: SkillSet;
   setSkills?: Skill[];
+  include_full?: boolean;
+  include_layout?: boolean;
   missingSkillRefs?: string[];
   reason?: string;
   candidates?: Skill[];
