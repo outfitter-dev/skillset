@@ -82,16 +82,20 @@ async function buildStats(options: GlobalOptions): Promise<StatsReport> {
   const scopes = countScopes(visibleSkills.map((skill) => skill.skillRef));
   const tools = countTools(visibleSkills.map((skill) => skill.path));
 
+  const configSummary: StatsReport["config"] = {
+    skills: Object.keys(config.skills).length,
+    sets: Object.keys(config.sets ?? {}).length,
+  };
+  if (config.tools && config.tools.length > 0) {
+    configSummary.tools = config.tools;
+  }
+
   const report: StatsReport = {
     totalIndexed: allSkills.length,
     totalVisible: visibleSkills.length,
     scopes,
     tools,
-    config: {
-      skills: Object.keys(config.skills).length,
-      sets: Object.keys(config.sets ?? {}).length,
-      tools: config.tools,
-    },
+    config: configSummary,
     ...(options.source && options.source.length > 0
       ? { filters: options.source }
       : {}),

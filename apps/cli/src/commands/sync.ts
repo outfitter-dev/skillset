@@ -43,10 +43,13 @@ function parseTargets(target?: string): Array<keyof typeof SKILL_PATHS> | null {
 
 async function syncSkills(options: SyncOptions): Promise<void> {
   const targets = parseTargets(options.target);
-  const cache = await indexSkills({
-    tools: targets ?? undefined,
+  const indexOptions: Parameters<typeof indexSkills>[0] = {
     writeCache: !options.dryRun,
-  });
+  };
+  if (targets) {
+    indexOptions.tools = targets;
+  }
+  const cache = await indexSkills(indexOptions);
   const count = Object.keys(cache.skills).length;
   const targetLabel = targets ? ` (${targets.join(", ")})` : "";
   console.log(chalk.green(`Synced ${count} skills${targetLabel}`));

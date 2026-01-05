@@ -23,8 +23,14 @@ function writeSkill(root: string, name: string, body: string): void {
 
 function buildEnv(root: string, projectRoot: string): Record<string, string> {
   const xdgRoot = join(root, "xdg");
+  const baseEnv: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (typeof value === "string") {
+      baseEnv[key] = value;
+    }
+  }
   return {
-    ...process.env,
+    ...baseEnv,
     HOME: join(root, "home"),
     XDG_CONFIG_HOME: join(xdgRoot, "config"),
     XDG_CACHE_HOME: join(xdgRoot, "cache"),
