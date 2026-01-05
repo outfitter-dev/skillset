@@ -2,6 +2,8 @@
  * Configuration types
  */
 
+import type { Skill, SkillSet } from "./skill";
+
 /**
  * Supported tools for compatibility filtering
  */
@@ -144,6 +146,3 @@ export interface CacheSchema {
   skills: Record<string, Skill>;
   sets?: Record<string, SkillSet>;
 }
-
-// Import Skill and SkillSet types for CacheSchema
-import type { Skill, SkillSet } from "./skill";
