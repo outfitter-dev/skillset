@@ -17,6 +17,7 @@ import { registerConfigCommand } from "./commands/config";
 import { registerLoadCommand } from "./commands/load";
 import { registerSetCommand } from "./commands/set";
 import { registerSkillsCommand } from "./commands/skills";
+import { registerStatsCommand } from "./commands/stats";
 import { registerSyncCommand } from "./commands/sync";
 import { registerUnaliasCommand } from "./commands/unalias";
 import {
@@ -52,6 +53,7 @@ export async function buildCli(): Promise<void> {
   registerSetCommand(program);
   registerSyncCommand(program);
   registerSkillsCommand(program);
+  registerStatsCommand(program);
   registerAliasCommand(program);
   registerUnaliasCommand(program);
   registerCompletionsCommand(program);
