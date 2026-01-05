@@ -22,6 +22,8 @@ dist
 .claude/*/config.local.json
 .claude/*/logs/
 .archive/
+.claude/cache/
+.scratch/
 
 # Monorepo workspace dist directories
 packages/*/dist
