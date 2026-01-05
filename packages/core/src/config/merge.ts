@@ -29,10 +29,10 @@ export function mergeConfigs(
     // Shallow merge objects
     rules: { ...base.rules, ...(overlayRules ?? {}) },
     output: { ...base.output, ...(overlayOutput ?? {}) },
-    resolution: mergedResolution,
 
     // Maps: key-level merge
     skills: { ...base.skills, ...(overlaySkills ?? {}) },
+    ...(mergedResolution ? { resolution: mergedResolution } : {}),
   };
 
   if (overlay.ignore_scopes !== undefined) {

@@ -4,11 +4,13 @@ import type {
   ProjectSettings,
 } from "@skillset/types";
 import { YAML } from "bun";
+import { z } from "zod";
 import type { ZodIssue } from "zod";
 import { hashValue } from "./hash";
 import {
   ConfigSchema as ConfigZodSchema,
   GeneratedSettingsSchema as GeneratedSettingsZodSchema,
+  ProjectSettingsSchema,
 } from "./schema";
 import {
   deleteValueAtPath,
@@ -22,8 +24,15 @@ const DEFAULT_GENERATED: GeneratedSettingsSchema = {
   projects: {},
 };
 
-const CONFIG_PARTIAL_SCHEMA = ConfigZodSchema.deepPartial();
-const GENERATED_PARTIAL_SCHEMA = GeneratedSettingsZodSchema.deepPartial();
+const CONFIG_PARTIAL_SCHEMA = ConfigZodSchema.extend({
+  rules: ConfigZodSchema.shape.rules.partial(),
+  output: ConfigZodSchema.shape.output.partial(),
+}).partial();
+
+const PROJECT_SETTINGS_PARTIAL_SCHEMA = ProjectSettingsSchema.partial();
+const GENERATED_PARTIAL_SCHEMA = GeneratedSettingsZodSchema.extend({
+  projects: z.record(z.string(), PROJECT_SETTINGS_PARTIAL_SCHEMA),
+}).partial();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
