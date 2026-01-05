@@ -4,12 +4,13 @@ import type {
   ConfigSchema,
   InvocationToken,
   Skill,
+  SkillRef,
 } from "@skillset/types";
 import { resolveToken, resolveTokens } from "./index";
 
 function createSkill(ref: string, name: string): Skill {
   return {
-    skillRef: ref,
+    skillRef: ref as SkillRef,
     path: `/tmp/${name}/SKILL.md`,
     name,
     description: undefined,

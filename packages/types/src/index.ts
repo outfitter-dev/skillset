@@ -39,6 +39,9 @@ export type {
   ResolveResult,
   Skill,
   SkillRef,
+  SkillRefPrefix,
   SkillSet,
   SkillSource,
 } from "./skill";
+
+export { isSkillRef } from "./skill";
