@@ -4,6 +4,7 @@
 
 import chalk from "chalk";
 import type { Command } from "commander";
+import { CLIError } from "../errors";
 
 type ShellType = "bash" | "zsh" | "fish" | "powershell";
 
@@ -201,7 +202,7 @@ function generateCompletions(shell: ShellType): void {
       console.error(
         chalk.yellow("Supported shells: bash, zsh, fish, powershell")
       );
-      process.exit(1);
+      throw new CLIError(`Unknown shell: ${shell}`, { alreadyLogged: true });
   }
 
   console.log(output);
@@ -221,7 +222,7 @@ export function registerCompletionsCommand(program: Command): void {
         console.error(
           chalk.yellow("Supported shells: bash, zsh, fish, powershell")
         );
-        process.exit(1);
+        throw new CLIError(`Unknown shell: ${shell}`, { alreadyLogged: true });
       }
       generateCompletions(shell as ShellType);
     });

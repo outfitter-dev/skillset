@@ -10,7 +10,7 @@ async function main() {
     console.log(out);
     return;
   }
-  buildCli();
+  await buildCli();
 }
 
 main();

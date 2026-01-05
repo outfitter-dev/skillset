@@ -11,6 +11,7 @@ import {
 import chalk from "chalk";
 import type { Command } from "commander";
 import inquirer from "inquirer";
+import { CLIError } from "../errors";
 import type { ConfigScope } from "../types";
 import { isTTY } from "../utils/tty";
 
@@ -26,10 +27,7 @@ function validateScope(scope: string | undefined): ConfigScope {
   if (scope === "user") {
     return "user";
   }
-  console.error(
-    chalk.red(`Invalid scope "${scope}". Must be: project or user`)
-  );
-  process.exit(1);
+  throw new CLIError(`Invalid scope "${scope}". Must be: project or user`);
 }
 
 async function listAliases(): Promise<void> {
@@ -74,8 +72,7 @@ async function selectSkill(): Promise<string> {
   const skills = Object.values(cache.skills);
 
   if (skills.length === 0) {
-    console.log(chalk.yellow("No skills indexed. Run 'skillset index' first."));
-    process.exit(1);
+    throw new CLIError("No skills indexed. Run 'skillset index' first.");
   }
 
   const answer = await inquirer.prompt([
@@ -170,7 +167,7 @@ async function handleAlias(
     console.error(chalk.red("Missing argument: <skillRef>"));
     console.error(chalk.yellow("Usage: skillset alias <name> <skillRef>"));
     console.error(chalk.dim("Or run in a TTY for interactive mode"));
-    process.exit(1);
+    throw new CLIError("Missing argument: <skillRef>", { alreadyLogged: true });
   }
 
   await addAlias(name, skillRef, scope, options.force ?? false);

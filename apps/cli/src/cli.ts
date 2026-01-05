@@ -9,7 +9,7 @@ import {
   writeYamlConfig,
 } from "@skillset/core";
 import chalk from "chalk";
-import { Command } from "commander";
+import { Command, CommanderError } from "commander";
 import ora from "ora";
 import { registerAliasCommand } from "./commands/alias";
 import { registerCompletionsCommand } from "./commands/completions";
@@ -24,10 +24,12 @@ import {
   runFullDiagnostic,
   runSkillDiagnostic,
 } from "./doctor";
+import { CLIError, isCLIError } from "./errors";
 import type { ConfigScope } from "./types";
 
-export function buildCli() {
+export async function buildCli(): Promise<void> {
   const program = new Command();
+  program.exitOverride();
 
   program
     .name("skillset")
@@ -97,7 +99,11 @@ export function buildCli() {
       }
     });
 
-  program.parse(process.argv);
+  try {
+    await program.parseAsync(process.argv);
+  } catch (err) {
+    handleCliError(err);
+  }
 }
 
 /**
@@ -124,12 +130,9 @@ function parseInitScopes(scopeArg: string): ConfigScope[] {
   const validatedScope = scopeArg.toLowerCase();
   const allowed = ["both", "project", "user"] as const;
   if (!allowed.includes(validatedScope as (typeof allowed)[number])) {
-    console.error(
-      chalk.red(
-        `Invalid scope: ${scopeArg}. Must be 'project', 'user', or 'both'`
-      )
+    throw new CLIError(
+      `Invalid scope: ${scopeArg}. Must be 'project', 'user', or 'both'`
     );
-    process.exit(1);
   }
 
   if (validatedScope === "both") {
@@ -181,4 +184,25 @@ function logInitSummary(created: number, skipped: number): void {
   if (skipped > 0 && created === 0) {
     console.log(chalk.yellow("\nNo configs created (all already exist)"));
   }
+}
+
+function handleCliError(error: unknown): never {
+  if (isCLIError(error)) {
+    if (!error.alreadyLogged && error.message) {
+      console.error(chalk.red(error.message));
+    }
+    process.exit(error.exitCode);
+  }
+
+  if (error instanceof CommanderError) {
+    if (error.exitCode === 0) {
+      process.exit(0);
+    }
+    console.error(chalk.red(error.message));
+    process.exit(error.exitCode);
+  }
+
+  console.error(chalk.red("Unexpected error"));
+  console.error(error);
+  process.exit(1);
 }

@@ -17,6 +17,7 @@ import {
 import { getProjectRoot } from "@skillset/shared";
 import chalk from "chalk";
 import type { Command } from "commander";
+import { CLIError } from "../errors";
 import type { ConfigScope } from "../types";
 
 interface ConfigOptions {
@@ -30,10 +31,7 @@ function validateScope(scope: string | undefined): ConfigScope {
   if (scope === "user") {
     return "user";
   }
-  console.error(
-    chalk.red(`Invalid scope "${scope}". Must be: project or user`)
-  );
-  process.exit(1);
+  throw new CLIError(`Invalid scope "${scope}". Must be: project or user`);
 }
 
 function parseValue(valueStr: string): unknown {
@@ -54,8 +52,7 @@ async function getConfigCommand(key: string): Promise<void> {
   const value = getConfigValue(config, key);
 
   if (value === undefined) {
-    console.error(chalk.red(`Config key not found: ${key}`));
-    process.exit(1);
+    throw new CLIError(`Config key not found: ${key}`);
   }
 
   if (typeof value === "object") {
