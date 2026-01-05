@@ -10,6 +10,7 @@ import {
   loadConfig,
   resolveToken,
   type Skill,
+  type SkillRef,
   stripFrontmatter,
 } from "@skillset/core";
 import { getSkillsetEnv, logUsage } from "@skillset/shared";
@@ -263,7 +264,7 @@ async function resolvePathToSkill(path: string): Promise<Skill | undefined> {
     const description = extractSkillDescription(content);
 
     return {
-      skillRef: `path:${skillPath}`,
+      skillRef: `path:${skillPath}` as SkillRef,
       path: skillPath,
       name,
       description,
