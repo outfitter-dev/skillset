@@ -20,6 +20,7 @@ interface ScanOptions {
   projectRoot?: string;
   tools?: Tool[];
   config?: ConfigSchema;
+  writeCache?: boolean;
 }
 
 interface SkillSourceRoot {
@@ -225,16 +226,19 @@ export async function indexSkills(
     skills,
   };
 
-  const projectCache: CacheSchema = {
-    ...cache,
-    skills: projectSkills,
-  };
-  const userCache: CacheSchema = {
-    ...cache,
-    skills: { ...userSkills, ...pluginSkills },
-  };
+  const shouldWrite = options.writeCache ?? true;
+  if (shouldWrite) {
+    const projectCache: CacheSchema = {
+      ...cache,
+      skills: projectSkills,
+    };
+    const userCache: CacheSchema = {
+      ...cache,
+      skills: { ...userSkills, ...pluginSkills },
+    };
 
-  await updateCache("project", () => projectCache);
-  await updateCache("user", () => userCache);
+    await updateCache("project", () => projectCache);
+    await updateCache("user", () => userCache);
+  }
   return cache;
 }
