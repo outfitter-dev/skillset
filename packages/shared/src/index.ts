@@ -20,6 +20,7 @@ export {
   getProjectRoot,
   getSkillPaths,
   getSkillsetPaths,
+  inferToolFromPath,
   SKILL_PATHS,
   type ToolName,
 } from "./paths";

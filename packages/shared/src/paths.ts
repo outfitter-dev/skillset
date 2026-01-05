@@ -3,7 +3,8 @@
  */
 
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join, resolve, sep } from "node:path";
+import type { Tool } from "@skillset/types";
 
 /**
  * Get XDG config directory for skillset
@@ -91,6 +92,34 @@ export const SKILL_PATHS = {
 } as const;
 
 export type ToolName = keyof typeof SKILL_PATHS;
+
+function isWithinPath(path: string, root: string): boolean {
+  return path === root || path.startsWith(`${root}${sep}`);
+}
+
+/**
+ * Infer the tool based on a skill path.
+ */
+export function inferToolFromPath(
+  path: string,
+  projectRoot?: string
+): Tool | undefined {
+  const root = projectRoot ?? getProjectRoot();
+  const resolvedPath = isAbsolute(path) ? path : resolve(root, path);
+
+  for (const [tool, paths] of Object.entries(SKILL_PATHS)) {
+    const projectPath = resolve(paths.project(root));
+    if (isWithinPath(resolvedPath, projectPath)) {
+      return tool as Tool;
+    }
+    const userPath = resolve(paths.user());
+    if (isWithinPath(resolvedPath, userPath)) {
+      return tool as Tool;
+    }
+  }
+
+  return undefined;
+}
 
 /**
  * Get all skill paths for a given scope
