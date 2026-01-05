@@ -6,8 +6,8 @@ import {
   CONFIG_PATHS,
   loadCaches,
   loadConfig,
+  loadConfigResult,
   resolveToken,
-  validateConfig,
 } from "@skillset/core";
 import { getSkillsetPaths } from "@skillset/shared";
 import chalk from "chalk";
@@ -225,7 +225,7 @@ async function printConfigValidation(): Promise<void> {
     console.log(JSON.stringify(config, null, 2));
     console.log(chalk.bold("\nValidation:"));
 
-    const result = validateConfig(config);
+    const result = await loadConfigResult();
     if (result.ok) {
       console.log(`${chalk.green("✓")} Config schema is valid`);
       return;
