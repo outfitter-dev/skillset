@@ -1,5 +1,4 @@
 import { mkdir, rename } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { GeneratedSettingsSchema, ProjectSettings } from "@skillset/types";
 import { lock } from "proper-lockfile";
@@ -30,23 +29,59 @@ async function acquireLock(filePath: string) {
   }
 }
 
+async function cleanupTempFile(path: string): Promise<void> {
+  try {
+    await Bun.file(path).delete();
+  } catch {
+    // ignore cleanup failures; original error is more actionable
+  }
+}
+
+async function handleAtomicWriteError(
+  filePath: string,
+  tempPath: string,
+  payload: string,
+  error: NodeJS.ErrnoException
+): Promise<boolean> {
+  if (error.code === "EXDEV") {
+    await Bun.write(filePath, payload);
+    await cleanupTempFile(tempPath);
+    return true;
+  }
+  if (error.code === "EEXIST" || error.code === "EPERM") {
+    try {
+      await Bun.write(filePath, payload);
+    } finally {
+      await cleanupTempFile(tempPath);
+    }
+    return true;
+  }
+  await cleanupTempFile(tempPath);
+  return false;
+}
+
 async function atomicWriteJson(filePath: string, data: unknown): Promise<void> {
   await ensureDir(filePath);
   const lockRelease = await acquireLock(filePath);
 
   const tempPath = join(
-    tmpdir(),
-    `skillset-${Date.now()}-${Math.random().toString(36).slice(2)}.json`
+    dirname(filePath),
+    `.skillset-${Date.now()}-${Math.random().toString(36).slice(2)}.tmp`
   );
+  const payload = JSON.stringify(data, null, 2);
 
   try {
-    await Bun.write(tempPath, JSON.stringify(data, null, 2));
+    await Bun.write(tempPath, payload);
     await rename(tempPath, filePath);
   } catch (err) {
-    try {
-      await Bun.file(tempPath).delete();
-    } catch {
-      // ignore cleanup failures; original error is more actionable
+    const handled = await handleAtomicWriteError(
+      filePath,
+      tempPath,
+      payload,
+      err as NodeJS.ErrnoException
+    );
+    if (handled) {
+      return;
     }
     throw err;
   } finally {
