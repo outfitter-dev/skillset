@@ -58,6 +58,31 @@ function buildSetIndex(
   return sets;
 }
 
+interface ResolveContext {
+  config: ConfigSchema;
+  cache: CacheSchema;
+  skills: Skill[];
+  sets: SkillSet[];
+  projectRoot: string;
+}
+
+function buildResolveContext(
+  config: ConfigSchema,
+  cache: CacheSchema,
+  projectRoot: string
+): ResolveContext {
+  const skills = filterSkillsByConfig(cache.skills, config);
+  const setsIndex = buildSetIndex(cache, config);
+  const sets = filterSetsByConfig(setsIndex, config);
+  return {
+    config,
+    cache,
+    skills,
+    sets,
+    projectRoot,
+  };
+}
+
 /**
  * Resolves an alias to a skill, checking cache, config mapping, and fuzzy matching.
  *
@@ -305,57 +330,9 @@ export async function resolveToken(
 ): Promise<ResolveResult> {
   const cfg = config ?? (await loadConfig());
   const c = cache ?? (await loadCaches());
-  const projectRoot = getProjectRoot();
-  const skills = filterSkillsByConfig(c.skills, cfg);
-  const setsIndex = buildSetIndex(c, cfg);
-  const filteredSets = filterSetsByConfig(setsIndex, cfg);
+  const context = buildResolveContext(cfg, c, getProjectRoot());
 
-  const normalizedAlias = normalizeTokenRef(token.alias);
-  if (!normalizedAlias) {
-    return { invocation: token, reason: "unmatched" };
-  }
-
-  const namespace = resolveNamespace(token.namespace);
-
-  // 1) explicit mapping via config.skills
-  const mappingResult = await resolveFromConfigMapping(
-    token,
-    normalizedAlias,
-    cfg,
-    c,
-    skills,
-    projectRoot
-  );
-  if (mappingResult) {
-    return mappingResult;
-  }
-
-  // 2) If kind is explicitly specified, only search that type
-  const kindResult = await resolveTokenByKind(
-    token,
-    normalizedAlias,
-    namespace,
-    skills,
-    filteredSets,
-    cfg,
-    c,
-    projectRoot
-  );
-  if (kindResult) {
-    return kindResult;
-  }
-
-  // 3) No kind specified - search both skills and sets
-  return await resolveTokenBySearch(
-    token,
-    normalizedAlias,
-    namespace,
-    skills,
-    filteredSets,
-    cfg,
-    c,
-    projectRoot
-  );
+  return await resolveTokenWithContext(token, context);
 }
 
 /**
@@ -373,9 +350,62 @@ export async function resolveTokens(
 ): Promise<ResolveResult[]> {
   const cfg = config ?? (await loadConfig());
   const c = cache ?? (await loadCaches());
+  const context = buildResolveContext(cfg, c, getProjectRoot());
   const results: ResolveResult[] = [];
   for (const token of tokens) {
-    results.push(await resolveToken(token, cfg, c));
+    results.push(await resolveTokenWithContext(token, context));
   }
   return results;
+}
+
+async function resolveTokenWithContext(
+  token: InvocationToken,
+  context: ResolveContext
+): Promise<ResolveResult> {
+  const normalizedAlias = normalizeTokenRef(token.alias);
+  if (!normalizedAlias) {
+    return { invocation: token, reason: "unmatched" };
+  }
+
+  const namespace = resolveNamespace(token.namespace);
+
+  // 1) explicit mapping via config.skills
+  const mappingResult = await resolveFromConfigMapping(
+    token,
+    normalizedAlias,
+    context.config,
+    context.cache,
+    context.skills,
+    context.projectRoot
+  );
+  if (mappingResult) {
+    return mappingResult;
+  }
+
+  // 2) If kind is explicitly specified, only search that type
+  const kindResult = await resolveTokenByKind(
+    token,
+    normalizedAlias,
+    namespace,
+    context.skills,
+    context.sets,
+    context.config,
+    context.cache,
+    context.projectRoot
+  );
+  if (kindResult) {
+    return kindResult;
+  }
+
+  // 3) No kind specified - search both skills and sets
+  return await resolveTokenBySearch(
+    token,
+    normalizedAlias,
+    namespace,
+    context.skills,
+    context.sets,
+    context.config,
+    context.cache,
+    context.projectRoot
+  );
 }
