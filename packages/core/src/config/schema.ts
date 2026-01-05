@@ -30,9 +30,8 @@ export const ProjectIdStrategySchema = z.enum(["path", "remote"]);
 /**
  * Skill entry - string shorthand or object with overrides
  */
-export const SkillEntrySchema = z.union([
-  z.string(),
-  z.object({
+const SkillEntryObjectSchema = z
+  .object({
     /** Skill name (mutually exclusive with path) */
     skill: z.string().optional(),
     /** Explicit file path (mutually exclusive with skill) */
@@ -43,8 +42,12 @@ export const SkillEntrySchema = z.union([
     include_full: z.boolean().optional(),
     /** Override output.include_layout for this skill */
     include_layout: z.boolean().optional(),
-  }),
-]);
+  })
+  .refine((entry) => !(entry.skill && entry.path), {
+    message: "skill and path are mutually exclusive",
+  });
+
+export const SkillEntrySchema = z.union([z.string(), SkillEntryObjectSchema]);
 
 /**
  * Set definition
