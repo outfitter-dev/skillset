@@ -6,7 +6,7 @@ import { loadCaches, loadConfig } from "@skillset/core";
 import { inferToolFromPath } from "@skillset/shared";
 import chalk from "chalk";
 import type { Command } from "commander";
-import type { GlobalOptions, OutputFormat } from "../types";
+import type { GlobalOptions } from "../types";
 import { determineFormat } from "../utils/format";
 
 type CountMap = Record<string, number>;
