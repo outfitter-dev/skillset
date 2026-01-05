@@ -3,7 +3,6 @@
  */
 
 // Environment
-// biome-ignore lint/performance/noBarrelFile: public entrypoint re-exports
 export {
   getEnv,
   getEnvBool,
