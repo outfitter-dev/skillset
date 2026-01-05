@@ -28,9 +28,7 @@ function parseTargets(target?: string): Array<keyof typeof SKILL_PATHS> | null {
     .split(",")
     .map((entry) => entry.trim())
     .filter(Boolean);
-  const invalid = requested.filter(
-    (entry) => !VALID_TARGETS.includes(entry)
-  );
+  const invalid = requested.filter((entry) => !VALID_TARGETS.includes(entry));
   if (invalid.length > 0) {
     console.error(chalk.red(`Unknown target(s): ${invalid.join(", ")}`));
     console.error(
