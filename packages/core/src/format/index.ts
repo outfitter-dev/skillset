@@ -40,13 +40,19 @@ function findSkillEntry(
   return undefined;
 }
 
-function resolveOutputOptions(config: ConfigSchema, entry?: SkillEntry) {
+function resolveOutputOptions(
+  config: ConfigSchema,
+  result?: ResolveResult,
+  entry?: SkillEntry
+) {
   const includeLayout =
-    typeof entry === "object" && entry !== null && "include_layout" in entry
+    result?.include_layout ??
+    (typeof entry === "object" && entry !== null && "include_layout" in entry
       ? (entry.include_layout ?? config.output.include_layout)
-      : config.output.include_layout;
+      : config.output.include_layout);
   const includeFull =
-    typeof entry === "object" && entry !== null && entry.include_full === true;
+    result?.include_full ??
+    (typeof entry === "object" && entry !== null && entry.include_full === true);
   const maxLines = includeFull
     ? Number.POSITIVE_INFINITY
     : config.output.max_lines;
@@ -58,9 +64,14 @@ async function formatSkillBlock(
   config: ConfigSchema,
   heading: string,
   label: string,
+  result?: ResolveResult,
   entry?: SkillEntry
 ): Promise<string> {
-  const { includeLayout, maxLines } = resolveOutputOptions(config, entry);
+  const { includeLayout, maxLines } = resolveOutputOptions(
+    config,
+    result,
+    entry
+  );
   const lines: string[] = [];
   lines.push(heading);
   lines.push("");
@@ -102,6 +113,7 @@ async function formatSkill(
     config,
     `### ${result.invocation.raw}`,
     result.invocation.alias,
+    result,
     entry
   );
 }
@@ -197,6 +209,7 @@ async function formatSetSkillBlocks(
         config,
         `#### ${entry.skill.skillRef}`,
         entry.skill.skillRef,
+        undefined,
         entryConfig
       )
     );
