@@ -27,20 +27,27 @@ export type ProjectIdStrategy = "path" | "remote";
 /**
  * Skill entry - string shorthand or object with overrides
  */
+export interface SkillEntryObject {
+  /** Skill name (mutually exclusive with path) */
+  skill?: string;
+  /** Explicit file path (mutually exclusive with skill) */
+  path?: string;
+  /** Resolution scope or priority order */
+  scope?: Scope | Scope[];
+  /** Ignore max_lines, include entire file */
+  include_full?: boolean;
+  /** Override output.include_layout for this skill */
+  include_layout?: boolean;
+}
+
 export type SkillEntry =
   | string
-  | {
-      /** Skill name (mutually exclusive with path) */
-      skill?: string;
-      /** Explicit file path (mutually exclusive with skill) */
-      path?: string;
-      /** Resolution scope or priority order */
-      scope?: Scope | Scope[];
-      /** Ignore max_lines, include entire file */
-      include_full?: boolean;
-      /** Override output.include_layout for this skill */
-      include_layout?: boolean;
-    };
+  | (SkillEntryObject &
+      (
+        | { skill: string; path?: never }
+        | { path: string; skill?: never }
+        | { skill?: undefined; path?: undefined }
+      ));
 
 /**
  * Set of skills that can be invoked together
