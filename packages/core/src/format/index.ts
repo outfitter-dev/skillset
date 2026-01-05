@@ -52,7 +52,9 @@ function resolveOutputOptions(
       : config.output.include_layout);
   const includeFull =
     result?.include_full ??
-    (typeof entry === "object" && entry !== null && entry.include_full === true);
+    (typeof entry === "object" &&
+      entry !== null &&
+      entry.include_full === true);
   const maxLines = includeFull
     ? Number.POSITIVE_INFINITY
     : config.output.max_lines;
