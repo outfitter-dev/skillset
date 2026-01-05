@@ -34,4 +34,32 @@ describe("config merge", () => {
     expect(merged.sets?.dev.skills).toEqual(["debug"]);
     expect(merged.ignore_scopes).toEqual(["user"]);
   });
+
+  test("guards invalid overlay sections", () => {
+    const base: ConfigSchema = {
+      version: 1,
+      rules: { unresolved: "warn", ambiguous: "warn" },
+      output: { max_lines: 500, include_layout: false },
+      resolution: {
+        fuzzy_matching: true,
+        default_scope_priority: ["project", "user", "plugin"],
+      },
+      skills: { api: "api" },
+      sets: {},
+    };
+
+    const overlay = {
+      rules: null,
+      output: "oops",
+      resolution: 123,
+      skills: ["not", "a", "map"],
+    } as unknown as Partial<ConfigSchema>;
+
+    const merged = mergeConfigs(base, overlay);
+
+    expect(merged.rules).toEqual(base.rules);
+    expect(merged.output).toEqual(base.output);
+    expect(merged.resolution).toEqual(base.resolution);
+    expect(merged.skills).toEqual(base.skills);
+  });
 });
