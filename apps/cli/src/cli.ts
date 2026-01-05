@@ -14,10 +14,8 @@ import ora from "ora";
 import { registerAliasCommand } from "./commands/alias";
 import { registerCompletionsCommand } from "./commands/completions";
 import { registerConfigCommand } from "./commands/config";
-import { registerListCommand } from "./commands/list";
 import { registerLoadCommand } from "./commands/load";
 import { registerSetCommand } from "./commands/set";
-import { registerShowCommand } from "./commands/show";
 import { registerSkillsCommand } from "./commands/skills";
 import { registerSyncCommand } from "./commands/sync";
 import { registerUnaliasCommand } from "./commands/unalias";
@@ -48,8 +46,6 @@ export function buildCli() {
     .option("--kind <type>", "Disambiguate skill vs set (skill|set)");
 
   // Register commands
-  registerListCommand(program);
-  registerShowCommand(program);
   registerLoadCommand(program);
   registerSetCommand(program);
   registerSyncCommand(program);

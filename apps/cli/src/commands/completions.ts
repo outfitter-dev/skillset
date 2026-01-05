@@ -17,10 +17,7 @@ _skillset_completions() {
   local cmd=\${COMP_WORDS[1]}
 
   if [[ $COMP_CWORD == 1 ]]; then
-    COMPREPLY=($(compgen -W "list show load set skills sync alias unalias config doctor index init completions" -- $cur))
-  elif [[ $cmd == "show" || $cmd == "load" ]]; then
-    # Complete with skill names from cache
-    COMPREPLY=($(compgen -W "$(skillset list --raw --skills 2>/dev/null)" -- $cur))
+    COMPREPLY=($(compgen -W "load set skills sync alias unalias config doctor index init completions" -- $cur))
   elif [[ $cmd == "set" ]]; then
     COMPREPLY=($(compgen -W "list show load" -- $cur))
   elif [[ $cmd == "completions" ]]; then
@@ -44,8 +41,6 @@ function generateZshCompletions(): string {
 _skillset() {
   local -a commands
   commands=(
-    'list:List all skills and sets'
-    'show:Show skill metadata'
     'load:Load and output skill content'
     'set:Manage skill sets (groups of skills)'
     'skills:Manage skill mappings'
@@ -63,9 +58,6 @@ _skillset() {
     _describe 'command' commands
   else
     case "\${words[2]}" in
-      show|load)
-        _values 'skills' $(skillset list --raw --skills 2>/dev/null)
-        ;;
       set)
         _values 'subcommand' list show load
         ;;
@@ -93,8 +85,6 @@ function generateFishCompletions(): string {
   return `# skillset fish completion
 
 # Main commands
-complete -c skillset -f -n "__fish_use_subcommand" -a "list" -d "List all skills and sets"
-complete -c skillset -f -n "__fish_use_subcommand" -a "show" -d "Show skill metadata"
 complete -c skillset -f -n "__fish_use_subcommand" -a "load" -d "Load and output skill content"
 complete -c skillset -f -n "__fish_use_subcommand" -a "set" -d "Manage skill sets (groups of skills)"
 complete -c skillset -f -n "__fish_use_subcommand" -a "skills" -d "Manage skill mappings"
@@ -139,8 +129,6 @@ Register-ArgumentCompleter -Native -CommandName skillset -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
 
     $commands = @(
-        'list',
-        'show',
         'load',
         'set',
         'skills',
