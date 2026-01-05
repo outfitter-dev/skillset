@@ -1,6 +1,6 @@
+import { inferToolFromPath } from "@skillset/shared";
 import type { ConfigSchema, Scope, Skill, SkillSet } from "@skillset/types";
 import { normalizeTokenSegment } from "../normalize";
-import { inferToolFromPath } from "./file-resolver";
 
 /**
  * Namespace shortcuts for common scope aliases.
