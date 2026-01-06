@@ -8,6 +8,7 @@ import chalk from "chalk";
 import type { Command } from "commander";
 import type { GlobalOptions } from "../types";
 import { determineFormat } from "../utils/format";
+import { addFilterOptions, addOutputOptions } from "../utils/options";
 
 type CountMap = Record<string, number>;
 
@@ -180,10 +181,12 @@ async function statsCommand(options: GlobalOptions): Promise<void> {
  * Register the stats command
  */
 export function registerStatsCommand(program: Command): void {
-  program
-    .command("stats")
-    .description("Show skillset statistics")
-    .action(async (options: GlobalOptions) => {
+  const cmd = program.command("stats").description("Show skillset statistics");
+
+  addFilterOptions(addOutputOptions(cmd)).action(
+    async (_localOpts, command: Command) => {
+      const options = command.optsWithGlobals() as GlobalOptions;
       await statsCommand(options);
-    });
+    }
+  );
 }

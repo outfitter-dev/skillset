@@ -8,6 +8,7 @@ import chalk from "chalk";
 import type { Command } from "commander";
 import { CLIError } from "../errors";
 import type { GlobalOptions } from "../types";
+import { addOutputOptions } from "../utils/options";
 
 interface SyncOptions extends GlobalOptions {
   target?: string;
@@ -62,12 +63,14 @@ async function syncSkills(options: SyncOptions): Promise<void> {
  * Register the sync command
  */
 export function registerSyncCommand(program: Command): void {
-  program
+  const cmd = program
     .command("sync")
     .description("Sync skills to configured targets")
     .option("--target <name>", "Sync to specific target (claude, codex, etc.)")
-    .option("--dry-run", "Show what would be synced without making changes")
-    .action(async (options: SyncOptions) => {
-      await syncSkills(options);
-    });
+    .option("--dry-run", "Show what would be synced without making changes");
+
+  addOutputOptions(cmd).action(async (_localOpts, command: Command) => {
+    const options = command.optsWithGlobals() as SyncOptions;
+    await syncSkills(options);
+  });
 }

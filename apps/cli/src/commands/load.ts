@@ -20,6 +20,7 @@ import { CLIError } from "../errors";
 import type { GlobalOptions, OutputFormat } from "../types";
 import { determineFormat } from "../utils/format";
 import { normalizeInvocation } from "../utils/normalize";
+import { addFilterOptions, addOutputOptions } from "../utils/options";
 
 const FRONTMATTER_REGEX = /^---\n([\s\S]*?)\n---/;
 const FRONTMATTER_NAME_REGEX = /^name:\s*(.+)$/m;
@@ -438,11 +439,16 @@ function printTextSkill(skill: Skill, content: string): void {
  * Register the load command
  */
 export function registerLoadCommand(program: Command): void {
-  program
+  const cmd = program
     .command("load <ref>")
     .description("Load and output skill content")
-    .action(async (ref: string, options: GlobalOptions) => {
+    .option("--kind <type>", "Disambiguate skill vs set (skill|set)");
+
+  addFilterOptions(addOutputOptions(cmd)).action(
+    async (ref: string, _localOpts, command: Command) => {
+      const options = command.optsWithGlobals() as GlobalOptions;
       const format = determineFormat(options);
       await loadSkill(ref, options.source, format, options.kind);
-    });
+    }
+  );
 }

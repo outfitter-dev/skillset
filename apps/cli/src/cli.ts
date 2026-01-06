@@ -39,14 +39,15 @@ export async function buildCli(): Promise<void> {
     )
     .version("0.1.0");
 
-  // Global options
+  // Global options (universal output formatting)
+  // Note: Domain-specific options are defined on relevant subcommands:
+  // - --source: stats, load
+  // - --kind: load
   program
-    .option("-s, --source <sources...>", "Filter by source(s)")
     .option("--json", "JSON output")
     .option("--raw", "Raw output for piping")
     .option("-q, --quiet", "Suppress non-essential output")
-    .option("-v, --verbose", "Extra detail")
-    .option("--kind <type>", "Disambiguate skill vs set (skill|set)");
+    .option("-v, --verbose", "Extra detail");
 
   // Register commands
   registerLoadCommand(program);
