@@ -180,6 +180,7 @@ results.push(runIndex());
 results.push(await runSync());
 results.push(await runSetLoad());
 results.push(await runSkillsList());
+results.push(await runStats());
 // NOTE: runShowTree() removed - see issue #78 for restoring --tree functionality
 
 if (options.tools.includes("hook")) {
@@ -497,6 +498,96 @@ async function runSkillsList(): Promise<RunResult> {
       exitCode: null,
       error: toErrorMessage(error),
       details: { step: "skills-list" },
+    };
+  }
+}
+
+async function runStats(): Promise<RunResult> {
+  const start = Date.now();
+  try {
+    const shimPath = join(binRoot, "skillset");
+    const basePath = envBase.PATH ?? "";
+    const env = {
+      ...envBase,
+      PATH: `${binRoot}:${basePath}`,
+    };
+
+    // Test basic stats
+    const basicResult = await runCommand([shimPath, "stats", "--json"], {
+      cwd: workspaceRoot,
+      env,
+      timeoutMs: 30_000,
+    });
+
+    if (basicResult.exitCode !== 0) {
+      const stderr = basicResult.stderr?.trim();
+      const errorDetails = stderr ? `: ${stderr}` : "";
+      throw new Error(
+        `stats failed with ${basicResult.exitCode}${errorDetails}`
+      );
+    }
+
+    const basicParsed = safeJson(basicResult.stdout);
+    const hasScopes = basicParsed?.scopes !== undefined;
+    const hasTools = basicParsed?.tools !== undefined;
+
+    // Test stats --top (usage tracking)
+    const topResult = await runCommand([shimPath, "stats", "--top", "--json"], {
+      cwd: workspaceRoot,
+      env,
+      timeoutMs: 30_000,
+    });
+
+    const topParsed = safeJson(topResult.stdout);
+    const hasTopSkills = topParsed?.topSkills !== undefined;
+
+    // Test stats --unused
+    const unusedResult = await runCommand(
+      [shimPath, "stats", "--unused", "--json"],
+      {
+        cwd: workspaceRoot,
+        env,
+        timeoutMs: 30_000,
+      }
+    );
+
+    const unusedParsed = safeJson(unusedResult.stdout);
+    const hasUnusedSkills = unusedParsed?.unusedSkills !== undefined;
+
+    const outputPath = join(artifactsDir, "skillset-stats.json");
+    writeFileSync(
+      outputPath,
+      JSON.stringify(
+        { basic: basicParsed, top: topParsed, unused: unusedParsed },
+        null,
+        2
+      )
+    );
+
+    const allChecks = hasScopes && hasTools && hasTopSkills && hasUnusedSkills;
+
+    return {
+      tool: "skillset",
+      status: allChecks ? "ok" : "failed",
+      duration_ms: Date.now() - start,
+      exitCode: allChecks ? 0 : 1,
+      details: {
+        step: "stats",
+        hasScopes,
+        hasTools,
+        hasTopSkills,
+        hasUnusedSkills,
+        outputPath,
+      },
+    };
+  } catch (error) {
+    return {
+      tool: "skillset",
+      status: "failed",
+      duration_ms: Date.now() - start,
+      exitCode: null,
+      error: toErrorMessage(error),
+      details: { step: "stats" },
     };
   }
 }
