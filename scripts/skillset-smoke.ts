@@ -177,7 +177,7 @@ if (options.tools.includes("hook") && options.hookModes.includes("cli")) {
 
 results.push(runIndex());
 results.push(await runSetLoad());
-results.push(await runShowTree());
+// NOTE: runShowTree() removed - see issue #78 for restoring --tree functionality
 
 if (options.tools.includes("hook")) {
   for (const mode of options.hookModes) {
@@ -390,58 +390,7 @@ async function runSetLoad(): Promise<RunResult> {
   }
 }
 
-async function runShowTree(): Promise<RunResult> {
-  const start = Date.now();
-  const stdoutPath = join(artifactsDir, "skillset-show-tree.json");
-  const stderrPath = join(artifactsDir, "skillset-show-tree.stderr");
-  const skillsDir = join(workspaceRoot, ".claude", "skills");
-  const env = {
-    ...envBase,
-    PATH: `${binRoot}:${envBase.PATH ?? ""}`,
-  };
-  try {
-    const result = await runCommand(["skillset", "show", "--tree", skillsDir], {
-      cwd: workspaceRoot,
-      env,
-      timeoutMs: 30_000,
-    });
-    writeFileSync(stdoutPath, result.stdout);
-    writeFileSync(stderrPath, result.stderr);
-    const parsed = safeJson(result.stdout);
-    const treeText =
-      typeof parsed?.tree === "string" ? parsed.tree : result.stdout;
-    const evidence = {
-      alpha: treeText.includes("alpha-skill/"),
-      beta: treeText.includes("beta-skill/"),
-      examples: treeText.includes("examples/"),
-      nested: treeText.includes("nested/"),
-    };
-    return {
-      tool: "skillset",
-      status: result.exitCode === 0 ? "ok" : "failed",
-      duration_ms: Date.now() - start,
-      exitCode: result.exitCode,
-      stdoutPath,
-      stderrPath,
-      details: {
-        step: "show-tree",
-        skillsDir,
-        evidence,
-      },
-    };
-  } catch (error) {
-    return {
-      tool: "skillset",
-      status: "failed",
-      duration_ms: Date.now() - start,
-      exitCode: null,
-      stdoutPath,
-      stderrPath,
-      error: toErrorMessage(error),
-      details: { step: "show-tree", skillsDir },
-    };
-  }
-}
+// runShowTree() removed - see issue #78 for restoring --tree functionality
 
 async function runHook(mode: HookMode): Promise<RunResult> {
   const start = Date.now();
