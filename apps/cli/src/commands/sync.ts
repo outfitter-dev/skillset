@@ -8,11 +8,18 @@ import chalk from "chalk";
 import type { Command } from "commander";
 import { CLIError } from "../errors";
 import type { GlobalOptions } from "../types";
+import { determineFormat } from "../utils/format";
 import { addOutputOptions } from "../utils/options";
 
 interface SyncOptions extends GlobalOptions {
   target?: string;
   dryRun?: boolean;
+}
+
+interface SyncResult {
+  skillCount: number;
+  targets: string[] | null;
+  dryRun: boolean;
 }
 
 /**
@@ -43,6 +50,7 @@ function parseTargets(target?: string): Array<keyof typeof SKILL_PATHS> | null {
 }
 
 async function syncSkills(options: SyncOptions): Promise<void> {
+  const format = determineFormat(options);
   const targets = parseTargets(options.target);
   const indexOptions: Parameters<typeof indexSkills>[0] = {
     writeCache: !options.dryRun,
@@ -52,6 +60,27 @@ async function syncSkills(options: SyncOptions): Promise<void> {
   }
   const cache = await indexSkills(indexOptions);
   const count = Object.keys(cache.skills).length;
+
+  const result: SyncResult = {
+    skillCount: count,
+    targets,
+    dryRun: options.dryRun ?? false,
+  };
+
+  if (format === "json") {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  if (format === "raw") {
+    console.log(`skillCount=${count}`);
+    if (targets) {
+      console.log(`targets=${targets.join(",")}`);
+    }
+    console.log(`dryRun=${result.dryRun}`);
+    return;
+  }
+
   const targetLabel = targets ? ` (${targets.join(", ")})` : "";
   console.log(chalk.green(`Synced ${count} skills${targetLabel}`));
   if (options.dryRun) {
