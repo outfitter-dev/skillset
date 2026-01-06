@@ -26,6 +26,11 @@ export {
 } from "./paths";
 // Usage Statistics
 export {
+  aggregateUsageBySkill,
+  clearUsageLog,
+  getUsageLogPath,
   logUsage,
+  parseDuration,
+  readUsageLog,
   type UsageEntry,
 } from "./stats";
