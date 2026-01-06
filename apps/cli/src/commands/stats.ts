@@ -205,7 +205,10 @@ async function buildUsageStats(
   const entries = await readUsageLog(sinceDate);
 
   // Filter to only "load" actions (the primary usage metric)
-  const loadEntries = entries.filter((e) => e.action === "load");
+  // Also apply --source filter if provided
+  const loadEntries = entries
+    .filter((e) => e.action === "load")
+    .filter((e) => matchesSourceFilter(e.skill, options.source));
 
   // Aggregate by skill
   const usageCounts = aggregateUsageBySkill(loadEntries);
