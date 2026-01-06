@@ -177,7 +177,9 @@ if (options.tools.includes("hook") && options.hookModes.includes("cli")) {
 }
 
 results.push(runIndex());
+results.push(await runSync());
 results.push(await runSetLoad());
+results.push(await runSkillsList());
 // NOTE: runShowTree() removed - see issue #78 for restoring --tree functionality
 
 if (options.tools.includes("hook")) {
@@ -397,6 +399,107 @@ async function runSetLoad(): Promise<RunResult> {
 }
 
 // runShowTree() removed - see issue #78 for restoring --tree functionality
+
+async function runSync(): Promise<RunResult> {
+  const start = Date.now();
+  try {
+    const shimPath = join(binRoot, "skillset");
+    const basePath = envBase.PATH ?? "";
+    const env = {
+      ...envBase,
+      PATH: `${binRoot}:${basePath}`,
+    };
+
+    const result = await runCommand([shimPath, "sync"], {
+      cwd: workspaceRoot,
+      env,
+      timeoutMs: 30_000,
+    });
+
+    if (result.exitCode !== 0) {
+      const stderr = result.stderr?.trim();
+      const errorDetails = stderr ? `: ${stderr}` : "";
+      throw new Error(`sync failed with ${result.exitCode}${errorDetails}`);
+    }
+
+    // Parse output for skill count
+    const parsed = safeJson(result.stdout);
+    const skillCount =
+      typeof parsed?.skillCount === "number" ? parsed.skillCount : null;
+
+    return {
+      tool: "skillset",
+      status: "ok",
+      duration_ms: Date.now() - start,
+      exitCode: 0,
+      details: {
+        step: "sync",
+        skillCount,
+      },
+    };
+  } catch (error) {
+    return {
+      tool: "skillset",
+      status: "failed",
+      duration_ms: Date.now() - start,
+      exitCode: null,
+      error: toErrorMessage(error),
+      details: { step: "sync" },
+    };
+  }
+}
+
+async function runSkillsList(): Promise<RunResult> {
+  const start = Date.now();
+  try {
+    const shimPath = join(binRoot, "skillset");
+    const basePath = envBase.PATH ?? "";
+    const env = {
+      ...envBase,
+      PATH: `${binRoot}:${basePath}`,
+    };
+
+    const result = await runCommand([shimPath, "skills", "list"], {
+      cwd: workspaceRoot,
+      env,
+      timeoutMs: 30_000,
+    });
+
+    if (result.exitCode !== 0) {
+      const stderr = result.stderr?.trim();
+      const errorDetails = stderr ? `: ${stderr}` : "";
+      throw new Error(
+        `skills list failed with ${result.exitCode}${errorDetails}`
+      );
+    }
+
+    // Check if AlphaSkill alias is present in output
+    const hasAlphaSkill = result.stdout.includes("AlphaSkill");
+    const outputPath = join(artifactsDir, "skillset-skills-list.txt");
+    writeFileSync(outputPath, result.stdout);
+
+    return {
+      tool: "skillset",
+      status: hasAlphaSkill ? "ok" : "failed",
+      duration_ms: Date.now() - start,
+      exitCode: hasAlphaSkill ? 0 : 1,
+      details: {
+        step: "skills-list",
+        hasAlphaSkill,
+        outputPath,
+      },
+    };
+  } catch (error) {
+    return {
+      tool: "skillset",
+      status: "failed",
+      duration_ms: Date.now() - start,
+      exitCode: null,
+      error: toErrorMessage(error),
+      details: { step: "skills-list" },
+    };
+  }
+}
 
 async function runHook(mode: HookMode): Promise<RunResult> {
   const start = Date.now();
