@@ -16,6 +16,7 @@ import { CLIError } from "../errors";
 import type { GlobalOptions, OutputFormat } from "../types";
 import { determineFormat } from "../utils/format";
 import { normalizeInvocation } from "../utils/normalize";
+import { addOutputOptions } from "../utils/options";
 
 /**
  * List all defined sets
@@ -181,29 +182,36 @@ export function registerSetCommand(program: Command): void {
     .command("set")
     .description("Manage skill sets (groups of skills)");
 
-  setCommand
+  const listCmd = setCommand
     .command("list")
-    .description("List all defined sets")
-    .action(async (options: GlobalOptions) => {
-      const format = determineFormat(options);
-      await listSets(format);
-    });
+    .description("List all defined sets");
+  addOutputOptions(listCmd).action(async (_localOpts, command: Command) => {
+    const options = command.optsWithGlobals() as GlobalOptions;
+    const format = determineFormat(options);
+    await listSets(format);
+  });
 
-  setCommand
+  const showCmd = setCommand
     .command("show <name>")
-    .description("Show a set's metadata and contents")
-    .action(async (name: string, options: GlobalOptions) => {
+    .description("Show a set's metadata and contents");
+  addOutputOptions(showCmd).action(
+    async (name: string, _localOpts, command: Command) => {
+      const options = command.optsWithGlobals() as GlobalOptions;
       const format = determineFormat(options);
       await showSet(name, format);
-    });
+    }
+  );
 
-  setCommand
+  const loadCmd = setCommand
     .command("load <name>")
-    .description("Load all skills in a set")
-    .action(async (name: string, options: GlobalOptions) => {
+    .description("Load all skills in a set");
+  addOutputOptions(loadCmd).action(
+    async (name: string, _localOpts, command: Command) => {
+      const options = command.optsWithGlobals() as GlobalOptions;
       const format = determineFormat(options);
       await loadSet(name, format);
-    });
+    }
+  );
 }
 
 function getSetOrExit(
