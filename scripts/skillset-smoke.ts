@@ -16,6 +16,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join, relative, sep } from "node:path";
+import { YAML } from "bun";
 
 type ToolName = "skillset" | "hook" | "claude" | "codex";
 type HookMode = "ci" | "cli";
@@ -54,7 +55,7 @@ interface SmokeReport {
   aliases: Record<string, string>;
   sets: Record<
     string,
-    { name: string; description?: string; skillRefs: string[] }
+    { name: string; description?: string; skills: string[] }
   >;
   steps: RunResult[];
 }
@@ -120,12 +121,12 @@ const aliases: Record<string, string> = {
 
 const sets: Record<
   string,
-  { name: string; description?: string; skillRefs: string[] }
+  { name: string; description?: string; skills: string[] }
 > = {
   "starter-set": {
     name: "Starter Set",
     description: "Alpha + Beta for smoke test validation",
-    skillRefs: ["project:alpha-skill", "project:beta-skill"],
+    skills: ["project:alpha-skill", "project:beta-skill"],
   },
 };
 
@@ -257,17 +258,22 @@ function prepareWorkspace() {
   );
   const config = {
     version: 1,
-    mode: "warn",
-    showStructure: false,
-    maxLines: 500,
-    mappings: mappingConfig,
-    namespaceAliases: {},
+    rules: {
+      unresolved: "warn",
+      ambiguous: "warn",
+      missing_set_members: "warn",
+    },
+    resolution: {
+      fuzzy_matching: true,
+    },
+    output: {
+      max_lines: 500,
+      include_layout: false,
+    },
+    skills: mappingConfig,
     sets,
   };
-  writeFileSync(
-    join(configDir, "config.json"),
-    `${JSON.stringify(config, null, 2)}\n`
-  );
+  writeFileSync(join(configDir, "config.yaml"), YAML.stringify(config));
 }
 
 function ensureSmokeBin() {
@@ -634,14 +640,14 @@ async function withWorkspaceCwd<T>(fn: () => Promise<T> | T): Promise<T> {
   }
 }
 
-function loadSetArtifacts(setKey: string) {
-  const config = core.loadConfig();
-  const cache = core.loadCaches();
+async function loadSetArtifacts(setKey: string) {
+  const config = await core.loadConfig();
+  const cache = await core.loadCaches();
   const setDef = config.sets?.[setKey];
   if (!setDef) {
     return null;
   }
-  const resolved = setDef.skillRefs.map((ref) => {
+  const resolved = setDef.skills.map((ref) => {
     const skill = cache.skills[ref];
     if (!skill) {
       return { ref, found: false };
