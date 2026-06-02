@@ -13,7 +13,9 @@ export async function buildSkillset(
   const graph = await loadBuildGraph(rootPath, options);
   const rendered = await renderBuildGraph(graph);
 
-  await rm(resolveInside(rootPath, graph.distDir), { force: true, recursive: true });
+  for (const outputRoot of graph.outputRoots) {
+    await rm(resolveInside(rootPath, outputRoot), { force: true, recursive: true });
+  }
 
   for (const file of rendered) {
     const outputPath = resolveInside(rootPath, file.path);
@@ -31,7 +33,7 @@ export async function checkSkillset(
   const graph = await loadBuildGraph(rootPath, options);
   const rendered = await renderBuildGraph(graph);
   const expected = new Map(rendered.map((file) => [file.path, file.content]));
-  const actualPaths = await listDistFiles(rootPath, graph.distDir);
+  const actualPaths = await listOutputFiles(rootPath, graph.outputRoots);
   const actual = new Set(actualPaths);
   const failures: string[] = [];
 
@@ -61,15 +63,17 @@ export async function checkSkillset(
   return { checkedFiles: rendered.length };
 }
 
-async function listDistFiles(rootPath: string, distDir: string): Promise<readonly string[]> {
+async function listOutputFiles(
+  rootPath: string,
+  outputRoots: readonly string[]
+): Promise<readonly string[]> {
   const paths: string[] = [];
-  const absoluteTarget = resolveInside(rootPath, distDir);
-  if (!(await exists(absoluteTarget))) {
-    return paths;
-  }
-
-  for (const file of await collectFiles(absoluteTarget)) {
-    paths.push(relative(rootPath, file));
+  for (const outputRoot of outputRoots) {
+    const absoluteTarget = resolveInside(rootPath, outputRoot);
+    if (!(await exists(absoluteTarget))) continue;
+    for (const file of await collectFiles(absoluteTarget)) {
+      paths.push(relative(rootPath, file));
+    }
   }
   return paths.sort();
 }

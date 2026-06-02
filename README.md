@@ -1,7 +1,7 @@
 # Skillset
 
-`skillset` compiles portable agent plugin source into target-native Claude and
-Codex plugin repositories.
+`skillset` compiles portable agent plugin and skill source into target-native
+Claude and Codex outputs.
 
 It is currently local/private tooling for `galligan/agents`.
 
@@ -17,27 +17,61 @@ skillset check
 
 The default contract is:
 
-- source root: `src/`
-- generated root: `dist/`
-- Claude plugin repo: `dist/claude`
-- Codex plugin repo: `dist/codex`
-
-Both generated target roots carry plugins under `plugins/<plugin-id>/`.
+- source root: `.skillset/`
+- root config: `.skillset/config.yaml`
+- plugin source: `.skillset/plugins/<plugin-name>/`
+- standalone skill source: `.skillset/skills/<skill-name>/`
+- Claude plugin repo output: `plugins-claude/`
+- Codex plugin repo output: `plugins-codex/`
+- Claude standalone skill output: `.claude/skills`
+- Codex standalone skill output: `.agents/skills`
 
 Use explicit paths when building another repo:
 
 ```bash
 skillset build --root /Users/mg/Developer/galligan/agents
-skillset check --root /Users/mg/Developer/galligan/agents --source src --dist dist
+skillset check --root /Users/mg/Developer/galligan/agents
+skillset build --root /tmp/example --source custom-source --dist generated
 ```
+
+`--dist` is a compatibility override for plugin outputs. Without it, plugin
+outputs default to `plugins-claude/` and `plugins-codex/`. Source config can
+also set explicit output roots under `skillset.outputs`.
+
+## Import
+
+Seed source from an existing skill or plugin:
+
+```bash
+skillset import skill /path/to/SKILL.md --root /path/to/content-repo
+skillset import skill /path/to/skill-dir --root /path/to/content-repo --name custom-name
+skillset import plugin /path/to/plugin-dir --root /path/to/content-repo
+```
+
+Imports copy files into `.skillset/skills/<name>` or
+`.skillset/plugins/<name>`. Plugin imports rename `skillset.yaml` to
+`config.yaml`. Import does not install, trust, symlink, publish, mutate
+registries, or change user-level Claude/Codex config.
 
 ## Source Contract
 
-Root source metadata lives at `src/skillset.yaml`.
+Root source metadata lives at `.skillset/config.yaml`.
 
-Each plugin lives at `src/<plugin-id>/` and has its own `skillset.yaml`.
-Portable fields live under `skillset`; target-specific overrides live under
-top-level `claude` and `codex` blocks.
+Each plugin lives at `.skillset/plugins/<plugin-name>/` and has its own
+`config.yaml`. Portable fields live under `skillset`; target-specific overrides
+live under top-level `claude` and `codex` blocks.
+
+Use `skillset.name` as the stable machine identity. `skillset.id` is accepted as
+a compatibility alias for older source. Do not use `targets:`.
 
 Generated output strips source-only keys such as `skillset`, `claude`, `codex`,
-`agents`, and `targets`.
+`agents`, and `targets`. Generated skills receive only lightweight metadata:
+
+```yaml
+metadata:
+  version: 0.1.0
+  generated: skillset@0.1.0
+```
+
+Generated roots also receive `.skillset.lock` files with deterministic
+provenance and hashes.

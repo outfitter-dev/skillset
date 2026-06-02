@@ -1,4 +1,4 @@
-import type { JsonRecord, JsonValue, ResolvedTarget, TargetName } from "./types";
+import type { JsonRecord, JsonValue, OutputConfig, ResolvedTarget, TargetName } from "./types";
 import { isJsonRecord } from "./yaml";
 
 const TARGET_NAMES: readonly TargetName[] = ["claude", "codex"];
@@ -20,6 +20,39 @@ export function readSkillsetMetadata(record: JsonRecord, label: string): JsonRec
     throw new Error(`skillset: expected ${label}.skillset to be an object`);
   }
   return raw;
+}
+
+export function readSkillsetName(metadata: JsonRecord, fallback: string, label: string): string {
+  const name = readString(metadata, "name");
+  const id = readString(metadata, "id");
+  if (name !== undefined && id !== undefined && name !== id) {
+    throw new Error(`skillset: ${label} has conflicting skillset.name and skillset.id`);
+  }
+  return name ?? id ?? fallback;
+}
+
+export function readOutputConfig(
+  metadata: JsonRecord,
+  options: { readonly distDir?: string } = {}
+): OutputConfig {
+  const outputs = readRecord(metadata, "outputs") ?? {};
+  const pluginOutputs = readRecord(outputs, "plugins") ?? {};
+  const skillOutputs = readRecord(outputs, "skills") ?? {};
+
+  return {
+    plugins: {
+      claude:
+        readString(pluginOutputs, "claude") ??
+        (options.distDir === undefined ? "plugins-claude" : `${options.distDir}/claude`),
+      codex:
+        readString(pluginOutputs, "codex") ??
+        (options.distDir === undefined ? "plugins-codex" : `${options.distDir}/codex`),
+    },
+    skills: {
+      claude: readString(skillOutputs, "claude") ?? ".claude/skills",
+      codex: readString(skillOutputs, "codex") ?? ".agents/skills",
+    },
+  };
 }
 
 export function validateConfigDocument(record: JsonRecord, label: string): void {
