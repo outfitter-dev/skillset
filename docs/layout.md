@@ -61,6 +61,15 @@ plugins-codex/
 The generated target roots are meant to be usable as plugin repositories or as
 inputs to a future publish/sync step. They are not source truth.
 
+This compiler repo uses that same layout for its own source:
+
+- `.skillset/skills/skillset-claude-development` is a Claude-only internal
+  standalone skill for compiler development.
+- `.skillset/skills/skillset-codex-development` is a Codex-only internal
+  standalone skill for compiler development.
+- `.skillset/plugins/skillset` is the user-facing plugin that explains how to
+  use `skillset`.
+
 Plugin output roots and standalone skill output roots can be configured from
 root `.skillset/config.yaml`:
 

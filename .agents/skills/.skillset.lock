@@ -1,0 +1,21 @@
+{
+  "generatedBy": "skillset@0.1.0",
+  "items": [
+    {
+      "files": [
+        "skillset-codex-development/SKILL.md"
+      ],
+      "kind": "standalone-skill",
+      "name": "skillset-codex-development",
+      "outputHash": "sha256:7903d6e789156d4101ec66a16a85a4f80e7f6188bdee6de5e991eac89605b1ac",
+      "outputPath": "skillset-codex-development/SKILL.md",
+      "sourceHash": "sha256:4904b62521e9300a6d5ca1d1a36a62da89db725d03e2e8d8c81b284f572d4a12",
+      "sourcePath": ".skillset/skills/skillset-codex-development/SKILL.md",
+      "version": "0.1.0"
+    }
+  ],
+  "outputRoot": ".agents/skills",
+  "schemaVersion": 1,
+  "sourceRoot": ".skillset",
+  "target": "codex"
+}

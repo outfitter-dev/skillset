@@ -1,0 +1,33 @@
+{
+  "metadata": {
+    "description": "Self-hosted source for developing and using the skillset compiler.",
+    "generatedBy": "galligan/agents skillset compiler",
+    "pluginRoot": "./plugins",
+    "version": "0.1.0"
+  },
+  "name": "skillset",
+  "owner": {
+    "name": "Matt Galligan"
+  },
+  "plugins": [
+    {
+      "author": {
+        "name": "Matt Galligan"
+      },
+      "category": "Developer Tools",
+      "description": "Build portable source skills and plugins into Claude and Codex outputs.",
+      "keywords": [
+        "skillset",
+        "skills",
+        "plugins",
+        "claude",
+        "codex"
+      ],
+      "license": "MIT",
+      "name": "skillset",
+      "source": "./plugins/skillset",
+      "strict": true,
+      "version": "0.1.0"
+    }
+  ]
+}

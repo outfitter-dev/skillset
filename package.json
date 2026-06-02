@@ -8,7 +8,10 @@
   },
   "scripts": {
     "build": "bun run typecheck",
-    "check": "bun run typecheck && bun test && git diff --check",
+    "check": "bun run typecheck && bun test && bun run skillset:lint && bun run skillset:check && git diff --check",
+    "skillset:build": "bun ./src/cli.ts build --root .",
+    "skillset:check": "bun ./src/cli.ts check --root .",
+    "skillset:lint": "bun ./src/cli.ts lint --root .",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },

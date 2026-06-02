@@ -1,0 +1,19 @@
+skillset:
+  name: skillset
+  title: Skillset
+  description: Self-hosted source for developing and using the skillset compiler.
+  version: 0.1.0
+  outputs:
+    plugins:
+      claude: plugins-claude
+      codex: plugins-codex
+    skills:
+      claude: .claude/skills
+      codex: .agents/skills
+  marketplace:
+    name: skillset
+  owner:
+    name: Matt Galligan
+
+claude: true
+codex: true

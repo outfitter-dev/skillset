@@ -1,0 +1,22 @@
+{
+  "generatedBy": "skillset@0.1.0",
+  "items": [
+    {
+      "files": [
+        "plugins/skillset/skills/use-skillset/SKILL.md"
+      ],
+      "kind": "plugin-skill",
+      "name": "use-skillset",
+      "outputHash": "sha256:87aae77c9a21a1c6d309e3b2672c2c31cd553e28927eeb6f06415ef65b557e63",
+      "outputPath": "plugins/skillset/skills/use-skillset/SKILL.md",
+      "plugin": "skillset",
+      "sourceHash": "sha256:e7750d6dedba9a9b95961b5397d36958de15a6035c30069db278ed7db53355ac",
+      "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
+      "version": "0.1.0"
+    }
+  ],
+  "outputRoot": "plugins-claude",
+  "schemaVersion": 1,
+  "sourceRoot": ".skillset",
+  "target": "claude"
+}

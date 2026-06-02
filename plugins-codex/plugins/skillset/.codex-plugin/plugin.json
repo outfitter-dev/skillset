@@ -1,0 +1,34 @@
+{
+  "author": {
+    "name": "Matt Galligan"
+  },
+  "description": "Build portable source skills and plugins into Claude and Codex outputs.",
+  "interface": {
+    "brandColor": "#B06DFF",
+    "capabilities": [
+      "Read",
+      "Write",
+      "Developer"
+    ],
+    "category": "Developer Tools",
+    "defaultPrompt": [
+      "Build or check this skillset source tree."
+    ],
+    "developerName": "Matt Galligan",
+    "displayName": "Skillset",
+    "longDescription": "Skillset compiles portable source skills and plugin bundles into target-native Claude and Codex artifacts.",
+    "screenshots": [],
+    "shortDescription": "Build source skills and plugins into Claude and Codex outputs."
+  },
+  "keywords": [
+    "skillset",
+    "skills",
+    "plugins",
+    "claude",
+    "codex"
+  ],
+  "license": "MIT",
+  "name": "skillset",
+  "skills": "./skills/",
+  "version": "0.1.0"
+}

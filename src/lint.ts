@@ -57,6 +57,11 @@ export function lintBuildGraph(graph: BuildGraph): LintResult {
     }
   }
 
+  for (const skill of graph.standaloneSkills) {
+    checkedSkills += 1;
+    issues.push(...lintSkill(graph, skill));
+  }
+
   return { checkedSkills, issues };
 }
 

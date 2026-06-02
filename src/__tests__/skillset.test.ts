@@ -430,6 +430,27 @@ Use $ARGUMENTS and ${"${CLAUDE_SKILL_DIR}"} to prepare context.
   await expect(lintSkillset(root)).rejects.toThrow("codex-claude-dynamic-context");
 });
 
+test("lint checks Codex-enabled standalone skills", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: true
+`,
+    ".skillset/skills/dynamic/SKILL.md": `
+---
+name: dynamic
+description: Uses Claude arguments.
+---
+
+Use $ARGUMENTS to prepare context.
+`,
+  });
+
+  await expect(lintSkillset(root)).rejects.toThrow("codex-claude-dynamic-context");
+});
+
 test("lint allows Claude dynamic context when Codex is disabled", async () => {
   const root = await fixture({
     ".skillset/config.yaml": `

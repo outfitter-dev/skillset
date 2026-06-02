@@ -5,6 +5,11 @@ Claude and Codex outputs.
 
 It is currently local/private tooling for `galligan/agents`.
 
+This repo also self-hosts a small `.skillset/` source tree:
+
+- standalone internal skills for developing the compiler in Claude and Codex;
+- one generated `skillset` plugin that teaches agents how to use the compiler.
+
 ## Usage
 
 From a content repo:
@@ -75,3 +80,24 @@ metadata:
 
 Generated roots also receive `.skillset.lock` files with deterministic
 provenance and hashes.
+
+## Self-Hosted Outputs
+
+In this repo, run:
+
+```bash
+bun run skillset:build
+bun run skillset:lint
+bun run skillset:check
+bun run check
+```
+
+Self-hosted source lives under `.skillset/`. Generated outputs are:
+
+- `.claude/skills/skillset-claude-development`
+- `.agents/skills/skillset-codex-development`
+- `plugins-claude/plugins/skillset`
+- `plugins-codex/plugins/skillset`
+
+These are repo-local generated artifacts. Do not symlink them into global
+Claude/Codex config or publish them as part of normal compiler development.
