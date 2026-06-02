@@ -16,17 +16,20 @@ import type {
   OutputSelection,
   SkillsetOptions,
   SourcePlugin,
+  SourceRule,
   SourceSkill,
   StandaloneSkill,
 } from "./types";
-import { parseMarkdown, parseYamlRecord } from "./yaml";
+import { isJsonRecord, parseMarkdown, parseYamlRecord } from "./yaml";
 
 const DEFAULT_SOURCE_DIR = ".skillset";
 const ROOT_CONFIG_FILE = "config.yaml";
 const PLUGIN_CONFIG_FILES = ["skillset.yaml", "config.yaml"] as const;
 const PLUGINS_DIR = "plugins";
+const RULES_DIR = "rules";
 const SKILLS_DIR = "skills";
 const SKILL_FILE = "SKILL.md";
+const RULES_OUTPUT_ROOT = ".claude/rules";
 
 export async function loadBuildGraph(
   rootPath: string,
@@ -52,23 +55,68 @@ export async function loadBuildGraph(
 
   const plugins = await loadPlugins(rootPath, sourceDir, rootTargets);
   const standaloneSkills = await loadStandaloneSkills(rootPath, sourceDir, rootTargets);
+  const rules = await loadRules(rootPath, sourceDir, rootTargets);
 
-  if (plugins.length === 0 && standaloneSkills.length === 0) {
-    throw new Error(`skillset: no source plugins or skills found under ${sourceDir}/`);
+  if (plugins.length === 0 && standaloneSkills.length === 0 && rules.length === 0) {
+    throw new Error(`skillset: no source plugins, skills, or rules found under ${sourceDir}/`);
   }
 
-  const outputRoots = await outputRootsFor(rootPath, outputs, plugins, standaloneSkills);
+  const outputRoots = await outputRootsFor(rootPath, outputs, plugins, standaloneSkills, rules);
   validateOutputRoots(rootPath, sourcePath, outputRoots);
 
   return {
     outputRoots: outputRoots.map((outputRoot) => outputRoot.path),
     plugins,
+    rules,
     root,
     rootPath,
     sourceDir,
     sourcePath,
     standaloneSkills,
   };
+}
+
+async function loadRules(
+  rootPath: string,
+  sourceDir: string,
+  rootTargets: BuildGraph["root"]["targets"]
+): Promise<readonly SourceRule[]> {
+  const rulesPath = resolveInside(rootPath, join(sourceDir, RULES_DIR));
+  if (!(await exists(rulesPath))) return [];
+
+  const ruleFiles = await findMarkdownFiles(rulesPath);
+  const rules: SourceRule[] = [];
+
+  for (const sourcePath of ruleFiles) {
+    const content = await readFile(sourcePath, "utf8");
+    const parts = parseMarkdown(content, sourcePath);
+    const relativePath = relative(rulesPath, sourcePath);
+    const frontmatter = normalizeRuleFrontmatter(parts.frontmatter, sourcePath);
+    const targets = resolveTargets(rootTargets, frontmatter, sourcePath);
+
+    rules.push({
+      body: parts.body,
+      frontmatter,
+      id: relativePath.replace(/\.md$/, ""),
+      relativePath,
+      sourcePath: resolveInside(rootPath, relative(rootPath, sourcePath)),
+      targets,
+    });
+  }
+
+  return rules.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+}
+
+function normalizeRuleFrontmatter(frontmatter: SourceRule["frontmatter"], label: string): SourceRule["frontmatter"] {
+  const codexMode = isJsonRecord(frontmatter.codex)
+    ? readString(frontmatter.codex, "mode")
+    : undefined;
+  if (frontmatter.codex === "symlink" || codexMode === "symlink") {
+    throw new Error(
+      `skillset: ${label} uses codex: symlink, which is not supported yet; use codex: true or codex: false`
+    );
+  }
+  return frontmatter;
 }
 
 async function loadPlugins(
@@ -207,6 +255,24 @@ async function findSkillFiles(root: string): Promise<string[]> {
   return files;
 }
 
+async function findMarkdownFiles(root: string): Promise<string[]> {
+  const files: string[] = [];
+  const entries = await readdir(root, { withFileTypes: true });
+
+  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+    const path = join(root, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await findMarkdownFiles(path)));
+      continue;
+    }
+    if (entry.isFile() && entry.name.endsWith(".md")) {
+      files.push(path);
+    }
+  }
+
+  return files;
+}
+
 async function exists(path: string): Promise<boolean> {
   try {
     await stat(path);
@@ -230,9 +296,10 @@ async function outputRootsFor(
   rootPath: string,
   outputs: BuildGraph["root"]["outputs"],
   plugins: readonly SourcePlugin[],
-  standaloneSkills: readonly StandaloneSkill[]
+  standaloneSkills: readonly StandaloneSkill[],
+  rules: readonly SourceRule[]
 ): Promise<readonly ActiveOutputRoot[]> {
-  const activeRoots = activeOutputRoots(outputs, plugins, standaloneSkills);
+  const activeRoots = activeOutputRoots(outputs, plugins, standaloneSkills, rules);
   const roots = new Map(activeRoots.map((outputRoot) => [outputRoot.path, outputRoot]));
 
   for (const outputRoot of configuredOutputRoots(outputs)) {
@@ -247,6 +314,7 @@ async function outputRootsFor(
 
 function configuredOutputRoots(outputs: BuildGraph["root"]["outputs"]): readonly ActiveOutputRoot[] {
   return [
+    { label: "outputs.rules.claude", path: RULES_OUTPUT_ROOT },
     { label: "outputs.plugins.claude", path: outputs.plugins.claude },
     { label: "outputs.plugins.codex", path: outputs.plugins.codex },
     { label: "outputs.skills.claude", path: outputs.skills.claude },
@@ -257,9 +325,13 @@ function configuredOutputRoots(outputs: BuildGraph["root"]["outputs"]): readonly
 function activeOutputRoots(
   outputs: BuildGraph["root"]["outputs"],
   plugins: readonly SourcePlugin[],
-  standaloneSkills: readonly StandaloneSkill[]
+  standaloneSkills: readonly StandaloneSkill[],
+  rules: readonly SourceRule[]
 ): readonly ActiveOutputRoot[] {
   const roots: ActiveOutputRoot[] = [];
+  if (rules.some((rule) => rule.targets.claude.enabled)) {
+    roots.push({ label: "outputs.rules.claude", path: RULES_OUTPUT_ROOT });
+  }
   if (plugins.some((plugin) => plugin.targets.claude.enabled && outputIncludes(outputs.targetOutputs.claude.plugins, plugin.id))) {
     roots.push({ label: "outputs.plugins.claude", path: outputs.plugins.claude });
   }

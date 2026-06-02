@@ -10,6 +10,10 @@
     references/
     scripts/
     templates/
+  rules/
+    <topic>.md
+    <area>/
+      <topic>.md
   skills/
     <skill-name>/
       SKILL.md
@@ -50,6 +54,9 @@ plugins-codex/
         plugin.json
       skills/
 .claude/
+  rules/
+    .skillset.lock
+    <topic>.md
   skills/
     .skillset.lock
     <skill-name>/
@@ -61,6 +68,10 @@ plugins-codex/
       SKILL.md
       agents/
         openai.yaml
+AGENTS.md
+<subdir>/
+  AGENTS.md
+.skillset.lock
 ```
 
 The generated target roots are meant to be usable as plugin repositories or as inputs to a future publish/sync step. They are not source truth.
@@ -88,6 +99,29 @@ codex:
 Boolean output settings use the default roots: `plugins-claude/`, `plugins-codex/`, `.claude/skills`, and `.agents/skills`. Arrays select specific plugin or standalone skill names. Object settings can set `path`, `include`, or `enabled: false`.
 
 Plugin-local `README.md` files are copied into each generated target plugin. Shared source inputs such as `.skillset/shared/assets`, `.skillset/shared/scripts`, `.skillset/shared/references`, and `.skillset/shared/templates` are available for source organization; they are not copied into every output unless a source skill or plugin includes them.
+
+## Rules
+
+Rules live under `.skillset/rules/**/*.md`. They are for durable repo instructions rather than invokable skills:
+
+```yaml
+---
+paths:
+  - docs/**/*.md
+---
+
+# Docs Rules
+
+- Keep docs concise and current.
+```
+
+Claude output preserves the relative source hierarchy under `.claude/rules/**/*.md` and keeps `paths` frontmatter so Claude can apply path-scoped rules. Rules without `paths` are emitted without frontmatter and load as unconditional Claude project rules.
+
+Codex output lowers rules into the instruction files Codex actually discovers. Rules without `paths` write root `AGENTS.md`. Rules with path patterns write `<derived-base>/AGENTS.md`; for example `docs/**/*.md` writes `docs/AGENTS.md`. If a pattern has no static base, such as `**/*.ts`, the compiler scans matching repo files and uses the lowest common directory for the matched files. Multiple rules that land at the same `AGENTS.md` are concatenated in source-path order.
+
+Rule frontmatter can use top-level `claude` and `codex` target toggles. Set `codex: false` for a Claude-only rule or `claude: false` for a Codex-only rule. Generated Codex `AGENTS.md` files are tracked by the root `.skillset.lock`, and the build refuses to overwrite unmanaged `AGENTS.md` files. Move existing hand-written guidance into `.skillset/rules` before letting the compiler own that destination.
+
+`codex: symlink` is a recorded follow-up, not a v1 behavior. Directly symlinking Codex `AGENTS.md` to Claude rule files would expose Claude `paths` frontmatter as Codex instructions.
 
 ## Skill Policy
 

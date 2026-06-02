@@ -48,6 +48,15 @@ export interface SourcePlugin {
 
 export interface StandaloneSkill extends SourceSkill {}
 
+export interface SourceRule {
+  readonly body: string;
+  readonly frontmatter: JsonRecord;
+  readonly id: string;
+  readonly relativePath: string;
+  readonly sourcePath: string;
+  readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
+}
+
 export interface OutputConfig {
   readonly plugins: Readonly<Record<TargetName, string>>;
   readonly skills: Readonly<Record<TargetName, string>>;
@@ -64,6 +73,7 @@ export interface TargetOutputConfig {
 export interface BuildGraph {
   readonly outputRoots: readonly string[];
   readonly plugins: readonly SourcePlugin[];
+  readonly rules: readonly SourceRule[];
   readonly root: RootConfig;
   readonly rootPath: string;
   readonly standaloneSkills: readonly StandaloneSkill[];

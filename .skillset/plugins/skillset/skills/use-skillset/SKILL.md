@@ -13,6 +13,8 @@ Use this skill when a repo has a `.skillset/` source tree or when you need to cr
 ```text
 .skillset/
   config.yaml
+  rules/
+    <topic>.md
   skills/
     <skill-name>/
       SKILL.md
@@ -23,6 +25,23 @@ Use this skill when a repo has a `.skillset/` source tree or when you need to cr
 ```
 
 Root `.skillset/config.yaml` controls target defaults and output roots. Plugin configs use `.skillset/plugins/<plugin-name>/skillset.yaml`. Portable plugin metadata lives under `skillset`; skill source can use top-level `title`, `summary`, `description`, and `version`. Target-specific overrides use top-level `claude` and `codex`.
+
+Use `.skillset/rules/**/*.md` for durable repo instructions:
+
+```yaml
+---
+paths:
+  - docs/**/*.md
+---
+
+# Docs Rules
+
+- Keep docs concise and current.
+```
+
+Claude rules are generated under `.claude/rules/**/*.md` with `paths` frontmatter preserved. Codex rules are generated as `AGENTS.md` files at derived directories: `docs/**/*.md` writes `docs/AGENTS.md`, while broad globs such as `**/*.ts` scan matching repo files and use the lowest common directory. Multiple rules that land at the same `AGENTS.md` are concatenated. The build refuses to overwrite unmanaged `AGENTS.md` files; move existing guidance into `.skillset/rules` before letting `skillset` own it.
+
+Use `claude: false` or `codex: false` in rule frontmatter for target-specific opt-outs. `codex: symlink` is not implemented yet because Claude path-scoped rules need YAML frontmatter that Codex would read as instructions through a direct symlink.
 
 Skill source can also use normalized policy keys:
 

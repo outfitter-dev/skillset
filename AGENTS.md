@@ -12,6 +12,7 @@ The repo now self-hosts source under `.skillset/`:
 - Read portable source from a content repo's `.skillset/` directory.
 - Emit target-native plugin repositories under configured output roots, defaulting to `plugins-claude/` and `plugins-codex/`.
 - Emit standalone skills under configured target skill roots, defaulting to `.claude/skills` and `.agents/skills`.
+- Emit source rules from `.skillset/rules/**/*.md` to Claude `.claude/rules/**/*.md` and Codex directory-local `AGENTS.md` files without overwriting unmanaged guidance.
 - Preserve plugin boundaries across Claude and Codex outputs.
 - Keep source-only `skillset` metadata out of generated artifacts except for lightweight generated `metadata.version` and `metadata.generated` fields.
 - Write deterministic `.skillset.lock` files near generated outputs.
