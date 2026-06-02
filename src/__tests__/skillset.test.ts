@@ -317,6 +317,120 @@ Shared policy body.
   expect(lock).toContain(`"plugins/alpha/skills/shared/agents/openai.yaml"`);
 });
 
+test("build lowers target-native tool escapes to target-specific artifacts", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/escape/SKILL.md": `
+---
+name: escape
+description: Uses target-native tool escapes.
+tools:
+  _allow:
+    claude:
+      - Read
+    codex:
+      mcp:
+        linear:
+          tools:
+            - issues.*
+  _deny:
+    claude:
+      - AskUserQuestion
+claude:
+  tools:
+    _allow:
+      - "NewClaudeTool(project:*)"
+      - rule: "Bash(newcli safe *)"
+        reason: New Claude tool surface.
+codex:
+  tools:
+    _allow:
+      mcp:
+        linear:
+          tools:
+            - experimental.*
+    _deny:
+      mcp:
+        linear:
+          tools:
+            - experimental.delete
+---
+
+Escape body.
+`,
+  });
+
+  await buildSkillset(root);
+
+  const claudeSkill = await readFile(
+    join(root, "plugins-claude/plugins/alpha/skills/escape/SKILL.md"),
+    "utf8"
+  );
+  const codexSkill = await readFile(
+    join(root, "plugins-codex/plugins/alpha/skills/escape/SKILL.md"),
+    "utf8"
+  );
+  const codexTools = await readFile(
+    join(root, "plugins-codex/plugins/alpha/skills/escape/.skillset.tools.yaml"),
+    "utf8"
+  );
+  const lock = await readFile(join(root, "plugins-codex/.skillset.lock"), "utf8");
+
+  expect(claudeSkill).toContain(`allowed-tools:
+  - Read
+  - NewClaudeTool(project:*)
+  - Bash(newcli safe *)`);
+  expect(claudeSkill).toContain(`disallowed-tools:
+  - AskUserQuestion`);
+  expect(codexSkill).not.toContain("tools:");
+  expect(codexSkill).not.toContain("_allow:");
+  expect(codexSkill).not.toContain("_deny:");
+  expect(codexTools).toContain("generated: skillset@0.1.0");
+  expect(codexTools).toContain("issues.*");
+  expect(codexTools).toContain("experimental.*");
+  expect(codexTools).toContain("experimental.delete");
+  expect(lock).toContain(`"plugins/alpha/skills/escape/.skillset.tools.yaml"`);
+});
+
+test("Claude target-native tool escapes require native rule strings", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/bad-tools/SKILL.md": `
+---
+name: bad-tools
+description: Has an invalid Claude target-native tool escape.
+claude:
+  tools:
+    _allow:
+      - reason: Missing the native rule string.
+---
+
+Bad body.
+`,
+  });
+
+  await expect(lintSkillset(root)).rejects.toThrow("skill-tools-invalid");
+  await expect(buildSkillset(root)).rejects.toThrow("entries for Claude to be strings or objects with rule");
+});
+
 test("build and lint reject Codex allowed_tools without an explicit Codex opt-out", async () => {
   const root = await fixture({
     ".skillset/config.yaml": `

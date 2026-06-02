@@ -56,11 +56,11 @@ Imports copy files into `.skillset/skills/<name>` or `.skillset/plugins/<name>`.
 
 Root source metadata lives at `.skillset/config.yaml`.
 
-Each plugin lives at `.skillset/plugins/<plugin-name>/` and has its own `skillset.yaml`. Portable plugin fields live under `skillset`; target-specific overrides live under top-level `claude` and `codex` blocks. Skill source frontmatter can use top-level `title`, `summary`, `description`, `version`, `implicit_invocation`, and `allowed_tools`; the compiler derives target-native `name`, `description`, generated metadata, Claude frontmatter, and Codex `agents/openai.yaml` policy where supported.
+Each plugin lives at `.skillset/plugins/<plugin-name>/` and has its own `skillset.yaml`. Portable plugin fields live under `skillset`; target-specific overrides live under top-level `claude` and `codex` blocks. Skill source frontmatter can use top-level `title`, `summary`, `description`, `version`, `implicit_invocation`, `allowed_tools`, and the source-only `tools` escape map; the compiler derives target-native `name`, `description`, generated metadata, Claude frontmatter, and Codex `agents/openai.yaml` policy where supported.
 
 Use `skillset.name` as the stable machine identity. `skillset.id` is accepted as a compatibility alias for older source. Do not use `targets:`.
 
-Generated output strips source-only keys such as `skillset`, `claude`, `codex`, `agents`, `implicit_invocation`, `allowed_tools`, and `targets`. Generated skills receive only lightweight metadata:
+Generated output strips source-only keys such as `skillset`, `claude`, `codex`, `agents`, `implicit_invocation`, `allowed_tools`, `tools`, and `targets`. Generated skills receive only lightweight metadata:
 
 ```yaml
 metadata:
@@ -84,6 +84,34 @@ allowed_tools:
 ```
 
 `implicit_invocation` lowers to Claude `disable-model-invocation` and Codex `agents/openai.yaml` `policy.allow_implicit_invocation`. `allowed_tools` lowers to Claude `allowed-tools`; Codex has no confirmed skill-local allowed-tools equivalent, so Codex-enabled source must omit `allowed_tools.codex` or set it to `false`.
+
+Target-native tool escape hatches use underscore keys. Shared escapes can live under top-level `tools`, and target-local escapes can live under `claude.tools` or `codex.tools`:
+
+```yaml
+tools:
+  _allow:
+    claude:
+      - Read
+    codex:
+      mcp:
+        linear:
+          tools:
+            - issues.*
+claude:
+  tools:
+    _allow:
+      - "NewClaudeTool(project:*)"
+      - rule: "Bash(newcli safe *)"
+codex:
+  tools:
+    _deny:
+      mcp:
+        linear:
+          tools:
+            - experimental.delete
+```
+
+Claude `_allow` and `_deny` entries lower to `allowed-tools` and `disallowed-tools`. Codex `_allow` and `_deny` entries emit to generated `.skillset.tools.yaml` metadata so they are committed, locked, and reviewable without changing user-level Codex policy or trust configuration.
 
 ## Self-Hosted Outputs
 

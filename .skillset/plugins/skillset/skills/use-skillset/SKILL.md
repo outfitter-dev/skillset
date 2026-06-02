@@ -38,6 +38,33 @@ allowed_tools:
 
 `implicit_invocation` lowers to Claude `disable-model-invocation` and Codex `agents/openai.yaml` `policy.allow_implicit_invocation`. `allowed_tools` lowers to Claude `allowed-tools`; Codex has no confirmed skill-local allowed-tools equivalent, so leave `allowed_tools.codex` unset or set it to `false`.
 
+Use underscore tool escapes for target-native control that does not have a normalized portable key yet:
+
+```yaml
+tools:
+  _allow:
+    claude:
+      - Read
+    codex:
+      mcp:
+        linear:
+          tools:
+            - issues.*
+claude:
+  tools:
+    _allow:
+      - "NewClaudeTool(project:*)"
+codex:
+  tools:
+    _deny:
+      mcp:
+        linear:
+          tools:
+            - experimental.delete
+```
+
+Claude escapes lower to `allowed-tools` and `disallowed-tools`. Codex escapes emit generated `.skillset.tools.yaml` metadata for review and lock provenance; they do not install, trust, or mutate user-level Codex configuration.
+
 ## Build And Check
 
 ```bash

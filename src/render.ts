@@ -12,7 +12,12 @@ import {
   stripSourceFrontmatter,
 } from "./config";
 import { validateSlug } from "./path";
-import { readAllowedTools, readImplicitInvocation } from "./skill-policy";
+import {
+  readAllowedTools,
+  readClaudeNativeToolRules,
+  readCodexNativeToolEscapes,
+  readImplicitInvocation,
+} from "./skill-policy";
 import type {
   BuildGraph,
   JsonRecord,
@@ -354,15 +359,27 @@ async function renderPluginSkillFiles(
     sourceDir,
     join(basePath, relativeSkillDir)
   );
+  const generatedCodexToolsFile = renderCodexSkillToolsFile(
+    graph,
+    skill,
+    target,
+    join(basePath, relativeSkillDir)
+  );
+  const generatedCodexRelativeFiles = new Set(
+    [generatedCodexAgentFile, generatedCodexToolsFile]
+      .filter((file): file is RenderedFile => file !== undefined)
+      .map((file) => relative(join(basePath, relativeSkillDir), file.path))
+  );
   const rendered: RenderedFile[] = [
     textFile(targetSkillFile, renderSkillMarkdown(graph, plugin, skill, target)),
   ];
   if (generatedCodexAgentFile !== undefined) rendered.push(generatedCodexAgentFile);
+  if (generatedCodexToolsFile !== undefined) rendered.push(generatedCodexToolsFile);
 
   for (const file of await collectFiles(sourceDir)) {
     const relativeFile = relative(sourceDir, file);
     if (relativeFile === "SKILL.md") continue;
-    if (generatedCodexAgentFile !== undefined && relativeFile === "agents/openai.yaml") continue;
+    if (generatedCodexRelativeFiles.has(relativeFile)) continue;
     rendered.push({
       path: join(basePath, relativeSkillDir, relativeFile),
       content: await readFile(file),
@@ -403,15 +420,27 @@ async function renderStandaloneSkill(
     sourceDir,
     join(outputRoot, relativeSkillDir)
   );
+  const generatedCodexToolsFile = renderCodexSkillToolsFile(
+    graph,
+    skill,
+    target,
+    join(outputRoot, relativeSkillDir)
+  );
+  const generatedCodexRelativeFiles = new Set(
+    [generatedCodexAgentFile, generatedCodexToolsFile]
+      .filter((file): file is RenderedFile => file !== undefined)
+      .map((file) => relative(join(outputRoot, relativeSkillDir), file.path))
+  );
   const rendered: RenderedFile[] = [
     textFile(targetSkillFile, renderSkillMarkdown(graph, undefined, skill, target)),
   ];
   if (generatedCodexAgentFile !== undefined) rendered.push(generatedCodexAgentFile);
+  if (generatedCodexToolsFile !== undefined) rendered.push(generatedCodexToolsFile);
 
   for (const file of await collectFiles(sourceDir)) {
     const relativeFile = relative(sourceDir, file);
     if (relativeFile === "SKILL.md") continue;
-    if (generatedCodexAgentFile !== undefined && relativeFile === "agents/openai.yaml") continue;
+    if (generatedCodexRelativeFiles.has(relativeFile)) continue;
     rendered.push({
       path: join(outputRoot, relativeSkillDir, relativeFile),
       content: await readFile(file),
@@ -459,7 +488,7 @@ function renderSkillMarkdown(
   const version = skillVersion(graph, plugin, skill);
   const withReferences = references === undefined ? base : mergeRecords(base, { references });
   const withClaudePolicy =
-    target === "claude" ? mergeRecords(withReferences, renderClaudeSkillPolicy(skill)) : withReferences;
+    target === "claude" ? mergeRecords(withReferences, renderClaudeSkillPolicy(skill, targetOptions)) : withReferences;
   const withPortable = mergeRecords(withClaudePolicy, { metadata: { generated: GENERATED_BY, version } });
   const frontmatter = mergeRecords(
     withPortable,
@@ -469,17 +498,25 @@ function renderSkillMarkdown(
   return stringifyMarkdown(frontmatter, skill.body);
 }
 
-function renderClaudeSkillPolicy(skill: SourceSkill): JsonRecord {
+function renderClaudeSkillPolicy(skill: SourceSkill, targetOptions: JsonRecord): JsonRecord {
   const label = skill.sourcePath;
   const implicitInvocation = readImplicitInvocation(skill.frontmatter, "claude", label);
   const allowedTools = readAllowedTools(skill.frontmatter, "claude", label);
+  const nativeTools = readClaudeNativeToolRules(skill.frontmatter, targetOptions, label);
   const policy: Record<string, JsonValue> = {};
 
   if (implicitInvocation !== undefined) {
     policy["disable-model-invocation"] = !implicitInvocation;
   }
-  if (allowedTools !== undefined && allowedTools !== false) {
-    policy["allowed-tools"] = [...allowedTools];
+  const allow = [
+    ...(allowedTools !== undefined && allowedTools !== false ? allowedTools : []),
+    ...nativeTools.allow,
+  ];
+  if (allow.length > 0) {
+    policy["allowed-tools"] = allow;
+  }
+  if (nativeTools.deny.length > 0) {
+    policy["disallowed-tools"] = [...nativeTools.deny];
   }
 
   return policy;
@@ -518,6 +555,29 @@ function renderCodexSkillAgentConfig(skill: SourceSkill, label: string): JsonRec
   }
   if (implicitInvocation === undefined) return {};
   return { policy: { allow_implicit_invocation: implicitInvocation } };
+}
+
+function renderCodexSkillToolsFile(
+  graph: BuildGraph,
+  skill: SourceSkill,
+  target: TargetName,
+  targetSkillDir: string
+): RenderedFile | undefined {
+  if (target !== "codex") return undefined;
+
+  const label = relative(graph.rootPath, skill.sourcePath);
+  const tools = readCodexNativeToolEscapes(skill.frontmatter, skill.targets.codex.options, label);
+  if (tools.allow === undefined && tools.deny === undefined) return undefined;
+
+  return textFile(
+    join(targetSkillDir, ".skillset.tools.yaml"),
+    stringifyYaml({
+      generated: GENERATED_BY,
+      schema_version: 1,
+      target: "codex",
+      tools,
+    })
+  );
 }
 
 async function copyPluginCompanionFiles(

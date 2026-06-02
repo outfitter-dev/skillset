@@ -106,6 +106,36 @@ Values can be shared (`implicit_invocation: false`) or target-scoped (`implicit_
 
 `allowed_tools` lowers to Claude `allowed-tools`. Codex `agents/openai.yaml` supports tool dependencies and invocation policy, but it is not a skill-local equivalent to Claude tool preapproval. For now Codex-enabled skills must leave `allowed_tools.codex` unset or set it to `false`; `skillset lint` rejects shared or Codex-targeted allowed tools until a real Codex permission lowering is validated.
 
+When a provider adds a tool or policy surface before the portable registry has a normalized key, use the underscore escape hatch instead of leaking target-native frontmatter into both outputs:
+
+```yaml
+tools:
+  _allow:
+    claude:
+      - Read
+    codex:
+      mcp:
+        linear:
+          tools:
+            - issues.*
+claude:
+  tools:
+    _allow:
+      - "NewClaudeTool(project:*)"
+      - rule: "Bash(newcli safe *)"
+    _deny:
+      - AskUserQuestion
+codex:
+  tools:
+    _allow:
+      mcp:
+        linear:
+          tools:
+            - experimental.*
+```
+
+Only `_allow` and `_deny` are accepted inside `tools` for this slice. Claude escapes must be native rule strings or objects with a `rule` string, and lower to `allowed-tools` / `disallowed-tools`. Codex escapes are preserved as structured generated metadata in `.skillset.tools.yaml`; that file is included in `.skillset.lock`, but it does not install, trust, or mutate user-level Codex configuration.
+
 Import helpers write only to `.skillset/`:
 
 ```bash

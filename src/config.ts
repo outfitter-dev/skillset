@@ -20,6 +20,7 @@ const SOURCE_ONLY_KEYS = new Set([
   "summary",
   "targets",
   "title",
+  "tools",
   "version",
 ]);
 

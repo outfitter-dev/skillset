@@ -1,7 +1,11 @@
 import { relative } from "node:path";
 
 import { loadBuildGraph } from "./resolver";
-import { readAllowedTools } from "./skill-policy";
+import {
+  readAllowedTools,
+  readClaudeNativeToolRules,
+  readCodexNativeToolEscapes,
+} from "./skill-policy";
 import type { BuildGraph, LintIssue, LintResult, SkillsetOptions, SourceSkill } from "./types";
 
 interface DynamicPattern {
@@ -67,9 +71,11 @@ export function lintBuildGraph(graph: BuildGraph): LintResult {
 }
 
 function lintSkill(graph: BuildGraph, skill: SourceSkill): readonly LintIssue[] {
-  if (!skill.targets.codex.enabled) return [];
-
   const issues: LintIssue[] = [];
+  issues.push(...lintToolEscapes(graph, skill));
+
+  if (!skill.targets.codex.enabled) return issues;
+
   issues.push(...lintCodexAllowedTools(graph, skill));
 
   const matches = CLAUDE_DYNAMIC_PATTERNS.filter(({ pattern }) => pattern.test(skill.body));
@@ -86,6 +92,30 @@ function lintSkill(graph: BuildGraph, skill: SourceSkill): readonly LintIssue[] 
   });
 
   return issues;
+}
+
+function lintToolEscapes(graph: BuildGraph, skill: SourceSkill): readonly LintIssue[] {
+  const path = relative(graph.rootPath, skill.sourcePath);
+
+  try {
+    if (skill.targets.claude.enabled) {
+      readClaudeNativeToolRules(skill.frontmatter, skill.targets.claude.options, path);
+    }
+    if (skill.targets.codex.enabled) {
+      readCodexNativeToolEscapes(skill.frontmatter, skill.targets.codex.options, path);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return [
+      {
+        code: "skill-tools-invalid",
+        path,
+        message,
+      },
+    ];
+  }
+
+  return [];
 }
 
 function lintCodexAllowedTools(graph: BuildGraph, skill: SourceSkill): readonly LintIssue[] {
