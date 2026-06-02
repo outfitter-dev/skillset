@@ -1,5 +1,5 @@
 ---
-description: Guidance for using skillset in a source-first repository.
+description: Use the skillset compiler to build, check, lint, and import source skills or plugins.
 metadata:
   generated: skillset@0.1.0
   version: 0.1.0
@@ -20,11 +20,11 @@ Use this skill when a repo has a `.skillset/` source tree or when you need to cr
       SKILL.md
   plugins/
     <plugin-name>/
-      config.yaml
+      skillset.yaml
       skills/
 ```
 
-Root `.skillset/config.yaml` controls target defaults and output roots. Plugin configs use `.skillset/plugins/<plugin-name>/config.yaml`. Portable metadata lives under `skillset`; target-specific overrides use top-level `claude` and `codex`.
+Root `.skillset/config.yaml` controls target defaults and output roots. Plugin configs use `.skillset/plugins/<plugin-name>/skillset.yaml`. Portable plugin metadata lives under `skillset`; skill source can use top-level `title`, `summary`, `description`, and `version`. Target-specific overrides use top-level `claude` and `codex`.
 
 ## Build And Check
 
@@ -44,7 +44,7 @@ skillset import skill /path/to/skill-dir --root . --name custom-name
 skillset import plugin /path/to/plugin-dir --root .
 ```
 
-Imports copy into `.skillset/skills/<name>` or `.skillset/plugins/<name>`. Plugin imports rename `skillset.yaml` to `config.yaml`. Imports do not publish, install, symlink, trust, mutate registries, or change user-level config.
+Imports copy into `.skillset/skills/<name>` or `.skillset/plugins/<name>`. Plugin imports write plugin-local `skillset.yaml`. Imports do not publish, install, symlink, trust, mutate registries, or change user-level config.
 
 ## Rules
 

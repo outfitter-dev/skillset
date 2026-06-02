@@ -1,9 +1,25 @@
-import type { JsonRecord, JsonValue, OutputConfig, ResolvedTarget, TargetName } from "./types";
+import type {
+  JsonRecord,
+  JsonValue,
+  OutputConfig,
+  OutputSelection,
+  ResolvedTarget,
+  TargetName,
+} from "./types";
 import { isJsonRecord } from "./yaml";
 
 const TARGET_NAMES: readonly TargetName[] = ["claude", "codex"];
 const CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "claude", "codex", "skillset"]);
-const SOURCE_ONLY_KEYS = new Set(["agents", "claude", "codex", "skillset", "targets"]);
+const SOURCE_ONLY_KEYS = new Set([
+  "agents",
+  "claude",
+  "codex",
+  "skillset",
+  "summary",
+  "targets",
+  "title",
+  "version",
+]);
 
 export function defaultTargets(): Readonly<Record<TargetName, ResolvedTarget>> {
   return {
@@ -32,25 +48,42 @@ export function readSkillsetName(metadata: JsonRecord, fallback: string, label: 
 }
 
 export function readOutputConfig(
+  record: JsonRecord,
   metadata: JsonRecord,
   options: { readonly distDir?: string } = {}
 ): OutputConfig {
   const outputs = readRecord(metadata, "outputs") ?? {};
   const pluginOutputs = readRecord(outputs, "plugins") ?? {};
   const skillOutputs = readRecord(outputs, "skills") ?? {};
+  const claudePlugins = readTargetOutputSetting(record.claude, "plugins", "claude.plugins");
+  const claudeSkills = readTargetOutputSetting(record.claude, "skills", "claude.skills");
+  const codexPlugins = readTargetOutputSetting(record.codex, "plugins", "codex.plugins");
+  const codexSkills = readTargetOutputSetting(record.codex, "skills", "codex.skills");
 
   return {
     plugins: {
       claude:
+        claudePlugins.path ??
         readString(pluginOutputs, "claude") ??
         (options.distDir === undefined ? "plugins-claude" : `${options.distDir}/claude`),
       codex:
+        codexPlugins.path ??
         readString(pluginOutputs, "codex") ??
         (options.distDir === undefined ? "plugins-codex" : `${options.distDir}/codex`),
     },
     skills: {
-      claude: readString(skillOutputs, "claude") ?? ".claude/skills",
-      codex: readString(skillOutputs, "codex") ?? ".agents/skills",
+      claude: claudeSkills.path ?? readString(skillOutputs, "claude") ?? ".claude/skills",
+      codex: codexSkills.path ?? readString(skillOutputs, "codex") ?? ".agents/skills",
+    },
+    targetOutputs: {
+      claude: {
+        plugins: claudePlugins.selection,
+        skills: claudeSkills.selection,
+      },
+      codex: {
+        plugins: codexPlugins.selection,
+        skills: codexSkills.selection,
+      },
     },
   };
 }
@@ -137,10 +170,7 @@ export function readString(record: JsonRecord, key: string): string | undefined 
 export function readStringArray(record: JsonRecord, key: string): readonly string[] | undefined {
   const value = record[key];
   if (value === undefined) return undefined;
-  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
-    throw new Error(`skillset: expected ${key} to be a string array`);
-  }
-  return value.map((item) => String(item));
+  return readStringArrayValue(value, key);
 }
 
 export function readRecord(record: JsonRecord, key: string): JsonRecord | undefined {
@@ -156,8 +186,62 @@ export function targetNames(): readonly TargetName[] {
   return TARGET_NAMES;
 }
 
+export function isOutputSelected(selection: OutputSelection, name: string): boolean {
+  if (selection === true) return true;
+  if (selection === false) return false;
+  return selection.includes(name);
+}
+
 function rejectTargetsKey(record: JsonRecord, label: string): void {
   if (record.targets !== undefined) {
     throw new Error(`skillset: ${label} uses unsupported targets key; use top-level claude/codex`);
   }
+}
+
+interface ParsedTargetOutputSetting {
+  readonly path?: string;
+  readonly selection: OutputSelection;
+}
+
+function readTargetOutputSetting(
+  rawTarget: JsonValue | undefined,
+  key: "plugins" | "skills",
+  label: string
+): ParsedTargetOutputSetting {
+  if (rawTarget === undefined || rawTarget === true) return { selection: true };
+  if (rawTarget === false) return { selection: false };
+  if (!isJsonRecord(rawTarget)) {
+    throw new Error(`skillset: expected ${label.split(".")[0]} to be true, false, or an object`);
+  }
+
+  if (rawTarget.enabled === false) return { selection: false };
+  const rawOutput = rawTarget[key];
+  if (rawOutput === undefined) return { selection: true };
+  return readOutputSetting(rawOutput, label);
+}
+
+function readOutputSetting(raw: JsonValue, label: string): ParsedTargetOutputSetting {
+  if (raw === true || raw === false) return { selection: raw };
+  if (Array.isArray(raw)) return { selection: readStringArrayValue(raw, label) };
+  if (!isJsonRecord(raw)) {
+    throw new Error(`skillset: expected ${label} to be true, false, a string array, or an object`);
+  }
+
+  if (raw.enabled !== undefined && typeof raw.enabled !== "boolean") {
+    throw new Error(`skillset: expected ${label}.enabled to be a boolean`);
+  }
+
+  const include = raw.include === undefined ? undefined : readStringArrayValue(raw.include, `${label}.include`);
+  const path = readString(raw, "path");
+  return {
+    ...(path === undefined ? {} : { path }),
+    selection: raw.enabled === false ? false : include ?? true,
+  };
+}
+
+function readStringArrayValue(value: JsonValue, label: string): readonly string[] {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
+    throw new Error(`skillset: expected ${label} to be a string array`);
+  }
+  return value.map((item) => String(item));
 }

@@ -93,8 +93,8 @@ async function copyImportSource(
 
 function relativeImportPath(sourceRoot: string, file: string, kind: ImportKind): string {
   const relativePath = file.slice(sourceRoot.length + 1);
-  if (kind === "plugin" && relativePath === "skillset.yaml") {
-    return "config.yaml";
+  if (kind === "plugin" && (relativePath === "skillset.yaml" || relativePath === "config.yaml")) {
+    return "skillset.yaml";
   }
   return relativePath;
 }

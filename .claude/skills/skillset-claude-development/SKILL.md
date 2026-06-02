@@ -1,6 +1,5 @@
 ---
-description: Internal standalone skill for Claude-oriented development of the
-  skillset compiler.
+description: Develop and review the local skillset compiler from a Claude-oriented workflow.
 metadata:
   generated: skillset@0.1.0
   version: 0.1.0

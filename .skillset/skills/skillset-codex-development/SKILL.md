@@ -1,11 +1,7 @@
 ---
-name: skillset-codex-development
+title: Skillset Codex Development
 description: Develop and review the local skillset compiler from a Codex-oriented workflow.
-skillset:
-  name: skillset-codex-development
-  title: Skillset Codex Development
-  description: Internal standalone skill for Codex-oriented development of the skillset compiler.
-  version: 0.1.0
+version: 0.1.0
 claude: false
 codex: true
 ---

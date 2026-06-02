@@ -16,7 +16,7 @@
       references/
   plugins/
     <plugin-name>/
-      config.yaml
+      skillset.yaml
       README.md
       skills/
         <skill-name>/
@@ -65,18 +65,23 @@ This compiler repo uses that same layout for its own source:
 - `.skillset/skills/skillset-codex-development` is a Codex-only internal standalone skill for compiler development.
 - `.skillset/plugins/skillset` is the user-facing plugin that explains how to use `skillset`.
 
-Plugin output roots and standalone skill output roots can be configured from root `.skillset/config.yaml`:
+Plugin output roots and standalone skill output roots can be enabled with defaults or configured from root `.skillset/config.yaml`:
 
 ```yaml
-skillset:
-  outputs:
-    plugins:
-      claude: plugins-claude
-      codex: plugins-codex
-    skills:
-      claude: .claude/skills
-      codex: .agents/skills
+claude:
+  plugins: true
+  skills: true
+
+codex:
+  plugins:
+    - skillset
+  skills:
+    path: .agents/skills
 ```
+
+Boolean output settings use the default roots: `plugins-claude/`, `plugins-codex/`, `.claude/skills`, and `.agents/skills`. Arrays select specific plugin or standalone skill names. Object settings can set `path`, `include`, or `enabled: false`.
+
+Plugin-local `README.md` files are copied into each generated target plugin. Shared source inputs such as `.skillset/shared/assets`, `.skillset/shared/scripts`, `.skillset/shared/references`, and `.skillset/shared/templates` are available for source organization; they are not copied into every output unless a source skill or plugin includes them.
 
 Import helpers write only to `.skillset/`:
 

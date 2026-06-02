@@ -2,7 +2,7 @@
   "author": {
     "name": "Matt Galligan"
   },
-  "description": "Build portable source skills and plugins into Claude and Codex outputs.",
+  "description": "Build source skills and plugins into Claude and Codex outputs.",
   "keywords": [
     "skillset",
     "skills",

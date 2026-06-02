@@ -18,7 +18,7 @@ claude: true
 codex:
   color: "#B06DFF"
 `,
-    ".skillset/plugins/alpha/config.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 codex:
@@ -84,16 +84,21 @@ skillset:
   version: 1.0.0
   marketplace:
     name: test-market
-claude: true
-codex: true
+claude:
+  plugins: true
+  skills: true
+codex:
+  plugins: true
+  skills: true
 `,
-    ".skillset/plugins/alpha/config.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   description: Alpha plugin.
+  summary: Alpha tools.
   version: 2.0.0
-  manifest:
-    name: alpha-manifest
+  presentation:
+    color: "#B06DFF"
 codex:
   color: "#B06DFF"
 `,
@@ -101,15 +106,14 @@ codex:
 `,
     ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
-name: alpha-skill
+title: Alpha Skill
+summary: Portable alpha summary.
 description: Alpha skill.
+version: 2.1.0
 metadata:
   author: fixture
 skillset:
-  name: alpha-skill
-  title: Alpha Skill
-  description: Portable alpha description.
-  version: 2.1.0
+  schema: 1
 codex:
   frontmatter:
     description: Codex alpha description.
@@ -118,7 +122,7 @@ agents: true
 
 Alpha body.
 `,
-    ".skillset/plugins/beta/config.yaml": `
+    ".skillset/plugins/beta/skillset.yaml": `
 skillset:
   name: beta
   description: Beta plugin.
@@ -142,7 +146,7 @@ Beta body.
   expect(await exists(join(root, "plugins-codex/plugins/alpha/.codex-plugin/plugin.json"))).toBe(true);
   expect(await exists(join(root, "plugins-codex/plugins/beta/.codex-plugin/plugin.json"))).toBe(true);
   expect(await exists(join(root, "plugins-claude/plugins/beta/.claude-plugin/plugin.json"))).toBe(false);
-  expect(await exists(join(root, "plugins-codex/plugins/alpha/config.yaml"))).toBe(false);
+  expect(await exists(join(root, "plugins-codex/plugins/alpha/skillset.yaml"))).toBe(false);
   expect(await exists(join(root, "plugins-codex/.skillset.lock"))).toBe(true);
 
   const codexSkill = await readFile(
@@ -161,10 +165,12 @@ Beta body.
 
   expect(marketplace).toContain(`"name": "test-market"`);
   expect(claudeManifest).not.toContain("commands");
-  expect(claudeManifest).toContain(`"name": "alpha-manifest"`);
+  expect(claudeManifest).toContain(`"name": "alpha"`);
   expect(codexSkill).not.toContain("skillset:");
   expect(codexSkill).not.toContain("codex:");
   expect(codexSkill).not.toContain("agents:");
+  expect(codexSkill).not.toContain("summary:");
+  expect(codexSkill).not.toContain("title: Alpha Skill");
   expect(codexSkill).toContain("description: Codex alpha description.");
   expect(codexSkill).toContain(`metadata:
   author: fixture
@@ -189,20 +195,18 @@ test("standalone skills emit without plugin manifests", async () => {
     ".skillset/config.yaml": `
 skillset:
   name: test-root
-  outputs:
-    skills:
-      claude: skills-claude
-      codex: skills-agents
-claude: true
-codex: true
+claude:
+  skills:
+    path: skills-claude
+codex:
+  skills:
+    path: skills-agents
 `,
     ".skillset/skills/draft/SKILL.md": `
 ---
 name: draft
 description: Draft standalone skill.
-skillset:
-  name: draft
-  version: 0.2.0
+version: 0.2.0
 codex: false
 ---
 
@@ -224,6 +228,113 @@ Draft body.
   version: 0.2.0`);
 });
 
+test("root target outputs can use defaults, booleans, lists, and include objects", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude:
+  plugins: false
+  skills: true
+codex:
+  plugins:
+    - alpha
+  skills:
+    path: codex-skills
+    include:
+      - public-skill
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+---
+name: alpha-skill
+description: Alpha skill.
+---
+
+Alpha body.
+`,
+    ".skillset/plugins/beta/skillset.yaml": `
+skillset:
+  name: beta
+`,
+    ".skillset/plugins/beta/skills/beta-skill/SKILL.md": `
+---
+name: beta-skill
+description: Beta skill.
+---
+
+Beta body.
+`,
+    ".skillset/skills/public-skill/SKILL.md": `
+---
+name: public-skill
+description: Public skill.
+---
+
+Public body.
+`,
+    ".skillset/skills/private-skill/SKILL.md": `
+---
+name: private-skill
+description: Private skill.
+---
+
+Private body.
+`,
+  });
+
+  await buildSkillset(root);
+
+  expect(await exists(join(root, "plugins-claude/README.md"))).toBe(false);
+  expect(await exists(join(root, "plugins-codex/plugins/alpha/.codex-plugin/plugin.json"))).toBe(true);
+  expect(await exists(join(root, "plugins-codex/plugins/beta/.codex-plugin/plugin.json"))).toBe(false);
+  expect(await exists(join(root, ".claude/skills/public-skill/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, ".claude/skills/private-skill/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, "codex-skills/public-skill/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, "codex-skills/private-skill/SKILL.md"))).toBe(false);
+});
+
+test("disabled generated roots with skillset locks remain managed", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude:
+  plugins: false
+  skills: false
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+---
+name: alpha-skill
+description: Alpha skill.
+---
+
+Alpha body.
+`,
+    "plugins-claude/.skillset.lock": `
+{
+  "generatedBy": "skillset@0.1.0"
+}
+`,
+    "plugins-claude/stale.txt": `
+stale
+`,
+  });
+
+  await expect(checkSkillset(root)).rejects.toThrow("stale generated file");
+  await buildSkillset(root);
+  expect(await exists(join(root, "plugins-claude/.skillset.lock"))).toBe(false);
+  expect(await exists(join(root, "plugins-claude/stale.txt"))).toBe(false);
+});
+
 test("check mode catches stale generated output", async () => {
   const root = await fixture({
     ".skillset/config.yaml": `
@@ -232,7 +343,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/config.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   description: Alpha plugin.
@@ -258,13 +369,12 @@ test("output roots cannot overlap source or each other", async () => {
     ".skillset/config.yaml": `
 skillset:
   name: test-root
-  outputs:
-    plugins:
-      claude: .skillset/generated
-claude: true
+claude:
+  plugins:
+    path: .skillset/generated
 codex: false
 `,
-    ".skillset/plugins/alpha/config.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -279,20 +389,20 @@ Alpha body.
   });
 
   await expect(buildSkillset(sourceOverlapRoot)).rejects.toThrow("must not point inside source root");
-  expect(await exists(join(sourceOverlapRoot, ".skillset/plugins/alpha/config.yaml"))).toBe(true);
+  expect(await exists(join(sourceOverlapRoot, ".skillset/plugins/alpha/skillset.yaml"))).toBe(true);
 
   const duplicateRoot = await fixture({
     ".skillset/config.yaml": `
 skillset:
   name: test-root
-  outputs:
-    plugins:
-      claude: generated-plugins
-      codex: ./generated-plugins
-claude: true
-codex: true
+claude:
+  plugins:
+    path: generated-plugins
+codex:
+  plugins:
+    path: ./generated-plugins
 `,
-    ".skillset/plugins/alpha/config.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -317,7 +427,7 @@ skillset:
 targets:
   codex: true
 `,
-    ".skillset/plugins/alpha/config.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -330,7 +440,7 @@ skillset:
 skillset:
   name: test-root
 `,
-    ".skillset/plugins/alpha/config.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -356,7 +466,7 @@ skillset:
   name: test-root
 surprise: true
 `,
-    ".skillset/plugins/alpha/config.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -365,13 +475,54 @@ skillset:
   await expect(loadBuildGraph(root)).rejects.toThrow("unsupported top-level key");
 });
 
+test("plugin-local config.yaml remains a fallback but not alongside skillset.yaml", async () => {
+  const fallbackRoot = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+`,
+    ".skillset/plugins/alpha/config.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+---
+name: alpha-skill
+description: Alpha skill.
+---
+
+Alpha body.
+`,
+  });
+
+  const graph = await loadBuildGraph(fallbackRoot);
+  expect(graph.plugins[0]?.id).toBe("alpha");
+
+  const ambiguousRoot = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+`,
+    ".skillset/plugins/alpha/config.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+  });
+
+  await expect(loadBuildGraph(ambiguousRoot)).rejects.toThrow("both skillset.yaml and config.yaml");
+});
+
 test("skillset.id remains a compatibility alias but conflicts are rejected", async () => {
   const root = await fixture({
     ".skillset/config.yaml": `
 skillset:
   id: test-root
 `,
-    ".skillset/plugins/alpha/config.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   id: alpha
 `,
@@ -395,7 +546,7 @@ Alpha body.
 skillset:
   name: test-root
 `,
-    ".skillset/plugins/alpha/config.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   id: other
@@ -413,7 +564,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/config.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -459,7 +610,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/config.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -525,8 +676,8 @@ Plugin skill body.
   });
 
   expect(result.name).toBe("imported-plugin");
-  expect(await exists(join(root, ".skillset/plugins/imported-plugin/config.yaml"))).toBe(true);
-  expect(await exists(join(root, ".skillset/plugins/imported-plugin/skillset.yaml"))).toBe(false);
+  expect(await exists(join(root, ".skillset/plugins/imported-plugin/skillset.yaml"))).toBe(true);
+  expect(await exists(join(root, ".skillset/plugins/imported-plugin/config.yaml"))).toBe(false);
   expect(await exists(join(root, ".skillset/plugins/imported-plugin/skills/imported-skill/SKILL.md"))).toBe(true);
 });
 

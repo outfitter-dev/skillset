@@ -44,7 +44,7 @@ export function stringifyJson(value: JsonRecord): string {
 }
 
 export function stringifyYaml(value: JsonRecord): string {
-  return YAML.stringify(stripUndefined(sortRecord(value)));
+  return YAML.stringify(stripUndefined(sortRecord(value)), { lineWidth: 0 });
 }
 
 export function sortRecord(record: JsonRecord): JsonRecord {

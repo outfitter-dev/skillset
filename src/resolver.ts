@@ -11,11 +11,19 @@ import {
   validateConfigDocument,
 } from "./config";
 import { resolveInside, validateSlug } from "./path";
-import type { BuildGraph, SkillsetOptions, SourcePlugin, SourceSkill, StandaloneSkill } from "./types";
+import type {
+  BuildGraph,
+  OutputSelection,
+  SkillsetOptions,
+  SourcePlugin,
+  SourceSkill,
+  StandaloneSkill,
+} from "./types";
 import { parseMarkdown, parseYamlRecord } from "./yaml";
 
 const DEFAULT_SOURCE_DIR = ".skillset";
-const CONFIG_FILE = "config.yaml";
+const ROOT_CONFIG_FILE = "config.yaml";
+const PLUGIN_CONFIG_FILES = ["skillset.yaml", "config.yaml"] as const;
 const PLUGINS_DIR = "plugins";
 const SKILLS_DIR = "skills";
 const SKILL_FILE = "SKILL.md";
@@ -26,11 +34,12 @@ export async function loadBuildGraph(
 ): Promise<BuildGraph> {
   const sourceDir = options.sourceDir ?? DEFAULT_SOURCE_DIR;
   const sourcePath = resolveInside(rootPath, sourceDir);
-  const rootConfigPath = join(sourcePath, CONFIG_FILE);
+  const rootConfigPath = join(sourcePath, ROOT_CONFIG_FILE);
   const rootConfig = parseYamlRecord(await readFile(rootConfigPath, "utf8"), rootConfigPath);
   validateConfigDocument(rootConfig, rootConfigPath);
   const metadata = readSkillsetMetadata(rootConfig, rootConfigPath);
   const outputs = readOutputConfig(
+    rootConfig,
     metadata,
     options.distDir === undefined ? {} : { distDir: options.distDir }
   );
@@ -48,7 +57,7 @@ export async function loadBuildGraph(
     throw new Error(`skillset: no source plugins or skills found under ${sourceDir}/`);
   }
 
-  const outputRoots = activeOutputRoots(outputs, plugins, standaloneSkills);
+  const outputRoots = await outputRootsFor(rootPath, outputs, plugins, standaloneSkills);
   validateOutputRoots(rootPath, sourcePath, outputRoots);
 
   return {
@@ -89,7 +98,7 @@ async function loadPlugin(
   parentTargets: BuildGraph["root"]["targets"]
 ): Promise<SourcePlugin> {
   const pluginPath = resolveInside(rootPath, join(sourceDir, PLUGINS_DIR, id));
-  const configPath = join(pluginPath, CONFIG_FILE);
+  const configPath = await resolvePluginConfigPath(pluginPath);
   const config = parseYamlRecord(await readFile(configPath, "utf8"), configPath);
   validateConfigDocument(config, configPath);
   const metadata = readSkillsetMetadata(config, configPath);
@@ -105,6 +114,23 @@ async function loadPlugin(
   const skills = await loadSkills(rootPath, pluginPath, targets);
 
   return { id, metadata, path: pluginPath, skills, targets };
+}
+
+async function resolvePluginConfigPath(pluginPath: string): Promise<string> {
+  const candidates = [];
+  for (const file of PLUGIN_CONFIG_FILES) {
+    const candidate = join(pluginPath, file);
+    if (await exists(candidate)) candidates.push(candidate);
+  }
+
+  if (candidates.length === 0) {
+    throw new Error(`skillset: expected plugin config skillset.yaml in ${pluginPath}`);
+  }
+  if (candidates.length > 1) {
+    throw new Error(`skillset: plugin ${pluginPath} has both skillset.yaml and config.yaml`);
+  }
+
+  return candidates[0] ?? join(pluginPath, "skillset.yaml");
 }
 
 async function loadSkills(
@@ -200,25 +226,59 @@ interface ActiveOutputRoot {
   readonly path: string;
 }
 
+async function outputRootsFor(
+  rootPath: string,
+  outputs: BuildGraph["root"]["outputs"],
+  plugins: readonly SourcePlugin[],
+  standaloneSkills: readonly StandaloneSkill[]
+): Promise<readonly ActiveOutputRoot[]> {
+  const activeRoots = activeOutputRoots(outputs, plugins, standaloneSkills);
+  const roots = new Map(activeRoots.map((outputRoot) => [outputRoot.path, outputRoot]));
+
+  for (const outputRoot of configuredOutputRoots(outputs)) {
+    if (roots.has(outputRoot.path)) continue;
+    if (await exists(join(resolveInside(rootPath, outputRoot.path), ".skillset.lock"))) {
+      roots.set(outputRoot.path, outputRoot);
+    }
+  }
+
+  return [...roots.values()].sort((left, right) => left.path.localeCompare(right.path));
+}
+
+function configuredOutputRoots(outputs: BuildGraph["root"]["outputs"]): readonly ActiveOutputRoot[] {
+  return [
+    { label: "outputs.plugins.claude", path: outputs.plugins.claude },
+    { label: "outputs.plugins.codex", path: outputs.plugins.codex },
+    { label: "outputs.skills.claude", path: outputs.skills.claude },
+    { label: "outputs.skills.codex", path: outputs.skills.codex },
+  ];
+}
+
 function activeOutputRoots(
   outputs: BuildGraph["root"]["outputs"],
   plugins: readonly SourcePlugin[],
   standaloneSkills: readonly StandaloneSkill[]
 ): readonly ActiveOutputRoot[] {
   const roots: ActiveOutputRoot[] = [];
-  if (plugins.some((plugin) => plugin.targets.claude.enabled)) {
+  if (plugins.some((plugin) => plugin.targets.claude.enabled && outputIncludes(outputs.targetOutputs.claude.plugins, plugin.id))) {
     roots.push({ label: "outputs.plugins.claude", path: outputs.plugins.claude });
   }
-  if (plugins.some((plugin) => plugin.targets.codex.enabled)) {
+  if (plugins.some((plugin) => plugin.targets.codex.enabled && outputIncludes(outputs.targetOutputs.codex.plugins, plugin.id))) {
     roots.push({ label: "outputs.plugins.codex", path: outputs.plugins.codex });
   }
-  if (standaloneSkills.some((skill) => skill.targets.claude.enabled)) {
+  if (standaloneSkills.some((skill) => skill.targets.claude.enabled && outputIncludes(outputs.targetOutputs.claude.skills, skill.id))) {
     roots.push({ label: "outputs.skills.claude", path: outputs.skills.claude });
   }
-  if (standaloneSkills.some((skill) => skill.targets.codex.enabled)) {
+  if (standaloneSkills.some((skill) => skill.targets.codex.enabled && outputIncludes(outputs.targetOutputs.codex.skills, skill.id))) {
     roots.push({ label: "outputs.skills.codex", path: outputs.skills.codex });
   }
   return roots.sort((left, right) => left.path.localeCompare(right.path));
+}
+
+function outputIncludes(selection: OutputSelection, name: string): boolean {
+  if (selection === true) return true;
+  if (selection === false) return false;
+  return selection.includes(name);
 }
 
 function validateOutputRoots(

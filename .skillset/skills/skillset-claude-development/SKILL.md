@@ -1,11 +1,7 @@
 ---
-name: skillset-claude-development
+title: Skillset Claude Development
 description: Develop and review the local skillset compiler from a Claude-oriented workflow.
-skillset:
-  name: skillset-claude-development
-  title: Skillset Claude Development
-  description: Internal standalone skill for Claude-oriented development of the skillset compiler.
-  version: 0.1.0
+version: 0.1.0
 claude: true
 codex: false
 ---

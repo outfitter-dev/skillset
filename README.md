@@ -38,7 +38,7 @@ skillset check --root /Users/mg/Developer/galligan/agents
 skillset build --root /tmp/example --source custom-source --dist generated
 ```
 
-`--dist` is a compatibility override for plugin outputs. Without it, plugin outputs default to `plugins-claude/` and `plugins-codex/`. Source config can also set explicit output roots under `skillset.outputs`.
+`--dist` is a compatibility override for plugin outputs. Without it, plugin outputs default to `plugins-claude/` and `plugins-codex/`. Source config can also set explicit output roots in target output objects such as `claude.plugins.path` or `codex.skills.path`.
 
 ## Import
 
@@ -50,13 +50,13 @@ skillset import skill /path/to/skill-dir --root /path/to/content-repo --name cus
 skillset import plugin /path/to/plugin-dir --root /path/to/content-repo
 ```
 
-Imports copy files into `.skillset/skills/<name>` or `.skillset/plugins/<name>`. Plugin imports rename `skillset.yaml` to `config.yaml`. Import does not install, trust, symlink, publish, mutate registries, or change user-level Claude/Codex config.
+Imports copy files into `.skillset/skills/<name>` or `.skillset/plugins/<name>`. Plugin imports write plugin-local `skillset.yaml`. Import does not install, trust, symlink, publish, mutate registries, or change user-level Claude/Codex config.
 
 ## Source Contract
 
 Root source metadata lives at `.skillset/config.yaml`.
 
-Each plugin lives at `.skillset/plugins/<plugin-name>/` and has its own `config.yaml`. Portable fields live under `skillset`; target-specific overrides live under top-level `claude` and `codex` blocks.
+Each plugin lives at `.skillset/plugins/<plugin-name>/` and has its own `skillset.yaml`. Portable plugin fields live under `skillset`; target-specific overrides live under top-level `claude` and `codex` blocks. Skill source frontmatter can use top-level `title`, `summary`, `description`, and `version`; the compiler derives the target-native `name`, `description`, and generated metadata.
 
 Use `skillset.name` as the stable machine identity. `skillset.id` is accepted as a compatibility alias for older source. Do not use `targets:`.
 

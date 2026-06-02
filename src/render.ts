@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { basename, dirname, join, relative } from "node:path";
 
 import {
+  isOutputSelected,
   mergeRecords,
   readRecord,
   readString,
@@ -66,9 +67,27 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
   return rendered.sort((left, right) => left.path.localeCompare(right.path));
 }
 
+function shouldRenderPlugin(graph: BuildGraph, plugin: SourcePlugin, target: TargetName): boolean {
+  return (
+    plugin.targets[target].enabled &&
+    isOutputSelected(graph.root.outputs.targetOutputs[target].plugins, plugin.id)
+  );
+}
+
+function shouldRenderStandaloneSkill(
+  graph: BuildGraph,
+  skill: StandaloneSkill,
+  target: TargetName
+): boolean {
+  return (
+    skill.targets[target].enabled &&
+    isOutputSelected(graph.root.outputs.targetOutputs[target].skills, skill.id)
+  );
+}
+
 function renderRepositoryReadmes(graph: BuildGraph): readonly RenderedFile[] {
   const rendered: RenderedFile[] = [];
-  if (graph.plugins.some((plugin) => plugin.targets.claude.enabled)) {
+  if (graph.plugins.some((plugin) => shouldRenderPlugin(graph, plugin, "claude"))) {
     rendered.push(
       textFile(
         `${graph.root.outputs.plugins.claude}/README.md`,
@@ -85,7 +104,7 @@ function renderRepositoryReadmes(graph: BuildGraph): readonly RenderedFile[] {
       )
     );
   }
-  if (graph.plugins.some((plugin) => plugin.targets.codex.enabled)) {
+  if (graph.plugins.some((plugin) => shouldRenderPlugin(graph, plugin, "codex"))) {
     rendered.push(
       textFile(
         `${graph.root.outputs.plugins.codex}/README.md`,
@@ -106,14 +125,14 @@ function renderRepositoryReadmes(graph: BuildGraph): readonly RenderedFile[] {
 
 function renderClaudeMarketplace(graph: BuildGraph): readonly RenderedFile[] {
   const plugins = graph.plugins
-    .filter((plugin) => plugin.targets.claude.enabled)
+    .filter((plugin) => shouldRenderPlugin(graph, plugin, "claude"))
     .map((plugin) => {
       const metadata = plugin.metadata;
       return mergeRecords(
         {
           name: plugin.id,
           source: `./plugins/${plugin.id}`,
-          description: readString(metadata, "description") ?? plugin.id,
+          description: readString(metadata, "summary") ?? readString(metadata, "description") ?? plugin.id,
           version: readString(metadata, "version") ?? "0.1.0",
           author: metadata.author,
           repository: metadata.repository,
@@ -137,7 +156,9 @@ function renderClaudeMarketplace(graph: BuildGraph): readonly RenderedFile[] {
       owner,
       metadata: {
         description:
-          readString(root, "description") ?? "Source-first skillset plugins by @galligan",
+          readString(root, "summary") ??
+          readString(root, "description") ??
+          "Source-first skillset plugins by @galligan",
         version: readString(root, "version") ?? "0.1.0",
         pluginRoot: "./plugins",
         generatedBy: "galligan/agents skillset compiler",
@@ -161,7 +182,7 @@ async function renderPluginTarget(
   target: TargetName,
   lockRoots: Map<string, LockRoot>
 ): Promise<readonly RenderedFile[]> {
-  if (!plugin.targets[target].enabled) return [];
+  if (!shouldRenderPlugin(graph, plugin, target)) return [];
 
   const rendered: RenderedFile[] = [];
   const outputRoot = graph.root.outputs.plugins[target];
@@ -197,7 +218,7 @@ function renderPluginManifest(
   const base: JsonRecord = {
     name: readString(portableManifest, "name") ?? plugin.id,
     version: readString(metadata, "version") ?? "0.1.0",
-    description: readString(metadata, "description") ?? plugin.id,
+    description: readString(metadata, "summary") ?? readString(metadata, "description") ?? plugin.id,
     author: metadata.author,
     homepage: metadata.homepage,
     repository: metadata.repository,
@@ -222,36 +243,66 @@ function renderPluginManifest(
 
 function renderCodexInterface(graph: BuildGraph, plugin: SourcePlugin): JsonRecord {
   const metadata = plugin.metadata;
-  const ui = readRecord(metadata, "ui") ?? {};
+  const presentation = mergeRecords(
+    readRecord(metadata, "ui") ?? {},
+    readRecord(metadata, "presentation") ?? {}
+  );
   const author = readRecord(metadata, "author") ?? readRecord(graph.root.metadata, "owner") ?? {};
   const targetOptions = plugin.targets.codex.options;
   const interfaceOverrides = readRecord(targetOptions, "interface") ?? {};
-  const color = readString(targetOptions, "color") ?? readString(ui, "color") ?? DEFAULT_CODEX_COLOR;
-  const website = readString(ui, "websiteURL") ?? readString(metadata, "homepage") ?? readString(metadata, "repository");
-  const capabilities = readStringArray(ui, "capabilities");
-  const defaultPrompt = readStringArray(ui, "defaultPrompt");
-  const screenshots = readStringArray(ui, "screenshots");
+  const color =
+    readString(targetOptions, "color") ??
+    readPresentationString(presentation, "color", "brand_color", "brandColor") ??
+    DEFAULT_CODEX_COLOR;
+  const website =
+    readPresentationString(presentation, "website_url", "websiteURL") ??
+    readString(metadata, "homepage") ??
+    readString(metadata, "repository");
+  const capabilities = readStringArray(presentation, "capabilities");
+  const defaultPrompt =
+    readStringArray(presentation, "default_prompt") ?? readStringArray(presentation, "defaultPrompt");
+  const screenshots = readStringArray(presentation, "screenshots");
 
   const base: JsonRecord = {
-    displayName: readString(ui, "displayName") ?? readString(metadata, "title") ?? titleize(plugin.id),
+    displayName:
+      readPresentationString(presentation, "display_name", "displayName") ??
+      readString(metadata, "title") ??
+      titleize(plugin.id),
     shortDescription:
-      readString(ui, "shortDescription") ?? readString(metadata, "description") ?? plugin.id,
+      readPresentationString(presentation, "summary", "short_description", "shortDescription") ??
+      readString(metadata, "summary") ??
+      readString(metadata, "description") ??
+      plugin.id,
     longDescription:
-      readString(ui, "longDescription") ?? readString(metadata, "description") ?? plugin.id,
-    developerName: readString(ui, "developerName") ?? readString(author, "name") ?? "Matt Galligan",
-    category: readString(ui, "category") ?? readString(metadata, "category") ?? "Productivity",
+      readPresentationString(presentation, "description", "long_description", "longDescription") ??
+      readString(metadata, "description") ??
+      readString(metadata, "summary") ??
+      plugin.id,
+    developerName:
+      readPresentationString(presentation, "developer_name", "developerName") ??
+      readString(author, "name") ??
+      "Matt Galligan",
+    category: readString(presentation, "category") ?? readString(metadata, "category") ?? "Productivity",
     capabilities: [...(capabilities ?? ["Interactive", "Write"])],
     websiteURL: website,
-    privacyPolicyURL: readString(ui, "privacyPolicyURL"),
-    termsOfServiceURL: readString(ui, "termsOfServiceURL"),
+    privacyPolicyURL: readPresentationString(presentation, "privacy_policy_url", "privacyPolicyURL"),
+    termsOfServiceURL: readPresentationString(presentation, "terms_of_service_url", "termsOfServiceURL"),
     defaultPrompt: defaultPrompt ? [...defaultPrompt] : undefined,
     brandColor: color,
-    composerIcon: readString(ui, "composerIcon"),
-    logo: readString(ui, "logo"),
+    composerIcon: readPresentationString(presentation, "composer_icon", "composerIcon"),
+    logo: readString(presentation, "logo"),
     screenshots: [...(screenshots ?? [])],
   };
 
   return mergeRecords(base, interfaceOverrides);
+}
+
+function readPresentationString(record: JsonRecord, ...keys: readonly string[]): string | undefined {
+  for (const key of keys) {
+    const value = readString(record, key);
+    if (value !== undefined) return value;
+  }
+  return undefined;
 }
 
 function withOptionalSurfacePaths(
@@ -329,7 +380,7 @@ async function renderStandaloneSkill(
   target: TargetName,
   lockRoots: Map<string, LockRoot>
 ): Promise<readonly RenderedFile[]> {
-  if (!skill.targets[target].enabled) return [];
+  if (!shouldRenderStandaloneSkill(graph, skill, target)) return [];
 
   const outputRoot = graph.root.outputs.skills[target];
   const sourceDir = dirname(skill.sourcePath);
@@ -371,10 +422,17 @@ function renderSkillMarkdown(
   const metadata = skill.metadata;
   const targetOptions = skill.targets[target].options;
   const base = mergeRecords(stripSourceFrontmatter(skill.frontmatter), {
-    name: readString(metadata, "name") ?? readString(metadata, "id") ?? readString(skill.frontmatter, "name") ?? skill.id,
+    name:
+      readString(metadata, "name") ??
+      readString(metadata, "id") ??
+      readString(skill.frontmatter, "name") ??
+      skill.id,
     description:
-      readString(metadata, "description") ??
       readString(skill.frontmatter, "description") ??
+      readString(metadata, "description") ??
+      readString(skill.frontmatter, "summary") ??
+      readString(metadata, "summary") ??
+      readString(skill.frontmatter, "title") ??
       readString(metadata, "title") ??
       skill.id,
   });
@@ -503,6 +561,7 @@ function skillVersion(
   skill: SourceSkill
 ): string {
   return (
+    readString(skill.frontmatter, "version") ??
     readString(skill.metadata, "version") ??
     (plugin === undefined ? undefined : readString(plugin.metadata, "version")) ??
     readString(graph.root.metadata, "version") ??

@@ -51,6 +51,14 @@ export interface StandaloneSkill extends SourceSkill {}
 export interface OutputConfig {
   readonly plugins: Readonly<Record<TargetName, string>>;
   readonly skills: Readonly<Record<TargetName, string>>;
+  readonly targetOutputs: Readonly<Record<TargetName, TargetOutputConfig>>;
+}
+
+export type OutputSelection = boolean | readonly string[];
+
+export interface TargetOutputConfig {
+  readonly plugins: OutputSelection;
+  readonly skills: OutputSelection;
 }
 
 export interface BuildGraph {
