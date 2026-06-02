@@ -137,6 +137,12 @@ Rule frontmatter can use top-level `claude` and `codex` target toggles. Set `cod
 
 `codex: symlink` is a recorded follow-up, not a v1 behavior. Directly symlinking Codex `AGENTS.md` to Claude rule files would expose Claude `paths` frontmatter as Codex instructions.
 
+## Target-Specific Plugin Surfaces
+
+Some plugin companion paths are target-native rather than portable. Claude output copies `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json`, `assets/`, and `src/` when present. Codex output copies `hooks.json`, `.mcp.json`, `.app.json`, `assets/`, and `src/`. Claude `agents/` is not copied into Codex output; Codex agent output remains an experimental boundary until a validated source model exists.
+
+Hooks are generated definitions only. The compiler does not install, trust, or enable hooks in user-level configuration. Hook files must be JSON objects before they are emitted. Claude uses `hooks/hooks.json`; Codex uses root `hooks.json`. The compiler does not auto-lower Claude hooks into Codex hooks.
+
 ## Skill Policy
 
 Skill frontmatter can express normalized policy once and let the compiler lower it into target-native files:

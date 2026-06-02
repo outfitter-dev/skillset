@@ -173,6 +173,12 @@ Generated Codex `AGENTS.md` files are tracked by the root `.skillset.lock`. The 
 
 `codex: symlink` is intentionally not implemented yet. Path-scoped Claude rules need YAML `paths` frontmatter, and a direct symlink would expose that control block to Codex as instructions.
 
+## Target-Specific Plugin Surfaces
+
+Plugin companion directories are target-native. Claude receives `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json`, `assets/`, and `src/` when those source paths exist. Codex receives `hooks.json`, `.mcp.json`, `.app.json`, `assets/`, and `src/`; Claude `agents/` is not copied into Codex output. Codex agent output remains an experimental boundary until a validated Codex agent source model is added.
+
+Hook files are emitted as definitions only. `skillset` does not install, trust, or enable hooks in user-level Claude/Codex config. Emitted hook files must be target-native JSON objects: Claude uses `hooks/hooks.json`, while Codex uses root `hooks.json`. The compiler does not auto-lower Claude hooks into Codex hooks.
+
 ## Self-Hosted Outputs
 
 In this repo, run:

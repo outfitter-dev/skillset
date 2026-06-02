@@ -194,6 +194,140 @@ Beta body.
   version: 3.0.0`);
 });
 
+test("plugin manifests keep agent and hook surfaces target-specific", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+  marketplace:
+    name: test-market
+claude: true
+codex: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+  description: Alpha plugin.
+`,
+    ".skillset/plugins/alpha/agents/reviewer.md": `
+# Reviewer
+
+Review carefully.
+`,
+    ".skillset/plugins/alpha/hooks/hooks.json": `
+{
+  "hooks": {
+    "PreToolUse": []
+  }
+}
+`,
+    ".skillset/plugins/alpha/hooks.json": `
+{
+  "hooks": {
+    "session_start": []
+  }
+}
+`,
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+---
+name: alpha-skill
+description: Alpha skill.
+---
+
+Alpha body.
+`,
+    ".skillset/plugins/beta/skillset.yaml": `
+skillset:
+  name: beta
+  description: Beta plugin.
+`,
+    ".skillset/plugins/beta/skills/beta-skill/SKILL.md": `
+---
+name: beta-skill
+description: Beta skill.
+---
+
+Beta body.
+`,
+  });
+
+  await buildSkillset(root);
+
+  const marketplace = await readFile(join(root, "plugins-claude/.claude-plugin/marketplace.json"), "utf8");
+  const claudeManifest = await readFile(
+    join(root, "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"),
+    "utf8"
+  );
+  const codexManifest = await readFile(
+    join(root, "plugins-codex/plugins/alpha/.codex-plugin/plugin.json"),
+    "utf8"
+  );
+
+  expect(marketplace).toContain(`"source": "./plugins/alpha"`);
+  expect(marketplace).toContain(`"source": "./plugins/beta"`);
+  expect(claudeManifest).toContain(`"agents": "./agents"`);
+  expect(claudeManifest).toContain(`"hooks": "./hooks/hooks.json"`);
+  expect(codexManifest).not.toContain(`"agents"`);
+  expect(codexManifest).toContain(`"hooks": "./hooks.json"`);
+  expect(await exists(join(root, "plugins-claude/plugins/alpha/agents/reviewer.md"))).toBe(true);
+  expect(await exists(join(root, "plugins-codex/plugins/alpha/agents/reviewer.md"))).toBe(false);
+  expect(await exists(join(root, "plugins-codex/plugins/alpha/hooks.json"))).toBe(true);
+});
+
+test("plugin hook files must be target-native JSON objects", async () => {
+  const invalidCodex = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: false
+codex: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/hooks.json": `
+[]
+`,
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+---
+name: alpha-skill
+description: Alpha skill.
+---
+
+Alpha body.
+`,
+  });
+
+  await expect(buildSkillset(invalidCodex)).rejects.toThrow("must contain a JSON object");
+
+  const invalidClaude = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/hooks/hooks.json": `
+not-json
+`,
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+---
+name: alpha-skill
+description: Alpha skill.
+---
+
+Alpha body.
+`,
+  });
+
+  await expect(buildSkillset(invalidClaude)).rejects.toThrow("not valid JSON");
+});
+
 test("standalone skills emit without plugin manifests", async () => {
   const root = await fixture({
     ".skillset/config.yaml": `

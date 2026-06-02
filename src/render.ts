@@ -343,8 +343,7 @@ function withOptionalSurfacePaths(
     if (pluginHasPath(plugin, "hooks/hooks.json")) withPaths.hooks = "./hooks/hooks.json";
     if (pluginHasPath(plugin, ".mcp.json")) withPaths.mcpServers = "./.mcp.json";
   } else {
-    if (pluginHasPath(plugin, "agents")) withPaths.agents = "./agents/";
-    if (pluginHasPath(plugin, "hooks.json") || pluginHasPath(plugin, "hooks/hooks.json")) {
+    if (pluginHasPath(plugin, "hooks.json")) {
       withPaths.hooks = "./hooks.json";
     }
     if (pluginHasPath(plugin, ".mcp.json")) withPaths.mcpServers = "./.mcp.json";
@@ -821,13 +820,17 @@ async function copyPluginCompanionFiles(
   const candidates =
     target === "claude"
       ? ["README.md", "commands", "agents", "hooks", ".mcp.json", "assets", "src"]
-      : ["README.md", "agents", "hooks.json", ".mcp.json", ".app.json", "assets", "src"];
+      : ["README.md", "hooks.json", ".mcp.json", ".app.json", "assets", "src"];
 
   for (const candidate of candidates) {
     const sourcePath = join(plugin.path, candidate);
     if (!(await exists(sourcePath))) continue;
 
+    if (target === "claude" && candidate === "hooks") {
+      await validateHookJson(join(sourcePath, "hooks.json"), "Claude");
+    }
     if (candidate === "hooks.json") {
+      await validateHookJson(sourcePath, "Codex");
       rendered.push(...(await copyPath(sourcePath, join(basePath, "hooks.json"))));
       continue;
     }
@@ -835,11 +838,23 @@ async function copyPluginCompanionFiles(
     rendered.push(...(await copyPath(sourcePath, join(basePath, candidate))));
   }
 
-  if (target === "codex" && !pluginHasPath(plugin, "hooks.json") && pluginHasPath(plugin, "hooks/hooks.json")) {
-    rendered.push(...(await copyPath(join(plugin.path, "hooks/hooks.json"), join(basePath, "hooks.json"))));
+  return rendered.filter((file) => !file.path.endsWith(".gitkeep"));
+}
+
+async function validateHookJson(sourcePath: string, target: "Claude" | "Codex"): Promise<void> {
+  if (!(await exists(sourcePath))) return;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(await readFile(sourcePath, "utf8")) as unknown;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`skillset: ${target} hook file ${sourcePath} is not valid JSON: ${message}`);
   }
 
-  return rendered.filter((file) => !file.path.endsWith(".gitkeep"));
+  if (!isJsonRecord(parsed)) {
+    throw new Error(`skillset: ${target} hook file ${sourcePath} must contain a JSON object`);
+  }
 }
 
 async function copyPath(sourcePath: string, targetPath: string): Promise<readonly RenderedFile[]> {

@@ -43,6 +43,8 @@ Claude rules are generated under `.claude/rules/**/*.md` with `paths` frontmatte
 
 Use `claude: false` or `codex: false` in rule frontmatter for target-specific opt-outs. `codex: symlink` is not implemented yet because Claude path-scoped rules need YAML frontmatter that Codex would read as instructions through a direct symlink.
 
+Plugin companion paths are target-native. Claude receives `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json`, `assets/`, and `src/`. Codex receives `hooks.json`, `.mcp.json`, `.app.json`, `assets/`, and `src/`. Claude `agents/` is not copied into Codex; Codex agent output is experimental until a validated source model exists. Hook files are emitted definitions only and must be JSON objects. `skillset` does not install, trust, or enable hooks in user-level config.
+
 Skill source can also use normalized policy keys:
 
 ```yaml
