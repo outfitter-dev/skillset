@@ -1,0 +1,80 @@
+export type TargetName = "claude" | "codex";
+
+export type JsonScalar = boolean | null | number | string;
+export type JsonValue = JsonScalar | JsonValue[] | JsonRecord;
+
+export interface JsonRecord {
+  readonly [key: string]: JsonValue | undefined;
+}
+
+export interface MarkdownParts {
+  readonly body: string;
+  readonly frontmatter: JsonRecord;
+}
+
+export interface ResolvedTarget {
+  readonly enabled: boolean;
+  readonly options: JsonRecord;
+}
+
+export interface RootConfig {
+  readonly metadata: JsonRecord;
+  readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
+}
+
+export interface PluginConfig {
+  readonly metadata: JsonRecord;
+  readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
+}
+
+export interface SourceSkill {
+  readonly body: string;
+  readonly frontmatter: JsonRecord;
+  readonly id: string;
+  readonly metadata: JsonRecord;
+  readonly pluginRelativePath: string;
+  readonly sourcePath: string;
+  readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
+}
+
+export interface SourcePlugin {
+  readonly id: string;
+  readonly metadata: JsonRecord;
+  readonly path: string;
+  readonly skills: readonly SourceSkill[];
+  readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
+}
+
+export interface BuildGraph {
+  readonly distDir: string;
+  readonly plugins: readonly SourcePlugin[];
+  readonly root: RootConfig;
+  readonly rootPath: string;
+  readonly sourceDir: string;
+  readonly sourcePath: string;
+}
+
+export interface RenderedFile {
+  readonly content: Uint8Array;
+  readonly path: string;
+}
+
+export interface SkillsetOptions {
+  readonly distDir?: string;
+  readonly sourceDir?: string;
+}
+
+export interface CheckResult {
+  readonly checkedFiles: number;
+}
+
+export interface LintIssue {
+  readonly code: string;
+  readonly message: string;
+  readonly path: string;
+}
+
+export interface LintResult {
+  readonly checkedSkills: number;
+  readonly issues: readonly LintIssue[];
+}

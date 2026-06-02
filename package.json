@@ -1,0 +1,22 @@
+{
+  "name": "@galligan/skillset",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "skillset": "./src/cli.ts"
+  },
+  "scripts": {
+    "build": "bun run typecheck",
+    "check": "bun run typecheck && bun test && git diff --check",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.15",
+    "typescript": "^5.8.3"
+  }
+}
