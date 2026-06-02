@@ -158,6 +158,16 @@ The compiler preserves the source hierarchy when writing Claude rules, so `.skil
 
 For Codex, `skillset` derives the nearest useful `AGENTS.md` destination from each path pattern. `docs/**/*.md` writes `docs/AGENTS.md`; `**/*.ts` scans matching repo files and writes to the lowest common directory, such as `src/AGENTS.md` when matching TypeScript files live under `src/`. Multiple source rules that land at the same destination are concatenated deterministically.
 
+Rule bodies can use Skillset build-time variables when prose needs target-correct paths:
+
+```md
+- Run checks from {{skillset.repo_root}}.
+- This generated instruction file lives under {{skillset.output_dir}}.
+- Source rule: {{skillset.source_rule}}.
+```
+
+`{{skillset.repo_root}}` renders as the relative path from the generated file directory back to the repository root, or `.` at the root. `{{skillset.output_dir}}` renders as the generated file directory relative to the repository root, or `.` at the root. `{{skillset.source_rule}}` renders as the source rule path. Unknown `skillset.*` variables fail the build.
+
 Rule target toggles use the same top-level target keys:
 
 ```yaml

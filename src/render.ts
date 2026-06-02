@@ -618,7 +618,7 @@ function renderClaudeRules(
 
   for (const rule of graph.rules.filter((sourceRule) => sourceRule.targets.claude.enabled)) {
     const targetFile = join(CLAUDE_RULES_OUTPUT_ROOT, rule.relativePath);
-    const file = textFile(targetFile, renderClaudeRuleMarkdown(rule));
+    const file = textFile(targetFile, renderClaudeRuleMarkdown(graph, rule, targetFile));
     rendered.push(file);
     lockRootsFor(lockRoots, CLAUDE_RULES_OUTPUT_ROOT, "claude").items.push(
       lockItemForRule({
@@ -651,7 +651,7 @@ async function renderCodexAgentsFiles(
 
   const rendered: RenderedFile[] = [];
   for (const [destination, rules] of [...destinations.entries()].sort(([left], [right]) => left.localeCompare(right))) {
-    const file = textFile(destination, renderCodexAgentsMarkdown(graph, rules));
+    const file = textFile(destination, renderCodexAgentsMarkdown(graph, rules, destination));
     rendered.push(file);
     lockRootsFor(lockRoots, CODEX_RULES_LOCK_ROOT, "workspace").items.push(
       lockItemForRule({
@@ -669,15 +669,19 @@ async function renderCodexAgentsFiles(
   return rendered;
 }
 
-function renderClaudeRuleMarkdown(rule: SourceRule): string {
+function renderClaudeRuleMarkdown(graph: BuildGraph, rule: SourceRule, outputPath: string): string {
   const paths = readRulePaths(rule);
   const frontmatter: JsonRecord = paths.length === 0 ? {} : { paths: [...paths] };
-  return stringifyOptionalMarkdown(frontmatter, rule.body);
+  return stringifyOptionalMarkdown(frontmatter, renderRuleBody(graph, rule, outputPath));
 }
 
-function renderCodexAgentsMarkdown(graph: BuildGraph, rules: readonly SourceRule[]): string {
+function renderCodexAgentsMarkdown(
+  graph: BuildGraph,
+  rules: readonly SourceRule[],
+  outputPath: string
+): string {
   const body = rules
-    .map((rule) => normalizeRuleBody(rule.body))
+    .map((rule) => renderRuleBody(graph, rule, outputPath))
     .filter((ruleBody) => ruleBody.length > 0)
     .join("\n\n");
   const sourceList = rules
@@ -760,6 +764,51 @@ function stringifyOptionalMarkdown(frontmatter: JsonRecord, body: string): strin
   const normalizedBody = normalizeRuleBody(body);
   if (Object.keys(frontmatter).length === 0) return `${normalizedBody}\n`;
   return stringifyMarkdown(frontmatter, normalizedBody);
+}
+
+function renderRuleBody(graph: BuildGraph, rule: SourceRule, outputPath: string): string {
+  return interpolateRuleVariables(normalizeRuleBody(rule.body), {
+    label: relative(graph.rootPath, rule.sourcePath),
+    outputDir: outputDirectory(outputPath),
+    repoRoot: relativeOutputPath(outputDirectory(outputPath), ""),
+    sourceRule: relative(graph.rootPath, rule.sourcePath),
+  });
+}
+
+function interpolateRuleVariables(
+  body: string,
+  variables: {
+    readonly label: string;
+    readonly outputDir: string;
+    readonly repoRoot: string;
+    readonly sourceRule: string;
+  }
+): string {
+  return body.replace(/\{\{\s*skillset\.([^}\s]+)\s*\}\}/g, (match, key: string) => {
+    switch (key) {
+      case "output_dir":
+        return variables.outputDir;
+      case "repo_root":
+        return variables.repoRoot;
+      case "source_rule":
+        return variables.sourceRule;
+      default:
+        throw new Error(`skillset: unknown rule variable ${match} in ${variables.label}`);
+    }
+  });
+}
+
+function outputDirectory(outputPath: string): string {
+  const directory = normalizePattern(dirname(outputPath));
+  if (directory.length === 0 || directory === ".") return ".";
+  return directory;
+}
+
+function relativeOutputPath(from: string, to: string): string {
+  const normalizedFrom = from === "." ? "" : from;
+  const normalizedTo = to === "." ? "" : to;
+  const path = normalizePattern(relative(normalizedFrom, normalizedTo));
+  return path.length === 0 ? "." : path;
 }
 
 function normalizeRuleBody(body: string): string {
