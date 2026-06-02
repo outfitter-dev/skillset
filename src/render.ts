@@ -29,6 +29,7 @@ import type {
   StandaloneSkill,
   TargetName,
 } from "./types";
+import { pluginVersion, rootVersion, skillVersion, skillVersionLabel } from "./versioning";
 import { isJsonRecord, parseYamlRecord, stringifyJson, stringifyMarkdown, stringifyYaml } from "./yaml";
 
 const textEncoder = new TextEncoder();
@@ -41,13 +42,16 @@ const CODEX_RULES_LOCK_ROOT = ".";
 
 interface LockItem {
   readonly files: readonly string[];
-  readonly kind: "plugin-skill" | "rule" | "standalone-skill";
+  readonly includedSkills?: readonly string[];
+  readonly kind: "plugin" | "plugin-skill" | "rule" | "standalone-skill";
   readonly name: string;
   readonly outputHash: string;
   readonly outputPath: string;
   readonly plugin?: string;
+  readonly skippedSkills?: readonly string[];
   readonly sourceHash: string;
   readonly sourcePath: string;
+  readonly targetState?: string;
   readonly version?: string;
 }
 
@@ -143,7 +147,7 @@ function renderClaudeMarketplace(graph: BuildGraph): readonly RenderedFile[] {
           name: plugin.id,
           source: `./plugins/${plugin.id}`,
           description: readString(metadata, "summary") ?? readString(metadata, "description") ?? plugin.id,
-          version: readString(metadata, "version") ?? "0.1.0",
+          version: pluginVersion(plugin),
           author: metadata.author,
           repository: metadata.repository,
           license: metadata.license,
@@ -169,7 +173,7 @@ function renderClaudeMarketplace(graph: BuildGraph): readonly RenderedFile[] {
           readString(root, "summary") ??
           readString(root, "description") ??
           "Source-first skillset plugins by @galligan",
-        version: readString(root, "version") ?? "0.1.0",
+        version: rootVersion(graph),
         pluginRoot: "./plugins",
         generatedBy: "galligan/agents skillset compiler",
       },
@@ -198,14 +202,22 @@ async function renderPluginTarget(
   const outputRoot = graph.root.outputs.plugins[target];
   const basePath = `${outputRoot}/plugins/${plugin.id}`;
   const enabledSkills = plugin.skills.filter((skill) => skill.targets[target].enabled);
+  const manifestFile = textFile(
+    target === "claude"
+      ? `${basePath}/.claude-plugin/plugin.json`
+      : `${basePath}/.codex-plugin/plugin.json`,
+    stringifyJson(renderPluginManifest(graph, plugin, target, enabledSkills))
+  );
 
-  rendered.push(
-    textFile(
-      target === "claude"
-        ? `${basePath}/.claude-plugin/plugin.json`
-        : `${basePath}/.codex-plugin/plugin.json`,
-      stringifyJson(renderPluginManifest(graph, plugin, target, enabledSkills))
-    )
+  rendered.push(manifestFile);
+  lockRootsFor(lockRoots, outputRoot, target).items.push(
+    lockItemForPlugin({
+      file: manifestFile,
+      graph,
+      outputRoot,
+      plugin,
+      target,
+    })
   );
 
   for (const skill of enabledSkills) {
@@ -227,7 +239,7 @@ function renderPluginManifest(
   const portableManifest = readRecord(metadata, "manifest") ?? {};
   const base: JsonRecord = {
     name: readString(portableManifest, "name") ?? plugin.id,
-    version: readString(metadata, "version") ?? "0.1.0",
+    version: pluginVersion(plugin),
     description: readString(metadata, "summary") ?? readString(metadata, "description") ?? plugin.id,
     author: metadata.author,
     homepage: metadata.homepage,
@@ -236,19 +248,17 @@ function renderPluginManifest(
     keywords: metadata.keywords,
   };
 
-  if (target === "claude") {
-    return mergeRecords(
-      withOptionalSurfacePaths(base, plugin, enabledSkills, target),
-      readRecord(targetOptions, "manifest") ?? {}
-    );
-  }
+  const targetBase =
+    target === "claude"
+      ? withOptionalSurfacePaths(base, plugin, enabledSkills, target)
+      : mergeRecords(withOptionalSurfacePaths(base, plugin, enabledSkills, target), {
+          interface: renderCodexInterface(graph, plugin),
+        });
+  const withOverrides = mergeRecords(targetBase, readRecord(targetOptions, "manifest") ?? {});
 
-  return mergeRecords(
-    mergeRecords(withOptionalSurfacePaths(base, plugin, enabledSkills, target), {
-      interface: renderCodexInterface(graph, plugin),
-    }),
-    readRecord(targetOptions, "manifest") ?? {}
-  );
+  return mergeRecords(withOverrides, {
+    version: pluginVersion(plugin),
+  });
 }
 
 function renderCodexInterface(graph: BuildGraph, plugin: SourcePlugin): JsonRecord {
@@ -494,10 +504,17 @@ function renderSkillMarkdown(
   const withClaudePolicy =
     target === "claude" ? mergeRecords(withReferences, renderClaudeSkillPolicy(skill, targetOptions)) : withReferences;
   const withPortable = mergeRecords(withClaudePolicy, { metadata: { generated: GENERATED_BY, version } });
-  const frontmatter = mergeRecords(
+  const withTargetFrontmatter = mergeRecords(
     withPortable,
     readRecord(targetOptions, "frontmatter") ?? {}
   );
+  const frontmatter = mergeRecords(withTargetFrontmatter, {
+    metadata: {
+      ...(readRecord(withTargetFrontmatter, "metadata") ?? {}),
+      generated: GENERATED_BY,
+      version,
+    },
+  });
 
   return stringifyMarkdown(frontmatter, skill.body);
 }
@@ -876,6 +893,37 @@ function lockRootsFor(
   return created;
 }
 
+function lockItemForPlugin(args: {
+  readonly file: RenderedFile;
+  readonly graph: BuildGraph;
+  readonly outputRoot: string;
+  readonly plugin: SourcePlugin;
+  readonly target: TargetName;
+}): LockItem {
+  const includedSkills = args.plugin.skills
+    .filter((skill) => skill.targets[args.target].enabled)
+    .map((skill) => skillVersionLabel(args.graph, args.plugin, skill))
+    .sort();
+  const skippedSkills = args.plugin.skills
+    .filter((skill) => !skill.targets[args.target].enabled)
+    .map((skill) => skillVersionLabel(args.graph, args.plugin, skill))
+    .sort();
+
+  return {
+    files: [relative(args.outputRoot, args.file.path)],
+    includedSkills,
+    kind: "plugin",
+    name: args.plugin.id,
+    outputHash: hashRenderedFiles(args.outputRoot, [args.file]),
+    outputPath: relative(args.outputRoot, args.file.path),
+    skippedSkills,
+    sourceHash: hashPluginSource(args.graph, args.plugin, args.target, includedSkills, skippedSkills),
+    sourcePath: relative(args.graph.rootPath, args.plugin.path),
+    targetState: skippedSkills.length === 0 ? "sync" : "intentionally-skipped",
+    version: pluginVersion(args.plugin),
+  };
+}
+
 function lockItemForRule(args: {
   readonly files: readonly RenderedFile[];
   readonly graph: BuildGraph;
@@ -893,7 +941,7 @@ function lockItemForRule(args: {
     outputPath: relative(args.outputRoot, args.outputPath),
     sourceHash: args.sourceHash,
     sourcePath: args.sourcePath,
-    version: readString(args.graph.root.metadata, "version") ?? "0.1.0",
+    version: rootVersion(args.graph),
   };
 }
 
@@ -923,33 +971,45 @@ async function lockItemForSkill(args: {
   };
 }
 
-function skillVersion(
-  graph: BuildGraph,
-  plugin: SourcePlugin | undefined,
-  skill: SourceSkill
-): string {
-  return (
-    readString(skill.frontmatter, "version") ??
-    readString(skill.metadata, "version") ??
-    (plugin === undefined ? undefined : readString(plugin.metadata, "version")) ??
-    readString(graph.root.metadata, "version") ??
-    "0.1.0"
-  );
-}
-
 function stripUndefinedLockItem(item: LockItem): JsonRecord {
   const value: Record<string, JsonValue | undefined> = {
     files: [...item.files],
+    includedSkills: item.includedSkills === undefined ? undefined : [...item.includedSkills],
     kind: item.kind,
     name: item.name,
     outputHash: item.outputHash,
     outputPath: item.outputPath,
     plugin: item.plugin,
+    skippedSkills: item.skippedSkills === undefined ? undefined : [...item.skippedSkills],
     sourceHash: item.sourceHash,
     sourcePath: item.sourcePath,
+    targetState: item.targetState,
     version: item.version,
   };
   return value;
+}
+
+function hashPluginSource(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  target: TargetName,
+  includedSkills: readonly string[],
+  skippedSkills: readonly string[]
+): string {
+  const hash = createHash("sha256");
+  hash.update("skillset-plugin-source-v1\0");
+  hash.update(plugin.id);
+  hash.update("\0");
+  hash.update(target);
+  hash.update("\0");
+  hash.update(stringifyJson(plugin.metadata));
+  hash.update("\0");
+  hash.update(stringifyJson(plugin.targets[target].options));
+  hash.update("\0");
+  hash.update(includedSkills.join("\n"));
+  hash.update("\0");
+  hash.update(skippedSkills.join("\n"));
+  return `sha256:${hash.digest("hex")}`;
 }
 
 async function hashSourceDir(sourceDir: string): Promise<string> {

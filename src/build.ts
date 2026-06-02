@@ -5,8 +5,10 @@ import { resolveInside } from "./path";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
 import type { CheckResult, RenderedFile, SkillsetOptions } from "./types";
+import { isJsonRecord, parseMarkdown } from "./yaml";
 
 const WORKSPACE_LOCK_FILE = ".skillset.lock";
+const textDecoder = new TextDecoder();
 
 export async function buildSkillset(
   rootPath: string,
@@ -64,7 +66,7 @@ export async function checkSkillset(
     const outputPath = resolveInside(rootPath, file.path);
     const current = await readFile(outputPath);
     if (!bytesEqual(current, file.content)) {
-      failures.push(`stale generated file: ${file.path}`);
+      failures.push(versionDriftMessage(file.path, current, file.content) ?? `stale generated file: ${file.path}`);
     }
   }
 
@@ -199,6 +201,67 @@ async function readWorkspaceManagedPaths(rootPath: string): Promise<ReadonlySet<
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function versionDriftMessage(
+  path: string,
+  current: Uint8Array,
+  expected: Uint8Array
+): string | undefined {
+  const expectedVersion = generatedVersion(path, expected, "expected");
+  if (expectedVersion === undefined) return undefined;
+
+  const currentVersion = generatedVersion(path, current, "current");
+  if (currentVersion === expectedVersion) return undefined;
+
+  const field = path.endsWith("/SKILL.md") ? "metadata.version" : "version";
+  return `version drift: ${path} ${field} is ${currentVersion ?? "missing"}, expected ${expectedVersion}`;
+}
+
+function generatedVersion(
+  path: string,
+  content: Uint8Array,
+  label: string
+): string | undefined {
+  if (path.endsWith("/SKILL.md")) {
+    return generatedSkillVersion(path, content, label);
+  }
+  if (
+    path.endsWith("/.claude-plugin/plugin.json") ||
+    path.endsWith("/.codex-plugin/plugin.json")
+  ) {
+    return generatedPluginVersion(content);
+  }
+  return undefined;
+}
+
+function generatedSkillVersion(
+  path: string,
+  content: Uint8Array,
+  label: string
+): string | undefined {
+  let frontmatter;
+  try {
+    frontmatter = parseMarkdown(textDecoder.decode(content), `${label} ${path}`).frontmatter;
+  } catch {
+    return undefined;
+  }
+  const metadata = frontmatter.metadata;
+  if (!isJsonRecord(metadata)) return undefined;
+  const version = metadata.version;
+  return typeof version === "string" && version.trim().length > 0 ? version.trim() : undefined;
+}
+
+function generatedPluginVersion(content: Uint8Array): string | undefined {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(textDecoder.decode(content)) as unknown;
+  } catch {
+    return undefined;
+  }
+  if (!isRecord(parsed)) return undefined;
+  const version = parsed.version;
+  return typeof version === "string" && version.trim().length > 0 ? version.trim() : undefined;
 }
 
 function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {

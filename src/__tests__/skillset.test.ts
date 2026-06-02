@@ -179,6 +179,10 @@ Beta body.
   expect(codexSkill).toContain("Alpha body.");
   expect(lock).toContain(`"sourceHash": "sha256:`);
   expect(lock).toContain(`"outputHash": "sha256:`);
+  expect(lock).toContain(`"kind": "plugin"`);
+  expect(lock).toContain(`"targetState": "sync"`);
+  expect(lock).toContain(`"includedSkills": [`);
+  expect(lock).toContain(`"alpha-skill@2.1.0"`);
   expect(lock).toContain(`"outputPath": "plugins/alpha/skills/alpha-skill/SKILL.md"`);
 
   const betaSkill = await readFile(
@@ -1011,6 +1015,297 @@ Alpha body.
   await writeFile(join(root, "plugins-codex/plugins/alpha/stale.txt"), "stale\n");
 
   await expect(checkSkillset(root)).rejects.toThrow("stale generated file");
+});
+
+test("check mode reports stale generated skill and plugin versions", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+  version: 1.0.0
+`,
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+---
+name: alpha-skill
+description: Alpha skill.
+version: 1.0.0
+---
+
+Alpha body.
+`,
+  });
+
+  await buildSkillset(root);
+  await writeFile(
+    join(root, ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md"),
+    normalizeFixture(`
+---
+name: alpha-skill
+description: Alpha skill.
+version: 1.1.0
+---
+
+Alpha body.
+`)
+  );
+
+  await expect(checkSkillset(root)).rejects.toThrow(
+    "version drift: plugins-claude/plugins/alpha/skills/alpha-skill/SKILL.md metadata.version is 1.0.0, expected 1.1.0"
+  );
+
+  await buildSkillset(root);
+  await writeFile(
+    join(root, ".skillset/plugins/alpha/skillset.yaml"),
+    normalizeFixture(`
+skillset:
+  name: alpha
+  version: 1.1.0
+`)
+  );
+
+  await expect(checkSkillset(root)).rejects.toThrow(
+    "version drift: plugins-claude/plugins/alpha/.claude-plugin/plugin.json version is 1.0.0, expected 1.1.0"
+  );
+});
+
+test("source versions override target-native version overrides", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+  version: 1.0.0
+claude:
+  manifest:
+    version: 9.9.9
+codex:
+  manifest:
+    version: 9.9.9
+`,
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+---
+name: alpha-skill
+description: Alpha skill.
+version: 2.0.0
+claude:
+  frontmatter:
+    metadata:
+      generated: manual
+      note: keep
+      version: 9.9.9
+codex:
+  frontmatter:
+    metadata:
+      generated: manual
+      note: keep
+      version: 9.9.9
+---
+
+Alpha body.
+`,
+  });
+
+  await buildSkillset(root);
+
+  const claudeManifest = await readFile(
+    join(root, "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"),
+    "utf8"
+  );
+  const codexManifest = await readFile(
+    join(root, "plugins-codex/plugins/alpha/.codex-plugin/plugin.json"),
+    "utf8"
+  );
+  const claudeSkill = await readFile(
+    join(root, "plugins-claude/plugins/alpha/skills/alpha-skill/SKILL.md"),
+    "utf8"
+  );
+  const codexSkill = await readFile(
+    join(root, "plugins-codex/plugins/alpha/skills/alpha-skill/SKILL.md"),
+    "utf8"
+  );
+
+  expect(claudeManifest).toContain(`"version": "1.0.0"`);
+  expect(codexManifest).toContain(`"version": "1.0.0"`);
+  expect(claudeManifest).not.toContain(`"version": "9.9.9"`);
+  expect(codexManifest).not.toContain(`"version": "9.9.9"`);
+  expect(claudeSkill).toContain(`metadata:
+  generated: skillset@0.1.0
+  note: keep
+  version: 2.0.0`);
+  expect(codexSkill).toContain(`metadata:
+  generated: skillset@0.1.0
+  note: keep
+  version: 2.0.0`);
+});
+
+test("source version fields must be semantic versions", async () => {
+  const invalidRoot = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+  version: next
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+---
+name: alpha-skill
+description: Alpha skill.
+---
+
+Alpha body.
+`,
+  });
+
+  await expect(loadBuildGraph(invalidRoot)).rejects.toThrow("config.yaml.skillset.version to be a semantic version");
+
+  const invalidPlugin = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+  version: 1.0
+`,
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+---
+name: alpha-skill
+description: Alpha skill.
+---
+
+Alpha body.
+`,
+  });
+
+  await expect(loadBuildGraph(invalidPlugin)).rejects.toThrow("skillset.version to be a semantic version");
+
+  const invalidSkill = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+---
+name: alpha-skill
+description: Alpha skill.
+version: 2026
+---
+
+Alpha body.
+`,
+  });
+
+  await expect(loadBuildGraph(invalidSkill)).rejects.toThrow("SKILL.md.version to be a semantic version");
+});
+
+test("target-specific skill version bumps explain skips and later resync", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+  version: 1.0.0
+`,
+    ".skillset/plugins/alpha/skills/shared/SKILL.md": `
+---
+name: shared
+description: Shared skill.
+version: 1.0.0
+---
+
+Shared body.
+`,
+    ".skillset/plugins/alpha/skills/claude-only/SKILL.md": `
+---
+name: claude-only
+description: Claude-only skill.
+version: 1.0.0
+codex: false
+---
+
+Claude-only body.
+`,
+  });
+
+  await buildSkillset(root);
+  const initialCodexSkill = await readFile(
+    join(root, "plugins-codex/plugins/alpha/skills/shared/SKILL.md"),
+    "utf8"
+  );
+  const initialCodexManifest = await readFile(
+    join(root, "plugins-codex/plugins/alpha/.codex-plugin/plugin.json"),
+    "utf8"
+  );
+
+  await writeFile(
+    join(root, ".skillset/plugins/alpha/skills/claude-only/SKILL.md"),
+    normalizeFixture(`
+---
+name: claude-only
+description: Claude-only skill.
+version: 1.1.0
+codex: false
+---
+
+Claude-only body.
+`)
+  );
+  await buildSkillset(root);
+
+  expect(
+    await readFile(join(root, "plugins-codex/plugins/alpha/skills/shared/SKILL.md"), "utf8")
+  ).toBe(initialCodexSkill);
+  expect(
+    await readFile(join(root, "plugins-codex/plugins/alpha/.codex-plugin/plugin.json"), "utf8")
+  ).toBe(initialCodexManifest);
+  const skippedCodexLock = await readFile(join(root, "plugins-codex/.skillset.lock"), "utf8");
+  expect(skippedCodexLock).toContain(`"targetState": "intentionally-skipped"`);
+  expect(skippedCodexLock).toContain(`"claude-only@1.1.0"`);
+
+  await writeFile(
+    join(root, ".skillset/plugins/alpha/skills/shared/SKILL.md"),
+    normalizeFixture(`
+---
+name: shared
+description: Shared skill.
+version: 1.1.0
+---
+
+Shared body changed.
+`)
+  );
+  await buildSkillset(root);
+
+  const resyncedCodexSkill = await readFile(
+    join(root, "plugins-codex/plugins/alpha/skills/shared/SKILL.md"),
+    "utf8"
+  );
+  expect(resyncedCodexSkill).toContain(`version: 1.1.0`);
+  expect(resyncedCodexSkill).toContain("Shared body changed.");
 });
 
 test("output roots cannot overlap source or each other", async () => {

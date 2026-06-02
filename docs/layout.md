@@ -100,6 +100,20 @@ Boolean output settings use the default roots: `plugins-claude/`, `plugins-codex
 
 Plugin-local `README.md` files are copied into each generated target plugin. Shared source inputs such as `.skillset/shared/assets`, `.skillset/shared/scripts`, `.skillset/shared/references`, and `.skillset/shared/templates` are available for source organization; they are not copied into every output unless a source skill or plugin includes them.
 
+## Versioning
+
+Root `skillset.version`, plugin `skillset.version`, skill top-level `version`, and compatibility skill `skillset.version` fields must be semantic versions.
+
+Generated plugin manifests receive the plugin version. Generated `SKILL.md` files receive:
+
+```yaml
+metadata:
+  version: 0.1.0
+  generated: skillset@0.1.0
+```
+
+Each `.skillset.lock` records emitted versions and hashes. Plugin lock entries also include `includedSkills`, `skippedSkills`, and `targetState`; a target with skipped source skills uses `targetState: intentionally-skipped` so target-specific version bumps are visible even when that target's manifest and skills stay byte-for-byte unchanged. `skillset check` reports version drift directly when generated plugin manifest `version` or generated skill `metadata.version` is stale.
+
 ## Rules
 
 Rules live under `.skillset/rules/**/*.md`. They are for durable repo instructions rather than invokable skills:

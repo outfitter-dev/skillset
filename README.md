@@ -73,6 +73,10 @@ metadata:
 
 Generated roots also receive `.skillset.lock` files with deterministic provenance and hashes.
 
+Source `skillset.version` and skill `version` fields must be semantic versions. `skillset check` reports explicit version drift when a generated plugin manifest or skill `metadata.version` is stale.
+
+Plugin lock entries include the emitted plugin version plus `includedSkills`, `skippedSkills`, and `targetState`. When a target-specific skill version bump does not affect the other target's generated skill or manifest, that target's lock can still explain the intentionally skipped source version.
+
 Portable skill policy can be shared or targeted:
 
 ```yaml
