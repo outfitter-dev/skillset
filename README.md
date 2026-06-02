@@ -1,7 +1,6 @@
 # Skillset
 
-`skillset` compiles portable agent plugin and skill source into target-native
-Claude and Codex outputs.
+`skillset` compiles portable agent plugin and skill source into target-native Claude and Codex outputs.
 
 It is currently local/private tooling for `galligan/agents`.
 
@@ -39,9 +38,7 @@ skillset check --root /Users/mg/Developer/galligan/agents
 skillset build --root /tmp/example --source custom-source --dist generated
 ```
 
-`--dist` is a compatibility override for plugin outputs. Without it, plugin
-outputs default to `plugins-claude/` and `plugins-codex/`. Source config can
-also set explicit output roots under `skillset.outputs`.
+`--dist` is a compatibility override for plugin outputs. Without it, plugin outputs default to `plugins-claude/` and `plugins-codex/`. Source config can also set explicit output roots under `skillset.outputs`.
 
 ## Import
 
@@ -53,24 +50,17 @@ skillset import skill /path/to/skill-dir --root /path/to/content-repo --name cus
 skillset import plugin /path/to/plugin-dir --root /path/to/content-repo
 ```
 
-Imports copy files into `.skillset/skills/<name>` or
-`.skillset/plugins/<name>`. Plugin imports rename `skillset.yaml` to
-`config.yaml`. Import does not install, trust, symlink, publish, mutate
-registries, or change user-level Claude/Codex config.
+Imports copy files into `.skillset/skills/<name>` or `.skillset/plugins/<name>`. Plugin imports rename `skillset.yaml` to `config.yaml`. Import does not install, trust, symlink, publish, mutate registries, or change user-level Claude/Codex config.
 
 ## Source Contract
 
 Root source metadata lives at `.skillset/config.yaml`.
 
-Each plugin lives at `.skillset/plugins/<plugin-name>/` and has its own
-`config.yaml`. Portable fields live under `skillset`; target-specific overrides
-live under top-level `claude` and `codex` blocks.
+Each plugin lives at `.skillset/plugins/<plugin-name>/` and has its own `config.yaml`. Portable fields live under `skillset`; target-specific overrides live under top-level `claude` and `codex` blocks.
 
-Use `skillset.name` as the stable machine identity. `skillset.id` is accepted as
-a compatibility alias for older source. Do not use `targets:`.
+Use `skillset.name` as the stable machine identity. `skillset.id` is accepted as a compatibility alias for older source. Do not use `targets:`.
 
-Generated output strips source-only keys such as `skillset`, `claude`, `codex`,
-`agents`, and `targets`. Generated skills receive only lightweight metadata:
+Generated output strips source-only keys such as `skillset`, `claude`, `codex`, `agents`, and `targets`. Generated skills receive only lightweight metadata:
 
 ```yaml
 metadata:
@@ -78,8 +68,7 @@ metadata:
   generated: skillset@0.1.0
 ```
 
-Generated roots also receive `.skillset.lock` files with deterministic
-provenance and hashes.
+Generated roots also receive `.skillset.lock` files with deterministic provenance and hashes.
 
 ## Self-Hosted Outputs
 
@@ -99,5 +88,4 @@ Self-hosted source lives under `.skillset/`. Generated outputs are:
 - `plugins-claude/plugins/skillset`
 - `plugins-codex/plugins/skillset`
 
-These are repo-local generated artifacts. Do not symlink them into global
-Claude/Codex config or publish them as part of normal compiler development.
+These are repo-local generated artifacts. Do not symlink them into global Claude/Codex config or publish them as part of normal compiler development.

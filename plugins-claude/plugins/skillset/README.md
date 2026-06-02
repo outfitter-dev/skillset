@@ -2,5 +2,4 @@
 
 This generated plugin teaches agents how to use the local `skillset` compiler.
 
-Source lives under `.skillset/plugins/skillset`. Generated plugin bundles are
-written to `plugins-claude/` and `plugins-codex/`.
+Source lives under `.skillset/plugins/skillset`. Generated plugin bundles are written to `plugins-claude/` and `plugins-codex/`.

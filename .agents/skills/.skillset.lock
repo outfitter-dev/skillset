@@ -7,9 +7,9 @@
       ],
       "kind": "standalone-skill",
       "name": "skillset-codex-development",
-      "outputHash": "sha256:7903d6e789156d4101ec66a16a85a4f80e7f6188bdee6de5e991eac89605b1ac",
+      "outputHash": "sha256:06ad196f545abaddeae077a78d56b4b14f4f41a387c7dcb5f5abcd4da1e5b509",
       "outputPath": "skillset-codex-development/SKILL.md",
-      "sourceHash": "sha256:4904b62521e9300a6d5ca1d1a36a62da89db725d03e2e8d8c81b284f572d4a12",
+      "sourceHash": "sha256:c7bef290a98044f4e914c3d3e4b2e1dd211c9a2f28306b40bd2611fac943e632",
       "sourcePath": ".skillset/skills/skillset-codex-development/SKILL.md",
       "version": "0.1.0"
     }
