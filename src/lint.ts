@@ -4,7 +4,7 @@ import { loadBuildGraph } from "./resolver";
 import {
   readAllowedTools,
   readClaudeNativeToolRules,
-  readCodexNativeToolEscapes,
+  readCodexToolMetadata,
 } from "./skill-policy";
 import type { BuildGraph, LintIssue, LintResult, SkillsetOptions, SourceSkill } from "./types";
 
@@ -102,7 +102,7 @@ function lintToolEscapes(graph: BuildGraph, skill: SourceSkill): readonly LintIs
       readClaudeNativeToolRules(skill.frontmatter, skill.targets.claude.options, path);
     }
     if (skill.targets.codex.enabled) {
-      readCodexNativeToolEscapes(skill.frontmatter, skill.targets.codex.options, path);
+      readCodexToolMetadata(skill.frontmatter, skill.targets.codex.options, path);
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

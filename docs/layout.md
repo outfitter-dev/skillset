@@ -106,10 +106,36 @@ Values can be shared (`implicit_invocation: false`) or target-scoped (`implicit_
 
 `allowed_tools` lowers to Claude `allowed-tools`. Codex `agents/openai.yaml` supports tool dependencies and invocation policy, but it is not a skill-local equivalent to Claude tool preapproval. For now Codex-enabled skills must leave `allowed_tools.codex` unset or set it to `false`; `skillset lint` rejects shared or Codex-targeted allowed tools until a real Codex permission lowering is validated.
 
-When a provider adds a tool or policy surface before the portable registry has a normalized key, use the underscore escape hatch instead of leaking target-native frontmatter into both outputs:
+Use the portable `tools` registry for known tool intent. The registry is strict, so provider drift is visible instead of silently copied through:
 
 ```yaml
 tools:
+  allow:
+    read:
+      - docs/**
+    search: true
+    write:
+      - generated/**
+    shell:
+      - git status
+      - prefix:
+          - bun
+          - run
+    web_fetch:
+      domains:
+        - example.com
+    web_search: true
+    mcp:
+      linear:
+        tools:
+          - issues.*
+  deny:
+    edit:
+      - secrets/**
+    mcp:
+      linear:
+        tools:
+          - delete.*
   _allow:
     claude:
       - Read
@@ -134,7 +160,7 @@ codex:
             - experimental.*
 ```
 
-Only `_allow` and `_deny` are accepted inside `tools` for this slice. Claude escapes must be native rule strings or objects with a `rule` string, and lower to `allowed-tools` / `disallowed-tools`. Codex escapes are preserved as structured generated metadata in `.skillset.tools.yaml`; that file is included in `.skillset.lock`, but it does not install, trust, or mutate user-level Codex configuration.
+Portable keys are `read`, `search`, `write`, `edit`, `shell`, `web_fetch`, `web_search`, and `mcp`. Unknown keys fail `skillset lint` and build; use `_allow` or `_deny` when a target has a native tool rule that the portable registry does not know yet. Portable `allow` / `deny` belongs in the source top-level `tools` block; target-local `claude.tools` and `codex.tools` accept only `_allow` / `_deny` escape keys. Claude lowers portable and `_` entries to `allowed-tools` / `disallowed-tools`. Codex preserves portable intent and target-native escapes as generated `.skillset.tools.yaml` metadata included in `.skillset.lock`; it does not install, trust, or mutate user-level Codex configuration.
 
 Import helpers write only to `.skillset/`:
 

@@ -38,10 +38,29 @@ allowed_tools:
 
 `implicit_invocation` lowers to Claude `disable-model-invocation` and Codex `agents/openai.yaml` `policy.allow_implicit_invocation`. `allowed_tools` lowers to Claude `allowed-tools`; Codex has no confirmed skill-local allowed-tools equivalent, so leave `allowed_tools.codex` unset or set it to `false`.
 
-Use underscore tool escapes for target-native control that does not have a normalized portable key yet:
+Use portable `tools.allow` and `tools.deny` for known tool intent:
 
 ```yaml
 tools:
+  allow:
+    read:
+      - docs/**
+    search: true
+    shell:
+      - git status
+      - prefix:
+          - bun
+          - run
+    web_fetch:
+      domains:
+        - example.com
+    mcp:
+      linear:
+        tools:
+          - issues.*
+  deny:
+    edit:
+      - secrets/**
   _allow:
     claude:
       - Read
@@ -63,7 +82,7 @@ codex:
             - experimental.delete
 ```
 
-Claude escapes lower to `allowed-tools` and `disallowed-tools`. Codex escapes emit generated `.skillset.tools.yaml` metadata for review and lock provenance; they do not install, trust, or mutate user-level Codex configuration.
+Portable keys are `read`, `search`, `write`, `edit`, `shell`, `web_fetch`, `web_search`, and `mcp`; unknown keys fail lint/build. Portable `allow` / `deny` belongs in the source top-level `tools` block; target-local `claude.tools` and `codex.tools` accept only `_allow` / `_deny` escape keys. Claude lowers portable and `_` entries to `allowed-tools` and `disallowed-tools`. Codex emits generated `.skillset.tools.yaml` metadata for portable and target-native intent; it does not install, trust, or mutate user-level Codex configuration.
 
 ## Build And Check
 

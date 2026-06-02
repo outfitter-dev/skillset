@@ -15,7 +15,7 @@ import { validateSlug } from "./path";
 import {
   readAllowedTools,
   readClaudeNativeToolRules,
-  readCodexNativeToolEscapes,
+  readCodexToolMetadata,
   readImplicitInvocation,
 } from "./skill-policy";
 import type {
@@ -566,7 +566,7 @@ function renderCodexSkillToolsFile(
   if (target !== "codex") return undefined;
 
   const label = relative(graph.rootPath, skill.sourcePath);
-  const tools = readCodexNativeToolEscapes(skill.frontmatter, skill.targets.codex.options, label);
+  const tools = readCodexToolMetadata(skill.frontmatter, skill.targets.codex.options, label);
   if (tools.allow === undefined && tools.deny === undefined) return undefined;
 
   return textFile(

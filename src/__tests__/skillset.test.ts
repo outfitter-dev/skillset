@@ -401,6 +401,100 @@ Escape body.
   expect(lock).toContain(`"plugins/alpha/skills/escape/.skillset.tools.yaml"`);
 });
 
+test("build lowers strict portable tools registry and preserves Codex metadata", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/tools/SKILL.md": `
+---
+name: tools
+description: Uses portable tool registry.
+tools:
+  allow:
+    read:
+      - docs/**
+    search: true
+    write:
+      - generated/**
+    shell:
+      - git status
+      - prefix:
+          - bun
+          - run
+    web_fetch:
+      domains:
+        - example.com
+    web_search: true
+    mcp:
+      linear:
+        tools:
+          - issues.*
+  deny:
+    edit:
+      - secrets/**
+    mcp:
+      linear:
+        tools:
+          - delete.*
+  _allow:
+    claude:
+      - AskUserQuestion
+    codex:
+      mcp:
+        slack:
+          tools:
+            - chat.*
+---
+
+Tools body.
+`,
+  });
+
+  await buildSkillset(root);
+
+  const claudeSkill = await readFile(
+    join(root, "plugins-claude/plugins/alpha/skills/tools/SKILL.md"),
+    "utf8"
+  );
+  const codexSkill = await readFile(
+    join(root, "plugins-codex/plugins/alpha/skills/tools/SKILL.md"),
+    "utf8"
+  );
+  const codexTools = await readFile(
+    join(root, "plugins-codex/plugins/alpha/skills/tools/.skillset.tools.yaml"),
+    "utf8"
+  );
+  const lock = await readFile(join(root, "plugins-codex/.skillset.lock"), "utf8");
+
+  expect(claudeSkill).toContain("Read(docs/**)");
+  expect(claudeSkill).toContain("Grep");
+  expect(claudeSkill).toContain("Glob");
+  expect(claudeSkill).toContain("Edit(generated/**)");
+  expect(claudeSkill).toContain("Bash(git status)");
+  expect(claudeSkill).toContain("Bash(bun run *)");
+  expect(claudeSkill).toContain("WebFetch(domain:example.com)");
+  expect(claudeSkill).toContain("WebSearch");
+  expect(claudeSkill).toContain("mcp__linear__issues.*");
+  expect(claudeSkill).toContain("AskUserQuestion");
+  expect(claudeSkill).toContain("Edit(secrets/**)");
+  expect(claudeSkill).toContain("mcp__linear__delete.*");
+  expect(codexSkill).not.toContain("tools:");
+  expect(codexTools).toContain("portable:");
+  expect(codexTools).toContain("target_native:");
+  expect(codexTools).toContain("docs/**");
+  expect(codexTools).toContain("issues.*");
+  expect(codexTools).toContain("chat.*");
+  expect(lock).toContain(`"plugins/alpha/skills/tools/.skillset.tools.yaml"`);
+});
+
 test("Claude target-native tool escapes require native rule strings", async () => {
   const root = await fixture({
     ".skillset/config.yaml": `
@@ -429,6 +523,124 @@ Bad body.
 
   await expect(lintSkillset(root)).rejects.toThrow("skill-tools-invalid");
   await expect(buildSkillset(root)).rejects.toThrow("entries for Claude to be strings or objects with rule");
+});
+
+test("portable tools registry rejects unknown tool keys", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/bad-tools/SKILL.md": `
+---
+name: bad-tools
+description: Has an unknown portable tool key.
+tools:
+  allow:
+    browser: true
+---
+
+Bad body.
+`,
+  });
+
+  await expect(lintSkillset(root)).rejects.toThrow("skill-tools-invalid");
+  await expect(buildSkillset(root)).rejects.toThrow("unknown portable tool key browser");
+});
+
+test("target-local tools reject portable policy keys instead of ignoring them", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/bad-target-tools/SKILL.md": `
+---
+name: bad-target-tools
+description: Has target-local portable tool policy.
+claude:
+  tools:
+    allow:
+      read:
+        - docs/**
+---
+
+Bad target tools body.
+`,
+  });
+
+  await expect(lintSkillset(root)).rejects.toThrow("skill-tools-invalid");
+  await expect(buildSkillset(root)).rejects.toThrow("target tools to contain only _allow and _deny keys");
+});
+
+test("target-native false escape does not clear portable tools", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/clear-native/SKILL.md": `
+---
+name: clear-native
+description: Keeps portable tools when native escapes are disabled.
+tools:
+  allow:
+    read:
+      - docs/**
+  _allow:
+    claude:
+      - AskUserQuestion
+    codex:
+      mcp:
+        linear:
+          tools:
+            - issues.*
+claude:
+  tools:
+    _allow: false
+codex:
+  tools:
+    _allow: false
+---
+
+Clear native body.
+`,
+  });
+
+  await buildSkillset(root);
+
+  const claudeSkill = await readFile(
+    join(root, "plugins-claude/plugins/alpha/skills/clear-native/SKILL.md"),
+    "utf8"
+  );
+  const codexTools = await readFile(
+    join(root, "plugins-codex/plugins/alpha/skills/clear-native/.skillset.tools.yaml"),
+    "utf8"
+  );
+
+  expect(claudeSkill).toContain("Read(docs/**)");
+  expect(claudeSkill).not.toContain("AskUserQuestion");
+  expect(codexTools).toContain("portable:");
+  expect(codexTools).not.toContain("target_native:");
+  expect(codexTools).not.toContain("issues.*");
 });
 
 test("build and lint reject Codex allowed_tools without an explicit Codex opt-out", async () => {

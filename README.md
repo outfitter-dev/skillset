@@ -89,6 +89,25 @@ Target-native tool escape hatches use underscore keys. Shared escapes can live u
 
 ```yaml
 tools:
+  allow:
+    read:
+      - docs/**
+    search: true
+    shell:
+      - git status
+      - prefix:
+          - bun
+          - run
+    web_fetch:
+      domains:
+        - example.com
+    mcp:
+      linear:
+        tools:
+          - issues.*
+  deny:
+    edit:
+      - secrets/**
   _allow:
     claude:
       - Read
@@ -111,7 +130,7 @@ codex:
             - experimental.delete
 ```
 
-Claude `_allow` and `_deny` entries lower to `allowed-tools` and `disallowed-tools`. Codex `_allow` and `_deny` entries emit to generated `.skillset.tools.yaml` metadata so they are committed, locked, and reviewable without changing user-level Codex policy or trust configuration.
+Portable `tools.allow` and `tools.deny` accept only known keys: `read`, `search`, `write`, `edit`, `shell`, `web_fetch`, `web_search`, and `mcp`. Unknown keys fail lint/build. Portable `allow` / `deny` belongs in the source top-level `tools` block; target-local `claude.tools` and `codex.tools` accept only `_allow` / `_deny` escape keys. Claude lowers portable entries to `allowed-tools` and `disallowed-tools`; Codex preserves portable intent in generated `.skillset.tools.yaml` metadata until a validated skill-local permission surface exists. Claude `_allow` and `_deny` entries lower to native rules too. Codex `_allow` and `_deny` entries emit to `.skillset.tools.yaml` under `target_native`, so they are committed, locked, and reviewable without changing user-level Codex policy or trust configuration.
 
 ## Self-Hosted Outputs
 
