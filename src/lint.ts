@@ -1,6 +1,7 @@
 import { relative } from "node:path";
 
 import { loadBuildGraph } from "./resolver";
+import { readAllowedTools } from "./skill-policy";
 import type { BuildGraph, LintIssue, LintResult, SkillsetOptions, SourceSkill } from "./types";
 
 interface DynamicPattern {
@@ -68,18 +69,37 @@ export function lintBuildGraph(graph: BuildGraph): LintResult {
 function lintSkill(graph: BuildGraph, skill: SourceSkill): readonly LintIssue[] {
   if (!skill.targets.codex.enabled) return [];
 
+  const issues: LintIssue[] = [];
+  issues.push(...lintCodexAllowedTools(graph, skill));
+
   const matches = CLAUDE_DYNAMIC_PATTERNS.filter(({ pattern }) => pattern.test(skill.body));
-  if (matches.length === 0) return [];
+  if (matches.length === 0) return issues;
 
   const path = relative(graph.rootPath, skill.sourcePath);
   const labels = matches.map((match) => match.label).join(", ");
+  issues.push({
+    code: "codex-claude-dynamic-context",
+    path,
+    message:
+      `${path} uses Claude dynamic context (${labels}) while Codex output is enabled. ` +
+      "Set codex: false for this skill or move the dynamic behavior into a target-safe script/fallback before emitting Codex.",
+  });
+
+  return issues;
+}
+
+function lintCodexAllowedTools(graph: BuildGraph, skill: SourceSkill): readonly LintIssue[] {
+  const path = relative(graph.rootPath, skill.sourcePath);
+  const allowedTools = readAllowedTools(skill.frontmatter, "codex", path);
+  if (allowedTools === undefined || allowedTools === false) return [];
+
   return [
     {
-      code: "codex-claude-dynamic-context",
+      code: "codex-allowed-tools-unsupported",
       path,
       message:
-        `${path} uses Claude dynamic context (${labels}) while Codex output is enabled. ` +
-        "Set codex: false for this skill or move the dynamic behavior into a target-safe script/fallback before emitting Codex.",
+        `${path} sets allowed_tools for Codex, but Codex skills do not currently have a skill-local allowed-tools equivalent. ` +
+        "Set allowed_tools.codex: false or move Codex tool dependencies into agents/openai.yaml.",
     },
   ];
 }

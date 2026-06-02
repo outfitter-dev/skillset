@@ -24,6 +24,20 @@ Use this skill when a repo has a `.skillset/` source tree or when you need to cr
 
 Root `.skillset/config.yaml` controls target defaults and output roots. Plugin configs use `.skillset/plugins/<plugin-name>/skillset.yaml`. Portable plugin metadata lives under `skillset`; skill source can use top-level `title`, `summary`, `description`, and `version`. Target-specific overrides use top-level `claude` and `codex`.
 
+Skill source can also use normalized policy keys:
+
+```yaml
+implicit_invocation:
+  claude: false
+  codex: false
+allowed_tools:
+  claude:
+    - Read
+  codex: false
+```
+
+`implicit_invocation` lowers to Claude `disable-model-invocation` and Codex `agents/openai.yaml` `policy.allow_implicit_invocation`. `allowed_tools` lowers to Claude `allowed-tools`; Codex has no confirmed skill-local allowed-tools equivalent, so leave `allowed_tools.codex` unset or set it to `false`.
+
 ## Build And Check
 
 ```bash

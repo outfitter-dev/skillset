@@ -228,6 +228,151 @@ Draft body.
   version: 0.2.0`);
 });
 
+test("build lowers normalized skill policy to Claude frontmatter and Codex agent metadata", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/policy/SKILL.md": `
+---
+title: Policy Skill
+description: Uses normalized policy.
+version: 0.3.0
+implicit_invocation:
+  claude: false
+  codex: false
+allowed_tools:
+  claude:
+    - Read
+    - Grep
+  codex: false
+---
+
+Policy body.
+`,
+    ".skillset/plugins/alpha/skills/policy/agents/openai.yaml": `
+interface:
+  display_name: Policy Skill
+`,
+    ".skillset/plugins/alpha/skills/shared/SKILL.md": `
+---
+name: shared
+description: Uses shared policy.
+implicit_invocation: false
+allowed_tools:
+  claude:
+    - Read
+  codex: false
+---
+
+Shared policy body.
+`,
+  });
+
+  await buildSkillset(root);
+
+  const claudeSkill = await readFile(
+    join(root, "plugins-claude/plugins/alpha/skills/policy/SKILL.md"),
+    "utf8"
+  );
+  const codexSkill = await readFile(
+    join(root, "plugins-codex/plugins/alpha/skills/policy/SKILL.md"),
+    "utf8"
+  );
+  const codexAgentMetadata = await readFile(
+    join(root, "plugins-codex/plugins/alpha/skills/policy/agents/openai.yaml"),
+    "utf8"
+  );
+  const sharedClaudeSkill = await readFile(
+    join(root, "plugins-claude/plugins/alpha/skills/shared/SKILL.md"),
+    "utf8"
+  );
+  const sharedCodexAgentMetadata = await readFile(
+    join(root, "plugins-codex/plugins/alpha/skills/shared/agents/openai.yaml"),
+    "utf8"
+  );
+  const lock = await readFile(join(root, "plugins-codex/.skillset.lock"), "utf8");
+
+  expect(claudeSkill).toContain(`allowed-tools:
+  - Read
+  - Grep`);
+  expect(claudeSkill).toContain("disable-model-invocation: true");
+  expect(codexSkill).not.toContain("implicit_invocation:");
+  expect(codexSkill).not.toContain("allowed_tools:");
+  expect(codexSkill).not.toContain("allowed-tools:");
+  expect(codexAgentMetadata).toContain("display_name: Policy Skill");
+  expect(codexAgentMetadata).toContain(`policy:
+  allow_implicit_invocation: false`);
+  expect(sharedClaudeSkill).toContain("disable-model-invocation: true");
+  expect(sharedCodexAgentMetadata).toContain(`policy:
+  allow_implicit_invocation: false`);
+  expect(lock).toContain(`"plugins/alpha/skills/policy/agents/openai.yaml"`);
+  expect(lock).toContain(`"plugins/alpha/skills/shared/agents/openai.yaml"`);
+});
+
+test("build and lint reject Codex allowed_tools without an explicit Codex opt-out", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/tools/SKILL.md": `
+---
+name: tools
+description: Shares allowed tools.
+allowed_tools:
+  - Read
+---
+
+Tools body.
+`,
+  });
+
+  await expect(lintSkillset(root)).rejects.toThrow("codex-allowed-tools-unsupported");
+  await expect(buildSkillset(root)).rejects.toThrow("allowed_tools has no Codex skill-local lowering");
+});
+
+test("target-scoped policy maps reject unknown target keys", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/policy/SKILL.md": `
+---
+name: policy
+description: Has a mistyped target map.
+implicit_invocation:
+  claude: false
+  codeex: false
+---
+
+Policy body.
+`,
+  });
+
+  await expect(buildSkillset(root)).rejects.toThrow("target map to contain only claude and codex keys");
+});
+
 test("root target outputs can use defaults, booleans, lists, and include objects", async () => {
   const root = await fixture({
     ".skillset/config.yaml": `

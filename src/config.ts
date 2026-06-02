@@ -12,8 +12,10 @@ const TARGET_NAMES: readonly TargetName[] = ["claude", "codex"];
 const CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "claude", "codex", "skillset"]);
 const SOURCE_ONLY_KEYS = new Set([
   "agents",
+  "allowed_tools",
   "claude",
   "codex",
+  "implicit_invocation",
   "skillset",
   "summary",
   "targets",

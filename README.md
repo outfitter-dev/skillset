@@ -56,11 +56,11 @@ Imports copy files into `.skillset/skills/<name>` or `.skillset/plugins/<name>`.
 
 Root source metadata lives at `.skillset/config.yaml`.
 
-Each plugin lives at `.skillset/plugins/<plugin-name>/` and has its own `skillset.yaml`. Portable plugin fields live under `skillset`; target-specific overrides live under top-level `claude` and `codex` blocks. Skill source frontmatter can use top-level `title`, `summary`, `description`, and `version`; the compiler derives the target-native `name`, `description`, and generated metadata.
+Each plugin lives at `.skillset/plugins/<plugin-name>/` and has its own `skillset.yaml`. Portable plugin fields live under `skillset`; target-specific overrides live under top-level `claude` and `codex` blocks. Skill source frontmatter can use top-level `title`, `summary`, `description`, `version`, `implicit_invocation`, and `allowed_tools`; the compiler derives target-native `name`, `description`, generated metadata, Claude frontmatter, and Codex `agents/openai.yaml` policy where supported.
 
 Use `skillset.name` as the stable machine identity. `skillset.id` is accepted as a compatibility alias for older source. Do not use `targets:`.
 
-Generated output strips source-only keys such as `skillset`, `claude`, `codex`, `agents`, and `targets`. Generated skills receive only lightweight metadata:
+Generated output strips source-only keys such as `skillset`, `claude`, `codex`, `agents`, `implicit_invocation`, `allowed_tools`, and `targets`. Generated skills receive only lightweight metadata:
 
 ```yaml
 metadata:
@@ -69,6 +69,21 @@ metadata:
 ```
 
 Generated roots also receive `.skillset.lock` files with deterministic provenance and hashes.
+
+Portable skill policy can be shared or targeted:
+
+```yaml
+implicit_invocation:
+  claude: false
+  codex: false
+allowed_tools:
+  claude:
+    - Read
+    - Grep
+  codex: false
+```
+
+`implicit_invocation` lowers to Claude `disable-model-invocation` and Codex `agents/openai.yaml` `policy.allow_implicit_invocation`. `allowed_tools` lowers to Claude `allowed-tools`; Codex has no confirmed skill-local allowed-tools equivalent, so Codex-enabled source must omit `allowed_tools.codex` or set it to `false`.
 
 ## Self-Hosted Outputs
 
