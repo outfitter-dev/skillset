@@ -18,6 +18,7 @@ import {
   readCodexToolMetadata,
   readImplicitInvocation,
 } from "./skill-policy";
+import { renderRuleVariables } from "./rule-variables";
 import type {
   BuildGraph,
   JsonRecord,
@@ -767,48 +768,11 @@ function stringifyOptionalMarkdown(frontmatter: JsonRecord, body: string): strin
 }
 
 function renderRuleBody(graph: BuildGraph, rule: SourceRule, outputPath: string): string {
-  return interpolateRuleVariables(normalizeRuleBody(rule.body), {
-    label: relative(graph.rootPath, rule.sourcePath),
-    outputDir: outputDirectory(outputPath),
-    repoRoot: relativeOutputPath(outputDirectory(outputPath), ""),
-    sourceRule: relative(graph.rootPath, rule.sourcePath),
+  return renderRuleVariables(normalizeRuleBody(rule.body), {
+    outputPath,
+    rootPath: graph.rootPath,
+    sourcePath: rule.sourcePath,
   });
-}
-
-function interpolateRuleVariables(
-  body: string,
-  variables: {
-    readonly label: string;
-    readonly outputDir: string;
-    readonly repoRoot: string;
-    readonly sourceRule: string;
-  }
-): string {
-  return body.replace(/\{\{\s*skillset\.([^}\s]+)\s*\}\}/g, (match, key: string) => {
-    switch (key) {
-      case "output_dir":
-        return variables.outputDir;
-      case "repo_root":
-        return variables.repoRoot;
-      case "source_rule":
-        return variables.sourceRule;
-      default:
-        throw new Error(`skillset: unknown rule variable ${match} in ${variables.label}`);
-    }
-  });
-}
-
-function outputDirectory(outputPath: string): string {
-  const directory = normalizePattern(dirname(outputPath));
-  if (directory.length === 0 || directory === ".") return ".";
-  return directory;
-}
-
-function relativeOutputPath(from: string, to: string): string {
-  const normalizedFrom = from === "." ? "" : from;
-  const normalizedTo = to === "." ? "" : to;
-  const path = normalizePattern(relative(normalizedFrom, normalizedTo));
-  return path.length === 0 ? "." : path;
 }
 
 function normalizeRuleBody(body: string): string {
