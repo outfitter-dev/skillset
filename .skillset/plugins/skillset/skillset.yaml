@@ -1,4 +1,5 @@
 skillset:
+  schema: 1
   name: skillset
   title: Skillset
   summary: Build source skills and plugins into Claude and Codex outputs.

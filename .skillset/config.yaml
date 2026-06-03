@@ -1,4 +1,5 @@
 skillset:
+  schema: 1
   name: skillset
   title: Skillset
   summary: Self-hosted source for developing and using the skillset compiler.

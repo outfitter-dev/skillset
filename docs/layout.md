@@ -127,6 +127,20 @@ resources:
 
 Only declared resources are copied. Resource mappings may point at files or directories, but they cannot traverse outside the shared root, write outside the generated skill directory, or overwrite `SKILL.md`, generated Codex sidecars, or skill-local files. Markdown links in `SKILL.md` that target declared `shared:` or `plugin:` resource URLs are rewritten to generated skill-local links; undeclared shared resource links fail the build. When a resource uses a custom `to`, a bare link to its source path fails the build, since that path is no longer where the resource lands; link to the emitted target path or use the resource URL. Resource contents are included in `.skillset.lock` hashes and stale-output checks.
 
+## Source schema
+
+`skillset.schema` marks the version of the source contract a config was authored against. It is separate from every content version: `skillset.version` is the plugin/root content version, generated skill `metadata.version` is the artifact version, and each lock's `schemaVersion` is the generated-output provenance schema.
+
+`skillset.schema` is an integer. The current supported schema is `1`. It is optional and defaults to the current schema when absent, so existing source keeps building. A future or non-integer value fails the build, and a semver-style value is rejected so it cannot be confused with `skillset.version`:
+
+```yaml
+skillset:
+  schema: 1        # source contract schema (integer, optional)
+  version: 0.2.0   # content version (semver)
+```
+
+Root and plugin source config support `skillset.schema`. The marker is source-only and never appears in generated artifacts; deeper provenance lives in `.skillset.lock`.
+
 ## Versioning
 
 Root `skillset.version`, plugin `skillset.version`, skill top-level `version`, and compatibility skill `skillset.version` fields must be semantic versions.

@@ -21,7 +21,7 @@ import type {
   SourceSkill,
   StandaloneSkill,
 } from "./types";
-import { validateVersionField } from "./versioning";
+import { validateSchemaField, validateVersionField } from "./versioning";
 import { isJsonRecord, parseMarkdown, parseYamlRecord } from "./yaml";
 
 const DEFAULT_SOURCE_DIR = ".skillset";
@@ -43,6 +43,7 @@ export async function loadBuildGraph(
   const rootConfig = parseYamlRecord(await readFile(rootConfigPath, "utf8"), rootConfigPath);
   validateConfigDocument(rootConfig, rootConfigPath);
   const metadata = readSkillsetMetadata(rootConfig, rootConfigPath);
+  validateSchemaField(metadata, `${rootConfigPath}.skillset.schema`);
   validateVersionField(metadata, `${rootConfigPath}.skillset.version`);
   const outputs = readOutputConfig(
     rootConfig,
@@ -153,6 +154,7 @@ async function loadPlugin(
   const config = parseYamlRecord(await readFile(configPath, "utf8"), configPath);
   validateConfigDocument(config, configPath);
   const metadata = readSkillsetMetadata(config, configPath);
+  validateSchemaField(metadata, `${configPath}.skillset.schema`);
   validateVersionField(metadata, `${configPath}.skillset.version`);
   const configuredId = readSkillsetName(metadata, id, configPath);
   validateSlug(configuredId, `skillset.name in ${configPath}`);

@@ -13,7 +13,7 @@
       "outputHash": "sha256:87ca2e2809bc51b94fae8f186080a3cec76b7b9b67e94e88f92c2423d5b0c465",
       "outputPath": "plugins/skillset/.codex-plugin/plugin.json",
       "skippedSkills": [],
-      "sourceHash": "sha256:6e8bc94baee2ae0c6bd98920963dae11f9fbfac17307ebf83a520bf558537fcb",
+      "sourceHash": "sha256:46b811d70810bcc434fa64a110cc1f59f69b2cebdd2ab9e463ab89c8c66cf5b8",
       "sourcePath": ".skillset/plugins/skillset",
       "targetState": "sync",
       "version": "0.1.0"
