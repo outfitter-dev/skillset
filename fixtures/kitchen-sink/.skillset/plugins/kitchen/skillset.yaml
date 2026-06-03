@@ -1,0 +1,6 @@
+skillset:
+  name: kitchen
+  title: Kitchen
+  summary: Kitchen-sink plugin with every implemented companion surface.
+  description: A plugin that exercises hooks, MCP, commands, app config, and shared resources.
+  version: 0.1.0

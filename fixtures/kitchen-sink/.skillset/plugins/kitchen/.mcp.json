@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "kitchen-example": {
+      "command": "echo",
+      "args": ["kitchen-sink"]
+    }
+  }
+}

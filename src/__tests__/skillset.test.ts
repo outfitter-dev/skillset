@@ -224,7 +224,7 @@ Review carefully.
     ".skillset/plugins/alpha/hooks.json": `
 {
   "hooks": {
-    "session_start": []
+    "SessionStart": []
   }
 }
 `,

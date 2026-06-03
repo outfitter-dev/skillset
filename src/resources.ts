@@ -1,6 +1,7 @@
 import { stat } from "node:fs/promises";
+import type { Stats } from "node:fs";
 
-import { resolveInside } from "./path";
+import { compareStrings, resolveInside } from "./path";
 import type { JsonRecord, JsonValue, SourceResource } from "./types";
 import { isJsonRecord } from "./yaml";
 
@@ -33,7 +34,7 @@ export async function readSkillResources(
     resources.push(resource);
   }
 
-  return resources.sort((left, right) => left.targetPath.localeCompare(right.targetPath));
+  return resources.sort((left, right) => compareStrings(left.targetPath, right.targetPath));
 }
 
 interface PendingResource {
@@ -112,13 +113,18 @@ async function resolveResource(
     context.label
   );
   const sourcePath = resolveInside(parsed.root, parsed.relativePath);
+  const sourceStats = await statSource(sourcePath);
 
-  if (!(await sourceExists(sourcePath))) {
+  if (sourceStats === undefined) {
     throw new Error(`skillset: ${context.label}.resources source not found: ${entry.from}`);
+  }
+  if (!sourceStats.isFile() && !sourceStats.isDirectory()) {
+    throw new Error(`skillset: ${context.label}.resources source must be a file or directory: ${entry.from}`);
   }
 
   return {
     from: parsed.from,
+    kind: sourceStats.isDirectory() ? "directory" : "file",
     sourcePath,
     targetPath,
   };
@@ -212,16 +218,22 @@ function isUnsafeRelativePath(path: string): boolean {
   return path.startsWith("/") || path.split("/").some((segment) => segment === "." || segment === "..");
 }
 
-async function sourceExists(path: string): Promise<boolean> {
+async function statSource(path: string): Promise<Stats | undefined> {
   try {
-    await stat(path);
-    return true;
+    return await stat(path);
   } catch (error) {
     if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
-      return false;
+      return undefined;
     }
     throw error;
   }
+}
+
+interface ResourceLinkMapping {
+  readonly from: string;
+  readonly kind: SourceResource["kind"];
+  readonly sourcePath: string;
+  readonly targetPath: string;
 }
 
 export function rewriteResourceLinks(
@@ -230,8 +242,24 @@ export function rewriteResourceLinks(
   label: string
 ): string {
   const replacements = new Map(resources.map((resource) => [resource.from, resource.targetPath]));
+  // Bare (schemeless) links to a resource's *source* path break when a custom
+  // `to` emits that resource elsewhere; index those remapped source paths so the
+  // build can reject the ambiguous link instead of leaving it silently broken.
+  const resourceMappings: ResourceLinkMapping[] = [];
+  for (const resource of resources) {
+    const sourceRelativePath = resourceSourceRelativePath(resource.from);
+    if (sourceRelativePath !== undefined) {
+      resourceMappings.push({
+        from: resource.from,
+        kind: resource.kind,
+        sourcePath: sourceRelativePath,
+        targetPath: resource.targetPath,
+      });
+    }
+  }
+
   return body.replaceAll(/(!?\[[^\]\n]*\]\()([^) \t\n]+)(\))/g, (match, open, target, close) => {
-    const rewritten = rewriteResourceTarget(String(target), replacements, label);
+    const rewritten = rewriteResourceTarget(String(target), replacements, resourceMappings, label);
     return rewritten === undefined ? String(match) : `${open}${rewritten}${close}`;
   });
 }
@@ -239,19 +267,102 @@ export function rewriteResourceLinks(
 function rewriteResourceTarget(
   target: string,
   replacements: ReadonlyMap<string, string>,
+  resourceMappings: readonly ResourceLinkMapping[],
   label: string
 ): string | undefined {
   const hashIndex = target.indexOf("#");
   const base = hashIndex === -1 ? target : target.slice(0, hashIndex);
   const suffix = hashIndex === -1 ? "" : target.slice(hashIndex);
   const normalizedBase = canonicalResourceReference(base);
-  const replacement = replacements.get(normalizedBase);
+  const replacement = replacements.get(normalizedBase) ?? rewriteDeclaredResourceChild(normalizedBase, resourceMappings);
   if (replacement === undefined && isResourceReference(normalizedBase)) {
     throw new Error(
       `skillset: ${label} links to undeclared shared resource ${base}; add it to resources`
     );
   }
+  if (replacement === undefined && !isResourceReference(normalizedBase)) {
+    const remapped = remappedBareResourceLink(normalizeResourcePath(base), resourceMappings);
+    if (remapped !== undefined) {
+      throw new Error(
+        `skillset: ${label} links to ${base}, but a declared resource remaps ${remapped.from} ` +
+          `to ${remapped.targetPath}; link to ${remapped.rewrittenPath} or use the ${remapped.resourceUrl} resource URL`
+      );
+    }
+  }
   return replacement === undefined ? undefined : `${replacement}${suffix}`;
+}
+
+function rewriteDeclaredResourceChild(
+  normalizedBase: string,
+  resourceMappings: readonly ResourceLinkMapping[]
+): string | undefined {
+  const parsed = splitResourceReference(normalizedBase);
+  if (parsed === undefined) return undefined;
+
+  const mapping = resourceMappings.find(
+    (resource) =>
+      resource.kind === "directory" &&
+      parsed.path.startsWith(`${resource.sourcePath}/`) &&
+      normalizedBase.startsWith(resource.from)
+  );
+  if (mapping === undefined) return undefined;
+
+  return joinResourcePath(mapping.targetPath, parsed.path.slice(mapping.sourcePath.length + 1));
+}
+
+interface RemappedBareLink {
+  readonly from: string;
+  readonly resourceUrl: string;
+  readonly rewrittenPath: string;
+  readonly targetPath: string;
+}
+
+function remappedBareResourceLink(
+  normalizedBase: string,
+  resourceMappings: readonly ResourceLinkMapping[]
+): RemappedBareLink | undefined {
+  for (const resource of resourceMappings) {
+    if (resource.sourcePath === resource.targetPath) continue;
+    if (normalizedBase === resource.sourcePath) {
+      return {
+        from: resource.from,
+        resourceUrl: resource.from,
+        rewrittenPath: resource.targetPath,
+        targetPath: resource.targetPath,
+      };
+    }
+    if (resource.kind !== "directory" || !normalizedBase.startsWith(`${resource.sourcePath}/`)) {
+      continue;
+    }
+
+    const childPath = normalizedBase.slice(resource.sourcePath.length + 1);
+    return {
+      from: resource.from,
+      resourceUrl: `${resource.from}/${childPath}`,
+      rewrittenPath: joinResourcePath(resource.targetPath, childPath),
+      targetPath: resource.targetPath,
+    };
+  }
+  return undefined;
+}
+
+function splitResourceReference(value: string): { readonly path: string; readonly scheme: string } | undefined {
+  const separatorIndex = value.indexOf(":");
+  if (separatorIndex <= 0) return undefined;
+  return {
+    scheme: value.slice(0, separatorIndex),
+    path: normalizeResourcePath(value.slice(separatorIndex + 1)),
+  };
+}
+
+function joinResourcePath(base: string, child: string): string {
+  return normalizeResourcePath(`${base}/${child}`);
+}
+
+function resourceSourceRelativePath(from: string): string | undefined {
+  const separatorIndex = from.indexOf(":");
+  if (separatorIndex <= 0) return undefined;
+  return normalizeResourcePath(from.slice(separatorIndex + 1));
 }
 
 function canonicalResourceReference(value: string): string {

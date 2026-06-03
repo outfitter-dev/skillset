@@ -2,7 +2,7 @@ import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 
 import { readSkillsetMetadata, readSkillsetName, readString } from "./config";
-import { resolveInside, validateSlug } from "./path";
+import { compareStrings, resolveInside, validateSlug } from "./path";
 import { parseMarkdown, parseYamlRecord } from "./yaml";
 
 const DEFAULT_SOURCE_DIR = ".skillset";
@@ -116,7 +116,7 @@ async function resolvePluginConfig(sourcePath: string): Promise<string | undefin
 async function collectFiles(root: string): Promise<readonly string[]> {
   const entries = await readdir(root, { withFileTypes: true });
   const files: string[] = [];
-  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+  for (const entry of entries.sort((left, right) => compareStrings(left.name, right.name))) {
     const path = join(root, entry.name);
     if (entry.isDirectory()) {
       files.push(...(await collectFiles(path)));

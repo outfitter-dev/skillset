@@ -1,12 +1,24 @@
-import { relative } from "node:path";
+import { readFile, stat } from "node:fs/promises";
+import { join, relative } from "node:path";
 
+import { isOutputSelected } from "./config";
+import { validateHookDefinition } from "./hooks";
 import { loadBuildGraph } from "./resolver";
 import {
   readAllowedTools,
   readClaudeNativeToolRules,
   readCodexToolMetadata,
 } from "./skill-policy";
-import type { BuildGraph, LintIssue, LintResult, SkillsetOptions, SourceSkill } from "./types";
+import type {
+  BuildGraph,
+  JsonValue,
+  LintIssue,
+  LintResult,
+  SkillsetOptions,
+  SourcePlugin,
+  SourceSkill,
+  TargetName,
+} from "./types";
 
 interface DynamicPattern {
   readonly code: string;
@@ -43,12 +55,86 @@ export async function lintSkillset(
 ): Promise<LintResult> {
   const graph = await loadBuildGraph(rootPath, options);
   const result = lintBuildGraph(graph);
+  const hookIssues = await lintPluginHooks(graph);
+  const issues = [...result.issues, ...hookIssues];
 
-  if (result.issues.length > 0) {
-    throw new Error(formatLintError(result.issues));
+  if (issues.length > 0) {
+    throw new Error(formatLintError(issues));
   }
 
-  return result;
+  return { checkedSkills: result.checkedSkills, issues };
+}
+
+async function lintPluginHooks(graph: BuildGraph): Promise<readonly LintIssue[]> {
+  const issues: LintIssue[] = [];
+
+  for (const plugin of graph.plugins) {
+    if (shouldLintPluginHook(graph, plugin, "claude")) {
+      issues.push(...(await lintHookFile(graph, plugin, join("hooks", "hooks.json"), "claude")));
+    }
+    if (shouldLintPluginHook(graph, plugin, "codex")) {
+      issues.push(...(await lintHookFile(graph, plugin, "hooks.json", "codex")));
+    }
+  }
+
+  return issues;
+}
+
+function shouldLintPluginHook(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  target: TargetName
+): boolean {
+  return (
+    plugin.targets[target].enabled &&
+    isOutputSelected(graph.root.outputs.targetOutputs[target].plugins, plugin.id)
+  );
+}
+
+async function lintHookFile(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  relativeHookPath: string,
+  target: TargetName
+): Promise<readonly LintIssue[]> {
+  const hookPath = join(plugin.path, relativeHookPath);
+  if (!(await fileExists(hookPath))) return [];
+
+  const path = relative(graph.rootPath, hookPath);
+  let parsed: JsonValue;
+  try {
+    parsed = JSON.parse(await readFile(hookPath, "utf8")) as JsonValue;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const targetLabel = target === "claude" ? "Claude" : "Codex";
+    return [
+      {
+        code: "hook-invalid-json",
+        path,
+        message: `${targetLabel} hook file ${path} is not valid JSON: ${message}`,
+      },
+    ];
+  }
+
+  try {
+    validateHookDefinition(parsed, { sourcePath: path, target });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return [{ code: "hook-target-incompatible", path, message }];
+  }
+
+  return [];
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    return (await stat(path)).isFile();
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
+      return false;
+    }
+    throw error;
+  }
 }
 
 export function lintBuildGraph(graph: BuildGraph): LintResult {

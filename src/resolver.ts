@@ -10,7 +10,7 @@ import {
   resolveTargets,
   validateConfigDocument,
 } from "./config";
-import { resolveInside, validateSlug } from "./path";
+import { compareStrings, resolveInside, validateSlug } from "./path";
 import { readSkillResources } from "./resources";
 import type {
   BuildGraph,
@@ -107,7 +107,7 @@ async function loadRules(
     });
   }
 
-  return rules.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+  return rules.sort((left, right) => compareStrings(left.relativePath, right.relativePath));
 }
 
 function normalizeRuleFrontmatter(frontmatter: SourceRule["frontmatter"], label: string): SourceRule["frontmatter"] {
@@ -133,7 +133,7 @@ async function loadPlugins(
   const entries = await readdir(pluginsPath, { withFileTypes: true });
   const plugins: SourcePlugin[] = [];
 
-  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+  for (const entry of entries.sort((left, right) => compareStrings(left.name, right.name))) {
     if (!entry.isDirectory()) continue;
     const id = validateSlug(entry.name, "plugin directory");
     plugins.push(await loadPlugin(rootPath, sourceDir, id, rootTargets));
@@ -237,7 +237,7 @@ async function loadSkillsFromDirectory(
     });
   }
 
-  return skills.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+  return skills.sort((left, right) => compareStrings(left.relativePath, right.relativePath));
 }
 
 async function loadStandaloneSkills(
@@ -256,7 +256,7 @@ async function findSkillFiles(root: string): Promise<string[]> {
   const files: string[] = [];
   const entries = await readdir(root, { withFileTypes: true });
 
-  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+  for (const entry of entries.sort((left, right) => compareStrings(left.name, right.name))) {
     const path = join(root, entry.name);
     if (entry.isDirectory()) {
       files.push(...(await findSkillFiles(path)));
@@ -274,7 +274,7 @@ async function findMarkdownFiles(root: string): Promise<string[]> {
   const files: string[] = [];
   const entries = await readdir(root, { withFileTypes: true });
 
-  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+  for (const entry of entries.sort((left, right) => compareStrings(left.name, right.name))) {
     const path = join(root, entry.name);
     if (entry.isDirectory()) {
       files.push(...(await findMarkdownFiles(path)));
@@ -324,7 +324,7 @@ async function outputRootsFor(
     }
   }
 
-  return [...roots.values()].sort((left, right) => left.path.localeCompare(right.path));
+  return [...roots.values()].sort((left, right) => compareStrings(left.path, right.path));
 }
 
 function configuredOutputRoots(outputs: BuildGraph["root"]["outputs"]): readonly ActiveOutputRoot[] {
@@ -359,7 +359,7 @@ function activeOutputRoots(
   if (standaloneSkills.some((skill) => skill.targets.codex.enabled && outputIncludes(outputs.targetOutputs.codex.skills, skill.id))) {
     roots.push({ label: "outputs.skills.codex", path: outputs.skills.codex });
   }
-  return roots.sort((left, right) => left.path.localeCompare(right.path));
+  return roots.sort((left, right) => compareStrings(left.path, right.path));
 }
 
 function outputIncludes(selection: OutputSelection, name: string): boolean {

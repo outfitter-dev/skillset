@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { readdirSync, statSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { basename, dirname, join, relative } from "node:path";
@@ -11,7 +11,8 @@ import {
   readStringArray,
   stripSourceFrontmatter,
 } from "./config";
-import { validateSlug } from "./path";
+import { validateHookDefinition } from "./hooks";
+import { compareStrings, validateSlug } from "./path";
 import { rewriteResourceLinks } from "./resources";
 import {
   readAllowedTools,
@@ -33,7 +34,7 @@ import type {
   TargetName,
 } from "./types";
 import { pluginVersion, rootVersion, skillVersion, skillVersionLabel } from "./versioning";
-import { isJsonRecord, parseYamlRecord, stringifyJson, stringifyMarkdown, stringifyYaml } from "./yaml";
+import { parseYamlRecord, stringifyJson, stringifyMarkdown, stringifyYaml } from "./yaml";
 
 const textEncoder = new TextEncoder();
 const DEFAULT_CODEX_COLOR = "#B06DFF";
@@ -81,7 +82,7 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
 
   rendered.push(...(await renderRules(graph, lockRoots)));
   rendered.push(...renderLockFiles(graph, lockRoots));
-  return rendered.sort((left, right) => left.path.localeCompare(right.path));
+  return rendered.sort((left, right) => compareStrings(left.path, right.path));
 }
 
 function shouldRenderPlugin(graph: BuildGraph, plugin: SourcePlugin, target: TargetName): boolean {
@@ -227,7 +228,7 @@ async function renderPluginTarget(
     rendered.push(...(await renderPluginSkillFiles(graph, plugin, skill, target, basePath, outputRoot, lockRoots)));
   }
 
-  rendered.push(...(await copyPluginCompanionFiles(plugin, target, basePath)));
+  rendered.push(...(await copyPluginCompanionFiles(graph, plugin, target, basePath)));
   return rendered;
 }
 
@@ -760,7 +761,7 @@ async function renderCodexAgentsFiles(
   }
 
   const rendered: RenderedFile[] = [];
-  for (const [destination, rules] of [...destinations.entries()].sort(([left], [right]) => left.localeCompare(right))) {
+  for (const [destination, rules] of [...destinations.entries()].sort(([left], [right]) => compareStrings(left, right))) {
     const file = textFile(destination, renderCodexAgentsMarkdown(graph, rules, destination));
     rendered.push(file);
     lockRootsFor(lockRoots, CODEX_RULES_LOCK_ROOT, "workspace").items.push(
@@ -934,6 +935,7 @@ function commonDirectory(directories: readonly string[]): string {
 }
 
 async function copyPluginCompanionFiles(
+  graph: BuildGraph,
   plugin: SourcePlugin,
   target: TargetName,
   basePath: string
@@ -949,10 +951,10 @@ async function copyPluginCompanionFiles(
     if (!(await exists(sourcePath))) continue;
 
     if (target === "claude" && candidate === "hooks") {
-      await validateHookJson(join(sourcePath, "hooks.json"), "Claude");
+      await validateHookJson(graph, join(sourcePath, "hooks.json"), "claude");
     }
     if (candidate === "hooks.json") {
-      await validateHookJson(sourcePath, "Codex");
+      await validateHookJson(graph, sourcePath, "codex");
       rendered.push(...(await copyPath(sourcePath, join(basePath, "hooks.json"))));
       continue;
     }
@@ -963,20 +965,24 @@ async function copyPluginCompanionFiles(
   return rendered.filter((file) => !file.path.endsWith(".gitkeep"));
 }
 
-async function validateHookJson(sourcePath: string, target: "Claude" | "Codex"): Promise<void> {
+async function validateHookJson(
+  graph: BuildGraph,
+  sourcePath: string,
+  target: TargetName
+): Promise<void> {
   if (!(await exists(sourcePath))) return;
 
-  let parsed: unknown;
+  const label = relative(graph.rootPath, sourcePath);
+  let parsed: JsonValue;
   try {
-    parsed = JSON.parse(await readFile(sourcePath, "utf8")) as unknown;
+    parsed = JSON.parse(await readFile(sourcePath, "utf8")) as JsonValue;
   } catch (error) {
+    const targetLabel = target === "claude" ? "Claude" : "Codex";
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`skillset: ${target} hook file ${sourcePath} is not valid JSON: ${message}`);
+    throw new Error(`skillset: ${targetLabel} hook file ${label} is not valid JSON: ${message}`);
   }
 
-  if (!isJsonRecord(parsed)) {
-    throw new Error(`skillset: ${target} hook file ${sourcePath} must contain a JSON object`);
-  }
+  validateHookDefinition(parsed, { sourcePath: label, target });
 }
 
 async function copyPath(sourcePath: string, targetPath: string): Promise<readonly RenderedFile[]> {
@@ -1001,12 +1007,12 @@ function renderLockFiles(
 ): readonly RenderedFile[] {
   const rendered: RenderedFile[] = [];
 
-  for (const [outputRoot, lock] of [...lockRoots.entries()].sort(([left], [right]) => left.localeCompare(right))) {
+  for (const [outputRoot, lock] of [...lockRoots.entries()].sort(([left], [right]) => compareStrings(left, right))) {
     const value: JsonRecord = {
       generatedBy: GENERATED_BY,
       items: lock.items
         .map((item) => stripUndefinedLockItem(item))
-        .sort((left, right) => String(left.outputPath).localeCompare(String(right.outputPath))),
+        .sort((left, right) => compareStrings(String(left.outputPath), String(right.outputPath))),
       outputRoot,
       schemaVersion: 1,
       sourceRoot: graph.sourceDir,
@@ -1054,7 +1060,7 @@ function lockItemForPlugin(args: {
     outputHash: hashRenderedFiles(args.outputRoot, [args.file]),
     outputPath: relative(args.outputRoot, args.file.path),
     skippedSkills,
-    sourceHash: hashPluginSource(args.graph, args.plugin, args.target, includedSkills, skippedSkills),
+    sourceHash: hashPluginSource(args.plugin, args.target, includedSkills, skippedSkills),
     sourcePath: relative(args.graph.rootPath, args.plugin.path),
     targetState: skippedSkills.length === 0 ? "sync" : "intentionally-skipped",
     version: pluginVersion(args.plugin),
@@ -1127,7 +1133,6 @@ function stripUndefinedLockItem(item: LockItem): JsonRecord {
 }
 
 function hashPluginSource(
-  graph: BuildGraph,
   plugin: SourcePlugin,
   target: TargetName,
   includedSkills: readonly string[],
@@ -1166,7 +1171,7 @@ async function hashSkillSource(
   }
 
   for (const resource of [...resources].sort((left, right) =>
-    left.targetPath.localeCompare(right.targetPath)
+    compareStrings(left.targetPath, right.targetPath)
   )) {
     hash.update("resource\0");
     hash.update(resource.from);
@@ -1207,7 +1212,7 @@ function hashTextRule(rule: SourceRule): string {
 function hashRules(rules: readonly SourceRule[]): string {
   const hash = createHash("sha256");
   hash.update("skillset-rule-source-v1\0");
-  for (const rule of [...rules].sort((left, right) => left.sourcePath.localeCompare(right.sourcePath))) {
+  for (const rule of [...rules].sort((left, right) => compareStrings(left.sourcePath, right.sourcePath))) {
     hash.update(rule.relativePath);
     hash.update("\0");
     hash.update(stringifyJson(rule.frontmatter));
@@ -1222,7 +1227,7 @@ function hashRenderedFiles(outputRoot: string, files: readonly RenderedFile[]): 
   const hash = createHash("sha256");
   hash.update("skillset-output-v1\0");
 
-  for (const file of [...files].sort((left, right) => left.path.localeCompare(right.path))) {
+  for (const file of [...files].sort((left, right) => compareStrings(left.path, right.path))) {
     hash.update(relative(outputRoot, file.path));
     hash.update("\0");
     hash.update(file.content);
@@ -1236,7 +1241,7 @@ async function collectFiles(root: string): Promise<readonly string[]> {
   const entries = await readdir(root, { withFileTypes: true });
   const files: string[] = [];
 
-  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+  for (const entry of entries.sort((left, right) => compareStrings(left.name, right.name))) {
     const path = join(root, entry.name);
     if (entry.isDirectory()) {
       files.push(...(await collectFiles(path)));
@@ -1251,16 +1256,26 @@ async function collectFiles(root: string): Promise<readonly string[]> {
 function pluginHasPath(plugin: SourcePlugin, path: string): boolean {
   try {
     validateSlug(plugin.id, "plugin id");
-    const maybePath = join(plugin.path, path);
-    return hasRenderableContent(maybePath);
   } catch {
     return false;
   }
+  // Real file-system errors (EACCES, ELOOP, ...) must surface instead of being
+  // read as "path absent"; only a missing path counts as no surface.
+  return hasRenderableContent(join(plugin.path, path));
 }
 
 function hasRenderableContent(path: string): boolean {
-  if (!existsSync(path)) return false;
-  const stats = statSync(path);
+  // A missing path means "no surface"; any other FS error (EACCES, ELOOP, ...)
+  // must surface instead of being read as absent.
+  let stats;
+  try {
+    stats = statSync(path);
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
+      return false;
+    }
+    throw error;
+  }
   if (stats.isFile()) return !isIgnoredCompanionFile(path);
   if (!stats.isDirectory()) return false;
 

@@ -41,6 +41,7 @@ export interface SourceSkill {
 
 export interface SourceResource {
   readonly from: string;
+  readonly kind: "directory" | "file";
   readonly sourcePath: string;
   readonly targetPath: string;
 }

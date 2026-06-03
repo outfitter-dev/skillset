@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 
-import { resolveInside } from "./path";
+import { compareStrings, resolveInside } from "./path";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
 import type { CheckResult, RenderedFile, SkillsetOptions } from "./types";
@@ -122,7 +122,7 @@ async function listGeneratedFiles(
 async function collectFiles(root: string): Promise<readonly string[]> {
   const entries = await readdir(root, { withFileTypes: true });
   const files: string[] = [];
-  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+  for (const entry of entries.sort((left, right) => compareStrings(left.name, right.name))) {
     const path = join(root, entry.name);
     if (entry.isDirectory()) {
       files.push(...(await collectFiles(path)));
@@ -176,27 +176,45 @@ async function readWorkspaceManagedPaths(rootPath: string): Promise<ReadonlySet<
   let parsed: unknown;
   try {
     parsed = JSON.parse(await readFile(lockPath, "utf8")) as unknown;
-  } catch {
-    return new Set();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw corruptWorkspaceLock(`it is not valid JSON: ${message}`);
   }
 
-  if (!isRecord(parsed) || typeof parsed.generatedBy !== "string") return new Set();
-  if (!parsed.generatedBy.startsWith("skillset@")) return new Set();
-  if (parsed.outputRoot !== ".") return new Set();
+  if (!isRecord(parsed) || typeof parsed.generatedBy !== "string") {
+    throw corruptWorkspaceLock("it is missing a string generatedBy field");
+  }
+  if (!parsed.generatedBy.startsWith("skillset@")) {
+    throw corruptWorkspaceLock(`its generatedBy ${JSON.stringify(parsed.generatedBy)} is not a skillset lock`);
+  }
+  if (parsed.outputRoot !== ".") {
+    throw corruptWorkspaceLock(`its outputRoot ${JSON.stringify(parsed.outputRoot)} is not the workspace root`);
+  }
+  if (!Array.isArray(parsed.items)) {
+    throw corruptWorkspaceLock("its items field is not an array");
+  }
 
   const paths = new Set<string>([WORKSPACE_LOCK_FILE]);
-  if (!Array.isArray(parsed.items)) return paths;
-
   for (const item of parsed.items) {
-    if (!isRecord(item) || !Array.isArray(item.files)) continue;
+    if (!isRecord(item) || !Array.isArray(item.files)) {
+      throw corruptWorkspaceLock("one of its items is missing a files array");
+    }
     for (const file of item.files) {
-      if (typeof file === "string" && file.trim().length > 0) {
-        paths.add(file);
+      if (typeof file !== "string" || file.trim().length === 0) {
+        throw corruptWorkspaceLock("one of its tracked file entries is not a non-empty string");
       }
+      paths.add(file);
     }
   }
 
   return paths;
+}
+
+function corruptWorkspaceLock(reason: string): Error {
+  return new Error(
+    `skillset: workspace lock ${WORKSPACE_LOCK_FILE} cannot guard generated state because ${reason}. ` +
+      "Restore it from a clean build (skillset build) or remove it deliberately before rebuilding."
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
