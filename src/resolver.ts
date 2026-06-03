@@ -28,7 +28,8 @@ const DEFAULT_SOURCE_DIR = ".skillset";
 const ROOT_CONFIG_FILE = "config.yaml";
 const PLUGIN_CONFIG_FILES = ["skillset.yaml", "config.yaml"] as const;
 const PLUGINS_DIR = "plugins";
-const RULES_DIR = "rules";
+const INSTRUCTIONS_DIR = "instructions";
+const INSTRUCTIONS_COMPAT_DIR = "rules";
 const SKILLS_DIR = "skills";
 const SKILL_FILE = "SKILL.md";
 const RULES_OUTPUT_ROOT = ".claude/rules";
@@ -59,18 +60,20 @@ export async function loadBuildGraph(
     targets: rootTargets,
   };
 
+  const warnings: string[] = [];
   const plugins = await loadPlugins(rootPath, sourceDir, rootTargets);
   const standaloneSkills = await loadStandaloneSkills(rootPath, sourceDir, rootTargets);
-  const rules = await loadRules(rootPath, sourceDir, rootTargets);
+  const { rules, instructionsDir } = await loadInstructions(rootPath, sourceDir, rootTargets, warnings);
 
   if (plugins.length === 0 && standaloneSkills.length === 0 && rules.length === 0) {
-    throw new Error(`skillset: no source plugins, skills, or rules found under ${sourceDir}/`);
+    throw new Error(`skillset: no source plugins, skills, or instructions found under ${sourceDir}/`);
   }
 
   const outputRoots = await outputRootsFor(rootPath, outputs, plugins, standaloneSkills, rules);
   validateOutputRoots(rootPath, sourcePath, outputRoots);
 
   return {
+    instructionsDir,
     outputRoots: outputRoots.map((outputRoot) => outputRoot.path),
     plugins,
     rules,
@@ -79,24 +82,67 @@ export async function loadBuildGraph(
     sourceDir,
     sourcePath,
     standaloneSkills,
+    warnings,
   };
 }
 
-async function loadRules(
+/**
+ * Emit non-fatal source warnings collected during load (e.g. deprecated
+ * compatibility paths). Local-only stderr notes; never fails the command.
+ */
+export function emitGraphWarnings(graph: BuildGraph): void {
+  for (const warning of graph.warnings) {
+    console.warn(`skillset: ${warning}`);
+  }
+}
+
+/**
+ * Load source instructions. Canonical source lives in `.skillset/instructions/`;
+ * `.skillset/rules/` remains a compatibility alias for migration and import. When
+ * both directories carry content the build fails (ambiguous), and the compat path
+ * emits a deprecation warning. Generated output is unchanged: Claude lowers to
+ * `.claude/rules/`, Codex lowers to `AGENTS.md`.
+ */
+async function loadInstructions(
   rootPath: string,
   sourceDir: string,
-  rootTargets: BuildGraph["root"]["targets"]
-): Promise<readonly SourceRule[]> {
-  const rulesPath = resolveInside(rootPath, join(sourceDir, RULES_DIR));
-  if (!(await exists(rulesPath))) return [];
+  rootTargets: BuildGraph["root"]["targets"],
+  warnings: string[]
+): Promise<{ readonly rules: readonly SourceRule[]; readonly instructionsDir: string }> {
+  const canonicalPath = resolveInside(rootPath, join(sourceDir, INSTRUCTIONS_DIR));
+  const compatPath = resolveInside(rootPath, join(sourceDir, INSTRUCTIONS_COMPAT_DIR));
+  const hasCanonical = await exists(canonicalPath);
+  const compatFiles = (await exists(compatPath)) ? await findMarkdownFiles(compatPath) : [];
 
-  const ruleFiles = await findMarkdownFiles(rulesPath);
+  let basePath: string;
+  let instructionsDir: string;
+  if (hasCanonical) {
+    if (compatFiles.length > 0) {
+      throw new Error(
+        `skillset: ${sourceDir}/${INSTRUCTIONS_DIR} and ${sourceDir}/${INSTRUCTIONS_COMPAT_DIR} both contain instruction files; ` +
+          `consolidate into ${sourceDir}/${INSTRUCTIONS_DIR}`
+      );
+    }
+    basePath = canonicalPath;
+    instructionsDir = INSTRUCTIONS_DIR;
+  } else if (compatFiles.length > 0) {
+    basePath = compatPath;
+    instructionsDir = INSTRUCTIONS_COMPAT_DIR;
+    warnings.push(
+      `${sourceDir}/${INSTRUCTIONS_COMPAT_DIR} is a compatibility alias for ${sourceDir}/${INSTRUCTIONS_DIR}; ` +
+        `rename it to ${sourceDir}/${INSTRUCTIONS_DIR}. Generated Claude output stays ${RULES_OUTPUT_ROOT} and Codex stays AGENTS.md.`
+    );
+  } else {
+    return { rules: [], instructionsDir: INSTRUCTIONS_DIR };
+  }
+
+  const ruleFiles = await findMarkdownFiles(basePath);
   const rules: SourceRule[] = [];
 
   for (const sourcePath of ruleFiles) {
     const content = await readFile(sourcePath, "utf8");
     const parts = parseMarkdown(content, sourcePath);
-    const relativePath = relative(rulesPath, sourcePath);
+    const relativePath = relative(basePath, sourcePath);
     const frontmatter = normalizeRuleFrontmatter(parts.frontmatter, sourcePath);
     const targets = resolveTargets(rootTargets, frontmatter, sourcePath);
 
@@ -110,7 +156,10 @@ async function loadRules(
     });
   }
 
-  return rules.sort((left, right) => compareStrings(left.relativePath, right.relativePath));
+  return {
+    rules: rules.sort((left, right) => compareStrings(left.relativePath, right.relativePath)),
+    instructionsDir,
+  };
 }
 
 function normalizeRuleFrontmatter(frontmatter: SourceRule["frontmatter"], label: string): SourceRule["frontmatter"] {

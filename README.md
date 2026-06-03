@@ -31,7 +31,7 @@ The default contract is:
 - root config: `.skillset/config.yaml`
 - plugin source: `.skillset/plugins/<plugin-name>/`
 - standalone skill source: `.skillset/skills/<skill-name>/`
-- instruction rule source: `.skillset/rules/**/*.md`
+- instruction source: `.skillset/instructions/**/*.md` (`.skillset/rules/**/*.md` is a compatibility alias)
 - Claude plugin repo output: `plugins-claude/`
 - Codex plugin repo output: `plugins-codex/`
 - Claude standalone skill output: `.claude/skills`
@@ -165,9 +165,9 @@ codex:
 
 Portable `tools.allow` and `tools.deny` accept only known keys: `read`, `search`, `write`, `edit`, `shell`, `web_fetch`, `web_search`, and `mcp`. Unknown keys fail lint/build. Portable `allow` / `deny` belongs in the source top-level `tools` block; target-local `claude.tools` and `codex.tools` accept only `_allow` / `_deny` escape keys. Claude lowers portable entries to `allowed-tools` and `disallowed-tools`; Codex preserves portable intent in generated `.skillset.tools.yaml` metadata until a validated skill-local permission surface exists. Claude `_allow` and `_deny` entries lower to native rules too. Codex `_allow` and `_deny` entries emit to `.skillset.tools.yaml` under `target_native`, so they are committed, locked, and reviewable without changing user-level Codex policy or trust configuration.
 
-## Rules
+## Instructions
 
-Use `.skillset/rules/**/*.md` for repo instructions that should become Claude rules and Codex `AGENTS.md` files:
+Use `.skillset/instructions/**/*.md` for repo instructions that should become Claude rules and Codex `AGENTS.md` files. `.skillset/rules/**/*.md` is a compatibility alias that still builds but warns; consolidating both directories fails the build.
 
 ```yaml
 ---
@@ -180,7 +180,7 @@ paths:
 - Keep docs concise and current.
 ```
 
-The compiler preserves the source hierarchy when writing Claude rules, so `.skillset/rules/docs/writing.md` becomes `.claude/rules/docs/writing.md`. `paths` frontmatter is kept for Claude and stripped from Codex output.
+The compiler preserves the source hierarchy when writing Claude rules, so `.skillset/instructions/docs/writing.md` becomes `.claude/rules/docs/writing.md`. `paths` frontmatter is kept for Claude and stripped from Codex output. Generated output is byte-identical whether the source lives in `instructions/` or the `rules/` compatibility alias.
 
 For Codex, `skillset` derives the nearest useful `AGENTS.md` destination from each path pattern. `docs/**/*.md` writes `docs/AGENTS.md`; `**/*.ts` scans matching repo files and writes to the lowest common directory, such as `src/AGENTS.md` when matching TypeScript files live under `src/`. Multiple source rules that land at the same destination are concatenated deterministically.
 
@@ -207,7 +207,7 @@ codex: false
 ---
 ```
 
-Generated Codex `AGENTS.md` files are tracked by the root `.skillset.lock`. The build refuses to overwrite an unmanaged `AGENTS.md`, so existing hand-written guidance stays protected until it is moved into `.skillset/rules` or removed deliberately.
+Generated Codex `AGENTS.md` files are tracked by the root `.skillset.lock`. The build refuses to overwrite an unmanaged `AGENTS.md`, so existing hand-written guidance stays protected until it is moved into `.skillset/instructions` or removed deliberately.
 
 `codex: symlink` is intentionally not implemented yet. Path-scoped Claude rules need YAML `paths` frontmatter, and a direct symlink would expose that control block to Codex as instructions.
 

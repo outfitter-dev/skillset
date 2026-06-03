@@ -3,7 +3,7 @@ import { dirname, join, relative } from "node:path";
 
 import { compareStrings, resolveInside } from "./path";
 import { renderBuildGraph } from "./render";
-import { loadBuildGraph } from "./resolver";
+import { emitGraphWarnings, loadBuildGraph } from "./resolver";
 import type { CheckResult, RenderedFile, SkillsetOptions } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
 
@@ -15,6 +15,7 @@ export async function buildSkillset(
   options: SkillsetOptions = {}
 ): Promise<readonly RenderedFile[]> {
   const graph = await loadBuildGraph(rootPath, options);
+  emitGraphWarnings(graph);
   const rendered = await renderBuildGraph(graph);
   const expectedPaths = new Set(rendered.map((file) => file.path));
   const previousWorkspaceManagedPaths = await readWorkspaceManagedPaths(rootPath);
@@ -51,6 +52,7 @@ export async function checkSkillset(
   options: SkillsetOptions = {}
 ): Promise<CheckResult> {
   const graph = await loadBuildGraph(rootPath, options);
+  emitGraphWarnings(graph);
   const rendered = await renderBuildGraph(graph);
   const expected = new Map(rendered.map((file) => [file.path, file.content]));
   const actualPaths = await listGeneratedFiles(rootPath, graph.outputRoots, rendered);
@@ -158,7 +160,7 @@ async function assertNoUnmanagedWorkspaceOverwrites(
     if (!(await exists(resolveInside(rootPath, file.path)))) continue;
     throw new Error(
       `skillset: refusing to overwrite unmanaged workspace file ${file.path}; ` +
-        `move it into .skillset/rules or remove it before generating rules`
+        `move it into .skillset/instructions or remove it before generating instructions`
     );
   }
 }

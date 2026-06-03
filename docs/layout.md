@@ -10,7 +10,7 @@
     references/
     scripts/
     templates/
-  rules/
+  instructions/
     <topic>.md
     <area>/
       <topic>.md
@@ -166,9 +166,9 @@ metadata:
 
 Each `.skillset.lock` records emitted versions and hashes. Plugin lock entries also include `includedSkills`, `skippedSkills`, and `targetState`; a target with skipped source skills uses `targetState: intentionally-skipped` so target-specific version bumps are visible even when that target's manifest and skills stay byte-for-byte unchanged. `skillset check` reports version drift directly when generated plugin manifest `version` or generated skill `metadata.version` is stale.
 
-## Rules
+## Instructions
 
-Rules live under `.skillset/rules/**/*.md`. They are for durable repo instructions rather than invokable skills:
+Instructions live under `.skillset/instructions/**/*.md`. They are for durable repo instructions rather than invokable skills. `.skillset/rules/**/*.md` is a compatibility alias for migration and import: it still builds and produces byte-identical output, but emits a deprecation warning, and the build fails if both `instructions/` and `rules/` carry content. Internally and in generated output these are still called rules, because Claude's native target is `.claude/rules`.
 
 ```yaml
 ---
@@ -187,7 +187,7 @@ Codex output lowers rules into the instruction files Codex actually discovers. R
 
 Rule markdown bodies support Skillset build-time variables. `{{skillset.repo_root}}` becomes the relative path from the generated file directory back to the repository root, or `.` at the root. `{{skillset.output_dir}}` becomes the generated file directory relative to the repository root, or `.` at the root. `{{skillset.source_rule}}` becomes the source rule path. Skillset-owned variables use `{{skillset.lower_snake_case}}`, render independently for each generated Claude rule and Codex `AGENTS.md` file, and unknown `skillset.*` variables fail the build. Target-native variables in target-native config files are left to that target.
 
-Rule frontmatter can use top-level `claude` and `codex` target toggles. Set `codex: false` for a Claude-only rule or `claude: false` for a Codex-only rule. Generated Codex `AGENTS.md` files are tracked by the root `.skillset.lock`, and the build refuses to overwrite unmanaged `AGENTS.md` files. Move existing hand-written guidance into `.skillset/rules` before letting the compiler own that destination.
+Instruction frontmatter can use top-level `claude` and `codex` target toggles. Set `codex: false` for a Claude-only instruction or `claude: false` for a Codex-only instruction. Generated Codex `AGENTS.md` files are tracked by the root `.skillset.lock`, and the build refuses to overwrite unmanaged `AGENTS.md` files. Move existing hand-written guidance into `.skillset/instructions` before letting the compiler own that destination.
 
 `codex: symlink` is a recorded follow-up, not a v1 behavior. Directly symlinking Codex `AGENTS.md` to Claude rule files would expose Claude `paths` frontmatter as Codex instructions.
 

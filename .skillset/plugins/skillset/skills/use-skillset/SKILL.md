@@ -18,7 +18,7 @@ Use this skill when a repo has a `.skillset/` source tree or when you need to cr
     references/
     scripts/
     templates/
-  rules/
+  instructions/
     <topic>.md
   skills/
     <skill-name>/
@@ -34,7 +34,7 @@ Use this skill when a repo has a `.skillset/` source tree or when you need to cr
 
 Root `.skillset/config.yaml` controls target defaults and output roots. Plugin configs use `.skillset/plugins/<plugin-name>/skillset.yaml`. Portable plugin metadata lives under `skillset`; skill source can use top-level `title`, `summary`, `description`, and `version`. Target-specific overrides use top-level `claude` and `codex`.
 
-Use `.skillset/rules/**/*.md` for durable repo instructions:
+Use `.skillset/instructions/**/*.md` for durable repo instructions (`.skillset/rules/**/*.md` is a compatibility alias that still builds but warns):
 
 ```yaml
 ---
@@ -47,7 +47,7 @@ paths:
 - Keep docs concise and current.
 ```
 
-Claude rules are generated under `.claude/rules/**/*.md` with `paths` frontmatter preserved. Codex rules are generated as `AGENTS.md` files at derived directories: `docs/**/*.md` writes `docs/AGENTS.md`, while broad globs such as `**/*.ts` scan matching repo files and use the lowest common directory. Multiple rules that land at the same `AGENTS.md` are concatenated. The build refuses to overwrite unmanaged `AGENTS.md` files; move existing guidance into `.skillset/rules` before letting `skillset` own it.
+Claude rules are generated under `.claude/rules/**/*.md` with `paths` frontmatter preserved. Codex rules are generated as `AGENTS.md` files at derived directories: `docs/**/*.md` writes `docs/AGENTS.md`, while broad globs such as `**/*.ts` scan matching repo files and use the lowest common directory. Multiple rules that land at the same `AGENTS.md` are concatenated. The build refuses to overwrite unmanaged `AGENTS.md` files; move existing guidance into `.skillset/instructions` before letting `skillset` own it.
 
 Rule bodies can use `{{skillset.repo_root}}`, `{{skillset.output_dir}}`, and `{{skillset.source_rule}}`. Skillset-owned variables use `{{skillset.lower_snake_case}}` and render per generated file, so a nested `docs/AGENTS.md` can point back to `..` while a root `AGENTS.md` points to `.`. Unknown `skillset.*` variables fail the build.
 

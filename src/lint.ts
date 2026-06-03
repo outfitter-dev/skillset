@@ -3,7 +3,7 @@ import { join, relative } from "node:path";
 
 import { isOutputSelected } from "./config";
 import { validateHookDefinition } from "./hooks";
-import { loadBuildGraph } from "./resolver";
+import { emitGraphWarnings, loadBuildGraph } from "./resolver";
 import {
   readAllowedTools,
   readClaudeNativeToolRules,
@@ -54,6 +54,7 @@ export async function lintSkillset(
   options: SkillsetOptions = {}
 ): Promise<LintResult> {
   const graph = await loadBuildGraph(rootPath, options);
+  emitGraphWarnings(graph);
   const result = lintBuildGraph(graph);
   const hookIssues = await lintPluginHooks(graph);
   const issues = [...result.issues, ...hookIssues];

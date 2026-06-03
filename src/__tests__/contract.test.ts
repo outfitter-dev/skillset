@@ -1,9 +1,10 @@
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { expect, test } from "bun:test";
 
+import { buildSkillset } from "../build";
 import { loadBuildGraph } from "../resolver";
 
 // SET-3: skillset.schema separates the source-contract schema from content
@@ -253,6 +254,80 @@ Body.
   });
 
   await expect(loadBuildGraph(root)).rejects.toThrow("does not match skillset.name");
+});
+
+// SET-5: canonical source instructions live in .skillset/instructions/;
+// .skillset/rules/ remains a compatibility alias. Claude lowers to .claude/rules,
+// Codex lowers to AGENTS.md, regardless of the source directory name.
+
+test("SET-5: canonical instructions lower to Claude rules and Codex AGENTS.md", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: instr-root
+claude: true
+codex: true
+`,
+    ".skillset/instructions/global.md": `
+# Global
+
+- Be tidy.
+`,
+  });
+
+  const graph = await loadBuildGraph(root);
+  expect(graph.instructionsDir).toBe("instructions");
+  expect(graph.warnings).toEqual([]);
+
+  await buildSkillset(root);
+  expect(await readFile(join(root, ".claude/rules/global.md"), "utf8")).toContain("Be tidy.");
+  expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("Be tidy.");
+});
+
+test("SET-5: .skillset/rules remains a compatibility alias with a deprecation warning", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: compat-root
+claude: true
+codex: true
+`,
+    ".skillset/rules/global.md": `
+# Global
+
+- Be tidy.
+`,
+  });
+
+  const graph = await loadBuildGraph(root);
+  expect(graph.instructionsDir).toBe("rules");
+  expect(graph.warnings.join("\n")).toContain("compatibility alias");
+
+  // The compat path still produces identical native output.
+  await buildSkillset(root);
+  expect(await readFile(join(root, ".claude/rules/global.md"), "utf8")).toContain("Be tidy.");
+  const agents = await readFile(join(root, "AGENTS.md"), "utf8");
+  expect(agents).toContain("Be tidy.");
+  expect(agents).toContain(".skillset/rules");
+});
+
+test("SET-5: instructions and rules dirs both with content fail as ambiguous", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: ambiguous-root
+claude: true
+codex: true
+`,
+    ".skillset/instructions/global.md": `
+# Global
+`,
+    ".skillset/rules/legacy.md": `
+# Legacy
+`,
+  });
+
+  await expect(loadBuildGraph(root)).rejects.toThrow("both contain instruction files");
 });
 
 async function contractFixture(files: Record<string, string>): Promise<string> {
