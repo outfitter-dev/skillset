@@ -137,7 +137,12 @@ Portable keys are `read`, `search`, `write`, `edit`, `shell`, `web_fetch`, `web_
 skillset build --root .
 skillset lint --root .
 skillset check --root .
+skillset diff --root .            # pending generated changes, no writes
+skillset explain <path> --root .  # lowering + lock provenance for a source/generated path
+skillset doctor --root .          # lint issues + drift + warnings
 ```
+
+`diff`, `explain`, and `doctor` are read-only authoring aids. They never write generated outputs, install, trust, publish, or mutate user-level config. `doctor` exits non-zero on lint issues, drift, or a build error.
 
 Generated plugin repos default to `plugins-claude/` and `plugins-codex/`. Standalone generated skills default to `.claude/skills` and `.agents/skills`. Generated roots include `.skillset.lock` files for deterministic provenance.
 

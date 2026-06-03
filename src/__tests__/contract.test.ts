@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 
 import { expect, test } from "bun:test";
 
-import { buildSkillset } from "../build";
+import { buildSkillset, diffSkillset } from "../build";
+import { doctorSkillset, explainPath } from "../authoring";
 import { importSource } from "../import";
 import { lintSkillset } from "../lint";
 import { loadBuildGraph } from "../resolver";
@@ -741,6 +742,121 @@ test("SET-10: import never overwrites an existing source", async () => {
   await expect(
     importSource({ kind: "skill", rootPath: root, sourcePath: join(external, "dup") })
   ).rejects.toThrow("Import never overwrites");
+});
+
+// SET-9: explain, diff, and doctor authoring commands (local-only, read-only).
+
+test("SET-9: diff reports generated changes without writing", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: diff-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  await buildSkillset(root);
+  expect(await diffSkillset(root)).toEqual({ added: [], changed: [], removed: [] });
+
+  // Change source without rebuilding; diff must show the stale output, and must
+  // not have written anything.
+  await Bun.write(
+    join(root, ".skillset/skills/demo/SKILL.md"),
+    "---\nname: demo\ndescription: Demo changed.\n---\n\nNew body.\n"
+  );
+  const diff = await diffSkillset(root);
+  expect(diff.changed).toContain(".claude/skills/demo/SKILL.md");
+  // diff is read-only: the on-disk output is still the old build.
+  expect(await readFile(join(root, ".claude/skills/demo/SKILL.md"), "utf8")).toContain("Body.");
+});
+
+test("SET-9: explain resolves source and generated paths via lock provenance", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: explain-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await buildSkillset(root);
+
+  const source = await explainPath(root, ".skillset/skills/demo/SKILL.md");
+  expect(source.kind).toBe("source-skill");
+  expect(source.entries.length).toBeGreaterThan(0);
+  expect(source.notes.join("\n")).toContain("claude");
+
+  const generated = await explainPath(root, ".claude/skills/demo/SKILL.md");
+  expect(generated.kind).toBe("generated");
+  expect(generated.entries[0]?.sourcePath).toBe(".skillset/skills/demo/SKILL.md");
+  expect(generated.entries[0]?.sourceHash).toBeDefined();
+
+  const unknown = await explainPath(root, "nope/missing.md");
+  expect(unknown.kind).toBe("unknown");
+});
+
+test("SET-9: doctor aggregates lint issues and drift, and passes when clean", async () => {
+  const clean = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: doctor-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await buildSkillset(clean);
+  const okReport = await doctorSkillset(clean);
+  expect(okReport.ok).toBe(true);
+  expect(okReport.lintIssues).toEqual([]);
+
+  const problems = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: doctor-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo with an undeclared resource link.
+---
+
+See the [guide](shared:references/guide.md).
+`,
+  });
+  // The undeclared link is both a lint issue and a hard render failure; doctor
+  // reports the lint issue and surfaces the render failure as a buildError
+  // instead of crashing.
+  const badReport = await doctorSkillset(problems);
+  expect(badReport.ok).toBe(false);
+  expect(badReport.lintIssues.some((issue) => issue.code === "resource-undeclared-link")).toBe(true);
+  expect(badReport.buildError).toContain("undeclared shared resource");
 });
 
 async function goldenPluginFixture(): Promise<string> {

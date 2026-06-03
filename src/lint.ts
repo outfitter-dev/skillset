@@ -60,16 +60,33 @@ export async function lintSkillset(
 ): Promise<LintResult> {
   const graph = await loadBuildGraph(rootPath, options);
   emitGraphWarnings(graph);
+  const result = await inspectBuildGraph(graph);
+
+  if (result.issues.length > 0) {
+    throw new Error(formatLintError(result.issues));
+  }
+
+  return result;
+}
+
+/**
+ * Collect lint issues without throwing. Used by `skillset doctor` to aggregate
+ * findings alongside other health checks.
+ */
+export async function inspectSkillset(
+  graph: BuildGraph
+): Promise<LintResult> {
+  return inspectBuildGraph(graph);
+}
+
+async function inspectBuildGraph(graph: BuildGraph): Promise<LintResult> {
   const result = lintBuildGraph(graph);
   const hookIssues = await lintPluginHooks(graph);
   const resourceIssues = await lintResourceUsage(graph);
-  const issues = [...result.issues, ...hookIssues, ...resourceIssues];
-
-  if (issues.length > 0) {
-    throw new Error(formatLintError(issues));
-  }
-
-  return { checkedSkills: result.checkedSkills, issues };
+  return {
+    checkedSkills: result.checkedSkills,
+    issues: [...result.issues, ...hookIssues, ...resourceIssues],
+  };
 }
 
 async function lintPluginHooks(graph: BuildGraph): Promise<readonly LintIssue[]> {

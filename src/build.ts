@@ -67,6 +67,49 @@ export async function buildSkillset(
   return rendered;
 }
 
+export interface SkillsetDiff {
+  readonly added: readonly string[];
+  readonly changed: readonly string[];
+  readonly removed: readonly string[];
+}
+
+/**
+ * Compute the generated changes a build would make, without writing anything.
+ * Backs `skillset diff` and `skillset doctor`.
+ */
+export async function diffSkillset(
+  rootPath: string,
+  options: SkillsetOptions = {}
+): Promise<SkillsetDiff> {
+  const graph = await loadBuildGraph(rootPath, options);
+  const rendered = await renderBuildGraph(graph);
+  const expected = new Map(rendered.map((file) => [file.path, file.content]));
+  const actualPaths = await listGeneratedFiles(rootPath, graph.outputRoots, rendered);
+  const actual = new Set(actualPaths);
+
+  const added: string[] = [];
+  const changed: string[] = [];
+  const removed: string[] = [];
+
+  for (const file of rendered) {
+    if (!actual.has(file.path)) {
+      added.push(file.path);
+      continue;
+    }
+    const current = await readFile(resolveInside(rootPath, file.path));
+    if (!bytesEqual(current, file.content)) changed.push(file.path);
+  }
+  for (const path of actualPaths) {
+    if (!expected.has(path)) removed.push(path);
+  }
+
+  return {
+    added: [...added].sort(compareStrings),
+    changed: [...changed].sort(compareStrings),
+    removed: [...removed].sort(compareStrings),
+  };
+}
+
 export async function checkSkillset(
   rootPath: string,
   options: SkillsetOptions = {}

@@ -20,10 +20,15 @@ This repo also self-hosts a small `.skillset/` source tree:
 From a content repo:
 
 ```bash
-skillset build
-skillset lint
-skillset check
+skillset build              # write generated outputs
+skillset lint               # source authoring diagnostics
+skillset check              # fail if generated outputs are stale
+skillset diff               # show pending generated changes without writing
+skillset explain <path>     # explain a source or generated path (lowering, lock provenance, hashes)
+skillset doctor             # aggregate lint issues + drift + warnings
 ```
+
+`diff`, `explain`, and `doctor` are read-only authoring aids: they never write generated outputs, install, trust, publish, or mutate user-level config. `explain` accepts either a source path (e.g. `.skillset/skills/foo/SKILL.md`) or a generated output path and reports how it lowers, its lock entry, target state, and source/output hashes. `doctor` exits non-zero when it finds lint issues, drift, or a build error.
 
 The default contract is:
 

@@ -2,12 +2,13 @@
 
 import { resolve } from "node:path";
 
-import { buildSkillset, checkSkillset } from "./build";
+import { doctorSkillset, explainPath } from "./authoring";
+import { buildSkillset, checkSkillset, diffSkillset } from "./build";
 import { importSource, type ImportKind } from "./import";
 import { lintSkillset } from "./lint";
 import type { SkillsetOptions } from "./types";
 
-type Command = "build" | "check" | "import" | "lint";
+type Command = "build" | "check" | "diff" | "doctor" | "explain" | "import" | "lint";
 
 async function main(): Promise<void> {
   const { command, importKind, importPath, importName, options, rootPath } = parseArgs(process.argv.slice(2));
@@ -53,6 +54,66 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "diff") {
+    const diff = await diffSkillset(rootPath, options);
+    const total = diff.added.length + diff.changed.length + diff.removed.length;
+    if (total === 0) {
+      console.log("skillset: no generated changes");
+      return;
+    }
+    for (const path of diff.added) console.log(`  + ${path}`);
+    for (const path of diff.changed) console.log(`  ~ ${path}`);
+    for (const path of diff.removed) console.log(`  - ${path}`);
+    console.log(
+      `skillset: ${diff.added.length} added, ${diff.changed.length} changed, ${diff.removed.length} removed (run skillset build to apply)`
+    );
+    return;
+  }
+
+  if (command === "explain") {
+    if (importPath === undefined) {
+      throw new Error("skillset: expected a path to explain");
+    }
+    const result = await explainPath(rootPath, importPath, options);
+    console.log(`skillset: ${result.path} (${result.kind})`);
+    for (const entry of result.entries) {
+      console.log(`  [${entry.target}] ${entry.sourcePath} -> ${entry.outputPath}`);
+      if (entry.version !== undefined) console.log(`    version: ${entry.version}`);
+      if (entry.targetState !== undefined) console.log(`    target state: ${entry.targetState}`);
+      if (entry.sourceHash !== undefined) console.log(`    source hash: ${entry.sourceHash}`);
+      if (entry.outputHash !== undefined) console.log(`    output hash: ${entry.outputHash}`);
+    }
+    for (const note of result.notes) console.log(`  note: ${note}`);
+    if (result.kind === "unknown") process.exitCode = 1;
+    return;
+  }
+
+  if (command === "doctor") {
+    const report = await doctorSkillset(rootPath, options);
+    for (const warning of report.warnings) console.warn(`  warning: ${warning}`);
+    for (const issue of report.lintIssues) {
+      console.log(`  lint: ${issue.path}: ${issue.code}: ${issue.message}`);
+    }
+    if (report.buildError !== undefined) {
+      console.log(`  build error: ${report.buildError}`);
+    }
+    const { added, changed, removed } = report.drift;
+    if (added.length + changed.length + removed.length > 0) {
+      console.log(
+        `  drift: ${added.length} added, ${changed.length} changed, ${removed.length} removed (run skillset build)`
+      );
+    }
+    if (report.ok) {
+      console.log("skillset: doctor found no problems");
+    } else {
+      console.log(
+        `skillset: doctor found ${report.lintIssues.length} lint issue(s) and generated-output drift`
+      );
+      process.exitCode = 1;
+    }
+    return;
+  }
+
   const result = await checkSkillset(rootPath, options);
   console.log(`skillset: checked ${result.checkedFiles} generated files`);
 }
@@ -68,10 +129,19 @@ interface ParsedArgs {
 
 function parseArgs(args: readonly string[]): ParsedArgs {
   const command = args[0];
-  if (command !== "build" && command !== "check" && command !== "import" && command !== "lint") {
+  if (
+    command !== "build" &&
+    command !== "check" &&
+    command !== "diff" &&
+    command !== "doctor" &&
+    command !== "explain" &&
+    command !== "import" &&
+    command !== "lint"
+  ) {
     throw new Error(
-      "skillset: expected command build, check, import, or lint\n" +
-        "usage: skillset <build|check|lint> [--root <path>] [--source <dir>] [--dist <dir>]\n" +
+      "skillset: expected command build, check, diff, doctor, explain, import, or lint\n" +
+        "usage: skillset <build|check|diff|doctor|lint> [--root <path>] [--source <dir>] [--dist <dir>]\n" +
+        "       skillset explain <path> [--root <path>] [--source <dir>]\n" +
         "       skillset import <skill|plugin> <path> [--name <name>] [--root <path>] [--source <dir>]"
     );
   }
@@ -96,6 +166,15 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     }
     importPath = rawPath;
     index += 2;
+  }
+
+  if (command === "explain") {
+    const rawPath = args[index];
+    if (rawPath === undefined || rawPath.startsWith("--")) {
+      throw new Error("skillset: expected a path to explain");
+    }
+    importPath = rawPath;
+    index += 1;
   }
 
   for (; index < args.length; index += 1) {
