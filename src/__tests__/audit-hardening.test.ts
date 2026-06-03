@@ -54,6 +54,22 @@ test("kitchen-sink fixture builds every implemented surface and stays current", 
   expect(codexKitchenHook).toContain("SessionStart");
   expect(await exists(join(root, "plugins-codex/plugins/kitchen/.app.json"))).toBe(true);
   expect(await exists(join(root, "plugins-codex/plugins/kitchen/.mcp.json"))).toBe(true);
+  // SET-8: Claude-native pass-through surfaces are copied and declared in the manifest.
+  expect(await exists(join(root, "plugins-claude/plugins/kitchen/.lsp.json"))).toBe(true);
+  expect(await exists(join(root, "plugins-claude/plugins/kitchen/output-styles/concise.md"))).toBe(true);
+  expect(await exists(join(root, "plugins-claude/plugins/kitchen/themes/midnight.json"))).toBe(true);
+  expect(await exists(join(root, "plugins-claude/plugins/kitchen/monitors/monitors.json"))).toBe(true);
+  const claudeKitchenManifest = await readFile(
+    join(root, "plugins-claude/plugins/kitchen/.claude-plugin/plugin.json"),
+    "utf8"
+  );
+  expect(claudeKitchenManifest).toContain(`"lspServers": "./.lsp.json"`);
+  expect(claudeKitchenManifest).toContain(`"outputStyles": "./output-styles/"`);
+  expect(claudeKitchenManifest).toContain(`"themes": "./themes/"`);
+  expect(claudeKitchenManifest).toContain(`"monitors": "./monitors/monitors.json"`);
+  // SET-8: these Claude-native surfaces are not copied into Codex output.
+  expect(await exists(join(root, "plugins-codex/plugins/kitchen/.lsp.json"))).toBe(false);
+  expect(await exists(join(root, "plugins-codex/plugins/kitchen/themes/midnight.json"))).toBe(false);
   // Claude agents/ surface absent from Codex output (none declared here either).
   expect(await exists(join(root, "plugins-codex/plugins/kitchen/commands/review.md"))).toBe(false);
 

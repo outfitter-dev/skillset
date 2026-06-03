@@ -346,6 +346,16 @@ function withOptionalSurfacePaths(
     if (pluginHasPath(plugin, "agents")) withPaths.agents = "./agents";
     if (pluginHasPath(plugin, "hooks/hooks.json")) withPaths.hooks = "./hooks/hooks.json";
     if (pluginHasPath(plugin, ".mcp.json")) withPaths.mcpServers = "./.mcp.json";
+    if (pluginHasPath(plugin, ".lsp.json")) withPaths.lspServers = "./.lsp.json";
+    if (pluginHasPath(plugin, "output-styles")) withPaths.outputStyles = "./output-styles/";
+    // Themes and monitors are experimental Claude plugin components; declare them
+    // under the documented `experimental` manifest key.
+    const experimental: Record<string, JsonValue> = {};
+    if (pluginHasPath(plugin, "themes")) experimental.themes = "./themes/";
+    if (pluginHasPath(plugin, "monitors/monitors.json")) {
+      experimental.monitors = "./monitors/monitors.json";
+    }
+    if (Object.keys(experimental).length > 0) withPaths.experimental = experimental;
   } else {
     if (pluginHasPath(plugin, "hooks/hooks.json") || pluginHasPath(plugin, "hooks.json")) {
       withPaths.hooks = "./hooks/hooks.json";
@@ -946,7 +956,20 @@ async function copyPluginCompanionFiles(
   const rendered: RenderedFile[] = [];
   const candidates =
     target === "claude"
-      ? ["README.md", "commands", "agents", "hooks", ".mcp.json", "assets", "scripts", "src"]
+      ? [
+          "README.md",
+          "commands",
+          "agents",
+          "hooks",
+          ".mcp.json",
+          ".lsp.json",
+          "output-styles",
+          "themes",
+          "monitors",
+          "assets",
+          "scripts",
+          "src",
+        ]
       : ["README.md", ".mcp.json", ".app.json", "assets", "scripts", "src"];
 
   if (target === "codex") {

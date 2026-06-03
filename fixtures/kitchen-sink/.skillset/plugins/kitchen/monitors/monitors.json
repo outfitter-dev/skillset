@@ -1,0 +1,8 @@
+{
+  "monitors": [
+    {
+      "name": "build-watch",
+      "command": "tail -f build.log"
+    }
+  ]
+}

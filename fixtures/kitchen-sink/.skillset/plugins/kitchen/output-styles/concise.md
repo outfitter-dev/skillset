@@ -1,0 +1,5 @@
+---
+name: Concise
+---
+
+Respond concisely.
