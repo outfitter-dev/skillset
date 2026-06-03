@@ -1,10 +1,11 @@
-import { mkdtemp, readFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { expect, test } from "bun:test";
 
 import { buildSkillset } from "../build";
+import { lintSkillset } from "../lint";
 import { loadBuildGraph } from "../resolver";
 
 // SET-3: skillset.schema separates the source-contract schema from content
@@ -583,6 +584,113 @@ Body.
 async function fileExists(path: string): Promise<boolean> {
   return Bun.file(path).exists();
 }
+
+// SET-15: shared-resource and script authoring diagnostics.
+
+test("SET-15: lint flags an undeclared resource link with a suggested entry", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: res-root
+claude: true
+codex: false
+`,
+    ".skillset/shared/references/guide.md": `
+# Guide
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Links an undeclared shared resource.
+---
+
+See the [guide](shared:references/guide.md).
+`,
+  });
+
+  await expect(lintSkillset(root)).rejects.toThrow("links to undeclared resource shared:references/guide.md");
+  await expect(lintSkillset(root)).rejects.toThrow("resources: { references: [shared:references/guide.md] }");
+});
+
+test("SET-15: lint flags a plugin-root script dependency in a skill body", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: res-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Depends on a plugin-root script path.
+---
+
+Run the [checker](\${CLAUDE_PLUGIN_ROOT}/scripts/check.sh) first.
+`,
+  });
+
+  await expect(lintSkillset(root)).rejects.toThrow("plugin-root script path");
+});
+
+test("SET-15: lint reports a declared script resource that is not executable", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: res-root
+claude: true
+codex: false
+`,
+    ".skillset/shared/scripts/run.sh": `
+#!/usr/bin/env bash
+echo hi
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Declares a non-executable script resource.
+resources:
+  scripts:
+    - shared:scripts/run.sh
+---
+
+Body.
+`,
+  });
+
+  await chmod(join(root, ".skillset/shared/scripts/run.sh"), 0o644);
+  await expect(lintSkillset(root)).rejects.toThrow("is not executable");
+});
+
+test("SET-15: an executable declared script resource lints clean", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: res-root
+claude: true
+codex: false
+`,
+    ".skillset/shared/scripts/run.sh": `
+#!/usr/bin/env bash
+echo hi
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Declares an executable script resource.
+resources:
+  scripts:
+    - shared:scripts/run.sh
+---
+
+Body.
+`,
+  });
+
+  await chmod(join(root, ".skillset/shared/scripts/run.sh"), 0o755);
+  const result = await lintSkillset(root);
+  expect(result.issues).toEqual([]);
+});
 
 async function contractFixture(files: Record<string, string>): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "skillset-contract-"));

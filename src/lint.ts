@@ -3,6 +3,11 @@ import { join, relative } from "node:path";
 
 import { isOutputSelected } from "./config";
 import { validateHookDefinition } from "./hooks";
+import {
+  findPluginRootScriptLinks,
+  findUndeclaredResourceLinks,
+  isScriptTargetPath,
+} from "./resources";
 import { emitGraphWarnings, loadBuildGraph } from "./resolver";
 import {
   readAllowedTools,
@@ -57,7 +62,8 @@ export async function lintSkillset(
   emitGraphWarnings(graph);
   const result = lintBuildGraph(graph);
   const hookIssues = await lintPluginHooks(graph);
-  const issues = [...result.issues, ...hookIssues];
+  const resourceIssues = await lintResourceUsage(graph);
+  const issues = [...result.issues, ...hookIssues, ...resourceIssues];
 
   if (issues.length > 0) {
     throw new Error(formatLintError(issues));
@@ -130,6 +136,69 @@ async function lintHookFile(
   }
 
   return [];
+}
+
+/**
+ * SET-15: shared-resource and script authoring diagnostics. Reports undeclared
+ * resource links (with a suggested entry), skill bodies that depend on plugin-root
+ * script paths instead of skill-local copies, and declared script resources whose
+ * source file is missing an executable bit.
+ */
+async function lintResourceUsage(graph: BuildGraph): Promise<readonly LintIssue[]> {
+  const issues: LintIssue[] = [];
+  const skills = [
+    ...graph.plugins.flatMap((plugin) => plugin.skills),
+    ...graph.standaloneSkills,
+  ];
+
+  for (const skill of skills) {
+    const path = relative(graph.rootPath, skill.sourcePath);
+
+    for (const undeclared of findUndeclaredResourceLinks(skill.body, skill.resources)) {
+      issues.push({
+        code: "resource-undeclared-link",
+        path,
+        message:
+          `${path} links to undeclared resource ${undeclared.reference}; ` +
+          `declare it, e.g. ${undeclared.suggestion}`,
+      });
+    }
+
+    for (const offender of findPluginRootScriptLinks(skill.body)) {
+      issues.push({
+        code: "skill-plugin-root-script",
+        path,
+        message:
+          `${path} links to a plugin-root script path ${offender}; ` +
+          "skills should copy scripts skill-local via resources.scripts and reference ./scripts/<name> so the script travels with the generated skill.",
+      });
+    }
+
+    for (const resource of skill.resources) {
+      if (resource.kind !== "file" || !isScriptTargetPath(resource.targetPath)) continue;
+      if (await sourceIsExecutable(resource.sourcePath)) continue;
+      issues.push({
+        code: "resource-script-not-executable",
+        path,
+        message:
+          `${path} declares script resource ${resource.from} -> ${resource.targetPath}, ` +
+          `but ${relative(graph.rootPath, resource.sourcePath)} is not executable. ` +
+          "Run chmod +x on the source so the generated skill-local script keeps its executable expectation.",
+      });
+    }
+  }
+
+  return issues;
+}
+
+async function sourceIsExecutable(path: string): Promise<boolean> {
+  try {
+    const stats = await stat(path);
+    return (stats.mode & 0o111) !== 0;
+  } catch {
+    // Missing/unreadable sources are reported elsewhere (build/resource resolution).
+    return true;
+  }
 }
 
 async function fileExists(path: string): Promise<boolean> {

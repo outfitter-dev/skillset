@@ -277,7 +277,7 @@ function rewriteResourceTarget(
   const replacement = replacements.get(normalizedBase) ?? rewriteDeclaredResourceChild(normalizedBase, resourceMappings);
   if (replacement === undefined && isResourceReference(normalizedBase)) {
     throw new Error(
-      `skillset: ${label} links to undeclared shared resource ${base}; add it to resources`
+      `skillset: ${label} links to undeclared shared resource ${base}; declare it, e.g. ${suggestResourceEntry(normalizedBase)}`
     );
   }
   if (replacement === undefined && !isResourceReference(normalizedBase)) {
@@ -363,6 +363,104 @@ function resourceSourceRelativePath(from: string): string | undefined {
   const separatorIndex = from.indexOf(":");
   if (separatorIndex <= 0) return undefined;
   return normalizeResourcePath(from.slice(separatorIndex + 1));
+}
+
+const RESOURCE_LINK_PATTERN = /(?:!?\[[^\]\n]*\]\()([^) \t\n]+)(?:\))/g;
+
+export interface UndeclaredResourceLink {
+  readonly reference: string;
+  readonly suggestion: string;
+}
+
+/**
+ * Find skill-body markdown links to `shared:`/`plugin:` resources that are not
+ * declared (and not children of a declared directory resource). Each result
+ * carries a suggested `resources` entry so the diagnostic is actionable. This
+ * mirrors the build's hard rejection but runs at lint time and reports all
+ * offenders with fixes instead of failing on the first.
+ */
+export function findUndeclaredResourceLinks(
+  body: string,
+  resources: readonly SourceResource[]
+): readonly UndeclaredResourceLink[] {
+  const declared = new Set(resources.map((resource) => resource.from));
+  const directoryResources = resources
+    .filter((resource) => resource.kind === "directory")
+    .map((resource) => ({ from: resource.from, source: resourceSourceRelativePath(resource.from) }));
+  const found = new Map<string, string>();
+
+  for (const match of body.matchAll(RESOURCE_LINK_PATTERN)) {
+    const rawTarget = match[1];
+    if (rawTarget === undefined) continue;
+    const hashIndex = rawTarget.indexOf("#");
+    const base = hashIndex === -1 ? rawTarget : rawTarget.slice(0, hashIndex);
+    const canonical = canonicalResourceReference(base);
+    if (!isResourceReference(canonical) || declared.has(canonical)) continue;
+
+    const parsed = splitResourceReference(canonical);
+    const isDeclaredChild =
+      parsed !== undefined &&
+      directoryResources.some(
+        (resource) =>
+          resource.source !== undefined &&
+          canonical.startsWith(resource.from) &&
+          parsed.path.startsWith(`${resource.source}/`)
+      );
+    if (isDeclaredChild) continue;
+
+    if (!found.has(canonical)) found.set(canonical, suggestResourceEntry(canonical));
+  }
+
+  return [...found].map(([reference, suggestion]) => ({ reference, suggestion }));
+}
+
+const SCRIPT_EXTENSION_PATTERN = /\.(sh|bash|zsh|py|rb|pl|js|ts|mjs)$/i;
+const PLUGIN_ROOT_PATTERN = /\$\{?(?:CLAUDE_)?PLUGIN_ROOT\}?/;
+
+/**
+ * Find skill-body markdown links that depend on a plugin-root script path — a
+ * `${CLAUDE_PLUGIN_ROOT}`/`${PLUGIN_ROOT}` reference, or a `../` link escaping
+ * the skill directory to a script. Skills should copy scripts skill-local via
+ * `resources.scripts` and reference `./scripts/<name>` instead.
+ */
+export function findPluginRootScriptLinks(body: string): readonly string[] {
+  const offenders = new Set<string>();
+  for (const match of body.matchAll(RESOURCE_LINK_PATTERN)) {
+    const rawTarget = match[1];
+    if (rawTarget === undefined) continue;
+    const base = (rawTarget.split("#")[0] ?? rawTarget).trim();
+    const usesPluginRoot = PLUGIN_ROOT_PATTERN.test(base);
+    const escapesToScript = base.startsWith("../") && SCRIPT_EXTENSION_PATTERN.test(base);
+    if (usesPluginRoot || escapesToScript) offenders.add(base);
+  }
+  return [...offenders];
+}
+
+/**
+ * Suggest a `resources` entry for a `shared:`/`plugin:` reference, grouping by
+ * the referenced file's extension so the fix lands at the conventional path.
+ */
+function suggestResourceEntry(reference: string): string {
+  const parsed = splitResourceReference(reference);
+  const group = parsed === undefined ? "references" : resourceGroupForPath(parsed.path);
+  return `resources: { ${group}: [${reference}] }`;
+}
+
+function resourceGroupForPath(path: string): string {
+  const lower = path.toLowerCase();
+  if (/\.(sh|bash|zsh|py|rb|pl|js|ts|mjs)$/.test(lower)) return "scripts";
+  if (/\.(png|jpg|jpeg|gif|svg|webp|ico|pdf)$/.test(lower)) return "assets";
+  if (/\.md$/.test(lower)) return "references";
+  return "templates";
+}
+
+/**
+ * True when a generated target path is a runnable script — i.e. lands under the
+ * skill-local `scripts/` directory — and therefore should carry an executable
+ * bit at source.
+ */
+export function isScriptTargetPath(targetPath: string): boolean {
+  return targetPath === "scripts" || targetPath.startsWith("scripts/");
 }
 
 function canonicalResourceReference(value: string): string {
