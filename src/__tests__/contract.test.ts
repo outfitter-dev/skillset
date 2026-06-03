@@ -585,6 +585,114 @@ async function fileExists(path: string): Promise<boolean> {
   return Bun.file(path).exists();
 }
 
+// SET-14: golden manifest tests pin the target-surface shapes the evidence
+// matrix (docs/target-surfaces.md) claims. Casing drift fails loudly here.
+
+test("SET-14: Codex plugin manifest interface uses documented camelCase fields", async () => {
+  const root = await goldenPluginFixture();
+  await buildSkillset(root);
+  const manifest = JSON.parse(
+    await readFile(join(root, "plugins-codex/plugins/widget/.codex-plugin/plugin.json"), "utf8")
+  ) as { name: string; version: string; interface: Record<string, unknown> };
+
+  expect(manifest.name).toBe("widget");
+  expect(manifest.version).toBe("1.2.3");
+  const ui = manifest.interface;
+  expect(ui.displayName).toBe("Widget Pro");
+  expect(ui.shortDescription).toBe("A widget plugin.");
+  expect(ui.longDescription).toBe("A longer widget description.");
+  expect(ui.developerName).toBe("Ada Lovelace");
+  expect(ui.category).toBe("Productivity");
+  expect(ui.capabilities).toEqual(["Read", "Write"]);
+  expect(ui.defaultPrompt).toEqual(["Do the widget thing"]);
+  expect(ui.brandColor).toBe("#123456");
+  expect(ui.websiteURL).toBe("https://example.com");
+  // Guard against snake_case drift.
+  expect(ui.display_name).toBeUndefined();
+  expect(ui.short_description).toBeUndefined();
+  expect(ui.brand_color).toBeUndefined();
+});
+
+test("SET-14: Codex interface brandColor falls back to the default color", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: gold-root
+claude: false
+codex: true
+`,
+    ".skillset/plugins/plain/skillset.yaml": `
+skillset:
+  name: plain
+  summary: Plain plugin.
+`,
+    ".skillset/plugins/plain/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  await buildSkillset(root);
+  const manifest = JSON.parse(
+    await readFile(join(root, "plugins-codex/plugins/plain/.codex-plugin/plugin.json"), "utf8")
+  ) as { interface: { brandColor?: string } };
+  expect(manifest.interface.brandColor).toBe("#B06DFF");
+});
+
+test("SET-14: Claude plugin manifest emits the documented top-level fields", async () => {
+  const root = await goldenPluginFixture();
+  await buildSkillset(root);
+  const manifest = JSON.parse(
+    await readFile(join(root, "plugins-claude/plugins/widget/.claude-plugin/plugin.json"), "utf8")
+  ) as Record<string, unknown>;
+
+  expect(manifest.name).toBe("widget");
+  expect(manifest.version).toBe("1.2.3");
+  expect(manifest.description).toBe("A widget plugin.");
+  expect(manifest.skills).toBe("./skills/");
+  // Claude manifest carries no Codex interface block.
+  expect(manifest.interface).toBeUndefined();
+});
+
+async function goldenPluginFixture(): Promise<string> {
+  return contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: gold-root
+claude: true
+codex: true
+`,
+    ".skillset/plugins/widget/skillset.yaml": `
+skillset:
+  name: widget
+  version: 1.2.3
+  summary: A widget plugin.
+  description: A longer widget description.
+  author:
+    name: Ada Lovelace
+  homepage: https://example.com
+  category: Productivity
+  presentation:
+    display_name: Widget Pro
+    capabilities: [Read, Write]
+    default_prompt: [Do the widget thing]
+    color: "#123456"
+`,
+    ".skillset/plugins/widget/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+}
+
 // SET-7: generated Codex AGENTS.md carries deterministic per-source boundaries
 // and the build warns about instruction files over Codex's size limit.
 
