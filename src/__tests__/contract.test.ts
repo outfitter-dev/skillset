@@ -1,4 +1,4 @@
-import { chmod, mkdtemp, readFile } from "node:fs/promises";
+import { chmod, mkdtemp, readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -742,6 +742,22 @@ test("SET-10: import never overwrites an existing source", async () => {
   await expect(
     importSource({ kind: "skill", rootPath: root, sourcePath: join(external, "dup") })
   ).rejects.toThrow("Import never overwrites");
+});
+
+test("SET-10: failed imports do not leave source target directories", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
+  const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));
+  await Bun.write(
+    join(external, "not-a-skill.md"),
+    "---\nname: partial-import\ndescription: Invalid import source.\n---\n\nBody.\n"
+  );
+
+  await expect(
+    importSource({ kind: "skill", rootPath: root, sourcePath: join(external, "not-a-skill.md") })
+  ).rejects.toThrow("importing a file is only supported");
+
+  expect(await Bun.file(join(root, ".skillset/skills/partial-import")).exists()).toBe(false);
+  expect(await readdir(join(root, ".skillset/skills"))).toEqual([]);
 });
 
 // SET-9: explain, diff, and doctor authoring commands (local-only, read-only).

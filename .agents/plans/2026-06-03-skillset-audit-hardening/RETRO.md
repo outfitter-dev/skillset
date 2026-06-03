@@ -505,3 +505,38 @@ Complete before handoff:
 - Remaining risks: see above (all P3/low).
 - Archive readiness: ready once Matt reviews and stages the `skillset` +
   `agents` working-tree changes; no push/PR performed per hard rules.
+
+## Post-Review Polish - 2026-06-03
+
+Matt asked to clean up the remaining import polish while the branch was still
+open. Coordinator review had found one small file-safety wart: `skillset import`
+created the final `.skillset/skills/<name>` or `.skillset/plugins/<name>`
+directory before proving the copy/classification could complete, so a failed
+import could leave an empty source-shaped directory behind.
+
+Implemented a transactional import staging flow in `src/import.ts`:
+
+- import now copies into a hidden sibling staging directory under the selected
+  source parent;
+- the staging directory is removed on every failure path;
+- the final target directory is created only by renaming the completed staging
+  directory into place;
+- the no-overwrite guard is checked before staging and again immediately before
+  the rename.
+
+Added a regression in `src/__tests__/contract.test.ts` proving that importing a
+non-`SKILL.md` file as a skill fails without leaving
+`.skillset/skills/<name>` or hidden staging entries.
+
+Verification after polish:
+
+- `bun test src/__tests__/contract.test.ts` - 38 pass / 0 fail.
+- `bun run typecheck` - clean.
+- `bun run check` - typecheck, 92 tests / 0 fail, lint, generated-output check,
+  and whitespace check all green.
+- `bun ./src/cli.ts doctor --root .` - no problems.
+- `bun ./src/cli.ts diff --root .` - no generated changes.
+- `git diff --check` - clean.
+
+Forbidden-action audit unchanged: no publish/install/trust/symlink/user-config
+mutation/remote/push/PR/merge.

@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 
 import { readSkillsetMetadata, readSkillsetName, readString } from "./config";
@@ -89,27 +89,47 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
     );
   }
 
-  await mkdir(targetPath, { recursive: true });
-  const copiedFiles = await copyImportSource(sourcePath, targetPath, options.kind);
-  const frontmatter = await readImportedFrontmatter(targetPath, options.kind);
-  const classification = classifyFrontmatter(frontmatter);
+  const targetParent = dirname(targetPath);
+  await mkdir(targetParent, { recursive: true });
+  const stagingPath = await mkdtemp(join(targetParent, `.${basename(targetPath)}.tmp-`));
+  let committed = false;
 
-  return {
-    copiedFiles,
-    files: copiedFiles.length,
-    inferredSourceFields: classification.recognized,
-    kind: options.kind,
-    name,
-    nextChecks: [
-      "skillset lint",
-      "skillset build",
-      "skillset check",
-    ],
-    preservedTargetNativeFields: classification.targetNative,
-    targetPath,
-    unsupportedFields: classification.unsupported,
-    warnings: importWarnings(classification),
-  };
+  try {
+    const copiedFiles = await copyImportSource(sourcePath, stagingPath, options.kind);
+    const frontmatter = await readImportedFrontmatter(stagingPath, options.kind);
+    const classification = classifyFrontmatter(frontmatter);
+
+    if (await exists(targetPath)) {
+      throw new Error(
+        `skillset: import target already exists: ${targetPath}. ` +
+          "Import never overwrites; remove the existing source or import under a different --name."
+      );
+    }
+
+    await rename(stagingPath, targetPath);
+    committed = true;
+
+    return {
+      copiedFiles,
+      files: copiedFiles.length,
+      inferredSourceFields: classification.recognized,
+      kind: options.kind,
+      name,
+      nextChecks: [
+        "skillset lint",
+        "skillset build",
+        "skillset check",
+      ],
+      preservedTargetNativeFields: classification.targetNative,
+      targetPath,
+      unsupportedFields: classification.unsupported,
+      warnings: importWarnings(classification),
+    };
+  } finally {
+    if (!committed) {
+      await rm(stagingPath, { force: true, recursive: true });
+    }
+  }
 }
 
 interface FrontmatterClassification {
