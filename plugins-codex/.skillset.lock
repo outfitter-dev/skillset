@@ -24,10 +24,10 @@
       ],
       "kind": "plugin-skill",
       "name": "use-skillset",
-      "outputHash": "sha256:81f0d94dd17a43118db468f218e0dc74f577d59aa8f142f526d7aa26a4378342",
+      "outputHash": "sha256:97ae08fb0274ce74851f3f127f85199c96a5e15fb6eaa2d55d0e9cb725428efc",
       "outputPath": "plugins/skillset/skills/use-skillset/SKILL.md",
       "plugin": "skillset",
-      "sourceHash": "sha256:2f0fec06649fb87d02c9abe32f9734747830b88163a62635d70bca3b452a8c4c",
+      "sourceHash": "sha256:c97465c0858c97d22a2bda251ebd857c6ab2214b0a421490307b0cce744edf5f",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "version": "0.1.0"
     }

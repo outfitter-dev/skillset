@@ -585,6 +585,74 @@ async function fileExists(path: string): Promise<boolean> {
   return Bun.file(path).exists();
 }
 
+// SET-7: generated Codex AGENTS.md carries deterministic per-source boundaries
+// and the build warns about instruction files over Codex's size limit.
+
+test("SET-7: concatenated AGENTS.md has deterministic per-source boundaries without frontmatter", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: agents-root
+claude: false
+codex: true
+`,
+    ".skillset/instructions/beta.md": `
+---
+paths:
+  - "**/*"
+---
+
+# Beta
+
+- Second by name.
+`,
+    ".skillset/instructions/alpha.md": `
+# Alpha
+
+- First by name.
+`,
+  });
+
+  await buildSkillset(root);
+  const agents = await readFile(join(root, "AGENTS.md"), "utf8");
+  // Both sources are bounded by a comment naming their path.
+  expect(agents).toContain("<!-- source: .skillset/instructions/alpha.md -->");
+  expect(agents).toContain("<!-- source: .skillset/instructions/beta.md -->");
+  // Deterministic order: alpha before beta.
+  expect(agents.indexOf("alpha.md")).toBeLessThan(agents.indexOf("beta.md"));
+  // Source-only frontmatter (paths) never leaks into the generated AGENTS.md.
+  expect(agents).not.toContain("paths:");
+  expect(agents).toContain("First by name.");
+  expect(agents).toContain("Second by name.");
+});
+
+test("SET-7: build warns when a generated AGENTS.md exceeds Codex's size limit", async () => {
+  const big = `# Big\n\n${"- padding line to grow the instruction file\n".repeat(900)}`;
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: big-root
+claude: false
+codex: true
+`,
+    ".skillset/instructions/big.md": big,
+  });
+
+  const warnings: string[] = [];
+  const original = console.warn;
+  console.warn = (...args: unknown[]) => {
+    warnings.push(args.map(String).join(" "));
+  };
+  try {
+    await buildSkillset(root);
+  } finally {
+    console.warn = original;
+  }
+
+  expect(warnings.join("\n")).toContain("project_doc_max_bytes");
+  expect(warnings.join("\n")).toContain("AGENTS.md");
+});
+
 // SET-15: shared-resource and script authoring diagnostics.
 
 test("SET-15: lint flags an undeclared resource link with a suggested entry", async () => {

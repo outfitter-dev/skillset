@@ -49,7 +49,7 @@ paths:
 - Keep docs concise and current.
 ```
 
-Claude rules are generated under `.claude/rules/**/*.md` with `paths` frontmatter preserved. Codex rules are generated as `AGENTS.md` files at derived directories: `docs/**/*.md` writes `docs/AGENTS.md`, while broad globs such as `**/*.ts` scan matching repo files and use the lowest common directory. Multiple rules that land at the same `AGENTS.md` are concatenated. The build refuses to overwrite unmanaged `AGENTS.md` files; move existing guidance into `.skillset/instructions` before letting `skillset` own it.
+Claude rules are generated under `.claude/rules/**/*.md` with `paths` frontmatter preserved. Codex rules are generated as `AGENTS.md` files at derived directories: `docs/**/*.md` writes `docs/AGENTS.md`, while broad globs such as `**/*.ts` scan matching repo files and use the lowest common directory. Multiple rules that land at the same `AGENTS.md` are concatenated in source order, each preceded by a `<!-- source: ... -->` boundary comment (path only, no frontmatter). Codex truncates `AGENTS.md` beyond `project_doc_max_bytes` (32 KiB default); `skillset` warns when generated output crosses it — split instructions across nested directories or raise the limit. The build refuses to overwrite unmanaged `AGENTS.md` files; move existing guidance into `.skillset/instructions` before letting `skillset` own it.
 
 Rule bodies can use `{{skillset.repo_root}}`, `{{skillset.output_dir}}`, and `{{skillset.source_rule}}`. Skillset-owned variables use `{{skillset.lower_snake_case}}` and render per generated file, so a nested `docs/AGENTS.md` can point back to `..` while a root `AGENTS.md` points to `.`. Unknown `skillset.*` variables fail the build.
 

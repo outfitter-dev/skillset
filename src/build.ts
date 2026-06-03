@@ -10,6 +10,25 @@ import { isJsonRecord, parseMarkdown } from "./yaml";
 const WORKSPACE_LOCK_FILE = ".skillset.lock";
 const textDecoder = new TextDecoder();
 
+/**
+ * Codex truncates AGENTS.md content beyond `project_doc_max_bytes` (32 KiB by
+ * default) silently. Warn before a generated AGENTS.md crosses that line.
+ * Verified against developers.openai.com/codex/guides/agents-md (2026-06-03).
+ */
+const CODEX_AGENTS_MAX_BYTES = 32 * 1024;
+
+function warnLargeInstructionFiles(rendered: readonly RenderedFile[]): void {
+  for (const file of rendered) {
+    if (file.path !== "AGENTS.md" && !file.path.endsWith("/AGENTS.md")) continue;
+    if (file.content.byteLength <= CODEX_AGENTS_MAX_BYTES) continue;
+    console.warn(
+      `skillset: generated ${file.path} is ${file.content.byteLength} bytes, over Codex's default ` +
+        `project_doc_max_bytes (${CODEX_AGENTS_MAX_BYTES}); Codex silently truncates beyond it. ` +
+        "Split instructions across nested directories or raise project_doc_max_bytes."
+    );
+  }
+}
+
 export async function buildSkillset(
   rootPath: string,
   options: SkillsetOptions = {}
@@ -17,6 +36,7 @@ export async function buildSkillset(
   const graph = await loadBuildGraph(rootPath, options);
   emitGraphWarnings(graph);
   const rendered = await renderBuildGraph(graph);
+  warnLargeInstructionFiles(rendered);
   const expectedPaths = new Set(rendered.map((file) => file.path));
   const previousWorkspaceManagedPaths = await readWorkspaceManagedPaths(rootPath);
 
@@ -54,6 +74,7 @@ export async function checkSkillset(
   const graph = await loadBuildGraph(rootPath, options);
   emitGraphWarnings(graph);
   const rendered = await renderBuildGraph(graph);
+  warnLargeInstructionFiles(rendered);
   const expected = new Map(rendered.map((file) => [file.path, file.content]));
   const actualPaths = await listGeneratedFiles(rootPath, graph.outputRoots, rendered);
   const actual = new Set(actualPaths);
