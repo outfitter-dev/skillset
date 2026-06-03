@@ -105,6 +105,17 @@ Boolean output settings use the default roots: `plugins-claude/`, `plugins-codex
 
 Plugin-local `README.md` files are copied into each generated target plugin. Shared source inputs such as `.skillset/shared/assets`, `.skillset/shared/scripts`, `.skillset/shared/references`, `.skillset/shared/templates`, and plugin-local `.skillset/plugins/<plugin-name>/shared/` are available for source organization; they are not copied into every output unless a source skill declares them.
 
+## Source Identity
+
+Machine identity derives from directory names. A plugin's id is its directory under `.skillset/plugins/`, and a skill's id is its directory under `skills/`. Authors should not repeat the directory name in source unless derivation is wrong.
+
+When an explicit identity is needed:
+
+- **Plugins and root config** keep their explicit identity under the `skillset` block, because that is where plugin/root source metadata lives (`schema`, `version`, presentation, author). Set `skillset.name`; `skillset.id` is a compatibility alias. An explicit plugin `skillset.name` must equal the plugin directory name, so derivation and the override never disagree silently.
+- **Skills** use the standard Agent Skills top-level `name`. `skillset.name` / `skillset.id` remain compatibility aliases for imported source.
+
+Conflicting identity keys fail the build rather than resolving silently: `skillset.name` versus `skillset.id`, or a skill's top-level `name` versus its `skillset.name`/`skillset.id`. There is no separate top-level `name` for plugins; introducing one would give a single meaning two homes.
+
 ## Shared Resources
 
 Skill-local supporting files already work when they sit beside `SKILL.md`, for example `references/`, `scripts/`, `assets/`, and `templates/`. Use shared resources when several skills need the same file but generated Claude and Codex output still needs skill-root-relative paths:

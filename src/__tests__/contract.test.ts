@@ -128,6 +128,133 @@ Demo.
   await expect(loadBuildGraph(root)).rejects.toThrow("unsupported source schema 9");
 });
 
+// SET-4: identity derives from directory names; skillset.name / skillset.id are
+// explicit overrides and compatibility aliases with loud conflict diagnostics.
+
+test("SET-4: plugin and skill identity derive from directory names", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: id-root
+claude: true
+codex: true
+`,
+    ".skillset/plugins/derived-plugin/skillset.yaml": `
+skillset: {}
+`,
+    ".skillset/plugins/derived-plugin/skills/derived-skill/SKILL.md": `
+---
+description: A skill whose id comes from its directory.
+---
+
+Body.
+`,
+  });
+
+  const graph = await loadBuildGraph(root);
+  expect(graph.plugins[0]?.id).toBe("derived-plugin");
+  expect(graph.plugins[0]?.skills[0]?.id).toBe("derived-skill");
+});
+
+test("SET-4: skillset.id is accepted as a compatibility alias", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: id-root
+claude: true
+codex: true
+`,
+    ".skillset/plugins/alias-plugin/skillset.yaml": `
+skillset:
+  id: alias-plugin
+`,
+    ".skillset/plugins/alias-plugin/skills/aliased/SKILL.md": `
+---
+name: aliased
+description: Skill using a name.
+skillset:
+  id: aliased
+---
+
+Body.
+`,
+  });
+
+  const graph = await loadBuildGraph(root);
+  expect(graph.plugins[0]?.id).toBe("alias-plugin");
+  expect(graph.plugins[0]?.skills[0]?.id).toBe("aliased");
+});
+
+test("SET-4: conflicting skillset.name and skillset.id fails", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: conflict-root
+  id: different-root
+claude: true
+codex: true
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  await expect(loadBuildGraph(root)).rejects.toThrow("conflicting skillset.name and skillset.id");
+});
+
+test("SET-4: a skill top-level name conflicting with skillset.name fails", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: id-root
+claude: true
+codex: true
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: top-name
+description: Demo with conflicting identity.
+skillset:
+  name: skillset-name
+---
+
+Body.
+`,
+  });
+
+  await expect(loadBuildGraph(root)).rejects.toThrow("conflicting top-level name");
+});
+
+test("SET-4: a plugin directory that disagrees with skillset.name fails", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: id-root
+claude: true
+codex: true
+`,
+    ".skillset/plugins/real-dir/skillset.yaml": `
+skillset:
+  name: other-name
+`,
+    ".skillset/plugins/real-dir/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  await expect(loadBuildGraph(root)).rejects.toThrow("does not match skillset.name");
+});
+
 async function contractFixture(files: Record<string, string>): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "skillset-contract-"));
   for (const [path, content] of Object.entries(files)) {

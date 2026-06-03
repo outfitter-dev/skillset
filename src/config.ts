@@ -42,13 +42,33 @@ export function readSkillsetMetadata(record: JsonRecord, label: string): JsonRec
   return raw;
 }
 
-export function readSkillsetName(metadata: JsonRecord, fallback: string, label: string): string {
+/**
+ * Resolve a source identity. Machine identity derives from the directory name by
+ * default; an explicit `skillset.name` (or its `skillset.id` compatibility alias)
+ * overrides it. `topLevelName` is the standard top-level identity key — the
+ * Agent Skills `name` for skills — which is preferred over the `skillset` aliases
+ * but must agree with them. Conflicting aliases fail loudly rather than picking
+ * one silently.
+ */
+export function readSkillsetName(
+  metadata: JsonRecord,
+  fallback: string,
+  label: string,
+  topLevelName?: string
+): string {
   const name = readString(metadata, "name");
   const id = readString(metadata, "id");
   if (name !== undefined && id !== undefined && name !== id) {
     throw new Error(`skillset: ${label} has conflicting skillset.name and skillset.id`);
   }
-  return name ?? id ?? fallback;
+  const skillsetName = name ?? id;
+  if (topLevelName !== undefined && skillsetName !== undefined && topLevelName !== skillsetName) {
+    const aliasKey = name !== undefined ? "skillset.name" : "skillset.id";
+    throw new Error(
+      `skillset: ${label} has conflicting top-level name ${JSON.stringify(topLevelName)} and ${aliasKey} ${JSON.stringify(skillsetName)}`
+    );
+  }
+  return topLevelName ?? skillsetName ?? fallback;
 }
 
 export function readOutputConfig(

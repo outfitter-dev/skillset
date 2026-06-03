@@ -45,6 +45,8 @@ export async function loadBuildGraph(
   const metadata = readSkillsetMetadata(rootConfig, rootConfigPath);
   validateSchemaField(metadata, `${rootConfigPath}.skillset.schema`);
   validateVersionField(metadata, `${rootConfigPath}.skillset.version`);
+  // Validate root identity aliases (skillset.name / skillset.id) for conflicts.
+  readSkillsetName(metadata, basename(rootPath), rootConfigPath);
   const outputs = readOutputConfig(
     rootConfig,
     metadata,
@@ -216,7 +218,12 @@ async function loadSkillsFromDirectory(
     validateVersionField(parts.frontmatter, `${sourcePath}.version`);
     validateVersionField(metadata, `${sourcePath}.skillset.version`);
     const id = validateSlug(
-      readSkillsetName(metadata, readString(parts.frontmatter, "name") ?? basename(dirname(sourcePath)), sourcePath),
+      readSkillsetName(
+        metadata,
+        basename(dirname(sourcePath)),
+        sourcePath,
+        readString(parts.frontmatter, "name")
+      ),
       `skill id in ${sourcePath}`
     );
     const targets = resolveTargets(parentTargets, parts.frontmatter, sourcePath);
