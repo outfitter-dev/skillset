@@ -23,9 +23,9 @@ const SEMVER_PATTERN =
 export function validateSchemaField(metadata: JsonRecord, label: string): void {
   const value = metadata.schema;
   if (value === undefined) return;
-  if (typeof value !== "number" || !Number.isInteger(value)) {
+  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
     throw new Error(
-      `skillset: expected ${label} to be the integer ${SUPPORTED_SOURCE_SCHEMA}; ` +
+      `skillset: expected ${label} to be a positive integer (currently ${SUPPORTED_SOURCE_SCHEMA}); ` +
         "skillset.schema is the source schema marker, not a version string"
     );
   }

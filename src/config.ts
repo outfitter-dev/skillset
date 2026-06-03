@@ -17,6 +17,7 @@ const SOURCE_ONLY_KEYS = new Set([
   "codex",
   "implicit_invocation",
   "resources",
+  "schema",
   "skillset",
   "summary",
   "targets",

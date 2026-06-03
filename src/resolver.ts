@@ -111,12 +111,14 @@ async function loadInstructions(
 ): Promise<{ readonly rules: readonly SourceRule[]; readonly instructionsDir: string }> {
   const canonicalPath = resolveInside(rootPath, join(sourceDir, INSTRUCTIONS_DIR));
   const compatPath = resolveInside(rootPath, join(sourceDir, INSTRUCTIONS_COMPAT_DIR));
-  const hasCanonical = await exists(canonicalPath);
+  // Measure both directories by markdown content, not directory existence, so an
+  // empty instructions/ or rules/ never causes a false ambiguity error.
+  const canonicalFiles = (await exists(canonicalPath)) ? await findMarkdownFiles(canonicalPath) : [];
   const compatFiles = (await exists(compatPath)) ? await findMarkdownFiles(compatPath) : [];
 
   let basePath: string;
   let instructionsDir: string;
-  if (hasCanonical) {
+  if (canonicalFiles.length > 0) {
     if (compatFiles.length > 0) {
       throw new Error(
         `skillset: ${sourceDir}/${INSTRUCTIONS_DIR} and ${sourceDir}/${INSTRUCTIONS_COMPAT_DIR} both contain instruction files; ` +
@@ -226,7 +228,7 @@ async function loadPlugin(
   if (targets.codex.enabled && (await exists(join(pluginPath, "hooks.json")))) {
     warnings.push(
       `plugin ${id} uses a root hooks.json for Codex; Codex's documented default is hooks/hooks.json with a top-level "hooks" object. ` +
-        "Move it to hooks/hooks.json (the build still emits the canonical hooks/hooks.json from the root file for now)."
+        "Move it under hooks/ (create the directory if needed); the build still emits the canonical hooks/hooks.json from the root file for now."
     );
   }
 

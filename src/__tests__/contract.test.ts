@@ -81,6 +81,52 @@ Demo.
   await expect(loadBuildGraph(root)).rejects.toThrow("unsupported source schema 2");
 });
 
+test("SET-3: a bare top-level schema key is stripped from generated frontmatter", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: schema-strip
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill with a stray top-level schema key.
+schema: 1
+---
+
+Demo.
+`,
+  });
+
+  await buildSkillset(root);
+  const skill = await readFile(join(root, ".claude/skills/demo/SKILL.md"), "utf8");
+  expect(skill).not.toContain("schema:");
+});
+
+test("SET-3/SET-5: an empty rules dir beside instructions is not a false ambiguity", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: empty-compat
+claude: true
+codex: true
+`,
+    ".skillset/instructions/global.md": `
+# Global
+
+- Be tidy.
+`,
+    // Present but empty (no markdown) compat dir must not trigger ambiguity.
+    ".skillset/rules/.gitkeep": "",
+  });
+
+  const graph = await loadBuildGraph(root);
+  expect(graph.instructionsDir).toBe("instructions");
+  expect(graph.warnings).toEqual([]);
+});
+
 test("SET-3: a semver-style skillset.schema is rejected, not confused with version", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `

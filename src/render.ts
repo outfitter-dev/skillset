@@ -967,10 +967,14 @@ async function copyPluginCompanionFiles(
 
 /**
  * Render the Codex plugin hook file at the documented default path
- * `hooks/hooks.json` with a top-level `hooks` object. Source resolution prefers
- * canonical `hooks/hooks.json`, then falls back to a legacy root `hooks.json`
- * (a compatibility source warned at load). Flat event maps are normalized into
- * the canonical `{ "hooks": { ... } }` shape on emit.
+ * `hooks/hooks.json` with a top-level `hooks` object.
+ *
+ * Source resolution: a legacy root `hooks.json` is an explicit Codex-specific
+ * source (warned at load), so when it is present it is used for Codex even if a
+ * canonical `hooks/hooks.json` also exists — that two-file layout intentionally
+ * lets Claude and Codex carry different hooks during migration. When only the
+ * canonical `hooks/hooks.json` exists it is the shared source for both targets.
+ * Flat event maps are normalized into the canonical `{ "hooks": { ... } }` shape.
  */
 async function renderCodexHookFile(
   graph: BuildGraph,
