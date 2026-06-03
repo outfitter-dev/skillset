@@ -8,7 +8,7 @@ codex: true
 
 # Skillset Codex Development
 
-Use this skill when working on the local `@galligan/skillset` compiler from a Codex-oriented workflow.
+Use this skill when working on the local `skillset` compiler from a Codex-oriented workflow.
 
 ## Working Context
 

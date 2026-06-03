@@ -1,5 +1,5 @@
 {
-  "name": "@galligan/skillset",
+  "name": "skillset",
   "version": "0.1.0",
   "description": "Source-first compiler for Claude and Codex agent loadouts.",
   "private": true,

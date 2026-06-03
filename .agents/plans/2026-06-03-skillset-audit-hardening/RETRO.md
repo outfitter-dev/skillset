@@ -649,3 +649,36 @@ Forbidden-action audit update:
 - No npm/package publish, plugin marketplace publish, install, trust, symlink,
   registry mutation, user-level Claude/Codex config mutation, PR, or merge.
 - The old Outfitter checkout was preserved rather than overwritten.
+
+## npm Naming Alignment - 2026-06-03
+
+Matt clarified that the core CLI package should be named `skillset` on npm,
+with the `@skillset` scope reserved for other packages.
+
+Actions completed:
+
+- Renamed the compiler package from `@galligan/skillset` to `skillset` in
+  `package.json`.
+- Kept `"private": true`; this is naming alignment only, not npm publication.
+- Updated self-hosted source skills to refer to the local `skillset` compiler
+  instead of `@galligan/skillset` and rebuilt generated outputs.
+- Updated the adjacent `agents` content repo local dependency from
+  `@galligan/skillset` to `skillset` with the same
+  `file:../../outfitter/skillset` target, refreshed `bun.lock`, and updated the
+  stale linked-tool wording in `AGENTS.md` and `README.md`.
+
+Verification:
+
+- `bun run check` in `/Users/mg/Developer/outfitter/skillset` passed:
+  typecheck, 96 tests, source lint, generated-output check, and
+  `git diff --check`.
+- `bun run check` in `/Users/mg/Developer/galligan/agents` passed:
+  `skillset lint` (1 source skill), `skillset check` (19 generated files), and
+  `git diff --check`.
+- `rg` found no remaining `@galligan/skillset` references in the checked
+  Skillset or agents source/docs/package surfaces.
+
+Forbidden-action audit unchanged: no npm publish, plugin marketplace publish,
+install, trust, symlink, registry mutation, user-level Claude/Codex config
+mutation, PR, or merge. Only the public GitHub repo push for the requested
+source update will be performed.

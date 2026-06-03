@@ -8,7 +8,7 @@ codex: false
 
 # Skillset Claude Development
 
-Use this skill when working on the local `@galligan/skillset` compiler from a Claude-oriented workflow.
+Use this skill when working on the local `skillset` compiler from a Claude-oriented workflow.
 
 ## Working Context
 
