@@ -82,6 +82,7 @@ export async function diffSkillset(
   options: SkillsetOptions = {}
 ): Promise<SkillsetDiff> {
   const graph = await loadBuildGraph(rootPath, options);
+  emitGraphWarnings(graph);
   const rendered = await renderBuildGraph(graph);
   const expected = new Map(rendered.map((file) => [file.path, file.content]));
   const actualPaths = await listGeneratedFiles(rootPath, graph.outputRoots, rendered);

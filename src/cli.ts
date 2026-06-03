@@ -89,8 +89,9 @@ async function main(): Promise<void> {
   }
 
   if (command === "doctor") {
+    // doctorSkillset runs diffSkillset internally, which emits source warnings to
+    // stderr; the report still carries them for programmatic consumers.
     const report = await doctorSkillset(rootPath, options);
-    for (const warning of report.warnings) console.warn(`  warning: ${warning}`);
     for (const issue of report.lintIssues) {
       console.log(`  lint: ${issue.path}: ${issue.code}: ${issue.message}`);
     }
@@ -98,7 +99,8 @@ async function main(): Promise<void> {
       console.log(`  build error: ${report.buildError}`);
     }
     const { added, changed, removed } = report.drift;
-    if (added.length + changed.length + removed.length > 0) {
+    const driftCount = added.length + changed.length + removed.length;
+    if (driftCount > 0) {
       console.log(
         `  drift: ${added.length} added, ${changed.length} changed, ${removed.length} removed (run skillset build)`
       );
@@ -106,9 +108,11 @@ async function main(): Promise<void> {
     if (report.ok) {
       console.log("skillset: doctor found no problems");
     } else {
-      console.log(
-        `skillset: doctor found ${report.lintIssues.length} lint issue(s) and generated-output drift`
-      );
+      const problems: string[] = [];
+      if (report.lintIssues.length > 0) problems.push(`${report.lintIssues.length} lint issue(s)`);
+      if (driftCount > 0) problems.push("generated-output drift");
+      if (report.buildError !== undefined) problems.push("a build error");
+      console.log(`skillset: doctor found ${problems.join(" and ")}`);
       process.exitCode = 1;
     }
     return;
