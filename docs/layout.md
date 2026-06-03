@@ -288,3 +288,5 @@ Import helpers write only to `.skillset/`:
 skillset import skill /path/to/SKILL.md --root .
 skillset import plugin /path/to/plugin-dir --root .
 ```
+
+`importSource` returns an `ImportReport` (also printed by the CLI) with: `copiedFiles`, `inferredSourceFields` (frontmatter keys Skillset recognizes as source), `preservedTargetNativeFields` (Claude/Codex-native keys kept verbatim, such as `allowed-tools`, `disallowed-tools`, `disable-model-invocation`, `model`, `argument-hint`), `unsupportedFields` (unrecognized keys kept verbatim), `warnings`, and `nextChecks`. Import preserves all frontmatter — target-native and unknown keys pass through unchanged — and the report tells you what to review and migrate, so import is a bridge rather than a lossy copier. Import never overwrites an existing source; there is no overwrite mode yet.

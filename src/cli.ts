@@ -36,6 +36,20 @@ async function main(): Promise<void> {
       ...(options.sourceDir === undefined ? {} : { sourceDir: options.sourceDir }),
     });
     console.log(`skillset: imported ${importKind} ${result.name} (${result.files} files)`);
+    console.log(`  target: ${result.targetPath}`);
+    if (result.inferredSourceFields.length > 0) {
+      console.log(`  source fields: ${result.inferredSourceFields.join(", ")}`);
+    }
+    if (result.preservedTargetNativeFields.length > 0) {
+      console.log(`  preserved target-native: ${result.preservedTargetNativeFields.join(", ")}`);
+    }
+    if (result.unsupportedFields.length > 0) {
+      console.log(`  unsupported (kept verbatim): ${result.unsupportedFields.join(", ")}`);
+    }
+    for (const warning of result.warnings) {
+      console.warn(`  warning: ${warning}`);
+    }
+    console.log(`  next: ${result.nextChecks.join(", ")}`);
     return;
   }
 

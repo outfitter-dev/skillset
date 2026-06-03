@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { expect, test } from "bun:test";
 
 import { buildSkillset } from "../build";
+import { importSource } from "../import";
 import { lintSkillset } from "../lint";
 import { loadBuildGraph } from "../resolver";
 
@@ -656,6 +657,90 @@ test("SET-14: Claude plugin manifest emits the documented top-level fields", asy
   expect(manifest.skills).toBe("./skills/");
   // Claude manifest carries no Codex interface block.
   expect(manifest.interface).toBeUndefined();
+});
+
+// SET-10: import returns a report and preserves target-native fields verbatim.
+
+test("SET-10: skill import reports copied files and classifies frontmatter", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
+  const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));
+  await Bun.write(
+    join(external, "myskill/SKILL.md"),
+    [
+      "---",
+      "name: myskill",
+      "description: An imported skill.",
+      "allowed-tools:",
+      "  - Read",
+      "disable-model-invocation: true",
+      "frobnicate: maybe",
+      "---",
+      "",
+      "Body.",
+      "",
+    ].join("\n")
+  );
+
+  const report = await importSource({
+    kind: "skill",
+    rootPath: root,
+    sourcePath: join(external, "myskill"),
+  });
+
+  expect(report.kind).toBe("skill");
+  expect(report.name).toBe("myskill");
+  expect(report.copiedFiles).toContain("SKILL.md");
+  expect(report.files).toBe(1);
+  expect(report.inferredSourceFields).toContain("name");
+  expect(report.inferredSourceFields).toContain("description");
+  expect(report.preservedTargetNativeFields).toContain("allowed-tools");
+  expect(report.preservedTargetNativeFields).toContain("disable-model-invocation");
+  expect(report.unsupportedFields).toEqual(["frobnicate"]);
+  expect(report.warnings.join("\n")).toContain("target-native");
+  expect(report.warnings.join("\n")).toContain("unrecognized");
+  expect(report.nextChecks).toContain("skillset lint");
+
+  // Target-native and unknown fields are preserved verbatim in the copied source.
+  const copied = await readFile(join(report.targetPath, "SKILL.md"), "utf8");
+  expect(copied).toContain("allowed-tools");
+  expect(copied).toContain("frobnicate: maybe");
+});
+
+test("SET-10: plugin import reports the config and copied files", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
+  const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));
+  await Bun.write(
+    join(external, "widget/skillset.yaml"),
+    "skillset:\n  name: widget\nclaude: true\ncodex: true\n"
+  );
+  await Bun.write(
+    join(external, "widget/skills/demo/SKILL.md"),
+    "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n"
+  );
+
+  const report = await importSource({
+    kind: "plugin",
+    rootPath: root,
+    sourcePath: join(external, "widget"),
+  });
+
+  expect(report.kind).toBe("plugin");
+  expect(report.name).toBe("widget");
+  expect(report.copiedFiles).toContain("skillset.yaml");
+  expect(report.copiedFiles).toContain(join("skills", "demo", "SKILL.md"));
+  expect(report.inferredSourceFields).toEqual(expect.arrayContaining(["claude", "codex", "skillset"]));
+  expect(report.unsupportedFields).toEqual([]);
+});
+
+test("SET-10: import never overwrites an existing source", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
+  const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));
+  await Bun.write(join(external, "dup/SKILL.md"), "---\nname: dup\ndescription: Dup.\n---\n\nBody.\n");
+
+  await importSource({ kind: "skill", rootPath: root, sourcePath: join(external, "dup") });
+  await expect(
+    importSource({ kind: "skill", rootPath: root, sourcePath: join(external, "dup") })
+  ).rejects.toThrow("Import never overwrites");
 });
 
 async function goldenPluginFixture(): Promise<string> {
