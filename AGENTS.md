@@ -45,7 +45,7 @@ bun ./src/cli.ts doctor --root .
 
 ## Constraints
 
-- Do not publish this package or add a remote unless Matt explicitly asks.
+- Do not publish this package or add a remote unless the maintainer explicitly asks.
 - Do not mutate user-level Claude or Codex config.
 - Do not install, trust, or symlink generated plugins or skills into global runtime locations.
 - Do not hand-edit `.claude/skills`, `.agents/skills`, `plugins-claude`, or `plugins-codex` as source truth; edit `.skillset/` and rebuild.

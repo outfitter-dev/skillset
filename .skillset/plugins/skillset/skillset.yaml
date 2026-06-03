@@ -6,7 +6,7 @@ skillset:
   description: Skillset compiles portable source skills and plugin bundles into target-native Claude and Codex artifacts.
   version: 0.1.0
   author:
-    name: Matt Galligan
+    name: Skillset Maintainers
   license: MIT
   keywords:
     - skillset

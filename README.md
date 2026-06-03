@@ -47,8 +47,8 @@ The default contract is:
 Use explicit paths when building another repo:
 
 ```bash
-skillset build --root /Users/mg/Developer/galligan/agents
-skillset check --root /Users/mg/Developer/galligan/agents
+skillset build --root /path/to/content-repo
+skillset check --root /path/to/content-repo
 skillset build --root /tmp/example --source custom-source --dist generated
 ```
 

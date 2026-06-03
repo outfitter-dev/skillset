@@ -6,7 +6,7 @@ Implement the first hardening slice after the Claude audit of `skillset` and
 `agents`: prove the currently unexercised source surfaces with a durable fixture,
 then fix the highest-value P1/P2 guardrails found by the audit.
 
-The executor should work in `/Users/mg/Developer/galligan/skillset`.
+The executor should work in `/path/to/skillset`.
 
 ## Background
 
@@ -23,7 +23,7 @@ This packet converts that audit into an implementation goal.
 Required implementation:
 
 1. Add a committed kitchen-sink fixture in the `skillset` repo that exercises
-   plugin source surfaces without polluting Matt's real `agents` content.
+   plugin source surfaces without polluting the maintainer's real `agents` content.
    Prefer a fixture source tree such as `fixtures/kitchen-sink/` or a similarly
    named test fixture that can be copied into temp dirs by tests.
 2. Use the fixture to prove at least these surfaces:
@@ -60,7 +60,7 @@ Required implementation:
 
 - Do not publish, install, trust, or symlink plugins or skills.
 - Do not mutate user-level Claude or Codex config.
-- Do not add a remote, push, open a PR, or merge unless Matt explicitly asks.
+- Do not add a remote, push, open a PR, or merge unless the maintainer explicitly asks.
 - Do not hand-edit generated outputs as source truth.
 - Do not migrate `agents` content, legacy GitButler content, Obsidian skills, or
   global skills.
@@ -159,7 +159,7 @@ rejection in `RETRO.md`.
 
 ## Stop Rules
 
-Stop and ask Matt if:
+Stop and ask the maintainer if:
 
 - official Claude/Codex docs or local snapshots contradict the hook-compatibility
   assumptions;

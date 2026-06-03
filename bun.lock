@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "@galligan/skillset",
+      "name": "skillset",
       "dependencies": {
         "yaml": "^2.8.1",
       },

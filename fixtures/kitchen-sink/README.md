@@ -3,7 +3,7 @@
 A durable `.skillset/` source tree that exercises the implemented compiler
 surfaces in one build. Tests copy `.skillset/` into a temp repo and build it, so
 the fixture proves real behavior without touching the repo's own self-hosted
-source or `galligan/agents`.
+source or an example content repo.
 
 Surfaces covered:
 

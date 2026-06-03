@@ -10,10 +10,10 @@
       ],
       "kind": "plugin",
       "name": "skillset",
-      "outputHash": "sha256:87ca2e2809bc51b94fae8f186080a3cec76b7b9b67e94e88f92c2423d5b0c465",
+      "outputHash": "sha256:aabbf5b2b5c430a85fc25f31371e165010c63ecd742f6bf1296bd4c01bf709cc",
       "outputPath": "plugins/skillset/.codex-plugin/plugin.json",
       "skippedSkills": [],
-      "sourceHash": "sha256:46b811d70810bcc434fa64a110cc1f59f69b2cebdd2ab9e463ab89c8c66cf5b8",
+      "sourceHash": "sha256:a928d87d6e12f9f37ab0cda64a163311fd74aaf4ecd36b6550140c398bca350e",
       "sourcePath": ".skillset/plugins/skillset",
       "targetState": "sync",
       "version": "0.1.0"

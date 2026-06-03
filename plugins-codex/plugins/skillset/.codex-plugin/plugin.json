@@ -1,6 +1,6 @@
 {
   "author": {
-    "name": "Matt Galligan"
+    "name": "Skillset Maintainers"
   },
   "description": "Build source skills and plugins into Claude and Codex outputs.",
   "interface": {
@@ -14,7 +14,7 @@
     "defaultPrompt": [
       "Build or check this skillset source tree."
     ],
-    "developerName": "Matt Galligan",
+    "developerName": "Skillset Maintainers",
     "displayName": "Skillset",
     "longDescription": "Skillset compiles portable source skills and plugin bundles into target-native Claude and Codex artifacts.",
     "screenshots": [],

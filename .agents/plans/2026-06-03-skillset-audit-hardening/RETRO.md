@@ -1,7 +1,7 @@
 # Retro: Skillset Audit Hardening
 
 Status: executed — implementation complete, checks green, final local review
-clean (awaiting Matt's staging/commit)
+clean (awaiting the maintainer's staging/commit)
 
 Packet:
 `.agents/plans/2026-06-03-skillset-audit-hardening/`
@@ -131,7 +131,7 @@ Current execution state:
   truth.
 - Execution branch:
   `pat-58-support-shared-resources-in-skillset-source-plugins` (worked in place;
-  no new branch created, no commits made — left for Matt to stage/commit/stack).
+  no new branch created, no commits made — left for the maintainer to stage/commit/stack).
   The `agents` repo is on the same branch name and received docs plus generated
   lock edits (uncommitted) for tracker-pointer / surface-matrix drift and
   generated-output freshness.
@@ -146,7 +146,7 @@ Current execution state:
 - Executor performed no tracker mutations: no Linear create/update/comment/
   status/dependency changes. PAT-43/47/52 ownership was corrected only in repo
   docs (`agents` repo), not in Linear.
-- 2026-06-03 — Skillset team backlog bootstrapped in Linear after Matt created
+- 2026-06-03 — Skillset team backlog bootstrapped in Linear after the maintainer created
   the new team. Created roadmap parent `SET-1` and child issues:
   - `SET-2`: Align Codex hook source and output with documented plugin defaults.
   - `SET-3`: Add `skillset.schema` and separate source schema from content
@@ -185,7 +185,7 @@ Current execution state:
   kitchen-sink fixture, hook compatibility lint, resource `to:` behavior,
   fail-open generated-state handling, stable ordering, and doc tracker drift.
 - Default fixture approach: keep fixture inside the `skillset` repo rather than
-  adding test content to `/Users/mg/Developer/galligan/agents`.
+  adding test content to `/path/to/content-repo`.
 - No tracker, source-control, generated-output, registry, install, symlink, or
   user-config mutation performed by planner.
 
@@ -202,7 +202,7 @@ Record executor decisions here:
   rule glob scans `fixtures/`.
 - Hook compatibility source of truth: live Codex hooks docs checked on
   2026-06-03 (`https://developers.openai.com/codex/hooks`), plus local snapshot
-  history in `/Users/mg/patch/research/library/codex/config-reference.md` and
+  history in `/path/to/research/library/codex/config-reference.md` and
   `config-advanced.md`. Codex events:
   PreToolUse, PermissionRequest, PostToolUse, PreCompact, PostCompact,
   SessionStart, SubagentStart, SubagentStop, UserPromptSubmit, Stop. Codex
@@ -351,7 +351,7 @@ Record local review score, summary, P0-P3 findings, and prompt-to-fix text:
   to the EACCES-on-companion-path edge (now fixed). Generated output confirmed
   fresh at 15 files.
 
-- 2026-06-03 — Coordinator closeout pass after Matt asked what blocks 5/5.
+- 2026-06-03 — Coordinator closeout pass after the maintainer asked what blocks 5/5.
 
   Live-doc update: current Codex hooks docs confirm the same event set and add
   that `async: true` command hooks are parsed but skipped. Added a validator
@@ -403,8 +403,8 @@ Record local review score, summary, P0-P3 findings, and prompt-to-fix text:
 
 - 2026-06-03 — ChatGPT Pro external conceptual review recorded.
 
-  Source: Matt-provided pasted response at
-  `/Users/mg/.codex/attachments/48a26abb-343d-4415-b342-5c87fd0b158d/pasted-text.txt`.
+  Source: maintainer-provided pasted response at
+  `/path/to/review-response.txt`.
 
   Durable digest:
   `.agents/plans/2026-06-03-skillset-audit-hardening/2026-06-03-chatgpt-pro-review-digest.md`
@@ -417,10 +417,10 @@ Record local review score, summary, P0-P3 findings, and prompt-to-fix text:
   should perhaps become `tool_intent`/`access_intent`; `skillset.version`
   should be separated from source schema/compiler provenance.
 
-- 2026-06-03 — Matt review triage decisions recorded.
+- 2026-06-03 — maintainer review triage decisions recorded.
 
   Digest section:
-  `.agents/plans/2026-06-03-skillset-audit-hardening/2026-06-03-chatgpt-pro-review-digest.md#Matt-Decision-Notes`
+  `.agents/plans/2026-06-03-skillset-audit-hardening/2026-06-03-chatgpt-pro-review-digest.md#Maintainer-Decision-Notes`
 
   Decisions: accept canonical Codex hook direction; rename source `rules` toward
   `instructions`; rename portable `tools` to `tool_intent`; add
@@ -481,7 +481,7 @@ Record unresolved P3s or evidence-based rejections:
   to `./hooks.json` and live docs allow manifest hook path overrides.
 - Codex hook shape supports `{"hooks": {...}}`; the validator also accepts
   top-level event maps for compatibility with earlier local examples.
-- `agents` repo docs/lock edits are uncommitted in its working tree for Matt to
+- `agents` repo docs/lock edits are uncommitted in its working tree for the maintainer to
   review.
 
 ## Final State
@@ -503,12 +503,12 @@ Complete before handoff:
 - Branch: in place on
   `pat-58-support-shared-resources-in-skillset-source-plugins`; no commits.
 - Remaining risks: see above (all P3/low).
-- Archive readiness: ready once Matt reviews and stages the `skillset` +
+- Archive readiness: ready once maintainer reviews and stages the `skillset` +
   `agents` working-tree changes; no push/PR performed per hard rules.
 
 ## Post-Review Polish - 2026-06-03
 
-Matt asked to clean up the remaining import polish while the branch was still
+The maintainer asked to clean up the remaining import polish while the branch was still
 open. Coordinator review had found one small file-safety wart: `skillset import`
 created the final `.skillset/skills/<name>` or `.skillset/plugins/<name>`
 directory before proving the copy/classification could complete, so a failed
@@ -543,7 +543,7 @@ mutation/remote/push/PR/merge.
 
 ## Import Inference Polish - 2026-06-03
 
-Matt asked to implement the import behavior discussed after the global
+The maintainer asked to implement the import behavior discussed after the global
 `.agents/skills`, `.claude/skills`, and `.codex/skills` review.
 
 Implemented:
@@ -595,87 +595,87 @@ PR, merge, legacy import, Obsidian import, or global migration. The adjacent
 
 ## Outfitter Public Repo Move - 2026-06-03
 
-Matt explicitly asked to move the compiler repo to `Developer/outfitter`, set a
+The maintainer explicitly asked to move the compiler repo into the public source workspace, set a
 remote, and get the public repo going.
 
 Actions completed:
 
-- Verified `/Users/mg/Developer/outfitter/skillset` already existed as an older
+- Verified `/path/to/skillset` already existed as an older
   local checkout with a stale `origin` pointing to missing
-  `https://github.com/outfitter-dev/skillset.git`.
+  `https://github.com/owner/skillset.git`.
 - Preserved that older checkout, including its dirty local `.beads` deletion
   state, by moving it to
-  `/Users/mg/Developer/outfitter/skillset-legacy-2026-06-03`.
+  `/path/to/legacy-skillset`.
 - Moved the current compiler repo from
-  `/Users/mg/Developer/galligan/skillset` to
-  `/Users/mg/Developer/outfitter/skillset`.
+  `/path/to/skillset` to
+  `/path/to/skillset`.
 - Added public-repo metadata to `package.json`, kept `"private": true` to avoid
   accidental npm publication, and updated README wording from local/private to
   public-source Outfitter development.
 - Updated self-hosted source skills to point at
-  `/Users/mg/Developer/outfitter/skillset` and rebuilt generated outputs.
+  `/path/to/skillset` and rebuilt generated outputs.
 - Fast-forwarded local `main` to the completed compiler branch so the public
   default branch contains the full implementation rather than the initial
   extract.
 - Created the public GitHub repo
-  `https://github.com/outfitter-dev/skillset` and set `origin` to
-  `https://github.com/outfitter-dev/skillset.git`.
+  `https://github.com/owner/skillset` and set `origin` to
+  `https://github.com/owner/skillset.git`.
 - Pushed `main` and verified GitHub reports
-  `nameWithOwner=outfitter-dev/skillset`, `visibility=PUBLIC`,
+  `nameWithOwner=owner/skillset`, `visibility=PUBLIC`,
   `isPrivate=false`, and `defaultBranchRef=main`.
 - Updated the adjacent `agents` content repo's local file dependency to
-  `file:../../outfitter/skillset`, refreshed `bun.lock`, and corrected stale
+  `file:/path/to/skillset`, refreshed `bun.lock`, and corrected stale
   compiler-path/import examples in `AGENTS.md`, `README.md`,
   `docs/skillset.md`, and `docs/tooling.md`.
 
 Verification:
 
-- `bun run check` in `/Users/mg/Developer/outfitter/skillset` after the move:
+- `bun run check` in `/path/to/skillset` after the move:
   typecheck, 96 tests, source lint, generated-output check, and
   `git diff --check` all green.
-- `gh repo view outfitter-dev/skillset --json nameWithOwner,visibility,url,description,defaultBranchRef,isPrivate`
+- `gh repo view owner/skillset --json nameWithOwner,visibility,url,description,defaultBranchRef,isPrivate`
   confirmed the public GitHub repo.
-- `bun run check` in `/Users/mg/Developer/galligan/agents` after relinking:
+- `bun run check` in `/path/to/content-repo` after relinking:
   `skillset lint` (1 source skill), `skillset check` (19 generated files), and
   `git diff --check` all green.
-- `rg` found no remaining `Developer/galligan/skillset`, `file:../skillset`,
+- `rg` found no remaining `/path/to/skillset`, `file:/path/to/skillset`,
   `skillset import skill`, or `skillset import plugin` references in the checked
   agents docs/package/lock surfaces.
 
 Forbidden-action audit update:
 
-- Remote add and push were explicitly requested by Matt and completed only for
-  `outfitter-dev/skillset`.
+- Remote add and push were explicitly requested by the maintainer and completed only for
+  `owner/skillset`.
 - No npm/package publish, plugin marketplace publish, install, trust, symlink,
   registry mutation, user-level Claude/Codex config mutation, PR, or merge.
 - The old Outfitter checkout was preserved rather than overwritten.
 
 ## npm Naming Alignment - 2026-06-03
 
-Matt clarified that the core CLI package should be named `skillset` on npm,
+The maintainer clarified that the core CLI package should be named `skillset` on npm,
 with the `@skillset` scope reserved for other packages.
 
 Actions completed:
 
-- Renamed the compiler package from `@galligan/skillset` to `skillset` in
+- Renamed the compiler package from the previous scoped package name to `skillset` in
   `package.json`.
 - Kept `"private": true`; this is naming alignment only, not npm publication.
 - Updated self-hosted source skills to refer to the local `skillset` compiler
-  instead of `@galligan/skillset` and rebuilt generated outputs.
+  instead of the previous scoped package name and rebuilt generated outputs.
 - Updated the adjacent `agents` content repo local dependency from
-  `@galligan/skillset` to `skillset` with the same
-  `file:../../outfitter/skillset` target, refreshed `bun.lock`, and updated the
+  the previous scoped package name to `skillset` with the same
+  `file:/path/to/skillset` target, refreshed `bun.lock`, and updated the
   stale linked-tool wording in `AGENTS.md` and `README.md`.
 
 Verification:
 
-- `bun run check` in `/Users/mg/Developer/outfitter/skillset` passed:
+- `bun run check` in `/path/to/skillset` passed:
   typecheck, 96 tests, source lint, generated-output check, and
   `git diff --check`.
-- `bun run check` in `/Users/mg/Developer/galligan/agents` passed:
+- `bun run check` in `/path/to/content-repo` passed:
   `skillset lint` (1 source skill), `skillset check` (19 generated files), and
   `git diff --check`.
-- `rg` found no remaining `@galligan/skillset` references in the checked
+- `rg` found no remaining previous scoped package references in the checked
   Skillset or agents source/docs/package surfaces.
 
 Forbidden-action audit unchanged: no npm publish, plugin marketplace publish,

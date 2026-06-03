@@ -10,10 +10,10 @@
       ],
       "kind": "plugin",
       "name": "skillset",
-      "outputHash": "sha256:f781b61074fec6dd1e542c689dd9db301ede1c6a2fd1b20dba3aaff16f579828",
+      "outputHash": "sha256:793ef6687c30393bbf1ab9f2a8942162e11ea7752d0be35887c208f691c3a150",
       "outputPath": "plugins/skillset/.claude-plugin/plugin.json",
       "skippedSkills": [],
-      "sourceHash": "sha256:f39aa62408e2358e25f020ef395423d53e8b1f69fb9c9ab9123763bea937f191",
+      "sourceHash": "sha256:ccf4e9cf0a0c765c8696f0683303a78d7e5b120af15080f23562d06251dbfef5",
       "sourcePath": ".skillset/plugins/skillset",
       "targetState": "sync",
       "version": "0.1.0"
