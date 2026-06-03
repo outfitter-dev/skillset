@@ -61,7 +61,7 @@ export async function loadBuildGraph(
   };
 
   const warnings: string[] = [];
-  const plugins = await loadPlugins(rootPath, sourceDir, rootTargets);
+  const plugins = await loadPlugins(rootPath, sourceDir, rootTargets, warnings);
   const standaloneSkills = await loadStandaloneSkills(rootPath, sourceDir, rootTargets);
   const { rules, instructionsDir } = await loadInstructions(rootPath, sourceDir, rootTargets, warnings);
 
@@ -177,7 +177,8 @@ function normalizeRuleFrontmatter(frontmatter: SourceRule["frontmatter"], label:
 async function loadPlugins(
   rootPath: string,
   sourceDir: string,
-  rootTargets: BuildGraph["root"]["targets"]
+  rootTargets: BuildGraph["root"]["targets"],
+  warnings: string[]
 ): Promise<readonly SourcePlugin[]> {
   const pluginsPath = resolveInside(rootPath, join(sourceDir, PLUGINS_DIR));
   if (!(await exists(pluginsPath))) return [];
@@ -188,7 +189,7 @@ async function loadPlugins(
   for (const entry of entries.sort((left, right) => compareStrings(left.name, right.name))) {
     if (!entry.isDirectory()) continue;
     const id = validateSlug(entry.name, "plugin directory");
-    plugins.push(await loadPlugin(rootPath, sourceDir, id, rootTargets));
+    plugins.push(await loadPlugin(rootPath, sourceDir, id, rootTargets, warnings));
   }
 
   return plugins;
@@ -198,7 +199,8 @@ async function loadPlugin(
   rootPath: string,
   sourceDir: string,
   id: string,
-  parentTargets: BuildGraph["root"]["targets"]
+  parentTargets: BuildGraph["root"]["targets"],
+  warnings: string[]
 ): Promise<SourcePlugin> {
   const pluginPath = resolveInside(rootPath, join(sourceDir, PLUGINS_DIR, id));
   const configPath = await resolvePluginConfigPath(pluginPath);
@@ -217,6 +219,16 @@ async function loadPlugin(
 
   const targets = resolveTargets(parentTargets, config, configPath);
   const skills = await loadSkills(rootPath, sourceDir, pluginPath, targets);
+
+  // SET-2: Codex's documented plugin hook default is hooks/hooks.json. A root
+  // hooks.json is a compatibility source that still builds (emitted to the
+  // canonical hooks/hooks.json) but should migrate.
+  if (targets.codex.enabled && (await exists(join(pluginPath, "hooks.json")))) {
+    warnings.push(
+      `plugin ${id} uses a root hooks.json for Codex; Codex's documented default is hooks/hooks.json with a top-level "hooks" object. ` +
+        "Move it to hooks/hooks.json (the build still emits the canonical hooks/hooks.json from the root file for now)."
+    );
+  }
 
   return { id, metadata, path: pluginPath, skills, targets };
 }

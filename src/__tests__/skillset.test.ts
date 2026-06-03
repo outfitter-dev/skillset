@@ -268,10 +268,16 @@ Beta body.
   expect(claudeManifest).toContain(`"agents": "./agents"`);
   expect(claudeManifest).toContain(`"hooks": "./hooks/hooks.json"`);
   expect(codexManifest).not.toContain(`"agents"`);
-  expect(codexManifest).toContain(`"hooks": "./hooks.json"`);
+  expect(codexManifest).toContain(`"hooks": "./hooks/hooks.json"`);
   expect(await exists(join(root, "plugins-claude/plugins/alpha/agents/reviewer.md"))).toBe(true);
   expect(await exists(join(root, "plugins-codex/plugins/alpha/agents/reviewer.md"))).toBe(false);
-  expect(await exists(join(root, "plugins-codex/plugins/alpha/hooks.json"))).toBe(true);
+  // SET-2: Codex hooks emit at the documented hooks/hooks.json path; the legacy
+  // root hooks.json source keeps target-specific content (SessionStart here).
+  expect(await exists(join(root, "plugins-codex/plugins/alpha/hooks.json"))).toBe(false);
+  const codexHook = await readFile(join(root, "plugins-codex/plugins/alpha/hooks/hooks.json"), "utf8");
+  expect(codexHook).toContain(`"hooks"`);
+  expect(codexHook).toContain("SessionStart");
+  expect(codexHook).not.toContain("PreToolUse");
 });
 
 test("build copies declared shared resources into generated skill folders", async () => {

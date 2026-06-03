@@ -74,7 +74,12 @@ async function lintPluginHooks(graph: BuildGraph): Promise<readonly LintIssue[]>
       issues.push(...(await lintHookFile(graph, plugin, join("hooks", "hooks.json"), "claude")));
     }
     if (shouldLintPluginHook(graph, plugin, "codex")) {
-      issues.push(...(await lintHookFile(graph, plugin, "hooks.json", "codex")));
+      // Codex hook source: legacy root hooks.json (compat) precedes the canonical
+      // hooks/hooks.json, mirroring renderCodexHookFile.
+      const codexHookPath = (await fileExists(join(plugin.path, "hooks.json")))
+        ? "hooks.json"
+        : join("hooks", "hooks.json");
+      issues.push(...(await lintHookFile(graph, plugin, codexHookPath, "codex")));
     }
   }
 

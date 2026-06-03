@@ -34,7 +34,7 @@ import type {
   TargetName,
 } from "./types";
 import { pluginVersion, rootVersion, skillVersion, skillVersionLabel } from "./versioning";
-import { parseYamlRecord, stringifyJson, stringifyMarkdown, stringifyYaml } from "./yaml";
+import { isJsonRecord, parseYamlRecord, stringifyJson, stringifyMarkdown, stringifyYaml } from "./yaml";
 
 const textEncoder = new TextEncoder();
 const DEFAULT_CODEX_COLOR = "#B06DFF";
@@ -347,8 +347,8 @@ function withOptionalSurfacePaths(
     if (pluginHasPath(plugin, "hooks/hooks.json")) withPaths.hooks = "./hooks/hooks.json";
     if (pluginHasPath(plugin, ".mcp.json")) withPaths.mcpServers = "./.mcp.json";
   } else {
-    if (pluginHasPath(plugin, "hooks.json")) {
-      withPaths.hooks = "./hooks.json";
+    if (pluginHasPath(plugin, "hooks/hooks.json") || pluginHasPath(plugin, "hooks.json")) {
+      withPaths.hooks = "./hooks/hooks.json";
     }
     if (pluginHasPath(plugin, ".mcp.json")) withPaths.mcpServers = "./.mcp.json";
     if (pluginHasPath(plugin, ".app.json")) withPaths.apps = "./.app.json";
@@ -944,7 +944,12 @@ async function copyPluginCompanionFiles(
   const candidates =
     target === "claude"
       ? ["README.md", "commands", "agents", "hooks", ".mcp.json", "assets", "scripts", "src"]
-      : ["README.md", "hooks.json", ".mcp.json", ".app.json", "assets", "scripts", "src"];
+      : ["README.md", ".mcp.json", ".app.json", "assets", "scripts", "src"];
+
+  if (target === "codex") {
+    const codexHook = await renderCodexHookFile(graph, plugin, basePath);
+    if (codexHook !== undefined) rendered.push(codexHook);
+  }
 
   for (const candidate of candidates) {
     const sourcePath = join(plugin.path, candidate);
@@ -953,16 +958,41 @@ async function copyPluginCompanionFiles(
     if (target === "claude" && candidate === "hooks") {
       await validateHookJson(graph, join(sourcePath, "hooks.json"), "claude");
     }
-    if (candidate === "hooks.json") {
-      await validateHookJson(graph, sourcePath, "codex");
-      rendered.push(...(await copyPath(sourcePath, join(basePath, "hooks.json"))));
-      continue;
-    }
 
     rendered.push(...(await copyPath(sourcePath, join(basePath, candidate))));
   }
 
   return rendered.filter((file) => !file.path.endsWith(".gitkeep"));
+}
+
+/**
+ * Render the Codex plugin hook file at the documented default path
+ * `hooks/hooks.json` with a top-level `hooks` object. Source resolution prefers
+ * canonical `hooks/hooks.json`, then falls back to a legacy root `hooks.json`
+ * (a compatibility source warned at load). Flat event maps are normalized into
+ * the canonical `{ "hooks": { ... } }` shape on emit.
+ */
+async function renderCodexHookFile(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  basePath: string
+): Promise<RenderedFile | undefined> {
+  // A legacy root hooks.json is an explicit Codex-specific compatibility source
+  // (warned at load), so it takes precedence and keeps target-specific behavior.
+  // Otherwise the canonical hooks/hooks.json is the shared source for both targets.
+  const legacySource = join(plugin.path, "hooks.json");
+  const canonicalSource = join(plugin.path, "hooks", "hooks.json");
+  const sourcePath = (await exists(legacySource))
+    ? legacySource
+    : (await exists(canonicalSource))
+      ? canonicalSource
+      : undefined;
+  if (sourcePath === undefined) return undefined;
+
+  await validateHookJson(graph, sourcePath, "codex");
+  const parsed = JSON.parse(await readFile(sourcePath, "utf8")) as JsonValue;
+  const normalized = isJsonRecord(parsed) && isJsonRecord(parsed.hooks) ? parsed : { hooks: parsed };
+  return textFile(join(basePath, "hooks", "hooks.json"), stringifyJson(normalized));
 }
 
 async function validateHookJson(

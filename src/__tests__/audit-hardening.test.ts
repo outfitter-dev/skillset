@@ -43,7 +43,15 @@ test("kitchen-sink fixture builds every implemented surface and stays current", 
   expect(await exists(join(root, "plugins-claude/plugins/kitchen/commands/review.md"))).toBe(true);
   expect(await exists(join(root, "plugins-claude/plugins/kitchen/hooks/hooks.json"))).toBe(true);
   expect(await exists(join(root, "plugins-claude/plugins/kitchen/.mcp.json"))).toBe(true);
-  expect(await exists(join(root, "plugins-codex/plugins/kitchen/hooks.json"))).toBe(true);
+  // SET-2: Codex hooks emit at the documented hooks/hooks.json path (the legacy
+  // root hooks.json source is normalized into a top-level "hooks" object).
+  expect(await exists(join(root, "plugins-codex/plugins/kitchen/hooks.json"))).toBe(false);
+  const codexKitchenHook = await readFile(
+    join(root, "plugins-codex/plugins/kitchen/hooks/hooks.json"),
+    "utf8"
+  );
+  expect(codexKitchenHook).toContain(`"hooks"`);
+  expect(codexKitchenHook).toContain("SessionStart");
   expect(await exists(join(root, "plugins-codex/plugins/kitchen/.app.json"))).toBe(true);
   expect(await exists(join(root, "plugins-codex/plugins/kitchen/.mcp.json"))).toBe(true);
   // Claude agents/ surface absent from Codex output (none declared here either).

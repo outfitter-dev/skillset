@@ -448,6 +448,96 @@ Body.
   return readFile(join(root, ".claude/skills/intent/SKILL.md"), "utf8");
 }
 
+// SET-2: Codex plugin hooks emit at the documented hooks/hooks.json path with a
+// top-level "hooks" object. A canonical hooks/hooks.json is shared by both
+// targets; a legacy root hooks.json is a Codex compatibility source.
+
+test("SET-2: a shared hooks/hooks.json emits to both Claude and Codex hook paths", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: hook-root
+claude: true
+codex: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/hooks/hooks.json": `
+{
+  "hooks": {
+    "SessionStart": [ { "hooks": [ { "type": "command", "command": "./scripts/run.sh" } ] } ]
+  }
+}
+`,
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  const graph = await loadBuildGraph(root);
+  expect(graph.warnings).toEqual([]);
+
+  await buildSkillset(root);
+  const claudeHook = await readFile(join(root, "plugins-claude/plugins/alpha/hooks/hooks.json"), "utf8");
+  const codexHook = await readFile(join(root, "plugins-codex/plugins/alpha/hooks/hooks.json"), "utf8");
+  expect(claudeHook).toContain("SessionStart");
+  expect(codexHook).toContain("SessionStart");
+  expect(codexHook).toContain(`"hooks"`);
+  const codexManifest = await readFile(join(root, "plugins-codex/plugins/alpha/.codex-plugin/plugin.json"), "utf8");
+  expect(codexManifest).toContain(`"hooks": "./hooks/hooks.json"`);
+});
+
+test("SET-2: a legacy root hooks.json is a Codex compat source, warned and normalized", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: hook-root
+claude: false
+codex: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    // Flat event map (legacy shape) at the root path.
+    ".skillset/plugins/alpha/hooks.json": `
+{
+  "SessionStart": [ { "hooks": [ { "type": "command", "command": "./scripts/run.sh" } ] } ]
+}
+`,
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  const graph = await loadBuildGraph(root);
+  expect(graph.warnings.join("\n")).toContain("root hooks.json");
+
+  await buildSkillset(root);
+  // Emits at the canonical path, wrapped into a top-level "hooks" object.
+  expect(await fileExists(join(root, "plugins-codex/plugins/alpha/hooks.json"))).toBe(false);
+  const codexHook = await readFile(join(root, "plugins-codex/plugins/alpha/hooks/hooks.json"), "utf8");
+  const parsed = JSON.parse(codexHook) as { hooks?: Record<string, unknown> };
+  expect(parsed.hooks).toBeDefined();
+  expect(parsed.hooks?.SessionStart).toBeDefined();
+});
+
+async function fileExists(path: string): Promise<boolean> {
+  return Bun.file(path).exists();
+}
+
 async function contractFixture(files: Record<string, string>): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "skillset-contract-"));
   for (const [path, content] of Object.entries(files)) {
