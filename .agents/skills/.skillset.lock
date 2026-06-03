@@ -9,7 +9,7 @@
       "name": "skillset-codex-development",
       "outputHash": "sha256:861759cd7dbdf174721e6e4edf1f0177ffdecbc052f0c7f5c3dd5b29d103d0b2",
       "outputPath": "skillset-codex-development/SKILL.md",
-      "sourceHash": "sha256:91cb5619015c01cfc9d6aae2234d24703374fd8ac80041b61e456ec886242689",
+      "sourceHash": "sha256:d1321fa45c00dcb0767e0de67ae092bd2498f747c7db1f5ad9321a617d92b672",
       "sourcePath": ".skillset/skills/skillset-codex-development/SKILL.md",
       "version": "0.1.0"
     }

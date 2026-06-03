@@ -9,7 +9,7 @@
       "name": "skillset-claude-development",
       "outputHash": "sha256:ed296966190b50e8a95089cfd7b1db44c00463cda0dffbe431be8fd19c5ea988",
       "outputPath": "skillset-claude-development/SKILL.md",
-      "sourceHash": "sha256:8faff9c9366f382237e88fedccf5f856a8b62646b99f16c7a679e0f826e795d4",
+      "sourceHash": "sha256:424c2a8c33e3f3f8d1ccd2dbd664e12964c4dd0097d1d9c274c820b349e24e70",
       "sourcePath": ".skillset/skills/skillset-claude-development/SKILL.md",
       "version": "0.1.0"
     }

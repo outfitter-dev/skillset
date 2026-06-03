@@ -59,11 +59,11 @@ Imports copy files into `.skillset/skills/<name>` or `.skillset/plugins/<name>`.
 
 Root source metadata lives at `.skillset/config.yaml`.
 
-Each plugin lives at `.skillset/plugins/<plugin-name>/` and has its own `skillset.yaml`. Portable plugin fields live under `skillset`; target-specific overrides live under top-level `claude` and `codex` blocks. Skill source frontmatter can use top-level `title`, `summary`, `description`, `version`, `implicit_invocation`, `allowed_tools`, and the source-only `tools` escape map; the compiler derives target-native `name`, `description`, generated metadata, Claude frontmatter, and Codex `agents/openai.yaml` policy where supported.
+Each plugin lives at `.skillset/plugins/<plugin-name>/` and has its own `skillset.yaml`. Portable plugin fields live under `skillset`; target-specific overrides live under top-level `claude` and `codex` blocks. Skill source frontmatter can use top-level `title`, `summary`, `description`, `version`, `resources`, `implicit_invocation`, `allowed_tools`, and the source-only `tools` escape map; the compiler derives target-native `name`, `description`, generated metadata, Claude frontmatter, Codex `agents/openai.yaml` policy where supported, and skill-local copies of declared resources.
 
 Use `skillset.name` as the stable machine identity. `skillset.id` is accepted as a compatibility alias for older source. Do not use `targets:`.
 
-Generated output strips source-only keys such as `skillset`, `claude`, `codex`, `agents`, `implicit_invocation`, `allowed_tools`, `tools`, and `targets`. Generated skills receive only lightweight metadata:
+Generated output strips source-only keys such as `skillset`, `claude`, `codex`, `agents`, `resources`, `implicit_invocation`, `allowed_tools`, `tools`, and `targets`. Generated skills receive only lightweight metadata:
 
 ```yaml
 metadata:
@@ -72,6 +72,26 @@ metadata:
 ```
 
 Generated roots also receive `.skillset.lock` files with deterministic provenance and hashes.
+
+## Shared Resources
+
+Use `.skillset/shared/` for root shared inputs and `.skillset/plugins/<plugin-name>/shared/` for plugin-local shared inputs. Shared inputs are not copied wholesale. A skill opts into exact files or directories with source-only `resources` frontmatter:
+
+```yaml
+resources:
+  references:
+    - shared:references/common.md
+    - plugin:references/plugin.md
+  scripts:
+    - plugin:scripts/check.sh
+  templates:
+    - from: shared:templates/report.md
+      to: templates/report.md
+```
+
+`shared:` points at `.skillset/shared/`; `root:` is accepted as an alias. `plugin:` points at `.skillset/plugins/<plugin-name>/shared/` and is valid only for plugin-bound skills. Grouped resources default to skill-local target paths such as `references/common.md`, `scripts/check.sh`, `assets/...`, or `templates/...`; use `from` / `to` when the output path should differ.
+
+Generated Claude and Codex skills receive the copied files beside `SKILL.md`, so links and script references stay skill-root-relative. Markdown links that use declared `shared:` or `plugin:` resource URLs are rewritten to the generated skill-local path; undeclared shared resource links fail the build. Resource mappings cannot write outside the generated skill directory or overwrite `SKILL.md`, generated Codex sidecars, or skill-local files. Resource contents participate in `.skillset.lock` hashes and `skillset check`.
 
 Source `skillset.version` and skill `version` fields must be semantic versions. `skillset check` reports explicit version drift when a generated plugin manifest or skill `metadata.version` is stale.
 
@@ -187,7 +207,7 @@ Generated Codex `AGENTS.md` files are tracked by the root `.skillset.lock`. The 
 
 ## Target-Specific Plugin Surfaces
 
-Plugin companion directories are target-native. Claude receives `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json`, `assets/`, and `src/` when those source paths exist. Codex receives `hooks.json`, `.mcp.json`, `.app.json`, `assets/`, and `src/`; Claude `agents/` is not copied into Codex output. Codex agent output remains an experimental boundary until a validated Codex agent source model is added.
+Plugin companion directories are target-native. Claude receives `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json`, `assets/`, `scripts/`, and `src/` when those source paths exist. Codex receives `hooks.json`, `.mcp.json`, `.app.json`, `assets/`, `scripts/`, and `src/`; Claude `agents/` is not copied into Codex output. Codex agent output remains an experimental boundary until a validated Codex agent source model is added.
 
 Hook files are emitted as definitions only. `skillset` does not install, trust, or enable hooks in user-level Claude/Codex config. Emitted hook files must be target-native JSON objects: Claude uses `hooks/hooks.json`, while Codex uses root `hooks.json`. The compiler does not auto-lower Claude hooks into Codex hooks.
 

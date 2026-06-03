@@ -15,6 +15,11 @@ Use this skill when a repo has a `.skillset/` source tree or when you need to cr
 ```text
 .skillset/
   config.yaml
+  shared/
+    assets/
+    references/
+    scripts/
+    templates/
   rules/
     <topic>.md
   skills/
@@ -23,6 +28,9 @@ Use this skill when a repo has a `.skillset/` source tree or when you need to cr
   plugins/
     <plugin-name>/
       skillset.yaml
+      shared/
+        references/
+        scripts/
       skills/
 ```
 
@@ -47,7 +55,23 @@ Rule bodies can use `{{skillset.repo_root}}`, `{{skillset.output_dir}}`, and `{{
 
 Use `claude: false` or `codex: false` in rule frontmatter for target-specific opt-outs. `codex: symlink` is not implemented yet because Claude path-scoped rules need YAML frontmatter that Codex would read as instructions through a direct symlink.
 
-Plugin companion paths are target-native. Claude receives `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json`, `assets/`, and `src/`. Codex receives `hooks.json`, `.mcp.json`, `.app.json`, `assets/`, and `src/`. Claude `agents/` is not copied into Codex; Codex agent output is experimental until a validated source model exists. Hook files are emitted definitions only and must be JSON objects. `skillset` does not install, trust, or enable hooks in user-level config.
+Use source-only `resources` frontmatter when a skill needs shared Markdown, scripts, templates, or assets from root `.skillset/shared/` or plugin-local `.skillset/plugins/<plugin-name>/shared/`:
+
+```yaml
+resources:
+  references:
+    - shared:references/common.md
+    - plugin:references/plugin.md
+  scripts:
+    - plugin:scripts/check.sh
+  templates:
+    - from: shared:templates/report.md
+      to: templates/report.md
+```
+
+`shared:` resolves under root `.skillset/shared/`; `root:` is accepted as an alias. `plugin:` resolves under the current plugin's `shared/` directory and is not valid for standalone skills. Generated Claude and Codex skills receive declared files beside `SKILL.md`, so references stay skill-root-relative. Markdown links to declared `shared:` or `plugin:` URLs are rewritten to the generated local path, and undeclared shared resource links fail the build. Resource mappings cannot write outside the generated skill, overwrite generated control files, or collide with skill-local files.
+
+Plugin companion paths are target-native. Claude receives `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json`, `assets/`, `scripts/`, and `src/`. Codex receives `hooks.json`, `.mcp.json`, `.app.json`, `assets/`, `scripts/`, and `src/`. Claude `agents/` is not copied into Codex; Codex agent output is experimental until a validated source model exists. Hook files are emitted definitions only and must be JSON objects. `skillset` does not install, trust, or enable hooks in user-level config.
 
 Skill source can also use normalized policy keys:
 

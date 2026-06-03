@@ -274,6 +274,218 @@ Beta body.
   expect(await exists(join(root, "plugins-codex/plugins/alpha/hooks.json"))).toBe(true);
 });
 
+test("build copies declared shared resources into generated skill folders", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: true
+`,
+    ".skillset/shared/references/root.md": `
+# Root Reference
+`,
+    ".skillset/shared/templates/base.md": `
+# Base Template
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/scripts/plugin-tool.sh": `
+#!/usr/bin/env bash
+echo plugin-root
+`,
+    ".skillset/plugins/alpha/shared/references/plugin.md": `
+# Plugin Reference
+`,
+    ".skillset/plugins/alpha/shared/scripts/check.sh": `
+#!/usr/bin/env bash
+echo shared
+`,
+    ".skillset/plugins/alpha/skills/resourceful/SKILL.md": `
+---
+name: resourceful
+description: Uses shared resources.
+version: 1.0.0
+resources:
+  references:
+    - from: shared:references/root.md
+      to: references/root.md
+    - plugin:references/plugin.md
+  scripts:
+    - plugin:scripts/check.sh
+  templates:
+    - shared:templates/base.md
+---
+
+Read [root](shared:references/root.md) and [plugin](plugin:references/plugin.md#usage).
+Run scripts/check.sh when deterministic checks help.
+`,
+  });
+
+  await buildSkillset(root);
+
+  const claudeSkill = await readFile(
+    join(root, "plugins-claude/plugins/alpha/skills/resourceful/SKILL.md"),
+    "utf8"
+  );
+  const codexSkill = await readFile(
+    join(root, "plugins-codex/plugins/alpha/skills/resourceful/SKILL.md"),
+    "utf8"
+  );
+  const lock = await readFile(join(root, "plugins-codex/.skillset.lock"), "utf8");
+
+  expect(claudeSkill).not.toContain("resources:");
+  expect(codexSkill).not.toContain("shared:");
+  expect(codexSkill).not.toContain("plugin:");
+  expect(codexSkill).toContain("[root](references/root.md)");
+  expect(codexSkill).toContain("[plugin](references/plugin.md#usage)");
+  expect(
+    await readFile(
+      join(root, "plugins-claude/plugins/alpha/skills/resourceful/references/root.md"),
+      "utf8"
+    )
+  ).toContain("Root Reference");
+  expect(
+    await readFile(
+      join(root, "plugins-codex/plugins/alpha/skills/resourceful/references/plugin.md"),
+      "utf8"
+    )
+  ).toContain("Plugin Reference");
+  expect(
+    await readFile(
+      join(root, "plugins-codex/plugins/alpha/skills/resourceful/scripts/check.sh"),
+      "utf8"
+    )
+  ).toContain("echo shared");
+  expect(
+    await readFile(
+      join(root, "plugins-claude/plugins/alpha/skills/resourceful/templates/base.md"),
+      "utf8"
+    )
+  ).toContain("Base Template");
+  expect(
+    await exists(join(root, "plugins-claude/plugins/alpha/scripts/plugin-tool.sh"))
+  ).toBe(true);
+  expect(
+    await exists(join(root, "plugins-codex/plugins/alpha/scripts/plugin-tool.sh"))
+  ).toBe(true);
+  expect(lock).toContain(`"plugins/alpha/skills/resourceful/references/root.md"`);
+  expect(lock).toContain(`"plugins/alpha/skills/resourceful/scripts/check.sh"`);
+
+  await writeFile(
+    join(root, ".skillset/plugins/alpha/shared/references/plugin.md"),
+    "# Changed Plugin Reference\n"
+  );
+  await expect(checkSkillset(root)).rejects.toThrow("stale generated file");
+});
+
+test("shared resource mappings reject unsafe and colliding output paths", async () => {
+  const colliding = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+`,
+    ".skillset/shared/references/root.md": `
+# Root Reference
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/collision/references/root.md": `
+# Local Reference
+`,
+    ".skillset/plugins/alpha/skills/collision/SKILL.md": `
+---
+name: collision
+description: Collides with a local resource.
+resources:
+  - from: shared:references/root.md
+    to: references/root.md
+---
+
+Collision body.
+`,
+  });
+
+  await expect(buildSkillset(colliding)).rejects.toThrow(
+    "would overwrite generated skill file references/root.md"
+  );
+
+  const unsafe = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+`,
+    ".skillset/shared/references/root.md": `
+# Root Reference
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/unsafe/SKILL.md": `
+---
+name: unsafe
+description: Writes outside the skill.
+resources:
+  - from: shared:references/root.md
+    to: ../root.md
+---
+
+Unsafe body.
+`,
+  });
+
+  await expect(loadBuildGraph(unsafe)).rejects.toThrow("target paths must stay inside the generated skill");
+
+  const standalonePluginReference = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+`,
+    ".skillset/skills/standalone/SKILL.md": `
+---
+name: standalone
+description: Tries to use plugin resources.
+resources:
+  - plugin:references/plugin.md
+---
+
+Standalone body.
+`,
+  });
+
+  await expect(loadBuildGraph(standalonePluginReference)).rejects.toThrow(
+    "uses plugin: outside a plugin skill"
+  );
+
+  const undeclaredLink = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/undeclared/SKILL.md": `
+---
+name: undeclared
+description: Links to an undeclared resource.
+---
+
+Read [missing](shared:references/missing.md).
+`,
+  });
+
+  await expect(buildSkillset(undeclaredLink)).rejects.toThrow(
+    "links to undeclared shared resource"
+  );
+});
+
 test("plugin hook files must be target-native JSON objects", async () => {
   const invalidCodex = await fixture({
     ".skillset/config.yaml": `

@@ -11,6 +11,7 @@ import {
   validateConfigDocument,
 } from "./config";
 import { resolveInside, validateSlug } from "./path";
+import { readSkillResources } from "./resources";
 import type {
   BuildGraph,
   OutputSelection,
@@ -162,7 +163,7 @@ async function loadPlugin(
   }
 
   const targets = resolveTargets(parentTargets, config, configPath);
-  const skills = await loadSkills(rootPath, pluginPath, targets);
+  const skills = await loadSkills(rootPath, sourceDir, pluginPath, targets);
 
   return { id, metadata, path: pluginPath, skills, targets };
 }
@@ -186,19 +187,22 @@ async function resolvePluginConfigPath(pluginPath: string): Promise<string> {
 
 async function loadSkills(
   rootPath: string,
+  sourceDir: string,
   pluginPath: string,
   parentTargets: SourcePlugin["targets"]
 ): Promise<SourceSkill[]> {
   const skillsPath = join(pluginPath, SKILLS_DIR);
   if (!(await exists(skillsPath))) return [];
-  return loadSkillsFromDirectory(rootPath, skillsPath, pluginPath, parentTargets);
+  return loadSkillsFromDirectory(rootPath, sourceDir, skillsPath, pluginPath, parentTargets, pluginPath);
 }
 
 async function loadSkillsFromDirectory(
   rootPath: string,
+  sourceDir: string,
   skillsPath: string,
   relativeBasePath: string,
-  parentTargets: SourcePlugin["targets"]
+  parentTargets: SourcePlugin["targets"],
+  pluginPath?: string
 ): Promise<SourceSkill[]> {
   const skillFiles = await findSkillFiles(skillsPath);
   const skills: SourceSkill[] = [];
@@ -215,6 +219,11 @@ async function loadSkillsFromDirectory(
     );
     const targets = resolveTargets(parentTargets, parts.frontmatter, sourcePath);
     const relativePath = relative(relativeBasePath, sourcePath);
+    const resources = await readSkillResources(parts.frontmatter.resources, {
+      label: sourcePath,
+      ...(pluginPath === undefined ? {} : { pluginSharedPath: join(pluginPath, "shared") }),
+      sharedPath: resolveInside(rootPath, join(sourceDir, "shared")),
+    });
 
     skills.push({
       body: parts.body,
@@ -222,6 +231,7 @@ async function loadSkillsFromDirectory(
       id,
       metadata,
       relativePath,
+      resources,
       sourcePath: resolveInside(rootPath, relative(rootPath, sourcePath)),
       targets,
     });
@@ -238,7 +248,7 @@ async function loadStandaloneSkills(
   const skillsPath = resolveInside(rootPath, join(sourceDir, SKILLS_DIR));
   if (!(await exists(skillsPath))) return [];
 
-  const skills = await loadSkillsFromDirectory(rootPath, skillsPath, skillsPath, rootTargets);
+  const skills = await loadSkillsFromDirectory(rootPath, sourceDir, skillsPath, skillsPath, rootTargets);
   return skills;
 }
 

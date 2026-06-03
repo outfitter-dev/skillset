@@ -24,6 +24,11 @@
     <plugin-name>/
       skillset.yaml
       README.md
+      shared/
+        assets/
+        references/
+        scripts/
+        templates/
       skills/
         <skill-name>/
           SKILL.md
@@ -98,7 +103,29 @@ codex:
 
 Boolean output settings use the default roots: `plugins-claude/`, `plugins-codex/`, `.claude/skills`, and `.agents/skills`. Arrays select specific plugin or standalone skill names. Object settings can set `path`, `include`, or `enabled: false`.
 
-Plugin-local `README.md` files are copied into each generated target plugin. Shared source inputs such as `.skillset/shared/assets`, `.skillset/shared/scripts`, `.skillset/shared/references`, and `.skillset/shared/templates` are available for source organization; they are not copied into every output unless a source skill or plugin includes them.
+Plugin-local `README.md` files are copied into each generated target plugin. Shared source inputs such as `.skillset/shared/assets`, `.skillset/shared/scripts`, `.skillset/shared/references`, `.skillset/shared/templates`, and plugin-local `.skillset/plugins/<plugin-name>/shared/` are available for source organization; they are not copied into every output unless a source skill declares them.
+
+## Shared Resources
+
+Skill-local supporting files already work when they sit beside `SKILL.md`, for example `references/`, `scripts/`, `assets/`, and `templates/`. Use shared resources when several skills need the same file but generated Claude and Codex output still needs skill-root-relative paths:
+
+```yaml
+resources:
+  references:
+    - shared:references/common.md
+    - plugin:references/plugin.md
+  scripts:
+    - plugin:scripts/check.sh
+  assets:
+    - shared:assets/icon.png
+  templates:
+    - from: shared:templates/report.md
+      to: templates/report.md
+```
+
+`shared:` resolves under root `.skillset/shared/`; `root:` is a compatibility alias for the same location. `plugin:` resolves under `.skillset/plugins/<plugin-name>/shared/` and is valid only for plugin-bound skills. Group keys choose the default generated folder, so `resources.scripts: [plugin:scripts/check.sh]` emits `scripts/check.sh` beside the generated `SKILL.md`. Use `from` / `to` objects when a resource should land at a different generated path.
+
+Only declared resources are copied. Resource mappings may point at files or directories, but they cannot traverse outside the shared root, write outside the generated skill directory, or overwrite `SKILL.md`, generated Codex sidecars, or skill-local files. Markdown links in `SKILL.md` that target declared `shared:` or `plugin:` resource URLs are rewritten to generated skill-local links; undeclared shared resource links fail the build. Resource contents are included in `.skillset.lock` hashes and stale-output checks.
 
 ## Versioning
 
@@ -141,7 +168,7 @@ Rule frontmatter can use top-level `claude` and `codex` target toggles. Set `cod
 
 ## Target-Specific Plugin Surfaces
 
-Some plugin companion paths are target-native rather than portable. Claude output copies `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json`, `assets/`, and `src/` when present. Codex output copies `hooks.json`, `.mcp.json`, `.app.json`, `assets/`, and `src/`. Claude `agents/` is not copied into Codex output; Codex agent output remains an experimental boundary until a validated source model exists.
+Some plugin companion paths are target-native rather than portable. Claude output copies `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json`, `assets/`, `scripts/`, and `src/` when present. Codex output copies `hooks.json`, `.mcp.json`, `.app.json`, `assets/`, `scripts/`, and `src/`. Claude `agents/` is not copied into Codex output; Codex agent output remains an experimental boundary until a validated source model exists.
 
 Hooks are generated definitions only. The compiler does not install, trust, or enable hooks in user-level configuration. Hook files must be JSON objects before they are emitted. Claude uses `hooks/hooks.json`; Codex uses root `hooks.json`. The compiler does not auto-lower Claude hooks into Codex hooks.
 

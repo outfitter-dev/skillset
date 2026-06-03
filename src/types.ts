@@ -34,8 +34,15 @@ export interface SourceSkill {
   readonly id: string;
   readonly metadata: JsonRecord;
   readonly relativePath: string;
+  readonly resources: readonly SourceResource[];
   readonly sourcePath: string;
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
+}
+
+export interface SourceResource {
+  readonly from: string;
+  readonly sourcePath: string;
+  readonly targetPath: string;
 }
 
 export interface SourcePlugin {

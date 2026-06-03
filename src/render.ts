@@ -12,6 +12,7 @@ import {
   stripSourceFrontmatter,
 } from "./config";
 import { validateSlug } from "./path";
+import { rewriteResourceLinks } from "./resources";
 import {
   readAllowedTools,
   readClaudeNativeToolRules,
@@ -26,6 +27,7 @@ import type {
   RenderedFile,
   SourcePlugin,
   SourceRule,
+  SourceResource,
   SourceSkill,
   StandaloneSkill,
   TargetName,
@@ -365,40 +367,70 @@ async function renderPluginSkillFiles(
 ): Promise<readonly RenderedFile[]> {
   const sourceDir = dirname(skill.sourcePath);
   const relativeSkillDir = dirname(skill.relativePath);
-  const targetSkillFile = join(basePath, relativeSkillDir, "SKILL.md");
+  const targetSkillDir = join(basePath, relativeSkillDir);
+  const targetSkillFile = join(targetSkillDir, "SKILL.md");
   const generatedCodexAgentFile = await renderCodexSkillAgentFile(
     graph,
     skill,
     target,
     sourceDir,
-    join(basePath, relativeSkillDir)
+    targetSkillDir
   );
   const generatedCodexToolsFile = renderCodexSkillToolsFile(
     graph,
     skill,
     target,
-    join(basePath, relativeSkillDir)
+    targetSkillDir
   );
   const generatedCodexRelativeFiles = new Set(
     [generatedCodexAgentFile, generatedCodexToolsFile]
       .filter((file): file is RenderedFile => file !== undefined)
-      .map((file) => relative(join(basePath, relativeSkillDir), file.path))
+      .map((file) => relative(targetSkillDir, file.path))
   );
-  const rendered: RenderedFile[] = [
+  const rendered: RenderedFile[] = [];
+  const renderedRelativeFiles = new Set<string>();
+  pushSkillRenderedFile(
+    rendered,
     textFile(targetSkillFile, renderSkillMarkdown(graph, plugin, skill, target)),
-  ];
-  if (generatedCodexAgentFile !== undefined) rendered.push(generatedCodexAgentFile);
-  if (generatedCodexToolsFile !== undefined) rendered.push(generatedCodexToolsFile);
+    targetSkillDir,
+    renderedRelativeFiles,
+    `${skill.sourcePath}.SKILL.md`
+  );
+  if (generatedCodexAgentFile !== undefined) {
+    pushSkillRenderedFile(
+      rendered,
+      generatedCodexAgentFile,
+      targetSkillDir,
+      renderedRelativeFiles,
+      `${skill.sourcePath}.agents/openai.yaml`
+    );
+  }
+  if (generatedCodexToolsFile !== undefined) {
+    pushSkillRenderedFile(
+      rendered,
+      generatedCodexToolsFile,
+      targetSkillDir,
+      renderedRelativeFiles,
+      `${skill.sourcePath}.tools`
+    );
+  }
 
   for (const file of await collectFiles(sourceDir)) {
     const relativeFile = relative(sourceDir, file);
     if (relativeFile === "SKILL.md") continue;
     if (generatedCodexRelativeFiles.has(relativeFile)) continue;
-    rendered.push({
-      path: join(basePath, relativeSkillDir, relativeFile),
-      content: await readFile(file),
-    });
+    pushSkillRenderedFile(
+      rendered,
+      {
+        path: join(targetSkillDir, relativeFile),
+        content: await readFile(file),
+      },
+      targetSkillDir,
+      renderedRelativeFiles,
+      `${skill.sourcePath}.${relativeFile}`
+    );
   }
+  rendered.push(...(await renderSkillResources(skill, targetSkillDir, renderedRelativeFiles)));
 
   lockRootsFor(lockRoots, outputRoot, target).items.push(
     await lockItemForSkill({
@@ -426,40 +458,70 @@ async function renderStandaloneSkill(
   const outputRoot = graph.root.outputs.skills[target];
   const sourceDir = dirname(skill.sourcePath);
   const relativeSkillDir = dirname(skill.relativePath);
-  const targetSkillFile = join(outputRoot, relativeSkillDir, "SKILL.md");
+  const targetSkillDir = join(outputRoot, relativeSkillDir);
+  const targetSkillFile = join(targetSkillDir, "SKILL.md");
   const generatedCodexAgentFile = await renderCodexSkillAgentFile(
     graph,
     skill,
     target,
     sourceDir,
-    join(outputRoot, relativeSkillDir)
+    targetSkillDir
   );
   const generatedCodexToolsFile = renderCodexSkillToolsFile(
     graph,
     skill,
     target,
-    join(outputRoot, relativeSkillDir)
+    targetSkillDir
   );
   const generatedCodexRelativeFiles = new Set(
     [generatedCodexAgentFile, generatedCodexToolsFile]
       .filter((file): file is RenderedFile => file !== undefined)
-      .map((file) => relative(join(outputRoot, relativeSkillDir), file.path))
+      .map((file) => relative(targetSkillDir, file.path))
   );
-  const rendered: RenderedFile[] = [
+  const rendered: RenderedFile[] = [];
+  const renderedRelativeFiles = new Set<string>();
+  pushSkillRenderedFile(
+    rendered,
     textFile(targetSkillFile, renderSkillMarkdown(graph, undefined, skill, target)),
-  ];
-  if (generatedCodexAgentFile !== undefined) rendered.push(generatedCodexAgentFile);
-  if (generatedCodexToolsFile !== undefined) rendered.push(generatedCodexToolsFile);
+    targetSkillDir,
+    renderedRelativeFiles,
+    `${skill.sourcePath}.SKILL.md`
+  );
+  if (generatedCodexAgentFile !== undefined) {
+    pushSkillRenderedFile(
+      rendered,
+      generatedCodexAgentFile,
+      targetSkillDir,
+      renderedRelativeFiles,
+      `${skill.sourcePath}.agents/openai.yaml`
+    );
+  }
+  if (generatedCodexToolsFile !== undefined) {
+    pushSkillRenderedFile(
+      rendered,
+      generatedCodexToolsFile,
+      targetSkillDir,
+      renderedRelativeFiles,
+      `${skill.sourcePath}.tools`
+    );
+  }
 
   for (const file of await collectFiles(sourceDir)) {
     const relativeFile = relative(sourceDir, file);
     if (relativeFile === "SKILL.md") continue;
     if (generatedCodexRelativeFiles.has(relativeFile)) continue;
-    rendered.push({
-      path: join(outputRoot, relativeSkillDir, relativeFile),
-      content: await readFile(file),
-    });
+    pushSkillRenderedFile(
+      rendered,
+      {
+        path: join(targetSkillDir, relativeFile),
+        content: await readFile(file),
+      },
+      targetSkillDir,
+      renderedRelativeFiles,
+      `${skill.sourcePath}.${relativeFile}`
+    );
   }
+  rendered.push(...(await renderSkillResources(skill, targetSkillDir, renderedRelativeFiles)));
 
   lockRootsFor(lockRoots, outputRoot, target).items.push(
     await lockItemForSkill({
@@ -473,6 +535,53 @@ async function renderStandaloneSkill(
   );
 
   return rendered;
+}
+
+async function renderSkillResources(
+  skill: SourceSkill,
+  targetSkillDir: string,
+  renderedRelativeFiles: Set<string>
+): Promise<readonly RenderedFile[]> {
+  const rendered: RenderedFile[] = [];
+
+  for (const resource of skill.resources) {
+    for (const file of await copyPath(resource.sourcePath, join(targetSkillDir, resource.targetPath))) {
+      if (file.path.endsWith(".gitkeep")) continue;
+      pushSkillRenderedFile(
+        rendered,
+        file,
+        targetSkillDir,
+        renderedRelativeFiles,
+        `${skill.sourcePath}.resources.${resource.from}`
+      );
+    }
+  }
+
+  return rendered;
+}
+
+function pushSkillRenderedFile(
+  rendered: RenderedFile[],
+  file: RenderedFile,
+  targetSkillDir: string,
+  renderedRelativeFiles: Set<string>,
+  label: string
+): void {
+  const relativeFile = normalizeRenderedRelativePath(relative(targetSkillDir, file.path));
+  if (relativeFile.length === 0 || relativeFile.startsWith("../")) {
+    throw new Error(`skillset: ${label} would write outside generated skill directory`);
+  }
+  if (renderedRelativeFiles.has(relativeFile)) {
+    throw new Error(
+      `skillset: ${label} would overwrite generated skill file ${relativeFile}`
+    );
+  }
+  renderedRelativeFiles.add(relativeFile);
+  rendered.push(file);
+}
+
+function normalizeRenderedRelativePath(path: string): string {
+  return path.replaceAll("\\", "/");
 }
 
 function renderSkillMarkdown(
@@ -516,7 +625,7 @@ function renderSkillMarkdown(
     },
   });
 
-  return stringifyMarkdown(frontmatter, skill.body);
+  return stringifyMarkdown(frontmatter, rewriteResourceLinks(skill.body, skill.resources, skill.sourcePath));
 }
 
 function renderClaudeSkillPolicy(skill: SourceSkill, targetOptions: JsonRecord): JsonRecord {
@@ -832,8 +941,8 @@ async function copyPluginCompanionFiles(
   const rendered: RenderedFile[] = [];
   const candidates =
     target === "claude"
-      ? ["README.md", "commands", "agents", "hooks", ".mcp.json", "assets", "src"]
-      : ["README.md", "hooks.json", ".mcp.json", ".app.json", "assets", "src"];
+      ? ["README.md", "commands", "agents", "hooks", ".mcp.json", "assets", "scripts", "src"]
+      : ["README.md", "hooks.json", ".mcp.json", ".app.json", "assets", "scripts", "src"];
 
   for (const candidate of candidates) {
     const sourcePath = join(plugin.path, candidate);
@@ -992,7 +1101,7 @@ async function lockItemForSkill(args: {
     name: args.skill.id,
     outputHash: hashRenderedFiles(args.outputRoot, args.files),
     outputPath: files.find((file) => file.endsWith("/SKILL.md")) ?? files[0] ?? "",
-    sourceHash: await hashSourceDir(args.sourceDir),
+    sourceHash: await hashSkillSource(args.sourceDir, args.skill.resources),
     sourcePath: relative(args.graph.rootPath, args.skill.sourcePath),
     version: skillVersion(args.graph, args.plugin, args.skill),
     ...(args.plugin === undefined ? {} : { plugin: args.plugin.id }),
@@ -1040,19 +1149,55 @@ function hashPluginSource(
   return `sha256:${hash.digest("hex")}`;
 }
 
-async function hashSourceDir(sourceDir: string): Promise<string> {
+async function hashSkillSource(
+  sourceDir: string,
+  resources: readonly SourceResource[]
+): Promise<string> {
   const hash = createHash("sha256");
-  hash.update("skillset-source-v1\0");
+  hash.update("skillset-skill-source-v2\0");
 
   for (const file of await collectFiles(sourceDir)) {
     const relativeFile = relative(sourceDir, file);
+    hash.update("skill\0");
     hash.update(relativeFile);
     hash.update("\0");
     hash.update(await readFile(file));
     hash.update("\0");
   }
 
+  for (const resource of [...resources].sort((left, right) =>
+    left.targetPath.localeCompare(right.targetPath)
+  )) {
+    hash.update("resource\0");
+    hash.update(resource.from);
+    hash.update("\0");
+    hash.update(resource.targetPath);
+    hash.update("\0");
+    await hashResourceSource(hash, resource);
+  }
+
   return `sha256:${hash.digest("hex")}`;
+}
+
+async function hashResourceSource(
+  hash: ReturnType<typeof createHash>,
+  resource: SourceResource
+): Promise<void> {
+  const stats = await stat(resource.sourcePath);
+  if (stats.isFile()) {
+    hash.update("file\0");
+    hash.update(await readFile(resource.sourcePath));
+    hash.update("\0");
+    return;
+  }
+
+  hash.update("dir\0");
+  for (const file of await collectFiles(resource.sourcePath)) {
+    hash.update(relative(resource.sourcePath, file));
+    hash.update("\0");
+    hash.update(await readFile(file));
+    hash.update("\0");
+  }
 }
 
 function hashTextRule(rule: SourceRule): string {
