@@ -2,7 +2,7 @@
 
 `skillset` compiles portable agent plugin and skill source into target-native Claude and Codex outputs.
 
-It is currently local/private tooling for `galligan/agents`.
+It is developed as public source under Outfitter. The package remains marked private for now to prevent accidental npm publication while the compiler contract is still settling.
 
 This repo also self-hosts a small `.skillset/` source tree:
 

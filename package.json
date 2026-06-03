@@ -1,8 +1,24 @@
 {
   "name": "@galligan/skillset",
   "version": "0.1.0",
+  "description": "Source-first compiler for Claude and Codex agent loadouts.",
   "private": true,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/outfitter-dev/skillset.git"
+  },
+  "bugs": {
+    "url": "https://github.com/outfitter-dev/skillset/issues"
+  },
+  "homepage": "https://github.com/outfitter-dev/skillset#readme",
+  "keywords": [
+    "agents",
+    "claude",
+    "codex",
+    "plugins",
+    "skills"
+  ],
   "bin": {
     "skillset": "./src/cli.ts"
   },

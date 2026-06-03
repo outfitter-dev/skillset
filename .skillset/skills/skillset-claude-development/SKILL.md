@@ -12,7 +12,7 @@ Use this skill when working on the local `@galligan/skillset` compiler from a Cl
 
 ## Working Context
 
-- The compiler repo is `/Users/mg/Developer/galligan/skillset`.
+- The compiler repo is `/Users/mg/Developer/outfitter/skillset`.
 - `.skillset/` is source truth for this repo's own generated skills and plugin.
 - `plugins-claude/`, `plugins-codex/`, `.claude/skills`, and `.agents/skills` are generated outputs when self-building this repo.
 - Do not publish, globally install, symlink, or mutate user-level Claude/Codex config as part of normal development.

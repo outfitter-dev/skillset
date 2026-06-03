@@ -12,7 +12,7 @@ Use this skill when working on the local `@galligan/skillset` compiler from a Co
 
 ## Working Context
 
-- Work in `/Users/mg/Developer/galligan/skillset`.
+- Work in `/Users/mg/Developer/outfitter/skillset`.
 - Treat `.skillset/` as editable source.
 - Treat `plugins-claude/`, `plugins-codex/`, `.claude/skills`, and `.agents/skills` as generated outputs.
 - Do not hand-edit generated outputs as source truth.
