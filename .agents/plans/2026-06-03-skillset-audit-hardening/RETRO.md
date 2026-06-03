@@ -592,3 +592,60 @@ Forbidden-action audit unchanged: no publish, install, trust, symlink,
 user-level Claude/Codex config mutation, registry mutation, remote add, push,
 PR, merge, legacy import, Obsidian import, or global migration. The adjacent
 `agents` repo was not modified in this slice.
+
+## Outfitter Public Repo Move - 2026-06-03
+
+Matt explicitly asked to move the compiler repo to `Developer/outfitter`, set a
+remote, and get the public repo going.
+
+Actions completed:
+
+- Verified `/Users/mg/Developer/outfitter/skillset` already existed as an older
+  local checkout with a stale `origin` pointing to missing
+  `https://github.com/outfitter-dev/skillset.git`.
+- Preserved that older checkout, including its dirty local `.beads` deletion
+  state, by moving it to
+  `/Users/mg/Developer/outfitter/skillset-legacy-2026-06-03`.
+- Moved the current compiler repo from
+  `/Users/mg/Developer/galligan/skillset` to
+  `/Users/mg/Developer/outfitter/skillset`.
+- Added public-repo metadata to `package.json`, kept `"private": true` to avoid
+  accidental npm publication, and updated README wording from local/private to
+  public-source Outfitter development.
+- Updated self-hosted source skills to point at
+  `/Users/mg/Developer/outfitter/skillset` and rebuilt generated outputs.
+- Fast-forwarded local `main` to the completed compiler branch so the public
+  default branch contains the full implementation rather than the initial
+  extract.
+- Created the public GitHub repo
+  `https://github.com/outfitter-dev/skillset` and set `origin` to
+  `https://github.com/outfitter-dev/skillset.git`.
+- Pushed `main` and verified GitHub reports
+  `nameWithOwner=outfitter-dev/skillset`, `visibility=PUBLIC`,
+  `isPrivate=false`, and `defaultBranchRef=main`.
+- Updated the adjacent `agents` content repo's local file dependency to
+  `file:../../outfitter/skillset`, refreshed `bun.lock`, and corrected stale
+  compiler-path/import examples in `AGENTS.md`, `README.md`,
+  `docs/skillset.md`, and `docs/tooling.md`.
+
+Verification:
+
+- `bun run check` in `/Users/mg/Developer/outfitter/skillset` after the move:
+  typecheck, 96 tests, source lint, generated-output check, and
+  `git diff --check` all green.
+- `gh repo view outfitter-dev/skillset --json nameWithOwner,visibility,url,description,defaultBranchRef,isPrivate`
+  confirmed the public GitHub repo.
+- `bun run check` in `/Users/mg/Developer/galligan/agents` after relinking:
+  `skillset lint` (1 source skill), `skillset check` (19 generated files), and
+  `git diff --check` all green.
+- `rg` found no remaining `Developer/galligan/skillset`, `file:../skillset`,
+  `skillset import skill`, or `skillset import plugin` references in the checked
+  agents docs/package/lock surfaces.
+
+Forbidden-action audit update:
+
+- Remote add and push were explicitly requested by Matt and completed only for
+  `outfitter-dev/skillset`.
+- No npm/package publish, plugin marketplace publish, install, trust, symlink,
+  registry mutation, user-level Claude/Codex config mutation, PR, or merge.
+- The old Outfitter checkout was preserved rather than overwritten.
