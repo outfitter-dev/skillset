@@ -118,10 +118,10 @@ allowed_tools:
 
 `implicit_invocation` lowers to Claude `disable-model-invocation` and Codex `agents/openai.yaml` `policy.allow_implicit_invocation`. `allowed_tools` lowers to Claude `allowed-tools`; Codex has no confirmed skill-local allowed-tools equivalent, so Codex-enabled source must omit `allowed_tools.codex` or set it to `false`.
 
-Target-native tool escape hatches use underscore keys. Shared escapes can live under top-level `tools`, and target-local escapes can live under `claude.tools` or `codex.tools`:
+Portable tool policy uses the `tool_intent` block (the legacy `tools` key is a compatibility alias; setting both fails). The name reflects authoring *intent*, not a target-enforced sandbox. Target-native escape hatches use underscore keys: shared escapes live under top-level `tool_intent`, and target-local escapes live under `claude.tool_intent` or `codex.tool_intent`:
 
 ```yaml
-tools:
+tool_intent:
   allow:
     read:
       - docs/**
@@ -150,12 +150,12 @@ tools:
           tools:
             - issues.*
 claude:
-  tools:
+  tool_intent:
     _allow:
       - "NewClaudeTool(project:*)"
       - rule: "Bash(newcli safe *)"
 codex:
-  tools:
+  tool_intent:
     _deny:
       mcp:
         linear:
@@ -163,7 +163,9 @@ codex:
             - experimental.delete
 ```
 
-Portable `tools.allow` and `tools.deny` accept only known keys: `read`, `search`, `write`, `edit`, `shell`, `web_fetch`, `web_search`, and `mcp`. Unknown keys fail lint/build. Portable `allow` / `deny` belongs in the source top-level `tools` block; target-local `claude.tools` and `codex.tools` accept only `_allow` / `_deny` escape keys. Claude lowers portable entries to `allowed-tools` and `disallowed-tools`; Codex preserves portable intent in generated `.skillset.tools.yaml` metadata until a validated skill-local permission surface exists. Claude `_allow` and `_deny` entries lower to native rules too. Codex `_allow` and `_deny` entries emit to `.skillset.tools.yaml` under `target_native`, so they are committed, locked, and reviewable without changing user-level Codex policy or trust configuration.
+Portable `tool_intent.allow` and `tool_intent.deny` accept only known keys: `read`, `search`, `write`, `edit`, `shell`, `web_fetch`, `web_search`, and `mcp`. Unknown keys fail lint/build. Portable `allow` / `deny` belongs in the source top-level `tool_intent` block; target-local `claude.tool_intent` and `codex.tool_intent` accept only `_allow` / `_deny` escape keys. The legacy `tools` key remains a compatibility alias at both levels, and setting `tool_intent` and `tools` together fails with a conflict.
+
+`tool_intent` is intent and metadata, not a portable security boundary. Claude lowers portable entries to `allowed-tools` and `disallowed-tools`, which are **preapproval / no-prompt** hints — they reduce permission prompts for listed tools, not a sandbox that blocks everything else. Codex has no documented skill-local enforcement surface, so Codex preserves portable intent in generated `.skillset.tools.yaml` metadata without mutating user-level Codex policy or trust. Claude `_allow` and `_deny` entries lower to native rules too. Codex `_allow` and `_deny` entries emit to `.skillset.tools.yaml` under `target_native`, so they are committed, locked, and reviewable.
 
 ## Instructions
 

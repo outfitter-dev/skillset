@@ -1173,7 +1173,7 @@ Bad target tools body.
   });
 
   await expect(lintSkillset(root)).rejects.toThrow("skill-tools-invalid");
-  await expect(buildSkillset(root)).rejects.toThrow("target tools to contain only _allow and _deny keys");
+  await expect(buildSkillset(root)).rejects.toThrow("target tool_intent to contain only _allow and _deny keys");
 });
 
 test("target-native false escape does not clear portable tools", async () => {

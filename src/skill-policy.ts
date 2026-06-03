@@ -157,7 +157,7 @@ function readPortableToolEscape(
   target: TargetName,
   label: string
 ): JsonValue | undefined {
-  const tools = readToolsRecord(record, `${label}.tools`, true);
+  const tools = readToolsRecord(record, `${label}.tool_intent`, true);
   if (tools === undefined) return undefined;
   const value = tools[key];
   if (value === undefined) return undefined;
@@ -165,7 +165,7 @@ function readPortableToolEscape(
   for (const mapKey of Object.keys(value as JsonRecord)) {
     if (!TARGET_KEYS.includes(mapKey as TargetName)) {
       throw new Error(
-        `skillset: expected ${label}.tools.${key} target map to contain only claude and codex keys`
+        `skillset: expected ${label}.tool_intent.${key} target map to contain only claude and codex keys`
       );
     }
   }
@@ -177,16 +177,29 @@ function readTargetNativeToolEscape(
   key: "_allow" | "_deny",
   label: string
 ): JsonValue | undefined {
-  const tools = readToolsRecord(targetOptions, `${label} target tools`, false);
+  const tools = readToolsRecord(targetOptions, `${label} target tool_intent`, false);
   return tools?.[key];
 }
 
+/**
+ * Read the portable tool-intent block. `tool_intent` is the canonical source key;
+ * `tools` is a compatibility alias. Setting both is a conflict, since they mean
+ * the same thing. The name signals authoring intent, not a target-enforced
+ * permission sandbox.
+ */
 function readToolsRecord(
   record: JsonRecord,
   label: string,
   allowPortablePolicy: boolean
 ): JsonRecord | undefined {
-  const value = record.tools;
+  const canonical = record.tool_intent;
+  const alias = record.tools;
+  if (canonical !== undefined && alias !== undefined) {
+    throw new Error(
+      `skillset: ${label} sets both tool_intent and the tools compatibility alias; keep tool_intent only`
+    );
+  }
+  const value = canonical ?? alias;
   if (value === undefined) return undefined;
   if (!isJsonRecord(value)) {
     throw new Error(`skillset: expected ${label} to be an object`);
@@ -208,24 +221,24 @@ function hasTargetMap(value: JsonValue): boolean {
 
 function readClaudeToolRuleList(value: JsonValue | undefined, label: string): readonly string[] {
   if (value === undefined || value === false) return [];
-  if (typeof value === "string") return [readNonEmptyString(value, `${label}.tools`)];
+  if (typeof value === "string") return [readNonEmptyString(value, `${label}.tool_intent`)];
   if (Array.isArray(value)) {
     return value.map((item) => readClaudeToolRule(item, label));
   }
   if (isJsonRecord(value)) return [readClaudeToolRule(value, label)];
   throw new Error(
-    `skillset: expected ${label}.tools _allow/_deny entries for Claude to be strings or objects with rule`
+    `skillset: expected ${label}.tool_intent _allow/_deny entries for Claude to be strings or objects with rule`
   );
 }
 
 function readClaudeToolRule(value: JsonValue, label: string): string {
-  if (typeof value === "string") return readNonEmptyString(value, `${label}.tools`);
+  if (typeof value === "string") return readNonEmptyString(value, `${label}.tool_intent`);
   if (isJsonRecord(value)) {
     const rule = value.rule;
-    if (typeof rule === "string") return readNonEmptyString(rule, `${label}.tools.rule`);
+    if (typeof rule === "string") return readNonEmptyString(rule, `${label}.tool_intent.rule`);
   }
   throw new Error(
-    `skillset: expected ${label}.tools _allow/_deny entries for Claude to be strings or objects with rule`
+    `skillset: expected ${label}.tool_intent _allow/_deny entries for Claude to be strings or objects with rule`
   );
 }
 
@@ -233,11 +246,11 @@ function readPortableToolsPolicy(
   record: JsonRecord,
   label: string
 ): { readonly allow?: JsonRecord; readonly deny?: JsonRecord } {
-  const tools = readToolsRecord(record, `${label}.tools`, true);
+  const tools = readToolsRecord(record, `${label}.tool_intent`, true);
   if (tools === undefined) return {};
   const policy: { allow?: JsonRecord; deny?: JsonRecord } = {};
-  const allow = readPortableToolsAction(tools.allow, `${label}.tools.allow`);
-  const deny = readPortableToolsAction(tools.deny, `${label}.tools.deny`);
+  const allow = readPortableToolsAction(tools.allow, `${label}.tool_intent.allow`);
+  const deny = readPortableToolsAction(tools.deny, `${label}.tool_intent.deny`);
   if (allow !== undefined) policy.allow = allow;
   if (deny !== undefined) policy.deny = deny;
   return policy;
@@ -385,28 +398,28 @@ function lowerPortableToolsForClaude(
     if (value === undefined) continue;
     switch (key) {
       case "edit":
-        rules.push(...lowerPathRules("Edit", value, `${label}.tools.${key}`));
+        rules.push(...lowerPathRules("Edit", value, `${label}.tool_intent.${key}`));
         break;
       case "read":
-        rules.push(...lowerPathRules("Read", value, `${label}.tools.${key}`));
+        rules.push(...lowerPathRules("Read", value, `${label}.tool_intent.${key}`));
         break;
       case "search":
-        rules.push(...lowerSearchRules(value, `${label}.tools.${key}`));
+        rules.push(...lowerSearchRules(value, `${label}.tool_intent.${key}`));
         break;
       case "write":
-        rules.push(...lowerWriteRules(value, `${label}.tools.${key}`));
+        rules.push(...lowerWriteRules(value, `${label}.tool_intent.${key}`));
         break;
       case "shell":
-        rules.push(...lowerShellRules(value, `${label}.tools.${key}`));
+        rules.push(...lowerShellRules(value, `${label}.tool_intent.${key}`));
         break;
       case "web_fetch":
-        rules.push(...lowerWebFetchRules(value, `${label}.tools.${key}`));
+        rules.push(...lowerWebFetchRules(value, `${label}.tool_intent.${key}`));
         break;
       case "web_search":
         rules.push("WebSearch");
         break;
       case "mcp":
-        rules.push(...lowerMcpRules(value, `${label}.tools.${key}`));
+        rules.push(...lowerMcpRules(value, `${label}.tool_intent.${key}`));
         break;
     }
   }

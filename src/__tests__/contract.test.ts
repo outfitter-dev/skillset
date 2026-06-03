@@ -330,6 +330,124 @@ codex: true
   await expect(loadBuildGraph(root)).rejects.toThrow("both contain instruction files");
 });
 
+// SET-6: tool_intent is the canonical portable tool-policy key; tools is a
+// compatibility alias. Both keys lower identically; setting both is a conflict.
+
+test("SET-6: tool_intent lowers to Claude allowed-tools like the tools alias", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: ti-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/intent/SKILL.md": `
+---
+name: intent
+description: Declares a portable read and search policy.
+tool_intent:
+  allow:
+    read: true
+    web_search: true
+---
+
+Body.
+`,
+  });
+
+  await buildSkillset(root);
+  const skill = await readFile(join(root, ".claude/skills/intent/SKILL.md"), "utf8");
+  expect(skill).toContain("allowed-tools");
+  expect(skill).toContain("Read");
+  expect(skill).toContain("WebSearch");
+  // Source key is stripped from generated frontmatter.
+  expect(skill).not.toContain("tool_intent");
+});
+
+test("SET-6: the tools alias still works and produces identical lowering", async () => {
+  const intent = await buildIntentSkill("tool_intent");
+  const alias = await buildIntentSkill("tools");
+  expect(alias).toBe(intent);
+});
+
+test("SET-6: setting both tool_intent and tools fails as a conflict", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: ti-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/conflict/SKILL.md": `
+---
+name: conflict
+description: Sets both keys.
+tool_intent:
+  allow:
+    read: true
+tools:
+  allow:
+    write: true
+---
+
+Body.
+`,
+  });
+
+  await expect(buildSkillset(root)).rejects.toThrow("both tool_intent and the tools compatibility alias");
+});
+
+test("SET-6: unknown portable tool keys fail", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: ti-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/unknown/SKILL.md": `
+---
+name: unknown
+description: Uses an unknown tool key.
+tool_intent:
+  allow:
+    teleport: true
+---
+
+Body.
+`,
+  });
+
+  await expect(buildSkillset(root)).rejects.toThrow("unknown portable tool key teleport");
+});
+
+async function buildIntentSkill(key: string): Promise<string> {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: ti-root
+claude: true
+codex: false
+`,
+    [`.skillset/skills/intent/SKILL.md`]: `
+---
+name: intent
+description: Tool intent skill.
+${key}:
+  allow:
+    read: true
+    shell:
+      - git status
+---
+
+Body.
+`,
+  });
+
+  await buildSkillset(root);
+  return readFile(join(root, ".claude/skills/intent/SKILL.md"), "utf8");
+}
+
 async function contractFixture(files: Record<string, string>): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "skillset-contract-"));
   for (const [path, content] of Object.entries(files)) {
