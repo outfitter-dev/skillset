@@ -47,8 +47,56 @@ instructions/rules ambiguity check symmetric (markdown content, not dir
 existence); added bare `schema` to `SOURCE_ONLY_KEYS`. Follow-up filed: SET-16
 (design first-class target-specific plugin hook source model).
 
-Remaining SET work: SET-15, SET-7, SET-8, SET-14, SET-10, SET-9 (impl/quality),
-then SET-13, SET-11, SET-12 (design-only proposal docs).
+Quality/impl batch (each committed, moved to Linear "In Review"):
+
+- SET-15: lint diagnostics for undeclared resource links (with suggested
+  entries), plugin-root script dependencies, and non-executable script resources.
+- SET-7: deterministic `<!-- source: ... -->` AGENTS.md boundaries + a build/check
+  warning when generated AGENTS.md exceeds Codex's 32 KiB `project_doc_max_bytes`
+  (live-doc verified).
+- SET-8: live-doc-verified Claude pass-through for `.lsp.json`, `output-styles/`,
+  `themes/`, `monitors/monitors.json` with documented manifest fields; deferred
+  `settings.json` (user config) and `bin/` (not a component).
+- SET-14: `docs/target-surfaces.md` evidence matrix + golden manifest tests
+  (Codex interface camelCase, Claude paths).
+- SET-10: `ImportReport` (copied files, inferred/target-native/unsupported
+  fields, warnings, next checks); verbatim preservation; no-overwrite.
+- SET-9: read-only `explain`, `diff`, `doctor` commands (new `src/authoring.ts`,
+  `diffSkillset`, non-throwing `inspectSkillset`).
+
+Quality-batch review (SET-15/7/8/14) scored 4/5 → 3/5; no P0/P1; P2s were scope
+decisions, documented + locked with a regression test (commit 455f9d8).
+Command-batch review (SET-10/9) scored 4/5; P2 (doctor summary message) and P3
+(diff warnings) fixed in commit 96ed590.
+
+Design-only proposals (no implementation), under `docs/proposals/` (SET-13,
+SET-11, SET-12): agent source model (defer portable agents in v1, Codex has no
+plugin-agent component per live docs), changelog/versioning (changesets-style
+`skillset changes` plan), and global/XDG installs (XDG state, install/sync
+separate from build so build never implies trust).
+
+Follow-up filed: SET-16 (first-class target-specific plugin hook source model).
+
+## SET Execution — Final State
+
+- All 14 SET child issues (SET-2..SET-15) complete on branch
+  `pat-58-support-shared-resources-in-skillset-source-plugins`, each committed
+  with conventional messages + `Closes SET-<id>` and moved to Linear "In Review"
+  (committed locally, not merged; no PR per hard rules).
+- Three subagent reviews at intervals (contract / quality / command batches);
+  all P2+ findings fixed or recorded as evidence-based scope decisions.
+- Final validation (2026-06-03): `skillset build` (15 files), `skillset check`
+  (15, no drift), `skillset lint` (3 skills), `typecheck` clean, `bun test`
+  (91 pass / 0 fail), `bun run check` green, `git diff --check` clean, working
+  tree clean.
+- Live-doc verifications dated 2026-06-03: Codex plugin hooks
+  (`developers.openai.com/codex/plugins/build`), Codex AGENTS.md size limit
+  (`developers.openai.com/codex/guides/agents-md`, `openai/codex#7138`), Claude
+  plugin components (`code.claude.com/docs/en/plugins-reference`), Codex plugin
+  components (`developers.openai.com/codex/plugins`).
+- Forbidden actions: none. No publish, install, trust, symlink, user-config
+  mutation, remote, push, PR, or merge. The adjacent `agents` repo was not
+  touched in this goal.
 
 ## Execution Summary
 
