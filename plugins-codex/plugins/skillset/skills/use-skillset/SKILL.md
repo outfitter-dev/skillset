@@ -153,12 +153,17 @@ Version fields must be semantic versions. Plugin `skillset.version` lowers into 
 ## Import Existing Source
 
 ```bash
-skillset import skill /path/to/SKILL.md --root .
-skillset import skill /path/to/skill-dir --root . --name custom-name
-skillset import plugin /path/to/plugin-dir --root .
+skillset import /path/to/SKILL.md --root .
+skillset import /path/to/skill-dir --root .
+skillset import /path/to/skills-root --kind skills --root .
+skillset import /path/to/plugin-dir --root .
+skillset import /path/to/plugins-root --kind plugins --root .
+skillset import claude --root .
+skillset import codex --root .
+skillset import agents --root .
 ```
 
-Imports copy into `.skillset/skills/<name>` or `.skillset/plugins/<name>`. Plugin imports write plugin-local `skillset.yaml`. Imports do not publish, install, symlink, trust, mutate registries, or change user-level config.
+`skillset import <path>` infers `skill`, `skills`, `plugin`, or `plugins` from the filesystem. Use `--kind` when a directory is ambiguous. Passing `SKILL.md` imports the full containing skill directory, including sibling `references/`, `scripts/`, `assets/`, `.codex/`, and other sidecars. The provider shortcuts import from `~/.claude/skills`, `~/.codex/skills`, or `~/.agents/skills`; skills-root imports de-dupe symlinked skill directories by real path. Plugin imports write plugin-local `skillset.yaml`, synthesizing a minimal one when importing a native generated plugin that only has `.claude-plugin/plugin.json` or `.codex-plugin/plugin.json`. Imports do not publish, install, symlink, trust, mutate registries, or change user-level config.
 
 ## Rules
 

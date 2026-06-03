@@ -285,8 +285,20 @@ Portable keys are `read`, `search`, `write`, `edit`, `shell`, `web_fetch`, `web_
 Import helpers write only to `.skillset/`:
 
 ```bash
-skillset import skill /path/to/SKILL.md --root .
-skillset import plugin /path/to/plugin-dir --root .
+skillset import /path/to/SKILL.md --root .
+skillset import /path/to/skill-dir --root .
+skillset import /path/to/skills-root --kind skills --root .
+skillset import /path/to/plugin-dir --root .
+skillset import /path/to/plugins-root --kind plugins --root .
+skillset import claude --root .
+skillset import codex --root .
+skillset import agents --root .
 ```
+
+`skillset import <path>` infers `skill`, `skills`, `plugin`, or `plugins` from the filesystem when it can. Use `--kind skill`, `--kind skills`, `--kind plugin`, or `--kind plugins` when a directory is ambiguous. `--kind skills` means a root whose child directories each contain a `SKILL.md`; this covers user-global skill roots such as `~/.claude/skills`, `~/.codex/skills`, and `~/.agents/skills`. The provider shortcuts above pick those roots directly. The older compatibility form `skillset import skill <path>` and `skillset import plugin <path>` still works.
+
+Skill imports always copy the full skill directory. If the input path is the `SKILL.md` file itself, the import root becomes its parent directory so sibling `references/`, `scripts/`, `assets/`, `agents/`, `.codex/`, and other sidecars are preserved. Skills-root imports follow symlinked skill directories but de-dupe by real path to avoid importing the same global skill twice through shared roots.
+
+Plugin imports accept source plugins with `skillset.yaml` / `config.yaml`, native Claude generated plugin directories with `.claude-plugin/plugin.json`, native Codex generated plugin directories with `.codex-plugin/plugin.json`, and plugin repositories whose plugins live under a child `plugins/` directory. Native generated plugin imports preserve the native manifest files and synthesize a minimal source `skillset.yaml` when no source config exists.
 
 `importSource` returns an `ImportReport` (also printed by the CLI) with: `copiedFiles`, `inferredSourceFields` (frontmatter keys Skillset recognizes as source), `preservedTargetNativeFields` (Claude/Codex-native keys kept verbatim, such as `allowed-tools`, `disallowed-tools`, `disable-model-invocation`, `model`, `argument-hint`), `unsupportedFields` (unrecognized keys kept verbatim), `warnings`, and `nextChecks`. Import preserves all frontmatter — target-native and unknown keys pass through unchanged — and the report tells you what to review and migrate, so import is a bridge rather than a lossy copier. Import never overwrites an existing source; there is no overwrite mode yet.

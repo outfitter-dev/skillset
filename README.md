@@ -56,15 +56,32 @@ skillset build --root /tmp/example --source custom-source --dist generated
 
 ## Import
 
-Seed source from an existing skill or plugin:
+Seed source from an existing skill, skills root, plugin, or plugin repository. The happy path infers the kind from the path:
 
 ```bash
-skillset import skill /path/to/SKILL.md --root /path/to/content-repo
+skillset import /path/to/skill-dir --root /path/to/content-repo
+skillset import /path/to/SKILL.md --root /path/to/content-repo
+skillset import /path/to/skills-root --kind skills --root /path/to/content-repo
+skillset import /path/to/plugin-dir --root /path/to/content-repo
+skillset import /path/to/plugins-root --kind plugins --root /path/to/content-repo
+```
+
+The explicit compatibility form still works:
+
+```bash
 skillset import skill /path/to/skill-dir --root /path/to/content-repo --name custom-name
 skillset import plugin /path/to/plugin-dir --root /path/to/content-repo
 ```
 
-Imports copy files into `.skillset/skills/<name>` or `.skillset/plugins/<name>`. Plugin imports write plugin-local `skillset.yaml`. Import does not install, trust, symlink, publish, mutate registries, or change user-level Claude/Codex config.
+Provider shortcuts import user-global skills from the matching local skill root:
+
+```bash
+skillset import claude --root /path/to/content-repo  # ~/.claude/skills
+skillset import codex --root /path/to/content-repo   # ~/.codex/skills
+skillset import agents --root /path/to/content-repo  # ~/.agents/skills
+```
+
+Imports copy files into `.skillset/skills/<name>` or `.skillset/plugins/<name>`. Passing a `SKILL.md` path imports the full containing skill directory, including sibling `references/`, `scripts/`, `assets/`, `agents/`, and other sidecars. Skills-root imports de-dupe symlinked directories by real path, so the same global skill is not imported twice when `.claude/skills`, `.codex/skills`, and `.agents/skills` point at one another. Plugin imports write plugin-local `skillset.yaml`; when importing a native Claude/Codex generated plugin that only has `.claude-plugin/plugin.json` or `.codex-plugin/plugin.json`, Skillset synthesizes a minimal source `skillset.yaml` from the native manifest while preserving the native manifest files as imported context. Import does not install, trust, symlink, publish, mutate registries, or change user-level Claude/Codex config.
 
 Import is a safe bridge, not a lossy copier. It returns a report — printed by the CLI — summarizing the copied files, the source fields it recognized, target-native fields preserved verbatim (e.g. Claude `allowed-tools`, `disable-model-invocation`), unrecognized fields kept as-is, warnings, and the next checks to run (`skillset lint`, `build`, `check`). Target-native and unknown frontmatter is preserved rather than dropped, so nothing is silently lost; the warnings point you at fields worth moving to a portable source key or a `claude`/`codex` block. Import never overwrites an existing source — remove it or import under a different `--name`.
 

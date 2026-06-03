@@ -540,3 +540,55 @@ Verification after polish:
 
 Forbidden-action audit unchanged: no publish/install/trust/symlink/user-config
 mutation/remote/push/PR/merge.
+
+## Import Inference Polish - 2026-06-03
+
+Matt asked to implement the import behavior discussed after the global
+`.agents/skills`, `.claude/skills`, and `.codex/skills` review.
+
+Implemented:
+
+- `skillset import <path>` now infers `skill`, `skills`, `plugin`, or `plugins`
+  from the filesystem.
+- `--kind skill|skills|plugin|plugins` is supported, with `--kind skills` as
+  the plural root for directories whose children are skill directories.
+- Compatibility forms `skillset import skill <path>` and
+  `skillset import plugin <path>` still work.
+- Provider shortcuts `skillset import claude`, `skillset import codex`, and
+  `skillset import agents` map to `~/.claude/skills`, `~/.codex/skills`, and
+  `~/.agents/skills` respectively. `--from` is accepted as an explicit provider
+  hint.
+- Passing a `SKILL.md` path imports the full containing skill directory rather
+  than only `SKILL.md`, preserving sibling `references/`, `scripts/`, `assets/`,
+  `.codex/`, and other sidecars.
+- Skills-root imports follow symlinked skill directories and de-dupe by
+  realpath; unresolved/broken entries are skipped during discovery.
+- Plugin-root imports can read native generated plugin directories with
+  `.claude-plugin/plugin.json` or `.codex-plugin/plugin.json`. When no source
+  config exists, import synthesizes a minimal source `skillset.yaml` from the
+  native manifest while preserving the native manifest as imported context.
+- README, layout docs, and the self-hosted `use-skillset` source skill were
+  updated; generated Claude/Codex plugin outputs and `.skillset.lock` files were
+  rebuilt from source.
+
+Tests added:
+
+- full skill-directory copy when importing a `SKILL.md` path;
+- inferred `skills` root import plus symlink de-dupe;
+- inferred plugin repository import plus synthesized source config for native
+  plugin manifests;
+- CLI smoke for `skillset import <path> --kind skills`.
+
+Verification before final handoff:
+
+- `bun run skillset:build` - wrote 15 generated files.
+- `bun run typecheck` - clean.
+- `bun test src/__tests__/contract.test.ts src/__tests__/skillset.test.ts` - 84
+  pass / 0 fail.
+- `bun run check` - typecheck, 96 tests / 0 fail, `skillset:lint`,
+  `skillset:check` (15 generated files), and `git diff --check` green.
+
+Forbidden-action audit unchanged: no publish, install, trust, symlink,
+user-level Claude/Codex config mutation, registry mutation, remote add, push,
+PR, merge, legacy import, Obsidian import, or global migration. The adjacent
+`agents` repo was not modified in this slice.

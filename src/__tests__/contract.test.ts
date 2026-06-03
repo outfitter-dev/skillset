@@ -1,4 +1,4 @@
-import { chmod, mkdtemp, readdir, readFile } from "node:fs/promises";
+import { chmod, mkdtemp, readdir, readFile, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -6,7 +6,7 @@ import { expect, test } from "bun:test";
 
 import { buildSkillset, diffSkillset } from "../build";
 import { doctorSkillset, explainPath } from "../authoring";
-import { importSource } from "../import";
+import { importSource, importSources } from "../import";
 import { lintSkillset } from "../lint";
 import { loadBuildGraph } from "../resolver";
 
@@ -707,6 +707,50 @@ test("SET-10: skill import reports copied files and classifies frontmatter", asy
   expect(copied).toContain("frobnicate: maybe");
 });
 
+test("SET-10: importing a SKILL.md path copies the full skill directory", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
+  const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));
+  await Bun.write(
+    join(external, "full-skill/SKILL.md"),
+    "---\nname: full-skill\ndescription: Full skill.\n---\n\nSee references/notes.md.\n"
+  );
+  await Bun.write(join(external, "full-skill/references/notes.md"), "Imported reference.\n");
+  await Bun.write(join(external, "full-skill/scripts/run.sh"), "#!/usr/bin/env bash\n");
+
+  const report = await importSource({
+    kind: "skill",
+    rootPath: root,
+    sourcePath: join(external, "full-skill/SKILL.md"),
+  });
+
+  expect(report.name).toBe("full-skill");
+  expect(report.copiedFiles).toContain("SKILL.md");
+  expect(report.copiedFiles).toContain(join("references", "notes.md"));
+  expect(report.copiedFiles).toContain(join("scripts", "run.sh"));
+  expect(await Bun.file(join(root, ".skillset/skills/full-skill/references/notes.md")).exists()).toBe(true);
+});
+
+test("SET-10: inferred skills-root import copies each skill and dedupes symlinked directories", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
+  const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));
+  await Bun.write(join(external, "skills/other/SKILL.md"), "---\nname: other\ndescription: Other.\n---\n\nOther.\n");
+  await Bun.write(
+    join(external, "skills/shared/SKILL.md"),
+    "---\nname: shared\ndescription: Shared.\n---\n\nShared.\n"
+  );
+  await symlink(join(external, "skills/shared"), join(external, "skills/shared-alias"), "dir");
+
+  const report = await importSources({
+    rootPath: root,
+    sourcePath: join(external, "skills"),
+  });
+
+  expect(report.kind).toBe("skills");
+  expect(report.imports.map((entry) => entry.name).sort()).toEqual(["other", "shared"]);
+  expect(await Bun.file(join(root, ".skillset/skills/other/SKILL.md")).exists()).toBe(true);
+  expect(await Bun.file(join(root, ".skillset/skills/shared/SKILL.md")).exists()).toBe(true);
+});
+
 test("SET-10: plugin import reports the config and copied files", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
   const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));
@@ -731,6 +775,35 @@ test("SET-10: plugin import reports the config and copied files", async () => {
   expect(report.copiedFiles).toContain(join("skills", "demo", "SKILL.md"));
   expect(report.inferredSourceFields).toEqual(expect.arrayContaining(["claude", "codex", "skillset"]));
   expect(report.unsupportedFields).toEqual([]);
+});
+
+test("SET-10: inferred plugin-root import writes source config for native plugin manifests", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
+  const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));
+  await Bun.write(join(root, ".skillset/config.yaml"), "skillset:\n  name: import-root\n");
+  await Bun.write(
+    join(external, "plugins/widget/.claude-plugin/plugin.json"),
+    JSON.stringify({ name: "Widget", version: "0.8.0", description: "Native widget plugin." })
+  );
+  await Bun.write(
+    join(external, "plugins/widget/skills/demo/SKILL.md"),
+    "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n"
+  );
+
+  const report = await importSources({
+    rootPath: root,
+    sourcePath: external,
+  });
+
+  expect(report.kind).toBe("plugins");
+  expect(report.imports).toHaveLength(1);
+  expect(report.imports[0]?.name).toBe("widget");
+  const config = await readFile(join(root, ".skillset/plugins/widget/skillset.yaml"), "utf8");
+  expect(config).toContain("name: widget");
+  expect(config).toContain("version: 0.8.0");
+  expect(config).toContain("description: Native widget plugin.");
+  expect(await Bun.file(join(root, ".skillset/plugins/widget/.claude-plugin/plugin.json")).exists()).toBe(true);
+  expect((await loadBuildGraph(root)).plugins[0]?.id).toBe("widget");
 });
 
 test("SET-10: import never overwrites an existing source", async () => {

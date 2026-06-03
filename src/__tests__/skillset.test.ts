@@ -2064,6 +2064,39 @@ Imported body.
   expect(await exists(join(root, ".skillset/skills/cli-imported/SKILL.md"))).toBe(true);
 });
 
+test("import command infers paths and accepts --kind skills", async () => {
+  const root = await fixture({
+    "external-skills/first/SKILL.md": `
+---
+name: first
+description: First skill.
+---
+
+First body.
+`,
+    "external-skills/second/SKILL.md": `
+---
+name: second
+description: Second skill.
+---
+
+Second body.
+`,
+  });
+
+  const proc = Bun.spawn(
+    ["bun", join(import.meta.dir, "../cli.ts"), "import", join(root, "external-skills"), "--kind", "skills", "--root", root],
+    { stderr: "pipe", stdout: "pipe" }
+  );
+  const exitCode = await proc.exited;
+  const stderr = await new Response(proc.stderr).text();
+
+  expect(stderr).toBe("");
+  expect(exitCode).toBe(0);
+  expect(await exists(join(root, ".skillset/skills/first/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, ".skillset/skills/second/SKILL.md"))).toBe(true);
+});
+
 test("import refuses to overwrite existing source", async () => {
   const root = await fixture({
     ".skillset/skills/imported-skill/SKILL.md": `

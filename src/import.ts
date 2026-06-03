@@ -1,14 +1,17 @@
-import { mkdir, mkdtemp, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 
 import { readSkillsetMetadata, readSkillsetName, readString } from "./config";
 import { compareStrings, resolveInside, validateSlug } from "./path";
 import type { JsonRecord } from "./types";
-import { parseMarkdown, parseYamlRecord } from "./yaml";
+import { isJsonRecord, parseMarkdown, parseYamlRecord, stringifyYaml } from "./yaml";
 
 const DEFAULT_SOURCE_DIR = ".skillset";
 
-export type ImportKind = "plugin" | "skill";
+export type ImportKind = "plugin" | "plugins" | "skill" | "skills";
+export type ImportProvider = "agents" | "claude" | "codex" | "skillset";
+type SingularImportKind = "plugin" | "skill";
 
 /**
  * Frontmatter keys Skillset understands as portable source. Present keys are
@@ -50,18 +53,27 @@ const KNOWN_TARGET_NATIVE_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 export interface ImportOptions {
-  readonly kind: ImportKind;
+  readonly kind: SingularImportKind;
   readonly name?: string;
   readonly rootPath: string;
   readonly sourceDir?: string;
   readonly sourcePath: string;
 }
 
+export interface ImportSourcesOptions {
+  readonly kind?: ImportKind;
+  readonly name?: string;
+  readonly provider?: ImportProvider;
+  readonly rootPath: string;
+  readonly sourceDir?: string;
+  readonly sourcePath?: string;
+}
+
 export interface ImportReport {
   readonly copiedFiles: readonly string[];
   readonly files: number;
   readonly inferredSourceFields: readonly string[];
-  readonly kind: ImportKind;
+  readonly kind: SingularImportKind;
   readonly name: string;
   readonly nextChecks: readonly string[];
   readonly preservedTargetNativeFields: readonly string[];
@@ -70,8 +82,47 @@ export interface ImportReport {
   readonly warnings: readonly string[];
 }
 
+export interface ImportBatchReport {
+  readonly files: number;
+  readonly imports: readonly ImportReport[];
+  readonly kind: ImportKind;
+  readonly provider?: ImportProvider;
+  readonly sourcePath: string;
+  readonly warnings: readonly string[];
+}
+
 /** Back-compat alias; importSource now returns the richer {@link ImportReport}. */
 export type ImportResult = ImportReport;
+
+export async function importSources(options: ImportSourcesOptions): Promise<ImportBatchReport> {
+  const sourcePath = resolveImportSourcePath(options);
+  const plan = await planImports(sourcePath, options.kind);
+  if (options.name !== undefined && plan.items.length !== 1) {
+    throw new Error("skillset: --name can only be used when importing one skill or plugin");
+  }
+
+  const imports: ImportReport[] = [];
+  for (const item of plan.items) {
+    imports.push(
+      await importSource({
+        kind: item.kind,
+        rootPath: options.rootPath,
+        sourcePath: item.sourcePath,
+        ...(options.name === undefined ? {} : { name: options.name }),
+        ...(options.sourceDir === undefined ? {} : { sourceDir: options.sourceDir }),
+      })
+    );
+  }
+
+  return {
+    files: imports.reduce((total, report) => total + report.files, 0),
+    imports,
+    kind: plan.kind,
+    ...(options.provider === undefined ? {} : { provider: options.provider }),
+    sourcePath,
+    warnings: plan.warnings,
+  };
+}
 
 export async function importSource(options: ImportOptions): Promise<ImportReport> {
   const sourcePath = resolve(options.sourcePath);
@@ -95,7 +146,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
   let committed = false;
 
   try {
-    const copiedFiles = await copyImportSource(sourcePath, stagingPath, options.kind);
+    const copiedFiles = await copyImportSource(sourcePath, stagingPath, options.kind, name);
     const frontmatter = await readImportedFrontmatter(stagingPath, options.kind);
     const classification = classifyFrontmatter(frontmatter);
 
@@ -169,7 +220,7 @@ function importWarnings(classification: FrontmatterClassification): readonly str
   return warnings;
 }
 
-async function readImportedFrontmatter(targetPath: string, kind: ImportKind): Promise<JsonRecord> {
+async function readImportedFrontmatter(targetPath: string, kind: SingularImportKind): Promise<JsonRecord> {
   if (kind === "skill") {
     const skillFile = join(targetPath, "SKILL.md");
     if (!(await exists(skillFile))) return {};
@@ -209,29 +260,34 @@ async function resolveImportName(sourcePath: string, options: ImportOptions): Pr
 async function copyImportSource(
   sourcePath: string,
   targetPath: string,
-  kind: ImportKind
+  kind: SingularImportKind,
+  name: string
 ): Promise<readonly string[]> {
   const stats = await stat(sourcePath);
   if (stats.isFile()) {
     if (kind !== "skill" || basename(sourcePath) !== "SKILL.md") {
       throw new Error("skillset: importing a file is only supported for skill SKILL.md files");
     }
-    await writeFile(join(targetPath, "SKILL.md"), await readFile(sourcePath));
-    return ["SKILL.md"];
   }
 
+  const copyRoot = stats.isFile() ? dirname(sourcePath) : sourcePath;
   const copied: string[] = [];
-  for (const file of await collectFiles(sourcePath)) {
-    const relativePath = relativeImportPath(sourcePath, file, kind);
+  for (const file of await collectFiles(copyRoot)) {
+    const relativePath = relativeImportPath(copyRoot, file, kind);
     await mkdir(dirname(join(targetPath, relativePath)), { recursive: true });
     await writeFile(join(targetPath, relativePath), await readFile(file));
     copied.push(relativePath);
   }
 
+  if (kind === "plugin" && !(await exists(join(targetPath, "skillset.yaml")))) {
+    await writeImportedPluginConfig(targetPath, name);
+    copied.push("skillset.yaml");
+  }
+
   return copied.sort(compareStrings);
 }
 
-function relativeImportPath(sourceRoot: string, file: string, kind: ImportKind): string {
+function relativeImportPath(sourceRoot: string, file: string, kind: SingularImportKind): string {
   const relativePath = file.slice(sourceRoot.length + 1);
   if (kind === "plugin" && (relativePath === "skillset.yaml" || relativePath === "config.yaml")) {
     return "skillset.yaml";
@@ -265,6 +321,179 @@ async function collectFiles(root: string): Promise<readonly string[]> {
     }
   }
   return files;
+}
+
+interface ImportPlan {
+  readonly items: readonly ImportPlanItem[];
+  readonly kind: ImportKind;
+  readonly warnings: readonly string[];
+}
+
+interface ImportPlanItem {
+  readonly kind: SingularImportKind;
+  readonly sourcePath: string;
+}
+
+function resolveImportSourcePath(options: ImportSourcesOptions): string {
+  if (options.sourcePath !== undefined) return resolve(options.sourcePath);
+  if (options.provider !== undefined) return defaultProviderSkillRoot(options.provider);
+  throw new Error("skillset: expected import path");
+}
+
+function defaultProviderSkillRoot(provider: ImportProvider): string {
+  const home = homedir();
+  if (provider === "agents") return join(home, ".agents", "skills");
+  if (provider === "claude") return join(home, ".claude", "skills");
+  if (provider === "codex") return join(home, ".codex", "skills");
+  return join(home, ".skillset");
+}
+
+async function planImports(sourcePath: string, requestedKind: ImportKind | undefined): Promise<ImportPlan> {
+  if (requestedKind === "skill") {
+    if (!(await isSkillSource(sourcePath))) {
+      throw new Error(`skillset: expected a skill directory or SKILL.md file: ${sourcePath}`);
+    }
+    return { items: [{ kind: "skill", sourcePath }], kind: "skill", warnings: [] };
+  }
+
+  if (requestedKind === "plugin") {
+    if (!(await isPluginSource(sourcePath))) {
+      throw new Error(`skillset: expected a plugin directory: ${sourcePath}`);
+    }
+    return { items: [{ kind: "plugin", sourcePath }], kind: "plugin", warnings: [] };
+  }
+
+  if (requestedKind === "skills") {
+    const items = await skillChildren(sourcePath);
+    if (items.length === 0) {
+      throw new Error(`skillset: expected a skills root with child skill directories: ${sourcePath}`);
+    }
+    return { items, kind: "skills", warnings: [] };
+  }
+
+  if (requestedKind === "plugins") {
+    const items = await pluginChildren(sourcePath);
+    if (items.length === 0) {
+      throw new Error(`skillset: expected a plugins root with child plugin directories: ${sourcePath}`);
+    }
+    return { items, kind: "plugins", warnings: [] };
+  }
+
+  if (await isSkillSource(sourcePath)) {
+    return { items: [{ kind: "skill", sourcePath }], kind: "skill", warnings: [] };
+  }
+  if (await isPluginSource(sourcePath)) {
+    return { items: [{ kind: "plugin", sourcePath }], kind: "plugin", warnings: [] };
+  }
+
+  const skills = await skillChildren(sourcePath);
+  const plugins = await pluginChildren(sourcePath);
+  if (skills.length > 0 && plugins.length === 0) {
+    return { items: skills, kind: "skills", warnings: [] };
+  }
+  if (plugins.length > 0 && skills.length === 0) {
+    return { items: plugins, kind: "plugins", warnings: [] };
+  }
+  if (skills.length > 0 && plugins.length > 0) {
+    throw new Error(
+      `skillset: import source is ambiguous; found ${skills.length} skill(s) and ${plugins.length} plugin(s). ` +
+        "Use --kind skills or --kind plugins."
+    );
+  }
+
+  throw new Error(
+    `skillset: could not infer import kind for ${sourcePath}. ` +
+      "Use --kind skill, --kind skills, --kind plugin, or --kind plugins."
+  );
+}
+
+async function isSkillSource(sourcePath: string): Promise<boolean> {
+  if (!(await exists(sourcePath))) return false;
+  const stats = await stat(sourcePath);
+  if (stats.isFile()) return basename(sourcePath) === "SKILL.md";
+  if (!stats.isDirectory()) return false;
+  return exists(join(sourcePath, "SKILL.md"));
+}
+
+async function isPluginSource(sourcePath: string): Promise<boolean> {
+  if (!(await exists(sourcePath))) return false;
+  const stats = await stat(sourcePath);
+  if (!stats.isDirectory()) return false;
+  return (
+    (await exists(join(sourcePath, "skillset.yaml"))) ||
+    (await exists(join(sourcePath, "config.yaml"))) ||
+    (await exists(join(sourcePath, ".claude-plugin", "plugin.json"))) ||
+    (await exists(join(sourcePath, ".codex-plugin", "plugin.json")))
+  );
+}
+
+async function skillChildren(sourcePath: string): Promise<readonly ImportPlanItem[]> {
+  return importChildren(sourcePath, "skill", async (path) => isSkillSource(path));
+}
+
+async function pluginChildren(sourcePath: string): Promise<readonly ImportPlanItem[]> {
+  const pluginRoot = (await exists(join(sourcePath, "plugins"))) ? join(sourcePath, "plugins") : sourcePath;
+  return importChildren(pluginRoot, "plugin", async (path) => isPluginSource(path));
+}
+
+async function importChildren(
+  sourcePath: string,
+  kind: SingularImportKind,
+  predicate: (path: string) => Promise<boolean>
+): Promise<readonly ImportPlanItem[]> {
+  if (!(await exists(sourcePath))) return [];
+  const stats = await stat(sourcePath);
+  if (!stats.isDirectory()) return [];
+
+  const entries = await readdir(sourcePath, { withFileTypes: true });
+  const seen = new Set<string>();
+  const items: ImportPlanItem[] = [];
+  for (const entry of entries.sort((left, right) => compareStrings(left.name, right.name))) {
+    if (entry.name === ".DS_Store") continue;
+    const candidate = join(sourcePath, entry.name);
+    if (!(await exists(candidate))) continue;
+    const candidateStats = await stat(candidate);
+    if (!candidateStats.isDirectory()) continue;
+    if (!(await predicate(candidate))) continue;
+
+    const realCandidate = await realpath(candidate);
+    if (seen.has(realCandidate)) continue;
+    seen.add(realCandidate);
+    items.push({ kind, sourcePath: candidate });
+  }
+
+  return items;
+}
+
+async function writeImportedPluginConfig(
+  targetPath: string,
+  name: string
+): Promise<void> {
+  const nativeManifest = await readNativePluginManifest(targetPath);
+  const metadata: JsonRecord = {
+    name,
+    description: readString(nativeManifest, "description"),
+    version: readString(nativeManifest, "version"),
+  };
+  await writeFile(
+    join(targetPath, "skillset.yaml"),
+    stringifyYaml({
+      skillset: metadata,
+    })
+  );
+}
+
+async function readNativePluginManifest(targetPath: string): Promise<JsonRecord> {
+  for (const file of [".claude-plugin/plugin.json", ".codex-plugin/plugin.json"]) {
+    const candidate = join(targetPath, file);
+    if (!(await exists(candidate))) continue;
+    const parsed = JSON.parse(await readFile(candidate, "utf8")) as unknown;
+    if (!isJsonRecord(parsed)) {
+      throw new Error(`skillset: expected native plugin manifest ${candidate} to contain a JSON object`);
+    }
+    return parsed;
+  }
+  return {};
 }
 
 async function exists(path: string): Promise<boolean> {

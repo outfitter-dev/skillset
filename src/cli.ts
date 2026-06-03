@@ -4,14 +4,14 @@ import { resolve } from "node:path";
 
 import { doctorSkillset, explainPath } from "./authoring";
 import { buildSkillset, checkSkillset, diffSkillset } from "./build";
-import { importSource, type ImportKind } from "./import";
+import { importSources, type ImportKind, type ImportProvider, type ImportReport } from "./import";
 import { lintSkillset } from "./lint";
 import type { SkillsetOptions } from "./types";
 
 type Command = "build" | "check" | "diff" | "doctor" | "explain" | "import" | "lint";
 
 async function main(): Promise<void> {
-  const { command, importKind, importPath, importName, options, rootPath } = parseArgs(process.argv.slice(2));
+  const { command, importKind, importPath, importName, importProvider, options, rootPath } = parseArgs(process.argv.slice(2));
 
   if (command === "build") {
     const rendered = await buildSkillset(rootPath, options);
@@ -26,31 +26,25 @@ async function main(): Promise<void> {
   }
 
   if (command === "import") {
-    if (importKind === undefined || importPath === undefined) {
-      throw new Error("skillset: expected import kind and path");
-    }
-    const result = await importSource({
-      kind: importKind,
-      rootPath,
-      sourcePath: importPath,
+    const result = await importSources({
+      ...(importKind === undefined ? {} : { kind: importKind }),
       ...(importName === undefined ? {} : { name: importName }),
+      ...(importPath === undefined ? {} : { sourcePath: importPath }),
+      ...(importProvider === undefined ? {} : { provider: importProvider }),
+      rootPath,
       ...(options.sourceDir === undefined ? {} : { sourceDir: options.sourceDir }),
     });
-    console.log(`skillset: imported ${importKind} ${result.name} (${result.files} files)`);
-    console.log(`  target: ${result.targetPath}`);
-    if (result.inferredSourceFields.length > 0) {
-      console.log(`  source fields: ${result.inferredSourceFields.join(", ")}`);
+    if (result.imports.length === 1) {
+      const [single] = result.imports;
+      if (single !== undefined) printImportReport(single);
+    } else {
+      console.log(`skillset: imported ${result.imports.length} ${result.kind} (${result.files} files)`);
+      console.log(`  source: ${result.sourcePath}`);
+      for (const imported of result.imports) {
+        console.log(`  - ${imported.kind} ${imported.name}: ${imported.targetPath} (${imported.files} files)`);
+      }
     }
-    if (result.preservedTargetNativeFields.length > 0) {
-      console.log(`  preserved target-native: ${result.preservedTargetNativeFields.join(", ")}`);
-    }
-    if (result.unsupportedFields.length > 0) {
-      console.log(`  unsupported (kept verbatim): ${result.unsupportedFields.join(", ")}`);
-    }
-    for (const warning of result.warnings) {
-      console.warn(`  warning: ${warning}`);
-    }
-    console.log(`  next: ${result.nextChecks.join(", ")}`);
+    for (const warning of result.warnings) console.warn(`  warning: ${warning}`);
     return;
   }
 
@@ -127,8 +121,27 @@ interface ParsedArgs {
   readonly importKind?: ImportKind;
   readonly importName?: string;
   readonly importPath?: string;
+  readonly importProvider?: ImportProvider;
   readonly options: SkillsetOptions;
   readonly rootPath: string;
+}
+
+function printImportReport(result: ImportReport): void {
+  console.log(`skillset: imported ${result.kind} ${result.name} (${result.files} files)`);
+  console.log(`  target: ${result.targetPath}`);
+  if (result.inferredSourceFields.length > 0) {
+    console.log(`  source fields: ${result.inferredSourceFields.join(", ")}`);
+  }
+  if (result.preservedTargetNativeFields.length > 0) {
+    console.log(`  preserved target-native: ${result.preservedTargetNativeFields.join(", ")}`);
+  }
+  if (result.unsupportedFields.length > 0) {
+    console.log(`  unsupported (kept verbatim): ${result.unsupportedFields.join(", ")}`);
+  }
+  for (const warning of result.warnings) {
+    console.warn(`  warning: ${warning}`);
+  }
+  console.log(`  next: ${result.nextChecks.join(", ")}`);
 }
 
 function parseArgs(args: readonly string[]): ParsedArgs {
@@ -146,30 +159,45 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       "skillset: expected command build, check, diff, doctor, explain, import, or lint\n" +
         "usage: skillset <build|check|diff|doctor|lint> [--root <path>] [--source <dir>] [--dist <dir>]\n" +
         "       skillset explain <path> [--root <path>] [--source <dir>]\n" +
-        "       skillset import <skill|plugin> <path> [--name <name>] [--root <path>] [--source <dir>]"
+        "       skillset import [skill|skills|plugin|plugins] <path> [--kind <kind>] [--from <provider>] [--name <name>] [--root <path>] [--source <dir>]\n" +
+        "       skillset import <claude|codex|agents> [--root <path>] [--source <dir>]"
     );
   }
 
   let importKind: ImportKind | undefined;
   let importName: string | undefined;
   let importPath: string | undefined;
+  let importProvider: ImportProvider | undefined;
   let rootPath = process.cwd();
   let sourceDir: string | undefined;
   let distDir: string | undefined;
   let index = 1;
 
   if (command === "import") {
-    const rawKind = args[index];
-    if (rawKind !== "plugin" && rawKind !== "skill") {
-      throw new Error("skillset: expected import kind skill or plugin");
+    const first = args[index];
+    if (first !== undefined && !first.startsWith("--")) {
+      if (isImportKind(first)) {
+        importKind = first;
+        const rawPath = args[index + 1];
+        if (rawPath === undefined || rawPath.startsWith("--")) {
+          throw new Error("skillset: expected import path");
+        }
+        importPath = rawPath;
+        index += 2;
+      } else if (isImportProvider(first)) {
+        importProvider = first;
+        const rawPath = args[index + 1];
+        if (rawPath !== undefined && !rawPath.startsWith("--")) {
+          importPath = rawPath;
+          index += 2;
+        } else {
+          index += 1;
+        }
+      } else {
+        importPath = first;
+        index += 1;
+      }
     }
-    importKind = rawKind;
-    const rawPath = args[index + 1];
-    if (rawPath === undefined || rawPath.startsWith("--")) {
-      throw new Error("skillset: expected import path");
-    }
-    importPath = rawPath;
-    index += 2;
   }
 
   if (command === "explain") {
@@ -187,7 +215,14 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     const equalsIndex = arg.indexOf("=");
     const flag = equalsIndex === -1 ? arg : arg.slice(0, equalsIndex);
     const inlineValue = equalsIndex === -1 ? undefined : arg.slice(equalsIndex + 1);
-    if (flag !== "--root" && flag !== "--source" && flag !== "--dist" && flag !== "--name") {
+    if (
+      flag !== "--root" &&
+      flag !== "--source" &&
+      flag !== "--dist" &&
+      flag !== "--name" &&
+      flag !== "--kind" &&
+      flag !== "--from"
+    ) {
       throw new Error(`skillset: unknown option ${arg}`);
     }
 
@@ -201,6 +236,21 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     if (flag === "--source") sourceDir = value;
     if (flag === "--dist") distDir = value;
     if (flag === "--name") importName = value;
+    if (flag === "--kind") {
+      if (!isImportKind(value)) {
+        throw new Error("skillset: expected --kind skill, skills, plugin, or plugins");
+      }
+      if (importKind !== undefined && importKind !== value) {
+        throw new Error(`skillset: conflicting import kinds ${importKind} and ${value}`);
+      }
+      importKind = value;
+    }
+    if (flag === "--from") {
+      if (!isImportProvider(value)) {
+        throw new Error("skillset: expected --from claude, codex, agents, or skillset");
+      }
+      importProvider = value;
+    }
   }
 
   const options: SkillsetOptions = {
@@ -213,9 +263,18 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(importKind === undefined ? {} : { importKind }),
     ...(importName === undefined ? {} : { importName }),
     ...(importPath === undefined ? {} : { importPath }),
+    ...(importProvider === undefined ? {} : { importProvider }),
     options,
     rootPath: resolve(rootPath),
   };
+}
+
+function isImportKind(value: string): value is ImportKind {
+  return value === "skill" || value === "skills" || value === "plugin" || value === "plugins";
+}
+
+function isImportProvider(value: string): value is ImportProvider {
+  return value === "agents" || value === "claude" || value === "codex" || value === "skillset";
 }
 
 main().catch((error: unknown) => {
