@@ -3,7 +3,7 @@
 ## Primary Audit Evidence
 
 - Claude audit run:
-  `/Users/mg/.claude/projects/-Users-mg-Developer-galligan-skillset/2b6f6349-137b-4005-99fc-da3f9e8493c7.jsonl`
+  `/path/to/claude-transcript.jsonl`
 - Crew summary from run `2b6f6349`:
   - result: direction sound, no P0s, one P1, several P2s;
   - top priority: kitchen-sink fixture before adding more surface area;
@@ -11,10 +11,10 @@
 
 ## Local Repo Guidance
 
-- `/Users/mg/Developer/galligan/skillset/AGENTS.md`
-- `/Users/mg/Developer/galligan/skillset/README.md`
-- `/Users/mg/Developer/galligan/skillset/docs/layout.md`
-- `/Users/mg/Developer/galligan/skillset/package.json`
+- `/path/to/skillset/AGENTS.md`
+- `/path/to/skillset/README.md`
+- `/path/to/skillset/docs/layout.md`
+- `/path/to/skillset/package.json`
 
 ## Audit Findings To Address
 
@@ -97,19 +97,19 @@ Live docs checked on 2026-06-03 for closeout:
 
 Local snapshots from the audit:
 
-- `/Users/mg/patch/research/library/agent-skills/specification.md`
-- `/Users/mg/patch/research/library/claude-code/skills.md`
-- `/Users/mg/patch/research/library/claude-code/plugins-reference.md`
-- `/Users/mg/patch/research/library/claude-code/plugin-marketplaces.md`
-- `/Users/mg/patch/research/library/codex/skills.md`
-- `/Users/mg/patch/research/library/codex/guides--agents-md.md`
-- `/Users/mg/patch/research/library/codex/rules.md`
-- `/Users/mg/patch/research/library/codex/subagents.md`
-- `/Users/mg/patch/research/library/codex/cli--reference.md`
+- `/path/to/research/library/agent-skills/specification.md`
+- `/path/to/research/library/claude-code/skills.md`
+- `/path/to/research/library/claude-code/plugins-reference.md`
+- `/path/to/research/library/claude-code/plugin-marketplaces.md`
+- `/path/to/research/library/codex/skills.md`
+- `/path/to/research/library/codex/guides--agents-md.md`
+- `/path/to/research/library/codex/rules.md`
+- `/path/to/research/library/codex/subagents.md`
+- `/path/to/research/library/codex/cli--reference.md`
 
 Prior research note:
 
-- `/Users/mg/patch/research/notes/2026-06-01-claude-codex-agent-surface-map.md`
+- `/path/to/research/notes/2026-06-01-claude-codex-agent-surface-map.md`
 
 ## Validation Commands
 
@@ -128,6 +128,6 @@ git diff --check
 - No publish.
 - No install/trust/symlink into global Claude or Codex locations.
 - No user-level Claude/Codex config mutation.
-- No remote add, push, PR, or merge without Matt's approval.
+- No remote add, push, PR, or merge without the maintainer's approval.
 - No legacy GitButler, Obsidian, global-skill, or `agents` migration.
 - No hand-editing generated output as source truth.

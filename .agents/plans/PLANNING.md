@@ -15,7 +15,7 @@ Archive location:
 ## Tracker
 
 Primary tracker:
-Linear PAT project, when Matt assigns or requests tracker work.
+Linear PAT project, when the maintainer assigns or requests tracker work.
 
 Issue hygiene:
 - Do not invent tracker state. If no Linear issue is assigned, record that in
@@ -36,7 +36,7 @@ untracked local branches.
 
 Branch/PR conventions:
 - Prefer a non-main branch for implementation.
-- Do not push, open PRs, or merge unless Matt explicitly asks.
+- Do not push, open PRs, or merge unless the maintainer explicitly asks.
 
 Plan packet commit policy:
 - Commit the packet on the execution branch only when the execution flow calls
@@ -71,7 +71,7 @@ Local review:
   prompt-to-fix text for actionable findings.
 
 Remote review:
-- Not required unless Matt asks for PR or source-control host work.
+- Not required unless explicitly asked for PR or source-control host work.
 - If remote review happens, record latest bot and human review state in
   `RETRO.md`.
 
@@ -101,7 +101,7 @@ Stop or ask before continuing if:
 - The work would require publishing, installing, trusting, symlinking, or
   mutating user-level Claude/Codex configuration.
 - The work would require adding a remote, pushing, opening a PR, or merging
-  without Matt's approval.
+  without the maintainer's approval.
 - Target official docs or local snapshots contradict the packet's target-fidelity
   assumptions.
 - Verification remains broken after a focused retry and the failing surface is

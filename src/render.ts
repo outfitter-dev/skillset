@@ -170,16 +170,16 @@ function renderClaudeMarketplace(graph: BuildGraph): readonly RenderedFile[] {
   const portableMarketplace = readRecord(root, "marketplace") ?? {};
   const marketplace = mergeRecords(
     {
-      name: readString(portableMarketplace, "name") ?? readString(root, "name") ?? readString(root, "id") ?? "galligan",
+      name: readString(portableMarketplace, "name") ?? readString(root, "name") ?? readString(root, "id") ?? "skillset",
       owner,
       metadata: {
         description:
           readString(root, "summary") ??
           readString(root, "description") ??
-          "Source-first skillset plugins by @galligan",
+          "Source-first Skillset plugins",
         version: rootVersion(graph),
         pluginRoot: "./plugins",
-        generatedBy: "galligan/agents skillset compiler",
+        generatedBy: "example content repo skillset compiler",
       },
       plugins,
     },
@@ -305,7 +305,7 @@ function renderCodexInterface(graph: BuildGraph, plugin: SourcePlugin): JsonReco
     developerName:
       readPresentationString(presentation, "developer_name", "developerName") ??
       readString(author, "name") ??
-      "Matt Galligan",
+      "Skillset Maintainers",
     category: readString(presentation, "category") ?? readString(metadata, "category") ?? "Productivity",
     capabilities: [...(capabilities ?? ["Interactive", "Write"])],
     websiteURL: website,

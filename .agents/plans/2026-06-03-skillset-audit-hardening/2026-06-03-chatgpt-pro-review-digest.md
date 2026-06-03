@@ -2,8 +2,8 @@
 
 Date recorded: 2026-06-03
 
-Source provided by Matt:
-`/Users/mg/.codex/attachments/48a26abb-343d-4415-b342-5c87fd0b158d/pasted-text.txt`
+Source provided by the maintainer:
+`/path/to/review-response.txt`
 
 Context:
 
@@ -62,7 +62,7 @@ Initial coordinator read:
 
 - Conceptually strong.
 - This is probably a product-language decision more than a pure code fix.
-- Matt likely needs to decide whether the ergonomics of `rules` are worth the ambiguity.
+- the maintainer likely needs to decide whether the ergonomics of `rules` are worth the ambiguity.
 - If accepted, do it soon while the repo is still young.
 
 ### P0: Portable Tool Policy Over-Promises
@@ -124,7 +124,7 @@ Recommendation:
 
 Initial coordinator read:
 
-- This pushes against Matt's earlier preference for `skillset.name`.
+- This pushes against the maintainer's earlier preference for `skillset.name`.
 - The reviewer argues from Agent Skills and Codex standards.
 - Worth discussing carefully: plugin identity may still want `skillset.name`, while skill identity may be better standard-first.
 
@@ -265,7 +265,7 @@ Likely accept:
 - Add import reports.
 - Add `explain` / `diff` / `doctor` follow-ups.
 
-Needs Matt decision:
+Needs the maintainer decision:
 
 - Whether source directory should actually rename from `.skillset/rules` to `.skillset/instructions`.
 - Whether skill source should prefer top-level `name` over `skillset.name`.
@@ -286,7 +286,7 @@ Potential disagreements / verify before accepting:
 
 - The review labels Codex hook shape/path as P0. It may be a P1 if manifest hook path overrides are truly supported and stable, but it is still probably worth aligning with the documented default.
 - The review recommends top-level skill `name` over `skillset.name`. This conflicts with a prior local preference and may need a split decision: plugin source identity under `skillset.name`, skill source identity standard-first.
-- The review recommends `targets:` in one proposed instruction example, but Skillset has an explicit no-`targets:` design rule. If we adopt `.skillset/instructions`, keep top-level `claude` and `codex` toggles unless Matt reverses that decision.
+- The review recommends `targets:` in one proposed instruction example, but Skillset has an explicit no-`targets:` design rule. If we adopt `.skillset/instructions`, keep top-level `claude` and `codex` toggles unless the maintainer reverses that decision.
 
 ## Immediate Follow-Up Candidate Packet
 
@@ -303,11 +303,11 @@ Possible next implementation packet:
 7. Add Claude plugin pass-through paths.
 8. Update docs and generated outputs.
 
-## Matt Decision Notes
+## Maintainer Decision Notes
 
 Recorded: 2026-06-03
 
-Matt's current decisions from review triage:
+the maintainer's current decisions from review triage:
 
 - Accept canonical Codex hooks direction: use documented Codex hook defaults
   rather than leaning on a manifest override as the main path.
@@ -320,7 +320,7 @@ Matt's current decisions from review triage:
   generated skill's own version can stay clear as simple `metadata.version` (or
   equivalent target-appropriate metadata). Compiler/source provenance can remain
   separate from the output artifact's version.
-- Revisit `skillset.name`: Matt does not see why source would need a machine
+- Revisit `skillset.name`: the maintainer does not see why source would need a machine
   name distinct from the real `name`, especially when directory names already
   identify plugins/skills. This points toward standard-first top-level `name`
   for skills and likely simpler naming semantics for plugins too.
