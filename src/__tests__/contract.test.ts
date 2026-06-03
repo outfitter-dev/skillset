@@ -788,6 +788,34 @@ See the [guide](shared:references/guide.md).
   await expect(lintSkillset(root)).rejects.toThrow("resources: { references: [shared:references/guide.md] }");
 });
 
+test("SET-15: a link to a declared directory-resource child lints clean (no false undeclared)", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: res-root
+claude: true
+codex: false
+`,
+    ".skillset/shared/references/dir/page.md": `
+# Page
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Links a child of a declared directory resource.
+resources:
+  references:
+    - shared:references/dir
+---
+
+See the [page](shared:references/dir/page.md) and the [dir](shared:references/dir).
+`,
+  });
+
+  const result = await lintSkillset(root);
+  expect(result.issues).toEqual([]);
+});
+
 test("SET-15: lint flags a plugin-root script dependency in a skill body", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `

@@ -422,6 +422,11 @@ const PLUGIN_ROOT_PATTERN = /\$\{?(?:CLAUDE_)?PLUGIN_ROOT\}?/;
  * `${CLAUDE_PLUGIN_ROOT}`/`${PLUGIN_ROOT}` reference, or a `../` link escaping
  * the skill directory to a script. Skills should copy scripts skill-local via
  * `resources.scripts` and reference `./scripts/<name>` instead.
+ *
+ * Scope is intentionally link targets only, not all body prose: a markdown link
+ * to a plugin-root script is a real dependency, whereas a prose/code-span mention
+ * of `${CLAUDE_PLUGIN_ROOT}` is often documentation (e.g. a skill that teaches
+ * hook authoring). Scanning all prose would false-positive on those.
  */
 export function findPluginRootScriptLinks(body: string): readonly string[] {
   const offenders = new Set<string>();
