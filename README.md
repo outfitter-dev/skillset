@@ -9,6 +9,12 @@ This repo also self-hosts a small `.skillset/` source tree:
 - standalone internal skills for developing the compiler in Claude and Codex;
 - one generated `skillset` plugin that teaches agents how to use the compiler.
 
+## Docs
+
+- [Skillset Design Tenets](docs/tenets.md): the slow-moving doctrine for source-first loadout authoring and target-native lowering.
+- [Skillset Docs](docs/README.md): the docs map.
+- [Layout](docs/layout.md): the current source layout, output shape, and compiler behavior reference.
+
 ## Usage
 
 From a content repo:
@@ -91,7 +97,7 @@ resources:
 
 `shared:` points at `.skillset/shared/`; `root:` is accepted as an alias. `plugin:` points at `.skillset/plugins/<plugin-name>/shared/` and is valid only for plugin-bound skills. Grouped resources default to skill-local target paths such as `references/common.md`, `scripts/check.sh`, `assets/...`, or `templates/...`; use `from` / `to` when the output path should differ.
 
-Generated Claude and Codex skills receive the copied files beside `SKILL.md`, so links and script references stay skill-root-relative. Markdown links that use declared `shared:` or `plugin:` resource URLs are rewritten to the generated skill-local path; undeclared shared resource links fail the build. Resource mappings cannot write outside the generated skill directory or overwrite `SKILL.md`, generated Codex sidecars, or skill-local files. Resource contents participate in `.skillset.lock` hashes and `skillset check`.
+Generated Claude and Codex skills receive the copied files beside `SKILL.md`, so links and script references stay skill-root-relative. Markdown links that use declared `shared:` or `plugin:` resource URLs are rewritten to the generated skill-local path; undeclared shared resource links fail the build. When a resource uses a custom `to`, a bare (schemeless) link to the resource's source path is ambiguous and fails the build with a diagnostic: link to the emitted target path or use the `shared:`/`plugin:` resource URL instead. Resource mappings cannot write outside the generated skill directory or overwrite `SKILL.md`, generated Codex sidecars, or skill-local files. Resource contents participate in `.skillset.lock` hashes and `skillset check`.
 
 Source `skillset.version` and skill `version` fields must be semantic versions. `skillset check` reports explicit version drift when a generated plugin manifest or skill `metadata.version` is stale.
 
@@ -210,6 +216,8 @@ Generated Codex `AGENTS.md` files are tracked by the root `.skillset.lock`. The 
 Plugin companion directories are target-native. Claude receives `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json`, `assets/`, `scripts/`, and `src/` when those source paths exist. Codex receives `hooks.json`, `.mcp.json`, `.app.json`, `assets/`, `scripts/`, and `src/`; Claude `agents/` is not copied into Codex output. Codex agent output remains an experimental boundary until a validated Codex agent source model is added.
 
 Hook files are emitted as definitions only. `skillset` does not install, trust, or enable hooks in user-level Claude/Codex config. Emitted hook files must be target-native JSON objects: Claude uses `hooks/hooks.json`, while Codex uses root `hooks.json`. The compiler does not auto-lower Claude hooks into Codex hooks.
+
+Hook definitions are checked for target compatibility. Codex hook files must use Codex-supported events — `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PreCompact`, `PostCompact`, `SessionStart`, `SubagentStart`, `SubagentStop`, `UserPromptSubmit`, `Stop` — and synchronous `command` handlers only, because Codex parses but skips prompt handlers, agent handlers, and `async: true` command handlers. Unsupported Codex events or skipped handler forms fail both `skillset build` and `skillset lint`. Claude hook validation stays broad (JSON-object shape) because Claude's hook surface is wider and still evolving.
 
 ## Self-Hosted Outputs
 

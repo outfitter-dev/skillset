@@ -7,6 +7,10 @@ The repo now self-hosts source under `.skillset/`:
 - standalone internal skills for developing `skillset` itself;
 - one generated `skillset` plugin for using the compiler in other source-first repos.
 
+## Doctrine
+
+Read [docs/tenets.md](docs/tenets.md) before changing the source contract, target lowering model, schema vocabulary, or generated-output promises. The tenets are the slow-moving design layer; implementation docs and generated agent guidance should align with them.
+
 ## Responsibilities
 
 - Read portable source from a content repo's `.skillset/` directory.

@@ -125,7 +125,7 @@ resources:
 
 `shared:` resolves under root `.skillset/shared/`; `root:` is a compatibility alias for the same location. `plugin:` resolves under `.skillset/plugins/<plugin-name>/shared/` and is valid only for plugin-bound skills. Group keys choose the default generated folder, so `resources.scripts: [plugin:scripts/check.sh]` emits `scripts/check.sh` beside the generated `SKILL.md`. Use `from` / `to` objects when a resource should land at a different generated path.
 
-Only declared resources are copied. Resource mappings may point at files or directories, but they cannot traverse outside the shared root, write outside the generated skill directory, or overwrite `SKILL.md`, generated Codex sidecars, or skill-local files. Markdown links in `SKILL.md` that target declared `shared:` or `plugin:` resource URLs are rewritten to generated skill-local links; undeclared shared resource links fail the build. Resource contents are included in `.skillset.lock` hashes and stale-output checks.
+Only declared resources are copied. Resource mappings may point at files or directories, but they cannot traverse outside the shared root, write outside the generated skill directory, or overwrite `SKILL.md`, generated Codex sidecars, or skill-local files. Markdown links in `SKILL.md` that target declared `shared:` or `plugin:` resource URLs are rewritten to generated skill-local links; undeclared shared resource links fail the build. When a resource uses a custom `to`, a bare link to its source path fails the build, since that path is no longer where the resource lands; link to the emitted target path or use the resource URL. Resource contents are included in `.skillset.lock` hashes and stale-output checks.
 
 ## Versioning
 
@@ -170,7 +170,7 @@ Rule frontmatter can use top-level `claude` and `codex` target toggles. Set `cod
 
 Some plugin companion paths are target-native rather than portable. Claude output copies `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json`, `assets/`, `scripts/`, and `src/` when present. Codex output copies `hooks.json`, `.mcp.json`, `.app.json`, `assets/`, `scripts/`, and `src/`. Claude `agents/` is not copied into Codex output; Codex agent output remains an experimental boundary until a validated source model exists.
 
-Hooks are generated definitions only. The compiler does not install, trust, or enable hooks in user-level configuration. Hook files must be JSON objects before they are emitted. Claude uses `hooks/hooks.json`; Codex uses root `hooks.json`. The compiler does not auto-lower Claude hooks into Codex hooks.
+Hooks are generated definitions only. The compiler does not install, trust, or enable hooks in user-level configuration. Hook files must be JSON objects before they are emitted. Claude uses `hooks/hooks.json`; Codex uses root `hooks.json`. The compiler does not auto-lower Claude hooks into Codex hooks. Codex hook files are validated against Codex-supported events and synchronous `command` handlers only; prompt handlers, agent handlers, and `async: true` command handlers are parsed but skipped by Codex, so target-incompatible Codex hooks fail `skillset build` and `skillset lint`. Claude hook validation stays broad.
 
 ## Skill Policy
 
