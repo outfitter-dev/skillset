@@ -13,6 +13,7 @@ This repo also self-hosts a small `.skillset/` source tree:
 
 - [Skillset Design Tenets](docs/tenets.md): the slow-moving doctrine for source-first loadout authoring and target-native lowering.
 - [Architecture Decision Records](docs/adrs/README.md): accepted and proposed decisions for source vocabulary, lowering policy, and generated-output promises.
+- [Feature Reference](docs/features/README.md): source feature support, target adapter status, and future-only surfaces.
 - [Skillset Docs](docs/README.md): the docs map.
 - [Layout](docs/layout.md): the current source layout, output shape, and compiler behavior reference.
 
@@ -242,7 +243,7 @@ Generated Codex `AGENTS.md` files are tracked by the root `.skillset.lock`. The 
 
 ## Target-Specific Plugin Surfaces
 
-Plugin companion directories are target-native. Claude receives `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json`, `.lsp.json`, `output-styles/`, `themes/`, `monitors/`, `assets/`, `scripts/`, and `src/` when those source paths exist; the generated manifest declares each with its documented field (`lspServers`, `outputStyles`, `experimental.themes`, `experimental.monitors`). Codex receives `hooks/hooks.json`, `.mcp.json`, `.app.json`, `assets/`, `scripts/`, and `src/`; Claude `agents/` is not copied into Codex output. Codex agent output remains an experimental boundary until a validated Codex agent source model is added. Pass-through paths are copied as opaque content (no schema synthesis). `settings.json` (install-scope user config) and `bin/` (not a documented plugin component) are intentionally not passed through.
+Plugin companion directories are target-native. Claude receives `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json`, `.lsp.json`, `output-styles/`, `themes/`, `monitors/`, `assets/`, `scripts/`, and `src/` when those source paths exist; the generated manifest declares each with its documented field (`lspServers`, `outputStyles`, `experimental.themes`, `experimental.monitors`). Codex receives `hooks/hooks.json`, `.mcp.json`, `.app.json`, `assets/`, `scripts/`, and `src/`; Claude plugin `agents/` is not copied into Codex plugin output. Codex project custom agents are a separate `.codex/agents/*.toml` surface tracked for project-agent lowering. Pass-through paths are copied as opaque content unless a feature owns validation. Claude plugin docs now document root `bin/` and plugin-root `settings.json`; treat both as target-native feature surfaces, not portable defaults. Build still does not install, trust, enable, or mutate user-level Claude/Codex config.
 
 Hook files are emitted as definitions only. `skillset` does not install, trust, or enable hooks in user-level Claude/Codex config. Both targets emit hooks at the documented default `hooks/hooks.json` with a top-level `{ "hooks": { ... } }` object, sourced from a shared `hooks/hooks.json`. A legacy root `hooks.json` is a Codex compatibility source — it still builds (flat event maps are normalized and emitted to `hooks/hooks.json`) but warns. The compiler does not auto-lower Claude hooks into Codex hooks.
 
