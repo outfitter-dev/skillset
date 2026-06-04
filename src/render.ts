@@ -20,7 +20,13 @@ import {
   readCodexToolMetadata,
   readImplicitInvocation,
 } from "./skill-policy";
-import { renderRuleVariables } from "./rule-variables";
+import { preprocessText } from "./preprocess";
+import {
+  renderValidatedJson,
+  renderValidatedMarkdown,
+  renderValidatedYaml,
+  validateGeneratedStructuredOutput,
+} from "./structured-output";
 import type {
   BuildGraph,
   JsonRecord,
@@ -34,9 +40,10 @@ import type {
   TargetName,
 } from "./types";
 import { pluginVersion, rootVersion, skillVersion, skillVersionLabel } from "./versioning";
-import { isJsonRecord, parseYamlRecord, stringifyJson, stringifyMarkdown, stringifyYaml } from "./yaml";
+import { isJsonRecord, parseYamlRecord, stringifyJson } from "./yaml";
 
 const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
 const DEFAULT_CODEX_COLOR = "#B06DFF";
 const COMPILER_ID = "skillset";
 const COMPILER_VERSION = "0.1.0";
@@ -82,7 +89,9 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
 
   rendered.push(...(await renderRules(graph, lockRoots)));
   rendered.push(...renderLockFiles(graph, lockRoots));
-  return rendered.sort((left, right) => compareStrings(left.path, right.path));
+  return rendered
+    .sort((left, right) => compareStrings(left.path, right.path))
+    .map((file) => validateRenderedFile(file));
 }
 
 function shouldRenderPlugin(graph: BuildGraph, plugin: SourcePlugin, target: TargetName): boolean {
@@ -189,7 +198,7 @@ function renderClaudeMarketplace(graph: BuildGraph): readonly RenderedFile[] {
   return [
     textFile(
       `${graph.root.outputs.plugins.claude}/.claude-plugin/marketplace.json`,
-      stringifyJson(marketplace)
+      renderValidatedJson(marketplace, "Claude marketplace")
     ),
   ];
 }
@@ -210,7 +219,11 @@ async function renderPluginTarget(
     target === "claude"
       ? `${basePath}/.claude-plugin/plugin.json`
       : `${basePath}/.codex-plugin/plugin.json`,
-    stringifyJson(renderPluginManifest(graph, plugin, target, enabledSkills))
+    renderValidatedJson(
+      renderPluginManifest(graph, plugin, target, enabledSkills),
+      `${plugin.id} ${target} plugin manifest`
+    ),
+    relative(graph.rootPath, join(plugin.path, "skillset.yaml"))
   );
 
   rendered.push(manifestFile);
@@ -382,6 +395,7 @@ async function renderPluginSkillFiles(
   const targetSkillFile = join(targetSkillDir, "SKILL.md");
   const generatedCodexAgentFile = await renderCodexSkillAgentFile(
     graph,
+    plugin,
     skill,
     target,
     sourceDir,
@@ -402,7 +416,11 @@ async function renderPluginSkillFiles(
   const renderedRelativeFiles = new Set<string>();
   pushSkillRenderedFile(
     rendered,
-    textFile(targetSkillFile, renderSkillMarkdown(graph, plugin, skill, target)),
+    textFile(
+      targetSkillFile,
+      await renderSkillMarkdown(graph, plugin, skill, target),
+      relative(graph.rootPath, skill.sourcePath)
+    ),
     targetSkillDir,
     renderedRelativeFiles,
     `${skill.sourcePath}.SKILL.md`
@@ -473,6 +491,7 @@ async function renderStandaloneSkill(
   const targetSkillFile = join(targetSkillDir, "SKILL.md");
   const generatedCodexAgentFile = await renderCodexSkillAgentFile(
     graph,
+    undefined,
     skill,
     target,
     sourceDir,
@@ -493,7 +512,11 @@ async function renderStandaloneSkill(
   const renderedRelativeFiles = new Set<string>();
   pushSkillRenderedFile(
     rendered,
-    textFile(targetSkillFile, renderSkillMarkdown(graph, undefined, skill, target)),
+    textFile(
+      targetSkillFile,
+      await renderSkillMarkdown(graph, undefined, skill, target),
+      relative(graph.rootPath, skill.sourcePath)
+    ),
     targetSkillDir,
     renderedRelativeFiles,
     `${skill.sourcePath}.SKILL.md`
@@ -595,12 +618,12 @@ function normalizeRenderedRelativePath(path: string): string {
   return path.replaceAll("\\", "/");
 }
 
-function renderSkillMarkdown(
+async function renderSkillMarkdown(
   graph: BuildGraph,
   plugin: SourcePlugin | undefined,
   skill: SourceSkill,
   target: TargetName
-): string {
+): Promise<string> {
   const metadata = skill.metadata;
   const targetOptions = skill.targets[target].options;
   const base = mergeRecords(stripSourceFrontmatter(skill.frontmatter), {
@@ -640,7 +663,18 @@ function renderSkillMarkdown(
       })
     : withTargetFrontmatter;
 
-  return stringifyMarkdown(frontmatter, rewriteResourceLinks(skill.body, skill.resources, skill.sourcePath));
+  const preprocessedBody = await preprocessText(skill.body, {
+    frontmatter: skill.frontmatter,
+    rootPath: graph.rootPath,
+    sourcePath: skill.sourcePath,
+    sourceRoot: graph.sourceDir,
+    ...(plugin === undefined ? {} : { pluginPath: plugin.path }),
+  });
+  return renderValidatedMarkdown(
+    frontmatter,
+    rewriteResourceLinks(preprocessedBody, skill.resources, skill.sourcePath),
+    `${relative(graph.rootPath, skill.sourcePath)} -> ${target}`
+  );
 }
 
 function renderClaudeSkillPolicy(skill: SourceSkill, targetOptions: JsonRecord): JsonRecord {
@@ -669,6 +703,7 @@ function renderClaudeSkillPolicy(skill: SourceSkill, targetOptions: JsonRecord):
 
 async function renderCodexSkillAgentFile(
   graph: BuildGraph,
+  plugin: SourcePlugin | undefined,
   skill: SourceSkill,
   target: TargetName,
   sourceDir: string,
@@ -683,10 +718,23 @@ async function renderCodexSkillAgentFile(
   const sourceOpenAiPath = join(sourceDir, "agents/openai.yaml");
   const hasSourceOpenAi = await exists(sourceOpenAiPath);
   const source = hasSourceOpenAi
-    ? parseYamlRecord(await readFile(sourceOpenAiPath, "utf8"), sourceOpenAiPath)
+    ? parseYamlRecord(
+        await preprocessText(await readFile(sourceOpenAiPath, "utf8"), {
+          frontmatter: skill.frontmatter,
+          rootPath: graph.rootPath,
+          sourcePath: sourceOpenAiPath,
+          sourceRoot: graph.sourceDir,
+          ...(plugin === undefined ? {} : { pluginPath: plugin.path }),
+        }),
+        sourceOpenAiPath
+      )
     : {};
   const merged = mergeRecords(source, generated);
-  return textFile(join(targetSkillDir, "agents/openai.yaml"), stringifyYaml(merged));
+  return textFile(
+    join(targetSkillDir, "agents/openai.yaml"),
+    renderValidatedYaml(merged, `${relative(graph.rootPath, sourceOpenAiPath)} -> ${join(targetSkillDir, "agents/openai.yaml")}`),
+    relative(graph.rootPath, sourceOpenAiPath)
+  );
 }
 
 function renderCodexSkillAgentConfig(skill: SourceSkill, label: string): JsonRecord {
@@ -716,12 +764,13 @@ function renderCodexSkillToolsFile(
 
   return textFile(
     join(targetSkillDir, ".skillset.tools.yaml"),
-    stringifyYaml({
+    renderValidatedYaml({
       generated: GENERATED_BY,
       schema_version: 1,
       target: "codex",
       tools,
-    })
+    }, `${relative(graph.rootPath, skill.sourcePath)} -> ${join(targetSkillDir, ".skillset.tools.yaml")}`),
+    relative(graph.rootPath, skill.sourcePath)
   );
 }
 
@@ -730,20 +779,24 @@ async function renderRules(
   lockRoots: Map<string, LockRoot>
 ): Promise<readonly RenderedFile[]> {
   const rendered: RenderedFile[] = [];
-  rendered.push(...renderClaudeRules(graph, lockRoots));
+  rendered.push(...(await renderClaudeRules(graph, lockRoots)));
   rendered.push(...(await renderCodexAgentsFiles(graph, lockRoots)));
   return rendered;
 }
 
-function renderClaudeRules(
+async function renderClaudeRules(
   graph: BuildGraph,
   lockRoots: Map<string, LockRoot>
-): readonly RenderedFile[] {
+): Promise<readonly RenderedFile[]> {
   const rendered: RenderedFile[] = [];
 
   for (const rule of graph.rules.filter((sourceRule) => sourceRule.targets.claude.enabled)) {
     const targetFile = join(CLAUDE_RULES_OUTPUT_ROOT, rule.relativePath);
-    const file = textFile(targetFile, renderClaudeRuleMarkdown(graph, rule, targetFile));
+    const file = textFile(
+      targetFile,
+      await renderClaudeRuleMarkdown(graph, rule, targetFile),
+      relative(graph.rootPath, rule.sourcePath)
+    );
     rendered.push(file);
     lockRootsFor(lockRoots, CLAUDE_RULES_OUTPUT_ROOT, "claude").items.push(
       lockItemForRule({
@@ -776,7 +829,11 @@ async function renderCodexAgentsFiles(
 
   const rendered: RenderedFile[] = [];
   for (const [destination, rules] of [...destinations.entries()].sort(([left], [right]) => compareStrings(left, right))) {
-    const file = textFile(destination, renderCodexAgentsMarkdown(graph, rules, destination));
+    const file = textFile(
+      destination,
+      await renderCodexAgentsMarkdown(graph, rules, destination),
+      `${graph.sourceDir}/${graph.instructionsDir}`
+    );
     rendered.push(file);
     lockRootsFor(lockRoots, CODEX_RULES_LOCK_ROOT, "workspace").items.push(
       lockItemForRule({
@@ -794,23 +851,25 @@ async function renderCodexAgentsFiles(
   return rendered;
 }
 
-function renderClaudeRuleMarkdown(graph: BuildGraph, rule: SourceRule, outputPath: string): string {
+async function renderClaudeRuleMarkdown(graph: BuildGraph, rule: SourceRule, outputPath: string): Promise<string> {
   const paths = readRulePaths(rule);
   const frontmatter: JsonRecord = paths.length === 0 ? {} : { paths: [...paths] };
-  return stringifyOptionalMarkdown(frontmatter, renderRuleBody(graph, rule, outputPath));
+  return stringifyOptionalMarkdown(frontmatter, await renderRuleBody(graph, rule, outputPath));
 }
 
-function renderCodexAgentsMarkdown(
+async function renderCodexAgentsMarkdown(
   graph: BuildGraph,
   rules: readonly SourceRule[],
   outputPath: string
-): string {
+): Promise<string> {
   // Each concatenated source gets a deterministic boundary comment naming its
   // source instruction path. Comments carry the path only — source-only
   // frontmatter never reaches the generated AGENTS.md. Ordering follows the
   // already-sorted rule list, so concatenation is stable.
   const sections = rules
-    .map((rule) => ({ rule, body: renderRuleBody(graph, rule, outputPath) }))
+    .map(async (rule) => ({ rule, body: await renderRuleBody(graph, rule, outputPath) }));
+  const resolvedSections = await Promise.all(sections);
+  const renderedSections = resolvedSections
     .filter((section) => section.body.length > 0)
     .map(
       (section) =>
@@ -819,7 +878,7 @@ function renderCodexAgentsMarkdown(
   return [
     `<!-- Generated by ${GENERATED_BY} from ${graph.sourceDir}/${graph.instructionsDir}. Do not edit directly. -->`,
     "",
-    sections.join("\n\n"),
+    renderedSections.join("\n\n"),
     "",
   ].join("\n");
 }
@@ -891,19 +950,52 @@ function readNonEmptyRuleString(value: string, label: string): string {
 function stringifyOptionalMarkdown(frontmatter: JsonRecord, body: string): string {
   const normalizedBody = normalizeRuleBody(body);
   if (Object.keys(frontmatter).length === 0) return `${normalizedBody}\n`;
-  return stringifyMarkdown(frontmatter, normalizedBody);
+  return renderValidatedMarkdown(frontmatter, normalizedBody, "generated instruction markdown");
 }
 
-function renderRuleBody(graph: BuildGraph, rule: SourceRule, outputPath: string): string {
-  return renderRuleVariables(normalizeRuleBody(rule.body), {
-    outputPath,
+async function renderRuleBody(graph: BuildGraph, rule: SourceRule, outputPath: string): Promise<string> {
+  return preprocessText(normalizeRuleBody(rule.body), {
+    frontmatter: rule.frontmatter,
     rootPath: graph.rootPath,
     sourcePath: rule.sourcePath,
+    sourceRoot: graph.sourceDir,
+    variables: ruleVariables(graph, rule, outputPath),
   });
+}
+
+function ruleVariables(
+  graph: BuildGraph,
+  rule: SourceRule,
+  outputPath: string
+): Readonly<Record<string, string>> {
+  const outputDir = outputDirectory(outputPath);
+  const sourceRule = relative(graph.rootPath, rule.sourcePath).replaceAll("\\", "/");
+  return {
+    "skillset.output_dir": outputDir,
+    "skillset.repo_root": relativeOutputPath(outputDir, ""),
+    "skillset.source_rule": sourceRule,
+  };
 }
 
 function normalizeRuleBody(body: string): string {
   return body.replaceAll(/\r\n?/g, "\n").replace(/^\n+/, "").trimEnd();
+}
+
+function outputDirectory(outputPath: string): string {
+  const directory = normalizeWorkspacePath(dirname(outputPath));
+  if (directory.length === 0 || directory === ".") return ".";
+  return directory;
+}
+
+function relativeOutputPath(from: string, to: string): string {
+  const normalizedFrom = from === "." ? "" : from;
+  const normalizedTo = to === "." ? "" : to;
+  const path = normalizeWorkspacePath(relative(normalizedFrom, normalizedTo));
+  return path.length === 0 ? "." : path;
+}
+
+function normalizeWorkspacePath(path: string): string {
+  return path.replaceAll("\\", "/").replace(/^\.\//, "");
 }
 
 function normalizePattern(pattern: string): string {
@@ -1026,7 +1118,11 @@ async function renderCodexHookFile(
   await validateHookJson(graph, sourcePath, "codex");
   const parsed = JSON.parse(await readFile(sourcePath, "utf8")) as JsonValue;
   const normalized = isJsonRecord(parsed) && isJsonRecord(parsed.hooks) ? parsed : { hooks: parsed };
-  return textFile(join(basePath, "hooks", "hooks.json"), stringifyJson(normalized));
+  return textFile(
+    join(basePath, "hooks", "hooks.json"),
+    renderValidatedJson(normalized, `${relative(graph.rootPath, sourcePath)} -> ${join(basePath, "hooks", "hooks.json")}`),
+    relative(graph.rootPath, sourcePath)
+  );
 }
 
 async function validateHookJson(
@@ -1085,7 +1181,7 @@ function renderLockFiles(
       sourceRoot: graph.sourceDir,
       target: lock.target,
     };
-    rendered.push(textFile(join(outputRoot, ".skillset.lock"), stringifyJson(value)));
+    rendered.push(textFile(join(outputRoot, ".skillset.lock"), renderValidatedJson(value, `${outputRoot}/.skillset.lock`)));
   }
 
   return rendered;
@@ -1370,8 +1466,21 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-function textFile(path: string, content: string): RenderedFile {
-  return { path, content: textEncoder.encode(content) };
+function validateRenderedFile(file: RenderedFile): RenderedFile {
+  if (file.sourcePath !== undefined || file.path.endsWith(".skillset.lock")) {
+    validateGeneratedStructuredOutput({
+      content: textDecoder.decode(file.content),
+      targetPath: file.path,
+      ...(file.sourcePath === undefined ? {} : { sourcePath: file.sourcePath }),
+    });
+  }
+  return file;
+}
+
+function textFile(path: string, content: string, sourcePath?: string): RenderedFile {
+  return sourcePath === undefined
+    ? { path, content: textEncoder.encode(content) }
+    : { path, content: textEncoder.encode(content), sourcePath };
 }
 
 function titleize(value: string): string {

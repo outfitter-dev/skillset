@@ -38,7 +38,7 @@ Codex `.rules` files are execution policy for shell-command decisions. They are 
 - Reject paths that traverse outside the source island or generated target root.
 - Reject attempts to mirror a target-native island into the wrong target.
 - Refuse unmanaged destination collisions.
-- Validate known structured output after preprocessing, including TOML/JSON/YAML where applicable.
+- Validate known structured output after preprocessing, including TOML/JSON/YAML where applicable. Current generated JSON, YAML, Markdown, TOML utility output, and locks are parser-validated; opaque copied sidecars remain byte-for-byte.
 - Treat instruction-to-`.rules` lowering as lossy and unsupported.
 
 ## Provenance

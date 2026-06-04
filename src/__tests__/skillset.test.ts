@@ -8,6 +8,7 @@ import { buildSkillset, checkSkillset } from "../build";
 import { importSource } from "../import";
 import { lintSkillset } from "../lint";
 import { loadBuildGraph } from "../resolver";
+import { renderValidatedToml } from "../structured-output";
 
 test("resolves target inheritance, booleans, objects, and false opt-out", async () => {
   const root = await fixture({
@@ -786,6 +787,302 @@ Run scripts/check.sh when deterministic checks help.
   await expect(checkSkillset(root)).rejects.toThrow("stale generated file");
 });
 
+test("preprocessing expands this references and partials in skill markdown and Codex YAML", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: true
+`,
+    ".skillset/shared/templates/intro.md": `
+Shared intro for {{this.description}}.
+`,
+    ".skillset/shared/templates/openai.md": `
+YAML prompt for {{this.description}} with "quotes".
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/preprocessed/agents/openai.yaml": `
+notes: "{{this.description}}"
+prompt: |
+  {{> shared:templates/openai.md}}
+`,
+    ".skillset/plugins/alpha/skills/preprocessed/SKILL.md": `
+---
+name: preprocessed
+description: Preprocessed skill.
+implicit_invocation: true
+---
+
+# {{this.description}}
+
+{{> shared:templates/intro.md}}
+`,
+  });
+
+  await buildSkillset(root);
+
+  const claudeSkill = await readFile(
+    join(root, "plugins-claude/plugins/alpha/skills/preprocessed/SKILL.md"),
+    "utf8"
+  );
+  const codexAgent = await readFile(
+    join(root, "plugins-codex/plugins/alpha/skills/preprocessed/agents/openai.yaml"),
+    "utf8"
+  );
+
+  expect(claudeSkill).toContain("# Preprocessed skill.");
+  expect(claudeSkill).toContain("Shared intro for Preprocessed skill.");
+  expect(codexAgent).toContain("notes: Preprocessed skill.");
+  expect(codexAgent).toContain("YAML prompt for Preprocessed skill. with \"quotes\".");
+});
+
+test("preprocessing opt-out preserves literal variables while stripping source controls", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/literal/SKILL.md": `
+---
+name: literal
+description: Literal skill.
+skillset:
+  preprocess: false
+---
+
+Keep {{this.description}} literal.
+`,
+  });
+
+  await buildSkillset(root);
+
+  const skill = await readFile(
+    join(root, "plugins-claude/plugins/alpha/skills/literal/SKILL.md"),
+    "utf8"
+  );
+  expect(skill).toContain("Keep {{this.description}} literal.");
+  expect(skill).not.toContain("preprocess:");
+});
+
+test("preprocessing fails loudly on missing this references", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/bad/SKILL.md": `
+---
+name: bad
+description: Bad skill.
+---
+
+Missing {{this.missing}}.
+`,
+  });
+
+  await expect(buildSkillset(root)).rejects.toThrow("missing this.missing reference");
+});
+
+test("preprocessing rejects partial traversal and plugin partials outside plugins", async () => {
+  const sharedTraversal = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: false
+`,
+    ".skillset/secret.md": `
+secret
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/bad/SKILL.md": `
+---
+name: bad
+description: Bad skill.
+---
+
+{{> shared:../secret.md}}
+`,
+  });
+  await expect(buildSkillset(sharedTraversal)).rejects.toThrow(
+    "must not contain empty, dot, or parent segments"
+  );
+
+  const pluginTraversal = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/secret.md": `
+secret
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/bad/SKILL.md": `
+---
+name: bad
+description: Bad skill.
+---
+
+{{> plugin:../secret.md}}
+`,
+  });
+  await expect(buildSkillset(pluginTraversal)).rejects.toThrow(
+    "must not contain empty, dot, or parent segments"
+  );
+
+  const relativeTraversal = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/secret.md": `
+secret
+`,
+    ".skillset/plugins/alpha/skills/bad/SKILL.md": `
+---
+name: bad
+description: Bad skill.
+---
+
+{{> ../secret.md}}
+`,
+  });
+  await expect(buildSkillset(relativeTraversal)).rejects.toThrow(
+    "must not contain empty, dot, or parent segments"
+  );
+
+  const absolutePartial = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/bad/SKILL.md": `
+---
+name: bad
+description: Bad skill.
+---
+
+{{> /tmp/secret.md}}
+`,
+  });
+  await expect(buildSkillset(absolutePartial)).rejects.toThrow("must be a relative path");
+
+  const standalonePluginPartial = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/bad/SKILL.md": `
+---
+name: bad
+description: Bad skill.
+---
+
+{{> plugin:templates/standalone.md}}
+`,
+  });
+  await expect(buildSkillset(standalonePluginPartial)).rejects.toThrow(
+    "requires a plugin-bound source"
+  );
+});
+
+test("preprocessing expands this references and partials in instruction markdown", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: true
+`,
+    ".skillset/shared/templates/rule.md": `
+Rule partial for {{this.title}}.
+`,
+    ".skillset/instructions/docs/rule.md": `
+---
+title: Docs Rule
+paths:
+  - docs/**/*.md
+---
+
+Use {{this.title}} from {{skillset.source_rule}}.
+
+{{> shared:templates/rule.md}}
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+  });
+
+  await buildSkillset(root);
+
+  const claudeRule = await readFile(join(root, ".claude/rules/docs/rule.md"), "utf8");
+  const codexAgents = await readFile(join(root, "docs/AGENTS.md"), "utf8");
+  expect(claudeRule).toContain("Use Docs Rule from .skillset/instructions/docs/rule.md.");
+  expect(claudeRule).toContain("Rule partial for Docs Rule.");
+  expect(codexAgents).toContain("Use Docs Rule from .skillset/instructions/docs/rule.md.");
+  expect(codexAgents).toContain("Rule partial for Docs Rule.");
+});
+
+test("TOML serializer preserves multiline prompts, quotes, braces, and code fences", () => {
+  const toml = renderValidatedToml(
+    {
+      description: "Agent with \"quotes\" and {{ braces }}.",
+      developer_instructions: "Line one.\n```ts\nconst value = \"quoted\";\n```\nLine two.",
+      initialPrompt: ["First line\nsecond line", "Use {{this.description}} literally."],
+      name: "safe-agent",
+    },
+    "test agent TOML"
+  );
+
+  const parsed = Bun.TOML.parse(toml) as Record<string, unknown>;
+  expect(parsed.name).toBe("safe-agent");
+  expect(parsed.description).toBe("Agent with \"quotes\" and {{ braces }}.");
+  expect(String(parsed.developer_instructions)).toContain("```ts");
+  expect(parsed.initialPrompt).toEqual([
+    "First line\nsecond line",
+    "Use {{this.description}} literally.",
+  ]);
+});
+
 test("shared resource mappings reject unsafe and colliding output paths", async () => {
   const colliding = await fixture({
     ".skillset/config.yaml": `
@@ -1169,7 +1466,7 @@ codex: true
   });
 
   await expect(buildSkillset(root)).rejects.toThrow(
-    "unknown rule variable {{skillset.nope}} in .skillset/instructions/root.md"
+    "unknown preprocess variable {{skillset.nope}} in .skillset/instructions/root.md"
   );
 });
 

@@ -111,6 +111,7 @@ export interface BuildGraph {
 export interface RenderedFile {
   readonly content: Uint8Array;
   readonly path: string;
+  readonly sourcePath?: string;
 }
 
 export interface SkillsetOptions {
