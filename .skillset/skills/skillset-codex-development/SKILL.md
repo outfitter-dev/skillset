@@ -30,5 +30,6 @@ Use this skill when working on the local `skillset` compiler from a Codex-orient
 
 - Output roots must stay inside the repo, outside `.skillset/`, and unique per active target output.
 - `skillset import` should copy into source layout only and refuse to overwrite existing source.
-- `targets:` is not supported; use top-level `claude` and `codex`.
+- Use root `compile.targets` for provider selection. Do not add bare top-level `targets:`.
+- `compile.unsupported` defaults to `error`; `warn`, `skip`, and `force` are reserved until provenance exists.
 - `skillset.name` is preferred. `skillset.id` is only a compatibility alias.

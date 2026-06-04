@@ -76,6 +76,66 @@ Codex only.
   });
 });
 
+test("root compile targets narrow providers while lower-level toggles can opt back in", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+compile:
+  targets:
+    - codex
+claude:
+  skills:
+    path: skills-claude
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/inherit/SKILL.md": `
+---
+name: inherit
+description: Inherits root targets.
+---
+
+Inherited.
+`,
+    ".skillset/plugins/beta/skillset.yaml": `
+skillset:
+  name: beta
+claude: true
+`,
+    ".skillset/plugins/beta/skills/opt-in/SKILL.md": `
+---
+name: opt-in
+description: Opts Claude back in.
+---
+
+Opt in.
+`,
+  });
+
+  const graph = await loadBuildGraph(root);
+  const alpha = graph.plugins.find((plugin) => plugin.id === "alpha");
+  const beta = graph.plugins.find((plugin) => plugin.id === "beta");
+
+  expect(graph.root.targets.claude.enabled).toBe(false);
+  expect(graph.root.targets.codex.enabled).toBe(true);
+  expect(graph.root.compile.targets).toEqual(["codex"]);
+  expect(alpha?.targets.claude.enabled).toBe(false);
+  expect(alpha?.targets.codex.enabled).toBe(true);
+  expect(alpha?.skills[0]?.targets.claude.enabled).toBe(false);
+  expect(alpha?.skills[0]?.targets.codex.enabled).toBe(true);
+  expect(beta?.targets.claude.enabled).toBe(true);
+  expect(beta?.targets.codex.enabled).toBe(true);
+
+  await buildSkillset(root);
+
+  expect(await exists(join(root, "plugins-codex/plugins/alpha/.codex-plugin/plugin.json"))).toBe(true);
+  expect(await exists(join(root, "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"))).toBe(false);
+  expect(await exists(join(root, "plugins-claude/plugins/beta/.claude-plugin/plugin.json"))).toBe(true);
+});
+
 test("build preserves plugin boundaries, strips source metadata, and writes locks", async () => {
   const root = await fixture({
     ".skillset/config.yaml": `
@@ -1816,6 +1876,111 @@ Bad.
   });
 
   await expect(loadBuildGraph(frontmatterRoot)).rejects.toThrow("unsupported targets key");
+});
+
+test("root compile targets reject invalid target lists", async () => {
+  const withCompileTargets = async (targetsYaml: string): Promise<string> =>
+    fixture({
+      ".skillset/config.yaml": `
+skillset:
+  name: test-root
+compile:
+  targets: ${targetsYaml}
+`,
+      ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    });
+
+  await expect(loadBuildGraph(await withCompileTargets("codex"))).rejects.toThrow(
+    "compile.targets to be a string array"
+  );
+  await expect(loadBuildGraph(await withCompileTargets("[]"))).rejects.toThrow(
+    "compile.targets to include at least one target"
+  );
+  await expect(loadBuildGraph(await withCompileTargets("[codex, agents]"))).rejects.toThrow(
+    "unsupported target \"agents\""
+  );
+  await expect(loadBuildGraph(await withCompileTargets("[codex, codex]"))).rejects.toThrow(
+    "duplicate target \"codex\""
+  );
+});
+
+test("compile.unsupported defaults to error and accepts explicit error", async () => {
+  const defaultRoot = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+  });
+
+  const explicitRoot = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+compile:
+  unsupported: error
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+  });
+
+  await expect(loadBuildGraph(defaultRoot)).resolves.toMatchObject({
+    root: { compile: { targets: ["claude", "codex"], unsupported: "error" } },
+  });
+  await expect(loadBuildGraph(explicitRoot)).resolves.toMatchObject({
+    root: { compile: { targets: ["claude", "codex"], unsupported: "error" } },
+  });
+});
+
+test("compile.unsupported rejects malformed, unknown, and deferred policies", async () => {
+  const basePlugin = {
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+  };
+  const malformedRoot = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+compile: true
+`,
+    ...basePlugin,
+  });
+
+  await expect(loadBuildGraph(malformedRoot)).rejects.toThrow(".compile to be an object");
+
+  const unknownRoot = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+compile:
+  unsupported: maybe
+`,
+    ...basePlugin,
+  });
+
+  await expect(loadBuildGraph(unknownRoot)).rejects.toThrow("expected one of: error, warn, skip, force");
+
+  const warnRoot = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+compile:
+  unsupported: warn
+`,
+    ...basePlugin,
+  });
+
+  await expect(loadBuildGraph(warnRoot)).rejects.toThrow("reserved but not supported yet");
 });
 
 test("unknown top-level skillset config keys are rejected", async () => {

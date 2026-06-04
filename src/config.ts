@@ -1,4 +1,6 @@
 import type {
+  CompileConfig,
+  CompileUnsupportedPolicy,
   JsonRecord,
   JsonValue,
   OutputConfig,
@@ -10,10 +12,18 @@ import { isJsonRecord } from "./yaml";
 
 const TARGET_NAMES: readonly TargetName[] = ["claude", "codex"];
 const CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "claude", "codex", "skillset"]);
+const ROOT_CONFIG_TOP_LEVEL_KEYS = new Set([...CONFIG_TOP_LEVEL_KEYS, "compile"]);
+const COMPILE_UNSUPPORTED_POLICIES = new Set<CompileUnsupportedPolicy>([
+  "error",
+  "warn",
+  "skip",
+  "force",
+]);
 const SOURCE_ONLY_KEYS = new Set([
   "agents",
   "allowed_tools",
   "claude",
+  "compile",
   "codex",
   "implicit_invocation",
   "resources",
@@ -32,6 +42,72 @@ export function defaultTargets(): Readonly<Record<TargetName, ResolvedTarget>> {
     claude: { enabled: true, options: {} },
     codex: { enabled: true, options: {} },
   };
+}
+
+export function readCompileConfig(record: JsonRecord, label: string): CompileConfig {
+  const compile = readCompileRecord(record, label);
+  if (compile === undefined) return { targets: [...TARGET_NAMES], unsupported: "error" };
+
+  for (const key of Object.keys(compile)) {
+    if (key !== "targets" && key !== "unsupported") {
+      throw new Error(`skillset: unsupported compile key ${key} in ${label}`);
+    }
+  }
+
+  const unsupported = readCompileUnsupportedPolicy(compile, `${label}.compile.unsupported`);
+  if (unsupported !== "error") {
+    throw new Error(
+      `skillset: ${label}.compile.unsupported ${unsupported} is reserved but not supported yet; ` +
+        "use error until warning, skip, or force provenance is implemented"
+    );
+  }
+
+  return {
+    targets: readCompileTargetNames(compile, `${label}.compile.targets`),
+    unsupported,
+  };
+}
+
+export function readCompileTargets(
+  record: JsonRecord,
+  label: string
+): Readonly<Record<TargetName, ResolvedTarget>> {
+  const compile = readCompileRecord(record, label);
+  if (compile === undefined) return defaultTargets();
+
+  const targets = readCompileTargetNames(compile, `${label}.compile.targets`);
+  const enabledTargets = new Set(targets);
+
+  return {
+    claude: { enabled: enabledTargets.has("claude"), options: {} },
+    codex: { enabled: enabledTargets.has("codex"), options: {} },
+  };
+}
+
+function readCompileTargetNames(record: JsonRecord, label: string): readonly TargetName[] {
+  const targets = record.targets;
+  if (targets === undefined) return [...TARGET_NAMES];
+  if (!Array.isArray(targets)) {
+    throw new Error(`skillset: expected ${label} to be a string array`);
+  }
+  if (targets.length === 0) {
+    throw new Error(`skillset: expected ${label} to include at least one target`);
+  }
+
+  const enabledTargets = new Set<TargetName>();
+  for (const target of targets) {
+    if (target !== "claude" && target !== "codex") {
+      throw new Error(
+        `skillset: unsupported target ${JSON.stringify(target)} in ${label}; expected claude or codex`
+      );
+    }
+    if (enabledTargets.has(target)) {
+      throw new Error(`skillset: duplicate target ${JSON.stringify(target)} in ${label}`);
+    }
+    enabledTargets.add(target);
+  }
+
+  return [...enabledTargets];
 }
 
 export function readSkillsetMetadata(record: JsonRecord, label: string): JsonRecord {
@@ -114,10 +190,15 @@ export function readOutputConfig(
   };
 }
 
-export function validateConfigDocument(record: JsonRecord, label: string): void {
+export function validateConfigDocument(
+  record: JsonRecord,
+  label: string,
+  options: { readonly allowCompile?: boolean } = {}
+): void {
   rejectTargetsKey(record, label);
+  const supportedKeys = options.allowCompile === true ? ROOT_CONFIG_TOP_LEVEL_KEYS : CONFIG_TOP_LEVEL_KEYS;
   for (const key of Object.keys(record)) {
-    if (!CONFIG_TOP_LEVEL_KEYS.has(key)) {
+    if (!supportedKeys.has(key)) {
       throw new Error(`skillset: unsupported top-level key ${key} in ${label}`);
     }
   }
@@ -126,19 +207,21 @@ export function validateConfigDocument(record: JsonRecord, label: string): void 
 export function resolveTargets(
   parent: Readonly<Record<TargetName, ResolvedTarget>>,
   record: JsonRecord,
-  label: string
+  label: string,
+  options: { readonly objectInheritsEnabled?: boolean } = {}
 ): Readonly<Record<TargetName, ResolvedTarget>> {
   rejectTargetsKey(record, label);
   return {
-    claude: resolveTarget(parent.claude, record.claude, `${label}.claude`),
-    codex: resolveTarget(parent.codex, record.codex, `${label}.codex`),
+    claude: resolveTarget(parent.claude, record.claude, `${label}.claude`, options),
+    codex: resolveTarget(parent.codex, record.codex, `${label}.codex`, options),
   };
 }
 
 export function resolveTarget(
   parent: ResolvedTarget,
   raw: JsonValue | undefined,
-  label: string
+  label: string,
+  options: { readonly objectInheritsEnabled?: boolean } = {}
 ): ResolvedTarget {
   if (raw === undefined) return parent;
   if (raw === true) return { enabled: true, options: parent.options };
@@ -154,7 +237,10 @@ export function resolveTarget(
   }
 
   return {
-    enabled: enabled === false ? false : true,
+    enabled:
+      enabled === undefined && options.objectInheritsEnabled === true
+        ? parent.enabled
+        : enabled !== false,
     options: mergeRecords(parent.options, rest),
   };
 }
@@ -220,8 +306,31 @@ export function isOutputSelected(selection: OutputSelection, name: string): bool
 
 function rejectTargetsKey(record: JsonRecord, label: string): void {
   if (record.targets !== undefined) {
-    throw new Error(`skillset: ${label} uses unsupported targets key; use top-level claude/codex`);
+    throw new Error(`skillset: ${label} uses unsupported targets key; use compile.targets`);
   }
+}
+
+function readCompileRecord(record: JsonRecord, label: string): JsonRecord | undefined {
+  const compile = record.compile;
+  if (compile === undefined) return undefined;
+  if (!isJsonRecord(compile)) {
+    throw new Error(`skillset: expected ${label}.compile to be an object`);
+  }
+  return compile;
+}
+
+function readCompileUnsupportedPolicy(record: JsonRecord, label: string): CompileUnsupportedPolicy {
+  const value = record.unsupported;
+  if (value === undefined) return "error";
+  if (typeof value !== "string") {
+    throw new Error(`skillset: expected ${label} to be one of: error, warn, skip, force`);
+  }
+  if (!COMPILE_UNSUPPORTED_POLICIES.has(value as CompileUnsupportedPolicy)) {
+    throw new Error(
+      `skillset: unsupported ${label} ${JSON.stringify(value)}; expected one of: error, warn, skip, force`
+    );
+  }
+  return value as CompileUnsupportedPolicy;
 }
 
 interface ParsedTargetOutputSetting {

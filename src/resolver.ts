@@ -2,7 +2,8 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, dirname, join, relative, sep } from "node:path";
 
 import {
-  defaultTargets,
+  readCompileConfig,
+  readCompileTargets,
   readOutputConfig,
   readSkillsetMetadata,
   readSkillsetName,
@@ -42,7 +43,7 @@ export async function loadBuildGraph(
   const sourcePath = resolveInside(rootPath, sourceDir);
   const rootConfigPath = join(sourcePath, ROOT_CONFIG_FILE);
   const rootConfig = parseYamlRecord(await readFile(rootConfigPath, "utf8"), rootConfigPath);
-  validateConfigDocument(rootConfig, rootConfigPath);
+  validateConfigDocument(rootConfig, rootConfigPath, { allowCompile: true });
   const metadata = readSkillsetMetadata(rootConfig, rootConfigPath);
   validateSchemaField(metadata, `${rootConfigPath}.skillset.schema`);
   validateVersionField(metadata, `${rootConfigPath}.skillset.version`);
@@ -53,8 +54,12 @@ export async function loadBuildGraph(
     metadata,
     options.distDir === undefined ? {} : { distDir: options.distDir }
   );
-  const rootTargets = resolveTargets(defaultTargets(), rootConfig, rootConfigPath);
+  const rootTargets = resolveTargets(readCompileTargets(rootConfig, rootConfigPath), rootConfig, rootConfigPath, {
+    objectInheritsEnabled: true,
+  });
+  const compile = readCompileConfig(rootConfig, rootConfigPath);
   const root = {
+    compile,
     metadata,
     outputs,
     targets: rootTargets,

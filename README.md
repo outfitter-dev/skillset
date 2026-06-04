@@ -12,6 +12,7 @@ This repo also self-hosts a small `.skillset/` source tree:
 ## Docs
 
 - [Skillset Design Tenets](docs/tenets.md): the slow-moving doctrine for source-first loadout authoring and target-native lowering.
+- [Architecture Decision Records](docs/adrs/README.md): accepted and proposed decisions for source vocabulary, lowering policy, and generated-output promises.
 - [Skillset Docs](docs/README.md): the docs map.
 - [Layout](docs/layout.md): the current source layout, output shape, and compiler behavior reference.
 
@@ -91,7 +92,7 @@ Root source metadata lives at `.skillset/config.yaml`.
 
 Each plugin lives at `.skillset/plugins/<plugin-name>/` and has its own `skillset.yaml`. Portable plugin fields live under `skillset`; target-specific overrides live under top-level `claude` and `codex` blocks. Skill source frontmatter can use top-level `title`, `summary`, `description`, `version`, `resources`, `implicit_invocation`, `allowed_tools`, and the source-only `tools` escape map; the compiler derives target-native `name`, `description`, generated metadata, Claude frontmatter, Codex `agents/openai.yaml` policy where supported, and skill-local copies of declared resources.
 
-Use `skillset.name` as the stable machine identity. `skillset.id` is accepted as a compatibility alias for older source. Do not use `targets:`.
+Use `skillset.name` as the stable machine identity. `skillset.id` is accepted as a compatibility alias for older source. Use root `compile.targets` for provider selection, and do not use bare top-level `targets:`. `compile.unsupported` currently defaults to `error`; softer modes are reserved until warning, skip, or force provenance is implemented.
 
 Generated output strips source-only keys such as `skillset`, `claude`, `codex`, `agents`, `resources`, `implicit_invocation`, `allowed_tools`, `tools`, and `targets`. Generated skills receive only lightweight metadata:
 

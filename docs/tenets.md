@@ -11,7 +11,7 @@ Skillset exists to make reusable agent loadouts easier to author and safer to sh
 Skillset docs are organized by how often the information should change:
 
 - **Tenets**: What we believe and why. This document changes only when our model of Skillset changes.
-- **Decisions and packets**: ADR-style notes, goal packets, review reports, and retros that explain what is true now, what changed, and why.
+- **Decisions and packets**: ADRs under `docs/adrs/`, goal packets, review reports, and retros that explain what is true now, what changed, and why.
 - **Guides and references**: How to use the current compiler, source layout, target lowering, versioning, imports, hooks, resources, and checks.
 - **Agent guidance**: `AGENTS.md`, generated skills, and repo-local instructions. These are practical operating notes and change with the repo.
 
@@ -47,7 +47,7 @@ This applies to agents, subagents, hooks, instructions, resources, app/MCP manif
 
 ### Target truth beats fake portability
 
-Portable source keys are for behavior that is actually portable. When target semantics differ, Skillset should use top-level `claude` and `codex` blocks, explicit target toggles, or visible target-native escape hatches.
+Portable source keys are for behavior that is actually portable. Root provider selection is a compile concern, not target-native semantics: a root `compile.targets` list may say which provider projections to build, while `claude` and `codex` blocks stay reserved for target-specific options, explicit target toggles, and visible target-native escape hatches.
 
 It is better for a feature to be honestly target-specific than falsely unified. Skillset should not introduce a separate `agents` abstraction in v1 when `codex` is the practical Codex skill/plugin/agent-ish target.
 
@@ -93,6 +93,8 @@ Compatibility aliases and import helpers should reduce migration pain. They shou
 
 Stale generated output, unsupported target features, unsafe resource mappings, unmanaged generated destinations, malformed locks, and target-incompatible hooks should fail before they become quiet runtime surprises.
 
+Unsupported lowering policy should be explicit. The default should fail when authored source cannot lower faithfully to an enabled target. Softer modes such as warn, skip, or force are escape hatches for migration and provider drift; they must record what happened in warnings, doctor output, or lock provenance rather than making unsupported source look synchronized.
+
 ## Patterns
 
 These are recurring design shapes that operationalize the principles and promises.
@@ -107,7 +109,7 @@ When features are similar but not identical, name the intent first and design th
 
 ### Prefer defaults and scoped overrides
 
-The default posture is to compile for both Claude and Codex when source is portable. Root config can narrow that default, and lower levels can opt out or back in with `claude` and `codex` toggles where the resolver supports it. Boolean target settings should use defaults; objects should exist for real overrides.
+The default posture is to compile for both Claude and Codex when source is portable. Root `compile.targets` can narrow that provider set, and lower levels can opt out or back in with `claude` and `codex` toggles where the resolver supports it. Boolean target settings should use defaults; objects should exist for real overrides.
 
 ### Keep escape hatches visible
 
@@ -125,7 +127,8 @@ These are not a replacement for the schema reference. They are examples of how t
 - Prefer `instructions` as the source concept for repo guidance, even if Claude output still uses rules and Codex output still uses `AGENTS.md`.
 - Use `skillset.schema` for the version of the source contract or compiler schema, while generated skill product versions stay simple through fields like `metadata.version`.
 - Do not require a source name that is distinct from the real plugin or skill name unless there is a concrete identity problem that derivation cannot solve.
-- Keep `targets:` out of the source contract. Use top-level `claude` and `codex`, default to both targets for portable source, and use explicit target toggles to opt out or opt back in.
+- Use root `compile.targets` for provider selection. Keep bare top-level `targets:` out of the source contract, default to both targets for portable source, and keep `claude` / `codex` blocks for target-specific options and lower-level opt-outs.
+- Treat root `compile.unsupported` as visible lowering policy. The default is `error`; `warn` and `skip` must surface skipped source in diagnostics or lock provenance, and `force` must only emit through an explicit target-native destination rather than pretending unsupported behavior became portable.
 
 ## Posture
 

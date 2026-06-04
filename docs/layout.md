@@ -87,7 +87,19 @@ This compiler repo uses that same layout for its own source:
 - `.skillset/skills/skillset-codex-development` is a Codex-only internal standalone skill for compiler development.
 - `.skillset/plugins/skillset` is the user-facing plugin that explains how to use `skillset`.
 
-Plugin output roots and standalone skill output roots can be enabled with defaults or configured from root `.skillset/config.yaml`:
+Provider selection, plugin output roots, and standalone skill output roots can be enabled with defaults or configured from root `.skillset/config.yaml`:
+
+```yaml
+compile:
+  targets:
+    - claude
+    - codex
+  unsupported: error
+```
+
+Omitting `compile.targets` builds every supported provider projection for portable source. `compile.unsupported` defaults to `error`; `warn`, `skip`, and `force` are reserved until unsupported-source warnings and lock provenance exist.
+
+Older config can still use top-level provider blocks for target selection and output settings:
 
 ```yaml
 claude:
@@ -101,7 +113,7 @@ codex:
     path: .agents/skills
 ```
 
-Boolean output settings use the default roots: `plugins-claude/`, `plugins-codex/`, `.claude/skills`, and `.agents/skills`. Arrays select specific plugin or standalone skill names. Object settings can set `path`, `include`, or `enabled: false`.
+Boolean output settings use the default roots: `plugins-claude/`, `plugins-codex/`, `.claude/skills`, and `.agents/skills`. Arrays select specific plugin or standalone skill names. Object settings can set `path`, `include`, or `enabled: false`. When `compile.targets` is present, a root provider object without `enabled` inherits the compile target set, so output-path objects do not accidentally re-enable a provider. Lower-level plugin, skill, and instruction objects keep the existing opt-in semantics. Do not add a bare top-level `targets:` key; provider selection has one home.
 
 Plugin-local `README.md` files are copied into each generated target plugin. Shared source inputs such as `.skillset/shared/assets`, `.skillset/shared/scripts`, `.skillset/shared/references`, `.skillset/shared/templates`, and plugin-local `.skillset/plugins/<plugin-name>/shared/` are available for source organization; they are not copied into every output unless a source skill declares them.
 

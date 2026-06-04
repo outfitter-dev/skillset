@@ -1,20 +1,16 @@
 # Target Surface Evidence Matrix
 
-This is the cheap-to-refresh map between Skillset source and the Claude/Codex
-target surfaces it lowers to. It exists so target drift is caught deliberately:
-each surface row has a **status** and, where it depends on live provider docs, a
-**verified** date and source. Golden manifest tests in
-`src/__tests__/contract.test.ts` and `src/__tests__/skillset.test.ts` pin the
-generated shapes that these rows claim.
+This is the cheap-to-refresh map between Skillset source and the Claude/Codex target surfaces it lowers to. It exists so target drift is caught deliberately: each surface row has a **status** and, where it depends on live provider docs, a **verified** date and source. Golden manifest tests in `src/__tests__/contract.test.ts` and `src/__tests__/skillset.test.ts` pin the generated shapes that these rows claim.
 
-Refreshing is intentionally cheap: re-read the linked provider docs, update the
-verified date, and adjust a row + its golden test if the surface changed.
+Refreshing is intentionally cheap: re-read the linked provider docs, update the verified date, and adjust a row + its golden test if the surface changed.
 
 ## Status legend
 
 - **Implemented** — Skillset emits this surface from source today.
 - **Compat alias** — accepted source spelling that lowers to the canonical form; warned or documented as deprecated.
 - **Metadata-only** — captured in generated metadata / lock provenance, not a target-enforced behavior.
+- **Planned** — accepted doctrine or a draft/accepted ADR, but parser/render support has not landed yet.
+- **Reserved** — accepted vocabulary that currently fails with a clear diagnostic until supporting provenance lands.
 - **Deferred** — intentionally not emitted (with the reason); not a gap to fill silently.
 
 ## Source contract
@@ -25,6 +21,9 @@ verified date, and adjust a row + its golden test if the surface changed.
 | `skillset.version` (semver) | plugin manifest `version`, skill `metadata.version` | Implemented | Content version; drift reported by `skillset check`. |
 | `skillset.name` / `skillset.id` | machine identity | Implemented / Compat alias | Identity derives from directory names; `skillset.id` is the alias. |
 | skill top-level `name` | skill identity | Implemented | Conflicts with `skillset.name` fail. |
+| `compile.targets` | enabled provider projections | Implemented | Root-only provider selection; defaults to all supported targets. |
+| `compile.unsupported: error` | build/lint lowering policy | Implemented | Default policy; preserves current fail-loud unsupported behavior. |
+| `compile.unsupported: warn/skip/force` | doctor/lock provenance | Reserved | Recognized names that fail until skipped or forced source is visible. |
 
 ## Plugin manifest (Claude `.claude-plugin/plugin.json`)
 
@@ -47,8 +46,7 @@ Live-doc verified against `code.claude.com/docs/en/plugins-reference` (2026-06-0
 
 ## Plugin manifest interface (Codex `.codex-plugin/plugin.json`, `interface`)
 
-Camel-cased presentation fields derived from portable `presentation` / `ui`
-metadata. Pinned by the Codex-interface golden test.
+Camel-cased presentation fields derived from portable `presentation` / `ui` metadata. Pinned by the Codex-interface golden test.
 
 | Source (`presentation.*`, snake or camel) | Codex `interface` field | Status |
 | --- | --- | --- |
@@ -79,14 +77,11 @@ metadata. Pinned by the Codex-interface golden test.
 | `.skillset/instructions/**/*.md` | `.claude/rules/**/*.md` (`paths` kept) | `AGENTS.md` at derived dirs, source-boundary comments | Implemented |
 | `.skillset/rules/**/*.md` | same | same | Compat alias — warned. |
 
-Codex truncates `AGENTS.md` beyond `project_doc_max_bytes` (32 KiB default);
-`skillset build`/`check` warns. Verified 2026-06-03
-(`developers.openai.com/codex/guides/agents-md`, `openai/codex#7138`).
+Codex truncates `AGENTS.md` beyond `project_doc_max_bytes` (32 KiB default); `skillset build`/`check` warns. Verified 2026-06-03 (`developers.openai.com/codex/guides/agents-md`, `openai/codex#7138`).
 
 ## Hooks validation
 
-Verified 2026-06-03 (`developers.openai.com/codex/plugins/build`, Claude hooks
-reference). Claude validation is shape-only by design; Codex is strict.
+Verified 2026-06-03 (`developers.openai.com/codex/plugins/build`, Claude hooks reference). Claude validation is shape-only by design; Codex is strict.
 
 | Concern | Claude | Codex | Status |
 | --- | --- | --- | --- |

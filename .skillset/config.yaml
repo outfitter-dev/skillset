@@ -8,9 +8,7 @@ skillset:
   owner:
     name: Skillset Maintainers
 
-claude:
-  plugins: true
-  skills: true
-codex:
-  plugins: true
-  skills: true
+compile:
+  targets:
+    - claude
+    - codex

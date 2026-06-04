@@ -32,7 +32,7 @@ Use this skill when a repo has a `.skillset/` source tree or when you need to cr
       skills/
 ```
 
-Root `.skillset/config.yaml` controls target defaults and output roots. Plugin configs use `.skillset/plugins/<plugin-name>/skillset.yaml`. Portable plugin metadata lives under `skillset`; skill source can use top-level `title`, `summary`, `description`, and `version`. Target-specific overrides use top-level `claude` and `codex`.
+Root `.skillset/config.yaml` controls provider defaults and output roots. Use `compile.targets` for provider selection and `compile.unsupported: error` for fail-loud unsupported lowering. Plugin configs use `.skillset/plugins/<plugin-name>/skillset.yaml`. Portable plugin metadata lives under `skillset`; skill source can use top-level `title`, `summary`, `description`, and `version`. Target-specific overrides use top-level `claude` and `codex`.
 
 Use `.skillset/instructions/**/*.md` for durable repo instructions (`.skillset/rules/**/*.md` is a compatibility alias that still builds but warns):
 
@@ -165,7 +165,8 @@ skillset import agents --root .
 
 ## Rules
 
-- Do not use `targets:`.
+- Use root `compile.targets` for provider selection. Do not use bare top-level `targets:`.
+- Keep `compile.unsupported` on `error`; `warn`, `skip`, and `force` are reserved until provenance exists.
 - Prefer `skillset.name`; use `skillset.id` only as a compatibility alias.
 - Do not hand-edit generated outputs as source truth.
 - Keep Claude-only dynamic placeholders out of Codex-enabled skills unless a target-safe fallback exists.

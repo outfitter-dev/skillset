@@ -18,9 +18,17 @@ export interface ResolvedTarget {
 }
 
 export interface RootConfig {
+  readonly compile: CompileConfig;
   readonly metadata: JsonRecord;
   readonly outputs: OutputConfig;
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
+}
+
+export type CompileUnsupportedPolicy = "error" | "warn" | "skip" | "force";
+
+export interface CompileConfig {
+  readonly targets: readonly TargetName[];
+  readonly unsupported: CompileUnsupportedPolicy;
 }
 
 export interface PluginConfig {
