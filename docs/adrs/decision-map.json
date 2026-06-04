@@ -1,0 +1,43 @@
+{
+  "entries": [
+    {
+      "created": "2026-06-04",
+      "depends_on": [],
+      "inbound": [
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - baseline source-first compiler doctrine.",
+          "from": "0001",
+          "fromPath": "docs/adrs/0001-root-compile-policy.md"
+        }
+      ],
+      "number": "0000",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0000-source-first-loadouts.md",
+      "slug": "source-first-loadouts",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Source-First Loadouts",
+      "updated": "2026-06-04"
+    },
+    {
+      "created": "2026-06-04",
+      "depends_on": ["0"],
+      "inbound": [
+        {
+          "context": "- [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - accepted `compile.targets` and `compile.unsupported` direction.",
+          "from": "0000",
+          "fromPath": "docs/adrs/0000-source-first-loadouts.md"
+        }
+      ],
+      "number": "0001",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0001-root-compile-policy.md",
+      "slug": "root-compile-policy",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Root Compile Policy",
+      "updated": "2026-06-04"
+    }
+  ],
+  "version": 1
+}

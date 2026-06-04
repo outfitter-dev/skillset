@@ -69,11 +69,7 @@ decisions, documented + locked with a regression test (commit 455f9d8).
 Command-batch review (SET-10/9) scored 4/5; P2 (doctor summary message) and P3
 (diff warnings) fixed in commit 96ed590.
 
-Design-only proposals (no implementation), under `docs/proposals/` (SET-13,
-SET-11, SET-12): agent source model (defer portable agents in v1, Codex has no
-plugin-agent component per live docs), changelog/versioning (changesets-style
-`skillset changes` plan), and global/XDG installs (XDG state, install/sync
-separate from build so build never implies trust).
+Design-only draft ADRs (no implementation), under `docs/adrs/drafts/` (SET-13, SET-11, SET-12): agent source model (defer portable agents in v1, Codex has no plugin-agent component per live docs), changelog/versioning (changesets-style `skillset changes` plan), and global/XDG installs (XDG state, install/sync separate from build so build never implies trust).
 
 Follow-up filed: SET-16 (first-class target-specific plugin hook source model).
 

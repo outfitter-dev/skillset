@@ -1,0 +1,57 @@
+{
+  "entries": [
+    {
+      "created": "2026-06-04",
+      "depends_on": ["0"],
+      "inbound": [],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260604-agent-source-model.md",
+      "slug": "agent-source-model",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Agent / Subagent Source Model",
+      "updated": "2026-06-04"
+    },
+    {
+      "created": "2026-06-04",
+      "depends_on": ["0"],
+      "inbound": [],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260604-changelog-and-versioning.md",
+      "slug": "changelog-and-versioning",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Changelog and Version Bump Workflow",
+      "updated": "2026-06-04"
+    },
+    {
+      "created": "2026-06-04",
+      "depends_on": ["0"],
+      "inbound": [],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260604-feature-reference-and-schema-registry.md",
+      "slug": "feature-reference-and-schema-registry",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Feature Reference and Schema Registry",
+      "updated": "2026-06-04"
+    },
+    {
+      "created": "2026-06-04",
+      "depends_on": ["0"],
+      "inbound": [],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260604-global-xdg-managed-installs-and-sync.md",
+      "slug": "global-xdg-managed-installs-and-sync",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Global / XDG Managed Installs and Sync",
+      "updated": "2026-06-04"
+    }
+  ],
+  "version": 1
+}
