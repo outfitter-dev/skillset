@@ -13,7 +13,7 @@
       "outputHash": "sha256:793ef6687c30393bbf1ab9f2a8942162e11ea7752d0be35887c208f691c3a150",
       "outputPath": "plugins/skillset/.claude-plugin/plugin.json",
       "skippedSkills": [],
-      "sourceHash": "sha256:ccf4e9cf0a0c765c8696f0683303a78d7e5b120af15080f23562d06251dbfef5",
+      "sourceHash": "sha256:ab05d78b86a2f97dea58b8295a2c4bf7299edb9ac191cfaa2a6d30d1d85a684d",
       "sourcePath": ".skillset/plugins/skillset",
       "targetState": "sync",
       "version": "0.1.0"
@@ -24,10 +24,10 @@
       ],
       "kind": "plugin-skill",
       "name": "use-skillset",
-      "outputHash": "sha256:3d6b01f2de632bccd5d2eb225e6e18cc88f895a336891806590a6b670a6e0a07",
+      "outputHash": "sha256:8bb295d01c13ab00b34324cceb8ede7d72b3eb2d4ace5df5499eb2dc83ccf3e3",
       "outputPath": "plugins/skillset/skills/use-skillset/SKILL.md",
       "plugin": "skillset",
-      "sourceHash": "sha256:c18177715ae88b6aaf2fb0a94ecc4fe9798cd1e3847fd86fc9a1230b7fdd0e33",
+      "sourceHash": "sha256:0ad8026f36656d278a4a08b683835eb29555dde5f2234e0e8ba2b9ba66f34f79",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "version": "0.1.0"
     }

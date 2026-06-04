@@ -3,13 +3,36 @@
   "items": [
     {
       "files": [
+        "skillset-adrs/SKILL.md",
+        "skillset-adrs/assets/adr-management.md",
+        "skillset-adrs/scripts/__tests__/promote-rewrite.test.ts",
+        "skillset-adrs/scripts/adr.ts",
+        "skillset-adrs/scripts/lib/cli.ts",
+        "skillset-adrs/scripts/lib/decision-map.ts",
+        "skillset-adrs/scripts/lib/discovery.ts",
+        "skillset-adrs/scripts/lib/frontmatter.ts",
+        "skillset-adrs/scripts/lib/git.ts",
+        "skillset-adrs/scripts/lib/index.ts",
+        "skillset-adrs/scripts/lib/paths.ts",
+        "skillset-adrs/scripts/lib/references.ts"
+      ],
+      "kind": "standalone-skill",
+      "name": "skillset-adrs",
+      "outputHash": "sha256:9e415080772dc2589075f4091c576706315674b8862dca83dab0b5bd3436fb11",
+      "outputPath": "skillset-adrs/SKILL.md",
+      "sourceHash": "sha256:3da0c5fce9806dcb846571ddeeb6bb3f43d52aa09f428b317addd6fb6f06b22d",
+      "sourcePath": ".skillset/skills/skillset-adrs/SKILL.md",
+      "version": "0.1.0"
+    },
+    {
+      "files": [
         "skillset-codex-development/SKILL.md"
       ],
       "kind": "standalone-skill",
       "name": "skillset-codex-development",
-      "outputHash": "sha256:8224cae3bcd3c6cff3b9e56cb7206ac4b191e2458bbe9a8ffe3e15417768d4cd",
+      "outputHash": "sha256:bf49e8d778858bb79b6817ae60e3ab9fabaf68288c65188547ff3e35b6f3d8d7",
       "outputPath": "skillset-codex-development/SKILL.md",
-      "sourceHash": "sha256:942fd81540a9b93c740c8398f43d1212cac410878544a4375810ba8dfe3ebe93",
+      "sourceHash": "sha256:ade4c1814725fd5b2c943fbab85f2eb46789dd97469f30b6a49e07175221e624",
       "sourcePath": ".skillset/skills/skillset-codex-development/SKILL.md",
       "version": "0.1.0"
     }

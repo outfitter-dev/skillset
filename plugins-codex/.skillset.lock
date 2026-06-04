@@ -13,7 +13,7 @@
       "outputHash": "sha256:aabbf5b2b5c430a85fc25f31371e165010c63ecd742f6bf1296bd4c01bf709cc",
       "outputPath": "plugins/skillset/.codex-plugin/plugin.json",
       "skippedSkills": [],
-      "sourceHash": "sha256:a928d87d6e12f9f37ab0cda64a163311fd74aaf4ecd36b6550140c398bca350e",
+      "sourceHash": "sha256:135d403031efe22c4f14e1b52401c5ce42e22436028c3022220a5d2ca0ae522c",
       "sourcePath": ".skillset/plugins/skillset",
       "targetState": "sync",
       "version": "0.1.0"
@@ -24,10 +24,10 @@
       ],
       "kind": "plugin-skill",
       "name": "use-skillset",
-      "outputHash": "sha256:3d6b01f2de632bccd5d2eb225e6e18cc88f895a336891806590a6b670a6e0a07",
+      "outputHash": "sha256:8bb295d01c13ab00b34324cceb8ede7d72b3eb2d4ace5df5499eb2dc83ccf3e3",
       "outputPath": "plugins/skillset/skills/use-skillset/SKILL.md",
       "plugin": "skillset",
-      "sourceHash": "sha256:c18177715ae88b6aaf2fb0a94ecc4fe9798cd1e3847fd86fc9a1230b7fdd0e33",
+      "sourceHash": "sha256:0ad8026f36656d278a4a08b683835eb29555dde5f2234e0e8ba2b9ba66f34f79",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "version": "0.1.0"
     }
