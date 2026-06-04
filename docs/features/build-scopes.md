@@ -8,7 +8,7 @@ Build scopes describe where Skillset writes or inspects generated output. They s
 
 ## Authoring
 
-SET-25 defines the planned build-mode config:
+SET-21 added build-mode parsing and lock provenance:
 
 ```yaml
 compile:
@@ -17,12 +17,14 @@ compile:
 
 `updated` is the default planned mode. `all` rebuilds every configured output. CLI flags such as `--updated` and `--all` should override config for the current command.
 
+The parser currently normalizes `compile.build` and records it as `buildMode` in `.skillset.lock`. SET-25 owns the next step: making `updated` lock-aware for write planning and adding the CLI overrides.
+
 ## Support Table
 
 | Behavior | Build | Check | Diff/list/explain | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `compile.build: updated` | write changed/unknown outputs | detect drift | explain target state | `planned` | No usable lock falls back to all configured outputs and writes a fresh lock. |
-| `compile.build: all` | rebuild all configured outputs | detect drift | explain full plan | `planned` | Useful after target docs or renderer changes. |
+| `compile.build: updated` | normalized, write planning planned | detect drift | explain target state | `implemented` / `planned` | Parsed and locked today; SET-25 makes write planning lock-aware. No usable lock should fall back to all configured outputs and write a fresh lock. |
+| `compile.build: all` | normalized, rebuild planning planned | detect drift | explain full plan | `implemented` / `planned` | Parsed and locked today; SET-25 makes the write planner rebuild every configured output. |
 | `--scope repo/plugins/project/user/all` | destination class selection | destination class selection | destination class selection | `planned` | Scope is about destinations, not arbitrary feature sets. |
 | `skillset diff` | no writes | n/a | planned diff | `implemented` / `planned` | Existing diff is read-only; SET-25 expands scope/list behavior. |
 | `skillset explain <path>` | n/a | n/a | source/generated provenance | `implemented` / `planned` | Existing explain resolves lock provenance for current generated outputs. |

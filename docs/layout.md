@@ -94,10 +94,13 @@ compile:
   targets:
     - claude
     - codex
+  build: updated
+  skillset:
+    metadata: true
   unsupported: error
 ```
 
-Omitting `compile.targets` builds every supported provider projection for portable source. `compile.unsupported` defaults to `error`; `warn`, `skip`, and `force` are reserved until unsupported-source warnings and lock provenance exist.
+Omitting `compile.targets` builds every supported provider projection for portable source. `compile.build` defaults to `updated` and accepts `all`; the parser records the normalized mode in lock provenance, while SET-25 owns lock-aware write planning. `compile.skillset.metadata` defaults to `true`; set it to `false` to suppress Skillset's generated `metadata.generated` and `metadata.version` fields in emitted skills. `compile.unsupported` defaults to `error`; `warn`, `skip`, and `force` are reserved until unsupported-source warnings and lock provenance exist.
 
 The canonical provider-selection shape is the `compile.targets` list above. This shorthand normalizes to the same internal target plan:
 
@@ -108,14 +111,26 @@ compile:
 
 When `compile.targets` is omitted, Skillset normalizes to all supported providers. Target-specific `claude` and `codex` blocks configure native output details and lower-level opt-outs; they are not a second target-selection surface.
 
-Older config can still use top-level provider blocks for target-specific output settings:
+Provider blocks carry target-native adapter configuration, output settings, defaults, and lower-level opt-outs:
 
 ```yaml
+defaults:
+  codex:
+    skills:
+      model: gpt-5
+
 claude:
+  projectRoot: .claude
+  userRoot: ~/.claude
+  defaults:
+    skills:
+      model: sonnet
   plugins: true
   skills: true
 
 codex:
+  projectRoot: .codex
+  userRoot: ~/.codex
   plugins:
     - skillset
   skills:
@@ -123,6 +138,10 @@ codex:
 ```
 
 Boolean output settings use the default roots: `plugins-claude/`, `plugins-codex/`, `.claude/skills`, and `.agents/skills`. Arrays select specific plugin or standalone skill names. Object settings can set `path`, `include`, or `enabled: false`. When `compile.targets` is present, a root provider object without `enabled` inherits the compile target set, so output-path objects do not accidentally re-enable a provider. Lower-level plugin, skill, and instruction objects keep the existing opt-in semantics. Do not add a bare top-level `targets:` key; provider selection has one home.
+
+Target defaults use `claude.defaults.<surface>` and `codex.defaults.<surface>` as the canonical target-local form. Root `defaults.<target>.<surface>` is a shorthand that normalizes into the same target defaults without making `targets:` a config surface. Supported surfaces are `plugins`, `skills`, and `instructions`; unknown surfaces such as `defaults.codex.skill` fail instead of silently no-oping. Defaults fill omitted target options for that surface: plugin defaults override root defaults, file-level target fields override plugin defaults, and target-specific fields override shared portable fields at render time. For example, a root `codex.defaults.skills.model` applies to Codex-enabled skills unless a plugin or skill provides `codex.model`.
+
+A top-level skill `model` looks portable but is not portable in v1. It is stripped from generated output and emits a warning unless every enabled target has an explicit target model from `claude.model`, `codex.model`, or target defaults.
 
 Plugin-local `README.md` files are copied into each generated target plugin. Shared source inputs such as `.skillset/shared/assets`, `.skillset/shared/scripts`, `.skillset/shared/references`, `.skillset/shared/templates`, and plugin-local `.skillset/plugins/<plugin-name>/shared/` are available for source organization; they are not copied into every output unless a source skill declares them.
 
@@ -191,7 +210,7 @@ metadata:
   generated: skillset@0.1.0
 ```
 
-Each `.skillset.lock` records emitted versions and hashes. Plugin lock entries also include `includedSkills`, `skippedSkills`, and `targetState`; a target with skipped source skills uses `targetState: intentionally-skipped` so target-specific version bumps are visible even when that target's manifest and skills stay byte-for-byte unchanged. `skillset check` reports version drift directly when generated plugin manifest `version` or generated skill `metadata.version` is stale.
+Each `.skillset.lock` records emitted versions and hashes, plus root normalized build metadata such as `buildMode`, `selectedTargets`, and whether generated Skillset skill metadata was emitted. Plugin lock entries also include `includedSkills`, `skippedSkills`, and `targetState`; a target with skipped source skills uses `targetState: intentionally-skipped` so target-specific version bumps are visible even when that target's manifest and skills stay byte-for-byte unchanged. `skillset check` reports version drift directly when generated plugin manifest `version` or generated skill `metadata.version` is stale.
 
 ## Instructions
 

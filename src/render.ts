@@ -623,18 +623,22 @@ function renderSkillMarkdown(
   const withReferences = references === undefined ? base : mergeRecords(base, { references });
   const withClaudePolicy =
     target === "claude" ? mergeRecords(withReferences, renderClaudeSkillPolicy(skill, targetOptions)) : withReferences;
-  const withPortable = mergeRecords(withClaudePolicy, { metadata: { generated: GENERATED_BY, version } });
+  const withPortable = graph.root.compile.skillset.metadata
+    ? mergeRecords(withClaudePolicy, { metadata: { generated: GENERATED_BY, version } })
+    : withClaudePolicy;
   const withTargetFrontmatter = mergeRecords(
     withPortable,
     readRecord(targetOptions, "frontmatter") ?? {}
   );
-  const frontmatter = mergeRecords(withTargetFrontmatter, {
-    metadata: {
-      ...(readRecord(withTargetFrontmatter, "metadata") ?? {}),
-      generated: GENERATED_BY,
-      version,
-    },
-  });
+  const frontmatter = graph.root.compile.skillset.metadata
+    ? mergeRecords(withTargetFrontmatter, {
+        metadata: {
+          ...(readRecord(withTargetFrontmatter, "metadata") ?? {}),
+          generated: GENERATED_BY,
+          version,
+        },
+      })
+    : withTargetFrontmatter;
 
   return stringifyMarkdown(frontmatter, rewriteResourceLinks(skill.body, skill.resources, skill.sourcePath));
 }
@@ -1069,10 +1073,13 @@ function renderLockFiles(
 
   for (const [outputRoot, lock] of [...lockRoots.entries()].sort(([left], [right]) => compareStrings(left, right))) {
     const value: JsonRecord = {
+      buildMode: graph.root.compile.build,
       generatedBy: GENERATED_BY,
       items: lock.items
         .map((item) => stripUndefinedLockItem(item))
         .sort((left, right) => compareStrings(String(left.outputPath), String(right.outputPath))),
+      selectedTargets: [...graph.root.compile.targets],
+      skillsetMetadata: graph.root.compile.skillset.metadata,
       outputRoot,
       schemaVersion: 1,
       sourceRoot: graph.sourceDir,

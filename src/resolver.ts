@@ -2,13 +2,16 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, dirname, join, relative, sep } from "node:path";
 
 import {
+  applyFeatureTargetDefaults,
   readCompileConfig,
   readCompileTargets,
   readOutputConfig,
   readSkillsetMetadata,
   readSkillsetName,
   readString,
+  resolveFeatureTargets,
   resolveTargets,
+  targetNames,
   validateConfigDocument,
 } from "./config";
 import { compareStrings, resolveInside, validateSlug } from "./path";
@@ -55,6 +58,7 @@ export async function loadBuildGraph(
     options.distDir === undefined ? {} : { distDir: options.distDir }
   );
   const rootTargets = resolveTargets(readCompileTargets(rootConfig, rootConfigPath), rootConfig, rootConfigPath, {
+    allowDefaults: true,
     objectInheritsEnabled: true,
   });
   const compile = readCompileConfig(rootConfig, rootConfigPath);
@@ -67,7 +71,7 @@ export async function loadBuildGraph(
 
   const warnings: string[] = [];
   const plugins = await loadPlugins(rootPath, sourceDir, rootTargets, warnings);
-  const standaloneSkills = await loadStandaloneSkills(rootPath, sourceDir, rootTargets);
+  const standaloneSkills = await loadStandaloneSkills(rootPath, sourceDir, rootTargets, warnings);
   const { rules, instructionsDir } = await loadInstructions(rootPath, sourceDir, rootTargets, warnings);
 
   if (plugins.length === 0 && standaloneSkills.length === 0 && rules.length === 0) {
@@ -151,7 +155,7 @@ async function loadInstructions(
     const parts = parseMarkdown(content, sourcePath);
     const relativePath = relative(basePath, sourcePath);
     const frontmatter = normalizeRuleFrontmatter(parts.frontmatter, sourcePath);
-    const targets = resolveTargets(rootTargets, frontmatter, sourcePath);
+    const targets = resolveFeatureTargets(rootTargets, frontmatter, sourcePath, "instructions");
 
     rules.push({
       body: parts.body,
@@ -224,8 +228,11 @@ async function loadPlugin(
     );
   }
 
-  const targets = resolveTargets(parentTargets, config, configPath);
-  const skills = await loadSkills(rootPath, sourceDir, pluginPath, targets);
+  const inheritedTargets = resolveTargets(parentTargets, config, configPath, {
+    allowDefaults: true,
+  });
+  const targets = applyFeatureTargetDefaults(inheritedTargets, "plugins");
+  const skills = await loadSkills(rootPath, sourceDir, pluginPath, inheritedTargets, warnings);
 
   // SET-2: Codex's documented plugin hook default is hooks/hooks.json. A root
   // hooks.json is a compatibility source that still builds (emitted to the
@@ -261,11 +268,12 @@ async function loadSkills(
   rootPath: string,
   sourceDir: string,
   pluginPath: string,
-  parentTargets: SourcePlugin["targets"]
+  parentTargets: SourcePlugin["targets"],
+  warnings: string[]
 ): Promise<SourceSkill[]> {
   const skillsPath = join(pluginPath, SKILLS_DIR);
   if (!(await exists(skillsPath))) return [];
-  return loadSkillsFromDirectory(rootPath, sourceDir, skillsPath, pluginPath, parentTargets, pluginPath);
+  return loadSkillsFromDirectory(rootPath, sourceDir, skillsPath, pluginPath, parentTargets, warnings, pluginPath);
 }
 
 async function loadSkillsFromDirectory(
@@ -274,6 +282,7 @@ async function loadSkillsFromDirectory(
   skillsPath: string,
   relativeBasePath: string,
   parentTargets: SourcePlugin["targets"],
+  warnings: string[],
   pluginPath?: string
 ): Promise<SourceSkill[]> {
   const skillFiles = await findSkillFiles(skillsPath);
@@ -294,7 +303,8 @@ async function loadSkillsFromDirectory(
       ),
       `skill id in ${sourcePath}`
     );
-    const targets = resolveTargets(parentTargets, parts.frontmatter, sourcePath);
+    const targets = resolveFeatureTargets(parentTargets, parts.frontmatter, sourcePath, "skills");
+    warnPortableModel(parts.frontmatter, targets, rootPath, sourcePath, warnings);
     const relativePath = relative(relativeBasePath, sourcePath);
     const resources = await readSkillResources(parts.frontmatter.resources, {
       label: sourcePath,
@@ -320,13 +330,32 @@ async function loadSkillsFromDirectory(
 async function loadStandaloneSkills(
   rootPath: string,
   sourceDir: string,
-  rootTargets: BuildGraph["root"]["targets"]
+  rootTargets: BuildGraph["root"]["targets"],
+  warnings: string[]
 ): Promise<readonly StandaloneSkill[]> {
   const skillsPath = resolveInside(rootPath, join(sourceDir, SKILLS_DIR));
   if (!(await exists(skillsPath))) return [];
 
-  const skills = await loadSkillsFromDirectory(rootPath, sourceDir, skillsPath, skillsPath, rootTargets);
+  const skills = await loadSkillsFromDirectory(rootPath, sourceDir, skillsPath, skillsPath, rootTargets, warnings);
   return skills;
+}
+
+function warnPortableModel(
+  frontmatter: SourceSkill["frontmatter"],
+  targets: SourceSkill["targets"],
+  rootPath: string,
+  sourcePath: string,
+  warnings: string[]
+): void {
+  if (frontmatter.model === undefined) return;
+  const missingTargets = targetNames().filter(
+    (target) => targets[target].enabled && readString(targets[target].options, "model") === undefined
+  );
+  if (missingTargets.length === 0) return;
+  warnings.push(
+    `${relative(rootPath, sourcePath)} uses top-level model, which is not portable in Skillset v1; ` +
+      `use claude.model, codex.model, or target defaults for ${missingTargets.join(", ")}.`
+  );
 }
 
 async function findSkillFiles(root: string): Promise<string[]> {

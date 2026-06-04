@@ -136,6 +136,345 @@ Opt in.
   expect(await exists(join(root, "plugins-claude/plugins/beta/.claude-plugin/plugin.json"))).toBe(true);
 });
 
+test("target adapter config and defaults normalize through provider blocks", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+compile:
+  build: all
+  skillset:
+    metadata: false
+defaults:
+  codex:
+    plugins:
+      frontmatter:
+        plugin-only: root-plugin-default
+    skills:
+      frontmatter:
+        custom-default: shorthand
+      model: gpt-5
+claude:
+  projectRoot: .claude
+  userRoot: ~/.claude
+  defaults:
+    skills:
+      frontmatter:
+        claude-default: canonical
+      model: sonnet
+codex:
+  projectRoot: .codex
+  userRoot: ~/.codex
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+codex:
+  defaults:
+    plugins:
+      frontmatter:
+        plugin-only: plugin-default
+    skills:
+      frontmatter:
+        custom-default: plugin
+        plugin-default: yes
+`,
+    ".skillset/plugins/alpha/skills/defaulted/SKILL.md": `
+---
+name: defaulted
+description: Uses defaults.
+codex:
+  frontmatter:
+    custom-default: file
+    file-default: yes
+---
+
+Defaulted.
+`,
+  });
+
+  const graph = await loadBuildGraph(root);
+  const plugin = graph.plugins[0];
+  const skill = plugin?.skills[0];
+
+  expect(graph.root.compile).toMatchObject({
+    build: "all",
+    skillset: { metadata: false },
+    targets: ["claude", "codex"],
+    unsupported: "error",
+  });
+  expect(graph.root.targets.claude.options.projectRoot).toBe(".claude");
+  expect(graph.root.targets.claude.options.userRoot).toBe("~/.claude");
+  expect(graph.root.targets.codex.options.projectRoot).toBe(".codex");
+  expect(graph.root.targets.codex.options.userRoot).toBe("~/.codex");
+  expect(plugin?.targets.codex.options.frontmatter).toEqual({
+    "plugin-only": "plugin-default",
+  });
+  expect(skill?.targets.claude.options.model).toBe("sonnet");
+  expect(skill?.targets.codex.options.model).toBe("gpt-5");
+  expect(skill?.targets.codex.options.frontmatter).toEqual({
+    "custom-default": "file",
+    "file-default": "yes",
+    "plugin-default": "yes",
+  });
+  expect(skill?.targets.codex.options.frontmatter).not.toHaveProperty("plugin-only");
+  expect(skill?.targets.claude.options.frontmatter).toEqual({
+    "claude-default": "canonical",
+  });
+});
+
+test("compile build mode rejects invalid values", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+compile:
+  build: partial
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+  });
+
+  await expect(loadBuildGraph(root)).rejects.toThrow("expected one of: updated, all");
+});
+
+test("target defaults reject file frontmatter and unknown surfaces", async () => {
+  const fileDefaultsRoot = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/bad/SKILL.md": `
+---
+name: bad
+description: Bad skill.
+defaults:
+  codex:
+    skills:
+      model: gpt-5
+---
+
+Bad.
+`,
+  });
+
+  await expect(loadBuildGraph(fileDefaultsRoot)).rejects.toThrow(
+    "uses unsupported defaults key"
+  );
+
+  const fileTargetDefaultsRoot = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/bad/SKILL.md": `
+---
+name: bad
+description: Bad skill.
+codex:
+  defaults:
+    skills:
+      model: gpt-5
+---
+
+Bad.
+`,
+  });
+
+  await expect(loadBuildGraph(fileTargetDefaultsRoot)).rejects.toThrow(
+    ".codex.defaults is only supported in root or plugin config"
+  );
+
+  const shorthandSurfaceRoot = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+defaults:
+  codex:
+    skill:
+      model: gpt-5
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+  });
+
+  await expect(loadBuildGraph(shorthandSurfaceRoot)).rejects.toThrow(
+    "unsupported defaults surface \"skill\""
+  );
+
+  const providerSurfaceRoot = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude:
+  defaults:
+    skill:
+      model: sonnet
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+  });
+
+  await expect(loadBuildGraph(providerSurfaceRoot)).rejects.toThrow(
+    "unsupported defaults surface \"skill\""
+  );
+});
+
+test("compile skillset metadata suppression omits generated skill metadata and records lock provenance", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+compile:
+  targets: [codex]
+  build: all
+  skillset:
+    metadata: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/plain/SKILL.md": `
+---
+name: plain
+description: Plain skill.
+---
+
+Plain.
+`,
+  });
+
+  await buildSkillset(root);
+
+  const skill = await readFile(
+    join(root, "plugins-codex/plugins/alpha/skills/plain/SKILL.md"),
+    "utf8"
+  );
+  expect(skill).not.toContain("generated: skillset");
+  expect(skill).not.toContain("version:");
+
+  const lock = JSON.parse(await readFile(join(root, "plugins-codex/.skillset.lock"), "utf8"));
+  expect(lock.buildMode).toBe("all");
+  expect(lock.selectedTargets).toEqual(["codex"]);
+  expect(lock.skillsetMetadata).toBe(false);
+});
+
+test("metadata suppression still leaves version-only changes visible through check", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+compile:
+  skillset:
+    metadata: false
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/plain/SKILL.md": `
+---
+name: plain
+description: Plain skill.
+version: 1.0.0
+---
+
+Plain.
+`,
+  });
+
+  await buildSkillset(root);
+  await writeFile(
+    join(root, ".skillset/plugins/alpha/skills/plain/SKILL.md"),
+    normalizeFixture(`
+---
+name: plain
+description: Plain skill.
+version: 1.1.0
+---
+
+Plain.
+`)
+  );
+
+  await expect(checkSkillset(root)).rejects.toThrow("stale generated file");
+});
+
+test("top-level model warns unless active target defaults or overrides handle it", async () => {
+  const warnsRoot = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/modelish/SKILL.md": `
+---
+name: modelish
+description: Has a portable-looking model.
+model: gpt-5
+---
+
+Modelish.
+`,
+  });
+
+  const warnsGraph = await loadBuildGraph(warnsRoot);
+  expect(warnsGraph.warnings).toContain(
+    ".skillset/plugins/alpha/skills/modelish/SKILL.md uses top-level model, which is not portable in Skillset v1; use claude.model, codex.model, or target defaults for claude, codex."
+  );
+
+  const handledRoot = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude:
+  defaults:
+    skills:
+      model: sonnet
+codex:
+  defaults:
+    skills:
+      model: gpt-5
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/modelish/SKILL.md": `
+---
+name: modelish
+description: Has handled target models.
+model: portable-ish
+---
+
+Modelish.
+`,
+  });
+
+  const handledGraph = await loadBuildGraph(handledRoot);
+  expect(handledGraph.warnings).toEqual([]);
+});
+
 test("build preserves plugin boundaries, strips source metadata, and writes locks", async () => {
   const root = await fixture({
     ".skillset/config.yaml": `

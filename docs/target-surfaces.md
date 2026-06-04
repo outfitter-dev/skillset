@@ -29,9 +29,16 @@ Default behavior for unsupported or lossy lowering is fail-loud. Softer modes mu
 | `skillset.name` / `skillset.id` | machine identity | Implemented / Compat alias | Identity derives from directory names; `skillset.id` is the alias. |
 | skill top-level `name` | skill identity | Implemented | Conflicts with `skillset.name` fail. |
 | `compile.targets` | enabled provider projections | Implemented | Root-only provider selection; defaults to all supported targets. |
+| `compile.build: updated/all` | normalized build mode in lock provenance | Implemented / Planned | Parser and lock metadata are implemented; SET-25 owns lock-aware write planning. |
+| `compile.skillset.metadata: false` | suppress generated skill `metadata.generated` / `metadata.version` | Implemented | Source metadata remains source-only; locks record `skillsetMetadata`. |
 | `compile.unsupported: error` | build/lint lowering policy | Implemented | Default policy; preserves current fail-loud unsupported behavior. |
 | `compile.unsupported: warn/skip/force` | doctor/lock provenance | Reserved | Recognized names that fail until skipped or forced source is visible. |
 | omitted `compile.targets` | all supported provider projections | Implemented | Shorthand for the default target plan; equivalent to `compile.targets: [claude, codex]` while both providers are supported. |
+| `claude.projectRoot` / `codex.projectRoot` | target adapter metadata | Implemented | Parsed and inherited with provider blocks; build still does not mutate user-level config. |
+| `claude.userRoot` / `codex.userRoot` | target adapter metadata | Implemented | Parsed and inherited with provider blocks for future setup/explain flows. |
+| `claude.defaults.<surface>` / `codex.defaults.<surface>` | target option defaults for `plugins`, `skills`, `instructions` | Implemented | Canonical target-local defaults; file-level target fields win. |
+| `defaults.<target>.<surface>` | same target option defaults | Implemented | Root/plugin shorthand; does not introduce bare top-level `targets:` provider selection. |
+| skill top-level `model` | (source-only warning) | Implemented | Warns unless every enabled target has `claude.model`, `codex.model`, or target defaults. |
 
 Canonical target selection:
 
@@ -51,6 +58,8 @@ compile:
 ```
 
 When `compile.targets` is omitted, Skillset also normalizes to the same all-supported-provider target plan. Target-specific `claude` and `codex` blocks configure native output details and lower-level opt-outs; they are not a second provider-selection surface.
+
+Adapter defaults deliberately use `claude` / `codex` blocks or the `defaults.<target>` shorthand, not a top-level `targets:` map. That preserves the ADR-0001 boundary: `compile.targets` selects provider projections, while provider blocks carry target-native config and scoped overrides.
 
 ## Plugin manifest (Claude `.claude-plugin/plugin.json`)
 

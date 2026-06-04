@@ -34,7 +34,7 @@ Use this skill when a repo has a `.skillset/` source tree or when you need to cr
       skills/
 ```
 
-Root `.skillset/config.yaml` controls provider defaults and output roots. Use `compile.targets` for provider selection and `compile.unsupported: error` for fail-loud unsupported lowering. Plugin configs use `.skillset/plugins/<plugin-name>/skillset.yaml`. Portable plugin metadata lives under `skillset`; skill source can use top-level `title`, `summary`, `description`, and `version`. Target-specific overrides use top-level `claude` and `codex`.
+Root `.skillset/config.yaml` controls provider defaults and output roots. Use `compile.targets` for provider selection, `compile.build: updated | all` for the normalized build mode, `compile.skillset.metadata: false` to suppress generated skill metadata, and `compile.unsupported: error` for fail-loud unsupported lowering. Plugin configs use `.skillset/plugins/<plugin-name>/skillset.yaml`. Portable plugin metadata lives under `skillset`; skill source can use top-level `title`, `summary`, `description`, and `version`. Target-specific adapter config, defaults, and overrides use top-level `claude` and `codex`; root `defaults.<target>.<surface>` is shorthand for target defaults without introducing a bare `targets:` map.
 
 Use `.skillset/instructions/**/*.md` for durable repo instructions (`.skillset/rules/**/*.md` is a compatibility alias that still builds but warns):
 
@@ -168,6 +168,8 @@ skillset import agents --root .
 ## Rules
 
 - Use root `compile.targets` for provider selection. Do not use bare top-level `targets:`.
+- Keep target adapter config in `claude` / `codex`; use `defaults.<target>` only as shorthand for target defaults.
+- Use `claude.model`, `codex.model`, or target defaults for model choices; top-level skill `model` warns in v1.
 - Keep `compile.unsupported` on `error`; `warn`, `skip`, and `force` are reserved until provenance exists.
 - Prefer `skillset.name`; use `skillset.id` only as a compatibility alias.
 - Do not hand-edit generated outputs as source truth.

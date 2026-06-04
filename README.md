@@ -93,9 +93,27 @@ Root source metadata lives at `.skillset/config.yaml`.
 
 Each plugin lives at `.skillset/plugins/<plugin-name>/` and has its own `skillset.yaml`. Portable plugin fields live under `skillset`; target-specific overrides live under top-level `claude` and `codex` blocks. Skill source frontmatter can use top-level `title`, `summary`, `description`, `version`, `resources`, `implicit_invocation`, `allowed_tools`, and the source-only `tools` escape map; the compiler derives target-native `name`, `description`, generated metadata, Claude frontmatter, Codex `agents/openai.yaml` policy where supported, and skill-local copies of declared resources.
 
-Use `skillset.name` as the stable machine identity. `skillset.id` is accepted as a compatibility alias for older source. Use root `compile.targets` for provider selection, and do not use bare top-level `targets:`. `compile.unsupported` currently defaults to `error`; softer modes are reserved until warning, skip, or force provenance is implemented.
+Use `skillset.name` as the stable machine identity. `skillset.id` is accepted as a compatibility alias for older source. Use root `compile.targets` for provider selection, and do not use bare top-level `targets:`. `compile.build` defaults to `updated` and accepts `all`; today it is normalized into build metadata, while SET-25 owns lock-aware write planning. `compile.skillset.metadata: false` suppresses Skillset's generated skill frontmatter metadata. `compile.unsupported` currently defaults to `error`; softer modes are reserved until warning, skip, or force provenance is implemented.
 
-Generated output strips source-only keys such as `skillset`, `claude`, `codex`, `agents`, `resources`, `implicit_invocation`, `allowed_tools`, `tools`, and `targets`. Generated skills receive only lightweight metadata:
+Target adapter configuration stays in `claude` and `codex` blocks. Root `defaults.<target>.<surface>` is shorthand for target defaults, and `claude.defaults.<surface>` / `codex.defaults.<surface>` is the canonical target-local form:
+
+```yaml
+defaults:
+  codex:
+    skills:
+      model: gpt-5
+
+claude:
+  projectRoot: .claude
+  userRoot: ~/.claude
+  defaults:
+    skills:
+      model: sonnet
+```
+
+Defaults fill omitted target options for the named surface (`plugins`, `skills`, or `instructions`). Exact file-level `claude` / `codex` fields win over plugin defaults, plugin defaults win over root defaults, and target-specific fields win over shared portable fields at render time. A top-level skill `model` is source-only and warns in v1 unless every enabled target has a target-specific model from defaults or an override; use `claude.model`, `codex.model`, or target defaults instead.
+
+Generated output strips source-only keys such as `skillset`, `claude`, `codex`, `agents`, `resources`, `implicit_invocation`, `allowed_tools`, `tools`, `model`, `defaults`, and `targets`. Generated skills receive only lightweight metadata unless `compile.skillset.metadata: false` suppresses it:
 
 ```yaml
 metadata:

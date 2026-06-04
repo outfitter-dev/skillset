@@ -1,5 +1,7 @@
 import type {
+  CompileBuildMode,
   CompileConfig,
+  CompileSkillsetConfig,
   CompileUnsupportedPolicy,
   JsonRecord,
   JsonValue,
@@ -11,8 +13,10 @@ import type {
 import { isJsonRecord } from "./yaml";
 
 const TARGET_NAMES: readonly TargetName[] = ["claude", "codex"];
-const CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "claude", "codex", "skillset"]);
+const DEFAULT_SURFACES = new Set(["instructions", "plugins", "skills"]);
+const CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "claude", "codex", "defaults", "skillset"]);
 const ROOT_CONFIG_TOP_LEVEL_KEYS = new Set([...CONFIG_TOP_LEVEL_KEYS, "compile"]);
+const COMPILE_BUILD_MODES = new Set<CompileBuildMode>(["updated", "all"]);
 const COMPILE_UNSUPPORTED_POLICIES = new Set<CompileUnsupportedPolicy>([
   "error",
   "warn",
@@ -25,7 +29,9 @@ const SOURCE_ONLY_KEYS = new Set([
   "claude",
   "compile",
   "codex",
+  "defaults",
   "implicit_invocation",
+  "model",
   "resources",
   "schema",
   "skillset",
@@ -46,10 +52,17 @@ export function defaultTargets(): Readonly<Record<TargetName, ResolvedTarget>> {
 
 export function readCompileConfig(record: JsonRecord, label: string): CompileConfig {
   const compile = readCompileRecord(record, label);
-  if (compile === undefined) return { targets: [...TARGET_NAMES], unsupported: "error" };
+  if (compile === undefined) {
+    return {
+      build: "updated",
+      skillset: { metadata: true },
+      targets: [...TARGET_NAMES],
+      unsupported: "error",
+    };
+  }
 
   for (const key of Object.keys(compile)) {
-    if (key !== "targets" && key !== "unsupported") {
+    if (key !== "build" && key !== "skillset" && key !== "targets" && key !== "unsupported") {
       throw new Error(`skillset: unsupported compile key ${key} in ${label}`);
     }
   }
@@ -63,6 +76,8 @@ export function readCompileConfig(record: JsonRecord, label: string): CompileCon
   }
 
   return {
+    build: readCompileBuildMode(compile, `${label}.compile.build`),
+    skillset: readCompileSkillsetConfig(compile, `${label}.compile.skillset`),
     targets: readCompileTargetNames(compile, `${label}.compile.targets`),
     unsupported,
   };
@@ -73,15 +88,16 @@ export function readCompileTargets(
   label: string
 ): Readonly<Record<TargetName, ResolvedTarget>> {
   const compile = readCompileRecord(record, label);
-  if (compile === undefined) return defaultTargets();
+  const rootDefaults = readShorthandTargetDefaults(record, label);
+  if (compile === undefined) return mergeTargetDefaults(defaultTargets(), rootDefaults);
 
   const targets = readCompileTargetNames(compile, `${label}.compile.targets`);
   const enabledTargets = new Set(targets);
 
-  return {
+  return mergeTargetDefaults({
     claude: { enabled: enabledTargets.has("claude"), options: {} },
     codex: { enabled: enabledTargets.has("codex"), options: {} },
-  };
+  }, rootDefaults);
 }
 
 function readCompileTargetNames(record: JsonRecord, label: string): readonly TargetName[] {
@@ -208,12 +224,47 @@ export function resolveTargets(
   parent: Readonly<Record<TargetName, ResolvedTarget>>,
   record: JsonRecord,
   label: string,
-  options: { readonly objectInheritsEnabled?: boolean } = {}
+  options: {
+    readonly allowDefaults?: boolean;
+    readonly objectInheritsEnabled?: boolean;
+  } = {}
 ): Readonly<Record<TargetName, ResolvedTarget>> {
   rejectTargetsKey(record, label);
+  if (record.defaults !== undefined && options.allowDefaults !== true) {
+    throw new Error(
+      `skillset: ${label} uses unsupported defaults key; configure target defaults in root or plugin config`
+    );
+  }
+  const parentWithDefaults =
+    options.allowDefaults === true
+      ? mergeTargetDefaults(parent, readShorthandTargetDefaults(record, label))
+      : parent;
   return {
-    claude: resolveTarget(parent.claude, record.claude, `${label}.claude`, options),
-    codex: resolveTarget(parent.codex, record.codex, `${label}.codex`, options),
+    claude: resolveTarget(parentWithDefaults.claude, record.claude, `${label}.claude`, options),
+    codex: resolveTarget(parentWithDefaults.codex, record.codex, `${label}.codex`, options),
+  };
+}
+
+export function resolveFeatureTargets(
+  parent: Readonly<Record<TargetName, ResolvedTarget>>,
+  record: JsonRecord,
+  label: string,
+  surface: "instructions" | "plugins" | "skills",
+  options: {
+    readonly allowDefaults?: boolean;
+    readonly objectInheritsEnabled?: boolean;
+  } = {}
+): Readonly<Record<TargetName, ResolvedTarget>> {
+  return applyFeatureTargetDefaults(resolveTargets(parent, record, label, options), surface);
+}
+
+export function applyFeatureTargetDefaults(
+  targets: Readonly<Record<TargetName, ResolvedTarget>>,
+  surface: "instructions" | "plugins" | "skills"
+): Readonly<Record<TargetName, ResolvedTarget>> {
+  return {
+    claude: applyFeatureDefaults(targets.claude, surface),
+    codex: applyFeatureDefaults(targets.codex, surface),
   };
 }
 
@@ -221,7 +272,10 @@ export function resolveTarget(
   parent: ResolvedTarget,
   raw: JsonValue | undefined,
   label: string,
-  options: { readonly objectInheritsEnabled?: boolean } = {}
+  options: {
+    readonly allowDefaults?: boolean;
+    readonly objectInheritsEnabled?: boolean;
+  } = {}
 ): ResolvedTarget {
   if (raw === undefined) return parent;
   if (raw === true) return { enabled: true, options: parent.options };
@@ -234,6 +288,17 @@ export function resolveTarget(
   const { enabled, ...rest } = raw;
   if (enabled !== undefined && typeof enabled !== "boolean") {
     throw new Error(`skillset: expected ${label}.enabled to be a boolean`);
+  }
+  if (rest.defaults !== undefined) {
+    if (options.allowDefaults !== true) {
+      throw new Error(
+        `skillset: ${label}.defaults is only supported in root or plugin config`
+      );
+    }
+    if (!isJsonRecord(rest.defaults)) {
+      throw new Error(`skillset: expected ${label}.defaults to be an object`);
+    }
+    validateDefaultSurfaces(rest.defaults, `${label}.defaults`);
   }
 
   return {
@@ -319,6 +384,39 @@ function readCompileRecord(record: JsonRecord, label: string): JsonRecord | unde
   return compile;
 }
 
+function readCompileBuildMode(record: JsonRecord, label: string): CompileBuildMode {
+  const value = record.build;
+  if (value === undefined) return "updated";
+  if (typeof value !== "string") {
+    throw new Error(`skillset: expected ${label} to be one of: updated, all`);
+  }
+  if (!COMPILE_BUILD_MODES.has(value as CompileBuildMode)) {
+    throw new Error(
+      `skillset: unsupported ${label} ${JSON.stringify(value)}; expected one of: updated, all`
+    );
+  }
+  return value as CompileBuildMode;
+}
+
+function readCompileSkillsetConfig(record: JsonRecord, label: string): CompileSkillsetConfig {
+  const value = record.skillset;
+  if (value === undefined) return { metadata: true };
+  if (!isJsonRecord(value)) {
+    throw new Error(`skillset: expected ${label} to be an object`);
+  }
+  for (const key of Object.keys(value)) {
+    if (key !== "metadata") {
+      throw new Error(`skillset: unsupported compile skillset key ${key} in ${label}`);
+    }
+  }
+  const metadata = value.metadata;
+  if (metadata === undefined) return { metadata: true };
+  if (typeof metadata !== "boolean") {
+    throw new Error(`skillset: expected ${label}.metadata to be a boolean`);
+  }
+  return { metadata };
+}
+
 function readCompileUnsupportedPolicy(record: JsonRecord, label: string): CompileUnsupportedPolicy {
   const value = record.unsupported;
   if (value === undefined) return "error";
@@ -331,6 +429,76 @@ function readCompileUnsupportedPolicy(record: JsonRecord, label: string): Compil
     );
   }
   return value as CompileUnsupportedPolicy;
+}
+
+function readShorthandTargetDefaults(
+  record: JsonRecord,
+  label: string
+): Readonly<Record<TargetName, JsonRecord>> {
+  const defaults = record.defaults;
+  const result: Record<TargetName, JsonRecord> = { claude: {}, codex: {} };
+  if (defaults === undefined) return result;
+  if (!isJsonRecord(defaults)) {
+    throw new Error(`skillset: expected ${label}.defaults to be an object`);
+  }
+  for (const key of Object.keys(defaults)) {
+    if (key !== "claude" && key !== "codex") {
+      throw new Error(
+        `skillset: unsupported target ${JSON.stringify(key)} in ${label}.defaults; expected claude or codex`
+      );
+    }
+    const targetDefaults = defaults[key];
+    if (!isJsonRecord(targetDefaults)) {
+      throw new Error(`skillset: expected ${label}.defaults.${key} to be an object`);
+    }
+    validateDefaultSurfaces(targetDefaults, `${label}.defaults.${key}`);
+    result[key] = targetDefaults;
+  }
+  return result;
+}
+
+function validateDefaultSurfaces(defaults: JsonRecord, label: string): void {
+  for (const key of Object.keys(defaults)) {
+    if (!DEFAULT_SURFACES.has(key)) {
+      throw new Error(
+        `skillset: unsupported defaults surface ${JSON.stringify(key)} in ${label}; expected instructions, plugins, or skills`
+      );
+    }
+  }
+}
+
+function mergeTargetDefaults(
+  targets: Readonly<Record<TargetName, ResolvedTarget>>,
+  defaults: Readonly<Record<TargetName, JsonRecord>>
+): Readonly<Record<TargetName, ResolvedTarget>> {
+  return {
+    claude: mergeTargetDefault(targets.claude, defaults.claude),
+    codex: mergeTargetDefault(targets.codex, defaults.codex),
+  };
+}
+
+function mergeTargetDefault(target: ResolvedTarget, defaults: JsonRecord): ResolvedTarget {
+  if (Object.keys(defaults).length === 0) return target;
+  return {
+    enabled: target.enabled,
+    options: mergeRecords(target.options, {
+      defaults: mergeRecords(readRecord(target.options, "defaults") ?? {}, defaults),
+    }),
+  };
+}
+
+function applyFeatureDefaults(
+  target: ResolvedTarget,
+  surface: "instructions" | "plugins" | "skills"
+): ResolvedTarget {
+  const defaults = readRecord(target.options, "defaults");
+  if (defaults === undefined) return target;
+  const surfaceDefaults = readRecord(defaults, surface);
+  if (surfaceDefaults === undefined) return target;
+  return {
+    enabled: target.enabled,
+    options: mergeRecords(surfaceDefaults, target.options),
+  };
 }
 
 interface ParsedTargetOutputSetting {

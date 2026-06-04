@@ -25,8 +25,15 @@ export interface RootConfig {
 }
 
 export type CompileUnsupportedPolicy = "error" | "warn" | "skip" | "force";
+export type CompileBuildMode = "updated" | "all";
+
+export interface CompileSkillsetConfig {
+  readonly metadata: boolean;
+}
 
 export interface CompileConfig {
+  readonly build: CompileBuildMode;
+  readonly skillset: CompileSkillsetConfig;
   readonly targets: readonly TargetName[];
   readonly unsupported: CompileUnsupportedPolicy;
 }
