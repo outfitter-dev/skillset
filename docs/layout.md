@@ -99,7 +99,16 @@ compile:
 
 Omitting `compile.targets` builds every supported provider projection for portable source. `compile.unsupported` defaults to `error`; `warn`, `skip`, and `force` are reserved until unsupported-source warnings and lock provenance exist.
 
-Older config can still use top-level provider blocks for target selection and output settings:
+The canonical provider-selection shape is the `compile.targets` list above. This shorthand normalizes to the same internal target plan:
+
+```yaml
+compile:
+  targets: [claude, codex]
+```
+
+When `compile.targets` is omitted, Skillset normalizes to all supported providers. Target-specific `claude` and `codex` blocks configure native output details and lower-level opt-outs; they are not a second target-selection surface.
+
+Older config can still use top-level provider blocks for target-specific output settings:
 
 ```yaml
 claude:
@@ -201,7 +210,7 @@ paths:
 
 Claude output preserves the relative source hierarchy under `.claude/rules/**/*.md` and keeps `paths` frontmatter so Claude can apply path-scoped rules. Rules without `paths` are emitted without frontmatter and load as unconditional Claude project rules.
 
-Codex output lowers rules into the instruction files Codex actually discovers. Rules without `paths` write root `AGENTS.md`. Rules with path patterns write `<derived-base>/AGENTS.md`; for example `docs/**/*.md` writes `docs/AGENTS.md`. If a pattern has no static base, such as `**/*.ts`, the compiler scans matching repo files and uses the lowest common directory for the matched files. Multiple rules that land at the same `AGENTS.md` are concatenated in source-path order, each preceded by a deterministic `<!-- source: .skillset/instructions/<path> -->` boundary comment that names the source instruction. Boundary comments carry the path only; source-only frontmatter (such as `paths`) never reaches the generated `AGENTS.md`.
+Codex output lowers rules into the instruction files Codex actually discovers. Rules without `paths` write root `AGENTS.md`. Rules with path patterns write `<derived-base>/AGENTS.md`; for example `docs/**/*.md` writes `docs/AGENTS.md`. If a pattern has no static base, such as `**/*.ts`, the compiler scans matching repo files and uses the lowest common directory for the matched files. Multiple rules that land at the same `AGENTS.md` are concatenated in source-path order, each preceded by a deterministic `<!-- source: .skillset/instructions/<path> -->` boundary comment that names the source instruction. Boundary comments carry the path only; source-only frontmatter (such as `paths`) never reaches the generated `AGENTS.md`. Skillset does not write `.codex/AGENTS.md` as a default project-instruction location; Codex project guidance belongs in `AGENTS.md` files at the repo root or scoped directories.
 
 Codex truncates each `AGENTS.md` beyond `project_doc_max_bytes` (32 KiB by default) silently. When a generated `AGENTS.md` crosses that size, `skillset build`/`check` warns. To stay under the limit, split instructions across nested directories so they lower to scoped `AGENTS.md` files (which load only when working in that subtree), or raise `project_doc_max_bytes` in Codex config.
 
@@ -211,13 +220,15 @@ Instruction frontmatter can use top-level `claude` and `codex` target toggles. S
 
 `codex: symlink` is a recorded follow-up, not a v1 behavior. Directly symlinking Codex `AGENTS.md` to Claude rule files would expose Claude `paths` frontmatter as Codex instructions.
 
-## Target-Specific Plugin Surfaces
+Codex `.rules` files are not instruction Markdown. They are target-native command execution policy files under Codex config-layer `rules/` directories. A future target-native island can mirror `.skillset/src/codex/rules/**/*.rules` into `.codex/rules/**/*.rules`, but portable prose instructions continue to lower through `AGENTS.md`.
 
-Some plugin companion paths are target-native rather than portable. Claude output copies `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json`, `.lsp.json`, `output-styles/`, `themes/`, `monitors/`, `assets/`, `scripts/`, and `src/` when present. Codex output copies `hooks/hooks.json`, `.mcp.json`, `.app.json`, `assets/`, `scripts/`, and `src/`. Claude `agents/` is not copied into Codex output; Codex agent output remains an experimental boundary until a validated source model exists.
+## Target-Specific Source and Plugin Surfaces
 
-These paths are copied as opaque content — `skillset` does not synthesize or validate their schemas in v1. When a Claude pass-through path is present, the generated `.claude-plugin/plugin.json` declares it using the documented manifest field: `lspServers` for `.lsp.json`, `outputStyles` for `output-styles/`, and the experimental `experimental.themes` / `experimental.monitors` for `themes/` and `monitors/monitors.json`. The supported Claude plugin component paths were live-doc verified against `code.claude.com/docs/en/plugins-reference` (2026-06-03).
+Some plugin companion paths are target-native rather than portable. Claude output copies `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json`, `.lsp.json`, `output-styles/`, `themes/`, `monitors/`, `assets/`, `scripts/`, and `src/` when present. Codex output copies `hooks/hooks.json`, `.mcp.json`, `.app.json`, `assets/`, `scripts/`, and `src/`. Claude `agents/` is not copied into Codex plugin output; Codex plugin docs do not document a plugin `agents/` component. Project-scoped Codex custom agents live under `.codex/agents/*.toml` and are a different target-native surface from plugin components.
 
-Deferred, by deliberate decision: `settings.json` is an install-scope user/project config file (`.claude/settings.json`), not a plugin-root component — Skillset does not emit or mutate it, consistent with the no-user-config-mutation posture. A plugin `bin/` directory is not a documented Claude plugin component, so it is not passed through; runnable helpers belong under `scripts/`.
+These paths are copied as opaque content — `skillset` does not synthesize or validate their schemas in v1. When a Claude pass-through path is present, the generated `.claude-plugin/plugin.json` declares it using the documented manifest field: `lspServers` for `.lsp.json`, `outputStyles` for `output-styles/`, and the experimental `experimental.themes` / `experimental.monitors` for `themes/` and `monitors/monitors.json`. The supported Claude plugin component paths were live-doc verified against `code.claude.com/docs/en/plugins` and `code.claude.com/docs/en/plugins-reference` (2026-06-04).
+
+Claude plugin docs now document root `bin/` and plugin-root `settings.json`. Treat both as target-native, not portable. `bin/` is a documented executable component and can be supported through feature-key/source-pointer work. Plugin-root `settings.json` applies default configuration when a Claude plugin is enabled, so Skillset must keep it separate from live user/project settings mutation. Build still emits definitions only: it does not install, trust, enable, or symlink generated output into runtime locations. A reviewed settings suggestion workflow is a future non-goal for v1.
 
 Hooks are generated definitions only. The compiler does not install, trust, or enable hooks in user-level configuration. Hook files must be JSON objects before they are emitted. Both Claude and Codex emit hooks at the documented default `hooks/hooks.json` with a top-level `{ "hooks": { ... } }` object. The canonical source is `hooks/hooks.json`; when it is the only hook file it is shared by both targets. A legacy root `hooks.json` is an explicit Codex-specific compatibility source: when it is present it is used for Codex even if a canonical `hooks/hooks.json` also exists, so the two-file layout can intentionally carry different Claude and Codex hooks during migration. It still builds — flat event maps are normalized into the canonical `hooks` object and emitted to `hooks/hooks.json` — but the build warns and recommends moving it under `hooks/`. The compiler does not auto-lower Claude hooks into Codex hooks. Codex hook files are validated against Codex-supported events and synchronous `command` handlers only; prompt handlers, agent handlers, and `async: true` command handlers are parsed but skipped by Codex, so target-incompatible Codex hooks fail `skillset build` and `skillset lint`. Claude hook validation stays broad.
 
