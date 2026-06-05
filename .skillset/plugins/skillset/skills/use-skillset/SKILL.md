@@ -36,6 +36,18 @@ Use this skill when a repo has a `.skillset/` source tree or when you need to cr
 
 Root `.skillset/config.yaml` controls provider defaults and output roots. Use `compile.targets` for provider selection, `compile.build: updated | all` for the normalized build mode, `compile.skillset.metadata: false` to suppress generated skill metadata, and `compile.unsupported: error` for fail-loud unsupported lowering. `skillset build` plans by default and writes only with `--yes`; `--dry-run` always prevents writes, and `--scope repo`, `--scope plugins`, `--scope project`, or combinations filter generated destinations. Plugin configs use `.skillset/plugins/<plugin-name>/skillset.yaml`. Portable plugin metadata lives under `skillset`; skill source can use top-level `title`, `summary`, `description`, and `version`. Target-specific adapter config, defaults, and overrides use top-level `claude` and `codex`; root `defaults.<target>.<surface>` is shorthand for target defaults without introducing a bare `targets:` map.
 
+Use setup commands when a repo does not have source yet:
+
+```bash
+skillset init --root .                 # preview a minimal .skillset/ scaffold
+skillset init --root . --yes           # write the scaffold
+skillset create                        # preview ./my-skillset
+skillset create team-loadout --yes     # create a new source repo
+skillset create --global --yes         # create ~/.skillset/src
+```
+
+`init` and `create` are plan-first like `build`: they write only with `--yes`, and `--dry-run` always prevents writes. `--targets claude,codex` controls generated `compile.targets`; `--with-project-doc` adds `.skillset/instructions/project.md`, while `--with-agents` and `--with-islands` add optional `.skillset/src/` placeholders. `create --global` creates Skillset-owned source at `~/.skillset/src`; it does not create `~/.skillset/build` or mutate `~/.claude`, `~/.codex`, `.agents`, trust settings, marketplaces, or symlinks. Future `npx create-skillset` / `bunx create-skillset` bootstraps should call the same create flow.
+
 Use `.skillset/instructions/**/*.md` for durable repo instructions (`.skillset/rules/**/*.md` is a compatibility alias that still builds but warns):
 
 ```yaml

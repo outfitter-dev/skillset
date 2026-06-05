@@ -22,6 +22,8 @@ This repo also self-hosts a small `.skillset/` source tree:
 From a content repo:
 
 ```bash
+skillset init               # preview a minimal .skillset/ scaffold for the current repo
+skillset create             # preview a new my-skillset source repo scaffold
 skillset build              # plan generated changes without writing
 skillset build --yes        # write generated outputs
 skillset lint               # source authoring diagnostics
@@ -31,7 +33,7 @@ skillset explain <path>     # explain a source or generated path (lowering, lock
 skillset doctor             # aggregate lint issues + drift + warnings
 ```
 
-`build` is plan-first: it prints pending generated changes and writes only with `--yes`; `--dry-run` always prevents writes, even when paired with `--yes`. `--scope repo`, `--scope plugins`, `--scope project`, and combinations filter generated destinations for build, diff, check, list, and explain; `--scope user` is accepted but currently has no build outputs. `diff`, `explain`, and `doctor` are read-only authoring aids: they never write generated outputs, install, trust, publish, or mutate user-level config. `diff`, `check`, and `doctor` report missing managed outputs separately from new outputs so intentional deletion and stale locks are visible. `explain` accepts either a source path (e.g. `.skillset/skills/foo/SKILL.md`) or a generated output path and reports how it lowers, its lock entry, target state, and source/output hashes. `doctor` exits non-zero when it finds lint issues, drift, or a build error.
+`init`, `create`, and `build` are plan-first: they print pending filesystem changes and write only with `--yes`; `--dry-run` always prevents writes, even when paired with `--yes`. `--scope repo`, `--scope plugins`, `--scope project`, and combinations filter generated destinations for build, diff, check, list, and explain; `--scope user` is accepted but currently has no build outputs. `diff`, `explain`, and `doctor` are read-only authoring aids: they never write generated outputs, install, trust, publish, or mutate user-level config. `diff`, `check`, and `doctor` report missing managed outputs separately from new outputs so intentional deletion and stale locks are visible. `explain` accepts either a source path (e.g. `.skillset/skills/foo/SKILL.md`) or a generated output path and reports how it lowers, its lock entry, target state, and source/output hashes. `doctor` exits non-zero when it finds lint issues, drift, or a build error.
 
 The default contract is:
 
@@ -56,6 +58,26 @@ skillset build --root /tmp/example --source custom-source --dist generated
 ```
 
 `--dist` is a compatibility override for plugin outputs. Without it, plugin outputs default to `plugins-claude/` and `plugins-codex/`. Source config can also set explicit output roots in target output objects such as `claude.plugins.path` or `codex.skills.path`.
+
+## Setup
+
+Initialize Skillset source in an existing repo:
+
+```bash
+skillset init --root /path/to/content-repo
+skillset init --root /path/to/content-repo --targets claude --with-agents --with-islands --yes
+```
+
+Create a new source repo, defaulting to `my-skillset` under the current directory:
+
+```bash
+skillset create
+skillset create team-loadout --name team-loadout --targets claude,codex --yes
+```
+
+For a user-global source checkout, `skillset create --global` defaults to `~/.skillset/src`. This is still Skillset-owned source, not a live Claude or Codex runtime directory. The corresponding preview/build area is documented as `~/.skillset/build`, but setup does not create it or write to `~/.claude`, `~/.codex`, or `.agents`. Future package-manager bootstraps such as `npx create-skillset` and `bunx create-skillset` are aliases for the same `create` flow; publication remains deferred while the package is private.
+
+Setup commands create only source files: `.skillset/config.yaml`, `.skillset/src/.gitkeep`, and optional `.skillset/instructions/project.md`, `.skillset/src/agents/`, `.skillset/src/claude/`, and `.skillset/src/codex/rules/` placeholders when requested. The generated config uses `compile.targets`; target adapter config still belongs in `claude` and `codex` blocks or root `defaults.<target>.<surface>`.
 
 ## Import
 

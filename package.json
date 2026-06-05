@@ -20,6 +20,7 @@
     "skills"
   ],
   "bin": {
+    "create-skillset": "./src/cli.ts",
     "skillset": "./src/cli.ts"
   },
   "scripts": {

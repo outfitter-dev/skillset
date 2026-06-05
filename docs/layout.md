@@ -99,6 +99,14 @@ This compiler repo uses that same layout for its own source:
 - `.skillset/skills/skillset-codex-development` is a Codex-only internal standalone skill for compiler development.
 - `.skillset/plugins/skillset` is the user-facing plugin that explains how to use `skillset`.
 
+## Setup Commands
+
+`skillset init` initializes source in an existing repo or directory. It plans by default, writes only with `--yes`, and refuses to overwrite existing setup files with different content. The minimal scaffold is `.skillset/config.yaml` plus `.skillset/src/.gitkeep`; requested flags can add `.skillset/instructions/project.md`, `.skillset/src/agents/`, `.skillset/src/claude/`, and `.skillset/src/codex/rules/` placeholders. The project-doc scaffold is a real portable instruction source that lowers to Claude rules and Codex `AGENTS.md`.
+
+`skillset create` creates a new source repo, defaulting to `my-skillset` under the current directory. `skillset create --global` defaults the source checkout to `~/.skillset/src`. This global source path and the documented `~/.skillset/build` preview/build area are Skillset-owned locations, not live target runtime directories. Setup does not create or mutate `~/.claude`, `~/.codex`, `.agents`, marketplaces, trust settings, or symlinks.
+
+The generated setup config uses `compile.targets` for provider selection. Target-native adapter settings still belong in `claude` and `codex` blocks, and reusable defaults belong in `defaults.<target>.<surface>` or the target-local `defaults` block. Package-manager bootstraps such as `npx create-skillset` and `bunx create-skillset` are intended to invoke the same `create` flow once publishing exists; this package remains private while the source contract is settling.
+
 Provider selection, plugin output roots, and standalone skill output roots can be enabled with defaults or configured from root `.skillset/config.yaml`:
 
 ```yaml

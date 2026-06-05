@@ -9,6 +9,7 @@ import { doctorSkillset, explainPath } from "../authoring";
 import { importSource, importSources } from "../import";
 import { lintSkillset } from "../lint";
 import { loadBuildGraph } from "../resolver";
+import { createSkillset } from "../setup";
 
 // SET-3: skillset.schema separates the source-contract schema from content
 // version (skillset.version), generated metadata.version, and lock provenance.
@@ -1546,6 +1547,114 @@ Body.
   });
 
   await expect(buildSkillset(root)).rejects.toThrow("generated output collision");
+});
+
+test("SET-27: init previews by default and writes only with confirmation", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-setup-init-"));
+
+  const preview = await runSkillsetCli("init", "--root", root, "--targets", "claude");
+  expect(preview.exitCode).toBe(0);
+  expect(preview.stdout).toContain("write confirmation required");
+  expect(preview.stdout).toContain("+ .skillset/config.yaml");
+  expect(await fileExists(join(root, ".skillset/config.yaml"))).toBe(false);
+
+  const written = await runSkillsetCli("init", "--root", root, "--targets", "claude", "--yes");
+  expect(written.exitCode).toBe(0);
+  const config = await readFile(join(root, ".skillset/config.yaml"), "utf8");
+  expect(config).toContain("compile:");
+  expect(config).toContain("    - claude");
+  expect(config).not.toContain("    - codex");
+  expect(await fileExists(join(root, ".skillset/src/.gitkeep"))).toBe(true);
+  expect(await fileExists(join(root, ".claude"))).toBe(false);
+  expect(await fileExists(join(root, ".codex"))).toBe(false);
+  expect(await fileExists(join(root, ".agents"))).toBe(false);
+});
+
+test("SET-27: init scaffolds project doc, agents, and islands only when requested", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-setup-shaped-"));
+
+  await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
+  expect(await fileExists(join(root, ".skillset/instructions/project.md"))).toBe(false);
+  expect(await fileExists(join(root, ".skillset/src/agents/.gitkeep"))).toBe(false);
+  expect(await fileExists(join(root, ".skillset/src/claude/.gitkeep"))).toBe(false);
+  expect(await fileExists(join(root, ".skillset/src/codex/rules/.gitkeep"))).toBe(false);
+
+  const shaped = await mkdtemp(join(tmpdir(), "skillset-setup-shaped-"));
+  await expect(
+    runSkillsetCli(
+      "init",
+      "--root",
+      shaped,
+      "--with-project-doc",
+      "--with-agents",
+      "--with-islands",
+      "--yes"
+    )
+  ).resolves.toMatchObject({ exitCode: 0 });
+  expect(await fileExists(join(shaped, ".skillset/instructions/project.md"))).toBe(true);
+  expect(await fileExists(join(shaped, ".skillset/src/agents/.gitkeep"))).toBe(true);
+  expect(await fileExists(join(shaped, ".skillset/src/claude/.gitkeep"))).toBe(true);
+  expect(await fileExists(join(shaped, ".skillset/src/codex/rules/.gitkeep"))).toBe(true);
+
+  await expect(runSkillsetCli("build", "--root", shaped, "--yes")).resolves.toMatchObject({ exitCode: 0 });
+  expect(await fileExists(join(shaped, "AGENTS.md"))).toBe(true);
+  expect(await fileExists(join(shaped, ".claude/rules/project.md"))).toBe(true);
+});
+
+test("SET-27: create makes a new source repo with default naming", async () => {
+  const parent = await mkdtemp(join(tmpdir(), "skillset-setup-create-"));
+
+  const preview = await runSkillsetCli("create", "--root", parent);
+  expect(preview.exitCode).toBe(0);
+  expect(preview.stdout).toContain("my-skillset");
+  expect(await fileExists(join(parent, "my-skillset/.skillset/config.yaml"))).toBe(false);
+
+  const written = await runSkillsetCli("create", "--root", parent, "--yes");
+  expect(written.exitCode).toBe(0);
+  const config = await readFile(join(parent, "my-skillset/.skillset/config.yaml"), "utf8");
+  expect(config).toContain("name: my-skillset");
+  expect(config).toContain("compile:");
+});
+
+test("SET-27: create supports global source path without touching runtime config", async () => {
+  const home = await mkdtemp(join(tmpdir(), "skillset-setup-home-"));
+
+  const report = await createSkillset({ global: true, homeDir: home, write: true });
+
+  expect(report.rootPath).toBe(join(home, ".skillset/src"));
+  expect(await fileExists(join(home, ".skillset/src/.skillset/config.yaml"))).toBe(true);
+  expect(await fileExists(join(home, ".skillset/build"))).toBe(false);
+  expect(await fileExists(join(home, ".claude"))).toBe(false);
+  expect(await fileExists(join(home, ".codex"))).toBe(false);
+});
+
+test("SET-27: setup refuses unsafe overwrite", async () => {
+  const parent = await mkdtemp(join(tmpdir(), "skillset-setup-overwrite-"));
+  await Bun.write(join(parent, "occupied/README.md"), "already here\n");
+
+  const create = await runSkillsetCli("create", "occupied", "--root", parent, "--yes");
+  expect(create.exitCode).toBe(1);
+  expect(create.stderr).toContain("create target must be empty");
+
+  const initRoot = await mkdtemp(join(tmpdir(), "skillset-setup-overwrite-"));
+  await Bun.write(join(initRoot, ".skillset/config.yaml"), "not: skillset\n");
+  const init = await runSkillsetCli("init", "--root", initRoot, "--yes");
+  expect(init.exitCode).toBe(1);
+  expect(init.stderr).toContain("refusing to overwrite existing setup file");
+});
+
+test("SET-27: setup-only flags fail loudly outside their setup command", async () => {
+  const initGlobal = await runSkillsetCli("init", "--global");
+  expect(initGlobal.exitCode).toBe(1);
+  expect(initGlobal.stderr).toContain("--global is only supported with create");
+
+  const buildTargets = await runSkillsetCli("build", "--targets", "claude");
+  expect(buildTargets.exitCode).toBe(1);
+  expect(buildTargets.stderr).toContain("setup options are only supported with init or create");
+
+  const createGlobalPath = await runSkillsetCli("create", "team-loadout", "--global");
+  expect(createGlobalPath.exitCode).toBe(1);
+  expect(createGlobalPath.stderr).toContain("either a path or --global");
 });
 
 test("SET-9: explain resolves source and generated paths via lock provenance", async () => {
