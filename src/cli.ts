@@ -1,19 +1,44 @@
 #!/usr/bin/env bun
 
-import { resolve } from "node:path";
+import { basename, resolve } from "node:path";
 
 import { doctorSkillset, explainPath, listGeneratedEntries } from "./authoring";
 import { buildSkillset, checkSkillset, diffSkillset } from "./build";
 import { importSources, type ImportKind, type ImportProvider, type ImportReport } from "./import";
 import { lintSkillset } from "./lint";
-import type { SkillsetOptions } from "./types";
+import { createSkillset, initSkillset, type SetupReport } from "./setup";
+import type { BuildScope, CompileBuildMode, SkillsetOptions, TargetName } from "./types";
 
-type Command = "build" | "check" | "diff" | "doctor" | "explain" | "import" | "lint" | "list";
+type Command = "build" | "check" | "create" | "diff" | "doctor" | "explain" | "import" | "init" | "lint" | "list";
 
 async function main(): Promise<void> {
-  const { command, importKind, importPath, importName, importProvider, options, rootPath } = parseArgs(process.argv.slice(2));
+  const rawArgs = process.argv.slice(2);
+  const invokedName = basename(process.argv[1] ?? "");
+  const args = invokedName === "create-skillset" ? ["create", ...rawArgs] : rawArgs;
+  const {
+    command,
+    dryRun,
+    importKind,
+    importPath,
+    importName,
+    importProvider,
+    options,
+    rootPath,
+    setupGlobal,
+    setupIncludeAgents,
+    setupIncludeIslands,
+    setupIncludeProjectDoc,
+    setupTargets,
+    yes,
+  } = parseArgs(args);
 
   if (command === "build") {
+    if (dryRun || !yes) {
+      const diff = await diffSkillset(rootPath, options);
+      printDiffPlan(diff, dryRun ? "dry run" : "write confirmation required");
+      if (!dryRun) console.log("skillset: rerun with --yes to write generated files");
+      return;
+    }
     const rendered = await buildSkillset(rootPath, options);
     console.log(`skillset: wrote ${rendered.length} generated files`);
     return;
@@ -22,6 +47,34 @@ async function main(): Promise<void> {
   if (command === "lint") {
     const result = await lintSkillset(rootPath, options);
     console.log(`skillset: linted ${result.checkedSkills} source skills`);
+    return;
+  }
+
+  if (command === "init" || command === "create") {
+    const setup = command === "init"
+      ? await initSkillset({
+          cwd: rootPath,
+          ...(importPath === undefined ? {} : { rootPath: importPath }),
+          ...(importName === undefined ? {} : { name: importName }),
+          ...(setupTargets === undefined ? {} : { targets: setupTargets }),
+          includeAgents: setupIncludeAgents,
+          includeIslands: setupIncludeIslands,
+          includeProjectDoc: setupIncludeProjectDoc,
+          write: yes && !dryRun,
+        })
+      : await createSkillset({
+          cwd: rootPath,
+          global: setupGlobal,
+          ...(importPath === undefined ? {} : { rootPath: importPath }),
+          ...(importName === undefined ? {} : { name: importName }),
+          ...(setupTargets === undefined ? {} : { targets: setupTargets }),
+          includeAgents: setupIncludeAgents,
+          includeIslands: setupIncludeIslands,
+          includeProjectDoc: setupIncludeProjectDoc,
+          write: yes && !dryRun,
+        });
+    printSetupReport(setup, dryRun ? "dry run" : yes ? "written" : "write confirmation required");
+    if (!yes || dryRun) console.log(`skillset: rerun ${command} with --yes to write setup files`);
     return;
   }
 
@@ -50,16 +103,17 @@ async function main(): Promise<void> {
 
   if (command === "diff") {
     const diff = await diffSkillset(rootPath, options);
-    const total = diff.added.length + diff.changed.length + diff.removed.length;
+    const total = diff.added.length + diff.changed.length + diff.missing.length + diff.removed.length;
     if (total === 0) {
       console.log("skillset: no generated changes");
       return;
     }
     for (const path of diff.added) console.log(`  + ${path}`);
     for (const path of diff.changed) console.log(`  ~ ${path}`);
+    for (const path of diff.missing) console.log(`  ! ${path}`);
     for (const path of diff.removed) console.log(`  - ${path}`);
     console.log(
-      `skillset: ${diff.added.length} added, ${diff.changed.length} changed, ${diff.removed.length} removed (run skillset build to apply)`
+      `skillset: ${diff.added.length} added, ${diff.changed.length} changed, ${diff.missing.length} missing, ${diff.removed.length} removed (run skillset build --yes to apply)`
     );
     return;
   }
@@ -67,7 +121,9 @@ async function main(): Promise<void> {
   if (command === "list") {
     const entries = await listGeneratedEntries(rootPath, options);
     for (const entry of entries) {
-      console.log(`  [${entry.target}] ${entry.kind ?? "generated"} ${entry.sourcePath} -> ${entry.outputPath}`);
+      const feature = entry.feature === undefined ? "" : ` ${entry.feature}`;
+      const origin = entry.origin === undefined ? "" : ` (${entry.origin})`;
+      console.log(`  [${entry.target}] ${entry.kind ?? "generated"}${feature}${origin} ${entry.sourcePath} -> ${entry.outputPath}`);
     }
     console.log(`skillset: listed ${entries.length} generated entries`);
     return;
@@ -84,6 +140,9 @@ async function main(): Promise<void> {
       if (entry.version !== undefined) console.log(`    version: ${entry.version}`);
       if (entry.targetState !== undefined) console.log(`    target state: ${entry.targetState}`);
       if (entry.validation !== undefined) console.log(`    validation: ${entry.validation}`);
+      if (entry.feature !== undefined) console.log(`    feature: ${entry.feature}`);
+      if (entry.origin !== undefined) console.log(`    origin: ${entry.origin}`);
+      if (entry.sourcePointer !== undefined) console.log(`    source pointer: ${entry.sourcePointer}`);
       if (entry.preprocessDependencies !== undefined && entry.preprocessDependencies.length > 0) {
         console.log(`    preprocess dependencies: ${entry.preprocessDependencies.join(", ")}`);
       }
@@ -106,10 +165,11 @@ async function main(): Promise<void> {
       console.log(`  build error: ${report.buildError}`);
     }
     const { added, changed, removed } = report.drift;
-    const driftCount = added.length + changed.length + removed.length;
+    const { missing } = report.drift;
+    const driftCount = added.length + changed.length + missing.length + removed.length;
     if (driftCount > 0) {
       console.log(
-        `  drift: ${added.length} added, ${changed.length} changed, ${removed.length} removed (run skillset build)`
+        `  drift: ${added.length} added, ${changed.length} changed, ${missing.length} missing, ${removed.length} removed (run skillset build --yes)`
       );
     }
     if (report.ok) {
@@ -131,12 +191,34 @@ async function main(): Promise<void> {
 
 interface ParsedArgs {
   readonly command: Command;
+  readonly dryRun: boolean;
   readonly importKind?: ImportKind;
   readonly importName?: string;
   readonly importPath?: string;
   readonly importProvider?: ImportProvider;
   readonly options: SkillsetOptions;
   readonly rootPath: string;
+  readonly setupGlobal: boolean;
+  readonly setupIncludeAgents: boolean;
+  readonly setupIncludeIslands: boolean;
+  readonly setupIncludeProjectDoc: boolean;
+  readonly setupTargets?: readonly TargetName[];
+  readonly yes: boolean;
+}
+
+function printDiffPlan(diff: Awaited<ReturnType<typeof diffSkillset>>, reason: string): void {
+  const total = diff.added.length + diff.changed.length + diff.missing.length + diff.removed.length;
+  if (total === 0) {
+    console.log(`skillset: no generated changes (${reason})`);
+    return;
+  }
+  for (const path of diff.added) console.log(`  + ${path}`);
+  for (const path of diff.changed) console.log(`  ~ ${path}`);
+  for (const path of diff.missing) console.log(`  ! ${path}`);
+  for (const path of diff.removed) console.log(`  - ${path}`);
+  console.log(
+    `skillset: planned ${diff.added.length} added, ${diff.changed.length} changed, ${diff.missing.length} missing, ${diff.removed.length} removed (${reason})`
+  );
 }
 
 function printImportReport(result: ImportReport): void {
@@ -157,21 +239,37 @@ function printImportReport(result: ImportReport): void {
   console.log(`  next: ${result.nextChecks.join(", ")}`);
 }
 
+function printSetupReport(result: SetupReport, reason: string): void {
+  for (const file of result.files) {
+    const marker = file.status === "create" ? "+" : "=";
+    console.log(`  ${marker} ${file.path}`);
+  }
+  const created = result.files.filter((file) => file.status === "create").length;
+  const existing = result.files.length - created;
+  console.log(`skillset: ${result.kind} ${created} to create, ${existing} already present (${reason})`);
+  console.log(`  root: ${result.rootPath}`);
+}
+
 function parseArgs(args: readonly string[]): ParsedArgs {
   const command = args[0];
   if (
     command !== "build" &&
     command !== "check" &&
+    command !== "create" &&
     command !== "diff" &&
     command !== "doctor" &&
     command !== "explain" &&
     command !== "import" &&
+    command !== "init" &&
     command !== "lint" &&
     command !== "list"
   ) {
     throw new Error(
-      "skillset: expected command build, check, diff, doctor, explain, import, lint, or list\n" +
-        "usage: skillset <build|check|diff|doctor|lint|list> [--root <path>] [--source <dir>] [--dist <dir>]\n" +
+        "skillset: expected command build, check, create, diff, doctor, explain, import, init, lint, or list\n" +
+        "usage: skillset build [--yes|--dry-run] [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]\n" +
+        "       skillset <check|diff|doctor|lint|list> [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]\n" +
+        "       skillset init [path] [--yes|--dry-run] [--targets claude,codex] [--with-project-doc] [--with-agents] [--with-islands] [--name <name>] [--root <path>]\n" +
+        "       skillset create [path|--global] [--yes|--dry-run] [--targets claude,codex] [--with-project-doc] [--with-agents] [--with-islands] [--name <name>] [--root <path>]\n" +
         "       skillset explain <path> [--root <path>] [--source <dir>]\n" +
         "       skillset import [skill|skills|plugin|plugins] <path> [--kind <kind>] [--from <provider>] [--name <name>] [--root <path>] [--source <dir>]\n" +
         "       skillset import <claude|codex|agents> [--root <path>] [--source <dir>]"
@@ -185,6 +283,15 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let rootPath = process.cwd();
   let sourceDir: string | undefined;
   let distDir: string | undefined;
+  let buildMode: CompileBuildMode | undefined;
+  let dryRun = false;
+  let scopes: readonly BuildScope[] | undefined;
+  let setupGlobal = false;
+  let setupIncludeAgents = false;
+  let setupIncludeIslands = false;
+  let setupIncludeProjectDoc = false;
+  let setupTargets: readonly TargetName[] | undefined;
+  let yes = false;
   let index = 1;
 
   if (command === "import") {
@@ -214,6 +321,14 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     }
   }
 
+  if (command === "init" || command === "create") {
+    const rawPath = args[index];
+    if (rawPath !== undefined && !rawPath.startsWith("--")) {
+      importPath = rawPath;
+      index += 1;
+    }
+  }
+
   if (command === "explain") {
     const rawPath = args[index];
     if (rawPath === undefined || rawPath.startsWith("--")) {
@@ -235,9 +350,41 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--dist" &&
       flag !== "--name" &&
       flag !== "--kind" &&
-      flag !== "--from"
+      flag !== "--from" &&
+      flag !== "--yes" &&
+      flag !== "--dry-run" &&
+      flag !== "--updated" &&
+      flag !== "--all" &&
+      flag !== "--scope" &&
+      flag !== "--global" &&
+      flag !== "--targets" &&
+      flag !== "--with-agents" &&
+      flag !== "--with-islands" &&
+      flag !== "--with-project-doc"
     ) {
       throw new Error(`skillset: unknown option ${arg}`);
+    }
+
+    if (
+      flag === "--yes" ||
+      flag === "--dry-run" ||
+      flag === "--updated" ||
+      flag === "--all" ||
+      flag === "--global" ||
+      flag === "--with-agents" ||
+      flag === "--with-islands" ||
+      flag === "--with-project-doc"
+    ) {
+      if (inlineValue !== undefined) throw new Error(`skillset: ${flag} does not take a value`);
+      if (flag === "--yes") yes = true;
+      if (flag === "--dry-run") dryRun = true;
+      if (flag === "--updated") buildMode = setBuildMode(buildMode, "updated");
+      if (flag === "--all") buildMode = setBuildMode(buildMode, "all");
+      if (flag === "--global") setupGlobal = true;
+      if (flag === "--with-agents") setupIncludeAgents = true;
+      if (flag === "--with-islands") setupIncludeIslands = true;
+      if (flag === "--with-project-doc") setupIncludeProjectDoc = true;
+      continue;
     }
 
     const value = inlineValue ?? args[index + 1];
@@ -249,6 +396,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     if (flag === "--root") rootPath = value;
     if (flag === "--source") sourceDir = value;
     if (flag === "--dist") distDir = value;
+    if (flag === "--scope") scopes = readBuildScopes(value);
+    if (flag === "--targets") setupTargets = readSetupTargets(value);
     if (flag === "--name") importName = value;
     if (flag === "--kind") {
       if (!isImportKind(value)) {
@@ -267,20 +416,106 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     }
   }
 
+  validateSetupFlags(command, {
+    global: setupGlobal,
+    includeAgents: setupIncludeAgents,
+    includeIslands: setupIncludeIslands,
+    includeProjectDoc: setupIncludeProjectDoc,
+    ...(importPath === undefined ? {} : { path: importPath }),
+    ...(setupTargets === undefined ? {} : { targets: setupTargets }),
+  });
+
   const options: SkillsetOptions = {
+    ...(buildMode === undefined ? {} : { buildMode }),
+    ...(scopes === undefined ? {} : { scopes }),
     ...(sourceDir === undefined ? {} : { sourceDir }),
     ...(distDir === undefined ? {} : { distDir }),
   };
 
   return {
     command,
+    dryRun,
     ...(importKind === undefined ? {} : { importKind }),
     ...(importName === undefined ? {} : { importName }),
     ...(importPath === undefined ? {} : { importPath }),
     ...(importProvider === undefined ? {} : { importProvider }),
     options,
     rootPath: resolve(rootPath),
+    setupGlobal,
+    setupIncludeAgents,
+    setupIncludeIslands,
+    setupIncludeProjectDoc,
+    ...(setupTargets === undefined ? {} : { setupTargets }),
+    yes,
   };
+}
+
+function setBuildMode(current: CompileBuildMode | undefined, next: CompileBuildMode): CompileBuildMode {
+  if (current !== undefined && current !== next) {
+    throw new Error(`skillset: conflicting build mode flags --${current} and --${next}`);
+  }
+  return next;
+}
+
+function readBuildScopes(value: string): readonly BuildScope[] {
+  const scopes = value.split(",").map((scope) => scope.trim()).filter((scope) => scope.length > 0);
+  if (scopes.length === 0) throw new Error("skillset: --scope requires at least one scope");
+  if (scopes.includes("all")) {
+    if (scopes.length > 1) throw new Error("skillset: --scope all cannot be combined with other scopes");
+    return ["repo", "plugins", "project", "user"];
+  }
+  const seen = new Set<BuildScope>();
+  for (const scope of scopes) {
+    if (!isBuildScope(scope)) {
+      throw new Error("skillset: expected --scope repo, plugins, project, user, all, or a comma-separated combination");
+    }
+    seen.add(scope);
+  }
+  return [...seen];
+}
+
+function isBuildScope(value: string): value is BuildScope {
+  return value === "repo" || value === "plugins" || value === "project" || value === "user";
+}
+
+function readSetupTargets(value: string): readonly TargetName[] {
+  const targets = value.split(",").map((target) => target.trim()).filter((target) => target.length > 0);
+  if (targets.length === 0) throw new Error("skillset: --targets requires at least one target");
+  const seen = new Set<TargetName>();
+  for (const target of targets) {
+    if (target !== "claude" && target !== "codex") {
+      throw new Error("skillset: expected --targets claude, codex, or claude,codex");
+    }
+    seen.add(target);
+  }
+  return [...seen];
+}
+
+function validateSetupFlags(
+  command: Command,
+  setup: {
+    readonly global: boolean;
+    readonly includeAgents: boolean;
+    readonly includeIslands: boolean;
+    readonly includeProjectDoc: boolean;
+    readonly path?: string;
+    readonly targets?: readonly TargetName[];
+  }
+): void {
+  if ((command === "init" || command === "create") && setup.global && command !== "create") {
+    throw new Error("skillset: --global is only supported with create");
+  }
+  if (command === "create" && setup.global && setup.path !== undefined) {
+    throw new Error("skillset: create accepts either a path or --global, not both");
+  }
+  const hasSetupFlag = setup.global ||
+    setup.includeAgents ||
+    setup.includeIslands ||
+    setup.includeProjectDoc ||
+    setup.targets !== undefined;
+  if (hasSetupFlag && command !== "init" && command !== "create") {
+    throw new Error("skillset: setup options are only supported with init or create");
+  }
 }
 
 function isImportKind(value: string): value is ImportKind {

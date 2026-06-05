@@ -29,7 +29,7 @@ Default behavior for unsupported or lossy lowering is fail-loud. Softer modes mu
 | `skillset.name` / `skillset.id` | machine identity | Implemented / Compat alias | Identity derives from directory names; `skillset.id` is the alias. |
 | skill top-level `name` | skill identity | Implemented | Conflicts with `skillset.name` fail. |
 | `compile.targets` | enabled provider projections | Implemented | Root-only provider selection; defaults to all supported targets. |
-| `compile.build: updated/all` | normalized build mode in lock provenance | Implemented / Planned | Parser and lock metadata are implemented; SET-25 owns lock-aware write planning. |
+| `compile.build: updated/all` | normalized build mode in lock provenance | Implemented | Parser, CLI overrides, plan-first writes, and lock metadata are implemented. |
 | `compile.skillset.metadata: false` | suppress generated skill `metadata.generated` / `metadata.version` | Implemented | Source metadata remains source-only; locks record `skillsetMetadata`. |
 | `compile.unsupported: error` | build/lint lowering policy | Implemented | Default policy; preserves current fail-loud unsupported behavior. |
 | `compile.unsupported: warn/skip/force` | doctor/lock provenance | Reserved | Recognized names that fail until skipped or forced source is visible. |
@@ -39,6 +39,8 @@ Default behavior for unsupported or lossy lowering is fail-loud. Softer modes mu
 | `claude.defaults.<surface>` / `codex.defaults.<surface>` | target option defaults for `agents`, `instructions`, `plugins`, `skills` | Implemented | Canonical target-local defaults; file-level target fields win. |
 | `defaults.<target>.<surface>` | same target option defaults | Implemented | Root/plugin shorthand; does not introduce bare top-level `targets:` provider selection. |
 | skill top-level `model` | (source-only warning) | Implemented | Warns unless every enabled target has `claude.model`, `codex.model`, or target defaults. |
+| `profiles.models` / `model_profile` | target-native model and reasoning fields | Future | Deferred alias design for repo-local model intent names; see the [model and reasoning alias profiles ADR](adrs/drafts/20260604-model-and-reasoning-alias-profiles.md). |
+| `.skillset/sets/<name>/set.yaml` / `set:<name>` | focused generated-output selection and future marketplace/bundle indexes | Future | Deferred collection design for grouped marketplaces, bundles, and curated loadouts; see the [first-class sets ADR](adrs/drafts/20260604-first-class-sets.md). |
 
 Canonical target selection:
 
@@ -65,20 +67,20 @@ Adapter defaults deliberately use `claude` / `codex` blocks or the `defaults.<ta
 
 Live-doc verified against `code.claude.com/docs/en/plugins` and `code.claude.com/docs/en/plugins-reference` (2026-06-04).
 
-| Source presence | Manifest field | Status |
-| --- | --- | --- |
-| always | `name`, `version`, `description` | Implemented |
-| `skills/` | `skills: "./skills/"` | Implemented |
-| `commands/` | `commands: "./commands"` | Implemented |
-| `agents/` | `agents: "./agents"` | Implemented |
-| `hooks/hooks.json` | `hooks: "./hooks/hooks.json"` | Implemented |
-| `.mcp.json` | `mcpServers: "./.mcp.json"` | Implemented |
-| `.lsp.json` | `lspServers: "./.lsp.json"` | Implemented |
-| `output-styles/` | `outputStyles: "./output-styles/"` | Implemented |
-| `themes/` | `experimental.themes: "./themes/"` | Implemented |
-| `monitors/monitors.json` | `experimental.monitors: "./monitors/monitors.json"` | Implemented |
-| `bin/` | executable PATH component | Target-native / Planned | Documented Claude plugin-root component; implementation follows in SET-26/SET-28 feature docs and adapter support registry. |
-| `settings.json` | default plugin settings | Target-native / Future | Documented Claude plugin-root component for enabled plugins. Skillset v1 does not mutate live settings; settings suggestion/review workflow is SET-29 future work. |
+| Source presence | Manifest field | Status | Notes |
+| --- | --- | --- | --- |
+| always | `name`, `version`, `description` | Implemented | |
+| `skills/` | `skills: "./skills/"` | Implemented | |
+| `commands/` | `commands: "./commands"` | Implemented | |
+| `agents/` | `agents: "./agents"` | Implemented | |
+| `hooks/hooks.json` | `hooks: "./hooks/hooks.json"` | Implemented | |
+| `.mcp.json` | `mcpServers: "./.mcp.json"` | Implemented | Conventional `.mcp.json` and `mcp.source` copy into Claude plugin output and are locked as plugin features. |
+| `.lsp.json` | `lspServers: "./.lsp.json"` | Implemented | |
+| `output-styles/` | `outputStyles: "./output-styles/"` | Implemented | |
+| `themes/` | `experimental.themes: "./themes/"` | Implemented | |
+| `monitors/monitors.json` | `experimental.monitors: "./monitors/monitors.json"` | Implemented | |
+| `bin/` | executable PATH component | Target-native / Implemented | Documented Claude plugin-root component; conventional `bin/` and `bin.source` copy into Claude plugin output and are locked as plugin features. |
+| `settings.json` | default plugin settings | Target-native / Future | Documented Claude plugin-root component for enabled plugins. Skillset v1 does not mutate live settings; the [reviewed settings suggestion workflow](adrs/drafts/20260604-reviewed-settings-suggestions.md) is future work. |
 
 ## Project agents (Claude)
 
@@ -109,13 +111,13 @@ Camel-cased presentation fields derived from portable `presentation` / `ui` meta
 
 Live-doc verified against `developers.openai.com/codex/plugins/build` and `developers.openai.com/codex/subagents` (2026-06-04).
 
-| Source | Codex output | Status |
-| --- | --- | --- |
-| `hooks/hooks.json` (canonical) | `hooks/hooks.json` (top-level `hooks` object) | Implemented |
-| root `hooks.json` | `hooks/hooks.json` (normalized) | Compat alias — warned. Verified 2026-06-03 (`developers.openai.com/codex/plugins/build`). |
-| `.mcp.json` | `.mcp.json` | Implemented |
-| `.app.json` | `.app.json` (manifest `apps`) | Implemented (opaque pass-through) |
-| plugin `agents/` | (none) | Unsupported / Deferred — Codex plugin docs do not document a plugin `agents/` component. Do not copy Claude plugin agents here. |
+| Source | Codex output | Status | Notes |
+| --- | --- | --- | --- |
+| `hooks/hooks.json` (canonical) | `hooks/hooks.json` (top-level `hooks` object) | Implemented | |
+| root `hooks.json` | `hooks/hooks.json` (normalized) | Compat alias | Warned. Verified 2026-06-03 (`developers.openai.com/codex/plugins/build`). |
+| `.mcp.json` | `.mcp.json` | Implemented | Conventional `.mcp.json` and `mcp.source` copy into Codex plugin output and are locked as plugin features. |
+| `.app.json` | `.app.json` (manifest `apps`) | Implemented | Opaque pass-through. |
+| plugin `agents/` | (none) | Unsupported / Deferred | Codex plugin docs do not document a plugin `agents/` component. Do not copy Claude plugin agents here. |
 | `.skillset/src/agents/*.md` | project `.codex/agents/*.toml` | Portable / Implemented | Codex documents project/user custom agents as standalone TOML files. Skillset lowers portable project agents into project custom agents; plugin-agent lowering remains unsupported. |
 | user `~/.codex/agents/*.toml` | user custom agents | Future | User/global writes need explicit setup/review flows and must not happen as a side effect of `skillset build`. |
 
