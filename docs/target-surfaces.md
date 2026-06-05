@@ -39,6 +39,8 @@ Default behavior for unsupported or lossy lowering is fail-loud. Softer modes mu
 | `claude.defaults.<surface>` / `codex.defaults.<surface>` | target option defaults for `agents`, `instructions`, `plugins`, `skills` | Implemented | Canonical target-local defaults; file-level target fields win. |
 | `defaults.<target>.<surface>` | same target option defaults | Implemented | Root/plugin shorthand; does not introduce bare top-level `targets:` provider selection. |
 | skill top-level `model` | (source-only warning) | Implemented | Warns unless every enabled target has `claude.model`, `codex.model`, or target defaults. |
+| `profiles.models` / `model_profile` | target-native model and reasoning fields | Future | Deferred alias design for repo-local model intent names; see the [model and reasoning alias profiles ADR](adrs/drafts/20260604-model-and-reasoning-alias-profiles.md). |
+| `.skillset/sets/<name>/set.yaml` / `set:<name>` | focused generated-output selection and future marketplace/bundle indexes | Future | Deferred collection design for grouped marketplaces, bundles, and curated loadouts; see the [first-class sets ADR](adrs/drafts/20260604-first-class-sets.md). |
 
 Canonical target selection:
 
@@ -78,7 +80,7 @@ Live-doc verified against `code.claude.com/docs/en/plugins` and `code.claude.com
 | `themes/` | `experimental.themes: "./themes/"` | Implemented | |
 | `monitors/monitors.json` | `experimental.monitors: "./monitors/monitors.json"` | Implemented | |
 | `bin/` | executable PATH component | Target-native / Implemented | Documented Claude plugin-root component; conventional `bin/` and `bin.source` copy into Claude plugin output and are locked as plugin features. |
-| `settings.json` | default plugin settings | Target-native / Future | Documented Claude plugin-root component for enabled plugins. Skillset v1 does not mutate live settings; settings suggestion/review workflow is SET-29 future work. |
+| `settings.json` | default plugin settings | Target-native / Future | Documented Claude plugin-root component for enabled plugins. Skillset v1 does not mutate live settings; the [reviewed settings suggestion workflow](adrs/drafts/20260604-reviewed-settings-suggestions.md) is future work. |
 
 ## Project agents (Claude)
 
