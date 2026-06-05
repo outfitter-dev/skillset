@@ -22,7 +22,8 @@ This repo also self-hosts a small `.skillset/` source tree:
 From a content repo:
 
 ```bash
-skillset build              # write generated outputs
+skillset build              # plan generated changes without writing
+skillset build --yes        # write generated outputs
 skillset lint               # source authoring diagnostics
 skillset check              # fail if generated outputs are stale
 skillset diff               # show pending generated changes without writing
@@ -30,7 +31,7 @@ skillset explain <path>     # explain a source or generated path (lowering, lock
 skillset doctor             # aggregate lint issues + drift + warnings
 ```
 
-`diff`, `explain`, and `doctor` are read-only authoring aids: they never write generated outputs, install, trust, publish, or mutate user-level config. `explain` accepts either a source path (e.g. `.skillset/skills/foo/SKILL.md`) or a generated output path and reports how it lowers, its lock entry, target state, and source/output hashes. `doctor` exits non-zero when it finds lint issues, drift, or a build error.
+`build` is plan-first: it prints pending generated changes and writes only with `--yes`; `--dry-run` always prevents writes, even when paired with `--yes`. `--scope repo`, `--scope plugins`, `--scope project`, and combinations filter generated destinations for build, diff, check, list, and explain; `--scope user` is accepted but currently has no build outputs. `diff`, `explain`, and `doctor` are read-only authoring aids: they never write generated outputs, install, trust, publish, or mutate user-level config. `diff`, `check`, and `doctor` report missing managed outputs separately from new outputs so intentional deletion and stale locks are visible. `explain` accepts either a source path (e.g. `.skillset/skills/foo/SKILL.md`) or a generated output path and reports how it lowers, its lock entry, target state, and source/output hashes. `doctor` exits non-zero when it finds lint issues, drift, or a build error.
 
 The default contract is:
 
@@ -93,7 +94,7 @@ Root source metadata lives at `.skillset/config.yaml`.
 
 Each plugin lives at `.skillset/plugins/<plugin-name>/` and has its own `skillset.yaml`. Portable plugin fields live under `skillset`; target-specific overrides live under top-level `claude` and `codex` blocks. Skill source frontmatter can use top-level `title`, `summary`, `description`, `version`, `resources`, `implicit_invocation`, `allowed_tools`, and the source-only `tools` escape map; the compiler derives target-native `name`, `description`, generated metadata, Claude frontmatter, Codex `agents/openai.yaml` policy where supported, and skill-local copies of declared resources.
 
-Use `skillset.name` as the stable machine identity. `skillset.id` is accepted as a compatibility alias for older source. Use root `compile.targets` for provider selection, and do not use bare top-level `targets:`. `compile.build` defaults to `updated` and accepts `all`; today it is normalized into build metadata, while SET-25 owns lock-aware write planning. `compile.skillset.metadata: false` suppresses Skillset's generated skill frontmatter metadata. `compile.unsupported` currently defaults to `error`; softer modes are reserved until warning, skip, or force provenance is implemented.
+Use `skillset.name` as the stable machine identity. `skillset.id` is accepted as a compatibility alias for older source. Use root `compile.targets` for provider selection, and do not use bare top-level `targets:`. `compile.build` defaults to `updated` and accepts `all`; CLI `--updated` and `--all` override config for the current command and the resolved mode is recorded in lock metadata. `compile.skillset.metadata: false` suppresses Skillset's generated skill frontmatter metadata. `compile.unsupported` currently defaults to `error`; softer modes are reserved until warning, skip, or force provenance is implemented.
 
 Target adapter configuration stays in `claude` and `codex` blocks. Root `defaults.<target>.<surface>` is shorthand for target defaults, and `claude.defaults.<surface>` / `codex.defaults.<surface>` is the canonical target-local form:
 

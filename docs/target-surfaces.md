@@ -29,7 +29,7 @@ Default behavior for unsupported or lossy lowering is fail-loud. Softer modes mu
 | `skillset.name` / `skillset.id` | machine identity | Implemented / Compat alias | Identity derives from directory names; `skillset.id` is the alias. |
 | skill top-level `name` | skill identity | Implemented | Conflicts with `skillset.name` fail. |
 | `compile.targets` | enabled provider projections | Implemented | Root-only provider selection; defaults to all supported targets. |
-| `compile.build: updated/all` | normalized build mode in lock provenance | Implemented / Planned | Parser and lock metadata are implemented; SET-25 owns lock-aware write planning. |
+| `compile.build: updated/all` | normalized build mode in lock provenance | Implemented | Parser, CLI overrides, plan-first writes, and lock metadata are implemented. |
 | `compile.skillset.metadata: false` | suppress generated skill `metadata.generated` / `metadata.version` | Implemented | Source metadata remains source-only; locks record `skillsetMetadata`. |
 | `compile.unsupported: error` | build/lint lowering policy | Implemented | Default policy; preserves current fail-loud unsupported behavior. |
 | `compile.unsupported: warn/skip/force` | doctor/lock provenance | Reserved | Recognized names that fail until skipped or forced source is visible. |

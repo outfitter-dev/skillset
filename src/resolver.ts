@@ -66,7 +66,11 @@ export async function loadBuildGraph(
     allowDefaults: true,
     objectInheritsEnabled: true,
   });
-  const compile = readCompileConfig(rootConfig, rootConfigPath);
+  const compileConfig = readCompileConfig(rootConfig, rootConfigPath);
+  const compile = {
+    ...compileConfig,
+    build: options.buildMode ?? compileConfig.build,
+  };
   const root = {
     compile,
     metadata,

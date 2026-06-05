@@ -1,10 +1,10 @@
-import { chmod, mkdtemp, readdir, readFile, symlink } from "node:fs/promises";
+import { chmod, mkdtemp, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { expect, test } from "bun:test";
 
-import { buildSkillset, diffSkillset } from "../build";
+import { buildSkillset, checkSkillset, diffSkillset } from "../build";
 import { doctorSkillset, explainPath } from "../authoring";
 import { importSource, importSources } from "../import";
 import { lintSkillset } from "../lint";
@@ -854,7 +854,7 @@ Body.
   });
 
   await buildSkillset(root);
-  expect(await diffSkillset(root)).toEqual({ added: [], changed: [], removed: [] });
+  expect(await diffSkillset(root)).toEqual({ added: [], changed: [], missing: [], removed: [] });
 
   // Change source without rebuilding; diff must show the stale output, and must
   // not have written anything.
@@ -866,6 +866,244 @@ Body.
   expect(diff.changed).toContain(".claude/skills/demo/SKILL.md");
   // diff is read-only: the on-disk output is still the old build.
   expect(await readFile(join(root, ".claude/skills/demo/SKILL.md"), "utf8")).toContain("Body.");
+});
+
+test("SET-25: build CLI is plan-first and --dry-run wins over --yes", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: plan-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  const planned = await runSkillsetCli("build", "--root", root);
+  expect(planned.exitCode).toBe(0);
+  expect(planned.stdout).toContain("write confirmation required");
+  expect(planned.stdout).toContain("rerun with --yes");
+  expect(await Bun.file(join(root, ".claude/skills/demo/SKILL.md")).exists()).toBe(false);
+
+  const dryRun = await runSkillsetCli("build", "--root", root, "--yes", "--dry-run");
+  expect(dryRun.exitCode).toBe(0);
+  expect(dryRun.stdout).toContain("dry run");
+  expect(await Bun.file(join(root, ".claude/skills/demo/SKILL.md")).exists()).toBe(false);
+
+  const written = await runSkillsetCli("build", "--root", root, "--yes");
+  expect(written.exitCode).toBe(0);
+  expect(written.stdout).toContain("wrote");
+  expect(await Bun.file(join(root, ".claude/skills/demo/SKILL.md")).exists()).toBe(true);
+});
+
+test("SET-25: diff reports missing managed outputs separately", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: missing-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  await buildSkillset(root);
+  await rm(join(root, ".claude/skills/demo/SKILL.md"));
+
+  const diff = await diffSkillset(root);
+  expect(diff.added).not.toContain(".claude/skills/demo/SKILL.md");
+  expect(diff.missing).toContain(".claude/skills/demo/SKILL.md");
+
+  await expect(checkSkillset(root)).rejects.toThrow("missing managed generated file: .claude/skills/demo/SKILL.md");
+});
+
+test("SET-25: CLI parses build mode and scope flags", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: scoped-root
+compile:
+  build: updated
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  const scoped = await runSkillsetCli("build", "--root", root, "--scope", "repo,plugins", "--all", "--dry-run");
+  expect(scoped.exitCode).toBe(0);
+  expect(scoped.stdout).toContain("dry run");
+
+  const scopedWrite = await runSkillsetCli("build", "--root", root, "--scope", "repo", "--yes");
+  expect(scopedWrite.exitCode).toBe(0);
+  expect(scopedWrite.stdout).toContain("wrote");
+
+  const conflicting = await runSkillsetCli("build", "--root", root, "--updated", "--all", "--dry-run");
+  expect(conflicting.exitCode).toBe(1);
+  expect(conflicting.stderr).toContain("conflicting build mode flags");
+
+  const unknownScope = await runSkillsetCli("build", "--root", root, "--scope", "nope", "--dry-run");
+  expect(unknownScope.exitCode).toBe(1);
+  expect(unknownScope.stderr).toContain("expected --scope");
+});
+
+test("SET-25: scope filters build, diff, and list output", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: scope-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/plugin-skill/SKILL.md": `
+---
+name: plugin-skill
+description: Plugin skill.
+---
+
+Plugin body.
+`,
+    ".skillset/skills/repo-skill/SKILL.md": `
+---
+name: repo-skill
+description: Repo skill.
+---
+
+Repo body.
+`,
+  });
+
+  const pluginsOnly = await runSkillsetCli("build", "--root", root, "--scope", "plugins", "--yes");
+  expect(pluginsOnly.exitCode).toBe(0);
+  expect(await Bun.file(join(root, "plugins-claude/plugins/alpha/skills/plugin-skill/SKILL.md")).exists()).toBe(true);
+  expect(await Bun.file(join(root, ".claude/skills/repo-skill/SKILL.md")).exists()).toBe(false);
+
+  const repoDiff = await runSkillsetCli("diff", "--root", root, "--scope", "repo");
+  expect(repoDiff.exitCode).toBe(0);
+  expect(repoDiff.stdout).toContain(".claude/skills/repo-skill/SKILL.md");
+  expect(repoDiff.stdout).not.toContain("plugins-claude/plugins/alpha");
+
+  const pluginList = await runSkillsetCli("list", "--root", root, "--scope", "plugins");
+  expect(pluginList.exitCode).toBe(0);
+  expect(pluginList.stdout).toContain("plugins-claude/plugins/alpha");
+  expect(pluginList.stdout).not.toContain(".claude/skills/repo-skill");
+});
+
+test("SET-25: scoped commands ignore corrupt locks outside the selected scope", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: scope-lock-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/plugin-skill/SKILL.md": `
+---
+name: plugin-skill
+description: Plugin skill.
+---
+
+Plugin body.
+`,
+    ".skillset/skills/repo-skill/SKILL.md": `
+---
+name: repo-skill
+description: Repo skill.
+---
+
+Repo body.
+`,
+  });
+
+  await buildSkillset(root);
+  await writeFile(join(root, "plugins-claude/.skillset.lock"), "{ not valid json", "utf8");
+
+  await expect(diffSkillset(root, { scopes: ["repo"] })).resolves.toEqual({
+    added: [],
+    changed: [],
+    missing: [],
+    removed: [],
+  });
+  await expect(checkSkillset(root, { scopes: ["repo"] })).resolves.toBeDefined();
+  await expect(buildSkillset(root, { scopes: ["repo"] })).resolves.toBeDefined();
+
+  const explained = await runSkillsetCli("explain", ".claude/skills/repo-skill/SKILL.md", "--root", root, "--scope", "repo");
+  expect(explained.exitCode).toBe(0);
+  expect(explained.stdout).toContain(".skillset/skills/repo-skill/SKILL.md");
+});
+
+test("SET-25: updated mode skips unchanged files while all mode rewrites", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: updated-root
+compile:
+  build: updated
+claude: true
+codex: false
+`,
+    ".skillset/skills/one/SKILL.md": `
+---
+name: one
+description: One.
+---
+
+One body.
+`,
+    ".skillset/skills/two/SKILL.md": `
+---
+name: two
+description: Two.
+---
+
+Two body.
+`,
+  });
+
+  await buildSkillset(root);
+  const unchangedPath = join(root, ".claude/skills/two/SKILL.md");
+  const initialMtime = (await stat(unchangedPath)).mtimeMs;
+
+  await sleepForMtime();
+  await Bun.write(
+    join(root, ".skillset/skills/one/SKILL.md"),
+    "---\nname: one\ndescription: One changed.\n---\n\nOne body changed.\n"
+  );
+  await buildSkillset(root);
+  expect((await stat(unchangedPath)).mtimeMs).toBe(initialMtime);
+
+  await sleepForMtime();
+  await buildSkillset(root, { buildMode: "all" });
+  expect((await stat(unchangedPath)).mtimeMs).toBeGreaterThan(initialMtime);
 });
 
 test("SET-9: explain resolves source and generated paths via lock provenance", async () => {
@@ -1192,4 +1430,26 @@ async function contractFixture(files: Record<string, string>): Promise<string> {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }
   return root;
+}
+
+async function runSkillsetCli(...args: readonly string[]): Promise<{
+  readonly exitCode: number;
+  readonly stderr: string;
+  readonly stdout: string;
+}> {
+  const proc = Bun.spawn({
+    cmd: ["bun", join(import.meta.dir, "..", "cli.ts"), ...args],
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  return { exitCode, stderr, stdout };
+}
+
+async function sleepForMtime(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 25));
 }

@@ -26,6 +26,7 @@ export interface RootConfig {
 
 export type CompileUnsupportedPolicy = "error" | "warn" | "skip" | "force";
 export type CompileBuildMode = "updated" | "all";
+export type BuildScope = "repo" | "plugins" | "project" | "user";
 
 export interface CompileSkillsetConfig {
   readonly metadata: boolean;
@@ -149,6 +150,8 @@ export interface GeneratedEntry {
 }
 
 export interface SkillsetOptions {
+  readonly buildMode?: CompileBuildMode;
+  readonly scopes?: readonly BuildScope[];
   readonly distDir?: string;
   readonly sourceDir?: string;
 }

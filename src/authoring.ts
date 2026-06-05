@@ -1,6 +1,6 @@
 import { resolve, relative } from "node:path";
 
-import { diffSkillset, type SkillsetDiff } from "./build";
+import { diffSkillset, scopedRenderedFiles, type SkillsetDiff } from "./build";
 import { inspectSkillset } from "./lint";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
@@ -36,7 +36,7 @@ export async function explainPath(
   options: SkillsetOptions = {}
 ): Promise<ExplainResult> {
   const graph = await loadBuildGraph(rootPath, options);
-  const rendered = await renderBuildGraph(graph);
+  const rendered = scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes);
   const target = normalizeRepoPath(rootPath, inputPath);
   const items = collectLockItems(rendered);
 
@@ -91,7 +91,7 @@ export async function listGeneratedEntries(
   options: SkillsetOptions = {}
 ): Promise<readonly GeneratedEntry[]> {
   const graph = await loadBuildGraph(rootPath, options);
-  const rendered = await renderBuildGraph(graph);
+  const rendered = scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes);
   return collectLockItems(rendered).map((item) => item.entry);
 }
 
@@ -119,7 +119,7 @@ export async function doctorSkillset(
   const graph = await loadBuildGraph(rootPath, options);
   const lint = await inspectSkillset(graph);
 
-  let drift: SkillsetDiff = { added: [], changed: [], removed: [] };
+  let drift: SkillsetDiff = { added: [], changed: [], missing: [], removed: [] };
   let buildError: string | undefined;
   try {
     drift = await diffSkillset(rootPath, options);
@@ -128,7 +128,7 @@ export async function doctorSkillset(
   }
 
   const hasDrift =
-    drift.added.length > 0 || drift.changed.length > 0 || drift.removed.length > 0;
+    drift.added.length > 0 || drift.changed.length > 0 || drift.missing.length > 0 || drift.removed.length > 0;
 
   return {
     ...(buildError === undefined ? {} : { buildError }),

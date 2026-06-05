@@ -112,7 +112,7 @@ compile:
   unsupported: error
 ```
 
-Omitting `compile.targets` builds every supported provider projection for portable source. `compile.build` defaults to `updated` and accepts `all`; the parser records the normalized mode in lock provenance, while SET-25 owns lock-aware write planning. `compile.skillset.metadata` defaults to `true`; set it to `false` to suppress Skillset's generated `metadata.generated` and `metadata.version` fields in emitted skills. `compile.unsupported` defaults to `error`; `warn`, `skip`, and `force` are reserved until unsupported-source warnings and lock provenance exist.
+Omitting `compile.targets` builds every supported provider projection for portable source. `compile.build` defaults to `updated` and accepts `all`; CLI `--updated` and `--all` override the config for one command, and the resolved mode is recorded in lock provenance. `updated` writes missing or changed generated files and removes stale scoped generated files while leaving unchanged files untouched; `all` rewrites selected output roots. `skillset build` is plan-first and writes only with `--yes`; `--dry-run` always prevents writes. `compile.skillset.metadata` defaults to `true`; set it to `false` to suppress Skillset's generated `metadata.generated` and `metadata.version` fields in emitted skills. `compile.unsupported` defaults to `error`; `warn`, `skip`, and `force` are reserved until unsupported-source warnings and lock provenance exist.
 
 The canonical provider-selection shape is the `compile.targets` list above. This shorthand normalizes to the same internal target plan:
 

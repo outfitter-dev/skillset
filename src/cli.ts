@@ -6,14 +6,20 @@ import { doctorSkillset, explainPath, listGeneratedEntries } from "./authoring";
 import { buildSkillset, checkSkillset, diffSkillset } from "./build";
 import { importSources, type ImportKind, type ImportProvider, type ImportReport } from "./import";
 import { lintSkillset } from "./lint";
-import type { SkillsetOptions } from "./types";
+import type { BuildScope, CompileBuildMode, SkillsetOptions } from "./types";
 
 type Command = "build" | "check" | "diff" | "doctor" | "explain" | "import" | "lint" | "list";
 
 async function main(): Promise<void> {
-  const { command, importKind, importPath, importName, importProvider, options, rootPath } = parseArgs(process.argv.slice(2));
+  const { command, dryRun, importKind, importPath, importName, importProvider, options, rootPath, yes } = parseArgs(process.argv.slice(2));
 
   if (command === "build") {
+    if (dryRun || !yes) {
+      const diff = await diffSkillset(rootPath, options);
+      printDiffPlan(diff, dryRun ? "dry run" : "write confirmation required");
+      if (!dryRun) console.log("skillset: rerun with --yes to write generated files");
+      return;
+    }
     const rendered = await buildSkillset(rootPath, options);
     console.log(`skillset: wrote ${rendered.length} generated files`);
     return;
@@ -50,16 +56,17 @@ async function main(): Promise<void> {
 
   if (command === "diff") {
     const diff = await diffSkillset(rootPath, options);
-    const total = diff.added.length + diff.changed.length + diff.removed.length;
+    const total = diff.added.length + diff.changed.length + diff.missing.length + diff.removed.length;
     if (total === 0) {
       console.log("skillset: no generated changes");
       return;
     }
     for (const path of diff.added) console.log(`  + ${path}`);
     for (const path of diff.changed) console.log(`  ~ ${path}`);
+    for (const path of diff.missing) console.log(`  ! ${path}`);
     for (const path of diff.removed) console.log(`  - ${path}`);
     console.log(
-      `skillset: ${diff.added.length} added, ${diff.changed.length} changed, ${diff.removed.length} removed (run skillset build to apply)`
+      `skillset: ${diff.added.length} added, ${diff.changed.length} changed, ${diff.missing.length} missing, ${diff.removed.length} removed (run skillset build --yes to apply)`
     );
     return;
   }
@@ -106,10 +113,11 @@ async function main(): Promise<void> {
       console.log(`  build error: ${report.buildError}`);
     }
     const { added, changed, removed } = report.drift;
-    const driftCount = added.length + changed.length + removed.length;
+    const { missing } = report.drift;
+    const driftCount = added.length + changed.length + missing.length + removed.length;
     if (driftCount > 0) {
       console.log(
-        `  drift: ${added.length} added, ${changed.length} changed, ${removed.length} removed (run skillset build)`
+        `  drift: ${added.length} added, ${changed.length} changed, ${missing.length} missing, ${removed.length} removed (run skillset build --yes)`
       );
     }
     if (report.ok) {
@@ -131,12 +139,29 @@ async function main(): Promise<void> {
 
 interface ParsedArgs {
   readonly command: Command;
+  readonly dryRun: boolean;
   readonly importKind?: ImportKind;
   readonly importName?: string;
   readonly importPath?: string;
   readonly importProvider?: ImportProvider;
   readonly options: SkillsetOptions;
   readonly rootPath: string;
+  readonly yes: boolean;
+}
+
+function printDiffPlan(diff: Awaited<ReturnType<typeof diffSkillset>>, reason: string): void {
+  const total = diff.added.length + diff.changed.length + diff.missing.length + diff.removed.length;
+  if (total === 0) {
+    console.log(`skillset: no generated changes (${reason})`);
+    return;
+  }
+  for (const path of diff.added) console.log(`  + ${path}`);
+  for (const path of diff.changed) console.log(`  ~ ${path}`);
+  for (const path of diff.missing) console.log(`  ! ${path}`);
+  for (const path of diff.removed) console.log(`  - ${path}`);
+  console.log(
+    `skillset: planned ${diff.added.length} added, ${diff.changed.length} changed, ${diff.missing.length} missing, ${diff.removed.length} removed (${reason})`
+  );
 }
 
 function printImportReport(result: ImportReport): void {
@@ -171,7 +196,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   ) {
     throw new Error(
       "skillset: expected command build, check, diff, doctor, explain, import, lint, or list\n" +
-        "usage: skillset <build|check|diff|doctor|lint|list> [--root <path>] [--source <dir>] [--dist <dir>]\n" +
+        "usage: skillset build [--yes|--dry-run] [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]\n" +
+        "       skillset <check|diff|doctor|lint|list> [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]\n" +
         "       skillset explain <path> [--root <path>] [--source <dir>]\n" +
         "       skillset import [skill|skills|plugin|plugins] <path> [--kind <kind>] [--from <provider>] [--name <name>] [--root <path>] [--source <dir>]\n" +
         "       skillset import <claude|codex|agents> [--root <path>] [--source <dir>]"
@@ -185,6 +211,10 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let rootPath = process.cwd();
   let sourceDir: string | undefined;
   let distDir: string | undefined;
+  let buildMode: CompileBuildMode | undefined;
+  let dryRun = false;
+  let scopes: readonly BuildScope[] | undefined;
+  let yes = false;
   let index = 1;
 
   if (command === "import") {
@@ -235,9 +265,23 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--dist" &&
       flag !== "--name" &&
       flag !== "--kind" &&
-      flag !== "--from"
+      flag !== "--from" &&
+      flag !== "--yes" &&
+      flag !== "--dry-run" &&
+      flag !== "--updated" &&
+      flag !== "--all" &&
+      flag !== "--scope"
     ) {
       throw new Error(`skillset: unknown option ${arg}`);
+    }
+
+    if (flag === "--yes" || flag === "--dry-run" || flag === "--updated" || flag === "--all") {
+      if (inlineValue !== undefined) throw new Error(`skillset: ${flag} does not take a value`);
+      if (flag === "--yes") yes = true;
+      if (flag === "--dry-run") dryRun = true;
+      if (flag === "--updated") buildMode = setBuildMode(buildMode, "updated");
+      if (flag === "--all") buildMode = setBuildMode(buildMode, "all");
+      continue;
     }
 
     const value = inlineValue ?? args[index + 1];
@@ -249,6 +293,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     if (flag === "--root") rootPath = value;
     if (flag === "--source") sourceDir = value;
     if (flag === "--dist") distDir = value;
+    if (flag === "--scope") scopes = readBuildScopes(value);
     if (flag === "--name") importName = value;
     if (flag === "--kind") {
       if (!isImportKind(value)) {
@@ -268,19 +313,51 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   }
 
   const options: SkillsetOptions = {
+    ...(buildMode === undefined ? {} : { buildMode }),
+    ...(scopes === undefined ? {} : { scopes }),
     ...(sourceDir === undefined ? {} : { sourceDir }),
     ...(distDir === undefined ? {} : { distDir }),
   };
 
   return {
     command,
+    dryRun,
     ...(importKind === undefined ? {} : { importKind }),
     ...(importName === undefined ? {} : { importName }),
     ...(importPath === undefined ? {} : { importPath }),
     ...(importProvider === undefined ? {} : { importProvider }),
     options,
     rootPath: resolve(rootPath),
+    yes,
   };
+}
+
+function setBuildMode(current: CompileBuildMode | undefined, next: CompileBuildMode): CompileBuildMode {
+  if (current !== undefined && current !== next) {
+    throw new Error(`skillset: conflicting build mode flags --${current} and --${next}`);
+  }
+  return next;
+}
+
+function readBuildScopes(value: string): readonly BuildScope[] {
+  const scopes = value.split(",").map((scope) => scope.trim()).filter((scope) => scope.length > 0);
+  if (scopes.length === 0) throw new Error("skillset: --scope requires at least one scope");
+  if (scopes.includes("all")) {
+    if (scopes.length > 1) throw new Error("skillset: --scope all cannot be combined with other scopes");
+    return ["repo", "plugins", "project", "user"];
+  }
+  const seen = new Set<BuildScope>();
+  for (const scope of scopes) {
+    if (!isBuildScope(scope)) {
+      throw new Error("skillset: expected --scope repo, plugins, project, user, all, or a comma-separated combination");
+    }
+    seen.add(scope);
+  }
+  return [...seen];
+}
+
+function isBuildScope(value: string): value is BuildScope {
+  return value === "repo" || value === "plugins" || value === "project" || value === "user";
 }
 
 function isImportKind(value: string): value is ImportKind {
