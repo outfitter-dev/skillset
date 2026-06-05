@@ -16,7 +16,13 @@
     {
       "created": "2026-06-04",
       "depends_on": ["0"],
-      "inbound": [],
+      "inbound": [
+        {
+          "context": "- [Changelog and Version Bump Workflow](20260604-changelog-and-versioning.md) - related non-goal for install/sync behavior.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-global-xdg-managed-installs-and-sync.md"
+        }
+      ],
       "number": null,
       "owners": ["[galligan](https://github.com/galligan)"],
       "path": "docs/adrs/drafts/20260604-changelog-and-versioning.md",
@@ -29,7 +35,13 @@
     {
       "created": "2026-06-04",
       "depends_on": ["0"],
-      "inbound": [],
+      "inbound": [
+        {
+          "context": "- [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - tracks settings as future-only and target-native.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-reviewed-settings-suggestions.md"
+        }
+      ],
       "number": null,
       "owners": ["[galligan](https://github.com/galligan)"],
       "path": "docs/adrs/drafts/20260604-feature-reference-and-schema-registry.md",
@@ -42,7 +54,18 @@
     {
       "created": "2026-06-04",
       "depends_on": ["0"],
-      "inbound": [],
+      "inbound": [
+        {
+          "context": "- [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md) - related non-goal for install and sync workflows.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-changelog-and-versioning.md"
+        },
+        {
+          "context": "- [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md) - separates build from install/sync/trust and user-level mutation.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-reviewed-settings-suggestions.md"
+        }
+      ],
       "number": null,
       "owners": ["[galligan](https://github.com/galligan)"],
       "path": "docs/adrs/drafts/20260604-global-xdg-managed-installs-and-sync.md",
@@ -50,6 +73,35 @@
       "status": "draft",
       "superseded_by": null,
       "title": "Global / XDG Managed Installs and Sync",
+      "updated": "2026-06-04"
+    },
+    {
+      "created": "2026-06-04",
+      "depends_on": [
+        "0",
+        "1",
+        "global-xdg-managed-installs-and-sync",
+        "feature-reference-and-schema-registry"
+      ],
+      "inbound": [
+        {
+          "context": "- [Reviewed settings suggestion workflow](../adrs/drafts/20260604-reviewed-settings-suggestions.md): Skillset may eventually propose or review target settings changes, but `skillset build` must not mu",
+          "from": "README",
+          "fromPath": "docs/features/README.md"
+        },
+        {
+          "context": "| `settings.json` | default plugin settings | Target-native / Future | Documented Claude plugin-root component for enabled plugins. Skillset v1 does not mutate live settings; the [reviewed settings su",
+          "from": "target-surfaces",
+          "fromPath": "docs/target-surfaces.md"
+        }
+      ],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260604-reviewed-settings-suggestions.md",
+      "slug": "reviewed-settings-suggestions",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Reviewed Settings Suggestions",
       "updated": "2026-06-04"
     }
   ],

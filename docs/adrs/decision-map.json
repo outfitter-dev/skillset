@@ -8,6 +8,31 @@
           "context": "- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - baseline source-first compiler doctrine.",
           "from": "0001",
           "fromPath": "docs/adrs/0001-root-compile-policy.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - baseline source-first compiler doctrine.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-agent-source-model.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - baseline source-first compiler doctrine.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-changelog-and-versioning.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - baseline source-first compiler doctrine.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-feature-reference-and-schema-registry.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - baseline source-first compiler doctrine.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-global-xdg-managed-installs-and-sync.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - baseline source-first compiler doctrine.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-reviewed-settings-suggestions.md"
         }
       ],
       "number": "0000",
@@ -27,6 +52,11 @@
           "context": "- [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - accepted `compile.targets` and `compile.unsupported` direction.",
           "from": "0000",
           "fromPath": "docs/adrs/0000-source-first-loadouts.md"
+        },
+        {
+          "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - provider selection and fail-loud unsupported behavior.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-reviewed-settings-suggestions.md"
         }
       ],
       "number": "0001",

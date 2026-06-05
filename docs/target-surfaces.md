@@ -78,7 +78,7 @@ Live-doc verified against `code.claude.com/docs/en/plugins` and `code.claude.com
 | `themes/` | `experimental.themes: "./themes/"` | Implemented | |
 | `monitors/monitors.json` | `experimental.monitors: "./monitors/monitors.json"` | Implemented | |
 | `bin/` | executable PATH component | Target-native / Implemented | Documented Claude plugin-root component; conventional `bin/` and `bin.source` copy into Claude plugin output and are locked as plugin features. |
-| `settings.json` | default plugin settings | Target-native / Future | Documented Claude plugin-root component for enabled plugins. Skillset v1 does not mutate live settings; settings suggestion/review workflow is SET-29 future work. |
+| `settings.json` | default plugin settings | Target-native / Future | Documented Claude plugin-root component for enabled plugins. Skillset v1 does not mutate live settings; the [reviewed settings suggestion workflow](adrs/drafts/20260604-reviewed-settings-suggestions.md) is future work. |
 
 ## Project agents (Claude)
 
