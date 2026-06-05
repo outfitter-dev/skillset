@@ -40,6 +40,13 @@
       hooks/
       assets/
       scripts/
+  src/
+    agents/
+      <agent-name>.md
+    claude/
+      ...
+    codex/
+      ...
 plugins-claude/
   .skillset.lock
   README.md
@@ -59,6 +66,8 @@ plugins-codex/
         plugin.json
       skills/
 .claude/
+  agents/
+    <agent-name>.md
   rules/
     .skillset.lock
     <topic>.md
@@ -74,6 +83,9 @@ plugins-codex/
       agents/
         openai.yaml
 AGENTS.md
+.codex/
+  agents/
+    <agent-name>.toml
 <subdir>/
   AGENTS.md
 .skillset.lock
@@ -86,6 +98,14 @@ This compiler repo uses that same layout for its own source:
 - `.skillset/skills/skillset-claude-development` is a Claude-only internal standalone skill for compiler development.
 - `.skillset/skills/skillset-codex-development` is a Codex-only internal standalone skill for compiler development.
 - `.skillset/plugins/skillset` is the user-facing plugin that explains how to use `skillset`.
+
+## Setup Commands
+
+`skillset init` initializes source in an existing repo or directory. It plans by default, writes only with `--yes`, and refuses to overwrite existing setup files with different content. The minimal scaffold is `.skillset/config.yaml` plus `.skillset/src/.gitkeep`; requested flags can add `.skillset/instructions/project.md`, `.skillset/src/agents/`, `.skillset/src/claude/`, and `.skillset/src/codex/rules/` placeholders. The project-doc scaffold is a real portable instruction source that lowers to Claude rules and Codex `AGENTS.md`.
+
+`skillset create` creates a new source repo, defaulting to `my-skillset` under the current directory. `skillset create --global` defaults the source checkout to `~/.skillset/src`. This global source path and the documented `~/.skillset/build` preview/build area are Skillset-owned locations, not live target runtime directories. Setup does not create or mutate `~/.claude`, `~/.codex`, `.agents`, marketplaces, trust settings, or symlinks.
+
+The generated setup config uses `compile.targets` for provider selection. Target-native adapter settings still belong in `claude` and `codex` blocks, and reusable defaults belong in `defaults.<target>.<surface>` or the target-local `defaults` block. Package-manager bootstraps such as `npx create-skillset` and `bunx create-skillset` are intended to invoke the same `create` flow once publishing exists; this package remains private while the source contract is settling.
 
 Provider selection, plugin output roots, and standalone skill output roots can be enabled with defaults or configured from root `.skillset/config.yaml`:
 
@@ -100,7 +120,7 @@ compile:
   unsupported: error
 ```
 
-Omitting `compile.targets` builds every supported provider projection for portable source. `compile.build` defaults to `updated` and accepts `all`; the parser records the normalized mode in lock provenance, while SET-25 owns lock-aware write planning. `compile.skillset.metadata` defaults to `true`; set it to `false` to suppress Skillset's generated `metadata.generated` and `metadata.version` fields in emitted skills. `compile.unsupported` defaults to `error`; `warn`, `skip`, and `force` are reserved until unsupported-source warnings and lock provenance exist.
+Omitting `compile.targets` builds every supported provider projection for portable source. `compile.build` defaults to `updated` and accepts `all`; CLI `--updated` and `--all` override the config for one command, and the resolved mode is recorded in lock provenance. `updated` writes missing or changed generated files and removes stale scoped generated files while leaving unchanged files untouched; `all` rewrites selected output roots. `skillset build` is plan-first and writes only with `--yes`; `--dry-run` always prevents writes. `compile.skillset.metadata` defaults to `true`; set it to `false` to suppress Skillset's generated `metadata.generated` and `metadata.version` fields in emitted skills. `compile.unsupported` defaults to `error`; `warn`, `skip`, and `force` are reserved until unsupported-source warnings and lock provenance exist.
 
 The canonical provider-selection shape is the `compile.targets` list above. This shorthand normalizes to the same internal target plan:
 
@@ -139,7 +159,7 @@ codex:
 
 Boolean output settings use the default roots: `plugins-claude/`, `plugins-codex/`, `.claude/skills`, and `.agents/skills`. Arrays select specific plugin or standalone skill names. Object settings can set `path`, `include`, or `enabled: false`. When `compile.targets` is present, a root provider object without `enabled` inherits the compile target set, so output-path objects do not accidentally re-enable a provider. Lower-level plugin, skill, and instruction objects keep the existing opt-in semantics. Do not add a bare top-level `targets:` key; provider selection has one home.
 
-Target defaults use `claude.defaults.<surface>` and `codex.defaults.<surface>` as the canonical target-local form. Root `defaults.<target>.<surface>` is a shorthand that normalizes into the same target defaults without making `targets:` a config surface. Supported surfaces are `plugins`, `skills`, and `instructions`; unknown surfaces such as `defaults.codex.skill` fail instead of silently no-oping. Defaults fill omitted target options for that surface: plugin defaults override root defaults, file-level target fields override plugin defaults, and target-specific fields override shared portable fields at render time. For example, a root `codex.defaults.skills.model` applies to Codex-enabled skills unless a plugin or skill provides `codex.model`.
+Target defaults use `claude.defaults.<surface>` and `codex.defaults.<surface>` as the canonical target-local form. Root `defaults.<target>.<surface>` is a shorthand that normalizes into the same target defaults without making `targets:` a config surface. Supported surfaces are `agents`, `instructions`, `plugins`, and `skills`; unknown surfaces such as `defaults.codex.skill` fail instead of silently no-oping. Defaults fill omitted target options for that surface: plugin defaults override root defaults, file-level target fields override plugin defaults, and target-specific fields override shared portable fields at render time. For example, a root `codex.defaults.skills.model` applies to Codex-enabled skills unless a plugin or skill provides `codex.model`, and `codex.defaults.agents.skillsPrefaceTemplate` customizes generated Codex project-agent skill prefaces.
 
 A top-level skill `model` looks portable but is not portable in v1. It is stripped from generated output and emits a warning unless every enabled target has an explicit target model from `claude.model`, `codex.model`, or target defaults.
 
@@ -243,11 +263,15 @@ Codex `.rules` files are not instruction Markdown. They are target-native comman
 
 ## Target-Specific Source and Plugin Surfaces
 
+Portable project agents live under `.skillset/src/agents/*.md`. They lower to Claude `.claude/agents/<resolved-name>.md` and Codex `.codex/agents/<resolved-name>.toml`, using the resolved `name` when present and otherwise the source filename stem. Agent source requires `description` plus a body, supports shared `skills` and `initialPrompt`, and keeps target-native fields under `claude` and `codex` blocks. Codex `skills` become a deterministic `developer_instructions` preface, and `initialPrompt` is wrapped in `<initial_prompt>...</initial_prompt>` with closing-tag input rejected. Project-agent files are tracked in the root `.skillset.lock`; `skillset list` and `skillset explain` expose their provenance.
+
 Project target-native islands mirror explicit target source to target project roots: `.skillset/src/claude/**` writes to `.claude/**` by default, and `.skillset/src/codex/**` writes to `.codex/**` by default. `claude.projectRoot` and `codex.projectRoot` can override those roots. Codex `.rules` pass through only from `.skillset/src/codex/rules/**/*.rules` to `.codex/rules/**/*.rules`; portable prose instructions never lower to Codex command policy.
 
-Some plugin companion paths are target-native rather than portable. Claude output copies `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json`, `.lsp.json`, `output-styles/`, `themes/`, `monitors/`, `assets/`, `scripts/`, and `src/` when present. Codex output copies `hooks/hooks.json`, `.mcp.json`, `.app.json`, `assets/`, `scripts/`, and `src/`. Claude `agents/` is not copied into Codex plugin output; Codex plugin docs do not document a plugin `agents/` component. Plugin-local islands under `.skillset/src/plugins/<plugin>/claude/**` and `.skillset/src/plugins/<plugin>/codex/**` mirror into the matching generated plugin bundle only. Codex plugin `.rules` remains unsupported. Project-scoped Codex custom agents live under `.codex/agents/*.toml` and are a different target-native surface from plugin components. Current generated JSON, YAML, Markdown, TOML utility output, and lock files are parsed after generation; copied unknown files and binary sidecars are not parsed as text.
+Some plugin companion paths are target-native rather than portable. Claude output copies `commands/`, `agents/`, `hooks/hooks.json`, `.lsp.json`, `output-styles/`, `themes/`, `monitors/`, `assets/`, `scripts/`, and `src/` when present. Codex output copies `hooks/hooks.json`, `.app.json`, `assets/`, `scripts/`, and `src/`. Plugin-local islands under `.skillset/src/plugins/<plugin>/claude/**` and `.skillset/src/plugins/<plugin>/codex/**` mirror into the matching generated plugin bundle only. Codex plugin `.rules` remains unsupported. Current generated JSON, YAML, Markdown, TOML utility output, and lock files are parsed after generation; copied unknown files and binary sidecars are not parsed as text.
 
-These paths are copied as opaque content — `skillset` does not synthesize or validate their schemas in v1. When a Claude pass-through path is present, the generated `.claude-plugin/plugin.json` declares it using the documented manifest field: `lspServers` for `.lsp.json`, `outputStyles` for `output-styles/`, and the experimental `experimental.themes` / `experimental.monitors` for `themes/` and `monitors/monitors.json`. The supported Claude plugin component paths were live-doc verified against `code.claude.com/docs/en/plugins` and `code.claude.com/docs/en/plugins-reference` (2026-06-04).
+MCP server definitions and Claude plugin `bin/` use feature-key source pointers rather than the generic companion copier. Conventional plugin-local `.mcp.json` and `bin/` are discovered unless disabled with `mcp: false` or `bin: false`; explicit `mcp.source` and `bin.source` values must use `repo:<path>` pointers inside the repo and outside configured generated output roots. MCP sources must be JSON files and are validated after generation; `bin` sources must be directories and are copied only to Claude plugin output. Because Codex plugins do not support `bin` in v1, a Codex-enabled plugin with enabled `bin` fails loudly unless the plugin or Codex plugin output selection opts out.
+
+When a Claude pass-through path is present, the generated `.claude-plugin/plugin.json` declares it using the documented manifest field: `mcpServers` for `.mcp.json`, `lspServers` for `.lsp.json`, `outputStyles` for `output-styles/`, and the experimental `experimental.themes` / `experimental.monitors` for `themes/` and `monitors/monitors.json`. Codex plugin manifests declare MCP with `mcpServers` when `.mcp.json` is enabled. The supported Claude plugin component paths were live-doc verified against `code.claude.com/docs/en/plugins` and `code.claude.com/docs/en/plugins-reference` (2026-06-04).
 
 Claude plugin docs now document root `bin/` and plugin-root `settings.json`. Treat both as target-native, not portable. `bin/` is a documented executable component and can be supported through feature-key/source-pointer work. Plugin-root `settings.json` applies default configuration when a Claude plugin is enabled, so Skillset must keep it separate from live user/project settings mutation. Build still emits definitions only: it does not install, trust, enable, or symlink generated output into runtime locations. A reviewed settings suggestion workflow is a future non-goal for v1.
 

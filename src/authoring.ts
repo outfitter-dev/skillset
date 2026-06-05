@@ -1,6 +1,6 @@
 import { resolve, relative } from "node:path";
 
-import { diffSkillset, type SkillsetDiff } from "./build";
+import { diffSkillset, scopedRenderedFiles, type SkillsetDiff } from "./build";
 import { inspectSkillset } from "./lint";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
@@ -13,6 +13,7 @@ export type ExplainKind =
   | "source-skill"
   | "source-instruction"
   | "source-island"
+  | "source-project-agent"
   | "source-plugin"
   | "generated"
   | "unknown";
@@ -35,7 +36,7 @@ export async function explainPath(
   options: SkillsetOptions = {}
 ): Promise<ExplainResult> {
   const graph = await loadBuildGraph(rootPath, options);
-  const rendered = await renderBuildGraph(graph);
+  const rendered = scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes);
   const target = normalizeRepoPath(rootPath, inputPath);
   const items = collectLockItems(rendered);
 
@@ -90,7 +91,7 @@ export async function listGeneratedEntries(
   options: SkillsetOptions = {}
 ): Promise<readonly GeneratedEntry[]> {
   const graph = await loadBuildGraph(rootPath, options);
-  const rendered = await renderBuildGraph(graph);
+  const rendered = scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes);
   return collectLockItems(rendered).map((item) => item.entry);
 }
 
@@ -118,7 +119,7 @@ export async function doctorSkillset(
   const graph = await loadBuildGraph(rootPath, options);
   const lint = await inspectSkillset(graph);
 
-  let drift: SkillsetDiff = { added: [], changed: [], removed: [] };
+  let drift: SkillsetDiff = { added: [], changed: [], missing: [], removed: [] };
   let buildError: string | undefined;
   try {
     drift = await diffSkillset(rootPath, options);
@@ -127,7 +128,7 @@ export async function doctorSkillset(
   }
 
   const hasDrift =
-    drift.added.length > 0 || drift.changed.length > 0 || drift.removed.length > 0;
+    drift.added.length > 0 || drift.changed.length > 0 || drift.missing.length > 0 || drift.removed.length > 0;
 
   return {
     ...(buildError === undefined ? {} : { buildError }),
@@ -180,10 +181,13 @@ function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuildGraph>>
           target,
           sourcePath,
           outputPath: joinOutputRoot(outputRoot, outputPath),
+          ...(typeof rawItem.feature === "string" ? { feature: rawItem.feature } : {}),
           ...(typeof rawItem.kind === "string" ? { kind: rawItem.kind } : {}),
+          ...(typeof rawItem.origin === "string" ? { origin: rawItem.origin } : {}),
           ...(typeof rawItem.outputHash === "string" ? { outputHash: rawItem.outputHash } : {}),
           ...(preprocessDependencies === undefined ? {} : { preprocessDependencies }),
           ...(typeof rawItem.sourceHash === "string" ? { sourceHash: rawItem.sourceHash } : {}),
+          ...(typeof rawItem.sourcePointer === "string" ? { sourcePointer: rawItem.sourcePointer } : {}),
           ...(typeof rawItem.version === "string" ? { version: rawItem.version } : {}),
           ...(typeof rawItem.targetState === "string" ? { targetState: rawItem.targetState } : {}),
           ...(typeof rawItem.validation === "string" ? { validation: rawItem.validation } : {}),
@@ -206,11 +210,22 @@ function explainSourceKind(graph: BuildGraph, target: string): ExplainKind {
   if (graph.projectIslands.some((island) => relative(graph.rootPath, island.sourcePath) === target)) {
     return "source-island";
   }
+  if (graph.projectAgents.some((agent) => relative(graph.rootPath, agent.sourcePath) === target)) {
+    return "source-project-agent";
+  }
   if (target.endsWith("/SKILL.md") || target.endsWith("SKILL.md")) return "source-skill";
   return "source-plugin";
 }
 
 function sourceNotes(graph: BuildGraph, target: string): readonly string[] {
+  const agent = graph.projectAgents.find((candidate) => relative(graph.rootPath, candidate.sourcePath) === target);
+  if (agent !== undefined) {
+    const targets = (["claude", "codex"] as const)
+      .filter((name) => agent.targets[name].enabled)
+      .join(", ");
+    return [`Project-scoped portable agent. Enabled targets: ${targets.length > 0 ? targets : "none"}.`];
+  }
+
   const island = graph.projectIslands.find((candidate) => relative(graph.rootPath, candidate.sourcePath) === target);
   if (island !== undefined) {
     return [

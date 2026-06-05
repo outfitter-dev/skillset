@@ -8,27 +8,33 @@ Build scopes describe where Skillset writes or inspects generated output. They s
 
 ## Authoring
 
-SET-21 added build-mode parsing and lock provenance:
+Build mode is configured in root source:
 
 ```yaml
 compile:
   build: updated
 ```
 
-`updated` is the default planned mode. `all` rebuilds every configured output. CLI flags such as `--updated` and `--all` should override config for the current command.
+`updated` is the default mode. `all` rebuilds every configured output. CLI flags `--updated` and `--all` override config for the current command.
 
-The parser currently normalizes `compile.build` and records it as `buildMode` in `.skillset.lock`. SET-25 owns the next step: making `updated` lock-aware for write planning and adding the CLI overrides.
+`skillset build` is plan-first. It prints pending generated changes and writes only with explicit confirmation:
+
+```bash
+skillset build --yes
+```
+
+`--dry-run` is accepted for every build scope and always prevents writes, even when `--yes` is also present. Explicit `--scope` selectors filter generated destinations for build, diff, check, list, and explain. Repo scripts that intentionally refresh all generated output should omit `--scope` and pass `--yes`.
 
 ## Support Table
 
 | Behavior | Build | Check | Diff/list/explain | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `compile.build: updated` | normalized, write planning planned | detect drift | explain target state | `implemented` / `planned` | Parsed and locked today; SET-25 makes write planning lock-aware. No usable lock should fall back to all configured outputs and write a fresh lock. |
-| `compile.build: all` | normalized, rebuild planning planned | detect drift | explain full plan | `implemented` / `planned` | Parsed and locked today; SET-25 makes the write planner rebuild every configured output. |
-| `--scope repo/plugins/project/user/all` | destination class selection | destination class selection | destination class selection | `planned` | Scope is about destinations, not arbitrary feature sets. |
-| `skillset diff` | no writes | n/a | planned diff | `implemented` / `planned` | Existing diff is read-only; SET-25 expands scope/list behavior. |
-| `skillset explain <path>` | n/a | n/a | source/generated provenance | `implemented` / `planned` | Existing explain resolves lock provenance for current generated outputs. |
-| `skillset list` | n/a | n/a | lock-backed inventory | `implemented` / `planned` | Lists current generated lock entries today, including target-native islands; SET-25 expands this into scoped conventional discovery and skipped/future state. |
+| `compile.build: updated` | writes missing/changed outputs and removes stale scoped outputs | detect drift | explain target state | `implemented` | No usable lock falls back to the rendered configured outputs and writes a fresh baseline only when build runs with `--yes`; unchanged files are left untouched. |
+| `compile.build: all` | rewrites selected output roots | detect drift | explain full plan | `implemented` | CLI `--all` overrides config and records the resolved mode in lock metadata. |
+| `--scope repo/plugins/project/user/all` | destination filtering | destination filtering | destination filtering | `implemented` | Scope is about destinations, not arbitrary feature sets. `repo` covers standalone generated skill roots, `plugins` covers generated plugin repos, `project` covers project guidance/agents/native islands, and `user` is reserved with no build outputs today. |
+| `skillset diff` | no writes | n/a | added/changed/missing/removed diff | `implemented` | Missing locked outputs are shown separately from new generated outputs. |
+| `skillset explain <path>` | n/a | n/a | source/generated provenance | `implemented` | Explain resolves lock provenance for current generated outputs. |
+| `skillset list` | n/a | n/a | lock-backed inventory | `implemented` | Lists current generated lock entries today, including target-native islands and project agents. |
 
 ## Target Lowering
 
@@ -38,8 +44,9 @@ User/global destinations require the most conservative posture. `skillset build`
 
 ## Diagnostics
 
-- Missing or corrupt locks should not silently disable guards; updated mode should fall back to all configured outputs and report why.
+- Missing or corrupt locks should not silently disable guards. The workspace lock still fails loudly when corrupt because it guards unmanaged project files; absent locks are treated as a first baseline build.
 - Dry-run commands must never write generated files, locks, target config, or user-level settings.
+- Missing managed outputs are reported with `!` in `diff`/build plans and as `missing managed generated file` in `check`.
 - Scope/entity selectors should fail on unknown scopes or ambiguous entity selectors rather than guessing.
 - Diff/list/explain should make skipped, future, unsupported, and target-native states visible.
 
@@ -49,4 +56,4 @@ User/global destinations require the most conservative posture. `skillset build`
 
 ## Tests and Fixtures
 
-SET-25 should add lock-aware fixtures for updated/all behavior, corrupt or missing locks, dry-run no-write checks, scope validation, and explain/list output for generated and skipped targets.
+Fixtures cover plan-first build behavior, `--yes`, `--dry-run` precedence, build-mode flag conflicts, scope validation/filtering, updated-mode no-churn behavior, all-mode rewrites, and missing managed output classification. Existing SET-9 and SET-24 fixtures cover diff/list/explain lock visibility for generated skills, target-native islands, and project agents.
