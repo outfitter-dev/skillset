@@ -28,7 +28,7 @@ The parser currently normalizes `compile.build` and records it as `buildMode` in
 | `--scope repo/plugins/project/user/all` | destination class selection | destination class selection | destination class selection | `planned` | Scope is about destinations, not arbitrary feature sets. |
 | `skillset diff` | no writes | n/a | planned diff | `implemented` / `planned` | Existing diff is read-only; SET-25 expands scope/list behavior. |
 | `skillset explain <path>` | n/a | n/a | source/generated provenance | `implemented` / `planned` | Existing explain resolves lock provenance for current generated outputs. |
-| `skillset list` | n/a | n/a | planned inventory | `planned` | Should expose conventional discovery and skipped/future state. |
+| `skillset list` | n/a | n/a | lock-backed inventory | `implemented` / `planned` | Lists current generated lock entries today, including target-native islands; SET-25 expands this into scoped conventional discovery and skipped/future state. |
 
 ## Target Lowering
 

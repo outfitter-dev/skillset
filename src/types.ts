@@ -80,6 +80,13 @@ export interface SourceRule {
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
 }
 
+export interface SourceIslandFile {
+  readonly plugin?: string;
+  readonly relativePath: string;
+  readonly sourcePath: string;
+  readonly target: TargetName;
+}
+
 export interface OutputConfig {
   readonly plugins: Readonly<Record<TargetName, string>>;
   readonly skills: Readonly<Record<TargetName, string>>;
@@ -98,6 +105,7 @@ export interface BuildGraph {
   readonly instructionsDir: string;
   readonly outputRoots: readonly string[];
   readonly plugins: readonly SourcePlugin[];
+  readonly projectIslands: readonly SourceIslandFile[];
   readonly rules: readonly SourceRule[];
   readonly root: RootConfig;
   readonly rootPath: string;
@@ -112,6 +120,20 @@ export interface RenderedFile {
   readonly content: Uint8Array;
   readonly path: string;
   readonly sourcePath?: string;
+}
+
+export interface GeneratedEntry {
+  readonly kind?: string;
+  readonly outputHash?: string;
+  readonly outputPath: string;
+  readonly outputRoot: string;
+  readonly preprocessDependencies?: readonly string[];
+  readonly sourceHash?: string;
+  readonly sourcePath: string;
+  readonly target: string;
+  readonly targetState?: string;
+  readonly validation?: string;
+  readonly version?: string;
 }
 
 export interface SkillsetOptions {

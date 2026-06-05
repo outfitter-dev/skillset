@@ -21,6 +21,7 @@ import type {
   OutputSelection,
   SkillsetOptions,
   SourcePlugin,
+  SourceIslandFile,
   SourceRule,
   SourceSkill,
   StandaloneSkill,
@@ -37,6 +38,7 @@ const INSTRUCTIONS_COMPAT_DIR = "rules";
 const SKILLS_DIR = "skills";
 const SKILL_FILE = "SKILL.md";
 const RULES_OUTPUT_ROOT = ".claude/rules";
+const TARGET_NATIVE_SOURCE_DIR = "src";
 
 export async function loadBuildGraph(
   rootPath: string,
@@ -73,18 +75,21 @@ export async function loadBuildGraph(
   const plugins = await loadPlugins(rootPath, sourceDir, rootTargets, warnings);
   const standaloneSkills = await loadStandaloneSkills(rootPath, sourceDir, rootTargets, warnings);
   const { rules, instructionsDir } = await loadInstructions(rootPath, sourceDir, rootTargets, warnings);
+  const projectIslands = await loadProjectIslands(rootPath, sourceDir, plugins);
 
-  if (plugins.length === 0 && standaloneSkills.length === 0 && rules.length === 0) {
-    throw new Error(`skillset: no source plugins, skills, or instructions found under ${sourceDir}/`);
+  if (plugins.length === 0 && standaloneSkills.length === 0 && rules.length === 0 && projectIslands.length === 0) {
+    throw new Error(`skillset: no source plugins, skills, instructions, or target-native islands found under ${sourceDir}/`);
   }
 
   const outputRoots = await outputRootsFor(rootPath, outputs, plugins, standaloneSkills, rules);
   validateOutputRoots(rootPath, sourcePath, outputRoots);
+  validateProjectIslandRoots(rootPath, sourcePath, outputRoots, rootTargets, projectIslands);
 
   return {
     instructionsDir,
     outputRoots: outputRoots.map((outputRoot) => outputRoot.path),
     plugins,
+    projectIslands,
     rules,
     root,
     rootPath,
@@ -93,6 +98,77 @@ export async function loadBuildGraph(
     standaloneSkills,
     warnings,
   };
+}
+
+async function loadProjectIslands(
+  rootPath: string,
+  sourceDir: string,
+  plugins: readonly SourcePlugin[]
+): Promise<readonly SourceIslandFile[]> {
+  const srcPath = resolveInside(rootPath, join(sourceDir, TARGET_NATIVE_SOURCE_DIR));
+  if (!(await exists(srcPath))) return [];
+
+  const islands: SourceIslandFile[] = [];
+  islands.push(...(await loadTargetIsland(rootPath, join(srcPath, "claude"), "claude")));
+  islands.push(...(await loadTargetIsland(rootPath, join(srcPath, "codex"), "codex")));
+
+  const pluginsPath = join(srcPath, "plugins");
+  if (await exists(pluginsPath)) {
+    await validatePluginIslandOwners(rootPath, pluginsPath, plugins);
+    for (const plugin of plugins) {
+      const pluginPath = join(pluginsPath, plugin.id);
+      islands.push(...(await loadTargetIsland(rootPath, join(pluginPath, "claude"), "claude", plugin.id)));
+      islands.push(...(await loadTargetIsland(rootPath, join(pluginPath, "codex"), "codex", plugin.id)));
+    }
+  }
+
+  for (const island of islands) {
+    if (island.target === "codex" && island.relativePath.endsWith(".rules") && island.plugin !== undefined) {
+      throw new Error(
+        `skillset: ${relative(rootPath, island.sourcePath)} targets Codex plugin .rules, which are not supported; Codex .rules are project-only command policy`
+      );
+    }
+    if (island.target === "codex" && island.relativePath.endsWith(".rules") && !island.relativePath.startsWith("rules/")) {
+      throw new Error(
+        `skillset: ${relative(rootPath, island.sourcePath)} targets Codex .rules outside .skillset/src/codex/rules/; Codex .rules are project-only command policy`
+      );
+    }
+  }
+
+  return islands.sort((left, right) =>
+    compareStrings(`${left.plugin ?? ""}/${left.target}/${left.relativePath}`, `${right.plugin ?? ""}/${right.target}/${right.relativePath}`)
+  );
+}
+
+async function validatePluginIslandOwners(
+  rootPath: string,
+  pluginsPath: string,
+  plugins: readonly SourcePlugin[]
+): Promise<void> {
+  const pluginIds = new Set(plugins.map((plugin) => plugin.id));
+  for (const entry of await readdir(pluginsPath, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    if (pluginIds.has(entry.name)) continue;
+    throw new Error(
+      `skillset: ${relative(rootPath, join(pluginsPath, entry.name))} has target-native island source for unknown plugin ${entry.name}`
+    );
+  }
+}
+
+async function loadTargetIsland(
+  rootPath: string,
+  islandPath: string,
+  target: SourceIslandFile["target"],
+  plugin?: string
+): Promise<readonly SourceIslandFile[]> {
+  if (!(await exists(islandPath))) return [];
+  const files = await collectFiles(islandPath);
+  return files.map((sourcePath) => ({
+    relativePath: relative(islandPath, sourcePath),
+    sourcePath: resolveInside(rootPath, relative(rootPath, sourcePath)),
+    target,
+    ...(plugin === undefined ? {} : { plugin }),
+  }));
 }
 
 /**
@@ -394,6 +470,22 @@ async function findMarkdownFiles(root: string): Promise<string[]> {
   return files;
 }
 
+async function collectFiles(root: string): Promise<string[]> {
+  const files: string[] = [];
+  const entries = await readdir(root, { withFileTypes: true });
+
+  for (const entry of entries.sort((left, right) => compareStrings(left.name, right.name))) {
+    const path = join(root, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await collectFiles(path)));
+      continue;
+    }
+    if (entry.isFile()) files.push(path);
+  }
+
+  return files;
+}
+
 async function exists(path: string): Promise<boolean> {
   try {
     await stat(path);
@@ -496,6 +588,46 @@ function validateOutputRoots(
       );
     }
     seen.set(absoluteOutputRoot, outputRoot.label);
+  }
+}
+
+function validateProjectIslandRoots(
+  rootPath: string,
+  sourcePath: string,
+  outputRoots: readonly ActiveOutputRoot[],
+  rootTargets: BuildGraph["root"]["targets"],
+  projectIslands: readonly SourceIslandFile[]
+): void {
+  for (const target of targetNames()) {
+    if (!projectIslands.some((island) => island.plugin === undefined && island.target === target)) continue;
+
+    const projectRoot = {
+      label: `${target}.projectRoot`,
+      path: readString(rootTargets[target].options, "projectRoot") ?? (target === "claude" ? ".claude" : ".codex"),
+    };
+    const absoluteProjectRoot = resolveInside(rootPath, projectRoot.path);
+    const targetIslands = projectIslands.filter((island) => island.plugin === undefined && island.target === target);
+    if (isSameOrInside(absoluteProjectRoot, sourcePath)) {
+      throw new Error(
+        `skillset: ${projectRoot.label} must not point inside source root ${relative(rootPath, sourcePath)}`
+      );
+    }
+
+    for (const outputRoot of outputRoots) {
+      const absoluteOutputRoot = resolveInside(rootPath, outputRoot.path);
+      if (isSameOrInside(absoluteProjectRoot, absoluteOutputRoot)) {
+        throw new Error(
+          `skillset: ${projectRoot.label} must not overlap active output root ${outputRoot.path}`
+        );
+      }
+      const overlappingIsland = targetIslands.find((island) =>
+        isSameOrInside(resolveInside(rootPath, join(projectRoot.path, island.relativePath)), absoluteOutputRoot)
+      );
+      if (overlappingIsland === undefined) continue;
+      throw new Error(
+        `skillset: ${relative(rootPath, overlappingIsland.sourcePath)} would write inside active output root ${outputRoot.path}`
+      );
+    }
   }
 }
 

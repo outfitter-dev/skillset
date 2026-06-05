@@ -4,7 +4,7 @@ import { diffSkillset, type SkillsetDiff } from "./build";
 import { inspectSkillset } from "./lint";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
-import type { BuildGraph, LintIssue, SkillsetOptions } from "./types";
+import type { BuildGraph, GeneratedEntry, LintIssue, SkillsetOptions } from "./types";
 import { isJsonRecord } from "./yaml";
 
 const textDecoder = new TextDecoder();
@@ -12,23 +12,13 @@ const textDecoder = new TextDecoder();
 export type ExplainKind =
   | "source-skill"
   | "source-instruction"
+  | "source-island"
   | "source-plugin"
   | "generated"
   | "unknown";
 
-export interface ExplainEntry {
-  readonly outputHash?: string;
-  readonly outputPath: string;
-  readonly outputRoot: string;
-  readonly sourceHash?: string;
-  readonly sourcePath: string;
-  readonly target: string;
-  readonly targetState?: string;
-  readonly version?: string;
-}
-
 export interface ExplainResult {
-  readonly entries: readonly ExplainEntry[];
+  readonly entries: readonly GeneratedEntry[];
   readonly kind: ExplainKind;
   readonly notes: readonly string[];
   readonly path: string;
@@ -95,6 +85,15 @@ export async function explainPath(
   };
 }
 
+export async function listGeneratedEntries(
+  rootPath: string,
+  options: SkillsetOptions = {}
+): Promise<readonly GeneratedEntry[]> {
+  const graph = await loadBuildGraph(rootPath, options);
+  const rendered = await renderBuildGraph(graph);
+  return collectLockItems(rendered).map((item) => item.entry);
+}
+
 export interface DoctorReport {
   readonly buildError?: string;
   readonly drift: SkillsetDiff;
@@ -140,7 +139,7 @@ export async function doctorSkillset(
 }
 
 interface LockItemMatch {
-  readonly entry: ExplainEntry;
+  readonly entry: GeneratedEntry;
   readonly files: readonly string[];
   readonly outputPath: string;
   readonly outputRoot: string;
@@ -165,6 +164,9 @@ function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuildGraph>>
       if (!isJsonRecord(rawItem)) continue;
       const sourcePath = typeof rawItem.sourcePath === "string" ? rawItem.sourcePath : "";
       const outputPath = typeof rawItem.outputPath === "string" ? rawItem.outputPath : "";
+      const preprocessDependencies = Array.isArray(rawItem.preprocessDependencies)
+        ? rawItem.preprocessDependencies.filter((value): value is string => typeof value === "string")
+        : undefined;
       const files = Array.isArray(rawItem.files)
         ? rawItem.files.filter((value): value is string => typeof value === "string")
         : [];
@@ -178,10 +180,13 @@ function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuildGraph>>
           target,
           sourcePath,
           outputPath: joinOutputRoot(outputRoot, outputPath),
+          ...(typeof rawItem.kind === "string" ? { kind: rawItem.kind } : {}),
           ...(typeof rawItem.outputHash === "string" ? { outputHash: rawItem.outputHash } : {}),
+          ...(preprocessDependencies === undefined ? {} : { preprocessDependencies }),
           ...(typeof rawItem.sourceHash === "string" ? { sourceHash: rawItem.sourceHash } : {}),
           ...(typeof rawItem.version === "string" ? { version: rawItem.version } : {}),
           ...(typeof rawItem.targetState === "string" ? { targetState: rawItem.targetState } : {}),
+          ...(typeof rawItem.validation === "string" ? { validation: rawItem.validation } : {}),
         },
       });
     }
@@ -198,11 +203,21 @@ function explainSourceKind(graph: BuildGraph, target: string): ExplainKind {
   if (graph.rules.some((rule) => relative(graph.rootPath, rule.sourcePath) === target)) {
     return "source-instruction";
   }
+  if (graph.projectIslands.some((island) => relative(graph.rootPath, island.sourcePath) === target)) {
+    return "source-island";
+  }
   if (target.endsWith("/SKILL.md") || target.endsWith("SKILL.md")) return "source-skill";
   return "source-plugin";
 }
 
 function sourceNotes(graph: BuildGraph, target: string): readonly string[] {
+  const island = graph.projectIslands.find((candidate) => relative(graph.rootPath, candidate.sourcePath) === target);
+  if (island !== undefined) {
+    return [
+      `Target-native island for ${island.target}${island.plugin === undefined ? "" : ` plugin ${island.plugin}`}.`,
+    ];
+  }
+
   const skill = [
     ...graph.plugins.flatMap((plugin) => plugin.skills),
     ...graph.standaloneSkills,

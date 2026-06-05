@@ -1,4 +1,4 @@
-import { readdirSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { basename, dirname, join, relative } from "node:path";
@@ -32,6 +32,7 @@ import type {
   JsonRecord,
   JsonValue,
   RenderedFile,
+  SourceIslandFile,
   SourcePlugin,
   SourceRule,
   SourceResource,
@@ -40,7 +41,7 @@ import type {
   TargetName,
 } from "./types";
 import { pluginVersion, rootVersion, skillVersion, skillVersionLabel } from "./versioning";
-import { isJsonRecord, parseYamlRecord, stringifyJson } from "./yaml";
+import { isJsonRecord, parseMarkdown, parseYamlRecord, stringifyJson } from "./yaml";
 
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
@@ -54,21 +55,29 @@ const CODEX_RULES_LOCK_ROOT = ".";
 interface LockItem {
   readonly files: readonly string[];
   readonly includedSkills?: readonly string[];
-  readonly kind: "plugin" | "plugin-skill" | "rule" | "standalone-skill";
+  readonly kind: "island" | "plugin" | "plugin-skill" | "rule" | "standalone-skill";
   readonly name: string;
   readonly outputHash: string;
   readonly outputPath: string;
   readonly plugin?: string;
+  readonly preprocessDependencies?: readonly string[];
   readonly skippedSkills?: readonly string[];
   readonly sourceHash: string;
   readonly sourcePath: string;
   readonly targetState?: string;
+  readonly validation?: "opaque-copy" | "structured";
   readonly version?: string;
 }
 
 interface LockRoot {
   readonly items: LockItem[];
   readonly target: TargetName | "workspace";
+}
+
+interface RenderedIslandFile {
+  readonly file: RenderedFile;
+  readonly preprocessDependencies: readonly string[];
+  readonly validation: "opaque-copy" | "structured";
 }
 
 export async function renderBuildGraph(graph: BuildGraph): Promise<readonly RenderedFile[]> {
@@ -88,6 +97,7 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
   }
 
   rendered.push(...(await renderRules(graph, lockRoots)));
+  rendered.push(...(await renderProjectIslands(graph, lockRoots)));
   rendered.push(...renderLockFiles(graph, lockRoots));
   return rendered
     .sort((left, right) => compareStrings(left.path, right.path))
@@ -242,6 +252,7 @@ async function renderPluginTarget(
   }
 
   rendered.push(...(await copyPluginCompanionFiles(graph, plugin, target, basePath)));
+  rendered.push(...(await renderPluginIslands(graph, plugin, target, basePath, outputRoot, lockRoots)));
   return rendered;
 }
 
@@ -474,6 +485,120 @@ async function renderPluginSkillFiles(
   );
 
   return rendered;
+}
+
+async function renderProjectIslands(
+  graph: BuildGraph,
+  lockRoots: Map<string, LockRoot>
+): Promise<readonly RenderedFile[]> {
+  const rendered: RenderedFile[] = [];
+  for (const island of graph.projectIslands.filter((item) => item.plugin === undefined)) {
+    if (!graph.root.targets[island.target].enabled) continue;
+    const targetRoot = targetProjectRoot(graph, island.target);
+    const targetPath = join(targetRoot, island.relativePath);
+    const result = await renderIslandFile(graph, island, targetPath);
+    rendered.push(result.file);
+    lockRootsFor(lockRoots, CODEX_RULES_LOCK_ROOT, "workspace").items.push(
+      lockItemForIsland({ graph, island, outputRoot: CODEX_RULES_LOCK_ROOT, outputPath: targetPath, result })
+    );
+  }
+  return rendered;
+}
+
+async function renderPluginIslands(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  target: TargetName,
+  basePath: string,
+  outputRoot: string,
+  lockRoots: Map<string, LockRoot>
+): Promise<readonly RenderedFile[]> {
+  const rendered: RenderedFile[] = [];
+  for (const island of graph.projectIslands.filter((item) => item.plugin === plugin.id && item.target === target)) {
+    if (!plugin.targets[target].enabled) continue;
+    const targetPath = join(basePath, island.relativePath);
+    const result = await renderIslandFile(graph, island, targetPath);
+    rendered.push(result.file);
+    lockRootsFor(lockRoots, outputRoot, target).items.push(
+      lockItemForIsland({ graph, island, outputRoot, outputPath: targetPath, result })
+    );
+  }
+  return rendered;
+}
+
+async function renderIslandFile(
+  graph: BuildGraph,
+  island: SourceIslandFile,
+  targetPath: string
+): Promise<RenderedIslandFile> {
+  if (isTextIslandFile(island.relativePath)) {
+    const preprocessDependencies = new Set<string>();
+    const content = await renderTextIslandFile(graph, island, targetPath, preprocessDependencies);
+    return {
+      file: textFile(targetPath, content, relative(graph.rootPath, island.sourcePath)),
+      preprocessDependencies: [...preprocessDependencies].sort(compareStrings).map((path) => relative(graph.rootPath, path)),
+      validation: "structured",
+    };
+  }
+  return {
+    file: {
+      path: targetPath,
+      content: await readFile(island.sourcePath),
+    },
+    preprocessDependencies: [],
+    validation: "opaque-copy",
+  };
+}
+
+async function renderTextIslandFile(
+  graph: BuildGraph,
+  island: SourceIslandFile,
+  targetPath: string,
+  preprocessDependencies: Set<string>
+): Promise<string> {
+  const source = await readFile(island.sourcePath, "utf8");
+  if (island.relativePath.endsWith(".md")) {
+    const parsed = parseMarkdown(source, island.sourcePath);
+    rejectIslandTargetEscape(parsed.frontmatter, island);
+    const body = await preprocessText(parsed.body, {
+      frontmatter: parsed.frontmatter,
+      preprocessDependencies,
+      rootPath: graph.rootPath,
+      sourcePath: island.sourcePath,
+      sourceRoot: graph.sourceDir,
+    });
+    return renderValidatedMarkdown(
+      stripSourceFrontmatter(parsed.frontmatter),
+      body,
+      `${relative(graph.rootPath, island.sourcePath)} -> ${targetPath}`
+    );
+  }
+
+  return preprocessText(source, {
+    frontmatter: {},
+    preprocessDependencies,
+    rootPath: graph.rootPath,
+    sourcePath: island.sourcePath,
+    sourceRoot: graph.sourceDir,
+  });
+}
+
+function rejectIslandTargetEscape(frontmatter: JsonRecord, island: SourceIslandFile): void {
+  if (frontmatter.claude !== undefined || frontmatter.codex !== undefined || frontmatter.targets !== undefined) {
+    throw new Error(
+      `skillset: ${island.sourcePath} is already target-native for ${island.target}; remove target override frontmatter`
+    );
+  }
+}
+
+function isTextIslandFile(path: string): boolean {
+  return /\.(json|md|rules|toml|txt|ya?ml)$/.test(path);
+}
+
+function targetProjectRoot(graph: BuildGraph, target: TargetName): string {
+  const configured = readString(graph.root.targets[target].options, "projectRoot");
+  if (configured !== undefined) return configured;
+  return target === "claude" ? ".claude" : ".codex";
 }
 
 async function renderStandaloneSkill(
@@ -1251,6 +1376,28 @@ function lockItemForRule(args: {
   };
 }
 
+function lockItemForIsland(args: {
+  readonly graph: BuildGraph;
+  readonly island: SourceIslandFile;
+  readonly outputPath: string;
+  readonly outputRoot: string;
+  readonly result: RenderedIslandFile;
+}): LockItem {
+  return {
+    files: [relative(args.outputRoot, args.result.file.path)],
+    kind: "island",
+    name: `${args.island.target}:${args.island.plugin ?? "project"}:${args.island.relativePath}`,
+    outputHash: hashRenderedFiles(args.outputRoot, [args.result.file]),
+    outputPath: relative(args.outputRoot, args.outputPath),
+    preprocessDependencies: args.result.preprocessDependencies,
+    sourceHash: hashIslandSource(args.island, args.result.preprocessDependencies, args.graph.rootPath),
+    sourcePath: relative(args.graph.rootPath, args.island.sourcePath),
+    validation: args.result.validation,
+    version: rootVersion(args.graph),
+    ...(args.island.plugin === undefined ? {} : { plugin: args.island.plugin }),
+  };
+}
+
 async function lockItemForSkill(args: {
   readonly files: readonly RenderedFile[];
   readonly graph: BuildGraph;
@@ -1277,6 +1424,31 @@ async function lockItemForSkill(args: {
   };
 }
 
+function hashIslandSource(
+  island: SourceIslandFile,
+  preprocessDependencies: readonly string[],
+  rootPath: string
+): string {
+  const hash = createHash("sha256");
+  hash.update("skillset-island-source-v1\0");
+  hash.update(island.target);
+  hash.update("\0");
+  hash.update(island.plugin ?? "");
+  hash.update("\0");
+  hash.update(island.relativePath);
+  hash.update("\0");
+  hash.update(readFileSyncBytes(island.sourcePath));
+  hash.update("\0");
+  for (const dependency of preprocessDependencies) {
+    hash.update("dependency\0");
+    hash.update(dependency);
+    hash.update("\0");
+    hash.update(readFileSyncBytes(join(rootPath, dependency)));
+    hash.update("\0");
+  }
+  return `sha256:${hash.digest("hex")}`;
+}
+
 function stripUndefinedLockItem(item: LockItem): JsonRecord {
   const value: Record<string, JsonValue | undefined> = {
     files: [...item.files],
@@ -1286,10 +1458,12 @@ function stripUndefinedLockItem(item: LockItem): JsonRecord {
     outputHash: item.outputHash,
     outputPath: item.outputPath,
     plugin: item.plugin,
+    preprocessDependencies: item.preprocessDependencies === undefined ? undefined : [...item.preprocessDependencies],
     skippedSkills: item.skippedSkills === undefined ? undefined : [...item.skippedSkills],
     sourceHash: item.sourceHash,
     sourcePath: item.sourcePath,
     targetState: item.targetState,
+    validation: item.validation,
     version: item.version,
   };
   return value;
@@ -1489,4 +1663,8 @@ function titleize(value: string): string {
     .filter((part) => part.length > 0)
     .map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`)
     .join(" ");
+}
+
+function readFileSyncBytes(path: string): Uint8Array {
+  return readFileSync(path);
 }

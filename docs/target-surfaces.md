@@ -116,7 +116,7 @@ Live-doc verified against `developers.openai.com/codex/plugins/build` and `devel
 | --- | --- | --- | --- |
 | `.skillset/instructions/**/*.md` | `.claude/rules/**/*.md` (`paths` kept) | `AGENTS.md` at derived dirs, source-boundary comments | Implemented |
 | `.skillset/rules/**/*.md` | same | same | Compat alias — warned. |
-| `.skillset/src/codex/rules/**/*.rules` | n/a | `.codex/rules/**/*.rules` | Target-native / Planned — Codex command execution policy, not instruction Markdown. |
+| `.skillset/src/codex/rules/**/*.rules` | n/a | `.codex/rules/**/*.rules` | Target-native / Implemented — Codex command execution policy, not instruction Markdown. |
 
 Codex truncates `AGENTS.md` beyond `project_doc_max_bytes` (32 KiB default); `skillset build`/`check` warns. Verified 2026-06-03 (`developers.openai.com/codex/guides/agents-md`, `openai/codex#7138`).
 

@@ -2,13 +2,13 @@
 
 import { resolve } from "node:path";
 
-import { doctorSkillset, explainPath } from "./authoring";
+import { doctorSkillset, explainPath, listGeneratedEntries } from "./authoring";
 import { buildSkillset, checkSkillset, diffSkillset } from "./build";
 import { importSources, type ImportKind, type ImportProvider, type ImportReport } from "./import";
 import { lintSkillset } from "./lint";
 import type { SkillsetOptions } from "./types";
 
-type Command = "build" | "check" | "diff" | "doctor" | "explain" | "import" | "lint";
+type Command = "build" | "check" | "diff" | "doctor" | "explain" | "import" | "lint" | "list";
 
 async function main(): Promise<void> {
   const { command, importKind, importPath, importName, importProvider, options, rootPath } = parseArgs(process.argv.slice(2));
@@ -64,6 +64,15 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "list") {
+    const entries = await listGeneratedEntries(rootPath, options);
+    for (const entry of entries) {
+      console.log(`  [${entry.target}] ${entry.kind ?? "generated"} ${entry.sourcePath} -> ${entry.outputPath}`);
+    }
+    console.log(`skillset: listed ${entries.length} generated entries`);
+    return;
+  }
+
   if (command === "explain") {
     if (importPath === undefined) {
       throw new Error("skillset: expected a path to explain");
@@ -74,6 +83,10 @@ async function main(): Promise<void> {
       console.log(`  [${entry.target}] ${entry.sourcePath} -> ${entry.outputPath}`);
       if (entry.version !== undefined) console.log(`    version: ${entry.version}`);
       if (entry.targetState !== undefined) console.log(`    target state: ${entry.targetState}`);
+      if (entry.validation !== undefined) console.log(`    validation: ${entry.validation}`);
+      if (entry.preprocessDependencies !== undefined && entry.preprocessDependencies.length > 0) {
+        console.log(`    preprocess dependencies: ${entry.preprocessDependencies.join(", ")}`);
+      }
       if (entry.sourceHash !== undefined) console.log(`    source hash: ${entry.sourceHash}`);
       if (entry.outputHash !== undefined) console.log(`    output hash: ${entry.outputHash}`);
     }
@@ -153,11 +166,12 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     command !== "doctor" &&
     command !== "explain" &&
     command !== "import" &&
-    command !== "lint"
+    command !== "lint" &&
+    command !== "list"
   ) {
     throw new Error(
-      "skillset: expected command build, check, diff, doctor, explain, import, or lint\n" +
-        "usage: skillset <build|check|diff|doctor|lint> [--root <path>] [--source <dir>] [--dist <dir>]\n" +
+      "skillset: expected command build, check, diff, doctor, explain, import, lint, or list\n" +
+        "usage: skillset <build|check|diff|doctor|lint|list> [--root <path>] [--source <dir>] [--dist <dir>]\n" +
         "       skillset explain <path> [--root <path>] [--source <dir>]\n" +
         "       skillset import [skill|skills|plugin|plugins] <path> [--kind <kind>] [--from <provider>] [--name <name>] [--root <path>] [--source <dir>]\n" +
         "       skillset import <claude|codex|agents> [--root <path>] [--source <dir>]"

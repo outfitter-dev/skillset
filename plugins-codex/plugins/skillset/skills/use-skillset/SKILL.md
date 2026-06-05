@@ -55,6 +55,8 @@ Skill and rule bodies are preprocessed before target serialization. Use `{{this.
 
 Use `claude: false` or `codex: false` in rule frontmatter for target-specific opt-outs. `codex: symlink` is not implemented yet because Claude path-scoped rules need YAML frontmatter that Codex would read as instructions through a direct symlink.
 
+Use target-native islands for explicit provider files that are not portable: `.skillset/src/claude/**` mirrors to `.claude/**`, `.skillset/src/codex/**` mirrors to `.codex/**`, and plugin-local islands under `.skillset/src/plugins/<plugin>/<target>/**` mirror into that generated plugin bundle only. Project islands are workspace-managed files in the root `.skillset.lock`, not ownership claims on the whole `.claude/` or `.codex/` directory. Codex `.rules` are command execution policy and pass through only from `.skillset/src/codex/rules/**/*.rules`; portable instructions never lower to Codex `.rules`. Use `skillset list` or `skillset explain <path>` to inspect generated lock provenance, including target-native islands.
+
 Use source-only `resources` frontmatter when a skill needs shared Markdown, scripts, templates, or assets from root `.skillset/shared/` or plugin-local `.skillset/plugins/<plugin-name>/shared/`:
 
 ```yaml

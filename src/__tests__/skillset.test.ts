@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 
 import { expect, test } from "bun:test";
 
-import { buildSkillset, checkSkillset } from "../build";
+import { explainPath, listGeneratedEntries } from "../authoring";
+import { buildSkillset, checkSkillset, diffSkillset } from "../build";
 import { importSource } from "../import";
 import { lintSkillset } from "../lint";
 import { loadBuildGraph } from "../resolver";
@@ -1081,6 +1082,374 @@ test("TOML serializer preserves multiline prompts, quotes, braces, and code fenc
     "First line\nsecond line",
     "Use {{this.description}} literally.",
   ]);
+});
+
+test("project target-native islands mirror to configured target roots", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude:
+  projectRoot: project-claude
+codex:
+  projectRoot: project-codex
+`,
+    ".skillset/src/codex/rules/deny.rules": `
+match = "rm -rf"
+decision = "deny"
+`,
+    ".skillset/src/codex/config.json": `
+{"note":"codex"}
+`,
+    ".skillset/src/claude/agents/reviewer.md": `
+---
+name: reviewer
+description: Reviews code.
+---
+
+Use {{this.description}}.
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+  });
+
+  await buildSkillset(root);
+
+  expect(await readFile(join(root, "project-codex/rules/deny.rules"), "utf8")).toContain(
+    `decision = "deny"`
+  );
+  expect(await readFile(join(root, "project-codex/config.json"), "utf8")).toContain("codex");
+  expect(await readFile(join(root, "project-claude/agents/reviewer.md"), "utf8")).toContain(
+    "Use Reviews code."
+  );
+  expect(await exists(join(root, "project-codex/agents/reviewer.md"))).toBe(false);
+  expect(await exists(join(root, "project-claude/rules/deny.rules"))).toBe(false);
+  const codexLock = await readFile(join(root, ".skillset.lock"), "utf8");
+  expect(codexLock).toContain(`"kind": "island"`);
+  expect(codexLock).toContain(`"outputPath": "project-codex/rules/deny.rules"`);
+});
+
+test("target-native islands reject frontmatter target escapes", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: false
+`,
+    ".skillset/src/claude/agents/bad.md": `
+---
+codex: true
+---
+
+Bad.
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+  });
+
+  await expect(buildSkillset(root)).rejects.toThrow("remove target override frontmatter");
+});
+
+test("target-native islands copy binary files byte-for-byte", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+  });
+  const bytes = new Uint8Array([0, 255, 10, 20, 30]);
+  await Bun.write(join(root, ".skillset/src/claude/assets/image.bin"), bytes);
+
+  await buildSkillset(root);
+
+  const copied = new Uint8Array(await Bun.file(join(root, ".claude/assets/image.bin")).arrayBuffer());
+  expect([...copied]).toEqual([...bytes]);
+});
+
+test("project target-native islands are workspace-managed files without claiming target roots", async () => {
+  const root = await fixture({
+    ".codex/config.toml": `
+model = "local"
+`,
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: false
+codex: true
+`,
+    ".skillset/src/codex/rules/deny.rules": `
+match = "rm -rf"
+decision = "deny"
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+  });
+
+  await buildSkillset(root);
+
+  expect(await readFile(join(root, ".codex/config.toml"), "utf8")).toContain(`model = "local"`);
+  const workspaceLock = await readFile(join(root, ".skillset.lock"), "utf8");
+  expect(workspaceLock).toContain(`"kind": "island"`);
+  expect(workspaceLock).toContain(`"outputPath": ".codex/rules/deny.rules"`);
+  expect(await exists(join(root, ".codex/.skillset.lock"))).toBe(false);
+});
+
+test("project target-native islands refuse unmanaged destination collisions", async () => {
+  const root = await fixture({
+    ".codex/rules/deny.rules": `
+match = "existing"
+`,
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: false
+codex: true
+`,
+    ".skillset/src/codex/rules/deny.rules": `
+match = "rm -rf"
+decision = "deny"
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+  });
+
+  await expect(buildSkillset(root)).rejects.toThrow("refusing to overwrite unmanaged workspace file .codex/rules/deny.rules");
+});
+
+test("project target-native islands reject project roots inside source root", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude:
+  projectRoot: .skillset/generated-claude
+codex: false
+`,
+    ".skillset/src/claude/settings.json": `
+{"note":"claude"}
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+  });
+
+  await expect(buildSkillset(root)).rejects.toThrow("claude.projectRoot must not point inside source root .skillset");
+});
+
+test("project target-native islands reject project roots inside active output roots", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude:
+  projectRoot: plugins-claude/project
+codex: false
+`,
+    ".skillset/src/claude/settings.json": `
+{"note":"claude"}
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+  });
+
+  await expect(buildSkillset(root)).rejects.toThrow(
+    "claude.projectRoot must not overlap active output root plugins-claude"
+  );
+});
+
+test("project target-native islands reject active output roots inside project roots", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude:
+  projectRoot: .claude
+  plugins:
+    path: .claude/plugins
+codex: false
+`,
+    ".skillset/src/claude/plugins/alpha/settings.json": `
+{"note":"project island under plugin root"}
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+  });
+
+  await expect(buildSkillset(root)).rejects.toThrow(
+    ".skillset/src/claude/plugins/alpha/settings.json would write inside active output root .claude/plugins"
+  );
+});
+
+test("plugin-local target-native islands mirror to matching plugin output only", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/src/plugins/alpha/claude/commands/review.md": `
+# Claude command
+`,
+    ".skillset/src/plugins/alpha/codex/config.json": `
+{"codex": true}
+`,
+  });
+
+  await buildSkillset(root);
+
+  expect(await exists(join(root, "plugins-claude/plugins/alpha/commands/review.md"))).toBe(true);
+  expect(await exists(join(root, "plugins-codex/plugins/alpha/commands/review.md"))).toBe(false);
+  expect(await exists(join(root, "plugins-codex/plugins/alpha/config.json"))).toBe(true);
+  expect(await exists(join(root, "plugins-claude/plugins/alpha/config.json"))).toBe(false);
+});
+
+test("plugin-local target-native islands reject unknown plugin owners", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/src/plugins/alhpa/claude/commands/review.md": `
+# Typo island
+`,
+  });
+
+  await expect(buildSkillset(root)).rejects.toThrow(
+    ".skillset/src/plugins/alhpa has target-native island source for unknown plugin alhpa"
+  );
+});
+
+test("Codex plugin rules islands fail while portable src rules do not become Codex command policy", async () => {
+  const portableRoot = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: true
+`,
+    ".skillset/src/rules/portable.rules": `
+allow all
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+  });
+
+  await buildSkillset(portableRoot);
+  expect(await exists(join(portableRoot, ".codex/rules/portable.rules"))).toBe(false);
+
+  const pluginRulesRoot = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/src/plugins/alpha/codex/rules/plugin.rules": `
+deny all
+`,
+  });
+
+  await expect(buildSkillset(pluginRulesRoot)).rejects.toThrow(
+    "Codex plugin .rules"
+  );
+});
+
+test("Codex project rules islands are only accepted under rules/", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: false
+codex: true
+`,
+    ".skillset/src/codex/agents/bad.rules": `
+deny all
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+  });
+
+  await expect(buildSkillset(root)).rejects.toThrow("Codex .rules outside .skillset/src/codex/rules/");
+});
+
+test("target-native island locks include partial provenance and explain/list visibility", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: false
+`,
+    ".skillset/shared/templates/tail.md": `
+Tail.
+`,
+    ".skillset/src/claude/agents/reviewer.md": `
+---
+name: reviewer
+description: Reviews code.
+---
+
+Use {{this.description}}.
+{{> shared:templates/tail.md}}
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+  });
+
+  await buildSkillset(root);
+
+  const explained = await explainPath(root, ".skillset/src/claude/agents/reviewer.md");
+  expect(explained.kind).toBe("source-island");
+  expect(explained.entries[0]?.validation).toBe("structured");
+  expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/shared/templates/tail.md");
+  const entries = await listGeneratedEntries(root);
+  expect(entries.some((entry) => entry.kind === "island" && entry.outputPath === ".claude/agents/reviewer.md")).toBe(true);
+
+  await writeFile(join(root, ".skillset/shared/templates/tail.md"), "Changed.\n");
+  const diff = await diffSkillset(root);
+  expect(diff.changed).toContain(".claude/agents/reviewer.md");
+  expect(diff.changed).toContain(".skillset.lock");
 });
 
 test("shared resource mappings reject unsafe and colliding output paths", async () => {

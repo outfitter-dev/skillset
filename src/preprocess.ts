@@ -8,6 +8,7 @@ import type { JsonRecord } from "./types";
 export interface PreprocessContext {
   readonly frontmatter: JsonRecord;
   readonly pluginPath?: string;
+  readonly preprocessDependencies?: Set<string>;
   readonly rootPath: string;
   readonly sourcePath: string;
   readonly sourceRoot: string;
@@ -90,12 +91,14 @@ function resolvePartial(specifier: string, context: PreprocessContext): string {
   const [scheme, path] = splitSpecifier(specifier);
   validatePartialPath(path, specifier, context);
   if (scheme === "shared" || scheme === "root") {
-    return resolveInsideScoped(
+    const resolved = resolveInsideScoped(
       resolveInside(context.rootPath, join(context.sourceRoot, "shared")),
       path,
       specifier,
       context
     );
+    context.preprocessDependencies?.add(resolved);
+    return resolved;
   }
   if (scheme === "plugin") {
     if (context.pluginPath === undefined) {
@@ -103,10 +106,14 @@ function resolvePartial(specifier: string, context: PreprocessContext): string {
         `skillset: ${specifier} partial in ${relative(context.rootPath, context.sourcePath)} requires a plugin-bound source`
       );
     }
-    return resolveInsideScoped(join(context.pluginPath, "shared"), path, specifier, context);
+    const resolved = resolveInsideScoped(join(context.pluginPath, "shared"), path, specifier, context);
+    context.preprocessDependencies?.add(resolved);
+    return resolved;
   }
 
-  return resolveInsideScoped(dirname(context.sourcePath), specifier, specifier, context);
+  const resolved = resolveInsideScoped(dirname(context.sourcePath), specifier, specifier, context);
+  context.preprocessDependencies?.add(resolved);
+  return resolved;
 }
 
 function splitSpecifier(specifier: string): readonly [string | undefined, string] {
