@@ -904,6 +904,31 @@ Body.
   expect(await Bun.file(join(root, ".claude/skills/demo/SKILL.md")).exists()).toBe(true);
 });
 
+test("SET-25: CLI help succeeds before command validation", async () => {
+  const rootHelp = await runSkillsetCli("--help");
+  expect(rootHelp.exitCode).toBe(0);
+  expect(rootHelp.stderr).toBe("");
+  expect(rootHelp.stdout).toContain("usage: skillset build");
+  expect(rootHelp.stdout).toContain("skillset explain <path>");
+  expect(rootHelp.stdout).toContain("skillset import [skill|skills|plugin|plugins] <path>");
+
+  const shortHelp = await runSkillsetCli("-h");
+  expect(shortHelp.exitCode).toBe(0);
+  expect(shortHelp.stderr).toBe("");
+  expect(shortHelp.stdout).toContain("usage: skillset build");
+
+  const buildHelp = await runSkillsetCli("build", "--help");
+  expect(buildHelp.exitCode).toBe(0);
+  expect(buildHelp.stderr).toBe("");
+  expect(buildHelp.stdout).toContain("skillset build [--yes|--dry-run]");
+
+  const explainHelp = await runSkillsetCli("explain", "--help");
+  expect(explainHelp.exitCode).toBe(0);
+  expect(explainHelp.stderr).toBe("");
+  expect(explainHelp.stdout).toContain("skillset explain <path>");
+  expect(explainHelp.stderr).not.toContain("expected a path to explain");
+});
+
 test("SET-25: diff reports missing managed outputs separately", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `

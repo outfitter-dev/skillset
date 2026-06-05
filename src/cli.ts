@@ -11,10 +11,24 @@ import type { BuildScope, CompileBuildMode, SkillsetOptions, TargetName } from "
 
 type Command = "build" | "check" | "create" | "diff" | "doctor" | "explain" | "import" | "init" | "lint" | "list";
 
+const USAGE = [
+  "usage: skillset build [--yes|--dry-run] [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset <check|diff|doctor|lint|list> [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset init [path] [--yes|--dry-run] [--targets claude,codex] [--with-project-doc] [--with-agents] [--with-islands] [--name <name>] [--root <path>]",
+  "       skillset create [path|--global] [--yes|--dry-run] [--targets claude,codex] [--with-project-doc] [--with-agents] [--with-islands] [--name <name>] [--root <path>]",
+  "       skillset explain <path> [--root <path>] [--source <dir>]",
+  "       skillset import [skill|skills|plugin|plugins] <path> [--kind <kind>] [--from <provider>] [--name <name>] [--root <path>] [--source <dir>]",
+  "       skillset import <claude|codex|agents> [--root <path>] [--source <dir>]",
+].join("\n");
+
 async function main(): Promise<void> {
   const rawArgs = process.argv.slice(2);
   const invokedName = basename(process.argv[1] ?? "");
   const args = invokedName === "create-skillset" ? ["create", ...rawArgs] : rawArgs;
+  if (args.some((arg) => arg === "--help" || arg === "-h")) {
+    console.log(USAGE);
+    return;
+  }
   const {
     command,
     dryRun,
@@ -266,13 +280,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   ) {
     throw new Error(
         "skillset: expected command build, check, create, diff, doctor, explain, import, init, lint, or list\n" +
-        "usage: skillset build [--yes|--dry-run] [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]\n" +
-        "       skillset <check|diff|doctor|lint|list> [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]\n" +
-        "       skillset init [path] [--yes|--dry-run] [--targets claude,codex] [--with-project-doc] [--with-agents] [--with-islands] [--name <name>] [--root <path>]\n" +
-        "       skillset create [path|--global] [--yes|--dry-run] [--targets claude,codex] [--with-project-doc] [--with-agents] [--with-islands] [--name <name>] [--root <path>]\n" +
-        "       skillset explain <path> [--root <path>] [--source <dir>]\n" +
-        "       skillset import [skill|skills|plugin|plugins] <path> [--kind <kind>] [--from <provider>] [--name <name>] [--root <path>] [--source <dir>]\n" +
-        "       skillset import <claude|codex|agents> [--root <path>] [--source <dir>]"
+        USAGE
     );
   }
 
