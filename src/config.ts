@@ -28,11 +28,13 @@ const COMPILE_UNSUPPORTED_POLICIES = new Set<CompileUnsupportedPolicy>([
 const SOURCE_ONLY_KEYS = new Set([
   "agents",
   "allowed_tools",
+  "bin",
   "claude",
   "compile",
   "codex",
   "defaults",
   "implicit_invocation",
+  "mcp",
   "model",
   "resources",
   "schema",
@@ -211,12 +213,13 @@ export function readOutputConfig(
 export function validateConfigDocument(
   record: JsonRecord,
   label: string,
-  options: { readonly allowCompile?: boolean } = {}
+  options: { readonly allowCompile?: boolean; readonly featureKeys?: readonly string[] } = {}
 ): void {
   rejectTargetsKey(record, label);
   const supportedKeys = options.allowCompile === true ? ROOT_CONFIG_TOP_LEVEL_KEYS : CONFIG_TOP_LEVEL_KEYS;
+  const featureKeys = new Set(options.featureKeys ?? []);
   for (const key of Object.keys(record)) {
-    if (!supportedKeys.has(key)) {
+    if (!supportedKeys.has(key) && !featureKeys.has(key)) {
       throw new Error(`skillset: unsupported top-level key ${key} in ${label}`);
     }
   }

@@ -63,11 +63,23 @@ export interface SourceResource {
 }
 
 export interface SourcePlugin {
+  readonly features: readonly SourcePluginFeature[];
   readonly id: string;
   readonly metadata: JsonRecord;
   readonly path: string;
   readonly skills: readonly SourceSkill[];
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
+}
+
+export type SourcePluginFeatureKey = "bin" | "mcp";
+export type SourcePluginFeatureOrigin = "conventional" | "explicit";
+
+export interface SourcePluginFeature {
+  readonly key: SourcePluginFeatureKey;
+  readonly origin: SourcePluginFeatureOrigin;
+  readonly sourcePath: string;
+  readonly sourcePointer?: string;
+  readonly targetPath: string;
 }
 
 export interface StandaloneSkill extends SourceSkill {}
@@ -136,6 +148,8 @@ export interface RenderedFile {
 }
 
 export interface GeneratedEntry {
+  readonly feature?: string;
+  readonly origin?: string;
   readonly kind?: string;
   readonly outputHash?: string;
   readonly outputPath: string;
@@ -143,6 +157,7 @@ export interface GeneratedEntry {
   readonly preprocessDependencies?: readonly string[];
   readonly sourceHash?: string;
   readonly sourcePath: string;
+  readonly sourcePointer?: string;
   readonly target: string;
   readonly targetState?: string;
   readonly validation?: string;

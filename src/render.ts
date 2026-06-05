@@ -35,6 +35,7 @@ import type {
   RenderedFile,
   SourceIslandFile,
   SourcePlugin,
+  SourcePluginFeature,
   SourceProjectAgent,
   SourceRule,
   SourceResource,
@@ -55,10 +56,12 @@ const CLAUDE_RULES_OUTPUT_ROOT = ".claude/rules";
 const CODEX_RULES_LOCK_ROOT = ".";
 
 interface LockItem {
+  readonly feature?: string;
   readonly files: readonly string[];
   readonly includedSkills?: readonly string[];
-  readonly kind: "island" | "plugin" | "plugin-skill" | "project-agent" | "rule" | "standalone-skill";
+  readonly kind: "island" | "plugin" | "plugin-feature" | "plugin-skill" | "project-agent" | "rule" | "standalone-skill";
   readonly name: string;
+  readonly origin?: string;
   readonly outputHash: string;
   readonly outputPath: string;
   readonly plugin?: string;
@@ -66,6 +69,7 @@ interface LockItem {
   readonly skippedSkills?: readonly string[];
   readonly sourceHash: string;
   readonly sourcePath: string;
+  readonly sourcePointer?: string;
   readonly targetState?: string;
   readonly validation?: "opaque-copy" | "structured";
   readonly version?: string;
@@ -107,9 +111,26 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
   rendered.push(...(await renderRules(graph, lockRoots)));
   rendered.push(...(await renderProjectIslands(graph, lockRoots)));
   rendered.push(...renderLockFiles(graph, lockRoots));
-  return rendered
+  return [...coalesceRenderedFiles(rendered)]
     .sort((left, right) => compareStrings(left.path, right.path))
     .map((file) => validateRenderedFile(file));
+}
+
+function coalesceRenderedFiles(files: readonly RenderedFile[]): readonly RenderedFile[] {
+  const byPath = new Map<string, RenderedFile>();
+  for (const file of files) {
+    const existing = byPath.get(file.path);
+    if (existing === undefined) {
+      byPath.set(file.path, file);
+      continue;
+    }
+    if (bytesEqual(existing.content, file.content)) continue;
+    throw new Error(
+      `skillset: generated output collision at ${file.path} from ` +
+        `${existing.sourcePath ?? "generated output"} and ${file.sourcePath ?? "generated output"}`
+    );
+  }
+  return [...byPath.values()];
 }
 
 function shouldRenderPlugin(graph: BuildGraph, plugin: SourcePlugin, target: TargetName): boolean {
@@ -259,6 +280,7 @@ async function renderPluginTarget(
     rendered.push(...(await renderPluginSkillFiles(graph, plugin, skill, target, basePath, outputRoot, lockRoots)));
   }
 
+  rendered.push(...(await renderPluginFeatureFiles(graph, plugin, target, basePath, outputRoot, lockRoots)));
   rendered.push(...(await copyPluginCompanionFiles(graph, plugin, target, basePath)));
   rendered.push(...(await renderPluginIslands(graph, plugin, target, basePath, outputRoot, lockRoots)));
   return rendered;
@@ -377,7 +399,7 @@ function withOptionalSurfacePaths(
     if (pluginHasPath(plugin, "commands")) withPaths.commands = "./commands";
     if (pluginHasPath(plugin, "agents")) withPaths.agents = "./agents";
     if (pluginHasPath(plugin, "hooks/hooks.json")) withPaths.hooks = "./hooks/hooks.json";
-    if (pluginHasPath(plugin, ".mcp.json")) withPaths.mcpServers = "./.mcp.json";
+    if (pluginHasFeature(plugin, "mcp")) withPaths.mcpServers = "./.mcp.json";
     if (pluginHasPath(plugin, ".lsp.json")) withPaths.lspServers = "./.lsp.json";
     if (pluginHasPath(plugin, "output-styles")) withPaths.outputStyles = "./output-styles/";
     // Themes and monitors are experimental Claude plugin components; declare them
@@ -392,7 +414,7 @@ function withOptionalSurfacePaths(
     if (pluginHasPath(plugin, "hooks/hooks.json") || pluginHasPath(plugin, "hooks.json")) {
       withPaths.hooks = "./hooks/hooks.json";
     }
-    if (pluginHasPath(plugin, ".mcp.json")) withPaths.mcpServers = "./.mcp.json";
+    if (pluginHasFeature(plugin, "mcp")) withPaths.mcpServers = "./.mcp.json";
     if (pluginHasPath(plugin, ".app.json")) withPaths.apps = "./.app.json";
   }
 
@@ -1359,7 +1381,6 @@ async function copyPluginCompanionFiles(
           "commands",
           "agents",
           "hooks",
-          ".mcp.json",
           ".lsp.json",
           "output-styles",
           "themes",
@@ -1368,7 +1389,7 @@ async function copyPluginCompanionFiles(
           "scripts",
           "src",
         ]
-      : ["README.md", ".mcp.json", ".app.json", "assets", "scripts", "src"];
+      : ["README.md", ".app.json", "assets", "scripts", "src"];
 
   if (target === "codex") {
     const codexHook = await renderCodexHookFile(graph, plugin, basePath);
@@ -1387,6 +1408,49 @@ async function copyPluginCompanionFiles(
   }
 
   return rendered.filter((file) => !file.path.endsWith(".gitkeep"));
+}
+
+async function renderPluginFeatureFiles(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  target: TargetName,
+  basePath: string,
+  outputRoot: string,
+  lockRoots: Map<string, LockRoot>
+): Promise<readonly RenderedFile[]> {
+  const rendered: RenderedFile[] = [];
+  for (const feature of plugin.features) {
+    if (!pluginFeatureSupportsTarget(feature, target)) continue;
+    const files = (await copyPath(feature.sourcePath, join(basePath, feature.targetPath)))
+      .filter((file) => !file.path.endsWith(".gitkeep"))
+      .map((file) =>
+        feature.key === "mcp"
+          ? { ...file, sourcePath: relative(graph.rootPath, feature.sourcePath) }
+          : file
+      );
+    rendered.push(...files);
+    if (files.length === 0) continue;
+    lockRootsFor(lockRoots, outputRoot, target).items.push(
+      await lockItemForPluginFeature({
+        feature,
+        files,
+        graph,
+        outputRoot,
+        plugin,
+        target,
+      })
+    );
+  }
+  return rendered;
+}
+
+function pluginFeatureSupportsTarget(feature: SourcePluginFeature, target: TargetName): boolean {
+  if (feature.key === "bin") return target === "claude";
+  return true;
+}
+
+function pluginHasFeature(plugin: SourcePlugin, key: SourcePluginFeature["key"]): boolean {
+  return plugin.features.some((feature) => feature.key === key);
 }
 
 /**
@@ -1528,6 +1592,32 @@ function lockItemForPlugin(args: {
     sourceHash: hashPluginSource(args.plugin, args.target, includedSkills, skippedSkills),
     sourcePath: relative(args.graph.rootPath, args.plugin.path),
     targetState: skippedSkills.length === 0 ? "sync" : "intentionally-skipped",
+    version: pluginVersion(args.plugin),
+  };
+}
+
+async function lockItemForPluginFeature(args: {
+  readonly feature: SourcePluginFeature;
+  readonly files: readonly RenderedFile[];
+  readonly graph: BuildGraph;
+  readonly outputRoot: string;
+  readonly plugin: SourcePlugin;
+  readonly target: TargetName;
+}): Promise<LockItem> {
+  return {
+    feature: args.feature.key,
+    files: args.files.map((file) => relative(args.outputRoot, file.path)).sort(),
+    kind: "plugin-feature",
+    name: `${args.plugin.id}:${args.feature.key}`,
+    origin: args.feature.origin,
+    outputHash: hashRenderedFiles(args.outputRoot, args.files),
+    outputPath: relative(args.outputRoot, join(args.outputRoot, "plugins", args.plugin.id, args.feature.targetPath)),
+    plugin: args.plugin.id,
+    sourceHash: await hashPluginFeatureSource(args.feature),
+    sourcePath: relative(args.graph.rootPath, args.feature.sourcePath),
+    ...(args.feature.sourcePointer === undefined ? {} : { sourcePointer: args.feature.sourcePointer }),
+    targetState: args.feature.key === "bin" && args.target === "claude" ? "target-native" : "sync",
+    validation: args.feature.key === "mcp" ? "structured" : "opaque-copy",
     version: pluginVersion(args.plugin),
   };
 }
@@ -1680,10 +1770,12 @@ function hashProjectAgentSource(
 
 function stripUndefinedLockItem(item: LockItem): JsonRecord {
   const value: Record<string, JsonValue | undefined> = {
+    feature: item.feature,
     files: [...item.files],
     includedSkills: item.includedSkills === undefined ? undefined : [...item.includedSkills],
     kind: item.kind,
     name: item.name,
+    origin: item.origin,
     outputHash: item.outputHash,
     outputPath: item.outputPath,
     plugin: item.plugin,
@@ -1691,6 +1783,7 @@ function stripUndefinedLockItem(item: LockItem): JsonRecord {
     skippedSkills: item.skippedSkills === undefined ? undefined : [...item.skippedSkills],
     sourceHash: item.sourceHash,
     sourcePath: item.sourcePath,
+    sourcePointer: item.sourcePointer,
     targetState: item.targetState,
     validation: item.validation,
     version: item.version,
@@ -1717,6 +1810,34 @@ function hashPluginSource(
   hash.update(includedSkills.join("\n"));
   hash.update("\0");
   hash.update(skippedSkills.join("\n"));
+  return `sha256:${hash.digest("hex")}`;
+}
+
+async function hashPluginFeatureSource(feature: SourcePluginFeature): Promise<string> {
+  const hash = createHash("sha256");
+  hash.update("skillset-plugin-feature-source-v1\0");
+  hash.update(feature.key);
+  hash.update("\0");
+  hash.update(feature.origin);
+  hash.update("\0");
+  hash.update(feature.sourcePointer ?? "");
+  hash.update("\0");
+  hash.update(feature.targetPath);
+  hash.update("\0");
+  const stats = await stat(feature.sourcePath);
+  if (stats.isFile()) {
+    hash.update("file\0");
+    hash.update(await readFile(feature.sourcePath));
+    hash.update("\0");
+  } else {
+    hash.update("dir\0");
+    for (const file of await collectFiles(feature.sourcePath)) {
+      hash.update(relative(feature.sourcePath, file));
+      hash.update("\0");
+      hash.update(await readFile(file));
+      hash.update("\0");
+    }
+  }
   return `sha256:${hash.digest("hex")}`;
 }
 
@@ -1855,6 +1976,14 @@ function hasRenderableContent(path: string): boolean {
 function isIgnoredCompanionFile(path: string): boolean {
   const name = basename(path);
   return name === ".DS_Store" || name === ".gitkeep";
+}
+
+function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.byteLength !== right.byteLength) return false;
+  for (let index = 0; index < left.byteLength; index += 1) {
+    if (left[index] !== right[index]) return false;
+  }
+  return true;
 }
 
 async function exists(path: string): Promise<boolean> {

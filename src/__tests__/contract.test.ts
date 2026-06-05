@@ -9,6 +9,7 @@ import { doctorSkillset, explainPath } from "../authoring";
 import { importSource, importSources } from "../import";
 import { lintSkillset } from "../lint";
 import { loadBuildGraph } from "../resolver";
+import { createSkillset } from "../setup";
 
 // SET-3: skillset.schema separates the source-contract schema from content
 // version (skillset.version), generated metadata.version, and lock provenance.
@@ -1104,6 +1105,556 @@ Two body.
   await sleepForMtime();
   await buildSkillset(root, { buildMode: "all" });
   expect((await stat(unchangedPath)).mtimeMs).toBeGreaterThan(initialMtime);
+});
+
+test("SET-26: mcp source pointer copies repo file with manifest and lock provenance", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: feature-root
+claude: true
+codex: true
+`,
+    "integrations/alpha-mcp.json": `
+{
+  "mcpServers": {
+    "alpha": {
+      "command": "node",
+      "args": ["server.js"]
+    }
+  }
+}
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+mcp:
+  source: repo:integrations/alpha-mcp.json
+`,
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  await buildSkillset(root);
+
+  const claudeManifest = await readFile(join(root, "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"), "utf8");
+  const codexManifest = await readFile(join(root, "plugins-codex/plugins/alpha/.codex-plugin/plugin.json"), "utf8");
+  const claudeMcp = await readFile(join(root, "plugins-claude/plugins/alpha/.mcp.json"), "utf8");
+  const lock = await readFile(join(root, "plugins-claude/.skillset.lock"), "utf8");
+  expect(claudeManifest).toContain(`"mcpServers": "./.mcp.json"`);
+  expect(codexManifest).toContain(`"mcpServers": "./.mcp.json"`);
+  expect(claudeMcp).toContain(`"alpha"`);
+  expect(lock).toContain(`"kind": "plugin-feature"`);
+  expect(lock).toContain(`"feature": "mcp"`);
+  expect(lock).toContain(`"origin": "explicit"`);
+  expect(lock).toContain(`"sourcePointer": "repo:integrations/alpha-mcp.json"`);
+
+  const listed = await runSkillsetCli("list", "--root", root, "--scope", "plugins");
+  expect(listed.stdout).toContain("plugin-feature mcp (explicit)");
+
+  const explained = await runSkillsetCli("explain", "plugins-claude/plugins/alpha/.mcp.json", "--root", root);
+  expect(explained.exitCode).toBe(0);
+  expect(explained.stdout).toContain("feature: mcp");
+  expect(explained.stdout).toContain("origin: explicit");
+  expect(explained.stdout).toContain("source pointer: repo:integrations/alpha-mcp.json");
+});
+
+test("SET-26: false disables conventional mcp discovery", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: feature-root
+claude: true
+codex: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+mcp: false
+`,
+    ".skillset/plugins/alpha/.mcp.json": `
+{
+  "mcpServers": {
+    "alpha": { "command": "node" }
+  }
+}
+`,
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  await buildSkillset(root);
+
+  const manifest = await readFile(join(root, "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"), "utf8");
+  expect(manifest).not.toContain("mcpServers");
+  expect(await fileExists(join(root, "plugins-claude/plugins/alpha/.mcp.json"))).toBe(false);
+  expect(await fileExists(join(root, "plugins-codex/plugins/alpha/.mcp.json"))).toBe(false);
+});
+
+test("SET-26: mcp true requires and copies the conventional source", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: feature-root
+claude: true
+codex: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+mcp: true
+`,
+    ".skillset/plugins/alpha/.mcp.json": `
+{
+  "mcpServers": {
+    "alpha": { "command": "node" }
+  }
+}
+`,
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  await buildSkillset(root);
+
+  expect(await fileExists(join(root, "plugins-claude/plugins/alpha/.mcp.json"))).toBe(true);
+  expect(await fileExists(join(root, "plugins-codex/plugins/alpha/.mcp.json"))).toBe(true);
+  const lock = await readFile(join(root, "plugins-codex/.skillset.lock"), "utf8");
+  expect(lock).toContain(`"feature": "mcp"`);
+  expect(lock).toContain(`"origin": "conventional"`);
+});
+
+test("SET-26: conventional bin discovery copies Claude-only feature with provenance", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: feature-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/bin/tool": `
+#!/usr/bin/env bash
+echo alpha
+`,
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  await buildSkillset(root);
+
+  expect(await fileExists(join(root, "plugins-claude/plugins/alpha/bin/tool"))).toBe(true);
+  const manifest = await readFile(join(root, "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"), "utf8");
+  expect(manifest).not.toContain("bin");
+  const lock = await readFile(join(root, "plugins-claude/.skillset.lock"), "utf8");
+  expect(lock).toContain(`"feature": "bin"`);
+  expect(lock).toContain(`"origin": "conventional"`);
+  expect(lock).toContain(`"targetState": "target-native"`);
+});
+
+test("SET-26: explicit bin source pointer copies Claude-only feature with provenance", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: feature-root
+claude: true
+codex: false
+`,
+    "tools/alpha/tool": `
+#!/usr/bin/env bash
+echo alpha
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+bin:
+  source: repo:tools/alpha
+`,
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  await buildSkillset(root);
+
+  expect(await fileExists(join(root, "plugins-claude/plugins/alpha/bin/tool"))).toBe(true);
+  const lock = await readFile(join(root, "plugins-claude/.skillset.lock"), "utf8");
+  expect(lock).toContain(`"feature": "bin"`);
+  expect(lock).toContain(`"origin": "explicit"`);
+  expect(lock).toContain(`"sourcePointer": "repo:tools/alpha"`);
+});
+
+test("SET-26: bin fails loudly for enabled Codex plugin output", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: feature-root
+claude: true
+codex: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+bin: true
+`,
+    ".skillset/plugins/alpha/bin/tool": `
+#!/usr/bin/env bash
+echo alpha
+`,
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  await expect(buildSkillset(root)).rejects.toThrow("feature bin is Claude-only");
+});
+
+test("SET-26: repo source pointers reject escapes, generated roots, and missing paths", async () => {
+  const escapeRoot = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: feature-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+mcp:
+  source: repo:../outside.json
+`,
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await expect(buildSkillset(escapeRoot)).rejects.toThrow("outside repo root");
+
+  const generatedRoot = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: feature-root
+claude: true
+codex: false
+`,
+    "plugins-claude/alpha-mcp.json": `
+{
+  "mcpServers": {
+    "alpha": { "command": "node" }
+  }
+}
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+mcp:
+  source: repo:plugins-claude/alpha-mcp.json
+`,
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await expect(buildSkillset(generatedRoot)).rejects.toThrow("inside generated output root outputs.plugins.claude");
+
+  const missingRoot = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: feature-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+mcp:
+  source: repo:missing/mcp.json
+`,
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await expect(buildSkillset(missingRoot)).rejects.toThrow("points to missing path repo:missing/mcp.json");
+});
+
+test("SET-26: plugin feature source type mismatches fail loudly", async () => {
+  const mcpDirectoryRoot = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: feature-root
+claude: true
+codex: false
+`,
+    "integrations/mcp-dir/.gitkeep": "",
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+mcp:
+  source: repo:integrations/mcp-dir
+`,
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await expect(buildSkillset(mcpDirectoryRoot)).rejects.toThrow("feature mcp source must be a file");
+
+  const binFileRoot = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: feature-root
+claude: true
+codex: false
+`,
+    "tools/alpha": "#!/usr/bin/env bash\n",
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+bin:
+  source: repo:tools/alpha
+`,
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await expect(buildSkillset(binFileRoot)).rejects.toThrow("feature bin source must be a directory");
+});
+
+test("SET-26: mcp feature sources are validated as JSON", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: feature-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+mcp: true
+`,
+    ".skillset/plugins/alpha/.mcp.json": `
+{ "mcpServers":
+`,
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  await expect(buildSkillset(root)).rejects.toThrow("invalid generated output");
+});
+
+test("SET-26: divergent feature and island outputs fail with both sources", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: feature-root
+claude: true
+codex: false
+`,
+    "integrations/alpha-mcp.json": `
+{
+  "mcpServers": {
+    "alpha": { "command": "node" }
+  }
+}
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+mcp:
+  source: repo:integrations/alpha-mcp.json
+`,
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+    ".skillset/src/plugins/alpha/claude/.mcp.json": `
+{
+  "mcpServers": {
+    "other": { "command": "node" }
+  }
+}
+`,
+  });
+
+  await expect(buildSkillset(root)).rejects.toThrow("generated output collision");
+});
+
+test("SET-27: init previews by default and writes only with confirmation", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-setup-init-"));
+
+  const preview = await runSkillsetCli("init", "--root", root, "--targets", "claude");
+  expect(preview.exitCode).toBe(0);
+  expect(preview.stdout).toContain("write confirmation required");
+  expect(preview.stdout).toContain("+ .skillset/config.yaml");
+  expect(await fileExists(join(root, ".skillset/config.yaml"))).toBe(false);
+
+  const written = await runSkillsetCli("init", "--root", root, "--targets", "claude", "--yes");
+  expect(written.exitCode).toBe(0);
+  const config = await readFile(join(root, ".skillset/config.yaml"), "utf8");
+  expect(config).toContain("compile:");
+  expect(config).toContain("    - claude");
+  expect(config).not.toContain("    - codex");
+  expect(await fileExists(join(root, ".skillset/src/.gitkeep"))).toBe(true);
+  expect(await fileExists(join(root, ".claude"))).toBe(false);
+  expect(await fileExists(join(root, ".codex"))).toBe(false);
+  expect(await fileExists(join(root, ".agents"))).toBe(false);
+});
+
+test("SET-27: init scaffolds project doc, agents, and islands only when requested", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-setup-shaped-"));
+
+  await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
+  expect(await fileExists(join(root, ".skillset/instructions/project.md"))).toBe(false);
+  expect(await fileExists(join(root, ".skillset/src/agents/.gitkeep"))).toBe(false);
+  expect(await fileExists(join(root, ".skillset/src/claude/.gitkeep"))).toBe(false);
+  expect(await fileExists(join(root, ".skillset/src/codex/rules/.gitkeep"))).toBe(false);
+
+  const shaped = await mkdtemp(join(tmpdir(), "skillset-setup-shaped-"));
+  await expect(
+    runSkillsetCli(
+      "init",
+      "--root",
+      shaped,
+      "--with-project-doc",
+      "--with-agents",
+      "--with-islands",
+      "--yes"
+    )
+  ).resolves.toMatchObject({ exitCode: 0 });
+  expect(await fileExists(join(shaped, ".skillset/instructions/project.md"))).toBe(true);
+  expect(await fileExists(join(shaped, ".skillset/src/agents/.gitkeep"))).toBe(true);
+  expect(await fileExists(join(shaped, ".skillset/src/claude/.gitkeep"))).toBe(true);
+  expect(await fileExists(join(shaped, ".skillset/src/codex/rules/.gitkeep"))).toBe(true);
+
+  await expect(runSkillsetCli("build", "--root", shaped, "--yes")).resolves.toMatchObject({ exitCode: 0 });
+  expect(await fileExists(join(shaped, "AGENTS.md"))).toBe(true);
+  expect(await fileExists(join(shaped, ".claude/rules/project.md"))).toBe(true);
+});
+
+test("SET-27: create makes a new source repo with default naming", async () => {
+  const parent = await mkdtemp(join(tmpdir(), "skillset-setup-create-"));
+
+  const preview = await runSkillsetCli("create", "--root", parent);
+  expect(preview.exitCode).toBe(0);
+  expect(preview.stdout).toContain("my-skillset");
+  expect(await fileExists(join(parent, "my-skillset/.skillset/config.yaml"))).toBe(false);
+
+  const written = await runSkillsetCli("create", "--root", parent, "--yes");
+  expect(written.exitCode).toBe(0);
+  const config = await readFile(join(parent, "my-skillset/.skillset/config.yaml"), "utf8");
+  expect(config).toContain("name: my-skillset");
+  expect(config).toContain("compile:");
+});
+
+test("SET-27: create supports global source path without touching runtime config", async () => {
+  const home = await mkdtemp(join(tmpdir(), "skillset-setup-home-"));
+
+  const report = await createSkillset({ global: true, homeDir: home, write: true });
+
+  expect(report.rootPath).toBe(join(home, ".skillset/src"));
+  expect(await fileExists(join(home, ".skillset/src/.skillset/config.yaml"))).toBe(true);
+  expect(await fileExists(join(home, ".skillset/build"))).toBe(false);
+  expect(await fileExists(join(home, ".claude"))).toBe(false);
+  expect(await fileExists(join(home, ".codex"))).toBe(false);
+});
+
+test("SET-27: setup refuses unsafe overwrite", async () => {
+  const parent = await mkdtemp(join(tmpdir(), "skillset-setup-overwrite-"));
+  await Bun.write(join(parent, "occupied/README.md"), "already here\n");
+
+  const create = await runSkillsetCli("create", "occupied", "--root", parent, "--yes");
+  expect(create.exitCode).toBe(1);
+  expect(create.stderr).toContain("create target must be empty");
+
+  const initRoot = await mkdtemp(join(tmpdir(), "skillset-setup-overwrite-"));
+  await Bun.write(join(initRoot, ".skillset/config.yaml"), "not: skillset\n");
+  const init = await runSkillsetCli("init", "--root", initRoot, "--yes");
+  expect(init.exitCode).toBe(1);
+  expect(init.stderr).toContain("refusing to overwrite existing setup file");
+});
+
+test("SET-27: setup-only flags fail loudly outside their setup command", async () => {
+  const initGlobal = await runSkillsetCli("init", "--global");
+  expect(initGlobal.exitCode).toBe(1);
+  expect(initGlobal.stderr).toContain("--global is only supported with create");
+
+  const buildTargets = await runSkillsetCli("build", "--targets", "claude");
+  expect(buildTargets.exitCode).toBe(1);
+  expect(buildTargets.stderr).toContain("setup options are only supported with init or create");
+
+  const createGlobalPath = await runSkillsetCli("create", "team-loadout", "--global");
+  expect(createGlobalPath.exitCode).toBe(1);
+  expect(createGlobalPath.stderr).toContain("either a path or --global");
 });
 
 test("SET-9: explain resolves source and generated paths via lock provenance", async () => {
