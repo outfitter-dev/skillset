@@ -39,6 +39,8 @@ Default behavior for unsupported or lossy lowering is fail-loud. Softer modes mu
 | `claude.defaults.<surface>` / `codex.defaults.<surface>` | target option defaults for `agents`, `instructions`, `plugins`, `skills` | Implemented | Canonical target-local defaults; file-level target fields win. |
 | `defaults.<target>.<surface>` | same target option defaults | Implemented | Root/plugin shorthand; does not introduce bare top-level `targets:` provider selection. |
 | skill top-level `model` | (source-only warning) | Implemented | Warns unless every enabled target has `claude.model`, `codex.model`, or target defaults. |
+| `profiles.models` / `model_profile` | target-native model and reasoning fields | Future | Deferred alias design for repo-local model intent names; see the [model and reasoning alias profiles ADR](adrs/drafts/20260604-model-and-reasoning-alias-profiles.md). |
+| `.skillset/sets/<name>/set.yaml` / `set:<name>` | focused generated-output selection and future marketplace/bundle indexes | Future | Deferred collection design for grouped marketplaces, bundles, and curated loadouts; see the [first-class sets ADR](adrs/drafts/20260604-first-class-sets.md). |
 
 Canonical target selection:
 
