@@ -1,0 +1,31 @@
+# Themes
+
+Feature id: `themes`
+
+Support vocabulary: [Feature Reference](README.md#support-vocabulary)
+
+Claude plugins can include experimental themes under `themes/`. Skillset treats themes as target-native Claude plugin pass-through and declares the documented experimental manifest field when the directory is present.
+
+## Authoring
+
+Place theme files under `.skillset/plugins/<plugin>/themes/`. The directory is copied only when Claude plugin output for that plugin is active.
+
+## Target Lowering
+
+| Source | Claude output | Codex output | Status | Notes |
+| --- | --- | --- | --- | --- |
+| `.skillset/plugins/<plugin>/themes/` | plugin root `themes/` plus manifest `experimental.themes: "./themes/"` | n/a | `target_native` / `implemented` | Opaque pass-through; theme semantics remain Claude-native. |
+
+## Diagnostics
+
+- Refuse unmanaged generated-output collisions.
+- Reject divergent target-native islands that try to emit the same generated theme path.
+- Do not copy Claude themes into Codex plugin output.
+
+## Provenance
+
+Theme files participate in plugin output hashes and lock provenance as target-native companion files. They are not `plugin-feature` entries because v1 does not provide `themes.source`.
+
+## Tests and Fixtures
+
+Fixtures cover experimental manifest field declaration, target-native directory copying, provider-specific output separation, and no Codex lowering.
