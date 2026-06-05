@@ -8,7 +8,7 @@ Target-native islands are explicit source areas for native Claude or Codex files
 
 ## Authoring
 
-SET-23 defines the planned project-level island shape:
+Project-level islands use explicit target directories:
 
 ```text
 .skillset/src/claude/** -> .claude/**
@@ -51,4 +51,4 @@ Locks record native island source paths, generated output paths, target provider
 
 ## Tests and Fixtures
 
-SET-23 should add fixtures for Claude-only and Codex-only project islands, Codex `.rules` pass-through, collision refusal, and no cross-target leakage.
+Fixtures cover Claude-only and Codex-only project islands, Codex `.rules` pass-through, unmanaged collision refusal, project-root/output-root overlap refusal, binary copy, plugin-local islands, unknown plugin owners, no cross-target leakage, and explain/list provenance.
