@@ -1,0 +1,32 @@
+# LSP Servers
+
+Feature id: `lsp-servers`
+
+Support vocabulary: [Feature Reference](README.md#support-vocabulary)
+
+Claude plugins can include an `.lsp.json` file that declares language server configuration. Skillset treats the file as target-native Claude plugin pass-through and wires the documented manifest field when the file is present.
+
+## Authoring
+
+Place `.skillset/plugins/<plugin>/.lsp.json` in the plugin source root. The file is copied only when Claude plugin output for that plugin is active.
+
+## Target Lowering
+
+| Source | Claude output | Codex output | Status | Notes |
+| --- | --- | --- | --- | --- |
+| `.skillset/plugins/<plugin>/.lsp.json` | `.lsp.json` plus manifest `lspServers: "./.lsp.json"` | n/a | `target_native` / `implemented` | JSON utility output is parsed after generation; deeper LSP schema validation is not a portable v1 contract. |
+
+## Diagnostics
+
+- Refuse malformed generated JSON.
+- Refuse unmanaged generated-output collisions.
+- Reject divergent target-native islands that try to emit the same `.lsp.json` path.
+- Do not copy Claude LSP configuration into Codex plugin output.
+
+## Provenance
+
+The generated file participates in plugin output hashes and lock provenance as a target-native companion file. It is not a `plugin-feature` entry because v1 does not provide `lsp.source`.
+
+## Tests and Fixtures
+
+Fixtures cover Claude manifest field declaration, target-native file copying, post-generation JSON parsing, and no Codex lowering.

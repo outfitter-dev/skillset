@@ -1,4 +1,5 @@
 {
+  "buildMode": "updated",
   "generatedBy": "skillset@0.1.0",
   "items": [
     {
@@ -39,6 +40,11 @@
   ],
   "outputRoot": ".claude/skills",
   "schemaVersion": 1,
+  "selectedTargets": [
+    "claude",
+    "codex"
+  ],
+  "skillsetMetadata": true,
   "sourceRoot": ".skillset",
   "target": "claude"
 }

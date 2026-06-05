@@ -74,7 +74,7 @@ The cost is that plugin authors who want cross-target specialized roles cannot w
 ## Fixture / test implications
 
 - Current tests already assert Claude plugin `agents/` is copied into Claude plugin output and **absent** from Codex plugin output (`skillset.test.ts` "plugin manifests keep agent and hook surfaces target-specific"). That pins the plugin-agent deferral.
-- SET-24 should add project-agent fixtures for `.skillset/src/agents/*.md` lowering to Claude `.claude/agents/<name>.md` and Codex `.codex/agents/<name>.toml`, plus validation coverage for required target fields.
+- SET-24 added project-agent fixtures for `.skillset/src/agents/*.md` lowering to Claude `.claude/agents/<name>.md` and Codex `.codex/agents/<name>.toml`, plus validation coverage for required target fields, target overrides, metadata suppression, collisions, unsafe prompts, and Codex plugin-agent unsupported diagnostics.
 - When/if a Codex-native plugin agent surface is added, add a kitchen-sink fixture path plus a golden manifest assertion, and a row in `docs/target-surfaces.md` moving Codex plugin agents from **Unsupported / Deferred** to **Implemented (pass-through)**.
 
 ## Open questions for a future revisit

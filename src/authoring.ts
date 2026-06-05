@@ -1,10 +1,10 @@
 import { resolve, relative } from "node:path";
 
-import { diffSkillset, type SkillsetDiff } from "./build";
+import { diffSkillset, scopedRenderedFiles, type SkillsetDiff } from "./build";
 import { inspectSkillset } from "./lint";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
-import type { BuildGraph, LintIssue, SkillsetOptions } from "./types";
+import type { BuildGraph, GeneratedEntry, LintIssue, SkillsetOptions } from "./types";
 import { isJsonRecord } from "./yaml";
 
 const textDecoder = new TextDecoder();
@@ -12,23 +12,14 @@ const textDecoder = new TextDecoder();
 export type ExplainKind =
   | "source-skill"
   | "source-instruction"
+  | "source-island"
+  | "source-project-agent"
   | "source-plugin"
   | "generated"
   | "unknown";
 
-export interface ExplainEntry {
-  readonly outputHash?: string;
-  readonly outputPath: string;
-  readonly outputRoot: string;
-  readonly sourceHash?: string;
-  readonly sourcePath: string;
-  readonly target: string;
-  readonly targetState?: string;
-  readonly version?: string;
-}
-
 export interface ExplainResult {
-  readonly entries: readonly ExplainEntry[];
+  readonly entries: readonly GeneratedEntry[];
   readonly kind: ExplainKind;
   readonly notes: readonly string[];
   readonly path: string;
@@ -45,7 +36,7 @@ export async function explainPath(
   options: SkillsetOptions = {}
 ): Promise<ExplainResult> {
   const graph = await loadBuildGraph(rootPath, options);
-  const rendered = await renderBuildGraph(graph);
+  const rendered = scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes);
   const target = normalizeRepoPath(rootPath, inputPath);
   const items = collectLockItems(rendered);
 
@@ -95,6 +86,15 @@ export async function explainPath(
   };
 }
 
+export async function listGeneratedEntries(
+  rootPath: string,
+  options: SkillsetOptions = {}
+): Promise<readonly GeneratedEntry[]> {
+  const graph = await loadBuildGraph(rootPath, options);
+  const rendered = scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes);
+  return collectLockItems(rendered).map((item) => item.entry);
+}
+
 export interface DoctorReport {
   readonly buildError?: string;
   readonly drift: SkillsetDiff;
@@ -119,7 +119,7 @@ export async function doctorSkillset(
   const graph = await loadBuildGraph(rootPath, options);
   const lint = await inspectSkillset(graph);
 
-  let drift: SkillsetDiff = { added: [], changed: [], removed: [] };
+  let drift: SkillsetDiff = { added: [], changed: [], missing: [], removed: [] };
   let buildError: string | undefined;
   try {
     drift = await diffSkillset(rootPath, options);
@@ -128,7 +128,7 @@ export async function doctorSkillset(
   }
 
   const hasDrift =
-    drift.added.length > 0 || drift.changed.length > 0 || drift.removed.length > 0;
+    drift.added.length > 0 || drift.changed.length > 0 || drift.missing.length > 0 || drift.removed.length > 0;
 
   return {
     ...(buildError === undefined ? {} : { buildError }),
@@ -140,7 +140,7 @@ export async function doctorSkillset(
 }
 
 interface LockItemMatch {
-  readonly entry: ExplainEntry;
+  readonly entry: GeneratedEntry;
   readonly files: readonly string[];
   readonly outputPath: string;
   readonly outputRoot: string;
@@ -165,6 +165,9 @@ function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuildGraph>>
       if (!isJsonRecord(rawItem)) continue;
       const sourcePath = typeof rawItem.sourcePath === "string" ? rawItem.sourcePath : "";
       const outputPath = typeof rawItem.outputPath === "string" ? rawItem.outputPath : "";
+      const preprocessDependencies = Array.isArray(rawItem.preprocessDependencies)
+        ? rawItem.preprocessDependencies.filter((value): value is string => typeof value === "string")
+        : undefined;
       const files = Array.isArray(rawItem.files)
         ? rawItem.files.filter((value): value is string => typeof value === "string")
         : [];
@@ -178,10 +181,16 @@ function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuildGraph>>
           target,
           sourcePath,
           outputPath: joinOutputRoot(outputRoot, outputPath),
+          ...(typeof rawItem.feature === "string" ? { feature: rawItem.feature } : {}),
+          ...(typeof rawItem.kind === "string" ? { kind: rawItem.kind } : {}),
+          ...(typeof rawItem.origin === "string" ? { origin: rawItem.origin } : {}),
           ...(typeof rawItem.outputHash === "string" ? { outputHash: rawItem.outputHash } : {}),
+          ...(preprocessDependencies === undefined ? {} : { preprocessDependencies }),
           ...(typeof rawItem.sourceHash === "string" ? { sourceHash: rawItem.sourceHash } : {}),
+          ...(typeof rawItem.sourcePointer === "string" ? { sourcePointer: rawItem.sourcePointer } : {}),
           ...(typeof rawItem.version === "string" ? { version: rawItem.version } : {}),
           ...(typeof rawItem.targetState === "string" ? { targetState: rawItem.targetState } : {}),
+          ...(typeof rawItem.validation === "string" ? { validation: rawItem.validation } : {}),
         },
       });
     }
@@ -198,11 +207,32 @@ function explainSourceKind(graph: BuildGraph, target: string): ExplainKind {
   if (graph.rules.some((rule) => relative(graph.rootPath, rule.sourcePath) === target)) {
     return "source-instruction";
   }
+  if (graph.projectIslands.some((island) => relative(graph.rootPath, island.sourcePath) === target)) {
+    return "source-island";
+  }
+  if (graph.projectAgents.some((agent) => relative(graph.rootPath, agent.sourcePath) === target)) {
+    return "source-project-agent";
+  }
   if (target.endsWith("/SKILL.md") || target.endsWith("SKILL.md")) return "source-skill";
   return "source-plugin";
 }
 
 function sourceNotes(graph: BuildGraph, target: string): readonly string[] {
+  const agent = graph.projectAgents.find((candidate) => relative(graph.rootPath, candidate.sourcePath) === target);
+  if (agent !== undefined) {
+    const targets = (["claude", "codex"] as const)
+      .filter((name) => agent.targets[name].enabled)
+      .join(", ");
+    return [`Project-scoped portable agent. Enabled targets: ${targets.length > 0 ? targets : "none"}.`];
+  }
+
+  const island = graph.projectIslands.find((candidate) => relative(graph.rootPath, candidate.sourcePath) === target);
+  if (island !== undefined) {
+    return [
+      `Target-native island for ${island.target}${island.plugin === undefined ? "" : ` plugin ${island.plugin}`}.`,
+    ];
+  }
+
   const skill = [
     ...graph.plugins.flatMap((plugin) => plugin.skills),
     ...graph.standaloneSkills,
