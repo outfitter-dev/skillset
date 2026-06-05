@@ -43,6 +43,11 @@
       "depends_on": ["0"],
       "inbound": [
         {
+          "context": "- [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - tracks first-class sets as future-only and keeps scopes/selectors separate.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-first-class-sets.md"
+        },
+        {
           "context": "- [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - tracks model/reasoning aliases as future-only.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-model-and-reasoning-alias-profiles.md"
@@ -64,12 +69,47 @@
     },
     {
       "created": "2026-06-04",
+      "depends_on": [
+        "0",
+        "1",
+        "feature-reference-and-schema-registry",
+        "global-xdg-managed-installs-and-sync",
+        "reviewed-settings-suggestions"
+      ],
+      "inbound": [
+        {
+          "context": "- [First-class sets](../adrs/drafts/20260604-first-class-sets.md): grouped marketplaces, bundles, and curated collections remain future vocabulary; v1 keeps build scopes and entity selectors separate.",
+          "from": "README",
+          "fromPath": "docs/features/README.md"
+        },
+        {
+          "context": "| `.skillset/sets/<name>/set.yaml` / `set:<name>` | focused generated-output selection and future marketplace/bundle indexes | Future | Deferred collection design for grouped marketplaces, bundles, an",
+          "from": "target-surfaces",
+          "fromPath": "docs/target-surfaces.md"
+        }
+      ],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260604-first-class-sets.md",
+      "slug": "first-class-sets",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "First-Class Sets",
+      "updated": "2026-06-04"
+    },
+    {
+      "created": "2026-06-04",
       "depends_on": ["0"],
       "inbound": [
         {
           "context": "- [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md) - related non-goal for install and sync workflows.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-changelog-and-versioning.md"
+        },
+        {
+          "context": "- [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md) - separates build from install, sync, trust, and user-level mutation.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-first-class-sets.md"
         },
         {
           "context": "- [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md) - separates build from install/sync/trust and user-level mutation.",
@@ -124,6 +164,11 @@
         "feature-reference-and-schema-registry"
       ],
       "inbound": [
+        {
+          "context": "- [Reviewed Settings Suggestions](20260604-reviewed-settings-suggestions.md) - keeps settings and marketplace activation out of build.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-first-class-sets.md"
+        },
         {
           "context": "- [Reviewed settings suggestion workflow](../adrs/drafts/20260604-reviewed-settings-suggestions.md): Skillset may eventually propose or review target settings changes, but `skillset build` must not mu",
           "from": "README",
