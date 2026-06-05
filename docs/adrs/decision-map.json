@@ -30,6 +30,11 @@
           "fromPath": "docs/adrs/drafts/20260604-global-xdg-managed-installs-and-sync.md"
         },
         {
+          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source-first and target-native doctrine.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-model-and-reasoning-alias-profiles.md"
+        },
+        {
           "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - baseline source-first compiler doctrine.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-reviewed-settings-suggestions.md"
@@ -52,6 +57,11 @@
           "context": "- [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - accepted `compile.targets` and `compile.unsupported` direction.",
           "from": "0000",
           "fromPath": "docs/adrs/0000-source-first-loadouts.md"
+        },
+        {
+          "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - provider selection and target-specific config boundaries.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-model-and-reasoning-alias-profiles.md"
         },
         {
           "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - provider selection and fail-loud unsupported behavior.",

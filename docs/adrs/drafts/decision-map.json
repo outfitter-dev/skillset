@@ -3,7 +3,13 @@
     {
       "created": "2026-06-04",
       "depends_on": ["0"],
-      "inbound": [],
+      "inbound": [
+        {
+          "context": "- [Agent / Subagent Source Model](20260604-agent-source-model.md) - project agents as the first close-match surface.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-model-and-reasoning-alias-profiles.md"
+        }
+      ],
       "number": null,
       "owners": ["[galligan](https://github.com/galligan)"],
       "path": "docs/adrs/drafts/20260604-agent-source-model.md",
@@ -36,6 +42,11 @@
       "created": "2026-06-04",
       "depends_on": ["0"],
       "inbound": [
+        {
+          "context": "- [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - tracks model/reasoning aliases as future-only.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-model-and-reasoning-alias-profiles.md"
+        },
         {
           "context": "- [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - tracks settings as future-only and target-native.",
           "from": "20260604",
@@ -73,6 +84,35 @@
       "status": "draft",
       "superseded_by": null,
       "title": "Global / XDG Managed Installs and Sync",
+      "updated": "2026-06-04"
+    },
+    {
+      "created": "2026-06-04",
+      "depends_on": [
+        "0",
+        "1",
+        "agent-source-model",
+        "feature-reference-and-schema-registry"
+      ],
+      "inbound": [
+        {
+          "context": "- [Model and reasoning alias profiles](../adrs/drafts/20260604-model-and-reasoning-alias-profiles.md): shared aliases such as `review`, `fast`, or `deep` remain deferred; use target-native model and e",
+          "from": "README",
+          "fromPath": "docs/features/README.md"
+        },
+        {
+          "context": "| `profiles.models` / `model_profile` | target-native model and reasoning fields | Future | Deferred alias design for repo-local model intent names; see the [model and reasoning alias profiles ADR](ad",
+          "from": "target-surfaces",
+          "fromPath": "docs/target-surfaces.md"
+        }
+      ],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260604-model-and-reasoning-alias-profiles.md",
+      "slug": "model-and-reasoning-alias-profiles",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Model and Reasoning Alias Profiles",
       "updated": "2026-06-04"
     },
     {
