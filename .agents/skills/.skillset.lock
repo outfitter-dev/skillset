@@ -1,4 +1,5 @@
 {
+  "buildMode": "updated",
   "generatedBy": "skillset@0.1.0",
   "items": [
     {
@@ -30,15 +31,20 @@
       ],
       "kind": "standalone-skill",
       "name": "skillset-codex-development",
-      "outputHash": "sha256:bf49e8d778858bb79b6817ae60e3ab9fabaf68288c65188547ff3e35b6f3d8d7",
+      "outputHash": "sha256:94b12655bec3654cbded1bbf25c00179244b026c7f9bc65471325d3f81830433",
       "outputPath": "skillset-codex-development/SKILL.md",
-      "sourceHash": "sha256:ade4c1814725fd5b2c943fbab85f2eb46789dd97469f30b6a49e07175221e624",
+      "sourceHash": "sha256:a7c2e33c5b2d9fbe361ea8c8a2504b3e20689324d3488ee201dc9359ce619164",
       "sourcePath": ".skillset/skills/skillset-codex-development/SKILL.md",
       "version": "0.1.0"
     }
   ],
   "outputRoot": ".agents/skills",
   "schemaVersion": 1,
+  "selectedTargets": [
+    "claude",
+    "codex"
+  ],
+  "skillsetMetadata": true,
   "sourceRoot": ".skillset",
   "target": "codex"
 }

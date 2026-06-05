@@ -1,0 +1,31 @@
+# Output Styles
+
+Feature id: `output-styles`
+
+Support vocabulary: [Feature Reference](README.md#support-vocabulary)
+
+Claude plugins can include output styles under `output-styles/`. Skillset treats output styles as target-native Claude plugin pass-through and declares the documented manifest field when the directory is present.
+
+## Authoring
+
+Place output style files under `.skillset/plugins/<plugin>/output-styles/`. The directory is copied only when Claude plugin output for that plugin is active.
+
+## Target Lowering
+
+| Source | Claude output | Codex output | Status | Notes |
+| --- | --- | --- | --- | --- |
+| `.skillset/plugins/<plugin>/output-styles/` | plugin root `output-styles/` plus manifest `outputStyles: "./output-styles/"` | n/a | `target_native` / `implemented` | Opaque pass-through; style semantics remain Claude-native. |
+
+## Diagnostics
+
+- Refuse unmanaged generated-output collisions.
+- Reject divergent target-native islands that try to emit the same generated output-style path.
+- Do not copy Claude output styles into Codex plugin output.
+
+## Provenance
+
+Output style files participate in plugin output hashes and lock provenance as target-native companion files. They are not `plugin-feature` entries because v1 does not provide `outputStyles.source` or `output-styles.source`.
+
+## Tests and Fixtures
+
+Fixtures cover Claude manifest field declaration, target-native directory copying, provider-specific output separation, and no Codex lowering.

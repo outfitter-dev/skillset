@@ -418,6 +418,35 @@ skillset:
   await expect(buildSkillset(root)).rejects.toThrow("cannot guard generated state");
 });
 
+test("corrupt generated output .skillset.lock fails loudly instead of disabling guards", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+---
+name: alpha-skill
+description: Alpha skill.
+---
+
+Alpha body.
+`,
+  });
+
+  await buildSkillset(root);
+  await writeFile(join(root, "plugins-claude/.skillset.lock"), "{ not valid json", "utf8");
+
+  await expect(checkSkillset(root)).rejects.toThrow("generated lock plugins-claude/.skillset.lock cannot guard generated state");
+  await expect(buildSkillset(root)).rejects.toThrow("generated lock plugins-claude/.skillset.lock cannot guard generated state");
+});
+
 test("compareStrings orders by code unit independent of locale", () => {
   const input = ["b", "A", "a", "-", "B", "Z", "1"];
   const sorted = [...input].sort(compareStrings);
