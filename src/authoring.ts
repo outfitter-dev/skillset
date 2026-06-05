@@ -13,6 +13,7 @@ export type ExplainKind =
   | "source-skill"
   | "source-instruction"
   | "source-island"
+  | "source-project-agent"
   | "source-plugin"
   | "generated"
   | "unknown";
@@ -206,11 +207,22 @@ function explainSourceKind(graph: BuildGraph, target: string): ExplainKind {
   if (graph.projectIslands.some((island) => relative(graph.rootPath, island.sourcePath) === target)) {
     return "source-island";
   }
+  if (graph.projectAgents.some((agent) => relative(graph.rootPath, agent.sourcePath) === target)) {
+    return "source-project-agent";
+  }
   if (target.endsWith("/SKILL.md") || target.endsWith("SKILL.md")) return "source-skill";
   return "source-plugin";
 }
 
 function sourceNotes(graph: BuildGraph, target: string): readonly string[] {
+  const agent = graph.projectAgents.find((candidate) => relative(graph.rootPath, candidate.sourcePath) === target);
+  if (agent !== undefined) {
+    const targets = (["claude", "codex"] as const)
+      .filter((name) => agent.targets[name].enabled)
+      .join(", ");
+    return [`Project-scoped portable agent. Enabled targets: ${targets.length > 0 ? targets : "none"}.`];
+  }
+
   const island = graph.projectIslands.find((candidate) => relative(graph.rootPath, candidate.sourcePath) === target);
   if (island !== undefined) {
     return [

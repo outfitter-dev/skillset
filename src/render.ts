@@ -24,6 +24,7 @@ import { preprocessText } from "./preprocess";
 import {
   renderValidatedJson,
   renderValidatedMarkdown,
+  renderValidatedToml,
   renderValidatedYaml,
   validateGeneratedStructuredOutput,
 } from "./structured-output";
@@ -34,6 +35,7 @@ import type {
   RenderedFile,
   SourceIslandFile,
   SourcePlugin,
+  SourceProjectAgent,
   SourceRule,
   SourceResource,
   SourceSkill,
@@ -55,7 +57,7 @@ const CODEX_RULES_LOCK_ROOT = ".";
 interface LockItem {
   readonly files: readonly string[];
   readonly includedSkills?: readonly string[];
-  readonly kind: "island" | "plugin" | "plugin-skill" | "rule" | "standalone-skill";
+  readonly kind: "island" | "plugin" | "plugin-skill" | "project-agent" | "rule" | "standalone-skill";
   readonly name: string;
   readonly outputHash: string;
   readonly outputPath: string;
@@ -80,6 +82,11 @@ interface RenderedIslandFile {
   readonly validation: "opaque-copy" | "structured";
 }
 
+interface RenderedProjectAgentFile {
+  readonly file: RenderedFile;
+  readonly preprocessDependencies: readonly string[];
+}
+
 export async function renderBuildGraph(graph: BuildGraph): Promise<readonly RenderedFile[]> {
   const rendered: RenderedFile[] = [];
   const lockRoots = new Map<string, LockRoot>();
@@ -96,6 +103,7 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
     rendered.push(...(await renderStandaloneSkill(graph, skill, "codex", lockRoots)));
   }
 
+  rendered.push(...(await renderProjectAgents(graph, lockRoots)));
   rendered.push(...(await renderRules(graph, lockRoots)));
   rendered.push(...(await renderProjectIslands(graph, lockRoots)));
   rendered.push(...renderLockFiles(graph, lockRoots));
@@ -485,6 +493,175 @@ async function renderPluginSkillFiles(
   );
 
   return rendered;
+}
+
+async function renderProjectAgents(
+  graph: BuildGraph,
+  lockRoots: Map<string, LockRoot>
+): Promise<readonly RenderedFile[]> {
+  const rendered: RenderedFile[] = [];
+  for (const agent of graph.projectAgents) {
+    const results: RenderedProjectAgentFile[] = [];
+    if (agent.targets.claude.enabled) {
+      results.push(await renderClaudeProjectAgent(graph, agent));
+    }
+    if (agent.targets.codex.enabled) {
+      results.push(await renderCodexProjectAgent(graph, agent));
+    }
+    if (results.length === 0) continue;
+    const files = results.map((result) => result.file);
+    rendered.push(...files);
+    const lockRoot = lockRootsFor(lockRoots, CODEX_RULES_LOCK_ROOT, "workspace");
+    for (const result of results) {
+      lockRoot.items.push(
+        lockItemForProjectAgent({ agent, files: [result.file], graph, outputRoot: CODEX_RULES_LOCK_ROOT, result })
+      );
+    }
+  }
+  return rendered;
+}
+
+async function renderClaudeProjectAgent(
+  graph: BuildGraph,
+  agent: SourceProjectAgent
+): Promise<RenderedProjectAgentFile> {
+  const targetOptions = agent.targets.claude.options;
+  const initialPrompt = readString(targetOptions, "initialPrompt") ?? readString(agent.frontmatter, "initialPrompt");
+  const skills = readStringArray(targetOptions, "skills") ?? readStringArray(agent.frontmatter, "skills");
+  const frontmatter = mergeRecords(
+    mergeRecords(
+      mergeRecords(stripAgentTargetOptions(stripSourceFrontmatter(agent.frontmatter)), {
+        name: readString(targetOptions, "name") ?? agent.name,
+        description: readString(targetOptions, "description") ?? readString(agent.frontmatter, "description") ?? agent.name,
+        ...(skills === undefined ? {} : { skills: [...skills] }),
+        ...(initialPrompt === undefined ? {} : { initialPrompt }),
+      }),
+      stripAgentTargetOptions(targetOptions)
+    ),
+    graph.root.compile.skillset.metadata
+      ? { metadata: { skillset: { generated: GENERATED_BY } } }
+      : {}
+  );
+  const preprocessDependencies = new Set<string>();
+  const body = await preprocessText(agent.body, {
+    frontmatter: agent.frontmatter,
+    preprocessDependencies,
+    rootPath: graph.rootPath,
+    sourcePath: agent.sourcePath,
+    sourceRoot: graph.sourceDir,
+  });
+  const targetPath = join(targetProjectRoot(graph, "claude"), "agents", `${agent.outputName}.md`);
+  return {
+    file: textFile(
+      targetPath,
+      renderValidatedMarkdown(frontmatter, body, `${relative(graph.rootPath, agent.sourcePath)} -> ${targetPath}`),
+      relative(graph.rootPath, agent.sourcePath)
+    ),
+    preprocessDependencies: projectAgentPreprocessDependencies(graph, preprocessDependencies),
+  };
+}
+
+async function renderCodexProjectAgent(
+  graph: BuildGraph,
+  agent: SourceProjectAgent
+): Promise<RenderedProjectAgentFile> {
+  const targetOptions = agent.targets.codex.options;
+  const initialPrompt = readString(targetOptions, "initialPrompt") ?? readString(agent.frontmatter, "initialPrompt");
+  if (initialPrompt?.includes("</initial_prompt>")) {
+    throw new Error(`skillset: ${relative(graph.rootPath, agent.sourcePath)} initialPrompt must not contain </initial_prompt>`);
+  }
+  const sharedSkills = readStringArray(agent.frontmatter, "skills");
+  const skills = readStringArray(targetOptions, "skills") ?? sharedSkills;
+  const preprocessDependencies = new Set<string>();
+  const instructions = await renderCodexProjectAgentInstructions(graph, agent, targetOptions, skills, initialPrompt, preprocessDependencies);
+  const targetPath = join(targetProjectRoot(graph, "codex"), "agents", `${agent.outputName}.toml`);
+  const value = mergeRecords(
+    mergeRecords(stripAgentTargetOptions(targetOptions), {
+      name: readString(targetOptions, "name") ?? agent.name,
+      description: readString(targetOptions, "description") ?? readString(agent.frontmatter, "description") ?? agent.name,
+      developer_instructions: instructions,
+    }),
+    graph.root.compile.skillset.metadata
+      ? { metadata: { skillset: { generated: GENERATED_BY } } }
+      : {}
+  );
+  return {
+    file: textFile(
+      targetPath,
+      renderValidatedToml(value, `${relative(graph.rootPath, agent.sourcePath)} -> ${targetPath}`),
+      relative(graph.rootPath, agent.sourcePath)
+    ),
+    preprocessDependencies: projectAgentPreprocessDependencies(graph, preprocessDependencies),
+  };
+}
+
+async function renderCodexProjectAgentInstructions(
+  graph: BuildGraph,
+  agent: SourceProjectAgent,
+  targetOptions: JsonRecord,
+  skills: readonly string[] | undefined,
+  initialPrompt: string | undefined,
+  preprocessDependencies: Set<string>
+): Promise<string> {
+  const explicitInstructions = readString(targetOptions, "developer_instructions");
+  const body = await preprocessText(explicitInstructions ?? agent.body, {
+    frontmatter: agent.frontmatter,
+    preprocessDependencies,
+    rootPath: graph.rootPath,
+    sourcePath: agent.sourcePath,
+    sourceRoot: graph.sourceDir,
+  });
+  const sections: string[] = [];
+  if (skills !== undefined && skills.length > 0) {
+    sections.push(renderCodexSkillsPreface(targetOptions, skills));
+  }
+  sections.push(body.trimEnd());
+  if (initialPrompt !== undefined) {
+    const renderedPrompt = await preprocessText(initialPrompt, {
+      frontmatter: agent.frontmatter,
+      preprocessDependencies,
+      rootPath: graph.rootPath,
+      sourcePath: agent.sourcePath,
+      sourceRoot: graph.sourceDir,
+    });
+    if (renderedPrompt.includes("</initial_prompt>")) {
+      throw new Error(`skillset: ${relative(graph.rootPath, agent.sourcePath)} initialPrompt must not contain </initial_prompt>`);
+    }
+    sections.push(`<initial_prompt>\n${renderedPrompt.trimEnd()}\n</initial_prompt>`);
+  }
+  return `${sections.filter((section) => section.trim().length > 0).join("\n\n")}\n`;
+}
+
+function projectAgentPreprocessDependencies(graph: BuildGraph, dependencies: ReadonlySet<string>): readonly string[] {
+  return [...dependencies].sort(compareStrings).map((path) => relative(graph.rootPath, path));
+}
+
+function renderCodexSkillsPreface(targetOptions: JsonRecord, skills: readonly string[]): string {
+  const bullets = skills.map((skill) => `- ${skill}`).join("\n");
+  const template = readString(targetOptions, "skillsPrefaceTemplate") ?? "Load the following skills first, if available:\n\n{{skills}}";
+  return template.includes("{{skills}}") ? template.replaceAll("{{skills}}", bullets) : `${template.trimEnd()}\n\n${bullets}`;
+}
+
+function stripAgentTargetOptions(options: JsonRecord): JsonRecord {
+  const stripped: Record<string, JsonValue> = {};
+  for (const [key, value] of Object.entries(options)) {
+    if (
+      value === undefined ||
+      key === "defaults" ||
+      key === "developer_instructions" ||
+      key === "frontmatter" ||
+      key === "initialPrompt" ||
+      key === "plugins" ||
+      key === "projectRoot" ||
+      key === "skills" ||
+      key === "skillsPrefaceTemplate" ||
+      key === "userRoot"
+    ) {
+      continue;
+    }
+    stripped[key] = value;
+  }
+  return stripped;
 }
 
 async function renderProjectIslands(
@@ -1398,6 +1575,31 @@ function lockItemForIsland(args: {
   };
 }
 
+function lockItemForProjectAgent(args: {
+  readonly agent: SourceProjectAgent;
+  readonly files: readonly RenderedFile[];
+  readonly graph: BuildGraph;
+  readonly outputRoot: string;
+  readonly result: RenderedProjectAgentFile;
+}): LockItem {
+  const files = args.files
+    .map((file) => relative(args.outputRoot, file.path))
+    .sort();
+
+  return {
+    files,
+    kind: "project-agent",
+    name: args.agent.outputName,
+    outputHash: hashRenderedFiles(args.outputRoot, args.files),
+    outputPath: files[0] ?? "",
+    preprocessDependencies: args.result.preprocessDependencies,
+    sourceHash: hashProjectAgentSource(args.agent, args.result.preprocessDependencies, args.graph.rootPath),
+    sourcePath: relative(args.graph.rootPath, args.agent.sourcePath),
+    validation: "structured",
+    version: rootVersion(args.graph),
+  };
+}
+
 async function lockItemForSkill(args: {
   readonly files: readonly RenderedFile[];
   readonly graph: BuildGraph;
@@ -1438,6 +1640,33 @@ function hashIslandSource(
   hash.update(island.relativePath);
   hash.update("\0");
   hash.update(readFileSyncBytes(island.sourcePath));
+  hash.update("\0");
+  for (const dependency of preprocessDependencies) {
+    hash.update("dependency\0");
+    hash.update(dependency);
+    hash.update("\0");
+    hash.update(readFileSyncBytes(join(rootPath, dependency)));
+    hash.update("\0");
+  }
+  return `sha256:${hash.digest("hex")}`;
+}
+
+function hashProjectAgentSource(
+  agent: SourceProjectAgent,
+  preprocessDependencies: readonly string[],
+  rootPath: string
+): string {
+  const hash = createHash("sha256");
+  hash.update("skillset-project-agent-source-v1\0");
+  hash.update(agent.relativePath);
+  hash.update("\0");
+  hash.update(agent.name);
+  hash.update("\0");
+  hash.update(agent.outputName);
+  hash.update("\0");
+  hash.update(stringifyJson(agent.frontmatter));
+  hash.update("\0");
+  hash.update(agent.body);
   hash.update("\0");
   for (const dependency of preprocessDependencies) {
     hash.update("dependency\0");

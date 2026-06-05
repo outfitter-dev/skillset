@@ -40,6 +40,13 @@
       hooks/
       assets/
       scripts/
+  src/
+    agents/
+      <agent-name>.md
+    claude/
+      ...
+    codex/
+      ...
 plugins-claude/
   .skillset.lock
   README.md
@@ -59,6 +66,8 @@ plugins-codex/
         plugin.json
       skills/
 .claude/
+  agents/
+    <agent-name>.md
   rules/
     .skillset.lock
     <topic>.md
@@ -74,6 +83,9 @@ plugins-codex/
       agents/
         openai.yaml
 AGENTS.md
+.codex/
+  agents/
+    <agent-name>.toml
 <subdir>/
   AGENTS.md
 .skillset.lock
@@ -139,7 +151,7 @@ codex:
 
 Boolean output settings use the default roots: `plugins-claude/`, `plugins-codex/`, `.claude/skills`, and `.agents/skills`. Arrays select specific plugin or standalone skill names. Object settings can set `path`, `include`, or `enabled: false`. When `compile.targets` is present, a root provider object without `enabled` inherits the compile target set, so output-path objects do not accidentally re-enable a provider. Lower-level plugin, skill, and instruction objects keep the existing opt-in semantics. Do not add a bare top-level `targets:` key; provider selection has one home.
 
-Target defaults use `claude.defaults.<surface>` and `codex.defaults.<surface>` as the canonical target-local form. Root `defaults.<target>.<surface>` is a shorthand that normalizes into the same target defaults without making `targets:` a config surface. Supported surfaces are `plugins`, `skills`, and `instructions`; unknown surfaces such as `defaults.codex.skill` fail instead of silently no-oping. Defaults fill omitted target options for that surface: plugin defaults override root defaults, file-level target fields override plugin defaults, and target-specific fields override shared portable fields at render time. For example, a root `codex.defaults.skills.model` applies to Codex-enabled skills unless a plugin or skill provides `codex.model`.
+Target defaults use `claude.defaults.<surface>` and `codex.defaults.<surface>` as the canonical target-local form. Root `defaults.<target>.<surface>` is a shorthand that normalizes into the same target defaults without making `targets:` a config surface. Supported surfaces are `agents`, `instructions`, `plugins`, and `skills`; unknown surfaces such as `defaults.codex.skill` fail instead of silently no-oping. Defaults fill omitted target options for that surface: plugin defaults override root defaults, file-level target fields override plugin defaults, and target-specific fields override shared portable fields at render time. For example, a root `codex.defaults.skills.model` applies to Codex-enabled skills unless a plugin or skill provides `codex.model`, and `codex.defaults.agents.skillsPrefaceTemplate` customizes generated Codex project-agent skill prefaces.
 
 A top-level skill `model` looks portable but is not portable in v1. It is stripped from generated output and emits a warning unless every enabled target has an explicit target model from `claude.model`, `codex.model`, or target defaults.
 
@@ -243,9 +255,11 @@ Codex `.rules` files are not instruction Markdown. They are target-native comman
 
 ## Target-Specific Source and Plugin Surfaces
 
+Portable project agents live under `.skillset/src/agents/*.md`. They lower to Claude `.claude/agents/<resolved-name>.md` and Codex `.codex/agents/<resolved-name>.toml`, using the resolved `name` when present and otherwise the source filename stem. Agent source requires `description` plus a body, supports shared `skills` and `initialPrompt`, and keeps target-native fields under `claude` and `codex` blocks. Codex `skills` become a deterministic `developer_instructions` preface, and `initialPrompt` is wrapped in `<initial_prompt>...</initial_prompt>` with closing-tag input rejected. Project-agent files are tracked in the root `.skillset.lock`; `skillset list` and `skillset explain` expose their provenance.
+
 Project target-native islands mirror explicit target source to target project roots: `.skillset/src/claude/**` writes to `.claude/**` by default, and `.skillset/src/codex/**` writes to `.codex/**` by default. `claude.projectRoot` and `codex.projectRoot` can override those roots. Codex `.rules` pass through only from `.skillset/src/codex/rules/**/*.rules` to `.codex/rules/**/*.rules`; portable prose instructions never lower to Codex command policy.
 
-Some plugin companion paths are target-native rather than portable. Claude output copies `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json`, `.lsp.json`, `output-styles/`, `themes/`, `monitors/`, `assets/`, `scripts/`, and `src/` when present. Codex output copies `hooks/hooks.json`, `.mcp.json`, `.app.json`, `assets/`, `scripts/`, and `src/`. Claude `agents/` is not copied into Codex plugin output; Codex plugin docs do not document a plugin `agents/` component. Plugin-local islands under `.skillset/src/plugins/<plugin>/claude/**` and `.skillset/src/plugins/<plugin>/codex/**` mirror into the matching generated plugin bundle only. Codex plugin `.rules` remains unsupported. Project-scoped Codex custom agents live under `.codex/agents/*.toml` and are a different target-native surface from plugin components. Current generated JSON, YAML, Markdown, TOML utility output, and lock files are parsed after generation; copied unknown files and binary sidecars are not parsed as text.
+Some plugin companion paths are target-native rather than portable. Claude output copies `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json`, `.lsp.json`, `output-styles/`, `themes/`, `monitors/`, `assets/`, `scripts/`, and `src/` when present. Codex output copies `hooks/hooks.json`, `.mcp.json`, `.app.json`, `assets/`, `scripts/`, and `src/`. Claude plugin `agents/` is not copied into Codex plugin output; Codex plugin docs do not document a plugin `agents/` component, so a Codex-enabled plugin with `agents/` fails loudly unless that plugin opts out of Codex. Plugin-local islands under `.skillset/src/plugins/<plugin>/claude/**` and `.skillset/src/plugins/<plugin>/codex/**` mirror into the matching generated plugin bundle only. Codex plugin `.rules` remains unsupported. Current generated JSON, YAML, Markdown, TOML utility output, and lock files are parsed after generation; copied unknown files and binary sidecars are not parsed as text.
 
 These paths are copied as opaque content — `skillset` does not synthesize or validate their schemas in v1. When a Claude pass-through path is present, the generated `.claude-plugin/plugin.json` declares it using the documented manifest field: `lspServers` for `.lsp.json`, `outputStyles` for `output-styles/`, and the experimental `experimental.themes` / `experimental.monitors` for `themes/` and `monitors/monitors.json`. The supported Claude plugin component paths were live-doc verified against `code.claude.com/docs/en/plugins` and `code.claude.com/docs/en/plugins-reference` (2026-06-04).
 

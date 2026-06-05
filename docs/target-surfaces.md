@@ -36,7 +36,7 @@ Default behavior for unsupported or lossy lowering is fail-loud. Softer modes mu
 | omitted `compile.targets` | all supported provider projections | Implemented | Shorthand for the default target plan; equivalent to `compile.targets: [claude, codex]` while both providers are supported. |
 | `claude.projectRoot` / `codex.projectRoot` | target adapter metadata | Implemented | Parsed and inherited with provider blocks; build still does not mutate user-level config. |
 | `claude.userRoot` / `codex.userRoot` | target adapter metadata | Implemented | Parsed and inherited with provider blocks for future setup/explain flows. |
-| `claude.defaults.<surface>` / `codex.defaults.<surface>` | target option defaults for `plugins`, `skills`, `instructions` | Implemented | Canonical target-local defaults; file-level target fields win. |
+| `claude.defaults.<surface>` / `codex.defaults.<surface>` | target option defaults for `agents`, `instructions`, `plugins`, `skills` | Implemented | Canonical target-local defaults; file-level target fields win. |
 | `defaults.<target>.<surface>` | same target option defaults | Implemented | Root/plugin shorthand; does not introduce bare top-level `targets:` provider selection. |
 | skill top-level `model` | (source-only warning) | Implemented | Warns unless every enabled target has `claude.model`, `codex.model`, or target defaults. |
 
@@ -80,6 +80,15 @@ Live-doc verified against `code.claude.com/docs/en/plugins` and `code.claude.com
 | `bin/` | executable PATH component | Target-native / Planned | Documented Claude plugin-root component; implementation follows in SET-26/SET-28 feature docs and adapter support registry. |
 | `settings.json` | default plugin settings | Target-native / Future | Documented Claude plugin-root component for enabled plugins. Skillset v1 does not mutate live settings; settings suggestion/review workflow is SET-29 future work. |
 
+## Project agents (Claude)
+
+Live-doc verified against `code.claude.com/docs/en/sub-agents` (2026-06-04).
+
+| Source | Claude output | Status |
+| --- | --- | --- |
+| `.skillset/src/agents/*.md` | project `.claude/agents/*.md` | Portable / Implemented |
+| user `~/.claude/agents/*.md` | user custom agents | Future |
+
 ## Plugin manifest interface (Codex `.codex-plugin/plugin.json`, `interface`)
 
 Camel-cased presentation fields derived from portable `presentation` / `ui` metadata. Pinned by the Codex-interface golden test.
@@ -107,7 +116,7 @@ Live-doc verified against `developers.openai.com/codex/plugins/build` and `devel
 | `.mcp.json` | `.mcp.json` | Implemented |
 | `.app.json` | `.app.json` (manifest `apps`) | Implemented (opaque pass-through) |
 | plugin `agents/` | (none) | Unsupported / Deferred — Codex plugin docs do not document a plugin `agents/` component. Do not copy Claude plugin agents here. |
-| project `.codex/agents/*.toml` | project custom agents | Target-native / Planned | Codex documents project/user custom agents as standalone TOML files. Portable project-agent lowering is SET-24; plugin-agent lowering remains unsupported. |
+| `.skillset/src/agents/*.md` | project `.codex/agents/*.toml` | Portable / Implemented | Codex documents project/user custom agents as standalone TOML files. Skillset lowers portable project agents into project custom agents; plugin-agent lowering remains unsupported. |
 | user `~/.codex/agents/*.toml` | user custom agents | Future | User/global writes need explicit setup/review flows and must not happen as a side effect of `skillset build`. |
 
 ## Instructions

@@ -87,6 +87,17 @@ export interface SourceIslandFile {
   readonly target: TargetName;
 }
 
+export interface SourceProjectAgent {
+  readonly body: string;
+  readonly filename: string;
+  readonly frontmatter: JsonRecord;
+  readonly name: string;
+  readonly outputName: string;
+  readonly relativePath: string;
+  readonly sourcePath: string;
+  readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
+}
+
 export interface OutputConfig {
   readonly plugins: Readonly<Record<TargetName, string>>;
   readonly skills: Readonly<Record<TargetName, string>>;
@@ -105,6 +116,7 @@ export interface BuildGraph {
   readonly instructionsDir: string;
   readonly outputRoots: readonly string[];
   readonly plugins: readonly SourcePlugin[];
+  readonly projectAgents: readonly SourceProjectAgent[];
   readonly projectIslands: readonly SourceIslandFile[];
   readonly rules: readonly SourceRule[];
   readonly root: RootConfig;

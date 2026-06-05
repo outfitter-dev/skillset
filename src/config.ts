@@ -13,7 +13,9 @@ import type {
 import { isJsonRecord } from "./yaml";
 
 const TARGET_NAMES: readonly TargetName[] = ["claude", "codex"];
-const DEFAULT_SURFACES = new Set(["instructions", "plugins", "skills"]);
+export type FeatureSurface = "agents" | "instructions" | "plugins" | "skills";
+
+const DEFAULT_SURFACES = new Set<FeatureSurface>(["agents", "instructions", "plugins", "skills"]);
 const CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "claude", "codex", "defaults", "skillset"]);
 const ROOT_CONFIG_TOP_LEVEL_KEYS = new Set([...CONFIG_TOP_LEVEL_KEYS, "compile"]);
 const COMPILE_BUILD_MODES = new Set<CompileBuildMode>(["updated", "all"]);
@@ -249,7 +251,7 @@ export function resolveFeatureTargets(
   parent: Readonly<Record<TargetName, ResolvedTarget>>,
   record: JsonRecord,
   label: string,
-  surface: "instructions" | "plugins" | "skills",
+  surface: FeatureSurface,
   options: {
     readonly allowDefaults?: boolean;
     readonly objectInheritsEnabled?: boolean;
@@ -260,7 +262,7 @@ export function resolveFeatureTargets(
 
 export function applyFeatureTargetDefaults(
   targets: Readonly<Record<TargetName, ResolvedTarget>>,
-  surface: "instructions" | "plugins" | "skills"
+  surface: FeatureSurface
 ): Readonly<Record<TargetName, ResolvedTarget>> {
   return {
     claude: applyFeatureDefaults(targets.claude, surface),
@@ -459,9 +461,9 @@ function readShorthandTargetDefaults(
 
 function validateDefaultSurfaces(defaults: JsonRecord, label: string): void {
   for (const key of Object.keys(defaults)) {
-    if (!DEFAULT_SURFACES.has(key)) {
+    if (!DEFAULT_SURFACES.has(key as FeatureSurface)) {
       throw new Error(
-        `skillset: unsupported defaults surface ${JSON.stringify(key)} in ${label}; expected instructions, plugins, or skills`
+        `skillset: unsupported defaults surface ${JSON.stringify(key)} in ${label}; expected agents, instructions, plugins, or skills`
       );
     }
   }
@@ -489,7 +491,7 @@ function mergeTargetDefault(target: ResolvedTarget, defaults: JsonRecord): Resol
 
 function applyFeatureDefaults(
   target: ResolvedTarget,
-  surface: "instructions" | "plugins" | "skills"
+  surface: FeatureSurface
 ): ResolvedTarget {
   const defaults = readRecord(target.options, "defaults");
   if (defaults === undefined) return target;

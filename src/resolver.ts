@@ -9,6 +9,7 @@ import {
   readSkillsetMetadata,
   readSkillsetName,
   readString,
+  readStringArray,
   resolveFeatureTargets,
   resolveTargets,
   targetNames,
@@ -22,6 +23,7 @@ import type {
   SkillsetOptions,
   SourcePlugin,
   SourceIslandFile,
+  SourceProjectAgent,
   SourceRule,
   SourceSkill,
   StandaloneSkill,
@@ -39,6 +41,7 @@ const SKILLS_DIR = "skills";
 const SKILL_FILE = "SKILL.md";
 const RULES_OUTPUT_ROOT = ".claude/rules";
 const TARGET_NATIVE_SOURCE_DIR = "src";
+const PROJECT_AGENTS_DIR = "agents";
 
 export async function loadBuildGraph(
   rootPath: string,
@@ -72,23 +75,25 @@ export async function loadBuildGraph(
   };
 
   const warnings: string[] = [];
-  const plugins = await loadPlugins(rootPath, sourceDir, rootTargets, warnings);
+  const plugins = await loadPlugins(rootPath, sourceDir, rootTargets, warnings, outputs.targetOutputs.codex.plugins);
   const standaloneSkills = await loadStandaloneSkills(rootPath, sourceDir, rootTargets, warnings);
   const { rules, instructionsDir } = await loadInstructions(rootPath, sourceDir, rootTargets, warnings);
+  const projectAgents = await loadProjectAgents(rootPath, sourceDir, rootTargets, warnings);
   const projectIslands = await loadProjectIslands(rootPath, sourceDir, plugins);
 
-  if (plugins.length === 0 && standaloneSkills.length === 0 && rules.length === 0 && projectIslands.length === 0) {
-    throw new Error(`skillset: no source plugins, skills, instructions, or target-native islands found under ${sourceDir}/`);
+  if (plugins.length === 0 && standaloneSkills.length === 0 && rules.length === 0 && projectAgents.length === 0 && projectIslands.length === 0) {
+    throw new Error(`skillset: no source plugins, skills, instructions, project agents, or target-native islands found under ${sourceDir}/`);
   }
 
   const outputRoots = await outputRootsFor(rootPath, outputs, plugins, standaloneSkills, rules);
   validateOutputRoots(rootPath, sourcePath, outputRoots);
-  validateProjectIslandRoots(rootPath, sourcePath, outputRoots, rootTargets, projectIslands);
+  validateProjectRoots(rootPath, sourcePath, outputRoots, rootTargets, projectAgents, projectIslands);
 
   return {
     instructionsDir,
     outputRoots: outputRoots.map((outputRoot) => outputRoot.path),
     plugins,
+    projectAgents,
     projectIslands,
     rules,
     root,
@@ -169,6 +174,106 @@ async function loadTargetIsland(
     target,
     ...(plugin === undefined ? {} : { plugin }),
   }));
+}
+
+async function loadProjectAgents(
+  rootPath: string,
+  sourceDir: string,
+  rootTargets: BuildGraph["root"]["targets"],
+  warnings: string[]
+): Promise<readonly SourceProjectAgent[]> {
+  const agentsPath = resolveInside(rootPath, join(sourceDir, TARGET_NATIVE_SOURCE_DIR, PROJECT_AGENTS_DIR));
+  if (!(await exists(agentsPath))) return [];
+
+  const entries = await readdir(agentsPath, { withFileTypes: true });
+  const agents: SourceProjectAgent[] = [];
+  for (const entry of entries.sort((left, right) => compareStrings(left.name, right.name))) {
+    if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
+    const sourcePath = join(agentsPath, entry.name);
+    agents.push(await loadProjectAgent(rootPath, sourceDir, agentsPath, sourcePath, rootTargets, warnings));
+  }
+
+  validateProjectAgentCollisions(agents);
+  return agents;
+}
+
+async function loadProjectAgent(
+  rootPath: string,
+  sourceDir: string,
+  agentsPath: string,
+  sourcePath: string,
+  parentTargets: BuildGraph["root"]["targets"],
+  warnings: string[]
+): Promise<SourceProjectAgent> {
+  const parts = parseMarkdown(await readFile(sourcePath, "utf8"), sourcePath);
+  const sourceLabel = relative(rootPath, sourcePath);
+  const name = readString(parts.frontmatter, "name") ?? basename(sourcePath, ".md");
+  const outputName = sanitizeProjectAgentName(name, sourcePath);
+  const description = readString(parts.frontmatter, "description");
+  if (description === undefined) {
+    throw new Error(`skillset: ${sourceLabel} project agent requires description`);
+  }
+  if (parts.body.trim().length === 0) {
+    throw new Error(`skillset: ${sourceLabel} project agent requires a Markdown body`);
+  }
+  const initialPrompt = readString(parts.frontmatter, "initialPrompt");
+  if (initialPrompt?.includes("</initial_prompt>")) {
+    throw new Error(`skillset: ${sourceLabel} initialPrompt must not contain </initial_prompt>`);
+  }
+  readStringArray(parts.frontmatter, "skills");
+  const targets = resolveFeatureTargets(parentTargets, parts.frontmatter, sourcePath, "agents");
+  warnPortableModel(parts.frontmatter, targets, rootPath, sourcePath, warnings);
+
+  return {
+    body: parts.body,
+    filename: basename(sourcePath),
+    frontmatter: parts.frontmatter,
+    name,
+    outputName,
+    relativePath: relative(agentsPath, sourcePath),
+    sourcePath: resolveInside(rootPath, relative(rootPath, sourcePath)),
+    targets,
+  };
+}
+
+function sanitizeProjectAgentName(name: string, sourcePath: string): string {
+  const outputName = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (outputName.length === 0) {
+    throw new Error(`skillset: ${sourcePath} project agent name must contain a letter or number`);
+  }
+  return validateSlug(outputName, `project agent output name in ${sourcePath}`);
+}
+
+function validateProjectAgentCollisions(agents: readonly SourceProjectAgent[]): void {
+  const seenOutputPaths = new Map<string, SourceProjectAgent>();
+  const seenTargetNames = new Map<string, SourceProjectAgent>();
+  for (const agent of agents) {
+    for (const target of targetNames()) {
+      if (!agent.targets[target].enabled) continue;
+      const outputKey = `${target}:${agent.outputName}`;
+      const outputExisting = seenOutputPaths.get(outputKey);
+      if (outputExisting !== undefined) {
+        throw new Error(
+          `skillset: project agents ${outputExisting.sourcePath} and ${agent.sourcePath} both generate ${target} agent ${agent.outputName}`
+        );
+      }
+      seenOutputPaths.set(outputKey, agent);
+
+      const targetName = readString(agent.targets[target].options, "name") ?? agent.name;
+      const nameKey = `${target}:${targetName}`;
+      const nameExisting = seenTargetNames.get(nameKey);
+      if (nameExisting !== undefined) {
+        throw new Error(
+          `skillset: project agents ${nameExisting.sourcePath} and ${agent.sourcePath} both generate ${target} agent named ${targetName}`
+        );
+      }
+      seenTargetNames.set(nameKey, agent);
+    }
+  }
 }
 
 /**
@@ -265,7 +370,8 @@ async function loadPlugins(
   rootPath: string,
   sourceDir: string,
   rootTargets: BuildGraph["root"]["targets"],
-  warnings: string[]
+  warnings: string[],
+  codexPluginSelection: OutputSelection
 ): Promise<readonly SourcePlugin[]> {
   const pluginsPath = resolveInside(rootPath, join(sourceDir, PLUGINS_DIR));
   if (!(await exists(pluginsPath))) return [];
@@ -276,7 +382,7 @@ async function loadPlugins(
   for (const entry of entries.sort((left, right) => compareStrings(left.name, right.name))) {
     if (!entry.isDirectory()) continue;
     const id = validateSlug(entry.name, "plugin directory");
-    plugins.push(await loadPlugin(rootPath, sourceDir, id, rootTargets, warnings));
+    plugins.push(await loadPlugin(rootPath, sourceDir, id, rootTargets, warnings, codexPluginSelection));
   }
 
   return plugins;
@@ -287,7 +393,8 @@ async function loadPlugin(
   sourceDir: string,
   id: string,
   parentTargets: BuildGraph["root"]["targets"],
-  warnings: string[]
+  warnings: string[],
+  codexPluginSelection: OutputSelection
 ): Promise<SourcePlugin> {
   const pluginPath = resolveInside(rootPath, join(sourceDir, PLUGINS_DIR, id));
   const configPath = await resolvePluginConfigPath(pluginPath);
@@ -317,6 +424,11 @@ async function loadPlugin(
     warnings.push(
       `plugin ${id} uses a root hooks.json for Codex; Codex's documented default is hooks/hooks.json with a top-level "hooks" object. ` +
         "Move it under hooks/ (create the directory if needed); the build still emits the canonical hooks/hooks.json from the root file for now."
+    );
+  }
+  if (targets.codex.enabled && outputIncludes(codexPluginSelection, id) && (await exists(join(pluginPath, "agents")))) {
+    throw new Error(
+      `skillset: plugin ${id} has Claude plugin agents, but Codex plugins do not support plugin agents in v1; set codex: false for the plugin or move project agents to ${sourceDir}/src/agents`
     );
   }
 
@@ -566,6 +678,59 @@ function outputIncludes(selection: OutputSelection, name: string): boolean {
   return selection.includes(name);
 }
 
+function validateProjectRoots(
+  rootPath: string,
+  sourcePath: string,
+  outputRoots: readonly ActiveOutputRoot[],
+  rootTargets: BuildGraph["root"]["targets"],
+  projectAgents: readonly SourceProjectAgent[],
+  projectIslands: readonly SourceIslandFile[]
+): void {
+  for (const target of targetNames()) {
+    const hasProjectAgentOutput = projectAgents.some((agent) => agent.targets[target].enabled);
+    const hasProjectIslandOutput = projectIslands.some((island) => island.plugin === undefined && island.target === target);
+    if (!hasProjectAgentOutput && !hasProjectIslandOutput) continue;
+    const projectRoot = {
+      label: `${target}.projectRoot`,
+      path: targetProjectRoot(rootTargets, target),
+    };
+    const absoluteProjectRoot = validateOutputRootNotInsideSource(rootPath, sourcePath, projectRoot);
+    const targetProjectAgents = projectAgents.filter((agent) => agent.targets[target].enabled);
+    const targetProjectIslands = projectIslands.filter((island) => island.plugin === undefined && island.target === target);
+    for (const outputRoot of outputRoots) {
+      const absoluteOutputRoot = resolveInside(rootPath, outputRoot.path);
+      if (isSameOrInside(absoluteProjectRoot, absoluteOutputRoot)) {
+        throw new Error(
+          `skillset: ${projectRoot.label} must not overlap active output root ${outputRoot.label} (${outputRoot.path})`
+        );
+      }
+      const overlappingAgent = targetProjectAgents.find((agent) =>
+        isSameOrInside(resolveInside(rootPath, projectAgentOutputPath(projectRoot.path, target, agent)), absoluteOutputRoot)
+      );
+      if (overlappingAgent !== undefined) {
+        throw new Error(
+          `skillset: ${relative(rootPath, overlappingAgent.sourcePath)} would write inside active output root ${outputRoot.label} (${outputRoot.path})`
+        );
+      }
+      const overlappingIsland = targetProjectIslands.find((island) =>
+        isSameOrInside(resolveInside(rootPath, join(projectRoot.path, island.relativePath)), absoluteOutputRoot)
+      );
+      if (overlappingIsland === undefined) continue;
+      throw new Error(
+        `skillset: ${relative(rootPath, overlappingIsland.sourcePath)} would write inside active output root ${outputRoot.label} (${outputRoot.path})`
+      );
+    }
+  }
+}
+
+function targetProjectRoot(rootTargets: BuildGraph["root"]["targets"], target: "claude" | "codex"): string {
+  return readString(rootTargets[target].options, "projectRoot") ?? (target === "claude" ? ".claude" : ".codex");
+}
+
+function projectAgentOutputPath(projectRoot: string, target: "claude" | "codex", agent: SourceProjectAgent): string {
+  return join(projectRoot, "agents", `${agent.outputName}.${target === "claude" ? "md" : "toml"}`);
+}
+
 function validateOutputRoots(
   rootPath: string,
   sourcePath: string,
@@ -574,12 +739,7 @@ function validateOutputRoots(
   const seen = new Map<string, string>();
 
   for (const outputRoot of outputRoots) {
-    const absoluteOutputRoot = resolveInside(rootPath, outputRoot.path);
-    if (isSameOrInside(absoluteOutputRoot, sourcePath)) {
-      throw new Error(
-        `skillset: ${outputRoot.label} must not point inside source root ${relative(rootPath, sourcePath)}`
-      );
-    }
+    const absoluteOutputRoot = validateOutputRootNotInsideSource(rootPath, sourcePath, outputRoot);
 
     const existing = seen.get(absoluteOutputRoot);
     if (existing !== undefined) {
@@ -591,44 +751,18 @@ function validateOutputRoots(
   }
 }
 
-function validateProjectIslandRoots(
+function validateOutputRootNotInsideSource(
   rootPath: string,
   sourcePath: string,
-  outputRoots: readonly ActiveOutputRoot[],
-  rootTargets: BuildGraph["root"]["targets"],
-  projectIslands: readonly SourceIslandFile[]
-): void {
-  for (const target of targetNames()) {
-    if (!projectIslands.some((island) => island.plugin === undefined && island.target === target)) continue;
-
-    const projectRoot = {
-      label: `${target}.projectRoot`,
-      path: readString(rootTargets[target].options, "projectRoot") ?? (target === "claude" ? ".claude" : ".codex"),
-    };
-    const absoluteProjectRoot = resolveInside(rootPath, projectRoot.path);
-    const targetIslands = projectIslands.filter((island) => island.plugin === undefined && island.target === target);
-    if (isSameOrInside(absoluteProjectRoot, sourcePath)) {
-      throw new Error(
-        `skillset: ${projectRoot.label} must not point inside source root ${relative(rootPath, sourcePath)}`
-      );
-    }
-
-    for (const outputRoot of outputRoots) {
-      const absoluteOutputRoot = resolveInside(rootPath, outputRoot.path);
-      if (isSameOrInside(absoluteProjectRoot, absoluteOutputRoot)) {
-        throw new Error(
-          `skillset: ${projectRoot.label} must not overlap active output root ${outputRoot.path}`
-        );
-      }
-      const overlappingIsland = targetIslands.find((island) =>
-        isSameOrInside(resolveInside(rootPath, join(projectRoot.path, island.relativePath)), absoluteOutputRoot)
-      );
-      if (overlappingIsland === undefined) continue;
-      throw new Error(
-        `skillset: ${relative(rootPath, overlappingIsland.sourcePath)} would write inside active output root ${outputRoot.path}`
-      );
-    }
+  outputRoot: ActiveOutputRoot
+): string {
+  const absoluteOutputRoot = resolveInside(rootPath, outputRoot.path);
+  if (isSameOrInside(absoluteOutputRoot, sourcePath)) {
+    throw new Error(
+      `skillset: ${outputRoot.label} must not point inside source root ${relative(rootPath, sourcePath)}`
+    );
   }
+  return absoluteOutputRoot;
 }
 
 function isSameOrInside(candidate: string, parent: string): boolean {

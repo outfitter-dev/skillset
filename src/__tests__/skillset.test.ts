@@ -610,11 +610,6 @@ skillset:
   name: alpha
   description: Alpha plugin.
 `,
-    ".skillset/plugins/alpha/agents/reviewer.md": `
-# Reviewer
-
-Review carefully.
-`,
     ".skillset/plugins/alpha/hooks/hooks.json": `
 {
   "hooks": {
@@ -641,6 +636,12 @@ Alpha body.
 skillset:
   name: beta
   description: Beta plugin.
+codex: false
+`,
+    ".skillset/plugins/beta/agents/reviewer.md": `
+# Reviewer
+
+Review carefully.
 `,
     ".skillset/plugins/beta/skills/beta-skill/SKILL.md": `
 ---
@@ -666,12 +667,17 @@ Beta body.
 
   expect(marketplace).toContain(`"source": "./plugins/alpha"`);
   expect(marketplace).toContain(`"source": "./plugins/beta"`);
-  expect(claudeManifest).toContain(`"agents": "./agents"`);
   expect(claudeManifest).toContain(`"hooks": "./hooks/hooks.json"`);
   expect(codexManifest).not.toContain(`"agents"`);
   expect(codexManifest).toContain(`"hooks": "./hooks/hooks.json"`);
-  expect(await exists(join(root, "plugins-claude/plugins/alpha/agents/reviewer.md"))).toBe(true);
+  const betaClaudeManifest = await readFile(
+    join(root, "plugins-claude/plugins/beta/.claude-plugin/plugin.json"),
+    "utf8"
+  );
+  expect(betaClaudeManifest).toContain(`"agents": "./agents"`);
+  expect(await exists(join(root, "plugins-claude/plugins/beta/agents/reviewer.md"))).toBe(true);
   expect(await exists(join(root, "plugins-codex/plugins/alpha/agents/reviewer.md"))).toBe(false);
+  expect(await exists(join(root, "plugins-codex/plugins/beta/agents/reviewer.md"))).toBe(false);
   // SET-2: Codex hooks emit at the documented hooks/hooks.json path; the legacy
   // root hooks.json source keeps target-specific content (SessionStart here).
   expect(await exists(join(root, "plugins-codex/plugins/alpha/hooks.json"))).toBe(false);
@@ -679,6 +685,383 @@ Beta body.
   expect(codexHook).toContain(`"hooks"`);
   expect(codexHook).toContain("SessionStart");
   expect(codexHook).not.toContain("PreToolUse");
+});
+
+test("portable project agents lower to Claude Markdown and Codex TOML with provenance", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+defaults:
+  codex:
+    agents:
+      skillsPrefaceTemplate: "Required skills:\\n{{skills}}"
+claude: true
+codex: true
+`,
+    ".skillset/shared/templates/body.md": `
+Use the shared review checklist.
+`,
+    ".skillset/shared/templates/prompt.md": `
+smallest complete review
+`,
+    ".skillset/src/agents/reviewer.md": `
+---
+name: Code Reviewer
+description: Reviews project changes.
+skills:
+  - skillset-codex-development
+initialPrompt: "Start with the {{> shared:templates/prompt.md }}"
+codex:
+  model: gpt-5-codex
+  description: Reviews changes through Codex.
+claude:
+  color: blue
+---
+
+Review diffs and call out correctness risks.
+{{> shared:templates/body.md }}
+`,
+  });
+
+  await buildSkillset(root);
+
+  const claudeAgent = await readFile(join(root, ".claude/agents/code-reviewer.md"), "utf8");
+  expect(claudeAgent).toContain(`name: Code Reviewer`);
+  expect(claudeAgent).toContain(`description: Reviews project changes.`);
+  expect(claudeAgent).toContain(`color: blue`);
+  expect(claudeAgent).toContain(`generated: skillset@0.1.0`);
+  expect(claudeAgent).toContain("Review diffs and call out correctness risks.");
+  expect(claudeAgent).toContain("Use the shared review checklist.");
+
+  const codexAgent = await readFile(join(root, ".codex/agents/code-reviewer.toml"), "utf8");
+  expect(codexAgent).toContain(`name = "Code Reviewer"`);
+  expect(codexAgent).toContain(`description = "Reviews changes through Codex."`);
+  expect(codexAgent).toContain(`model = "gpt-5-codex"`);
+  expect(codexAgent).toContain(`developer_instructions = `);
+  expect(codexAgent).toContain("Required skills:");
+  expect(codexAgent).toContain("- skillset-codex-development");
+  expect(codexAgent).toContain("Review diffs and call out correctness risks.");
+  expect(codexAgent).toContain("Use the shared review checklist.");
+  expect(codexAgent).toContain("<initial_prompt>");
+  expect(codexAgent).toContain("Start with the smallest complete review");
+  expect(codexAgent).toContain("[metadata.skillset]");
+  expect(codexAgent.indexOf("Required skills:")).toBeLessThan(codexAgent.indexOf("Review diffs"));
+  expect(codexAgent.indexOf("Review diffs")).toBeLessThan(codexAgent.indexOf("<initial_prompt>"));
+
+  const lock = await readFile(join(root, ".skillset.lock"), "utf8");
+  expect(lock).toContain(`"kind": "project-agent"`);
+  expect(lock).toContain(`"sourcePath": ".skillset/src/agents/reviewer.md"`);
+  expect(lock).toContain(`"outputPath": ".claude/agents/code-reviewer.md"`);
+  expect(lock).toContain(`".codex/agents/code-reviewer.toml"`);
+
+  const explained = await explainPath(root, ".skillset/src/agents/reviewer.md");
+  expect(explained.kind).toBe("source-project-agent");
+  expect(explained.entries[0]?.kind).toBe("project-agent");
+  expect(explained.entries[0]?.validation).toBe("structured");
+  for (const entry of explained.entries) {
+    expect(entry.preprocessDependencies).toContain(".skillset/shared/templates/body.md");
+  }
+  expect(explained.notes[0]).toContain("Project-scoped portable agent");
+
+  const explainedCodexOutput = await explainPath(root, ".codex/agents/code-reviewer.toml");
+  expect(explainedCodexOutput.kind).toBe("generated");
+  expect(explainedCodexOutput.entries[0]?.kind).toBe("project-agent");
+  expect(explainedCodexOutput.entries[0]?.outputPath).toBe(".codex/agents/code-reviewer.toml");
+  expect(explainedCodexOutput.entries[0]?.preprocessDependencies).toContain(".skillset/shared/templates/prompt.md");
+
+  const entries = await listGeneratedEntries(root);
+  expect(entries.some((entry) => entry.kind === "project-agent" && entry.outputPath === ".claude/agents/code-reviewer.md")).toBe(true);
+  expect(entries.some((entry) => entry.kind === "project-agent" && entry.outputPath === ".codex/agents/code-reviewer.toml")).toBe(true);
+});
+
+test("portable project agents support metadata suppression, warnings, and validation", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+compile:
+  skillset:
+    metadata: false
+claude: true
+codex: true
+`,
+    ".skillset/src/agents/reviewer.md": `
+---
+description: Reviews project changes.
+model: opus
+codex:
+  developer_instructions: Use Codex-specific review steps.
+---
+
+Review diffs.
+`,
+  });
+
+  const graph = await loadBuildGraph(root);
+  expect(graph.warnings).toContain(
+    ".skillset/src/agents/reviewer.md uses top-level model, which is not portable in Skillset v1; use claude.model, codex.model, or target defaults for claude, codex."
+  );
+
+  await buildSkillset(root);
+  const claudeAgent = await readFile(join(root, ".claude/agents/reviewer.md"), "utf8");
+  const codexAgent = await readFile(join(root, ".codex/agents/reviewer.toml"), "utf8");
+  expect(claudeAgent).not.toContain("metadata:");
+  expect(codexAgent).not.toContain("[metadata.skillset]");
+  expect(codexAgent).toContain("Use Codex-specific review steps.");
+
+  const closingTagRoot = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude:
+  projectRoot: project-claude
+  userRoot: ~/.claude
+codex:
+  projectRoot: project-codex
+  userRoot: ~/.codex
+`,
+    ".skillset/src/agents/reviewer.md": `
+---
+description: Invalid prompt.
+initialPrompt: "</initial_prompt>"
+---
+
+Review.
+`,
+  });
+  await expect(loadBuildGraph(closingTagRoot)).rejects.toThrow("initialPrompt must not contain </initial_prompt>");
+
+  const preprocessedClosingTagRoot = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude:
+  projectRoot: project-claude
+  userRoot: ~/.claude
+codex:
+  projectRoot: project-codex
+  userRoot: ~/.codex
+`,
+    ".skillset/shared/bad-prompt.md": `
+</initial_prompt>
+`,
+    ".skillset/src/agents/reviewer.md": `
+---
+description: Invalid rendered prompt.
+initialPrompt: "{{> shared:bad-prompt.md }}"
+---
+
+Review.
+`,
+  });
+  await expect(buildSkillset(preprocessedClosingTagRoot)).rejects.toThrow("initialPrompt must not contain </initial_prompt>");
+
+  const collisionRoot = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: true
+`,
+    ".skillset/src/agents/reviewer.md": `
+---
+name: Reviewer
+description: Reviews.
+---
+
+Review.
+`,
+    ".skillset/src/agents/reviewer-copy.md": `
+---
+name: Reviewer!
+description: Reviews too.
+---
+
+Review too.
+`,
+  });
+  await expect(loadBuildGraph(collisionRoot)).rejects.toThrow("both generate claude agent reviewer");
+
+  const targetNameCollisionRoot = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: true
+`,
+    ".skillset/src/agents/reviewer.md": `
+---
+name: Reviewer
+description: Reviews.
+---
+
+Review.
+`,
+    ".skillset/src/agents/auditor.md": `
+---
+name: Auditor
+description: Audits.
+claude:
+  name: Reviewer
+---
+
+Audit.
+`,
+  });
+  await expect(loadBuildGraph(targetNameCollisionRoot)).rejects.toThrow("both generate claude agent named Reviewer");
+});
+
+test("portable project agents preserve unmanaged target project files", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude:
+  projectRoot: project-claude
+  userRoot: ~/.claude
+codex:
+  projectRoot: project-codex
+  userRoot: ~/.codex
+`,
+    ".skillset/src/agents/reviewer.md": `
+---
+description: Reviews project changes.
+---
+
+Review diffs.
+`,
+    "project-claude/settings.json": `
+{"theme":"dark"}
+`,
+    "project-codex/config.toml": `
+model = "gpt-5"
+`,
+  });
+
+  await buildSkillset(root);
+
+  expect(await readFile(join(root, "project-claude/settings.json"), "utf8")).toContain(`"theme":"dark"`);
+  expect(await readFile(join(root, "project-codex/config.toml"), "utf8")).toContain(`model = "gpt-5"`);
+
+  const claudeAgent = await readFile(join(root, "project-claude/agents/reviewer.md"), "utf8");
+  const codexAgent = await readFile(join(root, "project-codex/agents/reviewer.toml"), "utf8");
+  expect(claudeAgent).not.toContain("projectRoot");
+  expect(claudeAgent).not.toContain("userRoot");
+  expect(codexAgent).not.toContain("projectRoot");
+  expect(codexAgent).not.toContain("userRoot");
+  expect(codexAgent).not.toContain("project-root");
+  expect(codexAgent).not.toContain("user-root");
+});
+
+test("portable project agents reject active output roots inside project roots", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude:
+  projectRoot: .claude
+  skills:
+    path: .claude/agents
+codex: false
+`,
+    ".skillset/src/agents/reviewer.md": `
+---
+description: Reviews project changes.
+---
+
+Review diffs.
+`,
+    ".skillset/skills/helper/SKILL.md": `
+---
+description: Helps with project changes.
+---
+
+Help.
+`,
+  });
+
+  await expect(buildSkillset(root)).rejects.toThrow(
+    ".skillset/src/agents/reviewer.md would write inside active output root outputs.skills.claude (.claude/agents)"
+  );
+});
+
+test("Codex plugin agent diagnostics honor root plugin output selection", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex:
+  plugins:
+    - beta
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/agents/reviewer.md": `
+# Reviewer
+
+Review carefully.
+`,
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+---
+name: alpha-skill
+description: Alpha skill.
+---
+
+Alpha body.
+`,
+    ".skillset/plugins/beta/skillset.yaml": `
+skillset:
+  name: beta
+`,
+    ".skillset/plugins/beta/skills/beta-skill/SKILL.md": `
+---
+name: beta-skill
+description: Beta skill.
+---
+
+Beta body.
+`,
+  });
+
+  await buildSkillset(root);
+
+  expect(await exists(join(root, "plugins-claude/plugins/alpha/agents/reviewer.md"))).toBe(true);
+  expect(await exists(join(root, "plugins-codex/plugins/alpha"))).toBe(false);
+  expect(await exists(join(root, "plugins-codex/plugins/beta/skills/beta-skill/SKILL.md"))).toBe(true);
+});
+
+test("Codex-enabled plugin agents fail loudly instead of promoting to project agents", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/agents/reviewer.md": `
+# Reviewer
+
+Review carefully.
+`,
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+---
+name: alpha-skill
+description: Alpha skill.
+---
+
+Alpha body.
+`,
+  });
+
+  await expect(loadBuildGraph(root)).rejects.toThrow("Codex plugins do not support plugin agents in v1");
 });
 
 test("build copies declared shared resources into generated skill folders", async () => {
@@ -1271,7 +1654,7 @@ skillset:
   });
 
   await expect(buildSkillset(root)).rejects.toThrow(
-    "claude.projectRoot must not overlap active output root plugins-claude"
+    "claude.projectRoot must not overlap active output root outputs.plugins.claude (plugins-claude)"
   );
 });
 
@@ -1296,7 +1679,7 @@ skillset:
   });
 
   await expect(buildSkillset(root)).rejects.toThrow(
-    ".skillset/src/claude/plugins/alpha/settings.json would write inside active output root .claude/plugins"
+    ".skillset/src/claude/plugins/alpha/settings.json would write inside active output root outputs.plugins.claude (.claude/plugins)"
   );
 });
 
@@ -2814,6 +3197,75 @@ Alpha body.
 
   await expect(buildSkillset(sourceOverlapRoot)).rejects.toThrow("must not point inside source root");
   expect(await exists(join(sourceOverlapRoot, ".skillset/plugins/alpha/skillset.yaml"))).toBe(true);
+
+  const claudeProjectRootOverlap = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude:
+  projectRoot: .skillset/generated-agents
+codex: false
+`,
+    ".skillset/src/agents/reviewer.md": `
+---
+description: Reviews code.
+---
+
+Review carefully.
+`,
+  });
+
+  await expect(buildSkillset(claudeProjectRootOverlap)).rejects.toThrow("must not point inside source root");
+
+  const codexProjectRootOverlap = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: false
+codex:
+  projectRoot: .skillset/generated-agents
+`,
+    ".skillset/src/agents/reviewer.md": `
+---
+description: Reviews code.
+---
+
+Review carefully.
+`,
+  });
+
+  await expect(buildSkillset(codexProjectRootOverlap)).rejects.toThrow("must not point inside source root");
+
+  const projectRootOutputRootOverlap = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude:
+  projectRoot: plugins-claude
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+---
+name: alpha-skill
+description: Alpha skill.
+---
+
+Alpha body.
+`,
+    ".skillset/src/agents/reviewer.md": `
+---
+description: Reviews code.
+---
+
+Review carefully.
+`,
+  });
+
+  await expect(buildSkillset(projectRootOutputRootOverlap)).rejects.toThrow("must not overlap active output root");
 
   const duplicateRoot = await fixture({
     ".skillset/config.yaml": `
