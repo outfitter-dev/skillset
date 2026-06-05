@@ -1,0 +1,74 @@
+# Agents
+
+Feature id: `agents`
+
+Support vocabulary: [Feature Reference](README.md#support-vocabulary)
+
+Project agents are a portable source surface for reusable, project-scoped specialized roles. Plugin agents remain target-native because Claude documents plugin `agents/` and Codex plugins do not document an equivalent plugin component.
+
+## Authoring
+
+```text
+.skillset/src/agents/*.md
+```
+
+The source is Markdown with YAML frontmatter:
+
+```yaml
+---
+name: Code Reviewer
+description: Reviews project changes.
+skills:
+  - skillset-codex-development
+initialPrompt: Start with the smallest complete review.
+codex:
+  model: gpt-5-codex
+claude:
+  model: sonnet
+---
+
+Review diffs and call out correctness risks.
+```
+
+`description` and a non-empty body are required. `name` is optional and defaults to the source filename stem. Outputs use the resolved `name`, sanitized deterministically, not necessarily the source filename:
+
+```text
+.claude/agents/<resolved-name>.md
+.codex/agents/<resolved-name>.toml
+```
+
+Skillset must keep this separate from plugin `agents/` and skill-local Codex `agents/openai.yaml`. Reusing either surface would hide target differences and make project behavior look portable by accident.
+
+## Support Table
+
+| Source or surface | Claude | Codex | Status | Notes |
+| --- | --- | --- | --- | --- |
+| `.skillset/src/agents/*.md` | `.claude/agents/*.md` | `.codex/agents/*.toml` | `portable` / `implemented` | Target-specific validation runs after lowering. |
+| `.skillset/plugins/<plugin>/agents/**/*.md` | plugin `agents/` | none | `target_native` / `implemented` for Claude, `unsupported` for Codex | Claude plugin agents stay plugin-scoped and must not be copied into Codex plugins. |
+| skill-local `implicit_invocation` | Claude skill frontmatter | Codex `agents/openai.yaml` policy | `portable` / `implemented` | This is skill policy, not a project or plugin custom agent. |
+| skill-local `tool_intent` | Claude allowed/disallowed tool metadata | Codex `.skillset.tools.yaml` metadata | `metadata_only` for Codex | Records intent without mutating user-level config. |
+| `~/.claude/agents` or `~/.codex/agents` writes | user agents | user agents | `future` | User/global writes require explicit setup/review flows and are not a side effect of build. |
+
+## Target Lowering
+
+Claude project agents are Markdown files with YAML frontmatter under `.claude/agents/`. Shared `name`, `description`, `skills`, `initialPrompt`, target-specific `claude.*` fields, and the Markdown body lower into that file. Source-only fields are stripped, and generated Skillset metadata is included unless `compile.skillset.metadata: false` suppresses it.
+
+Codex project agents are standalone TOML files under `.codex/agents/` with `name`, `description`, and `developer_instructions`. Shared `skills` lower to a deterministic preface in `developer_instructions`; configure the preface with `codex.defaults.agents.skillsPrefaceTemplate` or root shorthand `defaults.codex.agents.skillsPrefaceTemplate`. Shared `initialPrompt` is appended inside an `<initial_prompt>...</initial_prompt>` block, and source containing `</initial_prompt>` is rejected so generated instructions cannot break the wrapper. Target-specific `codex.*` fields keep exact TOML names, including `developer_instructions` overrides.
+
+Claude plugin agents are a separate plugin component. Codex plugin docs do not document plugin agents, so copying Claude plugin agents into Codex output would be fake portability. A Codex-enabled plugin with `agents/` fails loudly; set `codex: false` for that plugin or move project-scoped roles to `.skillset/src/agents/`.
+
+## Diagnostics
+
+- Duplicate or invalid resolved agent names fail before writing target files.
+- Missing `description`, empty bodies, invalid `skills`, and unsafe `initialPrompt` values fail before writing target files.
+- Top-level `model` warns unless every enabled target has a target-specific model from `claude.model`, `codex.model`, or target defaults.
+- A Codex-enabled plugin with Claude plugin agents fails instead of silently dropping or promoting them.
+- User/global agent destinations should require explicit future setup workflow, not normal build.
+
+## Provenance
+
+Project-agent outputs record source path, resolved name, target output path, generated files, validation mode, version, and hashes in the root `.skillset.lock`. `skillset list` includes `project-agent` entries, and `skillset explain .skillset/src/agents/<name>.md` points from source to the generated Claude and Codex files.
+
+## Tests and Fixtures
+
+Fixtures cover `.skillset/src/agents/*.md` lowering to both `.claude/agents/*.md` and `.codex/agents/*.toml`, explicit names that differ from filenames, initial prompts, skills prefaces, metadata suppression, target overrides, collisions, unsafe closing tags, and Codex plugin-agent unsupported diagnostics.

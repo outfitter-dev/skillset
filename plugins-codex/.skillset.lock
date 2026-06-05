@@ -1,4 +1,5 @@
 {
+  "buildMode": "updated",
   "generatedBy": "skillset@0.1.0",
   "items": [
     {
@@ -24,16 +25,21 @@
       ],
       "kind": "plugin-skill",
       "name": "use-skillset",
-      "outputHash": "sha256:8bb295d01c13ab00b34324cceb8ede7d72b3eb2d4ace5df5499eb2dc83ccf3e3",
+      "outputHash": "sha256:a42f8e36e65418dd0d954bc62375a3e92a1a88d4ab17238fd9ec6c8e83e858bb",
       "outputPath": "plugins/skillset/skills/use-skillset/SKILL.md",
       "plugin": "skillset",
-      "sourceHash": "sha256:0ad8026f36656d278a4a08b683835eb29555dde5f2234e0e8ba2b9ba66f34f79",
+      "sourceHash": "sha256:03a253e9226ce005cacaade1d85ca52da9ccf1d954fbe2be3afac483724f1cb8",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "version": "0.1.0"
     }
   ],
   "outputRoot": "plugins-codex",
   "schemaVersion": 1,
+  "selectedTargets": [
+    "claude",
+    "codex"
+  ],
+  "skillsetMetadata": true,
   "sourceRoot": ".skillset",
   "target": "codex"
 }

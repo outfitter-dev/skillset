@@ -36,7 +36,7 @@ Create a feature-reference layer for Skillset docs and evolve it toward a schema
 
 - Give authors one index of Skillset features.
 - Give each feature a focused page that explains how to write it in source and how it compiles for Claude and Codex.
-- Make target support explicit: implemented, metadata-only, reserved, planned, deferred, unsupported, and target-native.
+- Make target support explicit: implemented, compat alias, portable, target-native, metadata-only, planned, reserved, deferred, unsupported, lossy, and future.
 - Capture nuances within features, such as `SKILL.md` frontmatter keys, path-scoped instruction frontmatter, hook handler compatibility, and MCP server policy.
 - Let future docs tables be generated from schemas or a feature registry so support flips do not require hand-updating several places.
 - Separate portable feature schemas from Claude and Codex adapter schemas so target support can evolve independently.
@@ -47,6 +47,10 @@ Create a feature-reference layer for Skillset docs and evolve it toward a schema
 - Do not make unsupported target features look portable just because they appear in the reference.
 - Do not replace ADRs. ADRs still record decisions; feature docs describe the current authoring and lowering contract.
 - Do not move activation or trust into `skillset build`. The reference may document hooks, MCP servers, apps, and executables, but build still emits definitions only.
+- Do not implement a settings suggestion/review workflow in v1. Target-native settings may be documented and copied only when explicitly authored and scoped by a later issue; live user/project config mutation is out of scope.
+- Do not introduce shared model/reasoning alias profiles in v1. Use target-native fields such as Claude `model` / `effort` and Codex `model` / `model_reasoning_effort`.
+- Do not introduce first-class `sets` for grouped marketplaces or bundles in v1. CLI scopes and typed entity selectors remain separate.
+- Do not generate `docs/features` from a runtime schema in v1. Manual feature docs come first; registry-backed generation is future work.
 
 ## Documentation Shape
 
@@ -77,11 +81,12 @@ docs/
 
 The index should group features by support shape:
 
-- **Portable**: same intent and close target lowering.
+- **Portable**: same intent and faithful target lowering.
 - **Near match**: similar target concepts that need careful intent modeling.
 - **Target-native**: supported for one target only.
 - **Metadata-only**: preserved for provenance, not enforced by the target.
-- **Reserved / deferred**: named or understood, but not emitted yet.
+- **Reserved / deferred / future**: named or understood, but not emitted yet.
+- **Unsupported / lossy**: cannot lower faithfully for an enabled target without explicit scoping, diagnostics, and provenance.
 
 ## Feature Page Template
 
@@ -223,12 +228,15 @@ Use one support vocabulary everywhere:
 | --- | --- |
 | `implemented` | Parsed, validated, rendered, tested, and documented. |
 | `compat_alias` | Accepted legacy or native spelling that normalizes to the canonical source form. |
+| `portable` | Authored once because enabled targets can represent the same intent faithfully. |
+| `target_native` | Supported only through one target's native source or adapter path. |
 | `metadata_only` | Captured in generated metadata or lock provenance, but not target-enforced. |
 | `planned` | Accepted design with no parser/render support yet. |
 | `reserved` | Recognized vocabulary that fails until provenance and behavior exist. |
 | `deferred` | Intentionally not emitted; documented reason. |
 | `unsupported` | Cannot lower to an enabled target without explicit target scoping or unsupported policy. |
-| `target_native` | Supported only in one target's source/adapter path. |
+| `lossy` | A possible lowering would drop target meaning or behavior; fail unless a future ADR defines visible provenance. |
+| `future` | Outside the v1 contract but tracked as a possible later design. |
 
 This vocabulary should match `docs/target-surfaces.md`, compiler diagnostics, and eventually generated feature pages.
 
@@ -238,21 +246,30 @@ The feature-reference model is especially useful for non-portable concepts.
 
 Claude:
 
-- Has plugin `agents/` subagent markdown files.
+- Has project/user `.claude/agents/*.md` subagent Markdown files.
+- Has plugin `agents/` subagent Markdown files.
 - Has project/user subagent behavior.
 - Exposes agent-related plugin settings and status-line options.
 
 Codex:
 
 - Has skills, plugins, hooks, MCP servers, apps, and skill-local `agents/openai.yaml` policy.
-- Does not currently have a validated plugin `agents/` equivalent in Skillset.
+- Has project/user `.codex/agents/*.toml` custom agents.
+- Does not document a plugin `agents/` equivalent.
 
 Feature page guidance:
 
-- Document Claude `agents/` as target-native.
-- Document Codex agent-like surfaces separately.
-- Reserve a portable "role" or "agent intent" model until the target outcomes are understood.
-- Make `compile.unsupported` fail if a Claude-only agent source is compiled for Codex without explicit target scoping.
+- Document project-scoped agents as planned portable source where target semantics are close enough and validation can stay target-specific.
+- Document Claude plugin `agents/` as target-native.
+- Document Codex project agents and skill-local `agents/openai.yaml` separately so project role behavior is not confused with per-skill policy.
+- Mark Codex plugin `agents/` as unsupported/deferred until Codex documents a plugin component.
+- Make `compile.unsupported` fail if a Claude-only plugin-agent source is compiled for Codex without explicit target scoping or visible unsupported provenance.
+
+## Target Boundary Examples
+
+Codex `AGENTS.md` and Codex `.rules` should not share a feature page as if they were equivalent. `AGENTS.md` is project guidance prose discovered from repo directories. `.rules` files are command execution policy under active Codex config-layer `rules/` directories. Lowering instruction Markdown into `.rules` would be lossy and should fail; mirroring explicitly authored Codex `.rules` through a target-native source island is a separate feature.
+
+Claude plugin-root `bin/` and `settings.json` are now documented target-native components. `bin/` can become a feature-key/source-pointer surface for executable helpers. `settings.json` must remain separate from live user/project settings mutation: Skillset may document or copy explicitly authored plugin settings in a future adapter slice, but v1 does not suggest, install, or mutate runtime config.
 
 ## Example: Skills Frontmatter
 
