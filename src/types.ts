@@ -26,6 +26,7 @@ export interface RootConfig {
 
 export type CompileUnsupportedPolicy = "error" | "warn" | "skip" | "force";
 export type CompileBuildMode = "updated" | "all";
+export type BuildScope = "repo" | "plugins" | "project" | "user";
 
 export interface CompileSkillsetConfig {
   readonly metadata: boolean;
@@ -62,11 +63,23 @@ export interface SourceResource {
 }
 
 export interface SourcePlugin {
+  readonly features: readonly SourcePluginFeature[];
   readonly id: string;
   readonly metadata: JsonRecord;
   readonly path: string;
   readonly skills: readonly SourceSkill[];
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
+}
+
+export type SourcePluginFeatureKey = "bin" | "mcp";
+export type SourcePluginFeatureOrigin = "conventional" | "explicit";
+
+export interface SourcePluginFeature {
+  readonly key: SourcePluginFeatureKey;
+  readonly origin: SourcePluginFeatureOrigin;
+  readonly sourcePath: string;
+  readonly sourcePointer?: string;
+  readonly targetPath: string;
 }
 
 export interface StandaloneSkill extends SourceSkill {}
@@ -75,6 +88,24 @@ export interface SourceRule {
   readonly body: string;
   readonly frontmatter: JsonRecord;
   readonly id: string;
+  readonly relativePath: string;
+  readonly sourcePath: string;
+  readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
+}
+
+export interface SourceIslandFile {
+  readonly plugin?: string;
+  readonly relativePath: string;
+  readonly sourcePath: string;
+  readonly target: TargetName;
+}
+
+export interface SourceProjectAgent {
+  readonly body: string;
+  readonly filename: string;
+  readonly frontmatter: JsonRecord;
+  readonly name: string;
+  readonly outputName: string;
   readonly relativePath: string;
   readonly sourcePath: string;
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
@@ -98,6 +129,8 @@ export interface BuildGraph {
   readonly instructionsDir: string;
   readonly outputRoots: readonly string[];
   readonly plugins: readonly SourcePlugin[];
+  readonly projectAgents: readonly SourceProjectAgent[];
+  readonly projectIslands: readonly SourceIslandFile[];
   readonly rules: readonly SourceRule[];
   readonly root: RootConfig;
   readonly rootPath: string;
@@ -114,7 +147,26 @@ export interface RenderedFile {
   readonly sourcePath?: string;
 }
 
+export interface GeneratedEntry {
+  readonly feature?: string;
+  readonly origin?: string;
+  readonly kind?: string;
+  readonly outputHash?: string;
+  readonly outputPath: string;
+  readonly outputRoot: string;
+  readonly preprocessDependencies?: readonly string[];
+  readonly sourceHash?: string;
+  readonly sourcePath: string;
+  readonly sourcePointer?: string;
+  readonly target: string;
+  readonly targetState?: string;
+  readonly validation?: string;
+  readonly version?: string;
+}
+
 export interface SkillsetOptions {
+  readonly buildMode?: CompileBuildMode;
+  readonly scopes?: readonly BuildScope[];
   readonly distDir?: string;
   readonly sourceDir?: string;
 }

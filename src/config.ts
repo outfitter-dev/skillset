@@ -13,7 +13,9 @@ import type {
 import { isJsonRecord } from "./yaml";
 
 const TARGET_NAMES: readonly TargetName[] = ["claude", "codex"];
-const DEFAULT_SURFACES = new Set(["instructions", "plugins", "skills"]);
+export type FeatureSurface = "agents" | "instructions" | "plugins" | "skills";
+
+const DEFAULT_SURFACES = new Set<FeatureSurface>(["agents", "instructions", "plugins", "skills"]);
 const CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "claude", "codex", "defaults", "skillset"]);
 const ROOT_CONFIG_TOP_LEVEL_KEYS = new Set([...CONFIG_TOP_LEVEL_KEYS, "compile"]);
 const COMPILE_BUILD_MODES = new Set<CompileBuildMode>(["updated", "all"]);
@@ -26,11 +28,13 @@ const COMPILE_UNSUPPORTED_POLICIES = new Set<CompileUnsupportedPolicy>([
 const SOURCE_ONLY_KEYS = new Set([
   "agents",
   "allowed_tools",
+  "bin",
   "claude",
   "compile",
   "codex",
   "defaults",
   "implicit_invocation",
+  "mcp",
   "model",
   "resources",
   "schema",
@@ -209,12 +213,13 @@ export function readOutputConfig(
 export function validateConfigDocument(
   record: JsonRecord,
   label: string,
-  options: { readonly allowCompile?: boolean } = {}
+  options: { readonly allowCompile?: boolean; readonly featureKeys?: readonly string[] } = {}
 ): void {
   rejectTargetsKey(record, label);
   const supportedKeys = options.allowCompile === true ? ROOT_CONFIG_TOP_LEVEL_KEYS : CONFIG_TOP_LEVEL_KEYS;
+  const featureKeys = new Set(options.featureKeys ?? []);
   for (const key of Object.keys(record)) {
-    if (!supportedKeys.has(key)) {
+    if (!supportedKeys.has(key) && !featureKeys.has(key)) {
       throw new Error(`skillset: unsupported top-level key ${key} in ${label}`);
     }
   }
@@ -249,7 +254,7 @@ export function resolveFeatureTargets(
   parent: Readonly<Record<TargetName, ResolvedTarget>>,
   record: JsonRecord,
   label: string,
-  surface: "instructions" | "plugins" | "skills",
+  surface: FeatureSurface,
   options: {
     readonly allowDefaults?: boolean;
     readonly objectInheritsEnabled?: boolean;
@@ -260,7 +265,7 @@ export function resolveFeatureTargets(
 
 export function applyFeatureTargetDefaults(
   targets: Readonly<Record<TargetName, ResolvedTarget>>,
-  surface: "instructions" | "plugins" | "skills"
+  surface: FeatureSurface
 ): Readonly<Record<TargetName, ResolvedTarget>> {
   return {
     claude: applyFeatureDefaults(targets.claude, surface),
@@ -459,9 +464,9 @@ function readShorthandTargetDefaults(
 
 function validateDefaultSurfaces(defaults: JsonRecord, label: string): void {
   for (const key of Object.keys(defaults)) {
-    if (!DEFAULT_SURFACES.has(key)) {
+    if (!DEFAULT_SURFACES.has(key as FeatureSurface)) {
       throw new Error(
-        `skillset: unsupported defaults surface ${JSON.stringify(key)} in ${label}; expected instructions, plugins, or skills`
+        `skillset: unsupported defaults surface ${JSON.stringify(key)} in ${label}; expected agents, instructions, plugins, or skills`
       );
     }
   }
@@ -489,7 +494,7 @@ function mergeTargetDefault(target: ResolvedTarget, defaults: JsonRecord): Resol
 
 function applyFeatureDefaults(
   target: ResolvedTarget,
-  surface: "instructions" | "plugins" | "skills"
+  surface: FeatureSurface
 ): ResolvedTarget {
   const defaults = readRecord(target.options, "defaults");
   if (defaults === undefined) return target;
