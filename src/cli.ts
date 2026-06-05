@@ -74,7 +74,9 @@ async function main(): Promise<void> {
   if (command === "list") {
     const entries = await listGeneratedEntries(rootPath, options);
     for (const entry of entries) {
-      console.log(`  [${entry.target}] ${entry.kind ?? "generated"} ${entry.sourcePath} -> ${entry.outputPath}`);
+      const feature = entry.feature === undefined ? "" : ` ${entry.feature}`;
+      const origin = entry.origin === undefined ? "" : ` (${entry.origin})`;
+      console.log(`  [${entry.target}] ${entry.kind ?? "generated"}${feature}${origin} ${entry.sourcePath} -> ${entry.outputPath}`);
     }
     console.log(`skillset: listed ${entries.length} generated entries`);
     return;
@@ -91,6 +93,9 @@ async function main(): Promise<void> {
       if (entry.version !== undefined) console.log(`    version: ${entry.version}`);
       if (entry.targetState !== undefined) console.log(`    target state: ${entry.targetState}`);
       if (entry.validation !== undefined) console.log(`    validation: ${entry.validation}`);
+      if (entry.feature !== undefined) console.log(`    feature: ${entry.feature}`);
+      if (entry.origin !== undefined) console.log(`    origin: ${entry.origin}`);
+      if (entry.sourcePointer !== undefined) console.log(`    source pointer: ${entry.sourcePointer}`);
       if (entry.preprocessDependencies !== undefined && entry.preprocessDependencies.length > 0) {
         console.log(`    preprocess dependencies: ${entry.preprocessDependencies.join(", ")}`);
       }

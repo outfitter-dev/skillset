@@ -19,9 +19,12 @@ import { compareStrings, resolveInside, validateSlug } from "./path";
 import { readSkillResources } from "./resources";
 import type {
   BuildGraph,
+  JsonRecord,
   OutputSelection,
   SkillsetOptions,
   SourcePlugin,
+  SourcePluginFeature,
+  SourcePluginFeatureKey,
   SourceIslandFile,
   SourceProjectAgent,
   SourceRule,
@@ -42,6 +45,7 @@ const SKILL_FILE = "SKILL.md";
 const RULES_OUTPUT_ROOT = ".claude/rules";
 const TARGET_NATIVE_SOURCE_DIR = "src";
 const PROJECT_AGENTS_DIR = "agents";
+const PLUGIN_FEATURE_KEYS: readonly SourcePluginFeatureKey[] = ["bin", "mcp"];
 
 export async function loadBuildGraph(
   rootPath: string,
@@ -79,7 +83,7 @@ export async function loadBuildGraph(
   };
 
   const warnings: string[] = [];
-  const plugins = await loadPlugins(rootPath, sourceDir, rootTargets, warnings, outputs.targetOutputs.codex.plugins);
+  const plugins = await loadPlugins(rootPath, sourceDir, rootTargets, warnings, outputs);
   const standaloneSkills = await loadStandaloneSkills(rootPath, sourceDir, rootTargets, warnings);
   const { rules, instructionsDir } = await loadInstructions(rootPath, sourceDir, rootTargets, warnings);
   const projectAgents = await loadProjectAgents(rootPath, sourceDir, rootTargets, warnings);
@@ -375,7 +379,7 @@ async function loadPlugins(
   sourceDir: string,
   rootTargets: BuildGraph["root"]["targets"],
   warnings: string[],
-  codexPluginSelection: OutputSelection
+  outputs: BuildGraph["root"]["outputs"]
 ): Promise<readonly SourcePlugin[]> {
   const pluginsPath = resolveInside(rootPath, join(sourceDir, PLUGINS_DIR));
   if (!(await exists(pluginsPath))) return [];
@@ -386,7 +390,7 @@ async function loadPlugins(
   for (const entry of entries.sort((left, right) => compareStrings(left.name, right.name))) {
     if (!entry.isDirectory()) continue;
     const id = validateSlug(entry.name, "plugin directory");
-    plugins.push(await loadPlugin(rootPath, sourceDir, id, rootTargets, warnings, codexPluginSelection));
+    plugins.push(await loadPlugin(rootPath, sourceDir, id, rootTargets, warnings, outputs));
   }
 
   return plugins;
@@ -398,12 +402,12 @@ async function loadPlugin(
   id: string,
   parentTargets: BuildGraph["root"]["targets"],
   warnings: string[],
-  codexPluginSelection: OutputSelection
+  outputs: BuildGraph["root"]["outputs"]
 ): Promise<SourcePlugin> {
   const pluginPath = resolveInside(rootPath, join(sourceDir, PLUGINS_DIR, id));
   const configPath = await resolvePluginConfigPath(pluginPath);
   const config = parseYamlRecord(await readFile(configPath, "utf8"), configPath);
-  validateConfigDocument(config, configPath);
+  validateConfigDocument(config, configPath, { featureKeys: PLUGIN_FEATURE_KEYS });
   const metadata = readSkillsetMetadata(config, configPath);
   validateSchemaField(metadata, `${configPath}.skillset.schema`);
   validateVersionField(metadata, `${configPath}.skillset.version`);
@@ -419,6 +423,17 @@ async function loadPlugin(
     allowDefaults: true,
   });
   const targets = applyFeatureTargetDefaults(inheritedTargets, "plugins");
+  const codexPluginSelection = outputs.targetOutputs.codex.plugins;
+  const features = await loadPluginFeatures(
+    rootPath,
+    pluginPath,
+    config,
+    configPath,
+    targets,
+    id,
+    codexPluginSelection,
+    configuredOutputRoots(outputs)
+  );
   const skills = await loadSkills(rootPath, sourceDir, pluginPath, inheritedTargets, warnings);
 
   // SET-2: Codex's documented plugin hook default is hooks/hooks.json. A root
@@ -436,7 +451,123 @@ async function loadPlugin(
     );
   }
 
-  return { id, metadata, path: pluginPath, skills, targets };
+  return { features, id, metadata, path: pluginPath, skills, targets };
+}
+
+async function loadPluginFeatures(
+  rootPath: string,
+  pluginPath: string,
+  config: JsonRecord,
+  configPath: string,
+  targets: SourcePlugin["targets"],
+  pluginId: string,
+  codexPluginSelection: OutputSelection,
+  outputRoots: readonly ActiveOutputRoot[]
+): Promise<readonly SourcePluginFeature[]> {
+  const features: SourcePluginFeature[] = [];
+  for (const key of PLUGIN_FEATURE_KEYS) {
+    const feature = await loadPluginFeature(
+      rootPath,
+      pluginPath,
+      config,
+      configPath,
+      targets,
+      pluginId,
+      codexPluginSelection,
+      outputRoots,
+      key
+    );
+    if (feature !== undefined) features.push(feature);
+  }
+  return features.sort((left, right) => compareStrings(left.key, right.key));
+}
+
+async function loadPluginFeature(
+  rootPath: string,
+  pluginPath: string,
+  config: JsonRecord,
+  configPath: string,
+  targets: SourcePlugin["targets"],
+  pluginId: string,
+  codexPluginSelection: OutputSelection,
+  outputRoots: readonly ActiveOutputRoot[],
+  key: SourcePluginFeatureKey
+): Promise<SourcePluginFeature | undefined> {
+  const raw = config[key];
+  if (raw === false) return undefined;
+
+  const targetPath = pluginFeatureTargetPath(key);
+  const conventionalSource = join(pluginPath, targetPath);
+  const hasConventionalSource = await exists(conventionalSource);
+  let sourcePath: string | undefined;
+  let sourcePointer: string | undefined;
+  let origin: SourcePluginFeature["origin"] = "conventional";
+
+  if (raw === undefined) {
+    if (!hasConventionalSource) return undefined;
+    sourcePath = conventionalSource;
+  } else if (raw === true) {
+    if (!hasConventionalSource) {
+      throw new Error(`skillset: plugin ${pluginId} feature ${key}: true requires conventional source ${relative(rootPath, conventionalSource)}`);
+    }
+    sourcePath = conventionalSource;
+  } else if (isJsonRecord(raw)) {
+    sourcePointer = readString(raw, "source");
+    if (sourcePointer === undefined) {
+      throw new Error(`skillset: plugin ${pluginId} feature ${key} requires source`);
+    }
+    sourcePath = await resolveRepoSourcePointer(rootPath, sourcePointer, `${configPath}.${key}.source`, outputRoots);
+    origin = "explicit";
+  } else {
+    throw new Error(`skillset: expected ${configPath}.${key} to be true, false, or an object`);
+  }
+
+  if (key === "bin" && targets.codex.enabled && outputIncludes(codexPluginSelection, pluginId)) {
+    throw new Error(
+      `skillset: plugin ${pluginId} feature bin is Claude-only in v1; set bin: false, set codex: false for the plugin, or remove Codex plugin output selection`
+    );
+  }
+  const stats = await stat(sourcePath);
+  if (key === "mcp" && !stats.isFile()) {
+    throw new Error(`skillset: plugin ${pluginId} feature mcp source must be a file`);
+  }
+  if (key === "bin" && !stats.isDirectory()) {
+    throw new Error(`skillset: plugin ${pluginId} feature bin source must be a directory`);
+  }
+
+  return {
+    key,
+    origin,
+    sourcePath,
+    ...(sourcePointer === undefined ? {} : { sourcePointer }),
+    targetPath,
+  };
+}
+
+function pluginFeatureTargetPath(key: SourcePluginFeatureKey): string {
+  return key === "mcp" ? ".mcp.json" : "bin";
+}
+
+async function resolveRepoSourcePointer(
+  rootPath: string,
+  sourcePointer: string,
+  label: string,
+  outputRoots: readonly ActiveOutputRoot[]
+): Promise<string> {
+  if (!sourcePointer.startsWith("repo:")) {
+    throw new Error(`skillset: ${label} must use a repo:<path> source pointer`);
+  }
+  const sourcePath = resolveInside(rootPath, sourcePointer.slice("repo:".length));
+  const outputRoot = outputRoots.find((root) => isInsidePath(sourcePath, resolveInside(rootPath, root.path)));
+  if (outputRoot !== undefined) {
+    throw new Error(
+      `skillset: ${label} points inside generated output root ${outputRoot.label} (${outputRoot.path}); feature sources must live outside generated outputs`
+    );
+  }
+  if (!(await exists(sourcePath))) {
+    throw new Error(`skillset: ${label} points to missing path ${sourcePointer}`);
+  }
+  return sourcePath;
 }
 
 async function resolvePluginConfigPath(pluginPath: string): Promise<string> {
@@ -680,6 +811,11 @@ function outputIncludes(selection: OutputSelection, name: string): boolean {
   if (selection === true) return true;
   if (selection === false) return false;
   return selection.includes(name);
+}
+
+function isInsidePath(path: string, root: string): boolean {
+  const relativePath = relative(root, path);
+  return relativePath === "" || (!relativePath.startsWith("..") && !relativePath.includes(`..${sep}`));
 }
 
 function validateProjectRoots(

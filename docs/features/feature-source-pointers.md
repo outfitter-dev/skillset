@@ -8,7 +8,7 @@ Feature source pointers let a feature own external repo files without a generic 
 
 ## Authoring
 
-SET-26 defines the planned feature-key shape:
+Feature keys support boolean and object forms:
 
 ```yaml
 mcp: true
@@ -20,36 +20,37 @@ bin:
   source: repo:tools/docs-cli/bin
 ```
 
-`true` means discover conventional local files for that feature. `false` disables conventional discovery. Object form configures an explicit source pointer. The `repo:` scheme points inside the content repository and must not traverse outside it.
+`true` means require the conventional local file or directory for that feature. `false` disables conventional discovery even when the conventional path exists. Object form configures an explicit source pointer. The `repo:` scheme points inside the content repository and must not traverse outside it.
 
 ## Support Table
 
 | Feature key | Claude | Codex | Status | Notes |
 | --- | --- | --- | --- | --- |
-| `mcp` | `.mcp.json` / manifest field | `.mcp.json` / manifest field | `planned` | Exact source path and validation are feature-owned. |
+| `mcp` | `.mcp.json` / manifest field | `.mcp.json` / manifest field | `implemented` | Conventional `.skillset/plugins/<plugin>/.mcp.json` is auto-discovered. `mcp.source` can point at a repo-owned JSON file. |
 | `apps` | n/a | `.app.json` / manifest field | `target_native` / `planned` | Codex-only plugin surface. |
 | `hooks` | `hooks/hooks.json` | `hooks/hooks.json` | `implemented` / `planned` | Existing canonical path and Codex compatibility root hook behavior continue; SET-26 expands feature-key discovery. |
-| `bin` | plugin-root `bin/` | `future` / `unsupported` | `target_native` / `planned` for Claude | Claude docs document `bin/`; Codex support needs explicit target evidence before enabling. |
+| `bin` | plugin-root `bin/` | `unsupported` | `target_native` / `implemented` for Claude | Conventional `.skillset/plugins/<plugin>/bin/` is auto-discovered. `bin.source` can point at a repo-owned directory. Enabled Codex plugin output fails loudly. |
 | generic `components.*` | n/a | n/a | `unsupported` | Rejected v1 shape because ownership and target semantics become vague. |
 
 ## Target Lowering
 
-Feature pointers should be resolved by the feature adapter that knows the target schema and output path. A pointer should not bypass validation, provenance, or unsupported-target checks. Conventional discovery must be warning-free when it finds expected files, and visible when a feature is disabled or unsupported for an enabled target.
+Feature pointers are resolved by the feature adapter that knows the target schema and output path. A pointer does not bypass validation, provenance, or unsupported-target checks. Conventional discovery is warning-free when it finds expected files, and disabled or unsupported features are visible through missing output, lock provenance, or fail-loud diagnostics.
 
-Claude plugin-root `bin/` is a documented target-native component. It can be represented through a `bin` feature key once the adapter support registry records target support and output ownership. Plugin-root `settings.json` is target-native too, but live settings suggestion and mutation remain future-only.
+Claude plugin-root `bin/` is a documented target-native component added to the Bash tool `PATH` while the plugin is enabled. It is copied into Claude plugin output and recorded as a `plugin-feature` lock entry, but it does not add a manifest field. Plugin-root `settings.json` is target-native too, but live settings suggestion and mutation remain future-only.
 
 ## Diagnostics
 
 - Reject `repo:` pointers that escape the repository root.
 - Reject pointers whose feature key is unknown or unsupported for every enabled target.
+- Reject `mcp` sources that are not files and `bin` sources that are not directories.
 - Validate known structured files after preprocessing.
 - Report conventional discovery in list/explain/lock provenance so auto-enabled files do not feel magical.
 - Fail rather than silently skip when a feature cannot lower to an enabled target.
 
 ## Provenance
 
-Locks should record the feature key, source pointer, target support status, discovered convention or explicit pointer, generated path, source hash, output hash, and any skipped/unsupported target state. `skillset list` and `skillset explain` should eventually show whether a feature came from convention, explicit source, or target-native island.
+Locks record the feature key, source pointer when present, target support status, discovered convention or explicit pointer, generated path, source hash, output hash, and target state. `skillset list` and `skillset explain` show whether a generated plugin feature came from convention or an explicit source pointer.
 
 ## Tests and Fixtures
 
-SET-26 should add fixtures for `true`, `false`, and object forms, safe `repo:` path resolution, conventional discovery, target-specific unsupported behavior, and lock/list/explain provenance.
+Fixtures cover `true`, `false`, and object forms, safe `repo:` path resolution, missing pointer diagnostics, conventional discovery, target-specific unsupported behavior, divergent output collisions, and lock/list/explain provenance.
