@@ -6,6 +6,8 @@ Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
 Feature source pointers let a feature own external repo files without a generic component bucket or symlinks. The pointer lives on the feature key that understands the file, so target support and diagnostics remain feature-specific.
 
+The implemented v1 feature-key adapters are `mcp` and `bin`. Other plugin companion surfaces can still be implemented target-native pass-through paths, but they do not accept `*.source` pointer syntax until a later adapter owns that feature.
+
 ## Authoring
 
 Feature keys support boolean and object forms:
@@ -27,14 +29,16 @@ bin:
 | Feature key | Claude | Codex | Status | Notes |
 | --- | --- | --- | --- | --- |
 | `mcp` | `.mcp.json` / manifest field | `.mcp.json` / manifest field | `implemented` | Conventional `.skillset/plugins/<plugin>/.mcp.json` is auto-discovered. `mcp.source` can point at a repo-owned JSON file. |
-| `apps` | n/a | `.app.json` / manifest field | `target_native` / `planned` | Codex-only plugin surface. |
-| `hooks` | `hooks/hooks.json` | `hooks/hooks.json` | `implemented` / `planned` | Existing canonical path and Codex compatibility root hook behavior continue; SET-26 expands feature-key discovery. |
 | `bin` | plugin-root `bin/` | `unsupported` | `target_native` / `implemented` for Claude | Conventional `.skillset/plugins/<plugin>/bin/` is auto-discovered. `bin.source` can point at a repo-owned directory. Enabled Codex plugin output fails loudly. |
+| `apps` | n/a | `.app.json` / manifest field | `target_native` / `implemented pass-through`, `planned` pointer adapter | `.app.json` is copied as a native companion path today. `apps.source` is not supported. |
+| `hooks` | `hooks/hooks.json` | `hooks/hooks.json` | `target_native` / `implemented pass-through`, `planned` pointer adapter | Existing canonical path and Codex compatibility root hook behavior continue. `hooks.source` is not supported. |
 | generic `components.*` | n/a | n/a | `unsupported` | Rejected v1 shape because ownership and target semantics become vague. |
 
 ## Target Lowering
 
 Feature pointers are resolved by the feature adapter that knows the target schema and output path. A pointer does not bypass validation, provenance, or unsupported-target checks. Conventional discovery is warning-free when it finds expected files, and disabled or unsupported features are visible through missing output, lock provenance, or fail-loud diagnostics.
+
+Pass-through companion paths such as Codex `.app.json` and plugin `hooks/hooks.json` are implemented through their native path renderers, not through feature-key pointer adapters. Authors should place those files in their conventional source paths until a future issue explicitly adds `apps.source` or `hooks.source`.
 
 Claude plugin-root `bin/` is a documented target-native component added to the Bash tool `PATH` while the plugin is enabled. It is copied into Claude plugin output and recorded as a `plugin-feature` lock entry, but it does not add a manifest field. Plugin-root `settings.json` is target-native too, but live settings suggestion and mutation remain future-only.
 
