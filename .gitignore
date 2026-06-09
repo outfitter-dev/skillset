@@ -1,4 +1,8 @@
 node_modules/
+dist/
 .DS_Store
+.env
+.env.*
+.envrc
 .claude/settings.local.json
 .scratch/

@@ -2,4 +2,4 @@
 
 import { reportCliError, runCli } from "./cli-core";
 
-runCli().catch(reportCliError);
+runCli(process.argv.slice(2), "create-skillset").catch(reportCliError);

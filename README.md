@@ -2,7 +2,7 @@
 
 `skillset` compiles portable agent plugin and skill source into target-native Claude and Codex outputs.
 
-It is developed as public source under Outfitter. The package remains marked private for now to prevent accidental npm publication while the compiler contract is still settling.
+It is developed as public source under Outfitter. The npm package is published under the `beta` tag while the compiler contract is still settling; `latest` remains reserved for stable releases.
 
 This repo also self-hosts a small `.skillset/` source tree:
 
@@ -75,7 +75,7 @@ skillset create
 skillset create team-loadout --name team-loadout --targets claude,codex --yes
 ```
 
-For a user-global source checkout, `skillset create --global` defaults to `~/.skillset/src`. This is still Skillset-owned source, not a live Claude or Codex runtime directory. The corresponding preview/build area is documented as `~/.skillset/build`, but setup does not create it or write to `~/.claude`, `~/.codex`, or `.agents`. Future package-manager bootstraps such as `npx create-skillset` and `bunx create-skillset` are aliases for the same `create` flow; publication remains deferred while the package is private.
+For a user-global source checkout, `skillset create --global` defaults to `~/.skillset/src`. This is still Skillset-owned source, not a live Claude or Codex runtime directory. The corresponding preview/build area is documented as `~/.skillset/build`, but setup does not create it or write to `~/.claude`, `~/.codex`, or `.agents`. The beta package requires Bun and ships Bun-built JavaScript bins for `skillset` and `create-skillset`; it can be run through package managers with commands such as `npx skillset@beta create` or `bunx skillset@beta create`. Setup still routes through the same plan-first `create` flow.
 
 Setup commands create only source files: `.skillset/config.yaml`, `.skillset/src/.gitkeep`, and optional `.skillset/instructions/project.md`, `.skillset/src/agents/`, `.skillset/src/claude/`, and `.skillset/src/codex/rules/` placeholders when requested. The generated config uses `compile.targets`; target adapter config still belongs in `claude` and `codex` blocks or root `defaults.<target>.<surface>`.
 
