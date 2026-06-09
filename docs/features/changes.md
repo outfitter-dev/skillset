@@ -18,7 +18,7 @@ Compact ids are generated once at scaffold time as 12 lower-case hex characters.
 | --- | --- | --- | --- | --- |
 | Source-unit inventory | n/a | n/a | `implemented` | `skillset change status` hashes supported source units with schema `skillset-source-unit-v1`. |
 | `skillset change status --since <ref>` | n/a | n/a | `implemented` | Read-only comparison against a git ref; generated-output drift is reported separately. |
-| `.skillset/changes/pending/*.md` | n/a | n/a | `planned` | Parsed by change commands; not target output. |
+| `.skillset/changes/pending/*.md` | n/a | n/a | `implemented` | Parsed and validated by `skillset change check`; not target output. Scaffold/list/history commands are planned. |
 | `.skillset/changes/history.jsonl` | n/a | n/a | `planned` | Append-only applied history. |
 | `.skillset/changes/baseline` records | n/a | n/a | `planned` | Explicit hash-schema baseline records, not changelog entries. |
 
@@ -26,7 +26,9 @@ Compact ids are generated once at scaffold time as 12 lower-case hex characters.
 
 `skillset change status --since <ref>` compares current source units with the selected git ref without writing generated output. It reports source changes needing entries and then reports generated-output drift as a separate section. The default baseline tries future release records first, then source-inventory locks when present, then git merge-base.
 
-`skillset change check` remains planned. It will validate entry ids, scopes, bumps, reason bodies, hash freshness, duplicate ids, group shape, and bump overrides. Source coverage diagnostics stay separate from generated-output drift.
+`skillset change check` validates pending entry ids, duplicate ids, scopes, bumps, required reason bodies, source hash evidence, group shape, and coverage for current source changes. Entries can cover multiple scopes, carry `ignored: true`, and use `group` for external issue or change grouping metadata. `external.*` is rejected in v1 so issue ids do not get duplicated outside `group`. Refs resolve as `@<hex-prefix>` with at least 6 hex characters, and ambiguous prefixes fail with candidate refs.
+
+`change check` also warns when an entry declares `bump: none` for an added, removed, or severity-bearing source unit. `supports` edits remain source-significant but are not inherently severity-bearing. Source coverage diagnostics stay separate from generated-output drift.
 
 ## Provenance
 
@@ -36,7 +38,7 @@ Change entries participate in source provenance because they explain current sou
 
 ## Tests and Fixtures
 
-Fixtures cover unchanged deterministic status, body edits, source-only support/dependency metadata edits, plugin child edits that affect aggregate plugin identity without a version bump, read-only CLI behavior, and generated-output drift separation.
+Fixtures cover unchanged deterministic status, body edits, source-only support/dependency metadata edits, plugin child edits that affect aggregate plugin identity without a version bump, partial dependency hashing, read-only CLI behavior, generated-output drift separation, pending-entry coverage failures, multi-scope pending entries, invalid pending entry diagnostics, and ambiguous ref resolution.
 
 ## Evidence
 

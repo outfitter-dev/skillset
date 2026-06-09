@@ -60,7 +60,9 @@ export type SourceUnitChangeStatus = "added" | "changed" | "removed";
 
 export interface SourceUnitChange {
   readonly baselineHash?: string;
+  readonly baselineRegions?: readonly SourceUnitRegion[];
   readonly currentHash?: string;
+  readonly currentRegions?: readonly SourceUnitRegion[];
   readonly id: string;
   readonly kind: SourceUnitKind;
   readonly sourcePath: string;
@@ -654,6 +656,7 @@ function compareInventories(
     if (previous === undefined) {
       changes.push({
         currentHash: unit.hash,
+        currentRegions: unit.regions,
         id: unit.id,
         kind: unit.kind,
         sourcePath: unit.sourcePath,
@@ -664,7 +667,9 @@ function compareInventories(
     if (previous.hash === unit.hash) continue;
     changes.push({
       baselineHash: previous.hash,
+      baselineRegions: previous.regions,
       currentHash: unit.hash,
+      currentRegions: unit.regions,
       id: unit.id,
       kind: unit.kind,
       sourcePath: unit.sourcePath,
@@ -676,6 +681,7 @@ function compareInventories(
     if (currentById.has(unit.id)) continue;
     changes.push({
       baselineHash: unit.hash,
+      baselineRegions: unit.regions,
       id: unit.id,
       kind: unit.kind,
       sourcePath: unit.sourcePath,

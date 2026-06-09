@@ -1,5 +1,6 @@
 import { basename, resolve } from "node:path";
 
+import { changeCheck, type ChangeCheckReport } from "./change-entries";
 import { changeStatus, type ChangeStatusReport } from "./change-status";
 import { doctorSkillset, explainPath, listGeneratedEntries } from "./authoring";
 import { buildSkillset, checkSkillset, diffSkillset } from "./build";
@@ -9,12 +10,13 @@ import { createSkillset, initSkillset, type SetupReport } from "./setup";
 import type { BuildScope, CompileBuildMode, SkillsetOptions, TargetName } from "./types";
 
 type Command = "build" | "change" | "check" | "create" | "diff" | "doctor" | "explain" | "import" | "init" | "lint" | "list";
-type ChangeSubcommand = "status";
+type ChangeSubcommand = "check" | "status";
 
 const USAGE = [
   "usage: skillset build [--yes|--dry-run] [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset <check|diff|doctor|lint|list> [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change status [--since <ref>] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset change check [@ref|--ref <ref>] [--since <ref>] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset init [path] [--yes|--dry-run] [--targets claude,codex] [--with-project-doc] [--with-agents] [--with-islands] [--name <name>] [--root <path>]",
   "       skillset create [path|--global] [--yes|--dry-run] [--targets claude,codex] [--with-project-doc] [--with-agents] [--with-islands] [--name <name>] [--root <path>]",
   "       skillset explain <path> [--root <path>] [--source <dir>]",
@@ -33,6 +35,7 @@ export async function runCli(
   }
   const {
     command,
+    changeRef,
     changeSince,
     changeSubcommand,
     dryRun,
@@ -63,11 +66,19 @@ export async function runCli(
   }
 
   if (command === "change") {
-    if (changeSubcommand !== "status") {
-      throw new Error("skillset: expected change subcommand status");
+    if (changeSubcommand === "status") {
+      printChangeStatus(await changeStatus(rootPath, { ...options, ...(changeSince === undefined ? {} : { since: changeSince }) }));
+      return;
     }
-    printChangeStatus(await changeStatus(rootPath, { ...options, ...(changeSince === undefined ? {} : { since: changeSince }) }));
-    return;
+    if (changeSubcommand === "check") {
+      printChangeCheck(await changeCheck(rootPath, {
+        ...options,
+        ...(changeRef === undefined ? {} : { ref: changeRef }),
+        ...(changeSince === undefined ? {} : { since: changeSince }),
+      }));
+      return;
+    }
+    throw new Error("skillset: expected change subcommand status or check");
   }
 
   if (command === "lint") {
@@ -223,6 +234,7 @@ export function reportCliError(error: unknown): void {
 
 interface ParsedArgs {
   readonly command: Command;
+  readonly changeRef?: string;
   readonly changeSince?: string;
   readonly changeSubcommand?: ChangeSubcommand;
   readonly dryRun: boolean;
@@ -238,6 +250,21 @@ interface ParsedArgs {
   readonly setupIncludeProjectDoc: boolean;
   readonly setupTargets?: readonly TargetName[];
   readonly yes: boolean;
+}
+
+function printChangeCheck(report: ChangeCheckReport): void {
+  for (const issue of report.issues) {
+    const path = issue.path === undefined ? "" : `${issue.path}: `;
+    console.log(`  ${issue.severity}: ${path}${issue.code}: ${issue.message}`);
+  }
+  const errors = report.issues.filter((issue) => issue.severity === "error").length;
+  const warnings = report.issues.length - errors;
+  if (errors === 0) {
+    console.log(`skillset: change check passed (${report.entries.length} pending entr${report.entries.length === 1 ? "y" : "ies"}, ${warnings} warning${warnings === 1 ? "" : "s"})`);
+    return;
+  }
+  console.log(`skillset: change check found ${errors} error${errors === 1 ? "" : "s"} and ${warnings} warning${warnings === 1 ? "" : "s"}`);
+  process.exitCode = 1;
 }
 
 function printChangeStatus(report: ChangeStatusReport): void {
@@ -339,6 +366,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   }
 
   let changeSubcommand: ChangeSubcommand | undefined;
+  let changeRef: string | undefined;
   let changeSince: string | undefined;
   let importKind: ImportKind | undefined;
   let importName: string | undefined;
@@ -360,11 +388,16 @@ function parseArgs(args: readonly string[]): ParsedArgs {
 
   if (command === "change") {
     const subcommand = args[index];
-    if (subcommand !== "status") {
-      throw new Error("skillset: expected change subcommand status");
+    if (subcommand !== "status" && subcommand !== "check") {
+      throw new Error("skillset: expected change subcommand status or check");
     }
     changeSubcommand = subcommand;
     index += 1;
+    const rawRef = args[index];
+    if (subcommand === "check" && rawRef !== undefined && !rawRef.startsWith("--")) {
+      changeRef = rawRef;
+      index += 1;
+    }
   }
 
   if (command === "import") {
@@ -424,6 +457,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--name" &&
       flag !== "--kind" &&
       flag !== "--from" &&
+      flag !== "--ref" &&
       flag !== "--since" &&
       flag !== "--yes" &&
       flag !== "--dry-run" &&
@@ -470,6 +504,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     if (flag === "--root") rootPath = value;
     if (flag === "--source") sourceDir = value;
     if (flag === "--dist") distDir = value;
+    if (flag === "--ref") changeRef = value;
     if (flag === "--since") changeSince = value;
     if (flag === "--scope") scopes = readBuildScopes(value);
     if (flag === "--targets") setupTargets = readSetupTargets(value);
@@ -509,6 +544,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
 
   return {
     command,
+    ...(changeRef === undefined ? {} : { changeRef }),
     ...(changeSince === undefined ? {} : { changeSince }),
     ...(changeSubcommand === undefined ? {} : { changeSubcommand }),
     dryRun,

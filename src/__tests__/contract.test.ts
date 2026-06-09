@@ -1,4 +1,4 @@
-import { chmod, mkdtemp, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -1121,6 +1121,281 @@ description: Demo.
   expect(report.generatedDrift.changed).toContain(".claude/skills/demo/SKILL.md");
 });
 
+test("SET-35: change check fails when source changes lack pending entries", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: missing-change-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await commitFixture(root);
+
+  await Bun.write(
+    join(root, ".skillset/skills/demo/SKILL.md"),
+    "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n"
+  );
+
+  const checked = await runSkillsetCli("change", "check", "--root", root, "--since", "HEAD");
+  expect(checked.exitCode).toBe(1);
+  expect(checked.stdout).toContain("change-uncovered");
+  expect(checked.stdout).toContain("standalone-skill:demo");
+});
+
+test("SET-35: valid pending entries cover multiple scopes with group and ignored metadata", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: valid-change-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/one/SKILL.md": `
+---
+name: one
+description: One.
+---
+
+One body.
+`,
+    ".skillset/skills/two/SKILL.md": `
+---
+name: two
+description: Two.
+---
+
+Two body.
+`,
+  });
+  await commitFixture(root);
+
+  await Bun.write(join(root, ".skillset/skills/one/SKILL.md"), "---\nname: one\ndescription: One.\n---\n\nOne changed.\n");
+  await Bun.write(join(root, ".skillset/skills/two/SKILL.md"), "---\nname: two\ndescription: Two.\n---\n\nTwo changed.\n");
+  const report = await changeStatus(root, { since: "HEAD" });
+  const one = report.sourceChanges.find((change) => change.id === "standalone-skill:one");
+  const two = report.sourceChanges.find((change) => change.id === "standalone-skill:two");
+  expect(one?.currentHash).toBeDefined();
+  expect(two?.currentHash).toBeDefined();
+
+  await writePendingChange(root, "combined.md", `
+---
+id: abcdef123456
+bump: none
+ignored: true
+group:
+  provider: linear
+  id: SET-35
+scopes:
+  - standalone-skill:one
+  - standalone-skill:two
+evidence:
+  - scope: standalone-skill:one
+    currentHash: ${one?.currentHash}
+  - scope: standalone-skill:two
+    currentHash: ${two?.currentHash}
+---
+
+Grouped documentation-only edits are intentionally ignored for release planning while preserving an audit reason.
+`);
+
+  const checked = await runSkillsetCli("change", "check", "--root", root, "--since", "HEAD");
+  expect(checked.exitCode).toBe(0);
+  expect(checked.stdout).toContain("change check passed");
+});
+
+test("SET-35: change check rejects invalid pending entry shape, reason, and evidence", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: invalid-change-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await commitFixture(root);
+
+  await writePendingChange(root, "invalid.md", `
+---
+id: not-hex
+scope: standalone-skill:demo
+evidence:
+  - scope: standalone-skill:demo
+    currentHash: sha256:stale
+group:
+  provider: linear
+external:
+  linear: SET-35
+---
+
+TODO
+`);
+
+  const checked = await runSkillsetCli("change", "check", "--root", root, "--since", "HEAD");
+  expect(checked.exitCode).toBe(1);
+  expect(checked.stdout).toContain("change-id-invalid");
+  expect(checked.stdout).toContain("change-bump-missing");
+  expect(checked.stdout).toContain("change-external-unsupported");
+  expect(checked.stdout).toContain("change-group-invalid");
+  expect(checked.stdout).toContain("change-reason-placeholder");
+  expect(checked.stdout).toContain("change-evidence-stale");
+});
+
+test("SET-35: duplicate pending change ids fail full check", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: duplicate-change-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await commitFixture(root);
+
+  await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n");
+  const report = await changeStatus(root, { since: "HEAD" });
+  const demo = report.sourceChanges.find((change) => change.id === "standalone-skill:demo");
+  expect(demo?.currentHash).toBeDefined();
+
+  for (const filename of ["one.md", "two.md"]) {
+    await writePendingChange(root, filename, `
+---
+id: abcdef123456
+bump: patch
+scope: standalone-skill:demo
+evidence:
+  - scope: standalone-skill:demo
+    currentHash: ${demo?.currentHash}
+---
+
+This pending entry intentionally duplicates an id so the checker can reject unstable refs.
+`);
+  }
+
+  const checked = await runSkillsetCli("change", "check", "--root", root, "--since", "HEAD");
+  expect(checked.exitCode).toBe(1);
+  expect(checked.stdout).toContain("change-id-duplicate");
+});
+
+test("SET-35: bump warnings include removed severity-bearing regions", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: severity-removal-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+dependencies:
+  plugins:
+    - acme-docs
+---
+
+Body.
+`,
+  });
+  await commitFixture(root);
+
+  await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n");
+  const report = await changeStatus(root, { since: "HEAD" });
+  const demo = report.sourceChanges.find((change) => change.id === "standalone-skill:demo");
+  expect(demo?.currentHash).toBeDefined();
+  expect(demo?.baselineRegions).toContainEqual({ name: "dependencies", severityBearing: true });
+
+  await writePendingChange(root, "dependency-removal.md", `
+---
+id: abcdef123456
+bump: none
+scope: standalone-skill:demo
+evidence:
+  - scope: standalone-skill:demo
+    currentHash: ${demo?.currentHash}
+---
+
+The dependency was removed from the skill and should still be visible as release-relevant setup drift.
+`);
+
+  const checked = await runSkillsetCli("change", "check", "--root", root, "--since", "HEAD");
+  expect(checked.exitCode).toBe(0);
+  expect(checked.stdout).toContain("change-bump-lower-than-suggested");
+  expect(checked.stdout).toContain("1 warning");
+});
+
+test("SET-35: ambiguous change refs fail with candidates", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: ambiguous-change-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await commitFixture(root);
+  const report = await changeStatus(root, { since: "HEAD" });
+  const demo = report.sourceUnits.find((unit) => unit.id === "standalone-skill:demo");
+  expect(demo?.hash).toBeDefined();
+
+  for (const id of ["abcdef111111", "abcdef222222"]) {
+    await writePendingChange(root, `${id}.md`, `
+---
+id: ${id}
+bump: patch
+scope: standalone-skill:demo
+evidence:
+  - scope: standalone-skill:demo
+    currentHash: ${demo?.hash}
+---
+
+This pending entry exists only to exercise ambiguous short ref resolution in the CLI.
+`);
+  }
+
+  const checked = await runSkillsetCli("change", "check", "@abcdef", "--root", root, "--since", "HEAD");
+  expect(checked.exitCode).toBe(1);
+  expect(checked.stderr).toContain("ambiguous change ref @abcdef");
+  expect(checked.stderr).toContain("@abcdef111111");
+  expect(checked.stderr).toContain("@abcdef222222");
+
+  const tooShort = await runSkillsetCli("change", "check", "@abcde", "--root", root, "--since", "HEAD");
+  expect(tooShort.exitCode).toBe(1);
+  expect(tooShort.stderr).toContain("at least 6 hex characters");
+});
+
 test("SET-25: diff reports missing managed outputs separately", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `
@@ -2198,6 +2473,12 @@ async function contractFixture(files: Record<string, string>): Promise<string> {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }
   return root;
+}
+
+async function writePendingChange(root: string, filename: string, content: string): Promise<void> {
+  const pendingPath = join(root, ".skillset/changes/pending");
+  await mkdir(pendingPath, { recursive: true });
+  await writeFile(join(pendingPath, filename), `${content.trim()}\n`, "utf8");
 }
 
 async function runSkillsetCli(...args: readonly string[]): Promise<{
