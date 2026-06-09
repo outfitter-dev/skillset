@@ -85,9 +85,9 @@ Claude output should look like Claude. Codex output should look like Codex. Skil
 
 Generated skill frontmatter should stay lightweight. Product-facing generated fields such as `metadata.version` and `metadata.generated` belong in the skill itself; heavier source hashes, source paths, target state, skipped target information, and drift evidence belong in nearby `.skillset.lock` files.
 
-### Compatibility is kind, ambiguity is not
+### Migration is explicit, ambiguity is not
 
-Compatibility aliases and import helpers should reduce migration pain. They should not silently choose between ambiguous meanings or hide lossy lowering. Unknown portable keys should fail unless the author uses a clearly target-native escape hatch.
+Import helpers can reduce migration pain, but the source contract should not keep old spellings once Skillset can still cut over cleanly. Unknown portable keys and obsolete aliases should fail unless the author uses a clearly target-native escape hatch.
 
 ### Drift should become visible early
 

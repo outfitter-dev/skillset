@@ -8,7 +8,7 @@ Plugins group skills and target-native companion files while preserving provider
 
 ## Authoring
 
-Plugin identity derives from the directory unless `skillset.name` or the `skillset.id` compatibility alias is present and agrees. Plugin source can configure `claude` and `codex` blocks for target opt-outs, output selection, defaults, and target-native options. Plugin-local `defaults.<target>.<surface>` is shorthand for target defaults, not provider selection.
+Plugin identity derives from the directory unless `skillset.name` is present and agrees. `skillset.id` is rejected. Plugin source can configure `claude` and `codex` blocks for target opt-outs, output selection, defaults, and target-native options. Plugin-local `defaults.<target>.<surface>` is shorthand for target defaults, not provider selection.
 
 ## Target Lowering
 

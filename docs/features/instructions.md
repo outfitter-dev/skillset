@@ -4,7 +4,7 @@ Feature id: `instructions`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Instructions are durable repo guidance authored under `.skillset/instructions/**/*.md`. The legacy `.skillset/rules/**/*.md` path remains a compatibility alias that warns and emits the same output.
+Instructions are durable repo guidance authored under `.skillset/instructions/**/*.md`. The old `.skillset/rules/**/*.md` source path is rejected; Codex `.rules` files are a separate target-native command policy surface under `.skillset/src/codex/rules/**/*.rules`.
 
 ## Authoring
 
@@ -15,12 +15,12 @@ Instruction Markdown may include `paths` frontmatter for Claude path scoping and
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
 | `.skillset/instructions/**/*.md` | `.claude/rules/**/*.md` | derived `AGENTS.md` files | `portable` / `implemented` | Claude keeps `paths`; Codex strips frontmatter and concatenates deterministic source sections. |
-| `.skillset/rules/**/*.md` | same | same | `compat_alias` / `implemented` | Warned; both directories with content fail as ambiguous. |
+| `.skillset/rules/**/*.md` | n/a | n/a | `unsupported` | Move instruction Markdown to `.skillset/instructions/**/*.md`. |
 | `.skillset/src/codex/rules/**/*.rules` | n/a | `.codex/rules/**/*.rules` | `target_native` / `implemented` | Execution policy, not instruction prose. |
 
 ## Diagnostics
 
-- Reject ambiguous simultaneous `instructions/` and `rules/` source.
+- Reject Markdown files under `.skillset/rules/`.
 - Reject unmanaged `AGENTS.md` collisions before writing.
 - Warn when a generated `AGENTS.md` exceeds Codex's default `project_doc_max_bytes`.
 - Reject unknown `skillset.*` variables, missing `this.*` fields, unsafe partial paths, and unsupported Codex symlink mode.
@@ -32,4 +32,4 @@ Instruction outputs are tracked in the root `.skillset.lock` with source paths, 
 
 ## Tests and Fixtures
 
-Fixtures cover canonical and compatibility source paths, path-derived Codex destinations, deterministic concatenation, target opt-outs, variable rendering, unmanaged collisions, stale output checks, size warnings, and symlink rejection.
+Fixtures cover canonical source paths, old-path rejection, path-derived Codex destinations, deterministic concatenation, target opt-outs, variable rendering, unmanaged collisions, stale output checks, size warnings, and symlink rejection.

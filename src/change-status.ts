@@ -20,7 +20,6 @@ import {
   selectorForRootConfig,
   selectorForStandaloneSkill,
   selectorForTargetNativeIsland,
-  sourceUnitLegacyId,
   sourceUnitSelector,
 } from "./source-unit-selector";
 import type {
@@ -37,7 +36,7 @@ import type {
 } from "./types";
 import { isJsonRecord, parseMarkdown, parseYamlRecord, stringifyJson } from "./yaml";
 
-export const SOURCE_HASH_SCHEMA = "skillset-source-unit-v1";
+export const SOURCE_HASH_SCHEMA = "skillset-source-unit-v2";
 
 export type SourceUnitKind =
   | "instruction"
@@ -120,7 +119,6 @@ const PLUGIN_COMPANION_PATHS = [
   "commands",
   "agents",
   "hooks",
-  "hooks.json",
   ".lsp.json",
   "output-styles",
   "themes",
@@ -196,8 +194,7 @@ async function sourceInventoryForGraph(graph: BuildGraph): Promise<SourceInvento
       "plugin-config",
       selectorForPluginConfig(plugin.id),
       plugin.configPath,
-      await regionsForYaml(plugin.configPath),
-      `plugin-config:${plugin.id}`
+      await regionsForYaml(plugin.configPath)
     ));
 
     for (const skill of plugin.skills) {
@@ -230,7 +227,7 @@ async function fileUnit(
   id: string,
   sourcePath: string,
   regions: readonly SourceUnitRegion[] = [],
-  hashId: string = sourceUnitLegacyId(id)
+  hashId: string = id
 ): Promise<SourceUnit> {
   const sourcePaths = [relativePath(graph, sourcePath)];
   return {
@@ -256,7 +253,7 @@ async function skillUnit(
   const sourcePaths = await sourcePathsForSkill(graph, sourceDir, skill.resources, preprocessDependencies);
   const hash = createSourceHash(kind);
   hash.update("id\0");
-  hash.update(sourceUnitLegacyId(id));
+  hash.update(id);
   hash.update("\0");
   await hashDirectory(hash, sourceDir, isGeneratedEntityChangelogPath);
   await hashResources(hash, skill.resources);
@@ -329,7 +326,7 @@ async function islandUnit(
   const id = selectorForTargetNativeIsland(island.target, owner, island.relativePath);
   const hash = createSourceHash("target-native-island");
   hash.update("id\0");
-  hash.update(sourceUnitLegacyId(id));
+  hash.update(id);
   hash.update("\0target\0");
   hash.update(island.target);
   hash.update("\0plugin\0");
@@ -361,7 +358,7 @@ async function pluginFeatureUnit(
   const sourcePaths = await sourcePathsForPath(graph, feature.sourcePath);
   const hash = createSourceHash("plugin-feature");
   hash.update("id\0");
-  hash.update(sourceUnitLegacyId(id));
+  hash.update(id);
   hash.update("\0key\0");
   hash.update(feature.key);
   hash.update("\0origin\0");
@@ -398,8 +395,7 @@ async function pluginCompanionUnits(
         "plugin-companion",
         selectorForPluginCompanion(plugin.id, companionPath),
         sourcePath,
-        companionRegions(companionPath),
-        `plugin-companion:${plugin.id}/${companionPath}`
+        companionRegions(companionPath)
       )
     );
   }
@@ -423,7 +419,7 @@ function pluginAggregateUnit(
   hash.update(stringifyJson({ claude: plugin.targets.claude.options, codex: plugin.targets.codex.options }));
   hash.update("\0children\0");
   for (const child of childUnits) {
-    hash.update(sourceUnitLegacyId(child.id));
+    hash.update(child.id);
     hash.update("\0");
     hash.update(child.hash);
     hash.update("\0");
@@ -966,7 +962,7 @@ function regionsForRecord(record: JsonRecord): readonly SourceUnitRegion[] {
   const regions: SourceUnitRegion[] = [];
   if (record.supports !== undefined) regions.push({ name: "supports", severityBearing: false });
   if (record.dependencies !== undefined) regions.push({ name: "dependencies", severityBearing: true });
-  if (record.tools !== undefined || record.allowed_tools !== undefined || record.tool_intent !== undefined) {
+  if (record.allowed_tools !== undefined || record.tool_intent !== undefined) {
     regions.push({ name: "tools", severityBearing: true });
   }
   if (record.mcp !== undefined) regions.push({ name: "mcp", severityBearing: true });
@@ -975,7 +971,7 @@ function regionsForRecord(record: JsonRecord): readonly SourceUnitRegion[] {
 }
 
 function companionRegions(path: string): readonly SourceUnitRegion[] {
-  if (path === "hooks" || path === "hooks.json") return [{ name: "hooks", severityBearing: true }];
+  if (path === "hooks") return [{ name: "hooks", severityBearing: true }];
   if (path === ".app.json") return [{ name: "apps", severityBearing: true }];
   if (path === "commands") return [{ name: "commands", severityBearing: true }];
   if (path === "agents") return [{ name: "agents", severityBearing: true }];

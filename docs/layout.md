@@ -171,10 +171,10 @@ Machine identity derives from directory names. A plugin's id is its directory un
 
 When an explicit identity is needed:
 
-- **Plugins and root config** keep their explicit identity under the `skillset` block, because that is where plugin/root source metadata lives (`schema`, `version`, presentation, author). Set `skillset.name`; `skillset.id` is a compatibility alias. An explicit plugin `skillset.name` must equal the plugin directory name, so derivation and the override never disagree silently.
-- **Skills** use the standard Agent Skills top-level `name`. `skillset.name` / `skillset.id` remain compatibility aliases for imported source.
+- **Plugins and root config** keep their explicit identity under the `skillset` block, because that is where plugin/root source metadata lives (`schema`, `version`, presentation, author). Set `skillset.name` only when derivation is wrong. An explicit plugin `skillset.name` must equal the plugin directory name, so derivation and the override never disagree silently.
+- **Skills** use the standard Agent Skills top-level `name` and `version`.
 
-Conflicting identity keys fail the build rather than resolving silently: `skillset.name` versus `skillset.id`, or a skill's top-level `name` versus its `skillset.name`/`skillset.id`. There is no separate top-level `name` for plugins; introducing one would give a single meaning two homes.
+Obsolete identity keys fail the build rather than resolving silently: `skillset.id` is unsupported, and skill-local `skillset.name` / `skillset.id` are not used. There is no separate top-level `name` for plugins; introducing one would give a single meaning two homes.
 
 ## Shared Resources
 
@@ -194,7 +194,7 @@ resources:
       to: templates/report.md
 ```
 
-`shared:` resolves under root `.skillset/shared/`; `root:` is a compatibility alias for the same location. `plugin:` resolves under `.skillset/plugins/<plugin-name>/shared/` and is valid only for plugin-bound skills. Group keys choose the default generated folder, so `resources.scripts: [plugin:scripts/check.sh]` emits `scripts/check.sh` beside the generated `SKILL.md`. Use `from` / `to` objects when a resource should land at a different generated path.
+`shared:` resolves under root `.skillset/shared/`. `plugin:` resolves under `.skillset/plugins/<plugin-name>/shared/` and is valid only for plugin-bound skills. Group keys choose the default generated folder, so `resources.scripts: [plugin:scripts/check.sh]` emits `scripts/check.sh` beside the generated `SKILL.md`. Use `from` / `to` objects when a resource should land at a different generated path.
 
 Only declared resources are copied. Resource mappings may point at files or directories, but they cannot traverse outside the shared root, write outside the generated skill directory, or overwrite `SKILL.md`, generated Codex sidecars, or skill-local files. Markdown links in `SKILL.md` that target declared `shared:` or `plugin:` resource URLs are rewritten to generated skill-local links; undeclared shared resource links fail the build with a suggested `resources` entry. When a resource uses a custom `to`, a bare link to its source path fails the build, since that path is no longer where the resource lands; link to the emitted target path or use the resource URL. Resource contents are included in `.skillset.lock` hashes and stale-output checks.
 
@@ -220,7 +220,7 @@ Root and plugin source config support `skillset.schema`. The marker is source-on
 
 ## Versioning
 
-Root `skillset.version`, plugin `skillset.version`, skill top-level `version`, and compatibility skill `skillset.version` fields must be semantic versions.
+Root `skillset.version`, plugin `skillset.version`, and skill top-level `version` fields must be semantic versions. Skill-local `skillset.version` is unsupported; use the top-level skill `version`.
 
 Generated plugin manifests receive the plugin version. Generated `SKILL.md` files receive:
 
@@ -234,7 +234,7 @@ Each `.skillset.lock` records emitted versions and hashes, plus root normalized 
 
 ## Instructions
 
-Instructions live under `.skillset/instructions/**/*.md`. They are for durable repo instructions rather than invokable skills. `.skillset/rules/**/*.md` is a compatibility alias for migration and import: it still builds and produces byte-identical output, but emits a deprecation warning, and the build fails if both `instructions/` and `rules/` carry content. Internally and in generated output these are still called rules, because Claude's native target is `.claude/rules`.
+Instructions live under `.skillset/instructions/**/*.md`. They are for durable repo instructions rather than invokable skills. `.skillset/rules/**/*.md` is unsupported for instruction Markdown; move those files to `.skillset/instructions/**/*.md`. Internally and in generated output these are still called rules, because Claude's native target is `.claude/rules`.
 
 ```yaml
 ---
@@ -275,7 +275,7 @@ When a Claude pass-through path is present, the generated `.claude-plugin/plugin
 
 Claude plugin docs now document root `bin/` and plugin-root `settings.json`. Treat both as target-native, not portable. `bin/` is a documented executable component and can be supported through feature-key/source-pointer work. Plugin-root `settings.json` applies default configuration when a Claude plugin is enabled, so Skillset must keep it separate from live user/project settings mutation. Build still emits definitions only: it does not install, trust, enable, or symlink generated output into runtime locations. A reviewed settings suggestion workflow is a future non-goal for v1.
 
-Hooks are generated definitions only. The compiler does not install, trust, or enable hooks in user-level configuration. Hook files must be JSON objects before they are emitted. Both Claude and Codex emit hooks at the documented default `hooks/hooks.json` with a top-level `{ "hooks": { ... } }` object. The canonical source is `hooks/hooks.json`; when it is the only hook file it is shared by both targets. A legacy root `hooks.json` is an explicit Codex-specific compatibility source: when it is present it is used for Codex even if a canonical `hooks/hooks.json` also exists, so the two-file layout can intentionally carry different Claude and Codex hooks during migration. It still builds — flat event maps are normalized into the canonical `hooks` object and emitted to `hooks/hooks.json` — but the build warns and recommends moving it under `hooks/`. The compiler does not auto-lower Claude hooks into Codex hooks. Codex hook files are validated against Codex-supported events and synchronous `command` handlers only; prompt handlers, agent handlers, and `async: true` command handlers are parsed but skipped by Codex, so target-incompatible Codex hooks fail `skillset build` and `skillset lint`. Claude hook validation stays broad.
+Hooks are generated definitions only. The compiler does not install, trust, or enable hooks in user-level configuration. Hook files must be JSON objects before they are emitted. Both Claude and Codex emit hooks at the documented default `hooks/hooks.json` with a top-level `{ "hooks": { ... } }` object. The canonical source is `hooks/hooks.json`; it is shared by both targets when both are enabled. Plugin-root `hooks.json` is unsupported and fails with a move-to-`hooks/hooks.json` diagnostic. The compiler does not auto-lower Claude hooks into Codex hooks. Codex hook files are validated against Codex-supported events and synchronous `command` handlers only; prompt handlers, agent handlers, and `async: true` command handlers are parsed but skipped by Codex, so target-incompatible Codex hooks fail `skillset build` and `skillset lint`. Claude hook validation stays broad.
 
 ## Skill Policy
 
@@ -294,7 +294,7 @@ Values can be shared (`implicit_invocation: false`) or target-scoped (`implicit_
 
 `allowed_tools` lowers to Claude `allowed-tools`, which is preapproval / no-prompt behavior — it suppresses permission prompts for the listed tools, not a portable security sandbox. Codex `agents/openai.yaml` supports tool dependencies and invocation policy, but it is not a skill-local equivalent to Claude tool preapproval. For now Codex-enabled skills must leave `allowed_tools.codex` unset or set it to `false`; `skillset lint` rejects shared or Codex-targeted allowed tools until a real Codex permission lowering is validated.
 
-Use the portable `tool_intent` registry for known tool intent (the legacy `tools` key is a compatibility alias; setting both fails). The name is deliberate: it records intent and metadata, not a target-enforced permission boundary. The registry is strict, so provider drift is visible instead of silently copied through:
+Use the portable `tool_intent` registry for known tool intent. The old `tools` key is unsupported. The name is deliberate: it records intent and metadata, not a target-enforced permission boundary. The registry is strict, so provider drift is visible instead of silently copied through:
 
 ```yaml
 tool_intent:
@@ -348,7 +348,7 @@ codex:
             - experimental.*
 ```
 
-Portable keys are `read`, `search`, `write`, `edit`, `shell`, `web_fetch`, `web_search`, and `mcp`. Unknown keys fail `skillset lint` and build; use `_allow` or `_deny` when a target has a native tool rule that the portable registry does not know yet. Portable `allow` / `deny` belongs in the source top-level `tool_intent` block; target-local `claude.tool_intent` and `codex.tool_intent` accept only `_allow` / `_deny` escape keys. The legacy `tools` key remains a compatibility alias at both levels. Claude lowers portable and `_` entries to `allowed-tools` / `disallowed-tools` (preapproval, not enforcement). Codex preserves portable intent and target-native escapes as generated `.skillset.tools.yaml` metadata included in `.skillset.lock`; it does not install, trust, or mutate user-level Codex configuration.
+Portable keys are `read`, `search`, `write`, `edit`, `shell`, `web_fetch`, `web_search`, and `mcp`. Unknown keys fail `skillset lint` and build; use `_allow` or `_deny` when a target has a native tool rule that the portable registry does not know yet. Portable `allow` / `deny` belongs in the source top-level `tool_intent` block; target-local `claude.tool_intent` and `codex.tool_intent` accept only `_allow` / `_deny` escape keys. Claude lowers portable and `_` entries to `allowed-tools` / `disallowed-tools` (preapproval, not enforcement). Codex preserves portable intent and target-native escapes as generated `.skillset.tools.yaml` metadata included in `.skillset.lock`; it does not install, trust, or mutate user-level Codex configuration.
 
 Import helpers write only to `.skillset/`:
 
@@ -363,7 +363,7 @@ skillset import codex --root .
 skillset import agents --root .
 ```
 
-`skillset import <path>` infers `skill`, `skills`, `plugin`, or `plugins` from the filesystem when it can. Use `--kind skill`, `--kind skills`, `--kind plugin`, or `--kind plugins` when a directory is ambiguous. `--kind skills` means a root whose child directories each contain a `SKILL.md`; this covers user-global skill roots such as `~/.claude/skills`, `~/.codex/skills`, and `~/.agents/skills`. The provider shortcuts above pick those roots directly. The older compatibility form `skillset import skill <path>` and `skillset import plugin <path>` still works.
+`skillset import <path>` infers `skill`, `skills`, `plugin`, or `plugins` from the filesystem when it can. Use `--kind skill`, `--kind skills`, `--kind plugin`, or `--kind plugins` when a directory is ambiguous. `--kind skills` means a root whose child directories each contain a `SKILL.md`; this covers user-global skill roots such as `~/.claude/skills`, `~/.codex/skills`, and `~/.agents/skills`. The provider shortcuts above pick those roots directly. Pass kind through `--kind`; positional forms such as `skillset import skill <path>` are unsupported.
 
 Skill imports always copy the full skill directory. If the input path is the `SKILL.md` file itself, the import root becomes its parent directory so sibling `references/`, `scripts/`, `assets/`, `agents/`, `.codex/`, and other sidecars are preserved. Skills-root imports follow symlinked skill directories but de-dupe by real path to avoid importing the same global skill twice through shared roots.
 

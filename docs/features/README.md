@@ -15,7 +15,7 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Executables](executables.md): Claude plugin `bin/` conventional discovery, `bin.source`, and Codex unsupported diagnostics.
 - [Feature Source Pointers](feature-source-pointers.md): direct feature-key source pointers, conventional discovery, and future component ownership.
 - [Hook Guardrails](hook-guardrails.md): Git hook-runner snippets and optional agent-runtime nudges for change/release checks.
-- [Hooks](hooks.md): hook definition emission, compatibility paths, target validation, and activation boundaries.
+- [Hooks](hooks.md): hook definition emission, canonical source paths, target validation, and activation boundaries.
 - [Instructions](instructions.md): `.skillset/instructions` lowering to Claude rules and Codex `AGENTS.md`, preprocessing, and collision safety.
 - [LSP Servers](lsp-servers.md): Claude plugin `.lsp.json` pass-through, manifest wiring, and future validation boundaries.
 - [MCP Servers](mcp-servers.md): plugin `.mcp.json`, `mcp.source`, manifest wiring, and structured validation.
@@ -37,7 +37,6 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 | Status | Meaning |
 | --- | --- |
 | `implemented` | Parsed, validated, rendered, tested, and documented in the current compiler. |
-| `compat_alias` | Accepted legacy or native spelling that normalizes to the canonical source form. |
 | `portable` | Authored once because enabled targets can represent the same intent faithfully. |
 | `target_native` | Supported only through one target's native source or adapter path. |
 | `metadata_only` | Captured in generated metadata or lock provenance, but not target-enforced. |
@@ -57,7 +56,7 @@ Each feature page uses the same registry-oriented fields, even though the regist
 | Field | Purpose |
 | --- | --- |
 | Feature id | Stable id for docs, diagnostics, and future registry entries. |
-| Source shape | Source paths, config keys, frontmatter keys, aliases, defaults, and conventional discovery. |
+| Source shape | Source paths, config keys, frontmatter keys, defaults, and conventional discovery. |
 | Target support | Per-target support status, output paths, target-native escape hatches, and unsupported cases. |
 | Lowering owner | Whether behavior belongs to the portable resolver, the Claude adapter, the Codex adapter, or a target-native pass-through. |
 | Validation | Lint/build/check diagnostics and structured output validation ownership. |

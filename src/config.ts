@@ -46,7 +46,6 @@ const SOURCE_ONLY_KEYS = new Set([
   "targets",
   "title",
   "tool_intent",
-  "tools",
   "version",
 ]);
 
@@ -144,12 +143,10 @@ export function readSkillsetMetadata(record: JsonRecord, label: string): JsonRec
 }
 
 /**
- * Resolve a source identity. Machine identity derives from the directory name by
- * default; an explicit `skillset.name` (or its `skillset.id` compatibility alias)
- * overrides it. `topLevelName` is the standard top-level identity key — the
- * Agent Skills `name` for skills — which is preferred over the `skillset` aliases
- * but must agree with them. Conflicting aliases fail loudly rather than picking
- * one silently.
+ * Resolve root/plugin source identity. Machine identity derives from the
+ * directory name by default; an explicit `skillset.name` overrides it.
+ * `topLevelName` is used by import helpers that need to compare imported skill
+ * frontmatter before the compiler normalizes it.
  */
 export function readSkillsetName(
   metadata: JsonRecord,
@@ -159,17 +156,15 @@ export function readSkillsetName(
 ): string {
   const name = readString(metadata, "name");
   const id = readString(metadata, "id");
-  if (name !== undefined && id !== undefined && name !== id) {
-    throw new Error(`skillset: ${label} has conflicting skillset.name and skillset.id`);
+  if (id !== undefined) {
+    throw new Error(`skillset: ${label} uses unsupported skillset.id; use skillset.name`);
   }
-  const skillsetName = name ?? id;
-  if (topLevelName !== undefined && skillsetName !== undefined && topLevelName !== skillsetName) {
-    const aliasKey = name !== undefined ? "skillset.name" : "skillset.id";
+  if (topLevelName !== undefined && name !== undefined && topLevelName !== name) {
     throw new Error(
-      `skillset: ${label} has conflicting top-level name ${JSON.stringify(topLevelName)} and ${aliasKey} ${JSON.stringify(skillsetName)}`
+      `skillset: ${label} has conflicting top-level name ${JSON.stringify(topLevelName)} and skillset.name ${JSON.stringify(name)}`
     );
   }
-  return topLevelName ?? skillsetName ?? fallback;
+  return topLevelName ?? name ?? fallback;
 }
 
 export function readOutputConfig(
@@ -318,7 +313,10 @@ export function resolveTarget(
   };
 }
 
-export function stripSourceFrontmatter(frontmatter: JsonRecord): JsonRecord {
+export function stripSourceFrontmatter(frontmatter: JsonRecord, label = "source frontmatter"): JsonRecord {
+  if (frontmatter.tools !== undefined) {
+    throw new Error(`skillset: ${label} uses unsupported tools; use tool_intent`);
+  }
   const stripped: Record<string, JsonValue> = {};
   for (const [key, value] of Object.entries(frontmatter)) {
     if (value === undefined || SOURCE_ONLY_KEYS.has(key)) continue;

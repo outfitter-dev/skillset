@@ -451,7 +451,7 @@ function withOptionalSurfacePaths(
     }
     if (Object.keys(experimental).length > 0) withPaths.experimental = experimental;
   } else {
-    if (pluginHasPath(plugin, "hooks/hooks.json") || pluginHasPath(plugin, "hooks.json")) {
+    if (pluginHasPath(plugin, "hooks/hooks.json")) {
       withPaths.hooks = "./hooks/hooks.json";
     }
     if (pluginHasFeature(plugin, "mcp")) withPaths.mcpServers = "./.mcp.json";
@@ -593,7 +593,7 @@ async function renderClaudeProjectAgent(
   const skills = readStringArray(targetOptions, "skills") ?? readStringArray(agent.frontmatter, "skills");
   const frontmatter = mergeRecords(
     mergeRecords(
-      mergeRecords(stripAgentTargetOptions(stripSourceFrontmatter(agent.frontmatter)), {
+      mergeRecords(stripAgentTargetOptions(stripSourceFrontmatter(agent.frontmatter, agent.sourcePath)), {
         name: readString(targetOptions, "name") ?? agent.name,
         description: readString(targetOptions, "description") ?? readString(agent.frontmatter, "description") ?? agent.name,
         ...(skills === undefined ? {} : { skills: [...skills] }),
@@ -808,7 +808,7 @@ async function renderTextIslandFile(
       sourceRoot: graph.sourceDir,
     });
     return renderValidatedMarkdown(
-      stripSourceFrontmatter(parsed.frontmatter),
+      stripSourceFrontmatter(parsed.frontmatter, island.sourcePath),
       body,
       `${relative(graph.rootPath, island.sourcePath)} -> ${targetPath}`
     );
@@ -992,7 +992,7 @@ async function renderSkillMarkdown(
 ): Promise<string> {
   const metadata = skill.metadata;
   const targetOptions = skill.targets[target].options;
-  const base = mergeRecords(stripSourceFrontmatter(skill.frontmatter), {
+  const base = mergeRecords(stripSourceFrontmatter(skill.frontmatter, skill.sourcePath), {
     name:
       readString(metadata, "name") ??
       readString(metadata, "id") ??
@@ -1505,37 +1505,25 @@ function pluginHasFeature(plugin: SourcePlugin, key: SourcePluginFeature["key"])
  * Render the Codex plugin hook file at the documented default path
  * `hooks/hooks.json` with a top-level `hooks` object.
  *
- * Source resolution: a legacy root `hooks.json` is an explicit Codex-specific
- * source (warned at load), so when it is present it is used for Codex even if a
- * canonical `hooks/hooks.json` also exists — that two-file layout intentionally
- * lets Claude and Codex carry different hooks during migration. When only the
- * canonical `hooks/hooks.json` exists it is the shared source for both targets.
- * Flat event maps are normalized into the canonical `{ "hooks": { ... } }` shape.
+ * Source resolution: `hooks/hooks.json` is the canonical hook source for both
+ * plugin targets. Flat event maps are normalized into the canonical
+ * `{ "hooks": { ... } }` shape.
  */
 async function renderCodexHookFile(
   graph: BuildGraph,
   plugin: SourcePlugin,
   basePath: string
 ): Promise<RenderedFile | undefined> {
-  // A legacy root hooks.json is an explicit Codex-specific compatibility source
-  // (warned at load), so it takes precedence and keeps target-specific behavior.
-  // Otherwise the canonical hooks/hooks.json is the shared source for both targets.
-  const legacySource = join(plugin.path, "hooks.json");
   const canonicalSource = join(plugin.path, "hooks", "hooks.json");
-  const sourcePath = (await exists(legacySource))
-    ? legacySource
-    : (await exists(canonicalSource))
-      ? canonicalSource
-      : undefined;
-  if (sourcePath === undefined) return undefined;
+  if (!(await exists(canonicalSource))) return undefined;
 
-  await validateHookJson(graph, sourcePath, "codex");
-  const parsed = JSON.parse(await readFile(sourcePath, "utf8")) as JsonValue;
+  await validateHookJson(graph, canonicalSource, "codex");
+  const parsed = JSON.parse(await readFile(canonicalSource, "utf8")) as JsonValue;
   const normalized = isJsonRecord(parsed) && isJsonRecord(parsed.hooks) ? parsed : { hooks: parsed };
   return textFile(
     join(basePath, "hooks", "hooks.json"),
-    renderValidatedJson(normalized, `${relative(graph.rootPath, sourcePath)} -> ${join(basePath, "hooks", "hooks.json")}`),
-    relative(graph.rootPath, sourcePath)
+    renderValidatedJson(normalized, `${relative(graph.rootPath, canonicalSource)} -> ${join(basePath, "hooks", "hooks.json")}`),
+    relative(graph.rootPath, canonicalSource)
   );
 }
 

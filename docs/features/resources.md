@@ -8,7 +8,7 @@ Resources let skills copy exact shared files or directories into generated skill
 
 ## Authoring
 
-Root shared inputs live under `.skillset/shared/`. Plugin-local shared inputs live under `.skillset/plugins/<plugin>/shared/`. Skills opt in through `resources` frontmatter using `shared:`, `root:` as a compatibility alias for shared root resources, or `plugin:` for plugin-bound skills.
+Root shared inputs live under `.skillset/shared/`. Plugin-local shared inputs live under `.skillset/plugins/<plugin>/shared/`. Skills opt in through `resources` frontmatter using `shared:` for root shared resources or `plugin:` for plugin-bound skills.
 
 ```yaml
 resources:

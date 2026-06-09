@@ -120,7 +120,7 @@ Initial coordinator read:
 Recommendation:
 
 - Prefer top-level `name` and `description` for skill source identity.
-- Keep `skillset.name` only as a compatibility alias for older/imported source.
+- SET-53 superseded the migration idea: skill source now uses top-level `name`; skill-local `skillset.name` is unsupported.
 
 Initial coordinator read:
 
@@ -293,12 +293,10 @@ Potential disagreements / verify before accepting:
 Possible next implementation packet:
 
 1. Live-doc verify Codex plugin hooks path and top-level hook JSON schema.
-2. Add compatibility aliases:
-   - source root `hooks.json` -> canonical `hooks/hooks.json`
-   - root-event map -> canonical `{ "hooks": { ... } }`, with lint warning or build error depending strictness.
+2. Superseded by SET-53: do not add migration aliases for source root `hooks.json`; use canonical `hooks/hooks.json`.
 3. Decide and implement `rules` -> `instructions` naming, or add docs language that source `rules` means "project instructions" and not Codex `.rules`.
 4. Add `skillset.schema: 1` validation.
-5. Rename portable `tools` to `tool_intent` with `tools` compatibility alias, or update docs to make current `tools` explicitly metadata/intent.
+5. Superseded by SET-53: portable tool intent is `tool_intent`; old `tools` is unsupported.
 6. Add generated `AGENTS.md` source-boundary headings.
 7. Add Claude plugin pass-through paths.
 8. Update docs and generated outputs.
@@ -331,9 +329,7 @@ the maintainer's current decisions from review triage:
 
 Implications to consider in the next slice:
 
-- Need compatibility aliases/migration path for `.skillset/rules` to
-  `.skillset/instructions`.
-- Need compatibility alias/migration path for `tools` to `tool_intent`.
+- SET-53 superseded the migration-path idea: `.skillset/instructions` and `tool_intent` are the only supported source shapes.
 - Need a clear rule for generated metadata: likely keep artifact version as
   `metadata.version`, keep generated-by provenance as `metadata.generated`, and
   put deeper hashes/source paths in `.skillset.lock`.

@@ -141,13 +141,13 @@ function parseResourcePath(raw: string, context: ResourceContext): ParsedResourc
   const separatorIndex = value.indexOf(":");
   if (separatorIndex <= 0) {
     throw new Error(
-      `skillset: ${context.label}.resources must use shared:, root:, or plugin: resource paths`
+      `skillset: ${context.label}.resources must use shared: or plugin: resource paths`
     );
   }
 
   const scheme = value.slice(0, separatorIndex);
   const relativePath = validateResourceSourcePath(value.slice(separatorIndex + 1), context.label);
-  if (scheme === "shared" || scheme === "root") {
+  if (scheme === "shared") {
     return {
       from: `shared:${relativePath}`,
       relativePath,
@@ -166,7 +166,7 @@ function parseResourcePath(raw: string, context: ResourceContext): ParsedResourc
   }
 
   throw new Error(
-    `skillset: ${context.label}.resources must use shared:, root:, or plugin: resource paths`
+    `skillset: ${context.label}.resources must use shared: or plugin: resource paths`
   );
 }
 
@@ -473,7 +473,6 @@ function canonicalResourceReference(value: string): string {
   if (separatorIndex <= 0) return value;
   const scheme = value.slice(0, separatorIndex);
   const resourcePath = normalizeResourcePath(value.slice(separatorIndex + 1));
-  if (scheme === "root") return `shared:${resourcePath}`;
   if (scheme === "shared" || scheme === "plugin") return `${scheme}:${resourcePath}`;
   return value;
 }

@@ -1,5 +1,5 @@
 import { readString } from "./config";
-import { selectorForPluginSkill, selectorForRootConfig, selectorForStandaloneSkill, sourceUnitLegacyId, sourceUnitSelector } from "./source-unit-selector";
+import { selectorForPluginSkill, selectorForRootConfig, selectorForStandaloneSkill, sourceUnitSelector } from "./source-unit-selector";
 import type { BuildGraph, JsonRecord, SourcePlugin, SourceSkill } from "./types";
 
 export const DEFAULT_VERSION = "0.1.0";
@@ -72,7 +72,6 @@ export function skillVersion(
   return (
     activeReleaseVersion(graph, releaseScope) ??
     readString(skill.frontmatter, "version") ??
-    readString(skill.metadata, "version") ??
     (plugin === undefined ? undefined : pluginVersion(graph, plugin)) ??
     rootVersion(graph)
   );
@@ -88,7 +87,7 @@ export function skillVersionLabel(
 
 function activeReleaseVersion(graph: BuildGraph, scope: string): string | undefined {
   const selector = sourceUnitSelector(scope);
-  const state = graph.releaseState.scopes[selector] ?? graph.releaseState.scopes[sourceUnitLegacyId(selector)];
+  const state = graph.releaseState.scopes[selector];
   if (state?.removed === true) return undefined;
   return state?.version;
 }

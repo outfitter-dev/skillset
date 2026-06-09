@@ -43,8 +43,7 @@ test("kitchen-sink fixture builds every implemented surface and stays current", 
   expect(await exists(join(root, "plugins-claude/plugins/kitchen/commands/review.md"))).toBe(true);
   expect(await exists(join(root, "plugins-claude/plugins/kitchen/hooks/hooks.json"))).toBe(true);
   expect(await exists(join(root, "plugins-claude/plugins/kitchen/.mcp.json"))).toBe(true);
-  // SET-2: Codex hooks emit at the documented hooks/hooks.json path (the legacy
-  // root hooks.json source is normalized into a top-level "hooks" object).
+  // SET-2: Codex hooks emit at the documented hooks/hooks.json path.
   expect(await exists(join(root, "plugins-codex/plugins/kitchen/hooks.json"))).toBe(false);
   const codexKitchenHook = await readFile(
     join(root, "plugins-codex/plugins/kitchen/hooks/hooks.json"),
@@ -194,7 +193,7 @@ codex: true
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/hooks.json": `
+    ".skillset/plugins/alpha/hooks/hooks.json": `
 {
   "Notification": [
     { "hooks": [ { "type": "command", "command": "./run.sh" } ] }
@@ -227,7 +226,7 @@ codex: true
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/hooks.json": `
+    ".skillset/plugins/alpha/hooks/hooks.json": `
 {
   "PreToolUse": [
     { "hooks": [ { "type": "prompt", "prompt": "ask" } ] }
@@ -260,7 +259,7 @@ codex: true
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/hooks.json": `
+    ".skillset/plugins/alpha/hooks/hooks.json": `
 {
   "PreToolUse": [
     { "hooks": [ { "command": "./run.sh" } ] }
@@ -295,7 +294,7 @@ codex:
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/hooks.json": `
+    ".skillset/plugins/alpha/hooks/hooks.json": `
 {
   "Notification": [
     { "hooks": [ { "type": "prompt", "prompt": "ask" } ] }
@@ -342,7 +341,7 @@ codex: true
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/hooks.json": `
+    ".skillset/plugins/alpha/hooks/hooks.json": `
 {
   "PreToolUse": [
     { "hooks": [ { "type": "command", "command": "./run.sh", "async": true } ] }
@@ -404,7 +403,7 @@ test("corrupt workspace .skillset.lock fails loudly instead of disabling guards"
 skillset:
   name: test-root
 `,
-    ".skillset/rules/global.md": `
+    ".skillset/instructions/global.md": `
 # Global Rule
 
 - Keep it tidy.

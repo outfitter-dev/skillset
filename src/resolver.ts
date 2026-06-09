@@ -42,7 +42,6 @@ const ROOT_CONFIG_FILE = "config.yaml";
 const PLUGIN_CONFIG_FILES = ["skillset.yaml", "config.yaml"] as const;
 const PLUGINS_DIR = "plugins";
 const INSTRUCTIONS_DIR = "instructions";
-const INSTRUCTIONS_COMPAT_DIR = "rules";
 const SKILLS_DIR = "skills";
 const SKILL_FILE = "SKILL.md";
 const RULES_OUTPUT_ROOT = ".claude/rules";
@@ -62,7 +61,7 @@ export async function loadBuildGraph(
   const metadata = readSkillsetMetadata(rootConfig, rootConfigPath);
   validateSchemaField(metadata, `${rootConfigPath}.skillset.schema`);
   validateVersionField(metadata, `${rootConfigPath}.skillset.version`);
-  // Validate root identity aliases (skillset.name / skillset.id) for conflicts.
+  // Validate root identity.
   readSkillsetName(metadata, basename(rootPath), rootConfigPath);
   const outputs = readOutputConfig(
     rootConfig,
@@ -222,6 +221,7 @@ async function loadProjectAgent(
 ): Promise<SourceProjectAgent> {
   const parts = parseMarkdown(await readFile(sourcePath, "utf8"), sourcePath);
   const sourceLabel = relative(rootPath, sourcePath);
+  rejectUnsupportedPortableFrontmatter(parts.frontmatter, sourceLabel);
   await validateSupports(parts.frontmatter.supports, { label: sourceLabel, rootPath, warnings });
   const name = readString(parts.frontmatter, "name") ?? basename(sourcePath, ".md");
   const outputName = sanitizeProjectAgentName(name, sourcePath);
@@ -250,6 +250,12 @@ async function loadProjectAgent(
     sourcePath: resolveInside(rootPath, relative(rootPath, sourcePath)),
     targets,
   };
+}
+
+function rejectUnsupportedPortableFrontmatter(frontmatter: JsonRecord, label: string): void {
+  if (frontmatter.tools !== undefined) {
+    throw new Error(`skillset: ${label} uses unsupported tools; use tool_intent`);
+  }
 }
 
 function sanitizeProjectAgentName(name: string, sourcePath: string): string {
@@ -292,10 +298,7 @@ function validateProjectAgentCollisions(agents: readonly SourceProjectAgent[]): 
   }
 }
 
-/**
- * Emit non-fatal source warnings collected during load (e.g. deprecated
- * compatibility paths). Local-only stderr notes; never fails the command.
- */
+/** Emit non-fatal source warnings collected during load. */
 export function emitGraphWarnings(graph: BuildGraph): void {
   for (const warning of graph.warnings) {
     console.warn(`skillset: ${warning}`);
@@ -303,11 +306,9 @@ export function emitGraphWarnings(graph: BuildGraph): void {
 }
 
 /**
- * Load source instructions. Canonical source lives in `.skillset/instructions/`;
- * `.skillset/rules/` remains a compatibility alias for migration and import. When
- * both directories carry content the build fails (ambiguous), and the compat path
- * emits a deprecation warning. Generated output is unchanged: Claude lowers to
- * `.claude/rules/`, Codex lowers to `AGENTS.md`.
+ * Load source instructions. Source lives in `.skillset/instructions/`. Generated
+ * output is unchanged: Claude lowers to `.claude/rules/`, Codex lowers to
+ * `AGENTS.md`.
  */
 async function loadInstructions(
   rootPath: string,
@@ -316,41 +317,23 @@ async function loadInstructions(
   warnings: string[]
 ): Promise<{ readonly rules: readonly SourceRule[]; readonly instructionsDir: string }> {
   const canonicalPath = resolveInside(rootPath, join(sourceDir, INSTRUCTIONS_DIR));
-  const compatPath = resolveInside(rootPath, join(sourceDir, INSTRUCTIONS_COMPAT_DIR));
-  // Measure both directories by markdown content, not directory existence, so an
-  // empty instructions/ or rules/ never causes a false ambiguity error.
   const canonicalFiles = (await exists(canonicalPath)) ? await findMarkdownFiles(canonicalPath) : [];
-  const compatFiles = (await exists(compatPath)) ? await findMarkdownFiles(compatPath) : [];
-
-  let basePath: string;
-  let instructionsDir: string;
-  if (canonicalFiles.length > 0) {
-    if (compatFiles.length > 0) {
-      throw new Error(
-        `skillset: ${sourceDir}/${INSTRUCTIONS_DIR} and ${sourceDir}/${INSTRUCTIONS_COMPAT_DIR} both contain instruction files; ` +
-          `consolidate into ${sourceDir}/${INSTRUCTIONS_DIR}`
-      );
-    }
-    basePath = canonicalPath;
-    instructionsDir = INSTRUCTIONS_DIR;
-  } else if (compatFiles.length > 0) {
-    basePath = compatPath;
-    instructionsDir = INSTRUCTIONS_COMPAT_DIR;
-    warnings.push(
-      `${sourceDir}/${INSTRUCTIONS_COMPAT_DIR} is a compatibility alias for ${sourceDir}/${INSTRUCTIONS_DIR}; ` +
-        `rename it to ${sourceDir}/${INSTRUCTIONS_DIR}. Generated Claude output stays ${RULES_OUTPUT_ROOT} and Codex stays AGENTS.md.`
-    );
-  } else {
+  const rulesPath = resolveInside(rootPath, join(sourceDir, "rules"));
+  const rulesFiles = (await exists(rulesPath)) ? await findMarkdownFiles(rulesPath) : [];
+  if (rulesFiles.length > 0) {
+    throw new Error(`skillset: ${sourceDir}/rules is not supported; move instruction files to ${sourceDir}/${INSTRUCTIONS_DIR}`);
+  }
+  if (canonicalFiles.length === 0) {
     return { rules: [], instructionsDir: INSTRUCTIONS_DIR };
   }
 
-  const ruleFiles = await findMarkdownFiles(basePath);
+  const ruleFiles = canonicalFiles;
   const rules: SourceRule[] = [];
 
   for (const sourcePath of ruleFiles) {
     const content = await readFile(sourcePath, "utf8");
     const parts = parseMarkdown(content, sourcePath);
-    const relativePath = relative(basePath, sourcePath);
+    const relativePath = relative(canonicalPath, sourcePath);
     const frontmatter = normalizeRuleFrontmatter(parts.frontmatter, sourcePath);
     await validateSupports(frontmatter.supports, { label: relative(rootPath, sourcePath), rootPath, warnings });
     const targets = resolveFeatureTargets(rootTargets, frontmatter, sourcePath, "instructions");
@@ -367,7 +350,7 @@ async function loadInstructions(
 
   return {
     rules: rules.sort((left, right) => compareStrings(left.relativePath, right.relativePath)),
-    instructionsDir,
+    instructionsDir: INSTRUCTIONS_DIR,
   };
 }
 
@@ -447,13 +430,9 @@ async function loadPlugin(
   );
   const skills = await loadSkills(rootPath, sourceDir, pluginPath, inheritedTargets, warnings);
 
-  // SET-2: Codex's documented plugin hook default is hooks/hooks.json. A root
-  // hooks.json is a compatibility source that still builds (emitted to the
-  // canonical hooks/hooks.json) but should migrate.
-  if (targets.codex.enabled && (await exists(join(pluginPath, "hooks.json")))) {
-    warnings.push(
-      `plugin ${id} uses a root hooks.json for Codex; Codex's documented default is hooks/hooks.json with a top-level "hooks" object. ` +
-        "Move it under hooks/ (create the directory if needed); the build still emits the canonical hooks/hooks.json from the root file for now."
+  if (await exists(join(pluginPath, "hooks.json"))) {
+    throw new Error(
+      `skillset: plugin ${id} uses unsupported root hooks.json; move it to hooks/hooks.json`
     );
   }
   if (targets.codex.enabled && outputIncludes(codexPluginSelection, id) && (await exists(join(pluginPath, "agents")))) {
@@ -628,14 +607,17 @@ async function loadSkillsFromDirectory(
     await validateSupports(parts.frontmatter.supports, { label: relative(rootPath, sourcePath), rootPath, warnings });
     const metadata = readSkillsetMetadata(parts.frontmatter, sourcePath);
     validateVersionField(parts.frontmatter, `${sourcePath}.version`);
-    validateVersionField(metadata, `${sourcePath}.skillset.version`);
+    if (metadata.name !== undefined) {
+      throw new Error(`skillset: ${sourcePath} uses unsupported skillset.name; use top-level name`);
+    }
+    if (metadata.id !== undefined) {
+      throw new Error(`skillset: ${sourcePath} uses unsupported skillset.id; use top-level name`);
+    }
+    if (metadata.version !== undefined) {
+      throw new Error(`skillset: ${sourcePath} uses unsupported skillset.version; use top-level version`);
+    }
     const id = validateSlug(
-      readSkillsetName(
-        metadata,
-        basename(dirname(sourcePath)),
-        sourcePath,
-        readString(parts.frontmatter, "name")
-      ),
+      readString(parts.frontmatter, "name") ?? basename(dirname(sourcePath)),
       `skill id in ${sourcePath}`
     );
     const targets = resolveFeatureTargets(parentTargets, parts.frontmatter, sourcePath, "skills");

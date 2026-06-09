@@ -5,42 +5,7 @@ export type SourceUnitDisplayMode = "display" | "selector";
 const TARGETS = new Set(["claude", "codex"]);
 
 export function sourceUnitSelector(raw: string): string {
-  return legacySourceUnitToSelector(raw) ?? raw;
-}
-
-export function sourceUnitLegacyId(raw: string): string {
-  const selector = sourceUnitSelector(raw);
-  if (selector === "config:root") return "root-config";
-  if (selector.startsWith("skill:")) return `standalone-skill:${selector.slice("skill:".length)}`;
-  if (selector.startsWith("agent:")) return `project-agent:${selector.slice("agent:".length)}`;
-  if (selector.startsWith("instruction:")) return selector;
-  if (selector.startsWith("plugin:")) return selector;
-
-  const pluginNativeMatch = selector.match(/^plugin\.([^.]+)\.([^.]+)\.([^.]+):(.+)$/);
-  if (pluginNativeMatch !== null) {
-    const [, pluginId, target, , path] = pluginNativeMatch;
-    if (pluginId === undefined || target === undefined || path === undefined || !TARGETS.has(target)) return selector;
-    return `target-native-island:${target}:plugin:${pluginId}:${path}`;
-  }
-
-  const pluginMatch = selector.match(/^plugin\.([^.]+)\.([^.]+):(.+)$/);
-  if (pluginMatch !== null) {
-    const [, pluginId, surface, name] = pluginMatch;
-    if (pluginId === undefined || surface === undefined || name === undefined) return selector;
-    if (surface === "config") return `plugin-config:${pluginId}`;
-    if (surface === "skill") return `plugin-skill:${pluginId}/${name}`;
-    if (surface === "feature") return `plugin-feature:${pluginId}/${name}`;
-    if (surface === "companion") return `plugin-companion:${pluginId}/${name}`;
-  }
-
-  const nativeMatch = selector.match(/^([^.]+)\.([^.]+):(.+)$/);
-  if (nativeMatch !== null) {
-    const [, target, , path] = nativeMatch;
-    if (target === undefined || path === undefined || !TARGETS.has(target)) return selector;
-    return `target-native-island:${target}:project:${path}`;
-  }
-
-  return selector;
+  return raw;
 }
 
 export function sourceUnitDisplay(raw: string, mode: SourceUnitDisplayMode = "display"): string {
@@ -148,36 +113,4 @@ export function targetNativeSurface(relativePath: string): string {
   const first = relativePath.split("/")[0] ?? "";
   if (first.length === 0) return "native";
   return first.replace(/[^A-Za-z0-9-]/g, "") || "native";
-}
-
-function legacySourceUnitToSelector(raw: string): string | undefined {
-  if (raw === "root-config") return selectorForRootConfig();
-  if (raw.startsWith("standalone-skill:")) return selectorForStandaloneSkill(raw.slice("standalone-skill:".length));
-  if (raw.startsWith("project-agent:")) return selectorForProjectAgent(raw.slice("project-agent:".length));
-  if (raw.startsWith("instruction:")) return raw;
-  if (raw.startsWith("plugin-config:")) return selectorForPluginConfig(raw.slice("plugin-config:".length));
-  if (raw.startsWith("plugin-skill:")) {
-    const [pluginId, skillId] = raw.slice("plugin-skill:".length).split("/");
-    if (pluginId !== undefined && skillId !== undefined) return selectorForPluginSkill(pluginId, skillId);
-  }
-  if (raw.startsWith("plugin-feature:")) {
-    const [pluginId, featureKey] = raw.slice("plugin-feature:".length).split("/");
-    if (pluginId !== undefined && featureKey !== undefined) return selectorForPluginFeature(pluginId, featureKey);
-  }
-  if (raw.startsWith("plugin-companion:")) {
-    const [pluginId, ...pathParts] = raw.slice("plugin-companion:".length).split("/");
-    const companionPath = pathParts.join("/");
-    if (pluginId !== undefined && companionPath.length > 0) return selectorForPluginCompanion(pluginId, companionPath);
-  }
-  if (raw.startsWith("target-native-island:")) {
-    const parts = raw.slice("target-native-island:".length).split(":");
-    const [target, ownerKind, ownerIdOrPath, ...pathParts] = parts;
-    if (target === undefined || ownerKind === undefined || ownerIdOrPath === undefined) return undefined;
-    if (ownerKind === "project") return selectorForTargetNativeIsland(target, "project", [ownerIdOrPath, ...pathParts].join(":"));
-    if (ownerKind === "plugin") {
-      const [relativePath] = [pathParts.join(":")];
-      if (relativePath.length > 0) return selectorForTargetNativeIsland(target, `plugin:${ownerIdOrPath}`, relativePath);
-    }
-  }
-  return undefined;
 }

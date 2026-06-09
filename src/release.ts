@@ -4,13 +4,13 @@ import { dirname, join } from "node:path";
 
 import { buildSkillset } from "./build";
 import { changeCheck, readPendingChangeEntries, type ChangeBump, type PendingChangeEntry } from "./change-entries";
+import { SOURCE_HASH_SCHEMA } from "./change-status";
 import { compareStrings, resolveInside } from "./path";
 import { readReleaseState, writeReleaseState } from "./release-state";
 import { loadBuildGraph } from "./resolver";
 import {
   pluginIdForSelector,
   pluginScopeFromSourceUnit,
-  sourceUnitLegacyId,
   sourceUnitSelector,
 } from "./source-unit-selector";
 import type { BuildGraph, JsonRecord, ReleaseScopeState, ReleaseState, SkillsetOptions, SourcePlugin } from "./types";
@@ -247,7 +247,7 @@ function bumpVersion(version: string, bump: ChangeBump): string {
 
 function versionForScope(graph: BuildGraph, scope: string): string {
   const selector = sourceUnitSelector(scope);
-  const releaseScope = graph.releaseState.scopes[selector] ?? graph.releaseState.scopes[sourceUnitLegacyId(selector)];
+  const releaseScope = graph.releaseState.scopes[selector];
   const releasedVersion = releaseScope?.removed === true ? undefined : releaseScope?.version;
   if (releasedVersion !== undefined) return releasedVersion;
   if (selector === "config:root") return rootVersion(graph);
@@ -337,7 +337,7 @@ async function appendReleaseRecord(
   await mkdir(dirname(absolutePath), { recursive: true });
   await appendFile(absolutePath, `${JSON.stringify({
     appliedAt,
-    baseline: { hashSchema: "skillset-source-unit-v1", kind: "source-hashes" },
+    baseline: { hashSchema: SOURCE_HASH_SCHEMA, kind: "source-hashes" },
     entries: plan.entries.filter((entry) => !entry.ignored).map((entry) => entry.id).sort(compareStrings),
     id: plan.releaseId,
     scopes: plan.scopes.map((scope) => ({

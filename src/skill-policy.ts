@@ -182,24 +182,18 @@ function readTargetNativeToolEscape(
 }
 
 /**
- * Read the portable tool-intent block. `tool_intent` is the canonical source key;
- * `tools` is a compatibility alias. Setting both is a conflict, since they mean
- * the same thing. The name signals authoring intent, not a target-enforced
- * permission sandbox.
+ * Read the portable tool-intent block. The name signals authoring intent, not a
+ * target-enforced permission sandbox.
  */
 function readToolsRecord(
   record: JsonRecord,
   label: string,
   allowPortablePolicy: boolean
 ): JsonRecord | undefined {
-  const canonical = record.tool_intent;
-  const alias = record.tools;
-  if (canonical !== undefined && alias !== undefined) {
-    throw new Error(
-      `skillset: ${label} sets both tool_intent and the tools compatibility alias; keep tool_intent only`
-    );
+  if (record.tools !== undefined) {
+    throw new Error(`skillset: ${label} uses unsupported tools; use tool_intent`);
   }
-  const value = canonical ?? alias;
+  const value = record.tool_intent;
   if (value === undefined) return undefined;
   if (!isJsonRecord(value)) {
     throw new Error(`skillset: expected ${label} to be an object`);
