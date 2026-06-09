@@ -1046,6 +1046,183 @@ Body.
   expect(generated).not.toContain("dependencies:");
 });
 
+test("SET-39: supports validate ranges and warn on repo package mismatches", async () => {
+  const root = await contractFixture({
+    "packages/docs-cli/package.json": `
+{
+  "name": "@acme/docs-cli",
+  "version": "3.1.0"
+}
+`,
+    ".skillset/config.yaml": `
+skillset:
+  name: supports-root
+supports:
+  packages:
+    - name: "@acme/docs-cli"
+      range: ">=2.4.0 <3.0.0"
+      source: repo:packages/docs-cli/package.json
+      onMismatch: warn
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+supports:
+  - "@acme/docs-cli@^2.4.0"
+  - "eslint@~9.0.0"
+---
+
+Body.
+`,
+  });
+
+  await buildSkillset(root);
+  const checked = await runSkillsetCli("check", "--root", root);
+  expect(checked.exitCode).toBe(0);
+  expect(checked.stderr).toContain("@acme/docs-cli supports >=2.4.0 <3.0.0");
+  expect(checked.stderr).toContain("repo:packages/docs-cli/package.json is 3.1.0");
+});
+
+test("SET-39: invalid supports ranges fail loudly", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: invalid-supports-root
+supports:
+  - "@acme/docs-cli >=2 || <3"
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  await expect(loadBuildGraph(root)).rejects.toThrow("OR ranges are not supported in v1");
+});
+
+test("SET-39: supports repo sources validate package names before ranges", async () => {
+  const root = await contractFixture({
+    "packages/wrong/package.json": `
+{
+  "name": "@wrong/pkg",
+  "version": "2.5.0"
+}
+`,
+    ".skillset/config.yaml": `
+skillset:
+  name: wrong-package-root
+supports:
+  packages:
+    - name: "@acme/docs-cli"
+      range: ">=2.4.0 <3.0.0"
+      source: repo:packages/wrong/package.json
+      onMismatch: error
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  await expect(loadBuildGraph(root)).rejects.toThrow("expected @acme/docs-cli");
+});
+
+test("SET-39: supports objects must use explicit package collections", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: unsupported-supports-root
+supports:
+  name: eslint
+  range: "^9.0.0"
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  await expect(loadBuildGraph(root)).rejects.toThrow("unsupported");
+  await expect(loadBuildGraph(root)).rejects.toThrow("v1 supports packages");
+});
+
+test("SET-39: supports-only changes can use bump none without severity warnings", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: supports-change-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await commitFixture(root);
+
+  await Bun.write(
+    join(root, ".skillset/skills/demo/SKILL.md"),
+    `---
+name: demo
+description: Demo.
+supports:
+  packages:
+    - name: "@acme/docs-cli"
+      range: "^2.4.0"
+---
+
+Body.
+`
+  );
+  const status = await changeStatus(root, { since: "HEAD" });
+  const demo = status.sourceChanges.find((change) => change.id === "standalone-skill:demo");
+  expect(demo?.currentHash).toBeDefined();
+  expect(demo?.currentRegions).toContainEqual({ name: "supports", severityBearing: false });
+  await writePendingChange(root, "supports.md", `
+---
+id: 888888ffffff
+bump: none
+scope: standalone-skill:demo
+evidence:
+  - scope: standalone-skill:demo
+    currentHash: ${demo?.currentHash}
+---
+
+Record the supports metadata compatibility update without changing generated artifact behavior.
+`);
+
+  const checked = await runSkillsetCli("change", "check", "--root", root, "--since", "HEAD");
+  expect(checked.exitCode).toBe(0);
+  expect(checked.stdout).toContain("0 warnings");
+  expect(checked.stdout).not.toContain("change-bump-lower-than-suggested");
+});
+
 test("SET-34: plugin aggregate hashes consume child content hashes before versions", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `

@@ -18,6 +18,7 @@ import {
 import { compareStrings, resolveInside, validateSlug } from "./path";
 import { readReleaseState } from "./release-state";
 import { readSkillResources } from "./resources";
+import { validateSupports } from "./supports";
 import type {
   BuildGraph,
   JsonRecord,
@@ -84,6 +85,7 @@ export async function loadBuildGraph(
   };
 
   const warnings: string[] = [];
+  await validateSupports(rootConfig.supports, { label: rootConfigPath, rootPath, warnings });
   const releaseState = await readReleaseState(rootPath, options);
   const plugins = await loadPlugins(rootPath, sourceDir, rootTargets, warnings, outputs);
   const standaloneSkills = await loadStandaloneSkills(rootPath, sourceDir, rootTargets, warnings);
@@ -218,6 +220,7 @@ async function loadProjectAgent(
 ): Promise<SourceProjectAgent> {
   const parts = parseMarkdown(await readFile(sourcePath, "utf8"), sourcePath);
   const sourceLabel = relative(rootPath, sourcePath);
+  await validateSupports(parts.frontmatter.supports, { label: sourceLabel, rootPath, warnings });
   const name = readString(parts.frontmatter, "name") ?? basename(sourcePath, ".md");
   const outputName = sanitizeProjectAgentName(name, sourcePath);
   const description = readString(parts.frontmatter, "description");
@@ -347,6 +350,7 @@ async function loadInstructions(
     const parts = parseMarkdown(content, sourcePath);
     const relativePath = relative(basePath, sourcePath);
     const frontmatter = normalizeRuleFrontmatter(parts.frontmatter, sourcePath);
+    await validateSupports(frontmatter.supports, { label: relative(rootPath, sourcePath), rootPath, warnings });
     const targets = resolveFeatureTargets(rootTargets, frontmatter, sourcePath, "instructions");
 
     rules.push({
@@ -411,6 +415,7 @@ async function loadPlugin(
   const configPath = await resolvePluginConfigPath(pluginPath);
   const config = parseYamlRecord(await readFile(configPath, "utf8"), configPath);
   validateConfigDocument(config, configPath, { featureKeys: PLUGIN_FEATURE_KEYS });
+  await validateSupports(config.supports, { label: relative(rootPath, configPath), rootPath, warnings });
   const metadata = readSkillsetMetadata(config, configPath);
   validateSchemaField(metadata, `${configPath}.skillset.schema`);
   validateVersionField(metadata, `${configPath}.skillset.version`);
@@ -617,6 +622,7 @@ async function loadSkillsFromDirectory(
   for (const sourcePath of skillFiles) {
     const content = await readFile(sourcePath, "utf8");
     const parts = parseMarkdown(content, sourcePath);
+    await validateSupports(parts.frontmatter.supports, { label: relative(rootPath, sourcePath), rootPath, warnings });
     const metadata = readSkillsetMetadata(parts.frontmatter, sourcePath);
     validateVersionField(parts.frontmatter, `${sourcePath}.version`);
     validateVersionField(metadata, `${sourcePath}.skillset.version`);
