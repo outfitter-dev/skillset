@@ -81,6 +81,16 @@ export interface ChangeHistoryReport {
   readonly entries: readonly ChangeEntryView[];
 }
 
+export interface AppliedChangeRecord {
+  readonly bump?: ChangeBump;
+  readonly group?: ChangeGroup;
+  readonly id: string;
+  readonly path: string;
+  readonly reason: string;
+  readonly scopes: readonly string[];
+  readonly sourceHashes: ReadonlyMap<string, readonly string[]>;
+}
+
 const PENDING_DIR = "changes/pending";
 const HISTORY_FILE = "changes/history.jsonl";
 const MIN_REF_LENGTH = 6;
@@ -161,6 +171,13 @@ export async function readChangeHistory(rootPath: string, options: ChangeHistory
   }
   const history = resolveHistoryRef(historyEntries, options.ref);
   return { entries: [historyView(history, refs)] };
+}
+
+export async function readAppliedChangeRecords(
+  rootPath: string,
+  options: ChangeStatusOptions = {}
+): Promise<readonly AppliedChangeRecord[]> {
+  return readHistoryEntries(rootPath, options);
 }
 
 async function resolveAnyChangeRef(
@@ -298,7 +315,7 @@ function pendingView(entry: PendingChangeEntry, refs: ReadonlyMap<string, string
   };
 }
 
-interface HistoryEntry {
+interface HistoryEntry extends AppliedChangeRecord {
   readonly bump?: ChangeBump;
   readonly group?: ChangeGroup;
   readonly id: string;

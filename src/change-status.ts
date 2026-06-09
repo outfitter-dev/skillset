@@ -114,6 +114,7 @@ const PLUGIN_COMPANION_PATHS = [
   "src",
   ".app.json",
 ] as const;
+type RelativePathPredicate = (path: string) => boolean;
 
 export async function changeStatus(
   rootPath: string,
@@ -221,7 +222,7 @@ async function skillUnit(
   hash.update("id\0");
   hash.update(id);
   hash.update("\0");
-  await hashDirectory(hash, sourceDir);
+  await hashDirectory(hash, sourceDir, isGeneratedEntityChangelogPath);
   await hashResources(hash, skill.resources);
   await hashPreprocessDependencies(hash, graph, preprocessDependencies);
   return {
@@ -424,7 +425,7 @@ async function sourcePathsForSkill(
   preprocessDependencies: readonly string[]
 ): Promise<readonly string[]> {
   return sortedUnique([
-    ...(await sourcePathsForPath(graph, sourceDir)),
+    ...(await sourcePathsForPath(graph, sourceDir, isGeneratedEntityChangelogPath)),
     ...resources.flatMap((resource) => [
       relativePath(graph, resource.sourcePath),
     ]),
@@ -432,10 +433,17 @@ async function sourcePathsForSkill(
   ]);
 }
 
-async function sourcePathsForPath(graph: BuildGraph, sourcePath: string): Promise<readonly string[]> {
+async function sourcePathsForPath(
+  graph: BuildGraph,
+  sourcePath: string,
+  shouldSkip?: RelativePathPredicate
+): Promise<readonly string[]> {
   const stats = await stat(sourcePath);
   if (stats.isFile()) return [relativePath(graph, sourcePath)];
-  return (await collectFiles(sourcePath)).map((file) => relativePath(graph, file)).sort(compareStrings);
+  return (await collectFiles(sourcePath))
+    .filter((file) => !shouldSkip?.(relative(sourcePath, file)))
+    .map((file) => relativePath(graph, file))
+    .sort(compareStrings);
 }
 
 async function hashPath(
@@ -463,14 +471,24 @@ async function hashPathInto(hash: ReturnType<typeof createHash>, sourcePath: str
   await hashDirectory(hash, sourcePath);
 }
 
-async function hashDirectory(hash: ReturnType<typeof createHash>, sourceDir: string): Promise<void> {
+async function hashDirectory(
+  hash: ReturnType<typeof createHash>,
+  sourceDir: string,
+  shouldSkip?: RelativePathPredicate
+): Promise<void> {
   hash.update("dir\0");
   for (const file of await collectFiles(sourceDir)) {
-    hash.update(relative(sourceDir, file));
+    const relativeFile = relative(sourceDir, file);
+    if (shouldSkip?.(relativeFile)) continue;
+    hash.update(relativeFile);
     hash.update("\0");
     hash.update(await readFile(file));
     hash.update("\0");
   }
+}
+
+function isGeneratedEntityChangelogPath(path: string): boolean {
+  return path === "CHANGELOG.md";
 }
 
 async function hashResources(

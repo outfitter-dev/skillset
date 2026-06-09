@@ -21,6 +21,7 @@ import {
   readImplicitInvocation,
 } from "./skill-policy";
 import { preprocessText } from "./preprocess";
+import { renderChangelogProjections, type ChangelogProjection } from "./changelog";
 import {
   renderValidatedJson,
   renderValidatedMarkdown,
@@ -53,13 +54,13 @@ const COMPILER_ID = "skillset";
 const COMPILER_VERSION = "0.1.0";
 const GENERATED_BY = `${COMPILER_ID}@${COMPILER_VERSION}`;
 const CLAUDE_RULES_OUTPUT_ROOT = ".claude/rules";
-const CODEX_RULES_LOCK_ROOT = ".";
+const WORKSPACE_LOCK_ROOT = ".";
 
 interface LockItem {
   readonly feature?: string;
   readonly files: readonly string[];
   readonly includedSkills?: readonly string[];
-  readonly kind: "island" | "plugin" | "plugin-feature" | "plugin-skill" | "project-agent" | "rule" | "standalone-skill";
+  readonly kind: "changelog" | "island" | "plugin" | "plugin-feature" | "plugin-skill" | "project-agent" | "rule" | "standalone-skill";
   readonly name: string;
   readonly origin?: string;
   readonly outputHash: string;
@@ -110,6 +111,7 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
   rendered.push(...(await renderProjectAgents(graph, lockRoots)));
   rendered.push(...(await renderRules(graph, lockRoots)));
   rendered.push(...(await renderProjectIslands(graph, lockRoots)));
+  rendered.push(...(await renderChangelogs(graph, lockRoots)));
   rendered.push(...renderLockFiles(graph, lockRoots));
   return [...coalesceRenderedFiles(rendered)]
     .sort((left, right) => compareStrings(left.path, right.path))
@@ -488,6 +490,7 @@ async function renderPluginSkillFiles(
   for (const file of await collectFiles(sourceDir)) {
     const relativeFile = relative(sourceDir, file);
     if (relativeFile === "SKILL.md") continue;
+    if (relativeFile === "CHANGELOG.md") continue;
     if (generatedCodexRelativeFiles.has(relativeFile)) continue;
     pushSkillRenderedFile(
       rendered,
@@ -533,10 +536,10 @@ async function renderProjectAgents(
     if (results.length === 0) continue;
     const files = results.map((result) => result.file);
     rendered.push(...files);
-    const lockRoot = lockRootsFor(lockRoots, CODEX_RULES_LOCK_ROOT, "workspace");
+    const lockRoot = lockRootsFor(lockRoots, WORKSPACE_LOCK_ROOT, "workspace");
     for (const result of results) {
       lockRoot.items.push(
-        lockItemForProjectAgent({ agent, files: [result.file], graph, outputRoot: CODEX_RULES_LOCK_ROOT, result })
+        lockItemForProjectAgent({ agent, files: [result.file], graph, outputRoot: WORKSPACE_LOCK_ROOT, result })
       );
     }
   }
@@ -697,8 +700,8 @@ async function renderProjectIslands(
     const targetPath = join(targetRoot, island.relativePath);
     const result = await renderIslandFile(graph, island, targetPath);
     rendered.push(result.file);
-    lockRootsFor(lockRoots, CODEX_RULES_LOCK_ROOT, "workspace").items.push(
-      lockItemForIsland({ graph, island, outputRoot: CODEX_RULES_LOCK_ROOT, outputPath: targetPath, result })
+    lockRootsFor(lockRoots, WORKSPACE_LOCK_ROOT, "workspace").items.push(
+      lockItemForIsland({ graph, island, outputRoot: WORKSPACE_LOCK_ROOT, outputPath: targetPath, result })
     );
   }
   return rendered;
@@ -867,6 +870,7 @@ async function renderStandaloneSkill(
   for (const file of await collectFiles(sourceDir)) {
     const relativeFile = relative(sourceDir, file);
     if (relativeFile === "SKILL.md") continue;
+    if (relativeFile === "CHANGELOG.md") continue;
     if (generatedCodexRelativeFiles.has(relativeFile)) continue;
     pushSkillRenderedFile(
       rendered,
@@ -1159,12 +1163,12 @@ async function renderCodexAgentsFiles(
       `${graph.sourceDir}/${graph.instructionsDir}`
     );
     rendered.push(file);
-    lockRootsFor(lockRoots, CODEX_RULES_LOCK_ROOT, "workspace").items.push(
+    lockRootsFor(lockRoots, WORKSPACE_LOCK_ROOT, "workspace").items.push(
       lockItemForRule({
         files: [file],
         graph,
         name: destination,
-        outputRoot: CODEX_RULES_LOCK_ROOT,
+        outputRoot: WORKSPACE_LOCK_ROOT,
         outputPath: destination,
         sourceHash: hashRules(rules),
         sourcePath: `${graph.sourceDir}/${graph.instructionsDir}`,
@@ -1565,6 +1569,35 @@ function lockRootsFor(
   return created;
 }
 
+async function renderChangelogs(
+  graph: BuildGraph,
+  lockRoots: Map<string, LockRoot>
+): Promise<readonly RenderedFile[]> {
+  const projections = await renderChangelogProjections(graph);
+  if (projections.length === 0) return [];
+  const rendered = projections.map((projection) => projection.file);
+  const lockRoot = lockRootsFor(lockRoots, WORKSPACE_LOCK_ROOT, "workspace");
+  for (const projection of projections) {
+    lockRoot.items.push(lockItemForChangelog(projection));
+  }
+  return rendered;
+}
+
+function lockItemForChangelog(projection: ChangelogProjection): LockItem {
+  return {
+    feature: projection.entityKind,
+    files: [projection.outputPath],
+    kind: "changelog",
+    name: projection.entityId,
+    outputHash: hashRenderedFiles(WORKSPACE_LOCK_ROOT, [projection.file]),
+    outputPath: projection.outputPath,
+    sourceHash: projection.sourceHash,
+    sourcePath: projection.sourcePath,
+    targetState: "generated",
+    validation: "structured",
+  };
+}
+
 function lockItemForPlugin(args: {
   readonly file: RenderedFile;
   readonly graph: BuildGraph;
@@ -1850,6 +1883,7 @@ async function hashSkillSource(
 
   for (const file of await collectFiles(sourceDir)) {
     const relativeFile = relative(sourceDir, file);
+    if (relativeFile === "CHANGELOG.md") continue;
     hash.update("skill\0");
     hash.update(relativeFile);
     hash.update("\0");

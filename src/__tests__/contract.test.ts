@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { expect, test } from "bun:test";
 
 import { buildSkillset, checkSkillset, diffSkillset } from "../build";
-import { changeStatus } from "../change-status";
+import { changeStatus, collectSourceInventory } from "../change-status";
 import { doctorSkillset, explainPath } from "../authoring";
 import { importSource, importSources } from "../import";
 import { lintSkillset } from "../lint";
@@ -1638,6 +1638,167 @@ Pending entry has a colliding prefix with an applied history entry.
   expect(history.stderr).toContain("ambiguous change ref @abcdef");
 });
 
+test("SET-37: applied history generates standalone changelog projections without pending churn", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: changelog-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await mkdir(join(root, ".skillset/changes/pending"), { recursive: true });
+  await writePendingChange(root, "abcdef123456.md", `
+---
+id: abcdef123456
+bump: patch
+scope: standalone-skill:demo
+evidence:
+  - scope: standalone-skill:demo
+    sourceHash: sha256:pending
+---
+
+Pending changes stay out of committed changelog projections.
+`);
+  await writeHistory(root, [
+    {
+      id: "111111aaaaaa",
+      bump: "patch",
+      scope: "standalone-skill:demo",
+      reason: "Clarified the standalone skill behavior for applied history.",
+      evidence: [{ scope: "standalone-skill:demo", sourceHash: "sha256:one" }],
+    },
+    {
+      id: "222222bbbbbb",
+      bump: "none",
+      scope: "standalone-skill:demo",
+      reason: "Recorded an audit-only correction that should still appear in history.",
+      evidence: [{ scope: "standalone-skill:demo", sourceHash: "sha256:two" }],
+    },
+  ]);
+
+  await buildSkillset(root);
+  const changelog = await readFile(join(root, ".skillset/skills/demo/CHANGELOG.md"), "utf8");
+  expect(changelog).toContain("generated: skillset@0.1.0");
+  expect(changelog).toContain("## 222222bbbbbb");
+  expect(changelog).toContain("bump: none");
+  expect(changelog).toContain("## 111111aaaaaa");
+  expect(changelog.indexOf("222222bbbbbb")).toBeLessThan(changelog.indexOf("111111aaaaaa"));
+  expect(changelog).not.toContain("Pending changes stay out");
+
+  const diff = await runSkillsetCli("diff", "--root", root);
+  expect(diff.exitCode).toBe(0);
+  expect(diff.stdout).toContain("no generated changes");
+
+  const lock = await readFile(join(root, ".skillset.lock"), "utf8");
+  expect(lock).toContain(`"kind": "changelog"`);
+  expect(lock).toContain(`".skillset/skills/demo/CHANGELOG.md"`);
+});
+
+test("SET-37: plugin changelog aggregates child skill applied records", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: plugin-changelog-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+  version: 0.1.0
+`,
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await writeHistory(root, [
+    {
+      id: "333333cccccc",
+      bump: "minor",
+      scope: "plugin-skill:alpha/demo",
+      reason: "Updated the plugin child skill and projected it into the plugin changelog.",
+      evidence: [{ scope: "plugin-skill:alpha/demo", sourceHash: "sha256:child" }],
+    },
+  ]);
+
+  await buildSkillset(root);
+  const pluginChangelog = await readFile(join(root, ".skillset/plugins/alpha/CHANGELOG.md"), "utf8");
+  expect(pluginChangelog).toContain("target: plugin:alpha");
+  expect(pluginChangelog).toContain("## 333333cccccc");
+  expect(pluginChangelog).toContain("scopes: plugin-skill:alpha/demo");
+  expect(pluginChangelog).toContain("Updated the plugin child skill");
+});
+
+test("SET-37: generated changelogs do not perturb source inventory hashes", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: changelog-inventory-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Standalone body.
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+  version: 0.1.0
+`,
+    ".skillset/plugins/alpha/skills/child/SKILL.md": `
+---
+name: child
+description: Child.
+---
+
+Plugin child body.
+`,
+  });
+  await writeHistory(root, [
+    {
+      id: "444444dddddd",
+      bump: "patch",
+      scope: "standalone-skill:demo",
+      reason: "Applied standalone skill change.",
+      evidence: [{ scope: "standalone-skill:demo", sourceHash: "sha256:standalone" }],
+    },
+    {
+      id: "555555eeeeee",
+      bump: "minor",
+      scope: "plugin-skill:alpha/child",
+      reason: "Applied plugin child skill change.",
+      evidence: [{ scope: "plugin-skill:alpha/child", sourceHash: "sha256:child" }],
+    },
+  ]);
+
+  const before = await collectSourceInventory(root);
+  await buildSkillset(root);
+  const after = await collectSourceInventory(root);
+
+  for (const id of ["standalone-skill:demo", "plugin-skill:alpha/child", "plugin:alpha"]) {
+    expect(sourceInventoryUnit(after, id)).toEqual(sourceInventoryUnit(before, id));
+  }
+});
+
 test("SET-25: diff reports missing managed outputs separately", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `
@@ -2721,6 +2882,21 @@ async function writePendingChange(root: string, filename: string, content: strin
   const pendingPath = join(root, ".skillset/changes/pending");
   await mkdir(pendingPath, { recursive: true });
   await writeFile(join(pendingPath, filename), `${content.trim()}\n`, "utf8");
+}
+
+async function writeHistory(root: string, entries: readonly Record<string, unknown>[]): Promise<void> {
+  const changesPath = join(root, ".skillset/changes");
+  await mkdir(changesPath, { recursive: true });
+  await writeFile(join(changesPath, "history.jsonl"), `${entries.map((entry) => JSON.stringify(entry)).join("\n")}\n`, "utf8");
+}
+
+function sourceInventoryUnit(
+  inventory: Awaited<ReturnType<typeof collectSourceInventory>>,
+  id: string
+): { readonly hash: string; readonly sourcePaths: readonly string[] } {
+  const unit = inventory.units.find((item) => item.id === id);
+  if (unit === undefined) throw new Error(`missing source inventory unit ${id}`);
+  return { hash: unit.hash, sourcePaths: unit.sourcePaths };
 }
 
 function extractChangeRef(stdout: string): string {
