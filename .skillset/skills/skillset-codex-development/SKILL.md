@@ -21,7 +21,7 @@ Use this skill when working on the local `skillset` compiler from a Codex-orient
 ## Implementation Loop
 
 1. Inspect the closest existing code path before editing. The core modules are `src/resolver.ts`, `src/render.ts`, `src/build.ts`, `src/config.ts`, `src/lint.ts`, and `src/import.ts`.
-2. Add or update fixtures in `src/__tests__/skillset.test.ts` for every behavior change.
+2. Add or update focused tests or fixtures in the appropriate `src/__tests__/` file for every behavior change.
 3. For source-only skill/plugin edits, run `bun run skillset:build`.
 4. Run `bun run check` before handoff.
 5. Report generated file counts and any skipped checks explicitly.

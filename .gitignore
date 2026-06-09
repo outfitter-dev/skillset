@@ -6,3 +6,4 @@ dist/
 .envrc
 .claude/settings.local.json
 .scratch/
+.skillset/build/

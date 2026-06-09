@@ -24,5 +24,7 @@ Draft map: `docs/adrs/drafts/decision-map.json`; numbered map: `docs/adrs/decisi
   - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md), [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md), [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md)
 - [Change and Release Edge Decisions](20260609-change-release-edge-decisions.md)
   - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [Changelog and Version Bump Workflow](20260604-changelog-and-versioning.md)
+- [Fixtures, Tests, Dogfooding, and Evals](20260609-fixtures-tests-dogfooding-and-evals.md)
+  - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md), [Change and Release Edge Decisions](20260609-change-release-edge-decisions.md), [Source Change, Release, and Dependency Provenance](20260609-source-change-release-provenance.md)
 - [Source Change, Release, and Dependency Provenance](20260609-source-change-release-provenance.md)
   - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [Changelog and Version Bump Workflow](20260604-changelog-and-versioning.md), [Change and Release Edge Decisions](20260609-change-release-edge-decisions.md)

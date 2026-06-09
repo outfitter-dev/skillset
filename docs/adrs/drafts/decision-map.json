@@ -71,6 +71,11 @@
           "context": "- [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - tracks settings as future-only and target-native.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-reviewed-settings-suggestions.md"
+        },
+        {
+          "context": "- [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - feature docs and future registry direction.",
+          "from": "20260609",
+          "fromPath": "docs/adrs/drafts/20260609-fixtures-tests-dogfooding-and-evals.md"
         }
       ],
       "number": null,
@@ -214,6 +219,11 @@
       "depends_on": ["0", "changelog-and-versioning"],
       "inbound": [
         {
+          "context": "- [Change and Release Edge Decisions](20260609-change-release-edge-decisions.md) - release and baseline edge decisions that should not be hidden in test fixtures.",
+          "from": "20260609",
+          "fromPath": "docs/adrs/drafts/20260609-fixtures-tests-dogfooding-and-evals.md"
+        },
+        {
           "context": "The stable id and group semantics are defined in [Change and Release Edge Decisions](20260609-change-release-edge-decisions.md). One entry may cover multiple scopes only when the reason is one coheren",
           "from": "20260609",
           "fromPath": "docs/adrs/drafts/20260609-source-change-release-provenance.md"
@@ -252,10 +262,39 @@
       "created": "2026-06-09",
       "depends_on": [
         "0",
+        "feature-reference-and-schema-registry",
+        "source-change-release-provenance",
+        "change-release-edge-decisions"
+      ],
+      "inbound": [
+        {
+          "context": "See [Fixtures, Tests, Dogfooding, and Evals](../adrs/drafts/20260609-fixtures-tests-dogfooding-and-evals.md), [Build Scopes](build-scopes.md), [Changes](changes.md), and [Releases and Changelogs](rele",
+          "from": "tests-and-evals",
+          "fromPath": "docs/features/tests-and-evals.md"
+        }
+      ],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260609-fixtures-tests-dogfooding-and-evals.md",
+      "slug": "fixtures-tests-dogfooding-and-evals",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Fixtures, Tests, Dogfooding, and Evals",
+      "updated": "2026-06-09"
+    },
+    {
+      "created": "2026-06-09",
+      "depends_on": [
+        "0",
         "changelog-and-versioning",
         "change-release-edge-decisions"
       ],
       "inbound": [
+        {
+          "context": "- [Source Change, Release, and Dependency Provenance](20260609-source-change-release-provenance.md) - source-change and release workflow this dogfood boundary must prove.",
+          "from": "20260609",
+          "fromPath": "docs/adrs/drafts/20260609-fixtures-tests-dogfooding-and-evals.md"
+        },
         {
           "context": "See [Source Change, Release, and Dependency Provenance](../adrs/drafts/20260609-source-change-release-provenance.md) and [Change and Release Edge Decisions](../adrs/drafts/20260609-change-release-edge",
           "from": "changes",
