@@ -9,9 +9,12 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Agents](agents.md): portable project agents, Claude plugin agents, Codex project agents, and skill-local Codex policy boundaries.
 - [Apps](apps.md): Codex plugin `.app.json` pass-through and why there is no v1 `apps.source` feature key.
 - [Build Scopes](build-scopes.md): build mode, destination scopes, dry-run safety, diff/list/explain behavior, and lock semantics.
+- [Changes](changes.md): pending change entries, source coverage, compact refs, groups, and append-only history boundaries.
 - [Commands](commands.md): Claude plugin command pass-through, manifest wiring, and Codex unsupported boundaries.
+- [Dependencies](dependencies.md): plugin dependency declarations, Claude lowering, Codex fallback notices, and provenance.
 - [Executables](executables.md): Claude plugin `bin/` conventional discovery, `bin.source`, and Codex unsupported diagnostics.
 - [Feature Source Pointers](feature-source-pointers.md): direct feature-key source pointers, conventional discovery, and future component ownership.
+- [Hook Guardrails](hook-guardrails.md): Git hook-runner snippets and optional agent-runtime nudges for change/release checks.
 - [Hooks](hooks.md): hook definition emission, compatibility paths, target validation, and activation boundaries.
 - [Instructions](instructions.md): `.skillset/instructions` lowering to Claude rules and Codex `AGENTS.md`, preprocessing, and collision safety.
 - [LSP Servers](lsp-servers.md): Claude plugin `.lsp.json` pass-through, manifest wiring, and future validation boundaries.
@@ -19,9 +22,11 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Monitors](monitors.md): Claude experimental monitor pass-through, manifest wiring, and Codex unsupported boundaries.
 - [Output Styles](output-styles.md): Claude output style directory pass-through and manifest wiring.
 - [Plugins](plugins.md): plugin source identity, manifest projection, companion paths, and plugin boundaries.
+- [Releases And Changelogs](releases.md): release state, generated changelog projections, version planning, and package-tool interop.
 - [Resources](resources.md): shared resource declarations, link rewriting, executable-script linting, and lock hashing.
 - [Settings](settings.md): future reviewed settings suggestion workflow and why build does not mutate runtime config.
 - [Skills](skills.md): standalone and plugin-bound skill frontmatter, target lowering, versions, metadata, and generated sidecars.
+- [Supports](supports.md): compatibility metadata, support ranges, source significance, and release severity boundaries.
 - [Target-Native Islands](target-native-islands.md): explicit Claude/Codex source islands, Codex `.rules` pass-through, and leakage rules.
 - [Themes](themes.md): Claude experimental theme pass-through, manifest wiring, and Codex unsupported boundaries.
 - [Tool Intent](tool-intent.md): portable tool intent metadata, Claude preapproval lowering, Codex metadata, and target-native escapes.

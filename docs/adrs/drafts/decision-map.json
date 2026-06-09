@@ -32,6 +32,16 @@
           "context": "- [Changelog and Version Bump Workflow](20260604-changelog-and-versioning.md) - earlier changesets-style design, now refined by this edge-case ADR.",
           "from": "20260609",
           "fromPath": "docs/adrs/drafts/20260609-change-release-edge-decisions.md"
+        },
+        {
+          "context": "- [Changelog and Version Bump Workflow](20260604-changelog-and-versioning.md) - earlier changesets-style design.",
+          "from": "20260609",
+          "fromPath": "docs/adrs/drafts/20260609-source-change-release-provenance.md"
+        },
+        {
+          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/drafts/20260609-source-change-release-provenance.md), [Changelog and Version Bump Workflow](../adrs/drafts/20260604-changelog-and-versio",
+          "from": "releases",
+          "fromPath": "docs/features/releases.md"
         }
       ],
       "number": null,
@@ -175,6 +185,11 @@
           "fromPath": "docs/adrs/drafts/20260604-first-class-sets.md"
         },
         {
+          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/drafts/20260609-source-change-release-provenance.md) and [Reviewed Settings Suggestions](../adrs/drafts/20260604-reviewed-settings-sugge",
+          "from": "hook-guardrails",
+          "fromPath": "docs/features/hook-guardrails.md"
+        },
+        {
           "context": "- [Reviewed settings suggestion workflow](../adrs/drafts/20260604-reviewed-settings-suggestions.md): Skillset may eventually propose or review target settings changes, but `skillset build` must not mu",
           "from": "README",
           "fromPath": "docs/features/README.md"
@@ -197,7 +212,33 @@
     {
       "created": "2026-06-09",
       "depends_on": ["0", "changelog-and-versioning"],
-      "inbound": [],
+      "inbound": [
+        {
+          "context": "The stable id and group semantics are defined in [Change and Release Edge Decisions](20260609-change-release-edge-decisions.md). One entry may cover multiple scopes only when the reason is one coheren",
+          "from": "20260609",
+          "fromPath": "docs/adrs/drafts/20260609-source-change-release-provenance.md"
+        },
+        {
+          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/drafts/20260609-source-change-release-provenance.md) and [Change and Release Edge Decisions](../adrs/drafts/20260609-change-release-edge",
+          "from": "changes",
+          "fromPath": "docs/features/changes.md"
+        },
+        {
+          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/drafts/20260609-source-change-release-provenance.md) and [Change and Release Edge Decisions](../adrs/drafts/20260609-change-release-edge",
+          "from": "dependencies",
+          "fromPath": "docs/features/dependencies.md"
+        },
+        {
+          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/drafts/20260609-source-change-release-provenance.md), [Changelog and Version Bump Workflow](../adrs/drafts/20260604-changelog-and-versio",
+          "from": "releases",
+          "fromPath": "docs/features/releases.md"
+        },
+        {
+          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/drafts/20260609-source-change-release-provenance.md) and [Change and Release Edge Decisions](../adrs/drafts/20260609-change-release-edge",
+          "from": "supports",
+          "fromPath": "docs/features/supports.md"
+        }
+      ],
       "number": null,
       "owners": ["[galligan](https://github.com/galligan)"],
       "path": "docs/adrs/drafts/20260609-change-release-edge-decisions.md",
@@ -205,6 +246,49 @@
       "status": "draft",
       "superseded_by": null,
       "title": "Change and Release Edge Decisions",
+      "updated": "2026-06-09"
+    },
+    {
+      "created": "2026-06-09",
+      "depends_on": [
+        "0",
+        "changelog-and-versioning",
+        "change-release-edge-decisions"
+      ],
+      "inbound": [
+        {
+          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/drafts/20260609-source-change-release-provenance.md) and [Change and Release Edge Decisions](../adrs/drafts/20260609-change-release-edge",
+          "from": "changes",
+          "fromPath": "docs/features/changes.md"
+        },
+        {
+          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/drafts/20260609-source-change-release-provenance.md) and [Change and Release Edge Decisions](../adrs/drafts/20260609-change-release-edge",
+          "from": "dependencies",
+          "fromPath": "docs/features/dependencies.md"
+        },
+        {
+          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/drafts/20260609-source-change-release-provenance.md) and [Reviewed Settings Suggestions](../adrs/drafts/20260604-reviewed-settings-sugge",
+          "from": "hook-guardrails",
+          "fromPath": "docs/features/hook-guardrails.md"
+        },
+        {
+          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/drafts/20260609-source-change-release-provenance.md), [Changelog and Version Bump Workflow](../adrs/drafts/20260604-changelog-and-versio",
+          "from": "releases",
+          "fromPath": "docs/features/releases.md"
+        },
+        {
+          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/drafts/20260609-source-change-release-provenance.md) and [Change and Release Edge Decisions](../adrs/drafts/20260609-change-release-edge",
+          "from": "supports",
+          "fromPath": "docs/features/supports.md"
+        }
+      ],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260609-source-change-release-provenance.md",
+      "slug": "source-change-release-provenance",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Source Change, Release, and Dependency Provenance",
       "updated": "2026-06-09"
     }
   ],
