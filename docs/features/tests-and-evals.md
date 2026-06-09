@@ -12,7 +12,7 @@ Skillset currently uses internal compiler fixtures and validation commands:
 
 | Surface | Location | Status | Purpose |
 | --- | --- | --- | --- |
-| Internal fixtures | `fixtures/<case>/.skillset/` | `implemented` / internal | Fake repos copied into temp directories by compiler tests. |
+| Internal fixtures | `fixtures/<case>/.skillset/` ([convention](../../fixtures/README.md)) | `implemented` / internal | Fake repos copied into temp directories by compiler tests. |
 | Contract tests | `src/__tests__/` | `implemented` / internal | Unit, contract, and audit-hardening tests for compiler behavior. |
 | Validation commands | `skillset check`, `doctor`, `diff`, `change check`, `release plan` | `implemented` | Public commands that validate real source and generated output. |
 | Dogfooding | repo scripts, Linear acceptance criteria, real Skillset source changes | internal practice | Proves workflows by using them on this repo. |
