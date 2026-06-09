@@ -2,7 +2,7 @@
 
 A durable fake repo with a `.skillset/` source tree that exercises implemented compiler surfaces in one build. Tests copy the fixture into a temp repo and build it, so the fixture proves compiler behavior without touching the repo's own self-hosted source or an example content repo.
 
-This is an internal compiler fixture, not a product-level `.skillset/tests/` case. Product dogfooding should use real `.skillset/` source changes and the public validation/change/release commands.
+This is an internal compiler fixture, not a product-level `.skillset/tests/` case. Product dogfooding should use real `.skillset/` source changes and the public validation/change/release commands. See [Internal Fixtures](../README.md) for the fixture convention and the checked-in-vs-inline decision rule.
 
 Surfaces covered:
 
