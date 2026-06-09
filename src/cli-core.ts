@@ -15,25 +15,29 @@ import {
 } from "./change-workflow";
 import { doctorSkillset, explainPath, listGeneratedEntries } from "./authoring";
 import { buildSkillset, checkSkillset, diffSkillset } from "./build";
+import { renderHookPrint, type HookPrintSubcommand, type HookRunner } from "./hook-guardrails";
 import { importSources, type ImportKind, type ImportProvider, type ImportReport } from "./import";
 import { lintSkillset } from "./lint";
 import { applyRelease, planRelease, type ReleasePlanReport, type ReleaseSubcommand } from "./release";
 import { createSkillset, initSkillset, type SetupReport } from "./setup";
 import type { BuildScope, CompileBuildMode, SkillsetOptions, TargetName } from "./types";
 
-type Command = "build" | "change" | "check" | "create" | "diff" | "doctor" | "explain" | "import" | "init" | "lint" | "list" | "release";
+type Command = "build" | "change" | "check" | "create" | "diff" | "doctor" | "explain" | "hooks" | "import" | "init" | "lint" | "list" | "release";
 
 const USAGE = [
   "usage: skillset build [--yes|--dry-run] [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset <check|diff|doctor|lint|list> [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change status [--since <ref>] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change check [@ref|--ref <ref>] [--since <ref>] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset change <status|check> --staged [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change add --scope <source-unit> --bump <bump> [--group <group>] [--reason <text>|--reason-file <path>|--reason -] [--since <ref>] [--root <path>] [--source <dir>]",
   "       skillset change reason <@ref> [--append] [--reason <text>|--reason-file <path>|--reason -] [--root <path>] [--source <dir>]",
   "       skillset change <show|history> [@ref] [--root <path>] [--source <dir>]",
   "       skillset change list [--group <group>] [--root <path>] [--source <dir>]",
   "       skillset release plan [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset release apply [--yes|--dry-run] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset hooks print --runner <lefthook|husky|pre-commit|git> [--pre-commit] [--pre-push]",
+  "       skillset hooks print --target <claude|codex> --agent-runtime",
   "       skillset init [path] [--yes|--dry-run] [--targets claude,codex] [--with-project-doc] [--with-agents] [--with-islands] [--name <name>] [--root <path>]",
   "       skillset create [path|--global] [--yes|--dry-run] [--targets claude,codex] [--with-project-doc] [--with-agents] [--with-islands] [--name <name>] [--root <path>]",
   "       skillset explain <path> [--root <path>] [--source <dir>]",
@@ -58,9 +62,16 @@ export async function runCli(
     changeReason,
     changeRef,
     changeSince,
+    changeStaged,
     changeScopes,
     changeSubcommand,
     dryRun,
+    hookAgentRuntime,
+    hookPreCommit,
+    hookPrePush,
+    hookRunner,
+    hookSubcommand,
+    hookTarget,
     importKind,
     importPath,
     importName,
@@ -91,13 +102,17 @@ export async function runCli(
   if (command === "change") {
     const changeOptions = { ...options, ...(changeSince === undefined ? {} : { since: changeSince }) };
     if (changeSubcommand === "status") {
-      printChangeStatus(await changeStatus(rootPath, changeOptions));
+      printChangeStatus(await changeStatus(rootPath, {
+        ...changeOptions,
+        ...(changeStaged ? { staged: true } : {}),
+      }));
       return;
     }
     if (changeSubcommand === "check") {
       printChangeCheck(await changeCheck(rootPath, {
         ...changeOptions,
         ...(changeRef === undefined ? {} : { ref: changeRef }),
+        ...(changeStaged ? { staged: true } : {}),
       }));
       return;
     }
@@ -163,6 +178,18 @@ export async function runCli(
       return;
     }
     throw new Error("skillset: expected release subcommand apply or plan");
+  }
+
+  if (command === "hooks") {
+    if (hookSubcommand !== "print") throw new Error("skillset: expected hooks subcommand print");
+    process.stdout.write(renderHookPrint({
+      agentRuntime: hookAgentRuntime,
+      preCommit: hookPreCommit,
+      prePush: hookPrePush,
+      ...(hookRunner === undefined ? {} : { runner: hookRunner }),
+      ...(hookTarget === undefined ? {} : { target: hookTarget }),
+    }));
+    return;
   }
 
   if (command === "lint") {
@@ -330,9 +357,16 @@ interface ParsedArgs {
   readonly changeReason?: ChangeReasonInput;
   readonly changeRef?: string;
   readonly changeSince?: string;
+  readonly changeStaged: boolean;
   readonly changeScopes?: readonly string[];
   readonly changeSubcommand?: ChangeSubcommand;
   readonly dryRun: boolean;
+  readonly hookAgentRuntime: boolean;
+  readonly hookPreCommit: boolean;
+  readonly hookPrePush: boolean;
+  readonly hookRunner?: HookRunner;
+  readonly hookSubcommand?: HookPrintSubcommand;
+  readonly hookTarget?: TargetName;
   readonly importKind?: ImportKind;
   readonly importName?: string;
   readonly importPath?: string;
@@ -519,6 +553,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     command !== "diff" &&
     command !== "doctor" &&
     command !== "explain" &&
+    command !== "hooks" &&
     command !== "import" &&
     command !== "init" &&
     command !== "lint" &&
@@ -526,7 +561,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     command !== "release"
   ) {
     throw new Error(
-        "skillset: expected command build, change, check, create, diff, doctor, explain, import, init, lint, list, or release\n" +
+        "skillset: expected command build, change, check, create, diff, doctor, explain, hooks, import, init, lint, list, or release\n" +
         USAGE
     );
   }
@@ -539,7 +574,14 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let changeReason: ChangeReasonInput | undefined;
   let changeRef: string | undefined;
   let changeSince: string | undefined;
+  let changeStaged = false;
   let changeScopes: readonly string[] | undefined;
+  let hookAgentRuntime = false;
+  let hookPreCommit = false;
+  let hookPrePush = false;
+  let hookRunner: HookRunner | undefined;
+  let hookSubcommand: HookPrintSubcommand | undefined;
+  let hookTarget: TargetName | undefined;
   let importKind: ImportKind | undefined;
   let importName: string | undefined;
   let importPath: string | undefined;
@@ -578,6 +620,15 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       throw new Error("skillset: expected release subcommand apply or plan");
     }
     releaseSubcommand = subcommand;
+    index += 1;
+  }
+
+  if (command === "hooks") {
+    const subcommand = args[index];
+    if (subcommand !== "print") {
+      throw new Error("skillset: expected hooks subcommand print");
+    }
+    hookSubcommand = subcommand;
     index += 1;
   }
 
@@ -645,6 +696,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--reason-file" &&
       flag !== "--ref" &&
       flag !== "--since" &&
+      flag !== "--staged" &&
       flag !== "--yes" &&
       flag !== "--dry-run" &&
       flag !== "--updated" &&
@@ -654,7 +706,12 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--targets" &&
       flag !== "--with-agents" &&
       flag !== "--with-islands" &&
-      flag !== "--with-project-doc"
+      flag !== "--with-project-doc" &&
+      flag !== "--runner" &&
+      flag !== "--target" &&
+      flag !== "--agent-runtime" &&
+      flag !== "--pre-commit" &&
+      flag !== "--pre-push"
     ) {
       throw new Error(`skillset: unknown option ${arg}`);
     }
@@ -665,10 +722,14 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag === "--updated" ||
       flag === "--all" ||
       flag === "--append" ||
+      flag === "--staged" ||
       flag === "--global" ||
       flag === "--with-agents" ||
       flag === "--with-islands" ||
-      flag === "--with-project-doc"
+      flag === "--with-project-doc" ||
+      flag === "--agent-runtime" ||
+      flag === "--pre-commit" ||
+      flag === "--pre-push"
     ) {
       if (inlineValue !== undefined) throw new Error(`skillset: ${flag} does not take a value`);
       if (flag === "--yes") yes = true;
@@ -676,10 +737,14 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       if (flag === "--updated") buildMode = setBuildMode(buildMode, "updated");
       if (flag === "--all") buildMode = setBuildMode(buildMode, "all");
       if (flag === "--append") changeAppend = true;
+      if (flag === "--staged") changeStaged = true;
       if (flag === "--global") setupGlobal = true;
       if (flag === "--with-agents") setupIncludeAgents = true;
       if (flag === "--with-islands") setupIncludeIslands = true;
       if (flag === "--with-project-doc") setupIncludeProjectDoc = true;
+      if (flag === "--agent-runtime") hookAgentRuntime = true;
+      if (flag === "--pre-commit") hookPreCommit = true;
+      if (flag === "--pre-push") hookPrePush = true;
       continue;
     }
 
@@ -705,6 +770,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     if (flag === "--reason") changeReason = setChangeReason(changeReason, value === "-" ? { kind: "stdin" } : { kind: "inline", value });
     if (flag === "--reason-file") changeReason = setChangeReason(changeReason, { kind: "file", path: value });
     if (flag === "--bump") changeBump = readChangeBump(value);
+    if (flag === "--runner") hookRunner = readHookRunner(value);
+    if (flag === "--target") hookTarget = readHookTarget(value);
     if (flag === "--targets") setupTargets = readSetupTargets(value);
     if (flag === "--name") importName = value;
     if (flag === "--kind") {
@@ -730,7 +797,27 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(changeGroup === undefined ? {} : { group: changeGroup }),
     ...(changeReason === undefined ? {} : { reason: changeReason }),
     ...(changeRef === undefined ? {} : { ref: changeRef }),
+    staged: changeStaged,
     ...(changeScopes === undefined ? {} : { scopes: changeScopes }),
+  });
+
+  validateHookFlags(command, {
+    agentRuntime: hookAgentRuntime,
+    ...(buildMode === undefined ? {} : { buildMode }),
+    ...(changeSince === undefined ? {} : { changeSince }),
+    ...(distDir === undefined ? {} : { distDir }),
+    dryRun,
+    ...(importKind === undefined ? {} : { importKind }),
+    ...(importName === undefined ? {} : { importName }),
+    ...(importProvider === undefined ? {} : { importProvider }),
+    preCommit: hookPreCommit,
+    prePush: hookPrePush,
+    ...(hookRunner === undefined ? {} : { runner: hookRunner }),
+    ...(scopes === undefined ? {} : { scopes }),
+    ...(sourceDir === undefined ? {} : { sourceDir }),
+    ...(hookSubcommand === undefined ? {} : { subcommand: hookSubcommand }),
+    ...(hookTarget === undefined ? {} : { target: hookTarget }),
+    yes,
   });
 
   validateSetupFlags(command, {
@@ -761,9 +848,16 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(changeReason === undefined ? {} : { changeReason }),
     ...(changeRef === undefined ? {} : { changeRef }),
     ...(changeSince === undefined ? {} : { changeSince }),
+    changeStaged,
     ...(changeScopes === undefined ? {} : { changeScopes }),
     ...(changeSubcommand === undefined ? {} : { changeSubcommand }),
     dryRun,
+    hookAgentRuntime,
+    hookPreCommit,
+    hookPrePush,
+    ...(hookRunner === undefined ? {} : { hookRunner }),
+    ...(hookSubcommand === undefined ? {} : { hookSubcommand }),
+    ...(hookTarget === undefined ? {} : { hookTarget }),
     ...(importKind === undefined ? {} : { importKind }),
     ...(importName === undefined ? {} : { importName }),
     ...(importPath === undefined ? {} : { importPath }),
@@ -820,6 +914,7 @@ function validateChangeFlags(
     readonly reason?: ChangeReasonInput;
     readonly ref?: string;
     readonly scopes?: readonly string[];
+    readonly staged: boolean;
   }
 ): void {
   const hasChangeFlag = change.append ||
@@ -827,7 +922,8 @@ function validateChangeFlags(
     change.group !== undefined ||
     change.reason !== undefined ||
     change.ref !== undefined ||
-    change.scopes !== undefined;
+    change.scopes !== undefined ||
+    change.staged;
   if (hasChangeFlag && command !== "change") {
     throw new Error("skillset: change options are only supported with change commands");
   }
@@ -840,6 +936,7 @@ function validateChangeFlags(
     reason: subcommand === "add" || subcommand === "reason",
     ref: subcommand === "check" || subcommand === "history" || subcommand === "reason" || subcommand === "show",
     scopes: subcommand === "add",
+    staged: subcommand === "check" || subcommand === "status",
   };
   if (change.append && !allowed.append) throw new Error("skillset: --append is only supported with change reason");
   if (change.bump !== undefined && !allowed.bump) throw new Error("skillset: --bump is only supported with change add");
@@ -847,6 +944,55 @@ function validateChangeFlags(
   if (change.reason !== undefined && !allowed.reason) throw new Error("skillset: --reason and --reason-file are only supported with change add or change reason");
   if (change.ref !== undefined && !allowed.ref) throw new Error("skillset: --ref is only supported with change check, change history, change reason, or change show");
   if (change.scopes !== undefined && !allowed.scopes) throw new Error("skillset: source-unit --scope is only supported with change add");
+  if (change.staged && !allowed.staged) throw new Error("skillset: --staged is only supported with change status or change check");
+}
+
+function validateHookFlags(
+  command: Command,
+  hooks: {
+    readonly agentRuntime: boolean;
+    readonly buildMode?: CompileBuildMode;
+    readonly changeSince?: string;
+    readonly distDir?: string;
+    readonly dryRun: boolean;
+    readonly importKind?: ImportKind;
+    readonly importName?: string;
+    readonly importProvider?: ImportProvider;
+    readonly preCommit: boolean;
+    readonly prePush: boolean;
+    readonly runner?: HookRunner;
+    readonly scopes?: readonly BuildScope[];
+    readonly sourceDir?: string;
+    readonly subcommand?: HookPrintSubcommand;
+    readonly target?: TargetName;
+    readonly yes: boolean;
+  }
+): void {
+  const hasHookFlag =
+    hooks.agentRuntime ||
+    hooks.preCommit ||
+    hooks.prePush ||
+    hooks.runner !== undefined ||
+    hooks.target !== undefined;
+  if (hasHookFlag && command !== "hooks") {
+    throw new Error("skillset: hook options are only supported with hooks print");
+  }
+  if (command !== "hooks") return;
+  if (hooks.subcommand !== "print") throw new Error("skillset: expected hooks subcommand print");
+  if (
+    hooks.buildMode !== undefined ||
+    hooks.scopes !== undefined ||
+    hooks.sourceDir !== undefined ||
+    hooks.distDir !== undefined ||
+    hooks.changeSince !== undefined ||
+    hooks.importKind !== undefined ||
+    hooks.importName !== undefined ||
+    hooks.importProvider !== undefined ||
+    hooks.dryRun ||
+    hooks.yes
+  ) {
+    throw new Error("skillset: non-hook options are not supported with hooks print");
+  }
 }
 
 function setBuildMode(current: CompileBuildMode | undefined, next: CompileBuildMode): CompileBuildMode {
@@ -875,6 +1021,16 @@ function readBuildScopes(value: string): readonly BuildScope[] {
 
 function isBuildScope(value: string): value is BuildScope {
   return value === "repo" || value === "plugins" || value === "project" || value === "user";
+}
+
+function readHookRunner(value: string): HookRunner {
+  if (value === "git" || value === "husky" || value === "lefthook" || value === "pre-commit") return value;
+  throw new Error("skillset: expected --runner lefthook, husky, pre-commit, or git");
+}
+
+function readHookTarget(value: string): TargetName {
+  if (value === "claude" || value === "codex") return value;
+  throw new Error("skillset: expected --target claude or codex");
 }
 
 function readSetupTargets(value: string): readonly TargetName[] {

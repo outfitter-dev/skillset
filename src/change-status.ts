@@ -84,6 +84,7 @@ export type ChangeBaseline =
 
 export interface ChangeStatusOptions extends SkillsetOptions {
   readonly since?: string;
+  readonly staged?: boolean;
 }
 
 export interface ChangeStatusReport {
@@ -121,17 +122,22 @@ export async function changeStatus(
   rootPath: string,
   options: ChangeStatusOptions = {}
 ): Promise<ChangeStatusReport> {
-  const current = await collectSourceInventory(rootPath, options);
-  const baseline = await resolveBaselineInventory(rootPath, options);
-  const generatedDrift = await diffSkillset(rootPath, options);
+  const stagedSnapshot = options.staged === true ? await snapshotGitIndex(rootPath) : undefined;
+  try {
+    const current = await collectSourceInventory(stagedSnapshot ?? rootPath, options);
+    const baseline = await resolveBaselineInventory(rootPath, options);
+    const generatedDrift = await diffSkillset(stagedSnapshot ?? rootPath, options);
 
-  return {
-    baseline: baseline.baseline,
-    generatedDrift,
-    hashSchema: SOURCE_HASH_SCHEMA,
-    sourceChanges: compareInventories(current, baseline.inventory),
-    sourceUnits: current.units,
-  };
+    return {
+      baseline: baseline.baseline,
+      generatedDrift,
+      hashSchema: SOURCE_HASH_SCHEMA,
+      sourceChanges: compareInventories(current, baseline.inventory),
+      sourceUnits: current.units,
+    };
+  } finally {
+    if (stagedSnapshot !== undefined) await rm(stagedSnapshot, { force: true, recursive: true });
+  }
 }
 
 export async function collectSourceInventory(
@@ -718,6 +724,9 @@ async function resolveBaselineInventory(
   if (options.since !== undefined) {
     return inventoryFromGitRef(rootPath, options.since, options);
   }
+  if (options.staged === true) {
+    return inventoryFromGitRef(rootPath, "HEAD", options);
+  }
 
   const fallback = await fallbackBaselineInventory(rootPath, options);
   const releaseInventory = await sourceInventoryFromReleaseState(rootPath, options, fallback.inventory);
@@ -871,6 +880,12 @@ async function snapshotGitRef(rootPath: string, ref: string): Promise<string> {
   await runCommand(["git", "-C", rootPath, "archive", "--format=tar", "--output", tarPath, ref], rootPath);
   await runCommand(["tar", "-xf", tarPath, "-C", tempRoot], rootPath);
   await rm(tarPath, { force: true });
+  return tempRoot;
+}
+
+export async function snapshotGitIndex(rootPath: string): Promise<string> {
+  const tempRoot = await mkdtemp(join(tmpdir(), "skillset-index-"));
+  await runCommand(["git", "-C", rootPath, "checkout-index", "--all", `--prefix=${tempRoot}/`], rootPath);
   return tempRoot;
 }
 

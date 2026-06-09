@@ -10,25 +10,27 @@ Hook guardrails help humans and agents notice missing change reasons, stale gene
 
 V1 is print/snippet-first. Skillset should generate snippets for existing hook runners such as lefthook, Husky, pre-commit, or plain Git fallback hooks. It should not take over `.git/hooks`, overwrite hook-manager config, or mutate user-level Claude/Codex runtime config during build/check/diff/import/init/create.
 
-Example future commands:
+Examples:
 
 ```bash
 skillset hooks print --runner lefthook --pre-commit --pre-push
 skillset hooks print --runner husky --pre-commit --pre-push
 skillset hooks print --runner pre-commit --pre-commit --pre-push
 skillset hooks print --runner git --pre-commit --pre-push
+skillset hooks print --target claude --agent-runtime
+skillset hooks print --target codex --agent-runtime
 ```
 
 ## Target Lowering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
-| Git hook-runner snippet | n/a | n/a | `planned` | Prints commands for existing hook runners. |
-| Agent runtime hook suggestion | reviewed config suggestion | reviewed config suggestion | `future` | Must not mutate runtime config automatically. |
+| Git hook-runner snippet | n/a | n/a | `implemented` | Prints additive snippets for existing hook runners; does not install. |
+| Agent runtime hook suggestion | reviewed config suggestion | reviewed config suggestion | `implemented` / `target_specific` | Prints project-local suggestions; must not mutate runtime config automatically. |
 
 ## Diagnostics
 
-Pre-commit guardrails should be staged-aware and fast, such as `skillset change check --staged`. Pre-push guardrails can run broader status, generated-output check, and release-plan consistency checks. Runtime hook suggestions can nudge agents after `.skillset/**` edits, but they remain opt-in.
+Pre-commit guardrails are staged-aware and fast through `skillset change check --staged`, which compares the Git index against `HEAD`. Pre-push snippets run broader checks through `skillset change check --since origin/main`, `skillset check`, and `skillset doctor`. Runtime hook suggestions nudge agents after `.skillset/**` edits and run a Stop guardrail before the agent finishes, but they remain opt-in reviewed configuration.
 
 ## Provenance
 

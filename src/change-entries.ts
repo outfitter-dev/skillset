@@ -1,8 +1,9 @@
-import { readFile, stat } from "node:fs/promises";
+import { readFile, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
   changeStatus,
+  snapshotGitIndex,
   type ChangeStatusOptions,
   type ChangeStatusReport,
   type SourceUnit,
@@ -71,8 +72,22 @@ export async function changeCheck(
   rootPath: string,
   options: ChangeCheckOptions = {}
 ): Promise<ChangeCheckReport> {
-  const status = await changeStatus(rootPath, options);
-  const entries = await readPendingChangeEntries(rootPath, options);
+  const stagedSnapshot = options.staged === true ? await snapshotGitIndex(rootPath) : undefined;
+  try {
+    const status = await changeStatus(rootPath, options);
+    const entries = await readPendingChangeEntries(stagedSnapshot ?? rootPath, options);
+    return await validateChangeCheck(stagedSnapshot ?? rootPath, status, entries, options);
+  } finally {
+    if (stagedSnapshot !== undefined) await rm(stagedSnapshot, { force: true, recursive: true });
+  }
+}
+
+async function validateChangeCheck(
+  rootPath: string,
+  status: ChangeStatusReport,
+  entries: readonly PendingChangeEntry[],
+  options: ChangeCheckOptions
+): Promise<ChangeCheckReport> {
   const currentById = new Map(status.sourceUnits.map((unit) => [unit.id, unit]));
   const changedById = new Map(status.sourceChanges.map((change) => [change.id, change]));
   const validScopeIds = new Set([...currentById.keys(), ...changedById.keys()]);

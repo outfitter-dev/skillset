@@ -932,6 +932,204 @@ test("SET-25: CLI help succeeds before command validation", async () => {
   expect(explainHelp.stderr).not.toContain("expected a path to explain");
 });
 
+test("SET-41: hooks print emits additive runner snippets", async () => {
+  for (const [runner, marker] of [
+    ["lefthook", "lefthook.yml"],
+    ["husky", ".husky/pre-commit"],
+    ["pre-commit", ".pre-commit-config.yaml"],
+    ["git", ".git/hooks/pre-commit"],
+  ] as const) {
+    const printed = await runSkillsetCli("hooks", "print", "--runner", runner, "--pre-commit", "--pre-push");
+    expect(printed.exitCode).toBe(0);
+    expect(printed.stderr).toBe("");
+    expect(printed.stdout).toContain(marker);
+    expect(printed.stdout).toContain("skillset change check --staged");
+    expect(printed.stdout).toContain("skillset change check --since origin/main");
+    expect(printed.stdout).toContain("skillset check");
+    expect(printed.stdout).toContain("skillset doctor");
+    if (runner === "pre-commit") expect(printed.stdout).toContain("entry: sh -c");
+  }
+});
+
+test("SET-41: hooks print emits target runtime suggestions without installing", async () => {
+  const claude = await runSkillsetCli("hooks", "print", "--target", "claude", "--agent-runtime");
+  expect(claude.exitCode).toBe(0);
+  expect(claude.stdout).toContain(".claude/settings.local.json");
+  expect(claude.stdout).toContain("PostToolUse");
+  expect(claude.stdout).toContain("Stop");
+  expect(claude.stdout).toContain("Skillset does not install or trust hooks");
+
+  const codex = await runSkillsetCli("hooks", "print", "--target", "codex", "--agent-runtime");
+  expect(codex.exitCode).toBe(0);
+  expect(codex.stdout).toContain(".codex/hooks/hooks.json");
+  expect(codex.stdout).toContain("PostToolUse");
+  expect(codex.stdout).toContain("Stop");
+
+  const invalid = await runSkillsetCli("hooks", "print", "--runner", "git", "--agent-runtime");
+  expect(invalid.exitCode).toBe(1);
+  expect(invalid.stderr).toContain("cannot be combined");
+
+  const scoped = await runSkillsetCli("hooks", "print", "--runner", "git", "--scope", "repo");
+  expect(scoped.exitCode).toBe(1);
+  expect(scoped.stderr).toContain("non-hook options are not supported");
+
+  const updated = await runSkillsetCli("hooks", "print", "--runner", "git", "--updated");
+  expect(updated.exitCode).toBe(1);
+  expect(updated.stderr).toContain("non-hook options are not supported");
+
+  const since = await runSkillsetCli("hooks", "print", "--runner", "git", "--since", "HEAD");
+  expect(since.exitCode).toBe(1);
+  expect(since.stderr).toContain("non-hook options are not supported");
+
+  const named = await runSkillsetCli("hooks", "print", "--runner", "git", "--name", "demo");
+  expect(named.exitCode).toBe(1);
+  expect(named.stderr).toContain("non-hook options are not supported");
+
+  const importKind = await runSkillsetCli("hooks", "print", "--runner", "git", "--kind", "skill");
+  expect(importKind.exitCode).toBe(1);
+  expect(importKind.stderr).toContain("non-hook options are not supported");
+});
+
+test("SET-41: change status --staged reads the Git index", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: staged-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  await buildSkillset(root);
+  await commitFixture(root);
+  await writeFile(join(root, ".skillset/skills/demo/SKILL.md"), `
+---
+name: demo
+description: Demo changed.
+---
+
+Changed body.
+`);
+  await mkdir(join(root, ".skillset/skills/unstaged"), { recursive: true });
+  await writeFile(join(root, ".skillset/skills/unstaged/SKILL.md"), `
+---
+name: unstaged
+description: Unstaged.
+---
+
+Unstaged body.
+`);
+  await runGit(root, "add", ".skillset/skills/demo/SKILL.md");
+
+  const status = await runSkillsetCli("change", "status", "--staged", "--root", root);
+  expect(status.exitCode).toBe(0);
+  expect(status.stdout).toContain("baseline git ref HEAD");
+  expect(status.stdout).toContain("standalone-skill:demo");
+  expect(status.stdout).not.toContain("unstaged");
+
+  const stagedStatus = await changeStatus(root, { staged: true });
+  const demoHash = stagedStatus.sourceChanges.find((change) => change.id === "standalone-skill:demo")?.currentHash;
+  expect(demoHash).toBeDefined();
+  await mkdir(join(root, ".skillset/changes/pending"), { recursive: true });
+  const pendingPath = join(root, ".skillset/changes/pending/demo.md");
+  await writeFile(pendingPath, `---
+id: abcdef123456
+scope: standalone-skill:demo
+bump: patch
+evidence:
+  sourceHash: ${demoHash}
+---
+
+short
+`);
+  await runGit(root, "add", pendingPath);
+  await writeFile(pendingPath, `---
+id: abcdef123456
+scope: standalone-skill:demo
+bump: patch
+evidence:
+  sourceHash: ${demoHash}
+---
+
+This working-tree reason is long enough to pass, but it has not been staged.
+`);
+
+  const checked = await runSkillsetCli("change", "check", "--staged", "--root", root);
+  expect(checked.exitCode).toBe(1);
+  expect(checked.stdout).toContain("reason must be at least");
+});
+
+test("SET-41: change check --staged reads staged reason policy", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: staged-policy-root
+changes:
+  reason:
+    minLength: 10
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  await buildSkillset(root);
+  await commitFixture(root);
+  await writeFile(join(root, ".skillset/skills/demo/SKILL.md"), `
+---
+name: demo
+description: Demo changed.
+---
+
+Changed body.
+`);
+  await runGit(root, "add", ".skillset/skills/demo/SKILL.md");
+  const stagedStatus = await changeStatus(root, { staged: true });
+  const demoHash = stagedStatus.sourceChanges.find((change) => change.id === "standalone-skill:demo")?.currentHash;
+  expect(demoHash).toBeDefined();
+  await mkdir(join(root, ".skillset/changes/pending"), { recursive: true });
+  const pendingPath = join(root, ".skillset/changes/pending/demo.md");
+  await writeFile(pendingPath, `---
+id: abcdef123456
+scope: standalone-skill:demo
+bump: patch
+evidence:
+  sourceHash: ${demoHash}
+---
+
+Staged reason ok.
+`);
+  await runGit(root, "add", pendingPath);
+  await writeFile(join(root, ".skillset/config.yaml"), `
+skillset:
+  name: staged-policy-root
+changes:
+  reason:
+    minLength: 100
+claude: true
+codex: false
+`);
+
+  const checked = await runSkillsetCli("change", "check", "--staged", "--root", root);
+  expect(checked.exitCode).toBe(0);
+  expect(checked.stdout).toContain("change check passed");
+});
+
 test("SET-34: source change status is read-only and deterministic for unchanged source", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `
