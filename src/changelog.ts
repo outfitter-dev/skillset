@@ -19,7 +19,8 @@ export interface ChangelogProjection {
 }
 
 export async function renderChangelogProjections(graph: BuildGraph): Promise<readonly ChangelogProjection[]> {
-  const changes = await readAppliedChangeRecords(graph.rootPath, { sourceDir: graph.sourceDir });
+  const changes = (await readAppliedChangeRecords(graph.rootPath, { sourceDir: graph.sourceDir }))
+    .filter((change) => !change.ignored);
   if (changes.length === 0) return [];
 
   const projections: ChangelogProjection[] = [];
@@ -30,8 +31,7 @@ export async function renderChangelogProjections(graph: BuildGraph): Promise<rea
   }
 
   for (const plugin of graph.plugins) {
-    const childScopes = plugin.skills.map((skill) => `plugin-skill:${plugin.id}/${skill.id}`);
-    const scoped = changesForScopes(changes, [`plugin:${plugin.id}`, `plugin-config:${plugin.id}`, ...childScopes]);
+    const scoped = changesForPlugin(changes, plugin);
     if (scoped.length === 0) continue;
     projections.push(renderPluginChangelog(graph, plugin, scoped));
   }
@@ -117,6 +117,25 @@ function changesForScopes(
   return changes
     .filter((change) => change.scopes.some((scope) => scopeSet.has(scope)))
     .sort(compareChangeRecords);
+}
+
+function changesForPlugin(
+  changes: readonly AppliedChangeRecord[],
+  plugin: SourcePlugin
+): readonly AppliedChangeRecord[] {
+  return changes
+    .filter((change) => change.scopes.some((scope) => isPluginChangelogScope(scope, plugin.id)))
+    .sort(compareChangeRecords);
+}
+
+function isPluginChangelogScope(scope: string, pluginId: string): boolean {
+  return scope === `plugin:${pluginId}` ||
+    scope === `plugin-config:${pluginId}` ||
+    scope.startsWith(`plugin-skill:${pluginId}/`) ||
+    scope.startsWith(`plugin-feature:${pluginId}/`) ||
+    scope.startsWith(`plugin-companion:${pluginId}/`) ||
+    scope.startsWith(`target-native-island:claude:plugin:${pluginId}:`) ||
+    scope.startsWith(`target-native-island:codex:plugin:${pluginId}:`);
 }
 
 function compareChangeRecords(left: AppliedChangeRecord, right: AppliedChangeRecord): number {

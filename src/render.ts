@@ -201,7 +201,7 @@ function renderClaudeMarketplace(graph: BuildGraph): readonly RenderedFile[] {
           name: plugin.id,
           source: `./plugins/${plugin.id}`,
           description: readString(metadata, "summary") ?? readString(metadata, "description") ?? plugin.id,
-          version: pluginVersion(plugin),
+          version: pluginVersion(graph, plugin),
           author: metadata.author,
           repository: metadata.repository,
           license: metadata.license,
@@ -299,7 +299,7 @@ function renderPluginManifest(
   const portableManifest = readRecord(metadata, "manifest") ?? {};
   const base: JsonRecord = {
     name: readString(portableManifest, "name") ?? plugin.id,
-    version: pluginVersion(plugin),
+    version: pluginVersion(graph, plugin),
     description: readString(metadata, "summary") ?? readString(metadata, "description") ?? plugin.id,
     author: metadata.author,
     homepage: metadata.homepage,
@@ -317,7 +317,7 @@ function renderPluginManifest(
   const withOverrides = mergeRecords(targetBase, readRecord(targetOptions, "manifest") ?? {});
 
   return mergeRecords(withOverrides, {
-    version: pluginVersion(plugin),
+    version: pluginVersion(graph, plugin),
   });
 }
 
@@ -1625,7 +1625,7 @@ function lockItemForPlugin(args: {
     sourceHash: hashPluginSource(args.plugin, args.target, includedSkills, skippedSkills),
     sourcePath: relative(args.graph.rootPath, args.plugin.path),
     targetState: skippedSkills.length === 0 ? "sync" : "intentionally-skipped",
-    version: pluginVersion(args.plugin),
+    version: pluginVersion(args.graph, args.plugin),
   };
 }
 
@@ -1651,7 +1651,7 @@ async function lockItemForPluginFeature(args: {
     ...(args.feature.sourcePointer === undefined ? {} : { sourcePointer: args.feature.sourcePointer }),
     targetState: args.feature.key === "bin" && args.target === "claude" ? "target-native" : "sync",
     validation: args.feature.key === "mcp" ? "structured" : "opaque-copy",
-    version: pluginVersion(args.plugin),
+    version: pluginVersion(args.graph, args.plugin),
   };
 }
 

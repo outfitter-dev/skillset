@@ -17,10 +17,11 @@ import { doctorSkillset, explainPath, listGeneratedEntries } from "./authoring";
 import { buildSkillset, checkSkillset, diffSkillset } from "./build";
 import { importSources, type ImportKind, type ImportProvider, type ImportReport } from "./import";
 import { lintSkillset } from "./lint";
+import { applyRelease, planRelease, type ReleasePlanReport, type ReleaseSubcommand } from "./release";
 import { createSkillset, initSkillset, type SetupReport } from "./setup";
 import type { BuildScope, CompileBuildMode, SkillsetOptions, TargetName } from "./types";
 
-type Command = "build" | "change" | "check" | "create" | "diff" | "doctor" | "explain" | "import" | "init" | "lint" | "list";
+type Command = "build" | "change" | "check" | "create" | "diff" | "doctor" | "explain" | "import" | "init" | "lint" | "list" | "release";
 
 const USAGE = [
   "usage: skillset build [--yes|--dry-run] [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
@@ -31,6 +32,8 @@ const USAGE = [
   "       skillset change reason <@ref> [--append] [--reason <text>|--reason-file <path>|--reason -] [--root <path>] [--source <dir>]",
   "       skillset change <show|history> [@ref] [--root <path>] [--source <dir>]",
   "       skillset change list [--group <group>] [--root <path>] [--source <dir>]",
+  "       skillset release plan [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset release apply [--yes|--dry-run] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset init [path] [--yes|--dry-run] [--targets claude,codex] [--with-project-doc] [--with-agents] [--with-islands] [--name <name>] [--root <path>]",
   "       skillset create [path|--global] [--yes|--dry-run] [--targets claude,codex] [--with-project-doc] [--with-agents] [--with-islands] [--name <name>] [--root <path>]",
   "       skillset explain <path> [--root <path>] [--source <dir>]",
@@ -64,6 +67,7 @@ export async function runCli(
     importProvider,
     options,
     rootPath,
+    releaseSubcommand,
     setupGlobal,
     setupIncludeAgents,
     setupIncludeIslands,
@@ -137,6 +141,28 @@ export async function runCli(
       return;
     }
     throw new Error("skillset: expected change subcommand add, check, history, list, reason, show, or status");
+  }
+
+  if (command === "release") {
+    if (releaseSubcommand === "plan") {
+      printReleasePlan(await planRelease(rootPath, options));
+      return;
+    }
+    if (releaseSubcommand === "apply") {
+      if (dryRun || !yes) {
+        printReleasePlan(await planRelease(rootPath, options));
+        if (dryRun) {
+          console.log("skillset: release apply dry run wrote no files");
+        } else {
+          console.log("skillset: rerun release apply with --yes to write release state");
+        }
+        return;
+      }
+      const result = await applyRelease(rootPath, options);
+      printReleaseApply(result.plan, result.files, result.renderedFiles);
+      return;
+    }
+    throw new Error("skillset: expected release subcommand apply or plan");
   }
 
   if (command === "lint") {
@@ -306,6 +332,7 @@ interface ParsedArgs {
   readonly importPath?: string;
   readonly importProvider?: ImportProvider;
   readonly options: SkillsetOptions;
+  readonly releaseSubcommand?: ReleaseSubcommand;
   readonly rootPath: string;
   readonly setupGlobal: boolean;
   readonly setupIncludeAgents: boolean;
@@ -398,6 +425,40 @@ function printChangeStatus(report: ChangeStatusReport): void {
   );
 }
 
+function printReleasePlan(report: ReleasePlanReport): void {
+  if (report.entries.length === 0) {
+    console.log("skillset: no pending changes to release");
+    return;
+  }
+  for (const entry of report.entries) {
+    const marker = entry.ignored ? "ignored" : "pending";
+    console.log(`${entry.ref} ${marker} ${entry.bump} ${entry.scopes.join(",")} ${entry.path}`);
+  }
+  if (report.scopes.length === 0) {
+    console.log(`skillset: release plan has ${report.entries.length} pending entr${report.entries.length === 1 ? "y" : "ies"} and no release scopes`);
+    return;
+  }
+  if (report.releaseId !== undefined) console.log(`skillset: release ${report.releaseId}`);
+  for (const scope of report.scopes) {
+    const sourceHash = scope.sourceHash === undefined ? "" : ` ${scope.sourceHash}`;
+    console.log(`  ${scope.scope}: ${scope.currentVersion} -> ${scope.nextVersion} (${scope.bump}) entries ${scope.entries.join(",")}${sourceHash}`);
+  }
+  console.log(`skillset: release plan has ${report.entries.length} pending entr${report.entries.length === 1 ? "y" : "ies"} and ${report.scopes.length} release scope${report.scopes.length === 1 ? "" : "s"}`);
+}
+
+function printReleaseApply(
+  plan: ReleasePlanReport,
+  files: readonly string[],
+  renderedFiles: number
+): void {
+  if (plan.entries.length === 0) {
+    console.log("skillset: no pending changes to release");
+    return;
+  }
+  console.log(`skillset: applied release ${plan.releaseId ?? "audit-only"} (${renderedFiles} generated files refreshed)`);
+  for (const file of files) console.log(`  ${file}`);
+}
+
 function printDiffPlan(diff: Awaited<ReturnType<typeof diffSkillset>>, reason: string): void {
   const total = diff.added.length + diff.changed.length + diff.missing.length + diff.removed.length;
   if (total === 0) {
@@ -455,15 +516,17 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     command !== "import" &&
     command !== "init" &&
     command !== "lint" &&
-    command !== "list"
+    command !== "list" &&
+    command !== "release"
   ) {
     throw new Error(
-        "skillset: expected command build, change, check, create, diff, doctor, explain, import, init, lint, or list\n" +
+        "skillset: expected command build, change, check, create, diff, doctor, explain, import, init, lint, list, or release\n" +
         USAGE
     );
   }
 
   let changeSubcommand: ChangeSubcommand | undefined;
+  let releaseSubcommand: ReleaseSubcommand | undefined;
   let changeAppend = false;
   let changeBump: ChangeBump | undefined;
   let changeGroup: string | undefined;
@@ -501,6 +564,15 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       changeRef = rawRef;
       index += 1;
     }
+  }
+
+  if (command === "release") {
+    const subcommand = args[index];
+    if (!isReleaseSubcommand(subcommand)) {
+      throw new Error("skillset: expected release subcommand apply or plan");
+    }
+    releaseSubcommand = subcommand;
+    index += 1;
   }
 
   if (command === "import") {
@@ -664,6 +736,10 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(setupTargets === undefined ? {} : { targets: setupTargets }),
   });
 
+  if (command === "release" && scopes !== undefined) {
+    throw new Error("skillset: --scope is not supported with release commands yet");
+  }
+
   const options: SkillsetOptions = {
     ...(buildMode === undefined ? {} : { buildMode }),
     ...(scopes === undefined ? {} : { scopes }),
@@ -687,6 +763,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(importPath === undefined ? {} : { importPath }),
     ...(importProvider === undefined ? {} : { importProvider }),
     options,
+    ...(releaseSubcommand === undefined ? {} : { releaseSubcommand }),
     rootPath: resolve(rootPath),
     setupGlobal,
     setupIncludeAgents,
@@ -695,6 +772,10 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(setupTargets === undefined ? {} : { setupTargets }),
     yes,
   };
+}
+
+function isReleaseSubcommand(value: string | undefined): value is ReleaseSubcommand {
+  return value === "apply" || value === "plan";
 }
 
 function isChangeSubcommand(value: string | undefined): value is ChangeSubcommand {

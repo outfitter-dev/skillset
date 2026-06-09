@@ -923,6 +923,7 @@ test("SET-25: CLI help succeeds before command validation", async () => {
   expect(buildHelp.exitCode).toBe(0);
   expect(buildHelp.stderr).toBe("");
   expect(buildHelp.stdout).toContain("skillset build [--yes|--dry-run]");
+  expect(buildHelp.stdout).toContain("skillset release plan");
 
   const explainHelp = await runSkillsetCli("explain", "--help");
   expect(explainHelp.exitCode).toBe(0);
@@ -1797,6 +1798,413 @@ Plugin child body.
   for (const id of ["standalone-skill:demo", "plugin-skill:alpha/child", "plugin:alpha"]) {
     expect(sourceInventoryUnit(after, id)).toEqual(sourceInventoryUnit(before, id));
   }
+});
+
+test("SET-38: release apply creates state, history, changelog, and generated versions", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: release-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+version: 0.1.0
+---
+
+Body.
+`,
+  });
+  await commitFixture(root);
+
+  await Bun.write(
+    join(root, ".skillset/skills/demo/SKILL.md"),
+    "---\nname: demo\ndescription: Demo.\nversion: 0.1.0\n---\n\nChanged body.\n"
+  );
+  const status = await changeStatus(root, { since: "HEAD" });
+  const demo = status.sourceChanges.find((change) => change.id === "standalone-skill:demo");
+  expect(demo?.currentHash).toBeDefined();
+  await writePendingChange(root, "demo.md", `
+---
+id: aaaabbbbcccc
+bump: patch
+scope: standalone-skill:demo
+evidence:
+  - scope: standalone-skill:demo
+    currentHash: ${demo?.currentHash}
+---
+
+Release the standalone skill body update with a patch version and generated changelog entry.
+`);
+
+  const plan = await runSkillsetCli("release", "plan", "--root", root);
+  expect(plan.exitCode).toBe(0);
+  expect(plan.stdout).toContain("@aaaabb pending patch standalone-skill:demo");
+  expect(plan.stdout).toContain("standalone-skill:demo: 0.1.0 -> 0.1.1 (patch)");
+  expect(await Bun.file(join(root, ".skillset/changes/state.json")).exists()).toBe(false);
+
+  const dryRun = await runSkillsetCli("release", "apply", "--dry-run", "--root", root);
+  expect(dryRun.exitCode).toBe(0);
+  expect(dryRun.stdout).toContain("dry run wrote no files");
+  expect(await Bun.file(join(root, ".skillset/changes/state.json")).exists()).toBe(false);
+
+  const applied = await runSkillsetCli("release", "apply", "--yes", "--root", root);
+  expect(applied.exitCode).toBe(0);
+  expect(applied.stdout).toContain("skillset: applied release");
+  expect(await Bun.file(join(root, ".skillset/changes/pending/demo.md")).exists()).toBe(false);
+
+  const state = JSON.parse(await readFile(join(root, ".skillset/changes/state.json"), "utf8")) as {
+    scopes: Record<string, { version: string; sourceHash: string }>;
+  };
+  expect(state.scopes["standalone-skill:demo"]?.version).toBe("0.1.1");
+  expect(state.scopes["standalone-skill:demo"]?.sourceHash).toBe(demo?.currentHash);
+  const history = await readFile(join(root, ".skillset/changes/history.jsonl"), "utf8");
+  expect(history).toContain("aaaabbbbcccc");
+  const releases = await readFile(join(root, ".skillset/changes/releases.jsonl"), "utf8");
+  expect(releases).toContain("standalone-skill:demo");
+  const changelog = await readFile(join(root, ".skillset/skills/demo/CHANGELOG.md"), "utf8");
+  expect(changelog).toContain("## aaaabbbbcccc");
+  const generatedSkill = await readFile(join(root, ".claude/skills/demo/SKILL.md"), "utf8");
+  expect(generatedSkill).toContain("version: 0.1.1");
+
+  const second = await runSkillsetCli("release", "apply", "--yes", "--root", root);
+  expect(second.exitCode).toBe(0);
+  expect(second.stdout).toContain("no pending changes to release");
+  expect(await readFile(join(root, ".skillset/changes/history.jsonl"), "utf8")).toBe(history);
+
+  const releasedStatus = await changeStatus(root);
+  expect(releasedStatus.sourceChanges.map((change) => change.id)).not.toContain("standalone-skill:demo");
+  await runGit(root, "add", ".");
+  await runGit(root, "commit", "-qm", "release demo");
+  await Bun.write(
+    join(root, ".skillset/skills/demo/SKILL.md"),
+    "---\nname: demo\ndescription: Demo.\nversion: 0.1.0\n---\n\nChanged again after release.\n"
+  );
+  await runGit(root, "add", ".");
+  await runGit(root, "commit", "-qm", "unreleased demo change");
+  const unreleasedStatus = await changeStatus(root);
+  expect(unreleasedStatus.sourceChanges.map((change) => change.id)).toContain("standalone-skill:demo");
+});
+
+test("SET-38: plugin child release bumps the plugin aggregate by default", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: plugin-release-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+  version: 0.1.0
+`,
+    ".skillset/plugins/alpha/skills/child/SKILL.md": `
+---
+name: child
+description: Child.
+---
+
+Child body.
+`,
+  });
+  await commitFixture(root);
+
+  await Bun.write(
+    join(root, ".skillset/plugins/alpha/skills/child/SKILL.md"),
+    "---\nname: child\ndescription: Child.\n---\n\nChanged child body.\n"
+  );
+  const status = await changeStatus(root, { since: "HEAD" });
+  const child = status.sourceChanges.find((change) => change.id === "plugin-skill:alpha/child");
+  expect(child?.currentHash).toBeDefined();
+  await writePendingChange(root, "child.md", `
+---
+id: dddd11112222
+bump: minor
+scope: plugin-skill:alpha/child
+evidence:
+  - scope: plugin-skill:alpha/child
+    currentHash: ${child?.currentHash}
+---
+
+Release the plugin child skill behavior as a minor update to the containing plugin.
+`);
+
+  const plan = await runSkillsetCli("release", "plan", "--root", root);
+  expect(plan.exitCode).toBe(0);
+  expect(plan.stdout).toContain("plugin-skill:alpha/child: 0.1.0 -> 0.2.0 (minor)");
+  expect(plan.stdout).toContain("plugin:alpha: 0.1.0 -> 0.2.0 (minor)");
+
+  const applied = await runSkillsetCli("release", "apply", "--yes", "--root", root);
+  expect(applied.exitCode).toBe(0);
+  const state = JSON.parse(await readFile(join(root, ".skillset/changes/state.json"), "utf8")) as {
+    scopes: Record<string, { version: string }>;
+  };
+  expect(state.scopes["plugin-skill:alpha/child"]?.version).toBe("0.2.0");
+  expect(state.scopes["plugin:alpha"]?.version).toBe("0.2.0");
+  expect(await readFile(join(root, ".skillset/plugins/alpha/CHANGELOG.md"), "utf8")).toContain("## dddd11112222");
+  expect(await readFile(join(root, "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"), "utf8")).toContain('"version": "0.2.0"');
+  expect(await readFile(join(root, "plugins-claude/plugins/alpha/skills/child/SKILL.md"), "utf8")).toContain("version: 0.2.0");
+});
+
+test("SET-38: bump none releases audit entries while ignored entries stay out of changelogs", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: audit-release-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/audit/SKILL.md": `
+---
+name: audit
+description: Audit.
+version: 0.1.0
+---
+
+Audit body.
+`,
+    ".skillset/skills/ignored/SKILL.md": `
+---
+name: ignored
+description: Ignored.
+version: 0.1.0
+---
+
+Ignored body.
+`,
+  });
+  await commitFixture(root);
+
+  await Bun.write(join(root, ".skillset/skills/audit/SKILL.md"), "---\nname: audit\ndescription: Audit.\nversion: 0.1.0\n---\n\nAudit-only change.\n");
+  await Bun.write(join(root, ".skillset/skills/ignored/SKILL.md"), "---\nname: ignored\ndescription: Ignored.\nversion: 0.1.0\n---\n\nIgnored change.\n");
+  const status = await changeStatus(root, { since: "HEAD" });
+  const audit = status.sourceChanges.find((change) => change.id === "standalone-skill:audit");
+  const ignored = status.sourceChanges.find((change) => change.id === "standalone-skill:ignored");
+  expect(audit?.currentHash).toBeDefined();
+  expect(ignored?.currentHash).toBeDefined();
+  await writePendingChange(root, "audit.md", `
+---
+id: 333333ffffff
+bump: none
+scope: standalone-skill:audit
+evidence:
+  - scope: standalone-skill:audit
+    currentHash: ${audit?.currentHash}
+---
+
+Record the audit-only source correction without changing the published semantic version.
+`);
+  await writePendingChange(root, "ignored.md", `
+---
+id: 444444ffffff
+bump: patch
+ignored: true
+scope: standalone-skill:ignored
+evidence:
+  - scope: standalone-skill:ignored
+    currentHash: ${ignored?.currentHash}
+---
+
+Preserve this ignored audit reason in history while keeping it out of release planning.
+`);
+
+  const plan = await runSkillsetCli("release", "plan", "--root", root);
+  expect(plan.exitCode).toBe(0);
+  expect(plan.stdout).toContain("@333333 pending none standalone-skill:audit");
+  expect(plan.stdout).toContain("@444444 ignored patch standalone-skill:ignored");
+  expect(plan.stdout).toContain("standalone-skill:audit: 0.1.0 -> 0.1.0 (none)");
+  expect(plan.stdout).not.toContain("standalone-skill:ignored: 0.1.0 -> 0.1.1");
+
+  const applied = await runSkillsetCli("release", "apply", "--yes", "--root", root);
+  expect(applied.exitCode).toBe(0);
+  const history = await readFile(join(root, ".skillset/changes/history.jsonl"), "utf8");
+  expect(history).toContain("333333ffffff");
+  expect(history).toContain("444444ffffff");
+  const state = JSON.parse(await readFile(join(root, ".skillset/changes/state.json"), "utf8")) as {
+    scopes: Record<string, { sourceHash?: string; version: string }>;
+  };
+  expect(state.scopes["standalone-skill:audit"]?.version).toBe("0.1.0");
+  expect(state.scopes["standalone-skill:ignored"]?.version).toBe("0.1.0");
+  expect(state.scopes["standalone-skill:ignored"]?.sourceHash).toBe(ignored?.currentHash);
+  expect(await readFile(join(root, ".skillset/skills/audit/CHANGELOG.md"), "utf8")).toContain("## 333333ffffff");
+  expect(await Bun.file(join(root, ".skillset/skills/ignored/CHANGELOG.md")).exists()).toBe(false);
+
+  const releasedStatus = await changeStatus(root);
+  expect(releasedStatus.sourceChanges.map((change) => change.id)).not.toContain("standalone-skill:ignored");
+});
+
+test("SET-38: release apply tombstones deleted source units as released", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: deletion-release-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/deleted/SKILL.md": `
+---
+name: deleted
+description: Deleted.
+version: 1.2.3
+---
+
+Deleted body.
+`,
+    ".skillset/skills/kept/SKILL.md": `
+---
+name: kept
+description: Kept.
+version: 0.1.0
+---
+
+Kept body.
+`,
+  });
+  await commitFixture(root);
+  const initialInventory = await collectSourceInventory(root);
+  await mkdir(join(root, ".skillset/changes"), { recursive: true });
+  await writeFile(join(root, ".skillset/changes/state.json"), JSON.stringify({
+    schemaVersion: 1,
+    scopes: {
+      "standalone-skill:deleted": {
+        sourceHash: sourceInventoryUnit(initialInventory, "standalone-skill:deleted").hash,
+        version: "1.2.3",
+      },
+    },
+  }, null, 2), "utf8");
+
+  await rm(join(root, ".skillset/skills/deleted/SKILL.md"));
+  const status = await changeStatus(root, { since: "HEAD" });
+  const deleted = status.sourceChanges.find((change) => change.id === "standalone-skill:deleted");
+  expect(deleted?.baselineHash).toBeDefined();
+  expect(deleted?.status).toBe("removed");
+  await writePendingChange(root, "deleted.md", `
+---
+id: 777777ffffff
+bump: patch
+scope: standalone-skill:deleted
+evidence:
+  - scope: standalone-skill:deleted
+    sourceHash: ${deleted?.baselineHash}
+---
+
+Release the removal of the deleted standalone skill so default status treats the missing source as intentional.
+`);
+
+  const applied = await runSkillsetCli("release", "apply", "--yes", "--root", root);
+  expect(applied.exitCode).toBe(0);
+  const state = JSON.parse(await readFile(join(root, ".skillset/changes/state.json"), "utf8")) as {
+    scopes: Record<string, { removed?: boolean; version: string }>;
+  };
+  expect(state.scopes["standalone-skill:deleted"]?.removed).toBe(true);
+  expect(state.scopes["standalone-skill:deleted"]?.version).toBe("1.2.4");
+
+  const releasedStatus = await changeStatus(root);
+  expect(releasedStatus.sourceChanges.map((change) => change.id)).not.toContain("standalone-skill:deleted");
+
+  await Bun.write(
+    join(root, ".skillset/skills/deleted/SKILL.md"),
+    "---\nname: deleted\ndescription: Deleted.\nversion: 1.2.3\n---\n\nRestored body.\n"
+  );
+  await buildSkillset(root);
+  const restoredSkill = await readFile(join(root, ".claude/skills/deleted/SKILL.md"), "utf8");
+  expect(restoredSkill).toContain("version: 1.2.3");
+});
+
+test("SET-38: release commands reject build scopes until scoped release selection exists", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: scoped-release-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  const scoped = await runSkillsetCli("release", "apply", "--yes", "--scope", "plugins", "--root", root);
+  expect(scoped.exitCode).toBe(1);
+  expect(scoped.stderr).toContain("--scope is not supported with release commands yet");
+});
+
+test("SET-38: plugin feature history projects into plugin changelogs", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: feature-changelog-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+  version: 0.1.0
+`,
+    ".skillset/plugins/alpha/.mcp.json": `
+{
+  "mcpServers": {
+    "alpha": { "command": "node" }
+  }
+}
+`,
+  });
+  await writeHistory(root, [
+    {
+      id: "666666ffffff",
+      bump: "patch",
+      scope: "plugin-feature:alpha/mcp",
+      reason: "Released the plugin MCP server definition so setup requirements appear in the plugin changelog.",
+      evidence: [{ scope: "plugin-feature:alpha/mcp", sourceHash: "sha256:feature" }],
+    },
+  ]);
+
+  await buildSkillset(root);
+  const changelog = await readFile(join(root, ".skillset/plugins/alpha/CHANGELOG.md"), "utf8");
+  expect(changelog).toContain("## 666666ffffff");
+  expect(changelog).toContain("plugin-feature:alpha/mcp");
+});
+
+test("SET-38: malformed release state fails loudly before version lowering", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: invalid-release-state-root
+claude: true
+codex: false
+`,
+    ".skillset/changes/state.json": `
+{
+  "schemaVersion": 1,
+  "scopes": {
+    "standalone-skill:demo": { "version": "next" }
+  }
+}
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  const checked = await runSkillsetCli("check", "--root", root);
+  expect(checked.exitCode).toBe(1);
+  expect(checked.stderr).toContain("release state scope standalone-skill:demo.version");
+  expect(checked.stderr).toContain("semantic version");
 });
 
 test("SET-25: diff reports missing managed outputs separately", async () => {

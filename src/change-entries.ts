@@ -98,7 +98,10 @@ export async function changeCheck(
   if (options.ref === undefined) {
     const covered = new Set<string>();
     for (const entry of validEntries) {
-      for (const scope of entry.scopes) covered.add(scope);
+      for (const scope of entry.scopes) {
+        covered.add(scope);
+        for (const impliedScope of impliedCoveredScopes(scope)) covered.add(impliedScope);
+      }
     }
     for (const change of status.sourceChanges) {
       if (covered.has(change.id)) continue;
@@ -120,6 +123,14 @@ export async function changeCheck(
     ok: !issues.some((issue) => issue.severity === "error"),
     status,
   };
+}
+
+function impliedCoveredScopes(scope: string): readonly string[] {
+  if (scope.startsWith("plugin-skill:")) return [`plugin:${scope.slice("plugin-skill:".length).split("/")[0]}`];
+  if (scope.startsWith("plugin-feature:")) return [`plugin:${scope.slice("plugin-feature:".length).split("/")[0]}`];
+  if (scope.startsWith("plugin-companion:")) return [`plugin:${scope.slice("plugin-companion:".length).split("/")[0]}`];
+  const island = scope.match(/^target-native-island:[^:]+:plugin:([^:]+):/);
+  return island?.[1] === undefined ? [] : [`plugin:${island[1]}`];
 }
 
 export async function readPendingChangeEntries(

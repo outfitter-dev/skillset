@@ -49,11 +49,15 @@ export function validateVersionField(record: JsonRecord, label: string): void {
 }
 
 export function rootVersion(graph: BuildGraph): string {
-  return readString(graph.root.metadata, "version") ?? DEFAULT_VERSION;
+  return activeReleaseVersion(graph, "root-config") ??
+    readString(graph.root.metadata, "version") ??
+    DEFAULT_VERSION;
 }
 
-export function pluginVersion(plugin: SourcePlugin): string {
-  return readString(plugin.metadata, "version") ?? DEFAULT_VERSION;
+export function pluginVersion(graph: BuildGraph, plugin: SourcePlugin): string {
+  return activeReleaseVersion(graph, `plugin:${plugin.id}`) ??
+    readString(plugin.metadata, "version") ??
+    rootVersion(graph);
 }
 
 export function skillVersion(
@@ -61,10 +65,14 @@ export function skillVersion(
   plugin: SourcePlugin | undefined,
   skill: SourceSkill
 ): string {
+  const releaseScope = plugin === undefined
+    ? `standalone-skill:${skill.id}`
+    : `plugin-skill:${plugin.id}/${skill.id}`;
   return (
+    activeReleaseVersion(graph, releaseScope) ??
     readString(skill.frontmatter, "version") ??
     readString(skill.metadata, "version") ??
-    (plugin === undefined ? undefined : pluginVersion(plugin)) ??
+    (plugin === undefined ? undefined : pluginVersion(graph, plugin)) ??
     rootVersion(graph)
   );
 }
@@ -75,4 +83,10 @@ export function skillVersionLabel(
   skill: SourceSkill
 ): string {
   return `${skill.id}@${skillVersion(graph, plugin, skill)}`;
+}
+
+function activeReleaseVersion(graph: BuildGraph, scope: string): string | undefined {
+  const state = graph.releaseState.scopes[scope];
+  if (state?.removed === true) return undefined;
+  return state?.version;
 }

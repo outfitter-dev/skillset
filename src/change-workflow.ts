@@ -85,6 +85,7 @@ export interface AppliedChangeRecord {
   readonly bump?: ChangeBump;
   readonly group?: ChangeGroup;
   readonly id: string;
+  readonly ignored: boolean;
   readonly path: string;
   readonly reason: string;
   readonly scopes: readonly string[];
@@ -364,6 +365,7 @@ async function readHistoryEntries(rootPath: string, options: ChangeStatusOptions
       ...(bump === undefined ? {} : { bump }),
       ...(group === undefined ? {} : { group }),
       id,
+      ignored: parsed.ignored === true,
       path: `${path}:${index + 1}`,
       reason: readString(parsed, "reason") ?? readString(parsed, "body") ?? "",
       scopes,

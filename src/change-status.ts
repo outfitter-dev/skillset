@@ -7,6 +7,7 @@ import { diffSkillset, type SkillsetDiff } from "./build";
 import { readString } from "./config";
 import { compareStrings, resolveInside } from "./path";
 import { preprocessText } from "./preprocess";
+import { readReleaseState } from "./release-state";
 import { loadBuildGraph } from "./resolver";
 import type {
   BuildGraph,
@@ -718,14 +719,18 @@ async function resolveBaselineInventory(
     return inventoryFromGitRef(rootPath, options.since, options);
   }
 
-  const releaseRef = await latestReleaseRef(rootPath, options);
-  if (releaseRef !== undefined) {
-    return inventoryFromGitRef(rootPath, releaseRef, options);
-  }
+  const fallback = await fallbackBaselineInventory(rootPath, options);
+  const releaseInventory = await sourceInventoryFromReleaseState(rootPath, options, fallback.inventory);
+  if (releaseInventory !== undefined) return releaseInventory;
+  return fallback;
+}
 
+async function fallbackBaselineInventory(
+  rootPath: string,
+  options: ChangeStatusOptions
+): Promise<BaselineInventory> {
   const lockInventory = await sourceInventoryFromLock(rootPath, options);
   if (lockInventory !== undefined) return lockInventory;
-
   const mergeBase = await defaultMergeBase(rootPath);
   return inventoryFromGitRef(rootPath, mergeBase, options);
 }
@@ -748,30 +753,66 @@ async function inventoryFromGitRef(
   }
 }
 
-async function latestReleaseRef(
+async function sourceInventoryFromReleaseState(
   rootPath: string,
-  options: SkillsetOptions
-): Promise<string | undefined> {
-  const sourceDir = options.sourceDir ?? ".skillset";
-  const releasesPath = resolveInside(rootPath, join(sourceDir, "changes", "releases.jsonl"));
-  if (!(await exists(releasesPath))) return undefined;
-  const lines = (await readFile(releasesPath, "utf8"))
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-  for (const line of lines.reverse()) {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(line) as unknown;
-    } catch {
+  options: SkillsetOptions,
+  fallback: SourceInventory
+): Promise<BaselineInventory | undefined> {
+  const state = await readReleaseState(rootPath, options);
+  const releaseScopes = Object.entries(state.scopes).filter(([, scope]) => scope.sourceHash !== undefined || scope.removed === true);
+  if (releaseScopes.length === 0) return undefined;
+
+  const current = await collectSourceInventory(rootPath, options);
+  const fallbackUnits = new Map(fallback.units.map((unit) => [unit.id, unit]));
+  const currentUnits = new Map(current.units.map((unit) => [unit.id, unit]));
+  const units = new Map(fallbackUnits);
+  for (const [id, scope] of releaseScopes) {
+    if (scope.removed === true) {
+      units.delete(id);
       continue;
     }
-    if (!isJsonRecord(parsed)) continue;
-    const baseline = isJsonRecord(parsed.baseline) ? readString(parsed.baseline, "ref") : undefined;
-    const ref = baseline ?? readString(parsed, "sourceRef") ?? readString(parsed, "gitRef") ?? readString(parsed, "ref");
-    if (ref !== undefined) return ref;
+    const template = currentUnits.get(id) ?? fallbackUnits.get(id) ?? inferredReleaseUnit(id, scope.sourceHash ?? "");
+    units.set(id, {
+      ...template,
+      hash: scope.sourceHash ?? template.hash,
+      hashSchema: SOURCE_HASH_SCHEMA,
+    });
   }
-  return undefined;
+
+  return {
+    baseline: { hashSchema: SOURCE_HASH_SCHEMA, kind: "source-inventory", label: ".skillset/changes/state.json" },
+    inventory: {
+      hashSchema: SOURCE_HASH_SCHEMA,
+      units: [...units.values()].sort((left, right) => compareStrings(left.id, right.id)),
+    },
+  };
+}
+
+function inferredReleaseUnit(id: string, hash: string): SourceUnit {
+  const kind = kindForSourceUnitId(id);
+  return {
+    hash,
+    hashSchema: SOURCE_HASH_SCHEMA,
+    id,
+    kind,
+    regions: [],
+    sourcePath: id,
+    sourcePaths: [id],
+  };
+}
+
+function kindForSourceUnitId(id: string): SourceUnitKind {
+  if (id === "root-config") return "root-config";
+  if (id.startsWith("instruction:")) return "instruction";
+  if (id.startsWith("plugin:")) return "plugin";
+  if (id.startsWith("plugin-companion:")) return "plugin-companion";
+  if (id.startsWith("plugin-config:")) return "plugin-config";
+  if (id.startsWith("plugin-feature:")) return "plugin-feature";
+  if (id.startsWith("plugin-skill:")) return "plugin-skill";
+  if (id.startsWith("project-agent:")) return "project-agent";
+  if (id.startsWith("standalone-skill:")) return "standalone-skill";
+  if (id.startsWith("target-native-island:")) return "target-native-island";
+  return "root-config";
 }
 
 async function sourceInventoryFromLock(

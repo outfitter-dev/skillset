@@ -16,6 +16,7 @@ import {
   validateConfigDocument,
 } from "./config";
 import { compareStrings, resolveInside, validateSlug } from "./path";
+import { readReleaseState } from "./release-state";
 import { readSkillResources } from "./resources";
 import type {
   BuildGraph,
@@ -83,6 +84,7 @@ export async function loadBuildGraph(
   };
 
   const warnings: string[] = [];
+  const releaseState = await readReleaseState(rootPath, options);
   const plugins = await loadPlugins(rootPath, sourceDir, rootTargets, warnings, outputs);
   const standaloneSkills = await loadStandaloneSkills(rootPath, sourceDir, rootTargets, warnings);
   const { rules, instructionsDir } = await loadInstructions(rootPath, sourceDir, rootTargets, warnings);
@@ -103,6 +105,7 @@ export async function loadBuildGraph(
     plugins,
     projectAgents,
     projectIslands,
+    releaseState,
     rules,
     root,
     rootPath,

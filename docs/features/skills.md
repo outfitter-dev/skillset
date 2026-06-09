@@ -16,7 +16,7 @@ Skill source is Markdown with YAML frontmatter. Skillset derives machine identit
 | --- | --- | --- | --- | --- |
 | Plugin skill source | `plugins-claude/plugins/<plugin>/skills/<skill>/SKILL.md` | `plugins-codex/plugins/<plugin>/skills/<skill>/SKILL.md` plus sidecars when needed | `portable` / `implemented` | Plugin boundaries are preserved per target. |
 | Standalone skill source | `.claude/skills/<skill>/SKILL.md` | `.agents/skills/<skill>/SKILL.md` plus sidecars when needed | `portable` / `implemented` | Standalone roots are configured by target skill output paths. |
-| `skillset.version` / skill `version` | `metadata.version` and plugin manifest version | `metadata.version` and plugin manifest version | `metadata_only` / `implemented` | `skillset check` reports version drift. |
+| Release state / inline version fields | `metadata.version` and plugin manifest version | `metadata.version` and plugin manifest version | `metadata_only` / `implemented` | Release state wins after `skillset release apply`; inline versions remain the fallback. `skillset check` reports version drift. |
 | `compile.skillset.metadata: false` | suppress generated Skillset metadata | suppress generated Skillset metadata | `implemented` | Locks still carry provenance. |
 
 ## Diagnostics

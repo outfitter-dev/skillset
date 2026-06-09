@@ -24,6 +24,17 @@ export interface RootConfig {
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
 }
 
+export interface ReleaseScopeState {
+  readonly removed?: boolean;
+  readonly sourceHash?: string;
+  readonly updatedAt?: string;
+  readonly version: string;
+}
+
+export interface ReleaseState {
+  readonly scopes: Readonly<Record<string, ReleaseScopeState>>;
+}
+
 export type CompileUnsupportedPolicy = "error" | "warn" | "skip" | "force";
 export type CompileBuildMode = "updated" | "all";
 export type BuildScope = "repo" | "plugins" | "project" | "user";
@@ -133,6 +144,7 @@ export interface BuildGraph {
   readonly projectAgents: readonly SourceProjectAgent[];
   readonly projectIslands: readonly SourceIslandFile[];
   readonly rules: readonly SourceRule[];
+  readonly releaseState: ReleaseState;
   readonly root: RootConfig;
   readonly rootPath: string;
   readonly standaloneSkills: readonly StandaloneSkill[];
