@@ -1,0 +1,53 @@
+{
+  "buildMode": "updated",
+  "generatedBy": "skillset@0.1.0",
+  "items": [
+    {
+      "feature": "standalone-skill",
+      "files": [
+        ".skillset/skills/skillset-repo-test-fixtures/CHANGELOG.md"
+      ],
+      "kind": "changelog",
+      "name": "skillset-repo-test-fixtures",
+      "outputHash": "sha256:71462e2cd32e8bd212466271692c26f38a17cad83f157f34875e5e3dce608656",
+      "outputPath": ".skillset/skills/skillset-repo-test-fixtures/CHANGELOG.md",
+      "sourceHash": "sha256:599bda05c5e4d2ab1f4801ecc332ef8b69c901ab84fbf1635a48472a594a0192",
+      "sourcePath": ".skillset/skills/skillset-repo-test-fixtures/SKILL.md",
+      "targetState": "generated",
+      "validation": "structured"
+    },
+    {
+      "files": [
+        "fixtures/AGENTS.md"
+      ],
+      "kind": "rule",
+      "name": "fixtures/AGENTS.md",
+      "outputHash": "sha256:a687afae68ff66d7aeb8374df6a0c5626ca36256fb1583f609a6969d48d6a2aa",
+      "outputPath": "fixtures/AGENTS.md",
+      "sourceHash": "sha256:25a99098db8c0faca02a24397cbcf9683aae513822b9bfe36a64de7bd7a52c48",
+      "sourcePath": ".skillset/instructions",
+      "version": "0.1.0"
+    },
+    {
+      "files": [
+        "src/__tests__/AGENTS.md"
+      ],
+      "kind": "rule",
+      "name": "src/__tests__/AGENTS.md",
+      "outputHash": "sha256:4cc855b96ea6c79be52190d3656ac2143c59747dc41981ae1af0baa0aa697296",
+      "outputPath": "src/__tests__/AGENTS.md",
+      "sourceHash": "sha256:25a99098db8c0faca02a24397cbcf9683aae513822b9bfe36a64de7bd7a52c48",
+      "sourcePath": ".skillset/instructions",
+      "version": "0.1.0"
+    }
+  ],
+  "outputRoot": ".",
+  "schemaVersion": 1,
+  "selectedTargets": [
+    "claude",
+    "codex"
+  ],
+  "skillsetMetadata": true,
+  "sourceRoot": ".skillset",
+  "target": "workspace"
+}
