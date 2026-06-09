@@ -36,7 +36,7 @@ Create a feature-reference layer for Skillset docs and evolve it toward a schema
 
 - Give authors one index of Skillset features.
 - Give each feature a focused page that explains how to write it in source and how it compiles for Claude and Codex.
-- Make target support explicit: implemented, compat alias, portable, target-native, metadata-only, planned, reserved, deferred, unsupported, lossy, and future.
+- Make target support explicit: implemented, portable, target-native, metadata-only, planned, reserved, deferred, unsupported, lossy, and future.
 - Capture nuances within features, such as `SKILL.md` frontmatter keys, path-scoped instruction frontmatter, hook handler compatibility, and MCP server policy.
 - Let future docs tables be generated from schemas or a feature registry so support flips do not require hand-updating several places.
 - Separate portable feature schemas from Claude and Codex adapter schemas so target support can evolve independently.
@@ -227,7 +227,6 @@ Use one support vocabulary everywhere:
 | Status | Meaning |
 | --- | --- |
 | `implemented` | Parsed, validated, rendered, tested, and documented. |
-| `compat_alias` | Accepted legacy or native spelling that normalizes to the canonical source form. |
 | `portable` | Authored once because enabled targets can represent the same intent faithfully. |
 | `target_native` | Supported only through one target's native source or adapter path. |
 | `metadata_only` | Captured in generated metadata or lock provenance, but not target-enforced. |

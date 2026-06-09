@@ -613,13 +613,6 @@ skillset:
     ".skillset/plugins/alpha/hooks/hooks.json": `
 {
   "hooks": {
-    "PreToolUse": []
-  }
-}
-`,
-    ".skillset/plugins/alpha/hooks.json": `
-{
-  "hooks": {
     "SessionStart": []
   }
 }
@@ -678,13 +671,11 @@ Beta body.
   expect(await exists(join(root, "plugins-claude/plugins/beta/agents/reviewer.md"))).toBe(true);
   expect(await exists(join(root, "plugins-codex/plugins/alpha/agents/reviewer.md"))).toBe(false);
   expect(await exists(join(root, "plugins-codex/plugins/beta/agents/reviewer.md"))).toBe(false);
-  // SET-2: Codex hooks emit at the documented hooks/hooks.json path; the legacy
-  // root hooks.json source keeps target-specific content (SessionStart here).
+  // SET-2: Codex hooks emit at the documented hooks/hooks.json path.
   expect(await exists(join(root, "plugins-codex/plugins/alpha/hooks.json"))).toBe(false);
   const codexHook = await readFile(join(root, "plugins-codex/plugins/alpha/hooks/hooks.json"), "utf8");
   expect(codexHook).toContain(`"hooks"`);
   expect(codexHook).toContain("SessionStart");
-  expect(codexHook).not.toContain("PreToolUse");
 });
 
 test("portable project agents lower to Claude Markdown and Codex TOML with provenance", async () => {
@@ -1952,7 +1943,7 @@ codex: true
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/hooks.json": `
+    ".skillset/plugins/alpha/hooks/hooks.json": `
 []
 `,
     ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
@@ -2378,7 +2369,7 @@ skillset:
 ---
 name: escape
 description: Uses target-native tool escapes.
-tools:
+tool_intent:
   _allow:
     claude:
       - Read
@@ -2391,13 +2382,13 @@ tools:
     claude:
       - AskUserQuestion
 claude:
-  tools:
+  tool_intent:
     _allow:
       - "NewClaudeTool(project:*)"
       - rule: "Bash(newcli safe *)"
         reason: New Claude tool surface.
 codex:
-  tools:
+  tool_intent:
     _allow:
       mcp:
         linear:
@@ -2462,7 +2453,7 @@ skillset:
 ---
 name: tools
 description: Uses portable tool registry.
-tools:
+tool_intent:
   allow:
     read:
       - docs/**
@@ -2557,7 +2548,7 @@ skillset:
 name: bad-tools
 description: Has an invalid Claude target-native tool escape.
 claude:
-  tools:
+  tool_intent:
     _allow:
       - reason: Missing the native rule string.
 ---
@@ -2586,7 +2577,7 @@ skillset:
 ---
 name: bad-tools
 description: Has an unknown portable tool key.
-tools:
+tool_intent:
   allow:
     browser: true
 ---
@@ -2616,7 +2607,7 @@ skillset:
 name: bad-target-tools
 description: Has target-local portable tool policy.
 claude:
-  tools:
+  tool_intent:
     allow:
       read:
         - docs/**
@@ -2646,7 +2637,7 @@ skillset:
 ---
 name: clear-native
 description: Keeps portable tools when native escapes are disabled.
-tools:
+tool_intent:
   allow:
     read:
       - docs/**
@@ -2659,10 +2650,10 @@ tools:
           tools:
             - issues.*
 claude:
-  tools:
+  tool_intent:
     _allow: false
 codex:
-  tools:
+  tool_intent:
     _allow: false
 ---
 
@@ -3497,7 +3488,7 @@ skillset:
   await expect(loadBuildGraph(ambiguousRoot)).rejects.toThrow("both skillset.yaml and config.yaml");
 });
 
-test("skillset.id remains a compatibility alias but conflicts are rejected", async () => {
+test("skillset.id is rejected before public release", async () => {
   const root = await fixture({
     ".skillset/config.yaml": `
 skillset:
@@ -3519,8 +3510,7 @@ Alpha body.
 `,
   });
 
-  const graph = await loadBuildGraph(root);
-  expect(graph.plugins[0]?.id).toBe("alpha");
+  await expect(loadBuildGraph(root)).rejects.toThrow("uses unsupported skillset.id; use skillset.name");
 
   const conflictRoot = await fixture({
     ".skillset/config.yaml": `
@@ -3534,7 +3524,7 @@ skillset:
 `,
   });
 
-  await expect(loadBuildGraph(conflictRoot)).rejects.toThrow("conflicting skillset.name and skillset.id");
+  await expect(loadBuildGraph(conflictRoot)).rejects.toThrow("uses unsupported skillset.id; use skillset.name");
 });
 
 test("lint rejects Claude dynamic context in Codex-enabled skills", async () => {
@@ -3675,7 +3665,7 @@ Imported body.
   });
 
   const proc = Bun.spawn(
-    ["bun", join(import.meta.dir, "../cli.ts"), "import", "skill", join(root, "external"), "--root", root],
+    ["bun", join(import.meta.dir, "../cli.ts"), "import", join(root, "external"), "--kind", "skill", "--root", root],
     { stderr: "pipe", stdout: "pipe" }
   );
   const exitCode = await proc.exited;

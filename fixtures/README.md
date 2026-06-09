@@ -43,7 +43,7 @@ fixtures/<case>/
   ...other repo files as needed
 ```
 
-`.skillset/src/` is **not** the universal source root. In the current source contract, plugins, standalone skills, and instructions live under their own `.skillset/` directories (`.skillset/plugins`, `.skillset/skills`, `.skillset/instructions`, with `.skillset/rules` as a compatibility alias). `.skillset/src/` holds only project agents (`.skillset/src/agents`) and target-native islands (`.skillset/src/claude`, `.skillset/src/codex`, `.skillset/src/plugins/<plugin>/<target>`). Fixtures should match current compiler behavior, not a future contract.
+`.skillset/src/` is **not** the universal source root. In the current source contract, plugins, standalone skills, and instructions live under their own `.skillset/` directories (`.skillset/plugins`, `.skillset/skills`, `.skillset/instructions`). `.skillset/src/` holds only project agents (`.skillset/src/agents`) and target-native islands (`.skillset/src/claude`, `.skillset/src/codex`, `.skillset/src/plugins/<plugin>/<target>`). Fixtures should match current compiler behavior, not a future contract.
 
 A bare `fixtures/.skillset/src/` shape — treating `fixtures/` itself as a single fake repo root — is acceptable only when there is intentionally one case. It is not the default: named `fixtures/<case>/` directories scale to multiple cases and keep the fixture inventory from looking like live repo source.
 

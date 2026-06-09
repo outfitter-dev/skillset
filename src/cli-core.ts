@@ -42,7 +42,7 @@ const USAGE = [
   "       skillset init [path] [--yes|--dry-run] [--targets claude,codex] [--with-project-doc] [--with-agents] [--with-islands] [--name <name>] [--root <path>]",
   "       skillset create [path|--global] [--yes|--dry-run] [--targets claude,codex] [--with-project-doc] [--with-agents] [--with-islands] [--name <name>] [--root <path>]",
   "       skillset explain <path> [--root <path>] [--source <dir>]",
-  "       skillset import [skill|skills|plugin|plugins] <path> [--kind <kind>] [--from <provider>] [--name <name>] [--root <path>] [--source <dir>]",
+  "       skillset import <path> [--kind <skill|skills|plugin|plugins>] [--from <provider>] [--name <name>] [--root <path>] [--source <dir>]",
   "       skillset import <claude|codex|agents> [--root <path>] [--source <dir>]",
 ].join("\n");
 
@@ -637,13 +637,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     const first = args[index];
     if (first !== undefined && !first.startsWith("--")) {
       if (isImportKind(first)) {
-        importKind = first;
-        const rawPath = args[index + 1];
-        if (rawPath === undefined || rawPath.startsWith("--")) {
-          throw new Error("skillset: expected import path");
-        }
-        importPath = rawPath;
-        index += 2;
+        throw new Error("skillset: import kind must be passed with --kind");
       } else if (isImportProvider(first)) {
         importProvider = first;
         const rawPath = args[index + 1];

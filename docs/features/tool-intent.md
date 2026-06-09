@@ -8,7 +8,7 @@ Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
 ## Authoring
 
-Portable `tool_intent.allow` and `tool_intent.deny` accept known keys: `read`, `search`, `write`, `edit`, `shell`, `web_fetch`, `web_search`, and `mcp`. Target-native escapes use `_allow` and `_deny` either under the shared `tool_intent` block with provider keys or directly under `claude.tool_intent` / `codex.tool_intent`. The legacy `tools` key remains a compatibility alias and conflicts if used beside `tool_intent`.
+Portable `tool_intent.allow` and `tool_intent.deny` accept known keys: `read`, `search`, `write`, `edit`, `shell`, `web_fetch`, `web_search`, and `mcp`. Target-native escapes use `_allow` and `_deny` either under the shared `tool_intent` block with provider keys or directly under `claude.tool_intent` / `codex.tool_intent`. The old `tools` key is rejected so tool intent cannot silently disappear.
 
 ## Target Lowering
 
@@ -25,7 +25,7 @@ Portable `tool_intent.allow` and `tool_intent.deny` accept known keys: `read`, `
 - Reject shared or Codex-targeted `allowed_tools` unless Codex is explicitly false.
 - Reject target-local portable keys; target blocks accept only `_allow` / `_deny` escape keys.
 - Reject malformed Claude native escape rules.
-- Fail when both `tool_intent` and `tools` appear at the same level.
+- Reject `tools`; use `tool_intent`.
 
 ## Provenance
 
@@ -33,4 +33,4 @@ Generated Codex `.skillset.tools.yaml` sidecars and lock entries make portable i
 
 ## Tests and Fixtures
 
-Fixtures cover portable registry lowering, the `tools` alias, unknown-key failures, target-local escape validation, Codex sidecar metadata, and `allowed_tools` fail-loud behavior.
+Fixtures cover portable registry lowering, old `tools` rejection, unknown-key failures, target-local escape validation, Codex sidecar metadata, and `allowed_tools` fail-loud behavior.

@@ -2,12 +2,12 @@
   "schemaVersion": 1,
   "scopes": {
     "instruction:fixtures": {
-      "sourceHash": "sha256:a46f790266833cdb6e45a7e6703dbd5bbf585e827b9e242aa0b5fd9cf313b559",
+      "sourceHash": "sha256:daf6a729f722f22e6291f38a296ee0420d47d29ad0c1f78a339ab5fa39794333",
       "updatedAt": "2026-06-09T19:30:31.040Z",
       "version": "0.1.1"
     },
     "skill:skillset-repo-test-fixtures": {
-      "sourceHash": "sha256:eb36818c80abc98165ab2b77f45f86cbfbeb7cd53b7a86f0d9c4425c470966cb",
+      "sourceHash": "sha256:4516a163fda0204668df03c2247c6316e9dedb508ce101edbd824fbc47d72360",
       "updatedAt": "2026-06-09T19:30:31.040Z",
       "version": "0.1.1"
     }

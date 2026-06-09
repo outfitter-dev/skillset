@@ -7,7 +7,6 @@ Refreshing is intentionally cheap: re-read the linked provider docs, update the 
 ## Support vocabulary
 
 - **Implemented** — Skillset parses, validates, renders, tests, and documents this surface today.
-- **Compat alias** — accepted legacy or native spelling that lowers to the canonical source form; warned or documented as deprecated.
 - **Portable** — authored once as Skillset source because the target outcomes share the same intent.
 - **Target-native** — supported only through one target's native source or adapter path; not portable by default.
 - **Metadata-only** — captured in generated metadata or lock provenance, not target-enforced behavior.
@@ -25,9 +24,10 @@ Default behavior for unsupported or lossy lowering is fail-loud. Softer modes mu
 | Source | Lowers to | Status | Notes |
 | --- | --- | --- | --- |
 | `skillset.schema` (int) | (source-only) | Implemented | Source-contract marker, separate from `skillset.version`; never in generated output. |
-| `skillset.version` (semver) | plugin manifest `version`, skill `metadata.version` | Implemented | Content version; drift reported by `skillset check`. |
-| `skillset.name` / `skillset.id` | machine identity | Implemented / Compat alias | Identity derives from directory names; `skillset.id` is the alias. |
-| skill top-level `name` | skill identity | Implemented | Conflicts with `skillset.name` fail. |
+| root/plugin `skillset.version` (semver) | plugin manifest `version`, fallback skill `metadata.version` | Implemented | Content version; drift reported by `skillset check`. |
+| skill top-level `version` (semver) | skill `metadata.version` | Implemented | Skill-local version; release state wins after `skillset release apply`. |
+| `skillset.name` | machine identity | Implemented | Root and plugin explicit identity; directory names remain the default. `skillset.id` is unsupported. |
+| skill top-level `name` | skill identity | Implemented | Skill-local `skillset.name` / `skillset.id` are unsupported. |
 | `compile.targets` | enabled provider projections | Implemented | Root-only provider selection; defaults to all supported targets. |
 | `compile.build: updated/all` | normalized build mode in lock provenance | Implemented | Parser, CLI overrides, plan-first writes, and lock metadata are implemented. |
 | `compile.skillset.metadata: false` | suppress generated skill `metadata.generated` / `metadata.version` | Implemented | Source metadata remains source-only; locks record `skillsetMetadata`. |
@@ -114,7 +114,7 @@ Live-doc verified against `developers.openai.com/codex/plugins/build` and `devel
 | Source | Codex output | Status | Notes |
 | --- | --- | --- | --- |
 | `hooks/hooks.json` (canonical) | `hooks/hooks.json` (top-level `hooks` object) | Implemented | |
-| root `hooks.json` | `hooks/hooks.json` (normalized) | Compat alias | Warned. Verified 2026-06-03 (`developers.openai.com/codex/plugins/build`). |
+| root `hooks.json` | n/a | Unsupported | Use `hooks/hooks.json`; root hook files are rejected before build. |
 | `.mcp.json` | `.mcp.json` | Implemented | Conventional `.mcp.json` and `mcp.source` copy into Codex plugin output and are locked as plugin features. |
 | `.app.json` | `.app.json` (manifest `apps`) | Implemented | Opaque pass-through. |
 | plugin `agents/` | (none) | Unsupported / Deferred | Codex plugin docs do not document a plugin `agents/` component. Do not copy Claude plugin agents here. |
@@ -126,7 +126,7 @@ Live-doc verified against `developers.openai.com/codex/plugins/build` and `devel
 | Source | Claude output | Codex output | Status |
 | --- | --- | --- | --- |
 | `.skillset/instructions/**/*.md` | `.claude/rules/**/*.md` (`paths` kept) | `AGENTS.md` at derived dirs, source-boundary comments | Implemented |
-| `.skillset/rules/**/*.md` | same | same | Compat alias — warned. |
+| `.skillset/rules/**/*.md` | n/a | n/a | Unsupported — use `.skillset/instructions/**/*.md`. |
 | `.skillset/src/codex/rules/**/*.rules` | n/a | `.codex/rules/**/*.rules` | Target-native / Implemented — Codex command execution policy, not instruction Markdown. |
 
 Codex truncates `AGENTS.md` beyond `project_doc_max_bytes` (32 KiB default); `skillset build`/`check` warns. Verified 2026-06-03 (`developers.openai.com/codex/guides/agents-md`, `openai/codex#7138`).
@@ -151,6 +151,6 @@ Verified 2026-06-03 (`developers.openai.com/codex/plugins/build`, Claude hooks r
 | Source | Claude output | Codex output | Status |
 | --- | --- | --- | --- |
 | `tool_intent` | `allowed-tools` / `disallowed-tools` (preapproval) | `.skillset.tools.yaml` metadata | Implemented / Metadata-only (Codex) |
-| `tools` | same | same | Compat alias — conflict if both. |
+| `tools` | n/a | n/a | Unsupported — use `tool_intent`. |
 | `allowed_tools` | `allowed-tools` | unset/false only | Implemented (Claude); Codex has no skill-local surface. |
 | `_allow` / `_deny` escapes | native rules | `.skillset.tools.yaml` `target_native` | Implemented (escape hatch) |

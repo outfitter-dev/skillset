@@ -31,7 +31,7 @@ bin:
 | `mcp` | `.mcp.json` / manifest field | `.mcp.json` / manifest field | `implemented` | Conventional `.skillset/plugins/<plugin>/.mcp.json` is auto-discovered. `mcp.source` can point at a repo-owned JSON file. |
 | `bin` | plugin-root `bin/` | `unsupported` | `target_native` / `implemented` for Claude | Conventional `.skillset/plugins/<plugin>/bin/` is auto-discovered. `bin.source` can point at a repo-owned directory. Enabled Codex plugin output fails loudly. |
 | `apps` | n/a | `.app.json` / manifest field | `target_native` / `implemented pass-through`, `planned` pointer adapter | `.app.json` is copied as a native companion path today. `apps.source` is not supported. |
-| `hooks` | `hooks/hooks.json` | `hooks/hooks.json` | `target_native` / `implemented pass-through`, `planned` pointer adapter | Existing canonical path and Codex compatibility root hook behavior continue. `hooks.source` is not supported. |
+| `hooks` | `hooks/hooks.json` | `hooks/hooks.json` | `target_native` / `implemented pass-through`, `planned` pointer adapter | Existing canonical path behavior continues. Plugin-root `hooks.json` and `hooks.source` are not supported. |
 | generic `components.*` | n/a | n/a | `unsupported` | Rejected v1 shape because ownership and target semantics become vague. |
 
 ## Target Lowering

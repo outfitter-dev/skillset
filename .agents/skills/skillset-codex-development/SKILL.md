@@ -34,4 +34,4 @@ Use this skill when working on the local `skillset` compiler from a Codex-orient
 - Keep target adapter config and defaults in `claude` / `codex` blocks; root `defaults.<target>` is shorthand, not provider selection.
 - Use target-specific `claude.model`, `codex.model`, or defaults for model choices. Top-level skill `model` warns in v1.
 - `compile.unsupported` defaults to `error`; `warn`, `skip`, and `force` are reserved until provenance exists.
-- `skillset.name` is preferred. `skillset.id` is only a compatibility alias.
+- Use `skillset.name` for root/plugin explicit identity. `skillset.id` is unsupported.

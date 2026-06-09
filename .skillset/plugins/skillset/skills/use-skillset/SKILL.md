@@ -48,7 +48,7 @@ skillset create --global --yes         # create ~/.skillset/src
 
 `init` and `create` are plan-first like `build`: they write only with `--yes`, and `--dry-run` always prevents writes. `--targets claude,codex` controls generated `compile.targets`; `--with-project-doc` adds `.skillset/instructions/project.md`, while `--with-agents` and `--with-islands` add optional `.skillset/src/` placeholders. `create --global` creates Skillset-owned source at `~/.skillset/src`; it does not create `~/.skillset/build` or mutate `~/.claude`, `~/.codex`, `.agents`, trust settings, marketplaces, or symlinks. Future `npx create-skillset` / `bunx create-skillset` bootstraps should call the same create flow.
 
-Use `.skillset/instructions/**/*.md` for durable repo instructions (`.skillset/rules/**/*.md` is a compatibility alias that still builds but warns):
+Use `.skillset/instructions/**/*.md` for durable repo instructions. `.skillset/rules/**/*.md` is unsupported for instruction Markdown:
 
 ```yaml
 ---
@@ -85,9 +85,9 @@ resources:
       to: templates/report.md
 ```
 
-`shared:` resolves under root `.skillset/shared/`; `root:` is accepted as an alias. `plugin:` resolves under the current plugin's `shared/` directory and is not valid for standalone skills. Generated Claude and Codex skills receive declared files beside `SKILL.md`, so references stay skill-root-relative. Markdown links to declared `shared:` or `plugin:` URLs are rewritten to the generated local path, and undeclared shared resource links fail the build. Resource mappings cannot write outside the generated skill, overwrite generated control files, or collide with skill-local files.
+`shared:` resolves under root `.skillset/shared/`. `plugin:` resolves under the current plugin's `shared/` directory and is not valid for standalone skills. Generated Claude and Codex skills receive declared files beside `SKILL.md`, so references stay skill-root-relative. Markdown links to declared `shared:` or `plugin:` URLs are rewritten to the generated local path, and undeclared shared resource links fail the build. Resource mappings cannot write outside the generated skill, overwrite generated control files, or collide with skill-local files.
 
-Plugin companion paths are target-native. Claude receives `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json`, `.lsp.json`, `output-styles/`, `themes/`, `monitors/`, `assets/`, `scripts/`, and `src/`, declared in the manifest with their documented fields where the target has manifest fields. Codex receives `hooks/hooks.json`, `.mcp.json`, `.app.json`, `assets/`, `scripts/`, and `src/`. Feature keys can own repo source pointers directly: `mcp.source: repo:path/to/mcp.json` copies a repo-owned MCP file to `.mcp.json` for enabled plugin targets, and `bin.source: repo:path/to/bin` copies a repo-owned directory to Claude plugin `bin/`. `mcp: false` or `bin: false` disables conventional discovery, while absent keys auto-discover conventional `.mcp.json` and Claude `bin/` paths. Codex plugin `bin` output is unsupported and fails loudly when enabled. Pass-through paths are copied as opaque content unless a feature owns validation. Plugin-root `settings.json` is target-native but future-only; build does not suggest, copy, install, trust, enable, or mutate live settings as a side effect. Claude plugin `agents/` is not copied into Codex; a Codex-enabled plugin with `agents/` fails loudly because Codex plugins do not document a plugin agent component. Hooks are emitted definitions only and must be JSON objects. Both targets emit hooks at the documented `hooks/hooks.json` path with a top-level `hooks` object, sourced from a shared `hooks/hooks.json`; a legacy root `hooks.json` is a Codex compatibility source that still builds but warns. Codex hook files are validated against Codex-supported events and synchronous `command` handlers only; prompt handlers, agent handlers, and `async: true` command handlers are parsed but skipped by Codex. `skillset` does not install, trust, or enable hooks in user-level config.
+Plugin companion paths are target-native. Claude receives `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json`, `.lsp.json`, `output-styles/`, `themes/`, `monitors/`, `assets/`, `scripts/`, and `src/`, declared in the manifest with their documented fields where the target has manifest fields. Codex receives `hooks/hooks.json`, `.mcp.json`, `.app.json`, `assets/`, `scripts/`, and `src/`. Feature keys can own repo source pointers directly: `mcp.source: repo:path/to/mcp.json` copies a repo-owned MCP file to `.mcp.json` for enabled plugin targets, and `bin.source: repo:path/to/bin` copies a repo-owned directory to Claude plugin `bin/`. `mcp: false` or `bin: false` disables conventional discovery, while absent keys auto-discover conventional `.mcp.json` and Claude `bin/` paths. Codex plugin `bin` output is unsupported and fails loudly when enabled. Pass-through paths are copied as opaque content unless a feature owns validation. Plugin-root `settings.json` is target-native but future-only; build does not suggest, copy, install, trust, enable, or mutate live settings as a side effect. Claude plugin `agents/` is not copied into Codex; a Codex-enabled plugin with `agents/` fails loudly because Codex plugins do not document a plugin agent component. Hooks are emitted definitions only and must be JSON objects. Both targets emit hooks at the documented `hooks/hooks.json` path with a top-level `hooks` object, sourced from `hooks/hooks.json`; plugin-root `hooks.json` is unsupported. Codex hook files are validated against Codex-supported events and synchronous `command` handlers only; prompt handlers, agent handlers, and `async: true` command handlers are parsed but skipped by Codex. `skillset` does not install, trust, or enable hooks in user-level config.
 
 Skill source can also use normalized policy keys:
 
@@ -103,7 +103,7 @@ allowed_tools:
 
 `implicit_invocation` lowers to Claude `disable-model-invocation` and Codex `agents/openai.yaml` `policy.allow_implicit_invocation`. `allowed_tools` lowers to Claude `allowed-tools`, which is preapproval / no-prompt behavior rather than a portable sandbox; Codex has no confirmed skill-local allowed-tools equivalent, so leave `allowed_tools.codex` unset or set it to `false`.
 
-Use portable `tool_intent.allow` and `tool_intent.deny` for known tool intent (the legacy `tools` key is a compatibility alias; setting both fails). The name records intent and metadata, not target-enforced permissions:
+Use portable `tool_intent.allow` and `tool_intent.deny` for known tool intent. The old `tools` key is unsupported. The name records intent and metadata, not target-enforced permissions:
 
 ```yaml
 tool_intent:
@@ -147,7 +147,7 @@ codex:
             - experimental.delete
 ```
 
-Portable keys are `read`, `search`, `write`, `edit`, `shell`, `web_fetch`, `web_search`, and `mcp`; unknown keys fail lint/build. Portable `allow` / `deny` belongs in the source top-level `tool_intent` block; target-local `claude.tool_intent` and `codex.tool_intent` accept only `_allow` / `_deny` escape keys (the legacy `tools` key is still accepted as an alias). Claude lowers portable and `_` entries to `allowed-tools` and `disallowed-tools` (preapproval, not enforcement). Codex emits generated `.skillset.tools.yaml` metadata for portable and target-native intent; it does not install, trust, or mutate user-level Codex configuration.
+Portable keys are `read`, `search`, `write`, `edit`, `shell`, `web_fetch`, `web_search`, and `mcp`; unknown keys fail lint/build. Portable `allow` / `deny` belongs in the source top-level `tool_intent` block; target-local `claude.tool_intent` and `codex.tool_intent` accept only `_allow` / `_deny` escape keys. Claude lowers portable and `_` entries to `allowed-tools` and `disallowed-tools` (preapproval, not enforcement). Codex emits generated `.skillset.tools.yaml` metadata for portable and target-native intent; it does not install, trust, or mutate user-level Codex configuration.
 
 ## Build And Check
 
@@ -191,6 +191,6 @@ skillset import agents --root .
 - Keep target adapter config in `claude` / `codex`; use `defaults.<target>` only as shorthand for target defaults.
 - Use `claude.model`, `codex.model`, or target defaults for model choices; top-level skill `model` warns in v1.
 - Keep `compile.unsupported` on `error`; `warn`, `skip`, and `force` are reserved until provenance exists.
-- Prefer `skillset.name`; use `skillset.id` only as a compatibility alias.
+- Use `skillset.name` for root/plugin explicit identity. `skillset.id` is unsupported.
 - Do not hand-edit generated outputs as source truth.
 - Keep Claude-only dynamic placeholders out of Codex-enabled skills unless a target-safe fallback exists.

@@ -21,15 +21,14 @@ Contract batch (P2 issues), each committed and moved to Linear "In Review":
 - SET-3 (`feat: add skillset.schema source-contract marker`): integer source
   schema marker, defaults to current, semver/non-positive rejected, source-only.
 - SET-4 (`feat: simplify source identity and naming defaults`): identity derives
-  from directory names; `skillset.name`/`skillset.id` explicit-override aliases;
-  decision recorded to keep `skillset.name` (no parallel top-level plugin
-  `name`) because plugin/root metadata lives under `skillset`. Loud conflicts.
+  from directory names; plugin/root identity uses `skillset.name`; SET-53 later
+  removed `skillset.id` and skill-local `skillset.name`/`skillset.version`.
 - SET-5 (`feat: rename source rules to instructions with rules compatibility`):
-  canonical `.skillset/instructions/`, `.skillset/rules/` warned compat alias,
-  both-with-content fails; added non-fatal `graph.warnings` channel.
+  canonical `.skillset/instructions/`; SET-53 later removed `.skillset/rules/`
+  as supported instruction source.
 - SET-6 (`feat: rename portable tools policy to tool_intent`): `tool_intent`
-  canonical, `tools` alias, conflict if both; docs clarify Claude `allowed-tools`
-  is preapproval not a sandbox; Codex stays metadata-only.
+  canonical; SET-53 later removed `tools` as a supported source key; docs clarify
+  Claude `allowed-tools` is preapproval not a sandbox; Codex stays metadata-only.
 - SET-2 (`feat: align Codex plugin hooks with documented hooks/hooks.json
   default`): live-doc verified Codex plugin hook default = `hooks/hooks.json`
   with top-level `hooks` object + manifest override + `CLAUDE_PLUGIN_ROOT` alias

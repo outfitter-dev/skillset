@@ -13,7 +13,17 @@ import {
 import { changeStatus, type ChangeStatusOptions, type SourceUnit, type SourceUnitChange } from "./change-status";
 import { readString } from "./config";
 import { compareStrings, resolveInside } from "./path";
-import { sourceUnitSelector } from "./source-unit-selector";
+import {
+  selectorForPluginCompanion,
+  selectorForPluginConfig,
+  selectorForPluginFeature,
+  selectorForPluginSkill,
+  selectorForProjectAgent,
+  selectorForRootConfig,
+  selectorForStandaloneSkill,
+  selectorForTargetNativeIsland,
+  sourceUnitSelector,
+} from "./source-unit-selector";
 import type { JsonRecord, JsonValue, SkillsetOptions } from "./types";
 import { isJsonRecord, parseMarkdown, stringifyMarkdown } from "./yaml";
 
@@ -476,7 +486,7 @@ function readHistoryScopes(record: JsonRecord): readonly string[] {
       if (typeof item === "string") values.push(item);
     }
   }
-  return [...new Set(values.map(sourceUnitSelector))].sort(compareStrings);
+  return [...new Set(values.map(historicalSourceUnitSelector))].sort(compareStrings);
 }
 
 function readHistoryBump(value: JsonValue | undefined): ChangeBump | undefined {
@@ -495,7 +505,7 @@ function readHistoryEvidence(raw: JsonValue | undefined, scopes: readonly string
   const evidence = new Map<string, string[]>();
   const add = (scope: string | undefined, hash: string | undefined): void => {
     if (scope === undefined || hash === undefined) return;
-    const normalizedScope = sourceUnitSelector(scope);
+    const normalizedScope = historicalSourceUnitSelector(scope);
     const current = evidence.get(normalizedScope) ?? [];
     current.push(hash);
     evidence.set(normalizedScope, current);
@@ -507,6 +517,40 @@ function readHistoryEvidence(raw: JsonValue | undefined, scopes: readonly string
     add(readString(item, "scope") ?? singleScope, readString(item, "sourceHash") ?? readString(item, "hash") ?? readString(item, "currentHash"));
   }
   return evidence;
+}
+
+// Applied history is append-only, so records written before the SET-53 selector
+// cutover keep their original scope strings. Normalize only while reading
+// history; pending/current change scopes remain strict via sourceUnitSelector.
+function historicalSourceUnitSelector(raw: string): string {
+  if (raw === "root-config") return selectorForRootConfig();
+  if (raw.startsWith("standalone-skill:")) return selectorForStandaloneSkill(raw.slice("standalone-skill:".length));
+  if (raw.startsWith("project-agent:")) return selectorForProjectAgent(raw.slice("project-agent:".length));
+  if (raw.startsWith("instruction:")) return raw;
+  if (raw.startsWith("plugin-config:")) return selectorForPluginConfig(raw.slice("plugin-config:".length));
+  if (raw.startsWith("plugin-skill:")) {
+    const [pluginId, skillId] = raw.slice("plugin-skill:".length).split("/");
+    if (pluginId !== undefined && skillId !== undefined) return selectorForPluginSkill(pluginId, skillId);
+  }
+  if (raw.startsWith("plugin-feature:")) {
+    const [pluginId, featureKey] = raw.slice("plugin-feature:".length).split("/");
+    if (pluginId !== undefined && featureKey !== undefined) return selectorForPluginFeature(pluginId, featureKey);
+  }
+  if (raw.startsWith("plugin-companion:")) {
+    const [pluginId, ...pathParts] = raw.slice("plugin-companion:".length).split("/");
+    const companionPath = pathParts.join("/");
+    if (pluginId !== undefined && companionPath.length > 0) return selectorForPluginCompanion(pluginId, companionPath);
+  }
+  if (raw.startsWith("target-native-island:")) {
+    const [target, ownerKind, ownerIdOrPath, ...pathParts] = raw.slice("target-native-island:".length).split(":");
+    if (target === undefined || ownerKind === undefined || ownerIdOrPath === undefined) return raw;
+    if (ownerKind === "project") return selectorForTargetNativeIsland(target, "project", [ownerIdOrPath, ...pathParts].join(":"));
+    if (ownerKind === "plugin") {
+      const relativePath = pathParts.join(":");
+      if (relativePath.length > 0) return selectorForTargetNativeIsland(target, `plugin:${ownerIdOrPath}`, relativePath);
+    }
+  }
+  return sourceUnitSelector(raw);
 }
 
 async function exists(path: string): Promise<boolean> {

@@ -31,7 +31,6 @@ const RECOGNIZED_SOURCE_KEYS: ReadonlySet<string> = new Set([
   "summary",
   "title",
   "tool_intent",
-  "tools",
   "version",
 ]);
 
@@ -90,9 +89,6 @@ export interface ImportBatchReport {
   readonly sourcePath: string;
   readonly warnings: readonly string[];
 }
-
-/** Back-compat alias; importSource now returns the richer {@link ImportReport}. */
-export type ImportResult = ImportReport;
 
 export async function importSources(options: ImportSourcesOptions): Promise<ImportBatchReport> {
   const sourcePath = resolveImportSourcePath(options);

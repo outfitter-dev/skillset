@@ -8,7 +8,7 @@ Skills are the core portable source unit. A skill can live inside a plugin at `.
 
 ## Authoring
 
-Skill source is Markdown with YAML frontmatter. Skillset derives machine identity from the directory and accepts top-level `name`, `title`, `summary`, `description`, `version`, `resources`, `implicit_invocation`, `allowed_tools`, `tool_intent`, and target-specific `claude` / `codex` blocks. `skillset.name` and `skillset.id` remain compatibility metadata when imported source still carries them.
+Skill source is Markdown with YAML frontmatter. Skillset derives machine identity from the directory and accepts top-level `name`, `title`, `summary`, `description`, `version`, `resources`, `implicit_invocation`, `allowed_tools`, `tool_intent`, and target-specific `claude` / `codex` blocks. Skill-local `skillset.name`, `skillset.id`, and `skillset.version` are rejected; use top-level `name` and `version`.
 
 ## Target Lowering
 
@@ -22,7 +22,7 @@ Skill source is Markdown with YAML frontmatter. Skillset derives machine identit
 ## Diagnostics
 
 - Reject unsupported source schema versions and malformed semver product versions.
-- Reject identity conflicts between directory names, top-level `name`, `skillset.name`, and `skillset.id`.
+- Reject identity conflicts between directory names and top-level `name`; reject skill-local `skillset.name`, `skillset.id`, and `skillset.version`.
 - Reject unknown portable frontmatter keys unless they are accepted target-native fields inside a target block.
 - Warn for top-level `model` unless every enabled target has an exact target model through file-level fields or defaults.
 - Reject stale generated skills and manifests in `skillset check`.
@@ -33,4 +33,4 @@ Generated skill and plugin lock entries record source paths, output paths, hashe
 
 ## Tests and Fixtures
 
-Fixtures cover plugin and standalone skill rendering, identity aliases and conflicts, version drift, metadata suppression, target defaults, target opt-outs, generated sidecars, and import preservation.
+Fixtures cover plugin and standalone skill rendering, identity conflicts, old metadata-key rejection, version drift, metadata suppression, target defaults, target opt-outs, generated sidecars, and import preservation.

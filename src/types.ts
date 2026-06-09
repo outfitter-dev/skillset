@@ -147,7 +147,7 @@ export interface TargetOutputConfig {
 }
 
 export interface BuildGraph {
-  /** The source subdirectory instructions were loaded from: "instructions" (canonical) or "rules" (compat). */
+  /** The source subdirectory instructions were loaded from. */
   readonly instructionsDir: string;
   readonly outputRoots: readonly string[];
   readonly plugins: readonly SourcePlugin[];
@@ -160,7 +160,7 @@ export interface BuildGraph {
   readonly standaloneSkills: readonly StandaloneSkill[];
   readonly sourceDir: string;
   readonly sourcePath: string;
-  /** Non-fatal source warnings (e.g. deprecated compatibility paths) surfaced by the CLI. */
+  /** Non-fatal source warnings surfaced by the CLI. */
   readonly warnings: readonly string[];
 }
 

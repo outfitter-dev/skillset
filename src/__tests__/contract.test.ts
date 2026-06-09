@@ -11,21 +11,19 @@ import { importSource, importSources } from "../import";
 import { lintSkillset } from "../lint";
 import { loadBuildGraph } from "../resolver";
 import { createSkillset } from "../setup";
-import { sourceUnitDisplay, sourceUnitLegacyId, sourceUnitSelector } from "../source-unit-selector";
+import { sourceUnitDisplay } from "../source-unit-selector";
 
-test("SET-52: source-unit selectors normalize legacy ids and render conventional display labels", () => {
-  const cases: Array<[string, string, string, string]> = [
-    ["standalone-skill:demo", "skill:demo", "skill: demo", "standalone-skill:demo"],
-    ["plugin-skill:alpha/child", "plugin.alpha.skill:child", "skill(plugin:alpha): child", "plugin-skill:alpha/child"],
-    ["plugin-feature:alpha/mcp", "plugin.alpha.feature:mcp", "feature(plugin:alpha): mcp", "plugin-feature:alpha/mcp"],
-    ["target-native-island:codex:project:rules/deny.rules", "codex.rules:rules/deny.rules", "codex.rules: rules/deny.rules", "target-native-island:codex:project:rules/deny.rules"],
-    ["target-native-island:codex:plugin:alpha:.app.json", "plugin.alpha.codex.app:.app.json", "codex.app(plugin:alpha): .app.json", "target-native-island:codex:plugin:alpha:.app.json"],
+test("SET-52: source-unit selectors render conventional display labels", () => {
+  const cases: Array<[string, string]> = [
+    ["skill:demo", "skill: demo"],
+    ["plugin.alpha.skill:child", "skill(plugin:alpha): child"],
+    ["plugin.alpha.feature:mcp", "feature(plugin:alpha): mcp"],
+    ["codex.rules:rules/deny.rules", "codex.rules: rules/deny.rules"],
+    ["plugin.alpha.codex.app:.app.json", "codex.app(plugin:alpha): .app.json"],
   ];
 
-  for (const [legacy, selector, display, roundTrip] of cases) {
-    expect(sourceUnitSelector(legacy)).toBe(selector);
+  for (const [selector, display] of cases) {
     expect(sourceUnitDisplay(selector)).toBe(display);
-    expect(sourceUnitLegacyId(selector)).toBe(roundTrip);
   }
 });
 
@@ -127,11 +125,11 @@ Demo.
   expect(skill).not.toContain("schema:");
 });
 
-test("SET-3/SET-5: an empty rules dir beside instructions is not a false ambiguity", async () => {
+test("SET-3/SET-5: an empty rules dir beside instructions is ignored", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `
 skillset:
-  name: empty-compat
+  name: empty-rules
 claude: true
 codex: true
 `,
@@ -140,7 +138,7 @@ codex: true
 
 - Be tidy.
 `,
-    // Present but empty (no markdown) compat dir must not trigger ambiguity.
+    // Present but empty (no markdown) old dir must not trigger migration errors.
     ".skillset/rules/.gitkeep": "",
   });
 
@@ -197,8 +195,8 @@ Demo.
   await expect(loadBuildGraph(root)).rejects.toThrow("unsupported source schema 9");
 });
 
-// SET-4: identity derives from directory names; skillset.name / skillset.id are
-// explicit overrides and compatibility aliases with loud conflict diagnostics.
+// SET-4: identity derives from directory names; skillset.name is the explicit
+// override and legacy skillset.id fails loudly.
 
 test("SET-4: plugin and skill identity derive from directory names", async () => {
   const root = await contractFixture({
@@ -225,7 +223,7 @@ Body.
   expect(graph.plugins[0]?.skills[0]?.id).toBe("derived-skill");
 });
 
-test("SET-4: skillset.id is accepted as a compatibility alias", async () => {
+test("SET-4: skillset.id is rejected before public release", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `
 skillset:
@@ -249,12 +247,10 @@ Body.
 `,
   });
 
-  const graph = await loadBuildGraph(root);
-  expect(graph.plugins[0]?.id).toBe("alias-plugin");
-  expect(graph.plugins[0]?.skills[0]?.id).toBe("aliased");
+  await expect(loadBuildGraph(root)).rejects.toThrow("uses unsupported skillset.id; use skillset.name");
 });
 
-test("SET-4: conflicting skillset.name and skillset.id fails", async () => {
+test("SET-4: root skillset.id is rejected even beside skillset.name", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `
 skillset:
@@ -273,10 +269,10 @@ Body.
 `,
   });
 
-  await expect(loadBuildGraph(root)).rejects.toThrow("conflicting skillset.name and skillset.id");
+  await expect(loadBuildGraph(root)).rejects.toThrow("uses unsupported skillset.id; use skillset.name");
 });
 
-test("SET-4: a skill top-level name conflicting with skillset.name fails", async () => {
+test("SET-4: skill-local skillset.name is rejected", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `
 skillset:
@@ -296,7 +292,30 @@ Body.
 `,
   });
 
-  await expect(loadBuildGraph(root)).rejects.toThrow("conflicting top-level name");
+  await expect(loadBuildGraph(root)).rejects.toThrow("uses unsupported skillset.name; use top-level name");
+});
+
+test("SET-4: skill-local skillset.version is rejected", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: id-root
+claude: true
+codex: true
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo with old version metadata.
+skillset:
+  version: 1.2.3
+---
+
+Body.
+`,
+  });
+
+  await expect(loadBuildGraph(root)).rejects.toThrow("uses unsupported skillset.version; use top-level version");
 });
 
 test("SET-4: a plugin directory that disagrees with skillset.name fails", async () => {
@@ -324,9 +343,8 @@ Body.
   await expect(loadBuildGraph(root)).rejects.toThrow("does not match skillset.name");
 });
 
-// SET-5: canonical source instructions live in .skillset/instructions/;
-// .skillset/rules/ remains a compatibility alias. Claude lowers to .claude/rules,
-// Codex lowers to AGENTS.md, regardless of the source directory name.
+// SET-5: canonical source instructions live in .skillset/instructions/. Claude
+// lowers to .claude/rules, and Codex lowers to AGENTS.md.
 
 test("SET-5: canonical instructions lower to Claude rules and Codex AGENTS.md", async () => {
   const root = await contractFixture({
@@ -352,11 +370,11 @@ codex: true
   expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("Be tidy.");
 });
 
-test("SET-5: .skillset/rules remains a compatibility alias with a deprecation warning", async () => {
+test("SET-5: .skillset/rules with markdown is rejected", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `
 skillset:
-  name: compat-root
+  name: old-rules-root
 claude: true
 codex: true
 `,
@@ -367,19 +385,10 @@ codex: true
 `,
   });
 
-  const graph = await loadBuildGraph(root);
-  expect(graph.instructionsDir).toBe("rules");
-  expect(graph.warnings.join("\n")).toContain("compatibility alias");
-
-  // The compat path still produces identical native output.
-  await buildSkillset(root);
-  expect(await readFile(join(root, ".claude/rules/global.md"), "utf8")).toContain("Be tidy.");
-  const agents = await readFile(join(root, "AGENTS.md"), "utf8");
-  expect(agents).toContain("Be tidy.");
-  expect(agents).toContain(".skillset/rules");
+  await expect(loadBuildGraph(root)).rejects.toThrow(".skillset/rules is not supported");
 });
 
-test("SET-5: instructions and rules dirs both with content fail as ambiguous", async () => {
+test("SET-5: instructions and rules dirs both with content fail on the old directory", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `
 skillset:
@@ -395,13 +404,13 @@ codex: true
 `,
   });
 
-  await expect(loadBuildGraph(root)).rejects.toThrow("both contain instruction files");
+  await expect(loadBuildGraph(root)).rejects.toThrow(".skillset/rules is not supported");
 });
 
-// SET-6: tool_intent is the canonical portable tool-policy key; tools is a
-// compatibility alias. Both keys lower identically; setting both is a conflict.
+// SET-6: tool_intent is the canonical portable tool-policy key; legacy tools
+// fails loudly instead of being ignored.
 
-test("SET-6: tool_intent lowers to Claude allowed-tools like the tools alias", async () => {
+test("SET-6: tool_intent lowers to Claude allowed-tools", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `
 skillset:
@@ -432,13 +441,7 @@ Body.
   expect(skill).not.toContain("tool_intent");
 });
 
-test("SET-6: the tools alias still works and produces identical lowering", async () => {
-  const intent = await buildIntentSkill("tool_intent");
-  const alias = await buildIntentSkill("tools");
-  expect(alias).toBe(intent);
-});
-
-test("SET-6: setting both tool_intent and tools fails as a conflict", async () => {
+test("SET-6: the legacy tools key is rejected", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `
 skillset:
@@ -446,13 +449,10 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/conflict/SKILL.md": `
+    ".skillset/skills/legacy/SKILL.md": `
 ---
-name: conflict
-description: Sets both keys.
-tool_intent:
-  allow:
-    read: true
+name: legacy
+description: Uses the old tools key.
 tools:
   allow:
     write: true
@@ -462,7 +462,79 @@ Body.
 `,
   });
 
-  await expect(buildSkillset(root)).rejects.toThrow("both tool_intent and the tools compatibility alias");
+  await expect(buildSkillset(root)).rejects.toThrow("uses unsupported tools; use tool_intent");
+});
+
+test("SET-6: the legacy tools key is rejected in project agents", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: ti-root
+claude: true
+codex: false
+`,
+    ".skillset/src/agents/reviewer.md": `
+---
+name: reviewer
+description: Uses the old tools key.
+tools:
+  allow:
+    write: true
+---
+
+Review code.
+`,
+  });
+
+  await expect(buildSkillset(root)).rejects.toThrow("uses unsupported tools; use tool_intent");
+});
+
+test("SET-6: the legacy tools key is rejected in Codex-only project agents", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: ti-root
+claude: false
+codex: true
+`,
+    ".skillset/src/agents/reviewer.md": `
+---
+name: reviewer
+description: Uses the old tools key.
+tools:
+  allow:
+    write: true
+---
+
+Review code.
+`,
+  });
+
+  await expect(buildSkillset(root)).rejects.toThrow("uses unsupported tools; use tool_intent");
+});
+
+test("SET-6: the legacy tools key is rejected in target-native Markdown islands", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: ti-root
+claude: true
+codex: false
+`,
+    ".skillset/src/claude/agents/reviewer.md": `
+---
+name: reviewer
+description: Uses the old tools key.
+tools:
+  allow:
+    write: true
+---
+
+Review code.
+`,
+  });
+
+  await expect(buildSkillset(root)).rejects.toThrow("uses unsupported tools; use tool_intent");
 });
 
 test("SET-6: unknown portable tool keys fail", async () => {
@@ -489,36 +561,9 @@ Body.
   await expect(buildSkillset(root)).rejects.toThrow("unknown portable tool key teleport");
 });
 
-async function buildIntentSkill(key: string): Promise<string> {
-  const root = await contractFixture({
-    ".skillset/config.yaml": `
-skillset:
-  name: ti-root
-claude: true
-codex: false
-`,
-    [`.skillset/skills/intent/SKILL.md`]: `
----
-name: intent
-description: Tool intent skill.
-${key}:
-  allow:
-    read: true
-    shell:
-      - git status
----
-
-Body.
-`,
-  });
-
-  await buildSkillset(root);
-  return readFile(join(root, ".claude/skills/intent/SKILL.md"), "utf8");
-}
-
 // SET-2: Codex plugin hooks emit at the documented hooks/hooks.json path with a
 // top-level "hooks" object. A canonical hooks/hooks.json is shared by both
-// targets; a legacy root hooks.json is a Codex compatibility source.
+// targets.
 
 test("SET-2: a shared hooks/hooks.json emits to both Claude and Codex hook paths", async () => {
   const root = await contractFixture({
@@ -562,25 +607,27 @@ Body.
   expect(codexManifest).toContain(`"hooks": "./hooks/hooks.json"`);
 });
 
-test("SET-2: a legacy root hooks.json is a Codex compat source, warned and normalized", async () => {
-  const root = await contractFixture({
-    ".skillset/config.yaml": `
+test("SET-2: old root hooks.json is rejected for any enabled target", async () => {
+  for (const targetConfig of [
+    "claude: false\ncodex: true",
+    "claude: true\ncodex: false",
+  ]) {
+    const root = await contractFixture({
+      ".skillset/config.yaml": `
 skillset:
   name: hook-root
-claude: false
-codex: true
+${targetConfig}
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+      ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    // Flat event map (legacy shape) at the root path.
-    ".skillset/plugins/alpha/hooks.json": `
+      ".skillset/plugins/alpha/hooks.json": `
 {
   "SessionStart": [ { "hooks": [ { "type": "command", "command": "./scripts/run.sh" } ] } ]
 }
 `,
-    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+      ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -588,18 +635,10 @@ description: Demo.
 
 Body.
 `,
-  });
+    });
 
-  const graph = await loadBuildGraph(root);
-  expect(graph.warnings.join("\n")).toContain("root hooks.json");
-
-  await buildSkillset(root);
-  // Emits at the canonical path, wrapped into a top-level "hooks" object.
-  expect(await fileExists(join(root, "plugins-codex/plugins/alpha/hooks.json"))).toBe(false);
-  const codexHook = await readFile(join(root, "plugins-codex/plugins/alpha/hooks/hooks.json"), "utf8");
-  const parsed = JSON.parse(codexHook) as { hooks?: Record<string, unknown> };
-  expect(parsed.hooks).toBeDefined();
-  expect(parsed.hooks?.SessionStart).toBeDefined();
+    await expect(loadBuildGraph(root)).rejects.toThrow("uses unsupported root hooks.json");
+  }
 });
 
 async function fileExists(path: string): Promise<boolean> {
@@ -929,7 +968,7 @@ test("SET-25: CLI help succeeds before command validation", async () => {
   expect(rootHelp.stdout).toContain("usage: skillset build");
   expect(rootHelp.stdout).toContain("skillset change status");
   expect(rootHelp.stdout).toContain("skillset explain <path>");
-  expect(rootHelp.stdout).toContain("skillset import [skill|skills|plugin|plugins] <path>");
+  expect(rootHelp.stdout).toContain("skillset import <path> [--kind <skill|skills|plugin|plugins>]");
 
   const shortHelp = await runSkillsetCli("-h");
   expect(shortHelp.exitCode).toBe(0);
@@ -1169,7 +1208,7 @@ Body.
   const first = await changeStatus(root, { since: "HEAD" });
   const second = await changeStatus(root, { since: "HEAD" });
 
-  expect(first.hashSchema).toBe("skillset-source-unit-v1");
+  expect(first.hashSchema).toBe("skillset-source-unit-v2");
   expect(first.sourceChanges).toEqual([]);
   expect(
     first.sourceUnits.map((unit) => ({ hash: unit.hash, id: unit.id, kind: unit.kind }))
@@ -1204,7 +1243,7 @@ Body.
 
   const status = await runSkillsetCli("change", "status", "--root", root, "--since", "HEAD");
   expect(status.exitCode).toBe(0);
-  expect(status.stdout).toContain("source hash schema skillset-source-unit-v1");
+  expect(status.stdout).toContain("source hash schema skillset-source-unit-v2");
   expect(status.stdout).toContain("~ skill: demo");
   expect(status.stdout).toContain("source change(s) needing entries");
   expect(status.stdout).toContain("generated-output drift");
@@ -2326,7 +2365,7 @@ Body.
   const files = await readdir(join(root, ".skillset/changes/pending"));
   expect(files).toHaveLength(1);
   const pending = await readFile(join(root, ".skillset/changes/pending", files[0] ?? ""), "utf8");
-  expect(pending).toContain(`id: ${id}`);
+  expect(pending).toMatch(new RegExp(`id: "?${id}`));
 });
 
 test("SET-36: change show prefers pending refs and history reads applied records", async () => {
@@ -2554,11 +2593,11 @@ Body.
   expect(pluginChangelog).toContain("Updated the plugin child skill");
 });
 
-test("SET-52: legacy source-unit scopes normalize through check, release, and changelog projection", async () => {
+test("SET-53: legacy source-unit scopes are rejected", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `
 skillset:
-  name: legacy-selector-root
+  name: legacy-selector-rejection-root
 claude: true
 codex: false
 `,
@@ -2573,38 +2612,6 @@ Original body.
 `,
   });
   await commitFixture(root);
-  const initial = await collectSourceInventory(root);
-  const initialHash = sourceInventoryUnit(initial, "skill:demo").hash;
-  await mkdir(join(root, ".skillset/changes"), { recursive: true });
-  await writeFile(
-    join(root, ".skillset/changes/state.json"),
-    JSON.stringify({
-      schemaVersion: 1,
-      scopes: {
-        "standalone-skill:demo": {
-          sourceHash: initialHash,
-          updatedAt: "2026-06-09T00:00:00.000Z",
-          version: "0.1.1",
-        },
-      },
-    }),
-    "utf8"
-  );
-  await writeHistory(root, [
-    {
-      id: "111111aaaaaa",
-      bump: "patch",
-      scope: "standalone-skill:demo",
-      reason: "Legacy history entries continue to project into the generated changelog.",
-      evidence: [{ scope: "standalone-skill:demo", sourceHash: initialHash }],
-    },
-  ]);
-
-  await buildSkillset(root);
-  const changelog = await readFile(join(root, ".skillset/skills/demo/CHANGELOG.md"), "utf8");
-  expect(changelog).toContain("target: skill:demo");
-  expect(changelog).toContain("scopes: skill: demo");
-
   await Bun.write(
     join(root, ".skillset/skills/demo/SKILL.md"),
     "---\nname: demo\ndescription: Demo.\nversion: 0.1.0\n---\n\nChanged body.\n"
@@ -2622,15 +2629,27 @@ evidence:
     currentHash: ${demo?.currentHash}
 ---
 
-Legacy pending scope syntax still covers the normalized selector and can release cleanly.
+Legacy pending scope syntax should fail because Skillset is pre-public and has cut over to canonical selectors.
 `);
 
   const checked = await runSkillsetCli("change", "check", "--root", root);
-  expect(checked.exitCode).toBe(0);
-  const plan = await runSkillsetCli("release", "plan", "--root", root);
-  expect(plan.exitCode).toBe(0);
-  expect(plan.stdout).toContain("@222222 pending patch skill: demo");
-  expect(plan.stdout).toContain("skill: demo: 0.1.1 -> 0.1.2 (patch)");
+  expect(checked.exitCode).toBe(1);
+  expect(checked.stdout).toContain("scope standalone-skill:demo does not match a known source unit");
+
+  const added = await runSkillsetCli(
+    "change",
+    "add",
+    "--root",
+    root,
+    "--scope",
+    "standalone-skill:demo",
+    "--bump",
+    "patch",
+    "--reason",
+    "Old source-unit identifiers should be rejected instead of translated after the pre-public clean cutover."
+  );
+  expect(added.exitCode).toBe(1);
+  expect(added.stderr).toContain("unknown change scope standalone-skill:demo");
 });
 
 test("SET-37: generated changelogs do not perturb source inventory hashes", async () => {
