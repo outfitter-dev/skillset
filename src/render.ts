@@ -262,7 +262,7 @@ async function renderPluginTarget(
       renderPluginManifest(graph, plugin, target, enabledSkills),
       `${plugin.id} ${target} plugin manifest`
     ),
-    relative(graph.rootPath, join(plugin.path, "skillset.yaml"))
+    relative(graph.rootPath, plugin.configPath)
   );
 
   rendered.push(manifestFile);

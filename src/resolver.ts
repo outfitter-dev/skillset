@@ -451,7 +451,7 @@ async function loadPlugin(
     );
   }
 
-  return { features, id, metadata, path: pluginPath, skills, targets };
+  return { configPath, features, id, metadata, path: pluginPath, skills, targets };
 }
 
 async function loadPluginFeatures(

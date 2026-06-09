@@ -63,6 +63,7 @@ export interface SourceResource {
 }
 
 export interface SourcePlugin {
+  readonly configPath: string;
   readonly features: readonly SourcePluginFeature[];
   readonly id: string;
   readonly metadata: JsonRecord;

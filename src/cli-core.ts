@@ -1,5 +1,6 @@
 import { basename, resolve } from "node:path";
 
+import { changeStatus, type ChangeStatusReport } from "./change-status";
 import { doctorSkillset, explainPath, listGeneratedEntries } from "./authoring";
 import { buildSkillset, checkSkillset, diffSkillset } from "./build";
 import { importSources, type ImportKind, type ImportProvider, type ImportReport } from "./import";
@@ -7,11 +8,13 @@ import { lintSkillset } from "./lint";
 import { createSkillset, initSkillset, type SetupReport } from "./setup";
 import type { BuildScope, CompileBuildMode, SkillsetOptions, TargetName } from "./types";
 
-type Command = "build" | "check" | "create" | "diff" | "doctor" | "explain" | "import" | "init" | "lint" | "list";
+type Command = "build" | "change" | "check" | "create" | "diff" | "doctor" | "explain" | "import" | "init" | "lint" | "list";
+type ChangeSubcommand = "status";
 
 const USAGE = [
   "usage: skillset build [--yes|--dry-run] [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset <check|diff|doctor|lint|list> [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset change status [--since <ref>] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset init [path] [--yes|--dry-run] [--targets claude,codex] [--with-project-doc] [--with-agents] [--with-islands] [--name <name>] [--root <path>]",
   "       skillset create [path|--global] [--yes|--dry-run] [--targets claude,codex] [--with-project-doc] [--with-agents] [--with-islands] [--name <name>] [--root <path>]",
   "       skillset explain <path> [--root <path>] [--source <dir>]",
@@ -30,6 +33,8 @@ export async function runCli(
   }
   const {
     command,
+    changeSince,
+    changeSubcommand,
     dryRun,
     importKind,
     importPath,
@@ -54,6 +59,14 @@ export async function runCli(
     }
     const rendered = await buildSkillset(rootPath, options);
     console.log(`skillset: wrote ${rendered.length} generated files`);
+    return;
+  }
+
+  if (command === "change") {
+    if (changeSubcommand !== "status") {
+      throw new Error("skillset: expected change subcommand status");
+    }
+    printChangeStatus(await changeStatus(rootPath, { ...options, ...(changeSince === undefined ? {} : { since: changeSince }) }));
     return;
   }
 
@@ -210,6 +223,8 @@ export function reportCliError(error: unknown): void {
 
 interface ParsedArgs {
   readonly command: Command;
+  readonly changeSince?: string;
+  readonly changeSubcommand?: ChangeSubcommand;
   readonly dryRun: boolean;
   readonly importKind?: ImportKind;
   readonly importName?: string;
@@ -223,6 +238,39 @@ interface ParsedArgs {
   readonly setupIncludeProjectDoc: boolean;
   readonly setupTargets?: readonly TargetName[];
   readonly yes: boolean;
+}
+
+function printChangeStatus(report: ChangeStatusReport): void {
+  const baseline =
+    report.baseline.kind === "git-ref"
+      ? `git ref ${report.baseline.ref}${report.baseline.resolvedRef === undefined ? "" : ` (${report.baseline.resolvedRef.slice(0, 12)})`}`
+      : `${report.baseline.label} (${report.baseline.hashSchema})`;
+  console.log(`skillset: source hash schema ${report.hashSchema}`);
+  console.log(`skillset: baseline ${baseline}`);
+
+  if (report.sourceChanges.length === 0) {
+    console.log("skillset: no source changes needing entries");
+  } else {
+    for (const change of report.sourceChanges) {
+      const marker = change.status === "added" ? "+" : change.status === "removed" ? "-" : "~";
+      console.log(`  ${marker} ${change.kind} ${change.id} ${change.sourcePath}`);
+    }
+    console.log(`skillset: ${report.sourceChanges.length} source change(s) needing entries`);
+  }
+
+  const drift = report.generatedDrift;
+  const driftCount = drift.added.length + drift.changed.length + drift.missing.length + drift.removed.length;
+  if (driftCount === 0) {
+    console.log("skillset: no generated-output drift");
+    return;
+  }
+  for (const path of drift.added) console.log(`  generated + ${path}`);
+  for (const path of drift.changed) console.log(`  generated ~ ${path}`);
+  for (const path of drift.missing) console.log(`  generated ! ${path}`);
+  for (const path of drift.removed) console.log(`  generated - ${path}`);
+  console.log(
+    `skillset: generated-output drift ${drift.added.length} added, ${drift.changed.length} changed, ${drift.missing.length} missing, ${drift.removed.length} removed`
+  );
 }
 
 function printDiffPlan(diff: Awaited<ReturnType<typeof diffSkillset>>, reason: string): void {
@@ -273,6 +321,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   const command = args[0];
   if (
     command !== "build" &&
+    command !== "change" &&
     command !== "check" &&
     command !== "create" &&
     command !== "diff" &&
@@ -284,11 +333,13 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     command !== "list"
   ) {
     throw new Error(
-        "skillset: expected command build, check, create, diff, doctor, explain, import, init, lint, or list\n" +
+        "skillset: expected command build, change, check, create, diff, doctor, explain, import, init, lint, or list\n" +
         USAGE
     );
   }
 
+  let changeSubcommand: ChangeSubcommand | undefined;
+  let changeSince: string | undefined;
   let importKind: ImportKind | undefined;
   let importName: string | undefined;
   let importPath: string | undefined;
@@ -306,6 +357,15 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let setupTargets: readonly TargetName[] | undefined;
   let yes = false;
   let index = 1;
+
+  if (command === "change") {
+    const subcommand = args[index];
+    if (subcommand !== "status") {
+      throw new Error("skillset: expected change subcommand status");
+    }
+    changeSubcommand = subcommand;
+    index += 1;
+  }
 
   if (command === "import") {
     const first = args[index];
@@ -364,6 +424,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--name" &&
       flag !== "--kind" &&
       flag !== "--from" &&
+      flag !== "--since" &&
       flag !== "--yes" &&
       flag !== "--dry-run" &&
       flag !== "--updated" &&
@@ -409,6 +470,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     if (flag === "--root") rootPath = value;
     if (flag === "--source") sourceDir = value;
     if (flag === "--dist") distDir = value;
+    if (flag === "--since") changeSince = value;
     if (flag === "--scope") scopes = readBuildScopes(value);
     if (flag === "--targets") setupTargets = readSetupTargets(value);
     if (flag === "--name") importName = value;
@@ -447,6 +509,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
 
   return {
     command,
+    ...(changeSince === undefined ? {} : { changeSince }),
+    ...(changeSubcommand === undefined ? {} : { changeSubcommand }),
     dryRun,
     ...(importKind === undefined ? {} : { importKind }),
     ...(importName === undefined ? {} : { importName }),

@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { expect, test } from "bun:test";
 
 import { buildSkillset, checkSkillset, diffSkillset } from "../build";
+import { changeStatus } from "../change-status";
 import { doctorSkillset, explainPath } from "../authoring";
 import { importSource, importSources } from "../import";
 import { lintSkillset } from "../lint";
@@ -909,6 +910,7 @@ test("SET-25: CLI help succeeds before command validation", async () => {
   expect(rootHelp.exitCode).toBe(0);
   expect(rootHelp.stderr).toBe("");
   expect(rootHelp.stdout).toContain("usage: skillset build");
+  expect(rootHelp.stdout).toContain("skillset change status");
   expect(rootHelp.stdout).toContain("skillset explain <path>");
   expect(rootHelp.stdout).toContain("skillset import [skill|skills|plugin|plugins] <path>");
 
@@ -927,6 +929,196 @@ test("SET-25: CLI help succeeds before command validation", async () => {
   expect(explainHelp.stderr).toBe("");
   expect(explainHelp.stdout).toContain("skillset explain <path>");
   expect(explainHelp.stderr).not.toContain("expected a path to explain");
+});
+
+test("SET-34: source change status is read-only and deterministic for unchanged source", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: status-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await commitFixture(root);
+
+  const first = await changeStatus(root, { since: "HEAD" });
+  const second = await changeStatus(root, { since: "HEAD" });
+
+  expect(first.hashSchema).toBe("skillset-source-unit-v1");
+  expect(first.sourceChanges).toEqual([]);
+  expect(
+    first.sourceUnits.map((unit) => ({ hash: unit.hash, id: unit.id, kind: unit.kind }))
+  ).toEqual(second.sourceUnits.map((unit) => ({ hash: unit.hash, id: unit.id, kind: unit.kind })));
+  expect(await Bun.file(join(root, ".claude/skills/demo/SKILL.md")).exists()).toBe(false);
+});
+
+test("SET-34: change status reports body changes and generated drift separately", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: status-drift-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await buildSkillset(root);
+  await commitFixture(root);
+
+  await Bun.write(
+    join(root, ".skillset/skills/demo/SKILL.md"),
+    "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n"
+  );
+
+  const status = await runSkillsetCli("change", "status", "--root", root, "--since", "HEAD");
+  expect(status.exitCode).toBe(0);
+  expect(status.stdout).toContain("source hash schema skillset-source-unit-v1");
+  expect(status.stdout).toContain("~ standalone-skill standalone-skill:demo");
+  expect(status.stdout).toContain("source change(s) needing entries");
+  expect(status.stdout).toContain("generated-output drift");
+  expect(status.stdout).toContain("generated ~ .claude/skills/demo/SKILL.md");
+  expect(await readFile(join(root, ".claude/skills/demo/SKILL.md"), "utf8")).toContain("Body.");
+});
+
+test("SET-34: support and dependency metadata are source-significant without frontmatter leakage", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: status-metadata-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await commitFixture(root);
+
+  await Bun.write(
+    join(root, ".skillset/skills/demo/SKILL.md"),
+    `---
+name: demo
+description: Demo.
+supports:
+  - "@acme/docs-cli >=2.4.0 <3.0.0"
+dependencies:
+  plugins:
+    - acme-docs
+---
+
+Body.
+`
+  );
+
+  const report = await changeStatus(root, { since: "HEAD" });
+  expect(report.sourceChanges.map((change) => change.id)).toContain("standalone-skill:demo");
+  const unit = report.sourceUnits.find((item) => item.id === "standalone-skill:demo");
+  expect(unit?.regions).toEqual([
+    { name: "dependencies", severityBearing: true },
+    { name: "supports", severityBearing: false },
+  ]);
+
+  await buildSkillset(root);
+  const generated = await readFile(join(root, ".claude/skills/demo/SKILL.md"), "utf8");
+  expect(generated).not.toContain("supports:");
+  expect(generated).not.toContain("dependencies:");
+});
+
+test("SET-34: plugin aggregate hashes consume child content hashes before versions", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: aggregate-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+  version: 0.1.0
+`,
+    ".skillset/plugins/alpha/skills/plugin-skill/SKILL.md": `
+---
+name: plugin-skill
+description: Plugin skill.
+version: 0.1.0
+---
+
+Plugin body.
+`,
+  });
+  await commitFixture(root);
+
+  await Bun.write(
+    join(root, ".skillset/plugins/alpha/skills/plugin-skill/SKILL.md"),
+    "---\nname: plugin-skill\ndescription: Plugin skill.\nversion: 0.1.0\n---\n\nChanged plugin body.\n"
+  );
+
+  const report = await changeStatus(root, { since: "HEAD" });
+  expect(report.sourceChanges.map((change) => change.id)).toEqual(
+    expect.arrayContaining(["plugin-skill:alpha/plugin-skill", "plugin:alpha"])
+  );
+});
+
+test("SET-34: partial dependencies participate in source status hashes", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: partial-status-root
+claude: true
+codex: false
+`,
+    ".skillset/shared/common.md": `
+Shared partial.
+`,
+    ".skillset/instructions/root.md": `
+# Root
+
+{{> shared:common.md}}
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+{{> shared:common.md}}
+`,
+  });
+  await buildSkillset(root);
+  await commitFixture(root);
+
+  await Bun.write(join(root, ".skillset/shared/common.md"), "Changed partial.\n");
+
+  const report = await changeStatus(root, { since: "HEAD" });
+  const changedIds = report.sourceChanges.map((change) => change.id);
+  expect(changedIds).toContain("instruction:root");
+  expect(changedIds).toContain("standalone-skill:demo");
+  const instruction = report.sourceUnits.find((unit) => unit.id === "instruction:root");
+  expect(instruction?.sourcePaths).toContain(".skillset/shared/common.md");
+  expect(report.generatedDrift.changed).toContain(".claude/rules/root.md");
+  expect(report.generatedDrift.changed).toContain(".claude/skills/demo/SKILL.md");
 });
 
 test("SET-25: diff reports missing managed outputs separately", async () => {
@@ -2024,6 +2216,30 @@ async function runSkillsetCli(...args: readonly string[]): Promise<{
     proc.exited,
   ]);
   return { exitCode, stderr, stdout };
+}
+
+async function commitFixture(root: string): Promise<void> {
+  await runGit(root, "init", "-q");
+  await runGit(root, "config", "user.email", "skillset@example.com");
+  await runGit(root, "config", "user.name", "Skillset Test");
+  await runGit(root, "add", ".");
+  await runGit(root, "commit", "-qm", "baseline");
+}
+
+async function runGit(root: string, ...args: readonly string[]): Promise<void> {
+  const proc = Bun.spawn({
+    cmd: ["git", "-C", root, ...args],
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  if (exitCode !== 0) {
+    throw new Error(`git ${args.join(" ")} failed\n${stdout}${stderr}`);
+  }
 }
 
 async function sleepForMtime(): Promise<void> {
