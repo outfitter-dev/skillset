@@ -9,6 +9,20 @@ import { compareStrings, resolveInside } from "./path";
 import { preprocessText } from "./preprocess";
 import { readReleaseState } from "./release-state";
 import { loadBuildGraph } from "./resolver";
+import {
+  isPluginOwnedSelector,
+  selectorForInstruction,
+  selectorForPluginCompanion,
+  selectorForPluginConfig,
+  selectorForPluginFeature,
+  selectorForPluginSkill,
+  selectorForProjectAgent,
+  selectorForRootConfig,
+  selectorForStandaloneSkill,
+  selectorForTargetNativeIsland,
+  sourceUnitLegacyId,
+  sourceUnitSelector,
+} from "./source-unit-selector";
 import type {
   BuildGraph,
   JsonRecord,
@@ -151,10 +165,17 @@ export async function collectSourceInventory(
 async function sourceInventoryForGraph(graph: BuildGraph): Promise<SourceInventory> {
   const units: SourceUnit[] = [];
   const rootConfigPath = join(graph.sourcePath, ROOT_CONFIG_FILE);
-  units.push(await fileUnit(graph, "root-config", "root-config", rootConfigPath, await regionsForYaml(rootConfigPath)));
+  units.push(await fileUnit(
+    graph,
+    "root-config",
+    selectorForRootConfig(),
+    rootConfigPath,
+    await regionsForYaml(rootConfigPath),
+    "root-config"
+  ));
 
   for (const skill of graph.standaloneSkills) {
-    units.push(await skillUnit(graph, skill, "standalone-skill", `standalone-skill:${skill.id}`));
+    units.push(await skillUnit(graph, skill, "standalone-skill", selectorForStandaloneSkill(skill.id)));
   }
 
   for (const rule of graph.rules) {
@@ -170,10 +191,17 @@ async function sourceInventoryForGraph(graph: BuildGraph): Promise<SourceInvento
   }
 
   for (const plugin of graph.plugins) {
-    units.push(await fileUnit(graph, "plugin-config", `plugin-config:${plugin.id}`, plugin.configPath, await regionsForYaml(plugin.configPath)));
+    units.push(await fileUnit(
+      graph,
+      "plugin-config",
+      selectorForPluginConfig(plugin.id),
+      plugin.configPath,
+      await regionsForYaml(plugin.configPath),
+      `plugin-config:${plugin.id}`
+    ));
 
     for (const skill of plugin.skills) {
-      units.push(await skillUnit(graph, skill, "plugin-skill", `plugin-skill:${plugin.id}/${skill.id}`, plugin));
+      units.push(await skillUnit(graph, skill, "plugin-skill", selectorForPluginSkill(plugin.id, skill.id), plugin));
     }
 
     for (const feature of plugin.features) {
@@ -201,11 +229,12 @@ async function fileUnit(
   kind: SourceUnitKind,
   id: string,
   sourcePath: string,
-  regions: readonly SourceUnitRegion[] = []
+  regions: readonly SourceUnitRegion[] = [],
+  hashId: string = sourceUnitLegacyId(id)
 ): Promise<SourceUnit> {
   const sourcePaths = [relativePath(graph, sourcePath)];
   return {
-    hash: await hashPath(kind, sourcePath, { id, sourcePaths }),
+    hash: await hashPath(kind, sourcePath, { id: hashId, sourcePaths }),
     hashSchema: SOURCE_HASH_SCHEMA,
     id,
     kind,
@@ -227,7 +256,7 @@ async function skillUnit(
   const sourcePaths = await sourcePathsForSkill(graph, sourceDir, skill.resources, preprocessDependencies);
   const hash = createSourceHash(kind);
   hash.update("id\0");
-  hash.update(id);
+  hash.update(sourceUnitLegacyId(id));
   hash.update("\0");
   await hashDirectory(hash, sourceDir, isGeneratedEntityChangelogPath);
   await hashResources(hash, skill.resources);
@@ -258,7 +287,7 @@ async function ruleUnit(graph: BuildGraph, rule: SourceRule): Promise<SourceUnit
   return {
     hash: digest(hash),
     hashSchema: SOURCE_HASH_SCHEMA,
-    id: `instruction:${rule.id}`,
+    id: selectorForInstruction(rule.id),
     kind: "instruction",
     regions: regionsForRecord(rule.frontmatter),
     sourcePath,
@@ -283,7 +312,7 @@ async function projectAgentUnit(graph: BuildGraph, agent: SourceProjectAgent): P
   return {
     hash: digest(hash),
     hashSchema: SOURCE_HASH_SCHEMA,
-    id: `project-agent:${agent.outputName}`,
+    id: selectorForProjectAgent(agent.outputName),
     kind: "project-agent",
     regions: regionsForRecord(agent.frontmatter),
     sourcePath,
@@ -296,11 +325,11 @@ async function islandUnit(
   island: BuildGraph["projectIslands"][number]
 ): Promise<SourceUnit> {
   const preprocessDependencies = await islandPreprocessDependencies(graph, island);
-  const owner = island.plugin === undefined ? "project" : `plugin:${island.plugin}`;
-  const id = `target-native-island:${island.target}:${owner}:${island.relativePath}`;
+  const owner: "project" | `plugin:${string}` = island.plugin === undefined ? "project" : `plugin:${island.plugin}`;
+  const id = selectorForTargetNativeIsland(island.target, owner, island.relativePath);
   const hash = createSourceHash("target-native-island");
   hash.update("id\0");
-  hash.update(id);
+  hash.update(sourceUnitLegacyId(id));
   hash.update("\0target\0");
   hash.update(island.target);
   hash.update("\0plugin\0");
@@ -328,11 +357,11 @@ async function pluginFeatureUnit(
   plugin: SourcePlugin,
   feature: SourcePluginFeature
 ): Promise<SourceUnit> {
-  const id = `plugin-feature:${plugin.id}/${feature.key}`;
+  const id = selectorForPluginFeature(plugin.id, feature.key);
   const sourcePaths = await sourcePathsForPath(graph, feature.sourcePath);
   const hash = createSourceHash("plugin-feature");
   hash.update("id\0");
-  hash.update(id);
+  hash.update(sourceUnitLegacyId(id));
   hash.update("\0key\0");
   hash.update(feature.key);
   hash.update("\0origin\0");
@@ -367,9 +396,10 @@ async function pluginCompanionUnits(
       await fileUnit(
         graph,
         "plugin-companion",
-        `plugin-companion:${plugin.id}/${companionPath}`,
+        selectorForPluginCompanion(plugin.id, companionPath),
         sourcePath,
-        companionRegions(companionPath)
+        companionRegions(companionPath),
+        `plugin-companion:${plugin.id}/${companionPath}`
       )
     );
   }
@@ -381,20 +411,8 @@ function pluginAggregateUnit(
   plugin: SourcePlugin,
   units: readonly SourceUnit[]
 ): SourceUnit {
-  const childPrefix = new Set([
-    `plugin-config:${plugin.id}`,
-    `plugin-feature:${plugin.id}/`,
-    `plugin-companion:${plugin.id}/`,
-    `plugin-skill:${plugin.id}/`,
-    `target-native-island:claude:plugin:${plugin.id}:`,
-    `target-native-island:codex:plugin:${plugin.id}:`,
-  ]);
   const childUnits = units
-    .filter((unit) =>
-      [...childPrefix].some((prefix) =>
-        prefix.endsWith(":") || prefix.endsWith("/") ? unit.id.startsWith(prefix) : unit.id === prefix
-      )
-    )
+    .filter((unit) => isPluginOwnedSelector(unit.id, plugin.id))
     .sort((left, right) => compareStrings(left.id, right.id));
   const hash = createSourceHash("plugin");
   hash.update("id\0");
@@ -405,7 +423,7 @@ function pluginAggregateUnit(
   hash.update(stringifyJson({ claude: plugin.targets.claude.options, codex: plugin.targets.codex.options }));
   hash.update("\0children\0");
   for (const child of childUnits) {
-    hash.update(child.id);
+    hash.update(sourceUnitLegacyId(child.id));
     hash.update("\0");
     hash.update(child.hash);
     hash.update("\0");
@@ -776,12 +794,13 @@ async function sourceInventoryFromReleaseState(
   const currentUnits = new Map(current.units.map((unit) => [unit.id, unit]));
   const units = new Map(fallbackUnits);
   for (const [id, scope] of releaseScopes) {
+    const selector = sourceUnitSelector(id);
     if (scope.removed === true) {
-      units.delete(id);
+      units.delete(selector);
       continue;
     }
-    const template = currentUnits.get(id) ?? fallbackUnits.get(id) ?? inferredReleaseUnit(id, scope.sourceHash ?? "");
-    units.set(id, {
+    const template = currentUnits.get(selector) ?? fallbackUnits.get(selector) ?? inferredReleaseUnit(selector, scope.sourceHash ?? "");
+    units.set(selector, {
       ...template,
       hash: scope.sourceHash ?? template.hash,
       hashSchema: SOURCE_HASH_SCHEMA,
@@ -811,16 +830,17 @@ function inferredReleaseUnit(id: string, hash: string): SourceUnit {
 }
 
 function kindForSourceUnitId(id: string): SourceUnitKind {
-  if (id === "root-config") return "root-config";
-  if (id.startsWith("instruction:")) return "instruction";
-  if (id.startsWith("plugin:")) return "plugin";
-  if (id.startsWith("plugin-companion:")) return "plugin-companion";
-  if (id.startsWith("plugin-config:")) return "plugin-config";
-  if (id.startsWith("plugin-feature:")) return "plugin-feature";
-  if (id.startsWith("plugin-skill:")) return "plugin-skill";
-  if (id.startsWith("project-agent:")) return "project-agent";
-  if (id.startsWith("standalone-skill:")) return "standalone-skill";
-  if (id.startsWith("target-native-island:")) return "target-native-island";
+  const selector = sourceUnitSelector(id);
+  if (selector === "config:root") return "root-config";
+  if (selector.startsWith("instruction:")) return "instruction";
+  if (selector.startsWith("plugin:")) return "plugin";
+  if (selector.startsWith("agent:")) return "project-agent";
+  if (selector.startsWith("skill:")) return "standalone-skill";
+  if (/^plugin\.[^.]+\.companion:/.test(selector)) return "plugin-companion";
+  if (/^plugin\.[^.]+\.config:/.test(selector)) return "plugin-config";
+  if (/^plugin\.[^.]+\.feature:/.test(selector)) return "plugin-feature";
+  if (/^plugin\.[^.]+\.skill:/.test(selector)) return "plugin-skill";
+  if (/^(?:plugin\.[^.]+\.)?(?:claude|codex)\.[^.]+:/.test(selector)) return "target-native-island";
   return "root-config";
 }
 
@@ -857,11 +877,12 @@ async function sourceInventoryFromLock(
     ) {
       continue;
     }
+    const selector = sourceUnitSelector(id);
     units.push({
       hash,
       hashSchema,
-      id,
-      kind,
+      id: selector,
+      kind: kindForSourceUnitId(selector),
       regions: [],
       sourcePath,
       sourcePaths: [sourcePath],

@@ -3,15 +3,15 @@
   "generatedBy": "skillset@0.1.0",
   "items": [
     {
-      "feature": "standalone-skill",
+      "feature": "skill",
       "files": [
         ".skillset/skills/skillset-repo-test-fixtures/CHANGELOG.md"
       ],
       "kind": "changelog",
       "name": "skillset-repo-test-fixtures",
-      "outputHash": "sha256:71462e2cd32e8bd212466271692c26f38a17cad83f157f34875e5e3dce608656",
+      "outputHash": "sha256:7ffe47fb797eadd7aec24d8f6fbcc747aa02c3ad25782ea7c7efba970847fce3",
       "outputPath": ".skillset/skills/skillset-repo-test-fixtures/CHANGELOG.md",
-      "sourceHash": "sha256:599bda05c5e4d2ab1f4801ecc332ef8b69c901ab84fbf1635a48472a594a0192",
+      "sourceHash": "sha256:595144ac0f6e67bb92fdecaa554de4cbc6d2ffecd7cdcd75124b5e58005e9467",
       "sourcePath": ".skillset/skills/skillset-repo-test-fixtures/SKILL.md",
       "targetState": "generated",
       "validation": "structured"

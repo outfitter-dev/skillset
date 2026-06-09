@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 
 import { readString } from "./config";
 import { compareStrings, resolveInside } from "./path";
+import { sourceUnitSelector } from "./source-unit-selector";
 import type { JsonRecord, ReleaseScopeState, ReleaseState, SkillsetOptions } from "./types";
 import { validateVersionField } from "./versioning";
 import { isJsonRecord, stringifyJson } from "./yaml";
@@ -53,7 +54,7 @@ export async function readReleaseState(
       throw new Error(`skillset: release state scope ${scope} sourceHash must be a sha256 digest`);
     }
     const updatedAt = readString(value, "updatedAt");
-    scopes[scope] = {
+    scopes[sourceUnitSelector(scope)] = {
       ...(removed === true ? { removed } : {}),
       ...(sourceHash === undefined ? {} : { sourceHash }),
       ...(updatedAt === undefined ? {} : { updatedAt }),
@@ -72,7 +73,7 @@ export async function writeReleaseState(
   const absolutePath = resolveInside(rootPath, relativePath);
   const scopes: Record<string, JsonRecord> = {};
   for (const [scope, value] of Object.entries(state.scopes).sort(([left], [right]) => compareStrings(left, right))) {
-    scopes[scope] = {
+    scopes[sourceUnitSelector(scope)] = {
       ...(value.removed === true ? { removed: true } : {}),
       ...(value.sourceHash === undefined ? {} : { sourceHash: value.sourceHash }),
       ...(value.updatedAt === undefined ? {} : { updatedAt: value.updatedAt }),

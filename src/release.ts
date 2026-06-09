@@ -7,6 +7,12 @@ import { changeCheck, readPendingChangeEntries, type ChangeBump, type PendingCha
 import { compareStrings, resolveInside } from "./path";
 import { readReleaseState, writeReleaseState } from "./release-state";
 import { loadBuildGraph } from "./resolver";
+import {
+  pluginIdForSelector,
+  pluginScopeFromSourceUnit,
+  sourceUnitLegacyId,
+  sourceUnitSelector,
+} from "./source-unit-selector";
 import type { BuildGraph, JsonRecord, ReleaseScopeState, ReleaseState, SkillsetOptions, SourcePlugin } from "./types";
 import { pluginVersion, rootVersion, skillVersion } from "./versioning";
 
@@ -154,7 +160,7 @@ function releaseEntryPlan(entry: PendingChangeEntry): readonly ReleaseEntryPlan[
     path: entry.path,
     reason: entry.reason,
     ref: `@${entry.id.slice(0, 6)}`,
-    scopes: entry.scopes,
+    scopes: entry.scopes.map(sourceUnitSelector),
   }];
 }
 
@@ -221,13 +227,7 @@ function mergeScopePlans(
 }
 
 function aggregateScope(scope: string): string | undefined {
-  if (scope.startsWith("plugin:")) return scope;
-  if (scope.startsWith("plugin-config:")) return `plugin:${scope.slice("plugin-config:".length)}`;
-  if (scope.startsWith("plugin-skill:")) return `plugin:${scope.slice("plugin-skill:".length).split("/")[0]}`;
-  if (scope.startsWith("plugin-feature:")) return `plugin:${scope.slice("plugin-feature:".length).split("/")[0]}`;
-  if (scope.startsWith("plugin-companion:")) return `plugin:${scope.slice("plugin-companion:".length).split("/")[0]}`;
-  const island = scope.match(/^target-native-island:[^:]+:plugin:([^:]+):/);
-  return island?.[1] === undefined ? undefined : `plugin:${island[1]}`;
+  return pluginScopeFromSourceUnit(scope);
 }
 
 function maxBump(left: ChangeBump, right: ChangeBump): ChangeBump {
@@ -246,30 +246,37 @@ function bumpVersion(version: string, bump: ChangeBump): string {
 }
 
 function versionForScope(graph: BuildGraph, scope: string): string {
-  const releaseScope = graph.releaseState.scopes[scope];
+  const selector = sourceUnitSelector(scope);
+  const releaseScope = graph.releaseState.scopes[selector] ?? graph.releaseState.scopes[sourceUnitLegacyId(selector)];
   const releasedVersion = releaseScope?.removed === true ? undefined : releaseScope?.version;
   if (releasedVersion !== undefined) return releasedVersion;
-  if (scope === "root-config") return rootVersion(graph);
-  if (scope.startsWith("standalone-skill:")) {
-    const skill = graph.standaloneSkills.find((item) => item.id === scope.slice("standalone-skill:".length));
+  if (selector === "config:root") return rootVersion(graph);
+  if (selector.startsWith("skill:")) {
+    const skill = graph.standaloneSkills.find((item) => item.id === selector.slice("skill:".length));
     if (skill !== undefined) return skillVersion(graph, undefined, skill);
   }
-  if (scope.startsWith("plugin:")) {
-    const plugin = pluginForScope(graph, scope);
+  if (selector.startsWith("plugin:")) {
+    const plugin = pluginForScope(graph, selector);
     if (plugin !== undefined) return pluginVersion(graph, plugin);
   }
-  if (scope.startsWith("plugin-skill:")) {
-    const scoped = scope.slice("plugin-skill:".length);
-    const [pluginId, skillId] = scoped.split("/");
+  const pluginSkill = selector.match(/^plugin\.([^.]+)\.skill:(.+)$/);
+  if (pluginSkill !== null) {
+    const [, pluginId, skillId] = pluginSkill;
     const plugin = pluginId === undefined ? undefined : graph.plugins.find((item) => item.id === pluginId);
     const skill = plugin?.skills.find((item) => item.id === skillId);
     if (plugin !== undefined && skill !== undefined) return skillVersion(graph, plugin, skill);
+  }
+  const pluginId = pluginIdForSelector(selector);
+  if (pluginId !== undefined) {
+    const plugin = graph.plugins.find((item) => item.id === pluginId);
+    if (plugin !== undefined) return pluginVersion(graph, plugin);
   }
   return rootVersion(graph);
 }
 
 function pluginForScope(graph: BuildGraph, scope: string): SourcePlugin | undefined {
-  return graph.plugins.find((plugin) => plugin.id === scope.slice("plugin:".length));
+  const pluginId = pluginIdForSelector(scope);
+  return pluginId === undefined ? undefined : graph.plugins.find((plugin) => plugin.id === pluginId);
 }
 
 function nextReleaseState(
@@ -279,7 +286,7 @@ function nextReleaseState(
 ): ReleaseState {
   const scopes: Record<string, ReleaseScopeState> = { ...state.scopes };
   for (const scope of scopesToWrite) {
-    scopes[scope.scope] = {
+    scopes[sourceUnitSelector(scope.scope)] = {
       ...(scope.removed ? { removed: true } : {}),
       ...(scope.sourceHash === undefined ? {} : { sourceHash: scope.sourceHash }),
       updatedAt,
@@ -398,8 +405,9 @@ async function exists(path: string): Promise<boolean> {
 function historyEvidence(entry: PendingChangeEntry): readonly JsonRecord[] {
   const evidence: JsonRecord[] = [];
   for (const scope of entry.scopes) {
-    for (const sourceHash of entry.sourceHashes.get(scope) ?? []) {
-      evidence.push({ scope, sourceHash });
+    const selector = sourceUnitSelector(scope);
+    for (const sourceHash of entry.sourceHashes.get(selector) ?? entry.sourceHashes.get(scope) ?? []) {
+      evidence.push({ scope: selector, sourceHash });
     }
   }
   return evidence;
