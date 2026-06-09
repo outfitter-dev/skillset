@@ -1,9 +1,8 @@
 # Kitchen Sink Fixture
 
-A durable `.skillset/` source tree that exercises the implemented compiler
-surfaces in one build. Tests copy `.skillset/` into a temp repo and build it, so
-the fixture proves real behavior without touching the repo's own self-hosted
-source or an example content repo.
+A durable fake repo with a `.skillset/` source tree that exercises implemented compiler surfaces in one build. Tests copy the fixture into a temp repo and build it, so the fixture proves compiler behavior without touching the repo's own self-hosted source or an example content repo.
+
+This is an internal compiler fixture, not a product-level `.skillset/tests/` case. Product dogfooding should use real `.skillset/` source changes and the public validation/change/release commands.
 
 Surfaces covered:
 
@@ -17,6 +16,4 @@ Surfaces covered:
 - rules that lower to Claude `.claude/rules/**` and Codex `AGENTS.md` files,
   including build-time `{{skillset.*}}` variable rendering.
 
-The fixture is intentionally valid so it builds; negative cases (ambiguous
-remapped bare links, Codex-incompatible hook events/handlers) live as dedicated
-tests in `src/__tests__/`.
+The fixture is intentionally valid so it builds; negative cases (ambiguous remapped bare links, Codex-incompatible hook events/handlers) live as dedicated tests in `src/__tests__/`.

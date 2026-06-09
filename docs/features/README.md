@@ -28,6 +28,7 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Skills](skills.md): standalone and plugin-bound skill frontmatter, target lowering, versions, metadata, and generated sidecars.
 - [Supports](supports.md): compatibility metadata, support ranges, source significance, and release severity boundaries.
 - [Target-Native Islands](target-native-islands.md): explicit Claude/Codex source islands, Codex `.rules` pass-through, and leakage rules.
+- [Tests and Evals](tests-and-evals.md): internal fixtures, dogfooding, planned deterministic tests, future adapter-aware evals, and generated run output boundaries.
 - [Themes](themes.md): Claude experimental theme pass-through, manifest wiring, and Codex unsupported boundaries.
 - [Tool Intent](tool-intent.md): portable tool intent metadata, Claude preapproval lowering, Codex metadata, and target-native escapes.
 
@@ -72,4 +73,5 @@ These are tracked as future/reserved unless a later issue promotes them:
 - [Reviewed settings suggestion workflow](../adrs/drafts/20260604-reviewed-settings-suggestions.md): Skillset may eventually propose or review target settings changes, but `skillset build` must not mutate user-level Claude or Codex config.
 - [Model and reasoning alias profiles](../adrs/drafts/20260604-model-and-reasoning-alias-profiles.md): shared aliases such as `review`, `fast`, or `deep` remain deferred; use target-native model and effort fields where supported.
 - [First-class sets](../adrs/drafts/20260604-first-class-sets.md): grouped marketplaces, bundles, and curated collections remain future vocabulary; v1 keeps build scopes and entity selectors separate.
+- [Tests and evals](tests-and-evals.md): deterministic `skillset test` and adapter-aware eval support remain planned/future; internal fixtures and validation commands exist today.
 - Generated feature docs: docs remain manual until the feature reference shape is stable enough to generate from typed registry data.
