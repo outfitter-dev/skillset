@@ -18,8 +18,8 @@ Compact ids are generated once at scaffold time as 12 lower-case hex characters.
 | --- | --- | --- | --- | --- |
 | Source-unit inventory | n/a | n/a | `implemented` | `skillset change status` hashes supported source units with schema `skillset-source-unit-v1`. |
 | `skillset change status --since <ref>` | n/a | n/a | `implemented` | Read-only comparison against a git ref; generated-output drift is reported separately. |
-| `.skillset/changes/pending/*.md` | n/a | n/a | `implemented` | Parsed and validated by `skillset change check`; not target output. Scaffold/list/history commands are planned. |
-| `.skillset/changes/history.jsonl` | n/a | n/a | `planned` | Append-only applied history. |
+| `.skillset/changes/pending/*.md` | n/a | n/a | `implemented` | Created, listed, shown, edited, and validated by `skillset change`; not target output. Release application is planned. |
+| `.skillset/changes/history.jsonl` | n/a | n/a | `partial` | Append-only applied history is read by `skillset change history`; writing applied records is planned with release apply. |
 | `.skillset/changes/baseline` records | n/a | n/a | `planned` | Explicit hash-schema baseline records, not changelog entries. |
 
 ## Diagnostics
@@ -30,6 +30,8 @@ Compact ids are generated once at scaffold time as 12 lower-case hex characters.
 
 `change check` also warns when an entry declares `bump: none` for an added, removed, or severity-bearing source unit. `supports` edits remain source-significant but are not inherently severity-bearing. Source coverage diagnostics stay separate from generated-output drift.
 
+`skillset change add` writes pending entries non-interactively from `--reason`, `--reason-file`, `--reason -`, or piped stdin. `skillset change reason` updates or appends to a pending reason without changing the generated id. `skillset change list` prints copyable refs and supports `--group` filtering. `skillset change show` resolves pending entries before applied history. `skillset change history` reads applied history records and stays distinct from status.
+
 ## Provenance
 
 Source-unit hashes cover root config, standalone skills, plugin configs, plugin skills, plugin features such as MCP/bin pointers, plugin target-native companion paths such as hooks and apps, project instructions, project agents, and target-native islands. Plugin aggregate hashes consume child content hashes before declared versions, so a child content edit with an unchanged version still changes the plugin aggregate identity.
@@ -38,7 +40,7 @@ Change entries participate in source provenance because they explain current sou
 
 ## Tests and Fixtures
 
-Fixtures cover unchanged deterministic status, body edits, source-only support/dependency metadata edits, plugin child edits that affect aggregate plugin identity without a version bump, partial dependency hashing, read-only CLI behavior, generated-output drift separation, pending-entry coverage failures, multi-scope pending entries, invalid pending entry diagnostics, and ambiguous ref resolution.
+Fixtures cover unchanged deterministic status, body edits, source-only support/dependency metadata edits, plugin child edits that affect aggregate plugin identity without a version bump, partial dependency hashing, read-only CLI behavior, generated-output drift separation, pending-entry coverage failures, multi-scope pending entries, invalid pending entry diagnostics, ambiguous ref resolution, reason file/stdin input, append behavior, group filters, show output, and history lookup.
 
 ## Evidence
 

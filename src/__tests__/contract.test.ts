@@ -1396,6 +1396,248 @@ This pending entry exists only to exercise ambiguous short ref resolution in the
   expect(tooShort.stderr).toContain("at least 6 hex characters");
 });
 
+test("SET-36: change add writes a pending entry from reason-file and exposes list/show/check", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: change-add-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await commitFixture(root);
+
+  await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n");
+  const reasonPath = join(root, "reason.md");
+  await writeFile(reasonPath, "Clarified the demo skill behavior and documented why this source edit needs a patch entry.\n", "utf8");
+
+  const added = await runSkillsetCli(
+    "change",
+    "add",
+    "--root",
+    root,
+    "--since",
+    "HEAD",
+    "--scope",
+    "standalone-skill:demo",
+    "--bump",
+    "patch",
+    "--group",
+    "linear:SET-36",
+    "--reason-file",
+    reasonPath
+  );
+  expect(added.exitCode).toBe(0);
+  const ref = extractChangeRef(added.stdout);
+  expect(added.stdout).toContain("standalone-skill:demo");
+
+  const list = await runSkillsetCli("change", "list", "--root", root, "--group", "linear:SET-36");
+  expect(list.exitCode).toBe(0);
+  expect(list.stdout).toContain(ref);
+  expect(list.stdout).toContain("linear:SET-36");
+  expect(list.stdout).toContain("standalone-skill:demo");
+
+  const show = await runSkillsetCli("change", "show", ref, "--root", root);
+  expect(show.exitCode).toBe(0);
+  expect(show.stdout).toContain("Clarified the demo skill behavior");
+  expect(show.stdout).toContain("group: linear:SET-36");
+  expect(show.stdout).toContain("source hash:");
+
+  const checked = await runSkillsetCli("change", "check", "--root", root, "--since", "HEAD");
+  expect(checked.exitCode).toBe(0);
+});
+
+test("SET-36: change reason appends stdin without changing the generated id", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: change-reason-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await commitFixture(root);
+
+  await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n");
+  const added = await runSkillsetCli(
+    "change",
+    "add",
+    "--root",
+    root,
+    "--since",
+    "HEAD",
+    "--scope",
+    "standalone-skill:demo",
+    "--bump",
+    "patch",
+    "--reason",
+    "Initial reason describing the source change with enough detail to pass validation."
+  );
+  expect(added.exitCode).toBe(0);
+  const ref = extractChangeRef(added.stdout);
+  const id = ref.slice(1);
+
+  const updated = await runSkillsetCliWithInput(
+    "Also documented the fallback build path for non-interactive agent workflows.\n",
+    "change",
+    "reason",
+    ref,
+    "--root",
+    root,
+    "--append",
+    "--reason",
+    "-"
+  );
+  expect(updated.exitCode).toBe(0);
+  expect(updated.stdout).toContain(ref);
+
+  const show = await runSkillsetCli("change", "show", ref, "--root", root);
+  expect(show.exitCode).toBe(0);
+  expect(show.stdout).toContain("Initial reason describing");
+  expect(show.stdout).toContain("Also documented the fallback build path");
+
+  const files = await readdir(join(root, ".skillset/changes/pending"));
+  expect(files).toHaveLength(1);
+  const pending = await readFile(join(root, ".skillset/changes/pending", files[0] ?? ""), "utf8");
+  expect(pending).toContain(`id: ${id}`);
+});
+
+test("SET-36: change show prefers pending refs and history reads applied records", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: change-history-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await writePendingChange(root, "abcdef123456.md", `
+---
+id: abcdef123456
+bump: patch
+scope: standalone-skill:demo
+evidence:
+  - scope: standalone-skill:demo
+    sourceHash: sha256:pending
+---
+
+Pending reason wins when the same ref also exists in applied history.
+`);
+  await mkdir(join(root, ".skillset/changes"), { recursive: true });
+  await writeFile(
+    join(root, ".skillset/changes/history.jsonl"),
+    [
+      JSON.stringify({
+        id: "abcdef123456",
+        bump: "minor",
+        scope: "standalone-skill:demo",
+        reason: "Applied record with the same id should not win change show.",
+        evidence: [{ scope: "standalone-skill:demo", sourceHash: "sha256:history" }],
+      }),
+      JSON.stringify({
+        id: "123456abcdef",
+        bump: "patch",
+        scope: "standalone-skill:demo",
+        reason: "Applied history remains inspectable through the history command.",
+        evidence: [{ scope: "standalone-skill:demo", sourceHash: "sha256:applied" }],
+      }),
+    ].join("\n") + "\n",
+    "utf8"
+  );
+
+  const show = await runSkillsetCli("change", "show", "@abcdef", "--root", root);
+  expect(show.exitCode).toBe(0);
+  expect(show.stdout).toContain("status: pending");
+  expect(show.stdout).toContain("Pending reason wins");
+  expect(show.stdout).not.toContain("Applied record with the same id");
+
+  const history = await runSkillsetCli("change", "history", "@123456", "--root", root);
+  expect(history.exitCode).toBe(0);
+  expect(history.stdout).toContain("status: history");
+  expect(history.stdout).toContain("Applied history remains inspectable");
+
+  const pendingHistory = await runSkillsetCli("change", "history", "@abcdef", "--root", root);
+  expect(pendingHistory.exitCode).toBe(1);
+  expect(pendingHistory.stderr).toContain("is pending; no applied history entry");
+});
+
+test("SET-36: pending and history refs are ambiguous across stores", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: cross-store-ref-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await writePendingChange(root, "abcdef111111.md", `
+---
+id: abcdef111111
+bump: patch
+scope: standalone-skill:demo
+evidence:
+  - scope: standalone-skill:demo
+    sourceHash: sha256:pending
+---
+
+Pending entry has a colliding prefix with an applied history entry.
+`);
+  await mkdir(join(root, ".skillset/changes"), { recursive: true });
+  await writeFile(
+    join(root, ".skillset/changes/history.jsonl"),
+    `${JSON.stringify({
+      id: "abcdef222222",
+      bump: "patch",
+      scope: "standalone-skill:demo",
+      reason: "History entry has a colliding prefix with a pending entry.",
+      evidence: [{ scope: "standalone-skill:demo", sourceHash: "sha256:history" }],
+    })}\n`,
+    "utf8"
+  );
+
+  const show = await runSkillsetCli("change", "show", "@abcdef", "--root", root);
+  expect(show.exitCode).toBe(1);
+  expect(show.stderr).toContain("ambiguous change ref @abcdef");
+  expect(show.stderr).toContain("@abcdef1");
+  expect(show.stderr).toContain("@abcdef2");
+
+  const history = await runSkillsetCli("change", "history", "@abcdef", "--root", root);
+  expect(history.exitCode).toBe(1);
+  expect(history.stderr).toContain("ambiguous change ref @abcdef");
+});
+
 test("SET-25: diff reports missing managed outputs separately", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `
@@ -2481,6 +2723,12 @@ async function writePendingChange(root: string, filename: string, content: strin
   await writeFile(join(pendingPath, filename), `${content.trim()}\n`, "utf8");
 }
 
+function extractChangeRef(stdout: string): string {
+  const match = stdout.match(/@[0-9a-f]{6,12}/);
+  if (match === null) throw new Error(`missing change ref in stdout:\n${stdout}`);
+  return match[0];
+}
+
 async function runSkillsetCli(...args: readonly string[]): Promise<{
   readonly exitCode: number;
   readonly stderr: string;
@@ -2489,6 +2737,25 @@ async function runSkillsetCli(...args: readonly string[]): Promise<{
   const proc = Bun.spawn({
     cmd: ["bun", join(import.meta.dir, "..", "cli.ts"), ...args],
     stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  return { exitCode, stderr, stdout };
+}
+
+async function runSkillsetCliWithInput(input: string, ...args: readonly string[]): Promise<{
+  readonly exitCode: number;
+  readonly stderr: string;
+  readonly stdout: string;
+}> {
+  const proc = Bun.spawn({
+    cmd: ["bun", join(import.meta.dir, "..", "cli.ts"), ...args],
+    stderr: "pipe",
+    stdin: new Response(input),
     stdout: "pipe",
   });
   const [stdout, stderr, exitCode] = await Promise.all([

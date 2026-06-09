@@ -1,7 +1,18 @@
 import { basename, resolve } from "node:path";
 
-import { changeCheck, type ChangeCheckReport } from "./change-entries";
+import { changeCheck, type ChangeBump, type ChangeCheckReport } from "./change-entries";
 import { changeStatus, type ChangeStatusReport } from "./change-status";
+import {
+  addChangeEntry,
+  groupRef,
+  listChangeEntries,
+  readChangeHistory,
+  showChangeEntry,
+  updateChangeReason,
+  type ChangeEntryView,
+  type ChangeReasonInput,
+  type ChangeSubcommand,
+} from "./change-workflow";
 import { doctorSkillset, explainPath, listGeneratedEntries } from "./authoring";
 import { buildSkillset, checkSkillset, diffSkillset } from "./build";
 import { importSources, type ImportKind, type ImportProvider, type ImportReport } from "./import";
@@ -10,13 +21,16 @@ import { createSkillset, initSkillset, type SetupReport } from "./setup";
 import type { BuildScope, CompileBuildMode, SkillsetOptions, TargetName } from "./types";
 
 type Command = "build" | "change" | "check" | "create" | "diff" | "doctor" | "explain" | "import" | "init" | "lint" | "list";
-type ChangeSubcommand = "check" | "status";
 
 const USAGE = [
   "usage: skillset build [--yes|--dry-run] [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset <check|diff|doctor|lint|list> [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change status [--since <ref>] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change check [@ref|--ref <ref>] [--since <ref>] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset change add --scope <source-unit> --bump <bump> [--group <group>] [--reason <text>|--reason-file <path>|--reason -] [--since <ref>] [--root <path>] [--source <dir>]",
+  "       skillset change reason <@ref> [--append] [--reason <text>|--reason-file <path>|--reason -] [--root <path>] [--source <dir>]",
+  "       skillset change <show|history> [@ref] [--root <path>] [--source <dir>]",
+  "       skillset change list [--group <group>] [--root <path>] [--source <dir>]",
   "       skillset init [path] [--yes|--dry-run] [--targets claude,codex] [--with-project-doc] [--with-agents] [--with-islands] [--name <name>] [--root <path>]",
   "       skillset create [path|--global] [--yes|--dry-run] [--targets claude,codex] [--with-project-doc] [--with-agents] [--with-islands] [--name <name>] [--root <path>]",
   "       skillset explain <path> [--root <path>] [--source <dir>]",
@@ -35,8 +49,13 @@ export async function runCli(
   }
   const {
     command,
+    changeAppend,
+    changeBump,
+    changeGroup,
+    changeReason,
     changeRef,
     changeSince,
+    changeScopes,
     changeSubcommand,
     dryRun,
     importKind,
@@ -66,19 +85,58 @@ export async function runCli(
   }
 
   if (command === "change") {
+    const changeOptions = { ...options, ...(changeSince === undefined ? {} : { since: changeSince }) };
     if (changeSubcommand === "status") {
-      printChangeStatus(await changeStatus(rootPath, { ...options, ...(changeSince === undefined ? {} : { since: changeSince }) }));
+      printChangeStatus(await changeStatus(rootPath, changeOptions));
       return;
     }
     if (changeSubcommand === "check") {
       printChangeCheck(await changeCheck(rootPath, {
-        ...options,
+        ...changeOptions,
         ...(changeRef === undefined ? {} : { ref: changeRef }),
-        ...(changeSince === undefined ? {} : { since: changeSince }),
       }));
       return;
     }
-    throw new Error("skillset: expected change subcommand status or check");
+    if (changeSubcommand === "add") {
+      printChangeEntry("added", (await addChangeEntry(rootPath, {
+        ...changeOptions,
+        ...(changeBump === undefined ? {} : { bump: changeBump }),
+        ...(changeGroup === undefined ? {} : { group: changeGroup }),
+        reason: changeReason ?? { kind: "auto" },
+        scopes: changeScopes ?? [],
+      })).entry);
+      return;
+    }
+    if (changeSubcommand === "reason") {
+      if (changeRef === undefined) throw new Error("skillset: change reason requires @ref");
+      printChangeEntry("updated", (await updateChangeReason(rootPath, {
+        ...changeOptions,
+        append: changeAppend,
+        reason: changeReason ?? { kind: "auto" },
+        ref: changeRef,
+      })).entry);
+      return;
+    }
+    if (changeSubcommand === "show") {
+      if (changeRef === undefined) throw new Error("skillset: change show requires @ref");
+      printChangeEntry("show", (await showChangeEntry(rootPath, { ...changeOptions, ref: changeRef })).entry);
+      return;
+    }
+    if (changeSubcommand === "list") {
+      printChangeList((await listChangeEntries(rootPath, {
+        ...changeOptions,
+        ...(changeGroup === undefined ? {} : { group: changeGroup }),
+      })).entries);
+      return;
+    }
+    if (changeSubcommand === "history") {
+      printChangeHistory((await readChangeHistory(rootPath, {
+        ...changeOptions,
+        ...(changeRef === undefined ? {} : { ref: changeRef }),
+      })).entries);
+      return;
+    }
+    throw new Error("skillset: expected change subcommand add, check, history, list, reason, show, or status");
   }
 
   if (command === "lint") {
@@ -234,8 +292,13 @@ export function reportCliError(error: unknown): void {
 
 interface ParsedArgs {
   readonly command: Command;
+  readonly changeAppend: boolean;
+  readonly changeBump?: ChangeBump;
+  readonly changeGroup?: string;
+  readonly changeReason?: ChangeReasonInput;
   readonly changeRef?: string;
   readonly changeSince?: string;
+  readonly changeScopes?: readonly string[];
   readonly changeSubcommand?: ChangeSubcommand;
   readonly dryRun: boolean;
   readonly importKind?: ImportKind;
@@ -250,6 +313,41 @@ interface ParsedArgs {
   readonly setupIncludeProjectDoc: boolean;
   readonly setupTargets?: readonly TargetName[];
   readonly yes: boolean;
+}
+
+function printChangeEntry(verb: string, entry: ChangeEntryView): void {
+  if (verb === "show") {
+    console.log(`skillset: change ${entry.ref}`);
+  } else {
+    console.log(`skillset: ${verb} change ${entry.ref} ${entry.path}`);
+  }
+  console.log(`  status: ${entry.status}`);
+  console.log(`  id: ${entry.id}`);
+  if (entry.bump !== undefined) console.log(`  bump: ${entry.bump}`);
+  const group = groupRef(entry.group);
+  if (group !== undefined) console.log(`  group: ${group}`);
+  if (entry.scopes.length > 0) console.log(`  scopes: ${entry.scopes.join(", ")}`);
+  for (const [scope, hashes] of entry.sourceHashes) {
+    for (const hash of hashes) console.log(`  source hash: ${scope} ${hash}`);
+  }
+  if (entry.reason.length > 0) {
+    console.log("  reason:");
+    for (const line of entry.reason.split("\n")) console.log(`    ${line}`);
+  }
+}
+
+function printChangeList(entries: readonly ChangeEntryView[]): void {
+  for (const entry of entries) {
+    const group = groupRef(entry.group) ?? "-";
+    const bump = entry.bump ?? "-";
+    console.log(`${entry.ref} ${entry.status} ${bump} ${group} ${entry.scopes.join(",")} ${entry.path}`);
+  }
+  console.log(`skillset: listed ${entries.length} pending change entr${entries.length === 1 ? "y" : "ies"}`);
+}
+
+function printChangeHistory(entries: readonly ChangeEntryView[]): void {
+  for (const entry of entries) printChangeEntry("show", entry);
+  console.log(`skillset: listed ${entries.length} history entr${entries.length === 1 ? "y" : "ies"}`);
 }
 
 function printChangeCheck(report: ChangeCheckReport): void {
@@ -366,8 +464,13 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   }
 
   let changeSubcommand: ChangeSubcommand | undefined;
+  let changeAppend = false;
+  let changeBump: ChangeBump | undefined;
+  let changeGroup: string | undefined;
+  let changeReason: ChangeReasonInput | undefined;
   let changeRef: string | undefined;
   let changeSince: string | undefined;
+  let changeScopes: readonly string[] | undefined;
   let importKind: ImportKind | undefined;
   let importName: string | undefined;
   let importPath: string | undefined;
@@ -388,13 +491,13 @@ function parseArgs(args: readonly string[]): ParsedArgs {
 
   if (command === "change") {
     const subcommand = args[index];
-    if (subcommand !== "status" && subcommand !== "check") {
-      throw new Error("skillset: expected change subcommand status or check");
+    if (!isChangeSubcommand(subcommand)) {
+      throw new Error("skillset: expected change subcommand add, check, history, list, reason, show, or status");
     }
     changeSubcommand = subcommand;
     index += 1;
     const rawRef = args[index];
-    if (subcommand === "check" && rawRef !== undefined && !rawRef.startsWith("--")) {
+    if ((subcommand === "check" || subcommand === "history" || subcommand === "reason" || subcommand === "show") && rawRef !== undefined && !rawRef.startsWith("--")) {
       changeRef = rawRef;
       index += 1;
     }
@@ -457,6 +560,11 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--name" &&
       flag !== "--kind" &&
       flag !== "--from" &&
+      flag !== "--append" &&
+      flag !== "--bump" &&
+      flag !== "--group" &&
+      flag !== "--reason" &&
+      flag !== "--reason-file" &&
       flag !== "--ref" &&
       flag !== "--since" &&
       flag !== "--yes" &&
@@ -478,6 +586,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag === "--dry-run" ||
       flag === "--updated" ||
       flag === "--all" ||
+      flag === "--append" ||
       flag === "--global" ||
       flag === "--with-agents" ||
       flag === "--with-islands" ||
@@ -488,6 +597,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       if (flag === "--dry-run") dryRun = true;
       if (flag === "--updated") buildMode = setBuildMode(buildMode, "updated");
       if (flag === "--all") buildMode = setBuildMode(buildMode, "all");
+      if (flag === "--append") changeAppend = true;
       if (flag === "--global") setupGlobal = true;
       if (flag === "--with-agents") setupIncludeAgents = true;
       if (flag === "--with-islands") setupIncludeIslands = true;
@@ -506,7 +616,17 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     if (flag === "--dist") distDir = value;
     if (flag === "--ref") changeRef = value;
     if (flag === "--since") changeSince = value;
-    if (flag === "--scope") scopes = readBuildScopes(value);
+    if (flag === "--scope") {
+      if (command === "change" && changeSubcommand === "add") {
+        changeScopes = [...(changeScopes ?? []), ...readChangeScopes(value)];
+      } else {
+        scopes = readBuildScopes(value);
+      }
+    }
+    if (flag === "--group") changeGroup = value;
+    if (flag === "--reason") changeReason = setChangeReason(changeReason, value === "-" ? { kind: "stdin" } : { kind: "inline", value });
+    if (flag === "--reason-file") changeReason = setChangeReason(changeReason, { kind: "file", path: value });
+    if (flag === "--bump") changeBump = readChangeBump(value);
     if (flag === "--targets") setupTargets = readSetupTargets(value);
     if (flag === "--name") importName = value;
     if (flag === "--kind") {
@@ -526,6 +646,15 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     }
   }
 
+  validateChangeFlags(command, changeSubcommand, {
+    append: changeAppend,
+    ...(changeBump === undefined ? {} : { bump: changeBump }),
+    ...(changeGroup === undefined ? {} : { group: changeGroup }),
+    ...(changeReason === undefined ? {} : { reason: changeReason }),
+    ...(changeRef === undefined ? {} : { ref: changeRef }),
+    ...(changeScopes === undefined ? {} : { scopes: changeScopes }),
+  });
+
   validateSetupFlags(command, {
     global: setupGlobal,
     includeAgents: setupIncludeAgents,
@@ -544,8 +673,13 @@ function parseArgs(args: readonly string[]): ParsedArgs {
 
   return {
     command,
+    changeAppend,
+    ...(changeBump === undefined ? {} : { changeBump }),
+    ...(changeGroup === undefined ? {} : { changeGroup }),
+    ...(changeReason === undefined ? {} : { changeReason }),
     ...(changeRef === undefined ? {} : { changeRef }),
     ...(changeSince === undefined ? {} : { changeSince }),
+    ...(changeScopes === undefined ? {} : { changeScopes }),
     ...(changeSubcommand === undefined ? {} : { changeSubcommand }),
     dryRun,
     ...(importKind === undefined ? {} : { importKind }),
@@ -561,6 +695,71 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(setupTargets === undefined ? {} : { setupTargets }),
     yes,
   };
+}
+
+function isChangeSubcommand(value: string | undefined): value is ChangeSubcommand {
+  return value === "add" ||
+    value === "check" ||
+    value === "history" ||
+    value === "list" ||
+    value === "reason" ||
+    value === "show" ||
+    value === "status";
+}
+
+function readChangeScopes(value: string): readonly string[] {
+  const scopes = value.split(",").map((scope) => scope.trim()).filter((scope) => scope.length > 0);
+  if (scopes.length === 0) throw new Error("skillset: --scope requires at least one source unit scope");
+  return scopes;
+}
+
+function readChangeBump(value: string): ChangeBump {
+  if (value === "major" || value === "minor" || value === "none" || value === "patch") return value;
+  throw new Error("skillset: expected --bump major, minor, patch, or none");
+}
+
+function setChangeReason(current: ChangeReasonInput | undefined, next: ChangeReasonInput): ChangeReasonInput {
+  if (current !== undefined) throw new Error("skillset: pass only one of --reason or --reason-file");
+  return next;
+}
+
+function validateChangeFlags(
+  command: Command,
+  subcommand: ChangeSubcommand | undefined,
+  change: {
+    readonly append: boolean;
+    readonly bump?: ChangeBump;
+    readonly group?: string;
+    readonly reason?: ChangeReasonInput;
+    readonly ref?: string;
+    readonly scopes?: readonly string[];
+  }
+): void {
+  const hasChangeFlag = change.append ||
+    change.bump !== undefined ||
+    change.group !== undefined ||
+    change.reason !== undefined ||
+    change.ref !== undefined ||
+    change.scopes !== undefined;
+  if (hasChangeFlag && command !== "change") {
+    throw new Error("skillset: change options are only supported with change commands");
+  }
+  if (command !== "change") return;
+
+  const allowed = {
+    append: subcommand === "reason",
+    bump: subcommand === "add",
+    group: subcommand === "add" || subcommand === "list",
+    reason: subcommand === "add" || subcommand === "reason",
+    ref: subcommand === "check" || subcommand === "history" || subcommand === "reason" || subcommand === "show",
+    scopes: subcommand === "add",
+  };
+  if (change.append && !allowed.append) throw new Error("skillset: --append is only supported with change reason");
+  if (change.bump !== undefined && !allowed.bump) throw new Error("skillset: --bump is only supported with change add");
+  if (change.group !== undefined && !allowed.group) throw new Error("skillset: --group is only supported with change add or change list");
+  if (change.reason !== undefined && !allowed.reason) throw new Error("skillset: --reason and --reason-file are only supported with change add or change reason");
+  if (change.ref !== undefined && !allowed.ref) throw new Error("skillset: --ref is only supported with change check, change history, change reason, or change show");
+  if (change.scopes !== undefined && !allowed.scopes) throw new Error("skillset: source-unit --scope is only supported with change add");
 }
 
 function setBuildMode(current: CompileBuildMode | undefined, next: CompileBuildMode): CompileBuildMode {
