@@ -1,0 +1,27 @@
+{
+  "buildMode": "updated",
+  "generatedBy": "skillset@0.1.0",
+  "items": [
+    {
+      "files": [
+        "fixtures.md"
+      ],
+      "kind": "rule",
+      "name": "fixtures",
+      "outputHash": "sha256:cdd63642e626fb0eb7cc2c10df59d014c239da5d0b753f387a9e1f2ab3689378",
+      "outputPath": "fixtures.md",
+      "sourceHash": "sha256:25a99098db8c0faca02a24397cbcf9683aae513822b9bfe36a64de7bd7a52c48",
+      "sourcePath": ".skillset/instructions/fixtures.md",
+      "version": "0.1.0"
+    }
+  ],
+  "outputRoot": ".claude/rules",
+  "schemaVersion": 1,
+  "selectedTargets": [
+    "claude",
+    "codex"
+  ],
+  "skillsetMetadata": true,
+  "sourceRoot": ".skillset",
+  "target": "claude"
+}
