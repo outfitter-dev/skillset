@@ -13,6 +13,7 @@ import {
 import { changeStatus, type ChangeStatusOptions, type SourceUnit, type SourceUnitChange } from "./change-status";
 import { readString } from "./config";
 import { compareStrings, resolveInside } from "./path";
+import { sourceUnitSelector } from "./source-unit-selector";
 import type { JsonRecord, JsonValue, SkillsetOptions } from "./types";
 import { isJsonRecord, parseMarkdown, stringifyMarkdown } from "./yaml";
 
@@ -99,13 +100,14 @@ const MIN_REF_LENGTH = 6;
 export async function addChangeEntry(rootPath: string, options: ChangeAddOptions): Promise<ChangeAddReport> {
   if (options.scopes.length === 0) throw new Error("skillset: change add requires at least one --scope");
   if (options.bump === undefined) throw new Error("skillset: change add requires --bump major, minor, patch, or none");
+  const scopes = [...new Set(options.scopes.map(sourceUnitSelector))].sort(compareStrings);
   const reason = await resolveReason(rootPath, options.reason);
   const statusOptions = sourceStatusOptions(options);
   const status = await changeStatus(rootPath, statusOptions);
   const existing = await readAllChangeEntries(rootPath, statusOptions);
-  const id = await generateChangeId(rootPath, options, existing.map((entry) => entry.id));
+  const id = await generateChangeId(rootPath, { ...options, scopes }, existing.map((entry) => entry.id));
   const sourceHashes = new Map<string, readonly string[]>();
-  for (const scope of options.scopes) {
+  for (const scope of scopes) {
     const hash = sourceHashForScope(scope, status.sourceUnits, status.sourceChanges);
     if (hash === undefined) throw new Error(`skillset: unknown change scope ${scope}`);
     sourceHashes.set(scope, [hash]);
@@ -119,7 +121,7 @@ export async function addChangeEntry(rootPath: string, options: ChangeAddOptions
     bump: options.bump,
     ...(group === undefined ? {} : { group }),
     id,
-    scopes: options.scopes,
+    scopes,
     sourceHashes,
   });
   await mkdir(resolveInside(rootPath, join(sourceDir, PENDING_DIR)), { recursive: true });
@@ -310,7 +312,7 @@ function pendingView(entry: PendingChangeEntry, refs: ReadonlyMap<string, string
     path: entry.path,
     reason: entry.reason,
     ref: refs.get(entry.id ?? "") ?? `@${entry.id ?? ""}`,
-    scopes: entry.scopes,
+    scopes: entry.scopes.map(sourceUnitSelector),
     sourceHashes: entry.sourceHashes,
     status: "pending",
   };
@@ -334,7 +336,7 @@ function historyView(entry: HistoryEntry, refs: ReadonlyMap<string, string>): Ch
     path: entry.path,
     reason: entry.reason,
     ref: refs.get(entry.id) ?? `@${entry.id}`,
-    scopes: entry.scopes,
+    scopes: entry.scopes.map(sourceUnitSelector),
     sourceHashes: entry.sourceHashes,
     status: "history",
   };
@@ -474,7 +476,7 @@ function readHistoryScopes(record: JsonRecord): readonly string[] {
       if (typeof item === "string") values.push(item);
     }
   }
-  return [...new Set(values)].sort(compareStrings);
+  return [...new Set(values.map(sourceUnitSelector))].sort(compareStrings);
 }
 
 function readHistoryBump(value: JsonValue | undefined): ChangeBump | undefined {
@@ -493,9 +495,10 @@ function readHistoryEvidence(raw: JsonValue | undefined, scopes: readonly string
   const evidence = new Map<string, string[]>();
   const add = (scope: string | undefined, hash: string | undefined): void => {
     if (scope === undefined || hash === undefined) return;
-    const current = evidence.get(scope) ?? [];
+    const normalizedScope = sourceUnitSelector(scope);
+    const current = evidence.get(normalizedScope) ?? [];
     current.push(hash);
-    evidence.set(scope, current);
+    evidence.set(normalizedScope, current);
   };
   const singleScope = scopes.length === 1 ? scopes[0] : undefined;
   if (!Array.isArray(raw)) return evidence;

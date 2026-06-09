@@ -6,7 +6,7 @@
       "updatedAt": "2026-06-09T19:30:31.040Z",
       "version": "0.1.1"
     },
-    "standalone-skill:skillset-repo-test-fixtures": {
+    "skill:skillset-repo-test-fixtures": {
       "sourceHash": "sha256:eb36818c80abc98165ab2b77f45f86cbfbeb7cd53b7a86f0d9c4425c470966cb",
       "updatedAt": "2026-06-09T19:30:31.040Z",
       "version": "0.1.1"

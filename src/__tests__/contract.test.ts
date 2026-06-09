@@ -11,6 +11,23 @@ import { importSource, importSources } from "../import";
 import { lintSkillset } from "../lint";
 import { loadBuildGraph } from "../resolver";
 import { createSkillset } from "../setup";
+import { sourceUnitDisplay, sourceUnitLegacyId, sourceUnitSelector } from "../source-unit-selector";
+
+test("SET-52: source-unit selectors normalize legacy ids and render conventional display labels", () => {
+  const cases: Array<[string, string, string, string]> = [
+    ["standalone-skill:demo", "skill:demo", "skill: demo", "standalone-skill:demo"],
+    ["plugin-skill:alpha/child", "plugin.alpha.skill:child", "skill(plugin:alpha): child", "plugin-skill:alpha/child"],
+    ["plugin-feature:alpha/mcp", "plugin.alpha.feature:mcp", "feature(plugin:alpha): mcp", "plugin-feature:alpha/mcp"],
+    ["target-native-island:codex:project:rules/deny.rules", "codex.rules:rules/deny.rules", "codex.rules: rules/deny.rules", "target-native-island:codex:project:rules/deny.rules"],
+    ["target-native-island:codex:plugin:alpha:.app.json", "plugin.alpha.codex.app:.app.json", "codex.app(plugin:alpha): .app.json", "target-native-island:codex:plugin:alpha:.app.json"],
+  ];
+
+  for (const [legacy, selector, display, roundTrip] of cases) {
+    expect(sourceUnitSelector(legacy)).toBe(selector);
+    expect(sourceUnitDisplay(selector)).toBe(display);
+    expect(sourceUnitLegacyId(selector)).toBe(roundTrip);
+  }
+});
 
 // SET-3: skillset.schema separates the source-contract schema from content
 // version (skillset.version), generated metadata.version, and lock provenance.
@@ -1032,17 +1049,17 @@ Unstaged body.
   const status = await runSkillsetCli("change", "status", "--staged", "--root", root);
   expect(status.exitCode).toBe(0);
   expect(status.stdout).toContain("baseline git ref HEAD");
-  expect(status.stdout).toContain("standalone-skill:demo");
+  expect(status.stdout).toContain("skill: demo");
   expect(status.stdout).not.toContain("unstaged");
 
   const stagedStatus = await changeStatus(root, { staged: true });
-  const demoHash = stagedStatus.sourceChanges.find((change) => change.id === "standalone-skill:demo")?.currentHash;
+  const demoHash = stagedStatus.sourceChanges.find((change) => change.id === "skill:demo")?.currentHash;
   expect(demoHash).toBeDefined();
   await mkdir(join(root, ".skillset/changes/pending"), { recursive: true });
   const pendingPath = join(root, ".skillset/changes/pending/demo.md");
   await writeFile(pendingPath, `---
 id: abcdef123456
-scope: standalone-skill:demo
+scope: skill:demo
 bump: patch
 evidence:
   sourceHash: ${demoHash}
@@ -1053,7 +1070,7 @@ short
   await runGit(root, "add", pendingPath);
   await writeFile(pendingPath, `---
 id: abcdef123456
-scope: standalone-skill:demo
+scope: skill:demo
 bump: patch
 evidence:
   sourceHash: ${demoHash}
@@ -1100,13 +1117,13 @@ Changed body.
 `);
   await runGit(root, "add", ".skillset/skills/demo/SKILL.md");
   const stagedStatus = await changeStatus(root, { staged: true });
-  const demoHash = stagedStatus.sourceChanges.find((change) => change.id === "standalone-skill:demo")?.currentHash;
+  const demoHash = stagedStatus.sourceChanges.find((change) => change.id === "skill:demo")?.currentHash;
   expect(demoHash).toBeDefined();
   await mkdir(join(root, ".skillset/changes/pending"), { recursive: true });
   const pendingPath = join(root, ".skillset/changes/pending/demo.md");
   await writeFile(pendingPath, `---
 id: abcdef123456
-scope: standalone-skill:demo
+scope: skill:demo
 bump: patch
 evidence:
   sourceHash: ${demoHash}
@@ -1188,7 +1205,7 @@ Body.
   const status = await runSkillsetCli("change", "status", "--root", root, "--since", "HEAD");
   expect(status.exitCode).toBe(0);
   expect(status.stdout).toContain("source hash schema skillset-source-unit-v1");
-  expect(status.stdout).toContain("~ standalone-skill standalone-skill:demo");
+  expect(status.stdout).toContain("~ skill: demo");
   expect(status.stdout).toContain("source change(s) needing entries");
   expect(status.stdout).toContain("generated-output drift");
   expect(status.stdout).toContain("generated ~ .claude/skills/demo/SKILL.md");
@@ -1231,8 +1248,8 @@ Body.
   );
 
   const report = await changeStatus(root, { since: "HEAD" });
-  expect(report.sourceChanges.map((change) => change.id)).toContain("standalone-skill:demo");
-  const unit = report.sourceUnits.find((item) => item.id === "standalone-skill:demo");
+  expect(report.sourceChanges.map((change) => change.id)).toContain("skill:demo");
+  const unit = report.sourceUnits.find((item) => item.id === "skill:demo");
   expect(unit?.regions).toEqual([
     { name: "dependencies", severityBearing: true },
     { name: "supports", severityBearing: false },
@@ -1399,16 +1416,16 @@ Body.
 `
   );
   const status = await changeStatus(root, { since: "HEAD" });
-  const demo = status.sourceChanges.find((change) => change.id === "standalone-skill:demo");
+  const demo = status.sourceChanges.find((change) => change.id === "skill:demo");
   expect(demo?.currentHash).toBeDefined();
   expect(demo?.currentRegions).toContainEqual({ name: "supports", severityBearing: false });
   await writePendingChange(root, "supports.md", `
 ---
 id: 888888ffffff
 bump: none
-scope: standalone-skill:demo
+scope: skill:demo
 evidence:
-  - scope: standalone-skill:demo
+  - scope: skill:demo
     currentHash: ${demo?.currentHash}
 ---
 
@@ -1871,7 +1888,7 @@ Plugin body.
 
   const report = await changeStatus(root, { since: "HEAD" });
   expect(report.sourceChanges.map((change) => change.id)).toEqual(
-    expect.arrayContaining(["plugin-skill:alpha/plugin-skill", "plugin:alpha"])
+    expect.arrayContaining(["plugin.alpha.skill:plugin-skill", "plugin:alpha"])
   );
 });
 
@@ -1908,7 +1925,7 @@ description: Demo.
   const report = await changeStatus(root, { since: "HEAD" });
   const changedIds = report.sourceChanges.map((change) => change.id);
   expect(changedIds).toContain("instruction:root");
-  expect(changedIds).toContain("standalone-skill:demo");
+  expect(changedIds).toContain("skill:demo");
   const instruction = report.sourceUnits.find((unit) => unit.id === "instruction:root");
   expect(instruction?.sourcePaths).toContain(".skillset/shared/common.md");
   expect(report.generatedDrift.changed).toContain(".claude/rules/root.md");
@@ -1942,7 +1959,7 @@ Body.
   const checked = await runSkillsetCli("change", "check", "--root", root, "--since", "HEAD");
   expect(checked.exitCode).toBe(1);
   expect(checked.stdout).toContain("change-uncovered");
-  expect(checked.stdout).toContain("standalone-skill:demo");
+  expect(checked.stdout).toContain("skill: demo");
 });
 
 test("SET-35: valid pending entries cover multiple scopes with group and ignored metadata", async () => {
@@ -1975,8 +1992,8 @@ Two body.
   await Bun.write(join(root, ".skillset/skills/one/SKILL.md"), "---\nname: one\ndescription: One.\n---\n\nOne changed.\n");
   await Bun.write(join(root, ".skillset/skills/two/SKILL.md"), "---\nname: two\ndescription: Two.\n---\n\nTwo changed.\n");
   const report = await changeStatus(root, { since: "HEAD" });
-  const one = report.sourceChanges.find((change) => change.id === "standalone-skill:one");
-  const two = report.sourceChanges.find((change) => change.id === "standalone-skill:two");
+  const one = report.sourceChanges.find((change) => change.id === "skill:one");
+  const two = report.sourceChanges.find((change) => change.id === "skill:two");
   expect(one?.currentHash).toBeDefined();
   expect(two?.currentHash).toBeDefined();
 
@@ -1989,12 +2006,12 @@ group:
   provider: linear
   id: SET-35
 scopes:
-  - standalone-skill:one
-  - standalone-skill:two
+  - skill:one
+  - skill:two
 evidence:
-  - scope: standalone-skill:one
+  - scope: skill:one
     currentHash: ${one?.currentHash}
-  - scope: standalone-skill:two
+  - scope: skill:two
     currentHash: ${two?.currentHash}
 ---
 
@@ -2028,9 +2045,9 @@ Body.
   await writePendingChange(root, "invalid.md", `
 ---
 id: not-hex
-scope: standalone-skill:demo
+scope: skill:demo
 evidence:
-  - scope: standalone-skill:demo
+  - scope: skill:demo
     currentHash: sha256:stale
 group:
   provider: linear
@@ -2072,7 +2089,7 @@ Body.
 
   await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n");
   const report = await changeStatus(root, { since: "HEAD" });
-  const demo = report.sourceChanges.find((change) => change.id === "standalone-skill:demo");
+  const demo = report.sourceChanges.find((change) => change.id === "skill:demo");
   expect(demo?.currentHash).toBeDefined();
 
   for (const filename of ["one.md", "two.md"]) {
@@ -2080,9 +2097,9 @@ Body.
 ---
 id: abcdef123456
 bump: patch
-scope: standalone-skill:demo
+scope: skill:demo
 evidence:
-  - scope: standalone-skill:demo
+  - scope: skill:demo
     currentHash: ${demo?.currentHash}
 ---
 
@@ -2119,7 +2136,7 @@ Body.
 
   await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n");
   const report = await changeStatus(root, { since: "HEAD" });
-  const demo = report.sourceChanges.find((change) => change.id === "standalone-skill:demo");
+  const demo = report.sourceChanges.find((change) => change.id === "skill:demo");
   expect(demo?.currentHash).toBeDefined();
   expect(demo?.baselineRegions).toContainEqual({ name: "dependencies", severityBearing: true });
 
@@ -2127,9 +2144,9 @@ Body.
 ---
 id: abcdef123456
 bump: none
-scope: standalone-skill:demo
+scope: skill:demo
 evidence:
-  - scope: standalone-skill:demo
+  - scope: skill:demo
     currentHash: ${demo?.currentHash}
 ---
 
@@ -2161,7 +2178,7 @@ Body.
   });
   await commitFixture(root);
   const report = await changeStatus(root, { since: "HEAD" });
-  const demo = report.sourceUnits.find((unit) => unit.id === "standalone-skill:demo");
+  const demo = report.sourceUnits.find((unit) => unit.id === "skill:demo");
   expect(demo?.hash).toBeDefined();
 
   for (const id of ["abcdef111111", "abcdef222222"]) {
@@ -2169,9 +2186,9 @@ Body.
 ---
 id: ${id}
 bump: patch
-scope: standalone-skill:demo
+scope: skill:demo
 evidence:
-  - scope: standalone-skill:demo
+  - scope: skill:demo
     currentHash: ${demo?.hash}
 ---
 
@@ -2221,7 +2238,7 @@ Body.
     "--since",
     "HEAD",
     "--scope",
-    "standalone-skill:demo",
+    "skill:demo",
     "--bump",
     "patch",
     "--group",
@@ -2231,13 +2248,13 @@ Body.
   );
   expect(added.exitCode).toBe(0);
   const ref = extractChangeRef(added.stdout);
-  expect(added.stdout).toContain("standalone-skill:demo");
+  expect(added.stdout).toContain("skill: demo");
 
   const list = await runSkillsetCli("change", "list", "--root", root, "--group", "linear:SET-36");
   expect(list.exitCode).toBe(0);
   expect(list.stdout).toContain(ref);
   expect(list.stdout).toContain("linear:SET-36");
-  expect(list.stdout).toContain("standalone-skill:demo");
+  expect(list.stdout).toContain("skill: demo");
 
   const show = await runSkillsetCli("change", "show", ref, "--root", root);
   expect(show.exitCode).toBe(0);
@@ -2277,7 +2294,7 @@ Body.
     "--since",
     "HEAD",
     "--scope",
-    "standalone-skill:demo",
+    "skill:demo",
     "--bump",
     "patch",
     "--reason",
@@ -2333,9 +2350,9 @@ Body.
 ---
 id: abcdef123456
 bump: patch
-scope: standalone-skill:demo
+scope: skill:demo
 evidence:
-  - scope: standalone-skill:demo
+  - scope: skill:demo
     sourceHash: sha256:pending
 ---
 
@@ -2348,16 +2365,16 @@ Pending reason wins when the same ref also exists in applied history.
       JSON.stringify({
         id: "abcdef123456",
         bump: "minor",
-        scope: "standalone-skill:demo",
+        scope: "skill:demo",
         reason: "Applied record with the same id should not win change show.",
-        evidence: [{ scope: "standalone-skill:demo", sourceHash: "sha256:history" }],
+        evidence: [{ scope: "skill:demo", sourceHash: "sha256:history" }],
       }),
       JSON.stringify({
         id: "123456abcdef",
         bump: "patch",
-        scope: "standalone-skill:demo",
+        scope: "skill:demo",
         reason: "Applied history remains inspectable through the history command.",
-        evidence: [{ scope: "standalone-skill:demo", sourceHash: "sha256:applied" }],
+        evidence: [{ scope: "skill:demo", sourceHash: "sha256:applied" }],
       }),
     ].join("\n") + "\n",
     "utf8"
@@ -2400,9 +2417,9 @@ Body.
 ---
 id: abcdef111111
 bump: patch
-scope: standalone-skill:demo
+scope: skill:demo
 evidence:
-  - scope: standalone-skill:demo
+  - scope: skill:demo
     sourceHash: sha256:pending
 ---
 
@@ -2414,9 +2431,9 @@ Pending entry has a colliding prefix with an applied history entry.
     `${JSON.stringify({
       id: "abcdef222222",
       bump: "patch",
-      scope: "standalone-skill:demo",
+      scope: "skill:demo",
       reason: "History entry has a colliding prefix with a pending entry.",
-      evidence: [{ scope: "standalone-skill:demo", sourceHash: "sha256:history" }],
+      evidence: [{ scope: "skill:demo", sourceHash: "sha256:history" }],
     })}\n`,
     "utf8"
   );
@@ -2454,9 +2471,9 @@ Body.
 ---
 id: abcdef123456
 bump: patch
-scope: standalone-skill:demo
+scope: skill:demo
 evidence:
-  - scope: standalone-skill:demo
+  - scope: skill:demo
     sourceHash: sha256:pending
 ---
 
@@ -2466,16 +2483,16 @@ Pending changes stay out of committed changelog projections.
     {
       id: "111111aaaaaa",
       bump: "patch",
-      scope: "standalone-skill:demo",
+      scope: "skill:demo",
       reason: "Clarified the standalone skill behavior for applied history.",
-      evidence: [{ scope: "standalone-skill:demo", sourceHash: "sha256:one" }],
+      evidence: [{ scope: "skill:demo", sourceHash: "sha256:one" }],
     },
     {
       id: "222222bbbbbb",
       bump: "none",
-      scope: "standalone-skill:demo",
+      scope: "skill:demo",
       reason: "Recorded an audit-only correction that should still appear in history.",
-      evidence: [{ scope: "standalone-skill:demo", sourceHash: "sha256:two" }],
+      evidence: [{ scope: "skill:demo", sourceHash: "sha256:two" }],
     },
   ]);
 
@@ -2523,9 +2540,9 @@ Body.
     {
       id: "333333cccccc",
       bump: "minor",
-      scope: "plugin-skill:alpha/demo",
+      scope: "plugin.alpha.skill:demo",
       reason: "Updated the plugin child skill and projected it into the plugin changelog.",
-      evidence: [{ scope: "plugin-skill:alpha/demo", sourceHash: "sha256:child" }],
+      evidence: [{ scope: "plugin.alpha.skill:demo", sourceHash: "sha256:child" }],
     },
   ]);
 
@@ -2533,8 +2550,87 @@ Body.
   const pluginChangelog = await readFile(join(root, ".skillset/plugins/alpha/CHANGELOG.md"), "utf8");
   expect(pluginChangelog).toContain("target: plugin:alpha");
   expect(pluginChangelog).toContain("## 333333cccccc");
-  expect(pluginChangelog).toContain("scopes: plugin-skill:alpha/demo");
+  expect(pluginChangelog).toContain("scopes: skill(plugin:alpha): demo");
   expect(pluginChangelog).toContain("Updated the plugin child skill");
+});
+
+test("SET-52: legacy source-unit scopes normalize through check, release, and changelog projection", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: legacy-selector-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+version: 0.1.0
+---
+
+Original body.
+`,
+  });
+  await commitFixture(root);
+  const initial = await collectSourceInventory(root);
+  const initialHash = sourceInventoryUnit(initial, "skill:demo").hash;
+  await mkdir(join(root, ".skillset/changes"), { recursive: true });
+  await writeFile(
+    join(root, ".skillset/changes/state.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      scopes: {
+        "standalone-skill:demo": {
+          sourceHash: initialHash,
+          updatedAt: "2026-06-09T00:00:00.000Z",
+          version: "0.1.1",
+        },
+      },
+    }),
+    "utf8"
+  );
+  await writeHistory(root, [
+    {
+      id: "111111aaaaaa",
+      bump: "patch",
+      scope: "standalone-skill:demo",
+      reason: "Legacy history entries continue to project into the generated changelog.",
+      evidence: [{ scope: "standalone-skill:demo", sourceHash: initialHash }],
+    },
+  ]);
+
+  await buildSkillset(root);
+  const changelog = await readFile(join(root, ".skillset/skills/demo/CHANGELOG.md"), "utf8");
+  expect(changelog).toContain("target: skill:demo");
+  expect(changelog).toContain("scopes: skill: demo");
+
+  await Bun.write(
+    join(root, ".skillset/skills/demo/SKILL.md"),
+    "---\nname: demo\ndescription: Demo.\nversion: 0.1.0\n---\n\nChanged body.\n"
+  );
+  const status = await changeStatus(root);
+  const demo = status.sourceChanges.find((change) => change.id === "skill:demo");
+  expect(demo?.currentHash).toBeDefined();
+  await writePendingChange(root, "legacy.md", `
+---
+id: 222222bbbbbb
+bump: patch
+scope: standalone-skill:demo
+evidence:
+  - scope: standalone-skill:demo
+    currentHash: ${demo?.currentHash}
+---
+
+Legacy pending scope syntax still covers the normalized selector and can release cleanly.
+`);
+
+  const checked = await runSkillsetCli("change", "check", "--root", root);
+  expect(checked.exitCode).toBe(0);
+  const plan = await runSkillsetCli("release", "plan", "--root", root);
+  expect(plan.exitCode).toBe(0);
+  expect(plan.stdout).toContain("@222222 pending patch skill: demo");
+  expect(plan.stdout).toContain("skill: demo: 0.1.1 -> 0.1.2 (patch)");
 });
 
 test("SET-37: generated changelogs do not perturb source inventory hashes", async () => {
@@ -2571,16 +2667,16 @@ Plugin child body.
     {
       id: "444444dddddd",
       bump: "patch",
-      scope: "standalone-skill:demo",
+      scope: "skill:demo",
       reason: "Applied standalone skill change.",
-      evidence: [{ scope: "standalone-skill:demo", sourceHash: "sha256:standalone" }],
+      evidence: [{ scope: "skill:demo", sourceHash: "sha256:standalone" }],
     },
     {
       id: "555555eeeeee",
       bump: "minor",
-      scope: "plugin-skill:alpha/child",
+      scope: "plugin.alpha.skill:child",
       reason: "Applied plugin child skill change.",
-      evidence: [{ scope: "plugin-skill:alpha/child", sourceHash: "sha256:child" }],
+      evidence: [{ scope: "plugin.alpha.skill:child", sourceHash: "sha256:child" }],
     },
   ]);
 
@@ -2588,7 +2684,7 @@ Plugin child body.
   await buildSkillset(root);
   const after = await collectSourceInventory(root);
 
-  for (const id of ["standalone-skill:demo", "plugin-skill:alpha/child", "plugin:alpha"]) {
+  for (const id of ["skill:demo", "plugin.alpha.skill:child", "plugin:alpha"]) {
     expect(sourceInventoryUnit(after, id)).toEqual(sourceInventoryUnit(before, id));
   }
 });
@@ -2618,15 +2714,15 @@ Body.
     "---\nname: demo\ndescription: Demo.\nversion: 0.1.0\n---\n\nChanged body.\n"
   );
   const status = await changeStatus(root, { since: "HEAD" });
-  const demo = status.sourceChanges.find((change) => change.id === "standalone-skill:demo");
+  const demo = status.sourceChanges.find((change) => change.id === "skill:demo");
   expect(demo?.currentHash).toBeDefined();
   await writePendingChange(root, "demo.md", `
 ---
 id: aaaabbbbcccc
 bump: patch
-scope: standalone-skill:demo
+scope: skill:demo
 evidence:
-  - scope: standalone-skill:demo
+  - scope: skill:demo
     currentHash: ${demo?.currentHash}
 ---
 
@@ -2635,8 +2731,8 @@ Release the standalone skill body update with a patch version and generated chan
 
   const plan = await runSkillsetCli("release", "plan", "--root", root);
   expect(plan.exitCode).toBe(0);
-  expect(plan.stdout).toContain("@aaaabb pending patch standalone-skill:demo");
-  expect(plan.stdout).toContain("standalone-skill:demo: 0.1.0 -> 0.1.1 (patch)");
+  expect(plan.stdout).toContain("@aaaabb pending patch skill: demo");
+  expect(plan.stdout).toContain("skill: demo: 0.1.0 -> 0.1.1 (patch)");
   expect(await Bun.file(join(root, ".skillset/changes/state.json")).exists()).toBe(false);
 
   const dryRun = await runSkillsetCli("release", "apply", "--dry-run", "--root", root);
@@ -2652,12 +2748,12 @@ Release the standalone skill body update with a patch version and generated chan
   const state = JSON.parse(await readFile(join(root, ".skillset/changes/state.json"), "utf8")) as {
     scopes: Record<string, { version: string; sourceHash: string }>;
   };
-  expect(state.scopes["standalone-skill:demo"]?.version).toBe("0.1.1");
-  expect(state.scopes["standalone-skill:demo"]?.sourceHash).toBe(demo?.currentHash);
+  expect(state.scopes["skill:demo"]?.version).toBe("0.1.1");
+  expect(state.scopes["skill:demo"]?.sourceHash).toBe(demo?.currentHash);
   const history = await readFile(join(root, ".skillset/changes/history.jsonl"), "utf8");
   expect(history).toContain("aaaabbbbcccc");
   const releases = await readFile(join(root, ".skillset/changes/releases.jsonl"), "utf8");
-  expect(releases).toContain("standalone-skill:demo");
+  expect(releases).toContain("skill:demo");
   const changelog = await readFile(join(root, ".skillset/skills/demo/CHANGELOG.md"), "utf8");
   expect(changelog).toContain("## aaaabbbbcccc");
   const generatedSkill = await readFile(join(root, ".claude/skills/demo/SKILL.md"), "utf8");
@@ -2669,7 +2765,7 @@ Release the standalone skill body update with a patch version and generated chan
   expect(await readFile(join(root, ".skillset/changes/history.jsonl"), "utf8")).toBe(history);
 
   const releasedStatus = await changeStatus(root);
-  expect(releasedStatus.sourceChanges.map((change) => change.id)).not.toContain("standalone-skill:demo");
+  expect(releasedStatus.sourceChanges.map((change) => change.id)).not.toContain("skill:demo");
   await runGit(root, "add", ".");
   await runGit(root, "commit", "-qm", "release demo");
   await Bun.write(
@@ -2679,7 +2775,7 @@ Release the standalone skill body update with a patch version and generated chan
   await runGit(root, "add", ".");
   await runGit(root, "commit", "-qm", "unreleased demo change");
   const unreleasedStatus = await changeStatus(root);
-  expect(unreleasedStatus.sourceChanges.map((change) => change.id)).toContain("standalone-skill:demo");
+  expect(unreleasedStatus.sourceChanges.map((change) => change.id)).toContain("skill:demo");
 });
 
 test("SET-38: plugin child release bumps the plugin aggregate by default", async () => {
@@ -2711,15 +2807,15 @@ Child body.
     "---\nname: child\ndescription: Child.\n---\n\nChanged child body.\n"
   );
   const status = await changeStatus(root, { since: "HEAD" });
-  const child = status.sourceChanges.find((change) => change.id === "plugin-skill:alpha/child");
+  const child = status.sourceChanges.find((change) => change.id === "plugin.alpha.skill:child");
   expect(child?.currentHash).toBeDefined();
   await writePendingChange(root, "child.md", `
 ---
 id: dddd11112222
 bump: minor
-scope: plugin-skill:alpha/child
+scope: plugin.alpha.skill:child
 evidence:
-  - scope: plugin-skill:alpha/child
+  - scope: plugin.alpha.skill:child
     currentHash: ${child?.currentHash}
 ---
 
@@ -2728,15 +2824,15 @@ Release the plugin child skill behavior as a minor update to the containing plug
 
   const plan = await runSkillsetCli("release", "plan", "--root", root);
   expect(plan.exitCode).toBe(0);
-  expect(plan.stdout).toContain("plugin-skill:alpha/child: 0.1.0 -> 0.2.0 (minor)");
-  expect(plan.stdout).toContain("plugin:alpha: 0.1.0 -> 0.2.0 (minor)");
+  expect(plan.stdout).toContain("skill(plugin:alpha): child: 0.1.0 -> 0.2.0 (minor)");
+  expect(plan.stdout).toContain("plugin: alpha: 0.1.0 -> 0.2.0 (minor)");
 
   const applied = await runSkillsetCli("release", "apply", "--yes", "--root", root);
   expect(applied.exitCode).toBe(0);
   const state = JSON.parse(await readFile(join(root, ".skillset/changes/state.json"), "utf8")) as {
     scopes: Record<string, { version: string }>;
   };
-  expect(state.scopes["plugin-skill:alpha/child"]?.version).toBe("0.2.0");
+  expect(state.scopes["plugin.alpha.skill:child"]?.version).toBe("0.2.0");
   expect(state.scopes["plugin:alpha"]?.version).toBe("0.2.0");
   expect(await readFile(join(root, ".skillset/plugins/alpha/CHANGELOG.md"), "utf8")).toContain("## dddd11112222");
   expect(await readFile(join(root, "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"), "utf8")).toContain('"version": "0.2.0"');
@@ -2775,17 +2871,17 @@ Ignored body.
   await Bun.write(join(root, ".skillset/skills/audit/SKILL.md"), "---\nname: audit\ndescription: Audit.\nversion: 0.1.0\n---\n\nAudit-only change.\n");
   await Bun.write(join(root, ".skillset/skills/ignored/SKILL.md"), "---\nname: ignored\ndescription: Ignored.\nversion: 0.1.0\n---\n\nIgnored change.\n");
   const status = await changeStatus(root, { since: "HEAD" });
-  const audit = status.sourceChanges.find((change) => change.id === "standalone-skill:audit");
-  const ignored = status.sourceChanges.find((change) => change.id === "standalone-skill:ignored");
+  const audit = status.sourceChanges.find((change) => change.id === "skill:audit");
+  const ignored = status.sourceChanges.find((change) => change.id === "skill:ignored");
   expect(audit?.currentHash).toBeDefined();
   expect(ignored?.currentHash).toBeDefined();
   await writePendingChange(root, "audit.md", `
 ---
 id: 333333ffffff
 bump: none
-scope: standalone-skill:audit
+scope: skill:audit
 evidence:
-  - scope: standalone-skill:audit
+  - scope: skill:audit
     currentHash: ${audit?.currentHash}
 ---
 
@@ -2796,9 +2892,9 @@ Record the audit-only source correction without changing the published semantic 
 id: 444444ffffff
 bump: patch
 ignored: true
-scope: standalone-skill:ignored
+scope: skill:ignored
 evidence:
-  - scope: standalone-skill:ignored
+  - scope: skill:ignored
     currentHash: ${ignored?.currentHash}
 ---
 
@@ -2807,10 +2903,10 @@ Preserve this ignored audit reason in history while keeping it out of release pl
 
   const plan = await runSkillsetCli("release", "plan", "--root", root);
   expect(plan.exitCode).toBe(0);
-  expect(plan.stdout).toContain("@333333 pending none standalone-skill:audit");
-  expect(plan.stdout).toContain("@444444 ignored patch standalone-skill:ignored");
-  expect(plan.stdout).toContain("standalone-skill:audit: 0.1.0 -> 0.1.0 (none)");
-  expect(plan.stdout).not.toContain("standalone-skill:ignored: 0.1.0 -> 0.1.1");
+  expect(plan.stdout).toContain("@333333 pending none skill: audit");
+  expect(plan.stdout).toContain("@444444 ignored patch skill: ignored");
+  expect(plan.stdout).toContain("skill: audit: 0.1.0 -> 0.1.0 (none)");
+  expect(plan.stdout).not.toContain("skill: ignored: 0.1.0 -> 0.1.1");
 
   const applied = await runSkillsetCli("release", "apply", "--yes", "--root", root);
   expect(applied.exitCode).toBe(0);
@@ -2820,14 +2916,14 @@ Preserve this ignored audit reason in history while keeping it out of release pl
   const state = JSON.parse(await readFile(join(root, ".skillset/changes/state.json"), "utf8")) as {
     scopes: Record<string, { sourceHash?: string; version: string }>;
   };
-  expect(state.scopes["standalone-skill:audit"]?.version).toBe("0.1.0");
-  expect(state.scopes["standalone-skill:ignored"]?.version).toBe("0.1.0");
-  expect(state.scopes["standalone-skill:ignored"]?.sourceHash).toBe(ignored?.currentHash);
+  expect(state.scopes["skill:audit"]?.version).toBe("0.1.0");
+  expect(state.scopes["skill:ignored"]?.version).toBe("0.1.0");
+  expect(state.scopes["skill:ignored"]?.sourceHash).toBe(ignored?.currentHash);
   expect(await readFile(join(root, ".skillset/skills/audit/CHANGELOG.md"), "utf8")).toContain("## 333333ffffff");
   expect(await Bun.file(join(root, ".skillset/skills/ignored/CHANGELOG.md")).exists()).toBe(false);
 
   const releasedStatus = await changeStatus(root);
-  expect(releasedStatus.sourceChanges.map((change) => change.id)).not.toContain("standalone-skill:ignored");
+  expect(releasedStatus.sourceChanges.map((change) => change.id)).not.toContain("skill:ignored");
 });
 
 test("SET-38: release apply tombstones deleted source units as released", async () => {
@@ -2863,8 +2959,8 @@ Kept body.
   await writeFile(join(root, ".skillset/changes/state.json"), JSON.stringify({
     schemaVersion: 1,
     scopes: {
-      "standalone-skill:deleted": {
-        sourceHash: sourceInventoryUnit(initialInventory, "standalone-skill:deleted").hash,
+      "skill:deleted": {
+        sourceHash: sourceInventoryUnit(initialInventory, "skill:deleted").hash,
         version: "1.2.3",
       },
     },
@@ -2872,16 +2968,16 @@ Kept body.
 
   await rm(join(root, ".skillset/skills/deleted/SKILL.md"));
   const status = await changeStatus(root, { since: "HEAD" });
-  const deleted = status.sourceChanges.find((change) => change.id === "standalone-skill:deleted");
+  const deleted = status.sourceChanges.find((change) => change.id === "skill:deleted");
   expect(deleted?.baselineHash).toBeDefined();
   expect(deleted?.status).toBe("removed");
   await writePendingChange(root, "deleted.md", `
 ---
 id: 777777ffffff
 bump: patch
-scope: standalone-skill:deleted
+scope: skill:deleted
 evidence:
-  - scope: standalone-skill:deleted
+  - scope: skill:deleted
     sourceHash: ${deleted?.baselineHash}
 ---
 
@@ -2893,11 +2989,11 @@ Release the removal of the deleted standalone skill so default status treats the
   const state = JSON.parse(await readFile(join(root, ".skillset/changes/state.json"), "utf8")) as {
     scopes: Record<string, { removed?: boolean; version: string }>;
   };
-  expect(state.scopes["standalone-skill:deleted"]?.removed).toBe(true);
-  expect(state.scopes["standalone-skill:deleted"]?.version).toBe("1.2.4");
+  expect(state.scopes["skill:deleted"]?.removed).toBe(true);
+  expect(state.scopes["skill:deleted"]?.version).toBe("1.2.4");
 
   const releasedStatus = await changeStatus(root);
-  expect(releasedStatus.sourceChanges.map((change) => change.id)).not.toContain("standalone-skill:deleted");
+  expect(releasedStatus.sourceChanges.map((change) => change.id)).not.toContain("skill:deleted");
 
   await Bun.write(
     join(root, ".skillset/skills/deleted/SKILL.md"),
@@ -2956,16 +3052,16 @@ skillset:
     {
       id: "666666ffffff",
       bump: "patch",
-      scope: "plugin-feature:alpha/mcp",
+      scope: "plugin.alpha.feature:mcp",
       reason: "Released the plugin MCP server definition so setup requirements appear in the plugin changelog.",
-      evidence: [{ scope: "plugin-feature:alpha/mcp", sourceHash: "sha256:feature" }],
+      evidence: [{ scope: "plugin.alpha.feature:mcp", sourceHash: "sha256:feature" }],
     },
   ]);
 
   await buildSkillset(root);
   const changelog = await readFile(join(root, ".skillset/plugins/alpha/CHANGELOG.md"), "utf8");
   expect(changelog).toContain("## 666666ffffff");
-  expect(changelog).toContain("plugin-feature:alpha/mcp");
+  expect(changelog).toContain("feature(plugin:alpha): mcp");
 });
 
 test("SET-38: malformed release state fails loudly before version lowering", async () => {
@@ -2980,7 +3076,7 @@ codex: false
 {
   "schemaVersion": 1,
   "scopes": {
-    "standalone-skill:demo": { "version": "next" }
+    "skill:demo": { "version": "next" }
   }
 }
 `,
@@ -2996,7 +3092,7 @@ Body.
 
   const checked = await runSkillsetCli("check", "--root", root);
   expect(checked.exitCode).toBe(1);
-  expect(checked.stderr).toContain("release state scope standalone-skill:demo.version");
+  expect(checked.stderr).toContain("release state scope skill:demo.version");
   expect(checked.stderr).toContain("semantic version");
 });
 

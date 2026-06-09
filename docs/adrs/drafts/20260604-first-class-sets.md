@@ -12,7 +12,7 @@ depends_on: [0, 1, feature-reference-and-schema-registry, global-xdg-managed-ins
 
 ## Context
 
-Skillset v1 deliberately keeps build scopes and entity selectors separate. `--scope repo`, `--scope plugins`, `--scope project`, `--scope user`, and `--scope all` describe destination classes. Typed selectors such as `plugin:<name>`, `skill:<plugin>/<name>`, `agent:<name>`, and a future `set:<name>` describe authored entities inside those destinations.
+Skillset v1 deliberately keeps build scopes and entity selectors separate. `--scope repo`, `--scope plugins`, `--scope project`, `--scope user`, and `--scope all` describe destination classes. Typed selectors such as `plugin:<name>`, `plugin.<plugin>.skill:<name>`, `skill:<name>`, `agent:<name>`, and a future `set:<name>` describe authored entities inside those destinations.
 
 That split keeps build planning understandable. A scope answers "where may this command write or inspect?" A selector answers "which source-owned thing am I focusing?" Mixing the two would make `--scope` behave like an arbitrary collection system and weaken lock explanations, dry-run safety, and future install workflows.
 
@@ -42,7 +42,7 @@ skillset:
 
 members:
   - "plugin:skillset"
-  - "skill:skillset/use-skillset"
+  - "plugin.skillset.skill:use-skillset"
   - "agent:reviewer"
   - "instruction:project"
 

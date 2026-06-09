@@ -50,7 +50,7 @@ id: a83f2c91d4e7
 group:
   provider: linear
   id: SET-31
-scope: skill:skillset/use-skillset
+scope: plugin.skillset.skill:use-skillset
 bump: minor
 baseHash: sha256:abc123
 sourceHash: sha256:def456

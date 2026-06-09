@@ -20,6 +20,7 @@ import { importSources, type ImportKind, type ImportProvider, type ImportReport 
 import { lintSkillset } from "./lint";
 import { applyRelease, planRelease, type ReleasePlanReport, type ReleaseSubcommand } from "./release";
 import { createSkillset, initSkillset, type SetupReport } from "./setup";
+import { sourceUnitDisplay, sourceUnitDisplays, sourceUnitSelector } from "./source-unit-selector";
 import type { BuildScope, CompileBuildMode, SkillsetOptions, TargetName } from "./types";
 
 type Command = "build" | "change" | "check" | "create" | "diff" | "doctor" | "explain" | "hooks" | "import" | "init" | "lint" | "list" | "release";
@@ -393,9 +394,9 @@ function printChangeEntry(verb: string, entry: ChangeEntryView): void {
   if (entry.bump !== undefined) console.log(`  bump: ${entry.bump}`);
   const group = groupRef(entry.group);
   if (group !== undefined) console.log(`  group: ${group}`);
-  if (entry.scopes.length > 0) console.log(`  scopes: ${entry.scopes.join(", ")}`);
+  if (entry.scopes.length > 0) console.log(`  scopes: ${sourceUnitDisplays(entry.scopes)}`);
   for (const [scope, hashes] of entry.sourceHashes) {
-    for (const hash of hashes) console.log(`  source hash: ${scope} ${hash}`);
+    for (const hash of hashes) console.log(`  source hash: ${sourceUnitDisplay(scope)} ${hash}`);
   }
   if (entry.reason.length > 0) {
     console.log("  reason:");
@@ -407,7 +408,7 @@ function printChangeList(entries: readonly ChangeEntryView[]): void {
   for (const entry of entries) {
     const group = groupRef(entry.group) ?? "-";
     const bump = entry.bump ?? "-";
-    console.log(`${entry.ref} ${entry.status} ${bump} ${group} ${entry.scopes.join(",")} ${entry.path}`);
+    console.log(`${entry.ref} ${entry.status} ${bump} ${group} ${sourceUnitDisplays(entry.scopes)} ${entry.path}`);
   }
   console.log(`skillset: listed ${entries.length} pending change entr${entries.length === 1 ? "y" : "ies"}`);
 }
@@ -445,7 +446,7 @@ function printChangeStatus(report: ChangeStatusReport): void {
   } else {
     for (const change of report.sourceChanges) {
       const marker = change.status === "added" ? "+" : change.status === "removed" ? "-" : "~";
-      console.log(`  ${marker} ${change.kind} ${change.id} ${change.sourcePath}`);
+      console.log(`  ${marker} ${sourceUnitDisplay(change.id)} ${change.sourcePath}`);
     }
     console.log(`skillset: ${report.sourceChanges.length} source change(s) needing entries`);
   }
@@ -472,7 +473,7 @@ function printReleasePlan(report: ReleasePlanReport): void {
   }
   for (const entry of report.entries) {
     const marker = entry.ignored ? "ignored" : "pending";
-    console.log(`${entry.ref} ${marker} ${entry.bump} ${entry.scopes.join(",")} ${entry.path}`);
+    console.log(`${entry.ref} ${marker} ${entry.bump} ${sourceUnitDisplays(entry.scopes)} ${entry.path}`);
   }
   if (report.scopes.length === 0) {
     console.log(`skillset: release plan has ${report.entries.length} pending entr${report.entries.length === 1 ? "y" : "ies"} and no release scopes`);
@@ -481,7 +482,7 @@ function printReleasePlan(report: ReleasePlanReport): void {
   if (report.releaseId !== undefined) console.log(`skillset: release ${report.releaseId}`);
   for (const scope of report.scopes) {
     const sourceHash = scope.sourceHash === undefined ? "" : ` ${scope.sourceHash}`;
-    console.log(`  ${scope.scope}: ${scope.currentVersion} -> ${scope.nextVersion} (${scope.bump}) entries ${scope.entries.join(",")}${sourceHash}`);
+    console.log(`  ${sourceUnitDisplay(scope.scope)}: ${scope.currentVersion} -> ${scope.nextVersion} (${scope.bump}) entries ${scope.entries.join(",")}${sourceHash}`);
   }
   console.log(`skillset: release plan has ${report.entries.length} pending entr${report.entries.length === 1 ? "y" : "ies"} and ${report.scopes.length} release scope${report.scopes.length === 1 ? "" : "s"}`);
 }
@@ -891,7 +892,7 @@ function isChangeSubcommand(value: string | undefined): value is ChangeSubcomman
 function readChangeScopes(value: string): readonly string[] {
   const scopes = value.split(",").map((scope) => scope.trim()).filter((scope) => scope.length > 0);
   if (scopes.length === 0) throw new Error("skillset: --scope requires at least one source unit scope");
-  return scopes;
+  return scopes.map(sourceUnitSelector);
 }
 
 function readChangeBump(value: string): ChangeBump {

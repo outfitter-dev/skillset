@@ -46,7 +46,7 @@ Each change entry is markdown with frontmatter declaring scope and bump:
 
 ```yaml
 ---
-scope: plugin:skillset      # root | plugin:<name> | skill:<plugin>/<name> | skill:<name>
+scope: plugin:skillset      # config:root | plugin:<name> | plugin.<plugin>.skill:<name> | skill:<name>
 bump: minor                 # major | minor | patch
 ---
 

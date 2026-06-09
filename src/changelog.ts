@@ -3,6 +3,7 @@ import { dirname, join, relative } from "node:path";
 
 import { readAppliedChangeRecords, type AppliedChangeRecord, groupRef } from "./change-workflow";
 import { compareStrings } from "./path";
+import { isPluginOwnedSelector, selectorForStandaloneSkill, sourceUnitDisplays } from "./source-unit-selector";
 import type { BuildGraph, JsonRecord, RenderedFile, SourcePlugin, SourceSkill } from "./types";
 import { stringifyMarkdown } from "./yaml";
 
@@ -11,7 +12,7 @@ const GENERATED_BY = "skillset@0.1.0";
 
 export interface ChangelogProjection {
   readonly entityId: string;
-  readonly entityKind: "plugin" | "standalone-skill";
+  readonly entityKind: "plugin" | "skill";
   readonly outputPath: string;
   readonly sourcePath: string;
   readonly sourceHash: string;
@@ -25,7 +26,7 @@ export async function renderChangelogProjections(graph: BuildGraph): Promise<rea
 
   const projections: ChangelogProjection[] = [];
   for (const skill of graph.standaloneSkills) {
-    const scoped = changesForScopes(changes, [`standalone-skill:${skill.id}`]);
+    const scoped = changesForScopes(changes, [selectorForStandaloneSkill(skill.id)]);
     if (scoped.length === 0) continue;
     projections.push(renderSkillChangelog(graph, skill, scoped));
   }
@@ -45,7 +46,7 @@ function renderSkillChangelog(
   changes: readonly AppliedChangeRecord[]
 ): ChangelogProjection {
   const outputPath = join(dirname(relative(graph.rootPath, skill.sourcePath)), "CHANGELOG.md");
-  return projection("standalone-skill", skill.id, outputPath, relative(graph.rootPath, skill.sourcePath), changes);
+  return projection("skill", skill.id, outputPath, relative(graph.rootPath, skill.sourcePath), changes);
 }
 
 function renderPluginChangelog(
@@ -103,7 +104,7 @@ function renderChangeSection(change: AppliedChangeRecord): string {
   if (change.bump !== undefined) details.push(`bump: ${change.bump}`);
   const group = groupRef(change.group);
   if (group !== undefined) details.push(`group: ${group}`);
-  if (change.scopes.length > 0) details.push(`scopes: ${change.scopes.join(", ")}`);
+  if (change.scopes.length > 0) details.push(`scopes: ${sourceUnitDisplays(change.scopes)}`);
   if (details.length > 0) lines.push("", details.join(" | "));
   lines.push("", change.reason.trim());
   return lines.join("\n");
@@ -129,13 +130,7 @@ function changesForPlugin(
 }
 
 function isPluginChangelogScope(scope: string, pluginId: string): boolean {
-  return scope === `plugin:${pluginId}` ||
-    scope === `plugin-config:${pluginId}` ||
-    scope.startsWith(`plugin-skill:${pluginId}/`) ||
-    scope.startsWith(`plugin-feature:${pluginId}/`) ||
-    scope.startsWith(`plugin-companion:${pluginId}/`) ||
-    scope.startsWith(`target-native-island:claude:plugin:${pluginId}:`) ||
-    scope.startsWith(`target-native-island:codex:plugin:${pluginId}:`);
+  return isPluginOwnedSelector(scope, pluginId);
 }
 
 function compareChangeRecords(left: AppliedChangeRecord, right: AppliedChangeRecord): number {

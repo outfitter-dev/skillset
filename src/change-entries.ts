@@ -11,6 +11,7 @@ import {
 } from "./change-status";
 import { readString } from "./config";
 import { compareStrings, resolveInside } from "./path";
+import { pluginScopeFromSourceUnit, sourceUnitDisplay, sourceUnitSelector } from "./source-unit-selector";
 import type { JsonRecord, JsonValue } from "./types";
 import { isJsonRecord, parseMarkdown, parseYamlRecord } from "./yaml";
 
@@ -122,7 +123,7 @@ async function validateChangeCheck(
       if (covered.has(change.id)) continue;
       issues.push({
         code: "change-uncovered",
-        message: `source change ${change.id} is missing a pending change entry`,
+        message: `source change ${sourceUnitDisplay(change.id)} is missing a pending change entry`,
         severity: "error",
       });
     }
@@ -141,11 +142,8 @@ async function validateChangeCheck(
 }
 
 function impliedCoveredScopes(scope: string): readonly string[] {
-  if (scope.startsWith("plugin-skill:")) return [`plugin:${scope.slice("plugin-skill:".length).split("/")[0]}`];
-  if (scope.startsWith("plugin-feature:")) return [`plugin:${scope.slice("plugin-feature:".length).split("/")[0]}`];
-  if (scope.startsWith("plugin-companion:")) return [`plugin:${scope.slice("plugin-companion:".length).split("/")[0]}`];
-  const island = scope.match(/^target-native-island:[^:]+:plugin:([^:]+):/);
-  return island?.[1] === undefined ? [] : [`plugin:${island[1]}`];
+  const pluginScope = pluginScopeFromSourceUnit(scope);
+  return pluginScope === undefined || pluginScope === sourceUnitSelector(scope) ? [] : [pluginScope];
 }
 
 export async function readPendingChangeEntries(
@@ -238,7 +236,7 @@ function validatePendingEntry(
     }
     for (const scope of entry.scopes) {
       if (!context.validScopeIds.has(scope)) {
-        issues.push(entryError(entry, "change-scope-invalid", `scope ${scope} does not match a known source unit`));
+        issues.push(entryError(entry, "change-scope-invalid", `scope ${sourceUnitDisplay(scope)} does not match a known source unit`));
       }
     }
   }
@@ -265,11 +263,11 @@ function validatePendingEntry(
     if (expectedHash === undefined) continue;
     const hashes = entry.sourceHashes.get(scope) ?? [];
     if (hashes.length === 0) {
-      issues.push(entryError(entry, "change-evidence-missing", `scope ${scope} requires source hash evidence`));
+      issues.push(entryError(entry, "change-evidence-missing", `scope ${sourceUnitDisplay(scope)} requires source hash evidence`));
       continue;
     }
     if (!hashes.includes(expectedHash)) {
-      issues.push(entryError(entry, "change-evidence-stale", `scope ${scope} source hash evidence is stale`));
+      issues.push(entryError(entry, "change-evidence-stale", `scope ${sourceUnitDisplay(scope)} source hash evidence is stale`));
     }
   }
 
@@ -294,7 +292,7 @@ function suggestBumpWarnings(
     if (!severityBearing) continue;
     warnings.push({
       code: "change-bump-lower-than-suggested",
-      message: `scope ${scope} may need a release bump above none`,
+      message: `scope ${sourceUnitDisplay(scope)} may need a release bump above none`,
       path: entry.path,
       severity: "warning",
     });
@@ -335,7 +333,7 @@ function readScopes(frontmatter: JsonRecord): readonly string[] {
   const values: string[] = [];
   if (scope !== undefined) values.push(...readScopeValue(scope));
   if (scopes !== undefined) values.push(...readScopeValue(scopes));
-  return [...new Set(values.map((value) => value.trim()).filter((value) => value.length > 0))].sort(compareStrings);
+  return [...new Set(values.map((value) => sourceUnitSelector(value.trim())).filter((value) => value.length > 0))].sort(compareStrings);
 }
 
 function readScopeValue(value: JsonValue): readonly string[] {
@@ -366,9 +364,10 @@ function readSourceHashEvidence(
   const evidence = new Map<string, string[]>();
   const add = (scope: string | undefined, hash: string | undefined): void => {
     if (scope === undefined || hash === undefined) return;
-    const current = evidence.get(scope) ?? [];
+    const normalizedScope = sourceUnitSelector(scope);
+    const current = evidence.get(normalizedScope) ?? [];
     current.push(hash);
-    evidence.set(scope, current);
+    evidence.set(normalizedScope, current);
   };
 
   const singleScope = scopes.length === 1 ? scopes[0] : undefined;
@@ -414,7 +413,8 @@ async function readReasonMinLength(rootPath: string, options: ChangeStatusOption
 }
 
 function scopeClass(scope: string): "repo" | "user" {
-  return scope.startsWith("user:") || scope.startsWith("global:") ? "user" : "repo";
+  const normalizedScope = sourceUnitSelector(scope);
+  return normalizedScope.startsWith("user:") || normalizedScope.startsWith("global:") ? "user" : "repo";
 }
 
 function compareIssues(left: ChangeCheckIssue, right: ChangeCheckIssue): number {
