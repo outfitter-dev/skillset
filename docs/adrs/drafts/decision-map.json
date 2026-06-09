@@ -27,6 +27,11 @@
           "context": "- [Changelog and Version Bump Workflow](20260604-changelog-and-versioning.md) - related non-goal for install/sync behavior.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-global-xdg-managed-installs-and-sync.md"
+        },
+        {
+          "context": "- [Changelog and Version Bump Workflow](20260604-changelog-and-versioning.md) - earlier changesets-style design, now refined by this edge-case ADR.",
+          "from": "20260609",
+          "fromPath": "docs/adrs/drafts/20260609-change-release-edge-decisions.md"
         }
       ],
       "number": null,
@@ -188,6 +193,19 @@
       "superseded_by": null,
       "title": "Reviewed Settings Suggestions",
       "updated": "2026-06-04"
+    },
+    {
+      "created": "2026-06-09",
+      "depends_on": ["0", "changelog-and-versioning"],
+      "inbound": [],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260609-change-release-edge-decisions.md",
+      "slug": "change-release-edge-decisions",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Change and Release Edge Decisions",
+      "updated": "2026-06-09"
     }
   ],
   "version": 1
