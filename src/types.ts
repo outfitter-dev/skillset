@@ -73,8 +73,18 @@ export interface SourceResource {
   readonly targetPath: string;
 }
 
+export interface SourcePluginDependency {
+  readonly kind: "external" | "internal";
+  readonly marketplace?: string;
+  readonly name: string;
+  readonly range?: string;
+  readonly sourceLabel: string;
+  readonly unversioned: boolean;
+}
+
 export interface SourcePlugin {
   readonly configPath: string;
+  readonly dependencies: readonly SourcePluginDependency[];
   readonly features: readonly SourcePluginFeature[];
   readonly id: string;
   readonly metadata: JsonRecord;
@@ -161,6 +171,7 @@ export interface RenderedFile {
 }
 
 export interface GeneratedEntry {
+  readonly dependencies?: readonly string[];
   readonly feature?: string;
   readonly origin?: string;
   readonly kind?: string;

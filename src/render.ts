@@ -11,6 +11,13 @@ import {
   readStringArray,
   stripSourceFrontmatter,
 } from "./config";
+import {
+  pluginDependencies,
+  pluginDependencyHashSummaries,
+  pluginDependencySummaries,
+  renderClaudePluginDependencies,
+  renderCodexDependencyNotice,
+} from "./dependencies";
 import { validateHookDefinition } from "./hooks";
 import { compareStrings, validateSlug } from "./path";
 import { rewriteResourceLinks } from "./resources";
@@ -59,6 +66,7 @@ const WORKSPACE_LOCK_ROOT = ".";
 interface LockItem {
   readonly feature?: string;
   readonly files: readonly string[];
+  readonly dependencies?: readonly string[];
   readonly includedSkills?: readonly string[];
   readonly kind: "changelog" | "island" | "plugin" | "plugin-feature" | "plugin-skill" | "project-agent" | "rule" | "standalone-skill";
   readonly name: string;
@@ -251,11 +259,18 @@ async function renderPluginTarget(
   lockRoots: Map<string, LockRoot>
 ): Promise<readonly RenderedFile[]> {
   if (!shouldRenderPlugin(graph, plugin, target)) return [];
+  validateInternalPluginDependenciesForTarget(graph, plugin, target);
 
   const rendered: RenderedFile[] = [];
   const outputRoot = graph.root.outputs.plugins[target];
   const basePath = `${outputRoot}/plugins/${plugin.id}`;
   const enabledSkills = plugin.skills.filter((skill) => skill.targets[target].enabled);
+  const dependencySummaries = pluginDependencySummaries(graph, plugin);
+  if (target === "codex" && dependencySummaries.length > 0 && enabledSkills.length === 0) {
+    throw new Error(
+      `skillset: plugin ${plugin.id} declares dependencies but has no enabled Codex skills to carry the dependency notice`
+    );
+  }
   const manifestFile = textFile(
     target === "claude"
       ? `${basePath}/.claude-plugin/plugin.json`
@@ -288,6 +303,22 @@ async function renderPluginTarget(
   return rendered;
 }
 
+function validateInternalPluginDependenciesForTarget(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  target: TargetName
+): void {
+  for (const dependency of pluginDependencies(graph, plugin)) {
+    if (dependency.kind !== "internal") continue;
+    const dependencyPlugin = graph.plugins.find((candidate) => candidate.id === dependency.name);
+    if (dependencyPlugin === undefined) continue;
+    if (shouldRenderPlugin(graph, dependencyPlugin, target)) continue;
+    throw new Error(
+      `skillset: plugin ${plugin.id} depends on ${dependency.name}, but ${dependency.name} is not emitted for ${target}`
+    );
+  }
+}
+
 function renderPluginManifest(
   graph: BuildGraph,
   plugin: SourcePlugin,
@@ -307,14 +338,21 @@ function renderPluginManifest(
     license: metadata.license,
     keywords: metadata.keywords,
   };
+  const dependencies = target === "claude" ? renderClaudePluginDependencies(graph, plugin) : undefined;
+  const manifestOverrides = readRecord(targetOptions, "manifest") ?? {};
+  if (target === "claude" && dependencies !== undefined && manifestOverrides.dependencies !== undefined) {
+    throw new Error(
+      `skillset: plugin ${plugin.id} declares dependencies, but claude.manifest.dependencies would overwrite generated dependency metadata`
+    );
+  }
 
   const targetBase =
     target === "claude"
-      ? withOptionalSurfacePaths(base, plugin, enabledSkills, target)
+      ? withOptionalSurfacePaths(mergeRecords(base, dependencies === undefined ? {} : { dependencies }), plugin, enabledSkills, target)
       : mergeRecords(withOptionalSurfacePaths(base, plugin, enabledSkills, target), {
           interface: renderCodexInterface(graph, plugin),
         });
-  const withOverrides = mergeRecords(targetBase, readRecord(targetOptions, "manifest") ?? {});
+  const withOverrides = mergeRecords(targetBase, manifestOverrides);
 
   return mergeRecords(withOverrides, {
     version: pluginVersion(graph, plugin),
@@ -998,9 +1036,15 @@ async function renderSkillMarkdown(
     sourceRoot: graph.sourceDir,
     ...(plugin === undefined ? {} : { pluginPath: plugin.path }),
   });
+  const dependencyNotice = target === "codex" && plugin !== undefined
+    ? renderCodexDependencyNotice(graph, plugin)
+    : undefined;
+  const body = dependencyNotice === undefined
+    ? preprocessedBody
+    : `${dependencyNotice}\n\n${preprocessedBody}`;
   return renderValidatedMarkdown(
     frontmatter,
-    rewriteResourceLinks(preprocessedBody, skill.resources, skill.sourcePath),
+    rewriteResourceLinks(body, skill.resources, skill.sourcePath),
     `${relative(graph.rootPath, skill.sourcePath)} -> ${target}`
   );
 }
@@ -1613,8 +1657,11 @@ function lockItemForPlugin(args: {
     .filter((skill) => !skill.targets[args.target].enabled)
     .map((skill) => skillVersionLabel(args.graph, args.plugin, skill))
     .sort();
+  const dependencies = pluginDependencySummaries(args.graph, args.plugin);
+  const dependencyHashSummaries = pluginDependencyHashSummaries(args.graph, args.plugin, args.target);
 
   return {
+    ...(dependencies.length === 0 ? {} : { dependencies }),
     files: [relative(args.outputRoot, args.file.path)],
     includedSkills,
     kind: "plugin",
@@ -1622,7 +1669,7 @@ function lockItemForPlugin(args: {
     outputHash: hashRenderedFiles(args.outputRoot, [args.file]),
     outputPath: relative(args.outputRoot, args.file.path),
     skippedSkills,
-    sourceHash: hashPluginSource(args.plugin, args.target, includedSkills, skippedSkills),
+    sourceHash: hashPluginSource(args.plugin, args.target, includedSkills, skippedSkills, dependencyHashSummaries),
     sourcePath: relative(args.graph.rootPath, args.plugin.path),
     targetState: skippedSkills.length === 0 ? "sync" : "intentionally-skipped",
     version: pluginVersion(args.graph, args.plugin),
@@ -1805,6 +1852,7 @@ function stripUndefinedLockItem(item: LockItem): JsonRecord {
   const value: Record<string, JsonValue | undefined> = {
     feature: item.feature,
     files: [...item.files],
+    dependencies: item.dependencies === undefined ? undefined : [...item.dependencies],
     includedSkills: item.includedSkills === undefined ? undefined : [...item.includedSkills],
     kind: item.kind,
     name: item.name,
@@ -1828,7 +1876,8 @@ function hashPluginSource(
   plugin: SourcePlugin,
   target: TargetName,
   includedSkills: readonly string[],
-  skippedSkills: readonly string[]
+  skippedSkills: readonly string[],
+  dependencies: readonly string[]
 ): string {
   const hash = createHash("sha256");
   hash.update("skillset-plugin-source-v1\0");
@@ -1843,6 +1892,10 @@ function hashPluginSource(
   hash.update(includedSkills.join("\n"));
   hash.update("\0");
   hash.update(skippedSkills.join("\n"));
+  if (dependencies.length > 0) {
+    hash.update("\0dependencies\0");
+    hash.update(dependencies.join("\n"));
+  }
   return `sha256:${hash.digest("hex")}`;
 }
 

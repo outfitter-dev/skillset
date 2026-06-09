@@ -15,6 +15,7 @@ import {
   targetNames,
   validateConfigDocument,
 } from "./config";
+import { readPluginDependencies, validatePluginDependencyGraph } from "./dependencies";
 import { compareStrings, resolveInside, validateSlug } from "./path";
 import { readReleaseState } from "./release-state";
 import { readSkillResources } from "./resources";
@@ -88,6 +89,7 @@ export async function loadBuildGraph(
   await validateSupports(rootConfig.supports, { label: rootConfigPath, rootPath, warnings });
   const releaseState = await readReleaseState(rootPath, options);
   const plugins = await loadPlugins(rootPath, sourceDir, rootTargets, warnings, outputs);
+  validatePluginDependencyGraph(plugins);
   const standaloneSkills = await loadStandaloneSkills(rootPath, sourceDir, rootTargets, warnings);
   const { rules, instructionsDir } = await loadInstructions(rootPath, sourceDir, rootTargets, warnings);
   const projectAgents = await loadProjectAgents(rootPath, sourceDir, rootTargets, warnings);
@@ -416,6 +418,7 @@ async function loadPlugin(
   const config = parseYamlRecord(await readFile(configPath, "utf8"), configPath);
   validateConfigDocument(config, configPath, { featureKeys: PLUGIN_FEATURE_KEYS });
   await validateSupports(config.supports, { label: relative(rootPath, configPath), rootPath, warnings });
+  const dependencies = readPluginDependencies(config.dependencies, relative(rootPath, configPath));
   const metadata = readSkillsetMetadata(config, configPath);
   validateSchemaField(metadata, `${configPath}.skillset.schema`);
   validateVersionField(metadata, `${configPath}.skillset.version`);
@@ -459,7 +462,7 @@ async function loadPlugin(
     );
   }
 
-  return { configPath, features, id, metadata, path: pluginPath, skills, targets };
+  return { configPath, dependencies, features, id, metadata, path: pluginPath, skills, targets };
 }
 
 async function loadPluginFeatures(

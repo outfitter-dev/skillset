@@ -244,7 +244,10 @@ export async function runCli(
     for (const entry of entries) {
       const feature = entry.feature === undefined ? "" : ` ${entry.feature}`;
       const origin = entry.origin === undefined ? "" : ` (${entry.origin})`;
-      console.log(`  [${entry.target}] ${entry.kind ?? "generated"}${feature}${origin} ${entry.sourcePath} -> ${entry.outputPath}`);
+      const dependencies = entry.dependencies === undefined || entry.dependencies.length === 0
+        ? ""
+        : ` deps:${entry.dependencies.join(";")}`;
+      console.log(`  [${entry.target}] ${entry.kind ?? "generated"}${feature}${origin} ${entry.sourcePath} -> ${entry.outputPath}${dependencies}`);
     }
     console.log(`skillset: listed ${entries.length} generated entries`);
     return;
@@ -264,6 +267,9 @@ export async function runCli(
       if (entry.feature !== undefined) console.log(`    feature: ${entry.feature}`);
       if (entry.origin !== undefined) console.log(`    origin: ${entry.origin}`);
       if (entry.sourcePointer !== undefined) console.log(`    source pointer: ${entry.sourcePointer}`);
+      if (entry.dependencies !== undefined && entry.dependencies.length > 0) {
+        console.log(`    dependencies: ${entry.dependencies.join(", ")}`);
+      }
       if (entry.preprocessDependencies !== undefined && entry.preprocessDependencies.length > 0) {
         console.log(`    preprocess dependencies: ${entry.preprocessDependencies.join(", ")}`);
       }

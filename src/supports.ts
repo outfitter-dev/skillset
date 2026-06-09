@@ -35,7 +35,7 @@ export async function validateSupports(
   if (value === undefined) return;
   const packages = readPackageSupports(value, context.label);
   for (const item of packages) {
-    validateRange(item.range, `${context.label} supports ${item.name}`);
+    validateSemverRange(item.range, `${context.label} supports ${item.name}`);
     await checkPackageSource(item, context);
   }
 }
@@ -165,7 +165,7 @@ function warnOrThrow(
   context.warnings.push(fullMessage);
 }
 
-function validateRange(range: string, label: string): void {
+export function validateSemverRange(range: string, label: string): void {
   try {
     rangeComparators(range, label);
   } catch (error) {

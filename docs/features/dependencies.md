@@ -23,13 +23,13 @@ dependencies:
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
-| `dependencies.plugins` | plugin dependency fields | dependency notices/check guidance | `planned` | Claude has native dependency support; Codex has no documented equivalent. |
-| Internal plugin selector | resolved native plugin name and version/range | explicit fallback notice | `planned` | Exact release range is the conservative v1 default. |
-| External plugin dependency | name/range/marketplace | explicit fallback notice | `planned` | External dependencies should normally require a range. |
+| `dependencies.plugins` | plugin manifest `dependencies.plugins` | dependency notice in plugin skill instructions | `implemented` / `target_specific` | Claude receives structured manifest metadata; Codex receives explicit fallback guidance because no native field is documented. |
+| Internal plugin selector | resolved plugin name and exact release range | explicit fallback notice | `implemented` | Exact release range is the conservative v1 default. |
+| External plugin dependency | name/range/marketplace metadata | explicit fallback notice | `implemented` | External dependencies require `range` unless `unversioned: true` is explicit. |
 
 ## Diagnostics
 
-Dependency declarations should fail or warn loudly when an enabled target cannot represent them. Codex-enabled output must not silently drop dependency edges. Explain/list/doctor should show declared dependencies, hoisted child declarations, emitted Claude dependencies, skipped Codex lowering, and suggested install/check commands.
+Dependency declarations fail loudly for unknown internal plugin selectors, self-dependencies, malformed ranges, unsupported dependency keys, and external dependencies without either `range` or `unversioned: true`. Child plugin skill declarations are hoisted to the containing plugin artifact because target-native dependency fields live on plugin artifacts, not child files. Codex-enabled output must not silently drop dependency edges; generated notices tell Codex not to install or resolve dependencies by itself and to ask the user to install or enable them through their Skillset or plugin marketplace workflow. `skillset list` and `skillset explain` show compact dependency summaries from lock provenance.
 
 ## Provenance
 

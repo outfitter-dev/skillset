@@ -1223,6 +1223,424 @@ Record the supports metadata compatibility update without changing generated art
   expect(checked.stdout).not.toContain("change-bump-lower-than-suggested");
 });
 
+test("SET-40: plugin dependencies lower to Claude and Codex fallback notices", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: dependency-root
+compile:
+  targets: [claude, codex]
+`,
+    ".skillset/plugins/secrets-vault/skillset.yaml": `
+skillset:
+  name: secrets-vault
+  version: 1.2.3
+  manifest:
+    name: native-secrets-vault
+`,
+    ".skillset/plugins/secrets-vault/skills/secret/SKILL.md": `
+---
+name: secret
+description: Secret helper.
+---
+
+Secret body.
+`,
+    ".skillset/plugins/audit/skillset.yaml": `
+skillset:
+  name: audit
+  version: 0.4.0
+dependencies:
+  plugins:
+    - name: external-tools
+      range: "^2.1.0"
+      marketplace: acme
+`,
+    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
+---
+name: audit-skill
+description: Audit skill.
+dependencies:
+  plugins:
+    - plugin:secrets-vault
+---
+
+Audit body.
+`,
+  });
+
+  await buildSkillset(root);
+  const claudeManifest = await readFile(join(root, "plugins-claude/plugins/audit/.claude-plugin/plugin.json"), "utf8");
+  expect(claudeManifest).toContain('"dependencies"');
+  expect(claudeManifest).toContain('"name": "native-secrets-vault"');
+  expect(claudeManifest).toContain('"range": "=1.2.3"');
+  expect(claudeManifest).toContain('"name": "external-tools"');
+  expect(claudeManifest).toContain('"marketplace": "acme"');
+
+  const codexSkill = await readFile(join(root, "plugins-codex/plugins/audit/skills/audit-skill/SKILL.md"), "utf8");
+  expect(codexSkill).toContain("<skillset_plugin_dependencies>");
+  expect(codexSkill).toContain("secrets-vault range =1.2.3 internal");
+  expect(codexSkill).toContain("external-tools range ^2.1.0 marketplace acme external");
+  expect(codexSkill).toContain("Do not install or resolve them yourself");
+
+  const listed = await runSkillsetCli("list", "--root", root);
+  expect(listed.exitCode).toBe(0);
+  expect(listed.stdout).toContain("deps:external-tools range ^2.1.0 marketplace acme external");
+  const explained = await runSkillsetCli("explain", ".skillset/plugins/audit", "--root", root);
+  expect(explained.exitCode).toBe(0);
+  expect(explained.stdout).toContain("dependencies: external-tools range ^2.1.0 marketplace acme external");
+  expect(explained.stdout).toContain("secrets-vault range =1.2.3 internal");
+
+  const auditLockSourceHash = async (): Promise<string> => {
+    const lock = JSON.parse(await readFile(join(root, "plugins-claude/.skillset.lock"), "utf8")) as {
+      items: Array<{ outputPath?: string; sourceHash?: string }>;
+    };
+    return lock.items.find((item) => item.outputPath === "plugins/audit/.claude-plugin/plugin.json")?.sourceHash ?? "";
+  };
+  const originalHash = await auditLockSourceHash();
+  await writeFile(join(root, ".skillset/plugins/secrets-vault/skillset.yaml"), `
+skillset:
+  name: secrets-vault
+  version: 1.2.3
+  manifest:
+    name: renamed-native-secrets-vault
+`);
+  await buildSkillset(root);
+  expect(await auditLockSourceHash()).not.toBe(originalHash);
+});
+
+test("SET-40: internal plugin dependencies must resolve", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: missing-dependency-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/audit/skillset.yaml": `
+skillset:
+  name: audit
+dependencies:
+  plugins:
+    - plugin:missing
+`,
+    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
+---
+name: audit-skill
+description: Audit skill.
+---
+
+Audit body.
+`,
+  });
+
+  await expect(loadBuildGraph(root)).rejects.toThrow("unknown plugin missing");
+});
+
+test("SET-40: external plugin dependencies require ranges unless explicit", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: invalid-external-dependency-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/audit/skillset.yaml": `
+skillset:
+  name: audit
+dependencies:
+  plugins:
+    - name: external-tools
+`,
+    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
+---
+name: audit-skill
+description: Audit skill.
+---
+
+Audit body.
+`,
+  });
+
+  await expect(loadBuildGraph(root)).rejects.toThrow("requires range or unversioned: true");
+});
+
+test("SET-40: plugin dependency entries reject ambiguous shapes", async () => {
+  for (const [name, dependencyYaml, expected] of [
+    [
+      "internal-range",
+      `
+    - plugin: secrets-vault
+      range: "^1.0.0"
+`,
+      "must not include range",
+    ],
+    [
+      "external-range-unversioned",
+      `
+    - name: external-tools
+      range: "^2.1.0"
+      unversioned: true
+`,
+      "must not combine range with unversioned",
+    ],
+    [
+      "internal-unversioned",
+      `
+    - plugin: secrets-vault
+      unversioned: false
+`,
+      "must not include range",
+    ],
+    [
+      "external-or-range",
+      `
+    - name: external-tools
+      range: "^1.0.0 || ^2.0.0"
+`,
+      "OR ranges are not supported",
+    ],
+    [
+      "unsupported-entry-key",
+      `
+    - name: external-tools
+      range: "^1.0.0"
+      install: automatic
+`,
+      "unsupported",
+    ],
+  ] as const) {
+    const root = await contractFixture({
+      ".skillset/config.yaml": `
+skillset:
+  name: ${name}
+claude: true
+codex: false
+`,
+      ".skillset/plugins/secrets-vault/skillset.yaml": `
+skillset:
+  name: secrets-vault
+  version: 1.2.3
+`,
+      ".skillset/plugins/secrets-vault/skills/secret/SKILL.md": `
+---
+name: secret
+description: Secret helper.
+---
+
+Secret body.
+`,
+      ".skillset/plugins/audit/skillset.yaml": `
+skillset:
+  name: audit
+dependencies:
+  plugins:
+${dependencyYaml}
+`,
+      ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
+---
+name: audit-skill
+description: Audit skill.
+---
+
+Audit body.
+`,
+    });
+
+    await expect(loadBuildGraph(root)).rejects.toThrow(expected);
+  }
+});
+
+test("SET-40: plugin dependency graph rejects self-dependencies", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: self-dependency-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/audit/skillset.yaml": `
+skillset:
+  name: audit
+dependencies:
+  plugins:
+    - plugin: audit
+`,
+    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
+---
+name: audit-skill
+description: Audit skill.
+---
+
+Audit body.
+`,
+  });
+
+  await expect(loadBuildGraph(root)).rejects.toThrow("must not depend on itself");
+});
+
+test("SET-40: plugin dependencies reject unsupported dependency groups", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: unsupported-dependency-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/audit/skillset.yaml": `
+skillset:
+  name: audit
+dependencies:
+  tools: []
+`,
+    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
+---
+name: audit-skill
+description: Audit skill.
+---
+
+Audit body.
+`,
+  });
+
+  await expect(loadBuildGraph(root)).rejects.toThrow("unsupported");
+});
+
+test("SET-40: Claude manifest overrides must not clobber generated dependencies", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: dependency-override-root
+compile:
+  targets: [claude]
+`,
+    ".skillset/plugins/secrets-vault/skillset.yaml": `
+skillset:
+  name: secrets-vault
+  version: 1.2.3
+`,
+    ".skillset/plugins/secrets-vault/skills/secret/SKILL.md": `
+---
+name: secret
+description: Secret helper.
+---
+
+Secret body.
+`,
+    ".skillset/plugins/audit/skillset.yaml": `
+skillset:
+  name: audit
+dependencies:
+  plugins:
+    - plugin: secrets-vault
+claude:
+  manifest:
+    dependencies:
+      plugins:
+        - name: manual-only
+`,
+    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
+---
+name: audit-skill
+description: Audit skill.
+---
+
+Audit body.
+`,
+  });
+
+  await expect(buildSkillset(root)).rejects.toThrow("would overwrite generated dependency metadata");
+});
+
+test("SET-40: Codex dependencies need an enabled skill notice surface", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: codex-dependency-notice-root
+compile:
+  targets: [codex]
+`,
+    ".skillset/plugins/secrets-vault/skillset.yaml": `
+skillset:
+  name: secrets-vault
+  version: 1.2.3
+`,
+    ".skillset/plugins/secrets-vault/skills/secret/SKILL.md": `
+---
+name: secret
+description: Secret helper.
+---
+
+Secret body.
+`,
+    ".skillset/plugins/audit/skillset.yaml": `
+skillset:
+  name: audit
+dependencies:
+  plugins:
+    - plugin: secrets-vault
+`,
+    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
+---
+name: audit-skill
+description: Audit skill.
+codex: false
+---
+
+Audit body.
+`,
+  });
+
+  await expect(buildSkillset(root)).rejects.toThrow("has no enabled Codex skills to carry the dependency notice");
+});
+
+test("SET-40: internal plugin dependencies must be emitted for the target", async () => {
+  for (const [target, disabledTarget] of [
+    ["claude", "claude"],
+    ["codex", "codex"],
+  ] as const) {
+    const root = await contractFixture({
+      ".skillset/config.yaml": `
+skillset:
+  name: target-dependency-root
+compile:
+  targets: [${target}]
+`,
+      ".skillset/plugins/secrets-vault/skillset.yaml": `
+skillset:
+  name: secrets-vault
+  version: 1.2.3
+${disabledTarget}: false
+`,
+      ".skillset/plugins/secrets-vault/skills/secret/SKILL.md": `
+---
+name: secret
+description: Secret helper.
+---
+
+Secret body.
+`,
+      ".skillset/plugins/audit/skillset.yaml": `
+skillset:
+  name: audit
+dependencies:
+  plugins:
+    - plugin: secrets-vault
+`,
+      ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
+---
+name: audit-skill
+description: Audit skill.
+---
+
+Audit body.
+`,
+    });
+
+    await expect(buildSkillset(root)).rejects.toThrow("is not emitted for");
+  }
+});
+
 test("SET-34: plugin aggregate hashes consume child content hashes before versions", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `

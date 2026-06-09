@@ -171,6 +171,9 @@ function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuildGraph>>
       const files = Array.isArray(rawItem.files)
         ? rawItem.files.filter((value): value is string => typeof value === "string")
         : [];
+      const dependencies = Array.isArray(rawItem.dependencies)
+        ? rawItem.dependencies.filter((value): value is string => typeof value === "string")
+        : undefined;
       matches.push({
         sourcePath,
         outputPath: joinOutputRoot(outputRoot, outputPath),
@@ -181,6 +184,7 @@ function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuildGraph>>
           target,
           sourcePath,
           outputPath: joinOutputRoot(outputRoot, outputPath),
+          ...(dependencies === undefined ? {} : { dependencies }),
           ...(typeof rawItem.feature === "string" ? { feature: rawItem.feature } : {}),
           ...(typeof rawItem.kind === "string" ? { kind: rawItem.kind } : {}),
           ...(typeof rawItem.origin === "string" ? { origin: rawItem.origin } : {}),
