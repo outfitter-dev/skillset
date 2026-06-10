@@ -107,21 +107,12 @@ const runMain = async (): Promise<void> => {
       });
       return;
     }
-    case "agent": {
-      await runAgentBootstrap({
-        config,
-        force: parsed.force,
-        host,
-        repoRoot,
-        update: parsed.update,
-      });
-      return;
-    }
+    case "agent":
     case "codex":
     case "claude": {
       await runAgentBootstrap({
         config,
-        force: true,
+        force: parsed.force,
         host,
         repoRoot,
         update: parsed.update,
