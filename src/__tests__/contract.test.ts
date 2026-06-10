@@ -1016,6 +1016,11 @@ test("SET-41: hooks print emits target runtime suggestions without installing", 
   expect(claude.stdout).toContain(".claude/settings.local.json");
   expect(claude.stdout).toContain("PostToolUse");
   expect(claude.stdout).toContain("Stop");
+  expect(claude.stdout).toContain("git status --porcelain=v1 --untracked-files=all");
+  expect(claude.stdout).toContain(".skillset/src");
+  expect(claude.stdout).toContain(".skillset/shared");
+  expect(claude.stdout).toContain(".skillset/changes/pending");
+  expect(claude.stdout).not.toContain("skillset doctor");
   expect(claude.stdout).toContain("Skillset does not install or trust hooks");
 
   const codex = await runSkillsetCli("hooks", "print", "--target", "codex", "--agent-runtime");
@@ -1023,6 +1028,7 @@ test("SET-41: hooks print emits target runtime suggestions without installing", 
   expect(codex.stdout).toContain(".codex/hooks/hooks.json");
   expect(codex.stdout).toContain("PostToolUse");
   expect(codex.stdout).toContain("Stop");
+  expect(codex.stdout).toContain("git status --porcelain=v1 --untracked-files=all");
 
   const invalid = await runSkillsetCli("hooks", "print", "--runner", "git", "--agent-runtime");
   expect(invalid.exitCode).toBe(1);

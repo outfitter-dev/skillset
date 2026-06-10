@@ -61,6 +61,27 @@ skillset build --root /tmp/example --source custom-source --dist generated
 
 ## Setup
 
+Prepare this repository checkout for local development or agent startup:
+
+```bash
+./scripts/bootstrap.sh repo       # install dependencies when needed
+./scripts/bootstrap.sh claude     # Claude startup hook entrypoint
+./scripts/bootstrap.sh codex      # Codex startup hook entrypoint
+./scripts/bootstrap.sh doctor     # read-only environment diagnostics
+./scripts/bootstrap.sh teardown   # remove dist/ and .skillset/build/
+```
+
+The provider-specific commands resolve the repo root from `CLAUDE_PROJECT_DIR`
+or `CODEX_WORKTREE_PATH` before falling back to the current Git checkout.
+Bootstrap prepares only this local repo; it does not install,
+symlink, trust, or activate generated Skillset outputs in global Claude or
+Codex runtime locations.
+
+Skillset pins its development/runtime toolchain in `.bun-version` and
+`packageManager`, currently `bun@1.3.14`. The `engines.bun` field is the
+published package floor for people running the compiled CLI through local
+installs, `npx`, or `bunx`; the pin is for reproducible repo bootstrap and CI.
+
 Initialize Skillset source in an existing repo:
 
 ```bash
