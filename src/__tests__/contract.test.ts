@@ -1061,6 +1061,122 @@ test("SET-44: change status and check reject scoped source coverage", async () =
   expect(check.stderr).toContain("--scope is not supported");
 });
 
+test("SET-50: skillset test runs an isolated projection and refreshes latest", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+tests:
+  self:
+    source: repo:.skillset
+    output:
+      kind: isolated
+    assertions:
+      - build
+      - exists: .claude/skills/demo/SKILL.md
+      - contains:
+          path: .claude/skills/demo/SKILL.md
+          text: Demo body.
+      - noDrift
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Demo body.
+`,
+  });
+
+  const first = await runSkillsetCli("test", "self", "--root", root);
+  expect(first.exitCode).toBe(0);
+  expect(first.stderr).toBe("");
+  expect(first.stdout).toContain("skillset: test self passed");
+  expect(first.stdout).toContain("pass: build");
+  expect(first.stdout).toContain("pass: noDrift");
+
+  const firstLatest = JSON.parse(await readFile(join(root, ".skillset/build/tests/latest.json"), "utf8")) as {
+    runId: string;
+    runPath: string;
+    workspacePath: string;
+  };
+  expect(firstLatest.runId).toMatch(/^\d{8}T\d{6}Z-[0-9a-f]{8}$/);
+  expect(await fileExists(join(root, firstLatest.runPath, "report.json"))).toBe(true);
+  expect(await fileExists(join(root, ".skillset/build/tests/latest/report.json"))).toBe(true);
+  expect(await fileExists(join(root, ".skillset/build/tests/latest/workspace/.claude/skills/demo/SKILL.md"))).toBe(true);
+  expect(await fileExists(join(root, ".skillset/build/tests/latest/workspace/.agents/skills/demo/SKILL.md"))).toBe(false);
+  expect(await fileExists(join(root, ".claude/skills/demo/SKILL.md"))).toBe(false);
+  const firstReport = JSON.parse(await readFile(join(root, firstLatest.runPath, "report.json"), "utf8")) as {
+    targets: readonly string[];
+  };
+  expect(firstReport.targets).toEqual(["claude"]);
+
+  const second = await runSkillsetCli("test", "self", "--root", root);
+  expect(second.exitCode).toBe(0);
+  const secondLatest = JSON.parse(await readFile(join(root, ".skillset/build/tests/latest.json"), "utf8")) as {
+    runId: string;
+    runPath: string;
+  };
+  expect(secondLatest.runId).not.toBe(firstLatest.runId);
+  expect(await fileExists(join(root, firstLatest.runPath, "report.json"))).toBe(true);
+  expect(await fileExists(join(root, secondLatest.runPath, "report.md"))).toBe(true);
+});
+
+test("SET-50: skillset test reports failed assertions without touching live outputs", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: failing-test-root
+compile:
+  targets:
+    - claude
+tests:
+  self:
+    source: repo:.skillset
+    assertions:
+      - build
+      - exists: missing/generated.txt
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Demo body.
+`,
+  });
+
+  const result = await runSkillsetCli("test", "self", "--root", root);
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toBe("");
+  expect(result.stdout).toContain("fail: exists missing/generated.txt");
+  expect(result.stdout).toContain("skillset: test self failed");
+
+  const report = JSON.parse(await readFile(join(root, ".skillset/build/tests/latest/report.json"), "utf8")) as {
+    ok: boolean;
+    assertions: Array<{ detail?: string; kind: string; ok: boolean; path?: string }>;
+  };
+  expect(report.ok).toBe(false);
+  expect(report.assertions).toContainEqual({ detail: "path does not exist", kind: "exists", ok: false, path: "missing/generated.txt" });
+  expect(await fileExists(join(root, ".claude/skills/demo/SKILL.md"))).toBe(false);
+});
+
+test("SET-50: skillset test rejects build scope and write flags", async () => {
+  const scoped = await runSkillsetCli("test", "--scope", "repo");
+  expect(scoped.exitCode).toBe(1);
+  expect(scoped.stderr).toContain("build/write options are not supported with test");
+
+  const write = await runSkillsetCli("test", "--yes");
+  expect(write.exitCode).toBe(1);
+  expect(write.stderr).toContain("build/write options are not supported with test");
+});
+
 test("SET-41: change status --staged reads the Git index", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `
