@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 
 import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
@@ -169,7 +169,53 @@ async function detectImportCandidates(rootPath: string): Promise<readonly SetupI
   if (await pathExists(join(rootPath, ".claude-plugin/plugin.json")) || await pathExists(join(rootPath, ".codex-plugin/plugin.json"))) {
     candidates.push({ kind: "plugin", path: "." });
   }
+  for (const path of await marketplacePluginSources(rootPath)) {
+    if (!candidates.some((candidate) => candidate.kind === "plugin" && candidate.path === path)) {
+      candidates.push({ kind: "plugin", path });
+    }
+  }
   return candidates.sort((left, right) => compareCandidate(left, right));
+}
+
+/**
+ * A repo can be a Claude plugin marketplace instead of a single plugin:
+ * `.claude-plugin/marketplace.json` lists plugins whose `source` points at a
+ * repo-relative plugin directory. Surface each existing source directory as an
+ * import candidate. Candidates are suggestions, so malformed manifests or
+ * entries that point outside the repo are skipped rather than failing init.
+ */
+async function marketplacePluginSources(rootPath: string): Promise<readonly string[]> {
+  const manifestPath = join(rootPath, ".claude-plugin/marketplace.json");
+  if (!(await pathExists(manifestPath))) return [];
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(await readFile(manifestPath, "utf8")) as unknown;
+  } catch {
+    return [];
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return [];
+  const plugins = (parsed as Record<string, unknown>).plugins;
+  if (!Array.isArray(plugins)) return [];
+
+  const realRoot = await realpath(rootPath);
+  const sources: string[] = [];
+  for (const plugin of plugins) {
+    if (typeof plugin !== "object" || plugin === null || Array.isArray(plugin)) continue;
+    const source = (plugin as Record<string, unknown>).source;
+    if (typeof source !== "string" || source.trim().length === 0) continue;
+    const absolutePath = resolve(rootPath, source);
+    if (absolutePath === resolve(rootPath)) continue;
+    if (!(await pathExists(absolutePath))) continue;
+    if (!(await stat(absolutePath)).isDirectory()) continue;
+    const realSource = await realpath(absolutePath);
+    if (realSource !== realRoot && !realSource.startsWith(`${realRoot}/`)) continue;
+    if (await isManagedCandidate(absolutePath)) continue;
+    const path = relative(realRoot, realSource).replaceAll("\\", "/");
+    if (path.length === 0 || sources.includes(path)) continue;
+    sources.push(path);
+  }
+  return sources;
 }
 
 async function maybeCandidate(
