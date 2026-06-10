@@ -197,15 +197,15 @@ function errorMessage(error: unknown): string {
 export const CI_WORKFLOW_PATH = ".github/workflows/skillset-ci.yml";
 
 /**
- * GitHub Actions workflow scaffolded by `skillset init --with-ci` and
- * `skillset create --with-ci`. Mechanical drift is rebuilt and pushed back to
+ * GitHub Actions workflow scaffolded by `skillset init --include ci` and
+ * `skillset create --include ci`. Mechanical drift is rebuilt and pushed back to
  * same-repo pull-request branches; non-mechanical problems become an updated
  * PR comment and a failing check. Fork PRs cannot receive pushes or comments
  * with the default token, so they only get the failing check and job summary.
  */
 export function renderCiWorkflow(): string {
   return [
-    "# Scaffolded by skillset init --with-ci. Skillset does not manage this file; edit freely.",
+    "# Scaffolded by skillset init --include ci. Skillset does not manage this file; edit freely.",
     "# Pin skillset to an exact version for reproducible CI runs.",
     "# Notes:",
     "# - Mechanical fixes pushed with GITHUB_TOKEN do not retrigger workflows; if your",

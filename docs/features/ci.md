@@ -13,12 +13,12 @@ skillset ci                                 # read-only: lint + change check + d
 skillset ci --fix                           # additionally rebuild stale generated output (like build --yes)
 skillset ci --since origin/main             # change-entry baseline override
 skillset ci --report skillset-ci-report.md  # write the Markdown report for PR comments / job summaries
-skillset init --with-ci --yes               # scaffold .github/workflows/skillset-ci.yml
+skillset init --include ci --yes            # scaffold .github/workflows/skillset-ci.yml
 ```
 
 Generated-output drift is the only mechanical problem: with `--fix`, `ci` rebuilds generated output the same way `skillset build --yes` would and reports which files it rewrote. Lint issues, missing or invalid change entries, and build errors need authored source changes, so they always stay report-only and fail the run. `--fix` is skipped when lint issues or a build error are present, so a rebuild never launders bad source into committed output.
 
-`skillset init --with-ci` (and `skillset create --with-ci`) scaffolds `.github/workflows/skillset-ci.yml`. The workflow is user-owned after creation: rerunning `init --with-ci` reports an edited workflow as existing and never overwrites it. The scaffolded workflow:
+`skillset init --include ci` (and `skillset create --include ci`) scaffolds `.github/workflows/skillset-ci.yml`. The workflow is user-owned after creation: rerunning `init --include ci` reports an edited workflow as existing and never overwrites it. The scaffolded workflow:
 
 - runs `skillset ci --fix` on pull requests and plain `skillset ci` on pushes to `main`;
 - appends the Markdown report to the job summary on every run;
@@ -32,7 +32,7 @@ Fork pull requests cannot receive pushes or comments with the default `GITHUB_TO
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
 | `skillset ci` command | n/a | n/a | `implemented` | Workflow tooling, not a lowered source feature. |
-| `--with-ci` workflow scaffold | n/a | n/a | `implemented` | Writes `.github/workflows/skillset-ci.yml` once; user-owned afterwards. |
+| `--include ci` workflow scaffold | n/a | n/a | `implemented` | Writes `.github/workflows/skillset-ci.yml` once; user-owned afterwards. |
 
 ## Diagnostics
 

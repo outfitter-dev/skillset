@@ -10,7 +10,7 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Apps](apps.md): Codex plugin `.app.json` pass-through and why there is no v1 `apps.source` feature key.
 - [Build Scopes](build-scopes.md): build mode, destination scopes, dry-run safety, diff/list/explain behavior, and lock semantics.
 - [Changes](changes.md): pending change entries, source coverage, compact refs, groups, and append-only history boundaries.
-- [CI](ci.md): the `skillset ci` aggregate check, mechanical drift rebuilds, PR-comment reports, and the `--with-ci` workflow scaffold.
+- [CI](ci.md): the `skillset ci` aggregate check, mechanical drift rebuilds, PR-comment reports, and the `--include ci` workflow scaffold.
 - [Commands](commands.md): Claude plugin command pass-through, manifest wiring, and Codex unsupported boundaries.
 - [Dependencies](dependencies.md): plugin dependency declarations, Claude lowering, Codex fallback notices, and provenance.
 - [Executables](executables.md): Claude plugin `bin/` conventional discovery, `bin.source`, and Codex unsupported diagnostics.

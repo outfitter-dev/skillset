@@ -35,7 +35,7 @@ bun run check
 ./scripts/bootstrap.sh [repo|agent|codex|claude|doctor|teardown]
 ```
 
-`bun run skillset:ci` is the same aggregate check GitHub Actions runs (`.github/workflows/ci.yml`): lint, change-entry coverage, and generated drift. Pass `--fix` to rebuild stale generated output mechanically. Content repos scaffold the equivalent workflow with `skillset init --with-ci`.
+`bun run skillset:ci` is the same aggregate check GitHub Actions runs (`.github/workflows/ci.yml`): lint, change-entry coverage, and generated drift. Pass `--fix` to rebuild stale generated output mechanically. Content repos scaffold the equivalent workflow with `skillset init --include ci`.
 
 The repo pins Bun in `.bun-version` and `packageManager`; update both together
 when intentionally moving Skillset to a newer Bun runtime.

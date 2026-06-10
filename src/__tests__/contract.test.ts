@@ -3919,35 +3919,19 @@ test("SET-27: init previews by default and writes only with confirmation", async
   expect(await fileExists(join(root, ".agents"))).toBe(false);
 });
 
-test("SET-27: init scaffolds project doc, agents, and islands only when requested", async () => {
+test("SET-27: init scaffolds optional includes only when requested", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-setup-shaped-"));
 
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
-  expect(await fileExists(join(root, ".skillset/instructions/project.md"))).toBe(false);
   expect(await fileExists(join(root, ".skillset/src/agents/.gitkeep"))).toBe(false);
-  expect(await fileExists(join(root, ".skillset/src/claude/.gitkeep"))).toBe(false);
-  expect(await fileExists(join(root, ".skillset/src/codex/rules/.gitkeep"))).toBe(false);
+  expect(await fileExists(join(root, ".github/workflows/skillset-ci.yml"))).toBe(false);
 
   const shaped = await mkdtemp(join(tmpdir(), "skillset-setup-shaped-"));
   await expect(
-    runSkillsetCli(
-      "init",
-      "--root",
-      shaped,
-      "--with-project-doc",
-      "--with-agents",
-      "--with-islands",
-      "--yes"
-    )
+    runSkillsetCli("init", "--root", shaped, "--include", "agents,ci", "--yes")
   ).resolves.toMatchObject({ exitCode: 0 });
-  expect(await fileExists(join(shaped, ".skillset/instructions/project.md"))).toBe(true);
   expect(await fileExists(join(shaped, ".skillset/src/agents/.gitkeep"))).toBe(true);
-  expect(await fileExists(join(shaped, ".skillset/src/claude/.gitkeep"))).toBe(true);
-  expect(await fileExists(join(shaped, ".skillset/src/codex/rules/.gitkeep"))).toBe(true);
-
-  await expect(runSkillsetCli("build", "--root", shaped, "--yes")).resolves.toMatchObject({ exitCode: 0 });
-  expect(await fileExists(join(shaped, "AGENTS.md"))).toBe(true);
-  expect(await fileExists(join(shaped, ".claude/rules/project.md"))).toBe(true);
+  expect(await fileExists(join(shaped, ".github/workflows/skillset-ci.yml"))).toBe(true);
 });
 
 test("SET-27: create makes a new source repo with default naming", async () => {

@@ -182,10 +182,10 @@ test("ci CLI rejects misplaced and unsupported flags", async () => {
   expect(sinceWithBuild.stderr).toContain("--since is only supported with ci or change commands");
 });
 
-test("init --with-ci scaffolds a valid workflow and keeps user edits", async () => {
+test("init --include ci scaffolds a valid workflow and keeps user edits", async () => {
   const root = await fixture({});
 
-  const report = await initSkillset({ cwd: root, includeCi: true, useGitRoot: false, write: true });
+  const report = await initSkillset({ cwd: root, include: ["ci"], useGitRoot: false, write: true });
   const planned = report.files.find((file) => file.path === CI_WORKFLOW_PATH);
   expect(planned?.status).toBe("create");
 
@@ -200,16 +200,28 @@ test("init --with-ci scaffolds a valid workflow and keeps user edits", async () 
 
   const customized = content.replace("bunx skillset@beta", "bunx skillset@9.9.9");
   await writeFile(workflowPath, customized);
-  const rerun = await initSkillset({ cwd: root, includeCi: true, useGitRoot: false, write: true });
+  const rerun = await initSkillset({ cwd: root, include: ["ci"], useGitRoot: false, write: true });
   const replanned = rerun.files.find((file) => file.path === CI_WORKFLOW_PATH);
   expect(replanned?.status).toBe("exists");
   expect(await readFile(workflowPath, "utf8")).toBe(customized);
 });
 
-test("init without --with-ci does not plan a workflow", async () => {
+test("init without --include ci does not plan a workflow", async () => {
   const root = await fixture({});
   const report = await initSkillset({ cwd: root, useGitRoot: false, write: false });
   expect(report.files.some((file) => file.path === CI_WORKFLOW_PATH)).toBe(false);
+});
+
+test("init --include rejects unknown values and non-setup commands", async () => {
+  const root = await fixture({});
+
+  const unknown = await runSkillsetCli("init", "--root", root, "--include", "bogus");
+  expect(unknown.exitCode).toBe(1);
+  expect(unknown.stderr).toContain("expected --include agents, ci");
+
+  const wrongCommand = await runSkillsetCli("build", "--include", "ci");
+  expect(wrongCommand.exitCode).toBe(1);
+  expect(wrongCommand.stderr).toContain("setup options are only supported with init or create");
 });
 
 async function builtFixture(): Promise<string> {
