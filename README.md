@@ -72,6 +72,7 @@ Prepare this repository checkout for local development or agent startup:
 ./scripts/bootstrap.sh doctor     # read-only environment diagnostics
 ./scripts/bootstrap.sh teardown   # remove dist/ and .skillset/build/
 bun run hooks:install             # install repo-local Lefthook git hooks
+bun run ultracite:doctor          # verify the Ultracite/Oxlint/Oxfmt setup
 ```
 
 The provider-specific commands resolve the repo root from `CLAUDE_PROJECT_DIR`
@@ -85,7 +86,9 @@ Skillset pins its development/runtime toolchain in `.bun-version` and
 published package floor for people running the compiled CLI through local
 installs, `npx`, or `bunx`; the pin is for reproducible repo bootstrap and CI.
 
-The optional Lefthook setup mirrors the repo's local review gates. Pre-commit checks staged whitespace and, when Skillset source or generated outputs are staged, runs the self-hosted lint/check pair. Pre-push runs build, tests, workflow lint when `actionlint` is available, generated-output checks, and `skillset ci --since origin/main` with a report under `.skillset/build/`.
+The optional Lefthook setup mirrors the repo's local review gates. Pre-commit checks staged whitespace and, when Skillset source or generated outputs are staged, runs the self-hosted lint/check pair. Pre-push runs build, tests, workflow lint when `actionlint` is available, Ultracite setup diagnostics, generated-output checks, and `skillset ci --since origin/main` with a report under `.skillset/build/`.
+
+Ultracite is installed with the documented Oxlint/Oxfmt provider setup (`oxlint.config.ts` extending `ultracite/oxlint/core`, `oxfmt.config.ts` extending `ultracite/oxfmt`). `bun run ultracite:doctor` is part of `bun run check` and must stay clean. `bun run ultracite:check` and `bun run ultracite:fix` are available for the strict formatting/lint cleanup pass, but they are not yet gating the repo because the first strict run has existing formatting and rule findings to resolve deliberately.
 
 Initialize Skillset source in an existing repo:
 

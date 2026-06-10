@@ -35,6 +35,10 @@ pre-push:
       env:
         GIT_PAGER: cat
       run: bun test
+    ultracite-doctor:
+      env:
+        GIT_PAGER: cat
+      run: bun run ultracite:doctor
     skillset-lint:
       env:
         GIT_PAGER: cat
