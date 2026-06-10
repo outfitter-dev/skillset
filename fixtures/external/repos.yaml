@@ -1,0 +1,7 @@
+# External fixture repos: real published repos Skillset should adopt cleanly.
+# Managed by scripts/external-fixtures.ts; `update` re-pins refs to upstream HEAD.
+repos:
+  - name: compound-engineering-plugin
+    repo: https://github.com/EveryInc/compound-engineering-plugin
+    ref: 4719dc509fdc45656a830e3ed6060f674e206076
+    notes: "Multi-surface Claude plugin repo: .claude-plugin manifest, .claude and .agents trees, nested plugins/ directory."

@@ -8,3 +8,4 @@ dist/
 .claude/worktrees/
 .scratch/
 .skillset/build/
+fixtures/external/repos/
