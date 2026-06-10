@@ -966,7 +966,10 @@ test("SET-25: CLI help succeeds before command validation", async () => {
   expect(rootHelp.exitCode).toBe(0);
   expect(rootHelp.stderr).toBe("");
   expect(rootHelp.stdout).toContain("usage: skillset build");
-  expect(rootHelp.stdout).toContain("skillset change status");
+  expect(rootHelp.stdout).toContain("skillset change status [--since <ref>] [--root <path>]");
+  expect(rootHelp.stdout).toContain("skillset change check [@ref|--ref <ref>] [--since <ref>] [--root <path>]");
+  expect(rootHelp.stdout).not.toContain("skillset change status [--since <ref>] [--scope <scope>]");
+  expect(rootHelp.stdout).not.toContain("skillset change check [@ref|--ref <ref>] [--since <ref>] [--scope <scope>]");
   expect(rootHelp.stdout).toContain("skillset explain <path>");
   expect(rootHelp.stdout).toContain("skillset import <path> [--kind <skill|skills|plugin|plugins>]");
 
@@ -1044,6 +1047,18 @@ test("SET-41: hooks print emits target runtime suggestions without installing", 
   const importKind = await runSkillsetCli("hooks", "print", "--runner", "git", "--kind", "skill");
   expect(importKind.exitCode).toBe(1);
   expect(importKind.stderr).toContain("non-hook options are not supported");
+});
+
+test("SET-44: change status and check reject scoped source coverage", async () => {
+  const status = await runSkillsetCli("change", "status", "--scope", "repo");
+  expect(status.exitCode).toBe(1);
+  expect(status.stderr).toContain("change status is a whole-source command");
+  expect(status.stderr).toContain("--scope is not supported");
+
+  const check = await runSkillsetCli("change", "check", "--scope", "repo");
+  expect(check.exitCode).toBe(1);
+  expect(check.stderr).toContain("change check is a whole-source command");
+  expect(check.stderr).toContain("--scope is not supported");
 });
 
 test("SET-41: change status --staged reads the Git index", async () => {
