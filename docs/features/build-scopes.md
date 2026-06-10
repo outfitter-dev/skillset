@@ -23,7 +23,7 @@ compile:
 skillset build --yes
 ```
 
-`--dry-run` is accepted for every build scope and always prevents writes, even when `--yes` is also present. Explicit `--scope` selectors filter generated destinations for build, diff, check, list, and explain. Repo scripts that intentionally refresh all generated output should omit `--scope` and pass `--yes`.
+`--dry-run` is accepted for every build scope and always prevents writes, even when `--yes` is also present. Explicit `--scope` selectors filter generated destinations for build, diff, top-level check, list, and explain. They are not source-coverage filters for `skillset change status` or `skillset change check`. Repo scripts that intentionally refresh all generated output should omit `--scope` and pass `--yes`.
 
 ## Support Table
 

@@ -28,8 +28,8 @@ type Command = "build" | "change" | "check" | "create" | "diff" | "doctor" | "ex
 const USAGE = [
   "usage: skillset build [--yes|--dry-run] [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset <check|diff|doctor|lint|list> [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
-  "       skillset change status [--since <ref>] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
-  "       skillset change check [@ref|--ref <ref>] [--since <ref>] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset change status [--since <ref>] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset change check [@ref|--ref <ref>] [--since <ref>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change <status|check> --staged [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change add --scope <source-unit> --bump <bump> [--group <group>] [--reason <text>|--reason-file <path>|--reason -] [--since <ref>] [--root <path>] [--source <dir>]",
   "       skillset change reason <@ref> [--append] [--reason <text>|--reason-file <path>|--reason -] [--root <path>] [--source <dir>]",
@@ -757,6 +757,10 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     if (flag === "--scope") {
       if (command === "change" && changeSubcommand === "add") {
         changeScopes = [...(changeScopes ?? []), ...readChangeScopes(value)];
+      } else if (command === "change" && (changeSubcommand === "status" || changeSubcommand === "check")) {
+        throw new Error(`skillset: change ${changeSubcommand} is a whole-source command; --scope is not supported`);
+      } else if (command === "change") {
+        throw new Error("skillset: --scope is only supported with change add source-unit entries");
       } else {
         scopes = readBuildScopes(value);
       }

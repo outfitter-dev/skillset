@@ -24,7 +24,7 @@ Compact ids are generated once at scaffold time as 12 lower-case hex characters.
 
 ## Diagnostics
 
-`skillset change status --since <ref>` compares current source units with the selected git ref without writing generated output. It reports source changes needing entries and then reports generated-output drift as a separate section. The default baseline overlays release-state source hashes onto the normal fallback inventory, then falls back to source-inventory locks when present, then git merge-base.
+`skillset change status --since <ref>` compares current source units with the selected git ref without writing generated output. It reports source changes needing entries and then reports generated-output drift as a separate section. The command is whole-source in v1; build `--scope` filters are rejected for `change status` and `change check` because they would only scope generated destinations, not source coverage. The default baseline overlays release-state source hashes onto the normal fallback inventory, then falls back to source-inventory locks when present, then git merge-base.
 
 `skillset change check` validates pending entry ids, duplicate ids, scopes, bumps, required reason bodies, source hash evidence, group shape, and coverage for current source changes. Entries can cover multiple scopes, carry `ignored: true`, and use `group` for external issue or change grouping metadata. Child plugin entries cover the derived plugin aggregate for coverage and release planning, but plugin config changes still require their own plugin-level story. `external.*` is rejected in v1 so issue ids do not get duplicated outside `group`. Refs resolve as `@<hex-prefix>` with at least 6 hex characters, and ambiguous prefixes fail with candidate refs.
 
