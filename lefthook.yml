@@ -33,7 +33,7 @@ pre-push:
     - name: whitespace
       env:
         GIT_PAGER: cat
-      run: git diff --check origin/main...HEAD
+      run: git diff --check "$(scripts/git-trunk.sh)...HEAD"
     - name: workflows
       env:
         GIT_PAGER: cat

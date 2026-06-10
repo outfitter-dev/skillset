@@ -47,7 +47,7 @@
     "skillset:build": "bun ./src/cli.ts build --root . --yes",
     "skillset:check": "bun ./src/cli.ts check --root .",
     "skillset:ci": "bun ./src/cli.ts ci --root .",
-    "skillset:ci:report": "bun ./src/cli.ts ci --root . --since origin/main --report .skillset/build/skillset-ci-report.md",
+    "skillset:ci:report": "bun ./src/cli.ts ci --root . --since \"$(scripts/git-trunk.sh)\" --report .skillset/build/skillset-ci-report.md",
     "skillset:lint": "bun ./src/cli.ts lint --root .",
     "skillset:verify": "bun run skillset:lint && bun run skillset:check",
     "test": "bun test",
