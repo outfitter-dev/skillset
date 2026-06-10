@@ -1,4 +1,4 @@
-import { chmod, mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -9,6 +9,7 @@ import { changeStatus, collectSourceInventory } from "../change-status";
 import { doctorSkillset, explainPath } from "../authoring";
 import { importSource, importSources } from "../import";
 import { lintSkillset } from "../lint";
+import { readReleaseState } from "../release-state";
 import { loadBuildGraph } from "../resolver";
 import { createSkillset } from "../setup";
 import { sourceUnitDisplay } from "../source-unit-selector";
@@ -3988,7 +3989,257 @@ test("SET-27: setup refuses unsafe overwrite", async () => {
   await Bun.write(join(initRoot, ".skillset/config.yaml"), "not: skillset\n");
   const init = await runSkillsetCli("init", "--root", initRoot, "--yes");
   expect(init.exitCode).toBe(1);
-  expect(init.stderr).toContain("refusing to overwrite existing setup file");
+  expect(init.stderr).toContain("unsupported top-level key not");
+});
+
+test("SET-43: init defaults to git root and seeds release baselines", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: adopt-root
+  version: 1.2.0
+claude: true
+codex: true
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+version: 2.3.4
+---
+
+Body.
+`,
+    "nested/.gitkeep": "",
+  });
+  await commitFixture(root);
+
+  const initialized = await runSkillsetCliIn(join(root, "nested"), "init", "--yes");
+  expect(initialized.exitCode).toBe(0);
+  expect(initialized.stdout).toContain(`root: ${await realpath(root)}`);
+  expect(initialized.stdout).toContain("+ baseline config: root 1.2.0");
+  expect(initialized.stdout).toContain("+ baseline skill: demo 2.3.4");
+
+  const inventory = await collectSourceInventory(root);
+  const state = await readReleaseState(root);
+  expect(state.scopes["config:root"]?.version).toBe("1.2.0");
+  expect(state.scopes["config:root"]?.sourceHash).toBe(sourceInventoryUnit(inventory, "config:root").hash);
+  expect(state.scopes["skill:demo"]?.version).toBe("2.3.4");
+  expect(state.scopes["skill:demo"]?.sourceHash).toBe(sourceInventoryUnit(inventory, "skill:demo").hash);
+  expect(await fileExists(join(root, ".skillset/changes/history.jsonl"))).toBe(false);
+  expect(await fileExists(join(root, ".skillset/changes/releases.jsonl"))).toBe(false);
+});
+
+test("SET-43: init is idempotent for adopted release baselines", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: adopt-idempotent
+  version: 0.4.0
+claude: true
+codex: true
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+version: 0.5.0
+---
+
+Body.
+`,
+  });
+
+  const first = await runSkillsetCli("init", "--root", root, "--yes");
+  expect(first.exitCode).toBe(0);
+  const firstState = await readFile(join(root, ".skillset/changes/state.json"), "utf8");
+
+  const second = await runSkillsetCli("init", "--root", root, "--yes");
+  expect(second.exitCode).toBe(0);
+  expect(second.stdout).toContain("= baseline config: root 0.4.0");
+  expect(second.stdout).toContain("= baseline skill: demo 0.5.0");
+  await expect(readFile(join(root, ".skillset/changes/state.json"), "utf8")).resolves.toBe(firstState);
+});
+
+test("SET-43: init treats hashed release state as authoritative", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: adopt-released
+  version: 0.4.0
+claude: true
+codex: true
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+version: 0.5.0
+---
+
+Body.
+`,
+  });
+
+  await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
+  const statePath = join(root, ".skillset/changes/state.json");
+  const releasedState = JSON.parse(await readFile(statePath, "utf8")) as {
+    scopes: Record<string, { version: string }>;
+  };
+  releasedState.scopes["skill:demo"]!.version = "0.6.0";
+  await writeFile(statePath, `${JSON.stringify(releasedState, null, 2)}\n`, "utf8");
+
+  const initialized = await runSkillsetCli("init", "--root", root, "--yes");
+  expect(initialized.exitCode).toBe(0);
+  expect(initialized.stdout).toContain("= baseline skill: demo 0.6.0");
+  await expect(readFile(statePath, "utf8")).resolves.toBe(`${JSON.stringify(releasedState, null, 2)}\n`);
+});
+
+test("SET-43: init reports repo-local import candidates", async () => {
+  const root = await contractFixture({
+    ".claude/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  const preview = await runSkillsetCli("init", "--root", root);
+  expect(preview.exitCode).toBe(0);
+  expect(preview.stdout).toContain("? import candidate skills .claude/skills");
+  expect(await fileExists(join(root, ".skillset/config.yaml"))).toBe(false);
+});
+
+test("SET-43: init does not report managed output roots as import candidates", async () => {
+  const root = await contractFixture({
+    ".agents/skills/.skillset.lock": "{}",
+    ".agents/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+    "plugins-codex/.skillset.lock": "{}",
+    "plugins-codex/plugins/demo/plugin.json": "{}",
+  });
+
+  const preview = await runSkillsetCli("init", "--root", root);
+  expect(preview.exitCode).toBe(0);
+  expect(preview.stdout).not.toContain("? import candidate skills .agents/skills");
+  expect(preview.stdout).not.toContain("? import candidate plugins plugins-codex/plugins");
+});
+
+test("SET-43: init rejects version conflicts with existing release state", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: adopt-conflict
+  version: 1.0.0
+claude: true
+codex: true
+`,
+    ".skillset/changes/state.json": JSON.stringify({
+      schemaVersion: 1,
+      scopes: {
+        "skill:demo": {
+          updatedAt: "2026-06-10T00:00:00.000Z",
+          version: "9.9.9",
+        },
+      },
+    }),
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+version: 1.0.0
+---
+
+Body.
+`,
+  });
+
+  const initialized = await runSkillsetCli("init", "--root", root, "--yes");
+  expect(initialized.exitCode).toBe(1);
+  expect(initialized.stderr).toContain("release baseline conflicts with existing release state");
+  expect(initialized.stderr).toContain("skill:demo");
+});
+
+test("SET-43: import seeds a release baseline for adopted skills", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: import-skill-root
+  version: 1.0.0
+claude: true
+codex: true
+`,
+  });
+  const external = await mkdtemp(join(tmpdir(), "skillset-import-source-"));
+  await Bun.write(join(external, "SKILL.md"), `---
+name: adopted
+description: Adopted skill.
+version: 3.4.5
+---
+
+Body.
+`);
+
+  const report = await importSource({ kind: "skill", rootPath: root, sourcePath: external });
+  expect(report.baselines.map((entry) => [entry.scope, entry.status, entry.version])).toEqual([
+    ["skill:adopted", "create", "3.4.5"],
+  ]);
+
+  const inventory = await collectSourceInventory(root);
+  const state = await readReleaseState(root);
+  expect(state.scopes["skill:adopted"]?.version).toBe("3.4.5");
+  expect(state.scopes["skill:adopted"]?.sourceHash).toBe(sourceInventoryUnit(inventory, "skill:adopted").hash);
+  expect(await fileExists(join(root, ".skillset/changes/history.jsonl"))).toBe(false);
+  expect(await fileExists(join(root, ".skillset/changes/releases.jsonl"))).toBe(false);
+});
+
+test("SET-43: import seeds release baselines for adopted plugins", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: import-plugin-root
+  version: 1.0.0
+claude: true
+codex: true
+`,
+  });
+  const external = await mkdtemp(join(tmpdir(), "skillset-import-plugin-"));
+  await Bun.write(join(external, "skillset.yaml"), `skillset:
+  name: widget
+  version: 0.8.0
+claude: true
+codex: true
+`);
+  await Bun.write(join(external, "skills/demo/SKILL.md"), `---
+name: demo
+description: Demo.
+---
+
+Body.
+`);
+
+  const report = await importSource({ kind: "plugin", rootPath: root, sourcePath: external });
+  expect(report.baselines.map((entry) => [entry.scope, entry.status, entry.version])).toEqual([
+    ["plugin.widget.config:root", "create", "0.8.0"],
+    ["plugin.widget.skill:demo", "create", "0.8.0"],
+    ["plugin:widget", "create", "0.8.0"],
+  ]);
+
+  const inventory = await collectSourceInventory(root);
+  const state = await readReleaseState(root);
+  for (const scope of ["plugin.widget.config:root", "plugin.widget.skill:demo", "plugin:widget"]) {
+    expect(state.scopes[scope]?.version).toBe("0.8.0");
+    expect(state.scopes[scope]?.sourceHash).toBe(sourceInventoryUnit(inventory, scope).hash);
+  }
 });
 
 test("SET-27: setup-only flags fail loudly outside their setup command", async () => {
@@ -4365,6 +4616,25 @@ async function runSkillsetCli(...args: readonly string[]): Promise<{
 }> {
   const proc = Bun.spawn({
     cmd: ["bun", join(import.meta.dir, "..", "cli.ts"), ...args],
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  return { exitCode, stderr, stdout };
+}
+
+async function runSkillsetCliIn(cwd: string, ...args: readonly string[]): Promise<{
+  readonly exitCode: number;
+  readonly stderr: string;
+  readonly stdout: string;
+}> {
+  const proc = Bun.spawn({
+    cmd: ["bun", join(import.meta.dir, "..", "cli.ts"), ...args],
+    cwd,
     stderr: "pipe",
     stdout: "pipe",
   });

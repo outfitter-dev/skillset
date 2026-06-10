@@ -1,8 +1,11 @@
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 
+import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
+import { validateConfigDocument } from "./config";
 import type { TargetName } from "./types";
 import { validateSlug } from "./path";
+import { parseYamlRecord } from "./yaml";
 
 const DEFAULT_CREATE_NAME = "my-skillset";
 const DEFAULT_GLOBAL_SOURCE = ".skillset/src";
@@ -19,6 +22,7 @@ export interface SetupOptions {
   readonly name?: string;
   readonly rootPath?: string;
   readonly targets?: readonly TargetName[];
+  readonly useGitRoot?: boolean;
   readonly write?: boolean;
 }
 
@@ -28,11 +32,18 @@ export interface SetupFile {
 }
 
 export interface SetupReport {
+  readonly baselines: readonly ReleaseBaselineEntry[];
   readonly files: readonly SetupFile[];
+  readonly importCandidates: readonly SetupImportCandidate[];
   readonly kind: "create" | "init";
   readonly rootPath: string;
   readonly sourceDir: string;
   readonly write: boolean;
+}
+
+export interface SetupImportCandidate {
+  readonly kind: "plugin" | "plugins" | "skills";
+  readonly path: string;
 }
 
 interface PlannedFile {
@@ -41,7 +52,7 @@ interface PlannedFile {
 }
 
 export async function initSkillset(options: SetupOptions = {}): Promise<SetupReport> {
-  const rootPath = resolve(options.cwd ?? process.cwd(), options.rootPath ?? ".");
+  const rootPath = await initRootPath(options);
   return applySetupPlan("init", rootPath, options);
 }
 
@@ -80,6 +91,11 @@ async function applySetupPlan(
     const absolutePath = join(rootPath, file.path);
     const existing = await readExistingFile(absolutePath);
     if (existing !== undefined && existing !== file.content) {
+      if (kind === "init" && file.path === ".skillset/config.yaml") {
+        await validateExistingRootConfig(absolutePath);
+        files.push({ path: file.path, status: "exists" });
+        continue;
+      }
       throw new Error(`skillset: refusing to overwrite existing setup file ${file.path}`);
     }
     files.push({ path: file.path, status: existing === undefined ? "create" : "exists" });
@@ -95,13 +111,85 @@ async function applySetupPlan(
     }
   }
 
+  const baselines = kind === "init"
+    ? (await seedReleaseBaselines(rootPath, {}, { write: options.write === true })).entries
+    : [];
+  const importCandidates = kind === "init" ? await detectImportCandidates(rootPath) : [];
+
   return {
+    baselines,
     files,
+    importCandidates,
     kind,
     rootPath,
     sourceDir: SETUP_SOURCE_DIR,
     write: options.write === true,
   };
+}
+
+async function initRootPath(options: SetupOptions): Promise<string> {
+  const cwd = resolve(options.cwd ?? process.cwd());
+  if (options.rootPath !== undefined) return resolve(cwd, options.rootPath);
+  if (options.useGitRoot === false) return cwd;
+  return (await gitRoot(cwd)) ?? cwd;
+}
+
+async function gitRoot(cwd: string): Promise<string | undefined> {
+  const proc = Bun.spawn({
+    cmd: ["git", "-C", cwd, "rev-parse", "--show-toplevel"],
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [stdout, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    proc.exited,
+  ]);
+  if (exitCode !== 0) return undefined;
+  const path = stdout.trim();
+  return path.length === 0 ? undefined : path;
+}
+
+async function validateExistingRootConfig(path: string): Promise<void> {
+  const content = await readFile(path, "utf8");
+  validateConfigDocument(parseYamlRecord(content, path), path, { allowCompile: true });
+}
+
+async function detectImportCandidates(rootPath: string): Promise<readonly SetupImportCandidate[]> {
+  const candidates: SetupImportCandidate[] = [];
+  await maybeCandidate(candidates, rootPath, ".claude/skills", "skills");
+  await maybeCandidate(candidates, rootPath, ".codex/skills", "skills");
+  await maybeCandidate(candidates, rootPath, ".agents/skills", "skills");
+  await maybeCandidate(candidates, rootPath, "plugins-claude/plugins", "plugins");
+  await maybeCandidate(candidates, rootPath, "plugins-codex/plugins", "plugins");
+  if (await pathExists(join(rootPath, ".claude-plugin/plugin.json")) || await pathExists(join(rootPath, ".codex-plugin/plugin.json"))) {
+    candidates.push({ kind: "plugin", path: "." });
+  }
+  return candidates.sort((left, right) => compareCandidate(left, right));
+}
+
+async function maybeCandidate(
+  candidates: SetupImportCandidate[],
+  rootPath: string,
+  path: string,
+  kind: SetupImportCandidate["kind"]
+): Promise<void> {
+  const absolutePath = join(rootPath, path);
+  if (!(await pathExists(absolutePath))) return;
+  const stats = await stat(absolutePath);
+  if (!stats.isDirectory()) return;
+  if (await isManagedCandidate(absolutePath)) return;
+  const entries = await readdir(absolutePath);
+  if (entries.filter((entry) => entry !== ".DS_Store").length === 0) return;
+  candidates.push({ kind, path: relative(rootPath, absolutePath).replaceAll("\\", "/") });
+}
+
+async function isManagedCandidate(path: string): Promise<boolean> {
+  return (await pathExists(join(path, ".skillset.lock"))) || (await pathExists(join(dirname(path), ".skillset.lock")));
+}
+
+function compareCandidate(left: SetupImportCandidate, right: SetupImportCandidate): number {
+  return `${left.kind}:${left.path}` < `${right.kind}:${right.path}` ? -1 :
+    `${left.kind}:${left.path}` > `${right.kind}:${right.path}` ? 1 : 0;
 }
 
 function setupFiles(options: Required<Pick<SetupOptions, "name" | "targets">> & SetupOptions): readonly PlannedFile[] {

@@ -90,12 +90,16 @@ skillset init --root /path/to/content-repo
 skillset init --root /path/to/content-repo --targets claude --with-agents --with-islands --yes
 ```
 
+`init` is the existing-repo entrypoint. It previews or writes the minimal source scaffold, defaults to the Git root when possible, detects repo-local Claude/Codex/Skillset artifacts worth importing, and seeds release-state baselines from current source versions and normalized source hashes without creating a pending change, release, history entry, or changelog projection. That adoption pass is repo-local only; it does not scan or mutate user/global runtime directories.
+
 Create a new source repo, defaulting to `my-skillset` under the current directory:
 
 ```bash
 skillset create
 skillset create team-loadout --name team-loadout --targets claude,codex --yes
 ```
+
+`create` is the new-repo entrypoint. The current flow writes the same minimal source scaffold into a new directory. SET-54 tracks the richer create-project experience: initialize Git, add a README and lightweight agent guidance, provide starter source files, and eventually offer reviewed Claude/Codex configuration suggestions while still avoiding implicit live runtime config mutation.
 
 For a user-global source checkout, `skillset create --global` defaults to `~/.skillset/src`. This is still Skillset-owned source, not a live Claude or Codex runtime directory. The corresponding preview/build area is documented as `~/.skillset/build`, but setup does not create it or write to `~/.claude`, `~/.codex`, or `.agents`. The beta package requires Bun and ships Bun-built JavaScript bins for `skillset` and `create-skillset`; it can be run through package managers with commands such as `npx skillset@beta create` or `bunx skillset@beta create`. Setup still routes through the same plan-first `create` flow.
 
@@ -126,6 +130,8 @@ skillset import agents --root /path/to/content-repo  # ~/.agents/skills
 Imports copy files into `.skillset/skills/<name>` or `.skillset/plugins/<name>`. Passing a `SKILL.md` path imports the full containing skill directory, including sibling `references/`, `scripts/`, `assets/`, `agents/`, and other sidecars. Skills-root imports de-dupe symlinked directories by real path, so the same global skill is not imported twice when `.claude/skills`, `.codex/skills`, and `.agents/skills` point at one another. Plugin imports write plugin-local `skillset.yaml`; when importing a native Claude/Codex generated plugin that only has `.claude-plugin/plugin.json` or `.codex-plugin/plugin.json`, Skillset synthesizes a minimal source `skillset.yaml` from the native manifest while preserving the native manifest files as imported context. Import does not install, trust, symlink, publish, mutate registries, or change user-level Claude/Codex config.
 
 Import is a safe bridge, not a lossy copier. It returns a report — printed by the CLI — summarizing the copied files, the source fields it recognized, target-native fields preserved verbatim (e.g. Claude `allowed-tools`, `disable-model-invocation`), unrecognized fields kept as-is, warnings, and the next checks to run (`skillset lint`, `build`, `check`). Target-native and unknown frontmatter is preserved rather than dropped, so nothing is silently lost; the warnings point you at fields worth moving to a portable source key or a `claude`/`codex` block. Import never overwrites an existing source — remove it or import under a different `--name`.
+
+Import shares the same version-baseline adoption machinery as `init` when the destination has a buildable Skillset root: imported versions become the starting release-state truth for those source units instead of forcing a fake release or a one-time inline-version migration. Import skips baseline seeding when there is no local Skillset config yet.
 
 ## Source Contract
 
