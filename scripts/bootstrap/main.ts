@@ -1,0 +1,144 @@
+import type { BootstrapCommand } from "./config";
+import { loadBootstrapConfig } from "./config";
+import { runAgentBootstrap } from "./agent";
+import { runDoctor } from "./doctor";
+import { detectHost, resolveRepoRoot } from "./host";
+import { runRepoBootstrap } from "./repo";
+import { runTeardown } from "./teardown";
+
+export interface ParsedBootstrapArgs {
+  readonly command: BootstrapCommand;
+  readonly force: boolean;
+  readonly provider: "claude" | "codex" | undefined;
+  readonly update: boolean;
+}
+
+const COMMANDS: ReadonlySet<string> = new Set([
+  "agent",
+  "claude",
+  "codex",
+  "doctor",
+  "repo",
+  "sweep",
+  "teardown",
+]);
+
+export const parseBootstrapArgs = (
+  args: readonly string[]
+): ParsedBootstrapArgs => {
+  const [first, ...rest] = args;
+  const rawCommand = COMMANDS.has(first ?? "") ? first : "repo";
+  const command = rawCommand === "sweep" ? "teardown" : rawCommand;
+  const flags = rawCommand === first ? rest : args;
+  let force = false;
+  let update = false;
+
+  for (const flag of flags) {
+    switch (flag) {
+      case "--force": {
+        force = true;
+        break;
+      }
+      case "--update": {
+        update = true;
+        break;
+      }
+      case "-h":
+      case "--help": {
+        break;
+      }
+      default: {
+        throw new Error(`Unknown bootstrap option: ${flag}`);
+      }
+    }
+  }
+
+  return {
+    command: command as BootstrapCommand,
+    force,
+    provider: command === "claude" || command === "codex" ? command : undefined,
+    update,
+  };
+};
+
+export const printUsage = (): void => {
+  console.error(`Usage: ./scripts/bootstrap.sh [repo|agent|codex|claude|doctor|teardown] [--force] [--update]
+
+Commands:
+  repo     Make this checkout runnable (default)
+  agent    Repo bootstrap plus agent lifecycle diagnostics
+  codex    Codex agent bootstrap with provider-specific root detection
+  claude   Claude agent bootstrap with provider-specific root detection
+  doctor   Diagnostics only; no install, cleanup, or mutation
+  teardown Conservative cleanup of configured local artifacts only
+
+Compatibility:
+  ./scripts/bootstrap.sh --force
+  ./scripts/bootstrap.sh --update
+  ./scripts/bootstrap.sh sweep`);
+};
+
+const runMain = async (): Promise<void> => {
+  if (process.argv.includes("--help") || process.argv.includes("-h")) {
+    printUsage();
+    return;
+  }
+
+  const config = loadBootstrapConfig();
+  const parsed = parseBootstrapArgs(process.argv.slice(2));
+  const env =
+    parsed.provider === undefined
+      ? process.env
+      : {
+          ...process.env,
+          SKILLSET_AGENT_ENV_PROVIDER: parsed.provider,
+        };
+  const host = detectHost(env, config);
+  const repoRoot = resolveRepoRoot(process.cwd(), env, config, parsed.provider);
+
+  switch (parsed.command) {
+    case "repo": {
+      await runRepoBootstrap({
+        config,
+        force: parsed.force,
+        host,
+        repoRoot,
+        update: parsed.update,
+      });
+      return;
+    }
+    case "agent":
+    case "codex":
+    case "claude": {
+      await runAgentBootstrap({
+        config,
+        force: parsed.force,
+        host,
+        repoRoot,
+        update: parsed.update,
+      });
+      return;
+    }
+    case "doctor": {
+      await runDoctor(repoRoot, config, host);
+      return;
+    }
+    case "teardown": {
+      runTeardown(repoRoot, config);
+      return;
+    }
+    default: {
+      const exhaustive: never = parsed.command;
+      throw new Error(`Unknown bootstrap command: ${exhaustive}`);
+    }
+  }
+};
+
+if (import.meta.main) {
+  try {
+    await runMain();
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
+}

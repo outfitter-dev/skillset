@@ -13,5 +13,10 @@
     "target": "ES2023",
     "types": ["bun-types"]
   },
-  "include": ["src/**/*.ts", "scripts/build-package.ts"]
+  "include": [
+    "src/**/*.ts",
+    "scripts/build-package.ts",
+    "scripts/bootstrap/**/*.ts",
+    "scripts/__tests__/**/*.ts"
+  ]
 }

@@ -13,6 +13,21 @@ export interface HookPrintOptions {
 
 const PRE_COMMIT_COMMAND = "skillset change check --staged";
 const PRE_PUSH_COMMAND = "skillset change check --since origin/main && skillset check && skillset doctor";
+const RUNTIME_SOURCE_PATHS = [
+  ".skillset/config.yaml",
+  ".skillset/instructions",
+  ".skillset/skills",
+  ".skillset/plugins",
+  ".skillset/shared",
+  ".skillset/src",
+  ".skillset/changes/pending",
+] as const;
+const RUNTIME_SOURCE_STATUS_COMMAND =
+  `git status --porcelain=v1 --untracked-files=all -- ${RUNTIME_SOURCE_PATHS.join(" ")}`;
+const RUNTIME_POST_TOOL_USE_COMMAND =
+  `${RUNTIME_SOURCE_STATUS_COMMAND} | grep -q . && skillset change status --root . || true`;
+const RUNTIME_STOP_COMMAND =
+  `if ${RUNTIME_SOURCE_STATUS_COMMAND} | grep -q .; then skillset change check --root . && skillset check --root .; fi`;
 
 export function renderHookPrint(options: HookPrintOptions): string {
   validateHookPrintOptions(options);
@@ -146,7 +161,6 @@ function renderGitSnippet(options: { readonly preCommit: boolean; readonly prePu
 
 function renderAgentRuntimeSnippet(target: TargetName | undefined): string {
   if (target === undefined) throw new Error("skillset: hooks print --agent-runtime requires --target");
-  const command = "skillset change check --root . && skillset change status --root .";
   const note =
     "Generated suggestion only. Review before adding to project-local runtime config; Skillset does not install or trust hooks.";
   const value = {
@@ -157,7 +171,7 @@ function renderAgentRuntimeSnippet(target: TargetName | undefined): string {
           hooks: [
             {
               type: "command",
-              command: "git diff --name-only -- .skillset | grep -q . && skillset change status --root . || true",
+              command: RUNTIME_POST_TOOL_USE_COMMAND,
             },
           ],
         },
@@ -167,7 +181,7 @@ function renderAgentRuntimeSnippet(target: TargetName | undefined): string {
           hooks: [
             {
               type: "command",
-              command,
+              command: RUNTIME_STOP_COMMAND,
             },
           ],
         },

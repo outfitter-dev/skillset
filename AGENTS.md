@@ -31,7 +31,11 @@ bun run skillset:check
 bun run typecheck
 bun test
 bun run check
+./scripts/bootstrap.sh [repo|agent|codex|claude|doctor|teardown]
 ```
+
+The repo pins Bun in `.bun-version` and `packageManager`; update both together
+when intentionally moving Skillset to a newer Bun runtime.
 
 Read-only authoring aids (never write outputs or mutate config):
 

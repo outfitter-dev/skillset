@@ -3,6 +3,34 @@
   "generatedBy": "skillset@0.1.0",
   "items": [
     {
+      "files": [
+        ".claude/settings.json"
+      ],
+      "kind": "island",
+      "name": "claude:project:settings.json",
+      "outputHash": "sha256:8d22f75253d0a8e180feb3cc82039f983fd9736e73834a177916097e63b69ddb",
+      "outputPath": ".claude/settings.json",
+      "preprocessDependencies": [],
+      "sourceHash": "sha256:519a0ec13960c67148b54ae4f8469493be8e2ad557062c470e81a3a6d14f1b19",
+      "sourcePath": ".skillset/src/claude/settings.json",
+      "validation": "structured",
+      "version": "0.1.0"
+    },
+    {
+      "files": [
+        ".codex/hooks/hooks.json"
+      ],
+      "kind": "island",
+      "name": "codex:project:hooks/hooks.json",
+      "outputHash": "sha256:769bb9546ea2e0e1cff40438f9d33d193d150599d95953e926233da243447d5d",
+      "outputPath": ".codex/hooks/hooks.json",
+      "preprocessDependencies": [],
+      "sourceHash": "sha256:6fb41ff8f0822362f718db7d1830904a519dee97d0d7536b2f9549101e0c8087",
+      "sourcePath": ".skillset/src/codex/hooks/hooks.json",
+      "validation": "structured",
+      "version": "0.1.0"
+    },
+    {
       "feature": "skill",
       "files": [
         ".skillset/skills/skillset-repo-test-fixtures/CHANGELOG.md"

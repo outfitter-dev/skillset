@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun .skillset/shared/scripts/skillset-runtime-hooks.ts post-tool-use"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun .skillset/shared/scripts/skillset-runtime-hooks.ts stop"
+          }
+        ]
+      }
+    ]
+  }
+}

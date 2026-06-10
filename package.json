@@ -3,6 +3,7 @@
   "version": "0.1.0-beta.5",
   "description": "Source-first compiler for Claude and Codex agent loadouts.",
   "type": "module",
+  "packageManager": "bun@1.3.14",
   "files": [
     "dist/*.js",
     "docs/",
@@ -13,7 +14,7 @@
     "tag": "beta"
   },
   "engines": {
-    "bun": ">=1.2.0"
+    "bun": ">=1.3.14"
   },
   "repository": {
     "type": "git",

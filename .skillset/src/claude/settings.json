@@ -1,0 +1,49 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./scripts/bootstrap.sh claude",
+            "timeout": 300,
+            "statusMessage": "Bootstrapping Skillset worktree"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./scripts/bootstrap.sh teardown",
+            "timeout": 120,
+            "statusMessage": "Tearing down Skillset worktree"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun .skillset/shared/scripts/skillset-runtime-hooks.ts post-tool-use"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun .skillset/shared/scripts/skillset-runtime-hooks.ts stop"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -30,7 +30,19 @@ skillset hooks print --target codex --agent-runtime
 
 ## Diagnostics
 
-Pre-commit guardrails are staged-aware and fast through `skillset change check --staged`, which compares the Git index against `HEAD`. Pre-push snippets run broader checks through `skillset change check --since origin/main`, `skillset check`, and `skillset doctor`. Runtime hook suggestions nudge agents after `.skillset/**` edits and run a Stop guardrail before the agent finishes, but they remain opt-in reviewed configuration.
+Pre-commit guardrails are staged-aware and fast through `skillset change check --staged`, which compares the Git index against `HEAD`. Pre-push snippets run broader checks through `skillset change check --since origin/main`, `skillset check`, and `skillset doctor`.
+
+Runtime hook suggestions stay narrower than Git hooks. They first inspect the Skillset source/change-entry paths that can affect source provenance, including untracked files:
+
+- `.skillset/config.yaml`
+- `.skillset/instructions`
+- `.skillset/skills`
+- `.skillset/plugins`
+- `.skillset/shared`
+- `.skillset/src`
+- `.skillset/changes/pending`
+
+`PostToolUse` is advisory: after write/edit tools it runs `skillset change status --root .` only when one of those paths has a tracked or untracked change, and it does not block the agent turn. `Stop` is blocking but uses the same path gate before running `skillset change check --root .` and `skillset check --root .`. Runtime suggestions remain opt-in reviewed configuration.
 
 ## Provenance
 
