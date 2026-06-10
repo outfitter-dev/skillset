@@ -1,7 +1,7 @@
-import type { BootstrapConfig } from './config';
-import { printAgentGitDiagnostics } from './git';
-import type { HostInfo } from './host';
-import { runRepoBootstrap } from './repo';
+import type { BootstrapConfig } from "./config";
+import { printAgentGitDiagnostics } from "./git";
+import type { HostInfo } from "./host";
+import { runRepoBootstrap } from "./repo";
 
 export interface AgentBootstrapOptions {
   readonly config: BootstrapConfig;
@@ -15,8 +15,5 @@ export const runAgentBootstrap = async (
   options: AgentBootstrapOptions
 ): Promise<void> => {
   await runRepoBootstrap(options);
-  printAgentGitDiagnostics(
-    options.repoRoot,
-    options.config.agent.graphiteStackMaxLines
-  );
+  printAgentGitDiagnostics(options.repoRoot, options.config.agent.graphiteStackMaxLines);
 };

@@ -1,8 +1,0 @@
-*.md
-node_modules/
-dist/
-.skillset/build/
-.claude/worktrees/
-.scratch/
-plugins-claude/
-plugins-codex/

@@ -1,4 +1,4 @@
-import { relative, resolve, sep } from 'node:path';
+import { relative, resolve, sep } from "node:path";
 
 export function resolveInside(root: string, candidate: string): string {
   const resolvedRoot = resolve(root);
@@ -6,13 +6,11 @@ export function resolveInside(root: string, candidate: string): string {
   const relativePath = relative(resolvedRoot, resolved);
 
   if (
-    relativePath === '' ||
-    relativePath.startsWith('..') ||
+    relativePath === "" ||
+    relativePath.startsWith("..") ||
     relativePath.includes(`..${sep}`)
   ) {
-    throw new Error(
-      `skillset: refusing to operate outside repo root: ${candidate}`
-    );
+    throw new Error(`skillset: refusing to operate outside repo root: ${candidate}`);
   }
 
   return resolved;
@@ -26,12 +24,8 @@ export function resolveInside(root: string, candidate: string): string {
  * uses UTF-16 code-unit order, which is stable everywhere.
  */
 export function compareStrings(left: string, right: string): number {
-  if (left < right) {
-    return -1;
-  }
-  if (left > right) {
-    return 1;
-  }
+  if (left < right) return -1;
+  if (left > right) return 1;
   return 0;
 }
 

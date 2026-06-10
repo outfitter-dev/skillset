@@ -1,13 +1,13 @@
-import { existsSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 
-import type { BunCheck } from './bun';
-import { checkBunVersion, installPinnedBun } from './bun';
-import type { BootstrapConfig } from './config';
-import { readWorktreeInfo } from './git';
-import type { HostInfo } from './host';
-import { info, runInherit, success, warn } from './shared';
-import { collectToolStatus, printToolStatuses } from './tools';
+import type { BunCheck } from "./bun";
+import { checkBunVersion, installPinnedBun } from "./bun";
+import type { BootstrapConfig } from "./config";
+import { readWorktreeInfo } from "./git";
+import type { HostInfo } from "./host";
+import { info, runInherit, success, warn } from "./shared";
+import { collectToolStatus, printToolStatuses } from "./tools";
 
 export interface RepoBootstrapOptions {
   readonly config: BootstrapConfig;
@@ -20,7 +20,7 @@ export interface RepoBootstrapOptions {
 export interface BunDeps {
   readonly checkBunVersion?: (
     repoRoot: string,
-    policy: HostInfo['bunPolicy'],
+    policy: HostInfo["bunPolicy"],
     versionFile?: string
   ) => BunCheck;
   readonly installPinnedBun?: (
@@ -32,9 +32,7 @@ export interface BunDeps {
 export const listWorkspaceGlobs = async (
   repoRoot: string
 ): Promise<readonly string[]> => {
-  const packageJson = (await Bun.file(
-    join(repoRoot, 'package.json')
-  ).json()) as {
+  const packageJson = (await Bun.file(join(repoRoot, "package.json")).json()) as {
     readonly workspaces?: readonly string[];
   };
   return Array.isArray(packageJson.workspaces) ? packageJson.workspaces : [];
@@ -44,7 +42,7 @@ const expandWorkspaceGlob = (
   repoRoot: string,
   workspaceGlob: string
 ): readonly string[] => {
-  if (!workspaceGlob.endsWith('/*')) {
+  if (!workspaceGlob.endsWith("/*")) {
     return [join(repoRoot, workspaceGlob)];
   }
   const base = join(repoRoot, workspaceGlob.slice(0, -2));
@@ -59,14 +57,14 @@ const expandWorkspaceGlob = (
 export const hasRepoInstallState = async (
   repoRoot: string
 ): Promise<boolean> => {
-  if (!existsSync(join(repoRoot, 'node_modules'))) {
+  if (!existsSync(join(repoRoot, "node_modules"))) {
     return false;
   }
   for (const workspaceGlob of await listWorkspaceGlobs(repoRoot)) {
     for (const dir of expandWorkspaceGlob(repoRoot, workspaceGlob)) {
       if (
-        existsSync(join(dir, 'package.json')) &&
-        !existsSync(join(dir, 'node_modules'))
+        existsSync(join(dir, "package.json")) &&
+        !existsSync(join(dir, "node_modules"))
       ) {
         return false;
       }
@@ -87,7 +85,7 @@ export const ensureBunAvailable = async (
     options.config.bun.versionFile
   );
   if (!check.ok) {
-    warn(check.reason ?? 'Bun version check failed');
+    warn(check.reason ?? "Bun version check failed");
     info(`Repairing Bun runtime to pinned ${check.pinned}`);
     await repairBun(options.repoRoot, options.config.bun.versionFile);
     check = readCheck(
@@ -96,7 +94,7 @@ export const ensureBunAvailable = async (
       options.config.bun.versionFile
     );
     if (!check.ok) {
-      throw new Error(check.reason ?? 'Bun version check failed');
+      throw new Error(check.reason ?? "Bun version check failed");
     }
   }
   success(
@@ -110,17 +108,17 @@ const installDependencies = async (
 ): Promise<void> => {
   info(
     update
-      ? 'Refreshing project dependencies with Bun'
-      : 'Installing project dependencies with Bun (frozen lockfile)'
+      ? "Refreshing project dependencies with Bun"
+      : "Installing project dependencies with Bun (frozen lockfile)"
   );
   const code = await runInherit(
-    update ? ['bun', 'install'] : ['bun', 'install', '--frozen-lockfile'],
+    update ? ["bun", "install"] : ["bun", "install", "--frozen-lockfile"],
     repoRoot
   );
   if (code !== 0) {
     throw new Error(`bun install failed with exit code ${String(code)}`);
   }
-  success('Dependencies installed');
+  success("Dependencies installed");
 };
 
 export const runRepoBootstrap = async (
@@ -130,12 +128,12 @@ export const runRepoBootstrap = async (
 
   const installStateReady = await hasRepoInstallState(options.repoRoot);
   if (!options.force && !options.update && installStateReady) {
-    success('Dependencies already available');
+    success("Dependencies already available");
   } else {
     const worktree = readWorktreeInfo(options.repoRoot);
     if (worktree.linked) {
       info(
-        'Linked worktree detected; installing dependencies locally for this checkout'
+        "Linked worktree detected; installing dependencies locally for this checkout"
       );
     }
     await installDependencies(options.repoRoot, options.update);
@@ -146,10 +144,10 @@ export const runRepoBootstrap = async (
       options.config.checks.optionalTools,
       options.repoRoot
     );
-    console.error('');
-    printToolStatuses('Optional capabilities', statuses, true);
+    console.error("");
+    printToolStatuses("Optional capabilities", statuses, true);
     if (statuses.some((status) => !status.present)) {
-      warn('Missing optional capabilities do not block bootstrap.');
+      warn("Missing optional capabilities do not block bootstrap.");
     }
   }
 };

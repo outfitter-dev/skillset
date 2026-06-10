@@ -9,63 +9,45 @@ import type {
   OutputSelection,
   ResolvedTarget,
   TargetName,
-} from './types';
-import { isJsonRecord } from './yaml';
+} from "./types";
+import { isJsonRecord } from "./yaml";
 
-const TARGET_NAMES: readonly TargetName[] = ['claude', 'codex'];
-export type FeatureSurface = 'agents' | 'instructions' | 'plugins' | 'skills';
+const TARGET_NAMES: readonly TargetName[] = ["claude", "codex"];
+export type FeatureSurface = "agents" | "instructions" | "plugins" | "skills";
 
-const DEFAULT_SURFACES = new Set<FeatureSurface>([
-  'agents',
-  'instructions',
-  'plugins',
-  'skills',
-]);
-const CONFIG_TOP_LEVEL_KEYS = new Set([
-  'agents',
-  'changes',
-  'claude',
-  'codex',
-  'defaults',
-  'dependencies',
-  'skillset',
-  'supports',
-  'tests',
-]);
-const ROOT_CONFIG_TOP_LEVEL_KEYS = new Set([
-  ...CONFIG_TOP_LEVEL_KEYS,
-  'compile',
-]);
-const COMPILE_BUILD_MODES = new Set<CompileBuildMode>(['updated', 'all']);
+const DEFAULT_SURFACES = new Set<FeatureSurface>(["agents", "instructions", "plugins", "skills"]);
+const CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "changes", "claude", "codex", "defaults", "dependencies", "skillset", "supports", "tests"]);
+const ROOT_CONFIG_TOP_LEVEL_KEYS = new Set([...CONFIG_TOP_LEVEL_KEYS, "compile"]);
+const COMPILE_BUILD_MODES = new Set<CompileBuildMode>(["updated", "all"]);
 const COMPILE_UNSUPPORTED_POLICIES = new Set<CompileUnsupportedPolicy>([
-  'error',
-  'warn',
-  'skip',
-  'force',
+  "error",
+  "warn",
+  "skip",
+  "force",
 ]);
 const SOURCE_ONLY_KEYS = new Set([
-  'agents',
-  'allowed_tools',
-  'bin',
-  'claude',
-  'changes',
-  'compile',
-  'codex',
-  'defaults',
-  'dependencies',
-  'implicit_invocation',
-  'mcp',
-  'model',
-  'resources',
-  'schema',
-  'skillset',
-  'summary',
-  'supports',
-  'targets',
-  'tests',
-  'title',
-  'tool_intent',
-  'version',
+  "agents",
+  "allowed_tools",
+  "bin",
+  "claude",
+  "changes",
+  "compile",
+  "codex",
+  "defaults",
+  "dependencies",
+  "implicit_invocation",
+  "mcp",
+  "model",
+  "resources",
+  "schema",
+  "skillset",
+  "summary",
+  "supports",
+  "targets",
+  "tests",
+  "title",
+  "tool_intent",
+  "version",
 ]);
 
 export function defaultTargets(): Readonly<Record<TargetName, ResolvedTarget>> {
@@ -75,39 +57,28 @@ export function defaultTargets(): Readonly<Record<TargetName, ResolvedTarget>> {
   };
 }
 
-export function readCompileConfig(
-  record: JsonRecord,
-  label: string
-): CompileConfig {
+export function readCompileConfig(record: JsonRecord, label: string): CompileConfig {
   const compile = readCompileRecord(record, label);
   if (compile === undefined) {
     return {
-      build: 'updated',
+      build: "updated",
       skillset: { metadata: true },
       targets: [...TARGET_NAMES],
-      unsupported: 'error',
+      unsupported: "error",
     };
   }
 
   for (const key of Object.keys(compile)) {
-    if (
-      key !== 'build' &&
-      key !== 'skillset' &&
-      key !== 'targets' &&
-      key !== 'unsupported'
-    ) {
+    if (key !== "build" && key !== "skillset" && key !== "targets" && key !== "unsupported") {
       throw new Error(`skillset: unsupported compile key ${key} in ${label}`);
     }
   }
 
-  const unsupported = readCompileUnsupportedPolicy(
-    compile,
-    `${label}.compile.unsupported`
-  );
-  if (unsupported !== 'error') {
+  const unsupported = readCompileUnsupportedPolicy(compile, `${label}.compile.unsupported`);
+  if (unsupported !== "error") {
     throw new Error(
       `skillset: ${label}.compile.unsupported ${unsupported} is reserved but not supported yet; ` +
-        'use error until warning, skip, or force provenance is implemented'
+        "use error until warning, skip, or force provenance is implemented"
     );
   }
 
@@ -125,50 +96,36 @@ export function readCompileTargets(
 ): Readonly<Record<TargetName, ResolvedTarget>> {
   const compile = readCompileRecord(record, label);
   const rootDefaults = readShorthandTargetDefaults(record, label);
-  if (compile === undefined) {
-    return mergeTargetDefaults(defaultTargets(), rootDefaults);
-  }
+  if (compile === undefined) return mergeTargetDefaults(defaultTargets(), rootDefaults);
 
   const targets = readCompileTargetNames(compile, `${label}.compile.targets`);
   const enabledTargets = new Set(targets);
 
-  return mergeTargetDefaults(
-    {
-      claude: { enabled: enabledTargets.has('claude'), options: {} },
-      codex: { enabled: enabledTargets.has('codex'), options: {} },
-    },
-    rootDefaults
-  );
+  return mergeTargetDefaults({
+    claude: { enabled: enabledTargets.has("claude"), options: {} },
+    codex: { enabled: enabledTargets.has("codex"), options: {} },
+  }, rootDefaults);
 }
 
-function readCompileTargetNames(
-  record: JsonRecord,
-  label: string
-): readonly TargetName[] {
-  const { targets } = record;
-  if (targets === undefined) {
-    return [...TARGET_NAMES];
-  }
+function readCompileTargetNames(record: JsonRecord, label: string): readonly TargetName[] {
+  const targets = record.targets;
+  if (targets === undefined) return [...TARGET_NAMES];
   if (!Array.isArray(targets)) {
-    throw new TypeError(`skillset: expected ${label} to be a string array`);
+    throw new Error(`skillset: expected ${label} to be a string array`);
   }
   if (targets.length === 0) {
-    throw new Error(
-      `skillset: expected ${label} to include at least one target`
-    );
+    throw new Error(`skillset: expected ${label} to include at least one target`);
   }
 
   const enabledTargets = new Set<TargetName>();
   for (const target of targets) {
-    if (target !== 'claude' && target !== 'codex') {
+    if (target !== "claude" && target !== "codex") {
       throw new Error(
         `skillset: unsupported target ${JSON.stringify(target)} in ${label}; expected claude or codex`
       );
     }
     if (enabledTargets.has(target)) {
-      throw new Error(
-        `skillset: duplicate target ${JSON.stringify(target)} in ${label}`
-      );
+      throw new Error(`skillset: duplicate target ${JSON.stringify(target)} in ${label}`);
     }
     enabledTargets.add(target);
   }
@@ -176,15 +133,10 @@ function readCompileTargetNames(
   return [...enabledTargets];
 }
 
-export function readSkillsetMetadata(
-  record: JsonRecord,
-  label: string
-): JsonRecord {
+export function readSkillsetMetadata(record: JsonRecord, label: string): JsonRecord {
   rejectTargetsKey(record, label);
   const raw = record.skillset;
-  if (raw === undefined) {
-    return {};
-  }
+  if (raw === undefined) return {};
   if (!isJsonRecord(raw)) {
     throw new Error(`skillset: expected ${label}.skillset to be an object`);
   }
@@ -203,18 +155,12 @@ export function readSkillsetName(
   label: string,
   topLevelName?: string
 ): string {
-  const name = readString(metadata, 'name');
-  const id = readString(metadata, 'id');
+  const name = readString(metadata, "name");
+  const id = readString(metadata, "id");
   if (id !== undefined) {
-    throw new Error(
-      `skillset: ${label} uses unsupported skillset.id; use skillset.name`
-    );
+    throw new Error(`skillset: ${label} uses unsupported skillset.id; use skillset.name`);
   }
-  if (
-    topLevelName !== undefined &&
-    name !== undefined &&
-    topLevelName !== name
-  ) {
+  if (topLevelName !== undefined && name !== undefined && topLevelName !== name) {
     throw new Error(
       `skillset: ${label} has conflicting top-level name ${JSON.stringify(topLevelName)} and skillset.name ${JSON.stringify(name)}`
     );
@@ -227,54 +173,28 @@ export function readOutputConfig(
   metadata: JsonRecord,
   options: { readonly distDir?: string } = {}
 ): OutputConfig {
-  const outputs = readRecord(metadata, 'outputs') ?? {};
-  const pluginOutputs = readRecord(outputs, 'plugins') ?? {};
-  const skillOutputs = readRecord(outputs, 'skills') ?? {};
-  const claudePlugins = readTargetOutputSetting(
-    record.claude,
-    'plugins',
-    'claude.plugins'
-  );
-  const claudeSkills = readTargetOutputSetting(
-    record.claude,
-    'skills',
-    'claude.skills'
-  );
-  const codexPlugins = readTargetOutputSetting(
-    record.codex,
-    'plugins',
-    'codex.plugins'
-  );
-  const codexSkills = readTargetOutputSetting(
-    record.codex,
-    'skills',
-    'codex.skills'
-  );
+  const outputs = readRecord(metadata, "outputs") ?? {};
+  const pluginOutputs = readRecord(outputs, "plugins") ?? {};
+  const skillOutputs = readRecord(outputs, "skills") ?? {};
+  const claudePlugins = readTargetOutputSetting(record.claude, "plugins", "claude.plugins");
+  const claudeSkills = readTargetOutputSetting(record.claude, "skills", "claude.skills");
+  const codexPlugins = readTargetOutputSetting(record.codex, "plugins", "codex.plugins");
+  const codexSkills = readTargetOutputSetting(record.codex, "skills", "codex.skills");
 
   return {
     plugins: {
       claude:
         claudePlugins.path ??
-        readString(pluginOutputs, 'claude') ??
-        (options.distDir === undefined
-          ? 'plugins-claude'
-          : `${options.distDir}/claude`),
+        readString(pluginOutputs, "claude") ??
+        (options.distDir === undefined ? "plugins-claude" : `${options.distDir}/claude`),
       codex:
         codexPlugins.path ??
-        readString(pluginOutputs, 'codex') ??
-        (options.distDir === undefined
-          ? 'plugins-codex'
-          : `${options.distDir}/codex`),
+        readString(pluginOutputs, "codex") ??
+        (options.distDir === undefined ? "plugins-codex" : `${options.distDir}/codex`),
     },
     skills: {
-      claude:
-        claudeSkills.path ??
-        readString(skillOutputs, 'claude') ??
-        '.claude/skills',
-      codex:
-        codexSkills.path ??
-        readString(skillOutputs, 'codex') ??
-        '.agents/skills',
+      claude: claudeSkills.path ?? readString(skillOutputs, "claude") ?? ".claude/skills",
+      codex: codexSkills.path ?? readString(skillOutputs, "codex") ?? ".agents/skills",
     },
     targetOutputs: {
       claude: {
@@ -292,16 +212,10 @@ export function readOutputConfig(
 export function validateConfigDocument(
   record: JsonRecord,
   label: string,
-  options: {
-    readonly allowCompile?: boolean;
-    readonly featureKeys?: readonly string[];
-  } = {}
+  options: { readonly allowCompile?: boolean; readonly featureKeys?: readonly string[] } = {}
 ): void {
   rejectTargetsKey(record, label);
-  const supportedKeys =
-    options.allowCompile === true
-      ? ROOT_CONFIG_TOP_LEVEL_KEYS
-      : CONFIG_TOP_LEVEL_KEYS;
+  const supportedKeys = options.allowCompile === true ? ROOT_CONFIG_TOP_LEVEL_KEYS : CONFIG_TOP_LEVEL_KEYS;
   const featureKeys = new Set(options.featureKeys ?? []);
   for (const key of Object.keys(record)) {
     if (!supportedKeys.has(key) && !featureKeys.has(key)) {
@@ -330,18 +244,8 @@ export function resolveTargets(
       ? mergeTargetDefaults(parent, readShorthandTargetDefaults(record, label))
       : parent;
   return {
-    claude: resolveTarget(
-      parentWithDefaults.claude,
-      record.claude,
-      `${label}.claude`,
-      options
-    ),
-    codex: resolveTarget(
-      parentWithDefaults.codex,
-      record.codex,
-      `${label}.codex`,
-      options
-    ),
+    claude: resolveTarget(parentWithDefaults.claude, record.claude, `${label}.claude`, options),
+    codex: resolveTarget(parentWithDefaults.codex, record.codex, `${label}.codex`, options),
   };
 }
 
@@ -355,10 +259,7 @@ export function resolveFeatureTargets(
     readonly objectInheritsEnabled?: boolean;
   } = {}
 ): Readonly<Record<TargetName, ResolvedTarget>> {
-  return applyFeatureTargetDefaults(
-    resolveTargets(parent, record, label, options),
-    surface
-  );
+  return applyFeatureTargetDefaults(resolveTargets(parent, record, label, options), surface);
 }
 
 export function applyFeatureTargetDefaults(
@@ -380,24 +281,16 @@ export function resolveTarget(
     readonly objectInheritsEnabled?: boolean;
   } = {}
 ): ResolvedTarget {
-  if (raw === undefined) {
-    return parent;
-  }
-  if (raw === true) {
-    return { enabled: true, options: parent.options };
-  }
-  if (raw === false) {
-    return { enabled: false, options: parent.options };
-  }
+  if (raw === undefined) return parent;
+  if (raw === true) return { enabled: true, options: parent.options };
+  if (raw === false) return { enabled: false, options: parent.options };
 
   if (!isJsonRecord(raw)) {
-    throw new Error(
-      `skillset: expected ${label} to be true, false, or an object`
-    );
+    throw new Error(`skillset: expected ${label} to be true, false, or an object`);
   }
 
   const { enabled, ...rest } = raw;
-  if (enabled !== undefined && typeof enabled !== 'boolean') {
+  if (enabled !== undefined && typeof enabled !== "boolean") {
     throw new Error(`skillset: expected ${label}.enabled to be a boolean`);
   }
   if (rest.defaults !== undefined) {
@@ -421,41 +314,27 @@ export function resolveTarget(
   };
 }
 
-export function stripSourceFrontmatter(
-  frontmatter: JsonRecord,
-  label = 'source frontmatter'
-): JsonRecord {
+export function stripSourceFrontmatter(frontmatter: JsonRecord, label = "source frontmatter"): JsonRecord {
   if (frontmatter.tools !== undefined) {
-    throw new Error(
-      `skillset: ${label} uses unsupported tools; use tool_intent`
-    );
+    throw new Error(`skillset: ${label} uses unsupported tools; use tool_intent`);
   }
   const stripped: Record<string, JsonValue> = {};
   for (const [key, value] of Object.entries(frontmatter)) {
-    if (value === undefined || SOURCE_ONLY_KEYS.has(key)) {
-      continue;
-    }
+    if (value === undefined || SOURCE_ONLY_KEYS.has(key)) continue;
     stripped[key] = value;
   }
   return stripped;
 }
 
-export function mergeRecords(
-  base: JsonRecord,
-  override: JsonRecord
-): JsonRecord {
+export function mergeRecords(base: JsonRecord, override: JsonRecord): JsonRecord {
   const merged: Record<string, JsonValue> = {};
 
   for (const [key, value] of Object.entries(base)) {
-    if (value !== undefined) {
-      merged[key] = value;
-    }
+    if (value !== undefined) merged[key] = value;
   }
 
   for (const [key, value] of Object.entries(override)) {
-    if (value === undefined) {
-      continue;
-    }
+    if (value === undefined) continue;
     const current = merged[key];
     if (isJsonRecord(current) && isJsonRecord(value)) {
       merged[key] = mergeRecords(current, value);
@@ -467,35 +346,20 @@ export function mergeRecords(
   return merged;
 }
 
-export function readString(
-  record: JsonRecord,
-  key: string
-): string | undefined {
+export function readString(record: JsonRecord, key: string): string | undefined {
   const value = record[key];
-  return typeof value === 'string' && value.trim().length > 0
-    ? value.trim()
-    : undefined;
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 }
 
-export function readStringArray(
-  record: JsonRecord,
-  key: string
-): readonly string[] | undefined {
+export function readStringArray(record: JsonRecord, key: string): readonly string[] | undefined {
   const value = record[key];
-  if (value === undefined) {
-    return undefined;
-  }
+  if (value === undefined) return undefined;
   return readStringArrayValue(value, key);
 }
 
-export function readRecord(
-  record: JsonRecord,
-  key: string
-): JsonRecord | undefined {
+export function readRecord(record: JsonRecord, key: string): JsonRecord | undefined {
   const value = record[key];
-  if (value === undefined) {
-    return undefined;
-  }
+  if (value === undefined) return undefined;
   if (!isJsonRecord(value)) {
     throw new Error(`skillset: expected ${key} to be an object`);
   }
@@ -506,53 +370,32 @@ export function targetNames(): readonly TargetName[] {
   return TARGET_NAMES;
 }
 
-export function isOutputSelected(
-  selection: OutputSelection,
-  name: string
-): boolean {
-  if (selection === true) {
-    return true;
-  }
-  if (selection === false) {
-    return false;
-  }
+export function isOutputSelected(selection: OutputSelection, name: string): boolean {
+  if (selection === true) return true;
+  if (selection === false) return false;
   return selection.includes(name);
 }
 
 function rejectTargetsKey(record: JsonRecord, label: string): void {
   if (record.targets !== undefined) {
-    throw new Error(
-      `skillset: ${label} uses unsupported targets key; use compile.targets`
-    );
+    throw new Error(`skillset: ${label} uses unsupported targets key; use compile.targets`);
   }
 }
 
-function readCompileRecord(
-  record: JsonRecord,
-  label: string
-): JsonRecord | undefined {
-  const { compile } = record;
-  if (compile === undefined) {
-    return undefined;
-  }
+function readCompileRecord(record: JsonRecord, label: string): JsonRecord | undefined {
+  const compile = record.compile;
+  if (compile === undefined) return undefined;
   if (!isJsonRecord(compile)) {
     throw new Error(`skillset: expected ${label}.compile to be an object`);
   }
   return compile;
 }
 
-function readCompileBuildMode(
-  record: JsonRecord,
-  label: string
-): CompileBuildMode {
+function readCompileBuildMode(record: JsonRecord, label: string): CompileBuildMode {
   const value = record.build;
-  if (value === undefined) {
-    return 'updated';
-  }
-  if (typeof value !== 'string') {
-    throw new TypeError(
-      `skillset: expected ${label} to be one of: updated, all`
-    );
+  if (value === undefined) return "updated";
+  if (typeof value !== "string") {
+    throw new Error(`skillset: expected ${label} to be one of: updated, all`);
   }
   if (!COMPILE_BUILD_MODES.has(value as CompileBuildMode)) {
     throw new Error(
@@ -562,46 +405,30 @@ function readCompileBuildMode(
   return value as CompileBuildMode;
 }
 
-function readCompileSkillsetConfig(
-  record: JsonRecord,
-  label: string
-): CompileSkillsetConfig {
+function readCompileSkillsetConfig(record: JsonRecord, label: string): CompileSkillsetConfig {
   const value = record.skillset;
-  if (value === undefined) {
-    return { metadata: true };
-  }
+  if (value === undefined) return { metadata: true };
   if (!isJsonRecord(value)) {
     throw new Error(`skillset: expected ${label} to be an object`);
   }
   for (const key of Object.keys(value)) {
-    if (key !== 'metadata') {
-      throw new Error(
-        `skillset: unsupported compile skillset key ${key} in ${label}`
-      );
+    if (key !== "metadata") {
+      throw new Error(`skillset: unsupported compile skillset key ${key} in ${label}`);
     }
   }
-  const { metadata } = value;
-  if (metadata === undefined) {
-    return { metadata: true };
-  }
-  if (typeof metadata !== 'boolean') {
-    throw new TypeError(`skillset: expected ${label}.metadata to be a boolean`);
+  const metadata = value.metadata;
+  if (metadata === undefined) return { metadata: true };
+  if (typeof metadata !== "boolean") {
+    throw new Error(`skillset: expected ${label}.metadata to be a boolean`);
   }
   return { metadata };
 }
 
-function readCompileUnsupportedPolicy(
-  record: JsonRecord,
-  label: string
-): CompileUnsupportedPolicy {
+function readCompileUnsupportedPolicy(record: JsonRecord, label: string): CompileUnsupportedPolicy {
   const value = record.unsupported;
-  if (value === undefined) {
-    return 'error';
-  }
-  if (typeof value !== 'string') {
-    throw new TypeError(
-      `skillset: expected ${label} to be one of: error, warn, skip, force`
-    );
+  if (value === undefined) return "error";
+  if (typeof value !== "string") {
+    throw new Error(`skillset: expected ${label} to be one of: error, warn, skip, force`);
   }
   if (!COMPILE_UNSUPPORTED_POLICIES.has(value as CompileUnsupportedPolicy)) {
     throw new Error(
@@ -615,25 +442,21 @@ function readShorthandTargetDefaults(
   record: JsonRecord,
   label: string
 ): Readonly<Record<TargetName, JsonRecord>> {
-  const { defaults } = record;
+  const defaults = record.defaults;
   const result: Record<TargetName, JsonRecord> = { claude: {}, codex: {} };
-  if (defaults === undefined) {
-    return result;
-  }
+  if (defaults === undefined) return result;
   if (!isJsonRecord(defaults)) {
     throw new Error(`skillset: expected ${label}.defaults to be an object`);
   }
   for (const key of Object.keys(defaults)) {
-    if (key !== 'claude' && key !== 'codex') {
+    if (key !== "claude" && key !== "codex") {
       throw new Error(
         `skillset: unsupported target ${JSON.stringify(key)} in ${label}.defaults; expected claude or codex`
       );
     }
     const targetDefaults = defaults[key];
     if (!isJsonRecord(targetDefaults)) {
-      throw new Error(
-        `skillset: expected ${label}.defaults.${key} to be an object`
-      );
+      throw new Error(`skillset: expected ${label}.defaults.${key} to be an object`);
     }
     validateDefaultSurfaces(targetDefaults, `${label}.defaults.${key}`);
     result[key] = targetDefaults;
@@ -661,20 +484,12 @@ function mergeTargetDefaults(
   };
 }
 
-function mergeTargetDefault(
-  target: ResolvedTarget,
-  defaults: JsonRecord
-): ResolvedTarget {
-  if (Object.keys(defaults).length === 0) {
-    return target;
-  }
+function mergeTargetDefault(target: ResolvedTarget, defaults: JsonRecord): ResolvedTarget {
+  if (Object.keys(defaults).length === 0) return target;
   return {
     enabled: target.enabled,
     options: mergeRecords(target.options, {
-      defaults: mergeRecords(
-        readRecord(target.options, 'defaults') ?? {},
-        defaults
-      ),
+      defaults: mergeRecords(readRecord(target.options, "defaults") ?? {}, defaults),
     }),
   };
 }
@@ -683,14 +498,10 @@ function applyFeatureDefaults(
   target: ResolvedTarget,
   surface: FeatureSurface
 ): ResolvedTarget {
-  const defaults = readRecord(target.options, 'defaults');
-  if (defaults === undefined) {
-    return target;
-  }
+  const defaults = readRecord(target.options, "defaults");
+  if (defaults === undefined) return target;
   const surfaceDefaults = readRecord(defaults, surface);
-  if (surfaceDefaults === undefined) {
-    return target;
-  }
+  if (surfaceDefaults === undefined) return target;
   return {
     enabled: target.enabled,
     options: mergeRecords(surfaceDefaults, target.options),
@@ -704,67 +515,42 @@ interface ParsedTargetOutputSetting {
 
 function readTargetOutputSetting(
   rawTarget: JsonValue | undefined,
-  key: 'plugins' | 'skills',
+  key: "plugins" | "skills",
   label: string
 ): ParsedTargetOutputSetting {
-  if (rawTarget === undefined || rawTarget === true) {
-    return { selection: true };
-  }
-  if (rawTarget === false) {
-    return { selection: false };
-  }
+  if (rawTarget === undefined || rawTarget === true) return { selection: true };
+  if (rawTarget === false) return { selection: false };
   if (!isJsonRecord(rawTarget)) {
-    throw new Error(
-      `skillset: expected ${label.split('.')[0]} to be true, false, or an object`
-    );
+    throw new Error(`skillset: expected ${label.split(".")[0]} to be true, false, or an object`);
   }
 
-  if (rawTarget.enabled === false) {
-    return { selection: false };
-  }
+  if (rawTarget.enabled === false) return { selection: false };
   const rawOutput = rawTarget[key];
-  if (rawOutput === undefined) {
-    return { selection: true };
-  }
+  if (rawOutput === undefined) return { selection: true };
   return readOutputSetting(rawOutput, label);
 }
 
-function readOutputSetting(
-  raw: JsonValue,
-  label: string
-): ParsedTargetOutputSetting {
-  if (raw === true || raw === false) {
-    return { selection: raw };
-  }
-  if (Array.isArray(raw)) {
-    return { selection: readStringArrayValue(raw, label) };
-  }
+function readOutputSetting(raw: JsonValue, label: string): ParsedTargetOutputSetting {
+  if (raw === true || raw === false) return { selection: raw };
+  if (Array.isArray(raw)) return { selection: readStringArrayValue(raw, label) };
   if (!isJsonRecord(raw)) {
-    throw new Error(
-      `skillset: expected ${label} to be true, false, a string array, or an object`
-    );
+    throw new Error(`skillset: expected ${label} to be true, false, a string array, or an object`);
   }
 
-  if (raw.enabled !== undefined && typeof raw.enabled !== 'boolean') {
+  if (raw.enabled !== undefined && typeof raw.enabled !== "boolean") {
     throw new Error(`skillset: expected ${label}.enabled to be a boolean`);
   }
 
-  const include =
-    raw.include === undefined
-      ? undefined
-      : readStringArrayValue(raw.include, `${label}.include`);
-  const path = readString(raw, 'path');
+  const include = raw.include === undefined ? undefined : readStringArrayValue(raw.include, `${label}.include`);
+  const path = readString(raw, "path");
   return {
     ...(path === undefined ? {} : { path }),
-    selection: raw.enabled === false ? false : (include ?? true),
+    selection: raw.enabled === false ? false : include ?? true,
   };
 }
 
-function readStringArrayValue(
-  value: JsonValue,
-  label: string
-): readonly string[] {
-  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string')) {
+function readStringArrayValue(value: JsonValue, label: string): readonly string[] {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
     throw new Error(`skillset: expected ${label} to be a string array`);
   }
   return value.map((item) => String(item));

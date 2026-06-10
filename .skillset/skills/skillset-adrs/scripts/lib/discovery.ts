@@ -7,7 +7,7 @@ import { parseFrontmatter, extractTitle } from './frontmatter.ts';
 import type { AdrFile } from './frontmatter.ts';
 
 export const readAdr = (path: string): AdrFile => {
-  const raw = readFileSync(path, 'utf-8');
+  const raw = readFileSync(path, 'utf8');
   const { frontmatter, body } = parseFrontmatter(raw);
   return {
     body,

@@ -1,20 +1,18 @@
-import { chmod, rm } from 'node:fs/promises';
+import { chmod, rm } from "node:fs/promises";
 
-const outdir = 'dist';
+const outdir = "dist";
 
 await rm(outdir, { force: true, recursive: true });
 
 const result = await Bun.build({
-  entrypoints: ['src/cli.ts', 'src/create.ts'],
-  naming: { entry: '[name].js' },
+  entrypoints: ["src/cli.ts", "src/create.ts"],
+  naming: { entry: "[name].js" },
   outdir,
-  target: 'bun',
+  target: "bun",
 });
 
 if (!result.success) {
-  for (const log of result.logs) {
-    console.error(log);
-  }
+  for (const log of result.logs) console.error(log);
   process.exit(1);
 }
 

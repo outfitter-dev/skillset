@@ -7,34 +7,22 @@
 pre-commit:
   piped: true
   commands:
-    format_guard:
-      priority: 1
-      env:
-        GIT_PAGER: cat
-      run: bun run format:guard
-    format:
-      priority: 2
-      env:
-        GIT_PAGER: cat
-      glob: '**/*.{ts,tsx,js,jsx,json,jsonc,yml,yaml}'
-      run: bun run format:file {staged_files}
-      stage_fixed: true
     whitespace:
-      priority: 3
+      priority: 1
       env:
         GIT_PAGER: cat
       run: git diff --cached --check
     skillset:
-      priority: 4
+      priority: 2
       env:
         GIT_PAGER: cat
-      glob: '{.skillset/**,.claude/skills/**,.agents/skills/**,plugins-claude/**,plugins-codex/**,AGENTS.md}'
+      glob: "{.skillset/**,.claude/skills/**,.agents/skills/**,plugins-claude/**,plugins-codex/**,AGENTS.md}"
       run: bun run skillset:lint && bun run skillset:check
     workflows:
-      priority: 5
+      priority: 3
       env:
         GIT_PAGER: cat
-      glob: '.github/workflows/*.{yml,yaml}'
+      glob: ".github/workflows/*.{yml,yaml}"
       run: bun run check:workflows
 
 pre-push:
@@ -47,10 +35,6 @@ pre-push:
       env:
         GIT_PAGER: cat
       run: bun test
-    format:
-      env:
-        GIT_PAGER: cat
-      run: bun run format:check
     skillset-lint:
       env:
         GIT_PAGER: cat

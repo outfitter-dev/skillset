@@ -1,8 +1,8 @@
-import { existsSync, rmSync } from 'node:fs';
-import { relative, resolve } from 'node:path';
+import { existsSync, rmSync } from "node:fs";
+import { relative, resolve } from "node:path";
 
-import type { BootstrapConfig } from './config';
-import { info, success } from './shared';
+import type { BootstrapConfig } from "./config";
+import { info, success } from "./shared";
 
 export const resolveCleanupTarget = (
   repoRoot: string,
@@ -11,9 +11,9 @@ export const resolveCleanupTarget = (
   const target = resolve(repoRoot, configuredPath);
   const relativePath = relative(repoRoot, target);
   if (
-    relativePath === '' ||
-    relativePath.startsWith('..') ||
-    relativePath.startsWith('/')
+    relativePath === "" ||
+    relativePath.startsWith("..") ||
+    relativePath.startsWith("/")
   ) {
     throw new Error(`Refusing cleanup target outside repo: ${configuredPath}`);
   }

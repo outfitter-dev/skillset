@@ -1,16 +1,11 @@
-import { stat } from 'node:fs/promises';
-import type { Stats } from 'node:fs';
+import { stat } from "node:fs/promises";
+import type { Stats } from "node:fs";
 
-import { compareStrings, resolveInside } from './path';
-import type { JsonRecord, JsonValue, SourceResource } from './types';
-import { isJsonRecord } from './yaml';
+import { compareStrings, resolveInside } from "./path";
+import type { JsonRecord, JsonValue, SourceResource } from "./types";
+import { isJsonRecord } from "./yaml";
 
-const RESOURCE_GROUPS = new Set([
-  'assets',
-  'references',
-  'scripts',
-  'templates',
-]);
+const RESOURCE_GROUPS = new Set(["assets", "references", "scripts", "templates"]);
 
 export interface ResourceContext {
   readonly label: string;
@@ -22,9 +17,7 @@ export async function readSkillResources(
   raw: JsonValue | undefined,
   context: ResourceContext
 ): Promise<readonly SourceResource[]> {
-  if (raw === undefined) {
-    return [];
-  }
+  if (raw === undefined) return [];
 
   const pending = readResourceEntries(raw, context.label);
   const resources: SourceResource[] = [];
@@ -41,9 +34,7 @@ export async function readSkillResources(
     resources.push(resource);
   }
 
-  return resources.toSorted((left, right) =>
-    compareStrings(left.targetPath, right.targetPath)
-  );
+  return resources.sort((left, right) => compareStrings(left.targetPath, right.targetPath));
 }
 
 interface PendingResource {
@@ -52,17 +43,10 @@ interface PendingResource {
   readonly to?: string;
 }
 
-function readResourceEntries(
-  raw: JsonValue,
-  label: string
-): readonly PendingResource[] {
-  if (typeof raw === 'string' || Array.isArray(raw)) {
-    return readResourceEntryList(raw, label);
-  }
+function readResourceEntries(raw: JsonValue, label: string): readonly PendingResource[] {
+  if (typeof raw === "string" || Array.isArray(raw)) return readResourceEntryList(raw, label);
   if (!isJsonRecord(raw)) {
-    throw new Error(
-      `skillset: expected ${label}.resources to be a string, array, or object`
-    );
+    throw new Error(`skillset: expected ${label}.resources to be a string, array, or object`);
   }
 
   if (raw.from !== undefined) {
@@ -72,13 +56,9 @@ function readResourceEntries(
   const entries: PendingResource[] = [];
   for (const [key, value] of Object.entries(raw)) {
     if (!RESOURCE_GROUPS.has(key)) {
-      throw new Error(
-        `skillset: unsupported resource group ${key} in ${label}.resources`
-      );
+      throw new Error(`skillset: unsupported resource group ${key} in ${label}.resources`);
     }
-    entries.push(
-      ...readResourceEntryList(value, `${label}.resources.${key}`, key)
-    );
+    entries.push(...readResourceEntryList(value, `${label}.resources.${key}`, key));
   }
   return entries;
 }
@@ -88,41 +68,26 @@ function readResourceEntryList(
   label: string,
   group?: string
 ): readonly PendingResource[] {
-  if (raw === undefined) {
-    return [];
-  }
-  if (Array.isArray(raw)) {
-    return raw.map((entry) => readResourceEntry(entry, group, label));
-  }
+  if (raw === undefined) return [];
+  if (Array.isArray(raw)) return raw.map((entry) => readResourceEntry(entry, group, label));
   return [readResourceEntry(raw, group, label)];
 }
 
-function readResourceEntry(
-  raw: JsonValue,
-  group: string | undefined,
-  label: string
-): PendingResource {
-  if (typeof raw === 'string') {
-    return { from: raw, ...(group === undefined ? {} : { group }) };
-  }
+function readResourceEntry(raw: JsonValue, group: string | undefined, label: string): PendingResource {
+  if (typeof raw === "string") return { from: raw, ...(group === undefined ? {} : { group }) };
   if (!isJsonRecord(raw)) {
-    throw new Error(
-      `skillset: expected ${label} resource entries to be strings or objects`
-    );
+    throw new Error(`skillset: expected ${label} resource entries to be strings or objects`);
   }
 
   const keys = new Set(Object.keys(raw));
-  keys.delete('from');
-  keys.delete('to');
+  keys.delete("from");
+  keys.delete("to");
   if (keys.size > 0) {
-    throw new Error(
-      `skillset: unsupported resource entry key ${[...keys][0]} in ${label}`
-    );
+    throw new Error(`skillset: unsupported resource entry key ${[...keys][0]} in ${label}`);
   }
 
-  const from = readNonEmptyString(raw, 'from', label);
-  const to =
-    raw.to === undefined ? undefined : readNonEmptyString(raw, 'to', label);
+  const from = readNonEmptyString(raw, "from", label);
+  const to = raw.to === undefined ? undefined : readNonEmptyString(raw, "to", label);
   return {
     from,
     ...(group === undefined ? {} : { group }),
@@ -130,16 +95,10 @@ function readResourceEntry(
   };
 }
 
-function readNonEmptyString(
-  raw: JsonRecord,
-  key: string,
-  label: string
-): string {
+function readNonEmptyString(raw: JsonRecord, key: string, label: string): string {
   const value = raw[key];
-  if (typeof value !== 'string' || value.trim().length === 0) {
-    throw new Error(
-      `skillset: expected ${label}.${key} to be a non-empty string`
-    );
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`skillset: expected ${label}.${key} to be a non-empty string`);
   }
   return value.trim();
 }
@@ -157,19 +116,15 @@ async function resolveResource(
   const sourceStats = await statSource(sourcePath);
 
   if (sourceStats === undefined) {
-    throw new Error(
-      `skillset: ${context.label}.resources source not found: ${entry.from}`
-    );
+    throw new Error(`skillset: ${context.label}.resources source not found: ${entry.from}`);
   }
   if (!sourceStats.isFile() && !sourceStats.isDirectory()) {
-    throw new Error(
-      `skillset: ${context.label}.resources source must be a file or directory: ${entry.from}`
-    );
+    throw new Error(`skillset: ${context.label}.resources source must be a file or directory: ${entry.from}`);
   }
 
   return {
     from: parsed.from,
-    kind: sourceStats.isDirectory() ? 'directory' : 'file',
+    kind: sourceStats.isDirectory() ? "directory" : "file",
     sourcePath,
     targetPath,
   };
@@ -181,12 +136,9 @@ interface ParsedResourcePath {
   readonly root: string;
 }
 
-function parseResourcePath(
-  raw: string,
-  context: ResourceContext
-): ParsedResourcePath {
+function parseResourcePath(raw: string, context: ResourceContext): ParsedResourcePath {
   const value = raw.trim();
-  const separatorIndex = value.indexOf(':');
+  const separatorIndex = value.indexOf(":");
   if (separatorIndex <= 0) {
     throw new Error(
       `skillset: ${context.label}.resources must use shared: or plugin: resource paths`
@@ -194,22 +146,17 @@ function parseResourcePath(
   }
 
   const scheme = value.slice(0, separatorIndex);
-  const relativePath = validateResourceSourcePath(
-    value.slice(separatorIndex + 1),
-    context.label
-  );
-  if (scheme === 'shared') {
+  const relativePath = validateResourceSourcePath(value.slice(separatorIndex + 1), context.label);
+  if (scheme === "shared") {
     return {
       from: `shared:${relativePath}`,
       relativePath,
       root: context.sharedPath,
     };
   }
-  if (scheme === 'plugin') {
+  if (scheme === "plugin") {
     if (context.pluginSharedPath === undefined) {
-      throw new Error(
-        `skillset: ${context.label}.resources uses plugin: outside a plugin skill`
-      );
+      throw new Error(`skillset: ${context.label}.resources uses plugin: outside a plugin skill`);
     }
     return {
       from: `plugin:${relativePath}`,
@@ -229,9 +176,7 @@ function validateResourceSourcePath(raw: string, label: string): string {
     throw new Error(`skillset: ${label}.resources has an empty source path`);
   }
   if (isUnsafeRelativePath(value)) {
-    throw new Error(
-      `skillset: ${label}.resources source paths must stay inside shared roots`
-    );
+    throw new Error(`skillset: ${label}.resources source paths must stay inside shared roots`);
   }
   return value;
 }
@@ -242,61 +187,42 @@ function validateResourceTargetPath(raw: string, label: string): string {
     throw new Error(`skillset: ${label}.resources has an empty target path`);
   }
   if (isUnsafeRelativePath(value)) {
-    throw new Error(
-      `skillset: ${label}.resources target paths must stay inside the generated skill`
-    );
+    throw new Error(`skillset: ${label}.resources target paths must stay inside the generated skill`);
   }
   if (
-    value === 'SKILL.md' ||
-    value === 'agents/openai.yaml' ||
-    value === '.skillset.tools.yaml'
+    value === "SKILL.md" ||
+    value === "agents/openai.yaml" ||
+    value === ".skillset.tools.yaml"
   ) {
-    throw new Error(
-      `skillset: ${label}.resources cannot write generated skill control file ${value}`
-    );
+    throw new Error(`skillset: ${label}.resources cannot write generated skill control file ${value}`);
   }
   return value;
 }
 
-function defaultTargetPath(
-  sourcePath: string,
-  group: string | undefined
-): string {
-  if (group === undefined) {
-    return sourcePath;
-  }
-  if (sourcePath === group || sourcePath.startsWith(`${group}/`)) {
-    return sourcePath;
-  }
+function defaultTargetPath(sourcePath: string, group: string | undefined): string {
+  if (group === undefined) return sourcePath;
+  if (sourcePath === group || sourcePath.startsWith(`${group}/`)) return sourcePath;
   return `${group}/${sourcePath}`;
 }
 
 function normalizeResourcePath(raw: string): string {
   return raw
     .trim()
-    .replaceAll('\\', '/')
-    .replace(/^\.\//, '')
-    .replaceAll(/\/+/g, '/')
-    .replace(/\/$/, '');
+    .replaceAll("\\", "/")
+    .replace(/^\.\//, "")
+    .replace(/\/+/g, "/")
+    .replace(/\/$/, "");
 }
 
 function isUnsafeRelativePath(path: string): boolean {
-  return (
-    path.startsWith('/') ||
-    path.split('/').some((segment) => segment === '.' || segment === '..')
-  );
+  return path.startsWith("/") || path.split("/").some((segment) => segment === "." || segment === "..");
 }
 
 async function statSource(path: string): Promise<Stats | undefined> {
   try {
     return await stat(path);
   } catch (error) {
-    if (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      error.code === 'ENOENT'
-    ) {
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
       return undefined;
     }
     throw error;
@@ -305,7 +231,7 @@ async function statSource(path: string): Promise<Stats | undefined> {
 
 interface ResourceLinkMapping {
   readonly from: string;
-  readonly kind: SourceResource['kind'];
+  readonly kind: SourceResource["kind"];
   readonly sourcePath: string;
   readonly targetPath: string;
 }
@@ -315,9 +241,7 @@ export function rewriteResourceLinks(
   resources: readonly SourceResource[],
   label: string
 ): string {
-  const replacements = new Map(
-    resources.map((resource) => [resource.from, resource.targetPath])
-  );
+  const replacements = new Map(resources.map((resource) => [resource.from, resource.targetPath]));
   // Bare (schemeless) links to a resource's *source* path break when a custom
   // `to` emits that resource elsewhere; index those remapped source paths so the
   // build can reject the ambiguous link instead of leaving it silently broken.
@@ -334,20 +258,10 @@ export function rewriteResourceLinks(
     }
   }
 
-  return body.replaceAll(
-    /(!?\[[^\]\n]*\]\()([^) \t\n]+)(\))/g,
-    (match, open, target, close) => {
-      const rewritten = rewriteResourceTarget(
-        String(target),
-        replacements,
-        resourceMappings,
-        label
-      );
-      return rewritten === undefined
-        ? String(match)
-        : `${open}${rewritten}${close}`;
-    }
-  );
+  return body.replaceAll(/(!?\[[^\]\n]*\]\()([^) \t\n]+)(\))/g, (match, open, target, close) => {
+    const rewritten = rewriteResourceTarget(String(target), replacements, resourceMappings, label);
+    return rewritten === undefined ? String(match) : `${open}${rewritten}${close}`;
+  });
 }
 
 function rewriteResourceTarget(
@@ -356,23 +270,18 @@ function rewriteResourceTarget(
   resourceMappings: readonly ResourceLinkMapping[],
   label: string
 ): string | undefined {
-  const hashIndex = target.indexOf('#');
+  const hashIndex = target.indexOf("#");
   const base = hashIndex === -1 ? target : target.slice(0, hashIndex);
-  const suffix = hashIndex === -1 ? '' : target.slice(hashIndex);
+  const suffix = hashIndex === -1 ? "" : target.slice(hashIndex);
   const normalizedBase = canonicalResourceReference(base);
-  const replacement =
-    replacements.get(normalizedBase) ??
-    rewriteDeclaredResourceChild(normalizedBase, resourceMappings);
+  const replacement = replacements.get(normalizedBase) ?? rewriteDeclaredResourceChild(normalizedBase, resourceMappings);
   if (replacement === undefined && isResourceReference(normalizedBase)) {
     throw new Error(
       `skillset: ${label} links to undeclared shared resource ${base}; declare it, e.g. ${suggestResourceEntry(normalizedBase)}`
     );
   }
   if (replacement === undefined && !isResourceReference(normalizedBase)) {
-    const remapped = remappedBareResourceLink(
-      normalizeResourcePath(base),
-      resourceMappings
-    );
+    const remapped = remappedBareResourceLink(normalizeResourcePath(base), resourceMappings);
     if (remapped !== undefined) {
       throw new Error(
         `skillset: ${label} links to ${base}, but a declared resource remaps ${remapped.from} ` +
@@ -388,24 +297,17 @@ function rewriteDeclaredResourceChild(
   resourceMappings: readonly ResourceLinkMapping[]
 ): string | undefined {
   const parsed = splitResourceReference(normalizedBase);
-  if (parsed === undefined) {
-    return undefined;
-  }
+  if (parsed === undefined) return undefined;
 
   const mapping = resourceMappings.find(
     (resource) =>
-      resource.kind === 'directory' &&
+      resource.kind === "directory" &&
       parsed.path.startsWith(`${resource.sourcePath}/`) &&
       normalizedBase.startsWith(resource.from)
   );
-  if (mapping === undefined) {
-    return undefined;
-  }
+  if (mapping === undefined) return undefined;
 
-  return joinResourcePath(
-    mapping.targetPath,
-    parsed.path.slice(mapping.sourcePath.length + 1)
-  );
+  return joinResourcePath(mapping.targetPath, parsed.path.slice(mapping.sourcePath.length + 1));
 }
 
 interface RemappedBareLink {
@@ -420,9 +322,7 @@ function remappedBareResourceLink(
   resourceMappings: readonly ResourceLinkMapping[]
 ): RemappedBareLink | undefined {
   for (const resource of resourceMappings) {
-    if (resource.sourcePath === resource.targetPath) {
-      continue;
-    }
+    if (resource.sourcePath === resource.targetPath) continue;
     if (normalizedBase === resource.sourcePath) {
       return {
         from: resource.from,
@@ -431,10 +331,7 @@ function remappedBareResourceLink(
         targetPath: resource.targetPath,
       };
     }
-    if (
-      resource.kind !== 'directory' ||
-      !normalizedBase.startsWith(`${resource.sourcePath}/`)
-    ) {
+    if (resource.kind !== "directory" || !normalizedBase.startsWith(`${resource.sourcePath}/`)) {
       continue;
     }
 
@@ -449,16 +346,12 @@ function remappedBareResourceLink(
   return undefined;
 }
 
-function splitResourceReference(
-  value: string
-): { readonly path: string; readonly scheme: string } | undefined {
-  const separatorIndex = value.indexOf(':');
-  if (separatorIndex <= 0) {
-    return undefined;
-  }
+function splitResourceReference(value: string): { readonly path: string; readonly scheme: string } | undefined {
+  const separatorIndex = value.indexOf(":");
+  if (separatorIndex <= 0) return undefined;
   return {
-    path: normalizeResourcePath(value.slice(separatorIndex + 1)),
     scheme: value.slice(0, separatorIndex),
+    path: normalizeResourcePath(value.slice(separatorIndex + 1)),
   };
 }
 
@@ -467,10 +360,8 @@ function joinResourcePath(base: string, child: string): string {
 }
 
 function resourceSourceRelativePath(from: string): string | undefined {
-  const separatorIndex = from.indexOf(':');
-  if (separatorIndex <= 0) {
-    return undefined;
-  }
+  const separatorIndex = from.indexOf(":");
+  if (separatorIndex <= 0) return undefined;
   return normalizeResourcePath(from.slice(separatorIndex + 1));
 }
 
@@ -494,24 +385,17 @@ export function findUndeclaredResourceLinks(
 ): readonly UndeclaredResourceLink[] {
   const declared = new Set(resources.map((resource) => resource.from));
   const directoryResources = resources
-    .filter((resource) => resource.kind === 'directory')
-    .map((resource) => ({
-      from: resource.from,
-      source: resourceSourceRelativePath(resource.from),
-    }));
+    .filter((resource) => resource.kind === "directory")
+    .map((resource) => ({ from: resource.from, source: resourceSourceRelativePath(resource.from) }));
   const found = new Map<string, string>();
 
   for (const match of body.matchAll(RESOURCE_LINK_PATTERN)) {
     const rawTarget = match[1];
-    if (rawTarget === undefined) {
-      continue;
-    }
-    const hashIndex = rawTarget.indexOf('#');
+    if (rawTarget === undefined) continue;
+    const hashIndex = rawTarget.indexOf("#");
     const base = hashIndex === -1 ? rawTarget : rawTarget.slice(0, hashIndex);
     const canonical = canonicalResourceReference(base);
-    if (!isResourceReference(canonical) || declared.has(canonical)) {
-      continue;
-    }
+    if (!isResourceReference(canonical) || declared.has(canonical)) continue;
 
     const parsed = splitResourceReference(canonical);
     const isDeclaredChild =
@@ -522,19 +406,12 @@ export function findUndeclaredResourceLinks(
           canonical.startsWith(resource.from) &&
           parsed.path.startsWith(`${resource.source}/`)
       );
-    if (isDeclaredChild) {
-      continue;
-    }
+    if (isDeclaredChild) continue;
 
-    if (!found.has(canonical)) {
-      found.set(canonical, suggestResourceEntry(canonical));
-    }
+    if (!found.has(canonical)) found.set(canonical, suggestResourceEntry(canonical));
   }
 
-  return [...found].map(([reference, suggestion]) => ({
-    reference,
-    suggestion,
-  }));
+  return [...found].map(([reference, suggestion]) => ({ reference, suggestion }));
 }
 
 const SCRIPT_EXTENSION_PATTERN = /\.(sh|bash|zsh|py|rb|pl|js|ts|mjs)$/i;
@@ -555,16 +432,11 @@ export function findPluginRootScriptLinks(body: string): readonly string[] {
   const offenders = new Set<string>();
   for (const match of body.matchAll(RESOURCE_LINK_PATTERN)) {
     const rawTarget = match[1];
-    if (rawTarget === undefined) {
-      continue;
-    }
-    const base = (rawTarget.split('#')[0] ?? rawTarget).trim();
+    if (rawTarget === undefined) continue;
+    const base = (rawTarget.split("#")[0] ?? rawTarget).trim();
     const usesPluginRoot = PLUGIN_ROOT_PATTERN.test(base);
-    const escapesToScript =
-      base.startsWith('../') && SCRIPT_EXTENSION_PATTERN.test(base);
-    if (usesPluginRoot || escapesToScript) {
-      offenders.add(base);
-    }
+    const escapesToScript = base.startsWith("../") && SCRIPT_EXTENSION_PATTERN.test(base);
+    if (usesPluginRoot || escapesToScript) offenders.add(base);
   }
   return [...offenders];
 }
@@ -575,23 +447,16 @@ export function findPluginRootScriptLinks(body: string): readonly string[] {
  */
 function suggestResourceEntry(reference: string): string {
   const parsed = splitResourceReference(reference);
-  const group =
-    parsed === undefined ? 'references' : resourceGroupForPath(parsed.path);
+  const group = parsed === undefined ? "references" : resourceGroupForPath(parsed.path);
   return `resources: { ${group}: [${reference}] }`;
 }
 
 function resourceGroupForPath(path: string): string {
   const lower = path.toLowerCase();
-  if (/\.(sh|bash|zsh|py|rb|pl|js|ts|mjs)$/.test(lower)) {
-    return 'scripts';
-  }
-  if (/\.(png|jpg|jpeg|gif|svg|webp|ico|pdf)$/.test(lower)) {
-    return 'assets';
-  }
-  if (lower.endsWith('.md')) {
-    return 'references';
-  }
-  return 'templates';
+  if (/\.(sh|bash|zsh|py|rb|pl|js|ts|mjs)$/.test(lower)) return "scripts";
+  if (/\.(png|jpg|jpeg|gif|svg|webp|ico|pdf)$/.test(lower)) return "assets";
+  if (/\.md$/.test(lower)) return "references";
+  return "templates";
 }
 
 /**
@@ -600,22 +465,18 @@ function resourceGroupForPath(path: string): string {
  * bit at source.
  */
 export function isScriptTargetPath(targetPath: string): boolean {
-  return targetPath === 'scripts' || targetPath.startsWith('scripts/');
+  return targetPath === "scripts" || targetPath.startsWith("scripts/");
 }
 
 function canonicalResourceReference(value: string): string {
-  const separatorIndex = value.indexOf(':');
-  if (separatorIndex <= 0) {
-    return value;
-  }
+  const separatorIndex = value.indexOf(":");
+  if (separatorIndex <= 0) return value;
   const scheme = value.slice(0, separatorIndex);
   const resourcePath = normalizeResourcePath(value.slice(separatorIndex + 1));
-  if (scheme === 'shared' || scheme === 'plugin') {
-    return `${scheme}:${resourcePath}`;
-  }
+  if (scheme === "shared" || scheme === "plugin") return `${scheme}:${resourcePath}`;
   return value;
 }
 
 function isResourceReference(value: string): boolean {
-  return value.startsWith('shared:') || value.startsWith('plugin:');
+  return value.startsWith("shared:") || value.startsWith("plugin:");
 }

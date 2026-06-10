@@ -1,10 +1,8 @@
-import { mkdir, writeFile } from 'node:fs/promises';
-import { basename, dirname, resolve } from 'node:path';
+import { mkdir, writeFile } from "node:fs/promises";
+import { basename, dirname, resolve } from "node:path";
 
-import { changeCheck } from './change-entries';
-import type { ChangeBump, ChangeCheckReport } from './change-entries';
-import { changeStatus } from './change-status';
-import type { ChangeStatusReport } from './change-status';
+import { changeCheck, type ChangeBump, type ChangeCheckReport } from "./change-entries";
+import { changeStatus, type ChangeStatusReport } from "./change-status";
 import {
   addChangeEntry,
   groupRef,
@@ -12,86 +10,53 @@ import {
   readChangeHistory,
   showChangeEntry,
   updateChangeReason,
-} from './change-workflow';
-import type {
-  ChangeEntryView,
-  ChangeReasonInput,
-  ChangeSubcommand,
-} from './change-workflow';
-import { doctorSkillset, explainPath, listGeneratedEntries } from './authoring';
-import { buildSkillset, checkSkillset, diffSkillset } from './build';
-import { ciSkillset, hasDrift, renderCiReportMarkdown } from './ci';
-import type { CiReport } from './ci';
-import { renderHookPrint } from './hook-guardrails';
-import type { HookPrintSubcommand, HookRunner } from './hook-guardrails';
-import { importSources } from './import';
-import type { ImportKind, ImportProvider, ImportReport } from './import';
-import { lintSkillset } from './lint';
-import { applyRelease, planRelease } from './release';
-import type { ReleasePlanReport, ReleaseSubcommand } from './release';
-import { createSkillset, initSkillset } from './setup';
-import type { SetupInclude, SetupReport } from './setup';
-import {
-  sourceUnitDisplay,
-  sourceUnitDisplays,
-  sourceUnitSelector,
-} from './source-unit-selector';
-import { runSkillsetTest } from './test-runner';
-import type { SkillsetTestReport } from './test-runner';
-import type {
-  BuildScope,
-  CompileBuildMode,
-  SkillsetOptions,
-  TargetName,
-} from './types';
+  type ChangeEntryView,
+  type ChangeReasonInput,
+  type ChangeSubcommand,
+} from "./change-workflow";
+import { doctorSkillset, explainPath, listGeneratedEntries } from "./authoring";
+import { buildSkillset, checkSkillset, diffSkillset } from "./build";
+import { ciSkillset, hasDrift, renderCiReportMarkdown, type CiReport } from "./ci";
+import { renderHookPrint, type HookPrintSubcommand, type HookRunner } from "./hook-guardrails";
+import { importSources, type ImportKind, type ImportProvider, type ImportReport } from "./import";
+import { lintSkillset } from "./lint";
+import { applyRelease, planRelease, type ReleasePlanReport, type ReleaseSubcommand } from "./release";
+import { createSkillset, initSkillset, type SetupInclude, type SetupReport } from "./setup";
+import { sourceUnitDisplay, sourceUnitDisplays, sourceUnitSelector } from "./source-unit-selector";
+import { runSkillsetTest, type SkillsetTestReport } from "./test-runner";
+import type { BuildScope, CompileBuildMode, SkillsetOptions, TargetName } from "./types";
 
-type Command =
-  | 'build'
-  | 'change'
-  | 'check'
-  | 'ci'
-  | 'create'
-  | 'diff'
-  | 'doctor'
-  | 'explain'
-  | 'hooks'
-  | 'import'
-  | 'init'
-  | 'lint'
-  | 'list'
-  | 'release'
-  | 'test';
+type Command = "build" | "change" | "check" | "ci" | "create" | "diff" | "doctor" | "explain" | "hooks" | "import" | "init" | "lint" | "list" | "release" | "test";
 
 const USAGE = [
-  'usage: skillset build [--yes|--dry-run] [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]',
-  '       skillset <check|diff|doctor|lint|list> [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]',
-  '       skillset ci [--fix] [--since <ref>] [--report <path>] [--root <path>] [--source <dir>] [--dist <dir>]',
-  '       skillset change status [--since <ref>] [--root <path>] [--source <dir>] [--dist <dir>]',
-  '       skillset change check [@ref|--ref <ref>] [--since <ref>] [--root <path>] [--source <dir>] [--dist <dir>]',
-  '       skillset change <status|check> --staged [--root <path>] [--source <dir>] [--dist <dir>]',
-  '       skillset change add --scope <source-unit> --bump <bump> [--group <group>] [--reason <text>|--reason-file <path>|--reason -] [--since <ref>] [--root <path>] [--source <dir>]',
-  '       skillset change reason <@ref> [--append] [--reason <text>|--reason-file <path>|--reason -] [--root <path>] [--source <dir>]',
-  '       skillset change <show|history> [@ref] [--root <path>] [--source <dir>]',
-  '       skillset change list [--group <group>] [--root <path>] [--source <dir>]',
-  '       skillset release plan [--root <path>] [--source <dir>] [--dist <dir>]',
-  '       skillset release apply [--yes|--dry-run] [--root <path>] [--source <dir>] [--dist <dir>]',
-  '       skillset test [name] [--root <path>] [--source <dir>]',
-  '       skillset hooks print --runner <lefthook|husky|pre-commit|git> [--pre-commit] [--pre-push]',
-  '       skillset hooks print --target <claude|codex> --agent-runtime',
-  '       skillset init [path] [--yes|--dry-run] [--targets claude,codex] [--include agents,ci] [--name <name>] [--root <path>]',
-  '       skillset create [path|--global] [--yes|--dry-run] [--targets claude,codex] [--include agents,ci] [--name <name>] [--root <path>]',
-  '       skillset explain <path> [--root <path>] [--source <dir>]',
-  '       skillset import <path> [--kind <skill|skills|plugin|plugins>] [--from <provider>] [--name <name>] [--root <path>] [--source <dir>]',
-  '       skillset import <claude|codex|agents> [--root <path>] [--source <dir>]',
-].join('\n');
+  "usage: skillset build [--yes|--dry-run] [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset <check|diff|doctor|lint|list> [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset ci [--fix] [--since <ref>] [--report <path>] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset change status [--since <ref>] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset change check [@ref|--ref <ref>] [--since <ref>] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset change <status|check> --staged [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset change add --scope <source-unit> --bump <bump> [--group <group>] [--reason <text>|--reason-file <path>|--reason -] [--since <ref>] [--root <path>] [--source <dir>]",
+  "       skillset change reason <@ref> [--append] [--reason <text>|--reason-file <path>|--reason -] [--root <path>] [--source <dir>]",
+  "       skillset change <show|history> [@ref] [--root <path>] [--source <dir>]",
+  "       skillset change list [--group <group>] [--root <path>] [--source <dir>]",
+  "       skillset release plan [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset release apply [--yes|--dry-run] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset test [name] [--root <path>] [--source <dir>]",
+  "       skillset hooks print --runner <lefthook|husky|pre-commit|git> [--pre-commit] [--pre-push]",
+  "       skillset hooks print --target <claude|codex> --agent-runtime",
+  "       skillset init [path] [--yes|--dry-run] [--targets claude,codex] [--include agents,ci] [--name <name>] [--root <path>]",
+  "       skillset create [path|--global] [--yes|--dry-run] [--targets claude,codex] [--include agents,ci] [--name <name>] [--root <path>]",
+  "       skillset explain <path> [--root <path>] [--source <dir>]",
+  "       skillset import <path> [--kind <skill|skills|plugin|plugins>] [--from <provider>] [--name <name>] [--root <path>] [--source <dir>]",
+  "       skillset import <claude|codex|agents> [--root <path>] [--source <dir>]",
+].join("\n");
 
 export async function runCli(
   rawArgs: readonly string[] = process.argv.slice(2),
-  invokedName = basename(process.argv[1] ?? '')
+  invokedName = basename(process.argv[1] ?? "")
 ): Promise<void> {
-  const args =
-    invokedName === 'create-skillset' ? ['create', ...rawArgs] : rawArgs;
-  if (args.some((arg) => arg === '--help' || arg === '-h')) {
+  const args = invokedName === "create-skillset" ? ["create", ...rawArgs] : rawArgs;
+  if (args.some((arg) => arg === "--help" || arg === "-h")) {
     console.log(USAGE);
     return;
   }
@@ -130,13 +95,11 @@ export async function runCli(
     yes,
   } = parseArgs(args);
 
-  if (command === 'build') {
+  if (command === "build") {
     if (dryRun || !yes) {
       const diff = await diffSkillset(rootPath, options);
-      printDiffPlan(diff, dryRun ? 'dry run' : 'write confirmation required');
-      if (!dryRun) {
-        console.log('skillset: rerun with --yes to write generated files');
-      }
+      printDiffPlan(diff, dryRun ? "dry run" : "write confirmation required");
+      if (!dryRun) console.log("skillset: rerun with --yes to write generated files");
       return;
     }
     const rendered = await buildSkillset(rootPath, options);
@@ -144,7 +107,7 @@ export async function runCli(
     return;
   }
 
-  if (command === 'ci') {
+  if (command === "ci") {
     const report = await ciSkillset(rootPath, {
       ...options,
       ...(ciFix ? { fix: true } : {}),
@@ -156,120 +119,81 @@ export async function runCli(
       await writeFile(reportPath, renderCiReportMarkdown(report));
     }
     printCiReport(report);
-    if (!report.ok) {
-      process.exitCode = 1;
-    }
+    if (!report.ok) process.exitCode = 1;
     return;
   }
 
-  if (command === 'change') {
-    const changeOptions = {
-      ...options,
-      ...(changeSince === undefined ? {} : { since: changeSince }),
-    };
-    if (changeSubcommand === 'status') {
-      printChangeStatus(
-        await changeStatus(rootPath, {
-          ...changeOptions,
-          ...(changeStaged ? { staged: true } : {}),
-        })
-      );
+  if (command === "change") {
+    const changeOptions = { ...options, ...(changeSince === undefined ? {} : { since: changeSince }) };
+    if (changeSubcommand === "status") {
+      printChangeStatus(await changeStatus(rootPath, {
+        ...changeOptions,
+        ...(changeStaged ? { staged: true } : {}),
+      }));
       return;
     }
-    if (changeSubcommand === 'check') {
-      printChangeCheck(
-        await changeCheck(rootPath, {
-          ...changeOptions,
-          ...(changeRef === undefined ? {} : { ref: changeRef }),
-          ...(changeStaged ? { staged: true } : {}),
-        })
-      );
+    if (changeSubcommand === "check") {
+      printChangeCheck(await changeCheck(rootPath, {
+        ...changeOptions,
+        ...(changeRef === undefined ? {} : { ref: changeRef }),
+        ...(changeStaged ? { staged: true } : {}),
+      }));
       return;
     }
-    if (changeSubcommand === 'add') {
-      printChangeEntry(
-        'added',
-        (
-          await addChangeEntry(rootPath, {
-            ...changeOptions,
-            ...(changeBump === undefined ? {} : { bump: changeBump }),
-            ...(changeGroup === undefined ? {} : { group: changeGroup }),
-            reason: changeReason ?? { kind: 'auto' },
-            scopes: changeScopes ?? [],
-          })
-        ).entry
-      );
+    if (changeSubcommand === "add") {
+      printChangeEntry("added", (await addChangeEntry(rootPath, {
+        ...changeOptions,
+        ...(changeBump === undefined ? {} : { bump: changeBump }),
+        ...(changeGroup === undefined ? {} : { group: changeGroup }),
+        reason: changeReason ?? { kind: "auto" },
+        scopes: changeScopes ?? [],
+      })).entry);
       return;
     }
-    if (changeSubcommand === 'reason') {
-      if (changeRef === undefined) {
-        throw new Error('skillset: change reason requires @ref');
-      }
-      printChangeEntry(
-        'updated',
-        (
-          await updateChangeReason(rootPath, {
-            ...changeOptions,
-            append: changeAppend,
-            reason: changeReason ?? { kind: 'auto' },
-            ref: changeRef,
-          })
-        ).entry
-      );
+    if (changeSubcommand === "reason") {
+      if (changeRef === undefined) throw new Error("skillset: change reason requires @ref");
+      printChangeEntry("updated", (await updateChangeReason(rootPath, {
+        ...changeOptions,
+        append: changeAppend,
+        reason: changeReason ?? { kind: "auto" },
+        ref: changeRef,
+      })).entry);
       return;
     }
-    if (changeSubcommand === 'show') {
-      if (changeRef === undefined) {
-        throw new Error('skillset: change show requires @ref');
-      }
-      printChangeEntry(
-        'show',
-        (await showChangeEntry(rootPath, { ...changeOptions, ref: changeRef }))
-          .entry
-      );
+    if (changeSubcommand === "show") {
+      if (changeRef === undefined) throw new Error("skillset: change show requires @ref");
+      printChangeEntry("show", (await showChangeEntry(rootPath, { ...changeOptions, ref: changeRef })).entry);
       return;
     }
-    if (changeSubcommand === 'list') {
-      printChangeList(
-        (
-          await listChangeEntries(rootPath, {
-            ...changeOptions,
-            ...(changeGroup === undefined ? {} : { group: changeGroup }),
-          })
-        ).entries
-      );
+    if (changeSubcommand === "list") {
+      printChangeList((await listChangeEntries(rootPath, {
+        ...changeOptions,
+        ...(changeGroup === undefined ? {} : { group: changeGroup }),
+      })).entries);
       return;
     }
-    if (changeSubcommand === 'history') {
-      printChangeHistory(
-        (
-          await readChangeHistory(rootPath, {
-            ...changeOptions,
-            ...(changeRef === undefined ? {} : { ref: changeRef }),
-          })
-        ).entries
-      );
+    if (changeSubcommand === "history") {
+      printChangeHistory((await readChangeHistory(rootPath, {
+        ...changeOptions,
+        ...(changeRef === undefined ? {} : { ref: changeRef }),
+      })).entries);
       return;
     }
-    throw new Error(
-      'skillset: expected change subcommand add, check, history, list, reason, show, or status'
-    );
+    throw new Error("skillset: expected change subcommand add, check, history, list, reason, show, or status");
   }
 
-  if (command === 'release') {
-    if (releaseSubcommand === 'plan') {
+  if (command === "release") {
+    if (releaseSubcommand === "plan") {
       printReleasePlan(await planRelease(rootPath, options));
       return;
     }
-    if (releaseSubcommand === 'apply') {
+    if (releaseSubcommand === "apply") {
       if (dryRun || !yes) {
         printReleasePlan(await planRelease(rootPath, options));
         if (dryRun) {
-          console.log('skillset: release apply dry run wrote no files');
+          console.log("skillset: release apply dry run wrote no files");
         } else {
-          console.log(
-            'skillset: rerun release apply with --yes to write release state'
-          );
+          console.log("skillset: rerun release apply with --yes to write release state");
         }
         return;
       }
@@ -277,206 +201,142 @@ export async function runCli(
       printReleaseApply(result.plan, result.files, result.renderedFiles);
       return;
     }
-    throw new Error('skillset: expected release subcommand apply or plan');
+    throw new Error("skillset: expected release subcommand apply or plan");
   }
 
-  if (command === 'hooks') {
-    if (hookSubcommand !== 'print') {
-      throw new Error('skillset: expected hooks subcommand print');
-    }
-    process.stdout.write(
-      renderHookPrint({
-        agentRuntime: hookAgentRuntime,
-        preCommit: hookPreCommit,
-        prePush: hookPrePush,
-        ...(hookRunner === undefined ? {} : { runner: hookRunner }),
-        ...(hookTarget === undefined ? {} : { target: hookTarget }),
-      })
-    );
+  if (command === "hooks") {
+    if (hookSubcommand !== "print") throw new Error("skillset: expected hooks subcommand print");
+    process.stdout.write(renderHookPrint({
+      agentRuntime: hookAgentRuntime,
+      preCommit: hookPreCommit,
+      prePush: hookPrePush,
+      ...(hookRunner === undefined ? {} : { runner: hookRunner }),
+      ...(hookTarget === undefined ? {} : { target: hookTarget }),
+    }));
     return;
   }
 
-  if (command === 'test') {
+  if (command === "test") {
     const report = await runSkillsetTest(rootPath, testName, options);
     printSkillsetTest(report);
-    if (!report.ok) {
-      process.exitCode = 1;
-    }
+    if (!report.ok) process.exitCode = 1;
     return;
   }
 
-  if (command === 'lint') {
+  if (command === "lint") {
     const result = await lintSkillset(rootPath, options);
     console.log(`skillset: linted ${result.checkedSkills} source skills`);
     return;
   }
 
-  if (command === 'init' || command === 'create') {
-    const setup =
-      command === 'init'
-        ? await initSkillset({
-            cwd: rootPath,
-            ...(importPath === undefined ? {} : { rootPath: importPath }),
-            ...(importName === undefined ? {} : { name: importName }),
-            ...(setupTargets === undefined ? {} : { targets: setupTargets }),
-            ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
-            useGitRoot: !rootExplicit && importPath === undefined,
-            write: yes && !dryRun,
-          })
-        : await createSkillset({
-            cwd: rootPath,
-            global: setupGlobal,
-            ...(importPath === undefined ? {} : { rootPath: importPath }),
-            ...(importName === undefined ? {} : { name: importName }),
-            ...(setupTargets === undefined ? {} : { targets: setupTargets }),
-            ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
-            write: yes && !dryRun,
-          });
-    printSetupReport(
-      setup,
-      dryRun ? 'dry run' : yes ? 'written' : 'write confirmation required'
-    );
-    if (!yes || dryRun) {
-      console.log(`skillset: rerun ${command} with --yes to write setup files`);
-    }
+  if (command === "init" || command === "create") {
+    const setup = command === "init"
+      ? await initSkillset({
+          cwd: rootPath,
+          ...(importPath === undefined ? {} : { rootPath: importPath }),
+          ...(importName === undefined ? {} : { name: importName }),
+          ...(setupTargets === undefined ? {} : { targets: setupTargets }),
+          ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
+          useGitRoot: !rootExplicit && importPath === undefined,
+          write: yes && !dryRun,
+        })
+      : await createSkillset({
+          cwd: rootPath,
+          global: setupGlobal,
+          ...(importPath === undefined ? {} : { rootPath: importPath }),
+          ...(importName === undefined ? {} : { name: importName }),
+          ...(setupTargets === undefined ? {} : { targets: setupTargets }),
+          ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
+          write: yes && !dryRun,
+        });
+    printSetupReport(setup, dryRun ? "dry run" : yes ? "written" : "write confirmation required");
+    if (!yes || dryRun) console.log(`skillset: rerun ${command} with --yes to write setup files`);
     return;
   }
 
-  if (command === 'import') {
+  if (command === "import") {
     const result = await importSources({
       ...(importKind === undefined ? {} : { kind: importKind }),
       ...(importName === undefined ? {} : { name: importName }),
       ...(importPath === undefined ? {} : { sourcePath: importPath }),
       ...(importProvider === undefined ? {} : { provider: importProvider }),
       rootPath,
-      ...(options.sourceDir === undefined
-        ? {}
-        : { sourceDir: options.sourceDir }),
+      ...(options.sourceDir === undefined ? {} : { sourceDir: options.sourceDir }),
     });
     if (result.imports.length === 1) {
       const [single] = result.imports;
-      if (single !== undefined) {
-        printImportReport(single);
-      }
+      if (single !== undefined) printImportReport(single);
     } else {
-      console.log(
-        `skillset: imported ${result.imports.length} ${result.kind} (${result.files} files)`
-      );
+      console.log(`skillset: imported ${result.imports.length} ${result.kind} (${result.files} files)`);
       console.log(`  source: ${result.sourcePath}`);
       for (const imported of result.imports) {
-        console.log(
-          `  - ${imported.kind} ${imported.name}: ${imported.targetPath} (${imported.files} files)`
-        );
+        console.log(`  - ${imported.kind} ${imported.name}: ${imported.targetPath} (${imported.files} files)`);
       }
     }
-    for (const warning of result.warnings) {
-      console.warn(`  warning: ${warning}`);
-    }
+    for (const warning of result.warnings) console.warn(`  warning: ${warning}`);
     return;
   }
 
-  if (command === 'diff') {
+  if (command === "diff") {
     const diff = await diffSkillset(rootPath, options);
-    const total =
-      diff.added.length +
-      diff.changed.length +
-      diff.missing.length +
-      diff.removed.length;
+    const total = diff.added.length + diff.changed.length + diff.missing.length + diff.removed.length;
     if (total === 0) {
-      console.log('skillset: no generated changes');
+      console.log("skillset: no generated changes");
       return;
     }
-    for (const path of diff.added) {
-      console.log(`  + ${path}`);
-    }
-    for (const path of diff.changed) {
-      console.log(`  ~ ${path}`);
-    }
-    for (const path of diff.missing) {
-      console.log(`  ! ${path}`);
-    }
-    for (const path of diff.removed) {
-      console.log(`  - ${path}`);
-    }
+    for (const path of diff.added) console.log(`  + ${path}`);
+    for (const path of diff.changed) console.log(`  ~ ${path}`);
+    for (const path of diff.missing) console.log(`  ! ${path}`);
+    for (const path of diff.removed) console.log(`  - ${path}`);
     console.log(
       `skillset: ${diff.added.length} added, ${diff.changed.length} changed, ${diff.missing.length} missing, ${diff.removed.length} removed (run skillset build --yes to apply)`
     );
     return;
   }
 
-  if (command === 'list') {
+  if (command === "list") {
     const entries = await listGeneratedEntries(rootPath, options);
     for (const entry of entries) {
-      const feature = entry.feature === undefined ? '' : ` ${entry.feature}`;
-      const origin = entry.origin === undefined ? '' : ` (${entry.origin})`;
-      const dependencies =
-        entry.dependencies === undefined || entry.dependencies.length === 0
-          ? ''
-          : ` deps:${entry.dependencies.join(';')}`;
-      console.log(
-        `  [${entry.target}] ${entry.kind ?? 'generated'}${feature}${origin} ${entry.sourcePath} -> ${entry.outputPath}${dependencies}`
-      );
+      const feature = entry.feature === undefined ? "" : ` ${entry.feature}`;
+      const origin = entry.origin === undefined ? "" : ` (${entry.origin})`;
+      const dependencies = entry.dependencies === undefined || entry.dependencies.length === 0
+        ? ""
+        : ` deps:${entry.dependencies.join(";")}`;
+      console.log(`  [${entry.target}] ${entry.kind ?? "generated"}${feature}${origin} ${entry.sourcePath} -> ${entry.outputPath}${dependencies}`);
     }
     console.log(`skillset: listed ${entries.length} generated entries`);
     return;
   }
 
-  if (command === 'explain') {
+  if (command === "explain") {
     if (importPath === undefined) {
-      throw new Error('skillset: expected a path to explain');
+      throw new Error("skillset: expected a path to explain");
     }
     const result = await explainPath(rootPath, importPath, options);
     console.log(`skillset: ${result.path} (${result.kind})`);
     for (const entry of result.entries) {
-      console.log(
-        `  [${entry.target}] ${entry.sourcePath} -> ${entry.outputPath}`
-      );
-      if (entry.version !== undefined) {
-        console.log(`    version: ${entry.version}`);
-      }
-      if (entry.targetState !== undefined) {
-        console.log(`    target state: ${entry.targetState}`);
-      }
-      if (entry.validation !== undefined) {
-        console.log(`    validation: ${entry.validation}`);
-      }
-      if (entry.feature !== undefined) {
-        console.log(`    feature: ${entry.feature}`);
-      }
-      if (entry.origin !== undefined) {
-        console.log(`    origin: ${entry.origin}`);
-      }
-      if (entry.sourcePointer !== undefined) {
-        console.log(`    source pointer: ${entry.sourcePointer}`);
-      }
+      console.log(`  [${entry.target}] ${entry.sourcePath} -> ${entry.outputPath}`);
+      if (entry.version !== undefined) console.log(`    version: ${entry.version}`);
+      if (entry.targetState !== undefined) console.log(`    target state: ${entry.targetState}`);
+      if (entry.validation !== undefined) console.log(`    validation: ${entry.validation}`);
+      if (entry.feature !== undefined) console.log(`    feature: ${entry.feature}`);
+      if (entry.origin !== undefined) console.log(`    origin: ${entry.origin}`);
+      if (entry.sourcePointer !== undefined) console.log(`    source pointer: ${entry.sourcePointer}`);
       if (entry.dependencies !== undefined && entry.dependencies.length > 0) {
-        console.log(`    dependencies: ${entry.dependencies.join(', ')}`);
+        console.log(`    dependencies: ${entry.dependencies.join(", ")}`);
       }
-      if (
-        entry.preprocessDependencies !== undefined &&
-        entry.preprocessDependencies.length > 0
-      ) {
-        console.log(
-          `    preprocess dependencies: ${entry.preprocessDependencies.join(', ')}`
-        );
+      if (entry.preprocessDependencies !== undefined && entry.preprocessDependencies.length > 0) {
+        console.log(`    preprocess dependencies: ${entry.preprocessDependencies.join(", ")}`);
       }
-      if (entry.sourceHash !== undefined) {
-        console.log(`    source hash: ${entry.sourceHash}`);
-      }
-      if (entry.outputHash !== undefined) {
-        console.log(`    output hash: ${entry.outputHash}`);
-      }
+      if (entry.sourceHash !== undefined) console.log(`    source hash: ${entry.sourceHash}`);
+      if (entry.outputHash !== undefined) console.log(`    output hash: ${entry.outputHash}`);
     }
-    for (const note of result.notes) {
-      console.log(`  note: ${note}`);
-    }
-    if (result.kind === 'unknown') {
-      process.exitCode = 1;
-    }
+    for (const note of result.notes) console.log(`  note: ${note}`);
+    if (result.kind === "unknown") process.exitCode = 1;
     return;
   }
 
-  if (command === 'doctor') {
+  if (command === "doctor") {
     // doctorSkillset runs diffSkillset internally, which emits source warnings to
     // stderr; the report still carries them for programmatic consumers.
     const report = await doctorSkillset(rootPath, options);
@@ -488,27 +348,20 @@ export async function runCli(
     }
     const { added, changed, removed } = report.drift;
     const { missing } = report.drift;
-    const driftCount =
-      added.length + changed.length + missing.length + removed.length;
+    const driftCount = added.length + changed.length + missing.length + removed.length;
     if (driftCount > 0) {
       console.log(
         `  drift: ${added.length} added, ${changed.length} changed, ${missing.length} missing, ${removed.length} removed (run skillset build --yes)`
       );
     }
     if (report.ok) {
-      console.log('skillset: doctor found no problems');
+      console.log("skillset: doctor found no problems");
     } else {
       const problems: string[] = [];
-      if (report.lintIssues.length > 0) {
-        problems.push(`${report.lintIssues.length} lint issue(s)`);
-      }
-      if (driftCount > 0) {
-        problems.push('generated-output drift');
-      }
-      if (report.buildError !== undefined) {
-        problems.push('a build error');
-      }
-      console.log(`skillset: doctor found ${problems.join(' and ')}`);
+      if (report.lintIssues.length > 0) problems.push(`${report.lintIssues.length} lint issue(s)`);
+      if (driftCount > 0) problems.push("generated-output drift");
+      if (report.buildError !== undefined) problems.push("a build error");
+      console.log(`skillset: doctor found ${problems.join(" and ")}`);
       process.exitCode = 1;
     }
     return;
@@ -560,128 +413,83 @@ interface ParsedArgs {
 }
 
 function printChangeEntry(verb: string, entry: ChangeEntryView): void {
-  if (verb === 'show') {
+  if (verb === "show") {
     console.log(`skillset: change ${entry.ref}`);
   } else {
     console.log(`skillset: ${verb} change ${entry.ref} ${entry.path}`);
   }
   console.log(`  status: ${entry.status}`);
   console.log(`  id: ${entry.id}`);
-  if (entry.bump !== undefined) {
-    console.log(`  bump: ${entry.bump}`);
-  }
+  if (entry.bump !== undefined) console.log(`  bump: ${entry.bump}`);
   const group = groupRef(entry.group);
-  if (group !== undefined) {
-    console.log(`  group: ${group}`);
-  }
-  if (entry.scopes.length > 0) {
-    console.log(`  scopes: ${sourceUnitDisplays(entry.scopes)}`);
-  }
+  if (group !== undefined) console.log(`  group: ${group}`);
+  if (entry.scopes.length > 0) console.log(`  scopes: ${sourceUnitDisplays(entry.scopes)}`);
   for (const [scope, hashes] of entry.sourceHashes) {
-    for (const hash of hashes) {
-      console.log(`  source hash: ${sourceUnitDisplay(scope)} ${hash}`);
-    }
+    for (const hash of hashes) console.log(`  source hash: ${sourceUnitDisplay(scope)} ${hash}`);
   }
   if (entry.reason.length > 0) {
-    console.log('  reason:');
-    for (const line of entry.reason.split('\n')) {
-      console.log(`    ${line}`);
-    }
+    console.log("  reason:");
+    for (const line of entry.reason.split("\n")) console.log(`    ${line}`);
   }
 }
 
 function printChangeList(entries: readonly ChangeEntryView[]): void {
   for (const entry of entries) {
-    const group = groupRef(entry.group) ?? '-';
-    const bump = entry.bump ?? '-';
-    console.log(
-      `${entry.ref} ${entry.status} ${bump} ${group} ${sourceUnitDisplays(entry.scopes)} ${entry.path}`
-    );
+    const group = groupRef(entry.group) ?? "-";
+    const bump = entry.bump ?? "-";
+    console.log(`${entry.ref} ${entry.status} ${bump} ${group} ${sourceUnitDisplays(entry.scopes)} ${entry.path}`);
   }
-  console.log(
-    `skillset: listed ${entries.length} pending change entr${entries.length === 1 ? 'y' : 'ies'}`
-  );
+  console.log(`skillset: listed ${entries.length} pending change entr${entries.length === 1 ? "y" : "ies"}`);
 }
 
 function printChangeHistory(entries: readonly ChangeEntryView[]): void {
-  for (const entry of entries) {
-    printChangeEntry('show', entry);
-  }
-  console.log(
-    `skillset: listed ${entries.length} history entr${entries.length === 1 ? 'y' : 'ies'}`
-  );
+  for (const entry of entries) printChangeEntry("show", entry);
+  console.log(`skillset: listed ${entries.length} history entr${entries.length === 1 ? "y" : "ies"}`);
 }
 
 function printChangeCheck(report: ChangeCheckReport): void {
   for (const issue of report.issues) {
-    const path = issue.path === undefined ? '' : `${issue.path}: `;
+    const path = issue.path === undefined ? "" : `${issue.path}: `;
     console.log(`  ${issue.severity}: ${path}${issue.code}: ${issue.message}`);
   }
-  const errors = report.issues.filter(
-    (issue) => issue.severity === 'error'
-  ).length;
+  const errors = report.issues.filter((issue) => issue.severity === "error").length;
   const warnings = report.issues.length - errors;
   if (errors === 0) {
-    console.log(
-      `skillset: change check passed (${report.entries.length} pending entr${report.entries.length === 1 ? 'y' : 'ies'}, ${warnings} warning${warnings === 1 ? '' : 's'})`
-    );
+    console.log(`skillset: change check passed (${report.entries.length} pending entr${report.entries.length === 1 ? "y" : "ies"}, ${warnings} warning${warnings === 1 ? "" : "s"})`);
     return;
   }
-  console.log(
-    `skillset: change check found ${errors} error${errors === 1 ? '' : 's'} and ${warnings} warning${warnings === 1 ? '' : 's'}`
-  );
+  console.log(`skillset: change check found ${errors} error${errors === 1 ? "" : "s"} and ${warnings} warning${warnings === 1 ? "" : "s"}`);
   process.exitCode = 1;
 }
 
 function printChangeStatus(report: ChangeStatusReport): void {
   const baseline =
-    report.baseline.kind === 'git-ref'
-      ? `git ref ${report.baseline.ref}${report.baseline.resolvedRef === undefined ? '' : ` (${report.baseline.resolvedRef.slice(0, 12)})`}`
+    report.baseline.kind === "git-ref"
+      ? `git ref ${report.baseline.ref}${report.baseline.resolvedRef === undefined ? "" : ` (${report.baseline.resolvedRef.slice(0, 12)})`}`
       : `${report.baseline.label} (${report.baseline.hashSchema})`;
   console.log(`skillset: source hash schema ${report.hashSchema}`);
   console.log(`skillset: baseline ${baseline}`);
 
   if (report.sourceChanges.length === 0) {
-    console.log('skillset: no source changes needing entries');
+    console.log("skillset: no source changes needing entries");
   } else {
     for (const change of report.sourceChanges) {
-      const marker =
-        change.status === 'added'
-          ? '+'
-          : change.status === 'removed'
-            ? '-'
-            : '~';
-      console.log(
-        `  ${marker} ${sourceUnitDisplay(change.id)} ${change.sourcePath}`
-      );
+      const marker = change.status === "added" ? "+" : change.status === "removed" ? "-" : "~";
+      console.log(`  ${marker} ${sourceUnitDisplay(change.id)} ${change.sourcePath}`);
     }
-    console.log(
-      `skillset: ${report.sourceChanges.length} source change(s) needing entries`
-    );
+    console.log(`skillset: ${report.sourceChanges.length} source change(s) needing entries`);
   }
 
   const drift = report.generatedDrift;
-  const driftCount =
-    drift.added.length +
-    drift.changed.length +
-    drift.missing.length +
-    drift.removed.length;
+  const driftCount = drift.added.length + drift.changed.length + drift.missing.length + drift.removed.length;
   if (driftCount === 0) {
-    console.log('skillset: no generated-output drift');
+    console.log("skillset: no generated-output drift");
     return;
   }
-  for (const path of drift.added) {
-    console.log(`  generated + ${path}`);
-  }
-  for (const path of drift.changed) {
-    console.log(`  generated ~ ${path}`);
-  }
-  for (const path of drift.missing) {
-    console.log(`  generated ! ${path}`);
-  }
-  for (const path of drift.removed) {
-    console.log(`  generated - ${path}`);
-  }
+  for (const path of drift.added) console.log(`  generated + ${path}`);
+  for (const path of drift.changed) console.log(`  generated ~ ${path}`);
+  for (const path of drift.missing) console.log(`  generated ! ${path}`);
+  for (const path of drift.removed) console.log(`  generated - ${path}`);
   console.log(
     `skillset: generated-output drift ${drift.added.length} added, ${drift.changed.length} changed, ${drift.missing.length} missing, ${drift.removed.length} removed`
   );
@@ -695,27 +503,15 @@ function printCiReport(report: CiReport): void {
     console.log(`  change check error: ${report.changeError}`);
   }
   for (const issue of report.changeIssues) {
-    const path = issue.path === undefined ? '' : `${issue.path}: `;
-    console.log(
-      `  change ${issue.severity}: ${path}${issue.code}: ${issue.message}`
-    );
+    const path = issue.path === undefined ? "" : `${issue.path}: `;
+    console.log(`  change ${issue.severity}: ${path}${issue.code}: ${issue.message}`);
   }
-  for (const path of report.fixedPaths) {
-    console.log(`  fixed ${path}`);
-  }
-  const { drift } = report;
-  for (const path of drift.added) {
-    console.log(`  generated + ${path}`);
-  }
-  for (const path of drift.changed) {
-    console.log(`  generated ~ ${path}`);
-  }
-  for (const path of drift.missing) {
-    console.log(`  generated ! ${path}`);
-  }
-  for (const path of drift.removed) {
-    console.log(`  generated - ${path}`);
-  }
+  for (const path of report.fixedPaths) console.log(`  fixed ${path}`);
+  const drift = report.drift;
+  for (const path of drift.added) console.log(`  generated + ${path}`);
+  for (const path of drift.changed) console.log(`  generated ~ ${path}`);
+  for (const path of drift.missing) console.log(`  generated ! ${path}`);
+  for (const path of drift.removed) console.log(`  generated - ${path}`);
   if (report.buildError !== undefined) {
     console.log(`  build error: ${report.buildError}`);
   }
@@ -723,65 +519,40 @@ function printCiReport(report: CiReport): void {
   if (report.ok) {
     console.log(
       report.fixedPaths.length === 0
-        ? 'skillset: ci passed'
-        : `skillset: ci passed after rebuilding ${report.fixedPaths.length} generated file${report.fixedPaths.length === 1 ? '' : 's'}`
+        ? "skillset: ci passed"
+        : `skillset: ci passed after rebuilding ${report.fixedPaths.length} generated file${report.fixedPaths.length === 1 ? "" : "s"}`
     );
     return;
   }
-  const changeErrors = report.changeIssues.filter(
-    (issue) => issue.severity === 'error'
-  ).length;
+  const changeErrors = report.changeIssues.filter((issue) => issue.severity === "error").length;
   const problems: string[] = [];
-  if (report.lintIssues.length > 0) {
-    problems.push(`${report.lintIssues.length} lint issue(s)`);
-  }
-  if (report.changeError !== undefined) {
-    problems.push('a change check error');
-  }
-  if (changeErrors > 0) {
-    problems.push(`${changeErrors} change entry error(s)`);
-  }
-  if (hasDrift(report.drift)) {
-    problems.push(
-      'generated-output drift (run skillset build --yes or ci --fix)'
-    );
-  }
-  if (report.buildError !== undefined) {
-    problems.push('a build error');
-  }
-  console.log(`skillset: ci found ${problems.join(' and ')}`);
+  if (report.lintIssues.length > 0) problems.push(`${report.lintIssues.length} lint issue(s)`);
+  if (report.changeError !== undefined) problems.push("a change check error");
+  if (changeErrors > 0) problems.push(`${changeErrors} change entry error(s)`);
+  if (hasDrift(report.drift)) problems.push("generated-output drift (run skillset build --yes or ci --fix)");
+  if (report.buildError !== undefined) problems.push("a build error");
+  console.log(`skillset: ci found ${problems.join(" and ")}`);
 }
 
 function printReleasePlan(report: ReleasePlanReport): void {
   if (report.entries.length === 0) {
-    console.log('skillset: no pending changes to release');
+    console.log("skillset: no pending changes to release");
     return;
   }
   for (const entry of report.entries) {
-    const marker = entry.ignored ? 'ignored' : 'pending';
-    console.log(
-      `${entry.ref} ${marker} ${entry.bump} ${sourceUnitDisplays(entry.scopes)} ${entry.path}`
-    );
+    const marker = entry.ignored ? "ignored" : "pending";
+    console.log(`${entry.ref} ${marker} ${entry.bump} ${sourceUnitDisplays(entry.scopes)} ${entry.path}`);
   }
   if (report.scopes.length === 0) {
-    console.log(
-      `skillset: release plan has ${report.entries.length} pending entr${report.entries.length === 1 ? 'y' : 'ies'} and no release scopes`
-    );
+    console.log(`skillset: release plan has ${report.entries.length} pending entr${report.entries.length === 1 ? "y" : "ies"} and no release scopes`);
     return;
   }
-  if (report.releaseId !== undefined) {
-    console.log(`skillset: release ${report.releaseId}`);
-  }
+  if (report.releaseId !== undefined) console.log(`skillset: release ${report.releaseId}`);
   for (const scope of report.scopes) {
-    const sourceHash =
-      scope.sourceHash === undefined ? '' : ` ${scope.sourceHash}`;
-    console.log(
-      `  ${sourceUnitDisplay(scope.scope)}: ${scope.currentVersion} -> ${scope.nextVersion} (${scope.bump}) entries ${scope.entries.join(',')}${sourceHash}`
-    );
+    const sourceHash = scope.sourceHash === undefined ? "" : ` ${scope.sourceHash}`;
+    console.log(`  ${sourceUnitDisplay(scope.scope)}: ${scope.currentVersion} -> ${scope.nextVersion} (${scope.bump}) entries ${scope.entries.join(",")}${sourceHash}`);
   }
-  console.log(
-    `skillset: release plan has ${report.entries.length} pending entr${report.entries.length === 1 ? 'y' : 'ies'} and ${report.scopes.length} release scope${report.scopes.length === 1 ? '' : 's'}`
-  );
+  console.log(`skillset: release plan has ${report.entries.length} pending entr${report.entries.length === 1 ? "y" : "ies"} and ${report.scopes.length} release scope${report.scopes.length === 1 ? "" : "s"}`);
 }
 
 function printReleaseApply(
@@ -790,125 +561,85 @@ function printReleaseApply(
   renderedFiles: number
 ): void {
   if (plan.entries.length === 0) {
-    console.log('skillset: no pending changes to release');
+    console.log("skillset: no pending changes to release");
     return;
   }
-  console.log(
-    `skillset: applied release ${plan.releaseId ?? 'audit-only'} (${renderedFiles} generated files refreshed)`
-  );
-  for (const file of files) {
-    console.log(`  ${file}`);
-  }
+  console.log(`skillset: applied release ${plan.releaseId ?? "audit-only"} (${renderedFiles} generated files refreshed)`);
+  for (const file of files) console.log(`  ${file}`);
 }
 
-function printDiffPlan(
-  diff: Awaited<ReturnType<typeof diffSkillset>>,
-  reason: string
-): void {
-  const total =
-    diff.added.length +
-    diff.changed.length +
-    diff.missing.length +
-    diff.removed.length;
+function printDiffPlan(diff: Awaited<ReturnType<typeof diffSkillset>>, reason: string): void {
+  const total = diff.added.length + diff.changed.length + diff.missing.length + diff.removed.length;
   if (total === 0) {
     console.log(`skillset: no generated changes (${reason})`);
     return;
   }
-  for (const path of diff.added) {
-    console.log(`  + ${path}`);
-  }
-  for (const path of diff.changed) {
-    console.log(`  ~ ${path}`);
-  }
-  for (const path of diff.missing) {
-    console.log(`  ! ${path}`);
-  }
-  for (const path of diff.removed) {
-    console.log(`  - ${path}`);
-  }
+  for (const path of diff.added) console.log(`  + ${path}`);
+  for (const path of diff.changed) console.log(`  ~ ${path}`);
+  for (const path of diff.missing) console.log(`  ! ${path}`);
+  for (const path of diff.removed) console.log(`  - ${path}`);
   console.log(
     `skillset: planned ${diff.added.length} added, ${diff.changed.length} changed, ${diff.missing.length} missing, ${diff.removed.length} removed (${reason})`
   );
 }
 
 function printImportReport(result: ImportReport): void {
-  console.log(
-    `skillset: imported ${result.kind} ${result.name} (${result.files} files)`
-  );
+  console.log(`skillset: imported ${result.kind} ${result.name} (${result.files} files)`);
   console.log(`  target: ${result.targetPath}`);
   if (result.inferredSourceFields.length > 0) {
-    console.log(`  source fields: ${result.inferredSourceFields.join(', ')}`);
+    console.log(`  source fields: ${result.inferredSourceFields.join(", ")}`);
   }
   if (result.preservedTargetNativeFields.length > 0) {
-    console.log(
-      `  preserved target-native: ${result.preservedTargetNativeFields.join(', ')}`
-    );
+    console.log(`  preserved target-native: ${result.preservedTargetNativeFields.join(", ")}`);
   }
   if (result.unsupportedFields.length > 0) {
-    console.log(
-      `  unsupported (kept verbatim): ${result.unsupportedFields.join(', ')}`
-    );
+    console.log(`  unsupported (kept verbatim): ${result.unsupportedFields.join(", ")}`);
   }
   for (const baseline of result.baselines) {
-    if (baseline.status === 'create') {
-      console.log(
-        `  baseline: ${sourceUnitDisplay(baseline.scope)} ${baseline.version}`
-      );
+    if (baseline.status === "create") {
+      console.log(`  baseline: ${sourceUnitDisplay(baseline.scope)} ${baseline.version}`);
     }
   }
   for (const warning of result.warnings) {
     console.warn(`  warning: ${warning}`);
   }
-  console.log(`  next: ${result.nextChecks.join(', ')}`);
+  console.log(`  next: ${result.nextChecks.join(", ")}`);
 }
 
 function printSetupReport(result: SetupReport, reason: string): void {
   for (const file of result.files) {
-    const marker = file.status === 'create' ? '+' : '=';
+    const marker = file.status === "create" ? "+" : "=";
     console.log(`  ${marker} ${file.path}`);
   }
   for (const baseline of result.baselines) {
-    const marker = baseline.status === 'create' ? '+' : '=';
-    console.log(
-      `  ${marker} baseline ${sourceUnitDisplay(baseline.scope)} ${baseline.version}`
-    );
+    const marker = baseline.status === "create" ? "+" : "=";
+    console.log(`  ${marker} baseline ${sourceUnitDisplay(baseline.scope)} ${baseline.version}`);
   }
   for (const candidate of result.importCandidates) {
     console.log(`  ? import candidate ${candidate.kind} ${candidate.path}`);
   }
-  const created = result.files.filter(
-    (file) => file.status === 'create'
-  ).length;
+  const created = result.files.filter((file) => file.status === "create").length;
   const existing = result.files.length - created;
-  const baselines = result.baselines.filter(
-    (baseline) => baseline.status === 'create'
-  ).length;
+  const baselines = result.baselines.filter((baseline) => baseline.status === "create").length;
   const candidates = result.importCandidates.length;
   const details = [
     `${created} to create`,
     `${existing} already present`,
-    ...(baselines === 0
-      ? []
-      : [`${baselines} baseline${baselines === 1 ? '' : 's'} to adopt`]),
-    ...(candidates === 0
-      ? []
-      : [`${candidates} import candidate${candidates === 1 ? '' : 's'}`]),
+    ...(baselines === 0 ? [] : [`${baselines} baseline${baselines === 1 ? "" : "s"} to adopt`]),
+    ...(candidates === 0 ? [] : [`${candidates} import candidate${candidates === 1 ? "" : "s"}`]),
   ];
-  console.log(`skillset: ${result.kind} ${details.join(', ')} (${reason})`);
+  console.log(`skillset: ${result.kind} ${details.join(", ")} (${reason})`);
   console.log(`  root: ${result.rootPath}`);
 }
 
 function printSkillsetTest(report: SkillsetTestReport): void {
   for (const assertion of report.assertions) {
-    const marker = assertion.ok ? 'pass' : 'fail';
-    const path = assertion.path === undefined ? '' : ` ${assertion.path}`;
-    const detail =
-      assertion.detail === undefined ? '' : ` (${assertion.detail})`;
+    const marker = assertion.ok ? "pass" : "fail";
+    const path = assertion.path === undefined ? "" : ` ${assertion.path}`;
+    const detail = assertion.detail === undefined ? "" : ` (${assertion.detail})`;
     console.log(`  ${marker}: ${assertion.kind}${path}${detail}`);
   }
-  console.log(
-    `skillset: test ${report.name} ${report.ok ? 'passed' : 'failed'}`
-  );
+  console.log(`skillset: test ${report.name} ${report.ok ? "passed" : "failed"}`);
   console.log(`  run: ${report.runPath}`);
   console.log(`  latest: ${report.latestPath}`);
   console.log(`  report: ${report.reportPath}`);
@@ -918,26 +649,25 @@ function printSkillsetTest(report: SkillsetTestReport): void {
 function parseArgs(args: readonly string[]): ParsedArgs {
   const command = args[0];
   if (
-    command !== 'build' &&
-    command !== 'change' &&
-    command !== 'check' &&
-    command !== 'ci' &&
-    command !== 'create' &&
-    command !== 'diff' &&
-    command !== 'doctor' &&
-    command !== 'explain' &&
-    command !== 'hooks' &&
-    command !== 'import' &&
-    command !== 'init' &&
-    command !== 'lint' &&
-    command !== 'list' &&
-    command !== 'release' &&
-    command !== 'test'
+    command !== "build" &&
+    command !== "change" &&
+    command !== "check" &&
+    command !== "ci" &&
+    command !== "create" &&
+    command !== "diff" &&
+    command !== "doctor" &&
+    command !== "explain" &&
+    command !== "hooks" &&
+    command !== "import" &&
+    command !== "init" &&
+    command !== "lint" &&
+    command !== "list" &&
+    command !== "release" &&
+    command !== "test"
   ) {
     throw new Error(
-      `skillset: expected command build, change, check, ci, create, diff, doctor, explain, hooks, import, init, lint, list, release, or test\n${
+        "skillset: expected command build, change, check, ci, create, diff, doctor, explain, hooks, import, init, lint, list, release, or test\n" +
         USAGE
-      }`
     );
   }
 
@@ -977,56 +707,47 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let yes = false;
   let index = 1;
 
-  if (command === 'change') {
+  if (command === "change") {
     const subcommand = args[index];
     if (!isChangeSubcommand(subcommand)) {
-      throw new Error(
-        'skillset: expected change subcommand add, check, history, list, reason, show, or status'
-      );
+      throw new Error("skillset: expected change subcommand add, check, history, list, reason, show, or status");
     }
     changeSubcommand = subcommand;
     index += 1;
     const rawRef = args[index];
-    if (
-      (subcommand === 'check' ||
-        subcommand === 'history' ||
-        subcommand === 'reason' ||
-        subcommand === 'show') &&
-      rawRef !== undefined &&
-      !rawRef.startsWith('--')
-    ) {
+    if ((subcommand === "check" || subcommand === "history" || subcommand === "reason" || subcommand === "show") && rawRef !== undefined && !rawRef.startsWith("--")) {
       changeRef = rawRef;
       index += 1;
     }
   }
 
-  if (command === 'release') {
+  if (command === "release") {
     const subcommand = args[index];
     if (!isReleaseSubcommand(subcommand)) {
-      throw new Error('skillset: expected release subcommand apply or plan');
+      throw new Error("skillset: expected release subcommand apply or plan");
     }
     releaseSubcommand = subcommand;
     index += 1;
   }
 
-  if (command === 'hooks') {
+  if (command === "hooks") {
     const subcommand = args[index];
-    if (subcommand !== 'print') {
-      throw new Error('skillset: expected hooks subcommand print');
+    if (subcommand !== "print") {
+      throw new Error("skillset: expected hooks subcommand print");
     }
     hookSubcommand = subcommand;
     index += 1;
   }
 
-  if (command === 'import') {
+  if (command === "import") {
     const first = args[index];
-    if (first !== undefined && !first.startsWith('--')) {
+    if (first !== undefined && !first.startsWith("--")) {
       if (isImportKind(first)) {
-        throw new Error('skillset: import kind must be passed with --kind');
+        throw new Error("skillset: import kind must be passed with --kind");
       } else if (isImportProvider(first)) {
         importProvider = first;
         const rawPath = args[index + 1];
-        if (rawPath !== undefined && !rawPath.startsWith('--')) {
+        if (rawPath !== undefined && !rawPath.startsWith("--")) {
           importPath = rawPath;
           index += 2;
         } else {
@@ -1039,26 +760,26 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     }
   }
 
-  if (command === 'init' || command === 'create') {
+  if (command === "init" || command === "create") {
     const rawPath = args[index];
-    if (rawPath !== undefined && !rawPath.startsWith('--')) {
+    if (rawPath !== undefined && !rawPath.startsWith("--")) {
       importPath = rawPath;
       index += 1;
     }
   }
 
-  if (command === 'explain') {
+  if (command === "explain") {
     const rawPath = args[index];
-    if (rawPath === undefined || rawPath.startsWith('--')) {
-      throw new Error('skillset: expected a path to explain');
+    if (rawPath === undefined || rawPath.startsWith("--")) {
+      throw new Error("skillset: expected a path to explain");
     }
     importPath = rawPath;
     index += 1;
   }
 
-  if (command === 'test') {
+  if (command === "test") {
     const rawName = args[index];
-    if (rawName !== undefined && !rawName.startsWith('--')) {
+    if (rawName !== undefined && !rawName.startsWith("--")) {
       testName = rawName;
       index += 1;
     }
@@ -1066,195 +787,119 @@ function parseArgs(args: readonly string[]): ParsedArgs {
 
   for (; index < args.length; index += 1) {
     const arg = args[index];
-    if (arg === undefined) {
-      break;
-    }
-    const equalsIndex = arg.indexOf('=');
+    if (arg === undefined) break;
+    const equalsIndex = arg.indexOf("=");
     const flag = equalsIndex === -1 ? arg : arg.slice(0, equalsIndex);
-    const inlineValue =
-      equalsIndex === -1 ? undefined : arg.slice(equalsIndex + 1);
+    const inlineValue = equalsIndex === -1 ? undefined : arg.slice(equalsIndex + 1);
     if (
-      flag !== '--root' &&
-      flag !== '--source' &&
-      flag !== '--dist' &&
-      flag !== '--name' &&
-      flag !== '--kind' &&
-      flag !== '--from' &&
-      flag !== '--append' &&
-      flag !== '--bump' &&
-      flag !== '--group' &&
-      flag !== '--reason' &&
-      flag !== '--reason-file' &&
-      flag !== '--ref' &&
-      flag !== '--since' &&
-      flag !== '--staged' &&
-      flag !== '--yes' &&
-      flag !== '--dry-run' &&
-      flag !== '--updated' &&
-      flag !== '--all' &&
-      flag !== '--scope' &&
-      flag !== '--global' &&
-      flag !== '--targets' &&
-      flag !== '--include' &&
-      flag !== '--fix' &&
-      flag !== '--report' &&
-      flag !== '--runner' &&
-      flag !== '--target' &&
-      flag !== '--agent-runtime' &&
-      flag !== '--pre-commit' &&
-      flag !== '--pre-push'
+      flag !== "--root" &&
+      flag !== "--source" &&
+      flag !== "--dist" &&
+      flag !== "--name" &&
+      flag !== "--kind" &&
+      flag !== "--from" &&
+      flag !== "--append" &&
+      flag !== "--bump" &&
+      flag !== "--group" &&
+      flag !== "--reason" &&
+      flag !== "--reason-file" &&
+      flag !== "--ref" &&
+      flag !== "--since" &&
+      flag !== "--staged" &&
+      flag !== "--yes" &&
+      flag !== "--dry-run" &&
+      flag !== "--updated" &&
+      flag !== "--all" &&
+      flag !== "--scope" &&
+      flag !== "--global" &&
+      flag !== "--targets" &&
+      flag !== "--include" &&
+      flag !== "--fix" &&
+      flag !== "--report" &&
+      flag !== "--runner" &&
+      flag !== "--target" &&
+      flag !== "--agent-runtime" &&
+      flag !== "--pre-commit" &&
+      flag !== "--pre-push"
     ) {
       throw new Error(`skillset: unknown option ${arg}`);
     }
 
     if (
-      flag === '--yes' ||
-      flag === '--dry-run' ||
-      flag === '--updated' ||
-      flag === '--all' ||
-      flag === '--append' ||
-      flag === '--staged' ||
-      flag === '--global' ||
-      flag === '--fix' ||
-      flag === '--agent-runtime' ||
-      flag === '--pre-commit' ||
-      flag === '--pre-push'
+      flag === "--yes" ||
+      flag === "--dry-run" ||
+      flag === "--updated" ||
+      flag === "--all" ||
+      flag === "--append" ||
+      flag === "--staged" ||
+      flag === "--global" ||
+      flag === "--fix" ||
+      flag === "--agent-runtime" ||
+      flag === "--pre-commit" ||
+      flag === "--pre-push"
     ) {
-      if (inlineValue !== undefined) {
-        throw new Error(`skillset: ${flag} does not take a value`);
-      }
-      if (flag === '--yes') {
-        yes = true;
-      }
-      if (flag === '--dry-run') {
-        dryRun = true;
-      }
-      if (flag === '--updated') {
-        buildMode = setBuildMode(buildMode, 'updated');
-      }
-      if (flag === '--all') {
-        buildMode = setBuildMode(buildMode, 'all');
-      }
-      if (flag === '--append') {
-        changeAppend = true;
-      }
-      if (flag === '--staged') {
-        changeStaged = true;
-      }
-      if (flag === '--global') {
-        setupGlobal = true;
-      }
-      if (flag === '--fix') {
-        ciFix = true;
-      }
-      if (flag === '--agent-runtime') {
-        hookAgentRuntime = true;
-      }
-      if (flag === '--pre-commit') {
-        hookPreCommit = true;
-      }
-      if (flag === '--pre-push') {
-        hookPrePush = true;
-      }
+      if (inlineValue !== undefined) throw new Error(`skillset: ${flag} does not take a value`);
+      if (flag === "--yes") yes = true;
+      if (flag === "--dry-run") dryRun = true;
+      if (flag === "--updated") buildMode = setBuildMode(buildMode, "updated");
+      if (flag === "--all") buildMode = setBuildMode(buildMode, "all");
+      if (flag === "--append") changeAppend = true;
+      if (flag === "--staged") changeStaged = true;
+      if (flag === "--global") setupGlobal = true;
+      if (flag === "--fix") ciFix = true;
+      if (flag === "--agent-runtime") hookAgentRuntime = true;
+      if (flag === "--pre-commit") hookPreCommit = true;
+      if (flag === "--pre-push") hookPrePush = true;
       continue;
     }
 
     const value = inlineValue ?? args[index + 1];
-    if (value === undefined || value.startsWith('--')) {
+    if (value === undefined || value.startsWith("--")) {
       throw new Error(`skillset: expected value after ${flag}`);
     }
-    if (inlineValue === undefined) {
-      index += 1;
-    }
+    if (inlineValue === undefined) index += 1;
 
-    if (flag === '--root') {
+    if (flag === "--root") {
       rootPath = value;
       rootExplicit = true;
     }
-    if (flag === '--source') {
-      sourceDir = value;
-    }
-    if (flag === '--dist') {
-      distDir = value;
-    }
-    if (flag === '--ref') {
-      changeRef = value;
-    }
-    if (flag === '--since') {
-      changeSince = value;
-    }
-    if (flag === '--scope') {
-      if (command === 'change' && changeSubcommand === 'add') {
+    if (flag === "--source") sourceDir = value;
+    if (flag === "--dist") distDir = value;
+    if (flag === "--ref") changeRef = value;
+    if (flag === "--since") changeSince = value;
+    if (flag === "--scope") {
+      if (command === "change" && changeSubcommand === "add") {
         changeScopes = [...(changeScopes ?? []), ...readChangeScopes(value)];
-      } else if (
-        command === 'change' &&
-        (changeSubcommand === 'status' || changeSubcommand === 'check')
-      ) {
-        throw new Error(
-          `skillset: change ${changeSubcommand} is a whole-source command; --scope is not supported`
-        );
-      } else if (command === 'change') {
-        throw new Error(
-          'skillset: --scope is only supported with change add source-unit entries'
-        );
+      } else if (command === "change" && (changeSubcommand === "status" || changeSubcommand === "check")) {
+        throw new Error(`skillset: change ${changeSubcommand} is a whole-source command; --scope is not supported`);
+      } else if (command === "change") {
+        throw new Error("skillset: --scope is only supported with change add source-unit entries");
       } else {
         scopes = readBuildScopes(value);
       }
     }
-    if (flag === '--group') {
-      changeGroup = value;
-    }
-    if (flag === '--reason') {
-      changeReason = setChangeReason(
-        changeReason,
-        value === '-' ? { kind: 'stdin' } : { kind: 'inline', value }
-      );
-    }
-    if (flag === '--reason-file') {
-      changeReason = setChangeReason(changeReason, {
-        kind: 'file',
-        path: value,
-      });
-    }
-    if (flag === '--bump') {
-      changeBump = readChangeBump(value);
-    }
-    if (flag === '--report') {
-      ciReportPath = value;
-    }
-    if (flag === '--runner') {
-      hookRunner = readHookRunner(value);
-    }
-    if (flag === '--target') {
-      hookTarget = readHookTarget(value);
-    }
-    if (flag === '--targets') {
-      setupTargets = readSetupTargets(value);
-    }
-    if (flag === '--include') {
-      setupIncludes = mergeSetupIncludes(setupIncludes, value);
-    }
-    if (flag === '--name') {
-      importName = value;
-    }
-    if (flag === '--kind') {
+    if (flag === "--group") changeGroup = value;
+    if (flag === "--reason") changeReason = setChangeReason(changeReason, value === "-" ? { kind: "stdin" } : { kind: "inline", value });
+    if (flag === "--reason-file") changeReason = setChangeReason(changeReason, { kind: "file", path: value });
+    if (flag === "--bump") changeBump = readChangeBump(value);
+    if (flag === "--report") ciReportPath = value;
+    if (flag === "--runner") hookRunner = readHookRunner(value);
+    if (flag === "--target") hookTarget = readHookTarget(value);
+    if (flag === "--targets") setupTargets = readSetupTargets(value);
+    if (flag === "--include") setupIncludes = mergeSetupIncludes(setupIncludes, value);
+    if (flag === "--name") importName = value;
+    if (flag === "--kind") {
       if (!isImportKind(value)) {
-        throw new Error(
-          'skillset: expected --kind skill, skills, plugin, or plugins'
-        );
+        throw new Error("skillset: expected --kind skill, skills, plugin, or plugins");
       }
       if (importKind !== undefined && importKind !== value) {
-        throw new Error(
-          `skillset: conflicting import kinds ${importKind} and ${value}`
-        );
+        throw new Error(`skillset: conflicting import kinds ${importKind} and ${value}`);
       }
       importKind = value;
     }
-    if (flag === '--from') {
+    if (flag === "--from") {
       if (!isImportProvider(value)) {
-        throw new Error(
-          'skillset: expected --from claude, codex, agents, or skillset'
-        );
+        throw new Error("skillset: expected --from claude, codex, agents, or skillset");
       }
       importProvider = value;
     }
@@ -1304,10 +949,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     yes,
   });
 
-  if (command === 'release' && scopes !== undefined) {
-    throw new Error(
-      'skillset: --scope is not supported with release commands yet'
-    );
+  if (command === "release" && scopes !== undefined) {
+    throw new Error("skillset: --scope is not supported with release commands yet");
   }
   validateTestFlags(command, {
     ...(buildMode === undefined ? {} : { buildMode }),
@@ -1360,58 +1003,33 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   };
 }
 
-function isReleaseSubcommand(
-  value: string | undefined
-): value is ReleaseSubcommand {
-  return value === 'apply' || value === 'plan';
+function isReleaseSubcommand(value: string | undefined): value is ReleaseSubcommand {
+  return value === "apply" || value === "plan";
 }
 
-function isChangeSubcommand(
-  value: string | undefined
-): value is ChangeSubcommand {
-  return (
-    value === 'add' ||
-    value === 'check' ||
-    value === 'history' ||
-    value === 'list' ||
-    value === 'reason' ||
-    value === 'show' ||
-    value === 'status'
-  );
+function isChangeSubcommand(value: string | undefined): value is ChangeSubcommand {
+  return value === "add" ||
+    value === "check" ||
+    value === "history" ||
+    value === "list" ||
+    value === "reason" ||
+    value === "show" ||
+    value === "status";
 }
 
 function readChangeScopes(value: string): readonly string[] {
-  const scopes = value
-    .split(',')
-    .map((scope) => scope.trim())
-    .filter((scope) => scope.length > 0);
-  if (scopes.length === 0) {
-    throw new Error(
-      'skillset: --scope requires at least one source unit scope'
-    );
-  }
+  const scopes = value.split(",").map((scope) => scope.trim()).filter((scope) => scope.length > 0);
+  if (scopes.length === 0) throw new Error("skillset: --scope requires at least one source unit scope");
   return scopes.map(sourceUnitSelector);
 }
 
 function readChangeBump(value: string): ChangeBump {
-  if (
-    value === 'major' ||
-    value === 'minor' ||
-    value === 'none' ||
-    value === 'patch'
-  ) {
-    return value;
-  }
-  throw new Error('skillset: expected --bump major, minor, patch, or none');
+  if (value === "major" || value === "minor" || value === "none" || value === "patch") return value;
+  throw new Error("skillset: expected --bump major, minor, patch, or none");
 }
 
-function setChangeReason(
-  current: ChangeReasonInput | undefined,
-  next: ChangeReasonInput
-): ChangeReasonInput {
-  if (current !== undefined) {
-    throw new Error('skillset: pass only one of --reason or --reason-file');
-  }
+function setChangeReason(current: ChangeReasonInput | undefined, next: ChangeReasonInput): ChangeReasonInput {
+  if (current !== undefined) throw new Error("skillset: pass only one of --reason or --reason-file");
   return next;
 }
 
@@ -1428,67 +1046,34 @@ function validateChangeFlags(
     readonly staged: boolean;
   }
 ): void {
-  const hasChangeFlag =
-    change.append ||
+  const hasChangeFlag = change.append ||
     change.bump !== undefined ||
     change.group !== undefined ||
     change.reason !== undefined ||
     change.ref !== undefined ||
     change.scopes !== undefined ||
     change.staged;
-  if (hasChangeFlag && command !== 'change') {
-    throw new Error(
-      'skillset: change options are only supported with change commands'
-    );
+  if (hasChangeFlag && command !== "change") {
+    throw new Error("skillset: change options are only supported with change commands");
   }
-  if (command !== 'change') {
-    return;
-  }
+  if (command !== "change") return;
 
   const allowed = {
-    append: subcommand === 'reason',
-    bump: subcommand === 'add',
-    group: subcommand === 'add' || subcommand === 'list',
-    reason: subcommand === 'add' || subcommand === 'reason',
-    ref:
-      subcommand === 'check' ||
-      subcommand === 'history' ||
-      subcommand === 'reason' ||
-      subcommand === 'show',
-    scopes: subcommand === 'add',
-    staged: subcommand === 'check' || subcommand === 'status',
+    append: subcommand === "reason",
+    bump: subcommand === "add",
+    group: subcommand === "add" || subcommand === "list",
+    reason: subcommand === "add" || subcommand === "reason",
+    ref: subcommand === "check" || subcommand === "history" || subcommand === "reason" || subcommand === "show",
+    scopes: subcommand === "add",
+    staged: subcommand === "check" || subcommand === "status",
   };
-  if (change.append && !allowed.append) {
-    throw new Error('skillset: --append is only supported with change reason');
-  }
-  if (change.bump !== undefined && !allowed.bump) {
-    throw new Error('skillset: --bump is only supported with change add');
-  }
-  if (change.group !== undefined && !allowed.group) {
-    throw new Error(
-      'skillset: --group is only supported with change add or change list'
-    );
-  }
-  if (change.reason !== undefined && !allowed.reason) {
-    throw new Error(
-      'skillset: --reason and --reason-file are only supported with change add or change reason'
-    );
-  }
-  if (change.ref !== undefined && !allowed.ref) {
-    throw new Error(
-      'skillset: --ref is only supported with change check, change history, change reason, or change show'
-    );
-  }
-  if (change.scopes !== undefined && !allowed.scopes) {
-    throw new Error(
-      'skillset: source-unit --scope is only supported with change add'
-    );
-  }
-  if (change.staged && !allowed.staged) {
-    throw new Error(
-      'skillset: --staged is only supported with change status or change check'
-    );
-  }
+  if (change.append && !allowed.append) throw new Error("skillset: --append is only supported with change reason");
+  if (change.bump !== undefined && !allowed.bump) throw new Error("skillset: --bump is only supported with change add");
+  if (change.group !== undefined && !allowed.group) throw new Error("skillset: --group is only supported with change add or change list");
+  if (change.reason !== undefined && !allowed.reason) throw new Error("skillset: --reason and --reason-file are only supported with change add or change reason");
+  if (change.ref !== undefined && !allowed.ref) throw new Error("skillset: --ref is only supported with change check, change history, change reason, or change show");
+  if (change.scopes !== undefined && !allowed.scopes) throw new Error("skillset: source-unit --scope is only supported with change add");
+  if (change.staged && !allowed.staged) throw new Error("skillset: --staged is only supported with change status or change check");
 }
 
 function validateHookFlags(
@@ -1518,17 +1103,11 @@ function validateHookFlags(
     hooks.prePush ||
     hooks.runner !== undefined ||
     hooks.target !== undefined;
-  if (hasHookFlag && command !== 'hooks') {
-    throw new Error(
-      'skillset: hook options are only supported with hooks print'
-    );
+  if (hasHookFlag && command !== "hooks") {
+    throw new Error("skillset: hook options are only supported with hooks print");
   }
-  if (command !== 'hooks') {
-    return;
-  }
-  if (hooks.subcommand !== 'print') {
-    throw new Error('skillset: expected hooks subcommand print');
-  }
+  if (command !== "hooks") return;
+  if (hooks.subcommand !== "print") throw new Error("skillset: expected hooks subcommand print");
   if (
     hooks.buildMode !== undefined ||
     hooks.scopes !== undefined ||
@@ -1541,9 +1120,7 @@ function validateHookFlags(
     hooks.dryRun ||
     hooks.yes
   ) {
-    throw new Error(
-      'skillset: non-hook options are not supported with hooks print'
-    );
+    throw new Error("skillset: non-hook options are not supported with hooks print");
   }
 }
 
@@ -1557,9 +1134,7 @@ function validateTestFlags(
     readonly yes: boolean;
   }
 ): void {
-  if (command !== 'test') {
-    return;
-  }
+  if (command !== "test") return;
   if (
     test.buildMode !== undefined ||
     test.distDir !== undefined ||
@@ -1567,46 +1142,28 @@ function validateTestFlags(
     test.scopes !== undefined ||
     test.yes
   ) {
-    throw new Error(
-      'skillset: build/write options are not supported with test; test output always writes under .skillset/build/tests'
-    );
+    throw new Error("skillset: build/write options are not supported with test; test output always writes under .skillset/build/tests");
   }
 }
 
-function setBuildMode(
-  current: CompileBuildMode | undefined,
-  next: CompileBuildMode
-): CompileBuildMode {
+function setBuildMode(current: CompileBuildMode | undefined, next: CompileBuildMode): CompileBuildMode {
   if (current !== undefined && current !== next) {
-    throw new Error(
-      `skillset: conflicting build mode flags --${current} and --${next}`
-    );
+    throw new Error(`skillset: conflicting build mode flags --${current} and --${next}`);
   }
   return next;
 }
 
 function readBuildScopes(value: string): readonly BuildScope[] {
-  const scopes = value
-    .split(',')
-    .map((scope) => scope.trim())
-    .filter((scope) => scope.length > 0);
-  if (scopes.length === 0) {
-    throw new Error('skillset: --scope requires at least one scope');
-  }
-  if (scopes.includes('all')) {
-    if (scopes.length > 1) {
-      throw new Error(
-        'skillset: --scope all cannot be combined with other scopes'
-      );
-    }
-    return ['repo', 'plugins', 'project', 'user'];
+  const scopes = value.split(",").map((scope) => scope.trim()).filter((scope) => scope.length > 0);
+  if (scopes.length === 0) throw new Error("skillset: --scope requires at least one scope");
+  if (scopes.includes("all")) {
+    if (scopes.length > 1) throw new Error("skillset: --scope all cannot be combined with other scopes");
+    return ["repo", "plugins", "project", "user"];
   }
   const seen = new Set<BuildScope>();
   for (const scope of scopes) {
     if (!isBuildScope(scope)) {
-      throw new Error(
-        'skillset: expected --scope repo, plugins, project, user, all, or a comma-separated combination'
-      );
+      throw new Error("skillset: expected --scope repo, plugins, project, user, all, or a comma-separated combination");
     }
     seen.add(scope);
   }
@@ -1614,52 +1171,29 @@ function readBuildScopes(value: string): readonly BuildScope[] {
 }
 
 function isBuildScope(value: string): value is BuildScope {
-  return (
-    value === 'repo' ||
-    value === 'plugins' ||
-    value === 'project' ||
-    value === 'user'
-  );
+  return value === "repo" || value === "plugins" || value === "project" || value === "user";
 }
 
 function readHookRunner(value: string): HookRunner {
-  if (
-    value === 'git' ||
-    value === 'husky' ||
-    value === 'lefthook' ||
-    value === 'pre-commit'
-  ) {
-    return value;
-  }
-  throw new Error(
-    'skillset: expected --runner lefthook, husky, pre-commit, or git'
-  );
+  if (value === "git" || value === "husky" || value === "lefthook" || value === "pre-commit") return value;
+  throw new Error("skillset: expected --runner lefthook, husky, pre-commit, or git");
 }
 
 function readHookTarget(value: string): TargetName {
-  if (value === 'claude' || value === 'codex') {
-    return value;
-  }
-  throw new Error('skillset: expected --target claude or codex');
+  if (value === "claude" || value === "codex") return value;
+  throw new Error("skillset: expected --target claude or codex");
 }
 
 function mergeSetupIncludes(
   current: readonly SetupInclude[] | undefined,
   value: string
 ): readonly SetupInclude[] {
-  const includes = value
-    .split(',')
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0);
-  if (includes.length === 0) {
-    throw new Error('skillset: --include requires at least one value');
-  }
+  const includes = value.split(",").map((item) => item.trim()).filter((item) => item.length > 0);
+  if (includes.length === 0) throw new Error("skillset: --include requires at least one value");
   const seen = new Set<SetupInclude>(current ?? []);
   for (const include of includes) {
-    if (include !== 'agents' && include !== 'ci') {
-      throw new Error(
-        'skillset: expected --include agents, ci, or a comma-separated combination'
-      );
+    if (include !== "agents" && include !== "ci") {
+      throw new Error("skillset: expected --include agents, ci, or a comma-separated combination");
     }
     seen.add(include);
   }
@@ -1667,19 +1201,12 @@ function mergeSetupIncludes(
 }
 
 function readSetupTargets(value: string): readonly TargetName[] {
-  const targets = value
-    .split(',')
-    .map((target) => target.trim())
-    .filter((target) => target.length > 0);
-  if (targets.length === 0) {
-    throw new Error('skillset: --targets requires at least one target');
-  }
+  const targets = value.split(",").map((target) => target.trim()).filter((target) => target.length > 0);
+  if (targets.length === 0) throw new Error("skillset: --targets requires at least one target");
   const seen = new Set<TargetName>();
   for (const target of targets) {
-    if (target !== 'claude' && target !== 'codex') {
-      throw new Error(
-        'skillset: expected --targets claude, codex, or claude,codex'
-      );
+    if (target !== "claude" && target !== "codex") {
+      throw new Error("skillset: expected --targets claude, codex, or claude,codex");
     }
     seen.add(target);
   }
@@ -1696,24 +1223,16 @@ function validateCiFlags(
     readonly yes: boolean;
   }
 ): void {
-  if (command !== 'ci') {
-    if (ci.fix) {
-      throw new Error('skillset: --fix is only supported with ci');
-    }
-    if (ci.reportPath !== undefined) {
-      throw new Error('skillset: --report is only supported with ci');
-    }
-    if (ci.since !== undefined && command !== 'change' && command !== 'hooks') {
-      throw new Error(
-        'skillset: --since is only supported with ci or change commands'
-      );
+  if (command !== "ci") {
+    if (ci.fix) throw new Error("skillset: --fix is only supported with ci");
+    if (ci.reportPath !== undefined) throw new Error("skillset: --report is only supported with ci");
+    if (ci.since !== undefined && command !== "change" && command !== "hooks") {
+      throw new Error("skillset: --since is only supported with ci or change commands");
     }
     return;
   }
   if (ci.yes || ci.dryRun) {
-    throw new Error(
-      'skillset: ci does not take --yes or --dry-run; use --fix to rebuild stale generated output'
-    );
+    throw new Error("skillset: ci does not take --yes or --dry-run; use --fix to rebuild stale generated output");
   }
 }
 
@@ -1726,41 +1245,24 @@ function validateSetupFlags(
     readonly targets?: readonly TargetName[];
   }
 ): void {
-  if (
-    (command === 'init' || command === 'create') &&
-    setup.global &&
-    command !== 'create'
-  ) {
-    throw new Error('skillset: --global is only supported with create');
+  if ((command === "init" || command === "create") && setup.global && command !== "create") {
+    throw new Error("skillset: --global is only supported with create");
   }
-  if (command === 'create' && setup.global && setup.path !== undefined) {
-    throw new Error(
-      'skillset: create accepts either a path or --global, not both'
-    );
+  if (command === "create" && setup.global && setup.path !== undefined) {
+    throw new Error("skillset: create accepts either a path or --global, not both");
   }
-  const hasSetupFlag =
-    setup.global || setup.includes !== undefined || setup.targets !== undefined;
-  if (hasSetupFlag && command !== 'init' && command !== 'create') {
-    throw new Error(
-      'skillset: setup options are only supported with init or create'
-    );
+  const hasSetupFlag = setup.global ||
+    setup.includes !== undefined ||
+    setup.targets !== undefined;
+  if (hasSetupFlag && command !== "init" && command !== "create") {
+    throw new Error("skillset: setup options are only supported with init or create");
   }
 }
 
 function isImportKind(value: string): value is ImportKind {
-  return (
-    value === 'skill' ||
-    value === 'skills' ||
-    value === 'plugin' ||
-    value === 'plugins'
-  );
+  return value === "skill" || value === "skills" || value === "plugin" || value === "plugins";
 }
 
 function isImportProvider(value: string): value is ImportProvider {
-  return (
-    value === 'agents' ||
-    value === 'claude' ||
-    value === 'codex' ||
-    value === 'skillset'
-  );
+  return value === "agents" || value === "claude" || value === "codex" || value === "skillset";
 }

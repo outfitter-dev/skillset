@@ -1,9 +1,9 @@
-import { readFile } from 'node:fs/promises';
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { readFile } from "node:fs/promises";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
-import { readString } from './config';
-import { resolveInside } from './path';
-import type { JsonRecord } from './types';
+import { readString } from "./config";
+import { resolveInside } from "./path";
+import type { JsonRecord } from "./types";
 
 export interface PreprocessContext {
   readonly frontmatter: JsonRecord;
@@ -30,28 +30,23 @@ export async function preprocessText(
 }
 
 export function isPreprocessDisabled(frontmatter: JsonRecord): boolean {
-  const { skillset } = frontmatter;
+  const skillset = frontmatter.skillset;
   return (
-    typeof skillset === 'object' &&
+    typeof skillset === "object" &&
     skillset !== null &&
     !Array.isArray(skillset) &&
     skillset.preprocess === false
   );
 }
 
-async function expandPartials(
-  content: string,
-  context: PreprocessContext
-): Promise<string> {
+async function expandPartials(content: string, context: PreprocessContext): Promise<string> {
   const partialPattern = /\{\{\s*>\s*([^}\s]+)\s*\}\}/g;
-  let expanded = '';
+  let expanded = "";
   let cursor = 0;
 
   for (const match of content.matchAll(partialPattern)) {
     const [token, specifier] = match;
-    if (specifier === undefined) {
-      continue;
-    }
+    if (specifier === undefined) continue;
     expanded += content.slice(cursor, match.index);
     expanded += normalizeText(await readPartial(specifier, context));
     cursor = match.index + token.length;
@@ -60,55 +55,44 @@ async function expandPartials(
   return `${expanded}${content.slice(cursor)}`;
 }
 
-async function readPartial(
-  specifier: string,
-  context: PreprocessContext
-): Promise<string> {
+async function readPartial(specifier: string, context: PreprocessContext): Promise<string> {
   const source = relative(context.rootPath, context.sourcePath);
   try {
-    return await readFile(resolvePartial(specifier, context), 'utf-8');
+    return await readFile(resolvePartial(specifier, context), "utf8");
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      `skillset: failed to read partial ${specifier} in ${source}: ${message}`,
-      { cause: error }
-    );
+    throw new Error(`skillset: failed to read partial ${specifier} in ${source}: ${message}`);
   }
 }
 
 function expandVariables(content: string, context: PreprocessContext): string {
-  return content.replaceAll(
-    /\{\{\s*([^}\s]+)\s*\}\}/g,
-    (token, key: string) => {
-      if (key.startsWith('this.')) {
-        const field = key.slice('this.'.length);
-        const value = readString(context.frontmatter, field);
-        if (value === undefined) {
-          throw new Error(
-            `skillset: missing this.${field} reference in ${relative(context.rootPath, context.sourcePath)}`
-          );
-        }
-        return value;
+  return content.replace(/\{\{\s*([^}\s]+)\s*\}\}/g, (token, key: string) => {
+    if (key.startsWith("this.")) {
+      const field = key.slice("this.".length);
+      const value = readString(context.frontmatter, field);
+      if (value === undefined) {
+        throw new Error(
+          `skillset: missing this.${field} reference in ${relative(context.rootPath, context.sourcePath)}`
+        );
       }
-
-      const value = context.variables?.[key];
-      if (value !== undefined) {
-        return value;
-      }
-
-      throw new Error(
-        `skillset: unknown preprocess variable ${token} in ${relative(context.rootPath, context.sourcePath)}`
-      );
+      return value;
     }
-  );
+
+    const value = context.variables?.[key];
+    if (value !== undefined) return value;
+
+    throw new Error(
+      `skillset: unknown preprocess variable ${token} in ${relative(context.rootPath, context.sourcePath)}`
+    );
+  });
 }
 
 function resolvePartial(specifier: string, context: PreprocessContext): string {
   const [scheme, path] = splitSpecifier(specifier);
   validatePartialPath(path, specifier, context);
-  if (scheme === 'shared' || scheme === 'root') {
+  if (scheme === "shared" || scheme === "root") {
     const resolved = resolveInsideScoped(
-      resolveInside(context.rootPath, join(context.sourceRoot, 'shared')),
+      resolveInside(context.rootPath, join(context.sourceRoot, "shared")),
       path,
       specifier,
       context
@@ -116,44 +100,30 @@ function resolvePartial(specifier: string, context: PreprocessContext): string {
     context.preprocessDependencies?.add(resolved);
     return resolved;
   }
-  if (scheme === 'plugin') {
+  if (scheme === "plugin") {
     if (context.pluginPath === undefined) {
       throw new Error(
         `skillset: ${specifier} partial in ${relative(context.rootPath, context.sourcePath)} requires a plugin-bound source`
       );
     }
-    const resolved = resolveInsideScoped(
-      join(context.pluginPath, 'shared'),
-      path,
-      specifier,
-      context
-    );
+    const resolved = resolveInsideScoped(join(context.pluginPath, "shared"), path, specifier, context);
     context.preprocessDependencies?.add(resolved);
     return resolved;
   }
 
-  const resolved = resolveInsideScoped(
-    dirname(context.sourcePath),
-    specifier,
-    specifier,
-    context
-  );
+  const resolved = resolveInsideScoped(dirname(context.sourcePath), specifier, specifier, context);
   context.preprocessDependencies?.add(resolved);
   return resolved;
 }
 
-function splitSpecifier(
-  specifier: string
-): readonly [string | undefined, string] {
-  const index = specifier.indexOf(':');
-  if (index === -1) {
-    return [undefined, specifier];
-  }
+function splitSpecifier(specifier: string): readonly [string | undefined, string] {
+  const index = specifier.indexOf(":");
+  if (index === -1) return [undefined, specifier];
   return [specifier.slice(0, index), specifier.slice(index + 1)];
 }
 
 function normalizeText(content: string): string {
-  return content.replaceAll(/\r\n?/g, '\n');
+  return content.replaceAll(/\r\n?/g, "\n");
 }
 
 function resolveInsideScoped(
@@ -166,8 +136,8 @@ function resolveInsideScoped(
   const resolved = resolve(resolvedRoot, candidate);
   const relativePath = relative(resolvedRoot, resolved);
   if (
-    relativePath === '' ||
-    relativePath.startsWith('..') ||
+    relativePath === "" ||
+    relativePath.startsWith("..") ||
     relativePath.includes(`..${sep}`)
   ) {
     throw new Error(
@@ -184,12 +154,10 @@ function validatePartialPath(
 ): void {
   const source = relative(context.rootPath, context.sourcePath);
   if (path.length === 0 || isAbsolute(path)) {
-    throw new Error(
-      `skillset: partial ${specifier} in ${source} must be a relative path`
-    );
+    throw new Error(`skillset: partial ${specifier} in ${source} must be a relative path`);
   }
-  for (const segment of path.replaceAll('\\', '/').split('/')) {
-    if (segment === '' || segment === '.' || segment === '..') {
+  for (const segment of path.replaceAll("\\", "/").split("/")) {
+    if (segment === "" || segment === "." || segment === "..") {
       throw new Error(
         `skillset: partial ${specifier} in ${source} must not contain empty, dot, or parent segments`
       );
