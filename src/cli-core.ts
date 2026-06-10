@@ -81,6 +81,7 @@ export async function runCli(
     importProvider,
     options,
     rootPath,
+    rootExplicit,
     releaseSubcommand,
     setupGlobal,
     setupIncludeAgents,
@@ -219,6 +220,7 @@ export async function runCli(
           includeAgents: setupIncludeAgents,
           includeIslands: setupIncludeIslands,
           includeProjectDoc: setupIncludeProjectDoc,
+          useGitRoot: !rootExplicit && importPath === undefined,
           write: yes && !dryRun,
         })
       : await createSkillset({
@@ -384,6 +386,7 @@ interface ParsedArgs {
   readonly importProvider?: ImportProvider;
   readonly options: SkillsetOptions;
   readonly releaseSubcommand?: ReleaseSubcommand;
+  readonly rootExplicit: boolean;
   readonly rootPath: string;
   readonly setupGlobal: boolean;
   readonly setupIncludeAgents: boolean;
@@ -538,6 +541,11 @@ function printImportReport(result: ImportReport): void {
   if (result.unsupportedFields.length > 0) {
     console.log(`  unsupported (kept verbatim): ${result.unsupportedFields.join(", ")}`);
   }
+  for (const baseline of result.baselines) {
+    if (baseline.status === "create") {
+      console.log(`  baseline: ${sourceUnitDisplay(baseline.scope)} ${baseline.version}`);
+    }
+  }
   for (const warning of result.warnings) {
     console.warn(`  warning: ${warning}`);
   }
@@ -549,9 +557,24 @@ function printSetupReport(result: SetupReport, reason: string): void {
     const marker = file.status === "create" ? "+" : "=";
     console.log(`  ${marker} ${file.path}`);
   }
+  for (const baseline of result.baselines) {
+    const marker = baseline.status === "create" ? "+" : "=";
+    console.log(`  ${marker} baseline ${sourceUnitDisplay(baseline.scope)} ${baseline.version}`);
+  }
+  for (const candidate of result.importCandidates) {
+    console.log(`  ? import candidate ${candidate.kind} ${candidate.path}`);
+  }
   const created = result.files.filter((file) => file.status === "create").length;
   const existing = result.files.length - created;
-  console.log(`skillset: ${result.kind} ${created} to create, ${existing} already present (${reason})`);
+  const baselines = result.baselines.filter((baseline) => baseline.status === "create").length;
+  const candidates = result.importCandidates.length;
+  const details = [
+    `${created} to create`,
+    `${existing} already present`,
+    ...(baselines === 0 ? [] : [`${baselines} baseline${baselines === 1 ? "" : "s"} to adopt`]),
+    ...(candidates === 0 ? [] : [`${candidates} import candidate${candidates === 1 ? "" : "s"}`]),
+  ];
+  console.log(`skillset: ${result.kind} ${details.join(", ")} (${reason})`);
   console.log(`  root: ${result.rootPath}`);
 }
 
@@ -614,6 +637,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let importPath: string | undefined;
   let importProvider: ImportProvider | undefined;
   let rootPath = process.cwd();
+  let rootExplicit = false;
   let sourceDir: string | undefined;
   let distDir: string | undefined;
   let buildMode: CompileBuildMode | undefined;
@@ -784,7 +808,10 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     }
     if (inlineValue === undefined) index += 1;
 
-    if (flag === "--root") rootPath = value;
+    if (flag === "--root") {
+      rootPath = value;
+      rootExplicit = true;
+    }
     if (flag === "--source") sourceDir = value;
     if (flag === "--dist") distDir = value;
     if (flag === "--ref") changeRef = value;
@@ -905,6 +932,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(importProvider === undefined ? {} : { importProvider }),
     options,
     ...(releaseSubcommand === undefined ? {} : { releaseSubcommand }),
+    rootExplicit,
     rootPath: resolve(rootPath),
     setupGlobal,
     setupIncludeAgents,

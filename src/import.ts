@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, stat, writeFil
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 
+import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
 import { readSkillsetMetadata, readSkillsetName, readString } from "./config";
 import { compareStrings, resolveInside, validateSlug } from "./path";
 import type { JsonRecord } from "./types";
@@ -69,6 +70,7 @@ export interface ImportSourcesOptions {
 }
 
 export interface ImportReport {
+  readonly baselines: readonly ReleaseBaselineEntry[];
   readonly copiedFiles: readonly string[];
   readonly files: number;
   readonly inferredSourceFields: readonly string[];
@@ -155,8 +157,20 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
 
     await rename(stagingPath, targetPath);
     committed = true;
+    let baselineReport: { readonly entries: readonly ReleaseBaselineEntry[] };
+    try {
+      baselineReport = await seedImportedBaselines(options.rootPath, {
+        kind: options.kind,
+        name,
+        sourceDir,
+      });
+    } catch (error) {
+      await rm(targetPath, { force: true, recursive: true });
+      throw error;
+    }
 
     return {
+      baselines: baselineReport.entries,
       copiedFiles,
       files: copiedFiles.length,
       inferredSourceFields: classification.recognized,
@@ -177,6 +191,26 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       await rm(stagingPath, { force: true, recursive: true });
     }
   }
+}
+
+async function seedImportedBaselines(
+  rootPath: string,
+  options: {
+    readonly kind: SingularImportKind;
+    readonly name: string;
+    readonly sourceDir: string;
+  }
+): Promise<{ readonly entries: readonly ReleaseBaselineEntry[] }> {
+  const includeScope = (scope: string): boolean => {
+    if (options.kind === "skill") return scope === `skill:${options.name}`;
+    return scope === `plugin:${options.name}` || scope.startsWith(`plugin.${options.name}.`);
+  };
+  const report = await seedReleaseBaselines(
+    rootPath,
+    { sourceDir: options.sourceDir },
+    { includeScope, write: true }
+  );
+  return { entries: report.entries };
 }
 
 interface FrontmatterClassification {
