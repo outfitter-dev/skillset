@@ -1,4 +1,5 @@
-import { basename, resolve } from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
+import { basename, dirname, resolve } from "node:path";
 
 import { changeCheck, type ChangeBump, type ChangeCheckReport } from "./change-entries";
 import { changeStatus, type ChangeStatusReport } from "./change-status";
@@ -15,20 +16,22 @@ import {
 } from "./change-workflow";
 import { doctorSkillset, explainPath, listGeneratedEntries } from "./authoring";
 import { buildSkillset, checkSkillset, diffSkillset } from "./build";
+import { ciSkillset, hasDrift, renderCiReportMarkdown, type CiReport } from "./ci";
 import { renderHookPrint, type HookPrintSubcommand, type HookRunner } from "./hook-guardrails";
 import { importSources, type ImportKind, type ImportProvider, type ImportReport } from "./import";
 import { lintSkillset } from "./lint";
 import { applyRelease, planRelease, type ReleasePlanReport, type ReleaseSubcommand } from "./release";
-import { createSkillset, initSkillset, type SetupReport } from "./setup";
+import { createSkillset, initSkillset, type SetupInclude, type SetupReport } from "./setup";
 import { sourceUnitDisplay, sourceUnitDisplays, sourceUnitSelector } from "./source-unit-selector";
 import { runSkillsetTest, type SkillsetTestReport } from "./test-runner";
 import type { BuildScope, CompileBuildMode, SkillsetOptions, TargetName } from "./types";
 
-type Command = "build" | "change" | "check" | "create" | "diff" | "doctor" | "explain" | "hooks" | "import" | "init" | "lint" | "list" | "release" | "test";
+type Command = "build" | "change" | "check" | "ci" | "create" | "diff" | "doctor" | "explain" | "hooks" | "import" | "init" | "lint" | "list" | "release" | "test";
 
 const USAGE = [
   "usage: skillset build [--yes|--dry-run] [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset <check|diff|doctor|lint|list> [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset ci [--fix] [--since <ref>] [--report <path>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change status [--since <ref>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change check [@ref|--ref <ref>] [--since <ref>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change <status|check> --staged [--root <path>] [--source <dir>] [--dist <dir>]",
@@ -41,8 +44,8 @@ const USAGE = [
   "       skillset test [name] [--root <path>] [--source <dir>]",
   "       skillset hooks print --runner <lefthook|husky|pre-commit|git> [--pre-commit] [--pre-push]",
   "       skillset hooks print --target <claude|codex> --agent-runtime",
-  "       skillset init [path] [--yes|--dry-run] [--targets claude,codex] [--with-project-doc] [--with-agents] [--with-islands] [--name <name>] [--root <path>]",
-  "       skillset create [path|--global] [--yes|--dry-run] [--targets claude,codex] [--with-project-doc] [--with-agents] [--with-islands] [--name <name>] [--root <path>]",
+  "       skillset init [path] [--yes|--dry-run] [--targets claude,codex] [--include agents,ci] [--name <name>] [--root <path>]",
+  "       skillset create [path|--global] [--yes|--dry-run] [--targets claude,codex] [--include agents,ci] [--name <name>] [--root <path>]",
   "       skillset explain <path> [--root <path>] [--source <dir>]",
   "       skillset import <path> [--kind <skill|skills|plugin|plugins>] [--from <provider>] [--name <name>] [--root <path>] [--source <dir>]",
   "       skillset import <claude|codex|agents> [--root <path>] [--source <dir>]",
@@ -68,6 +71,8 @@ export async function runCli(
     changeStaged,
     changeScopes,
     changeSubcommand,
+    ciFix,
+    ciReportPath,
     dryRun,
     hookAgentRuntime,
     hookPreCommit,
@@ -84,9 +89,7 @@ export async function runCli(
     rootExplicit,
     releaseSubcommand,
     setupGlobal,
-    setupIncludeAgents,
-    setupIncludeIslands,
-    setupIncludeProjectDoc,
+    setupIncludes,
     setupTargets,
     testName,
     yes,
@@ -101,6 +104,22 @@ export async function runCli(
     }
     const rendered = await buildSkillset(rootPath, options);
     console.log(`skillset: wrote ${rendered.length} generated files`);
+    return;
+  }
+
+  if (command === "ci") {
+    const report = await ciSkillset(rootPath, {
+      ...options,
+      ...(ciFix ? { fix: true } : {}),
+      ...(changeSince === undefined ? {} : { since: changeSince }),
+    });
+    if (ciReportPath !== undefined) {
+      const reportPath = resolve(ciReportPath);
+      await mkdir(dirname(reportPath), { recursive: true });
+      await writeFile(reportPath, renderCiReportMarkdown(report));
+    }
+    printCiReport(report);
+    if (!report.ok) process.exitCode = 1;
     return;
   }
 
@@ -217,9 +236,7 @@ export async function runCli(
           ...(importPath === undefined ? {} : { rootPath: importPath }),
           ...(importName === undefined ? {} : { name: importName }),
           ...(setupTargets === undefined ? {} : { targets: setupTargets }),
-          includeAgents: setupIncludeAgents,
-          includeIslands: setupIncludeIslands,
-          includeProjectDoc: setupIncludeProjectDoc,
+          ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
           useGitRoot: !rootExplicit && importPath === undefined,
           write: yes && !dryRun,
         })
@@ -229,9 +246,7 @@ export async function runCli(
           ...(importPath === undefined ? {} : { rootPath: importPath }),
           ...(importName === undefined ? {} : { name: importName }),
           ...(setupTargets === undefined ? {} : { targets: setupTargets }),
-          includeAgents: setupIncludeAgents,
-          includeIslands: setupIncludeIslands,
-          includeProjectDoc: setupIncludeProjectDoc,
+          ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
           write: yes && !dryRun,
         });
     printSetupReport(setup, dryRun ? "dry run" : yes ? "written" : "write confirmation required");
@@ -373,6 +388,8 @@ interface ParsedArgs {
   readonly changeStaged: boolean;
   readonly changeScopes?: readonly string[];
   readonly changeSubcommand?: ChangeSubcommand;
+  readonly ciFix: boolean;
+  readonly ciReportPath?: string;
   readonly dryRun: boolean;
   readonly hookAgentRuntime: boolean;
   readonly hookPreCommit: boolean;
@@ -389,9 +406,7 @@ interface ParsedArgs {
   readonly rootExplicit: boolean;
   readonly rootPath: string;
   readonly setupGlobal: boolean;
-  readonly setupIncludeAgents: boolean;
-  readonly setupIncludeIslands: boolean;
-  readonly setupIncludeProjectDoc: boolean;
+  readonly setupIncludes?: readonly SetupInclude[];
   readonly setupTargets?: readonly TargetName[];
   readonly testName?: string;
   readonly yes: boolean;
@@ -478,6 +493,45 @@ function printChangeStatus(report: ChangeStatusReport): void {
   console.log(
     `skillset: generated-output drift ${drift.added.length} added, ${drift.changed.length} changed, ${drift.missing.length} missing, ${drift.removed.length} removed`
   );
+}
+
+function printCiReport(report: CiReport): void {
+  for (const issue of report.lintIssues) {
+    console.log(`  lint: ${issue.path}: ${issue.code}: ${issue.message}`);
+  }
+  if (report.changeError !== undefined) {
+    console.log(`  change check error: ${report.changeError}`);
+  }
+  for (const issue of report.changeIssues) {
+    const path = issue.path === undefined ? "" : `${issue.path}: `;
+    console.log(`  change ${issue.severity}: ${path}${issue.code}: ${issue.message}`);
+  }
+  for (const path of report.fixedPaths) console.log(`  fixed ${path}`);
+  const drift = report.drift;
+  for (const path of drift.added) console.log(`  generated + ${path}`);
+  for (const path of drift.changed) console.log(`  generated ~ ${path}`);
+  for (const path of drift.missing) console.log(`  generated ! ${path}`);
+  for (const path of drift.removed) console.log(`  generated - ${path}`);
+  if (report.buildError !== undefined) {
+    console.log(`  build error: ${report.buildError}`);
+  }
+
+  if (report.ok) {
+    console.log(
+      report.fixedPaths.length === 0
+        ? "skillset: ci passed"
+        : `skillset: ci passed after rebuilding ${report.fixedPaths.length} generated file${report.fixedPaths.length === 1 ? "" : "s"}`
+    );
+    return;
+  }
+  const changeErrors = report.changeIssues.filter((issue) => issue.severity === "error").length;
+  const problems: string[] = [];
+  if (report.lintIssues.length > 0) problems.push(`${report.lintIssues.length} lint issue(s)`);
+  if (report.changeError !== undefined) problems.push("a change check error");
+  if (changeErrors > 0) problems.push(`${changeErrors} change entry error(s)`);
+  if (hasDrift(report.drift)) problems.push("generated-output drift (run skillset build --yes or ci --fix)");
+  if (report.buildError !== undefined) problems.push("a build error");
+  console.log(`skillset: ci found ${problems.join(" and ")}`);
 }
 
 function printReleasePlan(report: ReleasePlanReport): void {
@@ -598,6 +652,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     command !== "build" &&
     command !== "change" &&
     command !== "check" &&
+    command !== "ci" &&
     command !== "create" &&
     command !== "diff" &&
     command !== "doctor" &&
@@ -611,7 +666,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     command !== "test"
   ) {
     throw new Error(
-        "skillset: expected command build, change, check, create, diff, doctor, explain, hooks, import, init, lint, list, release, or test\n" +
+        "skillset: expected command build, change, check, ci, create, diff, doctor, explain, hooks, import, init, lint, list, release, or test\n" +
         USAGE
     );
   }
@@ -626,6 +681,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let changeSince: string | undefined;
   let changeStaged = false;
   let changeScopes: readonly string[] | undefined;
+  let ciFix = false;
+  let ciReportPath: string | undefined;
   let hookAgentRuntime = false;
   let hookPreCommit = false;
   let hookPrePush = false;
@@ -644,9 +701,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let dryRun = false;
   let scopes: readonly BuildScope[] | undefined;
   let setupGlobal = false;
-  let setupIncludeAgents = false;
-  let setupIncludeIslands = false;
-  let setupIncludeProjectDoc = false;
+  let setupIncludes: readonly SetupInclude[] | undefined;
   let setupTargets: readonly TargetName[] | undefined;
   let testName: string | undefined;
   let yes = false;
@@ -758,9 +813,9 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--scope" &&
       flag !== "--global" &&
       flag !== "--targets" &&
-      flag !== "--with-agents" &&
-      flag !== "--with-islands" &&
-      flag !== "--with-project-doc" &&
+      flag !== "--include" &&
+      flag !== "--fix" &&
+      flag !== "--report" &&
       flag !== "--runner" &&
       flag !== "--target" &&
       flag !== "--agent-runtime" &&
@@ -778,9 +833,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag === "--append" ||
       flag === "--staged" ||
       flag === "--global" ||
-      flag === "--with-agents" ||
-      flag === "--with-islands" ||
-      flag === "--with-project-doc" ||
+      flag === "--fix" ||
       flag === "--agent-runtime" ||
       flag === "--pre-commit" ||
       flag === "--pre-push"
@@ -793,9 +846,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       if (flag === "--append") changeAppend = true;
       if (flag === "--staged") changeStaged = true;
       if (flag === "--global") setupGlobal = true;
-      if (flag === "--with-agents") setupIncludeAgents = true;
-      if (flag === "--with-islands") setupIncludeIslands = true;
-      if (flag === "--with-project-doc") setupIncludeProjectDoc = true;
+      if (flag === "--fix") ciFix = true;
       if (flag === "--agent-runtime") hookAgentRuntime = true;
       if (flag === "--pre-commit") hookPreCommit = true;
       if (flag === "--pre-push") hookPrePush = true;
@@ -831,9 +882,11 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     if (flag === "--reason") changeReason = setChangeReason(changeReason, value === "-" ? { kind: "stdin" } : { kind: "inline", value });
     if (flag === "--reason-file") changeReason = setChangeReason(changeReason, { kind: "file", path: value });
     if (flag === "--bump") changeBump = readChangeBump(value);
+    if (flag === "--report") ciReportPath = value;
     if (flag === "--runner") hookRunner = readHookRunner(value);
     if (flag === "--target") hookTarget = readHookTarget(value);
     if (flag === "--targets") setupTargets = readSetupTargets(value);
+    if (flag === "--include") setupIncludes = mergeSetupIncludes(setupIncludes, value);
     if (flag === "--name") importName = value;
     if (flag === "--kind") {
       if (!isImportKind(value)) {
@@ -883,11 +936,17 @@ function parseArgs(args: readonly string[]): ParsedArgs {
 
   validateSetupFlags(command, {
     global: setupGlobal,
-    includeAgents: setupIncludeAgents,
-    includeIslands: setupIncludeIslands,
-    includeProjectDoc: setupIncludeProjectDoc,
+    ...(setupIncludes === undefined ? {} : { includes: setupIncludes }),
     ...(importPath === undefined ? {} : { path: importPath }),
     ...(setupTargets === undefined ? {} : { targets: setupTargets }),
+  });
+
+  validateCiFlags(command, {
+    dryRun,
+    fix: ciFix,
+    ...(ciReportPath === undefined ? {} : { reportPath: ciReportPath }),
+    ...(changeSince === undefined ? {} : { since: changeSince }),
+    yes,
   });
 
   if (command === "release" && scopes !== undefined) {
@@ -919,6 +978,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     changeStaged,
     ...(changeScopes === undefined ? {} : { changeScopes }),
     ...(changeSubcommand === undefined ? {} : { changeSubcommand }),
+    ciFix,
+    ...(ciReportPath === undefined ? {} : { ciReportPath }),
     dryRun,
     hookAgentRuntime,
     hookPreCommit,
@@ -935,9 +996,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     rootExplicit,
     rootPath: resolve(rootPath),
     setupGlobal,
-    setupIncludeAgents,
-    setupIncludeIslands,
-    setupIncludeProjectDoc,
+    ...(setupIncludes === undefined ? {} : { setupIncludes }),
     ...(setupTargets === undefined ? {} : { setupTargets }),
     ...(testName === undefined ? {} : { testName }),
     yes,
@@ -1125,6 +1184,22 @@ function readHookTarget(value: string): TargetName {
   throw new Error("skillset: expected --target claude or codex");
 }
 
+function mergeSetupIncludes(
+  current: readonly SetupInclude[] | undefined,
+  value: string
+): readonly SetupInclude[] {
+  const includes = value.split(",").map((item) => item.trim()).filter((item) => item.length > 0);
+  if (includes.length === 0) throw new Error("skillset: --include requires at least one value");
+  const seen = new Set<SetupInclude>(current ?? []);
+  for (const include of includes) {
+    if (include !== "agents" && include !== "ci") {
+      throw new Error("skillset: expected --include agents, ci, or a comma-separated combination");
+    }
+    seen.add(include);
+  }
+  return [...seen];
+}
+
 function readSetupTargets(value: string): readonly TargetName[] {
   const targets = value.split(",").map((target) => target.trim()).filter((target) => target.length > 0);
   if (targets.length === 0) throw new Error("skillset: --targets requires at least one target");
@@ -1138,13 +1213,34 @@ function readSetupTargets(value: string): readonly TargetName[] {
   return [...seen];
 }
 
+function validateCiFlags(
+  command: Command,
+  ci: {
+    readonly dryRun: boolean;
+    readonly fix: boolean;
+    readonly reportPath?: string;
+    readonly since?: string;
+    readonly yes: boolean;
+  }
+): void {
+  if (command !== "ci") {
+    if (ci.fix) throw new Error("skillset: --fix is only supported with ci");
+    if (ci.reportPath !== undefined) throw new Error("skillset: --report is only supported with ci");
+    if (ci.since !== undefined && command !== "change" && command !== "hooks") {
+      throw new Error("skillset: --since is only supported with ci or change commands");
+    }
+    return;
+  }
+  if (ci.yes || ci.dryRun) {
+    throw new Error("skillset: ci does not take --yes or --dry-run; use --fix to rebuild stale generated output");
+  }
+}
+
 function validateSetupFlags(
   command: Command,
   setup: {
     readonly global: boolean;
-    readonly includeAgents: boolean;
-    readonly includeIslands: boolean;
-    readonly includeProjectDoc: boolean;
+    readonly includes?: readonly SetupInclude[];
     readonly path?: string;
     readonly targets?: readonly TargetName[];
   }
@@ -1156,9 +1252,7 @@ function validateSetupFlags(
     throw new Error("skillset: create accepts either a path or --global, not both");
   }
   const hasSetupFlag = setup.global ||
-    setup.includeAgents ||
-    setup.includeIslands ||
-    setup.includeProjectDoc ||
+    setup.includes !== undefined ||
     setup.targets !== undefined;
   if (hasSetupFlag && command !== "init" && command !== "create") {
     throw new Error("skillset: setup options are only supported with init or create");

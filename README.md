@@ -31,10 +31,11 @@ skillset check              # fail if generated outputs are stale
 skillset diff               # show pending generated changes without writing
 skillset explain <path>     # explain a source or generated path (lowering, lock provenance, hashes)
 skillset doctor             # aggregate lint issues + drift + warnings
+skillset ci                 # CI entrypoint: lint + change check + drift, with --fix and --report
 skillset test [name]        # run an isolated deterministic projection test
 ```
 
-`init`, `create`, and `build` are plan-first: they print pending filesystem changes and write only with `--yes`; `--dry-run` always prevents writes, even when paired with `--yes`. `--scope repo`, `--scope plugins`, `--scope project`, and combinations filter generated destinations for build, diff, top-level check, list, and explain; `--scope user` is accepted but currently has no build outputs. `skillset change status` and `skillset change check` are whole-source coverage commands and reject build scopes. `skillset test` writes isolated runs under `.skillset/build/tests/` and does not mutate live generated target roots. `diff`, `explain`, and `doctor` are read-only authoring aids: they never write generated outputs, install, trust, publish, or mutate user-level config. `diff`, `check`, and `doctor` report missing managed outputs separately from new outputs so intentional deletion and stale locks are visible. `explain` accepts either a source path (e.g. `.skillset/skills/foo/SKILL.md`) or a generated output path and reports how it lowers, its lock entry, target state, and source/output hashes. `doctor` exits non-zero when it finds lint issues, drift, or a build error.
+`init`, `create`, and `build` are plan-first: they print pending filesystem changes and write only with `--yes`; `--dry-run` always prevents writes, even when paired with `--yes`. `--scope repo`, `--scope plugins`, `--scope project`, and combinations filter generated destinations for build, diff, top-level check, list, and explain; `--scope user` is accepted but currently has no build outputs. `skillset change status` and `skillset change check` are whole-source coverage commands and reject build scopes. `skillset test` writes isolated runs under `.skillset/build/tests/` and does not mutate live generated target roots. `diff`, `explain`, and `doctor` are read-only authoring aids: they never write generated outputs, install, trust, publish, or mutate user-level config. `diff`, `check`, and `doctor` report missing managed outputs separately from new outputs so intentional deletion and stale locks are visible. `explain` accepts either a source path (e.g. `.skillset/skills/foo/SKILL.md`) or a generated output path and reports how it lowers, its lock entry, target state, and source/output hashes. `doctor` exits non-zero when it finds lint issues, drift, or a build error. `skillset ci` is the continuous-integration entrypoint: it aggregates lint, change-entry coverage, and generated drift, rebuilds stale generated output mechanically with `--fix`, and writes a PR-comment-ready Markdown report with `--report`; `skillset init --include ci` scaffolds a ready-to-use GitHub Actions workflow (see [CI](docs/features/ci.md)).
 
 The default contract is:
 
@@ -87,7 +88,7 @@ Initialize Skillset source in an existing repo:
 
 ```bash
 skillset init --root /path/to/content-repo
-skillset init --root /path/to/content-repo --targets claude --with-agents --with-islands --yes
+skillset init --root /path/to/content-repo --targets claude --include agents,ci --yes
 ```
 
 `init` is the existing-repo entrypoint. It previews or writes the minimal source scaffold, defaults to the Git root when possible, detects repo-local Claude/Codex/Skillset artifacts worth importing, and seeds release-state baselines from current source versions and normalized source hashes without creating a pending change, release, history entry, or changelog projection. That adoption pass is repo-local only; it does not scan or mutate user/global runtime directories.
@@ -103,7 +104,7 @@ skillset create team-loadout --name team-loadout --targets claude,codex --yes
 
 For a user-global source checkout, `skillset create --global` defaults to `~/.skillset/src`. This is still Skillset-owned source, not a live Claude or Codex runtime directory. The corresponding preview/build area is documented as `~/.skillset/build`, but setup does not create it or write to `~/.claude`, `~/.codex`, or `.agents`. The beta package requires Bun and ships Bun-built JavaScript bins for `skillset` and `create-skillset`; it can be run through package managers with commands such as `npx skillset@beta create` or `bunx skillset@beta create`. Setup still routes through the same plan-first `create` flow.
 
-Setup commands create only source files: `.skillset/config.yaml`, `.skillset/src/.gitkeep`, and optional `.skillset/instructions/project.md`, `.skillset/src/agents/`, `.skillset/src/claude/`, and `.skillset/src/codex/rules/` placeholders when requested. The generated config uses `compile.targets`; target adapter config still belongs in `claude` and `codex` blocks or root `defaults.<target>.<surface>`.
+Setup commands create only source files: `.skillset/config.yaml`, `.skillset/src/.gitkeep`, optional `.skillset/src/agents/` placeholders with `--include agents`, and an optional user-owned GitHub Actions workflow with `--include ci`. The generated config uses `compile.targets`; target adapter config still belongs in `claude` and `codex` blocks or root `defaults.<target>.<surface>`.
 
 ## Import
 

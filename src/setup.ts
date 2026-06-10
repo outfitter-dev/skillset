@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 
 import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
+import { CI_WORKFLOW_PATH, renderCiWorkflow } from "./ci";
 import { validateConfigDocument } from "./config";
 import type { TargetName } from "./types";
 import { validateSlug } from "./path";
@@ -9,16 +10,15 @@ import { parseYamlRecord } from "./yaml";
 
 const DEFAULT_CREATE_NAME = "my-skillset";
 const DEFAULT_GLOBAL_SOURCE = ".skillset/src";
-const INSTRUCTIONS_DIR = ".skillset/instructions";
 const SETUP_SOURCE_DIR = ".skillset/src";
+
+export type SetupInclude = "agents" | "ci";
 
 export interface SetupOptions {
   readonly cwd?: string;
   readonly global?: boolean;
   readonly homeDir?: string;
-  readonly includeAgents?: boolean;
-  readonly includeIslands?: boolean;
-  readonly includeProjectDoc?: boolean;
+  readonly include?: readonly SetupInclude[];
   readonly name?: string;
   readonly rootPath?: string;
   readonly targets?: readonly TargetName[];
@@ -93,6 +93,11 @@ async function applySetupPlan(
     if (existing !== undefined && existing !== file.content) {
       if (kind === "init" && file.path === ".skillset/config.yaml") {
         await validateExistingRootConfig(absolutePath);
+        files.push({ path: file.path, status: "exists" });
+        continue;
+      }
+      // The scaffolded CI workflow is user-owned after creation; keep edits.
+      if (file.path === CI_WORKFLOW_PATH) {
         files.push({ path: file.path, status: "exists" });
         continue;
       }
@@ -204,23 +209,15 @@ function setupFiles(options: Required<Pick<SetupOptions, "name" | "targets">> & 
     },
   ];
 
-  if (options.includeProjectDoc === true) {
-    files.push({
-      path: `${INSTRUCTIONS_DIR}/project.md`,
-      content: "# Project Notes\n\nAdd project-scoped setup notes here.\n",
-    });
-  }
-  if (options.includeAgents === true) {
+  const include = options.include ?? [];
+  if (include.includes("agents")) {
     files.push({
       path: `${SETUP_SOURCE_DIR}/agents/.gitkeep`,
       content: "",
     });
   }
-  if (options.includeIslands === true) {
-    files.push(
-      { path: `${SETUP_SOURCE_DIR}/claude/.gitkeep`, content: "" },
-      { path: `${SETUP_SOURCE_DIR}/codex/rules/.gitkeep`, content: "" }
-    );
+  if (include.includes("ci")) {
+    files.push({ path: CI_WORKFLOW_PATH, content: renderCiWorkflow() });
   }
 
   return files;
