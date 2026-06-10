@@ -29,8 +29,8 @@ bun run skillset:build
 bun run skillset:lint
 bun run skillset:check
 bun run skillset:ci
-bun run check:pr
 bun run hooks:install
+bun run hooks:pre-push
 bun run ultracite:doctor
 bun run typecheck
 bun test
@@ -40,7 +40,7 @@ bun run check
 
 `bun run skillset:ci` is the same aggregate check GitHub Actions runs (`.github/workflows/ci.yml`): lint, change-entry coverage, and generated drift. Pass `--fix` to rebuild stale generated output mechanically. Content repos scaffold the equivalent workflow with `skillset init --include ci`.
 
-`bun run check:pr` batches the normal repo check, workflow lint when `actionlint` is available, and the self-hosted `skillset ci --since origin/main` report. `bun run hooks:install` installs the repo-local Lefthook pre-commit/pre-push gates.
+`lefthook.yml` is the single source of truth for the local gates. `bun run hooks:install` installs them as git hooks; `bun run hooks:pre-push` runs the full pre-push gate anywhere (push-range whitespace, workflow lint when `actionlint` is available, `bun run check`, and the self-hosted `skillset ci --since origin/main` report).
 
 Ultracite is wired in setup-first mode. `bun run ultracite:doctor` must stay clean and is part of `bun run check`; `bun run ultracite:check` / `bun run ultracite:fix` expose the strict Oxlint/Oxfmt cleanup backlog but are not yet required gates.
 

@@ -1,61 +1,52 @@
-# NOTE: `GIT_PAGER: cat` is set on every command. Lefthook attaches a PTY to
+# NOTE: `GIT_PAGER: cat` is set on every leaf job. Lefthook attaches a PTY to
 # render hook output, which can make child `git` processes think stdout is an
 # interactive terminal. Contributors with a configured pager can then hang when
 # a stage invokes `git diff` / `git grep` / etc. Forcing `GIT_PAGER=cat` keeps
-# hook-time git commands non-interactive.
+# hook-time git commands non-interactive. Hook-level `env` does not propagate
+# to job children, so it must be set per-job.
 
 pre-commit:
   piped: true
-  commands:
-    whitespace:
-      priority: 1
+  jobs:
+    - name: whitespace
       env:
         GIT_PAGER: cat
       run: git diff --cached --check
-    skillset:
-      priority: 2
+    - name: skillset
       env:
         GIT_PAGER: cat
       glob: "{.skillset/**,.claude/skills/**,.agents/skills/**,plugins-claude/**,plugins-codex/**,AGENTS.md}"
-      run: bun run skillset:lint && bun run skillset:check
-    workflows:
-      priority: 3
+      run: bun run skillset:verify
+    - name: workflows
       env:
         GIT_PAGER: cat
       glob: ".github/workflows/*.{yml,yaml}"
       run: bun run check:workflows
 
+# Cheap gates run first and fail fast (piped); the two heavy gates are
+# independent, so they run in parallel. `bun run check` is the same aggregate
+# CI runs, and `skillset ci` already covers skillset lint + generated drift,
+# so neither is re-enumerated here.
 pre-push:
-  commands:
-    build:
+  piped: true
+  jobs:
+    - name: whitespace
       env:
         GIT_PAGER: cat
-      run: bun run build
-    test:
-      env:
-        GIT_PAGER: cat
-      run: bun test
-    ultracite-doctor:
-      env:
-        GIT_PAGER: cat
-      run: bun run ultracite:doctor
-    skillset-lint:
-      env:
-        GIT_PAGER: cat
-      run: bun run skillset:lint
-    skillset-check:
-      env:
-        GIT_PAGER: cat
-      run: bun run skillset:check
-    workflows:
+      run: git diff --check origin/main...HEAD
+    - name: workflows
       env:
         GIT_PAGER: cat
       run: bun run check:workflows
-    whitespace:
-      env:
-        GIT_PAGER: cat
-      run: git diff --check
-    skillset-ci:
-      env:
-        GIT_PAGER: cat
-      run: bun run skillset:ci:report
+    - name: gates
+      group:
+        parallel: true
+        jobs:
+          - name: check
+            env:
+              GIT_PAGER: cat
+            run: bun run check
+          - name: skillset-ci
+            env:
+              GIT_PAGER: cat
+            run: bun run skillset:ci:report
