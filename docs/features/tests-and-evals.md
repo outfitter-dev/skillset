@@ -26,24 +26,24 @@ Internal fixtures may include `fixtures/<case>/.skillset/src/` when a case needs
 
 `skillset test` should eventually run isolated deterministic scenarios. It should compile selected `.skillset/` source subjects, run Skillset lifecycle commands where configured, and assert files, lock provenance, changelog state, release state, drift, diagnostics, and target validation results.
 
-The likely first shape is selector-driven:
+The v1 design is selector-driven and config-backed. Root `.skillset/config.yaml` owns the first test declarations so authors can prove existing source without introducing a second source tree. `.skillset/tests/` remains reserved for larger declarations after the source contract is proven; if it appears later, it should reference existing source subjects rather than duplicating skills, plugins, agents, or instructions.
 
 ```yaml
 tests:
-  skillset-plugin:
-    source: plugin:skillset
+  self-hosted:
+    source: repo:.skillset
     targets:
       - claude
       - codex
     output:
-      kind: marketplace
-    assert:
-      - check
+      kind: isolated
+    assertions:
+      - build
       - noDrift
-      - exists: marketplaces/claude
+      - exists: plugins-claude/plugins/skillset/.claude-plugin/plugin.json
 ```
 
-Large tests may live under `.skillset/tests/`, but that directory is reserved until the source contract is clear. Tests may reference `repo:.skillset`, typed source selectors such as `plugin:skillset`, or internal fixture sources such as `fixture:kitchen-sink`. Tests should not duplicate source content as a parallel source tree.
+The first implementation slice supports `repo:.skillset`, which copies the current Skillset source root into an isolated run workspace and builds it there. Typed source selectors such as `plugin:<name>`, `skill:<name>`, and internal `fixture:<case>` references remain the intended grammar, but they should be added only when selection narrows source inventory and generated output consistently. `--scope` continues to mean generated-destination filtering, not source selection.
 
 Generated test output should live under the gitignored build root:
 
@@ -54,7 +54,11 @@ Generated test output should live under the gitignored build root:
   runs/<run-id>/
 ```
 
-`latest/` is for quick manual inspection and local target smoke commands. `runs/<run-id>/` preserves distinct output when retention keeps prior runs. Test output may include generated plugin or marketplace trees, but `skillset test` must not install, publish, trust, symlink, or activate them by default.
+Each run writes a complete retained directory under `runs/<run-id>/`, including the isolated workspace and `report.json` / `report.md`. `latest/` is a real refreshed copy of the most recent run, not a symlink, so local marketplaces or generated plugin trees can be inspected with stable paths on platforms where symlinks are fragile. `latest.json` records the active run id, source selector, report path, and generated output path. Retention defaults to keeping prior run directories; pruning is a future option rather than implicit cleanup.
+
+The first assertion vocabulary is deliberately small: `build` means the isolated build command succeeded, `exists` checks for a generated file or directory, `contains` checks text in a generated file, and `noDrift` runs the generated-output diff after the isolated build. Target validation commands are reportable manual follow-up instructions in v1; `skillset test` must not install, publish, trust, symlink, or activate Claude/Codex runtime configuration by default.
+
+Release state and inline versions are observable, not migrated, by deterministic tests. A test may assert the version that build emits after release state is applied, but it must not rewrite source `version` fields or start the SET-43 migration from inline versions to release-state-only authoring.
 
 ## Lifecycle Dogfooding
 

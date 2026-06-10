@@ -75,22 +75,24 @@ The first lifecycle dogfood target should be a small self-hosted `.skillset/` so
 
 `skillset test` is reserved for deterministic test runs that project selected source into isolated generated output and assert the result. It is not implemented by this ADR.
 
-The likely v1 shape is selector-driven rather than taxonomy-driven:
+The v1 shape is selector-driven and root-config backed rather than taxonomy-driven. Root `.skillset/config.yaml` should own the first test declarations so the command proves existing source without turning `.skillset/tests/` into a parallel source tree:
 
 ```yaml
 tests:
-  skillset-plugin:
-    source: plugin:skillset
+  self-hosted:
+    source: repo:.skillset
     targets:
       - claude
       - codex
     output:
-      kind: marketplace
-    assert:
-      - check
+      kind: isolated
+    assertions:
+      - build
       - noDrift
-      - exists: marketplaces/claude
+      - exists: plugins-claude/plugins/skillset/.claude-plugin/plugin.json
 ```
+
+The first implementation slice should support `repo:.skillset` by copying the current source root into an isolated run workspace and building it there. Typed source selectors such as `plugin:<name>`, `skill:<name>`, and internal `fixture:<case>` remain the intended grammar, but they should wait until source inventory and generated-output narrowing can be implemented consistently. `--scope` remains destination filtering; it is not a source selector.
 
 Large tests may move into `.skillset/tests/`, but that directory should not appear until the user-facing contract is clearer than a fixture mirror. If it appears, it should reference existing `.skillset/` subjects or fixture sources; it should not duplicate skills, plugins, agents, or instructions as a parallel source tree.
 
@@ -103,7 +105,11 @@ Generated test output belongs under `.skillset/build/tests/`:
   runs/<run-id>/
 ```
 
-`latest/` is a refreshed convenience output. `runs/<run-id>/` preserves distinct runs for comparison and debugging when retention keeps them. Build output remains definitions only: test runs may generate local plugin or marketplace trees, but they do not install, trust, publish, or activate them.
+Each run writes a complete retained directory under `runs/<run-id>/`, including an isolated workspace plus `report.json` and `report.md`. `latest/` is a refreshed real directory copy of the most recent run rather than a symlink, and `latest.json` records the active run id, source selector, report path, and generated output path. Retention defaults to keeping prior runs; pruning is future configuration.
+
+The first assertion vocabulary should stay small: `build` means the isolated build completed, `exists` checks a generated path, `contains` checks text inside a generated file, and `noDrift` runs a generated-output diff after the isolated build. Target validation commands are reportable manual follow-up instructions in v1, not executed runtime mutations.
+
+Release state and inline versions are observable in test reports, not migrated by the test runner. This keeps the SET-43 inline-version migration future-scoped: deterministic tests may verify that release state wins over source version fallbacks, but `skillset test` must not rewrite source `version` fields or introduce migration warnings.
 
 ### Evals Are Adapter-Aware Future Surface
 
@@ -141,7 +147,7 @@ The cost is slower implementation of `skillset test`. Skillset will continue to 
 
 ### What This Does NOT Decide
 
-This ADR does not implement `skillset test`, define a `.skillset/tests/` schema, define an eval schema, or decide how marketplace runtime testing is installed or activated. It does not change build semantics for real target output. It does not decide whether `latest/` should be a directory, symlink, or manifest pointer on every platform, though the preferred v1 direction is a refreshed real directory plus `latest.json`.
+This ADR does not implement every selector, define a `.skillset/tests/` schema, define an eval schema, start the inline-version migration, or decide how marketplace runtime testing is installed or activated. It does not change build semantics for real target output.
 
 ## References
 
