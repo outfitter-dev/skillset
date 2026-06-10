@@ -1,5 +1,5 @@
 # Repo CI plus a dogfood of the `skillset ci` workflow that
-# `skillset init --with-ci` scaffolds for adopting repos. The skillset-ci job
+# `skillset init --include ci` scaffolds for adopting repos. The skillset-ci job
 # mirrors that template but runs the compiler from this repo's source.
 # Notes:
 # - Mechanical fixes pushed with GITHUB_TOKEN do not retrigger workflows; if
@@ -32,10 +32,22 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout same-repo pull request
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+      - name: Checkout fork pull request
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Checkout push
+        if: github.event_name != 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version
@@ -44,7 +56,7 @@ jobs:
         id: skillset
         run: >-
           bun ./src/cli.ts ci
-          ${{ github.event_name == 'pull_request' && '--fix' || '' }}
+          ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && '--fix' || '' }}
           --report "$RUNNER_TEMP/skillset-ci-report.md"
         continue-on-error: true
       - name: Add report to job summary

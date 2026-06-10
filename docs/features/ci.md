@@ -16,16 +16,16 @@ skillset ci --report skillset-ci-report.md  # write the Markdown report for PR c
 skillset init --include ci --yes            # scaffold .github/workflows/skillset-ci.yml
 ```
 
-Generated-output drift is the only mechanical problem: with `--fix`, `ci` rebuilds generated output the same way `skillset build --yes` would and reports which files it rewrote. Lint issues, missing or invalid change entries, and build errors need authored source changes, so they always stay report-only and fail the run. `--fix` is skipped when lint issues or a build error are present, so a rebuild never launders bad source into committed output.
+Generated-output drift is the only mechanical problem: with `--fix`, `ci` rebuilds generated output the same way `skillset build --yes` would and reports which files it rewrote. Lint issues, missing or invalid change entries, unresolved change baselines, and build errors need authored source or CI changes, so they always stay report-only and fail the run. `--fix` is skipped when those non-mechanical problems are present, so a rebuild never launders uncovered or invalid source into committed output.
 
 `skillset init --include ci` (and `skillset create --include ci`) scaffolds `.github/workflows/skillset-ci.yml`. The workflow is user-owned after creation: rerunning `init --include ci` reports an edited workflow as existing and never overwrites it. The scaffolded workflow:
 
-- runs `skillset ci --fix` on pull requests and plain `skillset ci` on pushes to `main`;
+- runs `skillset ci --fix` on same-repo pull requests and plain `skillset ci` on fork pull requests or pushes to `main`;
 - appends the Markdown report to the job summary on every run;
 - commits and pushes mechanical rebuilds back to same-repo pull-request branches;
 - posts (or updates) the report as a PR comment when non-mechanical problems remain, then fails the check.
 
-Fork pull requests cannot receive pushes or comments with the default `GITHUB_TOKEN`; they still get the failing check and the job-summary report.
+Fork pull requests cannot receive pushes or comments with the default `GITHUB_TOKEN`, so the scaffold keeps them read-only; they still get the failing check and the job-summary report.
 
 ## Target Lowering
 

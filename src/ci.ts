@@ -31,10 +31,10 @@ const EMPTY_DRIFT: SkillsetDiff = { added: [], changed: [], missing: [], removed
 /**
  * Aggregate the checks a continuous-integration run needs: lint diagnostics,
  * change-entry coverage, and generated-output drift. Drift is the only
- * mechanical problem: with `fix` enabled and clean lint, `ci` rebuilds
- * generated output the same way `skillset build --yes` would. Lint issues,
- * missing change entries, and build errors need authored source changes, so
- * they stay report-only.
+ * mechanical problem: with `fix` enabled, clean lint, clean change coverage,
+ * and a resolved baseline, `ci` rebuilds generated output the same way
+ * `skillset build --yes` would. Lint issues, missing change entries, and
+ * build errors need authored source changes, so they stay report-only.
  */
 export async function ciSkillset(rootPath: string, options: CiOptions = {}): Promise<CiReport> {
   const { fix, since, ...buildOptions } = options;
@@ -70,15 +70,19 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
     }
   }
 
-  // Rebuild only when drift is the sole problem: lint issues or a build error
-  // mean the source is not trustworthy, and an unresolvable change baseline
-  // means the CI setup itself needs fixing before pushing rebuild commits.
+  const changeErrors = changeIssues.filter((issue) => issue.severity === "error");
+
+  // Rebuild only when drift is the sole problem: lint issues, change-entry
+  // errors, or a build error mean the source is not trustworthy, and an
+  // unresolvable change baseline means the CI setup itself needs fixing before
+  // pushing rebuild commits.
   let fixedPaths: readonly string[] = [];
   if (
     fix === true &&
     hasDrift(drift) &&
     buildError === undefined &&
     changeError === undefined &&
+    changeErrors.length === 0 &&
     lintIssues.length === 0
   ) {
     const staleBefore = [...drift.added, ...drift.changed, ...drift.missing, ...drift.removed];
@@ -92,7 +96,6 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
     }
   }
 
-  const changeErrors = changeIssues.filter((issue) => issue.severity === "error");
   return {
     ...(buildError === undefined ? {} : { buildError }),
     ...(changeError === undefined ? {} : { changeError }),
@@ -200,8 +203,9 @@ export const CI_WORKFLOW_PATH = ".github/workflows/skillset-ci.yml";
  * GitHub Actions workflow scaffolded by `skillset init --include ci` and
  * `skillset create --include ci`. Mechanical drift is rebuilt and pushed back to
  * same-repo pull-request branches; non-mechanical problems become an updated
- * PR comment and a failing check. Fork PRs cannot receive pushes or comments
- * with the default token, so they only get the failing check and job summary.
+ * PR comment and a failing check. Fork PRs run read-only because they cannot
+ * receive pushes or comments with the default token, so they only get the
+ * failing check and job summary.
  */
 export function renderCiWorkflow(): string {
   return [
@@ -228,16 +232,28 @@ export function renderCiWorkflow(): string {
     "      contents: write",
     "      pull-requests: write",
     "    steps:",
-    "      - uses: actions/checkout@v4",
+    "      - name: Checkout same-repo pull request",
+    "        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository",
+    "        uses: actions/checkout@v4",
     "        with:",
     "          fetch-depth: 0",
-    "          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}",
+    "          ref: ${{ github.event.pull_request.head.ref }}",
+    "      - name: Checkout fork pull request",
+    "        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository",
+    "        uses: actions/checkout@v4",
+    "        with:",
+    "          fetch-depth: 0",
+    "      - name: Checkout push",
+    "        if: github.event_name != 'pull_request'",
+    "        uses: actions/checkout@v4",
+    "        with:",
+    "          fetch-depth: 0",
     "      - uses: oven-sh/setup-bun@v2",
     "      - name: Run skillset ci",
     "        id: skillset",
     "        run: >-",
     "          bunx skillset@beta ci",
-    "          ${{ github.event_name == 'pull_request' && '--fix' || '' }}",
+    "          ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && '--fix' || '' }}",
     '          --report "$RUNNER_TEMP/skillset-ci-report.md"',
     "        continue-on-error: true",
     "      - name: Add report to job summary",

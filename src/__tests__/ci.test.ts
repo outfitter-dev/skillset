@@ -75,7 +75,7 @@ test("ci --fix rebuilds drifted generated output mechanically", async () => {
   expect(markdown).toContain("rebuilt mechanically");
 });
 
-test("ci --fix clears drift but still fails on missing change entries", async () => {
+test("ci --fix leaves drift untouched when change entries are missing", async () => {
   const root = await builtFixture();
   await writeFile(
     join(root, ".skillset/skills/demo/SKILL.md"),
@@ -85,11 +85,12 @@ test("ci --fix clears drift but still fails on missing change entries", async ()
   const report = await ciSkillset(root, { fix: true, since: "HEAD" });
 
   expect(report.ok).toBe(false);
-  expect(report.fixedPaths).toEqual([".claude/skills/.skillset.lock", GENERATED_SKILL]);
-  expect(report.drift.changed).toEqual([]);
+  expect(report.fixedPaths).toEqual([]);
+  expect(report.drift.changed).toEqual([".claude/skills/.skillset.lock", GENERATED_SKILL]);
   expect(report.changeIssues.some((issue) => issue.severity === "error")).toBe(true);
-  expect(await readFile(join(root, GENERATED_SKILL), "utf8")).toContain("Edited body.");
+  expect(await readFile(join(root, GENERATED_SKILL), "utf8")).not.toContain("Edited body.");
   const markdown = renderCiReportMarkdown(report);
+  expect(markdown).toContain("### Stale generated output");
   expect(markdown).toContain("### Change entries");
   expect(markdown).toContain("skillset change add");
 });
