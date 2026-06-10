@@ -1,9 +1,9 @@
-import { resolve } from "node:path";
+import { resolve } from 'node:path';
 
-import type { BootstrapConfig, BunPolicy } from "./config";
-import { DEFAULT_REPO_ROOT, isRepoRoot, run } from "./shared";
+import type { BootstrapConfig, BunPolicy } from './config';
+import { DEFAULT_REPO_ROOT, isRepoRoot, run } from './shared';
 
-export type HostProvider = "claude" | "codex" | "devin" | "generic";
+export type HostProvider = 'claude' | 'codex' | 'devin' | 'generic';
 
 export interface HostInfo {
   readonly bunPolicy: BunPolicy;
@@ -15,45 +15,45 @@ const readBoolean = (value: string | undefined): boolean | undefined => {
   if (value === undefined) {
     return undefined;
   }
-  return ["1", "true", "yes"].includes(value.toLowerCase());
+  return ['1', 'true', 'yes'].includes(value.toLowerCase());
 };
 
 const detectProvider = (env: NodeJS.ProcessEnv): HostProvider => {
-  const explicitProvider = env["SKILLSET_AGENT_ENV_PROVIDER"] as
+  const explicitProvider = env['SKILLSET_AGENT_ENV_PROVIDER'] as
     | HostProvider
     | undefined;
   if (explicitProvider !== undefined) {
     return explicitProvider;
   }
-  if (env["CODEX_WORKTREE_PATH"] !== undefined) {
-    return "codex";
+  if (env['CODEX_WORKTREE_PATH'] !== undefined) {
+    return 'codex';
   }
   if (
-    env["CLAUDE_PROJECT_DIR"] !== undefined ||
-    env["CLAUDECODE"] !== undefined
+    env['CLAUDE_PROJECT_DIR'] !== undefined ||
+    env['CLAUDECODE'] !== undefined
   ) {
-    return "claude";
+    return 'claude';
   }
-  if (env["GITHUB_WORKSPACE"] !== undefined) {
-    return "devin";
+  if (env['GITHUB_WORKSPACE'] !== undefined) {
+    return 'devin';
   }
-  return "generic";
+  return 'generic';
 };
 
 const providerRootEnvVars = (
   provider: HostProvider | undefined
 ): readonly string[] => {
   switch (provider) {
-    case "codex": {
-      return ["CODEX_WORKTREE_PATH"];
+    case 'codex': {
+      return ['CODEX_WORKTREE_PATH'];
     }
-    case "claude": {
-      return ["CLAUDE_PROJECT_DIR"];
+    case 'claude': {
+      return ['CLAUDE_PROJECT_DIR'];
     }
-    case "devin": {
-      return ["GITHUB_WORKSPACE"];
+    case 'devin': {
+      return ['GITHUB_WORKSPACE'];
     }
-    case "generic":
+    case 'generic':
     case undefined: {
       return [];
     }
@@ -68,13 +68,13 @@ export const detectHost = (
   env: NodeJS.ProcessEnv,
   config: BootstrapConfig
 ): HostInfo => {
-  const explicitRemote = readBoolean(env["SKILLSET_AGENT_ENV_REMOTE"]);
+  const explicitRemote = readBoolean(env['SKILLSET_AGENT_ENV_REMOTE']);
   const remote =
     explicitRemote ??
-    (env["CLAUDE_CODE_REMOTE"] === "true" ||
-      env["GITHUB_ACTIONS"] === "true" ||
-      env["CI"] === "true");
-  const explicitPolicy = env["SKILLSET_AGENT_BUN_POLICY"] as
+    (env['CLAUDE_CODE_REMOTE'] === 'true' ||
+      env['GITHUB_ACTIONS'] === 'true' ||
+      env['CI'] === 'true');
+  const explicitPolicy = env['SKILLSET_AGENT_BUN_POLICY'] as
     | BunPolicy
     | undefined;
 
@@ -113,7 +113,7 @@ export const resolveRepoRoot = (
   }
 
   if (config.root.fallbackToGitRoot) {
-    const result = run(["git", "rev-parse", "--show-toplevel"], cwd);
+    const result = run(['git', 'rev-parse', '--show-toplevel'], cwd);
     const candidate = result.stdout.trim();
     if (result.exitCode === 0 && isRepoRoot(candidate)) {
       return resolve(candidate);

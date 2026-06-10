@@ -38,7 +38,7 @@ export const fixCrossReferences = (): void => {
   );
 
   for (const file of allFiles) {
-    let content = readFileSync(file.path, 'utf8');
+    let content = readFileSync(file.path, 'utf-8');
     let fileChanged = false;
     for (const [oldName, newName] of sortedEntries) {
       const pattern = new RegExp(
@@ -53,7 +53,7 @@ export const fixCrossReferences = (): void => {
       }
     }
     if (fileChanged) {
-      writeFileSync(file.path, content, 'utf8');
+      writeFileSync(file.path, content, 'utf-8');
     }
   }
 };
@@ -111,7 +111,7 @@ export const rewriteDraftLinks = (
   const draftRef = `drafts/${oldDraftFilename}`;
 
   for (const file of allReferencingFiles()) {
-    let content = readFileSync(file.path, 'utf8');
+    let content = readFileSync(file.path, 'utf-8');
     let changed = false;
 
     // Replace "drafts/YYYYMMDD-slug.md" with the numbered filename
@@ -135,7 +135,7 @@ export const rewriteDraftLinks = (
     }
 
     if (changed) {
-      writeFileSync(file.path, content, 'utf8');
+      writeFileSync(file.path, content, 'utf-8');
       console.log(
         `  ${file.filename}: ${oldDraftFilename} → ${newNumberedFilename}`
       );
@@ -204,7 +204,7 @@ export const rewriteFrontmatterSlugRefs = (
       continue;
     }
     const content = `${serializeFrontmatter(frontmatter)}\n${draft.body}`;
-    writeFileSync(draft.path, content, 'utf8');
+    writeFileSync(draft.path, content, 'utf-8');
     console.log(
       `  ${draft.filename}: frontmatter refs ${promotedSlug} → ${promotedNumber}`
     );

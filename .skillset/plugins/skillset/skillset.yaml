@@ -23,7 +23,7 @@ skillset:
       - Developer
     default_prompt:
       - Build or check this skillset source tree.
-    color: "#B06DFF"
+    color: '#B06DFF'
 
 claude: true
 codex: true

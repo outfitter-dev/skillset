@@ -1,20 +1,25 @@
-import { stat } from "node:fs/promises";
-import { join } from "node:path";
+import { stat } from 'node:fs/promises';
+import { join } from 'node:path';
 
-import { collectSourceInventory } from "./change-status";
-import { readString } from "./config";
-import { compareStrings, resolveInside } from "./path";
-import { readReleaseState, writeReleaseState } from "./release-state";
-import { loadBuildGraph } from "./resolver";
+import { collectSourceInventory } from './change-status';
+import { readString } from './config';
+import { compareStrings, resolveInside } from './path';
+import { readReleaseState, writeReleaseState } from './release-state';
+import { loadBuildGraph } from './resolver';
 import {
   pluginIdForSelector,
   selectorForRootConfig,
   sourceUnitSelector,
-} from "./source-unit-selector";
-import type { BuildGraph, ReleaseScopeState, ReleaseState, SkillsetOptions, SourcePlugin } from "./types";
-import { DEFAULT_VERSION } from "./versioning";
+} from './source-unit-selector';
+import type {
+  BuildGraph,
+  ReleaseScopeState,
+  SkillsetOptions,
+  SourcePlugin,
+} from './types';
+import { DEFAULT_VERSION } from './versioning';
 
-export type ReleaseBaselineStatus = "create" | "exists";
+export type ReleaseBaselineStatus = 'create' | 'exists';
 
 export interface ReleaseBaselineEntry {
   readonly scope: string;
@@ -43,15 +48,16 @@ export interface SeedReleaseBaselinesOptions {
   readonly write?: boolean;
 }
 
-const ROOT_CONFIG_FILE = "config.yaml";
-const NO_SOURCE_MESSAGE = "skillset: no source plugins, skills, instructions, project agents, or target-native islands found";
+const ROOT_CONFIG_FILE = 'config.yaml';
+const NO_SOURCE_MESSAGE =
+  'skillset: no source plugins, skills, instructions, project agents, or target-native islands found';
 
 export async function seedReleaseBaselines(
   rootPath: string,
   options: SkillsetOptions = {},
   seedOptions: SeedReleaseBaselinesOptions = {}
 ): Promise<ReleaseBaselineReport> {
-  const sourceDir = options.sourceDir ?? ".skillset";
+  const sourceDir = options.sourceDir ?? '.skillset';
   const configPath = resolveInside(rootPath, join(sourceDir, ROOT_CONFIG_FILE));
   if (!(await exists(configPath))) {
     return {
@@ -71,7 +77,7 @@ export async function seedReleaseBaselines(
       return {
         conflicts: [],
         entries: [],
-        skippedReason: "no source units to adopt",
+        skippedReason: 'no source units to adopt',
         write: seedOptions.write === true,
       };
     }
@@ -80,9 +86,10 @@ export async function seedReleaseBaselines(
 
   const inventory = await collectSourceInventory(rootPath, options);
   const state = await readReleaseState(rootPath, options);
-  const scopeFilter = seedOptions.scopes === undefined
-    ? undefined
-    : new Set(seedOptions.scopes.map(sourceUnitSelector));
+  const scopeFilter =
+    seedOptions.scopes === undefined
+      ? undefined
+      : new Set(seedOptions.scopes.map(sourceUnitSelector));
   const entries: ReleaseBaselineEntry[] = [];
   const conflicts: ReleaseBaselineConflict[] = [];
   const scopes: Record<string, ReleaseScopeState> = { ...state.scopes };
@@ -90,32 +97,47 @@ export async function seedReleaseBaselines(
 
   for (const unit of inventory.units) {
     const scope = sourceUnitSelector(unit.id);
-    if (scopeFilter !== undefined && !scopeFilter.has(scope)) continue;
-    if (seedOptions.includeScope !== undefined && !seedOptions.includeScope(scope)) continue;
+    if (scopeFilter !== undefined && !scopeFilter.has(scope)) {
+      continue;
+    }
+    if (
+      seedOptions.includeScope !== undefined &&
+      !seedOptions.includeScope(scope)
+    ) {
+      continue;
+    }
     const version = sourceVersionForScope(graph, scope);
     const existing = state.scopes[scope];
     if (existing?.removed === true) {
-      conflicts.push({ existingVersion: existing.version, scope, sourceVersion: version });
+      conflicts.push({
+        existingVersion: existing.version,
+        scope,
+        sourceVersion: version,
+      });
       continue;
     }
     if (existing?.sourceHash !== undefined) {
       entries.push({
         scope,
         sourceHash: existing.sourceHash,
-        status: "exists",
+        status: 'exists',
         version: existing.version,
       });
       continue;
     }
     if (existing !== undefined && existing.version !== version) {
-      conflicts.push({ existingVersion: existing.version, scope, sourceVersion: version });
+      conflicts.push({
+        existingVersion: existing.version,
+        scope,
+        sourceVersion: version,
+      });
       continue;
     }
 
     entries.push({
       scope,
       sourceHash: unit.hash,
-      status: "create",
+      status: 'create',
       version,
     });
 
@@ -130,61 +152,85 @@ export async function seedReleaseBaselines(
 
   if (conflicts.length > 0) {
     throw new Error(
-      "skillset: release baseline conflicts with existing release state\n" +
-        conflicts
-          .map((conflict) =>
-            `  ${conflict.scope}: source version ${conflict.sourceVersion}, release state ${conflict.existingVersion ?? "removed"}`
-          )
-          .join("\n")
+      `skillset: release baseline conflicts with existing release state\n${conflicts
+        .map(
+          (conflict) =>
+            `  ${conflict.scope}: source version ${conflict.sourceVersion}, release state ${conflict.existingVersion ?? 'removed'}`
+        )
+        .join('\n')}`
     );
   }
 
   let path: string | undefined;
-  if (seedOptions.write === true && entries.some((entry) => entry.status === "create")) {
+  if (
+    seedOptions.write === true &&
+    entries.some((entry) => entry.status === 'create')
+  ) {
     path = await writeReleaseState(rootPath, { scopes }, options);
   }
 
   return {
     conflicts,
-    entries: entries.sort((left, right) => compareStrings(left.scope, right.scope)),
+    entries: entries.toSorted((left, right) =>
+      compareStrings(left.scope, right.scope)
+    ),
     ...(path === undefined ? {} : { path }),
     write: seedOptions.write === true,
   };
 }
 
-export function sourceVersionForScope(graph: BuildGraph, rawScope: string): string {
+export function sourceVersionForScope(
+  graph: BuildGraph,
+  rawScope: string
+): string {
   const selector = sourceUnitSelector(rawScope);
-  if (selector === selectorForRootConfig()) return sourceRootVersion(graph);
-  if (selector.startsWith("skill:")) {
-    const skill = graph.standaloneSkills.find((item) => item.id === selector.slice("skill:".length));
-    if (skill !== undefined) return readString(skill.frontmatter, "version") ?? sourceRootVersion(graph);
+  if (selector === selectorForRootConfig()) {
+    return sourceRootVersion(graph);
+  }
+  if (selector.startsWith('skill:')) {
+    const skill = graph.standaloneSkills.find(
+      (item) => item.id === selector.slice('skill:'.length)
+    );
+    if (skill !== undefined) {
+      return (
+        readString(skill.frontmatter, 'version') ?? sourceRootVersion(graph)
+      );
+    }
   }
 
   const pluginSkill = selector.match(/^plugin\.([^.]+)\.skill:(.+)$/);
   if (pluginSkill !== null) {
     const [, pluginId, skillId] = pluginSkill;
-    const plugin = pluginId === undefined ? undefined : graph.plugins.find((item) => item.id === pluginId);
+    const plugin =
+      pluginId === undefined
+        ? undefined
+        : graph.plugins.find((item) => item.id === pluginId);
     const skill = plugin?.skills.find((item) => item.id === skillId);
     if (plugin !== undefined && skill !== undefined) {
-      return readString(skill.frontmatter, "version") ?? sourcePluginVersion(graph, plugin);
+      return (
+        readString(skill.frontmatter, 'version') ??
+        sourcePluginVersion(graph, plugin)
+      );
     }
   }
 
   const pluginId = pluginIdForSelector(selector);
   if (pluginId !== undefined) {
     const plugin = graph.plugins.find((item) => item.id === pluginId);
-    if (plugin !== undefined) return sourcePluginVersion(graph, plugin);
+    if (plugin !== undefined) {
+      return sourcePluginVersion(graph, plugin);
+    }
   }
 
   return sourceRootVersion(graph);
 }
 
 function sourceRootVersion(graph: BuildGraph): string {
-  return readString(graph.root.metadata, "version") ?? DEFAULT_VERSION;
+  return readString(graph.root.metadata, 'version') ?? DEFAULT_VERSION;
 }
 
 function sourcePluginVersion(graph: BuildGraph, plugin: SourcePlugin): string {
-  return readString(plugin.metadata, "version") ?? sourceRootVersion(graph);
+  return readString(plugin.metadata, 'version') ?? sourceRootVersion(graph);
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -192,7 +238,12 @@ async function exists(path: string): Promise<boolean> {
     await stat(path);
     return true;
   } catch (error) {
-    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 'ENOENT'
+    ) {
       return false;
     }
     throw error;

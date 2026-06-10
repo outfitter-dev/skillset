@@ -1,4 +1,4 @@
-export type TargetName = "claude" | "codex";
+export type TargetName = 'claude' | 'codex';
 
 export type JsonScalar = boolean | null | number | string;
 export type JsonValue = JsonScalar | JsonValue[] | JsonRecord;
@@ -35,9 +35,9 @@ export interface ReleaseState {
   readonly scopes: Readonly<Record<string, ReleaseScopeState>>;
 }
 
-export type CompileUnsupportedPolicy = "error" | "warn" | "skip" | "force";
-export type CompileBuildMode = "updated" | "all";
-export type BuildScope = "repo" | "plugins" | "project" | "user";
+export type CompileUnsupportedPolicy = 'error' | 'warn' | 'skip' | 'force';
+export type CompileBuildMode = 'updated' | 'all';
+export type BuildScope = 'repo' | 'plugins' | 'project' | 'user';
 
 export interface CompileSkillsetConfig {
   readonly metadata: boolean;
@@ -68,13 +68,13 @@ export interface SourceSkill {
 
 export interface SourceResource {
   readonly from: string;
-  readonly kind: "directory" | "file";
+  readonly kind: 'directory' | 'file';
   readonly sourcePath: string;
   readonly targetPath: string;
 }
 
 export interface SourcePluginDependency {
-  readonly kind: "external" | "internal";
+  readonly kind: 'external' | 'internal';
   readonly marketplace?: string;
   readonly name: string;
   readonly range?: string;
@@ -93,8 +93,8 @@ export interface SourcePlugin {
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
 }
 
-export type SourcePluginFeatureKey = "bin" | "mcp";
-export type SourcePluginFeatureOrigin = "conventional" | "explicit";
+export type SourcePluginFeatureKey = 'bin' | 'mcp';
+export type SourcePluginFeatureOrigin = 'conventional' | 'explicit';
 
 export interface SourcePluginFeature {
   readonly key: SourcePluginFeatureKey;
@@ -104,7 +104,7 @@ export interface SourcePluginFeature {
   readonly targetPath: string;
 }
 
-export interface StandaloneSkill extends SourceSkill {}
+export type StandaloneSkill = SourceSkill;
 
 export interface SourceRule {
   readonly body: string;

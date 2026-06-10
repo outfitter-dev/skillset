@@ -92,7 +92,7 @@ export const findInboundRefs = (
     if (file.filename === targetFilename) {
       continue;
     }
-    const content = readFileSync(file.path, 'utf8');
+    const content = readFileSync(file.path, 'utf-8');
     for (const line of content.split('\n')) {
       if (line.includes(targetFilename)) {
         const fromSlug = file.filename
@@ -113,7 +113,7 @@ export const findInboundRefs = (
 
   // Scan non-ADR docs
   for (const doc of listDocFiles()) {
-    const content = readFileSync(doc.path, 'utf8');
+    const content = readFileSync(doc.path, 'utf-8');
     for (const line of content.split('\n')) {
       if (line.includes(targetFilename)) {
         const relPath = doc.path.startsWith(ROOT)
@@ -371,7 +371,7 @@ const stringifyFormattedJson = (
 };
 
 const writeJson = (path: string, data: unknown): void => {
-  writeFileSync(path, `${stringifyFormattedJson(data)}\n`, 'utf8');
+  writeFileSync(path, `${stringifyFormattedJson(data)}\n`, 'utf-8');
 };
 
 /**
@@ -398,6 +398,6 @@ export const writeDecisionMap = (): void => {
 
   // Drafts README
   const draftsIndex = buildDraftsIndex(draftEntries, numberedEntries);
-  writeFileSync(DRAFTS_INDEX_PATH, draftsIndex, 'utf8');
+  writeFileSync(DRAFTS_INDEX_PATH, draftsIndex, 'utf-8');
   console.log(`Updated ${DRAFTS_INDEX_PATH}`);
 };

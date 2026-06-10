@@ -102,7 +102,7 @@ const cmdCreate = (args: Args): void => {
 ## References
 `;
 
-  writeFileSync(path, content, 'utf8');
+  writeFileSync(path, content, 'utf-8');
   console.log(`Created ${path}`);
 
   writeDecisionMap();
@@ -170,7 +170,7 @@ const cmdPromote = (args: Args): void => {
 
   const updatedBody = adr.body.replace(/^#\s+ADR:\s*/m, `# ADR-${padded}: `);
   const content = `${serializeFrontmatter(updatedFm as Frontmatter)}\n${updatedBody}`;
-  writeFileSync(adr.path, content, 'utf8');
+  writeFileSync(adr.path, content, 'utf-8');
 
   gitMove(adr.path, newPath);
 
@@ -194,7 +194,7 @@ const cmdPromote = (args: Args): void => {
         updated: today(),
       };
       const oldContent = `${serializeFrontmatter(oldFm as Frontmatter)}\n${oldAdr.body}`;
-      writeFileSync(oldAdr.path, oldContent, 'utf8');
+      writeFileSync(oldAdr.path, oldContent, 'utf-8');
     }
   }
 
@@ -244,7 +244,7 @@ const cmdDemote = (args: Args): void => {
 
   const updatedBody = adr.body.replace(/^#\s+ADR-\d+:\s*/m, '# ADR: ');
   const content = `${serializeFrontmatter(updatedFm as Frontmatter)}\n${updatedBody}`;
-  writeFileSync(adr.path, content, 'utf8');
+  writeFileSync(adr.path, content, 'utf-8');
 
   gitMove(adr.path, newPath);
 
@@ -359,7 +359,7 @@ const cmdCheck = (args: Args): void => {
             `# ${prefix} ${fm.title}`
           );
           const content = `${serializeFrontmatter(fm as Frontmatter)}\n${newBody}`;
-          writeFileSync(adr.path, content, 'utf8');
+          writeFileSync(adr.path, content, 'utf-8');
           console.log(`    fixed: rewrote H1 from fm.title`);
           fixes++;
         }
@@ -463,7 +463,7 @@ const cmdCheck = (args: Args): void => {
 
   console.log('Checking index...');
   if (existsSync(INDEX_PATH)) {
-    const indexContent = readFileSync(INDEX_PATH, 'utf8');
+    const indexContent = readFileSync(INDEX_PATH, 'utf-8');
     for (const adr of listNumberedAdrs()) {
       if (!indexContent.includes(adr.filename)) {
         report(
@@ -594,7 +594,7 @@ const cmdUpdate = (args: Args): void => {
   }
 
   const content = `${serializeFrontmatter(fm as Frontmatter)}\n${body}`;
-  writeFileSync(currentPath, content, 'utf8');
+  writeFileSync(currentPath, content, 'utf-8');
 
   if (args.slug && newSlugFilename) {
     const newPath = join(dirname(currentPath), newSlugFilename);
@@ -609,7 +609,7 @@ const cmdUpdate = (args: Args): void => {
     fm.id = newNum;
     fm.updated = today();
     const updatedContent = `${serializeFrontmatter(fm as Frontmatter)}\n${body}`;
-    writeFileSync(currentPath, updatedContent, 'utf8');
+    writeFileSync(currentPath, updatedContent, 'utf-8');
 
     const newPath = join(ADR_DIR, newRenumberFilename);
     gitMove(currentPath, newPath);
@@ -650,7 +650,7 @@ const cmdFix = (args: Args): void => {
         );
         const fm = { ...adr.frontmatter, updated: today() };
         const content = `${serializeFrontmatter(fm as Frontmatter)}\n${body}`;
-        writeFileSync(adr.path, content, 'utf8');
+        writeFileSync(adr.path, content, 'utf-8');
 
         gitMove(adr.path, newPath);
       }

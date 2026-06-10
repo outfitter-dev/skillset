@@ -1,8 +1,18 @@
-import { readString } from "./config";
-import { selectorForPluginSkill, selectorForRootConfig, selectorForStandaloneSkill, sourceUnitSelector } from "./source-unit-selector";
-import type { BuildGraph, JsonRecord, SourcePlugin, SourceSkill } from "./types";
+import { readString } from './config';
+import {
+  selectorForPluginSkill,
+  selectorForRootConfig,
+  selectorForStandaloneSkill,
+  sourceUnitSelector,
+} from './source-unit-selector';
+import type {
+  BuildGraph,
+  JsonRecord,
+  SourcePlugin,
+  SourceSkill,
+} from './types';
 
-export const DEFAULT_VERSION = "0.1.0";
+export const DEFAULT_VERSION = '0.1.0';
 
 /**
  * The source-contract schema this compiler understands. `skillset.schema` marks
@@ -23,11 +33,13 @@ const SEMVER_PATTERN =
  */
 export function validateSchemaField(metadata: JsonRecord, label: string): void {
   const value = metadata.schema;
-  if (value === undefined) return;
-  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
+  if (value === undefined) {
+    return;
+  }
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
     throw new Error(
       `skillset: expected ${label} to be a positive integer (currently ${SUPPORTED_SOURCE_SCHEMA}); ` +
-        "skillset.schema is the source schema marker, not a version string"
+        'skillset.schema is the source schema marker, not a version string'
     );
   }
   if (value !== SUPPORTED_SOURCE_SCHEMA) {
@@ -40,9 +52,13 @@ export function validateSchemaField(metadata: JsonRecord, label: string): void {
 
 export function validateVersionField(record: JsonRecord, label: string): void {
   const value = record.version;
-  if (value === undefined) return;
-  if (typeof value !== "string" || value.trim().length === 0) {
-    throw new Error(`skillset: expected ${label} to be a semantic version string`);
+  if (value === undefined) {
+    return;
+  }
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new Error(
+      `skillset: expected ${label} to be a semantic version string`
+    );
   }
   if (!SEMVER_PATTERN.test(value.trim())) {
     throw new Error(`skillset: expected ${label} to be a semantic version`);
@@ -50,15 +66,19 @@ export function validateVersionField(record: JsonRecord, label: string): void {
 }
 
 export function rootVersion(graph: BuildGraph): string {
-  return activeReleaseVersion(graph, selectorForRootConfig()) ??
-    readString(graph.root.metadata, "version") ??
-    DEFAULT_VERSION;
+  return (
+    activeReleaseVersion(graph, selectorForRootConfig()) ??
+    readString(graph.root.metadata, 'version') ??
+    DEFAULT_VERSION
+  );
 }
 
 export function pluginVersion(graph: BuildGraph, plugin: SourcePlugin): string {
-  return activeReleaseVersion(graph, `plugin:${plugin.id}`) ??
-    readString(plugin.metadata, "version") ??
-    rootVersion(graph);
+  return (
+    activeReleaseVersion(graph, `plugin:${plugin.id}`) ??
+    readString(plugin.metadata, 'version') ??
+    rootVersion(graph)
+  );
 }
 
 export function skillVersion(
@@ -66,12 +86,13 @@ export function skillVersion(
   plugin: SourcePlugin | undefined,
   skill: SourceSkill
 ): string {
-  const releaseScope = plugin === undefined
-    ? selectorForStandaloneSkill(skill.id)
-    : selectorForPluginSkill(plugin.id, skill.id);
+  const releaseScope =
+    plugin === undefined
+      ? selectorForStandaloneSkill(skill.id)
+      : selectorForPluginSkill(plugin.id, skill.id);
   return (
     activeReleaseVersion(graph, releaseScope) ??
-    readString(skill.frontmatter, "version") ??
+    readString(skill.frontmatter, 'version') ??
     (plugin === undefined ? undefined : pluginVersion(graph, plugin)) ??
     rootVersion(graph)
   );
@@ -85,9 +106,14 @@ export function skillVersionLabel(
   return `${skill.id}@${skillVersion(graph, plugin, skill)}`;
 }
 
-function activeReleaseVersion(graph: BuildGraph, scope: string): string | undefined {
+function activeReleaseVersion(
+  graph: BuildGraph,
+  scope: string
+): string | undefined {
   const selector = sourceUnitSelector(scope);
   const state = graph.releaseState.scopes[selector];
-  if (state?.removed === true) return undefined;
+  if (state?.removed === true) {
+    return undefined;
+  }
   return state?.version;
 }

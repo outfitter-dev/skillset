@@ -1,13 +1,26 @@
-import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { dirname, join, relative } from "node:path";
+import {
+  mkdir,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
+import { dirname, join, relative } from 'node:path';
 
-import { compareStrings, resolveInside } from "./path";
-import { renderBuildGraph } from "./render";
-import { emitGraphWarnings, loadBuildGraph } from "./resolver";
-import type { BuildGraph, BuildScope, CheckResult, RenderedFile, SkillsetOptions } from "./types";
-import { isJsonRecord, parseMarkdown } from "./yaml";
+import { compareStrings, resolveInside } from './path';
+import { renderBuildGraph } from './render';
+import { emitGraphWarnings, loadBuildGraph } from './resolver';
+import type {
+  BuildGraph,
+  BuildScope,
+  CheckResult,
+  RenderedFile,
+  SkillsetOptions,
+} from './types';
+import { isJsonRecord, parseMarkdown } from './yaml';
 
-const WORKSPACE_LOCK_FILE = ".skillset.lock";
+const WORKSPACE_LOCK_FILE = '.skillset.lock';
 const textDecoder = new TextDecoder();
 
 /**
@@ -19,12 +32,16 @@ const CODEX_AGENTS_MAX_BYTES = 32 * 1024;
 
 function warnLargeInstructionFiles(rendered: readonly RenderedFile[]): void {
   for (const file of rendered) {
-    if (file.path !== "AGENTS.md" && !file.path.endsWith("/AGENTS.md")) continue;
-    if (file.content.byteLength <= CODEX_AGENTS_MAX_BYTES) continue;
+    if (file.path !== 'AGENTS.md' && !file.path.endsWith('/AGENTS.md')) {
+      continue;
+    }
+    if (file.content.byteLength <= CODEX_AGENTS_MAX_BYTES) {
+      continue;
+    }
     console.warn(
       `skillset: generated ${file.path} is ${file.content.byteLength} bytes, over Codex's default ` +
         `project_doc_max_bytes (${CODEX_AGENTS_MAX_BYTES}); Codex silently truncates beyond it. ` +
-        "Split instructions across nested directories or raise project_doc_max_bytes."
+        'Split instructions across nested directories or raise project_doc_max_bytes.'
     );
   }
 }
@@ -35,13 +52,23 @@ export async function buildSkillset(
 ): Promise<readonly RenderedFile[]> {
   const graph = await loadBuildGraph(rootPath, options);
   emitGraphWarnings(graph);
-  const rendered = scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes);
+  const rendered = scopedRenderedFiles(
+    graph,
+    await renderBuildGraph(graph),
+    options.scopes
+  );
   const outputRoots = scopedOutputRoots(graph, options.scopes);
   const includeWorkspaceLock = includesProjectScope(options.scopes);
   warnLargeInstructionFiles(rendered);
   const expectedPaths = new Set(rendered.map((file) => file.path));
-  const previousWorkspaceManagedPaths = includeWorkspaceLock ? await readWorkspaceManagedPaths(rootPath) : new Set<string>();
-  const previousManagedPaths = await readManagedPaths(rootPath, outputRoots, includeWorkspaceLock);
+  const previousWorkspaceManagedPaths = includeWorkspaceLock
+    ? await readWorkspaceManagedPaths(rootPath)
+    : new Set<string>();
+  const previousManagedPaths = await readManagedPaths(
+    rootPath,
+    outputRoots,
+    includeWorkspaceLock
+  );
   await warnMissingManagedOutputs(rootPath, rendered, previousManagedPaths);
 
   await assertNoUnmanagedWorkspaceOverwrites(
@@ -51,9 +78,12 @@ export async function buildSkillset(
     rendered
   );
 
-  if (graph.root.compile.build === "all") {
+  if (graph.root.compile.build === 'all') {
     for (const outputRoot of outputRoots) {
-      await rm(resolveInside(rootPath, outputRoot), { force: true, recursive: true });
+      await rm(resolveInside(rootPath, outputRoot), {
+        force: true,
+        recursive: true,
+      });
     }
 
     await removeStaleWorkspaceManagedFiles(
@@ -67,7 +97,14 @@ export async function buildSkillset(
     return rendered;
   }
 
-  const actualPaths = new Set(await listGeneratedFiles(rootPath, outputRoots, rendered, includeWorkspaceLock));
+  const actualPaths = new Set(
+    await listGeneratedFiles(
+      rootPath,
+      outputRoots,
+      rendered,
+      includeWorkspaceLock
+    )
+  );
   await removeStaleGeneratedFiles(rootPath, actualPaths, expectedPaths);
   await writeChangedRenderedFiles(rootPath, rendered, actualPaths);
 
@@ -91,13 +128,26 @@ export async function diffSkillset(
 ): Promise<SkillsetDiff> {
   const graph = await loadBuildGraph(rootPath, options);
   emitGraphWarnings(graph);
-  const rendered = scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes);
+  const rendered = scopedRenderedFiles(
+    graph,
+    await renderBuildGraph(graph),
+    options.scopes
+  );
   const expected = new Map(rendered.map((file) => [file.path, file.content]));
   const outputRoots = scopedOutputRoots(graph, options.scopes);
   const includeWorkspaceLock = includesProjectScope(options.scopes);
-  const actualPaths = await listGeneratedFiles(rootPath, outputRoots, rendered, includeWorkspaceLock);
+  const actualPaths = await listGeneratedFiles(
+    rootPath,
+    outputRoots,
+    rendered,
+    includeWorkspaceLock
+  );
   const actual = new Set(actualPaths);
-  const previousManagedPaths = await readManagedPaths(rootPath, outputRoots, includeWorkspaceLock);
+  const previousManagedPaths = await readManagedPaths(
+    rootPath,
+    outputRoots,
+    includeWorkspaceLock
+  );
 
   const added: string[] = [];
   const changed: string[] = [];
@@ -114,17 +164,21 @@ export async function diffSkillset(
       continue;
     }
     const current = await readFile(resolveInside(rootPath, file.path));
-    if (!bytesEqual(current, file.content)) changed.push(file.path);
+    if (!bytesEqual(current, file.content)) {
+      changed.push(file.path);
+    }
   }
   for (const path of actualPaths) {
-    if (!expected.has(path)) removed.push(path);
+    if (!expected.has(path)) {
+      removed.push(path);
+    }
   }
 
   return {
-    added: [...added].sort(compareStrings),
-    changed: [...changed].sort(compareStrings),
-    missing: [...missing].sort(compareStrings),
-    removed: [...removed].sort(compareStrings),
+    added: [...added].toSorted(compareStrings),
+    changed: [...changed].toSorted(compareStrings),
+    missing: [...missing].toSorted(compareStrings),
+    removed: [...removed].toSorted(compareStrings),
   };
 }
 
@@ -134,14 +188,27 @@ export async function checkSkillset(
 ): Promise<CheckResult> {
   const graph = await loadBuildGraph(rootPath, options);
   emitGraphWarnings(graph);
-  const rendered = scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes);
+  const rendered = scopedRenderedFiles(
+    graph,
+    await renderBuildGraph(graph),
+    options.scopes
+  );
   warnLargeInstructionFiles(rendered);
   const expected = new Map(rendered.map((file) => [file.path, file.content]));
   const outputRoots = scopedOutputRoots(graph, options.scopes);
   const includeWorkspaceLock = includesProjectScope(options.scopes);
-  const actualPaths = await listGeneratedFiles(rootPath, outputRoots, rendered, includeWorkspaceLock);
+  const actualPaths = await listGeneratedFiles(
+    rootPath,
+    outputRoots,
+    rendered,
+    includeWorkspaceLock
+  );
   const actual = new Set(actualPaths);
-  const previousManagedPaths = await readManagedPaths(rootPath, outputRoots, includeWorkspaceLock);
+  const previousManagedPaths = await readManagedPaths(
+    rootPath,
+    outputRoots,
+    includeWorkspaceLock
+  );
   const failures: string[] = [];
 
   for (const file of rendered) {
@@ -157,7 +224,10 @@ export async function checkSkillset(
     const outputPath = resolveInside(rootPath, file.path);
     const current = await readFile(outputPath);
     if (!bytesEqual(current, file.content)) {
-      failures.push(versionDriftMessage(file.path, current, file.content) ?? `stale generated file: ${file.path}`);
+      failures.push(
+        versionDriftMessage(file.path, current, file.content) ??
+          `stale generated file: ${file.path}`
+      );
     }
   }
 
@@ -168,7 +238,9 @@ export async function checkSkillset(
   }
 
   if (failures.length > 0) {
-    throw new Error(`skillset: generated output is not current\n${failures.join("\n")}`);
+    throw new Error(
+      `skillset: generated output is not current\n${failures.join('\n')}`
+    );
   }
 
   return { checkedFiles: rendered.length };
@@ -180,9 +252,15 @@ async function warnMissingManagedOutputs(
   previousManagedPaths: ReadonlySet<string>
 ): Promise<void> {
   for (const file of rendered) {
-    if (!previousManagedPaths.has(file.path)) continue;
-    if (await exists(resolveInside(rootPath, file.path))) continue;
-    console.warn(`skillset: managed output is missing and will be regenerated: ${file.path}`);
+    if (!previousManagedPaths.has(file.path)) {
+      continue;
+    }
+    if (await exists(resolveInside(rootPath, file.path))) {
+      continue;
+    }
+    console.warn(
+      `skillset: managed output is missing and will be regenerated: ${file.path}`
+    );
   }
 }
 
@@ -206,7 +284,9 @@ async function writeChangedRenderedFiles(
     const outputPath = resolveInside(rootPath, file.path);
     if (actualPaths.has(file.path)) {
       const current = await readFile(outputPath);
-      if (bytesEqual(current, file.content)) continue;
+      if (bytesEqual(current, file.content)) {
+        continue;
+      }
     }
     await mkdir(dirname(outputPath), { recursive: true });
     await writeFile(outputPath, file.content);
@@ -219,7 +299,9 @@ async function removeStaleGeneratedFiles(
   expectedPaths: ReadonlySet<string>
 ): Promise<void> {
   for (const path of actualPaths) {
-    if (expectedPaths.has(path)) continue;
+    if (expectedPaths.has(path)) {
+      continue;
+    }
     await rm(resolveInside(rootPath, path), { force: true });
   }
 }
@@ -231,12 +313,14 @@ async function listOutputFiles(
   const paths: string[] = [];
   for (const outputRoot of outputRoots) {
     const absoluteTarget = resolveInside(rootPath, outputRoot);
-    if (!(await exists(absoluteTarget))) continue;
+    if (!(await exists(absoluteTarget))) {
+      continue;
+    }
     for (const file of await collectFiles(absoluteTarget)) {
       paths.push(relative(rootPath, file));
     }
   }
-  return paths.sort();
+  return paths.toSorted();
 }
 
 async function listGeneratedFiles(
@@ -246,25 +330,37 @@ async function listGeneratedFiles(
   includeWorkspaceLock: boolean
 ): Promise<readonly string[]> {
   const paths = new Set(await listOutputFiles(rootPath, outputRoots));
-  const previousWorkspaceManagedPaths = includeWorkspaceLock ? await readWorkspaceManagedPaths(rootPath) : new Set<string>();
+  const previousWorkspaceManagedPaths = includeWorkspaceLock
+    ? await readWorkspaceManagedPaths(rootPath)
+    : new Set<string>();
 
   for (const path of previousWorkspaceManagedPaths) {
-    if (isInsideAnyOutputRoot(path, outputRoots)) continue;
-    if (await exists(resolveInside(rootPath, path))) paths.add(path);
+    if (isInsideAnyOutputRoot(path, outputRoots)) {
+      continue;
+    }
+    if (await exists(resolveInside(rootPath, path))) {
+      paths.add(path);
+    }
   }
 
   for (const file of rendered) {
-    if (isInsideAnyOutputRoot(file.path, outputRoots)) continue;
-    if (await exists(resolveInside(rootPath, file.path))) paths.add(file.path);
+    if (isInsideAnyOutputRoot(file.path, outputRoots)) {
+      continue;
+    }
+    if (await exists(resolveInside(rootPath, file.path))) {
+      paths.add(file.path);
+    }
   }
 
-  return [...paths].sort();
+  return [...paths].toSorted();
 }
 
 async function collectFiles(root: string): Promise<readonly string[]> {
   const entries = await readdir(root, { withFileTypes: true });
   const files: string[] = [];
-  for (const entry of entries.sort((left, right) => compareStrings(left.name, right.name))) {
+  for (const entry of entries.toSorted((left, right) =>
+    compareStrings(left.name, right.name)
+  )) {
     const path = join(root, entry.name);
     if (entry.isDirectory()) {
       files.push(...(await collectFiles(path)));
@@ -282,8 +378,12 @@ async function removeStaleWorkspaceManagedFiles(
   expectedPaths: ReadonlySet<string>
 ): Promise<void> {
   for (const path of previousManagedPaths) {
-    if (isInsideAnyOutputRoot(path, outputRoots)) continue;
-    if (expectedPaths.has(path)) continue;
+    if (isInsideAnyOutputRoot(path, outputRoots)) {
+      continue;
+    }
+    if (expectedPaths.has(path)) {
+      continue;
+    }
     await rm(resolveInside(rootPath, path), { force: true });
   }
 }
@@ -295,9 +395,15 @@ async function assertNoUnmanagedWorkspaceOverwrites(
   rendered: readonly RenderedFile[]
 ): Promise<void> {
   for (const file of rendered) {
-    if (isInsideAnyOutputRoot(file.path, outputRoots)) continue;
-    if (previousManagedPaths.has(file.path)) continue;
-    if (!(await exists(resolveInside(rootPath, file.path)))) continue;
+    if (isInsideAnyOutputRoot(file.path, outputRoots)) {
+      continue;
+    }
+    if (previousManagedPaths.has(file.path)) {
+      continue;
+    }
+    if (!(await exists(resolveInside(rootPath, file.path)))) {
+      continue;
+    }
     throw new Error(
       `skillset: refusing to overwrite unmanaged workspace file ${file.path}; ` +
         `move it into .skillset/instructions or remove it before generating instructions`
@@ -305,7 +411,10 @@ async function assertNoUnmanagedWorkspaceOverwrites(
   }
 }
 
-function isInsideAnyOutputRoot(path: string, outputRoots: readonly string[]): boolean {
+function isInsideAnyOutputRoot(
+  path: string,
+  outputRoots: readonly string[]
+): boolean {
   return outputRoots.some(
     (outputRoot) => path === outputRoot || path.startsWith(`${outputRoot}/`)
   );
@@ -316,7 +425,9 @@ export function scopedRenderedFiles(
   rendered: readonly RenderedFile[],
   scopes: readonly BuildScope[] | undefined
 ): readonly RenderedFile[] {
-  if (scopes === undefined) return rendered;
+  if (scopes === undefined) {
+    return rendered;
+  }
   return rendered.filter((file) => isPathInScopes(graph, file.path, scopes));
 }
 
@@ -324,8 +435,12 @@ export function scopedOutputRoots(
   graph: BuildGraph,
   scopes: readonly BuildScope[] | undefined
 ): readonly string[] {
-  if (scopes === undefined) return graph.outputRoots;
-  return graph.outputRoots.filter((outputRoot) => isPathInScopes(graph, outputRoot, scopes));
+  if (scopes === undefined) {
+    return graph.outputRoots;
+  }
+  return graph.outputRoots.filter((outputRoot) =>
+    isPathInScopes(graph, outputRoot, scopes)
+  );
 }
 
 function isPathInScopes(
@@ -341,27 +456,31 @@ function scopeForPath(graph: BuildGraph, path: string): BuildScope {
     isInsideOutputRoot(path, graph.root.outputs.plugins.claude) ||
     isInsideOutputRoot(path, graph.root.outputs.plugins.codex)
   ) {
-    return "plugins";
+    return 'plugins';
   }
   if (
     isInsideOutputRoot(path, graph.root.outputs.skills.claude) ||
     isInsideOutputRoot(path, graph.root.outputs.skills.codex)
   ) {
-    return "repo";
+    return 'repo';
   }
-  return "project";
+  return 'project';
 }
 
 function isInsideOutputRoot(path: string, outputRoot: string): boolean {
   return path === outputRoot || path.startsWith(`${outputRoot}/`);
 }
 
-function includesProjectScope(scopes: readonly BuildScope[] | undefined): boolean {
-  return scopes === undefined || scopes.includes("project");
+function includesProjectScope(
+  scopes: readonly BuildScope[] | undefined
+): boolean {
+  return scopes === undefined || scopes.includes('project');
 }
 
-async function readWorkspaceManagedPaths(rootPath: string): Promise<ReadonlySet<string>> {
-  return readManagedPathsFromLock(rootPath, WORKSPACE_LOCK_FILE, ".");
+async function readWorkspaceManagedPaths(
+  rootPath: string
+): Promise<ReadonlySet<string>> {
+  return readManagedPathsFromLock(rootPath, WORKSPACE_LOCK_FILE, '.');
 }
 
 async function readManagedPaths(
@@ -369,11 +488,19 @@ async function readManagedPaths(
   outputRoots: readonly string[],
   includeWorkspaceLock: boolean
 ): Promise<ReadonlySet<string>> {
-  const paths = includeWorkspaceLock ? new Set(await readWorkspaceManagedPaths(rootPath)) : new Set<string>();
+  const paths = includeWorkspaceLock
+    ? new Set(await readWorkspaceManagedPaths(rootPath))
+    : new Set<string>();
   for (const outputRoot of outputRoots) {
     const lockPath = join(outputRoot, WORKSPACE_LOCK_FILE);
-    const managed = await readManagedPathsFromLock(rootPath, lockPath, outputRoot);
-    for (const path of managed) paths.add(path);
+    const managed = await readManagedPathsFromLock(
+      rootPath,
+      lockPath,
+      outputRoot
+    );
+    for (const path of managed) {
+      paths.add(path);
+    }
   }
   return paths;
 }
@@ -384,21 +511,29 @@ async function readManagedPathsFromLock(
   expectedOutputRoot: string
 ): Promise<ReadonlySet<string>> {
   const absoluteLockPath = resolveInside(rootPath, lockPath);
-  if (!(await exists(absoluteLockPath))) return new Set();
+  if (!(await exists(absoluteLockPath))) {
+    return new Set();
+  }
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(await readFile(absoluteLockPath, "utf8")) as unknown;
+    parsed = JSON.parse(await readFile(absoluteLockPath, 'utf-8')) as unknown;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw corruptManagedLock(lockPath, `it is not valid JSON: ${message}`);
   }
 
-  if (!isRecord(parsed) || typeof parsed.generatedBy !== "string") {
-    throw corruptManagedLock(lockPath, "it is missing a string generatedBy field");
+  if (!isRecord(parsed) || typeof parsed.generatedBy !== 'string') {
+    throw corruptManagedLock(
+      lockPath,
+      'it is missing a string generatedBy field'
+    );
   }
-  if (!parsed.generatedBy.startsWith("skillset@")) {
-    throw corruptManagedLock(lockPath, `its generatedBy ${JSON.stringify(parsed.generatedBy)} is not a skillset lock`);
+  if (!parsed.generatedBy.startsWith('skillset@')) {
+    throw corruptManagedLock(
+      lockPath,
+      `its generatedBy ${JSON.stringify(parsed.generatedBy)} is not a skillset lock`
+    );
   }
   if (
     lockPath !== WORKSPACE_LOCK_FILE &&
@@ -408,21 +543,33 @@ async function readManagedPathsFromLock(
     return new Set([lockPath]);
   }
   if (parsed.outputRoot !== expectedOutputRoot) {
-    const expected = expectedOutputRoot === "." ? "the workspace root" : JSON.stringify(expectedOutputRoot);
-    throw corruptManagedLock(lockPath, `its outputRoot ${JSON.stringify(parsed.outputRoot)} is not ${expected}`);
+    const expected =
+      expectedOutputRoot === '.'
+        ? 'the workspace root'
+        : JSON.stringify(expectedOutputRoot);
+    throw corruptManagedLock(
+      lockPath,
+      `its outputRoot ${JSON.stringify(parsed.outputRoot)} is not ${expected}`
+    );
   }
   if (!Array.isArray(parsed.items)) {
-    throw corruptManagedLock(lockPath, "its items field is not an array");
+    throw corruptManagedLock(lockPath, 'its items field is not an array');
   }
 
   const paths = new Set<string>([lockPath]);
   for (const item of parsed.items) {
     if (!isRecord(item) || !Array.isArray(item.files)) {
-      throw corruptManagedLock(lockPath, "one of its items is missing a files array");
+      throw corruptManagedLock(
+        lockPath,
+        'one of its items is missing a files array'
+      );
     }
     for (const file of item.files) {
-      if (typeof file !== "string" || file.trim().length === 0) {
-        throw corruptManagedLock(lockPath, "one of its tracked file entries is not a non-empty string");
+      if (typeof file !== 'string' || file.trim().length === 0) {
+        throw corruptManagedLock(
+          lockPath,
+          'one of its tracked file entries is not a non-empty string'
+        );
       }
       paths.add(joinOutputRoot(expectedOutputRoot, file));
     }
@@ -432,27 +579,31 @@ async function readManagedPathsFromLock(
 }
 
 function joinOutputRoot(outputRoot: string, file: string): string {
-  if (outputRoot === "." || outputRoot === "") return file;
+  if (outputRoot === '.' || outputRoot === '') {
+    return file;
+  }
   return `${outputRoot}/${file}`;
 }
 
 function corruptManagedLock(lockPath: string, reason: string): Error {
-  if (lockPath === WORKSPACE_LOCK_FILE) return corruptWorkspaceLock(reason);
+  if (lockPath === WORKSPACE_LOCK_FILE) {
+    return corruptWorkspaceLock(reason);
+  }
   return new Error(
     `skillset: generated lock ${lockPath} cannot guard generated state because ${reason}. ` +
-      "Fix or remove the lock before running build, check, or diff."
+      'Fix or remove the lock before running build, check, or diff.'
   );
 }
 
 function corruptWorkspaceLock(reason: string): Error {
   return new Error(
     `skillset: workspace lock ${WORKSPACE_LOCK_FILE} cannot guard generated state because ${reason}. ` +
-      "Restore it from a clean build (skillset build) or remove it deliberately before rebuilding."
+      'Restore it from a clean build (skillset build) or remove it deliberately before rebuilding.'
   );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function versionDriftMessage(
@@ -460,14 +611,18 @@ function versionDriftMessage(
   current: Uint8Array,
   expected: Uint8Array
 ): string | undefined {
-  const expectedVersion = generatedVersion(path, expected, "expected");
-  if (expectedVersion === undefined) return undefined;
+  const expectedVersion = generatedVersion(path, expected, 'expected');
+  if (expectedVersion === undefined) {
+    return undefined;
+  }
 
-  const currentVersion = generatedVersion(path, current, "current");
-  if (currentVersion === expectedVersion) return undefined;
+  const currentVersion = generatedVersion(path, current, 'current');
+  if (currentVersion === expectedVersion) {
+    return undefined;
+  }
 
-  const field = path.endsWith("/SKILL.md") ? "metadata.version" : "version";
-  return `version drift: ${path} ${field} is ${currentVersion ?? "missing"}, expected ${expectedVersion}`;
+  const field = path.endsWith('/SKILL.md') ? 'metadata.version' : 'version';
+  return `version drift: ${path} ${field} is ${currentVersion ?? 'missing'}, expected ${expectedVersion}`;
 }
 
 function generatedVersion(
@@ -475,12 +630,12 @@ function generatedVersion(
   content: Uint8Array,
   label: string
 ): string | undefined {
-  if (path.endsWith("/SKILL.md")) {
+  if (path.endsWith('/SKILL.md')) {
     return generatedSkillVersion(path, content, label);
   }
   if (
-    path.endsWith("/.claude-plugin/plugin.json") ||
-    path.endsWith("/.codex-plugin/plugin.json")
+    path.endsWith('/.claude-plugin/plugin.json') ||
+    path.endsWith('/.codex-plugin/plugin.json')
   ) {
     return generatedPluginVersion(content);
   }
@@ -494,14 +649,21 @@ function generatedSkillVersion(
 ): string | undefined {
   let frontmatter;
   try {
-    frontmatter = parseMarkdown(textDecoder.decode(content), `${label} ${path}`).frontmatter;
+    ({ frontmatter } = parseMarkdown(
+      textDecoder.decode(content),
+      `${label} ${path}`
+    ));
   } catch {
     return undefined;
   }
-  const metadata = frontmatter.metadata;
-  if (!isJsonRecord(metadata)) return undefined;
-  const version = metadata.version;
-  return typeof version === "string" && version.trim().length > 0 ? version.trim() : undefined;
+  const { metadata } = frontmatter;
+  if (!isJsonRecord(metadata)) {
+    return undefined;
+  }
+  const { version } = metadata;
+  return typeof version === 'string' && version.trim().length > 0
+    ? version.trim()
+    : undefined;
 }
 
 function generatedPluginVersion(content: Uint8Array): string | undefined {
@@ -511,15 +673,23 @@ function generatedPluginVersion(content: Uint8Array): string | undefined {
   } catch {
     return undefined;
   }
-  if (!isRecord(parsed)) return undefined;
-  const version = parsed.version;
-  return typeof version === "string" && version.trim().length > 0 ? version.trim() : undefined;
+  if (!isRecord(parsed)) {
+    return undefined;
+  }
+  const { version } = parsed;
+  return typeof version === 'string' && version.trim().length > 0
+    ? version.trim()
+    : undefined;
 }
 
 function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
-  if (left.byteLength !== right.byteLength) return false;
+  if (left.byteLength !== right.byteLength) {
+    return false;
+  }
   for (let index = 0; index < left.byteLength; index += 1) {
-    if (left[index] !== right[index]) return false;
+    if (left[index] !== right[index]) {
+      return false;
+    }
   }
   return true;
 }
@@ -529,7 +699,12 @@ async function exists(path: string): Promise<boolean> {
     await stat(path);
     return true;
   } catch (error) {
-    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 'ENOENT'
+    ) {
       return false;
     }
     throw error;

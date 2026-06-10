@@ -1,4 +1,4 @@
-import { has, run } from "./shared";
+import { has, run } from './shared';
 
 export interface WorktreeInfo {
   readonly branch: string | undefined;
@@ -18,9 +18,9 @@ export const isLinkedWorktree = (
   gitDir !== commonDir;
 
 export const readWorktreeInfo = (repoRoot: string): WorktreeInfo => {
-  const gitDir = run(["git", "rev-parse", "--git-dir"], repoRoot);
-  const commonDir = run(["git", "rev-parse", "--git-common-dir"], repoRoot);
-  const branch = run(["git", "branch", "--show-current"], repoRoot);
+  const gitDir = run(['git', 'rev-parse', '--git-dir'], repoRoot);
+  const commonDir = run(['git', 'rev-parse', '--git-common-dir'], repoRoot);
+  const branch = run(['git', 'branch', '--show-current'], repoRoot);
   const resolvedGitDir =
     gitDir.exitCode === 0 ? gitDir.stdout.trim() : undefined;
   const resolvedCommonDir =
@@ -47,35 +47,35 @@ export const printAgentGitDiagnostics = (
     return;
   }
 
-  console.error("");
-  console.error("Linked worktree detected");
-  console.error(`  branch: ${info.branch ?? "detached HEAD"}`);
+  console.error('');
+  console.error('Linked worktree detected');
+  console.error(`  branch: ${info.branch ?? 'detached HEAD'}`);
   if (info.branch === undefined) {
     console.error(
-      "  Create or switch to a real branch before committing from this worktree."
+      '  Create or switch to a real branch before committing from this worktree.'
     );
   }
   console.error(
-    "  Graphite branches and metadata are shared with the main checkout."
+    '  Graphite branches and metadata are shared with the main checkout.'
   );
   console.error(
-    "  Lifecycle hooks should avoid mutating Graphite stacks or deleting branches."
+    '  Lifecycle hooks should avoid mutating Graphite stacks or deleting branches.'
   );
 
-  if (!has("gt")) {
-    console.error("  gt: missing (Graphite stack inspection disabled)");
+  if (!has('gt')) {
+    console.error('  gt: missing (Graphite stack inspection disabled)');
     return;
   }
 
-  const log = run(["gt", "log", "--no-interactive"], repoRoot);
+  const log = run(['gt', 'log', '--no-interactive'], repoRoot);
   if (log.exitCode !== 0) {
-    console.error("  gt log unavailable");
+    console.error('  gt log unavailable');
     return;
   }
 
-  console.error("");
+  console.error('');
   console.error(`Graphite stack (first ${String(maxGraphiteLines)} lines)`);
-  for (const line of log.stdout.split("\n").slice(0, maxGraphiteLines)) {
+  for (const line of log.stdout.split('\n').slice(0, maxGraphiteLines)) {
     if (line.length > 0) {
       console.error(line);
     }

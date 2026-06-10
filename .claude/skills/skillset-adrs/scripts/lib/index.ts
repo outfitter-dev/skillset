@@ -40,6 +40,6 @@ ADRs document the significant design decisions behind Skillset: choices that, if
 ${rows.join('\n')}
 `;
 
-  writeFileSync(INDEX_PATH, content, 'utf8');
+  writeFileSync(INDEX_PATH, content, 'utf-8');
   console.log(`Updated ${INDEX_PATH}`);
 };

@@ -1,11 +1,11 @@
 export type BootstrapCommand =
-  | "agent"
-  | "claude"
-  | "codex"
-  | "doctor"
-  | "repo"
-  | "teardown";
-export type BunPolicy = "compatible" | "strict";
+  | 'agent'
+  | 'claude'
+  | 'codex'
+  | 'doctor'
+  | 'repo'
+  | 'teardown';
+export type BunPolicy = 'compatible' | 'strict';
 
 export interface BootstrapConfig {
   readonly agent: {
@@ -36,27 +36,23 @@ export const loadBootstrapConfig = (): BootstrapConfig => ({
   agent: {
     graphiteStackMaxLines: 80,
   },
+  bun: {
+    versionFile: '.bun-version',
+  },
   checks: {
-    optionalTools: ["git", "gh", "rg", "jq", "direnv"],
+    optionalTools: ['git', 'gh', 'rg', 'jq', 'direnv'],
   },
   cleanup: {
-    directories: ["dist", ".skillset/build"],
+    directories: ['dist', '.skillset/build'],
     files: [],
   },
-  bun: {
-    versionFile: ".bun-version",
-  },
   defaults: {
-    command: "repo",
-    localBunPolicy: "compatible",
-    remoteBunPolicy: "strict",
+    command: 'repo',
+    localBunPolicy: 'compatible',
+    remoteBunPolicy: 'strict',
   },
   root: {
-    envVars: [
-      "CODEX_WORKTREE_PATH",
-      "CLAUDE_PROJECT_DIR",
-      "GITHUB_WORKSPACE",
-    ],
+    envVars: ['CODEX_WORKTREE_PATH', 'CLAUDE_PROJECT_DIR', 'GITHUB_WORKSPACE'],
     fallbackToGitRoot: true,
   },
 });

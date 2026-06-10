@@ -1,4 +1,4 @@
-import { has, run } from "./shared";
+import { has, run } from './shared';
 
 export interface ToolStatus {
   readonly name: string;
@@ -7,7 +7,7 @@ export interface ToolStatus {
 }
 
 const firstLine = (value: string): string | undefined => {
-  const [line] = value.trim().split("\n");
+  const [line] = value.trim().split('\n');
   return line && line.length > 0 ? line : undefined;
 };
 
@@ -19,7 +19,7 @@ export const collectToolStatus = (
     if (!has(tool)) {
       return { name: tool, present: false };
     }
-    const version = run([tool, "--version"], cwd);
+    const version = run([tool, '--version'], cwd);
     return {
       name: tool,
       present: true,
@@ -36,11 +36,11 @@ export const printToolStatuses = (
   for (const status of statuses) {
     if (status.present) {
       console.error(
-        `  ${status.name}: ok${status.version ? ` ${status.version}` : ""}`
+        `  ${status.name}: ok${status.version ? ` ${status.version}` : ''}`
       );
     } else {
       console.error(
-        `  ${status.name}: missing${optional ? " (ok; capability disabled)" : ""}`
+        `  ${status.name}: missing${optional ? ' (ok; capability disabled)' : ''}`
       );
     }
   }

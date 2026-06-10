@@ -1,8 +1,8 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from 'bun:test';
 
 import {
   isBunVersionAllowed,
@@ -11,18 +11,18 @@ import {
   minimumFromEngineRange,
   readPackageManagerBunVersion,
   readPinnedBunVersion,
-} from "../bootstrap/bun";
-import { loadBootstrapConfig } from "../bootstrap/config";
-import { isLinkedWorktree } from "../bootstrap/git";
-import { detectHost, resolveRepoRoot } from "../bootstrap/host";
-import { parseBootstrapArgs } from "../bootstrap/main";
-import { ensureBunAvailable, listWorkspaceGlobs } from "../bootstrap/repo";
-import { resolveCleanupTarget } from "../bootstrap/teardown";
-import { collectToolStatus } from "../bootstrap/tools";
+} from '../bootstrap/bun';
+import { loadBootstrapConfig } from '../bootstrap/config';
+import { isLinkedWorktree } from '../bootstrap/git';
+import { detectHost, resolveRepoRoot } from '../bootstrap/host';
+import { parseBootstrapArgs } from '../bootstrap/main';
+import { ensureBunAvailable, listWorkspaceGlobs } from '../bootstrap/repo';
+import { resolveCleanupTarget } from '../bootstrap/teardown';
+import { collectToolStatus } from '../bootstrap/tools';
 
-const repoRoot = join(import.meta.dir, "..", "..");
+const repoRoot = join(import.meta.dir, '..', '..');
 const packageJson = JSON.parse(
-  await Bun.file(join(repoRoot, "package.json")).text()
+  await Bun.file(join(repoRoot, 'package.json')).text()
 ) as {
   readonly engines?: {
     readonly bun?: string;
@@ -34,115 +34,118 @@ const expectedWorkspaces = Array.isArray(packageJson.workspaces)
   : [];
 
 const makeRepoRoot = (): string => {
-  const root = mkdtempSync(join(tmpdir(), "skillset-bootstrap-root-"));
-  mkdirSync(join(root, ".skillset"), { recursive: true });
-  mkdirSync(join(root, "src"), { recursive: true });
+  const root = mkdtempSync(join(tmpdir(), 'skillset-bootstrap-root-'));
+  mkdirSync(join(root, '.skillset'), { recursive: true });
+  mkdirSync(join(root, 'src'), { recursive: true });
   writeFileSync(
-    join(root, "package.json"),
+    join(root, 'package.json'),
     '{"name":"skillset","packageManager":"bun@1.3.14","engines":{"bun":">=1.3.14"},"workspaces":[]}\n'
   );
-  writeFileSync(join(root, ".bun-version"), "1.3.14\n");
-  writeFileSync(join(root, ".skillset/config.yaml"), "skillset:\n  name: skillset\n");
-  writeFileSync(join(root, "src/cli.ts"), "");
+  writeFileSync(join(root, '.bun-version'), '1.3.14\n');
+  writeFileSync(
+    join(root, '.skillset/config.yaml'),
+    'skillset:\n  name: skillset\n'
+  );
+  writeFileSync(join(root, 'src/cli.ts'), '');
   return root;
 };
 
-describe("bootstrap dispatcher", () => {
-  test("keeps legacy flags routed to repo", () => {
-    expect(parseBootstrapArgs(["--force"])).toEqual({
-      command: "repo",
+describe('bootstrap dispatcher', () => {
+  test('keeps legacy flags routed to repo', () => {
+    expect(parseBootstrapArgs(['--force'])).toEqual({
+      command: 'repo',
       force: true,
       provider: undefined,
       update: false,
     });
-    expect(parseBootstrapArgs(["--update"])).toEqual({
-      command: "repo",
+    expect(parseBootstrapArgs(['--update'])).toEqual({
+      command: 'repo',
       force: false,
       provider: undefined,
       update: true,
     });
   });
 
-  test("parses explicit subcommands", () => {
-    expect(parseBootstrapArgs(["agent", "--update"])).toEqual({
-      command: "agent",
+  test('parses explicit subcommands', () => {
+    expect(parseBootstrapArgs(['agent', '--update'])).toEqual({
+      command: 'agent',
       force: false,
       provider: undefined,
       update: true,
     });
-    expect(parseBootstrapArgs(["codex"])).toEqual({
-      command: "codex",
+    expect(parseBootstrapArgs(['codex'])).toEqual({
+      command: 'codex',
       force: false,
-      provider: "codex",
+      provider: 'codex',
       update: false,
     });
-    expect(parseBootstrapArgs(["claude"])).toEqual({
-      command: "claude",
+    expect(parseBootstrapArgs(['claude'])).toEqual({
+      command: 'claude',
       force: false,
-      provider: "claude",
+      provider: 'claude',
       update: false,
     });
-    expect(parseBootstrapArgs(["doctor"])).toEqual({
-      command: "doctor",
-      force: false,
-      provider: undefined,
-      update: false,
-    });
-    expect(parseBootstrapArgs(["teardown"])).toEqual({
-      command: "teardown",
+    expect(parseBootstrapArgs(['doctor'])).toEqual({
+      command: 'doctor',
       force: false,
       provider: undefined,
       update: false,
     });
-    expect(parseBootstrapArgs(["sweep"])).toEqual({
-      command: "teardown",
+    expect(parseBootstrapArgs(['teardown'])).toEqual({
+      command: 'teardown',
+      force: false,
+      provider: undefined,
+      update: false,
+    });
+    expect(parseBootstrapArgs(['sweep'])).toEqual({
+      command: 'teardown',
       force: false,
       provider: undefined,
       update: false,
     });
   });
 
-  test("shell entrypoint exposes help without mutating setup state", () => {
+  test('shell entrypoint exposes help without mutating setup state', () => {
     const proc = Bun.spawnSync({
-      cmd: ["bash", "./scripts/bootstrap.sh", "--help"],
+      cmd: ['bash', './scripts/bootstrap.sh', '--help'],
       cwd: repoRoot,
-      stderr: "pipe",
-      stdout: "pipe",
+      stderr: 'pipe',
+      stdout: 'pipe',
     });
 
     expect(proc.exitCode).toBe(0);
     expect(proc.stdout.toString()).toContain(
-      "repo|agent|codex|claude|doctor|teardown"
+      'repo|agent|codex|claude|doctor|teardown'
     );
   });
 });
 
-describe("bootstrap repo policy", () => {
-  test("workspace globs stay aligned with root package.json", async () => {
+describe('bootstrap repo policy', () => {
+  test('workspace globs stay aligned with root package.json', async () => {
     await expect(listWorkspaceGlobs(repoRoot)).resolves.toEqual(
       expectedWorkspaces
     );
   });
 
-  test("Bun pin stays aligned across repo metadata", () => {
-    expect(readPinnedBunVersion(repoRoot)).toBe("1.3.14");
-    expect(readPackageManagerBunVersion(repoRoot)).toBe("1.3.14");
-    expect(minimumFromEngineRange(packageJson.engines?.bun)).toBe("1.3.14");
+  test('Bun pin stays aligned across repo metadata', () => {
+    expect(readPinnedBunVersion(repoRoot)).toBe('1.3.14');
+    expect(readPackageManagerBunVersion(repoRoot)).toBe('1.3.14');
+    expect(minimumFromEngineRange(packageJson.engines?.bun)).toBe('1.3.14');
   });
 
-  test("Bun checks distinguish package floors from repo pins", () => {
-    expect(minimumFromEngineRange(">=1.3.14")).toBe("1.3.14");
-    expect(isVersionAtLeast("1.3.14", "1.3.14")).toBe(true);
-    expect(isVersionAtLeast("1.3.15", "1.3.14")).toBe(true);
-    expect(isVersionAtLeast("1.4.0", "1.3.14")).toBe(true);
-    expect(isVersionAtLeast("1.3.13", "1.3.14")).toBe(false);
-    expect(isCompatibleBunVersion("1.3.15", "1.3.14")).toBe(true);
-    expect(isCompatibleBunVersion("1.4.0", "1.3.14")).toBe(false);
-    expect(isBunVersionAllowed("1.3.14", "1.3.14", "strict")).toBe(true);
-    expect(isBunVersionAllowed("1.3.15", "1.3.14", "strict")).toBe(false);
+  test('Bun checks distinguish package floors from repo pins', () => {
+    expect(minimumFromEngineRange('>=1.3.14')).toBe('1.3.14');
+    expect(isVersionAtLeast('1.3.14', '1.3.14')).toBe(true);
+    expect(isVersionAtLeast('1.3.15', '1.3.14')).toBe(true);
+    expect(isVersionAtLeast('1.4.0', '1.3.14')).toBe(true);
+    expect(isVersionAtLeast('1.3.13', '1.3.14')).toBe(false);
+    expect(isCompatibleBunVersion('1.3.15', '1.3.14')).toBe(true);
+    expect(isCompatibleBunVersion('1.4.0', '1.3.14')).toBe(false);
+    expect(isBunVersionAllowed('1.3.14', '1.3.14', 'strict')).toBe(true);
+    expect(isBunVersionAllowed('1.3.15', '1.3.14', 'strict')).toBe(false);
   });
 
-  test("stale Bun is repaired before policy enforcement fails", async () => {
+  test('stale Bun is repaired before policy enforcement fails', async () => {
     const root = makeRepoRoot();
     const installs: string[] = [];
     let checks = 0;
@@ -152,8 +155,8 @@ describe("bootstrap repo policy", () => {
           config: loadBootstrapConfig(),
           force: false,
           host: {
-            bunPolicy: "compatible",
-            provider: "generic",
+            bunPolicy: 'compatible',
+            provider: 'generic',
             remote: false,
           },
           repoRoot: root,
@@ -164,22 +167,22 @@ describe("bootstrap repo policy", () => {
             checks += 1;
             return checks === 1
               ? {
-                  actual: "1.3.13",
+                  actual: '1.3.13',
                   ok: false,
-                  pinned: "1.3.14",
+                  pinned: '1.3.14',
                   policy,
                   reason:
-                    "Expected Bun 1.3.14 or newer compatible patch, found 1.3.13",
+                    'Expected Bun 1.3.14 or newer compatible patch, found 1.3.13',
                 }
               : {
-                  actual: "1.3.14",
+                  actual: '1.3.14',
                   ok: true,
-                  pinned: "1.3.14",
+                  pinned: '1.3.14',
                   policy,
                 };
           },
           installPinnedBun: async (installRoot, versionFile) => {
-            installs.push(`${installRoot}:${versionFile ?? ""}`);
+            installs.push(`${installRoot}:${versionFile ?? ''}`);
           },
         }
       );
@@ -191,7 +194,7 @@ describe("bootstrap repo policy", () => {
     }
   });
 
-  test("root resolution prefers provider env vars before cwd", () => {
+  test('root resolution prefers provider env vars before cwd', () => {
     const config = loadBootstrapConfig();
     const codexRoot = makeRepoRoot();
     const claudeRoot = makeRepoRoot();
@@ -212,7 +215,7 @@ describe("bootstrap repo policy", () => {
     }
   });
 
-  test("provider-specific root resolution prefers the requested provider", () => {
+  test('provider-specific root resolution prefers the requested provider', () => {
     const config = loadBootstrapConfig();
     const codexRoot = makeRepoRoot();
     const claudeRoot = makeRepoRoot();
@@ -225,7 +228,7 @@ describe("bootstrap repo policy", () => {
             CODEX_WORKTREE_PATH: codexRoot,
           } as NodeJS.ProcessEnv,
           config,
-          "claude"
+          'claude'
         )
       ).toBe(claudeRoot);
     } finally {
@@ -234,7 +237,7 @@ describe("bootstrap repo policy", () => {
     }
   });
 
-  test("Claude sentinel env does not act as a repo root", () => {
+  test('Claude sentinel env does not act as a repo root', () => {
     const config = loadBootstrapConfig();
     const sentinelRoot = makeRepoRoot();
     const cwdRoot = makeRepoRoot();
@@ -246,7 +249,7 @@ describe("bootstrap repo policy", () => {
             CLAUDECODE: sentinelRoot,
           } as NodeJS.ProcessEnv,
           config,
-          "claude"
+          'claude'
         )
       ).toBe(cwdRoot);
     } finally {
@@ -255,42 +258,42 @@ describe("bootstrap repo policy", () => {
     }
   });
 
-  test("host detection honors explicit provider and remote overrides", () => {
+  test('host detection honors explicit provider and remote overrides', () => {
     expect(
       detectHost(
         {
-          SKILLSET_AGENT_ENV_PROVIDER: "codex",
-          SKILLSET_AGENT_ENV_REMOTE: "true",
+          SKILLSET_AGENT_ENV_PROVIDER: 'codex',
+          SKILLSET_AGENT_ENV_REMOTE: 'true',
         } as NodeJS.ProcessEnv,
         loadBootstrapConfig()
       )
     ).toMatchObject({
-      bunPolicy: "strict",
-      provider: "codex",
+      bunPolicy: 'strict',
+      provider: 'codex',
       remote: true,
     });
   });
 
-  test("linked worktree detection compares git dir and common dir", () => {
-    expect(isLinkedWorktree(".git/worktrees/branch", ".git")).toBe(true);
-    expect(isLinkedWorktree(".git", ".git")).toBe(false);
+  test('linked worktree detection compares git dir and common dir', () => {
+    expect(isLinkedWorktree('.git/worktrees/branch', '.git')).toBe(true);
+    expect(isLinkedWorktree('.git', '.git')).toBe(false);
   });
 
-  test("optional tool absence is reported without throwing", () => {
-    expect(collectToolStatus(["definitely-not-a-real-tool"], repoRoot)).toEqual(
-      [{ name: "definitely-not-a-real-tool", present: false }]
+  test('optional tool absence is reported without throwing', () => {
+    expect(collectToolStatus(['definitely-not-a-real-tool'], repoRoot)).toEqual(
+      [{ name: 'definitely-not-a-real-tool', present: false }]
     );
   });
 
-  test("teardown rejects cleanup targets outside the repo", () => {
-    expect(() => resolveCleanupTarget(repoRoot, "../outside")).toThrow(
-      "outside repo"
+  test('teardown rejects cleanup targets outside the repo', () => {
+    expect(() => resolveCleanupTarget(repoRoot, '../outside')).toThrow(
+      'outside repo'
     );
   });
 
-  test("teardown cleanup includes current generated state paths", () => {
+  test('teardown cleanup includes current generated state paths', () => {
     const config = loadBootstrapConfig();
-    expect(config.cleanup.directories).toContain("dist");
-    expect(config.cleanup.directories).toContain(".skillset/build");
+    expect(config.cleanup.directories).toContain('dist');
+    expect(config.cleanup.directories).toContain('.skillset/build');
   });
 });

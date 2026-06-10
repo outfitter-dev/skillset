@@ -1,50 +1,50 @@
-import type { BootstrapCommand } from "./config";
-import { loadBootstrapConfig } from "./config";
-import { runAgentBootstrap } from "./agent";
-import { runDoctor } from "./doctor";
-import { detectHost, resolveRepoRoot } from "./host";
-import { runRepoBootstrap } from "./repo";
-import { runTeardown } from "./teardown";
+import type { BootstrapCommand } from './config';
+import { loadBootstrapConfig } from './config';
+import { runAgentBootstrap } from './agent';
+import { runDoctor } from './doctor';
+import { detectHost, resolveRepoRoot } from './host';
+import { runRepoBootstrap } from './repo';
+import { runTeardown } from './teardown';
 
 export interface ParsedBootstrapArgs {
   readonly command: BootstrapCommand;
   readonly force: boolean;
-  readonly provider: "claude" | "codex" | undefined;
+  readonly provider: 'claude' | 'codex' | undefined;
   readonly update: boolean;
 }
 
 const COMMANDS: ReadonlySet<string> = new Set([
-  "agent",
-  "claude",
-  "codex",
-  "doctor",
-  "repo",
-  "sweep",
-  "teardown",
+  'agent',
+  'claude',
+  'codex',
+  'doctor',
+  'repo',
+  'sweep',
+  'teardown',
 ]);
 
 export const parseBootstrapArgs = (
   args: readonly string[]
 ): ParsedBootstrapArgs => {
   const [first, ...rest] = args;
-  const rawCommand = COMMANDS.has(first ?? "") ? first : "repo";
-  const command = rawCommand === "sweep" ? "teardown" : rawCommand;
+  const rawCommand = COMMANDS.has(first ?? '') ? first : 'repo';
+  const command = rawCommand === 'sweep' ? 'teardown' : rawCommand;
   const flags = rawCommand === first ? rest : args;
   let force = false;
   let update = false;
 
   for (const flag of flags) {
     switch (flag) {
-      case "--force": {
+      case '--force': {
         force = true;
         break;
       }
-      case "--update": {
+      case '--update': {
         update = true;
         break;
       }
-      case "-h":
-      case "--help": {
+      case '-h':
+      case '--help': {
         break;
       }
       default: {
@@ -56,7 +56,7 @@ export const parseBootstrapArgs = (
   return {
     command: command as BootstrapCommand,
     force,
-    provider: command === "claude" || command === "codex" ? command : undefined,
+    provider: command === 'claude' || command === 'codex' ? command : undefined,
     update,
   };
 };
@@ -79,7 +79,7 @@ Compatibility:
 };
 
 const runMain = async (): Promise<void> => {
-  if (process.argv.includes("--help") || process.argv.includes("-h")) {
+  if (process.argv.includes('--help') || process.argv.includes('-h')) {
     printUsage();
     return;
   }
@@ -97,7 +97,7 @@ const runMain = async (): Promise<void> => {
   const repoRoot = resolveRepoRoot(process.cwd(), env, config, parsed.provider);
 
   switch (parsed.command) {
-    case "repo": {
+    case 'repo': {
       await runRepoBootstrap({
         config,
         force: parsed.force,
@@ -107,9 +107,9 @@ const runMain = async (): Promise<void> => {
       });
       return;
     }
-    case "agent":
-    case "codex":
-    case "claude": {
+    case 'agent':
+    case 'codex':
+    case 'claude': {
       await runAgentBootstrap({
         config,
         force: parsed.force,
@@ -119,11 +119,11 @@ const runMain = async (): Promise<void> => {
       });
       return;
     }
-    case "doctor": {
+    case 'doctor': {
       await runDoctor(repoRoot, config, host);
       return;
     }
-    case "teardown": {
+    case 'teardown': {
       runTeardown(repoRoot, config);
       return;
     }

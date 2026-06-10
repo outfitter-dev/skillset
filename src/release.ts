@@ -1,22 +1,37 @@
-import { appendFile, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { createHash } from "node:crypto";
-import { dirname, join } from "node:path";
+import {
+  appendFile,
+  mkdir,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { dirname, join } from 'node:path';
 
-import { buildSkillset } from "./build";
-import { changeCheck, readPendingChangeEntries, type ChangeBump, type PendingChangeEntry } from "./change-entries";
-import { SOURCE_HASH_SCHEMA } from "./change-status";
-import { compareStrings, resolveInside } from "./path";
-import { readReleaseState, writeReleaseState } from "./release-state";
-import { loadBuildGraph } from "./resolver";
+import { buildSkillset } from './build';
+import { changeCheck, readPendingChangeEntries } from './change-entries';
+import type { ChangeBump, PendingChangeEntry } from './change-entries';
+import { SOURCE_HASH_SCHEMA } from './change-status';
+import { compareStrings, resolveInside } from './path';
+import { readReleaseState, writeReleaseState } from './release-state';
+import { loadBuildGraph } from './resolver';
 import {
   pluginIdForSelector,
   pluginScopeFromSourceUnit,
   sourceUnitSelector,
-} from "./source-unit-selector";
-import type { BuildGraph, JsonRecord, ReleaseScopeState, ReleaseState, SkillsetOptions, SourcePlugin } from "./types";
-import { pluginVersion, rootVersion, skillVersion } from "./versioning";
+} from './source-unit-selector';
+import type {
+  BuildGraph,
+  JsonRecord,
+  ReleaseScopeState,
+  ReleaseState,
+  SkillsetOptions,
+  SourcePlugin,
+} from './types';
+import { pluginVersion, rootVersion, skillVersion } from './versioning';
 
-export type ReleaseSubcommand = "apply" | "plan";
+export type ReleaseSubcommand = 'apply' | 'plan';
 
 export interface ReleaseEntryPlan {
   readonly bump: ChangeBump;
@@ -62,14 +77,14 @@ interface FileSnapshot {
   readonly path: string;
 }
 
-const HISTORY_FILE = "changes/history.jsonl";
-const RELEASES_FILE = "changes/releases.jsonl";
-const STATE_FILE = "changes/state.json";
+const HISTORY_FILE = 'changes/history.jsonl';
+const RELEASES_FILE = 'changes/releases.jsonl';
+const STATE_FILE = 'changes/state.json';
 const BUMP_WEIGHT: Readonly<Record<ChangeBump, number>> = {
+  major: 3,
+  minor: 2,
   none: 0,
   patch: 1,
-  minor: 2,
-  major: 3,
 };
 
 export async function planRelease(
@@ -77,26 +92,44 @@ export async function planRelease(
   options: SkillsetOptions = {}
 ): Promise<ReleasePlanReport> {
   const pending = await readPendingChangeEntries(rootPath, options);
-  if (pending.length === 0) return { baselineScopes: [], entries: [], ignoredEntries: [], scopes: [] };
+  if (pending.length === 0) {
+    return { baselineScopes: [], entries: [], ignoredEntries: [], scopes: [] };
+  }
 
   const check = await changeCheck(rootPath, options);
-  const errors = check.issues.filter((issue) => issue.severity === "error");
+  const errors = check.issues.filter((issue) => issue.severity === 'error');
   if (errors.length > 0) {
     throw new Error(
-      `skillset: release plan requires valid pending change entries\n` +
-        errors.map((issue) => `${issue.path ?? "change"}: ${issue.code}: ${issue.message}`).join("\n")
+      `skillset: release plan requires valid pending change entries\n${errors
+        .map(
+          (issue) =>
+            `${issue.path ?? 'change'}: ${issue.code}: ${issue.message}`
+        )
+        .join('\n')}`
     );
   }
 
   const graph = await loadBuildGraph(rootPath, options);
-  const sourceUnits = new Map(check.status.sourceUnits.map((unit) => [unit.id, unit]));
-  const sourceChanges = new Map(check.status.sourceChanges.map((change) => [change.id, change]));
+  const sourceUnits = new Map(
+    check.status.sourceUnits.map((unit) => [unit.id, unit])
+  );
+  const sourceChanges = new Map(
+    check.status.sourceChanges.map((change) => [change.id, change])
+  );
   const entries = check.entries.flatMap((entry) => releaseEntryPlan(entry));
   const activeEntries = entries.filter((entry) => !entry.ignored);
   const ignoredEntries = entries.filter((entry) => entry.ignored);
-  const scopes = releaseScopePlans(graph, sourceUnits, sourceChanges, activeEntries, { bumpEntries: true });
+  const scopes = releaseScopePlans(
+    graph,
+    sourceUnits,
+    sourceChanges,
+    activeEntries,
+    { bumpEntries: true }
+  );
   const baselineScopes = mergeScopePlans(
-    releaseScopePlans(graph, sourceUnits, sourceChanges, ignoredEntries, { bumpEntries: false }),
+    releaseScopePlans(graph, sourceUnits, sourceChanges, ignoredEntries, {
+      bumpEntries: false,
+    }),
     scopes
   );
   return {
@@ -117,18 +150,27 @@ export async function applyRelease(
     return { files: [], plan, renderedFiles: 0 };
   }
 
-  const sourceDir = options.sourceDir ?? ".skillset";
+  const sourceDir = options.sourceDir ?? '.skillset';
   const now = new Date().toISOString();
   const files = new Set<string>();
   const pending = (await changeCheck(rootPath, options)).entries;
-  const snapshots = await snapshotReleaseFiles(rootPath, sourceDir, pending, plan.baselineScopes.length > 0);
+  const snapshots = await snapshotReleaseFiles(
+    rootPath,
+    sourceDir,
+    pending,
+    plan.baselineScopes.length > 0
+  );
   let renderedFiles = 0;
   try {
     await appendHistory(rootPath, sourceDir, pending, now, files);
 
     if (plan.baselineScopes.length > 0) {
       const state = await readReleaseState(rootPath, options);
-      const statePath = await writeReleaseState(rootPath, nextReleaseState(state, plan.baselineScopes, now), options);
+      const statePath = await writeReleaseState(
+        rootPath,
+        nextReleaseState(state, plan.baselineScopes, now),
+        options
+      );
       files.add(statePath);
     }
     if (plan.scopes.length > 0) {
@@ -137,7 +179,9 @@ export async function applyRelease(
 
     const rendered = await buildSkillset(rootPath, options);
     renderedFiles = rendered.length;
-    for (const file of rendered) files.add(file.path);
+    for (const file of rendered) {
+      files.add(file.path);
+    }
   } catch (error) {
     await restoreSnapshots(rootPath, snapshots);
     throw error;
@@ -148,26 +192,39 @@ export async function applyRelease(
     files.add(entry.path);
   }
 
-  return { files: [...files].sort(compareStrings), plan, renderedFiles };
+  return { files: [...files].toSorted(compareStrings), plan, renderedFiles };
 }
 
-function releaseEntryPlan(entry: PendingChangeEntry): readonly ReleaseEntryPlan[] {
-  if (entry.id === undefined || entry.bump === undefined) return [];
-  return [{
-    bump: entry.bump,
-    id: entry.id,
-    ignored: entry.ignored,
-    path: entry.path,
-    reason: entry.reason,
-    ref: `@${entry.id.slice(0, 6)}`,
-    scopes: entry.scopes.map(sourceUnitSelector),
-  }];
+function releaseEntryPlan(
+  entry: PendingChangeEntry
+): readonly ReleaseEntryPlan[] {
+  if (entry.id === undefined || entry.bump === undefined) {
+    return [];
+  }
+  return [
+    {
+      bump: entry.bump,
+      id: entry.id,
+      ignored: entry.ignored,
+      path: entry.path,
+      reason: entry.reason,
+      ref: `@${entry.id.slice(0, 6)}`,
+      scopes: entry.scopes.map(sourceUnitSelector),
+    },
+  ];
 }
 
 function releaseScopePlans(
   graph: BuildGraph,
   sourceUnits: ReadonlyMap<string, { readonly hash: string }>,
-  sourceChanges: ReadonlyMap<string, { readonly baselineHash?: string; readonly currentHash?: string; readonly status: string }>,
+  sourceChanges: ReadonlyMap<
+    string,
+    {
+      readonly baselineHash?: string;
+      readonly currentHash?: string;
+      readonly status: string;
+    }
+  >,
   entries: readonly ReleaseEntryPlan[],
   options: { readonly bumpEntries: boolean }
 ): readonly ReleaseScopePlan[] {
@@ -176,7 +233,9 @@ function releaseScopePlans(
     for (const scope of entry.scopes) {
       addScope(accumulators, scope, entry, options);
       const aggregate = aggregateScope(scope);
-      if (aggregate !== undefined && aggregate !== scope) addScope(accumulators, aggregate, entry, options);
+      if (aggregate !== undefined && aggregate !== scope) {
+        addScope(accumulators, aggregate, entry, options);
+      }
     }
   }
 
@@ -185,19 +244,22 @@ function releaseScopePlans(
       const currentVersion = versionForScope(graph, scope);
       const nextVersion = bumpVersion(currentVersion, item.bump);
       const change = sourceChanges.get(scope);
-      const sourceHash = sourceUnits.get(scope)?.hash ?? change?.currentHash ?? change?.baselineHash;
-      const removed = change?.status === "removed";
+      const sourceHash =
+        sourceUnits.get(scope)?.hash ??
+        change?.currentHash ??
+        change?.baselineHash;
+      const removed = change?.status === 'removed';
       return {
         bump: item.bump,
         currentVersion,
-        entries: [...item.entries].sort(compareStrings),
+        entries: [...item.entries].toSorted(compareStrings),
         nextVersion,
         removed,
         scope,
         ...(removed || sourceHash === undefined ? {} : { sourceHash }),
       };
     })
-    .sort((left, right) => compareStrings(left.scope, right.scope));
+    .toSorted((left, right) => compareStrings(left.scope, right.scope));
 }
 
 function addScope(
@@ -206,7 +268,7 @@ function addScope(
   entry: ReleaseEntryPlan,
   options: { readonly bumpEntries: boolean }
 ): void {
-  const bump = options.bumpEntries ? entry.bump : "none";
+  const bump = options.bumpEntries ? entry.bump : 'none';
   const current = accumulators.get(scope);
   if (current === undefined) {
     accumulators.set(scope, { bump, entries: new Set([entry.id]) });
@@ -221,9 +283,15 @@ function mergeScopePlans(
   right: readonly ReleaseScopePlan[]
 ): readonly ReleaseScopePlan[] {
   const scopes = new Map<string, ReleaseScopePlan>();
-  for (const scope of left) scopes.set(scope.scope, scope);
-  for (const scope of right) scopes.set(scope.scope, scope);
-  return [...scopes.values()].sort((a, b) => compareStrings(a.scope, b.scope));
+  for (const scope of left) {
+    scopes.set(scope.scope, scope);
+  }
+  for (const scope of right) {
+    scopes.set(scope.scope, scope);
+  }
+  return [...scopes.values()].toSorted((a, b) =>
+    compareStrings(a.scope, b.scope)
+  );
 }
 
 function aggregateScope(scope: string): string | undefined {
@@ -236,47 +304,76 @@ function maxBump(left: ChangeBump, right: ChangeBump): ChangeBump {
 
 function bumpVersion(version: string, bump: ChangeBump): string {
   const match = version.match(/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(.*)$/);
-  if (match === null || bump === "none") return version;
+  if (match === null || bump === 'none') {
+    return version;
+  }
   const major = Number(match[1]);
   const minor = Number(match[2]);
   const patch = Number(match[3]);
-  if (bump === "major") return `${major + 1}.0.0`;
-  if (bump === "minor") return `${major}.${minor + 1}.0`;
+  if (bump === 'major') {
+    return `${major + 1}.0.0`;
+  }
+  if (bump === 'minor') {
+    return `${major}.${minor + 1}.0`;
+  }
   return `${major}.${minor}.${patch + 1}`;
 }
 
 function versionForScope(graph: BuildGraph, scope: string): string {
   const selector = sourceUnitSelector(scope);
   const releaseScope = graph.releaseState.scopes[selector];
-  const releasedVersion = releaseScope?.removed === true ? undefined : releaseScope?.version;
-  if (releasedVersion !== undefined) return releasedVersion;
-  if (selector === "config:root") return rootVersion(graph);
-  if (selector.startsWith("skill:")) {
-    const skill = graph.standaloneSkills.find((item) => item.id === selector.slice("skill:".length));
-    if (skill !== undefined) return skillVersion(graph, undefined, skill);
+  const releasedVersion =
+    releaseScope?.removed === true ? undefined : releaseScope?.version;
+  if (releasedVersion !== undefined) {
+    return releasedVersion;
   }
-  if (selector.startsWith("plugin:")) {
+  if (selector === 'config:root') {
+    return rootVersion(graph);
+  }
+  if (selector.startsWith('skill:')) {
+    const skill = graph.standaloneSkills.find(
+      (item) => item.id === selector.slice('skill:'.length)
+    );
+    if (skill !== undefined) {
+      return skillVersion(graph, undefined, skill);
+    }
+  }
+  if (selector.startsWith('plugin:')) {
     const plugin = pluginForScope(graph, selector);
-    if (plugin !== undefined) return pluginVersion(graph, plugin);
+    if (plugin !== undefined) {
+      return pluginVersion(graph, plugin);
+    }
   }
   const pluginSkill = selector.match(/^plugin\.([^.]+)\.skill:(.+)$/);
   if (pluginSkill !== null) {
     const [, pluginId, skillId] = pluginSkill;
-    const plugin = pluginId === undefined ? undefined : graph.plugins.find((item) => item.id === pluginId);
+    const plugin =
+      pluginId === undefined
+        ? undefined
+        : graph.plugins.find((item) => item.id === pluginId);
     const skill = plugin?.skills.find((item) => item.id === skillId);
-    if (plugin !== undefined && skill !== undefined) return skillVersion(graph, plugin, skill);
+    if (plugin !== undefined && skill !== undefined) {
+      return skillVersion(graph, plugin, skill);
+    }
   }
   const pluginId = pluginIdForSelector(selector);
   if (pluginId !== undefined) {
     const plugin = graph.plugins.find((item) => item.id === pluginId);
-    if (plugin !== undefined) return pluginVersion(graph, plugin);
+    if (plugin !== undefined) {
+      return pluginVersion(graph, plugin);
+    }
   }
   return rootVersion(graph);
 }
 
-function pluginForScope(graph: BuildGraph, scope: string): SourcePlugin | undefined {
+function pluginForScope(
+  graph: BuildGraph,
+  scope: string
+): SourcePlugin | undefined {
   const pluginId = pluginIdForSelector(scope);
-  return pluginId === undefined ? undefined : graph.plugins.find((plugin) => plugin.id === pluginId);
+  return pluginId === undefined
+    ? undefined
+    : graph.plugins.find((plugin) => plugin.id === pluginId);
 }
 
 function nextReleaseState(
@@ -288,7 +385,9 @@ function nextReleaseState(
   for (const scope of scopesToWrite) {
     scopes[sourceUnitSelector(scope.scope)] = {
       ...(scope.removed ? { removed: true } : {}),
-      ...(scope.sourceHash === undefined ? {} : { sourceHash: scope.sourceHash }),
+      ...(scope.sourceHash === undefined
+        ? {}
+        : { sourceHash: scope.sourceHash }),
       updatedAt,
       version: scope.nextVersion,
     };
@@ -303,24 +402,34 @@ async function appendHistory(
   appliedAt: string,
   files: Set<string>
 ): Promise<void> {
-  if (entries.length === 0) return;
-  const relativePath = join(sourceDir, HISTORY_FILE).replaceAll("\\", "/");
+  if (entries.length === 0) {
+    return;
+  }
+  const relativePath = join(sourceDir, HISTORY_FILE).replaceAll('\\', '/');
   const absolutePath = resolveInside(rootPath, relativePath);
   await mkdir(dirname(absolutePath), { recursive: true });
-  const lines = entries.flatMap((entry) => entry.id === undefined || entry.bump === undefined ? [] : [
-    JSON.stringify({
-      appliedAt,
-      bump: entry.bump,
-      ...(entry.group === undefined ? {} : { group: groupJson(entry.group) }),
-      id: entry.id,
-      ...(entry.ignored ? { ignored: true } : {}),
-      reason: entry.reason,
-      scopes: [...entry.scopes],
-      evidence: historyEvidence(entry),
-    }),
-  ]);
-  if (lines.length === 0) return;
-  await appendFile(absolutePath, `${lines.join("\n")}\n`, "utf8");
+  const lines = entries.flatMap((entry) =>
+    entry.id === undefined || entry.bump === undefined
+      ? []
+      : [
+          JSON.stringify({
+            appliedAt,
+            bump: entry.bump,
+            ...(entry.group === undefined
+              ? {}
+              : { group: groupJson(entry.group) }),
+            id: entry.id,
+            ...(entry.ignored ? { ignored: true } : {}),
+            reason: entry.reason,
+            scopes: [...entry.scopes],
+            evidence: historyEvidence(entry),
+          }),
+        ]
+  );
+  if (lines.length === 0) {
+    return;
+  }
+  await appendFile(absolutePath, `${lines.join('\n')}\n`, 'utf-8');
   files.add(relativePath);
 }
 
@@ -331,24 +440,35 @@ async function appendReleaseRecord(
   appliedAt: string,
   files: Set<string>
 ): Promise<void> {
-  if (plan.scopes.length === 0) return;
-  const relativePath = join(sourceDir, RELEASES_FILE).replaceAll("\\", "/");
+  if (plan.scopes.length === 0) {
+    return;
+  }
+  const relativePath = join(sourceDir, RELEASES_FILE).replaceAll('\\', '/');
   const absolutePath = resolveInside(rootPath, relativePath);
   await mkdir(dirname(absolutePath), { recursive: true });
-  await appendFile(absolutePath, `${JSON.stringify({
-    appliedAt,
-    baseline: { hashSchema: SOURCE_HASH_SCHEMA, kind: "source-hashes" },
-    entries: plan.entries.filter((entry) => !entry.ignored).map((entry) => entry.id).sort(compareStrings),
-    id: plan.releaseId,
-    scopes: plan.scopes.map((scope) => ({
-      bump: scope.bump,
-      entries: [...scope.entries],
-      nextVersion: scope.nextVersion,
-      previousVersion: scope.currentVersion,
-      scope: scope.scope,
-      ...(scope.sourceHash === undefined ? {} : { sourceHash: scope.sourceHash }),
-    })),
-  })}\n`, "utf8");
+  await appendFile(
+    absolutePath,
+    `${JSON.stringify({
+      appliedAt,
+      baseline: { hashSchema: SOURCE_HASH_SCHEMA, kind: 'source-hashes' },
+      entries: plan.entries
+        .filter((entry) => !entry.ignored)
+        .map((entry) => entry.id)
+        .toSorted(compareStrings),
+      id: plan.releaseId,
+      scopes: plan.scopes.map((scope) => ({
+        bump: scope.bump,
+        entries: [...scope.entries],
+        nextVersion: scope.nextVersion,
+        previousVersion: scope.currentVersion,
+        scope: scope.scope,
+        ...(scope.sourceHash === undefined
+          ? {}
+          : { sourceHash: scope.sourceHash }),
+      })),
+    })}\n`,
+    'utf-8'
+  );
   files.add(relativePath);
 }
 
@@ -359,26 +479,31 @@ async function snapshotReleaseFiles(
   includeReleaseState: boolean
 ): Promise<readonly FileSnapshot[]> {
   const paths = new Set<string>([
-    join(sourceDir, HISTORY_FILE).replaceAll("\\", "/"),
+    join(sourceDir, HISTORY_FILE).replaceAll('\\', '/'),
     ...entries.map((entry) => entry.path),
   ]);
   if (includeReleaseState) {
-    paths.add(join(sourceDir, STATE_FILE).replaceAll("\\", "/"));
-    paths.add(join(sourceDir, RELEASES_FILE).replaceAll("\\", "/"));
+    paths.add(join(sourceDir, STATE_FILE).replaceAll('\\', '/'));
+    paths.add(join(sourceDir, RELEASES_FILE).replaceAll('\\', '/'));
   }
 
   const snapshots: FileSnapshot[] = [];
-  for (const path of [...paths].sort(compareStrings)) {
+  for (const path of [...paths].toSorted(compareStrings)) {
     const absolutePath = resolveInside(rootPath, path);
     snapshots.push({
-      ...(await exists(absolutePath) ? { content: await readFile(absolutePath) } : {}),
+      ...((await exists(absolutePath))
+        ? { content: await readFile(absolutePath) }
+        : {}),
       path,
     });
   }
   return snapshots;
 }
 
-async function restoreSnapshots(rootPath: string, snapshots: readonly FileSnapshot[]): Promise<void> {
+async function restoreSnapshots(
+  rootPath: string,
+  snapshots: readonly FileSnapshot[]
+): Promise<void> {
   for (const snapshot of snapshots) {
     const absolutePath = resolveInside(rootPath, snapshot.path);
     if (snapshot.content === undefined) {
@@ -395,7 +520,12 @@ async function exists(path: string): Promise<boolean> {
     await stat(path);
     return true;
   } catch (error) {
-    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 'ENOENT'
+    ) {
       return false;
     }
     throw error;
@@ -406,14 +536,18 @@ function historyEvidence(entry: PendingChangeEntry): readonly JsonRecord[] {
   const evidence: JsonRecord[] = [];
   for (const scope of entry.scopes) {
     const selector = sourceUnitSelector(scope);
-    for (const sourceHash of entry.sourceHashes.get(selector) ?? entry.sourceHashes.get(scope) ?? []) {
+    for (const sourceHash of entry.sourceHashes.get(selector) ??
+      entry.sourceHashes.get(scope) ??
+      []) {
       evidence.push({ scope: selector, sourceHash });
     }
   }
   return evidence;
 }
 
-function groupJson(group: NonNullable<PendingChangeEntry["group"]>): JsonRecord {
+function groupJson(
+  group: NonNullable<PendingChangeEntry['group']>
+): JsonRecord {
   return {
     id: group.id,
     ...(group.provider === undefined ? {} : { provider: group.provider }),
@@ -421,15 +555,15 @@ function groupJson(group: NonNullable<PendingChangeEntry["group"]>): JsonRecord 
 }
 
 function releaseIdFor(scopes: readonly ReleaseScopePlan[]): string {
-  const hash = createHash("sha256");
-  hash.update("skillset-release-v1\0");
+  const hash = createHash('sha256');
+  hash.update('skillset-release-v1\0');
   for (const scope of scopes) {
     hash.update(scope.scope);
-    hash.update("\0");
+    hash.update('\0');
     hash.update(scope.nextVersion);
-    hash.update("\0");
-    hash.update(scope.entries.join("\0"));
-    hash.update("\0");
+    hash.update('\0');
+    hash.update(scope.entries.join('\0'));
+    hash.update('\0');
   }
-  return hash.digest("hex").slice(0, 12);
+  return hash.digest('hex').slice(0, 12);
 }
