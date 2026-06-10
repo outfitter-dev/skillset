@@ -9,9 +9,9 @@
  * never scanned as this repo's own source. Runs execute in throwaway temp
  * workspaces and write reports under .skillset/build/external/.
  *
- *   bun scripts/external-fixtures.ts sync   [name]   # clone/fetch at pinned refs
- *   bun scripts/external-fixtures.ts update [name]   # re-pin to upstream HEAD, then sync
- *   bun scripts/external-fixtures.ts run    [name]   # init -> import -> lint -> build -> round-trip report
+ *   bun scripts/fixtures/external.ts sync   [name]   # clone/fetch at pinned refs
+ *   bun scripts/fixtures/external.ts update [name]   # re-pin to upstream HEAD, then sync
+ *   bun scripts/fixtures/external.ts run    [name]   # init -> import -> lint -> build -> round-trip report
  *
  * Run failures (init/import/lint/build errors) exit non-zero. The round-trip
  * comparison is report-only for now; per-repo expectations can harden into
@@ -21,13 +21,13 @@ import { cp, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 
-import { buildSkillset } from "../src/build";
-import { importSources } from "../src/import";
-import { lintSkillset } from "../src/lint";
-import { compareStrings, validateSlug } from "../src/path";
-import { initSkillset } from "../src/setup";
-import type { TargetName } from "../src/types";
-import { parseYamlRecord } from "../src/yaml";
+import { buildSkillset } from "../../src/build";
+import { importSources } from "../../src/import";
+import { lintSkillset } from "../../src/lint";
+import { compareStrings, validateSlug } from "../../src/path";
+import { initSkillset } from "../../src/setup";
+import type { TargetName } from "../../src/types";
+import { parseYamlRecord } from "../../src/yaml";
 
 const MANIFEST_PATH = "fixtures/external/repos.yaml";
 const CLONES_DIR = "fixtures/external/repos";
@@ -113,7 +113,7 @@ function readManifestTargets(
 export function renderExternalManifest(entries: readonly ExternalRepoEntry[]): string {
   const lines = [
     "# External fixture repos: real published repos Skillset should adopt cleanly.",
-    "# Managed by scripts/external-fixtures.ts; `update` re-pins refs to upstream HEAD.",
+    "# Managed by scripts/fixtures/external.ts; `update` re-pins refs to upstream HEAD.",
     "repos:",
   ];
   for (const entry of entries) {
@@ -446,10 +446,10 @@ async function exists(path: string): Promise<boolean> {
 async function main(): Promise<void> {
   const [verb, name] = process.argv.slice(2);
   if (verb !== "sync" && verb !== "update" && verb !== "run") {
-    console.error("usage: bun scripts/external-fixtures.ts <sync|update|run> [name]");
+    console.error("usage: bun scripts/fixtures/external.ts <sync|update|run> [name]");
     process.exit(1);
   }
-  const rootPath = resolve(import.meta.dir, "..");
+  const rootPath = resolve(import.meta.dir, "../..");
   const entries = await readManifest(rootPath);
   const selected = selectEntries(entries, name);
 

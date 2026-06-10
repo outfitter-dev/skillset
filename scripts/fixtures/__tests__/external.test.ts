@@ -10,7 +10,7 @@ import {
   renderRunReportMarkdown,
   runExternalRepo,
   type ExternalRepoEntry,
-} from "../external-fixtures";
+} from "../external";
 
 const SHA = "4719dc509fdc45656a830e3ed6060f674e206076";
 

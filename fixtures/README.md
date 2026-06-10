@@ -37,9 +37,9 @@ External fixtures are real published repos that Skillset should be able to adopt
 - Runs execute in throwaway temp workspaces and write `report.md` / `report.json` under `.skillset/build/external/<name>/`.
 
 ```bash
-bun scripts/external-fixtures.ts sync     # clone/fetch every entry at its pinned SHA
-bun scripts/external-fixtures.ts update   # re-pin entries to upstream HEAD, then sync
-bun scripts/external-fixtures.ts run      # adopt, compile, and produce round-trip reports
+bun scripts/fixtures/external.ts sync     # clone/fetch every entry at its pinned SHA
+bun scripts/fixtures/external.ts update   # re-pin entries to upstream HEAD, then sync
+bun scripts/fixtures/external.ts run      # adopt, compile, and produce round-trip reports
 ```
 
 Each verb accepts an optional entry name to target one repo. A run fails (non-zero exit) when init, import, lint, or build fails; the round-trip comparison is report-only for now and exists to make fidelity gaps visible, not to gate. Runs are local/manual — they touch the network, so they are not part of `bun run check` or PR CI. Synced clones carry their own test suites, so repo tests run scoped via `bun run test` (`bun test src scripts`); a bare `bun test` would scan the clones too. Gaps surfaced by a run should become ordinary product fixes with inline regression fixtures, not edits to the external repo clones.
