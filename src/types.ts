@@ -193,6 +193,7 @@ export interface SkillsetOptions {
   readonly scopes?: readonly BuildScope[];
   readonly distDir?: string;
   readonly sourceDir?: string;
+  readonly targetFilter?: readonly TargetName[];
 }
 
 export interface CheckResult {

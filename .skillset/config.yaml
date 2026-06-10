@@ -12,3 +12,17 @@ compile:
   targets:
     - claude
     - codex
+
+tests:
+  self-hosted:
+    source: repo:.skillset
+    output:
+      kind: isolated
+    assertions:
+      - build
+      - exists: plugins-claude/plugins/skillset/.claude-plugin/plugin.json
+      - exists: plugins-codex/plugins/skillset/.codex-plugin/plugin.json
+      - contains:
+          path: plugins-codex/plugins/skillset/.codex-plugin/plugin.json
+          text: '"name": "skillset"'
+      - noDrift

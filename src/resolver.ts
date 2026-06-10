@@ -33,6 +33,7 @@ import type {
   SourceRule,
   SourceSkill,
   StandaloneSkill,
+  TargetName,
 } from "./types";
 import { validateSchemaField, validateVersionField } from "./versioning";
 import { isJsonRecord, parseMarkdown, parseYamlRecord } from "./yaml";
@@ -73,25 +74,27 @@ export async function loadBuildGraph(
     objectInheritsEnabled: true,
   });
   const compileConfig = readCompileConfig(rootConfig, rootConfigPath);
+  const filteredTargets = applyTargetFilter(rootTargets, options.targetFilter, rootConfigPath);
   const compile = {
     ...compileConfig,
     build: options.buildMode ?? compileConfig.build,
+    targets: options.targetFilter ?? compileConfig.targets,
   };
   const root = {
     compile,
     metadata,
     outputs,
-    targets: rootTargets,
+    targets: filteredTargets,
   };
 
   const warnings: string[] = [];
   await validateSupports(rootConfig.supports, { label: rootConfigPath, rootPath, warnings });
   const releaseState = await readReleaseState(rootPath, options);
-  const plugins = await loadPlugins(rootPath, sourceDir, rootTargets, warnings, outputs);
+  const plugins = await loadPlugins(rootPath, sourceDir, filteredTargets, warnings, outputs);
   validatePluginDependencyGraph(plugins);
-  const standaloneSkills = await loadStandaloneSkills(rootPath, sourceDir, rootTargets, warnings);
-  const { rules, instructionsDir } = await loadInstructions(rootPath, sourceDir, rootTargets, warnings);
-  const projectAgents = await loadProjectAgents(rootPath, sourceDir, rootTargets, warnings);
+  const standaloneSkills = await loadStandaloneSkills(rootPath, sourceDir, filteredTargets, warnings);
+  const { rules, instructionsDir } = await loadInstructions(rootPath, sourceDir, filteredTargets, warnings);
+  const projectAgents = await loadProjectAgents(rootPath, sourceDir, filteredTargets, warnings);
   const projectIslands = await loadProjectIslands(rootPath, sourceDir, plugins);
 
   if (plugins.length === 0 && standaloneSkills.length === 0 && rules.length === 0 && projectAgents.length === 0 && projectIslands.length === 0) {
@@ -100,7 +103,7 @@ export async function loadBuildGraph(
 
   const outputRoots = await outputRootsFor(rootPath, outputs, plugins, standaloneSkills, rules);
   validateOutputRoots(rootPath, sourcePath, outputRoots);
-  validateProjectRoots(rootPath, sourcePath, outputRoots, rootTargets, projectAgents, projectIslands);
+  validateProjectRoots(rootPath, sourcePath, outputRoots, filteredTargets, projectAgents, projectIslands);
 
   return {
     instructionsDir,
@@ -116,6 +119,24 @@ export async function loadBuildGraph(
     sourcePath,
     standaloneSkills,
     warnings,
+  };
+}
+
+function applyTargetFilter(
+  targets: BuildGraph["root"]["targets"],
+  filter: readonly TargetName[] | undefined,
+  label: string
+): BuildGraph["root"]["targets"] {
+  if (filter === undefined) return targets;
+  const enabledTargets = new Set(filter);
+  for (const target of enabledTargets) {
+    if (!targets[target].enabled) {
+      throw new Error(`skillset: test target ${target} is not enabled by ${label} target configuration`);
+    }
+  }
+  return {
+    claude: enabledTargets.has("claude") ? targets.claude : { enabled: false, options: {} },
+    codex: enabledTargets.has("codex") ? targets.codex : { enabled: false, options: {} },
   };
 }
 

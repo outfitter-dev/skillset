@@ -21,9 +21,10 @@ import { lintSkillset } from "./lint";
 import { applyRelease, planRelease, type ReleasePlanReport, type ReleaseSubcommand } from "./release";
 import { createSkillset, initSkillset, type SetupReport } from "./setup";
 import { sourceUnitDisplay, sourceUnitDisplays, sourceUnitSelector } from "./source-unit-selector";
+import { runSkillsetTest, type SkillsetTestReport } from "./test-runner";
 import type { BuildScope, CompileBuildMode, SkillsetOptions, TargetName } from "./types";
 
-type Command = "build" | "change" | "check" | "create" | "diff" | "doctor" | "explain" | "hooks" | "import" | "init" | "lint" | "list" | "release";
+type Command = "build" | "change" | "check" | "create" | "diff" | "doctor" | "explain" | "hooks" | "import" | "init" | "lint" | "list" | "release" | "test";
 
 const USAGE = [
   "usage: skillset build [--yes|--dry-run] [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
@@ -37,6 +38,7 @@ const USAGE = [
   "       skillset change list [--group <group>] [--root <path>] [--source <dir>]",
   "       skillset release plan [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset release apply [--yes|--dry-run] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset test [name] [--root <path>] [--source <dir>]",
   "       skillset hooks print --runner <lefthook|husky|pre-commit|git> [--pre-commit] [--pre-push]",
   "       skillset hooks print --target <claude|codex> --agent-runtime",
   "       skillset init [path] [--yes|--dry-run] [--targets claude,codex] [--with-project-doc] [--with-agents] [--with-islands] [--name <name>] [--root <path>]",
@@ -85,6 +87,7 @@ export async function runCli(
     setupIncludeIslands,
     setupIncludeProjectDoc,
     setupTargets,
+    testName,
     yes,
   } = parseArgs(args);
 
@@ -190,6 +193,13 @@ export async function runCli(
       ...(hookRunner === undefined ? {} : { runner: hookRunner }),
       ...(hookTarget === undefined ? {} : { target: hookTarget }),
     }));
+    return;
+  }
+
+  if (command === "test") {
+    const report = await runSkillsetTest(rootPath, testName, options);
+    printSkillsetTest(report);
+    if (!report.ok) process.exitCode = 1;
     return;
   }
 
@@ -380,6 +390,7 @@ interface ParsedArgs {
   readonly setupIncludeIslands: boolean;
   readonly setupIncludeProjectDoc: boolean;
   readonly setupTargets?: readonly TargetName[];
+  readonly testName?: string;
   readonly yes: boolean;
 }
 
@@ -544,6 +555,20 @@ function printSetupReport(result: SetupReport, reason: string): void {
   console.log(`  root: ${result.rootPath}`);
 }
 
+function printSkillsetTest(report: SkillsetTestReport): void {
+  for (const assertion of report.assertions) {
+    const marker = assertion.ok ? "pass" : "fail";
+    const path = assertion.path === undefined ? "" : ` ${assertion.path}`;
+    const detail = assertion.detail === undefined ? "" : ` (${assertion.detail})`;
+    console.log(`  ${marker}: ${assertion.kind}${path}${detail}`);
+  }
+  console.log(`skillset: test ${report.name} ${report.ok ? "passed" : "failed"}`);
+  console.log(`  run: ${report.runPath}`);
+  console.log(`  latest: ${report.latestPath}`);
+  console.log(`  report: ${report.reportPath}`);
+  console.log(`  generated files: ${report.generatedFiles}`);
+}
+
 function parseArgs(args: readonly string[]): ParsedArgs {
   const command = args[0];
   if (
@@ -559,10 +584,11 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     command !== "init" &&
     command !== "lint" &&
     command !== "list" &&
-    command !== "release"
+    command !== "release" &&
+    command !== "test"
   ) {
     throw new Error(
-        "skillset: expected command build, change, check, create, diff, doctor, explain, hooks, import, init, lint, list, or release\n" +
+        "skillset: expected command build, change, check, create, diff, doctor, explain, hooks, import, init, lint, list, release, or test\n" +
         USAGE
     );
   }
@@ -598,6 +624,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let setupIncludeIslands = false;
   let setupIncludeProjectDoc = false;
   let setupTargets: readonly TargetName[] | undefined;
+  let testName: string | undefined;
   let yes = false;
   let index = 1;
 
@@ -669,6 +696,14 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     }
     importPath = rawPath;
     index += 1;
+  }
+
+  if (command === "test") {
+    const rawName = args[index];
+    if (rawName !== undefined && !rawName.startsWith("--")) {
+      testName = rawName;
+      index += 1;
+    }
   }
 
   for (; index < args.length; index += 1) {
@@ -831,6 +866,13 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   if (command === "release" && scopes !== undefined) {
     throw new Error("skillset: --scope is not supported with release commands yet");
   }
+  validateTestFlags(command, {
+    ...(buildMode === undefined ? {} : { buildMode }),
+    ...(distDir === undefined ? {} : { distDir }),
+    dryRun,
+    ...(scopes === undefined ? {} : { scopes }),
+    yes,
+  });
 
   const options: SkillsetOptions = {
     ...(buildMode === undefined ? {} : { buildMode }),
@@ -869,6 +911,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     setupIncludeIslands,
     setupIncludeProjectDoc,
     ...(setupTargets === undefined ? {} : { setupTargets }),
+    ...(testName === undefined ? {} : { testName }),
     yes,
   };
 }
@@ -991,6 +1034,28 @@ function validateHookFlags(
     hooks.yes
   ) {
     throw new Error("skillset: non-hook options are not supported with hooks print");
+  }
+}
+
+function validateTestFlags(
+  command: Command,
+  test: {
+    readonly buildMode?: CompileBuildMode;
+    readonly distDir?: string;
+    readonly dryRun: boolean;
+    readonly scopes?: readonly BuildScope[];
+    readonly yes: boolean;
+  }
+): void {
+  if (command !== "test") return;
+  if (
+    test.buildMode !== undefined ||
+    test.distDir !== undefined ||
+    test.dryRun ||
+    test.scopes !== undefined ||
+    test.yes
+  ) {
+    throw new Error("skillset: build/write options are not supported with test; test output always writes under .skillset/build/tests");
   }
 }
 
