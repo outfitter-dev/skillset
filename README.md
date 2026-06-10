@@ -71,6 +71,7 @@ Prepare this repository checkout for local development or agent startup:
 ./scripts/bootstrap.sh codex      # Codex startup hook entrypoint
 ./scripts/bootstrap.sh doctor     # read-only environment diagnostics
 ./scripts/bootstrap.sh teardown   # remove dist/ and .skillset/build/
+bun run hooks:install             # install repo-local Lefthook git hooks
 ```
 
 The provider-specific commands resolve the repo root from `CLAUDE_PROJECT_DIR`
@@ -83,6 +84,8 @@ Skillset pins its development/runtime toolchain in `.bun-version` and
 `packageManager`, currently `bun@1.3.14`. The `engines.bun` field is the
 published package floor for people running the compiled CLI through local
 installs, `npx`, or `bunx`; the pin is for reproducible repo bootstrap and CI.
+
+The optional Lefthook setup mirrors the repo's local review gates. Pre-commit checks staged whitespace and, when Skillset source or generated outputs are staged, runs the self-hosted lint/check pair. Pre-push runs build, tests, workflow lint when `actionlint` is available, generated-output checks, and `skillset ci --since origin/main` with a report under `.skillset/build/`.
 
 Initialize Skillset source in an existing repo:
 

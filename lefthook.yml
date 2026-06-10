@@ -1,0 +1,57 @@
+# NOTE: `GIT_PAGER: cat` is set on every command. Lefthook attaches a PTY to
+# render hook output, which can make child `git` processes think stdout is an
+# interactive terminal. Contributors with a configured pager can then hang when
+# a stage invokes `git diff` / `git grep` / etc. Forcing `GIT_PAGER=cat` keeps
+# hook-time git commands non-interactive.
+
+pre-commit:
+  piped: true
+  commands:
+    whitespace:
+      priority: 1
+      env:
+        GIT_PAGER: cat
+      run: git diff --cached --check
+    skillset:
+      priority: 2
+      env:
+        GIT_PAGER: cat
+      glob: "{.skillset/**,.claude/skills/**,.agents/skills/**,plugins-claude/**,plugins-codex/**,AGENTS.md}"
+      run: bun run skillset:lint && bun run skillset:check
+    workflows:
+      priority: 3
+      env:
+        GIT_PAGER: cat
+      glob: ".github/workflows/*.{yml,yaml}"
+      run: bun run check:workflows
+
+pre-push:
+  commands:
+    build:
+      env:
+        GIT_PAGER: cat
+      run: bun run build
+    test:
+      env:
+        GIT_PAGER: cat
+      run: bun test
+    skillset-lint:
+      env:
+        GIT_PAGER: cat
+      run: bun run skillset:lint
+    skillset-check:
+      env:
+        GIT_PAGER: cat
+      run: bun run skillset:check
+    workflows:
+      env:
+        GIT_PAGER: cat
+      run: bun run check:workflows
+    whitespace:
+      env:
+        GIT_PAGER: cat
+      run: git diff --check
+    skillset-ci:
+      env:
+        GIT_PAGER: cat
+      run: bun run skillset:ci:report
