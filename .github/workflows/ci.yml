@@ -1,0 +1,83 @@
+# Repo CI plus a dogfood of the `skillset ci` workflow that
+# `skillset init --with-ci` scaffolds for adopting repos. The skillset-ci job
+# mirrors that template but runs the compiler from this repo's source.
+# Notes:
+# - Mechanical fixes pushed with GITHUB_TOKEN do not retrigger workflows; if
+#   branch protection requires checks on the fixed commit, push with a PAT instead.
+# - The comment step prefers gh >= 2.68 (--create-if-none) and falls back to a new comment.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+
+  skillset-ci:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - name: Run skillset ci
+        id: skillset
+        run: >-
+          bun ./src/cli.ts ci
+          ${{ github.event_name == 'pull_request' && '--fix' || '' }}
+          --report "$RUNNER_TEMP/skillset-ci-report.md"
+        continue-on-error: true
+      - name: Add report to job summary
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/skillset-ci-report.md" ]; then
+            cat "$RUNNER_TEMP/skillset-ci-report.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Push mechanical fixes
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore(skillset): rebuild generated output"
+          git push origin "HEAD:$HEAD_REF"
+      - name: Comment report on PR
+        if: steps.skillset.outcome == 'failure' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr comment "$PR_NUMBER" --repo "$GH_REPO" \
+            --edit-last --create-if-none \
+            --body-file "$RUNNER_TEMP/skillset-ci-report.md" \
+          || gh pr comment "$PR_NUMBER" --repo "$GH_REPO" \
+            --body-file "$RUNNER_TEMP/skillset-ci-report.md"
+      - name: Fail when problems remain
+        if: steps.skillset.outcome == 'failure'
+        run: exit 1
