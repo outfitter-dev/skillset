@@ -42,6 +42,7 @@
     "prepack": "tsc --noEmit && bun scripts/build-package.ts",
     "skillset:build": "bun ./src/cli.ts build --root . --yes",
     "skillset:check": "bun ./src/cli.ts check --root .",
+    "skillset:ci": "bun ./src/cli.ts ci --root .",
     "skillset:lint": "bun ./src/cli.ts lint --root .",
     "test": "bun test",
     "typecheck": "tsc --noEmit"

@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 
 import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
+import { CI_WORKFLOW_PATH, renderCiWorkflow } from "./ci";
 import { validateConfigDocument } from "./config";
 import type { TargetName } from "./types";
 import { validateSlug } from "./path";
@@ -17,6 +18,7 @@ export interface SetupOptions {
   readonly global?: boolean;
   readonly homeDir?: string;
   readonly includeAgents?: boolean;
+  readonly includeCi?: boolean;
   readonly includeIslands?: boolean;
   readonly includeProjectDoc?: boolean;
   readonly name?: string;
@@ -93,6 +95,11 @@ async function applySetupPlan(
     if (existing !== undefined && existing !== file.content) {
       if (kind === "init" && file.path === ".skillset/config.yaml") {
         await validateExistingRootConfig(absolutePath);
+        files.push({ path: file.path, status: "exists" });
+        continue;
+      }
+      // The scaffolded CI workflow is user-owned after creation; keep edits.
+      if (file.path === CI_WORKFLOW_PATH) {
         files.push({ path: file.path, status: "exists" });
         continue;
       }
@@ -221,6 +228,9 @@ function setupFiles(options: Required<Pick<SetupOptions, "name" | "targets">> & 
       { path: `${SETUP_SOURCE_DIR}/claude/.gitkeep`, content: "" },
       { path: `${SETUP_SOURCE_DIR}/codex/rules/.gitkeep`, content: "" }
     );
+  }
+  if (options.includeCi === true) {
+    files.push({ path: CI_WORKFLOW_PATH, content: renderCiWorkflow() });
   }
 
   return files;
