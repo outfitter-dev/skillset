@@ -239,8 +239,9 @@ export async function runCli(
   if (command === "adopt") {
     const writeMode = yes && !dryRun;
     const report = await adoptSkillset(
-      importPath === undefined ? rootPath : resolve(rootPath, importPath),
+      importPath === undefined ? rootPath : importPath,
       {
+        cwd: rootPath,
         ...(setupTargets === undefined ? {} : { targets: setupTargets }),
         write: writeMode,
       }
@@ -636,6 +637,9 @@ function printImportReport(result: ImportReport): void {
 
 function printAdoptReport(report: AdoptReport, reason: string): void {
   console.log(`skillset: adopt ${report.rootPath} (${reason})`);
+  if (report.acquisition.kind === "git") {
+    console.log(`  source: git ${report.acquisition.repo} @ ${report.acquisition.ref}`);
+  }
   if (report.alreadyAdopted) {
     console.log("  note: repo already has .skillset/config.yaml; adopting against existing source");
   }

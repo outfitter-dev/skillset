@@ -1,4 +1,5 @@
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve } from "node:path";
 
 import {
@@ -9,6 +10,7 @@ import {
 
 import type { ReleaseBaselineEntry } from "./adoption";
 import { buildSkillset, ISOLATED_OUT_ROOT } from "./build";
+import { gitSafeEnv } from "./git-env";
 import { importSources } from "./import";
 import { inspectSkillset } from "./lint";
 import { loadBuildGraph } from "./resolver";
@@ -22,9 +24,24 @@ import type { LintIssue, SkillsetOptions, TargetName } from "./types";
 import { parseMarkdown } from "./yaml";
 
 export interface AdoptOptions extends SkillsetOptions {
+  readonly cwd?: string;
   readonly targets?: readonly TargetName[];
   readonly write?: boolean;
 }
+
+export type AdoptAcquisition =
+  | {
+      readonly input: string;
+      readonly kind: "path";
+      readonly rootPath: string;
+    }
+  | {
+      readonly input: string;
+      readonly kind: "git";
+      readonly ref: string;
+      readonly repo: string;
+      readonly rootPath: string;
+    };
 
 /** A plugin or skill landed in `.skillset/` by one candidate import. */
 export interface AdoptImportedUnit {
@@ -69,6 +86,7 @@ export interface TransformPreview {
 }
 
 export interface AdoptReport {
+  readonly acquisition: AdoptAcquisition;
   readonly alreadyAdopted: boolean;
   readonly baselines: readonly ReleaseBaselineEntry[];
   readonly buildError?: string;
@@ -111,12 +129,25 @@ const INSTRUCTIONS_DIR = ".skillset/instructions";
  * survey alone and writes nothing.
  */
 export async function adoptSkillset(
-  rootPath: string,
+  source: string,
+  options: AdoptOptions = {}
+): Promise<AdoptReport> {
+  const { cwd, targets, write, ...buildOptions } = options;
+  const acquisition = await acquireAdoptSource(source, cwd ?? process.cwd());
+  return adoptResolvedRoot(acquisition, {
+    ...buildOptions,
+    ...(targets === undefined ? {} : { targets }),
+    ...(write === undefined ? {} : { write }),
+  });
+}
+
+async function adoptResolvedRoot(
+  acquisition: AdoptAcquisition,
   options: AdoptOptions = {}
 ): Promise<AdoptReport> {
   const { targets, write, ...buildOptions } = options;
   const writeMode = write === true;
-  const resolvedRoot = resolve(rootPath);
+  const resolvedRoot = acquisition.rootPath;
   // Captured before init scaffolds config: an existing .skillset/config.yaml
   // means the repo was already adopted; adopt proceeds (init tolerates a valid
   // pre-existing config) but the report says so honestly.
@@ -131,6 +162,7 @@ export async function adoptSkillset(
 
   if (!writeMode) {
     return {
+      acquisition,
       alreadyAdopted,
       baselines: init.baselines,
       builtFiles: 0,
@@ -177,6 +209,7 @@ export async function adoptSkillset(
 
   const lintErrors = lintIssues.filter((issue) => issue.severity === "error");
   const report: AdoptReport = {
+    acquisition,
     alreadyAdopted,
     baselines: init.baselines,
     ...(buildError === undefined ? {} : { buildError }),
@@ -205,6 +238,45 @@ export async function adoptSkillset(
   await writeFile(join(reportDir, "report.json"), `${JSON.stringify(report, null, 2)}\n`);
 
   return report;
+}
+
+async function acquireAdoptSource(source: string, cwd: string): Promise<AdoptAcquisition> {
+  const localPath = resolve(cwd, source);
+  if (await exists(localPath)) {
+    return { input: source, kind: "path", rootPath: localPath };
+  }
+
+  const clonePath = await mkdtemp(join(tmpdir(), "skillset-adopt-remote-"));
+  try {
+    await runGit(["clone", "--depth", "1", source, clonePath], cwd);
+    const ref = (await runGit(["-C", clonePath, "rev-parse", "HEAD"], cwd)).trim();
+    return { input: source, kind: "git", ref, repo: source, rootPath: clonePath };
+  } catch (error) {
+    await rm(clonePath, { force: true, recursive: true });
+    throw error;
+  }
+}
+
+async function runGit(args: readonly string[], cwd: string): Promise<string> {
+  const proc = Bun.spawn({
+    cmd: ["git", ...args],
+    cwd,
+    env: gitSafeEnv(),
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  if (exitCode !== 0) {
+    const detail = `${stdout}${stderr}`.trim();
+    throw new Error(
+      `skillset: git ${args[0] ?? "command"} failed${detail.length === 0 ? "" : `\n${detail}`}`
+    );
+  }
+  return stdout;
 }
 
 /**
@@ -380,6 +452,23 @@ export function renderAdoptReportMarkdown(
       : "- build (isolated): failed",
     ""
   );
+
+  lines.push("## Acquisition", "");
+  if (report.acquisition.kind === "git") {
+    lines.push(
+      "- source: git remote",
+      `- repo: \`${report.acquisition.repo}\``,
+      `- ref: \`${report.acquisition.ref}\``,
+      `- clone: \`${report.acquisition.rootPath}\``,
+      ""
+    );
+  } else {
+    lines.push(
+      "- source: local path",
+      `- input: \`${report.acquisition.input}\``,
+      ""
+    );
+  }
 
   lines.push("## Setup", "");
   for (const file of report.setupFiles) {

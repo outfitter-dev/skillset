@@ -2,9 +2,11 @@ import { expect, test } from "bun:test";
 import { mkdtemp, readdir, readFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { ADOPT_REPORT_DIR, adoptSkillset, renderAdoptReportMarkdown } from "../adopt";
 import { ISOLATED_OUT_ROOT } from "../build";
+import { gitSafeEnv } from "../git-env";
 
 const AGENTS_CONTENT = "# Demo agents\n\nHandwritten instructions.\n";
 
@@ -33,6 +35,7 @@ test("adopt plan mode surveys only and writes nothing", async () => {
 
   expect(report.write).toBe(false);
   expect(report.ok).toBe(true);
+  expect(report.acquisition).toEqual({ input: root, kind: "path", rootPath: root });
   expect(report.alreadyAdopted).toBe(false);
   expect(report.candidates).toEqual([
     { kind: "instructions", path: "AGENTS.md" },
@@ -43,6 +46,36 @@ test("adopt plan mode surveys only and writes nothing", async () => {
   expect(report.builtFiles).toBe(0);
   expect(report.cutover).toEqual([]);
   expect(await walkFiles(root)).toEqual(before);
+});
+
+test("adopt accepts git remotes by shallow cloning before running the existing flow", async () => {
+  const source = await gitFixture(MARKETPLACE_FIXTURE);
+  const remote = pathToFileURL(source).href;
+
+  const report = await adoptSkillset(remote, { write: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.rootPath).not.toBe(source);
+  expect(report.acquisition.kind).toBe("git");
+  if (report.acquisition.kind === "git") {
+    expect(report.acquisition.repo).toBe(remote);
+    expect(report.acquisition.rootPath).toBe(report.rootPath);
+    expect(report.acquisition.ref).toMatch(/^[0-9a-f]{40}$/);
+  }
+  expect(report.imports.map((result) => [result.candidate.kind, result.ok])).toEqual([
+    ["instructions", true],
+    ["plugin", true],
+  ]);
+
+  const markdown = await readFile(join(report.rootPath, ADOPT_REPORT_DIR, "report.md"), "utf8");
+  expect(markdown).toContain("## Acquisition");
+  expect(markdown).toContain("- source: git remote");
+  expect(markdown).toContain(`- repo: \`${remote}\``);
+
+  const cli = await runSkillsetCli("adopt", remote, "--yes");
+  expect(cli.exitCode).toBe(0);
+  expect(cli.stdout).toContain(`source: git ${remote} @ `);
+  expect(cli.stdout).toContain("adopt passed");
 });
 
 test("adopt write mode imports everything, builds the mirror, and writes the report", async () => {
@@ -256,6 +289,40 @@ async function fixture(files: Record<string, string>): Promise<string> {
     await Bun.write(join(root, path), content);
   }
   return root;
+}
+
+async function gitFixture(files: Record<string, string>): Promise<string> {
+  const root = await fixture(files);
+  await runGit(root, ["init"]);
+  await runGit(root, ["add", "."]);
+  await runGit(root, [
+    "-c",
+    "user.name=Skillset Test",
+    "-c",
+    "user.email=skillset@example.com",
+    "commit",
+    "-m",
+    "fixture",
+  ]);
+  return root;
+}
+
+async function runGit(cwd: string, args: readonly string[]): Promise<void> {
+  const proc = Bun.spawn({
+    cmd: ["git", ...args],
+    cwd,
+    env: gitSafeEnv(),
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  if (exitCode !== 0) {
+    throw new Error(`${stdout}${stderr}`.trim());
+  }
 }
 
 async function walkFiles(root: string): Promise<ReadonlySet<string>> {
