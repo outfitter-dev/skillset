@@ -11,10 +11,11 @@
     "noUncheckedIndexedAccess": true,
     "strict": true,
     "target": "ES2023",
-    "types": ["bun-types"]
+    "types": ["bun"]
   },
   "include": [
-    "src/**/*.ts",
+    "apps/**/*.ts",
+    "packages/**/*.ts",
     "scripts/build-package.ts",
     "scripts/bootstrap/**/*.ts",
     "scripts/__tests__/**/*.ts"

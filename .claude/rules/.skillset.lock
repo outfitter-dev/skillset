@@ -8,9 +8,9 @@
       ],
       "kind": "rule",
       "name": "fixtures",
-      "outputHash": "sha256:cdd63642e626fb0eb7cc2c10df59d014c239da5d0b753f387a9e1f2ab3689378",
+      "outputHash": "sha256:f68b4b3b9be122660c18b2ab501a0af1814c76f479c72e4d464c97451a36a3df",
       "outputPath": "fixtures.md",
-      "sourceHash": "sha256:25a99098db8c0faca02a24397cbcf9683aae513822b9bfe36a64de7bd7a52c48",
+      "sourceHash": "sha256:2803bec4ace563aabd98e3574d55872763bbefc6ff3caaef49d152e726a9959c",
       "sourcePath": ".skillset/instructions/fixtures.md",
       "version": "0.1.0"
     }

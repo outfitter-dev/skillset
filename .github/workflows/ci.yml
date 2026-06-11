@@ -55,7 +55,7 @@ jobs:
       - name: Run skillset ci
         id: skillset
         run: >-
-          bun ./src/cli.ts ci
+          bun ./apps/skillset/src/cli.ts ci
           ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && '--fix' || '' }}
           --report "$RUNNER_TEMP/skillset-ci-report.md"
         continue-on-error: true

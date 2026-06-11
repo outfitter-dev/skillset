@@ -1,6 +1,6 @@
 # Target Surface Evidence Matrix
 
-This is the cheap-to-refresh map between Skillset source and the Claude/Codex target surfaces it lowers to. It exists so target drift is caught deliberately: each surface row has a **status** and, where it depends on live provider docs, a **verified** date and source. Golden manifest tests in `src/__tests__/contract.test.ts` and `src/__tests__/skillset.test.ts` pin the generated shapes that these rows claim.
+This is the cheap-to-refresh map between Skillset source and the Claude/Codex target surfaces it lowers to. It exists so target drift is caught deliberately: each surface row has a **status** and, where it depends on live provider docs, a **verified** date and source. Golden manifest tests in `apps/skillset/src/__tests__/contract.test.ts` and `apps/skillset/src/__tests__/skillset.test.ts` pin the generated shapes that these rows claim.
 
 Refreshing is intentionally cheap: re-read the linked provider docs, update the verified date, and adjust a row + its golden test if the surface changed.
 

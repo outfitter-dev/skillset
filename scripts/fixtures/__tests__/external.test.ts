@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { compareTrees, parseExternalManifest, renderExternalManifest, renderRunReportMarkdown, runExternalRepo } from '../external';
 import type { ExternalRepoEntry } from '../external';
-import { gitSafeEnv } from '../../../src/git-env';
+import { gitSafeEnv } from '../../../apps/skillset/src/git-env';
 
 const SHA = "4719dc509fdc45656a830e3ed6060f674e206076";
 

@@ -8,7 +8,7 @@ import { buildSkillset, checkSkillset } from "../build";
 import { lintSkillset } from "../lint";
 import { compareStrings } from "../path";
 
-const FIXTURE_SKILLSET = join(import.meta.dir, "..", "..", "fixtures", "kitchen-sink", ".skillset");
+const FIXTURE_SKILLSET = join(import.meta.dir, "..", "..", "..", "..", "fixtures", "kitchen-sink", ".skillset");
 
 test("kitchen-sink fixture builds every implemented surface and stays current", async () => {
   const root = await kitchenSink();

@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { gitSafeEnv } from "../../src/git-env";
+import { gitSafeEnv } from "../../apps/skillset/src/git-env";
 
 export const BOOTSTRAP_DIR = dirname(fileURLToPath(import.meta.url));
 export const SCRIPTS_DIR = resolve(BOOTSTRAP_DIR, "..");
@@ -25,7 +25,7 @@ export const run = (cmd: readonly string[], cwd: string): ExecResult => {
     cmd: [...cmd],
     cwd,
     // Bootstrap runs inside agent/git hooks; repository-targeting GIT_* vars
-    // must not leak into spawned commands (see src/git-env.ts).
+    // must not leak into spawned commands (see apps/skillset/src/git-env.ts).
     env: gitSafeEnv(),
     stderr: "pipe",
     stdout: "pipe",
@@ -57,7 +57,7 @@ export const isRepoRoot = (path: string): boolean => {
   const packageJsonPath = repoFile(path, "package.json");
   if (
     !existsSync(packageJsonPath) ||
-    !existsSync(repoFile(path, "src/cli.ts")) ||
+    !existsSync(repoFile(path, "apps/skillset/src/cli.ts")) ||
     !existsSync(repoFile(path, ".bun-version")) ||
     !existsSync(repoFile(path, ".skillset/config.yaml"))
   ) {
@@ -68,7 +68,7 @@ export const isRepoRoot = (path: string): boolean => {
     const packageJson = JSON.parse(
       readFileSync(packageJsonPath, "utf8")
     ) as PackageJson;
-    return packageJson.name === "skillset";
+    return packageJson.name === "skillset-workspace";
   } catch {
     return false;
   }

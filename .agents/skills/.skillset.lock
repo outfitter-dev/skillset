@@ -31,9 +31,9 @@
       ],
       "kind": "standalone-skill",
       "name": "skillset-codex-development",
-      "outputHash": "sha256:52dcfe3530fd375f2845536d286f5224885fe6d664593ec4ca8a4ac4fbb7155e",
+      "outputHash": "sha256:34d4f71f961149f65e6f549e59424f1dcbfbadc9715a874cd3e87b5253608284",
       "outputPath": "skillset-codex-development/SKILL.md",
-      "sourceHash": "sha256:0727167cb907270ca9deaf0ae2d6a3d3c346a74af962a2d2c8599a6446a4cc4e",
+      "sourceHash": "sha256:35d477bd6e96df58703a8da9ffdc30162b83556ae3d4bbf32c1b135a71f97dff",
       "sourcePath": ".skillset/skills/skillset-codex-development/SKILL.md",
       "version": "0.1.0"
     },
@@ -43,9 +43,9 @@
       ],
       "kind": "standalone-skill",
       "name": "skillset-repo-test-fixtures",
-      "outputHash": "sha256:9e665b71c2d3bcf9a853dcb34a64eaf0557602e69cda09959449719dc3a24b17",
+      "outputHash": "sha256:e0df43caf664084d9cdef6260859452291b9302687a4932bcf7d61236b8cfac3",
       "outputPath": "skillset-repo-test-fixtures/SKILL.md",
-      "sourceHash": "sha256:9b558f45d141ee8398a9dddc0426e32c462a9604141834daccc1199a24d0e7cc",
+      "sourceHash": "sha256:656282ae4b2a00873a92feee3a1afc5bfa88eadd8bf949fa5eeb442bee4ea336",
       "sourcePath": ".skillset/skills/skillset-repo-test-fixtures/SKILL.md",
       "version": "0.1.1"
     }

@@ -30,14 +30,14 @@ import {
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 
-import { buildSkillset } from "../../src/build";
-import { gitSafeEnv } from "../../src/git-env";
-import { importSources } from "../../src/import";
-import { lintSkillset } from "../../src/lint";
-import { compareStrings, validateSlug } from "../../src/path";
-import { initSkillset } from "../../src/setup";
-import type { TargetName } from "../../src/types";
-import { parseYamlRecord } from "../../src/yaml";
+import { buildSkillset } from "../../apps/skillset/src/build";
+import { gitSafeEnv } from "../../apps/skillset/src/git-env";
+import { importSources } from "../../apps/skillset/src/import";
+import { lintSkillset } from "../../apps/skillset/src/lint";
+import { compareStrings, validateSlug } from "../../apps/skillset/src/path";
+import { initSkillset } from "../../apps/skillset/src/setup";
+import type { TargetName } from "../../apps/skillset/src/types";
+import { parseYamlRecord } from "../../apps/skillset/src/yaml";
 
 const MANIFEST_PATH = "fixtures/external/repos.yaml";
 const CLONES_DIR = "fixtures/external/repos";

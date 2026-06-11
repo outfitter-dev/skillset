@@ -12,7 +12,7 @@ import {
   readPinnedBunVersion,
 } from "../bootstrap/bun";
 import { loadBootstrapConfig } from "../bootstrap/config";
-import { gitSafeEnv } from "../../src/git-env";
+import { gitSafeEnv } from "../../apps/skillset/src/git-env";
 import { isLinkedWorktree, readRepoHealth } from "../bootstrap/git";
 import { detectHost, resolveRepoRoot } from "../bootstrap/host";
 import { parseBootstrapArgs } from "../bootstrap/main";
@@ -36,17 +36,17 @@ const expectedWorkspaces = Array.isArray(packageJson.workspaces)
 const makeRepoRoot = (): string => {
   const root = mkdtempSync(join(tmpdir(), "skillset-bootstrap-root-"));
   mkdirSync(join(root, ".skillset"), { recursive: true });
-  mkdirSync(join(root, "src"), { recursive: true });
+  mkdirSync(join(root, "apps/skillset/src"), { recursive: true });
   writeFileSync(
     join(root, "package.json"),
-    '{"name":"skillset","packageManager":"bun@1.3.14","engines":{"bun":">=1.3.14"},"workspaces":[]}\n'
+    '{"name":"skillset-workspace","packageManager":"bun@1.3.14","engines":{"bun":">=1.3.14"},"workspaces":[]}\n'
   );
   writeFileSync(join(root, ".bun-version"), "1.3.14\n");
   writeFileSync(
     join(root, ".skillset/config.yaml"),
     "skillset:\n  name: skillset\n"
   );
-  writeFileSync(join(root, "src/cli.ts"), "");
+  writeFileSync(join(root, "apps/skillset/src/cli.ts"), "");
   return root;
 };
 

@@ -39,7 +39,7 @@ export async function resolveSkillsetCommand(
   if (override !== undefined && override.length > 0) return { argv: [override], kind: "shell" };
 
   if (await isLocalSkillsetCheckout(rootPath)) {
-    return { argv: ["bun", "./src/cli.ts"], kind: "argv" };
+    return { argv: ["bun", "./apps/skillset/src/cli.ts"], kind: "argv" };
   }
 
   if (await commandExists("skillset", rootPath)) return { argv: ["skillset"], kind: "argv" };
@@ -104,11 +104,11 @@ async function commandExists(command: string, cwd: string): Promise<boolean> {
 }
 
 async function isLocalSkillsetCheckout(rootPath: string): Promise<boolean> {
-  if (!(await exists(join(rootPath, "src", "cli.ts")))) return false;
+  if (!(await exists(join(rootPath, "apps", "skillset", "src", "cli.ts")))) return false;
 
   try {
     const packageJson = JSON.parse(await readFile(join(rootPath, "package.json"), "utf8")) as { readonly name?: unknown };
-    return packageJson.name === "skillset";
+    return packageJson.name === "skillset-workspace";
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") return false;
     throw error;

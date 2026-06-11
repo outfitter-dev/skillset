@@ -1,39 +1,14 @@
 {
-  "name": "skillset",
-  "version": "0.1.0-beta.5",
-  "description": "Source-first compiler for Claude and Codex agent loadouts.",
+  "name": "skillset-workspace",
+  "private": true,
   "type": "module",
   "packageManager": "bun@1.3.14",
-  "files": [
-    "dist/*.js",
-    "docs/",
-    "README.md"
+  "workspaces": [
+    "apps/*",
+    "packages/*"
   ],
-  "publishConfig": {
-    "access": "public",
-    "tag": "beta"
-  },
   "engines": {
     "bun": ">=1.3.14"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/outfitter-dev/skillset.git"
-  },
-  "bugs": {
-    "url": "https://github.com/outfitter-dev/skillset/issues"
-  },
-  "homepage": "https://github.com/outfitter-dev/skillset#readme",
-  "keywords": [
-    "agents",
-    "claude",
-    "codex",
-    "plugins",
-    "skills"
-  ],
-  "bin": {
-    "create-skillset": "dist/create.js",
-    "skillset": "dist/cli.js"
   },
   "scripts": {
     "build": "bun run typecheck && bun run build:npm",
@@ -44,20 +19,17 @@
     "hooks:pre-commit": "lefthook run pre-commit --force",
     "hooks:pre-push": "lefthook run pre-push --force",
     "prepack": "tsc --noEmit && bun scripts/build-package.ts",
-    "skillset:build": "bun ./src/cli.ts build --root . --yes",
-    "skillset:check": "bun ./src/cli.ts check --root .",
-    "skillset:ci": "bun ./src/cli.ts ci --root .",
-    "skillset:ci:report": "bun ./src/cli.ts ci --root . --since \"$(scripts/git-trunk.sh)\" --report .skillset/build/skillset-ci-report.md",
-    "skillset:lint": "bun ./src/cli.ts lint --root .",
+    "skillset:build": "bun ./apps/skillset/src/cli.ts build --root . --yes",
+    "skillset:check": "bun ./apps/skillset/src/cli.ts check --root .",
+    "skillset:ci": "bun ./apps/skillset/src/cli.ts ci --root .",
+    "skillset:ci:report": "bun ./apps/skillset/src/cli.ts ci --root . --since \"$(scripts/git-trunk.sh)\" --report .skillset/build/skillset-ci-report.md",
+    "skillset:lint": "bun ./apps/skillset/src/cli.ts lint --root .",
     "skillset:verify": "bun run skillset:lint && bun run skillset:check",
-    "test": "bun test src scripts",
+    "test": "bun test apps packages scripts",
     "typecheck": "tsc --noEmit",
     "ultracite:check": "ultracite check",
     "ultracite:doctor": "ultracite doctor",
     "ultracite:fix": "ultracite fix"
-  },
-  "dependencies": {
-    "yaml": "^2.8.1"
   },
   "devDependencies": {
     "@types/bun": "^1.2.15",

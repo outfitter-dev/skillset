@@ -1,5 +1,5 @@
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
-import { gitSafeEnv } from "../../src/git-env";
+import { gitSafeEnv } from "../../apps/skillset/src/git-env";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -52,12 +52,12 @@ test("runtime hook command resolver honors overrides and local compiler checkout
     kind: "shell",
   });
 
-  await mkdir(join(root, "src"), { recursive: true });
-  await writeFile(join(root, "package.json"), JSON.stringify({ name: "skillset" }));
-  await writeFile(join(root, "src/cli.ts"), "console.log('local skillset');\n");
+  await mkdir(join(root, "apps/skillset/src"), { recursive: true });
+  await writeFile(join(root, "package.json"), JSON.stringify({ name: "skillset-workspace" }));
+  await writeFile(join(root, "apps/skillset/src/cli.ts"), "console.log('local skillset');\n");
 
   expect(await resolveSkillsetCommand(root, {})).toEqual({
-    argv: ["bun", "./src/cli.ts"],
+    argv: ["bun", "./apps/skillset/src/cli.ts"],
     kind: "argv",
   });
 });

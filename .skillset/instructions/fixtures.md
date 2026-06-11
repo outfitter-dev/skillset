@@ -1,7 +1,7 @@
 ---
 paths:
   - fixtures/**
-  - src/__tests__/**
+  - apps/skillset/src/__tests__/**
 ---
 
 # Skillset Fixture Work

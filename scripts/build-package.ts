@@ -1,11 +1,11 @@
 import { chmod, rm } from "node:fs/promises";
 
-const outdir = "dist";
+const outdir = "apps/skillset/dist";
 
 await rm(outdir, { force: true, recursive: true });
 
 const result = await Bun.build({
-  entrypoints: ["src/cli.ts", "src/create.ts"],
+  entrypoints: ["apps/skillset/src/cli.ts", "apps/skillset/src/create.ts"],
   naming: { entry: "[name].js" },
   outdir,
   target: "bun",

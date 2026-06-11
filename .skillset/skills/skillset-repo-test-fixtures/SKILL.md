@@ -11,7 +11,7 @@ Use this skill when changing Skillset's internal compiler fixtures, fixture docu
 ## Fixture Boundary
 
 - Fixtures are internal compiler test material, not product `.skillset/tests/` source.
-- Prefer inline temp fixtures in `src/__tests__/` for focused positive cases, negative diagnostics, and lifecycle edge cases.
+- Prefer inline temp fixtures in `apps/skillset/src/__tests__/` for focused positive cases, negative diagnostics, and lifecycle edge cases.
 - Add checked-in `fixtures/<case>/` repos only when a case needs whole-repo inspection, is shared as a golden reference, or is too large to read inline.
 - Do not treat `.skillset/src/` as a universal source root. In fixtures it is only for project agents and target-native islands.
 - Plugins, standalone skills, and instructions should use their current `.skillset/plugins`, `.skillset/skills`, and `.skillset/instructions` locations.
@@ -26,5 +26,5 @@ Use this skill when changing Skillset's internal compiler fixtures, fixture docu
 ## Verification
 
 - For docs-only fixture changes, run `bun run check`.
-- For compiler behavior changes, run the smallest relevant `bun test src/__tests__/<file>.test.ts` first, then `bun run check`.
+- For compiler behavior changes, run the smallest relevant `bun test apps/skillset/src/__tests__/<file>.test.ts` first, then `bun run check`.
 - If self-hosted source under `.skillset/` changes, run `bun run skillset:build`, inspect generated output, then run `bun run check`.
