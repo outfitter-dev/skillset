@@ -12,6 +12,7 @@ import { lintSkillset } from "../lint";
 import { readReleaseState } from "../release-state";
 import { loadBuildGraph } from "../resolver";
 import { createSkillset, initSkillset } from "../setup";
+import { gitSafeEnv } from "../git-env";
 import { sourceUnitDisplay } from "../source-unit-selector";
 
 test("SET-52: source-unit selectors render conventional display labels", () => {
@@ -4694,6 +4695,7 @@ async function commitFixture(root: string): Promise<void> {
 async function runGit(root: string, ...args: readonly string[]): Promise<void> {
   const proc = Bun.spawn({
     cmd: ["git", "-C", root, ...args],
+    env: gitSafeEnv(),
     stderr: "pipe",
     stdout: "pipe",
   });

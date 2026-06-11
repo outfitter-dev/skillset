@@ -31,6 +31,7 @@ import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 
 import { buildSkillset } from "../../src/build";
+import { gitSafeEnv } from "../../src/git-env";
 import { importSources } from "../../src/import";
 import { lintSkillset } from "../../src/lint";
 import { compareStrings, validateSlug } from "../../src/path";
@@ -530,6 +531,7 @@ async function gitOutput(
 ): Promise<string> {
   const proc = Bun.spawn({
     cmd: ["git", "-C", cwd, ...args],
+    env: gitSafeEnv(),
     stderr: "pipe",
     stdout: "pipe",
   });

@@ -122,6 +122,7 @@ async function capture(argv: readonly string[], options: { readonly cwd: string 
   const proc = Bun.spawn({
     cmd: [...argv],
     cwd: options.cwd,
+    env: gitSafeEnv(),
     stderr: "ignore",
     stdout: "pipe",
   });
@@ -156,4 +157,30 @@ if (import.meta.main) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
+}
+
+/**
+ * Hook processes inherit repository-targeting GIT_* variables (git exports
+ * GIT_DIR to its hooks), and those override `-C`/cwd repository discovery in
+ * spawned git commands. Strip them so this script always inspects the repo it
+ * was pointed at.
+ */
+function gitSafeEnv(): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value === undefined) continue;
+    if (
+      key === "GIT_DIR" ||
+      key === "GIT_WORK_TREE" ||
+      key === "GIT_INDEX_FILE" ||
+      key === "GIT_OBJECT_DIRECTORY" ||
+      key === "GIT_COMMON_DIR" ||
+      key === "GIT_NAMESPACE" ||
+      key.startsWith("GIT_ALTERNATE_OBJECT")
+    ) {
+      continue;
+    }
+    env[key] = value;
+  }
+  return env;
 }

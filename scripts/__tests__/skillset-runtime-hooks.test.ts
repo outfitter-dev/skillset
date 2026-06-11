@@ -1,4 +1,5 @@
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { gitSafeEnv } from "../../src/git-env";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -80,6 +81,7 @@ async function runGit(root: string, ...args: readonly string[]): Promise<void> {
   const proc = Bun.spawn({
     cmd: ["git", ...args],
     cwd: root,
+    env: gitSafeEnv(),
     stderr: "pipe",
     stdout: "pipe",
   });
