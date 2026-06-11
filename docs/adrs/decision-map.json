@@ -58,6 +58,11 @@
           "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source-first doctrine.",
           "from": "20260609",
           "fromPath": "docs/adrs/drafts/20260609-source-change-release-provenance.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - the source contract adoption migrates repos into.",
+          "from": "20260610",
+          "fromPath": "docs/adrs/drafts/20260610-one-action-repo-adoption.md"
         }
       ],
       "number": "0000",

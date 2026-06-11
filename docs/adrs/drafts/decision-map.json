@@ -329,6 +329,24 @@
       "superseded_by": null,
       "title": "Source Change, Release, and Dependency Provenance",
       "updated": "2026-06-09"
+    },
+    {
+      "created": "2026-06-10",
+      "depends_on": [
+        "0",
+        "fixtures-tests-dogfooding-and-evals",
+        "global-xdg-managed-installs-and-sync",
+        "source-change-release-provenance"
+      ],
+      "inbound": [],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260610-one-action-repo-adoption.md",
+      "slug": "one-action-repo-adoption",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "One-Action Repo Adoption",
+      "updated": "2026-06-10"
     }
   ],
   "version": 1
