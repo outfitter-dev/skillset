@@ -25,10 +25,15 @@
       },
       "devDependencies": {
         "@skillset/lint": "workspace:*",
+        "@skillset/transforms": "workspace:*",
       },
     },
     "packages/lint": {
       "name": "@skillset/lint",
+      "version": "0.0.0",
+    },
+    "packages/transforms": {
+      "name": "@skillset/transforms",
       "version": "0.0.0",
     },
   },
@@ -114,6 +119,8 @@
     "@oxlint/binding-win32-x64-msvc": ["@oxlint/binding-win32-x64-msvc@1.69.0", "", { "os": "win32", "cpu": "x64" }, "sha512-w8SOXv3mT9Fi6jY8OXdXCfnvX/3KNLXGNr4HEz2TA7S4Mv/PYAOmpB8y/ge40mxvBMgGNaSaaDwZpAsQn7HtWA=="],
 
     "@skillset/lint": ["@skillset/lint@workspace:packages/lint"],
+
+    "@skillset/transforms": ["@skillset/transforms@workspace:packages/transforms"],
 
     "@types/bun": ["@types/bun@1.3.14", "", { "dependencies": { "bun-types": "1.3.14" } }, "sha512-h1hFqFVcvAvD9j9K7ZW7vd82aSA+rTdznZa+5bwvCwqSB1jmmfLcbIWhOLx1/+boy/xmjgCs/OMUL8hRJSmnPw=="],
 

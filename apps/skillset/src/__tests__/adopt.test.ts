@@ -135,6 +135,45 @@ test("adopt fails on lint errors and the CLI exits nonzero", async () => {
   expect(result.stdout).toContain("adopt found problems");
 });
 
+test("adopt previews transforms in imported skill bodies without rewriting", async () => {
+  const skillBody =
+    "Skills live in .claude/skills/x today.\n\nPass $ARGUMENTS along, then ask @reviewer.\n";
+  const root = await fixture({
+    ".claude/skills/x/SKILL.md": `---\nname: x\ndescription: Transform preview fixture.\n---\n\n${skillBody}`,
+  });
+
+  const report = await adoptSkillset(root, { write: true });
+
+  const preview = report.transformPreviews.find(
+    (entry) => entry.path === ".skillset/skills/x/SKILL.md"
+  );
+  expect(preview).toBeDefined();
+  expect(
+    preview?.matches.map((match) => [match.intent, match.text, match.lowering, match.codexForm])
+  ).toEqual([
+    ["path.skills-dir", ".claude/skills", "bidirectional", ".agents/skills"],
+    ["dynamic.arguments", "$ARGUMENTS", "none", undefined],
+    ["invoke.subagent", "@reviewer", "to-codex", "the `reviewer` agent"],
+  ]);
+  expect(preview?.matches[1]?.reason).toContain("no templating");
+
+  // Preview only: the imported source is byte-identical to the original body.
+  expect(await readFile(join(root, ".skillset/skills/x/SKILL.md"), "utf8")).toContain(skillBody);
+
+  const markdown = renderAdoptReportMarkdown(report, { rootPath: root });
+  expect(markdown).toContain("## Transforms (preview)");
+  expect(markdown).toContain("`.claude/skills` -> `.agents/skills` (path.skills-dir)");
+  expect(markdown).toContain("No faithful Codex lowering:");
+  expect(markdown).toContain("`$ARGUMENTS` (dynamic.arguments)");
+
+  // No recognized constructs -> the section is omitted entirely.
+  const quietReport = await adoptSkillset(await fixture(MARKETPLACE_FIXTURE), { write: true });
+  expect(quietReport.transformPreviews).toEqual([]);
+  expect(renderAdoptReportMarkdown(quietReport, { rootPath: "ignored" })).not.toContain(
+    "## Transforms (preview)"
+  );
+});
+
 test("adopt CLI without --yes prints the survey and writes nothing", async () => {
   const root = await fixture(MARKETPLACE_FIXTURE);
   const before = await walkFiles(root);

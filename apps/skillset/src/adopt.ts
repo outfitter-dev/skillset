@@ -1,5 +1,11 @@
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
-import { dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
+
+import {
+  lowerTransform,
+  recognizeTransforms,
+  type TransformMatch,
+} from "@skillset/transforms";
 
 import type { ReleaseBaselineEntry } from "./adoption";
 import { buildSkillset, ISOLATED_OUT_ROOT } from "./build";
@@ -13,6 +19,7 @@ import {
   type SurveySkip,
 } from "./setup";
 import type { LintIssue, SkillsetOptions, TargetName } from "./types";
+import { parseMarkdown } from "./yaml";
 
 export interface AdoptOptions extends SkillsetOptions {
   readonly targets?: readonly TargetName[];
@@ -36,6 +43,24 @@ export interface AdoptImportResult {
   readonly units: readonly AdoptImportedUnit[];
 }
 
+/** One recognized construct in an imported markdown file, preview only. */
+export interface TransformPreviewMatch {
+  /** Codex surface form a future transform slice would write, if faithful. */
+  readonly codexForm?: string;
+  readonly intent: string;
+  readonly lowering: TransformMatch["lowering"];
+  /** Why no faithful Codex lowering exists (`lowering: "none"` entries). */
+  readonly reason?: string;
+  readonly text: string;
+}
+
+/** Per-file transform recognition over content the import just landed. */
+export interface TransformPreview {
+  readonly matches: readonly TransformPreviewMatch[];
+  /** Repo-relative path of the imported file that was scanned. */
+  readonly path: string;
+}
+
 export interface AdoptReport {
   readonly alreadyAdopted: boolean;
   readonly baselines: readonly ReleaseBaselineEntry[];
@@ -54,6 +79,12 @@ export interface AdoptReport {
   readonly rootPath: string;
   readonly setupFiles: readonly SetupFile[];
   readonly surveySkips: readonly SurveySkip[];
+  /**
+   * Recognition-only preview of Claude-dialect constructs in imported
+   * markdown (skill bodies and instruction files). Nothing is rewritten;
+   * this is the report surface for the transform registry.
+   */
+  readonly transformPreviews: readonly TransformPreview[];
   readonly write: boolean;
 }
 
@@ -102,15 +133,18 @@ export async function adoptSkillset(
       rootPath: init.rootPath,
       setupFiles: init.files,
       surveySkips: init.surveySkips,
+      transformPreviews: [],
       write: false,
     };
   }
 
   const imports: AdoptImportResult[] = [];
   const cutover: string[] = [];
+  const previewSources: string[] = [];
   for (const candidate of init.importCandidates) {
-    imports.push(await importCandidate(init.rootPath, candidate, cutover));
+    imports.push(await importCandidate(init.rootPath, candidate, cutover, previewSources));
   }
+  const transformPreviews = await buildTransformPreviews(init.rootPath, previewSources);
 
   let lintIssues: readonly LintIssue[] = [];
   let buildError: string | undefined;
@@ -147,6 +181,7 @@ export async function adoptSkillset(
     rootPath: init.rootPath,
     setupFiles: init.files,
     surveySkips: init.surveySkips,
+    transformPreviews,
     write: true,
   };
 
@@ -168,7 +203,8 @@ export async function adoptSkillset(
 async function importCandidate(
   rootPath: string,
   candidate: SetupImportCandidate,
-  cutover: string[]
+  cutover: string[],
+  previewSources: string[]
 ): Promise<AdoptImportResult> {
   if (candidate.kind === "instructions") {
     try {
@@ -177,6 +213,7 @@ async function importCandidate(
       // regenerate it from the imported source and hit the unmanaged-overwrite
       // protection, so it belongs on the cutover list.
       cutover.push(candidate.path);
+      previewSources.push(destination);
       return { candidate, destination, detail: destination, ok: true, units: [] };
     } catch (error) {
       return { candidate, detail: errorMessage(error), ok: false, units: [] };
@@ -197,6 +234,14 @@ async function importCandidate(
         sourcePath: sourcePath.length === 0 ? "." : sourcePath,
       };
     });
+    for (const report of batch.imports) {
+      for (const file of report.copiedFiles) {
+        if (basename(file) !== "SKILL.md") continue;
+        previewSources.push(
+          relative(rootPath, join(report.targetPath, file)).replaceAll("\\", "/")
+        );
+      }
+    }
     return {
       candidate,
       detail: `${units.map((unit) => `${unit.kind} ${unit.name}`).join(", ")} (${batch.files} files)`,
@@ -227,6 +272,47 @@ async function importInstructionFile(rootPath: string, sourceName: string): Prom
   await mkdir(dirname(destination), { recursive: true });
   await writeFile(destination, content);
   return destinationRelative;
+}
+
+/**
+ * Recognition-only transform preview over the markdown the imports just
+ * landed: skill bodies (frontmatter stripped) and verbatim instruction
+ * files. Source content is read from the imported copies, never rewritten.
+ */
+async function buildTransformPreviews(
+  rootPath: string,
+  paths: readonly string[]
+): Promise<readonly TransformPreview[]> {
+  const previews: TransformPreview[] = [];
+  for (const path of paths) {
+    const raw = await readFile(join(rootPath, path), "utf8");
+    const body = basename(path) === "SKILL.md" ? markdownBody(raw, path) : raw;
+    const matches = recognizeTransforms(body, "claude");
+    if (matches.length === 0) continue;
+    previews.push({
+      matches: matches.map((match) => {
+        const codexForm = lowerTransform(match, "codex");
+        return {
+          ...(codexForm === undefined ? {} : { codexForm }),
+          intent: match.intent,
+          lowering: match.lowering,
+          ...(match.reason === undefined ? {} : { reason: match.reason }),
+          text: match.text,
+        };
+      }),
+      path,
+    });
+  }
+  return previews;
+}
+
+function markdownBody(raw: string, label: string): string {
+  try {
+    return parseMarkdown(raw, label).body;
+  } catch {
+    // Unparseable frontmatter still deserves a preview; scan the raw text.
+    return raw;
+  }
 }
 
 export function renderAdoptReportMarkdown(
@@ -312,6 +398,40 @@ export function renderAdoptReportMarkdown(
     );
   }
 
+  if (report.transformPreviews.length > 0) {
+    lines.push("## Transforms (preview)", "");
+    lines.push(
+      "Recognition only — adopt rewrote nothing. Codex forms show what a future transform slice would write.",
+      ""
+    );
+    for (const preview of report.transformPreviews) {
+      lines.push(`### \`${preview.path}\``, "");
+      const transformable = aggregatePreviewMatches(
+        preview.matches.filter((match) => match.lowering !== "none")
+      );
+      const blocked = aggregatePreviewMatches(
+        preview.matches.filter((match) => match.lowering === "none")
+      );
+      if (transformable.length > 0) {
+        lines.push("Transformable to Codex:", "");
+        for (const item of transformable) {
+          const target = item.codexForm === undefined ? "(no Codex form)" : inlineCode(item.codexForm);
+          lines.push(`- ${inlineCode(item.text)} -> ${target} (${item.intent}${countSuffix(item.count)})`);
+        }
+        lines.push("");
+      }
+      if (blocked.length > 0) {
+        lines.push("No faithful Codex lowering:", "");
+        for (const item of blocked) {
+          lines.push(
+            `- ${inlineCode(item.text)} (${item.intent}${countSuffix(item.count)}): ${item.reason ?? "no reason recorded"}`
+          );
+        }
+        lines.push("");
+      }
+    }
+  }
+
   lines.push("## Build (isolated)", "");
   if (report.buildError === undefined) {
     lines.push(
@@ -351,6 +471,35 @@ export function renderAdoptReportMarkdown(
   );
 
   return `${lines.join("\n").trimEnd()}\n`;
+}
+
+interface AggregatedPreviewMatch extends TransformPreviewMatch {
+  readonly count: number;
+}
+
+/** Collapse repeated (intent, text, codexForm) hits into one counted line. */
+function aggregatePreviewMatches(
+  matches: readonly TransformPreviewMatch[]
+): readonly AggregatedPreviewMatch[] {
+  const aggregated = new Map<string, AggregatedPreviewMatch>();
+  for (const match of matches) {
+    const key = `${match.intent} ${match.text} ${match.codexForm ?? ""}`;
+    const existing = aggregated.get(key);
+    aggregated.set(
+      key,
+      existing === undefined ? { ...match, count: 1 } : { ...existing, count: existing.count + 1 }
+    );
+  }
+  return [...aggregated.values()];
+}
+
+function countSuffix(count: number): string {
+  return count === 1 ? "" : `, x${count}`;
+}
+
+/** Inline code that survives constructs containing backticks (!`cmd`). */
+function inlineCode(text: string): string {
+  return text.includes("`") ? `\`\` ${text} \`\`` : `\`${text}\``;
 }
 
 function errorMessage(error: unknown): string {
