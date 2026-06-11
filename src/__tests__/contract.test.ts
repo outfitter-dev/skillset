@@ -767,6 +767,37 @@ test("SET-10: skill import reports copied files and classifies frontmatter", asy
   expect(copied).toContain("frobnicate: maybe");
 });
 
+test("SET-58: imported plugin manifests round-trip metadata fields through build", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
+  const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));
+  const originalManifest = {
+    name: "roundtrip",
+    version: "2.4.6",
+    description: "Round-trip fidelity plugin.",
+    author: { name: "Author Name", email: "author@example.com", url: "https://example.com/author" },
+    homepage: "https://example.com/home",
+    repository: "https://github.com/example/roundtrip",
+    license: "MIT",
+    keywords: ["alpha", "beta"],
+  };
+  await Bun.write(join(external, "roundtrip/.claude-plugin/plugin.json"), JSON.stringify(originalManifest));
+  await Bun.write(
+    join(external, "roundtrip/skills/demo/SKILL.md"),
+    "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n"
+  );
+  await Bun.write(join(root, ".skillset/config.yaml"), "skillset:\n  name: roundtrip-root\nclaude: true\ncodex: false\n");
+
+  await importSource({ kind: "plugin", rootPath: root, sourcePath: join(external, "roundtrip") });
+  await buildSkillset(root);
+
+  const generated = JSON.parse(
+    await readFile(join(root, "plugins-claude/plugins/roundtrip/.claude-plugin/plugin.json"), "utf8")
+  ) as Record<string, unknown>;
+  for (const [key, value] of Object.entries(originalManifest)) {
+    expect(generated[key]).toEqual(value);
+  }
+});
+
 test("SET-10: importing a SKILL.md path copies the full skill directory", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
   const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));

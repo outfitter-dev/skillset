@@ -502,10 +502,19 @@ async function writeImportedPluginConfig(
   name: string
 ): Promise<void> {
   const nativeManifest = await readNativePluginManifest(targetPath);
+  // Lift every manifest field the generated projection round-trips, so an
+  // imported plugin compiles back to a manifest substantially identical to
+  // its origin. `version` stays a source fallback: release state owns it once
+  // releases exist (see the field-authority table in docs/features/plugins.md).
   const metadata: JsonRecord = {
     name,
     description: readString(nativeManifest, "description"),
     version: readString(nativeManifest, "version"),
+    author: nativeManifest.author,
+    homepage: nativeManifest.homepage,
+    repository: nativeManifest.repository,
+    license: nativeManifest.license,
+    keywords: nativeManifest.keywords,
   };
   await writeFile(
     join(targetPath, "skillset.yaml"),

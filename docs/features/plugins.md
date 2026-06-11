@@ -19,6 +19,21 @@ Plugin identity derives from the directory unless `skillset.name` is present and
 | Claude companion paths | commands, agents, hooks, MCP, LSP, output styles, themes, monitors, assets, scripts, src, bin | n/a unless separately supported | `target_native` / `implemented` | Target truth wins over fake portability. |
 | Codex companion paths | n/a unless separately supported | hooks, MCP, app manifest, assets, scripts, src | `target_native` / `implemented` | Codex plugin `agents/` and plugin `.rules` are unsupported. |
 
+## Manifest Field Authority
+
+Each generated-manifest field has exactly one writer; competing authorities are how versions drift. `skillset import` lifts all of these from a native manifest into plugin source metadata so imported plugins round-trip.
+
+| Field | Authority | Notes |
+| --- | --- | --- |
+| `name` | source (`skillset.name`, defaults to directory) | `manifest.name` is the explicit override. |
+| `version` | release state, with source `version` as fallback | `skillset check` reports version drift; do not hand-edit generated manifests. |
+| `description` | source (`summary`, falling back to `description`) | |
+| `author`, `homepage`, `repository`, `license`, `keywords` | source metadata | Projected verbatim into generated manifests. |
+| Component wiring (`commands`, `agents`, `skills`, `hooks`, `mcpServers`, …) | compiler | Derived from source layout and feature keys; never authored in generated output. |
+| `dependencies` (Claude) | compiler, from source `dependencies` | A `claude.manifest.dependencies` override fails the build rather than competing. |
+
+Target-native `claude.manifest` / `codex.manifest` blocks remain the visible per-target escape hatch: an override wins over the source-owned value for that target only, and stays reviewable in source.
+
 ## Diagnostics
 
 - Reject plugin identity conflicts and unsupported plugin config keys.
