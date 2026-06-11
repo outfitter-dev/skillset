@@ -6,31 +6,24 @@
  *
  * The committed manifest (fixtures/external/repos.yaml) pins each repo to an
  * exact commit. Clones live gitignored under fixtures/external/repos/ and are
- * never scanned as this repo's own source. Runs execute in throwaway temp
- * workspaces and write reports under .skillset/build/external/.
+ * never scanned as this repo's own source. Runs adopt each clone in place and
+ * build with the isolated mirror (everything lands under .skillset/build/out/),
+ * then write reports under .skillset/build/external/.
  *
- *   bun scripts/fixtures/external.ts sync   [name]   # clone/fetch at pinned refs
+ *   bun scripts/fixtures/external.ts sync   [name]   # reset clones pristine at pinned refs
  *   bun scripts/fixtures/external.ts update [name]   # re-pin to upstream HEAD, then sync
- *   bun scripts/fixtures/external.ts run    [name]   # init -> import -> lint -> build -> round-trip report
+ *   bun scripts/fixtures/external.ts run    [name]   # init -> import -> lint -> build -> purity -> round-trip report
  *
- * Run failures (init/import/lint/build errors) exit non-zero. The round-trip
- * comparison is report-only for now; per-repo expectations can harden into
- * assertions once the numbers settle.
+ * Run failures (init/import/lint/build/purity errors) exit non-zero. The
+ * purity stage is the hard invariant: after a run, `git status` in the clone
+ * may only show paths under .skillset/ — anything else is a toolchain defect.
+ * The round-trip comparison is report-only for now; per-repo expectations can
+ * harden into assertions once the numbers settle.
  */
-import {
-  cp,
-  mkdir,
-  mkdtemp,
-  readdir,
-  readFile,
-  rm,
-  stat,
-  writeFile,
-} from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 
-import { buildSkillset } from "../../apps/skillset/src/build";
+import { buildSkillset, ISOLATED_OUT_ROOT } from "../../apps/skillset/src/build";
 import { gitSafeEnv } from "../../apps/skillset/src/git-env";
 import { importSources } from "../../apps/skillset/src/import";
 import { lintSkillset } from "../../apps/skillset/src/lint";
@@ -42,7 +35,9 @@ import { parseYamlRecord } from "../../apps/skillset/src/yaml";
 const MANIFEST_PATH = "fixtures/external/repos.yaml";
 const CLONES_DIR = "fixtures/external/repos";
 const REPORTS_DIR = ".skillset/build/external";
-const COMPARISON_IGNORED = new Set([".git", ".DS_Store"]);
+// .skillset is ignored because in-place adoption creates it inside the clone;
+// it is harness material, not part of the original tree being round-tripped.
+const COMPARISON_IGNORED = new Set([".git", ".DS_Store", ".skillset"]);
 const REPORT_LIST_CAP = 100;
 
 export interface ExternalRepoEntry {
@@ -232,7 +227,7 @@ async function collectRelativeFiles(
 export interface ExternalStageResult {
   readonly detail: string;
   readonly ok: boolean;
-  readonly stage: "build" | "import" | "init" | "lint";
+  readonly stage: "build" | "import" | "init" | "lint" | "purity";
 }
 
 export interface ExternalRoundTrip {
@@ -250,10 +245,60 @@ export interface ExternalRunReport {
   readonly stages: readonly ExternalStageResult[];
 }
 
+/** How many dirty paths a failed purity stage lists before truncating. */
+const PURITY_DETAIL_CAP = 10;
+
 /**
- * Adopt one external repo clone in a throwaway workspace: init the source
- * scaffold, import every detected candidate, lint, build, and compare the
- * original clone against the generated Claude projection.
+ * The purity invariant: adoption may only ever create paths under .skillset/.
+ * Any other path reported by `git status` after a run is a toolchain defect.
+ * (.skillset/build/ is not gitignored in external repos, so it shows up in
+ * status — that is fine, it is under .skillset/.)
+ */
+export async function checkClonePurity(
+  clonePath: string
+): Promise<{ readonly dirtyPaths: readonly string[]; readonly ok: boolean }> {
+  const output = await gitOutput(
+    clonePath,
+    "status",
+    "--porcelain",
+    "--untracked-files=all"
+  );
+  const dirtyPaths: string[] = [];
+  for (const line of output.split("\n")) {
+    if (line.trim().length === 0) {continue;}
+    // Porcelain v1: two status chars, a space, then the path (renames list
+    // `old -> new`; both sides must stay under .skillset/).
+    for (const rawPath of line.slice(3).split(" -> ")) {
+      const path = rawPath.replaceAll('"', "");
+      if (!path.startsWith(".skillset/")) {dirtyPaths.push(path);}
+    }
+  }
+  return {
+    dirtyPaths: dirtyPaths.toSorted(compareStrings),
+    ok: dirtyPaths.length === 0,
+  };
+}
+
+/**
+ * Reruns must start clean: import never overwrites, so a prior run's
+ * .skillset/ adoption would fail the next one. Only untracked leftovers are
+ * cleaned; a clone that tracks .skillset/ content is not ours to delete.
+ */
+async function cleanSkillsetLeftovers(clonePath: string): Promise<void> {
+  const tracked = await gitOutput(clonePath, "ls-files", "--", ".skillset");
+  if (tracked.trim().length > 0) {
+    throw new Error(
+      `skillset: clone ${clonePath} has tracked .skillset files; refusing to clean`
+    );
+  }
+  await runGit(clonePath, "clean", "-fdx", "-q", "--", ".skillset");
+}
+
+/**
+ * Adopt one external repo clone in place: init the source scaffold, import
+ * every detected candidate, lint, build with the isolated mirror (the
+ * projection lands under .skillset/build/out/), verify the purity invariant,
+ * and compare the original clone against the generated Claude projection.
  */
 export async function runExternalRepo(
   name: string,
@@ -262,127 +307,134 @@ export async function runExternalRepo(
 ): Promise<ExternalRunReport> {
   const stages: ExternalStageResult[] = [];
   const roundTrips: ExternalRoundTrip[] = [];
-  const workspace = await mkdtemp(join(tmpdir(), `skillset-external-${name}-`));
 
+  await cleanSkillsetLeftovers(clonePath);
+
+  let candidates: readonly {
+    readonly kind: "plugin" | "plugins" | "skills";
+    readonly path: string;
+  }[] = [];
   try {
-    await cp(clonePath, workspace, {
-      filter: (source) => !source.split("/").includes(".git"),
-      recursive: true,
+    const init = await initSkillset({
+      cwd: clonePath,
+      targets,
+      useGitRoot: false,
+      write: true,
     });
+    candidates = init.importCandidates;
+    stages.push({
+      detail: `${candidates.length} import candidate(s): ${candidates.map((candidate) => `${candidate.kind}:${candidate.path}`).join(", ") || "none"}`,
+      ok: candidates.length > 0,
+      stage: "init",
+    });
+  } catch (error) {
+    stages.push({ detail: errorMessage(error), ok: false, stage: "init" });
+    return { name, ok: false, roundTrips, stages };
+  }
 
-    let candidates: readonly {
-      readonly kind: "plugin" | "plugins" | "skills";
-      readonly path: string;
-    }[] = [];
+  const imported: {
+    readonly kind: "plugin" | "skill";
+    readonly name: string;
+    readonly sourcePath: string;
+  }[] = [];
+  for (const candidate of candidates) {
     try {
-      const init = await initSkillset({
-        cwd: workspace,
-        targets,
-        useGitRoot: false,
-        write: true,
+      const batch = await importSources({
+        kind: candidate.kind,
+        rootPath: clonePath,
+        sourcePath: join(clonePath, candidate.path),
       });
-      candidates = init.importCandidates;
-      stages.push({
-        detail: `${candidates.length} import candidate(s): ${candidates.map((candidate) => `${candidate.kind}:${candidate.path}`).join(", ") || "none"}`,
-        ok: candidates.length > 0,
-        stage: "init",
-      });
-    } catch (error) {
-      stages.push({ detail: errorMessage(error), ok: false, stage: "init" });
-      return { name, ok: false, roundTrips, stages };
-    }
-
-    const imported: {
-      readonly kind: "plugin" | "skill";
-      readonly name: string;
-      readonly sourcePath: string;
-    }[] = [];
-    for (const candidate of candidates) {
-      try {
-        const batch = await importSources({
-          kind: candidate.kind,
-          rootPath: workspace,
-          sourcePath: join(workspace, candidate.path),
-        });
-        for (const report of batch.imports) {
-          const sourcePath = relative(workspace, report.sourcePath).replaceAll(
-            "\\",
-            "/"
-          );
-          imported.push({
-            kind: report.kind,
-            name: report.name,
-            sourcePath: sourcePath.length === 0 ? "." : sourcePath,
-          });
-        }
-        stages.push({
-          detail: `${candidate.kind}:${candidate.path} -> ${batch.imports.map((report) => `${report.kind} ${report.name}`).join(", ")} (${batch.files} files)`,
-          ok: true,
-          stage: "import",
-        });
-      } catch (error) {
-        stages.push({
-          detail: `${candidate.kind}:${candidate.path}: ${errorMessage(error)}`,
-          ok: false,
-          stage: "import",
+      for (const report of batch.imports) {
+        const sourcePath = relative(clonePath, report.sourcePath).replaceAll(
+          "\\",
+          "/"
+        );
+        imported.push({
+          kind: report.kind,
+          name: report.name,
+          sourcePath: sourcePath.length === 0 ? "." : sourcePath,
         });
       }
-    }
-
-    if (imported.length === 0) {
-      return { name, ok: false, roundTrips, stages };
-    }
-
-    // Partial import failures still run lint/build: they validate whatever did
-    // import, and the failed import stage already fails the overall run.
-    try {
-      const lint = await lintSkillset(workspace);
       stages.push({
-        detail: `linted ${lint.checkedSkills} source skills`,
+        detail: `${candidate.kind}:${candidate.path} -> ${batch.imports.map((report) => `${report.kind} ${report.name}`).join(", ")} (${batch.files} files)`,
         ok: true,
-        stage: "lint",
+        stage: "import",
       });
     } catch (error) {
-      stages.push({ detail: errorMessage(error), ok: false, stage: "lint" });
-    }
-
-    try {
-      const rendered = await buildSkillset(workspace);
       stages.push({
-        detail: `wrote ${rendered.length} generated files`,
-        ok: true,
-        stage: "build",
-      });
-    } catch (error) {
-      stages.push({ detail: errorMessage(error), ok: false, stage: "build" });
-    }
-
-    for (const item of imported) {
-      const generatedRoot =
-        item.kind === "plugin"
-          ? join("plugins-claude", "plugins", item.name)
-          : join(".claude", "skills", item.name);
-      const originalRoot =
-        item.sourcePath === "." ? clonePath : join(clonePath, item.sourcePath);
-      roundTrips.push({
-        comparison: await compareTrees(
-          originalRoot,
-          join(workspace, generatedRoot)
-        ),
-        generatedRoot,
-        kind: item.kind,
-        name: item.name,
-        originalRoot:
-          relative(clonePath, originalRoot) === ""
-            ? "."
-            : relative(clonePath, originalRoot),
+        detail: `${candidate.kind}:${candidate.path}: ${errorMessage(error)}`,
+        ok: false,
+        stage: "import",
       });
     }
-
-    return { name, ok: stages.every((stage) => stage.ok), roundTrips, stages };
-  } finally {
-    await rm(workspace, { force: true, recursive: true });
   }
+
+  if (imported.length === 0) {
+    return { name, ok: false, roundTrips, stages };
+  }
+
+  // Partial import failures still run lint/build: they validate whatever did
+  // import, and the failed import stage already fails the overall run.
+  try {
+    const lint = await lintSkillset(clonePath);
+    stages.push({
+      detail: `linted ${lint.checkedSkills} source skills`,
+      ok: true,
+      stage: "lint",
+    });
+  } catch (error) {
+    stages.push({ detail: errorMessage(error), ok: false, stage: "lint" });
+  }
+
+  try {
+    const rendered = await buildSkillset(clonePath, { isolated: true });
+    stages.push({
+      detail: `wrote ${rendered.length} generated files under ${ISOLATED_OUT_ROOT}/`,
+      ok: true,
+      stage: "build",
+    });
+  } catch (error) {
+    stages.push({ detail: errorMessage(error), ok: false, stage: "build" });
+  }
+
+  try {
+    const purity = await checkClonePurity(clonePath);
+    const listed = purity.dirtyPaths.slice(0, PURITY_DETAIL_CAP);
+    const overflow = purity.dirtyPaths.length - listed.length;
+    stages.push({
+      detail: purity.ok
+        ? "git status reports nothing outside .skillset/"
+        : `dirty paths outside .skillset/: ${listed.join(", ")}${overflow > 0 ? ` (and ${overflow} more)` : ""}`,
+      ok: purity.ok,
+      stage: "purity",
+    });
+  } catch (error) {
+    stages.push({ detail: errorMessage(error), ok: false, stage: "purity" });
+  }
+
+  for (const item of imported) {
+    const generatedRoot =
+      item.kind === "plugin"
+        ? join(ISOLATED_OUT_ROOT, "plugins-claude", "plugins", item.name)
+        : join(ISOLATED_OUT_ROOT, ".claude", "skills", item.name);
+    const originalRoot =
+      item.sourcePath === "." ? clonePath : join(clonePath, item.sourcePath);
+    roundTrips.push({
+      comparison: await compareTrees(
+        originalRoot,
+        join(clonePath, generatedRoot)
+      ),
+      generatedRoot,
+      kind: item.kind,
+      name: item.name,
+      originalRoot:
+        relative(clonePath, originalRoot) === ""
+          ? "."
+          : relative(clonePath, originalRoot),
+    });
+  }
+
+  return { name, ok: stages.every((stage) => stage.ok), roundTrips, stages };
 }
 
 export function renderRunReportMarkdown(
@@ -489,6 +541,12 @@ async function syncRepo(
     "--quiet",
     "HEAD"
   ).catch(() => "");
+  // Drop prior run artifacts (in-place .skillset/ adoptions included) so every
+  // sync leaves a pristine tree, even when the clone is already at the ref.
+  if (current.trim().length > 0) {
+    await runGit(clonePath, "reset", "--hard", "-q");
+  }
+  await runGit(clonePath, "clean", "-fdx", "-q");
   if (current.trim() === entry.ref) {
     console.log(`external: ${entry.name} already at ${entry.ref.slice(0, 12)}`);
     return;
