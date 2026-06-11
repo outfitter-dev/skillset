@@ -11,7 +11,7 @@ import { importSource, importSources } from "../import";
 import { lintSkillset } from "../lint";
 import { readReleaseState } from "../release-state";
 import { loadBuildGraph } from "../resolver";
-import { createSkillset } from "../setup";
+import { createSkillset, initSkillset } from "../setup";
 import { sourceUnitDisplay } from "../source-unit-selector";
 
 test("SET-52: source-unit selectors render conventional display labels", () => {
@@ -3896,6 +3896,40 @@ Body.
   });
 
   await expect(buildSkillset(root)).rejects.toThrow("generated output collision");
+});
+
+test("SET-27: init detects marketplace plugin sources as import candidates", async () => {
+  const root = await contractFixture({
+    ".claude-plugin/marketplace.json": JSON.stringify({
+      name: "demo-marketplace",
+      plugins: [
+        { name: "alpha", source: "./plugins/alpha" },
+        { name: "beta", source: "plugins/beta" },
+        { name: "escape", source: "../outside" },
+        { name: "missing", source: "./plugins/missing" },
+        { name: "self", source: "." },
+      ],
+    }),
+    "plugins/alpha/.claude-plugin/plugin.json": JSON.stringify({ name: "alpha" }),
+    "plugins/beta/.claude-plugin/plugin.json": JSON.stringify({ name: "beta" }),
+  });
+
+  const report = await initSkillset({ cwd: root, useGitRoot: false, write: false });
+
+  expect(report.importCandidates).toEqual([
+    { kind: "plugin", path: "plugins/alpha" },
+    { kind: "plugin", path: "plugins/beta" },
+  ]);
+});
+
+test("SET-27: init ignores malformed marketplace manifests", async () => {
+  const root = await contractFixture({
+    ".claude-plugin/marketplace.json": "not json {",
+  });
+
+  const report = await initSkillset({ cwd: root, useGitRoot: false, write: false });
+
+  expect(report.importCandidates).toEqual([]);
 });
 
 test("SET-27: init previews by default and writes only with confirmation", async () => {

@@ -78,6 +78,7 @@ export interface ImportReport {
   readonly name: string;
   readonly nextChecks: readonly string[];
   readonly preservedTargetNativeFields: readonly string[];
+  readonly sourcePath: string;
   readonly targetPath: string;
   readonly unsupportedFields: readonly string[];
   readonly warnings: readonly string[];
@@ -182,6 +183,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
         "skillset check",
       ],
       preservedTargetNativeFields: classification.targetNative,
+      sourcePath,
       targetPath,
       unsupportedFields: classification.unsupported,
       warnings: importWarnings(classification),

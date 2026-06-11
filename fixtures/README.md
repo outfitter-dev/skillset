@@ -4,7 +4,7 @@
 
 `fixtures/` is never scanned as this repo's own Skillset source.
 
-## Two tiers of fixture
+## Three tiers of fixture
 
 Tests build fake repos two ways. Pick the lighter one unless a case earns the heavier one.
 
@@ -27,6 +27,22 @@ A checked-in fixture is a durable fake content repo committed to the tree. Tests
 - is too large to keep readable inline.
 
 Today there is exactly one: [`kitchen-sink/`](kitchen-sink/README.md).
+
+### External fixture repos (`fixtures/external/`)
+
+External fixtures are real published repos that Skillset should be able to adopt: `init` detects their import candidates, `import` lifts them into `.skillset/` source, `lint` and `build` succeed, and the generated Claude projection comes out substantially similar to the original. They are maintainer test material like the other tiers, but they track living upstreams instead of frozen fakes.
+
+- `fixtures/external/repos.yaml` is the committed manifest. Each entry pins a repo to a full commit SHA and may set `targets:` (default `claude`) and `notes:`.
+- `fixtures/external/repos/<name>/` holds gitignored clones at the pinned SHA. They are never scanned as this repo's own source.
+- Runs execute in throwaway temp workspaces and write `report.md` / `report.json` under `.skillset/build/external/<name>/`.
+
+```bash
+bun scripts/fixtures/external.ts sync     # clone/fetch every entry at its pinned SHA
+bun scripts/fixtures/external.ts update   # re-pin entries to upstream HEAD, then sync
+bun scripts/fixtures/external.ts run      # adopt, compile, and produce round-trip reports
+```
+
+Each verb accepts an optional entry name to target one repo. A run fails (non-zero exit) when init, import, lint, or build fails; the round-trip comparison is report-only for now and exists to make fidelity gaps visible, not to gate. Runs are local/manual — they touch the network, so they are not part of `bun run check` or PR CI. Synced clones carry their own test suites, so repo tests run scoped via `bun run test` (`bun test src scripts`); a bare `bun test` would scan the clones too. Gaps surfaced by a run should become ordinary product fixes with inline regression fixtures, not edits to the external repo clones.
 
 ## Layout convention
 
