@@ -38,20 +38,33 @@
   "scripts": {
     "build": "bun run typecheck && bun run build:npm",
     "build:npm": "bun scripts/build-package.ts",
-    "check": "bun run build && bun test && bun run skillset:lint && bun run skillset:check && git diff --check",
+    "check": "bun run build && bun test && bun run ultracite:doctor && bun run skillset:verify && git diff --check",
+    "check:workflows": "if command -v actionlint >/dev/null 2>&1; then actionlint .github/workflows/*.yml; else echo 'skillset: actionlint not installed; skipping workflow lint'; fi",
+    "hooks:install": "lefthook install",
+    "hooks:pre-commit": "lefthook run pre-commit --force",
+    "hooks:pre-push": "lefthook run pre-push --force",
     "prepack": "tsc --noEmit && bun scripts/build-package.ts",
     "skillset:build": "bun ./src/cli.ts build --root . --yes",
     "skillset:check": "bun ./src/cli.ts check --root .",
     "skillset:ci": "bun ./src/cli.ts ci --root .",
+    "skillset:ci:report": "bun ./src/cli.ts ci --root . --since \"$(scripts/git-trunk.sh)\" --report .skillset/build/skillset-ci-report.md",
     "skillset:lint": "bun ./src/cli.ts lint --root .",
+    "skillset:verify": "bun run skillset:lint && bun run skillset:check",
     "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "ultracite:check": "ultracite check",
+    "ultracite:doctor": "ultracite doctor",
+    "ultracite:fix": "ultracite fix"
   },
   "dependencies": {
     "yaml": "^2.8.1"
   },
   "devDependencies": {
     "@types/bun": "^1.2.15",
-    "typescript": "^5.8.3"
+    "lefthook": "2.1.9",
+    "oxfmt": "0.54.0",
+    "oxlint": "1.69.0",
+    "typescript": "^5.8.3",
+    "ultracite": "7.8.3"
   }
 }
