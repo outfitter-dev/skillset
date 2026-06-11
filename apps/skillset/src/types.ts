@@ -70,6 +70,7 @@ export interface SourceSkill {
   readonly metadata: JsonRecord;
   readonly relativePath: string;
   readonly resources: readonly SourceResource[];
+  readonly sourceOrigin?: SourceOrigin;
   readonly sourcePath: string;
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
 }
@@ -98,6 +99,7 @@ export interface SourcePlugin {
   readonly metadata: JsonRecord;
   readonly path: string;
   readonly skills: readonly SourceSkill[];
+  readonly sourceOrigin?: SourceOrigin;
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
 }
 
@@ -120,6 +122,7 @@ export interface SourceRule {
   readonly frontmatter: JsonRecord;
   readonly id: string;
   readonly relativePath: string;
+  readonly sourceOrigin?: SourceOrigin;
   readonly sourcePath: string;
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
 }
@@ -188,6 +191,12 @@ export interface AppliedTransform {
   readonly intent: string;
 }
 
+export interface SourceOrigin {
+  readonly path: string;
+  readonly ref?: string;
+  readonly repo?: string;
+}
+
 export interface GeneratedEntry {
   readonly dependencies?: readonly string[];
   readonly feature?: string;
@@ -198,6 +207,7 @@ export interface GeneratedEntry {
   readonly outputRoot: string;
   readonly preprocessDependencies?: readonly string[];
   readonly sourceHash?: string;
+  readonly sourceOrigin?: SourceOrigin;
   readonly sourcePath: string;
   readonly sourcePointer?: string;
   readonly target: string;

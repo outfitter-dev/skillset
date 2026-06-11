@@ -25,7 +25,7 @@ import { applyRelease, planRelease, type ReleasePlanReport, type ReleaseSubcomma
 import { createSkillset, initSkillset, type SetupInclude, type SetupReport } from "./setup";
 import { sourceUnitDisplay, sourceUnitDisplays, sourceUnitSelector } from "./source-unit-selector";
 import { runSkillsetTest, type SkillsetTestReport } from "./test-runner";
-import type { BuildScope, CompileBuildMode, SkillsetOptions, TargetName } from "./types";
+import type { BuildScope, CompileBuildMode, SkillsetOptions, SourceOrigin, TargetName } from "./types";
 
 type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "diff" | "doctor" | "explain" | "hooks" | "import" | "init" | "lint" | "list" | "release" | "test";
 
@@ -344,6 +344,7 @@ export async function runCli(
       if (entry.validation !== undefined) console.log(`    validation: ${entry.validation}`);
       if (entry.feature !== undefined) console.log(`    feature: ${entry.feature}`);
       if (entry.origin !== undefined) console.log(`    origin: ${entry.origin}`);
+      if (entry.sourceOrigin !== undefined) console.log(`    source origin: ${formatSourceOrigin(entry.sourceOrigin)}`);
       if (entry.sourcePointer !== undefined) console.log(`    source pointer: ${entry.sourcePointer}`);
       if (entry.dependencies !== undefined && entry.dependencies.length > 0) {
         console.log(`    dependencies: ${entry.dependencies.join(", ")}`);
@@ -671,6 +672,13 @@ function printAdoptReport(report: AdoptReport, reason: string): void {
   }
   console.log(`  report: ${ADOPT_REPORT_DIR}/report.md`);
   console.log(`skillset: adopt ${report.ok ? "passed" : "found problems"}`);
+}
+
+function formatSourceOrigin(origin: SourceOrigin): string {
+  const remote = origin.repo === undefined || origin.ref === undefined
+    ? ""
+    : `${origin.repo} @ ${origin.ref} `;
+  return `${remote}path ${origin.path}`;
 }
 
 function printSetupReport(result: SetupReport, reason: string): void {

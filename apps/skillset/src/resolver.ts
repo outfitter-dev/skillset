@@ -26,6 +26,7 @@ import type {
   OutputSelection,
   SkillsetOptions,
   SourceDialect,
+  SourceOrigin,
   SourcePlugin,
   SourcePluginFeature,
   SourcePluginFeatureKey,
@@ -358,6 +359,8 @@ async function loadInstructions(
     const relativePath = relative(canonicalPath, sourcePath);
     const frontmatter = normalizeRuleFrontmatter(parts.frontmatter, sourcePath);
     await validateSupports(frontmatter.supports, { label: relative(rootPath, sourcePath), rootPath, warnings });
+    const metadata = readSkillsetMetadata(frontmatter, sourcePath);
+    const sourceOrigin = readSourceOrigin(metadata, sourcePath);
     const targets = resolveFeatureTargets(rootTargets, frontmatter, sourcePath, "instructions");
     const dialect = readDialect(frontmatter, relative(rootPath, sourcePath));
 
@@ -367,6 +370,7 @@ async function loadInstructions(
       frontmatter,
       id: relativePath.replace(/\.md$/, ""),
       relativePath,
+      ...(sourceOrigin === undefined ? {} : { sourceOrigin }),
       sourcePath: resolveInside(rootPath, relative(rootPath, sourcePath)),
       targets,
     });
@@ -443,6 +447,7 @@ async function loadPlugin(
   const metadata = readSkillsetMetadata(config, configPath);
   validateSchemaField(metadata, `${configPath}.skillset.schema`);
   validateVersionField(metadata, `${configPath}.skillset.version`);
+  const sourceOrigin = readSourceOrigin(metadata, configPath);
   const configuredId = readSkillsetName(metadata, id, configPath);
   validateSlug(configuredId, `skillset.name in ${configPath}`);
   if (configuredId !== id) {
@@ -479,7 +484,17 @@ async function loadPlugin(
     );
   }
 
-  return { configPath, dependencies, features, id, metadata, path: pluginPath, skills, targets };
+  return {
+    configPath,
+    dependencies,
+    features,
+    id,
+    metadata,
+    path: pluginPath,
+    skills,
+    ...(sourceOrigin === undefined ? {} : { sourceOrigin }),
+    targets,
+  };
 }
 
 async function loadPluginFeatures(
@@ -654,6 +669,7 @@ async function loadSkillsFromDirectory(
     if (metadata.version !== undefined) {
       throw new Error(`skillset: ${sourcePath} uses unsupported skillset.version; use top-level version`);
     }
+    const sourceOrigin = readSourceOrigin(metadata, sourcePath);
     const id = validateSlug(
       readString(parts.frontmatter, "name") ?? basename(dirname(sourcePath)),
       `skill id in ${sourcePath}`
@@ -677,6 +693,7 @@ async function loadSkillsFromDirectory(
       metadata,
       relativePath,
       resources,
+      ...(sourceOrigin === undefined ? {} : { sourceOrigin }),
       sourcePath: resolveInside(rootPath, relative(rootPath, sourcePath)),
       targets,
     });
@@ -766,6 +783,28 @@ async function collectFiles(root: string): Promise<string[]> {
   }
 
   return files;
+}
+
+function readSourceOrigin(metadata: JsonRecord, label: string): SourceOrigin | undefined {
+  const raw = metadata.origin;
+  if (raw === undefined) return undefined;
+  if (!isJsonRecord(raw)) {
+    throw new Error(`skillset: expected ${label}.skillset.origin to be an object`);
+  }
+  const path = readString(raw, "path");
+  if (path === undefined) {
+    throw new Error(`skillset: expected ${label}.skillset.origin.path`);
+  }
+  const repo = readString(raw, "repo");
+  const ref = readString(raw, "ref");
+  if ((repo === undefined) !== (ref === undefined)) {
+    throw new Error(`skillset: ${label}.skillset.origin must set repo and ref together`);
+  }
+  return {
+    path,
+    ...(ref === undefined ? {} : { ref }),
+    ...(repo === undefined ? {} : { repo }),
+  };
 }
 
 async function exists(path: string): Promise<boolean> {

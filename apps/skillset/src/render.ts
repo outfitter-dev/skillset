@@ -45,6 +45,7 @@ import type {
   JsonValue,
   RenderedFile,
   SourceIslandFile,
+  SourceOrigin,
   SourcePlugin,
   SourcePluginFeature,
   SourceProjectAgent,
@@ -80,6 +81,7 @@ interface LockItem {
   readonly preprocessDependencies?: readonly string[];
   readonly skippedSkills?: readonly string[];
   readonly sourceHash: string;
+  readonly sourceOrigin?: SourceOrigin;
   readonly sourcePath: string;
   readonly sourcePointer?: string;
   readonly targetState?: string;
@@ -1232,6 +1234,7 @@ async function renderClaudeRules(
         outputRoot: CLAUDE_RULES_OUTPUT_ROOT,
         outputPath: targetFile,
         sourceHash: hashTextRule(rule),
+        ...(rule.sourceOrigin === undefined ? {} : { sourceOrigin: rule.sourceOrigin }),
         sourcePath: relative(graph.rootPath, rule.sourcePath),
       })
     );
@@ -1728,6 +1731,7 @@ function lockItemForPlugin(args: {
     outputPath: relative(args.outputRoot, args.file.path),
     skippedSkills,
     sourceHash: hashPluginSource(args.plugin, args.target, includedSkills, skippedSkills, dependencyHashSummaries),
+    ...(args.plugin.sourceOrigin === undefined ? {} : { sourceOrigin: args.plugin.sourceOrigin }),
     sourcePath: relative(args.graph.rootPath, args.plugin.path),
     targetState: skippedSkills.length === 0 ? "sync" : "intentionally-skipped",
     version: pluginVersion(args.graph, args.plugin),
@@ -1767,6 +1771,7 @@ function lockItemForRule(args: {
   readonly outputPath: string;
   readonly outputRoot: string;
   readonly sourceHash: string;
+  readonly sourceOrigin?: SourceOrigin;
   readonly sourcePath: string;
   readonly transforms?: readonly AppliedTransform[];
 }): LockItem {
@@ -1777,6 +1782,7 @@ function lockItemForRule(args: {
     outputHash: hashRenderedFiles(args.outputRoot, args.files),
     outputPath: relative(args.outputRoot, args.outputPath),
     sourceHash: args.sourceHash,
+    ...(args.sourceOrigin === undefined ? {} : { sourceOrigin: args.sourceOrigin }),
     sourcePath: args.sourcePath,
     ...(args.transforms === undefined || args.transforms.length === 0
       ? {}
@@ -1853,6 +1859,7 @@ async function lockItemForSkill(args: {
     outputHash: hashRenderedFiles(args.outputRoot, args.files),
     outputPath: files.find((file) => file.endsWith("/SKILL.md")) ?? files[0] ?? "",
     sourceHash: await hashSkillSource(args.sourceDir, args.skill.resources),
+    ...(args.skill.sourceOrigin === undefined ? {} : { sourceOrigin: args.skill.sourceOrigin }),
     sourcePath: relative(args.graph.rootPath, args.skill.sourcePath),
     ...(args.transforms.length === 0 ? {} : { transforms: args.transforms }),
     version: skillVersion(args.graph, args.plugin, args.skill),
@@ -1927,6 +1934,7 @@ function stripUndefinedLockItem(item: LockItem): JsonRecord {
     preprocessDependencies: item.preprocessDependencies === undefined ? undefined : [...item.preprocessDependencies],
     skippedSkills: item.skippedSkills === undefined ? undefined : [...item.skippedSkills],
     sourceHash: item.sourceHash,
+    sourceOrigin: item.sourceOrigin === undefined ? undefined : sourceOriginRecord(item.sourceOrigin),
     sourcePath: item.sourcePath,
     sourcePointer: item.sourcePointer,
     targetState: item.targetState,
@@ -1938,6 +1946,14 @@ function stripUndefinedLockItem(item: LockItem): JsonRecord {
     version: item.version,
   };
   return value;
+}
+
+function sourceOriginRecord(origin: SourceOrigin): JsonRecord {
+  return {
+    path: origin.path,
+    ...(origin.ref === undefined ? {} : { ref: origin.ref }),
+    ...(origin.repo === undefined ? {} : { repo: origin.repo }),
+  };
 }
 
 function hashPluginSource(

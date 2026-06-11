@@ -108,8 +108,8 @@ test("runExternalRepo adopts a marketplace-shaped repo in place and reports roun
     ["purity", true],
   ]);
   expect(report.ok).toBe(true);
-  // The root AGENTS.md candidate now actually imports: adopt copies it
-  // verbatim into .skillset/instructions/ under its lowercased name.
+  // The root AGENTS.md candidate now actually imports: adopt copies the body
+  // into .skillset/instructions/ and adds source-origin metadata.
   expect(
     report.stages.find(
       (stage) =>
@@ -117,9 +117,9 @@ test("runExternalRepo adopts a marketplace-shaped repo in place and reports roun
         stage.detail.includes("instructions:AGENTS.md")
     )?.detail
   ).toContain(".skillset/instructions/agents.md");
-  expect(
-    await readFile(join(clone, ".skillset/instructions/agents.md"), "utf8")
-  ).toBe("# Demo agents\n\nHandwritten instructions.\n");
+  const importedAgents = await readFile(join(clone, ".skillset/instructions/agents.md"), "utf8");
+  expect(importedAgents).toContain("skillset:\n  origin:\n    path: AGENTS.md");
+  expect(importedAgents).toContain("# Demo agents\n\nHandwritten instructions.");
   expect(report.survey.candidates).toEqual([
     { kind: "instructions", path: "AGENTS.md" },
     { kind: "plugin", path: "plugins/demo" },

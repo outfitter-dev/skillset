@@ -4,7 +4,7 @@ import { diffSkillset, scopedRenderedFiles, type SkillsetDiff } from "./build";
 import { inspectSkillset } from "./lint";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
-import type { BuildGraph, GeneratedEntry, LintIssue, SkillsetOptions } from "./types";
+import type { BuildGraph, GeneratedEntry, LintIssue, SkillsetOptions, SourceOrigin } from "./types";
 import { isJsonRecord } from "./yaml";
 
 const textDecoder = new TextDecoder();
@@ -181,6 +181,7 @@ function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuildGraph>>
               : []
           )
         : undefined;
+      const sourceOrigin = readSourceOrigin(rawItem.sourceOrigin);
       matches.push({
         sourcePath,
         outputPath: joinOutputRoot(outputRoot, outputPath),
@@ -198,6 +199,7 @@ function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuildGraph>>
           ...(typeof rawItem.outputHash === "string" ? { outputHash: rawItem.outputHash } : {}),
           ...(preprocessDependencies === undefined ? {} : { preprocessDependencies }),
           ...(typeof rawItem.sourceHash === "string" ? { sourceHash: rawItem.sourceHash } : {}),
+          ...(sourceOrigin === undefined ? {} : { sourceOrigin }),
           ...(typeof rawItem.sourcePointer === "string" ? { sourcePointer: rawItem.sourcePointer } : {}),
           ...(transforms === undefined || transforms.length === 0 ? {} : { transforms }),
           ...(typeof rawItem.version === "string" ? { version: rawItem.version } : {}),
@@ -208,6 +210,15 @@ function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuildGraph>>
     }
   }
   return matches;
+}
+
+function readSourceOrigin(value: unknown): SourceOrigin | undefined {
+  if (!isJsonRecord(value) || typeof value.path !== "string") return undefined;
+  return {
+    path: value.path,
+    ...(typeof value.ref === "string" ? { ref: value.ref } : {}),
+    ...(typeof value.repo === "string" ? { repo: value.repo } : {}),
+  };
 }
 
 function joinOutputRoot(outputRoot: string, file: string): string {

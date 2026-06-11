@@ -5,8 +5,8 @@ import { basename, dirname, join, resolve } from "node:path";
 import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
 import { readSkillsetMetadata, readSkillsetName, readString } from "./config";
 import { compareStrings, resolveInside, validateSlug } from "./path";
-import type { JsonRecord } from "./types";
-import { isJsonRecord, parseMarkdown, parseYamlRecord, stringifyYaml } from "./yaml";
+import type { JsonRecord, SourceOrigin } from "./types";
+import { isJsonRecord, parseMarkdown, parseYamlRecord, stringifyMarkdown, stringifyYaml } from "./yaml";
 
 const DEFAULT_SOURCE_DIR = ".skillset";
 
@@ -57,6 +57,7 @@ export interface ImportOptions {
   readonly name?: string;
   readonly rootPath: string;
   readonly sourceDir?: string;
+  readonly sourceOrigin?: (sourcePath: string, copiedFile?: string) => SourceOrigin;
   readonly sourcePath: string;
 }
 
@@ -66,6 +67,7 @@ export interface ImportSourcesOptions {
   readonly provider?: ImportProvider;
   readonly rootPath: string;
   readonly sourceDir?: string;
+  readonly sourceOrigin?: (sourcePath: string, copiedFile?: string) => SourceOrigin;
   readonly sourcePath?: string;
 }
 
@@ -109,6 +111,7 @@ export async function importSources(options: ImportSourcesOptions): Promise<Impo
         sourcePath: item.sourcePath,
         ...(options.name === undefined ? {} : { name: options.name }),
         ...(options.sourceDir === undefined ? {} : { sourceDir: options.sourceDir }),
+        ...(options.sourceOrigin === undefined ? {} : { sourceOrigin: options.sourceOrigin }),
       })
     );
   }
@@ -146,6 +149,9 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
 
   try {
     const copiedFiles = await copyImportSource(sourcePath, stagingPath, options.kind, name);
+    if (options.sourceOrigin !== undefined) {
+      await stampImportedOrigins(stagingPath, sourcePath, copiedFiles, options.kind, options.sourceOrigin);
+    }
     const frontmatter = await readImportedFrontmatter(stagingPath, options.kind);
     const classification = classifyFrontmatter(frontmatter);
 
@@ -317,6 +323,52 @@ async function copyImportSource(
   }
 
   return copied.sort(compareStrings);
+}
+
+async function stampImportedOrigins(
+  targetPath: string,
+  sourcePath: string,
+  copiedFiles: readonly string[],
+  kind: SingularImportKind,
+  sourceOrigin: (sourcePath: string, copiedFile?: string) => SourceOrigin
+): Promise<void> {
+  if (kind === "plugin") {
+    await writeYamlSourceOrigin(join(targetPath, "skillset.yaml"), sourceOrigin(sourcePath));
+  }
+
+  for (const file of copiedFiles) {
+    if (basename(file) !== "SKILL.md") continue;
+    await writeMarkdownSourceOrigin(join(targetPath, file), sourceOrigin(sourcePath, file));
+  }
+}
+
+async function writeYamlSourceOrigin(path: string, origin: SourceOrigin): Promise<void> {
+  const config = parseYamlRecord(await readFile(path, "utf8"), path);
+  await writeFile(path, stringifyYaml(withSkillsetOrigin(config, origin)));
+}
+
+async function writeMarkdownSourceOrigin(path: string, origin: SourceOrigin): Promise<void> {
+  const parts = parseMarkdown(await readFile(path, "utf8"), path);
+  await writeFile(path, stringifyMarkdown(withSkillsetOrigin(parts.frontmatter, origin), parts.body));
+}
+
+function withSkillsetOrigin(record: JsonRecord, origin: SourceOrigin): JsonRecord {
+  const existing = isJsonRecord(record.skillset) ? record.skillset : {};
+  return {
+    ...record,
+    skillset: {
+      ...existing,
+      origin: sourceOriginRecord(origin),
+    },
+  };
+}
+
+function sourceOriginRecord(origin: SourceOrigin): JsonRecord {
+  return {
+    path: origin.path,
+    ...(origin.ref === undefined ? {} : { ref: origin.ref }),
+    ...(origin.repo === undefined ? {} : { repo: origin.repo }),
+  };
 }
 
 function relativeImportPath(sourceRoot: string, file: string, kind: SingularImportKind): string {

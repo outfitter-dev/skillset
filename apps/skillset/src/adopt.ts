@@ -20,8 +20,8 @@ import {
   type SetupImportCandidate,
   type SurveySkip,
 } from "./setup";
-import type { LintIssue, SkillsetOptions, TargetName } from "./types";
-import { parseMarkdown } from "./yaml";
+import type { JsonRecord, LintIssue, SkillsetOptions, SourceOrigin, TargetName } from "./types";
+import { isJsonRecord, parseMarkdown, stringifyMarkdown } from "./yaml";
 
 export interface AdoptOptions extends SkillsetOptions {
   readonly cwd?: string;
@@ -183,7 +183,7 @@ async function adoptResolvedRoot(
   const cutover: string[] = [];
   const previewSources: string[] = [];
   for (const candidate of init.importCandidates) {
-    imports.push(await importCandidate(init.rootPath, candidate, cutover, previewSources));
+    imports.push(await importCandidate(init.rootPath, acquisition, candidate, cutover, previewSources));
   }
   // Dialect declaration must land before the graph loads: the isolated build
   // below is what translates the Codex projection of the marked files.
@@ -285,6 +285,7 @@ async function runGit(args: readonly string[], cwd: string): Promise<string> {
  */
 async function importCandidate(
   rootPath: string,
+  acquisition: AdoptAcquisition,
   candidate: SetupImportCandidate,
   cutover: string[],
   previewSources: string[]
@@ -292,6 +293,10 @@ async function importCandidate(
   if (candidate.kind === "instructions") {
     try {
       const destination = await importInstructionFile(rootPath, candidate.path);
+      await writeMarkdownSourceOrigin(
+        join(rootPath, destination),
+        sourceOriginFor(acquisition, candidate.path)
+      );
       // The original instruction file stays in place; a live build would
       // regenerate it from the imported source and hit the unmanaged-overwrite
       // protection, so it belongs on the cutover list.
@@ -307,6 +312,8 @@ async function importCandidate(
     const batch = await importSources({
       kind: candidate.kind,
       rootPath,
+      sourceOrigin: (sourcePath, copiedFile) =>
+        sourceOriginFor(acquisition, relativeOriginPath(rootPath, sourcePath, copiedFile)),
       sourcePath: join(rootPath, candidate.path),
     });
     const units = batch.imports.map((report) => {
@@ -337,10 +344,11 @@ async function importCandidate(
 }
 
 /**
- * Minimal verbatim instructions import: copy the root instruction file into
+ * Minimal instructions import: copy the root instruction body into
  * `.skillset/instructions/` under its lowercased name (`AGENTS.md` ->
- * `agents.md`). The ADR's transform-on-adopt is a later slice; content copies
- * byte-for-byte and never overwrites an existing destination.
+ * `agents.md`), adding source-only provenance metadata. The ADR's
+ * transform-on-adopt is a later slice; adopt never overwrites an existing
+ * destination.
  */
 async function importInstructionFile(rootPath: string, sourceName: string): Promise<string> {
   const destinationRelative = `${INSTRUCTIONS_DIR}/${sourceName.toLowerCase()}`;
@@ -355,6 +363,46 @@ async function importInstructionFile(rootPath: string, sourceName: string): Prom
   await mkdir(dirname(destination), { recursive: true });
   await writeFile(destination, content);
   return destinationRelative;
+}
+
+function sourceOriginFor(acquisition: AdoptAcquisition, path: string): SourceOrigin {
+  return acquisition.kind === "git"
+    ? { path, ref: acquisition.ref, repo: acquisition.repo }
+    : { path };
+}
+
+function relativeOriginPath(rootPath: string, sourcePath: string, copiedFile?: string): string {
+  const sourceFile = copiedFile === undefined
+    ? sourcePath
+    : basename(sourcePath) === copiedFile
+      ? sourcePath
+      : join(sourcePath, copiedFile);
+  const path = relative(rootPath, sourceFile).replaceAll("\\", "/");
+  return path.length === 0 ? "." : path;
+}
+
+async function writeMarkdownSourceOrigin(path: string, origin: SourceOrigin): Promise<void> {
+  const parts = parseMarkdown(await readFile(path, "utf8"), path);
+  await writeFile(path, stringifyMarkdown(withSkillsetOrigin(parts.frontmatter, origin), parts.body));
+}
+
+function withSkillsetOrigin(record: JsonRecord, origin: SourceOrigin): JsonRecord {
+  const existing = isJsonRecord(record.skillset) ? record.skillset : {};
+  return {
+    ...record,
+    skillset: {
+      ...existing,
+      origin: sourceOriginRecord(origin),
+    },
+  };
+}
+
+function sourceOriginRecord(origin: SourceOrigin): JsonRecord {
+  return {
+    path: origin.path,
+    ...(origin.ref === undefined ? {} : { ref: origin.ref }),
+    ...(origin.repo === undefined ? {} : { repo: origin.repo }),
+  };
 }
 
 /**
@@ -486,7 +534,7 @@ export function renderAdoptReportMarkdown(
   } else {
     for (const result of succeeded) {
       if (result.destination !== undefined) {
-        lines.push(`- ${result.candidate.kind}: \`${result.candidate.path}\` -> \`${result.destination}\` (verbatim copy)`);
+        lines.push(`- ${result.candidate.kind}: \`${result.candidate.path}\` -> \`${result.destination}\` (body copy with provenance metadata)`);
         continue;
       }
       lines.push(`- ${result.candidate.kind}: \`${result.candidate.path}\` -> ${result.detail}`);
