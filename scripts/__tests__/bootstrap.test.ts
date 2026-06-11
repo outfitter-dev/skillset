@@ -1,8 +1,7 @@
+import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-
-import { describe, expect, test } from "bun:test";
 
 import {
   isBunVersionAllowed,
@@ -13,7 +12,8 @@ import {
   readPinnedBunVersion,
 } from "../bootstrap/bun";
 import { loadBootstrapConfig } from "../bootstrap/config";
-import { isLinkedWorktree } from "../bootstrap/git";
+import { gitSafeEnv } from "../../src/git-env";
+import { isLinkedWorktree, readRepoHealth } from "../bootstrap/git";
 import { detectHost, resolveRepoRoot } from "../bootstrap/host";
 import { parseBootstrapArgs } from "../bootstrap/main";
 import { ensureBunAvailable, listWorkspaceGlobs } from "../bootstrap/repo";
@@ -42,7 +42,10 @@ const makeRepoRoot = (): string => {
     '{"name":"skillset","packageManager":"bun@1.3.14","engines":{"bun":">=1.3.14"},"workspaces":[]}\n'
   );
   writeFileSync(join(root, ".bun-version"), "1.3.14\n");
-  writeFileSync(join(root, ".skillset/config.yaml"), "skillset:\n  name: skillset\n");
+  writeFileSync(
+    join(root, ".skillset/config.yaml"),
+    "skillset:\n  name: skillset\n"
+  );
   writeFileSync(join(root, "src/cli.ts"), "");
   return root;
 };
@@ -292,5 +295,57 @@ describe("bootstrap repo policy", () => {
     const config = loadBootstrapConfig();
     expect(config.cleanup.directories).toContain("dist");
     expect(config.cleanup.directories).toContain(".skillset/build");
+  });
+});
+
+describe("readRepoHealth", () => {
+  const git = (root: string, ...args: string[]): void => {
+    Bun.spawnSync({ cmd: ["git", ...args], cwd: root, env: gitSafeEnv() });
+  };
+
+  const initRepo = (): string => {
+    const root = mkdtempSync(join(tmpdir(), "skillset-repo-health-"));
+    git(root, "init", "-q");
+    return root;
+  };
+
+  test("reports a healthy repo", () => {
+    const root = initRepo();
+    const health = readRepoHealth(root);
+    expect(health.coreBare).toBe(false);
+    expect(health.staleWorktrees).toEqual([]);
+    rmSync(root, { force: true, recursive: true });
+  });
+
+  test("flags core.bare corruption", () => {
+    const root = initRepo();
+    git(root, "config", "core.bare", "true");
+    expect(readRepoHealth(root).coreBare).toBe(true);
+    rmSync(root, { force: true, recursive: true });
+  });
+
+  test("flags worktrees locked by dead processes and keeps live locks", () => {
+    const root = initRepo();
+    git(root, "config", "user.email", "t@example.com");
+    git(root, "config", "user.name", "t");
+    writeFileSync(join(root, "file.txt"), "x\n");
+    git(root, "add", ".");
+    git(root, "commit", "-qm", "init");
+
+    const deadPath = join(root, "wt-dead");
+    const livePath = join(root, "wt-live");
+    git(root, "worktree", "add", "-q", deadPath);
+    git(root, "worktree", "add", "-q", livePath);
+    git(root, "worktree", "lock", "--reason", "agent x (pid 999999999 start now)", deadPath);
+    git(root, "worktree", "lock", "--reason", `agent y (pid ${process.pid} start now)`, livePath);
+
+    const health = readRepoHealth(root);
+    // git reports realpath; macOS tmpdir is a symlink, so compare suffixes.
+    expect(
+      health.staleWorktrees.map((worktree) =>
+        worktree.path.endsWith("/wt-dead")
+      )
+    ).toEqual([true]);
+    rmSync(root, { force: true, recursive: true });
   });
 });

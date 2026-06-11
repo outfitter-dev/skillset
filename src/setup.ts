@@ -4,6 +4,7 @@ import { basename, dirname, join, relative, resolve } from "node:path";
 import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
 import { CI_WORKFLOW_PATH, renderCiWorkflow } from "./ci";
 import { validateConfigDocument } from "./config";
+import { gitSafeEnv } from "./git-env";
 import type { TargetName } from "./types";
 import { validateSlug } from "./path";
 import { parseYamlRecord } from "./yaml";
@@ -142,6 +143,7 @@ async function initRootPath(options: SetupOptions): Promise<string> {
 async function gitRoot(cwd: string): Promise<string | undefined> {
   const proc = Bun.spawn({
     cmd: ["git", "-C", cwd, "rev-parse", "--show-toplevel"],
+    env: gitSafeEnv(),
     stderr: "pipe",
     stdout: "pipe",
   });

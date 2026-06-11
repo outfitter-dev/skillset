@@ -8,6 +8,11 @@
 pre-commit:
   piped: true
   jobs:
+    - name: repo-sanity
+      env:
+        GIT_PAGER: cat
+      run: |
+        test "$(git config --default false core.bare)" = "false" || { echo "core.bare is true — a concurrent tool corrupted .git/config and checkouts will fail; repair with 'git config core.bare false'"; exit 1; }
     - name: whitespace
       env:
         GIT_PAGER: cat
@@ -30,6 +35,11 @@ pre-commit:
 pre-push:
   piped: true
   jobs:
+    - name: repo-sanity
+      env:
+        GIT_PAGER: cat
+      run: |
+        test "$(git config --default false core.bare)" = "false" || { echo "core.bare is true — a concurrent tool corrupted .git/config and checkouts will fail; repair with 'git config core.bare false'"; exit 1; }
     - name: whitespace
       env:
         GIT_PAGER: cat

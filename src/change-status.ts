@@ -6,6 +6,7 @@ import { dirname, join, relative } from "node:path";
 import { diffSkillset, type SkillsetDiff } from "./build";
 import { readString } from "./config";
 import { compareStrings, resolveInside } from "./path";
+import { gitSafeEnv } from "./git-env";
 import { preprocessText } from "./preprocess";
 import { readReleaseState } from "./release-state";
 import { loadBuildGraph } from "./resolver";
@@ -937,6 +938,7 @@ async function runCommand(
   const proc = Bun.spawn({
     cmd: [...cmd],
     cwd,
+    env: gitSafeEnv(),
     stderr: "pipe",
     stdout: "pipe",
   });

@@ -3,7 +3,7 @@ slug: one-action-repo-adoption
 title: One-Action Repo Adoption
 status: draft
 created: 2026-06-10
-updated: 2026-06-10
+updated: 2026-06-11
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [0, fixtures-tests-dogfooding-and-evals, global-xdg-managed-installs-and-sync, source-change-release-provenance]
 ---
@@ -25,7 +25,7 @@ The goal this ADR commits to: point Skillset at an existing repo — a local pat
 
 ## Decision
 
-Skillset gets a whole-repo adoption flow: survey everything adoptable, lower each surface into its canonical `.skillset/` home, transform target-native authoring into portable source where the conversion is mechanical, leave the original tree untouched, and record where everything came from.
+Skillset gets a whole-repo adoption flow — `skillset adopt <path|git-remote>` — that surveys everything adoptable, lowers each surface into its canonical `.skillset/` home, transforms target-native authoring into portable source where the conversion is mechanical, leaves the original tree untouched, and records where everything came from.
 
 ### Adoption surveys the whole repo, not just manifests
 
@@ -66,24 +66,25 @@ Every rewrite lands in the migration report: what changed, from what, to what, a
 
 Adopted source is regenerable by design: re-running adoption against the same original produces the same `.skillset/` tree. Hand-tuning is expected to start *after* migration settles, which is what makes the refresh loop below safe for fixtures and predictable for users.
 
+The transform mappings are an intent-keyed registry — typed data, one portable concept per entry with per-target surface forms, each entry carrying target-truth evidence and a round-trip identity test (Claude form → intent → Claude form must reproduce the original). The same registry runs at two stages. Adopt-time normalization is the default: the portable form is persisted as source. Build-time translation is the deferral path: source may stay in a target dialect — Claude- or Codex-flavored authoring, detected from indicators such as target-native frontmatter keys or manifest presence, and declarable explicitly in frontmatter, with declaration winning — and the build lowers it through the intent hub per projection. Dialect source is distinct from target-native islands: islands are target-locked and never translated; dialect source translates to every enabled target.
+
 ### The original tree stays pure
 
 Adoption writes `.skillset/` and nothing else. The invariant is mechanically checkable: in a clean clone, `git status --porcelain` after adopt-and-build shows only `.skillset/`. Any other dirty path is a toolchain defect, not a judgment call.
 
 This is what keeps the original usable as the round-trip baseline. Generated output is diffed against the original files sitting untouched in place, so fidelity gaps are visible as ordinary diffs rather than archaeology over an overwritten tree.
 
-### Isolated output roots are pure configuration
+Cutover is documentation, not a feature. A real migration ends with generated output replacing the originals, and the existing unmanaged-overwrite protection rightly refuses while originals linger. The migration report therefore ends with explicit cutover instructions — remove or relocate the listed originals, then build against live roots — instead of a `--replace` mode. If real migrations show that manual step failing at scale, a guided cutover command can earn its place later.
 
-Builds during adoption must not write into the original repo's live surfaces — `plugins-claude/`, `.claude/skills`, `.claude/rules`, and derived `AGENTS.md` destinations can all collide with original files. The fix is not an adoption-only build mode; it is finishing output-root configuration:
+### Isolated build output is a binary mode
 
-- every output surface (plugins, skills, rules, instruction destinations) becomes configurable the way plugin outputs already are through target output objects such as `claude.plugins.path`;
-- a root-oriented reproduction under `.skillset/build/out/` — the generated tree laid out as the repo root would be — is one ordinary configuration of those roots, aligned with the Skillset-owned `~/.skillset/build` preview area and with `skillset test`'s isolated runs under `.skillset/build/tests/`.
+Builds during adoption must not write into the original repo's live surfaces — `plugins-claude/`, `.claude/skills`, `.claude/rules`, and derived `AGENTS.md` destinations can all collide with original files. The fix is one binary choice: generated output goes either to the live directed roots (today's behavior, the default) or wholesale into `.skillset/build/out/` — a root-oriented reproduction of the projection, the generated tree laid out as the repo root would be. One flag on `build`/`check`/`diff` selects the mode; locks, drift, and check compute against whichever root is active.
 
-This means adoption, external fixtures, deterministic tests, and global loadouts are all consumers of the same configuration. Fixtures get no privileged build mode; "isolated" is a place you point the existing build at, and the build contract — determinism, locks, drift checks — applies identically.
+Adoption, external fixtures, and the future `~/.skillset/build` global preview are all callers of the same flag — fixtures get no privileged build mode, and the build contract (determinism, locks, drift checks) applies identically in both modes. A fuller per-surface output-root vocabulary (redirecting individual surfaces) was considered and deferred: derived `AGENTS.md` destinations cannot be expressed as a single root anyway, and no current consumer needs partial redirection. Revisit if in-place preview or the XDG build area demands it.
 
 ### Acquisition is sugar; provenance makes refresh real
 
-`skillset adopt <git-url>` shallow-clones to a Skillset-owned cache location and runs the same flow as `skillset adopt <path>`. Acquisition adds no semantics.
+`skillset adopt` accepts a local path or a git remote — exactly what `git clone` accepts, no other acquisition schemes. A remote shallow-clones to a Skillset-owned cache location and runs the same flow as a path. Acquisition adds no semantics.
 
 Imported source records its origin — repository, pinned commit, and original path — in lock provenance. That record is what turns "upstream moved" into a defined operation: a future `adopt --refresh` re-pins, re-runs the regenerable migration, and reports the delta, instead of asking the user to remember where source came from. Refresh semantics beyond wholesale regeneration (merging upstream changes into hand-tuned source) are explicitly deferred.
 
@@ -114,7 +115,6 @@ Imported source records its origin — repository, pinned commit, and original p
 
 ## Non-Decisions
 
-- The command spelling (`skillset adopt` versus `skillset import --all`) is an implementation choice; this ADR decides the behavior, not the flag surface.
 - Which transforms ship in the first slice, and the exact source vocabulary for converted variables, are implementation-time decisions guided by the external fixture reports.
 - Cache location and eviction for URL acquisition follow the Skillset-owned XDG paths draft when that lands.
 

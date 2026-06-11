@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { parseYamlRecord } from "../yaml";
+import { gitSafeEnv } from "../git-env";
 import { buildSkillset } from "../build";
 import { CI_REPORT_MARKER, CI_WORKFLOW_PATH, ciSkillset, renderCiReportMarkdown, renderCiWorkflow } from "../ci";
 import { initSkillset } from "../setup";
@@ -251,6 +252,7 @@ async function commitFixture(root: string): Promise<void> {
 async function runGit(root: string, ...args: readonly string[]): Promise<void> {
   const proc = Bun.spawn({
     cmd: ["git", "-C", root, ...args],
+    env: gitSafeEnv(),
     stderr: "pipe",
     stdout: "pipe",
   });

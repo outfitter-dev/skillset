@@ -2,6 +2,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { gitSafeEnv } from "../../src/git-env";
+
 export const BOOTSTRAP_DIR = dirname(fileURLToPath(import.meta.url));
 export const SCRIPTS_DIR = resolve(BOOTSTRAP_DIR, "..");
 export const DEFAULT_REPO_ROOT = resolve(SCRIPTS_DIR, "..");
@@ -22,6 +24,9 @@ export const run = (cmd: readonly string[], cwd: string): ExecResult => {
   const result = Bun.spawnSync({
     cmd: [...cmd],
     cwd,
+    // Bootstrap runs inside agent/git hooks; repository-targeting GIT_* vars
+    // must not leak into spawned commands (see src/git-env.ts).
+    env: gitSafeEnv(),
     stderr: "pipe",
     stdout: "pipe",
   });
@@ -38,6 +43,7 @@ export const runInherit = async (
 ): Promise<number> => {
   const proc = Bun.spawn([...cmd], {
     cwd,
+    env: gitSafeEnv(),
     stderr: "inherit",
     stdout: "inherit",
   });
