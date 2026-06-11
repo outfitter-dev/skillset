@@ -3,6 +3,7 @@ import { basename, dirname, resolve } from "node:path";
 
 import { changeCheck, type ChangeBump, type ChangeCheckReport } from "./change-entries";
 import { changeStatus, type ChangeStatusReport } from "./change-status";
+import { ADOPT_REPORT_DIR, adoptSkillset, type AdoptReport } from "./adopt";
 import {
   addChangeEntry,
   groupRef,
@@ -26,7 +27,7 @@ import { sourceUnitDisplay, sourceUnitDisplays, sourceUnitSelector } from "./sou
 import { runSkillsetTest, type SkillsetTestReport } from "./test-runner";
 import type { BuildScope, CompileBuildMode, SkillsetOptions, TargetName } from "./types";
 
-type Command = "build" | "change" | "check" | "ci" | "create" | "diff" | "doctor" | "explain" | "hooks" | "import" | "init" | "lint" | "list" | "release" | "test";
+type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "diff" | "doctor" | "explain" | "hooks" | "import" | "init" | "lint" | "list" | "release" | "test";
 
 const USAGE = [
   "usage: skillset build [--yes|--dry-run] [--updated|--all] [--isolated] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
@@ -45,6 +46,7 @@ const USAGE = [
   "       skillset test [name] [--root <path>] [--source <dir>]",
   "       skillset hooks print --runner <lefthook|husky|pre-commit|git> [--pre-commit] [--pre-push]",
   "       skillset hooks print --target <claude|codex> --agent-runtime",
+  "       skillset adopt <path> [--yes|--dry-run] [--targets claude,codex] [--root <path>]",
   "       skillset init [path] [--yes|--dry-run] [--targets claude,codex] [--include agents,ci] [--name <name>] [--root <path>]",
   "       skillset create [path|--global] [--yes|--dry-run] [--targets claude,codex] [--include agents,ci] [--name <name>] [--root <path>]",
   "       skillset explain <path> [--root <path>] [--source <dir>]",
@@ -231,6 +233,21 @@ export async function runCli(
       console.log(`  warn: ${issue.path}: ${issue.code}: ${issue.message}`);
     }
     console.log(`skillset: linted ${result.checkedSkills} source skills`);
+    return;
+  }
+
+  if (command === "adopt") {
+    const writeMode = yes && !dryRun;
+    const report = await adoptSkillset(
+      importPath === undefined ? rootPath : resolve(rootPath, importPath),
+      {
+        ...(setupTargets === undefined ? {} : { targets: setupTargets }),
+        write: writeMode,
+      }
+    );
+    printAdoptReport(report, dryRun ? "dry run" : writeMode ? "written" : "write confirmation required");
+    if (!writeMode) console.log("skillset: rerun with --yes to adopt");
+    if (writeMode && !report.ok) process.exitCode = 1;
     return;
   }
 
@@ -612,6 +629,41 @@ function printImportReport(result: ImportReport): void {
   console.log(`  next: ${result.nextChecks.join(", ")}`);
 }
 
+function printAdoptReport(report: AdoptReport, reason: string): void {
+  console.log(`skillset: adopt ${report.rootPath} (${reason})`);
+  if (report.alreadyAdopted) {
+    console.log("  note: repo already has .skillset/config.yaml; adopting against existing source");
+  }
+  for (const file of report.setupFiles) {
+    console.log(`  ${file.status === "create" ? "+" : "="} ${file.path}`);
+  }
+  for (const candidate of report.candidates) {
+    console.log(`  ? import candidate ${candidate.kind} ${candidate.path}`);
+  }
+  for (const skip of report.surveySkips) {
+    console.log(`  ! skipped ${skip.surface} ${skip.path}: ${skip.reason}`);
+  }
+  if (!report.write) return;
+
+  for (const result of report.imports) {
+    const marker = result.ok ? "ok" : "FAIL";
+    console.log(`  ${marker} import ${result.candidate.kind}:${result.candidate.path}${result.ok ? ` -> ${result.detail}` : `: ${result.detail}`}`);
+  }
+  const lintErrors = report.lintIssues.filter((issue) => issue.severity === "error").length;
+  const lintWarnings = report.lintIssues.length - lintErrors;
+  console.log(`  ${lintErrors === 0 ? "ok" : "FAIL"} lint: ${lintErrors} error(s), ${lintWarnings} warning(s)`);
+  console.log(
+    report.buildError === undefined
+      ? `  ok build: wrote ${report.builtFiles} generated files under .skillset/build/out/`
+      : `  FAIL build: ${report.buildError.split("\n")[0]}`
+  );
+  if (report.cutover.length > 0) {
+    console.log(`  cutover: ${report.cutover.join(", ")} (see report)`);
+  }
+  console.log(`  report: ${ADOPT_REPORT_DIR}/report.md`);
+  console.log(`skillset: adopt ${report.ok ? "passed" : "found problems"}`);
+}
+
 function printSetupReport(result: SetupReport, reason: string): void {
   for (const file of result.files) {
     const marker = file.status === "create" ? "+" : "=";
@@ -658,6 +710,7 @@ function printSkillsetTest(report: SkillsetTestReport): void {
 function parseArgs(args: readonly string[]): ParsedArgs {
   const command = args[0];
   if (
+    command !== "adopt" &&
     command !== "build" &&
     command !== "change" &&
     command !== "check" &&
@@ -675,7 +728,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     command !== "test"
   ) {
     throw new Error(
-        "skillset: expected command build, change, check, ci, create, diff, doctor, explain, hooks, import, init, lint, list, release, or test\n" +
+        "skillset: expected command adopt, build, change, check, ci, create, diff, doctor, explain, hooks, import, init, lint, list, release, or test\n" +
         USAGE
     );
   }
@@ -770,7 +823,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     }
   }
 
-  if (command === "init" || command === "create") {
+  if (command === "adopt" || command === "init" || command === "create") {
     const rawPath = args[index];
     if (rawPath !== undefined && !rawPath.startsWith("--")) {
       importPath = rawPath;
@@ -960,6 +1013,11 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(ciReportPath === undefined ? {} : { reportPath: ciReportPath }),
     ...(changeSince === undefined ? {} : { since: changeSince }),
     yes,
+  });
+
+  validateAdoptFlags(command, {
+    ...(buildMode === undefined ? {} : { buildMode }),
+    ...(scopes === undefined ? {} : { scopes }),
   });
 
   validateIsolatedFlag(command, isolated);
@@ -1273,11 +1331,31 @@ function validateSetupFlags(
   if (command === "create" && setup.global && setup.path !== undefined) {
     throw new Error("skillset: create accepts either a path or --global, not both");
   }
+  if (command === "adopt") {
+    if (setup.global) throw new Error("skillset: --global is not supported with adopt");
+    if (setup.includes !== undefined) throw new Error("skillset: --include is not supported with adopt");
+    return;
+  }
   const hasSetupFlag = setup.global ||
     setup.includes !== undefined ||
     setup.targets !== undefined;
   if (hasSetupFlag && command !== "init" && command !== "create") {
     throw new Error("skillset: setup options are only supported with init or create");
+  }
+}
+
+function validateAdoptFlags(
+  command: Command,
+  adopt: {
+    readonly buildMode?: CompileBuildMode;
+    readonly scopes?: readonly BuildScope[];
+  }
+): void {
+  if (command !== "adopt") return;
+  if (adopt.buildMode !== undefined || adopt.scopes !== undefined) {
+    throw new Error(
+      "skillset: build mode and scope flags are not supported with adopt; adoption always builds the full projection isolated"
+    );
   }
 }
 

@@ -1,18 +1,20 @@
 #!/usr/bin/env bun
 /**
  * Maintainer harness for external fixture repos: real published repos that
- * Skillset should be able to adopt (init + import), compile, and round-trip
- * into substantially similar generated output.
+ * `skillset adopt` should migrate cleanly, compile, and round-trip into
+ * substantially similar generated output.
  *
  * The committed manifest (fixtures/external/repos.yaml) pins each repo to an
  * exact commit. Clones live gitignored under fixtures/external/repos/ and are
- * never scanned as this repo's own source. Runs adopt each clone in place and
- * build with the isolated mirror (everything lands under .skillset/build/out/),
- * then write reports under .skillset/build/external/.
+ * never scanned as this repo's own source. Runs are a thin wrapper over the
+ * product command: each clone is adopted in place with adoptSkillset (survey,
+ * imports, lint, isolated build under .skillset/build/out/), then the harness
+ * checks purity and round-trips and writes reports under
+ * .skillset/build/external/.
  *
  *   bun scripts/fixtures/external.ts sync   [name]   # reset clones pristine at pinned refs
  *   bun scripts/fixtures/external.ts update [name]   # re-pin to upstream HEAD, then sync
- *   bun scripts/fixtures/external.ts run    [name]   # init -> import -> lint -> build -> purity -> round-trip report
+ *   bun scripts/fixtures/external.ts run    [name]   # adopt -> purity -> round-trip report
  *
  * Run failures (init/import/lint/build/purity errors) exit non-zero. The
  * purity stage is the hard invariant: after a run, `git status` in the clone
@@ -23,12 +25,10 @@
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 
-import { buildSkillset, ISOLATED_OUT_ROOT } from "../../apps/skillset/src/build";
+import { adoptSkillset, type AdoptReport } from "../../apps/skillset/src/adopt";
+import { ISOLATED_OUT_ROOT } from "../../apps/skillset/src/build";
 import { gitSafeEnv } from "../../apps/skillset/src/git-env";
-import { importSources } from "../../apps/skillset/src/import";
-import { lintSkillset } from "../../apps/skillset/src/lint";
 import { compareStrings, validateSlug } from "../../apps/skillset/src/path";
-import { initSkillset } from "../../apps/skillset/src/setup";
 import type {
   SetupImportCandidate,
   SurveySkip,
@@ -307,10 +307,12 @@ async function cleanSkillsetLeftovers(clonePath: string): Promise<void> {
 }
 
 /**
- * Adopt one external repo clone in place: init the source scaffold, import
- * every detected candidate, lint, build with the isolated mirror (the
- * projection lands under .skillset/build/out/), verify the purity invariant,
- * and compare the original clone against the generated Claude projection.
+ * Adopt one external repo clone in place via the product command
+ * (`adoptSkillset`): survey, import every candidate (instructions included),
+ * lint, and build with the isolated mirror (the projection lands under
+ * .skillset/build/out/). The harness adds only what the product command does
+ * not own: the purity invariant and the round-trip comparison of the original
+ * clone against the generated Claude projection.
  */
 export async function runExternalRepo(
   name: string,
@@ -322,24 +324,23 @@ export async function runExternalRepo(
 
   await cleanSkillsetLeftovers(clonePath);
 
-  let candidates: readonly SetupImportCandidate[] = [];
   let survey: ExternalSurvey = { candidates: [], skips: [] };
+  let adopt: AdoptReport;
   try {
-    const init = await initSkillset({
-      cwd: clonePath,
-      targets,
-      useGitRoot: false,
-      write: true,
-    });
-    candidates = init.importCandidates;
-    survey = { candidates, skips: init.surveySkips };
-    stages.push({
-      detail: `${candidates.length} import candidate(s): ${candidates.map((candidate) => `${candidate.kind}:${candidate.path}`).join(", ") || "none"}`,
-      ok: candidates.length > 0,
-      stage: "init",
-    });
+    adopt = await adoptSkillset(clonePath, { targets, write: true });
   } catch (error) {
     stages.push({ detail: errorMessage(error), ok: false, stage: "init" });
+    return { name, ok: false, roundTrips, stages, survey };
+  }
+
+  const { candidates } = adopt;
+  survey = { candidates, skips: adopt.surveySkips };
+  stages.push({
+    detail: `${candidates.length} import candidate(s): ${candidates.map((candidate) => `${candidate.kind}:${candidate.path}`).join(", ") || "none"}`,
+    ok: candidates.length > 0,
+    stage: "init",
+  });
+  if (candidates.length === 0) {
     return { name, ok: false, roundTrips, stages, survey };
   }
 
@@ -348,75 +349,40 @@ export async function runExternalRepo(
     readonly name: string;
     readonly sourcePath: string;
   }[] = [];
-  for (const candidate of candidates) {
-    // Instruction files have no import lowering yet; adopt will lower them to
-    // .skillset/instructions/. Deferring keeps the run green and visible.
-    if (candidate.kind === "instructions") {
-      stages.push({
-        detail: `${candidate.kind}:${candidate.path}: instructions candidate deferred to adopt`,
-        ok: true,
-        stage: "import",
-      });
-      continue;
-    }
-    try {
-      const batch = await importSources({
-        kind: candidate.kind,
-        rootPath: clonePath,
-        sourcePath: join(clonePath, candidate.path),
-      });
-      for (const report of batch.imports) {
-        const sourcePath = relative(clonePath, report.sourcePath).replaceAll(
-          "\\",
-          "/"
-        );
-        imported.push({
-          kind: report.kind,
-          name: report.name,
-          sourcePath: sourcePath.length === 0 ? "." : sourcePath,
-        });
-      }
-      stages.push({
-        detail: `${candidate.kind}:${candidate.path} -> ${batch.imports.map((report) => `${report.kind} ${report.name}`).join(", ")} (${batch.files} files)`,
-        ok: true,
-        stage: "import",
-      });
-    } catch (error) {
-      stages.push({
-        detail: `${candidate.kind}:${candidate.path}: ${errorMessage(error)}`,
-        ok: false,
-        stage: "import",
-      });
-    }
-  }
-
-  if (imported.length === 0) {
-    return { name, ok: false, roundTrips, stages, survey };
-  }
-
-  // Partial import failures still run lint/build: they validate whatever did
-  // import, and the failed import stage already fails the overall run.
-  try {
-    const lint = await lintSkillset(clonePath);
+  for (const result of adopt.imports) {
+    const label = `${result.candidate.kind}:${result.candidate.path}`;
     stages.push({
-      detail: `linted ${lint.checkedSkills} source skills`,
-      ok: true,
-      stage: "lint",
+      detail: result.ok
+        ? `${label} -> ${result.detail}`
+        : `${label}: ${result.detail}`,
+      ok: result.ok,
+      stage: "import",
     });
-  } catch (error) {
-    stages.push({ detail: errorMessage(error), ok: false, stage: "lint" });
+    imported.push(...result.units);
   }
 
-  try {
-    const rendered = await buildSkillset(clonePath, { isolated: true });
-    stages.push({
-      detail: `wrote ${rendered.length} generated files under ${ISOLATED_OUT_ROOT}/`,
-      ok: true,
-      stage: "build",
-    });
-  } catch (error) {
-    stages.push({ detail: errorMessage(error), ok: false, stage: "build" });
-  }
+  const lintErrors = adopt.lintIssues.filter(
+    (issue) => issue.severity === "error"
+  );
+  stages.push({
+    detail:
+      lintErrors.length === 0
+        ? `${adopt.lintIssues.length} lint issue(s), 0 errors`
+        : `${lintErrors.length} lint error(s): ${lintErrors
+            .slice(0, 3)
+            .map((issue) => `${issue.path}: ${issue.code}`)
+            .join("; ")}`,
+    ok: lintErrors.length === 0,
+    stage: "lint",
+  });
+
+  stages.push({
+    detail:
+      adopt.buildError ??
+      `wrote ${adopt.builtFiles} generated files under ${ISOLATED_OUT_ROOT}/`,
+    ok: adopt.buildError === undefined,
+    stage: "build",
+  });
 
   try {
     const purity = await checkClonePurity(clonePath);

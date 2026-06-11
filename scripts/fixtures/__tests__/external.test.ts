@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdtemp, readdir } from "node:fs/promises";
+import { mkdtemp, readdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -108,15 +108,18 @@ test("runExternalRepo adopts a marketplace-shaped repo in place and reports roun
     ["purity", true],
   ]);
   expect(report.ok).toBe(true);
-  // The root AGENTS.md is recognized but import has no lowering for it yet:
-  // the harness defers it to adopt instead of failing or staying silent.
+  // The root AGENTS.md candidate now actually imports: adopt copies it
+  // verbatim into .skillset/instructions/ under its lowercased name.
   expect(
     report.stages.find(
       (stage) =>
         stage.stage === "import" &&
         stage.detail.includes("instructions:AGENTS.md")
     )?.detail
-  ).toContain("instructions candidate deferred to adopt");
+  ).toContain(".skillset/instructions/agents.md");
+  expect(
+    await readFile(join(clone, ".skillset/instructions/agents.md"), "utf8")
+  ).toBe("# Demo agents\n\nHandwritten instructions.\n");
   expect(report.survey.candidates).toEqual([
     { kind: "instructions", path: "AGENTS.md" },
     { kind: "plugin", path: "plugins/demo" },
@@ -162,7 +165,9 @@ test("runExternalRepo adopts a marketplace-shaped repo in place and reports roun
   expect(markdown).toContain(
     "- skipped commands `.claude/commands`: project-level commands have no portable source home yet"
   );
-  expect(markdown).toContain("instructions candidate deferred to adopt");
+  expect(markdown).toContain(
+    "instructions:AGENTS.md -> .skillset/instructions/agents.md"
+  );
   expect(markdown).toContain("### plugin demo");
 });
 
