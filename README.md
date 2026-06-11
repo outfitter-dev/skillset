@@ -26,6 +26,7 @@ skillset init               # preview a minimal .skillset/ scaffold for the curr
 skillset create             # preview a new my-skillset source repo scaffold
 skillset build              # plan generated changes without writing
 skillset build --yes        # write generated outputs
+skillset build --isolated   # mirror the projection under .skillset/build/out/ (also: check, diff)
 skillset lint               # source authoring diagnostics
 skillset check              # fail if generated outputs are stale
 skillset diff               # show pending generated changes without writing

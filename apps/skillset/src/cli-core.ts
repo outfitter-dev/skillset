@@ -29,8 +29,9 @@ import type { BuildScope, CompileBuildMode, SkillsetOptions, TargetName } from "
 type Command = "build" | "change" | "check" | "ci" | "create" | "diff" | "doctor" | "explain" | "hooks" | "import" | "init" | "lint" | "list" | "release" | "test";
 
 const USAGE = [
-  "usage: skillset build [--yes|--dry-run] [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
-  "       skillset <check|diff|doctor|lint|list> [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "usage: skillset build [--yes|--dry-run] [--updated|--all] [--isolated] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset <check|diff> [--updated|--all] [--isolated] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset <doctor|lint|list> [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset ci [--fix] [--since <ref>] [--report <path>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change status [--since <ref>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change check [@ref|--ref <ref>] [--since <ref>] [--root <path>] [--source <dir>] [--dist <dir>]",
@@ -704,6 +705,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let distDir: string | undefined;
   let buildMode: CompileBuildMode | undefined;
   let dryRun = false;
+  let isolated = false;
   let scopes: readonly BuildScope[] | undefined;
   let setupGlobal = false;
   let setupIncludes: readonly SetupInclude[] | undefined;
@@ -815,6 +817,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--dry-run" &&
       flag !== "--updated" &&
       flag !== "--all" &&
+      flag !== "--isolated" &&
       flag !== "--scope" &&
       flag !== "--global" &&
       flag !== "--targets" &&
@@ -835,6 +838,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag === "--dry-run" ||
       flag === "--updated" ||
       flag === "--all" ||
+      flag === "--isolated" ||
       flag === "--append" ||
       flag === "--staged" ||
       flag === "--global" ||
@@ -848,6 +852,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       if (flag === "--dry-run") dryRun = true;
       if (flag === "--updated") buildMode = setBuildMode(buildMode, "updated");
       if (flag === "--all") buildMode = setBuildMode(buildMode, "all");
+      if (flag === "--isolated") isolated = true;
       if (flag === "--append") changeAppend = true;
       if (flag === "--staged") changeStaged = true;
       if (flag === "--global") setupGlobal = true;
@@ -954,6 +959,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     yes,
   });
 
+  validateIsolatedFlag(command, isolated);
+
   if (command === "release" && scopes !== undefined) {
     throw new Error("skillset: --scope is not supported with release commands yet");
   }
@@ -970,6 +977,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(scopes === undefined ? {} : { scopes }),
     ...(sourceDir === undefined ? {} : { sourceDir }),
     ...(distDir === undefined ? {} : { distDir }),
+    ...(isolated ? { isolated: true } : {}),
   };
 
   return {
@@ -1216,6 +1224,12 @@ function readSetupTargets(value: string): readonly TargetName[] {
     seen.add(target);
   }
   return [...seen];
+}
+
+function validateIsolatedFlag(command: Command, isolated: boolean): void {
+  if (!isolated) return;
+  if (command === "build" || command === "check" || command === "diff") return;
+  throw new Error("skillset: --isolated is only supported with build, check, or diff");
 }
 
 function validateCiFlags(

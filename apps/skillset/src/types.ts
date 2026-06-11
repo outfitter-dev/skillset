@@ -192,6 +192,8 @@ export interface SkillsetOptions {
   readonly buildMode?: CompileBuildMode;
   readonly scopes?: readonly BuildScope[];
   readonly distDir?: string;
+  /** Re-root every generated path under `.skillset/build/out`, leaving live outputs untouched. */
+  readonly isolated?: boolean;
   readonly sourceDir?: string;
   readonly targetFilter?: readonly TargetName[];
 }

@@ -8,6 +8,33 @@ import type { BuildGraph, BuildScope, CheckResult, RenderedFile, SkillsetOptions
 import { isJsonRecord, parseMarkdown } from "./yaml";
 
 const WORKSPACE_LOCK_FILE = ".skillset.lock";
+
+/** Mirror root for isolated builds; the full projection lands under it. */
+export const ISOLATED_OUT_ROOT = ".skillset/build/out";
+
+/** Maps a repo-relative generated path to its on-disk location. */
+type OutPath = (path: string) => string;
+
+const livePath: OutPath = (path) => path;
+
+function outPathMapper(options: SkillsetOptions): OutPath {
+  if (options.isolated !== true) return livePath;
+  return (path) => join(ISOLATED_OUT_ROOT, path);
+}
+
+function mirroredRenderedFiles(
+  rendered: readonly RenderedFile[],
+  outPath: OutPath
+): readonly RenderedFile[] {
+  if (outPath === livePath) return rendered;
+  return rendered.map((file) => ({ ...file, path: outPath(file.path) }));
+}
+
+function mirroredOutputRoots(outputRoots: readonly string[], outPath: OutPath): readonly string[] {
+  if (outPath === livePath) return outputRoots;
+  return outputRoots.map((outputRoot) => outPath(outputRoot));
+}
+
 const textDecoder = new TextDecoder();
 
 /**
@@ -35,13 +62,18 @@ export async function buildSkillset(
 ): Promise<readonly RenderedFile[]> {
   const graph = await loadBuildGraph(rootPath, options);
   emitGraphWarnings(graph);
-  const rendered = scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes);
-  const outputRoots = scopedOutputRoots(graph, options.scopes);
+  const outPath = outPathMapper(options);
+  const rendered = mirroredRenderedFiles(
+    scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes),
+    outPath
+  );
+  const liveOutputRoots = scopedOutputRoots(graph, options.scopes);
+  const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
   const includeWorkspaceLock = includesProjectScope(options.scopes);
   warnLargeInstructionFiles(rendered);
   const expectedPaths = new Set(rendered.map((file) => file.path));
-  const previousWorkspaceManagedPaths = includeWorkspaceLock ? await readWorkspaceManagedPaths(rootPath) : new Set<string>();
-  const previousManagedPaths = await readManagedPaths(rootPath, outputRoots, includeWorkspaceLock);
+  const previousWorkspaceManagedPaths = includeWorkspaceLock ? await readWorkspaceManagedPaths(rootPath, outPath) : new Set<string>();
+  const previousManagedPaths = await readManagedPaths(rootPath, liveOutputRoots, includeWorkspaceLock, outPath);
   await warnMissingManagedOutputs(rootPath, rendered, previousManagedPaths);
 
   await assertNoUnmanagedWorkspaceOverwrites(
@@ -67,7 +99,7 @@ export async function buildSkillset(
     return rendered;
   }
 
-  const actualPaths = new Set(await listGeneratedFiles(rootPath, outputRoots, rendered, includeWorkspaceLock));
+  const actualPaths = new Set(await listGeneratedFiles(rootPath, outputRoots, rendered, includeWorkspaceLock, outPath));
   await removeStaleGeneratedFiles(rootPath, actualPaths, expectedPaths);
   await writeChangedRenderedFiles(rootPath, rendered, actualPaths);
 
@@ -91,13 +123,18 @@ export async function diffSkillset(
 ): Promise<SkillsetDiff> {
   const graph = await loadBuildGraph(rootPath, options);
   emitGraphWarnings(graph);
-  const rendered = scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes);
+  const outPath = outPathMapper(options);
+  const rendered = mirroredRenderedFiles(
+    scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes),
+    outPath
+  );
   const expected = new Map(rendered.map((file) => [file.path, file.content]));
-  const outputRoots = scopedOutputRoots(graph, options.scopes);
+  const liveOutputRoots = scopedOutputRoots(graph, options.scopes);
+  const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
   const includeWorkspaceLock = includesProjectScope(options.scopes);
-  const actualPaths = await listGeneratedFiles(rootPath, outputRoots, rendered, includeWorkspaceLock);
+  const actualPaths = await listGeneratedFiles(rootPath, outputRoots, rendered, includeWorkspaceLock, outPath);
   const actual = new Set(actualPaths);
-  const previousManagedPaths = await readManagedPaths(rootPath, outputRoots, includeWorkspaceLock);
+  const previousManagedPaths = await readManagedPaths(rootPath, liveOutputRoots, includeWorkspaceLock, outPath);
 
   const added: string[] = [];
   const changed: string[] = [];
@@ -134,14 +171,19 @@ export async function checkSkillset(
 ): Promise<CheckResult> {
   const graph = await loadBuildGraph(rootPath, options);
   emitGraphWarnings(graph);
-  const rendered = scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes);
+  const outPath = outPathMapper(options);
+  const rendered = mirroredRenderedFiles(
+    scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes),
+    outPath
+  );
   warnLargeInstructionFiles(rendered);
   const expected = new Map(rendered.map((file) => [file.path, file.content]));
-  const outputRoots = scopedOutputRoots(graph, options.scopes);
+  const liveOutputRoots = scopedOutputRoots(graph, options.scopes);
+  const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
   const includeWorkspaceLock = includesProjectScope(options.scopes);
-  const actualPaths = await listGeneratedFiles(rootPath, outputRoots, rendered, includeWorkspaceLock);
+  const actualPaths = await listGeneratedFiles(rootPath, outputRoots, rendered, includeWorkspaceLock, outPath);
   const actual = new Set(actualPaths);
-  const previousManagedPaths = await readManagedPaths(rootPath, outputRoots, includeWorkspaceLock);
+  const previousManagedPaths = await readManagedPaths(rootPath, liveOutputRoots, includeWorkspaceLock, outPath);
   const failures: string[] = [];
 
   for (const file of rendered) {
@@ -243,10 +285,11 @@ async function listGeneratedFiles(
   rootPath: string,
   outputRoots: readonly string[],
   rendered: readonly RenderedFile[],
-  includeWorkspaceLock: boolean
+  includeWorkspaceLock: boolean,
+  outPath: OutPath
 ): Promise<readonly string[]> {
   const paths = new Set(await listOutputFiles(rootPath, outputRoots));
-  const previousWorkspaceManagedPaths = includeWorkspaceLock ? await readWorkspaceManagedPaths(rootPath) : new Set<string>();
+  const previousWorkspaceManagedPaths = includeWorkspaceLock ? await readWorkspaceManagedPaths(rootPath, outPath) : new Set<string>();
 
   for (const path of previousWorkspaceManagedPaths) {
     if (isInsideAnyOutputRoot(path, outputRoots)) continue;
@@ -360,30 +403,39 @@ function includesProjectScope(scopes: readonly BuildScope[] | undefined): boolea
   return scopes === undefined || scopes.includes("project");
 }
 
-async function readWorkspaceManagedPaths(rootPath: string): Promise<ReadonlySet<string>> {
-  return readManagedPathsFromLock(rootPath, WORKSPACE_LOCK_FILE, ".");
+async function readWorkspaceManagedPaths(rootPath: string, outPath: OutPath): Promise<ReadonlySet<string>> {
+  return readManagedPathsFromLock(rootPath, WORKSPACE_LOCK_FILE, ".", outPath);
 }
 
 async function readManagedPaths(
   rootPath: string,
-  outputRoots: readonly string[],
-  includeWorkspaceLock: boolean
+  liveOutputRoots: readonly string[],
+  includeWorkspaceLock: boolean,
+  outPath: OutPath
 ): Promise<ReadonlySet<string>> {
-  const paths = includeWorkspaceLock ? new Set(await readWorkspaceManagedPaths(rootPath)) : new Set<string>();
-  for (const outputRoot of outputRoots) {
+  const paths = includeWorkspaceLock ? new Set(await readWorkspaceManagedPaths(rootPath, outPath)) : new Set<string>();
+  for (const outputRoot of liveOutputRoots) {
     const lockPath = join(outputRoot, WORKSPACE_LOCK_FILE);
-    const managed = await readManagedPathsFromLock(rootPath, lockPath, outputRoot);
+    const managed = await readManagedPathsFromLock(rootPath, lockPath, outputRoot, outPath);
     for (const path of managed) paths.add(path);
   }
   return paths;
 }
 
+/**
+ * Reads managed paths from a generated lock. `lockPath` and
+ * `expectedOutputRoot` stay in live repo-relative form because lock content
+ * records live output roots even when written into the isolated mirror;
+ * `outPath` maps the read location and the returned paths to the mirror.
+ */
 async function readManagedPathsFromLock(
   rootPath: string,
   lockPath: string,
-  expectedOutputRoot: string
+  expectedOutputRoot: string,
+  outPath: OutPath
 ): Promise<ReadonlySet<string>> {
-  const absoluteLockPath = resolveInside(rootPath, lockPath);
+  const displayLockPath = outPath(lockPath);
+  const absoluteLockPath = resolveInside(rootPath, displayLockPath);
   if (!(await exists(absoluteLockPath))) return new Set();
 
   let parsed: unknown;
@@ -391,40 +443,40 @@ async function readManagedPathsFromLock(
     parsed = JSON.parse(await readFile(absoluteLockPath, "utf8")) as unknown;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw corruptManagedLock(lockPath, `it is not valid JSON: ${message}`);
+    throw corruptManagedLock(lockPath, displayLockPath, `it is not valid JSON: ${message}`);
   }
 
   if (!isRecord(parsed) || typeof parsed.generatedBy !== "string") {
-    throw corruptManagedLock(lockPath, "it is missing a string generatedBy field");
+    throw corruptManagedLock(lockPath, displayLockPath, "it is missing a string generatedBy field");
   }
   if (!parsed.generatedBy.startsWith("skillset@")) {
-    throw corruptManagedLock(lockPath, `its generatedBy ${JSON.stringify(parsed.generatedBy)} is not a skillset lock`);
+    throw corruptManagedLock(lockPath, displayLockPath, `its generatedBy ${JSON.stringify(parsed.generatedBy)} is not a skillset lock`);
   }
   if (
     lockPath !== WORKSPACE_LOCK_FILE &&
     parsed.outputRoot === undefined &&
     parsed.items === undefined
   ) {
-    return new Set([lockPath]);
+    return new Set([displayLockPath]);
   }
   if (parsed.outputRoot !== expectedOutputRoot) {
     const expected = expectedOutputRoot === "." ? "the workspace root" : JSON.stringify(expectedOutputRoot);
-    throw corruptManagedLock(lockPath, `its outputRoot ${JSON.stringify(parsed.outputRoot)} is not ${expected}`);
+    throw corruptManagedLock(lockPath, displayLockPath, `its outputRoot ${JSON.stringify(parsed.outputRoot)} is not ${expected}`);
   }
   if (!Array.isArray(parsed.items)) {
-    throw corruptManagedLock(lockPath, "its items field is not an array");
+    throw corruptManagedLock(lockPath, displayLockPath, "its items field is not an array");
   }
 
-  const paths = new Set<string>([lockPath]);
+  const paths = new Set<string>([displayLockPath]);
   for (const item of parsed.items) {
     if (!isRecord(item) || !Array.isArray(item.files)) {
-      throw corruptManagedLock(lockPath, "one of its items is missing a files array");
+      throw corruptManagedLock(lockPath, displayLockPath, "one of its items is missing a files array");
     }
     for (const file of item.files) {
       if (typeof file !== "string" || file.trim().length === 0) {
-        throw corruptManagedLock(lockPath, "one of its tracked file entries is not a non-empty string");
+        throw corruptManagedLock(lockPath, displayLockPath, "one of its tracked file entries is not a non-empty string");
       }
-      paths.add(joinOutputRoot(expectedOutputRoot, file));
+      paths.add(outPath(joinOutputRoot(expectedOutputRoot, file)));
     }
   }
 
@@ -436,17 +488,17 @@ function joinOutputRoot(outputRoot: string, file: string): string {
   return `${outputRoot}/${file}`;
 }
 
-function corruptManagedLock(lockPath: string, reason: string): Error {
-  if (lockPath === WORKSPACE_LOCK_FILE) return corruptWorkspaceLock(reason);
+function corruptManagedLock(lockPath: string, displayLockPath: string, reason: string): Error {
+  if (lockPath === WORKSPACE_LOCK_FILE) return corruptWorkspaceLock(displayLockPath, reason);
   return new Error(
-    `skillset: generated lock ${lockPath} cannot guard generated state because ${reason}. ` +
+    `skillset: generated lock ${displayLockPath} cannot guard generated state because ${reason}. ` +
       "Fix or remove the lock before running build, check, or diff."
   );
 }
 
-function corruptWorkspaceLock(reason: string): Error {
+function corruptWorkspaceLock(displayLockPath: string, reason: string): Error {
   return new Error(
-    `skillset: workspace lock ${WORKSPACE_LOCK_FILE} cannot guard generated state because ${reason}. ` +
+    `skillset: workspace lock ${displayLockPath} cannot guard generated state because ${reason}. ` +
       "Restore it from a clean build (skillset build) or remove it deliberately before rebuilding."
   );
 }
