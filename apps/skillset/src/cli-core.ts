@@ -624,6 +624,9 @@ function printSetupReport(result: SetupReport, reason: string): void {
   for (const candidate of result.importCandidates) {
     console.log(`  ? import candidate ${candidate.kind} ${candidate.path}`);
   }
+  for (const skip of result.surveySkips) {
+    console.log(`  ! skipped ${skip.surface} ${skip.path}: ${skip.reason}`);
+  }
   const created = result.files.filter((file) => file.status === "create").length;
   const existing = result.files.length - created;
   const baselines = result.baselines.filter((baseline) => baseline.status === "create").length;

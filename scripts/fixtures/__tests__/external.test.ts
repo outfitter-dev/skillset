@@ -102,11 +102,33 @@ test("runExternalRepo adopts a marketplace-shaped repo in place and reports roun
   expect(report.stages.map((stage) => [stage.stage, stage.ok])).toEqual([
     ["init", true],
     ["import", true],
+    ["import", true],
     ["lint", true],
     ["build", true],
     ["purity", true],
   ]);
   expect(report.ok).toBe(true);
+  // The root AGENTS.md is recognized but import has no lowering for it yet:
+  // the harness defers it to adopt instead of failing or staying silent.
+  expect(
+    report.stages.find(
+      (stage) =>
+        stage.stage === "import" &&
+        stage.detail.includes("instructions:AGENTS.md")
+    )?.detail
+  ).toContain("instructions candidate deferred to adopt");
+  expect(report.survey.candidates).toEqual([
+    { kind: "instructions", path: "AGENTS.md" },
+    { kind: "plugin", path: "plugins/demo" },
+  ]);
+  expect(report.survey.skips).toEqual([
+    {
+      path: ".claude/commands",
+      reason:
+        "project-level commands have no portable source home yet; adopt will lower them to target-native islands in the transform milestone",
+      surface: "commands",
+    },
+  ]);
   expect(report.roundTrips).toHaveLength(1);
   const roundTrip = report.roundTrips[0];
   expect(roundTrip?.kind).toBe("plugin");
@@ -134,6 +156,13 @@ test("runExternalRepo adopts a marketplace-shaped repo in place and reports roun
   } satisfies Pick<ExternalRepoEntry, "ref" | "repo">);
   expect(markdown).toContain("# External fixture run: demo-marketplace");
   expect(markdown).toContain("- result: pass");
+  expect(markdown).toContain("## Survey");
+  expect(markdown).toContain("- candidate instructions: `AGENTS.md`");
+  expect(markdown).toContain("- candidate plugin: `plugins/demo`");
+  expect(markdown).toContain(
+    "- skipped commands `.claude/commands`: project-level commands have no portable source home yet"
+  );
+  expect(markdown).toContain("instructions candidate deferred to adopt");
   expect(markdown).toContain("### plugin demo");
 });
 
@@ -151,6 +180,7 @@ test("runExternalRepo passes when re-run on the same clone", async () => {
     second.stages.map((stage) => [stage.stage, stage.ok])
   ).toEqual([
     ["init", true],
+    ["import", true],
     ["import", true],
     ["lint", true],
     ["build", true],
@@ -179,6 +209,7 @@ test("runExternalRepo fails the run when no import candidates are detected", asy
   expect(report.roundTrips).toEqual([]);
   const markdown = renderRunReportMarkdown(report, { ref: SHA, repo: "r" });
   expect(markdown).toContain("- result: fail");
+  expect(markdown).toContain("No adoptable surfaces recognized.");
   expect(markdown).toContain("No imported units to compare.");
 });
 
@@ -204,6 +235,8 @@ function marketplaceFiles(): Record<string, string> {
       name: "demo-marketplace",
       plugins: [{ name: "demo", source: "./plugins/demo" }],
     }),
+    ".claude/commands/x.md": "---\ndescription: Project command.\n---\n\nDo x.\n",
+    "AGENTS.md": "# Demo agents\n\nHandwritten instructions.\n",
     "README.md": "# Demo repo\n",
     "plugins/demo/.claude-plugin/plugin.json": JSON.stringify({
       name: "demo",

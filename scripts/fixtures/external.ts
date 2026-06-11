@@ -29,6 +29,10 @@ import { importSources } from "../../apps/skillset/src/import";
 import { lintSkillset } from "../../apps/skillset/src/lint";
 import { compareStrings, validateSlug } from "../../apps/skillset/src/path";
 import { initSkillset } from "../../apps/skillset/src/setup";
+import type {
+  SetupImportCandidate,
+  SurveySkip,
+} from "../../apps/skillset/src/setup";
 import type { TargetName } from "../../apps/skillset/src/types";
 import { parseYamlRecord } from "../../apps/skillset/src/yaml";
 
@@ -238,11 +242,19 @@ export interface ExternalRoundTrip {
   readonly originalRoot: string;
 }
 
+/** What init's whole-repo survey saw: import candidates plus the recognized
+ * surfaces it cannot import yet (structured skips with reasons). */
+export interface ExternalSurvey {
+  readonly candidates: readonly SetupImportCandidate[];
+  readonly skips: readonly SurveySkip[];
+}
+
 export interface ExternalRunReport {
   readonly name: string;
   readonly ok: boolean;
   readonly roundTrips: readonly ExternalRoundTrip[];
   readonly stages: readonly ExternalStageResult[];
+  readonly survey: ExternalSurvey;
 }
 
 /** How many dirty paths a failed purity stage lists before truncating. */
@@ -310,10 +322,8 @@ export async function runExternalRepo(
 
   await cleanSkillsetLeftovers(clonePath);
 
-  let candidates: readonly {
-    readonly kind: "plugin" | "plugins" | "skills";
-    readonly path: string;
-  }[] = [];
+  let candidates: readonly SetupImportCandidate[] = [];
+  let survey: ExternalSurvey = { candidates: [], skips: [] };
   try {
     const init = await initSkillset({
       cwd: clonePath,
@@ -322,6 +332,7 @@ export async function runExternalRepo(
       write: true,
     });
     candidates = init.importCandidates;
+    survey = { candidates, skips: init.surveySkips };
     stages.push({
       detail: `${candidates.length} import candidate(s): ${candidates.map((candidate) => `${candidate.kind}:${candidate.path}`).join(", ") || "none"}`,
       ok: candidates.length > 0,
@@ -329,7 +340,7 @@ export async function runExternalRepo(
     });
   } catch (error) {
     stages.push({ detail: errorMessage(error), ok: false, stage: "init" });
-    return { name, ok: false, roundTrips, stages };
+    return { name, ok: false, roundTrips, stages, survey };
   }
 
   const imported: {
@@ -338,6 +349,16 @@ export async function runExternalRepo(
     readonly sourcePath: string;
   }[] = [];
   for (const candidate of candidates) {
+    // Instruction files have no import lowering yet; adopt will lower them to
+    // .skillset/instructions/. Deferring keeps the run green and visible.
+    if (candidate.kind === "instructions") {
+      stages.push({
+        detail: `${candidate.kind}:${candidate.path}: instructions candidate deferred to adopt`,
+        ok: true,
+        stage: "import",
+      });
+      continue;
+    }
     try {
       const batch = await importSources({
         kind: candidate.kind,
@@ -370,7 +391,7 @@ export async function runExternalRepo(
   }
 
   if (imported.length === 0) {
-    return { name, ok: false, roundTrips, stages };
+    return { name, ok: false, roundTrips, stages, survey };
   }
 
   // Partial import failures still run lint/build: they validate whatever did
@@ -434,7 +455,13 @@ export async function runExternalRepo(
     });
   }
 
-  return { name, ok: stages.every((stage) => stage.ok), roundTrips, stages };
+  return {
+    name,
+    ok: stages.every((stage) => stage.ok),
+    roundTrips,
+    stages,
+    survey,
+  };
 }
 
 export function renderRunReportMarkdown(
@@ -453,6 +480,19 @@ export function renderRunReportMarkdown(
   ];
   for (const stage of report.stages) {
     lines.push(`- ${stage.ok ? "ok" : "FAIL"} ${stage.stage}: ${stage.detail}`);
+  }
+  lines.push("", "## Survey", "");
+  if (
+    report.survey.candidates.length === 0 &&
+    report.survey.skips.length === 0
+  ) {
+    lines.push("No adoptable surfaces recognized.");
+  }
+  for (const candidate of report.survey.candidates) {
+    lines.push(`- candidate ${candidate.kind}: \`${candidate.path}\``);
+  }
+  for (const skip of report.survey.skips) {
+    lines.push(`- skipped ${skip.surface} \`${skip.path}\`: ${skip.reason}`);
   }
   lines.push("", "## Round-trip (Claude projection, report-only)", "");
   if (report.roundTrips.length === 0) {
