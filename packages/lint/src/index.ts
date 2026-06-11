@@ -4,9 +4,22 @@ export {
   skillDescriptionHtmlTokenRule,
   skillDescriptionLengthRule,
   skillDescriptionStrictYamlRule,
+  skillEnvVarNoFallbackRule,
+  skillFileReferenceEscapeRule,
   skillNameDirectoryMismatchRule,
+  skillPreresolveCaseStatementRule,
+  skillPreresolveMixedAndOrRule,
+  skillPreresolveParameterExpansionRule,
+  skillPreresolveQuotedSubstitutionRule,
+  skillPreresolveSemicolonRule,
 } from "./rules";
 export { runLintRules } from "./run";
+export {
+  findCommandSubstitutions,
+  findTopLevelSeparators,
+  hasTopLevelMixedAndOr,
+  hasTopLevelSemicolon,
+} from "./shell";
 export type {
   LintDiagnostic,
   LintGuidance,

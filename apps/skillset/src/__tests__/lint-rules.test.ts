@@ -49,6 +49,46 @@ test("lintSkillset throws on an error-severity rule violation", async () => {
   );
 });
 
+test("lintSkillset throws on a shell-safety pre-resolution violation", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml":
+      "skillset:\n  name: lint-root\nclaude: true\ncodex: false\n",
+    ".skillset/skills/demo/SKILL.md":
+      '---\nname: demo\ndescription: Demo.\n---\n\n!`[ -n "$x" ] && echo yes || echo no`\n',
+  });
+
+  await expect(lintSkillset(root)).rejects.toThrow(
+    "skill-preresolve-mixed-and-or"
+  );
+  await expect(lintSkillset(root)).rejects.toThrow(
+    "mixes `&&` and `||` at the same depth"
+  );
+});
+
+test("ci reports env-var fallback warnings without failing", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml":
+      "skillset:\n  name: lint-root\nclaude: true\ncodex: false\n",
+    ".skillset/skills/demo/SKILL.md":
+      "---\nname: demo\ndescription: Demo.\n---\n\nRun python3 ${CLAUDE_PLUGIN_ROOT}/scripts/setup.py first.\n",
+  });
+  await commitFixture(root);
+  await buildSkillset(root);
+
+  const report = await ciSkillset(root, { since: "HEAD" });
+
+  expect(report.ok).toBe(true);
+  expect(
+    report.lintIssues.some(
+      (issue) =>
+        issue.code === "skill-env-var-no-fallback" && issue.severity === "warn"
+    )
+  ).toBe(true);
+  const markdown = renderCiReportMarkdown(report);
+  expect(markdown).toContain("### Lint warnings");
+  expect(markdown).toContain("${CLAUDE_PLUGIN_ROOT}");
+});
+
 test("lintSkillset returns warn-only issues without throwing", async () => {
   const root = await fixture({
     ".skillset/config.yaml":
