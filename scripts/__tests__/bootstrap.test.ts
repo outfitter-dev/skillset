@@ -1,8 +1,7 @@
+import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-
-import { describe, expect, test } from "bun:test";
 
 import {
   isBunVersionAllowed,
@@ -13,7 +12,7 @@ import {
   readPinnedBunVersion,
 } from "../bootstrap/bun";
 import { loadBootstrapConfig } from "../bootstrap/config";
-import { isLinkedWorktree } from "../bootstrap/git";
+import { isLinkedWorktree, readRepoHealth } from "../bootstrap/git";
 import { detectHost, resolveRepoRoot } from "../bootstrap/host";
 import { parseBootstrapArgs } from "../bootstrap/main";
 import { ensureBunAvailable, listWorkspaceGlobs } from "../bootstrap/repo";
@@ -42,7 +41,10 @@ const makeRepoRoot = (): string => {
     '{"name":"skillset","packageManager":"bun@1.3.14","engines":{"bun":">=1.3.14"},"workspaces":[]}\n'
   );
   writeFileSync(join(root, ".bun-version"), "1.3.14\n");
-  writeFileSync(join(root, ".skillset/config.yaml"), "skillset:\n  name: skillset\n");
+  writeFileSync(
+    join(root, ".skillset/config.yaml"),
+    "skillset:\n  name: skillset\n"
+  );
   writeFileSync(join(root, "src/cli.ts"), "");
   return root;
 };
@@ -292,5 +294,82 @@ describe("bootstrap repo policy", () => {
     const config = loadBootstrapConfig();
     expect(config.cleanup.directories).toContain("dist");
     expect(config.cleanup.directories).toContain(".skillset/build");
+  });
+});
+
+describe("readRepoHealth", () => {
+  const initRepo = (): string => {
+    const root = mkdtempSync(join(tmpdir(), "skillset-repo-health-"));
+    Bun.spawnSync({ cmd: ["git", "init", "-q"], cwd: root });
+    return root;
+  };
+
+  test("reports a healthy repo", () => {
+    const root = initRepo();
+    const health = readRepoHealth(root);
+    expect(health.coreBare).toBe(false);
+    expect(health.staleWorktrees).toEqual([]);
+    rmSync(root, { force: true, recursive: true });
+  });
+
+  test("flags core.bare corruption", () => {
+    const root = initRepo();
+    Bun.spawnSync({ cmd: ["git", "config", "core.bare", "true"], cwd: root });
+    expect(readRepoHealth(root).coreBare).toBe(true);
+    rmSync(root, { force: true, recursive: true });
+  });
+
+  test("flags worktrees locked by dead processes and keeps live locks", () => {
+    const root = initRepo();
+    Bun.spawnSync({
+      cmd: ["git", "config", "user.email", "t@example.com"],
+      cwd: root,
+    });
+    Bun.spawnSync({ cmd: ["git", "config", "user.name", "t"], cwd: root });
+    writeFileSync(join(root, "file.txt"), "x\n");
+    Bun.spawnSync({ cmd: ["git", "add", "."], cwd: root });
+    Bun.spawnSync({ cmd: ["git", "commit", "-qm", "init"], cwd: root });
+
+    const deadPath = join(root, "wt-dead");
+    const livePath = join(root, "wt-live");
+    Bun.spawnSync({
+      cmd: ["git", "worktree", "add", "-q", deadPath],
+      cwd: root,
+    });
+    Bun.spawnSync({
+      cmd: ["git", "worktree", "add", "-q", livePath],
+      cwd: root,
+    });
+    Bun.spawnSync({
+      cmd: [
+        "git",
+        "worktree",
+        "lock",
+        "--reason",
+        "agent x (pid 999999999 start now)",
+        deadPath,
+      ],
+      cwd: root,
+    });
+    Bun.spawnSync({
+      cmd: [
+        "git",
+        "worktree",
+        "lock",
+        "--reason",
+        `agent y (pid ${process.pid} start now)`,
+        livePath,
+      ],
+      cwd: root,
+    });
+
+    const health = readRepoHealth(root);
+    // git reports realpath; macOS tmpdir is a symlink, so compare suffixes.
+    expect(
+      health.staleWorktrees.map((worktree) =>
+        worktree.path.endsWith("/wt-dead")
+      )
+    ).toEqual([true]);
+    rmSync(root, { force: true, recursive: true });
   });
 });

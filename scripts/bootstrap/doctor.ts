@@ -1,5 +1,6 @@
 import { checkBunVersion } from "./bun";
 import type { BootstrapConfig } from "./config";
+import { readRepoHealth } from "./git";
 import type { HostInfo } from "./host";
 import { hasRepoInstallState } from "./repo";
 import { collectToolStatus, printToolStatuses } from "./tools";
@@ -24,6 +25,20 @@ export const runDoctor = async (
   console.error(
     `  dependencies: ${(await hasRepoInstallState(repoRoot)) ? "ok" : "missing"}`
   );
+
+  const health = readRepoHealth(repoRoot);
+  console.error(
+    `  core.bare: ${health.coreBare ? "TRUE — broken; run: git config core.bare false" : "ok"}`
+  );
+  if (health.staleWorktrees.length > 0) {
+    console.error("  stale worktrees:");
+    for (const worktree of health.staleWorktrees) {
+      console.error(`    ${worktree.path} (${worktree.reason})`);
+    }
+    console.error(
+      "    remove with: git worktree remove --force <path> && git worktree prune"
+    );
+  }
 
   console.error("");
   printToolStatuses(

@@ -81,3 +81,58 @@ export const printAgentGitDiagnostics = (
     }
   }
 };
+
+export interface RepoHealth {
+  readonly coreBare: boolean;
+  readonly staleWorktrees: readonly StaleWorktree[];
+}
+
+export interface StaleWorktree {
+  readonly path: string;
+  readonly reason: string;
+}
+
+/**
+ * Shared-repo health: `core.bare` must stay false for a repo with working
+ * trees (a concurrent tool once flipped it and broke every checkout), and
+ * worktrees whose agent lock points at a dead process are stale leftovers.
+ */
+export const readRepoHealth = (repoRoot: string): RepoHealth => {
+  const bare = run(["git", "config", "core.bare"], repoRoot);
+  const coreBare = bare.exitCode === 0 && bare.stdout.trim() === "true";
+
+  const staleWorktrees: StaleWorktree[] = [];
+  const list = run(["git", "worktree", "list", "--porcelain"], repoRoot);
+  if (list.exitCode === 0) {
+    let path: string | undefined;
+    for (const line of list.stdout.split("\n")) {
+      if (line.startsWith("worktree ")) {path = line.slice("worktree ".length);}
+      if (line.startsWith("locked") && path !== undefined) {
+        const match = /pid (\d+)/.exec(line);
+        if (match?.[1] !== undefined && !isProcessAlive(Number(match[1]))) {
+          staleWorktrees.push({
+            path,
+            reason: `lock holder pid ${match[1]} is not running`,
+          });
+        }
+      }
+    }
+  }
+
+  return { coreBare, staleWorktrees };
+};
+
+const isProcessAlive = (pid: number): boolean => {
+  if (!Number.isInteger(pid) || pid <= 0) {return false;}
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "EPERM"
+    );
+  }
+};
