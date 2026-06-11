@@ -204,6 +204,8 @@ export interface LintIssue {
   readonly code: string;
   readonly message: string;
   readonly path: string;
+  /** Errors fail lint/ci; warnings flow through reporting without failing. */
+  readonly severity: "error" | "warn";
 }
 
 export interface LintResult {

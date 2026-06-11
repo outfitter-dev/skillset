@@ -1,5 +1,7 @@
 import { readFile, stat } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
+
+import { type LintDiagnostic, type LintSubject, runLintRules } from "@skillset/lint";
 
 import { isOutputSelected } from "./config";
 import { validateHookDefinition } from "./hooks";
@@ -62,8 +64,9 @@ export async function lintSkillset(
   emitGraphWarnings(graph);
   const result = await inspectBuildGraph(graph);
 
-  if (result.issues.length > 0) {
-    throw new Error(formatLintError(result.issues));
+  const errors = result.issues.filter((issue) => issue.severity === "error");
+  if (errors.length > 0) {
+    throw new Error(formatLintError(errors));
   }
 
   return result;
@@ -83,9 +86,45 @@ async function inspectBuildGraph(graph: BuildGraph): Promise<LintResult> {
   const result = lintBuildGraph(graph);
   const hookIssues = await lintPluginHooks(graph);
   const resourceIssues = await lintResourceUsage(graph);
+  const ruleIssues = await lintSkillRules(graph);
   return {
     checkedSkills: result.checkedSkills,
-    issues: [...result.issues, ...hookIssues, ...resourceIssues],
+    issues: [...result.issues, ...hookIssues, ...resourceIssues, ...ruleIssues],
+  };
+}
+
+/**
+ * Run the registered `@skillset/lint` rules over every source skill
+ * (plugin-bound and standalone) and map their diagnostics into LintIssues.
+ */
+async function lintSkillRules(graph: BuildGraph): Promise<readonly LintIssue[]> {
+  const skills = [
+    ...graph.plugins.flatMap((plugin) => plugin.skills),
+    ...graph.standaloneSkills,
+  ];
+
+  const subjects: LintSubject[] = [];
+  for (const skill of skills) {
+    subjects.push({
+      body: skill.body,
+      directoryName: basename(dirname(skill.sourcePath)),
+      files: [basename(skill.sourcePath)],
+      frontmatter: skill.frontmatter,
+      kind: "skill",
+      path: relative(graph.rootPath, skill.sourcePath),
+      raw: await readFile(skill.sourcePath, "utf8"),
+    });
+  }
+
+  return runLintRules(subjects).map(lintIssueFromDiagnostic);
+}
+
+function lintIssueFromDiagnostic(diagnostic: LintDiagnostic): LintIssue {
+  return {
+    code: diagnostic.code === undefined ? diagnostic.rule : `${diagnostic.rule}:${diagnostic.code}`,
+    message: diagnostic.message,
+    path: diagnostic.path,
+    severity: diagnostic.severity,
   };
 }
 
@@ -134,6 +173,7 @@ async function lintHookFile(
     return [
       {
         code: "hook-invalid-json",
+        severity: "error",
         path,
         message: `${targetLabel} hook file ${path} is not valid JSON: ${message}`,
       },
@@ -144,7 +184,7 @@ async function lintHookFile(
     validateHookDefinition(parsed, { sourcePath: path, target });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return [{ code: "hook-target-incompatible", path, message }];
+    return [{ code: "hook-target-incompatible", message, path, severity: "error" }];
   }
 
   return [];
@@ -169,6 +209,7 @@ async function lintResourceUsage(graph: BuildGraph): Promise<readonly LintIssue[
     for (const undeclared of findUndeclaredResourceLinks(skill.body, skill.resources)) {
       issues.push({
         code: "resource-undeclared-link",
+        severity: "error",
         path,
         message:
           `${path} links to undeclared resource ${undeclared.reference}; ` +
@@ -179,6 +220,7 @@ async function lintResourceUsage(graph: BuildGraph): Promise<readonly LintIssue[
     for (const offender of findPluginRootScriptLinks(skill.body)) {
       issues.push({
         code: "skill-plugin-root-script",
+        severity: "error",
         path,
         message:
           `${path} links to a plugin-root script path ${offender}; ` +
@@ -191,6 +233,7 @@ async function lintResourceUsage(graph: BuildGraph): Promise<readonly LintIssue[
       if (await sourceIsExecutable(resource.sourcePath)) continue;
       issues.push({
         code: "resource-script-not-executable",
+        severity: "error",
         path,
         message:
           `${path} declares script resource ${resource.from} -> ${resource.targetPath}, ` +
@@ -258,6 +301,7 @@ function lintSkill(graph: BuildGraph, skill: SourceSkill): readonly LintIssue[] 
   const labels = matches.map((match) => match.label).join(", ");
   issues.push({
     code: "codex-claude-dynamic-context",
+        severity: "error",
     path,
     message:
       `${path} uses Claude dynamic context (${labels}) while Codex output is enabled. ` +
@@ -282,6 +326,7 @@ function lintToolEscapes(graph: BuildGraph, skill: SourceSkill): readonly LintIs
     return [
       {
         code: "skill-tools-invalid",
+        severity: "error",
         path,
         message,
       },
@@ -299,6 +344,7 @@ function lintCodexAllowedTools(graph: BuildGraph, skill: SourceSkill): readonly 
   return [
     {
       code: "codex-allowed-tools-unsupported",
+        severity: "error",
       path,
       message:
         `${path} sets allowed_tools for Codex, but Codex skills do not currently have a skill-local allowed-tools equivalent. ` +

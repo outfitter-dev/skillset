@@ -31,10 +31,11 @@ const EMPTY_DRIFT: SkillsetDiff = { added: [], changed: [], missing: [], removed
 /**
  * Aggregate the checks a continuous-integration run needs: lint diagnostics,
  * change-entry coverage, and generated-output drift. Drift is the only
- * mechanical problem: with `fix` enabled, clean lint, clean change coverage,
- * and a resolved baseline, `ci` rebuilds generated output the same way
- * `skillset build --yes` would. Lint issues, missing change entries, and
- * build errors need authored source changes, so they stay report-only.
+ * mechanical problem: with `fix` enabled, no lint errors, clean change
+ * coverage, and a resolved baseline, `ci` rebuilds generated output the same
+ * way `skillset build --yes` would. Lint errors, missing change entries, and
+ * build errors need authored source changes, so they stay report-only; lint
+ * warnings are advisory and never fail the run.
  */
 export async function ciSkillset(rootPath: string, options: CiOptions = {}): Promise<CiReport> {
   const { fix, since, ...buildOptions } = options;
@@ -71,11 +72,12 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
   }
 
   const changeErrors = changeIssues.filter((issue) => issue.severity === "error");
+  const lintErrors = lintIssues.filter((issue) => issue.severity === "error");
 
-  // Rebuild only when drift is the sole problem: lint issues, change-entry
+  // Rebuild only when drift is the sole problem: lint errors, change-entry
   // errors, or a build error mean the source is not trustworthy, and an
   // unresolvable change baseline means the CI setup itself needs fixing before
-  // pushing rebuild commits.
+  // pushing rebuild commits. Lint warnings are advisory and do not block.
   let fixedPaths: readonly string[] = [];
   if (
     fix === true &&
@@ -83,7 +85,7 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
     buildError === undefined &&
     changeError === undefined &&
     changeErrors.length === 0 &&
-    lintIssues.length === 0
+    lintErrors.length === 0
   ) {
     const staleBefore = [...drift.added, ...drift.changed, ...drift.missing, ...drift.removed];
     try {
@@ -106,7 +108,7 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
     ok:
       buildError === undefined &&
       changeError === undefined &&
-      lintIssues.length === 0 &&
+      lintErrors.length === 0 &&
       changeErrors.length === 0 &&
       !hasDrift(drift),
     warnings,
@@ -131,18 +133,24 @@ export const CI_REPORT_MARKER = "<!-- skillset-ci-report -->";
  */
 export function renderCiReportMarkdown(report: CiReport): string {
   const lines: string[] = [CI_REPORT_MARKER, "## Skillset CI", ""];
+  const lintErrors = report.lintIssues.filter((issue) => issue.severity === "error");
+  const lintWarnings = report.lintIssues.filter((issue) => issue.severity === "warn");
 
-  if (report.ok && report.fixedPaths.length === 0) {
+  if (report.ok && report.fixedPaths.length === 0 && lintWarnings.length === 0) {
     lines.push("All checks passed: source lint, change entries, and generated output are current.", "");
     return `${lines.join("\n").trimEnd()}\n`;
   }
 
-  lines.push(
-    report.ok
-      ? "Generated output was stale and has been rebuilt mechanically. No source changes are needed."
-      : "Skillset CI found problems; the sections below explain each one.",
-    ""
-  );
+  if (report.ok) {
+    lines.push(
+      report.fixedPaths.length > 0
+        ? "Generated output was stale and has been rebuilt mechanically. No source changes are needed."
+        : "All checks passed; the lint warnings below are advisory and do not fail CI.",
+      ""
+    );
+  } else {
+    lines.push("Skillset CI found problems; the sections below explain each one.", "");
+  }
 
   if (report.fixedPaths.length > 0) {
     lines.push("### Rebuilt generated output", "");
@@ -159,12 +167,20 @@ export function renderCiReportMarkdown(report: CiReport): string {
     lines.push("", "Run `skillset build --yes`, review the generated diff, and commit it.", "");
   }
 
-  if (report.lintIssues.length > 0) {
+  if (lintErrors.length > 0) {
     lines.push("### Lint issues", "");
-    for (const issue of report.lintIssues) {
+    for (const issue of lintErrors) {
       lines.push(`- \`${issue.path}\`: ${issue.code}: ${issue.message}`);
     }
     lines.push("", "Fix the source issues, then run `skillset lint` locally.", "");
+  }
+
+  if (lintWarnings.length > 0) {
+    lines.push("### Lint warnings", "");
+    for (const issue of lintWarnings) {
+      lines.push(`- \`${issue.path}\`: ${issue.code}: ${issue.message}`);
+    }
+    lines.push("", "Warnings do not fail CI, but cleaning them up keeps skills portable.", "");
   }
 
   if (report.changeError !== undefined) {

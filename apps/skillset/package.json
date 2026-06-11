@@ -31,5 +31,8 @@
   },
   "dependencies": {
     "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@skillset/lint": "workspace:*"
   }
 }

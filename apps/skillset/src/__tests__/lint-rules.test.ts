@@ -1,0 +1,154 @@
+import { afterAll, expect, test } from "bun:test";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { lintRules, registerLintRule } from "@skillset/lint";
+
+import { buildSkillset } from "../build";
+import { ciSkillset, renderCiReportMarkdown } from "../ci";
+import { gitSafeEnv } from "../git-env";
+import { lintSkillset } from "../lint";
+
+const WARN_RULE_NAME = "test-warn-marker";
+
+registerLintRule({
+  check: (subject) =>
+    subject.body.includes("WARN-MARKER")
+      ? [
+          {
+            message: "body contains WARN-MARKER",
+            path: subject.path,
+            rule: WARN_RULE_NAME,
+            severity: "warn",
+          },
+        ]
+      : [],
+  description: "Test-only warn rule keyed off a body marker.",
+  name: WARN_RULE_NAME,
+  severity: "warn",
+});
+
+afterAll(() => {
+  lintRules.delete(WARN_RULE_NAME);
+});
+
+test("lintSkillset throws on an error-severity rule violation", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml":
+      "skillset:\n  name: lint-root\nclaude: true\ncodex: false\n",
+    ".skillset/skills/demo/SKILL.md":
+      "---\nname: other\ndescription: Demo.\n---\n\nBody.\n",
+  });
+
+  await expect(lintSkillset(root)).rejects.toThrow(
+    "skill-name-directory-mismatch"
+  );
+  await expect(lintSkillset(root)).rejects.toThrow(
+    "frontmatter name other does not match skill directory demo"
+  );
+});
+
+test("lintSkillset returns warn-only issues without throwing", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml":
+      "skillset:\n  name: lint-root\nclaude: true\ncodex: false\n",
+    ".skillset/skills/demo/SKILL.md":
+      "---\nname: demo\ndescription: Demo.\n---\n\nBody with WARN-MARKER.\n",
+  });
+
+  const result = await lintSkillset(root);
+
+  expect(result.checkedSkills).toBe(1);
+  expect(result.issues).toEqual([
+    {
+      code: WARN_RULE_NAME,
+      message: "body contains WARN-MARKER",
+      path: ".skillset/skills/demo/SKILL.md",
+      severity: "warn",
+    },
+  ]);
+});
+
+test("ci reports lint warnings without failing", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml":
+      "skillset:\n  name: lint-root\nclaude: true\ncodex: false\n",
+    ".skillset/skills/demo/SKILL.md":
+      "---\nname: demo\ndescription: Demo.\n---\n\nBody with WARN-MARKER.\n",
+  });
+  await commitFixture(root);
+  await buildSkillset(root);
+
+  const report = await ciSkillset(root, { since: "HEAD" });
+
+  expect(report.ok).toBe(true);
+  expect(report.lintIssues).toEqual([
+    {
+      code: WARN_RULE_NAME,
+      message: "body contains WARN-MARKER",
+      path: ".skillset/skills/demo/SKILL.md",
+      severity: "warn",
+    },
+  ]);
+  const markdown = renderCiReportMarkdown(report);
+  expect(markdown).toContain("### Lint warnings");
+  expect(markdown).not.toContain("### Lint issues");
+  expect(markdown).toContain("do not fail CI");
+});
+
+test("ci fails on error-severity lint issues", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml":
+      "skillset:\n  name: lint-root\nclaude: true\ncodex: false\n",
+    ".skillset/skills/demo/SKILL.md": `---\nname: demo\ndescription: ${"x".repeat(1030)}\n---\n\nBody.\n`,
+  });
+  await commitFixture(root);
+  await buildSkillset(root);
+
+  const report = await ciSkillset(root, { since: "HEAD" });
+
+  expect(report.ok).toBe(false);
+  expect(
+    report.lintIssues.some(
+      (issue) =>
+        issue.code === "skill-description-length" && issue.severity === "error"
+    )
+  ).toBe(true);
+  const markdown = renderCiReportMarkdown(report);
+  expect(markdown).toContain("### Lint issues");
+  expect(markdown).toContain("1030");
+});
+
+async function fixture(files: Record<string, string>): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), "skillset-lint-rules-"));
+  for (const [path, content] of Object.entries(files)) {
+    await Bun.write(join(root, path), content);
+  }
+  return root;
+}
+
+async function commitFixture(root: string): Promise<void> {
+  await runGit(root, "init", "-q");
+  await runGit(root, "config", "user.email", "skillset@example.com");
+  await runGit(root, "config", "user.name", "Skillset Test");
+  await runGit(root, "add", ".");
+  await runGit(root, "commit", "-qm", "baseline");
+}
+
+async function runGit(root: string, ...args: readonly string[]): Promise<void> {
+  const proc = Bun.spawn({
+    cmd: ["git", "-C", root, ...args],
+    env: gitSafeEnv(),
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  if (exitCode !== 0) {
+    throw new Error(`git ${args.join(" ")} failed\n${stdout}${stderr}`);
+  }
+}

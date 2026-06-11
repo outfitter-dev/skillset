@@ -18,12 +18,19 @@ export interface LintDiagnostic {
 
 /**
  * Minimal lint subject shape. SET-56/57 grow this as rules migrate in.
+ * Compiler-agnostic: adapters construct one subject per skill.
  */
 export interface LintSubject {
   readonly kind: "skill";
+  /** Repo-relative path to the skill's SKILL.md. */
   readonly path: string;
+  /** Name of the directory containing SKILL.md. */
+  readonly directoryName: string;
   readonly frontmatter: Record<string, unknown>;
+  /** Markdown body with frontmatter stripped. */
   readonly body: string;
+  /** Full original SKILL.md text, frontmatter included. */
+  readonly raw: string;
   readonly files: readonly string[];
 }
 

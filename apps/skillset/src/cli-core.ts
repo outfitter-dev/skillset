@@ -225,6 +225,10 @@ export async function runCli(
 
   if (command === "lint") {
     const result = await lintSkillset(rootPath, options);
+    for (const issue of result.issues) {
+      if (issue.severity !== "warn") continue;
+      console.log(`  warn: ${issue.path}: ${issue.code}: ${issue.message}`);
+    }
     console.log(`skillset: linted ${result.checkedSkills} source skills`);
     return;
   }
@@ -341,7 +345,7 @@ export async function runCli(
     // stderr; the report still carries them for programmatic consumers.
     const report = await doctorSkillset(rootPath, options);
     for (const issue of report.lintIssues) {
-      console.log(`  lint: ${issue.path}: ${issue.code}: ${issue.message}`);
+      console.log(`  lint ${issue.severity}: ${issue.path}: ${issue.code}: ${issue.message}`);
     }
     if (report.buildError !== undefined) {
       console.log(`  build error: ${report.buildError}`);
@@ -497,7 +501,7 @@ function printChangeStatus(report: ChangeStatusReport): void {
 
 function printCiReport(report: CiReport): void {
   for (const issue of report.lintIssues) {
-    console.log(`  lint: ${issue.path}: ${issue.code}: ${issue.message}`);
+    console.log(`  lint ${issue.severity}: ${issue.path}: ${issue.code}: ${issue.message}`);
   }
   if (report.changeError !== undefined) {
     console.log(`  change check error: ${report.changeError}`);
@@ -525,8 +529,9 @@ function printCiReport(report: CiReport): void {
     return;
   }
   const changeErrors = report.changeIssues.filter((issue) => issue.severity === "error").length;
+  const lintErrors = report.lintIssues.filter((issue) => issue.severity === "error").length;
   const problems: string[] = [];
-  if (report.lintIssues.length > 0) problems.push(`${report.lintIssues.length} lint issue(s)`);
+  if (lintErrors > 0) problems.push(`${lintErrors} lint issue(s)`);
   if (report.changeError !== undefined) problems.push("a change check error");
   if (changeErrors > 0) problems.push(`${changeErrors} change entry error(s)`);
   if (hasDrift(report.drift)) problems.push("generated-output drift (run skillset build --yes or ci --fix)");

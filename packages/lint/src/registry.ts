@@ -2,7 +2,7 @@ import type { LintRule } from "./types";
 
 /**
  * Explicit rule registry. Rules are registered by name; no implicit
- * discovery. Empty until SET-56/57 migrate rules in.
+ * discovery. Built-in rules register on package import (see ./rules).
  */
 export const lintRules = new Map<string, LintRule>();
 

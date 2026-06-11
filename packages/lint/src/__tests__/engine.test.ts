@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  builtinLintRules,
   lintRules,
   listLintRules,
   registerLintRule,
@@ -10,10 +11,12 @@ import type { LintRule, LintSubject } from "../types";
 
 const subject: LintSubject = {
   body: "Use the thing.",
+  directoryName: "demo",
   files: ["SKILL.md"],
   frontmatter: { name: "demo" },
   kind: "skill",
   path: ".skillset/skills/demo/SKILL.md",
+  raw: "---\nname: demo\n---\n\nUse the thing.\n",
 };
 
 const dummyRule = (overrides: Partial<LintRule> = {}): LintRule => ({
@@ -32,18 +35,18 @@ const dummyRule = (overrides: Partial<LintRule> = {}): LintRule => ({
 });
 
 describe("lint engine", () => {
-  test("registry starts empty, registers, and rejects duplicates", () => {
-    expect(listLintRules()).toEqual([]);
+  test("registry holds built-in rules, registers, and rejects duplicates", () => {
+    expect(listLintRules()).toEqual(builtinLintRules);
 
     const rule = dummyRule();
     registerLintRule(rule);
-    expect(listLintRules()).toEqual([rule]);
+    expect(listLintRules()).toContain(rule);
     expect(() => registerLintRule(rule)).toThrow(
       "lint rule already registered: dummy"
     );
 
     lintRules.delete(rule.name);
-    expect(listLintRules()).toEqual([]);
+    expect(listLintRules()).toEqual(builtinLintRules);
   });
 
   test("runLintRules runs explicit rules over subjects", () => {
@@ -68,7 +71,7 @@ describe("lint engine", () => {
     expect(diagnostics[0]?.rule).toBe("hard");
   });
 
-  test("runLintRules with no registered rules yields no diagnostics", () => {
+  test("runLintRules with the default registry passes a clean subject", () => {
     expect(runLintRules([subject])).toEqual([]);
   });
 });
