@@ -25,6 +25,7 @@ import type {
   JsonRecord,
   OutputSelection,
   SkillsetOptions,
+  SourceDialect,
   SourcePlugin,
   SourcePluginFeature,
   SourcePluginFeatureKey,
@@ -358,9 +359,11 @@ async function loadInstructions(
     const frontmatter = normalizeRuleFrontmatter(parts.frontmatter, sourcePath);
     await validateSupports(frontmatter.supports, { label: relative(rootPath, sourcePath), rootPath, warnings });
     const targets = resolveFeatureTargets(rootTargets, frontmatter, sourcePath, "instructions");
+    const dialect = readDialect(frontmatter, relative(rootPath, sourcePath));
 
     rules.push({
       body: parts.body,
+      ...(dialect === undefined ? {} : { dialect }),
       frontmatter,
       id: relativePath.replace(/\.md$/, ""),
       relativePath,
@@ -373,6 +376,20 @@ async function loadInstructions(
     rules: rules.sort((left, right) => compareStrings(left.relativePath, right.relativePath)),
     instructionsDir: INSTRUCTIONS_DIR,
   };
+}
+
+/**
+ * Read the source-only `dialect` frontmatter key. Only `claude` is supported;
+ * any other value fails the build loudly so a typo never silently skips
+ * translation. Absent means portable source (no translation).
+ */
+function readDialect(frontmatter: JsonRecord, label: string): SourceDialect | undefined {
+  const value = frontmatter.dialect;
+  if (value === undefined) return undefined;
+  if (value === "claude") return "claude";
+  throw new Error(
+    `skillset: ${label} declares unsupported dialect ${JSON.stringify(value)}; only "claude" is supported`
+  );
 }
 
 function normalizeRuleFrontmatter(frontmatter: SourceRule["frontmatter"], label: string): SourceRule["frontmatter"] {
@@ -650,8 +667,11 @@ async function loadSkillsFromDirectory(
       sharedPath: resolveInside(rootPath, join(sourceDir, "shared")),
     });
 
+    const dialect = readDialect(parts.frontmatter, relative(rootPath, sourcePath));
+
     skills.push({
       body: parts.body,
+      ...(dialect === undefined ? {} : { dialect }),
       frontmatter: parts.frontmatter,
       id,
       metadata,

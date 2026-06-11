@@ -35,6 +35,7 @@ const SOURCE_ONLY_KEYS = new Set([
   "codex",
   "defaults",
   "dependencies",
+  "dialect",
   "implicit_invocation",
   "mcp",
   "model",

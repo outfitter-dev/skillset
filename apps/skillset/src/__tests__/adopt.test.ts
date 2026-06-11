@@ -135,7 +135,7 @@ test("adopt fails on lint errors and the CLI exits nonzero", async () => {
   expect(result.stdout).toContain("adopt found problems");
 });
 
-test("adopt previews transforms in imported skill bodies without rewriting", async () => {
+test("adopt previews transforms and declares dialect on transformable imports", async () => {
   const skillBody =
     "Skills live in .claude/skills/x today.\n\nPass $ARGUMENTS along, then ask @reviewer.\n";
   const root = await fixture({
@@ -157,11 +157,16 @@ test("adopt previews transforms in imported skill bodies without rewriting", asy
   ]);
   expect(preview?.matches[1]?.reason).toContain("no templating");
 
-  // Preview only: the imported source is byte-identical to the original body.
-  expect(await readFile(join(root, ".skillset/skills/x/SKILL.md"), "utf8")).toContain(skillBody);
+  // Transformable matches present -> the imported frontmatter declares the
+  // dialect; the body itself is byte-identical to the original.
+  expect(preview?.dialectDeclared).toBe(true);
+  const imported = await readFile(join(root, ".skillset/skills/x/SKILL.md"), "utf8");
+  expect(imported).toStartWith("---\ndialect: claude\n");
+  expect(imported).toContain(skillBody);
 
   const markdown = renderAdoptReportMarkdown(report, { rootPath: root });
   expect(markdown).toContain("## Transforms (preview)");
+  expect(markdown).toContain("`dialect: claude` declared.");
   expect(markdown).toContain("`.claude/skills` -> `.agents/skills` (path.skills-dir)");
   expect(markdown).toContain("No faithful Codex lowering:");
   expect(markdown).toContain("`$ARGUMENTS` (dynamic.arguments)");
@@ -172,6 +177,45 @@ test("adopt previews transforms in imported skill bodies without rewriting", asy
   expect(renderAdoptReportMarkdown(quietReport, { rootPath: "ignored" })).not.toContain(
     "## Transforms (preview)"
   );
+});
+
+test("adopt leaves files with only no-lowering matches undeclared", async () => {
+  const skillSource =
+    "---\nname: args-only\ndescription: Only dynamic context.\n---\n\nPass $ARGUMENTS along.\n";
+  const root = await fixture({
+    ".claude/skills/args-only/SKILL.md": skillSource,
+  });
+
+  const report = await adoptSkillset(root, { write: true });
+
+  const preview = report.transformPreviews.find(
+    (entry) => entry.path === ".skillset/skills/args-only/SKILL.md"
+  );
+  expect(preview?.dialectDeclared).toBe(false);
+  expect(preview?.matches.every((match) => match.lowering === "none")).toBe(true);
+  // Nothing would translate, so the imported source stays byte-identical.
+  expect(await readFile(join(root, ".skillset/skills/args-only/SKILL.md"), "utf8")).toBe(
+    skillSource
+  );
+  expect(renderAdoptReportMarkdown(report, { rootPath: root })).not.toContain(
+    "`dialect: claude` declared."
+  );
+});
+
+test("adopt prepends a frontmatter block to transformable instruction imports", async () => {
+  const instructions = "# Conventions\n\nKeep CLAUDE.md current.\n";
+  const root = await fixture({ "CLAUDE.md": instructions });
+
+  const report = await adoptSkillset(root, { write: true });
+
+  const preview = report.transformPreviews.find(
+    (entry) => entry.path === ".skillset/instructions/claude.md"
+  );
+  expect(preview?.dialectDeclared).toBe(true);
+  expect(await readFile(join(root, ".skillset/instructions/claude.md"), "utf8")).toBe(
+    `---\ndialect: claude\n---\n\n${instructions}`
+  );
+  expect(report.buildError).toBeUndefined();
 });
 
 test("adopt CLI without --yes prints the survey and writes nothing", async () => {

@@ -174,6 +174,13 @@ function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuildGraph>>
       const dependencies = Array.isArray(rawItem.dependencies)
         ? rawItem.dependencies.filter((value): value is string => typeof value === "string")
         : undefined;
+      const transforms = Array.isArray(rawItem.transforms)
+        ? rawItem.transforms.flatMap((value) =>
+            isJsonRecord(value) && typeof value.intent === "string" && typeof value.count === "number"
+              ? [{ count: value.count, intent: value.intent }]
+              : []
+          )
+        : undefined;
       matches.push({
         sourcePath,
         outputPath: joinOutputRoot(outputRoot, outputPath),
@@ -192,6 +199,7 @@ function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuildGraph>>
           ...(preprocessDependencies === undefined ? {} : { preprocessDependencies }),
           ...(typeof rawItem.sourceHash === "string" ? { sourceHash: rawItem.sourceHash } : {}),
           ...(typeof rawItem.sourcePointer === "string" ? { sourcePointer: rawItem.sourcePointer } : {}),
+          ...(transforms === undefined || transforms.length === 0 ? {} : { transforms }),
           ...(typeof rawItem.version === "string" ? { version: rawItem.version } : {}),
           ...(typeof rawItem.targetState === "string" ? { targetState: rawItem.targetState } : {}),
           ...(typeof rawItem.validation === "string" ? { validation: rawItem.validation } : {}),

@@ -55,8 +55,16 @@ export interface PluginConfig {
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
 }
 
+/**
+ * Source dialect a skill or instruction body is authored in. Source-only:
+ * declared in frontmatter, stripped from generated output. Absent means
+ * portable (no build-time translation).
+ */
+export type SourceDialect = "claude";
+
 export interface SourceSkill {
   readonly body: string;
+  readonly dialect?: SourceDialect;
   readonly frontmatter: JsonRecord;
   readonly id: string;
   readonly metadata: JsonRecord;
@@ -108,6 +116,7 @@ export interface StandaloneSkill extends SourceSkill {}
 
 export interface SourceRule {
   readonly body: string;
+  readonly dialect?: SourceDialect;
   readonly frontmatter: JsonRecord;
   readonly id: string;
   readonly relativePath: string;
@@ -170,6 +179,15 @@ export interface RenderedFile {
   readonly sourcePath?: string;
 }
 
+/**
+ * One applied build-time dialect transform on a generated file: the intent
+ * key from the transform registry and how many spans it lowered.
+ */
+export interface AppliedTransform {
+  readonly count: number;
+  readonly intent: string;
+}
+
 export interface GeneratedEntry {
   readonly dependencies?: readonly string[];
   readonly feature?: string;
@@ -184,6 +202,7 @@ export interface GeneratedEntry {
   readonly sourcePointer?: string;
   readonly target: string;
   readonly targetState?: string;
+  readonly transforms?: readonly AppliedTransform[];
   readonly validation?: string;
   readonly version?: string;
 }

@@ -56,6 +56,13 @@ export interface TransformPreviewMatch {
 
 /** Per-file transform recognition over content the import just landed. */
 export interface TransformPreview {
+  /**
+   * Whether adopt declared `dialect: claude` in the imported file's
+   * frontmatter. Set when at least one match has a faithful Codex lowering;
+   * files with only no-lowering matches stay unmarked (nothing would
+   * translate).
+   */
+  readonly dialectDeclared: boolean;
   readonly matches: readonly TransformPreviewMatch[];
   /** Repo-relative path of the imported file that was scanned. */
   readonly path: string;
@@ -80,9 +87,11 @@ export interface AdoptReport {
   readonly setupFiles: readonly SetupFile[];
   readonly surveySkips: readonly SurveySkip[];
   /**
-   * Recognition-only preview of Claude-dialect constructs in imported
-   * markdown (skill bodies and instruction files). Nothing is rewritten;
-   * this is the report surface for the transform registry.
+   * Per-file preview of Claude-dialect constructs in imported markdown
+   * (skill bodies and instruction files). Bodies are never rewritten; when a
+   * file has at least one transformable match, adopt declares
+   * `dialect: claude` in its frontmatter so the build translates its Codex
+   * projection.
    */
   readonly transformPreviews: readonly TransformPreview[];
   readonly write: boolean;
@@ -144,6 +153,8 @@ export async function adoptSkillset(
   for (const candidate of init.importCandidates) {
     imports.push(await importCandidate(init.rootPath, candidate, cutover, previewSources));
   }
+  // Dialect declaration must land before the graph loads: the isolated build
+  // below is what translates the Codex projection of the marked files.
   const transformPreviews = await buildTransformPreviews(init.rootPath, previewSources);
 
   let lintIssues: readonly LintIssue[] = [];
@@ -275,9 +286,12 @@ async function importInstructionFile(rootPath: string, sourceName: string): Prom
 }
 
 /**
- * Recognition-only transform preview over the markdown the imports just
- * landed: skill bodies (frontmatter stripped) and verbatim instruction
- * files. Source content is read from the imported copies, never rewritten.
+ * Transform preview over the markdown the imports just landed: skill bodies
+ * (frontmatter stripped) and verbatim instruction files. Bodies are never
+ * rewritten; when a file has at least one transformable match, adopt
+ * declares `dialect: claude` in its frontmatter so the build's Codex
+ * projection lowers it through the transform engine. Files with only
+ * no-lowering matches stay unmarked — nothing would translate.
  */
 async function buildTransformPreviews(
   rootPath: string,
@@ -289,7 +303,12 @@ async function buildTransformPreviews(
     const body = basename(path) === "SKILL.md" ? markdownBody(raw, path) : raw;
     const matches = recognizeTransforms(body, "claude");
     if (matches.length === 0) continue;
+    const transformable = matches.some((match) => match.lowering !== "none");
+    const dialectDeclared = transformable
+      ? await declareClaudeDialect(join(rootPath, path))
+      : false;
     previews.push({
+      dialectDeclared,
       matches: matches.map((match) => {
         const codexForm = lowerTransform(match, "codex");
         return {
@@ -304,6 +323,27 @@ async function buildTransformPreviews(
     });
   }
   return previews;
+}
+
+/**
+ * Declare `dialect: claude` in an imported file's frontmatter. Skills carry
+ * frontmatter already (the key slots in after the opening `---`);
+ * instruction files imported verbatim usually have none, so a minimal block
+ * is prepended. Unparseable frontmatter is left alone — adopt must not
+ * compound an import problem — and an existing `dialect` key is respected.
+ */
+async function declareClaudeDialect(path: string): Promise<boolean> {
+  const raw = await readFile(path, "utf8");
+  try {
+    if (parseMarkdown(raw, path).frontmatter.dialect !== undefined) return true;
+  } catch {
+    return false;
+  }
+  const updated = /^---\r?\n/.test(raw)
+    ? raw.replace(/^---\r?\n/, (open) => `${open}dialect: claude\n`)
+    : `---\ndialect: claude\n---\n\n${raw}`;
+  await writeFile(path, updated);
+  return true;
 }
 
 function markdownBody(raw: string, label: string): string {
@@ -401,11 +441,14 @@ export function renderAdoptReportMarkdown(
   if (report.transformPreviews.length > 0) {
     lines.push("## Transforms (preview)", "");
     lines.push(
-      "Recognition only — adopt rewrote nothing. Codex forms show what a future transform slice would write.",
+      "Bodies are untouched. Files with transformable constructs were marked `dialect: claude`; the build lowers their Codex projection through these forms.",
       ""
     );
     for (const preview of report.transformPreviews) {
       lines.push(`### \`${preview.path}\``, "");
+      if (preview.dialectDeclared) {
+        lines.push("`dialect: claude` declared.", "");
+      }
       const transformable = aggregatePreviewMatches(
         preview.matches.filter((match) => match.lowering !== "none")
       );

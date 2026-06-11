@@ -3,6 +3,8 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { basename, dirname, join, relative } from "node:path";
 
+import { lowerTransform, recognizeTransforms } from "@skillset/transforms";
+
 import {
   isOutputSelected,
   mergeRecords,
@@ -37,6 +39,7 @@ import {
   validateGeneratedStructuredOutput,
 } from "./structured-output";
 import type {
+  AppliedTransform,
   BuildGraph,
   JsonRecord,
   JsonValue,
@@ -80,8 +83,39 @@ interface LockItem {
   readonly sourcePath: string;
   readonly sourcePointer?: string;
   readonly targetState?: string;
+  /** Build-time dialect transforms applied to this item, sorted by intent. */
+  readonly transforms?: readonly AppliedTransform[];
   readonly validation?: "opaque-copy" | "structured";
   readonly version?: string;
+}
+
+interface TranslatedBody {
+  readonly text: string;
+  readonly transforms: readonly AppliedTransform[];
+}
+
+/**
+ * Lower a Claude-dialect body into Codex surface forms. Every recognized
+ * construct with a faithful Codex lowering (bidirectional or to-codex) is
+ * replaced in place; replacements apply last-to-first by index so earlier
+ * spans stay valid. `lowering: "none"` constructs pass through untouched —
+ * lint owns those. Returns the applied intents with occurrence counts,
+ * sorted by intent, for lock provenance.
+ */
+function translateClaudeDialect(body: string): TranslatedBody {
+  const matches = recognizeTransforms(body, "claude");
+  const counts = new Map<string, number>();
+  let text = body;
+  for (const match of [...matches].reverse()) {
+    const lowered = lowerTransform(match, "codex");
+    if (lowered === undefined) continue;
+    text = `${text.slice(0, match.index)}${lowered}${text.slice(match.index + match.text.length)}`;
+    counts.set(match.intent, (counts.get(match.intent) ?? 0) + 1);
+  }
+  const transforms = [...counts.entries()]
+    .sort(([left], [right]) => compareStrings(left, right))
+    .map(([intent, count]) => ({ count, intent }));
+  return { text, transforms };
 }
 
 interface LockRoot {
@@ -495,11 +529,12 @@ async function renderPluginSkillFiles(
   );
   const rendered: RenderedFile[] = [];
   const renderedRelativeFiles = new Set<string>();
+  const skillMarkdown = await renderSkillMarkdown(graph, plugin, skill, target);
   pushSkillRenderedFile(
     rendered,
     textFile(
       targetSkillFile,
-      await renderSkillMarkdown(graph, plugin, skill, target),
+      skillMarkdown.content,
       relative(graph.rootPath, skill.sourcePath)
     ),
     targetSkillDir,
@@ -552,6 +587,7 @@ async function renderPluginSkillFiles(
       plugin,
       skill,
       sourceDir,
+      transforms: skillMarkdown.transforms,
     })
   );
 
@@ -875,11 +911,12 @@ async function renderStandaloneSkill(
   );
   const rendered: RenderedFile[] = [];
   const renderedRelativeFiles = new Set<string>();
+  const skillMarkdown = await renderSkillMarkdown(graph, undefined, skill, target);
   pushSkillRenderedFile(
     rendered,
     textFile(
       targetSkillFile,
-      await renderSkillMarkdown(graph, undefined, skill, target),
+      skillMarkdown.content,
       relative(graph.rootPath, skill.sourcePath)
     ),
     targetSkillDir,
@@ -931,6 +968,7 @@ async function renderStandaloneSkill(
       outputRoot,
       skill,
       sourceDir,
+      transforms: skillMarkdown.transforms,
     })
   );
 
@@ -984,12 +1022,18 @@ function normalizeRenderedRelativePath(path: string): string {
   return path.replaceAll("\\", "/");
 }
 
+interface RenderedSkillMarkdown {
+  readonly content: string;
+  /** Dialect transforms applied to the body (codex projections only). */
+  readonly transforms: readonly AppliedTransform[];
+}
+
 async function renderSkillMarkdown(
   graph: BuildGraph,
   plugin: SourcePlugin | undefined,
   skill: SourceSkill,
   target: TargetName
-): Promise<string> {
+): Promise<RenderedSkillMarkdown> {
   const metadata = skill.metadata;
   const targetOptions = skill.targets[target].options;
   const base = mergeRecords(stripSourceFrontmatter(skill.frontmatter, skill.sourcePath), {
@@ -1042,11 +1086,21 @@ async function renderSkillMarkdown(
   const body = dependencyNotice === undefined
     ? preprocessedBody
     : `${dependencyNotice}\n\n${preprocessedBody}`;
-  return renderValidatedMarkdown(
-    frontmatter,
-    rewriteResourceLinks(body, skill.resources, skill.sourcePath),
-    `${relative(graph.rootPath, skill.sourcePath)} -> ${target}`
-  );
+  const linkedBody = rewriteResourceLinks(body, skill.resources, skill.sourcePath);
+  // Claude-dialect source lowers through the transform engine for the codex
+  // projection only; the claude projection stays byte-identical to source.
+  const translated =
+    target === "codex" && skill.dialect === "claude"
+      ? translateClaudeDialect(linkedBody)
+      : { text: linkedBody, transforms: [] };
+  return {
+    content: renderValidatedMarkdown(
+      frontmatter,
+      translated.text,
+      `${relative(graph.rootPath, skill.sourcePath)} -> ${target}`
+    ),
+    transforms: translated.transforms,
+  };
 }
 
 function renderClaudeSkillPolicy(skill: SourceSkill, targetOptions: JsonRecord): JsonRecord {
@@ -1201,9 +1255,10 @@ async function renderCodexAgentsFiles(
 
   const rendered: RenderedFile[] = [];
   for (const [destination, rules] of [...destinations.entries()].sort(([left], [right]) => compareStrings(left, right))) {
+    const markdown = await renderCodexAgentsMarkdown(graph, rules, destination);
     const file = textFile(
       destination,
-      await renderCodexAgentsMarkdown(graph, rules, destination),
+      markdown.content,
       `${graph.sourceDir}/${graph.instructionsDir}`
     );
     rendered.push(file);
@@ -1216,6 +1271,7 @@ async function renderCodexAgentsFiles(
         outputPath: destination,
         sourceHash: hashRules(rules),
         sourcePath: `${graph.sourceDir}/${graph.instructionsDir}`,
+        transforms: markdown.transforms,
       })
     );
   }
@@ -1233,13 +1289,23 @@ async function renderCodexAgentsMarkdown(
   graph: BuildGraph,
   rules: readonly SourceRule[],
   outputPath: string
-): Promise<string> {
+): Promise<{ readonly content: string; readonly transforms: readonly AppliedTransform[] }> {
   // Each concatenated source gets a deterministic boundary comment naming its
   // source instruction path. Comments carry the path only — source-only
   // frontmatter never reaches the generated AGENTS.md. Ordering follows the
-  // already-sorted rule list, so concatenation is stable.
-  const sections = rules
-    .map(async (rule) => ({ rule, body: await renderRuleBody(graph, rule, outputPath) }));
+  // already-sorted rule list, so concatenation is stable. Claude-dialect
+  // sources lower through the transform engine for this codex projection;
+  // the .claude/rules projection of the same sources stays untouched.
+  const counts = new Map<string, number>();
+  const sections = rules.map(async (rule) => {
+    const body = await renderRuleBody(graph, rule, outputPath);
+    if (rule.dialect !== "claude") return { rule, body };
+    const translated = translateClaudeDialect(body);
+    for (const transform of translated.transforms) {
+      counts.set(transform.intent, (counts.get(transform.intent) ?? 0) + transform.count);
+    }
+    return { rule, body: translated.text };
+  });
   const resolvedSections = await Promise.all(sections);
   const renderedSections = resolvedSections
     .filter((section) => section.body.length > 0)
@@ -1247,12 +1313,16 @@ async function renderCodexAgentsMarkdown(
       (section) =>
         `<!-- source: ${relative(graph.rootPath, section.rule.sourcePath)} -->\n${section.body}`
     );
-  return [
+  const content = [
     `<!-- Generated by ${GENERATED_BY} from ${graph.sourceDir}/${graph.instructionsDir}. Do not edit directly. -->`,
     "",
     renderedSections.join("\n\n"),
     "",
   ].join("\n");
+  const transforms = [...counts.entries()]
+    .sort(([left], [right]) => compareStrings(left, right))
+    .map(([intent, count]) => ({ count, intent }));
+  return { content, transforms };
 }
 
 async function codexRuleDestinations(
@@ -1698,6 +1768,7 @@ function lockItemForRule(args: {
   readonly outputRoot: string;
   readonly sourceHash: string;
   readonly sourcePath: string;
+  readonly transforms?: readonly AppliedTransform[];
 }): LockItem {
   return {
     files: args.files.map((file) => relative(args.outputRoot, file.path)).sort(),
@@ -1707,6 +1778,9 @@ function lockItemForRule(args: {
     outputPath: relative(args.outputRoot, args.outputPath),
     sourceHash: args.sourceHash,
     sourcePath: args.sourcePath,
+    ...(args.transforms === undefined || args.transforms.length === 0
+      ? {}
+      : { transforms: args.transforms }),
     version: rootVersion(args.graph),
   };
 }
@@ -1766,6 +1840,7 @@ async function lockItemForSkill(args: {
   readonly plugin?: SourcePlugin;
   readonly skill: SourceSkill;
   readonly sourceDir: string;
+  readonly transforms: readonly AppliedTransform[];
 }): Promise<LockItem> {
   const files = args.files
     .map((file) => relative(args.outputRoot, file.path))
@@ -1779,6 +1854,7 @@ async function lockItemForSkill(args: {
     outputPath: files.find((file) => file.endsWith("/SKILL.md")) ?? files[0] ?? "",
     sourceHash: await hashSkillSource(args.sourceDir, args.skill.resources),
     sourcePath: relative(args.graph.rootPath, args.skill.sourcePath),
+    ...(args.transforms.length === 0 ? {} : { transforms: args.transforms }),
     version: skillVersion(args.graph, args.plugin, args.skill),
     ...(args.plugin === undefined ? {} : { plugin: args.plugin.id }),
   };
@@ -1854,6 +1930,10 @@ function stripUndefinedLockItem(item: LockItem): JsonRecord {
     sourcePath: item.sourcePath,
     sourcePointer: item.sourcePointer,
     targetState: item.targetState,
+    transforms:
+      item.transforms === undefined
+        ? undefined
+        : item.transforms.map(({ count, intent }) => ({ count, intent })),
     validation: item.validation,
     version: item.version,
   };

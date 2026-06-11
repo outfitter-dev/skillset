@@ -350,6 +350,11 @@ export async function runCli(
       if (entry.preprocessDependencies !== undefined && entry.preprocessDependencies.length > 0) {
         console.log(`    preprocess dependencies: ${entry.preprocessDependencies.join(", ")}`);
       }
+      if (entry.transforms !== undefined && entry.transforms.length > 0) {
+        console.log(
+          `    transforms: ${entry.transforms.map((transform) => `${transform.intent} x${transform.count}`).join(", ")}`
+        );
+      }
       if (entry.sourceHash !== undefined) console.log(`    source hash: ${entry.sourceHash}`);
       if (entry.outputHash !== undefined) console.log(`    output hash: ${entry.outputHash}`);
     }
