@@ -17,9 +17,18 @@
  * comparison is report-only for now; per-repo expectations can harden into
  * assertions once the numbers settle.
  */
-import { cp, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import {
+  cp,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, relative, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 
 import { buildSkillset } from "../../src/build";
 import { importSources } from "../../src/import";
@@ -43,33 +52,45 @@ export interface ExternalRepoEntry {
   readonly targets: readonly TargetName[];
 }
 
-export function parseExternalManifest(content: string, label: string): readonly ExternalRepoEntry[] {
+export function parseExternalManifest(
+  content: string,
+  label: string
+): readonly ExternalRepoEntry[] {
   const record = parseYamlRecord(content, label);
-  const repos = record.repos;
+  const {repos} = record;
   if (!Array.isArray(repos)) {
-    throw new Error(`skillset: expected ${label} to have a repos list`);
+    throw new TypeError(`skillset: expected ${label} to have a repos list`);
   }
   const entries: ExternalRepoEntry[] = [];
   const seen = new Set<string>();
   for (const raw of repos) {
     if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-      throw new Error(`skillset: expected each ${label} repos entry to be a mapping`);
+      throw new Error(
+        `skillset: expected each ${label} repos entry to be a mapping`
+      );
     }
     const entry = raw as Record<string, unknown>;
-    const name = validateSlug(readManifestString(entry, "name", label), `${label} entry name`);
+    const name = validateSlug(
+      readManifestString(entry, "name", label),
+      `${label} entry name`
+    );
     const repo = readManifestString(entry, "repo", label);
     const ref = readManifestString(entry, "ref", label);
-    if (!/^[0-9a-f]{40}$/.test(ref)) {
-      throw new Error(`skillset: ${label} entry ${name} must pin ref to a full 40-character commit SHA`);
+    if (!/^[0-9a-f]{40}$/u.test(ref)) {
+      throw new Error(
+        `skillset: ${label} entry ${name} must pin ref to a full 40-character commit SHA`
+      );
     }
     if (seen.has(name)) {
       throw new Error(`skillset: ${label} has duplicate entry name ${name}`);
     }
     seen.add(name);
     const targets = readManifestTargets(entry, name, label);
-    const notes = entry.notes;
+    const {notes} = entry;
     if (notes !== undefined && typeof notes !== "string") {
-      throw new Error(`skillset: ${label} entry ${name} notes must be a string`);
+      throw new Error(
+        `skillset: ${label} entry ${name} notes must be a string`
+      );
     }
     entries.push({
       name,
@@ -82,10 +103,16 @@ export function parseExternalManifest(content: string, label: string): readonly 
   return entries;
 }
 
-function readManifestString(entry: Record<string, unknown>, key: string, label: string): string {
+function readManifestString(
+  entry: Record<string, unknown>,
+  key: string,
+  label: string
+): string {
   const value = entry[key];
   if (typeof value !== "string" || value.trim().length === 0) {
-    throw new Error(`skillset: expected each ${label} repos entry to have a non-empty ${key}`);
+    throw new Error(
+      `skillset: expected each ${label} repos entry to have a non-empty ${key}`
+    );
   }
   return value.trim();
 }
@@ -96,21 +123,27 @@ function readManifestTargets(
   label: string
 ): readonly TargetName[] {
   const raw = entry.targets;
-  if (raw === undefined) return ["claude"];
+  if (raw === undefined) {return ["claude"];}
   if (!Array.isArray(raw) || raw.length === 0) {
-    throw new Error(`skillset: ${label} entry ${name} targets must be a non-empty list`);
+    throw new Error(
+      `skillset: ${label} entry ${name} targets must be a non-empty list`
+    );
   }
   const targets: TargetName[] = [];
   for (const target of raw) {
     if (target !== "claude" && target !== "codex") {
-      throw new Error(`skillset: ${label} entry ${name} targets must be claude or codex`);
+      throw new Error(
+        `skillset: ${label} entry ${name} targets must be claude or codex`
+      );
     }
     targets.push(target);
   }
   return targets;
 }
 
-export function renderExternalManifest(entries: readonly ExternalRepoEntry[]): string {
+export function renderExternalManifest(
+  entries: readonly ExternalRepoEntry[]
+): string {
   const lines = [
     "# External fixture repos: real published repos Skillset should adopt cleanly.",
     "# Managed by scripts/fixtures/external.ts; `update` re-pins refs to upstream HEAD.",
@@ -142,7 +175,10 @@ export interface TreeComparison {
  * equality. This is the report-only round-trip fidelity measure: it does not
  * judge which differences are acceptable, it only makes them visible.
  */
-export async function compareTrees(originalRoot: string, generatedRoot: string): Promise<TreeComparison> {
+export async function compareTrees(
+  originalRoot: string,
+  generatedRoot: string
+): Promise<TreeComparison> {
   const original = await collectRelativeFiles(originalRoot);
   const generated = await collectRelativeFiles(generatedRoot);
   const different: string[] = [];
@@ -159,30 +195,33 @@ export async function compareTrees(originalRoot: string, generatedRoot: string):
       readFile(join(originalRoot, path)),
       readFile(join(generatedRoot, path)),
     ]);
-    if (left.equals(right)) identical.push(path);
-    else different.push(path);
+    if (left.equals(right)) {identical.push(path);}
+    else {different.push(path);}
   }
   for (const path of generated) {
-    if (!original.has(path)) generatedOnly.push(path);
+    if (!original.has(path)) {generatedOnly.push(path);}
   }
 
   return {
-    different: different.sort(compareStrings),
-    generatedOnly: generatedOnly.sort(compareStrings),
-    identical: identical.sort(compareStrings),
-    originalOnly: originalOnly.sort(compareStrings),
+    different: different.toSorted(compareStrings),
+    generatedOnly: generatedOnly.toSorted(compareStrings),
+    identical: identical.toSorted(compareStrings),
+    originalOnly: originalOnly.toSorted(compareStrings),
   };
 }
 
-async function collectRelativeFiles(root: string): Promise<ReadonlySet<string>> {
+async function collectRelativeFiles(
+  root: string
+): Promise<ReadonlySet<string>> {
   const files = new Set<string>();
-  if (!(await exists(root))) return files;
+  if (!(await exists(root))) {return files;}
   const walk = async (dir: string): Promise<void> => {
     for (const entry of await readdir(dir, { withFileTypes: true })) {
-      if (COMPARISON_IGNORED.has(entry.name)) continue;
+      if (COMPARISON_IGNORED.has(entry.name)) {continue;}
       const path = join(dir, entry.name);
-      if (entry.isDirectory()) await walk(path);
-      else if (entry.isFile()) files.add(relative(root, path).replaceAll("\\", "/"));
+      if (entry.isDirectory()) {await walk(path);}
+      else if (entry.isFile())
+        {files.add(relative(root, path).replaceAll("\\", "/"));}
     }
   };
   await walk(root);
@@ -230,9 +269,17 @@ export async function runExternalRepo(
       recursive: true,
     });
 
-    let candidates: readonly { readonly kind: "plugin" | "plugins" | "skills"; readonly path: string }[] = [];
+    let candidates: readonly {
+      readonly kind: "plugin" | "plugins" | "skills";
+      readonly path: string;
+    }[] = [];
     try {
-      const init = await initSkillset({ cwd: workspace, targets, useGitRoot: false, write: true });
+      const init = await initSkillset({
+        cwd: workspace,
+        targets,
+        useGitRoot: false,
+        write: true,
+      });
       candidates = init.importCandidates;
       stages.push({
         detail: `${candidates.length} import candidate(s): ${candidates.map((candidate) => `${candidate.kind}:${candidate.path}`).join(", ") || "none"}`,
@@ -244,7 +291,11 @@ export async function runExternalRepo(
       return { name, ok: false, roundTrips, stages };
     }
 
-    const imported: { readonly kind: "plugin" | "skill"; readonly name: string; readonly sourcePath: string }[] = [];
+    const imported: {
+      readonly kind: "plugin" | "skill";
+      readonly name: string;
+      readonly sourcePath: string;
+    }[] = [];
     for (const candidate of candidates) {
       try {
         const batch = await importSources({
@@ -253,7 +304,10 @@ export async function runExternalRepo(
           sourcePath: join(workspace, candidate.path),
         });
         for (const report of batch.imports) {
-          const sourcePath = relative(workspace, report.sourcePath).replaceAll("\\", "/");
+          const sourcePath = relative(workspace, report.sourcePath).replaceAll(
+            "\\",
+            "/"
+          );
           imported.push({
             kind: report.kind,
             name: report.name,
@@ -266,7 +320,11 @@ export async function runExternalRepo(
           stage: "import",
         });
       } catch (error) {
-        stages.push({ detail: `${candidate.kind}:${candidate.path}: ${errorMessage(error)}`, ok: false, stage: "import" });
+        stages.push({
+          detail: `${candidate.kind}:${candidate.path}: ${errorMessage(error)}`,
+          ok: false,
+          stage: "import",
+        });
       }
     }
 
@@ -278,29 +336,45 @@ export async function runExternalRepo(
     // import, and the failed import stage already fails the overall run.
     try {
       const lint = await lintSkillset(workspace);
-      stages.push({ detail: `linted ${lint.checkedSkills} source skills`, ok: true, stage: "lint" });
+      stages.push({
+        detail: `linted ${lint.checkedSkills} source skills`,
+        ok: true,
+        stage: "lint",
+      });
     } catch (error) {
       stages.push({ detail: errorMessage(error), ok: false, stage: "lint" });
     }
 
     try {
       const rendered = await buildSkillset(workspace);
-      stages.push({ detail: `wrote ${rendered.length} generated files`, ok: true, stage: "build" });
+      stages.push({
+        detail: `wrote ${rendered.length} generated files`,
+        ok: true,
+        stage: "build",
+      });
     } catch (error) {
       stages.push({ detail: errorMessage(error), ok: false, stage: "build" });
     }
 
     for (const item of imported) {
-      const generatedRoot = item.kind === "plugin"
-        ? join("plugins-claude", "plugins", item.name)
-        : join(".claude", "skills", item.name);
-      const originalRoot = item.sourcePath === "." ? clonePath : join(clonePath, item.sourcePath);
+      const generatedRoot =
+        item.kind === "plugin"
+          ? join("plugins-claude", "plugins", item.name)
+          : join(".claude", "skills", item.name);
+      const originalRoot =
+        item.sourcePath === "." ? clonePath : join(clonePath, item.sourcePath);
       roundTrips.push({
-        comparison: await compareTrees(originalRoot, join(workspace, generatedRoot)),
+        comparison: await compareTrees(
+          originalRoot,
+          join(workspace, generatedRoot)
+        ),
         generatedRoot,
         kind: item.kind,
         name: item.name,
-        originalRoot: relative(clonePath, originalRoot) === "" ? "." : relative(clonePath, originalRoot),
+        originalRoot:
+          relative(clonePath, originalRoot) === ""
+            ? "."
+            : relative(clonePath, originalRoot),
       });
     }
 
@@ -333,7 +407,10 @@ export function renderRunReportMarkdown(
   }
   for (const roundTrip of report.roundTrips) {
     const { comparison } = roundTrip;
-    const total = comparison.identical.length + comparison.different.length + comparison.originalOnly.length;
+    const total =
+      comparison.identical.length +
+      comparison.different.length +
+      comparison.originalOnly.length;
     lines.push(
       `### ${roundTrip.kind} ${roundTrip.name} (original \`${roundTrip.originalRoot}\` vs generated \`${roundTrip.generatedRoot}\`)`,
       "",
@@ -350,43 +427,67 @@ export function renderRunReportMarkdown(
   return `${lines.join("\n").trimEnd()}\n`;
 }
 
-function appendCappedList(lines: string[], title: string, paths: readonly string[]): void {
-  if (paths.length === 0) return;
+function appendCappedList(
+  lines: string[],
+  title: string,
+  paths: readonly string[]
+): void {
+  if (paths.length === 0) {return;}
   lines.push(`#### ${title}`, "");
-  for (const path of paths.slice(0, REPORT_LIST_CAP)) lines.push(`- \`${path}\``);
-  if (paths.length > REPORT_LIST_CAP) lines.push(`- ... and ${paths.length - REPORT_LIST_CAP} more`);
+  for (const path of paths.slice(0, REPORT_LIST_CAP))
+    {lines.push(`- \`${path}\``);}
+  if (paths.length > REPORT_LIST_CAP)
+    {lines.push(`- ... and ${paths.length - REPORT_LIST_CAP} more`);}
   lines.push("");
 }
 
-async function readManifest(rootPath: string): Promise<readonly ExternalRepoEntry[]> {
+async function readManifest(
+  rootPath: string
+): Promise<readonly ExternalRepoEntry[]> {
   const path = join(rootPath, MANIFEST_PATH);
-  return parseExternalManifest(await readFile(path, "utf8"), MANIFEST_PATH);
+  return parseExternalManifest(await readFile(path, "utf-8"), MANIFEST_PATH);
 }
 
 function selectEntries(
   entries: readonly ExternalRepoEntry[],
   name: string | undefined
 ): readonly ExternalRepoEntry[] {
-  if (name === undefined) return entries;
+  if (name === undefined) {return entries;}
   const selected = entries.filter((entry) => entry.name === name);
   if (selected.length === 0) {
-    throw new Error(`skillset: no external fixture named ${name} in ${MANIFEST_PATH}`);
+    throw new Error(
+      `skillset: no external fixture named ${name} in ${MANIFEST_PATH}`
+    );
   }
   return selected;
 }
 
-async function syncRepo(rootPath: string, entry: ExternalRepoEntry): Promise<void> {
+async function syncRepo(
+  rootPath: string,
+  entry: ExternalRepoEntry
+): Promise<void> {
   const clonePath = join(rootPath, CLONES_DIR, entry.name);
   if (!(await exists(join(clonePath, ".git")))) {
     await mkdir(clonePath, { recursive: true });
     await runGit(clonePath, "init", "-q");
     await runGit(clonePath, "remote", "add", "origin", entry.repo);
   }
-  const origin = await gitOutput(clonePath, "remote", "get-url", "origin").catch(() => "");
+  const origin = await gitOutput(
+    clonePath,
+    "remote",
+    "get-url",
+    "origin"
+  ).catch(() => "");
   if (origin.trim() !== entry.repo) {
     await runGit(clonePath, "remote", "set-url", "origin", entry.repo);
   }
-  const current = await gitOutput(clonePath, "rev-parse", "--verify", "--quiet", "HEAD").catch(() => "");
+  const current = await gitOutput(
+    clonePath,
+    "rev-parse",
+    "--verify",
+    "--quiet",
+    "HEAD"
+  ).catch(() => "");
   if (current.trim() === entry.ref) {
     console.log(`external: ${entry.name} already at ${entry.ref.slice(0, 12)}`);
     return;
@@ -396,17 +497,26 @@ async function syncRepo(rootPath: string, entry: ExternalRepoEntry): Promise<voi
   console.log(`external: ${entry.name} synced to ${entry.ref.slice(0, 12)}`);
 }
 
-async function updateRepo(rootPath: string, entry: ExternalRepoEntry): Promise<ExternalRepoEntry> {
+async function updateRepo(
+  rootPath: string,
+  entry: ExternalRepoEntry
+): Promise<ExternalRepoEntry> {
   const output = await gitOutput(rootPath, "ls-remote", entry.repo, "HEAD");
-  const ref = output.split(/\s+/)[0];
-  if (ref === undefined || !/^[0-9a-f]{40}$/.test(ref)) {
-    throw new Error(`skillset: could not resolve upstream HEAD for ${entry.repo}`);
+  const ref = output.split(/\s+/u)[0];
+  if (ref === undefined || !/^[0-9a-f]{40}$/u.test(ref)) {
+    throw new Error(
+      `skillset: could not resolve upstream HEAD for ${entry.repo}`
+    );
   }
   if (ref === entry.ref) {
-    console.log(`external: ${entry.name} already pinned to upstream HEAD ${ref.slice(0, 12)}`);
+    console.log(
+      `external: ${entry.name} already pinned to upstream HEAD ${ref.slice(0, 12)}`
+    );
     return entry;
   }
-  console.log(`external: ${entry.name} re-pinned ${entry.ref.slice(0, 12)} -> ${ref.slice(0, 12)}`);
+  console.log(
+    `external: ${entry.name} re-pinned ${entry.ref.slice(0, 12)} -> ${ref.slice(0, 12)}`
+  );
   return { ...entry, ref };
 }
 
@@ -414,15 +524,24 @@ async function runGit(cwd: string, ...args: readonly string[]): Promise<void> {
   await gitOutput(cwd, ...args);
 }
 
-async function gitOutput(cwd: string, ...args: readonly string[]): Promise<string> {
-  const proc = Bun.spawn({ cmd: ["git", "-C", cwd, ...args], stderr: "pipe", stdout: "pipe" });
+async function gitOutput(
+  cwd: string,
+  ...args: readonly string[]
+): Promise<string> {
+  const proc = Bun.spawn({
+    cmd: ["git", "-C", cwd, ...args],
+    stderr: "pipe",
+    stdout: "pipe",
+  });
   const [stdout, stderr, exitCode] = await Promise.all([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),
     proc.exited,
   ]);
   if (exitCode !== 0) {
-    throw new Error(`git ${args.join(" ")} failed in ${cwd}\n${stdout}${stderr}`.trim());
+    throw new Error(
+      `git ${args.join(" ")} failed in ${cwd}\n${stdout}${stderr}`.trim()
+    );
   }
   return stdout;
 }
@@ -436,7 +555,12 @@ async function exists(path: string): Promise<boolean> {
     await stat(path);
     return true;
   } catch (error) {
-    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "ENOENT"
+    ) {
       return false;
     }
     throw error;
@@ -446,7 +570,9 @@ async function exists(path: string): Promise<boolean> {
 async function main(): Promise<void> {
   const [verb, name] = process.argv.slice(2);
   if (verb !== "sync" && verb !== "update" && verb !== "run") {
-    console.error("usage: bun scripts/fixtures/external.ts <sync|update|run> [name]");
+    console.error(
+      "usage: bun scripts/fixtures/external.ts <sync|update|run> [name]"
+    );
     process.exit(1);
   }
   const rootPath = resolve(import.meta.dir, "../..");
@@ -455,17 +581,23 @@ async function main(): Promise<void> {
 
   if (verb === "update") {
     const updated = new Map<string, ExternalRepoEntry>();
-    for (const entry of selected) updated.set(entry.name, await updateRepo(rootPath, entry));
+    for (const entry of selected)
+      {updated.set(entry.name, await updateRepo(rootPath, entry));}
     const next = entries.map((entry) => updated.get(entry.name) ?? entry);
-    await writeFile(join(rootPath, MANIFEST_PATH), renderExternalManifest(next));
-    for (const entry of next.filter((candidate) => updated.has(candidate.name))) {
+    await writeFile(
+      join(rootPath, MANIFEST_PATH),
+      renderExternalManifest(next)
+    );
+    for (const entry of next.filter((candidate) =>
+      updated.has(candidate.name)
+    )) {
       await syncRepo(rootPath, entry);
     }
     return;
   }
 
   if (verb === "sync") {
-    for (const entry of selected) await syncRepo(rootPath, entry);
+    for (const entry of selected) {await syncRepo(rootPath, entry);}
     return;
   }
 
@@ -478,9 +610,14 @@ async function main(): Promise<void> {
     await mkdir(reportDir, { recursive: true });
     const markdown = renderRunReportMarkdown(report, entry);
     await writeFile(join(reportDir, "report.md"), markdown);
-    await writeFile(join(reportDir, "report.json"), `${JSON.stringify(report, null, 2)}\n`);
+    await writeFile(
+      join(reportDir, "report.json"),
+      `${JSON.stringify(report, null, 2)}\n`
+    );
     for (const stage of report.stages) {
-      console.log(`  ${stage.ok ? "ok" : "FAIL"} ${stage.stage}: ${stage.detail.split("\n")[0]}`);
+      console.log(
+        `  ${stage.ok ? "ok" : "FAIL"} ${stage.stage}: ${stage.detail.split("\n")[0]}`
+      );
     }
     for (const roundTrip of report.roundTrips) {
       const { comparison } = roundTrip;
@@ -490,10 +627,12 @@ async function main(): Promise<void> {
           `${comparison.generatedOnly.length} generated-only`
       );
     }
-    console.log(`external: ${entry.name} ${report.ok ? "passed" : "failed"} (${join(REPORTS_DIR, entry.name, "report.md")})`);
-    if (!report.ok) failed = true;
+    console.log(
+      `external: ${entry.name} ${report.ok ? "passed" : "failed"} (${join(REPORTS_DIR, entry.name, "report.md")})`
+    );
+    if (!report.ok) {failed = true;}
   }
-  if (failed) process.exitCode = 1;
+  if (failed) {process.exitCode = 1;}
 }
 
 if (import.meta.main) {

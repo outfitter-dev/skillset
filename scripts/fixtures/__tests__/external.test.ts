@@ -3,14 +3,8 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import {
-  compareTrees,
-  parseExternalManifest,
-  renderExternalManifest,
-  renderRunReportMarkdown,
-  runExternalRepo,
-  type ExternalRepoEntry,
-} from "../external";
+import { compareTrees, parseExternalManifest, renderExternalManifest, renderRunReportMarkdown, runExternalRepo } from '../external';
+import type { ExternalRepoEntry } from '../external';
 
 const SHA = "4719dc509fdc45656a830e3ed6060f674e206076";
 
@@ -48,37 +42,47 @@ test("manifest parses, defaults targets to claude, and round-trips through rende
   ]);
 
   const rendered = renderExternalManifest(entries);
-  expect(parseExternalManifest(rendered, "re-rendered manifest")).toEqual(entries);
+  expect(parseExternalManifest(rendered, "re-rendered manifest")).toEqual(
+    entries
+  );
 });
 
 test("manifest rejects short refs, duplicate names, and unknown targets", () => {
   const entry = (overrides: string): string =>
-    ["repos:", "  - name: demo", "    repo: https://github.com/example/demo", overrides, ""].join("\n");
+    [
+      "repos:",
+      "  - name: demo",
+      "    repo: https://github.com/example/demo",
+      overrides,
+      "",
+    ].join("\n");
 
-  expect(() => parseExternalManifest(entry("    ref: abc123"), "m")).toThrow("full 40-character commit SHA");
+  expect(() => parseExternalManifest(entry("    ref: abc123"), "m")).toThrow(
+    "full 40-character commit SHA"
+  );
   expect(() =>
     parseExternalManifest(
       `repos:\n  - name: demo\n    repo: r\n    ref: ${SHA}\n  - name: demo\n    repo: r\n    ref: ${SHA}\n`,
       "m"
     )
   ).toThrow("duplicate entry name");
-  expect(() => parseExternalManifest(entry(`    ref: ${SHA}\n    targets: [cursor]`), "m")).toThrow(
-    "targets must be claude or codex"
-  );
+  expect(() =>
+    parseExternalManifest(entry(`    ref: ${SHA}\n    targets: [cursor]`), "m")
+  ).toThrow("targets must be claude or codex");
   expect(() => parseExternalManifest("repos: {}\n", "m")).toThrow("repos list");
 });
 
 test("compareTrees buckets identical, different, and one-sided files", async () => {
   const original = await fixture({
-    "same.md": "same\n",
+    ".git/HEAD": "ignored\n",
     "changed.md": "left\n",
     "nested/original-only.md": "orig\n",
-    ".git/HEAD": "ignored\n",
+    "same.md": "same\n",
   });
   const generated = await fixture({
-    "same.md": "same\n",
     "changed.md": "right\n",
     "generated-only.lock": "gen\n",
+    "same.md": "same\n",
   });
 
   const comparison = await compareTrees(original, generated);
@@ -95,10 +99,15 @@ test("runExternalRepo adopts a marketplace-shaped repo offline and reports round
       name: "demo-marketplace",
       plugins: [{ name: "demo", source: "./plugins/demo" }],
     }),
-    "plugins/demo/.claude-plugin/plugin.json": JSON.stringify({ name: "demo", version: "1.0.0" }),
-    "plugins/demo/commands/hello.md": "---\ndescription: Say hello.\n---\n\nSay hello.\n",
-    "plugins/demo/skills/demo-skill/SKILL.md": "---\nname: demo-skill\ndescription: Demo skill.\n---\n\nBody.\n",
     "README.md": "# Demo repo\n",
+    "plugins/demo/.claude-plugin/plugin.json": JSON.stringify({
+      name: "demo",
+      version: "1.0.0",
+    }),
+    "plugins/demo/commands/hello.md":
+      "---\ndescription: Say hello.\n---\n\nSay hello.\n",
+    "plugins/demo/skills/demo-skill/SKILL.md":
+      "---\nname: demo-skill\ndescription: Demo skill.\n---\n\nBody.\n",
   });
 
   const report = await runExternalRepo("demo-marketplace", clone, ["claude"]);
@@ -119,7 +128,9 @@ test("runExternalRepo adopts a marketplace-shaped repo offline and reports round
   expect(roundTrip?.comparison.identical).toContain("commands/hello.md");
   // Generated skill frontmatter gains metadata.version/generated, so the
   // round-trip reports it as different rather than identical.
-  expect(roundTrip?.comparison.different).toContain("skills/demo-skill/SKILL.md");
+  expect(roundTrip?.comparison.different).toContain(
+    "skills/demo-skill/SKILL.md"
+  );
 
   const markdown = renderRunReportMarkdown(report, {
     ref: SHA,
