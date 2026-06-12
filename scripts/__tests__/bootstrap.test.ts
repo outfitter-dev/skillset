@@ -16,7 +16,11 @@ import { gitSafeEnv } from "../../apps/skillset/src/git-env";
 import { isLinkedWorktree, readRepoHealth } from "../bootstrap/git";
 import { detectHost, resolveRepoRoot } from "../bootstrap/host";
 import { parseBootstrapArgs } from "../bootstrap/main";
-import { ensureBunAvailable, listWorkspaceGlobs } from "../bootstrap/repo";
+import {
+  ensureBunAvailable,
+  hasRepoInstallState,
+  listWorkspaceGlobs,
+} from "../bootstrap/repo";
 import { resolveCleanupTarget } from "../bootstrap/teardown";
 import { collectToolStatus } from "../bootstrap/tools";
 
@@ -189,6 +193,39 @@ describe("bootstrap repo policy", () => {
 
       expect(checks).toBe(2);
       expect(installs).toEqual([`${root}:.bun-version`]);
+    } finally {
+      rmSync(root, { force: true, recursive: true });
+    }
+  });
+
+  test("dependency state allows workspace packages without dependencies", async () => {
+    const root = mkdtempSync(join(tmpdir(), "skillset-install-state-"));
+    try {
+      writeFileSync(
+        join(root, "package.json"),
+        '{"name":"root","workspaces":["packages/*"]}\n'
+      );
+      mkdirSync(join(root, "node_modules"), { recursive: true });
+      mkdirSync(join(root, "packages/no-deps"), { recursive: true });
+      writeFileSync(
+        join(root, "packages/no-deps/package.json"),
+        '{"name":"no-deps"}\n'
+      );
+      mkdirSync(join(root, "packages/with-deps/node_modules"), {
+        recursive: true,
+      });
+      writeFileSync(
+        join(root, "packages/with-deps/package.json"),
+        '{"name":"with-deps","dependencies":{"yaml":"^2.8.1"}}\n'
+      );
+
+      await expect(hasRepoInstallState(root)).resolves.toBe(true);
+
+      rmSync(join(root, "packages/with-deps/node_modules"), {
+        force: true,
+        recursive: true,
+      });
+      await expect(hasRepoInstallState(root)).resolves.toBe(false);
     } finally {
       rmSync(root, { force: true, recursive: true });
     }
