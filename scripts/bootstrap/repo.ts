@@ -62,15 +62,40 @@ export const hasRepoInstallState = async (
   }
   for (const workspaceGlob of await listWorkspaceGlobs(repoRoot)) {
     for (const dir of expandWorkspaceGlob(repoRoot, workspaceGlob)) {
-      if (
-        existsSync(join(dir, "package.json")) &&
-        !existsSync(join(dir, "node_modules"))
-      ) {
+      if (!(await workspaceNeedsNodeModules(dir))) {
+        continue;
+      }
+      if (!existsSync(join(dir, "node_modules"))) {
         return false;
       }
     }
   }
   return true;
+};
+
+const DEPENDENCY_FIELDS = [
+  "dependencies",
+  "devDependencies",
+  "optionalDependencies",
+] as const;
+
+const workspaceNeedsNodeModules = async (dir: string): Promise<boolean> => {
+  const packageJsonPath = join(dir, "package.json");
+  if (!existsSync(packageJsonPath)) {
+    return false;
+  }
+  const packageJson = (await Bun.file(packageJsonPath).json()) as Record<
+    string,
+    unknown
+  >;
+  return DEPENDENCY_FIELDS.some((field) => {
+    const dependencies = packageJson[field];
+    return (
+      typeof dependencies === "object" &&
+      dependencies !== null &&
+      Object.keys(dependencies).length > 0
+    );
+  });
 };
 
 export const ensureBunAvailable = async (
