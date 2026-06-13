@@ -1,4 +1,13 @@
-export { diffSkillset, diffSkillsetResult, type SkillsetDiff, type SkillsetDiffResult } from "./build";
+export {
+  buildSkillsetResult,
+  checkSkillsetResult,
+  diffSkillset,
+  diffSkillsetResult,
+  type SkillsetBuildResult,
+  type SkillsetCheckResult,
+  type SkillsetDiff,
+  type SkillsetDiffResult,
+} from "./build";
 export type { SkillsetLoweringOutcome, SkillsetLoweringOutcomeStatus } from "./lowering-outcome";
 export type {
   SkillsetDiagnostic,

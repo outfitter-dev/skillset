@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 
-import { diffSkillsetResult, type SkillsetDiagnostic, type SkillsetDiff } from "@skillset/core";
+import { buildSkillsetResult, checkSkillsetResult, diffSkillsetResult } from "@skillset/core";
 
 import { changeCheck, type ChangeBump, type ChangeCheckReport } from "./change-entries";
 import { changeStatus, type ChangeStatusReport } from "./change-status";
@@ -18,8 +18,8 @@ import {
   type ChangeSubcommand,
 } from "./change-workflow";
 import { doctorSkillset, explainPath, listGeneratedEntries } from "./authoring";
-import { buildSkillset, checkSkillset } from "./build";
 import { ciSkillset, hasDrift, renderCiReportMarkdown, type CiReport } from "./ci";
+import { printDiagnostics, printDiffPlan } from "./cli-renderers";
 import { renderHookPrint, type HookPrintSubcommand, type HookRunner } from "./hook-guardrails";
 import { importSources, type ImportKind, type ImportProvider, type ImportReport } from "./import";
 import { lintSkillset } from "./lint";
@@ -109,8 +109,12 @@ export async function runCli(
       if (!dryRun) console.log("skillset: rerun with --yes to write generated files");
       return;
     }
-    const rendered = await buildSkillset(rootPath, options);
-    console.log(`skillset: wrote ${rendered.length} generated files`);
+    const result = await buildSkillsetResult(rootPath, options);
+    printDiagnostics(result.diagnostics);
+    console.log(`skillset: wrote ${result.writes.writtenPaths.length} generated files`);
+    if (result.writes.deletedPaths.length > 0) {
+      console.log(`skillset: removed ${result.writes.deletedPaths.length} stale generated files`);
+    }
     return;
   }
 
@@ -402,8 +406,9 @@ export async function runCli(
     return;
   }
 
-  const result = await checkSkillset(rootPath, options);
-  console.log(`skillset: checked ${result.checkedFiles} generated files`);
+  const result = await checkSkillsetResult(rootPath, options);
+  printDiagnostics(result.diagnostics);
+  console.log(`skillset: checked ${result.data.checkedFiles} generated files`);
 }
 
 export function reportCliError(error: unknown): void {
@@ -604,21 +609,6 @@ function printReleaseApply(
   for (const file of files) console.log(`  ${file}`);
 }
 
-function printDiffPlan(diff: SkillsetDiff, reason: string): void {
-  const total = diff.added.length + diff.changed.length + diff.missing.length + diff.removed.length;
-  if (total === 0) {
-    console.log(`skillset: no generated changes (${reason})`);
-    return;
-  }
-  for (const path of diff.added) console.log(`  + ${path}`);
-  for (const path of diff.changed) console.log(`  ~ ${path}`);
-  for (const path of diff.missing) console.log(`  ! ${path}`);
-  for (const path of diff.removed) console.log(`  - ${path}`);
-  console.log(
-    `skillset: planned ${diff.added.length} added, ${diff.changed.length} changed, ${diff.missing.length} missing, ${diff.removed.length} removed (${reason})`
-  );
-}
-
 function printImportReport(result: ImportReport): void {
   console.log(`skillset: imported ${result.kind} ${result.name} (${result.files} files)`);
   console.log(`  target: ${result.targetPath}`);
@@ -714,15 +704,6 @@ function printSetupReport(result: SetupReport, reason: string): void {
   ];
   console.log(`skillset: ${result.kind} ${details.join(", ")} (${reason})`);
   console.log(`  root: ${result.rootPath}`);
-}
-
-function printDiagnostics(diagnostics: readonly SkillsetDiagnostic[]): void {
-  for (const diagnostic of diagnostics) {
-    const location = diagnostic.path ?? diagnostic.outputPath;
-    const suffix = location === undefined ? "" : `: ${location}`;
-    const prefix = diagnostic.severity === "error" ? "error" : diagnostic.severity === "warning" ? "warning" : "info";
-    console.warn(`skillset: ${prefix}${suffix}: ${diagnostic.message}`);
-  }
 }
 
 function printSkillsetTest(report: SkillsetTestReport): void {

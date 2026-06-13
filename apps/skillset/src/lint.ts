@@ -10,7 +10,7 @@ import {
   findUndeclaredResourceLinks,
   isScriptTargetPath,
 } from "./resources";
-import { emitGraphWarnings, loadBuildGraph } from "./resolver";
+import { loadBuildGraph } from "./resolver";
 import {
   readAllowedTools,
   readClaudeNativeToolRules,
@@ -61,7 +61,6 @@ export async function lintSkillset(
   options: SkillsetOptions = {}
 ): Promise<LintResult> {
   const graph = await loadBuildGraph(rootPath, options);
-  emitGraphWarnings(graph);
   const result = await inspectBuildGraph(graph);
 
   const errors = result.issues.filter((issue) => issue.severity === "error");

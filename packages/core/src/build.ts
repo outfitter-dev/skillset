@@ -3,8 +3,13 @@ import { dirname, join, relative } from "node:path";
 
 import { compareStrings, resolveInside } from "./path";
 import { renderBuildGraph } from "./render";
-import { emitGraphWarnings, loadBuildGraph } from "./resolver";
-import { sourceWarningDiagnostic, type SkillsetOperationResult } from "./operation-result";
+import { loadBuildGraph } from "./resolver";
+import {
+  sourceWarningDiagnostic,
+  type SkillsetDiagnostic,
+  type SkillsetOperationResult,
+  type SkillsetWriteSummary,
+} from "./operation-result";
 import type { BuildGraph, BuildScope, CheckResult, RenderedFile, SkillsetOptions } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
 
@@ -45,24 +50,40 @@ const textDecoder = new TextDecoder();
  */
 const CODEX_AGENTS_MAX_BYTES = 32 * 1024;
 
-function warnLargeInstructionFiles(rendered: readonly RenderedFile[]): void {
+function diagnoseLargeInstructionFiles(rendered: readonly RenderedFile[]): readonly SkillsetDiagnostic[] {
+  const diagnostics: SkillsetDiagnostic[] = [];
   for (const file of rendered) {
     if (file.path !== "AGENTS.md" && !file.path.endsWith("/AGENTS.md")) continue;
     if (file.content.byteLength <= CODEX_AGENTS_MAX_BYTES) continue;
-    console.warn(
-      `skillset: generated ${file.path} is ${file.content.byteLength} bytes, over Codex's default ` +
+    diagnostics.push({
+      code: "codex-agents-size",
+      message:
+        `generated ${file.path} is ${file.content.byteLength} bytes, over Codex's default ` +
         `project_doc_max_bytes (${CODEX_AGENTS_MAX_BYTES}); Codex silently truncates beyond it. ` +
-        "Split instructions across nested directories or raise project_doc_max_bytes."
-    );
+        "Split instructions across nested directories or raise project_doc_max_bytes.",
+      outputPath: file.path,
+      severity: "warning",
+      target: "codex",
+    });
   }
+  return diagnostics;
 }
+
+export type SkillsetBuildResult = SkillsetOperationResult<readonly RenderedFile[]>;
 
 export async function buildSkillset(
   rootPath: string,
   options: SkillsetOptions = {}
 ): Promise<readonly RenderedFile[]> {
+  return (await buildSkillsetResult(rootPath, options)).data;
+}
+
+export async function buildSkillsetResult(
+  rootPath: string,
+  options: SkillsetOptions = {}
+): Promise<SkillsetBuildResult> {
   const graph = await loadBuildGraph(rootPath, options);
-  emitGraphWarnings(graph);
+  const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
   const outPath = outPathMapper(options);
   const rendered = mirroredRenderedFiles(
     scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes),
@@ -71,11 +92,11 @@ export async function buildSkillset(
   const liveOutputRoots = scopedOutputRoots(graph, options.scopes);
   const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
   const includeWorkspaceLock = includesProjectScope(options.scopes);
-  warnLargeInstructionFiles(rendered);
+  diagnostics.push(...diagnoseLargeInstructionFiles(rendered));
   const expectedPaths = new Set(rendered.map((file) => file.path));
   const previousWorkspaceManagedPaths = includeWorkspaceLock ? await readWorkspaceManagedPaths(rootPath, outPath) : new Set<string>();
   const previousManagedPaths = await readManagedPaths(rootPath, liveOutputRoots, includeWorkspaceLock, outPath);
-  await warnMissingManagedOutputs(rootPath, rendered, previousManagedPaths);
+  diagnostics.push(...await diagnoseMissingManagedOutputs(rootPath, rendered, previousManagedPaths));
 
   await assertNoUnmanagedWorkspaceOverwrites(
     rootPath,
@@ -85,26 +106,27 @@ export async function buildSkillset(
   );
 
   if (graph.root.compile.build === "all") {
-    for (const outputRoot of outputRoots) {
-      await rm(resolveInside(rootPath, outputRoot), { force: true, recursive: true });
-    }
+    const deletedOutputRoots = await removeOutputRoots(rootPath, outputRoots);
 
-    await removeStaleWorkspaceManagedFiles(
+    const deletedWorkspaceFiles = await removeStaleWorkspaceManagedFiles(
       rootPath,
       outputRoots,
       previousWorkspaceManagedPaths,
       expectedPaths
     );
 
-    await writeRenderedFiles(rootPath, rendered);
-    return rendered;
+    const writtenPaths = await writeRenderedFiles(rootPath, rendered);
+    return buildResult(rendered, diagnostics, writeSummary(writtenPaths, [
+      ...deletedOutputRoots,
+      ...deletedWorkspaceFiles,
+    ]));
   }
 
   const actualPaths = new Set(await listGeneratedFiles(rootPath, outputRoots, rendered, includeWorkspaceLock, outPath));
-  await removeStaleGeneratedFiles(rootPath, actualPaths, expectedPaths);
-  await writeChangedRenderedFiles(rootPath, rendered, actualPaths);
+  const deletedPaths = await removeStaleGeneratedFiles(rootPath, actualPaths, expectedPaths);
+  const writtenPaths = await writeChangedRenderedFiles(rootPath, rendered, actualPaths);
 
-  return rendered;
+  return buildResult(rendered, diagnostics, writeSummary(writtenPaths, deletedPaths));
 }
 
 export interface SkillsetDiff {
@@ -132,11 +154,13 @@ export async function diffSkillsetResult(
   options: SkillsetOptions = {}
 ): Promise<SkillsetDiffResult> {
   const graph = await loadBuildGraph(rootPath, options);
+  const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
   const outPath = outPathMapper(options);
   const rendered = mirroredRenderedFiles(
     scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes),
     outPath
   );
+  diagnostics.push(...diagnoseLargeInstructionFiles(rendered));
   const expected = new Map(rendered.map((file) => [file.path, file.content]));
   const liveOutputRoots = scopedOutputRoots(graph, options.scopes);
   const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
@@ -174,7 +198,7 @@ export async function diffSkillsetResult(
   };
   return {
     data: diff,
-    diagnostics: graph.warnings.map(sourceWarningDiagnostic),
+    diagnostics,
     loweringOutcomes: [],
     ok: true,
     operation: "diff",
@@ -191,14 +215,23 @@ export async function checkSkillset(
   rootPath: string,
   options: SkillsetOptions = {}
 ): Promise<CheckResult> {
+  return (await checkSkillsetResult(rootPath, options)).data;
+}
+
+export type SkillsetCheckResult = SkillsetOperationResult<CheckResult>;
+
+export async function checkSkillsetResult(
+  rootPath: string,
+  options: SkillsetOptions = {}
+): Promise<SkillsetCheckResult> {
   const graph = await loadBuildGraph(rootPath, options);
-  emitGraphWarnings(graph);
+  const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
   const outPath = outPathMapper(options);
   const rendered = mirroredRenderedFiles(
     scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes),
     outPath
   );
-  warnLargeInstructionFiles(rendered);
+  diagnostics.push(...diagnoseLargeInstructionFiles(rendered));
   const expected = new Map(rendered.map((file) => [file.path, file.content]));
   const liveOutputRoots = scopedOutputRoots(graph, options.scopes);
   const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
@@ -235,37 +268,75 @@ export async function checkSkillset(
     throw new Error(`skillset: generated output is not current\n${failures.join("\n")}`);
   }
 
-  return { checkedFiles: rendered.length };
+  return {
+    data: { checkedFiles: rendered.length },
+    diagnostics,
+    loweringOutcomes: [],
+    ok: true,
+    operation: "check",
+    writes: {
+      deletedPaths: [],
+      mode: "read",
+      paths: [],
+      writtenPaths: [],
+    },
+  };
 }
 
-async function warnMissingManagedOutputs(
+function buildResult(
+  rendered: readonly RenderedFile[],
+  diagnostics: readonly SkillsetDiagnostic[],
+  writes: SkillsetWriteSummary
+): SkillsetBuildResult {
+  return {
+    data: rendered,
+    diagnostics,
+    loweringOutcomes: [],
+    ok: true,
+    operation: "build",
+    writes,
+  };
+}
+
+async function diagnoseMissingManagedOutputs(
   rootPath: string,
   rendered: readonly RenderedFile[],
   previousManagedPaths: ReadonlySet<string>
-): Promise<void> {
+): Promise<readonly SkillsetDiagnostic[]> {
+  const diagnostics: SkillsetDiagnostic[] = [];
   for (const file of rendered) {
     if (!previousManagedPaths.has(file.path)) continue;
     if (await exists(resolveInside(rootPath, file.path))) continue;
-    console.warn(`skillset: managed output is missing and will be regenerated: ${file.path}`);
+    diagnostics.push({
+      code: "managed-output-missing",
+      message: `managed output is missing and will be regenerated: ${file.path}`,
+      outputPath: file.path,
+      severity: "warning",
+    });
   }
+  return diagnostics;
 }
 
 async function writeRenderedFiles(
   rootPath: string,
   rendered: readonly RenderedFile[]
-): Promise<void> {
+): Promise<readonly string[]> {
+  const writtenPaths: string[] = [];
   for (const file of rendered) {
     const outputPath = resolveInside(rootPath, file.path);
     await mkdir(dirname(outputPath), { recursive: true });
     await writeFile(outputPath, file.content);
+    writtenPaths.push(file.path);
   }
+  return writtenPaths.sort(compareStrings);
 }
 
 async function writeChangedRenderedFiles(
   rootPath: string,
   rendered: readonly RenderedFile[],
   actualPaths: ReadonlySet<string>
-): Promise<void> {
+): Promise<readonly string[]> {
+  const writtenPaths: string[] = [];
   for (const file of rendered) {
     const outputPath = resolveInside(rootPath, file.path);
     if (actualPaths.has(file.path)) {
@@ -274,18 +345,23 @@ async function writeChangedRenderedFiles(
     }
     await mkdir(dirname(outputPath), { recursive: true });
     await writeFile(outputPath, file.content);
+    writtenPaths.push(file.path);
   }
+  return writtenPaths.sort(compareStrings);
 }
 
 async function removeStaleGeneratedFiles(
   rootPath: string,
   actualPaths: ReadonlySet<string>,
   expectedPaths: ReadonlySet<string>
-): Promise<void> {
+): Promise<readonly string[]> {
+  const deletedPaths: string[] = [];
   for (const path of actualPaths) {
     if (expectedPaths.has(path)) continue;
     await rm(resolveInside(rootPath, path), { force: true });
+    deletedPaths.push(path);
   }
+  return deletedPaths.sort(compareStrings);
 }
 
 async function listOutputFiles(
@@ -345,12 +421,46 @@ async function removeStaleWorkspaceManagedFiles(
   outputRoots: readonly string[],
   previousManagedPaths: ReadonlySet<string>,
   expectedPaths: ReadonlySet<string>
-): Promise<void> {
+): Promise<readonly string[]> {
+  const deletedPaths: string[] = [];
   for (const path of previousManagedPaths) {
     if (isInsideAnyOutputRoot(path, outputRoots)) continue;
     if (expectedPaths.has(path)) continue;
     await rm(resolveInside(rootPath, path), { force: true });
+    deletedPaths.push(path);
   }
+  return deletedPaths.sort(compareStrings);
+}
+
+async function removeOutputRoots(
+  rootPath: string,
+  outputRoots: readonly string[]
+): Promise<readonly string[]> {
+  const deletedPaths: string[] = [];
+  for (const outputRoot of outputRoots) {
+    const absolutePath = resolveInside(rootPath, outputRoot);
+    if (await exists(absolutePath)) deletedPaths.push(outputRoot);
+    await rm(absolutePath, { force: true, recursive: true });
+  }
+  return deletedPaths.sort(compareStrings);
+}
+
+function writeSummary(
+  writtenPaths: readonly string[],
+  deletedPaths: readonly string[]
+): SkillsetWriteSummary {
+  const written = [...writtenPaths].sort(compareStrings);
+  const deleted = [...deletedPaths].sort(compareStrings);
+  return {
+    deletedPaths: deleted,
+    mode: "write",
+    paths: sortedUnique([...written, ...deleted]),
+    writtenPaths: written,
+  };
+}
+
+function sortedUnique(paths: readonly string[]): readonly string[] {
+  return [...new Set(paths)].sort(compareStrings);
 }
 
 async function assertNoUnmanagedWorkspaceOverwrites(

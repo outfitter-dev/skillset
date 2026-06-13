@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 
 import { expect, test } from "bun:test";
 
-import { buildSkillset, checkSkillset, diffSkillset } from "../build";
+import { buildSkillset, buildSkillsetResult, checkSkillset, diffSkillset, diffSkillsetResult } from "../build";
 import { changeStatus, collectSourceInventory } from "../change-status";
 import { doctorSkillset, explainPath } from "../authoring";
 import { importSource, importSources } from "../import";
@@ -992,6 +992,10 @@ Body.
   expect(written.exitCode).toBe(0);
   expect(written.stdout).toContain("wrote");
   expect(await Bun.file(join(root, ".claude/skills/demo/SKILL.md")).exists()).toBe(true);
+
+  const unchanged = await runSkillsetCli("build", "--root", root, "--yes");
+  expect(unchanged.exitCode).toBe(0);
+  expect(unchanged.stdout).toContain("wrote 0 generated files");
 });
 
 test("SET-25: CLI help succeeds before command validation", async () => {
@@ -4566,7 +4570,7 @@ paths:
   expect(agents).toContain("Second by name.");
 });
 
-test("SET-7: build warns when a generated AGENTS.md exceeds Codex's size limit", async () => {
+test("SET-7: build reports when a generated AGENTS.md exceeds Codex's size limit", async () => {
   const big = `# Big\n\n${"- padding line to grow the instruction file\n".repeat(900)}`;
   const root = await contractFixture({
     ".skillset/config.yaml": `
@@ -4578,19 +4582,15 @@ codex: true
     ".skillset/instructions/big.md": big,
   });
 
-  const warnings: string[] = [];
-  const original = console.warn;
-  console.warn = (...args: unknown[]) => {
-    warnings.push(args.map(String).join(" "));
-  };
-  try {
-    await buildSkillset(root);
-  } finally {
-    console.warn = original;
-  }
+  const result = await buildSkillsetResult(root);
+  const warnings = result.diagnostics.map((diagnostic) => diagnostic.message).join("\n");
+  const preview = await diffSkillsetResult(root);
+  const previewWarnings = preview.diagnostics.map((diagnostic) => diagnostic.message).join("\n");
 
-  expect(warnings.join("\n")).toContain("project_doc_max_bytes");
-  expect(warnings.join("\n")).toContain("AGENTS.md");
+  expect(warnings).toContain("project_doc_max_bytes");
+  expect(warnings).toContain("AGENTS.md");
+  expect(previewWarnings).toContain("project_doc_max_bytes");
+  expect(previewWarnings).toContain("AGENTS.md");
 });
 
 // SET-15: shared-resource and script authoring diagnostics.

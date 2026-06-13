@@ -321,13 +321,6 @@ function validateProjectAgentCollisions(agents: readonly SourceProjectAgent[]): 
   }
 }
 
-/** Emit non-fatal source warnings collected during load. */
-export function emitGraphWarnings(graph: BuildGraph): void {
-  for (const warning of graph.warnings) {
-    console.warn(`skillset: ${warning}`);
-  }
-}
-
 /**
  * Load source instructions. Source lives in `.skillset/instructions/`. Generated
  * output is unchanged: Claude lowers to `.claude/rules/`, Codex lowers to
