@@ -16,7 +16,7 @@ import {
 import type { BuildGraph, JsonRecord, ReleaseScopeState, ReleaseState, SkillsetOptions, SourcePlugin } from "./types";
 import { pluginVersion, rootVersion, skillVersion } from "./versioning";
 
-export type ReleaseSubcommand = "apply" | "plan";
+export type ReleaseSubcommand = "apply" | "audit" | "plan";
 
 export interface ReleaseEntryPlan {
   readonly bump: ChangeBump;

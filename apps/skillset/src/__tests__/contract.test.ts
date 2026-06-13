@@ -3206,6 +3206,112 @@ Release the standalone skill body update with a patch version and generated chan
   expect(unreleasedStatus.sourceChanges.map((change) => change.id)).toContain("skill:demo");
 });
 
+test("SET-111: release audit reports generated version drift without writing", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: version-audit-root
+compile:
+  targets: [codex]
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+  version: 1.2.3
+`,
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  await buildSkillset(root);
+  const clean = await runSkillsetCli("release", "audit", "--root", root);
+  expect(clean.exitCode).toBe(0);
+  expect(clean.stdout).toContain("skillset: version audit passed");
+  expect(clean.stdout).toContain("in-sync: [codex] plugin:alpha");
+  expect(clean.stdout).toContain("expected 1.2.3");
+
+  const manifestPath = join(root, "plugins-codex/plugins/alpha/.codex-plugin/plugin.json");
+  await rm(manifestPath);
+  const missing = await runSkillsetCli("release", "audit", "--root", root);
+  expect(missing.exitCode).toBe(1);
+  expect(missing.stdout).toContain("missing: [codex] plugin:alpha");
+
+  await buildSkillset(root);
+  await writeFile(manifestPath, "{ nope\n", "utf8");
+  const malformed = await runSkillsetCli("release", "audit", "--root", root);
+  expect(malformed.exitCode).toBe(1);
+  expect(malformed.stdout).toContain("malformed: [codex] plugin:alpha");
+
+  await buildSkillset(root);
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, unknown>;
+  manifest.version = "9.9.9";
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+
+  const drift = await runSkillsetCli("release", "audit", "--root", root);
+  expect(drift.exitCode).toBe(1);
+  expect(drift.stdout).toContain("stale-generated: [codex] plugin:alpha");
+  expect(drift.stdout).toContain("actual 9.9.9 expected 1.2.3");
+  expect(await readFile(manifestPath, "utf8")).toContain(`"version": "9.9.9"`);
+
+  const yesFlag = await runSkillsetCli("release", "audit", "--yes", "--root", root);
+  expect(yesFlag.exitCode).toBe(1);
+  expect(yesFlag.stderr).toContain("--yes and --dry-run are only supported with release apply");
+
+  const dryRun = await runSkillsetCli("release", "audit", "--dry-run", "--root", root);
+  expect(dryRun.exitCode).toBe(1);
+  expect(dryRun.stderr).toContain("--yes and --dry-run are only supported with release apply");
+});
+
+test("SET-111: release audit reports Claude marketplace plugin version drift", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: marketplace-audit-root
+compile:
+  targets: [claude]
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+  version: 1.2.3
+`,
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  await buildSkillset(root);
+  const marketplacePath = join(root, "plugins-claude/.claude-plugin/marketplace.json");
+  const clean = await runSkillsetCli("release", "audit", "--root", root);
+  expect(clean.exitCode).toBe(0);
+  expect(clean.stdout).toContain("in-sync: [claude] plugin:alpha");
+  expect(clean.stdout).toContain("plugins.alpha.version");
+
+  const marketplace = JSON.parse(await readFile(marketplacePath, "utf8")) as {
+    plugins: Array<{ name: string; version: string }>;
+  };
+  const [pluginEntry] = marketplace.plugins;
+  if (pluginEntry === undefined) throw new Error("expected marketplace plugin entry");
+  marketplace.plugins[0] = { ...pluginEntry, version: "9.9.9" };
+  await writeFile(marketplacePath, `${JSON.stringify(marketplace, null, 2)}\n`, "utf8");
+
+  const drift = await runSkillsetCli("release", "audit", "--root", root);
+  expect(drift.exitCode).toBe(1);
+  expect(drift.stdout).toContain("stale-generated: [claude] plugin:alpha");
+  expect(drift.stdout).toContain("plugins.alpha.version actual 9.9.9 expected 1.2.3");
+});
+
 test("SET-38: plugin child release bumps the plugin aggregate by default", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `

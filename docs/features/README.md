@@ -34,6 +34,7 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Tests and Evals](tests-and-evals.md): internal fixtures, dogfooding, deterministic `skillset test`, future adapter-aware evals, and generated run output boundaries.
 - [Themes](themes.md): Claude experimental theme pass-through, manifest wiring, and Codex unsupported boundaries.
 - [Tool Intent](tool-intent.md): portable tool intent metadata, Claude preapproval lowering, Codex metadata, and target-native escapes.
+- [Version Audit](version-audit.md): read-only version-locus audit across source, release state, generated output, and future destinations.
 
 ## Support Vocabulary
 

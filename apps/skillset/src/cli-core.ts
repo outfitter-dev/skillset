@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 
-import { buildSkillsetResult, checkSkillsetResult, diffSkillsetResult, planDistributions, type DistributionPlanReport } from "@skillset/core";
+import { auditVersions, buildSkillsetResult, checkSkillsetResult, diffSkillsetResult, planDistributions, type DistributionPlanReport, type VersionAuditReport } from "@skillset/core";
 
 import { changeCheck, type ChangeBump, type ChangeCheckReport } from "./change-entries";
 import { changeStatus, type ChangeStatusReport } from "./change-status";
@@ -44,6 +44,7 @@ const USAGE = [
   "       skillset change reason <@ref> [--append] [--reason <text>|--reason-file <path>|--reason -] [--root <path>] [--source <dir>]",
   "       skillset change <show|history> [@ref] [--root <path>] [--source <dir>]",
   "       skillset change list [--group <group>] [--root <path>] [--source <dir>]",
+  "       skillset release audit [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset release plan [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset release apply [--yes|--dry-run] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset distribute plan [name] [--root <path>] [--source <dir>] [--dist <dir>]",
@@ -198,6 +199,12 @@ export async function runCli(
   }
 
   if (command === "release") {
+    if (releaseSubcommand === "audit") {
+      const report = await auditVersions(rootPath, options);
+      printVersionAudit(report);
+      if (report.issues.length > 0) process.exitCode = 1;
+      return;
+    }
     if (releaseSubcommand === "plan") {
       printReleasePlan(await planRelease(rootPath, options));
       return;
@@ -216,7 +223,7 @@ export async function runCli(
       printReleaseApply(result.plan, result.files, result.renderedFiles);
       return;
     }
-    throw new Error("skillset: expected release subcommand apply or plan");
+    throw new Error("skillset: expected release subcommand apply, audit, or plan");
   }
 
   if (command === "distribute") {
@@ -613,6 +620,20 @@ function printReleasePlan(report: ReleasePlanReport): void {
   console.log(`skillset: release plan has ${report.entries.length} pending entr${report.entries.length === 1 ? "y" : "ies"} and ${report.scopes.length} release scope${report.scopes.length === 1 ? "" : "s"}`);
 }
 
+function printVersionAudit(report: VersionAuditReport): void {
+  for (const locus of report.loci) {
+    const target = locus.target === undefined ? "" : ` [${locus.target}]`;
+    const actual = locus.actualVersion ?? "missing";
+    const expected = locus.expectedVersion ?? "n/a";
+    console.log(`${locus.status}:${target} ${locus.scope} ${locus.path} ${locus.field} actual ${actual} expected ${expected} authority ${locus.authority}`);
+  }
+  if (report.issues.length === 0) {
+    console.log(`skillset: version audit passed (${report.loci.length} loci)`);
+  } else {
+    console.log(`skillset: version audit found ${report.issues.length} issue${report.issues.length === 1 ? "" : "s"} across ${report.loci.length} loci`);
+  }
+}
+
 function printReleaseApply(
   plan: ReleasePlanReport,
   files: readonly string[],
@@ -861,7 +882,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   if (command === "release") {
     const subcommand = args[index];
     if (!isReleaseSubcommand(subcommand)) {
-      throw new Error("skillset: expected release subcommand apply or plan");
+      throw new Error("skillset: expected release subcommand apply, audit, or plan");
     }
     releaseSubcommand = subcommand;
     index += 1;
@@ -1121,6 +1142,9 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   if (command === "release" && scopes !== undefined) {
     throw new Error("skillset: --scope is not supported with release commands yet");
   }
+  if (command === "release" && releaseSubcommand !== "apply" && (dryRun || yes)) {
+    throw new Error("skillset: --yes and --dry-run are only supported with release apply");
+  }
   validateTestFlags(command, {
     ...(buildMode === undefined ? {} : { buildMode }),
     ...(distDir === undefined ? {} : { distDir }),
@@ -1176,7 +1200,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
 }
 
 function isReleaseSubcommand(value: string | undefined): value is ReleaseSubcommand {
-  return value === "apply" || value === "plan";
+  return value === "apply" || value === "audit" || value === "plan";
 }
 
 function isChangeSubcommand(value: string | undefined): value is ChangeSubcommand {
