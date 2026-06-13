@@ -25,6 +25,7 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Plugins](plugins.md): plugin source identity, manifest projection, companion paths, and plugin boundaries.
 - [Releases And Changelogs](releases.md): release state, generated changelog projections, version planning, and package-tool interop.
 - [Resources](resources.md): shared resource declarations, link rewriting, executable-script linting, and lock hashing.
+- [Runtime Adapters](runtime-adapters.md): runtime, distribution, and harness support records that stay separate from `compile.targets`.
 - [Settings](settings.md): future reviewed settings suggestion workflow and why build does not mutate runtime config.
 - [Skills](skills.md): standalone and plugin-bound skill frontmatter, target lowering, versions, metadata, and generated sidecars.
 - [Supports](supports.md): compatibility metadata, support ranges, source significance, and release severity boundaries.
@@ -43,6 +44,7 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 | `metadata_only` | Captured in generated metadata or lock provenance, but not target-enforced. |
 | `planned` | Accepted design with no parser/render support yet. |
 | `reserved` | Recognized vocabulary that fails until behavior and provenance exist. |
+| `shimmed` | A deliberate compatibility mechanism that can work in practice but is not target-enforced. |
 | `deferred` | Intentionally not emitted; documented reason. |
 | `unsupported` | Cannot lower to an enabled target without explicit target scoping or unsupported policy. |
 | `lossy` | A possible lowering would drop target meaning or behavior; fail unless a future ADR defines visible provenance. |

@@ -24,11 +24,29 @@ export const TARGET_SUPPORT_STATUS_VALUES = [
   "not_applicable",
   "pass_through",
   "planned",
+  "shimmed",
   "transformed",
   "unsupported",
 ] as const;
 
 export type SkillsetTargetSupportStatus = (typeof TARGET_SUPPORT_STATUS_VALUES)[number];
+
+export const SKILLSET_RUNTIME_IDS = [
+  "claude-code",
+  "codex-app",
+  "codex-cli",
+  "cursor",
+  "devin",
+  "droid",
+  "gemini-cli",
+  "opencode",
+] as const;
+
+export type SkillsetRuntimeId = (typeof SKILLSET_RUNTIME_IDS)[number];
+
+export const RUNTIME_SUPPORT_STATUS_VALUES = TARGET_SUPPORT_STATUS_VALUES;
+
+export type SkillsetRuntimeSupportStatus = (typeof RUNTIME_SUPPORT_STATUS_VALUES)[number];
 
 export type SkillsetFeatureKind =
   | "adoption"
@@ -61,12 +79,23 @@ export interface SkillsetTargetSupport {
   readonly status: SkillsetTargetSupportStatus;
 }
 
+export interface SkillsetRuntimeSupport {
+  readonly caveats?: readonly string[];
+  readonly diagnostics?: readonly string[];
+  readonly evidence?: readonly SkillsetFeatureEvidence[];
+  readonly mechanism?: string;
+  readonly reason?: string;
+  readonly setup?: readonly string[];
+  readonly status: SkillsetRuntimeSupportStatus;
+}
+
 export interface SkillsetFeatureEntry {
   readonly docs: readonly string[];
   readonly evidence: readonly SkillsetFeatureEvidence[];
   readonly id: SkillsetFeatureId;
   readonly kind: SkillsetFeatureKind;
   readonly loweringOwner: string;
+  readonly runtimeSupport?: Partial<Record<SkillsetRuntimeId, SkillsetRuntimeSupport>>;
   readonly sourceShape: string;
   readonly status: SkillsetFeatureStatus;
   readonly summary: string;
@@ -364,6 +393,21 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     sourceShape: ".skillset/src/agents/*.md",
     status: "implemented",
     summary: "Lowers portable project agents to Claude Markdown agents and Codex TOML agents.",
+    runtimeSupport: {
+      "claude-code": {
+        evidence: [docs("docs/features/agents.md"), externalDocs("https://code.claude.com/docs/en/sub-agents", "2026-06-04")],
+        mechanism: "Claude Code reads project-scoped Markdown subagents from .claude/agents.",
+        status: "native",
+      },
+      "codex-cli": {
+        caveats: [
+          "Codex receives skill-loading intent as developer instructions; it is not target-enforced skill metadata.",
+        ],
+        evidence: [docs("docs/features/agents.md"), externalDocs("https://developers.openai.com/codex/subagents", "2026-06-04")],
+        mechanism: "Skillset renders Codex TOML agents and inserts a deterministic skill-loading preface when source agents declare skills.",
+        status: "shimmed",
+      },
+    },
     targetSupport: {
       claude: {
         evidence: [docs("docs/features/agents.md"), externalDocs("https://code.claude.com/docs/en/sub-agents", "2026-06-04")],
@@ -376,6 +420,61 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     },
     title: "Project Agents",
     validationOwner: "packages/core/src/resolver.ts",
+  }),
+  feature({
+    docs: ["docs/features/runtime-adapters.md"],
+    evidence: [docs("docs/features/runtime-adapters.md"), test("packages/core/src/__tests__/feature-registry.test.ts", "SET-113 runtime support coverage")],
+    id: "runtime-adapters",
+    kind: "workflow",
+    loweringOwner: "packages/core/src/feature-registry.ts",
+    runtimeSupport: {
+      "claude-code": {
+        evidence: [docs("docs/features/runtime-adapters.md")],
+        mechanism: "Current Claude build target projections feed Claude Code plugin, project, and skill surfaces.",
+        status: "native",
+      },
+      "codex-cli": {
+        evidence: [docs("docs/features/runtime-adapters.md")],
+        mechanism: "Current Codex build target projections feed Codex CLI plugin, project, and skill surfaces.",
+        status: "native",
+      },
+      "codex-app": {
+        evidence: [docs("docs/features/runtime-adapters.md")],
+        mechanism: "Codex plugin manifests can carry app companions, but app/runtime activation remains outside build.",
+        status: "externally_managed",
+      },
+      cursor: {
+        evidence: [docs("docs/features/runtime-adapters.md"), fixture("fixtures/external/repos/superpowers")],
+        reason: "Cursor support needs target documentation and adapter evidence before Skillset can lower or distribute it.",
+        status: "planned",
+      },
+      "gemini-cli": {
+        evidence: [docs("docs/features/runtime-adapters.md"), fixture("fixtures/external/repos/superpowers")],
+        reason: "Gemini support needs target documentation and adapter evidence before Skillset can lower or distribute it.",
+        status: "planned",
+      },
+      devin: {
+        evidence: [docs("docs/features/runtime-adapters.md")],
+        reason: "Devin support is tracked as future runtime compatibility, not an implemented target.",
+        status: "future",
+      },
+      droid: {
+        evidence: [docs("docs/features/runtime-adapters.md")],
+        reason: "Droid support is tracked as future runtime compatibility, not an implemented target.",
+        status: "future",
+      },
+      opencode: {
+        evidence: [docs("docs/features/runtime-adapters.md"), fixture("fixtures/external/repos/superpowers")],
+        reason: "OpenCode support needs target documentation and adapter evidence before Skillset can lower or distribute it.",
+        status: "planned",
+      },
+    },
+    sourceShape: "feature registry runtimeSupport records",
+    status: "planned",
+    summary: "Tracks runtime, distribution, and harness compatibility separately from compile targets.",
+    targetSupport: notTargetRuntime(),
+    title: "Runtime Adapters",
+    validationOwner: "packages/core/src/feature-registry.ts",
   }),
   feature({
     docs: ["docs/features/releases.md"],
@@ -494,6 +593,7 @@ export function defineFeatureRegistry(
 ): SkillsetFeatureRegistry {
   assertFeatureIdsUnique(entries);
   assertFeatureStatusVocabulary(entries);
+  assertRuntimeSupportVocabulary(entries);
   return [...entries].sort((left, right) => compareStrings(left.id, right.id));
 }
 
@@ -515,6 +615,13 @@ export function listSkillsetFeaturesByTarget(
   registry: SkillsetFeatureRegistry = skillsetFeatureRegistry
 ): SkillsetFeatureRegistry {
   return registry.filter((entry) => entry.targetSupport[target].status !== "not_applicable");
+}
+
+export function listSkillsetFeaturesByRuntime(
+  runtime: SkillsetRuntimeId,
+  registry: SkillsetFeatureRegistry = skillsetFeatureRegistry
+): SkillsetFeatureRegistry {
+  return registry.filter((entry) => entry.runtimeSupport?.[runtime] !== undefined);
 }
 
 export function assertFeatureIdsUnique(entries: readonly SkillsetFeatureEntry[]): void {
@@ -552,6 +659,38 @@ function assertFeatureStatusVocabulary(entries: readonly SkillsetFeatureEntry[])
         support.reason === undefined
       ) {
         throw new Error(`skillset: ${entry.id} ${target} ${support.status} support requires a reason`);
+      }
+    }
+  }
+}
+
+function assertRuntimeSupportVocabulary(entries: readonly SkillsetFeatureEntry[]): void {
+  const runtimeIds = new Set<string>(SKILLSET_RUNTIME_IDS);
+  const runtimeStatuses = new Set<string>(RUNTIME_SUPPORT_STATUS_VALUES);
+  for (const entry of entries) {
+    for (const [runtime, support] of Object.entries(entry.runtimeSupport ?? {})) {
+      if (!runtimeIds.has(runtime)) {
+        throw new Error(`skillset: unknown runtime support id ${runtime} for ${entry.id}`);
+      }
+      if (!runtimeStatuses.has(support.status)) {
+        throw new Error(`skillset: unknown runtime support status ${support.status} for ${entry.id} ${runtime}`);
+      }
+      if (support.evidence === undefined || support.evidence.length === 0) {
+        throw new Error(`skillset: ${entry.id} ${runtime} runtime support requires evidence`);
+      }
+      for (const evidence of support.evidence) {
+        if (evidence.kind === "external-docs" && evidence.verifiedAt === undefined) {
+          throw new Error(`skillset: ${entry.id} ${runtime} external docs evidence requires verifiedAt`);
+        }
+      }
+      if (
+        (support.status === "degraded" || support.status === "lossy" || support.status === "unsupported") &&
+        support.reason === undefined
+      ) {
+        throw new Error(`skillset: ${entry.id} ${runtime} ${support.status} runtime support requires a reason`);
+      }
+      if (support.status === "shimmed" && support.mechanism === undefined) {
+        throw new Error(`skillset: ${entry.id} ${runtime} shimmed runtime support requires a mechanism`);
       }
     }
   }
@@ -626,4 +765,8 @@ function source(ref: string): SkillsetFeatureEvidence {
 
 function test(ref: string, note: string): SkillsetFeatureEvidence {
   return { kind: "test", note, ref };
+}
+
+function fixture(ref: string): SkillsetFeatureEvidence {
+  return { kind: "fixture", ref };
 }
