@@ -35,13 +35,15 @@ import type {
 } from "../../apps/skillset/src/setup";
 import type { TargetName } from "../../apps/skillset/src/types";
 import { parseYamlRecord } from "../../apps/skillset/src/yaml";
+import { compareNormalizedOutputTrees } from "../../packages/core/src/normalized-output-tree";
 
 const MANIFEST_PATH = "fixtures/external/repos.yaml";
 const CLONES_DIR = "fixtures/external/repos";
 const REPORTS_DIR = ".skillset/build/external";
 // .skillset is ignored because in-place adoption creates it inside the clone;
 // it is harness material, not part of the original tree being round-tripped.
-const COMPARISON_IGNORED = new Set([".git", ".DS_Store", ".skillset"]);
+const COMPARISON_EXCLUDED_PATHS = [".DS_Store"];
+const COMPARISON_EXCLUDED_PREFIXES = [".git/", ".skillset/"];
 const REPORT_LIST_CAP = 100;
 
 export interface ExternalRepoEntry {
@@ -179,53 +181,16 @@ export async function compareTrees(
   originalRoot: string,
   generatedRoot: string
 ): Promise<TreeComparison> {
-  const original = await collectRelativeFiles(originalRoot);
-  const generated = await collectRelativeFiles(generatedRoot);
-  const different: string[] = [];
-  const generatedOnly: string[] = [];
-  const identical: string[] = [];
-  const originalOnly: string[] = [];
-
-  for (const path of original) {
-    if (!generated.has(path)) {
-      originalOnly.push(path);
-      continue;
-    }
-    const [left, right] = await Promise.all([
-      readFile(join(originalRoot, path)),
-      readFile(join(generatedRoot, path)),
-    ]);
-    if (left.equals(right)) {identical.push(path);}
-    else {different.push(path);}
-  }
-  for (const path of generated) {
-    if (!original.has(path)) {generatedOnly.push(path);}
-  }
-
+  const comparison = await compareNormalizedOutputTrees(originalRoot, generatedRoot, {
+    excludePathPrefixes: COMPARISON_EXCLUDED_PREFIXES,
+    excludePaths: COMPARISON_EXCLUDED_PATHS,
+  });
   return {
-    different: different.toSorted(compareStrings),
-    generatedOnly: generatedOnly.toSorted(compareStrings),
-    identical: identical.toSorted(compareStrings),
-    originalOnly: originalOnly.toSorted(compareStrings),
+    different: comparison.different,
+    generatedOnly: comparison.rightOnly,
+    identical: comparison.identical,
+    originalOnly: comparison.leftOnly,
   };
-}
-
-async function collectRelativeFiles(
-  root: string
-): Promise<ReadonlySet<string>> {
-  const files = new Set<string>();
-  if (!(await exists(root))) {return files;}
-  const walk = async (dir: string): Promise<void> => {
-    for (const entry of await readdir(dir, { withFileTypes: true })) {
-      if (COMPARISON_IGNORED.has(entry.name)) {continue;}
-      const path = join(dir, entry.name);
-      if (entry.isDirectory()) {await walk(path);}
-      else if (entry.isFile())
-        {files.add(relative(root, path).replaceAll("\\", "/"));}
-    }
-  };
-  await walk(root);
-  return files;
 }
 
 export interface ExternalStageResult {

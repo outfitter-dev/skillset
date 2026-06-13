@@ -23,6 +23,18 @@ export {
   type SkillsetLoweringOutput,
   type SkillsetLoweringPolicy,
 } from "./lowering-outcome";
+export {
+  compareNormalizedOutputTreeEntries,
+  compareNormalizedOutputTrees,
+  formatNormalizedTreeComparison,
+  readNormalizedOutputTree,
+  type NormalizedOutputTree,
+  type NormalizedOutputTreeEntry,
+  type NormalizedOutputTreeOptions,
+  type NormalizedTreeComparison,
+  type NormalizedTreeDifference,
+  type NormalizedTreeDifferenceKind,
+} from "./normalized-output-tree";
 export type {
   SkillsetDiagnostic,
   SkillsetDiagnosticSeverity,
