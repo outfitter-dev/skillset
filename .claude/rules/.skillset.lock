@@ -12,7 +12,7 @@
       "outputPath": "fixtures.md",
       "sourceHash": "sha256:2803bec4ace563aabd98e3574d55872763bbefc6ff3caaef49d152e726a9959c",
       "sourcePath": ".skillset/instructions/fixtures.md",
-      "version": "0.1.0"
+      "version": "0.1.1"
     }
   ],
   "outputRoot": ".claude/rules",

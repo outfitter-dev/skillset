@@ -2,7 +2,7 @@
 description: Use the skillset compiler to build, check, lint, and import source skills or plugins.
 metadata:
   generated: skillset@0.1.0
-  version: 0.1.0
+  version: 0.1.1
 name: use-skillset
 ---
 

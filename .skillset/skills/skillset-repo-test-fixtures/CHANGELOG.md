@@ -7,6 +7,12 @@ metadata:
 
 # Changelog
 
+## 28685a73110e
+
+bump: patch | scopes: skill: skillset-repo-test-fixtures
+
+Workspace split: compiler test paths moved under apps/skillset/src.
+
 ## 8a04cd78d692
 
 bump: patch | group: fixture-guidance | scopes: skill: skillset-repo-test-fixtures

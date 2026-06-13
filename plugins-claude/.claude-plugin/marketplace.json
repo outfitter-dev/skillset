@@ -3,7 +3,7 @@
     "description": "Self-hosted source for developing and using the skillset compiler.",
     "generatedBy": "example content repo skillset compiler",
     "pluginRoot": "./plugins",
-    "version": "0.1.0"
+    "version": "0.1.1"
   },
   "name": "skillset",
   "owner": {
@@ -27,7 +27,7 @@
       "name": "skillset",
       "source": "./plugins/skillset",
       "strict": true,
-      "version": "0.1.0"
+      "version": "0.1.1"
     }
   ]
 }
