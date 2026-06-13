@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 
-import { diffSkillset } from "@skillset/core";
+import { diffSkillsetResult, type SkillsetDiagnostic, type SkillsetDiff } from "@skillset/core";
 
 import { changeCheck, type ChangeBump, type ChangeCheckReport } from "./change-entries";
 import { changeStatus, type ChangeStatusReport } from "./change-status";
@@ -102,7 +102,9 @@ export async function runCli(
 
   if (command === "build") {
     if (dryRun || !yes) {
-      const diff = await diffSkillset(rootPath, options);
+      const result = await diffSkillsetResult(rootPath, options);
+      printDiagnostics(result.diagnostics);
+      const { data: diff } = result;
       printDiffPlan(diff, dryRun ? "dry run" : "write confirmation required");
       if (!dryRun) console.log("skillset: rerun with --yes to write generated files");
       return;
@@ -303,7 +305,9 @@ export async function runCli(
   }
 
   if (command === "diff") {
-    const diff = await diffSkillset(rootPath, options);
+    const result = await diffSkillsetResult(rootPath, options);
+    printDiagnostics(result.diagnostics);
+    const { data: diff } = result;
     const total = diff.added.length + diff.changed.length + diff.missing.length + diff.removed.length;
     if (total === 0) {
       console.log("skillset: no generated changes");
@@ -600,7 +604,7 @@ function printReleaseApply(
   for (const file of files) console.log(`  ${file}`);
 }
 
-function printDiffPlan(diff: Awaited<ReturnType<typeof diffSkillset>>, reason: string): void {
+function printDiffPlan(diff: SkillsetDiff, reason: string): void {
   const total = diff.added.length + diff.changed.length + diff.missing.length + diff.removed.length;
   if (total === 0) {
     console.log(`skillset: no generated changes (${reason})`);
@@ -710,6 +714,15 @@ function printSetupReport(result: SetupReport, reason: string): void {
   ];
   console.log(`skillset: ${result.kind} ${details.join(", ")} (${reason})`);
   console.log(`  root: ${result.rootPath}`);
+}
+
+function printDiagnostics(diagnostics: readonly SkillsetDiagnostic[]): void {
+  for (const diagnostic of diagnostics) {
+    const location = diagnostic.path ?? diagnostic.outputPath;
+    const suffix = location === undefined ? "" : `: ${location}`;
+    const prefix = diagnostic.severity === "error" ? "error" : diagnostic.severity === "warning" ? "warning" : "info";
+    console.warn(`skillset: ${prefix}${suffix}: ${diagnostic.message}`);
+  }
 }
 
 function printSkillsetTest(report: SkillsetTestReport): void {

@@ -3,7 +3,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { diffSkillset } from "@skillset/core";
+import { diffSkillset, diffSkillsetResult } from "@skillset/core";
 
 const DEMO_FIXTURE: Record<string, string> = {
   ".skillset/config.yaml": `
@@ -40,12 +40,29 @@ describe("diffSkillset", () => {
     };
 
     try {
-      const diff = await diffSkillset(root);
+      const result = await diffSkillsetResult(root);
+      const diff = result.data;
 
+      expect(result.ok).toBe(true);
+      expect(result.operation).toBe("diff");
+      expect(result.writes).toEqual({
+        deletedPaths: [],
+        mode: "read",
+        paths: [],
+        writtenPaths: [],
+      });
+      expect(result.loweringOutcomes).toEqual([]);
+      expect(result.diagnostics).toEqual([
+        expect.objectContaining({
+          code: "source-warning",
+          severity: "warning",
+        }),
+      ]);
       expect(diff.added).toContain(".claude/skills/demo/SKILL.md");
       expect(diff.changed).toEqual([]);
       expect(diff.missing).toEqual([]);
       expect(diff.removed).toEqual([]);
+      expect(await diffSkillset(root)).toEqual(diff);
       expect(await Bun.file(join(root, ".claude/skills/demo/SKILL.md")).exists()).toBe(false);
       expect(calls).toEqual([]);
       expect(process.exitCode).toBeUndefined();
@@ -54,6 +71,20 @@ describe("diffSkillset", () => {
       console.warn = originalWarn;
       process.exitCode = previousExitCode;
     }
+  });
+
+  it("throws invalid source config instead of hiding it in a successful result", async () => {
+    const root = await fixture({
+      ".skillset/config.yaml": `
+skillset:
+  name: invalid-core-diff-root
+compile:
+  targets:
+    - nope
+`,
+    });
+
+    await expect(diffSkillsetResult(root)).rejects.toThrow("unsupported target");
   });
 });
 

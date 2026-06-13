@@ -4,6 +4,7 @@ import { dirname, join, relative } from "node:path";
 import { compareStrings, resolveInside } from "./path";
 import { renderBuildGraph } from "./render";
 import { emitGraphWarnings, loadBuildGraph } from "./resolver";
+import { sourceWarningDiagnostic, type SkillsetOperationResult } from "./operation-result";
 import type { BuildGraph, BuildScope, CheckResult, RenderedFile, SkillsetOptions } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
 
@@ -113,6 +114,8 @@ export interface SkillsetDiff {
   readonly removed: readonly string[];
 }
 
+export type SkillsetDiffResult = SkillsetOperationResult<SkillsetDiff>;
+
 /**
  * Compute the generated changes a build would make, without writing anything.
  * Backs `skillset diff` and `skillset doctor`.
@@ -121,6 +124,13 @@ export async function diffSkillset(
   rootPath: string,
   options: SkillsetOptions = {}
 ): Promise<SkillsetDiff> {
+  return (await diffSkillsetResult(rootPath, options)).data;
+}
+
+export async function diffSkillsetResult(
+  rootPath: string,
+  options: SkillsetOptions = {}
+): Promise<SkillsetDiffResult> {
   const graph = await loadBuildGraph(rootPath, options);
   const outPath = outPathMapper(options);
   const rendered = mirroredRenderedFiles(
@@ -156,11 +166,24 @@ export async function diffSkillset(
     if (!expected.has(path)) removed.push(path);
   }
 
-  return {
+  const diff = {
     added: [...added].sort(compareStrings),
     changed: [...changed].sort(compareStrings),
     missing: [...missing].sort(compareStrings),
     removed: [...removed].sort(compareStrings),
+  };
+  return {
+    data: diff,
+    diagnostics: graph.warnings.map(sourceWarningDiagnostic),
+    loweringOutcomes: [],
+    ok: true,
+    operation: "diff",
+    writes: {
+      deletedPaths: [],
+      mode: "read",
+      paths: [],
+      writtenPaths: [],
+    },
   };
 }
 
