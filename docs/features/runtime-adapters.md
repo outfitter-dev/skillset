@@ -49,8 +49,8 @@ Runtime support records live in the feature registry as `runtimeSupport` rows. A
 | --- | --- | --- |
 | Build target | A provider projection Skillset can lower directly. | `claude`, `codex` |
 | Runtime adapter | A concrete runtime or harness that can consume a projection or compatibility shim. | `claude-code`, `codex-cli`, `codex-app` |
-| Distribution surface | A repo, marketplace, extension root, or package shape a projection may be synced into. | Future `distributions.*` config |
-| Activation harness | A generated test surface that asks whether a runtime notices or invokes a skill, agent, or plugin. | Future activation probes |
+| Distribution surface | A repo, marketplace, extension root, or package shape a projection may be synced into. | Implemented `distributions.*` plan config; sync/publish remains future |
+| Activation harness | A generated test surface that asks whether a runtime notices or invokes a skill, agent, or plugin. | Implemented manual activation probe assets under `skillset test`; runtime execution remains future |
 
 The test: adding a runtime must not make `compile.targets` accept a new value. It should add evidence and support records first, then a specific adapter or distribution flow only when the target behavior is proven.
 

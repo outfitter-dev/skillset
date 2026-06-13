@@ -17,6 +17,7 @@ import {
 } from "../feature-registry";
 
 const SEEDED_FEATURE_IDS = [
+  "activation-probes",
   "changes",
   "dependencies",
   "distributions",

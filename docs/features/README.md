@@ -6,6 +6,7 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 
 ## Initial Pages
 
+- [Activation Probes](tests-and-evals.md#activation-probes): target-aware manual harness prompts generated inside `skillset test` runs.
 - [Agents](agents.md): portable project agents, Claude plugin agents, Codex project agents, and skill-local Codex policy boundaries.
 - [Apps](apps.md): Codex plugin `.app.json` pass-through and why there is no v1 `apps.source` feature key.
 - [Build Scopes](build-scopes.md): build mode, destination scopes, dry-run safety, diff/list/explain behavior, and lock semantics.
@@ -56,7 +57,7 @@ Unsupported and lossy lowering must fail loudly by default. Softer outcomes such
 
 ## Registry Shape
 
-Each feature page uses the same registry-oriented fields, even though the registry is not implemented as code yet:
+Each feature page uses the same registry-oriented fields. The current typed seed lives in `packages/core/src/feature-registry.ts`; feature pages remain the reader-facing explanation for those registry facts:
 
 | Field | Purpose |
 | --- | --- |
@@ -68,7 +69,7 @@ Each feature page uses the same registry-oriented fields, even though the regist
 | Provenance | Lock entries, hashes, warnings, skipped output, target state, and explain/doctor surfaces. |
 | Evidence | Provider docs, ADRs, Linear issues, tests, and fixtures that justify the current status. |
 
-Future schema generation can turn these fields into typed data, but SET-28 does not introduce a generator, runtime registry, or new compiler behavior. When that registry becomes code, it belongs in `@skillset/core`; the CLI should render registry-backed facts rather than own feature semantics.
+Future schema generation can turn these fields into richer generated docs, but the registry source of truth belongs in `@skillset/core`; the CLI should render registry-backed facts rather than own feature semantics.
 
 ## Future-Only Features
 

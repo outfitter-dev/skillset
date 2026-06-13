@@ -1403,6 +1403,223 @@ Demo body.
   expect(await fileExists(join(root, secondLatest.runPath, "report.md"))).toBe(true);
 });
 
+test("SET-112: skillset test compiles activation probes into run and latest assets", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: activation-root
+tests:
+  activation:
+    source: repo:.skillset
+    targets:
+      - claude
+      - codex
+    activation:
+      - name: fixture guidance
+        prompt: Help me inspect this Skillset fixture setup.
+        expect:
+          skill: demo
+    assertions:
+      - build
+claude: true
+codex: true
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Demo body.
+`,
+  });
+
+  const result = await runSkillsetCli("test", "activation", "--root", root);
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout).toContain("activation probes: 1");
+  expect(result.stdout).toContain("activation:");
+  expect(await fileExists(join(root, ".skillset/build/tests/latest/activation/claude/fixture-guidance.md"))).toBe(true);
+  expect(await fileExists(join(root, ".skillset/build/tests/latest/activation/codex/fixture-guidance.md"))).toBe(true);
+  const claudeProbe = await readFile(join(root, ".skillset/build/tests/latest/activation/claude/fixture-guidance.md"), "utf8");
+  expect(claudeProbe).toContain("Manual Claude activation probe");
+  expect(claudeProbe).toContain("- skill: demo");
+  const codexProbe = await readFile(join(root, ".skillset/build/tests/latest/activation/codex/probes.json"), "utf8");
+  expect(codexProbe).toContain("manual-shimmed");
+  expect(codexProbe).toContain("fixture-guidance");
+});
+
+test("SET-112: activation probes reject empty prompts and duplicate output names", async () => {
+  const emptyPromptRoot = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: empty-prompt-root
+tests:
+  activation:
+    source: repo:.skillset
+    activation:
+      - prompt: " "
+        expect:
+          skill: demo
+    assertions:
+      - build
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Demo body.
+`,
+  });
+  const emptyPrompt = await runSkillsetCli("test", "activation", "--root", emptyPromptRoot);
+  expect(emptyPrompt.exitCode).toBe(1);
+  expect(emptyPrompt.stderr).toContain("prompt is required");
+
+  const duplicateRoot = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: duplicate-probe-root
+tests:
+  activation:
+    source: repo:.skillset
+    activation:
+      - name: Demo probe
+        prompt: First prompt.
+        expect:
+          skill: first
+      - name: demo-probe
+        prompt: Second prompt.
+        expect:
+          skill: second
+    assertions:
+      - build
+claude: true
+codex: false
+`,
+    ".skillset/skills/first/SKILL.md": `
+---
+name: first
+description: First.
+---
+
+First body.
+`,
+    ".skillset/skills/second/SKILL.md": `
+---
+name: second
+description: Second.
+---
+
+Second body.
+`,
+  });
+  const duplicate = await runSkillsetCli("test", "activation", "--root", duplicateRoot);
+  expect(duplicate.exitCode).toBe(1);
+  expect(duplicate.stderr).toContain("duplicate activation probe output name");
+  expect(await fileExists(join(duplicateRoot, ".skillset/build/tests/runs"))).toBe(false);
+
+  const emptyTargetsRoot = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: empty-targets-root
+tests:
+  activation:
+    source: repo:.skillset
+    activation:
+      - name: empty targets
+        prompt: Probe prompt.
+        targets: []
+        expect:
+          skill: demo
+    assertions:
+      - build
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Demo body.
+`,
+  });
+  const emptyTargets = await runSkillsetCli("test", "activation", "--root", emptyTargetsRoot);
+  expect(emptyTargets.exitCode).toBe(1);
+  expect(emptyTargets.stderr).toContain("targets to include at least one target");
+  expect(await fileExists(join(emptyTargetsRoot, ".skillset/build/tests/runs"))).toBe(false);
+});
+
+test("SET-112: activation probes require expected units to be emitted for the target", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: missing-activation-root
+tests:
+  activation:
+    source: repo:.skillset
+    targets:
+      - claude
+    activation:
+      - name: missing skill
+        prompt: Probe prompt.
+        expect:
+          skill: missing
+    assertions:
+      - build
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Demo body.
+`,
+  });
+
+  const result = await runSkillsetCli("test", "activation", "--root", root);
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain("activation expected skill missing was not emitted for target claude");
+  expect(await fileExists(join(root, ".skillset/build/tests/runs"))).toBe(false);
+});
+
+test("SET-112: test declarations are root-owned and rejected in plugin config", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: root-owned-tests
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+tests:
+  ignored:
+    source: repo:.skillset
+    assertions:
+      - build
+`,
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Demo body.
+`,
+  });
+
+  await expect(buildSkillset(root)).rejects.toThrow("unsupported top-level key tests");
+});
+
 test("SET-50: skillset test reports failed assertions without touching live outputs", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `

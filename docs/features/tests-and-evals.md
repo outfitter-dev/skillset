@@ -60,6 +60,40 @@ The first assertion vocabulary is deliberately small: `build` means the isolated
 
 Release state and inline versions are observable, not migrated, by deterministic tests. A test may assert the version that build emits after release state is applied, but it must not rewrite source `version` fields or start the SET-43 migration from inline versions to release-state-only authoring.
 
+## Activation Probes
+
+Activation probes are a first layer above deterministic build assertions and below evals. They answer “can a target harness notice or invoke the expected skill, agent, or plugin?” They do not judge answer quality, call a model, install a plugin, trust global runtime config, or mutate live build roots.
+
+Root test declarations can include lightweight activation probes:
+
+```yaml
+tests:
+  activation:
+    source: repo:.skillset
+    targets:
+      - claude
+      - codex
+    activation:
+      - name: fixture guidance
+        prompt: Help me inspect this Skillset fixture setup.
+        expect:
+          skill: skillset-repo-test-fixtures
+    assertions:
+      - build
+```
+
+Each probe requires `prompt` and `expect`. The v1 `expect` object must name exactly one of `skill`, `agent`, or `plugin`. Probe `targets` can narrow to enabled test targets; absent probe targets inherit the enclosing test targets. Empty target arrays fail. Before a retained run is written, Skillset verifies that the expected unit was emitted for every selected target in the isolated workspace, so typos and target-disabled units fail without creating partial run directories. Probe assets are generated under the retained test run:
+
+```text
+.skillset/build/tests/runs/<run-id>/activation/<target>/
+  probes.json
+  <probe-name>.md
+```
+
+`latest/` receives the same activation directory when the run refreshes. Claude probes are emitted as manual native harness prompts. Codex probes are emitted as manual shim-aware prompts because Codex can follow generated loading instructions, but Skillset should not pretend that every Claude-style activation signal is target-enforced in Codex. Future Codex plugin-eval integration can consume the same `probes.json` shape once that runner boundary is proven.
+
+Edge cases stay explicit: multiple matching skills should be disambiguated in the expected selector, target-native islands may need target-specific probes, missing plugin dependencies should appear as activation setup failures rather than build successes, and compatibility shims should be reported as shims in the generated probe material.
+
 ## Compiler Determinism and Adapter Conformance
 
 The compiler verification lane is narrower than `skillset test` and much narrower than evals. It proves that the same source projects to the same generated artifacts, lockfiles, reports, and structured outcomes when built in clean roots. It is an internal and core-library-facing determinism proof, not a user-authored scenario format.
