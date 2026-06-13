@@ -20,6 +20,13 @@ export {
   type DeterministicProjectionRunSummary,
 } from "./deterministic-projection";
 export {
+  DESTINATION_OWNERSHIP_VALUES,
+  classifyDestinationOwnership,
+  type DestinationOwnership,
+  type DestinationOwnershipClassification,
+  type DestinationOwnershipEntry,
+} from "./destination-ownership";
+export {
   planDistributions,
   type DistributionDestinationPlan,
   type DistributionFileStatus,

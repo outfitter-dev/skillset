@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { expect, test } from "bun:test";
+import { planDistributions } from "@skillset/core";
 
 import { buildSkillset, buildSkillsetResult, checkSkillset, diffSkillset, diffSkillsetResult } from "../build";
 import { changeStatus, collectSourceInventory } from "../change-status";
@@ -1039,8 +1040,61 @@ Body.
   expect(planned.stdout).toContain("runtime: codex-cli");
   expect(planned.stdout).toContain(`to: local ${destination}`);
   expect(planned.stdout).toContain("add: plugins-codex/plugins/alpha/.codex-plugin/plugin.json -> bundles/alpha/.codex-plugin/plugin.json");
+  expect(planned.stdout).toContain("ownership: file:generated");
+  expect(planned.stdout).toContain("destination-owned");
   expect(await fileExists(join(root, "plugins-codex/plugins/alpha/.codex-plugin/plugin.json"))).toBe(false);
   expect(await fileExists(join(destination, "bundles/alpha/.codex-plugin/plugin.json"))).toBe(false);
+});
+
+test("SET-110: distribute plan reports destination-owned fields from destination manifests", async () => {
+  const destination = await mkdtemp(join(tmpdir(), "skillset-distribution-dest-"));
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: distribution-root
+compile:
+  targets: [codex]
+distributions:
+  codex-marketplace:
+    from:
+      target: codex
+      runtime: codex-cli
+      selector: plugin:alpha
+    to:
+      kind: local
+      path: ${destination}
+      subdirectory: bundles/alpha
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await mkdir(join(destination, "bundles/alpha/.codex-plugin"), { recursive: true });
+  await writeFile(join(destination, "bundles/alpha/.codex-plugin/plugin.json"), `${JSON.stringify({
+    interface: {
+      displayName: "Destination Alpha",
+    },
+    name: "alpha",
+    version: "9.9.9",
+    xMarketplaceReviewId: "review-123",
+  })}\n`);
+
+  const report = await planDistributions(root, { name: "codex-marketplace" });
+  const manifest = report.plans[0]?.files.find((file) => file.destinationPath === "bundles/alpha/.codex-plugin/plugin.json");
+  expect(manifest?.status).toBe("change");
+  expect(manifest?.ownership.fields).toContainEqual(expect.objectContaining({
+    owner: "destination-owned",
+    selector: "plugin.json#/xMarketplaceReviewId",
+  }));
 });
 
 test("SET-109: distribute plan rejects write flags and unknown distributions", async () => {
