@@ -33,6 +33,7 @@
     "yaml": "^2.8.1"
   },
   "devDependencies": {
+    "@skillset/core": "workspace:*",
     "@skillset/lint": "workspace:*",
     "@skillset/transforms": "workspace:*"
   }

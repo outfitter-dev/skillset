@@ -1,6 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 
+import { diffSkillset } from "@skillset/core";
+
 import { changeCheck, type ChangeBump, type ChangeCheckReport } from "./change-entries";
 import { changeStatus, type ChangeStatusReport } from "./change-status";
 import { ADOPT_REPORT_DIR, adoptSkillset, type AdoptReport } from "./adopt";
@@ -16,7 +18,7 @@ import {
   type ChangeSubcommand,
 } from "./change-workflow";
 import { doctorSkillset, explainPath, listGeneratedEntries } from "./authoring";
-import { buildSkillset, checkSkillset, diffSkillset } from "./build";
+import { buildSkillset, checkSkillset } from "./build";
 import { ciSkillset, hasDrift, renderCiReportMarkdown, type CiReport } from "./ci";
 import { renderHookPrint, type HookPrintSubcommand, type HookRunner } from "./hook-guardrails";
 import { importSources, type ImportKind, type ImportProvider, type ImportReport } from "./import";
@@ -366,8 +368,8 @@ export async function runCli(
   }
 
   if (command === "doctor") {
-    // doctorSkillset runs diffSkillset internally, which emits source warnings to
-    // stderr; the report still carries them for programmatic consumers.
+    // doctorSkillset carries source warnings in the structured report; the CLI
+    // renders them below instead of relying on core operations to print.
     const report = await doctorSkillset(rootPath, options);
     for (const issue of report.lintIssues) {
       console.log(`  lint ${issue.severity}: ${issue.path}: ${issue.code}: ${issue.message}`);

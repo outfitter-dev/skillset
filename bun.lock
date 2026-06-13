@@ -24,6 +24,7 @@
         "yaml": "^2.8.1",
       },
       "devDependencies": {
+        "@skillset/core": "workspace:*",
         "@skillset/lint": "workspace:*",
         "@skillset/transforms": "workspace:*",
       },
@@ -31,6 +32,10 @@
     "packages/core": {
       "name": "@skillset/core",
       "version": "0.0.0",
+      "dependencies": {
+        "@skillset/transforms": "workspace:*",
+        "yaml": "^2.8.1",
+      },
     },
     "packages/lint": {
       "name": "@skillset/lint",

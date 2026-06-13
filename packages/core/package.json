@@ -4,6 +4,11 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./internal/*": "./src/*.ts"
+  },
+  "dependencies": {
+    "@skillset/transforms": "workspace:*",
+    "yaml": "^2.8.1"
   }
 }
