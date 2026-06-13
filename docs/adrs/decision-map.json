@@ -63,6 +63,11 @@
           "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - the source contract adoption migrates repos into.",
           "from": "20260610",
           "fromPath": "docs/adrs/drafts/20260610-one-action-repo-adoption.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - governing source and generated-output doctrine.",
+          "from": "20260613",
+          "fromPath": "docs/adrs/drafts/20260613-deterministic-projection-and-adapter-conformance.md"
         }
       ],
       "number": "0000",

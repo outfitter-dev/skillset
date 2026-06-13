@@ -81,6 +81,11 @@
           "context": "- [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - future registry-backed feature docs.",
           "from": "20260612",
           "fromPath": "docs/adrs/drafts/20260612-core-library-boundary.md"
+        },
+        {
+          "context": "- [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - registry-backed support and evidence model used by adapter conformance.",
+          "from": "20260613",
+          "fromPath": "docs/adrs/drafts/20260613-deterministic-projection-and-adapter-conformance.md"
         }
       ],
       "number": null,
@@ -278,7 +283,12 @@
           "fromPath": "docs/adrs/drafts/20260612-core-library-boundary.md"
         },
         {
-          "context": "See [Fixtures, Tests, Dogfooding, and Evals](../adrs/drafts/20260609-fixtures-tests-dogfooding-and-evals.md), [Build Scopes](build-scopes.md), [Changes](changes.md), and [Releases and Changelogs](rele",
+          "context": "- [Fixtures, Tests, Dogfooding, and Evals](20260609-fixtures-tests-dogfooding-and-evals.md) - separates fixtures, dogfooding, deterministic tests, and evals.",
+          "from": "20260613",
+          "fromPath": "docs/adrs/drafts/20260613-deterministic-projection-and-adapter-conformance.md"
+        },
+        {
+          "context": "See [Fixtures, Tests, Dogfooding, and Evals](../adrs/drafts/20260609-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../adrs/drafts/20260613-deterministic-p",
           "from": "tests-and-evals",
           "fromPath": "docs/features/tests-and-evals.md"
         }
@@ -379,7 +389,13 @@
         "one-action-repo-adoption",
         "source-change-release-provenance"
       ],
-      "inbound": [],
+      "inbound": [
+        {
+          "context": "- [Core Library and CLI Boundary](20260612-core-library-boundary.md) - places structured compiler facts in `@skillset/core`.",
+          "from": "20260613",
+          "fromPath": "docs/adrs/drafts/20260613-deterministic-projection-and-adapter-conformance.md"
+        }
+      ],
       "number": null,
       "owners": ["[galligan](https://github.com/galligan)"],
       "path": "docs/adrs/drafts/20260612-core-library-boundary.md",
@@ -388,6 +404,30 @@
       "superseded_by": null,
       "title": "Core Library and CLI Boundary",
       "updated": "2026-06-12"
+    },
+    {
+      "created": "2026-06-13",
+      "depends_on": [
+        "0",
+        "core-library-boundary",
+        "feature-reference-and-schema-registry",
+        "fixtures-tests-dogfooding-and-evals"
+      ],
+      "inbound": [
+        {
+          "context": "See [Fixtures, Tests, Dogfooding, and Evals](../adrs/drafts/20260609-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../adrs/drafts/20260613-deterministic-p",
+          "from": "tests-and-evals",
+          "fromPath": "docs/features/tests-and-evals.md"
+        }
+      ],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260613-deterministic-projection-and-adapter-conformance.md",
+      "slug": "deterministic-projection-and-adapter-conformance",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Deterministic Projection and Adapter Conformance",
+      "updated": "2026-06-13"
     }
   ],
   "version": 1
