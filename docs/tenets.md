@@ -59,7 +59,7 @@ Overrides are healthy when derivation is wrong. They should be scoped, explicit,
 
 ### Builds do not imply trust
 
-`skillset build`, `skillset lint`, `skillset check`, and `skillset import` are local source-management tools. They should not publish plugins, mutate registries, install into global runtime locations, symlink into user config, trust hooks, or enable generated artifacts.
+Skillset compiler operations, including `skillset build`, `skillset lint`, `skillset check`, `skillset import`, `skillset ci`, `skillset test`, and change/release commands, are local source-management tools. They should not publish plugins, mutate registries, install into global runtime locations, symlink into user config, trust hooks, or enable generated artifacts.
 
 Build output may define hooks, app manifests, MCP manifests, plugins, skills, and instructions. Activation is a separate workflow.
 

@@ -76,6 +76,11 @@
           "context": "- [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - feature docs and future registry direction.",
           "from": "20260609",
           "fromPath": "docs/adrs/drafts/20260609-fixtures-tests-dogfooding-and-evals.md"
+        },
+        {
+          "context": "- [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - future registry-backed feature docs.",
+          "from": "20260612",
+          "fromPath": "docs/adrs/drafts/20260612-core-library-boundary.md"
         }
       ],
       "number": null,
@@ -268,6 +273,11 @@
       ],
       "inbound": [
         {
+          "context": "- [Fixtures, Tests, Dogfooding, and Evals](20260609-fixtures-tests-dogfooding-and-evals.md) - fixture, test, and dogfood boundaries.",
+          "from": "20260612",
+          "fromPath": "docs/adrs/drafts/20260612-core-library-boundary.md"
+        },
+        {
           "context": "See [Fixtures, Tests, Dogfooding, and Evals](../adrs/drafts/20260609-fixtures-tests-dogfooding-and-evals.md), [Build Scopes](build-scopes.md), [Changes](changes.md), and [Releases and Changelogs](rele",
           "from": "tests-and-evals",
           "fromPath": "docs/features/tests-and-evals.md"
@@ -294,6 +304,11 @@
           "context": "- [Source Change, Release, and Dependency Provenance](20260609-source-change-release-provenance.md) - source-change and release workflow this dogfood boundary must prove.",
           "from": "20260609",
           "fromPath": "docs/adrs/drafts/20260609-fixtures-tests-dogfooding-and-evals.md"
+        },
+        {
+          "context": "- [Source Change, Release, and Dependency Provenance](20260609-source-change-release-provenance.md) - structured result and lifecycle context.",
+          "from": "20260612",
+          "fromPath": "docs/adrs/drafts/20260612-core-library-boundary.md"
         },
         {
           "context": "See [Source Change, Release, and Dependency Provenance](../adrs/drafts/20260609-source-change-release-provenance.md) and [Change and Release Edge Decisions](../adrs/drafts/20260609-change-release-edge",
@@ -338,7 +353,13 @@
         "global-xdg-managed-installs-and-sync",
         "source-change-release-provenance"
       ],
-      "inbound": [],
+      "inbound": [
+        {
+          "context": "- [One-Action Repo Adoption](20260610-one-action-repo-adoption.md) - import/adopt/setup boundary context.",
+          "from": "20260612",
+          "fromPath": "docs/adrs/drafts/20260612-core-library-boundary.md"
+        }
+      ],
       "number": null,
       "owners": ["[galligan](https://github.com/galligan)"],
       "path": "docs/adrs/drafts/20260610-one-action-repo-adoption.md",
@@ -346,7 +367,27 @@
       "status": "draft",
       "superseded_by": null,
       "title": "One-Action Repo Adoption",
-      "updated": "2026-06-10"
+      "updated": "2026-06-11"
+    },
+    {
+      "created": "2026-06-12",
+      "depends_on": [
+        "0",
+        "1",
+        "feature-reference-and-schema-registry",
+        "fixtures-tests-dogfooding-and-evals",
+        "one-action-repo-adoption",
+        "source-change-release-provenance"
+      ],
+      "inbound": [],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260612-core-library-boundary.md",
+      "slug": "core-library-boundary",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Core Library and CLI Boundary",
+      "updated": "2026-06-12"
     }
   ],
   "version": 1

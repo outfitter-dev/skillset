@@ -64,7 +64,7 @@ Each feature page uses the same registry-oriented fields, even though the regist
 | Provenance | Lock entries, hashes, warnings, skipped output, target state, and explain/doctor surfaces. |
 | Evidence | Provider docs, ADRs, Linear issues, tests, and fixtures that justify the current status. |
 
-Future schema generation can turn these fields into typed data, but SET-28 does not introduce a generator, runtime registry, or new compiler behavior.
+Future schema generation can turn these fields into typed data, but SET-28 does not introduce a generator, runtime registry, or new compiler behavior. When that registry becomes code, it belongs in `@skillset/core`; the CLI should render registry-backed facts rather than own feature semantics.
 
 ## Future-Only Features
 

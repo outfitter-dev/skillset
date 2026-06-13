@@ -138,7 +138,7 @@ Once the manual shape is stable, introduce a feature registry that can drive doc
 Possible source:
 
 ```text
-src/schema/
+packages/core/src/schema/
   features/
     skills.schema.json
     hooks.schema.json
@@ -195,7 +195,7 @@ The registry should include:
 The registry suggests a cleaner compiler split:
 
 ```text
-src/
+packages/core/src/
   features/
     skills/
     hooks/
