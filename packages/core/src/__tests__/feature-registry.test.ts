@@ -2,14 +2,18 @@ import { describe, expect, it } from "bun:test";
 
 import {
   FEATURE_STATUS_VALUES,
+  RUNTIME_SUPPORT_STATUS_VALUES,
+  SKILLSET_RUNTIME_IDS,
   TARGET_SUPPORT_STATUS_VALUES,
   assertFeatureIdsUnique,
   defineFeatureRegistry,
   getSkillsetFeature,
   listSkillsetFeatures,
+  listSkillsetFeaturesByRuntime,
   listSkillsetFeaturesByTarget,
   type SkillsetFeatureEvidence,
   type SkillsetFeatureEntry,
+  type SkillsetRuntimeSupport,
 } from "../feature-registry";
 
 const SEEDED_FEATURE_IDS = [
@@ -36,6 +40,7 @@ const SEEDED_FEATURE_IDS = [
   "project-instructions",
   "releases",
   "resources",
+  "runtime-adapters",
   "standalone-skills",
   "supports",
   "target-native-islands",
@@ -60,6 +65,12 @@ describe("feature registry", () => {
           if (evidence.kind === "external-docs") expect(evidence.verifiedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
         }
       }
+      for (const support of Object.values(feature.runtimeSupport ?? {})) {
+        expect(support.evidence?.length ?? 0).toBeGreaterThan(0);
+        for (const evidence of support.evidence ?? []) {
+          if (evidence.kind === "external-docs") expect(evidence.verifiedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        }
+      }
     }
   });
 
@@ -74,8 +85,19 @@ describe("feature registry", () => {
     expect(getSkillsetFeature("plugin-assets")?.targetSupport.codex.status).toBe("pass_through");
     expect(getSkillsetFeature("supports")?.targetSupport.claude.status).toBe("metadata_only");
     expect(getSkillsetFeature("project-agents")?.targetSupport.codex.status).toBe("transformed");
+    expect(getSkillsetFeature("project-agents")?.runtimeSupport?.["codex-cli"]).toEqual(expect.objectContaining({
+      mechanism: expect.stringContaining("skill-loading preface"),
+      status: "shimmed",
+    }));
+    expect(getSkillsetFeature("runtime-adapters")?.runtimeSupport?.cursor?.status).toBe("planned");
+    expect(getSkillsetFeature("runtime-adapters")?.runtimeSupport?.devin?.status).toBe("future");
     expect(listSkillsetFeaturesByTarget("claude").map((entry) => entry.id)).not.toContain("changes");
     expect(listSkillsetFeaturesByTarget("codex").map((entry) => entry.id)).not.toContain("workflows");
+    expect(listSkillsetFeaturesByRuntime("codex-cli").map((entry) => entry.id)).toEqual([
+      "project-agents",
+      "runtime-adapters",
+    ]);
+    expect(listSkillsetFeaturesByRuntime("gemini-cli").map((entry) => entry.id)).toEqual(["runtime-adapters"]);
   });
 
   it("sorts entries, looks up by id, and filters target-applicable features", () => {
@@ -141,6 +163,26 @@ describe("feature registry", () => {
         }),
       ])
     ).toThrow("unknown target support status magical");
+    expect(() =>
+      defineFeatureRegistry([
+        feature({
+          id: "bad-runtime",
+          runtimeSupport: {
+            "not-real": { status: "native" },
+          } as unknown as NonNullable<SkillsetFeatureEntry["runtimeSupport"]>,
+        }),
+      ])
+    ).toThrow("unknown runtime support id not-real");
+    expect(() =>
+      defineFeatureRegistry([
+        feature({
+          id: "bad-runtime-status",
+          runtimeSupport: {
+            "codex-cli": { status: "magical" as SkillsetRuntimeSupport["status"] },
+          },
+        }),
+      ])
+    ).toThrow("unknown runtime support status magical");
   });
 
   it("requires reasons for unsupported and lossy target states", () => {
@@ -179,6 +221,16 @@ describe("feature registry", () => {
         }),
       ])
     ).toThrow("lossy support requires a reason");
+    expect(() =>
+      defineFeatureRegistry([
+        feature({
+          id: "runtime-shim-without-mechanism",
+          runtimeSupport: {
+            "codex-cli": { status: "shimmed" },
+          },
+        }),
+      ])
+    ).toThrow("shimmed runtime support requires a mechanism");
   });
 
   it("pins the status vocabularies", () => {
@@ -200,8 +252,20 @@ describe("feature registry", () => {
       "not_applicable",
       "pass_through",
       "planned",
+      "shimmed",
       "transformed",
       "unsupported",
+    ]);
+    expect(RUNTIME_SUPPORT_STATUS_VALUES).toEqual(TARGET_SUPPORT_STATUS_VALUES);
+    expect(SKILLSET_RUNTIME_IDS).toEqual([
+      "claude-code",
+      "codex-app",
+      "codex-cli",
+      "cursor",
+      "devin",
+      "droid",
+      "gemini-cli",
+      "opencode",
     ]);
   });
 });
@@ -216,6 +280,7 @@ function feature(overrides: Partial<SkillsetFeatureEntry> & { readonly id: strin
     id: overrides.id,
     kind: overrides.kind ?? "source",
     loweringOwner: overrides.loweringOwner ?? "packages/core/src/render.ts",
+    ...(overrides.runtimeSupport === undefined ? {} : { runtimeSupport: runtimeSupportWithEvidence(overrides.runtimeSupport, defaultEvidence) }),
     sourceShape: overrides.sourceShape ?? ".skillset/**",
     status: overrides.status ?? "implemented",
     summary: overrides.summary ?? `${overrides.id} summary.`,
@@ -233,6 +298,18 @@ function feature(overrides: Partial<SkillsetFeatureEntry> & { readonly id: strin
       codex: supportWithEvidence(entry.targetSupport.codex, entry.evidence),
     },
   };
+}
+
+function runtimeSupportWithEvidence(
+  support: NonNullable<SkillsetFeatureEntry["runtimeSupport"]>,
+  evidence: SkillsetFeatureEntry["evidence"]
+): NonNullable<SkillsetFeatureEntry["runtimeSupport"]> {
+  return Object.fromEntries(
+    Object.entries(support).map(([runtime, item]) => [
+      runtime,
+      item.evidence !== undefined && item.evidence.length > 0 ? item : { ...item, evidence },
+    ])
+  ) as NonNullable<SkillsetFeatureEntry["runtimeSupport"]>;
 }
 
 function supportWithEvidence(
