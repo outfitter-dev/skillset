@@ -15,7 +15,7 @@
     },
     "apps/skillset": {
       "name": "skillset",
-      "version": "0.1.0-beta.6",
+      "version": "0.1.0-beta.8",
       "bin": {
         "create-skillset": "dist/create.js",
         "skillset": "dist/cli.js",
