@@ -28,6 +28,10 @@
         "@skillset/transforms": "workspace:*",
       },
     },
+    "packages/core": {
+      "name": "@skillset/core",
+      "version": "0.0.0",
+    },
     "packages/lint": {
       "name": "@skillset/lint",
       "version": "0.0.0",
@@ -117,6 +121,8 @@
     "@oxlint/binding-win32-ia32-msvc": ["@oxlint/binding-win32-ia32-msvc@1.69.0", "", { "os": "win32", "cpu": "ia32" }, "sha512-1907kRPF8/PrcIw1E7LMs9JbVrpgnt/MvFdss3an8oDkYNAACXzTntV3t3869ZZhMZxb2AzRGbz1pA/jdFatXA=="],
 
     "@oxlint/binding-win32-x64-msvc": ["@oxlint/binding-win32-x64-msvc@1.69.0", "", { "os": "win32", "cpu": "x64" }, "sha512-w8SOXv3mT9Fi6jY8OXdXCfnvX/3KNLXGNr4HEz2TA7S4Mv/PYAOmpB8y/ge40mxvBMgGNaSaaDwZpAsQn7HtWA=="],
+
+    "@skillset/core": ["@skillset/core@workspace:packages/core"],
 
     "@skillset/lint": ["@skillset/lint@workspace:packages/lint"],
 
