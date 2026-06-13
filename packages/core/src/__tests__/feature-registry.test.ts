@@ -11,7 +11,53 @@ import {
   type SkillsetFeatureEntry,
 } from "../feature-registry";
 
+const SEEDED_FEATURE_IDS = [
+  "changes",
+  "dependencies",
+  "future-companion-source-pointers",
+  "plugin-agents",
+  "plugin-apps",
+  "plugin-bin",
+  "plugin-hooks",
+  "plugin-manifests",
+  "plugin-mcp",
+  "plugin-skills",
+  "project-agents",
+  "project-instructions",
+  "releases",
+  "resources",
+  "standalone-skills",
+  "supports",
+  "target-native-islands",
+  "tool-intent",
+  "workflows",
+];
+
 describe("feature registry", () => {
+  it("ships the current feature seed in deterministic order with docs and evidence", () => {
+    const features = listSkillsetFeatures();
+
+    expect(features.map((entry) => entry.id)).toEqual(SEEDED_FEATURE_IDS);
+    for (const feature of features) {
+      expect(feature.docs.length).toBeGreaterThan(0);
+      expect(feature.evidence.length).toBeGreaterThan(0);
+      expect(feature.targetSupport.claude).toBeDefined();
+      expect(feature.targetSupport.codex).toBeDefined();
+    }
+  });
+
+  it("keeps current target support claims conservative", () => {
+    expect(getSkillsetFeature("plugin-bin")?.targetSupport.codex).toEqual({
+      reason: "Codex plugins do not expose a documented plugin-local bin contract.",
+      status: "unsupported",
+    });
+    expect(getSkillsetFeature("dependencies")?.targetSupport.codex.status).toBe("degraded");
+    expect(getSkillsetFeature("supports")?.targetSupport.claude.status).toBe("metadata_only");
+    expect(getSkillsetFeature("project-agents")?.targetSupport.codex.status).toBe("transformed");
+    expect(listSkillsetFeaturesByTarget("claude").map((entry) => entry.id)).not.toContain("changes");
+    expect(listSkillsetFeaturesByTarget("codex").map((entry) => entry.id)).not.toContain("workflows");
+  });
+
   it("sorts entries, looks up by id, and filters target-applicable features", () => {
     const registry = defineFeatureRegistry([
       feature({
