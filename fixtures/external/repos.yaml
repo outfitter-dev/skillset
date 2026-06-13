@@ -13,3 +13,8 @@ repos:
     repo: https://github.com/hamelsmu/claude-review-loop
     ref: 244f4c7bc15e98552af7cc5a67e70dfcdea9ab12
     notes: "Nested marketplace-style Claude plugin under plugins/review-loop."
+  - name: superpowers
+    repo: https://github.com/obra/superpowers
+    ref: 6fd4507659784c351abbd2bc264c7162cfd386dc
+    targets: [claude, codex]
+    notes: "Large multi-agent plugin repo with Claude and Codex manifests, shared skills, hooks, assets, scripts, and repo-level instructions."

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readdir, readFile, stat } from "node:fs/promises";
+import { lstat, readdir, readFile, readlink, stat } from "node:fs/promises";
 import { basename, join, relative } from "node:path";
 
 import { compareStrings } from "./path";
@@ -7,6 +7,7 @@ import type { JsonValue } from "./types";
 import { isJsonRecord, parseYamlRecord, stringifyYaml, stripUndefinedValue } from "./yaml";
 
 const DEFAULT_STRUCTURED_JSON_BASENAMES = new Set([".skillset.lock"]);
+type NormalizedContentKind = "bytes" | "json" | "yaml";
 
 export interface NormalizedOutputTreeOptions {
   readonly excludePathPrefixes?: readonly string[];
@@ -18,7 +19,7 @@ export interface NormalizedOutputTreeOptions {
 
 export interface NormalizedOutputTreeEntry {
   readonly bytes: Uint8Array;
-  readonly kind: "bytes" | "json" | "yaml";
+  readonly kind: "bytes" | "json" | "symlink" | "yaml";
   readonly path: string;
 }
 
@@ -50,7 +51,14 @@ export async function readNormalizedOutputTree(
   const paths = await collectRelativeFiles(rootPath, options);
   const entries: NormalizedOutputTreeEntry[] = [];
   for (const path of paths) {
-    const bytes = await readFile(join(rootPath, path));
+    const absolutePath = join(rootPath, path);
+    if ((await lstat(absolutePath)).isSymbolicLink()) {
+      const bytes = new TextEncoder().encode(normalizePath(await readlink(absolutePath)));
+      assertNoForbiddenSubstrings(path, bytes, options);
+      entries.push({ bytes, kind: "symlink", path });
+      continue;
+    }
+    const bytes = await readFile(absolutePath);
     entries.push(normalizeOutputTreeEntry(path, bytes, options));
   }
   return {
@@ -91,7 +99,7 @@ export function compareNormalizedOutputTreeEntries(
       differences.push({ detail: "only in left tree", kind: "left-only", path });
       continue;
     }
-    if (bytesEqual(leftEntry.bytes, rightEntry.bytes)) {
+    if (leftEntry.kind === rightEntry.kind && bytesEqual(leftEntry.bytes, rightEntry.bytes)) {
       identical.push(path);
       continue;
     }
@@ -154,7 +162,7 @@ function normalizeStructuredBytes(
 function structuredKindForPath(
   path: string,
   options: NormalizedOutputTreeOptions
-): NormalizedOutputTreeEntry["kind"] {
+): NormalizedContentKind {
   if ((options.structuredYamlPaths ?? []).includes(path)) return "yaml";
   if ((options.structuredJsonPaths ?? []).includes(path) || DEFAULT_STRUCTURED_JSON_BASENAMES.has(basename(path))) {
     return "json";
@@ -178,7 +186,7 @@ async function collectRelativeFiles(
       } else if (entry.isFile()) {
         paths.push(relativePath);
       } else if (entry.isSymbolicLink()) {
-        throw new Error(`skillset: normalized output tree does not support symlinks: ${relativePath}`);
+        paths.push(relativePath);
       }
     }
   };
