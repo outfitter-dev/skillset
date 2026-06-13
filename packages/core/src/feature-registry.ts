@@ -108,6 +108,19 @@ export type SkillsetFeatureRegistry = readonly SkillsetFeatureEntry[];
 
 export const skillsetFeatureRegistry = defineFeatureRegistry([
   feature({
+    docs: ["docs/features/tests-and-evals.md"],
+    evidence: [test("apps/skillset/src/__tests__/contract.test.ts", "SET-112 activation probe coverage")],
+    id: "activation-probes",
+    kind: "workflow",
+    loweringOwner: "apps/skillset/src/test-runner.ts",
+    sourceShape: ".skillset/config.yaml tests.<name>.activation[]",
+    status: "implemented",
+    summary: "Compiles target-aware manual activation probe assets inside isolated test runs.",
+    targetSupport: notTargetRuntime(),
+    title: "Activation Probes",
+    validationOwner: "apps/skillset/src/test-runner.ts",
+  }),
+  feature({
     docs: ["docs/features/changes.md"],
     evidence: [test("apps/skillset/src/__tests__/contract.test.ts", "SET-34/35/36 change status and entry coverage")],
     id: "changes",

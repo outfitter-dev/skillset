@@ -18,8 +18,8 @@ const TARGET_NAMES: readonly TargetName[] = ["claude", "codex"];
 export type FeatureSurface = "agents" | "instructions" | "plugins" | "skills";
 
 const DEFAULT_SURFACES = new Set<FeatureSurface>(["agents", "instructions", "plugins", "skills"]);
-const CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "changes", "claude", "codex", "defaults", "dependencies", "skillset", "supports", "tests"]);
-const ROOT_CONFIG_TOP_LEVEL_KEYS = new Set([...CONFIG_TOP_LEVEL_KEYS, "compile", "distributions"]);
+const CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "changes", "claude", "codex", "defaults", "dependencies", "skillset", "supports"]);
+const ROOT_CONFIG_TOP_LEVEL_KEYS = new Set([...CONFIG_TOP_LEVEL_KEYS, "compile", "distributions", "tests"]);
 const COMPILE_BUILD_MODES = new Set<CompileBuildMode>(["updated", "all"]);
 const COMPILE_UNSUPPORTED_POLICIES = new Set<CompileUnsupportedPolicy>([
   "error",

@@ -797,6 +797,8 @@ function printSkillsetTest(report: SkillsetTestReport): void {
   console.log(`  latest: ${report.latestPath}`);
   console.log(`  report: ${report.reportPath}`);
   console.log(`  generated files: ${report.generatedFiles}`);
+  console.log(`  activation probes: ${report.activationProbes}`);
+  if (report.activationPath !== undefined) console.log(`  activation: ${report.activationPath}`);
 }
 
 function parseArgs(args: readonly string[]): ParsedArgs {
