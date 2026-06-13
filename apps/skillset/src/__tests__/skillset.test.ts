@@ -3552,6 +3552,35 @@ Use $ARGUMENTS and ${"${CLAUDE_SKILL_DIR}"} to prepare context.
   await expect(lintSkillset(root)).rejects.toThrow("codex-claude-dynamic-context");
 });
 
+test("lint ignores shell positional arguments inside fenced examples", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/shell-example/SKILL.md": `
+---
+name: shell-example
+description: Shows a shell example.
+---
+
+Use this shell snippet as an example:
+
+~~~bash
+git log --oneline | awk '{print $1}'
+~~~
+`,
+  });
+
+  await expect(lintSkillset(root)).resolves.toMatchObject({ issues: [] });
+});
+
 test("lint checks Codex-enabled standalone skills", async () => {
   const root = await fixture({
     ".skillset/config.yaml": `

@@ -117,15 +117,23 @@ describe("normalized output trees", () => {
     ]);
   });
 
-  it("rejects output symlinks instead of silently ignoring them", async () => {
-    const root = await fixture({
+  it("records symlink targets as explicit comparison entries", async () => {
+    const left = await fixture({
       "target.txt": "target\n",
     });
-    await symlink("target.txt", join(root, "linked.txt"));
+    await symlink("target.txt", join(left, "linked.txt"));
+    const right = await fixture({
+      "linked.txt": "target.txt",
+      "target.txt": "target\n",
+    });
 
-    await expect(readNormalizedOutputTree(root)).rejects.toThrow(
-      "normalized output tree does not support symlinks: linked.txt"
-    );
+    const tree = await readNormalizedOutputTree(left);
+    expect(entry(tree.entries, "linked.txt").kind).toBe("symlink");
+    expect(new TextDecoder().decode(entry(tree.entries, "linked.txt").bytes)).toBe("target.txt");
+
+    const comparison = await compareNormalizedOutputTrees(left, right);
+    expect(comparison.different).toEqual(["linked.txt"]);
+    expect(formatNormalizedTreeComparison(comparison)).toContain("symlink/bytes content differs");
   });
 });
 

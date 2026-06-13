@@ -55,6 +55,8 @@ const CLAUDE_DYNAMIC_PATTERNS: readonly DynamicPattern[] = [
     pattern: /(^|\n)\s*!`[^`\n]+`/,
   },
 ];
+const FENCE_PATTERN = /^\s*(?:```|~~~)/u;
+const INLINE_CODE_PATTERN = /`[^`]*`/gu;
 
 export async function lintSkillset(
   rootPath: string,
@@ -293,14 +295,15 @@ function lintSkill(graph: BuildGraph, skill: SourceSkill): readonly LintIssue[] 
 
   issues.push(...lintCodexAllowedTools(graph, skill));
 
-  const matches = CLAUDE_DYNAMIC_PATTERNS.filter(({ pattern }) => pattern.test(skill.body));
+  const searchableBody = maskMarkdownCodeRegions(skill.body);
+  const matches = CLAUDE_DYNAMIC_PATTERNS.filter(({ pattern }) => pattern.test(searchableBody));
   if (matches.length === 0) return issues;
 
   const path = relative(graph.rootPath, skill.sourcePath);
   const labels = matches.map((match) => match.label).join(", ");
   issues.push({
     code: "codex-claude-dynamic-context",
-        severity: "error",
+    severity: "error",
     path,
     message:
       `${path} uses Claude dynamic context (${labels}) while Codex output is enabled. ` +
@@ -308,6 +311,21 @@ function lintSkill(graph: BuildGraph, skill: SourceSkill): readonly LintIssue[] 
   });
 
   return issues;
+}
+
+function maskMarkdownCodeRegions(body: string): string {
+  let inFence = false;
+  return body
+    .split(/\r?\n/u)
+    .map((line) => {
+      if (FENCE_PATTERN.test(line)) {
+        inFence = !inFence;
+        return "";
+      }
+      if (inFence) return "";
+      return line.replace(INLINE_CODE_PATTERN, "");
+    })
+    .join("\n");
 }
 
 function lintToolEscapes(graph: BuildGraph, skill: SourceSkill): readonly LintIssue[] {
