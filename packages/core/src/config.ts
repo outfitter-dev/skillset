@@ -3,6 +3,7 @@ import type {
   CompileConfig,
   CompileSkillsetConfig,
   CompileUnsupportedPolicy,
+  DistributionConfig,
   JsonRecord,
   JsonValue,
   OutputConfig,
@@ -10,6 +11,7 @@ import type {
   ResolvedTarget,
   TargetName,
 } from "./types";
+import { SKILLSET_RUNTIME_IDS, type SkillsetRuntimeId } from "./feature-registry";
 import { isJsonRecord } from "./yaml";
 
 const TARGET_NAMES: readonly TargetName[] = ["claude", "codex"];
@@ -17,7 +19,7 @@ export type FeatureSurface = "agents" | "instructions" | "plugins" | "skills";
 
 const DEFAULT_SURFACES = new Set<FeatureSurface>(["agents", "instructions", "plugins", "skills"]);
 const CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "changes", "claude", "codex", "defaults", "dependencies", "skillset", "supports", "tests"]);
-const ROOT_CONFIG_TOP_LEVEL_KEYS = new Set([...CONFIG_TOP_LEVEL_KEYS, "compile"]);
+const ROOT_CONFIG_TOP_LEVEL_KEYS = new Set([...CONFIG_TOP_LEVEL_KEYS, "compile", "distributions"]);
 const COMPILE_BUILD_MODES = new Set<CompileBuildMode>(["updated", "all"]);
 const COMPILE_UNSUPPORTED_POLICIES = new Set<CompileUnsupportedPolicy>([
   "error",
@@ -25,6 +27,10 @@ const COMPILE_UNSUPPORTED_POLICIES = new Set<CompileUnsupportedPolicy>([
   "skip",
   "force",
 ]);
+const DISTRIBUTION_RUNTIME_TARGETS: Readonly<Record<TargetName, readonly SkillsetRuntimeId[]>> = {
+  claude: ["claude-code"],
+  codex: ["codex-app", "codex-cli"],
+};
 const SOURCE_ONLY_KEYS = new Set([
   "agents",
   "allowed_tools",
@@ -35,6 +41,7 @@ const SOURCE_ONLY_KEYS = new Set([
   "codex",
   "defaults",
   "dependencies",
+  "distributions",
   "dialect",
   "implicit_invocation",
   "mcp",
@@ -208,6 +215,35 @@ export function readOutputConfig(
       },
     },
   };
+}
+
+export function readDistributionConfig(
+  record: JsonRecord,
+  label: string
+): Readonly<Record<string, DistributionConfig>> {
+  const raw = record.distributions;
+  if (raw === undefined) return {};
+  if (!isJsonRecord(raw)) {
+    throw new Error(`skillset: expected ${label}.distributions to be an object`);
+  }
+
+  const result: Record<string, DistributionConfig> = {};
+  for (const name of Object.keys(raw).sort()) {
+    if (!/^[a-z0-9][a-z0-9._-]*$/.test(name)) {
+      throw new Error(`skillset: expected ${label}.distributions key ${JSON.stringify(name)} to be a lowercase id`);
+    }
+    const value = raw[name];
+    if (!isJsonRecord(value)) {
+      throw new Error(`skillset: expected ${label}.distributions.${name} to be an object`);
+    }
+    for (const key of Object.keys(value)) {
+      if (key !== "dryRun" && key !== "from" && key !== "to") {
+        throw new Error(`skillset: unsupported distribution key ${key} in ${label}.distributions.${name}`);
+      }
+    }
+    result[name] = readDistributionObject(value, `${label}.distributions.${name}`);
+  }
+  return result;
 }
 
 export function validateConfigDocument(
@@ -437,6 +473,117 @@ function readCompileUnsupportedPolicy(record: JsonRecord, label: string): Compil
     );
   }
   return value as CompileUnsupportedPolicy;
+}
+
+function readDistributionObject(record: JsonRecord, label: string): DistributionConfig {
+  const from = readDistributionFrom(record.from, `${label}.from`);
+  const to = readDistributionTo(record.to, `${label}.to`);
+  const dryRun = record.dryRun;
+  if (dryRun !== undefined && typeof dryRun !== "boolean") {
+    throw new Error(`skillset: expected ${label}.dryRun to be a boolean`);
+  }
+  return {
+    dryRun: dryRun ?? true,
+    from,
+    to,
+  };
+}
+
+function readDistributionFrom(raw: JsonValue | undefined, label: string): DistributionConfig["from"] {
+  if (!isJsonRecord(raw)) {
+    throw new Error(`skillset: expected ${label} to be an object`);
+  }
+  for (const key of Object.keys(raw)) {
+    if (key !== "runtime" && key !== "selector" && key !== "target") {
+      throw new Error(`skillset: unsupported distribution from key ${key} in ${label}`);
+    }
+  }
+
+  const target = raw.target;
+  if (target !== "claude" && target !== "codex") {
+    throw new Error(`skillset: expected ${label}.target to be claude or codex`);
+  }
+  const selector = readRequiredString(raw, "selector", `${label}.selector`);
+  const runtime = readDistributionRuntime(raw, target, label);
+  return {
+    ...(runtime === undefined ? {} : { runtime }),
+    selector,
+    target,
+  };
+}
+
+function readDistributionTo(raw: JsonValue | undefined, label: string): DistributionConfig["to"] {
+  if (!isJsonRecord(raw)) {
+    throw new Error(`skillset: expected ${label} to be an object`);
+  }
+  for (const key of Object.keys(raw)) {
+    if (key !== "branch" && key !== "kind" && key !== "path" && key !== "repo" && key !== "subdirectory") {
+      throw new Error(`skillset: unsupported distribution to key ${key} in ${label}`);
+    }
+  }
+
+  const kind = raw.kind;
+  if (kind !== "git" && kind !== "local") {
+    throw new Error(`skillset: expected ${label}.kind to be local or git`);
+  }
+  const path = readOptionalString(raw, "path", `${label}.path`);
+  const repo = readOptionalString(raw, "repo", `${label}.repo`);
+  const branch = readOptionalString(raw, "branch", `${label}.branch`);
+  const subdirectory = readOptionalString(raw, "subdirectory", `${label}.subdirectory`);
+  if (kind === "local" && path === undefined) {
+    throw new Error(`skillset: ${label}.path is required for local distributions`);
+  }
+  if (kind === "local" && repo !== undefined) {
+    throw new Error(`skillset: ${label}.repo is only supported for git distributions`);
+  }
+  if (kind === "git" && repo === undefined) {
+    throw new Error(`skillset: ${label}.repo is required for git distributions`);
+  }
+  if (kind === "git" && path !== undefined) {
+    throw new Error(`skillset: ${label}.path is only supported for local distributions`);
+  }
+  return {
+    ...(branch === undefined ? {} : { branch }),
+    kind,
+    ...(path === undefined ? {} : { path }),
+    ...(repo === undefined ? {} : { repo }),
+    ...(subdirectory === undefined ? {} : { subdirectory }),
+  };
+}
+
+function readDistributionRuntime(
+  record: JsonRecord,
+  target: TargetName,
+  label: string
+): SkillsetRuntimeId | undefined {
+  const runtime = readOptionalString(record, "runtime", `${label}.runtime`);
+  if (runtime === undefined) return undefined;
+  if (!SKILLSET_RUNTIME_IDS.includes(runtime as SkillsetRuntimeId)) {
+    throw new Error(`skillset: unsupported ${label}.runtime ${JSON.stringify(runtime)}; expected one of: ${SKILLSET_RUNTIME_IDS.join(", ")}`);
+  }
+  const runtimeId = runtime as SkillsetRuntimeId;
+  const compatible = DISTRIBUTION_RUNTIME_TARGETS[target];
+  if (!compatible.includes(runtimeId)) {
+    throw new Error(`skillset: ${label}.runtime ${runtime} is not compatible with target ${target}; expected one of: ${compatible.join(", ")}`);
+  }
+  return runtimeId;
+}
+
+function readRequiredString(record: JsonRecord, key: string, label: string): string {
+  const value = readOptionalString(record, key, label);
+  if (value === undefined) {
+    throw new Error(`skillset: expected ${label} to be a non-empty string`);
+  }
+  return value;
+}
+
+function readOptionalString(record: JsonRecord, key: string, label: string): string | undefined {
+  const value = record[key];
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`skillset: expected ${label} to be a non-empty string`);
+  }
+  return value.trim();
 }
 
 function readShorthandTargetDefaults(

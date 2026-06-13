@@ -19,6 +19,7 @@ export interface ResolvedTarget {
 
 export interface RootConfig {
   readonly compile: CompileConfig;
+  readonly distributions: Readonly<Record<string, DistributionConfig>>;
   readonly metadata: JsonRecord;
   readonly outputs: OutputConfig;
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
@@ -48,6 +49,28 @@ export interface CompileConfig {
   readonly skillset: CompileSkillsetConfig;
   readonly targets: readonly TargetName[];
   readonly unsupported: CompileUnsupportedPolicy;
+}
+
+export type DistributionDestinationKind = "git" | "local";
+
+export interface DistributionFromConfig {
+  readonly runtime?: string;
+  readonly selector: string;
+  readonly target: TargetName;
+}
+
+export interface DistributionToConfig {
+  readonly branch?: string;
+  readonly kind: DistributionDestinationKind;
+  readonly path?: string;
+  readonly repo?: string;
+  readonly subdirectory?: string;
+}
+
+export interface DistributionConfig {
+  readonly dryRun: boolean;
+  readonly from: DistributionFromConfig;
+  readonly to: DistributionToConfig;
 }
 
 export interface PluginConfig {

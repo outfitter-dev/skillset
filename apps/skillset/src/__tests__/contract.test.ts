@@ -998,6 +998,185 @@ Body.
   expect(unchanged.stdout).toContain("wrote 0 generated files");
 });
 
+test("SET-109: distribute plan previews plugin distribution without writing", async () => {
+  const destination = await mkdtemp(join(tmpdir(), "skillset-distribution-dest-"));
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: distribution-root
+compile:
+  targets: [codex]
+distributions:
+  codex-marketplace:
+    from:
+      target: codex
+      runtime: codex-cli
+      selector: plugin:alpha
+    to:
+      kind: local
+      path: ${destination}
+      subdirectory: bundles/alpha
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  const planned = await runSkillsetCli("distribute", "plan", "codex-marketplace", "--root", root);
+  expect(planned.exitCode).toBe(0);
+  expect(planned.stderr).toBe("");
+  expect(planned.stdout).toContain("skillset: distribution codex-marketplace planned");
+  expect(planned.stdout).toContain("from: codex plugin:alpha");
+  expect(planned.stdout).toContain("runtime: codex-cli");
+  expect(planned.stdout).toContain(`to: local ${destination}`);
+  expect(planned.stdout).toContain("add: plugins-codex/plugins/alpha/.codex-plugin/plugin.json -> bundles/alpha/.codex-plugin/plugin.json");
+  expect(await fileExists(join(root, "plugins-codex/plugins/alpha/.codex-plugin/plugin.json"))).toBe(false);
+  expect(await fileExists(join(destination, "bundles/alpha/.codex-plugin/plugin.json"))).toBe(false);
+});
+
+test("SET-109: distribute plan rejects write flags and unknown distributions", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: distribution-root
+compile:
+  targets: [codex]
+distributions:
+  codex-marketplace:
+    from:
+      target: codex
+      selector: plugin:alpha
+    to:
+      kind: git
+      repo: git@example.com:acme/skillset-codex.git
+      branch: main
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  const writeFlag = await runSkillsetCli("distribute", "plan", "--root", root, "--yes");
+  expect(writeFlag.exitCode).toBe(1);
+  expect(writeFlag.stderr).toContain("build/write options are not supported with distribute plan");
+
+  const unknown = await runSkillsetCli("distribute", "plan", "missing", "--root", root);
+  expect(unknown.exitCode).toBe(1);
+  expect(unknown.stderr).toContain("unknown distribution missing");
+});
+
+test("SET-109: distribute plan rejects unsafe and ambiguous distribution config", async () => {
+  async function planWith(distribution: string) {
+    const root = await contractFixture({
+      ".skillset/config.yaml": `
+skillset:
+  name: distribution-root
+compile:
+  targets: [codex]
+distributions:
+${distribution}
+`,
+      ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+      ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+    });
+    return runSkillsetCli("distribute", "plan", "codex-marketplace", "--root", root);
+  }
+
+  const traversal = await planWith(`
+  codex-marketplace:
+    from:
+      target: codex
+      selector: plugin:alpha
+    to:
+      kind: local
+      path: ./dist
+      subdirectory: bundles/..
+`);
+  expect(traversal.exitCode).toBe(1);
+  expect(traversal.stderr).toContain("unsafe distribution subdirectory");
+
+  const typoRuntime = await planWith(`
+  codex-marketplace:
+    from:
+      target: codex
+      runtime: codex-clli
+      selector: plugin:alpha
+    to:
+      kind: local
+      path: ./dist
+`);
+  expect(typoRuntime.exitCode).toBe(1);
+  expect(typoRuntime.stderr).toContain("unsupported");
+  expect(typoRuntime.stderr).toContain("codex-clli");
+
+  const mismatchedRuntime = await planWith(`
+  codex-marketplace:
+    from:
+      target: codex
+      runtime: claude-code
+      selector: plugin:alpha
+    to:
+      kind: local
+      path: ./dist
+`);
+  expect(mismatchedRuntime.exitCode).toBe(1);
+  expect(mismatchedRuntime.stderr).toContain("not compatible with target codex");
+
+  const localWithRepo = await planWith(`
+  codex-marketplace:
+    from:
+      target: codex
+      selector: plugin:alpha
+    to:
+      kind: local
+      path: ./dist
+      repo: git@example.com:acme/skillset-codex.git
+`);
+  expect(localWithRepo.exitCode).toBe(1);
+  expect(localWithRepo.stderr).toContain("repo is only supported for git distributions");
+
+  const gitWithPath = await planWith(`
+  codex-marketplace:
+    from:
+      target: codex
+      selector: plugin:alpha
+    to:
+      kind: git
+      repo: git@example.com:acme/skillset-codex.git
+      path: ./dist
+`);
+  expect(gitWithPath.exitCode).toBe(1);
+  expect(gitWithPath.stderr).toContain("path is only supported for local distributions");
+});
+
 test("SET-25: CLI help succeeds before command validation", async () => {
   const rootHelp = await runSkillsetCli("--help");
   expect(rootHelp.exitCode).toBe(0);
@@ -1009,6 +1188,7 @@ test("SET-25: CLI help succeeds before command validation", async () => {
   expect(rootHelp.stdout).not.toContain("skillset change check [@ref|--ref <ref>] [--since <ref>] [--scope <scope>]");
   expect(rootHelp.stdout).toContain("skillset explain <path>");
   expect(rootHelp.stdout).toContain("skillset import <path> [--kind <skill|skills|plugin|plugins>]");
+  expect(rootHelp.stdout).toContain("skillset distribute plan [name]");
 
   const shortHelp = await runSkillsetCli("-h");
   expect(shortHelp.exitCode).toBe(0);
@@ -1020,6 +1200,7 @@ test("SET-25: CLI help succeeds before command validation", async () => {
   expect(buildHelp.stderr).toBe("");
   expect(buildHelp.stdout).toContain("skillset build [--yes|--dry-run]");
   expect(buildHelp.stdout).toContain("skillset release plan");
+  expect(buildHelp.stdout).toContain("skillset distribute plan");
 
   const explainHelp = await runSkillsetCli("explain", "--help");
   expect(explainHelp.exitCode).toBe(0);
