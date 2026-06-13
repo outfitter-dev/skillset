@@ -8,7 +8,20 @@ export {
   type SkillsetDiff,
   type SkillsetDiffResult,
 } from "./build";
-export type { SkillsetLoweringOutcome, SkillsetLoweringOutcomeStatus } from "./lowering-outcome";
+export {
+  LOWERING_OUTCOME_SCHEMA,
+  LOWERING_OUTCOME_STATUS_VALUES,
+  assertLoweringOutcome,
+  defineLoweringOutcome,
+  normalizeLoweringOutcome,
+  serializeLoweringOutcome,
+  type SkillsetLoweringDiagnosticRef,
+  type SkillsetLoweringOutcome,
+  type SkillsetLoweringOutcomeInput,
+  type SkillsetLoweringOutcomeStatus,
+  type SkillsetLoweringOutput,
+  type SkillsetLoweringPolicy,
+} from "./lowering-outcome";
 export type {
   SkillsetDiagnostic,
   SkillsetDiagnosticSeverity,
