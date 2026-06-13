@@ -97,3 +97,11 @@ export type {
   SkillsetWriteSummary,
 } from "./operation-result";
 export type { SkillsetOptions } from "./types";
+export {
+  VERSION_DRIFT_STATUS_VALUES,
+  auditVersions,
+  type VersionAuditReport,
+  type VersionAuthority,
+  type VersionDriftStatus,
+  type VersionLocus,
+} from "./version-audit";

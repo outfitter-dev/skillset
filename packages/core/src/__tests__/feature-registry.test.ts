@@ -46,6 +46,7 @@ const SEEDED_FEATURE_IDS = [
   "supports",
   "target-native-islands",
   "tool-intent",
+  "version-audit",
   "workflows",
 ];
 
