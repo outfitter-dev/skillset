@@ -8,6 +8,7 @@ import {
   getSkillsetFeature,
   listSkillsetFeatures,
   listSkillsetFeaturesByTarget,
+  type SkillsetFeatureEvidence,
   type SkillsetFeatureEntry,
 } from "../feature-registry";
 
@@ -17,11 +18,20 @@ const SEEDED_FEATURE_IDS = [
   "future-companion-source-pointers",
   "plugin-agents",
   "plugin-apps",
+  "plugin-assets",
   "plugin-bin",
+  "plugin-commands",
   "plugin-hooks",
+  "plugin-lsp-servers",
   "plugin-manifests",
   "plugin-mcp",
+  "plugin-monitors",
+  "plugin-output-styles",
+  "plugin-readme",
+  "plugin-scripts",
   "plugin-skills",
+  "plugin-src",
+  "plugin-themes",
   "project-agents",
   "project-instructions",
   "releases",
@@ -43,15 +53,25 @@ describe("feature registry", () => {
       expect(feature.evidence.length).toBeGreaterThan(0);
       expect(feature.targetSupport.claude).toBeDefined();
       expect(feature.targetSupport.codex).toBeDefined();
+      expect(feature.targetSupport.claude.evidence?.length ?? 0).toBeGreaterThan(0);
+      expect(feature.targetSupport.codex.evidence?.length ?? 0).toBeGreaterThan(0);
+      for (const support of [feature.targetSupport.claude, feature.targetSupport.codex]) {
+        for (const evidence of support.evidence ?? []) {
+          if (evidence.kind === "external-docs") expect(evidence.verifiedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        }
+      }
     }
   });
 
   it("keeps current target support claims conservative", () => {
-    expect(getSkillsetFeature("plugin-bin")?.targetSupport.codex).toEqual({
+    expect(getSkillsetFeature("plugin-bin")?.targetSupport.codex).toEqual(expect.objectContaining({
       reason: "Codex plugins do not expose a documented plugin-local bin contract.",
       status: "unsupported",
-    });
+    }));
     expect(getSkillsetFeature("dependencies")?.targetSupport.codex.status).toBe("degraded");
+    expect(getSkillsetFeature("dependencies")?.targetSupport.codex.reason).toContain("Codex");
+    expect(getSkillsetFeature("plugin-commands")?.targetSupport.codex.status).toBe("not_applicable");
+    expect(getSkillsetFeature("plugin-assets")?.targetSupport.codex.status).toBe("pass_through");
     expect(getSkillsetFeature("supports")?.targetSupport.claude.status).toBe("metadata_only");
     expect(getSkillsetFeature("project-agents")?.targetSupport.codex.status).toBe("transformed");
     expect(listSkillsetFeaturesByTarget("claude").map((entry) => entry.id)).not.toContain("changes");
@@ -139,6 +159,18 @@ describe("feature registry", () => {
     expect(() =>
       defineFeatureRegistry([
         feature({
+          id: "degraded-without-reason",
+          targetSupport: {
+            claude: { status: "degraded" },
+            codex: { status: "native" },
+          },
+        }),
+      ])
+    ).toThrow("degraded support requires a reason");
+
+    expect(() =>
+      defineFeatureRegistry([
+        feature({
           id: "lossy-without-reason",
           targetSupport: {
             claude: { status: "lossy" },
@@ -175,20 +207,38 @@ describe("feature registry", () => {
 });
 
 function feature(overrides: Partial<SkillsetFeatureEntry> & { readonly id: string }): SkillsetFeatureEntry {
-  return {
-    docs: ["docs/features/README.md"],
-    evidence: [{ kind: "test", ref: "packages/core/src/__tests__/feature-registry.test.ts" }],
-    kind: "source",
-    loweringOwner: "packages/core/src/render.ts",
-    sourceShape: ".skillset/**",
-    status: "implemented",
-    summary: `${overrides.id} summary.`,
-    targetSupport: {
+  const defaultEvidence: readonly SkillsetFeatureEvidence[] = [
+    { kind: "test", ref: "packages/core/src/__tests__/feature-registry.test.ts" },
+  ];
+  const entry: SkillsetFeatureEntry = {
+    docs: overrides.docs ?? ["docs/features/README.md"],
+    evidence: overrides.evidence ?? defaultEvidence,
+    id: overrides.id,
+    kind: overrides.kind ?? "source",
+    loweringOwner: overrides.loweringOwner ?? "packages/core/src/render.ts",
+    sourceShape: overrides.sourceShape ?? ".skillset/**",
+    status: overrides.status ?? "implemented",
+    summary: overrides.summary ?? `${overrides.id} summary.`,
+    targetSupport: overrides.targetSupport ?? {
       claude: { status: "native" },
       codex: { status: "native" },
     },
-    title: overrides.id,
-    validationOwner: "packages/core/src/resolver.ts",
-    ...overrides,
+    title: overrides.title ?? overrides.id,
+    validationOwner: overrides.validationOwner ?? "packages/core/src/resolver.ts",
   };
+  return {
+    ...entry,
+    targetSupport: {
+      claude: supportWithEvidence(entry.targetSupport.claude, entry.evidence),
+      codex: supportWithEvidence(entry.targetSupport.codex, entry.evidence),
+    },
+  };
+}
+
+function supportWithEvidence(
+  support: SkillsetFeatureEntry["targetSupport"]["claude"],
+  evidence: SkillsetFeatureEntry["evidence"]
+): SkillsetFeatureEntry["targetSupport"]["claude"] {
+  if (support.evidence !== undefined && support.evidence.length > 0) return support;
+  return { ...support, evidence };
 }
