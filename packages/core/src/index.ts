@@ -3,11 +3,22 @@ export {
   checkSkillsetResult,
   diffSkillset,
   diffSkillsetResult,
+  ISOLATED_OUT_ROOT,
   type SkillsetBuildResult,
   type SkillsetCheckResult,
   type SkillsetDiff,
   type SkillsetDiffResult,
 } from "./build";
+export {
+  assertDeterministicProjection,
+  formatDeterministicProjectionReport,
+  runDeterministicProjection,
+  type DeterministicProjectionOptions,
+  type DeterministicProjectionReport,
+  type DeterministicProjectionRunContext,
+  type DeterministicProjectionRunName,
+  type DeterministicProjectionRunSummary,
+} from "./deterministic-projection";
 export {
   LOWERING_OUTCOME_SCHEMA,
   LOWERING_OUTCOME_STATUS_VALUES,
