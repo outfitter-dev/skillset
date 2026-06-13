@@ -641,6 +641,8 @@ function printDistributionPlan(report: DistributionPlanReport): void {
     console.log(`  digest: ${plan.sourceDigest}`);
     for (const file of plan.files) {
       console.log(`  ${file.status}: ${file.sourcePath} -> ${file.destinationPath} (${file.bytes} bytes, ${file.hash.slice(0, 12)})`);
+      const ownership = formatOwnershipSummary(file.ownership);
+      if (ownership !== undefined) console.log(`    ownership: ${ownership}`);
     }
   }
 }
@@ -648,6 +650,21 @@ function printDistributionPlan(report: DistributionPlanReport): void {
 function formatDistributionNoOp(noOp: boolean | "unknown"): string {
   if (noOp === "unknown") return "destination state unknown";
   return noOp ? "no-op" : "would change";
+}
+
+function formatOwnershipSummary(
+  ownership: DistributionPlanReport["plans"][number]["files"][number]["ownership"]
+): string | undefined {
+  if (ownership.fields.length === 0) return undefined;
+  const counts = new Map<string, number>();
+  for (const field of ownership.fields) {
+    counts.set(field.owner, (counts.get(field.owner) ?? 0) + 1);
+  }
+  const summary = [...counts.entries()]
+    .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
+    .map(([owner, count]) => `${owner}:${count}`)
+    .join(" ");
+  return `file:${ownership.file.owner} fields:${summary}`;
 }
 
 function printImportReport(result: ImportReport): void {

@@ -2,20 +2,11 @@ import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { join, resolve } from "node:path";
 
-import { readString } from "./config";
+import { classifyDestinationOwnership, type DestinationOwnershipClassification } from "./destination-ownership";
 import { compareStrings } from "./path";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
-import type {
-  BuildGraph,
-  DistributionConfig,
-  JsonRecord,
-  RenderedFile,
-  SkillsetOptions,
-  SourcePlugin,
-  StandaloneSkill,
-  TargetName,
-} from "./types";
+import type { BuildGraph, DistributionConfig, RenderedFile, SkillsetOptions, SourcePlugin, StandaloneSkill, TargetName } from "./types";
 
 export type DistributionSelectorKind = "plugin" | "plugins" | "skill";
 export type DistributionFileStatus = "add" | "change" | "unchanged" | "unknown";
@@ -55,6 +46,7 @@ export interface DistributionPlanFile {
   readonly bytes: number;
   readonly destinationPath: string;
   readonly hash: string;
+  readonly ownership: DestinationOwnershipClassification;
   readonly sourcePath: string;
   readonly status: DistributionFileStatus;
 }
@@ -90,12 +82,27 @@ async function planDistribution(
     selected.files.map(async (file) => {
       const hash = sha256(file.content);
       const destinationPath = joinWorkspacePath(selected.destinationPrefix, stripRequiredPrefix(file.path, selected.sourcePrefix));
+      const destination = await distributionDestinationState(graph, config, destinationPath, file.content);
       return {
         bytes: file.content.byteLength,
         destinationPath,
         hash,
+        ownership: mergeDestinationOwnership(
+          classifyDestinationOwnership({
+            content: file.content,
+            path: destinationPath,
+            target: config.from.target,
+          }),
+          destination.content === undefined
+            ? undefined
+            : classifyDestinationOwnership({
+              content: destination.content,
+              path: destinationPath,
+              target: config.from.target,
+            })
+        ),
         sourcePath: file.path,
-        status: await distributionFileStatus(graph, config, destinationPath, file.content),
+        status: destination.status,
       };
     })
   );
@@ -184,22 +191,40 @@ function destinationPlan(config: DistributionConfig): DistributionDestinationPla
   };
 }
 
-async function distributionFileStatus(
+async function distributionDestinationState(
   graph: BuildGraph,
   config: DistributionConfig,
   destinationPath: string,
   content: Uint8Array
-): Promise<DistributionFileStatus> {
-  if (config.to.kind !== "local") return "unknown";
+): Promise<{ readonly content?: Uint8Array; readonly status: DistributionFileStatus }> {
+  if (config.to.kind !== "local") return { status: "unknown" };
   const root = config.to.path;
-  if (root === undefined) return "unknown";
+  if (root === undefined) return { status: "unknown" };
   try {
     const current = await readFile(resolve(graph.rootPath, root, destinationPath));
-    return bytesEqual(current, content) ? "unchanged" : "change";
+    return { content: current, status: bytesEqual(current, content) ? "unchanged" : "change" };
   } catch (error) {
-    if (isNotFound(error)) return "add";
+    if (isNotFound(error)) return { status: "add" };
     throw error;
   }
+}
+
+function mergeDestinationOwnership(
+  source: DestinationOwnershipClassification,
+  destination: DestinationOwnershipClassification | undefined
+): DestinationOwnershipClassification {
+  if (destination === undefined) return source;
+  const entries = [...source.fields, ...destination.fields];
+  const fields = new Map<string, DestinationOwnershipClassification["fields"][number]>();
+  for (const entry of entries) {
+    fields.set(`${entry.selector}\0${entry.owner}`, entry);
+  }
+  return {
+    fields: [...fields.values()].sort((left, right) =>
+      compareStrings(left.selector, right.selector) || compareStrings(left.owner, right.owner)
+    ),
+    file: source.file,
+  };
 }
 
 function distributionNoOp(files: readonly DistributionPlanFile[]): DistributionNoOp {
