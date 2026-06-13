@@ -57,6 +57,16 @@ export type SkillsetLoweringOutcomeInput = Omit<SkillsetLoweringOutcome, "schema
   readonly schema?: typeof LOWERING_OUTCOME_SCHEMA;
 };
 
+export class SkillsetLoweringError extends Error {
+  readonly loweringOutcomes: readonly SkillsetLoweringOutcome[];
+
+  constructor(message: string, loweringOutcomes: readonly SkillsetLoweringOutcome[]) {
+    super(message);
+    this.name = "SkillsetLoweringError";
+    this.loweringOutcomes = loweringOutcomes.map(normalizeLoweringOutcome);
+  }
+}
+
 export function defineLoweringOutcome(
   input: SkillsetLoweringOutcomeInput
 ): SkillsetLoweringOutcome {

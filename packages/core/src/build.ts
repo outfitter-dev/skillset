@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { dirname, join, relative } from "node:path";
 
 import { compareStrings, resolveInside } from "./path";
+import { collectLoweringOutcomes } from "./lowering-outcome-collector";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
 import {
@@ -10,6 +11,7 @@ import {
   type SkillsetOperationResult,
   type SkillsetWriteSummary,
 } from "./operation-result";
+import type { SkillsetLoweringOutcome } from "./lowering-outcome";
 import type { BuildGraph, BuildScope, CheckResult, RenderedFile, SkillsetOptions } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
 
@@ -85,10 +87,14 @@ export async function buildSkillsetResult(
   const graph = await loadBuildGraph(rootPath, options);
   const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
   const outPath = outPathMapper(options);
-  const rendered = mirroredRenderedFiles(
-    scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes),
-    outPath
-  );
+  const allRendered = await renderBuildGraph(graph);
+  const scopedRendered = scopedRenderedFiles(graph, allRendered, options.scopes);
+  const loweringOutcomes = collectLoweringOutcomes(graph, allRendered, {
+    includedPaths: new Set(scopedRendered.map((file) => file.path)),
+    mapOutputPath: outPath,
+    scopes: options.scopes,
+  });
+  const rendered = mirroredRenderedFiles(scopedRendered, outPath);
   const liveOutputRoots = scopedOutputRoots(graph, options.scopes);
   const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
   const includeWorkspaceLock = includesProjectScope(options.scopes);
@@ -116,7 +122,7 @@ export async function buildSkillsetResult(
     );
 
     const writtenPaths = await writeRenderedFiles(rootPath, rendered);
-    return buildResult(rendered, diagnostics, writeSummary(writtenPaths, [
+    return buildResult(rendered, diagnostics, loweringOutcomes, writeSummary(writtenPaths, [
       ...deletedOutputRoots,
       ...deletedWorkspaceFiles,
     ]));
@@ -126,7 +132,7 @@ export async function buildSkillsetResult(
   const deletedPaths = await removeStaleGeneratedFiles(rootPath, actualPaths, expectedPaths);
   const writtenPaths = await writeChangedRenderedFiles(rootPath, rendered, actualPaths);
 
-  return buildResult(rendered, diagnostics, writeSummary(writtenPaths, deletedPaths));
+  return buildResult(rendered, diagnostics, loweringOutcomes, writeSummary(writtenPaths, deletedPaths));
 }
 
 export interface SkillsetDiff {
@@ -156,10 +162,14 @@ export async function diffSkillsetResult(
   const graph = await loadBuildGraph(rootPath, options);
   const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
   const outPath = outPathMapper(options);
-  const rendered = mirroredRenderedFiles(
-    scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes),
-    outPath
-  );
+  const allRendered = await renderBuildGraph(graph);
+  const scopedRendered = scopedRenderedFiles(graph, allRendered, options.scopes);
+  const loweringOutcomes = collectLoweringOutcomes(graph, allRendered, {
+    includedPaths: new Set(scopedRendered.map((file) => file.path)),
+    mapOutputPath: outPath,
+    scopes: options.scopes,
+  });
+  const rendered = mirroredRenderedFiles(scopedRendered, outPath);
   diagnostics.push(...diagnoseLargeInstructionFiles(rendered));
   const expected = new Map(rendered.map((file) => [file.path, file.content]));
   const liveOutputRoots = scopedOutputRoots(graph, options.scopes);
@@ -199,7 +209,7 @@ export async function diffSkillsetResult(
   return {
     data: diff,
     diagnostics,
-    loweringOutcomes: [],
+    loweringOutcomes,
     ok: true,
     operation: "diff",
     writes: {
@@ -227,10 +237,14 @@ export async function checkSkillsetResult(
   const graph = await loadBuildGraph(rootPath, options);
   const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
   const outPath = outPathMapper(options);
-  const rendered = mirroredRenderedFiles(
-    scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes),
-    outPath
-  );
+  const allRendered = await renderBuildGraph(graph);
+  const scopedRendered = scopedRenderedFiles(graph, allRendered, options.scopes);
+  const loweringOutcomes = collectLoweringOutcomes(graph, allRendered, {
+    includedPaths: new Set(scopedRendered.map((file) => file.path)),
+    mapOutputPath: outPath,
+    scopes: options.scopes,
+  });
+  const rendered = mirroredRenderedFiles(scopedRendered, outPath);
   diagnostics.push(...diagnoseLargeInstructionFiles(rendered));
   const expected = new Map(rendered.map((file) => [file.path, file.content]));
   const liveOutputRoots = scopedOutputRoots(graph, options.scopes);
@@ -271,7 +285,7 @@ export async function checkSkillsetResult(
   return {
     data: { checkedFiles: rendered.length },
     diagnostics,
-    loweringOutcomes: [],
+    loweringOutcomes,
     ok: true,
     operation: "check",
     writes: {
@@ -286,12 +300,13 @@ export async function checkSkillsetResult(
 function buildResult(
   rendered: readonly RenderedFile[],
   diagnostics: readonly SkillsetDiagnostic[],
+  loweringOutcomes: readonly SkillsetLoweringOutcome[],
   writes: SkillsetWriteSummary
 ): SkillsetBuildResult {
   return {
     data: rendered,
     diagnostics,
-    loweringOutcomes: [],
+    loweringOutcomes,
     ok: true,
     operation: "build",
     writes,

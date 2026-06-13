@@ -11,6 +11,7 @@ export {
 export {
   LOWERING_OUTCOME_SCHEMA,
   LOWERING_OUTCOME_STATUS_VALUES,
+  SkillsetLoweringError,
   assertLoweringOutcome,
   defineLoweringOutcome,
   normalizeLoweringOutcome,
