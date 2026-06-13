@@ -20,6 +20,17 @@ export {
   type DeterministicProjectionRunSummary,
 } from "./deterministic-projection";
 export {
+  planDistributions,
+  type DistributionDestinationPlan,
+  type DistributionFileStatus,
+  type DistributionFromPlan,
+  type DistributionNoOp,
+  type DistributionPlan,
+  type DistributionPlanFile,
+  type DistributionPlanReport,
+  type DistributionSelectorKind,
+} from "./distribution";
+export {
   FEATURE_STATUS_VALUES,
   RUNTIME_SUPPORT_STATUS_VALUES,
   SKILLSET_RUNTIME_IDS,

@@ -19,6 +19,7 @@ import {
 const SEEDED_FEATURE_IDS = [
   "changes",
   "dependencies",
+  "distributions",
   "future-companion-source-pointers",
   "plugin-agents",
   "plugin-apps",

@@ -5,6 +5,7 @@ import {
   applyFeatureTargetDefaults,
   readCompileConfig,
   readCompileTargets,
+  readDistributionConfig,
   readOutputConfig,
   readSkillsetMetadata,
   readSkillsetName,
@@ -78,6 +79,7 @@ export async function loadBuildGraph(
     metadata,
     options.distDir === undefined ? {} : { distDir: options.distDir }
   );
+  const distributions = readDistributionConfig(rootConfig, rootConfigPath);
   const rootTargets = resolveTargets(readCompileTargets(rootConfig, rootConfigPath), rootConfig, rootConfigPath, {
     allowDefaults: true,
     objectInheritsEnabled: true,
@@ -91,6 +93,7 @@ export async function loadBuildGraph(
   };
   const root = {
     compile,
+    distributions,
     metadata,
     outputs,
     targets: filteredTargets,

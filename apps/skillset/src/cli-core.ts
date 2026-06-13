@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 
-import { buildSkillsetResult, checkSkillsetResult, diffSkillsetResult } from "@skillset/core";
+import { buildSkillsetResult, checkSkillsetResult, diffSkillsetResult, planDistributions, type DistributionPlanReport } from "@skillset/core";
 
 import { changeCheck, type ChangeBump, type ChangeCheckReport } from "./change-entries";
 import { changeStatus, type ChangeStatusReport } from "./change-status";
@@ -29,7 +29,8 @@ import { sourceUnitDisplay, sourceUnitDisplays, sourceUnitSelector } from "./sou
 import { runSkillsetTest, type SkillsetTestReport } from "./test-runner";
 import type { BuildScope, CompileBuildMode, SkillsetOptions, SourceOrigin, TargetName } from "./types";
 
-type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "diff" | "doctor" | "explain" | "hooks" | "import" | "init" | "lint" | "list" | "release" | "test";
+type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "diff" | "distribute" | "doctor" | "explain" | "hooks" | "import" | "init" | "lint" | "list" | "release" | "test";
+type DistributionSubcommand = "plan";
 
 const USAGE = [
   "usage: skillset build [--yes|--dry-run] [--updated|--all] [--isolated] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
@@ -45,6 +46,7 @@ const USAGE = [
   "       skillset change list [--group <group>] [--root <path>] [--source <dir>]",
   "       skillset release plan [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset release apply [--yes|--dry-run] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset distribute plan [name] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset test [name] [--root <path>] [--source <dir>]",
   "       skillset hooks print --runner <lefthook|husky|pre-commit|git> [--pre-commit] [--pre-push]",
   "       skillset hooks print --target <claude|codex> --agent-runtime",
@@ -79,6 +81,8 @@ export async function runCli(
     ciFix,
     ciReportPath,
     dryRun,
+    distributionName,
+    distributionSubcommand,
     hookAgentRuntime,
     hookPreCommit,
     hookPrePush,
@@ -213,6 +217,17 @@ export async function runCli(
       return;
     }
     throw new Error("skillset: expected release subcommand apply or plan");
+  }
+
+  if (command === "distribute") {
+    if (distributionSubcommand === "plan") {
+      printDistributionPlan(await planDistributions(rootPath, {
+        ...options,
+        ...(distributionName === undefined ? {} : { name: distributionName }),
+      }));
+      return;
+    }
+    throw new Error("skillset: expected distribute subcommand plan");
   }
 
   if (command === "hooks") {
@@ -430,6 +445,8 @@ interface ParsedArgs {
   readonly changeSubcommand?: ChangeSubcommand;
   readonly ciFix: boolean;
   readonly ciReportPath?: string;
+  readonly distributionName?: string;
+  readonly distributionSubcommand?: DistributionSubcommand;
   readonly dryRun: boolean;
   readonly hookAgentRuntime: boolean;
   readonly hookPreCommit: boolean;
@@ -609,6 +626,30 @@ function printReleaseApply(
   for (const file of files) console.log(`  ${file}`);
 }
 
+function printDistributionPlan(report: DistributionPlanReport): void {
+  if (report.plans.length === 0) {
+    console.log("skillset: no distributions configured");
+    return;
+  }
+  for (const plan of report.plans) {
+    console.log(`skillset: distribution ${plan.name} planned ${plan.files.length} file${plan.files.length === 1 ? "" : "s"} (${formatDistributionNoOp(plan.noOp)})`);
+    console.log(`  from: ${plan.from.target} ${plan.from.selector} (${plan.from.outputRoot})`);
+    if (plan.from.runtime !== undefined) console.log(`  runtime: ${plan.from.runtime}`);
+    console.log(`  to: ${plan.destination.kind} ${plan.destination.root}`);
+    if (plan.destination.branch !== undefined) console.log(`  branch: ${plan.destination.branch}`);
+    if (plan.destination.subdirectory !== undefined) console.log(`  subdirectory: ${plan.destination.subdirectory}`);
+    console.log(`  digest: ${plan.sourceDigest}`);
+    for (const file of plan.files) {
+      console.log(`  ${file.status}: ${file.sourcePath} -> ${file.destinationPath} (${file.bytes} bytes, ${file.hash.slice(0, 12)})`);
+    }
+  }
+}
+
+function formatDistributionNoOp(noOp: boolean | "unknown"): string {
+  if (noOp === "unknown") return "destination state unknown";
+  return noOp ? "no-op" : "would change";
+}
+
 function printImportReport(result: ImportReport): void {
   console.log(`skillset: imported ${result.kind} ${result.name} (${result.files} files)`);
   console.log(`  target: ${result.targetPath}`);
@@ -730,6 +771,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     command !== "ci" &&
     command !== "create" &&
     command !== "diff" &&
+    command !== "distribute" &&
     command !== "doctor" &&
     command !== "explain" &&
     command !== "hooks" &&
@@ -741,12 +783,14 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     command !== "test"
   ) {
     throw new Error(
-        "skillset: expected command adopt, build, change, check, ci, create, diff, doctor, explain, hooks, import, init, lint, list, release, or test\n" +
+        "skillset: expected command adopt, build, change, check, ci, create, diff, distribute, doctor, explain, hooks, import, init, lint, list, release, or test\n" +
         USAGE
     );
   }
 
   let changeSubcommand: ChangeSubcommand | undefined;
+  let distributionName: string | undefined;
+  let distributionSubcommand: DistributionSubcommand | undefined;
   let releaseSubcommand: ReleaseSubcommand | undefined;
   let changeAppend = false;
   let changeBump: ChangeBump | undefined;
@@ -804,6 +848,20 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     }
     releaseSubcommand = subcommand;
     index += 1;
+  }
+
+  if (command === "distribute") {
+    const subcommand = args[index];
+    if (subcommand !== "plan") {
+      throw new Error("skillset: expected distribute subcommand plan");
+    }
+    distributionSubcommand = subcommand;
+    index += 1;
+    const rawName = args[index];
+    if (rawName !== undefined && !rawName.startsWith("--")) {
+      distributionName = rawName;
+      index += 1;
+    }
   }
 
   if (command === "hooks") {
@@ -1034,6 +1092,14 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   });
 
   validateIsolatedFlag(command, isolated);
+  validateDistributionFlags(command, {
+    ...(buildMode === undefined ? {} : { buildMode }),
+    dryRun,
+    ...(distributionName === undefined ? {} : { name: distributionName }),
+    ...(distributionSubcommand === undefined ? {} : { subcommand: distributionSubcommand }),
+    ...(scopes === undefined ? {} : { scopes }),
+    yes,
+  });
 
   if (command === "release" && scopes !== undefined) {
     throw new Error("skillset: --scope is not supported with release commands yet");
@@ -1067,6 +1133,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(changeSubcommand === undefined ? {} : { changeSubcommand }),
     ciFix,
     ...(ciReportPath === undefined ? {} : { ciReportPath }),
+    ...(distributionName === undefined ? {} : { distributionName }),
+    ...(distributionSubcommand === undefined ? {} : { distributionSubcommand }),
     dryRun,
     hookAgentRuntime,
     hookPreCommit,
@@ -1208,6 +1276,32 @@ function validateHookFlags(
     hooks.yes
   ) {
     throw new Error("skillset: non-hook options are not supported with hooks print");
+  }
+}
+
+function validateDistributionFlags(
+  command: Command,
+  distribution: {
+    readonly buildMode?: CompileBuildMode;
+    readonly dryRun: boolean;
+    readonly name?: string;
+    readonly scopes?: readonly BuildScope[];
+    readonly subcommand?: DistributionSubcommand;
+    readonly yes: boolean;
+  }
+): void {
+  if (command !== "distribute") return;
+  if (distribution.subcommand !== "plan") throw new Error("skillset: expected distribute subcommand plan");
+  if (distribution.name !== undefined && !/^[a-z0-9][a-z0-9._-]*$/.test(distribution.name)) {
+    throw new Error("skillset: expected distribution name to be a lowercase id");
+  }
+  if (
+    distribution.buildMode !== undefined ||
+    distribution.dryRun ||
+    distribution.scopes !== undefined ||
+    distribution.yes
+  ) {
+    throw new Error("skillset: build/write options are not supported with distribute plan; it is always read-only");
   }
 }
 
