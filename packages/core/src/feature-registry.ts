@@ -194,7 +194,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
       source("packages/core/src/lowering-outcome.ts"),
       source("packages/core/src/lowering-outcome-collector.ts"),
       test("packages/core/src/__tests__/lowering-outcome.test.ts", "lowering outcome schema validation coverage"),
-      test("packages/core/src/__tests__/lowering-outcome-build.test.ts", "build lowering outcomes cover emitted, target-native, transformed, unsupported, policy-gated, and scoped outcomes"),
+      test("packages/core/src/__tests__/lowering-outcome-build.test.ts", "build lowering outcomes cover emitted, target-native, transformed, unsupported, policy-gated, scoped, and status-matrix outcomes"),
     ],
     id: "lowering-outcomes",
     kind: "workflow",
