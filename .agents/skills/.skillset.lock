@@ -50,6 +50,115 @@
       "version": "0.1.2"
     }
   ],
+  "loweringOutcomes": [
+    {
+      "evidence": [
+        {
+          "kind": "test",
+          "note": "standalone skill rendering coverage",
+          "ref": "apps/skillset/src/__tests__/skillset.test.ts"
+        }
+      ],
+      "featureId": "standalone-skills",
+      "outputs": [
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/SKILL.md"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/assets/adr-management.md"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/scripts/__tests__/promote-rewrite.test.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/scripts/adr.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/scripts/lib/cli.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/scripts/lib/decision-map.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/scripts/lib/discovery.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/scripts/lib/frontmatter.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/scripts/lib/git.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/scripts/lib/index.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/scripts/lib/paths.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-adrs/scripts/lib/references.ts"
+        }
+      ],
+      "schema": "skillset-lowering-outcome@1",
+      "sourcePath": ".skillset/skills/skillset-adrs/SKILL.md",
+      "sourceUnit": "skill:skillset-adrs",
+      "status": "emitted",
+      "target": "codex"
+    },
+    {
+      "evidence": [
+        {
+          "kind": "test",
+          "note": "standalone skill rendering coverage",
+          "ref": "apps/skillset/src/__tests__/skillset.test.ts"
+        }
+      ],
+      "featureId": "standalone-skills",
+      "outputs": [
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-codex-development/SKILL.md"
+        }
+      ],
+      "schema": "skillset-lowering-outcome@1",
+      "sourcePath": ".skillset/skills/skillset-codex-development/SKILL.md",
+      "sourceUnit": "skill:skillset-codex-development",
+      "status": "emitted",
+      "target": "codex"
+    },
+    {
+      "evidence": [
+        {
+          "kind": "test",
+          "note": "standalone skill rendering coverage",
+          "ref": "apps/skillset/src/__tests__/skillset.test.ts"
+        }
+      ],
+      "featureId": "standalone-skills",
+      "outputs": [
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/skillset-repo-test-fixtures/SKILL.md"
+        }
+      ],
+      "schema": "skillset-lowering-outcome@1",
+      "sourcePath": ".skillset/skills/skillset-repo-test-fixtures/SKILL.md",
+      "sourceUnit": "skill:skillset-repo-test-fixtures",
+      "status": "emitted",
+      "target": "codex"
+    }
+  ],
   "outputRoot": ".agents/skills",
   "schemaVersion": 1,
   "selectedTargets": [

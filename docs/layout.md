@@ -230,7 +230,7 @@ metadata:
   generated: skillset@0.1.0
 ```
 
-Each `.skillset.lock` records emitted versions and hashes, plus root normalized build metadata such as `buildMode`, `selectedTargets`, and whether generated Skillset skill metadata was emitted. Plugin lock entries also include `includedSkills`, `skippedSkills`, and `targetState`; a target with skipped source skills uses `targetState: intentionally-skipped` so target-specific version bumps are visible even when that target's manifest and skills stay byte-for-byte unchanged. `skillset check` reports version drift directly when generated plugin manifest `version` or generated skill `metadata.version` is stale.
+Each `.skillset.lock` records emitted versions and hashes, plus root normalized build metadata such as `buildMode`, `selectedTargets`, and whether generated Skillset skill metadata was emitted. Locks also carry `loweringOutcomes` for the source units represented by that lock, using the `skillset-lowering-outcome@1` schema so emitted, transformed, target-native, degraded, skipped, unsupported, and failed lowering facts survive beyond console output. Plugin lock entries include `includedSkills`, `skippedSkills`, and `targetState`; a target with skipped source skills uses `targetState: intentionally-skipped` so target-specific version bumps are visible even when that target's manifest and skills stay byte-for-byte unchanged. `skillset check` reports version drift directly when generated plugin manifest `version` or generated skill `metadata.version` is stale.
 
 ## Instructions
 

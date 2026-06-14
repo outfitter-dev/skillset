@@ -11,6 +11,7 @@ import {
 } from "./output-safety";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
+import { renderValidatedJson } from "./structured-output";
 import {
   sourceWarningDiagnostic,
   type SkillsetDiagnostic,
@@ -18,7 +19,7 @@ import {
   type SkillsetWriteSummary,
 } from "./operation-result";
 import type { SkillsetLoweringOutcome } from "./lowering-outcome";
-import type { BuildGraph, BuildScope, CheckResult, RenderedFile, SkillsetOptions } from "./types";
+import type { BuildGraph, BuildScope, CheckResult, JsonRecord, JsonValue, RenderedFile, SkillsetOptions } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
 
 /** Mirror root for isolated builds; the full projection lands under it. */
@@ -48,6 +49,7 @@ function mirroredOutputRoots(outputRoots: readonly string[], outPath: OutPath): 
 }
 
 const textDecoder = new TextDecoder();
+const textEncoder = new TextEncoder();
 
 /**
  * Codex truncates AGENTS.md content beyond `project_doc_max_bytes` (32 KiB by
@@ -98,7 +100,10 @@ export async function buildSkillsetResult(
     mapOutputPath: outPath,
     scopes: options.scopes,
   });
-  const rendered = mirroredRenderedFiles(scopedRendered, outPath);
+  const rendered = withPersistedLoweringOutcomes(
+    mirroredRenderedFiles(scopedRendered, outPath),
+    loweringOutcomes
+  );
   const liveOutputRoots = scopedOutputRoots(graph, options.scopes);
   const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
   const includeWorkspaceLock = includesProjectScope(options.scopes);
@@ -162,7 +167,10 @@ export async function diffSkillsetResult(
     mapOutputPath: outPath,
     scopes: options.scopes,
   });
-  const rendered = mirroredRenderedFiles(scopedRendered, outPath);
+  const rendered = withPersistedLoweringOutcomes(
+    mirroredRenderedFiles(scopedRendered, outPath),
+    loweringOutcomes
+  );
   diagnostics.push(...diagnoseLargeInstructionFiles(rendered));
   const expected = new Map(rendered.map((file) => [file.path, file.content]));
   const liveOutputRoots = scopedOutputRoots(graph, options.scopes);
@@ -240,7 +248,10 @@ export async function checkSkillsetResult(
     mapOutputPath: outPath,
     scopes: options.scopes,
   });
-  const rendered = mirroredRenderedFiles(scopedRendered, outPath);
+  const rendered = withPersistedLoweringOutcomes(
+    mirroredRenderedFiles(scopedRendered, outPath),
+    loweringOutcomes
+  );
   diagnostics.push(...diagnoseLargeInstructionFiles(rendered));
   const expected = new Map(rendered.map((file) => [file.path, file.content]));
   const liveOutputRoots = scopedOutputRoots(graph, options.scopes);
@@ -308,6 +319,84 @@ function buildResult(
     operation: "build",
     writes,
   };
+}
+
+function withPersistedLoweringOutcomes(
+  rendered: readonly RenderedFile[],
+  loweringOutcomes: readonly SkillsetLoweringOutcome[]
+): readonly RenderedFile[] {
+  if (loweringOutcomes.length === 0) return rendered;
+  return rendered.map((file) => {
+    if (!isLockFilePath(file.path)) return file;
+    const lock = parseLockFile(file);
+    const lockOutcomes = loweringOutcomesForLock(file.path, lock, loweringOutcomes);
+    const value: JsonRecord = {
+      ...lock,
+      ...(lockOutcomes.length === 0 ? {} : { loweringOutcomes: lockOutcomes as unknown as JsonValue }),
+    };
+    return {
+      ...file,
+      content: textEncoder.encode(renderValidatedJson(value, file.path)),
+    };
+  });
+}
+
+function parseLockFile(file: RenderedFile): JsonRecord {
+  const parsed = JSON.parse(textDecoder.decode(file.content)) as unknown;
+  if (!isJsonRecord(parsed)) {
+    throw new Error(`skillset: generated lock ${file.path} must be a JSON object`);
+  }
+  return parsed;
+}
+
+function loweringOutcomesForLock(
+  lockPath: string,
+  lock: JsonRecord,
+  loweringOutcomes: readonly SkillsetLoweringOutcome[]
+): readonly SkillsetLoweringOutcome[] {
+  const target = typeof lock.target === "string" ? lock.target : undefined;
+  const outputRoot = outputRootForLockPath(lockPath);
+  const lockOutputs = outputPathsForLock(outputRoot, lock);
+  return loweringOutcomes
+    .filter((outcome) => {
+      if (target !== undefined && (outcome.target ?? "workspace") !== target) return false;
+      const outputPaths = outcome.outputs?.map((output) => output.path) ?? [];
+      if (outputPaths.length === 0) {
+        return outputRoot === "." && outcome.target === undefined;
+      }
+      return outputPaths.some((path) => lockOutputs.has(path));
+    })
+    .sort((left, right) =>
+      compareStrings(
+        `${left.sourceUnit}\0${left.target ?? ""}\0${left.featureId}\0${left.status}\0${left.sourcePath ?? ""}`,
+        `${right.sourceUnit}\0${right.target ?? ""}\0${right.featureId}\0${right.status}\0${right.sourcePath ?? ""}`
+      )
+    );
+}
+
+function outputPathsForLock(outputRoot: string, lock: JsonRecord): ReadonlySet<string> {
+  const items = Array.isArray(lock.items) ? lock.items : [];
+  const paths = new Set<string>();
+  for (const item of items) {
+    if (!isJsonRecord(item)) continue;
+    let files: readonly string[] = [];
+    if (Array.isArray(item.files) && item.files.every((entry) => typeof entry === "string")) {
+      files = item.files;
+    } else if (typeof item.outputPath === "string") {
+      files = [item.outputPath];
+    }
+    for (const file of files) paths.add(join(outputRoot, file).replaceAll("\\", "/"));
+  }
+  return paths;
+}
+
+function outputRootForLockPath(lockPath: string): string {
+  if (lockPath === ".skillset.lock") return ".";
+  return dirname(lockPath).replaceAll("\\", "/");
+}
+
+function isLockFilePath(path: string): boolean {
+  return path === ".skillset.lock" || path.endsWith("/.skillset.lock");
 }
 
 async function diagnoseMissingManagedOutputs(

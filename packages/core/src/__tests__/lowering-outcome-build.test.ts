@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -419,17 +419,61 @@ describe("build lowering outcomes", () => {
 
     const build = await buildSkillsetResult(root);
     expect(build.loweringOutcomes.map(outcomeKey)).toEqual(preview.loweringOutcomes.map(outcomeKey));
+
+    const codexLock = await readJson(join(root, "plugins-codex/.skillset.lock"));
+    const codexOutcomes = codexLock.loweringOutcomes as SkillsetLoweringOutcome[];
+    expect(codexOutcomes).toContainEqual(
+      expect.objectContaining({
+        featureId: "plugin-skills",
+        sourceUnit: "plugin.alpha.skill:plugin-skill",
+        status: "emitted",
+        target: "codex",
+      })
+    );
+    expect(codexOutcomes).toContainEqual(
+      expect.objectContaining({
+        featureId: "dependencies",
+        sourceUnit: "plugin.alpha.feature:dependencies",
+        status: "degraded",
+        target: "codex",
+      })
+    );
+    expect(codexOutcomes).not.toContainEqual(
+      expect.objectContaining({
+        target: "claude",
+      })
+    );
+
+    const codexSkill = await readFile(join(root, "plugins-codex/plugins/alpha/skills/plugin-skill/SKILL.md"), "utf8");
+    expect(codexSkill).not.toContain("loweringOutcomes");
+    expect(JSON.stringify(codexLock)).not.toContain(root);
   });
 
   it("records isolated output paths relative to the isolated projection root", async () => {
     const root = await fixture(OUTCOME_FIXTURE);
-    const preview = await diffSkillsetResult(root, { isolated: true });
+    const preview = await buildSkillsetResult(root, { isolated: true });
     const outputPaths = preview.loweringOutcomes.flatMap((outcome) =>
       (outcome.outputs ?? []).map((output) => output.path)
     );
 
     expect(outputPaths).toContain(".skillset/build/out/.claude/skills/repo-skill/SKILL.md");
     expect(outputPaths.some((path) => path.startsWith(root))).toBe(false);
+
+    const isolatedLock = await readJson(join(root, ".skillset/build/out/plugins-codex/.skillset.lock"));
+    const isolatedOutcomes = isolatedLock.loweringOutcomes as SkillsetLoweringOutcome[];
+    expect(isolatedOutcomes).toContainEqual(
+      expect.objectContaining({
+        outputs: expect.arrayContaining([
+          expect.objectContaining({
+            path: ".skillset/build/out/plugins-codex/plugins/alpha/skills/plugin-skill/SKILL.md",
+          }),
+        ]),
+        sourceUnit: "plugin.alpha.skill:plugin-skill",
+        status: "emitted",
+        target: "codex",
+      })
+    );
+    expect(JSON.stringify(isolatedLock)).not.toContain(root);
   });
 
   it("exposes resolver-level unsupported decisions on thrown lowering errors", async () => {
@@ -472,6 +516,10 @@ async function fixture(files: Record<string, string>): Promise<string> {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }
   return root;
+}
+
+async function readJson(path: string): Promise<Record<string, unknown>> {
+  return JSON.parse(await readFile(path, "utf8")) as Record<string, unknown>;
 }
 
 async function expectUnsupportedOutcome(
