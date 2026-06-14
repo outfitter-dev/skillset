@@ -75,6 +75,18 @@ The default posture is error. Build, diff, and check enforce `failed`, `lossy`, 
 | Change/release metadata | `metadata_only` | `metadata_only` | Preserved for provenance and generated changelog state, not target runtime enforcement. |
 | Distribution or activation state | `externally_managed` | `externally_managed` | Build may plan or report it, but does not activate or trust runtimes. |
 
+## Fixture Coverage
+
+`packages/core/src/__tests__/lowering-outcome-build.test.ts` covers the v1 status matrix with successful, scoped, isolated, and unsupported-error fixtures. Current observed statuses are `emitted`, `target_native`, `transformed`, `metadata_only`, `degraded`, `intentionally_skipped`, and `unsupported`.
+
+The remaining status values are intentionally documented deferrals rather than fake fixtures:
+
+| Status | Deferral |
+| --- | --- |
+| `externally_managed` | Reserved for distribution, activation, marketplace, or runtime-install facts once those workflows emit lowering outcomes. |
+| `failed` | Validation failures still surface as source/build diagnostics today; SET-84 policy tests prove failed outcomes would block once a producer exists. |
+| `lossy` | No v1 target adapter emits lossy output; current lossy cases stay unsupported or fail before lowering. SET-84 policy tests prove lossy outcomes would block once a producer exists. |
+
 ## Diagnostics
 
 - Unsupported, lossy, and failed lowering fail by default for enabled targets unless a scoped opt-out or future explicit unsupported policy applies.
@@ -95,4 +107,4 @@ Outcome provenance belongs in structured operation results, generated `.skillset
 - [Deterministic Projection and Adapter Conformance](../adrs/drafts/20260613-deterministic-projection-and-adapter-conformance.md) defines how outcomes pair with the feature registry for conformance.
 - `packages/core/src/lowering-outcome.ts` defines the current schema, status values, policy values, and validation rules.
 - `packages/core/src/lowering-outcome-collector.ts` derives outcomes from generated locks, target-native companions, transformations, and unsupported plugin features.
-- `packages/core/src/__tests__/lowering-outcome-build.test.ts` proves emitted, target-native, transformed, unsupported, isolated-path, policy-gated, and scoped outcomes.
+- `packages/core/src/__tests__/lowering-outcome-build.test.ts` proves emitted, target-native, transformed, unsupported, isolated-path, policy-gated, scoped, and status-matrix outcomes.

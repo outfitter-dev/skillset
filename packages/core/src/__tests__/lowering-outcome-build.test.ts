@@ -7,8 +7,10 @@ import {
   buildSkillsetResult,
   checkSkillsetResult,
   diffSkillsetResult,
+  LOWERING_OUTCOME_STATUS_VALUES,
   SkillsetLoweringError,
   type SkillsetLoweringOutcome,
+  type SkillsetLoweringOutcomeStatus,
 } from "@skillset/core";
 
 const OUTCOME_FIXTURE: Record<string, string> = {
@@ -477,6 +479,40 @@ describe("build lowering outcomes", () => {
     expect(JSON.stringify(isolatedLock)).not.toContain(root);
   });
 
+  it("covers the v1 outcome status matrix or documents deferrals", async () => {
+    const root = await fixture(OUTCOME_FIXTURE);
+    const successful = await diffSkillsetResult(root);
+    const scoped = await diffSkillsetResult(root, { scopes: ["repo"] });
+    const unsupportedRoot = await fixture({
+      ...OUTCOME_FIXTURE,
+      ".skillset/plugins/alpha/bin/tool": `
+#!/usr/bin/env bash
+echo alpha
+`,
+    });
+    const unsupported = await loweringErrorOutcomes(unsupportedRoot);
+    const producedStatuses = statusesInVocabularyOrder([
+      ...successful.loweringOutcomes,
+      ...scoped.loweringOutcomes,
+      ...unsupported,
+    ]);
+
+    expect(producedStatuses).toEqual([
+      "degraded",
+      "emitted",
+      "intentionally_skipped",
+      "metadata_only",
+      "target_native",
+      "transformed",
+      "unsupported",
+    ]);
+
+    const documentedDeferrals = ["externally_managed", "failed", "lossy"] satisfies readonly SkillsetLoweringOutcomeStatus[];
+    expect(statusesInVocabularyOrder([...producedStatuses, ...documentedDeferrals])).toEqual([
+      ...LOWERING_OUTCOME_STATUS_VALUES,
+    ]);
+  });
+
   it("enforces unsupported outcome policy with actionable lowering errors", async () => {
     const agentRoot = await fixture({
       ...OUTCOME_FIXTURE,
@@ -509,6 +545,23 @@ echo alpha
 
 function outcomeKey(outcome: SkillsetLoweringOutcome): string {
   return `${outcome.sourceUnit}\0${outcome.target ?? ""}\0${outcome.featureId}\0${outcome.status}`;
+}
+
+function statusesInVocabularyOrder(
+  values: readonly (SkillsetLoweringOutcome | SkillsetLoweringOutcomeStatus)[]
+): readonly SkillsetLoweringOutcomeStatus[] {
+  const statuses = new Set(values.map((value) => typeof value === "string" ? value : value.status));
+  return LOWERING_OUTCOME_STATUS_VALUES.filter((status) => statuses.has(status));
+}
+
+async function loweringErrorOutcomes(root: string): Promise<readonly SkillsetLoweringOutcome[]> {
+  try {
+    await diffSkillsetResult(root);
+  } catch (error) {
+    expect(error).toBeInstanceOf(SkillsetLoweringError);
+    return (error as SkillsetLoweringError).loweringOutcomes;
+  }
+  throw new Error("expected diffSkillsetResult to reject");
 }
 
 async function fixture(files: Record<string, string>): Promise<string> {
