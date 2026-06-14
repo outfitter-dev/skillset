@@ -513,6 +513,22 @@ echo alpha
     ]);
   });
 
+  it("ignores placeholder-only plugin agent directories for unsupported Codex outcomes", async () => {
+    const root = await fixture({
+      ...OUTCOME_FIXTURE,
+      ".skillset/plugins/alpha/agents/.gitkeep": "",
+    });
+
+    const result = await buildSkillsetResult(root);
+
+    expect(result.loweringOutcomes).not.toContainEqual(expect.objectContaining({
+      featureId: "plugin-agents",
+      sourceUnit: "plugin.alpha.feature:agents",
+      status: "unsupported",
+      target: "codex",
+    }));
+  });
+
   it("enforces unsupported outcome policy with actionable lowering errors", async () => {
     const agentRoot = await fixture({
       ...OUTCOME_FIXTURE,

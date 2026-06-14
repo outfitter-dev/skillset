@@ -17,6 +17,7 @@ import {
   validateConfigDocument,
 } from "./config";
 import { readPluginDependencies, validatePluginDependencyGraph } from "./dependencies";
+import { SkillsetFeatureDiagnosticError } from "./operation-result";
 import { compareStrings, resolveInside, validateSlug } from "./path";
 import { readReleaseState } from "./release-state";
 import { readSkillResources } from "./resources";
@@ -96,7 +97,15 @@ export async function loadBuildGraph(
   await validateSupports(rootConfig.supports, { label: rootConfigPath, rootPath, warnings });
   const releaseState = await readReleaseState(rootPath, options);
   const plugins = await loadPlugins(rootPath, sourceDir, filteredTargets, warnings, outputs);
-  validatePluginDependencyGraph(plugins);
+  try {
+    validatePluginDependencyGraph(plugins);
+  } catch (error) {
+    throw featureDiagnosticError(error, {
+      code: "plugin-dependencies-invalid",
+      featureId: "dependencies",
+      path: join(sourceDir, PLUGINS_DIR),
+    });
+  }
   const standaloneSkills = await loadStandaloneSkills(rootPath, sourceDir, filteredTargets, warnings);
   const { rules, instructionsDir } = await loadInstructions(rootPath, sourceDir, filteredTargets, warnings);
   const projectAgents = await loadProjectAgents(rootPath, sourceDir, filteredTargets, warnings);
@@ -145,6 +154,23 @@ function applyTargetFilter(
   };
 }
 
+function featureDiagnosticError(
+  error: unknown,
+  args: {
+    readonly code: string;
+    readonly featureId: string;
+    readonly path?: string;
+  }
+): SkillsetFeatureDiagnosticError {
+  if (error instanceof SkillsetFeatureDiagnosticError) return error;
+  return new SkillsetFeatureDiagnosticError({
+    code: args.code,
+    featureId: args.featureId,
+    message: error instanceof Error ? error.message : String(error),
+    ...(args.path === undefined ? {} : { path: args.path }),
+  });
+}
+
 async function loadProjectIslands(
   rootPath: string,
   sourceDir: string,
@@ -169,14 +195,26 @@ async function loadProjectIslands(
 
   for (const island of islands) {
     if (island.target === "codex" && island.relativePath.endsWith(".rules") && island.plugin !== undefined) {
-      throw new Error(
-        `skillset: ${relative(rootPath, island.sourcePath)} targets Codex plugin .rules, which are not supported; Codex .rules are project-only command policy`
-      );
+      const path = relative(rootPath, island.sourcePath);
+      throw new SkillsetFeatureDiagnosticError({
+        code: "target-native-island-unsupported",
+        featureId: "target-native-islands",
+        message:
+          `skillset: ${path} targets Codex plugin .rules, which are not supported; ` +
+          "Codex .rules are project-only command policy",
+        path,
+      });
     }
     if (island.target === "codex" && island.relativePath.endsWith(".rules") && !island.relativePath.startsWith("rules/")) {
-      throw new Error(
-        `skillset: ${relative(rootPath, island.sourcePath)} targets Codex .rules outside .skillset/src/codex/rules/; Codex .rules are project-only command policy`
-      );
+      const path = relative(rootPath, island.sourcePath);
+      throw new SkillsetFeatureDiagnosticError({
+        code: "target-native-island-unsupported",
+        featureId: "target-native-islands",
+        message:
+          `skillset: ${path} targets Codex .rules outside .skillset/src/codex/rules/; ` +
+          "Codex .rules are project-only command policy",
+        path,
+      });
     }
   }
 
@@ -436,26 +474,40 @@ async function loadPlugin(
 ): Promise<SourcePlugin> {
   const pluginPath = resolveInside(rootPath, join(sourceDir, PLUGINS_DIR, id));
   const configPath = await resolvePluginConfigPath(pluginPath);
+  const configRelativePath = relative(rootPath, configPath);
   const config = parseYamlRecord(await readFile(configPath, "utf8"), configPath);
-  validateConfigDocument(config, configPath, { featureKeys: PLUGIN_FEATURE_KEYS });
-  await validateSupports(config.supports, { label: relative(rootPath, configPath), rootPath, warnings });
-  const dependencies = readPluginDependencies(config.dependencies, relative(rootPath, configPath));
-  const metadata = readSkillsetMetadata(config, configPath);
-  validateSchemaField(metadata, `${configPath}.skillset.schema`);
-  validateVersionField(metadata, `${configPath}.skillset.version`);
-  const sourceOrigin = readSourceOrigin(metadata, configPath);
-  const configuredId = readSkillsetName(metadata, id, configPath);
-  validateSlug(configuredId, `skillset.name in ${configPath}`);
-  if (configuredId !== id) {
-    throw new Error(
-      `skillset: plugin directory ${id} does not match skillset.name ${configuredId}`
-    );
+  let dependencies: SourcePlugin["dependencies"];
+  let metadata: SourcePlugin["metadata"];
+  let sourceOrigin: SourceOrigin | undefined;
+  let configuredId: string;
+  let inheritedTargets: BuildGraph["root"]["targets"];
+  let targets: SourcePlugin["targets"];
+  try {
+    validateConfigDocument(config, configPath, { featureKeys: PLUGIN_FEATURE_KEYS });
+    await validateSupports(config.supports, { label: configRelativePath, rootPath, warnings });
+    dependencies = readPluginDependencies(config.dependencies, configRelativePath);
+    metadata = readSkillsetMetadata(config, configPath);
+    validateSchemaField(metadata, `${configPath}.skillset.schema`);
+    validateVersionField(metadata, `${configPath}.skillset.version`);
+    sourceOrigin = readSourceOrigin(metadata, configPath);
+    configuredId = readSkillsetName(metadata, id, configPath);
+    validateSlug(configuredId, `skillset.name in ${configPath}`);
+    if (configuredId !== id) {
+      throw new Error(
+        `skillset: plugin directory ${id} does not match skillset.name ${configuredId}`
+      );
+    }
+    inheritedTargets = resolveTargets(parentTargets, config, configPath, {
+      allowDefaults: true,
+    });
+    targets = applyFeatureTargetDefaults(inheritedTargets, "plugins");
+  } catch (error) {
+    throw featureDiagnosticError(error, {
+      code: "plugin-manifest-invalid",
+      featureId: "plugin-manifests",
+      path: configRelativePath,
+    });
   }
-
-  const inheritedTargets = resolveTargets(parentTargets, config, configPath, {
-    allowDefaults: true,
-  });
-  const targets = applyFeatureTargetDefaults(inheritedTargets, "plugins");
   const features = await loadPluginFeatures(
     rootPath,
     pluginPath,
@@ -468,9 +520,13 @@ async function loadPlugin(
   const skills = await loadSkills(rootPath, sourceDir, pluginPath, inheritedTargets, warnings);
 
   if (await exists(join(pluginPath, "hooks.json"))) {
-    throw new Error(
-      `skillset: plugin ${id} uses unsupported root hooks.json; move it to hooks/hooks.json`
-    );
+    const path = relative(rootPath, join(pluginPath, "hooks.json"));
+    throw new SkillsetFeatureDiagnosticError({
+      code: "plugin-root-hooks-unsupported",
+      featureId: "plugin-hooks",
+      message: `skillset: plugin ${id} uses unsupported root hooks.json; move it to hooks/hooks.json`,
+      path,
+    });
   }
   return {
     configPath,
@@ -496,16 +552,25 @@ async function loadPluginFeatures(
 ): Promise<readonly SourcePluginFeature[]> {
   const features: SourcePluginFeature[] = [];
   for (const key of PLUGIN_FEATURE_KEYS) {
-    const feature = await loadPluginFeature(
-      rootPath,
-      pluginPath,
-      config,
-      configPath,
-      targets,
-      pluginId,
-      outputRoots,
-      key
-    );
+    let feature: SourcePluginFeature | undefined;
+    try {
+      feature = await loadPluginFeature(
+        rootPath,
+        pluginPath,
+        config,
+        configPath,
+        targets,
+        pluginId,
+        outputRoots,
+        key
+      );
+    } catch (error) {
+      throw featureDiagnosticError(error, {
+        code: `plugin-${key}-invalid`,
+        featureId: key === "mcp" ? "plugin-mcp" : "plugin-bin",
+        path: relative(rootPath, configPath),
+      });
+    }
     if (feature !== undefined) features.push(feature);
   }
   return features.sort((left, right) => compareStrings(left.key, right.key));

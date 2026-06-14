@@ -376,6 +376,7 @@ function preflightBackupDiagnostic(record: OutputBackupPlanRecord): SkillsetDiag
     : "existing file is not owned by Skillset";
   return {
     code: record.reason === "managed-target-edit" ? "managed-output-edited" : "unmanaged-output-collision",
+    featureId: "output-safety",
     message: `${reason}; ${record.targetPath} will be backed up before ${record.action}`,
     outputPath: record.targetPath,
     severity: "warning",
@@ -388,6 +389,7 @@ function backupDiagnostic(record: OutputBackupRecord, runId: string, manifestPat
     : "existing file is not owned by Skillset";
   return {
     code: record.reason === "managed-target-edit" ? "managed-output-edited" : "unmanaged-output-collision",
+    featureId: "output-safety",
     message: `${reason}; backed up ${record.targetPath} before ${record.action} (${runId}, ${manifestPath})`,
     outputPath: record.targetPath,
     severity: "warning",

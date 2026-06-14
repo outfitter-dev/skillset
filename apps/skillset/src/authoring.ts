@@ -1,6 +1,11 @@
 import { resolve, relative } from "node:path";
 
-import { SkillsetLoweringError, type SkillsetLoweringOutcome } from "@skillset/core";
+import {
+  SkillsetFeatureDiagnosticError,
+  SkillsetLoweringError,
+  type SkillsetDiagnostic,
+  type SkillsetLoweringOutcome,
+} from "@skillset/core";
 import { collectLoweringOutcomes } from "@skillset/core/internal/lowering-outcome-collector";
 
 import { diffSkillsetResult, scopedRenderedFiles, type SkillsetDiff } from "./build";
@@ -123,6 +128,7 @@ export async function listGeneratedEntries(
 }
 
 export interface DoctorReport {
+  readonly buildDiagnostics: readonly SkillsetDiagnostic[];
   readonly buildError?: string;
   readonly drift: SkillsetDiff;
   readonly lintIssues: readonly LintIssue[];
@@ -149,9 +155,11 @@ export async function doctorSkillset(
   try {
     graph = await loadBuildGraph(rootPath, options);
   } catch (error) {
+    const buildDiagnostics = diagnosticsFromError(error);
     const loweringOutcomes = loweringOutcomesFromError(error);
     return {
       buildError: errorMessage(error),
+      buildDiagnostics,
       drift: { added: [], changed: [], missing: [], removed: [] },
       lintIssues: [],
       loweringOutcomes,
@@ -163,6 +171,7 @@ export async function doctorSkillset(
   const lint = await inspectSkillset(graph);
 
   let drift: SkillsetDiff = { added: [], changed: [], missing: [], removed: [] };
+  let buildDiagnostics: readonly SkillsetDiagnostic[] = [];
   let buildError: string | undefined;
   let loweringOutcomes: readonly SkillsetLoweringOutcome[] = [];
   try {
@@ -170,6 +179,7 @@ export async function doctorSkillset(
     drift = diff.data;
     loweringOutcomes = diff.loweringOutcomes;
   } catch (error) {
+    buildDiagnostics = diagnosticsFromError(error);
     buildError = errorMessage(error);
     loweringOutcomes = loweringOutcomesFromError(error);
   }
@@ -180,6 +190,7 @@ export async function doctorSkillset(
 
   return {
     ...(buildError === undefined ? {} : { buildError }),
+    buildDiagnostics,
     drift,
     lintIssues: lint.issues,
     loweringOutcomes,
@@ -258,6 +269,19 @@ function notableLoweringOutcomes(
 
 function loweringOutcomesFromError(error: unknown): readonly SkillsetLoweringOutcome[] {
   return error instanceof SkillsetLoweringError ? error.loweringOutcomes : [];
+}
+
+function diagnosticsFromError(error: unknown): readonly SkillsetDiagnostic[] {
+  if (!(error instanceof SkillsetFeatureDiagnosticError)) return [];
+  return [
+    {
+      code: error.code,
+      featureId: error.featureId,
+      message: error.message,
+      ...(error.path === undefined ? {} : { path: error.path }),
+      severity: "error",
+    },
+  ];
 }
 
 function errorMessage(error: unknown): string {

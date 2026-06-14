@@ -3,12 +3,14 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { getSkillsetFeature } from "@skillset/core";
 import { lintRules, registerLintRule } from "@skillset/lint";
 
 import { buildSkillset } from "../build";
 import { ciSkillset, renderCiReportMarkdown } from "../ci";
 import { gitSafeEnv } from "../git-env";
-import { lintSkillset } from "../lint";
+import { inspectSkillset, lintSkillset } from "../lint";
+import { loadBuildGraph } from "../resolver";
 
 const WARN_RULE_NAME = "test-warn-marker";
 
@@ -65,6 +67,36 @@ test("lintSkillset throws on a shell-safety pre-resolution violation", async () 
   );
 });
 
+test("lint diagnostics carry feature ids for standalone and plugin skills", async () => {
+  const root = await fixture({
+    "custom-source/config.yaml":
+      "skillset:\n  name: lint-root\nclaude: true\ncodex: false\n",
+    "custom-source/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+    "custom-source/plugins/demo/skills/plugin-skill/SKILL.md":
+      "---\nname: other-plugin\ndescription: Demo.\n---\n\nBody.\n",
+    "custom-source/skills/solo/SKILL.md":
+      "---\nname: other-solo\ndescription: Demo.\n---\n\nBody.\n",
+  });
+
+  const result = await inspectSkillset(await loadBuildGraph(root, { sourceDir: "custom-source" }));
+
+  expect(result.issues).toContainEqual(expect.objectContaining({
+    code: "skill-name-directory-mismatch",
+    featureId: "plugin-skills",
+    path: "custom-source/plugins/demo/skills/plugin-skill/SKILL.md",
+  }));
+  expect(result.issues).toContainEqual(expect.objectContaining({
+    code: "skill-name-directory-mismatch",
+    featureId: "standalone-skills",
+    path: "custom-source/skills/solo/SKILL.md",
+  }));
+  for (const issue of result.issues) {
+    if (issue.featureId !== undefined) {
+      expect(getSkillsetFeature(issue.featureId)?.id).toBe(issue.featureId);
+    }
+  }
+});
+
 test("ci reports env-var fallback warnings without failing", async () => {
   const root = await fixture({
     ".skillset/config.yaml":
@@ -81,7 +113,9 @@ test("ci reports env-var fallback warnings without failing", async () => {
   expect(
     report.lintIssues.some(
       (issue) =>
-        issue.code === "skill-env-var-no-fallback" && issue.severity === "warn"
+        issue.code === "skill-env-var-no-fallback" &&
+        issue.featureId === "standalone-skills" &&
+        issue.severity === "warn"
     )
   ).toBe(true);
   const markdown = renderCiReportMarkdown(report);
@@ -103,6 +137,7 @@ test("lintSkillset returns warn-only issues without throwing", async () => {
   expect(result.issues).toEqual([
     {
       code: WARN_RULE_NAME,
+      featureId: "standalone-skills",
       message: "body contains WARN-MARKER",
       path: ".skillset/skills/demo/SKILL.md",
       severity: "warn",
@@ -126,6 +161,7 @@ test("ci reports lint warnings without failing", async () => {
   expect(report.lintIssues).toEqual([
     {
       code: WARN_RULE_NAME,
+      featureId: "standalone-skills",
       message: "body contains WARN-MARKER",
       path: ".skillset/skills/demo/SKILL.md",
       severity: "warn",

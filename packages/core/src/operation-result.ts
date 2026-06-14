@@ -30,6 +30,25 @@ export interface SkillsetDiagnostic {
   readonly target?: string;
 }
 
+export class SkillsetFeatureDiagnosticError extends Error {
+  readonly code: string;
+  readonly featureId: string;
+  readonly path?: string;
+
+  constructor(args: {
+    readonly code: string;
+    readonly featureId: string;
+    readonly message: string;
+    readonly path?: string;
+  }) {
+    super(args.message);
+    this.name = "SkillsetFeatureDiagnosticError";
+    this.code = args.code;
+    this.featureId = args.featureId;
+    if (args.path !== undefined) this.path = args.path;
+  }
+}
+
 export type SkillsetWriteMode = "dry-run" | "read" | "write";
 
 export interface SkillsetWriteSummary {

@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 import { readString, isOutputSelected } from "./config";
@@ -332,7 +332,7 @@ function unsupportedPluginFeatureOutcomes(
     }
 
     const agentsPath = join(plugin.path, "agents");
-    if (!existsSync(agentsPath)) continue;
+    if (!hasMeaningfulFiles(agentsPath)) continue;
     const featureId = "plugin-agents";
     const evidence = evidenceFor(featureId, "codex");
     outcomes.push(
@@ -349,6 +349,23 @@ function unsupportedPluginFeatureOutcomes(
     );
   }
   return outcomes;
+}
+
+function hasMeaningfulFiles(path: string): boolean {
+  if (!existsSync(path)) return false;
+  const stats = statSync(path);
+  if (stats.isFile()) return !isPlaceholderFile(path);
+  if (!stats.isDirectory()) return false;
+  for (const entry of readdirSync(path)) {
+    if (isPlaceholderFile(entry)) continue;
+    if (hasMeaningfulFiles(join(path, entry))) return true;
+  }
+  return false;
+}
+
+function isPlaceholderFile(path: string): boolean {
+  const name = path.split("/").pop();
+  return name === ".gitkeep" || name === ".keep" || name === ".DS_Store";
 }
 
 function outputPathsForLockItem(outputRoot: string, item: RenderedLockItem): readonly string[] {

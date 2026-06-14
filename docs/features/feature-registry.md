@@ -70,7 +70,9 @@ External docs prove that a target surface exists. They do not prove Skillset's l
 
 ## Diagnostics
 
-Diagnostics should eventually carry stable feature ids where useful, but user-facing messages must remain readable. A message like `skillset: Codex plugins do not support plugin-local bin/ helpers` is better than a bare `plugin-bin unsupported`; the feature id belongs in structured output, lock/report evidence, or a suffix where it helps agents inspect the issue.
+Diagnostics carry stable feature ids where useful, but user-facing messages remain readable. A message like `skillset: Codex plugins do not support plugin-local bin/ helpers` is better than a bare `plugin-bin unsupported`; the feature id belongs in structured output, lock/report evidence, or a suffix where it helps agents inspect the issue.
+
+The current diagnostic ownership slice covers core build/write diagnostics, selected resolver errors for plugin manifests, root hook placement, and target-native island support, plus lint diagnostics for skill source, plugin hooks, resource declarations, and tool intent. Broader source invalidity that still throws before an operation result exists may remain message-only until the surrounding operation is converted to structured diagnostics.
 
 ## Provenance
 
@@ -78,7 +80,6 @@ Feature ids can appear in lowering outcomes, `.skillset.lock`, reports, doctor/e
 
 ## Future Work
 
-- SET-76 connects diagnostics to feature ids without making messages machine-only.
 - SET-77 adds drift checks for docs, tests, fixtures, and evidence refs.
 - SET-78 exposes capability inspection through authoring CLI surfaces.
 - SET-82 through SET-86 persist outcomes, render them through diagnostics, gate policies, add matrix fixtures, and migrate warnings onto outcome codes.

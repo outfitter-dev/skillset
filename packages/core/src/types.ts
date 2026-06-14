@@ -256,6 +256,7 @@ export interface CheckResult {
 
 export interface LintIssue {
   readonly code: string;
+  readonly featureId?: string;
   readonly message: string;
   readonly path: string;
   /** Errors fail lint/ci; warnings flow through reporting without failing. */

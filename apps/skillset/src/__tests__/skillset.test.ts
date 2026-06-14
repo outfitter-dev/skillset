@@ -7,7 +7,7 @@ import { expect, test } from "bun:test";
 import { explainPath, listGeneratedEntries } from "../authoring";
 import { buildSkillset, buildSkillsetResult, checkSkillset, diffSkillset } from "../build";
 import { importSource } from "../import";
-import { lintSkillset } from "../lint";
+import { inspectSkillset, lintSkillset } from "../lint";
 import { loadBuildGraph } from "../resolver";
 import { renderValidatedToml } from "../structured-output";
 
@@ -1770,9 +1770,12 @@ deny all
 `,
   });
 
-  await expect(buildSkillset(pluginRulesRoot)).rejects.toThrow(
-    "Codex plugin .rules"
-  );
+  await expectFeatureDiagnosticError(buildSkillset(pluginRulesRoot), {
+    code: "target-native-island-unsupported",
+    featureId: "target-native-islands",
+    message: expect.stringContaining("Codex plugin .rules"),
+    path: ".skillset/src/plugins/alpha/codex/rules/plugin.rules",
+  });
 });
 
 test("Codex project rules islands are only accepted under rules/", async () => {
@@ -1792,7 +1795,12 @@ skillset:
 `,
   });
 
-  await expect(buildSkillset(root)).rejects.toThrow("Codex .rules outside .skillset/src/codex/rules/");
+  await expectFeatureDiagnosticError(buildSkillset(root), {
+    code: "target-native-island-unsupported",
+    featureId: "target-native-islands",
+    message: expect.stringContaining("Codex .rules outside .skillset/src/codex/rules/"),
+    path: ".skillset/src/codex/agents/bad.rules",
+  });
 });
 
 test("target-native island locks include partial provenance and explain/list visibility", async () => {
@@ -2718,6 +2726,11 @@ Tools body.
 `,
   });
 
+  const lintReport = await inspectSkillset(await loadBuildGraph(root));
+  expect(lintReport.issues).toContainEqual(expect.objectContaining({
+    code: "codex-allowed-tools-unsupported",
+    featureId: "tool-intent",
+  }));
   await expect(lintSkillset(root)).rejects.toThrow("codex-allowed-tools-unsupported");
   await expect(buildSkillset(root)).rejects.toThrow("allowed_tools has no Codex skill-local lowering");
 });
@@ -3803,6 +3816,19 @@ async function fixture(files: Record<string, string>): Promise<string> {
 
 async function exists(path: string): Promise<boolean> {
   return Bun.file(path).exists();
+}
+
+async function expectFeatureDiagnosticError(
+  promise: Promise<unknown>,
+  expected: Record<string, unknown>
+): Promise<void> {
+  try {
+    await promise;
+  } catch (error) {
+    expect(error).toEqual(expect.objectContaining(expected));
+    return;
+  }
+  throw new Error("expected feature diagnostic error");
 }
 
 function normalizeFixture(content: string): string {

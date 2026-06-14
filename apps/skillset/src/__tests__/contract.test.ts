@@ -9,7 +9,7 @@ import { buildSkillset, buildSkillsetResult, checkSkillset, checkSkillsetResult,
 import { changeStatus, collectSourceInventory } from "../change-status";
 import { doctorSkillset, explainPath } from "../authoring";
 import { importSource, importSources } from "../import";
-import { lintSkillset } from "../lint";
+import { inspectSkillset, lintSkillset } from "../lint";
 import { readReleaseState } from "../release-state";
 import { loadBuildGraph } from "../resolver";
 import { createSkillset, initSkillset } from "../setup";
@@ -343,7 +343,12 @@ Body.
 `,
   });
 
-  await expect(loadBuildGraph(root)).rejects.toThrow("does not match skillset.name");
+  await expectFeatureDiagnosticError(loadBuildGraph(root), {
+    code: "plugin-manifest-invalid",
+    featureId: "plugin-manifests",
+    message: expect.stringContaining("does not match skillset.name"),
+    path: ".skillset/plugins/real-dir/skillset.yaml",
+  });
 });
 
 // SET-5: canonical source instructions live in .skillset/instructions/. Claude
@@ -640,12 +645,72 @@ Body.
 `,
     });
 
-    await expect(loadBuildGraph(root)).rejects.toThrow("uses unsupported root hooks.json");
+    await expectFeatureDiagnosticError(loadBuildGraph(root), {
+      code: "plugin-root-hooks-unsupported",
+      featureId: "plugin-hooks",
+      message: expect.stringContaining("uses unsupported root hooks.json"),
+      path: ".skillset/plugins/alpha/hooks.json",
+    });
   }
+});
+
+test("plugin manifest validation errors carry feature diagnostic metadata", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: manifest-errors
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+commands: {}
+`,
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  await expectFeatureDiagnosticError(loadBuildGraph(root), {
+    code: "plugin-manifest-invalid",
+    featureId: "plugin-manifests",
+    message: expect.stringContaining("unsupported top-level key commands"),
+    path: ".skillset/plugins/alpha/skillset.yaml",
+  });
+
+  const doctorJson = await runSkillsetCli("doctor", "--root", root, "--json");
+  expect(doctorJson.exitCode).toBe(1);
+  const doctorReport = JSON.parse(doctorJson.stdout) as {
+    buildDiagnostics: readonly { code: string; featureId: string; path?: string }[];
+  };
+  expect(doctorReport.buildDiagnostics).toContainEqual(expect.objectContaining({
+    code: "plugin-manifest-invalid",
+    featureId: "plugin-manifests",
+    path: ".skillset/plugins/alpha/skillset.yaml",
+  }));
 });
 
 async function fileExists(path: string): Promise<boolean> {
   return Bun.file(path).exists();
+}
+
+async function expectFeatureDiagnosticError(
+  promise: Promise<unknown>,
+  expected: Record<string, unknown>
+): Promise<void> {
+  try {
+    await promise;
+  } catch (error) {
+    expect(error).toEqual(expect.objectContaining(expected));
+    return;
+  }
+  throw new Error("expected feature diagnostic error");
 }
 
 // SET-14: golden manifest tests pin the target-surface shapes the evidence
@@ -2365,7 +2430,12 @@ Audit body.
 `,
   });
 
-  await expect(loadBuildGraph(root)).rejects.toThrow("must not depend on itself");
+  await expectFeatureDiagnosticError(loadBuildGraph(root), {
+    code: "plugin-dependencies-invalid",
+    featureId: "dependencies",
+    message: expect.stringContaining("must not depend on itself"),
+    path: ".skillset/plugins",
+  });
 });
 
 test("SET-40: plugin dependencies reject unsupported dependency groups", async () => {
@@ -4418,7 +4488,12 @@ description: Demo.
 Body.
 `,
   });
-  await expect(buildSkillset(missingRoot)).rejects.toThrow("points to missing path repo:missing/mcp.json");
+  await expectFeatureDiagnosticError(buildSkillset(missingRoot), {
+    code: "plugin-mcp-invalid",
+    featureId: "plugin-mcp",
+    message: expect.stringContaining("points to missing path repo:missing/mcp.json"),
+    path: ".skillset/plugins/alpha/skillset.yaml",
+  });
 });
 
 test("SET-26: plugin feature source type mismatches fail loudly", async () => {
@@ -4445,7 +4520,12 @@ description: Demo.
 Body.
 `,
   });
-  await expect(buildSkillset(mcpDirectoryRoot)).rejects.toThrow("feature mcp source must be a file");
+  await expectFeatureDiagnosticError(buildSkillset(mcpDirectoryRoot), {
+    code: "plugin-mcp-invalid",
+    featureId: "plugin-mcp",
+    message: expect.stringContaining("feature mcp source must be a file"),
+    path: ".skillset/plugins/alpha/skillset.yaml",
+  });
 
   const binFileRoot = await contractFixture({
     ".skillset/config.yaml": `
@@ -4470,7 +4550,12 @@ description: Demo.
 Body.
 `,
   });
-  await expect(buildSkillset(binFileRoot)).rejects.toThrow("feature bin source must be a directory");
+  await expectFeatureDiagnosticError(buildSkillset(binFileRoot), {
+    code: "plugin-bin-invalid",
+    featureId: "plugin-bin",
+    message: expect.stringContaining("feature bin source must be a directory"),
+    path: ".skillset/plugins/alpha/skillset.yaml",
+  });
 });
 
 test("SET-26: mcp feature sources are validated as JSON", async () => {
@@ -5418,6 +5503,11 @@ See the [guide](shared:references/guide.md).
 `,
   });
 
+  const lintReport = await inspectSkillset(await loadBuildGraph(root));
+  expect(lintReport.issues).toContainEqual(expect.objectContaining({
+    code: "resource-undeclared-link",
+    featureId: "resources",
+  }));
   await expect(lintSkillset(root)).rejects.toThrow("links to undeclared resource shared:references/guide.md");
   await expect(lintSkillset(root)).rejects.toThrow("resources: { references: [shared:references/guide.md] }");
 });
