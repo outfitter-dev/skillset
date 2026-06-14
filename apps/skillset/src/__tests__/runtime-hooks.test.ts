@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -63,6 +63,25 @@ test("runtime hook command resolver honors overrides and local compiler checkout
 
   expect(await resolveSkillsetCommand(root, {})).toEqual({
     argv: ["bun", "./apps/skillset/src/cli.ts"],
+    kind: "argv",
+  });
+});
+
+test("runtime hook command resolver falls back to stable package runners", async () => {
+  await expect(resolveWithPath(["skillset"])).resolves.toEqual({
+    argv: ["skillset"],
+    kind: "argv",
+  });
+  await expect(resolveWithPath(["bunx"])).resolves.toEqual({
+    argv: ["bunx", "skillset"],
+    kind: "argv",
+  });
+  await expect(resolveWithPath(["bun"])).resolves.toEqual({
+    argv: ["bun", "x", "skillset"],
+    kind: "argv",
+  });
+  await expect(resolveWithPath(["npx"])).resolves.toEqual({
+    argv: ["npx", "--yes", "skillset"],
     kind: "argv",
   });
 });
@@ -243,4 +262,17 @@ async function runGit(root: string, ...args: readonly string[]): Promise<void> {
   if (exitCode !== 0) {
     throw new Error(`git ${args.join(" ")} failed (${exitCode})\n${stdout}${stderr}`);
   }
+}
+
+async function resolveWithPath(commands: readonly string[]) {
+  const root = await mkdtemp(join(tmpdir(), "skillset-hooks-path-"));
+  const binDir = join(root, "bin");
+  await mkdir(binDir, { recursive: true });
+  for (const command of commands) {
+    const binPath = join(binDir, command);
+    await writeFile(binPath, "#!/bin/sh\nexit 0\n");
+    await chmod(binPath, 0o755);
+  }
+
+  return resolveSkillsetCommand(root, { PATH: binDir });
 }

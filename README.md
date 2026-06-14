@@ -2,7 +2,7 @@
 
 `skillset` compiles portable agent plugin and skill source into target-native Claude and Codex outputs.
 
-It is developed as public source under Outfitter. The npm package is published under the `beta` tag while the compiler contract is still settling; `latest` remains reserved for stable releases.
+It is developed as public source under Outfitter. The npm package now publishes stable releases under `latest`; prerelease channels such as `beta` should be explicit when used.
 
 This repo also self-hosts a small `.skillset/` source tree:
 
@@ -111,7 +111,7 @@ skillset create team-loadout --name team-loadout --targets claude,codex --yes
 
 `create` is the new-repo entrypoint. The current flow writes the same minimal source scaffold into a new directory. SET-54 tracks the richer create-project experience: initialize Git, add a README and lightweight agent guidance, provide starter source files, and eventually offer reviewed Claude/Codex configuration suggestions while still avoiding implicit live runtime config mutation.
 
-For a user-global source checkout, `skillset create --global` defaults to `~/.skillset/src`. This is still Skillset-owned source, not a live Claude or Codex runtime directory. The corresponding preview/build area is documented as `~/.skillset/build`, but setup does not create it or write to `~/.claude`, `~/.codex`, or `.agents`. The beta package requires Bun and ships Bun-built JavaScript bins for `skillset` and `create-skillset`; it can be run through package managers with commands such as `npx skillset@beta create` or `bunx skillset@beta create`. Setup still routes through the same plan-first `create` flow.
+For a user-global source checkout, `skillset create --global` defaults to `~/.skillset/src`. This is still Skillset-owned source, not a live Claude or Codex runtime directory. The corresponding preview/build area is documented as `~/.skillset/build`, but setup does not create it or write to `~/.claude`, `~/.codex`, or `.agents`. The published package requires Bun and ships Bun-built JavaScript bins for `skillset` and `create-skillset`; stable releases run from the default npm dist-tag with commands such as `npx skillset create` or `bunx skillset create`. Prerelease builds remain available through their explicit tag, such as `skillset@beta`. Setup still routes through the same plan-first `create` flow.
 
 Setup commands create only source files: `.skillset/config.yaml`, `.skillset/src/.gitkeep`, optional `.skillset/src/agents/` placeholders with `--include agents`, and an optional user-owned GitHub Actions workflow with `--include ci`. The generated config uses `compile.targets`; target adapter config still belongs in `claude` and `codex` blocks or root `defaults.<target>.<surface>`.
 

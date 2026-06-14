@@ -29,6 +29,8 @@ bun run skillset:build
 bun run skillset:lint
 bun run skillset:check
 bun run skillset:ci
+bun run changeset:status
+bun run publish:check
 bun run hooks:install
 bun run hooks:pre-push
 bun run ultracite:doctor
@@ -39,6 +41,8 @@ bun run check
 ```
 
 `bun run skillset:ci` is the same aggregate check GitHub Actions runs (`.github/workflows/ci.yml`): lint, change-entry coverage, and generated drift. Pass `--fix` to rebuild stale generated output mechanically. Content repos scaffold the equivalent workflow with `skillset init --include ci`.
+
+Package releases are GitHub Actions-owned. Use Changesets for package-facing changes, and use `bun run publish:check` as a local dry-run preflight. Do not run `bun run publish:packages` locally unless the maintainer explicitly chooses a release recovery path.
 
 `lefthook.yml` is the single source of truth for the local gates. `bun run hooks:install` installs them as git hooks; `bun run hooks:pre-push` runs the full pre-push gate anywhere (push-range whitespace, workflow lint when `actionlint` is available, `bun run check`, and the self-hosted `skillset ci` report scoped to the remote trunk). Push-range gates resolve the trunk via `scripts/git-trunk.sh` (`origin/HEAD`, typically `origin/main`).
 
