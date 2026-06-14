@@ -35,7 +35,7 @@ skillset build --yes
 | `compile.build: all` | rewrites selected output roots | detect drift | explain full plan | `implemented` | CLI `--all` overrides config and records the resolved mode in lock metadata. |
 | `--scope repo/plugins/project/user/all` | destination filtering | destination filtering | destination filtering | `implemented` | Scope is about destinations, not arbitrary feature sets. `repo` covers standalone generated skill roots, `plugins` covers generated plugin repos, `project` covers project guidance/agents/native islands, and `user` is reserved with no build outputs today. |
 | `skillset diff` | no writes | n/a | added/changed/missing/removed diff | `implemented` | Missing locked outputs are shown separately from new generated outputs. |
-| `skillset explain <path>` | n/a | n/a | source/generated provenance | `implemented` | Explain resolves lock provenance for current generated outputs. |
+| `skillset explain <path>` | n/a | n/a | source/generated provenance and matching lowering outcomes | `implemented` | Explain resolves lock provenance for current generated outputs, and `--json` includes full outcome records. |
 | `skillset list` | n/a | n/a | lock-backed inventory | `implemented` | Lists current generated lock entries today, including target-native islands and project agents. |
 
 ## Target Lowering
@@ -50,7 +50,7 @@ User/global destinations require the most conservative posture. `skillset build`
 - Dry-run commands must never write generated files, locks, target config, or user-level settings.
 - Missing managed outputs are reported with `!` in `diff`/build plans and as `missing managed generated file` in `check`.
 - Scope/entity selectors should fail on unknown scopes or ambiguous entity selectors rather than guessing.
-- Diff/list/explain should make skipped, future, unsupported, and target-native states visible.
+- Diff/list/explain should make skipped, future, unsupported, and target-native states visible. Explain and doctor read lowering outcomes so degraded or unsupported facts do not require hand-reading target files.
 
 ## Provenance
 

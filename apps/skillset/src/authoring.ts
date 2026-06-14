@@ -1,7 +1,11 @@
 import { resolve, relative } from "node:path";
 
-import { diffSkillset, scopedRenderedFiles, type SkillsetDiff } from "./build";
+import { SkillsetLoweringError, type SkillsetLoweringOutcome } from "@skillset/core";
+import { collectLoweringOutcomes } from "@skillset/core/internal/lowering-outcome-collector";
+
+import { diffSkillsetResult, scopedRenderedFiles, type SkillsetDiff } from "./build";
 import { inspectSkillset } from "./lint";
+import { compareStrings } from "./path";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
 import type { BuildGraph, GeneratedEntry, LintIssue, SkillsetOptions, SourceOrigin } from "./types";
@@ -21,6 +25,7 @@ export type ExplainKind =
 export interface ExplainResult {
   readonly entries: readonly GeneratedEntry[];
   readonly kind: ExplainKind;
+  readonly loweringOutcomes: readonly SkillsetLoweringOutcome[];
   readonly notes: readonly string[];
   readonly path: string;
 }
@@ -36,7 +41,12 @@ export async function explainPath(
   options: SkillsetOptions = {}
 ): Promise<ExplainResult> {
   const graph = await loadBuildGraph(rootPath, options);
-  const rendered = scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes);
+  const allRendered = await renderBuildGraph(graph);
+  const rendered = scopedRenderedFiles(graph, allRendered, options.scopes);
+  const loweringOutcomes = collectLoweringOutcomes(graph, allRendered, {
+    includedPaths: new Set(rendered.map((file) => file.path)),
+    scopes: options.scopes,
+  });
   const target = normalizeRepoPath(rootPath, inputPath);
   const items = collectLockItems(rendered);
 
@@ -46,6 +56,7 @@ export async function explainPath(
       path: target,
       kind: explainSourceKind(graph, target),
       entries: asSource.map((item) => item.entry),
+      loweringOutcomes: explainLoweringOutcomes(target, asSource, loweringOutcomes),
       notes: sourceNotes(graph, target),
     };
   }
@@ -60,6 +71,9 @@ export async function explainPath(
       path: target,
       kind: "generated",
       entries: asGenerated.map((item) => item.entry),
+      loweringOutcomes: explainLoweringOutcomes(target, asGenerated, loweringOutcomes, {
+        includeSourcePaths: false,
+      }),
       notes: [`Generated output; rebuild with skillset build, verify with skillset check.`],
     };
   }
@@ -72,6 +86,7 @@ export async function explainPath(
       path: target,
       kind: "source-plugin",
       entries: prefixMatch.map((item) => item.entry),
+      loweringOutcomes: explainLoweringOutcomes(target, prefixMatch, loweringOutcomes),
       notes: [`Matched ${prefixMatch.length} generated entries under this source path.`],
     };
   }
@@ -80,6 +95,7 @@ export async function explainPath(
     path: target,
     kind: "unknown",
     entries: [],
+    loweringOutcomes: [],
     notes: [
       `No lock entry references ${target}. Pass a source path under ${graph.sourceDir}/ or a generated output path.`,
     ],
@@ -99,6 +115,8 @@ export interface DoctorReport {
   readonly buildError?: string;
   readonly drift: SkillsetDiff;
   readonly lintIssues: readonly LintIssue[];
+  readonly loweringOutcomes: readonly SkillsetLoweringOutcome[];
+  readonly notableLoweringOutcomes: readonly SkillsetLoweringOutcome[];
   readonly ok: boolean;
   readonly warnings: readonly string[];
 }
@@ -116,24 +134,45 @@ export async function doctorSkillset(
   rootPath: string,
   options: SkillsetOptions = {}
 ): Promise<DoctorReport> {
-  const graph = await loadBuildGraph(rootPath, options);
+  let graph: BuildGraph;
+  try {
+    graph = await loadBuildGraph(rootPath, options);
+  } catch (error) {
+    const loweringOutcomes = loweringOutcomesFromError(error);
+    return {
+      buildError: errorMessage(error),
+      drift: { added: [], changed: [], missing: [], removed: [] },
+      lintIssues: [],
+      loweringOutcomes,
+      notableLoweringOutcomes: notableLoweringOutcomes(loweringOutcomes),
+      ok: false,
+      warnings: [],
+    };
+  }
   const lint = await inspectSkillset(graph);
 
   let drift: SkillsetDiff = { added: [], changed: [], missing: [], removed: [] };
   let buildError: string | undefined;
+  let loweringOutcomes: readonly SkillsetLoweringOutcome[] = [];
   try {
-    drift = await diffSkillset(rootPath, options);
+    const diff = await diffSkillsetResult(rootPath, options);
+    drift = diff.data;
+    loweringOutcomes = diff.loweringOutcomes;
   } catch (error) {
-    buildError = error instanceof Error ? error.message : String(error);
+    buildError = errorMessage(error);
+    loweringOutcomes = loweringOutcomesFromError(error);
   }
 
   const hasDrift =
     drift.added.length > 0 || drift.changed.length > 0 || drift.missing.length > 0 || drift.removed.length > 0;
+  const notable = notableLoweringOutcomes(loweringOutcomes);
 
   return {
     ...(buildError === undefined ? {} : { buildError }),
     drift,
     lintIssues: lint.issues,
+    loweringOutcomes,
+    notableLoweringOutcomes: notable,
     ok: lint.issues.length === 0 && !hasDrift && buildError === undefined,
     warnings: graph.warnings,
   };
@@ -145,6 +184,72 @@ interface LockItemMatch {
   readonly outputPath: string;
   readonly outputRoot: string;
   readonly sourcePath: string;
+}
+
+function explainLoweringOutcomes(
+  target: string,
+  items: readonly LockItemMatch[],
+  outcomes: readonly SkillsetLoweringOutcome[],
+  options: { readonly includeSourcePaths?: boolean } = {}
+): readonly SkillsetLoweringOutcome[] {
+  const includeSourcePaths = options.includeSourcePaths !== false;
+  const itemSourcePaths = new Set(items.map((item) => item.sourcePath));
+  const itemOutputPaths = new Set(items.flatMap((item) => [
+    item.outputPath,
+    ...item.files.map((file) => joinOutputRoot(item.outputRoot, file)),
+  ]));
+  const seen = new Set<string>();
+  const matched: SkillsetLoweringOutcome[] = [];
+  for (const outcome of outcomes) {
+    const sourcePath = outcome.sourcePath;
+    const outputPaths = outcome.outputs?.map((output) => output.path) ?? [];
+    const matchesSource = includeSourcePaths &&
+      (
+        sourcePath === target ||
+        (sourcePath !== undefined && sourcePath.startsWith(`${target}/`)) ||
+        itemSourcePaths.has(sourcePath ?? "")
+      );
+    if (
+      !matchesSource &&
+      !outputPaths.includes(target) &&
+      !outputPaths.some((path) => itemOutputPaths.has(path))
+    ) {
+      continue;
+    }
+    const key = `${outcome.sourceUnit}\0${outcome.target ?? ""}\0${outcome.featureId}\0${outcome.status}\0${sourcePath ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    matched.push(outcome);
+  }
+  return matched;
+}
+
+function notableLoweringOutcomes(
+  outcomes: readonly SkillsetLoweringOutcome[]
+): readonly SkillsetLoweringOutcome[] {
+  return outcomes
+    .filter((outcome) =>
+      outcome.status === "degraded" ||
+      outcome.status === "externally_managed" ||
+      outcome.status === "failed" ||
+      outcome.status === "intentionally_skipped" ||
+      outcome.status === "lossy" ||
+      outcome.status === "unsupported"
+    )
+    .sort((left, right) =>
+      compareStrings(
+        `${left.target ?? "workspace"}\0${left.sourceUnit}\0${left.featureId}\0${left.status}`,
+        `${right.target ?? "workspace"}\0${right.sourceUnit}\0${right.featureId}\0${right.status}`
+      )
+    );
+}
+
+function loweringOutcomesFromError(error: unknown): readonly SkillsetLoweringOutcome[] {
+  return error instanceof SkillsetLoweringError ? error.loweringOutcomes : [];
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuildGraph>>): readonly LockItemMatch[] {

@@ -26,8 +26,9 @@ import { lintSkillset } from "./lint";
 import { applyRelease, planRelease, type ReleasePlanReport, type ReleaseSubcommand } from "./release";
 import { createSkillset, initSkillset, type SetupInclude, type SetupReport } from "./setup";
 import { sourceUnitDisplay, sourceUnitDisplays, sourceUnitSelector } from "./source-unit-selector";
+import { renderValidatedJson } from "./structured-output";
 import { runSkillsetTest, type SkillsetTestReport } from "./test-runner";
-import type { BuildScope, CompileBuildMode, SkillsetOptions, SourceOrigin, TargetName } from "./types";
+import type { BuildScope, CompileBuildMode, JsonRecord, SkillsetOptions, SourceOrigin, TargetName } from "./types";
 
 type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "diff" | "distribute" | "doctor" | "explain" | "hooks" | "import" | "init" | "lint" | "list" | "release" | "restore" | "test";
 type DistributionSubcommand = "plan";
@@ -35,7 +36,8 @@ type DistributionSubcommand = "plan";
 const USAGE = [
   "usage: skillset build [--yes|--dry-run] [--updated|--all] [--isolated] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset <check|diff> [--updated|--all] [--isolated] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
-  "       skillset <doctor|lint|list> [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset <lint|list> [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset doctor [--json] [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset ci [--fix] [--since <ref>] [--report <path>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change status [--since <ref>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change check [@ref|--ref <ref>] [--since <ref>] [--root <path>] [--source <dir>] [--dist <dir>]",
@@ -55,7 +57,7 @@ const USAGE = [
   "       skillset adopt <path> [--yes|--dry-run] [--targets claude,codex] [--root <path>]",
   "       skillset init [path] [--yes|--dry-run] [--targets claude,codex] [--include agents,ci] [--name <name>] [--root <path>]",
   "       skillset create [path|--global] [--yes|--dry-run] [--targets claude,codex] [--include agents,ci] [--name <name>] [--root <path>]",
-  "       skillset explain <path> [--root <path>] [--source <dir>]",
+  "       skillset explain <path> [--json] [--scope <scope>] [--root <path>] [--source <dir>]",
   "       skillset import <path> [--kind <skill|skills|plugin|plugins>] [--from <provider>] [--name <name>] [--root <path>] [--source <dir>]",
   "       skillset import <claude|codex|agents> [--root <path>] [--source <dir>]",
 ].join("\n");
@@ -95,6 +97,7 @@ export async function runCli(
     importPath,
     importName,
     importProvider,
+    jsonOutput,
     options,
     rootPath,
     rootExplicit,
@@ -383,6 +386,11 @@ export async function runCli(
       throw new Error("skillset: expected a path to explain");
     }
     const result = await explainPath(rootPath, importPath, options);
+    if (jsonOutput) {
+      process.stdout.write(renderValidatedJson(result as unknown as JsonRecord, "skillset explain"));
+      if (result.kind === "unknown") process.exitCode = 1;
+      return;
+    }
     console.log(`skillset: ${result.path} (${result.kind})`);
     for (const entry of result.entries) {
       console.log(`  [${entry.target}] ${entry.sourcePath} -> ${entry.outputPath}`);
@@ -407,6 +415,9 @@ export async function runCli(
       if (entry.sourceHash !== undefined) console.log(`    source hash: ${entry.sourceHash}`);
       if (entry.outputHash !== undefined) console.log(`    output hash: ${entry.outputHash}`);
     }
+    for (const outcome of result.loweringOutcomes) {
+      printLoweringOutcome(outcome);
+    }
     for (const note of result.notes) console.log(`  note: ${note}`);
     if (result.kind === "unknown") process.exitCode = 1;
     return;
@@ -416,6 +427,11 @@ export async function runCli(
     // doctorSkillset carries source warnings in the structured report; the CLI
     // renders them below instead of relying on core operations to print.
     const report = await doctorSkillset(rootPath, options);
+    if (jsonOutput) {
+      process.stdout.write(renderValidatedJson(report as unknown as JsonRecord, "skillset doctor"));
+      if (!report.ok) process.exitCode = 1;
+      return;
+    }
     for (const issue of report.lintIssues) {
       console.log(`  lint ${issue.severity}: ${issue.path}: ${issue.code}: ${issue.message}`);
     }
@@ -430,13 +446,25 @@ export async function runCli(
         `  drift: ${added.length} added, ${changed.length} changed, ${missing.length} missing, ${removed.length} removed (run skillset build --yes)`
       );
     }
+    for (const outcome of report.notableLoweringOutcomes) {
+      printLoweringOutcome(outcome);
+    }
     if (report.ok) {
-      console.log("skillset: doctor found no problems");
+      if (report.notableLoweringOutcomes.length === 0) {
+        console.log("skillset: doctor found no problems");
+      } else {
+        console.log(
+          `skillset: doctor found ${report.notableLoweringOutcomes.length} lowering outcome advisor${report.notableLoweringOutcomes.length === 1 ? "y" : "ies"}`
+        );
+      }
     } else {
       const problems: string[] = [];
       if (report.lintIssues.length > 0) problems.push(`${report.lintIssues.length} lint issue(s)`);
       if (driftCount > 0) problems.push("generated-output drift");
       if (report.buildError !== undefined) problems.push("a build error");
+      if (report.notableLoweringOutcomes.length > 0) {
+        problems.push(`${report.notableLoweringOutcomes.length} lowering outcome advisor${report.notableLoweringOutcomes.length === 1 ? "y" : "ies"}`);
+      }
       console.log(`skillset: doctor found ${problems.join(" and ")}`);
       process.exitCode = 1;
     }
@@ -480,6 +508,7 @@ interface ParsedArgs {
   readonly importName?: string;
   readonly importPath?: string;
   readonly importProvider?: ImportProvider;
+  readonly jsonOutput: boolean;
   readonly options: SkillsetOptions;
   readonly releaseSubcommand?: ReleaseSubcommand;
   readonly rootExplicit: boolean;
@@ -823,6 +852,30 @@ function printSkillsetTest(report: SkillsetTestReport): void {
   if (report.activationPath !== undefined) console.log(`  activation: ${report.activationPath}`);
 }
 
+function printLoweringOutcome(outcome: {
+  readonly diagnostics?: readonly { readonly code: string; readonly path?: string }[];
+  readonly featureId: string;
+  readonly outputs?: readonly { readonly path: string }[];
+  readonly policy?: string;
+  readonly reason?: string;
+  readonly sourceUnit: string;
+  readonly status: string;
+  readonly target?: string;
+}): void {
+  const target = outcome.target ?? "workspace";
+  const policy = outcome.policy === undefined ? "" : ` policy: ${outcome.policy}`;
+  const reason = outcome.reason === undefined ? "" : ` reason: ${outcome.reason}`;
+  console.log(`  lowering [${target}] ${outcome.sourceUnit}: ${outcome.featureId} ${outcome.status}${policy}${reason}`);
+  if (outcome.outputs !== undefined && outcome.outputs.length > 0) {
+    console.log(`    outputs: ${outcome.outputs.map((output) => output.path).join(", ")}`);
+  }
+  if (outcome.diagnostics !== undefined && outcome.diagnostics.length > 0) {
+    console.log(
+      `    diagnostics: ${outcome.diagnostics.map((diagnostic) => `${diagnostic.code}${diagnostic.path === undefined ? "" : ` ${diagnostic.path}`}`).join(", ")}`
+    );
+  }
+}
+
 function parseArgs(args: readonly string[]): ParsedArgs {
   const command = args[0];
   if (
@@ -875,6 +928,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let importName: string | undefined;
   let importPath: string | undefined;
   let importProvider: ImportProvider | undefined;
+  let jsonOutput = false;
   let rootPath = process.cwd();
   let rootExplicit = false;
   let sourceDir: string | undefined;
@@ -1023,6 +1077,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--include" &&
       flag !== "--fix" &&
       flag !== "--report" &&
+      flag !== "--json" &&
       flag !== "--runner" &&
       flag !== "--target" &&
       flag !== "--agent-runtime" &&
@@ -1042,6 +1097,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag === "--staged" ||
       flag === "--global" ||
       flag === "--fix" ||
+      flag === "--json" ||
       flag === "--agent-runtime" ||
       flag === "--pre-commit" ||
       flag === "--pre-push"
@@ -1056,6 +1112,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       if (flag === "--staged") changeStaged = true;
       if (flag === "--global") setupGlobal = true;
       if (flag === "--fix") ciFix = true;
+      if (flag === "--json") jsonOutput = true;
       if (flag === "--agent-runtime") hookAgentRuntime = true;
       if (flag === "--pre-commit") hookPreCommit = true;
       if (flag === "--pre-push") hookPrePush = true;
@@ -1162,6 +1219,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(buildMode === undefined ? {} : { buildMode }),
     ...(scopes === undefined ? {} : { scopes }),
   });
+  validateJsonFlags(command, jsonOutput);
 
   validateIsolatedFlag(command, isolated);
   validateDistributionFlags(command, {
@@ -1228,6 +1286,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(importName === undefined ? {} : { importName }),
     ...(importPath === undefined ? {} : { importPath }),
     ...(importProvider === undefined ? {} : { importProvider }),
+    jsonOutput,
     options,
     ...(releaseSubcommand === undefined ? {} : { releaseSubcommand }),
     rootExplicit,
@@ -1568,6 +1627,12 @@ function validateAdoptFlags(
       "skillset: build mode and scope flags are not supported with adopt; adoption always builds the full projection isolated"
     );
   }
+}
+
+function validateJsonFlags(command: Command, jsonOutput: boolean): void {
+  if (!jsonOutput) return;
+  if (command === "doctor" || command === "explain") return;
+  throw new Error("skillset: --json is only supported with doctor or explain");
 }
 
 function isImportKind(value: string): value is ImportKind {

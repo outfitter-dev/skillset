@@ -12,7 +12,7 @@ See [Lowering Outcomes and Loss Ledger](../adrs/drafts/20260614-lowering-outcome
 
 ## Current Boundary
 
-The current core schema is `skillset-lowering-outcome@1`. Outcome records are produced by `@skillset/core` and are persisted in structured operation results, generated `.skillset.lock` files, and adopt reports. Future `doctor`, `explain`, and adapter conformance surfaces should read the same ledger instead of inventing parallel diagnostics. Outcomes are not written into ordinary generated `SKILL.md`, `CLAUDE.md`, `AGENTS.md`, plugin manifest, hook, MCP, app, or resource files by default.
+The current core schema is `skillset-lowering-outcome@1`. Outcome records are produced by `@skillset/core` and are persisted in structured operation results, generated `.skillset.lock` files, adopt reports, and the `doctor` / `explain` JSON surfaces. Future adapter conformance surfaces should read the same ledger instead of inventing parallel diagnostics. Outcomes are not written into ordinary generated `SKILL.md`, `CLAUDE.md`, `AGENTS.md`, plugin manifest, hook, MCP, app, or resource files by default.
 
 | Field | Meaning |
 | --- | --- |
@@ -80,12 +80,14 @@ The default posture is error. `warn`, `skip`, and `force` are reserved escape ha
 - Unsupported and lossy lowering should fail by default for enabled targets unless a scoped opt-out or explicit unsupported policy applies.
 - Degraded outcomes should remain visible because they represent useful but weaker behavior.
 - Skipped outcomes need policy provenance so a clean build is not confused with silent omission.
-- Explain and doctor output should eventually summarize outcomes by source unit, feature id, target, status, and policy.
+- Explain output summarizes matching outcomes by source unit, feature id, target, status, policy, reason, outputs, and diagnostics. Explaining a source path can show every target outcome for that source; explaining a generated path stays scoped to the generated output's target.
+- Doctor output summarizes non-happy-path outcomes such as degraded, lossy, unsupported, externally managed, skipped, and failed outcomes without dumping every emitted file by default.
+- `skillset explain --json` and `skillset doctor --json` include full outcome records for agents and automation.
 - Adapter conformance tests should compare feature-registry support rows with produced outcomes or lowering errors.
 
 ## Provenance
 
-Outcome provenance belongs in structured operation results, generated `.skillset.lock` files, and `.skillset/build/adopt/report.json` today. Adopt Markdown reports render a compact count summary and point readers at the structured JSON and isolated lockfiles. Generated target files stay clean by default. Debug sentinels or source markers in target files are a future opt-in, not a default generated-output contract.
+Outcome provenance belongs in structured operation results, generated `.skillset.lock` files, `.skillset/build/adopt/report.json`, `skillset explain --json`, and `skillset doctor --json` today. Adopt Markdown reports and doctor/explain text output render compact summaries and point readers at structured records when more detail is needed. Generated target files stay clean by default. Debug sentinels or source markers in target files are a future opt-in, not a default generated-output contract.
 
 ## Evidence
 

@@ -5035,15 +5035,24 @@ Body.
   const source = await explainPath(root, ".skillset/skills/demo/SKILL.md");
   expect(source.kind).toBe("source-skill");
   expect(source.entries.length).toBeGreaterThan(0);
+  expect(source.loweringOutcomes).toContainEqual(
+    expect.objectContaining({
+      featureId: "standalone-skills",
+      status: "emitted",
+      target: "claude",
+    })
+  );
   expect(source.notes.join("\n")).toContain("claude");
 
   const generated = await explainPath(root, ".claude/skills/demo/SKILL.md");
   expect(generated.kind).toBe("generated");
   expect(generated.entries[0]?.sourcePath).toBe(".skillset/skills/demo/SKILL.md");
   expect(generated.entries[0]?.sourceHash).toBeDefined();
+  expect(generated.loweringOutcomes[0]?.status).toBe("emitted");
 
   const unknown = await explainPath(root, "nope/missing.md");
   expect(unknown.kind).toBe("unknown");
+  expect(unknown.loweringOutcomes).toEqual([]);
 });
 
 test("SET-9: doctor aggregates lint issues and drift, and passes when clean", async () => {
@@ -5091,6 +5100,123 @@ See the [guide](shared:references/guide.md).
   expect(badReport.ok).toBe(false);
   expect(badReport.lintIssues.some((issue) => issue.code === "resource-undeclared-link")).toBe(true);
   expect(badReport.buildError).toContain("undeclared shared resource");
+});
+
+test("SET-83: explain and doctor surface lowering outcomes in text and JSON", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: outcome-root
+claude: true
+codex: true
+`,
+    ".skillset/plugins/audit/skillset.yaml": `
+skillset:
+  name: audit
+dependencies:
+  plugins:
+    - name: external-tools
+      range: "^2.1.0"
+`,
+    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
+---
+name: audit-skill
+description: Audit skill.
+---
+
+Audit body.
+`,
+  });
+  await buildSkillset(root);
+
+  const explained = await runSkillsetCli(
+    "explain",
+    "plugins-codex/plugins/audit/skills/audit-skill/SKILL.md",
+    "--root",
+    root
+  );
+  expect(explained.exitCode).toBe(0);
+  expect(explained.stdout).toContain("lowering [codex] plugin.audit.skill:audit-skill: plugin-skills emitted");
+  expect(explained.stdout).not.toContain("lowering [claude] plugin.audit.skill:audit-skill");
+
+  const explainedJson = await runSkillsetCli(
+    "explain",
+    ".skillset/plugins/audit",
+    "--root",
+    root,
+    "--json"
+  );
+  expect(explainedJson.exitCode).toBe(0);
+  const explainReport = JSON.parse(explainedJson.stdout) as {
+    loweringOutcomes: readonly { featureId: string; status: string; target?: string }[];
+  };
+  expect(explainReport.loweringOutcomes).toContainEqual(
+    expect.objectContaining({
+      featureId: "dependencies",
+      status: "degraded",
+      target: "codex",
+    })
+  );
+
+  const doctor = await runSkillsetCli("doctor", "--root", root);
+  expect(doctor.exitCode).toBe(0);
+  expect(doctor.stdout).toContain("lowering [codex] plugin.audit.feature:dependencies: dependencies degraded");
+  expect(doctor.stdout).toContain("doctor found 1 lowering outcome advisory");
+
+  const doctorJson = await runSkillsetCli("doctor", "--root", root, "--json");
+  expect(doctorJson.exitCode).toBe(0);
+  const doctorReport = JSON.parse(doctorJson.stdout) as {
+    loweringOutcomes: readonly { featureId: string; status: string; target?: string }[];
+    notableLoweringOutcomes: readonly { featureId: string; status: string; target?: string }[];
+  };
+  expect(doctorReport.loweringOutcomes.length).toBeGreaterThan(0);
+  expect(doctorReport.notableLoweringOutcomes).toEqual([
+    expect.objectContaining({
+      featureId: "dependencies",
+      status: "degraded",
+      target: "codex",
+    }),
+  ]);
+
+  const misplacedJson = await runSkillsetCli("list", "--json");
+  expect(misplacedJson.exitCode).toBe(1);
+  expect(misplacedJson.stderr).toContain("--json is only supported with doctor or explain");
+});
+
+test("SET-83: doctor reports lowering outcomes from unsupported build errors", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: unsupported-outcome-root
+claude: true
+codex: true
+`,
+    ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+`,
+    ".skillset/plugins/tools/bin/run": "#!/usr/bin/env bash\n",
+    ".skillset/plugins/tools/skills/tool/SKILL.md": `
+---
+name: tool
+description: Tool skill.
+---
+
+Tool body.
+`,
+  });
+
+  const report = await doctorSkillset(root);
+  expect(report.ok).toBe(false);
+  expect(report.buildError).toContain("feature bin is Claude-only");
+  expect(report.notableLoweringOutcomes).toContainEqual(
+    expect.objectContaining({
+      featureId: "plugin-bin",
+      policy: "unsupported:error",
+      status: "unsupported",
+      target: "codex",
+    })
+  );
 });
 
 async function goldenPluginFixture(): Promise<string> {
