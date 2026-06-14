@@ -3,6 +3,7 @@ import { dirname, join, relative } from "node:path";
 
 import { compareStrings, resolveInside } from "./path";
 import { collectLoweringOutcomes } from "./lowering-outcome-collector";
+import { enforceLoweringOutcomePolicy } from "./lowering-policy";
 import {
   diagnoseOutputBackupPreflight,
   prepareOutputBackups,
@@ -100,6 +101,7 @@ export async function buildSkillsetResult(
     mapOutputPath: outPath,
     scopes: options.scopes,
   });
+  enforceLoweringOutcomePolicy(loweringOutcomes, graph.root.compile.unsupported);
   const rendered = withPersistedLoweringOutcomes(
     mirroredRenderedFiles(scopedRendered, outPath),
     loweringOutcomes
@@ -167,6 +169,7 @@ export async function diffSkillsetResult(
     mapOutputPath: outPath,
     scopes: options.scopes,
   });
+  enforceLoweringOutcomePolicy(loweringOutcomes, graph.root.compile.unsupported);
   const rendered = withPersistedLoweringOutcomes(
     mirroredRenderedFiles(scopedRendered, outPath),
     loweringOutcomes
@@ -248,6 +251,7 @@ export async function checkSkillsetResult(
     mapOutputPath: outPath,
     scopes: options.scopes,
   });
+  enforceLoweringOutcomePolicy(loweringOutcomes, graph.root.compile.unsupported);
   const rendered = withPersistedLoweringOutcomes(
     mirroredRenderedFiles(scopedRendered, outPath),
     loweringOutcomes

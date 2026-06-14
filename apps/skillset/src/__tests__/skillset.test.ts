@@ -1052,7 +1052,8 @@ Alpha body.
 `,
   });
 
-  await expect(loadBuildGraph(root)).rejects.toThrow("Codex plugins do not support plugin agents in v1");
+  await expect(buildSkillset(root)).rejects.toThrow("codex plugin-agents unsupported");
+  await expect(buildSkillset(root)).rejects.toThrow("Codex plugin documentation does not include a plugin agents component.");
 });
 
 test("build copies declared shared resources into generated skill folders", async () => {

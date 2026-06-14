@@ -321,7 +321,7 @@ function unsupportedPluginFeatureOutcomes(
         defineLoweringOutcome({
           ...(evidence === undefined ? {} : { evidence }),
           featureId,
-          policy: "unsupported:skip",
+          policy: "unsupported:error",
           reason: requiredReasonForStatus(featureId, "codex", "unsupported"),
           sourcePath: normalizePath(relative(graph.rootPath, feature.sourcePath)),
           sourceUnit: selectorForPluginFeature(plugin.id, feature.key),
@@ -339,7 +339,7 @@ function unsupportedPluginFeatureOutcomes(
       defineLoweringOutcome({
         ...(evidence === undefined ? {} : { evidence }),
         featureId,
-        policy: "unsupported:skip",
+        policy: "unsupported:error",
         reason: requiredReasonForStatus(featureId, "codex", "unsupported"),
         sourcePath: `${pluginPath}/agents`,
         sourceUnit: selectorForPluginFeature(plugin.id, "agents"),

@@ -31,9 +31,9 @@
       ],
       "kind": "standalone-skill",
       "name": "skillset-codex-development",
-      "outputHash": "sha256:20c4ce9d01fc4d90db2fda3e5c415792d7a968549515dbc9cdcf267fda3d79ef",
+      "outputHash": "sha256:94ffce7c3b0a7364e4b6e32a8bbf3164257e832dc7bf874491ce40c23357a3bc",
       "outputPath": "skillset-codex-development/SKILL.md",
-      "sourceHash": "sha256:35d477bd6e96df58703a8da9ffdc30162b83556ae3d4bbf32c1b135a71f97dff",
+      "sourceHash": "sha256:e6e1388885046a0a7d96ae594accd0e91a94d424bee1dcd2f9de5919cee35408",
       "sourcePath": ".skillset/skills/skillset-codex-development/SKILL.md",
       "version": "0.1.1"
     },
