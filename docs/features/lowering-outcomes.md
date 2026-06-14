@@ -12,7 +12,7 @@ See [Lowering Outcomes and Loss Ledger](../adrs/drafts/20260614-lowering-outcome
 
 ## Current Boundary
 
-The current core schema is `skillset-lowering-outcome@1`. Outcome records are produced by `@skillset/core` and are intended for build results, future lock/report surfaces, `doctor`, `explain`, and adapter conformance tests. They are not written into ordinary generated `SKILL.md`, `CLAUDE.md`, `AGENTS.md`, plugin manifest, hook, MCP, app, or resource files by default.
+The current core schema is `skillset-lowering-outcome@1`. Outcome records are produced by `@skillset/core` and are persisted in structured operation results, generated `.skillset.lock` files, and adopt reports. Future `doctor`, `explain`, and adapter conformance surfaces should read the same ledger instead of inventing parallel diagnostics. Outcomes are not written into ordinary generated `SKILL.md`, `CLAUDE.md`, `AGENTS.md`, plugin manifest, hook, MCP, app, or resource files by default.
 
 | Field | Meaning |
 | --- | --- |
@@ -85,7 +85,7 @@ The default posture is error. `warn`, `skip`, and `force` are reserved escape ha
 
 ## Provenance
 
-Outcome provenance belongs in structured operation results today and future `.skillset.lock`, reports, `doctor`, and `explain` surfaces. Generated target files stay clean by default. Debug sentinels or source markers in target files are a future opt-in, not a default generated-output contract.
+Outcome provenance belongs in structured operation results, generated `.skillset.lock` files, and `.skillset/build/adopt/report.json` today. Adopt Markdown reports render a compact count summary and point readers at the structured JSON and isolated lockfiles. Generated target files stay clean by default. Debug sentinels or source markers in target files are a future opt-in, not a default generated-output contract.
 
 ## Evidence
 

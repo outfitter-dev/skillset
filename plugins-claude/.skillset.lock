@@ -33,6 +33,59 @@
       "version": "0.1.1"
     }
   ],
+  "loweringOutcomes": [
+    {
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/features/plugins.md"
+        },
+        {
+          "kind": "external-docs",
+          "ref": "https://code.claude.com/docs/en/plugins-reference",
+          "verifiedAt": "2026-06-04"
+        },
+        {
+          "kind": "external-docs",
+          "ref": "https://developers.openai.com/codex/plugins/build",
+          "verifiedAt": "2026-06-04"
+        }
+      ],
+      "featureId": "plugin-manifests",
+      "outputs": [
+        {
+          "kind": "plugin",
+          "path": "plugins-claude/plugins/skillset/.claude-plugin/plugin.json"
+        }
+      ],
+      "schema": "skillset-lowering-outcome@1",
+      "sourcePath": ".skillset/plugins/skillset",
+      "sourceUnit": "plugin.skillset.config:root",
+      "status": "emitted",
+      "target": "claude"
+    },
+    {
+      "evidence": [
+        {
+          "kind": "test",
+          "note": "plugin skill rendering coverage",
+          "ref": "apps/skillset/src/__tests__/skillset.test.ts"
+        }
+      ],
+      "featureId": "plugin-skills",
+      "outputs": [
+        {
+          "kind": "plugin-skill",
+          "path": "plugins-claude/plugins/skillset/skills/use-skillset/SKILL.md"
+        }
+      ],
+      "schema": "skillset-lowering-outcome@1",
+      "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
+      "sourceUnit": "plugin.skillset.skill:use-skillset",
+      "status": "emitted",
+      "target": "claude"
+    }
+  ],
   "outputRoot": "plugins-claude",
   "schemaVersion": 1,
   "selectedTargets": [

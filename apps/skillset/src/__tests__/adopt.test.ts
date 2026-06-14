@@ -136,12 +136,29 @@ test("adopt write mode imports everything, builds the mirror, and writes the rep
   expect(markdown).toBe(renderAdoptReportMarkdown(report, { rootPath: root }));
   expect(markdown).toContain("## Summary");
   expect(markdown).toContain("## Cutover");
+  expect(markdown).toContain("### Lowering outcomes");
+  expect(markdown).toContain("codex emitted:");
   expect(markdown).toContain("`AGENTS.md`");
   expect(markdown).toContain("unmanaged");
   const json = JSON.parse(await readFile(join(root, ADOPT_REPORT_DIR, "report.json"), "utf8")) as {
+    loweringOutcomes: readonly {
+      featureId: string;
+      sourceUnit: string;
+      status: string;
+      target?: string;
+    }[];
     ok: boolean;
   };
   expect(json.ok).toBe(true);
+  expect(json.loweringOutcomes).toContainEqual(
+    expect.objectContaining({
+      featureId: "plugin-skills",
+      sourceUnit: "plugin.demo.skill:demo-skill",
+      status: "emitted",
+      target: "codex",
+    })
+  );
+  expect(JSON.stringify(json.loweringOutcomes)).not.toContain(root);
 
   const explain = await runSkillsetCli("explain", ".skillset/plugins/demo", "--root", root);
   expect(explain.exitCode).toBe(0);

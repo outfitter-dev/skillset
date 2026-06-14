@@ -7,19 +7,15 @@ import {
   recognizeTransforms,
   type TransformMatch,
 } from "@skillset/transforms";
+import type { SkillsetLoweringOutcome } from "@skillset/core";
 
 import type { ReleaseBaselineEntry } from "./adoption";
-import { buildSkillset, ISOLATED_OUT_ROOT } from "./build";
+import { buildSkillsetResult, ISOLATED_OUT_ROOT } from "./build";
 import { gitSafeEnv } from "./git-env";
 import { importSources } from "./import";
 import { inspectSkillset } from "./lint";
 import { loadBuildGraph } from "./resolver";
-import {
-  initSkillset,
-  type SetupFile,
-  type SetupImportCandidate,
-  type SurveySkip,
-} from "./setup";
+import { initSkillset, type SetupFile, type SetupImportCandidate, type SurveySkip } from "./setup";
 import type { JsonRecord, LintIssue, SkillsetOptions, SourceOrigin, TargetName } from "./types";
 import { isJsonRecord, parseMarkdown, stringifyMarkdown } from "./yaml";
 
@@ -100,6 +96,7 @@ export interface AdoptReport {
   readonly cutover: readonly string[];
   readonly imports: readonly AdoptImportResult[];
   readonly lintIssues: readonly LintIssue[];
+  readonly loweringOutcomes: readonly SkillsetLoweringOutcome[];
   readonly ok: boolean;
   readonly rootPath: string;
   readonly setupFiles: readonly SetupFile[];
@@ -170,6 +167,7 @@ async function adoptResolvedRoot(
       cutover: [],
       imports: [],
       lintIssues: [],
+      loweringOutcomes: [],
       ok: true,
       rootPath: init.rootPath,
       setupFiles: init.files,
@@ -199,9 +197,12 @@ async function adoptResolvedRoot(
   }
 
   let builtFiles = 0;
+  let loweringOutcomes: readonly SkillsetLoweringOutcome[] = [];
   if (buildError === undefined) {
     try {
-      builtFiles = (await buildSkillset(init.rootPath, { ...buildOptions, isolated: true })).length;
+      const build = await buildSkillsetResult(init.rootPath, { ...buildOptions, isolated: true });
+      builtFiles = build.data.length;
+      loweringOutcomes = build.loweringOutcomes;
     } catch (error) {
       buildError = errorMessage(error);
     }
@@ -218,6 +219,7 @@ async function adoptResolvedRoot(
     cutover,
     imports,
     lintIssues,
+    loweringOutcomes,
     ok:
       imports.every((result) => result.ok) &&
       lintErrors.length === 0 &&
@@ -498,6 +500,7 @@ export function renderAdoptReportMarkdown(
     report.buildError === undefined
       ? `- build (isolated): ${report.builtFiles} generated files`
       : "- build (isolated): failed",
+    `- lowering outcomes: ${report.loweringOutcomes.length}`,
     ""
   );
 
@@ -618,6 +621,19 @@ export function renderAdoptReportMarkdown(
       `Wrote ${report.builtFiles} generated files into the mirror under \`${ISOLATED_OUT_ROOT}/\`, laid out as the repo root would be. The live tree is untouched.`,
       ""
     );
+    lines.push("### Lowering outcomes", "");
+    if (report.loweringOutcomes.length === 0) {
+      lines.push("No lowering outcomes recorded.", "");
+    } else {
+      for (const summary of summarizeLoweringOutcomes(report.loweringOutcomes)) {
+        lines.push(`- ${summary}`);
+      }
+      lines.push("");
+      lines.push(
+        "Full structured lowering outcomes are in `report.json` and in the isolated `.skillset.lock` files.",
+        ""
+      );
+    }
   } else {
     lines.push("```", report.buildError.trimEnd(), "```", "");
   }
@@ -655,6 +671,19 @@ export function renderAdoptReportMarkdown(
 
 interface AggregatedPreviewMatch extends TransformPreviewMatch {
   readonly count: number;
+}
+
+function summarizeLoweringOutcomes(
+  outcomes: readonly SkillsetLoweringOutcome[]
+): readonly string[] {
+  const counts = new Map<string, number>();
+  for (const outcome of outcomes) {
+    const key = `${outcome.target ?? "workspace"} ${outcome.status}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return [...counts]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, count]) => `${key}: ${count}`);
 }
 
 /** Collapse repeated (intent, text, codexForm) hits into one counted line. */
