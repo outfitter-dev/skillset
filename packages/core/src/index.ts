@@ -19,6 +19,13 @@ export {
   type AdapterConformanceReport,
 } from "./adapter-conformance";
 export {
+  createAdapterConformanceCoverageReport,
+  formatAdapterConformanceCoverageReport,
+  type AdapterConformanceCoverageEntry,
+  type AdapterConformanceCoverageReport,
+  type AdapterConformanceCoverageStatus,
+} from "./adapter-conformance-coverage";
+export {
   assertDeterministicProjection,
   formatDeterministicProjectionReport,
   runDeterministicProjection,
