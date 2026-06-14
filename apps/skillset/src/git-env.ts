@@ -10,9 +10,9 @@
  * lefthook pre-push gate. Strip repository-targeting variables so explicit
  * paths always win.
  */
-export function gitSafeEnv(): Record<string, string> {
+export function gitSafeEnv(sourceEnv: Record<string, string | undefined> = process.env): Record<string, string> {
   const env: Record<string, string> = {};
-  for (const [key, value] of Object.entries(process.env)) {
+  for (const [key, value] of Object.entries(sourceEnv)) {
     if (value === undefined) {continue;}
     if (
       key === "GIT_DIR" ||

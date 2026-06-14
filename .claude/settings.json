@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun .skillset/shared/scripts/skillset-runtime-hooks.ts post-tool-use"
+            "command": "bun ./apps/skillset/src/cli.ts hooks run post-tool-use"
           }
         ]
       }
@@ -40,7 +40,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun .skillset/shared/scripts/skillset-runtime-hooks.ts stop"
+            "command": "bun ./apps/skillset/src/cli.ts hooks run stop"
           }
         ]
       }

@@ -161,11 +161,13 @@ skillset restore <backup> --root . # preview restore; add --yes to write
 skillset doctor --root .          # lint issues, drift, warnings, and lowering advisories; add --json for records
 skillset hooks print --runner lefthook --pre-commit --pre-push
 skillset hooks print --target codex --agent-runtime
+skillset hooks run post-tool-use  # advisory runtime guardrail, source-gated
+skillset hooks run stop           # blocking runtime guardrail, source-gated
 ```
 
 `diff`, `explain`, and `doctor` are read-only authoring aids. They never write generated outputs, install, trust, publish, or mutate user-level config. `explain --json` and `doctor --json` include full lowering outcome records for agents and automation. `doctor` exits non-zero on lint issues, drift, or a build error, and summarizes notable lowering advisories such as degraded or unsupported outcomes.
 
-`hooks print` emits copy/paste snippets for existing hook runners or reviewed project-local Claude/Codex runtime hook configuration. It does not install hooks, overwrite `.git/hooks`, mutate target runtime settings, or trust generated hook code. Pre-commit snippets call `skillset change check --staged`; pre-push snippets call `skillset change check --since origin/main`, `skillset check`, and `skillset doctor`.
+`hooks print` emits copy/paste snippets for existing hook runners or reviewed project-local Claude/Codex runtime hook configuration. It does not install hooks, overwrite `.git/hooks`, mutate target runtime settings, or trust generated hook code. Pre-commit snippets call `skillset change check --staged`; pre-push snippets call `skillset change check --since origin/main`, `skillset check`, and `skillset doctor`. Runtime snippets call `skillset hooks run post-tool-use` and `skillset hooks run stop`; both first inspect only Skillset source/change-entry paths, including untracked files. `post-tool-use` is advisory and never blocks on `change status`; `stop` runs `change check` and `check` only when relevant Skillset source changed. Set `SKILLSET_HOOK_COMMAND` in reviewed runtime config only when the default local/installable CLI resolution needs an explicit override.
 
 Generated plugin repos default to `plugins-claude/` and `plugins-codex/`. Standalone generated skills default to `.claude/skills` and `.agents/skills`. Generated roots include `.skillset.lock` files for deterministic provenance.
 

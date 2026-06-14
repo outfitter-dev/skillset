@@ -1,6 +1,5 @@
-import type { TargetName } from "./types";
+import type { TargetName } from "../types";
 
-export type HookPrintSubcommand = "print";
 export type HookRunner = "git" | "husky" | "lefthook" | "pre-commit";
 
 export interface HookPrintOptions {
@@ -13,21 +12,8 @@ export interface HookPrintOptions {
 
 const PRE_COMMIT_COMMAND = "skillset change check --staged";
 const PRE_PUSH_COMMAND = "skillset change check --since origin/main && skillset check && skillset doctor";
-const RUNTIME_SOURCE_PATHS = [
-  ".skillset/config.yaml",
-  ".skillset/instructions",
-  ".skillset/skills",
-  ".skillset/plugins",
-  ".skillset/shared",
-  ".skillset/src",
-  ".skillset/changes/pending",
-] as const;
-const RUNTIME_SOURCE_STATUS_COMMAND =
-  `git status --porcelain=v1 --untracked-files=all -- ${RUNTIME_SOURCE_PATHS.join(" ")}`;
-const RUNTIME_POST_TOOL_USE_COMMAND =
-  `${RUNTIME_SOURCE_STATUS_COMMAND} | grep -q . && skillset change status --root . || true`;
-const RUNTIME_STOP_COMMAND =
-  `if ${RUNTIME_SOURCE_STATUS_COMMAND} | grep -q .; then skillset change check --root . && skillset check --root .; fi`;
+const RUNTIME_POST_TOOL_USE_COMMAND = "skillset hooks run post-tool-use";
+const RUNTIME_STOP_COMMAND = "skillset hooks run stop";
 
 export function renderHookPrint(options: HookPrintOptions): string {
   validateHookPrintOptions(options);

@@ -1362,10 +1362,8 @@ test("SET-41: hooks print emits target runtime suggestions without installing", 
   expect(claude.stdout).toContain(".claude/settings.local.json");
   expect(claude.stdout).toContain("PostToolUse");
   expect(claude.stdout).toContain("Stop");
-  expect(claude.stdout).toContain("git status --porcelain=v1 --untracked-files=all");
-  expect(claude.stdout).toContain(".skillset/src");
-  expect(claude.stdout).toContain(".skillset/shared");
-  expect(claude.stdout).toContain(".skillset/changes/pending");
+  expect(claude.stdout).toContain("skillset hooks run post-tool-use");
+  expect(claude.stdout).toContain("skillset hooks run stop");
   expect(claude.stdout).not.toContain("skillset doctor");
   expect(claude.stdout).toContain("Skillset does not install or trust hooks");
 
@@ -1374,11 +1372,20 @@ test("SET-41: hooks print emits target runtime suggestions without installing", 
   expect(codex.stdout).toContain(".codex/hooks/hooks.json");
   expect(codex.stdout).toContain("PostToolUse");
   expect(codex.stdout).toContain("Stop");
-  expect(codex.stdout).toContain("git status --porcelain=v1 --untracked-files=all");
+  expect(codex.stdout).toContain("skillset hooks run post-tool-use");
+  expect(codex.stdout).toContain("skillset hooks run stop");
 
   const invalid = await runSkillsetCli("hooks", "print", "--runner", "git", "--agent-runtime");
   expect(invalid.exitCode).toBe(1);
   expect(invalid.stderr).toContain("cannot be combined");
+
+  const invalidRun = await runSkillsetCliWithInput("", "hooks", "run", "bogus");
+  expect(invalidRun.exitCode).toBe(1);
+  expect(invalidRun.stderr).toContain("expected hooks run event post-tool-use or stop");
+
+  const runWithPrintFlag = await runSkillsetCliWithInput("", "hooks", "run", "stop", "--agent-runtime");
+  expect(runWithPrintFlag.exitCode).toBe(1);
+  expect(runWithPrintFlag.stderr).toContain("hook options are only supported with hooks print");
 
   const scoped = await runSkillsetCli("hooks", "print", "--runner", "git", "--scope", "repo");
   expect(scoped.exitCode).toBe(1);
@@ -1399,6 +1406,22 @@ test("SET-41: hooks print emits target runtime suggestions without installing", 
   const importKind = await runSkillsetCli("hooks", "print", "--runner", "git", "--kind", "skill");
   expect(importKind.exitCode).toBe(1);
   expect(importKind.stderr).toContain("non-hook options are not supported");
+});
+
+test("SET-55: hooks run is a CLI-owned runtime entrypoint", async () => {
+  const cleanRoot = await contractFixture({ "README.md": "clean\n" });
+  await commitFixture(cleanRoot);
+
+  const clean = await runSkillsetCli("hooks", "run", "stop", "--root", cleanRoot);
+  expect(clean.exitCode).toBe(0);
+  expect(clean.stdout).toBe("");
+  expect(clean.stderr).toBe("");
+
+  const missingGitRoot = await contractFixture({ "README.md": "not a git repo\n" });
+  const failed = await runSkillsetCli("hooks", "run", "stop", "--root", missingGitRoot);
+  expect(failed.exitCode).not.toBe(0);
+  expect(failed.stdout).toBe("");
+  expect(failed.stderr).toContain("could not inspect Skillset source changes");
 });
 
 test("SET-44: change status and check reject scoped source coverage", async () => {
