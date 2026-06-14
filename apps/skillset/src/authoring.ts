@@ -1,10 +1,14 @@
 import { resolve, relative } from "node:path";
 
 import {
+  getSkillsetFeature,
+  listSkillsetFeatures,
   SkillsetFeatureDiagnosticError,
   SkillsetLoweringError,
   type SkillsetDiagnostic,
+  type SkillsetFeatureEntry,
   type SkillsetLoweringOutcome,
+  type SkillsetTargetSupport,
 } from "@skillset/core";
 import { collectLoweringOutcomes } from "@skillset/core/internal/lowering-outcome-collector";
 
@@ -29,10 +33,32 @@ export type ExplainKind =
 
 export interface ExplainResult {
   readonly entries: readonly GeneratedEntry[];
+  readonly features: readonly FeatureCapability[];
   readonly kind: ExplainKind;
   readonly loweringOutcomes: readonly SkillsetLoweringOutcome[];
   readonly notes: readonly string[];
   readonly path: string;
+}
+
+export interface FeatureSupportCapability {
+  readonly note?: string;
+  readonly reason?: string;
+  readonly status: string;
+}
+
+export interface FeatureCapability {
+  readonly docs: readonly string[];
+  readonly id: string;
+  readonly status: string;
+  readonly targetSupport: Readonly<Record<"claude" | "codex", FeatureSupportCapability>>;
+  readonly title: string;
+}
+
+export interface FeatureCapabilitySummary {
+  readonly byFeatureStatus: Readonly<Record<string, number>>;
+  readonly byTargetSupport: Readonly<Record<"claude" | "codex", Readonly<Record<string, number>>>>;
+  readonly featureIds: readonly string[];
+  readonly total: number;
 }
 
 /**
@@ -57,11 +83,13 @@ export async function explainPath(
 
   const asSource = items.filter((item) => item.sourcePath === target);
   if (asSource.length > 0) {
+    const matchedLoweringOutcomes = explainLoweringOutcomes(target, asSource, loweringOutcomes);
     return {
       path: target,
       kind: explainSourceKind(graph, target),
       entries: asSource.map((item) => item.entry),
-      loweringOutcomes: explainLoweringOutcomes(target, asSource, loweringOutcomes),
+      features: featureCapabilitiesForPath(graph, target, asSource, matchedLoweringOutcomes),
+      loweringOutcomes: matchedLoweringOutcomes,
       notes: sourceNotes(graph, target),
     };
   }
@@ -72,13 +100,15 @@ export async function explainPath(
       item.files.some((file) => joinOutputRoot(item.outputRoot, file) === target)
   );
   if (asGenerated.length > 0) {
+    const matchedLoweringOutcomes = explainLoweringOutcomes(target, asGenerated, loweringOutcomes, {
+      includeSourcePaths: false,
+    });
     return {
       path: target,
       kind: "generated",
       entries: asGenerated.map((item) => item.entry),
-      loweringOutcomes: explainLoweringOutcomes(target, asGenerated, loweringOutcomes, {
-        includeSourcePaths: false,
-      }),
+      features: featureCapabilitiesForPath(graph, target, asGenerated, matchedLoweringOutcomes),
+      loweringOutcomes: matchedLoweringOutcomes,
       notes: [`Generated output; rebuild with skillset build, verify with skillset check.`],
     };
   }
@@ -87,11 +117,13 @@ export async function explainPath(
   // instruction whose lock lives at the workspace root) — fall back to prefix.
   const prefixMatch = items.filter((item) => item.sourcePath.startsWith(`${target}/`));
   if (prefixMatch.length > 0) {
+    const matchedLoweringOutcomes = explainLoweringOutcomes(target, prefixMatch, loweringOutcomes);
     return {
       path: target,
       kind: "source-plugin",
       entries: prefixMatch.map((item) => item.entry),
-      loweringOutcomes: explainLoweringOutcomes(target, prefixMatch, loweringOutcomes),
+      features: featureCapabilitiesForPath(graph, target, prefixMatch, matchedLoweringOutcomes),
+      loweringOutcomes: matchedLoweringOutcomes,
       notes: [`Matched ${prefixMatch.length} generated entries under this source path.`],
     };
   }
@@ -102,6 +134,7 @@ export async function explainPath(
       path: target,
       kind: explainSourceKind(graph, target),
       entries: [],
+      features: featureCapabilitiesForPath(graph, target, [], sourceOnlyOutcomes),
       loweringOutcomes: sourceOnlyOutcomes,
       notes: [`Matched ${sourceOnlyOutcomes.length} lowering outcome(s) under this source path.`],
     };
@@ -111,6 +144,7 @@ export async function explainPath(
     path: target,
     kind: "unknown",
     entries: [],
+    features: [],
     loweringOutcomes: [],
     notes: [
       `No lock entry references ${target}. Pass a source path under ${graph.sourceDir}/ or a generated output path.`,
@@ -127,10 +161,32 @@ export async function listGeneratedEntries(
   return collectLockItems(rendered).map((item) => item.entry);
 }
 
+export function listFeatureCapabilities(featureId?: string): readonly FeatureCapability[] {
+  const features = featureId === undefined
+    ? listSkillsetFeatures()
+    : [getSkillsetFeature(featureId)].filter((feature): feature is SkillsetFeatureEntry => feature !== undefined);
+  return features.map(featureCapability);
+}
+
+export function summarizeFeatureCapabilities(
+  features: readonly FeatureCapability[] = listFeatureCapabilities()
+): FeatureCapabilitySummary {
+  return {
+    byFeatureStatus: countBy(features.map((feature) => feature.status)),
+    byTargetSupport: {
+      claude: countBy(features.map((feature) => feature.targetSupport.claude.status)),
+      codex: countBy(features.map((feature) => feature.targetSupport.codex.status)),
+    },
+    featureIds: features.map((feature) => feature.id).sort(compareStrings),
+    total: features.length,
+  };
+}
+
 export interface DoctorReport {
   readonly buildDiagnostics: readonly SkillsetDiagnostic[];
   readonly buildError?: string;
   readonly drift: SkillsetDiff;
+  readonly featureCapabilities: FeatureCapabilitySummary;
   readonly lintIssues: readonly LintIssue[];
   readonly loweringOutcomes: readonly SkillsetLoweringOutcome[];
   readonly notableLoweringOutcomes: readonly SkillsetLoweringOutcome[];
@@ -161,6 +217,7 @@ export async function doctorSkillset(
       buildError: errorMessage(error),
       buildDiagnostics,
       drift: { added: [], changed: [], missing: [], removed: [] },
+      featureCapabilities: summarizeFeatureCapabilities(),
       lintIssues: [],
       loweringOutcomes,
       notableLoweringOutcomes: notableLoweringOutcomes(loweringOutcomes),
@@ -192,6 +249,7 @@ export async function doctorSkillset(
     ...(buildError === undefined ? {} : { buildError }),
     buildDiagnostics,
     drift,
+    featureCapabilities: summarizeFeatureCapabilities(),
     lintIssues: lint.issues,
     loweringOutcomes,
     notableLoweringOutcomes: notable,
@@ -411,6 +469,95 @@ function sourceNotes(graph: BuildGraph, target: string): readonly string[] {
     notes.push(`Declared resources: ${skill.resources.map((resource) => resource.from).join(", ")}.`);
   }
   return notes;
+}
+
+function featureCapabilitiesForPath(
+  graph: BuildGraph,
+  target: string,
+  items: readonly LockItemMatch[],
+  outcomes: readonly SkillsetLoweringOutcome[]
+): readonly FeatureCapability[] {
+  const featureIds = new Set<string>();
+  for (const item of items) {
+    if (item.entry.feature !== undefined) featureIds.add(item.entry.feature);
+  }
+  for (const outcome of outcomes) {
+    featureIds.add(outcome.featureId);
+  }
+  for (const featureId of inferredFeatureIdsForSourcePath(graph, target)) {
+    featureIds.add(featureId);
+  }
+  return [...featureIds]
+    .map((featureId) => getSkillsetFeature(featureId))
+    .filter((feature): feature is SkillsetFeatureEntry => feature !== undefined)
+    .map(featureCapability)
+    .sort((left, right) => compareStrings(left.id, right.id));
+}
+
+function inferredFeatureIdsForSourcePath(graph: BuildGraph, target: string): readonly string[] {
+  const featureIds: string[] = [];
+  if (graph.rules.some((rule) => relative(graph.rootPath, rule.sourcePath) === target)) {
+    featureIds.push("project-instructions");
+  }
+  if (graph.projectAgents.some((agent) => relative(graph.rootPath, agent.sourcePath) === target)) {
+    featureIds.push("project-agents");
+  }
+  if (graph.projectIslands.some((island) => pathMatchesSource(graph, target, island.sourcePath))) {
+    featureIds.push("target-native-islands");
+  }
+
+  for (const skill of graph.standaloneSkills) {
+    if (!pathMatchesSource(graph, target, skill.sourcePath)) continue;
+    featureIds.push("standalone-skills");
+    if (skill.resources.length > 0) featureIds.push("resources");
+  }
+
+  for (const plugin of graph.plugins) {
+    if (pathMatchesSource(graph, target, plugin.configPath)) {
+      featureIds.push("plugin-manifests");
+    }
+    for (const skill of plugin.skills) {
+      if (!pathMatchesSource(graph, target, skill.sourcePath)) continue;
+      featureIds.push("plugin-skills");
+      if (skill.resources.length > 0) featureIds.push("resources");
+    }
+  }
+
+  return featureIds;
+}
+
+function pathMatchesSource(graph: BuildGraph, target: string, sourcePath: string): boolean {
+  const relativePath = relative(graph.rootPath, sourcePath).replaceAll("\\", "/");
+  return target === relativePath || target.startsWith(`${relativePath}/`);
+}
+
+function featureCapability(feature: SkillsetFeatureEntry): FeatureCapability {
+  return {
+    docs: feature.docs,
+    id: feature.id,
+    status: feature.status,
+    targetSupport: {
+      claude: supportCapability(feature.targetSupport.claude),
+      codex: supportCapability(feature.targetSupport.codex),
+    },
+    title: feature.title,
+  };
+}
+
+function supportCapability(support: SkillsetTargetSupport): FeatureSupportCapability {
+  return {
+    ...(support.note === undefined ? {} : { note: support.note }),
+    ...(support.reason === undefined ? {} : { reason: support.reason }),
+    status: support.status,
+  };
+}
+
+function countBy(values: readonly string[]): Readonly<Record<string, number>> {
+  const counts: Record<string, number> = {};
+  for (const value of [...values].sort(compareStrings)) {
+    counts[value] = (counts[value] ?? 0) + 1;
+  }
+  return counts;
 }
 
 function normalizeRepoPath(rootPath: string, inputPath: string): string {

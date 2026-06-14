@@ -17,7 +17,13 @@ import {
   type ChangeReasonInput,
   type ChangeSubcommand,
 } from "./change-workflow";
-import { doctorSkillset, explainPath, listGeneratedEntries } from "./authoring";
+import {
+  doctorSkillset,
+  explainPath,
+  listFeatureCapabilities,
+  listGeneratedEntries,
+  type FeatureCapability,
+} from "./authoring";
 import { ciSkillset, hasDrift, renderCiReportMarkdown, type CiReport } from "./ci";
 import { printDiagnostics, printDiffPlan } from "./cli-renderers";
 import {
@@ -38,7 +44,7 @@ import { renderValidatedJson } from "./structured-output";
 import { runSkillsetTest, type SkillsetTestReport } from "./test-runner";
 import type { BuildScope, CompileBuildMode, JsonRecord, SkillsetOptions, SourceOrigin, TargetName } from "./types";
 
-type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "diff" | "distribute" | "doctor" | "explain" | "hooks" | "import" | "init" | "lint" | "list" | "release" | "restore" | "test";
+type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "diff" | "distribute" | "doctor" | "explain" | "features" | "hooks" | "import" | "init" | "lint" | "list" | "release" | "restore" | "test";
 type DistributionSubcommand = "plan";
 
 const USAGE = [
@@ -59,6 +65,7 @@ const USAGE = [
   "       skillset release apply [--yes|--dry-run] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset restore <backup-id> [--yes|--dry-run] [--root <path>]",
   "       skillset distribute plan [name] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset features [feature-id] [--json]",
   "       skillset test [name] [--root <path>] [--source <dir>]",
   "       skillset hooks print --runner <lefthook|husky|pre-commit|git> [--pre-commit] [--pre-push]",
   "       skillset hooks print --target <claude|codex> --agent-runtime",
@@ -403,6 +410,25 @@ export async function runCli(
     return;
   }
 
+  if (command === "features") {
+    const features = listFeatureCapabilities(importPath);
+    if (jsonOutput) {
+      process.stdout.write(renderValidatedJson({ features } as unknown as JsonRecord, "skillset features"));
+      if (importPath !== undefined && features.length === 0) process.exitCode = 1;
+      return;
+    }
+    if (features.length === 0) {
+      console.log(`skillset: feature ${importPath ?? ""} not found`);
+      process.exitCode = 1;
+      return;
+    }
+    for (const feature of features) {
+      printFeatureCapability(feature);
+    }
+    console.log(`skillset: listed ${features.length} feature${features.length === 1 ? "" : "s"}`);
+    return;
+  }
+
   if (command === "explain") {
     if (importPath === undefined) {
       throw new Error("skillset: expected a path to explain");
@@ -437,6 +463,11 @@ export async function runCli(
       if (entry.sourceHash !== undefined) console.log(`    source hash: ${entry.sourceHash}`);
       if (entry.outputHash !== undefined) console.log(`    output hash: ${entry.outputHash}`);
     }
+    for (const feature of result.features) {
+      console.log(`  feature ${feature.id}: ${feature.title}`);
+      console.log(`    claude: ${feature.targetSupport.claude.status}`);
+      console.log(`    codex: ${feature.targetSupport.codex.status}`);
+    }
     for (const outcome of result.loweringOutcomes) {
       printLoweringOutcome(outcome);
     }
@@ -468,6 +499,11 @@ export async function runCli(
         `  drift: ${added.length} added, ${changed.length} changed, ${missing.length} missing, ${removed.length} removed (run skillset build --yes)`
       );
     }
+    console.log(
+      `  features: ${report.featureCapabilities.total} registry entries; status ${formatCountSummary(report.featureCapabilities.byFeatureStatus)}`
+    );
+    console.log(`  feature support: claude ${formatCountSummary(report.featureCapabilities.byTargetSupport.claude)}`);
+    console.log(`  feature support: codex ${formatCountSummary(report.featureCapabilities.byTargetSupport.codex)}`);
     for (const outcome of report.notableLoweringOutcomes) {
       printLoweringOutcome(outcome);
     }
@@ -881,6 +917,27 @@ function printSkillsetTest(report: SkillsetTestReport): void {
   if (report.activationPath !== undefined) console.log(`  activation: ${report.activationPath}`);
 }
 
+function printFeatureCapability(feature: FeatureCapability): void {
+  console.log(`feature ${feature.id}: ${feature.title}`);
+  console.log(`  status: ${feature.status}`);
+  console.log(`  claude: ${formatFeatureSupport(feature.targetSupport.claude)}`);
+  console.log(`  codex: ${formatFeatureSupport(feature.targetSupport.codex)}`);
+  if (feature.docs.length > 0) console.log(`  docs: ${feature.docs.join(", ")}`);
+}
+
+function formatFeatureSupport(support: FeatureCapability["targetSupport"]["claude"]): string {
+  const reason = support.reason === undefined ? "" : ` (${support.reason})`;
+  const note = support.note === undefined ? "" : ` note: ${support.note}`;
+  return `${support.status}${reason}${note}`;
+}
+
+function formatCountSummary(counts: Readonly<Record<string, number>>): string {
+  return Object.entries(counts)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, count]) => `${key} ${count}`)
+    .join(", ");
+}
+
 function printLoweringOutcome(outcome: {
   readonly diagnostics?: readonly { readonly code: string; readonly path?: string }[];
   readonly featureId: string;
@@ -918,6 +975,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     command !== "distribute" &&
     command !== "doctor" &&
     command !== "explain" &&
+    command !== "features" &&
     command !== "hooks" &&
     command !== "import" &&
     command !== "init" &&
@@ -928,7 +986,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     command !== "test"
   ) {
     throw new Error(
-        "skillset: expected command adopt, build, change, check, ci, create, diff, distribute, doctor, explain, hooks, import, init, lint, list, release, restore, or test\n" +
+        "skillset: expected command adopt, build, change, check, ci, create, diff, distribute, doctor, explain, features, hooks, import, init, lint, list, release, restore, or test\n" +
         USAGE
     );
   }
@@ -1060,6 +1118,14 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     }
     importPath = rawPath;
     index += 1;
+  }
+
+  if (command === "features") {
+    const rawFeatureId = args[index];
+    if (rawFeatureId !== undefined && !rawFeatureId.startsWith("--")) {
+      importPath = rawFeatureId;
+      index += 1;
+    }
   }
 
   if (command === "restore") {
@@ -1676,8 +1742,8 @@ function validateAdoptFlags(
 
 function validateJsonFlags(command: Command, jsonOutput: boolean): void {
   if (!jsonOutput) return;
-  if (command === "doctor" || command === "explain") return;
-  throw new Error("skillset: --json is only supported with doctor or explain");
+  if (command === "doctor" || command === "explain" || command === "features") return;
+  throw new Error("skillset: --json is only supported with doctor, explain, or features");
 }
 
 function isImportKind(value: string): value is ImportKind {
