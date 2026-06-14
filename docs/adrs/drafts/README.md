@@ -13,7 +13,7 @@ Draft map: `docs/adrs/drafts/decision-map.json`; numbered map: `docs/adrs/decisi
 - [Changelog and Version Bump Workflow](20260604-changelog-and-versioning.md)
   - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md)
 - [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md)
-  - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md)
+  - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md)
 - [First-Class Sets](20260604-first-class-sets.md)
   - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md), [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md), [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md), [Reviewed Settings Suggestions](20260604-reviewed-settings-suggestions.md)
 - [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md)

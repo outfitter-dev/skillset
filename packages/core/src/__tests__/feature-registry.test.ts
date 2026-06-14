@@ -21,6 +21,7 @@ const SEEDED_FEATURE_IDS = [
   "changes",
   "dependencies",
   "distributions",
+  "feature-registry",
   "future-companion-source-pointers",
   "lowering-outcomes",
   "output-safety",

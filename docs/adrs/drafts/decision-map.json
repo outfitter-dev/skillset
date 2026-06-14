@@ -55,7 +55,7 @@
     },
     {
       "created": "2026-06-04",
-      "depends_on": ["0"],
+      "depends_on": ["0", "1"],
       "inbound": [
         {
           "context": "- [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - tracks first-class sets as future-only and keeps scopes/selectors separate.",
@@ -93,6 +93,11 @@
           "fromPath": "docs/adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md"
         },
         {
+          "context": "See [Feature Reference and Schema Registry](../adrs/drafts/20260604-feature-reference-and-schema-registry.md) for the ADR-level decision.",
+          "from": "feature-registry",
+          "fromPath": "docs/features/feature-registry.md"
+        },
+        {
           "context": "- [Feature registry](../adrs/drafts/20260604-feature-reference-and-schema-registry.md) - schema-backed support and evidence direction.",
           "from": "runtime-adapters",
           "fromPath": "docs/features/runtime-adapters.md"
@@ -105,7 +110,7 @@
       "status": "draft",
       "superseded_by": null,
       "title": "Feature Reference and Schema Registry",
-      "updated": "2026-06-04"
+      "updated": "2026-06-14"
     },
     {
       "created": "2026-06-04",
@@ -430,6 +435,11 @@
       ],
       "inbound": [
         {
+          "context": "- [Deterministic Projection and Adapter Conformance](20260613-deterministic-projection-and-adapter-conformance.md) - conformance model that consumes registry support and lowering outcomes together.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-feature-reference-and-schema-registry.md"
+        },
+        {
           "context": "- [Deterministic Projection and Adapter Conformance](20260613-deterministic-projection-and-adapter-conformance.md) - uses lowering outcomes with the feature registry for adapter conformance.",
           "from": "20260614",
           "fromPath": "docs/adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md"
@@ -464,6 +474,11 @@
         "deterministic-projection-and-adapter-conformance"
       ],
       "inbound": [
+        {
+          "context": "- [Lowering Outcomes and Loss Ledger](20260614-lowering-outcomes-and-loss-ledger.md) - per-build outcome vocabulary that stays separate from registry capability status.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-feature-reference-and-schema-registry.md"
+        },
         {
           "context": "See [Lowering Outcomes and Loss Ledger](../adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md) for the ADR-level decision.",
           "from": "lowering-outcomes",

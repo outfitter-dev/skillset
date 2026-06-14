@@ -171,6 +171,23 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/config.ts",
   }),
   feature({
+    docs: ["docs/features/feature-registry.md"],
+    evidence: [
+      docs("docs/adrs/drafts/20260604-feature-reference-and-schema-registry.md"),
+      source("packages/core/src/feature-registry.ts"),
+      test("packages/core/src/__tests__/feature-registry.test.ts", "registry ids, vocabulary, evidence, and guard coverage"),
+    ],
+    id: "feature-registry",
+    kind: "workflow",
+    loweringOwner: "packages/core/src/feature-registry.ts",
+    sourceShape: "typed feature entries in packages/core/src/feature-registry.ts",
+    status: "implemented",
+    summary: "Records feature ids, target capability claims, docs, evidence, lowering owners, and validation owners.",
+    targetSupport: notTargetRuntime(),
+    title: "Feature Registry",
+    validationOwner: "packages/core/src/feature-registry.ts",
+  }),
+  feature({
     docs: ["docs/features/lowering-outcomes.md"],
     evidence: [
       docs("docs/adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md"),

@@ -94,6 +94,11 @@
           "fromPath": "docs/adrs/0000-source-first-loadouts.md"
         },
         {
+          "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - provider selection and unsupported-policy boundary.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-feature-reference-and-schema-registry.md"
+        },
+        {
           "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - provider selection and target-specific config boundaries.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-first-class-sets.md"
