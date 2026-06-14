@@ -20,6 +20,7 @@ export type AdapterConformanceIssueCode =
 
 export interface AdapterConformanceCase {
   readonly featureId: string;
+  readonly fixtureRef?: string;
   readonly sourceUnit?: string;
   readonly target: TargetName;
 }
