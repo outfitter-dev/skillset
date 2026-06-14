@@ -31,7 +31,7 @@ Plugin-level native pass-through remains under plugin source paths such as `.ski
 
 ## Target Lowering
 
-Target-native islands should mirror only into the matching target root. They must not leak into the other provider, and they must not overwrite unmanaged target files. Project islands are tracked as file-level workspace-managed output in the root `.skillset.lock`; `skillset build` must not claim or delete the whole `.claude/` or `.codex/` directory. Known structured files should be validated after preprocessing where the target requires a schema. Unknown files can be opaque pass-through only when path safety, ownership, and lock provenance are clear.
+Target-native islands should mirror only into the matching target root. They must not leak into the other provider, and confirmed builds must back up unmanaged target-file collisions before replacing them. Project islands are tracked as file-level workspace-managed output in the root `.skillset.lock`; `skillset build` must not claim or delete the whole `.claude/` or `.codex/` directory. Known structured files should be validated after preprocessing where the target requires a schema. Unknown files can be opaque pass-through only when path safety, ownership, and lock provenance are clear.
 
 Codex `.rules` files are execution policy for shell-command decisions. They are not `.skillset/instructions` and must not receive prose instruction lowering. The correct portable instruction path remains `.skillset/instructions/**/*.md` to Claude `.claude/rules/**/*.md` and Codex `AGENTS.md`. Codex `.rules` pass-through is accepted only from `.skillset/src/codex/rules/**/*.rules`; project `.rules` elsewhere and all Codex plugin `.rules` fail loudly.
 
@@ -51,4 +51,4 @@ Locks record native island source paths, generated output paths, target provider
 
 ## Tests and Fixtures
 
-Fixtures cover Claude-only and Codex-only project islands, Codex `.rules` pass-through, unmanaged collision refusal, project-root/output-root overlap refusal, binary copy, plugin-local islands, unknown plugin owners, no cross-target leakage, and explain/list provenance.
+Fixtures cover Claude-only and Codex-only project islands, Codex `.rules` pass-through, unmanaged collision backups, project-root/output-root overlap refusal, binary copy, plugin-local islands, unknown plugin owners, no cross-target leakage, and explain/list provenance.

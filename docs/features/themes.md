@@ -18,7 +18,7 @@ Place theme files under `.skillset/plugins/<plugin>/themes/`. The directory is c
 
 ## Diagnostics
 
-- Refuse unmanaged generated-output collisions.
+- Back up unmanaged generated-output collisions before replacing them in confirmed builds.
 - Reject divergent target-native islands that try to emit the same generated theme path.
 - Do not copy Claude themes into Codex plugin output.
 

@@ -1,4 +1,5 @@
 import type { SkillsetLoweringOutcome } from "./lowering-outcome";
+import type { OutputBackupRecord } from "./output-safety";
 
 export type SkillsetOperation =
   | "adopt"
@@ -13,6 +14,7 @@ export type SkillsetOperation =
   | "lint"
   | "list"
   | "release"
+  | "restore"
   | "test";
 
 export type SkillsetDiagnosticSeverity = "error" | "info" | "warning";
@@ -38,6 +40,12 @@ export interface SkillsetWriteSummary {
   readonly writtenPaths: readonly string[];
   /** Files or directories removed by the operation. */
   readonly deletedPaths: readonly string[];
+  /** Central manifest for backed-up originals created before overwrites or deletes. */
+  readonly backupManifestPath?: string;
+  /** Records for backed-up originals created during this write. */
+  readonly backupRecords?: readonly OutputBackupRecord[];
+  /** Short backup run id used in backup filenames and manifests. */
+  readonly backupRunId?: string;
 }
 
 export interface SkillsetOperationResult<Data> {

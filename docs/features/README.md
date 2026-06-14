@@ -23,6 +23,7 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [LSP Servers](lsp-servers.md): Claude plugin `.lsp.json` pass-through, manifest wiring, and future validation boundaries.
 - [MCP Servers](mcp-servers.md): plugin `.mcp.json`, `mcp.source`, manifest wiring, and structured validation.
 - [Monitors](monitors.md): Claude experimental monitor pass-through, manifest wiring, and Codex unsupported boundaries.
+- [Output Safety](output-safety.md): managed output ownership, unmanaged neighbor handling, reversible backups, and restore.
 - [Output Styles](output-styles.md): Claude output style directory pass-through and manifest wiring.
 - [Plugins](plugins.md): plugin source identity, manifest projection, companion paths, and plugin boundaries.
 - [Releases And Changelogs](releases.md): release state, generated changelog projections, version planning, and package-tool interop.

@@ -20,7 +20,7 @@ Place monitor source under `.skillset/plugins/<plugin>/monitors/`. The documente
 ## Diagnostics
 
 - Refuse malformed generated JSON for known JSON files.
-- Refuse unmanaged generated-output collisions.
+- Back up unmanaged generated-output collisions before replacing them in confirmed builds.
 - Reject divergent target-native islands that try to emit the same monitor paths.
 - Do not copy Claude monitors into Codex plugin output.
 

@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 
-import { auditVersions, buildSkillsetResult, checkSkillsetResult, diffSkillsetResult, planDistributions, type DistributionPlanReport, type VersionAuditReport } from "@skillset/core";
+import { auditVersions, buildSkillsetResult, checkSkillsetResult, diffSkillsetResult, planDistributions, restoreOutputBackup, type DistributionPlanReport, type OutputBackupRestoreReport, type VersionAuditReport } from "@skillset/core";
 
 import { changeCheck, type ChangeBump, type ChangeCheckReport } from "./change-entries";
 import { changeStatus, type ChangeStatusReport } from "./change-status";
@@ -29,7 +29,7 @@ import { sourceUnitDisplay, sourceUnitDisplays, sourceUnitSelector } from "./sou
 import { runSkillsetTest, type SkillsetTestReport } from "./test-runner";
 import type { BuildScope, CompileBuildMode, SkillsetOptions, SourceOrigin, TargetName } from "./types";
 
-type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "diff" | "distribute" | "doctor" | "explain" | "hooks" | "import" | "init" | "lint" | "list" | "release" | "test";
+type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "diff" | "distribute" | "doctor" | "explain" | "hooks" | "import" | "init" | "lint" | "list" | "release" | "restore" | "test";
 type DistributionSubcommand = "plan";
 
 const USAGE = [
@@ -47,6 +47,7 @@ const USAGE = [
   "       skillset release audit [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset release plan [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset release apply [--yes|--dry-run] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset restore <backup-id> [--yes|--dry-run] [--root <path>]",
   "       skillset distribute plan [name] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset test [name] [--root <path>] [--source <dir>]",
   "       skillset hooks print --runner <lefthook|husky|pre-commit|git> [--pre-commit] [--pre-push]",
@@ -119,6 +120,12 @@ export async function runCli(
     console.log(`skillset: wrote ${result.writes.writtenPaths.length} generated files`);
     if (result.writes.deletedPaths.length > 0) {
       console.log(`skillset: removed ${result.writes.deletedPaths.length} stale generated files`);
+    }
+    if (result.writes.backupManifestPath !== undefined) {
+      console.log(
+        `skillset: backed up ${result.writes.backupRecords?.length ?? 0} overwritten output file` +
+          `${result.writes.backupRecords?.length === 1 ? "" : "s"} to ${result.writes.backupManifestPath}`
+      );
     }
     return;
   }
@@ -224,6 +231,14 @@ export async function runCli(
       return;
     }
     throw new Error("skillset: expected release subcommand apply, audit, or plan");
+  }
+
+  if (command === "restore") {
+    if (importPath === undefined) throw new Error("skillset: expected backup id to restore");
+    const report = await restoreOutputBackup(rootPath, importPath, { write: yes && !dryRun });
+    printRestoreReport(report);
+    if (!yes || dryRun) console.log("skillset: rerun restore with --yes to write restored files");
+    return;
   }
 
   if (command === "distribute") {
@@ -785,6 +800,13 @@ function printSetupReport(result: SetupReport, reason: string): void {
   console.log(`  root: ${result.rootPath}`);
 }
 
+function printRestoreReport(report: OutputBackupRestoreReport): void {
+  const mode = report.write ? "restored" : "restore preview";
+  console.log(`skillset: ${mode} ${report.restoredPaths.length} file${report.restoredPaths.length === 1 ? "" : "s"} from backup ${report.runId}`);
+  console.log(`  manifest: ${report.manifestPath}`);
+  for (const path of report.restoredPaths) console.log(`  restore: ${path}`);
+}
+
 function printSkillsetTest(report: SkillsetTestReport): void {
   for (const assertion of report.assertions) {
     const marker = assertion.ok ? "pass" : "fail";
@@ -820,10 +842,11 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     command !== "lint" &&
     command !== "list" &&
     command !== "release" &&
+    command !== "restore" &&
     command !== "test"
   ) {
     throw new Error(
-        "skillset: expected command adopt, build, change, check, ci, create, diff, distribute, doctor, explain, hooks, import, init, lint, list, release, or test\n" +
+        "skillset: expected command adopt, build, change, check, ci, create, diff, distribute, doctor, explain, hooks, import, init, lint, list, release, restore, or test\n" +
         USAGE
     );
   }
@@ -948,6 +971,15 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       throw new Error("skillset: expected a path to explain");
     }
     importPath = rawPath;
+    index += 1;
+  }
+
+  if (command === "restore") {
+    const rawBackupId = args[index];
+    if (rawBackupId === undefined || rawBackupId.startsWith("--")) {
+      throw new Error("skillset: expected backup id to restore");
+    }
+    importPath = rawBackupId;
     index += 1;
   }
 
@@ -1153,6 +1185,13 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     dryRun,
     ...(scopes === undefined ? {} : { scopes }),
     yes,
+  });
+  validateRestoreFlags(command, {
+    ...(buildMode === undefined ? {} : { buildMode }),
+    ...(changeSince === undefined ? {} : { changeSince }),
+    ...(distDir === undefined ? {} : { distDir }),
+    ...(scopes === undefined ? {} : { scopes }),
+    ...(sourceDir === undefined ? {} : { sourceDir }),
   });
 
   const options: SkillsetOptions = {
@@ -1367,6 +1406,28 @@ function validateTestFlags(
     test.yes
   ) {
     throw new Error("skillset: build/write options are not supported with test; test output always writes under .skillset/build/tests");
+  }
+}
+
+function validateRestoreFlags(
+  command: Command,
+  restore: {
+    readonly buildMode?: CompileBuildMode;
+    readonly changeSince?: string;
+    readonly distDir?: string;
+    readonly scopes?: readonly BuildScope[];
+    readonly sourceDir?: string;
+  }
+): void {
+  if (command !== "restore") return;
+  if (
+    restore.buildMode !== undefined ||
+    restore.changeSince !== undefined ||
+    restore.distDir !== undefined ||
+    restore.scopes !== undefined ||
+    restore.sourceDir !== undefined
+  ) {
+    throw new Error("skillset: restore only supports --root, --yes, and --dry-run");
   }
 }
 

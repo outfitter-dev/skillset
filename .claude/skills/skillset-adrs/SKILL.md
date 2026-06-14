@@ -22,7 +22,7 @@ Use these tenets as the review lens:
 - **Lower intent, not filenames.** Near matches are modeled from the author's intended outcome, then lowered in the target-native way.
 - **Target truth beats fake portability.** Unsupported target behavior must be visible through diagnostics, opt-outs, or explicit target-native escape hatches.
 - **Builds do not imply trust.** Build output may define plugins, hooks, skills, and instructions, but activation is separate.
-- **Drift should become visible early.** Stale output, unsupported lowering, malformed locks, and unmanaged destinations should fail before runtime surprises.
+- **Drift should become visible early.** Stale output, unsupported lowering, malformed locks, and unmanaged destination collisions should surface before runtime surprises, with reversible backups where confirmed builds replace existing files.
 
 When an ADR proposes something new, test it against these questions. Does it reduce repeated authoring? Does it preserve target-native truth? Does it make unsupported behavior easier to see? Does it keep activation separate from compilation?
 

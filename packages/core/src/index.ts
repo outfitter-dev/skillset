@@ -96,6 +96,16 @@ export type {
   SkillsetWriteMode,
   SkillsetWriteSummary,
 } from "./operation-result";
+export {
+  OUTPUT_BACKUP_ROOT,
+  restoreOutputBackup,
+  type OutputBackupAction,
+  type OutputBackupManifest,
+  type OutputBackupReason,
+  type OutputBackupRecord,
+  type OutputBackupRestoreReport,
+  type OutputBackupSummary,
+} from "./output-safety";
 export type { SkillsetOptions } from "./types";
 export {
   VERSION_DRIFT_STATUS_VALUES,

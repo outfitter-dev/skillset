@@ -18,7 +18,7 @@ Place output style files under `.skillset/plugins/<plugin>/output-styles/`. The 
 
 ## Diagnostics
 
-- Refuse unmanaged generated-output collisions.
+- Back up unmanaged generated-output collisions before replacing them in confirmed builds.
 - Reject divergent target-native islands that try to emit the same generated output-style path.
 - Do not copy Claude output styles into Codex plugin output.
 

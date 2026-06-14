@@ -3875,6 +3875,47 @@ Body.
   await expect(checkSkillset(root)).rejects.toThrow("missing managed generated file: .claude/skills/demo/SKILL.md");
 });
 
+test("SET-19: CLI restores backed up unmanaged output collisions", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: restore-root
+claude: false
+codex: true
+`,
+    ".skillset/instructions/root.md": `
+# Generated Instructions
+`,
+    "AGENTS.md": `
+# Existing Instructions
+`,
+	  });
+
+	  const previewBuild = await runSkillsetCli("build", "--root", root);
+	  expect(previewBuild.exitCode).toBe(0);
+	  expect(previewBuild.stderr).toContain("existing file is not owned by Skillset");
+	  expect(previewBuild.stderr).toContain("will be backed up");
+	  expect(previewBuild.stdout).toContain("rerun with --yes");
+	  expect(await Bun.file(join(root, ".skillset/build/backups")).exists()).toBe(false);
+	  expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Existing Instructions");
+
+	  const build = await runSkillsetCli("build", "--root", root, "--yes");
+	  expect(build.exitCode).toBe(0);
+	  expect(build.stderr).toContain("existing file is not owned by Skillset");
+  const backupId = extractBackupId(build.stderr);
+  expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Generated Instructions");
+
+  const preview = await runSkillsetCli("restore", backupId, "--root", root);
+  expect(preview.exitCode).toBe(0);
+  expect(preview.stdout).toContain("restore preview 1 file");
+  expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Generated Instructions");
+
+  const restored = await runSkillsetCli("restore", backupId, "--root", root, "--yes");
+  expect(restored.exitCode).toBe(0);
+  expect(restored.stdout).toContain("restored 1 file");
+  expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Existing Instructions");
+});
+
 test("SET-25: CLI parses build mode and scope flags", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `
@@ -5318,6 +5359,12 @@ function sourceInventoryUnit(
 function extractChangeRef(stdout: string): string {
   const match = stdout.match(/@[0-9a-f]{6,12}/);
   if (match === null) throw new Error(`missing change ref in stdout:\n${stdout}`);
+  return match[0];
+}
+
+function extractBackupId(stdout: string): string {
+  const match = stdout.match(/\b[0-9a-f]{12}\b/);
+  if (match === null) throw new Error(`missing backup id in stdout:\n${stdout}`);
   return match[0];
 }
 

@@ -22,6 +22,7 @@ const SEEDED_FEATURE_IDS = [
   "dependencies",
   "distributions",
   "future-companion-source-pointers",
+  "output-safety",
   "plugin-agents",
   "plugin-apps",
   "plugin-assets",

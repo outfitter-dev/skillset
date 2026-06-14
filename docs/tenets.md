@@ -91,7 +91,7 @@ Import helpers can reduce migration pain, but the source contract should not kee
 
 ### Drift should become visible early
 
-Stale generated output, unsupported target features, unsafe resource mappings, unmanaged generated destinations, malformed locks, and target-incompatible hooks should fail before they become quiet runtime surprises.
+Stale generated output, unsupported target features, unsafe resource mappings, unmanaged generated-destination collisions, malformed locks, and target-incompatible hooks should become visible before they become quiet runtime surprises. Fail when the compiler cannot proceed safely; when a confirmed build replaces a recoverable unmanaged collision or target-side edit, it should warn and preserve enough backup state to restore the prior file.
 
 Unsupported lowering policy should be explicit. The default should fail when authored source cannot lower faithfully to an enabled target. Softer modes such as warn, skip, or force are escape hatches for migration and provider drift; they must record what happened in warnings, doctor output, or lock provenance rather than making unsupported source look synchronized.
 

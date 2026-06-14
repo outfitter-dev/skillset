@@ -63,7 +63,7 @@ Skillset should model target settings by scope before modeling individual keys.
 
 Settings suggestions must not treat all target config as one blob. They need a target, scope, file path, key path, merge strategy, and safety class.
 
-This table is about future synthesized suggestions against target settings/config files. It does not reclassify already-authored source islands as suggestions. For example, if a repo intentionally authors `.skillset/src/claude/settings.json` or `.skillset/src/codex/config.toml`, existing target-native island rules apply: the file is source-owned, mirrored only to the matching project target root, protected by unmanaged-collision checks, and recorded as generated output provenance. Skillset still does not understand that authored file as a recommendation, does not merge it with live target state, and must not use it as permission to write user, local, system, managed, or profile settings.
+This table is about future synthesized suggestions against target settings/config files. It does not reclassify already-authored source islands as suggestions. For example, if a repo intentionally authors `.skillset/src/claude/settings.json` or `.skillset/src/codex/config.toml`, existing target-native island rules apply: the file is source-owned, mirrored only to the matching project target root, protected by unmanaged-collision backups, and recorded as generated output provenance. Skillset still does not understand that authored file as a recommendation, does not merge it with live target state, and must not use it as permission to write user, local, system, managed, or profile settings.
 
 ## Suggestion Record
 

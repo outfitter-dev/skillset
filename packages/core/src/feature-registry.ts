@@ -171,6 +171,23 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/config.ts",
   }),
   feature({
+    docs: ["docs/features/output-safety.md"],
+    evidence: [
+      source("packages/core/src/output-safety.ts"),
+      test("packages/core/src/__tests__/build-result.test.ts", "SET-19 output backup and restore coverage"),
+      test("apps/skillset/src/__tests__/contract.test.ts", "SET-19 restore CLI coverage"),
+    ],
+    id: "output-safety",
+    kind: "workflow",
+    loweringOwner: "packages/core/src/output-safety.ts",
+    sourceShape: "generated .skillset.lock ownership plus current rendered output paths",
+    status: "implemented",
+    summary: "Protects unmanaged generated-output collisions and target-side edits with reversible backups.",
+    targetSupport: notTargetRuntime(),
+    title: "Output Safety",
+    validationOwner: "packages/core/src/output-safety.ts",
+  }),
+  feature({
     docs: ["docs/features/feature-source-pointers.md", "docs/features/mcp-servers.md"],
     evidence: [test("apps/skillset/src/__tests__/contract.test.ts", "SET-26 MCP pointer coverage")],
     id: "plugin-mcp",

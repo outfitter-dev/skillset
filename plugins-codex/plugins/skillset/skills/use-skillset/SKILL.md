@@ -61,7 +61,7 @@ paths:
 - Keep docs concise and current.
 ```
 
-Claude rules are generated under `.claude/rules/**/*.md` with `paths` frontmatter preserved. Codex rules are generated as `AGENTS.md` files at derived directories: `docs/**/*.md` writes `docs/AGENTS.md`, while broad globs such as `**/*.ts` scan matching repo files and use the lowest common directory. Multiple rules that land at the same `AGENTS.md` are concatenated in source order, each preceded by a `<!-- source: ... -->` boundary comment (path only, no frontmatter). Codex truncates `AGENTS.md` beyond `project_doc_max_bytes` (32 KiB default); `skillset` warns when generated output crosses it — split instructions across nested directories or raise the limit. The build refuses to overwrite unmanaged `AGENTS.md` files; move existing guidance into `.skillset/instructions` before letting `skillset` own it.
+Claude rules are generated under `.claude/rules/**/*.md` with `paths` frontmatter preserved. Codex rules are generated as `AGENTS.md` files at derived directories: `docs/**/*.md` writes `docs/AGENTS.md`, while broad globs such as `**/*.ts` scan matching repo files and use the lowest common directory. Multiple rules that land at the same `AGENTS.md` are concatenated in source order, each preceded by a `<!-- source: ... -->` boundary comment (path only, no frontmatter). Codex truncates `AGENTS.md` beyond `project_doc_max_bytes` (32 KiB default); `skillset` warns when generated output crosses it — split instructions across nested directories or raise the limit. Confirmed builds back up unmanaged `AGENTS.md` collisions before replacing them; move existing guidance into `.skillset/instructions` when you want `skillset` to own the destination long term, and use `skillset restore <backup-id> --yes` to recover a backed-up file.
 
 Skill and rule bodies are preprocessed before target serialization. Use `{{this.<field>}}` for simple current-frontmatter references, `{{> shared:path.md}}` or `{{> plugin:path.md}}` for partials, and `skillset.preprocess: false` when a body should keep literal braces. Rule bodies can also use `{{skillset.repo_root}}`, `{{skillset.output_dir}}`, and `{{skillset.source_rule}}`; these render per generated file, so a nested `docs/AGENTS.md` can point back to `..` while a root `AGENTS.md` points to `.`. Missing `this` fields and unknown Skillset variables fail the build.
 
@@ -157,6 +157,7 @@ skillset lint --root .
 skillset check --root .
 skillset diff --root .            # pending generated changes, no writes
 skillset explain <path> --root .  # lowering + lock provenance for a source/generated path
+skillset restore <backup> --root . # preview restore; add --yes to write
 skillset doctor --root .          # lint issues + drift + warnings
 skillset hooks print --runner lefthook --pre-commit --pre-push
 skillset hooks print --target codex --agent-runtime
