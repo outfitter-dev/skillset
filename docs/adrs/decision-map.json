@@ -68,6 +68,11 @@
           "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - governing source and generated-output doctrine.",
           "from": "20260613",
           "fromPath": "docs/adrs/drafts/20260613-deterministic-projection-and-adapter-conformance.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - governing source and generated-output doctrine.",
+          "from": "20260614",
+          "fromPath": "docs/adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md"
         }
       ],
       "number": "0000",
@@ -102,6 +107,11 @@
           "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - provider selection and fail-loud unsupported behavior.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-reviewed-settings-suggestions.md"
+        },
+        {
+          "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - root target selection and unsupported policy context.",
+          "from": "20260614",
+          "fromPath": "docs/adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md"
         }
       ],
       "number": "0001",

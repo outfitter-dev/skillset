@@ -171,6 +171,25 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/config.ts",
   }),
   feature({
+    docs: ["docs/features/lowering-outcomes.md"],
+    evidence: [
+      docs("docs/adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md"),
+      source("packages/core/src/lowering-outcome.ts"),
+      source("packages/core/src/lowering-outcome-collector.ts"),
+      test("packages/core/src/__tests__/lowering-outcome.test.ts", "lowering outcome schema validation coverage"),
+      test("packages/core/src/__tests__/lowering-outcome-build.test.ts", "build lowering outcomes cover emitted, target-native, transformed, unsupported, resolver-error, and scoped outcomes"),
+    ],
+    id: "lowering-outcomes",
+    kind: "workflow",
+    loweringOwner: "packages/core/src/lowering-outcome-collector.ts",
+    sourceShape: "rendered build graph, generated lock items, companion files, and unsupported feature records",
+    status: "implemented",
+    summary: "Records per-build lowering facts for emitted, transformed, degraded, skipped, unsupported, and externally managed source units.",
+    targetSupport: notTargetRuntime(),
+    title: "Lowering Outcomes",
+    validationOwner: "packages/core/src/lowering-outcome.ts",
+  }),
+  feature({
     docs: ["docs/features/output-safety.md"],
     evidence: [
       source("packages/core/src/output-safety.ts"),
