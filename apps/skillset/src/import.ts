@@ -1,10 +1,13 @@
 import { mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
+
+import { defineLoweringOutcome, type SkillsetLoweringOutcome } from "@skillset/core";
 
 import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
 import { readSkillsetMetadata, readSkillsetName, readString } from "./config";
 import { compareStrings, resolveInside, validateSlug } from "./path";
+import { selectorForPluginConfig, selectorForStandaloneSkill } from "./source-unit-selector";
 import type { JsonRecord, SourceOrigin } from "./types";
 import { isJsonRecord, parseMarkdown, parseYamlRecord, stringifyMarkdown, stringifyYaml } from "./yaml";
 
@@ -77,6 +80,7 @@ export interface ImportReport {
   readonly files: number;
   readonly inferredSourceFields: readonly string[];
   readonly kind: SingularImportKind;
+  readonly loweringOutcomes: readonly SkillsetLoweringOutcome[];
   readonly name: string;
   readonly nextChecks: readonly string[];
   readonly preservedTargetNativeFields: readonly string[];
@@ -90,6 +94,7 @@ export interface ImportBatchReport {
   readonly files: number;
   readonly imports: readonly ImportReport[];
   readonly kind: ImportKind;
+  readonly loweringOutcomes: readonly SkillsetLoweringOutcome[];
   readonly provider?: ImportProvider;
   readonly sourcePath: string;
   readonly warnings: readonly string[];
@@ -120,6 +125,7 @@ export async function importSources(options: ImportSourcesOptions): Promise<Impo
     files: imports.reduce((total, report) => total + report.files, 0),
     imports,
     kind: plan.kind,
+    loweringOutcomes: imports.flatMap((report) => report.loweringOutcomes),
     ...(options.provider === undefined ? {} : { provider: options.provider }),
     sourcePath,
     warnings: plan.warnings,
@@ -182,6 +188,13 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       files: copiedFiles.length,
       inferredSourceFields: classification.recognized,
       kind: options.kind,
+      loweringOutcomes: importLoweringOutcomes({
+        classification,
+        kind: options.kind,
+        name,
+        rootPath: options.rootPath,
+        targetPath,
+      }),
       name,
       nextChecks: [
         "skillset lint",
@@ -256,6 +269,46 @@ function importWarnings(classification: FrontmatterClassification): readonly str
     );
   }
   return warnings;
+}
+
+function importLoweringOutcomes(args: {
+  readonly classification: FrontmatterClassification;
+  readonly kind: SingularImportKind;
+  readonly name: string;
+  readonly rootPath: string;
+  readonly targetPath: string;
+}): readonly SkillsetLoweringOutcome[] {
+  const toolPolicyFields = args.classification.targetNative.filter(isClaudeToolPolicyField);
+  if (toolPolicyFields.length === 0) return [];
+  const sourcePath = importSourcePath(args.rootPath, args.targetPath, args.kind);
+  return [
+    defineLoweringOutcome({
+      diagnostics: [
+        {
+          code: "import-preserved-target-native-frontmatter",
+          message: `preserved target-native fields verbatim: ${toolPolicyFields.join(", ")}`,
+          path: sourcePath,
+        },
+      ],
+      featureId: "tool-intent",
+      outputs: [{ kind: "imported-source", path: sourcePath }],
+      sourcePath,
+      sourceUnit: args.kind === "skill"
+        ? selectorForStandaloneSkill(args.name)
+        : selectorForPluginConfig(args.name),
+      status: "target_native",
+      target: "claude",
+    }),
+  ];
+}
+
+function isClaudeToolPolicyField(field: string): boolean {
+  return field === "allowed-tools" || field === "disallowed-tools" || field === "disable-model-invocation";
+}
+
+function importSourcePath(rootPath: string, targetPath: string, kind: SingularImportKind): string {
+  const path = kind === "skill" ? join(targetPath, "SKILL.md") : join(targetPath, "skillset.yaml");
+  return relative(rootPath, path).replaceAll("\\", "/");
 }
 
 async function readImportedFrontmatter(targetPath: string, kind: SingularImportKind): Promise<JsonRecord> {

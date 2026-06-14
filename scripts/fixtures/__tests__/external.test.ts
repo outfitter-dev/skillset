@@ -125,12 +125,18 @@ test("runExternalRepo adopts a marketplace-shaped repo in place and reports roun
     { kind: "plugin", path: "plugins/demo" },
   ]);
   expect(report.survey.skips).toEqual([
-    {
+    expect.objectContaining({
+      loweringOutcome: expect.objectContaining({
+        featureId: "target-native-islands",
+        sourceUnit: "claude.commands:commands",
+        status: "intentionally_skipped",
+        target: "claude",
+      }),
       path: ".claude/commands",
       reason:
         "project-level commands have no portable source home yet; adopt will lower them to target-native islands in the transform milestone",
       surface: "commands",
-    },
+    }),
   ]);
   expect(report.roundTrips).toHaveLength(1);
   const roundTrip = report.roundTrips[0];

@@ -19,7 +19,7 @@ import {
   type SkillsetOperationResult,
   type SkillsetWriteSummary,
 } from "./operation-result";
-import type { SkillsetLoweringOutcome } from "./lowering-outcome";
+import { defineLoweringOutcome, type SkillsetLoweringOutcome } from "./lowering-outcome";
 import type { BuildGraph, BuildScope, CheckResult, JsonRecord, JsonValue, RenderedFile, SkillsetOptions } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
 
@@ -66,6 +66,7 @@ function diagnoseLargeInstructionFiles(rendered: readonly RenderedFile[]): reado
     if (file.content.byteLength <= CODEX_AGENTS_MAX_BYTES) continue;
     diagnostics.push({
       code: "codex-agents-size",
+      featureId: "project-instructions",
       message:
         `generated ${file.path} is ${file.content.byteLength} bytes, over Codex's default ` +
         `project_doc_max_bytes (${CODEX_AGENTS_MAX_BYTES}); Codex silently truncates beyond it. ` +
@@ -102,14 +103,17 @@ export async function buildSkillsetResult(
     scopes: options.scopes,
   });
   enforceLoweringOutcomePolicy(loweringOutcomes, graph.root.compile.unsupported);
+  const renderedWithoutOutcomeMetadata = mirroredRenderedFiles(scopedRendered, outPath);
+  const instructionDiagnostics = diagnoseLargeInstructionFiles(renderedWithoutOutcomeMetadata);
+  diagnostics.push(...instructionDiagnostics);
+  const loweringOutcomesWithDiagnostics = attachDiagnosticsToLoweringOutcomes(loweringOutcomes, instructionDiagnostics);
   const rendered = withPersistedLoweringOutcomes(
-    mirroredRenderedFiles(scopedRendered, outPath),
-    loweringOutcomes
+    renderedWithoutOutcomeMetadata,
+    loweringOutcomesWithDiagnostics
   );
   const liveOutputRoots = scopedOutputRoots(graph, options.scopes);
   const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
   const includeWorkspaceLock = includesProjectScope(options.scopes);
-  diagnostics.push(...diagnoseLargeInstructionFiles(rendered));
   const expectedPaths = new Set(rendered.map((file) => file.path));
   const previousManagedState = await readManagedOutputState(rootPath, liveOutputRoots, includeWorkspaceLock, outPath);
   diagnostics.push(...await diagnoseMissingManagedOutputs(rootPath, rendered, previousManagedState.paths));
@@ -121,7 +125,7 @@ export async function buildSkillsetResult(
 
     const deletedPaths = await removeStaleGeneratedFiles(rootPath, new Set(staleManagedPaths), expectedPaths);
     const writtenPaths = await writeRenderedFiles(rootPath, rendered);
-    return buildResult(rendered, diagnostics, loweringOutcomes, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
+    return buildResult(rendered, diagnostics, loweringOutcomesWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
   }
 
   const actualPaths = new Set(await listGeneratedFiles(rootPath, outputRoots, rendered, previousManagedState.paths));
@@ -132,7 +136,7 @@ export async function buildSkillsetResult(
   const deletedPaths = await removeStaleGeneratedFiles(rootPath, new Set(staleManagedPaths), expectedPaths);
   const writtenPaths = await writeChangedRenderedFiles(rootPath, rendered, actualPaths);
 
-  return buildResult(rendered, diagnostics, loweringOutcomes, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
+  return buildResult(rendered, diagnostics, loweringOutcomesWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
 }
 
 export interface SkillsetDiff {
@@ -170,11 +174,14 @@ export async function diffSkillsetResult(
     scopes: options.scopes,
   });
   enforceLoweringOutcomePolicy(loweringOutcomes, graph.root.compile.unsupported);
+  const renderedWithoutOutcomeMetadata = mirroredRenderedFiles(scopedRendered, outPath);
+  const instructionDiagnostics = diagnoseLargeInstructionFiles(renderedWithoutOutcomeMetadata);
+  diagnostics.push(...instructionDiagnostics);
+  const loweringOutcomesWithDiagnostics = attachDiagnosticsToLoweringOutcomes(loweringOutcomes, instructionDiagnostics);
   const rendered = withPersistedLoweringOutcomes(
-    mirroredRenderedFiles(scopedRendered, outPath),
-    loweringOutcomes
+    renderedWithoutOutcomeMetadata,
+    loweringOutcomesWithDiagnostics
   );
-  diagnostics.push(...diagnoseLargeInstructionFiles(rendered));
   const expected = new Map(rendered.map((file) => [file.path, file.content]));
   const liveOutputRoots = scopedOutputRoots(graph, options.scopes);
   const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
@@ -216,7 +223,7 @@ export async function diffSkillsetResult(
   return {
     data: diff,
     diagnostics,
-    loweringOutcomes,
+    loweringOutcomes: loweringOutcomesWithDiagnostics,
     ok: true,
     operation: "diff",
     writes: {
@@ -252,11 +259,14 @@ export async function checkSkillsetResult(
     scopes: options.scopes,
   });
   enforceLoweringOutcomePolicy(loweringOutcomes, graph.root.compile.unsupported);
+  const renderedWithoutOutcomeMetadata = mirroredRenderedFiles(scopedRendered, outPath);
+  const instructionDiagnostics = diagnoseLargeInstructionFiles(renderedWithoutOutcomeMetadata);
+  diagnostics.push(...instructionDiagnostics);
+  const loweringOutcomesWithDiagnostics = attachDiagnosticsToLoweringOutcomes(loweringOutcomes, instructionDiagnostics);
   const rendered = withPersistedLoweringOutcomes(
-    mirroredRenderedFiles(scopedRendered, outPath),
-    loweringOutcomes
+    renderedWithoutOutcomeMetadata,
+    loweringOutcomesWithDiagnostics
   );
-  diagnostics.push(...diagnoseLargeInstructionFiles(rendered));
   const expected = new Map(rendered.map((file) => [file.path, file.content]));
   const liveOutputRoots = scopedOutputRoots(graph, options.scopes);
   const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
@@ -297,7 +307,7 @@ export async function checkSkillsetResult(
   return {
     data: { checkedFiles: rendered.length },
     diagnostics,
-    loweringOutcomes,
+    loweringOutcomes: loweringOutcomesWithDiagnostics,
     ok: true,
     operation: "check",
     writes: {
@@ -322,6 +332,47 @@ function buildResult(
     ok: true,
     operation: "build",
     writes,
+  };
+}
+
+function attachDiagnosticsToLoweringOutcomes(
+  loweringOutcomes: readonly SkillsetLoweringOutcome[],
+  diagnostics: readonly SkillsetDiagnostic[]
+): readonly SkillsetLoweringOutcome[] {
+  const outputDiagnostics = diagnostics.filter((diagnostic) => diagnostic.outputPath !== undefined);
+  if (outputDiagnostics.length === 0) return loweringOutcomes;
+
+  return loweringOutcomes.map((outcome) => {
+    const outputPaths = new Set((outcome.outputs ?? []).map((output) => output.path));
+    if (outputPaths.size === 0) return outcome;
+    const matching = outputDiagnostics.filter((diagnostic) => {
+      if (diagnostic.outputPath === undefined || !outputPaths.has(diagnostic.outputPath)) return false;
+      if (diagnostic.target !== undefined && diagnostic.target !== outcome.target) return false;
+      return diagnostic.featureId === undefined || diagnostic.featureId === outcome.featureId;
+    });
+    if (matching.length === 0) return outcome;
+    return defineLoweringOutcome({
+      ...outcome,
+      diagnostics: [
+        ...(outcome.diagnostics ?? []),
+        ...matching.map((diagnostic) => diagnosticRefForOutput(diagnostic)),
+      ],
+    });
+  });
+}
+
+function diagnosticRefForOutput(diagnostic: SkillsetDiagnostic): {
+  readonly code: string;
+  readonly message: string;
+  readonly path: string;
+} {
+  if (diagnostic.outputPath === undefined) {
+    throw new Error("skillset: lowering outcome diagnostic ref requires an output path");
+  }
+  return {
+    code: diagnostic.code,
+    message: diagnostic.message,
+    path: diagnostic.outputPath,
   };
 }
 

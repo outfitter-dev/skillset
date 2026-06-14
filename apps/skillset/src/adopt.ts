@@ -52,6 +52,7 @@ export interface AdoptImportResult {
   /** Instructions destination relative to the root (e.g. `.skillset/instructions/agents.md`). */
   readonly destination?: string;
   readonly detail: string;
+  readonly loweringOutcomes: readonly SkillsetLoweringOutcome[];
   readonly ok: boolean;
   readonly units: readonly AdoptImportedUnit[];
 }
@@ -167,7 +168,7 @@ async function adoptResolvedRoot(
       cutover: [],
       imports: [],
       lintIssues: [],
-      loweringOutcomes: [],
+      loweringOutcomes: surveySkipLoweringOutcomes(init.surveySkips),
       ok: true,
       rootPath: init.rootPath,
       setupFiles: init.files,
@@ -197,12 +198,18 @@ async function adoptResolvedRoot(
   }
 
   let builtFiles = 0;
-  let loweringOutcomes: readonly SkillsetLoweringOutcome[] = [];
+  let loweringOutcomes: readonly SkillsetLoweringOutcome[] = [
+    ...surveySkipLoweringOutcomes(init.surveySkips),
+    ...imports.flatMap((result) => result.loweringOutcomes),
+  ];
   if (buildError === undefined) {
     try {
       const build = await buildSkillsetResult(init.rootPath, { ...buildOptions, isolated: true });
       builtFiles = build.data.length;
-      loweringOutcomes = build.loweringOutcomes;
+      loweringOutcomes = [
+        ...loweringOutcomes,
+        ...build.loweringOutcomes,
+      ];
     } catch (error) {
       buildError = errorMessage(error);
     }
@@ -240,6 +247,12 @@ async function adoptResolvedRoot(
   await writeFile(join(reportDir, "report.json"), `${JSON.stringify(report, null, 2)}\n`);
 
   return report;
+}
+
+function surveySkipLoweringOutcomes(
+  skips: readonly SurveySkip[]
+): readonly SkillsetLoweringOutcome[] {
+  return skips.flatMap((skip) => skip.loweringOutcome === undefined ? [] : [skip.loweringOutcome]);
 }
 
 async function acquireAdoptSource(source: string, cwd: string): Promise<AdoptAcquisition> {
@@ -304,9 +317,9 @@ async function importCandidate(
       // protection, so it belongs on the cutover list.
       cutover.push(candidate.path);
       previewSources.push(destination);
-      return { candidate, destination, detail: destination, ok: true, units: [] };
+      return { candidate, destination, detail: destination, loweringOutcomes: [], ok: true, units: [] };
     } catch (error) {
-      return { candidate, detail: errorMessage(error), ok: false, units: [] };
+      return { candidate, detail: errorMessage(error), loweringOutcomes: [], ok: false, units: [] };
     }
   }
 
@@ -337,11 +350,12 @@ async function importCandidate(
     return {
       candidate,
       detail: `${units.map((unit) => `${unit.kind} ${unit.name}`).join(", ")} (${batch.files} files)`,
+      loweringOutcomes: batch.loweringOutcomes,
       ok: true,
       units,
     };
   } catch (error) {
-    return { candidate, detail: errorMessage(error), ok: false, units: [] };
+    return { candidate, detail: errorMessage(error), loweringOutcomes: [], ok: false, units: [] };
   }
 }
 
@@ -621,21 +635,21 @@ export function renderAdoptReportMarkdown(
       `Wrote ${report.builtFiles} generated files into the mirror under \`${ISOLATED_OUT_ROOT}/\`, laid out as the repo root would be. The live tree is untouched.`,
       ""
     );
-    lines.push("### Lowering outcomes", "");
-    if (report.loweringOutcomes.length === 0) {
-      lines.push("No lowering outcomes recorded.", "");
-    } else {
-      for (const summary of summarizeLoweringOutcomes(report.loweringOutcomes)) {
-        lines.push(`- ${summary}`);
-      }
-      lines.push("");
-      lines.push(
-        "Full structured lowering outcomes are in `report.json` and in the isolated `.skillset.lock` files.",
-        ""
-      );
-    }
   } else {
     lines.push("```", report.buildError.trimEnd(), "```", "");
+  }
+  lines.push("### Lowering outcomes", "");
+  if (report.loweringOutcomes.length === 0) {
+    lines.push("No lowering outcomes recorded.", "");
+  } else {
+    for (const summary of summarizeLoweringOutcomes(report.loweringOutcomes)) {
+      lines.push(`- ${summary}`);
+    }
+    lines.push("");
+    lines.push(
+      "Full structured lowering outcomes are in `report.json` and in the isolated `.skillset.lock` files when the isolated build completes.",
+      ""
+    );
   }
 
   lines.push("## Cutover", "");
