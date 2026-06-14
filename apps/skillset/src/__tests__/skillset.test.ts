@@ -1,11 +1,11 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { expect, test } from "bun:test";
 
 import { explainPath, listGeneratedEntries } from "../authoring";
-import { buildSkillset, checkSkillset, diffSkillset } from "../build";
+import { buildSkillset, buildSkillsetResult, checkSkillset, diffSkillset } from "../build";
 import { importSource } from "../import";
 import { lintSkillset } from "../lint";
 import { loadBuildGraph } from "../resolver";
@@ -1581,7 +1581,7 @@ skillset:
   expect(await exists(join(root, ".codex/.skillset.lock"))).toBe(false);
 });
 
-test("project target-native islands refuse unmanaged destination collisions", async () => {
+test("project target-native islands back up unmanaged destination collisions", async () => {
   const root = await fixture({
     ".codex/rules/deny.rules": `
 match = "existing"
@@ -1602,7 +1602,16 @@ skillset:
 `,
   });
 
-  await expect(buildSkillset(root)).rejects.toThrow("refusing to overwrite unmanaged workspace file .codex/rules/deny.rules");
+  const result = await buildSkillsetResult(root);
+  expect(result.diagnostics).toContainEqual(expect.objectContaining({
+    code: "unmanaged-output-collision",
+    outputPath: ".codex/rules/deny.rules",
+  }));
+  expect(result.writes.backupRecords).toContainEqual(expect.objectContaining({
+    action: "overwrite",
+    reason: "unmanaged-collision",
+    targetPath: ".codex/rules/deny.rules",
+  }));
 });
 
 test("project target-native islands reject project roots inside source root", async () => {
@@ -2173,7 +2182,7 @@ codex: false
   expect(await exists(join(root, ".claude/rules/docs/second.md"))).toBe(true);
 });
 
-test("rules refuse unmanaged AGENTS collisions", async () => {
+test("rules back up unmanaged AGENTS collisions", async () => {
   const root = await fixture({
     ".skillset/config.yaml": `
 skillset:
@@ -2189,8 +2198,13 @@ codex: true
 `,
   });
 
-  await expect(buildSkillset(root)).rejects.toThrow("refusing to overwrite unmanaged workspace file AGENTS.md");
-  expect(await exists(join(root, ".claude/rules/root.md"))).toBe(false);
+  const result = await buildSkillsetResult(root);
+  expect(result.diagnostics).toContainEqual(expect.objectContaining({
+    code: "unmanaged-output-collision",
+    outputPath: "AGENTS.md",
+  }));
+  expect(result.writes.backupRunId).toBeDefined();
+  expect(await exists(join(root, ".claude/rules/root.md"))).toBe(true);
 });
 
 test("rules reject unknown skillset variables", async () => {
@@ -2863,10 +2877,18 @@ description: Alpha skill.
 
 Alpha body.
 `,
+    ".skillset/plugins/alpha/skills/stale-skill/SKILL.md": `
+---
+name: stale-skill
+description: Stale skill.
+---
+
+Stale body.
+`,
   });
 
   await buildSkillset(root);
-  await writeFile(join(root, "plugins-codex/plugins/alpha/stale.txt"), "stale\n");
+  await rm(join(root, ".skillset/plugins/alpha/skills/stale-skill"), { recursive: true });
 
   await expect(checkSkillset(root)).rejects.toThrow("stale generated file");
 });

@@ -18,7 +18,7 @@ Place Claude command files under `.skillset/plugins/<plugin>/commands/`. The dir
 
 ## Diagnostics
 
-- Refuse unmanaged generated-output collisions.
+- Back up unmanaged generated-output collisions before replacing them in confirmed builds.
 - Reject divergent target-native islands that try to emit the same generated command path.
 - Do not copy Claude commands into Codex plugin output.
 

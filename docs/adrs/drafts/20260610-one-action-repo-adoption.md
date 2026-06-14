@@ -74,7 +74,7 @@ Adoption writes `.skillset/` and nothing else. The invariant is mechanically che
 
 This is what keeps the original usable as the round-trip baseline. Generated output is diffed against the original files sitting untouched in place, so fidelity gaps are visible as ordinary diffs rather than archaeology over an overwritten tree.
 
-Cutover is documentation, not a feature. A real migration ends with generated output replacing the originals, and the existing unmanaged-overwrite protection rightly refuses while originals linger. The migration report therefore ends with explicit cutover instructions — remove or relocate the listed originals, then build against live roots — instead of a `--replace` mode. If real migrations show that manual step failing at scale, a guided cutover command can earn its place later.
+Cutover is documentation, not a feature. A real migration ends with generated output replacing the originals, and unmanaged-output safety must make that step reversible rather than silent. The migration report therefore ends with explicit cutover instructions — review the listed originals, then build against live roots knowing any unmanaged collisions are backed up with restore ids — instead of a `--replace` mode. If real migrations show that manual review failing at scale, a guided cutover command can earn its place later.
 
 ### Isolated build output is a binary mode
 

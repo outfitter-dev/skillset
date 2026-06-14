@@ -4,7 +4,7 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { buildSkillset, checkSkillset, diffSkillset, ISOLATED_OUT_ROOT } from "../build";
+import { buildSkillset, buildSkillsetResult, checkSkillset, diffSkillset, ISOLATED_OUT_ROOT } from "../build";
 
 const DEMO_FIXTURE: Record<string, string> = {
   ".skillset/config.yaml": `
@@ -105,13 +105,16 @@ test("isolated rebuild is idempotent", async () => {
   expect(await mirrorTreeHashes(root)).toEqual(before);
 });
 
-test("isolated build protects unmanaged files planted inside the mirror", async () => {
+test("isolated build backs up unmanaged files planted inside the mirror", async () => {
   const root = await fixture(DEMO_FIXTURE);
   await Bun.write(join(root, ISOLATED_OUT_ROOT, "AGENTS.md"), "user file\n");
 
-  await expect(buildSkillset(root, { isolated: true })).rejects.toThrow(
-    `refusing to overwrite unmanaged workspace file ${join(ISOLATED_OUT_ROOT, "AGENTS.md")}`
-  );
+  const result = await buildSkillsetResult(root, { isolated: true });
+  expect(result.diagnostics).toContainEqual(expect.objectContaining({
+    code: "unmanaged-output-collision",
+    outputPath: join(ISOLATED_OUT_ROOT, "AGENTS.md"),
+  }));
+  expect(result.writes.backupRunId).toBeDefined();
 });
 
 test("CLI accepts --isolated for build and rejects it elsewhere", async () => {

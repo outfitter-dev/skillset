@@ -19,7 +19,7 @@ Place `.skillset/plugins/<plugin>/.lsp.json` in the plugin source root. The file
 ## Diagnostics
 
 - Refuse malformed generated JSON.
-- Refuse unmanaged generated-output collisions.
+- Back up unmanaged generated-output collisions before replacing them in confirmed builds.
 - Reject divergent target-native islands that try to emit the same `.lsp.json` path.
 - Do not copy Claude LSP configuration into Codex plugin output.
 
