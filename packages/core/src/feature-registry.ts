@@ -529,12 +529,12 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
         status: "externally_managed",
       },
       cursor: {
-        evidence: [docs("docs/features/runtime-adapters.md"), fixture("fixtures/external/repos/superpowers")],
+        evidence: [docs("docs/features/runtime-adapters.md"), fixture("fixtures/external/repos.yaml")],
         reason: "Cursor support needs target documentation and adapter evidence before Skillset can lower or distribute it.",
         status: "planned",
       },
       "gemini-cli": {
-        evidence: [docs("docs/features/runtime-adapters.md"), fixture("fixtures/external/repos/superpowers")],
+        evidence: [docs("docs/features/runtime-adapters.md"), fixture("fixtures/external/repos.yaml")],
         reason: "Gemini support needs target documentation and adapter evidence before Skillset can lower or distribute it.",
         status: "planned",
       },
@@ -549,7 +549,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
         status: "future",
       },
       opencode: {
-        evidence: [docs("docs/features/runtime-adapters.md"), fixture("fixtures/external/repos/superpowers")],
+        evidence: [docs("docs/features/runtime-adapters.md"), fixture("fixtures/external/repos.yaml")],
         reason: "OpenCode support needs target documentation and adapter evidence before Skillset can lower or distribute it.",
         status: "planned",
       },
