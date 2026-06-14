@@ -3,6 +3,7 @@ import { lstat, readdir, readFile, readlink, stat } from "node:fs/promises";
 import { basename, join, relative } from "node:path";
 
 import { compareStrings } from "./path";
+import { assertNoHostLeaks, type HostLeakDetectionOptions } from "./host-leak";
 import type { JsonValue } from "./types";
 import { isJsonRecord, parseYamlRecord, stringifyYaml, stripUndefinedValue } from "./yaml";
 
@@ -13,6 +14,7 @@ export interface NormalizedOutputTreeOptions {
   readonly excludePathPrefixes?: readonly string[];
   readonly excludePaths?: readonly string[];
   readonly forbiddenSubstrings?: readonly string[];
+  readonly hostLeakOptions?: false | HostLeakDetectionOptions;
   readonly structuredJsonPaths?: readonly string[];
   readonly structuredYamlPaths?: readonly string[];
 }
@@ -209,6 +211,15 @@ function assertNoForbiddenSubstrings(
   bytes: Uint8Array,
   options: NormalizedOutputTreeOptions
 ): void {
+  if (options.hostLeakOptions !== undefined && options.hostLeakOptions !== false) {
+    assertNoHostLeaks(path, bytes, {
+      ...(options.hostLeakOptions ?? {}),
+      forbiddenSubstrings: [
+        ...(options.hostLeakOptions?.forbiddenSubstrings ?? []),
+        ...(options.forbiddenSubstrings ?? []),
+      ],
+    });
+  }
   const forbidden = options.forbiddenSubstrings ?? [];
   if (forbidden.length === 0) return;
   for (const value of forbidden) {
