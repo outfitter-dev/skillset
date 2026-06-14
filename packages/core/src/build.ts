@@ -465,6 +465,7 @@ async function diagnoseMissingManagedOutputs(
     if (await exists(resolveInside(rootPath, file.path))) continue;
     diagnostics.push({
       code: "managed-output-missing",
+      featureId: "output-safety",
       message: `managed output is missing and will be regenerated: ${file.path}`,
       outputPath: file.path,
       severity: "warning",

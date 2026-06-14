@@ -88,6 +88,9 @@ export {
   type NormalizedTreeDifference,
   type NormalizedTreeDifferenceKind,
 } from "./normalized-output-tree";
+export {
+  SkillsetFeatureDiagnosticError,
+} from "./operation-result";
 export type {
   SkillsetDiagnostic,
   SkillsetDiagnosticSeverity,

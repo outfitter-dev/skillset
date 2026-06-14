@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { buildSkillsetResult, diffSkillsetResult, restoreOutputBackup } from "@skillset/core";
+import { buildSkillsetResult, diffSkillsetResult, getSkillsetFeature, restoreOutputBackup } from "@skillset/core";
 
 const DEMO_FIXTURE: Record<string, string> = {
   ".skillset/config.yaml": `
@@ -83,9 +83,11 @@ codex: true
     expect(backupRunId).toBeString();
     expect(result.diagnostics).toContainEqual(expect.objectContaining({
       code: "unmanaged-output-collision",
+      featureId: "output-safety",
       outputPath: "AGENTS.md",
       severity: "warning",
     }));
+    expectKnownDiagnosticFeatureIds(result.diagnostics);
     expect(result.writes.backupManifestPath).toBe(`.skillset/build/backups/${backupRunId}/manifest.json`);
     expect(result.writes.backupRecords).toContainEqual(expect.objectContaining({
       action: "overwrite",
@@ -123,10 +125,12 @@ codex: true
 
     expect(preview.diagnostics).toContainEqual(expect.objectContaining({
       code: "unmanaged-output-collision",
+      featureId: "output-safety",
       message: expect.stringContaining("will be backed up"),
       outputPath: "AGENTS.md",
       severity: "warning",
     }));
+    expectKnownDiagnosticFeatureIds(preview.diagnostics);
     expect(await Bun.file(join(root, ".skillset/build/backups")).exists()).toBe(false);
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Hand Authored Instructions");
   });
@@ -144,6 +148,7 @@ codex: true
     expect(backupRunId).toBeString();
     expect(result.diagnostics).toContainEqual(expect.objectContaining({
       code: "managed-output-edited",
+      featureId: "output-safety",
       outputPath,
       severity: "warning",
     }));
@@ -233,4 +238,14 @@ async function fixture(files: Record<string, string>): Promise<string> {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }
   return root;
+}
+
+function expectKnownDiagnosticFeatureIds(
+  diagnostics: readonly { readonly featureId?: string }[]
+): void {
+  for (const diagnostic of diagnostics) {
+    if (diagnostic.featureId !== undefined) {
+      expect(getSkillsetFeature(diagnostic.featureId)?.id).toBe(diagnostic.featureId);
+    }
+  }
 }

@@ -1,4 +1,6 @@
 import { describe, expect, it } from "bun:test";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 
 import {
   FEATURE_STATUS_VALUES,
@@ -54,6 +56,17 @@ const SEEDED_FEATURE_IDS = [
   "workflows",
 ];
 
+const REPO_ROOT = join(import.meta.dir, "..", "..", "..", "..");
+const REPRESENTATIVE_DIAGNOSTIC_FEATURE_IDS = [
+  "output-safety",
+  "plugin-hooks",
+  "plugin-skills",
+  "project-instructions",
+  "resources",
+  "standalone-skills",
+  "tool-intent",
+] as const;
+
 describe("feature registry", () => {
   it("ships the current feature seed in deterministic order with docs and evidence", () => {
     const features = listSkillsetFeatures();
@@ -104,6 +117,21 @@ describe("feature registry", () => {
       "runtime-adapters",
     ]);
     expect(listSkillsetFeaturesByRuntime("gemini-cli").map((entry) => entry.id)).toEqual(["runtime-adapters"]);
+  });
+
+  it("keeps representative diagnostic feature ids tied to registry entries and owners", () => {
+    for (const id of REPRESENTATIVE_DIAGNOSTIC_FEATURE_IDS) {
+      expect(getSkillsetFeature(id)?.id).toBe(id);
+    }
+
+    for (const feature of listSkillsetFeatures()) {
+      if (feature.loweringOwner !== "future") {
+        expect(existsSync(join(REPO_ROOT, feature.loweringOwner))).toBe(true);
+      }
+      if (feature.validationOwner !== "future") {
+        expect(existsSync(join(REPO_ROOT, feature.validationOwner))).toBe(true);
+      }
+    }
   });
 
   it("sorts entries, looks up by id, and filters target-applicable features", () => {

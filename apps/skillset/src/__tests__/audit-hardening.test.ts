@@ -5,8 +5,9 @@ import { tmpdir } from "node:os";
 import { expect, test } from "bun:test";
 
 import { buildSkillset, checkSkillset } from "../build";
-import { lintSkillset } from "../lint";
+import { inspectSkillset, lintSkillset } from "../lint";
 import { compareStrings } from "../path";
+import { loadBuildGraph } from "../resolver";
 
 const FIXTURE_SKILLSET = join(import.meta.dir, "..", "..", "..", "..", "fixtures", "kitchen-sink", ".skillset");
 
@@ -211,6 +212,11 @@ Alpha body.
   });
 
   await expect(buildSkillset(root)).rejects.toThrow("Notification");
+  const lintReport = await inspectSkillset(await loadBuildGraph(root));
+  expect(lintReport.issues).toContainEqual(expect.objectContaining({
+    code: "hook-target-incompatible",
+    featureId: "plugin-hooks",
+  }));
   await expect(lintSkillset(root)).rejects.toThrow("Codex does not support");
 });
 

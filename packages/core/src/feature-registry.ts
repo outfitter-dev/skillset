@@ -176,6 +176,8 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
       docs("docs/adrs/drafts/20260604-feature-reference-and-schema-registry.md"),
       source("packages/core/src/feature-registry.ts"),
       test("packages/core/src/__tests__/feature-registry.test.ts", "registry ids, vocabulary, evidence, and guard coverage"),
+      test("apps/skillset/src/__tests__/lint-rules.test.ts", "SET-76 lint diagnostics carry feature ids"),
+      test("packages/core/src/__tests__/build-result.test.ts", "SET-76 output-safety diagnostics carry feature ids"),
     ],
     id: "feature-registry",
     kind: "workflow",

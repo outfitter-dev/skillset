@@ -9,6 +9,7 @@ export interface LintGuidance {
 export interface LintDiagnostic {
   readonly rule: string;
   readonly code?: string;
+  readonly featureId?: string;
   readonly severity: LintSeverity;
   readonly message: string;
   readonly path: string;

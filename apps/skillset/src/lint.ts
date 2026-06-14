@@ -27,6 +27,8 @@ import type {
   TargetName,
 } from "./types";
 
+type SkillFeatureId = "plugin-skills" | "standalone-skills";
+
 interface DynamicPattern {
   readonly code: string;
   readonly label: string;
@@ -99,30 +101,42 @@ async function inspectBuildGraph(graph: BuildGraph): Promise<LintResult> {
  * (plugin-bound and standalone) and map their diagnostics into LintIssues.
  */
 async function lintSkillRules(graph: BuildGraph): Promise<readonly LintIssue[]> {
-  const skills = [
-    ...graph.plugins.flatMap((plugin) => plugin.skills),
-    ...graph.standaloneSkills,
-  ];
-
-  const subjects: LintSubject[] = [];
-  for (const skill of skills) {
+  const subjects: Array<{ readonly featureId: SkillFeatureId; readonly subject: LintSubject }> = [];
+  for (const skill of graph.plugins.flatMap((plugin) => plugin.skills)) {
     subjects.push({
-      body: skill.body,
-      directoryName: basename(dirname(skill.sourcePath)),
-      files: [basename(skill.sourcePath)],
-      frontmatter: skill.frontmatter,
-      kind: "skill",
-      path: relative(graph.rootPath, skill.sourcePath),
-      raw: await readFile(skill.sourcePath, "utf8"),
+      featureId: "plugin-skills",
+      subject: await lintSubjectForSkill(graph, skill),
+    });
+  }
+  for (const skill of graph.standaloneSkills) {
+    subjects.push({
+      featureId: "standalone-skills",
+      subject: await lintSubjectForSkill(graph, skill),
     });
   }
 
-  return runLintRules(subjects).map(lintIssueFromDiagnostic);
+  return subjects.flatMap(({ featureId, subject }) =>
+    runLintRules([subject]).map((diagnostic) => lintIssueFromDiagnostic(diagnostic, featureId))
+  );
 }
 
-function lintIssueFromDiagnostic(diagnostic: LintDiagnostic): LintIssue {
+async function lintSubjectForSkill(graph: BuildGraph, skill: SourceSkill): Promise<LintSubject> {
+  return {
+    body: skill.body,
+    directoryName: basename(dirname(skill.sourcePath)),
+    files: [basename(skill.sourcePath)],
+    frontmatter: skill.frontmatter,
+    kind: "skill",
+    path: relative(graph.rootPath, skill.sourcePath),
+    raw: await readFile(skill.sourcePath, "utf8"),
+  };
+}
+
+function lintIssueFromDiagnostic(diagnostic: LintDiagnostic, sourceFeatureId?: SkillFeatureId): LintIssue {
+  const featureId = diagnostic.featureId ?? sourceFeatureId;
   return {
     code: diagnostic.code === undefined ? diagnostic.rule : `${diagnostic.rule}:${diagnostic.code}`,
+    ...(featureId === undefined ? {} : { featureId }),
     message: diagnostic.message,
     path: diagnostic.path,
     severity: diagnostic.severity,
@@ -174,6 +188,7 @@ async function lintHookFile(
     return [
       {
         code: "hook-invalid-json",
+        featureId: "plugin-hooks",
         severity: "error",
         path,
         message: `${targetLabel} hook file ${path} is not valid JSON: ${message}`,
@@ -185,7 +200,7 @@ async function lintHookFile(
     validateHookDefinition(parsed, { sourcePath: path, target });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return [{ code: "hook-target-incompatible", message, path, severity: "error" }];
+    return [{ code: "hook-target-incompatible", featureId: "plugin-hooks", message, path, severity: "error" }];
   }
 
   return [];
@@ -210,6 +225,7 @@ async function lintResourceUsage(graph: BuildGraph): Promise<readonly LintIssue[
     for (const undeclared of findUndeclaredResourceLinks(skill.body, skill.resources)) {
       issues.push({
         code: "resource-undeclared-link",
+        featureId: "resources",
         severity: "error",
         path,
         message:
@@ -221,6 +237,7 @@ async function lintResourceUsage(graph: BuildGraph): Promise<readonly LintIssue[
     for (const offender of findPluginRootScriptLinks(skill.body)) {
       issues.push({
         code: "skill-plugin-root-script",
+        featureId: "resources",
         severity: "error",
         path,
         message:
@@ -234,6 +251,7 @@ async function lintResourceUsage(graph: BuildGraph): Promise<readonly LintIssue[
       if (await sourceIsExecutable(resource.sourcePath)) continue;
       issues.push({
         code: "resource-script-not-executable",
+        featureId: "resources",
         severity: "error",
         path,
         message:
@@ -275,19 +293,23 @@ export function lintBuildGraph(graph: BuildGraph): LintResult {
   for (const plugin of graph.plugins) {
     for (const skill of plugin.skills) {
       checkedSkills += 1;
-      issues.push(...lintSkill(graph, skill));
+      issues.push(...lintSkill(graph, skill, "plugin-skills"));
     }
   }
 
   for (const skill of graph.standaloneSkills) {
     checkedSkills += 1;
-    issues.push(...lintSkill(graph, skill));
+    issues.push(...lintSkill(graph, skill, "standalone-skills"));
   }
 
   return { checkedSkills, issues };
 }
 
-function lintSkill(graph: BuildGraph, skill: SourceSkill): readonly LintIssue[] {
+function lintSkill(
+  graph: BuildGraph,
+  skill: SourceSkill,
+  featureId: SkillFeatureId
+): readonly LintIssue[] {
   const issues: LintIssue[] = [];
   issues.push(...lintToolEscapes(graph, skill));
 
@@ -303,6 +325,7 @@ function lintSkill(graph: BuildGraph, skill: SourceSkill): readonly LintIssue[] 
   const labels = matches.map((match) => match.label).join(", ");
   issues.push({
     code: "codex-claude-dynamic-context",
+    featureId,
     severity: "error",
     path,
     message:
@@ -343,6 +366,7 @@ function lintToolEscapes(graph: BuildGraph, skill: SourceSkill): readonly LintIs
     return [
       {
         code: "skill-tools-invalid",
+        featureId: "tool-intent",
         severity: "error",
         path,
         message,
@@ -361,7 +385,8 @@ function lintCodexAllowedTools(graph: BuildGraph, skill: SourceSkill): readonly 
   return [
     {
       code: "codex-allowed-tools-unsupported",
-        severity: "error",
+      featureId: "tool-intent",
+      severity: "error",
       path,
       message:
         `${path} sets allowed_tools for Codex, but Codex skills do not currently have a skill-local allowed-tools equivalent. ` +
