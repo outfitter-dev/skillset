@@ -20,7 +20,15 @@ import {
 import { doctorSkillset, explainPath, listGeneratedEntries } from "./authoring";
 import { ciSkillset, hasDrift, renderCiReportMarkdown, type CiReport } from "./ci";
 import { printDiagnostics, printDiffPlan } from "./cli-renderers";
-import { renderHookPrint, type HookPrintSubcommand, type HookRunner } from "./hook-guardrails";
+import {
+  dispatchHookRun,
+  readHookRunEvent,
+  readHookStdin,
+  renderHookPrint,
+  type HookRunEvent,
+  type HookRunner,
+  type HookSubcommand,
+} from "./runtime-hooks";
 import { importSources, type ImportKind, type ImportProvider, type ImportReport } from "./import";
 import { lintSkillset } from "./lint";
 import { applyRelease, planRelease, type ReleasePlanReport, type ReleaseSubcommand } from "./release";
@@ -54,6 +62,7 @@ const USAGE = [
   "       skillset test [name] [--root <path>] [--source <dir>]",
   "       skillset hooks print --runner <lefthook|husky|pre-commit|git> [--pre-commit] [--pre-push]",
   "       skillset hooks print --target <claude|codex> --agent-runtime",
+  "       skillset hooks run <post-tool-use|stop> [--root <path>]",
   "       skillset adopt <path> [--yes|--dry-run] [--targets claude,codex] [--root <path>]",
   "       skillset init [path] [--yes|--dry-run] [--targets claude,codex] [--include agents,ci] [--name <name>] [--root <path>]",
   "       skillset create [path|--global] [--yes|--dry-run] [--targets claude,codex] [--include agents,ci] [--name <name>] [--root <path>]",
@@ -91,6 +100,7 @@ export async function runCli(
     hookPreCommit,
     hookPrePush,
     hookRunner,
+    hookRunEvent,
     hookSubcommand,
     hookTarget,
     importKind,
@@ -256,15 +266,27 @@ export async function runCli(
   }
 
   if (command === "hooks") {
-    if (hookSubcommand !== "print") throw new Error("skillset: expected hooks subcommand print");
-    process.stdout.write(renderHookPrint({
-      agentRuntime: hookAgentRuntime,
-      preCommit: hookPreCommit,
-      prePush: hookPrePush,
-      ...(hookRunner === undefined ? {} : { runner: hookRunner }),
-      ...(hookTarget === undefined ? {} : { target: hookTarget }),
-    }));
-    return;
+    if (hookSubcommand === "print") {
+      process.stdout.write(renderHookPrint({
+        agentRuntime: hookAgentRuntime,
+        preCommit: hookPreCommit,
+        prePush: hookPrePush,
+        ...(hookRunner === undefined ? {} : { runner: hookRunner }),
+        ...(hookTarget === undefined ? {} : { target: hookTarget }),
+      }));
+      return;
+    }
+    if (hookSubcommand === "run") {
+      const stdinText = await readHookStdin();
+      const result = await dispatchHookRun(hookRunEvent, {
+        rootPath,
+        stderr: process.stderr,
+        ...(stdinText === undefined ? {} : { stdinText }),
+      });
+      if (result.exitCode !== 0) process.exitCode = result.exitCode;
+      return;
+    }
+    throw new Error("skillset: expected hooks subcommand print or run");
   }
 
   if (command === "test") {
@@ -502,7 +524,8 @@ interface ParsedArgs {
   readonly hookPreCommit: boolean;
   readonly hookPrePush: boolean;
   readonly hookRunner?: HookRunner;
-  readonly hookSubcommand?: HookPrintSubcommand;
+  readonly hookRunEvent?: HookRunEvent;
+  readonly hookSubcommand?: HookSubcommand;
   readonly hookTarget?: TargetName;
   readonly importKind?: ImportKind;
   readonly importName?: string;
@@ -922,7 +945,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let hookPreCommit = false;
   let hookPrePush = false;
   let hookRunner: HookRunner | undefined;
-  let hookSubcommand: HookPrintSubcommand | undefined;
+  let hookRunEvent: HookRunEvent | undefined;
+  let hookSubcommand: HookSubcommand | undefined;
   let hookTarget: TargetName | undefined;
   let importKind: ImportKind | undefined;
   let importName: string | undefined;
@@ -983,11 +1007,15 @@ function parseArgs(args: readonly string[]): ParsedArgs {
 
   if (command === "hooks") {
     const subcommand = args[index];
-    if (subcommand !== "print") {
-      throw new Error("skillset: expected hooks subcommand print");
+    if (subcommand !== "print" && subcommand !== "run") {
+      throw new Error("skillset: expected hooks subcommand print or run");
     }
     hookSubcommand = subcommand;
     index += 1;
+    if (subcommand === "run") {
+      hookRunEvent = readHookRunEvent(args[index]);
+      index += 1;
+    }
   }
 
   if (command === "import") {
@@ -1280,6 +1308,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     hookPreCommit,
     hookPrePush,
     ...(hookRunner === undefined ? {} : { hookRunner }),
+    ...(hookRunEvent === undefined ? {} : { hookRunEvent }),
     ...(hookSubcommand === undefined ? {} : { hookSubcommand }),
     ...(hookTarget === undefined ? {} : { hookTarget }),
     ...(importKind === undefined ? {} : { importKind }),
@@ -1388,22 +1417,24 @@ function validateHookFlags(
     readonly runner?: HookRunner;
     readonly scopes?: readonly BuildScope[];
     readonly sourceDir?: string;
-    readonly subcommand?: HookPrintSubcommand;
+    readonly subcommand?: HookSubcommand;
     readonly target?: TargetName;
     readonly yes: boolean;
   }
 ): void {
-  const hasHookFlag =
+  const hasHookPrintFlag =
     hooks.agentRuntime ||
     hooks.preCommit ||
     hooks.prePush ||
     hooks.runner !== undefined ||
     hooks.target !== undefined;
-  if (hasHookFlag && command !== "hooks") {
+  if (hasHookPrintFlag && (command !== "hooks" || hooks.subcommand !== "print")) {
     throw new Error("skillset: hook options are only supported with hooks print");
   }
   if (command !== "hooks") return;
-  if (hooks.subcommand !== "print") throw new Error("skillset: expected hooks subcommand print");
+  if (hooks.subcommand !== "print" && hooks.subcommand !== "run") {
+    throw new Error("skillset: expected hooks subcommand print or run");
+  }
   if (
     hooks.buildMode !== undefined ||
     hooks.scopes !== undefined ||
@@ -1416,7 +1447,7 @@ function validateHookFlags(
     hooks.dryRun ||
     hooks.yes
   ) {
-    throw new Error("skillset: non-hook options are not supported with hooks print");
+    throw new Error(`skillset: non-hook options are not supported with hooks ${hooks.subcommand}`);
   }
 }
 
