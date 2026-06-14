@@ -828,6 +828,10 @@ function printSetupReport(result: SetupReport, reason: string): void {
     const marker = file.status === "create" ? "+" : "=";
     console.log(`  ${marker} ${file.path}`);
   }
+  if (result.git !== undefined) {
+    const marker = result.git.status === "create" ? "+" : "=";
+    console.log(`  ${marker} ${result.git.path}`);
+  }
   for (const baseline of result.baselines) {
     const marker = baseline.status === "create" ? "+" : "=";
     console.log(`  ${marker} baseline ${sourceUnitDisplay(baseline.scope)} ${baseline.version}`);
@@ -840,11 +844,13 @@ function printSetupReport(result: SetupReport, reason: string): void {
   }
   const created = result.files.filter((file) => file.status === "create").length;
   const existing = result.files.length - created;
+  const gitCreated = result.git?.status === "create" ? 1 : 0;
+  const gitExisting = result.git?.status === "exists" ? 1 : 0;
   const baselines = result.baselines.filter((baseline) => baseline.status === "create").length;
   const candidates = result.importCandidates.length;
   const details = [
-    `${created} to create`,
-    `${existing} already present`,
+    `${created + gitCreated} to create`,
+    `${existing + gitExisting} already present`,
     ...(baselines === 0 ? [] : [`${baselines} baseline${baselines === 1 ? "" : "s"} to adopt`]),
     ...(candidates === 0 ? [] : [`${candidates} import candidate${candidates === 1 ? "" : "s"}`]),
   ];
@@ -1232,6 +1238,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     global: setupGlobal,
     ...(setupIncludes === undefined ? {} : { includes: setupIncludes }),
     ...(importPath === undefined ? {} : { path: importPath }),
+    rootExplicit,
     ...(setupTargets === undefined ? {} : { targets: setupTargets }),
   });
 
@@ -1623,6 +1630,7 @@ function validateSetupFlags(
     readonly global: boolean;
     readonly includes?: readonly SetupInclude[];
     readonly path?: string;
+    readonly rootExplicit: boolean;
     readonly targets?: readonly TargetName[];
   }
 ): void {
@@ -1631,6 +1639,12 @@ function validateSetupFlags(
   }
   if (command === "create" && setup.global && setup.path !== undefined) {
     throw new Error("skillset: create accepts either a path or --global, not both");
+  }
+  if (command === "create" && setup.global && setup.rootExplicit) {
+    throw new Error("skillset: create --global does not support --root; use the default global source path");
+  }
+  if (command === "create" && setup.global && setup.includes !== undefined) {
+    throw new Error("skillset: create --global does not support --include");
   }
   if (command === "adopt") {
     if (setup.global) throw new Error("skillset: --global is not supported with adopt");
