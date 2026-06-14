@@ -10,6 +10,15 @@ export {
   type SkillsetDiffResult,
 } from "./build";
 export {
+  assertAdapterConformance,
+  checkAdapterConformance,
+  formatAdapterConformanceReport,
+  type AdapterConformanceCase,
+  type AdapterConformanceIssue,
+  type AdapterConformanceIssueCode,
+  type AdapterConformanceReport,
+} from "./adapter-conformance";
+export {
   assertDeterministicProjection,
   formatDeterministicProjectionReport,
   runDeterministicProjection,
