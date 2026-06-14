@@ -35,9 +35,15 @@ export interface SetupFile {
   readonly status: "create" | "exists";
 }
 
+export interface SetupGit {
+  readonly path: ".git";
+  readonly status: "create" | "exists";
+}
+
 export interface SetupReport {
   readonly baselines: readonly ReleaseBaselineEntry[];
   readonly files: readonly SetupFile[];
+  readonly git?: SetupGit;
   readonly importCandidates: readonly SetupImportCandidate[];
   readonly kind: "create" | "init";
   readonly rootPath: string;
@@ -74,6 +80,9 @@ export async function initSkillset(options: SetupOptions = {}): Promise<SetupRep
 }
 
 export async function createSkillset(options: SetupOptions = {}): Promise<SetupReport> {
+  if (options.global === true && options.include !== undefined && options.include.length > 0) {
+    throw new Error("skillset: create --global does not support --include");
+  }
   const rootPath = createRootPath(options);
   if (await pathExists(rootPath)) {
     const stats = await stat(rootPath);
@@ -104,7 +113,8 @@ async function applySetupPlan(
   // the repo look pre-adopted to the survey.
   const alreadyAdopted = await pathExists(join(rootPath, ".skillset/config.yaml"));
   const targets = normalizeTargets(options.targets);
-  const plannedFiles = setupFiles({ ...options, name, targets });
+  const plannedFiles = setupFiles({ ...options, kind, name, targets });
+  const git = await setupGit(kind, rootPath, options);
   const files: SetupFile[] = [];
 
   for (const file of plannedFiles) {
@@ -134,6 +144,7 @@ async function applySetupPlan(
       await mkdir(dirname(absolutePath), { recursive: true });
       await writeFile(absolutePath, file.content);
     }
+    if (git?.status === "create") await initializeGit(rootPath);
   }
 
   const baselines = kind === "init"
@@ -145,6 +156,7 @@ async function applySetupPlan(
   return {
     baselines,
     files,
+    ...(git === undefined ? {} : { git }),
     importCandidates,
     kind,
     rootPath,
@@ -482,7 +494,9 @@ function compareCandidate(left: SetupImportCandidate, right: SetupImportCandidat
     `${left.kind}:${left.path}` > `${right.kind}:${right.path}` ? 1 : 0;
 }
 
-function setupFiles(options: Required<Pick<SetupOptions, "name" | "targets">> & SetupOptions): readonly PlannedFile[] {
+function setupFiles(
+  options: Required<Pick<SetupOptions, "name" | "targets">> & SetupOptions & { readonly kind: SetupReport["kind"] }
+): readonly PlannedFile[] {
   const files: PlannedFile[] = [
     {
       path: ".skillset/config.yaml",
@@ -493,6 +507,19 @@ function setupFiles(options: Required<Pick<SetupOptions, "name" | "targets">> & 
       content: "",
     },
   ];
+
+  if (options.kind === "create" && options.global !== true) {
+    files.unshift(
+      {
+        path: "README.md",
+        content: createReadme(options.name, options.targets),
+      },
+      {
+        path: "AGENTS.md",
+        content: createAgentsGuide(options.name),
+      },
+    );
+  }
 
   const include = options.include ?? [];
   if (include.includes("agents")) {
@@ -508,6 +535,37 @@ function setupFiles(options: Required<Pick<SetupOptions, "name" | "targets">> & 
   return files;
 }
 
+async function setupGit(
+  kind: SetupReport["kind"],
+  rootPath: string,
+  options: SetupOptions
+): Promise<SetupGit | undefined> {
+  if (kind !== "create" || options.global === true) return undefined;
+  return {
+    path: ".git",
+    status: await pathExists(join(rootPath, ".git")) ? "exists" : "create",
+  };
+}
+
+async function initializeGit(rootPath: string): Promise<void> {
+  await mkdir(rootPath, { recursive: true });
+  const proc = Bun.spawn({
+    cmd: ["git", "init", "-q"],
+    cwd: rootPath,
+    env: gitSafeEnv(),
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  if (exitCode !== 0) {
+    throw new Error(`skillset: failed to initialize Git repository at ${rootPath}\n${stdout}${stderr}`.trim());
+  }
+}
+
 function rootConfig(name: string, targets: readonly TargetName[]): string {
   const targetLines = targets.map((target) => `    - ${target}`).join("\n");
   return [
@@ -516,6 +574,50 @@ function rootConfig(name: string, targets: readonly TargetName[]): string {
     "compile:",
     "  targets:",
     targetLines,
+    "",
+  ].join("\n");
+}
+
+function createReadme(name: string, targets: readonly TargetName[]): string {
+  return [
+    `# ${name}`,
+    "",
+    "This repository is a Skillset source repo. Edit files under `.skillset/`, then run Skillset commands to preview or write generated Claude and Codex outputs.",
+    "",
+    "## Quick Start",
+    "",
+    "```bash",
+    "skillset build --dry-run",
+    "skillset build --yes",
+    "skillset check",
+    "skillset change status",
+    "```",
+    "",
+    "## Layout",
+    "",
+    "- `.skillset/config.yaml` selects compile targets and source settings.",
+    "- `.skillset/src/` is the portable project source area for instructions, agents, and target-native islands.",
+    "- `.skillset/plugins/` holds plugin source when this repo authors marketplace plugins.",
+    "- `.skillset/skills/` holds standalone skill source when this repo authors repo-local or user skill roots.",
+    "",
+    `Default compile targets: ${targets.join(", ")}.`,
+    "",
+  ].join("\n");
+}
+
+function createAgentsGuide(name: string): string {
+  return [
+    "# AGENTS.md",
+    "",
+    `This repo is the source of truth for the ${name} Skillset loadout.`,
+    "",
+    "## Working Rules",
+    "",
+    "- Treat `.skillset/` as editable source.",
+    "- Treat generated target directories as outputs; do not hand-edit them as source truth.",
+    "- Run `skillset build --dry-run` before writing generated outputs.",
+    "- Run `skillset check` before committing source changes.",
+    "- Add pending change entries with `skillset change add` when source units change and the repo uses Skillset release tracking.",
     "",
   ].join("\n");
 }

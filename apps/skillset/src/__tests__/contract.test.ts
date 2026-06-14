@@ -4842,13 +4842,51 @@ test("SET-27: create makes a new source repo with default naming", async () => {
   const preview = await runSkillsetCli("create", "--root", parent);
   expect(preview.exitCode).toBe(0);
   expect(preview.stdout).toContain("my-skillset");
+  expect(preview.stdout).toContain("+ README.md");
+  expect(preview.stdout).toContain("+ AGENTS.md");
+  expect(preview.stdout).toContain("+ .git");
   expect(await fileExists(join(parent, "my-skillset/.skillset/config.yaml"))).toBe(false);
+  expect(await fileExists(join(parent, "my-skillset/.git/config"))).toBe(false);
 
   const written = await runSkillsetCli("create", "--root", parent, "--yes");
   expect(written.exitCode).toBe(0);
   const config = await readFile(join(parent, "my-skillset/.skillset/config.yaml"), "utf8");
+  const readme = await readFile(join(parent, "my-skillset/README.md"), "utf8");
+  const agents = await readFile(join(parent, "my-skillset/AGENTS.md"), "utf8");
   expect(config).toContain("name: my-skillset");
   expect(config).toContain("compile:");
+  expect(readme).toContain("# my-skillset");
+  expect(readme).toContain("skillset build --dry-run");
+  expect(agents).toContain("Treat `.skillset/` as editable source");
+  expect(await fileExists(join(parent, "my-skillset/.git/config"))).toBe(true);
+});
+
+test("SET-54: create supports custom path and explicit setup name", async () => {
+  const parent = await mkdtemp(join(tmpdir(), "skillset-setup-create-custom-"));
+
+  const written = await runSkillsetCli(
+    "create",
+    "team-loadout",
+    "--root",
+    parent,
+    "--name",
+    "acme-loadout",
+    "--targets",
+    "claude",
+    "--yes"
+  );
+  expect(written.exitCode).toBe(0);
+  expect(written.stdout).toContain("team-loadout");
+  expect(written.stdout).toContain("+ .git");
+
+  const config = await readFile(join(parent, "team-loadout/.skillset/config.yaml"), "utf8");
+  const readme = await readFile(join(parent, "team-loadout/README.md"), "utf8");
+  expect(config).toContain("name: acme-loadout");
+  expect(config).toContain("    - claude");
+  expect(config).not.toContain("    - codex");
+  expect(readme).toContain("# acme-loadout");
+  expect(readme).toContain("Default compile targets: claude.");
+  expect(await fileExists(join(parent, "team-loadout/.git/config"))).toBe(true);
 });
 
 test("SET-27: create supports global source path without touching runtime config", async () => {
@@ -4858,9 +4896,23 @@ test("SET-27: create supports global source path without touching runtime config
 
   expect(report.rootPath).toBe(join(home, ".skillset/src"));
   expect(await fileExists(join(home, ".skillset/src/.skillset/config.yaml"))).toBe(true);
+  expect(await fileExists(join(home, ".skillset/src/README.md"))).toBe(false);
+  expect(await fileExists(join(home, ".skillset/src/AGENTS.md"))).toBe(false);
+  expect(await fileExists(join(home, ".skillset/src/.git/config"))).toBe(false);
   expect(await fileExists(join(home, ".skillset/build"))).toBe(false);
   expect(await fileExists(join(home, ".claude"))).toBe(false);
   expect(await fileExists(join(home, ".codex"))).toBe(false);
+
+  const rootedGlobal = await runSkillsetCli("create", "--global", "--root", home);
+  expect(rootedGlobal.exitCode).toBe(1);
+  expect(rootedGlobal.stderr).toContain("create --global does not support --root");
+
+  const includedGlobal = await runSkillsetCli("create", "--global", "--include", "ci");
+  expect(includedGlobal.exitCode).toBe(1);
+  expect(includedGlobal.stderr).toContain("create --global does not support --include");
+
+  await expect(createSkillset({ global: true, homeDir: home, include: ["ci"], write: false }))
+    .rejects.toThrow("create --global does not support --include");
 });
 
 test("SET-27: setup refuses unsafe overwrite", async () => {
