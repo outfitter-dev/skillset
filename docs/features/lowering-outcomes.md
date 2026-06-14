@@ -12,7 +12,7 @@ See [Lowering Outcomes and Loss Ledger](../adrs/drafts/20260614-lowering-outcome
 
 ## Current Boundary
 
-The current core schema is `skillset-lowering-outcome@1`. Outcome records are produced by `@skillset/core` and are persisted in structured operation results, generated `.skillset.lock` files, adopt reports, and the `doctor` / `explain` JSON surfaces. Future adapter conformance surfaces should read the same ledger instead of inventing parallel diagnostics. Outcomes are not written into ordinary generated `SKILL.md`, `CLAUDE.md`, `AGENTS.md`, plugin manifest, hook, MCP, app, or resource files by default.
+The current core schema is `skillset-lowering-outcome@1`. Build, diff, and check outcome records are produced by `@skillset/core` and are persisted in structured operation results, generated `.skillset.lock` files, adopt reports, and the `doctor` / `explain` JSON surfaces. Import and adopt reports may also attach outcome records to lowering-relevant warnings, such as preserved target-native tool-policy frontmatter or recognized survey skips. Pure source invalidity, unknown import metadata, and lint-only authoring problems stay in diagnostics instead of being forced into the lowering ledger. Future adapter conformance surfaces should read the same ledger instead of inventing parallel diagnostics. Outcomes are not written into ordinary generated `SKILL.md`, `CLAUDE.md`, `AGENTS.md`, plugin manifest, hook, MCP, app, or resource files by default.
 
 | Field | Meaning |
 | --- | --- |
@@ -92,6 +92,9 @@ The remaining status values are intentionally documented deferrals rather than f
 - Unsupported, lossy, and failed lowering fail by default for enabled targets unless a scoped opt-out or future explicit unsupported policy applies.
 - Degraded outcomes should remain visible because they represent useful but weaker behavior.
 - Skipped outcomes need policy provenance so a clean build is not confused with silent omission.
+- Friendly warning text can coexist with structured outcome refs when the warning is about target lowering. For example, Codex `AGENTS.md` size warnings remain readable diagnostics and also attach `codex-agents-size` refs to the matching `project-instructions` outcome.
+- Import reports keep unrecognized frontmatter warnings separate, but target-native Claude tool-policy fields such as `allowed-tools` and `disable-model-invocation` also produce `tool-intent` `target_native` outcome records.
+- Adopt survey skips for recognized native surfaces produce `intentionally_skipped` outcome records in the report so planned migrations are visible without pretending the dry-run emitted output.
 - Explain output summarizes matching outcomes by source unit, feature id, target, status, policy, reason, outputs, and diagnostics. Explaining a source path can show every target outcome for that source; explaining a generated path stays scoped to the generated output's target.
 - Doctor output summarizes non-happy-path outcomes such as degraded, lossy, unsupported, externally managed, skipped, and failed outcomes without dumping every emitted file by default.
 - `skillset explain --json` and `skillset doctor --json` include full outcome records for agents and automation.
@@ -107,4 +110,6 @@ Outcome provenance belongs in structured operation results, generated `.skillset
 - [Deterministic Projection and Adapter Conformance](../adrs/drafts/20260613-deterministic-projection-and-adapter-conformance.md) defines how outcomes pair with the feature registry for conformance.
 - `packages/core/src/lowering-outcome.ts` defines the current schema, status values, policy values, and validation rules.
 - `packages/core/src/lowering-outcome-collector.ts` derives outcomes from generated locks, target-native companions, transformations, and unsupported plugin features.
-- `packages/core/src/__tests__/lowering-outcome-build.test.ts` proves emitted, target-native, transformed, unsupported, isolated-path, policy-gated, scoped, and status-matrix outcomes.
+- `packages/core/src/build.ts` attaches build diagnostic refs, such as Codex `AGENTS.md` size warnings, to matching generated-output outcomes.
+- `apps/skillset/src/import.ts` and `apps/skillset/src/setup.ts` attach lowering-relevant import/adopt report facts to the same outcome schema without changing user-facing warning prose.
+- `packages/core/src/__tests__/lowering-outcome-build.test.ts`, `apps/skillset/src/__tests__/contract.test.ts`, and `apps/skillset/src/__tests__/adopt.test.ts` prove emitted, target-native, transformed, unsupported, isolated-path, policy-gated, scoped, warning-linked, import-linked, adopt-linked, and status-matrix outcomes.

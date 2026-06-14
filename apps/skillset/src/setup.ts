@@ -1,12 +1,15 @@
 import { mkdir, readdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 
+import { defineLoweringOutcome, type SkillsetLoweringOutcome } from "@skillset/core";
+
 import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
 import { CI_WORKFLOW_PATH, renderCiWorkflow } from "./ci";
 import { validateConfigDocument } from "./config";
 import { gitSafeEnv } from "./git-env";
-import type { TargetName } from "./types";
 import { validateSlug } from "./path";
+import { selectorForTargetNativeIsland } from "./source-unit-selector";
+import type { TargetName } from "./types";
 import { parseYamlRecord } from "./yaml";
 
 const DEFAULT_CREATE_NAME = "my-skillset";
@@ -54,6 +57,7 @@ export interface SetupImportCandidate {
  * a structured skip with a reason — never silence.
  */
 export interface SurveySkip {
+  readonly loweringOutcome?: SkillsetLoweringOutcome;
   readonly path: string;
   readonly reason: string;
   readonly surface: string;
@@ -266,34 +270,65 @@ async function detectSurveySkips(rootPath: string): Promise<readonly SurveySkip[
     rootPath,
     ".claude/commands",
     "commands",
-    "project-level commands have no portable source home yet; adopt will lower them to target-native islands in the transform milestone"
+    "project-level commands have no portable source home yet; adopt will lower them to target-native islands in the transform milestone",
+    surveySkipOutcome({
+      featureId: "target-native-islands",
+      path: ".claude/commands",
+      reason: "project-level commands have no portable source home yet; adopt will lower them to target-native islands in the transform milestone",
+      relativeTargetPath: "commands",
+      target: "claude",
+    })
   );
   await maybeSkip(
     skips,
     rootPath,
     ".claude/agents",
     "agents",
-    "project-level agents are not importable yet; adopt will lower them to .skillset/src/agents/ in the transform milestone"
+    "project-level agents are not importable yet; adopt will lower them to .skillset/src/agents/ in the transform milestone",
+    surveySkipOutcome({
+      featureId: "project-agents",
+      path: ".claude/agents",
+      reason: "project-level agents are not importable yet; adopt will lower them to .skillset/src/agents/ in the transform milestone",
+      relativeTargetPath: "agents",
+      target: "claude",
+    })
   );
   await maybeSkip(
     skips,
     rootPath,
     ".claude/rules",
     "rules",
-    "rules are not importable yet; adopt will lower them to .skillset/instructions/ in the transform milestone"
+    "rules are not importable yet; adopt will lower them to .skillset/instructions/ in the transform milestone",
+    surveySkipOutcome({
+      featureId: "project-instructions",
+      path: ".claude/rules",
+      reason: "rules are not importable yet; adopt will lower them to .skillset/instructions/ in the transform milestone",
+      relativeTargetPath: "rules",
+      target: "claude",
+    })
   );
   if (await hasNonSkillCodexContent(rootPath)) {
+    const reason =
+      "Codex content outside .codex/skills has no portable lowering yet; adopt will lower it to target-native islands in the transform milestone";
     skips.push({
+      loweringOutcome: surveySkipOutcome({
+        featureId: "target-native-islands",
+        path: ".codex",
+        reason,
+        relativeTargetPath: ".codex",
+        target: "codex",
+      }),
       path: ".codex",
-      reason:
-        "Codex content outside .codex/skills has no portable lowering yet; adopt will lower it to target-native islands in the transform milestone",
+      reason,
       surface: "codex",
     });
   }
   for (const path of await foreignPluginManifests(rootPath)) {
+    const reason = "plugin manifest for an unsupported target; skillset can only represent claude and codex surfaces";
     skips.push({
+      loweringOutcome: foreignManifestSkipOutcome(path, reason),
       path,
-      reason: "plugin manifest for an unsupported target; skillset can only represent claude and codex surfaces",
+      reason,
       surface: "foreign-manifest",
     });
   }
@@ -305,7 +340,8 @@ async function maybeSkip(
   rootPath: string,
   path: string,
   surface: string,
-  reason: string
+  reason: string,
+  loweringOutcome?: SkillsetLoweringOutcome
 ): Promise<void> {
   const absolutePath = join(rootPath, path);
   if (!(await pathExists(absolutePath))) return;
@@ -313,7 +349,48 @@ async function maybeSkip(
   if (await isManagedCandidate(absolutePath)) return;
   const entries = await readdir(absolutePath);
   if (entries.filter((entry) => entry !== ".DS_Store").length === 0) return;
-  skips.push({ path, reason, surface });
+  skips.push({ ...(loweringOutcome === undefined ? {} : { loweringOutcome }), path, reason, surface });
+}
+
+function surveySkipOutcome(args: {
+  readonly featureId: string;
+  readonly path: string;
+  readonly reason: string;
+  readonly relativeTargetPath: string;
+  readonly target: TargetName;
+}): SkillsetLoweringOutcome {
+  return defineLoweringOutcome({
+    diagnostics: [
+      {
+        code: "adoption-survey-skip",
+        message: args.reason,
+        path: args.path,
+      },
+    ],
+    featureId: args.featureId,
+    policy: "default",
+    reason: args.reason,
+    sourcePath: args.path,
+    sourceUnit: selectorForTargetNativeIsland(args.target, "project", args.relativeTargetPath),
+    status: "intentionally_skipped",
+    target: args.target,
+  });
+}
+
+function foreignManifestSkipOutcome(path: string, reason: string): SkillsetLoweringOutcome {
+  return defineLoweringOutcome({
+    diagnostics: [{ code: "adoption-survey-skip", message: reason, path }],
+    featureId: "runtime-adapters",
+    policy: "default",
+    reason,
+    sourcePath: path,
+    sourceUnit: `runtime-adapter:${foreignManifestRuntime(path)}`,
+    status: "intentionally_skipped",
+  });
+}
+
+function foreignManifestRuntime(path: string): string {
+  return path.match(/^\.([a-z][a-z0-9]*)-plugin$/)?.[1] ?? path;
 }
 
 async function hasNonSkillCodexContent(rootPath: string): Promise<boolean> {

@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { expect, test } from "bun:test";
 import { planDistributions } from "@skillset/core";
 
-import { buildSkillset, buildSkillsetResult, checkSkillset, diffSkillset, diffSkillsetResult } from "../build";
+import { buildSkillset, buildSkillsetResult, checkSkillset, checkSkillsetResult, diffSkillset, diffSkillsetResult } from "../build";
 import { changeStatus, collectSourceInventory } from "../change-status";
 import { doctorSkillset, explainPath } from "../authoring";
 import { importSource, importSources } from "../import";
@@ -760,6 +760,15 @@ test("SET-10: skill import reports copied files and classifies frontmatter", asy
   expect(report.unsupportedFields).toEqual(["frobnicate"]);
   expect(report.warnings.join("\n")).toContain("target-native");
   expect(report.warnings.join("\n")).toContain("unrecognized");
+  expect(report.loweringOutcomes).toContainEqual(
+    expect.objectContaining({
+      featureId: "tool-intent",
+      sourcePath: ".skillset/skills/myskill/SKILL.md",
+      sourceUnit: "skill:myskill",
+      status: "target_native",
+      target: "claude",
+    })
+  );
   expect(report.nextChecks).toContain("skillset lint");
 
   // Target-native and unknown fields are preserved verbatim in the copied source.
@@ -4657,18 +4666,29 @@ test("SET-62: recognized-but-unimportable surfaces become structured survey skip
 
   expect(report.importCandidates).toEqual([]);
   expect(report.surveySkips).toEqual([
-    {
+    expect.objectContaining({
+      loweringOutcome: expect.objectContaining({
+        featureId: "target-native-islands",
+        sourceUnit: "claude.commands:commands",
+        status: "intentionally_skipped",
+        target: "claude",
+      }),
       path: ".claude/commands",
       reason:
         "project-level commands have no portable source home yet; adopt will lower them to target-native islands in the transform milestone",
       surface: "commands",
-    },
-    {
+    }),
+    expect.objectContaining({
+      loweringOutcome: expect.objectContaining({
+        featureId: "runtime-adapters",
+        sourceUnit: "runtime-adapter:cursor",
+        status: "intentionally_skipped",
+      }),
       path: ".cursor-plugin",
       reason:
         "plugin manifest for an unsupported target; skillset can only represent claude and codex surfaces",
       surface: "foreign-manifest",
-    },
+    }),
   ]);
 });
 
@@ -5325,11 +5345,54 @@ codex: true
   const warnings = result.diagnostics.map((diagnostic) => diagnostic.message).join("\n");
   const preview = await diffSkillsetResult(root);
   const previewWarnings = preview.diagnostics.map((diagnostic) => diagnostic.message).join("\n");
+  const checked = await checkSkillsetResult(root);
+  const checkWarnings = checked.diagnostics.map((diagnostic) => diagnostic.message).join("\n");
 
   expect(warnings).toContain("project_doc_max_bytes");
   expect(warnings).toContain("AGENTS.md");
+  expect(result.loweringOutcomes).toContainEqual(
+    expect.objectContaining({
+      diagnostics: expect.arrayContaining([
+        expect.objectContaining({
+          code: "codex-agents-size",
+          path: "AGENTS.md",
+        }),
+      ]),
+      featureId: "project-instructions",
+      status: "transformed",
+      target: "codex",
+    })
+  );
   expect(previewWarnings).toContain("project_doc_max_bytes");
   expect(previewWarnings).toContain("AGENTS.md");
+  expect(preview.loweringOutcomes).toContainEqual(
+    expect.objectContaining({
+      diagnostics: expect.arrayContaining([
+        expect.objectContaining({
+          code: "codex-agents-size",
+          path: "AGENTS.md",
+        }),
+      ]),
+      featureId: "project-instructions",
+      status: "transformed",
+      target: "codex",
+    })
+  );
+  expect(checkWarnings).toContain("project_doc_max_bytes");
+  expect(checkWarnings).toContain("AGENTS.md");
+  expect(checked.loweringOutcomes).toContainEqual(
+    expect.objectContaining({
+      diagnostics: expect.arrayContaining([
+        expect.objectContaining({
+          code: "codex-agents-size",
+          path: "AGENTS.md",
+        }),
+      ]),
+      featureId: "project-instructions",
+      status: "transformed",
+      target: "codex",
+    })
+  );
 });
 
 // SET-15: shared-resource and script authoring diagnostics.

@@ -42,6 +42,14 @@ test("adopt plan mode surveys only and writes nothing", async () => {
     { kind: "plugin", path: "plugins/demo" },
   ]);
   expect(report.surveySkips.map((skip) => skip.path)).toEqual([".claude/commands"]);
+  expect(report.loweringOutcomes).toContainEqual(
+    expect.objectContaining({
+      featureId: "target-native-islands",
+      sourceUnit: "claude.commands:commands",
+      status: "intentionally_skipped",
+      target: "claude",
+    })
+  );
   expect(report.imports).toEqual([]);
   expect(report.builtFiles).toBe(0);
   expect(report.cutover).toEqual([]);
@@ -137,6 +145,7 @@ test("adopt write mode imports everything, builds the mirror, and writes the rep
   expect(markdown).toContain("## Summary");
   expect(markdown).toContain("## Cutover");
   expect(markdown).toContain("### Lowering outcomes");
+  expect(markdown).toContain("claude intentionally_skipped:");
   expect(markdown).toContain("codex emitted:");
   expect(markdown).toContain("`AGENTS.md`");
   expect(markdown).toContain("unmanaged");
@@ -158,6 +167,14 @@ test("adopt write mode imports everything, builds the mirror, and writes the rep
       target: "codex",
     })
   );
+  expect(json.loweringOutcomes).toContainEqual(
+    expect.objectContaining({
+      featureId: "target-native-islands",
+      sourceUnit: "claude.commands:commands",
+      status: "intentionally_skipped",
+      target: "claude",
+    })
+  );
   expect(JSON.stringify(json.loweringOutcomes)).not.toContain(root);
 
   const explain = await runSkillsetCli("explain", ".skillset/plugins/demo", "--root", root);
@@ -168,6 +185,62 @@ test("adopt write mode imports everything, builds the mirror, and writes the rep
   const added = [...(await walkFiles(root))].filter((path) => !before.has(path));
   expect(added.length).toBeGreaterThan(0);
   expect(added.every((path) => path.startsWith(".skillset/"))).toBe(true);
+});
+
+test("adopt carries import lowering outcomes into the persisted report", async () => {
+  const root = await fixture({
+    ".claude/skills/native/SKILL.md":
+      "---\nname: native\ndescription: Native skill.\nallowed-tools:\n  - Read\ndisable-model-invocation: true\n---\n\nBody.\n",
+  });
+
+  const report = await adoptSkillset(root, { targets: ["claude"], write: true });
+  const importOutcome = expect.objectContaining({
+    diagnostics: expect.arrayContaining([
+      expect.objectContaining({
+        code: "import-preserved-target-native-frontmatter",
+        path: ".skillset/skills/native/SKILL.md",
+      }),
+    ]),
+    featureId: "tool-intent",
+    sourceUnit: "skill:native",
+    status: "target_native",
+    target: "claude",
+  });
+
+  expect(report.ok).toBe(true);
+  expect(report.imports[0]?.loweringOutcomes).toContainEqual(importOutcome);
+  expect(report.loweringOutcomes).toContainEqual(importOutcome);
+
+  const json = JSON.parse(await readFile(join(root, ADOPT_REPORT_DIR, "report.json"), "utf8")) as {
+    loweringOutcomes: readonly unknown[];
+  };
+  expect(json.loweringOutcomes).toContainEqual(importOutcome);
+});
+
+test("adopt preserves survey skip outcomes when isolated build cannot load source", async () => {
+  const root = await fixture({
+    ".claude/commands/x.md": "---\ndescription: Project command.\n---\n\nDo x.\n",
+    ".claude/skills/bad/SKILL.md":
+      "---\nname: bad\ndescription: Uses unsupported source key.\ntools:\n  - Read\n---\n\nBody.\n",
+  });
+
+  const report = await adoptSkillset(root, { write: true });
+
+  expect(report.ok).toBe(false);
+  expect(report.buildError).toContain("uses unsupported tools");
+  expect(report.surveySkips.map((skip) => skip.path)).toEqual([".claude/commands"]);
+  expect(report.loweringOutcomes).toContainEqual(
+    expect.objectContaining({
+      featureId: "target-native-islands",
+      sourceUnit: "claude.commands:commands",
+      status: "intentionally_skipped",
+      target: "claude",
+    })
+  );
+
+  const markdown = await readFile(join(root, ADOPT_REPORT_DIR, "report.md"), "utf8");
+  expect(markdown).toContain("### Lowering outcomes");
+  expect(markdown).toContain("claude intentionally_skipped:");
 });
 
 test("adopt records an instructions collision as a failed import without throwing", async () => {
