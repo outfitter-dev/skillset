@@ -1,14 +1,13 @@
 {
   "name": "skillset",
-  "version": "0.1.0-beta.10",
+  "version": "0.13.0",
   "description": "Source-first compiler for Claude and Codex agent loadouts.",
   "type": "module",
   "files": [
     "dist/*.js"
   ],
   "publishConfig": {
-    "access": "public",
-    "tag": "beta"
+    "access": "public"
   },
   "repository": {
     "type": "git",
