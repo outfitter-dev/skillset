@@ -62,6 +62,12 @@ export {
   type SkillsetTargetSupportStatus,
 } from "./feature-registry";
 export {
+  checkFeatureRegistryDrift,
+  type FeatureRegistryDriftCode,
+  type FeatureRegistryDriftIssue,
+  type FeatureRegistryDriftReport,
+} from "./feature-registry-check";
+export {
   LOWERING_OUTCOME_SCHEMA,
   LOWERING_OUTCOME_STATUS_VALUES,
   SkillsetLoweringError,

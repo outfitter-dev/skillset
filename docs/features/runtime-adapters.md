@@ -82,4 +82,4 @@ Runtime support records are registry evidence, not generated target files. Futur
 - [Feature registry](../adrs/drafts/20260604-feature-reference-and-schema-registry.md) - schema-backed support and evidence direction.
 - [Agents](agents.md) - project-agent support and Codex skill-preface shim.
 - [Tests and Evals](tests-and-evals.md) - activation/eval boundary.
-- `fixtures/external/repos/superpowers` - external multi-runtime fixture evidence.
+- `fixtures/external/repos.yaml` - pinned external multi-runtime fixture manifest, including Superpowers.
