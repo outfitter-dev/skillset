@@ -31,8 +31,8 @@ Default behavior for unsupported or lossy lowering is fail-loud. Softer modes mu
 | `compile.targets` | enabled provider projections | Implemented | Root-only provider selection; defaults to all supported targets. |
 | `compile.build: updated/all` | normalized build mode in lock provenance | Implemented | Parser, CLI overrides, plan-first writes, and lock metadata are implemented. |
 | `compile.skillset.metadata: false` | suppress generated skill `metadata.generated` / `metadata.version` | Implemented | Source metadata remains source-only; locks record `skillsetMetadata`. |
-| `compile.unsupported: error` | build/lint lowering policy | Implemented | Default policy; preserves current fail-loud unsupported behavior. |
-| `compile.unsupported: warn/skip/force` | doctor/lock provenance | Reserved | Recognized names that fail until skipped or forced source is visible. |
+| `compile.unsupported: error` | build/diff/check lowering policy | Implemented | Default policy; preserves current fail-loud unsupported behavior. |
+| `compile.unsupported: warn/skip/force` | doctor/lock provenance | Reserved | Recognized names that fail until non-error unsupported-policy semantics are implemented and documented. |
 | omitted `compile.targets` | all supported provider projections | Implemented | Shorthand for the default target plan; equivalent to `compile.targets: [claude, codex]` while both providers are supported. |
 | `claude.projectRoot` / `codex.projectRoot` | target adapter metadata | Implemented | Parsed and inherited with provider blocks; build still does not mutate user-level config. |
 | `claude.userRoot` / `codex.userRoot` | target adapter metadata | Implemented | Parsed and inherited with provider blocks for future setup/explain flows. |

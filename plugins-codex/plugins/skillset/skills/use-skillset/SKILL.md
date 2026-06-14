@@ -191,7 +191,7 @@ skillset import agents --root .
 - Use root `compile.targets` for provider selection. Do not use bare top-level `targets:`.
 - Keep target adapter config in `claude` / `codex`; use `defaults.<target>` only as shorthand for target defaults.
 - Use `claude.model`, `codex.model`, or target defaults for model choices; top-level skill `model` warns in v1.
-- Keep `compile.unsupported` on `error`; `warn`, `skip`, and `force` are reserved until provenance exists.
+- Keep `compile.unsupported` on `error`; `warn`, `skip`, and `force` are reserved until their non-error semantics are implemented.
 - Use `skillset.name` for root/plugin explicit identity. `skillset.id` is unsupported.
 - Do not hand-edit generated outputs as source truth.
 - Keep Claude-only dynamic placeholders out of Codex-enabled skills unless a target-safe fallback exists.

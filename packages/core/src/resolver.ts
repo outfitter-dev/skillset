@@ -17,16 +17,9 @@ import {
   validateConfigDocument,
 } from "./config";
 import { readPluginDependencies, validatePluginDependencyGraph } from "./dependencies";
-import { getSkillsetFeature } from "./feature-registry";
-import {
-  SkillsetLoweringError,
-  defineLoweringOutcome,
-  type SkillsetLoweringOutcome,
-} from "./lowering-outcome";
 import { compareStrings, resolveInside, validateSlug } from "./path";
 import { readReleaseState } from "./release-state";
 import { readSkillResources } from "./resources";
-import { selectorForPluginFeature } from "./source-unit-selector";
 import { validateSupports } from "./supports";
 import type {
   BuildGraph,
@@ -463,7 +456,6 @@ async function loadPlugin(
     allowDefaults: true,
   });
   const targets = applyFeatureTargetDefaults(inheritedTargets, "plugins");
-  const codexPluginSelection = outputs.targetOutputs.codex.plugins;
   const features = await loadPluginFeatures(
     rootPath,
     pluginPath,
@@ -471,7 +463,6 @@ async function loadPlugin(
     configPath,
     targets,
     id,
-    codexPluginSelection,
     configuredOutputRoots(outputs)
   );
   const skills = await loadSkills(rootPath, sourceDir, pluginPath, inheritedTargets, warnings);
@@ -481,18 +472,6 @@ async function loadPlugin(
       `skillset: plugin ${id} uses unsupported root hooks.json; move it to hooks/hooks.json`
     );
   }
-  if (targets.codex.enabled && outputIncludes(codexPluginSelection, id) && (await exists(join(pluginPath, "agents")))) {
-    const message = `skillset: plugin ${id} has Claude plugin agents, but Codex plugins do not support plugin agents in v1; set codex: false for the plugin or move project agents to ${sourceDir}/src/agents`;
-    throw unsupportedPluginFeatureError({
-      featureId: "plugin-agents",
-      featureKey: "agents",
-      message,
-      pluginId: id,
-      rootPath,
-      sourcePath: join(pluginPath, "agents"),
-    });
-  }
-
   return {
     configPath,
     dependencies,
@@ -513,7 +492,6 @@ async function loadPluginFeatures(
   configPath: string,
   targets: SourcePlugin["targets"],
   pluginId: string,
-  codexPluginSelection: OutputSelection,
   outputRoots: readonly ActiveOutputRoot[]
 ): Promise<readonly SourcePluginFeature[]> {
   const features: SourcePluginFeature[] = [];
@@ -525,7 +503,6 @@ async function loadPluginFeatures(
       configPath,
       targets,
       pluginId,
-      codexPluginSelection,
       outputRoots,
       key
     );
@@ -541,7 +518,6 @@ async function loadPluginFeature(
   configPath: string,
   targets: SourcePlugin["targets"],
   pluginId: string,
-  codexPluginSelection: OutputSelection,
   outputRoots: readonly ActiveOutputRoot[],
   key: SourcePluginFeatureKey
 ): Promise<SourcePluginFeature | undefined> {
@@ -574,17 +550,6 @@ async function loadPluginFeature(
     throw new Error(`skillset: expected ${configPath}.${key} to be true, false, or an object`);
   }
 
-  if (key === "bin" && targets.codex.enabled && outputIncludes(codexPluginSelection, pluginId)) {
-    const message = `skillset: plugin ${pluginId} feature bin is Claude-only in v1; set bin: false, set codex: false for the plugin, or remove Codex plugin output selection`;
-    throw unsupportedPluginFeatureError({
-      featureId: "plugin-bin",
-      featureKey: key,
-      message,
-      pluginId,
-      rootPath,
-      sourcePath,
-    });
-  }
   const stats = await stat(sourcePath);
   if (key === "mcp" && !stats.isFile()) {
     throw new Error(`skillset: plugin ${pluginId} feature mcp source must be a file`);
@@ -604,51 +569,6 @@ async function loadPluginFeature(
 
 function pluginFeatureTargetPath(key: SourcePluginFeatureKey): string {
   return key === "mcp" ? ".mcp.json" : "bin";
-}
-
-function unsupportedPluginFeatureError(args: {
-  readonly featureId: string;
-  readonly featureKey: string;
-  readonly message: string;
-  readonly pluginId: string;
-  readonly rootPath: string;
-  readonly sourcePath: string;
-}): SkillsetLoweringError {
-  return new SkillsetLoweringError(args.message, [
-    unsupportedPluginFeatureOutcome({
-      featureId: args.featureId,
-      featureKey: args.featureKey,
-      message: args.message,
-      pluginId: args.pluginId,
-      rootPath: args.rootPath,
-      sourcePath: args.sourcePath,
-    }),
-  ]);
-}
-
-function unsupportedPluginFeatureOutcome(args: {
-  readonly featureId: string;
-  readonly featureKey: string;
-  readonly message: string;
-  readonly pluginId: string;
-  readonly rootPath: string;
-  readonly sourcePath: string;
-}): SkillsetLoweringOutcome {
-  const support = getSkillsetFeature(args.featureId)?.targetSupport.codex;
-  const reason = support?.reason;
-  if (reason === undefined) {
-    throw new Error(`skillset: feature registry ${args.featureId} codex unsupported support requires a reason`);
-  }
-  return defineLoweringOutcome({
-    ...(support?.evidence === undefined ? {} : { evidence: support.evidence }),
-    featureId: args.featureId,
-    policy: "unsupported:error",
-    reason,
-    sourcePath: relative(args.rootPath, args.sourcePath),
-    sourceUnit: selectorForPluginFeature(args.pluginId, args.featureKey),
-    status: "unsupported",
-    target: "codex",
-  });
 }
 
 async function resolveRepoSourcePointer(

@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 import {
   buildSkillsetResult,
+  checkSkillsetResult,
   diffSkillsetResult,
   SkillsetLoweringError,
   type SkillsetLoweringOutcome,
@@ -476,7 +477,7 @@ describe("build lowering outcomes", () => {
     expect(JSON.stringify(isolatedLock)).not.toContain(root);
   });
 
-  it("exposes resolver-level unsupported decisions on thrown lowering errors", async () => {
+  it("enforces unsupported outcome policy with actionable lowering errors", async () => {
     const agentRoot = await fixture({
       ...OUTCOME_FIXTURE,
       ".skillset/plugins/alpha/agents/reviewer.md": `
@@ -524,8 +525,10 @@ async function readJson(path: string): Promise<Record<string, unknown>> {
 
 async function expectUnsupportedOutcome(
   root: string,
-  expected: Pick<SkillsetLoweringOutcome, "featureId" | "reason" | "sourceUnit">
+  expected: Pick<SkillsetLoweringOutcome, "featureId" | "sourceUnit"> & { readonly reason: string }
 ): Promise<void> {
+  await expect(buildSkillsetResult(root)).rejects.toThrow("lowering policy blocked 1 outcome");
+  await expect(checkSkillsetResult(root)).rejects.toThrow("lowering policy blocked 1 outcome");
   try {
     await diffSkillsetResult(root);
     throw new Error("expected diffSkillsetResult to reject");
@@ -542,5 +545,12 @@ async function expectUnsupportedOutcome(
         target: "codex",
       })
     );
+    const message = error instanceof Error ? error.message : String(error);
+    expect(message).toContain("lowering policy blocked 1 outcome");
+    expect(message).toContain(expected.featureId);
+    expect(message).toContain("codex");
+    expect(message).toContain("unsupported");
+    expect(message).toContain(expected.reason);
+    expect(message).toContain("suggestion:");
   }
 }

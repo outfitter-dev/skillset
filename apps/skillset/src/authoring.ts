@@ -91,6 +91,17 @@ export async function explainPath(
     };
   }
 
+  const sourceOnlyOutcomes = explainLoweringOutcomes(target, [], loweringOutcomes);
+  if (sourceOnlyOutcomes.length > 0) {
+    return {
+      path: target,
+      kind: explainSourceKind(graph, target),
+      entries: [],
+      loweringOutcomes: sourceOnlyOutcomes,
+      notes: [`Matched ${sourceOnlyOutcomes.length} lowering outcome(s) under this source path.`],
+    };
+  }
+
   return {
     path: target,
     kind: "unknown",
@@ -207,6 +218,7 @@ function explainLoweringOutcomes(
       (
         sourcePath === target ||
         (sourcePath !== undefined && sourcePath.startsWith(`${target}/`)) ||
+        (sourcePath !== undefined && target.startsWith(`${sourcePath}/`)) ||
         itemSourcePaths.has(sourcePath ?? "")
       );
     if (

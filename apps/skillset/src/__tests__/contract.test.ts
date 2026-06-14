@@ -4327,7 +4327,8 @@ Body.
 `,
   });
 
-  await expect(buildSkillset(root)).rejects.toThrow("feature bin is Claude-only");
+  await expect(buildSkillset(root)).rejects.toThrow("codex plugin-bin unsupported");
+  await expect(buildSkillset(root)).rejects.toThrow("Codex plugins do not expose a documented plugin-local bin contract.");
 });
 
 test("SET-26: repo source pointers reject escapes, generated roots, and missing paths", async () => {
@@ -5188,7 +5189,7 @@ test("SET-83: doctor reports lowering outcomes from unsupported build errors", a
     ".skillset/config.yaml": `
 skillset:
   name: unsupported-outcome-root
-claude: true
+claude: false
 codex: true
 `,
     ".skillset/plugins/tools/skillset.yaml": `
@@ -5208,8 +5209,21 @@ Tool body.
 
   const report = await doctorSkillset(root);
   expect(report.ok).toBe(false);
-  expect(report.buildError).toContain("feature bin is Claude-only");
+  expect(report.buildError).toContain("codex plugin-bin unsupported");
+  expect(report.buildError).toContain("Codex plugins do not expose a documented plugin-local bin contract.");
   expect(report.notableLoweringOutcomes).toContainEqual(
+    expect.objectContaining({
+      featureId: "plugin-bin",
+      policy: "unsupported:error",
+      status: "unsupported",
+      target: "codex",
+    })
+  );
+
+  const explainedUnsupportedFeature = await explainPath(root, ".skillset/plugins/tools/bin");
+  expect(explainedUnsupportedFeature.kind).toBe("source-plugin");
+  expect(explainedUnsupportedFeature.entries).toEqual([]);
+  expect(explainedUnsupportedFeature.loweringOutcomes).toContainEqual(
     expect.objectContaining({
       featureId: "plugin-bin",
       policy: "unsupported:error",

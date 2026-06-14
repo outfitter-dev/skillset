@@ -54,12 +54,12 @@ The schema intentionally keeps source identity and target output identity togeth
 | `default` | Normal compiler policy. |
 | `scope:excluded` | Output was excluded by the selected build scope. |
 | `target:disabled` | Target was disabled by config or source-level target toggle. |
-| `unsupported:error` | Unsupported/lossy lowering fails the build. |
+| `unsupported:error` | Unsupported/lossy lowering fails build, diff, and check before generated output is written. |
 | `unsupported:warn` | Unsupported/lossy lowering is reported but does not fail. |
 | `unsupported:skip` | Unsupported/lossy lowering emits no target output and is recorded as skipped/unsupported. |
 | `unsupported:force` | A future explicit override allows a target-native/debug output without pretending portability. |
 
-The default posture is error. `warn`, `skip`, and `force` are reserved escape hatches until policy gates are implemented, persisted, and documented through the SET-84 branch. When these policies are used internally or transitionally, they must still surface through outcomes, diagnostics, or reports.
+The default posture is error. Build, diff, and check enforce `failed`, `lossy`, and `unsupported` outcomes from the structured ledger before writing generated output. `warn`, `skip`, and `force` remain reserved escape hatches until their non-error semantics are implemented and documented. When these policies are used internally or transitionally, they must still surface through outcomes, diagnostics, or reports.
 
 ## Target Lowering
 
@@ -77,7 +77,7 @@ The default posture is error. `warn`, `skip`, and `force` are reserved escape ha
 
 ## Diagnostics
 
-- Unsupported and lossy lowering should fail by default for enabled targets unless a scoped opt-out or explicit unsupported policy applies.
+- Unsupported, lossy, and failed lowering fail by default for enabled targets unless a scoped opt-out or future explicit unsupported policy applies.
 - Degraded outcomes should remain visible because they represent useful but weaker behavior.
 - Skipped outcomes need policy provenance so a clean build is not confused with silent omission.
 - Explain output summarizes matching outcomes by source unit, feature id, target, status, policy, reason, outputs, and diagnostics. Explaining a source path can show every target outcome for that source; explaining a generated path stays scoped to the generated output's target.
@@ -95,4 +95,4 @@ Outcome provenance belongs in structured operation results, generated `.skillset
 - [Deterministic Projection and Adapter Conformance](../adrs/drafts/20260613-deterministic-projection-and-adapter-conformance.md) defines how outcomes pair with the feature registry for conformance.
 - `packages/core/src/lowering-outcome.ts` defines the current schema, status values, policy values, and validation rules.
 - `packages/core/src/lowering-outcome-collector.ts` derives outcomes from generated locks, target-native companions, transformations, and unsupported plugin features.
-- `packages/core/src/__tests__/lowering-outcome-build.test.ts` proves emitted, target-native, transformed, unsupported, isolated-path, resolver-error, and scoped outcomes.
+- `packages/core/src/__tests__/lowering-outcome-build.test.ts` proves emitted, target-native, transformed, unsupported, isolated-path, policy-gated, and scoped outcomes.
