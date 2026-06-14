@@ -636,7 +636,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     status: "implemented",
     summary: "Normalizes tool policy intent into Claude allowed-tools fields and Codex metadata sidecars.",
     targetSupport: {
-      claude: { status: "native" },
+      claude: { status: "transformed" },
       codex: { status: "metadata_only" },
     },
     title: "Tool Intent",
