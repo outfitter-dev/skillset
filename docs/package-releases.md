@@ -12,7 +12,7 @@ Changesets owns npm package version and package changelog calculation. The Skill
 
 Feature branches that change package-facing behavior should include a `.changeset/*.md` file. When the branch merges to `main`, `.github/workflows/release.yml` runs `changesets/action` to create or update a `chore(release): version packages` pull request.
 
-When the version PR merges to `main`, the same workflow checks the npm registry. If the current `apps/skillset/package.json` version is already published and the intended dist-tag points to it, the workflow exits the publish step without entering the protected publish environment and ensures a missing GitHub release can still be created for the package-version commit. If the version is missing, the workflow enters the `npm` environment, runs the full package preflight, publishes with `npm publish`, waits for the version and dist-tag to appear on the registry, and creates the matching GitHub release if it does not already exist.
+When the version PR merges to `main`, the same workflow checks the npm registry. If the current `apps/skillset/package.json` version is already published and the intended dist-tag points to it, the workflow exits the publish step without entering the protected publish environment and ensures a missing GitHub release can still be created when the matching `v<version>` tag already points at the package-version commit. If the version is missing, the workflow enters the `npm` environment, runs the full package preflight, publishes with `npm publish`, waits for the version and dist-tag to appear on the registry, creates and pushes the matching `v<version>` tag at the package-version commit, and creates the GitHub release with `--verify-tag` if it does not already exist.
 
 The publish wrapper derives the npm dist-tag from the version: stable versions publish to `latest`, and prerelease versions publish to their prerelease label such as `beta`.
 
@@ -40,7 +40,7 @@ bun run publish:packages
 
 ## Trusted Publishing Setup
 
-The workflow is prepared for npm Trusted Publishing by using a publish job with `permissions.id-token: write`, Node 24, the npm CLI for the final publish, and the protected GitHub environment `npm`. Bun remains the package build, test, and preflight runtime; npm owns the OIDC exchange because Trusted Publishing is currently documented for `npm publish`. Configure the trusted publisher for the npm package with:
+The workflow is prepared for npm Trusted Publishing by using a publish job with `permissions.id-token: write`, SHA-pinned workflow actions, Node 24, the npm CLI for the final publish, and the protected GitHub environment `npm`. Bun remains the package build, test, and preflight runtime; npm owns the OIDC exchange because Trusted Publishing is currently documented for `npm publish`. Configure the trusted publisher for the npm package with:
 
 | Field | Value |
 | --- | --- |
