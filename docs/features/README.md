@@ -17,6 +17,7 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Distributions](distributions.md): post-build distribution planning, destination reports, and build/distribution/activation boundaries.
 - [Executables](executables.md): Claude plugin `bin/` conventional discovery, `bin.source`, and Codex unsupported diagnostics.
 - [Feature Source Pointers](feature-source-pointers.md): direct feature-key source pointers, conventional discovery, and future component ownership.
+- [Feature Registry](feature-registry.md): typed support matrix for feature ids, target capability claims, docs, evidence, lowering owners, and validation owners.
 - [Hook Guardrails](hook-guardrails.md): Git hook-runner snippets and optional agent-runtime nudges for change/release checks.
 - [Hooks](hooks.md): hook definition emission, canonical source paths, target validation, and activation boundaries.
 - [Instructions](instructions.md): `.skillset/instructions` lowering to Claude rules and Codex `AGENTS.md`, preprocessing, and collision safety.
