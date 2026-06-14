@@ -226,7 +226,7 @@ export const CI_WORKFLOW_PATH = ".github/workflows/skillset-ci.yml";
 export function renderCiWorkflow(): string {
   return [
     "# Scaffolded by skillset init --include ci. Skillset does not manage this file; edit freely.",
-    "# Pin skillset to an exact version for reproducible CI runs.",
+    "# Consider pinning skillset to an exact version for reproducible CI runs.",
     "# Notes:",
     "# - Mechanical fixes pushed with GITHUB_TOKEN do not retrigger workflows; if your",
     "#   branch protection requires checks on the fixed commit, push with a PAT instead.",
@@ -268,7 +268,7 @@ export function renderCiWorkflow(): string {
     "      - name: Run skillset ci",
     "        id: skillset",
     "        run: >-",
-    "          bunx skillset@beta ci",
+    "          bunx skillset ci",
     "          ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && '--fix' || '' }}",
     '          --report "$RUNNER_TEMP/skillset-ci-report.md"',
     "        continue-on-error: true",

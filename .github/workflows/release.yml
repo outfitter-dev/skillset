@@ -1,0 +1,132 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  version:
+    name: Version Packages
+    if: github.repository == 'outfitter-dev/skillset' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      has_changesets: ${{ steps.changesets.outputs.hasChangesets }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - name: Create or update version PR
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          commit: "chore(release): version packages"
+          title: "chore(release): version packages"
+          version: bun run version:packages
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  publish-plan:
+    name: Publish Plan
+    needs: version
+    if: github.repository == 'outfitter-dev/skillset' && github.ref == 'refs/heads/main' && needs.version.outputs.has_changesets == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      name: ${{ steps.plan.outputs.name }}
+      registry_complete: ${{ steps.plan.outputs.registry_complete }}
+      should_publish: ${{ steps.plan.outputs.should_publish }}
+      tag: ${{ steps.plan.outputs.tag }}
+      version: ${{ steps.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - name: Check registry state
+        id: plan
+        run: bun run publish:plan
+
+  publish:
+    name: Publish to npm
+    needs: publish-plan
+    if: github.repository == 'outfitter-dev/skillset' && github.ref == 'refs/heads/main' && needs.publish-plan.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      name: ${{ steps.publish.outputs.name }}
+      registry_complete: ${{ steps.publish.outputs.registry_complete }}
+      tag: ${{ steps.publish.outputs.tag }}
+      version: ${{ steps.publish.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: bun install --frozen-lockfile
+      - name: Validate package before publish
+        run: bun run publish:check
+      - name: Publish package
+        id: publish
+        run: bun run publish:packages
+
+  github-release:
+    name: Create GitHub Release
+    needs: [publish-plan, publish]
+    if: always() && github.repository == 'outfitter-dev/skillset' && github.ref == 'refs/heads/main' && needs.publish-plan.result == 'success' && (needs.publish-plan.outputs.registry_complete == 'true' || needs.publish.outputs.registry_complete == 'true')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.publish.outputs.version || needs.publish-plan.outputs.version }}
+          DIST_TAG: ${{ needs.publish.outputs.tag || needs.publish-plan.outputs.tag }}
+        run: |
+          create_args=()
+          if [ "$DIST_TAG" != "latest" ]; then
+            create_args+=(--prerelease --latest=false)
+          else
+            create_args+=(--latest)
+          fi
+
+          notes="Published skillset@$VERSION to npm with dist-tag \`$DIST_TAG\`."
+          version_target="$(git log -n 1 --format=%H -- apps/skillset/package.json)"
+          if [ -z "$version_target" ]; then
+            echo "Could not resolve package version commit" >&2
+            exit 1
+          fi
+
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "GitHub release v$VERSION already exists"
+          else
+            gh release create "v$VERSION" \
+              --target "$version_target" \
+              --title "skillset v$VERSION" \
+              --notes "$notes" \
+              "${create_args[@]}"
+          fi

@@ -17,6 +17,7 @@
     "apps/**/*.ts",
     "packages/**/*.ts",
     "scripts/build-package.ts",
+    "scripts/publish.ts",
     "scripts/bootstrap/**/*.ts",
     "scripts/__tests__/**/*.ts"
   ]
