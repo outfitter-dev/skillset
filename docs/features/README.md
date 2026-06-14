@@ -20,6 +20,7 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Hook Guardrails](hook-guardrails.md): Git hook-runner snippets and optional agent-runtime nudges for change/release checks.
 - [Hooks](hooks.md): hook definition emission, canonical source paths, target validation, and activation boundaries.
 - [Instructions](instructions.md): `.skillset/instructions` lowering to Claude rules and Codex `AGENTS.md`, preprocessing, and collision safety.
+- [Lowering Outcomes](lowering-outcomes.md): structured per-build ledger for emitted, transformed, degraded, skipped, unsupported, and externally managed lowering facts.
 - [LSP Servers](lsp-servers.md): Claude plugin `.lsp.json` pass-through, manifest wiring, and future validation boundaries.
 - [MCP Servers](mcp-servers.md): plugin `.mcp.json`, `mcp.source`, manifest wiring, and structured validation.
 - [Monitors](monitors.md): Claude experimental monitor pass-through, manifest wiring, and Codex unsupported boundaries.
@@ -38,23 +39,43 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Tool Intent](tool-intent.md): portable tool intent metadata, Claude preapproval lowering, Codex metadata, and target-native escapes.
 - [Version Audit](version-audit.md): read-only version-locus audit across source, release state, generated output, and future destinations.
 
-## Support Vocabulary
+## Feature Reference Vocabulary
+
+The feature reference uses related but separate vocabularies. Feature entry status describes whether Skillset owns a feature at all. Target support status describes whether a target can represent that feature. Runtime support uses the same status values as target support for runtime, distribution, and harness records. [Lowering outcomes](lowering-outcomes.md) use a separate build-result vocabulary for what happened to a specific source unit in a specific build.
+
+### Feature Entry Status
 
 | Status | Meaning |
 | --- | --- |
-| `implemented` | Parsed, validated, rendered, tested, and documented in the current compiler. |
-| `portable` | Authored once because enabled targets can represent the same intent faithfully. |
-| `target_native` | Supported only through one target's native source or adapter path. |
-| `metadata_only` | Captured in generated metadata or lock provenance, but not target-enforced. |
+| `implemented` | Parsed, validated, rendered or reported, tested, and documented in the current compiler. |
 | `planned` | Accepted design with no parser/render support yet. |
 | `reserved` | Recognized vocabulary that fails until behavior and provenance exist. |
-| `shimmed` | A deliberate compatibility mechanism that can work in practice but is not target-enforced. |
-| `deferred` | Intentionally not emitted; documented reason. |
-| `unsupported` | Cannot lower to an enabled target without explicit target scoping or unsupported policy. |
-| `lossy` | A possible lowering would drop target meaning or behavior; fail unless a future ADR defines visible provenance. |
-| `future` | Outside the v1 runtime contract but tracked as a possible later design. |
+| `deferred` | Intentionally not emitted or implemented yet; documented reason. |
+| `future` | Outside the v1 contract but tracked as a possible later design. |
+| `unsupported` | Known not to be supported as a Skillset source feature. |
 
-Unsupported and lossy lowering must fail loudly by default. Softer outcomes such as warn, skip, or force require visible diagnostics and lock or doctor provenance before they can become runtime behavior.
+### Target Support Status
+
+| Status | Meaning |
+| --- | --- |
+| `native` | The target has a native documented surface for the feature. |
+| `pass_through` | Skillset can safely copy or preserve target-native source for that target. |
+| `transformed` | Skillset can lower the source intent into a different target-native shape. |
+| `metadata_only` | Skillset can preserve the information in metadata, sidecars, locks, or reports, but the target does not enforce it directly. |
+| `degraded` | Skillset can emit a useful fallback that is weaker than native target support and must carry a reason. |
+| `externally_managed` | The behavior belongs to install, activation, distribution, marketplace state, or another external system. |
+| `shimmed` | Runtime behavior can work through deliberate compatibility instructions or harness material, but is not target-enforced. |
+| `not_applicable` | The feature is a Skillset workflow or source-management surface rather than a target runtime feature. |
+| `planned` | Target support is accepted but not implemented. |
+| `future` | Target support is possible later but outside the v1 contract. |
+| `unsupported` | The target cannot represent the feature faithfully through portable lowering and must carry a reason. |
+| `lossy` | A possible target lowering would drop required meaning or behavior and must carry a reason. |
+
+Unsupported and lossy lowering must fail loudly by default. Softer policies such as warn, skip, or force require visible diagnostics and lock or doctor provenance before they can become runtime behavior.
+
+### Lowering Outcome Status
+
+Lowering outcome statuses are build-result facts, not registry capability statuses. A target support row that says `native` usually produces an `emitted` outcome when a source unit is built; a row that says `pass_through` usually produces `target_native`; and a row that says `unsupported` may produce `unsupported`, `intentionally_skipped`, or no outcome when the source unit is outside the current build scope. See [Lowering Outcomes](lowering-outcomes.md#outcome-statuses) for the full outcome table.
 
 ## Registry Shape
 
