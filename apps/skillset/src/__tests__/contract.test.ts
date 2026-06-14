@@ -5361,7 +5361,142 @@ Audit body.
 
   const misplacedJson = await runSkillsetCli("list", "--json");
   expect(misplacedJson.exitCode).toBe(1);
-  expect(misplacedJson.stderr).toContain("--json is only supported with doctor or explain");
+  expect(misplacedJson.stderr).toContain("--json is only supported with doctor, explain, or features");
+});
+
+test("SET-78: feature capability inspection surfaces registry ids in explain, doctor, and features", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: feature-inspect-root
+claude: true
+codex: true
+`,
+    ".skillset/shared/references/guide.md": `
+# Guide
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo with resources.
+resources:
+  references:
+    - shared:references/guide.md
+---
+
+Read [the guide](shared:references/guide.md).
+`,
+    ".skillset/instructions/root.md": `
+---
+description: Root instructions.
+---
+
+Keep output inspectable.
+`,
+    ".skillset/src/codex/rules/deny.rules": `
+match = "rm -rf"
+decision = "deny"
+`,
+    ".skillset/plugins/audit/skillset.yaml": `
+skillset:
+  name: audit
+`,
+    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
+---
+name: audit-skill
+description: Audit skill.
+---
+
+Audit body.
+`,
+  });
+
+  const skillExplain = await runSkillsetCli("explain", ".skillset/skills/demo/SKILL.md", "--root", root, "--json");
+  expect(skillExplain.exitCode).toBe(0);
+  const skillReport = JSON.parse(skillExplain.stdout) as {
+    features: readonly {
+      docs: readonly string[];
+      id: string;
+      status: string;
+      targetSupport: { claude: { status: string }; codex: { status: string } };
+      title: string;
+    }[];
+  };
+  expect(skillReport.features).toEqual([
+    {
+      docs: ["docs/features/resources.md"],
+      id: "resources",
+      status: "implemented",
+      targetSupport: { claude: { status: "native" }, codex: { status: "native" } },
+      title: "Resources",
+    },
+    {
+      docs: ["docs/features/skills.md"],
+      id: "standalone-skills",
+      status: "implemented",
+      targetSupport: { claude: { status: "native" }, codex: { status: "native" } },
+      title: "Standalone Skills",
+    },
+  ]);
+
+  const pluginExplain = await runSkillsetCli("explain", ".skillset/plugins/audit/skillset.yaml", "--root", root, "--json");
+  const instructionExplain = await runSkillsetCli("explain", ".skillset/instructions/root.md", "--root", root, "--json");
+  const islandExplain = await runSkillsetCli("explain", ".skillset/src/codex/rules/deny.rules", "--root", root, "--json");
+  expect(featureIds(pluginExplain.stdout)).toContain("plugin-manifests");
+  expect(featureIds(instructionExplain.stdout)).toContain("project-instructions");
+  expect(featureIds(islandExplain.stdout)).toContain("target-native-islands");
+
+  const featureText = await runSkillsetCli("features", "plugin-bin");
+  expect(featureText.exitCode).toBe(0);
+  expect(featureText.stdout).toContain("feature plugin-bin: Plugin Bin");
+  expect(featureText.stdout).toContain("codex: unsupported");
+
+  const featureJson = await runSkillsetCli("features", "plugin-bin", "--json");
+  expect(featureJson.exitCode).toBe(0);
+  const featureReport = JSON.parse(featureJson.stdout) as {
+    features: readonly {
+      docs: readonly string[];
+      id: string;
+      status: string;
+      targetSupport: { claude: { status: string }; codex: { reason?: string; status: string } };
+      title: string;
+    }[];
+  };
+  expect(featureReport.features).toEqual([
+    {
+      docs: ["docs/features/executables.md", "docs/features/feature-source-pointers.md"],
+      id: "plugin-bin",
+      status: "implemented",
+      targetSupport: {
+        claude: { status: "pass_through" },
+        codex: expect.objectContaining({ status: "unsupported" }),
+      },
+      title: "Plugin Bin",
+    },
+  ]);
+  expect(featureReport.features[0]?.targetSupport.codex.reason).toContain("Codex plugins");
+
+  const missingFeature = await runSkillsetCli("features", "no-such-feature", "--json");
+  expect(missingFeature.exitCode).toBe(1);
+  expect(JSON.parse(missingFeature.stdout)).toEqual({ features: [] });
+
+  const doctor = await runSkillsetCli("doctor", "--root", root);
+  expect(doctor.stdout).toContain("features:");
+  expect(doctor.stdout).toContain("status implemented");
+  expect(doctor.stdout).toContain("feature support: claude");
+  expect(doctor.stdout).toContain("feature support: codex");
+  const doctorJson = await runSkillsetCli("doctor", "--root", root, "--json");
+  const doctorReport = JSON.parse(doctorJson.stdout) as {
+    featureCapabilities: {
+      byTargetSupport: { claude: Record<string, number>; codex: Record<string, number> };
+      featureIds: readonly string[];
+      total: number;
+    };
+  };
+  expect(doctorReport.featureCapabilities.total).toBeGreaterThan(0);
+  expect(doctorReport.featureCapabilities.byTargetSupport.claude.native).toBeGreaterThan(0);
+  expect(doctorReport.featureCapabilities.byTargetSupport.codex.native).toBeGreaterThan(0);
+  expect(doctorReport.featureCapabilities.featureIds).toContain("plugin-bin");
 });
 
 test("SET-83: doctor reports lowering outcomes from unsupported build errors", async () => {
@@ -5734,6 +5869,11 @@ function extractBackupId(stdout: string): string {
   const match = stdout.match(/\b[0-9a-f]{12}\b/);
   if (match === null) throw new Error(`missing backup id in stdout:\n${stdout}`);
   return match[0];
+}
+
+function featureIds(stdout: string): readonly string[] {
+  const report = JSON.parse(stdout) as { readonly features?: readonly { readonly id: string }[] };
+  return report.features?.map((feature) => feature.id) ?? [];
 }
 
 async function runSkillsetCli(...args: readonly string[]): Promise<{
