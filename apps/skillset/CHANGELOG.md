@@ -1,5 +1,11 @@
 # skillset
 
+## 0.13.2
+
+### Patch Changes
+
+- fad23b6: Update GitHub workflow actions to Node 24-compatible major versions.
+
 ## 0.13.1
 
 ### Patch Changes
