@@ -156,14 +156,14 @@ skillset build --root .
 skillset lint --root .
 skillset check --root .
 skillset diff --root .            # pending generated changes, no writes
-skillset explain <path> --root .  # lowering + lock provenance for a source/generated path
+skillset explain <path> --root .  # lowering + lock provenance for a source/generated path; add --json for records
 skillset restore <backup> --root . # preview restore; add --yes to write
-skillset doctor --root .          # lint issues + drift + warnings
+skillset doctor --root .          # lint issues, drift, warnings, and lowering advisories; add --json for records
 skillset hooks print --runner lefthook --pre-commit --pre-push
 skillset hooks print --target codex --agent-runtime
 ```
 
-`diff`, `explain`, and `doctor` are read-only authoring aids. They never write generated outputs, install, trust, publish, or mutate user-level config. `doctor` exits non-zero on lint issues, drift, or a build error.
+`diff`, `explain`, and `doctor` are read-only authoring aids. They never write generated outputs, install, trust, publish, or mutate user-level config. `explain --json` and `doctor --json` include full lowering outcome records for agents and automation. `doctor` exits non-zero on lint issues, drift, or a build error, and summarizes notable lowering advisories such as degraded or unsupported outcomes.
 
 `hooks print` emits copy/paste snippets for existing hook runners or reviewed project-local Claude/Codex runtime hook configuration. It does not install hooks, overwrite `.git/hooks`, mutate target runtime settings, or trust generated hook code. Pre-commit snippets call `skillset change check --staged`; pre-push snippets call `skillset change check --since origin/main`, `skillset check`, and `skillset doctor`.
 
