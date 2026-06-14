@@ -68,6 +68,15 @@ export {
   type FeatureRegistryDriftReport,
 } from "./feature-registry-check";
 export {
+  assertNoHostLeaks,
+  detectHostLeaks,
+  detectHostLeaksInBytes,
+  type HostLeakDetectionOptions,
+  type HostLeakIssue,
+  type HostLeakKind,
+  type HostLeakMatch,
+} from "./host-leak";
+export {
   LOWERING_OUTCOME_SCHEMA,
   LOWERING_OUTCOME_STATUS_VALUES,
   SkillsetLoweringError,

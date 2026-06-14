@@ -88,7 +88,7 @@ describe("deterministic projection runner", () => {
       afterProjection: async (run) => {
         await Bun.write(join(run.outputRoot, "leak.txt"), `workspace=${run.workspacePath}\n`);
       },
-    })).rejects.toThrow("contains forbidden value");
+    })).rejects.toThrow("contains forbidden-substring leak");
   });
 
   it("fails when generated output leaks the shared temp runner root", async () => {
@@ -98,7 +98,42 @@ describe("deterministic projection runner", () => {
       afterProjection: async (run) => {
         await Bun.write(join(run.outputRoot, "leak.txt"), `tempRoot=${dirname(dirname(run.workspacePath))}\n`);
       },
-    })).rejects.toThrow("contains forbidden value");
+    })).rejects.toThrow("contains forbidden-substring leak");
+  });
+
+  it("honors host leak opt-out while keeping caller forbidden substrings", async () => {
+    const root = await fixture(DEMO_FIXTURE);
+
+    const allowed = await runDeterministicProjection(root, {
+      afterProjection: async (run) => {
+        await Bun.write(join(run.outputRoot, "example.txt"), "/tmp/example\n");
+      },
+      comparisonOptions: {
+        hostLeakOptions: false,
+      },
+    });
+    expect(allowed.ok).toBe(true);
+
+    await expect(runDeterministicProjection(root, {
+      afterProjection: async (run) => {
+        await Bun.write(join(run.outputRoot, "example.txt"), "literal-token\n");
+      },
+      comparisonOptions: {
+        forbiddenSubstrings: ["literal-token"],
+        hostLeakOptions: false,
+      },
+    })).rejects.toThrow("contains forbidden value literal-token");
+
+    await expect(runDeterministicProjection(root, {
+      afterProjection: (run) => {
+        const writes = run.build.writes as unknown as { writtenPaths: string[] };
+        writes.writtenPaths = [...writes.writtenPaths, "literal-token"];
+      },
+      comparisonOptions: {
+        forbiddenSubstrings: ["literal-token"],
+        hostLeakOptions: false,
+      },
+    })).rejects.toThrow("operation-result.left.json contains forbidden-substring leak");
   });
 
   it("rejects source symlinks instead of copying external state", async () => {
@@ -111,6 +146,31 @@ describe("deterministic projection runner", () => {
     await expect(runDeterministicProjection(root)).rejects.toThrow(
       "deterministic projection source does not support symlinks: .skillset/config.yaml"
     );
+  });
+
+  it("excludes configured generated output roots from copied source workspaces", async () => {
+    const root = await fixture({
+      ".skillset/config.yaml": `
+skillset:
+  name: output-root-exclusion
+claude:
+  skills:
+    path: generated/skills
+codex: false
+`,
+      ".skillset/skills/demo/SKILL.md": DEMO_SKILL,
+      "generated/skills/stale/SKILL.md": "stale generated output\n",
+    });
+
+    const report = await assertDeterministicProjection(root, {
+      afterProjection: async (run) => {
+        if (await exists(join(run.workspacePath, "generated/skills/stale/SKILL.md"))) {
+          throw new Error("copied configured output root into deterministic workspace");
+        }
+      },
+    });
+
+    expect(report.ok).toBe(true);
   });
 
   it("rejects empty source selections before running a projection", async () => {

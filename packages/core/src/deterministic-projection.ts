@@ -7,6 +7,7 @@ import {
   ISOLATED_OUT_ROOT,
   type SkillsetBuildResult,
 } from "./build";
+import { assertNoHostLeaks, type HostLeakDetectionOptions } from "./host-leak";
 import { compareStrings, resolveInside } from "./path";
 import {
   compareNormalizedOutputTreeEntries,
@@ -16,6 +17,7 @@ import {
   type NormalizedTreeComparison,
   type NormalizedOutputTreeOptions,
 } from "./normalized-output-tree";
+import { loadBuildGraph } from "./resolver";
 import type { JsonRecord, JsonValue, SkillsetOptions } from "./types";
 import { stringifyJson } from "./yaml";
 
@@ -52,6 +54,8 @@ export interface DeterministicProjectionOptions {
   readonly buildOptions?: SkillsetOptions;
   /** Extra output-tree comparison options. */
   readonly comparisonOptions?: NormalizedOutputTreeOptions;
+  /** Additional source-copy exclusions, relative to the source root. */
+  readonly copyExcludePaths?: readonly string[];
   /** Test/conformance hook that may inspect or perturb a temp projection. */
   readonly afterProjection?: (run: DeterministicProjectionRunContext) => Promise<void> | void;
   /** Keep the temp runner root on disk for local debugging. */
@@ -85,23 +89,35 @@ export async function runDeterministicProjection(
   const resolvedRootPath = resolve(rootPath);
   const tempRootPath = await createTempRoot(options.tempParentPath);
   try {
-    const left = await runProjection(resolvedRootPath, tempRootPath, "left", options);
-    const right = await runProjection(resolvedRootPath, tempRootPath, "right", options);
-    const forbiddenSubstrings = [
+    const copyExcludedPaths = await projectionCopyExcludedPaths(resolvedRootPath, options);
+    const left = await runProjection(resolvedRootPath, tempRootPath, "left", options, copyExcludedPaths);
+    const right = await runProjection(resolvedRootPath, tempRootPath, "right", options, copyExcludedPaths);
+    const configuredForbiddenSubstrings = options.comparisonOptions?.forbiddenSubstrings ?? [];
+    const projectionForbiddenSubstrings = [
       tempRootPath,
       left.workspacePath,
       right.workspacePath,
-      ...(options.comparisonOptions?.forbiddenSubstrings ?? []),
+      ...configuredForbiddenSubstrings,
     ];
+    const hostLeakOptions: false | HostLeakDetectionOptions = options.comparisonOptions?.hostLeakOptions === false
+      ? false
+      : {
+          ...(options.comparisonOptions?.hostLeakOptions ?? {}),
+          forbiddenSubstrings: projectionForbiddenSubstrings,
+          repoRootPath: resolvedRootPath,
+          tempRootPath,
+          workspacePaths: [left.workspacePath, right.workspacePath],
+        };
     const outputComparison = await compareNormalizedOutputTrees(
       left.outputRoot,
       right.outputRoot,
       {
         ...options.comparisonOptions,
-        forbiddenSubstrings,
+        forbiddenSubstrings: hostLeakOptions === false ? configuredForbiddenSubstrings : projectionForbiddenSubstrings,
+        hostLeakOptions,
       }
     );
-    const resultComparison = compareProjectionResults(left, right, forbiddenSubstrings);
+    const resultComparison = compareProjectionResults(left, right, hostLeakOptions, configuredForbiddenSubstrings);
     return {
       ok: outputComparison.equal && resultComparison.equal,
       outputComparison,
@@ -148,10 +164,11 @@ async function runProjection(
   rootPath: string,
   tempRootPath: string,
   name: DeterministicProjectionRunName,
-  options: DeterministicProjectionOptions
+  options: DeterministicProjectionOptions,
+  copyExcludedPaths: readonly string[]
 ): Promise<DeterministicProjectionRunContext> {
   const workspacePath = join(tempRootPath, name, "workspace");
-  await copySourceSelection(rootPath, workspacePath, options.sourcePaths ?? DEFAULT_SOURCE_PATHS);
+  await copySourceSelection(rootPath, workspacePath, options.sourcePaths ?? DEFAULT_SOURCE_PATHS, copyExcludedPaths);
   const build = await buildSkillsetResult(workspacePath, {
     ...options.buildOptions,
     buildMode: "all",
@@ -170,7 +187,8 @@ async function runProjection(
 async function copySourceSelection(
   rootPath: string,
   workspacePath: string,
-  sourcePaths: readonly string[]
+  sourcePaths: readonly string[],
+  copyExcludedPaths: readonly string[]
 ): Promise<void> {
   await mkdir(workspacePath, { recursive: true });
   const normalizedSourcePaths = sourcePaths.map(normalizeRelativePath).sort(compareStrings);
@@ -182,21 +200,33 @@ async function copySourceSelection(
     const target = sourcePath === "." ? workspacePath : join(workspacePath, sourcePath);
     await mkdir(dirname(target), { recursive: true });
     await cp(source, target, {
-      filter: (path) => shouldCopyPath(rootPath, path),
+      filter: (path) => shouldCopyPath(rootPath, path, copyExcludedPaths),
       recursive: true,
     });
   }
 }
 
-async function shouldCopyPath(rootPath: string, path: string): Promise<boolean> {
+async function shouldCopyPath(rootPath: string, path: string, copyExcludedPaths: readonly string[]): Promise<boolean> {
   const relativePath = normalizePath(relative(rootPath, path));
   if (relativePath === "") return true;
   if ((await lstat(path)).isSymbolicLink()) {
     throw new Error(`skillset: deterministic projection source does not support symlinks: ${relativePath}`);
   }
-  return !DEFAULT_COPY_EXCLUDED_PATHS.some(
+  return !copyExcludedPaths.some(
     (excluded) => relativePath === excluded || relativePath.startsWith(`${excluded}/`)
   );
+}
+
+async function projectionCopyExcludedPaths(
+  rootPath: string,
+  options: DeterministicProjectionOptions
+): Promise<readonly string[]> {
+  const graph = await loadBuildGraph(rootPath, options.buildOptions ?? {});
+  return sortedUnique([
+    ...DEFAULT_COPY_EXCLUDED_PATHS,
+    ...graph.outputRoots,
+    ...(options.copyExcludePaths ?? []),
+  ].map(normalizeRelativePath).filter((path) => path !== "."));
 }
 
 async function createTempRoot(tempParentPath: string | undefined): Promise<string> {
@@ -208,23 +238,25 @@ async function createTempRoot(tempParentPath: string | undefined): Promise<strin
 function compareProjectionResults(
   left: DeterministicProjectionRunContext,
   right: DeterministicProjectionRunContext,
+  hostLeakOptions: false | HostLeakDetectionOptions,
   forbiddenSubstrings: readonly string[]
 ): NormalizedTreeComparison {
   return compareNormalizedOutputTreeEntries(
-    [projectionResultEntry(left, forbiddenSubstrings)],
-    [projectionResultEntry(right, forbiddenSubstrings)]
+    [projectionResultEntry(left, hostLeakOptions, forbiddenSubstrings)],
+    [projectionResultEntry(right, hostLeakOptions, forbiddenSubstrings)]
   );
 }
 
 function projectionResultEntry(
   run: DeterministicProjectionRunContext,
+  hostLeakOptions: false | HostLeakDetectionOptions,
   forbiddenSubstrings: readonly string[]
 ): NormalizedOutputTreeEntry {
   const content = stringifyJson(buildResultSummary(run.build));
-  for (const forbidden of forbiddenSubstrings) {
-    if (content.includes(forbidden)) {
-      throw new Error(`skillset: deterministic projection result for ${run.name} contains forbidden value ${forbidden}`);
-    }
+  if (hostLeakOptions !== false) {
+    assertNoHostLeaks(`operation-result.${run.name}.json`, textEncoder.encode(content), hostLeakOptions);
+  } else if (forbiddenSubstrings.length > 0) {
+    assertNoHostLeaks(`operation-result.${run.name}.json`, textEncoder.encode(content), { forbiddenSubstrings });
   }
   return {
     bytes: textEncoder.encode(content),
@@ -263,4 +295,8 @@ function normalizeRelativePath(path: string): string {
 
 function normalizePath(path: string): string {
   return path.replaceAll("\\", "/");
+}
+
+function sortedUnique(paths: readonly string[]): readonly string[] {
+  return [...new Set(paths)].sort(compareStrings);
 }
