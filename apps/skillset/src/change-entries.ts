@@ -51,7 +51,14 @@ export interface ChangeCheckReport {
   readonly entries: readonly PendingChangeEntry[];
   readonly issues: readonly ChangeCheckIssue[];
   readonly ok: boolean;
+  readonly stackedEvidence: readonly ChangeCheckStackedEvidence[];
   readonly status: ChangeStatusReport;
+}
+
+export interface ChangeCheckStackedEvidence {
+  readonly paths: readonly string[];
+  readonly scope: string;
+  readonly sourceHash: string;
 }
 
 interface ChangeValidationContext {
@@ -137,6 +144,7 @@ async function validateChangeCheck(
     entries,
     issues: issues.sort(compareIssues),
     ok: !issues.some((issue) => issue.severity === "error"),
+    stackedEvidence: stackedEvidenceGroups(validEntries, context),
     status,
   };
 }
@@ -307,6 +315,34 @@ function findDuplicateIds(entries: readonly PendingChangeEntry[]): ReadonlySet<s
     counts.set(entry.id, (counts.get(entry.id) ?? 0) + 1);
   }
   return new Set([...counts].filter(([, count]) => count > 1).map(([id]) => id));
+}
+
+function stackedEvidenceGroups(
+  entries: ReadonlySet<PendingChangeEntry>,
+  context: ChangeValidationContext
+): readonly ChangeCheckStackedEvidence[] {
+  const groups = new Map<string, { readonly paths: Set<string>; readonly scope: string; readonly sourceHash: string }>();
+  for (const entry of entries) {
+    for (const scope of entry.scopes) {
+      const sourceHash = expectedHashForScope(scope, context);
+      if (sourceHash === undefined || !(entry.sourceHashes.get(scope) ?? []).includes(sourceHash)) continue;
+      const key = `${scope}\0${sourceHash}`;
+      const existing = groups.get(key);
+      if (existing === undefined) {
+        groups.set(key, { paths: new Set([entry.path]), scope, sourceHash });
+        continue;
+      }
+      existing.paths.add(entry.path);
+    }
+  }
+  return [...groups.values()]
+    .filter((group) => group.paths.size > 1)
+    .map((group) => ({
+      paths: [...group.paths].sort(compareStrings),
+      scope: group.scope,
+      sourceHash: group.sourceHash,
+    }))
+    .sort((left, right) => compareStrings(`${left.scope}\0${left.sourceHash}`, `${right.scope}\0${right.sourceHash}`));
 }
 
 function hasSeverityBearingRegion(regions: readonly { readonly severityBearing: boolean }[] | undefined): boolean {

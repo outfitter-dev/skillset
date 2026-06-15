@@ -28,6 +28,8 @@ Compact ids are generated once at scaffold time as 12 lower-case hex characters.
 
 `skillset change check` validates pending entry ids, duplicate ids, scopes, bumps, required reason bodies, source hash evidence, group shape, and coverage for current source changes. Entries can cover multiple scopes, carry `ignored: true`, and use `group` for external issue or change grouping metadata. Child plugin entries cover the derived plugin aggregate for coverage and release planning, but plugin config changes still require their own plugin-level story. `external.*` is rejected in v1 so issue ids do not get duplicated outside `group`. Refs resolve as `@<hex-prefix>` with at least 6 hex characters, and ambiguous prefixes fail with candidate refs.
 
+Stacked branches may produce multiple pending entries for the same source unit. `change check` intentionally stays strict: each entry must carry evidence for the current source hash at the stack tip. If two valid entries point at the same scope and hash, the check prints a `stacked evidence` note so release/history attribution is explicit. If one entry still points at an older hash, it remains a `change-evidence-stale` error even when another entry covers the same scope, because silently borrowing another reason would hide lower-branch work.
+
 `change check` also warns when an entry declares `bump: none` for an added, removed, or severity-bearing source unit. `supports` edits remain source-significant but are not inherently severity-bearing. Source coverage diagnostics stay separate from generated-output drift.
 
 `skillset change add` writes pending entries non-interactively from `--reason`, `--reason-file`, `--reason -`, or piped stdin. `skillset change reason` updates or appends to a pending reason without changing the generated id. `skillset change list` prints copyable refs and supports `--group` filtering. `skillset change show` resolves pending entries before applied history. `skillset change history` reads applied history records and stays distinct from status.
@@ -40,7 +42,7 @@ Change entries participate in source provenance because they explain current sou
 
 ## Tests and Fixtures
 
-Fixtures cover unchanged deterministic status, body edits, source-only support/dependency metadata edits, plugin child edits that affect aggregate plugin identity without a version bump, child plugin coverage of aggregate plugin changes, partial dependency hashing, read-only CLI behavior, generated-output drift separation, pending-entry coverage failures, multi-scope pending entries, invalid pending entry diagnostics, ambiguous ref resolution, reason file/stdin input, append behavior, group filters, show output, and history lookup.
+Fixtures cover unchanged deterministic status, body edits, source-only support/dependency metadata edits, plugin child edits that affect aggregate plugin identity without a version bump, child plugin coverage of aggregate plugin changes, partial dependency hashing, read-only CLI behavior, generated-output drift separation, pending-entry coverage failures, multi-scope pending entries, repeated stacked entries for one current source hash, invalid pending entry diagnostics, ambiguous ref resolution, reason file/stdin input, append behavior, group filters, show output, and history lookup.
 
 ## Evidence
 
