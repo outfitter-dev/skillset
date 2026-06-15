@@ -58,10 +58,75 @@ jobs:
         id: plan
         run: bun run publish:plan
 
-  publish:
-    name: Publish to npm
+  publish-policy:
+    name: Publish Policy
     needs: publish-plan
-    if: github.repository == 'outfitter-dev/skillset' && github.ref == 'refs/heads/main' && needs.publish-plan.outputs.should_publish == 'true'
+    if: github.repository == 'outfitter-dev/skillset' && github.ref == 'refs/heads/main' && needs.publish-plan.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      checks: read
+      contents: read
+      pull-requests: read
+    outputs:
+      channel: ${{ steps.policy.outputs.channel }}
+      create_github_release: ${{ steps.policy.outputs.create_github_release }}
+      decision: ${{ steps.policy.outputs.decision }}
+      publish: ${{ steps.policy.outputs.publish }}
+      release: ${{ steps.policy.outputs.release }}
+      should_publish: ${{ steps.policy.outputs.should_publish }}
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - name: Resolve publish policy
+        id: policy
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SKILLSET_RELEASE_POLICY_CI_ATTEMPTS: "30"
+          SKILLSET_RELEASE_POLICY_CI_WAIT_MS: "10000"
+        run: bun run publish:policy
+
+  publish-auto:
+    name: Publish to npm automatically
+    needs: [publish-plan, publish-policy]
+    if: github.repository == 'outfitter-dev/skillset' && github.ref == 'refs/heads/main' && needs.publish-plan.outputs.should_publish == 'true' && needs.publish-policy.outputs.decision == 'auto' && needs.publish-policy.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    environment: npm-auto
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      name: ${{ steps.publish.outputs.name }}
+      published: ${{ steps.publish.outputs.published }}
+      registry_complete: ${{ steps.publish.outputs.registry_complete }}
+      tag: ${{ steps.publish.outputs.tag }}
+      version: ${{ steps.publish.outputs.version }}
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: .bun-version
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: bun install --frozen-lockfile
+      - name: Validate package before publish
+        run: bun run publish:check
+      - name: Publish package
+        id: publish
+        run: bun run publish:packages
+
+  publish:
+    name: Publish to npm manually
+    needs: [publish-plan, publish-policy]
+    if: github.repository == 'outfitter-dev/skillset' && github.ref == 'refs/heads/main' && needs.publish-plan.outputs.should_publish == 'true' && needs.publish-policy.outputs.decision == 'manual' && needs.publish-policy.outputs.should_publish == 'true'
     runs-on: ubuntu-latest
     environment: npm
     permissions:
@@ -93,8 +158,8 @@ jobs:
 
   github-release:
     name: Create GitHub Release
-    needs: [publish-plan, publish]
-    if: always() && github.repository == 'outfitter-dev/skillset' && github.ref == 'refs/heads/main' && needs.publish-plan.result == 'success' && (needs.publish-plan.outputs.registry_complete == 'true' || needs.publish.outputs.registry_complete == 'true')
+    needs: [publish-plan, publish-policy, publish-auto, publish]
+    if: always() && github.repository == 'outfitter-dev/skillset' && github.ref == 'refs/heads/main' && needs.publish-plan.result == 'success' && needs.publish-policy.result == 'success' && needs.publish-policy.outputs.create_github_release == 'true' && (needs.publish-plan.outputs.registry_complete == 'true' || needs.publish-auto.outputs.registry_complete == 'true' || needs.publish.outputs.registry_complete == 'true')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -106,9 +171,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          VERSION: ${{ needs.publish.outputs.version || needs.publish-plan.outputs.version }}
-          DIST_TAG: ${{ needs.publish.outputs.tag || needs.publish-plan.outputs.tag }}
-          PUBLISHED: ${{ needs.publish.outputs.published }}
+          VERSION: ${{ needs.publish-auto.outputs.version || needs.publish.outputs.version || needs.publish-plan.outputs.version }}
+          DIST_TAG: ${{ needs.publish-auto.outputs.tag || needs.publish.outputs.tag || needs.publish-plan.outputs.tag }}
+          PUBLISHED: ${{ needs.publish-auto.outputs.published || needs.publish.outputs.published }}
         run: |
           create_args=()
           if [ "$DIST_TAG" != "latest" ]; then
