@@ -252,6 +252,7 @@ export interface SkillsetOptions {
 
 export interface CheckResult {
   readonly checkedFiles: number;
+  readonly failures: readonly string[];
 }
 
 export interface LintIssue {

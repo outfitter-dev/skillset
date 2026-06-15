@@ -1,9 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+  checkSkillset,
   buildSkillsetResult,
   checkSkillsetResult,
   diffSkillsetResult,
@@ -25,6 +26,15 @@ description: Demo skill.
 Body.
 `,
 };
+
+const SECOND_SKILL = `
+---
+name: keeper
+description: Keeper skill.
+---
+
+Keep the source graph valid.
+`;
 
 describe("@skillset/core consumer API", () => {
   it("supports a quiet preview-build-check loop through public result APIs", async () => {
@@ -66,6 +76,7 @@ describe("@skillset/core consumer API", () => {
 
       const checked = await checkSkillsetResult(root);
       expect(checked.operation).toBe("check");
+      expect(checked.ok).toBe(true);
       expect(checked.writes).toEqual({
         deletedPaths: [],
         mode: "read",
@@ -73,6 +84,7 @@ describe("@skillset/core consumer API", () => {
         writtenPaths: [],
       });
       expect(checked.data.checkedFiles).toBe(build.data.length);
+      expect(checked.data.failures).toEqual([]);
       expect(checked.diagnostics).toEqual([]);
 
       const clean = await diffSkillsetResult(root);
@@ -85,6 +97,102 @@ describe("@skillset/core consumer API", () => {
       console.warn = originalWarn;
       process.exitCode = previousExitCode;
     }
+  });
+
+  it("returns structured check drift while preserving the throwing convenience helper", async () => {
+    const root = await fixture(DEMO_FIXTURE);
+    const expectedOutput = ".claude/skills/demo/SKILL.md";
+    await buildSkillsetResult(root);
+    await Bun.write(join(root, expectedOutput), "stale\n");
+
+    const result = await checkSkillsetResult(root);
+
+    expect(result.ok).toBe(false);
+    expect(result.operation).toBe("check");
+    expect(result.writes.mode).toBe("read");
+    expect(result.data.checkedFiles).toBeGreaterThan(0);
+    expect(result.data.failures).toHaveLength(1);
+    expect(result.data.failures[0]).toContain(expectedOutput);
+    expect(result.diagnostics).toContainEqual(
+      expect.objectContaining({
+        code: "generated-output-changed",
+        outputPath: expectedOutput,
+        severity: "error",
+      })
+    );
+    await expect(checkSkillset(root)).rejects.toThrow("skillset: generated output is not current");
+  });
+
+  it("classifies missing generated output before a first build", async () => {
+    const root = await fixture(DEMO_FIXTURE);
+    const expectedOutput = ".claude/skills/demo/SKILL.md";
+
+    const result = await checkSkillsetResult(root);
+
+    expect(result.ok).toBe(false);
+    expect(result.data.failures).toContain(`missing generated file: ${expectedOutput}`);
+    expect(result.diagnostics).toContainEqual(
+      expect.objectContaining({
+        code: "generated-output-missing",
+        outputPath: expectedOutput,
+        severity: "error",
+      })
+    );
+  });
+
+  it("classifies deleted managed generated output", async () => {
+    const root = await fixture(DEMO_FIXTURE);
+    const expectedOutput = ".claude/skills/demo/SKILL.md";
+    await buildSkillsetResult(root);
+    await rm(join(root, expectedOutput));
+
+    const result = await checkSkillsetResult(root);
+
+    expect(result.ok).toBe(false);
+    expect(result.data.failures).toEqual([`missing managed generated file: ${expectedOutput}`]);
+    expect(result.diagnostics).toContainEqual(
+      expect.objectContaining({
+        code: "generated-output-missing-managed",
+        outputPath: expectedOutput,
+        severity: "error",
+      })
+    );
+  });
+
+  it("classifies stale generated output for removed source units", async () => {
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      ".skillset/skills/keeper/SKILL.md": SECOND_SKILL,
+    });
+    const expectedOutput = ".claude/skills/demo/SKILL.md";
+    await buildSkillsetResult(root);
+    await rm(join(root, ".skillset/skills/demo"), { recursive: true });
+
+    const result = await checkSkillsetResult(root);
+
+    expect(result.ok).toBe(false);
+    expect(result.data.failures).toContain(`stale generated file: ${expectedOutput}`);
+    expect(result.diagnostics).toContainEqual(
+      expect.objectContaining({
+        code: "generated-output-removed",
+        outputPath: expectedOutput,
+        severity: "error",
+      })
+    );
+  });
+
+  it("still rejects invalid source config as an exceptional error", async () => {
+    const root = await fixture({
+      ".skillset/config.yaml": `
+skillset:
+  name: invalid-core-check-root
+compile:
+  targets:
+    - nope
+`,
+    });
+
+    await expect(checkSkillsetResult(root)).rejects.toThrow("unsupported target");
   });
 });
 

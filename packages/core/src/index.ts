@@ -12,7 +12,9 @@ export {
   type FeatureSupportCapability,
 } from "./authoring";
 export {
+  buildSkillset,
   buildSkillsetResult,
+  checkSkillset,
   checkSkillsetResult,
   diffSkillset,
   diffSkillsetResult,
