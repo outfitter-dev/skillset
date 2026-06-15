@@ -2790,6 +2790,126 @@ Grouped documentation-only edits are intentionally ignored for release planning 
   expect(checked.stdout).toContain("change check passed");
 });
 
+test("SET-114: repeated pending entries can share current evidence for stacked changes", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: stacked-change-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await commitFixture(root);
+
+  await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body for stacked entries.\n");
+  const report = await changeStatus(root, { since: "HEAD" });
+  const demo = report.sourceChanges.find((change) => change.id === "skill:demo");
+  expect(demo?.currentHash).toBeDefined();
+
+  await writePendingChange(root, "first.md", `
+---
+id: 111111abcdef
+bump: patch
+scope: skill:demo
+evidence:
+  - scope: skill:demo
+    currentHash: ${demo?.currentHash}
+  - scope: skill:demo
+    currentHash: ${demo?.currentHash}
+  - scope: skill:demo
+    currentHash: sha256:older-supplemental
+---
+
+First stacked branch reason keeps its own audit trail for the final source state.
+`);
+  await writePendingChange(root, "second.md", `
+---
+id: 222222abcdef
+bump: patch
+scope: skill:demo
+evidence:
+  - scope: skill:demo
+    currentHash: ${demo?.currentHash}
+  - scope: skill:demo
+    currentHash: sha256:older-supplemental
+---
+
+Second stacked branch reason also points at the final source state deliberately.
+`);
+
+  const checked = await runSkillsetCli("change", "check", "--root", root, "--since", "HEAD");
+  expect(checked.exitCode).toBe(0);
+  expect(checked.stdout).toContain("stacked evidence: skill: demo");
+  expect(checked.stdout).toContain("shared by 2 pending entries");
+  expect(checked.stdout).toContain(".skillset/changes/pending/first.md, .skillset/changes/pending/second.md");
+  expect(checked.stdout).not.toContain("shared by 3 pending entries");
+  expect(checked.stdout).not.toContain("sha256:older-supplemental");
+  expect(checked.stdout).toContain("change check passed");
+});
+
+test("SET-114: repeated pending entries still fail when one carries stale evidence", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: stale-stacked-change-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await commitFixture(root);
+
+  await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body for stale stacked evidence.\n");
+  const report = await changeStatus(root, { since: "HEAD" });
+  const demo = report.sourceChanges.find((change) => change.id === "skill:demo");
+  expect(demo?.currentHash).toBeDefined();
+
+  await writePendingChange(root, "current.md", `
+---
+id: 333333abcdef
+bump: patch
+scope: skill:demo
+evidence:
+  - scope: skill:demo
+    currentHash: ${demo?.currentHash}
+---
+
+Current branch reason covers the final source state for this stacked example.
+`);
+  await writePendingChange(root, "stale.md", `
+---
+id: 444444abcdef
+bump: patch
+scope: skill:demo
+evidence:
+  - scope: skill:demo
+    currentHash: sha256:stale
+---
+
+Older branch reason must be refreshed instead of silently covered by another entry.
+`);
+
+  const checked = await runSkillsetCli("change", "check", "--root", root, "--since", "HEAD");
+  expect(checked.exitCode).toBe(1);
+  expect(checked.stdout).toContain("stale.md: change-evidence-stale");
+  expect(checked.stdout).toContain("change check found 1 error");
+});
+
 test("SET-35: change check rejects invalid pending entry shape, reason, and evidence", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `

@@ -80,6 +80,8 @@ Release state is optional source-controlled state that maps releasable scopes to
 
 `skillset release plan` reads pending entries and current hashes, suggests or resolves version changes, and previews changelog sections without writing. `skillset release apply` updates release state, generated changelog projections, append-only history/release records, locks, and generated target outputs. It should not rewrite source content merely to bump counters.
 
+Stacked pending entries keep one strict evidence rule: every entry must carry evidence for the current source hash of each declared scope. A Graphite stack can therefore end with multiple pending entries pointing at the same source unit and final hash. That is allowed, and `change check` should make it visible as stacked evidence rather than warning. A stale entry for the same scope still fails even if another entry has the current hash. This preserves the invariant that each branch reason remains attached to the state being released instead of borrowing coverage from a later branch.
+
 Published or marketplace-facing artifacts default to ordinary SemVer. Build metadata is not a public update strategy in v1 because target install/update behavior for build-metadata-only version differences remains unproven.
 
 ## Supports

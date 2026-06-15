@@ -624,6 +624,11 @@ function printChangeCheck(report: ChangeCheckReport): void {
     const path = issue.path === undefined ? "" : `${issue.path}: `;
     console.log(`  ${issue.severity}: ${path}${issue.code}: ${issue.message}`);
   }
+  for (const group of report.stackedEvidence) {
+    console.log(
+      `  stacked evidence: ${sourceUnitDisplay(group.scope)} ${group.sourceHash} shared by ${group.paths.length} pending entries: ${group.paths.join(", ")}`
+    );
+  }
   const errors = report.issues.filter((issue) => issue.severity === "error").length;
   const warnings = report.issues.length - errors;
   if (errors === 0) {
