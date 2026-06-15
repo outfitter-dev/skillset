@@ -19,6 +19,8 @@
     "changeset:status": "changeset status --verbose",
     "conformance:adapters": "bun test packages/core/src/__tests__/adapter-conformance.test.ts packages/core/src/__tests__/adapter-conformance-coverage.test.ts",
     "conformance:determinism": "bun test packages/core/src/__tests__/deterministic-projection.test.ts",
+    "conformance:external": "bun scripts/fixtures/external.ts run",
+    "conformance:external:sync": "bun scripts/fixtures/external.ts sync",
     "conformance:fast": "bun run conformance:determinism && bun run conformance:adapters",
     "hooks:install": "lefthook install",
     "hooks:pre-commit": "lefthook run pre-commit --force",

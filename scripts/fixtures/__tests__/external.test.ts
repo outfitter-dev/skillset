@@ -165,6 +165,8 @@ test("runExternalRepo adopts a marketplace-shaped repo in place and reports roun
   } satisfies Pick<ExternalRepoEntry, "ref" | "repo">);
   expect(markdown).toContain("# External fixture run: demo-marketplace");
   expect(markdown).toContain("- result: pass");
+  expect(markdown).toContain("## Conformance Evidence");
+  expect(markdown).toContain("opt-in external adoption conformance evidence");
   expect(markdown).toContain("## Survey");
   expect(markdown).toContain("- candidate instructions: `AGENTS.md`");
   expect(markdown).toContain("- candidate plugin: `plugins/demo`");

@@ -32,6 +32,7 @@ bun run skillset:ci
 bun run conformance:fast
 bun run conformance:determinism
 bun run conformance:adapters
+bun run conformance:external
 bun run changeset:status
 bun run publish:check
 bun run hooks:install
@@ -45,7 +46,7 @@ bun run check
 
 `bun run skillset:ci` is the same aggregate check GitHub Actions runs (`.github/workflows/ci.yml`): lint, change-entry coverage, and generated drift. Pass `--fix` to rebuild stale generated output mechanically. Content repos scaffold the equivalent workflow with `skillset init --include ci`.
 
-`bun run conformance:fast` reruns the fast deterministic projection and adapter conformance suites without running the whole test corpus. `bun run check` already includes those suites through `bun run test`, so CI and pre-push use the same aggregate gate without duplicating them.
+`bun run conformance:fast` reruns the fast deterministic projection and adapter conformance suites without running the whole test corpus. `bun run check` already includes those suites through `bun run test`, so CI and pre-push use the same aggregate gate without duplicating them. `bun run conformance:external` is the opt-in slow lane for pinned external adoption fixtures; it may fetch/reset clones and writes reports under `.skillset/build/external/`, so keep it out of default gates.
 
 Package releases are GitHub Actions-owned. Use Changesets for package-facing changes, and use `bun run publish:check` as a local dry-run preflight. Do not run `bun run publish:packages` locally unless the maintainer explicitly chooses a release recovery path.
 

@@ -406,6 +406,10 @@ export function renderRunReportMarkdown(
     `- ref: ${entry.ref}`,
     `- result: ${report.ok ? "pass" : "fail"}`,
     "",
+    "## Conformance Evidence",
+    "",
+    "This report is opt-in external adoption conformance evidence. It proves the pinned repo can be acquired, adopted into source, linted, built into the isolated mirror, and checked for live-tree purity without mutating target runtime locations. Reference this report path from adapter conformance coverage or feature-registry evidence when an external repo is the supporting fixture.",
+    "",
     "## Stages",
     "",
   ];
