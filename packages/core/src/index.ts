@@ -1,4 +1,17 @@
 export {
+  doctorSkillset,
+  explainPath,
+  listFeatureCapabilities,
+  listGeneratedEntries,
+  summarizeFeatureCapabilities,
+  type DoctorReport,
+  type ExplainKind,
+  type ExplainResult,
+  type FeatureCapability,
+  type FeatureCapabilitySummary,
+  type FeatureSupportCapability,
+} from "./authoring";
+export {
   buildSkillsetResult,
   checkSkillsetResult,
   diffSkillset,
@@ -92,6 +105,15 @@ export {
   type HostLeakKind,
   type HostLeakMatch,
 } from "./host-leak";
+export {
+  inspectSkillset,
+  lintBuildGraph,
+  lintSkillset,
+} from "./lint";
+export type {
+  LintIssue,
+  LintResult,
+} from "./types";
 export {
   LOWERING_OUTCOME_SCHEMA,
   LOWERING_OUTCOME_STATUS_VALUES,
