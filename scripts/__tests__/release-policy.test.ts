@@ -43,6 +43,15 @@ const baseInput = (
   },
   repository: "outfitter-dev/skillset",
   sha: "b25a221f4ddc98a7ab5def2c88e67f63e456e40e",
+  sourcePullRequests: [
+    {
+      commitShas: ["26b2c3a"],
+      hasChangeset: true,
+      labels: ["stack:boundary"],
+      number: 95,
+      title: "fix(changes): report stacked change evidence",
+    },
+  ],
   tag: "latest",
   taggedVersion: "0.13.3",
   version: "0.13.4",
@@ -60,6 +69,7 @@ describe("release policy", () => {
     expect(report.shouldPublish).toBe(true);
     expect(report.createGitHubRelease).toBe(true);
     expect(report.diagnostics).toEqual([]);
+    expect(report.stack).toBe("stack:boundary");
   });
 
   test("defaults to manual when no publish intent is set", () => {
@@ -123,6 +133,86 @@ describe("release policy", () => {
 
     expect(report.decision).toBe("manual");
     expect(report.diagnostics).toContain("publish:auto requires channel:stable in v1");
+  });
+
+  test("routes publish:auto to manual when source stack evidence is missing", () => {
+    const input = baseInput(["publish:auto", "channel:stable", "release:patch"]);
+    delete input.sourcePullRequests;
+
+    const report = evaluateReleasePolicy(input);
+
+    expect(report.decision).toBe("manual");
+    expect(report.diagnostics).toContain(
+      "Could not resolve source PR stack evidence for the generated release"
+    );
+  });
+
+  test("routes publish:auto to manual when changeset source PRs lack stack boundary evidence", () => {
+    const report = evaluateReleasePolicy(
+      baseInput(["publish:auto", "channel:stable", "release:patch"], {
+        sourcePullRequests: [
+          {
+            commitShas: ["26b2c3a"],
+            hasChangeset: true,
+            labels: [],
+            number: 95,
+            title: "fix(changes): report stacked change evidence",
+          },
+        ],
+      })
+    );
+
+    expect(report.decision).toBe("manual");
+    expect(report.diagnostics).toContain(
+      "publish:auto requires stack:boundary on every changeset source PR in the release range; missing: #95"
+    );
+  });
+
+  test("routes publish:auto to manual when an unrelated source PR has the boundary", () => {
+    const report = evaluateReleasePolicy(
+      baseInput(["publish:auto", "channel:stable", "release:patch"], {
+        sourcePullRequests: [
+          {
+            commitShas: ["26b2c3a"],
+            hasChangeset: true,
+            labels: [],
+            number: 95,
+            title: "fix(changes): report stacked change evidence",
+          },
+          {
+            commitShas: ["9c38db3"],
+            hasChangeset: false,
+            labels: ["stack:boundary"],
+            number: 97,
+            title: "ci(release): gate automatic npm publishes",
+          },
+        ],
+      })
+    );
+
+    expect(report.decision).toBe("manual");
+    expect(report.diagnostics).toContain(
+      "publish:auto requires stack:boundary on every changeset source PR in the release range; missing: #95"
+    );
+  });
+
+  test("blocks unknown stack labels on source PRs", () => {
+    const report = evaluateReleasePolicy(
+      baseInput(["publish:auto", "channel:stable", "release:patch"], {
+        sourcePullRequests: [
+          {
+            commitShas: ["26b2c3a"],
+            hasChangeset: true,
+            labels: ["stack:top"],
+            number: 95,
+            title: "fix(changes): report stacked change evidence",
+          },
+        ],
+      })
+    );
+
+    expect(report.decision).toBe("block");
+    expect(report.blockers).toEqual(["Unknown stack: label: stack:top on #95"]);
   });
 
   test("routes publish:auto to manual when release shape touches workflow files", () => {

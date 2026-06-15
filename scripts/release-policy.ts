@@ -24,6 +24,7 @@ export type PublishIntent =
 export type ChannelIntent = "channel:canary" | "channel:preview" | "channel:stable";
 export type ReleaseIntent = "release:major" | "release:minor" | "release:patch";
 export type ReleasePolicyDecision = "auto" | "block" | "manual" | "none";
+export type StackIntent = "stack:boundary";
 
 export type ChangedFile = {
   path: string;
@@ -49,6 +50,14 @@ export type CommitInfo = {
   subject: string;
 };
 
+export type SourcePullRequest = {
+  commitShas: readonly string[];
+  hasChangeset: boolean;
+  labels: readonly string[];
+  number: number;
+  title: string;
+};
+
 export type ReleasePolicyInput = {
   changelogText: string;
   changedFiles: readonly ChangedFile[];
@@ -61,6 +70,7 @@ export type ReleasePolicyInput = {
   repository: string;
   releasePullRequest?: ReleasePullRequest;
   sha: string;
+  sourcePullRequests?: readonly SourcePullRequest[];
   tag: string;
   taggedVersion?: string;
   version: string;
@@ -78,6 +88,7 @@ export type ReleasePolicyReport = {
   reasons: readonly string[];
   release: ReleaseIntent | undefined;
   shouldPublish: boolean;
+  stack: StackIntent | undefined;
 };
 
 type FamilyResult<T extends string> = {
@@ -108,19 +119,23 @@ const releaseIntents = new Set<ReleaseIntent>([
   "release:minor",
   "release:patch",
 ]);
+const stackIntents = new Set<StackIntent>(["stack:boundary"]);
 
 export function evaluateReleasePolicy(input: ReleasePolicyInput): ReleasePolicyReport {
   const labels = input.releasePullRequest?.labels ?? [];
   const publish = readLabelFamily(labels, "publish:", publishIntents);
   const channel = readLabelFamily(labels, "channel:", channelIntents);
   const release = readLabelFamily(labels, "release:", releaseIntents);
+  const stack = readSourceStackLabels(input.sourcePullRequests);
   const blockers = [
     ...publish.conflicts,
     ...channel.conflicts,
     ...release.conflicts,
+    ...stack.conflicts,
     ...publish.unknown,
     ...channel.unknown,
     ...release.unknown,
+    ...stack.unknown,
   ];
   const diagnostics: string[] = [];
   const reasons: string[] = [];
@@ -144,6 +159,7 @@ export function evaluateReleasePolicy(input: ReleasePolicyInput): ReleasePolicyR
       publish: publish.value,
       reasons,
       release: release.value,
+      stack: stack.value,
     });
   }
 
@@ -158,6 +174,7 @@ export function evaluateReleasePolicy(input: ReleasePolicyInput): ReleasePolicyR
         publish: publish.value,
         reasons,
         release: release.value,
+        stack: stack.value,
       });
     }
 
@@ -170,6 +187,7 @@ export function evaluateReleasePolicy(input: ReleasePolicyInput): ReleasePolicyR
       publish: publish.value,
       reasons,
       release: release.value,
+      stack: stack.value,
     });
   }
 
@@ -182,6 +200,7 @@ export function evaluateReleasePolicy(input: ReleasePolicyInput): ReleasePolicyR
       diagnostics,
       reasons,
       release: release.value,
+      stack: stack.value,
     });
   }
 
@@ -195,10 +214,11 @@ export function evaluateReleasePolicy(input: ReleasePolicyInput): ReleasePolicyR
       publish: publish.value,
       reasons,
       release: release.value,
+      stack: stack.value,
     });
   }
 
-  const autoChecks = evaluateAutoChecks(input, channel.value, release.value);
+  const autoChecks = evaluateAutoChecks(input, channel.value, release.value, stack.value);
   diagnostics.push(...autoChecks.diagnostics);
 
   if (!autoChecks.ok) {
@@ -211,10 +231,11 @@ export function evaluateReleasePolicy(input: ReleasePolicyInput): ReleasePolicyR
       publish: publish.value,
       reasons,
       release: release.value,
+      stack: stack.value,
     });
   }
 
-  reasons.push("publish:auto and channel:stable are set, and low-risk generated release checks passed");
+  reasons.push("publish:auto, channel:stable, and stack:boundary are set, and low-risk release checks passed");
   return makeReport(input, {
     autoEligible: true,
     blockers,
@@ -224,6 +245,7 @@ export function evaluateReleasePolicy(input: ReleasePolicyInput): ReleasePolicyR
     publish: publish.value,
     reasons,
     release: release.value,
+    stack: stack.value,
   });
 }
 
@@ -238,6 +260,7 @@ function makeReport(
     publish?: PublishIntent | undefined;
     reasons: readonly string[];
     release: ReleaseIntent | undefined;
+    stack: StackIntent | undefined;
   }
 ): ReleasePolicyReport {
   const canPublish = options.decision === "auto" || options.decision === "manual";
@@ -252,6 +275,7 @@ function makeReport(
     reasons: options.reasons,
     release: options.release,
     shouldPublish: canPublish && !input.published,
+    stack: options.stack,
   };
 }
 
@@ -281,11 +305,13 @@ function readLabelFamily<T extends string>(
 function evaluateAutoChecks(
   input: ReleasePolicyInput,
   channel: ChannelIntent | undefined,
-  release: ReleaseIntent | undefined
+  release: ReleaseIntent | undefined,
+  stack: StackIntent | undefined
 ) {
   const diagnostics: string[] = [];
   const generatedDiff = evaluateGeneratedReleaseDiff(input.changedFiles);
   diagnostics.push(...generatedDiff.diagnostics);
+  diagnostics.push(...evaluateSourceStackEvidence(input.sourcePullRequests, stack));
 
   if (input.repository !== "outfitter-dev/skillset") {
     diagnostics.push(`Expected repository outfitter-dev/skillset, found ${input.repository}`);
@@ -358,6 +384,58 @@ function evaluateAutoChecks(
   }
 
   return { diagnostics, ok: diagnostics.length === 0 };
+}
+
+function readSourceStackLabels(sourcePullRequests: readonly SourcePullRequest[] | undefined) {
+  if (!sourcePullRequests) return { conflicts: [], unknown: [] };
+
+  const labels = sourcePullRequests.flatMap((pull) =>
+    pull.labels
+      .filter((label) => label.startsWith("stack:"))
+      .map((label) => `${label} on #${pull.number}`)
+  );
+  const normalizedLabels = [...new Set(labels.map((label) => label.split(" on #", 1)[0] ?? label))];
+  const result = readLabelFamily(normalizedLabels, "stack:", stackIntents);
+
+  return {
+    conflicts: result.conflicts.map((conflict) => `${conflict} across source PRs`),
+    unknown: result.unknown.map((unknown) => {
+      const label = unknown.replace("Unknown stack: label: ", "");
+      const source = labels.find((candidate) => candidate.startsWith(label));
+      return source ? `Unknown stack: label: ${source}` : unknown;
+    }),
+    value: result.value,
+  };
+}
+
+function evaluateSourceStackEvidence(
+  sourcePullRequests: readonly SourcePullRequest[] | undefined,
+  stack: StackIntent | undefined
+) {
+  const diagnostics: string[] = [];
+
+  if (!sourcePullRequests) {
+    diagnostics.push("Could not resolve source PR stack evidence for the generated release");
+    return diagnostics;
+  }
+
+  const changesetPulls = sourcePullRequests.filter((pull) => pull.hasChangeset);
+  if (changesetPulls.length === 0) {
+    diagnostics.push("Could not find a source PR that introduced a consumed .changeset/*.md file");
+    return diagnostics;
+  }
+
+  const changesetPullsMissingBoundary = changesetPulls.filter((pull) => !pull.labels.includes("stack:boundary"));
+
+  if (stack !== "stack:boundary" || changesetPullsMissingBoundary.length > 0) {
+    diagnostics.push(
+      `publish:auto requires stack:boundary on every changeset source PR in the release range; missing: ${changesetPullsMissingBoundary
+        .map((pull) => `#${pull.number}`)
+        .join(", ")}`
+    );
+  }
+
+  return diagnostics;
 }
 
 function evaluateGeneratedReleaseDiff(changedFiles: readonly ChangedFile[]) {
@@ -474,6 +552,56 @@ async function commandPolicy() {
   }
 }
 
+async function commandLabelReleasePr() {
+  const packageInfo = await readPackageInfo();
+  const repository = process.env.GITHUB_REPOSITORY ?? (await runText(["gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"]));
+  const releasePullRequest = await readOpenReleasePullRequest(repository);
+
+  if (!releasePullRequest) {
+    console.error("skillset: no open changeset-release/main pull request found");
+    return;
+  }
+
+  const nextPackageInfo = await readPackageInfoFromRef(repository, releasePullRequest.headRefName);
+  const nextTag = distTagForVersion(nextPackageInfo.version);
+  const sourcePullRequests = await readSourcePullRequests(repository, packageInfo.version, "HEAD");
+  const stack = readSourceStackLabels(sourcePullRequests);
+  const stackDiagnostics = [
+    ...stack.conflicts,
+    ...stack.unknown,
+    ...evaluateSourceStackEvidence(sourcePullRequests, stack.value),
+  ];
+  const expectedRelease = releaseIntentForVersionDelta(packageInfo.version, nextPackageInfo.version);
+  const labels = new Set(releasePullRequest.labels);
+  const labelsToAdd: string[] = [];
+
+  if (!hasLabelFamily(labels, "publish:")) {
+    labelsToAdd.push(stackDiagnostics.length === 0 && nextTag === "latest" ? "publish:auto" : "publish:manual");
+  }
+
+  if (!hasLabelFamily(labels, "channel:") && nextTag === "latest") {
+    labelsToAdd.push("channel:stable");
+  }
+
+  if (expectedRelease && !hasLabelFamily(labels, "release:")) {
+    labelsToAdd.push(expectedRelease);
+  }
+
+  if (labelsToAdd.length === 0) {
+    console.error(`skillset: release PR #${releasePullRequest.number} already has release intent labels`);
+    return;
+  }
+
+  for (const label of labelsToAdd) {
+    await runText(["gh", "issue", "edit", String(releasePullRequest.number), "--add-label", label]);
+  }
+
+  console.error(`skillset: added ${labelsToAdd.join(", ")} to release PR #${releasePullRequest.number}`);
+  for (const diagnostic of stackDiagnostics) {
+    console.error(`skillset: stack diagnostic: ${diagnostic}`);
+  }
+}
+
 async function readPolicyInput(): Promise<ReleasePolicyInput> {
   const packageInfo = await readPackageInfo();
   const registry = await readRegistryState(packageInfo.name, packageInfo.version, packageInfo.tag);
@@ -488,6 +616,9 @@ async function readPolicyInput(): Promise<ReleasePolicyInput> {
     readFile(changelogPath, "utf8"),
     readCiPassed(repository, sha),
   ]);
+  const sourcePullRequests = previousVersion
+    ? await readSourcePullRequests(repository, previousVersion)
+    : undefined;
   const input: ReleasePolicyInput = {
     changelogText,
     changedFiles,
@@ -504,6 +635,7 @@ async function readPolicyInput(): Promise<ReleasePolicyInput> {
   };
 
   if (releasePullRequest) input.releasePullRequest = releasePullRequest;
+  if (sourcePullRequests) input.sourcePullRequests = sourcePullRequests;
   if (registry.taggedVersion) input.taggedVersion = registry.taggedVersion;
   if (previousVersion) input.previousVersion = previousVersion;
   return input;
@@ -600,6 +732,122 @@ async function readPreviousVersion() {
 
   const packageJson = JSON.parse(raw) as PackageJson;
   return packageJson.version;
+}
+
+async function readSourcePullRequests(
+  repository: string,
+  previousVersion: string,
+  endRef = "HEAD^"
+): Promise<SourcePullRequest[] | undefined> {
+  const previousVersionCommit = await runText([
+    "git",
+    "log",
+    "-n",
+    "1",
+    "--format=%H",
+    "-S",
+    `"version": "${previousVersion}"`,
+    endRef,
+    "--",
+    "apps/skillset/package.json",
+  ]);
+  if (!previousVersionCommit) return undefined;
+
+  const output = await runText(["git", "rev-list", "--reverse", `${previousVersionCommit}..${endRef}`]);
+  if (!output) return [];
+
+  const byNumber = new Map<number, SourcePullRequest>();
+  for (const commitSha of output.split("\n")) {
+    const changedFiles = await readCommitChangedFiles(commitSha);
+    const hasChangeset = changedFiles.some(
+      (file) => /^\.changeset\/[^/]+\.md$/.test(file.path) && file.status !== "D"
+    );
+    const pulls = await githubJson<GitHubPullRequest[]>(repository, `/commits/${commitSha}/pulls`);
+    const [pull] = pulls;
+
+    if (!pull) {
+      byNumber.set(-byNumber.size - 1, {
+        commitShas: [commitSha],
+        hasChangeset,
+        labels: [],
+        number: 0,
+        title: `Unresolved source commit ${commitSha.slice(0, 7)}`,
+      });
+      continue;
+    }
+
+    const existing = byNumber.get(pull.number);
+    if (existing) {
+      byNumber.set(pull.number, {
+        ...existing,
+        commitShas: [...existing.commitShas, commitSha],
+        hasChangeset: existing.hasChangeset || hasChangeset,
+      });
+      continue;
+    }
+
+    byNumber.set(pull.number, {
+      commitShas: [commitSha],
+      hasChangeset,
+      labels: pull.labels.map((label) => label.name),
+      number: pull.number,
+      title: pull.title,
+    });
+  }
+
+  return [...byNumber.values()];
+}
+
+async function readOpenReleasePullRequest(repository: string): Promise<ReleasePullRequest | undefined> {
+  const pulls = await githubJson<GitHubPullRequest[]>(repository, "/pulls?state=open&base=main&per_page=100");
+  const pull = pulls.find((candidate) => candidate.head.ref === "changeset-release/main");
+  if (!pull) return undefined;
+
+  return {
+    baseRefName: pull.base.ref,
+    body: pull.body ?? "",
+    comments: [],
+    headRefName: pull.head.ref,
+    labels: pull.labels.map((label) => label.name),
+    number: pull.number,
+    title: pull.title,
+    userLogin: pull.user.login,
+  };
+}
+
+async function readPackageInfoFromRef(repository: string, ref: string) {
+  const file = await githubJson<GitHubContentFile>(
+    repository,
+    `/contents/apps/skillset/package.json?ref=${encodeURIComponent(ref)}`
+  );
+  const packageJson = JSON.parse(Buffer.from(file.content, "base64").toString("utf8")) as PackageJson;
+
+  if (!packageJson.name || !packageJson.version) {
+    throw new Error(`Missing name or version in apps/skillset/package.json at ${ref}`);
+  }
+
+  return {
+    name: packageJson.name,
+    version: packageJson.version,
+  };
+}
+
+function hasLabelFamily(labels: ReadonlySet<string>, prefix: string) {
+  for (const label of labels) {
+    if (label.startsWith(prefix)) return true;
+  }
+  return false;
+}
+
+async function readCommitChangedFiles(commitSha: string) {
+  const output = await runText(["git", "diff-tree", "--no-commit-id", "--name-status", "-r", commitSha]);
+  if (!output) return [];
+
+  return output.split("\n").map((line) => {
+    const [status, path] = line.split(/\s+/, 2);
+    if (!status || !path) throw new Error(`Could not parse git diff entry: ${line}`);
+    return { path, status };
+  });
 }
 
 async function readCiPassed(repository: string, sha: string) {
@@ -710,6 +958,10 @@ type GitHubComment = {
   body?: string | null;
 };
 
+type GitHubContentFile = {
+  content: string;
+};
+
 export type GitHubCheckRunsResponse = {
   check_runs: {
     check_suite?: {
@@ -730,6 +982,9 @@ if (import.meta.main) {
     switch (command) {
       case "policy":
         await commandPolicy();
+        break;
+      case "label-release-pr":
+        await commandLabelReleasePr();
         break;
       default:
         throw new Error(`Unknown release-policy command: ${command}`);

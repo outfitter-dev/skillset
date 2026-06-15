@@ -27,6 +27,7 @@
     "hooks:pre-push": "lefthook run pre-push --force",
     "prepack": "tsc --noEmit && bun scripts/build-package.ts",
     "publish:check": "bun run check && bun scripts/publish.ts check",
+    "publish:label-release-pr": "bun scripts/release-policy.ts label-release-pr",
     "publish:packages": "bun scripts/publish.ts publish",
     "publish:plan": "bun scripts/publish.ts plan",
     "publish:policy": "bun scripts/release-policy.ts policy",
