@@ -16,6 +16,8 @@ skillset ci --report skillset-ci-report.md  # write the Markdown report for PR c
 skillset init --include ci --yes            # scaffold .github/workflows/skillset-ci.yml
 ```
 
+This repo's `bun run check` remains the default local and hosted CI aggregate. It runs the complete test corpus, which includes the fast deterministic projection and adapter conformance suites. Use `bun run conformance:fast` only when you want a focused rerun of those suites without the rest of the tests. External fixture conformance remains an opt-in slower lane and must not be folded into `bun run check` or scaffolded CI while it needs network access or large cloned repos.
+
 Generated-output drift is the only mechanical problem: with `--fix`, `ci` rebuilds generated output the same way `skillset build --yes` would and reports which files it rewrote. Lint issues, missing or invalid change entries, unresolved change baselines, and build errors need authored source or CI changes, so they always stay report-only and fail the run. `--fix` is skipped when those non-mechanical problems are present, so a rebuild never launders uncovered or invalid source into committed output.
 
 `skillset init --include ci` (and `skillset create --include ci`) scaffolds `.github/workflows/skillset-ci.yml`. The workflow is user-owned after creation: rerunning `init --include ci` reports an edited workflow as existing and never overwrites it. The scaffolded workflow:
