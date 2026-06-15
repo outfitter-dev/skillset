@@ -33,6 +33,7 @@ bun run conformance:fast
 bun run conformance:determinism
 bun run conformance:adapters
 bun run conformance:external
+bun run changeset:check
 bun run changeset:status
 bun run publish:check
 bun run publish:label-release-pr

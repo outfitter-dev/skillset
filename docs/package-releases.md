@@ -14,6 +14,20 @@ Only the unscoped `skillset` CLI package is public in the current package postur
 
 Feature branches that change package-facing behavior should include a `.changeset/*.md` file on the branch that owns the behavior. In Graphite stacks, keep release intent branch-local: do not hide lower-branch package changes by adding one cleanup Changeset at the stack tip. If the lower branch owns the package-facing code, the lower branch owns the Changeset, and any missing release intent should be fixed on that branch before restacking upward.
 
+Package-facing means a change that can affect the published `skillset` CLI package payload or its runtime behavior. The guardrail intentionally does not treat docs, workflow files, release scripts, generated Skillset source-unit state, fixtures, or repo-only maintenance as package-facing by default. Current package-facing paths are:
+
+| Path | Why it requires a package Changeset |
+| --- | --- |
+| `apps/skillset/src/**` except tests | CLI and `create-skillset` runtime source bundled into the package. |
+| `apps/skillset/package.json` | Published package metadata, bin entries, dependencies, and version-bearing state. |
+| `packages/core/src/**` except tests | Internal compiler/library implementation bundled through the CLI. |
+| `packages/lint/src/**` except tests | Lint implementation consumed by the CLI. |
+| `packages/transforms/src/**` except tests | Transform implementation consumed by the CLI. |
+| `packages/*/package.json` for `core`, `lint`, and `transforms` | Runtime dependency and package metadata for the private workspace packages that feed the CLI. |
+| `bun.lock` / `bun.lockb` | Dependency resolution that can alter the packaged CLI runtime. |
+
+`bun run changeset:check` enforces this boundary. It fails when package-facing paths change without an active `.changeset/*.md`, and it also fails when an active Changeset appears on a branch that only changes repo machinery. Deleted Changesets are ignored so cleanup branches can remove mistaken package-release entries.
+
 When a branch with unreleased Changesets merges to `main`, `.github/workflows/release.yml` runs `changesets/action` to create or update a `chore(release): version packages` pull request. Skillset then applies missing release intent labels to that generated version PR. It preserves any existing human-provided label family and only fills gaps. The labeler uses source PR evidence from the package release range: if every consumed Changeset source PR carries explicit `stack:boundary` evidence and the generated version is stable, it may add `publish:auto`; otherwise it adds `publish:manual` so the release stays behind the protected environment.
 
 When the version PR merges to `main`, the same workflow checks the npm registry and resolves the release intent labels from the merged version PR. If the current `apps/skillset/package.json` version is already published and the intended dist-tag points to it, the workflow exits the publish step without entering a publish environment and ensures a missing GitHub release can still be created when the matching `v<version>` tag already points at the package-version commit. If the version is missing, the workflow runs the publish policy. Low-risk generated releases can publish through `npm-auto`; anything ambiguous routes to the protected manual `npm` environment; `publish:none` skips npm and GitHub release creation; `publish:block` stops the release workflow. Successful publishes wait for the version and dist-tag to appear on the registry, create and push the matching `v<version>` tag at the package-version commit, and create the GitHub release with `--verify-tag` if it does not already exist.
@@ -40,6 +54,7 @@ Source PRs may also use `stack:boundary`. That label is not a release-size inten
 
 ```bash
 bun run changeset
+bun run changeset:check
 bun run changeset:status
 bun run publish:plan
 bun run publish:label-release-pr
@@ -50,6 +65,8 @@ bun run publish:registry-check:published
 ```
 
 `bun run publish:label-release-pr` is a workflow helper that runs after `changesets/action` creates or updates the generated version PR. It labels missing intent families without overriding existing human intent.
+
+`bun run changeset:check` is the branch-local package-release guard. Locally it diffs against the remote trunk; in PR CI it uses the pull request file list so stacked branches are checked against their own review diff.
 
 `bun run publish:policy` is the release-workflow policy gate. It reads the current commit, the associated Changesets release PR, exact-SHA GitHub checks, source PR stack evidence, package/changelog state, and npm registry state, then emits GitHub Actions outputs for `auto`, `manual`, `none`, or `block`.
 
@@ -84,4 +101,4 @@ The repository intentionally does not commit an npm auth token in `.npmrc` and t
 
 ## No Package Release
 
-Package-facing changes should include a `.changeset/*.md` file. Internal-only changes may intentionally omit a Changeset when they do not affect the published package contract; call that out in the PR body so the release workflow's version-PR behavior is easy to audit. Skillset source-unit changes under `.skillset/changes` are separate from npm package changes and do not satisfy package release intent by themselves.
+Package-facing changes should include a `.changeset/*.md` file. Internal-only changes should omit a Changeset when they do not affect the published package contract; call that out in the PR body when the distinction is subtle so the release workflow's version-PR behavior is easy to audit. Skillset source-unit changes under `.skillset/changes` are separate from npm package changes and do not satisfy package release intent by themselves.
