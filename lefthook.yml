@@ -44,6 +44,10 @@ pre-push:
       env:
         GIT_PAGER: cat
       run: git diff --check "$(scripts/git-trunk.sh)...HEAD"
+    - name: changesets
+      env:
+        GIT_PAGER: cat
+      run: bun run changeset:check
     - name: workflows
       env:
         GIT_PAGER: cat

@@ -5,6 +5,7 @@ import {
   type ReleasePolicyInput,
   ciStateFromCheckRuns,
   evaluateReleasePolicy,
+  shouldReadExactShaCi,
 } from "../release-policy";
 import { distTagForVersion } from "../publish";
 
@@ -315,5 +316,10 @@ describe("release policy CI state", () => {
         ])
       )
     ).toBe("failed");
+  });
+
+  test("skips exact-SHA CI polling when the registry already has the current version and tag", () => {
+    expect(shouldReadExactShaCi(false)).toBe(true);
+    expect(shouldReadExactShaCi(true)).toBe(false);
   });
 });

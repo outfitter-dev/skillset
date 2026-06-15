@@ -249,6 +249,10 @@ export function evaluateReleasePolicy(input: ReleasePolicyInput): ReleasePolicyR
   });
 }
 
+export function shouldReadExactShaCi(registryComplete: boolean) {
+  return !registryComplete;
+}
+
 function makeReport(
   input: ReleasePolicyInput,
   options: {
@@ -605,6 +609,7 @@ async function commandLabelReleasePr() {
 async function readPolicyInput(): Promise<ReleasePolicyInput> {
   const packageInfo = await readPackageInfo();
   const registry = await readRegistryState(packageInfo.name, packageInfo.version, packageInfo.tag);
+  const registryComplete = registry.published && registry.taggedVersion === packageInfo.version;
   const repository = process.env.GITHUB_REPOSITORY ?? (await runText(["gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"]));
   const ref = process.env.GITHUB_REF ?? `refs/heads/${await runText(["git", "branch", "--show-current"])}`;
   const sha = process.env.GITHUB_SHA ?? (await runText(["git", "rev-parse", "HEAD"]));
@@ -614,7 +619,7 @@ async function readPolicyInput(): Promise<ReleasePolicyInput> {
     readChangedFiles(),
     readPreviousVersion(),
     readFile(changelogPath, "utf8"),
-    readCiPassed(repository, sha),
+    shouldReadExactShaCi(registryComplete) ? readCiPassed(repository, sha) : Promise.resolve(true),
   ]);
   const sourcePullRequests = previousVersion
     ? await readSourcePullRequests(repository, previousVersion)
@@ -627,7 +632,7 @@ async function readPolicyInput(): Promise<ReleasePolicyInput> {
     packageName: packageInfo.name,
     published: registry.published,
     ref,
-    registryComplete: registry.published && registry.taggedVersion === packageInfo.version,
+    registryComplete,
     repository,
     sha,
     tag: packageInfo.tag,
