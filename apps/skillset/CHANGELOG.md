@@ -1,5 +1,11 @@
 # skillset
 
+## 0.13.4
+
+### Patch Changes
+
+- 26b2c3a: Report stacked pending change evidence in `skillset change check` while preserving strict stale-evidence failures.
+
 ## 0.13.3
 
 ### Patch Changes
