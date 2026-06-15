@@ -239,7 +239,11 @@ export async function checkSkillset(
   rootPath: string,
   options: SkillsetOptions = {}
 ): Promise<CheckResult> {
-  return (await checkSkillsetResult(rootPath, options)).data;
+  const result = await checkSkillsetResult(rootPath, options);
+  if (!result.ok) {
+    throw new Error(`skillset: generated output is not current\n${result.data.failures.join("\n")}`);
+  }
+  return result.data;
 }
 
 export type SkillsetCheckResult = SkillsetOperationResult<CheckResult>;
@@ -275,6 +279,7 @@ export async function checkSkillsetResult(
   const actualPaths = await listGeneratedFiles(rootPath, outputRoots, rendered, previousManagedState.paths);
   const actual = new Set(actualPaths);
   const failures: string[] = [];
+  const driftDiagnostics: SkillsetDiagnostic[] = [];
 
   for (const file of rendered) {
     if (!actual.has(file.path)) {
@@ -283,13 +288,19 @@ export async function checkSkillsetResult(
           ? `missing managed generated file: ${file.path}`
           : `missing generated file: ${file.path}`
       );
+      driftDiagnostics.push(generatedDriftDiagnostic(
+        previousManagedState.paths.has(file.path) ? "missing-managed" : "missing",
+        file.path
+      ));
       continue;
     }
 
     const outputPath = resolveInside(rootPath, file.path);
     const current = await readFile(outputPath);
     if (!bytesEqual(current, file.content)) {
-      failures.push(versionDriftMessage(file.path, current, file.content) ?? `stale generated file: ${file.path}`);
+      const message = versionDriftMessage(file.path, current, file.content) ?? `stale generated file: ${file.path}`;
+      failures.push(message);
+      driftDiagnostics.push(generatedDriftDiagnostic("changed", file.path, message));
     }
   }
 
@@ -297,18 +308,15 @@ export async function checkSkillsetResult(
     if (!previousManagedState.paths.has(path)) continue;
     if (!expected.has(path)) {
       failures.push(`stale generated file: ${path}`);
+      driftDiagnostics.push(generatedDriftDiagnostic("removed", path));
     }
   }
 
-  if (failures.length > 0) {
-    throw new Error(`skillset: generated output is not current\n${failures.join("\n")}`);
-  }
-
   return {
-    data: { checkedFiles: rendered.length },
-    diagnostics,
+    data: { checkedFiles: rendered.length, failures },
+    diagnostics: [...diagnostics, ...driftDiagnostics],
     loweringOutcomes: loweringOutcomesWithDiagnostics,
-    ok: true,
+    ok: failures.length === 0,
     operation: "check",
     writes: {
       deletedPaths: [],
@@ -317,6 +325,29 @@ export async function checkSkillsetResult(
       writtenPaths: [],
     },
   };
+}
+
+function generatedDriftDiagnostic(
+  kind: "changed" | "missing" | "missing-managed" | "removed",
+  path: string,
+  message = generatedDriftMessage(kind, path)
+): SkillsetDiagnostic {
+  return {
+    code: `generated-output-${kind}`,
+    message,
+    outputPath: path,
+    severity: "error",
+  };
+}
+
+function generatedDriftMessage(
+  kind: "changed" | "missing" | "missing-managed" | "removed",
+  path: string
+): string {
+  if (kind === "changed") return `stale generated file: ${path}`;
+  if (kind === "missing") return `missing generated file: ${path}`;
+  if (kind === "missing-managed") return `missing managed generated file: ${path}`;
+  return `stale generated file: ${path}`;
 }
 
 function buildResult(

@@ -532,6 +532,11 @@ export async function runCli(
   const result = await checkSkillsetResult(rootPath, options);
   printDiagnostics(result.diagnostics);
   console.log(`skillset: checked ${result.data.checkedFiles} generated files`);
+  if (!result.ok) {
+    console.error(`skillset: generated output is not current`);
+    for (const failure of result.data.failures) console.error(failure);
+    process.exitCode = 1;
+  }
 }
 
 export function reportCliError(error: unknown): void {
