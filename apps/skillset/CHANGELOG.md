@@ -1,5 +1,13 @@
 # skillset
 
+## 0.13.3
+
+### Patch Changes
+
+- 76504a1: Document the private scoped-package publish posture for the core, lint, and transforms workspaces.
+- d90bfef: Move authoring inspection and lint orchestration into the core package while keeping CLI compatibility shims.
+- 9d4b379: Return structured check drift results from the core API while preserving CLI and helper failure behavior.
+
 ## 0.13.2
 
 ### Patch Changes
