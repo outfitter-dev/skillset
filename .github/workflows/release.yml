@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
       pull-requests: write
     outputs:
       has_changesets: ${{ steps.changesets.outputs.hasChangesets }}
@@ -34,6 +35,11 @@ jobs:
           version: bun run version:packages
         env:
           GITHUB_TOKEN: ${{ github.token }}
+      - name: Label version PR
+        if: steps.changesets.outputs.hasChangesets == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bun run publish:label-release-pr
 
   publish-plan:
     name: Publish Plan
