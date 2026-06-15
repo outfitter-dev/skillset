@@ -3,7 +3,7 @@ slug: core-library-boundary
 title: Core Library and CLI Boundary
 status: draft
 created: 2026-06-12
-updated: 2026-06-12
+updated: 2026-06-15
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [0, 1, feature-reference-and-schema-registry, fixtures-tests-dogfooding-and-evals, one-action-repo-adoption, source-change-release-provenance]
 ---
@@ -46,7 +46,9 @@ Core operations must be explicit about side effects. A core operation receives a
 
 ## Package and Publish Posture
 
-The package starts private while the API is being shaped. Public publish posture, semver guarantees, and package visibility are deferred to the dedicated publish-posture issue. The published `skillset` beta CLI remains the user-facing compatibility contract until a later issue explicitly promotes `@skillset/core` as a public package. The first implementation slice should be deliberately narrow: create the package shell, expose one read-oriented operation through core, adapt the CLI to consume it, and add API-level tests that prove a non-CLI caller can use it without relying on terminal output or process exits.
+The scoped packages remain private while the API is being shaped. `@skillset/core` is the internal library boundary for compiler facts, structured results, diagnostics, and plans, but it is not yet a public npm contract. `@skillset/lint` and `@skillset/transforms` are implementation-support packages consumed by core and should not be published independently in v1. The published unscoped `skillset` package remains the user-facing compatibility contract.
+
+This means package releases continue to version and publish only the `skillset` CLI package. The scoped workspaces may change exports, internal module layout, and pre-release API names without semver guarantees until a future issue explicitly promotes one of them to a public package. Any `./internal/*` export on a private workspace package is private-only compatibility plumbing for this repo, not a public subpath promise. If `@skillset/core` becomes public later, that issue must define the exported root API, remove or explicitly fence internal subpaths, define dist-tag strategy, prove npm scope ownership, and explain how Trails-facing integration stays optional. `@skillset/lint` and `@skillset/transforms` should remain private unless there is a concrete external consumer that cannot be served through `@skillset/core`.
 
 ## Future Trails Migration Posture
 

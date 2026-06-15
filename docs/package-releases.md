@@ -1,12 +1,14 @@
 # Package Releases
 
-This page covers the npm package release path for the `skillset` package. It is separate from Skillset source-unit releases under `.skillset/changes`, which describe authored plugin, skill, and generated-output provenance.
+This page covers the npm package release path for the unscoped `skillset` package. It is separate from Skillset source-unit releases under `.skillset/changes`, which describe authored plugin, skill, and generated-output provenance.
 
 ## Ownership
 
 GitHub Actions is the package release operator. Local commands are diagnostics and dry-run aids; package publication should happen from the `Release` workflow on `main`.
 
 Changesets owns npm package version and package changelog calculation. The Skillset change/release commands continue to own source-unit reasons, release state, generated entity changelogs, and target output drift. Do not collapse these two release systems unless a future explicit bridge is designed.
+
+Only the unscoped `skillset` CLI package is public in the current package posture. The workspace packages `@skillset/core`, `@skillset/lint`, and `@skillset/transforms` remain private implementation packages: core is the internal library boundary that the CLI and tests consume, while lint and transforms are support packages behind that boundary. Do not include them in npm publish automation or treat their exports as semver-stable until a future package-posture issue explicitly promotes them.
 
 ## Flow
 
