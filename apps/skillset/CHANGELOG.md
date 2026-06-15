@@ -1,5 +1,11 @@
 # skillset
 
+## 0.13.5
+
+### Patch Changes
+
+- 91c2fac: Make automatic package publishing require stack-boundary evidence from the source PR range, and label generated Changesets release PRs with conservative release intent defaults.
+
 ## 0.13.4
 
 ### Patch Changes

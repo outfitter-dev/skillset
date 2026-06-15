@@ -1,6 +1,6 @@
 {
   "name": "skillset",
-  "version": "0.13.4",
+  "version": "0.13.5",
   "description": "Source-first compiler for Claude and Codex agent loadouts.",
   "type": "module",
   "files": [
