@@ -35,6 +35,7 @@ bun run conformance:adapters
 bun run conformance:external
 bun run changeset:status
 bun run publish:check
+bun run publish:policy
 bun run hooks:install
 bun run hooks:pre-push
 bun run ultracite:doctor

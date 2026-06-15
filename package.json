@@ -29,6 +29,7 @@
     "publish:check": "bun run check && bun scripts/publish.ts check",
     "publish:packages": "bun scripts/publish.ts publish",
     "publish:plan": "bun scripts/publish.ts plan",
+    "publish:policy": "bun scripts/release-policy.ts policy",
     "publish:registry-check": "bun scripts/publish.ts registry-check",
     "publish:registry-check:published": "bun scripts/publish.ts registry-check --require-published",
     "skillset:build": "bun ./apps/skillset/src/cli.ts build --root . --yes",

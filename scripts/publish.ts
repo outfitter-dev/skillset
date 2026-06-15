@@ -35,7 +35,7 @@ async function readPackageInfo() {
   };
 }
 
-function distTagForVersion(version: string) {
+export function distTagForVersion(version: string) {
   const prerelease = version.match(/^\d+\.\d+\.\d+-([0-9A-Za-z.-]+)$/)?.[1];
   if (!prerelease) return "latest";
 
@@ -76,7 +76,7 @@ function registryComplete(state: Awaited<ReturnType<typeof getRegistryState>>) {
   return state.published && state.taggedVersion === state.version;
 }
 
-async function writeGitHubOutput(values: Record<string, string | boolean>) {
+export async function writeGitHubOutput(values: Record<string, string | boolean>) {
   const outputPath = process.env.GITHUB_OUTPUT;
   if (!outputPath) return;
 
@@ -233,7 +233,9 @@ async function main() {
   }
 }
 
-await main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+if (import.meta.main) {
+  await main().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  });
+}

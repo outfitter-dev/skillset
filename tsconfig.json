@@ -18,6 +18,7 @@
     "packages/**/*.ts",
     "scripts/build-package.ts",
     "scripts/publish.ts",
+    "scripts/release-policy.ts",
     "scripts/bootstrap/**/*.ts",
     "scripts/__tests__/**/*.ts"
   ]
