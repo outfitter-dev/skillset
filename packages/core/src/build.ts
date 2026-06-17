@@ -2,8 +2,8 @@ import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { dirname, join, relative } from "node:path";
 
 import { compareStrings, resolveInside } from "./path";
-import { collectLoweringOutcomes } from "./lowering-outcome-collector";
-import { enforceLoweringOutcomePolicy } from "./lowering-policy";
+import { collectRenderResults } from "./render-result-collector";
+import { enforceRenderResultPolicy } from "./render-result-policy";
 import {
   diagnoseOutputBackupPreflight,
   prepareOutputBackups,
@@ -19,7 +19,7 @@ import {
   type SkillsetOperationResult,
   type SkillsetWriteSummary,
 } from "./operation-result";
-import { defineLoweringOutcome, type SkillsetLoweringOutcome } from "./lowering-outcome";
+import { defineRenderResult, type SkillsetRenderResult } from "./render-result";
 import type { BuildGraph, BuildScope, CheckResult, JsonRecord, JsonValue, RenderedFile, SkillsetOptions } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
 
@@ -97,19 +97,19 @@ export async function buildSkillsetResult(
   const outPath = outPathMapper(options);
   const allRendered = await renderBuildGraph(graph);
   const scopedRendered = scopedRenderedFiles(graph, allRendered, options.scopes);
-  const loweringOutcomes = collectLoweringOutcomes(graph, allRendered, {
+  const renderResults = collectRenderResults(graph, allRendered, {
     includedPaths: new Set(scopedRendered.map((file) => file.path)),
     mapOutputPath: outPath,
     scopes: options.scopes,
   });
-  enforceLoweringOutcomePolicy(loweringOutcomes, graph.root.compile.unsupported);
+  enforceRenderResultPolicy(renderResults, graph.root.compile.unsupported);
   const renderedWithoutOutcomeMetadata = mirroredRenderedFiles(scopedRendered, outPath);
   const instructionDiagnostics = diagnoseLargeInstructionFiles(renderedWithoutOutcomeMetadata);
   diagnostics.push(...instructionDiagnostics);
-  const loweringOutcomesWithDiagnostics = attachDiagnosticsToLoweringOutcomes(loweringOutcomes, instructionDiagnostics);
-  const rendered = withPersistedLoweringOutcomes(
+  const renderResultsWithDiagnostics = attachDiagnosticsToRenderResults(renderResults, instructionDiagnostics);
+  const rendered = withPersistedRenderResults(
     renderedWithoutOutcomeMetadata,
-    loweringOutcomesWithDiagnostics
+    renderResultsWithDiagnostics
   );
   const liveOutputRoots = scopedOutputRoots(graph, options.scopes);
   const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
@@ -125,7 +125,7 @@ export async function buildSkillsetResult(
 
     const deletedPaths = await removeStaleGeneratedFiles(rootPath, new Set(staleManagedPaths), expectedPaths);
     const writtenPaths = await writeRenderedFiles(rootPath, rendered);
-    return buildResult(rendered, diagnostics, loweringOutcomesWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
+    return buildResult(rendered, diagnostics, renderResultsWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
   }
 
   const actualPaths = new Set(await listGeneratedFiles(rootPath, outputRoots, rendered, previousManagedState.paths));
@@ -136,7 +136,7 @@ export async function buildSkillsetResult(
   const deletedPaths = await removeStaleGeneratedFiles(rootPath, new Set(staleManagedPaths), expectedPaths);
   const writtenPaths = await writeChangedRenderedFiles(rootPath, rendered, actualPaths);
 
-  return buildResult(rendered, diagnostics, loweringOutcomesWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
+  return buildResult(rendered, diagnostics, renderResultsWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
 }
 
 export interface SkillsetDiff {
@@ -168,19 +168,19 @@ export async function diffSkillsetResult(
   const outPath = outPathMapper(options);
   const allRendered = await renderBuildGraph(graph);
   const scopedRendered = scopedRenderedFiles(graph, allRendered, options.scopes);
-  const loweringOutcomes = collectLoweringOutcomes(graph, allRendered, {
+  const renderResults = collectRenderResults(graph, allRendered, {
     includedPaths: new Set(scopedRendered.map((file) => file.path)),
     mapOutputPath: outPath,
     scopes: options.scopes,
   });
-  enforceLoweringOutcomePolicy(loweringOutcomes, graph.root.compile.unsupported);
+  enforceRenderResultPolicy(renderResults, graph.root.compile.unsupported);
   const renderedWithoutOutcomeMetadata = mirroredRenderedFiles(scopedRendered, outPath);
   const instructionDiagnostics = diagnoseLargeInstructionFiles(renderedWithoutOutcomeMetadata);
   diagnostics.push(...instructionDiagnostics);
-  const loweringOutcomesWithDiagnostics = attachDiagnosticsToLoweringOutcomes(loweringOutcomes, instructionDiagnostics);
-  const rendered = withPersistedLoweringOutcomes(
+  const renderResultsWithDiagnostics = attachDiagnosticsToRenderResults(renderResults, instructionDiagnostics);
+  const rendered = withPersistedRenderResults(
     renderedWithoutOutcomeMetadata,
-    loweringOutcomesWithDiagnostics
+    renderResultsWithDiagnostics
   );
   const expected = new Map(rendered.map((file) => [file.path, file.content]));
   const liveOutputRoots = scopedOutputRoots(graph, options.scopes);
@@ -223,7 +223,7 @@ export async function diffSkillsetResult(
   return {
     data: diff,
     diagnostics,
-    loweringOutcomes: loweringOutcomesWithDiagnostics,
+    renderResults: renderResultsWithDiagnostics,
     ok: true,
     operation: "diff",
     writes: {
@@ -257,19 +257,19 @@ export async function checkSkillsetResult(
   const outPath = outPathMapper(options);
   const allRendered = await renderBuildGraph(graph);
   const scopedRendered = scopedRenderedFiles(graph, allRendered, options.scopes);
-  const loweringOutcomes = collectLoweringOutcomes(graph, allRendered, {
+  const renderResults = collectRenderResults(graph, allRendered, {
     includedPaths: new Set(scopedRendered.map((file) => file.path)),
     mapOutputPath: outPath,
     scopes: options.scopes,
   });
-  enforceLoweringOutcomePolicy(loweringOutcomes, graph.root.compile.unsupported);
+  enforceRenderResultPolicy(renderResults, graph.root.compile.unsupported);
   const renderedWithoutOutcomeMetadata = mirroredRenderedFiles(scopedRendered, outPath);
   const instructionDiagnostics = diagnoseLargeInstructionFiles(renderedWithoutOutcomeMetadata);
   diagnostics.push(...instructionDiagnostics);
-  const loweringOutcomesWithDiagnostics = attachDiagnosticsToLoweringOutcomes(loweringOutcomes, instructionDiagnostics);
-  const rendered = withPersistedLoweringOutcomes(
+  const renderResultsWithDiagnostics = attachDiagnosticsToRenderResults(renderResults, instructionDiagnostics);
+  const rendered = withPersistedRenderResults(
     renderedWithoutOutcomeMetadata,
-    loweringOutcomesWithDiagnostics
+    renderResultsWithDiagnostics
   );
   const expected = new Map(rendered.map((file) => [file.path, file.content]));
   const liveOutputRoots = scopedOutputRoots(graph, options.scopes);
@@ -315,7 +315,7 @@ export async function checkSkillsetResult(
   return {
     data: { checkedFiles: rendered.length, failures },
     diagnostics: [...diagnostics, ...driftDiagnostics],
-    loweringOutcomes: loweringOutcomesWithDiagnostics,
+    renderResults: renderResultsWithDiagnostics,
     ok: failures.length === 0,
     operation: "check",
     writes: {
@@ -353,27 +353,27 @@ function generatedDriftMessage(
 function buildResult(
   rendered: readonly RenderedFile[],
   diagnostics: readonly SkillsetDiagnostic[],
-  loweringOutcomes: readonly SkillsetLoweringOutcome[],
+  renderResults: readonly SkillsetRenderResult[],
   writes: SkillsetWriteSummary
 ): SkillsetBuildResult {
   return {
     data: rendered,
     diagnostics,
-    loweringOutcomes,
+    renderResults,
     ok: true,
     operation: "build",
     writes,
   };
 }
 
-function attachDiagnosticsToLoweringOutcomes(
-  loweringOutcomes: readonly SkillsetLoweringOutcome[],
+function attachDiagnosticsToRenderResults(
+  renderResults: readonly SkillsetRenderResult[],
   diagnostics: readonly SkillsetDiagnostic[]
-): readonly SkillsetLoweringOutcome[] {
+): readonly SkillsetRenderResult[] {
   const outputDiagnostics = diagnostics.filter((diagnostic) => diagnostic.outputPath !== undefined);
-  if (outputDiagnostics.length === 0) return loweringOutcomes;
+  if (outputDiagnostics.length === 0) return renderResults;
 
-  return loweringOutcomes.map((outcome) => {
+  return renderResults.map((outcome) => {
     const outputPaths = new Set((outcome.outputs ?? []).map((output) => output.path));
     if (outputPaths.size === 0) return outcome;
     const matching = outputDiagnostics.filter((diagnostic) => {
@@ -382,7 +382,7 @@ function attachDiagnosticsToLoweringOutcomes(
       return diagnostic.featureId === undefined || diagnostic.featureId === outcome.featureId;
     });
     if (matching.length === 0) return outcome;
-    return defineLoweringOutcome({
+    return defineRenderResult({
       ...outcome,
       diagnostics: [
         ...(outcome.diagnostics ?? []),
@@ -398,7 +398,7 @@ function diagnosticRefForOutput(diagnostic: SkillsetDiagnostic): {
   readonly path: string;
 } {
   if (diagnostic.outputPath === undefined) {
-    throw new Error("skillset: lowering outcome diagnostic ref requires an output path");
+    throw new Error("skillset: render result diagnostic ref requires an output path");
   }
   return {
     code: diagnostic.code,
@@ -407,18 +407,18 @@ function diagnosticRefForOutput(diagnostic: SkillsetDiagnostic): {
   };
 }
 
-function withPersistedLoweringOutcomes(
+function withPersistedRenderResults(
   rendered: readonly RenderedFile[],
-  loweringOutcomes: readonly SkillsetLoweringOutcome[]
+  renderResults: readonly SkillsetRenderResult[]
 ): readonly RenderedFile[] {
-  if (loweringOutcomes.length === 0) return rendered;
+  if (renderResults.length === 0) return rendered;
   return rendered.map((file) => {
     if (!isLockFilePath(file.path)) return file;
     const lock = parseLockFile(file);
-    const lockOutcomes = loweringOutcomesForLock(file.path, lock, loweringOutcomes);
+    const lockOutcomes = renderResultsForLock(file.path, lock, renderResults);
     const value: JsonRecord = {
       ...lock,
-      ...(lockOutcomes.length === 0 ? {} : { loweringOutcomes: lockOutcomes as unknown as JsonValue }),
+      ...(lockOutcomes.length === 0 ? {} : { renderResults: lockOutcomes as unknown as JsonValue }),
     };
     return {
       ...file,
@@ -435,15 +435,15 @@ function parseLockFile(file: RenderedFile): JsonRecord {
   return parsed;
 }
 
-function loweringOutcomesForLock(
+function renderResultsForLock(
   lockPath: string,
   lock: JsonRecord,
-  loweringOutcomes: readonly SkillsetLoweringOutcome[]
-): readonly SkillsetLoweringOutcome[] {
+  renderResults: readonly SkillsetRenderResult[]
+): readonly SkillsetRenderResult[] {
   const target = typeof lock.target === "string" ? lock.target : undefined;
   const outputRoot = outputRootForLockPath(lockPath);
   const lockOutputs = outputPathsForLock(outputRoot, lock);
-  return loweringOutcomes
+  return renderResults
     .filter((outcome) => {
       if (target !== undefined && (outcome.target ?? "workspace") !== target) return false;
       const outputPaths = outcome.outputs?.map((output) => output.path) ?? [];

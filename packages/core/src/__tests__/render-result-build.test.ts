@@ -7,10 +7,10 @@ import {
   buildSkillsetResult,
   checkSkillsetResult,
   diffSkillsetResult,
-  LOWERING_OUTCOME_STATUS_VALUES,
-  SkillsetLoweringError,
-  type SkillsetLoweringOutcome,
-  type SkillsetLoweringOutcomeStatus,
+  RENDER_RESULT_STATUS_VALUES,
+  SkillsetRenderResultError,
+  type SkillsetRenderResult,
+  type SkillsetRenderResultStatus,
 } from "@skillset/core";
 
 const OUTCOME_FIXTURE: Record<string, string> = {
@@ -144,31 +144,31 @@ Use the beta plugin skill.
 `,
 };
 
-describe("build lowering outcomes", () => {
+describe("build render results", () => {
   it("reports emitted, pass-through, transformed, unsupported, and scoped outcomes", async () => {
     const root = await fixture(OUTCOME_FIXTURE);
 
     const preview = await diffSkillsetResult(root);
-    expect(preview.loweringOutcomes).toContainEqual(
+    expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "standalone-skills",
         outputs: expect.arrayContaining([
           expect.objectContaining({ path: ".claude/skills/repo-skill/SKILL.md" }),
         ]),
         sourceUnit: "skill:repo-skill",
-        status: "emitted",
+        status: "rendered",
         target: "claude",
       })
     );
-    expect(preview.loweringOutcomes).toContainEqual(
+    expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "plugin-skills",
         sourceUnit: "plugin.alpha.skill:plugin-skill",
-        status: "emitted",
+        status: "rendered",
         target: "codex",
       })
     );
-    expect(preview.loweringOutcomes).toContainEqual(
+    expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "project-instructions",
         sourceUnit: "instruction:AGENTS.md",
@@ -176,7 +176,7 @@ describe("build lowering outcomes", () => {
         target: "codex",
       })
     );
-    expect(preview.loweringOutcomes).toContainEqual(
+    expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "project-agents",
         sourceUnit: "agent:reviewer",
@@ -184,7 +184,7 @@ describe("build lowering outcomes", () => {
         target: "codex",
       })
     );
-    expect(preview.loweringOutcomes).toContainEqual(
+    expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "target-native-islands",
         sourceUnit: "codex.rules:rules/deny.rules",
@@ -192,7 +192,7 @@ describe("build lowering outcomes", () => {
         target: "codex",
       })
     );
-    expect(preview.loweringOutcomes).toContainEqual(
+    expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "plugin-mcp",
         sourceUnit: "plugin.alpha.feature:mcp",
@@ -200,7 +200,7 @@ describe("build lowering outcomes", () => {
         target: "claude",
       })
     );
-    expect(preview.loweringOutcomes).toContainEqual(
+    expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "plugin-bin",
         outputs: expect.arrayContaining([
@@ -211,7 +211,7 @@ describe("build lowering outcomes", () => {
         target: "claude",
       })
     );
-    expect(preview.loweringOutcomes).toContainEqual(
+    expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "plugin-hooks",
         outputs: expect.arrayContaining([
@@ -222,7 +222,7 @@ describe("build lowering outcomes", () => {
         target: "codex",
       })
     );
-    expect(preview.loweringOutcomes).toContainEqual(
+    expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "plugin-apps",
         sourceUnit: "plugin.alpha.feature:app",
@@ -230,15 +230,15 @@ describe("build lowering outcomes", () => {
         target: "codex",
       })
     );
-    expect(preview.loweringOutcomes).toContainEqual(
+    expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "dependencies",
         sourceUnit: "plugin.alpha.feature:dependencies",
-        status: "emitted",
+        status: "rendered",
         target: "claude",
       })
     );
-    expect(preview.loweringOutcomes).toContainEqual(
+    expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "dependencies",
         reason: expect.stringContaining("Codex"),
@@ -247,7 +247,7 @@ describe("build lowering outcomes", () => {
         target: "codex",
       })
     );
-    expect(preview.loweringOutcomes).toContainEqual(
+    expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "tool-intent",
         outputs: expect.arrayContaining([
@@ -258,7 +258,7 @@ describe("build lowering outcomes", () => {
         target: "claude",
       })
     );
-    expect(preview.loweringOutcomes).toContainEqual(
+    expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "tool-intent",
         outputs: expect.arrayContaining([
@@ -269,7 +269,7 @@ describe("build lowering outcomes", () => {
         target: "codex",
       })
     );
-    expect(preview.loweringOutcomes).toContainEqual(
+    expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "plugin-agents",
         outputs: expect.arrayContaining([
@@ -337,7 +337,7 @@ describe("build lowering outcomes", () => {
       },
     ] as const;
     for (const expected of companionExpectations) {
-      expect(preview.loweringOutcomes).toContainEqual(
+      expect(preview.renderResults).toContainEqual(
         expect.objectContaining({
           featureId: expected.featureId,
           outputs: expect.arrayContaining([expect.objectContaining({ path: expected.path })]),
@@ -349,7 +349,7 @@ describe("build lowering outcomes", () => {
     }
 
     const scoped = await diffSkillsetResult(root, { scopes: ["repo"] });
-    expect(scoped.loweringOutcomes).toContainEqual(
+    expect(scoped.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "plugin-skills",
         policy: "scope:excluded",
@@ -358,14 +358,14 @@ describe("build lowering outcomes", () => {
         target: "claude",
       })
     );
-    expect(scoped.loweringOutcomes).toContainEqual(
+    expect(scoped.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "standalone-skills",
         sourceUnit: "skill:repo-skill",
-        status: "emitted",
+        status: "rendered",
       })
     );
-    expect(scoped.loweringOutcomes).toContainEqual(
+    expect(scoped.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "plugin-hooks",
         policy: "scope:excluded",
@@ -374,7 +374,7 @@ describe("build lowering outcomes", () => {
         target: "codex",
       })
     );
-    expect(scoped.loweringOutcomes).toContainEqual(
+    expect(scoped.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "plugin-apps",
         policy: "scope:excluded",
@@ -383,7 +383,7 @@ describe("build lowering outcomes", () => {
         target: "codex",
       })
     );
-    expect(scoped.loweringOutcomes).toContainEqual(
+    expect(scoped.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "dependencies",
         policy: "scope:excluded",
@@ -392,7 +392,7 @@ describe("build lowering outcomes", () => {
         target: "codex",
       })
     );
-    expect(scoped.loweringOutcomes).toContainEqual(
+    expect(scoped.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "tool-intent",
         policy: "scope:excluded",
@@ -401,7 +401,7 @@ describe("build lowering outcomes", () => {
         target: "codex",
       })
     );
-    expect(scoped.loweringOutcomes).toContainEqual(
+    expect(scoped.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "tool-intent",
         policy: "scope:excluded",
@@ -410,7 +410,7 @@ describe("build lowering outcomes", () => {
         target: "claude",
       })
     );
-    expect(scoped.loweringOutcomes).toContainEqual(
+    expect(scoped.renderResults).toContainEqual(
       expect.objectContaining({
         featureId: "plugin-commands",
         policy: "scope:excluded",
@@ -421,15 +421,15 @@ describe("build lowering outcomes", () => {
     );
 
     const build = await buildSkillsetResult(root);
-    expect(build.loweringOutcomes.map(outcomeKey)).toEqual(preview.loweringOutcomes.map(outcomeKey));
+    expect(build.renderResults.map(outcomeKey)).toEqual(preview.renderResults.map(outcomeKey));
 
     const codexLock = await readJson(join(root, "plugins-codex/.skillset.lock"));
-    const codexOutcomes = codexLock.loweringOutcomes as SkillsetLoweringOutcome[];
+    const codexOutcomes = codexLock.renderResults as SkillsetRenderResult[];
     expect(codexOutcomes).toContainEqual(
       expect.objectContaining({
         featureId: "plugin-skills",
         sourceUnit: "plugin.alpha.skill:plugin-skill",
-        status: "emitted",
+        status: "rendered",
         target: "codex",
       })
     );
@@ -448,14 +448,14 @@ describe("build lowering outcomes", () => {
     );
 
     const codexSkill = await readFile(join(root, "plugins-codex/plugins/alpha/skills/plugin-skill/SKILL.md"), "utf8");
-    expect(codexSkill).not.toContain("loweringOutcomes");
+    expect(codexSkill).not.toContain("renderResults");
     expect(JSON.stringify(codexLock)).not.toContain(root);
   });
 
   it("records isolated output paths relative to the isolated projection root", async () => {
     const root = await fixture(OUTCOME_FIXTURE);
     const preview = await buildSkillsetResult(root, { isolated: true });
-    const outputPaths = preview.loweringOutcomes.flatMap((outcome) =>
+    const outputPaths = preview.renderResults.flatMap((outcome) =>
       (outcome.outputs ?? []).map((output) => output.path)
     );
 
@@ -463,7 +463,7 @@ describe("build lowering outcomes", () => {
     expect(outputPaths.some((path) => path.startsWith(root))).toBe(false);
 
     const isolatedLock = await readJson(join(root, ".skillset/build/out/plugins-codex/.skillset.lock"));
-    const isolatedOutcomes = isolatedLock.loweringOutcomes as SkillsetLoweringOutcome[];
+    const isolatedOutcomes = isolatedLock.renderResults as SkillsetRenderResult[];
     expect(isolatedOutcomes).toContainEqual(
       expect.objectContaining({
         outputs: expect.arrayContaining([
@@ -472,7 +472,7 @@ describe("build lowering outcomes", () => {
           }),
         ]),
         sourceUnit: "plugin.alpha.skill:plugin-skill",
-        status: "emitted",
+        status: "rendered",
         target: "codex",
       })
     );
@@ -490,26 +490,26 @@ describe("build lowering outcomes", () => {
 echo alpha
 `,
     });
-    const unsupported = await loweringErrorOutcomes(unsupportedRoot);
+    const unsupported = await renderErrorResults(unsupportedRoot);
     const producedStatuses = statusesInVocabularyOrder([
-      ...successful.loweringOutcomes,
-      ...scoped.loweringOutcomes,
+      ...successful.renderResults,
+      ...scoped.renderResults,
       ...unsupported,
     ]);
 
     expect(producedStatuses).toEqual([
       "degraded",
-      "emitted",
       "intentionally_skipped",
       "metadata_only",
+      "rendered",
       "target_native",
       "transformed",
       "unsupported",
     ]);
 
-    const documentedDeferrals = ["externally_managed", "failed", "lossy"] satisfies readonly SkillsetLoweringOutcomeStatus[];
+    const documentedDeferrals = ["externally_managed", "failed", "lossy"] satisfies readonly SkillsetRenderResultStatus[];
     expect(statusesInVocabularyOrder([...producedStatuses, ...documentedDeferrals])).toEqual([
-      ...LOWERING_OUTCOME_STATUS_VALUES,
+      ...RENDER_RESULT_STATUS_VALUES,
     ]);
   });
 
@@ -521,7 +521,7 @@ echo alpha
 
     const result = await buildSkillsetResult(root);
 
-    expect(result.loweringOutcomes).not.toContainEqual(expect.objectContaining({
+    expect(result.renderResults).not.toContainEqual(expect.objectContaining({
       featureId: "plugin-agents",
       sourceUnit: "plugin.alpha.feature:agents",
       status: "unsupported",
@@ -529,7 +529,7 @@ echo alpha
     }));
   });
 
-  it("enforces unsupported outcome policy with actionable lowering errors", async () => {
+  it("enforces unsupported outcome policy with actionable render errors", async () => {
     const agentRoot = await fixture({
       ...OUTCOME_FIXTURE,
       ".skillset/plugins/alpha/agents/reviewer.md": `
@@ -559,29 +559,29 @@ echo alpha
   });
 });
 
-function outcomeKey(outcome: SkillsetLoweringOutcome): string {
+function outcomeKey(outcome: SkillsetRenderResult): string {
   return `${outcome.sourceUnit}\0${outcome.target ?? ""}\0${outcome.featureId}\0${outcome.status}`;
 }
 
 function statusesInVocabularyOrder(
-  values: readonly (SkillsetLoweringOutcome | SkillsetLoweringOutcomeStatus)[]
-): readonly SkillsetLoweringOutcomeStatus[] {
+  values: readonly (SkillsetRenderResult | SkillsetRenderResultStatus)[]
+): readonly SkillsetRenderResultStatus[] {
   const statuses = new Set(values.map((value) => typeof value === "string" ? value : value.status));
-  return LOWERING_OUTCOME_STATUS_VALUES.filter((status) => statuses.has(status));
+  return RENDER_RESULT_STATUS_VALUES.filter((status) => statuses.has(status));
 }
 
-async function loweringErrorOutcomes(root: string): Promise<readonly SkillsetLoweringOutcome[]> {
+async function renderErrorResults(root: string): Promise<readonly SkillsetRenderResult[]> {
   try {
     await diffSkillsetResult(root);
   } catch (error) {
-    expect(error).toBeInstanceOf(SkillsetLoweringError);
-    return (error as SkillsetLoweringError).loweringOutcomes;
+    expect(error).toBeInstanceOf(SkillsetRenderResultError);
+    return (error as SkillsetRenderResultError).renderResults;
   }
   throw new Error("expected diffSkillsetResult to reject");
 }
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-lowering-build-"));
+  const root = await mkdtemp(join(tmpdir(), "skillset-render-build-"));
   for (const [path, content] of Object.entries(files)) {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }
@@ -594,7 +594,7 @@ async function readJson(path: string): Promise<Record<string, unknown>> {
 
 async function expectUnsupportedOutcome(
   root: string,
-  expected: Pick<SkillsetLoweringOutcome, "featureId" | "sourceUnit"> & { readonly reason: string }
+  expected: Pick<SkillsetRenderResult, "featureId" | "sourceUnit"> & { readonly reason: string }
 ): Promise<void> {
   await expect(buildSkillsetResult(root)).rejects.toThrow("lowering policy blocked 1 outcome");
   await expect(checkSkillsetResult(root)).rejects.toThrow("lowering policy blocked 1 outcome");
@@ -602,8 +602,8 @@ async function expectUnsupportedOutcome(
     await diffSkillsetResult(root);
     throw new Error("expected diffSkillsetResult to reject");
   } catch (error) {
-    expect(error).toBeInstanceOf(SkillsetLoweringError);
-    const outcomes = (error as SkillsetLoweringError).loweringOutcomes;
+    expect(error).toBeInstanceOf(SkillsetRenderResultError);
+    const outcomes = (error as SkillsetRenderResultError).renderResults;
     expect(outcomes).toContainEqual(
       expect.objectContaining({
         featureId: expected.featureId,

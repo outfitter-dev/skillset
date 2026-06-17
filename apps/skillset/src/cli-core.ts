@@ -468,8 +468,8 @@ export async function runCli(
       console.log(`    claude: ${feature.targetSupport.claude.status}`);
       console.log(`    codex: ${feature.targetSupport.codex.status}`);
     }
-    for (const outcome of result.loweringOutcomes) {
-      printLoweringOutcome(outcome);
+    for (const outcome of result.renderResults) {
+      printRenderResult(outcome);
     }
     for (const note of result.notes) console.log(`  note: ${note}`);
     if (result.kind === "unknown") process.exitCode = 1;
@@ -504,15 +504,15 @@ export async function runCli(
     );
     console.log(`  feature support: claude ${formatCountSummary(report.featureCapabilities.byTargetSupport.claude)}`);
     console.log(`  feature support: codex ${formatCountSummary(report.featureCapabilities.byTargetSupport.codex)}`);
-    for (const outcome of report.notableLoweringOutcomes) {
-      printLoweringOutcome(outcome);
+    for (const outcome of report.notableRenderResults) {
+      printRenderResult(outcome);
     }
     if (report.ok) {
-      if (report.notableLoweringOutcomes.length === 0) {
+      if (report.notableRenderResults.length === 0) {
         console.log("skillset: doctor found no problems");
       } else {
         console.log(
-          `skillset: doctor found ${report.notableLoweringOutcomes.length} lowering outcome advisor${report.notableLoweringOutcomes.length === 1 ? "y" : "ies"}`
+          `skillset: doctor found ${report.notableRenderResults.length} render result advisor${report.notableRenderResults.length === 1 ? "y" : "ies"}`
         );
       }
     } else {
@@ -520,8 +520,8 @@ export async function runCli(
       if (report.lintIssues.length > 0) problems.push(`${report.lintIssues.length} lint issue(s)`);
       if (driftCount > 0) problems.push("generated-output drift");
       if (report.buildError !== undefined) problems.push("a build error");
-      if (report.notableLoweringOutcomes.length > 0) {
-        problems.push(`${report.notableLoweringOutcomes.length} lowering outcome advisor${report.notableLoweringOutcomes.length === 1 ? "y" : "ies"}`);
+      if (report.notableRenderResults.length > 0) {
+        problems.push(`${report.notableRenderResults.length} render result advisor${report.notableRenderResults.length === 1 ? "y" : "ies"}`);
       }
       console.log(`skillset: doctor found ${problems.join(" and ")}`);
       process.exitCode = 1;
@@ -948,7 +948,7 @@ function formatCountSummary(counts: Readonly<Record<string, number>>): string {
     .join(", ");
 }
 
-function printLoweringOutcome(outcome: {
+function printRenderResult(outcome: {
   readonly diagnostics?: readonly { readonly code: string; readonly path?: string }[];
   readonly featureId: string;
   readonly outputs?: readonly { readonly path: string }[];
@@ -961,7 +961,7 @@ function printLoweringOutcome(outcome: {
   const target = outcome.target ?? "workspace";
   const policy = outcome.policy === undefined ? "" : ` policy: ${outcome.policy}`;
   const reason = outcome.reason === undefined ? "" : ` reason: ${outcome.reason}`;
-  console.log(`  lowering [${target}] ${outcome.sourceUnit}: ${outcome.featureId} ${outcome.status}${policy}${reason}`);
+  console.log(`  render [${target}] ${outcome.sourceUnit}: ${outcome.featureId} ${outcome.status}${policy}${reason}`);
   if (outcome.outputs !== undefined && outcome.outputs.length > 0) {
     console.log(`    outputs: ${outcome.outputs.map((output) => output.path).join(", ")}`);
   }

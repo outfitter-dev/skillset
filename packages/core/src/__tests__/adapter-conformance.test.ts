@@ -6,9 +6,9 @@ import { join } from "node:path";
 import {
   checkAdapterConformance,
   diffSkillsetResult,
-  SkillsetLoweringError,
+  SkillsetRenderResultError,
   type AdapterConformanceCase,
-  type SkillsetLoweringOutcome,
+  type SkillsetRenderResult,
 } from "@skillset/core";
 
 const CONFORMANCE_FIXTURE: Record<string, string> = {
@@ -78,11 +78,11 @@ Use the plugin skill.
 };
 
 describe("adapter conformance", () => {
-  it("ties representative registry support claims to emitted lowering outcomes", async () => {
+  it("ties representative registry support claims to emitted render results", async () => {
     const root = await fixture(CONFORMANCE_FIXTURE);
 
     const result = await diffSkillsetResult(root);
-    const report = checkAdapterConformance(result.loweringOutcomes, [
+    const report = checkAdapterConformance(result.renderResults, [
       { featureId: "standalone-skills", sourceUnit: "skill:repo-skill", target: "claude" },
       { featureId: "plugin-skills", sourceUnit: "plugin.alpha.skill:plugin-skill", target: "codex" },
       { featureId: "project-instructions", sourceUnit: "instruction:AGENTS.md", target: "codex" },
@@ -97,7 +97,7 @@ describe("adapter conformance", () => {
     expect(report).toEqual({ issues: [], ok: true });
   });
 
-  it("proves unsupported feature claims through structured lowering outcomes", async () => {
+  it("proves unsupported feature claims through structured render results", async () => {
     const root = await fixture({
       ...CONFORMANCE_FIXTURE,
       ".skillset/plugins/alpha/bin/tool": `
@@ -106,7 +106,7 @@ echo alpha
 `,
     });
 
-    const report = checkAdapterConformance(await loweringErrorOutcomes(root), [
+    const report = checkAdapterConformance(await renderErrorResults(root), [
       { featureId: "plugin-bin", sourceUnit: "plugin.alpha.feature:bin", target: "codex" },
     ]);
 
@@ -119,10 +119,10 @@ echo alpha
       { featureId: "plugin-skills", sourceUnit: "plugin.alpha.skill:plugin-skill", target: "codex" },
       { featureId: "standalone-skills", sourceUnit: "skill:repo-skill", target: "claude" },
     ];
-    const outcomes: readonly SkillsetLoweringOutcome[] = [
+    const outcomes: readonly SkillsetRenderResult[] = [
       outcome({ featureId: "dependencies", reason: "custom stale reason", status: "degraded", target: "codex" }),
       outcome({ featureId: "plugin-skills", status: "transformed", target: "codex" }),
-      outcome({ featureId: "standalone-skills", status: "emitted", target: "claude" }),
+      outcome({ featureId: "standalone-skills", status: "rendered", target: "claude" }),
       outcome({ featureId: "standalone-skills", reason: "contradictory", status: "unsupported", target: "claude" }),
     ];
 
@@ -134,16 +134,16 @@ echo alpha
       "status-mismatch",
     ]);
     expect(report.issues[0]?.message).toContain("reason does not match");
-    expect(report.issues[2]?.observed).toEqual(["emitted", "unsupported"]);
+    expect(report.issues[2]?.observed).toEqual(["rendered", "unsupported"]);
   });
 });
 
-async function loweringErrorOutcomes(root: string): Promise<readonly SkillsetLoweringOutcome[]> {
+async function renderErrorResults(root: string): Promise<readonly SkillsetRenderResult[]> {
   try {
     await diffSkillsetResult(root);
   } catch (error) {
-    expect(error).toBeInstanceOf(SkillsetLoweringError);
-    return (error as SkillsetLoweringError).loweringOutcomes;
+    expect(error).toBeInstanceOf(SkillsetRenderResultError);
+    return (error as SkillsetRenderResultError).renderResults;
   }
   throw new Error("expected diffSkillsetResult to reject");
 }
@@ -152,10 +152,10 @@ function outcome(
   overrides: {
     readonly featureId: string;
     readonly reason?: string;
-    readonly status: SkillsetLoweringOutcome["status"];
-    readonly target: NonNullable<SkillsetLoweringOutcome["target"]>;
+    readonly status: SkillsetRenderResult["status"];
+    readonly target: NonNullable<SkillsetRenderResult["target"]>;
   }
-): SkillsetLoweringOutcome {
+): SkillsetRenderResult {
   const sourceUnitByFeature: Record<string, string> = {
     dependencies: "plugin.alpha.feature:dependencies",
     "plugin-skills": "plugin.alpha.skill:plugin-skill",
@@ -165,7 +165,7 @@ function outcome(
     evidence: [{ kind: "test", ref: "packages/core/src/__tests__/adapter-conformance.test.ts" }],
     featureId: overrides.featureId,
     ...(overrides.reason === undefined ? {} : { reason: overrides.reason }),
-    schema: "skillset-lowering-outcome@1",
+    schema: "skillset-render-result@1",
     sourceUnit: sourceUnitByFeature[overrides.featureId] ?? "unknown",
     status: overrides.status,
     target: overrides.target,

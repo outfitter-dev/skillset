@@ -126,7 +126,7 @@ test("runExternalRepo adopts a marketplace-shaped repo in place and reports roun
   ]);
   expect(report.survey.skips).toEqual([
     expect.objectContaining({
-      loweringOutcome: expect.objectContaining({
+      renderResult: expect.objectContaining({
         featureId: "target-native-islands",
         sourceUnit: "claude.commands:commands",
         status: "intentionally_skipped",

@@ -1,25 +1,25 @@
-import { SkillsetLoweringError, type SkillsetLoweringOutcome } from "./lowering-outcome";
+import { SkillsetRenderResultError, type SkillsetRenderResult } from "./render-result";
 import type { CompileUnsupportedPolicy } from "./types";
 
-export function enforceLoweringOutcomePolicy(
-  loweringOutcomes: readonly SkillsetLoweringOutcome[],
+export function enforceRenderResultPolicy(
+  renderResults: readonly SkillsetRenderResult[],
   unsupportedPolicy: CompileUnsupportedPolicy
 ): void {
-  const blocked = loweringOutcomes.filter(isPolicyBlockingOutcome);
+  const blocked = renderResults.filter(isPolicyBlockingOutcome);
   if (blocked.length === 0) return;
 
-  throw new SkillsetLoweringError(
-    formatLoweringPolicyError(blocked, unsupportedPolicy),
+  throw new SkillsetRenderResultError(
+    formatRenderResultPolicyError(blocked, unsupportedPolicy),
     blocked
   );
 }
 
-function isPolicyBlockingOutcome(outcome: SkillsetLoweringOutcome): boolean {
+function isPolicyBlockingOutcome(outcome: SkillsetRenderResult): boolean {
   return outcome.status === "failed" || outcome.status === "lossy" || outcome.status === "unsupported";
 }
 
-function formatLoweringPolicyError(
-  outcomes: readonly SkillsetLoweringOutcome[],
+function formatRenderResultPolicyError(
+  outcomes: readonly SkillsetRenderResult[],
   unsupportedPolicy: CompileUnsupportedPolicy
 ): string {
   const noun = outcomes.length === 1 ? "outcome" : "outcomes";
@@ -29,7 +29,7 @@ function formatLoweringPolicyError(
   ].join("\n");
 }
 
-function formatBlockedOutcome(outcome: SkillsetLoweringOutcome): string {
+function formatBlockedOutcome(outcome: SkillsetRenderResult): string {
   const target = outcome.target ?? "workspace";
   const sourcePath = outcome.sourcePath ?? "<unknown source path>";
   const policy = outcome.policy ?? "default";
@@ -42,7 +42,7 @@ function formatBlockedOutcome(outcome: SkillsetLoweringOutcome): string {
   ].join("\n");
 }
 
-function suggestionForBlockedOutcome(outcome: SkillsetLoweringOutcome): string {
+function suggestionForBlockedOutcome(outcome: SkillsetRenderResult): string {
   if (outcome.target === "codex" && outcome.featureId === "plugin-agents") {
     return "set codex: false for the plugin, move portable project agents to .skillset/src/agents, or keep Claude-only files in a Claude target-native island";
   }

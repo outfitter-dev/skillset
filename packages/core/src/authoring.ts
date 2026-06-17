@@ -6,8 +6,8 @@ import {
   type SkillsetFeatureEntry,
   type SkillsetTargetSupport,
 } from "./feature-registry";
-import { SkillsetLoweringError, type SkillsetLoweringOutcome } from "./lowering-outcome";
-import { collectLoweringOutcomes } from "./lowering-outcome-collector";
+import { SkillsetRenderResultError, type SkillsetRenderResult } from "./render-result";
+import { collectRenderResults } from "./render-result-collector";
 import { SkillsetFeatureDiagnosticError, type SkillsetDiagnostic } from "./operation-result";
 
 import { diffSkillsetResult, scopedRenderedFiles, type SkillsetDiff } from "./build";
@@ -33,7 +33,7 @@ export interface ExplainResult {
   readonly entries: readonly GeneratedEntry[];
   readonly features: readonly FeatureCapability[];
   readonly kind: ExplainKind;
-  readonly loweringOutcomes: readonly SkillsetLoweringOutcome[];
+  readonly renderResults: readonly SkillsetRenderResult[];
   readonly notes: readonly string[];
   readonly path: string;
 }
@@ -72,7 +72,7 @@ export async function explainPath(
   const graph = await loadBuildGraph(rootPath, options);
   const allRendered = await renderBuildGraph(graph);
   const rendered = scopedRenderedFiles(graph, allRendered, options.scopes);
-  const loweringOutcomes = collectLoweringOutcomes(graph, allRendered, {
+  const renderResults = collectRenderResults(graph, allRendered, {
     includedPaths: new Set(rendered.map((file) => file.path)),
     scopes: options.scopes,
   });
@@ -81,13 +81,13 @@ export async function explainPath(
 
   const asSource = items.filter((item) => item.sourcePath === target);
   if (asSource.length > 0) {
-    const matchedLoweringOutcomes = explainLoweringOutcomes(target, asSource, loweringOutcomes);
+    const matchedRenderResults = explainRenderResults(target, asSource, renderResults);
     return {
       path: target,
       kind: explainSourceKind(graph, target),
       entries: asSource.map((item) => item.entry),
-      features: featureCapabilitiesForPath(graph, target, asSource, matchedLoweringOutcomes),
-      loweringOutcomes: matchedLoweringOutcomes,
+      features: featureCapabilitiesForPath(graph, target, asSource, matchedRenderResults),
+      renderResults: matchedRenderResults,
       notes: sourceNotes(graph, target),
     };
   }
@@ -98,15 +98,15 @@ export async function explainPath(
       item.files.some((file) => joinOutputRoot(item.outputRoot, file) === target)
   );
   if (asGenerated.length > 0) {
-    const matchedLoweringOutcomes = explainLoweringOutcomes(target, asGenerated, loweringOutcomes, {
+    const matchedRenderResults = explainRenderResults(target, asGenerated, renderResults, {
       includeSourcePaths: false,
     });
     return {
       path: target,
       kind: "generated",
       entries: asGenerated.map((item) => item.entry),
-      features: featureCapabilitiesForPath(graph, target, asGenerated, matchedLoweringOutcomes),
-      loweringOutcomes: matchedLoweringOutcomes,
+      features: featureCapabilitiesForPath(graph, target, asGenerated, matchedRenderResults),
+      renderResults: matchedRenderResults,
       notes: [`Generated output; rebuild with skillset build, verify with skillset check.`],
     };
   }
@@ -115,26 +115,26 @@ export async function explainPath(
   // instruction whose lock lives at the workspace root) — fall back to prefix.
   const prefixMatch = items.filter((item) => item.sourcePath.startsWith(`${target}/`));
   if (prefixMatch.length > 0) {
-    const matchedLoweringOutcomes = explainLoweringOutcomes(target, prefixMatch, loweringOutcomes);
+    const matchedRenderResults = explainRenderResults(target, prefixMatch, renderResults);
     return {
       path: target,
       kind: "source-plugin",
       entries: prefixMatch.map((item) => item.entry),
-      features: featureCapabilitiesForPath(graph, target, prefixMatch, matchedLoweringOutcomes),
-      loweringOutcomes: matchedLoweringOutcomes,
+      features: featureCapabilitiesForPath(graph, target, prefixMatch, matchedRenderResults),
+      renderResults: matchedRenderResults,
       notes: [`Matched ${prefixMatch.length} generated entries under this source path.`],
     };
   }
 
-  const sourceOnlyOutcomes = explainLoweringOutcomes(target, [], loweringOutcomes);
+  const sourceOnlyOutcomes = explainRenderResults(target, [], renderResults);
   if (sourceOnlyOutcomes.length > 0) {
     return {
       path: target,
       kind: explainSourceKind(graph, target),
       entries: [],
       features: featureCapabilitiesForPath(graph, target, [], sourceOnlyOutcomes),
-      loweringOutcomes: sourceOnlyOutcomes,
-      notes: [`Matched ${sourceOnlyOutcomes.length} lowering outcome(s) under this source path.`],
+      renderResults: sourceOnlyOutcomes,
+      notes: [`Matched ${sourceOnlyOutcomes.length} render result(s) under this source path.`],
     };
   }
 
@@ -143,7 +143,7 @@ export async function explainPath(
     kind: "unknown",
     entries: [],
     features: [],
-    loweringOutcomes: [],
+    renderResults: [],
     notes: [
       `No lock entry references ${target}. Pass a source path under ${graph.sourceDir}/ or a generated output path.`,
     ],
@@ -186,8 +186,8 @@ export interface DoctorReport {
   readonly drift: SkillsetDiff;
   readonly featureCapabilities: FeatureCapabilitySummary;
   readonly lintIssues: readonly LintIssue[];
-  readonly loweringOutcomes: readonly SkillsetLoweringOutcome[];
-  readonly notableLoweringOutcomes: readonly SkillsetLoweringOutcome[];
+  readonly renderResults: readonly SkillsetRenderResult[];
+  readonly notableRenderResults: readonly SkillsetRenderResult[];
   readonly ok: boolean;
   readonly warnings: readonly string[];
 }
@@ -210,15 +210,15 @@ export async function doctorSkillset(
     graph = await loadBuildGraph(rootPath, options);
   } catch (error) {
     const buildDiagnostics = diagnosticsFromError(error);
-    const loweringOutcomes = loweringOutcomesFromError(error);
+    const renderResults = renderResultsFromError(error);
     return {
       buildError: errorMessage(error),
       buildDiagnostics,
       drift: { added: [], changed: [], missing: [], removed: [] },
       featureCapabilities: summarizeFeatureCapabilities(),
       lintIssues: [],
-      loweringOutcomes,
-      notableLoweringOutcomes: notableLoweringOutcomes(loweringOutcomes),
+      renderResults,
+      notableRenderResults: notableRenderResults(renderResults),
       ok: false,
       warnings: [],
     };
@@ -228,20 +228,20 @@ export async function doctorSkillset(
   let drift: SkillsetDiff = { added: [], changed: [], missing: [], removed: [] };
   let buildDiagnostics: readonly SkillsetDiagnostic[] = [];
   let buildError: string | undefined;
-  let loweringOutcomes: readonly SkillsetLoweringOutcome[] = [];
+  let renderResults: readonly SkillsetRenderResult[] = [];
   try {
     const diff = await diffSkillsetResult(rootPath, options);
     drift = diff.data;
-    loweringOutcomes = diff.loweringOutcomes;
+    renderResults = diff.renderResults;
   } catch (error) {
     buildDiagnostics = diagnosticsFromError(error);
     buildError = errorMessage(error);
-    loweringOutcomes = loweringOutcomesFromError(error);
+    renderResults = renderResultsFromError(error);
   }
 
   const hasDrift =
     drift.added.length > 0 || drift.changed.length > 0 || drift.missing.length > 0 || drift.removed.length > 0;
-  const notable = notableLoweringOutcomes(loweringOutcomes);
+  const notable = notableRenderResults(renderResults);
 
   return {
     ...(buildError === undefined ? {} : { buildError }),
@@ -249,8 +249,8 @@ export async function doctorSkillset(
     drift,
     featureCapabilities: summarizeFeatureCapabilities(),
     lintIssues: lint.issues,
-    loweringOutcomes,
-    notableLoweringOutcomes: notable,
+    renderResults,
+    notableRenderResults: notable,
     ok: lint.issues.length === 0 && !hasDrift && buildError === undefined,
     warnings: graph.warnings,
   };
@@ -264,12 +264,12 @@ interface LockItemMatch {
   readonly sourcePath: string;
 }
 
-function explainLoweringOutcomes(
+function explainRenderResults(
   target: string,
   items: readonly LockItemMatch[],
-  outcomes: readonly SkillsetLoweringOutcome[],
+  outcomes: readonly SkillsetRenderResult[],
   options: { readonly includeSourcePaths?: boolean } = {}
-): readonly SkillsetLoweringOutcome[] {
+): readonly SkillsetRenderResult[] {
   const includeSourcePaths = options.includeSourcePaths !== false;
   const itemSourcePaths = new Set(items.map((item) => item.sourcePath));
   const itemOutputPaths = new Set(items.flatMap((item) => [
@@ -277,7 +277,7 @@ function explainLoweringOutcomes(
     ...item.files.map((file) => joinOutputRoot(item.outputRoot, file)),
   ]));
   const seen = new Set<string>();
-  const matched: SkillsetLoweringOutcome[] = [];
+  const matched: SkillsetRenderResult[] = [];
   for (const outcome of outcomes) {
     const sourcePath = outcome.sourcePath;
     const outputPaths = outcome.outputs?.map((output) => output.path) ?? [];
@@ -303,9 +303,9 @@ function explainLoweringOutcomes(
   return matched;
 }
 
-function notableLoweringOutcomes(
-  outcomes: readonly SkillsetLoweringOutcome[]
-): readonly SkillsetLoweringOutcome[] {
+function notableRenderResults(
+  outcomes: readonly SkillsetRenderResult[]
+): readonly SkillsetRenderResult[] {
   return outcomes
     .filter((outcome) =>
       outcome.status === "degraded" ||
@@ -323,8 +323,8 @@ function notableLoweringOutcomes(
     );
 }
 
-function loweringOutcomesFromError(error: unknown): readonly SkillsetLoweringOutcome[] {
-  return error instanceof SkillsetLoweringError ? error.loweringOutcomes : [];
+function renderResultsFromError(error: unknown): readonly SkillsetRenderResult[] {
+  return error instanceof SkillsetRenderResultError ? error.renderResults : [];
 }
 
 function diagnosticsFromError(error: unknown): readonly SkillsetDiagnostic[] {
@@ -473,7 +473,7 @@ function featureCapabilitiesForPath(
   graph: BuildGraph,
   target: string,
   items: readonly LockItemMatch[],
-  outcomes: readonly SkillsetLoweringOutcome[]
+  outcomes: readonly SkillsetRenderResult[]
 ): readonly FeatureCapability[] {
   const featureIds = new Set<string>();
   for (const item of items) {

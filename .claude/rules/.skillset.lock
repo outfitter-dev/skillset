@@ -15,7 +15,8 @@
       "version": "0.1.1"
     }
   ],
-  "loweringOutcomes": [
+  "outputRoot": ".claude/rules",
+  "renderResults": [
     {
       "evidence": [
         {
@@ -31,14 +32,13 @@
           "path": ".claude/rules/fixtures.md"
         }
       ],
-      "schema": "skillset-lowering-outcome@1",
+      "schema": "skillset-render-result@1",
       "sourcePath": ".skillset/instructions/fixtures.md",
       "sourceUnit": "instruction:fixtures",
       "status": "transformed",
       "target": "claude"
     }
   ],
-  "outputRoot": ".claude/rules",
   "schemaVersion": 1,
   "selectedTargets": [
     "claude",

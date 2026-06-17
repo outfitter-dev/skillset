@@ -825,7 +825,7 @@ test("SET-10: skill import reports copied files and classifies frontmatter", asy
   expect(report.unsupportedFields).toEqual(["frobnicate"]);
   expect(report.warnings.join("\n")).toContain("target-native");
   expect(report.warnings.join("\n")).toContain("unrecognized");
-  expect(report.loweringOutcomes).toContainEqual(
+  expect(report.renderResults).toContainEqual(
     expect.objectContaining({
       featureId: "tool-intent",
       sourcePath: ".skillset/skills/myskill/SKILL.md",
@@ -4895,7 +4895,7 @@ test("SET-62: recognized-but-unimportable surfaces become structured survey skip
   expect(report.importCandidates).toEqual([]);
   expect(report.surveySkips).toEqual([
     expect.objectContaining({
-      loweringOutcome: expect.objectContaining({
+      renderResult: expect.objectContaining({
         featureId: "target-native-islands",
         sourceUnit: "claude.commands:commands",
         status: "intentionally_skipped",
@@ -4907,7 +4907,7 @@ test("SET-62: recognized-but-unimportable surfaces become structured survey skip
       surface: "commands",
     }),
     expect.objectContaining({
-      loweringOutcome: expect.objectContaining({
+      renderResult: expect.objectContaining({
         featureId: "runtime-adapters",
         sourceUnit: "runtime-adapter:cursor",
         status: "intentionally_skipped",
@@ -5336,10 +5336,10 @@ Body.
   const source = await explainPath(root, ".skillset/skills/demo/SKILL.md");
   expect(source.kind).toBe("source-skill");
   expect(source.entries.length).toBeGreaterThan(0);
-  expect(source.loweringOutcomes).toContainEqual(
+  expect(source.renderResults).toContainEqual(
     expect.objectContaining({
       featureId: "standalone-skills",
-      status: "emitted",
+      status: "rendered",
       target: "claude",
     })
   );
@@ -5349,11 +5349,11 @@ Body.
   expect(generated.kind).toBe("generated");
   expect(generated.entries[0]?.sourcePath).toBe(".skillset/skills/demo/SKILL.md");
   expect(generated.entries[0]?.sourceHash).toBeDefined();
-  expect(generated.loweringOutcomes[0]?.status).toBe("emitted");
+  expect(generated.renderResults[0]?.status).toBe("rendered");
 
   const unknown = await explainPath(root, "nope/missing.md");
   expect(unknown.kind).toBe("unknown");
-  expect(unknown.loweringOutcomes).toEqual([]);
+  expect(unknown.renderResults).toEqual([]);
 });
 
 test("SET-9: doctor aggregates lint issues and drift, and passes when clean", async () => {
@@ -5403,7 +5403,7 @@ See the [guide](shared:references/guide.md).
   expect(badReport.buildError).toContain("undeclared shared resource");
 });
 
-test("SET-83: explain and doctor surface lowering outcomes in text and JSON", async () => {
+test("SET-83: explain and doctor surface render results in text and JSON", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `
 skillset:
@@ -5437,8 +5437,8 @@ Audit body.
     root
   );
   expect(explained.exitCode).toBe(0);
-  expect(explained.stdout).toContain("lowering [codex] plugin.audit.skill:audit-skill: plugin-skills emitted");
-  expect(explained.stdout).not.toContain("lowering [claude] plugin.audit.skill:audit-skill");
+  expect(explained.stdout).toContain("render [codex] plugin.audit.skill:audit-skill: plugin-skills rendered");
+  expect(explained.stdout).not.toContain("render [claude] plugin.audit.skill:audit-skill");
 
   const explainedJson = await runSkillsetCli(
     "explain",
@@ -5449,9 +5449,9 @@ Audit body.
   );
   expect(explainedJson.exitCode).toBe(0);
   const explainReport = JSON.parse(explainedJson.stdout) as {
-    loweringOutcomes: readonly { featureId: string; status: string; target?: string }[];
+    renderResults: readonly { featureId: string; status: string; target?: string }[];
   };
-  expect(explainReport.loweringOutcomes).toContainEqual(
+  expect(explainReport.renderResults).toContainEqual(
     expect.objectContaining({
       featureId: "dependencies",
       status: "degraded",
@@ -5461,17 +5461,17 @@ Audit body.
 
   const doctor = await runSkillsetCli("doctor", "--root", root);
   expect(doctor.exitCode).toBe(0);
-  expect(doctor.stdout).toContain("lowering [codex] plugin.audit.feature:dependencies: dependencies degraded");
-  expect(doctor.stdout).toContain("doctor found 1 lowering outcome advisory");
+  expect(doctor.stdout).toContain("render [codex] plugin.audit.feature:dependencies: dependencies degraded");
+  expect(doctor.stdout).toContain("doctor found 1 render result advisory");
 
   const doctorJson = await runSkillsetCli("doctor", "--root", root, "--json");
   expect(doctorJson.exitCode).toBe(0);
   const doctorReport = JSON.parse(doctorJson.stdout) as {
-    loweringOutcomes: readonly { featureId: string; status: string; target?: string }[];
-    notableLoweringOutcomes: readonly { featureId: string; status: string; target?: string }[];
+    renderResults: readonly { featureId: string; status: string; target?: string }[];
+    notableRenderResults: readonly { featureId: string; status: string; target?: string }[];
   };
-  expect(doctorReport.loweringOutcomes.length).toBeGreaterThan(0);
-  expect(doctorReport.notableLoweringOutcomes).toEqual([
+  expect(doctorReport.renderResults.length).toBeGreaterThan(0);
+  expect(doctorReport.notableRenderResults).toEqual([
     expect.objectContaining({
       featureId: "dependencies",
       status: "degraded",
@@ -5619,7 +5619,7 @@ Audit body.
   expect(doctorReport.featureCapabilities.featureIds).toContain("plugin-bin");
 });
 
-test("SET-83: doctor reports lowering outcomes from unsupported build errors", async () => {
+test("SET-83: doctor reports render results from unsupported build errors", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `
 skillset:
@@ -5646,7 +5646,7 @@ Tool body.
   expect(report.ok).toBe(false);
   expect(report.buildError).toContain("codex plugin-bin unsupported");
   expect(report.buildError).toContain("Codex plugins do not expose a documented plugin-local bin contract.");
-  expect(report.notableLoweringOutcomes).toContainEqual(
+  expect(report.notableRenderResults).toContainEqual(
     expect.objectContaining({
       featureId: "plugin-bin",
       policy: "unsupported:error",
@@ -5658,7 +5658,7 @@ Tool body.
   const explainedUnsupportedFeature = await explainPath(root, ".skillset/plugins/tools/bin");
   expect(explainedUnsupportedFeature.kind).toBe("source-plugin");
   expect(explainedUnsupportedFeature.entries).toEqual([]);
-  expect(explainedUnsupportedFeature.loweringOutcomes).toContainEqual(
+  expect(explainedUnsupportedFeature.renderResults).toContainEqual(
     expect.objectContaining({
       featureId: "plugin-bin",
       policy: "unsupported:error",
@@ -5765,7 +5765,7 @@ codex: true
 
   expect(warnings).toContain("project_doc_max_bytes");
   expect(warnings).toContain("AGENTS.md");
-  expect(result.loweringOutcomes).toContainEqual(
+  expect(result.renderResults).toContainEqual(
     expect.objectContaining({
       diagnostics: expect.arrayContaining([
         expect.objectContaining({
@@ -5780,7 +5780,7 @@ codex: true
   );
   expect(previewWarnings).toContain("project_doc_max_bytes");
   expect(previewWarnings).toContain("AGENTS.md");
-  expect(preview.loweringOutcomes).toContainEqual(
+  expect(preview.renderResults).toContainEqual(
     expect.objectContaining({
       diagnostics: expect.arrayContaining([
         expect.objectContaining({
@@ -5795,7 +5795,7 @@ codex: true
   );
   expect(checkWarnings).toContain("project_doc_max_bytes");
   expect(checkWarnings).toContain("AGENTS.md");
-  expect(checked.loweringOutcomes).toContainEqual(
+  expect(checked.renderResults).toContainEqual(
     expect.objectContaining({
       diagnostics: expect.arrayContaining([
         expect.objectContaining({

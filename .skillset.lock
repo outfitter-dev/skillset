@@ -97,7 +97,8 @@
       "version": "0.1.1"
     }
   ],
-  "loweringOutcomes": [
+  "outputRoot": ".",
+  "renderResults": [
     {
       "evidence": [
         {
@@ -113,7 +114,7 @@
           "path": ".skillset/plugins/skillset/CHANGELOG.md"
         }
       ],
-      "schema": "skillset-lowering-outcome@1",
+      "schema": "skillset-render-result@1",
       "sourcePath": ".skillset/plugins/skillset/skillset.yaml",
       "sourceUnit": ".skillset/plugins/skillset/skillset.yaml",
       "status": "metadata_only"
@@ -133,7 +134,7 @@
           "path": ".skillset/skills/skillset-codex-development/CHANGELOG.md"
         }
       ],
-      "schema": "skillset-lowering-outcome@1",
+      "schema": "skillset-render-result@1",
       "sourcePath": ".skillset/skills/skillset-codex-development/SKILL.md",
       "sourceUnit": ".skillset/skills/skillset-codex-development/SKILL.md",
       "status": "metadata_only"
@@ -153,13 +154,12 @@
           "path": ".skillset/skills/skillset-repo-test-fixtures/CHANGELOG.md"
         }
       ],
-      "schema": "skillset-lowering-outcome@1",
+      "schema": "skillset-render-result@1",
       "sourcePath": ".skillset/skills/skillset-repo-test-fixtures/SKILL.md",
       "sourceUnit": ".skillset/skills/skillset-repo-test-fixtures/SKILL.md",
       "status": "metadata_only"
     }
   ],
-  "outputRoot": ".",
   "schemaVersion": 1,
   "selectedTargets": [
     "claude",

@@ -51,11 +51,11 @@ describe("diffSkillset", () => {
         paths: [],
         writtenPaths: [],
       });
-      expect(result.loweringOutcomes).toContainEqual(
+      expect(result.renderResults).toContainEqual(
         expect.objectContaining({
           featureId: "standalone-skills",
           sourceUnit: "skill:demo",
-          status: "emitted",
+          status: "rendered",
           target: "claude",
         })
       );
