@@ -8,7 +8,7 @@ describe("render result policy", () => {
   it("blocks failed, lossy, and unsupported outcomes", () => {
     for (const status of ["failed", "lossy", "unsupported"] satisfies readonly SkillsetRenderResultStatus[]) {
       expect(() => enforceRenderResultPolicy([outcome(status)], "error")).toThrow(
-        "lowering policy blocked 1 outcome"
+        "unsupported destination policy blocked 1 render result"
       );
     }
   });

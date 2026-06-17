@@ -34,8 +34,8 @@
 
 | Issue | Branch | Status | PR |
 | --- | --- | --- | --- |
-| SET-122 | `set-122-mechanical-rename-to-render-result-vocabulary` | Implemented + verified locally; Linear In Progress | pending (batch at end) |
-| SET-123 | (pending) | not started | — |
+| SET-122 | `set-122-mechanical-rename-to-render-result-vocabulary` | Implemented + reviewed (5/5) + verified | pending (batch at end) |
+| SET-123 | `set-123-cut-config-over-to-compileunsupporteddestination` | Implemented + verified locally; Linear In Progress | pending (batch at end) |
 | SET-124 | (pending) | not started | — |
 | SET-125 | (pending) | not started | — |
 | SET-126 | (pending) | not started | — |
@@ -59,9 +59,19 @@ Residual old-vocab (intentionally deferred, classified):
 - SET-124/transforms (needs-judgment): `packages/transforms` `lowering` field (`bidirectional`/`to-codex`/`none`), `render.ts` "faithful Codex lowering", `setup.ts` import "lowering", `adopt.ts` `match.lowering`.
 - SET-125 (docs/guidance + feature framing): `loweringOwner` field (28 entries) + `feature-registry` `id`/`title`/`summary`/notes, `docs/**` and `.skillset/**`, ADR drafts, "version lowering"/"dependency lowering"/"instruction lowering" evidence notes.
 
+### SET-123 — Cut config to compile.unsupportedDestination
+
+- Config key `compile.unsupported` → `compile.unsupportedDestination`. No legacy alias (parser is strict on unknown `compile` keys, so the old key now fails — clean cutover, no blocker found).
+- `CompileConfig.unsupported` field → `unsupportedDestination`; default config + parser return + `build.ts` readers (3×) updated.
+- Policy type `CompileUnsupportedPolicy` → `UnsupportedDestinationPolicy` (`types.ts`); `COMPILE_UNSUPPORTED_POLICIES` → `UNSUPPORTED_DESTINATION_POLICIES`; `readCompileUnsupportedPolicy` → `readUnsupportedDestinationPolicy` (reads `record.unsupportedDestination`). No `index.ts` export existed.
+- Policy error message: "lowering policy blocked N outcome(s) (compile.unsupported: …)" → "unsupported destination policy blocked N render result(s) (compile.unsupportedDestination: …)".
+- Tests: `skillset.test.ts` config tests (YAML keys, matchObjects, names) + policy-message assertions in `render-result-policy.test.ts`/`render-result-build.test.ts`. No YAML config files set the key (default "error"), so no fixture files needed changing.
+- `skillset:build` wrote 0 files — config policy is not lock-serialized, so no generated drift.
+- Boundary: `SkillsetRenderResultPolicy` annotation values (`unsupported:error`, `scope:excluded`, …) left unchanged (per-result annotations, not the config key). Docs (`docs/layout.md`, `docs/target-surfaces.md`) and `.skillset/**` guidance still mention `compile.unsupported` — owned by SET-125.
+
 ## Execution Log (continued)
 
-- Pending executor updates for SET-123..126.
+- Pending executor updates for SET-124..126.
 
 ## Tracker Mutations
 
@@ -79,9 +89,15 @@ Residual old-vocab (intentionally deferred, classified):
 - `git diff --check` — clean.
 - Note: bare `bun test` (whole-tree) reports ~145 failures from gitignored external clones under `fixtures/external/repos/`; the repo gate is the scoped `bun run test`. Pre-existing `await ... .rejects` (TS 80007) editor hints exist repo-wide; `tsc` gate is clean. `bun run check` (full aggregate) reserved for final handoff.
 
+### SET-123 (all green)
+
+- `bun run typecheck` clean; `bun run test` 483 pass / 0 fail; `bun run skillset:build` wrote 0 files; `bun run skillset:check` no drift; `bun run skillset:lint` clean; `git diff --check` clean. Residual scan: no `compile.unsupported`/`CompileUnsupportedPolicy` in active code (docs/.skillset deferred to SET-125).
+
 ## Local Review Log
 
-- Pending executor updates.
+- SET-122 mechanical-rename reviewer: **5/5**. No P0/P1/P2. One P3 (index.ts re-export `type` block not re-alphabetized after token swap) — fixed and amended into the SET-122 commit. Verified behavior preservation, no missed active renames, boundaries respected, cross-refs resolve.
+- SET-123 config/schema reviewer: **5/5**. No findings. Verified complete cutover (no residual `compile.unsupported`/`CompileUnsupportedPolicy`), old key now genuinely rejected by the strict allowlist (no alias), behavior preserved (default "error", reserved-policy path), tests still hit their named validation paths.
+
 - Required reviewer lanes:
   - mechanical rename reviewer;
   - config/schema reviewer;

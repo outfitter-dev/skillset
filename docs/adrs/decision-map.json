@@ -89,7 +89,7 @@
       "depends_on": ["0"],
       "inbound": [
         {
-          "context": "- [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - accepted `compile.targets` and `compile.unsupported` direction.",
+          "context": "- [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - accepted `compile.targets` and `compile.unsupportedDestination` direction.",
           "from": "0000",
           "fromPath": "docs/adrs/0000-source-first-loadouts.md"
         },

@@ -203,7 +203,7 @@ Defaulted.
     build: "all",
     skillset: { metadata: false },
     targets: ["claude", "codex"],
-    unsupported: "error",
+    unsupportedDestination: "error",
   });
   expect(graph.root.targets.claude.options.projectRoot).toBe(".claude");
   expect(graph.root.targets.claude.options.userRoot).toBe("~/.claude");
@@ -3391,7 +3391,7 @@ skillset:
   );
 });
 
-test("compile.unsupported defaults to error and accepts explicit error", async () => {
+test("compile.unsupportedDestination defaults to error and accepts explicit error", async () => {
   const defaultRoot = await fixture({
     ".skillset/config.yaml": `
 skillset:
@@ -3408,7 +3408,7 @@ skillset:
 skillset:
   name: test-root
 compile:
-  unsupported: error
+  unsupportedDestination: error
 `,
     ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
@@ -3417,14 +3417,14 @@ skillset:
   });
 
   await expect(loadBuildGraph(defaultRoot)).resolves.toMatchObject({
-    root: { compile: { targets: ["claude", "codex"], unsupported: "error" } },
+    root: { compile: { targets: ["claude", "codex"], unsupportedDestination: "error" } },
   });
   await expect(loadBuildGraph(explicitRoot)).resolves.toMatchObject({
-    root: { compile: { targets: ["claude", "codex"], unsupported: "error" } },
+    root: { compile: { targets: ["claude", "codex"], unsupportedDestination: "error" } },
   });
 });
 
-test("compile.unsupported rejects malformed, unknown, and deferred policies", async () => {
+test("compile.unsupportedDestination rejects malformed, unknown, and deferred policies", async () => {
   const basePlugin = {
     ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
@@ -3447,7 +3447,7 @@ compile: true
 skillset:
   name: test-root
 compile:
-  unsupported: maybe
+  unsupportedDestination: maybe
 `,
     ...basePlugin,
   });
@@ -3459,7 +3459,7 @@ compile:
 skillset:
   name: test-root
 compile:
-  unsupported: warn
+  unsupportedDestination: warn
 `,
     ...basePlugin,
   });

@@ -102,7 +102,7 @@ export async function buildSkillsetResult(
     mapOutputPath: outPath,
     scopes: options.scopes,
   });
-  enforceRenderResultPolicy(renderResults, graph.root.compile.unsupported);
+  enforceRenderResultPolicy(renderResults, graph.root.compile.unsupportedDestination);
   const renderedWithoutOutcomeMetadata = mirroredRenderedFiles(scopedRendered, outPath);
   const instructionDiagnostics = diagnoseLargeInstructionFiles(renderedWithoutOutcomeMetadata);
   diagnostics.push(...instructionDiagnostics);
@@ -173,7 +173,7 @@ export async function diffSkillsetResult(
     mapOutputPath: outPath,
     scopes: options.scopes,
   });
-  enforceRenderResultPolicy(renderResults, graph.root.compile.unsupported);
+  enforceRenderResultPolicy(renderResults, graph.root.compile.unsupportedDestination);
   const renderedWithoutOutcomeMetadata = mirroredRenderedFiles(scopedRendered, outPath);
   const instructionDiagnostics = diagnoseLargeInstructionFiles(renderedWithoutOutcomeMetadata);
   diagnostics.push(...instructionDiagnostics);
@@ -262,7 +262,7 @@ export async function checkSkillsetResult(
     mapOutputPath: outPath,
     scopes: options.scopes,
   });
-  enforceRenderResultPolicy(renderResults, graph.root.compile.unsupported);
+  enforceRenderResultPolicy(renderResults, graph.root.compile.unsupportedDestination);
   const renderedWithoutOutcomeMetadata = mirroredRenderedFiles(scopedRendered, outPath);
   const instructionDiagnostics = diagnoseLargeInstructionFiles(renderedWithoutOutcomeMetadata);
   diagnostics.push(...instructionDiagnostics);
