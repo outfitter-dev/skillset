@@ -8,9 +8,9 @@ Claude plugins can include experimental monitor definitions under `monitors/`. S
 
 ## Authoring
 
-Place monitor source under `.skillset/plugins/<plugin>/monitors/`. The documented manifest pointer is emitted for `monitors/monitors.json`.
+Place monitor source under `.skillset/plugins/<plugin>/monitors/`. The documented manifest pointer is rendered for `monitors/monitors.json`.
 
-## Target Lowering
+## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
@@ -30,4 +30,4 @@ Monitor files participate in plugin output hashes and lock provenance as target-
 
 ## Tests and Fixtures
 
-Fixtures cover experimental manifest field declaration, target-native directory copying, post-generation JSON parsing for known JSON output, and no Codex lowering.
+Fixtures cover experimental manifest field declaration, target-native directory copying, post-generation JSON parsing for known JSON output, and no Codex rendering.

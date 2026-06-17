@@ -10,7 +10,7 @@ Claude plugin-root `settings.json` is a documented target-native component for e
 
 There is no v1 portable settings source and no `settings.source` feature key. Authors should keep live Claude and Codex settings outside generated output unless a future issue introduces an explicit review/suggestion flow.
 
-## Target Lowering
+## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
@@ -21,7 +21,7 @@ There is no v1 portable settings source and no `settings.source` feature key. Au
 
 - Treat accidental live settings mutation as out of scope for `skillset build`, `check`, `diff`, `init`, and `create`.
 - Keep settings suggestion output separate from generated plugin definitions until an ADR defines review, provenance, and activation boundaries.
-- Do not use settings as an implicit unsupported-lowering escape hatch.
+- Do not use settings as an implicit unsupported-destination escape hatch.
 
 ## Provenance
 

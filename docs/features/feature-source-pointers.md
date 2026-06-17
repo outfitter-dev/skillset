@@ -34,7 +34,7 @@ bin:
 | `hooks` | `hooks/hooks.json` | `hooks/hooks.json` | `target_native` / `implemented pass-through`, `planned` pointer adapter | Existing canonical path behavior continues. Plugin-root `hooks.json` and `hooks.source` are not supported. |
 | generic `components.*` | n/a | n/a | `unsupported` | Rejected v1 shape because ownership and target semantics become vague. |
 
-## Target Lowering
+## Target Rendering
 
 Feature pointers are resolved by the feature adapter that knows the target schema and output path. A pointer does not bypass validation, provenance, or unsupported-target checks. Conventional discovery is warning-free when it finds expected files, and disabled or unsupported features are visible through missing output, lock provenance, or fail-loud diagnostics.
 
@@ -49,7 +49,7 @@ Claude plugin-root `bin/` is a documented target-native component added to the B
 - Reject `mcp` sources that are not files and `bin` sources that are not directories.
 - Validate known structured files after preprocessing.
 - Report conventional discovery in list/explain/lock provenance so auto-enabled files do not feel magical.
-- Fail rather than silently skip when a feature cannot lower to an enabled target.
+- Fail rather than silently skip when a feature cannot render to an enabled target.
 
 ## Provenance
 

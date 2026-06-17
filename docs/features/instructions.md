@@ -10,7 +10,7 @@ Instructions are durable repo guidance authored under `.skillset/instructions/**
 
 Instruction Markdown may include `paths` frontmatter for Claude path scoping and top-level `claude` / `codex` target toggles. Bodies support preprocessing through `{{this.<field>}}`, instruction variables such as `{{skillset.repo_root}}`, and partials via `{{> shared:path.md}}`, `{{> plugin:path.md}}`, or a path relative to the source file. Set `skillset.preprocess: false` when literal braces should be preserved.
 
-## Target Lowering
+## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
@@ -24,7 +24,7 @@ Instruction Markdown may include `paths` frontmatter for Claude path scoping and
 - Reject unmanaged `AGENTS.md` collisions before writing.
 - Warn when a generated `AGENTS.md` exceeds Codex's default `project_doc_max_bytes`.
 - Reject unknown `skillset.*` variables, missing `this.*` fields, unsafe partial paths, and unsupported Codex symlink mode.
-- Treat instruction Markdown lowering to Codex `.rules` as lossy and unsupported.
+- Treat instruction Markdown rendering to Codex `.rules` as lossy and unsupported.
 
 ## Provenance
 

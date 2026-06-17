@@ -4,7 +4,7 @@ Feature id: `changes`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Changes record why source units changed. They are source-side evidence for status, history, changelog projection, and release planning. They are not generated target output and they are not package release state.
+Changes record why source units changed. They are source-side evidence for status, history, changelog rendering, and release planning. They are not generated target output and they are not package release state.
 
 ## Authoring
 
@@ -12,14 +12,14 @@ Pending entries live under `.skillset/changes/pending/` as Markdown files with Y
 
 Compact ids are generated once at scaffold time as 12 lower-case hex characters. CLI refs use `@<prefix>` with shortest-unambiguous resolution and a minimum 6-character prefix. Group ids are filtering and reporting aids; they do not imply release grouping.
 
-## Target Lowering
+## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
 | Source-unit inventory | n/a | n/a | `implemented` | `skillset change status` hashes supported source units with schema `skillset-source-unit-v2`. |
 | `skillset change status --since <ref>` | n/a | n/a | `implemented` | Read-only comparison against a git ref; generated-output drift is reported separately. |
 | `.skillset/changes/pending/*.md` | n/a | n/a | `implemented` | Created, listed, shown, edited, validated by `skillset change`, and consumed by `skillset release apply --yes`; not target output. |
-| `.skillset/changes/history.jsonl` | n/a | n/a | `implemented` | Append-only applied history is read by `skillset change history`, written by release apply, and used by changelog projections. |
+| `.skillset/changes/history.jsonl` | n/a | n/a | `implemented` | Append-only applied history is read by `skillset change history`, written by release apply, and used by changelog renderings. |
 | `.skillset/changes/baseline` records | n/a | n/a | `planned` | Explicit hash-schema baseline records, not changelog entries. |
 
 ## Diagnostics
@@ -38,7 +38,7 @@ Stacked branches may produce multiple pending entries for the same source unit. 
 
 Source-unit hashes cover root config, standalone skills, plugin configs, plugin skills, plugin features such as MCP/bin pointers, plugin target-native companion paths such as hooks and apps, project instructions, project agents, and target-native islands. Plugin aggregate hashes consume child content hashes before declared versions, so a child content edit with an unchanged version still changes the plugin aggregate identity.
 
-Change entries participate in source provenance because they explain current source changes, but they do not become target artifacts. Applied entries move into append-only history and feed generated changelog projections and release records. Entries marked `ignored: true` are preserved in history but excluded from release scopes and generated changelog projections; release apply still records their source hash in release state so default status does not keep reporting the ignored source edit.
+Change entries participate in source provenance because they explain current source changes, but they do not become target artifacts. Applied entries move into append-only history and feed generated changelog renderings and release records. Entries marked `ignored: true` are preserved in history but excluded from release scopes and generated changelog renderings; release apply still records their source hash in release state so default status does not keep reporting the ignored source edit.
 
 ## Tests and Fixtures
 

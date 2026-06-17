@@ -10,7 +10,7 @@ Plugin MCP definitions are feature-key source pointers because the feature owns 
 
 Conventional `.skillset/plugins/<plugin>/.mcp.json` is discovered automatically. `mcp: true` requires that conventional file. `mcp: false` disables conventional discovery. `mcp.source: repo:path/to/mcp.json` copies a repo-owned MCP file into the generated plugin bundle.
 
-## Target Lowering
+## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |

@@ -21,7 +21,7 @@ resources:
       to: templates/report.md
 ```
 
-## Target Lowering
+## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |

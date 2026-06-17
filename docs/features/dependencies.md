@@ -19,7 +19,7 @@ dependencies:
       marketplace: acme-shared
 ```
 
-## Target Lowering
+## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |

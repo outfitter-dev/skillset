@@ -18,7 +18,7 @@ Version audit complements source-hash provenance. It does not decide whether a s
 skillset release audit
 ```
 
-The command renders the current projection in memory, extracts expected versions, reads matching files on disk, and reports each locus. It exits nonzero only for concrete generated-output issues: `stale-generated`, `missing`, or `malformed`.
+The command builds the current rendering in memory, extracts expected versions, reads matching files on disk, and reports each locus. It exits nonzero only for concrete generated-output issues: `stale-generated`, `missing`, or `malformed`.
 
 ## Statuses
 

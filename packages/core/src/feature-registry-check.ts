@@ -128,9 +128,9 @@ async function checkOwners(
   await pushMissingLocalRef(issues, rootPath, {
     code: "missing-owner-ref",
     featureId: feature.id,
-    field: "loweringOwner",
+    field: "renderOwner",
     kind: "owner",
-    ref: feature.loweringOwner,
+    ref: feature.renderOwner,
   });
   await pushMissingLocalRef(issues, rootPath, {
     code: "missing-owner-ref",

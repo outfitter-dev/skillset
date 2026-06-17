@@ -31,7 +31,7 @@ describe("feature registry drift checks", () => {
         docs: ["docs/features/demo.md"],
         evidence: [],
         id: "demo",
-        loweringOwner: "src/demo.ts",
+        renderOwner: "src/demo.ts",
         validationOwner: "src/demo.ts",
       }),
     ]);
@@ -55,7 +55,7 @@ describe("feature registry drift checks", () => {
       feature({
         docs: ["docs/features/missing.md"],
         id: "demo",
-        loweringOwner: "src/demo.ts",
+        renderOwner: "src/demo.ts",
         validationOwner: "src/demo.ts",
       }),
     ]);
@@ -80,7 +80,7 @@ describe("feature registry drift checks", () => {
       feature({
         docs: ["docs/features/demo.md"],
         id: "demo",
-        loweringOwner: "src/demo.ts",
+        renderOwner: "src/demo.ts",
         validationOwner: "src/demo.ts",
       }),
     ]);
@@ -109,7 +109,7 @@ describe("feature registry drift checks", () => {
           "docs/features/demo.md#missing-heading",
         ],
         id: "demo",
-        loweringOwner: "src/demo.ts",
+        renderOwner: "src/demo.ts",
         validationOwner: "src/demo.ts",
       }),
     ]);
@@ -135,7 +135,7 @@ describe("feature registry drift checks", () => {
       feature({
         docs: ["../outside-registry-ref.txt"],
         id: "demo",
-        loweringOwner: "src/demo.ts",
+        renderOwner: "src/demo.ts",
         validationOwner: "src/demo.ts",
       }),
     ]);
@@ -163,7 +163,7 @@ describe("feature registry drift checks", () => {
           { kind: "test", ref: "tests/missing.test.ts" },
         ],
         id: "demo",
-        loweringOwner: "src/demo.ts",
+        renderOwner: "src/demo.ts",
         validationOwner: "src/demo.ts",
       }),
     ]);
@@ -190,7 +190,7 @@ describe("feature registry drift checks", () => {
           { kind: "external-docs", ref: "https://example.com/docs", verifiedAt: "2026-06-14" },
         ],
         id: "demo",
-        loweringOwner: "future",
+        renderOwner: "future",
         status: "planned",
         validationOwner: "future",
       }),
@@ -216,7 +216,7 @@ function feature(
     evidence,
     id: overrides.id,
     kind: overrides.kind ?? "source",
-    loweringOwner: overrides.loweringOwner ?? "src/demo.ts",
+    renderOwner: overrides.renderOwner ?? "src/demo.ts",
     sourceShape: overrides.sourceShape ?? ".skillset/demo",
     status: overrides.status ?? "implemented",
     summary: overrides.summary ?? "Demo feature.",

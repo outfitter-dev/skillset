@@ -22,7 +22,7 @@
       "evidence": [
         {
           "kind": "test",
-          "note": "SET-5 instruction lowering coverage",
+          "note": "SET-5 instruction rendering coverage",
           "ref": "apps/skillset/src/__tests__/contract.test.ts"
         }
       ],

@@ -29,11 +29,11 @@ Generated-output drift is the only mechanical problem: with `--fix`, `ci` rebuil
 
 Fork pull requests cannot receive pushes or comments with the default `GITHUB_TOKEN`, so the scaffold keeps them read-only; they still get the failing check and the job-summary report.
 
-## Target Lowering
+## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
-| `skillset ci` command | n/a | n/a | `implemented` | Workflow tooling, not a lowered source feature. |
+| `skillset ci` command | n/a | n/a | `implemented` | Workflow tooling, not a rendered source feature. |
 | `--include ci` workflow scaffold | n/a | n/a | `implemented` | Writes `.github/workflows/skillset-ci.yml` once; user-owned afterwards. |
 
 ## Diagnostics

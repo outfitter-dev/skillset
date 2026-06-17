@@ -10,7 +10,7 @@ Claude plugins can include slash-command definitions under `commands/`. Skillset
 
 Place Claude command files under `.skillset/plugins/<plugin>/commands/`. The directory is copied only when Claude plugin output for that plugin is active.
 
-## Target Lowering
+## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
@@ -28,4 +28,4 @@ Command files participate in plugin output hashes and lock provenance as target-
 
 ## Tests and Fixtures
 
-Fixtures cover Claude plugin companion copying, manifest field declaration, provider-specific output separation, and no Codex lowering for Claude-only companion paths.
+Fixtures cover Claude plugin companion copying, manifest field declaration, provider-specific output separation, and no Codex rendering for Claude-only companion paths.

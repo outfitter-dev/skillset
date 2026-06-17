@@ -4,18 +4,18 @@ Feature id: `releases`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Releases turn accepted source changes into stable artifact versions, generated changelog projections, append-only release records, lock updates, and target output updates. Release state is optional and source-controlled; it is separate from source content and ordinary generated metadata.
+Releases turn accepted source changes into stable artifact versions, generated changelog renderings, append-only release records, lock updates, and target output updates. Release state is optional and source-controlled; it is separate from source content and ordinary generated metadata.
 
 ## Authoring
 
-Release state lives with change state under `.skillset/changes/state.json`. Applied change history appends to `.skillset/changes/history.jsonl`, and release records append to `.skillset/changes/releases.jsonl`. Entity-local `CHANGELOG.md` files are generated tracked projections placed beside source entities like plugins and skills. Pending changes are preview/status data, not committed pending sections in tracked changelogs.
+Release state lives with change state under `.skillset/changes/state.json`. Applied change history appends to `.skillset/changes/history.jsonl`, and release records append to `.skillset/changes/releases.jsonl`. Entity-local `CHANGELOG.md` files are generated tracked renderings placed beside source entities like plugins and skills. Pending changes are preview/status data, not committed pending sections in tracked changelogs.
 
-## Target Lowering
+## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
 | Release state | plugin `version`, skill `metadata.version` | plugin `version`, skill `metadata.version` | `implemented` | Release state wins over inline source versions; inline versions remain the import/read fallback. |
-| Entity `CHANGELOG.md` projection | generated Markdown | generated Markdown | `implemented` | Generated frontmatter marks Skillset ownership. Ignored history entries are excluded from changelog projections. |
+| Entity `CHANGELOG.md` rendering | generated Markdown | generated Markdown | `implemented` | Generated frontmatter marks Skillset ownership. Ignored history entries are excluded from changelog renderings. |
 | Pending entries | n/a | n/a | `implemented` | `release plan` previews entries without writing; `release apply --yes` consumes them into append-only history. |
 
 ## Diagnostics
@@ -30,7 +30,7 @@ Package releases for the public `skillset` npm package are documented separately
 
 ## Tests and Fixtures
 
-Fixtures cover first release state creation, read-only plan and dry-run behavior, pending entry consumption, append-only history and release records, generated changelog refresh, generated target version updates, release-state baseline behavior before and after commits, scoped release rejection, plugin aggregate bumps from child skill entries, plugin feature changelog projection, malformed release-state validation, released deletion tombstones, `bump: none`, and `ignored: true` audit entries.
+Fixtures cover first release state creation, read-only plan and dry-run behavior, pending entry consumption, append-only history and release records, generated changelog refresh, generated target version updates, release-state baseline behavior before and after commits, scoped release rejection, plugin aggregate bumps from child skill entries, plugin feature changelog rendering, malformed release-state validation, released deletion tombstones, `bump: none`, and `ignored: true` audit entries.
 
 ## Evidence
 

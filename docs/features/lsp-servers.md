@@ -10,7 +10,7 @@ Claude plugins can include an `.lsp.json` file that declares language server con
 
 Place `.skillset/plugins/<plugin>/.lsp.json` in the plugin source root. The file is copied only when Claude plugin output for that plugin is active.
 
-## Target Lowering
+## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
@@ -29,4 +29,4 @@ The generated file participates in plugin output hashes and lock provenance as a
 
 ## Tests and Fixtures
 
-Fixtures cover Claude manifest field declaration, target-native file copying, post-generation JSON parsing, and no Codex lowering.
+Fixtures cover Claude manifest field declaration, target-native file copying, post-generation JSON parsing, and no Codex rendering.

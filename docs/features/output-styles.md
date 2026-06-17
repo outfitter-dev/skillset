@@ -10,7 +10,7 @@ Claude plugins can include output styles under `output-styles/`. Skillset treats
 
 Place output style files under `.skillset/plugins/<plugin>/output-styles/`. The directory is copied only when Claude plugin output for that plugin is active.
 
-## Target Lowering
+## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
@@ -28,4 +28,4 @@ Output style files participate in plugin output hashes and lock provenance as ta
 
 ## Tests and Fixtures
 
-Fixtures cover Claude manifest field declaration, target-native directory copying, provider-specific output separation, and no Codex lowering.
+Fixtures cover Claude manifest field declaration, target-native directory copying, provider-specific output separation, and no Codex rendering.
