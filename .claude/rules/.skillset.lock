@@ -18,6 +18,7 @@
   "outputRoot": ".claude/rules",
   "renderResults": [
     {
+      "destination": "instruction",
       "evidence": [
         {
           "kind": "test",

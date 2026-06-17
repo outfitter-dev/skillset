@@ -53,6 +53,7 @@
   "outputRoot": ".claude/skills",
   "renderResults": [
     {
+      "destination": "skill",
       "evidence": [
         {
           "kind": "test",
@@ -118,6 +119,7 @@
       "target": "claude"
     },
     {
+      "destination": "skill",
       "evidence": [
         {
           "kind": "test",
@@ -139,6 +141,7 @@
       "target": "claude"
     },
     {
+      "destination": "skill",
       "evidence": [
         {
           "kind": "test",

@@ -19,6 +19,7 @@ describe("render results", () => {
         { kind: "test", ref: "b.test.ts" },
         { kind: "external-docs", ref: "https://example.com/docs", verifiedAt: "2026-06-12" },
       ],
+      destination: "instruction",
       featureId: "project-instructions",
       outputs: [
         { kind: "rule", path: ".claude/rules/b.md" },
@@ -37,6 +38,7 @@ describe("render results", () => {
   "sourcePath": ".skillset/instructions/root.md",
   "featureId": "project-instructions",
   "target": "codex",
+  "destination": "instruction",
   "status": "transformed",
   "policy": "default",
   "outputs": [

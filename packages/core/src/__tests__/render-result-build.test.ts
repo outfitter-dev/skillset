@@ -539,6 +539,7 @@ Review plugin output.
 `,
     });
     await expectUnsupportedOutcome(agentRoot, {
+      destination: "agents",
       featureId: "plugin-agents",
       reason: "Codex plugin documentation does not include a plugin agents component.",
       sourceUnit: "plugin.alpha.feature:agents",
@@ -552,10 +553,39 @@ echo alpha
 `,
     });
     await expectUnsupportedOutcome(binRoot, {
+      destination: "bin",
       featureId: "plugin-bin",
       reason: "Codex plugins do not expose a documented plugin-local bin contract.",
       sourceUnit: "plugin.alpha.feature:bin",
     });
+  });
+
+  it("separates target (provider) from destination (concrete output scope)", async () => {
+    const root = await fixture(OUTCOME_FIXTURE);
+    const preview = await diffSkillsetResult(root);
+
+    // Multi-destination under one target: a single source skill renders both the
+    // skill artifact and its tool-intent frontmatter scope under claude.
+    const claudeSkillDestinations = preview.renderResults
+      .filter(
+        (result) =>
+          result.sourceUnit === "plugin.alpha.skill:plugin-skill" && result.target === "claude"
+      )
+      .map((result) => result.destination)
+      .sort();
+    expect(claudeSkillDestinations).toContain("skill");
+    expect(claudeSkillDestinations).toContain("skill-frontmatter");
+
+    // The same skill under codex carries a distinct tool-intent destination,
+    // proving destination varies by scope while target stays the provider.
+    expect(preview.renderResults).toContainEqual(
+      expect.objectContaining({
+        destination: "skill-tools",
+        featureId: "tool-intent",
+        sourceUnit: "plugin.alpha.skill:plugin-skill",
+        target: "codex",
+      })
+    );
   });
 });
 
@@ -594,7 +624,7 @@ async function readJson(path: string): Promise<Record<string, unknown>> {
 
 async function expectUnsupportedOutcome(
   root: string,
-  expected: Pick<SkillsetRenderResult, "featureId" | "sourceUnit"> & { readonly reason: string }
+  expected: Pick<SkillsetRenderResult, "destination" | "featureId" | "sourceUnit"> & { readonly reason: string }
 ): Promise<void> {
   await expect(buildSkillsetResult(root)).rejects.toThrow("unsupported destination policy blocked 1 render result");
   await expect(checkSkillsetResult(root)).rejects.toThrow("unsupported destination policy blocked 1 render result");
@@ -606,6 +636,7 @@ async function expectUnsupportedOutcome(
     const outcomes = (error as SkillsetRenderResultError).renderResults;
     expect(outcomes).toContainEqual(
       expect.objectContaining({
+        destination: expected.destination,
         featureId: expected.featureId,
         policy: "unsupported:error",
         reason: expected.reason,

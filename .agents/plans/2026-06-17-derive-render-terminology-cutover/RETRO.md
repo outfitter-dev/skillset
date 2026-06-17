@@ -35,8 +35,8 @@
 | Issue | Branch | Status | PR |
 | --- | --- | --- | --- |
 | SET-122 | `set-122-mechanical-rename-to-render-result-vocabulary` | Implemented + reviewed (5/5) + verified | pending (batch at end) |
-| SET-123 | `set-123-cut-config-over-to-compileunsupporteddestination` | Implemented + verified locally; Linear In Progress | pending (batch at end) |
-| SET-124 | (pending) | not started | — |
+| SET-123 | `set-123-cut-config-over-to-compileunsupporteddestination` | Implemented + reviewed (5/5) + verified | pending (batch at end) |
+| SET-124 | `set-124-separate-target-and-destination-in-render-result-data` | Implemented + verified locally; Linear In Progress | pending (batch at end) |
 | SET-125 | (pending) | not started | — |
 | SET-126 | (pending) | not started | — |
 
@@ -69,9 +69,17 @@ Residual old-vocab (intentionally deferred, classified):
 - `skillset:build` wrote 0 files — config policy is not lock-serialized, so no generated drift.
 - Boundary: `SkillsetRenderResultPolicy` annotation values (`unsupported:error`, `scope:excluded`, …) left unchanged (per-result annotations, not the config key). Docs (`docs/layout.md`, `docs/target-surfaces.md`) and `.skillset/**` guidance still mention `compile.unsupported` — owned by SET-125.
 
+### SET-124 — Separate target and destination in render-result data
+
+- Finding: `target` was NOT overloaded (already strictly the provider); `destination` was genuinely missing. Added optional `destination?: string` to `SkillsetRenderResult` = concrete output artifact/scope under the provider `target`.
+- Destination taxonomy (collector): `skill` (standalone/plugin skill), `plugin-manifest`, `instruction`, `agent`, `target-native-island`, `changelog`, `plugin-<feature>` (mcp/bin/…), companion `featureKey`, `skill-frontmatter` (claude tool-intent), `skill-tools` (codex tool-intent), `plugin-manifest` (dependencies), `plugin-agents`/`plugin-bin` (unsupported). Distinct from `featureId` (capability): destination collapses skill features into `skill` and splits tool-intent by output scope.
+- Threaded through: `normalizeRenderResult` (ordered after `target`), `assertRenderResult` (non-empty when present), collector + lock sort keys (deterministic), `.skillset.lock` serialization, `skillset explain`/`doctor` JSON, and explain/doctor text (`featureId -> destination`).
+- Tests: multi-destination (one source skill → `skill` + `skill-frontmatter` under one target), unsupported-destination (`plugin-agents`/`plugin-bin` carry destination), serialize round-trip (field order), and explain/doctor JSON expose `destination`.
+- Behavior preserved: existing target adapter behavior unchanged; only the result shape is richer. Regenerated 6 locks (now carry `destination`).
+
 ## Execution Log (continued)
 
-- Pending executor updates for SET-124..126.
+- Pending executor updates for SET-125..126.
 
 ## Tracker Mutations
 
@@ -93,10 +101,15 @@ Residual old-vocab (intentionally deferred, classified):
 
 - `bun run typecheck` clean; `bun run test` 483 pass / 0 fail; `bun run skillset:build` wrote 0 files; `bun run skillset:check` no drift; `bun run skillset:lint` clean; `git diff --check` clean. Residual scan: no `compile.unsupported`/`CompileUnsupportedPolicy` in active code (docs/.skillset deferred to SET-125).
 
+### SET-124 (all green)
+
+- `bun run typecheck` clean; `bun run test` 484 pass / 0 fail (added multi-destination test); `bun run skillset:build` regenerated 6 locks (destination added) then 0 on re-run; `bun run skillset:check` no drift; `bun run skillset:lint` clean; `git diff --check` clean.
+
 ## Local Review Log
 
 - SET-122 mechanical-rename reviewer: **5/5**. No P0/P1/P2. One P3 (index.ts re-export `type` block not re-alphabetized after token swap) — fixed and amended into the SET-122 commit. Verified behavior preservation, no missed active renames, boundaries respected, cross-refs resolve.
 - SET-123 config/schema reviewer: **5/5**. No findings. Verified complete cutover (no residual `compile.unsupported`/`CompileUnsupportedPolicy`), old key now genuinely rejected by the strict allowlist (no alias), behavior preserved (default "error", reserved-policy path), tests still hit their named validation paths.
+- SET-124 data/model reviewer: **5/5**. P2 (plugin-feature destinations `plugin-mcp`/`plugin-bin` duplicated featureId, and companion used bare `featureKey` while plugin-features used `plugin-` prefix) — FIXED: all plugin-feature/companion/unsupported destinations now bare scope names (`mcp`, `bin`, `agents`, …), consistent across producers and never just mirroring featureId. P3 (import tool-intent + setup island-skip lacked destination) — FIXED: added `skill-frontmatter` / `target-native-island`. Verified target stays strictly the provider, determinism/lock-stability preserved, behavior unchanged.
 
 - Required reviewer lanes:
   - mechanical rename reviewer;

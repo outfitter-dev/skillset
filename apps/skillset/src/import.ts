@@ -283,6 +283,7 @@ function importRenderResults(args: {
   const sourcePath = importSourcePath(args.rootPath, args.targetPath, args.kind);
   return [
     defineRenderResult({
+      destination: "skill-frontmatter",
       diagnostics: [
         {
           code: "import-preserved-target-native-frontmatter",
