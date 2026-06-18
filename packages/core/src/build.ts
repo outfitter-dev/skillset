@@ -454,8 +454,8 @@ function renderResultsForLock(
     })
     .sort((left, right) =>
       compareStrings(
-        `${left.sourceUnit}\0${left.target ?? ""}\0${left.featureId}\0${left.status}\0${left.sourcePath ?? ""}`,
-        `${right.sourceUnit}\0${right.target ?? ""}\0${right.featureId}\0${right.status}\0${right.sourcePath ?? ""}`
+        `${left.sourceUnit}\0${left.target ?? ""}\0${left.featureId}\0${left.destination ?? ""}\0${left.status}\0${left.sourcePath ?? ""}`,
+        `${right.sourceUnit}\0${right.target ?? ""}\0${right.featureId}\0${right.destination ?? ""}\0${right.status}\0${right.sourcePath ?? ""}`
       )
     );
 }

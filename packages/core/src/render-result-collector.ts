@@ -85,8 +85,8 @@ export function collectRenderResults(
 
   return outcomes.sort((left, right) =>
     compareStrings(
-      `${left.sourceUnit}\0${left.target ?? ""}\0${left.featureId}\0${left.status}\0${left.sourcePath ?? ""}`,
-      `${right.sourceUnit}\0${right.target ?? ""}\0${right.featureId}\0${right.status}\0${right.sourcePath ?? ""}`
+      `${left.sourceUnit}\0${left.target ?? ""}\0${left.featureId}\0${left.destination ?? ""}\0${left.status}\0${left.sourcePath ?? ""}`,
+      `${right.sourceUnit}\0${right.target ?? ""}\0${right.featureId}\0${right.destination ?? ""}\0${right.status}\0${right.sourcePath ?? ""}`
     )
   );
 }
@@ -152,6 +152,7 @@ function outcomeForLockItem(
   const evidence = evidenceFor(featureId, target);
 
   return defineRenderResult({
+    destination: destinationForLockItem(item),
     ...(evidence === undefined ? {} : { evidence }),
     featureId,
     ...(isIncluded ? { outputs: outputPaths.map((path) => ({ kind: item.kind, path: mapOutputPath(path) })) } : {}),
@@ -178,6 +179,7 @@ function outcomeForCompanionFile(
     : normalizePath(relative(graph.rootPath, join(plugin.path, companion.sourceRelativePath)));
   const evidence = evidenceFor(companion.featureId, companion.target);
   return defineRenderResult({
+    destination: companion.featureKey,
     ...(evidence === undefined ? {} : { evidence }),
     featureId: companion.featureId,
     ...(isIncluded ? { outputs: [{ kind: "companion", path: mapOutputPath(file.path) }] } : {}),
@@ -203,6 +205,7 @@ function featureOutcomesForLockItem(
   if (item.kind === "plugin" && item.dependencies !== undefined && item.dependencies.length > 0) {
     outcomes.push(
       featureOutcome({
+        destination: "plugin-manifest",
         featureId: "dependencies",
         isIncluded: outputPaths.some((path) => includedPaths.has(path)),
         mapOutputPath,
@@ -223,6 +226,7 @@ function featureOutcomesForLockItem(
   if (claudeToolIntentOutputPaths.length > 0) {
     outcomes.push(
       featureOutcome({
+        destination: "skill-frontmatter",
         featureId: "tool-intent",
         isIncluded: claudeToolIntentOutputPaths.some((path) => includedPaths.has(path)),
         mapOutputPath,
@@ -240,6 +244,7 @@ function featureOutcomesForLockItem(
   if (toolIntentOutputPaths.length > 0) {
     outcomes.push(
       featureOutcome({
+        destination: "skill-tools",
         featureId: "tool-intent",
         isIncluded: toolIntentOutputPaths.some((path) => includedPaths.has(path)),
         mapOutputPath,
@@ -274,6 +279,7 @@ function sourceSkillForLockItem(graph: BuildGraph, item: RenderedLockItem): Sour
 }
 
 function featureOutcome(args: {
+  readonly destination: string;
   readonly featureId: string;
   readonly isIncluded: boolean;
   readonly mapOutputPath: OutputPathMapper;
@@ -289,6 +295,7 @@ function featureOutcome(args: {
   const reason = args.isIncluded ? reasonForStatus(args.featureId, args.target, status) : "excluded by build scope";
 
   return defineRenderResult({
+    destination: args.destination,
     ...(evidence === undefined ? {} : { evidence }),
     featureId: args.featureId,
     ...(args.isIncluded
@@ -319,6 +326,7 @@ function unsupportedPluginFeatureOutcomes(
       const evidence = evidenceFor(featureId, "codex");
       outcomes.push(
         defineRenderResult({
+          destination: "bin",
           ...(evidence === undefined ? {} : { evidence }),
           featureId,
           policy: "unsupported:error",
@@ -337,6 +345,7 @@ function unsupportedPluginFeatureOutcomes(
     const evidence = evidenceFor(featureId, "codex");
     outcomes.push(
       defineRenderResult({
+        destination: "agents",
         ...(evidence === undefined ? {} : { evidence }),
         featureId,
         policy: "unsupported:error",
@@ -387,6 +396,28 @@ function featureIdForLockItem(item: RenderedLockItem): string {
   if (item.kind === "changelog") return "releases";
   if (item.kind === "plugin-feature" && item.feature === "mcp") return "plugin-mcp";
   if (item.kind === "plugin-feature" && item.feature === "bin") return "plugin-bin";
+  return item.feature ?? item.kind;
+}
+
+/**
+ * Concrete output artifact/scope (the `destination`) a lock item renders to,
+ * under its provider `target`. Collapses the skill features into the single
+ * `skill` artifact and names manifests/instructions/agents/islands explicitly,
+ * so `destination` describes where output lands rather than which capability
+ * produced it (`featureId`).
+ */
+function destinationForLockItem(item: RenderedLockItem): string {
+  if (item.kind === "standalone-skill" || item.kind === "plugin-skill") return "skill";
+  if (item.kind === "plugin") return "plugin-manifest";
+  if (item.kind === "rule") return "instruction";
+  if (item.kind === "project-agent") return "agent";
+  if (item.kind === "island") return "target-native-island";
+  if (item.kind === "changelog") return "changelog";
+  // Plugin feature artifacts use the bare scope name (e.g. `mcp`, `bin`), the
+  // same convention companion files use via their featureKey, so a given
+  // destination is named identically across producers and never just mirrors
+  // the `plugin-`-prefixed featureId.
+  if (item.kind === "plugin-feature" && item.feature !== undefined) return item.feature;
   return item.feature ?? item.kind;
 }
 

@@ -949,6 +949,7 @@ function formatCountSummary(counts: Readonly<Record<string, number>>): string {
 }
 
 function printRenderResult(outcome: {
+  readonly destination?: string;
   readonly diagnostics?: readonly { readonly code: string; readonly path?: string }[];
   readonly featureId: string;
   readonly outputs?: readonly { readonly path: string }[];
@@ -959,9 +960,10 @@ function printRenderResult(outcome: {
   readonly target?: string;
 }): void {
   const target = outcome.target ?? "workspace";
+  const destination = outcome.destination === undefined ? "" : ` -> ${outcome.destination}`;
   const policy = outcome.policy === undefined ? "" : ` policy: ${outcome.policy}`;
   const reason = outcome.reason === undefined ? "" : ` reason: ${outcome.reason}`;
-  console.log(`  render [${target}] ${outcome.sourceUnit}: ${outcome.featureId} ${outcome.status}${policy}${reason}`);
+  console.log(`  render [${target}] ${outcome.sourceUnit}: ${outcome.featureId}${destination} ${outcome.status}${policy}${reason}`);
   if (outcome.outputs !== undefined && outcome.outputs.length > 0) {
     console.log(`    outputs: ${outcome.outputs.map((output) => output.path).join(", ")}`);
   }

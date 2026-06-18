@@ -372,6 +372,7 @@ function surveySkipOutcome(args: {
   readonly target: TargetName;
 }): SkillsetRenderResult {
   return defineRenderResult({
+    destination: "target-native-island",
     diagnostics: [
       {
         code: "adoption-survey-skip",

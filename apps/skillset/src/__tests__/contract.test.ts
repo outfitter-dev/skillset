@@ -5437,7 +5437,7 @@ Audit body.
     root
   );
   expect(explained.exitCode).toBe(0);
-  expect(explained.stdout).toContain("render [codex] plugin.audit.skill:audit-skill: plugin-skills rendered");
+  expect(explained.stdout).toContain("render [codex] plugin.audit.skill:audit-skill: plugin-skills -> skill rendered");
   expect(explained.stdout).not.toContain("render [claude] plugin.audit.skill:audit-skill");
 
   const explainedJson = await runSkillsetCli(
@@ -5449,10 +5449,11 @@ Audit body.
   );
   expect(explainedJson.exitCode).toBe(0);
   const explainReport = JSON.parse(explainedJson.stdout) as {
-    renderResults: readonly { featureId: string; status: string; target?: string }[];
+    renderResults: readonly { destination?: string; featureId: string; status: string; target?: string }[];
   };
   expect(explainReport.renderResults).toContainEqual(
     expect.objectContaining({
+      destination: "plugin-manifest",
       featureId: "dependencies",
       status: "degraded",
       target: "codex",
@@ -5461,18 +5462,19 @@ Audit body.
 
   const doctor = await runSkillsetCli("doctor", "--root", root);
   expect(doctor.exitCode).toBe(0);
-  expect(doctor.stdout).toContain("render [codex] plugin.audit.feature:dependencies: dependencies degraded");
+  expect(doctor.stdout).toContain("render [codex] plugin.audit.feature:dependencies: dependencies -> plugin-manifest degraded");
   expect(doctor.stdout).toContain("doctor found 1 render result advisory");
 
   const doctorJson = await runSkillsetCli("doctor", "--root", root, "--json");
   expect(doctorJson.exitCode).toBe(0);
   const doctorReport = JSON.parse(doctorJson.stdout) as {
-    renderResults: readonly { featureId: string; status: string; target?: string }[];
-    notableRenderResults: readonly { featureId: string; status: string; target?: string }[];
+    renderResults: readonly { destination?: string; featureId: string; status: string; target?: string }[];
+    notableRenderResults: readonly { destination?: string; featureId: string; status: string; target?: string }[];
   };
   expect(doctorReport.renderResults.length).toBeGreaterThan(0);
   expect(doctorReport.notableRenderResults).toEqual([
     expect.objectContaining({
+      destination: "plugin-manifest",
       featureId: "dependencies",
       status: "degraded",
       target: "codex",

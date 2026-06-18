@@ -40,6 +40,14 @@ export interface SkillsetRenderResultDiagnosticRef {
 }
 
 export interface SkillsetRenderResult {
+  /**
+   * Concrete output or scope under {@link target} that this result describes,
+   * such as `skill`, `plugin-manifest`, `instruction`, `agent`,
+   * `target-native-island`, `skill-frontmatter`, or a plugin feature artifact.
+   * `target` is the provider/runtime adapter (`claude`/`codex`); `destination`
+   * is the concrete artifact rendered under it.
+   */
+  readonly destination?: string;
   readonly diagnostics?: readonly SkillsetRenderResultDiagnosticRef[];
   readonly evidence?: readonly SkillsetFeatureEvidence[];
   readonly featureId: string;
@@ -87,6 +95,7 @@ export function normalizeRenderResult(
     ...(outcome.sourcePath === undefined ? {} : { sourcePath: outcome.sourcePath }),
     featureId: outcome.featureId,
     ...(outcome.target === undefined ? {} : { target: outcome.target }),
+    ...(outcome.destination === undefined ? {} : { destination: outcome.destination }),
     status: outcome.status,
     ...(outcome.reason === undefined ? {} : { reason: outcome.reason }),
     ...(outcome.policy === undefined ? {} : { policy: outcome.policy }),
@@ -109,6 +118,9 @@ export function assertRenderResult(outcome: SkillsetRenderResult): void {
   }
   if (outcome.featureId.trim().length === 0) {
     throw new Error("skillset: render result featureId is required");
+  }
+  if (outcome.destination !== undefined && outcome.destination.trim().length === 0) {
+    throw new Error("skillset: render result destination must be non-empty when present");
   }
   if (!new Set<string>(RENDER_RESULT_STATUS_VALUES).has(outcome.status)) {
     throw new Error(`skillset: unknown render result status ${outcome.status}`);
