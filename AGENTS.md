@@ -9,7 +9,7 @@ The repo now self-hosts source under `.skillset/`:
 
 ## Doctrine
 
-Read [docs/tenets.md](docs/tenets.md) before changing the source contract, target lowering model, schema vocabulary, or generated-output promises. The tenets are the slow-moving design layer; implementation docs and generated agent guidance should align with them.
+Read [docs/tenets.md](docs/tenets.md) before changing the source contract, target rendering model, schema vocabulary, or generated-output promises. The tenets are the slow-moving design layer; implementation docs and generated agent guidance should align with them.
 
 ## Responsibilities
 
@@ -44,8 +44,11 @@ bun run ultracite:doctor
 bun run typecheck
 bun test
 bun run check
+bun run terminology:guard
 ./scripts/bootstrap.sh [repo|agent|codex|claude|doctor|teardown]
 ```
+
+`bun run terminology:guard` blocks retired compiler vocabulary (the render-result and `compile.unsupportedDestination` cutover) from drifting back into active source, docs, generated guidance, CLI output, schema names, and tests. It runs inside `bun run check`. When it fails, prefer fixing the source to use the derive/render/destination vocabulary; only extend the explicit allowlists in `scripts/terminology-guard.ts` for deliberate historical (ADR) or deferred-concept context.
 
 `bun run skillset:ci` is the same aggregate check GitHub Actions runs (`.github/workflows/ci.yml`): lint, change-entry coverage, and generated drift. Pass `--fix` to rebuild stale generated output mechanically. Content repos scaffold the equivalent workflow with `skillset init --include ci`.
 

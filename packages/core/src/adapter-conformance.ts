@@ -113,7 +113,7 @@ function checkConformanceCase(
       issue(
         item,
         "status-mismatch",
-        `${item.target} ${support.status} support lowered with ${observedStatuses.join(", ")}`,
+        `${item.target} ${support.status} support rendered with ${observedStatuses.join(", ")}`,
         { expected: expectedStatuses, observed: observedStatuses }
       ),
     ];
