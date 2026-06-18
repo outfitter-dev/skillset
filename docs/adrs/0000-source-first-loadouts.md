@@ -52,5 +52,5 @@ It does not decide how future agent, hook, resource, MCP, app, or install workfl
 
 ## References
 
-- [Tenets](../tenets.md) - governing design principles for source-first loadouts and target-native lowering.
-- [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - accepted `compile.targets` and `compile.unsupported` direction.
+- [Tenets](../tenets.md) - governing design principles for source-first loadouts and target-native rendering.
+- [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - accepted `compile.targets` and `compile.unsupportedDestination` direction.

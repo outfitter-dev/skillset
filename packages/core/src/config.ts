@@ -2,7 +2,7 @@ import type {
   CompileBuildMode,
   CompileConfig,
   CompileSkillsetConfig,
-  CompileUnsupportedPolicy,
+  UnsupportedDestinationPolicy,
   DistributionConfig,
   JsonRecord,
   JsonValue,
@@ -21,7 +21,7 @@ const DEFAULT_SURFACES = new Set<FeatureSurface>(["agents", "instructions", "plu
 const CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "changes", "claude", "codex", "defaults", "dependencies", "skillset", "supports"]);
 const ROOT_CONFIG_TOP_LEVEL_KEYS = new Set([...CONFIG_TOP_LEVEL_KEYS, "compile", "distributions", "tests"]);
 const COMPILE_BUILD_MODES = new Set<CompileBuildMode>(["updated", "all"]);
-const COMPILE_UNSUPPORTED_POLICIES = new Set<CompileUnsupportedPolicy>([
+const UNSUPPORTED_DESTINATION_POLICIES = new Set<UnsupportedDestinationPolicy>([
   "error",
   "warn",
   "skip",
@@ -72,20 +72,20 @@ export function readCompileConfig(record: JsonRecord, label: string): CompileCon
       build: "updated",
       skillset: { metadata: true },
       targets: [...TARGET_NAMES],
-      unsupported: "error",
+      unsupportedDestination: "error",
     };
   }
 
   for (const key of Object.keys(compile)) {
-    if (key !== "build" && key !== "skillset" && key !== "targets" && key !== "unsupported") {
+    if (key !== "build" && key !== "skillset" && key !== "targets" && key !== "unsupportedDestination") {
       throw new Error(`skillset: unsupported compile key ${key} in ${label}`);
     }
   }
 
-  const unsupported = readCompileUnsupportedPolicy(compile, `${label}.compile.unsupported`);
-  if (unsupported !== "error") {
+  const unsupportedDestination = readUnsupportedDestinationPolicy(compile, `${label}.compile.unsupportedDestination`);
+  if (unsupportedDestination !== "error") {
     throw new Error(
-      `skillset: ${label}.compile.unsupported ${unsupported} is reserved but not supported yet; ` +
+      `skillset: ${label}.compile.unsupportedDestination ${unsupportedDestination} is reserved but not supported yet; ` +
         "use error until warning, skip, or force provenance is implemented"
     );
   }
@@ -94,7 +94,7 @@ export function readCompileConfig(record: JsonRecord, label: string): CompileCon
     build: readCompileBuildMode(compile, `${label}.compile.build`),
     skillset: readCompileSkillsetConfig(compile, `${label}.compile.skillset`),
     targets: readCompileTargetNames(compile, `${label}.compile.targets`),
-    unsupported,
+    unsupportedDestination,
   };
 }
 
@@ -461,18 +461,18 @@ function readCompileSkillsetConfig(record: JsonRecord, label: string): CompileSk
   return { metadata };
 }
 
-function readCompileUnsupportedPolicy(record: JsonRecord, label: string): CompileUnsupportedPolicy {
-  const value = record.unsupported;
+function readUnsupportedDestinationPolicy(record: JsonRecord, label: string): UnsupportedDestinationPolicy {
+  const value = record.unsupportedDestination;
   if (value === undefined) return "error";
   if (typeof value !== "string") {
     throw new Error(`skillset: expected ${label} to be one of: error, warn, skip, force`);
   }
-  if (!COMPILE_UNSUPPORTED_POLICIES.has(value as CompileUnsupportedPolicy)) {
+  if (!UNSUPPORTED_DESTINATION_POLICIES.has(value as UnsupportedDestinationPolicy)) {
     throw new Error(
       `skillset: unsupported ${label} ${JSON.stringify(value)}; expected one of: error, warn, skip, force`
     );
   }
-  return value as CompileUnsupportedPolicy;
+  return value as UnsupportedDestinationPolicy;
 }
 
 function readDistributionObject(record: JsonRecord, label: string): DistributionConfig {

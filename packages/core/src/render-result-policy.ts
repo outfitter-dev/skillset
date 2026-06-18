@@ -1,9 +1,9 @@
 import { SkillsetRenderResultError, type SkillsetRenderResult } from "./render-result";
-import type { CompileUnsupportedPolicy } from "./types";
+import type { UnsupportedDestinationPolicy } from "./types";
 
 export function enforceRenderResultPolicy(
   renderResults: readonly SkillsetRenderResult[],
-  unsupportedPolicy: CompileUnsupportedPolicy
+  unsupportedPolicy: UnsupportedDestinationPolicy
 ): void {
   const blocked = renderResults.filter(isPolicyBlockingOutcome);
   if (blocked.length === 0) return;
@@ -20,11 +20,11 @@ function isPolicyBlockingOutcome(outcome: SkillsetRenderResult): boolean {
 
 function formatRenderResultPolicyError(
   outcomes: readonly SkillsetRenderResult[],
-  unsupportedPolicy: CompileUnsupportedPolicy
+  unsupportedPolicy: UnsupportedDestinationPolicy
 ): string {
-  const noun = outcomes.length === 1 ? "outcome" : "outcomes";
+  const noun = outcomes.length === 1 ? "render result" : "render results";
   return [
-    `skillset: lowering policy blocked ${outcomes.length} ${noun} (compile.unsupported: ${unsupportedPolicy})`,
+    `skillset: unsupported destination policy blocked ${outcomes.length} ${noun} (compile.unsupportedDestination: ${unsupportedPolicy})`,
     ...outcomes.map(formatBlockedOutcome),
   ].join("\n");
 }

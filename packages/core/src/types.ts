@@ -36,7 +36,7 @@ export interface ReleaseState {
   readonly scopes: Readonly<Record<string, ReleaseScopeState>>;
 }
 
-export type CompileUnsupportedPolicy = "error" | "warn" | "skip" | "force";
+export type UnsupportedDestinationPolicy = "error" | "warn" | "skip" | "force";
 export type CompileBuildMode = "updated" | "all";
 export type BuildScope = "repo" | "plugins" | "project" | "user";
 
@@ -48,7 +48,7 @@ export interface CompileConfig {
   readonly build: CompileBuildMode;
   readonly skillset: CompileSkillsetConfig;
   readonly targets: readonly TargetName[];
-  readonly unsupported: CompileUnsupportedPolicy;
+  readonly unsupportedDestination: UnsupportedDestinationPolicy;
 }
 
 export type DistributionDestinationKind = "git" | "local";

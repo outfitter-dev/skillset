@@ -15,7 +15,7 @@ depends_on: [0]
 
 Skillset originally let target provider blocks such as `claude` and `codex` sit at the top level of configuration. That worked for target-native options, but it made provider selection awkward. A source repo that wanted to compile both providers had to repeat boolean-ish target settings, and new source surfaces could look like silent failures if they were added without revisiting every target block.
 
-Provider selection is not a Claude or Codex semantic feature. It is a compile concern: which projections should Skillset build from the source graph. Unsupported lowering is also a compile concern: what happens when authored source cannot lower faithfully to an enabled provider.
+Provider selection is not a Claude or Codex semantic feature. It is a compile concern: which outputs should Skillset build from the source graph. Unsupported destination behavior is also a compile concern: what happens when authored source cannot render faithfully to an enabled provider.
 
 ## Decision
 
@@ -28,7 +28,7 @@ compile:
   targets:
     - claude
     - codex
-  unsupported: error
+  unsupportedDestination: error
 ```
 
 This means:
@@ -37,7 +37,7 @@ This means:
 - Omitting `compile.targets` defaults to every supported provider.
 - Bare top-level `targets:` is rejected so provider selection has one canonical home.
 - `claude` and `codex` blocks remain target-specific options, output settings, target-native escape hatches, and lower-level opt-outs.
-- `compile.unsupported` defaults to `error`.
+- `compile.unsupportedDestination` defaults to `error`.
 - `warn`, `skip`, and `force` are reserved until warnings, doctor output, and lock provenance can record exactly what happened.
 
 The test: if a setting decides whether Skillset builds a provider projection, it belongs under `compile`. If it configures the shape of a provider-native output, it belongs under that provider's block or a lower-level target override.
@@ -48,7 +48,7 @@ The test: if a setting decides whether Skillset builds a provider projection, it
 
 The common case gets smaller. Authors can say "compile these providers" once, then let source presence drive skills, plugins, instructions, hooks, and future surfaces.
 
-New source surfaces are less likely to disappear silently. If a provider is enabled and Skillset cannot lower authored source faithfully, the default policy fails before generated output can look synchronized.
+New source surfaces are less likely to disappear silently. If a provider is enabled and Skillset cannot render authored source faithfully, the default policy fails before generated output can look synchronized.
 
 Target-specific configuration stays honest. `claude` and `codex` remain the visible places for target-native differences instead of becoming a mix of provider selection and target semantics.
 
@@ -67,4 +67,4 @@ This ADR does not define a portable source model for agents, hook activation, in
 ## References
 
 - [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - baseline source-first compiler doctrine.
-- [Tenets](../tenets.md) - governing design principles for source-first loadouts and target-native lowering.
+- [Tenets](../tenets.md) - governing design principles for source-first loadouts and target-native rendering.

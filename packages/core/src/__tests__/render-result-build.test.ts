@@ -596,8 +596,8 @@ async function expectUnsupportedOutcome(
   root: string,
   expected: Pick<SkillsetRenderResult, "featureId" | "sourceUnit"> & { readonly reason: string }
 ): Promise<void> {
-  await expect(buildSkillsetResult(root)).rejects.toThrow("lowering policy blocked 1 outcome");
-  await expect(checkSkillsetResult(root)).rejects.toThrow("lowering policy blocked 1 outcome");
+  await expect(buildSkillsetResult(root)).rejects.toThrow("unsupported destination policy blocked 1 render result");
+  await expect(checkSkillsetResult(root)).rejects.toThrow("unsupported destination policy blocked 1 render result");
   try {
     await diffSkillsetResult(root);
     throw new Error("expected diffSkillsetResult to reject");
@@ -615,7 +615,7 @@ async function expectUnsupportedOutcome(
       })
     );
     const message = error instanceof Error ? error.message : String(error);
-    expect(message).toContain("lowering policy blocked 1 outcome");
+    expect(message).toContain("unsupported destination policy blocked 1 render result");
     expect(message).toContain(expected.featureId);
     expect(message).toContain("codex");
     expect(message).toContain("unsupported");
