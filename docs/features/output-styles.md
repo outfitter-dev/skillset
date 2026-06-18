@@ -8,18 +8,18 @@ Claude plugins can include output styles under `output-styles/`. Skillset treats
 
 ## Authoring
 
-Place output style files under `.skillset/plugins/<plugin>/output-styles/`. The directory is copied only when Claude plugin output for that plugin is active.
+Place output style files under `.skillset/src/plugins/<plugin>/output-styles/`. The directory is copied only when Claude plugin output for that plugin is active.
 
 ## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
-| `.skillset/plugins/<plugin>/output-styles/` | plugin root `output-styles/` plus manifest `outputStyles: "./output-styles/"` | n/a | `target_native` / `implemented` | Opaque pass-through; style semantics remain Claude-native. |
+| `.skillset/src/plugins/<plugin>/output-styles/` | plugin root `output-styles/` plus manifest `outputStyles: "./output-styles/"` | n/a | `target_native` / `implemented` | Opaque pass-through; style semantics remain Claude-native. |
 
 ## Diagnostics
 
 - Back up unmanaged generated-output collisions before replacing them in confirmed builds.
-- Reject divergent target-native islands that try to emit the same generated output-style path.
+- Reject divergent provider source that tries to emit the same generated output-style path.
 - Do not copy Claude output styles into Codex plugin output.
 
 ## Provenance

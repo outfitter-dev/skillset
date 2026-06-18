@@ -8,7 +8,7 @@ Render results are Skillset's per-build report for target truth. They record wha
 
 The feature registry answers a static question: "Can Claude or Codex generally represent this feature?" Render results answer a build question: "What did this build do with this source unit under this config, scope, and policy?"
 
-See [Lowering Outcomes and Loss Ledger](../adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md) for the ADR-level decision.
+See the render-results ADR, currently filed as [Lowering Outcomes and Loss Ledger](../adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md), for the historical decision.
 
 ## Current Boundary
 
@@ -21,7 +21,7 @@ The current core schema is `skillset-render-result@1`. Build, diff, and check re
 | `sourcePath` | Optional source path used for diagnostics and review. |
 | `featureId` | Feature registry id, such as `standalone-skills`, `dependencies`, `plugin-bin`, or `project-instructions`. |
 | `target` | Provider/runtime adapter (`claude` or `codex`) when the fact is target-specific. |
-| `destination` | Concrete output artifact/scope rendered under the `target`, such as `skill`, `plugin-manifest`, `instruction`, `agent`, `target-native-island`, `skill-frontmatter`, `skill-tools`, or a plugin feature artifact like `mcp`/`bin`/`agents`. `target` is the provider; `destination` is what is rendered under it. |
+| `destination` | Concrete output artifact/scope rendered under the `target`, such as `skill`, `plugin-manifest`, `instruction`, `agent`, `provider-source`, `skill-frontmatter`, `skill-tools`, or a plugin feature artifact like `mcp`/`bin`/`agents`. `target` is the provider; `destination` is what is rendered under it. |
 | `status` | Build render-result status. |
 | `reason` | Required for degraded, lossy, unsupported, and failed render results. |
 | `policy` | Why a render result was allowed, skipped, disabled, or routed through unsupported destination policy. |
@@ -36,8 +36,8 @@ The schema intentionally keeps source identity and target output identity togeth
 | Status | Meaning | Typical example |
 | --- | --- | --- |
 | `rendered` | Skillset rendered a faithful target-native representation. | A standalone skill rendered to target `SKILL.md`. |
-| `target_native` | Explicit target-owned source was passed through or copied only to its target. | A Codex-only target-native island or Claude-only plugin companion. |
-| `transformed` | Skillset changed the file shape while preserving the authored intent. | `.skillset/instructions` rendered to Claude rules and Codex `AGENTS.md`. |
+| `target_native` | Explicit target-owned source was passed through or copied only to its target. | A Codex-only provider source or Claude-only plugin companion. |
+| `transformed` | Skillset changed the file shape while preserving the authored intent. | `.skillset/src/rules` rendered to Claude rules and Codex `AGENTS.md`. |
 | `metadata_only` | Skillset preserved information for provenance or sidecars, but the target does not enforce it directly. | Release changelog rendering or tool-intent sidecar. |
 | `degraded` | Skillset rendered a useful fallback that is weaker than a native target feature. | Codex dependency awareness material when Claude has native plugin dependencies. |
 | `lossy` | A render would drop required meaning or behavior. | Future body/contract loss where no faithful target shape exists. |
@@ -68,8 +68,8 @@ The default posture is error. Build, diff, and check enforce `failed`, `lossy`, 
 | --- | --- | --- | --- |
 | Standalone skill | `rendered` | `rendered` | Both targets can receive a native `SKILL.md` rendering. |
 | Plugin skill | `rendered` | `rendered` | Plugin boundaries stay intact while target manifests differ. |
-| `.skillset/instructions` | `transformed` | `transformed` | Claude receives rules; Codex receives directory-local `AGENTS.md`. |
-| Target-native island | `target_native` for matching target | `target_native` for matching target | Non-matching targets do not receive output. |
+| `.skillset/src/rules` | `transformed` | `transformed` | Claude receives rules; Codex receives directory-local `AGENTS.md`. |
+| Provider source | `target_native` for matching target | `target_native` for matching target | Non-matching targets do not receive output. |
 | Plugin dependencies | `rendered` | `degraded` | Claude has a native dependency surface; Codex receives awareness material. |
 | Plugin `bin/` | `target_native` | `unsupported` | Claude receives the plugin-root bin feature output; Codex has no documented plugin-local bin contract. |
 | Plugin agents | `target_native` | `unsupported` | Claude can carry plugin agents; Codex plugin output cannot. |
@@ -107,7 +107,7 @@ Outcome provenance belongs in structured operation results, generated `.skillset
 
 ## Evidence
 
-- [Lowering Outcomes and Loss Ledger](../adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md) defines the decision and status semantics.
+- The render-results ADR, currently filed as [Lowering Outcomes and Loss Ledger](../adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md), defines the decision and status semantics.
 - [Deterministic Projection and Adapter Conformance](../adrs/drafts/20260613-deterministic-projection-and-adapter-conformance.md) defines how render results pair with the feature registry for conformance.
 - `packages/core/src/render-result.ts` defines the current schema, status values, policy values, and validation rules.
 - `packages/core/src/render-result-collector.ts` derives render results from generated locks, target-native companions, transformations, and unsupported plugin features.

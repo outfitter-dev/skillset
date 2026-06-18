@@ -8,7 +8,7 @@ Claude plugin `bin/` is a target-native executable component. Skillset supports 
 
 ## Authoring
 
-Use plugin-local `.skillset/plugins/<plugin>/bin/` for conventional discovery, `bin: true` to require that conventional directory, `bin: false` to disable it, or `bin.source: repo:path/to/bin` to point at a repo-owned directory.
+Use plugin-local `.skillset/src/plugins/<plugin>/bin/` for conventional discovery, `bin: true` to require that conventional directory, `bin: false` to disable it, or `bin.source: repo:path/to/bin` to point at a repo-owned directory.
 
 ## Target Rendering
 
@@ -23,7 +23,7 @@ Use plugin-local `.skillset/plugins/<plugin>/bin/` for conventional discovery, `
 - Reject `bin` sources that are not directories.
 - Reject `repo:` pointers that escape the repo, point into generated output roots, or reference missing paths.
 - Reject enabled Codex plugin output with `bin` because Codex plugins do not support that component in v1.
-- Reject divergent feature and island outputs to the same generated path.
+- Reject divergent feature and provider-source outputs to the same generated path.
 
 ## Provenance
 

@@ -20,7 +20,7 @@ skillset:
 claude: true
 codex: true
 `,
-  ".skillset/skills/repo-skill/SKILL.md": `
+  ".skillset/src/skills/repo-skill/SKILL.md": `
 ---
 name: repo-skill
 description: Repo skill.
@@ -28,7 +28,7 @@ description: Repo skill.
 
 Use the repo skill.
 `,
-  ".skillset/instructions/root.md": `
+  ".skillset/src/rules/root.md": `
 ---
 description: Root instructions.
 ---
@@ -45,7 +45,7 @@ skills:
 
 Review diffs carefully.
 `,
-  ".skillset/plugins/alpha/skillset.yaml": `
+  ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   description: Alpha plugin.
@@ -56,14 +56,14 @@ dependencies:
       marketplace: acme
 mcp: true
 `,
-  ".skillset/plugins/alpha/.mcp.json": `
+  ".skillset/src/plugins/alpha/.mcp.json": `
 {
   "mcpServers": {
     "alpha": { "command": "node" }
   }
 }
 `,
-  ".skillset/plugins/alpha/skills/plugin-skill/SKILL.md": `
+  ".skillset/src/plugins/alpha/skills/plugin-skill/SKILL.md": `
 ---
 name: plugin-skill
 description: Plugin skill.
@@ -100,7 +100,7 @@ describe("adapter conformance", () => {
   it("proves unsupported feature claims through structured render results", async () => {
     const root = await fixture({
       ...CONFORMANCE_FIXTURE,
-      ".skillset/plugins/alpha/bin/tool": `
+      ".skillset/src/plugins/alpha/bin/tool": `
 #!/usr/bin/env bash
 echo alpha
 `,

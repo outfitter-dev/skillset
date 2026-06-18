@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rename, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 
@@ -115,6 +115,16 @@ interface BaselineInventory {
 }
 
 const ROOT_CONFIG_FILE = "config.yaml";
+const SOURCE_ROOT_DIR = "src";
+const LEGACY_BASELINE_SOURCE_MOVES: readonly (readonly [string, string])[] = [
+  ["instructions", "src/rules"],
+  ["rules", "src/rules"],
+  ["skills", "src/skills"],
+  ["plugins", "src/plugins"],
+  ["shared", "src/shared"],
+  ["src/claude", "src/_claude"],
+  ["src/codex", "src/_codex"],
+];
 const PLUGIN_COMPANION_PATHS = [
   "README.md",
   "commands",
@@ -553,7 +563,7 @@ async function skillPreprocessDependencies(
     preprocessDependencies: dependencies,
     rootPath: graph.rootPath,
     sourcePath: skill.sourcePath,
-    sourceRoot: graph.sourceDir,
+    sourceRoot: join(graph.sourceDir, "src"),
     ...(plugin === undefined ? {} : { pluginPath: plugin.path }),
   };
   await preprocessText(skill.body, context);
@@ -579,7 +589,7 @@ async function rulePreprocessDependencies(
     preprocessDependencies: dependencies,
     rootPath: graph.rootPath,
     sourcePath: rule.sourcePath,
-    sourceRoot: graph.sourceDir,
+    sourceRoot: join(graph.sourceDir, "src"),
     variables: {
       "skillset.output_dir": ".",
       "skillset.repo_root": ".",
@@ -601,7 +611,7 @@ async function projectAgentPreprocessDependencies(
       preprocessDependencies: dependencies,
       rootPath: graph.rootPath,
       sourcePath: agent.sourcePath,
-      sourceRoot: graph.sourceDir,
+      sourceRoot: join(graph.sourceDir, "src"),
     });
   };
 
@@ -629,7 +639,7 @@ async function islandPreprocessDependencies(
       preprocessDependencies: dependencies,
       rootPath: graph.rootPath,
       sourcePath: island.sourcePath,
-      sourceRoot: graph.sourceDir,
+      sourceRoot: join(graph.sourceDir, "src"),
     });
   } else {
     await preprocessText(source, {
@@ -637,7 +647,7 @@ async function islandPreprocessDependencies(
       preprocessDependencies: dependencies,
       rootPath: graph.rootPath,
       sourcePath: island.sourcePath,
-      sourceRoot: graph.sourceDir,
+      sourceRoot: join(graph.sourceDir, "src"),
     });
   }
 
@@ -766,6 +776,7 @@ async function inventoryFromGitRef(
 ): Promise<BaselineInventory> {
   const snapshotPath = await snapshotGitRef(rootPath, ref);
   try {
+    await normalizeLegacyBaselineSnapshot(snapshotPath, options);
     const inventory = await collectSourceInventory(snapshotPath, options);
     const resolvedRef = await gitRevParse(rootPath, ref);
     return {
@@ -775,6 +786,35 @@ async function inventoryFromGitRef(
   } finally {
     await rm(snapshotPath, { force: true, recursive: true });
   }
+}
+
+async function normalizeLegacyBaselineSnapshot(snapshotPath: string, options: SkillsetOptions): Promise<void> {
+  const sourceDir = options.sourceDir ?? ".skillset";
+  const skillsetPath = join(snapshotPath, sourceDir);
+  if (!(await exists(skillsetPath))) return;
+
+  for (const [from, to] of LEGACY_BASELINE_SOURCE_MOVES) {
+    await moveLegacyBaselinePath(join(skillsetPath, from), join(skillsetPath, to));
+  }
+  await moveLegacyBaselinePluginProviderDirs(join(skillsetPath, SOURCE_ROOT_DIR, "plugins"));
+}
+
+async function moveLegacyBaselinePluginProviderDirs(pluginsPath: string): Promise<void> {
+  if (!(await exists(pluginsPath))) return;
+  const entries = await readdir(pluginsPath, { withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const pluginPath = join(pluginsPath, entry.name);
+    await moveLegacyBaselinePath(join(pluginPath, "claude"), join(pluginPath, "_claude"));
+    await moveLegacyBaselinePath(join(pluginPath, "codex"), join(pluginPath, "_codex"));
+  }
+}
+
+async function moveLegacyBaselinePath(from: string, to: string): Promise<void> {
+  if (!(await exists(from))) return;
+  if (await exists(to)) throw new Error(`skillset: cannot normalize baseline because ${to} already exists`);
+  await mkdir(dirname(to), { recursive: true });
+  await rename(from, to);
 }
 
 async function sourceInventoryFromReleaseState(

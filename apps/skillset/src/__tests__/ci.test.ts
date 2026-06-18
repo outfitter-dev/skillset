@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { parseYamlRecord } from "../yaml";
 import { gitSafeEnv } from "../git-env";
@@ -16,7 +16,7 @@ skillset:
 claude: true
 codex: false
 `,
-  ".skillset/skills/demo/SKILL.md": `
+  ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -79,7 +79,7 @@ test("ci --fix rebuilds drifted generated output mechanically", async () => {
 test("ci --fix leaves drift untouched when change entries are missing", async () => {
   const root = await builtFixture();
   await writeFile(
-    join(root, ".skillset/skills/demo/SKILL.md"),
+    join(root, ".skillset/src/skills/demo/SKILL.md"),
     "---\nname: demo\ndescription: Demo.\n---\n\nEdited body.\n"
   );
 
@@ -143,6 +143,52 @@ test("ci --fix does not rebuild when the change baseline is unresolvable", async
   expect(report.fixedPaths).toEqual([]);
   expect(report.drift.changed).toEqual([GENERATED_SKILL]);
   expect(await readFile(generatedPath, "utf8")).toBe(edited);
+});
+
+test("ci normalizes old source layout only for git-ref baselines", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-ci-legacy-"));
+  await writeRawFiles(root, {
+    ".skillset/config.yaml": `
+skillset:
+  name: ci-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await commitFixture(root);
+
+  await rm(join(root, ".skillset/skills"), { force: true, recursive: true });
+  await writeRawFiles(root, {
+    ".skillset/config.yaml": `
+skillset:
+  name: ci-root
+claude: true
+codex: false
+`,
+    ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await buildSkillset(root);
+
+  const report = await ciSkillset(root, { since: "HEAD" });
+
+  expect(report.changeError).toBeUndefined();
+  expect(report.changeIssues).toEqual([]);
+  expect(report.ok).toBe(true);
 });
 
 test("ci CLI exits nonzero on drift and writes the markdown report", async () => {
@@ -239,6 +285,14 @@ async function fixture(files: Record<string, string>): Promise<string> {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }
   return root;
+}
+
+async function writeRawFiles(root: string, files: Record<string, string>): Promise<void> {
+  for (const [path, content] of Object.entries(files)) {
+    const destination = join(root, path);
+    await mkdir(dirname(destination), { recursive: true });
+    await writeFile(destination, `${content.trim()}\n`, "utf8");
+  }
 }
 
 async function commitFixture(root: string): Promise<void> {

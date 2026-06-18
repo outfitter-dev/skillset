@@ -49,7 +49,7 @@ This separation keeps docs from overpromising and keeps build reports from prete
 
 Skillset uses Markdown because skills, rules, agents, and instructions are authored and consumed as Markdown in target ecosystems. Markdown is still not the core IR.
 
-Source `SKILL.md` is parsed into a source skill record. Generated `SKILL.md` is a target artifact. `CLAUDE.md`-style files when imported or carried through target-native source, Claude rules, Claude agent files, and Codex `AGENTS.md` files are target-native renderings. Target-native islands can copy opaque files, but those files remain target-owned output.
+Source `SKILL.md` is parsed into a source skill record. Generated `SKILL.md` is a target artifact. `CLAUDE.md`-style files when imported or carried through target-native source, Claude rules, Claude agent files, and Codex `AGENTS.md` files are target-native renderings. Provider source can copy opaque files, but those files remain target-owned output.
 
 The core contract is the resolved source graph plus typed feature entries, target support rows, render results, diagnostics, locks, and operation results.
 
@@ -72,7 +72,7 @@ External docs prove that a target surface exists. They do not prove Skillset's r
 
 Diagnostics carry stable feature ids where useful, but user-facing messages remain readable. A message like `skillset: Codex plugins do not support plugin-local bin/ helpers` is better than a bare `plugin-bin unsupported`; the feature id belongs in structured output, lock/report evidence, or a suffix where it helps agents inspect the issue.
 
-The current diagnostic ownership slice covers core build/write diagnostics, selected resolver errors for plugin manifests, root hook placement, and target-native island support, plus lint diagnostics for skill source, plugin hooks, resource declarations, and tool intent. Broader source invalidity that still throws before an operation result exists may remain message-only until the surrounding operation is converted to structured diagnostics.
+The current diagnostic ownership slice covers core build/write diagnostics, selected resolver errors for plugin manifests, root hook placement, and provider source support, plus lint diagnostics for skill source, plugin hooks, resource declarations, and tool intent. Broader source invalidity that still throws before an operation result exists may remain message-only until the surrounding operation is converted to structured diagnostics.
 
 ## Provenance
 

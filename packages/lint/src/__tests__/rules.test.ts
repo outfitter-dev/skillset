@@ -14,7 +14,7 @@ const makeSubject = (overrides: Partial<LintSubject> = {}): LintSubject => ({
   files: ["SKILL.md"],
   frontmatter: { description: "Demo skill.", name: "demo" },
   kind: "skill",
-  path: ".skillset/skills/demo/SKILL.md",
+  path: ".skillset/src/skills/demo/SKILL.md",
   raw: "---\nname: demo\ndescription: Demo skill.\n---\n\nUse the thing.\n",
   ...overrides,
 });

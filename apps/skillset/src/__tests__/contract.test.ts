@@ -42,7 +42,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo skill without an explicit schema.
@@ -67,7 +67,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo skill with an explicit schema.
@@ -91,7 +91,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo skill.
@@ -112,7 +112,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo skill with a stray top-level schema key.
@@ -128,7 +128,7 @@ Demo.
   expect(skill).not.toContain("schema:");
 });
 
-test("SET-3/SET-5: an empty rules dir beside instructions is ignored", async () => {
+test("SET-3/SET-5: retired root rules dir is rejected even when empty", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `
 skillset:
@@ -136,7 +136,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/instructions/global.md": `
+    ".skillset/src/rules/global.md": `
 # Global
 
 - Be tidy.
@@ -145,9 +145,9 @@ codex: true
     ".skillset/rules/.gitkeep": "",
   });
 
-  const graph = await loadBuildGraph(root);
-  expect(graph.instructionsDir).toBe("instructions");
-  expect(graph.warnings).toEqual([]);
+  await expect(loadBuildGraph(root)).rejects.toThrow(
+    ".skillset/rules uses the retired source layout; move it to .skillset/src/rules"
+  );
 });
 
 test("SET-3: a semver-style skillset.schema is rejected, not confused with version", async () => {
@@ -159,7 +159,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo skill.
@@ -180,12 +180,12 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   schema: 9
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo skill.
@@ -209,10 +209,10 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/derived-plugin/skillset.yaml": `
+    ".skillset/src/plugins/derived-plugin/skillset.yaml": `
 skillset: {}
 `,
-    ".skillset/plugins/derived-plugin/skills/derived-skill/SKILL.md": `
+    ".skillset/src/plugins/derived-plugin/skills/derived-skill/SKILL.md": `
 ---
 description: A skill whose id comes from its directory.
 ---
@@ -234,11 +234,11 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alias-plugin/skillset.yaml": `
+    ".skillset/src/plugins/alias-plugin/skillset.yaml": `
 skillset:
   id: alias-plugin
 `,
-    ".skillset/plugins/alias-plugin/skills/aliased/SKILL.md": `
+    ".skillset/src/plugins/alias-plugin/skills/aliased/SKILL.md": `
 ---
 name: aliased
 description: Skill using a name.
@@ -262,7 +262,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -283,7 +283,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: top-name
 description: Demo with conflicting identity.
@@ -306,7 +306,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo with old version metadata.
@@ -329,11 +329,11 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/real-dir/skillset.yaml": `
+    ".skillset/src/plugins/real-dir/skillset.yaml": `
 skillset:
   name: other-name
 `,
-    ".skillset/plugins/real-dir/skills/demo/SKILL.md": `
+    ".skillset/src/plugins/real-dir/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -347,11 +347,11 @@ Body.
     code: "plugin-manifest-invalid",
     featureId: "plugin-manifests",
     message: expect.stringContaining("does not match skillset.name"),
-    path: ".skillset/plugins/real-dir/skillset.yaml",
+    path: ".skillset/src/plugins/real-dir/skillset.yaml",
   });
 });
 
-// SET-5: canonical source instructions live in .skillset/instructions/. Claude
+// SET-5: canonical source instructions live in .skillset/src/rules/. Claude
 // lowers to .claude/rules, and Codex lowers to AGENTS.md.
 
 test("SET-5: canonical instructions lower to Claude rules and Codex AGENTS.md", async () => {
@@ -362,7 +362,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/instructions/global.md": `
+    ".skillset/src/rules/global.md": `
 # Global
 
 - Be tidy.
@@ -370,7 +370,7 @@ codex: true
   });
 
   const graph = await loadBuildGraph(root);
-  expect(graph.instructionsDir).toBe("instructions");
+  expect(graph.instructionsDir).toBe("src/rules");
   expect(graph.warnings).toEqual([]);
 
   await buildSkillset(root);
@@ -378,7 +378,7 @@ codex: true
   expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("Be tidy.");
 });
 
-test("SET-5: .skillset/rules with markdown is rejected", async () => {
+test("SET-5: .skillset/rules with markdown is rejected as retired layout", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `
 skillset:
@@ -393,10 +393,12 @@ codex: true
 `,
   });
 
-  await expect(loadBuildGraph(root)).rejects.toThrow(".skillset/rules is not supported");
+  await expect(loadBuildGraph(root)).rejects.toThrow(
+    ".skillset/rules uses the retired source layout; move it to .skillset/src/rules"
+  );
 });
 
-test("SET-5: instructions and rules dirs both with content fail on the old directory", async () => {
+test("SET-5: canonical and retired rules dirs both with content fail on the old directory", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `
 skillset:
@@ -404,7 +406,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/instructions/global.md": `
+    ".skillset/src/rules/global.md": `
 # Global
 `,
     ".skillset/rules/legacy.md": `
@@ -412,7 +414,9 @@ codex: true
 `,
   });
 
-  await expect(loadBuildGraph(root)).rejects.toThrow(".skillset/rules is not supported");
+  await expect(loadBuildGraph(root)).rejects.toThrow(
+    ".skillset/rules uses the retired source layout; move it to .skillset/src/rules"
+  );
 });
 
 // SET-6: tool_intent is the canonical portable tool-policy key; legacy tools
@@ -426,7 +430,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/intent/SKILL.md": `
+    ".skillset/src/skills/intent/SKILL.md": `
 ---
 name: intent
 description: Declares a portable read and search policy.
@@ -457,7 +461,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/legacy/SKILL.md": `
+    ".skillset/src/skills/legacy/SKILL.md": `
 ---
 name: legacy
 description: Uses the old tools key.
@@ -529,7 +533,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/src/claude/agents/reviewer.md": `
+    ".skillset/src/_claude/agents/reviewer.md": `
 ---
 name: reviewer
 description: Uses the old tools key.
@@ -553,7 +557,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/unknown/SKILL.md": `
+    ".skillset/src/skills/unknown/SKILL.md": `
 ---
 name: unknown
 description: Uses an unknown tool key.
@@ -581,18 +585,18 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/hooks/hooks.json": `
+    ".skillset/src/plugins/alpha/hooks/hooks.json": `
 {
   "hooks": {
     "SessionStart": [ { "hooks": [ { "type": "command", "command": "./scripts/run.sh" } ] } ]
   }
 }
 `,
-    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -626,16 +630,16 @@ skillset:
   name: hook-root
 ${targetConfig}
 `,
-      ".skillset/plugins/alpha/skillset.yaml": `
+      ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-      ".skillset/plugins/alpha/hooks.json": `
+      ".skillset/src/plugins/alpha/hooks.json": `
 {
   "SessionStart": [ { "hooks": [ { "type": "command", "command": "./scripts/run.sh" } ] } ]
 }
 `,
-      ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+      ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -649,7 +653,7 @@ Body.
       code: "plugin-root-hooks-unsupported",
       featureId: "plugin-hooks",
       message: expect.stringContaining("uses unsupported root hooks.json"),
-      path: ".skillset/plugins/alpha/hooks.json",
+      path: ".skillset/src/plugins/alpha/hooks.json",
     });
   }
 });
@@ -662,12 +666,12 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 commands: {}
 `,
-    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -681,7 +685,7 @@ Body.
     code: "plugin-manifest-invalid",
     featureId: "plugin-manifests",
     message: expect.stringContaining("unsupported top-level key commands"),
-    path: ".skillset/plugins/alpha/skillset.yaml",
+    path: ".skillset/src/plugins/alpha/skillset.yaml",
   });
 
   const doctorJson = await runSkillsetCli("doctor", "--root", root, "--json");
@@ -692,7 +696,7 @@ Body.
   expect(doctorReport.buildDiagnostics).toContainEqual(expect.objectContaining({
     code: "plugin-manifest-invalid",
     featureId: "plugin-manifests",
-    path: ".skillset/plugins/alpha/skillset.yaml",
+    path: ".skillset/src/plugins/alpha/skillset.yaml",
   }));
 });
 
@@ -749,12 +753,12 @@ skillset:
 claude: false
 codex: true
 `,
-    ".skillset/plugins/plain/skillset.yaml": `
+    ".skillset/src/plugins/plain/skillset.yaml": `
 skillset:
   name: plain
   summary: Plain plugin.
 `,
-    ".skillset/plugins/plain/skills/demo/SKILL.md": `
+    ".skillset/src/plugins/plain/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -828,7 +832,7 @@ test("SET-10: skill import reports copied files and classifies frontmatter", asy
   expect(report.renderResults).toContainEqual(
     expect.objectContaining({
       featureId: "tool-intent",
-      sourcePath: ".skillset/skills/myskill/SKILL.md",
+      sourcePath: ".skillset/src/skills/myskill/SKILL.md",
       sourceUnit: "skill:myskill",
       status: "target_native",
       target: "claude",
@@ -893,7 +897,7 @@ test("SET-10: importing a SKILL.md path copies the full skill directory", async 
   expect(report.copiedFiles).toContain("SKILL.md");
   expect(report.copiedFiles).toContain(join("references", "notes.md"));
   expect(report.copiedFiles).toContain(join("scripts", "run.sh"));
-  expect(await Bun.file(join(root, ".skillset/skills/full-skill/references/notes.md")).exists()).toBe(true);
+  expect(await Bun.file(join(root, ".skillset/src/skills/full-skill/references/notes.md")).exists()).toBe(true);
 });
 
 test("SET-10: inferred skills-root import copies each skill and dedupes symlinked directories", async () => {
@@ -913,8 +917,8 @@ test("SET-10: inferred skills-root import copies each skill and dedupes symlinke
 
   expect(report.kind).toBe("skills");
   expect(report.imports.map((entry) => entry.name).sort()).toEqual(["other", "shared"]);
-  expect(await Bun.file(join(root, ".skillset/skills/other/SKILL.md")).exists()).toBe(true);
-  expect(await Bun.file(join(root, ".skillset/skills/shared/SKILL.md")).exists()).toBe(true);
+  expect(await Bun.file(join(root, ".skillset/src/skills/other/SKILL.md")).exists()).toBe(true);
+  expect(await Bun.file(join(root, ".skillset/src/skills/shared/SKILL.md")).exists()).toBe(true);
 });
 
 test("SET-10: plugin import reports the config and copied files", async () => {
@@ -964,11 +968,11 @@ test("SET-10: inferred plugin-root import writes source config for native plugin
   expect(report.kind).toBe("plugins");
   expect(report.imports).toHaveLength(1);
   expect(report.imports[0]?.name).toBe("widget");
-  const config = await readFile(join(root, ".skillset/plugins/widget/skillset.yaml"), "utf8");
+  const config = await readFile(join(root, ".skillset/src/plugins/widget/skillset.yaml"), "utf8");
   expect(config).toContain("name: widget");
   expect(config).toContain("version: 0.8.0");
   expect(config).toContain("description: Native widget plugin.");
-  expect(await Bun.file(join(root, ".skillset/plugins/widget/.claude-plugin/plugin.json")).exists()).toBe(true);
+  expect(await Bun.file(join(root, ".skillset/src/plugins/widget/.claude-plugin/plugin.json")).exists()).toBe(true);
   expect((await loadBuildGraph(root)).plugins[0]?.id).toBe("widget");
 });
 
@@ -995,8 +999,8 @@ test("SET-10: failed imports do not leave source target directories", async () =
     importSource({ kind: "skill", rootPath: root, sourcePath: join(external, "not-a-skill.md") })
   ).rejects.toThrow("importing a file is only supported");
 
-  expect(await Bun.file(join(root, ".skillset/skills/partial-import")).exists()).toBe(false);
-  expect(await readdir(join(root, ".skillset/skills"))).toEqual([]);
+  expect(await Bun.file(join(root, ".skillset/src/skills/partial-import")).exists()).toBe(false);
+  expect(await readdir(join(root, ".skillset/src/skills"))).toEqual([]);
 });
 
 // SET-9: explain, diff, and doctor authoring commands (local-only, read-only).
@@ -1009,7 +1013,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1025,7 +1029,7 @@ Body.
   // Change source without rebuilding; diff must show the stale output, and must
   // not have written anything.
   await Bun.write(
-    join(root, ".skillset/skills/demo/SKILL.md"),
+    join(root, ".skillset/src/skills/demo/SKILL.md"),
     "---\nname: demo\ndescription: Demo changed.\n---\n\nNew body.\n"
   );
   const diff = await diffSkillset(root);
@@ -1042,7 +1046,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1092,11 +1096,11 @@ distributions:
       path: ${destination}
       subdirectory: bundles/alpha
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1139,11 +1143,11 @@ distributions:
       path: ${destination}
       subdirectory: bundles/alpha
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1188,11 +1192,11 @@ distributions:
       repo: git@example.com:acme/skillset-codex.git
       branch: main
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1222,11 +1226,11 @@ compile:
 distributions:
 ${distribution}
 `,
-      ".skillset/plugins/alpha/skillset.yaml": `
+      ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-      ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+      ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1456,7 +1460,7 @@ tests:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1521,7 +1525,7 @@ tests:
 claude: true
 codex: true
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1562,7 +1566,7 @@ tests:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1596,7 +1600,7 @@ tests:
 claude: true
 codex: false
 `,
-    ".skillset/skills/first/SKILL.md": `
+    ".skillset/src/skills/first/SKILL.md": `
 ---
 name: first
 description: First.
@@ -1604,7 +1608,7 @@ description: First.
 
 First body.
 `,
-    ".skillset/skills/second/SKILL.md": `
+    ".skillset/src/skills/second/SKILL.md": `
 ---
 name: second
 description: Second.
@@ -1636,7 +1640,7 @@ tests:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1671,7 +1675,7 @@ tests:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1695,7 +1699,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 tests:
@@ -1704,7 +1708,7 @@ tests:
     assertions:
       - build
 `,
-    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1734,7 +1738,7 @@ tests:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1777,7 +1781,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1789,7 +1793,7 @@ Body.
 
   await buildSkillset(root);
   await commitFixture(root);
-  await writeFile(join(root, ".skillset/skills/demo/SKILL.md"), `
+  await writeFile(join(root, ".skillset/src/skills/demo/SKILL.md"), `
 ---
 name: demo
 description: Demo changed.
@@ -1797,8 +1801,8 @@ description: Demo changed.
 
 Changed body.
 `);
-  await mkdir(join(root, ".skillset/skills/unstaged"), { recursive: true });
-  await writeFile(join(root, ".skillset/skills/unstaged/SKILL.md"), `
+  await mkdir(join(root, ".skillset/src/skills/unstaged"), { recursive: true });
+  await writeFile(join(root, ".skillset/src/skills/unstaged/SKILL.md"), `
 ---
 name: unstaged
 description: Unstaged.
@@ -1806,7 +1810,7 @@ description: Unstaged.
 
 Unstaged body.
 `);
-  await runGit(root, "add", ".skillset/skills/demo/SKILL.md");
+  await runGit(root, "add", ".skillset/src/skills/demo/SKILL.md");
 
   const status = await runSkillsetCli("change", "status", "--staged", "--root", root);
   expect(status.exitCode).toBe(0);
@@ -1857,7 +1861,7 @@ changes:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1869,7 +1873,7 @@ Body.
 
   await buildSkillset(root);
   await commitFixture(root);
-  await writeFile(join(root, ".skillset/skills/demo/SKILL.md"), `
+  await writeFile(join(root, ".skillset/src/skills/demo/SKILL.md"), `
 ---
 name: demo
 description: Demo changed.
@@ -1877,7 +1881,7 @@ description: Demo changed.
 
 Changed body.
 `);
-  await runGit(root, "add", ".skillset/skills/demo/SKILL.md");
+  await runGit(root, "add", ".skillset/src/skills/demo/SKILL.md");
   const stagedStatus = await changeStatus(root, { staged: true });
   const demoHash = stagedStatus.sourceChanges.find((change) => change.id === "skill:demo")?.currentHash;
   expect(demoHash).toBeDefined();
@@ -1917,7 +1921,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1947,7 +1951,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1960,7 +1964,7 @@ Body.
   await commitFixture(root);
 
   await Bun.write(
-    join(root, ".skillset/skills/demo/SKILL.md"),
+    join(root, ".skillset/src/skills/demo/SKILL.md"),
     "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n"
   );
 
@@ -1982,7 +1986,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1994,7 +1998,7 @@ Body.
   await commitFixture(root);
 
   await Bun.write(
-    join(root, ".skillset/skills/demo/SKILL.md"),
+    join(root, ".skillset/src/skills/demo/SKILL.md"),
     `---
 name: demo
 description: Demo.
@@ -2043,7 +2047,7 @@ supports:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -2073,7 +2077,7 @@ supports:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -2106,7 +2110,7 @@ supports:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -2130,7 +2134,7 @@ supports:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -2152,7 +2156,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -2164,7 +2168,7 @@ Body.
   await commitFixture(root);
 
   await Bun.write(
-    join(root, ".skillset/skills/demo/SKILL.md"),
+    join(root, ".skillset/src/skills/demo/SKILL.md"),
     `---
 name: demo
 description: Demo.
@@ -2208,14 +2212,14 @@ skillset:
 compile:
   targets: [claude, codex]
 `,
-    ".skillset/plugins/secrets-vault/skillset.yaml": `
+    ".skillset/src/plugins/secrets-vault/skillset.yaml": `
 skillset:
   name: secrets-vault
   version: 1.2.3
   manifest:
     name: native-secrets-vault
 `,
-    ".skillset/plugins/secrets-vault/skills/secret/SKILL.md": `
+    ".skillset/src/plugins/secrets-vault/skills/secret/SKILL.md": `
 ---
 name: secret
 description: Secret helper.
@@ -2223,7 +2227,7 @@ description: Secret helper.
 
 Secret body.
 `,
-    ".skillset/plugins/audit/skillset.yaml": `
+    ".skillset/src/plugins/audit/skillset.yaml": `
 skillset:
   name: audit
   version: 0.4.0
@@ -2233,7 +2237,7 @@ dependencies:
       range: "^2.1.0"
       marketplace: acme
 `,
-    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
+    ".skillset/src/plugins/audit/skills/audit-skill/SKILL.md": `
 ---
 name: audit-skill
 description: Audit skill.
@@ -2263,7 +2267,7 @@ Audit body.
   const listed = await runSkillsetCli("list", "--root", root);
   expect(listed.exitCode).toBe(0);
   expect(listed.stdout).toContain("deps:external-tools range ^2.1.0 marketplace acme external");
-  const explained = await runSkillsetCli("explain", ".skillset/plugins/audit", "--root", root);
+  const explained = await runSkillsetCli("explain", ".skillset/src/plugins/audit", "--root", root);
   expect(explained.exitCode).toBe(0);
   expect(explained.stdout).toContain("dependencies: external-tools range ^2.1.0 marketplace acme external");
   expect(explained.stdout).toContain("secrets-vault range =1.2.3 internal");
@@ -2275,7 +2279,7 @@ Audit body.
     return lock.items.find((item) => item.outputPath === "plugins/audit/.claude-plugin/plugin.json")?.sourceHash ?? "";
   };
   const originalHash = await auditLockSourceHash();
-  await writeFile(join(root, ".skillset/plugins/secrets-vault/skillset.yaml"), `
+  await writeFile(join(root, ".skillset/src/plugins/secrets-vault/skillset.yaml"), `
 skillset:
   name: secrets-vault
   version: 1.2.3
@@ -2294,14 +2298,14 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/audit/skillset.yaml": `
+    ".skillset/src/plugins/audit/skillset.yaml": `
 skillset:
   name: audit
 dependencies:
   plugins:
     - plugin:missing
 `,
-    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
+    ".skillset/src/plugins/audit/skills/audit-skill/SKILL.md": `
 ---
 name: audit-skill
 description: Audit skill.
@@ -2322,14 +2326,14 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/audit/skillset.yaml": `
+    ".skillset/src/plugins/audit/skillset.yaml": `
 skillset:
   name: audit
 dependencies:
   plugins:
     - name: external-tools
 `,
-    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
+    ".skillset/src/plugins/audit/skills/audit-skill/SKILL.md": `
 ---
 name: audit-skill
 description: Audit skill.
@@ -2394,12 +2398,12 @@ skillset:
 claude: true
 codex: false
 `,
-      ".skillset/plugins/secrets-vault/skillset.yaml": `
+      ".skillset/src/plugins/secrets-vault/skillset.yaml": `
 skillset:
   name: secrets-vault
   version: 1.2.3
 `,
-      ".skillset/plugins/secrets-vault/skills/secret/SKILL.md": `
+      ".skillset/src/plugins/secrets-vault/skills/secret/SKILL.md": `
 ---
 name: secret
 description: Secret helper.
@@ -2407,14 +2411,14 @@ description: Secret helper.
 
 Secret body.
 `,
-      ".skillset/plugins/audit/skillset.yaml": `
+      ".skillset/src/plugins/audit/skillset.yaml": `
 skillset:
   name: audit
 dependencies:
   plugins:
 ${dependencyYaml}
 `,
-      ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
+      ".skillset/src/plugins/audit/skills/audit-skill/SKILL.md": `
 ---
 name: audit-skill
 description: Audit skill.
@@ -2436,14 +2440,14 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/audit/skillset.yaml": `
+    ".skillset/src/plugins/audit/skillset.yaml": `
 skillset:
   name: audit
 dependencies:
   plugins:
     - plugin: audit
 `,
-    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
+    ".skillset/src/plugins/audit/skills/audit-skill/SKILL.md": `
 ---
 name: audit-skill
 description: Audit skill.
@@ -2457,7 +2461,7 @@ Audit body.
     code: "plugin-dependencies-invalid",
     featureId: "dependencies",
     message: expect.stringContaining("must not depend on itself"),
-    path: ".skillset/plugins",
+    path: ".skillset/src/plugins",
   });
 });
 
@@ -2469,13 +2473,13 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/audit/skillset.yaml": `
+    ".skillset/src/plugins/audit/skillset.yaml": `
 skillset:
   name: audit
 dependencies:
   tools: []
 `,
-    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
+    ".skillset/src/plugins/audit/skills/audit-skill/SKILL.md": `
 ---
 name: audit-skill
 description: Audit skill.
@@ -2496,12 +2500,12 @@ skillset:
 compile:
   targets: [claude]
 `,
-    ".skillset/plugins/secrets-vault/skillset.yaml": `
+    ".skillset/src/plugins/secrets-vault/skillset.yaml": `
 skillset:
   name: secrets-vault
   version: 1.2.3
 `,
-    ".skillset/plugins/secrets-vault/skills/secret/SKILL.md": `
+    ".skillset/src/plugins/secrets-vault/skills/secret/SKILL.md": `
 ---
 name: secret
 description: Secret helper.
@@ -2509,7 +2513,7 @@ description: Secret helper.
 
 Secret body.
 `,
-    ".skillset/plugins/audit/skillset.yaml": `
+    ".skillset/src/plugins/audit/skillset.yaml": `
 skillset:
   name: audit
 dependencies:
@@ -2521,7 +2525,7 @@ claude:
       plugins:
         - name: manual-only
 `,
-    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
+    ".skillset/src/plugins/audit/skills/audit-skill/SKILL.md": `
 ---
 name: audit-skill
 description: Audit skill.
@@ -2542,12 +2546,12 @@ skillset:
 compile:
   targets: [codex]
 `,
-    ".skillset/plugins/secrets-vault/skillset.yaml": `
+    ".skillset/src/plugins/secrets-vault/skillset.yaml": `
 skillset:
   name: secrets-vault
   version: 1.2.3
 `,
-    ".skillset/plugins/secrets-vault/skills/secret/SKILL.md": `
+    ".skillset/src/plugins/secrets-vault/skills/secret/SKILL.md": `
 ---
 name: secret
 description: Secret helper.
@@ -2555,14 +2559,14 @@ description: Secret helper.
 
 Secret body.
 `,
-    ".skillset/plugins/audit/skillset.yaml": `
+    ".skillset/src/plugins/audit/skillset.yaml": `
 skillset:
   name: audit
 dependencies:
   plugins:
     - plugin: secrets-vault
 `,
-    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
+    ".skillset/src/plugins/audit/skills/audit-skill/SKILL.md": `
 ---
 name: audit-skill
 description: Audit skill.
@@ -2588,13 +2592,13 @@ skillset:
 compile:
   targets: [${target}]
 `,
-      ".skillset/plugins/secrets-vault/skillset.yaml": `
+      ".skillset/src/plugins/secrets-vault/skillset.yaml": `
 skillset:
   name: secrets-vault
   version: 1.2.3
 ${disabledTarget}: false
 `,
-      ".skillset/plugins/secrets-vault/skills/secret/SKILL.md": `
+      ".skillset/src/plugins/secrets-vault/skills/secret/SKILL.md": `
 ---
 name: secret
 description: Secret helper.
@@ -2602,14 +2606,14 @@ description: Secret helper.
 
 Secret body.
 `,
-      ".skillset/plugins/audit/skillset.yaml": `
+      ".skillset/src/plugins/audit/skillset.yaml": `
 skillset:
   name: audit
 dependencies:
   plugins:
     - plugin: secrets-vault
 `,
-      ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
+      ".skillset/src/plugins/audit/skills/audit-skill/SKILL.md": `
 ---
 name: audit-skill
 description: Audit skill.
@@ -2631,12 +2635,12 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   version: 0.1.0
 `,
-    ".skillset/plugins/alpha/skills/plugin-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/plugin-skill/SKILL.md": `
 ---
 name: plugin-skill
 description: Plugin skill.
@@ -2649,7 +2653,7 @@ Plugin body.
   await commitFixture(root);
 
   await Bun.write(
-    join(root, ".skillset/plugins/alpha/skills/plugin-skill/SKILL.md"),
+    join(root, ".skillset/src/plugins/alpha/skills/plugin-skill/SKILL.md"),
     "---\nname: plugin-skill\ndescription: Plugin skill.\nversion: 0.1.0\n---\n\nChanged plugin body.\n"
   );
 
@@ -2667,15 +2671,15 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/shared/common.md": `
+    ".skillset/src/shared/common.md": `
 Shared partial.
 `,
-    ".skillset/instructions/root.md": `
+    ".skillset/src/rules/root.md": `
 # Root
 
 {{> shared:common.md}}
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -2687,14 +2691,14 @@ description: Demo.
   await buildSkillset(root);
   await commitFixture(root);
 
-  await Bun.write(join(root, ".skillset/shared/common.md"), "Changed partial.\n");
+  await Bun.write(join(root, ".skillset/src/shared/common.md"), "Changed partial.\n");
 
   const report = await changeStatus(root, { since: "HEAD" });
   const changedIds = report.sourceChanges.map((change) => change.id);
   expect(changedIds).toContain("instruction:root");
   expect(changedIds).toContain("skill:demo");
   const instruction = report.sourceUnits.find((unit) => unit.id === "instruction:root");
-  expect(instruction?.sourcePaths).toContain(".skillset/shared/common.md");
+  expect(instruction?.sourcePaths).toContain(".skillset/src/shared/common.md");
   expect(report.generatedDrift.changed).toContain(".claude/rules/root.md");
   expect(report.generatedDrift.changed).toContain(".claude/skills/demo/SKILL.md");
 });
@@ -2707,7 +2711,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -2719,7 +2723,7 @@ Body.
   await commitFixture(root);
 
   await Bun.write(
-    join(root, ".skillset/skills/demo/SKILL.md"),
+    join(root, ".skillset/src/skills/demo/SKILL.md"),
     "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n"
   );
 
@@ -2737,7 +2741,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/one/SKILL.md": `
+    ".skillset/src/skills/one/SKILL.md": `
 ---
 name: one
 description: One.
@@ -2745,7 +2749,7 @@ description: One.
 
 One body.
 `,
-    ".skillset/skills/two/SKILL.md": `
+    ".skillset/src/skills/two/SKILL.md": `
 ---
 name: two
 description: Two.
@@ -2756,8 +2760,8 @@ Two body.
   });
   await commitFixture(root);
 
-  await Bun.write(join(root, ".skillset/skills/one/SKILL.md"), "---\nname: one\ndescription: One.\n---\n\nOne changed.\n");
-  await Bun.write(join(root, ".skillset/skills/two/SKILL.md"), "---\nname: two\ndescription: Two.\n---\n\nTwo changed.\n");
+  await Bun.write(join(root, ".skillset/src/skills/one/SKILL.md"), "---\nname: one\ndescription: One.\n---\n\nOne changed.\n");
+  await Bun.write(join(root, ".skillset/src/skills/two/SKILL.md"), "---\nname: two\ndescription: Two.\n---\n\nTwo changed.\n");
   const report = await changeStatus(root, { since: "HEAD" });
   const one = report.sourceChanges.find((change) => change.id === "skill:one");
   const two = report.sourceChanges.find((change) => change.id === "skill:two");
@@ -2798,7 +2802,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -2809,7 +2813,7 @@ Body.
   });
   await commitFixture(root);
 
-  await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body for stacked entries.\n");
+  await Bun.write(join(root, ".skillset/src/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body for stacked entries.\n");
   const report = await changeStatus(root, { since: "HEAD" });
   const demo = report.sourceChanges.find((change) => change.id === "skill:demo");
   expect(demo?.currentHash).toBeDefined();
@@ -2863,7 +2867,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -2874,7 +2878,7 @@ Body.
   });
   await commitFixture(root);
 
-  await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body for stale stacked evidence.\n");
+  await Bun.write(join(root, ".skillset/src/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body for stale stacked evidence.\n");
   const report = await changeStatus(root, { since: "HEAD" });
   const demo = report.sourceChanges.find((change) => change.id === "skill:demo");
   expect(demo?.currentHash).toBeDefined();
@@ -2918,7 +2922,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -2963,7 +2967,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -2974,7 +2978,7 @@ Body.
   });
   await commitFixture(root);
 
-  await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n");
+  await Bun.write(join(root, ".skillset/src/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n");
   const report = await changeStatus(root, { since: "HEAD" });
   const demo = report.sourceChanges.find((change) => change.id === "skill:demo");
   expect(demo?.currentHash).toBeDefined();
@@ -3007,7 +3011,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -3021,7 +3025,7 @@ Body.
   });
   await commitFixture(root);
 
-  await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n");
+  await Bun.write(join(root, ".skillset/src/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n");
   const report = await changeStatus(root, { since: "HEAD" });
   const demo = report.sourceChanges.find((change) => change.id === "skill:demo");
   expect(demo?.currentHash).toBeDefined();
@@ -3054,7 +3058,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -3102,7 +3106,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -3113,7 +3117,7 @@ Body.
   });
   await commitFixture(root);
 
-  await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n");
+  await Bun.write(join(root, ".skillset/src/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n");
   const reasonPath = join(root, "reason.md");
   await writeFile(reasonPath, "Clarified the demo skill behavior and documented why this source edit needs a patch entry.\n", "utf8");
 
@@ -3161,7 +3165,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -3172,7 +3176,7 @@ Body.
   });
   await commitFixture(root);
 
-  await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n");
+  await Bun.write(join(root, ".skillset/src/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n");
   const added = await runSkillsetCli(
     "change",
     "add",
@@ -3224,7 +3228,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -3291,7 +3295,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -3344,7 +3348,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -3384,7 +3388,7 @@ Pending changes stay out of committed changelog projections.
   ]);
 
   await buildSkillset(root);
-  const changelog = await readFile(join(root, ".skillset/skills/demo/CHANGELOG.md"), "utf8");
+  const changelog = await readFile(join(root, ".skillset/src/skills/demo/CHANGELOG.md"), "utf8");
   expect(changelog).toContain("generated: skillset@0.1.0");
   expect(changelog).toContain("## 222222bbbbbb");
   expect(changelog).toContain("bump: none");
@@ -3398,7 +3402,7 @@ Pending changes stay out of committed changelog projections.
 
   const lock = await readFile(join(root, ".skillset.lock"), "utf8");
   expect(lock).toContain(`"kind": "changelog"`);
-  expect(lock).toContain(`".skillset/skills/demo/CHANGELOG.md"`);
+  expect(lock).toContain(`".skillset/src/skills/demo/CHANGELOG.md"`);
 });
 
 test("SET-37: plugin changelog aggregates child skill applied records", async () => {
@@ -3409,12 +3413,12 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   version: 0.1.0
 `,
-    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -3434,7 +3438,7 @@ Body.
   ]);
 
   await buildSkillset(root);
-  const pluginChangelog = await readFile(join(root, ".skillset/plugins/alpha/CHANGELOG.md"), "utf8");
+  const pluginChangelog = await readFile(join(root, ".skillset/src/plugins/alpha/CHANGELOG.md"), "utf8");
   expect(pluginChangelog).toContain("target: plugin:alpha");
   expect(pluginChangelog).toContain("## 333333cccccc");
   expect(pluginChangelog).toContain("scopes: skill(plugin:alpha): demo");
@@ -3449,7 +3453,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -3461,7 +3465,7 @@ Original body.
   });
   await commitFixture(root);
   await Bun.write(
-    join(root, ".skillset/skills/demo/SKILL.md"),
+    join(root, ".skillset/src/skills/demo/SKILL.md"),
     "---\nname: demo\ndescription: Demo.\nversion: 0.1.0\n---\n\nChanged body.\n"
   );
   const status = await changeStatus(root);
@@ -3508,7 +3512,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -3516,12 +3520,12 @@ description: Demo.
 
 Standalone body.
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   version: 0.1.0
 `,
-    ".skillset/plugins/alpha/skills/child/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/child/SKILL.md": `
 ---
 name: child
 description: Child.
@@ -3564,7 +3568,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -3577,7 +3581,7 @@ Body.
   await commitFixture(root);
 
   await Bun.write(
-    join(root, ".skillset/skills/demo/SKILL.md"),
+    join(root, ".skillset/src/skills/demo/SKILL.md"),
     "---\nname: demo\ndescription: Demo.\nversion: 0.1.0\n---\n\nChanged body.\n"
   );
   const status = await changeStatus(root, { since: "HEAD" });
@@ -3621,7 +3625,7 @@ Release the standalone skill body update with a patch version and generated chan
   expect(history).toContain("aaaabbbbcccc");
   const releases = await readFile(join(root, ".skillset/changes/releases.jsonl"), "utf8");
   expect(releases).toContain("skill:demo");
-  const changelog = await readFile(join(root, ".skillset/skills/demo/CHANGELOG.md"), "utf8");
+  const changelog = await readFile(join(root, ".skillset/src/skills/demo/CHANGELOG.md"), "utf8");
   expect(changelog).toContain("## aaaabbbbcccc");
   const generatedSkill = await readFile(join(root, ".claude/skills/demo/SKILL.md"), "utf8");
   expect(generatedSkill).toContain("version: 0.1.1");
@@ -3636,7 +3640,7 @@ Release the standalone skill body update with a patch version and generated chan
   await runGit(root, "add", ".");
   await runGit(root, "commit", "-qm", "release demo");
   await Bun.write(
-    join(root, ".skillset/skills/demo/SKILL.md"),
+    join(root, ".skillset/src/skills/demo/SKILL.md"),
     "---\nname: demo\ndescription: Demo.\nversion: 0.1.0\n---\n\nChanged again after release.\n"
   );
   await runGit(root, "add", ".");
@@ -3653,12 +3657,12 @@ skillset:
 compile:
   targets: [codex]
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   version: 1.2.3
 `,
-    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -3715,12 +3719,12 @@ skillset:
 compile:
   targets: [claude]
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   version: 1.2.3
 `,
-    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -3759,12 +3763,12 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   version: 0.1.0
 `,
-    ".skillset/plugins/alpha/skills/child/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/child/SKILL.md": `
 ---
 name: child
 description: Child.
@@ -3776,7 +3780,7 @@ Child body.
   await commitFixture(root);
 
   await Bun.write(
-    join(root, ".skillset/plugins/alpha/skills/child/SKILL.md"),
+    join(root, ".skillset/src/plugins/alpha/skills/child/SKILL.md"),
     "---\nname: child\ndescription: Child.\n---\n\nChanged child body.\n"
   );
   const status = await changeStatus(root, { since: "HEAD" });
@@ -3807,7 +3811,7 @@ Release the plugin child skill behavior as a minor update to the containing plug
   };
   expect(state.scopes["plugin.alpha.skill:child"]?.version).toBe("0.2.0");
   expect(state.scopes["plugin:alpha"]?.version).toBe("0.2.0");
-  expect(await readFile(join(root, ".skillset/plugins/alpha/CHANGELOG.md"), "utf8")).toContain("## dddd11112222");
+  expect(await readFile(join(root, ".skillset/src/plugins/alpha/CHANGELOG.md"), "utf8")).toContain("## dddd11112222");
   expect(await readFile(join(root, "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"), "utf8")).toContain('"version": "0.2.0"');
   expect(await readFile(join(root, "plugins-claude/plugins/alpha/skills/child/SKILL.md"), "utf8")).toContain("version: 0.2.0");
 });
@@ -3820,7 +3824,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/audit/SKILL.md": `
+    ".skillset/src/skills/audit/SKILL.md": `
 ---
 name: audit
 description: Audit.
@@ -3829,7 +3833,7 @@ version: 0.1.0
 
 Audit body.
 `,
-    ".skillset/skills/ignored/SKILL.md": `
+    ".skillset/src/skills/ignored/SKILL.md": `
 ---
 name: ignored
 description: Ignored.
@@ -3841,8 +3845,8 @@ Ignored body.
   });
   await commitFixture(root);
 
-  await Bun.write(join(root, ".skillset/skills/audit/SKILL.md"), "---\nname: audit\ndescription: Audit.\nversion: 0.1.0\n---\n\nAudit-only change.\n");
-  await Bun.write(join(root, ".skillset/skills/ignored/SKILL.md"), "---\nname: ignored\ndescription: Ignored.\nversion: 0.1.0\n---\n\nIgnored change.\n");
+  await Bun.write(join(root, ".skillset/src/skills/audit/SKILL.md"), "---\nname: audit\ndescription: Audit.\nversion: 0.1.0\n---\n\nAudit-only change.\n");
+  await Bun.write(join(root, ".skillset/src/skills/ignored/SKILL.md"), "---\nname: ignored\ndescription: Ignored.\nversion: 0.1.0\n---\n\nIgnored change.\n");
   const status = await changeStatus(root, { since: "HEAD" });
   const audit = status.sourceChanges.find((change) => change.id === "skill:audit");
   const ignored = status.sourceChanges.find((change) => change.id === "skill:ignored");
@@ -3892,8 +3896,8 @@ Preserve this ignored audit reason in history while keeping it out of release pl
   expect(state.scopes["skill:audit"]?.version).toBe("0.1.0");
   expect(state.scopes["skill:ignored"]?.version).toBe("0.1.0");
   expect(state.scopes["skill:ignored"]?.sourceHash).toBe(ignored?.currentHash);
-  expect(await readFile(join(root, ".skillset/skills/audit/CHANGELOG.md"), "utf8")).toContain("## 333333ffffff");
-  expect(await Bun.file(join(root, ".skillset/skills/ignored/CHANGELOG.md")).exists()).toBe(false);
+  expect(await readFile(join(root, ".skillset/src/skills/audit/CHANGELOG.md"), "utf8")).toContain("## 333333ffffff");
+  expect(await Bun.file(join(root, ".skillset/src/skills/ignored/CHANGELOG.md")).exists()).toBe(false);
 
   const releasedStatus = await changeStatus(root);
   expect(releasedStatus.sourceChanges.map((change) => change.id)).not.toContain("skill:ignored");
@@ -3907,7 +3911,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/deleted/SKILL.md": `
+    ".skillset/src/skills/deleted/SKILL.md": `
 ---
 name: deleted
 description: Deleted.
@@ -3916,7 +3920,7 @@ version: 1.2.3
 
 Deleted body.
 `,
-    ".skillset/skills/kept/SKILL.md": `
+    ".skillset/src/skills/kept/SKILL.md": `
 ---
 name: kept
 description: Kept.
@@ -3939,7 +3943,7 @@ Kept body.
     },
   }, null, 2), "utf8");
 
-  await rm(join(root, ".skillset/skills/deleted/SKILL.md"));
+  await rm(join(root, ".skillset/src/skills/deleted/SKILL.md"));
   const status = await changeStatus(root, { since: "HEAD" });
   const deleted = status.sourceChanges.find((change) => change.id === "skill:deleted");
   expect(deleted?.baselineHash).toBeDefined();
@@ -3969,7 +3973,7 @@ Release the removal of the deleted standalone skill so default status treats the
   expect(releasedStatus.sourceChanges.map((change) => change.id)).not.toContain("skill:deleted");
 
   await Bun.write(
-    join(root, ".skillset/skills/deleted/SKILL.md"),
+    join(root, ".skillset/src/skills/deleted/SKILL.md"),
     "---\nname: deleted\ndescription: Deleted.\nversion: 1.2.3\n---\n\nRestored body.\n"
   );
   await buildSkillset(root);
@@ -3985,7 +3989,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4008,12 +4012,12 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   version: 0.1.0
 `,
-    ".skillset/plugins/alpha/.mcp.json": `
+    ".skillset/src/plugins/alpha/.mcp.json": `
 {
   "mcpServers": {
     "alpha": { "command": "node" }
@@ -4032,7 +4036,7 @@ skillset:
   ]);
 
   await buildSkillset(root);
-  const changelog = await readFile(join(root, ".skillset/plugins/alpha/CHANGELOG.md"), "utf8");
+  const changelog = await readFile(join(root, ".skillset/src/plugins/alpha/CHANGELOG.md"), "utf8");
   expect(changelog).toContain("## 666666ffffff");
   expect(changelog).toContain("feature(plugin:alpha): mcp");
 });
@@ -4053,7 +4057,7 @@ codex: false
   }
 }
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4077,7 +4081,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4105,7 +4109,7 @@ skillset:
 claude: false
 codex: true
 `,
-    ".skillset/instructions/root.md": `
+    ".skillset/src/rules/root.md": `
 # Generated Instructions
 `,
     "AGENTS.md": `
@@ -4148,7 +4152,7 @@ compile:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4183,11 +4187,11 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/plugin-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/plugin-skill/SKILL.md": `
 ---
 name: plugin-skill
 description: Plugin skill.
@@ -4195,7 +4199,7 @@ description: Plugin skill.
 
 Plugin body.
 `,
-    ".skillset/skills/repo-skill/SKILL.md": `
+    ".skillset/src/skills/repo-skill/SKILL.md": `
 ---
 name: repo-skill
 description: Repo skill.
@@ -4229,11 +4233,11 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/plugin-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/plugin-skill/SKILL.md": `
 ---
 name: plugin-skill
 description: Plugin skill.
@@ -4241,7 +4245,7 @@ description: Plugin skill.
 
 Plugin body.
 `,
-    ".skillset/skills/repo-skill/SKILL.md": `
+    ".skillset/src/skills/repo-skill/SKILL.md": `
 ---
 name: repo-skill
 description: Repo skill.
@@ -4265,7 +4269,7 @@ Repo body.
 
   const explained = await runSkillsetCli("explain", ".claude/skills/repo-skill/SKILL.md", "--root", root, "--scope", "repo");
   expect(explained.exitCode).toBe(0);
-  expect(explained.stdout).toContain(".skillset/skills/repo-skill/SKILL.md");
+  expect(explained.stdout).toContain(".skillset/src/skills/repo-skill/SKILL.md");
 });
 
 test("SET-25: updated mode skips unchanged files while all mode rewrites", async () => {
@@ -4278,7 +4282,7 @@ compile:
 claude: true
 codex: false
 `,
-    ".skillset/skills/one/SKILL.md": `
+    ".skillset/src/skills/one/SKILL.md": `
 ---
 name: one
 description: One.
@@ -4286,7 +4290,7 @@ description: One.
 
 One body.
 `,
-    ".skillset/skills/two/SKILL.md": `
+    ".skillset/src/skills/two/SKILL.md": `
 ---
 name: two
 description: Two.
@@ -4302,7 +4306,7 @@ Two body.
 
   await sleepForMtime();
   await Bun.write(
-    join(root, ".skillset/skills/one/SKILL.md"),
+    join(root, ".skillset/src/skills/one/SKILL.md"),
     "---\nname: one\ndescription: One changed.\n---\n\nOne body changed.\n"
   );
   await buildSkillset(root);
@@ -4331,13 +4335,13 @@ codex: true
   }
 }
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 mcp:
   source: repo:integrations/alpha-mcp.json
 `,
-    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4379,19 +4383,19 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 mcp: false
 `,
-    ".skillset/plugins/alpha/.mcp.json": `
+    ".skillset/src/plugins/alpha/.mcp.json": `
 {
   "mcpServers": {
     "alpha": { "command": "node" }
   }
 }
 `,
-    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4417,19 +4421,19 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 mcp: true
 `,
-    ".skillset/plugins/alpha/.mcp.json": `
+    ".skillset/src/plugins/alpha/.mcp.json": `
 {
   "mcpServers": {
     "alpha": { "command": "node" }
   }
 }
 `,
-    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4456,15 +4460,15 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/bin/tool": `
+    ".skillset/src/plugins/alpha/bin/tool": `
 #!/usr/bin/env bash
 echo alpha
 `,
-    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4497,13 +4501,13 @@ codex: false
 #!/usr/bin/env bash
 echo alpha
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 bin:
   source: repo:tools/alpha
 `,
-    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4530,16 +4534,16 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 bin: true
 `,
-    ".skillset/plugins/alpha/bin/tool": `
+    ".skillset/src/plugins/alpha/bin/tool": `
 #!/usr/bin/env bash
 echo alpha
 `,
-    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4561,13 +4565,13 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 mcp:
   source: repo:../outside.json
 `,
-    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4592,13 +4596,13 @@ codex: false
   }
 }
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 mcp:
   source: repo:plugins-claude/alpha-mcp.json
 `,
-    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4616,13 +4620,13 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 mcp:
   source: repo:missing/mcp.json
 `,
-    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4635,7 +4639,7 @@ Body.
     code: "plugin-mcp-invalid",
     featureId: "plugin-mcp",
     message: expect.stringContaining("points to missing path repo:missing/mcp.json"),
-    path: ".skillset/plugins/alpha/skillset.yaml",
+    path: ".skillset/src/plugins/alpha/skillset.yaml",
   });
 });
 
@@ -4648,13 +4652,13 @@ claude: true
 codex: false
 `,
     "integrations/mcp-dir/.gitkeep": "",
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 mcp:
   source: repo:integrations/mcp-dir
 `,
-    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4667,7 +4671,7 @@ Body.
     code: "plugin-mcp-invalid",
     featureId: "plugin-mcp",
     message: expect.stringContaining("feature mcp source must be a file"),
-    path: ".skillset/plugins/alpha/skillset.yaml",
+    path: ".skillset/src/plugins/alpha/skillset.yaml",
   });
 
   const binFileRoot = await contractFixture({
@@ -4678,13 +4682,13 @@ claude: true
 codex: false
 `,
     "tools/alpha": "#!/usr/bin/env bash\n",
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 bin:
   source: repo:tools/alpha
 `,
-    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4697,7 +4701,7 @@ Body.
     code: "plugin-bin-invalid",
     featureId: "plugin-bin",
     message: expect.stringContaining("feature bin source must be a directory"),
-    path: ".skillset/plugins/alpha/skillset.yaml",
+    path: ".skillset/src/plugins/alpha/skillset.yaml",
   });
 });
 
@@ -4709,15 +4713,15 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 mcp: true
 `,
-    ".skillset/plugins/alpha/.mcp.json": `
+    ".skillset/src/plugins/alpha/.mcp.json": `
 { "mcpServers":
 `,
-    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4745,13 +4749,13 @@ codex: false
   }
 }
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 mcp:
   source: repo:integrations/alpha-mcp.json
 `,
-    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4759,7 +4763,7 @@ description: Demo.
 
 Body.
 `,
-    ".skillset/src/plugins/alpha/claude/.mcp.json": `
+    ".skillset/src/plugins/alpha/_claude/.mcp.json": `
 {
   "mcpServers": {
     "other": { "command": "node" }
@@ -4858,7 +4862,7 @@ test("SET-62: init surfaces handwritten root instruction files as candidates", a
 test("SET-62: init never suggests importing skillset-generated instruction files", async () => {
   const root = await contractFixture({
     "AGENTS.md":
-      "<!-- Generated by skillset@0.1.0 from .skillset/instructions. Do not edit directly. -->\n\n# Agents",
+      "<!-- Generated by skillset@0.1.0 from .skillset/src/rules. Do not edit directly. -->\n\n# Agents",
     "CLAUDE.md": "# Claude\n\nHandwritten guidance.",
   });
 
@@ -5059,7 +5063,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -5097,7 +5101,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -5128,7 +5132,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -5210,7 +5214,7 @@ codex: true
         },
       },
     }),
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -5322,7 +5326,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -5333,7 +5337,7 @@ Body.
   });
   await buildSkillset(root);
 
-  const source = await explainPath(root, ".skillset/skills/demo/SKILL.md");
+  const source = await explainPath(root, ".skillset/src/skills/demo/SKILL.md");
   expect(source.kind).toBe("source-skill");
   expect(source.entries.length).toBeGreaterThan(0);
   expect(source.renderResults).toContainEqual(
@@ -5347,7 +5351,7 @@ Body.
 
   const generated = await explainPath(root, ".claude/skills/demo/SKILL.md");
   expect(generated.kind).toBe("generated");
-  expect(generated.entries[0]?.sourcePath).toBe(".skillset/skills/demo/SKILL.md");
+  expect(generated.entries[0]?.sourcePath).toBe(".skillset/src/skills/demo/SKILL.md");
   expect(generated.entries[0]?.sourceHash).toBeDefined();
   expect(generated.renderResults[0]?.status).toBe("rendered");
 
@@ -5364,7 +5368,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -5385,7 +5389,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo with an undeclared resource link.
@@ -5411,7 +5415,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/audit/skillset.yaml": `
+    ".skillset/src/plugins/audit/skillset.yaml": `
 skillset:
   name: audit
 dependencies:
@@ -5419,7 +5423,7 @@ dependencies:
     - name: external-tools
       range: "^2.1.0"
 `,
-    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
+    ".skillset/src/plugins/audit/skills/audit-skill/SKILL.md": `
 ---
 name: audit-skill
 description: Audit skill.
@@ -5442,7 +5446,7 @@ Audit body.
 
   const explainedJson = await runSkillsetCli(
     "explain",
-    ".skillset/plugins/audit",
+    ".skillset/src/plugins/audit",
     "--root",
     root,
     "--json"
@@ -5494,10 +5498,10 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/shared/references/guide.md": `
+    ".skillset/src/shared/references/guide.md": `
 # Guide
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo with resources.
@@ -5508,22 +5512,22 @@ resources:
 
 Read [the guide](shared:references/guide.md).
 `,
-    ".skillset/instructions/root.md": `
+    ".skillset/src/rules/root.md": `
 ---
 description: Root instructions.
 ---
 
 Keep output inspectable.
 `,
-    ".skillset/src/codex/rules/deny.rules": `
+    ".skillset/src/_codex/rules/deny.rules": `
 match = "rm -rf"
 decision = "deny"
 `,
-    ".skillset/plugins/audit/skillset.yaml": `
+    ".skillset/src/plugins/audit/skillset.yaml": `
 skillset:
   name: audit
 `,
-    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
+    ".skillset/src/plugins/audit/skills/audit-skill/SKILL.md": `
 ---
 name: audit-skill
 description: Audit skill.
@@ -5533,7 +5537,7 @@ Audit body.
 `,
   });
 
-  const skillExplain = await runSkillsetCli("explain", ".skillset/skills/demo/SKILL.md", "--root", root, "--json");
+  const skillExplain = await runSkillsetCli("explain", ".skillset/src/skills/demo/SKILL.md", "--root", root, "--json");
   expect(skillExplain.exitCode).toBe(0);
   const skillReport = JSON.parse(skillExplain.stdout) as {
     features: readonly {
@@ -5561,9 +5565,9 @@ Audit body.
     },
   ]);
 
-  const pluginExplain = await runSkillsetCli("explain", ".skillset/plugins/audit/skillset.yaml", "--root", root, "--json");
-  const instructionExplain = await runSkillsetCli("explain", ".skillset/instructions/root.md", "--root", root, "--json");
-  const islandExplain = await runSkillsetCli("explain", ".skillset/src/codex/rules/deny.rules", "--root", root, "--json");
+  const pluginExplain = await runSkillsetCli("explain", ".skillset/src/plugins/audit/skillset.yaml", "--root", root, "--json");
+  const instructionExplain = await runSkillsetCli("explain", ".skillset/src/rules/root.md", "--root", root, "--json");
+  const islandExplain = await runSkillsetCli("explain", ".skillset/src/_codex/rules/deny.rules", "--root", root, "--json");
   expect(featureIds(pluginExplain.stdout)).toContain("plugin-manifests");
   expect(featureIds(instructionExplain.stdout)).toContain("project-instructions");
   expect(featureIds(islandExplain.stdout)).toContain("target-native-islands");
@@ -5629,12 +5633,12 @@ skillset:
 claude: false
 codex: true
 `,
-    ".skillset/plugins/tools/skillset.yaml": `
+    ".skillset/src/plugins/tools/skillset.yaml": `
 skillset:
   name: tools
 `,
-    ".skillset/plugins/tools/bin/run": "#!/usr/bin/env bash\n",
-    ".skillset/plugins/tools/skills/tool/SKILL.md": `
+    ".skillset/src/plugins/tools/bin/run": "#!/usr/bin/env bash\n",
+    ".skillset/src/plugins/tools/skills/tool/SKILL.md": `
 ---
 name: tool
 description: Tool skill.
@@ -5657,7 +5661,7 @@ Tool body.
     })
   );
 
-  const explainedUnsupportedFeature = await explainPath(root, ".skillset/plugins/tools/bin");
+  const explainedUnsupportedFeature = await explainPath(root, ".skillset/src/plugins/tools/bin");
   expect(explainedUnsupportedFeature.kind).toBe("source-plugin");
   expect(explainedUnsupportedFeature.entries).toEqual([]);
   expect(explainedUnsupportedFeature.renderResults).toContainEqual(
@@ -5678,7 +5682,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/widget/skillset.yaml": `
+    ".skillset/src/plugins/widget/skillset.yaml": `
 skillset:
   name: widget
   version: 1.2.3
@@ -5694,7 +5698,7 @@ skillset:
     default_prompt: [Do the widget thing]
     color: "#123456"
 `,
-    ".skillset/plugins/widget/skills/demo/SKILL.md": `
+    ".skillset/src/plugins/widget/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -5716,7 +5720,7 @@ skillset:
 claude: false
 codex: true
 `,
-    ".skillset/instructions/beta.md": `
+    ".skillset/src/rules/beta.md": `
 ---
 paths:
   - "**/*"
@@ -5726,7 +5730,7 @@ paths:
 
 - Second by name.
 `,
-    ".skillset/instructions/alpha.md": `
+    ".skillset/src/rules/alpha.md": `
 # Alpha
 
 - First by name.
@@ -5736,8 +5740,8 @@ paths:
   await buildSkillset(root);
   const agents = await readFile(join(root, "AGENTS.md"), "utf8");
   // Both sources are bounded by a comment naming their path.
-  expect(agents).toContain("<!-- source: .skillset/instructions/alpha.md -->");
-  expect(agents).toContain("<!-- source: .skillset/instructions/beta.md -->");
+  expect(agents).toContain("<!-- source: .skillset/src/rules/alpha.md -->");
+  expect(agents).toContain("<!-- source: .skillset/src/rules/beta.md -->");
   // Deterministic order: alpha before beta.
   expect(agents.indexOf("alpha.md")).toBeLessThan(agents.indexOf("beta.md"));
   // Source-only frontmatter (paths) never leaks into the generated AGENTS.md.
@@ -5755,7 +5759,7 @@ skillset:
 claude: false
 codex: true
 `,
-    ".skillset/instructions/big.md": big,
+    ".skillset/src/rules/big.md": big,
   });
 
   const result = await buildSkillsetResult(root);
@@ -5822,10 +5826,10 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/shared/references/guide.md": `
+    ".skillset/src/shared/references/guide.md": `
 # Guide
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Links an undeclared shared resource.
@@ -5852,10 +5856,10 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/shared/references/dir/page.md": `
+    ".skillset/src/shared/references/dir/page.md": `
 # Page
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Links a child of a declared directory resource.
@@ -5880,7 +5884,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Depends on a plugin-root script path.
@@ -5901,11 +5905,11 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/shared/scripts/run.sh": `
+    ".skillset/src/shared/scripts/run.sh": `
 #!/usr/bin/env bash
 echo hi
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Declares a non-executable script resource.
@@ -5918,7 +5922,7 @@ Body.
 `,
   });
 
-  await chmod(join(root, ".skillset/shared/scripts/run.sh"), 0o644);
+  await chmod(join(root, ".skillset/src/shared/scripts/run.sh"), 0o644);
   await expect(lintSkillset(root)).rejects.toThrow("is not executable");
 });
 
@@ -5930,11 +5934,11 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/shared/scripts/run.sh": `
+    ".skillset/src/shared/scripts/run.sh": `
 #!/usr/bin/env bash
 echo hi
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Declares an executable script resource.
@@ -5947,7 +5951,7 @@ Body.
 `,
   });
 
-  await chmod(join(root, ".skillset/shared/scripts/run.sh"), 0o755);
+  await chmod(join(root, ".skillset/src/shared/scripts/run.sh"), 0o755);
   const result = await lintSkillset(root);
   expect(result.issues).toEqual([]);
 });

@@ -44,7 +44,7 @@ export interface SeedReleaseBaselinesOptions {
 }
 
 const ROOT_CONFIG_FILE = "config.yaml";
-const NO_SOURCE_MESSAGE = "skillset: no source plugins, skills, instructions, project agents, or target-native islands found";
+const NO_SOURCE_MESSAGE = "skillset: no source plugins, skills, rules, project agents, or provider source found";
 
 export async function seedReleaseBaselines(
   rootPath: string,

@@ -49,7 +49,7 @@ export interface AdoptImportedUnit {
 
 export interface AdoptImportResult {
   readonly candidate: SetupImportCandidate;
-  /** Instructions destination relative to the root (e.g. `.skillset/instructions/agents.md`). */
+  /** Instructions destination relative to the root (e.g. `.skillset/src/rules/agents.md`). */
   readonly destination?: string;
   readonly detail: string;
   readonly renderResults: readonly SkillsetRenderResult[];
@@ -116,7 +116,7 @@ export interface AdoptReport {
 /** Where write-mode adoption persists its migration report. */
 export const ADOPT_REPORT_DIR = ".skillset/build/adopt";
 
-const INSTRUCTIONS_DIR = ".skillset/instructions";
+const INSTRUCTIONS_DIR = ".skillset/src/rules";
 
 /**
  * One-action repo adoption: survey via `init`, import every candidate
@@ -361,7 +361,7 @@ async function importCandidate(
 
 /**
  * Minimal instructions import: copy the root instruction body into
- * `.skillset/instructions/` under its lowercased name (`AGENTS.md` ->
+ * `.skillset/src/rules/` under its lowercased name (`AGENTS.md` ->
  * `agents.md`), adding source-only provenance metadata. The ADR's
  * transform-on-adopt is a later slice; adopt never overwrites an existing
  * destination.

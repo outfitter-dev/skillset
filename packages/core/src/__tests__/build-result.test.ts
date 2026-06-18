@@ -12,7 +12,7 @@ skillset:
 claude: true
 codex: false
 `,
-  ".skillset/skills/demo/SKILL.md": `
+  ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo skill.
@@ -26,7 +26,7 @@ describe("buildSkillsetResult", () => {
   it("reports actual writes and deletions instead of planned managed paths", async () => {
     const root = await fixture({
       ...DEMO_FIXTURE,
-      ".skillset/skills/stale/SKILL.md": `
+      ".skillset/src/skills/stale/SKILL.md": `
 ---
 name: stale
 description: Stale skill.
@@ -53,7 +53,7 @@ Stale.
       writtenPaths: [],
     });
 
-    await rm(join(root, ".skillset/skills/stale/SKILL.md"));
+    await rm(join(root, ".skillset/src/skills/stale/SKILL.md"));
     const third = await buildSkillsetResult(root);
 
     expect(third.writes.writtenPaths).toEqual([".claude/skills/.skillset.lock"]);
@@ -69,7 +69,7 @@ skillset:
 claude: false
 codex: true
 `,
-      ".skillset/instructions/root.md": `
+      ".skillset/src/rules/root.md": `
 # Generated Instructions
 `,
       "AGENTS.md": `
@@ -113,7 +113,7 @@ skillset:
 claude: false
 codex: true
 `,
-      ".skillset/instructions/root.md": `
+      ".skillset/src/rules/root.md": `
 # Generated Instructions
 `,
       "AGENTS.md": `
@@ -170,10 +170,10 @@ skillset:
 claude: true
 codex: false
 `,
-      ".skillset/shared/references/common.md": `
+      ".skillset/src/shared/references/common.md": `
 # Common Reference
 `,
-      ".skillset/skills/resourceful/SKILL.md": `
+      ".skillset/src/skills/resourceful/SKILL.md": `
 ---
 name: resourceful
 description: Resourceful skill.

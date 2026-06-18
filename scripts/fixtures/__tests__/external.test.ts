@@ -109,15 +109,15 @@ test("runExternalRepo adopts a marketplace-shaped repo in place and reports roun
   ]);
   expect(report.ok).toBe(true);
   // The root AGENTS.md candidate now actually imports: adopt copies the body
-  // into .skillset/instructions/ and adds source-origin metadata.
+  // into .skillset/src/rules/ and adds source-origin metadata.
   expect(
     report.stages.find(
       (stage) =>
         stage.stage === "import" &&
         stage.detail.includes("instructions:AGENTS.md")
     )?.detail
-  ).toContain(".skillset/instructions/agents.md");
-  const importedAgents = await readFile(join(clone, ".skillset/instructions/agents.md"), "utf8");
+  ).toContain(".skillset/src/rules/agents.md");
+  const importedAgents = await readFile(join(clone, ".skillset/src/rules/agents.md"), "utf8");
   expect(importedAgents).toContain("skillset:\n  origin:\n    path: AGENTS.md");
   expect(importedAgents).toContain("# Demo agents\n\nHandwritten instructions.");
   expect(report.survey.candidates).toEqual([
@@ -174,7 +174,7 @@ test("runExternalRepo adopts a marketplace-shaped repo in place and reports roun
     "- skipped commands `.claude/commands`: project-level commands have no portable source home yet"
   );
   expect(markdown).toContain(
-    "instructions:AGENTS.md -> .skillset/instructions/agents.md"
+    "instructions:AGENTS.md -> .skillset/src/rules/agents.md"
   );
   expect(markdown).toContain("### plugin demo");
 });

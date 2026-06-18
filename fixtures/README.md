@@ -53,14 +53,16 @@ A checked-in case looks like a realistic content repo:
 fixtures/<case>/
   .skillset/
     config.yaml
-    plugins/
-    skills/
-    instructions/
-    src/          # optional; project agents and target-native islands only
+    src/
+      plugins/
+      skills/
+      rules/
+      _claude/   # optional provider source
+      _codex/    # optional provider source
   ...other repo files as needed
 ```
 
-`.skillset/src/` is **not** the universal source root. In the current source contract, plugins, standalone skills, and instructions live under their own `.skillset/` directories (`.skillset/plugins`, `.skillset/skills`, `.skillset/instructions`). `.skillset/src/` holds only project agents (`.skillset/src/agents`) and target-native islands (`.skillset/src/claude`, `.skillset/src/codex`, `.skillset/src/plugins/<plugin>/<target>`). Fixtures should match current compiler behavior, not a future contract.
+`.skillset/src/` is the universal source root. Plugins, standalone skills, instructions, project agents, shared resources, and provider source all live under it. Provider-specific source uses underscore-prefixed directories such as `.skillset/src/_claude`, `.skillset/src/_codex`, `.skillset/src/plugins/<plugin>/_claude`, and `.skillset/src/plugins/<plugin>/_codex`.
 
 A bare `fixtures/.skillset/src/` shape — treating `fixtures/` itself as a single fake repo root — is acceptable only when there is intentionally one case. It is not the default: named `fixtures/<case>/` directories scale to multiple cases and keep the fixture inventory from looking like live repo source.
 
@@ -68,4 +70,4 @@ A bare `fixtures/.skillset/src/` shape — treating `fixtures/` itself as a sing
 
 `kitchen-sink/` is the complete-surface **positive** golden reference: one build that exercises plugins, skills, instructions, shared resources, hooks, and Claude/Codex companions. It stays broad and is not split.
 
-It intentionally does not cover negative cases, feature isolation, project agents/islands, or change/release lifecycle. Those live as in-test temp fixtures in `src/__tests__/`. If a future scenario needs a durable, inspectable fake repo (for example a lifecycle-specific case), add a new `fixtures/<case>/` rather than overloading kitchen-sink.
+It intentionally does not cover negative cases, feature isolation, project agents, provider source, or change/release lifecycle. Those live as in-test temp fixtures in `src/__tests__/`. If a future scenario needs a durable, inspectable fake repo (for example a lifecycle-specific case), add a new `fixtures/<case>/` rather than overloading kitchen-sink.

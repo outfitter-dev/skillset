@@ -17,7 +17,7 @@ skillset:
 claude: true
 codex: false
 `,
-  ".skillset/skills/demo/SKILL.md": `
+  ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo skill.
@@ -162,11 +162,11 @@ describe("@skillset/core consumer API", () => {
   it("classifies stale generated output for removed source units", async () => {
     const root = await fixture({
       ...DEMO_FIXTURE,
-      ".skillset/skills/keeper/SKILL.md": SECOND_SKILL,
+      ".skillset/src/skills/keeper/SKILL.md": SECOND_SKILL,
     });
     const expectedOutput = ".claude/skills/demo/SKILL.md";
     await buildSkillsetResult(root);
-    await rm(join(root, ".skillset/skills/demo"), { recursive: true });
+    await rm(join(root, ".skillset/src/skills/demo"), { recursive: true });
 
     const result = await checkSkillsetResult(root);
 

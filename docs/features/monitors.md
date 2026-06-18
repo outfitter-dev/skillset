@@ -8,20 +8,20 @@ Claude plugins can include experimental monitor definitions under `monitors/`. S
 
 ## Authoring
 
-Place monitor source under `.skillset/plugins/<plugin>/monitors/`. The documented manifest pointer is rendered for `monitors/monitors.json`.
+Place monitor source under `.skillset/src/plugins/<plugin>/monitors/`. The documented manifest pointer is rendered for `monitors/monitors.json`.
 
 ## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
-| `.skillset/plugins/<plugin>/monitors/` | plugin root `monitors/` | n/a | `target_native` / `implemented` | Opaque directory pass-through for Claude. |
-| `.skillset/plugins/<plugin>/monitors/monitors.json` | manifest `experimental.monitors: "./monitors/monitors.json"` | n/a | `target_native` / `implemented` | JSON utility output is parsed after generation. |
+| `.skillset/src/plugins/<plugin>/monitors/` | plugin root `monitors/` | n/a | `target_native` / `implemented` | Opaque directory pass-through for Claude. |
+| `.skillset/src/plugins/<plugin>/monitors/monitors.json` | manifest `experimental.monitors: "./monitors/monitors.json"` | n/a | `target_native` / `implemented` | JSON utility output is parsed after generation. |
 
 ## Diagnostics
 
 - Refuse malformed generated JSON for known JSON files.
 - Back up unmanaged generated-output collisions before replacing them in confirmed builds.
-- Reject divergent target-native islands that try to emit the same monitor paths.
+- Reject divergent provider source that tries to emit the same monitor paths.
 - Do not copy Claude monitors into Codex plugin output.
 
 ## Provenance

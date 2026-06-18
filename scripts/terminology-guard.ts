@@ -14,6 +14,7 @@
  * ALLOWLIST_LINE below and the "Updating the allowlist" note at the bottom.
  */
 
+import { existsSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -170,6 +171,7 @@ async function main(): Promise<void> {
   const scannable = tracked.filter(isScannablePath);
   const violations: TerminologyViolation[] = [];
   for (const file of scannable) {
+    if (!existsSync(`${rootDir}/${file}`)) continue;
     const content = await Bun.file(`${rootDir}/${file}`).text();
     violations.push(...scanContent(file, content));
   }

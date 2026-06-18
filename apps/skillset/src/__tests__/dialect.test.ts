@@ -21,7 +21,7 @@ skillset:
 claude: true
 codex: true
 `,
-  ".skillset/skills/x/SKILL.md": `---
+  ".skillset/src/skills/x/SKILL.md": `---
 name: x
 description: Claude-dialect skill.
 dialect: claude
@@ -29,7 +29,7 @@ dialect: claude
 
 ${SKILL_BODY}
 `,
-  ".skillset/skills/y/SKILL.md": `---
+  ".skillset/src/skills/y/SKILL.md": `---
 name: y
 description: Portable skill with the same body.
 ---
@@ -91,7 +91,7 @@ test("dialect: claude lowers the codex skill projection and only that projection
 test("unknown dialect values fail the build loudly", async () => {
   const root = await fixture({
     ".skillset/config.yaml": "skillset:\n  name: dialect-bad\nclaude: true\n",
-    ".skillset/skills/x/SKILL.md": `---
+    ".skillset/src/skills/x/SKILL.md": `---
 name: x
 description: Bad dialect.
 dialect: codex
@@ -114,7 +114,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/instructions/conventions.md": `---
+    ".skillset/src/rules/conventions.md": `---
 dialect: claude
 ---
 

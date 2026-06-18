@@ -1,2 +1,2 @@
 #!/usr/bin/env bun
-import '../.skillset/skills/skillset-adrs/scripts/adr.ts';
+import '../.skillset/src/skills/skillset-adrs/scripts/adr.ts';

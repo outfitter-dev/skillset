@@ -22,7 +22,7 @@ skillset:
 claude: true
 codex: true
 `,
-  ".skillset/skills/repo-skill/SKILL.md": `
+  ".skillset/src/skills/repo-skill/SKILL.md": `
 ---
 name: repo-skill
 description: Repo skill.
@@ -30,7 +30,7 @@ description: Repo skill.
 
 Use the repo skill.
 `,
-  ".skillset/instructions/root.md": `
+  ".skillset/src/rules/root.md": `
 ---
 description: Root instructions.
 ---
@@ -47,11 +47,11 @@ skills:
 
 Review diffs carefully.
 `,
-  ".skillset/src/codex/rules/deny.rules": `
+  ".skillset/src/_codex/rules/deny.rules": `
 match = "rm -rf"
 decision = "deny"
 `,
-  ".skillset/plugins/alpha/skillset.yaml": `
+  ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   description: Alpha plugin.
@@ -62,46 +62,46 @@ dependencies:
       marketplace: acme
 mcp: true
 `,
-  ".skillset/plugins/alpha/.app.json": `
+  ".skillset/src/plugins/alpha/.app.json": `
 {"apps":[]}
 `,
-  ".skillset/plugins/alpha/.lsp.json": `
+  ".skillset/src/plugins/alpha/.lsp.json": `
 {"servers":[]}
 `,
-  ".skillset/plugins/alpha/.mcp.json": `
+  ".skillset/src/plugins/alpha/.mcp.json": `
 {
   "mcpServers": {
     "alpha": { "command": "node" }
   }
 }
 `,
-  ".skillset/plugins/alpha/README.md": `
+  ".skillset/src/plugins/alpha/README.md": `
 # Alpha
 `,
-  ".skillset/plugins/alpha/assets/icon.txt": `
+  ".skillset/src/plugins/alpha/assets/icon.txt": `
 icon
 `,
-  ".skillset/plugins/alpha/commands/run.md": `
+  ".skillset/src/plugins/alpha/commands/run.md": `
 # Run
 `,
-  ".skillset/plugins/alpha/hooks/hooks.json": `
+  ".skillset/src/plugins/alpha/hooks/hooks.json": `
 {
   "hooks": {
     "SessionStart": []
   }
 }
 `,
-  ".skillset/plugins/alpha/monitors/monitors.json": `
+  ".skillset/src/plugins/alpha/monitors/monitors.json": `
 {"monitors":[]}
 `,
-  ".skillset/plugins/alpha/output-styles/focused.md": `
+  ".skillset/src/plugins/alpha/output-styles/focused.md": `
 # Focused
 `,
-  ".skillset/plugins/alpha/scripts/setup.sh": `
+  ".skillset/src/plugins/alpha/scripts/setup.sh": `
 #!/usr/bin/env bash
 echo setup
 `,
-  ".skillset/plugins/alpha/skills/plugin-skill/SKILL.md": `
+  ".skillset/src/plugins/alpha/skills/plugin-skill/SKILL.md": `
 ---
 name: plugin-skill
 description: Plugin skill.
@@ -113,28 +113,28 @@ tool_intent:
 
 Use the plugin skill.
 `,
-  ".skillset/plugins/alpha/src/index.js": `
+  ".skillset/src/plugins/alpha/src/index.js": `
 export const alpha = true;
 `,
-  ".skillset/plugins/alpha/themes/dark.json": `
+  ".skillset/src/plugins/alpha/themes/dark.json": `
 {"name":"dark"}
 `,
-  ".skillset/plugins/beta/skillset.yaml": `
+  ".skillset/src/plugins/beta/skillset.yaml": `
 skillset:
   name: beta
   description: Beta plugin.
 codex: false
 `,
-  ".skillset/plugins/beta/bin/tool": `
+  ".skillset/src/plugins/beta/bin/tool": `
 #!/usr/bin/env bash
 echo beta
 `,
-  ".skillset/plugins/beta/agents/reviewer.md": `
+  ".skillset/src/plugins/beta/agents/reviewer.md": `
 # Plugin Reviewer
 
 Review plugin output.
 `,
-  ".skillset/plugins/beta/skills/plugin-skill/SKILL.md": `
+  ".skillset/src/plugins/beta/skills/plugin-skill/SKILL.md": `
 ---
 name: beta-skill
 description: Beta skill.
@@ -485,7 +485,7 @@ describe("build render results", () => {
     const scoped = await diffSkillsetResult(root, { scopes: ["repo"] });
     const unsupportedRoot = await fixture({
       ...OUTCOME_FIXTURE,
-      ".skillset/plugins/alpha/bin/tool": `
+      ".skillset/src/plugins/alpha/bin/tool": `
 #!/usr/bin/env bash
 echo alpha
 `,
@@ -516,7 +516,7 @@ echo alpha
   it("ignores placeholder-only plugin agent directories for unsupported Codex outcomes", async () => {
     const root = await fixture({
       ...OUTCOME_FIXTURE,
-      ".skillset/plugins/alpha/agents/.gitkeep": "",
+      ".skillset/src/plugins/alpha/agents/.gitkeep": "",
     });
 
     const result = await buildSkillsetResult(root);
@@ -532,7 +532,7 @@ echo alpha
   it("enforces unsupported outcome policy with actionable render errors", async () => {
     const agentRoot = await fixture({
       ...OUTCOME_FIXTURE,
-      ".skillset/plugins/alpha/agents/reviewer.md": `
+      ".skillset/src/plugins/alpha/agents/reviewer.md": `
 # Plugin Reviewer
 
 Review plugin output.
@@ -547,7 +547,7 @@ Review plugin output.
 
     const binRoot = await fixture({
       ...OUTCOME_FIXTURE,
-      ".skillset/plugins/alpha/bin/tool": `
+      ".skillset/src/plugins/alpha/bin/tool": `
 #!/usr/bin/env bash
 echo alpha
 `,
