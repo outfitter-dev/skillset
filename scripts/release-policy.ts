@@ -877,7 +877,7 @@ async function readCiPassed(repository: string, sha: string) {
 export function ciStateFromCheckRuns(response: GitHubCheckRunsResponse) {
   const requiredRuns = new Map(
     response.check_runs
-      .filter((run) => run.check_suite?.app?.slug === "github-actions")
+      .filter((run) => (run.app?.slug ?? run.check_suite?.app?.slug) === "github-actions")
       .filter((run) => run.name === "check" || run.name === "skillset-ci")
       .map((run) => [run.name, run])
   );
@@ -969,6 +969,9 @@ type GitHubContentFile = {
 
 export type GitHubCheckRunsResponse = {
   check_runs: {
+    app?: {
+      slug?: string;
+    } | null;
     check_suite?: {
       app?: {
         slug?: string;

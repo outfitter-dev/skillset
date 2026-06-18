@@ -299,6 +299,16 @@ describe("release policy CI state", () => {
     name,
     status: "completed",
   });
+  const successRunWithTopLevelApp = (
+    name: string
+  ): GitHubCheckRunsResponse["check_runs"][number] => ({
+    app: {
+      slug: "github-actions",
+    },
+    conclusion: "success",
+    name,
+    status: "completed",
+  });
 
   test("requires the named CI jobs to complete successfully", () => {
     expect(ciStateFromCheckRuns(checkRuns([successRun("check"), successRun("skillset-ci")]))).toBe(
@@ -316,6 +326,14 @@ describe("release policy CI state", () => {
         ])
       )
     ).toBe("failed");
+  });
+
+  test("accepts the live check-runs API shape with the app slug on the run", () => {
+    expect(
+      ciStateFromCheckRuns(
+        checkRuns([successRunWithTopLevelApp("check"), successRunWithTopLevelApp("skillset-ci")])
+      )
+    ).toBe("passed");
   });
 
   test("skips exact-SHA CI polling when the registry already has the current version and tag", () => {
