@@ -186,7 +186,7 @@
           "fromPath": "docs/features/README.md"
         },
         {
-          "context": "| `profiles.models` / `model_profile` | target-native model and reasoning fields | Future | Deferred alias design for repo-local model intent names; see the [model and reasoning alias profiles ADR](ad",
+          "context": "| `profiles.models` / `model_profile` | provider-native model and reasoning fields | Future | Deferred alias design for repo-local model intent names; see the [model and reasoning alias profiles ADR](",
           "from": "target-surfaces",
           "fromPath": "docs/target-surfaces.md"
         }
@@ -225,7 +225,7 @@
           "fromPath": "docs/features/README.md"
         },
         {
-          "context": "| `settings.json` | default plugin settings | Target-native / Future | Documented Claude plugin-root component for enabled plugins. Skillset v1 does not mutate live settings; the [reviewed settings su",
+          "context": "| `settings.json` | default plugin settings | Provider-native / Future | Documented Claude plugin-root component for enabled plugins. Skillset v1 does not mutate live settings; the [reviewed settings ",
           "from": "target-surfaces",
           "fromPath": "docs/target-surfaces.md"
         }
@@ -423,7 +423,7 @@
       "status": "draft",
       "superseded_by": null,
       "title": "Core Library and CLI Boundary",
-      "updated": "2026-06-12"
+      "updated": "2026-06-15"
     },
     {
       "created": "2026-06-13",
@@ -445,9 +445,9 @@
           "fromPath": "docs/adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md"
         },
         {
-          "context": "- [Deterministic Projection and Adapter Conformance](../adrs/drafts/20260613-deterministic-projection-and-adapter-conformance.md) defines how outcomes pair with the feature registry for conformance.",
-          "from": "lowering-outcomes",
-          "fromPath": "docs/features/lowering-outcomes.md"
+          "context": "- [Deterministic Projection and Adapter Conformance](../adrs/drafts/20260613-deterministic-projection-and-adapter-conformance.md) defines how render results pair with the feature registry for conforma",
+          "from": "render-results",
+          "fromPath": "docs/features/render-results.md"
         },
         {
           "context": "See [Fixtures, Tests, Dogfooding, and Evals](../adrs/drafts/20260609-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../adrs/drafts/20260613-deterministic-p",
@@ -481,8 +481,8 @@
         },
         {
           "context": "See [Lowering Outcomes and Loss Ledger](../adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md) for the ADR-level decision.",
-          "from": "lowering-outcomes",
-          "fromPath": "docs/features/lowering-outcomes.md"
+          "from": "render-results",
+          "fromPath": "docs/features/render-results.md"
         },
         {
           "context": "See [Fixtures, Tests, Dogfooding, and Evals](../adrs/drafts/20260609-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../adrs/drafts/20260613-deterministic-p",
@@ -498,6 +498,19 @@
       "superseded_by": null,
       "title": "Lowering Outcomes and Loss Ledger",
       "updated": "2026-06-14"
+    },
+    {
+      "created": "2026-06-18",
+      "depends_on": [],
+      "inbound": [],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260618-unified-source-layout.md",
+      "slug": "unified-source-layout",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Unified Source Layout",
+      "updated": "2026-06-18"
     }
   ],
   "version": 1
