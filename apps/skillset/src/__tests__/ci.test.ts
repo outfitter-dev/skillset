@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -151,6 +152,7 @@ test("ci normalizes old source layout only for git-ref baselines", async () => {
     ".skillset/config.yaml": `
 skillset:
   name: ci-root
+  version: 0.1.0
 claude: true
 codex: false
 `,
@@ -158,6 +160,7 @@ codex: false
 ---
 name: demo
 description: Demo.
+version: 0.1.0
 ---
 
 Body.
@@ -168,15 +171,19 @@ Body.
   await rm(join(root, ".skillset/skills"), { force: true, recursive: true });
   await writeRawFiles(root, {
     ".skillset/config.yaml": `
-skillset:
-  name: ci-root
 claude: true
 codex: false
+`,
+    ".skillset/src/skillset.yaml": `
+skillset:
+  name: ci-root
+  version: 0.1.0
 `,
     ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
+version: 0.1.0
 ---
 
 Body.
@@ -281,7 +288,7 @@ async function builtFixture(): Promise<string> {
 
 async function fixture(files: Record<string, string>): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "skillset-ci-"));
-  for (const [path, content] of Object.entries(files)) {
+  for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }
   return root;

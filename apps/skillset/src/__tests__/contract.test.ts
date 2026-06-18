@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { expect, test } from "bun:test";
+import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { planDistributions } from "@skillset/core";
 
 import { buildSkillset, buildSkillsetResult, checkSkillset, checkSkillsetResult, diffSkillset, diffSkillsetResult } from "../build";
@@ -864,7 +865,8 @@ test("SET-58: imported plugin manifests round-trip metadata fields through build
     join(external, "roundtrip/skills/demo/SKILL.md"),
     "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n"
   );
-  await Bun.write(join(root, ".skillset/config.yaml"), "skillset:\n  name: roundtrip-root\nclaude: true\ncodex: false\n");
+  await Bun.write(join(root, ".skillset/config.yaml"), "claude: true\ncodex: false\n");
+  await Bun.write(join(root, ".skillset/src/skillset.yaml"), "skillset:\n  name: roundtrip-root\n");
 
   await importSource({ kind: "plugin", rootPath: root, sourcePath: join(external, "roundtrip") });
   await buildSkillset(root);
@@ -950,7 +952,8 @@ test("SET-10: plugin import reports the config and copied files", async () => {
 test("SET-10: inferred plugin-root import writes source config for native plugin manifests", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
   const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));
-  await Bun.write(join(root, ".skillset/config.yaml"), "skillset:\n  name: import-root\n");
+  await Bun.write(join(root, ".skillset/config.yaml"), "\n");
+  await Bun.write(join(root, ".skillset/src/skillset.yaml"), "skillset:\n  name: import-root\n");
   await Bun.write(
     join(external, "plugins/widget/.claude-plugin/plugin.json"),
     JSON.stringify({ name: "Widget", version: "0.8.0", description: "Native widget plugin." })
@@ -4977,11 +4980,12 @@ test("SET-27: create makes a new source repo with default naming", async () => {
   const config = await readFile(join(parent, "my-skillset/.skillset/config.yaml"), "utf8");
   const readme = await readFile(join(parent, "my-skillset/README.md"), "utf8");
   const agents = await readFile(join(parent, "my-skillset/AGENTS.md"), "utf8");
-  expect(config).toContain("name: my-skillset");
+  const manifest = await readFile(join(parent, "my-skillset/.skillset/src/skillset.yaml"), "utf8");
+  expect(manifest).toContain("name: my-skillset");
   expect(config).toContain("compile:");
   expect(readme).toContain("# my-skillset");
   expect(readme).toContain("skillset build --dry-run");
-  expect(agents).toContain("Treat `.skillset/` as editable source");
+  expect(agents).toContain("Treat `.skillset/src/` as editable source");
   expect(await fileExists(join(parent, "my-skillset/.git/config"))).toBe(true);
 });
 
@@ -5005,7 +5009,8 @@ test("SET-54: create supports custom path and explicit setup name", async () => 
 
   const config = await readFile(join(parent, "team-loadout/.skillset/config.yaml"), "utf8");
   const readme = await readFile(join(parent, "team-loadout/README.md"), "utf8");
-  expect(config).toContain("name: acme-loadout");
+  const manifest = await readFile(join(parent, "team-loadout/.skillset/src/skillset.yaml"), "utf8");
+  expect(manifest).toContain("name: acme-loadout");
   expect(config).toContain("    - claude");
   expect(config).not.toContain("    - codex");
   expect(readme).toContain("# acme-loadout");
@@ -5051,7 +5056,7 @@ test("SET-27: setup refuses unsafe overwrite", async () => {
   await Bun.write(join(initRoot, ".skillset/config.yaml"), "not: skillset\n");
   const init = await runSkillsetCli("init", "--root", initRoot, "--yes");
   expect(init.exitCode).toBe(1);
-  expect(init.stderr).toContain("unsupported top-level key not");
+  expect(init.stderr).toContain("unsupported workspace config key not");
 });
 
 test("SET-43: init defaults to git root and seeds release baselines", async () => {
@@ -5958,7 +5963,7 @@ Body.
 
 async function contractFixture(files: Record<string, string>): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "skillset-contract-"));
-  for (const [path, content] of Object.entries(files)) {
+  for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }
   return root;

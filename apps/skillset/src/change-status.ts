@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readdir, readFile, rename, rm, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 
@@ -35,7 +35,7 @@ import type {
   SourceRule,
   SourceSkill,
 } from "./types";
-import { isJsonRecord, parseMarkdown, parseYamlRecord, stringifyJson } from "./yaml";
+import { isJsonRecord, parseMarkdown, parseYamlRecord, stringifyJson, stringifyYaml } from "./yaml";
 
 export const SOURCE_HASH_SCHEMA = "skillset-source-unit-v2";
 
@@ -116,6 +116,7 @@ interface BaselineInventory {
 
 const ROOT_CONFIG_FILE = "config.yaml";
 const SOURCE_ROOT_DIR = "src";
+const ROOT_SOURCE_MANIFEST_FILE = "skillset.yaml";
 const LEGACY_BASELINE_SOURCE_MOVES: readonly (readonly [string, string])[] = [
   ["instructions", "src/rules"],
   ["rules", "src/rules"],
@@ -173,15 +174,7 @@ export async function collectSourceInventory(
 
 async function sourceInventoryForGraph(graph: BuildGraph): Promise<SourceInventory> {
   const units: SourceUnit[] = [];
-  const rootConfigPath = join(graph.sourcePath, ROOT_CONFIG_FILE);
-  units.push(await fileUnit(
-    graph,
-    "root-config",
-    selectorForRootConfig(),
-    rootConfigPath,
-    await regionsForYaml(rootConfigPath),
-    "root-config"
-  ));
+  units.push(await rootConfigUnit(graph));
 
   for (const skill of graph.standaloneSkills) {
     units.push(await skillUnit(graph, skill, "standalone-skill", selectorForStandaloneSkill(skill.id)));
@@ -229,6 +222,31 @@ async function sourceInventoryForGraph(graph: BuildGraph): Promise<SourceInvento
   return {
     hashSchema: SOURCE_HASH_SCHEMA,
     units: [...dedupeUnits(units)].sort((left, right) => compareStrings(left.id, right.id)),
+  };
+}
+
+async function rootConfigUnit(graph: BuildGraph): Promise<SourceUnit> {
+  const configPath = join(graph.sourcePath, ROOT_CONFIG_FILE);
+  const manifestPath = join(graph.sourcePath, SOURCE_ROOT_DIR, ROOT_SOURCE_MANIFEST_FILE);
+  const sourcePaths = [relativePath(graph, configPath), relativePath(graph, manifestPath)];
+  const hash = createSourceHash("root-config");
+  hash.update("metadata\0");
+  hash.update(stringifyJson({ id: "root-config", sourcePaths }));
+  hash.update("\0config\0");
+  await hashPathInto(hash, configPath);
+  hash.update("\0manifest\0");
+  await hashPathInto(hash, manifestPath);
+  return {
+    hash: digest(hash),
+    hashSchema: SOURCE_HASH_SCHEMA,
+    id: selectorForRootConfig(),
+    kind: "root-config",
+    regions: mergeRegions([
+      ...(await regionsForYaml(configPath)),
+      ...(await regionsForYaml(manifestPath)),
+    ]),
+    sourcePath: sourcePaths[0] ?? "",
+    sourcePaths,
   };
 }
 
@@ -788,7 +806,10 @@ async function inventoryFromGitRef(
   }
 }
 
-async function normalizeLegacyBaselineSnapshot(snapshotPath: string, options: SkillsetOptions): Promise<void> {
+async function normalizeLegacyBaselineSnapshot(
+  snapshotPath: string,
+  options: SkillsetOptions
+): Promise<void> {
   const sourceDir = options.sourceDir ?? ".skillset";
   const skillsetPath = join(snapshotPath, sourceDir);
   if (!(await exists(skillsetPath))) return;
@@ -797,6 +818,7 @@ async function normalizeLegacyBaselineSnapshot(snapshotPath: string, options: Sk
     await moveLegacyBaselinePath(join(skillsetPath, from), join(skillsetPath, to));
   }
   await moveLegacyBaselinePluginProviderDirs(join(skillsetPath, SOURCE_ROOT_DIR, "plugins"));
+  await splitLegacyBaselineRootConfig(skillsetPath);
 }
 
 async function moveLegacyBaselinePluginProviderDirs(pluginsPath: string): Promise<void> {
@@ -808,6 +830,43 @@ async function moveLegacyBaselinePluginProviderDirs(pluginsPath: string): Promis
     await moveLegacyBaselinePath(join(pluginPath, "claude"), join(pluginPath, "_claude"));
     await moveLegacyBaselinePath(join(pluginPath, "codex"), join(pluginPath, "_codex"));
   }
+}
+
+async function splitLegacyBaselineRootConfig(skillsetPath: string): Promise<void> {
+  const configPath = join(skillsetPath, ROOT_CONFIG_FILE);
+  if (!(await exists(configPath))) return;
+  const config = parseYamlRecord(await readFile(configPath, "utf8"), configPath);
+  const manifest = sourceManifestFromLegacyRootConfig(config);
+  if (manifest === undefined) return;
+
+  const manifestPath = join(skillsetPath, SOURCE_ROOT_DIR, ROOT_SOURCE_MANIFEST_FILE);
+  if (await exists(manifestPath)) {
+    throw new Error(`skillset: cannot normalize baseline with both root source metadata and ${manifestPath}`);
+  }
+
+  await mkdir(dirname(manifestPath), { recursive: true });
+  await writeFile(manifestPath, stringifyYaml(manifest), "utf8");
+  await writeFile(configPath, stringifyLegacyWorkspaceConfig(workspaceConfigFromLegacyRootConfig(config)), "utf8");
+}
+
+function sourceManifestFromLegacyRootConfig(record: JsonRecord): JsonRecord | undefined {
+  const manifest: Record<string, JsonRecord[keyof JsonRecord]> = {};
+  if (isJsonRecord(record.skillset)) manifest.skillset = record.skillset;
+  if (record.supports !== undefined) manifest.supports = record.supports;
+  return Object.keys(manifest).length === 0 ? undefined : manifest;
+}
+
+function workspaceConfigFromLegacyRootConfig(record: JsonRecord): JsonRecord {
+  const config: Record<string, JsonRecord[keyof JsonRecord]> = {};
+  for (const [key, value] of Object.entries(record)) {
+    if (key === "skillset" || key === "supports") continue;
+    config[key] = value;
+  }
+  return config;
+}
+
+function stringifyLegacyWorkspaceConfig(record: JsonRecord): string {
+  return Object.keys(record).length === 0 ? "\n" : stringifyYaml(record);
 }
 
 async function moveLegacyBaselinePath(from: string, to: string): Promise<void> {
@@ -1010,6 +1069,18 @@ function regionsForRecord(record: JsonRecord): readonly SourceUnitRegion[] {
   if (record.mcp !== undefined) regions.push({ name: "mcp", severityBearing: true });
   if (record.bin !== undefined) regions.push({ name: "bin", severityBearing: true });
   return regions.sort((left, right) => compareStrings(left.name, right.name));
+}
+
+function mergeRegions(regions: readonly SourceUnitRegion[]): readonly SourceUnitRegion[] {
+  const byName = new Map<string, SourceUnitRegion>();
+  for (const region of regions) {
+    const existing = byName.get(region.name);
+    byName.set(region.name, {
+      name: region.name,
+      severityBearing: region.severityBearing || existing?.severityBearing === true,
+    });
+  }
+  return [...byName.values()].sort((left, right) => compareStrings(left.name, right.name));
 }
 
 function companionRegions(path: string): readonly SourceUnitRegion[] {

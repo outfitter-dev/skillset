@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { createHash } from "node:crypto";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -135,7 +136,7 @@ test("CLI accepts --isolated for build and rejects it elsewhere", async () => {
 
 async function fixture(files: Record<string, string>): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "skillset-isolated-"));
-  for (const [path, content] of Object.entries(files)) {
+  for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }
   return root;

@@ -17,6 +17,10 @@ evidence:
     sourceHash: sha256:191b2708712f11559d384e725bfb7d466677f19b5ae1a9a2fb60e35ed0f4051b
   - scope: plugin:skillset
     sourceHash: sha256:394c3e8c3a848573ae22151a1c862a95feb9ac8930c743cee31043e28d1d8cea
+  - scope: plugin.skillset.skill:use-skillset
+    sourceHash: sha256:f9798e741b2446e04fbdb75fd407f6155d678621cfb5ef56b3aa836b822fae8b
+  - scope: plugin:skillset
+    sourceHash: sha256:e75adca8005f3736d8f7421c5098263161036746205b1d6b0c168cc49a7f0c09
 group: SET-125
 id: e75c9c55abea
 scopes:

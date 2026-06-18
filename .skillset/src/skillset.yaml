@@ -1,0 +1,9 @@
+skillset:
+  schema: 1
+  name: skillset
+  title: Skillset
+  summary: Self-hosted source for developing and using the skillset compiler.
+  description: Source skills and plugins for developing, reviewing, and using the skillset compiler.
+  version: 0.1.0
+  owner:
+    name: Skillset Maintainers

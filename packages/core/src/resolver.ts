@@ -15,6 +15,8 @@ import {
   resolveTargets,
   targetNames,
   validateConfigDocument,
+  validateRootSourceManifestDocument,
+  validateWorkspaceConfigDocument,
 } from "./config";
 import { readPluginDependencies, validatePluginDependencyGraph } from "./dependencies";
 import { SkillsetFeatureDiagnosticError } from "./operation-result";
@@ -44,6 +46,7 @@ import { isJsonRecord, parseMarkdown, parseYamlRecord } from "./yaml";
 
 const DEFAULT_SOURCE_DIR = ".skillset";
 const ROOT_CONFIG_FILE = "config.yaml";
+const ROOT_SOURCE_MANIFEST_FILE = "skillset.yaml";
 const PLUGIN_CONFIG_FILES = ["skillset.yaml", "config.yaml"] as const;
 const PLUGINS_DIR = "plugins";
 const SOURCE_ROOT_DIR = "src";
@@ -66,16 +69,19 @@ export async function loadBuildGraph(
   const sourceDir = options.sourceDir ?? DEFAULT_SOURCE_DIR;
   const sourcePath = resolveInside(rootPath, sourceDir);
   const rootConfigPath = join(sourcePath, ROOT_CONFIG_FILE);
+  const rootSourceManifestPath = join(sourcePath, SOURCE_ROOT_DIR, ROOT_SOURCE_MANIFEST_FILE);
   const rootConfig = parseYamlRecord(await readFile(rootConfigPath, "utf8"), rootConfigPath);
-  validateConfigDocument(rootConfig, rootConfigPath, { allowCompile: true });
-  const metadata = readSkillsetMetadata(rootConfig, rootConfigPath);
-  validateSchemaField(metadata, `${rootConfigPath}.skillset.schema`);
-  validateVersionField(metadata, `${rootConfigPath}.skillset.version`);
+  validateWorkspaceConfigDocument(rootConfig, rootConfigPath);
+  const sourceManifest = parseYamlRecord(await readFile(rootSourceManifestPath, "utf8"), rootSourceManifestPath);
+  validateRootSourceManifestDocument(sourceManifest, rootSourceManifestPath);
+  const metadata = readSkillsetMetadata(sourceManifest, rootSourceManifestPath);
+  validateSchemaField(metadata, `${rootSourceManifestPath}.skillset.schema`);
+  validateVersionField(metadata, `${rootSourceManifestPath}.skillset.version`);
   // Validate root identity.
-  readSkillsetName(metadata, basename(rootPath), rootConfigPath);
+  readSkillsetName(metadata, basename(rootPath), rootSourceManifestPath);
   const outputs = readOutputConfig(
     rootConfig,
-    metadata,
+    {},
     options.distDir === undefined ? {} : { distDir: options.distDir }
   );
   const distributions = readDistributionConfig(rootConfig, rootConfigPath);
@@ -100,7 +106,7 @@ export async function loadBuildGraph(
 
   const warnings: string[] = [];
   await rejectLegacySourceLayout(rootPath, sourceDir);
-  await validateSupports(rootConfig.supports, { label: rootConfigPath, rootPath, warnings });
+  await validateSupports(sourceManifest.supports, { label: rootSourceManifestPath, rootPath, warnings });
   const releaseState = await readReleaseState(rootPath, options);
   const plugins = await loadPlugins(rootPath, sourceDir, filteredTargets, warnings, outputs);
   try {

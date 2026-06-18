@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { expect, test } from "bun:test";
+import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 
 import { explainPath, listGeneratedEntries } from "../authoring";
 import { buildSkillset, buildSkillsetResult, checkSkillset, diffSkillset } from "../build";
@@ -3058,7 +3059,7 @@ Alpha body.
 `,
   });
 
-  await expect(loadBuildGraph(invalidRoot)).rejects.toThrow("config.yaml.skillset.version to be a semantic version");
+  await expect(loadBuildGraph(invalidRoot)).rejects.toThrow("src/skillset.yaml.skillset.version to be a semantic version");
 
   const invalidPlugin = await fixture({
     ".skillset/config.yaml": `
@@ -3478,7 +3479,7 @@ skillset:
 `,
   });
 
-  await expect(loadBuildGraph(root)).rejects.toThrow("unsupported top-level key");
+  await expect(loadBuildGraph(root)).rejects.toThrow("unsupported workspace config key");
 });
 
 test("plugin-local config.yaml remains a fallback but not alongside skillset.yaml", async () => {
@@ -3804,7 +3805,7 @@ External body.
 async function fixture(files: Record<string, string>): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "skillset-test-"));
 
-  for (const [path, content] of Object.entries(files)) {
+  for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     const outputPath = join(root, path);
     await Bun.write(outputPath, normalizeFixture(content));
   }

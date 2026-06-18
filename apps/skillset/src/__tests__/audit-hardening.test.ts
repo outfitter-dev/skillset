@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { expect, test } from "bun:test";
+import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 
 import { buildSkillset, checkSkillset } from "../build";
 import { inspectSkillset, lintSkillset } from "../lint";
@@ -467,7 +468,7 @@ async function kitchenSink(): Promise<string> {
 
 async function fixture(files: Record<string, string>): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "skillset-hardening-"));
-  for (const [path, content] of Object.entries(files)) {
+  for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     await Bun.write(join(root, path), `${content.trimStart().trimEnd()}\n`);
   }
   return root;

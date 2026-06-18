@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { normalizeSkillsetFixtureFiles } from "../../test-helpers/skillset-config";
 import { mkdtemp, readdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -264,7 +265,7 @@ function marketplaceFiles(): Record<string, string> {
 
 async function fixture(files: Record<string, string>): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "skillset-external-test-"));
-  for (const [path, content] of Object.entries(files)) {
+  for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     await Bun.write(join(root, path), content);
   }
   return root;

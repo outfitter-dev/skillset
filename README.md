@@ -42,8 +42,10 @@ skillset test [name]        # run an isolated deterministic projection test
 
 The default contract is:
 
-- source root: `.skillset/`
-- root config: `.skillset/config.yaml`
+- workspace root: `.skillset/`
+- adaptive source root: `.skillset/src/`
+- workspace config: `.skillset/config.yaml`
+- root source manifest: `.skillset/src/skillset.yaml`
 - plugin source: `.skillset/src/plugins/<plugin-name>/`
 - standalone skill source: `.skillset/src/skills/<skill-name>/`
 - instruction source: `.skillset/src/rules/**/*.md`
@@ -113,7 +115,7 @@ skillset create team-loadout --name team-loadout --targets claude,codex --yes
 
 For a user-global source checkout, `skillset create --global` defaults to `~/.skillset/src`. This is still Skillset-owned source, not a live Claude or Codex runtime directory. The corresponding preview/build area is documented as `~/.skillset/build`, but setup does not create it or write to `~/.claude`, `~/.codex`, or `.agents`. The published package requires Bun and ships Bun-built JavaScript bins for `skillset` and `create-skillset`; stable releases run from the default npm dist-tag with commands such as `npx skillset create` or `bunx skillset create`. Prerelease builds remain available through their explicit tag, such as `skillset@beta`. Setup still routes through the same plan-first `create` flow.
 
-Setup commands create only source files: `.skillset/config.yaml`, `.skillset/src/.gitkeep`, optional `.skillset/src/agents/` placeholders with `--include agents`, and an optional user-owned GitHub Actions workflow with `--include ci`. The generated config uses `compile.targets`; target adapter config still belongs in `claude` and `codex` blocks or root `defaults.<target>.<surface>`.
+Setup commands create only source files: `.skillset/config.yaml`, `.skillset/src/skillset.yaml`, `.skillset/src/.gitkeep`, optional `.skillset/src/agents/` placeholders with `--include agents`, and an optional user-owned GitHub Actions workflow with `--include ci`. The generated config uses `compile.targets`; source identity lives in `.skillset/src/skillset.yaml`; target adapter config still belongs in `claude` and `codex` blocks or root `defaults.<target>.<surface>`.
 
 ## Import
 
@@ -145,7 +147,7 @@ Import shares the same version-baseline adoption machinery as `init` when the de
 
 ## Source Contract
 
-Root source metadata lives at `.skillset/config.yaml`.
+Root source metadata lives at `.skillset/src/skillset.yaml`. Workspace build and destination configuration lives at `.skillset/config.yaml`.
 
 Each plugin lives at `.skillset/src/plugins/<plugin-name>/` and has its own `skillset.yaml`. Portable plugin fields live under `skillset`; target-specific overrides live under top-level `claude` and `codex` blocks. Skill source frontmatter can use top-level `name`, `title`, `summary`, `description`, `version`, `resources`, `implicit_invocation`, `allowed_tools`, and the source-only `tool_intent` map; the compiler derives target-native generated metadata, Claude frontmatter, Codex `agents/openai.yaml` policy where supported, and skill-local copies of declared resources.
 
@@ -218,7 +220,7 @@ allowed_tools:
   codex: false
 ```
 
-`implicit_invocation` lowers to Claude `disable-model-invocation` and Codex `agents/openai.yaml` `policy.allow_implicit_invocation`. `allowed_tools` lowers to Claude `allowed-tools`; Codex has no confirmed skill-local allowed-tools equivalent, so Codex-enabled source must omit `allowed_tools.codex` or set it to `false`.
+`implicit_invocation` renders to Claude `disable-model-invocation` and Codex `agents/openai.yaml` `policy.allow_implicit_invocation`. `allowed_tools` renders to Claude `allowed-tools`; Codex has no confirmed skill-local allowed-tools equivalent, so Codex-enabled source must omit `allowed_tools.codex` or set it to `false`.
 
 Portable tool policy uses the `tool_intent` block. The old `tools` key is unsupported. The name reflects authoring *intent*, not a target-enforced sandbox. Target-native escape hatches use underscore keys: shared escapes live under top-level `tool_intent`, and target-local escapes live under `claude.tool_intent` or `codex.tool_intent`:
 
@@ -267,7 +269,7 @@ codex:
 
 Portable `tool_intent.allow` and `tool_intent.deny` accept only known keys: `read`, `search`, `write`, `edit`, `shell`, `web_fetch`, `web_search`, and `mcp`. Unknown keys fail lint/build. Portable `allow` / `deny` belongs in the source top-level `tool_intent` block; target-local `claude.tool_intent` and `codex.tool_intent` accept only `_allow` / `_deny` escape keys.
 
-`tool_intent` is intent and metadata, not a portable security boundary. Claude lowers portable entries to `allowed-tools` and `disallowed-tools`, which are **preapproval / no-prompt** hints — they reduce permission prompts for listed tools, not a sandbox that blocks everything else. Codex has no documented skill-local enforcement surface, so Codex preserves portable intent in generated `.skillset.tools.yaml` metadata without mutating user-level Codex policy or trust. Claude `_allow` and `_deny` entries lower to native rules too. Codex `_allow` and `_deny` entries emit to `.skillset.tools.yaml` under `target_native`, so they are committed, locked, and reviewable.
+`tool_intent` is intent and metadata, not a portable security boundary. Claude renders portable entries to `allowed-tools` and `disallowed-tools`, which are **preapproval / no-prompt** hints — they reduce permission prompts for listed tools, not a sandbox that blocks everything else. Codex has no documented skill-local enforcement surface, so Codex preserves portable intent in generated `.skillset.tools.yaml` metadata without mutating user-level Codex policy or trust. Claude `_allow` and `_deny` entries render to native rules too. Codex `_allow` and `_deny` entries emit to `.skillset.tools.yaml` under `target_native`, so they are committed, locked, and reviewable.
 
 ## Instructions
 
@@ -322,11 +324,11 @@ Generated Codex `AGENTS.md` files are tracked by the root `.skillset.lock`. If a
 
 ## Target-Specific Plugin Surfaces
 
-Portable project agents live under `.skillset/src/agents/*.md`. They lower to Claude `.claude/agents/<resolved-name>.md` and Codex `.codex/agents/<resolved-name>.toml`, require `description` plus a body, support shared `skills` and `initialPrompt`, and keep target-native fields under `claude` and `codex` blocks. Codex `skills` become a deterministic `developer_instructions` preface; configure it with `codex.defaults.agents.skillsPrefaceTemplate` or `defaults.codex.agents.skillsPrefaceTemplate`. Project-agent outputs are tracked in the root `.skillset.lock` and are visible through `skillset list` / `skillset explain`.
+Portable project agents live under `.skillset/src/agents/*.md`. They render to Claude `.claude/agents/<resolved-name>.md` and Codex `.codex/agents/<resolved-name>.toml`, require `description` plus a body, support shared `skills` and `initialPrompt`, and keep target-native fields under `claude` and `codex` blocks. Codex `skills` become a deterministic `developer_instructions` preface; configure it with `codex.defaults.agents.skillsPrefaceTemplate` or `defaults.codex.agents.skillsPrefaceTemplate`. Project-agent outputs are tracked in the root `.skillset.lock` and are visible through `skillset list` / `skillset explain`.
 
 Plugin companion directories are target-native. Claude receives `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json`, `.lsp.json`, `output-styles/`, `themes/`, `monitors/`, `assets/`, `scripts/`, and `src/` when those source paths exist; the generated manifest declares each with its documented field (`lspServers`, `outputStyles`, `experimental.themes`, `experimental.monitors`). Codex receives `hooks/hooks.json`, `.mcp.json`, `.app.json`, `assets/`, `scripts/`, and `src/`; Claude plugin `agents/` is not copied into Codex plugin output, and a Codex-enabled plugin with `agents/` fails loudly because Codex plugins do not document that component. Feature keys can own repo source pointers directly: `mcp.source: repo:path/to/mcp.json` copies a repo-owned MCP file to `.mcp.json` for enabled plugin targets, and `bin.source: repo:path/to/bin` copies a repo-owned directory to Claude plugin `bin/`. `mcp: false` or `bin: false` disables conventional discovery, while absent keys auto-discover conventional `.mcp.json` and Claude `bin/` paths. Codex plugin `bin` output is unsupported and fails loudly when enabled. Pass-through paths are copied as opaque content unless a feature owns validation. Plugin-root `settings.json` is target-native but future-only for reviewed settings suggestion workflows. Build still does not install, trust, enable, or mutate user-level Claude/Codex config.
 
-Hook files are emitted as definitions only. `skillset` does not install, trust, or enable hooks in user-level Claude/Codex config. Both targets emit hooks at the documented default `hooks/hooks.json` with a top-level `{ "hooks": { ... } }` object, sourced from `hooks/hooks.json`. Plugin-root `hooks.json` is unsupported. The compiler does not auto-lower Claude hooks into Codex hooks.
+Hook files are emitted as definitions only. `skillset` does not install, trust, or enable hooks in user-level Claude/Codex config. Both targets emit hooks at the documented default `hooks/hooks.json` with a top-level `{ "hooks": { ... } }` object, sourced from `hooks/hooks.json`. Plugin-root `hooks.json` is unsupported. The compiler does not auto-render Claude hooks into Codex hooks.
 
 Hook definitions are checked for target compatibility. Codex hook files must use Codex-supported events — `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PreCompact`, `PostCompact`, `SessionStart`, `SubagentStart`, `SubagentStop`, `UserPromptSubmit`, `Stop` — and synchronous `command` handlers only, because Codex parses but skips prompt handlers, agent handlers, and `async: true` command handlers. Unsupported Codex events or skipped handler forms fail both `skillset build` and `skillset lint`. Claude hook validation stays broad (JSON-object shape) because Claude's hook surface is wider and still evolving.
 

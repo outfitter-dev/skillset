@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { mkdtemp, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -139,7 +140,8 @@ describe("deterministic projection runner", () => {
   it("rejects source symlinks instead of copying external state", async () => {
     const root = await mkdtemp(join(tmpdir(), "skillset-deterministic-projection-"));
     const external = await mkdtemp(join(tmpdir(), "skillset-deterministic-external-"));
-    await Bun.write(join(external, "config.yaml"), `${DEMO_CONFIG.trim()}\n`);
+    await Bun.write(join(external, "config.yaml"), "claude: true\ncodex: false\n");
+    await Bun.write(join(root, ".skillset/src/skillset.yaml"), "skillset:\n  name: symlink-root\n");
     await Bun.write(join(root, ".skillset/src/skills/demo/SKILL.md"), `${DEMO_SKILL.trim()}\n`);
     await symlink(join(external, "config.yaml"), join(root, ".skillset/config.yaml"));
 
@@ -184,7 +186,7 @@ codex: false
 
 async function fixture(files: Record<string, string>): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "skillset-deterministic-projection-"));
-  for (const [path, content] of Object.entries(files)) {
+  for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }
   return root;
