@@ -269,7 +269,7 @@ function buildResultSummary(result: SkillsetBuildResult): JsonRecord {
   return {
     diagnostics: result.diagnostics as unknown as JsonValue,
     generatedPaths: result.data.map((file) => file.path).sort(compareStrings),
-    loweringOutcomes: result.loweringOutcomes as unknown as JsonValue,
+    renderResults: result.renderResults as unknown as JsonValue,
     operation: result.operation,
     writes: result.writes as unknown as JsonValue,
   };

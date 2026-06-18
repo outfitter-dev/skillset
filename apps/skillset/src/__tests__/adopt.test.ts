@@ -42,7 +42,7 @@ test("adopt plan mode surveys only and writes nothing", async () => {
     { kind: "plugin", path: "plugins/demo" },
   ]);
   expect(report.surveySkips.map((skip) => skip.path)).toEqual([".claude/commands"]);
-  expect(report.loweringOutcomes).toContainEqual(
+  expect(report.renderResults).toContainEqual(
     expect.objectContaining({
       featureId: "target-native-islands",
       sourceUnit: "claude.commands:commands",
@@ -144,13 +144,13 @@ test("adopt write mode imports everything, builds the mirror, and writes the rep
   expect(markdown).toBe(renderAdoptReportMarkdown(report, { rootPath: root }));
   expect(markdown).toContain("## Summary");
   expect(markdown).toContain("## Cutover");
-  expect(markdown).toContain("### Lowering outcomes");
+  expect(markdown).toContain("### Render results");
   expect(markdown).toContain("claude intentionally_skipped:");
-  expect(markdown).toContain("codex emitted:");
+  expect(markdown).toContain("codex rendered:");
   expect(markdown).toContain("`AGENTS.md`");
   expect(markdown).toContain("unmanaged");
   const json = JSON.parse(await readFile(join(root, ADOPT_REPORT_DIR, "report.json"), "utf8")) as {
-    loweringOutcomes: readonly {
+    renderResults: readonly {
       featureId: string;
       sourceUnit: string;
       status: string;
@@ -159,15 +159,15 @@ test("adopt write mode imports everything, builds the mirror, and writes the rep
     ok: boolean;
   };
   expect(json.ok).toBe(true);
-  expect(json.loweringOutcomes).toContainEqual(
+  expect(json.renderResults).toContainEqual(
     expect.objectContaining({
       featureId: "plugin-skills",
       sourceUnit: "plugin.demo.skill:demo-skill",
-      status: "emitted",
+      status: "rendered",
       target: "codex",
     })
   );
-  expect(json.loweringOutcomes).toContainEqual(
+  expect(json.renderResults).toContainEqual(
     expect.objectContaining({
       featureId: "target-native-islands",
       sourceUnit: "claude.commands:commands",
@@ -175,7 +175,7 @@ test("adopt write mode imports everything, builds the mirror, and writes the rep
       target: "claude",
     })
   );
-  expect(JSON.stringify(json.loweringOutcomes)).not.toContain(root);
+  expect(JSON.stringify(json.renderResults)).not.toContain(root);
 
   const explain = await runSkillsetCli("explain", ".skillset/plugins/demo", "--root", root);
   expect(explain.exitCode).toBe(0);
@@ -187,7 +187,7 @@ test("adopt write mode imports everything, builds the mirror, and writes the rep
   expect(added.every((path) => path.startsWith(".skillset/"))).toBe(true);
 });
 
-test("adopt carries import lowering outcomes into the persisted report", async () => {
+test("adopt carries import render results into the persisted report", async () => {
   const root = await fixture({
     ".claude/skills/native/SKILL.md":
       "---\nname: native\ndescription: Native skill.\nallowed-tools:\n  - Read\ndisable-model-invocation: true\n---\n\nBody.\n",
@@ -208,13 +208,13 @@ test("adopt carries import lowering outcomes into the persisted report", async (
   });
 
   expect(report.ok).toBe(true);
-  expect(report.imports[0]?.loweringOutcomes).toContainEqual(importOutcome);
-  expect(report.loweringOutcomes).toContainEqual(importOutcome);
+  expect(report.imports[0]?.renderResults).toContainEqual(importOutcome);
+  expect(report.renderResults).toContainEqual(importOutcome);
 
   const json = JSON.parse(await readFile(join(root, ADOPT_REPORT_DIR, "report.json"), "utf8")) as {
-    loweringOutcomes: readonly unknown[];
+    renderResults: readonly unknown[];
   };
-  expect(json.loweringOutcomes).toContainEqual(importOutcome);
+  expect(json.renderResults).toContainEqual(importOutcome);
 });
 
 test("adopt preserves survey skip outcomes when isolated build cannot load source", async () => {
@@ -229,7 +229,7 @@ test("adopt preserves survey skip outcomes when isolated build cannot load sourc
   expect(report.ok).toBe(false);
   expect(report.buildError).toContain("uses unsupported tools");
   expect(report.surveySkips.map((skip) => skip.path)).toEqual([".claude/commands"]);
-  expect(report.loweringOutcomes).toContainEqual(
+  expect(report.renderResults).toContainEqual(
     expect.objectContaining({
       featureId: "target-native-islands",
       sourceUnit: "claude.commands:commands",
@@ -239,7 +239,7 @@ test("adopt preserves survey skip outcomes when isolated build cannot load sourc
   );
 
   const markdown = await readFile(join(root, ADOPT_REPORT_DIR, "report.md"), "utf8");
-  expect(markdown).toContain("### Lowering outcomes");
+  expect(markdown).toContain("### Render results");
   expect(markdown).toContain("claude intentionally_skipped:");
 });
 

@@ -4,7 +4,7 @@ import {
   type SkillsetFeatureRegistry,
   type SkillsetTargetSupportStatus,
 } from "./feature-registry";
-import type { SkillsetLoweringOutcome, SkillsetLoweringOutcomeStatus } from "./lowering-outcome";
+import type { SkillsetRenderResult, SkillsetRenderResultStatus } from "./render-result";
 import { compareStrings } from "./path";
 import type { TargetName } from "./types";
 
@@ -41,7 +41,7 @@ export interface AdapterConformanceReport {
 }
 
 export function checkAdapterConformance(
-  outcomes: readonly SkillsetLoweringOutcome[],
+  outcomes: readonly SkillsetRenderResult[],
   cases: readonly AdapterConformanceCase[],
   registry: SkillsetFeatureRegistry = skillsetFeatureRegistry
 ): AdapterConformanceReport {
@@ -53,7 +53,7 @@ export function checkAdapterConformance(
 }
 
 export function assertAdapterConformance(
-  outcomes: readonly SkillsetLoweringOutcome[],
+  outcomes: readonly SkillsetRenderResult[],
   cases: readonly AdapterConformanceCase[],
   registry: SkillsetFeatureRegistry = skillsetFeatureRegistry
 ): void {
@@ -70,7 +70,7 @@ export function formatAdapterConformanceReport(report: AdapterConformanceReport)
 }
 
 function checkConformanceCase(
-  outcomes: readonly SkillsetLoweringOutcome[],
+  outcomes: readonly SkillsetRenderResult[],
   item: AdapterConformanceCase,
   registry: SkillsetFeatureRegistry
 ): readonly AdapterConformanceIssue[] {
@@ -97,7 +97,7 @@ function checkConformanceCase(
   );
   if (matching.length === 0) {
     return [
-      issue(item, "missing-outcome", `${item.target} ${support.status} support has no matching lowering outcome`, {
+      issue(item, "missing-outcome", `${item.target} ${support.status} support has no matching render result`, {
         expected: expectedStatuses,
       }),
     ];
@@ -107,7 +107,7 @@ function checkConformanceCase(
   const conforming = matching.filter((outcome) =>
     expectedStatuses.includes(outcome.status)
   );
-  const unexpectedStatuses = observedStatuses.filter((status) => !expectedStatuses.includes(status as SkillsetLoweringOutcomeStatus));
+  const unexpectedStatuses = observedStatuses.filter((status) => !expectedStatuses.includes(status as SkillsetRenderResultStatus));
   if (conforming.length === 0 || unexpectedStatuses.length > 0) {
     return [
       issue(
@@ -122,14 +122,14 @@ function checkConformanceCase(
   const issues: AdapterConformanceIssue[] = [];
   for (const outcome of conforming) {
     if ((outcome.evidence?.length ?? 0) === 0) {
-      issues.push(issue(item, "missing-outcome-evidence", `${outcome.sourceUnit} has no lowering evidence`));
+      issues.push(issue(item, "missing-outcome-evidence", `${outcome.sourceUnit} has no render evidence`));
     }
     if (reasonRequired(support.status)) {
       if (support.reason === undefined) {
         issues.push(issue(item, "support-reason-missing", `${support.status} support has no registry reason`));
       }
       if (outcome.reason === undefined) {
-        issues.push(issue(item, "missing-outcome-reason", `${outcome.sourceUnit} has no lowering reason`));
+        issues.push(issue(item, "missing-outcome-reason", `${outcome.sourceUnit} has no render reason`));
       }
       if (support.reason !== undefined && outcome.reason !== undefined && support.reason !== outcome.reason) {
         issues.push(issue(item, "reason-mismatch", `${outcome.sourceUnit} reason does not match registry support reason`));
@@ -141,7 +141,7 @@ function checkConformanceCase(
 
 function expectedOutcomeStatuses(
   status: SkillsetTargetSupportStatus
-): readonly SkillsetLoweringOutcomeStatus[] {
+): readonly SkillsetRenderResultStatus[] {
   switch (status) {
     case "degraded":
       return ["degraded"];
@@ -152,7 +152,7 @@ function expectedOutcomeStatuses(
     case "metadata_only":
       return ["metadata_only"];
     case "native":
-      return ["emitted", "target_native"];
+      return ["rendered", "target_native"];
     case "pass_through":
       return ["target_native"];
     case "shimmed":

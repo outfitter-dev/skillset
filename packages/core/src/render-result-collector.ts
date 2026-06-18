@@ -4,11 +4,11 @@ import { join, relative } from "node:path";
 import { readString, isOutputSelected } from "./config";
 import { getSkillsetFeature } from "./feature-registry";
 import {
-  defineLoweringOutcome,
-  type SkillsetLoweringOutcome,
-  type SkillsetLoweringOutcomeStatus,
-  type SkillsetLoweringPolicy,
-} from "./lowering-outcome";
+  defineRenderResult,
+  type SkillsetRenderResult,
+  type SkillsetRenderResultStatus,
+  type SkillsetRenderResultPolicy,
+} from "./render-result";
 import { compareStrings } from "./path";
 import { readClaudeNativeToolRules } from "./skill-policy";
 import {
@@ -28,7 +28,7 @@ const TARGETS: readonly TargetName[] = ["claude", "codex"];
 
 type OutputPathMapper = (path: string) => string;
 
-interface CollectLoweringOutcomesOptions {
+interface CollectRenderResultsOptions {
   readonly includedPaths: ReadonlySet<string>;
   readonly mapOutputPath?: OutputPathMapper;
   readonly scopes?: readonly BuildScope[] | undefined;
@@ -54,13 +54,13 @@ interface RenderedLockItem {
   readonly validation?: string;
 }
 
-export function collectLoweringOutcomes(
+export function collectRenderResults(
   graph: BuildGraph,
   rendered: readonly RenderedFile[],
-  options: CollectLoweringOutcomesOptions
-): readonly SkillsetLoweringOutcome[] {
+  options: CollectRenderResultsOptions
+): readonly SkillsetRenderResult[] {
   const mapOutputPath = options.mapOutputPath ?? ((path: string) => path);
-  const outcomes: SkillsetLoweringOutcome[] = [];
+  const outcomes: SkillsetRenderResult[] = [];
   const assignedOutputPaths = new Set<string>();
 
   for (const lockFile of rendered.filter((file) => file.path.endsWith(`/${LOCK_FILE}`) || file.path === LOCK_FILE)) {
@@ -94,13 +94,13 @@ export function collectLoweringOutcomes(
 function parseRenderedLock(file: RenderedFile): RenderedLock {
   const parsed = JSON.parse(new TextDecoder().decode(file.content)) as unknown;
   if (!isJsonRecord(parsed)) {
-    throw new Error(`skillset: generated lock ${file.path} cannot produce lowering outcomes`);
+    throw new Error(`skillset: generated lock ${file.path} cannot produce render results`);
   }
   const outputRoot = stringField(parsed, "outputRoot");
   const target = stringField(parsed, "target");
   const rawItems = parsed.items;
   if (!Array.isArray(rawItems)) {
-    throw new Error(`skillset: generated lock ${file.path} cannot produce lowering outcomes`);
+    throw new Error(`skillset: generated lock ${file.path} cannot produce render results`);
   }
   return {
     items: rawItems.map((item) => parseRenderedLockItem(file.path, item)),
@@ -141,17 +141,17 @@ function outcomeForLockItem(
   outputPaths: readonly string[],
   includedPaths: ReadonlySet<string>,
   mapOutputPath: OutputPathMapper
-): SkillsetLoweringOutcome {
+): SkillsetRenderResult {
   const target = targetForLockItem(graph, lock, item, outputPaths);
   const featureId = featureIdForLockItem(item);
   const baseStatus = statusForLockItem(item, target);
   const isIncluded = outputPaths.some((path) => includedPaths.has(path));
-  const status: SkillsetLoweringOutcomeStatus = isIncluded ? baseStatus : "intentionally_skipped";
-  const policy: SkillsetLoweringPolicy | undefined = isIncluded ? undefined : "scope:excluded";
+  const status: SkillsetRenderResultStatus = isIncluded ? baseStatus : "intentionally_skipped";
+  const policy: SkillsetRenderResultPolicy | undefined = isIncluded ? undefined : "scope:excluded";
   const reason = isIncluded ? reasonForStatus(featureId, target, status) : "excluded by build scope";
   const evidence = evidenceFor(featureId, target);
 
-  return defineLoweringOutcome({
+  return defineRenderResult({
     ...(evidence === undefined ? {} : { evidence }),
     featureId,
     ...(isIncluded ? { outputs: outputPaths.map((path) => ({ kind: item.kind, path: mapOutputPath(path) })) } : {}),
@@ -169,7 +169,7 @@ function outcomeForCompanionFile(
   file: RenderedFile,
   isIncluded: boolean,
   mapOutputPath: OutputPathMapper
-): SkillsetLoweringOutcome | undefined {
+): SkillsetRenderResult | undefined {
   const companion = companionForPath(graph, file.path);
   if (companion === undefined) return undefined;
   const plugin = graph.plugins.find((candidate) => candidate.id === companion.pluginId);
@@ -177,7 +177,7 @@ function outcomeForCompanionFile(
     ? undefined
     : normalizePath(relative(graph.rootPath, join(plugin.path, companion.sourceRelativePath)));
   const evidence = evidenceFor(companion.featureId, companion.target);
-  return defineLoweringOutcome({
+  return defineRenderResult({
     ...(evidence === undefined ? {} : { evidence }),
     featureId: companion.featureId,
     ...(isIncluded ? { outputs: [{ kind: "companion", path: mapOutputPath(file.path) }] } : {}),
@@ -196,9 +196,9 @@ function featureOutcomesForLockItem(
   outputPaths: readonly string[],
   includedPaths: ReadonlySet<string>,
   mapOutputPath: OutputPathMapper
-): readonly SkillsetLoweringOutcome[] {
+): readonly SkillsetRenderResult[] {
   const target = targetForLockItem(graph, lock, item, outputPaths);
-  const outcomes: SkillsetLoweringOutcome[] = [];
+  const outcomes: SkillsetRenderResult[] = [];
 
   if (item.kind === "plugin" && item.dependencies !== undefined && item.dependencies.length > 0) {
     outcomes.push(
@@ -210,7 +210,7 @@ function featureOutcomesForLockItem(
         outputPaths,
         sourcePath: item.sourcePath,
         sourceUnit: selectorForPluginFeature(item.name, "dependencies"),
-        status: target === "codex" ? "degraded" : "emitted",
+        status: target === "codex" ? "degraded" : "rendered",
         target,
       })
     );
@@ -281,14 +281,14 @@ function featureOutcome(args: {
   readonly outputPaths: readonly string[];
   readonly sourcePath: string;
   readonly sourceUnit: string;
-  readonly status: SkillsetLoweringOutcomeStatus;
+  readonly status: SkillsetRenderResultStatus;
   readonly target: TargetName | undefined;
-}): SkillsetLoweringOutcome {
-  const status: SkillsetLoweringOutcomeStatus = args.isIncluded ? args.status : "intentionally_skipped";
+}): SkillsetRenderResult {
+  const status: SkillsetRenderResultStatus = args.isIncluded ? args.status : "intentionally_skipped";
   const evidence = evidenceFor(args.featureId, args.target);
   const reason = args.isIncluded ? reasonForStatus(args.featureId, args.target, status) : "excluded by build scope";
 
-  return defineLoweringOutcome({
+  return defineRenderResult({
     ...(evidence === undefined ? {} : { evidence }),
     featureId: args.featureId,
     ...(args.isIncluded
@@ -306,9 +306,9 @@ function featureOutcome(args: {
 function unsupportedPluginFeatureOutcomes(
   graph: BuildGraph,
   scopes: readonly BuildScope[] | undefined
-): readonly SkillsetLoweringOutcome[] {
+): readonly SkillsetRenderResult[] {
   if (scopes !== undefined && !scopes.includes("plugins")) return [];
-  const outcomes: SkillsetLoweringOutcome[] = [];
+  const outcomes: SkillsetRenderResult[] = [];
   for (const plugin of graph.plugins) {
     if (!pluginTargetSelected(graph, plugin.id, "codex")) continue;
     const pluginPath = normalizePath(relative(graph.rootPath, plugin.path));
@@ -318,7 +318,7 @@ function unsupportedPluginFeatureOutcomes(
       const featureId = "plugin-bin";
       const evidence = evidenceFor(featureId, "codex");
       outcomes.push(
-        defineLoweringOutcome({
+        defineRenderResult({
           ...(evidence === undefined ? {} : { evidence }),
           featureId,
           policy: "unsupported:error",
@@ -336,7 +336,7 @@ function unsupportedPluginFeatureOutcomes(
     const featureId = "plugin-agents";
     const evidence = evidenceFor(featureId, "codex");
     outcomes.push(
-      defineLoweringOutcome({
+      defineRenderResult({
         ...(evidence === undefined ? {} : { evidence }),
         featureId,
         policy: "unsupported:error",
@@ -416,14 +416,14 @@ function sourceUnitForIsland(item: RenderedLockItem, target: TargetName | undefi
   return selectorForTargetNativeIsland(islandTarget, "project", relativePath);
 }
 
-function statusForLockItem(item: RenderedLockItem, target: TargetName | undefined): SkillsetLoweringOutcomeStatus {
+function statusForLockItem(item: RenderedLockItem, target: TargetName | undefined): SkillsetRenderResultStatus {
   if (item.kind === "changelog") return "metadata_only";
   if (item.kind === "island" || item.kind === "plugin-feature") return "target_native";
   if (item.kind === "rule") return "transformed";
   if (item.kind === "project-agent" && target === "codex") return "transformed";
   if (item.transforms !== undefined && item.transforms.length > 0) return "transformed";
   if (item.validation === "opaque-copy") return "target_native";
-  return "emitted";
+  return "rendered";
 }
 
 function targetForLockItem(
@@ -536,7 +536,7 @@ function evidenceFor(featureId: string, target: TargetName | undefined) {
 function reasonForStatus(
   featureId: string,
   target: TargetName | undefined,
-  status: SkillsetLoweringOutcomeStatus
+  status: SkillsetRenderResultStatus
 ): string | undefined {
   if (status !== "degraded" && status !== "lossy" && status !== "unsupported" && status !== "failed") {
     return undefined;
@@ -548,7 +548,7 @@ function reasonForStatus(
 function requiredReasonForStatus(
   featureId: string,
   target: TargetName,
-  status: SkillsetLoweringOutcomeStatus
+  status: SkillsetRenderResultStatus
 ): string {
   const reason = reasonForStatus(featureId, target, status);
   if (reason === undefined) {

@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 
-import { defineLoweringOutcome, type SkillsetLoweringOutcome } from "@skillset/core";
+import { defineRenderResult, type SkillsetRenderResult } from "@skillset/core";
 
 import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
 import { CI_WORKFLOW_PATH, renderCiWorkflow } from "./ci";
@@ -63,7 +63,7 @@ export interface SetupImportCandidate {
  * a structured skip with a reason — never silence.
  */
 export interface SurveySkip {
-  readonly loweringOutcome?: SkillsetLoweringOutcome;
+  readonly renderResult?: SkillsetRenderResult;
   readonly path: string;
   readonly reason: string;
   readonly surface: string;
@@ -323,7 +323,7 @@ async function detectSurveySkips(rootPath: string): Promise<readonly SurveySkip[
     const reason =
       "Codex content outside .codex/skills has no portable lowering yet; adopt will lower it to target-native islands in the transform milestone";
     skips.push({
-      loweringOutcome: surveySkipOutcome({
+      renderResult: surveySkipOutcome({
         featureId: "target-native-islands",
         path: ".codex",
         reason,
@@ -338,7 +338,7 @@ async function detectSurveySkips(rootPath: string): Promise<readonly SurveySkip[
   for (const path of await foreignPluginManifests(rootPath)) {
     const reason = "plugin manifest for an unsupported target; skillset can only represent claude and codex surfaces";
     skips.push({
-      loweringOutcome: foreignManifestSkipOutcome(path, reason),
+      renderResult: foreignManifestSkipOutcome(path, reason),
       path,
       reason,
       surface: "foreign-manifest",
@@ -353,7 +353,7 @@ async function maybeSkip(
   path: string,
   surface: string,
   reason: string,
-  loweringOutcome?: SkillsetLoweringOutcome
+  renderResult?: SkillsetRenderResult
 ): Promise<void> {
   const absolutePath = join(rootPath, path);
   if (!(await pathExists(absolutePath))) return;
@@ -361,7 +361,7 @@ async function maybeSkip(
   if (await isManagedCandidate(absolutePath)) return;
   const entries = await readdir(absolutePath);
   if (entries.filter((entry) => entry !== ".DS_Store").length === 0) return;
-  skips.push({ ...(loweringOutcome === undefined ? {} : { loweringOutcome }), path, reason, surface });
+  skips.push({ ...(renderResult === undefined ? {} : { renderResult }), path, reason, surface });
 }
 
 function surveySkipOutcome(args: {
@@ -370,8 +370,8 @@ function surveySkipOutcome(args: {
   readonly reason: string;
   readonly relativeTargetPath: string;
   readonly target: TargetName;
-}): SkillsetLoweringOutcome {
-  return defineLoweringOutcome({
+}): SkillsetRenderResult {
+  return defineRenderResult({
     diagnostics: [
       {
         code: "adoption-survey-skip",
@@ -389,8 +389,8 @@ function surveySkipOutcome(args: {
   });
 }
 
-function foreignManifestSkipOutcome(path: string, reason: string): SkillsetLoweringOutcome {
-  return defineLoweringOutcome({
+function foreignManifestSkipOutcome(path: string, reason: string): SkillsetRenderResult {
+  return defineRenderResult({
     diagnostics: [{ code: "adoption-survey-skip", message: reason, path }],
     featureId: "runtime-adapters",
     policy: "default",

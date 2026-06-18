@@ -2,24 +2,24 @@ import { compareStrings } from "./path";
 import type { SkillsetFeatureEvidence } from "./feature-registry";
 import type { TargetName } from "./types";
 
-export const LOWERING_OUTCOME_SCHEMA = "skillset-lowering-outcome@1";
+export const RENDER_RESULT_SCHEMA = "skillset-render-result@1";
 
-export const LOWERING_OUTCOME_STATUS_VALUES = [
+export const RENDER_RESULT_STATUS_VALUES = [
   "degraded",
-  "emitted",
   "externally_managed",
   "failed",
   "intentionally_skipped",
   "lossy",
   "metadata_only",
+  "rendered",
   "target_native",
   "transformed",
   "unsupported",
 ] as const;
 
-export type SkillsetLoweringOutcomeStatus = (typeof LOWERING_OUTCOME_STATUS_VALUES)[number];
+export type SkillsetRenderResultStatus = (typeof RENDER_RESULT_STATUS_VALUES)[number];
 
-export type SkillsetLoweringPolicy =
+export type SkillsetRenderResultPolicy =
   | "default"
   | "scope:excluded"
   | "target:disabled"
@@ -28,59 +28,59 @@ export type SkillsetLoweringPolicy =
   | "unsupported:skip"
   | "unsupported:warn";
 
-export interface SkillsetLoweringOutput {
+export interface SkillsetRenderResultOutput {
   readonly kind?: string;
   readonly path: string;
 }
 
-export interface SkillsetLoweringDiagnosticRef {
+export interface SkillsetRenderResultDiagnosticRef {
   readonly code: string;
   readonly message?: string;
   readonly path?: string;
 }
 
-export interface SkillsetLoweringOutcome {
-  readonly diagnostics?: readonly SkillsetLoweringDiagnosticRef[];
+export interface SkillsetRenderResult {
+  readonly diagnostics?: readonly SkillsetRenderResultDiagnosticRef[];
   readonly evidence?: readonly SkillsetFeatureEvidence[];
   readonly featureId: string;
-  readonly outputs?: readonly SkillsetLoweringOutput[];
-  readonly policy?: SkillsetLoweringPolicy;
+  readonly outputs?: readonly SkillsetRenderResultOutput[];
+  readonly policy?: SkillsetRenderResultPolicy;
   readonly reason?: string;
-  readonly schema: typeof LOWERING_OUTCOME_SCHEMA;
+  readonly schema: typeof RENDER_RESULT_SCHEMA;
   readonly sourcePath?: string;
   readonly sourceUnit: string;
-  readonly status: SkillsetLoweringOutcomeStatus;
+  readonly status: SkillsetRenderResultStatus;
   readonly target?: TargetName;
 }
 
-export type SkillsetLoweringOutcomeInput = Omit<SkillsetLoweringOutcome, "schema"> & {
-  readonly schema?: typeof LOWERING_OUTCOME_SCHEMA;
+export type SkillsetRenderResultInput = Omit<SkillsetRenderResult, "schema"> & {
+  readonly schema?: typeof RENDER_RESULT_SCHEMA;
 };
 
-export class SkillsetLoweringError extends Error {
-  readonly loweringOutcomes: readonly SkillsetLoweringOutcome[];
+export class SkillsetRenderResultError extends Error {
+  readonly renderResults: readonly SkillsetRenderResult[];
 
-  constructor(message: string, loweringOutcomes: readonly SkillsetLoweringOutcome[]) {
+  constructor(message: string, renderResults: readonly SkillsetRenderResult[]) {
     super(message);
-    this.name = "SkillsetLoweringError";
-    this.loweringOutcomes = loweringOutcomes.map(normalizeLoweringOutcome);
+    this.name = "SkillsetRenderResultError";
+    this.renderResults = renderResults.map(normalizeRenderResult);
   }
 }
 
-export function defineLoweringOutcome(
-  input: SkillsetLoweringOutcomeInput
-): SkillsetLoweringOutcome {
-  const outcome = normalizeLoweringOutcome({
+export function defineRenderResult(
+  input: SkillsetRenderResultInput
+): SkillsetRenderResult {
+  const outcome = normalizeRenderResult({
     ...input,
-    schema: input.schema ?? LOWERING_OUTCOME_SCHEMA,
+    schema: input.schema ?? RENDER_RESULT_SCHEMA,
   });
-  assertLoweringOutcome(outcome);
+  assertRenderResult(outcome);
   return outcome;
 }
 
-export function normalizeLoweringOutcome(
-  outcome: SkillsetLoweringOutcome
-): SkillsetLoweringOutcome {
+export function normalizeRenderResult(
+  outcome: SkillsetRenderResult
+): SkillsetRenderResult {
   return {
     schema: outcome.schema,
     sourceUnit: outcome.sourceUnit,
@@ -96,47 +96,47 @@ export function normalizeLoweringOutcome(
   };
 }
 
-export function serializeLoweringOutcome(outcome: SkillsetLoweringOutcome): string {
-  return `${JSON.stringify(normalizeLoweringOutcome(outcome), null, 2)}\n`;
+export function serializeRenderResult(outcome: SkillsetRenderResult): string {
+  return `${JSON.stringify(normalizeRenderResult(outcome), null, 2)}\n`;
 }
 
-export function assertLoweringOutcome(outcome: SkillsetLoweringOutcome): void {
-  if (outcome.schema !== LOWERING_OUTCOME_SCHEMA) {
-    throw new Error(`skillset: unsupported lowering outcome schema ${outcome.schema}`);
+export function assertRenderResult(outcome: SkillsetRenderResult): void {
+  if (outcome.schema !== RENDER_RESULT_SCHEMA) {
+    throw new Error(`skillset: unsupported render result schema ${outcome.schema}`);
   }
   if (outcome.sourceUnit.trim().length === 0) {
-    throw new Error("skillset: lowering outcome sourceUnit is required");
+    throw new Error("skillset: render result sourceUnit is required");
   }
   if (outcome.featureId.trim().length === 0) {
-    throw new Error("skillset: lowering outcome featureId is required");
+    throw new Error("skillset: render result featureId is required");
   }
-  if (!new Set<string>(LOWERING_OUTCOME_STATUS_VALUES).has(outcome.status)) {
-    throw new Error(`skillset: unknown lowering outcome status ${outcome.status}`);
+  if (!new Set<string>(RENDER_RESULT_STATUS_VALUES).has(outcome.status)) {
+    throw new Error(`skillset: unknown render result status ${outcome.status}`);
   }
   if ((outcome.status === "degraded" || outcome.status === "failed" || outcome.status === "lossy" || outcome.status === "unsupported") && outcome.reason === undefined) {
-    throw new Error(`skillset: lowering outcome ${outcome.status} status requires a reason`);
+    throw new Error(`skillset: render result ${outcome.status} status requires a reason`);
   }
   for (const output of outcome.outputs ?? []) {
     if (output.path.trim().length === 0) {
-      throw new Error("skillset: lowering outcome output path is required");
+      throw new Error("skillset: render result output path is required");
     }
   }
   for (const diagnostic of outcome.diagnostics ?? []) {
     if (diagnostic.code.trim().length === 0) {
-      throw new Error("skillset: lowering outcome diagnostic code is required");
+      throw new Error("skillset: render result diagnostic code is required");
     }
   }
   for (const evidence of outcome.evidence ?? []) {
     if (evidence.ref.trim().length === 0) {
-      throw new Error("skillset: lowering outcome evidence ref is required");
+      throw new Error("skillset: render result evidence ref is required");
     }
     if (evidence.kind === "external-docs" && evidence.verifiedAt === undefined) {
-      throw new Error("skillset: lowering outcome external docs evidence requires verifiedAt");
+      throw new Error("skillset: render result external docs evidence requires verifiedAt");
     }
   }
 }
 
-function normalizeOutputs(outputs: readonly SkillsetLoweringOutput[]): readonly SkillsetLoweringOutput[] {
+function normalizeOutputs(outputs: readonly SkillsetRenderResultOutput[]): readonly SkillsetRenderResultOutput[] {
   return [...outputs]
     .map((output) => ({
       ...(output.kind === undefined ? {} : { kind: output.kind }),
@@ -146,8 +146,8 @@ function normalizeOutputs(outputs: readonly SkillsetLoweringOutput[]): readonly 
 }
 
 function normalizeDiagnostics(
-  diagnostics: readonly SkillsetLoweringDiagnosticRef[]
-): readonly SkillsetLoweringDiagnosticRef[] {
+  diagnostics: readonly SkillsetRenderResultDiagnosticRef[]
+): readonly SkillsetRenderResultDiagnosticRef[] {
   return [...diagnostics]
     .map((diagnostic) => ({
       code: diagnostic.code,

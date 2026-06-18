@@ -1,16 +1,16 @@
 import { describe, expect, it } from "bun:test";
 
 import {
-  LOWERING_OUTCOME_SCHEMA,
-  LOWERING_OUTCOME_STATUS_VALUES,
-  defineLoweringOutcome,
-  serializeLoweringOutcome,
-  type SkillsetLoweringOutcome,
+  RENDER_RESULT_SCHEMA,
+  RENDER_RESULT_STATUS_VALUES,
+  defineRenderResult,
+  serializeRenderResult,
+  type SkillsetRenderResult,
 } from "@skillset/core";
 
-describe("lowering outcomes", () => {
+describe("render results", () => {
   it("normalizes to a stable JSON shape with sorted nested arrays", () => {
-    const outcome = defineLoweringOutcome({
+    const outcome = defineRenderResult({
       diagnostics: [
         { code: "z-warning", path: ".skillset/src/z.md" },
         { code: "a-warning", message: "First." },
@@ -31,8 +31,8 @@ describe("lowering outcomes", () => {
       target: "codex",
     });
 
-    expect(serializeLoweringOutcome(outcome)).toBe(`{
-  "schema": "${LOWERING_OUTCOME_SCHEMA}",
+    expect(serializeRenderResult(outcome)).toBe(`{
+  "schema": "${RENDER_RESULT_SCHEMA}",
   "sourceUnit": "instructions:root",
   "sourcePath": ".skillset/instructions/root.md",
   "featureId": "project-instructions",
@@ -75,7 +75,7 @@ describe("lowering outcomes", () => {
   });
 
   it("does not require output paths for source-only or skipped outcomes", () => {
-    const outcome = defineLoweringOutcome({
+    const outcome = defineRenderResult({
       featureId: "supports",
       policy: "scope:excluded",
       sourcePath: ".skillset/skills/demo/SKILL.md",
@@ -85,11 +85,11 @@ describe("lowering outcomes", () => {
 
     expect(outcome.outputs).toBeUndefined();
     expect(outcome.target).toBeUndefined();
-    expect(serializeLoweringOutcome(outcome)).toContain('"status": "intentionally_skipped"');
+    expect(serializeRenderResult(outcome)).toContain('"status": "intentionally_skipped"');
   });
 
   it("can represent multiple outputs from one source unit", () => {
-    const outcome = defineLoweringOutcome({
+    const outcome = defineRenderResult({
       featureId: "plugin-manifests",
       outputs: [
         { path: "plugins-claude/plugins/acme/.claude-plugin/plugin.json" },
@@ -97,7 +97,7 @@ describe("lowering outcomes", () => {
       ],
       sourcePath: ".skillset/plugins/acme/skillset.yaml",
       sourceUnit: "plugin:acme",
-      status: "emitted",
+      status: "rendered",
     });
 
     expect(outcome.outputs?.map((output) => output.path)).toEqual([
@@ -108,60 +108,60 @@ describe("lowering outcomes", () => {
 
   it("rejects invalid schemas, statuses, missing identity, and incomplete evidence", () => {
     expect(() =>
-      defineLoweringOutcome({
+      defineRenderResult({
         featureId: "project-instructions",
-        schema: "wrong" as typeof LOWERING_OUTCOME_SCHEMA,
+        schema: "wrong" as typeof RENDER_RESULT_SCHEMA,
         sourceUnit: "instructions:root",
-        status: "emitted",
+        status: "rendered",
       })
-    ).toThrow("unsupported lowering outcome schema wrong");
+    ).toThrow("unsupported render result schema wrong");
     expect(() =>
-      defineLoweringOutcome({
+      defineRenderResult({
         featureId: "project-instructions",
         sourceUnit: "instructions:root",
-        status: "magical" as SkillsetLoweringOutcome["status"],
+        status: "magical" as SkillsetRenderResult["status"],
       })
-    ).toThrow("unknown lowering outcome status magical");
+    ).toThrow("unknown render result status magical");
     expect(() =>
-      defineLoweringOutcome({
+      defineRenderResult({
         featureId: "",
         sourceUnit: "instructions:root",
-        status: "emitted",
+        status: "rendered",
       })
     ).toThrow("featureId is required");
     expect(() =>
-      defineLoweringOutcome({
+      defineRenderResult({
         featureId: "project-instructions",
         sourceUnit: "",
-        status: "emitted",
+        status: "rendered",
       })
     ).toThrow("sourceUnit is required");
     expect(() =>
-      defineLoweringOutcome({
+      defineRenderResult({
         featureId: "project-instructions",
         sourceUnit: "instructions:root",
         status: "unsupported",
       })
     ).toThrow("unsupported status requires a reason");
     expect(() =>
-      defineLoweringOutcome({
+      defineRenderResult({
         evidence: [{ kind: "external-docs", ref: "https://example.com/docs" }],
         featureId: "project-instructions",
         sourceUnit: "instructions:root",
-        status: "emitted",
+        status: "rendered",
       })
     ).toThrow("external docs evidence requires verifiedAt");
   });
 
   it("pins the outcome status vocabulary", () => {
-    expect(LOWERING_OUTCOME_STATUS_VALUES).toEqual([
+    expect(RENDER_RESULT_STATUS_VALUES).toEqual([
       "degraded",
-      "emitted",
       "externally_managed",
       "failed",
       "intentionally_skipped",
       "lossy",
       "metadata_only",
+      "rendered",
       "target_native",
       "transformed",
       "unsupported",

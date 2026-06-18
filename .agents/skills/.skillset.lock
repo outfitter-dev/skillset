@@ -50,7 +50,8 @@
       "version": "0.1.2"
     }
   ],
-  "loweringOutcomes": [
+  "outputRoot": ".agents/skills",
+  "renderResults": [
     {
       "evidence": [
         {
@@ -110,10 +111,10 @@
           "path": ".agents/skills/skillset-adrs/scripts/lib/references.ts"
         }
       ],
-      "schema": "skillset-lowering-outcome@1",
+      "schema": "skillset-render-result@1",
       "sourcePath": ".skillset/skills/skillset-adrs/SKILL.md",
       "sourceUnit": "skill:skillset-adrs",
-      "status": "emitted",
+      "status": "rendered",
       "target": "codex"
     },
     {
@@ -131,10 +132,10 @@
           "path": ".agents/skills/skillset-codex-development/SKILL.md"
         }
       ],
-      "schema": "skillset-lowering-outcome@1",
+      "schema": "skillset-render-result@1",
       "sourcePath": ".skillset/skills/skillset-codex-development/SKILL.md",
       "sourceUnit": "skill:skillset-codex-development",
-      "status": "emitted",
+      "status": "rendered",
       "target": "codex"
     },
     {
@@ -152,14 +153,13 @@
           "path": ".agents/skills/skillset-repo-test-fixtures/SKILL.md"
         }
       ],
-      "schema": "skillset-lowering-outcome@1",
+      "schema": "skillset-render-result@1",
       "sourcePath": ".skillset/skills/skillset-repo-test-fixtures/SKILL.md",
       "sourceUnit": "skill:skillset-repo-test-fixtures",
-      "status": "emitted",
+      "status": "rendered",
       "target": "codex"
     }
   ],
-  "outputRoot": ".agents/skills",
   "schemaVersion": 1,
   "selectedTargets": [
     "claude",

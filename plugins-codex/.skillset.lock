@@ -33,7 +33,8 @@
       "version": "0.1.1"
     }
   ],
-  "loweringOutcomes": [
+  "outputRoot": "plugins-codex",
+  "renderResults": [
     {
       "evidence": [
         {
@@ -58,10 +59,10 @@
           "path": "plugins-codex/plugins/skillset/.codex-plugin/plugin.json"
         }
       ],
-      "schema": "skillset-lowering-outcome@1",
+      "schema": "skillset-render-result@1",
       "sourcePath": ".skillset/plugins/skillset",
       "sourceUnit": "plugin.skillset.config:root",
-      "status": "emitted",
+      "status": "rendered",
       "target": "codex"
     },
     {
@@ -79,14 +80,13 @@
           "path": "plugins-codex/plugins/skillset/skills/use-skillset/SKILL.md"
         }
       ],
-      "schema": "skillset-lowering-outcome@1",
+      "schema": "skillset-render-result@1",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "sourceUnit": "plugin.skillset.skill:use-skillset",
-      "status": "emitted",
+      "status": "rendered",
       "target": "codex"
     }
   ],
-  "outputRoot": "plugins-codex",
   "schemaVersion": 1,
   "selectedTargets": [
     "claude",

@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, stat, writeFil
 import { homedir } from "node:os";
 import { basename, dirname, join, relative, resolve } from "node:path";
 
-import { defineLoweringOutcome, type SkillsetLoweringOutcome } from "@skillset/core";
+import { defineRenderResult, type SkillsetRenderResult } from "@skillset/core";
 
 import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
 import { readSkillsetMetadata, readSkillsetName, readString } from "./config";
@@ -80,7 +80,7 @@ export interface ImportReport {
   readonly files: number;
   readonly inferredSourceFields: readonly string[];
   readonly kind: SingularImportKind;
-  readonly loweringOutcomes: readonly SkillsetLoweringOutcome[];
+  readonly renderResults: readonly SkillsetRenderResult[];
   readonly name: string;
   readonly nextChecks: readonly string[];
   readonly preservedTargetNativeFields: readonly string[];
@@ -94,7 +94,7 @@ export interface ImportBatchReport {
   readonly files: number;
   readonly imports: readonly ImportReport[];
   readonly kind: ImportKind;
-  readonly loweringOutcomes: readonly SkillsetLoweringOutcome[];
+  readonly renderResults: readonly SkillsetRenderResult[];
   readonly provider?: ImportProvider;
   readonly sourcePath: string;
   readonly warnings: readonly string[];
@@ -125,7 +125,7 @@ export async function importSources(options: ImportSourcesOptions): Promise<Impo
     files: imports.reduce((total, report) => total + report.files, 0),
     imports,
     kind: plan.kind,
-    loweringOutcomes: imports.flatMap((report) => report.loweringOutcomes),
+    renderResults: imports.flatMap((report) => report.renderResults),
     ...(options.provider === undefined ? {} : { provider: options.provider }),
     sourcePath,
     warnings: plan.warnings,
@@ -188,7 +188,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       files: copiedFiles.length,
       inferredSourceFields: classification.recognized,
       kind: options.kind,
-      loweringOutcomes: importLoweringOutcomes({
+      renderResults: importRenderResults({
         classification,
         kind: options.kind,
         name,
@@ -271,18 +271,18 @@ function importWarnings(classification: FrontmatterClassification): readonly str
   return warnings;
 }
 
-function importLoweringOutcomes(args: {
+function importRenderResults(args: {
   readonly classification: FrontmatterClassification;
   readonly kind: SingularImportKind;
   readonly name: string;
   readonly rootPath: string;
   readonly targetPath: string;
-}): readonly SkillsetLoweringOutcome[] {
+}): readonly SkillsetRenderResult[] {
   const toolPolicyFields = args.classification.targetNative.filter(isClaudeToolPolicyField);
   if (toolPolicyFields.length === 0) return [];
   const sourcePath = importSourcePath(args.rootPath, args.targetPath, args.kind);
   return [
-    defineLoweringOutcome({
+    defineRenderResult({
       diagnostics: [
         {
           code: "import-preserved-target-native-frontmatter",

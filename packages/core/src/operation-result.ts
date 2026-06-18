@@ -1,4 +1,4 @@
-import type { SkillsetLoweringOutcome } from "./lowering-outcome";
+import type { SkillsetRenderResult } from "./render-result";
 import type { OutputBackupRecord } from "./output-safety";
 
 export type SkillsetOperation =
@@ -70,7 +70,7 @@ export interface SkillsetWriteSummary {
 export interface SkillsetOperationResult<Data> {
   readonly data: Data;
   readonly diagnostics: readonly SkillsetDiagnostic[];
-  readonly loweringOutcomes: readonly SkillsetLoweringOutcome[];
+  readonly renderResults: readonly SkillsetRenderResult[];
   readonly ok: boolean;
   readonly operation: SkillsetOperation;
   readonly writes: SkillsetWriteSummary;

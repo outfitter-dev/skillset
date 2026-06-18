@@ -7,7 +7,7 @@ import {
   recognizeTransforms,
   type TransformMatch,
 } from "@skillset/transforms";
-import type { SkillsetLoweringOutcome } from "@skillset/core";
+import type { SkillsetRenderResult } from "@skillset/core";
 
 import type { ReleaseBaselineEntry } from "./adoption";
 import { buildSkillsetResult, ISOLATED_OUT_ROOT } from "./build";
@@ -52,7 +52,7 @@ export interface AdoptImportResult {
   /** Instructions destination relative to the root (e.g. `.skillset/instructions/agents.md`). */
   readonly destination?: string;
   readonly detail: string;
-  readonly loweringOutcomes: readonly SkillsetLoweringOutcome[];
+  readonly renderResults: readonly SkillsetRenderResult[];
   readonly ok: boolean;
   readonly units: readonly AdoptImportedUnit[];
 }
@@ -97,7 +97,7 @@ export interface AdoptReport {
   readonly cutover: readonly string[];
   readonly imports: readonly AdoptImportResult[];
   readonly lintIssues: readonly LintIssue[];
-  readonly loweringOutcomes: readonly SkillsetLoweringOutcome[];
+  readonly renderResults: readonly SkillsetRenderResult[];
   readonly ok: boolean;
   readonly rootPath: string;
   readonly setupFiles: readonly SetupFile[];
@@ -168,7 +168,7 @@ async function adoptResolvedRoot(
       cutover: [],
       imports: [],
       lintIssues: [],
-      loweringOutcomes: surveySkipLoweringOutcomes(init.surveySkips),
+      renderResults: surveySkipRenderResults(init.surveySkips),
       ok: true,
       rootPath: init.rootPath,
       setupFiles: init.files,
@@ -198,17 +198,17 @@ async function adoptResolvedRoot(
   }
 
   let builtFiles = 0;
-  let loweringOutcomes: readonly SkillsetLoweringOutcome[] = [
-    ...surveySkipLoweringOutcomes(init.surveySkips),
-    ...imports.flatMap((result) => result.loweringOutcomes),
+  let renderResults: readonly SkillsetRenderResult[] = [
+    ...surveySkipRenderResults(init.surveySkips),
+    ...imports.flatMap((result) => result.renderResults),
   ];
   if (buildError === undefined) {
     try {
       const build = await buildSkillsetResult(init.rootPath, { ...buildOptions, isolated: true });
       builtFiles = build.data.length;
-      loweringOutcomes = [
-        ...loweringOutcomes,
-        ...build.loweringOutcomes,
+      renderResults = [
+        ...renderResults,
+        ...build.renderResults,
       ];
     } catch (error) {
       buildError = errorMessage(error);
@@ -226,7 +226,7 @@ async function adoptResolvedRoot(
     cutover,
     imports,
     lintIssues,
-    loweringOutcomes,
+    renderResults,
     ok:
       imports.every((result) => result.ok) &&
       lintErrors.length === 0 &&
@@ -249,10 +249,10 @@ async function adoptResolvedRoot(
   return report;
 }
 
-function surveySkipLoweringOutcomes(
+function surveySkipRenderResults(
   skips: readonly SurveySkip[]
-): readonly SkillsetLoweringOutcome[] {
-  return skips.flatMap((skip) => skip.loweringOutcome === undefined ? [] : [skip.loweringOutcome]);
+): readonly SkillsetRenderResult[] {
+  return skips.flatMap((skip) => skip.renderResult === undefined ? [] : [skip.renderResult]);
 }
 
 async function acquireAdoptSource(source: string, cwd: string): Promise<AdoptAcquisition> {
@@ -317,9 +317,9 @@ async function importCandidate(
       // protection, so it belongs on the cutover list.
       cutover.push(candidate.path);
       previewSources.push(destination);
-      return { candidate, destination, detail: destination, loweringOutcomes: [], ok: true, units: [] };
+      return { candidate, destination, detail: destination, renderResults: [], ok: true, units: [] };
     } catch (error) {
-      return { candidate, detail: errorMessage(error), loweringOutcomes: [], ok: false, units: [] };
+      return { candidate, detail: errorMessage(error), renderResults: [], ok: false, units: [] };
     }
   }
 
@@ -350,12 +350,12 @@ async function importCandidate(
     return {
       candidate,
       detail: `${units.map((unit) => `${unit.kind} ${unit.name}`).join(", ")} (${batch.files} files)`,
-      loweringOutcomes: batch.loweringOutcomes,
+      renderResults: batch.renderResults,
       ok: true,
       units,
     };
   } catch (error) {
-    return { candidate, detail: errorMessage(error), loweringOutcomes: [], ok: false, units: [] };
+    return { candidate, detail: errorMessage(error), renderResults: [], ok: false, units: [] };
   }
 }
 
@@ -514,7 +514,7 @@ export function renderAdoptReportMarkdown(
     report.buildError === undefined
       ? `- build (isolated): ${report.builtFiles} generated files`
       : "- build (isolated): failed",
-    `- lowering outcomes: ${report.loweringOutcomes.length}`,
+    `- render results: ${report.renderResults.length}`,
     ""
   );
 
@@ -638,16 +638,16 @@ export function renderAdoptReportMarkdown(
   } else {
     lines.push("```", report.buildError.trimEnd(), "```", "");
   }
-  lines.push("### Lowering outcomes", "");
-  if (report.loweringOutcomes.length === 0) {
-    lines.push("No lowering outcomes recorded.", "");
+  lines.push("### Render results", "");
+  if (report.renderResults.length === 0) {
+    lines.push("No render results recorded.", "");
   } else {
-    for (const summary of summarizeLoweringOutcomes(report.loweringOutcomes)) {
+    for (const summary of summarizeRenderResults(report.renderResults)) {
       lines.push(`- ${summary}`);
     }
     lines.push("");
     lines.push(
-      "Full structured lowering outcomes are in `report.json` and in the isolated `.skillset.lock` files when the isolated build completes.",
+      "Full structured render results are in `report.json` and in the isolated `.skillset.lock` files when the isolated build completes.",
       ""
     );
   }
@@ -687,8 +687,8 @@ interface AggregatedPreviewMatch extends TransformPreviewMatch {
   readonly count: number;
 }
 
-function summarizeLoweringOutcomes(
-  outcomes: readonly SkillsetLoweringOutcome[]
+function summarizeRenderResults(
+  outcomes: readonly SkillsetRenderResult[]
 ): readonly string[] {
   const counts = new Map<string, number>();
   for (const outcome of outcomes) {
