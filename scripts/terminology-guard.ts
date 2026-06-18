@@ -4,9 +4,11 @@
  * Blocks retired compiler vocabulary (the `lowering`/`lowering outcome` family,
  * the old `compile.unsupported` config key, and friends) from drifting back into
  * active source, docs, generated Skillset guidance, CLI output, schema names, and
- * tests. The new vocabulary is derive/render/build, target (provider) vs
- * destination (scope), render result(s), compile.unsupportedDestination, and
- * unsupported destination policy.
+ * tests. The active vocabulary uses build/compile/adapt/transform/write,
+ * provider vs destination, render result(s), compile.unsupportedDestination,
+ * and unsupported destination policy. Some internal schema names still use
+ * `target` where the code is modeling the Claude/Codex provider enum; new
+ * adopter-facing language should prefer provider/destination.
  *
  * Allowlists are deliberately small and explicit; see ALLOWLIST_PATHS and
  * ALLOWLIST_LINE below and the "Updating the allowlist" note at the bottom.
@@ -183,7 +185,7 @@ async function main(): Promise<void> {
     console.error(`    ${violation.text}`);
   }
   console.error(
-    "skillset: replace retired terminology with the derive/render/destination vocabulary, " +
+    "skillset: replace retired terminology with the build/provider/destination vocabulary, " +
       "or extend the allowlist in scripts/terminology-guard.ts for deliberate historical/deferred context."
   );
   process.exit(1);
@@ -202,7 +204,7 @@ if (import.meta.main) {
  * The guard runs in `bun run check`. When it fails:
  *
  * 1. Prefer fixing the source: replace the retired term with the
- *    derive/render/destination vocabulary. This is correct ~99% of the time.
+ *    build/provider/destination vocabulary. This is correct ~99% of the time.
  * 2. Only allowlist for DELIBERATE historical or deferred context:
  *    - A whole file/tree that is historical (ADRs), generated (validated from
  *      `.skillset/` source elsewhere), or owns a deferred concept (the

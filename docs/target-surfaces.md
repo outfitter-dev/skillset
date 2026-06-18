@@ -1,23 +1,23 @@
-# Target Surface Evidence Matrix
+# Provider Surface Evidence Matrix
 
-This is the cheap-to-refresh map between Skillset source and the Claude/Codex target surfaces it renders to. It exists so target drift is caught deliberately: each surface row has a **status** and, where it depends on live provider docs, a **verified** date and source. Golden manifest tests in `apps/skillset/src/__tests__/contract.test.ts` and `apps/skillset/src/__tests__/skillset.test.ts` pin the generated shapes that these rows claim.
+This is the cheap-to-refresh map between Skillset source and the Claude/Codex provider surfaces it builds. It exists so provider drift is caught deliberately: each surface row has a **status** and, where it depends on live provider docs, a **verified** date and source. Golden manifest tests in `apps/skillset/src/__tests__/contract.test.ts` and `apps/skillset/src/__tests__/skillset.test.ts` pin the generated shapes that these rows claim.
 
 Refreshing is intentionally cheap: re-read the linked provider docs, update the verified date, and adjust a row + its golden test if the surface changed.
 
 ## Support vocabulary
 
 - **Implemented** — Skillset parses, validates, renders, tests, and documents this surface today.
-- **Portable** — authored once as Skillset source because the target outcomes share the same intent.
-- **Target-native** — supported only through one target's native source or adapter path; not portable by default.
+- **Adaptive** — authored once as Skillset source because the provider outcomes share the same intent and can be meaningfully adapted.
+- **Provider-native** — supported only through one provider's native source or adapter path; not adaptive by default.
 - **Metadata-only** — captured in generated metadata or lock provenance, not target-enforced behavior.
 - **Planned** — accepted doctrine or a draft/accepted ADR, but parser/render support has not landed yet.
 - **Reserved** — accepted vocabulary that currently fails with a clear diagnostic until supporting provenance lands.
 - **Deferred** — intentionally not rendered yet; the reason is documented and this is not a gap to fill silently.
-- **Unsupported** — cannot render to an enabled target without explicit target scoping or a visible unsupported destination policy result.
+- **Unsupported** — cannot build to an enabled provider destination without explicit provider scoping or a visible unsupported destination policy result.
 - **Lossy** — a possible render would drop behavior or target meaning; v1 treats lossy render as unsupported unless a future ADR defines visible provenance.
 - **Future** — intentionally outside the v1 contract, tracked so later design does not accidentally masquerade as current support.
 
-Default behavior for unsupported or lossy render is fail-loud. Softer modes must record visible warnings, skipped-source provenance, or force provenance before they can be treated as safe.
+Default behavior for unsupported or lossy build results is fail-loud. Softer modes must record visible warnings, skipped-source provenance, or force provenance before they can be treated as safe.
 
 ## Source contract
 
@@ -28,40 +28,40 @@ Default behavior for unsupported or lossy render is fail-loud. Softer modes must
 | skill top-level `version` (semver) | skill `metadata.version` | Implemented | Skill-local version; release state wins after `skillset release apply`. |
 | `skillset.name` | machine identity | Implemented | Root and plugin explicit identity; directory names remain the default. `skillset.id` is unsupported. |
 | skill top-level `name` | skill identity | Implemented | Skill-local `skillset.name` / `skillset.id` are unsupported. |
-| `compile.targets` | enabled provider renderings | Implemented | Root-only provider selection; defaults to all supported targets. |
+| `compile.targets` | enabled provider outputs | Implemented | Root-only provider selection; defaults to all supported providers. |
 | `compile.build: updated/all` | normalized build mode in lock provenance | Implemented | Parser, CLI overrides, plan-first writes, and lock metadata are implemented. |
 | `compile.skillset.metadata: false` | suppress generated skill `metadata.generated` / `metadata.version` | Implemented | Source metadata remains source-only; locks record `skillsetMetadata`. |
 | `compile.unsupportedDestination: error` | build/diff/check unsupported destination policy | Implemented | Default policy; preserves current fail-loud unsupported behavior. |
 | `compile.unsupportedDestination: warn/skip/force` | doctor/lock provenance | Reserved | Recognized names that fail until non-error unsupported destination policy semantics are implemented and documented. |
-| omitted `compile.targets` | all supported provider renderings | Implemented | Shorthand for the default target plan; equivalent to `compile.targets: [claude, codex]` while both providers are supported. |
-| `claude.projectRoot` / `codex.projectRoot` | target adapter metadata | Implemented | Parsed and inherited with provider blocks; build still does not mutate user-level config. |
-| `claude.userRoot` / `codex.userRoot` | target adapter metadata | Implemented | Parsed and inherited with provider blocks for future setup/explain flows. |
-| `claude.defaults.<surface>` / `codex.defaults.<surface>` | target option defaults for `agents`, `instructions`, `plugins`, `skills` | Implemented | Canonical target-local defaults; file-level target fields win. |
-| `defaults.<target>.<surface>` | same target option defaults | Implemented | Root/plugin shorthand; does not introduce bare top-level `targets:` provider selection. |
-| skill top-level `model` | (source-only warning) | Implemented | Warns unless every enabled target has `claude.model`, `codex.model`, or target defaults. |
-| `profiles.models` / `model_profile` | target-native model and reasoning fields | Future | Deferred alias design for repo-local model intent names; see the [model and reasoning alias profiles ADR](adrs/drafts/20260604-model-and-reasoning-alias-profiles.md). |
+| omitted `compile.targets` | all supported provider outputs | Implemented | Shorthand for the default provider plan; equivalent to `compile.targets: [claude, codex]` while both providers are supported. |
+| `claude.projectRoot` / `codex.projectRoot` | provider adapter metadata | Implemented | Parsed and inherited with provider blocks; build still does not mutate user-level config. |
+| `claude.userRoot` / `codex.userRoot` | provider adapter metadata | Implemented | Parsed and inherited with provider blocks for future setup/explain flows. |
+| `claude.defaults.<surface>` / `codex.defaults.<surface>` | provider option defaults for `agents`, `instructions`, `plugins`, `skills` | Implemented | Canonical provider-local defaults; file-level provider fields win. |
+| `defaults.<provider>.<surface>` | same provider option defaults | Implemented | Root/plugin shorthand; does not introduce bare top-level `targets:` provider selection. |
+| skill top-level `model` | (source-only warning) | Implemented | Warns unless every enabled provider has `claude.model`, `codex.model`, or provider defaults. |
+| `profiles.models` / `model_profile` | provider-native model and reasoning fields | Future | Deferred alias design for repo-local model intent names; see the [model and reasoning alias profiles ADR](adrs/drafts/20260604-model-and-reasoning-alias-profiles.md). |
 | `.skillset/sets/<name>/set.yaml` / `set:<name>` | focused generated-output selection and future marketplace/bundle indexes | Future | Deferred collection design for grouped marketplaces, bundles, and curated loadouts; see the [first-class sets ADR](adrs/drafts/20260604-first-class-sets.md). |
 
-Canonical target selection:
+Canonical provider selection:
 
 ```yaml
 compile:
   targets:
     - claude
     - codex
-  unsupported: error
+  unsupportedDestination: error
 ```
 
-Shorthand target selection with the same internal target plan:
+Shorthand provider selection with the same internal provider plan:
 
 ```yaml
 compile:
   targets: [claude, codex]
 ```
 
-When `compile.targets` is omitted, Skillset also normalizes to the same all-supported-provider target plan. Target-specific `claude` and `codex` blocks configure native output details and lower-level opt-outs; they are not a second provider-selection surface.
+When `compile.targets` is omitted, Skillset also normalizes to the same all-supported-provider plan. Provider-specific `claude` and `codex` blocks configure native output details and nested opt-outs; they are not a second provider-selection surface.
 
-Adapter defaults deliberately use `claude` / `codex` blocks or the `defaults.<target>` shorthand, not a top-level `targets:` map. That preserves the ADR-0001 boundary: `compile.targets` selects provider renderings, while provider blocks carry target-native config and scoped overrides.
+Adapter defaults deliberately use `claude` / `codex` blocks or the `defaults.<provider>` shorthand, not a top-level `targets:` map. That preserves the ADR-0001 boundary: `compile.targets` selects provider outputs, while provider blocks carry provider-native config and scoped overrides.
 
 ## Plugin manifest (Claude `.claude-plugin/plugin.json`)
 
@@ -79,8 +79,8 @@ Live-doc verified against `code.claude.com/docs/en/plugins` and `code.claude.com
 | `output-styles/` | `outputStyles: "./output-styles/"` | Implemented | |
 | `themes/` | `experimental.themes: "./themes/"` | Implemented | |
 | `monitors/monitors.json` | `experimental.monitors: "./monitors/monitors.json"` | Implemented | |
-| `bin/` | executable PATH component | Target-native / Implemented | Documented Claude plugin-root component; conventional `bin/` and `bin.source` copy into Claude plugin output and are locked as plugin features. |
-| `settings.json` | default plugin settings | Target-native / Future | Documented Claude plugin-root component for enabled plugins. Skillset v1 does not mutate live settings; the [reviewed settings suggestion workflow](adrs/drafts/20260604-reviewed-settings-suggestions.md) is future work. |
+| `bin/` | executable PATH component | Provider-native / Implemented | Documented Claude plugin-root component; conventional `bin/` and `bin.source` copy into Claude plugin output and are locked as plugin features. |
+| `settings.json` | default plugin settings | Provider-native / Future | Documented Claude plugin-root component for enabled plugins. Skillset v1 does not mutate live settings; the [reviewed settings suggestion workflow](adrs/drafts/20260604-reviewed-settings-suggestions.md) is future work. |
 
 ## Project agents (Claude)
 
@@ -118,7 +118,7 @@ Live-doc verified against `developers.openai.com/codex/plugins/build` and `devel
 | `.mcp.json` | `.mcp.json` | Implemented | Conventional `.mcp.json` and `mcp.source` copy into Codex plugin output and are locked as plugin features. |
 | `.app.json` | `.app.json` (manifest `apps`) | Implemented | Opaque pass-through. |
 | plugin `agents/` | (none) | Unsupported / Deferred | Codex plugin docs do not document a plugin `agents/` component. Do not copy Claude plugin agents here. |
-| `.skillset/src/agents/*.md` | project `.codex/agents/*.toml` | Portable / Implemented | Codex documents project/user custom agents as standalone TOML files. Skillset renders portable project agents into project custom agents; plugin-agent rendering remains unsupported. |
+| `.skillset/src/agents/*.md` | project `.codex/agents/*.toml` | Adaptive / Implemented | Codex documents project/user custom agents as standalone TOML files. Skillset builds adaptive project agents into project custom agents; plugin-agent output remains unsupported. |
 | user `~/.codex/agents/*.toml` | user custom agents | Future | User/global writes need explicit setup/review flows and must not happen as a side effect of `skillset build`. |
 
 ## Instructions
@@ -127,7 +127,7 @@ Live-doc verified against `developers.openai.com/codex/plugins/build` and `devel
 | --- | --- | --- | --- |
 | `.skillset/instructions/**/*.md` | `.claude/rules/**/*.md` (`paths` kept) | `AGENTS.md` at derived dirs, source-boundary comments | Implemented |
 | `.skillset/rules/**/*.md` | n/a | n/a | Unsupported — use `.skillset/instructions/**/*.md`. |
-| `.skillset/src/codex/rules/**/*.rules` | n/a | `.codex/rules/**/*.rules` | Target-native / Implemented — Codex command execution policy, not instruction Markdown. |
+| `.skillset/src/codex/rules/**/*.rules` | n/a | `.codex/rules/**/*.rules` | Provider-native / Implemented — Codex command execution policy, not instruction Markdown. |
 
 Codex truncates `AGENTS.md` beyond `project_doc_max_bytes` (32 KiB default); `skillset build`/`check` warns. Verified 2026-06-03 (`developers.openai.com/codex/guides/agents-md`, `openai/codex#7138`).
 
