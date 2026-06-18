@@ -18,3 +18,12 @@ repos:
     ref: 6fd4507659784c351abbd2bc264c7162cfd386dc
     targets: [claude, codex]
     notes: "Large multi-agent plugin repo with Claude and Codex manifests, shared skills, hooks, assets, scripts, and repo-level instructions."
+  - name: mattpocock-skills
+    repo: https://github.com/mattpocock/skills
+    ref: 00ff03cac21a8a845b06256d826d183122f58c5e
+    notes: "Root Claude plugin whose plugin.json enumerates a curated skills array referencing nested skills/<category>/<name> directories, alongside many uncurated skills and a repo-level CLAUDE.md. Pinned to release tag mattpocock-skills@1.0.0."
+  - name: last30days-skill
+    repo: https://github.com/mvanhorn/last30days-skill
+    ref: 3fa91fce9009731ed68e2e8a14ce9683253720e8
+    targets: [claude, codex]
+    notes: "Research assistant plugin repo with Claude plugin metadata, Codex-adjacent .agents metadata, hooks, MCP server sources, repo instructions, and a nested skills/last30days skill with assets, references, and scripts."
