@@ -15,8 +15,18 @@ import { parseYamlRecord } from "./yaml";
 const DEFAULT_CREATE_NAME = "my-skillset";
 const DEFAULT_GLOBAL_SOURCE = ".skillset/src";
 const SETUP_SOURCE_DIR = ".skillset/src";
+const SETUP_SOURCE_PLACEHOLDERS = [
+  "agents",
+  "hooks",
+  "plugins",
+  "rules",
+  "shared",
+  "skills",
+  "_claude",
+  "_codex",
+] as const;
 
-export type SetupInclude = "agents" | "ci";
+export type SetupInclude = "ci";
 
 export interface SetupOptions {
   readonly cwd?: string;
@@ -521,6 +531,10 @@ function setupFiles(
       path: `${SETUP_SOURCE_DIR}/.gitkeep`,
       content: "",
     },
+    ...SETUP_SOURCE_PLACEHOLDERS.map((directory) => ({
+      path: `${SETUP_SOURCE_DIR}/${directory}/.gitkeep`,
+      content: "",
+    })),
   ];
 
   if (options.kind === "create" && options.global !== true) {
@@ -537,12 +551,6 @@ function setupFiles(
   }
 
   const include = options.include ?? [];
-  if (include.includes("agents")) {
-    files.push({
-      path: `${SETUP_SOURCE_DIR}/agents/.gitkeep`,
-      content: "",
-    });
-  }
   if (include.includes("ci")) {
     files.push({ path: CI_WORKFLOW_PATH, content: renderCiWorkflow() });
   }

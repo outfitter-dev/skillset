@@ -22,7 +22,7 @@ This repo also self-hosts a small `.skillset/` source tree:
 From a content repo:
 
 ```bash
-skillset init               # preview a minimal .skillset/ scaffold for the current repo
+skillset init               # preview a .skillset/ source scaffold for the current repo
 skillset create             # preview a new my-skillset source repo scaffold
 skillset build              # plan generated changes without writing
 skillset build --yes        # write generated outputs
@@ -99,10 +99,10 @@ Initialize Skillset source in an existing repo:
 
 ```bash
 skillset init --root /path/to/content-repo
-skillset init --root /path/to/content-repo --targets claude --include agents,ci --yes
+skillset init --root /path/to/content-repo --targets claude --include ci --yes
 ```
 
-`init` is the existing-repo entrypoint. It previews or writes the minimal source scaffold, defaults to the Git root when possible, detects repo-local Claude/Codex/Skillset artifacts worth importing, and seeds release-state baselines from current source versions and normalized source hashes without creating a pending change, release, history entry, or changelog projection. That adoption pass is repo-local only; it does not scan or mutate user/global runtime directories.
+`init` is the existing-repo entrypoint. It previews or writes the source scaffold, defaults to the Git root when possible, detects repo-local Claude/Codex/Skillset artifacts worth importing, and seeds release-state baselines from current source versions and normalized source hashes without creating a pending change, release, history entry, or changelog projection. That adoption pass is repo-local only; it does not scan or mutate user/global runtime directories.
 
 Create a new source repo, defaulting to `my-skillset` under the current directory:
 
@@ -111,11 +111,11 @@ skillset create
 skillset create team-loadout --name team-loadout --targets claude,codex --yes
 ```
 
-`create` is the new-repo entrypoint. The current flow writes the same minimal source scaffold into a new directory. SET-54 tracks the richer create-project experience: initialize Git, add a README and lightweight agent guidance, provide starter source files, and eventually offer reviewed Claude/Codex configuration suggestions while still avoiding implicit live runtime config mutation.
+`create` is the new-repo entrypoint. The current flow writes the same source scaffold into a new directory, initializes Git, and adds README plus lightweight agent guidance. SET-54 tracks the richer create-project experience: provide starter source files and eventually offer reviewed Claude/Codex configuration suggestions while still avoiding implicit live runtime config mutation.
 
 For a user-global source checkout, `skillset create --global` defaults to `~/.skillset/src`. This is still Skillset-owned source, not a live Claude or Codex runtime directory. The corresponding preview/build area is documented as `~/.skillset/build`, but setup does not create it or write to `~/.claude`, `~/.codex`, or `.agents`. The published package requires Bun and ships Bun-built JavaScript bins for `skillset` and `create-skillset`; stable releases run from the default npm dist-tag with commands such as `npx skillset create` or `bunx skillset create`. Prerelease builds remain available through their explicit tag, such as `skillset@beta`. Setup still routes through the same plan-first `create` flow.
 
-Setup commands create only source files: `.skillset/config.yaml`, `.skillset/src/skillset.yaml`, `.skillset/src/.gitkeep`, optional `.skillset/src/agents/` placeholders with `--include agents`, and an optional user-owned GitHub Actions workflow with `--include ci`. The generated config uses `compile.targets`; source identity lives in `.skillset/src/skillset.yaml`; target adapter config still belongs in `claude` and `codex` blocks or root `defaults.<target>.<surface>`.
+Setup commands create only source files: `.skillset/config.yaml`, `.skillset/src/skillset.yaml`, root `.skillset/src/.gitkeep`, and placeholders for the main source families: `.skillset/src/agents`, `.skillset/src/hooks`, `.skillset/src/plugins`, `.skillset/src/rules`, `.skillset/src/shared`, `.skillset/src/skills`, `.skillset/src/_claude`, and `.skillset/src/_codex`. `--include ci` adds an optional user-owned GitHub Actions workflow. The generated config uses `compile.targets`; source identity lives in `.skillset/src/skillset.yaml`; target adapter config still belongs in `claude` and `codex` blocks or root `defaults.<target>.<surface>`.
 
 ## Import
 

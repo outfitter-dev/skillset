@@ -71,8 +71,8 @@ const USAGE = [
   "       skillset hooks print --target <claude|codex> --agent-runtime",
   "       skillset hooks run <post-tool-use|stop> [--root <path>]",
   "       skillset adopt <path> [--yes|--dry-run] [--targets claude,codex] [--root <path>]",
-  "       skillset init [path] [--yes|--dry-run] [--targets claude,codex] [--include agents,ci] [--name <name>] [--root <path>]",
-  "       skillset create [path|--global] [--yes|--dry-run] [--targets claude,codex] [--include agents,ci] [--name <name>] [--root <path>]",
+  "       skillset init [path] [--yes|--dry-run] [--targets claude,codex] [--include ci] [--name <name>] [--root <path>]",
+  "       skillset create [path|--global] [--yes|--dry-run] [--targets claude,codex] [--include ci] [--name <name>] [--root <path>]",
   "       skillset explain <path> [--json] [--scope <scope>] [--root <path>] [--source <dir>]",
   "       skillset import <path> [--kind <skill|skills|plugin|plugins>] [--from <provider>] [--name <name>] [--root <path>] [--source <dir>]",
   "       skillset import <claude|codex|agents> [--root <path>] [--source <dir>]",
@@ -1652,8 +1652,8 @@ function mergeSetupIncludes(
   if (includes.length === 0) throw new Error("skillset: --include requires at least one value");
   const seen = new Set<SetupInclude>(current ?? []);
   for (const include of includes) {
-    if (include !== "agents" && include !== "ci") {
-      throw new Error("skillset: expected --include agents, ci, or a comma-separated combination");
+    if (include !== "ci") {
+      throw new Error("skillset: expected --include ci");
     }
     seen.add(include);
   }
