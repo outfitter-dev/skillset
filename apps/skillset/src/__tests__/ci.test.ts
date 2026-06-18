@@ -272,7 +272,15 @@ test("init --include rejects unknown values and non-setup commands", async () =>
 
   const unknown = await runSkillsetCli("init", "--root", root, "--include", "bogus");
   expect(unknown.exitCode).toBe(1);
-  expect(unknown.stderr).toContain("expected --include agents, ci");
+  expect(unknown.stderr).toContain("expected --include ci");
+
+  const retiredAgents = await runSkillsetCli("init", "--root", root, "--include", "agents");
+  expect(retiredAgents.exitCode).toBe(1);
+  expect(retiredAgents.stderr).toContain("expected --include ci");
+
+  const retiredAgentsList = await runSkillsetCli("init", "--root", root, "--include", "agents,ci");
+  expect(retiredAgentsList.exitCode).toBe(1);
+  expect(retiredAgentsList.stderr).toContain("expected --include ci");
 
   const wrongCommand = await runSkillsetCli("build", "--include", "ci");
   expect(wrongCommand.exitCode).toBe(1);

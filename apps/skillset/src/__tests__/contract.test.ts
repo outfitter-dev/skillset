@@ -4943,21 +4943,24 @@ test("SET-27: init previews by default and writes only with confirmation", async
   expect(config).toContain("    - claude");
   expect(config).not.toContain("    - codex");
   expect(await fileExists(join(root, ".skillset/src/.gitkeep"))).toBe(true);
+  for (const directory of ["agents", "hooks", "plugins", "rules", "shared", "skills", "_claude", "_codex"]) {
+    expect(await fileExists(join(root, `.skillset/src/${directory}/.gitkeep`))).toBe(true);
+  }
   expect(await fileExists(join(root, ".claude"))).toBe(false);
   expect(await fileExists(join(root, ".codex"))).toBe(false);
   expect(await fileExists(join(root, ".agents"))).toBe(false);
 });
 
-test("SET-27: init scaffolds optional includes only when requested", async () => {
+test("SET-27: init scaffolds optional CI only when requested", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-setup-shaped-"));
 
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
-  expect(await fileExists(join(root, ".skillset/src/agents/.gitkeep"))).toBe(false);
+  expect(await fileExists(join(root, ".skillset/src/agents/.gitkeep"))).toBe(true);
   expect(await fileExists(join(root, ".github/workflows/skillset-ci.yml"))).toBe(false);
 
   const shaped = await mkdtemp(join(tmpdir(), "skillset-setup-shaped-"));
   await expect(
-    runSkillsetCli("init", "--root", shaped, "--include", "agents,ci", "--yes")
+    runSkillsetCli("init", "--root", shaped, "--include", "ci", "--yes")
   ).resolves.toMatchObject({ exitCode: 0 });
   expect(await fileExists(join(shaped, ".skillset/src/agents/.gitkeep"))).toBe(true);
   expect(await fileExists(join(shaped, ".github/workflows/skillset-ci.yml"))).toBe(true);
@@ -4983,6 +4986,9 @@ test("SET-27: create makes a new source repo with default naming", async () => {
   const manifest = await readFile(join(parent, "my-skillset/.skillset/src/skillset.yaml"), "utf8");
   expect(manifest).toContain("name: my-skillset");
   expect(config).toContain("compile:");
+  for (const directory of ["agents", "hooks", "plugins", "rules", "shared", "skills", "_claude", "_codex"]) {
+    expect(await fileExists(join(parent, `my-skillset/.skillset/src/${directory}/.gitkeep`))).toBe(true);
+  }
   expect(readme).toContain("# my-skillset");
   expect(readme).toContain("skillset build --dry-run");
   expect(agents).toContain("Treat `.skillset/src/` as editable source");
@@ -5025,6 +5031,7 @@ test("SET-27: create supports global source path without touching runtime config
 
   expect(report.rootPath).toBe(join(home, ".skillset/src"));
   expect(await fileExists(join(home, ".skillset/src/.skillset/config.yaml"))).toBe(true);
+  expect(await fileExists(join(home, ".skillset/src/.skillset/src/hooks/.gitkeep"))).toBe(true);
   expect(await fileExists(join(home, ".skillset/src/README.md"))).toBe(false);
   expect(await fileExists(join(home, ".skillset/src/AGENTS.md"))).toBe(false);
   expect(await fileExists(join(home, ".skillset/src/.git/config"))).toBe(false);
