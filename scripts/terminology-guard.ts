@@ -61,6 +61,9 @@ export const ALLOWLIST_PATHS: readonly string[] = [
   // Changesets and change-provenance notes describe the cutover / prior changes.
   ".changeset/",
   ".skillset/changes/",
+  // Package changelogs are generated release history and may quote old terms from
+  // prior public changes.
+  "apps/skillset/CHANGELOG.md",
   // Deferred follow-up: the transform-dialect `lowering` capability is a distinct
   // concept (see RETRO); renaming it is a separate behavioral change.
   "packages/transforms/",

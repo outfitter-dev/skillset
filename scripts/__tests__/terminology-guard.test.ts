@@ -67,6 +67,7 @@ describe("terminology guard", () => {
     expect(isScannablePath(".claude/skills/x/SKILL.md")).toBe(false);
     expect(isScannablePath(".agents/plans/p/PLAN.md")).toBe(false);
     expect(isScannablePath(".changeset/x.md")).toBe(false);
+    expect(isScannablePath("apps/skillset/CHANGELOG.md")).toBe(false);
     expect(isScannablePath("packages/transforms/src/engine.ts")).toBe(false);
     expect(isScannablePath("packages/core/src/render.ts")).toBe(false);
     expect(isScannablePath("packages/core/src/deterministic-projection.ts")).toBe(false);
