@@ -1,6 +1,6 @@
 # Target Surface Evidence Matrix
 
-This is the cheap-to-refresh map between Skillset source and the Claude/Codex target surfaces it lowers to. It exists so target drift is caught deliberately: each surface row has a **status** and, where it depends on live provider docs, a **verified** date and source. Golden manifest tests in `apps/skillset/src/__tests__/contract.test.ts` and `apps/skillset/src/__tests__/skillset.test.ts` pin the generated shapes that these rows claim.
+This is the cheap-to-refresh map between Skillset source and the Claude/Codex target surfaces it renders to. It exists so target drift is caught deliberately: each surface row has a **status** and, where it depends on live provider docs, a **verified** date and source. Golden manifest tests in `apps/skillset/src/__tests__/contract.test.ts` and `apps/skillset/src/__tests__/skillset.test.ts` pin the generated shapes that these rows claim.
 
 Refreshing is intentionally cheap: re-read the linked provider docs, update the verified date, and adjust a row + its golden test if the surface changed.
 
@@ -12,28 +12,28 @@ Refreshing is intentionally cheap: re-read the linked provider docs, update the 
 - **Metadata-only** — captured in generated metadata or lock provenance, not target-enforced behavior.
 - **Planned** — accepted doctrine or a draft/accepted ADR, but parser/render support has not landed yet.
 - **Reserved** — accepted vocabulary that currently fails with a clear diagnostic until supporting provenance lands.
-- **Deferred** — intentionally not emitted yet; the reason is documented and this is not a gap to fill silently.
-- **Unsupported** — cannot lower to an enabled target without explicit target scoping or a visible unsupported policy outcome.
-- **Lossy** — a possible lowering would drop behavior or target meaning; v1 treats lossy lowering as unsupported unless a future ADR defines visible provenance.
+- **Deferred** — intentionally not rendered yet; the reason is documented and this is not a gap to fill silently.
+- **Unsupported** — cannot render to an enabled target without explicit target scoping or a visible unsupported destination policy result.
+- **Lossy** — a possible render would drop behavior or target meaning; v1 treats lossy render as unsupported unless a future ADR defines visible provenance.
 - **Future** — intentionally outside the v1 contract, tracked so later design does not accidentally masquerade as current support.
 
-Default behavior for unsupported or lossy lowering is fail-loud. Softer modes must record visible warnings, skipped-source provenance, or force provenance before they can be treated as safe.
+Default behavior for unsupported or lossy render is fail-loud. Softer modes must record visible warnings, skipped-source provenance, or force provenance before they can be treated as safe.
 
 ## Source contract
 
-| Source | Lowers to | Status | Notes |
+| Source | Renders to | Status | Notes |
 | --- | --- | --- | --- |
 | `skillset.schema` (int) | (source-only) | Implemented | Source-contract marker, separate from `skillset.version`; never in generated output. |
 | root/plugin `skillset.version` (semver) | plugin manifest `version`, fallback skill `metadata.version` | Implemented | Content version; drift reported by `skillset check`. |
 | skill top-level `version` (semver) | skill `metadata.version` | Implemented | Skill-local version; release state wins after `skillset release apply`. |
 | `skillset.name` | machine identity | Implemented | Root and plugin explicit identity; directory names remain the default. `skillset.id` is unsupported. |
 | skill top-level `name` | skill identity | Implemented | Skill-local `skillset.name` / `skillset.id` are unsupported. |
-| `compile.targets` | enabled provider projections | Implemented | Root-only provider selection; defaults to all supported targets. |
+| `compile.targets` | enabled provider renderings | Implemented | Root-only provider selection; defaults to all supported targets. |
 | `compile.build: updated/all` | normalized build mode in lock provenance | Implemented | Parser, CLI overrides, plan-first writes, and lock metadata are implemented. |
 | `compile.skillset.metadata: false` | suppress generated skill `metadata.generated` / `metadata.version` | Implemented | Source metadata remains source-only; locks record `skillsetMetadata`. |
-| `compile.unsupported: error` | build/diff/check lowering policy | Implemented | Default policy; preserves current fail-loud unsupported behavior. |
-| `compile.unsupported: warn/skip/force` | doctor/lock provenance | Reserved | Recognized names that fail until non-error unsupported-policy semantics are implemented and documented. |
-| omitted `compile.targets` | all supported provider projections | Implemented | Shorthand for the default target plan; equivalent to `compile.targets: [claude, codex]` while both providers are supported. |
+| `compile.unsupportedDestination: error` | build/diff/check unsupported destination policy | Implemented | Default policy; preserves current fail-loud unsupported behavior. |
+| `compile.unsupportedDestination: warn/skip/force` | doctor/lock provenance | Reserved | Recognized names that fail until non-error unsupported destination policy semantics are implemented and documented. |
+| omitted `compile.targets` | all supported provider renderings | Implemented | Shorthand for the default target plan; equivalent to `compile.targets: [claude, codex]` while both providers are supported. |
 | `claude.projectRoot` / `codex.projectRoot` | target adapter metadata | Implemented | Parsed and inherited with provider blocks; build still does not mutate user-level config. |
 | `claude.userRoot` / `codex.userRoot` | target adapter metadata | Implemented | Parsed and inherited with provider blocks for future setup/explain flows. |
 | `claude.defaults.<surface>` / `codex.defaults.<surface>` | target option defaults for `agents`, `instructions`, `plugins`, `skills` | Implemented | Canonical target-local defaults; file-level target fields win. |
@@ -61,7 +61,7 @@ compile:
 
 When `compile.targets` is omitted, Skillset also normalizes to the same all-supported-provider target plan. Target-specific `claude` and `codex` blocks configure native output details and lower-level opt-outs; they are not a second provider-selection surface.
 
-Adapter defaults deliberately use `claude` / `codex` blocks or the `defaults.<target>` shorthand, not a top-level `targets:` map. That preserves the ADR-0001 boundary: `compile.targets` selects provider projections, while provider blocks carry target-native config and scoped overrides.
+Adapter defaults deliberately use `claude` / `codex` blocks or the `defaults.<target>` shorthand, not a top-level `targets:` map. That preserves the ADR-0001 boundary: `compile.targets` selects provider renderings, while provider blocks carry target-native config and scoped overrides.
 
 ## Plugin manifest (Claude `.claude-plugin/plugin.json`)
 
@@ -118,7 +118,7 @@ Live-doc verified against `developers.openai.com/codex/plugins/build` and `devel
 | `.mcp.json` | `.mcp.json` | Implemented | Conventional `.mcp.json` and `mcp.source` copy into Codex plugin output and are locked as plugin features. |
 | `.app.json` | `.app.json` (manifest `apps`) | Implemented | Opaque pass-through. |
 | plugin `agents/` | (none) | Unsupported / Deferred | Codex plugin docs do not document a plugin `agents/` component. Do not copy Claude plugin agents here. |
-| `.skillset/src/agents/*.md` | project `.codex/agents/*.toml` | Portable / Implemented | Codex documents project/user custom agents as standalone TOML files. Skillset lowers portable project agents into project custom agents; plugin-agent lowering remains unsupported. |
+| `.skillset/src/agents/*.md` | project `.codex/agents/*.toml` | Portable / Implemented | Codex documents project/user custom agents as standalone TOML files. Skillset renders portable project agents into project custom agents; plugin-agent rendering remains unsupported. |
 | user `~/.codex/agents/*.toml` | user custom agents | Future | User/global writes need explicit setup/review flows and must not happen as a side effect of `skillset build`. |
 
 ## Instructions
@@ -131,9 +131,9 @@ Live-doc verified against `developers.openai.com/codex/plugins/build` and `devel
 
 Codex truncates `AGENTS.md` beyond `project_doc_max_bytes` (32 KiB default); `skillset build`/`check` warns. Verified 2026-06-03 (`developers.openai.com/codex/guides/agents-md`, `openai/codex#7138`).
 
-Codex discovers project guidance from `AGENTS.md` files at the repo root and scoped directories. Skillset should not lower default Codex project guidance to `.codex/AGENTS.md`; `.codex/` is for Codex configuration surfaces such as agents, hooks, rules, and config files.
+Codex discovers project guidance from `AGENTS.md` files at the repo root and scoped directories. Skillset should not render default Codex project guidance to `.codex/AGENTS.md`; `.codex/` is for Codex configuration surfaces such as agents, hooks, rules, and config files.
 
-Codex `.rules` files are execution policy for shell command approval, prompt, or denial decisions. They are not a replacement for Skillset instruction Markdown, and moving prose guidance into `.rules` would be a lossy lowering.
+Codex `.rules` files are execution policy for shell command approval, prompt, or denial decisions. They are not a replacement for Skillset instruction Markdown, and moving prose guidance into `.rules` would be a lossy render.
 
 ## Hooks validation
 

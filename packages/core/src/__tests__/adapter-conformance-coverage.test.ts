@@ -222,7 +222,7 @@ function feature(
     docs: ["docs/features/feature-registry.md"],
     evidence,
     kind: "source",
-    loweringOwner: "packages/core/src/__tests__/adapter-conformance-coverage.test.ts",
+    renderOwner: "packages/core/src/__tests__/adapter-conformance-coverage.test.ts",
     sourceShape: "test fixture",
     summary: `${overrides.title} summary.`,
     targetSupport: {

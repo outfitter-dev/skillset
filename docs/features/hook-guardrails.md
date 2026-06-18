@@ -23,7 +23,7 @@ skillset hooks run post-tool-use
 skillset hooks run stop
 ```
 
-## Target Lowering
+## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |

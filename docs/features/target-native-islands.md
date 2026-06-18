@@ -29,11 +29,11 @@ Plugin-level native pass-through remains under plugin source paths such as `.ski
 | `.skillset/instructions/**/*.md` | `.claude/rules/**/*.md` | `AGENTS.md` | `portable` / `implemented` | Durable repo guidance; not a target-native island. |
 | `.codex/AGENTS.md` default guidance | n/a | n/a | `unsupported` | Codex project guidance belongs in `AGENTS.md` files at repo/scoped directories. |
 
-## Target Lowering
+## Target Rendering
 
 Target-native islands should mirror only into the matching target root. They must not leak into the other provider, and confirmed builds must back up unmanaged target-file collisions before replacing them. Project islands are tracked as file-level workspace-managed output in the root `.skillset.lock`; `skillset build` must not claim or delete the whole `.claude/` or `.codex/` directory. Known structured files should be validated after preprocessing where the target requires a schema. Unknown files can be opaque pass-through only when path safety, ownership, and lock provenance are clear.
 
-Codex `.rules` files are execution policy for shell-command decisions. They are not `.skillset/instructions` and must not receive prose instruction lowering. The correct portable instruction path remains `.skillset/instructions/**/*.md` to Claude `.claude/rules/**/*.md` and Codex `AGENTS.md`. Codex `.rules` pass-through is accepted only from `.skillset/src/codex/rules/**/*.rules`; project `.rules` elsewhere and all Codex plugin `.rules` fail loudly.
+Codex `.rules` files are execution policy for shell-command decisions. They are not `.skillset/instructions` and must not receive prose instruction rendering. The correct portable instruction path remains `.skillset/instructions/**/*.md` to Claude `.claude/rules/**/*.md` and Codex `AGENTS.md`. Codex `.rules` pass-through is accepted only from `.skillset/src/codex/rules/**/*.rules`; project `.rules` elsewhere and all Codex plugin `.rules` fail loudly.
 
 Target-native island Markdown may carry source frontmatter for preprocessing, but it may not carry `claude`, `codex`, or `targets` overrides because the path already scopes the target. Known text and structured files use the SET-22 preprocessing and validation boundary; unknown and binary files copy byte-for-byte.
 
@@ -43,7 +43,7 @@ Target-native island Markdown may carry source frontmatter for preprocessing, bu
 - Reject attempts to mirror a target-native island into the wrong target.
 - Refuse unmanaged destination collisions.
 - Validate known structured output after preprocessing, including TOML/JSON/YAML where applicable. Current generated JSON, YAML, Markdown, TOML utility output, and locks are parser-validated; opaque copied sidecars remain byte-for-byte.
-- Treat instruction-to-`.rules` lowering as lossy and unsupported.
+- Treat instruction-to-`.rules` rendering as lossy and unsupported.
 
 ## Provenance
 

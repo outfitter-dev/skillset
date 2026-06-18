@@ -34,7 +34,7 @@ Use this skill when a repo has a `.skillset/` source tree or when you need to cr
       skills/
 ```
 
-Root `.skillset/config.yaml` controls provider defaults and output roots. Use `compile.targets` for provider selection, `compile.build: updated | all` for the normalized build mode, `compile.skillset.metadata: false` to suppress generated skill metadata, and `compile.unsupported: error` for fail-loud unsupported lowering. `skillset build` plans by default and writes only with `--yes`; `--dry-run` always prevents writes, and `--scope repo`, `--scope plugins`, `--scope project`, or combinations filter generated destinations. Plugin configs use `.skillset/plugins/<plugin-name>/skillset.yaml`. Portable plugin metadata lives under `skillset`; skill source can use top-level `title`, `summary`, `description`, and `version`. Target-specific adapter config, defaults, and overrides use top-level `claude` and `codex`; root `defaults.<target>.<surface>` is shorthand for target defaults without introducing a bare `targets:` map.
+Root `.skillset/config.yaml` controls provider defaults and output roots. Use `compile.targets` for provider selection, `compile.build: updated | all` for the normalized build mode, `compile.skillset.metadata: false` to suppress generated skill metadata, and `compile.unsupportedDestination: error` for fail-loud unsupported destination. `skillset build` plans by default and writes only with `--yes`; `--dry-run` always prevents writes, and `--scope repo`, `--scope plugins`, `--scope project`, or combinations filter generated destinations. Plugin configs use `.skillset/plugins/<plugin-name>/skillset.yaml`. Portable plugin metadata lives under `skillset`; skill source can use top-level `title`, `summary`, `description`, and `version`. Target-specific adapter config, defaults, and overrides use top-level `claude` and `codex`; root `defaults.<target>.<surface>` is shorthand for target defaults without introducing a bare `targets:` map.
 
 Use setup commands when a repo does not have source yet:
 
@@ -69,7 +69,7 @@ Use `claude: false` or `codex: false` in rule frontmatter for target-specific op
 
 Use portable project agents for reusable project-scoped roles. Source lives at `.skillset/src/agents/*.md` with YAML frontmatter plus a Markdown body. `description` and a non-empty body are required; `name` defaults from the filename and resolves the generated filename. Claude emits `.claude/agents/<resolved-name>.md`; Codex emits `.codex/agents/<resolved-name>.toml` with `developer_instructions`. Shared `skills` become a Codex instructions preface (customizable with `codex.defaults.agents.skillsPrefaceTemplate` or `defaults.codex.agents.skillsPrefaceTemplate`), and shared `initialPrompt` is appended in an `<initial_prompt>...</initial_prompt>` block. Keep target-native fields under `claude` and `codex`; top-level `model` warns unless each enabled target has a target-specific model.
 
-Use target-native islands for explicit provider files that are not portable: `.skillset/src/claude/**` mirrors to `.claude/**`, `.skillset/src/codex/**` mirrors to `.codex/**`, and plugin-local islands under `.skillset/src/plugins/<plugin>/<target>/**` mirror into that generated plugin bundle only. Project islands and project agents are workspace-managed files in the root `.skillset.lock`, not ownership claims on the whole `.claude/` or `.codex/` directory. Codex `.rules` are command execution policy and pass through only from `.skillset/src/codex/rules/**/*.rules`; portable instructions never lower to Codex `.rules`. Use `skillset list` or `skillset explain <path>` to inspect generated lock provenance, including target-native islands and project agents.
+Use target-native islands for explicit provider files that are not portable: `.skillset/src/claude/**` mirrors to `.claude/**`, `.skillset/src/codex/**` mirrors to `.codex/**`, and plugin-local islands under `.skillset/src/plugins/<plugin>/<target>/**` mirror into that generated plugin bundle only. Project islands and project agents are workspace-managed files in the root `.skillset.lock`, not ownership claims on the whole `.claude/` or `.codex/` directory. Codex `.rules` are command execution policy and pass through only from `.skillset/src/codex/rules/**/*.rules`; portable instructions never render to Codex `.rules`. Use `skillset list` or `skillset explain <path>` to inspect generated lock provenance, including target-native islands and project agents.
 
 Use source-only `resources` frontmatter when a skill needs shared Markdown, scripts, templates, or assets from root `.skillset/shared/` or plugin-local `.skillset/plugins/<plugin-name>/shared/`:
 
@@ -87,7 +87,7 @@ resources:
 
 `shared:` resolves under root `.skillset/shared/`. `plugin:` resolves under the current plugin's `shared/` directory and is not valid for standalone skills. Generated Claude and Codex skills receive declared files beside `SKILL.md`, so references stay skill-root-relative. Markdown links to declared `shared:` or `plugin:` URLs are rewritten to the generated local path, and undeclared shared resource links fail the build. Resource mappings cannot write outside the generated skill, overwrite generated control files, or collide with skill-local files.
 
-Plugin companion paths are target-native. Claude receives `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json`, `.lsp.json`, `output-styles/`, `themes/`, `monitors/`, `assets/`, `scripts/`, and `src/`, declared in the manifest with their documented fields where the target has manifest fields. Codex receives `hooks/hooks.json`, `.mcp.json`, `.app.json`, `assets/`, `scripts/`, and `src/`. Feature keys can own repo source pointers directly: `mcp.source: repo:path/to/mcp.json` copies a repo-owned MCP file to `.mcp.json` for enabled plugin targets, and `bin.source: repo:path/to/bin` copies a repo-owned directory to Claude plugin `bin/`. `mcp: false` or `bin: false` disables conventional discovery, while absent keys auto-discover conventional `.mcp.json` and Claude `bin/` paths. Codex plugin `bin` output is unsupported and fails loudly when enabled. Pass-through paths are copied as opaque content unless a feature owns validation. Plugin-root `settings.json` is target-native but future-only; build does not suggest, copy, install, trust, enable, or mutate live settings as a side effect. Claude plugin `agents/` is not copied into Codex; a Codex-enabled plugin with `agents/` fails loudly because Codex plugins do not document a plugin agent component. Hooks are emitted definitions only and must be JSON objects. Both targets emit hooks at the documented `hooks/hooks.json` path with a top-level `hooks` object, sourced from `hooks/hooks.json`; plugin-root `hooks.json` is unsupported. Codex hook files are validated against Codex-supported events and synchronous `command` handlers only; prompt handlers, agent handlers, and `async: true` command handlers are parsed but skipped by Codex. `skillset` does not install, trust, or enable hooks in user-level config.
+Plugin companion paths are target-native. Claude receives `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json`, `.lsp.json`, `output-styles/`, `themes/`, `monitors/`, `assets/`, `scripts/`, and `src/`, declared in the manifest with their documented fields where the target has manifest fields. Codex receives `hooks/hooks.json`, `.mcp.json`, `.app.json`, `assets/`, `scripts/`, and `src/`. Feature keys can own repo source pointers directly: `mcp.source: repo:path/to/mcp.json` copies a repo-owned MCP file to `.mcp.json` for enabled plugin targets, and `bin.source: repo:path/to/bin` copies a repo-owned directory to Claude plugin `bin/`. `mcp: false` or `bin: false` disables conventional discovery, while absent keys auto-discover conventional `.mcp.json` and Claude `bin/` paths. Codex plugin `bin` output is unsupported and fails loudly when enabled. Pass-through paths are copied as opaque content unless a feature owns validation. Plugin-root `settings.json` is target-native but future-only; build does not suggest, copy, install, trust, enable, or mutate live settings as a side effect. Claude plugin `agents/` is not copied into Codex; a Codex-enabled plugin with `agents/` fails loudly because Codex plugins do not document a plugin agent component. Hooks are rendered definitions only and must be JSON objects. Both targets render hooks at the documented `hooks/hooks.json` path with a top-level `hooks` object, sourced from `hooks/hooks.json`; plugin-root `hooks.json` is unsupported. Codex hook files are validated against Codex-supported events and synchronous `command` handlers only; prompt handlers, agent handlers, and `async: true` command handlers are parsed but skipped by Codex. `skillset` does not install, trust, or enable hooks in user-level config.
 
 Skill source can also use normalized policy keys:
 
@@ -101,7 +101,7 @@ allowed_tools:
   codex: false
 ```
 
-`implicit_invocation` lowers to Claude `disable-model-invocation` and Codex `agents/openai.yaml` `policy.allow_implicit_invocation`. `allowed_tools` lowers to Claude `allowed-tools`, which is preapproval / no-prompt behavior rather than a portable sandbox; Codex has no confirmed skill-local allowed-tools equivalent, so leave `allowed_tools.codex` unset or set it to `false`.
+`implicit_invocation` renders to Claude `disable-model-invocation` and Codex `agents/openai.yaml` `policy.allow_implicit_invocation`. `allowed_tools` renders to Claude `allowed-tools`, which is preapproval / no-prompt behavior rather than a portable sandbox; Codex has no confirmed skill-local allowed-tools equivalent, so leave `allowed_tools.codex` unset or set it to `false`.
 
 Use portable `tool_intent.allow` and `tool_intent.deny` for known tool intent. The old `tools` key is unsupported. The name records intent and metadata, not target-enforced permissions:
 
@@ -147,7 +147,7 @@ codex:
             - experimental.delete
 ```
 
-Portable keys are `read`, `search`, `write`, `edit`, `shell`, `web_fetch`, `web_search`, and `mcp`; unknown keys fail lint/build. Portable `allow` / `deny` belongs in the source top-level `tool_intent` block; target-local `claude.tool_intent` and `codex.tool_intent` accept only `_allow` / `_deny` escape keys. Claude lowers portable and `_` entries to `allowed-tools` and `disallowed-tools` (preapproval, not enforcement). Codex emits generated `.skillset.tools.yaml` metadata for portable and target-native intent; it does not install, trust, or mutate user-level Codex configuration.
+Portable keys are `read`, `search`, `write`, `edit`, `shell`, `web_fetch`, `web_search`, and `mcp`; unknown keys fail lint/build. Portable `allow` / `deny` belongs in the source top-level `tool_intent` block; target-local `claude.tool_intent` and `codex.tool_intent` accept only `_allow` / `_deny` escape keys. Claude renders portable and `_` entries to `allowed-tools` and `disallowed-tools` (preapproval, not enforcement). Codex renders generated `.skillset.tools.yaml` metadata for portable and target-native intent; it does not install, trust, or mutate user-level Codex configuration.
 
 ## Build And Check
 
@@ -156,22 +156,22 @@ skillset build --root .
 skillset lint --root .
 skillset check --root .
 skillset diff --root .            # pending generated changes, no writes
-skillset explain <path> --root .  # lowering + lock provenance for a source/generated path; add --json for records
+skillset explain <path> --root .  # rendering + lock provenance for a source/generated path; add --json for records
 skillset restore <backup> --root . # preview restore; add --yes to write
-skillset doctor --root .          # lint issues, drift, warnings, and lowering advisories; add --json for records
+skillset doctor --root .          # lint issues, drift, warnings, and rendering advisories; add --json for records
 skillset hooks print --runner lefthook --pre-commit --pre-push
 skillset hooks print --target codex --agent-runtime
 skillset hooks run post-tool-use  # advisory runtime guardrail, source-gated
 skillset hooks run stop           # blocking runtime guardrail, source-gated
 ```
 
-`diff`, `explain`, and `doctor` are read-only authoring aids. They never write generated outputs, install, trust, publish, or mutate user-level config. `explain --json` and `doctor --json` include full lowering outcome records for agents and automation. `doctor` exits non-zero on lint issues, drift, or a build error, and summarizes notable lowering advisories such as degraded or unsupported outcomes.
+`diff`, `explain`, and `doctor` are read-only authoring aids. They never write generated outputs, install, trust, publish, or mutate user-level config. `explain --json` and `doctor --json` include full render-result records for agents and automation. `doctor` exits non-zero on lint issues, drift, or a build error, and summarizes notable rendering advisories such as degraded or unsupported render results.
 
 `hooks print` emits copy/paste snippets for existing hook runners or reviewed project-local Claude/Codex runtime hook configuration. It does not install hooks, overwrite `.git/hooks`, mutate target runtime settings, or trust generated hook code. Pre-commit snippets call `skillset change check --staged`; pre-push snippets call `skillset change check --since origin/main`, `skillset check`, and `skillset doctor`. Runtime snippets call `skillset hooks run post-tool-use` and `skillset hooks run stop`; both first inspect only Skillset source/change-entry paths, including untracked files. `post-tool-use` is advisory and never blocks on `change status`; `stop` runs `change check` and `check` only when relevant Skillset source changed. Set `SKILLSET_HOOK_COMMAND` in reviewed runtime config only when the default local/installable CLI resolution needs an explicit override.
 
 Generated plugin repos default to `plugins-claude/` and `plugins-codex/`. Standalone generated skills default to `.claude/skills` and `.agents/skills`. Generated roots include `.skillset.lock` files for deterministic provenance.
 
-Version fields must be semantic versions. Plugin `skillset.version` lowers into generated plugin manifests. Skill top-level `version` lowers into generated `metadata.version`; plugin-bound skills fall back to plugin version, and standalone skills fall back to root version. `skillset check` reports version drift when a generated plugin manifest version or skill `metadata.version` is stale. Plugin lock entries include included and skipped skill versions so target-specific skips are visible without changing unrelated generated skill files.
+Version fields must be semantic versions. Plugin `skillset.version` renders into generated plugin manifests. Skill top-level `version` renders into generated `metadata.version`; plugin-bound skills fall back to plugin version, and standalone skills fall back to root version. `skillset check` reports version drift when a generated plugin manifest version or skill `metadata.version` is stale. Plugin lock entries include included and skipped skill versions so target-specific skips are visible without changing unrelated generated skill files.
 
 ## Import Existing Source
 
@@ -193,7 +193,7 @@ skillset import agents --root .
 - Use root `compile.targets` for provider selection. Do not use bare top-level `targets:`.
 - Keep target adapter config in `claude` / `codex`; use `defaults.<target>` only as shorthand for target defaults.
 - Use `claude.model`, `codex.model`, or target defaults for model choices; top-level skill `model` warns in v1.
-- Keep `compile.unsupported` on `error`; `warn`, `skip`, and `force` are reserved until their non-error semantics are implemented.
+- Keep `compile.unsupportedDestination` on `error`; `warn`, `skip`, and `force` are reserved until their non-error semantics are implemented.
 - Use `skillset.name` for root/plugin explicit identity. `skillset.id` is unsupported.
 - Do not hand-edit generated outputs as source truth.
 - Keep Claude-only dynamic placeholders out of Codex-enabled skills unless a target-safe fallback exists.

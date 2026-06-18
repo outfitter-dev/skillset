@@ -8,7 +8,7 @@ name: skillset-adrs
 
 # Skillset ADR Authoring
 
-ADRs document the significant design decisions behind Skillset: choices that, if reversed, would change the source contract, target lowering model, compiler promises, or authoring workflow.
+ADRs document the significant design decisions behind Skillset: choices that, if reversed, would change the source contract, target rendering model, compiler promises, or authoring workflow.
 
 ## Core Principles
 
@@ -16,13 +16,13 @@ Read `docs/tenets.md` before writing or changing an ADR. Every ADR must be consi
 
 Use these tenets as the review lens:
 
-- **Source-first loadouts.** Authors write portable source once, then Skillset lowers it faithfully to target-native Claude and Codex output.
-- **Source is the product.** `.skillset/` is the authored truth; generated Claude/Codex trees are reproducible projections.
+- **Source-first loadouts.** Authors write portable source once, then Skillset renders it faithfully to target-native Claude and Codex output.
+- **Source is the product.** `.skillset/` is the authored truth; generated Claude/Codex trees are reproducible renderings.
 - **One meaning, one key.** Portable source keys should describe one semantic concept, not duplicate provider vocabulary.
-- **Lower intent, not filenames.** Near matches are modeled from the author's intended outcome, then lowered in the target-native way.
+- **Render intent, not filenames.** Near matches are modeled from the author's intended outcome, then rendered in the target-native way.
 - **Target truth beats fake portability.** Unsupported target behavior must be visible through diagnostics, opt-outs, or explicit target-native escape hatches.
 - **Builds do not imply trust.** Build output may define plugins, hooks, skills, and instructions, but activation is separate.
-- **Drift should become visible early.** Stale output, unsupported lowering, malformed locks, and unmanaged destination collisions should surface before runtime surprises, with reversible backups where confirmed builds replace existing files.
+- **Drift should become visible early.** Stale output, unsupported destination, malformed locks, and unmanaged destination collisions should surface before runtime surprises, with reversible backups where confirmed builds replace existing files.
 
 When an ADR proposes something new, test it against these questions. Does it reduce repeated authoring? Does it preserve target-native truth? Does it make unsupported behavior easier to see? Does it keep activation separate from compilation?
 
@@ -86,9 +86,9 @@ For manual ADR management without the script, see [assets/adr-management.md](ass
 Examples:
 
 - Good: "Source-First Loadouts"
-- Good: "Deterministic Target Projections"
+- Good: "Deterministic Target Renderings"
 - Good: "Compile Target Selection"
-- Good: "Unsupported Lowering Must Be Provenanced"
+- Good: "Unsupported Destination Must Be Provenanced"
 - Avoid: "Targets"
 - Avoid: "Config"
 - Avoid: "Codex and Claude"
@@ -213,7 +213,7 @@ For docs:
 
 - **Declarative, not tentative.** State the decision. If there is uncertainty, name it as a risk or non-decision.
 - **Conversational but precise.** Write like a sharp maintainer explaining what future agents and contributors must preserve.
-- **Active voice.** Skillset derives, lowers, validates, rejects, emits, and explains. Authors declare, opt out, and review.
+- **Active voice.** Skillset derives, renders, validates, rejects, and explains. Authors declare, opt out, and review.
 - **First person sparingly.** Use it in Context when grounding the problem in real experience. Drop it in Decision.
 
 ### Structure
@@ -255,10 +255,10 @@ Use accepted Skillset vocabulary consistently:
 
 - `source`, not generated output, when discussing `.skillset/`.
 - `target` or `provider`, not runtime, when discussing Claude/Codex build destinations.
-- `lowering`, not copying, when source intent becomes target-native output.
-- `projection`, not source truth, for generated Claude/Codex files.
+- `render`/`rendering`, not copying, when source intent becomes target-native output.
+- `rendered output`, not source truth, for generated Claude/Codex files.
 - `compile.targets`, not bare `targets`, for root provider selection.
-- `compile.unsupported`, not silent fallback, for unsupported lowering policy.
+- `compile.unsupportedDestination`, not silent fallback, for unsupported destination policy.
 - `provenance`, not comments, for lock/doctor evidence.
 
 Read `docs/tenets.md` before writing. Every ADR must be consistent with the tenets.

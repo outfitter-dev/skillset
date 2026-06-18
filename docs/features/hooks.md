@@ -4,17 +4,17 @@ Feature id: `hooks`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Hooks are emitted definitions only. Skillset never installs, trusts, enables, or mutates user-level Claude or Codex configuration as a side effect of build, check, diff, import, init, or create.
+Hooks are rendered definitions only. Skillset never installs, trusts, enables, or mutates user-level Claude or Codex configuration as a side effect of build, check, diff, import, init, or create.
 
 ## Authoring
 
 The canonical plugin hook source is `.skillset/plugins/<plugin>/hooks/hooks.json`. Plugin-root `hooks.json` is rejected; put hook definitions under `hooks/hooks.json`.
 
-## Target Lowering
+## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
-| `hooks/hooks.json` | `hooks/hooks.json` | `hooks/hooks.json` | `target_native` / `implemented` | Emitted with a top-level `hooks` object. |
+| `hooks/hooks.json` | `hooks/hooks.json` | `hooks/hooks.json` | `target_native` / `implemented` | Rendered with a top-level `hooks` object. |
 | root `hooks.json` | n/a | n/a | `unsupported` | Move the file to `hooks/hooks.json`. |
 | Future `hooks.source` | n/a | n/a | `planned` | No feature-key source pointer exists in v1. |
 

@@ -28,15 +28,15 @@ supports:
       onMismatch: warn
 ```
 
-## Target Lowering
+## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
-| `supports` metadata | not emitted by default | not emitted by default | `implemented` / `metadata_only` | Significant for provenance and diagnostics; not target-enforced by default. |
+| `supports` metadata | not rendered by default | not rendered by default | `implemented` / `metadata_only` | Significant for provenance and diagnostics; not target-enforced by default. |
 
 ## Diagnostics
 
-Support constraints participate in normalized source hashes and `change status`. A supports-only edit is significant but not inherently severity-bearing. The default suggested bump is `none`, or `patch` when emitted user-facing metadata changes. V1 validates compact strings and expanded `supports.packages` entries with common semver-like comparators, caret ranges, and tilde ranges. `repo:<path>` package sources are read as package JSON; `skillset check` and `doctor` warn by default, or fail when `onMismatch: error` is set, when the local version falls outside the declared range.
+Support constraints participate in normalized source hashes and `change status`. A supports-only edit is significant but not inherently severity-bearing. The default suggested bump is `none`, or `patch` when rendered user-facing metadata changes. V1 validates compact strings and expanded `supports.packages` entries with common semver-like comparators, caret ranges, and tilde ranges. `repo:<path>` package sources are read as package JSON; `skillset check` and `doctor` warn by default, or fail when `onMismatch: error` is set, when the local version falls outside the declared range.
 
 ## Provenance
 

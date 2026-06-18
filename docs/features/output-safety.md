@@ -2,7 +2,7 @@
 
 Feature id: `output-safety`
 
-Skillset treats generated target files as reproducible projections while still protecting hand-authored files that happen to live near those projections. Output safety is the build-time ownership layer that decides which files are managed, which files are unmanaged neighbors, and when a reversible backup is required before writing.
+Skillset treats generated target files as reproducible renderings while still protecting hand-authored files that happen to live near those renderings. Output safety is the build-time ownership layer that decides which files are managed, which files are unmanaged neighbors, and when a reversible backup is required before writing.
 
 ## Source Shape
 

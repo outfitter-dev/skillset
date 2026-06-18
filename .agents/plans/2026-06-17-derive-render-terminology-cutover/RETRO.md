@@ -36,8 +36,8 @@
 | --- | --- | --- | --- |
 | SET-122 | `set-122-mechanical-rename-to-render-result-vocabulary` | Implemented + reviewed (5/5) + verified | pending (batch at end) |
 | SET-123 | `set-123-cut-config-over-to-compileunsupporteddestination` | Implemented + reviewed (5/5) + verified | pending (batch at end) |
-| SET-124 | `set-124-separate-target-and-destination-in-render-result-data` | Implemented + verified locally; Linear In Progress | pending (batch at end) |
-| SET-125 | (pending) | not started | — |
+| SET-124 | `set-124-separate-target-and-destination-in-render-result-data` | Implemented + reviewed (5/5) + verified | pending (batch at end) |
+| SET-125 | `set-125-refresh-docs-and-generated-guidance-for-deriverender` | Implemented + verified locally; Linear In Progress | pending (batch at end) |
 | SET-126 | (pending) | not started | — |
 
 ## Execution Log
@@ -77,9 +77,17 @@ Residual old-vocab (intentionally deferred, classified):
 - Tests: multi-destination (one source skill → `skill` + `skill-frontmatter` under one target), unsupported-destination (`plugin-agents`/`plugin-bin` carry destination), serialize round-trip (field order), and explain/doctor JSON expose `destination`.
 - Behavior preserved: existing target adapter behavior unchanged; only the result shape is richer. Regenerated 6 locks (now carry `destination`).
 
+### SET-125 — Refresh docs and generated guidance
+
+- Feature-registry framing (code): `loweringOwner` field → `renderOwner` (type + 28 entries + check + tests); feature `id: "lowering-outcomes"` → `render-results` (+ repositioned in `SEEDED_FEATURE_IDS` since the list sorts by id); title/summary/sourceShape/notes prose; `docs/features/lowering-outcomes.md` renamed to `render-results.md`; ADR evidence ref preserved.
+- Docs + `.skillset/` prose cutover (delegated to a constrained editor subagent, then reviewed): ~24 doc files + 4 `.skillset` guidance files. Mappings: `compile.unsupported`→`compile.unsupportedDestination`, `lowering outcome(s)`→`render result(s)`, schema stamp, `Lowering Outcomes`→`Render Results`, render verb `lowers to`→`renders to`, `## Target Lowering`→`## Target Rendering` (×24), `projection`(output sense)→`rendering`, `emitted`(status)→`rendered`, `lowering policy`→`unsupported destination policy`, etc.
+- Preserved (documented for SET-126 allowlist): all `docs/adrs/**` (historical decision records); the `deterministic projection`/`deterministic-projection` concept (code not renamed); ordinary English (`lower-level`, `lower-case`, etc.).
+- Self-hosted output rebuilt (9 generated files). The `.skillset/` SKILL.md edits triggered the change-provenance gate (`skillset:ci`): added a SET-125 pending change entry covering the edited scopes, and refreshed (appended current source-hash evidence to) the three older pending notes that recorded those scopes. `skillset:ci` now passes.
+- Deferred to a follow-up (genuinely needs-judgment, out of the 5-issue scope): `packages/transforms` `lowering` field + `render.ts` transform "lowering" comments + the `deterministic-projection` code concept. These are distinct internal/transform-dialect vocabulary; renaming them is a behavioral change. They will be allowlisted by the SET-126 guard and tracked as a follow-up.
+
 ## Execution Log (continued)
 
-- Pending executor updates for SET-125..126.
+- Pending executor updates for SET-126.
 
 ## Tracker Mutations
 
@@ -105,11 +113,16 @@ Residual old-vocab (intentionally deferred, classified):
 
 - `bun run typecheck` clean; `bun run test` 484 pass / 0 fail (added multi-destination test); `bun run skillset:build` regenerated 6 locks (destination added) then 0 on re-run; `bun run skillset:check` no drift; `bun run skillset:lint` clean; `git diff --check` clean.
 
+### SET-125 (all green)
+
+- `bun run typecheck` clean; `bun run test` 484 pass / 0 fail; `bun run skillset:build` regenerated 9 files; `bun run skillset:check` no drift; `bun run skillset:lint` clean; **`bun run skillset:ci` passes** (change-entry coverage resolved); `git diff --check` clean. Residual scan: active docs/.skillset md clean of unintended old vocab (only historical ADRs + deterministic-projection concept remain, both intentional).
+
 ## Local Review Log
 
 - SET-122 mechanical-rename reviewer: **5/5**. No P0/P1/P2. One P3 (index.ts re-export `type` block not re-alphabetized after token swap) — fixed and amended into the SET-122 commit. Verified behavior preservation, no missed active renames, boundaries respected, cross-refs resolve.
 - SET-123 config/schema reviewer: **5/5**. No findings. Verified complete cutover (no residual `compile.unsupported`/`CompileUnsupportedPolicy`), old key now genuinely rejected by the strict allowlist (no alias), behavior preserved (default "error", reserved-policy path), tests still hit their named validation paths.
 - SET-124 data/model reviewer: **5/5**. P2 (plugin-feature destinations `plugin-mcp`/`plugin-bin` duplicated featureId, and companion used bare `featureKey` while plugin-features used `plugin-` prefix) — FIXED: all plugin-feature/companion/unsupported destinations now bare scope names (`mcp`, `bin`, `agents`, …), consistent across producers and never just mirroring featureId. P3 (import tool-intent + setup island-skip lacked destination) — FIXED: added `skill-frontmatter` / `target-native-island`. Verified target stays strictly the provider, determinism/lock-stability preserved, behavior unchanged.
+- SET-125 docs/guidance reviewer: **4/5**. Three P2 (all FIXED): (1) `target-surfaces.md` over-replaced `lossy lowering`→`degraded render`, conflating two distinct statuses — restored to `lossy render`; (2) feature-registry summary/evidence prose still said `lowers`/`lowering` (surfaces via explain/doctor) — changed to `renders`/`rendering`; (3) the doc rename left a dead ADR link (`lowering-outcomes.md`) — repaired URL to `render-results.md`. One P3 (FIXED): differentiated two adjacent "rendering, not …" bullets in skillset-adrs SKILL.md. Verified no missed active vocab, preserved concepts intact, docs match code contract.
 
 - Required reviewer lanes:
   - mechanical rename reviewer;

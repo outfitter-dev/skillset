@@ -4,13 +4,13 @@ Feature id: `distributions`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Distributions describe where an already-built Skillset projection could be synced after build. They are separate from compilation and separate from runtime activation.
+Distributions describe where an already-built Skillset rendering could be synced after build. They are separate from compilation and separate from runtime activation.
 
 ## Lifecycle Boundary
 
 `skillset build` materializes deterministic generated files from source. It does not trust, install, publish, activate, or mutate another repository.
 
-`skillset distribute plan` reads `distributions` config, renders the generated projection in memory, filters the requested source surface, and reports where those files would land. It does not write files, create commits, open pull requests, or install runtime config.
+`skillset distribute plan` reads `distributions` config, builds the generated rendering in memory, filters the requested source surface, and reports where those files would land. It does not write files, create commits, open pull requests, or install runtime config.
 
 Future sync/publish commands can consume the same plan, but the plan is the contract first: source target, selector, destination, file list, hashes, local destination status when available, and whether the local destination is already a no-op.
 
@@ -35,7 +35,7 @@ distributions:
       subdirectory: packages/skillset
 ```
 
-`from.target` is the build target projection to read. It must already be enabled by `compile.targets`.
+`from.target` is the build target rendering to read. It must already be enabled by `compile.targets`.
 
 `from.runtime` is optional evidence for the runtime or harness that will consume the distribution. It does not make the runtime a build target.
 

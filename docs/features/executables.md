@@ -10,7 +10,7 @@ Claude plugin `bin/` is a target-native executable component. Skillset supports 
 
 Use plugin-local `.skillset/plugins/<plugin>/bin/` for conventional discovery, `bin: true` to require that conventional directory, `bin: false` to disable it, or `bin.source: repo:path/to/bin` to point at a repo-owned directory.
 
-## Target Lowering
+## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |

@@ -10,7 +10,7 @@ Codex plugins can include an `.app.json` app manifest. Skillset v1 treats it as 
 
 Place `.skillset/plugins/<plugin>/.app.json` in plugin source when an enabled Codex plugin should include the app manifest. There is no `apps.source`, `app.source`, or `apps: true` source key in v1.
 
-## Target Lowering
+## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |

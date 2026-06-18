@@ -25,7 +25,6 @@ const SEEDED_FEATURE_IDS = [
   "distributions",
   "feature-registry",
   "future-companion-source-pointers",
-  "lowering-outcomes",
   "output-safety",
   "plugin-agents",
   "plugin-apps",
@@ -46,6 +45,7 @@ const SEEDED_FEATURE_IDS = [
   "project-agents",
   "project-instructions",
   "releases",
+  "render-results",
   "resources",
   "runtime-adapters",
   "standalone-skills",
@@ -125,8 +125,8 @@ describe("feature registry", () => {
     }
 
     for (const feature of listSkillsetFeatures()) {
-      if (feature.loweringOwner !== "future") {
-        expect(existsSync(join(REPO_ROOT, feature.loweringOwner))).toBe(true);
+      if (feature.renderOwner !== "future") {
+        expect(existsSync(join(REPO_ROOT, feature.renderOwner))).toBe(true);
       }
       if (feature.validationOwner !== "future") {
         expect(existsSync(join(REPO_ROOT, feature.validationOwner))).toBe(true);
@@ -313,7 +313,7 @@ function feature(overrides: Partial<SkillsetFeatureEntry> & { readonly id: strin
     evidence: overrides.evidence ?? defaultEvidence,
     id: overrides.id,
     kind: overrides.kind ?? "source",
-    loweringOwner: overrides.loweringOwner ?? "packages/core/src/render.ts",
+    renderOwner: overrides.renderOwner ?? "packages/core/src/render.ts",
     ...(overrides.runtimeSupport === undefined ? {} : { runtimeSupport: runtimeSupportWithEvidence(overrides.runtimeSupport, defaultEvidence) }),
     sourceShape: overrides.sourceShape ?? ".skillset/**",
     status: overrides.status ?? "implemented",

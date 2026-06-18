@@ -10,7 +10,7 @@ Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
 Portable `tool_intent.allow` and `tool_intent.deny` accept known keys: `read`, `search`, `write`, `edit`, `shell`, `web_fetch`, `web_search`, and `mcp`. Target-native escapes use `_allow` and `_deny` either under the shared `tool_intent` block with provider keys or directly under `claude.tool_intent` / `codex.tool_intent`. The old `tools` key is rejected so tool intent cannot silently disappear.
 
-## Target Lowering
+## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
@@ -33,4 +33,4 @@ Generated Codex `.skillset.tools.yaml` sidecars and lock entries make portable i
 
 ## Tests and Fixtures
 
-Fixtures cover portable registry lowering, old `tools` rejection, unknown-key failures, target-local escape validation, Codex sidecar metadata, and `allowed_tools` fail-loud behavior.
+Fixtures cover portable registry rendering, old `tools` rejection, unknown-key failures, target-local escape validation, Codex sidecar metadata, and `allowed_tools` fail-loud behavior.

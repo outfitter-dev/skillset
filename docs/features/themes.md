@@ -10,7 +10,7 @@ Claude plugins can include experimental themes under `themes/`. Skillset treats 
 
 Place theme files under `.skillset/plugins/<plugin>/themes/`. The directory is copied only when Claude plugin output for that plugin is active.
 
-## Target Lowering
+## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
@@ -28,4 +28,4 @@ Theme files participate in plugin output hashes and lock provenance as target-na
 
 ## Tests and Fixtures
 
-Fixtures cover experimental manifest field declaration, target-native directory copying, provider-specific output separation, and no Codex lowering.
+Fixtures cover experimental manifest field declaration, target-native directory copying, provider-specific output separation, and no Codex rendering.

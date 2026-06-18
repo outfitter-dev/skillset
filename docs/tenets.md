@@ -1,6 +1,6 @@
 # Skillset Design Tenets
 
-> Source-first loadouts: author once, lower faithfully.
+> Source-first loadouts: author once, render faithfully.
 
 This is the stable doctrinal layer for the Skillset compiler. It describes what Skillset believes, how it decides between competing designs, and what agents should preserve when changing the source contract. When implementation or tactical docs drift from this document, bring the repo back into alignment or make a deliberate decision to change the tenets.
 
@@ -12,7 +12,7 @@ Skillset docs are organized by how often the information should change:
 
 - **Tenets**: What we believe and why. This document changes only when our model of Skillset changes.
 - **Decisions and packets**: ADRs under `docs/adrs/`, goal packets, review reports, and retros that explain what is true now, what changed, and why.
-- **Guides and references**: How to use the current compiler, source layout, target lowering, versioning, imports, hooks, resources, and checks.
+- **Guides and references**: How to use the current compiler, source layout, target rendering, versioning, imports, hooks, resources, and checks.
 - **Agent guidance**: `AGENTS.md`, generated skills, and repo-local instructions. These are practical operating notes and change with the repo.
 
 Tenets govern the other tiers. A guide can be stale, a packet can be superseded, and an `AGENTS.md` file can be tactical. The tenets are the long-lived test for whether a proposal fits the system we are building.
@@ -29,7 +29,7 @@ Power should come from derivation, defaults, validation, and clear escape hatche
 
 ### Source is the product
 
-`.skillset/` is the authored source of truth. Claude and Codex outputs are target-native projections of that source.
+`.skillset/` is the authored source of truth. Claude and Codex outputs are target-native renderings of that source.
 
 Generated plugin repositories, standalone skill roots, lockfiles, and instruction files can be committed and reviewed, but they are not source truth. Edits should flow from source to generated output through `skillset build`, and `skillset check` should make stale output visible.
 
@@ -39,15 +39,15 @@ When Claude and Codex expose the same semantic feature, Skillset should provide 
 
 Provider-native aliases can be accepted when they are safe and unambiguous. The resolver should normalize aliases into the canonical Skillset concept before rendering target output.
 
-### Lower intent, not filenames
+### Render intent, not filenames
 
 Close matches should be designed from the author's intent, not from whichever target file shape appeared first. The question is not "how do we copy a Claude subagent into Codex?" but "what outcome is the author trying to create, and what is the faithful Codex-native way to create a similar outcome?"
 
-This applies to agents, subagents, hooks, instructions, resources, app/MCP manifests, and any future runtime surface. If Skillset cannot lower an intent faithfully for a target, it should say so through target-specific support, diagnostics, or explicit opt-out rather than pretending the outputs are equivalent.
+This applies to agents, subagents, hooks, instructions, resources, app/MCP manifests, and any future runtime surface. If Skillset cannot render an intent faithfully for a target, it should say so through target-specific support, diagnostics, or explicit opt-out rather than pretending the outputs are equivalent.
 
 ### Target truth beats fake portability
 
-Portable source keys are for behavior that is actually portable. Root provider selection is a compile concern, not target-native semantics: a root `compile.targets` list may say which provider projections to build, while `claude` and `codex` blocks stay reserved for target-specific options, explicit target toggles, and visible target-native escape hatches.
+Portable source keys are for behavior that is actually portable. Root provider selection is a compile concern, not target-native semantics: a root `compile.targets` list may say which provider renderings to build, while `claude` and `codex` blocks stay reserved for target-specific options, explicit target toggles, and visible target-native escape hatches.
 
 It is better for a feature to be honestly target-specific than falsely unified. Skillset should not introduce a separate `agents` abstraction in v1 when `codex` is the practical Codex skill/plugin/agent-ish target.
 
@@ -65,7 +65,7 @@ Build output may define hooks, app manifests, MCP manifests, plugins, skills, an
 
 ### Codify the craft
 
-Skillset should learn what goes into excellent skills, agents, hooks, instructions, resources, and plugins, then turn that knowledge into tooling. The compiler should help authors keep versions current, declare minimum required metadata, link resources safely, avoid unsupported target features, and keep Claude and Codex projections in sync.
+Skillset should learn what goes into excellent skills, agents, hooks, instructions, resources, and plugins, then turn that knowledge into tooling. The compiler should help authors keep versions current, declare minimum required metadata, link resources safely, avoid unsupported target features, and keep Claude and Codex renderings in sync.
 
 Internal tooling is part of the product: scaffolds, lint rules, explain commands, fixtures, import helpers, review prompts, and self-hosted development skills should all make better loadout authoring easier.
 
@@ -93,7 +93,7 @@ Import helpers can reduce migration pain, but the source contract should not kee
 
 Stale generated output, unsupported target features, unsafe resource mappings, unmanaged generated-destination collisions, malformed locks, and target-incompatible hooks should become visible before they become quiet runtime surprises. Fail when the compiler cannot proceed safely; when a confirmed build replaces a recoverable unmanaged collision or target-side edit, it should warn and preserve enough backup state to restore the prior file.
 
-Unsupported lowering policy should be explicit. The default should fail when authored source cannot lower faithfully to an enabled target. Softer modes such as warn, skip, or force are escape hatches for migration and provider drift; they must record what happened in warnings, doctor output, or lock provenance rather than making unsupported source look synchronized.
+Unsupported destination policy should be explicit. The default should fail when authored source cannot render faithfully to an enabled target. Softer modes such as warn, skip, or force are escape hatches for migration and provider drift; they must record what happened in warnings, doctor output, or lock provenance rather than making unsupported source look synchronized.
 
 ## Patterns
 
@@ -101,11 +101,11 @@ These are recurring design shapes that operationalize the principles and promise
 
 ### Normalize exact matches
 
-When a Claude and Codex feature is semantically the same, define a portable source key and lower it to target-native syntax. `implicit_invocation`, skill version metadata, source descriptions, and target enablement are examples of this pattern.
+When a Claude and Codex feature is semantically the same, define a portable source key and render it to target-native syntax. `implicit_invocation`, skill version metadata, source descriptions, and target enablement are examples of this pattern.
 
 ### Model near matches by intent
 
-When features are similar but not identical, name the intent first and design the lowering second. Instructions that lower to Claude rules and Codex `AGENTS.md` files, agent roles that may lower differently per target, and hook definitions that stay definitions rather than activation are examples of this pattern.
+When features are similar but not identical, name the intent first and design the render second. Instructions that render to Claude rules and Codex `AGENTS.md` files, agent roles that may render differently per target, and hook definitions that stay definitions rather than activation are examples of this pattern.
 
 ### Prefer defaults and scoped overrides
 
@@ -128,10 +128,10 @@ These are not a replacement for the schema reference. They are examples of how t
 - Use `skillset.schema` for the version of the source contract or compiler schema, while generated skill product versions stay simple through fields like `metadata.version`.
 - Do not require a source name that is distinct from the real plugin or skill name unless there is a concrete identity problem that derivation cannot solve.
 - Use root `compile.targets` for provider selection. Keep bare top-level `targets:` out of the source contract, default to both targets for portable source, and keep `claude` / `codex` blocks for target-specific options and lower-level opt-outs.
-- Treat root `compile.unsupported` as visible lowering policy. The default is `error`; `warn` and `skip` must surface skipped source in diagnostics or lock provenance, and `force` must only emit through an explicit target-native destination rather than pretending unsupported behavior became portable.
+- Treat root `compile.unsupportedDestination` as visible unsupported destination policy. The default is `error`; `warn` and `skip` must surface skipped source in diagnostics or lock provenance, and `force` must only render through an explicit target-native destination rather than pretending unsupported behavior became portable.
 
 ## Posture
 
 Skillset is opinionated about source authoring and conservative about target activation. It should give authors a small, clear, source-first contract while preserving the native expectations of Claude and Codex.
 
-It should grow deliberately. A new portable key is valuable when it removes repetition, prevents drift, and lowers faithfully. A new target-specific escape hatch is valuable when it keeps target truth explicit. A new abstraction is justified only when it makes authoring easier without making the system less honest.
+It should grow deliberately. A new portable key is valuable when it removes repetition, prevents drift, and renders faithfully. A new target-specific escape hatch is valuable when it keeps target truth explicit. A new abstraction is justified only when it makes authoring easier without making the system less honest.
