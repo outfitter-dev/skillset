@@ -20,7 +20,7 @@ Skillset currently uses internal compiler fixtures and validation commands:
 | `.skillset/tests/` | n/a | `reserved` | Optional future authored test declarations; not a fixture mirror. |
 | `.skillset/evals/` | n/a | `future` | Future adapter-aware behavioral eval declarations or pointers. |
 
-Internal fixtures may include `fixtures/<case>/.skillset/src/` when a case needs project agents or provider source. A bare `fixtures/.skillset/src/` is acceptable only if `fixtures/` itself is intentionally the fake repo root; named fixture cases are preferred so the fixture inventory can grow without looking like live repo source.
+Internal fixtures use `fixtures/<case>/.skillset/src/` as the source root. A bare `fixtures/.skillset/src/` is acceptable only if `fixtures/` itself is intentionally the fake repo root; named fixture cases are preferred so the fixture inventory can grow without looking like live repo source.
 
 ## Deterministic Tests
 

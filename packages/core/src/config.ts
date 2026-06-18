@@ -20,6 +20,8 @@ export type FeatureSurface = "agents" | "instructions" | "plugins" | "skills";
 const DEFAULT_SURFACES = new Set<FeatureSurface>(["agents", "instructions", "plugins", "skills"]);
 const CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "changes", "claude", "codex", "defaults", "dependencies", "skillset", "supports"]);
 const ROOT_CONFIG_TOP_LEVEL_KEYS = new Set([...CONFIG_TOP_LEVEL_KEYS, "compile", "distributions", "tests"]);
+const WORKSPACE_CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "changes", "claude", "codex", "compile", "defaults", "dependencies", "distributions", "tests"]);
+const ROOT_SOURCE_MANIFEST_TOP_LEVEL_KEYS = new Set(["dependencies", "skillset", "supports"]);
 const COMPILE_BUILD_MODES = new Set<CompileBuildMode>(["updated", "all"]);
 const UNSUPPORTED_DESTINATION_POLICIES = new Set<UnsupportedDestinationPolicy>([
   "error",
@@ -257,6 +259,27 @@ export function validateConfigDocument(
   for (const key of Object.keys(record)) {
     if (!supportedKeys.has(key) && !featureKeys.has(key)) {
       throw new Error(`skillset: unsupported top-level key ${key} in ${label}`);
+    }
+  }
+}
+
+export function validateWorkspaceConfigDocument(record: JsonRecord, label: string): void {
+  rejectTargetsKey(record, label);
+  for (const key of Object.keys(record)) {
+    if (!WORKSPACE_CONFIG_TOP_LEVEL_KEYS.has(key)) {
+      throw new Error(
+        `skillset: unsupported workspace config key ${key} in ${label}; ` +
+          "move source identity and compatibility metadata to .skillset/src/skillset.yaml"
+      );
+    }
+  }
+}
+
+export function validateRootSourceManifestDocument(record: JsonRecord, label: string): void {
+  rejectTargetsKey(record, label);
+  for (const key of Object.keys(record)) {
+    if (!ROOT_SOURCE_MANIFEST_TOP_LEVEL_KEYS.has(key)) {
+      throw new Error(`skillset: unsupported root source manifest key ${key} in ${label}`);
     }
   }
 }

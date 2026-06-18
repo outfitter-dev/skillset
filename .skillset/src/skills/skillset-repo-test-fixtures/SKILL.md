@@ -13,8 +13,8 @@ Use this skill when changing Skillset's internal compiler fixtures, fixture docu
 - Fixtures are internal compiler test material, not product `.skillset/tests/` source.
 - Prefer inline temp fixtures in `apps/skillset/src/__tests__/` for focused positive cases, negative diagnostics, and lifecycle edge cases.
 - Add checked-in `fixtures/<case>/` repos only when a case needs whole-repo inspection, is shared as a golden reference, or is too large to read inline.
-- Treat `.skillset/src/` as the source root. Fixtures should place plugins, standalone skills, instructions, project agents, shared resources, and provider source under it.
-- Provider-specific source should use `_claude` and `_codex` directories, including plugin-local `.skillset/src/plugins/<plugin>/_claude` and `.skillset/src/plugins/<plugin>/_codex`.
+- Treat `.skillset/src/` as the source root for current fixtures.
+- Plugins, standalone skills, rules, shared files, and provider source should use `.skillset/src/plugins`, `.skillset/src/skills`, `.skillset/src/rules`, `.skillset/src/shared`, and `.skillset/src/_claude` / `.skillset/src/_codex`.
 
 ## Working Loop
 
