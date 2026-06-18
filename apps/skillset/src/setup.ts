@@ -218,7 +218,7 @@ async function detectImportCandidates(
   }
   // Instruction candidates are for un-adopted repos: an existing
   // .skillset/config.yaml means the repo already authors instructions in
-  // .skillset/instructions, so its root files are (or will be) generated.
+  // .skillset/src/rules, so its root files are (or will be) generated.
   if (!alreadyAdopted) {
     for (const name of ROOT_INSTRUCTION_FILES) {
       if (await isImportableInstructionFile(join(rootPath, name))) {
@@ -310,11 +310,11 @@ async function detectSurveySkips(rootPath: string): Promise<readonly SurveySkip[
     rootPath,
     ".claude/rules",
     "rules",
-    "rules are not importable yet; adopt will lower them to .skillset/instructions/ in the transform milestone",
+    "rules are not importable yet; adopt will lower them to .skillset/src/rules/ in the transform milestone",
     surveySkipOutcome({
       featureId: "project-instructions",
       path: ".claude/rules",
-      reason: "rules are not importable yet; adopt will lower them to .skillset/instructions/ in the transform milestone",
+      reason: "rules are not importable yet; adopt will lower them to .skillset/src/rules/ in the transform milestone",
       relativeTargetPath: "rules",
       target: "claude",
     })
@@ -598,8 +598,8 @@ function createReadme(name: string, targets: readonly TargetName[]): string {
     "",
     "- `.skillset/config.yaml` selects compile targets and source settings.",
     "- `.skillset/src/` is the portable project source area for instructions, agents, and target-native islands.",
-    "- `.skillset/plugins/` holds plugin source when this repo authors marketplace plugins.",
-    "- `.skillset/skills/` holds standalone skill source when this repo authors repo-local or user skill roots.",
+    "- `.skillset/src/plugins/` holds plugin source when this repo authors marketplace plugins.",
+    "- `.skillset/src/skills/` holds standalone skill source when this repo authors repo-local or user skill roots.",
     "",
     `Default compile targets: ${targets.join(", ")}.`,
     "",

@@ -20,7 +20,7 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Feature Registry](feature-registry.md): typed support matrix for feature ids, target capability claims, docs, evidence, render owners, and validation owners.
 - [Hook Guardrails](hook-guardrails.md): Git hook-runner snippets and optional agent-runtime nudges for change/release checks.
 - [Hooks](hooks.md): hook definition emission, canonical source paths, target validation, and activation boundaries.
-- [Instructions](instructions.md): `.skillset/instructions` rendering to Claude rules and Codex `AGENTS.md`, preprocessing, and collision safety.
+- [Instructions](instructions.md): `.skillset/src/rules` rendering to Claude rules and Codex `AGENTS.md`, preprocessing, and collision safety.
 - [LSP Servers](lsp-servers.md): Claude plugin `.lsp.json` pass-through, manifest wiring, and future validation boundaries.
 - [MCP Servers](mcp-servers.md): plugin `.mcp.json`, `mcp.source`, manifest wiring, and structured validation.
 - [Monitors](monitors.md): Claude experimental monitor pass-through, manifest wiring, and Codex unsupported boundaries.
@@ -34,7 +34,7 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Settings](settings.md): future reviewed settings suggestion workflow and why build does not mutate runtime config.
 - [Skills](skills.md): standalone and plugin-bound skill frontmatter, target rendering, versions, metadata, and generated sidecars.
 - [Supports](supports.md): compatibility metadata, support ranges, source significance, and release severity boundaries.
-- [Target-Native Islands](target-native-islands.md): explicit Claude/Codex source islands, Codex `.rules` pass-through, and leakage rules.
+- [Provider Source](target-native-islands.md): explicit Claude/Codex provider source, Codex `.rules` pass-through, and leakage rules.
 - [Tests and Evals](tests-and-evals.md): internal fixtures, dogfooding, deterministic `skillset test`, future adapter-aware evals, and generated run output boundaries.
 - [Themes](themes.md): Claude experimental theme pass-through, manifest wiring, and Codex unsupported boundaries.
 - [Tool Intent](tool-intent.md): portable tool intent metadata, Claude preapproval rendering, Codex metadata, and target-native escapes.

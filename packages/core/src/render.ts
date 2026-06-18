@@ -649,7 +649,7 @@ async function renderClaudeProjectAgent(
     preprocessDependencies,
     rootPath: graph.rootPath,
     sourcePath: agent.sourcePath,
-    sourceRoot: graph.sourceDir,
+    sourceRoot: join(graph.sourceDir, "src"),
   });
   const targetPath = join(targetProjectRoot(graph, "claude"), "agents", `${agent.outputName}.md`);
   return {
@@ -710,7 +710,7 @@ async function renderCodexProjectAgentInstructions(
     preprocessDependencies,
     rootPath: graph.rootPath,
     sourcePath: agent.sourcePath,
-    sourceRoot: graph.sourceDir,
+    sourceRoot: join(graph.sourceDir, "src"),
   });
   const sections: string[] = [];
   if (skills !== undefined && skills.length > 0) {
@@ -723,7 +723,7 @@ async function renderCodexProjectAgentInstructions(
       preprocessDependencies,
       rootPath: graph.rootPath,
       sourcePath: agent.sourcePath,
-      sourceRoot: graph.sourceDir,
+      sourceRoot: join(graph.sourceDir, "src"),
     });
     if (renderedPrompt.includes("</initial_prompt>")) {
       throw new Error(`skillset: ${relative(graph.rootPath, agent.sourcePath)} initialPrompt must not contain </initial_prompt>`);
@@ -843,7 +843,7 @@ async function renderTextIslandFile(
       preprocessDependencies,
       rootPath: graph.rootPath,
       sourcePath: island.sourcePath,
-      sourceRoot: graph.sourceDir,
+      sourceRoot: join(graph.sourceDir, "src"),
     });
     return renderValidatedMarkdown(
       stripSourceFrontmatter(parsed.frontmatter, island.sourcePath),
@@ -857,7 +857,7 @@ async function renderTextIslandFile(
     preprocessDependencies,
     rootPath: graph.rootPath,
     sourcePath: island.sourcePath,
-    sourceRoot: graph.sourceDir,
+    sourceRoot: join(graph.sourceDir, "src"),
   });
 }
 
@@ -1079,7 +1079,7 @@ async function renderSkillMarkdown(
     frontmatter: skill.frontmatter,
     rootPath: graph.rootPath,
     sourcePath: skill.sourcePath,
-    sourceRoot: graph.sourceDir,
+    sourceRoot: join(graph.sourceDir, "src"),
     ...(plugin === undefined ? {} : { pluginPath: plugin.path }),
   });
   const dependencyNotice = target === "codex" && plugin !== undefined
@@ -1151,7 +1151,7 @@ async function renderCodexSkillAgentFile(
           frontmatter: skill.frontmatter,
           rootPath: graph.rootPath,
           sourcePath: sourceOpenAiPath,
-          sourceRoot: graph.sourceDir,
+          sourceRoot: join(graph.sourceDir, "src"),
           ...(plugin === undefined ? {} : { pluginPath: plugin.path }),
         }),
         sourceOpenAiPath
@@ -1403,7 +1403,7 @@ async function renderRuleBody(graph: BuildGraph, rule: SourceRule, outputPath: s
     frontmatter: rule.frontmatter,
     rootPath: graph.rootPath,
     sourcePath: rule.sourcePath,
-    sourceRoot: graph.sourceDir,
+    sourceRoot: join(graph.sourceDir, "src"),
     variables: ruleVariables(graph, rule, outputPath),
   });
 }
@@ -1653,7 +1653,7 @@ function renderLockFiles(
       skillsetMetadata: graph.root.compile.skillset.metadata,
       outputRoot,
       schemaVersion: 1,
-      sourceRoot: graph.sourceDir,
+      sourceRoot: join(graph.sourceDir, "src"),
       target: lock.target,
     };
     rendered.push(textFile(join(outputRoot, ".skillset.lock"), renderValidatedJson(value, `${outputRoot}/.skillset.lock`)));

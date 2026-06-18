@@ -15,7 +15,7 @@ const subject: LintSubject = {
   files: ["SKILL.md"],
   frontmatter: { name: "demo" },
   kind: "skill",
-  path: ".skillset/skills/demo/SKILL.md",
+  path: ".skillset/src/skills/demo/SKILL.md",
   raw: "---\nname: demo\n---\n\nUse the thing.\n",
 };
 

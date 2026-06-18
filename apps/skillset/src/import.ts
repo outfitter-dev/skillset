@@ -12,6 +12,9 @@ import type { JsonRecord, SourceOrigin } from "./types";
 import { isJsonRecord, parseMarkdown, parseYamlRecord, stringifyMarkdown, stringifyYaml } from "./yaml";
 
 const DEFAULT_SOURCE_DIR = ".skillset";
+const SOURCE_ROOT_DIR = "src";
+const PLUGINS_DIR = "plugins";
+const SKILLS_DIR = "skills";
 
 export type ImportKind = "plugin" | "plugins" | "skill" | "skills";
 export type ImportProvider = "agents" | "claude" | "codex" | "skillset";
@@ -138,7 +141,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
   const name = await resolveImportName(sourcePath, options);
   const targetPath = resolveInside(
     options.rootPath,
-    join(sourceDir, options.kind === "plugin" ? "plugins" : "skills", name)
+    join(sourceDir, SOURCE_ROOT_DIR, options.kind === "plugin" ? PLUGINS_DIR : SKILLS_DIR, name)
   );
 
   if (await exists(targetPath)) {

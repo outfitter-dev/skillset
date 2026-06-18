@@ -33,10 +33,10 @@ skillset build --yes
 | --- | --- | --- | --- | --- | --- |
 | `compile.build: updated` | writes missing/changed outputs and removes stale scoped outputs | detect drift | explain target state | `implemented` | No usable lock falls back to the rendered configured outputs and writes a fresh baseline only when build runs with `--yes`; unchanged files are left untouched. |
 | `compile.build: all` | rewrites selected output roots | detect drift | explain full plan | `implemented` | CLI `--all` overrides config and records the resolved mode in lock metadata. |
-| `--scope repo/plugins/project/user/all` | destination filtering | destination filtering | destination filtering | `implemented` | Scope is about destinations, not arbitrary feature sets. `repo` covers standalone generated skill roots, `plugins` covers generated plugin repos, `project` covers project guidance/agents/native islands, and `user` is reserved with no build outputs today. |
+| `--scope repo/plugins/project/user/all` | destination filtering | destination filtering | destination filtering | `implemented` | Scope is about destinations, not arbitrary feature sets. `repo` covers standalone generated skill roots, `plugins` covers generated plugin repos, `project` covers project guidance/agents/provider source, and `user` is reserved with no build outputs today. |
 | `skillset diff` | no writes | n/a | added/changed/missing/removed diff | `implemented` | Missing locked outputs are shown separately from new generated outputs. |
 | `skillset explain <path>` | n/a | n/a | source/generated provenance and matching render results | `implemented` | Explain resolves lock provenance for current generated outputs, and `--json` includes full render-result records. |
-| `skillset list` | n/a | n/a | lock-backed inventory | `implemented` | Lists current generated lock entries today, including target-native islands and project agents. |
+| `skillset list` | n/a | n/a | lock-backed inventory | `implemented` | Lists current generated lock entries today, including provider source and project agents. |
 
 ## Target Rendering
 
@@ -58,4 +58,4 @@ User/global destinations require the most conservative posture. `skillset build`
 
 ## Tests and Fixtures
 
-Fixtures cover plan-first build behavior, `--yes`, `--dry-run` precedence, build-mode flag conflicts, scope validation/filtering, updated-mode no-churn behavior, all-mode rewrites, and missing managed output classification. Existing SET-9 and SET-24 fixtures cover diff/list/explain lock visibility for generated skills, target-native islands, and project agents.
+Fixtures cover plan-first build behavior, `--yes`, `--dry-run` precedence, build-mode flag conflicts, scope validation/filtering, updated-mode no-churn behavior, all-mode rewrites, and missing managed output classification. Existing SET-9 and SET-24 fixtures cover diff/list/explain lock visibility for generated skills, provider source, and project agents.

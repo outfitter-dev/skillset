@@ -8,7 +8,7 @@ Hooks are rendered definitions only. Skillset never installs, trusts, enables, o
 
 ## Authoring
 
-The canonical plugin hook source is `.skillset/plugins/<plugin>/hooks/hooks.json`. Plugin-root `hooks.json` is rejected; put hook definitions under `hooks/hooks.json`.
+The canonical plugin hook source is `.skillset/src/plugins/<plugin>/hooks/hooks.json`. Plugin-root `hooks.json` is rejected; put hook definitions under `hooks/hooks.json`.
 
 ## Target Rendering
 

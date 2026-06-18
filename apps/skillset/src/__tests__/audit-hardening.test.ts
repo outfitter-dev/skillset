@@ -92,14 +92,14 @@ test("custom resources.to rejects an ambiguous bare link to the source path", as
 skillset:
   name: test-root
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/shared/templates/report.md": `
+    ".skillset/src/plugins/alpha/shared/templates/report.md": `
 # Report
 `,
-    ".skillset/plugins/alpha/skills/remap/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/remap/SKILL.md": `
 ---
 name: remap
 description: Remaps a resource and links the bare source path.
@@ -122,14 +122,14 @@ test("custom resources.to rejects ambiguous bare links under remapped directorie
 skillset:
   name: test-root
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/shared/templates/report.md": `
+    ".skillset/src/plugins/alpha/shared/templates/report.md": `
 # Report
 `,
-    ".skillset/plugins/alpha/skills/remap/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/remap/SKILL.md": `
 ---
 name: remap
 description: Remaps a resource directory and links the bare source path.
@@ -152,14 +152,14 @@ test("declared directory resource URLs rewrite child links through custom to pat
 skillset:
   name: test-root
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/shared/templates/report.md": `
+    ".skillset/src/plugins/alpha/shared/templates/report.md": `
 # Report
 `,
-    ".skillset/plugins/alpha/skills/remap/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/remap/SKILL.md": `
 ---
 name: remap
 description: Remaps a resource directory and links the resource URL.
@@ -190,18 +190,18 @@ skillset:
 claude: false
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/hooks/hooks.json": `
+    ".skillset/src/plugins/alpha/hooks/hooks.json": `
 {
   "Notification": [
     { "hooks": [ { "type": "command", "command": "./run.sh" } ] }
   ]
 }
 `,
-    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -228,18 +228,18 @@ skillset:
 claude: false
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/hooks/hooks.json": `
+    ".skillset/src/plugins/alpha/hooks/hooks.json": `
 {
   "PreToolUse": [
     { "hooks": [ { "type": "prompt", "prompt": "ask" } ] }
   ]
 }
 `,
-    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -261,18 +261,18 @@ skillset:
 claude: false
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/hooks/hooks.json": `
+    ".skillset/src/plugins/alpha/hooks/hooks.json": `
 {
   "PreToolUse": [
     { "hooks": [ { "command": "./run.sh" } ] }
   ]
 }
 `,
-    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -296,18 +296,18 @@ codex:
   plugins:
     - beta
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/hooks/hooks.json": `
+    ".skillset/src/plugins/alpha/hooks/hooks.json": `
 {
   "Notification": [
     { "hooks": [ { "type": "prompt", "prompt": "ask" } ] }
   ]
 }
 `,
-    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -315,11 +315,11 @@ description: Alpha skill.
 
 Alpha body.
 `,
-    ".skillset/plugins/beta/skillset.yaml": `
+    ".skillset/src/plugins/beta/skillset.yaml": `
 skillset:
   name: beta
 `,
-    ".skillset/plugins/beta/skills/beta-skill/SKILL.md": `
+    ".skillset/src/plugins/beta/skills/beta-skill/SKILL.md": `
 ---
 name: beta-skill
 description: Beta skill.
@@ -343,18 +343,18 @@ skillset:
 claude: false
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/hooks/hooks.json": `
+    ".skillset/src/plugins/alpha/hooks/hooks.json": `
 {
   "PreToolUse": [
     { "hooks": [ { "type": "command", "command": "./run.sh", "async": true } ] }
   ]
 }
 `,
-    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -376,20 +376,20 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
     // SessionEnd is Claude-only; PermissionRequest would be Codex-only. Claude
     // accepts both because Claude hook validation is intentionally shape-only.
-    ".skillset/plugins/alpha/hooks/hooks.json": `
+    ".skillset/src/plugins/alpha/hooks/hooks.json": `
 {
   "hooks": {
     "SessionEnd": [ { "hooks": [ { "type": "command", "command": "./run.sh" } ] } ]
   }
 }
 `,
-    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -409,7 +409,7 @@ test("corrupt workspace .skillset.lock fails loudly instead of disabling guards"
 skillset:
   name: test-root
 `,
-    ".skillset/instructions/global.md": `
+    ".skillset/src/rules/global.md": `
 # Global Rule
 
 - Keep it tidy.
@@ -431,11 +431,11 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.

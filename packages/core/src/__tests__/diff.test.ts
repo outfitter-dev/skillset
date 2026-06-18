@@ -12,7 +12,7 @@ skillset:
 claude: true
 codex: false
 `,
-  ".skillset/skills/demo/SKILL.md": `
+  ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo skill.

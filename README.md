@@ -38,15 +38,15 @@ skillset ci                 # CI entrypoint: lint + change check + drift, with -
 skillset test [name]        # run an isolated deterministic projection test
 ```
 
-`init`, `create`, and `build` are plan-first: they print pending filesystem changes and write only with `--yes`; `--dry-run` always prevents writes, even when paired with `--yes`. `--scope repo`, `--scope plugins`, `--scope project`, and combinations filter generated destinations for build, diff, top-level check, list, and explain; `--scope user` is accepted but currently has no build outputs. `skillset change status` and `skillset change check` are whole-source coverage commands and reject build scopes. `skillset test` writes isolated runs under `.skillset/build/tests/` and does not mutate live generated target roots. `diff`, `explain`, `features`, and `doctor` are read-only authoring aids: they never write generated outputs, install, trust, publish, or mutate user-level config. `diff`, `check`, and `doctor` report missing managed outputs separately from new outputs so intentional deletion and stale locks are visible. Confirmed builds back up unmanaged collisions and target-side edits under `.skillset/build/backups/<backup-id>/` before overwriting or deleting them; `skillset restore <backup-id>` previews restoring a backup and writes only with `--yes` (see [Output Safety](docs/features/output-safety.md)). `explain` accepts either a source path (e.g. `.skillset/skills/foo/SKILL.md`) or a generated output path and reports how it renders, matching render results, its lock entry, target state, and source/output hashes; `explain --json` includes full render result records for automation. `features` lists the feature registry by id and shows each target adapter's support status; pass a feature id to inspect one capability. `doctor` exits non-zero when it finds lint issues, drift, or a build error, and it also summarizes notable render result advisories such as degraded or unsupported results; `doctor --json` includes the full render report. `skillset ci` is the continuous-integration entrypoint: it aggregates lint, change-entry coverage, and generated drift, rebuilds stale generated output mechanically with `--fix`, and writes a PR-comment-ready Markdown report with `--report`; `skillset init --include ci` scaffolds a ready-to-use GitHub Actions workflow (see [CI](docs/features/ci.md)).
+`init`, `create`, and `build` are plan-first: they print pending filesystem changes and write only with `--yes`; `--dry-run` always prevents writes, even when paired with `--yes`. `--scope repo`, `--scope plugins`, `--scope project`, and combinations filter generated destinations for build, diff, top-level check, list, and explain; `--scope user` is accepted but currently has no build outputs. `skillset change status` and `skillset change check` are whole-source coverage commands and reject build scopes. `skillset test` writes isolated runs under `.skillset/build/tests/` and does not mutate live generated target roots. `diff`, `explain`, `features`, and `doctor` are read-only authoring aids: they never write generated outputs, install, trust, publish, or mutate user-level config. `diff`, `check`, and `doctor` report missing managed outputs separately from new outputs so intentional deletion and stale locks are visible. Confirmed builds back up unmanaged collisions and target-side edits under `.skillset/build/backups/<backup-id>/` before overwriting or deleting them; `skillset restore <backup-id>` previews restoring a backup and writes only with `--yes` (see [Output Safety](docs/features/output-safety.md)). `explain` accepts either a source path (e.g. `.skillset/src/skills/foo/SKILL.md`) or a generated output path and reports how it renders, matching render results, its lock entry, target state, and source/output hashes; `explain --json` includes full render result records for automation. `features` lists the feature registry by id and shows each target adapter's support status; pass a feature id to inspect one capability. `doctor` exits non-zero when it finds lint issues, drift, or a build error, and it also summarizes notable render result advisories such as degraded or unsupported results; `doctor --json` includes the full render report. `skillset ci` is the continuous-integration entrypoint: it aggregates lint, change-entry coverage, and generated drift, rebuilds stale generated output mechanically with `--fix`, and writes a PR-comment-ready Markdown report with `--report`; `skillset init --include ci` scaffolds a ready-to-use GitHub Actions workflow (see [CI](docs/features/ci.md)).
 
 The default contract is:
 
 - source root: `.skillset/`
 - root config: `.skillset/config.yaml`
-- plugin source: `.skillset/plugins/<plugin-name>/`
-- standalone skill source: `.skillset/skills/<skill-name>/`
-- instruction source: `.skillset/instructions/**/*.md`
+- plugin source: `.skillset/src/plugins/<plugin-name>/`
+- standalone skill source: `.skillset/src/skills/<skill-name>/`
+- instruction source: `.skillset/src/rules/**/*.md`
 - Claude plugin repo output: `plugins-claude/`
 - Codex plugin repo output: `plugins-codex/`
 - Claude standalone skill output: `.claude/skills`
@@ -137,7 +137,7 @@ skillset import codex --root /path/to/content-repo   # ~/.codex/skills
 skillset import agents --root /path/to/content-repo  # ~/.agents/skills
 ```
 
-Imports copy files into `.skillset/skills/<name>` or `.skillset/plugins/<name>`. Passing a `SKILL.md` path imports the full containing skill directory, including sibling `references/`, `scripts/`, `assets/`, `agents/`, and other sidecars. Skills-root imports de-dupe symlinked directories by real path, so the same global skill is not imported twice when `.claude/skills`, `.codex/skills`, and `.agents/skills` point at one another. Plugin imports write plugin-local `skillset.yaml`; when importing a native Claude/Codex generated plugin that only has `.claude-plugin/plugin.json` or `.codex-plugin/plugin.json`, Skillset synthesizes a minimal source `skillset.yaml` from the native manifest while preserving the native manifest files as imported context. Import does not install, trust, symlink, publish, mutate registries, or change user-level Claude/Codex config.
+Imports copy files into `.skillset/src/skills/<name>` or `.skillset/src/plugins/<name>`. Passing a `SKILL.md` path imports the full containing skill directory, including sibling `references/`, `scripts/`, `assets/`, `agents/`, and other sidecars. Skills-root imports de-dupe symlinked directories by real path, so the same global skill is not imported twice when `.claude/skills`, `.codex/skills`, and `.agents/skills` point at one another. Plugin imports write plugin-local `skillset.yaml`; when importing a native Claude/Codex generated plugin that only has `.claude-plugin/plugin.json` or `.codex-plugin/plugin.json`, Skillset synthesizes a minimal source `skillset.yaml` from the native manifest while preserving the native manifest files as imported context. Import does not install, trust, symlink, publish, mutate registries, or change user-level Claude/Codex config.
 
 Import is a safe bridge, not a lossy copier. It returns a report — printed by the CLI — summarizing the copied files, the source fields it recognized, target-native fields preserved verbatim (e.g. Claude `allowed-tools`, `disable-model-invocation`), unrecognized fields kept as-is, warnings, and the next checks to run (`skillset lint`, `build`, `check`). Target-native and unknown frontmatter is preserved rather than dropped, so nothing is silently lost; the warnings point you at fields worth moving to a portable source key or a `claude`/`codex` block. Import never overwrites an existing source — remove it or import under a different `--name`.
 
@@ -147,7 +147,7 @@ Import shares the same version-baseline adoption machinery as `init` when the de
 
 Root source metadata lives at `.skillset/config.yaml`.
 
-Each plugin lives at `.skillset/plugins/<plugin-name>/` and has its own `skillset.yaml`. Portable plugin fields live under `skillset`; target-specific overrides live under top-level `claude` and `codex` blocks. Skill source frontmatter can use top-level `name`, `title`, `summary`, `description`, `version`, `resources`, `implicit_invocation`, `allowed_tools`, and the source-only `tool_intent` map; the compiler derives target-native generated metadata, Claude frontmatter, Codex `agents/openai.yaml` policy where supported, and skill-local copies of declared resources.
+Each plugin lives at `.skillset/src/plugins/<plugin-name>/` and has its own `skillset.yaml`. Portable plugin fields live under `skillset`; target-specific overrides live under top-level `claude` and `codex` blocks. Skill source frontmatter can use top-level `name`, `title`, `summary`, `description`, `version`, `resources`, `implicit_invocation`, `allowed_tools`, and the source-only `tool_intent` map; the compiler derives target-native generated metadata, Claude frontmatter, Codex `agents/openai.yaml` policy where supported, and skill-local copies of declared resources.
 
 Use root/plugin `skillset.name` only when explicit identity is needed; directory names are the default. Skill identity uses top-level `name`. `skillset.id`, skill-local `skillset.name`, and skill-local `skillset.version` are unsupported. Use root `compile.targets` for provider selection, and do not use bare top-level `targets:`. `compile.build` defaults to `updated` and accepts `all`; CLI `--updated` and `--all` override config for the current command and the resolved mode is recorded in lock metadata. `compile.skillset.metadata: false` suppresses Skillset's generated skill frontmatter metadata. `compile.unsupportedDestination` currently defaults to `error`; softer modes are reserved until warning, skip, or force provenance is implemented.
 
@@ -181,7 +181,7 @@ Generated roots also receive `.skillset.lock` files with deterministic provenanc
 
 ## Shared Resources
 
-Use `.skillset/shared/` for root shared inputs and `.skillset/plugins/<plugin-name>/shared/` for plugin-local shared inputs. Shared inputs are not copied wholesale. A skill opts into exact files or directories with source-only `resources` frontmatter:
+Use `.skillset/src/shared/` for root shared inputs and `.skillset/src/plugins/<plugin-name>/shared/` for plugin-local shared inputs. Shared inputs are not copied wholesale. A skill opts into exact files or directories with source-only `resources` frontmatter:
 
 ```yaml
 resources:
@@ -195,7 +195,7 @@ resources:
       to: templates/report.md
 ```
 
-`shared:` points at `.skillset/shared/`. `plugin:` points at `.skillset/plugins/<plugin-name>/shared/` and is valid only for plugin-bound skills. Grouped resources default to skill-local target paths such as `references/common.md`, `scripts/check.sh`, `assets/...`, or `templates/...`; use `from` / `to` when the output path should differ.
+`shared:` points at `.skillset/src/shared/`. `plugin:` points at `.skillset/src/plugins/<plugin-name>/shared/` and is valid only for plugin-bound skills. Grouped resources default to skill-local target paths such as `references/common.md`, `scripts/check.sh`, `assets/...`, or `templates/...`; use `from` / `to` when the output path should differ.
 
 Generated Claude and Codex skills receive the copied files beside `SKILL.md`, so links and script references stay skill-root-relative. Markdown links that use declared `shared:` or `plugin:` resource URLs are rewritten to the generated skill-local path; undeclared shared resource links fail the build with a suggested `resources` entry. When a resource uses a custom `to`, a bare (schemeless) link to the resource's source path is ambiguous and fails the build with a diagnostic: link to the emitted target path or use the `shared:`/`plugin:` resource URL instead. Resource mappings cannot write outside the generated skill directory or overwrite `SKILL.md`, generated Codex sidecars, or skill-local files. Resource contents participate in `.skillset.lock` hashes and `skillset check`.
 
@@ -271,7 +271,7 @@ Portable `tool_intent.allow` and `tool_intent.deny` accept only known keys: `rea
 
 ## Instructions
 
-Use `.skillset/instructions/**/*.md` for repo instructions that should become Claude rules and Codex `AGENTS.md` files. `.skillset/rules/**/*.md` is unsupported for instruction Markdown.
+Use `.skillset/src/rules/**/*.md` for repo instructions that should become Claude rules and Codex `AGENTS.md` files. `.skillset/rules/**/*.md` is unsupported for instruction Markdown.
 
 ```yaml
 ---
@@ -284,7 +284,7 @@ paths:
 - Keep docs concise and current.
 ```
 
-The compiler preserves the source hierarchy when writing Claude rules, so `.skillset/instructions/docs/writing.md` becomes `.claude/rules/docs/writing.md`. `paths` frontmatter is kept for Claude and stripped from Codex output.
+The compiler preserves the source hierarchy when writing Claude rules, so `.skillset/src/rules/docs/writing.md` becomes `.claude/rules/docs/writing.md`. `paths` frontmatter is kept for Claude and stripped from Codex output.
 
 For Codex, `skillset` derives the nearest useful `AGENTS.md` destination from each path pattern. `docs/**/*.md` writes `docs/AGENTS.md`; `**/*.ts` scans matching repo files and writes to the lowest common directory, such as `src/AGENTS.md` when matching TypeScript files live under `src/`. Multiple source rules that land at the same destination are concatenated deterministically, each preceded by a `<!-- source: ... -->` boundary comment naming its source. Codex truncates `AGENTS.md` beyond `project_doc_max_bytes` (32 KiB default); `skillset build`/`check` warns when a generated `AGENTS.md` exceeds it so you can split instructions across nested directories or raise the limit.
 
@@ -299,7 +299,7 @@ Skill and instruction Markdown bodies use Skillset preprocessing before target s
 
 `{{skillset.repo_root}}` renders as the relative path from the generated file directory back to the repository root, or `.` at the root. `{{skillset.output_dir}}` renders as the generated file directory relative to the repository root, or `.` at the root. `{{skillset.source_rule}}` renders as the source rule path. Unknown `skillset.*` variables fail the build.
 
-Partials use `{{> shared:path.md}}`, `{{> plugin:path.md}}`, or a file path relative to the current source file. Shared partials read from `.skillset/shared/`; plugin partials read from the current plugin's `.skillset/plugins/<plugin>/shared/` and are valid only for plugin-bound source. Missing fields, missing partials, path traversal, and plugin partials outside the current plugin fail loudly. Preprocessing dependencies participate in lock hashes and `skillset explain` output.
+Partials use `{{> shared:path.md}}`, `{{> plugin:path.md}}`, or a file path relative to the current source file. Shared partials read from `.skillset/src/shared/`; plugin partials read from the current plugin's `.skillset/src/plugins/<plugin>/shared/` and are valid only for plugin-bound source. Missing fields, missing partials, path traversal, and plugin partials outside the current plugin fail loudly. Preprocessing dependencies participate in lock hashes and `skillset explain` output.
 
 Set `skillset.preprocess: false` in source frontmatter when a Markdown body should keep literal braces. The control is source-only and is stripped from generated output.
 

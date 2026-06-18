@@ -36,7 +36,7 @@ Stacked branches may produce multiple pending entries for the same source unit. 
 
 ## Provenance
 
-Source-unit hashes cover root config, standalone skills, plugin configs, plugin skills, plugin features such as MCP/bin pointers, plugin target-native companion paths such as hooks and apps, project instructions, project agents, and target-native islands. Plugin aggregate hashes consume child content hashes before declared versions, so a child content edit with an unchanged version still changes the plugin aggregate identity.
+Source-unit hashes cover root config, standalone skills, plugin configs, plugin skills, plugin features such as MCP/bin pointers, plugin target-native companion paths such as hooks and apps, project instructions, project agents, and provider source. Plugin aggregate hashes consume child content hashes before declared versions, so a child content edit with an unchanged version still changes the plugin aggregate identity.
 
 Change entries participate in source provenance because they explain current source changes, but they do not become target artifacts. Applied entries move into append-only history and feed generated changelog renderings and release records. Entries marked `ignored: true` are preserved in history but excluded from release scopes and generated changelog renderings; release apply still records their source hash in release state so default status does not keep reporting the ignored source edit.
 

@@ -13,7 +13,7 @@ skillset:
 claude: true
 codex: true
 `,
-  ".skillset/skills/demo/SKILL.md": `
+  ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -21,7 +21,7 @@ description: Demo.
 
 Body.
 `,
-  ".skillset/instructions/guide.md": `
+  ".skillset/src/rules/guide.md": `
 ---
 name: guide
 description: Guide.

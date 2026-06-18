@@ -8,19 +8,19 @@ Claude plugins can include an `.lsp.json` file that declares language server con
 
 ## Authoring
 
-Place `.skillset/plugins/<plugin>/.lsp.json` in the plugin source root. The file is copied only when Claude plugin output for that plugin is active.
+Place `.skillset/src/plugins/<plugin>/.lsp.json` in the plugin source root. The file is copied only when Claude plugin output for that plugin is active.
 
 ## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
-| `.skillset/plugins/<plugin>/.lsp.json` | `.lsp.json` plus manifest `lspServers: "./.lsp.json"` | n/a | `target_native` / `implemented` | JSON utility output is parsed after generation; deeper LSP schema validation is not a portable v1 contract. |
+| `.skillset/src/plugins/<plugin>/.lsp.json` | `.lsp.json` plus manifest `lspServers: "./.lsp.json"` | n/a | `target_native` / `implemented` | JSON utility output is parsed after generation; deeper LSP schema validation is not a portable v1 contract. |
 
 ## Diagnostics
 
 - Refuse malformed generated JSON.
 - Back up unmanaged generated-output collisions before replacing them in confirmed builds.
-- Reject divergent target-native islands that try to emit the same `.lsp.json` path.
+- Reject divergent provider source that tries to emit the same `.lsp.json` path.
 - Do not copy Claude LSP configuration into Codex plugin output.
 
 ## Provenance

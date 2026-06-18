@@ -2,10 +2,10 @@ import { gitSafeEnv } from "../git-env";
 
 export const HOOK_RELEVANT_SOURCE_PATHS = [
   ".skillset/config.yaml",
-  ".skillset/instructions",
-  ".skillset/skills",
-  ".skillset/plugins",
-  ".skillset/shared",
+  ".skillset/src/rules",
+  ".skillset/src/skills",
+  ".skillset/src/plugins",
+  ".skillset/src/shared",
   ".skillset/src",
   ".skillset/changes/pending",
 ] as const;

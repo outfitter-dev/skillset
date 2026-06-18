@@ -8,7 +8,7 @@ Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
 ## Authoring
 
-Support constraints may appear on source units that can make a compatibility claim. V1 does not implicitly inherit root or plugin constraints into nested skills, agents, target-native islands, or feature pointers. A child source unit must explicitly declare or opt into a support constraint before the constraint affects that child's hash, status, history, or generated notice.
+Support constraints may appear on source units that can make a compatibility claim. V1 does not implicitly inherit root or plugin constraints into nested skills, agents, provider source, or feature pointers. A child source unit must explicitly declare or opt into a support constraint before the constraint affects that child's hash, status, history, or generated notice.
 
 Compact form:
 

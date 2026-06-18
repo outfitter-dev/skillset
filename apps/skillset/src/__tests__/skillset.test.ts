@@ -20,13 +20,13 @@ claude: true
 codex:
   color: "#B06DFF"
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 codex:
   color: "#123456"
 `,
-    ".skillset/plugins/alpha/skills/inherit/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/inherit/SKILL.md": `
 ---
 name: inherit
 description: Inherits both targets.
@@ -34,7 +34,7 @@ description: Inherits both targets.
 
 Inherited.
 `,
-    ".skillset/plugins/alpha/skills/codex-off/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/codex-off/SKILL.md": `
 ---
 name: codex-off
 description: Claude only.
@@ -43,7 +43,7 @@ codex: false
 
 Claude only.
 `,
-    ".skillset/plugins/alpha/skills/claude-off/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/claude-off/SKILL.md": `
 ---
 name: claude-off
 description: Codex only.
@@ -90,11 +90,11 @@ claude:
   skills:
     path: skills-claude
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/inherit/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/inherit/SKILL.md": `
 ---
 name: inherit
 description: Inherits root targets.
@@ -102,12 +102,12 @@ description: Inherits root targets.
 
 Inherited.
 `,
-    ".skillset/plugins/beta/skillset.yaml": `
+    ".skillset/src/plugins/beta/skillset.yaml": `
 skillset:
   name: beta
 claude: true
 `,
-    ".skillset/plugins/beta/skills/opt-in/SKILL.md": `
+    ".skillset/src/plugins/beta/skills/opt-in/SKILL.md": `
 ---
 name: opt-in
 description: Opts Claude back in.
@@ -168,7 +168,7 @@ codex:
   projectRoot: .codex
   userRoot: ~/.codex
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 codex:
@@ -181,7 +181,7 @@ codex:
         custom-default: plugin
         plugin-default: yes
 `,
-    ".skillset/plugins/alpha/skills/defaulted/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/defaulted/SKILL.md": `
 ---
 name: defaulted
 description: Uses defaults.
@@ -233,7 +233,7 @@ skillset:
 compile:
   build: partial
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -248,11 +248,11 @@ test("target defaults reject file frontmatter and unknown surfaces", async () =>
 skillset:
   name: test-root
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/bad/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/bad/SKILL.md": `
 ---
 name: bad
 description: Bad skill.
@@ -275,11 +275,11 @@ Bad.
 skillset:
   name: test-root
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/bad/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/bad/SKILL.md": `
 ---
 name: bad
 description: Bad skill.
@@ -306,7 +306,7 @@ defaults:
     skill:
       model: gpt-5
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -325,7 +325,7 @@ claude:
     skill:
       model: sonnet
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -347,11 +347,11 @@ compile:
   skillset:
     metadata: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/plain/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/plain/SKILL.md": `
 ---
 name: plain
 description: Plain skill.
@@ -387,11 +387,11 @@ compile:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/plain/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/plain/SKILL.md": `
 ---
 name: plain
 description: Plain skill.
@@ -404,7 +404,7 @@ Plain.
 
   await buildSkillset(root);
   await writeFile(
-    join(root, ".skillset/plugins/alpha/skills/plain/SKILL.md"),
+    join(root, ".skillset/src/plugins/alpha/skills/plain/SKILL.md"),
     normalizeFixture(`
 ---
 name: plain
@@ -425,11 +425,11 @@ test("top-level model warns unless active target defaults or overrides handle it
 skillset:
   name: test-root
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/modelish/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/modelish/SKILL.md": `
 ---
 name: modelish
 description: Has a portable-looking model.
@@ -442,7 +442,7 @@ Modelish.
 
   const warnsGraph = await loadBuildGraph(warnsRoot);
   expect(warnsGraph.warnings).toContain(
-    ".skillset/plugins/alpha/skills/modelish/SKILL.md uses top-level model, which is not portable in Skillset v1; use claude.model, codex.model, or target defaults for claude, codex."
+    ".skillset/src/plugins/alpha/skills/modelish/SKILL.md uses top-level model, which is not portable in Skillset v1; use claude.model, codex.model, or target defaults for claude, codex."
   );
 
   const handledRoot = await fixture({
@@ -458,11 +458,11 @@ codex:
     skills:
       model: gpt-5
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/modelish/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/modelish/SKILL.md": `
 ---
 name: modelish
 description: Has handled target models.
@@ -492,7 +492,7 @@ codex:
   plugins: true
   skills: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   description: Alpha plugin.
@@ -503,9 +503,9 @@ skillset:
 codex:
   color: "#B06DFF"
 `,
-    ".skillset/plugins/alpha/commands/.gitkeep": `
+    ".skillset/src/plugins/alpha/commands/.gitkeep": `
 `,
-    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 title: Alpha Skill
 summary: Portable alpha summary.
@@ -523,7 +523,7 @@ agents: true
 
 Alpha body.
 `,
-    ".skillset/plugins/beta/skillset.yaml": `
+    ".skillset/src/plugins/beta/skillset.yaml": `
 skillset:
   name: beta
   description: Beta plugin.
@@ -531,7 +531,7 @@ skillset:
 claude: false
 codex: true
 `,
-    ".skillset/plugins/beta/skills/beta-skill/SKILL.md": `
+    ".skillset/src/plugins/beta/skills/beta-skill/SKILL.md": `
 ---
 name: beta-skill
 description: Beta skill.
@@ -605,19 +605,19 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   description: Alpha plugin.
 `,
-    ".skillset/plugins/alpha/hooks/hooks.json": `
+    ".skillset/src/plugins/alpha/hooks/hooks.json": `
 {
   "hooks": {
     "SessionStart": []
   }
 }
 `,
-    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -625,18 +625,18 @@ description: Alpha skill.
 
 Alpha body.
 `,
-    ".skillset/plugins/beta/skillset.yaml": `
+    ".skillset/src/plugins/beta/skillset.yaml": `
 skillset:
   name: beta
   description: Beta plugin.
 codex: false
 `,
-    ".skillset/plugins/beta/agents/reviewer.md": `
+    ".skillset/src/plugins/beta/agents/reviewer.md": `
 # Reviewer
 
 Review carefully.
 `,
-    ".skillset/plugins/beta/skills/beta-skill/SKILL.md": `
+    ".skillset/src/plugins/beta/skills/beta-skill/SKILL.md": `
 ---
 name: beta-skill
 description: Beta skill.
@@ -690,10 +690,10 @@ defaults:
 claude: true
 codex: true
 `,
-    ".skillset/shared/templates/body.md": `
+    ".skillset/src/shared/templates/body.md": `
 Use the shared review checklist.
 `,
-    ".skillset/shared/templates/prompt.md": `
+    ".skillset/src/shared/templates/prompt.md": `
 smallest complete review
 `,
     ".skillset/src/agents/reviewer.md": `
@@ -751,7 +751,7 @@ Review diffs and call out correctness risks.
   expect(explained.entries[0]?.kind).toBe("project-agent");
   expect(explained.entries[0]?.validation).toBe("structured");
   for (const entry of explained.entries) {
-    expect(entry.preprocessDependencies).toContain(".skillset/shared/templates/body.md");
+    expect(entry.preprocessDependencies).toContain(".skillset/src/shared/templates/body.md");
   }
   expect(explained.notes[0]).toContain("Project-scoped portable agent");
 
@@ -759,7 +759,7 @@ Review diffs and call out correctness risks.
   expect(explainedCodexOutput.kind).toBe("generated");
   expect(explainedCodexOutput.entries[0]?.kind).toBe("project-agent");
   expect(explainedCodexOutput.entries[0]?.outputPath).toBe(".codex/agents/code-reviewer.toml");
-  expect(explainedCodexOutput.entries[0]?.preprocessDependencies).toContain(".skillset/shared/templates/prompt.md");
+  expect(explainedCodexOutput.entries[0]?.preprocessDependencies).toContain(".skillset/src/shared/templates/prompt.md");
 
   const entries = await listGeneratedEntries(root);
   expect(entries.some((entry) => entry.kind === "project-agent" && entry.outputPath === ".claude/agents/code-reviewer.md")).toBe(true);
@@ -834,7 +834,7 @@ codex:
   projectRoot: project-codex
   userRoot: ~/.codex
 `,
-    ".skillset/shared/bad-prompt.md": `
+    ".skillset/src/shared/bad-prompt.md": `
 </initial_prompt>
 `,
     ".skillset/src/agents/reviewer.md": `
@@ -963,7 +963,7 @@ description: Reviews project changes.
 
 Review diffs.
 `,
-    ".skillset/skills/helper/SKILL.md": `
+    ".skillset/src/skills/helper/SKILL.md": `
 ---
 description: Helps with project changes.
 ---
@@ -987,16 +987,16 @@ codex:
   plugins:
     - beta
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/agents/reviewer.md": `
+    ".skillset/src/plugins/alpha/agents/reviewer.md": `
 # Reviewer
 
 Review carefully.
 `,
-    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -1004,11 +1004,11 @@ description: Alpha skill.
 
 Alpha body.
 `,
-    ".skillset/plugins/beta/skillset.yaml": `
+    ".skillset/src/plugins/beta/skillset.yaml": `
 skillset:
   name: beta
 `,
-    ".skillset/plugins/beta/skills/beta-skill/SKILL.md": `
+    ".skillset/src/plugins/beta/skills/beta-skill/SKILL.md": `
 ---
 name: beta-skill
 description: Beta skill.
@@ -1033,16 +1033,16 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/agents/reviewer.md": `
+    ".skillset/src/plugins/alpha/agents/reviewer.md": `
 # Reviewer
 
 Review carefully.
 `,
-    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -1064,28 +1064,28 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/shared/references/root.md": `
+    ".skillset/src/shared/references/root.md": `
 # Root Reference
 `,
-    ".skillset/shared/templates/base.md": `
+    ".skillset/src/shared/templates/base.md": `
 # Base Template
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/scripts/plugin-tool.sh": `
+    ".skillset/src/plugins/alpha/scripts/plugin-tool.sh": `
 #!/usr/bin/env bash
 echo plugin-root
 `,
-    ".skillset/plugins/alpha/shared/references/plugin.md": `
+    ".skillset/src/plugins/alpha/shared/references/plugin.md": `
 # Plugin Reference
 `,
-    ".skillset/plugins/alpha/shared/scripts/check.sh": `
+    ".skillset/src/plugins/alpha/shared/scripts/check.sh": `
 #!/usr/bin/env bash
 echo shared
 `,
-    ".skillset/plugins/alpha/skills/resourceful/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/resourceful/SKILL.md": `
 ---
 name: resourceful
 description: Uses shared resources.
@@ -1157,7 +1157,7 @@ Run scripts/check.sh when deterministic checks help.
   expect(lock).toContain(`"plugins/alpha/skills/resourceful/scripts/check.sh"`);
 
   await writeFile(
-    join(root, ".skillset/plugins/alpha/shared/references/plugin.md"),
+    join(root, ".skillset/src/plugins/alpha/shared/references/plugin.md"),
     "# Changed Plugin Reference\n"
   );
   await expect(checkSkillset(root)).rejects.toThrow("stale generated file");
@@ -1171,22 +1171,22 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/shared/templates/intro.md": `
+    ".skillset/src/shared/templates/intro.md": `
 Shared intro for {{this.description}}.
 `,
-    ".skillset/shared/templates/openai.md": `
+    ".skillset/src/shared/templates/openai.md": `
 YAML prompt for {{this.description}} with "quotes".
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/preprocessed/agents/openai.yaml": `
+    ".skillset/src/plugins/alpha/skills/preprocessed/agents/openai.yaml": `
 notes: "{{this.description}}"
 prompt: |
   {{> shared:templates/openai.md}}
 `,
-    ".skillset/plugins/alpha/skills/preprocessed/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/preprocessed/SKILL.md": `
 ---
 name: preprocessed
 description: Preprocessed skill.
@@ -1224,11 +1224,11 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/literal/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/literal/SKILL.md": `
 ---
 name: literal
 description: Literal skill.
@@ -1258,11 +1258,11 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/bad/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/bad/SKILL.md": `
 ---
 name: bad
 description: Bad skill.
@@ -1286,11 +1286,11 @@ codex: false
     ".skillset/secret.md": `
 secret
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/bad/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/bad/SKILL.md": `
 ---
 name: bad
 description: Bad skill.
@@ -1310,14 +1310,14 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/secret.md": `
+    ".skillset/src/plugins/alpha/secret.md": `
 secret
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/bad/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/bad/SKILL.md": `
 ---
 name: bad
 description: Bad skill.
@@ -1337,14 +1337,14 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/secret.md": `
+    ".skillset/src/plugins/alpha/skills/secret.md": `
 secret
 `,
-    ".skillset/plugins/alpha/skills/bad/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/bad/SKILL.md": `
 ---
 name: bad
 description: Bad skill.
@@ -1364,11 +1364,11 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/bad/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/bad/SKILL.md": `
 ---
 name: bad
 description: Bad skill.
@@ -1386,7 +1386,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/skills/bad/SKILL.md": `
+    ".skillset/src/skills/bad/SKILL.md": `
 ---
 name: bad
 description: Bad skill.
@@ -1408,10 +1408,10 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/shared/templates/rule.md": `
+    ".skillset/src/shared/templates/rule.md": `
 Rule partial for {{this.title}}.
 `,
-    ".skillset/instructions/docs/rule.md": `
+    ".skillset/src/rules/docs/rule.md": `
 ---
 title: Docs Rule
 paths:
@@ -1422,7 +1422,7 @@ Use {{this.title}} from {{skillset.source_rule}}.
 
 {{> shared:templates/rule.md}}
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -1432,9 +1432,9 @@ skillset:
 
   const claudeRule = await readFile(join(root, ".claude/rules/docs/rule.md"), "utf8");
   const codexAgents = await readFile(join(root, "docs/AGENTS.md"), "utf8");
-  expect(claudeRule).toContain("Use Docs Rule from .skillset/instructions/docs/rule.md.");
+  expect(claudeRule).toContain("Use Docs Rule from .skillset/src/rules/docs/rule.md.");
   expect(claudeRule).toContain("Rule partial for Docs Rule.");
-  expect(codexAgents).toContain("Use Docs Rule from .skillset/instructions/docs/rule.md.");
+  expect(codexAgents).toContain("Use Docs Rule from .skillset/src/rules/docs/rule.md.");
   expect(codexAgents).toContain("Rule partial for Docs Rule.");
 });
 
@@ -1469,14 +1469,14 @@ claude:
 codex:
   projectRoot: project-codex
 `,
-    ".skillset/src/codex/rules/deny.rules": `
+    ".skillset/src/_codex/rules/deny.rules": `
 match = "rm -rf"
 decision = "deny"
 `,
-    ".skillset/src/codex/config.json": `
+    ".skillset/src/_codex/config.json": `
 {"note":"codex"}
 `,
-    ".skillset/src/claude/agents/reviewer.md": `
+    ".skillset/src/_claude/agents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews code.
@@ -1484,7 +1484,7 @@ description: Reviews code.
 
 Use {{this.description}}.
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -1514,14 +1514,14 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/src/claude/agents/bad.md": `
+    ".skillset/src/_claude/agents/bad.md": `
 ---
 codex: true
 ---
 
 Bad.
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -1538,13 +1538,13 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
   });
   const bytes = new Uint8Array([0, 255, 10, 20, 30]);
-  await Bun.write(join(root, ".skillset/src/claude/assets/image.bin"), bytes);
+  await Bun.write(join(root, ".skillset/src/_claude/assets/image.bin"), bytes);
 
   await buildSkillset(root);
 
@@ -1563,11 +1563,11 @@ skillset:
 claude: false
 codex: true
 `,
-    ".skillset/src/codex/rules/deny.rules": `
+    ".skillset/src/_codex/rules/deny.rules": `
 match = "rm -rf"
 decision = "deny"
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -1593,11 +1593,11 @@ skillset:
 claude: false
 codex: true
 `,
-    ".skillset/src/codex/rules/deny.rules": `
+    ".skillset/src/_codex/rules/deny.rules": `
 match = "rm -rf"
 decision = "deny"
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -1624,10 +1624,10 @@ claude:
   projectRoot: .skillset/generated-claude
 codex: false
 `,
-    ".skillset/src/claude/settings.json": `
+    ".skillset/src/_claude/settings.json": `
 {"note":"claude"}
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -1645,10 +1645,10 @@ claude:
   projectRoot: plugins-claude/project
 codex: false
 `,
-    ".skillset/src/claude/settings.json": `
+    ".skillset/src/_claude/settings.json": `
 {"note":"claude"}
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -1670,17 +1670,17 @@ claude:
     path: .claude/plugins
 codex: false
 `,
-    ".skillset/src/claude/plugins/alpha/settings.json": `
+    ".skillset/src/_claude/plugins/alpha/settings.json": `
 {"note":"project island under plugin root"}
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
   });
 
   await expect(buildSkillset(root)).rejects.toThrow(
-    ".skillset/src/claude/plugins/alpha/settings.json would write inside active output root outputs.plugins.claude (.claude/plugins)"
+    ".skillset/src/_claude/plugins/alpha/settings.json would write inside active output root outputs.plugins.claude (.claude/plugins)"
   );
 });
 
@@ -1692,14 +1692,14 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/claude/commands/review.md": `
+    ".skillset/src/plugins/alpha/_claude/commands/review.md": `
 # Claude command
 `,
-    ".skillset/src/plugins/alpha/codex/config.json": `
+    ".skillset/src/plugins/alpha/_codex/config.json": `
 {"codex": true}
 `,
   });
@@ -1712,7 +1712,7 @@ skillset:
   expect(await exists(join(root, "plugins-claude/plugins/alpha/config.json"))).toBe(false);
 });
 
-test("plugin-local target-native islands reject unknown plugin owners", async () => {
+test("plugin-local provider source requires a plugin manifest", async () => {
   const root = await fixture({
     ".skillset/config.yaml": `
 skillset:
@@ -1720,18 +1720,16 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alhpa/claude/commands/review.md": `
+    ".skillset/src/plugins/alhpa/_claude/commands/review.md": `
 # Typo island
 `,
   });
 
-  await expect(buildSkillset(root)).rejects.toThrow(
-    ".skillset/src/plugins/alhpa has target-native island source for unknown plugin alhpa"
-  );
+  await expect(buildSkillset(root)).rejects.toThrow("expected plugin config skillset.yaml");
 });
 
 test("Codex plugin rules islands fail while portable src rules do not become Codex command policy", async () => {
@@ -1745,7 +1743,7 @@ codex: true
     ".skillset/src/rules/portable.rules": `
 allow all
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -1761,11 +1759,11 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/codex/rules/plugin.rules": `
+    ".skillset/src/plugins/alpha/_codex/rules/plugin.rules": `
 deny all
 `,
   });
@@ -1774,7 +1772,7 @@ deny all
     code: "target-native-island-unsupported",
     featureId: "target-native-islands",
     message: expect.stringContaining("Codex plugin .rules"),
-    path: ".skillset/src/plugins/alpha/codex/rules/plugin.rules",
+    path: ".skillset/src/plugins/alpha/_codex/rules/plugin.rules",
   });
 });
 
@@ -1786,10 +1784,10 @@ skillset:
 claude: false
 codex: true
 `,
-    ".skillset/src/codex/agents/bad.rules": `
+    ".skillset/src/_codex/agents/bad.rules": `
 deny all
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -1798,8 +1796,8 @@ skillset:
   await expectFeatureDiagnosticError(buildSkillset(root), {
     code: "target-native-island-unsupported",
     featureId: "target-native-islands",
-    message: expect.stringContaining("Codex .rules outside .skillset/src/codex/rules/"),
-    path: ".skillset/src/codex/agents/bad.rules",
+    message: expect.stringContaining("Codex .rules outside .skillset/src/_codex/rules/"),
+    path: ".skillset/src/_codex/agents/bad.rules",
   });
 });
 
@@ -1811,10 +1809,10 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/shared/templates/tail.md": `
+    ".skillset/src/shared/templates/tail.md": `
 Tail.
 `,
-    ".skillset/src/claude/agents/reviewer.md": `
+    ".skillset/src/_claude/agents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews code.
@@ -1823,7 +1821,7 @@ description: Reviews code.
 Use {{this.description}}.
 {{> shared:templates/tail.md}}
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -1831,14 +1829,14 @@ skillset:
 
   await buildSkillset(root);
 
-  const explained = await explainPath(root, ".skillset/src/claude/agents/reviewer.md");
+  const explained = await explainPath(root, ".skillset/src/_claude/agents/reviewer.md");
   expect(explained.kind).toBe("source-island");
   expect(explained.entries[0]?.validation).toBe("structured");
-  expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/shared/templates/tail.md");
+  expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/src/shared/templates/tail.md");
   const entries = await listGeneratedEntries(root);
   expect(entries.some((entry) => entry.kind === "island" && entry.outputPath === ".claude/agents/reviewer.md")).toBe(true);
 
-  await writeFile(join(root, ".skillset/shared/templates/tail.md"), "Changed.\n");
+  await writeFile(join(root, ".skillset/src/shared/templates/tail.md"), "Changed.\n");
   const diff = await diffSkillset(root);
   expect(diff.changed).toContain(".claude/agents/reviewer.md");
   expect(diff.changed).toContain(".skillset.lock");
@@ -1850,17 +1848,17 @@ test("shared resource mappings reject unsafe and colliding output paths", async 
 skillset:
   name: test-root
 `,
-    ".skillset/shared/references/root.md": `
+    ".skillset/src/shared/references/root.md": `
 # Root Reference
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/collision/references/root.md": `
+    ".skillset/src/plugins/alpha/skills/collision/references/root.md": `
 # Local Reference
 `,
-    ".skillset/plugins/alpha/skills/collision/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/collision/SKILL.md": `
 ---
 name: collision
 description: Collides with a local resource.
@@ -1882,14 +1880,14 @@ Collision body.
 skillset:
   name: test-root
 `,
-    ".skillset/shared/references/root.md": `
+    ".skillset/src/shared/references/root.md": `
 # Root Reference
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/unsafe/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/unsafe/SKILL.md": `
 ---
 name: unsafe
 description: Writes outside the skill.
@@ -1909,7 +1907,7 @@ Unsafe body.
 skillset:
   name: test-root
 `,
-    ".skillset/skills/standalone/SKILL.md": `
+    ".skillset/src/skills/standalone/SKILL.md": `
 ---
 name: standalone
 description: Tries to use plugin resources.
@@ -1930,11 +1928,11 @@ Standalone body.
 skillset:
   name: test-root
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/undeclared/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/undeclared/SKILL.md": `
 ---
 name: undeclared
 description: Links to an undeclared resource.
@@ -1957,14 +1955,14 @@ skillset:
 claude: false
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/hooks/hooks.json": `
+    ".skillset/src/plugins/alpha/hooks/hooks.json": `
 []
 `,
-    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -1983,14 +1981,14 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/hooks/hooks.json": `
+    ".skillset/src/plugins/alpha/hooks/hooks.json": `
 not-json
 `,
-    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -2015,7 +2013,7 @@ codex:
   skills:
     path: skills-agents
 `,
-    ".skillset/skills/draft/SKILL.md": `
+    ".skillset/src/skills/draft/SKILL.md": `
 ---
 name: draft
 description: Draft standalone skill.
@@ -2050,7 +2048,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/instructions/docs/writing.md": `
+    ".skillset/src/rules/docs/writing.md": `
 ---
 title: Docs Writing
 summary: Source-only summary.
@@ -2068,7 +2066,7 @@ skillset:
 - Output dir: {{skillset.output_dir}}
 - Source rule: {{skillset.source_rule}}
 `,
-    ".skillset/instructions/typescript.md": `
+    ".skillset/src/rules/typescript.md": `
 ---
 paths:
   - "**/*.ts"
@@ -2103,12 +2101,12 @@ export const value = 1;
   expect(claudeRule).toContain("# Docs Writing");
   expect(claudeRule).toContain("- Root: ../../..");
   expect(claudeRule).toContain("- Output dir: .claude/rules/docs");
-  expect(claudeRule).toContain("- Source rule: .skillset/instructions/docs/writing.md");
+  expect(claudeRule).toContain("- Source rule: .skillset/src/rules/docs/writing.md");
   expect(docsAgents).toContain("Generated by skillset@0.1.0");
   expect(docsAgents).toContain("# Docs Writing");
   expect(docsAgents).toContain("- Root: ..");
   expect(docsAgents).toContain("- Output dir: docs");
-  expect(docsAgents).toContain("- Source rule: .skillset/instructions/docs/writing.md");
+  expect(docsAgents).toContain("- Source rule: .skillset/src/rules/docs/writing.md");
   expect(docsAgents).not.toContain("paths:");
   expect(docsAgents).not.toContain("skillset:");
   expect(srcAgents).toContain("# TypeScript");
@@ -2129,7 +2127,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/instructions/root.md": `
+    ".skillset/src/rules/root.md": `
 # Root Rule
 
 - Root: {{skillset.repo_root}}
@@ -2145,10 +2143,10 @@ codex: true
 
   expect(rootAgents).toContain("- Root: .");
   expect(rootAgents).toContain("- Output dir: .");
-  expect(rootAgents).toContain("- Source rule: .skillset/instructions/root.md");
+  expect(rootAgents).toContain("- Source rule: .skillset/src/rules/root.md");
   expect(claudeRule).toContain("- Root: ../..");
   expect(claudeRule).toContain("- Output dir: .claude/rules");
-  expect(claudeRule).toContain("- Source rule: .skillset/instructions/root.md");
+  expect(claudeRule).toContain("- Source rule: .skillset/src/rules/root.md");
 });
 
 test("rules concatenate Codex AGENTS output and honor target opt-outs", async () => {
@@ -2159,7 +2157,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/instructions/docs/first.md": `
+    ".skillset/src/rules/docs/first.md": `
 ---
 paths:
   - docs/**/*.md
@@ -2168,7 +2166,7 @@ claude: false
 
 # First Docs Rule
 `,
-    ".skillset/instructions/docs/second.md": `
+    ".skillset/src/rules/docs/second.md": `
 ---
 paths:
   - docs/**/*.md
@@ -2199,7 +2197,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/instructions/root.md": `
+    ".skillset/src/rules/root.md": `
 # Root Rule
 `,
     "AGENTS.md": `
@@ -2224,7 +2222,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/instructions/root.md": `
+    ".skillset/src/rules/root.md": `
 # Root Rule
 
 - Unknown: {{skillset.nope}}
@@ -2232,7 +2230,7 @@ codex: true
   });
 
   await expect(buildSkillset(root)).rejects.toThrow(
-    "unknown preprocess variable {{skillset.nope}} in .skillset/instructions/root.md"
+    "unknown preprocess variable {{skillset.nope}} in .skillset/src/rules/root.md"
   );
 });
 
@@ -2244,7 +2242,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/instructions/docs/writing.md": `
+    ".skillset/src/rules/docs/writing.md": `
 ---
 paths:
   - docs/**/*.md
@@ -2272,7 +2270,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/instructions/docs/writing.md": `
+    ".skillset/src/rules/docs/writing.md": `
 ---
 paths:
   - docs/**/*.md
@@ -2295,11 +2293,11 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/policy/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/policy/SKILL.md": `
 ---
 title: Policy Skill
 description: Uses normalized policy.
@@ -2316,11 +2314,11 @@ allowed_tools:
 
 Policy body.
 `,
-    ".skillset/plugins/alpha/skills/policy/agents/openai.yaml": `
+    ".skillset/src/plugins/alpha/skills/policy/agents/openai.yaml": `
 interface:
   display_name: Policy Skill
 `,
-    ".skillset/plugins/alpha/skills/shared/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/shared/SKILL.md": `
 ---
 name: shared
 description: Uses shared policy.
@@ -2384,11 +2382,11 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/escape/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/escape/SKILL.md": `
 ---
 name: escape
 description: Uses target-native tool escapes.
@@ -2468,11 +2466,11 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/tools/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/tools/SKILL.md": `
 ---
 name: tools
 description: Uses portable tool registry.
@@ -2562,11 +2560,11 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/bad-tools/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/bad-tools/SKILL.md": `
 ---
 name: bad-tools
 description: Has an invalid Claude target-native tool escape.
@@ -2592,11 +2590,11 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/bad-tools/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/bad-tools/SKILL.md": `
 ---
 name: bad-tools
 description: Has an unknown portable tool key.
@@ -2621,11 +2619,11 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/bad-target-tools/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/bad-target-tools/SKILL.md": `
 ---
 name: bad-target-tools
 description: Has target-local portable tool policy.
@@ -2652,11 +2650,11 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/clear-native/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/clear-native/SKILL.md": `
 ---
 name: clear-native
 description: Keeps portable tools when native escapes are disabled.
@@ -2710,11 +2708,11 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/tools/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/tools/SKILL.md": `
 ---
 name: tools
 description: Shares allowed tools.
@@ -2743,11 +2741,11 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/policy/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/policy/SKILL.md": `
 ---
 name: policy
 description: Has a mistyped target map.
@@ -2779,11 +2777,11 @@ codex:
     include:
       - public-skill
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -2791,11 +2789,11 @@ description: Alpha skill.
 
 Alpha body.
 `,
-    ".skillset/plugins/beta/skillset.yaml": `
+    ".skillset/src/plugins/beta/skillset.yaml": `
 skillset:
   name: beta
 `,
-    ".skillset/plugins/beta/skills/beta-skill/SKILL.md": `
+    ".skillset/src/plugins/beta/skills/beta-skill/SKILL.md": `
 ---
 name: beta-skill
 description: Beta skill.
@@ -2803,7 +2801,7 @@ description: Beta skill.
 
 Beta body.
 `,
-    ".skillset/skills/public-skill/SKILL.md": `
+    ".skillset/src/skills/public-skill/SKILL.md": `
 ---
 name: public-skill
 description: Public skill.
@@ -2811,7 +2809,7 @@ description: Public skill.
 
 Public body.
 `,
-    ".skillset/skills/private-skill/SKILL.md": `
+    ".skillset/src/skills/private-skill/SKILL.md": `
 ---
 name: private-skill
 description: Private skill.
@@ -2842,11 +2840,11 @@ claude:
   skills: false
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -2878,12 +2876,12 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   description: Alpha plugin.
 `,
-    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -2891,7 +2889,7 @@ description: Alpha skill.
 
 Alpha body.
 `,
-    ".skillset/plugins/alpha/skills/stale-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/stale-skill/SKILL.md": `
 ---
 name: stale-skill
 description: Stale skill.
@@ -2902,7 +2900,7 @@ Stale body.
   });
 
   await buildSkillset(root);
-  await rm(join(root, ".skillset/plugins/alpha/skills/stale-skill"), { recursive: true });
+  await rm(join(root, ".skillset/src/plugins/alpha/skills/stale-skill"), { recursive: true });
 
   await expect(checkSkillset(root)).rejects.toThrow("stale generated file");
 });
@@ -2915,12 +2913,12 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   version: 1.0.0
 `,
-    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -2933,7 +2931,7 @@ Alpha body.
 
   await buildSkillset(root);
   await writeFile(
-    join(root, ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md"),
+    join(root, ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md"),
     normalizeFixture(`
 ---
 name: alpha-skill
@@ -2951,7 +2949,7 @@ Alpha body.
 
   await buildSkillset(root);
   await writeFile(
-    join(root, ".skillset/plugins/alpha/skillset.yaml"),
+    join(root, ".skillset/src/plugins/alpha/skillset.yaml"),
     normalizeFixture(`
 skillset:
   name: alpha
@@ -2972,7 +2970,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   version: 1.0.0
@@ -2983,7 +2981,7 @@ codex:
   manifest:
     version: 9.9.9
 `,
-    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -3046,11 +3044,11 @@ skillset:
   name: test-root
   version: next
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -3067,12 +3065,12 @@ Alpha body.
 skillset:
   name: test-root
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   version: 1.0
 `,
-    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -3089,11 +3087,11 @@ Alpha body.
 skillset:
   name: test-root
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -3115,12 +3113,12 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   version: 1.0.0
 `,
-    ".skillset/plugins/alpha/skills/shared/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/shared/SKILL.md": `
 ---
 name: shared
 description: Shared skill.
@@ -3129,7 +3127,7 @@ version: 1.0.0
 
 Shared body.
 `,
-    ".skillset/plugins/alpha/skills/claude-only/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/claude-only/SKILL.md": `
 ---
 name: claude-only
 description: Claude-only skill.
@@ -3152,7 +3150,7 @@ Claude-only body.
   );
 
   await writeFile(
-    join(root, ".skillset/plugins/alpha/skills/claude-only/SKILL.md"),
+    join(root, ".skillset/src/plugins/alpha/skills/claude-only/SKILL.md"),
     normalizeFixture(`
 ---
 name: claude-only
@@ -3177,7 +3175,7 @@ Claude-only body.
   expect(skippedCodexLock).toContain(`"claude-only@1.1.0"`);
 
   await writeFile(
-    join(root, ".skillset/plugins/alpha/skills/shared/SKILL.md"),
+    join(root, ".skillset/src/plugins/alpha/skills/shared/SKILL.md"),
     normalizeFixture(`
 ---
 name: shared
@@ -3208,11 +3206,11 @@ claude:
     path: .skillset/generated
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -3223,7 +3221,7 @@ Alpha body.
   });
 
   await expect(buildSkillset(sourceOverlapRoot)).rejects.toThrow("must not point inside source root");
-  expect(await exists(join(sourceOverlapRoot, ".skillset/plugins/alpha/skillset.yaml"))).toBe(true);
+  expect(await exists(join(sourceOverlapRoot, ".skillset/src/plugins/alpha/skillset.yaml"))).toBe(true);
 
   const claudeProjectRootOverlap = await fixture({
     ".skillset/config.yaml": `
@@ -3271,11 +3269,11 @@ claude:
   projectRoot: plugins-claude
 codex: false
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -3305,11 +3303,11 @@ codex:
   plugins:
     path: ./generated-plugins
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -3330,7 +3328,7 @@ skillset:
 targets:
   codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -3343,11 +3341,11 @@ skillset:
 skillset:
   name: test-root
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/bad/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/bad/SKILL.md": `
 ---
 name: bad
 description: Bad skill.
@@ -3371,7 +3369,7 @@ skillset:
 compile:
   targets: ${targetsYaml}
 `,
-      ".skillset/plugins/alpha/skillset.yaml": `
+      ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -3397,7 +3395,7 @@ test("compile.unsupportedDestination defaults to error and accepts explicit erro
 skillset:
   name: test-root
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -3410,7 +3408,7 @@ skillset:
 compile:
   unsupportedDestination: error
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -3426,7 +3424,7 @@ skillset:
 
 test("compile.unsupportedDestination rejects malformed, unknown, and deferred policies", async () => {
   const basePlugin = {
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -3474,7 +3472,7 @@ skillset:
   name: test-root
 surprise: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -3489,11 +3487,11 @@ test("plugin-local config.yaml remains a fallback but not alongside skillset.yam
 skillset:
   name: test-root
 `,
-    ".skillset/plugins/alpha/config.yaml": `
+    ".skillset/src/plugins/alpha/config.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -3511,11 +3509,11 @@ Alpha body.
 skillset:
   name: test-root
 `,
-    ".skillset/plugins/alpha/config.yaml": `
+    ".skillset/src/plugins/alpha/config.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -3530,11 +3528,11 @@ test("skillset.id is rejected before public release", async () => {
 skillset:
   id: test-root
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   id: alpha
 `,
-    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -3553,7 +3551,7 @@ Alpha body.
 skillset:
   name: test-root
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   id: other
@@ -3571,11 +3569,11 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/dynamic/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/dynamic/SKILL.md": `
 ---
 name: dynamic
 description: Uses Claude arguments.
@@ -3596,11 +3594,11 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/shell-example/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/shell-example/SKILL.md": `
 ---
 name: shell-example
 description: Shows a shell example.
@@ -3625,7 +3623,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/skills/dynamic/SKILL.md": `
+    ".skillset/src/skills/dynamic/SKILL.md": `
 ---
 name: dynamic
 description: Uses Claude arguments.
@@ -3646,11 +3644,11 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/plugins/alpha/skillset.yaml": `
+    ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/plugins/alpha/skills/dynamic/SKILL.md": `
+    ".skillset/src/plugins/alpha/skills/dynamic/SKILL.md": `
 ---
 name: dynamic
 description: Uses Claude arguments.
@@ -3685,7 +3683,7 @@ Imported body.
   });
 
   expect(result.name).toBe("imported-skill");
-  expect(await exists(join(root, ".skillset/skills/imported-skill/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, ".skillset/src/skills/imported-skill/SKILL.md"))).toBe(true);
 });
 
 test("imports existing plugins into source layout", async () => {
@@ -3712,9 +3710,9 @@ Plugin skill body.
   });
 
   expect(result.name).toBe("imported-plugin");
-  expect(await exists(join(root, ".skillset/plugins/imported-plugin/skillset.yaml"))).toBe(true);
-  expect(await exists(join(root, ".skillset/plugins/imported-plugin/config.yaml"))).toBe(false);
-  expect(await exists(join(root, ".skillset/plugins/imported-plugin/skills/imported-skill/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, ".skillset/src/plugins/imported-plugin/skillset.yaml"))).toBe(true);
+  expect(await exists(join(root, ".skillset/src/plugins/imported-plugin/config.yaml"))).toBe(false);
+  expect(await exists(join(root, ".skillset/src/plugins/imported-plugin/skills/imported-skill/SKILL.md"))).toBe(true);
 });
 
 test("import command copies existing skills into source layout", async () => {
@@ -3738,7 +3736,7 @@ Imported body.
 
   expect(stderr).toBe("");
   expect(exitCode).toBe(0);
-  expect(await exists(join(root, ".skillset/skills/cli-imported/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, ".skillset/src/skills/cli-imported/SKILL.md"))).toBe(true);
 });
 
 test("import command infers paths and accepts --kind skills", async () => {
@@ -3770,13 +3768,13 @@ Second body.
 
   expect(stderr).toBe("");
   expect(exitCode).toBe(0);
-  expect(await exists(join(root, ".skillset/skills/first/SKILL.md"))).toBe(true);
-  expect(await exists(join(root, ".skillset/skills/second/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, ".skillset/src/skills/first/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, ".skillset/src/skills/second/SKILL.md"))).toBe(true);
 });
 
 test("import refuses to overwrite existing source", async () => {
   const root = await fixture({
-    ".skillset/skills/imported-skill/SKILL.md": `
+    ".skillset/src/skills/imported-skill/SKILL.md": `
 ---
 name: imported-skill
 description: Existing source skill.

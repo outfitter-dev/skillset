@@ -20,7 +20,7 @@ Skillset currently uses internal compiler fixtures and validation commands:
 | `.skillset/tests/` | n/a | `reserved` | Optional future authored test declarations; not a fixture mirror. |
 | `.skillset/evals/` | n/a | `future` | Future adapter-aware behavioral eval declarations or pointers. |
 
-Internal fixtures may include `fixtures/<case>/.skillset/src/` when a case needs project agents or target-native islands. A bare `fixtures/.skillset/src/` is acceptable only if `fixtures/` itself is intentionally the fake repo root; named fixture cases are preferred so the fixture inventory can grow without looking like live repo source.
+Internal fixtures may include `fixtures/<case>/.skillset/src/` when a case needs project agents or provider source. A bare `fixtures/.skillset/src/` is acceptable only if `fixtures/` itself is intentionally the fake repo root; named fixture cases are preferred so the fixture inventory can grow without looking like live repo source.
 
 ## Deterministic Tests
 
@@ -92,7 +92,7 @@ Each probe requires `prompt` and `expect`. The v1 `expect` object must name exac
 
 `latest/` receives the same activation directory when the run refreshes. Claude probes are rendered as manual native harness prompts. Codex probes are rendered as manual shim-aware prompts because Codex can follow generated loading instructions, but Skillset should not pretend that every Claude-style activation signal is target-enforced in Codex. Future Codex plugin-eval integration can consume the same `probes.json` shape once that runner boundary is proven.
 
-Edge cases stay explicit: multiple matching skills should be disambiguated in the expected selector, target-native islands may need target-specific probes, missing plugin dependencies should appear as activation setup failures rather than build successes, and compatibility shims should be reported as shims in the generated probe material.
+Edge cases stay explicit: multiple matching skills should be disambiguated in the expected selector, provider source may need target-specific probes, missing plugin dependencies should appear as activation setup failures rather than build successes, and compatibility shims should be reported as shims in the generated probe material.
 
 ## Compiler Determinism and Adapter Conformance
 
@@ -179,4 +179,4 @@ Test runs record the source selector, target set, run id, generated output paths
 
 ## Evidence
 
-See [Fixtures, Tests, Dogfooding, and Evals](../adrs/drafts/20260609-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../adrs/drafts/20260613-deterministic-projection-and-adapter-conformance.md), [Lowering Outcomes and Loss Ledger](../adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md), [Build Scopes](build-scopes.md), [Changes](changes.md), and [Releases and Changelogs](releases.md).
+See [Fixtures, Tests, Dogfooding, and Evals](../adrs/drafts/20260609-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../adrs/drafts/20260613-deterministic-projection-and-adapter-conformance.md), the render-results ADR currently filed as [Lowering Outcomes and Loss Ledger](../adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md), [Build Scopes](build-scopes.md), [Changes](changes.md), and [Releases and Changelogs](releases.md).
