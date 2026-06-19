@@ -1,5 +1,23 @@
 # skillset
 
+## 0.14.0
+
+### Minor Changes
+
+- 205c0c2: Flatten Skillset pending change entries from `changes/pending/*.md` to `changes/*.md`, keeping applied history, release records, and release state as JSON/JSONL ledger files in the same committed change directory while leaving generated-output provenance in `.skillset.lock`.
+- 97d723d: Cut setup and import flows to the 1.0 workspace layout: `init` now scaffolds ordinary `.skillset/skillset.yaml` workspaces, `create` defaults to dedicated `skillset.yaml`/`skillset/` repos, and imports resolve the active source root.
+
+### Patch Changes
+
+- 78fd845: Add `skillset change amend <@ref>` so applied change-history wording can be corrected through an append-only amendment ledger and regenerated changelogs without rewriting original history.
+- 6c155a9: Show source-suggestion diagnostics in Skillset CI reports.
+- 1c58a8a: Explain generated `CHANGELOG.md` drift as a managed projection issue, pointing contributors to `skillset change reason <@ref>` before release and the planned amend flow for released history.
+- 3e816ae: Add `skillset release amend` for append-only release metadata corrections.
+- 8d38a39: Track skill partial dependencies in generated lock provenance and source hashes.
+- a2d6f8e: Add `skillset suggest-source` for clean generated skill body recovery.
+- a01bfd4: Refresh workspace-layout diagnostics and adoption reporting so current ordinary and dedicated Skillset workspaces are described with the 1.0 workspace marker language instead of legacy config paths.
+- fe3bad1: Support Skillset 1.0 workspace detection for ordinary `.skillset/skillset.yaml` workspaces and dedicated root `skillset.yaml` workspaces.
+
 ## 0.13.5
 
 ### Patch Changes
