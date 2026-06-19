@@ -289,7 +289,7 @@ The compiler preserves the source hierarchy when writing Claude rules, so `<sour
 
 For Codex, `skillset` derives the nearest useful `AGENTS.md` destination from each path pattern. `docs/**/*.md` writes `docs/AGENTS.md`; `**/*.ts` scans matching repo files and writes to the lowest common directory, such as `src/AGENTS.md` when matching TypeScript files live under `src/`. Multiple source rules that land at the same destination are concatenated deterministically, each preceded by a `<!-- source: ... -->` boundary comment naming its source. Codex truncates `AGENTS.md` beyond `project_doc_max_bytes` (32 KiB default); `skillset build`/`check` warns when a generated `AGENTS.md` exceeds it so you can split instructions across nested directories or raise the limit.
 
-Skill and instruction Markdown bodies use Skillset preprocessing before target serialization. `{{this.<field>}}` reads a simple string field from the current document's shared frontmatter; missing fields fail with the source path and field name. Instructions also support Skillset build-time variables when prose needs target-correct paths:
+Skill and instruction Markdown bodies use Skillset preprocessing before target serialization. `{{this.<field>}}` reads from the current document's shared frontmatter, including nested dot paths and scalar values such as numbers and booleans; missing fields fail with the source path and field name. Use triple braces such as `{{{this.description}}}` to keep `{{this.description}}` literal in generated output. Instructions also support Skillset build-time variables when prose needs target-correct paths:
 
 ```md
 - Review {{this.description}}.
@@ -300,7 +300,11 @@ Skill and instruction Markdown bodies use Skillset preprocessing before target s
 
 `{{skillset.repo_root}}` renders as the relative path from the generated file directory back to the repository root, or `.` at the root. `{{skillset.output_dir}}` renders as the generated file directory relative to the repository root, or `.` at the root. `{{skillset.source_rule}}` renders as the source rule path. Unknown `skillset.*` variables fail the build.
 
-Partials use `{{> shared:path.md}}`, `{{> plugin:path.md}}`, or a file path relative to the current source file. Shared partials read from `<source-root>/shared/`; plugin partials read from the current plugin's `<source-root>/plugins/<plugin>/shared/` and are valid only for plugin-bound source. Missing fields, missing partials, path traversal, and plugin partials outside the current plugin fail loudly. Preprocessing dependencies participate in lock hashes and `skillset explain` output.
+All preprocessed files can use source context variables: `{{skillset.source_path}}`, `{{skillset.source_dir}}`, `{{skillset.source_root}}`, `{{parent.name}}`, `{{parent.dir}}`, and `{{parent.tree}}` / `{{parent.tree depth:<depth>}}`. `parent.tree` renders the current source directory tree with depth `2` by default and accepts explicit depths from `0` through `8`.
+
+Object and array frontmatter values render as fenced `json` code blocks in Markdown prose unless the token already appears inside a fenced code block; structured sidecars such as YAML receive compact JSON so they remain parseable.
+
+Partials use `{{shared:path.md}}`, `{{plugin:path.md}}`, or a file path relative to the current source file. Shared partials read from `<source-root>/shared/`; plugin partials read from the current plugin's `<source-root>/plugins/<plugin>/shared/` and are valid only for plugin-bound source. Missing fields, missing partials, path traversal, and plugin partials outside the current plugin fail loudly. Preprocessing dependencies participate in lock hashes and `skillset explain` output.
 
 Set `skillset.preprocess: false` in source frontmatter when a Markdown body should keep literal braces. The control is source-only and is stripped from generated output.
 

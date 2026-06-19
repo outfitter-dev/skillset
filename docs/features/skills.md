@@ -8,7 +8,7 @@ Skills are the core portable source unit. A skill can live inside a plugin at `.
 
 ## Authoring
 
-Skill source is Markdown with YAML frontmatter. Skillset derives machine identity from the directory and accepts top-level `name`, `title`, `summary`, `description`, `version`, `resources`, `implicit_invocation`, `allowed_tools`, `tool_intent`, and target-specific `claude` / `codex` blocks. Skill-local `skillset.name`, `skillset.id`, and `skillset.version` are rejected; use top-level `name` and `version`.
+Skill source is Markdown with YAML frontmatter. Skillset derives machine identity from the directory and accepts top-level `name`, `title`, `summary`, `description`, `version`, `resources`, `implicit_invocation`, `allowed_tools`, `tool_intent`, and target-specific `claude` / `codex` blocks. Skill-local `skillset.name`, `skillset.id`, and `skillset.version` are rejected; use top-level `name` and `version`. Skill Markdown bodies and generated Codex `agents/openai.yaml` sidecars support preprocessing with nested `{{this.<field>}}` frontmatter references, scalar values, object and array JSON rendering, `{{skillset.*}}` / `{{parent.*}}` context variables, triple-brace literal escapes such as `{{{this.description}}}`, and partials such as `{{shared:path.md}}`, `{{plugin:path.md}}`, or a file path relative to the current source file.
 
 ## Target Rendering
 
@@ -29,7 +29,7 @@ Skill source is Markdown with YAML frontmatter. Skillset derives machine identit
 
 ## Provenance
 
-Generated skill and plugin lock entries record source paths, output paths, hashes, version state, target state, skipped target-specific skill versions, copied resources, and generated metadata policy.
+Generated skill and plugin lock entries record source paths, output paths, hashes, version state, target state, skipped target-specific skill versions, copied resources, preprocessing dependencies, and generated metadata policy. Partial files referenced from skill Markdown or generated Codex YAML participate in source hashes so `skillset check`, `skillset explain`, and `skillset list` can show why a generated skill became stale.
 
 ## Tests and Fixtures
 

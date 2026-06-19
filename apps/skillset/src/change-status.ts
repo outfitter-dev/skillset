@@ -7,7 +7,11 @@ import { diffSkillset, type SkillsetDiff } from "./build";
 import { readString } from "./config";
 import { compareStrings, resolveInside } from "./path";
 import { gitSafeEnv } from "./git-env";
-import { preprocessText } from "./preprocess";
+import {
+  formatPreprocessDependency,
+  preprocessText,
+  readPreprocessDependencySync,
+} from "./preprocess";
 import { readReleaseState } from "./release-state";
 import { detectWorkspaceSourceDir, loadBuildGraph } from "./resolver";
 import {
@@ -338,7 +342,7 @@ async function ruleUnit(graph: BuildGraph, rule: SourceRule): Promise<SourceUnit
     kind: "instruction",
     regions: regionsForRecord(rule.frontmatter),
     sourcePath,
-    sourcePaths: sortedUnique([sourcePath, ...preprocessDependencies.map((path) => relativePath(graph, path))]),
+    sourcePaths: sortedUnique([sourcePath, ...preprocessDependencies]),
   };
 }
 
@@ -363,7 +367,7 @@ async function projectAgentUnit(graph: BuildGraph, agent: SourceProjectAgent): P
     kind: "project-agent",
     regions: regionsForRecord(agent.frontmatter),
     sourcePath,
-    sourcePaths: sortedUnique([sourcePath, ...preprocessDependencies.map((path) => relativePath(graph, path))]),
+    sourcePaths: sortedUnique([sourcePath, ...preprocessDependencies]),
   };
 }
 
@@ -395,7 +399,7 @@ async function islandUnit(
     kind: "target-native-island",
     regions: [{ name: "target-native", severityBearing: true }],
     sourcePath,
-    sourcePaths: sortedUnique([sourcePath, ...preprocessDependencies.map((path) => relativePath(graph, path))]),
+    sourcePaths: sortedUnique([sourcePath, ...preprocessDependencies]),
   };
 }
 
@@ -500,7 +504,7 @@ async function sourcePathsForSkill(
     ...resources.flatMap((resource) => [
       relativePath(graph, resource.sourcePath),
     ]),
-    ...preprocessDependencies.map((path) => relativePath(graph, path)),
+    ...preprocessDependencies,
   ]);
 }
 
@@ -584,9 +588,9 @@ async function hashPreprocessDependencies(
 ): Promise<void> {
   for (const dependency of [...dependencies].sort(compareStrings)) {
     hash.update("preprocess\0");
-    hash.update(relativePath(graph, dependency));
+    hash.update(dependency);
     hash.update("\0");
-    hash.update(await readFile(dependency));
+    hash.update(readPreprocessDependencySync(graph.rootPath, dependency));
     hash.update("\0");
   }
 }
@@ -615,7 +619,7 @@ async function skillPreprocessDependencies(
     });
   }
 
-  return [...dependencies].sort(compareStrings);
+  return formattedPreprocessDependencies(graph, dependencies);
 }
 
 async function rulePreprocessDependencies(
@@ -635,7 +639,7 @@ async function rulePreprocessDependencies(
       "skillset.source_rule": relativePath(graph, rule.sourcePath),
     },
   });
-  return [...dependencies].sort(compareStrings);
+  return formattedPreprocessDependencies(graph, dependencies);
 }
 
 async function projectAgentPreprocessDependencies(
@@ -660,7 +664,7 @@ async function projectAgentPreprocessDependencies(
   await collect(readString(agent.targets.codex.options, "initialPrompt"));
   await collect(readString(agent.targets.codex.options, "developer_instructions"));
 
-  return [...dependencies].sort(compareStrings);
+  return formattedPreprocessDependencies(graph, dependencies);
 }
 
 async function islandPreprocessDependencies(
@@ -690,7 +694,16 @@ async function islandPreprocessDependencies(
     });
   }
 
-  return [...dependencies].sort(compareStrings);
+  return formattedPreprocessDependencies(graph, dependencies);
+}
+
+function formattedPreprocessDependencies(
+  graph: BuildGraph,
+  dependencies: ReadonlySet<string>
+): readonly string[] {
+  return [...dependencies]
+    .map((dependency) => formatPreprocessDependency(graph.rootPath, dependency))
+    .sort(compareStrings);
 }
 
 function isTextIslandFile(path: string): boolean {
