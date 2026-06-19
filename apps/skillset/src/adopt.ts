@@ -146,10 +146,10 @@ async function adoptResolvedRoot(
   const { targets, write, ...buildOptions } = options;
   const writeMode = write === true;
   const resolvedRoot = acquisition.rootPath;
-  // Captured before init scaffolds config: an existing .skillset/config.yaml
-  // means the repo was already adopted; adopt proceeds (init tolerates a valid
-  // pre-existing config) but the report says so honestly.
-  const alreadyAdopted = await exists(join(resolvedRoot, ".skillset/config.yaml"));
+  // Captured before init scaffolds source: an existing workspace marker means
+  // the repo was already adopted. Init tolerates valid existing workspaces, but
+  // the report should still say so honestly.
+  const alreadyAdopted = await adoptedWorkspaceExists(resolvedRoot);
 
   const init = await initSkillset({
     cwd: resolvedRoot,
@@ -247,6 +247,14 @@ async function adoptResolvedRoot(
   await writeFile(join(reportDir, "report.json"), `${JSON.stringify(report, null, 2)}\n`);
 
   return report;
+}
+
+async function adoptedWorkspaceExists(rootPath: string): Promise<boolean> {
+  const currentOrdinary = await exists(join(rootPath, ".skillset/skillset.yaml"));
+  const legacyOrdinary = await exists(join(rootPath, ".skillset/config.yaml"));
+  const dedicated =
+    (await exists(join(rootPath, "skillset.yaml"))) && (await exists(join(rootPath, "skillset")));
+  return currentOrdinary || legacyOrdinary || dedicated;
 }
 
 function surveySkipRenderResults(
@@ -506,7 +514,7 @@ export function renderAdoptReportMarkdown(
   lines.push(`- root: \`${opts.rootPath}\``);
   lines.push(`- result: ${report.ok ? "pass" : "fail"}`);
   if (report.alreadyAdopted) {
-    lines.push("- note: the repo already had `.skillset/config.yaml`; adoption proceeded against the existing source tree");
+    lines.push("- note: the repo already had a Skillset workspace marker; adoption proceeded against the existing source tree");
   }
   lines.push(
     `- imports: ${succeeded.length} succeeded, ${failed.length} failed`,
@@ -706,7 +714,7 @@ function aggregatePreviewMatches(
 ): readonly AggregatedPreviewMatch[] {
   const aggregated = new Map<string, AggregatedPreviewMatch>();
   for (const match of matches) {
-    const key = `${match.intent} ${match.text} ${match.codexForm ?? ""}`;
+    const key = JSON.stringify([match.intent, match.text, match.codexForm ?? ""]);
     const existing = aggregated.get(key);
     aggregated.set(
       key,

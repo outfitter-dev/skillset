@@ -1,6 +1,0 @@
-claude:
-  plugins: true
-  skills: true
-codex:
-  plugins: true
-  skills: true

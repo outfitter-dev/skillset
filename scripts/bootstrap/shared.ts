@@ -55,11 +55,16 @@ export const repoFile = (repoRoot: string, path: string): string =>
 
 export const isRepoRoot = (path: string): boolean => {
   const packageJsonPath = repoFile(path, "package.json");
+  const hasWorkspaceMarker =
+    existsSync(repoFile(path, ".skillset/skillset.yaml")) ||
+    existsSync(repoFile(path, ".skillset/config.yaml")) ||
+    (existsSync(repoFile(path, "skillset.yaml")) &&
+      existsSync(repoFile(path, "skillset")));
   if (
     !existsSync(packageJsonPath) ||
     !existsSync(repoFile(path, "apps/skillset/src/cli.ts")) ||
     !existsSync(repoFile(path, ".bun-version")) ||
-    !existsSync(repoFile(path, ".skillset/config.yaml"))
+    !hasWorkspaceMarker
   ) {
     return false;
   }

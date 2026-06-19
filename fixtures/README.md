@@ -52,7 +52,7 @@ A checked-in case looks like a realistic content repo:
 ```text
 fixtures/<case>/
   .skillset/
-    config.yaml
+    skillset.yaml
     src/
       plugins/
       skills/
@@ -62,7 +62,7 @@ fixtures/<case>/
   ...other repo files as needed
 ```
 
-`.skillset/src/` is the universal source root. Plugins, standalone skills, instructions, project agents, shared resources, and provider source all live under it. Provider-specific source uses underscore-prefixed directories such as `.skillset/src/_claude`, `.skillset/src/_codex`, `.skillset/src/plugins/<plugin>/_claude`, and `.skillset/src/plugins/<plugin>/_codex`.
+`.skillset/skillset.yaml` is the ordinary workspace manifest and `.skillset/src/` is its adaptive source root. Plugins, standalone skills, instructions, project agents, shared resources, and provider source all live under the source root. Provider-specific source uses underscore-prefixed directories such as `.skillset/src/_claude`, `.skillset/src/_codex`, `.skillset/src/plugins/<plugin>/_claude`, and `.skillset/src/plugins/<plugin>/_codex`.
 
 A bare `fixtures/.skillset/src/` shape — treating `fixtures/` itself as a single fake repo root — is acceptable only when there is intentionally one case. It is not the default: named `fixtures/<case>/` directories scale to multiple cases and keep the fixture inventory from looking like live repo source.
 

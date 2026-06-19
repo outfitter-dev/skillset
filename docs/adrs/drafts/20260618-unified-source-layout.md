@@ -65,32 +65,30 @@ Skillset uses `.skillset/` as the workspace root and `.skillset/src/` as the def
   build/
 ```
 
-### `.skillset/config.yaml` Is Workspace Config
+### Workspace Manifest Owns Build Configuration
 
-Root `.skillset/config.yaml` owns how the repo builds:
+Ordinary repos use `.skillset/skillset.yaml` as the workspace manifest. Dedicated Skillset repos use root `skillset.yaml` with root `skillset/` as the source root. In both modes, the workspace manifest owns how the repo builds:
 
 - provider selection through `compile.targets`;
 - build mode and unsupported destination policy;
 - output roots and destination selection under `claude` and `codex`;
 - distribution, CI, test, and future setup/runtime configuration.
 
-It does not own source identity. Root source metadata moves to `.skillset/src/skillset.yaml`. That file carries the root `skillset` block and other source-level declarations that describe the loadout rather than the build workspace. This keeps "where should outputs go?" separate from "what source is this?"
+It also owns root source identity for the workspace. Plugin manifests keep the same name, but live under the source root: `.skillset/src/plugins/<plugin>/skillset.yaml` in ordinary repos and `skillset/plugins/<plugin>/skillset.yaml` in dedicated repos.
 
-Plugin manifests keep the same name, but move under the source root: `.skillset/src/plugins/<plugin>/skillset.yaml`.
-
-### Adaptive Source Lives Under `src`
+### Adaptive Source Lives Under The Source Root
 
 Adaptive source is source Skillset may adapt across providers:
 
 | Source | Meaning |
 | --- | --- |
-| `.skillset/src/rules/**/*.md` | Durable repo guidance that builds to Claude rules and Codex `AGENTS.md`. |
-| `.skillset/src/skills/**/SKILL.md` | Standalone skills. |
-| `.skillset/src/agents/*.md` | Repo-scoped agents. |
-| `.skillset/src/plugins/<plugin>/skills/**/SKILL.md` | Plugin skills. |
-| `.skillset/src/plugins/<plugin>/rules/**/*.md` | Plugin-scoped guidance once plugin guidance has a provider destination. |
-| `.skillset/src/hooks/` and `.skillset/src/plugins/<plugin>/hooks/` | Hook source once adaptive hooks land. |
-| `.skillset/src/shared/` and plugin-local `shared/` | Shared resource roots for source organization. |
+| `<source-root>/rules/**/*.md` | Durable repo guidance that builds to Claude rules and Codex `AGENTS.md`. |
+| `<source-root>/skills/**/SKILL.md` | Standalone skills. |
+| `<source-root>/agents/*.md` | Repo-scoped agents. |
+| `<source-root>/plugins/<plugin>/skills/**/SKILL.md` | Plugin skills. |
+| `<source-root>/plugins/<plugin>/rules/**/*.md` | Plugin-scoped guidance once plugin guidance has a provider destination. |
+| `<source-root>/hooks/` and `<source-root>/plugins/<plugin>/hooks/` | Hook source once adaptive hooks land. |
+| `<source-root>/shared/` and plugin-local `shared/` | Shared resource roots for source organization. |
 
 `rules/` is the adaptive guidance name. Claude happens to build this into `.claude/rules`, and Codex currently builds it into `AGENTS.md`. Codex `.rules` files are command policy, not durable guidance, so they do not define the adaptive directory name.
 
@@ -99,10 +97,10 @@ Adaptive source is source Skillset may adapt across providers:
 Provider-owned source is explicit:
 
 ```text
-.skillset/src/_claude/**
-.skillset/src/_codex/**
-.skillset/src/plugins/<plugin>/_claude/**
-.skillset/src/plugins/<plugin>/_codex/**
+<source-root>/_claude/**
+<source-root>/_codex/**
+<source-root>/plugins/<plugin>/_claude/**
+<source-root>/plugins/<plugin>/_codex/**
 ```
 
 The underscore matters. `_claude` and `_codex` are not adaptive source categories; they are provider source directories that Skillset copies or lightly transforms only for that provider destination. This keeps provider source visually distinct from adaptive directories such as `skills`, `rules`, `hooks`, and `agents`.
@@ -129,15 +127,15 @@ The migration map is mechanical:
 | `.skillset/src/codex/` | `.skillset/src/_codex/` |
 | `.skillset/src/plugins/<plugin>/claude/` | `.skillset/src/plugins/<plugin>/_claude/` |
 | `.skillset/src/plugins/<plugin>/codex/` | `.skillset/src/plugins/<plugin>/_codex/` |
-| root `skillset:` metadata in `.skillset/config.yaml` | `.skillset/src/skillset.yaml` |
+| root `skillset:` metadata in legacy `.skillset/config.yaml` | workspace manifest |
 
 Skillset should provide a local migration script or small family of scripts for the handful of existing Skillset repos. That script is allowed to be simple and repo-oriented: move paths, split root source metadata from workspace config, run the normal build, and let review catch anything surprising.
 
 The compiler does not keep the old layout as a first-class compatibility mode. After the cutover, old source homes should fail with clear diagnostics that point at the new path. This is consistent with the tenet that migration is explicit and ambiguity is not.
 
-### Future Skillset-Repos Can Adopt Root Source Later
+### Dedicated Skillset Repos Use Root Manifest And `skillset/`
 
-A repository whose whole purpose is authoring a Skillset may eventually use a root-oriented source mode with a root `skillset.yaml`, root `skills/`, and root `plugins/`, plus a root `.skillset.config.yaml` for workspace config. That is a future mode, not this decision. The default repo-local contract remains `.skillset/config.yaml` plus `.skillset/src/`.
+A repository whose whole purpose is authoring a Skillset can use root `skillset.yaml` plus a root `skillset/` source tree. Generated state still belongs under root `.skillset/`, while change state and lock state use the dedicated repo roots defined by the change-ledger decision.
 
 ## Consequences
 

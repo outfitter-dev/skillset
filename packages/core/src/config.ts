@@ -269,7 +269,7 @@ export function validateWorkspaceConfigDocument(record: JsonRecord, label: strin
     if (!WORKSPACE_CONFIG_TOP_LEVEL_KEYS.has(key)) {
       throw new Error(
         `skillset: unsupported workspace config key ${key} in ${label}; ` +
-          "move source identity and compatibility metadata to .skillset/src/skillset.yaml"
+          "move source identity and compatibility metadata to the workspace manifest"
       );
     }
   }
