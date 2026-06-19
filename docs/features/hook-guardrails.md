@@ -37,6 +37,14 @@ Pre-commit guardrails are staged-aware and fast through `skillset change check -
 
 Runtime hook execution stays narrower than Git hooks. `skillset hooks run post-tool-use` and `skillset hooks run stop` first inspect the Skillset source/change-entry paths that can affect source provenance, including untracked files:
 
+- `skillset.yaml`
+- `skillset/rules`
+- `skillset/skills`
+- `skillset/plugins`
+- `skillset/shared`
+- `skillset`
+- `changes/pending`
+- `.skillset/skillset.yaml`
 - `.skillset/config.yaml`
 - `.skillset/src/rules`
 - `.skillset/src/skills`

@@ -7,6 +7,7 @@ import { defineRenderResult, type SkillsetRenderResult } from "@skillset/core";
 import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
 import { readSkillsetMetadata, readSkillsetName, readString } from "./config";
 import { compareStrings, resolveInside, validateSlug } from "./path";
+import { detectWorkspaceSourceDir } from "./resolver";
 import { selectorForPluginConfig, selectorForStandaloneSkill } from "./source-unit-selector";
 import type { JsonRecord, SourceOrigin } from "./types";
 import { isJsonRecord, parseMarkdown, parseYamlRecord, stringifyMarkdown, stringifyYaml } from "./yaml";
@@ -137,11 +138,12 @@ export async function importSources(options: ImportSourcesOptions): Promise<Impo
 
 export async function importSource(options: ImportOptions): Promise<ImportReport> {
   const sourcePath = resolve(options.sourcePath);
-  const sourceDir = options.sourceDir ?? DEFAULT_SOURCE_DIR;
+  const sourceDir = await resolveImportSourceDir(options.rootPath, options.sourceDir);
+  const sourceRoot = sourceDir === "." ? "skillset" : join(sourceDir, SOURCE_ROOT_DIR);
   const name = await resolveImportName(sourcePath, options);
   const targetPath = resolveInside(
     options.rootPath,
-    join(sourceDir, SOURCE_ROOT_DIR, options.kind === "plugin" ? PLUGINS_DIR : SKILLS_DIR, name)
+    join(sourceRoot, options.kind === "plugin" ? PLUGINS_DIR : SKILLS_DIR, name)
   );
 
   if (await exists(targetPath)) {
@@ -215,6 +217,22 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       await rm(stagingPath, { force: true, recursive: true });
     }
   }
+}
+
+async function resolveImportSourceDir(rootPath: string, explicitSourceDir: string | undefined): Promise<string> {
+  if (explicitSourceDir !== undefined) return explicitSourceDir;
+  try {
+    return await detectWorkspaceSourceDir(rootPath);
+  } catch (error) {
+    if (isMissingWorkspace(error)) return DEFAULT_SOURCE_DIR;
+    throw error;
+  }
+}
+
+function isMissingWorkspace(error: unknown): boolean {
+  if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") return true;
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("skillset workspace not found") || message.includes("no source plugins, skills, rules");
 }
 
 async function seedImportedBaselines(

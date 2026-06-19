@@ -124,7 +124,7 @@ test("adopt write mode imports everything, builds the mirror, and writes the rep
   expect(report.cutover).toEqual(["AGENTS.md"]);
 
   // Imported source lands in canonical .skillset/ homes with source-origin metadata.
-  expect(await readFile(join(root, ".skillset/config.yaml"), "utf8")).toContain("targets:");
+  expect(await readFile(join(root, ".skillset/skillset.yaml"), "utf8")).toContain("targets:");
   expect(await exists(join(root, ".skillset/src/plugins/demo/skillset.yaml"))).toBe(true);
   const importedInstructions = await readFile(join(root, ".skillset/src/rules/agents.md"), "utf8");
   expect(importedInstructions).toContain("skillset:\n  origin:\n    path: AGENTS.md");

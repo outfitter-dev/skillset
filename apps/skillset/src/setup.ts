@@ -5,7 +5,7 @@ import { defineRenderResult, type SkillsetRenderResult } from "@skillset/core";
 
 import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
 import { CI_WORKFLOW_PATH, renderCiWorkflow } from "./ci";
-import { validateRootSourceManifestDocument, validateWorkspaceConfigDocument } from "./config";
+import { validateConfigDocument, validateWorkspaceConfigDocument } from "./config";
 import { gitSafeEnv } from "./git-env";
 import { validateSlug } from "./path";
 import { selectorForTargetNativeIsland } from "./source-unit-selector";
@@ -14,7 +14,9 @@ import { parseYamlRecord } from "./yaml";
 
 const DEFAULT_CREATE_NAME = "my-skillset";
 const DEFAULT_GLOBAL_SOURCE = ".skillset/src";
-const SETUP_SOURCE_DIR = ".skillset/src";
+const ORDINARY_WORKSPACE_DIR = ".skillset";
+const ORDINARY_SOURCE_ROOT = ".skillset/src";
+const DEDICATED_SOURCE_ROOT = "skillset";
 const SETUP_SOURCE_PLACEHOLDERS = [
   "agents",
   "hooks",
@@ -25,6 +27,8 @@ const SETUP_SOURCE_PLACEHOLDERS = [
   "_claude",
   "_codex",
 ] as const;
+
+type SetupLayout = "dedicated" | "ordinary";
 
 export type SetupInclude = "ci";
 
@@ -119,11 +123,13 @@ async function applySetupPlan(
   const name = options.name === undefined
     ? defaultSetupName(kind, rootPath)
     : validateSlug(options.name, "skillset setup name");
+  const layout = await resolveSetupLayout(kind, rootPath, options);
+  const workspaceManifestPath = await setupWorkspaceManifestPath(kind, rootPath, layout);
   // Captured before any writes: this run's own config scaffold must not make
   // the repo look pre-adopted to the survey.
-  const alreadyAdopted = await pathExists(join(rootPath, ".skillset/config.yaml"));
+  const alreadyAdopted = await setupWorkspaceExists(rootPath, layout);
   const targets = normalizeTargets(options.targets);
-  const plannedFiles = setupFiles({ ...options, kind, name, targets });
+  const plannedFiles = setupFiles({ ...options, kind, layout, name, targets, workspaceManifestPath });
   const git = await setupGit(kind, rootPath, options);
   const files: SetupFile[] = [];
 
@@ -131,13 +137,8 @@ async function applySetupPlan(
     const absolutePath = join(rootPath, file.path);
     const existing = await readExistingFile(absolutePath);
     if (existing !== undefined && existing !== file.content) {
-      if (kind === "init" && file.path === ".skillset/config.yaml") {
+      if (kind === "init" && file.path === workspaceManifestPath) {
         await validateExistingRootConfig(absolutePath);
-        files.push({ path: file.path, status: "exists" });
-        continue;
-      }
-      if (kind === "init" && file.path === `${SETUP_SOURCE_DIR}/skillset.yaml`) {
-        await validateExistingSourceManifest(absolutePath);
         files.push({ path: file.path, status: "exists" });
         continue;
       }
@@ -175,10 +176,63 @@ async function applySetupPlan(
     importCandidates,
     kind,
     rootPath,
-    sourceDir: SETUP_SOURCE_DIR,
+    sourceDir: layout === "dedicated" ? "." : ORDINARY_WORKSPACE_DIR,
     surveySkips,
     write: options.write === true,
   };
+}
+
+async function resolveSetupLayout(
+  kind: SetupReport["kind"],
+  rootPath: string,
+  options: SetupOptions
+): Promise<SetupLayout> {
+  if (options.global === true) return "dedicated";
+  if (kind === "create") return "dedicated";
+  const dedicated = await hasDedicatedWorkspaceMarker(rootPath);
+  const ordinary = await hasOrdinaryWorkspaceMarker(rootPath);
+  if (dedicated && ordinary) {
+    throw new Error(
+      "skillset: ambiguous setup workspace; found both dedicated root skillset.yaml/skillset and ordinary .skillset workspace"
+    );
+  }
+  return dedicated ? "dedicated" : "ordinary";
+}
+
+async function hasDedicatedWorkspaceMarker(rootPath: string): Promise<boolean> {
+  return (await pathExists(join(rootPath, "skillset.yaml"))) || (await pathExists(join(rootPath, DEDICATED_SOURCE_ROOT)));
+}
+
+async function hasOrdinaryWorkspaceMarker(rootPath: string): Promise<boolean> {
+  return (
+    (await pathExists(join(rootPath, ".skillset/skillset.yaml"))) ||
+    (await pathExists(join(rootPath, ".skillset/config.yaml"))) ||
+    (await pathExists(join(rootPath, ORDINARY_SOURCE_ROOT)))
+  );
+}
+
+async function setupWorkspaceExists(rootPath: string, layout: SetupLayout): Promise<boolean> {
+  if (layout === "dedicated") return (await pathExists(join(rootPath, "skillset.yaml")));
+  return (
+    (await pathExists(join(rootPath, ".skillset/skillset.yaml"))) ||
+    (await pathExists(join(rootPath, ".skillset/config.yaml")))
+  );
+}
+
+async function setupWorkspaceManifestPath(
+  kind: SetupReport["kind"],
+  rootPath: string,
+  layout: SetupLayout
+): Promise<string> {
+  if (layout === "dedicated") return "skillset.yaml";
+  if (
+    kind === "init" &&
+    !(await pathExists(join(rootPath, ".skillset/skillset.yaml"))) &&
+    (await pathExists(join(rootPath, ".skillset/config.yaml")))
+  ) {
+    return ".skillset/config.yaml";
+  }
+  return ".skillset/skillset.yaml";
 }
 
 async function initRootPath(options: SetupOptions): Promise<string> {
@@ -206,12 +260,9 @@ async function gitRoot(cwd: string): Promise<string | undefined> {
 
 async function validateExistingRootConfig(path: string): Promise<void> {
   const content = await readFile(path, "utf8");
-  validateWorkspaceConfigDocument(parseYamlRecord(content, path), path);
-}
-
-async function validateExistingSourceManifest(path: string): Promise<void> {
-  const content = await readFile(path, "utf8");
-  validateRootSourceManifestDocument(parseYamlRecord(content, path), path);
+  const parsed = parseYamlRecord(content, path);
+  if (path.endsWith("/config.yaml")) validateWorkspaceConfigDocument(parsed, path);
+  else validateConfigDocument(parsed, path, { allowCompile: true });
 }
 
 const GENERATED_INSTRUCTIONS_MARKER = "<!-- Generated by skillset";
@@ -291,8 +342,8 @@ async function isImportableInstructionFile(path: string): Promise<boolean> {
 }
 
 /**
- * Recognized-but-unimportable surfaces. Import has no lowering for them yet;
- * `skillset adopt` will lower them in the transform milestone. Until then the
+ * Recognized-but-unimportable surfaces. Import cannot represent them yet;
+ * `skillset adopt` will handle them in the transform milestone. Until then the
  * survey reports them with a reason instead of staying silent.
  */
 async function detectSurveySkips(rootPath: string): Promise<readonly SurveySkip[]> {
@@ -302,11 +353,11 @@ async function detectSurveySkips(rootPath: string): Promise<readonly SurveySkip[
     rootPath,
     ".claude/commands",
     "commands",
-    "project-level commands have no portable source home yet; adopt will lower them to target-native islands in the transform milestone",
+    "project-level commands have no portable source home yet; adopt will represent them as provider source in the transform milestone",
     surveySkipOutcome({
       featureId: "target-native-islands",
       path: ".claude/commands",
-      reason: "project-level commands have no portable source home yet; adopt will lower them to target-native islands in the transform milestone",
+      reason: "project-level commands have no portable source home yet; adopt will represent them as provider source in the transform milestone",
       relativeTargetPath: "commands",
       target: "claude",
     })
@@ -316,11 +367,11 @@ async function detectSurveySkips(rootPath: string): Promise<readonly SurveySkip[
     rootPath,
     ".claude/agents",
     "agents",
-    "project-level agents are not importable yet; adopt will lower them to .skillset/src/agents/ in the transform milestone",
+    "project-level agents are not importable yet; adopt will represent them in the active workspace source root in the transform milestone",
     surveySkipOutcome({
       featureId: "project-agents",
       path: ".claude/agents",
-      reason: "project-level agents are not importable yet; adopt will lower them to .skillset/src/agents/ in the transform milestone",
+      reason: "project-level agents are not importable yet; adopt will represent them in the active workspace source root in the transform milestone",
       relativeTargetPath: "agents",
       target: "claude",
     })
@@ -330,18 +381,18 @@ async function detectSurveySkips(rootPath: string): Promise<readonly SurveySkip[
     rootPath,
     ".claude/rules",
     "rules",
-    "rules are not importable yet; adopt will lower them to .skillset/src/rules/ in the transform milestone",
+    "rules are not importable yet; adopt will represent them in the active workspace source root in the transform milestone",
     surveySkipOutcome({
       featureId: "project-instructions",
       path: ".claude/rules",
-      reason: "rules are not importable yet; adopt will lower them to .skillset/src/rules/ in the transform milestone",
+      reason: "rules are not importable yet; adopt will represent them in the active workspace source root in the transform milestone",
       relativeTargetPath: "rules",
       target: "claude",
     })
   );
   if (await hasNonSkillCodexContent(rootPath)) {
     const reason =
-      "Codex content outside .codex/skills has no portable lowering yet; adopt will lower it to target-native islands in the transform milestone";
+      "Codex content outside .codex/skills has no portable source representation yet; adopt will represent it as provider source in the transform milestone";
     skips.push({
       renderResult: surveySkipOutcome({
         featureId: "target-native-islands",
@@ -516,26 +567,58 @@ function compareCandidate(left: SetupImportCandidate, right: SetupImportCandidat
 }
 
 function setupFiles(
-  options: Required<Pick<SetupOptions, "name" | "targets">> & SetupOptions & { readonly kind: SetupReport["kind"] }
+  options: Required<Pick<SetupOptions, "name" | "targets">> & SetupOptions & {
+    readonly kind: SetupReport["kind"];
+    readonly layout: SetupLayout;
+    readonly workspaceManifestPath: string;
+  }
 ): readonly PlannedFile[] {
+  const sourceRoot = options.layout === "dedicated" ? DEDICATED_SOURCE_ROOT : ORDINARY_SOURCE_ROOT;
+  const changesRoot = options.layout === "dedicated" ? "changes" : ".skillset/changes";
   const files: PlannedFile[] = [
     {
-      path: ".skillset/config.yaml",
-      content: rootConfig(options.targets),
+      path: options.workspaceManifestPath,
+      content: workspaceManifest(options.name, options.targets),
     },
     {
-      path: `${SETUP_SOURCE_DIR}/skillset.yaml`,
-      content: rootSourceManifest(options.name),
-    },
-    {
-      path: `${SETUP_SOURCE_DIR}/.gitkeep`,
+      path: `${sourceRoot}/.gitkeep`,
       content: "",
     },
     ...SETUP_SOURCE_PLACEHOLDERS.map((directory) => ({
-      path: `${SETUP_SOURCE_DIR}/${directory}/.gitkeep`,
+      path: `${sourceRoot}/${directory}/.gitkeep`,
       content: "",
     })),
+    {
+      path: `${changesRoot}/.gitkeep`,
+      content: "",
+    },
   ];
+
+  if (options.layout === "ordinary") {
+    files.push(
+      {
+        path: ".skillset/.gitignore",
+        content: "build/\n",
+      },
+      {
+        path: ".skillset/build/.gitkeep",
+        content: "",
+      }
+    );
+  }
+
+  if (options.layout === "dedicated" && options.kind === "create" && options.global !== true) {
+    files.push(
+      {
+        path: ".gitignore",
+        content: ".skillset/\n",
+      },
+      {
+        path: "skillset.lock",
+        content: emptyWorkspaceLock(),
+      }
+    );
+  }
 
   if (options.kind === "create" && options.global !== true) {
     files.unshift(
@@ -599,10 +682,20 @@ function rootConfig(targets: readonly TargetName[]): string {
   ].join("\n");
 }
 
-function rootSourceManifest(name: string): string {
+function workspaceManifest(name: string, targets: readonly TargetName[]): string {
   return [
     "skillset:",
     `  name: ${name}`,
+    rootConfig(targets).trimEnd(),
+    "",
+  ].join("\n");
+}
+
+function emptyWorkspaceLock(): string {
+  return [
+    "{",
+    "  \"items\": []",
+    "}",
     "",
   ].join("\n");
 }
@@ -611,7 +704,7 @@ function createReadme(name: string, targets: readonly TargetName[]): string {
   return [
     `# ${name}`,
     "",
-    "This repository is a Skillset source repo. Edit files under `.skillset/src/`, then run Skillset commands to preview or write generated Claude and Codex outputs.",
+    "This repository is a dedicated Skillset source repo. Edit files under `skillset/`, then run Skillset commands to preview or write generated Claude and Codex outputs.",
     "",
     "## Quick Start",
     "",
@@ -624,11 +717,12 @@ function createReadme(name: string, targets: readonly TargetName[]): string {
     "",
     "## Layout",
     "",
-    "- `.skillset/config.yaml` selects compile targets and destination settings.",
-    "- `.skillset/src/skillset.yaml` names the source loadout and carries root source metadata.",
-    "- `.skillset/src/` is the adaptive project source area for rules, agents, hooks, skills, plugins, shared files, and provider source.",
-    "- `.skillset/src/plugins/` holds plugin source when this repo authors marketplace plugins.",
-    "- `.skillset/src/skills/` holds standalone skill source when this repo authors repo-local or user skill roots.",
+    "- `skillset.yaml` names the source loadout and selects compile targets and destination settings.",
+    "- `skillset/` is the adaptive project source area for rules, agents, hooks, skills, plugins, shared files, and provider source.",
+    "- `skillset/plugins/` holds plugin source when this repo authors marketplace plugins.",
+    "- `skillset/skills/` holds standalone skill source when this repo authors repo-local or user skill roots.",
+    "- `changes/` stores pending and applied Skillset change history.",
+    "- `.skillset/` is ignored operational output for previews, test runs, and build scratch data.",
     "",
     `Default compile targets: ${targets.join(", ")}.`,
     "",
@@ -643,8 +737,9 @@ function createAgentsGuide(name: string): string {
     "",
     "## Working Rules",
     "",
-    "- Treat `.skillset/src/` as editable source.",
-    "- Treat `.skillset/config.yaml` as workspace/build configuration.",
+    "- Treat `skillset/` as editable source.",
+    "- Treat `skillset.yaml` as workspace/build configuration and root source metadata.",
+    "- Treat `changes/` as Skillset-managed change and release state.",
     "- Treat generated target directories as outputs; do not hand-edit them as source truth.",
     "- Run `skillset build --dry-run` before writing generated outputs.",
     "- Run `skillset check` before committing source changes.",

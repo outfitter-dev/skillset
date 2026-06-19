@@ -16,7 +16,7 @@ Skillset currently uses internal compiler fixtures and validation commands:
 | Contract tests | `src/__tests__/` | `implemented` / internal | Unit, contract, and audit-hardening tests for compiler behavior. |
 | Validation commands | `skillset check`, `doctor`, `diff`, `change check`, `release plan` | `implemented` | Public commands that validate real source and generated output. |
 | Dogfooding | repo scripts, Linear acceptance criteria, real Skillset source changes | internal practice | Proves workflows by using them on this repo. |
-| `skillset test` | root `.skillset/config.yaml` `tests` entries | `implemented` / first slice | Deterministic isolated projection and assertion runner. |
+| `skillset test` | workspace manifest `tests` entries | `implemented` / first slice | Deterministic isolated projection and assertion runner. |
 | `.skillset/tests/` | n/a | `reserved` | Optional future authored test declarations; not a fixture mirror. |
 | `.skillset/evals/` | n/a | `future` | Future adapter-aware behavioral eval declarations or pointers. |
 
@@ -26,7 +26,7 @@ Internal fixtures use `fixtures/<case>/.skillset/src/` as the source root. A bar
 
 `skillset test` runs isolated deterministic scenarios. It compiles selected `.skillset/` source subjects in a run workspace and asserts generated files, text, and drift without touching live target output.
 
-The implemented v1 slice is selector-driven and config-backed. Root `.skillset/config.yaml` owns test declarations so authors can prove existing source without introducing a second source tree. `.skillset/tests/` remains reserved for larger declarations after the source contract is proven; if it appears later, it should reference existing source subjects rather than duplicating skills, plugins, agents, or instructions.
+The implemented v1 slice is selector-driven and config-backed. The workspace manifest owns test declarations so authors can prove existing source without introducing a second source tree. Ordinary repos use `.skillset/skillset.yaml`; dedicated Skillset repos use root `skillset.yaml`. `.skillset/tests/` remains reserved for larger declarations after the source contract is proven; if it appears later, it should reference existing source subjects rather than duplicating skills, plugins, agents, or instructions.
 
 ```yaml
 tests:

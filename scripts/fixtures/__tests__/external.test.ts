@@ -135,7 +135,7 @@ test("runExternalRepo adopts a marketplace-shaped repo in place and reports roun
       }),
       path: ".claude/commands",
       reason:
-        "project-level commands have no portable source home yet; adopt will lower them to target-native islands in the transform milestone",
+        "project-level commands have no portable source home yet; adopt will represent them as provider source in the transform milestone",
       surface: "commands",
     }),
   ]);

@@ -4,7 +4,7 @@ Feature id: `plugins`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Plugins group skills and target-native companion files while preserving provider-specific bundle boundaries. Source lives under `.skillset/src/plugins/<plugin>/` with a plugin-local `skillset.yaml`.
+Plugins group skills and target-native companion files while preserving provider-specific bundle boundaries. Source lives under the workspace source root's `plugins/<plugin>/` directory, such as `.skillset/src/plugins/<plugin>/` in an ordinary repo or `skillset/plugins/<plugin>/` in a dedicated Skillset repo, with a plugin-local `skillset.yaml`.
 
 ## Authoring
 
@@ -14,7 +14,7 @@ Plugin identity derives from the directory unless `skillset.name` is present and
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
-| `.skillset/src/plugins/<plugin>/skillset.yaml` | `.claude-plugin/plugin.json` | `.codex-plugin/plugin.json` | `portable` / `implemented` | Manifest fields derive from source metadata and target-supported companion paths. |
+| `<source-root>/plugins/<plugin>/skillset.yaml` | `.claude-plugin/plugin.json` | `.codex-plugin/plugin.json` | `portable` / `implemented` | Manifest fields derive from source metadata and target-supported companion paths. |
 | Plugin `skills/` | `skills/` | `skills/` | `portable` / `implemented` | Skill inclusion is per target and recorded in locks. |
 | Claude companion paths | commands, agents, hooks, MCP, LSP, output styles, themes, monitors, assets, scripts, src, bin | n/a unless separately supported | `target_native` / `implemented` | Target truth wins over fake portability. |
 | Codex companion paths | n/a unless separately supported | hooks, MCP, app manifest, assets, scripts, src | `target_native` / `implemented` | Codex plugin `agents/` and plugin `.rules` are unsupported. |
