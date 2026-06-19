@@ -22,6 +22,8 @@ Generated-output drift is the only mechanical problem: with `--fix`, `ci` rebuil
 
 Generated entity `CHANGELOG.md` files are managed projections, but CI should not make hand edits to them feel like a dead end. When stale generated output includes a changelog, the report explains that pre-release wording belongs in `skillset change reason <@ref>` and released-history corrections belong in the planned amend workflows. `--fix` can still restore the generated projection from source, but it does not treat the generated changelog edit as source truth.
 
+[Source Suggestions](source-suggestions.md) is the future recovery path for managed generated-output edits that should become source changes. CI writeback remains future-only until the local suggestion command can classify clean source patches, refusal cases, and stale lock/conflict risks.
+
 `skillset init --include ci` (and `skillset create --include ci`) scaffolds `.github/workflows/skillset-ci.yml`. The workflow is user-owned after creation: rerunning `init --include ci` reports an edited workflow as existing and never overwrites it. The scaffolded workflow:
 
 - runs `skillset ci --fix` on same-repo pull requests and plain `skillset ci` on fork pull requests or pushes to `main`;
