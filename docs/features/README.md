@@ -33,6 +33,7 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Runtime Adapters](runtime-adapters.md): runtime, distribution, and harness support records that stay separate from `compile.targets`.
 - [Settings](settings.md): future reviewed settings suggestion workflow and why build does not mutate runtime config.
 - [Skills](skills.md): standalone and plugin-bound skill frontmatter, target rendering, versions, metadata, and generated sidecars.
+- [Source Suggestions](source-suggestions.md): future managed-output edit recovery through source-side suggestions, distinct from settings suggestions.
 - [Supports](supports.md): compatibility metadata, support ranges, source significance, and release severity boundaries.
 - [Provider Source](target-native-islands.md): explicit Claude/Codex provider source, Codex `.rules` pass-through, and leakage rules.
 - [Tests and Evals](tests-and-evals.md): internal fixtures, dogfooding, deterministic `skillset test`, future adapter-aware evals, and generated run output boundaries.
@@ -99,6 +100,7 @@ Future schema generation can turn these fields into richer generated docs, but t
 These are tracked as future/reserved unless a later issue promotes them:
 
 - [Reviewed settings suggestion workflow](../adrs/drafts/20260604-reviewed-settings-suggestions.md): Skillset may eventually propose or review target settings changes, but `skillset build` must not mutate user-level Claude or Codex config.
+- [Source Suggestions](source-suggestions.md): managed generated-output edit recovery remains future-only until SET-151 and SET-152 implement local suggestions and CI writeback.
 - [Model and reasoning alias profiles](../adrs/drafts/20260604-model-and-reasoning-alias-profiles.md): shared aliases such as `review`, `fast`, or `deep` remain deferred; use target-native model and effort fields where supported.
 - [First-class sets](../adrs/drafts/20260604-first-class-sets.md): grouped marketplaces, bundles, and curated collections remain future vocabulary; v1 keeps build scopes and entity selectors separate.
 - [Tests and evals](tests-and-evals.md): adapter-aware eval support and expanded test selectors remain planned/future; deterministic `skillset test` has a first isolated rendering slice.

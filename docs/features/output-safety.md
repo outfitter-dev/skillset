@@ -40,7 +40,9 @@ The manifest records the backup id, target path, backup path, action, reason, or
 
 `--isolated` applies the same ownership and backup rules inside `.skillset/build/out/`, so a mirror build can be inspected without touching live target roots.
 
-Generated changelogs are the one managed-output case where "just rebuild it" can discard useful author intent. When `skillset diff`, `skillset change status`, or `skillset ci` reports drift for a managed `CHANGELOG.md`, treat the edit as a source-side correction request: use `skillset change reason <@ref>` before release, or the planned amend workflows for released history. `skillset ci --fix` may still mechanically restore the projection from source, but the diagnostics should make the source-side recovery path visible first.
+Generated changelogs are the currently implemented managed-output case where "just rebuild it" can discard useful author intent. When `skillset diff`, `skillset change status`, or `skillset ci` reports drift for a managed `CHANGELOG.md`, treat the edit as a source-side correction request: use `skillset change reason <@ref>` for pending wording before release, or the planned amend workflows for released history. `skillset ci --fix` may still mechanically restore the projection from source, but the diagnostics should make the source-side recovery path visible first.
+
+The broader recovery model is [Source Suggestions](source-suggestions.md). That future workflow should use lock ownership to explain the source path behind a generated edit, preview clean source-side patches, and refuse unsafe reverse patches. Until it lands, output safety remains conservative: back up or rebuild generated output, but do not silently accept generated edits as source truth.
 
 ## Restore
 
@@ -75,4 +77,4 @@ Generated skill frontmatter stays lightweight. Output ownership, hashes, target-
 
 ## Evidence
 
-Fixtures cover unmanaged collision backups, target-side edit backups, backup restore previews and writes, unmanaged neighbors inside output roots, stale managed output checks, disabled generated roots with legacy Skillset locks, and isolated mirror backup behavior.
+Fixtures cover unmanaged collision backups, target-side edit backups, backup restore previews and writes, unmanaged neighbors inside output roots, stale managed output checks, generated changelog recovery hints, disabled generated roots with legacy Skillset locks, and isolated mirror backup behavior.
