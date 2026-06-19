@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
-import { isAbsolute, join, resolve } from "node:path";
+import { appendFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 
 import {
   readPendingChangeEntries,
@@ -27,7 +27,7 @@ import {
 import type { JsonRecord, JsonValue, SkillsetOptions } from "./types";
 import { isJsonRecord, parseMarkdown, stringifyMarkdown } from "./yaml";
 
-export type ChangeSubcommand = "add" | "check" | "history" | "list" | "reason" | "show" | "status";
+export type ChangeSubcommand = "add" | "amend" | "check" | "history" | "list" | "reason" | "show" | "status";
 
 export type ChangeReasonInput =
   | { readonly kind: "auto" }
@@ -44,6 +44,11 @@ export interface ChangeAddOptions extends Omit<ChangeCheckOptions, "scopes"> {
 
 export interface ChangeReasonOptions extends ChangeStatusOptions {
   readonly append: boolean;
+  readonly reason: ChangeReasonInput;
+  readonly ref: string;
+}
+
+export interface ChangeAmendOptions extends ChangeStatusOptions {
   readonly reason: ChangeReasonInput;
   readonly ref: string;
 }
@@ -80,6 +85,11 @@ export interface ChangeReasonReport {
   readonly entry: ChangeEntryView;
 }
 
+export interface ChangeAmendReport {
+  readonly entry: ChangeEntryView;
+  readonly path: string;
+}
+
 export interface ChangeListReport {
   readonly entries: readonly ChangeEntryView[];
 }
@@ -105,6 +115,7 @@ export interface AppliedChangeRecord {
 
 const PENDING_DIR = "changes";
 const HISTORY_FILE = "changes/history.jsonl";
+const AMENDMENTS_FILE = "changes/amendments.jsonl";
 const MIN_REF_LENGTH = 6;
 
 export async function addChangeEntry(rootPath: string, options: ChangeAddOptions): Promise<ChangeAddReport> {
@@ -159,6 +170,38 @@ export async function updateChangeReason(rootPath: string, options: ChangeReason
   const updated = resolvePendingChangeRef(await readPendingChangeEntries(rootPath, storageOptions), entry.id ?? options.ref);
   const refs = refIndex([updated], await readHistoryEntries(rootPath, storageOptions));
   return { entry: pendingView(updated, refs) };
+}
+
+export async function amendAppliedChange(rootPath: string, options: ChangeAmendOptions): Promise<ChangeAmendReport> {
+  const storageOptions = await detectWorkspaceOptions(rootPath, options);
+  const pendingEntries = await readPendingChangeEntries(rootPath, storageOptions);
+  const historyEntries = await readHistoryEntries(rootPath, storageOptions);
+  const refs = refIndex(pendingEntries, historyEntries);
+  assertCombinedRefUnambiguous(options.ref, pendingEntries, historyEntries, refs);
+  const pending = tryResolvePending(pendingEntries, options.ref);
+  if (pending !== undefined) {
+    const pendingRef = pending.id === undefined ? options.ref : refs.get(pending.id) ?? `@${pending.id}`;
+    throw new Error(`skillset: ${pendingRef} is pending; use skillset change reason before release`);
+  }
+
+  const entry = resolveHistoryRef(historyEntries, options.ref);
+  const reason = await resolveReason(rootPath, options.reason);
+  const now = new Date().toISOString();
+  const sourceDir = storageOptions.sourceDir ?? ".skillset";
+  const relativePath = join(sourceDir, AMENDMENTS_FILE).replaceAll("\\", "/");
+  const absolutePath = resolveInside(rootPath, relativePath);
+  await mkdir(dirname(absolutePath), { recursive: true });
+  await appendFile(absolutePath, `${JSON.stringify({
+    amendedAt: now,
+    id: entry.id,
+    previousReason: entry.reason,
+    reason,
+    source: entry.path,
+  })}\n`, "utf8");
+
+  const updatedHistory = await readHistoryEntries(rootPath, storageOptions);
+  const updatedRefs = refIndex(pendingEntries, updatedHistory);
+  return { entry: historyView(resolveHistoryRef(updatedHistory, entry.id), updatedRefs), path: relativePath };
 }
 
 export async function listChangeEntries(rootPath: string, options: ChangeListOptions = {}): Promise<ChangeListReport> {
@@ -393,7 +436,44 @@ async function readHistoryEntries(rootPath: string, options: ChangeStatusOptions
       sourceHashes: readHistoryEvidence(parsed.evidence, scopes),
     });
   }
-  return entries.sort((left, right) => compareStrings(left.id, right.id));
+  const amended = await applyHistoryAmendments(rootPath, sourceDir, entries);
+  return [...amended].sort((left, right) => compareStrings(left.id, right.id));
+}
+
+async function applyHistoryAmendments(
+  rootPath: string,
+  sourceDir: string,
+  entries: readonly HistoryEntry[]
+): Promise<readonly HistoryEntry[]> {
+  const amendments = await readHistoryAmendments(rootPath, sourceDir);
+  if (amendments.size === 0) return entries;
+  return entries.map((entry) => {
+    const amendment = amendments.get(entry.id);
+    return amendment === undefined ? entry : { ...entry, reason: amendment.reason };
+  });
+}
+
+async function readHistoryAmendments(rootPath: string, sourceDir: string): Promise<ReadonlyMap<string, { readonly reason: string }>> {
+  const path = join(sourceDir, AMENDMENTS_FILE).replaceAll("\\", "/");
+  const absolutePath = resolveInside(rootPath, path);
+  if (!(await exists(absolutePath))) return new Map();
+  const amendments = new Map<string, { readonly reason: string }>();
+  const lines = (await readFile(absolutePath, "utf8")).split("\n");
+  for (const [index, line] of lines.entries()) {
+    if (line.trim().length === 0) continue;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(line) as unknown;
+    } catch {
+      throw new Error(`skillset: invalid JSON in ${path}:${index + 1}`);
+    }
+    if (!isJsonRecord(parsed)) throw new Error(`skillset: expected ${path}:${index + 1} to contain a JSON object`);
+    const id = readString(parsed, "id");
+    const reason = readString(parsed, "reason");
+    if (id === undefined || reason === undefined) continue;
+    amendments.set(id, { reason });
+  }
+  return amendments;
 }
 
 async function readAllChangeEntries(rootPath: string, options: ChangeStatusOptions): Promise<readonly { readonly id: string }[]> {

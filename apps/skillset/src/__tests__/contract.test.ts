@@ -3395,6 +3395,102 @@ Pending entry has a colliding prefix with an applied history entry.
   expect(history.stderr).toContain("ambiguous change ref @abcdef");
 });
 
+test("SET-149: change amend appends correction records for applied history", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: change-amend-root
+claude: true
+codex: false
+`,
+    ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await writeHistory(root, [
+    {
+      id: "123456abcdef",
+      bump: "patch",
+      scope: "skill:demo",
+      reason: "Original applied history reason before the wording correction.",
+      evidence: [{ scope: "skill:demo", sourceHash: "sha256:history" }],
+    },
+  ]);
+
+  const amended = await runSkillsetCli(
+    "change",
+    "amend",
+    "@123456",
+    "--root",
+    root,
+    "--reason",
+    "Corrected applied history reason that should drive generated changelog wording."
+  );
+  expect(amended.exitCode).toBe(0);
+  expect(amended.stdout).toContain("skillset: amended change @123456");
+  expect(amended.stdout).toContain("changes/amendments.jsonl");
+  expect(amended.stdout).toContain("Corrected applied history reason");
+
+  const history = await runSkillsetCli("change", "history", "@123456", "--root", root);
+  expect(history.exitCode).toBe(0);
+  expect(history.stdout).toContain("Corrected applied history reason");
+  expect(history.stdout).not.toContain("Original applied history reason");
+
+  const historyJsonl = await readFile(join(root, ".skillset/changes/history.jsonl"), "utf8");
+  expect(historyJsonl).toContain("Original applied history reason");
+  const amendmentsJsonl = await readFile(join(root, ".skillset/changes/amendments.jsonl"), "utf8");
+  expect(amendmentsJsonl).toContain("previousReason");
+  expect(amendmentsJsonl).toContain("Corrected applied history reason");
+});
+
+test("SET-149: change amend refuses pending refs", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: pending-amend-root
+claude: true
+codex: false
+`,
+    ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await writePendingChange(root, "abcdef123456.md", `
+---
+id: abcdef123456
+bump: patch
+scope: skill:demo
+evidence:
+  - scope: skill:demo
+    sourceHash: sha256:pending
+---
+
+Pending reason should use the pre-release correction command.
+`);
+
+  const amended = await runSkillsetCli(
+    "change",
+    "amend",
+    "@abcdef",
+    "--root",
+    root,
+    "--reason",
+    "Attempted correction with enough detail to pass the reason validator."
+  );
+  expect(amended.exitCode).toBe(1);
+  expect(amended.stderr).toContain("is pending; use skillset change reason before release");
+});
+
 test("SET-37: applied history generates standalone changelog projections without pending churn", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `
@@ -3458,6 +3554,50 @@ Pending changes stay out of committed changelog projections.
   const lock = await readFile(join(root, ".skillset.lock"), "utf8");
   expect(lock).toContain(`"kind": "changelog"`);
   expect(lock).toContain(`".skillset/src/skills/demo/CHANGELOG.md"`);
+});
+
+test("SET-149: amended change history regenerates changelog wording", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: amended-changelog-root
+claude: true
+codex: false
+`,
+    ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await writeHistory(root, [
+    {
+      id: "111111aaaaaa",
+      bump: "patch",
+      scope: "skill:demo",
+      reason: "Original wording before the applied correction.",
+      evidence: [{ scope: "skill:demo", sourceHash: "sha256:one" }],
+    },
+  ]);
+
+  const amended = await runSkillsetCli(
+    "change",
+    "amend",
+    "@111111",
+    "--root",
+    root,
+    "--reason",
+    "Amended changelog wording rendered from the source-side correction ledger."
+  );
+  expect(amended.exitCode).toBe(0);
+
+  await buildSkillset(root);
+  const changelog = await readFile(join(root, ".skillset/src/skills/demo/CHANGELOG.md"), "utf8");
+  expect(changelog).toContain("Amended changelog wording rendered");
+  expect(changelog).not.toContain("Original wording before");
 });
 
 test("SET-146: generated changelog drift points back to change reasons", async () => {
