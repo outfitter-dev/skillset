@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 
 import { buildSkillset } from "./build";
 import { changeCheck, readPendingChangeEntries, type ChangeBump, type PendingChangeEntry } from "./change-entries";
+import { resolveChangeReason, type ChangeReasonInput } from "./change-workflow";
 import { detectWorkspaceOptions, SOURCE_HASH_SCHEMA } from "./change-status";
 import { compareStrings, resolveInside } from "./path";
 import { readReleaseState, writeReleaseState } from "./release-state";
@@ -16,7 +17,7 @@ import {
 import type { BuildGraph, JsonRecord, ReleaseScopeState, ReleaseState, SkillsetOptions, SourcePlugin } from "./types";
 import { pluginVersion, rootVersion, skillVersion } from "./versioning";
 
-export type ReleaseSubcommand = "apply" | "audit" | "plan";
+export type ReleaseSubcommand = "amend" | "apply" | "audit" | "plan";
 
 export interface ReleaseEntryPlan {
   readonly bump: ChangeBump;
@@ -52,6 +53,35 @@ export interface ReleaseApplyReport {
   readonly renderedFiles: number;
 }
 
+export interface ReleaseAmendOptions extends SkillsetOptions {
+  readonly reason: ChangeReasonInput;
+  readonly ref: string;
+}
+
+export interface ReleaseRecordView {
+  readonly appliedAt?: string;
+  readonly entries: readonly string[];
+  readonly id: string;
+  readonly notes?: string;
+  readonly path: string;
+  readonly ref: string;
+  readonly scopes: readonly ReleaseRecordScope[];
+}
+
+export interface ReleaseAmendReport {
+  readonly amendmentPath: string;
+  readonly release: ReleaseRecordView;
+}
+
+export interface ReleaseRecordScope {
+  readonly bump?: ChangeBump;
+  readonly entries: readonly string[];
+  readonly nextVersion?: string;
+  readonly previousVersion?: string;
+  readonly scope: string;
+  readonly sourceHash?: string;
+}
+
 interface ReleaseScopeAccumulator {
   bump: ChangeBump;
   entries: Set<string>;
@@ -64,7 +94,9 @@ interface FileSnapshot {
 
 const HISTORY_FILE = "changes/history.jsonl";
 const RELEASES_FILE = "changes/releases.jsonl";
+const RELEASE_AMENDMENTS_FILE = "changes/release-amendments.jsonl";
 const STATE_FILE = "changes/state.json";
+const MIN_REF_LENGTH = 6;
 const BUMP_WEIGHT: Readonly<Record<ChangeBump, number>> = {
   none: 0,
   patch: 1,
@@ -151,6 +183,34 @@ export async function applyRelease(
   }
 
   return { files: [...files].sort(compareStrings), plan, renderedFiles };
+}
+
+export async function amendReleaseRecord(
+  rootPath: string,
+  options: ReleaseAmendOptions
+): Promise<ReleaseAmendReport> {
+  const storageOptions = await detectWorkspaceOptions(rootPath, options);
+  const records = await readReleaseRecords(rootPath, storageOptions);
+  const amendments = await readReleaseAmendments(rootPath, storageOptions);
+  const release = releaseView(resolveReleaseRef(records, options.ref), releaseRefIndex(records), amendments);
+  const notes = await resolveChangeReason(rootPath, options.reason);
+  const now = new Date().toISOString();
+  const sourceDir = storageOptions.sourceDir ?? ".skillset";
+  const amendmentPath = join(sourceDir, RELEASE_AMENDMENTS_FILE).replaceAll("\\", "/");
+  const absolutePath = resolveInside(rootPath, amendmentPath);
+  await mkdir(dirname(absolutePath), { recursive: true });
+  await appendFile(absolutePath, `${JSON.stringify({
+    amendedAt: now,
+    id: release.id,
+    notes,
+    ...(release.notes === undefined ? {} : { previousNotes: release.notes }),
+    source: release.path,
+  })}\n`, "utf8");
+  const updatedAmendments = await readReleaseAmendments(rootPath, storageOptions);
+  return {
+    amendmentPath,
+    release: releaseView(resolveReleaseRef(records, release.id), releaseRefIndex(records), updatedAmendments),
+  };
 }
 
 function releaseEntryPlan(entry: PendingChangeEntry): readonly ReleaseEntryPlan[] {
@@ -434,4 +494,158 @@ function releaseIdFor(scopes: readonly ReleaseScopePlan[]): string {
     hash.update("\0");
   }
   return hash.digest("hex").slice(0, 12);
+}
+
+interface ReleaseRecord {
+  readonly appliedAt?: string;
+  readonly entries: readonly string[];
+  readonly id: string;
+  readonly path: string;
+  readonly scopes: readonly ReleaseRecordScope[];
+}
+
+interface ReleaseAmendmentRecord {
+  readonly amendedAt?: string;
+  readonly id: string;
+  readonly notes: string;
+}
+
+async function readReleaseRecords(
+  rootPath: string,
+  options: SkillsetOptions = {}
+): Promise<readonly ReleaseRecord[]> {
+  const sourceDir = options.sourceDir ?? ".skillset";
+  const path = join(sourceDir, RELEASES_FILE).replaceAll("\\", "/");
+  const absolutePath = resolveInside(rootPath, path);
+  if (!(await exists(absolutePath))) return [];
+  const records: ReleaseRecord[] = [];
+  const lines = (await readFile(absolutePath, "utf8")).split("\n");
+  for (const [index, line] of lines.entries()) {
+    if (line.trim().length === 0) continue;
+    const parsed = parseJsonLine(line, `${path}:${index + 1}`);
+    const id = readStringField(parsed, "id", `${path}:${index + 1}`);
+    const entries = readStringArrayField(parsed, "entries", `${path}:${index + 1}`);
+    const scopes = readReleaseScopeArray(parsed, `${path}:${index + 1}`);
+    records.push({
+      ...(typeof parsed.appliedAt === "string" ? { appliedAt: parsed.appliedAt } : {}),
+      entries,
+      id,
+      path,
+      scopes,
+    });
+  }
+  return records;
+}
+
+async function readReleaseAmendments(
+  rootPath: string,
+  options: SkillsetOptions = {}
+): Promise<ReadonlyMap<string, ReleaseAmendmentRecord>> {
+  const sourceDir = options.sourceDir ?? ".skillset";
+  const path = join(sourceDir, RELEASE_AMENDMENTS_FILE).replaceAll("\\", "/");
+  const absolutePath = resolveInside(rootPath, path);
+  if (!(await exists(absolutePath))) return new Map();
+  const amendments = new Map<string, ReleaseAmendmentRecord>();
+  const lines = (await readFile(absolutePath, "utf8")).split("\n");
+  for (const [index, line] of lines.entries()) {
+    if (line.trim().length === 0) continue;
+    const parsed = parseJsonLine(line, `${path}:${index + 1}`);
+    const id = readStringField(parsed, "id", `${path}:${index + 1}`);
+    const notes = readStringField(parsed, "notes", `${path}:${index + 1}`);
+    amendments.set(id, {
+      ...(typeof parsed.amendedAt === "string" ? { amendedAt: parsed.amendedAt } : {}),
+      id,
+      notes,
+    });
+  }
+  return amendments;
+}
+
+function resolveReleaseRef(records: readonly ReleaseRecord[], ref: string): ReleaseRecord {
+  const normalized = ref.startsWith("@") ? ref.slice(1) : ref;
+  if (normalized.length < MIN_REF_LENGTH) {
+    throw new Error(`skillset: release ref ${ref} must include at least ${MIN_REF_LENGTH} characters`);
+  }
+  const matches = records.filter((record) => record.id === normalized || record.id.startsWith(normalized));
+  if (matches.length === 0) throw new Error(`skillset: unknown release ref ${ref}`);
+  if (matches.length > 1) {
+    throw new Error(`skillset: ambiguous release ref ${ref}; matches ${matches.map((record) => `@${record.id.slice(0, MIN_REF_LENGTH)}`).join(", ")}`);
+  }
+  const [record] = matches;
+  if (record === undefined) throw new Error(`skillset: unknown release ref ${ref}`);
+  return record;
+}
+
+function releaseRefIndex(records: readonly ReleaseRecord[]): ReadonlyMap<string, string> {
+  const refs = new Map<string, string>();
+  for (const record of records) refs.set(record.id, `@${record.id.slice(0, MIN_REF_LENGTH)}`);
+  return refs;
+}
+
+function releaseView(
+  record: ReleaseRecord,
+  refs: ReadonlyMap<string, string>,
+  amendments: ReadonlyMap<string, ReleaseAmendmentRecord>
+): ReleaseRecordView {
+  const notes = amendments.get(record.id)?.notes;
+  return {
+    ...(record.appliedAt === undefined ? {} : { appliedAt: record.appliedAt }),
+    entries: record.entries,
+    id: record.id,
+    ...(notes === undefined ? {} : { notes }),
+    path: record.path,
+    ref: refs.get(record.id) ?? `@${record.id}`,
+    scopes: record.scopes,
+  };
+}
+
+function readReleaseScopeArray(record: JsonRecord, location: string): readonly ReleaseRecordScope[] {
+  if (!Array.isArray(record.scopes)) throw new Error(`skillset: release record ${location} scopes must be an array`);
+  return record.scopes.map((item, index): ReleaseRecordScope => {
+    const scopeLocation = `${location}.scopes[${index}]`;
+    if (!isRecord(item)) throw new Error(`skillset: release record ${scopeLocation} must be an object`);
+    const scope = readStringField(item, "scope", scopeLocation);
+    return {
+      ...(isChangeBump(item.bump) ? { bump: item.bump } : {}),
+      entries: Array.isArray(item.entries) ? item.entries.filter((entry): entry is string => typeof entry === "string") : [],
+      ...(typeof item.nextVersion === "string" ? { nextVersion: item.nextVersion } : {}),
+      ...(typeof item.previousVersion === "string" ? { previousVersion: item.previousVersion } : {}),
+      scope,
+      ...(typeof item.sourceHash === "string" ? { sourceHash: item.sourceHash } : {}),
+    };
+  });
+}
+
+function readStringArrayField(record: JsonRecord, field: string, location: string): readonly string[] {
+  const value = record[field];
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
+    throw new Error(`skillset: release record ${location} ${field} must be an array of strings`);
+  }
+  return value.map((item) => String(item));
+}
+
+function readStringField(record: JsonRecord, field: string, location: string): string {
+  const value = record[field];
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`skillset: release record ${location} ${field} must be a string`);
+  }
+  return value;
+}
+
+function parseJsonLine(line: string, location: string): JsonRecord {
+  try {
+    const parsed = JSON.parse(line) as unknown;
+    if (isRecord(parsed)) return parsed;
+  } catch {
+    // Throw the uniform error below.
+  }
+  throw new Error(`skillset: invalid release JSON in ${location}`);
+}
+
+function isRecord(value: unknown): value is JsonRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isChangeBump(value: unknown): value is ChangeBump {
+  return value === "major" || value === "minor" || value === "patch" || value === "none";
 }

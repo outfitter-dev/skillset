@@ -38,7 +38,14 @@ import {
 } from "./runtime-hooks";
 import { importSources, type ImportKind, type ImportProvider, type ImportReport } from "./import";
 import { lintSkillset } from "./lint";
-import { applyRelease, planRelease, type ReleasePlanReport, type ReleaseSubcommand } from "./release";
+import {
+  amendReleaseRecord,
+  applyRelease,
+  planRelease,
+  type ReleaseAmendReport,
+  type ReleasePlanReport,
+  type ReleaseSubcommand,
+} from "./release";
 import { createSkillset, initSkillset, type SetupInclude, type SetupReport } from "./setup";
 import { sourceUnitDisplay, sourceUnitDisplays, sourceUnitSelector } from "./source-unit-selector";
 import { renderValidatedJson } from "./structured-output";
@@ -65,6 +72,7 @@ const USAGE = [
   "       skillset release audit [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset release plan [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset release apply [--yes|--dry-run] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset release amend <@ref> [--reason <text>|--reason-file <path>|--reason -] [--root <path>]",
   "       skillset restore <backup-id> [--yes|--dry-run] [--root <path>]",
   "       skillset distribute plan [name] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset features [feature-id] [--json]",
@@ -121,6 +129,8 @@ export async function runCli(
     rootPath,
     rootExplicit,
     releaseSubcommand,
+    releaseReason,
+    releaseRef,
     setupGlobal,
     setupIncludes,
     setupTargets,
@@ -263,7 +273,16 @@ export async function runCli(
       printReleaseApply(result.plan, result.files, result.renderedFiles);
       return;
     }
-    throw new Error("skillset: expected release subcommand apply, audit, or plan");
+    if (releaseSubcommand === "amend") {
+      if (releaseRef === undefined) throw new Error("skillset: release amend requires @ref");
+      printReleaseAmend(await amendReleaseRecord(rootPath, {
+        ...options,
+        reason: releaseReason ?? { kind: "auto" },
+        ref: releaseRef,
+      }));
+      return;
+    }
+    throw new Error("skillset: expected release subcommand amend, apply, audit, or plan");
   }
 
   if (command === "restore") {
@@ -589,6 +608,8 @@ interface ParsedArgs {
   readonly jsonOutput: boolean;
   readonly options: SkillsetOptions;
   readonly releaseSubcommand?: ReleaseSubcommand;
+  readonly releaseReason?: ChangeReasonInput;
+  readonly releaseRef?: string;
   readonly rootExplicit: boolean;
   readonly rootPath: string;
   readonly setupGlobal: boolean;
@@ -775,6 +796,25 @@ function printReleaseApply(
   }
   console.log(`skillset: applied release ${plan.releaseId ?? "audit-only"} (${renderedFiles} generated files refreshed)`);
   for (const file of files) console.log(`  ${file}`);
+}
+
+function printReleaseAmend(report: ReleaseAmendReport): void {
+  console.log(`skillset: amended release ${report.release.ref} ${report.release.path}`);
+  console.log(`  id: ${report.release.id}`);
+  console.log(`  amendment: ${report.amendmentPath}`);
+  if (report.release.appliedAt !== undefined) console.log(`  applied: ${report.release.appliedAt}`);
+  if (report.release.entries.length > 0) console.log(`  entries: ${report.release.entries.join(",")}`);
+  for (const scope of report.release.scopes) {
+    const version = scope.previousVersion === undefined || scope.nextVersion === undefined
+      ? ""
+      : ` ${scope.previousVersion} -> ${scope.nextVersion}`;
+    const bump = scope.bump === undefined ? "" : ` (${scope.bump})`;
+    console.log(`  scope: ${sourceUnitDisplay(scope.scope)}${version}${bump}`);
+  }
+  if (report.release.notes !== undefined) {
+    console.log("  notes:");
+    for (const line of report.release.notes.split("\n")) console.log(`    ${line}`);
+  }
 }
 
 function printDistributionPlan(report: DistributionPlanReport): void {
@@ -1024,6 +1064,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let distributionName: string | undefined;
   let distributionSubcommand: DistributionSubcommand | undefined;
   let releaseSubcommand: ReleaseSubcommand | undefined;
+  let releaseReason: ChangeReasonInput | undefined;
+  let releaseRef: string | undefined;
   let changeAppend = false;
   let changeBump: ChangeBump | undefined;
   let changeGroup: string | undefined;
@@ -1078,10 +1120,15 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   if (command === "release") {
     const subcommand = args[index];
     if (!isReleaseSubcommand(subcommand)) {
-      throw new Error("skillset: expected release subcommand apply, audit, or plan");
+      throw new Error("skillset: expected release subcommand amend, apply, audit, or plan");
     }
     releaseSubcommand = subcommand;
     index += 1;
+    const rawRef = args[index];
+    if (subcommand === "amend" && rawRef !== undefined && !rawRef.startsWith("--")) {
+      releaseRef = rawRef;
+      index += 1;
+    }
   }
 
   if (command === "distribute") {
@@ -1260,7 +1307,10 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     }
     if (flag === "--source") sourceDir = value;
     if (flag === "--dist") distDir = value;
-    if (flag === "--ref") changeRef = value;
+    if (flag === "--ref") {
+      if (command === "release" && releaseSubcommand === "amend") releaseRef = value;
+      else changeRef = value;
+    }
     if (flag === "--since") changeSince = value;
     if (flag === "--scope") {
       if (command === "change" && changeSubcommand === "add") {
@@ -1274,8 +1324,16 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       }
     }
     if (flag === "--group") changeGroup = value;
-    if (flag === "--reason") changeReason = setChangeReason(changeReason, value === "-" ? { kind: "stdin" } : { kind: "inline", value });
-    if (flag === "--reason-file") changeReason = setChangeReason(changeReason, { kind: "file", path: value });
+    if (flag === "--reason") {
+      const reason = value === "-" ? { kind: "stdin" } as const : { kind: "inline", value } as const;
+      if (command === "release" && releaseSubcommand === "amend") releaseReason = setChangeReason(releaseReason, reason);
+      else changeReason = setChangeReason(changeReason, reason);
+    }
+    if (flag === "--reason-file") {
+      const reason = { kind: "file", path: value } as const;
+      if (command === "release" && releaseSubcommand === "amend") releaseReason = setChangeReason(releaseReason, reason);
+      else changeReason = setChangeReason(changeReason, reason);
+    }
     if (flag === "--bump") changeBump = readChangeBump(value);
     if (flag === "--report") ciReportPath = value;
     if (flag === "--runner") hookRunner = readHookRunner(value);
@@ -1367,6 +1425,10 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   if (command === "release" && releaseSubcommand !== "apply" && (dryRun || yes)) {
     throw new Error("skillset: --yes and --dry-run are only supported with release apply");
   }
+  validateReleaseFlags(command, releaseSubcommand, {
+    ...(releaseReason === undefined ? {} : { reason: releaseReason }),
+    ...(releaseRef === undefined ? {} : { ref: releaseRef }),
+  });
   validateTestFlags(command, {
     ...(buildMode === undefined ? {} : { buildMode }),
     ...(distDir === undefined ? {} : { distDir }),
@@ -1420,6 +1482,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     jsonOutput,
     options,
     ...(releaseSubcommand === undefined ? {} : { releaseSubcommand }),
+    ...(releaseReason === undefined ? {} : { releaseReason }),
+    ...(releaseRef === undefined ? {} : { releaseRef }),
     rootExplicit,
     rootPath: resolve(rootPath),
     setupGlobal,
@@ -1431,7 +1495,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
 }
 
 function isReleaseSubcommand(value: string | undefined): value is ReleaseSubcommand {
-  return value === "apply" || value === "audit" || value === "plan";
+  return value === "amend" || value === "apply" || value === "audit" || value === "plan";
 }
 
 function isChangeSubcommand(value: string | undefined): value is ChangeSubcommand {
@@ -1502,6 +1566,28 @@ function validateChangeFlags(
   if (change.ref !== undefined && !allowed.ref) throw new Error("skillset: --ref is only supported with change amend, change check, change history, change reason, or change show");
   if (change.scopes !== undefined && !allowed.scopes) throw new Error("skillset: source-unit --scope is only supported with change add");
   if (change.staged && !allowed.staged) throw new Error("skillset: --staged is only supported with change status or change check");
+}
+
+function validateReleaseFlags(
+  command: Command,
+  subcommand: ReleaseSubcommand | undefined,
+  release: {
+    readonly reason?: ChangeReasonInput;
+    readonly ref?: string;
+  }
+): void {
+  const hasReleaseFlag = release.reason !== undefined || release.ref !== undefined;
+  if (hasReleaseFlag && command !== "release") {
+    throw new Error("skillset: release options are only supported with release commands");
+  }
+  if (command !== "release") return;
+
+  if (release.reason !== undefined && subcommand !== "amend") {
+    throw new Error("skillset: --reason and --reason-file are only supported with release amend");
+  }
+  if (release.ref !== undefined && subcommand !== "amend") {
+    throw new Error("skillset: --ref is only supported with release amend");
+  }
 }
 
 function validateHookFlags(

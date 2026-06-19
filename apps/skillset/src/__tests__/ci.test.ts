@@ -72,7 +72,8 @@ test("ci report explains generated changelog drift", () => {
 
   expect(markdown).toContain("Generated `CHANGELOG.md` files are managed projections");
   expect(markdown).toContain("skillset change reason <@ref>");
-  expect(markdown).toContain("planned amend flow for released history");
+  expect(markdown).toContain("skillset change amend <@ref>");
+  expect(markdown).toContain("skillset release amend <@ref>");
 });
 
 test("ci --fix rebuilds drifted generated output mechanically", async () => {

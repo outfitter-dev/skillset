@@ -122,7 +122,7 @@ export async function addChangeEntry(rootPath: string, options: ChangeAddOptions
   if (options.scopes.length === 0) throw new Error("skillset: change add requires at least one --scope");
   if (options.bump === undefined) throw new Error("skillset: change add requires --bump major, minor, patch, or none");
   const scopes = [...new Set(options.scopes.map(sourceUnitSelector))].sort(compareStrings);
-  const reason = await resolveReason(rootPath, options.reason);
+  const reason = await resolveChangeReason(rootPath, options.reason);
   const statusOptions = await detectWorkspaceOptions(rootPath, sourceStatusOptions(options));
   const status = await changeStatus(rootPath, statusOptions);
   const existing = await readAllChangeEntries(rootPath, statusOptions);
@@ -162,7 +162,7 @@ export async function updateChangeReason(rootPath: string, options: ChangeReason
   const storageOptions = await detectWorkspaceOptions(rootPath, options);
   const pendingEntries = await readPendingChangeEntries(rootPath, storageOptions);
   const entry = resolvePendingChangeRef(pendingEntries, options.ref);
-  const newReason = await resolveReason(rootPath, options.reason);
+  const newReason = await resolveChangeReason(rootPath, options.reason);
   const absolutePath = resolveInside(rootPath, entry.path);
   const parts = parseMarkdown(await readFile(absolutePath, "utf8"), absolutePath);
   const body = options.append ? `${parts.body.trimEnd()}\n\n${newReason}` : newReason;
@@ -185,7 +185,7 @@ export async function amendAppliedChange(rootPath: string, options: ChangeAmendO
   }
 
   const entry = resolveHistoryRef(historyEntries, options.ref);
-  const reason = await resolveReason(rootPath, options.reason);
+  const reason = await resolveChangeReason(rootPath, options.reason);
   const now = new Date().toISOString();
   const sourceDir = storageOptions.sourceDir ?? ".skillset";
   const relativePath = join(sourceDir, AMENDMENTS_FILE).replaceAll("\\", "/");
@@ -313,7 +313,7 @@ async function generateChangeId(
   throw new Error("skillset: failed to generate a unique change id");
 }
 
-async function resolveReason(rootPath: string, input: ChangeReasonInput): Promise<string> {
+export async function resolveChangeReason(rootPath: string, input: ChangeReasonInput): Promise<string> {
   let reason: string | undefined;
   if (input.kind === "inline") reason = input.value;
   if (input.kind === "file") {

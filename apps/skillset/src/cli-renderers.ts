@@ -44,5 +44,5 @@ export function printGeneratedChangelogPathHint(paths: readonly string[]): void 
 }
 
 export function generatedChangelogHint(): string {
-  return "skillset: generated CHANGELOG.md files are managed projections; edit pending wording with `skillset change reason <@ref>` before release, or use the planned amend flow for released history.";
+  return "skillset: generated CHANGELOG.md files are managed projections; edit pending wording with `skillset change reason <@ref>` before release, `skillset change amend <@ref>` for applied-history wording after release, or `skillset release amend <@ref>` for release-event metadata.";
 }
