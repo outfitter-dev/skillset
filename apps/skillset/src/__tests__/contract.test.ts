@@ -4910,7 +4910,7 @@ test("SET-62: recognized-but-unimportable surfaces become structured survey skip
       }),
       path: ".claude/commands",
       reason:
-        "project-level commands have no portable source home yet; adopt will lower them to target-native islands in the transform milestone",
+        "project-level commands have no portable source home yet; adopt will represent them as provider source in the transform milestone",
       surface: "commands",
     }),
     expect.objectContaining({
@@ -4933,12 +4933,13 @@ test("SET-27: init previews by default and writes only with confirmation", async
   const preview = await runSkillsetCli("init", "--root", root, "--targets", "claude");
   expect(preview.exitCode).toBe(0);
   expect(preview.stdout).toContain("write confirmation required");
-  expect(preview.stdout).toContain("+ .skillset/config.yaml");
-  expect(await fileExists(join(root, ".skillset/config.yaml"))).toBe(false);
+  expect(preview.stdout).toContain("+ .skillset/skillset.yaml");
+  expect(await fileExists(join(root, ".skillset/skillset.yaml"))).toBe(false);
 
   const written = await runSkillsetCli("init", "--root", root, "--targets", "claude", "--yes");
   expect(written.exitCode).toBe(0);
-  const config = await readFile(join(root, ".skillset/config.yaml"), "utf8");
+  const config = await readFile(join(root, ".skillset/skillset.yaml"), "utf8");
+  expect(config).toContain("name:");
   expect(config).toContain("compile:");
   expect(config).toContain("    - claude");
   expect(config).not.toContain("    - codex");
@@ -4946,6 +4947,9 @@ test("SET-27: init previews by default and writes only with confirmation", async
   for (const directory of ["agents", "hooks", "plugins", "rules", "shared", "skills", "_claude", "_codex"]) {
     expect(await fileExists(join(root, `.skillset/src/${directory}/.gitkeep`))).toBe(true);
   }
+  expect(await fileExists(join(root, ".skillset/changes/.gitkeep"))).toBe(true);
+  expect(await fileExists(join(root, ".skillset/build/.gitkeep"))).toBe(true);
+  expect(await readFile(join(root, ".skillset/.gitignore"), "utf8")).toBe("build/\n");
   expect(await fileExists(join(root, ".claude"))).toBe(false);
   expect(await fileExists(join(root, ".codex"))).toBe(false);
   expect(await fileExists(join(root, ".agents"))).toBe(false);
@@ -4966,6 +4970,50 @@ test("SET-27: init scaffolds optional CI only when requested", async () => {
   expect(await fileExists(join(shaped, ".github/workflows/skillset-ci.yml"))).toBe(true);
 });
 
+test("SET-143: init validates dedicated workspace roots instead of creating ordinary mode", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: dedicated-init
+compile:
+  targets:
+    - claude
+`,
+    "skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  const preview = await runSkillsetCli("init", "--root", root);
+  expect(preview.exitCode).toBe(0);
+  expect(preview.stdout).toContain("= skillset.yaml");
+  expect(preview.stdout).toContain("+ changes/.gitkeep");
+  expect(preview.stdout).not.toContain(".skillset/skillset.yaml");
+  expect(await fileExists(join(root, ".skillset/skillset.yaml"))).toBe(false);
+
+  const written = await runSkillsetCli("init", "--root", root, "--yes");
+  expect(written.exitCode).toBe(0);
+  expect(await fileExists(join(root, "changes/.gitkeep"))).toBe(true);
+  expect(await fileExists(join(root, ".skillset/skillset.yaml"))).toBe(false);
+});
+
+test("SET-143: init refuses mixed dedicated and ordinary setup roots", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": "skillset:\n  name: dedicated\n",
+    "skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n",
+    ".skillset/skillset.yaml": "skillset:\n  name: ordinary\n",
+  });
+
+  const initialized = await runSkillsetCli("init", "--root", root);
+  expect(initialized.exitCode).toBe(1);
+  expect(initialized.stderr).toContain("ambiguous setup workspace");
+});
+
 test("SET-27: create makes a new source repo with default naming", async () => {
   const parent = await mkdtemp(join(tmpdir(), "skillset-setup-create-"));
 
@@ -4975,23 +5023,28 @@ test("SET-27: create makes a new source repo with default naming", async () => {
   expect(preview.stdout).toContain("+ README.md");
   expect(preview.stdout).toContain("+ AGENTS.md");
   expect(preview.stdout).toContain("+ .git");
-  expect(await fileExists(join(parent, "my-skillset/.skillset/config.yaml"))).toBe(false);
+  expect(preview.stdout).toContain("+ skillset.yaml");
+  expect(await fileExists(join(parent, "my-skillset/skillset.yaml"))).toBe(false);
   expect(await fileExists(join(parent, "my-skillset/.git/config"))).toBe(false);
 
   const written = await runSkillsetCli("create", "--root", parent, "--yes");
   expect(written.exitCode).toBe(0);
-  const config = await readFile(join(parent, "my-skillset/.skillset/config.yaml"), "utf8");
+  const config = await readFile(join(parent, "my-skillset/skillset.yaml"), "utf8");
   const readme = await readFile(join(parent, "my-skillset/README.md"), "utf8");
   const agents = await readFile(join(parent, "my-skillset/AGENTS.md"), "utf8");
-  const manifest = await readFile(join(parent, "my-skillset/.skillset/src/skillset.yaml"), "utf8");
-  expect(manifest).toContain("name: my-skillset");
+  const gitignore = await readFile(join(parent, "my-skillset/.gitignore"), "utf8");
+  const lock = await readFile(join(parent, "my-skillset/skillset.lock"), "utf8");
+  expect(config).toContain("name: my-skillset");
   expect(config).toContain("compile:");
   for (const directory of ["agents", "hooks", "plugins", "rules", "shared", "skills", "_claude", "_codex"]) {
-    expect(await fileExists(join(parent, `my-skillset/.skillset/src/${directory}/.gitkeep`))).toBe(true);
+    expect(await fileExists(join(parent, `my-skillset/skillset/${directory}/.gitkeep`))).toBe(true);
   }
+  expect(await fileExists(join(parent, "my-skillset/changes/.gitkeep"))).toBe(true);
+  expect(gitignore).toBe(".skillset/\n");
+  expect(JSON.parse(lock)).toEqual({ items: [] });
   expect(readme).toContain("# my-skillset");
   expect(readme).toContain("skillset build --dry-run");
-  expect(agents).toContain("Treat `.skillset/src/` as editable source");
+  expect(agents).toContain("Treat `skillset/` as editable source");
   expect(await fileExists(join(parent, "my-skillset/.git/config"))).toBe(true);
 });
 
@@ -5013,10 +5066,9 @@ test("SET-54: create supports custom path and explicit setup name", async () => 
   expect(written.stdout).toContain("team-loadout");
   expect(written.stdout).toContain("+ .git");
 
-  const config = await readFile(join(parent, "team-loadout/.skillset/config.yaml"), "utf8");
+  const config = await readFile(join(parent, "team-loadout/skillset.yaml"), "utf8");
   const readme = await readFile(join(parent, "team-loadout/README.md"), "utf8");
-  const manifest = await readFile(join(parent, "team-loadout/.skillset/src/skillset.yaml"), "utf8");
-  expect(manifest).toContain("name: acme-loadout");
+  expect(config).toContain("name: acme-loadout");
   expect(config).toContain("    - claude");
   expect(config).not.toContain("    - codex");
   expect(readme).toContain("# acme-loadout");
@@ -5030,8 +5082,8 @@ test("SET-27: create supports global source path without touching runtime config
   const report = await createSkillset({ global: true, homeDir: home, write: true });
 
   expect(report.rootPath).toBe(join(home, ".skillset/src"));
-  expect(await fileExists(join(home, ".skillset/src/.skillset/config.yaml"))).toBe(true);
-  expect(await fileExists(join(home, ".skillset/src/.skillset/src/hooks/.gitkeep"))).toBe(true);
+  expect(await fileExists(join(home, ".skillset/src/skillset.yaml"))).toBe(true);
+  expect(await fileExists(join(home, ".skillset/src/skillset/hooks/.gitkeep"))).toBe(true);
   expect(await fileExists(join(home, ".skillset/src/README.md"))).toBe(false);
   expect(await fileExists(join(home, ".skillset/src/AGENTS.md"))).toBe(false);
   expect(await fileExists(join(home, ".skillset/src/.git/config"))).toBe(false);
@@ -5184,7 +5236,7 @@ Body.
   const preview = await runSkillsetCli("init", "--root", root);
   expect(preview.exitCode).toBe(0);
   expect(preview.stdout).toContain("? import candidate skills .claude/skills");
-  expect(await fileExists(join(root, ".skillset/config.yaml"))).toBe(false);
+  expect(await fileExists(join(root, ".skillset/skillset.yaml"))).toBe(false);
 });
 
 test("SET-43: init does not report managed output roots as import candidates", async () => {
@@ -5274,6 +5326,35 @@ Body.
   expect(state.scopes["skill:adopted"]?.sourceHash).toBe(sourceInventoryUnit(inventory, "skill:adopted").hash);
   expect(await fileExists(join(root, ".skillset/changes/history.jsonl"))).toBe(false);
   expect(await fileExists(join(root, ".skillset/changes/releases.jsonl"))).toBe(false);
+});
+
+test("SET-143: import writes into the detected dedicated source root", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: dedicated-import
+  version: 1.0.0
+compile:
+  targets:
+    - claude
+    - codex
+`,
+  });
+  const external = await mkdtemp(join(tmpdir(), "skillset-import-dedicated-"));
+  await Bun.write(join(external, "SKILL.md"), `---
+name: adopted
+description: Adopted skill.
+version: 3.4.5
+---
+
+Body.
+`);
+
+  const report = await importSource({ kind: "skill", rootPath: root, sourcePath: external });
+  expect(report.targetPath).toBe(join(root, "skillset/skills/adopted"));
+  expect(await fileExists(join(root, "skillset/skills/adopted/SKILL.md"))).toBe(true);
+  expect(await fileExists(join(root, ".skillset/src/skills/adopted/SKILL.md"))).toBe(false);
+  expect(await fileExists(join(root, "changes/state.json"))).toBe(true);
 });
 
 test("SET-43: import seeds release baselines for adopted plugins", async () => {

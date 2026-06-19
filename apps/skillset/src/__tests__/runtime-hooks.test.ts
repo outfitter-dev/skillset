@@ -39,6 +39,14 @@ test("runtime hook source gate catches tracked and untracked Skillset edits", as
 
 test("runtime hook source paths include source, shared, and pending change entries", () => {
   expect(hookRelevantSourcePaths()).toEqual([
+    "skillset.yaml",
+    "skillset/rules",
+    "skillset/skills",
+    "skillset/plugins",
+    "skillset/shared",
+    "skillset",
+    "changes/pending",
+    ".skillset/skillset.yaml",
     ".skillset/config.yaml",
     ".skillset/src/rules",
     ".skillset/src/skills",
