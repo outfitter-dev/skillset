@@ -293,7 +293,7 @@ test("adopt records an instructions collision as a failed import without throwin
 test("adopt fails on lint errors and the CLI exits nonzero", async () => {
   const files = {
     ".claude/skills/bad/SKILL.md":
-      "---\nname: bad\ndescription: Uses Claude dynamic context.\n---\n\nUse $ARGUMENTS here.\n",
+      "---\nname: bad\ndescription: Uses Claude dynamic context.\n---\n\nUse ${CLAUDE_SKILL_DIR} here.\n",
   };
 
   const report = await adoptSkillset(await fixture(files), { write: true });
@@ -331,24 +331,23 @@ test("adopt previews transforms and declares dialect on transformable imports", 
     preview?.matches.map((match) => [match.intent, match.text, match.lowering, match.codexForm])
   ).toEqual([
     ["path.skills-dir", ".claude/skills", "bidirectional", ".agents/skills"],
-    ["dynamic.arguments", "$ARGUMENTS", "none", undefined],
     ["invoke.subagent", "@reviewer", "to-codex", "the `reviewer` agent"],
   ]);
-  expect(preview?.matches[1]?.reason).toContain("no templating");
 
   // Transformable matches present -> the imported frontmatter declares the
-  // dialect; the body itself is byte-identical to the original.
+  // dialect; raw Claude arguments are normalized to Skillset source markers.
   expect(preview?.dialectDeclared).toBe(true);
   const imported = await readFile(join(root, ".skillset/src/skills/x/SKILL.md"), "utf8");
   expect(imported).toStartWith("---\ndialect: claude\n");
-  expect(imported).toContain(skillBody);
+  expect(imported).toContain("Skills live in .claude/skills/x today.");
+  expect(imported).toContain("Pass {{$ARGUMENTS}} along, then ask @reviewer.");
 
   const markdown = renderAdoptReportMarkdown(report, { rootPath: root });
   expect(markdown).toContain("## Transforms (preview)");
   expect(markdown).toContain("`dialect: claude` declared.");
   expect(markdown).toContain("`.claude/skills` -> `.agents/skills` (path.skills-dir)");
-  expect(markdown).toContain("No faithful Codex lowering:");
-  expect(markdown).toContain("`$ARGUMENTS` (dynamic.arguments)");
+  expect(markdown).not.toContain("No faithful Codex lowering:");
+  expect(markdown).not.toContain("`$ARGUMENTS` (dynamic.arguments)");
 
   // No recognized constructs -> the section is omitted entirely.
   const quietReport = await adoptSkillset(await fixture(MARKETPLACE_FIXTURE), { write: true });
@@ -360,27 +359,63 @@ test("adopt previews transforms and declares dialect on transformable imports", 
 
 test("adopt leaves files with only no-lowering matches undeclared", async () => {
   const skillSource =
-    "---\nname: args-only\ndescription: Only dynamic context.\n---\n\nPass $ARGUMENTS along.\n";
+    "---\nname: env-only\ndescription: Only dynamic context.\n---\n\nPass ${CLAUDE_SKILL_DIR} along.\n";
   const root = await fixture({
-    ".claude/skills/args-only/SKILL.md": skillSource,
+    ".claude/skills/env-only/SKILL.md": skillSource,
   });
 
   const report = await adoptSkillset(root, { write: true });
 
   const preview = report.transformPreviews.find(
-    (entry) => entry.path === ".skillset/src/skills/args-only/SKILL.md"
+    (entry) => entry.path === ".skillset/src/skills/env-only/SKILL.md"
   );
   expect(preview?.dialectDeclared).toBe(false);
   expect(preview?.matches.every((match) => match.lowering === "none")).toBe(true);
   // Nothing would translate, so no dialect is declared; source-origin metadata
   // is still recorded and the body stays untouched.
-  const imported = await readFile(join(root, ".skillset/src/skills/args-only/SKILL.md"), "utf8");
+  const imported = await readFile(join(root, ".skillset/src/skills/env-only/SKILL.md"), "utf8");
   expect(imported).not.toContain("dialect: claude");
-  expect(imported).toContain("path: .claude/skills/args-only/SKILL.md");
-  expect(imported).toContain("Pass $ARGUMENTS along.");
+  expect(imported).toContain("path: .claude/skills/env-only/SKILL.md");
+  expect(imported).toContain("Pass ${CLAUDE_SKILL_DIR} along.");
   expect(renderAdoptReportMarkdown(report, { rootPath: root })).not.toContain(
     "`dialect: claude` declared."
   );
+});
+
+test("adopt normalizes Claude arguments to Skillset prompt argument placeholders", async () => {
+  const root = await fixture({
+    ".claude/skills/args/SKILL.md":
+      "---\nname: args\ndescription: Uses $ARGUMENTS literally in metadata.\n---\n\nRun $ARGUMENTS, $ARGUMENTS[0], $ARGUMENTS[1], and $ARGUMENTS.limit.\nKeep {{$ARGUMENTS}} literal.\n",
+  });
+
+  const report = await adoptSkillset(root, { write: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.transformPreviews).toEqual([]);
+  const imported = await readFile(join(root, ".skillset/src/skills/args/SKILL.md"), "utf8");
+  expect(imported).toContain("description: Uses $ARGUMENTS literally in metadata.");
+  expect(imported).toContain("Run {{$ARGUMENTS}}, {{$ARGUMENTS[0]}}, {{$ARGUMENTS[1]}}, and {{$ARGUMENTS.limit}}.");
+  expect(imported).toContain("Keep {{$ARGUMENTS}} literal.");
+  expect(imported).not.toContain("{{{{$ARGUMENTS}}}}");
+});
+
+test("adopt leaves unsupported Claude argument bracket forms raw", async () => {
+  const root = await fixture({
+    ".claude/skills/args/SKILL.md":
+      "---\nname: args\ndescription: Uses unsupported command arguments.\n---\n\nRun $ARGUMENTS[foo].\n",
+  });
+
+  const report = await adoptSkillset(root, { write: true });
+
+  expect(report.ok).toBe(false);
+  expect(
+    report.lintIssues.some(
+      (issue) => issue.severity === "error" && issue.code === "codex-claude-dynamic-context"
+    )
+  ).toBe(true);
+  const imported = await readFile(join(root, ".skillset/src/skills/args/SKILL.md"), "utf8");
+  expect(imported).toContain("Run $ARGUMENTS[foo].");
+  expect(imported).not.toContain("{{$ARGUMENTS[foo]}}");
 });
 
 test("adopt prepends a frontmatter block to transformable instruction imports", async () => {

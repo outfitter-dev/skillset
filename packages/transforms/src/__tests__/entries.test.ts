@@ -97,7 +97,7 @@ test("dynamic recognizers stay aligned with skillset lint's CLAUDE_DYNAMIC_PATTE
     ["dynamic.arguments", "Run with $ARGUMENTS[0] now"],
     ["dynamic.arguments", "Run with $ARGUMENTS.flag now"],
     ["dynamic.positional", "echo $1"],
-    ["dynamic.positional", "echo $0 and $12"],
+    ["dynamic.positional", "echo $0 and $1"],
     ["dynamic.env-substitution", "see ${CLAUDE_PLUGIN_ROOT}/bin"],
     ["dynamic.pre-resolution", "context:\n  !`git status`\n"],
   ];
@@ -108,6 +108,12 @@ test("dynamic recognizers stay aligned with skillset lint's CLAUDE_DYNAMIC_PATTE
 
   // Non-matches lint also ignores.
   expect(recognizeTransforms("price is US$100 total", "claude")).toEqual([]);
+  expect(recognizeTransforms("price is $200 total", "claude")).toEqual([]);
+  expect(recognizeTransforms("price is $5 total", "claude")).toEqual([]);
+  expect(recognizeTransforms("price is $9.99 total", "claude")).toEqual([]);
+  expect(recognizeTransforms("price is $1.99 total", "claude")).toEqual([]);
+  expect(recognizeTransforms("echo $12", "claude")).toEqual([]);
+  expect(recognizeTransforms("echo $2", "claude")).toEqual([]);
   expect(recognizeTransforms("${CODEX_HOME} is not a Claude var", "claude")).toEqual([]);
   expect(recognizeTransforms("mid-line !`cmd` is not a placeholder", "claude")).toEqual([]);
 });

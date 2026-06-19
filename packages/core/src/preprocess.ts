@@ -11,7 +11,7 @@ import {
 } from "node:path";
 
 import { resolveInside } from "./path";
-import type { JsonRecord, JsonValue } from "./types";
+import type { JsonRecord, JsonValue, TargetName } from "./types";
 
 export interface PreprocessContext {
   readonly frontmatter: JsonRecord;
@@ -20,6 +20,8 @@ export interface PreprocessContext {
   readonly rootPath: string;
   readonly sourcePath: string;
   readonly sourceRoot: string;
+  readonly target?: TargetName;
+  readonly promptArguments?: boolean;
   readonly variables?: Readonly<Record<string, string>>;
 }
 
@@ -161,9 +163,36 @@ async function resolveVariable(
     if (value !== undefined) return value;
   }
 
+  if (key.startsWith("$ARGUMENTS")) {
+    return promptArgumentsVariable(token, key, context);
+  }
+
   throw new Error(
     `skillset: unknown preprocess variable ${token} in ${relative(context.rootPath, context.sourcePath)}`
   );
+}
+
+function promptArgumentsVariable(
+  token: string,
+  key: string,
+  context: PreprocessContext
+): string {
+  if (!isPromptArgumentsVariable(key)) {
+    throw new Error(
+      `skillset: invalid prompt arguments variable ${token} in ${relative(context.rootPath, context.sourcePath)}`
+    );
+  }
+  if (context.promptArguments === false) {
+    throw new Error(
+      `skillset: prompt arguments variable ${token} in ${relative(context.rootPath, context.sourcePath)} requires compile.features.promptArguments`
+    );
+  }
+  if (context.target === "claude") return key;
+  return `{{${key}}}`;
+}
+
+function isPromptArgumentsVariable(key: string): boolean {
+  return /^\$ARGUMENTS(?:\b|\[[0-9]+\]|\.[A-Za-z_][A-Za-z0-9_-]*)$/u.test(key);
 }
 
 function readPathValue(record: JsonRecord, path: string): JsonValue | undefined {

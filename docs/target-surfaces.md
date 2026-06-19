@@ -30,6 +30,7 @@ Default behavior for unsupported or lossy build results is fail-loud. Softer mod
 | skill top-level `name` | skill identity | Implemented | Skill-local `skillset.name` / `skillset.id` are unsupported. |
 | `compile.targets` | enabled provider outputs | Implemented | Root-only provider selection; defaults to all supported providers. |
 | `compile.build: updated/all` | normalized build mode in lock provenance | Implemented | Parser, CLI overrides, plan-first writes, and lock metadata are implemented. |
+| `compile.features.promptArguments` | `{{$ARGUMENTS...}}` adaptive command placeholders | Implemented | Defaults to `true`; set to `false` to reject the source markers. |
 | `compile.skillset.metadata: false` | suppress generated skill `metadata.generated` / `metadata.version` | Implemented | Source metadata remains source-only; locks record `skillsetMetadata`. |
 | `compile.unsupportedDestination: error` | build/diff/check unsupported destination policy | Implemented | Default policy; preserves current fail-loud unsupported behavior. |
 | `compile.unsupportedDestination: warn/skip/force` | doctor/lock provenance | Reserved | Recognized names that fail until non-error unsupported destination policy semantics are implemented and documented. |

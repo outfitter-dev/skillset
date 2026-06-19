@@ -1,6 +1,7 @@
 import type {
   CompileBuildMode,
   CompileConfig,
+  CompileFeatureConfig,
   CompileSkillsetConfig,
   UnsupportedDestinationPolicy,
   DistributionConfig,
@@ -72,6 +73,7 @@ export function readCompileConfig(record: JsonRecord, label: string): CompileCon
   if (compile === undefined) {
     return {
       build: "updated",
+      features: { promptArguments: true },
       skillset: { metadata: true },
       targets: [...TARGET_NAMES],
       unsupportedDestination: "error",
@@ -79,7 +81,13 @@ export function readCompileConfig(record: JsonRecord, label: string): CompileCon
   }
 
   for (const key of Object.keys(compile)) {
-    if (key !== "build" && key !== "skillset" && key !== "targets" && key !== "unsupportedDestination") {
+    if (
+      key !== "build" &&
+      key !== "features" &&
+      key !== "skillset" &&
+      key !== "targets" &&
+      key !== "unsupportedDestination"
+    ) {
       throw new Error(`skillset: unsupported compile key ${key} in ${label}`);
     }
   }
@@ -94,6 +102,7 @@ export function readCompileConfig(record: JsonRecord, label: string): CompileCon
 
   return {
     build: readCompileBuildMode(compile, `${label}.compile.build`),
+    features: readCompileFeatureConfig(compile, `${label}.compile.features`),
     skillset: readCompileSkillsetConfig(compile, `${label}.compile.skillset`),
     targets: readCompileTargetNames(compile, `${label}.compile.targets`),
     unsupportedDestination,
@@ -482,6 +491,25 @@ function readCompileSkillsetConfig(record: JsonRecord, label: string): CompileSk
     throw new Error(`skillset: expected ${label}.metadata to be a boolean`);
   }
   return { metadata };
+}
+
+function readCompileFeatureConfig(record: JsonRecord, label: string): CompileFeatureConfig {
+  const value = record.features;
+  if (value === undefined) return { promptArguments: true };
+  if (!isJsonRecord(value)) {
+    throw new Error(`skillset: expected ${label} to be an object`);
+  }
+  for (const key of Object.keys(value)) {
+    if (key !== "promptArguments") {
+      throw new Error(`skillset: unsupported compile feature key ${key} in ${label}`);
+    }
+  }
+  const promptArguments = value.promptArguments;
+  if (promptArguments === undefined) return { promptArguments: true };
+  if (typeof promptArguments !== "boolean") {
+    throw new Error(`skillset: expected ${label}.promptArguments to be a boolean`);
+  }
+  return { promptArguments };
 }
 
 function readUnsupportedDestinationPolicy(record: JsonRecord, label: string): UnsupportedDestinationPolicy {

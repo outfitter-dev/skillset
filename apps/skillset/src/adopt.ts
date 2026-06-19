@@ -320,6 +320,7 @@ async function importCandidate(
         join(rootPath, destination),
         sourceOriginFor(acquisition, candidate.path)
       );
+      await normalizeImportedPromptArguments(join(rootPath, destination));
       // The original instruction file stays in place; a live build would
       // regenerate it from the imported source and hit the unmanaged-overwrite
       // protection, so it belongs on the cutover list.
@@ -350,6 +351,7 @@ async function importCandidate(
     for (const report of batch.imports) {
       for (const file of report.copiedFiles) {
         if (basename(file) !== "SKILL.md") continue;
+        await normalizeImportedPromptArguments(join(report.targetPath, file));
         previewSources.push(
           relative(rootPath, join(report.targetPath, file)).replaceAll("\\", "/")
         );
@@ -429,10 +431,48 @@ function sourceOriginRecord(origin: SourceOrigin): JsonRecord {
   };
 }
 
+async function normalizeImportedPromptArguments(path: string): Promise<void> {
+  const raw = await readFile(path, "utf8");
+  let updated: string;
+  try {
+    const parts = parseMarkdown(raw, path);
+    const body = rewriteClaudePromptArguments(parts.body);
+    updated = body === parts.body ? raw : stringifyMarkdown(parts.frontmatter, body);
+  } catch {
+    updated = rewriteClaudePromptArguments(raw);
+  }
+  if (updated !== raw) await writeFile(path, updated);
+}
+
+function rewriteClaudePromptArguments(content: string): string {
+  const pattern = /\$ARGUMENTS(?:\[[0-9]+\]|\.[A-Za-z_][A-Za-z0-9_-]*|\b(?![\[.]))/gu;
+  let rewritten = "";
+  let cursor = 0;
+
+  for (const match of content.matchAll(pattern)) {
+    const token = match[0];
+    const index = match.index;
+    if (isAlreadySkillsetPromptArgument(content, index, index + token.length)) continue;
+    rewritten += content.slice(cursor, index);
+    rewritten += `{{${token}}}`;
+    cursor = index + token.length;
+  }
+
+  return `${rewritten}${content.slice(cursor)}`;
+}
+
+function isAlreadySkillsetPromptArgument(content: string, start: number, end: number): boolean {
+  const before = content.slice(Math.max(0, start - 4), start);
+  const after = content.slice(end, Math.min(content.length, end + 4));
+  return /\{\{\s*$/u.test(before) && /^\s*\}\}/u.test(after);
+}
+
 /**
  * Transform preview over the markdown the imports just landed: skill bodies
- * (frontmatter stripped) and verbatim instruction files. Bodies are never
- * rewritten; when a file has at least one transformable match, adopt
+ * (frontmatter stripped) and verbatim instruction files. Raw Claude
+ * `$ARGUMENTS` forms are normalized to Skillset prompt argument placeholders
+ * before preview; otherwise bodies are not rewritten. When a file has at least
+ * one transformable match, adopt
  * declares `dialect: claude` in its frontmatter so the build's Codex
  * projection lowers it through the transform engine. Files with only
  * no-lowering matches stay unmarked — nothing would translate.
@@ -445,7 +485,7 @@ async function buildTransformPreviews(
   for (const path of paths) {
     const raw = await readFile(join(rootPath, path), "utf8");
     const body = basename(path) === "SKILL.md" ? markdownBody(raw, path) : raw;
-    const matches = recognizeTransforms(body, "claude");
+    const matches = recognizeTransforms(maskSkillsetPromptArguments(body), "claude");
     if (matches.length === 0) continue;
     const transformable = matches.some((match) => match.lowering !== "none");
     const dialectDeclared = transformable
@@ -467,6 +507,13 @@ async function buildTransformPreviews(
     });
   }
   return previews;
+}
+
+function maskSkillsetPromptArguments(body: string): string {
+  return body.replaceAll(
+    /\{\{\s*\$ARGUMENTS(?:\[[0-9]+\]|\.[A-Za-z_][A-Za-z0-9_-]*|\b)\s*\}\}/gu,
+    ""
+  );
 }
 
 /**
@@ -603,7 +650,7 @@ export function renderAdoptReportMarkdown(
   if (report.transformPreviews.length > 0) {
     lines.push("## Transforms (preview)", "");
     lines.push(
-      "Bodies are untouched. Files with transformable constructs were marked `dialect: claude`; the build lowers their Codex projection through these forms.",
+      "Claude `$ARGUMENTS` forms are normalized to Skillset prompt argument placeholders. Other bodies are untouched. Files with transformable constructs were marked `dialect: claude`; the build lowers their Codex projection through these forms.",
       ""
     );
     for (const preview of report.transformPreviews) {
