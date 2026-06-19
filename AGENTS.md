@@ -13,7 +13,7 @@ Read [docs/tenets.md](docs/tenets.md) before changing the source contract, targe
 
 ## Responsibilities
 
-- Read adaptive source from a content repo's `.skillset/src/` directory, with workspace/build config in `.skillset/config.yaml`.
+- Read adaptive source from a content repo's `.skillset/src/` directory, with workspace/source config in `.skillset/skillset.yaml`.
 - Emit target-native plugin repositories under configured output roots, defaulting to `plugins-claude/` and `plugins-codex/`.
 - Emit standalone skills under configured target skill roots, defaulting to `.claude/skills` and `.agents/skills`.
 - Emit source instructions from `.skillset/src/rules/**/*.md` to Claude `.claude/rules/**/*.md` and Codex directory-local `AGENTS.md` files without overwriting unmanaged guidance.
@@ -78,5 +78,5 @@ bun ./apps/skillset/src/cli.ts doctor --root .
 - Do not publish this package or add a remote unless the maintainer explicitly asks.
 - Do not mutate user-level Claude or Codex config.
 - Do not install, trust, or symlink generated plugins or skills into global runtime locations.
-- Do not hand-edit `.claude/skills`, `.agents/skills`, `plugins-claude`, or `plugins-codex` as source truth; edit `.skillset/src/` for source or `.skillset/config.yaml` for workspace build config, then rebuild.
+- Do not hand-edit `.claude/skills`, `.agents/skills`, `plugins-claude`, or `plugins-codex` as source truth; edit `.skillset/src/` for source or `.skillset/skillset.yaml` for workspace config, then rebuild.
 - Keep this package focused on compilation, validation, import, and checks.
