@@ -10,7 +10,7 @@ Releases turn accepted source changes into stable artifact versions, generated c
 
 Release state lives with change state under the workspace change directory: `.skillset/changes/state.json` for ordinary workspaces and `changes/state.json` for dedicated skillset repos. Applied change history appends to `changes/history.jsonl` under the same workspace change directory, and release records append to `changes/releases.jsonl`. Entity-local `CHANGELOG.md` files are generated tracked renderings placed beside source entities like plugins and skills. Pending changes are preview/status data, not committed pending sections in tracked changelogs.
 
-Generated changelogs are reviewable projections, not editing surfaces. Before release, wording changes should update the pending entry with `skillset change reason <@ref>` and then rebuild. After release, source-change reason corrections should use the planned `skillset change amend <ref>` flow (SET-149), and release-event metadata or release-note corrections should use the planned `skillset release amend <ref>` flow (SET-150). Until those amend commands land, generated changelog drift points at the intended source-side path instead of silently accepting hand edits.
+Generated changelogs are reviewable projections, not editing surfaces. Before release, wording changes should update the pending entry with `skillset change reason <@ref>` and then rebuild. After release, source-change reason corrections use `skillset change amend <ref>`, and release-event metadata or release-note corrections use `skillset release amend <ref>`. Both commands append correction records under the workspace change directory, leaving original history auditable while generated changelog projections can be rebuilt from source-side state.
 
 ## Target Rendering
 
@@ -22,7 +22,7 @@ Generated changelogs are reviewable projections, not editing surfaces. Before re
 
 ## Diagnostics
 
-`skillset release plan` previews pending entries, ignored audit entries, derived release scopes, version changes, and source hashes without writing. `skillset release apply --yes` writes release state, consumes pending entries into append-only history, appends release records for non-ignored release scopes, refreshes generated changelogs, updates locks, and refreshes target outputs. Running `release apply` without `--yes` prints the plan and writes nothing; `--dry-run` is also write-free. Release commands reject build `--scope` until scoped release selection exists, because v1 apply consumes all pending entries and refreshes all generated outputs. Build metadata is not used as a public update strategy in v1 because target update behavior for build-metadata-only versions is unproven.
+`skillset release plan` previews pending entries, ignored audit entries, derived release scopes, version changes, and source hashes without writing. `skillset release apply --yes` writes release state, consumes pending entries into append-only history, appends release records for non-ignored release scopes, refreshes generated changelogs, updates locks, and refreshes target outputs. Running `release apply` without `--yes` prints the plan and writes nothing; `--dry-run` is also write-free. `skillset release amend <@ref> --reason ...` appends release-event notes to `changes/release-amendments.jsonl` without rewriting the original release record. Release commands reject build `--scope` until scoped release selection exists, because v1 apply consumes all pending entries and refreshes all generated outputs. Build metadata is not used as a public update strategy in v1 because target update behavior for build-metadata-only versions is unproven.
 
 ## Provenance
 
@@ -32,7 +32,7 @@ Package releases for the public `skillset` npm package are documented separately
 
 ## Tests and Fixtures
 
-Fixtures cover first release state creation, read-only plan and dry-run behavior, pending entry consumption, append-only history and release records, generated changelog refresh, generated changelog drift guidance, generated target version updates, release-state baseline behavior before and after commits, scoped release rejection, plugin aggregate bumps from child skill entries, plugin feature changelog rendering, malformed release-state validation, released deletion tombstones, `bump: none`, and `ignored: true` audit entries.
+Fixtures cover first release state creation, read-only plan and dry-run behavior, pending entry consumption, append-only history and release records, release amendments, generated changelog refresh, generated changelog drift guidance, generated target version updates, release-state baseline behavior before and after commits, scoped release rejection, plugin aggregate bumps from child skill entries, plugin feature changelog rendering, malformed release-state validation, released deletion tombstones, `bump: none`, and `ignored: true` audit entries.
 
 ## Evidence
 

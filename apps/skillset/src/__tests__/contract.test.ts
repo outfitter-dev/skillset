@@ -3637,7 +3637,8 @@ Body.
   expect(status.stdout).toContain("generated ~ .skillset/src/skills/demo/CHANGELOG.md");
   expect(status.stdout).toContain("generated CHANGELOG.md files are managed projections");
   expect(status.stdout).toContain("skillset change reason <@ref>");
-  expect(status.stdout).toContain("planned amend flow for released history");
+  expect(status.stdout).toContain("skillset change amend <@ref>");
+  expect(status.stdout).toContain("skillset release amend <@ref>");
 
   const diff = await runSkillsetCli("diff", "--root", root);
   expect(diff.exitCode).toBe(0);
@@ -3887,6 +3888,97 @@ Release the standalone skill body update with a patch version and generated chan
   await runGit(root, "commit", "-qm", "unreleased demo change");
   const unreleasedStatus = await changeStatus(root);
   expect(unreleasedStatus.sourceChanges.map((change) => change.id)).toContain("skill:demo");
+});
+
+test("SET-150: release amend appends release metadata corrections", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: release-amend-root
+claude: true
+codex: false
+`,
+    ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+version: 0.1.0
+---
+
+Body.
+`,
+  });
+  await commitFixture(root);
+
+  await Bun.write(
+    join(root, ".skillset/src/skills/demo/SKILL.md"),
+    "---\nname: demo\ndescription: Demo.\nversion: 0.1.0\n---\n\nChanged body for release amend.\n"
+  );
+  const status = await changeStatus(root, { since: "HEAD" });
+  const demo = status.sourceChanges.find((change) => change.id === "skill:demo");
+  await writePendingChange(root, "demo.md", `
+---
+id: bbbbccccdddd
+bump: patch
+scope: skill:demo
+evidence:
+  - scope: skill:demo
+    currentHash: ${demo?.currentHash}
+---
+
+Release the standalone skill body update before correcting release-event notes.
+`);
+
+  const applied = await runSkillsetCli("release", "apply", "--yes", "--root", root);
+  expect(applied.exitCode).toBe(0);
+  const [releaseRecord] = (await readFile(join(root, ".skillset/changes/releases.jsonl"), "utf8"))
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line) as { id: string });
+  expect(releaseRecord?.id).toBeDefined();
+  const ref = `@${releaseRecord!.id.slice(0, 6)}`;
+
+  const amended = await runSkillsetCli(
+    "release",
+    "amend",
+    ref,
+    "--root",
+    root,
+    "--reason",
+    "Corrected release-event notes after reviewing the generated changelog projection."
+  );
+  expect(amended.exitCode).toBe(0);
+  expect(amended.stdout).toContain(`skillset: amended release ${ref}`);
+  expect(amended.stdout).toContain("changes/release-amendments.jsonl");
+  expect(amended.stdout).toContain("Corrected release-event notes");
+  expect(amended.stdout).toContain("scope: skill: demo");
+
+  const amendments = await readFile(join(root, ".skillset/changes/release-amendments.jsonl"), "utf8");
+  expect(amendments).toContain(releaseRecord!.id);
+  expect(amendments).toContain("Corrected release-event notes");
+});
+
+test("SET-150: release amend rejects short release refs", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: short-release-ref-root
+claude: true
+codex: false
+`,
+  });
+
+  const amended = await runSkillsetCli(
+    "release",
+    "amend",
+    "@abc",
+    "--root",
+    root,
+    "--reason",
+    "Attempted release metadata correction with a ref that is intentionally too short."
+  );
+  expect(amended.exitCode).toBe(1);
+  expect(amended.stderr).toContain("must include at least 6 characters");
 });
 
 test("SET-111: release audit reports generated version drift without writing", async () => {

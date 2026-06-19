@@ -160,7 +160,7 @@ export function renderCiReportMarkdown(report: CiReport): string {
     if (hasGeneratedChangelogPath(report.fixedPaths)) {
       lines.push(
         "",
-        "Generated `CHANGELOG.md` files are managed projections. Edit pending wording with `skillset change reason <@ref>` before release; use the planned amend flow for released history instead of hand-editing generated changelogs."
+        "Generated `CHANGELOG.md` files are managed projections. Edit pending wording with `skillset change reason <@ref>` before release; use `skillset change amend <@ref>` for applied-history wording after release or `skillset release amend <@ref>` for release-event metadata instead of hand-editing generated changelogs."
       );
     }
     lines.push("", "These files were regenerated from source the same way `skillset build --yes` would. Commit the rebuilt output if it is not committed for you.", "");
@@ -175,7 +175,7 @@ export function renderCiReportMarkdown(report: CiReport): string {
     if (hasGeneratedChangelogDrift(report.drift)) {
       lines.push(
         "",
-        "Generated `CHANGELOG.md` files are managed projections. Edit pending wording with `skillset change reason <@ref>` before release; use the planned amend flow for released history instead of hand-editing generated changelogs."
+        "Generated `CHANGELOG.md` files are managed projections. Edit pending wording with `skillset change reason <@ref>` before release; use `skillset change amend <@ref>` for applied-history wording after release or `skillset release amend <@ref>` for release-event metadata instead of hand-editing generated changelogs."
       );
     }
     lines.push("", "Run `skillset build --yes`, review the generated diff, and commit it.", "");
