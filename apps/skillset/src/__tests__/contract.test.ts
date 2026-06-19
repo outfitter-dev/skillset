@@ -3646,6 +3646,89 @@ Body.
   expect(diff.stdout).toContain("generated CHANGELOG.md files are managed projections");
 });
 
+test("SET-151: suggest-source previews and writes clean generated skill body edits", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: source-suggestion-root
+claude: true
+codex: false
+`,
+    ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Original source body.
+`,
+  });
+  await buildSkillset(root);
+
+  const generatedPath = ".claude/skills/demo/SKILL.md";
+  await writeFile(
+    join(root, generatedPath),
+    "---\nname: demo\ndescription: Demo.\nmetadata:\n  generated: skillset@0.1.0\n---\n\nEdited generated body.\n",
+    "utf8"
+  );
+
+  const preview = await runSkillsetCli("suggest-source", generatedPath, "--root", root);
+  expect(preview.exitCode).toBe(0);
+  expect(preview.stdout).toContain("skillset: source suggestion suggestible");
+  expect(preview.stdout).toContain("source: .skillset/src/skills/demo/SKILL.md");
+  expect(preview.stdout).toContain("write: preview");
+  expect(preview.stdout).toContain("rerun with `--write --yes`");
+  await expect(readFile(join(root, ".skillset/src/skills/demo/SKILL.md"), "utf8")).resolves.toContain("Original source body.");
+
+  const writeAttempt = await runSkillsetCli("suggest-source", generatedPath, "--write", "--root", root);
+  expect(writeAttempt.exitCode).toBe(1);
+  expect(writeAttempt.stderr).toContain("suggest-source --write requires --yes");
+
+  const written = await runSkillsetCli("suggest-source", generatedPath, "--write", "--yes", "--root", root);
+  expect(written.exitCode).toBe(0);
+  expect(written.stdout).toContain("skillset: source suggestion written");
+  expect(written.stdout).toContain("write: applied");
+  const source = await readFile(join(root, ".skillset/src/skills/demo/SKILL.md"), "utf8");
+  expect(source).toContain("Edited generated body.");
+  expect(source).not.toContain("metadata:");
+});
+
+test("SET-151: suggest-source refuses generated changelog edits", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: changelog-source-suggestion-root
+claude: true
+codex: false
+`,
+    ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await writeHistory(root, [
+    {
+      id: "111111aaaaaa",
+      bump: "patch",
+      scope: "skill:demo",
+      reason: "Generated changelog content comes from applied history.",
+      evidence: [{ scope: "skill:demo", sourceHash: "sha256:one" }],
+    },
+  ]);
+  await buildSkillset(root);
+
+  const refused = await runSkillsetCli("suggest-source", ".skillset/src/skills/demo/CHANGELOG.md", "--root", root);
+  expect(refused.exitCode).toBe(1);
+  expect(refused.stdout).toContain("source suggestion refused");
+  expect(refused.stdout).toContain("Generated changelogs are managed projections");
+  expect(refused.stdout).toContain("skillset change amend <@ref>");
+  expect(refused.stdout).toContain("skillset release amend <@ref>");
+});
+
 test("SET-37: plugin changelog aggregates child skill applied records", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `

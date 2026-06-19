@@ -23,7 +23,9 @@ import {
   explainPath,
   listFeatureCapabilities,
   listGeneratedEntries,
+  suggestSource,
   type FeatureCapability,
+  type SourceSuggestionReport,
 } from "./authoring";
 import { ciSkillset, hasDrift, renderCiReportMarkdown, type CiReport } from "./ci";
 import { printDiagnostics, printDiffPlan, printGeneratedChangelogDriftHint, printGeneratedChangelogPathHint } from "./cli-renderers";
@@ -52,7 +54,7 @@ import { renderValidatedJson } from "./structured-output";
 import { runSkillsetTest, type SkillsetTestReport } from "./test-runner";
 import type { BuildScope, CompileBuildMode, JsonRecord, SkillsetOptions, SourceOrigin, TargetName } from "./types";
 
-type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "diff" | "distribute" | "doctor" | "explain" | "features" | "hooks" | "import" | "init" | "lint" | "list" | "release" | "restore" | "test";
+type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "diff" | "distribute" | "doctor" | "explain" | "features" | "hooks" | "import" | "init" | "lint" | "list" | "release" | "restore" | "suggest-source" | "test";
 type DistributionSubcommand = "plan";
 
 const USAGE = [
@@ -74,6 +76,7 @@ const USAGE = [
   "       skillset release apply [--yes|--dry-run] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset release amend <@ref> [--reason <text>|--reason-file <path>|--reason -] [--root <path>]",
   "       skillset restore <backup-id> [--yes|--dry-run] [--root <path>]",
+  "       skillset suggest-source <generated-path> [--write --yes] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset distribute plan [name] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset features [feature-id] [--json]",
   "       skillset test [name] [--root <path>] [--source <dir>]",
@@ -134,6 +137,7 @@ export async function runCli(
     setupGlobal,
     setupIncludes,
     setupTargets,
+    sourceSuggestionWrite,
     testName,
     yes,
   } = parseArgs(args);
@@ -509,6 +513,19 @@ export async function runCli(
     return;
   }
 
+  if (command === "suggest-source") {
+    if (importPath === undefined) {
+      throw new Error("skillset: expected a generated path to suggest source");
+    }
+    const report = await suggestSource(rootPath, importPath, {
+      ...options,
+      write: sourceSuggestionWrite && yes,
+    });
+    printSourceSuggestion(report);
+    if (report.status === "refused") process.exitCode = 1;
+    return;
+  }
+
   if (command === "doctor") {
     // doctorSkillset carries source warnings in the structured report; the CLI
     // renders them below instead of relying on core operations to print.
@@ -615,6 +632,7 @@ interface ParsedArgs {
   readonly setupGlobal: boolean;
   readonly setupIncludes?: readonly SetupInclude[];
   readonly setupTargets?: readonly TargetName[];
+  readonly sourceSuggestionWrite: boolean;
   readonly testName?: string;
   readonly yes: boolean;
 }
@@ -672,6 +690,21 @@ function printChangeCheck(report: ChangeCheckReport): void {
   }
   console.log(`skillset: change check found ${errors} error${errors === 1 ? "" : "s"} and ${warnings} warning${warnings === 1 ? "" : "s"}`);
   process.exitCode = 1;
+}
+
+function printSourceSuggestion(report: SourceSuggestionReport): void {
+  console.log(`skillset: source suggestion ${report.status} ${report.generatedPath}`);
+  if (report.sourcePath !== undefined) console.log(`  source: ${report.sourcePath}`);
+  if (report.lockPath !== undefined) console.log(`  lock: ${report.lockPath}`);
+  console.log(`  message: ${report.message}`);
+  if (report.wouldWrite) console.log(`  write: ${report.wrote ? "applied" : "preview"}`);
+  for (const entry of report.entries) {
+    console.log(`  owner: [${entry.target}] ${entry.kind ?? "generated"} ${entry.sourcePath} -> ${entry.outputPath}`);
+  }
+  if (report.nextSteps.length > 0) {
+    console.log("  next:");
+    for (const step of report.nextSteps) console.log(`    ${step}`);
+  }
 }
 
 function printChangeStatus(report: ChangeStatusReport): void {
@@ -1052,10 +1085,11 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     command !== "list" &&
     command !== "release" &&
     command !== "restore" &&
+    command !== "suggest-source" &&
     command !== "test"
   ) {
     throw new Error(
-        "skillset: expected command adopt, build, change, check, ci, create, diff, distribute, doctor, explain, features, hooks, import, init, lint, list, release, restore, or test\n" +
+        "skillset: expected command adopt, build, change, check, ci, create, diff, distribute, doctor, explain, features, hooks, import, init, lint, list, release, restore, suggest-source, or test\n" +
         USAGE
     );
   }
@@ -1099,6 +1133,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let setupGlobal = false;
   let setupIncludes: readonly SetupInclude[] | undefined;
   let setupTargets: readonly TargetName[] | undefined;
+  let sourceSuggestionWrite = false;
   let testName: string | undefined;
   let yes = false;
   let index = 1;
@@ -1187,10 +1222,10 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     }
   }
 
-  if (command === "explain") {
+  if (command === "explain" || command === "suggest-source") {
     const rawPath = args[index];
     if (rawPath === undefined || rawPath.startsWith("--")) {
-      throw new Error("skillset: expected a path to explain");
+      throw new Error(`skillset: expected a path to ${command}`);
     }
     importPath = rawPath;
     index += 1;
@@ -1258,7 +1293,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--target" &&
       flag !== "--agent-runtime" &&
       flag !== "--pre-commit" &&
-      flag !== "--pre-push"
+      flag !== "--pre-push" &&
+      flag !== "--write"
     ) {
       throw new Error(`skillset: unknown option ${arg}`);
     }
@@ -1276,7 +1312,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag === "--json" ||
       flag === "--agent-runtime" ||
       flag === "--pre-commit" ||
-      flag === "--pre-push"
+      flag === "--pre-push" ||
+      flag === "--write"
     ) {
       if (inlineValue !== undefined) throw new Error(`skillset: ${flag} does not take a value`);
       if (flag === "--yes") yes = true;
@@ -1292,6 +1329,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       if (flag === "--agent-runtime") hookAgentRuntime = true;
       if (flag === "--pre-commit") hookPreCommit = true;
       if (flag === "--pre-push") hookPrePush = true;
+      if (flag === "--write") sourceSuggestionWrite = true;
       continue;
     }
 
@@ -1443,6 +1481,14 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(scopes === undefined ? {} : { scopes }),
     ...(sourceDir === undefined ? {} : { sourceDir }),
   });
+  validateSuggestSourceFlags(command, {
+    ...(buildMode === undefined ? {} : { buildMode }),
+    ...(changeSince === undefined ? {} : { changeSince }),
+    dryRun,
+    ...(scopes === undefined ? {} : { scopes }),
+    write: sourceSuggestionWrite,
+    yes,
+  });
 
   const options: SkillsetOptions = {
     ...(buildMode === undefined ? {} : { buildMode }),
@@ -1489,6 +1535,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     setupGlobal,
     ...(setupIncludes === undefined ? {} : { setupIncludes }),
     ...(setupTargets === undefined ? {} : { setupTargets }),
+    sourceSuggestionWrite,
     ...(testName === undefined ? {} : { testName }),
     yes,
   };
@@ -1708,6 +1755,29 @@ function validateRestoreFlags(
   ) {
     throw new Error("skillset: restore only supports --root, --yes, and --dry-run");
   }
+}
+
+function validateSuggestSourceFlags(
+  command: Command,
+  suggestion: {
+    readonly buildMode?: CompileBuildMode;
+    readonly changeSince?: string;
+    readonly dryRun: boolean;
+    readonly scopes?: readonly BuildScope[];
+    readonly write: boolean;
+    readonly yes: boolean;
+  }
+): void {
+  if (suggestion.write && command !== "suggest-source") {
+    throw new Error("skillset: --write is only supported with suggest-source");
+  }
+  if (command !== "suggest-source") return;
+  if (suggestion.buildMode !== undefined) throw new Error("skillset: --updated and --all are not supported with suggest-source");
+  if (suggestion.changeSince !== undefined) throw new Error("skillset: --since is not supported with suggest-source");
+  if (suggestion.dryRun) throw new Error("skillset: --dry-run is redundant for suggest-source preview mode");
+  if (suggestion.scopes !== undefined) throw new Error("skillset: --scope is not supported with suggest-source");
+  if (suggestion.yes && !suggestion.write) throw new Error("skillset: --yes is only supported with suggest-source --write");
+  if (suggestion.write && !suggestion.yes) throw new Error("skillset: suggest-source --write requires --yes");
 }
 
 function setBuildMode(current: CompileBuildMode | undefined, next: CompileBuildMode): CompileBuildMode {
