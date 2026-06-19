@@ -760,6 +760,11 @@ function printCiReport(report: CiReport): void {
   for (const path of drift.missing) console.log(`  generated ! ${path}`);
   for (const path of drift.removed) console.log(`  generated - ${path}`);
   printGeneratedChangelogDriftHint(drift);
+  for (const suggestion of report.sourceSuggestions ?? []) {
+    console.log(`  source suggestion ${suggestion.status}: ${suggestion.generatedPath}`);
+    if (suggestion.sourcePath !== undefined) console.log(`    source: ${suggestion.sourcePath}`);
+    console.log(`    ${suggestion.message}`);
+  }
   if (report.buildError !== undefined) {
     console.log(`  build error: ${report.buildError}`);
   }

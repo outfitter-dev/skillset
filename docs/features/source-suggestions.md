@@ -60,14 +60,15 @@ Both need reviewable previews, stable ids, conflict checks, and refusal paths, b
 
 ## CI Path
 
-[SET-152](https://linear.app/outfitter/issue/SET-152/design-ci-source-suggestion-writeback-for-managed-generated-edits) owns the future CI writeback design. The intended path is:
+[SET-152](https://linear.app/outfitter/issue/SET-152/design-ci-source-suggestion-writeback-for-managed-generated-edits) adds CI-side source suggestion diagnostics and keeps automated writeback as a future permissioned step. The intended path is:
 
 1. `skillset ci` detects a PR edit to a managed generated path.
 2. CI resolves the owning source unit from `.skillset.lock`.
-3. CI runs the same safety classification as `skillset suggest-source`.
-4. For unsafe or ambiguous cases, CI comments with the source path, reason for refusal, and manual command.
-5. For safe same-repo cases, CI may commit a source update plus regenerated output back to the PR branch only after permission, branch freshness, and conflict checks pass.
-6. Meaningful source edits still require normal change-entry coverage.
+3. CI runs the same safety classification as `skillset suggest-source` for added and changed generated paths.
+4. For unsafe or ambiguous cases, CI reports the source path, reason for refusal, and manual command in the job summary or PR comment.
+5. For clean cases, CI reports the suggested source path and local `skillset suggest-source <path> --write --yes` recovery command; it does not write source automatically in v1.
+6. Future safe same-repo writeback may commit a source update plus regenerated output back to the PR branch only after permission, branch freshness, and conflict checks pass.
+7. Meaningful source edits still require normal change-entry coverage.
 
 Fork PRs, protected branches, stale branches, corrupt locks, concurrent pushes, and multi-source renderings should all fall back to comment-only diagnostics.
 

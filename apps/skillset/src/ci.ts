@@ -1,5 +1,6 @@
 import { changeCheck, type ChangeCheckIssue } from "./change-entries";
 import { buildSkillset, diffSkillset, type SkillsetDiff } from "./build";
+import { suggestSource, type SourceSuggestionReport } from "./authoring";
 import { inspectSkillset } from "./lint";
 import { loadBuildGraph } from "./resolver";
 import type { LintIssue, SkillsetOptions } from "./types";
@@ -23,6 +24,7 @@ export interface CiReport {
   readonly fixedPaths: readonly string[];
   readonly lintIssues: readonly LintIssue[];
   readonly ok: boolean;
+  readonly sourceSuggestions?: readonly SourceSuggestionReport[];
   readonly warnings: readonly string[];
 }
 
@@ -73,6 +75,9 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
 
   const changeErrors = changeIssues.filter((issue) => issue.severity === "error");
   const lintErrors = lintIssues.filter((issue) => issue.severity === "error");
+  const sourceSuggestions = buildError === undefined && hasDrift(drift)
+    ? await sourceSuggestionsForDrift(rootPath, drift, buildOptions)
+    : [];
 
   // Rebuild only when drift is the sole problem: lint errors, change-entry
   // errors, or a build error mean the source is not trustworthy, and an
@@ -111,6 +116,7 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
       lintErrors.length === 0 &&
       changeErrors.length === 0 &&
       !hasDrift(drift),
+    ...(sourceSuggestions.length === 0 ? {} : { sourceSuggestions }),
     warnings,
   };
 }
@@ -181,6 +187,16 @@ export function renderCiReportMarkdown(report: CiReport): string {
     lines.push("", "Run `skillset build --yes`, review the generated diff, and commit it.", "");
   }
 
+  if (report.sourceSuggestions !== undefined && report.sourceSuggestions.length > 0) {
+    lines.push("### Source suggestions", "");
+    for (const suggestion of report.sourceSuggestions) {
+      const source = suggestion.sourcePath === undefined ? "" : ` source \`${suggestion.sourcePath}\``;
+      lines.push(`- ${suggestion.status}: \`${suggestion.generatedPath}\`${source}: ${suggestion.message}`);
+      for (const step of suggestion.nextSteps) lines.push(`  - ${step}`);
+    }
+    lines.push("");
+  }
+
   if (lintErrors.length > 0) {
     lines.push("### Lint issues", "");
     for (const issue of lintErrors) {
@@ -229,6 +245,31 @@ function hasGeneratedChangelogDrift(diff: SkillsetDiff): boolean {
 
 function hasGeneratedChangelogPath(paths: readonly string[]): boolean {
   return paths.some((path) => path.endsWith("/CHANGELOG.md") || path === "CHANGELOG.md");
+}
+
+async function sourceSuggestionsForDrift(
+  rootPath: string,
+  drift: SkillsetDiff,
+  options: SkillsetOptions
+): Promise<readonly SourceSuggestionReport[]> {
+  const paths = [...new Set([...drift.added, ...drift.changed])];
+  const reports: SourceSuggestionReport[] = [];
+  for (const path of paths) {
+    try {
+      reports.push(await suggestSource(rootPath, path, options));
+    } catch (error) {
+      reports.push({
+        entries: [],
+        generatedPath: path,
+        message: errorMessage(error),
+        nextSteps: ["Run `skillset explain <path>` and update the owning source manually."],
+        status: "refused",
+        wouldWrite: false,
+        wrote: false,
+      });
+    }
+  }
+  return reports;
 }
 
 function errorMessage(error: unknown): string {

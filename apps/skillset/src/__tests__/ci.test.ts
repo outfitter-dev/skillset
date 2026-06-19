@@ -54,9 +54,13 @@ test("ci reports generated drift without writing when fix is off", async () => {
   expect(report.ok).toBe(false);
   expect(report.drift.changed).toEqual([GENERATED_SKILL]);
   expect(report.fixedPaths).toEqual([]);
+  expect(report.sourceSuggestions?.[0]?.status).toBe("suggestible");
+  expect(report.sourceSuggestions?.[0]?.sourcePath).toBe(".skillset/src/skills/demo/SKILL.md");
   expect(await readFile(generatedPath, "utf8")).toBe(edited);
   const markdown = renderCiReportMarkdown(report);
   expect(markdown).toContain("### Stale generated output");
+  expect(markdown).toContain("### Source suggestions");
+  expect(markdown).toContain("Generated Markdown body can be moved back to the source file");
   expect(markdown).toContain("skillset build --yes");
 });
 
@@ -91,6 +95,7 @@ test("ci --fix rebuilds drifted generated output mechanically", async () => {
   const markdown = renderCiReportMarkdown(report);
   expect(markdown).toContain("### Rebuilt generated output");
   expect(markdown).toContain("rebuilt mechanically");
+  expect(markdown).toContain("### Source suggestions");
 });
 
 test("ci --fix explains rebuilt generated changelog drift", async () => {
