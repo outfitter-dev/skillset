@@ -45,7 +45,7 @@ test("runtime hook source paths include source, shared, and pending change entri
     "skillset/plugins",
     "skillset/shared",
     "skillset",
-    "changes/pending",
+    "changes",
     ".skillset/skillset.yaml",
     ".skillset/config.yaml",
     ".skillset/src/rules",
@@ -53,7 +53,7 @@ test("runtime hook source paths include source, shared, and pending change entri
     ".skillset/src/plugins",
     ".skillset/src/shared",
     ".skillset/src",
-    ".skillset/changes/pending",
+    ".skillset/changes",
   ]);
 });
 
@@ -242,7 +242,7 @@ function sourceGate(
 async function gitFixture(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "skillset-hooks-run-"));
   await mkdir(join(root, ".skillset/src/_claude"), { recursive: true });
-  await mkdir(join(root, ".skillset/changes/pending"), { recursive: true });
+  await mkdir(join(root, ".skillset/changes"), { recursive: true });
   await writeFile(join(root, ".skillset/config.yaml"), "skillset:\n  schema: 1\n");
   await writeFile(join(root, ".skillset/src/_claude/settings.json"), "{\"hooks\":{}}\n");
   await writeFile(join(root, "README.md"), "initial\n");

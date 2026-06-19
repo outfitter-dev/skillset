@@ -23,7 +23,7 @@ The change and release model separates content identity, authored reason, releas
 Adopt a source-first change and release model with these v1 surfaces:
 
 - Normalized source-unit hashes identify meaningful source content and dependency inputs.
-- Pending change entries live under `.skillset/changes/pending/`.
+- Pending change entries live under `.skillset/changes/`.
 - Applied change history and release records are append-only state, such as `.skillset/changes/history.jsonl` and `.skillset/changes/releases.jsonl`.
 - Entity-local `CHANGELOG.md` files are generated, tracked projections with generated frontmatter.
 - Pending changes are visible through CLI status/preview, not committed pending sections in tracked changelog files.

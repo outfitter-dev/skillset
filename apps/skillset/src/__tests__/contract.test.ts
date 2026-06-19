@@ -1824,8 +1824,8 @@ Unstaged body.
   const stagedStatus = await changeStatus(root, { staged: true });
   const demoHash = stagedStatus.sourceChanges.find((change) => change.id === "skill:demo")?.currentHash;
   expect(demoHash).toBeDefined();
-  await mkdir(join(root, ".skillset/changes/pending"), { recursive: true });
-  const pendingPath = join(root, ".skillset/changes/pending/demo.md");
+  await mkdir(join(root, ".skillset/changes"), { recursive: true });
+  const pendingPath = join(root, ".skillset/changes/demo.md");
   await writeFile(pendingPath, `---
 id: abcdef123456
 scope: skill:demo
@@ -1888,8 +1888,8 @@ Changed body.
   const stagedStatus = await changeStatus(root, { staged: true });
   const demoHash = stagedStatus.sourceChanges.find((change) => change.id === "skill:demo")?.currentHash;
   expect(demoHash).toBeDefined();
-  await mkdir(join(root, ".skillset/changes/pending"), { recursive: true });
-  const pendingPath = join(root, ".skillset/changes/pending/demo.md");
+  await mkdir(join(root, ".skillset/changes"), { recursive: true });
+  const pendingPath = join(root, ".skillset/changes/demo.md");
   await writeFile(pendingPath, `---
 id: abcdef123456
 scope: skill:demo
@@ -2797,6 +2797,58 @@ Grouped documentation-only edits are intentionally ignored for release planning 
   expect(checked.stdout).toContain("change check passed");
 });
 
+test("SET-144: flat pending entries coexist with change ledger JSON files", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: flat-change-root
+claude: true
+codex: false
+`,
+    ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await commitFixture(root);
+
+  await Bun.write(join(root, ".skillset/src/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n");
+  const report = await changeStatus(root, { since: "HEAD" });
+  const demo = report.sourceChanges.find((change) => change.id === "skill:demo");
+  expect(demo?.currentHash).toBeDefined();
+  const changesPath = join(root, ".skillset/changes");
+  await mkdir(changesPath, { recursive: true });
+  await writeFile(join(changesPath, "state.json"), JSON.stringify({ scopes: {} }), "utf8");
+  await writeFile(join(changesPath, "history.jsonl"), "", "utf8");
+  await writeFile(join(changesPath, "releases.jsonl"), "", "utf8");
+  await writePendingChange(root, "demo.md", `
+---
+id: aaaabb123456
+bump: patch
+scope: skill:demo
+evidence:
+  - scope: skill:demo
+    currentHash: ${demo?.currentHash}
+---
+
+Flat pending Markdown entries coexist with JSON ledger files in the same change directory.
+`);
+
+  const checked = await runSkillsetCli("change", "check", "--root", root, "--since", "HEAD");
+  expect(checked.exitCode).toBe(0);
+  expect(checked.stdout).toContain("change check passed");
+
+  const listed = await runSkillsetCli("change", "list", "--root", root);
+  expect(listed.exitCode).toBe(0);
+  expect(listed.stdout).toContain("@aaaabb");
+  expect(listed.stdout).not.toContain("history.jsonl");
+  expect(listed.stdout).not.toContain("state.json");
+});
+
 test("SET-114: repeated pending entries can share current evidence for stacked changes", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `
@@ -2856,7 +2908,7 @@ Second stacked branch reason also points at the final source state deliberately.
   expect(checked.exitCode).toBe(0);
   expect(checked.stdout).toContain("stacked evidence: skill: demo");
   expect(checked.stdout).toContain("shared by 2 pending entries");
-  expect(checked.stdout).toContain(".skillset/changes/pending/first.md, .skillset/changes/pending/second.md");
+  expect(checked.stdout).toContain(".skillset/changes/first.md, .skillset/changes/second.md");
   expect(checked.stdout).not.toContain("shared by 3 pending entries");
   expect(checked.stdout).not.toContain("sha256:older-supplemental");
   expect(checked.stdout).toContain("change check passed");
@@ -3217,9 +3269,9 @@ Body.
   expect(show.stdout).toContain("Initial reason describing");
   expect(show.stdout).toContain("Also documented the fallback build path");
 
-  const files = await readdir(join(root, ".skillset/changes/pending"));
+  const files = (await readdir(join(root, ".skillset/changes"))).filter((file) => file.endsWith(".md"));
   expect(files).toHaveLength(1);
-  const pending = await readFile(join(root, ".skillset/changes/pending", files[0] ?? ""), "utf8");
+  const pending = await readFile(join(root, ".skillset/changes", files[0] ?? ""), "utf8");
   expect(pending).toMatch(new RegExp(`id: "?${id}`));
 });
 
@@ -3360,7 +3412,7 @@ description: Demo.
 Body.
 `,
   });
-  await mkdir(join(root, ".skillset/changes/pending"), { recursive: true });
+  await mkdir(join(root, ".skillset/changes"), { recursive: true });
   await writePendingChange(root, "abcdef123456.md", `
 ---
 id: abcdef123456
@@ -3617,7 +3669,7 @@ Release the standalone skill body update with a patch version and generated chan
   const applied = await runSkillsetCli("release", "apply", "--yes", "--root", root);
   expect(applied.exitCode).toBe(0);
   expect(applied.stdout).toContain("skillset: applied release");
-  expect(await Bun.file(join(root, ".skillset/changes/pending/demo.md")).exists()).toBe(false);
+  expect(await Bun.file(join(root, ".skillset/changes/demo.md")).exists()).toBe(false);
 
   const state = JSON.parse(await readFile(join(root, ".skillset/changes/state.json"), "utf8")) as {
     scopes: Record<string, { version: string; sourceHash: string }>;
@@ -6058,7 +6110,7 @@ async function contractFixture(files: Record<string, string>): Promise<string> {
 }
 
 async function writePendingChange(root: string, filename: string, content: string): Promise<void> {
-  const pendingPath = join(root, ".skillset/changes/pending");
+  const pendingPath = join(root, ".skillset/changes");
   await mkdir(pendingPath, { recursive: true });
   await writeFile(join(pendingPath, filename), `${content.trim()}\n`, "utf8");
 }

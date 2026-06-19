@@ -70,7 +70,7 @@ interface ChangeValidationContext {
   readonly validScopeIds: ReadonlySet<string>;
 }
 
-const PENDING_DIR = "changes/pending";
+const PENDING_DIR = "changes";
 const DEFAULT_REASON_MIN_LENGTH = 40;
 const CHANGE_ID_PATTERN = /^[0-9a-f]{12}$/;
 const CHANGE_REF_MIN_LENGTH = 6;
