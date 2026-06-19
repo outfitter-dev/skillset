@@ -34,7 +34,9 @@ Stacked branches may produce multiple pending entries for the same source unit. 
 
 `change check` also warns when an entry declares `bump: none` for an added, removed, or severity-bearing source unit. `supports` edits remain source-significant but are not inherently severity-bearing. Source coverage diagnostics stay separate from generated-output drift.
 
-`skillset change add` writes pending entries non-interactively from `--reason`, `--reason-file`, `--reason -`, or piped stdin. `skillset change reason` updates or appends to a pending reason without changing the generated id. `skillset change list` prints copyable refs and supports `--group` filtering. `skillset change show` resolves pending entries before applied history. `skillset change history` reads applied history records and stays distinct from status.
+`skillset change add` writes pending entries non-interactively from `--reason`, `--reason-file`, `--reason -`, or piped stdin. `skillset change reason` updates or appends to a pending reason without changing the generated id. That command is the pre-release correction path for generated changelog wording: edit the pending reason, rebuild, and let Skillset refresh entity-local `CHANGELOG.md` projections. `skillset change list` prints copyable refs and supports `--group` filtering. `skillset change show` resolves pending entries before applied history. `skillset change history` reads applied history records and stays distinct from status.
+
+After release, applied change history is append-only. Post-release wording corrections should use the planned `skillset change amend <ref>` flow, tracked in SET-149, so the original applied entry remains auditable and generated changelog projections are regenerated from a ledger correction. Release-event metadata or release-note corrections belong to the planned `skillset release amend <ref>` flow, tracked in SET-150, rather than to `change reason`.
 
 ## Provenance
 
@@ -44,7 +46,7 @@ Change entries participate in source provenance because they explain current sou
 
 ## Tests and Fixtures
 
-Fixtures cover unchanged deterministic status, body edits, source-only support/dependency metadata edits, plugin child edits that affect aggregate plugin identity without a version bump, child plugin coverage of aggregate plugin changes, partial dependency hashing, read-only CLI behavior, generated-output drift separation, pending-entry coverage failures, multi-scope pending entries, repeated stacked entries for one current source hash, invalid pending entry diagnostics, ambiguous ref resolution, reason file/stdin input, append behavior, group filters, show output, and history lookup.
+Fixtures cover unchanged deterministic status, body edits, source-only support/dependency metadata edits, plugin child edits that affect aggregate plugin identity without a version bump, child plugin coverage of aggregate plugin changes, partial dependency hashing, read-only CLI behavior, generated-output drift separation, generated changelog drift guidance, pending-entry coverage failures, multi-scope pending entries, repeated stacked entries for one current source hash, invalid pending entry diagnostics, ambiguous ref resolution, reason file/stdin input, append behavior, group filters, show output, and history lookup.
 
 ## Evidence
 

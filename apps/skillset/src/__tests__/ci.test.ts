@@ -60,6 +60,21 @@ test("ci reports generated drift without writing when fix is off", async () => {
   expect(markdown).toContain("skillset build --yes");
 });
 
+test("ci report explains generated changelog drift", () => {
+  const markdown = renderCiReportMarkdown({
+    changeIssues: [],
+    drift: { added: [], changed: [".skillset/src/skills/demo/CHANGELOG.md"], missing: [], removed: [] },
+    fixedPaths: [],
+    lintIssues: [],
+    ok: false,
+    warnings: [],
+  });
+
+  expect(markdown).toContain("Generated `CHANGELOG.md` files are managed projections");
+  expect(markdown).toContain("skillset change reason <@ref>");
+  expect(markdown).toContain("planned amend flow for released history");
+});
+
 test("ci --fix rebuilds drifted generated output mechanically", async () => {
   const root = await builtFixture();
   const generatedPath = join(root, GENERATED_SKILL);
@@ -75,6 +90,26 @@ test("ci --fix rebuilds drifted generated output mechanically", async () => {
   const markdown = renderCiReportMarkdown(report);
   expect(markdown).toContain("### Rebuilt generated output");
   expect(markdown).toContain("rebuilt mechanically");
+});
+
+test("ci --fix explains rebuilt generated changelog drift", async () => {
+  const root = await changelogFixture();
+  const changelogPath = join(root, ".skillset/src/skills/demo/CHANGELOG.md");
+  const original = await readFile(changelogPath, "utf8");
+  await writeFile(changelogPath, `${original}\nhand edit\n`);
+  const reportPath = join(root, "ci-report.md");
+
+  const result = await runSkillsetCli("ci", "--fix", "--root", root, "--since", "HEAD", "--report", reportPath);
+
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout).toContain("fixed .skillset/src/skills/demo/CHANGELOG.md");
+  expect(result.stdout).toContain("generated CHANGELOG.md files are managed projections");
+  expect(await readFile(changelogPath, "utf8")).toBe(original);
+  const markdown = await readFile(reportPath, "utf8");
+  expect(markdown).toContain("### Rebuilt generated output");
+  expect(markdown).not.toContain("No source changes are needed");
+  expect(markdown).toContain("Generated `CHANGELOG.md` files are managed projections");
+  expect(markdown).toContain("skillset change reason <@ref>");
 });
 
 test("ci --fix leaves drift untouched when change entries are missing", async () => {
@@ -289,6 +324,22 @@ test("init --include rejects unknown values and non-setup commands", async () =>
 
 async function builtFixture(): Promise<string> {
   const root = await fixture(DEMO_FIXTURE);
+  await commitFixture(root);
+  await buildSkillset(root);
+  return root;
+}
+
+async function changelogFixture(): Promise<string> {
+  const root = await fixture(DEMO_FIXTURE);
+  await writeRawFiles(root, {
+    ".skillset/changes/history.jsonl": `${JSON.stringify({
+      bump: "patch",
+      evidence: [{ scope: "skill:demo", sourceHash: "sha256:one" }],
+      id: "111111aaaaaa",
+      reason: "Clarified the standalone skill behavior for CI drift.",
+      scope: "skill:demo",
+    })}`,
+  });
   await commitFixture(root);
   await buildSkillset(root);
   return root;
