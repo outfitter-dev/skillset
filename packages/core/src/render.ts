@@ -29,7 +29,11 @@ import {
   readCodexToolMetadata,
   readImplicitInvocation,
 } from "./skill-policy";
-import { preprocessText } from "./preprocess";
+import {
+  formatPreprocessDependency,
+  preprocessText,
+  readPreprocessDependencySync,
+} from "./preprocess";
 import { renderChangelogProjections, type ChangelogProjection } from "./changelog";
 import {
   renderValidatedJson,
@@ -134,6 +138,12 @@ interface RenderedIslandFile {
 interface RenderedProjectAgentFile {
   readonly file: RenderedFile;
   readonly preprocessDependencies: readonly string[];
+}
+
+interface RenderedRuleMarkdown {
+  readonly content: string;
+  readonly preprocessDependencies: readonly string[];
+  readonly transforms?: readonly AppliedTransform[];
 }
 
 export async function renderBuildGraph(graph: BuildGraph): Promise<readonly RenderedFile[]> {
@@ -525,7 +535,7 @@ async function renderPluginSkillFiles(
     targetSkillDir
   );
   const generatedCodexRelativeFiles = new Set(
-    [generatedCodexAgentFile, generatedCodexToolsFile]
+    [generatedCodexAgentFile?.file, generatedCodexToolsFile]
       .filter((file): file is RenderedFile => file !== undefined)
       .map((file) => relative(targetSkillDir, file.path))
   );
@@ -546,7 +556,7 @@ async function renderPluginSkillFiles(
   if (generatedCodexAgentFile !== undefined) {
     pushSkillRenderedFile(
       rendered,
-      generatedCodexAgentFile,
+      generatedCodexAgentFile.file,
       targetSkillDir,
       renderedRelativeFiles,
       `${skill.sourcePath}.agents/openai.yaml`
@@ -587,6 +597,7 @@ async function renderPluginSkillFiles(
       kind: "plugin-skill",
       outputRoot,
       plugin,
+      preprocessDependencies: skillPreprocessDependencies(skillMarkdown, generatedCodexAgentFile),
       skill,
       sourceDir,
       transforms: skillMarkdown.transforms,
@@ -733,8 +744,11 @@ async function renderCodexProjectAgentInstructions(
   return `${sections.filter((section) => section.trim().length > 0).join("\n\n")}\n`;
 }
 
-function projectAgentPreprocessDependencies(graph: BuildGraph, dependencies: ReadonlySet<string>): readonly string[] {
-  return [...dependencies].sort(compareStrings).map((path) => relative(graph.rootPath, path));
+function projectAgentPreprocessDependencies(
+  graph: BuildGraph,
+  dependencies: ReadonlySet<string>
+): readonly string[] {
+  return formattedPreprocessDependencies(graph, dependencies);
 }
 
 function renderCodexSkillsPreface(targetOptions: JsonRecord, skills: readonly string[]): string {
@@ -814,7 +828,7 @@ async function renderIslandFile(
     const content = await renderTextIslandFile(graph, island, targetPath, preprocessDependencies);
     return {
       file: textFile(targetPath, content, relative(graph.rootPath, island.sourcePath)),
-      preprocessDependencies: [...preprocessDependencies].sort(compareStrings).map((path) => relative(graph.rootPath, path)),
+      preprocessDependencies: formattedPreprocessDependencies(graph, preprocessDependencies),
       validation: "structured",
     };
   }
@@ -907,7 +921,7 @@ async function renderStandaloneSkill(
     targetSkillDir
   );
   const generatedCodexRelativeFiles = new Set(
-    [generatedCodexAgentFile, generatedCodexToolsFile]
+    [generatedCodexAgentFile?.file, generatedCodexToolsFile]
       .filter((file): file is RenderedFile => file !== undefined)
       .map((file) => relative(targetSkillDir, file.path))
   );
@@ -928,7 +942,7 @@ async function renderStandaloneSkill(
   if (generatedCodexAgentFile !== undefined) {
     pushSkillRenderedFile(
       rendered,
-      generatedCodexAgentFile,
+      generatedCodexAgentFile.file,
       targetSkillDir,
       renderedRelativeFiles,
       `${skill.sourcePath}.agents/openai.yaml`
@@ -968,6 +982,7 @@ async function renderStandaloneSkill(
       graph,
       kind: "standalone-skill",
       outputRoot,
+      preprocessDependencies: skillPreprocessDependencies(skillMarkdown, generatedCodexAgentFile),
       skill,
       sourceDir,
       transforms: skillMarkdown.transforms,
@@ -1024,10 +1039,35 @@ function normalizeRenderedRelativePath(path: string): string {
   return path.replaceAll("\\", "/");
 }
 
+function formattedPreprocessDependencies(
+  graph: BuildGraph,
+  dependencies: ReadonlySet<string>
+): readonly string[] {
+  return [...dependencies]
+    .map((dependency) => formatPreprocessDependency(graph.rootPath, dependency))
+    .sort(compareStrings);
+}
+
 interface RenderedSkillMarkdown {
   readonly content: string;
+  readonly preprocessDependencies: readonly string[];
   /** Dialect transforms applied to the body (codex projections only). */
   readonly transforms: readonly AppliedTransform[];
+}
+
+interface RenderedSkillAuxiliaryFile {
+  readonly file: RenderedFile;
+  readonly preprocessDependencies: readonly string[];
+}
+
+function skillPreprocessDependencies(
+  markdown: RenderedSkillMarkdown,
+  auxiliary: RenderedSkillAuxiliaryFile | undefined
+): readonly string[] {
+  return [...new Set([
+    ...markdown.preprocessDependencies,
+    ...(auxiliary?.preprocessDependencies ?? []),
+  ])].sort(compareStrings);
 }
 
 async function renderSkillMarkdown(
@@ -1075,8 +1115,10 @@ async function renderSkillMarkdown(
       })
     : withTargetFrontmatter;
 
+  const preprocessDependencies = new Set<string>();
   const preprocessedBody = await preprocessText(skill.body, {
     frontmatter: skill.frontmatter,
+    preprocessDependencies,
     rootPath: graph.rootPath,
     sourcePath: skill.sourcePath,
     sourceRoot: graph.sourceRoot,
@@ -1101,6 +1143,7 @@ async function renderSkillMarkdown(
       translated.text,
       `${relative(graph.rootPath, skill.sourcePath)} -> ${target}`
     ),
+    preprocessDependencies: formattedPreprocessDependencies(graph, preprocessDependencies),
     transforms: translated.transforms,
   };
 }
@@ -1136,7 +1179,7 @@ async function renderCodexSkillAgentFile(
   target: TargetName,
   sourceDir: string,
   targetSkillDir: string
-): Promise<RenderedFile | undefined> {
+): Promise<RenderedSkillAuxiliaryFile | undefined> {
   if (target !== "codex") return undefined;
 
   const label = relative(graph.rootPath, skill.sourcePath);
@@ -1145,10 +1188,12 @@ async function renderCodexSkillAgentFile(
 
   const sourceOpenAiPath = join(sourceDir, "agents/openai.yaml");
   const hasSourceOpenAi = await exists(sourceOpenAiPath);
+  const preprocessDependencies = new Set<string>();
   const source = hasSourceOpenAi
     ? parseYamlRecord(
         await preprocessText(await readFile(sourceOpenAiPath, "utf8"), {
           frontmatter: skill.frontmatter,
+          preprocessDependencies,
           rootPath: graph.rootPath,
           sourcePath: sourceOpenAiPath,
           sourceRoot: graph.sourceRoot,
@@ -1158,11 +1203,14 @@ async function renderCodexSkillAgentFile(
       )
     : {};
   const merged = mergeRecords(source, generated);
-  return textFile(
-    join(targetSkillDir, "agents/openai.yaml"),
-    renderValidatedYaml(merged, `${relative(graph.rootPath, sourceOpenAiPath)} -> ${join(targetSkillDir, "agents/openai.yaml")}`),
-    relative(graph.rootPath, sourceOpenAiPath)
-  );
+  return {
+    file: textFile(
+      join(targetSkillDir, "agents/openai.yaml"),
+      renderValidatedYaml(merged, `${relative(graph.rootPath, sourceOpenAiPath)} -> ${join(targetSkillDir, "agents/openai.yaml")}`),
+      relative(graph.rootPath, sourceOpenAiPath)
+    ),
+    preprocessDependencies: formattedPreprocessDependencies(graph, preprocessDependencies),
+  };
 }
 
 function renderCodexSkillAgentConfig(skill: SourceSkill, label: string): JsonRecord {
@@ -1220,9 +1268,10 @@ async function renderClaudeRules(
 
   for (const rule of graph.rules.filter((sourceRule) => sourceRule.targets.claude.enabled)) {
     const targetFile = join(CLAUDE_RULES_OUTPUT_ROOT, rule.relativePath);
+    const markdown = await renderClaudeRuleMarkdown(graph, rule, targetFile);
     const file = textFile(
       targetFile,
-      await renderClaudeRuleMarkdown(graph, rule, targetFile),
+      markdown.content,
       relative(graph.rootPath, rule.sourcePath)
     );
     rendered.push(file);
@@ -1233,7 +1282,8 @@ async function renderClaudeRules(
         name: rule.id,
         outputRoot: CLAUDE_RULES_OUTPUT_ROOT,
         outputPath: targetFile,
-        sourceHash: hashTextRule(rule),
+        preprocessDependencies: markdown.preprocessDependencies,
+        sourceHash: hashTextRule(rule, markdown.preprocessDependencies, graph.rootPath),
         ...(rule.sourceOrigin === undefined ? {} : { sourceOrigin: rule.sourceOrigin }),
         sourcePath: relative(graph.rootPath, rule.sourcePath),
       })
@@ -1273,9 +1323,10 @@ async function renderCodexAgentsFiles(
         name: destination,
         outputRoot: WORKSPACE_LOCK_ROOT,
         outputPath: destination,
-        sourceHash: hashRules(rules),
+        preprocessDependencies: markdown.preprocessDependencies,
+        sourceHash: hashRules(rules, markdown.preprocessDependencies, graph.rootPath),
         sourcePath,
-        transforms: markdown.transforms,
+        ...(markdown.transforms === undefined ? {} : { transforms: markdown.transforms }),
       })
     );
   }
@@ -1283,17 +1334,26 @@ async function renderCodexAgentsFiles(
   return rendered;
 }
 
-async function renderClaudeRuleMarkdown(graph: BuildGraph, rule: SourceRule, outputPath: string): Promise<string> {
+async function renderClaudeRuleMarkdown(
+  graph: BuildGraph,
+  rule: SourceRule,
+  outputPath: string
+): Promise<RenderedRuleMarkdown> {
   const paths = readRulePaths(rule);
   const frontmatter: JsonRecord = paths.length === 0 ? {} : { paths: [...paths] };
-  return stringifyOptionalMarkdown(frontmatter, await renderRuleBody(graph, rule, outputPath));
+  const preprocessDependencies = new Set<string>();
+  const body = await renderRuleBody(graph, rule, outputPath, preprocessDependencies);
+  return {
+    content: stringifyOptionalMarkdown(frontmatter, body),
+    preprocessDependencies: formattedPreprocessDependencies(graph, preprocessDependencies),
+  };
 }
 
 async function renderCodexAgentsMarkdown(
   graph: BuildGraph,
   rules: readonly SourceRule[],
   outputPath: string
-): Promise<{ readonly content: string; readonly transforms: readonly AppliedTransform[] }> {
+): Promise<RenderedRuleMarkdown> {
   // Each concatenated source gets a deterministic boundary comment naming its
   // source instruction path. Comments carry the path only — source-only
   // frontmatter never reaches the generated AGENTS.md. Ordering follows the
@@ -1301,8 +1361,9 @@ async function renderCodexAgentsMarkdown(
   // sources lower through the transform engine for this codex projection;
   // the .claude/rules projection of the same sources stays untouched.
   const counts = new Map<string, number>();
+  const preprocessDependencies = new Set<string>();
   const sections = rules.map(async (rule) => {
-    const body = await renderRuleBody(graph, rule, outputPath);
+    const body = await renderRuleBody(graph, rule, outputPath, preprocessDependencies);
     if (rule.dialect !== "claude") return { rule, body };
     const translated = translateClaudeDialect(body);
     for (const transform of translated.transforms) {
@@ -1326,7 +1387,11 @@ async function renderCodexAgentsMarkdown(
   const transforms = [...counts.entries()]
     .sort(([left], [right]) => compareStrings(left, right))
     .map(([intent, count]) => ({ count, intent }));
-  return { content, transforms };
+  return {
+    content,
+    preprocessDependencies: formattedPreprocessDependencies(graph, preprocessDependencies),
+    transforms,
+  };
 }
 
 async function codexRuleDestinations(
@@ -1409,9 +1474,15 @@ function stringifyOptionalMarkdown(frontmatter: JsonRecord, body: string): strin
   return renderValidatedMarkdown(frontmatter, normalizedBody, "generated instruction markdown");
 }
 
-async function renderRuleBody(graph: BuildGraph, rule: SourceRule, outputPath: string): Promise<string> {
+async function renderRuleBody(
+  graph: BuildGraph,
+  rule: SourceRule,
+  outputPath: string,
+  preprocessDependencies: Set<string>
+): Promise<string> {
   return preprocessText(normalizeRuleBody(rule.body), {
     frontmatter: rule.frontmatter,
+    preprocessDependencies,
     rootPath: graph.rootPath,
     sourcePath: rule.sourcePath,
     sourceRoot: graph.sourceRoot,
@@ -1781,6 +1852,7 @@ function lockItemForRule(args: {
   readonly name: string;
   readonly outputPath: string;
   readonly outputRoot: string;
+  readonly preprocessDependencies: readonly string[];
   readonly sourceHash: string;
   readonly sourceOrigin?: SourceOrigin;
   readonly sourcePath: string;
@@ -1792,6 +1864,9 @@ function lockItemForRule(args: {
     name: args.name,
     outputHash: hashRenderedFiles(args.outputRoot, args.files),
     outputPath: relative(args.outputRoot, args.outputPath),
+    ...(args.preprocessDependencies.length === 0
+      ? {}
+      : { preprocessDependencies: args.preprocessDependencies }),
     sourceHash: args.sourceHash,
     ...(args.sourceOrigin === undefined ? {} : { sourceOrigin: args.sourceOrigin }),
     sourcePath: args.sourcePath,
@@ -1855,6 +1930,7 @@ async function lockItemForSkill(args: {
   readonly kind: LockItem["kind"];
   readonly outputRoot: string;
   readonly plugin?: SourcePlugin;
+  readonly preprocessDependencies: readonly string[];
   readonly skill: SourceSkill;
   readonly sourceDir: string;
   readonly transforms: readonly AppliedTransform[];
@@ -1869,7 +1945,8 @@ async function lockItemForSkill(args: {
     name: args.skill.id,
     outputHash: hashRenderedFiles(args.outputRoot, args.files),
     outputPath: files.find((file) => file.endsWith("/SKILL.md")) ?? files[0] ?? "",
-    sourceHash: await hashSkillSource(args.sourceDir, args.skill.resources),
+    ...(args.preprocessDependencies.length === 0 ? {} : { preprocessDependencies: args.preprocessDependencies }),
+    sourceHash: await hashSkillSource(args.sourceDir, args.skill.resources, args.preprocessDependencies, args.graph.rootPath),
     ...(args.skill.sourceOrigin === undefined ? {} : { sourceOrigin: args.skill.sourceOrigin }),
     sourcePath: relative(args.graph.rootPath, args.skill.sourcePath),
     ...(args.transforms.length === 0 ? {} : { transforms: args.transforms }),
@@ -1897,7 +1974,7 @@ function hashIslandSource(
     hash.update("dependency\0");
     hash.update(dependency);
     hash.update("\0");
-    hash.update(readFileSyncBytes(join(rootPath, dependency)));
+    hash.update(readPreprocessDependencySync(rootPath, dependency));
     hash.update("\0");
   }
   return `sha256:${hash.digest("hex")}`;
@@ -1924,7 +2001,7 @@ function hashProjectAgentSource(
     hash.update("dependency\0");
     hash.update(dependency);
     hash.update("\0");
-    hash.update(readFileSyncBytes(join(rootPath, dependency)));
+    hash.update(readPreprocessDependencySync(rootPath, dependency));
     hash.update("\0");
   }
   return `sha256:${hash.digest("hex")}`;
@@ -2024,7 +2101,9 @@ async function hashPluginFeatureSource(feature: SourcePluginFeature): Promise<st
 
 async function hashSkillSource(
   sourceDir: string,
-  resources: readonly SourceResource[]
+  resources: readonly SourceResource[],
+  preprocessDependencies: readonly string[],
+  rootPath: string
 ): Promise<string> {
   const hash = createHash("sha256");
   hash.update("skillset-skill-source-v2\0");
@@ -2048,6 +2127,14 @@ async function hashSkillSource(
     hash.update(resource.targetPath);
     hash.update("\0");
     await hashResourceSource(hash, resource);
+  }
+
+  for (const dependency of preprocessDependencies) {
+    hash.update("preprocess-dependency\0");
+    hash.update(dependency);
+    hash.update("\0");
+    hash.update(readPreprocessDependencySync(rootPath, dependency));
+    hash.update("\0");
   }
 
   return `sha256:${hash.digest("hex")}`;
@@ -2074,11 +2161,19 @@ async function hashResourceSource(
   }
 }
 
-function hashTextRule(rule: SourceRule): string {
-  return hashRules([rule]);
+function hashTextRule(
+  rule: SourceRule,
+  preprocessDependencies: readonly string[],
+  rootPath: string
+): string {
+  return hashRules([rule], preprocessDependencies, rootPath);
 }
 
-function hashRules(rules: readonly SourceRule[]): string {
+function hashRules(
+  rules: readonly SourceRule[],
+  preprocessDependencies: readonly string[],
+  rootPath: string
+): string {
   const hash = createHash("sha256");
   hash.update("skillset-rule-source-v1\0");
   for (const rule of [...rules].sort((left, right) => compareStrings(left.sourcePath, right.sourcePath))) {
@@ -2087,6 +2182,13 @@ function hashRules(rules: readonly SourceRule[]): string {
     hash.update(stringifyJson(rule.frontmatter));
     hash.update("\0");
     hash.update(rule.body);
+    hash.update("\0");
+  }
+  for (const dependency of preprocessDependencies) {
+    hash.update("preprocess-dependency\0");
+    hash.update(dependency);
+    hash.update("\0");
+    hash.update(readPreprocessDependencySync(rootPath, dependency));
     hash.update("\0");
   }
   return `sha256:${hash.digest("hex")}`;

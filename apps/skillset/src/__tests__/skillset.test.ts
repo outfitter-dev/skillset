@@ -1340,7 +1340,7 @@ name: Code Reviewer
 description: Reviews project changes.
 skills:
   - skillset-codex-development
-initialPrompt: "Start with the {{> shared:templates/prompt.md }}"
+initialPrompt: "Start with the {{shared:templates/prompt.md }}"
 codex:
   model: gpt-5-codex
   description: Reviews changes through Codex.
@@ -1349,7 +1349,9 @@ claude:
 ---
 
 Review diffs and call out correctness risks.
-{{> shared:templates/body.md }}
+Tree:
+{{parent.tree depth:1}}
+{{shared:templates/body.md }}
 `,
   });
 
@@ -1361,6 +1363,7 @@ Review diffs and call out correctness risks.
   expect(claudeAgent).toContain(`color: blue`);
   expect(claudeAgent).toContain(`generated: skillset@0.1.0`);
   expect(claudeAgent).toContain("Review diffs and call out correctness risks.");
+  expect(claudeAgent).toContain("- reviewer.md");
   expect(claudeAgent).toContain("Use the shared review checklist.");
 
   const codexAgent = await readFile(join(root, ".codex/agents/code-reviewer.toml"), "utf8");
@@ -1371,6 +1374,7 @@ Review diffs and call out correctness risks.
   expect(codexAgent).toContain("Required skills:");
   expect(codexAgent).toContain("- skillset-codex-development");
   expect(codexAgent).toContain("Review diffs and call out correctness risks.");
+  expect(codexAgent).toContain("- reviewer.md");
   expect(codexAgent).toContain("Use the shared review checklist.");
   expect(codexAgent).toContain("<initial_prompt>");
   expect(codexAgent).toContain("Start with the smallest complete review");
@@ -1390,6 +1394,7 @@ Review diffs and call out correctness risks.
   expect(explained.entries[0]?.validation).toBe("structured");
   for (const entry of explained.entries) {
     expect(entry.preprocessDependencies).toContain(".skillset/src/shared/templates/body.md");
+    expect(entry.preprocessDependencies).toContain("tree:.skillset/src/agents:1");
   }
   expect(explained.notes[0]).toContain("Project-scoped portable agent");
 
@@ -1398,6 +1403,7 @@ Review diffs and call out correctness risks.
   expect(explainedCodexOutput.entries[0]?.kind).toBe("project-agent");
   expect(explainedCodexOutput.entries[0]?.outputPath).toBe(".codex/agents/code-reviewer.toml");
   expect(explainedCodexOutput.entries[0]?.preprocessDependencies).toContain(".skillset/src/shared/templates/prompt.md");
+  expect(explainedCodexOutput.entries[0]?.preprocessDependencies).toContain("tree:.skillset/src/agents:1");
 
   const entries = await listGeneratedEntries(root);
   expect(entries.some((entry) => entry.kind === "project-agent" && entry.outputPath === ".claude/agents/code-reviewer.md")).toBe(true);
@@ -1478,7 +1484,7 @@ codex:
     ".skillset/src/agents/reviewer.md": `
 ---
 description: Invalid rendered prompt.
-initialPrompt: "{{> shared:bad-prompt.md }}"
+initialPrompt: "{{shared:bad-prompt.md }}"
 ---
 
 Review.
@@ -1810,7 +1816,7 @@ claude: true
 codex: true
 `,
     ".skillset/src/shared/templates/intro.md": `
-Shared intro for {{this.description}}.
+Shared intro for {{this.description}} at {{skillset.source_path}}.
 `,
     ".skillset/src/shared/templates/openai.md": `
 YAML prompt for {{this.description}} with "quotes".
@@ -1821,19 +1827,55 @@ skillset:
 `,
     ".skillset/src/plugins/alpha/skills/preprocessed/agents/openai.yaml": `
 notes: "{{this.description}}"
+config: {{this.metadata.config}}
 prompt: |
-  {{> shared:templates/openai.md}}
+  {{shared:templates/openai.md}}
 `,
     ".skillset/src/plugins/alpha/skills/preprocessed/SKILL.md": `
 ---
 name: preprocessed
 description: Preprocessed skill.
+enabled: true
 implicit_invocation: true
+metadata:
+  config:
+    retries: 2
+    modes:
+      - fast
+      - safe
+  nested:
+    label: Nested Label
+priority: 7
 ---
 
 # {{this.description}}
 
-{{> shared:templates/intro.md}}
+Nested: {{this.metadata.nested.label}}
+Priority: {{this.priority}}
+Enabled: {{this.enabled}}
+Escaped: {{{this.description}}}
+Config:
+{{this.metadata.config}}
+Existing JSON fence:
+~~~json
+{{this.metadata.config}}
+~~~
+Long fence:
+~~~~
+~~~json
+{{this.metadata.config}}
+~~~
+~~~~
+Long same-length info fence:
+~~~~
+~~~~json
+{{this.metadata.config}}
+~~~~
+Parent: {{parent.name}} {{parent.dir}}
+Tree:
+{{parent.tree depth:1}}
+
+{{shared:templates/intro.md}}
 `,
   });
 
@@ -1849,9 +1891,39 @@ implicit_invocation: true
   );
 
   expect(claudeSkill).toContain("# Preprocessed skill.");
-  expect(claudeSkill).toContain("Shared intro for Preprocessed skill.");
+  expect(claudeSkill).toContain("Nested: Nested Label");
+  expect(claudeSkill).toContain("Priority: 7");
+  expect(claudeSkill).toContain("Enabled: true");
+  expect(claudeSkill).toContain("Escaped: {{this.description}}");
+  expect(claudeSkill).toContain('Config:\n```json\n{\n  "retries": 2,');
+  expect(claudeSkill).toContain('  "modes": [\n    "fast",\n    "safe"\n  ]');
+  expect(claudeSkill).toContain('Existing JSON fence:\n~~~json\n{\n  "retries": 2,');
+  expect(claudeSkill).toContain('Long fence:\n~~~~\n~~~json\n{\n  "retries": 2,');
+  expect(claudeSkill).toContain('Long same-length info fence:\n~~~~\n~~~~json\n{\n  "retries": 2,');
+  expect(claudeSkill).not.toContain("```json\n```json");
+  expect(claudeSkill).toContain("Parent: preprocessed .skillset/src/plugins/alpha/skills/preprocessed");
+  expect(claudeSkill).toContain("- SKILL.md");
+  expect(claudeSkill).toContain("- agents/");
+  expect(claudeSkill).toContain(
+    "Shared intro for Preprocessed skill. at .skillset/src/plugins/alpha/skills/preprocessed/SKILL.md."
+  );
   expect(codexAgent).toContain("notes: Preprocessed skill.");
+  expect(codexAgent).toContain("config:");
+  expect(codexAgent).toContain("  retries: 2");
+  expect(codexAgent).toContain("  - fast");
+  expect(codexAgent).not.toContain("```json");
   expect(codexAgent).toContain("YAML prompt for Preprocessed skill. with \"quotes\".");
+
+  const explainedClaude = await explainPath(root, "plugins-claude/plugins/alpha/skills/preprocessed/SKILL.md");
+  expect(explainedClaude.entries[0]?.preprocessDependencies).toContain(".skillset/src/shared/templates/intro.md");
+  expect(explainedClaude.entries[0]?.preprocessDependencies).not.toContain(".skillset/src/shared/templates/openai.md");
+
+  const explainedCodex = await explainPath(root, "plugins-codex/plugins/alpha/skills/preprocessed/SKILL.md");
+  expect(explainedCodex.entries[0]?.preprocessDependencies).toContain(".skillset/src/shared/templates/intro.md");
+  expect(explainedCodex.entries[0]?.preprocessDependencies).toContain(".skillset/src/shared/templates/openai.md");
+
+  await writeFile(join(root, ".skillset/src/shared/templates/openai.md"), "Changed YAML prompt.\n");
+  await expect(checkSkillset(root)).rejects.toThrow("stale generated file");
 });
 
 test("preprocessing opt-out preserves literal variables while stripping source controls", async () => {
@@ -1913,6 +1985,33 @@ Missing {{this.missing}}.
   await expect(buildSkillset(root)).rejects.toThrow("missing this.missing reference");
 });
 
+test("preprocessing rejects invalid parent tree arguments", async () => {
+  for (const token of ["{{parent.tree depth:1 format:markdown}}", "{{parent.tree depth:1 depth:2}}"]) {
+    const root = await fixture({
+      ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: false
+`,
+      ".skillset/src/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+      ".skillset/src/plugins/alpha/skills/bad/SKILL.md": `
+---
+name: bad
+description: Bad skill.
+---
+
+${token}
+`,
+    });
+
+    await expect(buildSkillset(root)).rejects.toThrow("supports only depth:<0-8>");
+  }
+});
+
 test("preprocessing rejects partial traversal and plugin partials outside plugins", async () => {
   const sharedTraversal = await fixture({
     ".skillset/config.yaml": `
@@ -1934,7 +2033,7 @@ name: bad
 description: Bad skill.
 ---
 
-{{> shared:../secret.md}}
+{{shared:../secret.md}}
 `,
   });
   await expect(buildSkillset(sharedTraversal)).rejects.toThrow(
@@ -1961,7 +2060,7 @@ name: bad
 description: Bad skill.
 ---
 
-{{> plugin:../secret.md}}
+{{plugin:../secret.md}}
 `,
   });
   await expect(buildSkillset(pluginTraversal)).rejects.toThrow(
@@ -1988,7 +2087,7 @@ name: bad
 description: Bad skill.
 ---
 
-{{> ../secret.md}}
+{{../secret.md}}
 `,
   });
   await expect(buildSkillset(relativeTraversal)).rejects.toThrow(
@@ -2012,7 +2111,7 @@ name: bad
 description: Bad skill.
 ---
 
-{{> /tmp/secret.md}}
+{{/tmp/secret.md}}
 `,
   });
   await expect(buildSkillset(absolutePartial)).rejects.toThrow("must be a relative path");
@@ -2030,11 +2129,64 @@ name: bad
 description: Bad skill.
 ---
 
-{{> plugin:templates/standalone.md}}
+{{plugin:templates/standalone.md}}
 `,
   });
   await expect(buildSkillset(standalonePluginPartial)).rejects.toThrow(
     "requires a plugin-bound source"
+  );
+});
+
+test("preprocessing rejects retired partial include syntax", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: false
+`,
+    ".skillset/src/shared/templates/intro.md": `
+Intro.
+`,
+    ".skillset/src/skills/bad/SKILL.md": `
+---
+name: bad
+description: Bad skill.
+---
+
+{{> shared:templates/intro.md}}
+`,
+  });
+
+  await expect(buildSkillset(root)).rejects.toThrow(
+    "use {{shared:path.md}}, {{plugin:path.md}}, or {{relative/path.md}} syntax"
+  );
+
+  const partialRoot = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: false
+`,
+    ".skillset/src/shared/templates/intro.md": `
+{{> shared:templates/inner.md}}
+`,
+    ".skillset/src/shared/templates/inner.md": `
+Inner.
+`,
+    ".skillset/src/skills/bad/SKILL.md": `
+---
+name: bad
+description: Bad skill.
+---
+
+{{shared:templates/intro.md}}
+`,
+  });
+
+  await expect(buildSkillset(partialRoot)).rejects.toThrow(
+    "use {{shared:path.md}}, {{plugin:path.md}}, or {{relative/path.md}} syntax"
   );
 });
 
@@ -2057,8 +2209,10 @@ paths:
 ---
 
 Use {{this.title}} from {{skillset.source_rule}}.
+Tree:
+{{parent.tree depth:1}}
 
-{{> shared:templates/rule.md}}
+{{shared:templates/rule.md}}
 `,
     ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
@@ -2071,9 +2225,15 @@ skillset:
   const claudeRule = await readFile(join(root, ".claude/rules/docs/rule.md"), "utf8");
   const codexAgents = await readFile(join(root, "docs/AGENTS.md"), "utf8");
   expect(claudeRule).toContain("Use Docs Rule from .skillset/src/rules/docs/rule.md.");
+  expect(claudeRule).toContain("- rule.md");
   expect(claudeRule).toContain("Rule partial for Docs Rule.");
   expect(codexAgents).toContain("Use Docs Rule from .skillset/src/rules/docs/rule.md.");
+  expect(codexAgents).toContain("- rule.md");
   expect(codexAgents).toContain("Rule partial for Docs Rule.");
+  const explainedRule = await explainPath(root, ".skillset/src/rules/docs/rule.md");
+  for (const entry of explainedRule.entries) {
+    expect(entry.preprocessDependencies).toContain("tree:.skillset/src/rules/docs:1");
+  }
 });
 
 test("TOML serializer preserves multiline prompts, quotes, braces, and code fences", () => {
@@ -2457,7 +2617,7 @@ description: Reviews code.
 ---
 
 Use {{this.description}}.
-{{> shared:templates/tail.md}}
+{{shared:templates/tail.md}}
 `,
     ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:

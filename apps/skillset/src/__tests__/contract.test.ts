@@ -2680,7 +2680,7 @@ Shared partial.
     ".skillset/src/rules/root.md": `
 # Root
 
-{{> shared:common.md}}
+{{shared:common.md}}
 `,
     ".skillset/src/skills/demo/SKILL.md": `
 ---
@@ -2688,7 +2688,7 @@ name: demo
 description: Demo.
 ---
 
-{{> shared:common.md}}
+{{shared:common.md}}
 `,
   });
   await buildSkillset(root);
