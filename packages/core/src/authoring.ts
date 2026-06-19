@@ -1,3 +1,4 @@
+import { readFile, writeFile } from "node:fs/promises";
 import { resolve, relative } from "node:path";
 
 import {
@@ -16,7 +17,7 @@ import { compareStrings } from "./path";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
 import type { BuildGraph, GeneratedEntry, LintIssue, SkillsetOptions, SourceOrigin } from "./types";
-import { isJsonRecord } from "./yaml";
+import { isJsonRecord, parseMarkdown, stringifyMarkdown } from "./yaml";
 
 const textDecoder = new TextDecoder();
 
@@ -57,6 +58,24 @@ export interface FeatureCapabilitySummary {
   readonly byTargetSupport: Readonly<Record<"claude" | "codex", Readonly<Record<string, number>>>>;
   readonly featureIds: readonly string[];
   readonly total: number;
+}
+
+export type SourceSuggestionStatus = "refused" | "suggestible" | "written";
+
+export interface SourceSuggestionReport {
+  readonly entries: readonly GeneratedEntry[];
+  readonly generatedPath: string;
+  readonly lockPath?: string;
+  readonly message: string;
+  readonly nextSteps: readonly string[];
+  readonly sourcePath?: string;
+  readonly status: SourceSuggestionStatus;
+  readonly wouldWrite: boolean;
+  readonly wrote: boolean;
+}
+
+export interface SourceSuggestionOptions extends SkillsetOptions {
+  readonly write?: boolean;
 }
 
 /**
@@ -157,6 +176,104 @@ export async function listGeneratedEntries(
   const graph = await loadBuildGraph(rootPath, options);
   const rendered = scopedRenderedFiles(graph, await renderBuildGraph(graph), options.scopes);
   return collectLockItems(rendered).map((item) => item.entry);
+}
+
+export async function suggestSource(
+  rootPath: string,
+  inputPath: string,
+  options: SourceSuggestionOptions = {}
+): Promise<SourceSuggestionReport> {
+  const write = options.write === true;
+  const explanation = await explainPath(rootPath, inputPath, options);
+  const generatedPath = explanation.path;
+  if (explanation.kind !== "generated" || explanation.entries.length === 0) {
+    return refusedSourceSuggestion(generatedPath, explanation.entries, "No Skillset lock entry owns this generated path.", [
+      "Run `skillset explain <path>` to inspect path provenance.",
+      "Update the adaptive source directly if this file is not Skillset-managed.",
+    ]);
+  }
+
+  const uniqueSourcePaths = new Set(explanation.entries.map((entry) => entry.sourcePath));
+  if (uniqueSourcePaths.size !== 1) {
+    return refusedSourceSuggestion(generatedPath, explanation.entries, "Generated path has multiple source owners.", [
+      "Update the owning source files manually, then run `skillset build --yes`.",
+    ]);
+  }
+  const [sourcePath] = [...uniqueSourcePaths];
+  if (sourcePath === undefined) {
+    return refusedSourceSuggestion(generatedPath, explanation.entries, "Generated path is missing source ownership.", [
+      "Run `skillset explain <path>` to inspect the stale or corrupt lock entry.",
+    ]);
+  }
+
+  if (generatedPath.endsWith("/CHANGELOG.md") || generatedPath === "CHANGELOG.md") {
+    return refusedSourceSuggestion(generatedPath, explanation.entries, "Generated changelogs are managed projections, not source edit surfaces.", [
+      "Use `skillset change reason <@ref>` before release.",
+      "Use `skillset change amend <@ref>` for applied-history wording after release.",
+      "Use `skillset release amend <@ref>` for release-event metadata.",
+    ], sourcePath);
+  }
+
+  const blockingDependency = explanation.entries.find((entry) =>
+    (entry.dependencies?.length ?? 0) > 0 || (entry.preprocessDependencies?.length ?? 0) > 0
+  );
+  if (blockingDependency !== undefined) {
+    return refusedSourceSuggestion(generatedPath, explanation.entries, "Generated path includes dependencies or partials that are not safe to reverse-patch.", [
+      "Update the source file, resources, or partials manually, then run `skillset build --yes`.",
+    ], sourcePath);
+  }
+
+  const primaryEntry = explanation.entries[0];
+  if (primaryEntry?.kind !== "standalone-skill" && primaryEntry?.kind !== "plugin-skill") {
+    return refusedSourceSuggestion(generatedPath, explanation.entries, "Only generated skill Markdown body edits are suggestible in v1.", [
+      "Update the adaptive source manually, then run `skillset build --yes`.",
+    ], sourcePath);
+  }
+  if (!generatedPath.endsWith(".md") || !sourcePath.endsWith(".md")) {
+    return refusedSourceSuggestion(generatedPath, explanation.entries, "Only Markdown generated outputs are suggestible in v1.", [
+      "Update the adaptive source manually, then run `skillset build --yes`.",
+    ], sourcePath);
+  }
+
+  const sourceAbsolute = resolve(rootPath, sourcePath);
+  const generatedAbsolute = resolve(rootPath, generatedPath);
+  const sourceParts = parseMarkdown(await readFile(sourceAbsolute, "utf8"), sourcePath);
+  const generatedParts = parseMarkdown(await readFile(generatedAbsolute, "utf8"), generatedPath);
+  if (sourceParts.body === generatedParts.body) {
+    const lockPath = lockPathForEntry(primaryEntry);
+    return {
+      entries: explanation.entries,
+      generatedPath,
+      ...(lockPath === undefined ? {} : { lockPath }),
+      message: "Generated body matches the source body; no source edit is needed.",
+      nextSteps: ["Run `skillset diff` or `skillset check` to inspect any remaining generated drift."],
+      sourcePath,
+      status: "suggestible",
+      wouldWrite: false,
+      wrote: false,
+    };
+  }
+
+  if (write) {
+    await writeFile(sourceAbsolute, stringifyMarkdown(sourceParts.frontmatter, generatedParts.body), "utf8");
+  }
+  const lockPath = lockPathForEntry(primaryEntry);
+
+  return {
+    entries: explanation.entries,
+    generatedPath,
+    ...(lockPath === undefined ? {} : { lockPath }),
+    message: write
+      ? "Updated the source Markdown body from the generated edit."
+      : "Generated Markdown body can be moved back to the source file.",
+    nextSteps: write
+      ? ["Run `skillset build --yes` to refresh generated output.", "Run `skillset change add` or `skillset change check` if the source edit needs change coverage."]
+      : ["Review the body change, then rerun with `--write --yes` to update source.", "After accepting, run `skillset build --yes`."],
+    sourcePath,
+    status: write ? "written" : "suggestible",
+    wouldWrite: true,
+    wrote: write,
+  };
 }
 
 export function listFeatureCapabilities(featureId?: string): readonly FeatureCapability[] {
@@ -421,6 +538,32 @@ function readSourceOrigin(value: unknown): SourceOrigin | undefined {
 function joinOutputRoot(outputRoot: string, file: string): string {
   if (outputRoot === "." || outputRoot === "") return file;
   return `${outputRoot}/${file}`;
+}
+
+function lockPathForEntry(entry: GeneratedEntry | undefined): string | undefined {
+  if (entry === undefined) return undefined;
+  return joinOutputRoot(entry.outputRoot, ".skillset.lock");
+}
+
+function refusedSourceSuggestion(
+  generatedPath: string,
+  entries: readonly GeneratedEntry[],
+  message: string,
+  nextSteps: readonly string[],
+  sourcePath?: string
+): SourceSuggestionReport {
+  const lockPath = lockPathForEntry(entries[0]);
+  return {
+    entries,
+    generatedPath,
+    ...(lockPath === undefined ? {} : { lockPath }),
+    message,
+    nextSteps,
+    ...(sourcePath === undefined ? {} : { sourcePath }),
+    status: "refused",
+    wouldWrite: false,
+    wrote: false,
+  };
 }
 
 function explainSourceKind(graph: BuildGraph, target: string): ExplainKind {
