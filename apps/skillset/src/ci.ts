@@ -143,7 +143,9 @@ export function renderCiReportMarkdown(report: CiReport): string {
 
   if (report.ok) {
     lines.push(
-      report.fixedPaths.length > 0
+      hasGeneratedChangelogPath(report.fixedPaths)
+        ? "Generated output was stale and has been rebuilt mechanically. Review rebuilt generated changelogs below in case the edit should be recovered through source-side change history."
+        : report.fixedPaths.length > 0
         ? "Generated output was stale and has been rebuilt mechanically. No source changes are needed."
         : "All checks passed; the lint warnings below are advisory and do not fail CI.",
       ""
@@ -155,6 +157,12 @@ export function renderCiReportMarkdown(report: CiReport): string {
   if (report.fixedPaths.length > 0) {
     lines.push("### Rebuilt generated output", "");
     for (const path of report.fixedPaths) lines.push(`- \`${path}\``);
+    if (hasGeneratedChangelogPath(report.fixedPaths)) {
+      lines.push(
+        "",
+        "Generated `CHANGELOG.md` files are managed projections. Edit pending wording with `skillset change reason <@ref>` before release; use the planned amend flow for released history instead of hand-editing generated changelogs."
+      );
+    }
     lines.push("", "These files were regenerated from source the same way `skillset build --yes` would. Commit the rebuilt output if it is not committed for you.", "");
   }
 
@@ -164,6 +172,12 @@ export function renderCiReportMarkdown(report: CiReport): string {
     for (const path of report.drift.changed) lines.push(`- changed: \`${path}\``);
     for (const path of report.drift.missing) lines.push(`- missing: \`${path}\``);
     for (const path of report.drift.removed) lines.push(`- removed: \`${path}\``);
+    if (hasGeneratedChangelogDrift(report.drift)) {
+      lines.push(
+        "",
+        "Generated `CHANGELOG.md` files are managed projections. Edit pending wording with `skillset change reason <@ref>` before release; use the planned amend flow for released history instead of hand-editing generated changelogs."
+      );
+    }
     lines.push("", "Run `skillset build --yes`, review the generated diff, and commit it.", "");
   }
 
@@ -207,6 +221,14 @@ export function renderCiReportMarkdown(report: CiReport): string {
 
 function codeBlock(content: string): string {
   return ["```", content.trimEnd(), "```"].join("\n");
+}
+
+function hasGeneratedChangelogDrift(diff: SkillsetDiff): boolean {
+  return hasGeneratedChangelogPath([...diff.added, ...diff.changed, ...diff.missing, ...diff.removed]);
+}
+
+function hasGeneratedChangelogPath(paths: readonly string[]): boolean {
+  return paths.some((path) => path.endsWith("/CHANGELOG.md") || path === "CHANGELOG.md");
 }
 
 function errorMessage(error: unknown): string {

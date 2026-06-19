@@ -3460,6 +3460,51 @@ Pending changes stay out of committed changelog projections.
   expect(lock).toContain(`".skillset/src/skills/demo/CHANGELOG.md"`);
 });
 
+test("SET-146: generated changelog drift points back to change reasons", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: changelog-drift-root
+claude: true
+codex: false
+`,
+    ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await writeHistory(root, [
+    {
+      id: "111111aaaaaa",
+      bump: "patch",
+      scope: "skill:demo",
+      reason: "Clarified the standalone skill behavior for applied history.",
+      evidence: [{ scope: "skill:demo", sourceHash: "sha256:one" }],
+    },
+  ]);
+  await buildSkillset(root);
+  await commitFixture(root);
+
+  const changelogPath = join(root, ".skillset/src/skills/demo/CHANGELOG.md");
+  await writeFile(changelogPath, `${await readFile(changelogPath, "utf8")}\nHand-edited generated changelog text.\n`);
+
+  const status = await runSkillsetCli("change", "status", "--root", root, "--since", "HEAD");
+  expect(status.exitCode).toBe(0);
+  expect(status.stdout).toContain("generated ~ .skillset/src/skills/demo/CHANGELOG.md");
+  expect(status.stdout).toContain("generated CHANGELOG.md files are managed projections");
+  expect(status.stdout).toContain("skillset change reason <@ref>");
+  expect(status.stdout).toContain("planned amend flow for released history");
+
+  const diff = await runSkillsetCli("diff", "--root", root);
+  expect(diff.exitCode).toBe(0);
+  expect(diff.stdout).toContain("~ .skillset/src/skills/demo/CHANGELOG.md");
+  expect(diff.stdout).toContain("generated CHANGELOG.md files are managed projections");
+});
+
 test("SET-37: plugin changelog aggregates child skill applied records", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `

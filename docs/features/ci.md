@@ -20,6 +20,8 @@ This repo's `bun run check` remains the default local and hosted CI aggregate. I
 
 Generated-output drift is the only mechanical problem: with `--fix`, `ci` rebuilds generated output the same way `skillset build --yes` would and reports which files it rewrote. Lint issues, missing or invalid change entries, unresolved change baselines, and build errors need authored source or CI changes, so they always stay report-only and fail the run. `--fix` is skipped when those non-mechanical problems are present, so a rebuild never launders uncovered or invalid source into committed output.
 
+Generated entity `CHANGELOG.md` files are managed projections, but CI should not make hand edits to them feel like a dead end. When stale generated output includes a changelog, the report explains that pre-release wording belongs in `skillset change reason <@ref>` and released-history corrections belong in the planned amend workflows. `--fix` can still restore the generated projection from source, but it does not treat the generated changelog edit as source truth.
+
 `skillset init --include ci` (and `skillset create --include ci`) scaffolds `.github/workflows/skillset-ci.yml`. The workflow is user-owned after creation: rerunning `init --include ci` reports an edited workflow as existing and never overwrites it. The scaffolded workflow:
 
 - runs `skillset ci --fix` on same-repo pull requests and plain `skillset ci` on fork pull requests or pushes to `main`;

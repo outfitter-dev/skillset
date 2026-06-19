@@ -25,7 +25,7 @@ import {
   type FeatureCapability,
 } from "./authoring";
 import { ciSkillset, hasDrift, renderCiReportMarkdown, type CiReport } from "./ci";
-import { printDiagnostics, printDiffPlan } from "./cli-renderers";
+import { printDiagnostics, printDiffPlan, printGeneratedChangelogDriftHint, printGeneratedChangelogPathHint } from "./cli-renderers";
 import {
   dispatchHookRun,
   readHookRunEvent,
@@ -393,6 +393,7 @@ export async function runCli(
     console.log(
       `skillset: ${diff.added.length} added, ${diff.changed.length} changed, ${diff.missing.length} missing, ${diff.removed.length} removed (run skillset build --yes to apply)`
     );
+    printGeneratedChangelogDriftHint(diff);
     return;
   }
 
@@ -670,6 +671,7 @@ function printChangeStatus(report: ChangeStatusReport): void {
   console.log(
     `skillset: generated-output drift ${drift.added.length} added, ${drift.changed.length} changed, ${drift.missing.length} missing, ${drift.removed.length} removed`
   );
+  printGeneratedChangelogDriftHint(drift);
 }
 
 function printCiReport(report: CiReport): void {
@@ -684,11 +686,13 @@ function printCiReport(report: CiReport): void {
     console.log(`  change ${issue.severity}: ${path}${issue.code}: ${issue.message}`);
   }
   for (const path of report.fixedPaths) console.log(`  fixed ${path}`);
+  printGeneratedChangelogPathHint(report.fixedPaths);
   const drift = report.drift;
   for (const path of drift.added) console.log(`  generated + ${path}`);
   for (const path of drift.changed) console.log(`  generated ~ ${path}`);
   for (const path of drift.missing) console.log(`  generated ! ${path}`);
   for (const path of drift.removed) console.log(`  generated - ${path}`);
+  printGeneratedChangelogDriftHint(drift);
   if (report.buildError !== undefined) {
     console.log(`  build error: ${report.buildError}`);
   }
