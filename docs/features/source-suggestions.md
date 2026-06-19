@@ -25,7 +25,7 @@ Preview mode must be read-only. Write mode is allowed only for clean, single-sou
 | --- | --- | --- |
 | Managed generated skill body edit | Preview source `SKILL.md` patch, optionally write when clean | `planned` |
 | Pending changelog wording before release | Do not reverse-patch from generated output; point to `skillset change reason <@ref>` because pending entries are not rendered into committed changelogs | `planned` |
-| Generated changelog edit after release | Refuse source suggestion and point to `skillset change amend` / `skillset release amend` | `planned` |
+| Generated changelog edit after release | Refuse source suggestion and point to `skillset change amend` for applied-history wording or `skillset release amend` for release-event metadata | `partial` |
 | Generated metadata, lock files, manifests, or version fields | Refuse; source ownership is not a safe text patch | `planned` |
 | Output from partials, shared resources, or multiple source files | Refuse with diagnostics until a richer mapping exists | `planned` |
 | Provider-native output with no adaptive round trip | Refuse and explain the provider-specific source or manual path | `planned` |
@@ -41,7 +41,7 @@ The first implementation should make diagnostics useful before attempting writes
 - explain the generated files that would need to be rebuilt after accepting the source edit;
 - keep refusal messages specific: metadata, multi-source rendering, provider-native no-round-trip, post-release changelog, unmanaged path, or stale/corrupt lock.
 
-`skillset ci --fix` remains mechanical generated-output repair. It may restore generated files from source, but it must not treat a managed generated edit as source truth. For generated changelogs, current diagnostics already point contributors toward `skillset change reason <@ref>` for pending wording before release and the planned amend flows for released history. Because committed changelog projections render applied history, not pending entries, a generated `CHANGELOG.md` edit is usually a released-history correction and should refuse local reverse-patching until amend support exists. The future source-suggestion command should generalize the source-recovery pattern beyond changelogs.
+`skillset ci --fix` remains mechanical generated-output repair. It may restore generated files from source, but it must not treat a managed generated edit as source truth. For generated changelogs, current diagnostics already point contributors toward `skillset change reason <@ref>` for pending wording before release, `skillset change amend <@ref>` for applied-history wording after release, and the planned `skillset release amend <@ref>` flow for release-event metadata. Because committed changelog projections render applied history, not pending entries, a generated `CHANGELOG.md` edit is usually a released-history correction and should refuse local reverse-patching until source-suggestion support can classify it safely. The future source-suggestion command should generalize the source-recovery pattern beyond changelogs.
 
 ## Provenance
 

@@ -8,6 +8,7 @@ import { changeStatus, type ChangeStatusReport } from "./change-status";
 import { ADOPT_REPORT_DIR, adoptSkillset, type AdoptReport } from "./adopt";
 import {
   addChangeEntry,
+  amendAppliedChange,
   groupRef,
   listChangeEntries,
   readChangeHistory,
@@ -58,6 +59,7 @@ const USAGE = [
   "       skillset change <status|check> --staged [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change add --scope <source-unit> --bump <bump> [--group <group>] [--reason <text>|--reason-file <path>|--reason -] [--since <ref>] [--root <path>] [--source <dir>]",
   "       skillset change reason <@ref> [--append] [--reason <text>|--reason-file <path>|--reason -] [--root <path>] [--source <dir>]",
+  "       skillset change amend <@ref> [--reason <text>|--reason-file <path>|--reason -] [--root <path>] [--source <dir>]",
   "       skillset change <show|history> [@ref] [--root <path>] [--source <dir>]",
   "       skillset change list [--group <group>] [--root <path>] [--source <dir>]",
   "       skillset release audit [--root <path>] [--source <dir>] [--dist <dir>]",
@@ -201,6 +203,17 @@ export async function runCli(
         reason: changeReason ?? { kind: "auto" },
         ref: changeRef,
       })).entry);
+      return;
+    }
+    if (changeSubcommand === "amend") {
+      if (changeRef === undefined) throw new Error("skillset: change amend requires @ref");
+      const report = await amendAppliedChange(rootPath, {
+        ...changeOptions,
+        reason: changeReason ?? { kind: "auto" },
+        ref: changeRef,
+      });
+      printChangeEntry("amended", report.entry);
+      console.log(`  amendment: ${report.path}`);
       return;
     }
     if (changeSubcommand === "show") {
@@ -1051,12 +1064,12 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   if (command === "change") {
     const subcommand = args[index];
     if (!isChangeSubcommand(subcommand)) {
-      throw new Error("skillset: expected change subcommand add, check, history, list, reason, show, or status");
+      throw new Error("skillset: expected change subcommand add, amend, check, history, list, reason, show, or status");
     }
     changeSubcommand = subcommand;
     index += 1;
     const rawRef = args[index];
-    if ((subcommand === "check" || subcommand === "history" || subcommand === "reason" || subcommand === "show") && rawRef !== undefined && !rawRef.startsWith("--")) {
+    if ((subcommand === "amend" || subcommand === "check" || subcommand === "history" || subcommand === "reason" || subcommand === "show") && rawRef !== undefined && !rawRef.startsWith("--")) {
       changeRef = rawRef;
       index += 1;
     }
@@ -1423,6 +1436,7 @@ function isReleaseSubcommand(value: string | undefined): value is ReleaseSubcomm
 
 function isChangeSubcommand(value: string | undefined): value is ChangeSubcommand {
   return value === "add" ||
+    value === "amend" ||
     value === "check" ||
     value === "history" ||
     value === "list" ||
@@ -1476,16 +1490,16 @@ function validateChangeFlags(
     append: subcommand === "reason",
     bump: subcommand === "add",
     group: subcommand === "add" || subcommand === "list",
-    reason: subcommand === "add" || subcommand === "reason",
-    ref: subcommand === "check" || subcommand === "history" || subcommand === "reason" || subcommand === "show",
+    reason: subcommand === "add" || subcommand === "amend" || subcommand === "reason",
+    ref: subcommand === "amend" || subcommand === "check" || subcommand === "history" || subcommand === "reason" || subcommand === "show",
     scopes: subcommand === "add",
     staged: subcommand === "check" || subcommand === "status",
   };
   if (change.append && !allowed.append) throw new Error("skillset: --append is only supported with change reason");
   if (change.bump !== undefined && !allowed.bump) throw new Error("skillset: --bump is only supported with change add");
   if (change.group !== undefined && !allowed.group) throw new Error("skillset: --group is only supported with change add or change list");
-  if (change.reason !== undefined && !allowed.reason) throw new Error("skillset: --reason and --reason-file are only supported with change add or change reason");
-  if (change.ref !== undefined && !allowed.ref) throw new Error("skillset: --ref is only supported with change check, change history, change reason, or change show");
+  if (change.reason !== undefined && !allowed.reason) throw new Error("skillset: --reason and --reason-file are only supported with change add, change amend, or change reason");
+  if (change.ref !== undefined && !allowed.ref) throw new Error("skillset: --ref is only supported with change amend, change check, change history, change reason, or change show");
   if (change.scopes !== undefined && !allowed.scopes) throw new Error("skillset: source-unit --scope is only supported with change add");
   if (change.staged && !allowed.staged) throw new Error("skillset: --staged is only supported with change status or change check");
 }

@@ -22,6 +22,7 @@ The workspace change directory is a committed ledger, not a generated-output loc
 | `skillset change status --since <ref>` | n/a | n/a | `implemented` | Read-only comparison against a git ref; generated-output drift is reported separately. |
 | `changes/*.md` | n/a | n/a | `implemented` | Created, listed, shown, edited, validated by `skillset change`, and consumed by `skillset release apply --yes`; stored under `.skillset/changes` in ordinary workspaces and root `changes` in dedicated repos. |
 | `changes/history.jsonl` | n/a | n/a | `implemented` | Append-only applied history is read by `skillset change history`, written by release apply, and used by changelog renderings. |
+| `changes/amendments.jsonl` | n/a | n/a | `implemented` | Append-only corrections written by `skillset change amend <@ref>`; changelog renderings use the latest correction while original history remains auditable. |
 | `changes/baseline` records | n/a | n/a | `planned` | Explicit hash-schema baseline records, not changelog entries. |
 
 ## Diagnostics
@@ -36,7 +37,7 @@ Stacked branches may produce multiple pending entries for the same source unit. 
 
 `skillset change add` writes pending entries non-interactively from `--reason`, `--reason-file`, `--reason -`, or piped stdin. `skillset change reason` updates or appends to a pending reason without changing the generated id. That command is the pre-release correction path for generated changelog wording: edit the pending reason, rebuild, and let Skillset refresh entity-local `CHANGELOG.md` projections. `skillset change list` prints copyable refs and supports `--group` filtering. `skillset change show` resolves pending entries before applied history. `skillset change history` reads applied history records and stays distinct from status.
 
-After release, applied change history is append-only. Post-release wording corrections should use the planned `skillset change amend <ref>` flow, tracked in SET-149, so the original applied entry remains auditable and generated changelog projections are regenerated from a ledger correction. Release-event metadata or release-note corrections belong to the planned `skillset release amend <ref>` flow, tracked in SET-150, rather than to `change reason`.
+After release, applied change history is append-only. Post-release wording corrections use `skillset change amend <ref> --reason ...`, so the original applied entry remains auditable in `history.jsonl` and generated changelog projections are regenerated from the latest correction in `amendments.jsonl`. If the ref still points at a pending entry, use `skillset change reason <ref>` before release instead. Release-event metadata or release-note corrections belong to the planned `skillset release amend <ref>` flow, tracked in SET-150, rather than to `change reason`.
 
 ## Provenance
 
@@ -46,7 +47,7 @@ Change entries participate in source provenance because they explain current sou
 
 ## Tests and Fixtures
 
-Fixtures cover unchanged deterministic status, body edits, source-only support/dependency metadata edits, plugin child edits that affect aggregate plugin identity without a version bump, child plugin coverage of aggregate plugin changes, partial dependency hashing, read-only CLI behavior, generated-output drift separation, generated changelog drift guidance, pending-entry coverage failures, multi-scope pending entries, repeated stacked entries for one current source hash, invalid pending entry diagnostics, ambiguous ref resolution, reason file/stdin input, append behavior, group filters, show output, and history lookup.
+Fixtures cover unchanged deterministic status, body edits, source-only support/dependency metadata edits, plugin child edits that affect aggregate plugin identity without a version bump, child plugin coverage of aggregate plugin changes, partial dependency hashing, read-only CLI behavior, generated-output drift separation, generated changelog drift guidance, pending-entry coverage failures, multi-scope pending entries, repeated stacked entries for one current source hash, invalid pending entry diagnostics, ambiguous ref resolution, reason file/stdin input, append behavior, group filters, show output, history lookup, and applied-history amendment projection.
 
 ## Evidence
 

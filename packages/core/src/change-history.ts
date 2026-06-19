@@ -36,6 +36,7 @@ export interface AppliedChangeRecord {
 }
 
 const HISTORY_FILE = "changes/history.jsonl";
+const AMENDMENTS_FILE = "changes/amendments.jsonl";
 
 export async function readAppliedChangeRecords(
   rootPath: string,
@@ -72,7 +73,8 @@ export async function readAppliedChangeRecords(
       sourceHashes: readHistoryEvidence(parsed.evidence, scopes),
     });
   }
-  return entries.sort((left, right) => compareStrings(left.id, right.id));
+  const amended = await applyHistoryAmendments(rootPath, sourceDir, entries);
+  return [...amended].sort((left, right) => compareStrings(left.id, right.id));
 }
 
 export function groupRef(group: AppliedChangeGroup | undefined): string | undefined {
@@ -103,6 +105,42 @@ function readHistoryGroup(value: JsonValue | undefined): AppliedChangeGroup | un
   const id = readString(value, "id");
   const provider = readString(value, "provider");
   return id === undefined ? undefined : { id, ...(provider === undefined ? {} : { provider }) };
+}
+
+async function applyHistoryAmendments(
+  rootPath: string,
+  sourceDir: string,
+  entries: readonly AppliedChangeRecord[]
+): Promise<readonly AppliedChangeRecord[]> {
+  const amendments = await readHistoryAmendments(rootPath, sourceDir);
+  if (amendments.size === 0) return entries;
+  return entries.map((entry) => {
+    const amendment = amendments.get(entry.id);
+    return amendment === undefined ? entry : { ...entry, reason: amendment.reason };
+  });
+}
+
+async function readHistoryAmendments(rootPath: string, sourceDir: string): Promise<ReadonlyMap<string, { readonly reason: string }>> {
+  const path = join(sourceDir, AMENDMENTS_FILE).replaceAll("\\", "/");
+  const absolutePath = resolveInside(rootPath, path);
+  if (!(await exists(absolutePath))) return new Map();
+  const amendments = new Map<string, { readonly reason: string }>();
+  const lines = (await readFile(absolutePath, "utf8")).split("\n");
+  for (const [index, line] of lines.entries()) {
+    if (line.trim().length === 0) continue;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(line) as unknown;
+    } catch {
+      throw new Error(`skillset: invalid JSON in ${path}:${index + 1}`);
+    }
+    if (!isJsonRecord(parsed)) throw new Error(`skillset: expected ${path}:${index + 1} to contain a JSON object`);
+    const id = readString(parsed, "id");
+    const reason = readString(parsed, "reason");
+    if (id === undefined || reason === undefined) continue;
+    amendments.set(id, { reason });
+  }
+  return amendments;
 }
 
 function readHistoryEvidence(raw: JsonValue | undefined, scopes: readonly string[]): ReadonlyMap<string, readonly string[]> {
