@@ -5,3 +5,9 @@ skillset:
   version: 0.1.0
   owner:
     name: Fixture Owner
+claude:
+  plugins: true
+  skills: true
+codex:
+  plugins: true
+  skills: true

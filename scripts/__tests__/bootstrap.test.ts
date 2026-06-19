@@ -21,6 +21,7 @@ import {
   hasRepoInstallState,
   listWorkspaceGlobs,
 } from "../bootstrap/repo";
+import { isRepoRoot } from "../bootstrap/shared";
 import { resolveCleanupTarget } from "../bootstrap/teardown";
 import { collectToolStatus } from "../bootstrap/tools";
 
@@ -47,7 +48,7 @@ const makeRepoRoot = (): string => {
   );
   writeFileSync(join(root, ".bun-version"), "1.3.14\n");
   writeFileSync(
-    join(root, ".skillset/config.yaml"),
+    join(root, ".skillset/skillset.yaml"),
     "skillset:\n  name: skillset\n"
   );
   writeFileSync(join(root, "apps/skillset/src/cli.ts"), "");
@@ -147,6 +148,28 @@ describe("bootstrap repo policy", () => {
     expect(isCompatibleBunVersion("1.4.0", "1.3.14")).toBe(false);
     expect(isBunVersionAllowed("1.3.14", "1.3.14", "strict")).toBe(true);
     expect(isBunVersionAllowed("1.3.15", "1.3.14", "strict")).toBe(false);
+  });
+
+  test("repo root detection accepts current and migration workspace markers", () => {
+    const ordinaryRoot = makeRepoRoot();
+    const legacyRoot = makeRepoRoot();
+    const dedicatedRoot = makeRepoRoot();
+    try {
+      expect(isRepoRoot(ordinaryRoot)).toBe(true);
+
+      rmSync(join(legacyRoot, ".skillset/skillset.yaml"), { force: true });
+      writeFileSync(join(legacyRoot, ".skillset/config.yaml"), "skillset:\n  name: legacy\n");
+      expect(isRepoRoot(legacyRoot)).toBe(true);
+
+      rmSync(join(dedicatedRoot, ".skillset/skillset.yaml"), { force: true });
+      writeFileSync(join(dedicatedRoot, "skillset.yaml"), "skillset:\n  name: dedicated\n");
+      mkdirSync(join(dedicatedRoot, "skillset"), { recursive: true });
+      expect(isRepoRoot(dedicatedRoot)).toBe(true);
+    } finally {
+      rmSync(ordinaryRoot, { force: true, recursive: true });
+      rmSync(legacyRoot, { force: true, recursive: true });
+      rmSync(dedicatedRoot, { force: true, recursive: true });
+    }
   });
 
   test("stale Bun is repaired before policy enforcement fails", async () => {

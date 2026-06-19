@@ -57,6 +57,31 @@ test("adopt plan mode surveys only and writes nothing", async () => {
   expect(await walkFiles(root)).toEqual(before);
 });
 
+test("adopt reports current and dedicated workspaces as already adopted", async () => {
+  const ordinary = await fixture({
+    ".skillset/skillset.yaml": "compile:\n  targets:\n    - claude\n",
+    ".skillset/src/skills/existing/SKILL.md":
+      "---\nname: existing\ndescription: Existing skill.\n---\n\nBody.\n",
+  });
+  const dedicated = await fixture({
+    "skillset.yaml": "compile:\n  targets:\n    - claude\n",
+    "skillset/skills/existing/SKILL.md":
+      "---\nname: existing\ndescription: Existing skill.\n---\n\nBody.\n",
+  });
+
+  const ordinaryReport = await adoptSkillset(ordinary);
+  const dedicatedReport = await adoptSkillset(dedicated);
+
+  expect(ordinaryReport.alreadyAdopted).toBe(true);
+  expect(dedicatedReport.alreadyAdopted).toBe(true);
+  const cli = await runSkillsetCli("adopt", ordinary);
+  expect(cli.stdout).toContain("repo already has a Skillset workspace marker");
+  expect(cli.stdout).not.toContain("repo already has .skillset/config.yaml");
+  const markdown = renderAdoptReportMarkdown(ordinaryReport, { rootPath: ordinary });
+  expect(markdown).toContain("repo already had a Skillset workspace marker");
+  expect(markdown).not.toContain("repo already had `.skillset/config.yaml`");
+});
+
 test("adopt accepts git remotes by shallow cloning before running the existing flow", async () => {
   const source = await gitFixture(MARKETPLACE_FIXTURE);
   const remote = pathToFileURL(source).href;

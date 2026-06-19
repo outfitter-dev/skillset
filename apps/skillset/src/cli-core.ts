@@ -834,7 +834,7 @@ function printAdoptReport(report: AdoptReport, reason: string): void {
     console.log(`  source: git ${report.acquisition.repo} @ ${report.acquisition.ref}`);
   }
   if (report.alreadyAdopted) {
-    console.log("  note: repo already has .skillset/config.yaml; adopting against existing source");
+    console.log("  note: repo already has a Skillset workspace marker; adopting against existing source");
   }
   for (const file of report.setupFiles) {
     console.log(`  ${file.status === "create" ? "+" : "="} ${file.path}`);
