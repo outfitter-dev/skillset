@@ -191,10 +191,16 @@ export interface BuildGraph {
   readonly rules: readonly SourceRule[];
   readonly releaseState: ReleaseState;
   readonly root: RootConfig;
+  readonly rootConfigPath: string;
+  readonly rootManifestPath: string;
   readonly rootPath: string;
   readonly standaloneSkills: readonly StandaloneSkill[];
+  /** Workspace state root, such as `.skillset` for ordinary repos or `.` for dedicated repos. */
   readonly sourceDir: string;
   readonly sourcePath: string;
+  /** Authored source root, such as `.skillset/src` or `skillset`. */
+  readonly sourceRoot: string;
+  readonly sourceRootPath: string;
   /** Non-fatal source warnings surfaced by the CLI. */
   readonly warnings: readonly string[];
 }

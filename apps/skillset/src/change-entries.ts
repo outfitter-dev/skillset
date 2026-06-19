@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import {
   changeStatus,
+  detectWorkspaceOptions,
   snapshotGitIndex,
   type ChangeStatusOptions,
   type ChangeStatusReport,
@@ -83,8 +84,10 @@ export async function changeCheck(
   const stagedSnapshot = options.staged === true ? await snapshotGitIndex(rootPath) : undefined;
   try {
     const status = await changeStatus(rootPath, options);
-    const entries = await readPendingChangeEntries(stagedSnapshot ?? rootPath, options);
-    return await validateChangeCheck(stagedSnapshot ?? rootPath, status, entries, options);
+    const currentRoot = stagedSnapshot ?? rootPath;
+    const storageOptions = await detectWorkspaceOptions(currentRoot, options);
+    const entries = await readPendingChangeEntries(currentRoot, storageOptions);
+    return await validateChangeCheck(currentRoot, status, entries, storageOptions);
   } finally {
     if (stagedSnapshot !== undefined) await rm(stagedSnapshot, { force: true, recursive: true });
   }
@@ -436,8 +439,12 @@ function readEvidenceHash(record: JsonRecord): string | undefined {
 
 async function readReasonMinLength(rootPath: string, options: ChangeStatusOptions): Promise<number> {
   const sourceDir = options.sourceDir ?? ".skillset";
-  const configPath = resolveInside(rootPath, join(sourceDir, "config.yaml"));
-  const config = parseYamlRecord(await readFile(configPath, "utf8"), configPath);
+  const configPaths = sourceDir === "."
+    ? ["skillset.yaml"]
+    : [join(sourceDir, "config.yaml"), join(sourceDir, "skillset.yaml")];
+  const resolvedConfigPath = await firstExistingPath(configPaths.map((path) => resolveInside(rootPath, path)));
+  if (resolvedConfigPath === undefined) return DEFAULT_REASON_MIN_LENGTH;
+  const config = parseYamlRecord(await readFile(resolvedConfigPath, "utf8"), resolvedConfigPath);
   const changes = config.changes;
   if (!isJsonRecord(changes)) return DEFAULT_REASON_MIN_LENGTH;
   const reason = changes.reason;
@@ -446,6 +453,13 @@ async function readReasonMinLength(rootPath: string, options: ChangeStatusOption
   return typeof minLength === "number" && Number.isInteger(minLength) && minLength > 0
     ? minLength
     : DEFAULT_REASON_MIN_LENGTH;
+}
+
+async function firstExistingPath(paths: readonly string[]): Promise<string | undefined> {
+  for (const path of paths) {
+    if (await exists(path)) return path;
+  }
+  return undefined;
 }
 
 function scopeClass(scope: string): "repo" | "user" {

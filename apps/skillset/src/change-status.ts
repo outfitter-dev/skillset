@@ -9,7 +9,7 @@ import { compareStrings, resolveInside } from "./path";
 import { gitSafeEnv } from "./git-env";
 import { preprocessText } from "./preprocess";
 import { readReleaseState } from "./release-state";
-import { loadBuildGraph } from "./resolver";
+import { detectWorkspaceSourceDir, loadBuildGraph } from "./resolver";
 import {
   isPluginOwnedSelector,
   selectorForInstruction,
@@ -148,9 +148,13 @@ export async function changeStatus(
 ): Promise<ChangeStatusReport> {
   const stagedSnapshot = options.staged === true ? await snapshotGitIndex(rootPath) : undefined;
   try {
-    const current = await collectSourceInventory(stagedSnapshot ?? rootPath, options);
-    const baseline = await resolveBaselineInventory(rootPath, options);
-    const generatedDrift = await diffSkillset(stagedSnapshot ?? rootPath, options);
+    const currentRoot = stagedSnapshot ?? rootPath;
+    const graph = await loadBuildGraph(currentRoot, options);
+    const releaseOptions = withDetectedSourceDir(options, graph);
+    const baselineOptions = options.sourceDir === undefined ? options : releaseOptions;
+    const current = await sourceInventoryForGraph(graph);
+    const baseline = await resolveBaselineInventory(rootPath, baselineOptions, releaseOptions);
+    const generatedDrift = await diffSkillset(currentRoot, releaseOptions);
 
     return {
       baseline: baseline.baseline,
@@ -170,6 +174,17 @@ export async function collectSourceInventory(
 ): Promise<SourceInventory> {
   const graph = await loadBuildGraph(rootPath, options);
   return sourceInventoryForGraph(graph);
+}
+
+export async function detectWorkspaceOptions<T extends SkillsetOptions>(
+  rootPath: string,
+  options: T
+): Promise<T> {
+  return { ...options, sourceDir: await detectWorkspaceSourceDir(rootPath, options) };
+}
+
+function withDetectedSourceDir<T extends SkillsetOptions>(options: T, graph: BuildGraph): T {
+  return { ...options, sourceDir: graph.sourceDir };
 }
 
 async function sourceInventoryForGraph(graph: BuildGraph): Promise<SourceInventory> {
@@ -226,25 +241,31 @@ async function sourceInventoryForGraph(graph: BuildGraph): Promise<SourceInvento
 }
 
 async function rootConfigUnit(graph: BuildGraph): Promise<SourceUnit> {
-  const configPath = join(graph.sourcePath, ROOT_CONFIG_FILE);
-  const manifestPath = join(graph.sourcePath, SOURCE_ROOT_DIR, ROOT_SOURCE_MANIFEST_FILE);
-  const sourcePaths = [relativePath(graph, configPath), relativePath(graph, manifestPath)];
+  const configPath = graph.rootConfigPath;
+  const manifestPath = graph.rootManifestPath;
+  const sourcePaths = sortedUnique([relativePath(graph, configPath), relativePath(graph, manifestPath)]);
   const hash = createSourceHash("root-config");
   hash.update("metadata\0");
-  hash.update(stringifyJson({ id: "root-config", sourcePaths }));
+  hash.update(stringifyJson({ id: "root-config", sourcePaths: [...sourcePaths] }));
   hash.update("\0config\0");
   await hashPathInto(hash, configPath);
-  hash.update("\0manifest\0");
-  await hashPathInto(hash, manifestPath);
+  if (manifestPath !== configPath) {
+    hash.update("\0manifest\0");
+    await hashPathInto(hash, manifestPath);
+  }
+  const regions =
+    manifestPath === configPath
+      ? await regionsForYaml(configPath)
+      : mergeRegions([
+          ...(await regionsForYaml(configPath)),
+          ...(await regionsForYaml(manifestPath)),
+        ]);
   return {
     hash: digest(hash),
     hashSchema: SOURCE_HASH_SCHEMA,
     id: selectorForRootConfig(),
     kind: "root-config",
-    regions: mergeRegions([
-      ...(await regionsForYaml(configPath)),
-      ...(await regionsForYaml(manifestPath)),
-    ]),
+    regions,
     sourcePath: sourcePaths[0] ?? "",
     sourcePaths,
   };
@@ -581,7 +602,7 @@ async function skillPreprocessDependencies(
     preprocessDependencies: dependencies,
     rootPath: graph.rootPath,
     sourcePath: skill.sourcePath,
-    sourceRoot: join(graph.sourceDir, "src"),
+    sourceRoot: graph.sourceRoot,
     ...(plugin === undefined ? {} : { pluginPath: plugin.path }),
   };
   await preprocessText(skill.body, context);
@@ -607,7 +628,7 @@ async function rulePreprocessDependencies(
     preprocessDependencies: dependencies,
     rootPath: graph.rootPath,
     sourcePath: rule.sourcePath,
-    sourceRoot: join(graph.sourceDir, "src"),
+    sourceRoot: graph.sourceRoot,
     variables: {
       "skillset.output_dir": ".",
       "skillset.repo_root": ".",
@@ -629,7 +650,7 @@ async function projectAgentPreprocessDependencies(
       preprocessDependencies: dependencies,
       rootPath: graph.rootPath,
       sourcePath: agent.sourcePath,
-      sourceRoot: join(graph.sourceDir, "src"),
+      sourceRoot: graph.sourceRoot,
     });
   };
 
@@ -657,7 +678,7 @@ async function islandPreprocessDependencies(
       preprocessDependencies: dependencies,
       rootPath: graph.rootPath,
       sourcePath: island.sourcePath,
-      sourceRoot: join(graph.sourceDir, "src"),
+      sourceRoot: graph.sourceRoot,
     });
   } else {
     await preprocessText(source, {
@@ -665,7 +686,7 @@ async function islandPreprocessDependencies(
       preprocessDependencies: dependencies,
       rootPath: graph.rootPath,
       sourcePath: island.sourcePath,
-      sourceRoot: join(graph.sourceDir, "src"),
+      sourceRoot: graph.sourceRoot,
     });
   }
 
@@ -762,17 +783,18 @@ function compareInventories(
 
 async function resolveBaselineInventory(
   rootPath: string,
-  options: ChangeStatusOptions
+  baselineOptions: ChangeStatusOptions,
+  releaseOptions: ChangeStatusOptions
 ): Promise<BaselineInventory> {
-  if (options.since !== undefined) {
-    return inventoryFromGitRef(rootPath, options.since, options);
+  if (baselineOptions.since !== undefined) {
+    return inventoryFromGitRef(rootPath, baselineOptions.since, baselineOptions);
   }
-  if (options.staged === true) {
-    return inventoryFromGitRef(rootPath, "HEAD", options);
+  if (baselineOptions.staged === true) {
+    return inventoryFromGitRef(rootPath, "HEAD", baselineOptions);
   }
 
-  const fallback = await fallbackBaselineInventory(rootPath, options);
-  const releaseInventory = await sourceInventoryFromReleaseState(rootPath, options, fallback.inventory);
+  const fallback = await fallbackBaselineInventory(rootPath, baselineOptions);
+  const releaseInventory = await sourceInventoryFromReleaseState(rootPath, releaseOptions, fallback.inventory);
   if (releaseInventory !== undefined) return releaseInventory;
   return fallback;
 }
@@ -794,8 +816,7 @@ async function inventoryFromGitRef(
 ): Promise<BaselineInventory> {
   const snapshotPath = await snapshotGitRef(rootPath, ref);
   try {
-    await normalizeLegacyBaselineSnapshot(snapshotPath, options);
-    const inventory = await collectSourceInventory(snapshotPath, options);
+    const inventory = await collectGitSnapshotInventory(snapshotPath, options);
     const resolvedRef = await gitRevParse(rootPath, ref);
     return {
       baseline: { kind: "git-ref", ref, ...(resolvedRef === undefined ? {} : { resolvedRef }) },
@@ -806,11 +827,38 @@ async function inventoryFromGitRef(
   }
 }
 
+async function collectGitSnapshotInventory(
+  snapshotPath: string,
+  options: SkillsetOptions
+): Promise<SourceInventory> {
+  try {
+    await normalizeLegacyBaselineSnapshot(snapshotPath, options);
+    return await collectSourceInventory(snapshotPath, options);
+  } catch (error) {
+    if (options.sourceDir === undefined || !canRetryBaselineWithDetectedLayout(error)) throw error;
+    const autoOptions = withoutSourceDir(options);
+    await normalizeLegacyBaselineSnapshot(snapshotPath, autoOptions);
+    return collectSourceInventory(snapshotPath, autoOptions);
+  }
+}
+
+function withoutSourceDir<T extends SkillsetOptions>(options: T): T {
+  const { sourceDir: _sourceDir, ...rest } = options;
+  return rest as T;
+}
+
+function canRetryBaselineWithDetectedLayout(error: unknown): boolean {
+  if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") return true;
+  const message = error instanceof Error ? error.message : String(error);
+  return message.startsWith("skillset: no source plugins, skills, rules, project agents, or provider source found");
+}
+
 async function normalizeLegacyBaselineSnapshot(
   snapshotPath: string,
   options: SkillsetOptions
 ): Promise<void> {
   const sourceDir = options.sourceDir ?? ".skillset";
+  if (sourceDir === ".") return;
   const skillsetPath = join(snapshotPath, sourceDir);
   if (!(await exists(skillsetPath))) return;
 
@@ -904,12 +952,16 @@ async function sourceInventoryFromReleaseState(
   }
 
   return {
-    baseline: { hashSchema: SOURCE_HASH_SCHEMA, kind: "source-inventory", label: ".skillset/changes/state.json" },
+    baseline: { hashSchema: SOURCE_HASH_SCHEMA, kind: "source-inventory", label: releaseStateRelativePath(options) },
     inventory: {
       hashSchema: SOURCE_HASH_SCHEMA,
       units: [...units.values()].sort((left, right) => compareStrings(left.id, right.id)),
     },
   };
+}
+
+function releaseStateRelativePath(options: SkillsetOptions): string {
+  return join(options.sourceDir ?? ".skillset", "changes/state.json");
 }
 
 function inferredReleaseUnit(id: string, hash: string): SourceUnit {

@@ -10,7 +10,7 @@ import {
   type ChangeGroup,
   type PendingChangeEntry,
 } from "./change-entries";
-import { changeStatus, type ChangeStatusOptions, type SourceUnit, type SourceUnitChange } from "./change-status";
+import { changeStatus, detectWorkspaceOptions, type ChangeStatusOptions, type SourceUnit, type SourceUnitChange } from "./change-status";
 import { readString } from "./config";
 import { compareStrings, resolveInside } from "./path";
 import {
@@ -112,10 +112,14 @@ export async function addChangeEntry(rootPath: string, options: ChangeAddOptions
   if (options.bump === undefined) throw new Error("skillset: change add requires --bump major, minor, patch, or none");
   const scopes = [...new Set(options.scopes.map(sourceUnitSelector))].sort(compareStrings);
   const reason = await resolveReason(rootPath, options.reason);
-  const statusOptions = sourceStatusOptions(options);
+  const statusOptions = await detectWorkspaceOptions(rootPath, sourceStatusOptions(options));
   const status = await changeStatus(rootPath, statusOptions);
   const existing = await readAllChangeEntries(rootPath, statusOptions);
-  const id = await generateChangeId(rootPath, { ...options, scopes }, existing.map((entry) => entry.id));
+  const id = await generateChangeId(
+    rootPath,
+    { ...options, scopes, ...(statusOptions.sourceDir === undefined ? {} : { sourceDir: statusOptions.sourceDir }) },
+    existing.map((entry) => entry.id)
+  );
   const sourceHashes = new Map<string, readonly string[]>();
   for (const scope of scopes) {
     const hash = sourceHashForScope(scope, status.sourceUnits, status.sourceChanges);
@@ -123,7 +127,7 @@ export async function addChangeEntry(rootPath: string, options: ChangeAddOptions
     sourceHashes.set(scope, [hash]);
   }
 
-  const sourceDir = options.sourceDir ?? ".skillset";
+  const sourceDir = statusOptions.sourceDir ?? ".skillset";
   const relativePath = join(sourceDir, PENDING_DIR, `${id}.md`).replaceAll("\\", "/");
   const absolutePath = resolveInside(rootPath, relativePath);
   const group = options.group === undefined ? undefined : parseGroupArgument(options.group);
@@ -144,21 +148,23 @@ export async function addChangeEntry(rootPath: string, options: ChangeAddOptions
 }
 
 export async function updateChangeReason(rootPath: string, options: ChangeReasonOptions): Promise<ChangeReasonReport> {
-  const pendingEntries = await readPendingChangeEntries(rootPath, options);
+  const storageOptions = await detectWorkspaceOptions(rootPath, options);
+  const pendingEntries = await readPendingChangeEntries(rootPath, storageOptions);
   const entry = resolvePendingChangeRef(pendingEntries, options.ref);
   const newReason = await resolveReason(rootPath, options.reason);
   const absolutePath = resolveInside(rootPath, entry.path);
   const parts = parseMarkdown(await readFile(absolutePath, "utf8"), absolutePath);
   const body = options.append ? `${parts.body.trimEnd()}\n\n${newReason}` : newReason;
   await writeFile(absolutePath, stringifyMarkdown(parts.frontmatter, body), "utf8");
-  const updated = resolvePendingChangeRef(await readPendingChangeEntries(rootPath, options), entry.id ?? options.ref);
-  const refs = refIndex([updated], await readHistoryEntries(rootPath, options));
+  const updated = resolvePendingChangeRef(await readPendingChangeEntries(rootPath, storageOptions), entry.id ?? options.ref);
+  const refs = refIndex([updated], await readHistoryEntries(rootPath, storageOptions));
   return { entry: pendingView(updated, refs) };
 }
 
 export async function listChangeEntries(rootPath: string, options: ChangeListOptions = {}): Promise<ChangeListReport> {
-  const pendingEntries = await readPendingChangeEntries(rootPath, options);
-  const historyEntries = await readHistoryEntries(rootPath, options);
+  const storageOptions = await detectWorkspaceOptions(rootPath, options);
+  const pendingEntries = await readPendingChangeEntries(rootPath, storageOptions);
+  const historyEntries = await readHistoryEntries(rootPath, storageOptions);
   const refs = refIndex(pendingEntries, historyEntries);
   const entries = pendingEntries
     .filter((entry) => options.group === undefined || groupMatches(entry.group, options.group))
@@ -167,13 +173,15 @@ export async function listChangeEntries(rootPath: string, options: ChangeListOpt
 }
 
 export async function showChangeEntry(rootPath: string, options: ChangeShowOptions): Promise<ChangeShowReport> {
-  const resolved = await resolveAnyChangeRef(rootPath, options.ref, options);
+  const storageOptions = await detectWorkspaceOptions(rootPath, options);
+  const resolved = await resolveAnyChangeRef(rootPath, options.ref, storageOptions);
   return { entry: resolved };
 }
 
 export async function readChangeHistory(rootPath: string, options: ChangeHistoryOptions = {}): Promise<ChangeHistoryReport> {
-  const pendingEntries = await readPendingChangeEntries(rootPath, options);
-  const historyEntries = await readHistoryEntries(rootPath, options);
+  const storageOptions = await detectWorkspaceOptions(rootPath, options);
+  const pendingEntries = await readPendingChangeEntries(rootPath, storageOptions);
+  const historyEntries = await readHistoryEntries(rootPath, storageOptions);
   const refs = refIndex(pendingEntries, historyEntries);
   if (options.ref === undefined) return { entries: historyEntries.map((entry) => historyView(entry, refs)) };
   assertCombinedRefUnambiguous(options.ref, pendingEntries, historyEntries, refs);
@@ -190,7 +198,8 @@ export async function readAppliedChangeRecords(
   rootPath: string,
   options: ChangeStatusOptions = {}
 ): Promise<readonly AppliedChangeRecord[]> {
-  return readHistoryEntries(rootPath, options);
+  const storageOptions = await detectWorkspaceOptions(rootPath, options);
+  return readHistoryEntries(rootPath, storageOptions);
 }
 
 async function resolveAnyChangeRef(

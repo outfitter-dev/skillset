@@ -8,7 +8,7 @@ Releases turn accepted source changes into stable artifact versions, generated c
 
 ## Authoring
 
-Release state lives with change state under `.skillset/changes/state.json`. Applied change history appends to `.skillset/changes/history.jsonl`, and release records append to `.skillset/changes/releases.jsonl`. Entity-local `CHANGELOG.md` files are generated tracked renderings placed beside source entities like plugins and skills. Pending changes are preview/status data, not committed pending sections in tracked changelogs.
+Release state lives with change state under the workspace change directory: `.skillset/changes/state.json` for ordinary workspaces and `changes/state.json` for dedicated skillset repos. Applied change history appends to `changes/history.jsonl` under the same workspace change directory, and release records append to `changes/releases.jsonl`. Entity-local `CHANGELOG.md` files are generated tracked renderings placed beside source entities like plugins and skills. Pending changes are preview/status data, not committed pending sections in tracked changelogs.
 
 ## Target Rendering
 
@@ -26,7 +26,7 @@ Release state lives with change state under `.skillset/changes/state.json`. Appl
 
 Release records capture selected change ids, source hashes, resolved versions, and source-hash baseline metadata. `skillset change status` uses release-state source hashes as the durable baseline rather than a symbolic git ref, so applying a release before committing still records the released source identity. Deleted source units are written as release-state tombstones, which removes them from the baseline inventory after the deletion is released. Plugin aggregate release scopes are derived from child plugin skill, feature, companion, and provider-source entries by default; plugin config changes still need their own plugin-level release story. External package release tools such as Changesets and release-please remain external authorities unless a future explicit bridge is configured.
 
-Package releases for the public `skillset` npm package are documented separately in [Package Releases](../package-releases.md). Changesets owns npm package versions and package changelog calculation, while Skillset source-unit releases own `.skillset/changes` provenance and generated entity changelogs.
+Package releases for the public `skillset` npm package are documented separately in [Package Releases](../package-releases.md). Changesets owns npm package versions and package changelog calculation, while Skillset source-unit releases own workspace `changes` provenance and generated entity changelogs.
 
 ## Tests and Fixtures
 

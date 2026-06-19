@@ -1,16 +1,653 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 
+import { seedReleaseBaselines } from "../adoption";
 import { explainPath, listGeneratedEntries } from "../authoring";
 import { buildSkillset, buildSkillsetResult, checkSkillset, diffSkillset } from "../build";
+import { changeStatus, collectSourceInventory } from "../change-status";
+import { addChangeEntry, readChangeHistory } from "../change-workflow";
+import { gitSafeEnv } from "../git-env";
 import { importSource } from "../import";
 import { inspectSkillset, lintSkillset } from "../lint";
+import { applyRelease } from "../release";
+import { writeReleaseState } from "../release-state";
 import { loadBuildGraph } from "../resolver";
 import { renderValidatedToml } from "../structured-output";
+import { runSkillsetTest } from "../test-runner";
+
+test("loads ordinary 1.0 workspace from .skillset/skillset.yaml and .skillset/src", async () => {
+  const root = await fixture({
+    ".skillset/skillset.yaml": `
+skillset:
+  name: ordinary-root
+claude: true
+codex: true
+`,
+    ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo ordinary workspace skill.
+---
+
+Demo ordinary workspace skill.
+`,
+  });
+
+  const graph = await loadBuildGraph(root);
+
+  expect(graph.rootConfigPath).toBe(join(root, ".skillset/skillset.yaml"));
+  expect(graph.rootManifestPath).toBe(join(root, ".skillset/skillset.yaml"));
+  expect(graph.sourceDir).toBe(".skillset");
+  expect(graph.sourceRoot).toBe(".skillset/src");
+  expect(graph.sourceRootPath).toBe(join(root, ".skillset/src"));
+  expect(graph.standaloneSkills.map((skill) => skill.id)).toEqual(["demo"]);
+
+  await buildSkillset(root);
+
+  expect(await exists(join(root, ".claude/skills/demo/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, ".agents/skills/demo/SKILL.md"))).toBe(true);
+});
+
+test("loads dedicated 1.0 workspace from root skillset.yaml and skillset directory", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: dedicated-root
+claude: true
+codex: true
+`,
+    "skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo dedicated workspace skill.
+---
+
+Demo dedicated workspace skill.
+`,
+  });
+
+  const graph = await loadBuildGraph(root);
+
+  expect(graph.rootConfigPath).toBe(join(root, "skillset.yaml"));
+  expect(graph.rootManifestPath).toBe(join(root, "skillset.yaml"));
+  expect(graph.sourceDir).toBe(".");
+  expect(graph.sourceRoot).toBe("skillset");
+  expect(graph.sourceRootPath).toBe(join(root, "skillset"));
+  expect(graph.standaloneSkills.map((skill) => skill.id)).toEqual(["demo"]);
+
+  await buildSkillset(root);
+
+  expect(await exists(join(root, ".claude/skills/demo/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, ".agents/skills/demo/SKILL.md"))).toBe(true);
+});
+
+test("loads ordinary 1.0 workspace from a custom source directory", async () => {
+  const root = await fixture({
+    "authoring/skillset.yaml": `
+skillset:
+  name: custom-root
+claude: true
+codex: false
+`,
+    "authoring/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo custom ordinary workspace skill.
+---
+
+Demo custom ordinary workspace skill.
+`,
+  });
+
+  const graph = await loadBuildGraph(root, { sourceDir: "authoring" });
+
+  expect(graph.rootConfigPath).toBe(join(root, "authoring/skillset.yaml"));
+  expect(graph.sourceDir).toBe("authoring");
+  expect(graph.sourceRoot).toBe("authoring/src");
+  expect(graph.standaloneSkills.map((skill) => skill.id)).toEqual(["demo"]);
+});
+
+test("dedicated 1.0 workspace ignores unrelated top-level directories", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: dedicated-root
+claude: true
+codex: false
+`,
+    "skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo dedicated workspace skill.
+---
+
+Demo dedicated workspace skill.
+`,
+    "skills/unrelated.txt": "not skillset source\n",
+    "plugins/README.md": "not skillset source\n",
+    "shared/data.txt": "not skillset source\n",
+  });
+
+  await expect(loadBuildGraph(root)).resolves.toMatchObject({
+    sourceDir: ".",
+    sourceRoot: "skillset",
+  });
+});
+
+test("dedicated 1.0 change status reads release state from changes/state.json", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: dedicated-root
+claude: true
+codex: true
+`,
+    "skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo dedicated workspace skill.
+version: 0.1.0
+---
+
+Demo dedicated workspace skill.
+`,
+  });
+
+  await buildSkillset(root);
+  await commitFixture(root);
+  await writeFile(
+    join(root, "skillset/skills/demo/SKILL.md"),
+    `---
+name: demo
+description: Demo dedicated workspace skill.
+version: 0.1.0
+---
+
+Changed after the generated lock was written.
+`,
+    "utf8"
+  );
+  const inventory = await collectSourceInventory(root);
+  const demo = inventory.units.find((unit) => unit.id === "skill:demo");
+  if (demo === undefined) throw new Error("expected demo source unit");
+  await writeReleaseState(
+    root,
+    {
+      scopes: {
+        "skill:demo": {
+          sourceHash: demo.hash,
+          version: "0.1.0",
+        },
+      },
+    },
+    { sourceDir: "." }
+  );
+
+  const status = await changeStatus(root);
+
+  expect(status.baseline).toMatchObject({
+    kind: "source-inventory",
+    label: "changes/state.json",
+  });
+  expect(status.sourceChanges.map((change) => change.id)).not.toContain("skill:demo");
+});
+
+test("dedicated 1.0 release baseline seeding writes to changes/state.json", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: dedicated-root
+claude: true
+codex: false
+`,
+    "skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo dedicated workspace skill.
+version: 0.1.0
+---
+
+Demo dedicated workspace skill.
+`,
+  });
+
+  const report = await seedReleaseBaselines(root, {}, { write: true });
+
+  expect(report.path).toBe("changes/state.json");
+  expect(report.entries.map((entry) => entry.scope)).toContain("skill:demo");
+  expect(await exists(join(root, "changes/state.json"))).toBe(true);
+});
+
+test("dedicated 1.0 release baseline seeding fails loudly for malformed workspace markers", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": "claude: true\n",
+  });
+
+  await expect(seedReleaseBaselines(root, {}, { write: true })).rejects.toThrow("skillset.yaml");
+});
+
+test("dedicated 1.0 output roots cannot point at root changes state", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: dedicated-root
+  outputs:
+    skills:
+      claude: changes
+claude: true
+codex: false
+`,
+    "skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo dedicated workspace skill.
+---
+
+Demo dedicated workspace skill.
+`,
+  });
+
+  await expect(loadBuildGraph(root)).rejects.toThrow("must not point inside change state changes");
+});
+
+test("dedicated 1.0 change add writes pending entries to root changes directory", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: dedicated-root
+claude: true
+codex: false
+`,
+    "skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo dedicated workspace skill.
+version: 0.1.0
+---
+
+Demo dedicated workspace skill.
+`,
+  });
+
+  await buildSkillset(root);
+  await commitFixture(root);
+  await writeFile(
+    join(root, "skillset/skills/demo/SKILL.md"),
+    `---
+name: demo
+description: Demo dedicated workspace skill.
+version: 0.1.0
+---
+
+Changed after the generated lock was written.
+`,
+    "utf8"
+  );
+
+  const report = await addChangeEntry(root, {
+    bump: "patch",
+    reason: {
+      kind: "inline",
+      value: "Document the dedicated workspace source change with enough detail for validation.",
+    },
+    scopes: ["skill:demo"],
+  });
+
+  expect(report.entry.path).toMatch(/^changes\/pending\/[0-9a-f]{12}\.md$/);
+  expect(await exists(join(root, report.entry.path))).toBe(true);
+  expect(await exists(join(root, ".skillset/changes/pending"))).toBe(false);
+});
+
+test("dedicated 1.0 release apply writes history and releases to root changes directory", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: dedicated-root
+claude: true
+codex: false
+`,
+    "skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo dedicated workspace skill.
+version: 0.1.0
+---
+
+Demo dedicated workspace skill.
+`,
+  });
+
+  await buildSkillset(root);
+  await commitFixture(root);
+  await writeFile(
+    join(root, "skillset/skills/demo/SKILL.md"),
+    `---
+name: demo
+description: Demo dedicated workspace skill.
+version: 0.1.0
+---
+
+Changed before applying a dedicated workspace release.
+`,
+    "utf8"
+  );
+  const added = await addChangeEntry(root, {
+    bump: "patch",
+    reason: {
+      kind: "inline",
+      value: "Release the dedicated workspace source change with enough detail for validation.",
+    },
+    scopes: ["skill:demo"],
+  });
+
+  const report = await applyRelease(root);
+
+  expect(report.files).toContain("changes/history.jsonl");
+  expect(report.files).toContain("changes/releases.jsonl");
+  expect(report.files).toContain("changes/state.json");
+  expect(await exists(join(root, "changes/history.jsonl"))).toBe(true);
+  expect(await exists(join(root, "changes/releases.jsonl"))).toBe(true);
+  expect(await exists(join(root, "changes/state.json"))).toBe(true);
+  expect(await exists(join(root, added.entry.path))).toBe(false);
+  expect(await exists(join(root, ".skillset/changes/history.jsonl"))).toBe(false);
+});
+
+test("dedicated 1.0 change history can read records while source units are absent", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: dedicated-root
+claude: true
+codex: false
+`,
+  });
+  await mkdir(join(root, "changes"), { recursive: true });
+  await writeFile(
+    join(root, "changes/history.jsonl"),
+    `${JSON.stringify({
+      appliedAt: "2026-06-19T00:00:00.000Z",
+      bump: "patch",
+      id: "0123456789ab",
+      reason: "A historical entry can be inspected while source is temporarily unavailable.",
+      scopes: ["skill:demo"],
+      evidence: [{ scope: "skill:demo", sourceHash: "sha256:0000000000000000000000000000000000000000000000000000000000000000" }],
+    })}\n`,
+    "utf8"
+  );
+
+  const history = await readChangeHistory(root);
+
+  expect(history.entries.map((entry) => entry.path)).toEqual(["changes/history.jsonl:1"]);
+});
+
+test("rejects ambiguous workspace layout markers", async () => {
+  const ordinaryAndLegacy = await fixture({
+    ".skillset/config.yaml": "claude: true\n",
+    ".skillset/src/skillset.yaml": "skillset:\n  name: legacy-root\n",
+    ".skillset/skillset.yaml": "skillset:\n  name: ordinary-root\nclaude: true\n",
+    ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+---
+
+Demo skill.
+`,
+  });
+
+  await expect(loadBuildGraph(ordinaryAndLegacy)).rejects.toThrow(
+    "found both .skillset/skillset.yaml and legacy .skillset/config.yaml"
+  );
+
+  const dedicatedAndOrdinary = await fixture({
+    "skillset.yaml": "skillset:\n  name: dedicated-root\nclaude: true\n",
+    "skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+---
+
+Demo skill.
+`,
+    ".skillset/skillset.yaml": "skillset:\n  name: ordinary-root\nclaude: true\n",
+  });
+
+  await expect(loadBuildGraph(dedicatedAndOrdinary)).rejects.toThrow(
+    "found both dedicated root skillset.yaml/skillset and ordinary .skillset workspace"
+  );
+});
+
+test("orphan root skillset.yaml does not mask an ordinary 1.0 workspace", async () => {
+  const root = await fixture({
+    "skillset.yaml": "skillset:\n  name: orphan-root\nclaude: true\n",
+    ".skillset/skillset.yaml": "skillset:\n  name: ordinary-root\nclaude: true\ncodex: false\n",
+    ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo ordinary workspace skill.
+---
+
+Demo ordinary workspace skill.
+`,
+  });
+
+  const graph = await loadBuildGraph(root);
+
+  expect(graph.rootConfigPath).toBe(join(root, ".skillset/skillset.yaml"));
+  expect(graph.sourceDir).toBe(".skillset");
+  expect(graph.sourceRoot).toBe(".skillset/src");
+});
+
+test("orphan root skillset.yaml with unrelated skillset directory does not mask an ordinary 1.0 workspace", async () => {
+  const root = await fixture({
+    "skillset.yaml": "skillset:\n  name: orphan-root\nclaude: true\n",
+    "skillset/README.md": "This is not Skillset source.\n",
+    "skillset/skills/README.md": "Still not Skillset source.\n",
+    "skillset/rules/README.md": "Still not Skillset source.\n",
+    "skillset/agents/README.md": "Still not Skillset source.\n",
+    "skillset/_codex/README.md": "Still not Skillset source.\n",
+    ".skillset/skillset.yaml": "skillset:\n  name: ordinary-root\nclaude: true\ncodex: false\n",
+    ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo ordinary workspace skill.
+---
+
+Demo ordinary workspace skill.
+`,
+  });
+
+  const graph = await loadBuildGraph(root);
+
+  expect(graph.rootConfigPath).toBe(join(root, ".skillset/skillset.yaml"));
+  expect(graph.sourceDir).toBe(".skillset");
+});
+
+test("root skillset.yaml with provider source file remains ambiguous with ordinary workspace", async () => {
+  const root = await fixture({
+    "skillset.yaml": "skillset:\n  name: dedicated-root\nclaude: true\n",
+    "skillset/_codex/settings.json": "{}\n",
+    ".skillset/skillset.yaml": "skillset:\n  name: ordinary-root\nclaude: true\ncodex: false\n",
+    ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo ordinary workspace skill.
+---
+
+Demo ordinary workspace skill.
+`,
+  });
+
+  await expect(loadBuildGraph(root)).rejects.toThrow(
+    "found both dedicated root skillset.yaml/skillset and ordinary .skillset workspace"
+  );
+});
+
+test("skillset test reads ordinary 1.0 workspace tests from skillset.yaml", async () => {
+  const root = await fixture({
+    ".skillset/skillset.yaml": `
+skillset:
+  name: ordinary-root
+tests:
+  self:
+    source: repo:.skillset
+    output:
+      kind: isolated
+    assertions:
+      - build
+      - exists: .claude/skills/demo/SKILL.md
+claude: true
+codex: false
+`,
+    ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo ordinary workspace skill.
+---
+
+Demo ordinary workspace skill.
+`,
+  });
+
+  const report = await runSkillsetTest(root, "self");
+
+  expect(report.ok).toBe(true);
+  expect(report.source).toBe("repo:.skillset");
+  expect(await exists(join(root, ".skillset/build/tests/latest/workspace/.claude/skills/demo/SKILL.md"))).toBe(true);
+});
+
+test("change status compares current dedicated workspace against legacy git baselines", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+claude: true
+codex: false
+`,
+    ".skillset/src/skillset.yaml": `
+skillset:
+  name: migrating-root
+`,
+    ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo migrated skill.
+version: 0.1.0
+---
+
+Legacy workspace body.
+`,
+  });
+  await commitFixture(root);
+  await rm(join(root, ".skillset"), { force: true, recursive: true });
+  await Bun.write(
+    join(root, "skillset.yaml"),
+    `skillset:
+  name: migrating-root
+claude: true
+codex: false
+`
+  );
+  await Bun.write(
+    join(root, "skillset/skills/demo/SKILL.md"),
+    `---
+name: demo
+description: Demo migrated skill.
+version: 0.1.0
+---
+
+Dedicated workspace body.
+`
+  );
+
+  const status = await changeStatus(root, { since: "HEAD" });
+
+  expect(status.baseline).toMatchObject({ kind: "git-ref", ref: "HEAD" });
+  expect(status.sourceChanges.map((change) => change.id)).toContain("skill:demo");
+});
+
+test("change status explicit dedicated source compares against legacy git baselines", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+claude: true
+codex: false
+`,
+    ".skillset/src/skillset.yaml": `
+skillset:
+  name: migrating-root
+`,
+    ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo migrated skill.
+version: 0.1.0
+---
+
+Legacy workspace body.
+`,
+  });
+  await commitFixture(root);
+  await rm(join(root, ".skillset"), { force: true, recursive: true });
+  await Bun.write(
+    join(root, "skillset.yaml"),
+    `skillset:
+  name: migrating-root
+claude: true
+codex: false
+`
+  );
+  await Bun.write(
+    join(root, "skillset/skills/demo/SKILL.md"),
+    `---
+name: demo
+description: Demo migrated skill.
+version: 0.1.0
+---
+
+Dedicated workspace body.
+`
+  );
+
+  const status = await changeStatus(root, { since: "HEAD", sourceDir: "." });
+
+  expect(status.baseline).toMatchObject({ kind: "git-ref", ref: "HEAD" });
+  expect(status.sourceChanges.map((change) => change.id)).toContain("skill:demo");
+});
+
+test("legacy split source manifest outputs do not override workspace config outputs", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+claude: true
+codex: false
+`,
+    ".skillset/src/skillset.yaml": `
+skillset:
+  name: legacy-root
+  outputs:
+    plugins:
+      claude: stale-source-output
+`,
+    ".skillset/src/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo plugin skill.
+---
+
+Demo plugin skill.
+`,
+  });
+
+  await buildSkillset(root);
+
+  expect(await exists(join(root, "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"))).toBe(true);
+  expect(await exists(join(root, "stale-source-output/plugins/alpha/.claude-plugin/plugin.json"))).toBe(false);
+});
 
 test("resolves target inheritance, booleans, objects, and false opt-out", async () => {
   const root = await fixture({
@@ -3815,6 +4452,31 @@ async function fixture(files: Record<string, string>): Promise<string> {
 
 async function exists(path: string): Promise<boolean> {
   return Bun.file(path).exists();
+}
+
+async function commitFixture(root: string): Promise<void> {
+  await runGit(root, "init", "-q");
+  await runGit(root, "config", "user.email", "skillset@example.com");
+  await runGit(root, "config", "user.name", "Skillset Test");
+  await runGit(root, "add", ".");
+  await runGit(root, "commit", "-qm", "baseline");
+}
+
+async function runGit(root: string, ...args: readonly string[]): Promise<void> {
+  const proc = Bun.spawn({
+    cmd: ["git", "-C", root, ...args],
+    env: gitSafeEnv(),
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  if (exitCode !== 0) {
+    throw new Error(`git ${args.join(" ")} failed\n${stdout}${stderr}`);
+  }
 }
 
 async function expectFeatureDiagnosticError(
