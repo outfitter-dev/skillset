@@ -145,7 +145,7 @@ export async function explainPath(
     features: [],
     renderResults: [],
     notes: [
-      `No lock entry references ${target}. Pass a source path under ${graph.sourceDir}/ or a generated output path.`,
+      `No lock entry references ${target}. Pass a source path under ${graph.sourceRoot}/ or a generated output path.`,
     ],
   };
 }

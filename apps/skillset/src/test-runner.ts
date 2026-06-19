@@ -70,8 +70,9 @@ export async function runSkillsetTest(
   name: string | undefined,
   options: SkillsetOptions = {}
 ): Promise<SkillsetTestReport> {
-  const sourceDir = options.sourceDir ?? DEFAULT_SOURCE_DIR;
-  const declaration = await readTestDeclaration(rootPath, sourceDir, name);
+  const graph = await loadBuildGraph(rootPath, options);
+  const sourceDir = graph.sourceDir;
+  const declaration = await readTestDeclaration(graph.rootConfigPath, name);
   if (declaration.source !== `repo:${sourceDir}`) {
     throw new Error(`skillset: test ${declaration.name} source ${declaration.source} is not supported yet; use repo:${sourceDir}`);
   }
@@ -177,8 +178,7 @@ export async function runSkillsetTest(
   }
 }
 
-async function readTestDeclaration(rootPath: string, sourceDir: string, requestedName: string | undefined): Promise<TestDeclaration> {
-  const configPath = resolveInside(rootPath, join(sourceDir, "config.yaml"));
+async function readTestDeclaration(configPath: string, requestedName: string | undefined): Promise<TestDeclaration> {
   const config = parseYamlRecord(await readFile(configPath, "utf8"), configPath);
   const defaultTargets = readEffectiveTargets(config, configPath);
   const tests = config.tests;

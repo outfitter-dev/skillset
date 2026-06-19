@@ -8,7 +8,7 @@ Changes record why source units changed. They are source-side evidence for statu
 
 ## Authoring
 
-Pending entries live under `.skillset/changes/pending/` as Markdown files with YAML frontmatter and a required prose body. The body is the authored reason and eventual changelog source. Frontmatter carries `id`, `scope`, `bump`, optional `group`, hash evidence, suggested bump, and overrides.
+Pending entries live under the workspace change directory as Markdown files with YAML frontmatter and a required prose body: `.skillset/changes/pending/` for ordinary workspaces and `changes/pending/` for dedicated skillset repos. The body is the authored reason and eventual changelog source. Frontmatter carries `id`, `scope`, `bump`, optional `group`, hash evidence, suggested bump, and overrides.
 
 Compact ids are generated once at scaffold time as 12 lower-case hex characters. CLI refs use `@<prefix>` with shortest-unambiguous resolution and a minimum 6-character prefix. Group ids are filtering and reporting aids; they do not imply release grouping.
 
@@ -18,9 +18,9 @@ Compact ids are generated once at scaffold time as 12 lower-case hex characters.
 | --- | --- | --- | --- | --- |
 | Source-unit inventory | n/a | n/a | `implemented` | `skillset change status` hashes supported source units with schema `skillset-source-unit-v2`. |
 | `skillset change status --since <ref>` | n/a | n/a | `implemented` | Read-only comparison against a git ref; generated-output drift is reported separately. |
-| `.skillset/changes/pending/*.md` | n/a | n/a | `implemented` | Created, listed, shown, edited, validated by `skillset change`, and consumed by `skillset release apply --yes`; not target output. |
-| `.skillset/changes/history.jsonl` | n/a | n/a | `implemented` | Append-only applied history is read by `skillset change history`, written by release apply, and used by changelog renderings. |
-| `.skillset/changes/baseline` records | n/a | n/a | `planned` | Explicit hash-schema baseline records, not changelog entries. |
+| `changes/pending/*.md` | n/a | n/a | `implemented` | Created, listed, shown, edited, validated by `skillset change`, and consumed by `skillset release apply --yes`; stored under `.skillset/changes` in ordinary workspaces and root `changes` in dedicated repos. |
+| `changes/history.jsonl` | n/a | n/a | `implemented` | Append-only applied history is read by `skillset change history`, written by release apply, and used by changelog renderings. |
+| `changes/baseline` records | n/a | n/a | `planned` | Explicit hash-schema baseline records, not changelog entries. |
 
 ## Diagnostics
 

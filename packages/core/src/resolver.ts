@@ -53,6 +53,7 @@ const SOURCE_ROOT_DIR = "src";
 const RULES_DIR = "rules";
 const SKILLS_DIR = "skills";
 const SHARED_DIR = "shared";
+const DEDICATED_STATE_DIR = "changes";
 const SKILL_FILE = "SKILL.md";
 const RULES_OUTPUT_ROOT = ".claude/rules";
 const PROJECT_AGENTS_DIR = "agents";
@@ -62,35 +63,54 @@ const PROVIDER_SOURCE_DIRS: Readonly<Record<TargetName, string>> = {
 };
 const PLUGIN_FEATURE_KEYS: readonly SourcePluginFeatureKey[] = ["bin", "mcp"];
 
+interface WorkspaceLayout {
+  readonly configPath: string;
+  readonly configRelativePath: string;
+  readonly mode: "dedicated" | "legacy-ordinary" | "ordinary";
+  readonly sourceDir: string;
+  readonly sourcePath: string;
+  readonly sourceRoot: string;
+  readonly sourceRootDir: string;
+  readonly sourceRootPath: string;
+  readonly splitRootManifestPath?: string;
+  readonly splitRootManifestRelativePath?: string;
+}
+
 export async function loadBuildGraph(
   rootPath: string,
   options: SkillsetOptions = {}
 ): Promise<BuildGraph> {
-  const sourceDir = options.sourceDir ?? DEFAULT_SOURCE_DIR;
-  const sourcePath = resolveInside(rootPath, sourceDir);
-  const rootConfigPath = join(sourcePath, ROOT_CONFIG_FILE);
-  const rootSourceManifestPath = join(sourcePath, SOURCE_ROOT_DIR, ROOT_SOURCE_MANIFEST_FILE);
-  const rootConfig = parseYamlRecord(await readFile(rootConfigPath, "utf8"), rootConfigPath);
-  validateWorkspaceConfigDocument(rootConfig, rootConfigPath);
-  const sourceManifest = parseYamlRecord(await readFile(rootSourceManifestPath, "utf8"), rootSourceManifestPath);
-  validateRootSourceManifestDocument(sourceManifest, rootSourceManifestPath);
-  const metadata = readSkillsetMetadata(sourceManifest, rootSourceManifestPath);
-  validateSchemaField(metadata, `${rootSourceManifestPath}.skillset.schema`);
-  validateVersionField(metadata, `${rootSourceManifestPath}.skillset.version`);
+  const workspace = await resolveWorkspaceLayout(rootPath, options);
+  const { sourceDir, sourcePath, sourceRoot, sourceRootDir, sourceRootPath } = workspace;
+  const rootConfig = parseYamlRecord(await readFile(workspace.configPath, "utf8"), workspace.configPath);
+  const sourceManifest = workspace.splitRootManifestPath === undefined
+    ? rootConfig
+    : parseYamlRecord(await readFile(workspace.splitRootManifestPath, "utf8"), workspace.splitRootManifestPath);
+  if (workspace.splitRootManifestPath === undefined) {
+    validateConfigDocument(rootConfig, workspace.configPath, { allowCompile: true });
+  } else {
+    validateWorkspaceConfigDocument(rootConfig, workspace.configPath);
+    validateRootSourceManifestDocument(sourceManifest, workspace.splitRootManifestPath);
+  }
+  const metadataLabel = workspace.splitRootManifestPath ?? workspace.configPath;
+  const metadata = readSkillsetMetadata(sourceManifest, metadataLabel);
+  validateSchemaField(metadata, `${metadataLabel}.skillset.schema`);
+  validateVersionField(metadata, `${metadataLabel}.skillset.version`);
   // Validate root identity.
-  readSkillsetName(metadata, basename(rootPath), rootSourceManifestPath);
+  readSkillsetName(metadata, basename(rootPath), metadataLabel);
+  const outputMetadata = workspace.splitRootManifestPath === undefined ? metadata : {};
   const outputs = readOutputConfig(
     rootConfig,
-    {},
+    outputMetadata,
     options.distDir === undefined ? {} : { distDir: options.distDir }
   );
-  const distributions = readDistributionConfig(rootConfig, rootConfigPath);
-  const rootTargets = resolveTargets(readCompileTargets(rootConfig, rootConfigPath), rootConfig, rootConfigPath, {
+  const distributions = readDistributionConfig(rootConfig, workspace.configPath);
+  const rootTargets = resolveTargets(readCompileTargets(rootConfig, workspace.configPath), rootConfig, workspace.configPath, {
     allowDefaults: true,
     objectInheritsEnabled: true,
   });
-  const compileConfig = readCompileConfig(rootConfig, rootConfigPath);
-  const filteredTargets = applyTargetFilter(rootTargets, options.targetFilter, rootConfigPath);
+  const compileConfig = readCompileConfig(rootConfig, workspace.configPath);
+  const filteredTargets = applyTargetFilter(rootTargets, options.targetFilter, workspace.configPath);
   const compile = {
     ...compileConfig,
     build: options.buildMode ?? compileConfig.build,
@@ -105,31 +125,37 @@ export async function loadBuildGraph(
   };
 
   const warnings: string[] = [];
-  await rejectLegacySourceLayout(rootPath, sourceDir);
-  await validateSupports(sourceManifest.supports, { label: rootSourceManifestPath, rootPath, warnings });
-  const releaseState = await readReleaseState(rootPath, options);
-  const plugins = await loadPlugins(rootPath, sourceDir, filteredTargets, warnings, outputs);
+  await rejectLegacySourceLayout(rootPath, sourceDir, sourceRootDir);
+  await validateSupports(sourceManifest.supports, { label: metadataLabel, rootPath, warnings });
+  const releaseState = await readReleaseState(rootPath, { ...options, sourceDir });
+  const plugins = await loadPlugins(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings, outputs);
   try {
     validatePluginDependencyGraph(plugins);
   } catch (error) {
     throw featureDiagnosticError(error, {
       code: "plugin-dependencies-invalid",
       featureId: "dependencies",
-      path: join(sourceDir, SOURCE_ROOT_DIR, PLUGINS_DIR),
+      path: join(sourceRoot, PLUGINS_DIR),
     });
   }
-  const standaloneSkills = await loadStandaloneSkills(rootPath, sourceDir, filteredTargets, warnings);
-  const { rules, instructionsDir } = await loadInstructions(rootPath, sourceDir, filteredTargets, warnings);
-  const projectAgents = await loadProjectAgents(rootPath, sourceDir, filteredTargets, warnings);
-  const projectIslands = await loadProjectIslands(rootPath, sourceDir, plugins);
+  const standaloneSkills = await loadStandaloneSkills(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings);
+  const { rules, instructionsDir } = await loadInstructions(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings);
+  const projectAgents = await loadProjectAgents(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings);
+  const projectIslands = await loadProjectIslands(rootPath, sourceDir, sourceRootDir, plugins);
 
   if (plugins.length === 0 && standaloneSkills.length === 0 && rules.length === 0 && projectAgents.length === 0 && projectIslands.length === 0) {
-    throw new Error(`skillset: no source plugins, skills, rules, project agents, or provider source found under ${sourceDir}/${SOURCE_ROOT_DIR}/`);
+    throw new Error(`skillset: no source plugins, skills, rules, project agents, or provider source found under ${sourceRoot}/`);
   }
 
   const outputRoots = await outputRootsFor(rootPath, outputs, plugins, standaloneSkills, rules);
-  validateOutputRoots(rootPath, sourcePath, outputRoots);
-  validateProjectRoots(rootPath, sourcePath, outputRoots, filteredTargets, projectAgents, projectIslands);
+  const protectedRoots = sourceDir === "."
+    ? [
+        { label: "source root", path: sourceRootPath },
+        { label: "change state", path: resolveInside(rootPath, DEDICATED_STATE_DIR) },
+      ]
+    : [{ label: "source root", path: sourcePath }];
+  validateOutputRoots(rootPath, protectedRoots, outputRoots);
+  validateProjectRoots(rootPath, protectedRoots, outputRoots, filteredTargets, projectAgents, projectIslands);
 
   return {
     instructionsDir,
@@ -140,11 +166,147 @@ export async function loadBuildGraph(
     releaseState,
     rules,
     root,
+    rootConfigPath: workspace.configPath,
+    rootManifestPath: workspace.splitRootManifestPath ?? workspace.configPath,
     rootPath,
     sourceDir,
     sourcePath,
+    sourceRoot,
+    sourceRootPath,
     standaloneSkills,
     warnings,
+  };
+}
+
+export async function detectWorkspaceSourceDir(
+  rootPath: string,
+  options: SkillsetOptions = {}
+): Promise<string> {
+  return (await resolveWorkspaceLayout(rootPath, options)).sourceDir;
+}
+
+async function resolveWorkspaceLayout(
+  rootPath: string,
+  options: SkillsetOptions
+): Promise<WorkspaceLayout> {
+  if (options.sourceDir !== undefined) {
+    if (options.sourceDir === ".") return dedicatedWorkspace(rootPath);
+    const ordinary = await ordinaryWorkspace(rootPath, options.sourceDir);
+    if (await workspaceExists(ordinary)) return ordinary;
+    return legacyOrdinaryWorkspace(rootPath, options.sourceDir);
+  }
+
+  const ordinary = await ordinaryWorkspace(rootPath);
+  const legacy = await legacyOrdinaryWorkspace(rootPath, DEFAULT_SOURCE_DIR);
+  const dedicated = await dedicatedWorkspace(rootPath);
+  const ordinaryExists = await workspaceExists(ordinary);
+  const legacyExists = await workspaceExists(legacy);
+  const dedicatedExists = await workspaceExists(dedicated);
+
+  const dedicatedSourceMarkerExists = await hasDedicatedSourceMarker(dedicated.sourceRootPath);
+  if (dedicatedExists && dedicatedSourceMarkerExists && (ordinaryExists || legacyExists)) {
+    throw new Error(
+      "skillset: ambiguous workspace layout; found both dedicated root skillset.yaml/skillset and ordinary .skillset workspace"
+    );
+  }
+  if (ordinaryExists && legacyExists) {
+    throw new Error(
+      "skillset: ambiguous workspace layout; found both .skillset/skillset.yaml and legacy .skillset/config.yaml"
+    );
+  }
+  if (dedicatedExists && dedicatedSourceMarkerExists) return dedicated;
+  if (ordinaryExists) return ordinary;
+  if (legacyExists) return legacy;
+  if (dedicatedExists) return dedicated;
+  return legacy;
+}
+
+async function hasDedicatedSourceMarker(sourceRootPath: string): Promise<boolean> {
+  if (await hasSkillSource(join(sourceRootPath, SKILLS_DIR))) return true;
+  if (await hasPluginSource(join(sourceRootPath, PLUGINS_DIR))) return true;
+  if (await hasMarkdownSource(join(sourceRootPath, RULES_DIR))) return true;
+  if (await hasProjectAgentSource(join(sourceRootPath, PROJECT_AGENTS_DIR))) return true;
+  for (const providerDir of Object.values(PROVIDER_SOURCE_DIRS)) {
+    if (await hasAnyFile(join(sourceRootPath, providerDir))) return true;
+  }
+  return false;
+}
+
+async function hasSkillSource(path: string): Promise<boolean> {
+  return (await exists(path)) && (await findSkillFiles(path)).length > 0;
+}
+
+async function hasPluginSource(path: string): Promise<boolean> {
+  if (!(await exists(path))) return false;
+  for (const entry of await readdir(path, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const pluginPath = join(path, entry.name);
+    if (await exists(join(pluginPath, "skillset.yaml"))) return true;
+    if (await exists(join(pluginPath, "config.yaml"))) return true;
+  }
+  return false;
+}
+
+async function hasMarkdownSource(path: string): Promise<boolean> {
+  return (await exists(path)) && (await findMarkdownFiles(path)).some(isNonReadmeFile);
+}
+
+async function hasProjectAgentSource(path: string): Promise<boolean> {
+  if (!(await exists(path))) return false;
+  const entries = await readdir(path, { withFileTypes: true });
+  return entries.some((entry) => entry.isFile() && entry.name.endsWith(".md") && entry.name.toLowerCase() !== "readme.md");
+}
+
+async function hasAnyFile(path: string): Promise<boolean> {
+  return (await exists(path)) && (await collectFiles(path)).some(isNonReadmeFile);
+}
+
+function isNonReadmeFile(path: string): boolean {
+  return basename(path).toLowerCase() !== "readme.md";
+}
+
+async function workspaceExists(workspace: WorkspaceLayout): Promise<boolean> {
+  return exists(workspace.configPath);
+}
+
+async function ordinaryWorkspace(rootPath: string, sourceDir = DEFAULT_SOURCE_DIR): Promise<WorkspaceLayout> {
+  return {
+    configPath: resolveInside(rootPath, join(sourceDir, ROOT_SOURCE_MANIFEST_FILE)),
+    configRelativePath: join(sourceDir, ROOT_SOURCE_MANIFEST_FILE),
+    mode: "ordinary",
+    sourceDir,
+    sourcePath: resolveInside(rootPath, sourceDir),
+    sourceRoot: join(sourceDir, SOURCE_ROOT_DIR),
+    sourceRootDir: SOURCE_ROOT_DIR,
+    sourceRootPath: resolveInside(rootPath, join(sourceDir, SOURCE_ROOT_DIR)),
+  };
+}
+
+function dedicatedWorkspace(rootPath: string): WorkspaceLayout {
+  return {
+    configPath: resolveInside(rootPath, ROOT_SOURCE_MANIFEST_FILE),
+    configRelativePath: ROOT_SOURCE_MANIFEST_FILE,
+    mode: "dedicated",
+    sourceDir: ".",
+    sourcePath: rootPath,
+    sourceRoot: "skillset",
+    sourceRootDir: "skillset",
+    sourceRootPath: resolveInside(rootPath, "skillset"),
+  };
+}
+
+function legacyOrdinaryWorkspace(rootPath: string, sourceDir: string): WorkspaceLayout {
+  return {
+    configPath: resolveInside(rootPath, join(sourceDir, ROOT_CONFIG_FILE)),
+    configRelativePath: join(sourceDir, ROOT_CONFIG_FILE),
+    mode: "legacy-ordinary",
+    sourceDir,
+    sourcePath: resolveInside(rootPath, sourceDir),
+    sourceRoot: join(sourceDir, SOURCE_ROOT_DIR),
+    sourceRootDir: SOURCE_ROOT_DIR,
+    sourceRootPath: resolveInside(rootPath, join(sourceDir, SOURCE_ROOT_DIR)),
+    splitRootManifestPath: resolveInside(rootPath, join(sourceDir, SOURCE_ROOT_DIR, ROOT_SOURCE_MANIFEST_FILE)),
+    splitRootManifestRelativePath: join(sourceDir, SOURCE_ROOT_DIR, ROOT_SOURCE_MANIFEST_FILE),
   };
 }
 
@@ -183,16 +345,22 @@ function featureDiagnosticError(
   });
 }
 
-async function rejectLegacySourceLayout(rootPath: string, sourceDir: string): Promise<void> {
-  const moves: readonly (readonly [string, string])[] = [
-    ["instructions", `${SOURCE_ROOT_DIR}/${RULES_DIR}`],
-    ["rules", `${SOURCE_ROOT_DIR}/${RULES_DIR}`],
-    [SKILLS_DIR, `${SOURCE_ROOT_DIR}/${SKILLS_DIR}`],
-    [PLUGINS_DIR, `${SOURCE_ROOT_DIR}/${PLUGINS_DIR}`],
-    [SHARED_DIR, `${SOURCE_ROOT_DIR}/${SHARED_DIR}`],
-    [`${SOURCE_ROOT_DIR}/claude`, `${SOURCE_ROOT_DIR}/${PROVIDER_SOURCE_DIRS.claude}`],
-    [`${SOURCE_ROOT_DIR}/codex`, `${SOURCE_ROOT_DIR}/${PROVIDER_SOURCE_DIRS.codex}`],
-  ];
+async function rejectLegacySourceLayout(rootPath: string, sourceDir: string, sourceRootDir: string): Promise<void> {
+  const moves: readonly (readonly [string, string])[] =
+    sourceDir === "."
+      ? [
+          [`${sourceRootDir}/claude`, `${sourceRootDir}/${PROVIDER_SOURCE_DIRS.claude}`],
+          [`${sourceRootDir}/codex`, `${sourceRootDir}/${PROVIDER_SOURCE_DIRS.codex}`],
+        ]
+      : [
+          ["instructions", `${sourceRootDir}/${RULES_DIR}`],
+          ["rules", `${sourceRootDir}/${RULES_DIR}`],
+          [SKILLS_DIR, `${sourceRootDir}/${SKILLS_DIR}`],
+          [PLUGINS_DIR, `${sourceRootDir}/${PLUGINS_DIR}`],
+          [SHARED_DIR, `${sourceRootDir}/${SHARED_DIR}`],
+          [`${sourceRootDir}/claude`, `${sourceRootDir}/${PROVIDER_SOURCE_DIRS.claude}`],
+          [`${sourceRootDir}/codex`, `${sourceRootDir}/${PROVIDER_SOURCE_DIRS.codex}`],
+        ];
 
   for (const [oldPath, newPath] of moves) {
     const absoluteOldPath = resolveInside(rootPath, join(sourceDir, oldPath));
@@ -203,15 +371,15 @@ async function rejectLegacySourceLayout(rootPath: string, sourceDir: string): Pr
     }
   }
 
-  const pluginsPath = resolveInside(rootPath, join(sourceDir, SOURCE_ROOT_DIR, PLUGINS_DIR));
+  const pluginsPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, PLUGINS_DIR));
   if (!(await exists(pluginsPath))) return;
   for (const entry of await readdir(pluginsPath, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     for (const [oldProviderDir, newProviderDir] of Object.entries(PROVIDER_SOURCE_DIRS)) {
-      const oldPath = join(SOURCE_ROOT_DIR, PLUGINS_DIR, entry.name, oldProviderDir);
+      const oldPath = join(sourceRootDir, PLUGINS_DIR, entry.name, oldProviderDir);
       const absoluteOldPath = resolveInside(rootPath, join(sourceDir, oldPath));
       if (!(await exists(absoluteOldPath))) continue;
-      const newPath = join(SOURCE_ROOT_DIR, PLUGINS_DIR, entry.name, newProviderDir);
+      const newPath = join(sourceRootDir, PLUGINS_DIR, entry.name, newProviderDir);
       throw new Error(
         `skillset: ${join(sourceDir, oldPath)} uses the retired provider source layout; move it to ${join(sourceDir, newPath)}`
       );
@@ -222,9 +390,10 @@ async function rejectLegacySourceLayout(rootPath: string, sourceDir: string): Pr
 async function loadProjectIslands(
   rootPath: string,
   sourceDir: string,
+  sourceRootDir: string,
   plugins: readonly SourcePlugin[]
 ): Promise<readonly SourceIslandFile[]> {
-  const srcPath = resolveInside(rootPath, join(sourceDir, SOURCE_ROOT_DIR));
+  const srcPath = resolveInside(rootPath, join(sourceDir, sourceRootDir));
   if (!(await exists(srcPath))) return [];
 
   const islands: SourceIslandFile[] = [];
@@ -259,7 +428,7 @@ async function loadProjectIslands(
         code: "target-native-island-unsupported",
         featureId: "target-native-islands",
         message:
-          `skillset: ${path} targets Codex .rules outside .skillset/src/_codex/rules/; ` +
+        `skillset: ${path} targets Codex .rules outside ${join(sourceDir, sourceRootDir, PROVIDER_SOURCE_DIRS.codex, "rules")}/; ` +
           "Codex .rules are project-only command policy",
         path,
       });
@@ -305,10 +474,11 @@ async function loadTargetIsland(
 async function loadProjectAgents(
   rootPath: string,
   sourceDir: string,
+  sourceRootDir: string,
   rootTargets: BuildGraph["root"]["targets"],
   warnings: string[]
 ): Promise<readonly SourceProjectAgent[]> {
-  const agentsPath = resolveInside(rootPath, join(sourceDir, SOURCE_ROOT_DIR, PROJECT_AGENTS_DIR));
+  const agentsPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, PROJECT_AGENTS_DIR));
   if (!(await exists(agentsPath))) return [];
 
   const entries = await readdir(agentsPath, { withFileTypes: true });
@@ -418,13 +588,14 @@ function validateProjectAgentCollisions(agents: readonly SourceProjectAgent[]): 
 async function loadInstructions(
   rootPath: string,
   sourceDir: string,
+  sourceRootDir: string,
   rootTargets: BuildGraph["root"]["targets"],
   warnings: string[]
 ): Promise<{ readonly rules: readonly SourceRule[]; readonly instructionsDir: string }> {
-  const canonicalPath = resolveInside(rootPath, join(sourceDir, SOURCE_ROOT_DIR, RULES_DIR));
+  const canonicalPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, RULES_DIR));
   const canonicalFiles = (await exists(canonicalPath)) ? await findMarkdownFiles(canonicalPath) : [];
   if (canonicalFiles.length === 0) {
-    return { rules: [], instructionsDir: join(SOURCE_ROOT_DIR, RULES_DIR) };
+    return { rules: [], instructionsDir: join(sourceRootDir, RULES_DIR) };
   }
 
   const ruleFiles = canonicalFiles;
@@ -455,7 +626,7 @@ async function loadInstructions(
 
   return {
     rules: rules.sort((left, right) => compareStrings(left.relativePath, right.relativePath)),
-    instructionsDir: join(SOURCE_ROOT_DIR, RULES_DIR),
+    instructionsDir: join(sourceRootDir, RULES_DIR),
   };
 }
 
@@ -488,11 +659,12 @@ function normalizeRuleFrontmatter(frontmatter: SourceRule["frontmatter"], label:
 async function loadPlugins(
   rootPath: string,
   sourceDir: string,
+  sourceRootDir: string,
   rootTargets: BuildGraph["root"]["targets"],
   warnings: string[],
   outputs: BuildGraph["root"]["outputs"]
 ): Promise<readonly SourcePlugin[]> {
-  const pluginsPath = resolveInside(rootPath, join(sourceDir, SOURCE_ROOT_DIR, PLUGINS_DIR));
+  const pluginsPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, PLUGINS_DIR));
   if (!(await exists(pluginsPath))) return [];
 
   const entries = await readdir(pluginsPath, { withFileTypes: true });
@@ -501,7 +673,7 @@ async function loadPlugins(
   for (const entry of entries.sort((left, right) => compareStrings(left.name, right.name))) {
     if (!entry.isDirectory()) continue;
     const id = validateSlug(entry.name, "plugin directory");
-    plugins.push(await loadPlugin(rootPath, sourceDir, id, rootTargets, warnings, outputs));
+    plugins.push(await loadPlugin(rootPath, sourceDir, sourceRootDir, id, rootTargets, warnings, outputs));
   }
 
   return plugins;
@@ -510,12 +682,13 @@ async function loadPlugins(
 async function loadPlugin(
   rootPath: string,
   sourceDir: string,
+  sourceRootDir: string,
   id: string,
   parentTargets: BuildGraph["root"]["targets"],
   warnings: string[],
   outputs: BuildGraph["root"]["outputs"]
 ): Promise<SourcePlugin> {
-  const pluginPath = resolveInside(rootPath, join(sourceDir, SOURCE_ROOT_DIR, PLUGINS_DIR, id));
+  const pluginPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, PLUGINS_DIR, id));
   const configPath = await resolvePluginConfigPath(pluginPath);
   const configRelativePath = relative(rootPath, configPath);
   const config = parseYamlRecord(await readFile(configPath, "utf8"), configPath);
@@ -560,7 +733,7 @@ async function loadPlugin(
     id,
     configuredOutputRoots(outputs)
   );
-  const skills = await loadSkills(rootPath, sourceDir, pluginPath, inheritedTargets, warnings);
+  const skills = await loadSkills(rootPath, sourceDir, sourceRootDir, pluginPath, inheritedTargets, warnings);
 
   if (await exists(join(pluginPath, "hooks.json"))) {
     const path = relative(rootPath, join(pluginPath, "hooks.json"));
@@ -721,18 +894,20 @@ async function resolvePluginConfigPath(pluginPath: string): Promise<string> {
 async function loadSkills(
   rootPath: string,
   sourceDir: string,
+  sourceRootDir: string,
   pluginPath: string,
   parentTargets: SourcePlugin["targets"],
   warnings: string[]
 ): Promise<SourceSkill[]> {
   const skillsPath = join(pluginPath, SKILLS_DIR);
   if (!(await exists(skillsPath))) return [];
-  return loadSkillsFromDirectory(rootPath, sourceDir, skillsPath, pluginPath, parentTargets, warnings, pluginPath);
+  return loadSkillsFromDirectory(rootPath, sourceDir, sourceRootDir, skillsPath, pluginPath, parentTargets, warnings, pluginPath);
 }
 
 async function loadSkillsFromDirectory(
   rootPath: string,
   sourceDir: string,
+  sourceRootDir: string,
   skillsPath: string,
   relativeBasePath: string,
   parentTargets: SourcePlugin["targets"],
@@ -768,7 +943,7 @@ async function loadSkillsFromDirectory(
     const resources = await readSkillResources(parts.frontmatter.resources, {
       label: sourcePath,
       ...(pluginPath === undefined ? {} : { pluginSharedPath: join(pluginPath, "shared") }),
-      sharedPath: resolveInside(rootPath, join(sourceDir, SOURCE_ROOT_DIR, SHARED_DIR)),
+      sharedPath: resolveInside(rootPath, join(sourceDir, sourceRootDir, SHARED_DIR)),
     });
 
     const dialect = readDialect(parts.frontmatter, relative(rootPath, sourcePath));
@@ -793,13 +968,14 @@ async function loadSkillsFromDirectory(
 async function loadStandaloneSkills(
   rootPath: string,
   sourceDir: string,
+  sourceRootDir: string,
   rootTargets: BuildGraph["root"]["targets"],
   warnings: string[]
 ): Promise<readonly StandaloneSkill[]> {
-  const skillsPath = resolveInside(rootPath, join(sourceDir, SOURCE_ROOT_DIR, SKILLS_DIR));
+  const skillsPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, SKILLS_DIR));
   if (!(await exists(skillsPath))) return [];
 
-  const skills = await loadSkillsFromDirectory(rootPath, sourceDir, skillsPath, skillsPath, rootTargets, warnings);
+  const skills = await loadSkillsFromDirectory(rootPath, sourceDir, sourceRootDir, skillsPath, skillsPath, rootTargets, warnings);
   return skills;
 }
 
@@ -982,7 +1158,7 @@ function isInsidePath(path: string, root: string): boolean {
 
 function validateProjectRoots(
   rootPath: string,
-  sourcePath: string,
+  protectedRoots: readonly ProtectedRoot[],
   outputRoots: readonly ActiveOutputRoot[],
   rootTargets: BuildGraph["root"]["targets"],
   projectAgents: readonly SourceProjectAgent[],
@@ -996,7 +1172,7 @@ function validateProjectRoots(
       label: `${target}.projectRoot`,
       path: targetProjectRoot(rootTargets, target),
     };
-    const absoluteProjectRoot = validateOutputRootNotInsideSource(rootPath, sourcePath, projectRoot);
+    const absoluteProjectRoot = validateOutputRootNotInsideProtectedRoots(rootPath, protectedRoots, projectRoot);
     const targetProjectAgents = projectAgents.filter((agent) => agent.targets[target].enabled);
     const targetProjectIslands = projectIslands.filter((island) => island.plugin === undefined && island.target === target);
     for (const outputRoot of outputRoots) {
@@ -1035,13 +1211,13 @@ function projectAgentOutputPath(projectRoot: string, target: "claude" | "codex",
 
 function validateOutputRoots(
   rootPath: string,
-  sourcePath: string,
+  protectedRoots: readonly ProtectedRoot[],
   outputRoots: readonly ActiveOutputRoot[]
 ): void {
   const seen = new Map<string, string>();
 
   for (const outputRoot of outputRoots) {
-    const absoluteOutputRoot = validateOutputRootNotInsideSource(rootPath, sourcePath, outputRoot);
+    const absoluteOutputRoot = validateOutputRootNotInsideProtectedRoots(rootPath, protectedRoots, outputRoot);
 
     const existing = seen.get(absoluteOutputRoot);
     if (existing !== undefined) {
@@ -1053,16 +1229,23 @@ function validateOutputRoots(
   }
 }
 
-function validateOutputRootNotInsideSource(
+interface ProtectedRoot {
+  readonly label: string;
+  readonly path: string;
+}
+
+function validateOutputRootNotInsideProtectedRoots(
   rootPath: string,
-  sourcePath: string,
+  protectedRoots: readonly ProtectedRoot[],
   outputRoot: ActiveOutputRoot
 ): string {
   const absoluteOutputRoot = resolveInside(rootPath, outputRoot.path);
-  if (isSameOrInside(absoluteOutputRoot, sourcePath)) {
-    throw new Error(
-      `skillset: ${outputRoot.label} must not point inside source root ${relative(rootPath, sourcePath)}`
-    );
+  for (const protectedRoot of protectedRoots) {
+    if (isSameOrInside(absoluteOutputRoot, protectedRoot.path)) {
+      throw new Error(
+        `skillset: ${outputRoot.label} must not point inside ${protectedRoot.label} ${relative(rootPath, protectedRoot.path)}`
+      );
+    }
   }
   return absoluteOutputRoot;
 }

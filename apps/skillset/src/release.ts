@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 
 import { buildSkillset } from "./build";
 import { changeCheck, readPendingChangeEntries, type ChangeBump, type PendingChangeEntry } from "./change-entries";
-import { SOURCE_HASH_SCHEMA } from "./change-status";
+import { detectWorkspaceOptions, SOURCE_HASH_SCHEMA } from "./change-status";
 import { compareStrings, resolveInside } from "./path";
 import { readReleaseState, writeReleaseState } from "./release-state";
 import { loadBuildGraph } from "./resolver";
@@ -76,10 +76,12 @@ export async function planRelease(
   rootPath: string,
   options: SkillsetOptions = {}
 ): Promise<ReleasePlanReport> {
-  const pending = await readPendingChangeEntries(rootPath, options);
+  const releaseOptions = await detectWorkspaceOptions(rootPath, options);
+  const graph = await loadBuildGraph(rootPath, releaseOptions);
+  const pending = await readPendingChangeEntries(rootPath, releaseOptions);
   if (pending.length === 0) return { baselineScopes: [], entries: [], ignoredEntries: [], scopes: [] };
 
-  const check = await changeCheck(rootPath, options);
+  const check = await changeCheck(rootPath, releaseOptions);
   const errors = check.issues.filter((issue) => issue.severity === "error");
   if (errors.length > 0) {
     throw new Error(
@@ -88,7 +90,6 @@ export async function planRelease(
     );
   }
 
-  const graph = await loadBuildGraph(rootPath, options);
   const sourceUnits = new Map(check.status.sourceUnits.map((unit) => [unit.id, unit]));
   const sourceChanges = new Map(check.status.sourceChanges.map((change) => [change.id, change]));
   const entries = check.entries.flatMap((entry) => releaseEntryPlan(entry));
@@ -112,30 +113,31 @@ export async function applyRelease(
   rootPath: string,
   options: SkillsetOptions = {}
 ): Promise<ReleaseApplyReport> {
-  const plan = await planRelease(rootPath, options);
+  const releaseOptions = await detectWorkspaceOptions(rootPath, options);
+  const plan = await planRelease(rootPath, releaseOptions);
   if (plan.entries.length === 0) {
     return { files: [], plan, renderedFiles: 0 };
   }
 
-  const sourceDir = options.sourceDir ?? ".skillset";
+  const sourceDir = releaseOptions.sourceDir ?? ".skillset";
   const now = new Date().toISOString();
   const files = new Set<string>();
-  const pending = (await changeCheck(rootPath, options)).entries;
+  const pending = (await changeCheck(rootPath, releaseOptions)).entries;
   const snapshots = await snapshotReleaseFiles(rootPath, sourceDir, pending, plan.baselineScopes.length > 0);
   let renderedFiles = 0;
   try {
     await appendHistory(rootPath, sourceDir, pending, now, files);
 
     if (plan.baselineScopes.length > 0) {
-      const state = await readReleaseState(rootPath, options);
-      const statePath = await writeReleaseState(rootPath, nextReleaseState(state, plan.baselineScopes, now), options);
+      const state = await readReleaseState(rootPath, releaseOptions);
+      const statePath = await writeReleaseState(rootPath, nextReleaseState(state, plan.baselineScopes, now), releaseOptions);
       files.add(statePath);
     }
     if (plan.scopes.length > 0) {
       await appendReleaseRecord(rootPath, sourceDir, plan, now, files);
     }
 
-    const rendered = await buildSkillset(rootPath, options);
+    const rendered = await buildSkillset(rootPath, releaseOptions);
     renderedFiles = rendered.length;
     for (const file of rendered) files.add(file.path);
   } catch (error) {

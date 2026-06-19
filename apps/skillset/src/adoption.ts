@@ -1,9 +1,6 @@
-import { stat } from "node:fs/promises";
-import { join } from "node:path";
-
 import { collectSourceInventory } from "./change-status";
 import { readString } from "./config";
-import { compareStrings, resolveInside } from "./path";
+import { compareStrings } from "./path";
 import { readReleaseState, writeReleaseState } from "./release-state";
 import { loadBuildGraph } from "./resolver";
 import {
@@ -43,7 +40,6 @@ export interface SeedReleaseBaselinesOptions {
   readonly write?: boolean;
 }
 
-const ROOT_CONFIG_FILE = "config.yaml";
 const NO_SOURCE_MESSAGE = "skillset: no source plugins, skills, rules, project agents, or provider source found";
 
 export async function seedReleaseBaselines(
@@ -51,21 +47,18 @@ export async function seedReleaseBaselines(
   options: SkillsetOptions = {},
   seedOptions: SeedReleaseBaselinesOptions = {}
 ): Promise<ReleaseBaselineReport> {
-  const sourceDir = options.sourceDir ?? ".skillset";
-  const configPath = resolveInside(rootPath, join(sourceDir, ROOT_CONFIG_FILE));
-  if (!(await exists(configPath))) {
-    return {
-      conflicts: [],
-      entries: [],
-      skippedReason: `${sourceDir}/${ROOT_CONFIG_FILE} not found`,
-      write: seedOptions.write === true,
-    };
-  }
-
   let graph: BuildGraph;
   try {
     graph = await loadBuildGraph(rootPath, options);
   } catch (error) {
+    if (isErrno(error, "ENOENT") && !(await workspaceMarkerExists(rootPath, options))) {
+      return {
+        conflicts: [],
+        entries: [],
+        skippedReason: "skillset workspace not found",
+        write: seedOptions.write === true,
+      };
+    }
     const message = error instanceof Error ? error.message : String(error);
     if (message.startsWith(NO_SOURCE_MESSAGE)) {
       return {
@@ -78,8 +71,9 @@ export async function seedReleaseBaselines(
     throw error;
   }
 
-  const inventory = await collectSourceInventory(rootPath, options);
-  const state = await readReleaseState(rootPath, options);
+  const resolvedOptions = { ...options, sourceDir: graph.sourceDir };
+  const inventory = await collectSourceInventory(rootPath, resolvedOptions);
+  const state = await readReleaseState(rootPath, resolvedOptions);
   const scopeFilter = seedOptions.scopes === undefined
     ? undefined
     : new Set(seedOptions.scopes.map(sourceUnitSelector));
@@ -141,7 +135,7 @@ export async function seedReleaseBaselines(
 
   let path: string | undefined;
   if (seedOptions.write === true && entries.some((entry) => entry.status === "create")) {
-    path = await writeReleaseState(rootPath, { scopes }, options);
+    path = await writeReleaseState(rootPath, { scopes }, resolvedOptions);
   }
 
   return {
@@ -187,14 +181,21 @@ function sourcePluginVersion(graph: BuildGraph, plugin: SourcePlugin): string {
   return readString(plugin.metadata, "version") ?? sourceRootVersion(graph);
 }
 
-async function exists(path: string): Promise<boolean> {
-  try {
-    await stat(path);
-    return true;
-  } catch (error) {
-    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
-      return false;
-    }
-    throw error;
+async function workspaceMarkerExists(rootPath: string, options: SkillsetOptions): Promise<boolean> {
+  if (options.sourceDir === ".") return Bun.file(`${rootPath}/skillset.yaml`).exists();
+  if (options.sourceDir !== undefined) {
+    return (
+      (await Bun.file(`${rootPath}/${options.sourceDir}/skillset.yaml`).exists()) ||
+      (await Bun.file(`${rootPath}/${options.sourceDir}/config.yaml`).exists())
+    );
   }
+  return (
+    (await Bun.file(`${rootPath}/skillset.yaml`).exists()) ||
+    (await Bun.file(`${rootPath}/.skillset/skillset.yaml`).exists()) ||
+    (await Bun.file(`${rootPath}/.skillset/config.yaml`).exists())
+  );
+}
+
+function isErrno(error: unknown, code: string): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === code;
 }
