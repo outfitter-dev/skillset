@@ -7,7 +7,7 @@ export const HOOK_RELEVANT_SOURCE_PATHS = [
   "skillset/plugins",
   "skillset/shared",
   "skillset",
-  "changes/pending",
+  "changes",
   ".skillset/skillset.yaml",
   ".skillset/config.yaml",
   ".skillset/src/rules",
@@ -15,7 +15,7 @@ export const HOOK_RELEVANT_SOURCE_PATHS = [
   ".skillset/src/plugins",
   ".skillset/src/shared",
   ".skillset/src",
-  ".skillset/changes/pending",
+  ".skillset/changes",
 ] as const;
 
 export interface HookSourceGateResult {

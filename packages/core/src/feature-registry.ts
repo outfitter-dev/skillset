@@ -126,7 +126,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     id: "changes",
     kind: "change-management",
     renderOwner: "apps/skillset/src/change-entries.ts",
-    sourceShape: "workspace changes/pending/*.md and changes/history.jsonl",
+    sourceShape: "workspace changes/*.md and changes/history.jsonl",
     status: "implemented",
     summary: "Tracks source-unit changes, evidence hashes, pending entries, and applied history.",
     targetSupport: notTargetRuntime(),

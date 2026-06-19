@@ -297,9 +297,9 @@ Changed after the generated lock was written.
     scopes: ["skill:demo"],
   });
 
-  expect(report.entry.path).toMatch(/^changes\/pending\/[0-9a-f]{12}\.md$/);
+  expect(report.entry.path).toMatch(/^changes\/[0-9a-f]{12}\.md$/);
   expect(await exists(join(root, report.entry.path))).toBe(true);
-  expect(await exists(join(root, ".skillset/changes/pending"))).toBe(false);
+  expect(await exists(join(root, ".skillset/changes"))).toBe(false);
 });
 
 test("dedicated 1.0 release apply writes history and releases to root changes directory", async () => {

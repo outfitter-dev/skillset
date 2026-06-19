@@ -103,7 +103,7 @@ export interface AppliedChangeRecord {
   readonly sourceHashes: ReadonlyMap<string, readonly string[]>;
 }
 
-const PENDING_DIR = "changes/pending";
+const PENDING_DIR = "changes";
 const HISTORY_FILE = "changes/history.jsonl";
 const MIN_REF_LENGTH = 6;
 
