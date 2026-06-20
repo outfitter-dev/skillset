@@ -126,7 +126,7 @@ export async function explainPath(
       entries: asGenerated.map((item) => item.entry),
       features: featureCapabilitiesForPath(graph, target, asGenerated, matchedRenderResults),
       renderResults: matchedRenderResults,
-      notes: [`Generated output; rebuild with skillset build, verify with skillset check.`],
+      notes: [`Generated output; rebuild with skillset build, verify with skillset verify.`],
     };
   }
 
@@ -246,7 +246,7 @@ export async function suggestSource(
       generatedPath,
       ...(lockPath === undefined ? {} : { lockPath }),
       message: "Generated body matches the source body; no source edit is needed.",
-      nextSteps: ["Run `skillset diff` or `skillset check` to inspect any remaining generated drift."],
+      nextSteps: ["Run `skillset diff` or `skillset verify` to inspect any remaining generated drift."],
       sourcePath,
       status: "suggestible",
       wouldWrite: false,

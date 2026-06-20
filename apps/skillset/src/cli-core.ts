@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 
-import { auditVersions, buildSkillsetResult, checkSkillsetResult, diffSkillsetResult, planDistributions, restoreOutputBackup, type DistributionPlanReport, type OutputBackupRestoreReport, type VersionAuditReport } from "@skillset/core";
+import { auditVersions, buildSkillsetResult, verifySkillsetResult, diffSkillsetResult, planDistributions, restoreOutputBackup, type DistributionPlanReport, type OutputBackupRestoreReport, type VersionAuditReport } from "@skillset/core";
 
 import { changeCheck, type ChangeBump, type ChangeCheckReport } from "./change-entries";
 import { changeStatus, type ChangeStatusReport } from "./change-status";
@@ -54,13 +54,15 @@ import { renderValidatedJson } from "./structured-output";
 import { runSkillsetTest, type SkillsetTestReport } from "./test-runner";
 import type { BuildScope, CompileBuildMode, JsonRecord, SkillsetOptions, SourceOrigin, TargetName } from "./types";
 
-type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "diff" | "distribute" | "doctor" | "explain" | "features" | "hooks" | "import" | "init" | "lint" | "list" | "release" | "restore" | "suggest-source" | "test";
+type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "diff" | "distribute" | "doctor" | "explain" | "features" | "hooks" | "import" | "init" | "lint" | "list" | "release" | "restore" | "suggest-source" | "test" | "verify";
 type DistributionSubcommand = "plan";
 
 const USAGE = [
   "usage: skillset build [--yes|--dry-run] [--updated|--all] [--isolated] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
-  "       skillset <check|diff> [--updated|--all] [--isolated] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
-  "       skillset <lint|list> [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset verify [--updated|--all] [--isolated] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset diff [--updated|--all] [--isolated] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset <check|lint> [--root <path>] [--source <dir>]",
+  "       skillset list [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset doctor [--json] [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset ci [--fix] [--since <ref>] [--report <path>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change status [--since <ref>] [--root <path>] [--source <dir>] [--dist <dir>]",
@@ -349,6 +351,16 @@ export async function runCli(
     return;
   }
 
+  if (command === "check") {
+    const result = await lintSkillset(rootPath, options);
+    for (const issue of result.issues) {
+      if (issue.severity !== "warn") continue;
+      console.log(`  warn: ${issue.path}: ${issue.code}: ${issue.message}`);
+    }
+    console.log(`skillset: checked ${result.checkedSkills} source skills`);
+    return;
+  }
+
   if (command === "adopt") {
     const writeMode = yes && !dryRun;
     const report = await adoptSkillset(
@@ -579,9 +591,9 @@ export async function runCli(
     return;
   }
 
-  const result = await checkSkillsetResult(rootPath, options);
+  const result = await verifySkillsetResult(rootPath, options);
   printDiagnostics(result.diagnostics);
-  console.log(`skillset: checked ${result.data.checkedFiles} generated files`);
+  console.log(`skillset: verified ${result.data.checkedFiles} generated files`);
   if (!result.ok) {
     console.error(`skillset: generated output is not current`);
     for (const failure of result.data.failures) console.error(failure);
@@ -1091,10 +1103,11 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     command !== "release" &&
     command !== "restore" &&
     command !== "suggest-source" &&
-    command !== "test"
+    command !== "test" &&
+    command !== "verify"
   ) {
     throw new Error(
-        "skillset: expected command adopt, build, change, check, ci, create, diff, distribute, doctor, explain, features, hooks, import, init, lint, list, release, restore, suggest-source, or test\n" +
+        "skillset: expected command adopt, build, change, check, ci, create, diff, distribute, doctor, explain, features, hooks, import, init, lint, list, release, restore, suggest-source, test, or verify\n" +
         USAGE
     );
   }
@@ -1451,6 +1464,13 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(scopes === undefined ? {} : { scopes }),
   });
   validateJsonFlags(command, jsonOutput);
+  validateSourceDiagnosticFlags(command, {
+    ...(buildMode === undefined ? {} : { buildMode }),
+    ...(distDir === undefined ? {} : { distDir }),
+    dryRun,
+    ...(scopes === undefined ? {} : { scopes }),
+    yes,
+  });
 
   validateIsolatedFlag(command, isolated);
   validateDistributionFlags(command, {
@@ -1740,6 +1760,32 @@ function validateTestFlags(
   }
 }
 
+function validateSourceDiagnosticFlags(
+  command: Command,
+  sourceCheck: {
+    readonly buildMode?: CompileBuildMode;
+    readonly distDir?: string;
+    readonly dryRun: boolean;
+    readonly scopes?: readonly BuildScope[];
+    readonly yes: boolean;
+  }
+): void {
+  if (command !== "check" && command !== "lint") return;
+  const label = `skillset ${command}`;
+  if (sourceCheck.buildMode !== undefined) {
+    throw new Error(`${label} does not support --updated or --all; it checks source diagnostics`);
+  }
+  if (sourceCheck.scopes !== undefined) {
+    throw new Error(`${label} does not support --scope; it checks source diagnostics`);
+  }
+  if (sourceCheck.distDir !== undefined) {
+    throw new Error(`${label} does not support --dist; it checks source diagnostics`);
+  }
+  if (sourceCheck.dryRun || sourceCheck.yes) {
+    throw new Error(`${label} is read-only and does not support --yes or --dry-run`);
+  }
+}
+
 function validateRestoreFlags(
   command: Command,
   restore: {
@@ -1854,8 +1900,8 @@ function readSetupTargets(value: string): readonly TargetName[] {
 
 function validateIsolatedFlag(command: Command, isolated: boolean): void {
   if (!isolated) return;
-  if (command === "build" || command === "check" || command === "diff") return;
-  throw new Error("skillset: --isolated is only supported with build, check, or diff");
+  if (command === "build" || command === "diff" || command === "verify") return;
+  throw new Error("skillset: --isolated is only supported with build, diff, or verify");
 }
 
 function validateCiFlags(

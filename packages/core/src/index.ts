@@ -14,13 +14,13 @@ export {
 export {
   buildSkillset,
   buildSkillsetResult,
-  checkSkillset,
-  checkSkillsetResult,
+  verifySkillset,
+  verifySkillsetResult,
   diffSkillset,
   diffSkillsetResult,
   ISOLATED_OUT_ROOT,
   type SkillsetBuildResult,
-  type SkillsetCheckResult,
+  type SkillsetVerifyResult,
   type SkillsetDiff,
   type SkillsetDiffResult,
 } from "./build";

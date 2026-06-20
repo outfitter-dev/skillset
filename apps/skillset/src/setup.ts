@@ -712,6 +712,7 @@ function createReadme(name: string, targets: readonly TargetName[]): string {
     "skillset build --dry-run",
     "skillset build --yes",
     "skillset check",
+    "skillset verify",
     "skillset change status",
     "```",
     "",
@@ -742,7 +743,7 @@ function createAgentsGuide(name: string): string {
     "- Treat `changes/` as Skillset-managed change and release state.",
     "- Treat generated target directories as outputs; do not hand-edit them as source truth.",
     "- Run `skillset build --dry-run` before writing generated outputs.",
-    "- Run `skillset check` before committing source changes.",
+    "- Run `skillset check` and `skillset verify` before committing source changes.",
     "- Add pending change entries with `skillset change add` when source units change and the repo uses Skillset release tracking.",
     "",
   ].join("\n");

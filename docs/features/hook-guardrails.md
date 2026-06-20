@@ -33,7 +33,7 @@ skillset hooks run stop
 
 ## Diagnostics
 
-Pre-commit guardrails are staged-aware and fast through `skillset change check --staged`, which compares the Git index against `HEAD`. Pre-push snippets run broader checks through `skillset change check --since origin/main`, `skillset check`, and `skillset doctor`.
+Pre-commit guardrails are staged-aware and fast through `skillset change check --staged`, which compares the Git index against `HEAD`. Pre-push snippets run broader checks through `skillset change check --since origin/main`, `skillset check`, `skillset verify`, and `skillset doctor`.
 
 Runtime hook execution stays narrower than Git hooks. `skillset hooks run post-tool-use` and `skillset hooks run stop` first inspect the Skillset source/change-entry paths that can affect source provenance, including untracked files:
 
@@ -54,7 +54,7 @@ Runtime hook execution stays narrower than Git hooks. `skillset hooks run post-t
 
 The runtime gate also watches legacy `.skillset/config.yaml` when present so in-flight migration branches do not bypass checks. New ordinary workspaces should use `.skillset/skillset.yaml`.
 
-`PostToolUse` is advisory: after write/edit tools it runs `skillset change status --root .` only when one of those paths has a tracked or untracked change, and it does not block the agent turn. `Stop` is blocking but uses the same path gate before running `skillset change check --root .` and `skillset check --root .`. `Stop` deliberately does not run `doctor`; explicit bootstrap diagnostics and pre-push snippets remain the broader guardrail. Runtime suggestions remain opt-in reviewed configuration, and the public snippets call the installable `skillset hooks run ...` commands.
+`PostToolUse` is advisory: after write/edit tools it runs `skillset change status --root .` only when one of those paths has a tracked or untracked change, and it does not block the agent turn. `Stop` is blocking but uses the same path gate before running `skillset change check --root .`, `skillset check --root .`, and `skillset verify --root .`. `Stop` deliberately does not run `doctor`; explicit bootstrap diagnostics and pre-push snippets remain the broader guardrail. Runtime suggestions remain opt-in reviewed configuration, and the public snippets call the installable `skillset hooks run ...` commands.
 
 Runtime hook execution resolves the Skillset command from the local compiler checkout, an installed `skillset`, `bunx skillset`, `bun x skillset`, or `npx --yes skillset`. Reviewed runtime configs may set `SKILLSET_HOOK_COMMAND` when a project needs an explicit command override. Hook subprocesses strip repository-targeting `GIT_*` variables before invoking nested Skillset commands so runtime checks inspect the configured root rather than the hook runner's inherited Git context.
 

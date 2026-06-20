@@ -31,7 +31,7 @@ Power should come from derivation, defaults, validation, and clear escape hatche
 
 `.skillset/` is the authored source of truth. Claude and Codex outputs are provider-native build artifacts written to concrete destinations.
 
-Generated plugin repositories, standalone skill roots, lockfiles, and instruction files can be committed and reviewed, but they are not source truth. Edits should flow from source to generated output through `skillset build`, and `skillset check` should make stale output visible.
+Generated plugin repositories, standalone skill roots, lockfiles, and instruction files can be committed and reviewed, but they are not source truth. Edits should flow from source to generated output through `skillset build`, and `skillset verify` should make stale output visible.
 
 ### One meaning, one key
 
@@ -59,7 +59,7 @@ Overrides are healthy when derivation is wrong. They should be scoped, explicit,
 
 ### Builds do not imply trust
 
-Skillset compiler operations, including `skillset build`, `skillset lint`, `skillset check`, `skillset import`, `skillset ci`, `skillset test`, and change/release commands, are local source-management tools. They should not publish plugins, mutate registries, install into global runtime locations, symlink into user config, trust hooks, or enable generated artifacts.
+Skillset compiler operations, including `skillset build`, `skillset check`, `skillset verify`, `skillset lint`, `skillset import`, `skillset ci`, `skillset test`, and change/release commands, are local source-management tools. They should not publish plugins, mutate registries, install into global runtime locations, symlink into user config, trust hooks, or enable generated artifacts.
 
 Build output may define hooks, app manifests, MCP manifests, plugins, skills, and instructions. Activation is a separate workflow.
 
@@ -117,7 +117,7 @@ Provider-native escape hatches should be obvious in source. Underscore-prefixed 
 
 ### Treat tooling as authoring surface
 
-`skillset lint`, `skillset check`, `skillset import`, and future explain/scaffold tools are not secondary conveniences. They are how Skillset codifies good loadout authoring, keeps provider behavior honest, and teaches the next author what to fix.
+`skillset check`, `skillset verify`, `skillset lint`, `skillset import`, and future explain/scaffold tools are not secondary conveniences. They are how Skillset codifies good loadout authoring, keeps provider behavior honest, and teaches the next author what to fix.
 
 ## Current Doctrine Implications
 

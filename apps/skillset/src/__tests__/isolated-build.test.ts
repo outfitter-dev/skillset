@@ -5,7 +5,7 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { buildSkillset, buildSkillsetResult, checkSkillset, diffSkillset, ISOLATED_OUT_ROOT } from "../build";
+import { buildSkillset, buildSkillsetResult, verifySkillset, diffSkillset, ISOLATED_OUT_ROOT } from "../build";
 
 const DEMO_FIXTURE: Record<string, string> = {
   ".skillset/config.yaml": `
@@ -64,18 +64,18 @@ test("isolated build leaves a previous live build byte-unchanged", async () => {
   expect(after).toEqual(before);
 });
 
-test("isolated check tracks the mirror while live check tracks live output", async () => {
+test("isolated verify tracks the mirror while live generated-output verification tracks live output", async () => {
   const root = await fixture(DEMO_FIXTURE);
   await buildSkillset(root);
   await buildSkillset(root, { isolated: true });
 
-  expect((await checkSkillset(root, { isolated: true })).checkedFiles).toBeGreaterThan(0);
+  expect((await verifySkillset(root, { isolated: true })).checkedFiles).toBeGreaterThan(0);
 
   const mirrorPath = join(root, MIRROR_SKILL);
   await writeFile(mirrorPath, `${await readFile(mirrorPath, "utf8")}\nhand edit\n`);
 
-  await expect(checkSkillset(root, { isolated: true })).rejects.toThrow(MIRROR_SKILL);
-  expect((await checkSkillset(root)).checkedFiles).toBeGreaterThan(0);
+  await expect(verifySkillset(root, { isolated: true })).rejects.toThrow(MIRROR_SKILL);
+  expect((await verifySkillset(root)).checkedFiles).toBeGreaterThan(0);
 });
 
 test("isolated diff reports drift against the mirror only", async () => {
@@ -126,12 +126,12 @@ test("CLI accepts --isolated for build and rejects it elsewhere", async () => {
   expect(await exists(join(root, MIRROR_SKILL))).toBe(true);
   expect(await exists(join(root, LIVE_SKILL))).toBe(false);
 
-  const check = await runSkillsetCli("check", "--isolated", "--root", root);
-  expect(check.exitCode).toBe(0);
+  const verify = await runSkillsetCli("verify", "--isolated", "--root", root);
+  expect(verify.exitCode).toBe(0);
 
   const lint = await runSkillsetCli("lint", "--isolated", "--root", root);
   expect(lint.exitCode).toBe(1);
-  expect(lint.stderr).toContain("--isolated is only supported with build, check, or diff");
+  expect(lint.stderr).toContain("--isolated is only supported with build, diff, or verify");
 });
 
 async function fixture(files: Record<string, string>): Promise<string> {

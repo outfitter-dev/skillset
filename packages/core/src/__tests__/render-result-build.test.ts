@@ -6,7 +6,7 @@ import { join } from "node:path";
 
 import {
   buildSkillsetResult,
-  checkSkillsetResult,
+  verifySkillsetResult,
   diffSkillsetResult,
   RENDER_RESULT_STATUS_VALUES,
   SkillsetRenderResultError,
@@ -628,7 +628,7 @@ async function expectUnsupportedOutcome(
   expected: Pick<SkillsetRenderResult, "destination" | "featureId" | "sourceUnit"> & { readonly reason: string }
 ): Promise<void> {
   await expect(buildSkillsetResult(root)).rejects.toThrow("unsupported destination policy blocked 1 render result");
-  await expect(checkSkillsetResult(root)).rejects.toThrow("unsupported destination policy blocked 1 render result");
+  await expect(verifySkillsetResult(root)).rejects.toThrow("unsupported destination policy blocked 1 render result");
   try {
     await diffSkillsetResult(root);
     throw new Error("expected diffSkillsetResult to reject");

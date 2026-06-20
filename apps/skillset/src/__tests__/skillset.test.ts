@@ -7,7 +7,7 @@ import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/
 
 import { seedReleaseBaselines } from "../adoption";
 import { explainPath, listGeneratedEntries } from "../authoring";
-import { buildSkillset, buildSkillsetResult, checkSkillset, diffSkillset } from "../build";
+import { buildSkillset, buildSkillsetResult, verifySkillset, diffSkillset } from "../build";
 import { changeStatus, collectSourceInventory } from "../change-status";
 import { addChangeEntry, readChangeHistory } from "../change-workflow";
 import { gitSafeEnv } from "../git-env";
@@ -1052,7 +1052,7 @@ Plain.
   expect(lock.skillsetMetadata).toBe(false);
 });
 
-test("metadata suppression still leaves version-only changes visible through check", async () => {
+test("metadata suppression still leaves version-only changes visible through generated-output verification", async () => {
   const root = await fixture({
     ".skillset/config.yaml": `
 skillset:
@@ -1092,7 +1092,7 @@ Plain.
 `)
   );
 
-  await expect(checkSkillset(root)).rejects.toThrow("stale generated file");
+  await expect(verifySkillset(root)).rejects.toThrow("stale generated file");
 });
 
 test("top-level model warns unless active target defaults or overrides handle it", async () => {
@@ -1842,7 +1842,7 @@ Run scripts/check.sh when deterministic checks help.
     join(root, ".skillset/src/plugins/alpha/shared/references/plugin.md"),
     "# Changed Plugin Reference\n"
   );
-  await expect(checkSkillset(root)).rejects.toThrow("stale generated file");
+  await expect(verifySkillset(root)).rejects.toThrow("stale generated file");
 });
 
 test("preprocessing expands this references and partials in skill markdown and Codex YAML", async () => {
@@ -1961,7 +1961,7 @@ Tree:
   expect(explainedCodex.entries[0]?.preprocessDependencies).toContain(".skillset/src/shared/templates/openai.md");
 
   await writeFile(join(root, ".skillset/src/shared/templates/openai.md"), "Changed YAML prompt.\n");
-  await expect(checkSkillset(root)).rejects.toThrow("stale generated file");
+  await expect(verifySkillset(root)).rejects.toThrow("stale generated file");
 });
 
 test("preprocessing adapts prompt argument placeholders for Claude and shims Codex", async () => {
@@ -3136,7 +3136,7 @@ codex: true
   );
 });
 
-test("rules check mode catches stale managed AGENTS output", async () => {
+test("rules generated-output verification catches stale managed AGENTS output", async () => {
   const root = await fixture({
     ".skillset/config.yaml": `
 skillset:
@@ -3158,10 +3158,10 @@ paths:
   });
 
   await buildSkillset(root);
-  await checkSkillset(root);
+  await verifySkillset(root);
   await writeFile(join(root, "docs/AGENTS.md"), "stale\n");
 
-  await expect(checkSkillset(root)).rejects.toThrow("stale generated file: docs/AGENTS.md");
+  await expect(verifySkillset(root)).rejects.toThrow("stale generated file: docs/AGENTS.md");
 });
 
 test("rules reject Codex symlink mode until target-clean symlinks are designed", async () => {
@@ -3764,13 +3764,13 @@ stale
 `,
   });
 
-  await expect(checkSkillset(root)).rejects.toThrow("stale generated file");
+  await expect(verifySkillset(root)).rejects.toThrow("stale generated file");
   await buildSkillset(root);
   expect(await exists(join(root, "plugins-claude/.skillset.lock"))).toBe(false);
   expect(await exists(join(root, "plugins-claude/stale.txt"))).toBe(false);
 });
 
-test("check mode catches stale generated output", async () => {
+test("generated-output verification catches stale generated output", async () => {
   const root = await fixture({
     ".skillset/config.yaml": `
 skillset:
@@ -3804,10 +3804,10 @@ Stale body.
   await buildSkillset(root);
   await rm(join(root, ".skillset/src/plugins/alpha/skills/stale-skill"), { recursive: true });
 
-  await expect(checkSkillset(root)).rejects.toThrow("stale generated file");
+  await expect(verifySkillset(root)).rejects.toThrow("stale generated file");
 });
 
-test("check mode reports stale generated skill and plugin versions", async () => {
+test("generated-output verification reports stale generated skill and plugin versions", async () => {
   const root = await fixture({
     ".skillset/config.yaml": `
 skillset:
@@ -3845,7 +3845,7 @@ Alpha body.
 `)
   );
 
-  await expect(checkSkillset(root)).rejects.toThrow(
+  await expect(verifySkillset(root)).rejects.toThrow(
     "version drift: plugins-claude/plugins/alpha/skills/alpha-skill/SKILL.md metadata.version is 1.0.0, expected 1.1.0"
   );
 
@@ -3859,7 +3859,7 @@ skillset:
 `)
   );
 
-  await expect(checkSkillset(root)).rejects.toThrow(
+  await expect(verifySkillset(root)).rejects.toThrow(
     "version drift: plugins-claude/plugins/alpha/.claude-plugin/plugin.json version is 1.0.0, expected 1.1.0"
   );
 });

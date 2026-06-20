@@ -12,7 +12,7 @@ See the render-results ADR, currently filed as [Lowering Outcomes and Loss Ledge
 
 ## Current Boundary
 
-The current core schema is `skillset-render-result@1`. Build, diff, and check render-result records are produced by `@skillset/core` and are persisted in structured operation results, generated `.skillset.lock` files, adopt reports, and the `doctor` / `explain` JSON surfaces. Import and adopt reports may also attach render-result records to render-relevant warnings, such as preserved target-native tool-policy frontmatter or recognized survey skips. Pure source invalidity, unknown import metadata, and lint-only authoring problems stay in diagnostics instead of being forced into the render report. Future adapter conformance surfaces should read the same report instead of inventing parallel diagnostics. Render results are not written into ordinary generated `SKILL.md`, `CLAUDE.md`, `AGENTS.md`, plugin manifest, hook, MCP, app, or resource files by default.
+The current core schema is `skillset-render-result@1`. Build, diff, and verify render-result records are produced by `@skillset/core` and are persisted in structured operation results, generated `.skillset.lock` files, adopt reports, and the `doctor` / `explain` JSON surfaces. Import and adopt reports may also attach render-result records to render-relevant warnings, such as preserved target-native tool-policy frontmatter or recognized survey skips. Pure source invalidity, unknown import metadata, and lint-only authoring problems stay in diagnostics instead of being forced into the render report. Future adapter conformance surfaces should read the same report instead of inventing parallel diagnostics. Render results are not written into ordinary generated `SKILL.md`, `CLAUDE.md`, `AGENTS.md`, plugin manifest, hook, MCP, app, or resource files by default.
 
 | Field | Meaning |
 | --- | --- |
@@ -55,12 +55,12 @@ The schema intentionally keeps source identity and target output identity togeth
 | `default` | Normal compiler policy. |
 | `scope:excluded` | Output was excluded by the selected build scope. |
 | `target:disabled` | Target was disabled by config or source-level target toggle. |
-| `unsupported:error` | Unsupported/lossy render fails build, diff, and check before generated output is written. |
+| `unsupported:error` | Unsupported/lossy render fails build, diff, and verify before generated-output freshness is reported. |
 | `unsupported:warn` | Unsupported/lossy render is reported but does not fail. |
 | `unsupported:skip` | Unsupported/lossy render writes no target output and is recorded as skipped/unsupported. |
 | `unsupported:force` | A future explicit override allows a target-native/debug output without pretending portability. |
 
-The default posture is error. Build, diff, and check enforce `failed`, `lossy`, and `unsupported` render results from the structured report before writing generated output. `warn`, `skip`, and `force` remain reserved escape hatches until their non-error semantics are implemented and documented. When these policies are used internally or transitionally, they must still surface through render results, diagnostics, or reports.
+The default posture is error. Build, diff, and verify enforce `failed`, `lossy`, and `unsupported` render results from the structured report before writing generated output. `warn`, `skip`, and `force` remain reserved escape hatches until their non-error semantics are implemented and documented. When these policies are used internally or transitionally, they must still surface through render results, diagnostics, or reports.
 
 ## Target Rendering
 

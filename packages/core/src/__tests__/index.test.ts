@@ -5,7 +5,7 @@ describe("@skillset/core", () => {
     const core = await import("@skillset/core");
 
     expect(core.buildSkillsetResult).toBeFunction();
-    expect(core.checkSkillsetResult).toBeFunction();
+    expect(core.verifySkillsetResult).toBeFunction();
     expect(core.diffSkillset).toBeFunction();
     expect(core.diffSkillsetResult).toBeFunction();
   });

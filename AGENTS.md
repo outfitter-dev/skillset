@@ -28,6 +28,7 @@ Read [docs/tenets.md](docs/tenets.md) before changing the source contract, targe
 bun run skillset:build
 bun run skillset:lint
 bun run skillset:check
+bun run skillset:verify
 bun run skillset:ci
 bun run conformance:fast
 bun run conformance:determinism
@@ -71,7 +72,7 @@ bun ./apps/skillset/src/cli.ts explain <path> --root .
 bun ./apps/skillset/src/cli.ts doctor --root .
 ```
 
-`bun run check` includes the self-hosted generated-output check. If `skillset:check` reports stale output, run `bun run skillset:build`, inspect the generated diff, then rerun `bun run check`.
+`bun run check` includes self-hosted source checks and generated-output verification. If `skillset:verify` reports stale output, run `bun run skillset:build`, inspect the generated diff, then rerun `bun run check`.
 
 ## Constraints
 

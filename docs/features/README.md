@@ -89,7 +89,7 @@ Each feature page uses the same registry-oriented fields. The current typed seed
 | Source shape | Source paths, config keys, frontmatter keys, defaults, and conventional discovery. |
 | Target support | Per-target support status, output paths, target-native escape hatches, and unsupported cases. |
 | Render owner | Whether behavior belongs to the portable resolver, the Claude adapter, the Codex adapter, or a target-native pass-through. |
-| Validation | Lint/build/check diagnostics and structured output validation ownership. |
+| Validation | Source checks, build/verify diagnostics, and structured output validation ownership. |
 | Provenance | Lock entries, hashes, warnings, skipped output, target state, and explain/doctor surfaces. |
 | Evidence | Provider docs, ADRs, Linear issues, tests, and fixtures that justify the current status. |
 

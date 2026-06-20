@@ -15,7 +15,8 @@ export type SkillsetOperation =
   | "list"
   | "release"
   | "restore"
-  | "test";
+  | "test"
+  | "verify";
 
 export type SkillsetDiagnosticSeverity = "error" | "info" | "warning";
 

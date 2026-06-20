@@ -5,9 +5,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
-  checkSkillset,
+  verifySkillset,
   buildSkillsetResult,
-  checkSkillsetResult,
+  verifySkillsetResult,
   diffSkillsetResult,
 } from "@skillset/core";
 
@@ -38,7 +38,7 @@ Keep the source graph valid.
 `;
 
 describe("@skillset/core consumer API", () => {
-  it("supports a quiet preview-build-check loop through public result APIs", async () => {
+  it("supports a quiet preview-build-verify loop through public result APIs", async () => {
     const root = await fixture(DEMO_FIXTURE);
     const expectedOutput = ".claude/skills/demo/SKILL.md";
     const cwd = process.cwd();
@@ -75,18 +75,18 @@ describe("@skillset/core consumer API", () => {
       expect(build.diagnostics).toEqual([]);
       expect(await Bun.file(join(root, expectedOutput)).exists()).toBe(true);
 
-      const checked = await checkSkillsetResult(root);
-      expect(checked.operation).toBe("check");
-      expect(checked.ok).toBe(true);
-      expect(checked.writes).toEqual({
+      const verified = await verifySkillsetResult(root);
+      expect(verified.operation).toBe("verify");
+      expect(verified.ok).toBe(true);
+      expect(verified.writes).toEqual({
         deletedPaths: [],
         mode: "read",
         paths: [],
         writtenPaths: [],
       });
-      expect(checked.data.checkedFiles).toBe(build.data.length);
-      expect(checked.data.failures).toEqual([]);
-      expect(checked.diagnostics).toEqual([]);
+      expect(verified.data.checkedFiles).toBe(build.data.length);
+      expect(verified.data.failures).toEqual([]);
+      expect(verified.diagnostics).toEqual([]);
 
       const clean = await diffSkillsetResult(root);
       expect(clean.data).toEqual({ added: [], changed: [], missing: [], removed: [] });
@@ -100,16 +100,16 @@ describe("@skillset/core consumer API", () => {
     }
   });
 
-  it("returns structured check drift while preserving the throwing convenience helper", async () => {
+  it("returns structured verify drift while preserving the throwing convenience helper", async () => {
     const root = await fixture(DEMO_FIXTURE);
     const expectedOutput = ".claude/skills/demo/SKILL.md";
     await buildSkillsetResult(root);
     await Bun.write(join(root, expectedOutput), "stale\n");
 
-    const result = await checkSkillsetResult(root);
+    const result = await verifySkillsetResult(root);
 
     expect(result.ok).toBe(false);
-    expect(result.operation).toBe("check");
+    expect(result.operation).toBe("verify");
     expect(result.writes.mode).toBe("read");
     expect(result.data.checkedFiles).toBeGreaterThan(0);
     expect(result.data.failures).toHaveLength(1);
@@ -121,14 +121,14 @@ describe("@skillset/core consumer API", () => {
         severity: "error",
       })
     );
-    await expect(checkSkillset(root)).rejects.toThrow("skillset: generated output is not current");
+    await expect(verifySkillset(root)).rejects.toThrow("skillset: generated output is not current");
   });
 
   it("classifies missing generated output before a first build", async () => {
     const root = await fixture(DEMO_FIXTURE);
     const expectedOutput = ".claude/skills/demo/SKILL.md";
 
-    const result = await checkSkillsetResult(root);
+    const result = await verifySkillsetResult(root);
 
     expect(result.ok).toBe(false);
     expect(result.data.failures).toContain(`missing generated file: ${expectedOutput}`);
@@ -147,7 +147,7 @@ describe("@skillset/core consumer API", () => {
     await buildSkillsetResult(root);
     await rm(join(root, expectedOutput));
 
-    const result = await checkSkillsetResult(root);
+    const result = await verifySkillsetResult(root);
 
     expect(result.ok).toBe(false);
     expect(result.data.failures).toEqual([`missing managed generated file: ${expectedOutput}`]);
@@ -169,7 +169,7 @@ describe("@skillset/core consumer API", () => {
     await buildSkillsetResult(root);
     await rm(join(root, ".skillset/src/skills/demo"), { recursive: true });
 
-    const result = await checkSkillsetResult(root);
+    const result = await verifySkillsetResult(root);
 
     expect(result.ok).toBe(false);
     expect(result.data.failures).toContain(`stale generated file: ${expectedOutput}`);
@@ -193,7 +193,7 @@ compile:
 `,
     });
 
-    await expect(checkSkillsetResult(root)).rejects.toThrow("unsupported target");
+    await expect(verifySkillsetResult(root)).rejects.toThrow("unsupported target");
   });
 });
 

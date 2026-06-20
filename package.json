@@ -13,7 +13,7 @@
   "scripts": {
     "build": "bun run typecheck && bun run build:npm",
     "build:npm": "bun scripts/build-package.ts",
-    "check": "bun run build && bun run test && bun run ultracite:doctor && bun run skillset:verify && git diff --check && bun run terminology:guard",
+    "check": "bun run build && bun run test && bun run ultracite:doctor && bun run skillset:check && bun run skillset:verify && git diff --check && bun run terminology:guard",
     "terminology:guard": "bun scripts/terminology-guard.ts",
     "check:workflows": "if command -v actionlint >/dev/null 2>&1; then actionlint .github/workflows/*.yml; else echo 'skillset: actionlint not installed; skipping workflow lint'; fi",
     "changeset": "changeset",
@@ -40,7 +40,7 @@
     "skillset:ci": "bun ./apps/skillset/src/cli.ts ci --root .",
     "skillset:ci:report": "bun ./apps/skillset/src/cli.ts ci --root . --since \"$(scripts/git-trunk.sh)\" --report .skillset/build/skillset-ci-report.md",
     "skillset:lint": "bun ./apps/skillset/src/cli.ts lint --root .",
-    "skillset:verify": "bun run skillset:lint && bun run skillset:check",
+    "skillset:verify": "bun ./apps/skillset/src/cli.ts verify --root .",
     "test": "bun test $(git ls-files 'apps/**/*.test.ts' 'packages/**/*.test.ts' 'scripts/**/*.test.ts')",
     "typecheck": "tsc --noEmit",
     "ultracite:check": "ultracite check",
