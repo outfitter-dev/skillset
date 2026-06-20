@@ -1,0 +1,17 @@
+targets:
+  - claude
+supports:
+  packages: []
+compile:
+  targets:
+    - claude
+    - claude
+    - gemini
+  build: sometimes
+  features:
+    promptArguments: "yes"
+    surprise: true
+  skillset:
+    metadata: "false"
+    surprise: true
+  unsupportedDestination: skip

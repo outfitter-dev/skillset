@@ -1,0 +1,20 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      42
+    ],
+    "SessionStart": {
+      "hooks": []
+    },
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": ""
+          },
+          "not-object"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+compile:
+  targets:
+    - claude
+    - codex
+  build: updated
+  features:
+    promptArguments: true
+  skillset:
+    metadata: false
