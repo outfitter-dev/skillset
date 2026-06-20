@@ -4,6 +4,8 @@ export type WorkbenchPresetId = "standard" | "strict";
 
 export type WorkbenchRuleLevel = "standard" | "strict";
 
+export type WorkbenchParseKind = "json" | "markdown" | "toml" | "unknown" | "yaml";
+
 export type WorkbenchScope =
   | "generated"
   | "provider"
@@ -65,6 +67,56 @@ export interface WorkbenchDiagnostic {
   readonly scope: WorkbenchScope;
   readonly severity: WorkbenchSeverity;
   readonly subject: WorkbenchSubject;
+}
+
+export interface WorkbenchMarkdownHeading {
+  readonly depth: number;
+  readonly line: number;
+  readonly text: string;
+}
+
+export type WorkbenchParseResult =
+  | WorkbenchJsonParseResult
+  | WorkbenchMarkdownParseResult
+  | WorkbenchTomlParseResult
+  | WorkbenchUnknownParseResult
+  | WorkbenchYamlParseResult;
+
+export interface WorkbenchJsonParseResult {
+  readonly data?: unknown;
+  readonly diagnostics: readonly WorkbenchDiagnostic[];
+  readonly kind: "json";
+  readonly path: string;
+}
+
+export interface WorkbenchYamlParseResult {
+  readonly data?: unknown;
+  readonly diagnostics: readonly WorkbenchDiagnostic[];
+  readonly kind: "yaml";
+  readonly path: string;
+}
+
+export interface WorkbenchTomlParseResult {
+  readonly data?: unknown;
+  readonly diagnostics: readonly WorkbenchDiagnostic[];
+  readonly kind: "toml";
+  readonly path: string;
+}
+
+export interface WorkbenchMarkdownParseResult {
+  readonly body?: string;
+  readonly bodyStartLine?: number;
+  readonly diagnostics: readonly WorkbenchDiagnostic[];
+  readonly frontmatter?: Record<string, unknown>;
+  readonly headings: readonly WorkbenchMarkdownHeading[];
+  readonly kind: "markdown";
+  readonly path: string;
+}
+
+export interface WorkbenchUnknownParseResult {
+  readonly diagnostics: readonly WorkbenchDiagnostic[];
+  readonly kind: "unknown";
+  readonly path: string;
 }
 
 export interface WorkbenchRunResult {
