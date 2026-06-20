@@ -28,11 +28,11 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | 2 | SET-155 | `set-155-introduce-skillsetworkbench-diagnostic-primitives` | pending | committed | M2 diagnostics |
 | 3 | SET-156 | `set-156-add-workbench-presets-rules-and-existing-lint-bridge` | pending | committed | M2 presets and lint bridge |
 | 4 | SET-157 | `set-157-add-bun-yamltoml-and-markdown-parser-backed-workbench-checks` | pending | committed | M3 parsers |
-| 5 | SET-158 | `set-158-add-schema-backed-workbench-rules-for-source-contracts` | pending | in progress | M3 schema |
-| 6 | SET-159 | `set-159-add-graph-and-provider-compatibility-workbench-rules` | pending | pending | M4 graph/provider |
-| 7 | SET-160 | `set-160-add-resource-and-runtime-workbench-rules` | pending | pending | M4 resource/runtime |
-| 8 | SET-161 | `set-161-add-workbench-fixture-suite-for-good-and-bad-skillset-inputs` | pending | pending | M4 fixtures |
-| 9 | SET-162 | `set-162-add-bounded-ast-grep-backed-selector-rule-proof-point` | pending | pending | M5 ast-grep |
+| 5 | SET-158 | `set-158-add-schema-backed-workbench-rules-for-source-contracts` | pending | committed | M3 schema |
+| 6 | SET-159 | `set-159-add-graph-and-provider-compatibility-workbench-rules` | pending | committed | M4 graph/provider |
+| 7 | SET-160 | `set-160-add-resource-and-runtime-workbench-rules` | pending | committed | M4 resource/runtime |
+| 8 | SET-161 | `set-161-add-workbench-fixture-suite-for-good-and-bad-skillset-inputs` | pending | committed | M4 fixtures |
+| 9 | SET-162 | `set-162-add-bounded-ast-grep-backed-selector-rule-proof-point` | pending | in progress | M5 ast-grep |
 | 10 | SET-163 | `set-163-document-workbench-check-verify-presets-and-rule-authoring` | pending | pending | M5 docs/guidance |
 | 11 | SET-164 | `set-164-run-full-workbench-stack-verification-and-release-readiness` | pending | pending | M5 final verification |
 
@@ -147,6 +147,16 @@ Use this as the durable execution ledger. For stacked work, this should normally
 - Blockers: none.
 ```
 
+```text
+2026-06-20 15:35 ET - SET-162 ast-grep proof point
+- Changed: Added a bounded optional Workbench ast-grep adapter that converts caller-provided matches into diagnostics and exposes an explicit binary availability probe.
+- Decision: Did not add an ast-grep package dependency or execute searches implicitly; this branch proves the selector-rule seam without expanding runtime scope.
+- Verified: Focused Workbench tests, typecheck, changeset guard, whitespace guard, and full `bun run check` passed.
+- Review: Socrates scored the branch 5/5 with no P0-P3 findings and confirmed no dependency additions.
+- Next: Commit SET-162 and create SET-163 for docs and generated guidance.
+- Blockers: none.
+```
+
 ## Local Review Log
 
 | Round | Scope / Lanes | Report Paths | P0/P1/P2/P3 Result | Fix Commits / Notes |
@@ -157,7 +167,11 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | 4 | SET-156 presets and lint bridge | Subagent reports in thread: Meitner, Pasteur, Dewey | P1 stale selector/typecheck concerns; P3 strict rule-id selection semantics | Standardized on `ruleIds`, added exact strict rule-id selection coverage, made unchecked scope validation typecheck cleanly, and reached 5/5 re-review |
 | 5 | SET-157 parser-backed checks | Subagent reports in thread: Jason, Zeno | P2 parse-result optional bag, hard-coded syntax locations, nullable frontmatter, and heading hash stripping; P3 fence handling | Refactored parse result to a discriminated union, added document-oriented syntax locations, rejected non-object frontmatter, fixed heading hash handling, and tracked Markdown fences by marker/length |
 | 6 | SET-157 re-review | Subagent reports in thread: Avicenna, Peirce | P2 TOML aggregate locations and closing-fence info-string bug; P3 whitespace frontmatter delimiter and invalid backtick opening fence | Added aggregate child-position extraction, strict closing/opening fence detection, delimiter whitespace support, and focused regression tests |
-| 7 | SET-158 schema source contracts | pending | pending | pending |
+| 7 | SET-158 schema source contracts | Subagent reports in thread: Mencius, James | P2 schema/core drift; later re-review 5/5 no P0-P3 | Fixed hook containers, nested handler validation, source contract parity, and workspace config allowlist |
+| 8 | SET-159 graph/provider compatibility | Subagent reports in thread: Darwin, Noether | 5/5; no P0-P3 findings | No fixes required after reviewer loop |
+| 9 | SET-160 resource/runtime diagnostics | Subagent reports in thread: Bernoulli, Pauli, Epicurus, Parfit | P3 test title mismatch; later re-review 5/5 no P0-P3 | Renamed runtime selection test title |
+| 10 | SET-161 Workbench fixtures | Subagent reports in thread: Euclid, Aristotle, Sagan | P2 fixture realism gaps; later re-review 5/5 no P0-P3 | Added inert scripts, fixture-derived resource issue, and README tier correction |
+| 11 | SET-162 ast-grep proof | Subagent report in thread: Socrates | 5/5; no P0-P3 findings | No fixes required after reviewer loop |
 
 ## Verification Log
 
@@ -225,6 +239,11 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | `bun test packages/workbench/src/__tests__/fixtures.test.ts packages/workbench/src/__tests__/*.test.ts` | SET-161 resource-fixture review fixes | pass | 39 pass, 0 fail |
 | `bun run typecheck` | SET-161 resource-fixture review fixes | pass | `tsc --noEmit` |
 | `bun run check` | full repo gate after SET-161 review fixes | pass | 583 pass, 0 fail; Ultracite doctor clean; `skillset check` checked 5 source skills; `skillset verify` verified 51 generated files; terminology guard clean |
+| `bun test packages/workbench/src/__tests__/ast-grep.test.ts packages/workbench/src/__tests__/*.test.ts` | SET-162 focused tests | pass | 42 pass, 0 fail |
+| `bun run typecheck --pretty false` | SET-162 typecheck | pass | `tsc --noEmit --pretty false` |
+| `bun run changeset:check` | SET-162 release guard | pass | 8 package-facing paths and 1 active changeset |
+| `git diff --check` | SET-162 whitespace guard | pass | no whitespace errors |
+| `bun run check` | full repo gate after SET-162 | pass | 586 pass, 0 fail; Ultracite doctor clean; `skillset check` checked 5 source skills; `skillset verify` verified 51 generated files; terminology guard clean |
 
 ## Remote Review / CI Log
 
@@ -266,6 +285,7 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | Euclid | 3.5/5 | P2 | Clean fixture referenced missing scripts and invalid fixture resource diagnostic was synthetic rather than caused by source. | Add inert script fixtures, assert they exist without execution, and derive the invalid resource diagnostic from fixture content. | Added clean hook/skill scripts that exit nonzero, made invalid skill body reference `./scripts/check.sh`, and replaced synthetic resource input with a fixture-derived helper. | Focused Workbench tests, typecheck, and full check pass |
 | Aristotle | 4/5 | P2/P3 | Clean fixture resource diagnostics were hardcoded empty, and README said fake repos were built two ways while listing three tiers. | Derive fixture resource diagnostics and fix README tier wording. | Resource helper now reads fixture source; README now says three tiers and lists Workbench fixtures. | Focused Workbench tests and full check pass |
 | Sagan | 5/5 | none | No remaining P0-P3 findings after SET-161 fixture fixes. | n/a | SET-161 Sagan re-review clean. | Focused fixture test pass |
+| Socrates | 5/5 | none | No P0-P3 findings for the optional ast-grep adapter; confirmed no dependency additions. | n/a | SET-162 Socrates review clean. | Focused ast-grep test pass |
 
 ## Forbidden Actions Audit
 
