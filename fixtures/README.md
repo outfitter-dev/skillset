@@ -6,7 +6,7 @@
 
 ## Three tiers of fixture
 
-Tests build fake repos two ways. Pick the lighter one unless a case earns the heavier one.
+Tests build fake repos at three tiers. Pick the lighter one unless a case earns the heavier one.
 
 ### In-test temp fixtures (default)
 
@@ -26,7 +26,11 @@ A checked-in fixture is a durable fake content repo committed to the tree. Tests
 - is shared by many tests as a golden reference; or
 - is too large to keep readable inline.
 
-Today there is exactly one: [`kitchen-sink/`](kitchen-sink/README.md).
+Current checked-in cases:
+
+- [`kitchen-sink/`](kitchen-sink/README.md) is the complete-surface positive build fixture.
+- [`workbench-clean/`](workbench-clean/README.md) is a small positive Workbench source-contract fixture.
+- [`workbench-invalid/`](workbench-invalid/README.md) is a small negative Workbench fixture for deterministic source, resource, and runtime diagnostics.
 
 ### External fixture repos (`fixtures/external/`)
 

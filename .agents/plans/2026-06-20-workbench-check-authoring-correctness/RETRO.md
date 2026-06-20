@@ -217,6 +217,14 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | `bun run check` | full repo gate after SET-160 staged files | pass | 581 pass, 0 fail; Ultracite doctor clean; `skillset check` checked 5 source skills; `skillset verify` verified 51 generated files; terminology guard clean |
 | `bun test packages/workbench/src/__tests__/resource-runtime.test.ts packages/workbench/src/__tests__/*.test.ts` | SET-160 P3 test-title fix | pass | 37 pass, 0 fail |
 | `bun run typecheck && git diff --check --cached` | SET-160 P3 test-title fix | pass | typecheck and staged whitespace clean |
+| `bun test packages/workbench/src/__tests__/fixtures.test.ts packages/workbench/src/__tests__/*.test.ts` | SET-161 focused fixture tests | pass | 39 pass, 0 fail |
+| `bun run typecheck` | SET-161 typecheck | pass | `tsc --noEmit` |
+| `bun run changeset:check` | SET-161 release guard | pass | 8 package-facing paths and 1 active changeset |
+| `git diff --check` | SET-161 whitespace guard | pass | no whitespace errors |
+| `bun run check` | full repo gate after SET-161 initial implementation | pass | 583 pass, 0 fail; Ultracite doctor clean; `skillset check` checked 5 source skills; `skillset verify` verified 51 generated files; terminology guard clean |
+| `bun test packages/workbench/src/__tests__/fixtures.test.ts packages/workbench/src/__tests__/*.test.ts` | SET-161 resource-fixture review fixes | pass | 39 pass, 0 fail |
+| `bun run typecheck` | SET-161 resource-fixture review fixes | pass | `tsc --noEmit` |
+| `bun run check` | full repo gate after SET-161 review fixes | pass | 583 pass, 0 fail; Ultracite doctor clean; `skillset check` checked 5 source skills; `skillset verify` verified 51 generated files; terminology guard clean |
 
 ## Remote Review / CI Log
 
@@ -255,6 +263,9 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | Pauli | 5/5 | none | No P0-P3 findings for API shape, diagnostic semantics, and no-overreach boundary. | n/a | SET-160 Pauli review clean. | Focused resource-runtime tests, all Workbench tests, and typecheck pass |
 | Epicurus | 4.8/5 | P3 | Runtime-filter test title said strict selection while asserting standard selection. | Rename the title to match the standard selection assertion. | Test now says standard selection. | Focused Workbench tests and typecheck pass |
 | Parfit | 5/5 | none | No P0-P3 findings after reviewing the untracked implementation and test files directly. | n/a | SET-160 Parfit review clean. | Focused resource-runtime test pass |
+| Euclid | 3.5/5 | P2 | Clean fixture referenced missing scripts and invalid fixture resource diagnostic was synthetic rather than caused by source. | Add inert script fixtures, assert they exist without execution, and derive the invalid resource diagnostic from fixture content. | Added clean hook/skill scripts that exit nonzero, made invalid skill body reference `./scripts/check.sh`, and replaced synthetic resource input with a fixture-derived helper. | Focused Workbench tests, typecheck, and full check pass |
+| Aristotle | 4/5 | P2/P3 | Clean fixture resource diagnostics were hardcoded empty, and README said fake repos were built two ways while listing three tiers. | Derive fixture resource diagnostics and fix README tier wording. | Resource helper now reads fixture source; README now says three tiers and lists Workbench fixtures. | Focused Workbench tests and full check pass |
+| Sagan | 5/5 | none | No remaining P0-P3 findings after SET-161 fixture fixes. | n/a | SET-161 Sagan re-review clean. | Focused fixture test pass |
 
 ## Forbidden Actions Audit
 
