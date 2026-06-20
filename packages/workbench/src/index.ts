@@ -12,6 +12,12 @@ export {
   type WorkbenchCompatibilityDiagnosticOptions,
 } from "./compatibility";
 export {
+  workbenchDiagnosticsFromResourceLintIssues,
+  workbenchDiagnosticsFromRuntimeSupport,
+  type WorkbenchResourceDiagnosticOptions,
+  type WorkbenchRuntimeSupportDiagnosticOptions,
+} from "./resource-runtime";
+export {
   getWorkbenchPreset,
   isWorkbenchPresetId,
   isWorkbenchScope,
