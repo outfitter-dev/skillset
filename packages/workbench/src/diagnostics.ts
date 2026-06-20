@@ -8,21 +8,25 @@ import type {
 } from "./types";
 
 export function createWorkbenchDiagnostic(args: {
+  readonly featureId?: WorkbenchDiagnostic["featureId"];
   readonly fix?: WorkbenchDiagnostic["fix"];
   readonly help?: readonly string[];
   readonly location?: WorkbenchLocation;
   readonly message: string;
   readonly ruleId: string;
+  readonly ruleLevel?: WorkbenchDiagnostic["ruleLevel"];
   readonly scope: WorkbenchScope;
   readonly severity: WorkbenchSeverity;
   readonly subject: WorkbenchSubject;
 }): WorkbenchDiagnostic {
   return {
+    ...(args.featureId === undefined ? {} : { featureId: args.featureId }),
     ...(args.location === undefined ? {} : { location: { ...args.location } }),
     ...(args.help === undefined ? {} : { help: [...args.help] }),
     ...(args.fix === undefined ? {} : { fix: { ...args.fix } }),
     message: args.message,
     ruleId: args.ruleId,
+    ...(args.ruleLevel === undefined ? {} : { ruleLevel: args.ruleLevel }),
     scope: args.scope,
     severity: args.severity,
     subject: { ...args.subject },

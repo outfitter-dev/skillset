@@ -25,8 +25,8 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | --- | --- | --- | --- | --- | --- |
 | 0 | SET-153 | n/a | n/a | Created | Roadmap parent |
 | 1 | SET-154 | `set-154-cut-cli-semantics-to-skillset-check-and-skillset-verify` | pending | committed | M1 command cutover |
-| 2 | SET-155 | `set-155-introduce-skillsetworkbench-diagnostic-primitives` | pending | in progress | M2 diagnostics |
-| 3 | SET-156 | `set-156-add-workbench-presets-rules-and-existing-lint-bridge` | pending | pending | M2 presets and lint bridge |
+| 2 | SET-155 | `set-155-introduce-skillsetworkbench-diagnostic-primitives` | pending | committed | M2 diagnostics |
+| 3 | SET-156 | `set-156-add-workbench-presets-rules-and-existing-lint-bridge` | pending | in progress | M2 presets and lint bridge |
 | 4 | SET-157 | `set-157-add-bun-yamltoml-and-markdown-parser-backed-workbench-checks` | pending | pending | M3 parsers |
 | 5 | SET-158 | `set-158-add-schema-backed-workbench-rules-for-source-contracts` | pending | pending | M3 schema |
 | 6 | SET-159 | `set-159-add-graph-and-provider-compatibility-workbench-rules` | pending | pending | M4 graph/provider |
@@ -104,6 +104,17 @@ Use this as the durable execution ledger. For stacked work, this should normally
 - Blockers: none.
 ```
 
+```text
+2026-06-20 12:34 ET - SET-156 presets and lint bridge
+- Changed: Added Workbench presets, scope/preset parsing guards, rule-level filtering, exact rule-id selection, and a structural lint-diagnostic bridge.
+- Changed: Kept the bridge independent of @skillset/lint package imports by accepting a compatible diagnostic input shape; no package or lock dependency churn remains on this branch.
+- Fixed: Reviewer-raised selector semantics by standardizing on `ruleIds`, allowing explicit rule-id selection to include strict diagnostics, and making unchecked scope validation typecheck cleanly.
+- Verified: Focused Workbench/lint tests, typecheck, changeset guard, diff whitespace, and full `bun run check` passed for the branch.
+- Review: Re-review reached 5/5 with no remaining P0-P3 findings.
+- Next: Commit SET-156 and create SET-157 for parser-backed checks.
+- Blockers: none.
+```
+
 ## Local Review Log
 
 | Round | Scope / Lanes | Report Paths | P0/P1/P2/P3 Result | Fix Commits / Notes |
@@ -111,6 +122,7 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | 1 | SET-154 CLI/runtime and docs/tests/generated guidance | Subagent reports in thread: Carver, Banach | P1 README stale public semantics; P3 runtime hook failure coverage; P3 stale test names | Fixed README `check`/`verify` guidance, added check/verify stop-hook failure assertions, renamed stale generated-output test titles; reran affected tests |
 | 2 | SET-154 re-review | Main-agent read-only re-review after fixes | 5/5; no P0-P3 findings | Fixed final leftover `skillset build`/`check` generated AGENTS-size wording before scoring; full gate passed |
 | 3 | SET-155 diagnostics primitives | Subagent reports in thread: Mill, Huygens | 5/5; no P0-P3 findings | No fixes required after reviewer loop |
+| 4 | SET-156 presets and lint bridge | Subagent reports in thread: Meitner, Pasteur, Dewey | P1 stale selector/typecheck concerns; P3 strict rule-id selection semantics | Standardized on `ruleIds`, added exact strict rule-id selection coverage, made unchecked scope validation typecheck cleanly, and reached 5/5 re-review |
 
 ## Verification Log
 
@@ -134,6 +146,10 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | `bun run typecheck` | SET-155 typecheck | pass | `tsc --noEmit` |
 | `bun run changeset:check` | SET-155 release guard | pass | 7 package-facing paths and 1 active changeset |
 | `bun run check` | full repo gate after SET-155 | pass | 544 pass, 0 fail; Ultracite doctor clean; `skillset check` checked 5 source skills; `skillset verify` verified 51 generated files; terminology guard clean |
+| `bun test packages/workbench/src/__tests__/*.test.ts packages/lint/src/__tests__/*.test.ts` | SET-156 focused tests | pass | 61 pass, 0 fail |
+| `bun run typecheck --pretty false` | SET-156 typecheck | pass | `tsc --noEmit --pretty false` |
+| `bun run changeset:check` | SET-156 release guard | pass | 8 package-facing paths and 1 active changeset |
+| `bun run check` | full repo gate after SET-156 | pass | 549 pass, 0 fail; Ultracite doctor clean; `skillset check` checked 5 source skills; `skillset verify` verified 51 generated files; terminology guard clean |
 
 ## Remote Review / CI Log
 
@@ -153,6 +169,9 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | Volta | 5/5 | none | No remaining P0-P3 findings. | n/a | M1 review loop clean. | Smoke verification matched intended behavior |
 | Mill | 5/5 | none | No remaining P0-P3 findings for the Workbench diagnostic API. | n/a | M2 SET-155 review loop clean. | Reviewer called the package JSON-safe, deterministic, and appropriately small |
 | Huygens | 5/5 | none | No remaining P0-P3 findings for Workbench diagnostic correctness/tests. | n/a | M2 SET-155 review loop clean. | Reviewer verified sorting, summary, formatting, JSON safety, and edge-case posture |
+| Meitner | 3/5 | P1/P3 | Reported selector API drift and ambiguous strict rule-id selection semantics. | Align selector API and decide exact rule-id behavior. | Live code was already on `ruleIds`; kept `ruleIds` and changed exact rule-id selection to include strict diagnostics without requiring `preset: strict`. | Re-review passed |
+| Pasteur | 3/5 | P1 | Bad-scope runtime validation test used an unsafe readonly-to-mutable cast in an earlier snapshot. | Make frozen-array and unchecked-scope tests typecheck cleanly. | Rewrote unchecked scope test through `WorkbenchScopeSelection` and reran typecheck. | `bun run typecheck --pretty false` pass |
+| Dewey | 5/5 | none | No remaining P0-P3 findings after SET-156 fixes. | n/a | M2 SET-156 review loop clean. | Reviewer verified `ruleIds`, strict selection, typecheck, targeted tests, and no lock/package churn |
 
 ## Forbidden Actions Audit
 
