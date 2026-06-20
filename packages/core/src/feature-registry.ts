@@ -684,6 +684,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
       test("packages/workbench/src/__tests__/resource-runtime.test.ts", "Workbench resource and runtime diagnostics"),
       test("packages/workbench/src/__tests__/fixtures.test.ts", "Workbench clean and invalid fixtures"),
       test("packages/workbench/src/__tests__/ast-grep.test.ts", "Workbench ast-grep adapter proof"),
+      test("packages/workbench/src/__tests__/markdown.test.ts", "Workbench Markdown diagnostics"),
     ],
     id: "workflows",
     kind: "workflow",
