@@ -32,7 +32,7 @@ Default behavior for unsupported or lossy build results is fail-loud. Softer mod
 | `compile.build: updated/all` | normalized build mode in lock provenance | Implemented | Parser, CLI overrides, plan-first writes, and lock metadata are implemented. |
 | `compile.features.promptArguments` | `{{$ARGUMENTS...}}` adaptive command placeholders | Implemented | Defaults to `true`; set to `false` to reject the source markers. |
 | `compile.skillset.metadata: false` | suppress generated skill `metadata.generated` / `metadata.version` | Implemented | Source metadata remains source-only; locks record `skillsetMetadata`. |
-| `compile.unsupportedDestination: error` | build/diff/check unsupported destination policy | Implemented | Default policy; preserves current fail-loud unsupported behavior. |
+| `compile.unsupportedDestination: error` | build/diff/verify unsupported destination policy | Implemented | Default policy; preserves current fail-loud unsupported behavior. |
 | `compile.unsupportedDestination: warn/skip/force` | doctor/lock provenance | Reserved | Recognized names that fail until non-error unsupported destination policy semantics are implemented and documented. |
 | omitted `compile.targets` | all supported provider outputs | Implemented | Shorthand for the default provider plan; equivalent to `compile.targets: [claude, codex]` while both providers are supported. |
 | `claude.projectRoot` / `codex.projectRoot` | provider adapter metadata | Implemented | Parsed and inherited with provider blocks; build still does not mutate user-level config. |

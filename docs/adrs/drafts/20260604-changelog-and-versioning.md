@@ -30,7 +30,7 @@ Three independent semver axes already exist in source; this proposal names their
 
 `skillset.schema` (SET-3) is orthogonal: it versions the *source contract*, not content, and never participates in changelog/version bumps.
 
-Resolution order is unchanged: skill `version` → plugin version → root version. `skillset check` already reports drift when a generated manifest/skill version is stale relative to source.
+Resolution order is unchanged: skill `version` → plugin version → root version. `skillset verify` reports drift when a generated manifest/skill version is stale relative to source.
 
 ## Changelog authoring model
 
@@ -59,7 +59,7 @@ Why entry files, not a single changelog:
 - They carry intent (scope + bump) that `skillset changes version` can apply deterministically.
 - They are source, so they review like everything else.
 
-Generated, per-scope `CHANGELOG.md` files are **derived output** (like skills and manifests): written into the relevant generated root, tracked by `.skillset.lock`, and refreshed by build/check. They are not hand-edited source truth.
+Generated, per-scope `CHANGELOG.md` files are **derived output** (like skills and manifests): written into the relevant generated root, tracked by `.skillset.lock`, refreshed by build, and checked for freshness by verify. They are not hand-edited source truth.
 
 ## `skillset changes` command (proposed)
 
@@ -69,7 +69,7 @@ Three subcommands, all local and non-activating (consistent with "builds do not 
 - `skillset changes version` — consume entries, bump the affected source `version` fields (root/plugin/skill), append to the generated `CHANGELOG.md` for each scope, and delete the consumed entries. Writes only `.skillset/` source versions + generated changelogs; never publishes.
 - `skillset changes status` / `check` — report pending entries and whether any shipped change lacks an entry (a lint-style guard, opt-in).
 
-`skillset build`/`check` keep their current jobs; changelog generation can run as part of `version` and be verified by `check` (stale generated `CHANGELOG.md` is drift like any other generated file).
+`skillset build`/`verify` keep their current jobs; changelog generation can run as part of `version` and be verified by `verify` (stale generated `CHANGELOG.md` is drift like any other generated file).
 
 ## Target-specific bumps when one target is skipped then resynced
 

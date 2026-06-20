@@ -42,7 +42,7 @@
 - `bun run typecheck` - TypeScript type safety.
 - `bun run skillset:build` - regenerate self-hosted outputs.
 - `bun run skillset:lint` - existing lint checks until folded into Workbench.
-- `bun run skillset:check` - current generated-output freshness until M1 rename.
+- `bun run skillset:check` - source authoring diagnostics after the M1 rename.
 - `bun run check` - full repo gate.
 - `bun ./apps/skillset/src/cli.ts check --root .` - Workbench smoke after M1/M2.
 - `bun ./apps/skillset/src/cli.ts verify --root .` - generated-output smoke after M1.

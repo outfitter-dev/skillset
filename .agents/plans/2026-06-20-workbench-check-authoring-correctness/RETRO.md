@@ -78,7 +78,7 @@ Use this as the durable execution ledger. For stacked work, this should normally
 - Changed: Split public CLI semantics so `skillset check` runs the source authoring/lint surface and `skillset verify` runs generated-output freshness.
 - Changed: Updated repo scripts, runtime hook dispatch, hook snippets, tests, active docs, README, self-hosted source guidance, and generated guidance to call both check and verify where appropriate.
 - Changed: Added a patch Changeset for the package-facing command semantics.
-- Decision: Left core `checkSkillset*` API names in place for this branch; M1 is a public command cutover, while deeper Workbench package/API naming belongs to later milestones.
+- Decision: Started with the public command cutover, then completed the deeper generated-output API rename in the stack so generated freshness is consistently `verify` in CLI and core operation results.
 - Verified: Targeted text sweep identified stale generated-output wording and docs were updated before tests.
 - Next: Rebuild generated guidance, run focused tests, then run the M1 local review loop.
 - Blockers: none.
@@ -309,6 +309,7 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | Hilbert | 3/5 | P2/P3 | Workbench docs and generated skill guidance overstated how much public `skillset check` is wired to package-level Workbench parser/schema/presets, and fixture wording overstated script-read evidence. | Make docs say `check` uses current lint authoring path, split `change check`/`verify` responsibilities, and soften fixture evidence. | Narrowed CLI claims, updated generated guidance, and changed fixture wording to declaration/existence checks without execution. | Focused tests, generated verification, and final review pass |
 | Sartre | 4/5 | P3 | Registry evidence still missed presets/lint-bridge/resource-runtime/compatibility, and Codex development guidance still said source/workspace correctness. | Add missing evidence refs and rename guidance to current source authoring diagnostics. | Added missing evidence refs, updated source guidance, and rebuilt generated output. | Focused tests and final review pass |
 | Schrodinger | 5/5 | none | No remaining P0-P3 findings after SET-163 review fixes. | n/a | SET-163 review loop clean. | Targeted tests, `skillset:check`, `skillset:verify`, and staged whitespace clean |
+| Codex read-only final review | 5/5 | P3 fixed | A draft changelog ADR, target-surface matrix row, and the Workbench REFS packet still described `check` as generated-output freshness. | Update stale wording to the final `check`/`verify` split. | ADR wording now says generated changelogs are refreshed by build and checked by verify; target surfaces now assigns unsupported-destination freshness to build/diff/verify; REFS now says `skillset:check` is source authoring diagnostics after M1. | Narrow re-review reached 5/5 with no P0-P3 findings |
 
 ## Forbidden Actions Audit
 
