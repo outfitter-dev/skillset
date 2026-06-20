@@ -24,8 +24,8 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | Order | Issue | Branch | PR | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
 | 0 | SET-153 | n/a | n/a | Created | Roadmap parent |
-| 1 | SET-154 | `set-154-cut-cli-semantics-to-skillset-check-and-skillset-verify` | pending | pending | M1 command cutover |
-| 2 | SET-155 | `set-155-introduce-skillsetworkbench-diagnostic-primitives` | pending | pending | M2 diagnostics |
+| 1 | SET-154 | `set-154-cut-cli-semantics-to-skillset-check-and-skillset-verify` | pending | committed | M1 command cutover |
+| 2 | SET-155 | `set-155-introduce-skillsetworkbench-diagnostic-primitives` | pending | in progress | M2 diagnostics |
 | 3 | SET-156 | `set-156-add-workbench-presets-rules-and-existing-lint-bridge` | pending | pending | M2 presets and lint bridge |
 | 4 | SET-157 | `set-157-add-bun-yamltoml-and-markdown-parser-backed-workbench-checks` | pending | pending | M3 parsers |
 | 5 | SET-158 | `set-158-add-schema-backed-workbench-rules-for-source-contracts` | pending | pending | M3 schema |
@@ -94,12 +94,23 @@ Use this as the durable execution ledger. For stacked work, this should normally
 - Blockers: none.
 ```
 
+```text
+2026-06-20 12:05 ET - SET-155 diagnostics primitives
+- Changed: Added the private @skillset/workbench package with diagnostic, location, subject, rule metadata, summary, sorting, and formatting primitives.
+- Changed: Kept the package intentionally foundational; presets, lint bridging, parsers, schemas, and fixture rules remain in their owning branches.
+- Verified: Focused Workbench diagnostic tests, typecheck, changeset guard, and full `bun run check` passed.
+- Review: Two read-only local reviewers scored the branch 5/5 with no P0-P3 findings.
+- Next: Commit SET-155 and create the SET-156 branch for presets plus the lint bridge.
+- Blockers: none.
+```
+
 ## Local Review Log
 
 | Round | Scope / Lanes | Report Paths | P0/P1/P2/P3 Result | Fix Commits / Notes |
 | --- | --- | --- | --- | --- |
 | 1 | SET-154 CLI/runtime and docs/tests/generated guidance | Subagent reports in thread: Carver, Banach | P1 README stale public semantics; P3 runtime hook failure coverage; P3 stale test names | Fixed README `check`/`verify` guidance, added check/verify stop-hook failure assertions, renamed stale generated-output test titles; reran affected tests |
 | 2 | SET-154 re-review | Main-agent read-only re-review after fixes | 5/5; no P0-P3 findings | Fixed final leftover `skillset build`/`check` generated AGENTS-size wording before scoring; full gate passed |
+| 3 | SET-155 diagnostics primitives | Subagent reports in thread: Mill, Huygens | 5/5; no P0-P3 findings | No fixes required after reviewer loop |
 
 ## Verification Log
 
@@ -119,6 +130,10 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | active wording sweep | SET-154 review fixes | pass | No active user-facing stale `skillset check` generated-output semantics remained; remaining matches are internal API assertions or historical ADR text |
 | `bun ./apps/skillset/src/cli.ts check --root . && bun ./apps/skillset/src/cli.ts verify --root . && git diff --check` | SET-154 final README fix | pass | Command smokes and whitespace check passed |
 | `.changeset/workbench-check-verify.md` | SET-154 release intent | pass | Patch Changeset added for public command split |
+| `bun test packages/workbench/src/__tests__/diagnostics.test.ts` | SET-155 focused tests | pass | 4 pass, 0 fail |
+| `bun run typecheck` | SET-155 typecheck | pass | `tsc --noEmit` |
+| `bun run changeset:check` | SET-155 release guard | pass | 7 package-facing paths and 1 active changeset |
+| `bun run check` | full repo gate after SET-155 | pass | 544 pass, 0 fail; Ultracite doctor clean; `skillset check` checked 5 source skills; `skillset verify` verified 51 generated files; terminology guard clean |
 
 ## Remote Review / CI Log
 
@@ -136,6 +151,8 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | Carson | 4.5/5 | P3 | README Lefthook paragraph still said pre-commit runs the old lint/check pair. | Rewrite to describe `bun run skillset:verify` pre-commit behavior. | README now matches `lefthook.yml`. | Command/text sweep pass |
 | Ampere | 4.5/5 | P3 | README self-hosted command checklist omitted `bun run skillset:verify`. | Add `bun run skillset:verify` to checklist. | README checklist now includes build, lint, check, verify, and aggregate check. | Command/text sweep pass |
 | Volta | 5/5 | none | No remaining P0-P3 findings. | n/a | M1 review loop clean. | Smoke verification matched intended behavior |
+| Mill | 5/5 | none | No remaining P0-P3 findings for the Workbench diagnostic API. | n/a | M2 SET-155 review loop clean. | Reviewer called the package JSON-safe, deterministic, and appropriately small |
+| Huygens | 5/5 | none | No remaining P0-P3 findings for Workbench diagnostic correctness/tests. | n/a | M2 SET-155 review loop clean. | Reviewer verified sorting, summary, formatting, JSON safety, and edge-case posture |
 
 ## Forbidden Actions Audit
 
