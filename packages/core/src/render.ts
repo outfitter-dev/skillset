@@ -1122,14 +1122,19 @@ async function renderSkillMarkdown(
     rootPath: graph.rootPath,
     sourcePath: skill.sourcePath,
     sourceRoot: graph.sourceRoot,
+    target,
+    promptArguments: graph.root.compile.features.promptArguments,
     ...(plugin === undefined ? {} : { pluginPath: plugin.path }),
   });
-  const dependencyNotice = target === "codex" && plugin !== undefined
-    ? renderCodexDependencyNotice(graph, plugin)
-    : undefined;
-  const body = dependencyNotice === undefined
+  const notices = [
+    target === "codex" && plugin !== undefined
+      ? renderCodexDependencyNotice(graph, plugin)
+      : undefined,
+    target === "codex" ? renderCodexPromptArgumentsNotice(preprocessedBody) : undefined,
+  ].filter((notice): notice is string => notice !== undefined);
+  const body = notices.length === 0
     ? preprocessedBody
-    : `${dependencyNotice}\n\n${preprocessedBody}`;
+    : `${notices.join("\n\n")}\n\n${preprocessedBody}`;
   const linkedBody = rewriteResourceLinks(body, skill.resources, skill.sourcePath);
   // Claude-dialect source lowers through the transform engine for the codex
   // projection only; the claude projection stays byte-identical to source.
@@ -1146,6 +1151,13 @@ async function renderSkillMarkdown(
     preprocessDependencies: formattedPreprocessDependencies(graph, preprocessDependencies),
     transforms: translated.transforms,
   };
+}
+
+function renderCodexPromptArgumentsNotice(body: string): string | undefined {
+  if (!/\{\{\$ARGUMENTS(?:\}\}|\[[0-9]+\]\}\}|\.[A-Za-z_][A-Za-z0-9_-]*\}\})/u.test(body)) {
+    return undefined;
+  }
+  return "Before using commands, replace `{{$ARGUMENTS...}}` placeholders with the user's supplied arguments.";
 }
 
 function renderClaudeSkillPolicy(skill: SourceSkill, targetOptions: JsonRecord): JsonRecord {
@@ -1197,6 +1209,8 @@ async function renderCodexSkillAgentFile(
           rootPath: graph.rootPath,
           sourcePath: sourceOpenAiPath,
           sourceRoot: graph.sourceRoot,
+          target,
+          promptArguments: graph.root.compile.features.promptArguments,
           ...(plugin === undefined ? {} : { pluginPath: plugin.path }),
         }),
         sourceOpenAiPath
@@ -1727,6 +1741,9 @@ function renderLockFiles(
   for (const [outputRoot, lock] of [...lockRoots.entries()].sort(([left], [right]) => compareStrings(left, right))) {
     const value: JsonRecord = {
       buildMode: graph.root.compile.build,
+      features: {
+        promptArguments: graph.root.compile.features.promptArguments,
+      },
       generatedBy: GENERATED_BY,
       items: lock.items
         .map((item) => stripUndefinedLockItem(item))

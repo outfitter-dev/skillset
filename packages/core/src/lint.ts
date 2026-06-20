@@ -39,12 +39,12 @@ const CLAUDE_DYNAMIC_PATTERNS: readonly DynamicPattern[] = [
   {
     code: "claude-arguments",
     label: "$ARGUMENTS",
-    pattern: /\$ARGUMENTS(?:\b|\[[^\]]+\]|\.[A-Za-z_][A-Za-z0-9_-]*)/,
+    pattern: /\$ARGUMENTS(?:\[[^\]]+\]|\.[A-Za-z_][A-Za-z0-9_-]*|\b)/,
   },
   {
     code: "claude-positional-argument",
     label: "$0/$1 positional arguments",
-    pattern: /(^|[^\w$])\$[0-9]+\b/,
+    pattern: /(^|[^\w$])\$[01]\b(?!\.\d)/,
   },
   {
     code: "claude-env-substitution",
@@ -59,6 +59,7 @@ const CLAUDE_DYNAMIC_PATTERNS: readonly DynamicPattern[] = [
 ];
 const FENCE_PATTERN = /^\s*(?:```|~~~)/u;
 const INLINE_CODE_PATTERN = /`[^`]*`/gu;
+const SKILLSET_PROMPT_ARGUMENT_PATTERN = /\{\{\s*\$ARGUMENTS(?:\b|\[[0-9]+\]|\.[A-Za-z_][A-Za-z0-9_-]*)\s*\}\}/gu;
 
 export async function lintSkillset(
   rootPath: string,
@@ -317,7 +318,21 @@ function lintSkill(
 
   issues.push(...lintCodexAllowedTools(graph, skill));
 
-  const searchableBody = maskMarkdownCodeRegions(skill.body);
+  const markdownSearchableBody = maskMarkdownCodeRegions(skill.body);
+  if (!graph.root.compile.features.promptArguments && hasSkillsetPromptArguments(skill.body)) {
+    const path = relative(graph.rootPath, skill.sourcePath);
+    issues.push({
+      code: "prompt-arguments-disabled",
+      featureId,
+      severity: "error",
+      path,
+      message:
+        `${path} uses Skillset prompt argument placeholders while compile.features.promptArguments is false. ` +
+        "Enable compile.features.promptArguments or remove the {{$ARGUMENTS...}} placeholders.",
+    });
+  }
+
+  const searchableBody = maskSkillsetPromptArguments(markdownSearchableBody);
   const matches = CLAUDE_DYNAMIC_PATTERNS.filter(({ pattern }) => pattern.test(searchableBody));
   if (matches.length === 0) return issues;
 
@@ -334,6 +349,16 @@ function lintSkill(
   });
 
   return issues;
+}
+
+function maskSkillsetPromptArguments(body: string): string {
+  SKILLSET_PROMPT_ARGUMENT_PATTERN.lastIndex = 0;
+  return body.replaceAll(SKILLSET_PROMPT_ARGUMENT_PATTERN, "");
+}
+
+function hasSkillsetPromptArguments(body: string): boolean {
+  SKILLSET_PROMPT_ARGUMENT_PATTERN.lastIndex = 0;
+  return SKILLSET_PROMPT_ARGUMENT_PATTERN.test(body);
 }
 
 function maskMarkdownCodeRegions(body: string): string {

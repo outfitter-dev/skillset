@@ -36,7 +36,7 @@ export const dynamicArgumentsEntry: TransformEntry = {
   evidence: DYNAMIC_EVIDENCE,
   forms: {
     claude: {
-      pattern: /\$ARGUMENTS(?:\b|\[[^\]]+\]|\.[A-Za-z_][A-Za-z0-9_-]*)/gu,
+      pattern: /\$ARGUMENTS(?:\[[^\]]+\]|\.[A-Za-z_][A-Za-z0-9_-]*|\b)/gu,
     },
   },
   intent: "dynamic.arguments",
@@ -45,16 +45,17 @@ export const dynamicArgumentsEntry: TransformEntry = {
 };
 
 /**
- * Positional arguments (`$0`, `$1`, ...). Matches lint's recognized language
- * (`(^|[^\w$])\$[0-9]+\b`) expressed as a lookbehind so the reported text is
- * the construct alone.
+ * Positional arguments (`$0` and `$1`). Matches lint's recognized
+ * language expressed as a lookbehind so the reported text is the construct
+ * alone. Keep this intentionally narrow: broad `$123` or `$5` matching catches
+ * normal prose such as prices more often than portable command arguments.
  */
 export const dynamicPositionalEntry: TransformEntry = {
   description: "Claude positional-argument substitution ($0/$1/...).",
   evidence: DYNAMIC_EVIDENCE,
   forms: {
     claude: {
-      pattern: /(?<![\w$])\$[0-9]+\b/gu,
+      pattern: /(?<![\w$])\$[01]\b(?!\.\d)/gu,
     },
   },
   intent: "dynamic.positional",

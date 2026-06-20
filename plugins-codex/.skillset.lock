@@ -1,5 +1,8 @@
 {
   "buildMode": "updated",
+  "features": {
+    "promptArguments": true
+  },
   "generatedBy": "skillset@0.1.0",
   "items": [
     {

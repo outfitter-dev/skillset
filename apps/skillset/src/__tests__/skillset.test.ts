@@ -839,6 +839,7 @@ Defaulted.
 
   expect(graph.root.compile).toMatchObject({
     build: "all",
+    features: { promptArguments: true },
     skillset: { metadata: false },
     targets: ["claude", "codex"],
     unsupportedDestination: "error",
@@ -878,6 +879,43 @@ skillset:
   });
 
   await expect(loadBuildGraph(root)).rejects.toThrow("expected one of: updated, all");
+});
+
+test("compile features validate prompt argument placeholder configuration", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+compile:
+  features:
+    promptArguments: false
+`,
+    ".skillset/src/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+  });
+
+  const graph = await loadBuildGraph(root);
+  expect(graph.root.compile.features).toEqual({ promptArguments: false });
+
+  const invalidRoot = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+compile:
+  features:
+    promptArguments: maybe
+`,
+    ".skillset/src/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+  });
+
+  await expect(loadBuildGraph(invalidRoot)).rejects.toThrow(
+    "compile.features.promptArguments to be a boolean"
+  );
 });
 
 test("target defaults reject file frontmatter and unknown surfaces", async () => {
@@ -1924,6 +1962,72 @@ Tree:
 
   await writeFile(join(root, ".skillset/src/shared/templates/openai.md"), "Changed YAML prompt.\n");
   await expect(checkSkillset(root)).rejects.toThrow("stale generated file");
+});
+
+test("preprocessing adapts prompt argument placeholders for Claude and shims Codex", async () => {
+  const root = await fixture({
+    ".skillset/skillset.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: true
+`,
+    ".skillset/src/skills/argument-runner/SKILL.md": `
+---
+name: argument-runner
+description: Runs a command with prompt arguments.
+---
+
+Run:
+
+\`docs-cli search "{{$ARGUMENTS[0]}}" "{{$ARGUMENTS[1]}}" --limit {{$ARGUMENTS.limit}}\`
+
+All args: {{$ARGUMENTS}}
+Literal marker: {{{ $ARGUMENTS }}}
+`,
+  });
+
+  await expect(lintSkillset(root)).resolves.toMatchObject({ issues: [] });
+  await buildSkillset(root);
+
+  const claudeSkill = await readFile(join(root, ".claude/skills/argument-runner/SKILL.md"), "utf8");
+  expect(claudeSkill).toContain('docs-cli search "$ARGUMENTS[0]" "$ARGUMENTS[1]" --limit $ARGUMENTS.limit');
+  expect(claudeSkill).toContain("All args: $ARGUMENTS");
+  expect(claudeSkill).toContain("Literal marker: {{$ARGUMENTS}}");
+  expect(claudeSkill).not.toContain("Before using commands");
+
+  const codexSkill = await readFile(join(root, ".agents/skills/argument-runner/SKILL.md"), "utf8");
+  expect(codexSkill).toContain(
+    "Before using commands, replace `{{$ARGUMENTS...}}` placeholders with the user's supplied arguments."
+  );
+  expect(codexSkill).toContain('docs-cli search "{{$ARGUMENTS[0]}}" "{{$ARGUMENTS[1]}}" --limit {{$ARGUMENTS.limit}}');
+  expect(codexSkill).toContain("All args: {{$ARGUMENTS}}");
+  expect(codexSkill).toContain("Literal marker: {{$ARGUMENTS}}");
+});
+
+test("preprocessing rejects prompt argument placeholders when the feature is disabled", async () => {
+  const root = await fixture({
+    ".skillset/skillset.yaml": `
+skillset:
+  name: test-root
+compile:
+  features:
+    promptArguments: false
+claude: true
+codex: true
+`,
+    ".skillset/src/skills/argument-runner/SKILL.md": `
+---
+name: argument-runner
+description: Runs a command with prompt arguments.
+---
+
+Run \`docs-cli search "{{$ARGUMENTS[1]}}"\`.
+`,
+  });
+
+  await expect(lintSkillset(root)).rejects.toThrow("compile.features.promptArguments is false");
+  await expect(buildSkillset(root)).rejects.toThrow("requires compile.features.promptArguments");
 });
 
 test("preprocessing opt-out preserves literal variables while stripping source controls", async () => {
@@ -4407,6 +4511,32 @@ Use this shell snippet as an example:
 ~~~bash
 git log --oneline | awk '{print $1}'
 ~~~
+`,
+  });
+
+  await expect(lintSkillset(root)).resolves.toMatchObject({ issues: [] });
+});
+
+test("lint ignores prose prices that look like positional arguments", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: true
+`,
+    ".skillset/src/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/src/plugins/alpha/skills/pricing/SKILL.md": `
+---
+name: pricing
+description: Mentions a normal price.
+---
+
+This workflow can save about $200 when the cleanup is automated.
+Small runs can also save $5, $9.99, or $1.99 in normal prose.
 `,
   });
 

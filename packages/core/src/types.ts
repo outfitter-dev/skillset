@@ -44,8 +44,13 @@ export interface CompileSkillsetConfig {
   readonly metadata: boolean;
 }
 
+export interface CompileFeatureConfig {
+  readonly promptArguments: boolean;
+}
+
 export interface CompileConfig {
   readonly build: CompileBuildMode;
+  readonly features: CompileFeatureConfig;
   readonly skillset: CompileSkillsetConfig;
   readonly targets: readonly TargetName[];
   readonly unsupportedDestination: UnsupportedDestinationPolicy;
