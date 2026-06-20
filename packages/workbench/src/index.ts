@@ -17,6 +17,11 @@ export {
   WORKBENCH_SCOPE_IDS,
 } from "./presets";
 export {
+  checkWorkbenchSyntax,
+  inferWorkbenchParseKind,
+  parseWorkbenchDocument,
+} from "./parser";
+export {
   compareWorkbenchDiagnostics,
   createWorkbenchDiagnostic,
   formatWorkbenchDiagnostic,
@@ -27,7 +32,12 @@ export type {
   WorkbenchDiagnostic,
   WorkbenchDiagnosticSelection,
   WorkbenchFix,
+  WorkbenchJsonParseResult,
   WorkbenchLocation,
+  WorkbenchMarkdownHeading,
+  WorkbenchMarkdownParseResult,
+  WorkbenchParseKind,
+  WorkbenchParseResult,
   WorkbenchPreset,
   WorkbenchPresetId,
   WorkbenchRuleMetadata,
@@ -36,4 +46,7 @@ export type {
   WorkbenchScope,
   WorkbenchSeverity,
   WorkbenchSubject,
+  WorkbenchTomlParseResult,
+  WorkbenchUnknownParseResult,
+  WorkbenchYamlParseResult,
 } from "./types";

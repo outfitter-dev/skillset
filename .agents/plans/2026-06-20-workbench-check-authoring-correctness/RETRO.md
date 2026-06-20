@@ -26,8 +26,8 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | 0 | SET-153 | n/a | n/a | Created | Roadmap parent |
 | 1 | SET-154 | `set-154-cut-cli-semantics-to-skillset-check-and-skillset-verify` | pending | committed | M1 command cutover |
 | 2 | SET-155 | `set-155-introduce-skillsetworkbench-diagnostic-primitives` | pending | committed | M2 diagnostics |
-| 3 | SET-156 | `set-156-add-workbench-presets-rules-and-existing-lint-bridge` | pending | in progress | M2 presets and lint bridge |
-| 4 | SET-157 | `set-157-add-bun-yamltoml-and-markdown-parser-backed-workbench-checks` | pending | pending | M3 parsers |
+| 3 | SET-156 | `set-156-add-workbench-presets-rules-and-existing-lint-bridge` | pending | committed | M2 presets and lint bridge |
+| 4 | SET-157 | `set-157-add-bun-yamltoml-and-markdown-parser-backed-workbench-checks` | pending | in progress | M3 parsers |
 | 5 | SET-158 | `set-158-add-schema-backed-workbench-rules-for-source-contracts` | pending | pending | M3 schema |
 | 6 | SET-159 | `set-159-add-graph-and-provider-compatibility-workbench-rules` | pending | pending | M4 graph/provider |
 | 7 | SET-160 | `set-160-add-resource-and-runtime-workbench-rules` | pending | pending | M4 resource/runtime |
@@ -115,6 +115,28 @@ Use this as the durable execution ledger. For stacked work, this should normally
 - Blockers: none.
 ```
 
+```text
+2026-06-20 13:20 ET - SET-157 parser-backed syntax checks
+- Changed: Added Bun-backed JSON/YAML/TOML syntax parsing, Markdown frontmatter/body/heading extraction, and exported parser helpers to @skillset/workbench.
+- Changed: Refactored WorkbenchParseResult into a kind-discriminated union so later schema-backed rules can narrow by parse kind without optional-field ambiguity.
+- Fixed: Reviewer-raised parser issues by rejecting explicit null/scalar/array Markdown frontmatter, preserving literal trailing heading hashes, tracking Markdown fences by marker and length, and reporting multiline structured syntax diagnostics away from hard-coded line 1.
+- Decision: Bun parser error line/column fields can point at the TypeScript call site in this runtime, so parserErrorLocation trusts them only when they map back into the document and otherwise uses a syntax-focused document fallback.
+- Verified: Focused parser/Workbench tests, typecheck, changeset guard, and full `bun run check` passed with the new parser tests staged and included in the tracked-file test harness.
+- Review: Fresh SET-157 local re-review found TOML aggregate location and closing-fence edge cases; fixes are in progress.
+- Blockers: none.
+```
+
+```text
+2026-06-20 13:45 ET - SET-157 parser review fixes
+- Fixed: Read Bun TOML aggregate child error positions before generic parser-error metadata so non-dangling TOML syntax failures point at the document line instead of line 1.
+- Fixed: Required Markdown closing fences to contain only matching marker characters plus trailing spaces or tabs; info-string fence lines no longer close an active fence.
+- Fixed: Rejected CommonMark-invalid backtick opening fences whose info strings contain backticks so they do not suppress following headings.
+- Fixed: Accepted trailing spaces or tabs on frontmatter opening/closing delimiters.
+- Verified: Focused parser/Workbench tests, typecheck, and whitespace check passed after the fixes.
+- Review: Peirce and Avicenna re-reviews reached 5/5 with no remaining P0-P3 findings.
+- Blockers: none.
+```
+
 ## Local Review Log
 
 | Round | Scope / Lanes | Report Paths | P0/P1/P2/P3 Result | Fix Commits / Notes |
@@ -123,6 +145,8 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | 2 | SET-154 re-review | Main-agent read-only re-review after fixes | 5/5; no P0-P3 findings | Fixed final leftover `skillset build`/`check` generated AGENTS-size wording before scoring; full gate passed |
 | 3 | SET-155 diagnostics primitives | Subagent reports in thread: Mill, Huygens | 5/5; no P0-P3 findings | No fixes required after reviewer loop |
 | 4 | SET-156 presets and lint bridge | Subagent reports in thread: Meitner, Pasteur, Dewey | P1 stale selector/typecheck concerns; P3 strict rule-id selection semantics | Standardized on `ruleIds`, added exact strict rule-id selection coverage, made unchecked scope validation typecheck cleanly, and reached 5/5 re-review |
+| 5 | SET-157 parser-backed checks | Subagent reports in thread: Jason, Zeno | P2 parse-result optional bag, hard-coded syntax locations, nullable frontmatter, and heading hash stripping; P3 fence handling | Refactored parse result to a discriminated union, added document-oriented syntax locations, rejected non-object frontmatter, fixed heading hash handling, and tracked Markdown fences by marker/length |
+| 6 | SET-157 re-review | Subagent reports in thread: Avicenna, Peirce | P2 TOML aggregate locations and closing-fence info-string bug; P3 whitespace frontmatter delimiter and invalid backtick opening fence | Added aggregate child-position extraction, strict closing/opening fence detection, delimiter whitespace support, and focused regression tests |
 
 ## Verification Log
 
@@ -150,6 +174,17 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | `bun run typecheck --pretty false` | SET-156 typecheck | pass | `tsc --noEmit --pretty false` |
 | `bun run changeset:check` | SET-156 release guard | pass | 8 package-facing paths and 1 active changeset |
 | `bun run check` | full repo gate after SET-156 | pass | 549 pass, 0 fail; Ultracite doctor clean; `skillset check` checked 5 source skills; `skillset verify` verified 51 generated files; terminology guard clean |
+| `bun test packages/workbench/src/__tests__/parser.test.ts packages/workbench/src/__tests__/*.test.ts` | SET-157 focused tests | pass | 20 pass, 0 fail |
+| `bun run typecheck --pretty false` | SET-157 typecheck | pass | `tsc --noEmit --pretty false` |
+| `bun run changeset:check` | SET-157 release guard | pass | 8 package-facing paths and 1 active changeset |
+| `bun run check` | full repo gate after SET-157 | pass | 564 pass, 0 fail; Ultracite doctor clean; `skillset check` checked 5 source skills; `skillset verify` verified 51 generated files; terminology guard clean |
+| `bun test packages/workbench/src/__tests__/parser.test.ts packages/workbench/src/__tests__/*.test.ts` | SET-157 review fixes | pass | 21 pass, 0 fail |
+| `bun run typecheck --pretty false` | SET-157 review fixes | pass | `tsc --noEmit --pretty false` |
+| `git diff --check` | SET-157 review fixes | pass | no whitespace errors |
+| `bun test packages/workbench/src/__tests__/parser.test.ts packages/workbench/src/__tests__/*.test.ts` | SET-157 P3 fence fix | pass | 21 pass, 0 fail |
+| `bun run typecheck --pretty false` | SET-157 P3 fence fix | pass | `tsc --noEmit --pretty false` |
+| `git diff --check` | SET-157 P3 fence fix | pass | no whitespace errors |
+| `bun run check` | full repo gate after SET-157 review fixes | pass | 565 pass, 0 fail; Ultracite doctor clean; `skillset check` checked 5 source skills; `skillset verify` verified 51 generated files; terminology guard clean |
 
 ## Remote Review / CI Log
 
@@ -172,6 +207,10 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | Meitner | 3/5 | P1/P3 | Reported selector API drift and ambiguous strict rule-id selection semantics. | Align selector API and decide exact rule-id behavior. | Live code was already on `ruleIds`; kept `ruleIds` and changed exact rule-id selection to include strict diagnostics without requiring `preset: strict`. | Re-review passed |
 | Pasteur | 3/5 | P1 | Bad-scope runtime validation test used an unsafe readonly-to-mutable cast in an earlier snapshot. | Make frozen-array and unchecked-scope tests typecheck cleanly. | Rewrote unchecked scope test through `WorkbenchScopeSelection` and reran typecheck. | `bun run typecheck --pretty false` pass |
 | Dewey | 5/5 | none | No remaining P0-P3 findings after SET-156 fixes. | n/a | M2 SET-156 review loop clean. | Reviewer verified `ruleIds`, strict selection, typecheck, targeted tests, and no lock/package churn |
+| Jason | 3/5 | P2/P3 | Parse result API was an optional-field bag; headings stripped literal trailing hashes; syntax diagnostics stayed on line 1. | Refactor parser result into a discriminated union, fix heading hash handling, and extract or fallback parser locations. | Implemented discriminated parse-result variants, closing-sequence-only heading stripping, and document-oriented syntax location fallback. | Focused and full gates passed |
+| Zeno | 3/5 | P2/P3 | Invalid JSON/YAML/TOML diagnostics used line 1; null frontmatter was accepted; heading and fence parsing corrupted source facts. | Add multiline syntax location tests, reject non-object frontmatter, preserve literal heading hashes, and track fences by marker/length. | Added regression coverage and parser fixes for all reported cases. | Focused and full gates passed |
+| Avicenna | 5/5 | none | Closing fences with trailing info strings leaked headings; TOML aggregate errors still reported line 1; follow-up re-review found a narrow P3 invalid opening-fence edge. | Require closing fences to be same-marker same/longer and trailing whitespace only; read TOML aggregate child positions; reject backtick opening fences whose info strings contain backticks. | SET-157 Avicenna final re-review clean. | Focused tests, typecheck, staged whitespace, direct probe |
+| Peirce | 5/5 | none | No remaining P0-P3 findings after TOML aggregate and frontmatter delimiter fixes. | n/a | SET-157 Peirce re-review clean. | Focused tests, Workbench tests, typecheck, staged whitespace, direct probes |
 
 ## Forbidden Actions Audit
 
