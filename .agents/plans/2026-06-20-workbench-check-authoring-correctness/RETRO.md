@@ -210,6 +210,13 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | `bun run typecheck --pretty false` | SET-159 typecheck | pass | `tsc --noEmit --pretty false` |
 | `bun run changeset:check` | SET-159 release guard | pass | 8 package-facing paths and 1 active changeset |
 | `bun run check` | full repo gate after SET-159 | pass | 577 pass, 0 fail; Ultracite doctor clean; `skillset check` checked 5 source skills; `skillset verify` verified 51 generated files; terminology guard clean |
+| `bun test packages/workbench/src/__tests__/*.test.ts` | SET-160 focused tests | pass | 37 pass, 0 fail |
+| `bun run typecheck` | SET-160 typecheck | pass | `tsc --noEmit` |
+| `bun run changeset:check` | SET-160 release guard | pass | 8 package-facing paths and 1 active changeset |
+| `git diff --check` | SET-160 whitespace guard | pass | no whitespace errors |
+| `bun run check` | full repo gate after SET-160 staged files | pass | 581 pass, 0 fail; Ultracite doctor clean; `skillset check` checked 5 source skills; `skillset verify` verified 51 generated files; terminology guard clean |
+| `bun test packages/workbench/src/__tests__/resource-runtime.test.ts packages/workbench/src/__tests__/*.test.ts` | SET-160 P3 test-title fix | pass | 37 pass, 0 fail |
+| `bun run typecheck && git diff --check --cached` | SET-160 P3 test-title fix | pass | typecheck and staged whitespace clean |
 
 ## Remote Review / CI Log
 
@@ -244,6 +251,10 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | Mencius | 5/5 | none | No remaining P0-P3 findings after the workspace allowlist correction. | n/a | SET-158 final Mencius re-review clean. | Focused Workbench tests, typecheck, staged whitespace, direct workspace-config probe |
 | Darwin | 5/5 | none | No remaining P0-P3 findings for the Workbench compatibility bridge. | n/a | SET-159 Darwin review clean. | Focused Workbench tests, typecheck, staged whitespace, changeset guard |
 | Noether | 5/5 | none | No remaining P0-P3 findings for the Workbench compatibility bridge API and tests. | n/a | SET-159 Noether review clean. | Focused compatibility tests, all Workbench tests, typecheck, staged whitespace |
+| Bernoulli | 5/5 | none | No P0-P3 findings for the Workbench resource/runtime bridge. | n/a | SET-160 Bernoulli review clean. | Focused resource-runtime test and typecheck pass |
+| Pauli | 5/5 | none | No P0-P3 findings for API shape, diagnostic semantics, and no-overreach boundary. | n/a | SET-160 Pauli review clean. | Focused resource-runtime tests, all Workbench tests, and typecheck pass |
+| Epicurus | 4.8/5 | P3 | Runtime-filter test title said strict selection while asserting standard selection. | Rename the title to match the standard selection assertion. | Test now says standard selection. | Focused Workbench tests and typecheck pass |
+| Parfit | 5/5 | none | No P0-P3 findings after reviewing the untracked implementation and test files directly. | n/a | SET-160 Parfit review clean. | Focused resource-runtime test pass |
 
 ## Forbidden Actions Audit
 
