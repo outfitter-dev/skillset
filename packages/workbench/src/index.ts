@@ -12,6 +12,13 @@ export {
   type WorkbenchCompatibilityDiagnosticOptions,
 } from "./compatibility";
 export {
+  probeAstGrepAvailability,
+  workbenchDiagnosticsFromAstGrepMatches,
+  type WorkbenchAstGrepAvailability,
+  type WorkbenchAstGrepMatch,
+  type WorkbenchAstGrepRule,
+} from "./ast-grep";
+export {
   workbenchDiagnosticsFromResourceLintIssues,
   workbenchDiagnosticsFromRuntimeSupport,
   type WorkbenchResourceDiagnosticOptions,
