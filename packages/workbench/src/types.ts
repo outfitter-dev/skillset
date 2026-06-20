@@ -1,5 +1,9 @@
 export type WorkbenchSeverity = "error" | "info" | "warning";
 
+export type WorkbenchPresetId = "standard" | "strict";
+
+export type WorkbenchRuleLevel = "standard" | "strict";
+
 export type WorkbenchScope =
   | "generated"
   | "provider"
@@ -33,15 +37,31 @@ export interface WorkbenchRuleMetadata {
   readonly description: string;
   readonly docs?: readonly string[];
   readonly id: string;
+  readonly ruleLevel?: WorkbenchRuleLevel;
   readonly scope: WorkbenchScope;
 }
 
+export interface WorkbenchPreset {
+  readonly description: string;
+  readonly id: WorkbenchPresetId;
+  readonly ruleLevels: readonly WorkbenchRuleLevel[];
+  readonly scopes: readonly WorkbenchScope[];
+}
+
+export interface WorkbenchDiagnosticSelection {
+  readonly preset?: WorkbenchPresetId;
+  readonly ruleIds?: readonly string[];
+  readonly scopes?: readonly WorkbenchScope[];
+}
+
 export interface WorkbenchDiagnostic {
+  readonly featureId?: string;
   readonly fix?: WorkbenchFix;
   readonly help?: readonly string[];
   readonly location?: WorkbenchLocation;
   readonly message: string;
   readonly ruleId: string;
+  readonly ruleLevel?: WorkbenchRuleLevel;
   readonly scope: WorkbenchScope;
   readonly severity: WorkbenchSeverity;
   readonly subject: WorkbenchSubject;
