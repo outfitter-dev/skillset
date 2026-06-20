@@ -40,6 +40,7 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Themes](themes.md): Claude experimental theme pass-through, manifest wiring, and Codex unsupported boundaries.
 - [Tool Intent](tool-intent.md): portable tool intent metadata, Claude preapproval rendering, Codex metadata, and target-native escapes.
 - [Version Audit](version-audit.md): read-only version-locus audit across source, release state, generated output, and future destinations.
+- [Workbench Check](workbench.md): `skillset check`, `skillset verify`, package-level diagnostic scopes/presets, parser/schema checks, fixtures, and optional ast-grep proof points.
 
 ## Feature Reference Vocabulary
 

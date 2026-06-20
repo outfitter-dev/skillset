@@ -8,5 +8,6 @@ This directory holds durable documentation for the local Skillset compiler.
 - [Layout](layout.md): the current source layout, generated output shape, shared-resource behavior, rules/instructions rendering, hooks, skill policy, and import flow.
 - [Package Releases](package-releases.md): the GitHub Actions, Changesets, Bun package preflight, npm publish, and Trusted Publishing flow for the public package.
 - [Target Surfaces](target-surfaces.md): the evidence matrix mapping Skillset source to Claude/Codex target surfaces, with support vocabulary and live-doc verification dates. Golden manifest tests pin the shapes it claims.
+- [Workbench Check](features/workbench.md): the authoring diagnostics and generated-output verification split, plus package-level diagnostic scopes, presets, and fixtures.
 
 When changing the source contract, read the tenets first, check ADRs for prior decisions, use the feature reference for support shape, and use the layout reference for current behavior.

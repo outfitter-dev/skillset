@@ -32,8 +32,8 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | 6 | SET-159 | `set-159-add-graph-and-provider-compatibility-workbench-rules` | pending | committed | M4 graph/provider |
 | 7 | SET-160 | `set-160-add-resource-and-runtime-workbench-rules` | pending | committed | M4 resource/runtime |
 | 8 | SET-161 | `set-161-add-workbench-fixture-suite-for-good-and-bad-skillset-inputs` | pending | committed | M4 fixtures |
-| 9 | SET-162 | `set-162-add-bounded-ast-grep-backed-selector-rule-proof-point` | pending | in progress | M5 ast-grep |
-| 10 | SET-163 | `set-163-document-workbench-check-verify-presets-and-rule-authoring` | pending | pending | M5 docs/guidance |
+| 9 | SET-162 | `set-162-add-bounded-ast-grep-backed-selector-rule-proof-point` | pending | committed | M5 ast-grep |
+| 10 | SET-163 | `set-163-document-workbench-check-verify-presets-and-rule-authoring` | pending | committed | M5 docs/guidance |
 | 11 | SET-164 | `set-164-run-full-workbench-stack-verification-and-release-readiness` | pending | pending | M5 final verification |
 
 ## Planning Discoveries
@@ -157,6 +157,17 @@ Use this as the durable execution ledger. For stacked work, this should normally
 - Blockers: none.
 ```
 
+```text
+2026-06-20 16:30 ET - SET-163 docs and generated guidance
+- Changed: Added the Workbench feature page, linked it from docs indexes and README, tied it to the workflows registry entry, and updated self-hosted/generated skill guidance for the `check`/`verify` boundary.
+- Fixed: Reviewer-raised overclaims by documenting that public `skillset check` currently runs the existing source authoring diagnostics path while richer parser/schema/preset/scope/rule-id diagnostics are package-level until future CLI integration.
+- Fixed: Clarified dedicated root `skillset.yaml` schema coverage, Workbench fixture script assertions, registry evidence, and Codex development guidance wording.
+- Verified: Focused registry, Workbench, runtime-hook tests; typecheck; `skillset:check`; `skillset:verify`; changeset guard; whitespace guard; and full `bun run check` passed.
+- Review: Initial review found P2/P3 wording and evidence gaps; final narrow re-review reached 5/5 with no P0-P3 findings.
+- Next: Commit SET-163 and create SET-164 for final stack verification, tracker updates, and PR submission.
+- Blockers: none.
+```
+
 ## Local Review Log
 
 | Round | Scope / Lanes | Report Paths | P0/P1/P2/P3 Result | Fix Commits / Notes |
@@ -172,6 +183,7 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | 9 | SET-160 resource/runtime diagnostics | Subagent reports in thread: Bernoulli, Pauli, Epicurus, Parfit | P3 test title mismatch; later re-review 5/5 no P0-P3 | Renamed runtime selection test title |
 | 10 | SET-161 Workbench fixtures | Subagent reports in thread: Euclid, Aristotle, Sagan | P2 fixture realism gaps; later re-review 5/5 no P0-P3 | Added inert scripts, fixture-derived resource issue, and README tier correction |
 | 11 | SET-162 ast-grep proof | Subagent report in thread: Socrates | 5/5; no P0-P3 findings | No fixes required after reviewer loop |
+| 12 | SET-163 docs and generated guidance | Subagent reports in thread: Feynman, Hilbert, Sartre, Schrodinger | P2/P3 docs overclaims; final re-review 5/5 no P0-P3 | Narrowed CLI claims to current authoring diagnostics, clarified package-level Workbench coverage, expanded registry evidence, and rebuilt generated guidance |
 
 ## Verification Log
 
@@ -244,6 +256,13 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | `bun run changeset:check` | SET-162 release guard | pass | 8 package-facing paths and 1 active changeset |
 | `git diff --check` | SET-162 whitespace guard | pass | no whitespace errors |
 | `bun run check` | full repo gate after SET-162 | pass | 586 pass, 0 fail; Ultracite doctor clean; `skillset check` checked 5 source skills; `skillset verify` verified 51 generated files; terminology guard clean |
+| `bun test packages/core/src/__tests__/feature-registry-check.test.ts packages/core/src/__tests__/feature-registry.test.ts packages/workbench/src/__tests__/*.test.ts apps/skillset/src/__tests__/runtime-hooks.test.ts` | SET-163 focused tests | pass | 67 pass, 0 fail after final review fixes |
+| `bun run typecheck --pretty false` | SET-163 typecheck | pass | `tsc --noEmit --pretty false` |
+| `bun run skillset:check` | SET-163 source authoring command smoke | pass | `skillset: checked 5 source skills` |
+| `bun run skillset:verify` | SET-163 generated guidance freshness | pass | `skillset: verified 51 generated files` |
+| `bun run changeset:check` | SET-163 release guard | pass | 8 package-facing paths and 1 active changeset |
+| `git diff --check` | SET-163 whitespace guard | pass | no whitespace errors |
+| `bun run check` | full repo gate after SET-163 | pass | 586 pass, 0 fail; Ultracite doctor clean; `skillset check` checked 5 source skills; `skillset verify` verified 51 generated files; terminology guard clean |
 
 ## Remote Review / CI Log
 
@@ -286,6 +305,10 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | Aristotle | 4/5 | P2/P3 | Clean fixture resource diagnostics were hardcoded empty, and README said fake repos were built two ways while listing three tiers. | Derive fixture resource diagnostics and fix README tier wording. | Resource helper now reads fixture source; README now says three tiers and lists Workbench fixtures. | Focused Workbench tests and full check pass |
 | Sagan | 5/5 | none | No remaining P0-P3 findings after SET-161 fixture fixes. | n/a | SET-161 Sagan re-review clean. | Focused fixture test pass |
 | Socrates | 5/5 | none | No P0-P3 findings for the optional ast-grep adapter; confirmed no dependency additions. | n/a | SET-162 Socrates review clean. | Focused ast-grep test pass |
+| Feynman | 4/5 | P2/P3 | Workbench docs overclaimed dedicated root `skillset.yaml` schema coverage and registry evidence was too thin after linking the page. | Narrow dedicated schema coverage or implement dedicated schema support; add Workbench evidence or split feature id. | Documented ordinary workspace-config schema coverage and added representative Workbench evidence refs to workflows. | Focused tests and final review pass |
+| Hilbert | 3/5 | P2/P3 | Workbench docs and generated skill guidance overstated how much public `skillset check` is wired to package-level Workbench parser/schema/presets, and fixture wording overstated script-read evidence. | Make docs say `check` uses current lint authoring path, split `change check`/`verify` responsibilities, and soften fixture evidence. | Narrowed CLI claims, updated generated guidance, and changed fixture wording to declaration/existence checks without execution. | Focused tests, generated verification, and final review pass |
+| Sartre | 4/5 | P3 | Registry evidence still missed presets/lint-bridge/resource-runtime/compatibility, and Codex development guidance still said source/workspace correctness. | Add missing evidence refs and rename guidance to current source authoring diagnostics. | Added missing evidence refs, updated source guidance, and rebuilt generated output. | Focused tests and final review pass |
+| Schrodinger | 5/5 | none | No remaining P0-P3 findings after SET-163 review fixes. | n/a | SET-163 review loop clean. | Targeted tests, `skillset:check`, `skillset:verify`, and staged whitespace clean |
 
 ## Forbidden Actions Audit
 
