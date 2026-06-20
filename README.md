@@ -16,6 +16,7 @@ This repo also self-hosts a small `.skillset/` source tree:
 - [Feature Reference](docs/features/README.md): source feature support, target adapter status, and future-only surfaces.
 - [Skillset Docs](docs/README.md): the docs map.
 - [Layout](docs/layout.md): the current source layout, output shape, and compiler behavior reference.
+- [Workbench Check](docs/features/workbench.md): the authoring diagnostics and generated-output verification split.
 
 ## Usage
 
@@ -28,7 +29,7 @@ skillset build              # plan generated changes without writing
 skillset build --yes        # write generated outputs
 skillset build --isolated   # mirror the projection under .skillset/build/out/ (also: verify, diff)
 skillset lint               # source authoring diagnostics
-skillset check              # source/workspace authoring correctness
+skillset check              # source authoring diagnostics
 skillset verify             # fail if generated outputs are stale
 skillset diff               # show pending generated changes without writing
 skillset explain <path>     # explain a source or generated path (rendering, lock provenance, hashes; add --json for records)
@@ -40,6 +41,8 @@ skillset test [name]        # run an isolated deterministic projection test
 ```
 
 `init`, `create`, and `build` are plan-first: they print pending filesystem changes and write only with `--yes`; `--dry-run` always prevents writes, even when paired with `--yes`. `--scope repo`, `--scope plugins`, `--scope project`, and combinations filter generated destinations for build, diff, verify, list, and explain; `--scope user` is accepted but currently has no build outputs. `skillset change status` and `skillset change check` are whole-source coverage commands and reject build scopes. `skillset test` writes isolated runs under `.skillset/build/tests/` and does not mutate live generated target roots. `diff`, `explain`, `features`, and `doctor` are read-only authoring aids: they never write generated outputs, install, trust, publish, or mutate user-level config. `diff`, `verify`, and `doctor` report missing managed outputs separately from new outputs so intentional deletion and stale locks are visible. Confirmed builds back up unmanaged collisions and target-side edits under `.skillset/build/backups/<backup-id>/` before overwriting or deleting them; `skillset restore <backup-id>` previews restoring a backup and writes only with `--yes` (see [Output Safety](docs/features/output-safety.md)). `explain` accepts either a source path (e.g. `.skillset/src/skills/foo/SKILL.md`) or a generated output path and reports how it renders, matching render results, its lock entry, target state, and source/output hashes; `explain --json` includes full render result records for automation. `features` lists the feature registry by id and shows each target adapter's support status; pass a feature id to inspect one capability. `doctor` exits non-zero when it finds lint issues, drift, or a build error, and it also summarizes notable render result advisories such as degraded or unsupported results; `doctor --json` includes the full render report. `skillset ci` is the continuous-integration entrypoint: it aggregates lint, change-entry coverage, and generated drift, rebuilds stale generated output mechanically with `--fix`, and writes a PR-comment-ready Markdown report with `--report`; `skillset init --include ci` scaffolds a ready-to-use GitHub Actions workflow (see [CI](docs/features/ci.md)).
+
+See [Workbench Check](docs/features/workbench.md) for the current `check`/`verify` boundary, package-level diagnostic scopes, built-in `standard` and `strict` presets, parser/schema checks, Workbench fixtures, and the bounded ast-grep proof point.
 
 The default contract is:
 
@@ -142,7 +145,7 @@ skillset import agents --root /path/to/content-repo  # ~/.agents/skills
 
 Imports copy files into the active workspace source root, such as `.skillset/src/skills/<name>` and `.skillset/src/plugins/<name>` in an ordinary repo or `skillset/skills/<name>` and `skillset/plugins/<name>` in a dedicated Skillset repo. Passing a `SKILL.md` path imports the full containing skill directory, including sibling `references/`, `scripts/`, `assets/`, `agents/`, and other sidecars. Skills-root imports de-dupe symlinked directories by real path, so the same global skill is not imported twice when `.claude/skills`, `.codex/skills`, and `.agents/skills` point at one another. Plugin imports write plugin-local `skillset.yaml`; when importing a native Claude/Codex generated plugin that only has `.claude-plugin/plugin.json` or `.codex-plugin/plugin.json`, Skillset synthesizes a minimal source `skillset.yaml` from the native manifest while preserving the native manifest files as imported context. Import does not install, trust, symlink, publish, mutate registries, or change user-level Claude/Codex config.
 
-Import is a safe bridge, not a lossy copier. It returns a report — printed by the CLI — summarizing the copied files, the source fields it recognized, target-native fields preserved verbatim (e.g. Claude `allowed-tools`, `disable-model-invocation`), unrecognized fields kept as-is, warnings, and the next checks to run (`skillset lint`, `build`, `check`). Target-native and unknown frontmatter is preserved rather than dropped, so nothing is silently lost; the warnings point you at fields worth moving to a portable source key or a `claude`/`codex` block. Import never overwrites an existing source — remove it or import under a different `--name`.
+Import is a safe bridge, not a lossy copier. It returns a report — printed by the CLI — summarizing the copied files, the source fields it recognized, target-native fields preserved verbatim (e.g. Claude `allowed-tools`, `disable-model-invocation`), unrecognized fields kept as-is, warnings, and the next checks to run (`skillset lint`, `skillset build`, `skillset verify`). Target-native and unknown frontmatter is preserved rather than dropped, so nothing is silently lost; the warnings point you at fields worth moving to a portable source key or a `claude`/`codex` block. Import never overwrites an existing source — remove it or import under a different `--name`.
 
 Import shares the same version-baseline adoption machinery as `init` when the destination has a buildable Skillset root: imported versions become the starting release-state truth for those source units instead of forcing a fake release or a one-time inline-version migration. Import skips baseline seeding when there is no local Skillset config yet.
 
