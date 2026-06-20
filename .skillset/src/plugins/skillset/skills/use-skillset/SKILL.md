@@ -182,6 +182,7 @@ Portable keys are `read`, `search`, `write`, `edit`, `shell`, `web_fetch`, `web_
 skillset build --root .
 skillset lint --root .
 skillset check --root .
+skillset verify --root .
 skillset diff --root .            # pending generated changes, no writes
 skillset explain <path> --root .  # rendering + lock provenance for a source/generated path; add --json for records
 skillset restore <backup> --root . # preview restore; add --yes to write
@@ -194,11 +195,11 @@ skillset hooks run stop           # blocking runtime guardrail, source-gated
 
 `diff`, `explain`, and `doctor` are read-only authoring aids. They never write generated outputs, install, trust, publish, or mutate user-level config. `explain --json` and `doctor --json` include full render-result records for agents and automation. `doctor` exits non-zero on lint issues, drift, or a build error, and summarizes notable rendering advisories such as degraded or unsupported render results.
 
-`hooks print` emits copy/paste snippets for existing hook runners or reviewed project-local Claude/Codex runtime hook configuration. It does not install hooks, overwrite `.git/hooks`, mutate target runtime settings, or trust generated hook code. Pre-commit snippets call `skillset change check --staged`; pre-push snippets call `skillset change check --since origin/main`, `skillset check`, and `skillset doctor`. Runtime snippets call `skillset hooks run post-tool-use` and `skillset hooks run stop`; both first inspect only Skillset source/change-entry paths, including untracked files. `post-tool-use` is advisory and never blocks on `change status`; `stop` runs `change check` and `check` only when relevant Skillset source changed. Set `SKILLSET_HOOK_COMMAND` in reviewed runtime config only when the default local/installable CLI resolution needs an explicit override.
+`hooks print` emits copy/paste snippets for existing hook runners or reviewed project-local Claude/Codex runtime hook configuration. It does not install hooks, overwrite `.git/hooks`, mutate target runtime settings, or trust generated hook code. Pre-commit snippets call `skillset change check --staged`; pre-push snippets call `skillset change check --since origin/main`, `skillset check`, `skillset verify`, and `skillset doctor`. Runtime snippets call `skillset hooks run post-tool-use` and `skillset hooks run stop`; both first inspect only Skillset source/change-entry paths, including untracked files. `post-tool-use` is advisory and never blocks on `change status`; `stop` runs `change check`, `check`, and `verify` only when relevant Skillset source changed. Set `SKILLSET_HOOK_COMMAND` in reviewed runtime config only when the default local/installable CLI resolution needs an explicit override.
 
 Generated plugin repos default to `plugins-claude/` and `plugins-codex/`. Standalone generated skills default to `.claude/skills` and `.agents/skills`. Generated roots include `.skillset.lock` files for deterministic provenance.
 
-Version fields must be semantic versions. Plugin `skillset.version` renders into generated plugin manifests. Skill top-level `version` renders into generated `metadata.version`; plugin-bound skills fall back to plugin version, and standalone skills fall back to root version. `skillset check` reports version drift when a generated plugin manifest version or skill `metadata.version` is stale. Plugin lock entries include included and skipped skill versions so target-specific skips are visible without changing unrelated generated skill files.
+Version fields must be semantic versions. Plugin `skillset.version` renders into generated plugin manifests. Skill top-level `version` renders into generated `metadata.version`; plugin-bound skills fall back to plugin version, and standalone skills fall back to root version. `skillset verify` reports version drift when a generated plugin manifest version or skill `metadata.version` is stale. Plugin lock entries include included and skipped skill versions so target-specific skips are visible without changing unrelated generated skill files.
 
 ## Import Existing Source
 

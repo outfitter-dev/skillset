@@ -730,7 +730,7 @@ export function renderAdoptReportMarkdown(
     "## Next steps",
     "",
     "- `skillset lint`",
-    "- `skillset check --isolated`",
+    "- `skillset verify --isolated`",
     "- `skillset ci`",
     ""
   );

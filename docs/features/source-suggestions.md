@@ -45,7 +45,7 @@ The first implementation should make diagnostics useful before attempting writes
 
 ## Provenance
 
-Source suggestions should not create a second source of truth. Accepted source suggestions change the real source file or pending reason, then normal build/check/release machinery updates generated outputs and locks.
+Source suggestions should not create a second source of truth. Accepted source suggestions change the real source file or pending reason, then normal build/release machinery updates generated outputs and locks and `skillset verify` checks the result.
 
 When CI suggestions arrive later, they should record enough evidence to avoid noisy repeat comments: suggestion id, generated path, owning source path, lock hash or source hash reviewed, suggested action, accepted/rejected/skipped status, and whether a writeback commit was attempted. That evidence belongs to suggestion workflow state, not generated target files.
 

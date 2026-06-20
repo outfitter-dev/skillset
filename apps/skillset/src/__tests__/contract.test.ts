@@ -6,7 +6,7 @@ import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { planDistributions } from "@skillset/core";
 
-import { buildSkillset, buildSkillsetResult, checkSkillset, checkSkillsetResult, diffSkillset, diffSkillsetResult } from "../build";
+import { buildSkillset, buildSkillsetResult, verifySkillset, verifySkillsetResult, diffSkillset, diffSkillsetResult } from "../build";
 import { changeStatus, collectSourceInventory } from "../change-status";
 import { doctorSkillset, explainPath } from "../authoring";
 import { importSource, importSources } from "../import";
@@ -1317,6 +1317,10 @@ test("SET-25: CLI help succeeds before command validation", async () => {
   expect(rootHelp.exitCode).toBe(0);
   expect(rootHelp.stderr).toBe("");
   expect(rootHelp.stdout).toContain("usage: skillset build");
+  expect(rootHelp.stdout).toContain("skillset verify [--updated|--all]");
+  expect(rootHelp.stdout).toContain("skillset <check|lint> [--root <path>] [--source <dir>]");
+  expect(rootHelp.stdout).toContain("skillset list [--updated|--all]");
+  expect(rootHelp.stdout).not.toContain("skillset <check|lint|list> [--updated|--all]");
   expect(rootHelp.stdout).toContain("skillset change status [--since <ref>] [--root <path>]");
   expect(rootHelp.stdout).toContain("skillset change check [@ref|--ref <ref>] [--since <ref>] [--root <path>]");
   expect(rootHelp.stdout).not.toContain("skillset change status [--since <ref>] [--scope <scope>]");
@@ -1344,6 +1348,87 @@ test("SET-25: CLI help succeeds before command validation", async () => {
   expect(explainHelp.stderr).not.toContain("expected a path to explain");
 });
 
+test("SET-154: check and lint reject build destination flags", async () => {
+  const checkScope = await runSkillsetCli("check", "--scope", "repo");
+  expect(checkScope.exitCode).toBe(1);
+  expect(checkScope.stderr).toContain("skillset check does not support --scope");
+
+  const checkUpdated = await runSkillsetCli("check", "--updated");
+  expect(checkUpdated.exitCode).toBe(1);
+  expect(checkUpdated.stderr).toContain("skillset check does not support --updated or --all");
+
+  const lintDist = await runSkillsetCli("lint", "--dist", "out");
+  expect(lintDist.exitCode).toBe(1);
+  expect(lintDist.stderr).toContain("skillset lint does not support --dist");
+
+  const lintWrite = await runSkillsetCli("lint", "--dry-run");
+  expect(lintWrite.exitCode).toBe(1);
+  expect(lintWrite.stderr).toContain("skillset lint is read-only");
+});
+
+test("SET-154: check runs source diagnostics without generated-output drift verification", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: check-root
+claude: true
+codex: false
+`,
+    ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+
+  const cleanCheck = await runSkillsetCli("check", "--root", root);
+  expect(cleanCheck.exitCode).toBe(0);
+  expect(cleanCheck.stderr).toBe("");
+  expect(cleanCheck.stdout).toContain("skillset: checked 1 source skills");
+
+  await buildSkillset(root);
+  await writeFile(join(root, ".claude/skills/demo/SKILL.md"), "stale generated output\n", "utf8");
+
+  const driftIgnored = await runSkillsetCli("check", "--root", root);
+  expect(driftIgnored.exitCode).toBe(0);
+  expect(driftIgnored.stderr).toBe("");
+  expect(driftIgnored.stdout).toContain("skillset: checked 1 source skills");
+
+  const driftCaught = await runSkillsetCli("verify", "--root", root);
+  expect(driftCaught.exitCode).toBe(1);
+  expect(driftCaught.stderr).toContain(".claude/skills/demo/SKILL.md");
+  expect(driftCaught.stderr).toContain("generated output is not current");
+});
+
+test("SET-154: check fails on source authoring diagnostics", async () => {
+  const root = await contractFixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: check-source-error
+claude: true
+codex: false
+`,
+    ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+See [Guide](shared:references/guide.md).
+`,
+  });
+
+  const checked = await runSkillsetCli("check", "--root", root);
+  expect(checked.exitCode).toBe(1);
+  expect(checked.stdout).toBe("");
+  expect(checked.stderr).toContain("skillset: lint failed");
+  expect(checked.stderr).toContain("resource-undeclared-link");
+  expect(checked.stderr).toContain("shared:references/guide.md");
+});
+
 test("SET-41: hooks print emits additive runner snippets", async () => {
   for (const [runner, marker] of [
     ["lefthook", "lefthook.yml"],
@@ -1358,6 +1443,7 @@ test("SET-41: hooks print emits additive runner snippets", async () => {
     expect(printed.stdout).toContain("skillset change check --staged");
     expect(printed.stdout).toContain("skillset change check --since origin/main");
     expect(printed.stdout).toContain("skillset check");
+    expect(printed.stdout).toContain("skillset verify");
     expect(printed.stdout).toContain("skillset doctor");
     if (runner === "pre-commit") expect(printed.stdout).toContain("entry: sh -c");
   }
@@ -2064,7 +2150,7 @@ Body.
   });
 
   await buildSkillset(root);
-  const checked = await runSkillsetCli("check", "--root", root);
+  const checked = await runSkillsetCli("verify", "--root", root);
   expect(checked.exitCode).toBe(0);
   expect(checked.stderr).toContain("@acme/docs-cli supports >=2.4.0 <3.0.0");
   expect(checked.stderr).toContain("repo:packages/docs-cli/package.json is 3.1.0");
@@ -4482,7 +4568,7 @@ Body.
 `,
   });
 
-  const checked = await runSkillsetCli("check", "--root", root);
+  const checked = await runSkillsetCli("verify", "--root", root);
   expect(checked.exitCode).toBe(1);
   expect(checked.stderr).toContain("release state scope skill:demo.version");
   expect(checked.stderr).toContain("semantic version");
@@ -4513,7 +4599,7 @@ Body.
   expect(diff.added).not.toContain(".claude/skills/demo/SKILL.md");
   expect(diff.missing).toContain(".claude/skills/demo/SKILL.md");
 
-  await expect(checkSkillset(root)).rejects.toThrow("missing managed generated file: .claude/skills/demo/SKILL.md");
+  await expect(verifySkillset(root)).rejects.toThrow("missing managed generated file: .claude/skills/demo/SKILL.md");
 });
 
 test("SET-19: CLI restores backed up unmanaged output collisions", async () => {
@@ -4679,7 +4765,7 @@ Repo body.
     missing: [],
     removed: [],
   });
-  await expect(checkSkillset(root, { scopes: ["repo"] })).resolves.toBeDefined();
+  await expect(verifySkillset(root, { scopes: ["repo"] })).resolves.toBeDefined();
   await expect(buildSkillset(root, { scopes: ["repo"] })).resolves.toBeDefined();
 
   const explained = await runSkillsetCli("explain", ".claude/skills/repo-skill/SKILL.md", "--root", root, "--scope", "repo");
@@ -6255,7 +6341,7 @@ paths:
   expect(agents).toContain("Second by name.");
 });
 
-test("SET-7: build reports when a generated AGENTS.md exceeds Codex's size limit", async () => {
+test("SET-7: build and generated-output verification report when a generated AGENTS.md exceeds Codex's size limit", async () => {
   const big = `# Big\n\n${"- padding line to grow the instruction file\n".repeat(900)}`;
   const root = await contractFixture({
     ".skillset/config.yaml": `
@@ -6271,8 +6357,8 @@ codex: true
   const warnings = result.diagnostics.map((diagnostic) => diagnostic.message).join("\n");
   const preview = await diffSkillsetResult(root);
   const previewWarnings = preview.diagnostics.map((diagnostic) => diagnostic.message).join("\n");
-  const checked = await checkSkillsetResult(root);
-  const checkWarnings = checked.diagnostics.map((diagnostic) => diagnostic.message).join("\n");
+  const verified = await verifySkillsetResult(root);
+  const verifyWarnings = verified.diagnostics.map((diagnostic) => diagnostic.message).join("\n");
 
   expect(warnings).toContain("project_doc_max_bytes");
   expect(warnings).toContain("AGENTS.md");
@@ -6304,9 +6390,9 @@ codex: true
       target: "codex",
     })
   );
-  expect(checkWarnings).toContain("project_doc_max_bytes");
-  expect(checkWarnings).toContain("AGENTS.md");
-  expect(checked.renderResults).toContainEqual(
+  expect(verifyWarnings).toContain("project_doc_max_bytes");
+  expect(verifyWarnings).toContain("AGENTS.md");
+  expect(verified.renderResults).toContainEqual(
     expect.objectContaining({
       diagnostics: expect.arrayContaining([
         expect.objectContaining({

@@ -24,7 +24,7 @@ Default behavior for unsupported or lossy build results is fail-loud. Softer mod
 | Source | Renders to | Status | Notes |
 | --- | --- | --- | --- |
 | `skillset.schema` (int) | (source-only) | Implemented | Source-contract marker, separate from `skillset.version`; never in generated output. |
-| root/plugin `skillset.version` (semver) | plugin manifest `version`, fallback skill `metadata.version` | Implemented | Content version; drift reported by `skillset check`. |
+| root/plugin `skillset.version` (semver) | plugin manifest `version`, fallback skill `metadata.version` | Implemented | Content version; generated drift reported by `skillset verify`. |
 | skill top-level `version` (semver) | skill `metadata.version` | Implemented | Skill-local version; release state wins after `skillset release apply`. |
 | `skillset.name` | machine identity | Implemented | Root and plugin explicit identity; directory names remain the default. `skillset.id` is unsupported. |
 | skill top-level `name` | skill identity | Implemented | Skill-local `skillset.name` / `skillset.id` are unsupported. |
@@ -130,7 +130,7 @@ Live-doc verified against `developers.openai.com/codex/plugins/build` and `devel
 | `.skillset/rules/**/*.md` | n/a | n/a | Unsupported — use `.skillset/src/rules/**/*.md`. |
 | `.skillset/src/_codex/rules/**/*.rules` | n/a | `.codex/rules/**/*.rules` | Provider-native / Implemented — Codex command execution policy, not instruction Markdown. |
 
-Codex truncates `AGENTS.md` beyond `project_doc_max_bytes` (32 KiB default); `skillset build`/`check` warns. Verified 2026-06-03 (`developers.openai.com/codex/guides/agents-md`, `openai/codex#7138`).
+Codex truncates `AGENTS.md` beyond `project_doc_max_bytes` (32 KiB default); `skillset build`/`verify` warns. Verified 2026-06-03 (`developers.openai.com/codex/guides/agents-md`, `openai/codex#7138`).
 
 Codex discovers project guidance from `AGENTS.md` files at the repo root and scoped directories. Skillset should not render default Codex project guidance to `.codex/AGENTS.md`; `.codex/` is for Codex configuration surfaces such as agents, hooks, rules, and config files.
 

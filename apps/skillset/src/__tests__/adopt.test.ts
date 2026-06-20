@@ -451,7 +451,7 @@ test("adopt CLI without --yes prints the survey and writes nothing", async () =>
 test("adopt CLI rejects isolation and build-shape flags", async () => {
   const isolated = await runSkillsetCli("adopt", ".", "--isolated");
   expect(isolated.exitCode).toBe(1);
-  expect(isolated.stderr).toContain("--isolated is only supported with build, check, or diff");
+  expect(isolated.stderr).toContain("--isolated is only supported with build, diff, or verify");
 
   const scoped = await runSkillsetCli("adopt", ".", "--scope", "plugins");
   expect(scoped.exitCode).toBe(1);

@@ -22,7 +22,7 @@ Use this skill when working on the local `skillset` compiler from a Claude-orien
 1. Read `AGENTS.md`, `README.md`, and `docs/layout.md` before making a compiler contract change.
 2. Keep source edits in `.skillset/` or compiler implementation files, not in generated outputs.
 3. After source changes, run `bun run skillset:build`.
-4. Verify with `bun run skillset:check`, `bun run skillset:lint`, and `bun run check`.
+4. Verify with `bun run skillset:check`, `bun run skillset:verify`, `bun run skillset:lint`, and `bun run check`.
 5. If generated output is stale, rebuild from source and inspect the generated diff before committing.
 
 ## Review Focus

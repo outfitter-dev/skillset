@@ -14,7 +14,7 @@ Skillset currently uses internal compiler fixtures and validation commands:
 | --- | --- | --- | --- |
 | Internal fixtures | `fixtures/<case>/.skillset/` ([convention](../../fixtures/README.md)) | `implemented` / internal | Fake repos copied into temp directories by compiler tests. |
 | Contract tests | `src/__tests__/` | `implemented` / internal | Unit, contract, and audit-hardening tests for compiler behavior. |
-| Validation commands | `skillset check`, `doctor`, `diff`, `change check`, `release plan` | `implemented` | Public commands that validate real source and generated output. |
+| Validation commands | `skillset check`, `skillset verify`, `doctor`, `diff`, `change check`, `release plan` | `implemented` | Public commands that validate real source and generated output. |
 | Dogfooding | repo scripts, Linear acceptance criteria, real Skillset source changes | internal practice | Proves workflows by using them on this repo. |
 | `skillset test` | workspace manifest `tests` entries | `implemented` / first slice | Deterministic isolated projection and assertion runner. |
 | `.skillset/tests/` | n/a | `reserved` | Optional future authored test declarations; not a fixture mirror. |
@@ -134,7 +134,7 @@ skillset change add ...
 skillset change check
 skillset release plan
 skillset release apply --yes
-skillset check
+skillset verify
 ```
 
 The first durable dogfood pass should use a small self-hosted `.skillset/` source edit, create a real pending reason, apply release state, refresh generated output, and confirm no drift. A separate fake-repo lifecycle fixture can cover edge cases, but it should not replace using the workflow on the real repo.
@@ -164,7 +164,7 @@ Generated eval output, if Skillset owns it later, should live under:
 
 Evals may include prompts, baselines, graders, benchmark workspaces, token measurements, reports, and human review. They should stay distinct from deterministic compile and lifecycle tests.
 
-Eval execution should stay opt-in. Some target eval harnesses require credentials, write benchmark setup files, or touch target runtime configuration. Those workflows are useful, but they are not safe default checks and should not be wired into `skillset check` or repo `bun run check` until a specific mode is proven deterministic, local, credential-free, and side-effect-free.
+Eval execution should stay opt-in. Some target eval harnesses require credentials, write benchmark setup files, or touch target runtime configuration. Those workflows are useful, but they are not safe default checks and should not be wired into `skillset check`, `skillset verify`, or repo `bun run check` until a specific mode is proven deterministic, local, credential-free, and side-effect-free.
 
 ## Diagnostics
 

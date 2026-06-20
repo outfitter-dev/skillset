@@ -23,13 +23,13 @@ compile:
 skillset build --yes
 ```
 
-`--dry-run` is accepted for every build scope and always prevents writes, even when `--yes` is also present. Explicit `--scope` selectors filter generated destinations for build, diff, top-level check, list, and explain. They are not source-coverage filters for `skillset change status` or `skillset change check`. Repo scripts that intentionally refresh all generated output should omit `--scope` and pass `--yes`.
+`--dry-run` is accepted for every build scope and always prevents writes, even when `--yes` is also present. Explicit `--scope` selectors filter generated destinations for build, diff, verify, list, and explain. They are not source-coverage filters for `skillset change status` or `skillset change check`. Repo scripts that intentionally refresh all generated output should omit `--scope` and pass `--yes`.
 
-`--isolated` (build, check, and diff only) re-roots the entire rendering under the gitignored `.skillset/build/out/` mirror, preserving repo-relative layout: writes, locks, drift detection, stale-file removal, and unmanaged-collision backups all operate against the mirror while live generated outputs stay untouched.
+`--isolated` (build, verify, and diff only) re-roots the entire rendering under the gitignored `.skillset/build/out/` mirror, preserving repo-relative layout: writes, locks, drift detection, stale-file removal, and unmanaged-collision backups all operate against the mirror while live generated outputs stay untouched.
 
 ## Support Table
 
-| Behavior | Build | Check | Diff/list/explain | Status | Notes |
+| Behavior | Build | Verify | Diff/list/explain | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `compile.build: updated` | writes missing/changed outputs and removes stale scoped outputs | detect drift | explain target state | `implemented` | No usable lock falls back to the rendered configured outputs and writes a fresh baseline only when build runs with `--yes`; unchanged files are left untouched. |
 | `compile.build: all` | rewrites selected output roots | detect drift | explain full plan | `implemented` | CLI `--all` overrides config and records the resolved mode in lock metadata. |
@@ -48,7 +48,7 @@ User/global destinations require the most conservative posture. `skillset build`
 
 - Missing or corrupt locks should not silently disable guards. The workspace lock still fails loudly when corrupt because it guards unmanaged project files; absent locks are treated as a first baseline build.
 - Dry-run commands must never write generated files, locks, target config, or user-level settings.
-- Missing managed outputs are reported with `!` in `diff`/build plans and as `missing managed generated file` in `check`.
+- Missing managed outputs are reported with `!` in `diff`/build plans and as `missing managed generated file` in `verify`.
 - Scope/entity selectors should fail on unknown scopes or ambiguous entity selectors rather than guessing.
 - Diff/list/explain should make skipped, future, unsupported, and target-native states visible. Explain and doctor read render results so degraded or unsupported facts do not require hand-reading target files.
 

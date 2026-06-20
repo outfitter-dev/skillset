@@ -235,23 +235,23 @@ export async function diffSkillsetResult(
   };
 }
 
-export async function checkSkillset(
+export async function verifySkillset(
   rootPath: string,
   options: SkillsetOptions = {}
 ): Promise<CheckResult> {
-  const result = await checkSkillsetResult(rootPath, options);
+  const result = await verifySkillsetResult(rootPath, options);
   if (!result.ok) {
     throw new Error(`skillset: generated output is not current\n${result.data.failures.join("\n")}`);
   }
   return result.data;
 }
 
-export type SkillsetCheckResult = SkillsetOperationResult<CheckResult>;
+export type SkillsetVerifyResult = SkillsetOperationResult<CheckResult>;
 
-export async function checkSkillsetResult(
+export async function verifySkillsetResult(
   rootPath: string,
   options: SkillsetOptions = {}
-): Promise<SkillsetCheckResult> {
+): Promise<SkillsetVerifyResult> {
   const graph = await loadBuildGraph(rootPath, options);
   const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
   const outPath = outPathMapper(options);
@@ -317,7 +317,7 @@ export async function checkSkillsetResult(
     diagnostics: [...diagnostics, ...driftDiagnostics],
     renderResults: renderResultsWithDiagnostics,
     ok: failures.length === 0,
-    operation: "check",
+    operation: "verify",
     writes: {
       deletedPaths: [],
       mode: "read",

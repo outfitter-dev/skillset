@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 
-import { buildSkillset, checkSkillset } from "../build";
+import { buildSkillset, verifySkillset } from "../build";
 import { inspectSkillset, lintSkillset } from "../lint";
 import { compareStrings } from "../path";
 import { loadBuildGraph } from "../resolver";
@@ -83,7 +83,7 @@ test("kitchen-sink fixture builds every implemented surface and stays current", 
   expect(await readFile(join(root, "docs/AGENTS.md"), "utf8")).toContain("lives under docs");
 
   // Generated output is internally consistent and lint-clean.
-  expect((await checkSkillset(root)).checkedFiles).toBeGreaterThan(0);
+  expect((await verifySkillset(root)).checkedFiles).toBeGreaterThan(0);
   await expect(lintSkillset(root)).resolves.toBeDefined();
 });
 
@@ -420,7 +420,7 @@ skillset:
   await buildSkillset(root);
   await writeFile(join(root, ".skillset.lock"), "{ not valid json", "utf8");
 
-  await expect(checkSkillset(root)).rejects.toThrow("cannot guard generated state");
+  await expect(verifySkillset(root)).rejects.toThrow("cannot guard generated state");
   await expect(buildSkillset(root)).rejects.toThrow("cannot guard generated state");
 });
 
@@ -449,7 +449,7 @@ Alpha body.
   await buildSkillset(root);
   await writeFile(join(root, "plugins-claude/.skillset.lock"), "{ not valid json", "utf8");
 
-  await expect(checkSkillset(root)).rejects.toThrow("generated lock plugins-claude/.skillset.lock cannot guard generated state");
+  await expect(verifySkillset(root)).rejects.toThrow("generated lock plugins-claude/.skillset.lock cannot guard generated state");
   await expect(buildSkillset(root)).rejects.toThrow("generated lock plugins-claude/.skillset.lock cannot guard generated state");
 });
 

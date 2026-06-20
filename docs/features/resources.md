@@ -38,7 +38,7 @@ resources:
 
 ## Provenance
 
-Resource contents are included in generated skill source hashes and `skillset check` drift. Lock entries keep generated file hashes so resource-only changes are visible.
+Resource contents are included in generated skill source hashes and `skillset verify` drift. Lock entries keep generated file hashes so resource-only changes are visible.
 
 ## Tests and Fixtures
 

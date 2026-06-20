@@ -68,7 +68,12 @@ export async function runHookEvent(
   const checkArgs = ["check", "--root", "."] as const;
   ranCommands.push(checkArgs.join(" "));
   const check = await runner(checkArgs, commandOptions({ allowFailure: false, options, rootPath }));
-  return result({ context, event, exitCode: check, gate, ranCommands });
+  if (check !== 0) return result({ context, event, exitCode: check, gate, ranCommands });
+
+  const verifyArgs = ["verify", "--root", "."] as const;
+  ranCommands.push(verifyArgs.join(" "));
+  const verify = await runner(verifyArgs, commandOptions({ allowFailure: false, options, rootPath }));
+  return result({ context, event, exitCode: verify, gate, ranCommands });
 }
 
 function commandOptions(args: {
