@@ -6,6 +6,12 @@ export {
   type WorkbenchLintGuidanceInput,
 } from "./lint-bridge";
 export {
+  workbenchDiagnosticsFromAdapterConformanceReport,
+  workbenchDiagnosticsFromAdapterCoverageReport,
+  workbenchDiagnosticsFromFeatureRegistryDriftReport,
+  type WorkbenchCompatibilityDiagnosticOptions,
+} from "./compatibility";
+export {
   getWorkbenchPreset,
   isWorkbenchPresetId,
   isWorkbenchScope,

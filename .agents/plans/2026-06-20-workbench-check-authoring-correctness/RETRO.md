@@ -206,6 +206,10 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | `bun run check` | full repo gate after SET-158 review fixes | pass | 574 pass, 0 fail; Ultracite doctor clean; `skillset check` checked 5 source skills; `skillset verify` verified 51 generated files; terminology guard clean |
 | `bun test packages/workbench/src/__tests__/schema.test.ts packages/workbench/src/__tests__/*.test.ts` | SET-158 workspace allowlist fix | pass | 30 pass, 0 fail |
 | `bun run check` | full repo gate after SET-158 final review fixes | pass | 574 pass, 0 fail; Ultracite doctor clean; `skillset check` checked 5 source skills; `skillset verify` verified 51 generated files; terminology guard clean |
+| `bun test packages/workbench/src/__tests__/compatibility.test.ts packages/workbench/src/__tests__/*.test.ts` | SET-159 focused tests | pass | 33 pass, 0 fail |
+| `bun run typecheck --pretty false` | SET-159 typecheck | pass | `tsc --noEmit --pretty false` |
+| `bun run changeset:check` | SET-159 release guard | pass | 8 package-facing paths and 1 active changeset |
+| `bun run check` | full repo gate after SET-159 | pass | 577 pass, 0 fail; Ultracite doctor clean; `skillset check` checked 5 source skills; `skillset verify` verified 51 generated files; terminology guard clean |
 
 ## Remote Review / CI Log
 
@@ -238,6 +242,8 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | Mencius | 4/5 | P2 | Workspace config still accepted root source manifest keys `skillset` and `supports`. | Use the workspace config allowlist for `.skillset/skillset.yaml` and reject source manifest keys there. | Removed `skillset` and `supports` from the Workbench workspace config allowlist and added regression coverage. | Focused Workbench tests pass |
 | James | 5/5 | none | No remaining P0-P3 findings after the workspace allowlist correction. | n/a | SET-158 final James re-review clean. | Focused Workbench tests, typecheck, staged whitespace |
 | Mencius | 5/5 | none | No remaining P0-P3 findings after the workspace allowlist correction. | n/a | SET-158 final Mencius re-review clean. | Focused Workbench tests, typecheck, staged whitespace, direct workspace-config probe |
+| Darwin | 5/5 | none | No remaining P0-P3 findings for the Workbench compatibility bridge. | n/a | SET-159 Darwin review clean. | Focused Workbench tests, typecheck, staged whitespace, changeset guard |
+| Noether | 5/5 | none | No remaining P0-P3 findings for the Workbench compatibility bridge API and tests. | n/a | SET-159 Noether review clean. | Focused compatibility tests, all Workbench tests, typecheck, staged whitespace |
 
 ## Forbidden Actions Audit
 

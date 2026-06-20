@@ -50,6 +50,9 @@
     "packages/workbench": {
       "name": "@skillset/workbench",
       "version": "0.0.0",
+      "dependencies": {
+        "@skillset/core": "workspace:*",
+      },
     },
   },
   "packages": {
