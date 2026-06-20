@@ -24,7 +24,10 @@ export {
   type WorkbenchResourceDiagnosticOptions,
   type WorkbenchRuntimeSupportDiagnosticOptions,
 } from "./resource-runtime";
-export { workbenchDiagnosticsFromMarkdownCodeFences } from "./markdown";
+export {
+  workbenchDiagnosticsFromMarkdownCodeFences,
+  workbenchDiagnosticsFromMarkdownTemplatePlaceholders,
+} from "./markdown";
 export {
   getWorkbenchPreset,
   isWorkbenchPresetId,

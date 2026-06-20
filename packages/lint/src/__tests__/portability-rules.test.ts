@@ -67,6 +67,14 @@ describe("skill-file-reference-escape", () => {
     expect(skillFileReferenceEscapeRule.check(makeSubject(body))).toEqual([]);
   });
 
+  test("does not treat bare template guidance placeholders as file links", () => {
+    expect(
+      skillFileReferenceEscapeRule.check(
+        makeSubject("Write the final title as [Project title].")
+      )
+    ).toEqual([]);
+  });
+
   test("ignores example links inside fenced code blocks and inline code", () => {
     const body = [
       "```markdown",

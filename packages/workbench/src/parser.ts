@@ -1,5 +1,8 @@
 import { createWorkbenchDiagnostic } from "./diagnostics";
-import { workbenchDiagnosticsFromMarkdownCodeFences } from "./markdown";
+import {
+  workbenchDiagnosticsFromMarkdownCodeFences,
+  workbenchDiagnosticsFromMarkdownTemplatePlaceholders,
+} from "./markdown";
 import type {
   WorkbenchDiagnostic,
   WorkbenchMarkdownHeading,
@@ -91,15 +94,11 @@ function parseYaml(path: string, content: string): WorkbenchParseResult {
 function parseMarkdown(path: string, content: string): WorkbenchParseResult {
   const normalized = content.replaceAll(/\r\n?/g, "\n");
   const lines = normalized.split("\n");
-  const markdownDiagnostics = workbenchDiagnosticsFromMarkdownCodeFences({
-    content: normalized,
-    path,
-  });
   if (!isFrontmatterDelimiter(lines[0] ?? "")) {
     return {
       body: normalized,
       bodyStartLine: 1,
-      diagnostics: markdownDiagnostics,
+      diagnostics: markdownDiagnostics(path, normalized, 1),
       headings: markdownHeadings(lines, 1),
       kind: "markdown",
       path,
@@ -118,7 +117,6 @@ function parseMarkdown(path: string, content: string): WorkbenchParseResult {
           "frontmatter starts with --- but never closes",
           { line: 1 }
         ),
-        ...markdownDiagnostics,
       ],
       headings: [],
       kind: "markdown",
@@ -130,6 +128,7 @@ function parseMarkdown(path: string, content: string): WorkbenchParseResult {
   const bodyLines = lines.slice(closingIndex + 1);
   const bodyStartLine = closingIndex + 2;
   const body = bodyLines.join("\n");
+  const bodyDiagnostics = markdownDiagnostics(path, body, bodyStartLine);
 
   let parsed: unknown;
   try {
@@ -144,7 +143,7 @@ function parseMarkdown(path: string, content: string): WorkbenchParseResult {
           ...location,
           line: location.line + 1,
         }),
-        ...markdownDiagnostics,
+        ...bodyDiagnostics,
       ],
       headings: markdownHeadings(bodyLines, bodyStartLine),
       kind: "markdown",
@@ -160,7 +159,7 @@ function parseMarkdown(path: string, content: string): WorkbenchParseResult {
         syntaxDiagnostic(path, "syntax/markdown-frontmatter", "frontmatter must be a YAML object", {
           line: 2,
         }),
-        ...markdownDiagnostics,
+        ...bodyDiagnostics,
       ],
       headings: markdownHeadings(bodyLines, bodyStartLine),
       kind: "markdown",
@@ -171,12 +170,31 @@ function parseMarkdown(path: string, content: string): WorkbenchParseResult {
   return {
     body,
     bodyStartLine,
-    diagnostics: markdownDiagnostics,
+    diagnostics: bodyDiagnostics,
     frontmatter: parsed ?? {},
     headings: markdownHeadings(bodyLines, bodyStartLine),
     kind: "markdown",
     path,
   };
+}
+
+function markdownDiagnostics(
+  path: string,
+  content: string,
+  startLine: number
+): readonly WorkbenchDiagnostic[] {
+  return [
+    ...workbenchDiagnosticsFromMarkdownCodeFences({
+      content,
+      path,
+      startLine,
+    }),
+    ...workbenchDiagnosticsFromMarkdownTemplatePlaceholders({
+      content,
+      path,
+      startLine,
+    }),
+  ];
 }
 
 function markdownHeadings(

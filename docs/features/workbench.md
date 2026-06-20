@@ -59,6 +59,8 @@ Workbench parser helpers use Bun-backed JSON, YAML, and TOML parsing plus Markdo
 
 Workbench Markdown diagnostics also check code fence nesting inside Markdown-labeled examples. When a fenced Markdown example needs to show another fenced code block, the outer fence must use more backticks than any inner fence. For example, use four backticks around a `markdown`, `md`, `mdx`, or `gfm` snippet that contains triple-backtick examples. The `markdown/code-fence-nesting` rule reports the outer fence and the conflicting inner fence so authors can increment the outer fence length by one backtick beyond the longest inner fence.
 
+Workbench also recognizes template guidance placeholders in skill prose. Prefer `{ Placeholder text }` for new guidance because Markdown previewers do not treat it as a link. `[Placeholder text]` is also accepted for compatibility with existing agent-skill template conventions, and bare bracket placeholders are not treated as file links. Template guidance placeholders are examples for the agent or human reader; Skillset does not expand them. Use `{{this.description}}`, `{{shared:path.md}}`, and other `{{...}}` forms only for Skillset preprocessing. The `markdown/template-placeholder` rule warns about clearly broken placeholders such as `{   }`, `[]`, or an unclosed `{ Placeholder` outside code spans and fenced examples.
+
 Schema checks cover representative source contracts:
 
 - ordinary workspace config files such as `.skillset/skillset.yaml`;
