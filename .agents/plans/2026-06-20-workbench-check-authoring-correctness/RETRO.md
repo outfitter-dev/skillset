@@ -27,8 +27,8 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | 1 | SET-154 | `set-154-cut-cli-semantics-to-skillset-check-and-skillset-verify` | pending | committed | M1 command cutover |
 | 2 | SET-155 | `set-155-introduce-skillsetworkbench-diagnostic-primitives` | pending | committed | M2 diagnostics |
 | 3 | SET-156 | `set-156-add-workbench-presets-rules-and-existing-lint-bridge` | pending | committed | M2 presets and lint bridge |
-| 4 | SET-157 | `set-157-add-bun-yamltoml-and-markdown-parser-backed-workbench-checks` | pending | in progress | M3 parsers |
-| 5 | SET-158 | `set-158-add-schema-backed-workbench-rules-for-source-contracts` | pending | pending | M3 schema |
+| 4 | SET-157 | `set-157-add-bun-yamltoml-and-markdown-parser-backed-workbench-checks` | pending | committed | M3 parsers |
+| 5 | SET-158 | `set-158-add-schema-backed-workbench-rules-for-source-contracts` | pending | in progress | M3 schema |
 | 6 | SET-159 | `set-159-add-graph-and-provider-compatibility-workbench-rules` | pending | pending | M4 graph/provider |
 | 7 | SET-160 | `set-160-add-resource-and-runtime-workbench-rules` | pending | pending | M4 resource/runtime |
 | 8 | SET-161 | `set-161-add-workbench-fixture-suite-for-good-and-bad-skillset-inputs` | pending | pending | M4 fixtures |
@@ -137,6 +137,16 @@ Use this as the durable execution ledger. For stacked work, this should normally
 - Blockers: none.
 ```
 
+```text
+2026-06-20 14:10 ET - SET-158 schema source contracts
+- Changed: Added Workbench source-contract schema diagnostics for representative workspace config, skill, agent, and hook source documents.
+- Changed: Exposed checkWorkbenchSourceContract plus contract input/kind types from @skillset/workbench.
+- Decision: Kept this branch as reusable package-level schema diagnostics instead of wiring the CLI directly; graph/resource/runtime integration remains in the M4 branches where cross-file context exists.
+- Verified: Focused Workbench schema tests, package tests, typecheck, changeset guard, and full `bun run check` passed.
+- Review: SET-158 local review requested.
+- Blockers: none.
+```
+
 ## Local Review Log
 
 | Round | Scope / Lanes | Report Paths | P0/P1/P2/P3 Result | Fix Commits / Notes |
@@ -147,6 +157,7 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | 4 | SET-156 presets and lint bridge | Subagent reports in thread: Meitner, Pasteur, Dewey | P1 stale selector/typecheck concerns; P3 strict rule-id selection semantics | Standardized on `ruleIds`, added exact strict rule-id selection coverage, made unchecked scope validation typecheck cleanly, and reached 5/5 re-review |
 | 5 | SET-157 parser-backed checks | Subagent reports in thread: Jason, Zeno | P2 parse-result optional bag, hard-coded syntax locations, nullable frontmatter, and heading hash stripping; P3 fence handling | Refactored parse result to a discriminated union, added document-oriented syntax locations, rejected non-object frontmatter, fixed heading hash handling, and tracked Markdown fences by marker/length |
 | 6 | SET-157 re-review | Subagent reports in thread: Avicenna, Peirce | P2 TOML aggregate locations and closing-fence info-string bug; P3 whitespace frontmatter delimiter and invalid backtick opening fence | Added aggregate child-position extraction, strict closing/opening fence detection, delimiter whitespace support, and focused regression tests |
+| 7 | SET-158 schema source contracts | pending | pending | pending |
 
 ## Verification Log
 
@@ -185,6 +196,16 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | `bun run typecheck --pretty false` | SET-157 P3 fence fix | pass | `tsc --noEmit --pretty false` |
 | `git diff --check` | SET-157 P3 fence fix | pass | no whitespace errors |
 | `bun run check` | full repo gate after SET-157 review fixes | pass | 565 pass, 0 fail; Ultracite doctor clean; `skillset check` checked 5 source skills; `skillset verify` verified 51 generated files; terminology guard clean |
+| `bun test packages/workbench/src/__tests__/schema.test.ts packages/workbench/src/__tests__/*.test.ts` | SET-158 focused tests | pass | 27 pass, 0 fail |
+| `bun run typecheck --pretty false` | SET-158 typecheck | pass | `tsc --noEmit --pretty false` |
+| `bun run changeset:check` | SET-158 release guard | pass | 8 package-facing paths and 1 active changeset |
+| `bun run check` | full repo gate after SET-158 | pass | 571 pass, 0 fail; Ultracite doctor clean; `skillset check` checked 5 source skills; `skillset verify` verified 51 generated files; terminology guard clean |
+| `bun test packages/workbench/src/__tests__/schema.test.ts packages/workbench/src/__tests__/*.test.ts` | SET-158 review fixes | pass | 30 pass, 0 fail |
+| `bun run typecheck --pretty false` | SET-158 review fixes | pass | `tsc --noEmit --pretty false` |
+| `bun run changeset:check` | SET-158 review fixes | pass | 8 package-facing paths and 1 active changeset |
+| `bun run check` | full repo gate after SET-158 review fixes | pass | 574 pass, 0 fail; Ultracite doctor clean; `skillset check` checked 5 source skills; `skillset verify` verified 51 generated files; terminology guard clean |
+| `bun test packages/workbench/src/__tests__/schema.test.ts packages/workbench/src/__tests__/*.test.ts` | SET-158 workspace allowlist fix | pass | 30 pass, 0 fail |
+| `bun run check` | full repo gate after SET-158 final review fixes | pass | 574 pass, 0 fail; Ultracite doctor clean; `skillset check` checked 5 source skills; `skillset verify` verified 51 generated files; terminology guard clean |
 
 ## Remote Review / CI Log
 
@@ -211,6 +232,12 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | Zeno | 3/5 | P2/P3 | Invalid JSON/YAML/TOML diagnostics used line 1; null frontmatter was accepted; heading and fence parsing corrupted source facts. | Add multiline syntax location tests, reject non-object frontmatter, preserve literal heading hashes, and track fences by marker/length. | Added regression coverage and parser fixes for all reported cases. | Focused and full gates passed |
 | Avicenna | 5/5 | none | Closing fences with trailing info strings leaked headings; TOML aggregate errors still reported line 1; follow-up re-review found a narrow P3 invalid opening-fence edge. | Require closing fences to be same-marker same/longer and trailing whitespace only; read TOML aggregate child positions; reject backtick opening fences whose info strings contain backticks. | SET-157 Avicenna final re-review clean. | Focused tests, typecheck, staged whitespace, direct probe |
 | Peirce | 5/5 | none | No remaining P0-P3 findings after TOML aggregate and frontmatter delimiter fixes. | n/a | SET-157 Peirce re-review clean. | Focused tests, Workbench tests, typecheck, staged whitespace, direct probes |
+| Mencius | 4/5 | P2/P3 | `{"hooks":[]}` passed schema checks, and nested hook handler entries were not validated. | Reject non-object top-level `hooks`; require nested handlers to be objects with non-empty string `type`. | Regression tests added for top-level container and handler entry failures. | Workbench focused tests and typecheck pass |
+| James | 3/5 | P2 | Skill descriptions, `compile.unsupportedDestination`, compile subkeys, and skill-local `skillset.*` checks drifted from core. | Align schema checks with core: derivable skill descriptions, reserved unsupported-destination values, compile value contracts, and skill-local identity/version rejection. | Regression tests added for title/summary skill descriptions, nested identity/version rejection, reserved policies, and compile subkey validation. | Workbench focused tests and typecheck pass |
+| James | 5/5 | none | No remaining P0-P3 findings after source-contract alignment fixes. | n/a | SET-158 James re-review clean. | Focused Workbench tests, typecheck, staged whitespace, direct probes |
+| Mencius | 4/5 | P2 | Workspace config still accepted root source manifest keys `skillset` and `supports`. | Use the workspace config allowlist for `.skillset/skillset.yaml` and reject source manifest keys there. | Removed `skillset` and `supports` from the Workbench workspace config allowlist and added regression coverage. | Focused Workbench tests pass |
+| James | 5/5 | none | No remaining P0-P3 findings after the workspace allowlist correction. | n/a | SET-158 final James re-review clean. | Focused Workbench tests, typecheck, staged whitespace |
+| Mencius | 5/5 | none | No remaining P0-P3 findings after the workspace allowlist correction. | n/a | SET-158 final Mencius re-review clean. | Focused Workbench tests, typecheck, staged whitespace, direct workspace-config probe |
 
 ## Forbidden Actions Audit
 
@@ -219,7 +246,7 @@ Use this as the durable execution ledger. For stacked work, this should normally
 | No merge without explicit user approval | Respected so far | No merge performed |
 | No package publish / registry mutation unless authorized | Respected so far | No publish commands run |
 | No merge queue label unless authorized | Respected so far | No remote PR operations yet |
-| No source-control writes by subagents | Respected so far | No subagents launched yet |
+| No source-control writes by subagents | Respected so far | Subagents used read-only review only |
 | No unrelated destructive changes | Respected so far | Tracker/packet only so far |
 
 ## Final State

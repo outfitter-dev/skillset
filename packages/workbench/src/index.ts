@@ -22,6 +22,11 @@ export {
   parseWorkbenchDocument,
 } from "./parser";
 export {
+  checkWorkbenchSourceContract,
+  type WorkbenchSourceContractInput,
+  type WorkbenchSourceContractKind,
+} from "./schema";
+export {
   compareWorkbenchDiagnostics,
   createWorkbenchDiagnostic,
   formatWorkbenchDiagnostic,
