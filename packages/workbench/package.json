@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@skillset/core": "workspace:*",
     "@skillset/lint": "workspace:*"
   },
   "exports": {
