@@ -146,6 +146,25 @@ describe("workbench source contract schema checks", () => {
     ]);
   });
 
+  test("reports workspace cache key diagnostics", () => {
+    const diagnostics = checkWorkbenchSourceContract({
+      content: "workspace:\n  cacheKey: ' acme'\n  other: true\n",
+      kind: "workspace-config",
+      path: ".skillset/skillset.yaml",
+    });
+
+    expect(diagnostics.map(formatWorkbenchDiagnostic)).toEqual([
+      ".skillset/skillset.yaml:1: error: schema/workspace-config: unsupported workspace key other",
+      ".skillset/skillset.yaml:1: error: schema/workspace-config: workspace.cacheKey must be a lowercase repo cache key",
+    ]);
+
+    expect(checkWorkbenchSourceContract({
+      content: "workspace:\n  cacheKey: acme--docs-cli\n",
+      kind: "workspace-config",
+      path: ".skillset/skillset.yaml",
+    })).toEqual([]);
+  });
+
   test("rejects deferred unsupportedDestination policies", () => {
     expect(checkWorkbenchSourceContract({
       content: "compile:\n  unsupportedDestination: warn\n",

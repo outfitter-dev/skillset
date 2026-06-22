@@ -112,6 +112,21 @@ export {
   lintBuildGraph,
   lintSkillset,
 } from "./lint";
+export {
+  readSkillsetWorkspaceConfig,
+  resolveRepoCacheKey,
+  resolveRepoCachePath,
+  resolveSkillsetXdgPaths,
+  type RepoCacheKeyOptions,
+  type RepoCacheKeyResult,
+  type RepoCacheKeySource,
+  type RepoCachePathOptions,
+  type RepoCachePathResult,
+  type SkillsetWorkspaceConfig,
+  type SkillsetXdgKind,
+  type SkillsetXdgOptions,
+  type SkillsetXdgPaths,
+} from "./xdg";
 export type {
   LintIssue,
   LintResult,

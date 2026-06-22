@@ -23,6 +23,11 @@ export interface RootConfig {
   readonly metadata: JsonRecord;
   readonly outputs: OutputConfig;
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
+  readonly workspace: SkillsetWorkspaceConfig;
+}
+
+export interface SkillsetWorkspaceConfig {
+  readonly cacheKey?: string;
 }
 
 export interface ReleaseScopeState {
