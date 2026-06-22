@@ -9,8 +9,10 @@ Project agents are a portable source surface for reusable, project-scoped specia
 ## Authoring
 
 ```text
-.skillset/src/agents/*.md
+<source-root>/agents/*.md
 ```
+
+`<source-root>` is `.skillset/src/` in ordinary repos and `skillset/` in dedicated Skillset repos.
 
 The source is Markdown with YAML frontmatter:
 
@@ -43,8 +45,8 @@ Skillset must keep this separate from plugin `agents/` and skill-local Codex `ag
 
 | Source or surface | Claude | Codex | Status | Notes |
 | --- | --- | --- | --- | --- |
-| `.skillset/src/agents/*.md` | `.claude/agents/*.md` | `.codex/agents/*.toml` | `portable` / `implemented` | Target-specific validation runs after rendering. |
-| `.skillset/src/plugins/<plugin>/agents/**/*.md` | plugin `agents/` | none | `target_native` / `implemented` for Claude, `unsupported` for Codex | Claude plugin agents stay plugin-scoped and must not be copied into Codex plugins. |
+| `<source-root>/agents/*.md` | `.claude/agents/*.md` | `.codex/agents/*.toml` | `portable` / `implemented` | Target-specific validation runs after rendering. |
+| `<source-root>/plugins/<plugin>/agents/**/*.md` | plugin `agents/` | none | `target_native` / `implemented` for Claude, `unsupported` for Codex | Claude plugin agents stay plugin-scoped and must not be copied into Codex plugins. |
 | skill-local `implicit_invocation` | Claude skill frontmatter | Codex `agents/openai.yaml` policy | `portable` / `implemented` | This is skill policy, not a project or plugin custom agent. |
 | skill-local `tool_intent` | Claude allowed/disallowed tool metadata | Codex `.skillset.tools.yaml` metadata | `metadata_only` for Codex | Records intent without mutating user-level config. |
 | `~/.claude/agents` or `~/.codex/agents` writes | user agents | user agents | `future` | User/global writes require explicit setup/review flows and are not a side effect of build. |
@@ -57,7 +59,7 @@ Codex project agents are standalone TOML files under `.codex/agents/` with `name
 
 The Codex skills preface is a runtime compatibility shim. It is useful and intentional, but it is not the same as Claude's target-enforced agent `skills` metadata. Runtime support records should describe this as `shimmed`, with the mechanism and caveat visible to doctor, explain, activation tests, and future distribution reports.
 
-Claude plugin agents are a separate plugin component. Codex plugin docs do not document plugin agents, so copying Claude plugin agents into Codex output would be fake portability. A Codex-enabled plugin with `agents/` fails loudly; set `codex: false` for that plugin or move project-scoped roles to `.skillset/src/agents/`.
+Claude plugin agents are a separate plugin component. Codex plugin docs do not document plugin agents, so copying Claude plugin agents into Codex output would be fake portability. A Codex-enabled plugin with `agents/` fails loudly; set `codex: false` for that plugin or move project-scoped roles to `<source-root>/agents/`.
 
 ## Diagnostics
 
@@ -69,8 +71,8 @@ Claude plugin agents are a separate plugin component. Codex plugin docs do not d
 
 ## Provenance
 
-Project-agent outputs record source path, resolved name, target output path, generated files, validation mode, version, and hashes in the root `skillset.lock`. `skillset list` includes `project-agent` entries, and `skillset explain .skillset/src/agents/<name>.md` points from source to the generated Claude and Codex files.
+Project-agent outputs record source path, resolved name, target output path, generated files, validation mode, version, and hashes in the root `skillset.lock`. `skillset list` includes `project-agent` entries, and `skillset explain <source-root>/agents/<name>.md` points from source to the generated Claude and Codex files.
 
 ## Tests and Fixtures
 
-Fixtures cover `.skillset/src/agents/*.md` rendering to both `.claude/agents/*.md` and `.codex/agents/*.toml`, explicit names that differ from filenames, initial prompts, skills prefaces, metadata suppression, target overrides, collisions, unsafe closing tags, and Codex plugin-agent unsupported diagnostics.
+Fixtures cover `<source-root>/agents/*.md` rendering to both `.claude/agents/*.md` and `.codex/agents/*.toml`, explicit names that differ from filenames, initial prompts, skills prefaces, metadata suppression, target overrides, collisions, unsafe closing tags, and Codex plugin-agent unsupported diagnostics.

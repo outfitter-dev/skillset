@@ -37,3 +37,6 @@ Draft map: `docs/adrs/drafts/decision-map.json`; numbered map: `docs/adrs/decisi
 - [Lowering Outcomes and Loss Ledger](20260614-lowering-outcomes-and-loss-ledger.md)
   - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md), [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md), [Core Library and CLI Boundary](20260612-core-library-boundary.md), [Deterministic Projection and Adapter Conformance](20260613-deterministic-projection-and-adapter-conformance.md)
 - [Unified Source Layout](20260618-unified-source-layout.md)
+  - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md), [Fixtures, Tests, Dogfooding, and Evals](20260609-fixtures-tests-dogfooding-and-evals.md), [One-Action Repo Adoption](20260610-one-action-repo-adoption.md)
+- [YAML Formatting and Bun Native APIs](20260622-yaml-formatting-and-bun-native-apis.md)
+  - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md), [Deterministic Projection and Adapter Conformance](20260613-deterministic-projection-and-adapter-conformance.md)

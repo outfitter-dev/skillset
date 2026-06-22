@@ -4,7 +4,7 @@ Feature id: `skills`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Skills are the core portable source unit. A skill can live inside a plugin at `.skillset/src/plugins/<plugin>/skills/<skill>/SKILL.md` or as a standalone repo skill at `.skillset/src/skills/<skill>/SKILL.md`.
+Skills are the core portable source unit. A skill can live inside a plugin at `<source-root>/plugins/<plugin>/skills/<skill>/SKILL.md` or as a standalone repo skill at `<source-root>/skills/<skill>/SKILL.md`, where `<source-root>` is `.skillset/src/` in ordinary repos and `skillset/` in dedicated Skillset repos.
 
 ## Authoring
 

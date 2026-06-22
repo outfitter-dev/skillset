@@ -4,7 +4,7 @@ Feature id: `instructions`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Instructions are durable repo guidance authored under `.skillset/src/rules/**/*.md`. The old `.skillset/rules/**/*.md` source path is rejected; Codex `.rules` files are a separate target-native command policy surface under `.skillset/src/_codex/rules/**/*.rules`.
+Instructions are durable repo guidance authored under `<source-root>/rules/**/*.md`, where `<source-root>` is `.skillset/src/` in ordinary repos and `skillset/` in dedicated Skillset repos. The old `.skillset/rules/**/*.md` source path is rejected; Codex `.rules` files are a separate target-native command policy surface under `<source-root>/_codex/rules/**/*.rules`.
 
 ## Authoring
 
@@ -14,9 +14,9 @@ Instruction Markdown may include `paths` frontmatter for Claude path scoping and
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
-| `.skillset/src/rules/**/*.md` | `.claude/rules/**/*.md` | derived `AGENTS.md` files | `portable` / `implemented` | Claude keeps `paths`; Codex strips frontmatter and concatenates deterministic source sections. |
-| `.skillset/rules/**/*.md` | n/a | n/a | `unsupported` | Move instruction Markdown to `.skillset/src/rules/**/*.md`. |
-| `.skillset/src/_codex/rules/**/*.rules` | n/a | `.codex/rules/**/*.rules` | `target_native` / `implemented` | Execution policy, not instruction prose. |
+| `<source-root>/rules/**/*.md` | `.claude/rules/**/*.md` | derived `AGENTS.md` files | `portable` / `implemented` | Claude keeps `paths`; Codex strips frontmatter and concatenates deterministic source sections. |
+| `.skillset/rules/**/*.md` | n/a | n/a | `unsupported` | Move instruction Markdown to the active source root's `rules/` directory. |
+| `<source-root>/_codex/rules/**/*.rules` | n/a | `.codex/rules/**/*.rules` | `target_native` / `implemented` | Execution policy, not instruction prose. |
 
 ## Diagnostics
 

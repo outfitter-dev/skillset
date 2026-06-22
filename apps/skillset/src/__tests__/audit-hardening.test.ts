@@ -15,6 +15,13 @@ const KITCHEN_SINK_FIXTURE = join(import.meta.dir, "..", "..", "..", "..", "fixt
 test("kitchen-sink fixture builds every implemented surface and stays current", async () => {
   const root = await kitchenSink();
 
+  expect(await readFile(join(root, ".skillset/.gitignore"), "utf8")).toBe(
+    "cache/*\n!cache/.gitignore\nsnapshots/*\n!snapshots/.gitignore\n"
+  );
+  expect(await readFile(join(root, ".skillset/cache/.gitignore"), "utf8")).toBe("*\n!.gitignore\n");
+  expect(await readFile(join(root, ".skillset/snapshots/.gitignore"), "utf8")).toBe("*\n!.gitignore\n");
+  expect(await exists(join(root, "skillset/changes/.gitkeep"))).toBe(true);
+
   await buildSkillset(root);
 
   // Plugin-local + root shared resources copied beside SKILL.md.

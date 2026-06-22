@@ -25,6 +25,8 @@ describe("workbench fixtures", () => {
       "workbench-clean",
       "skillset/hooks/scripts/check.sh"
     )).toBeTrue();
+    await expectOperationalSentinels("workbench-clean");
+
     const diagnostics = [
       ...(await sourceContractDiagnostics("workbench-clean", cleanSources)),
       ...workbenchDiagnosticsFromResourceLintIssues(
@@ -52,6 +54,8 @@ describe("workbench fixtures", () => {
   });
 
   test("invalid fixture reports deterministic source, resource, and runtime diagnostics", async () => {
+    await expectOperationalSentinels("workbench-invalid");
+
     const diagnostics = summarizeWorkbenchDiagnostics([
       ...(await sourceContractDiagnostics("workbench-invalid", invalidSources)),
       ...workbenchDiagnosticsFromResourceLintIssues(invalidResourceIssues),
@@ -175,6 +179,15 @@ async function fixtureFileText(fixtureName: string, path: string): Promise<strin
 
 async function fixtureFileExists(fixtureName: string, path: string): Promise<boolean> {
   return Bun.file(join(repoRoot, "fixtures", fixtureName, path)).exists();
+}
+
+async function expectOperationalSentinels(fixtureName: string): Promise<void> {
+  expect(await fixtureFileText(fixtureName, ".skillset/.gitignore")).toBe(
+    "cache/*\n!cache/.gitignore\nsnapshots/*\n!snapshots/.gitignore\n"
+  );
+  expect(await fixtureFileText(fixtureName, ".skillset/cache/.gitignore")).toBe("*\n!.gitignore\n");
+  expect(await fixtureFileText(fixtureName, ".skillset/snapshots/.gitignore")).toBe("*\n!.gitignore\n");
+  expect(await fixtureFileExists(fixtureName, "skillset/changes/.gitkeep")).toBeTrue();
 }
 
 function feature(

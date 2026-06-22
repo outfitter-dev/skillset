@@ -40,7 +40,8 @@ Ordinary repos keep Skillset state inside `.skillset/`:
     _claude/
     _codex/
   changes/
-  cache/        # ignored scratch
+  cache/       # ignored operational output; .gitignore sentinel tracked
+  snapshots/   # ignored recovery output; .gitignore sentinel tracked
 ```
 
 Dedicated Skillset repos put the manifest and source root at the repo root:

@@ -37,7 +37,7 @@ The schema intentionally keeps source identity and target output identity togeth
 | --- | --- | --- |
 | `rendered` | Skillset rendered a faithful target-native representation. | A standalone skill rendered to target `SKILL.md`. |
 | `target_native` | Explicit target-owned source was passed through or copied only to its target. | A Codex-only provider source or Claude-only plugin companion. |
-| `transformed` | Skillset changed the file shape while preserving the authored intent. | `.skillset/src/rules` rendered to Claude rules and Codex `AGENTS.md`. |
+| `transformed` | Skillset changed the file shape while preserving the authored intent. | Source-root `rules/` rendered to Claude rules and Codex `AGENTS.md`. |
 | `metadata_only` | Skillset preserved information for provenance or sidecars, but the target does not enforce it directly. | Release changelog rendering or tool-intent sidecar. |
 | `degraded` | Skillset rendered a useful fallback that is weaker than a native target feature. | Codex dependency awareness material when Claude has native plugin dependencies. |
 | `lossy` | A render would drop required meaning or behavior. | Future body/contract loss where no faithful target shape exists. |
@@ -68,7 +68,7 @@ The default posture is error. Build, diff, and verify enforce `failed`, `lossy`,
 | --- | --- | --- | --- |
 | Standalone skill | `rendered` | `rendered` | Both targets can receive a native `SKILL.md` rendering. |
 | Plugin skill | `rendered` | `rendered` | Plugin boundaries stay intact while target manifests differ. |
-| `.skillset/src/rules` | `transformed` | `transformed` | Claude receives rules; Codex receives directory-local `AGENTS.md`. |
+| Source-root `rules/` | `transformed` | `transformed` | Claude receives rules; Codex receives directory-local `AGENTS.md`. |
 | Provider source | `target_native` for matching target | `target_native` for matching target | Non-matching targets do not receive output. |
 | Plugin dependencies | `rendered` | `degraded` | Claude has a native dependency surface; Codex receives awareness material. |
 | Plugin `bin/` | `target_native` | `unsupported` | Claude receives the plugin-root bin feature output; Codex has no documented plugin-local bin contract. |
