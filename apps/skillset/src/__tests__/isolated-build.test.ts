@@ -46,11 +46,11 @@ test("isolated build writes the full projection under the mirror only", async ()
   }
   expect(await exists(join(root, LIVE_SKILL))).toBe(false);
   expect(await exists(join(root, "AGENTS.md"))).toBe(false);
-  expect(await exists(join(root, ".skillset.lock"))).toBe(false);
+  expect(await exists(join(root, "skillset.lock"))).toBe(false);
   expect(await exists(join(root, MIRROR_SKILL))).toBe(true);
   expect(await exists(join(root, ISOLATED_OUT_ROOT, "AGENTS.md"))).toBe(true);
-  expect(await exists(join(root, ISOLATED_OUT_ROOT, ".skillset.lock"))).toBe(true);
-  expect(await exists(join(root, ISOLATED_OUT_ROOT, ".claude/skills/.skillset.lock"))).toBe(true);
+  expect(await exists(join(root, ISOLATED_OUT_ROOT, "skillset.lock"))).toBe(true);
+  expect(await exists(join(root, ISOLATED_OUT_ROOT, ".claude/skills/skillset.lock"))).toBe(true);
 });
 
 test("isolated build leaves a previous live build byte-unchanged", async () => {

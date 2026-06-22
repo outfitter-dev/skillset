@@ -12,7 +12,7 @@ Pending entries live under the workspace change directory as Markdown files with
 
 Compact ids are generated once at scaffold time as 12 lower-case hex characters. CLI refs use `@<prefix>` with shortest-unambiguous resolution and a minimum 6-character prefix. Group ids are filtering and reporting aids; they do not imply release grouping.
 
-The workspace change directory is a committed ledger, not a generated-output lock. Pending entries are the `*.md` files in that directory. Applied history stays in `history.jsonl`, release events stay in `releases.jsonl`, and mutable release baselines stay in `state.json`. Generated-output ownership, hashes, render results, and current drift evidence stay in nearby `.skillset.lock` files instead of being folded into human-authored change reasons.
+The workspace change directory is a committed ledger, not a generated-output lock. Pending entries are the `*.md` files in that directory. Applied history stays in `history.jsonl`, release events stay in `releases.jsonl`, and mutable release baselines stay in `state.json`. Generated-output ownership, hashes, render results, and current drift evidence stay in nearby `skillset.lock` files instead of being folded into human-authored change reasons.
 
 ## Target Rendering
 

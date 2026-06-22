@@ -11,7 +11,6 @@ import { renderValidatedJson } from "./structured-output";
 import type { BuildGraph, JsonRecord, JsonValue, SkillsetOptions, TargetName } from "./types";
 import { isJsonRecord, parseYamlRecord } from "./yaml";
 
-const DEFAULT_SOURCE_DIR = ".skillset";
 const TEST_BUILD_DIR = "build/tests";
 const TEST_SCHEMA = 1;
 
@@ -84,25 +83,19 @@ export async function runSkillsetTest(
   };
 
   const runId = makeRunId(declaration.name);
-  const buildRoot = resolveInside(rootPath, join(sourceDir, TEST_BUILD_DIR));
+  const buildRoot = resolveInside(rootPath, testBuildRoot(sourceDir));
   const runsRoot = join(buildRoot, "runs");
   const runPath = join(runsRoot, runId);
   const workspacePath = join(runPath, "workspace");
   const stagingRoot = await mkdtemp(join(tmpdir(), "skillset-test-"));
   const stagingWorkspacePath = join(stagingRoot, "workspace");
-  const stagingSourcePath = join(stagingWorkspacePath, sourceDir);
-  const sourcePath = resolveInside(rootPath, sourceDir);
-  const workspaceLockPath = resolveInside(rootPath, ".skillset.lock");
-  const ignoredSourceBuildPath = resolveInside(rootPath, join(sourceDir, "build"));
+  const workspaceLockPath = resolveInside(rootPath, "skillset.lock");
 
   try {
     await mkdir(stagingWorkspacePath, { recursive: true });
-    await cp(sourcePath, stagingSourcePath, {
-      filter: (path) => !isSameOrInside(ignoredSourceBuildPath, path),
-      recursive: true,
-    });
+    await copyTestSource(graph, stagingWorkspacePath);
     // Source-adjacent generated projections need the workspace lock to remain recognized as managed.
-    await copyIfExists(workspaceLockPath, join(stagingWorkspacePath, ".skillset.lock"));
+    await copyIfExists(workspaceLockPath, join(stagingWorkspacePath, "skillset.lock"));
     await copyWorkspaceManagedFiles(rootPath, stagingWorkspacePath, workspaceLockPath, sourceDir);
 
     const assertions: SkillsetTestAssertionResult[] = [];
@@ -595,7 +588,22 @@ async function pathExists(path: string): Promise<boolean> {
 async function copyIfExists(sourcePath: string, targetPath: string): Promise<void> {
   if (!(await pathExists(sourcePath))) return;
   await mkdir(dirname(targetPath), { recursive: true });
-  await cp(sourcePath, targetPath);
+  await cp(sourcePath, targetPath, { recursive: true });
+}
+
+async function copyTestSource(graph: BuildGraph, stagingWorkspacePath: string): Promise<void> {
+  const ignoredSourceBuildPath = resolveInside(graph.rootPath, sourceBuildRoot(graph.sourceDir));
+  if (graph.sourceDir !== ".") {
+    await cp(graph.sourcePath, join(stagingWorkspacePath, graph.sourceDir), {
+      filter: (path) => !isSameOrInside(ignoredSourceBuildPath, path),
+      recursive: true,
+    });
+    return;
+  }
+
+  await copyIfExists(graph.rootConfigPath, join(stagingWorkspacePath, "skillset.yaml"));
+  await copyIfExists(graph.sourceRootPath, join(stagingWorkspacePath, graph.sourceRoot));
+  await copyIfExists(resolveInside(graph.rootPath, "changes"), join(stagingWorkspacePath, "changes"));
 }
 
 async function copyWorkspaceManagedFiles(
@@ -612,7 +620,7 @@ async function copyWorkspaceManagedFiles(
     return;
   }
   if (!isJsonRecord(lock) || !Array.isArray(lock.items)) return;
-  const ignoredSourceBuildPath = resolveInside(rootPath, join(sourceDir, "build"));
+  const ignoredSourceBuildPath = resolveInside(rootPath, sourceBuildRoot(sourceDir));
   for (const item of lock.items) {
     if (!isJsonRecord(item) || !Array.isArray(item.files)) continue;
     for (const file of item.files) {
@@ -622,6 +630,14 @@ async function copyWorkspaceManagedFiles(
       await copyIfExists(sourcePath, join(stagingWorkspacePath, file));
     }
   }
+}
+
+function testBuildRoot(sourceDir: string): string {
+  return sourceDir === "." ? join(".skillset", TEST_BUILD_DIR) : join(sourceDir, TEST_BUILD_DIR);
+}
+
+function sourceBuildRoot(sourceDir: string): string {
+  return sourceDir === "." ? ".skillset/build" : join(sourceDir, "build");
 }
 
 function makeRunId(name: string): string {

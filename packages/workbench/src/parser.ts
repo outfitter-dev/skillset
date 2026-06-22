@@ -21,7 +21,7 @@ interface MarkdownFence {
 }
 
 export function inferWorkbenchParseKind(path: string): WorkbenchParseKind {
-  if (path.endsWith(".json") || path.endsWith(".skillset.lock")) return "json";
+  if (path.endsWith(".json") || path.endsWith("skillset.lock")) return "json";
   if (path.endsWith(".md") || path.endsWith(".markdown")) return "markdown";
   if (path.endsWith(".toml")) return "toml";
   if (path.endsWith(".yaml") || path.endsWith(".yml")) return "yaml";

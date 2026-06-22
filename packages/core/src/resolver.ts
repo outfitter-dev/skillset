@@ -1102,7 +1102,7 @@ async function outputRootsFor(
 
   for (const outputRoot of configuredOutputRoots(outputs)) {
     if (roots.has(outputRoot.path)) continue;
-    if (await exists(join(resolveInside(rootPath, outputRoot.path), ".skillset.lock"))) {
+    if (await exists(join(resolveInside(rootPath, outputRoot.path), "skillset.lock"))) {
       roots.set(outputRoot.path, outputRoot);
     }
   }

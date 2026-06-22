@@ -17,7 +17,7 @@ Read `docs/tenets.md` before writing or changing an ADR. Every ADR must be consi
 Use these tenets as the review lens:
 
 - **Source-first loadouts.** Authors write portable source once, then Skillset renders it faithfully to target-native Claude and Codex output.
-- **Source is the product.** `.skillset/` is the authored truth; generated Claude/Codex trees are reproducible renderings.
+- **Source is the product.** Skillset source is the authored truth; generated Claude/Codex trees are reproducible renderings.
 - **One meaning, one key.** Portable source keys should describe one semantic concept, not duplicate provider vocabulary.
 - **Render intent, not filenames.** Near matches are modeled from the author's intended outcome, then rendered in the target-native way.
 - **Target truth beats fake portability.** Unsupported target behavior must be visible through diagnostics, opt-outs, or explicit target-native escape hatches.

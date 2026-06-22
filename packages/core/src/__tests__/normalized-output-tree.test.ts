@@ -49,13 +49,13 @@ describe("normalized output trees", () => {
 
   it("canonicalizes locks and explicit structured paths while leaving target artifacts byte-based", async () => {
     const left = await fixture({
-      ".skillset.lock": `{"z":1,"a":{"b":2}}`,
+      "skillset.lock": `{"z":1,"a":{"b":2}}`,
       "manifest.json": `{"z":1,"a":2}`,
       "report.json": `{"z":1,"a":2}`,
       "report.yaml": "z: 1\na: 2\n",
     });
     const right = await fixture({
-      ".skillset.lock": `{"a":{"b":2},"z":1}`,
+      "skillset.lock": `{"a":{"b":2},"z":1}`,
       "manifest.json": `{"a":2,"z":1}`,
       "report.json": `{"a":2,"z":1}`,
       "report.yaml": "a: 2\nz: 1\n",
@@ -66,7 +66,7 @@ describe("normalized output trees", () => {
       structuredYamlPaths: ["report.yaml"],
     });
 
-    expect(comparison.identical).toContain(".skillset.lock");
+    expect(comparison.identical).toContain("skillset.lock");
     expect(comparison.identical).toContain("manifest.json");
     expect(comparison.identical).toContain("report.yaml");
     expect(comparison.different).toEqual(["report.json"]);

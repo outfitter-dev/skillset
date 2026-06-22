@@ -220,7 +220,7 @@ function renderRepositoryReadmes(graph: BuildGraph): readonly RenderedFile[] {
           "",
           "- `.claude-plugin/marketplace.json` indexes the generated plugins.",
           "- `plugins/<plugin-id>/` contains each Claude plugin bundle.",
-          "- `.skillset.lock` records deterministic generated-state provenance.",
+          "- `skillset.lock` records deterministic generated-state provenance.",
           "",
         ].join("\n")
       )
@@ -236,7 +236,7 @@ function renderRepositoryReadmes(graph: BuildGraph): readonly RenderedFile[] {
           "Generated Codex plugin repository.",
           "",
           "- `plugins/<plugin-id>/` contains each Codex plugin bundle.",
-          "- `.skillset.lock` records deterministic generated-state provenance.",
+          "- `skillset.lock` records deterministic generated-state provenance.",
           "",
         ].join("\n")
       )
@@ -1755,7 +1755,7 @@ function renderLockFiles(
       sourceRoot: graph.sourceRoot,
       target: lock.target,
     };
-    rendered.push(textFile(join(outputRoot, ".skillset.lock"), renderValidatedJson(value, `${outputRoot}/.skillset.lock`)));
+    rendered.push(textFile(join(outputRoot, "skillset.lock"), renderValidatedJson(value, `${outputRoot}/skillset.lock`)));
   }
 
   return rendered;
@@ -2300,7 +2300,7 @@ async function exists(path: string): Promise<boolean> {
 }
 
 function validateRenderedFile(file: RenderedFile): RenderedFile {
-  if (file.sourcePath !== undefined || file.path.endsWith(".skillset.lock")) {
+  if (file.sourcePath !== undefined || file.path.endsWith("skillset.lock")) {
     validateGeneratedStructuredOutput({
       content: textDecoder.decode(file.content),
       targetPath: file.path,

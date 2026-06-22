@@ -44,10 +44,10 @@ describe("deterministic projection runner", () => {
     expect(await exists(join(root, ISOLATED_OUT_ROOT))).toBe(false);
   });
 
-  it("proves the self-hosted .skillset source selection deterministically", async () => {
+  it("proves the self-hosted dedicated source selection deterministically", async () => {
     const report = await runDeterministicProjection(process.cwd(), {
       keepTemp: true,
-      sourcePaths: [".skillset"],
+      sourcePaths: ["changes", "skillset", "skillset.yaml"],
     });
     try {
       expect(report.ok).toBe(true);

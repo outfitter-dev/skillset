@@ -31,7 +31,7 @@ The deterministic runner builds equivalent source in clean temp roots and compar
 | Surface | Compared As | Rule |
 | --- | --- | --- |
 | Generated target files | bytes | Skill, plugin, instruction, manifest, hook, app, MCP, resource, and island output should be byte-stable. |
-| `.skillset.lock` files | canonical JSON | Object key ordering may be normalized for comparison, but data content must match. |
+| `skillset.lock` files | canonical JSON | Object key ordering may be normalized for comparison, but data content must match. |
 | Core operation results | canonical JSON | `diagnostics`, `loweringOutcomes`, `writes`, and checked-file counts should be stable after approved path normalization. |
 | Reports owned by Skillset | canonical text or JSON | Reports may normalize temp-root prefixes only when they are documented as run locations. |
 | Runtime/provider state | not compared | Installing, trusting, publishing, or activating output is outside this lane. |

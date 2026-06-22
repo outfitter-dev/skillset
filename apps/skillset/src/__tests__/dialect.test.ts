@@ -67,7 +67,7 @@ test("dialect: claude lowers the codex skill projection and only that projection
 
   // Codex lock entry records applied transforms, sorted by intent.
   const codexLock = JSON.parse(
-    await readFile(join(root, ".agents/skills/.skillset.lock"), "utf8")
+    await readFile(join(root, ".agents/skills/skillset.lock"), "utf8")
   ) as { items: readonly { name: string; transforms?: readonly unknown[] }[] };
   const codexItem = codexLock.items.find((item) => item.name === "x");
   expect(codexItem?.transforms).toEqual([
@@ -79,7 +79,7 @@ test("dialect: claude lowers the codex skill projection and only that projection
 
   // Claude lock entry carries no transforms; neither does the untranslated skill.
   const claudeLock = JSON.parse(
-    await readFile(join(root, ".claude/skills/.skillset.lock"), "utf8")
+    await readFile(join(root, ".claude/skills/skillset.lock"), "utf8")
   ) as { items: readonly { name: string; transforms?: readonly unknown[] }[] };
   expect(claudeLock.items.find((item) => item.name === "x")?.transforms).toBeUndefined();
   expect(codexLock.items.find((item) => item.name === "y")?.transforms).toBeUndefined();
@@ -131,7 +131,7 @@ Keep CLAUDE.md current; agents live under .claude/agents.
   const rule = await readFile(join(root, ".claude/rules/conventions.md"), "utf8");
   expect(rule).toBe("Keep CLAUDE.md current; agents live under .claude/agents.\n");
 
-  const workspaceLock = JSON.parse(await readFile(join(root, ".skillset.lock"), "utf8")) as {
+  const workspaceLock = JSON.parse(await readFile(join(root, "skillset.lock"), "utf8")) as {
     items: readonly { name: string; transforms?: readonly unknown[] }[];
   };
   expect(workspaceLock.items.find((item) => item.name === "AGENTS.md")?.transforms).toEqual([
@@ -140,7 +140,7 @@ Keep CLAUDE.md current; agents live under .claude/agents.
   ]);
 
   const rulesLock = JSON.parse(
-    await readFile(join(root, ".claude/rules/.skillset.lock"), "utf8")
+    await readFile(join(root, ".claude/rules/skillset.lock"), "utf8")
   ) as { items: readonly { transforms?: readonly unknown[] }[] };
   expect(rulesLock.items.every((item) => item.transforms === undefined)).toBe(true);
 });

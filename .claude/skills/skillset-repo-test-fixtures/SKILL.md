@@ -8,15 +8,16 @@ name: skillset-repo-test-fixtures
 
 # Skillset Repo Test Fixtures
 
-Use this skill when changing Skillset's internal compiler fixtures, fixture documentation, or tests whose setup builds fake `.skillset/` repos.
+Use this skill when changing Skillset's internal compiler fixtures, fixture documentation, or tests whose setup builds fake Skillset repos.
 
 ## Fixture Boundary
 
 - Fixtures are internal compiler test material, not product `.skillset/tests/` source.
 - Prefer inline temp fixtures in `apps/skillset/src/__tests__/` for focused positive cases, negative diagnostics, and lifecycle edge cases.
 - Add checked-in `fixtures/<case>/` repos only when a case needs whole-repo inspection, is shared as a golden reference, or is too large to read inline.
-- Treat `.skillset/src/` as the source root for current fixtures.
-- Plugins, standalone skills, rules, shared files, and provider source should use `.skillset/src/plugins`, `.skillset/src/skills`, `.skillset/src/rules`, `.skillset/src/shared`, and `.skillset/src/_claude` / `.skillset/src/_codex`.
+- Checked-in `fixtures/<case>/` repos use the dedicated layout: root `skillset.yaml` and source under root `skillset/`.
+- Plugins, standalone skills, rules, hooks, shared files, and provider source in checked-in fixtures should use `skillset/plugins`, `skillset/skills`, `skillset/rules`, `skillset/hooks`, `skillset/shared`, and `skillset/_claude` / `skillset/_codex`.
+- Inline temp fixtures may still use ordinary `.skillset/skillset.yaml` and `.skillset/src/` paths when the test is specifically covering ordinary workspace behavior.
 
 ## Working Loop
 
@@ -29,4 +30,4 @@ Use this skill when changing Skillset's internal compiler fixtures, fixture docu
 
 - For docs-only fixture changes, run `bun run check`.
 - For compiler behavior changes, run the smallest relevant `bun test apps/skillset/src/__tests__/<file>.test.ts` first, then `bun run check`.
-- If self-hosted source under `.skillset/` changes, run `bun run skillset:build`, inspect generated output, then run `bun run check`.
+- If self-hosted source under `skillset/` changes, run `bun run skillset:build`, inspect generated output, then run `bun run check`.

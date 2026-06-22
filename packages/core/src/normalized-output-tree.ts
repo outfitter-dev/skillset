@@ -7,7 +7,7 @@ import { assertNoHostLeaks, type HostLeakDetectionOptions } from "./host-leak";
 import type { JsonValue } from "./types";
 import { isJsonRecord, parseYamlRecord, stringifyYaml, stripUndefinedValue } from "./yaml";
 
-const DEFAULT_STRUCTURED_JSON_BASENAMES = new Set([".skillset.lock"]);
+const DEFAULT_STRUCTURED_JSON_BASENAMES = new Set(["skillset.lock"]);
 type NormalizedContentKind = "bytes" | "json" | "yaml";
 
 export interface NormalizedOutputTreeOptions {

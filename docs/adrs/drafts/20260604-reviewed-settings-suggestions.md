@@ -119,7 +119,7 @@ Settings suggestions should not be hidden inside generated-output lock entries a
 
 Future state should use two surfaces:
 
-- `.skillset.lock` continues to describe generated outputs.
+- `skillset.lock` continues to describe generated outputs.
 - A settings suggestion ledger, for example `.skillset/settings-suggestions.lock` or Skillset-owned XDG state for user scope, records suggestion ids, source hashes, target file hashes at review time, accepted/rejected status, backups, and timestamps.
 
 The ledger must be scoped. Project suggestions can live in the repo if the team wants to preserve review history. User/global suggestions should live in Skillset-owned user state, not in `~/.claude` or `~/.codex`.

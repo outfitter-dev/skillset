@@ -9,7 +9,7 @@ import {
 describe("workbench parser", () => {
   test("infers parse kinds from paths", () => {
     expect(inferWorkbenchParseKind("config.json")).toBe("json");
-    expect(inferWorkbenchParseKind(".skillset.lock")).toBe("json");
+    expect(inferWorkbenchParseKind("skillset.lock")).toBe("json");
     expect(inferWorkbenchParseKind("SKILL.md")).toBe("markdown");
     expect(inferWorkbenchParseKind("notes.markdown")).toBe("markdown");
     expect(inferWorkbenchParseKind("agent.toml")).toBe("toml");

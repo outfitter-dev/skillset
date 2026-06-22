@@ -1009,7 +1009,7 @@ async function sourceInventoryFromLock(
   rootPath: string,
   _options: SkillsetOptions
 ): Promise<BaselineInventory | undefined> {
-  const lockPath = resolveInside(rootPath, ".skillset.lock");
+  const lockPath = resolveInside(rootPath, "skillset.lock");
   if (!(await exists(lockPath))) return undefined;
   let parsed: unknown;
   try {
@@ -1051,7 +1051,7 @@ async function sourceInventoryFromLock(
   }
   if (units.length === 0) return undefined;
   return {
-    baseline: { hashSchema, kind: "source-inventory", label: ".skillset.lock" },
+    baseline: { hashSchema, kind: "source-inventory", label: "skillset.lock" },
     inventory: { hashSchema, units },
   };
 }

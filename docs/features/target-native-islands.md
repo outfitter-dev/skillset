@@ -31,7 +31,7 @@ Plugin-level native pass-through remains under plugin source paths such as `.ski
 
 ## Target Rendering
 
-Provider source should mirror only into the matching target root. It must not leak into the other provider, and confirmed builds must back up unmanaged target-file collisions before replacing them. Project provider-source files are tracked as file-level workspace-managed output in the root `.skillset.lock`; `skillset build` must not claim or delete the whole `.claude/` or `.codex/` directory. Known structured files should be validated after preprocessing where the target requires a schema. Unknown files can be opaque pass-through only when path safety, ownership, and lock provenance are clear.
+Provider source should mirror only into the matching target root. It must not leak into the other provider, and confirmed builds must back up unmanaged target-file collisions before replacing them. Project provider-source files are tracked as file-level workspace-managed output in the root `skillset.lock`; `skillset build` must not claim or delete the whole `.claude/` or `.codex/` directory. Known structured files should be validated after preprocessing where the target requires a schema. Unknown files can be opaque pass-through only when path safety, ownership, and lock provenance are clear.
 
 Codex `.rules` files are execution policy for shell-command decisions. They are not `.skillset/src/rules` and must not receive prose instruction rendering. The correct portable instruction path remains `.skillset/src/rules/**/*.md` to Claude `.claude/rules/**/*.md` and Codex `AGENTS.md`. Codex `.rules` pass-through is accepted only from `.skillset/src/_codex/rules/**/*.rules`; project `.rules` elsewhere and all Codex plugin `.rules` fail loudly.
 

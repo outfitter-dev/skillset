@@ -36,7 +36,7 @@ export function validateGeneratedStructuredOutput(args: {
 }): void {
   const label = structuredOutputLabel(args);
   try {
-    if (args.targetPath.endsWith(".json") || args.targetPath.endsWith(".skillset.lock")) {
+    if (args.targetPath.endsWith(".json") || args.targetPath.endsWith("skillset.lock")) {
       validateJson(args.content, label);
     } else if (args.targetPath.endsWith(".yaml") || args.targetPath.endsWith(".yml")) {
       validateYaml(args.content, label);

@@ -6,9 +6,9 @@ Skillset treats generated target files as reproducible renderings while still pr
 
 ## Source Shape
 
-There is no author-facing source key for output safety. Ownership is derived from generated `.skillset.lock` files and the files the current build would render.
+There is no author-facing source key for output safety. Ownership is derived from generated `skillset.lock` files and the files the current build would render.
 
-Managed files are files recorded by a current or previous Skillset lock. Workspace-managed project files such as generated `AGENTS.md` and provider-source project files are recorded in the root `.skillset.lock`. Plugin and standalone skill roots record ownership in their nearby generated `.skillset.lock` files. Entity-local `CHANGELOG.md` files are also managed projections when release history renders them beside source entities.
+Managed files are files recorded by a current or previous Skillset lock. Workspace-managed project files such as generated `AGENTS.md` and provider-source project files are recorded in the root `skillset.lock`. Plugin and standalone skill roots record ownership in their nearby generated `skillset.lock` files. Entity-local `CHANGELOG.md` files are also managed projections when release history renders them beside source entities.
 
 Unmanaged files are files under or beside generated output roots that no Skillset lock currently owns. `skillset diff`, `skillset verify`, and stale-file cleanup ignore unmanaged neighbors so a repo can keep hand-authored files near generated output without Skillset claiming or deleting them.
 

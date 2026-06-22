@@ -54,7 +54,7 @@ User/global destinations require the most conservative posture. `skillset build`
 
 ## Provenance
 
-`.skillset.lock` should remain the heavy provenance surface: source hashes, generated hashes, target state, skipped source, adapter version, preprocessing dependencies, and warnings belong there rather than in generated skill frontmatter. Build-scope commands should explain their decisions from lock state rather than hidden global state.
+`skillset.lock` should remain the heavy provenance surface: source hashes, generated hashes, target state, skipped source, adapter version, preprocessing dependencies, and warnings belong there rather than in generated skill frontmatter. Build-scope commands should explain their decisions from lock state rather than hidden global state.
 
 ## Tests and Fixtures
 

@@ -2,7 +2,7 @@
 
 This repo contains the local `skillset` compiler.
 
-The repo now self-hosts source under `.skillset/src/`:
+The repo now self-hosts source in the dedicated Skillset layout:
 
 - standalone internal skills for developing `skillset` itself;
 - one generated `skillset` plugin for using the compiler in other source-first repos.
@@ -13,13 +13,13 @@ Read [docs/tenets.md](docs/tenets.md) before changing the source contract, targe
 
 ## Responsibilities
 
-- Read adaptive source from a content repo's `.skillset/src/` directory, with workspace/source config in `.skillset/skillset.yaml`.
+- Read adaptive source from an ordinary content repo's `.skillset/src/` directory with workspace/source config in `.skillset/skillset.yaml`, or from a dedicated repo's `skillset/` directory with root `skillset.yaml`.
 - Emit target-native plugin repositories under configured output roots, defaulting to `plugins-claude/` and `plugins-codex/`.
 - Emit standalone skills under configured target skill roots, defaulting to `.claude/skills` and `.agents/skills`.
-- Emit source instructions from `.skillset/src/rules/**/*.md` to Claude `.claude/rules/**/*.md` and Codex directory-local `AGENTS.md` files without overwriting unmanaged guidance.
+- Emit source instructions from `<source-root>/rules/**/*.md` to Claude `.claude/rules/**/*.md` and Codex directory-local `AGENTS.md` files without overwriting unmanaged guidance.
 - Preserve plugin boundaries across Claude and Codex outputs.
 - Keep source-only `skillset` metadata out of generated artifacts except for lightweight generated `metadata.version` and `metadata.generated` fields.
-- Write deterministic `.skillset.lock` files near generated outputs.
+- Write deterministic `skillset.lock` files near generated outputs.
 - Provide local source import helpers for existing plugins and skills.
 
 ## Commands
@@ -79,5 +79,5 @@ bun ./apps/skillset/src/cli.ts doctor --root .
 - Do not publish this package or add a remote unless the maintainer explicitly asks.
 - Do not mutate user-level Claude or Codex config.
 - Do not install, trust, or symlink generated plugins or skills into global runtime locations.
-- Do not hand-edit `.claude/skills`, `.agents/skills`, `plugins-claude`, or `plugins-codex` as source truth; edit `.skillset/src/` for source or `.skillset/skillset.yaml` for workspace config, then rebuild.
+- Do not hand-edit `.claude/skills`, `.agents/skills`, `plugins-claude`, or `plugins-codex` as source truth; in this repo, edit `skillset/` for source or `skillset.yaml` for workspace config, then rebuild.
 - Keep this package focused on compilation, validation, import, and checks.

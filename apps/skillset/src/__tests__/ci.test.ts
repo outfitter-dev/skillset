@@ -129,7 +129,7 @@ test("ci --fix leaves drift untouched when change entries are missing", async ()
 
   expect(report.ok).toBe(false);
   expect(report.fixedPaths).toEqual([]);
-  expect(report.drift.changed).toEqual([".claude/skills/.skillset.lock", GENERATED_SKILL]);
+  expect(report.drift.changed).toEqual([GENERATED_SKILL, ".claude/skills/skillset.lock"]);
   expect(report.changeIssues.some((issue) => issue.severity === "error")).toBe(true);
   expect(await readFile(join(root, GENERATED_SKILL), "utf8")).not.toContain("Edited body.");
   const markdown = renderCiReportMarkdown(report);

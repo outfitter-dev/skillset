@@ -13,8 +13,8 @@ Use this skill when working on the local `skillset` compiler from a Codex-orient
 ## Working Context
 
 - Work in `/path/to/skillset`.
-- Treat `.skillset/` as editable source.
-- Treat `plugins-claude/`, `plugins-codex/`, `.claude/skills`, and `.agents/skills` as generated outputs.
+- Treat `skillset/`, `skillset.yaml`, and `changes/` as editable source/state.
+- Treat `.skillset/`, `plugins-claude/`, `plugins-codex/`, `.claude/skills`, and `.agents/skills` as generated or operational output.
 - Do not hand-edit generated outputs as source truth.
 - Do not publish, globally install, symlink, or mutate user-level Claude/Codex config during normal repo work.
 
@@ -29,7 +29,7 @@ Use this skill when working on the local `skillset` compiler from a Codex-orient
 
 ## Safety Checks
 
-- Output roots must stay inside the repo, outside `.skillset/`, and unique per active target output.
+- Output roots must stay inside the repo, outside `skillset/`, `changes/`, and `.skillset/`, and unique per active target output.
 - `skillset import` should copy into source layout only and refuse to overwrite existing source.
 - Use root `compile.targets` for provider selection. Do not add bare top-level `targets:`.
 - Keep target adapter config and defaults in `claude` / `codex` blocks; root `defaults.<target>` is shorthand, not provider selection.

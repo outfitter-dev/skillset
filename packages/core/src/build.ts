@@ -477,12 +477,12 @@ function outputPathsForLock(outputRoot: string, lock: JsonRecord): ReadonlySet<s
 }
 
 function outputRootForLockPath(lockPath: string): string {
-  if (lockPath === ".skillset.lock") return ".";
+  if (lockPath === "skillset.lock") return ".";
   return dirname(lockPath).replaceAll("\\", "/");
 }
 
 function isLockFilePath(path: string): boolean {
-  return path === ".skillset.lock" || path.endsWith("/.skillset.lock");
+  return path === "skillset.lock" || path.endsWith("/skillset.lock");
 }
 
 async function diagnoseMissingManagedOutputs(
