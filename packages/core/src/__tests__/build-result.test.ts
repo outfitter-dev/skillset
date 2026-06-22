@@ -89,7 +89,7 @@ codex: true
       severity: "warning",
     }));
     expectKnownDiagnosticFeatureIds(result.diagnostics);
-    expect(result.writes.backupManifestPath).toBe(`.skillset/build/backups/${backupRunId}/manifest.json`);
+    expect(result.writes.backupManifestPath).toBe(`.skillset/snapshots/${backupRunId}/manifest.json`);
     expect(result.writes.backupRecords).toContainEqual(expect.objectContaining({
       action: "overwrite",
       reason: "unmanaged-collision",
@@ -132,7 +132,7 @@ codex: true
       severity: "warning",
     }));
     expectKnownDiagnosticFeatureIds(preview.diagnostics);
-    expect(await Bun.file(join(root, ".skillset/build/backups")).exists()).toBe(false);
+    expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(false);
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Hand Authored Instructions");
   });
 

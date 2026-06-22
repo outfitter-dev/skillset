@@ -5,7 +5,8 @@ export default defineConfig({
   ...ultracite,
   ignorePatterns: [
     ...ultracite.ignorePatterns,
-    ".skillset/build/**",
+    ".skillset/cache/**",
+    ".skillset/snapshots/**",
     ".claude/worktrees/**",
     ".scratch/**",
     ".agents/skills/**",

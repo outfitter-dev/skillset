@@ -8,7 +8,7 @@ import type { SkillsetDiagnostic, SkillsetWriteSummary } from "./operation-resul
 import type { JsonRecord, RenderedFile } from "./types";
 
 export const WORKSPACE_LOCK_FILE = "skillset.lock";
-export const OUTPUT_BACKUP_ROOT = ".skillset/build/backups";
+export const OUTPUT_BACKUP_ROOT = ".skillset/snapshots";
 
 export type OutPath = (path: string) => string;
 

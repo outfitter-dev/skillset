@@ -511,13 +511,15 @@ description: Demo ordinary workspace skill.
 
 Demo ordinary workspace skill.
 `,
+    ".skillset/snapshots/recovery/files/AGENTS.md.bak.recovery": "do not retain me\n",
   });
 
   const report = await runSkillsetTest(root, "self");
 
   expect(report.ok).toBe(true);
   expect(report.source).toBe("repo:.skillset");
-  expect(await exists(join(root, ".skillset/build/tests/latest/workspace/.claude/skills/demo/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, ".skillset/cache/tests/latest/workspace/.claude/skills/demo/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, ".skillset/cache/tests/latest/workspace/.skillset/snapshots/recovery/files/AGENTS.md.bak.recovery"))).toBe(false);
 });
 
 test("skillset test stages dedicated workspace source without copying unrelated repo files", async () => {
@@ -551,9 +553,9 @@ Demo dedicated workspace skill.
 
   expect(report.ok).toBe(true);
   expect(report.source).toBe("repo:.");
-  expect(await exists(join(root, ".skillset/build/tests/latest/workspace/skillset.yaml"))).toBe(true);
-  expect(await exists(join(root, ".skillset/build/tests/latest/workspace/.claude/skills/demo/SKILL.md"))).toBe(true);
-  expect(await exists(join(root, ".skillset/build/tests/latest/workspace/package.json"))).toBe(false);
+  expect(await exists(join(root, ".skillset/cache/tests/latest/workspace/skillset.yaml"))).toBe(true);
+  expect(await exists(join(root, ".skillset/cache/tests/latest/workspace/.claude/skills/demo/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, ".skillset/cache/tests/latest/workspace/package.json"))).toBe(false);
 });
 
 test("change status compares current dedicated workspace against legacy git baselines", async () => {

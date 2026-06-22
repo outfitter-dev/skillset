@@ -145,7 +145,7 @@ test("runExternalRepo adopts a marketplace-shaped repo in place and reports roun
   expect(roundTrip?.name).toBe("demo");
   expect(roundTrip?.originalRoot).toBe("plugins/demo");
   expect(roundTrip?.generatedRoot).toBe(
-    ".skillset/build/out/plugins-claude/plugins/demo"
+    ".skillset/cache/latest/plugins-claude/plugins/demo"
   );
   expect(roundTrip?.comparison.identical).toContain("commands/hello.md");
   // Generated skill frontmatter gains metadata.version/generated, so the
@@ -233,7 +233,7 @@ test("checkClonePurity accepts .skillset/ additions and flags anything else", as
   expect(await checkClonePurity(clone)).toEqual({ dirtyPaths: [], ok: true });
 
   await Bun.write(join(clone, ".skillset/config.yaml"), "skillset:\n");
-  await Bun.write(join(clone, ".skillset/build/out/AGENTS.md"), "generated\n");
+  await Bun.write(join(clone, ".skillset/cache/latest/AGENTS.md"), "generated\n");
   expect(await checkClonePurity(clone)).toEqual({ dirtyPaths: [], ok: true });
 
   await Bun.write(join(clone, "stray.lock"), "dirty\n");

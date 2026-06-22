@@ -27,18 +27,18 @@ Unmanaged files are files under or beside generated output roots that no Skillse
 
 `skillset build` is still plan-first at the CLI layer: without `--yes`, it previews generated changes and writes nothing. During a confirmed write, Skillset prepares safety backups before replacing a conflicting path or deleting a managed target-side edit.
 
-Backups live under the gitignored build root:
+Backups live under the gitignored recovery snapshot root:
 
 ```text
-.skillset/build/backups/<backup-id>/manifest.json
-.skillset/build/backups/<backup-id>/files/<target-path>.bak.<backup-id>
+.skillset/snapshots/<backup-id>/manifest.json
+.skillset/snapshots/<backup-id>/files/<target-path>.bak.<backup-id>
 ```
 
 The manifest records the backup id, target path, backup path, action, reason, original hash, generated hash when applicable, and source path when known. Build diagnostics include the backup id and manifest path, and `build --yes` prints a short backup summary when a backup was created.
 
 `compile.build: updated` writes missing or changed generated files and removes stale managed files while leaving unchanged managed files and unmanaged neighbors alone. `compile.build: all` rewrites the selected generated files and removes stale managed files; it does not delete whole output roots or claim unmanaged neighbors.
 
-`--isolated` applies the same ownership and backup rules inside `.skillset/build/out/`, so a mirror build can be inspected without touching live target roots.
+`--isolated` applies the same ownership and backup rules inside `.skillset/cache/latest/`, so a mirror build can be inspected without touching live target roots.
 
 Generated changelogs are the currently implemented managed-output case where "just rebuild it" can discard useful author intent. When `skillset diff`, `skillset change status`, or `skillset ci` reports drift for a managed `CHANGELOG.md`, treat the edit as a source-side correction request: use `skillset change reason <@ref>` for pending wording before release, `skillset change amend <@ref>` for applied history wording after release, or `skillset release amend <@ref>` for release-event metadata. `skillset ci --fix` may still mechanically restore the projection from source, but the diagnostics should make the source-side recovery path visible first.
 
@@ -71,7 +71,7 @@ Malformed generated locks fail loudly because Skillset cannot safely distinguish
 
 ## Provenance
 
-Lock files remain the source of generated-output ownership. Backup manifests are recovery aids, not source truth, and live under `.skillset/build/` so they can be pruned like other local build artifacts.
+Lock files remain the source of generated-output ownership. Backup manifests are recovery aids, not source truth, and live under `.skillset/snapshots/` so they stay separate from delete-safe cache output.
 
 Generated skill frontmatter stays lightweight. Output ownership, hashes, target-side edit evidence, stale managed paths, and backup information belong in locks, diagnostics, and backup manifests rather than in generated target files.
 

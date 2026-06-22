@@ -996,7 +996,7 @@ function printAdoptReport(report: AdoptReport, reason: string): void {
   console.log(`  ${lintErrors === 0 ? "ok" : "FAIL"} lint: ${lintErrors} error(s), ${lintWarnings} warning(s)`);
   console.log(
     report.buildError === undefined
-      ? `  ok build: wrote ${report.builtFiles} generated files under .skillset/build/out/`
+      ? `  ok build: wrote ${report.builtFiles} generated files under .skillset/cache/latest/`
       : `  FAIL build: ${report.buildError.split("\n")[0]}`
   );
   if (report.cutover.length > 0) {
@@ -1864,7 +1864,7 @@ function validateTestFlags(
     test.scopes !== undefined ||
     test.yes
   ) {
-    throw new Error("skillset: build/write options are not supported with test; test output always writes under .skillset/build/tests");
+    throw new Error("skillset: build/write options are not supported with test; test output always writes under .skillset/cache/tests");
   }
 }
 

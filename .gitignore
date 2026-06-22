@@ -6,6 +6,7 @@ dist/
 .envrc
 .claude/settings.local.json
 .claude/worktrees/
+.agents/goals/
 .scratch/
 .skillset/
 fixtures/external/repos/

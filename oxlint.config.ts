@@ -6,7 +6,8 @@ export default defineConfig({
   ignorePatterns: [
     ...core.ignorePatterns,
     "dist/**",
-    ".skillset/build/**",
+    ".skillset/cache/**",
+    ".skillset/snapshots/**",
     ".claude/worktrees/**",
     ".scratch/**",
     ".agents/skills/**",
