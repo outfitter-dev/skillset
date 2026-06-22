@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   checkWorkbenchSyntax,
   workbenchDiagnosticsFromMarkdownCodeFences,
+  workbenchDiagnosticsFromMarkdownTemplatePlaceholders,
 } from "../index";
 
 describe("workbench Markdown diagnostics", () => {
@@ -105,7 +106,7 @@ describe("workbench Markdown diagnostics", () => {
       path: ".skillset/src/skills/docs/references/example.md",
     });
 
-      expect(diagnostics).toEqual([]);
+    expect(diagnostics).toEqual([]);
   });
 
   test("checks reference and examples files without requiring a skill directory", () => {
@@ -208,6 +209,99 @@ describe("workbench Markdown diagnostics", () => {
         "",
       ].join("\n"),
       path: "SKILL.md",
+    });
+
+    expect(diagnostics).toEqual([]);
+  });
+
+  test("accepts supported template guidance placeholder forms", () => {
+    const diagnostics = workbenchDiagnosticsFromMarkdownTemplatePlaceholders({
+      content: [
+        "Write the final answer to { Customer name }.",
+        "Set the report title to [Project title].",
+        "Skillset variables such as {{this.description}} are separate.",
+        "",
+      ].join("\n"),
+      path: ".skillset/src/skills/templates/SKILL.md",
+    });
+
+    expect(diagnostics).toEqual([]);
+  });
+
+  test("reports empty template guidance placeholders", () => {
+    const diagnostics = checkWorkbenchSyntax({
+      content: [
+        "# Template",
+        "",
+        "Write the account name as {   }.",
+        "Set the optional note as [].",
+        "",
+      ].join("\n"),
+      path: ".skillset/src/skills/templates/SKILL.md",
+    });
+
+    expect(diagnostics).toEqual([
+      expect.objectContaining({
+        location: expect.objectContaining({ column: 27, line: 3 }),
+        message: "template guidance placeholder is empty",
+        ruleId: "markdown/template-placeholder",
+        ruleLevel: "standard",
+        scope: "source",
+        severity: "warning",
+      }),
+      expect.objectContaining({
+        location: expect.objectContaining({ column: 26, line: 4 }),
+        message: "template guidance placeholder is empty",
+        ruleId: "markdown/template-placeholder",
+      }),
+    ]);
+  });
+
+  test("reports unclosed single-brace template guidance placeholders", () => {
+    const diagnostics = checkWorkbenchSyntax({
+      content: "Send the report to { Customer name\n",
+      path: ".skillset/src/skills/templates/SKILL.md",
+    });
+
+    expect(diagnostics).toEqual([
+      expect.objectContaining({
+        location: expect.objectContaining({ column: 20, endColumn: 34, line: 1 }),
+        message: "template guidance placeholder is missing }",
+        ruleId: "markdown/template-placeholder",
+      }),
+    ]);
+  });
+
+  test("ignores template-looking examples inside code spans and fenced blocks", () => {
+    const diagnostics = checkWorkbenchSyntax({
+      content: [
+        "`{   }` should be literal.",
+        "``[]`` and ``{   }`` should also be literal.",
+        "",
+        "```markdown",
+        "Write {   } in an example.",
+        "```",
+        "",
+      ].join("\n"),
+      path: ".skillset/src/skills/templates/SKILL.md",
+    });
+
+    expect(diagnostics).toEqual([]);
+  });
+
+  test("does not treat Markdown task list markers as template placeholders", () => {
+    const diagnostics = checkWorkbenchSyntax({
+      content: [
+        "- [ ] finish task",
+        "- [x] completed task",
+        "1. [ ] ordered task",
+        "- parent",
+        "    - [ ] nested task",
+        "1. parent",
+        "    1. [ ] nested ordered task",
+        "",
+      ].join("\n"),
+      path: ".skillset/src/skills/templates/SKILL.md",
     });
 
     expect(diagnostics).toEqual([]);
