@@ -127,6 +127,11 @@ export {
   type SkillsetXdgOptions,
   type SkillsetXdgPaths,
 } from "./xdg";
+export {
+  WORKSPACE_CHANGES_DIR,
+  workspaceChangeFile,
+  workspaceChangesDir,
+} from "./workspace-state";
 export type {
   LintIssue,
   LintResult,

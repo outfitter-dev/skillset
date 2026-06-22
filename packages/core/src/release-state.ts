@@ -1,14 +1,15 @@
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 
 import { readString } from "./config";
 import { compareStrings, resolveInside } from "./path";
 import { sourceUnitSelector } from "./source-unit-selector";
 import type { JsonRecord, ReleaseScopeState, ReleaseState, SkillsetOptions } from "./types";
 import { validateVersionField } from "./versioning";
+import { workspaceChangeFile } from "./workspace-state";
 import { isJsonRecord, stringifyJson } from "./yaml";
 
-const STATE_FILE = "changes/state.json";
+const STATE_FILE = "state.json";
 
 export async function readReleaseState(
   rootPath: string,
@@ -69,7 +70,7 @@ export async function writeReleaseState(
   state: ReleaseState,
   options: SkillsetOptions = {}
 ): Promise<string> {
-  const relativePath = join(options.sourceDir ?? ".skillset", STATE_FILE).replaceAll("\\", "/");
+  const relativePath = workspaceChangeFile(options.sourceDir, STATE_FILE);
   const absolutePath = resolveInside(rootPath, relativePath);
   const scopes: Record<string, JsonRecord> = {};
   for (const [scope, value] of Object.entries(state.scopes).sort(([left], [right]) => compareStrings(left, right))) {
@@ -86,7 +87,7 @@ export async function writeReleaseState(
 }
 
 function releaseStatePath(rootPath: string, options: SkillsetOptions): string {
-  return resolveInside(rootPath, join(options.sourceDir ?? ".skillset", STATE_FILE));
+  return resolveInside(rootPath, workspaceChangeFile(options.sourceDir, STATE_FILE));
 }
 
 async function exists(path: string): Promise<boolean> {

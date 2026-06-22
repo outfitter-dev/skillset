@@ -2,6 +2,14 @@
 bump: patch
 evidence:
   - scope: plugin.skillset.skill:use-skillset
+    sourceHash: sha256:2efe13881d5220bd5a36e6876f67df091be17d5abae117e7bb4d930c15b3de15
+  - scope: plugin:skillset
+    sourceHash: sha256:98a7b706dfc46f752dc086844c1128ef0385305111c8c048e087accd26033eba
+  - scope: plugin.skillset.skill:use-skillset
+    sourceHash: sha256:df39a5a7fe8987f0380f78eafa914b7b71c1629aa8cd9a2a7279562abcf16cdc
+  - scope: plugin:skillset
+    sourceHash: sha256:4c948baaa930922cd9442d0405be9976d274ecad2d56fc41dfebab557f405f77
+  - scope: plugin.skillset.skill:use-skillset
     sourceHash: sha256:67003ba5ab05aac45259105d132f777359010d64218cc1c0eca08b5326809479
   - scope: plugin:skillset
     sourceHash: sha256:2b23203c45a3b1e50bc9e6783e989c72e778b73754b8880fc37eddb916dc3bf3
@@ -23,11 +31,15 @@ evidence:
     sourceHash: sha256:17f75ddb515d12f62a197d010f6652a0cfc742f61d6c7d152a03c469486b6774
   - scope: plugin:skillset
     sourceHash: sha256:2f2e11bab5bfc974f15548bf9df7bb95a80b2a3d3d5d6965a67ba92e506b66c7
-group: SET-148
-id: 60e0d67e91cb
+  - scope: plugin.skillset.skill:use-skillset
+    sourceHash: sha256:08db1af1ba7e68fa815c6aee353f2a47331f5ad14cd3e5f1726766000815cb90
+  - scope: plugin:skillset
+    sourceHash: sha256:7c1a9207bbbb81e2f7136acdd689364fd345269e49cd2c01d37689604bd1b76e
+group: SET-139
+id: dddfa5e5ccc2
 scopes:
   - plugin.skillset.skill:use-skillset
   - plugin:skillset
 ---
 
-Refresh generated Skillset guidance so agents see the 1.0 workspace layouts, remove transitional split-manifest wording from the active skill, and keep fixture documentation aligned with the ordinary workspace shape.
+Update setup guidance for the unified source scaffold now that init/create create the main .skillset/src source-family directories by default and reserve --include for optional CI only.

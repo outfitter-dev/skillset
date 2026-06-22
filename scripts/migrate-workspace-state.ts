@@ -56,6 +56,8 @@ async function planRoot(rootPath: string): Promise<RootPlan> {
   await planPendingChanges(rootPath, join(ORDINARY_DIR, "changes"), operations);
   if (await isDedicatedWorkspace(rootPath)) {
     await planPendingChanges(rootPath, "changes", operations);
+    await planDedicatedChangesDirectory(rootPath, operations);
+    await planPendingChanges(rootPath, join("skillset", "changes"), operations);
   }
   return { rootPath, operations };
 }
@@ -135,6 +137,16 @@ async function planPendingChanges(rootPath: string, changeDir: string, operation
   if (entries.length === markdownFiles.length) {
     operations.push({ kind: "remove", path: pendingPath });
   }
+}
+
+async function planDedicatedChangesDirectory(rootPath: string, operations: Operation[]): Promise<void> {
+  const oldPath = join(rootPath, "changes");
+  const newPath = join(rootPath, "skillset", "changes");
+  if (!(await exists(oldPath))) return;
+  if (await exists(newPath)) {
+    throw new Error("skillset: both changes and skillset/changes exist; migrate dedicated change state by hand");
+  }
+  operations.push({ from: oldPath, kind: "rename", to: newPath });
 }
 
 function printPlan(plan: RootPlan): void {

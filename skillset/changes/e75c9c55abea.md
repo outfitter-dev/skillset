@@ -1,30 +1,26 @@
 ---
 bump: patch
 evidence:
-  - scope: plugin.skillset.companion:README.md
-    sourceHash: sha256:1c4bc584749fccde3badaa1dd76a3f04b2bde291a5b7ce5d757ad5a0752bf0d3
   - scope: plugin.skillset.skill:use-skillset
-    sourceHash: sha256:dbea944801ffaa28eaf800868731c59b62af4fe7e00c077cb5eee36f8ff23724
+    sourceHash: sha256:1771f8db1f2c6fe3747d21c84ded66e64ce389ef37fd6b92ca834444de262b81
   - scope: plugin:skillset
-    sourceHash: sha256:5abb92e06cdffec83b63138e70a73b2380b9cf3e3a485a9cdb31ef0f2c07c469
+    sourceHash: sha256:ee1320402bbf255cf02a05c3278f3cf8a09e9ac4112b8adb4acdbca4a7480f08
   - scope: skill:skillset-adrs
     sourceHash: sha256:ca6182af63440c764c50cf3a90fd83eb8bcdc8503b7da8d90d8f182983edc559
   - scope: skill:skillset-codex-development
     sourceHash: sha256:8adabfe45a2eb64ae8a09330d7a7c0ff5daa1f96056df8c0dc0ac0bc10d03df1
-  - scope: skill:skillset-repo-test-fixtures
-    sourceHash: sha256:d435586a006cafd3bafa8e281b127601950d79ddee35cbd03f7eb50c9d73664e
+  - scope: plugin.skillset.skill:use-skillset
+    sourceHash: sha256:dbea944801ffaa28eaf800868731c59b62af4fe7e00c077cb5eee36f8ff23724
+  - scope: plugin:skillset
+    sourceHash: sha256:5abb92e06cdffec83b63138e70a73b2380b9cf3e3a485a9cdb31ef0f2c07c469
   - scope: plugin.skillset.skill:use-skillset
     sourceHash: sha256:191b2708712f11559d384e725bfb7d466677f19b5ae1a9a2fb60e35ed0f4051b
   - scope: plugin:skillset
     sourceHash: sha256:394c3e8c3a848573ae22151a1c862a95feb9ac8930c743cee31043e28d1d8cea
-  - scope: skill:skillset-repo-test-fixtures
-    sourceHash: sha256:52e86ca13a4f129b492458058e814fa31c266b5dc94fa9f4da2636542e390279
   - scope: plugin.skillset.skill:use-skillset
     sourceHash: sha256:f9798e741b2446e04fbdb75fd407f6155d678621cfb5ef56b3aa836b822fae8b
   - scope: plugin:skillset
     sourceHash: sha256:e75adca8005f3736d8f7421c5098263161036746205b1d6b0c168cc49a7f0c09
-  - scope: skill:skillset-repo-test-fixtures
-    sourceHash: sha256:699ef059cffe6ebd024b98920b60d4741220761c4ec811fb170eeb4b954a538a
   - scope: plugin.skillset.skill:use-skillset
     sourceHash: sha256:2efe13881d5220bd5a36e6876f67df091be17d5abae117e7bb4d930c15b3de15
   - scope: plugin:skillset
@@ -51,29 +47,29 @@ evidence:
     sourceHash: sha256:8dda845c3667e5423a438c670f6f05ca3048f32131313d4becae86f2440b9c47
   - scope: plugin:skillset
     sourceHash: sha256:1f8d81282aea1ba9d7c6eadc5b3af1663ec7a89c28cff10e78664eee8d32fc72
-  - scope: plugin.skillset.companion:README.md
-    sourceHash: sha256:f27a7bbcd9c099ce05b9d57b5ecf6b9bd7a79bc72d5305a1452dc50ef6545f16
   - scope: plugin:skillset
     sourceHash: sha256:704a96a1c0361465dc1f550546b61e0d8c4ba57d753ac50d8c2119ad02518a83
   - scope: skill:skillset-adrs
     sourceHash: sha256:9247c0445c6b8e3cc9cf60ef325a5e4c59101940c88c183999d2d8a80b26afe6
   - scope: skill:skillset-codex-development
     sourceHash: sha256:2546de04b73d6e8f525b29b1dd85059b8d4e220c5e0f3f7999fec692ec624ac0
-  - scope: skill:skillset-repo-test-fixtures
-    sourceHash: sha256:0845b08dbf2ebf5df44028dee1e1690e2e876da7ff955e14b03cf0e84d86e5ad
   - scope: plugin.skillset.skill:use-skillset
     sourceHash: sha256:17f75ddb515d12f62a197d010f6652a0cfc742f61d6c7d152a03c469486b6774
   - scope: plugin:skillset
     sourceHash: sha256:2f2e11bab5bfc974f15548bf9df7bb95a80b2a3d3d5d6965a67ba92e506b66c7
-group: SET-137
-id: f9182a2db886
+  - scope: plugin.skillset.skill:use-skillset
+    sourceHash: sha256:08db1af1ba7e68fa815c6aee353f2a47331f5ad14cd3e5f1726766000815cb90
+  - scope: plugin:skillset
+    sourceHash: sha256:7c1a9207bbbb81e2f7136acdd689364fd345269e49cd2c01d37689604bd1b76e
+  - scope: skill:skillset-codex-development
+    sourceHash: sha256:95ca1d37eec9a50a3595b0b3cf7dc176a1794d447bd781d05311da1e8b3b33b9
+group: SET-125
+id: e75c9c55abea
 scopes:
-  - plugin.skillset.companion:README.md
   - plugin.skillset.skill:use-skillset
   - plugin:skillset
   - skill:skillset-adrs
   - skill:skillset-codex-development
-  - skill:skillset-repo-test-fixtures
 ---
 
-Move self-hosted Skillset source and the kitchen-sink fixture to the unified .skillset/src layout, add the Git-ref baseline bridge needed for branch-local CI, and refresh public docs away from retired island terminology.
+Refresh self-hosted Skillset guidance for the derive/render/destination terminology cutover: compile.unsupportedDestination, render results, rendered status, and destination wording.

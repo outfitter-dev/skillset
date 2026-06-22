@@ -25,6 +25,7 @@ import {
   sourceUnitSelector,
 } from "./source-unit-selector";
 import type { JsonRecord, JsonValue, SkillsetOptions } from "./types";
+import { workspaceChangeFile, workspaceChangesDir } from "./workspace-state";
 import { isJsonRecord, parseMarkdown, stringifyMarkdown } from "./yaml";
 
 export type ChangeSubcommand = "add" | "amend" | "check" | "history" | "list" | "reason" | "show" | "status";
@@ -113,9 +114,8 @@ export interface AppliedChangeRecord {
   readonly sourceHashes: ReadonlyMap<string, readonly string[]>;
 }
 
-const PENDING_DIR = "changes";
-const HISTORY_FILE = "changes/history.jsonl";
-const AMENDMENTS_FILE = "changes/amendments.jsonl";
+const HISTORY_FILE = "history.jsonl";
+const AMENDMENTS_FILE = "amendments.jsonl";
 const MIN_REF_LENGTH = 6;
 
 export async function addChangeEntry(rootPath: string, options: ChangeAddOptions): Promise<ChangeAddReport> {
@@ -138,8 +138,7 @@ export async function addChangeEntry(rootPath: string, options: ChangeAddOptions
     sourceHashes.set(scope, [hash]);
   }
 
-  const sourceDir = statusOptions.sourceDir ?? ".skillset";
-  const relativePath = join(sourceDir, PENDING_DIR, `${id}.md`).replaceAll("\\", "/");
+  const relativePath = join(workspaceChangesDir(statusOptions.sourceDir), `${id}.md`).replaceAll("\\", "/");
   const absolutePath = resolveInside(rootPath, relativePath);
   const group = options.group === undefined ? undefined : parseGroupArgument(options.group);
   const entryFrontmatter = pendingFrontmatter({
@@ -149,7 +148,7 @@ export async function addChangeEntry(rootPath: string, options: ChangeAddOptions
     scopes,
     sourceHashes,
   });
-  await mkdir(resolveInside(rootPath, join(sourceDir, PENDING_DIR)), { recursive: true });
+  await mkdir(resolveInside(rootPath, workspaceChangesDir(statusOptions.sourceDir)), { recursive: true });
   await writeFile(absolutePath, stringifyMarkdown(entryFrontmatter, reason), "utf8");
 
   const [entry] = await readPendingChangeEntries(rootPath, statusOptions).then((entries) => entries.filter((item) => item.id === id));
@@ -187,8 +186,7 @@ export async function amendAppliedChange(rootPath: string, options: ChangeAmendO
   const entry = resolveHistoryRef(historyEntries, options.ref);
   const reason = await resolveChangeReason(rootPath, options.reason);
   const now = new Date().toISOString();
-  const sourceDir = storageOptions.sourceDir ?? ".skillset";
-  const relativePath = join(sourceDir, AMENDMENTS_FILE).replaceAll("\\", "/");
+  const relativePath = workspaceChangeFile(storageOptions.sourceDir, AMENDMENTS_FILE);
   const absolutePath = resolveInside(rootPath, relativePath);
   await mkdir(dirname(absolutePath), { recursive: true });
   await appendFile(absolutePath, `${JSON.stringify({
@@ -294,7 +292,7 @@ async function generateChangeId(
   options: ChangeAddOptions,
   existingIds: readonly string[]
 ): Promise<string> {
-  const sourceDir = options.sourceDir ?? ".skillset";
+  const changesDir = workspaceChangesDir(options.sourceDir);
   const existing = new Set(existingIds);
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const hash = createHash("sha256");
@@ -307,7 +305,7 @@ async function generateChangeId(
     hash.update(String(attempt));
     const id = hash.digest("hex").slice(0, 12);
     if (existing.has(id)) continue;
-    if (await exists(resolveInside(rootPath, join(sourceDir, PENDING_DIR, `${id}.md`)))) continue;
+    if (await exists(resolveInside(rootPath, join(changesDir, `${id}.md`)))) continue;
     return id;
   }
   throw new Error("skillset: failed to generate a unique change id");
@@ -405,8 +403,7 @@ function historyView(entry: HistoryEntry, refs: ReadonlyMap<string, string>): Ch
 }
 
 async function readHistoryEntries(rootPath: string, options: ChangeStatusOptions = {}): Promise<readonly HistoryEntry[]> {
-  const sourceDir = options.sourceDir ?? ".skillset";
-  const path = join(sourceDir, HISTORY_FILE).replaceAll("\\", "/");
+  const path = workspaceChangeFile(options.sourceDir, HISTORY_FILE);
   const absolutePath = resolveInside(rootPath, path);
   if (!(await exists(absolutePath))) return [];
   const entries: HistoryEntry[] = [];
@@ -436,13 +433,13 @@ async function readHistoryEntries(rootPath: string, options: ChangeStatusOptions
       sourceHashes: readHistoryEvidence(parsed.evidence, scopes),
     });
   }
-  const amended = await applyHistoryAmendments(rootPath, sourceDir, entries);
+  const amended = await applyHistoryAmendments(rootPath, options.sourceDir, entries);
   return [...amended].sort((left, right) => compareStrings(left.id, right.id));
 }
 
 async function applyHistoryAmendments(
   rootPath: string,
-  sourceDir: string,
+  sourceDir: string | undefined,
   entries: readonly HistoryEntry[]
 ): Promise<readonly HistoryEntry[]> {
   const amendments = await readHistoryAmendments(rootPath, sourceDir);
@@ -453,8 +450,8 @@ async function applyHistoryAmendments(
   });
 }
 
-async function readHistoryAmendments(rootPath: string, sourceDir: string): Promise<ReadonlyMap<string, { readonly reason: string }>> {
-  const path = join(sourceDir, AMENDMENTS_FILE).replaceAll("\\", "/");
+async function readHistoryAmendments(rootPath: string, sourceDir: string | undefined): Promise<ReadonlyMap<string, { readonly reason: string }>> {
+  const path = workspaceChangeFile(sourceDir, AMENDMENTS_FILE);
   const absolutePath = resolveInside(rootPath, path);
   if (!(await exists(absolutePath))) return new Map();
   const amendments = new Map<string, { readonly reason: string }>();

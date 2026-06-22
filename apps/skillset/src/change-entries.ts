@@ -14,6 +14,7 @@ import { readString } from "./config";
 import { compareStrings, resolveInside } from "./path";
 import { pluginScopeFromSourceUnit, sourceUnitDisplay, sourceUnitSelector } from "./source-unit-selector";
 import type { JsonRecord, JsonValue } from "./types";
+import { workspaceChangesDir } from "./workspace-state";
 import { isJsonRecord, parseMarkdown, parseYamlRecord } from "./yaml";
 
 export type ChangeBump = "major" | "minor" | "none" | "patch";
@@ -70,7 +71,6 @@ interface ChangeValidationContext {
   readonly validScopeIds: ReadonlySet<string>;
 }
 
-const PENDING_DIR = "changes";
 const DEFAULT_REASON_MIN_LENGTH = 40;
 const CHANGE_ID_PATTERN = /^[0-9a-f]{12}$/;
 const CHANGE_REF_MIN_LENGTH = 6;
@@ -161,14 +161,14 @@ export async function readPendingChangeEntries(
   rootPath: string,
   options: ChangeStatusOptions = {}
 ): Promise<readonly PendingChangeEntry[]> {
-  const sourceDir = options.sourceDir ?? ".skillset";
-  const pendingPath = resolveInside(rootPath, join(sourceDir, PENDING_DIR));
+  const changesDir = workspaceChangesDir(options.sourceDir);
+  const pendingPath = resolveInside(rootPath, changesDir);
   if (!(await exists(pendingPath))) return [];
 
   const files = await Array.fromAsync(new Bun.Glob("*.md").scan({ cwd: pendingPath, onlyFiles: true }));
   const entries: PendingChangeEntry[] = [];
   for (const file of files.sort(compareStrings)) {
-    const path = join(sourceDir, PENDING_DIR, file).replaceAll("\\", "/");
+    const path = join(changesDir, file).replaceAll("\\", "/");
     const absolutePath = resolveInside(rootPath, path);
     const parts = parseMarkdown(await readFile(absolutePath, "utf8"), absolutePath);
     const id = readString(parts.frontmatter, "id");

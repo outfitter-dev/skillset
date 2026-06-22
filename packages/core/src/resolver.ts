@@ -42,6 +42,7 @@ import type {
   TargetName,
 } from "./types";
 import { validateSchemaField, validateVersionField } from "./versioning";
+import { workspaceChangesDir } from "./workspace-state";
 import { isJsonRecord, parseMarkdown, parseYamlRecord } from "./yaml";
 import { readSkillsetWorkspaceConfig } from "./xdg";
 
@@ -54,7 +55,6 @@ const SOURCE_ROOT_DIR = "src";
 const RULES_DIR = "rules";
 const SKILLS_DIR = "skills";
 const SHARED_DIR = "shared";
-const DEDICATED_STATE_DIR = "changes";
 const SKILL_FILE = "SKILL.md";
 const RULES_OUTPUT_ROOT = ".claude/rules";
 const PROJECT_AGENTS_DIR = "agents";
@@ -153,8 +153,8 @@ export async function loadBuildGraph(
   const outputRoots = await outputRootsFor(rootPath, outputs, plugins, standaloneSkills, rules);
   const protectedRoots = sourceDir === "."
     ? [
+        { label: "change state", path: resolveInside(rootPath, workspaceChangesDir(sourceDir)) },
         { label: "source root", path: sourceRootPath },
-        { label: "change state", path: resolveInside(rootPath, DEDICATED_STATE_DIR) },
       ]
     : [{ label: "source root", path: sourcePath }];
   validateOutputRoots(rootPath, protectedRoots, outputRoots);

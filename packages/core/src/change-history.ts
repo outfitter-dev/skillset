@@ -1,5 +1,4 @@
 import { readFile, stat } from "node:fs/promises";
-import { join } from "node:path";
 
 import { readString } from "./config";
 import { compareStrings, resolveInside } from "./path";
@@ -15,6 +14,7 @@ import {
   sourceUnitSelector,
 } from "./source-unit-selector";
 import type { JsonRecord, JsonValue } from "./types";
+import { workspaceChangeFile } from "./workspace-state";
 import { isJsonRecord } from "./yaml";
 
 export type AppliedChangeBump = "major" | "minor" | "none" | "patch";
@@ -35,15 +35,14 @@ export interface AppliedChangeRecord {
   readonly sourceHashes: ReadonlyMap<string, readonly string[]>;
 }
 
-const HISTORY_FILE = "changes/history.jsonl";
-const AMENDMENTS_FILE = "changes/amendments.jsonl";
+const HISTORY_FILE = "history.jsonl";
+const AMENDMENTS_FILE = "amendments.jsonl";
 
 export async function readAppliedChangeRecords(
   rootPath: string,
   options: { readonly sourceDir?: string } = {}
 ): Promise<readonly AppliedChangeRecord[]> {
-  const sourceDir = options.sourceDir ?? ".skillset";
-  const path = join(sourceDir, HISTORY_FILE).replaceAll("\\", "/");
+  const path = workspaceChangeFile(options.sourceDir, HISTORY_FILE);
   const absolutePath = resolveInside(rootPath, path);
   if (!(await exists(absolutePath))) return [];
   const entries: AppliedChangeRecord[] = [];
@@ -73,7 +72,7 @@ export async function readAppliedChangeRecords(
       sourceHashes: readHistoryEvidence(parsed.evidence, scopes),
     });
   }
-  const amended = await applyHistoryAmendments(rootPath, sourceDir, entries);
+  const amended = await applyHistoryAmendments(rootPath, options.sourceDir, entries);
   return [...amended].sort((left, right) => compareStrings(left.id, right.id));
 }
 
@@ -109,7 +108,7 @@ function readHistoryGroup(value: JsonValue | undefined): AppliedChangeGroup | un
 
 async function applyHistoryAmendments(
   rootPath: string,
-  sourceDir: string,
+  sourceDir: string | undefined,
   entries: readonly AppliedChangeRecord[]
 ): Promise<readonly AppliedChangeRecord[]> {
   const amendments = await readHistoryAmendments(rootPath, sourceDir);
@@ -120,8 +119,8 @@ async function applyHistoryAmendments(
   });
 }
 
-async function readHistoryAmendments(rootPath: string, sourceDir: string): Promise<ReadonlyMap<string, { readonly reason: string }>> {
-  const path = join(sourceDir, AMENDMENTS_FILE).replaceAll("\\", "/");
+async function readHistoryAmendments(rootPath: string, sourceDir: string | undefined): Promise<ReadonlyMap<string, { readonly reason: string }>> {
+  const path = workspaceChangeFile(sourceDir, AMENDMENTS_FILE);
   const absolutePath = resolveInside(rootPath, path);
   if (!(await exists(absolutePath))) return new Map();
   const amendments = new Map<string, { readonly reason: string }>();

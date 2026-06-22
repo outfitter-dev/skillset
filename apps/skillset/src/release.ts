@@ -16,6 +16,7 @@ import {
 } from "./source-unit-selector";
 import type { BuildGraph, JsonRecord, ReleaseScopeState, ReleaseState, SkillsetOptions, SourcePlugin } from "./types";
 import { pluginVersion, rootVersion, skillVersion } from "./versioning";
+import { workspaceChangeFile } from "./workspace-state";
 
 export type ReleaseSubcommand = "amend" | "apply" | "audit" | "plan";
 
@@ -92,10 +93,10 @@ interface FileSnapshot {
   readonly path: string;
 }
 
-const HISTORY_FILE = "changes/history.jsonl";
-const RELEASES_FILE = "changes/releases.jsonl";
-const RELEASE_AMENDMENTS_FILE = "changes/release-amendments.jsonl";
-const STATE_FILE = "changes/state.json";
+const HISTORY_FILE = "history.jsonl";
+const RELEASES_FILE = "releases.jsonl";
+const RELEASE_AMENDMENTS_FILE = "release-amendments.jsonl";
+const STATE_FILE = "state.json";
 const MIN_REF_LENGTH = 6;
 const BUMP_WEIGHT: Readonly<Record<ChangeBump, number>> = {
   none: 0,
@@ -151,14 +152,13 @@ export async function applyRelease(
     return { files: [], plan, renderedFiles: 0 };
   }
 
-  const sourceDir = releaseOptions.sourceDir ?? ".skillset";
   const now = new Date().toISOString();
   const files = new Set<string>();
   const pending = (await changeCheck(rootPath, releaseOptions)).entries;
-  const snapshots = await snapshotReleaseFiles(rootPath, sourceDir, pending, plan.baselineScopes.length > 0);
+  const snapshots = await snapshotReleaseFiles(rootPath, releaseOptions.sourceDir, pending, plan.baselineScopes.length > 0);
   let renderedFiles = 0;
   try {
-    await appendHistory(rootPath, sourceDir, pending, now, files);
+    await appendHistory(rootPath, releaseOptions.sourceDir, pending, now, files);
 
     if (plan.baselineScopes.length > 0) {
       const state = await readReleaseState(rootPath, releaseOptions);
@@ -166,7 +166,7 @@ export async function applyRelease(
       files.add(statePath);
     }
     if (plan.scopes.length > 0) {
-      await appendReleaseRecord(rootPath, sourceDir, plan, now, files);
+      await appendReleaseRecord(rootPath, releaseOptions.sourceDir, plan, now, files);
     }
 
     const rendered = await buildSkillset(rootPath, releaseOptions);
@@ -195,8 +195,7 @@ export async function amendReleaseRecord(
   const release = releaseView(resolveReleaseRef(records, options.ref), releaseRefIndex(records), amendments);
   const notes = await resolveChangeReason(rootPath, options.reason);
   const now = new Date().toISOString();
-  const sourceDir = storageOptions.sourceDir ?? ".skillset";
-  const amendmentPath = join(sourceDir, RELEASE_AMENDMENTS_FILE).replaceAll("\\", "/");
+  const amendmentPath = workspaceChangeFile(storageOptions.sourceDir, RELEASE_AMENDMENTS_FILE);
   const absolutePath = resolveInside(rootPath, amendmentPath);
   await mkdir(dirname(absolutePath), { recursive: true });
   await appendFile(absolutePath, `${JSON.stringify({
@@ -360,13 +359,13 @@ function nextReleaseState(
 
 async function appendHistory(
   rootPath: string,
-  sourceDir: string,
+  sourceDir: string | undefined,
   entries: readonly PendingChangeEntry[],
   appliedAt: string,
   files: Set<string>
 ): Promise<void> {
   if (entries.length === 0) return;
-  const relativePath = join(sourceDir, HISTORY_FILE).replaceAll("\\", "/");
+  const relativePath = workspaceChangeFile(sourceDir, HISTORY_FILE);
   const absolutePath = resolveInside(rootPath, relativePath);
   await mkdir(dirname(absolutePath), { recursive: true });
   const lines = entries.flatMap((entry) => entry.id === undefined || entry.bump === undefined ? [] : [
@@ -388,13 +387,13 @@ async function appendHistory(
 
 async function appendReleaseRecord(
   rootPath: string,
-  sourceDir: string,
+  sourceDir: string | undefined,
   plan: ReleasePlanReport,
   appliedAt: string,
   files: Set<string>
 ): Promise<void> {
   if (plan.scopes.length === 0) return;
-  const relativePath = join(sourceDir, RELEASES_FILE).replaceAll("\\", "/");
+  const relativePath = workspaceChangeFile(sourceDir, RELEASES_FILE);
   const absolutePath = resolveInside(rootPath, relativePath);
   await mkdir(dirname(absolutePath), { recursive: true });
   await appendFile(absolutePath, `${JSON.stringify({
@@ -416,17 +415,17 @@ async function appendReleaseRecord(
 
 async function snapshotReleaseFiles(
   rootPath: string,
-  sourceDir: string,
+  sourceDir: string | undefined,
   entries: readonly PendingChangeEntry[],
   includeReleaseState: boolean
 ): Promise<readonly FileSnapshot[]> {
   const paths = new Set<string>([
-    join(sourceDir, HISTORY_FILE).replaceAll("\\", "/"),
+    workspaceChangeFile(sourceDir, HISTORY_FILE),
     ...entries.map((entry) => entry.path),
   ]);
   if (includeReleaseState) {
-    paths.add(join(sourceDir, STATE_FILE).replaceAll("\\", "/"));
-    paths.add(join(sourceDir, RELEASES_FILE).replaceAll("\\", "/"));
+    paths.add(workspaceChangeFile(sourceDir, STATE_FILE));
+    paths.add(workspaceChangeFile(sourceDir, RELEASES_FILE));
   }
 
   const snapshots: FileSnapshot[] = [];
@@ -514,8 +513,7 @@ async function readReleaseRecords(
   rootPath: string,
   options: SkillsetOptions = {}
 ): Promise<readonly ReleaseRecord[]> {
-  const sourceDir = options.sourceDir ?? ".skillset";
-  const path = join(sourceDir, RELEASES_FILE).replaceAll("\\", "/");
+  const path = workspaceChangeFile(options.sourceDir, RELEASES_FILE);
   const absolutePath = resolveInside(rootPath, path);
   if (!(await exists(absolutePath))) return [];
   const records: ReleaseRecord[] = [];
@@ -541,8 +539,7 @@ async function readReleaseAmendments(
   rootPath: string,
   options: SkillsetOptions = {}
 ): Promise<ReadonlyMap<string, ReleaseAmendmentRecord>> {
-  const sourceDir = options.sourceDir ?? ".skillset";
-  const path = join(sourceDir, RELEASE_AMENDMENTS_FILE).replaceAll("\\", "/");
+  const path = workspaceChangeFile(options.sourceDir, RELEASE_AMENDMENTS_FILE);
   const absolutePath = resolveInside(rootPath, path);
   if (!(await exists(absolutePath))) return new Map();
   const amendments = new Map<string, ReleaseAmendmentRecord>();

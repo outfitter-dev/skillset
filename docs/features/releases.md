@@ -8,7 +8,7 @@ Releases turn accepted source changes into stable artifact versions, generated c
 
 ## Authoring
 
-Release state lives with change state under the workspace change directory: `.skillset/changes/state.json` for ordinary workspaces and `changes/state.json` for dedicated skillset repos. Applied change history appends to `changes/history.jsonl` under the same workspace change directory, and release records append to `changes/releases.jsonl`. Entity-local `CHANGELOG.md` files are generated tracked renderings placed beside source entities like plugins and skills. Pending changes are preview/status data, not committed pending sections in tracked changelogs.
+Release state lives with change state under the workspace change directory: `.skillset/changes/state.json` for ordinary workspaces and `skillset/changes/state.json` for dedicated skillset repos. Applied change history appends to `history.jsonl` under the same workspace change directory, and release records append to `releases.jsonl`. Entity-local `CHANGELOG.md` files are generated tracked renderings placed beside source entities like plugins and skills. Pending changes are preview/status data, not committed pending sections in tracked changelogs.
 
 Generated changelogs are reviewable projections, not editing surfaces. Before release, wording changes should update the pending entry with `skillset change reason <@ref>` and then rebuild. After release, source-change reason corrections use `skillset change amend <ref>`, and release-event metadata or release-note corrections use `skillset release amend <ref>`. Both commands append correction records under the workspace change directory, leaving original history auditable while generated changelog projections can be rebuilt from source-side state.
 
