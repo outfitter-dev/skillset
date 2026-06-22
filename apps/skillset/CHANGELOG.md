@@ -1,5 +1,11 @@
 # skillset
 
+## 0.15.1
+
+### Patch Changes
+
+- a4d9350: Stage dedicated workspace test runs from `skillset.yaml`, `skillset/`, and `changes/` instead of copying the whole repository, and rename generated lockfiles from `.skillset.lock` to `skillset.lock`.
+
 ## 0.15.0
 
 ### Minor Changes
