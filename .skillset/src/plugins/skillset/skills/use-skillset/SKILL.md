@@ -71,9 +71,14 @@ skillset init --root . --yes           # write the scaffold
 skillset create                        # preview ./my-skillset as a dedicated repo
 skillset create team-loadout --yes     # create a new source repo
 skillset create --global --yes         # create ~/.skillset/src
+skillset new skill "Docs CLI Expert"   # preview a new source skill
+skillset new skill --id docs-cli --name "Docs CLI Expert" --yes
+skillset new agent "Release Reviewer" --scope repo --yes
 ```
 
 `init` and `create` are plan-first like `build`: they write only with `--yes`, and `--dry-run` always prevents writes. `init` is the existing-repo entrypoint; it resolves the Git root by default, creates `.skillset/skillset.yaml` and `.skillset/src/` in an empty ordinary repo, validates an existing dedicated root `skillset.yaml`/`skillset/` without creating `.skillset/skillset.yaml`, detects unmanaged repo-local Claude/Codex/Skillset artifacts, skips generated output roots with Skillset locks, and seeds release-state baselines from source versions and normalized source hashes without creating a release or changelog entry. `create` is the new-repo entrypoint; local create scaffolds a dedicated repo with root `skillset.yaml`, root `skillset/` placeholders, root `changes/`, root `skillset.lock`, `.gitignore` for `.skillset/` operational output, README, lightweight `AGENTS.md`, and a Git repository by default. `--targets claude,codex` controls generated `compile.targets`; `--include ci` writes a user-owned `.github/workflows/skillset-ci.yml` running `skillset ci`. `create --global` creates source-only Skillset-owned files at `~/.skillset/src`; it does not support `--root` or `--include`, create repo guidance, initialize Git, or mutate `~/.claude`, `~/.codex`, `.agents`, trust settings, marketplaces, or symlinks. Future `npx create-skillset` / `bunx create-skillset` bootstraps should call the same create flow.
+
+`skillset new` scaffolds source units in the detected workspace source root and never builds automatically. Ordinary repos write under `.skillset/src/`; dedicated Skillset repos write under root `skillset/`. Use `--yes` to write, `--id` to choose a stable kebab-case identity, `--name` to set display text, and `--in <plugin-name>` to place a skill under an existing plugin container. `--preset support` adds `references/`, `assets/`, and `scripts/`; `--preset evals` adds `evals/evals.json`; `--preset reference-file` and `--preset examples-file` add `REFERENCE.md` or `EXAMPLES.md`. `skillset new agent <name>` writes project-agent source under `<source-root>/agents/`. Split hook scaffolding is deferred because current hook source is still aggregate `hooks/hooks.json`.
 
 Use `<source-root>/rules/**/*.md` for durable repo instructions. `.skillset/rules/**/*.md` is unsupported for instruction Markdown:
 

@@ -41,6 +41,12 @@ import {
 import { importSources, type ImportKind, type ImportProvider, type ImportReport } from "./import";
 import { lintSkillset } from "./lint";
 import {
+  scaffoldSourceUnit,
+  type NewSourceKind,
+  type NewSourceReport,
+  type NewSourceScope,
+} from "./new-source";
+import {
   amendReleaseRecord,
   applyRelease,
   planRelease,
@@ -54,7 +60,7 @@ import { renderValidatedJson } from "./structured-output";
 import { runSkillsetTest, type SkillsetTestReport } from "./test-runner";
 import type { BuildScope, CompileBuildMode, JsonRecord, SkillsetOptions, SourceOrigin, TargetName } from "./types";
 
-type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "diff" | "distribute" | "doctor" | "explain" | "features" | "hooks" | "import" | "init" | "lint" | "list" | "release" | "restore" | "suggest-source" | "test" | "verify";
+type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "diff" | "distribute" | "doctor" | "explain" | "features" | "hooks" | "import" | "init" | "lint" | "list" | "new" | "release" | "restore" | "suggest-source" | "test" | "verify";
 type DistributionSubcommand = "plan";
 
 const USAGE = [
@@ -88,6 +94,7 @@ const USAGE = [
   "       skillset adopt <path> [--yes|--dry-run] [--targets claude,codex] [--root <path>]",
   "       skillset init [path] [--yes|--dry-run] [--targets claude,codex] [--include ci] [--name <name>] [--root <path>]",
   "       skillset create [path|--global] [--yes|--dry-run] [--targets claude,codex] [--include ci] [--name <name>] [--root <path>]",
+  "       skillset new <skill|agent|hook> [name] [--id <id>] [--name <name>] [--in <container>] [--scope repo] [--preset <preset>] [--yes|--dry-run] [--root <path>] [--source <dir>]",
   "       skillset explain <path> [--json] [--scope <scope>] [--root <path>] [--source <dir>]",
   "       skillset import <path> [--kind <skill|skills|plugin|plugins>] [--from <provider>] [--name <name>] [--root <path>] [--source <dir>]",
   "       skillset import <claude|codex|agents> [--root <path>] [--source <dir>]",
@@ -130,6 +137,12 @@ export async function runCli(
     importName,
     importProvider,
     jsonOutput,
+    newContainer,
+    newId,
+    newKind,
+    newName,
+    newPresets,
+    newScope,
     options,
     rootPath,
     rootExplicit,
@@ -425,6 +438,24 @@ export async function runCli(
     return;
   }
 
+  if (command === "new") {
+    if (newKind === undefined) throw new Error("skillset: expected new kind skill, agent, or hook");
+    const report = await scaffoldSourceUnit(rootPath, {
+      ...(newContainer === undefined ? {} : { container: newContainer }),
+      ...(newId === undefined ? {} : { id: newId }),
+      kind: newKind,
+      ...(newName === undefined ? {} : { displayName: newName }),
+      ...(importPath === undefined ? {} : { name: importPath }),
+      ...(newPresets === undefined ? {} : { presets: newPresets }),
+      ...(newScope === undefined ? {} : { scope: newScope }),
+      skillsetOptions: options,
+      write: yes && !dryRun,
+    });
+    printNewSourceReport(report, dryRun ? "dry run" : yes ? "written" : "write confirmation required");
+    if (!yes || dryRun) console.log("skillset: rerun new with --yes to write source files");
+    return;
+  }
+
   if (command === "diff") {
     const result = await diffSkillsetResult(rootPath, options);
     printDiagnostics(result.diagnostics);
@@ -635,6 +666,12 @@ interface ParsedArgs {
   readonly importPath?: string;
   readonly importProvider?: ImportProvider;
   readonly jsonOutput: boolean;
+  readonly newContainer?: string;
+  readonly newId?: string;
+  readonly newKind?: NewSourceKind;
+  readonly newName?: string;
+  readonly newPresets?: readonly string[];
+  readonly newScope?: NewSourceScope;
   readonly options: SkillsetOptions;
   readonly releaseSubcommand?: ReleaseSubcommand;
   readonly releaseReason?: ChangeReasonInput;
@@ -1011,6 +1048,18 @@ function printSetupReport(result: SetupReport, reason: string): void {
   console.log(`  root: ${result.rootPath}`);
 }
 
+function printNewSourceReport(result: NewSourceReport, reason: string): void {
+  for (const file of result.files) console.log(`  + ${file.path}`);
+  const action = result.write ? "created" : "planned";
+  console.log(`skillset: ${action} ${result.kind} ${result.id} (${reason})`);
+  console.log(`  source: ${result.sourceRoot}`);
+  console.log(`  name: ${result.displayName}`);
+  if (result.write) {
+    console.log("  next: skillset check");
+    console.log("  next: skillset verify");
+  }
+}
+
 function printRestoreReport(report: OutputBackupRestoreReport): void {
   const mode = report.write ? "restored" : "restore preview";
   console.log(`skillset: ${mode} ${report.restoredPaths.length} file${report.restoredPaths.length === 1 ? "" : "s"} from backup ${report.runId}`);
@@ -1100,6 +1149,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     command !== "init" &&
     command !== "lint" &&
     command !== "list" &&
+    command !== "new" &&
     command !== "release" &&
     command !== "restore" &&
     command !== "suggest-source" &&
@@ -1107,7 +1157,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     command !== "verify"
   ) {
     throw new Error(
-        "skillset: expected command adopt, build, change, check, ci, create, diff, distribute, doctor, explain, features, hooks, import, init, lint, list, release, restore, suggest-source, test, or verify\n" +
+        "skillset: expected command adopt, build, change, check, ci, create, diff, distribute, doctor, explain, features, hooks, import, init, lint, list, new, release, restore, suggest-source, test, or verify\n" +
         USAGE
     );
   }
@@ -1140,6 +1190,12 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let importPath: string | undefined;
   let importProvider: ImportProvider | undefined;
   let jsonOutput = false;
+  let newContainer: string | undefined;
+  let newId: string | undefined;
+  let newKind: NewSourceKind | undefined;
+  let newName: string | undefined;
+  let newPresets: readonly string[] | undefined;
+  let newScope: NewSourceScope | undefined;
   let rootPath = process.cwd();
   let rootExplicit = false;
   let sourceDir: string | undefined;
@@ -1274,6 +1330,20 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     }
   }
 
+  if (command === "new") {
+    const rawKind = args[index];
+    if (!isNewSourceKind(rawKind)) {
+      throw new Error("skillset: expected new kind skill, agent, or hook");
+    }
+    newKind = rawKind;
+    index += 1;
+    const rawName = args[index];
+    if (rawName !== undefined && !rawName.startsWith("--")) {
+      importPath = rawName;
+      index += 1;
+    }
+  }
+
   for (; index < args.length; index += 1) {
     const arg = args[index];
     if (arg === undefined) break;
@@ -1284,9 +1354,12 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--root" &&
       flag !== "--source" &&
       flag !== "--dist" &&
+      flag !== "--id" &&
       flag !== "--name" &&
+      flag !== "--in" &&
       flag !== "--kind" &&
       flag !== "--from" &&
+      flag !== "--preset" &&
       flag !== "--append" &&
       flag !== "--bump" &&
       flag !== "--group" &&
@@ -1375,6 +1448,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
         throw new Error(`skillset: change ${changeSubcommand} is a whole-source command; --scope is not supported`);
       } else if (command === "change") {
         throw new Error("skillset: --scope is only supported with change add source-unit entries");
+      } else if (command === "new") {
+        newScope = readNewSourceScope(value);
       } else {
         scopes = readBuildScopes(value);
       }
@@ -1396,7 +1471,13 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     if (flag === "--target") hookTarget = readHookTarget(value);
     if (flag === "--targets") setupTargets = readSetupTargets(value);
     if (flag === "--include") setupIncludes = mergeSetupIncludes(setupIncludes, value);
-    if (flag === "--name") importName = value;
+    if (flag === "--id") newId = value;
+    if (flag === "--in") newContainer = value;
+    if (flag === "--name") {
+      if (command === "new") newName = value;
+      else importName = value;
+    }
+    if (flag === "--preset") newPresets = [...(newPresets ?? []), value];
     if (flag === "--kind") {
       if (!isImportKind(value)) {
         throw new Error("skillset: expected --kind skill, skills, plugin, or plugins");
@@ -1514,6 +1595,18 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     write: sourceSuggestionWrite,
     yes,
   });
+  validateNewSourceFlags(command, {
+    ...(buildMode === undefined ? {} : { buildMode }),
+    ...(distDir === undefined ? {} : { distDir }),
+    ...(newContainer === undefined ? {} : { container: newContainer }),
+    ...(newId === undefined ? {} : { id: newId }),
+    ...(importKind === undefined ? {} : { importKind }),
+    ...(importProvider === undefined ? {} : { importProvider }),
+    ...(newKind === undefined ? {} : { kind: newKind }),
+    ...(newName === undefined ? {} : { name: newName }),
+    ...(newPresets === undefined ? {} : { presets: newPresets }),
+    ...(newScope === undefined ? {} : { scope: newScope }),
+  });
 
   const options: SkillsetOptions = {
     ...(buildMode === undefined ? {} : { buildMode }),
@@ -1551,6 +1644,12 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(importPath === undefined ? {} : { importPath }),
     ...(importProvider === undefined ? {} : { importProvider }),
     jsonOutput,
+    ...(newContainer === undefined ? {} : { newContainer }),
+    ...(newId === undefined ? {} : { newId }),
+    ...(newKind === undefined ? {} : { newKind }),
+    ...(newName === undefined ? {} : { newName }),
+    ...(newPresets === undefined ? {} : { newPresets }),
+    ...(newScope === undefined ? {} : { newScope }),
     options,
     ...(releaseSubcommand === undefined ? {} : { releaseSubcommand }),
     ...(releaseReason === undefined ? {} : { releaseReason }),
@@ -1579,6 +1678,15 @@ function isChangeSubcommand(value: string | undefined): value is ChangeSubcomman
     value === "reason" ||
     value === "show" ||
     value === "status";
+}
+
+function isNewSourceKind(value: string | undefined): value is NewSourceKind {
+  return value === "agent" || value === "hook" || value === "skill";
+}
+
+function readNewSourceScope(value: string): NewSourceScope {
+  if (value === "repo") return value;
+  throw new Error("skillset: new currently supports only --scope repo");
 }
 
 function readChangeScopes(value: string): readonly string[] {
@@ -1829,6 +1937,38 @@ function validateSuggestSourceFlags(
   if (suggestion.scopes !== undefined) throw new Error("skillset: --scope is not supported with suggest-source");
   if (suggestion.yes && !suggestion.write) throw new Error("skillset: --yes is only supported with suggest-source --write");
   if (suggestion.write && !suggestion.yes) throw new Error("skillset: suggest-source --write requires --yes");
+}
+
+function validateNewSourceFlags(
+  command: Command,
+  source: {
+    readonly buildMode?: CompileBuildMode;
+    readonly container?: string;
+    readonly distDir?: string;
+    readonly id?: string;
+    readonly importKind?: ImportKind;
+    readonly importProvider?: ImportProvider;
+    readonly kind?: NewSourceKind;
+    readonly name?: string;
+    readonly presets?: readonly string[];
+    readonly scope?: NewSourceScope;
+  }
+): void {
+  const hasNewFlag = source.container !== undefined ||
+    source.id !== undefined ||
+    source.kind !== undefined ||
+    source.name !== undefined ||
+    source.presets !== undefined ||
+    source.scope !== undefined;
+  if (hasNewFlag && command !== "new") {
+    throw new Error("skillset: new options are only supported with new");
+  }
+  if (command !== "new") return;
+  if (source.buildMode !== undefined) throw new Error("skillset: --updated and --all are not supported with new");
+  if (source.distDir !== undefined) throw new Error("skillset: --dist is not supported with new");
+  if (source.importKind !== undefined) throw new Error("skillset: --kind is only supported with import");
+  if (source.importProvider !== undefined) throw new Error("skillset: --from is only supported with import");
+  if (source.kind === undefined) throw new Error("skillset: expected new kind skill, agent, or hook");
 }
 
 function setBuildMode(current: CompileBuildMode | undefined, next: CompileBuildMode): CompileBuildMode {
