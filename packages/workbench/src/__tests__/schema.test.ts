@@ -54,6 +54,30 @@ describe("workbench source contract schema checks", () => {
     ]);
   });
 
+  test("reports Markdown warnings alongside schema diagnostics", () => {
+    const diagnostics = checkWorkbenchSourceContract({
+      content: [
+        "---",
+        "name: demo",
+        "---",
+        "```markdown",
+        "Use this example:",
+        "```ts",
+        "console.log('hello');",
+        "```",
+        "```",
+        "",
+      ].join("\n"),
+      kind: "skill",
+      path: ".skillset/src/skills/demo/SKILL.md",
+    });
+
+    expect(diagnostics.map(formatWorkbenchDiagnostic)).toEqual([
+      ".skillset/src/skills/demo/SKILL.md:1: error: schema/skill-frontmatter: skill needs description, summary, title, or skillset descriptive metadata",
+      ".skillset/src/skills/demo/SKILL.md:4:1: warning: markdown/code-fence-nesting: outer 3-backtick fence is not long enough for inner 3-backtick fence on line 6",
+    ]);
+  });
+
   test("accepts derivable skill descriptions and rejects nested skill identity", () => {
     expect(checkWorkbenchSourceContract({
       content: "---\ntitle: Demo Skill\n---\nUse this skill.\n",

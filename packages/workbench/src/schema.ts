@@ -41,12 +41,21 @@ export function checkWorkbenchSourceContract(
     kind: parseKindForContract(input.kind),
     path: input.path,
   });
-  if (parsed.diagnostics.length > 0) return parsed.diagnostics;
+  const parseDiagnostics = [...parsed.diagnostics];
+  if (parseDiagnostics.some((diagnostic) => diagnostic.severity === "error")) {
+    return sortWorkbenchDiagnostics(parseDiagnostics);
+  }
 
-  if (input.kind === "agent") return sortWorkbenchDiagnostics(checkAgentContract(parsed, input.path));
-  if (input.kind === "hook") return sortWorkbenchDiagnostics(checkHookContract(parsed, input.path));
-  if (input.kind === "skill") return sortWorkbenchDiagnostics(checkSkillContract(parsed, input.path));
-  return sortWorkbenchDiagnostics(checkWorkspaceConfigContract(parsed, input.path));
+  if (input.kind === "agent") {
+    return sortWorkbenchDiagnostics([...parseDiagnostics, ...checkAgentContract(parsed, input.path)]);
+  }
+  if (input.kind === "hook") {
+    return sortWorkbenchDiagnostics([...parseDiagnostics, ...checkHookContract(parsed, input.path)]);
+  }
+  if (input.kind === "skill") {
+    return sortWorkbenchDiagnostics([...parseDiagnostics, ...checkSkillContract(parsed, input.path)]);
+  }
+  return sortWorkbenchDiagnostics([...parseDiagnostics, ...checkWorkspaceConfigContract(parsed, input.path)]);
 }
 
 function parseKindForContract(kind: WorkbenchSourceContractKind): WorkbenchParseKind {

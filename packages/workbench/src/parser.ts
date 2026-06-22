@@ -1,4 +1,5 @@
 import { createWorkbenchDiagnostic } from "./diagnostics";
+import { workbenchDiagnosticsFromMarkdownCodeFences } from "./markdown";
 import type {
   WorkbenchDiagnostic,
   WorkbenchMarkdownHeading,
@@ -90,11 +91,15 @@ function parseYaml(path: string, content: string): WorkbenchParseResult {
 function parseMarkdown(path: string, content: string): WorkbenchParseResult {
   const normalized = content.replaceAll(/\r\n?/g, "\n");
   const lines = normalized.split("\n");
+  const markdownDiagnostics = workbenchDiagnosticsFromMarkdownCodeFences({
+    content: normalized,
+    path,
+  });
   if (!isFrontmatterDelimiter(lines[0] ?? "")) {
     return {
       body: normalized,
       bodyStartLine: 1,
-      diagnostics: [],
+      diagnostics: markdownDiagnostics,
       headings: markdownHeadings(lines, 1),
       kind: "markdown",
       path,
@@ -113,6 +118,7 @@ function parseMarkdown(path: string, content: string): WorkbenchParseResult {
           "frontmatter starts with --- but never closes",
           { line: 1 }
         ),
+        ...markdownDiagnostics,
       ],
       headings: [],
       kind: "markdown",
@@ -138,6 +144,7 @@ function parseMarkdown(path: string, content: string): WorkbenchParseResult {
           ...location,
           line: location.line + 1,
         }),
+        ...markdownDiagnostics,
       ],
       headings: markdownHeadings(bodyLines, bodyStartLine),
       kind: "markdown",
@@ -153,6 +160,7 @@ function parseMarkdown(path: string, content: string): WorkbenchParseResult {
         syntaxDiagnostic(path, "syntax/markdown-frontmatter", "frontmatter must be a YAML object", {
           line: 2,
         }),
+        ...markdownDiagnostics,
       ],
       headings: markdownHeadings(bodyLines, bodyStartLine),
       kind: "markdown",
@@ -163,7 +171,7 @@ function parseMarkdown(path: string, content: string): WorkbenchParseResult {
   return {
     body,
     bodyStartLine,
-    diagnostics: [],
+    diagnostics: markdownDiagnostics,
     frontmatter: parsed ?? {},
     headings: markdownHeadings(bodyLines, bodyStartLine),
     kind: "markdown",

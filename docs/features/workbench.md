@@ -57,6 +57,8 @@ Current public CLI selection stays intentionally small; `skillset check` runs th
 
 Workbench parser helpers use Bun-backed JSON, YAML, and TOML parsing plus Markdown/frontmatter extraction. Syntax diagnostics carry file and line information where the parser exposes it, and Markdown heading extraction ignores fenced code blocks so body facts stay stable.
 
+Workbench Markdown diagnostics also check code fence nesting inside Markdown-labeled examples. When a fenced Markdown example needs to show another fenced code block, the outer fence must use more backticks than any inner fence. For example, use four backticks around a `markdown`, `md`, `mdx`, or `gfm` snippet that contains triple-backtick examples. The `markdown/code-fence-nesting` rule reports the outer fence and the conflicting inner fence so authors can increment the outer fence length by one backtick beyond the longest inner fence.
+
 Schema checks cover representative source contracts:
 
 - ordinary workspace config files such as `.skillset/skillset.yaml`;
@@ -102,5 +104,6 @@ These fixtures are internal compiler fixtures, not public `.skillset/tests/` sou
 - Parser/schema tests: `packages/workbench/src/__tests__/parser.test.ts`, `packages/workbench/src/__tests__/schema.test.ts`
 - Resource/runtime/provider tests: `packages/workbench/src/__tests__/resource-runtime.test.ts`, `packages/workbench/src/__tests__/compatibility.test.ts`
 - ast-grep proof tests: `packages/workbench/src/__tests__/ast-grep.test.ts`
+- Markdown rule tests: `packages/workbench/src/__tests__/markdown.test.ts`
 - Fixture tests: `packages/workbench/src/__tests__/fixtures.test.ts`
 - CLI command split tests: `apps/skillset/src/__tests__/contract.test.ts`, `apps/skillset/src/__tests__/runtime-hooks.test.ts`
