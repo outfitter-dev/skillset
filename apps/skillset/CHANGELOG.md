@@ -1,5 +1,20 @@
 # skillset
 
+## 0.15.0
+
+### Minor Changes
+
+- 55504e5: Add configurable prompt argument placeholders for skill Markdown. `{{$ARGUMENTS}}`, `{{$ARGUMENTS[0]}}`, `{{$ARGUMENTS[1]}}`, and `{{$ARGUMENTS.name}}` now adapt to native Claude placeholders and a terse Codex instruction shim, with `compile.features.promptArguments: false` available to reject the feature. Adoption also normalizes raw Claude `$ARGUMENTS` forms to these Skillset placeholders so imported skills can build for Claude and Codex.
+- 7aad82e: Add `skillset new` for preview-first source-unit scaffolding, including skills, project agents, plugin-container placement, and common skill support presets.
+
+### Patch Changes
+
+- d1e478d: Split the public `skillset check` and `skillset verify` commands. `check` now owns source/workspace authoring correctness, while `verify` owns generated-output freshness and isolated output verification.
+- 5182d72: Add Workbench compatibility diagnostics for adapter conformance and feature-registry drift.
+- 01424af: Introduce the private Workbench diagnostic primitives that back the new `skillset check` authoring-correctness surface.
+- 9243321: Document the Workbench check presets and register the feature evidence used by generated Skillset guidance.
+- 49f2975: Add Workbench Markdown diagnostics for nested backtick code fences so skill and reference docs can catch broken rendered examples before build output is trusted.
+
 ## 0.14.0
 
 ### Minor Changes
