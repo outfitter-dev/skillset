@@ -487,21 +487,25 @@ Demo ordinary workspace skill.
   );
 });
 
-test("skillset test reads ordinary 1.0 workspace tests from skillset.yaml", async () => {
+test("skillset test reads ordinary 1.0 workspace tests from the source root", async () => {
   const root = await fixture({
     ".skillset/skillset.yaml": `
 skillset:
   name: ordinary-root
-tests:
-  self:
-    source: repo:.skillset
-    output:
-      kind: isolated
-    assertions:
-      - build
-      - exists: .claude/skills/demo/SKILL.md
 claude: true
 codex: false
+`,
+    ".skillset/src/tests.yaml": `
+self:
+  select:
+    skills:
+      primary: ["demo"]
+  output:
+    kind: isolated
+  checks:
+    projection: true
+    files:
+      - path: .claude/skills/demo/SKILL.md
 `,
     ".skillset/src/skills/demo/SKILL.md": `
 ---
@@ -528,16 +532,19 @@ test("skillset test stages dedicated workspace source without copying unrelated 
     "skillset.yaml": `
 skillset:
   name: dedicated-root
-tests:
-  self:
-    source: repo:.
-    output:
-      kind: isolated
-    assertions:
-      - build
-      - exists: .claude/skills/demo/SKILL.md
 claude: true
 codex: false
+`,
+    "skillset/tests/self.yaml": `
+select:
+  skills:
+    primary: ["demo"]
+output:
+  kind: isolated
+checks:
+  projection: true
+  files:
+    - path: .claude/skills/demo/SKILL.md
 `,
     "skillset/skills/demo/SKILL.md": `
 ---
@@ -556,6 +563,44 @@ Demo dedicated workspace skill.
   expect(await exists(join(root, ".skillset/cache/tests/latest/workspace/skillset.yaml"))).toBe(true);
   expect(await exists(join(root, ".skillset/cache/tests/latest/workspace/.claude/skills/demo/SKILL.md"))).toBe(true);
   expect(await exists(join(root, ".skillset/cache/tests/latest/workspace/package.json"))).toBe(false);
+});
+
+test("skillset test rejects duplicate source-root declaration names", async () => {
+  const root = await fixture({
+    ".skillset/skillset.yaml": `
+skillset:
+  name: duplicate-tests
+claude: true
+codex: false
+`,
+    ".skillset/src/tests.yaml": `
+self:
+  select:
+    skills:
+      primary: ["demo"]
+  checks:
+    projection: true
+`,
+    ".skillset/src/tests/self.yaml": `
+select:
+  skills:
+    primary: ["demo"]
+checks:
+  projection: true
+`,
+    ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo ordinary workspace skill.
+---
+
+Demo ordinary workspace skill.
+`,
+  });
+
+  await expect(runSkillsetTest(root, "self")).rejects.toThrow(
+    "duplicate test self in .skillset/src/tests.yaml.self and .skillset/src/tests/self.yaml"
+  );
 });
 
 test("change status compares current dedicated workspace against legacy git baselines", async () => {

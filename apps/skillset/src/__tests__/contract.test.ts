@@ -1529,25 +1529,104 @@ test("SET-44: change status and check reject scoped source coverage", async () =
   expect(check.stderr).toContain("--scope is not supported");
 });
 
+test("SET-176: change status normalizes retired baseline test declarations", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: retired-tests-baseline
+tests:
+  self:
+    source: repo:.
+    assertions:
+      - build
+claude: true
+codex: false
+`,
+    "skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+---
+
+Baseline body.
+`,
+  });
+  await commitFixture(root);
+
+  await writeFile(join(root, "skillset.yaml"), `
+skillset:
+  name: retired-tests-baseline
+claude: true
+codex: false
+`);
+  await mkdir(join(root, "skillset"), { recursive: true });
+  await writeFile(join(root, "skillset/tests.yaml"), `
+self:
+  select:
+    skills:
+      primary: ["demo"]
+  checks:
+    projection: true
+`);
+
+  const status = await runSkillsetCli("change", "status", "--root", root, "--since", "HEAD");
+
+  if (status.exitCode !== 0) throw new Error(`change status failed\nstderr:\n${status.stderr}\nstdout:\n${status.stdout}`);
+  expect(status.exitCode).toBe(0);
+  expect(status.stderr).toBe("");
+});
+
+test("SET-176: skillset test reports retired workspace test declarations", async () => {
+  const root = await contractFixture({
+    ".skillset/skillset.yaml": `
+skillset:
+  name: retired-tests-workspace
+tests:
+  self:
+    assertions:
+      - build
+claude: true
+codex: false
+`,
+    ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Demo body.
+`,
+  });
+
+  const result = await runSkillsetCli("test", "self", "--root", root);
+
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain(".skillset/skillset.yaml.tests is retired");
+  expect(result.stderr).toContain(".skillset/src/tests.yaml");
+  expect(result.stderr).not.toContain("unsupported top-level key tests");
+});
+
 test("SET-50: skillset test runs an isolated projection and refreshes latest", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `
 skillset:
   name: test-root
-tests:
-  self:
-    source: repo:.skillset
-    output:
-      kind: isolated
-    assertions:
-      - build
-      - exists: .claude/skills/demo/SKILL.md
-      - contains:
-          path: .claude/skills/demo/SKILL.md
-          text: Demo body.
-      - noDrift
 claude: true
 codex: false
+`,
+    ".skillset/src/tests.yaml": `
+self:
+  select:
+    skills:
+      primary: ["demo"]
+  output:
+    kind: isolated
+  checks:
+    projection: true
+    files:
+      - path: .claude/skills/demo/SKILL.md
+      - path: .claude/skills/demo/SKILL.md
+        contains: Demo body.
 `,
     ".skillset/src/skills/demo/SKILL.md": `
 ---
@@ -1563,23 +1642,26 @@ Demo body.
   expect(first.exitCode).toBe(0);
   expect(first.stderr).toBe("");
   expect(first.stdout).toContain("skillset: test self passed");
-  expect(first.stdout).toContain("pass: build");
-  expect(first.stdout).toContain("pass: noDrift");
+  expect(first.stdout).toContain("pass: projection");
 
   const firstLatest = JSON.parse(await readFile(join(root, ".skillset/cache/tests/latest.json"), "utf8")) as {
     runId: string;
     runPath: string;
+    schemaVersion: number;
     workspacePath: string;
   };
   expect(firstLatest.runId).toMatch(/^\d{8}T\d{6}Z-[0-9a-f]{8}$/);
+  expect(firstLatest.schemaVersion).toBe(2);
   expect(await fileExists(join(root, firstLatest.runPath, "report.json"))).toBe(true);
   expect(await fileExists(join(root, ".skillset/cache/tests/latest/report.json"))).toBe(true);
   expect(await fileExists(join(root, ".skillset/cache/tests/latest/workspace/.claude/skills/demo/SKILL.md"))).toBe(true);
   expect(await fileExists(join(root, ".skillset/cache/tests/latest/workspace/.agents/skills/demo/SKILL.md"))).toBe(false);
   expect(await fileExists(join(root, ".claude/skills/demo/SKILL.md"))).toBe(false);
   const firstReport = JSON.parse(await readFile(join(root, firstLatest.runPath, "report.json"), "utf8")) as {
+    schemaVersion: number;
     targets: readonly string[];
   };
+  expect(firstReport.schemaVersion).toBe(2);
   expect(firstReport.targets).toEqual(["claude"]);
 
   const second = await runSkillsetCli("test", "self", "--root", root);
@@ -1598,21 +1680,23 @@ test("SET-112: skillset test compiles activation probes into run and latest asse
     ".skillset/config.yaml": `
 skillset:
   name: activation-root
-tests:
-  activation:
-    source: repo:.skillset
-    targets:
-      - claude
-      - codex
-    activation:
-      - name: fixture guidance
-        prompt: Help me inspect this Skillset fixture setup.
-        expect:
-          skill: demo
-    assertions:
-      - build
 claude: true
 codex: true
+`,
+    ".skillset/src/tests/activation.yaml": `
+select:
+  skills:
+    primary: ["demo"]
+targets:
+  - claude
+  - codex
+activation:
+  - name: fixture guidance
+    prompt: Help me inspect this Skillset fixture setup.
+    expect:
+      skill: demo
+checks:
+  projection: true
 `,
     ".skillset/src/skills/demo/SKILL.md": `
 ---
@@ -1643,17 +1727,19 @@ test("SET-112: activation probes reject empty prompts and duplicate output names
     ".skillset/config.yaml": `
 skillset:
   name: empty-prompt-root
-tests:
-  activation:
-    source: repo:.skillset
-    activation:
-      - prompt: " "
-        expect:
-          skill: demo
-    assertions:
-      - build
 claude: true
 codex: false
+`,
+    ".skillset/src/tests/activation.yaml": `
+select:
+  skills:
+    primary: ["demo"]
+activation:
+  - prompt: " "
+    expect:
+      skill: demo
+checks:
+  projection: true
 `,
     ".skillset/src/skills/demo/SKILL.md": `
 ---
@@ -1672,22 +1758,26 @@ Demo body.
     ".skillset/config.yaml": `
 skillset:
   name: duplicate-probe-root
-tests:
-  activation:
-    source: repo:.skillset
-    activation:
-      - name: Demo probe
-        prompt: First prompt.
-        expect:
-          skill: first
-      - name: demo-probe
-        prompt: Second prompt.
-        expect:
-          skill: second
-    assertions:
-      - build
 claude: true
 codex: false
+`,
+    ".skillset/src/tests/activation.yaml": `
+select:
+  skills:
+    primary:
+      - first
+      - second
+activation:
+  - name: Demo probe
+    prompt: First prompt.
+    expect:
+      skill: first
+  - name: demo-probe
+    prompt: Second prompt.
+    expect:
+      skill: second
+checks:
+  projection: true
 `,
     ".skillset/src/skills/first/SKILL.md": `
 ---
@@ -1715,19 +1805,21 @@ Second body.
     ".skillset/config.yaml": `
 skillset:
   name: empty-targets-root
-tests:
-  activation:
-    source: repo:.skillset
-    activation:
-      - name: empty targets
-        prompt: Probe prompt.
-        targets: []
-        expect:
-          skill: demo
-    assertions:
-      - build
 claude: true
 codex: false
+`,
+    ".skillset/src/tests/activation.yaml": `
+select:
+  skills:
+    primary: ["demo"]
+activation:
+  - name: empty targets
+    prompt: Probe prompt.
+    targets: []
+    expect:
+      skill: demo
+checks:
+  projection: true
 `,
     ".skillset/src/skills/demo/SKILL.md": `
 ---
@@ -1749,20 +1841,22 @@ test("SET-112: activation probes require expected units to be emitted for the ta
     ".skillset/config.yaml": `
 skillset:
   name: missing-activation-root
-tests:
-  activation:
-    source: repo:.skillset
-    targets:
-      - claude
-    activation:
-      - name: missing skill
-        prompt: Probe prompt.
-        expect:
-          skill: missing
-    assertions:
-      - build
 claude: true
 codex: false
+`,
+    ".skillset/src/tests/activation.yaml": `
+select:
+  skills:
+    primary: ["demo"]
+targets:
+  - claude
+activation:
+  - name: missing skill
+    prompt: Probe prompt.
+    expect:
+      skill: missing
+checks:
+  projection: true
 `,
     ".skillset/src/skills/demo/SKILL.md": `
 ---
@@ -1780,7 +1874,7 @@ Demo body.
   expect(await fileExists(join(root, ".skillset/cache/tests/runs"))).toBe(false);
 });
 
-test("SET-112: test declarations are root-owned and rejected in plugin config", async () => {
+test("SET-112: test declarations are active source-root owned", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `
 skillset:
@@ -1788,14 +1882,16 @@ skillset:
 claude: true
 codex: false
 `,
+    ".skillset/src/plugins/alpha/tests.yaml": `
+ignored:
+  select:
+    plugins: ["alpha"]
+  checks:
+    projection: true
+`,
     ".skillset/src/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
-tests:
-  ignored:
-    source: repo:.skillset
-    assertions:
-      - build
 `,
     ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
 ---
@@ -1807,10 +1903,249 @@ Demo body.
 `,
   });
 
-  await expect(buildSkillset(root)).rejects.toThrow("unsupported top-level key tests");
+  const result = await runSkillsetCli("test", "ignored", "--root", root);
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain(".skillset/src must include tests.yaml or tests/*.yaml for skillset test");
 });
 
-test("SET-50: skillset test reports failed assertions without touching live outputs", async () => {
+test("SET-176: source selectors prune unrelated source before isolated builds", async () => {
+  const root = await contractFixture({
+    ".skillset/skillset.yaml": `
+skillset:
+  name: selected-source-root
+claude: true
+codex: true
+`,
+    ".skillset/src/tests.yaml": `
+self:
+  select:
+    skills:
+      primary:
+        - demo
+  checks:
+    projection: true
+`,
+    ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Demo body.
+`,
+    ".skillset/src/plugins/bad/skillset.yaml": `
+skillset:
+  name: bad
+`,
+    ".skillset/src/plugins/bad/agents/worker.md": `
+---
+name: worker
+description: Unsupported Codex plugin agent.
+---
+
+Worker body.
+`,
+  });
+
+  const result = await runSkillsetCli("test", "self", "--root", root);
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout).toContain("pass: projection");
+  expect(result.stdout).toContain("selection: primary skills demo");
+  expect(await fileExists(join(root, ".skillset/cache/tests/latest/workspace/plugins-codex/plugins/bad/.codex-plugin/plugin.json"))).toBe(false);
+});
+
+test("SET-176: plugin skill selectors prune plugin-owned companion source", async () => {
+  const root = await contractFixture({
+    ".skillset/skillset.yaml": `
+skillset:
+  name: selected-plugin-skill-root
+claude: true
+codex: false
+`,
+    ".skillset/src/tests.yaml": `
+self:
+  select:
+    plugins:
+      include:
+        - alpha
+      skills:
+        - demo
+  checks:
+    projection: true
+`,
+    ".skillset/src/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+resources:
+  scripts:
+    - plugin:scripts/check.sh
+---
+
+Demo body.
+`,
+    ".skillset/src/plugins/alpha/shared/scripts/check.sh": `
+#!/usr/bin/env bash
+echo shared
+`,
+    ".skillset/src/plugins/alpha/commands/run.md": `
+COMMAND_EMITTED=yes
+`,
+  });
+
+  const result = await runSkillsetCli("test", "self", "--root", root);
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout).toContain("pass: projection");
+  expect(await fileExists(join(root, ".skillset/cache/tests/latest/workspace/plugins-claude/plugins/alpha/skills/demo/scripts/check.sh"))).toBe(true);
+  expect(await fileExists(join(root, ".skillset/cache/tests/latest/workspace/plugins-claude/plugins/alpha/commands/run.md"))).toBe(false);
+});
+
+test("SET-179: plugin manifest checks derive selected provider manifests", async () => {
+  const root = await contractFixture({
+    ".skillset/skillset.yaml": `
+skillset:
+  name: manifest-root
+  version: 2.3.4
+claude: true
+codex: true
+`,
+    ".skillset/src/tests.yaml": `
+plugin-manifests:
+  select:
+    plugins:
+      - alpha
+  checks:
+    projection: true
+    pluginManifests: true
+`,
+    ".skillset/src/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+  summary: Alpha plugin.
+  license: MIT
+  keywords:
+    - alpha
+claude:
+  manifest:
+    name: alpha-claude
+codex:
+  manifest:
+    name: alpha-codex
+`,
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Demo body.
+`,
+  });
+
+  const result = await runSkillsetCli("test", "plugin-manifests", "--root", root);
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout).toContain("pass: projection");
+  expect(result.stdout).toContain("pass: pluginManifests");
+  expect(result.stdout).toContain("selection: plugins alpha");
+
+  const report = JSON.parse(await readFile(join(root, ".skillset/cache/tests/latest/report.json"), "utf8")) as {
+    selection: { plugins: string[] };
+  };
+  expect(report.selection.plugins).toEqual(["alpha"]);
+  const latest = JSON.parse(await readFile(join(root, ".skillset/cache/tests/latest.json"), "utf8")) as {
+    selection: { plugins: string[] };
+  };
+  expect(latest.selection).toEqual(report.selection);
+  const markdown = await readFile(join(root, ".skillset/cache/tests/latest/report.md"), "utf8");
+  expect(markdown).toContain("Selection: plugins alpha");
+  const claudeManifest = JSON.parse(
+    await readFile(join(root, ".skillset/cache/tests/latest/workspace/plugins-claude/plugins/alpha/.claude-plugin/plugin.json"), "utf8")
+  ) as { keywords?: string[]; license?: string; name?: string; version?: string };
+  const codexManifest = JSON.parse(
+    await readFile(join(root, ".skillset/cache/tests/latest/workspace/plugins-codex/plugins/alpha/.codex-plugin/plugin.json"), "utf8")
+  ) as { keywords?: string[]; license?: string; name?: string; version?: string };
+  expect(claudeManifest.name).toBe("alpha-claude");
+  expect(claudeManifest.version).toBe("2.3.4");
+  expect(claudeManifest.license).toBe("MIT");
+  expect(claudeManifest.keywords).toEqual(["alpha"]);
+  expect(codexManifest.name).toBe("alpha-codex");
+  expect(codexManifest.version).toBe("2.3.4");
+  expect(codexManifest.license).toBe("MIT");
+  expect(codexManifest.keywords).toEqual(["alpha"]);
+});
+
+test("SET-178: source selectors reject missing and ambiguous plugin skills", async () => {
+  const root = await contractFixture({
+    ".skillset/skillset.yaml": `
+skillset:
+  name: selector-root
+claude: true
+codex: false
+`,
+    ".skillset/src/tests.yaml": `
+missing-plugin:
+  select:
+    plugins:
+      - missing
+  checks:
+    projection: true
+ambiguous-plugin-skill:
+  select:
+    skills:
+      plugin:
+        - shared
+  checks:
+    projection: true
+empty:
+  select: {}
+  checks:
+    projection: true
+`,
+    ".skillset/src/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/src/plugins/alpha/skills/shared/SKILL.md": `
+---
+name: shared
+description: Shared alpha.
+---
+
+Alpha body.
+`,
+    ".skillset/src/plugins/beta/skillset.yaml": `
+skillset:
+  name: beta
+`,
+    ".skillset/src/plugins/beta/skills/shared/SKILL.md": `
+---
+name: shared
+description: Shared beta.
+---
+
+Beta body.
+`,
+  });
+
+  const missing = await runSkillsetCli("test", "missing-plugin", "--root", root);
+  expect(missing.exitCode).toBe(1);
+  expect(missing.stderr).toContain('unknown plugin "missing"');
+
+  const ambiguous = await runSkillsetCli("test", "ambiguous-plugin-skill", "--root", root);
+  expect(ambiguous.exitCode).toBe(1);
+  expect(ambiguous.stderr).toContain('plugin skill "shared"');
+  expect(ambiguous.stderr).toContain("is ambiguous across plugins alpha, beta");
+
+  const empty = await runSkillsetCli("test", "empty", "--root", root);
+  expect(empty.exitCode).toBe(1);
+  expect(empty.stderr).toContain(".skillset/src/tests.yaml.empty.select must select at least one source unit");
+});
+
+test("SET-50: skillset test reports failed checks without touching live outputs", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `
 skillset:
@@ -1818,14 +2153,18 @@ skillset:
 compile:
   targets:
     - claude
-tests:
-  self:
-    source: repo:.skillset
-    assertions:
-      - build
-      - exists: missing/generated.txt
 claude: true
 codex: false
+`,
+    ".skillset/src/tests.yaml": `
+self:
+  select:
+    skills:
+      primary: ["demo"]
+  checks:
+    projection: true
+    files:
+      - path: missing/generated.txt
 `,
     ".skillset/src/skills/demo/SKILL.md": `
 ---
@@ -1845,10 +2184,10 @@ Demo body.
 
   const report = JSON.parse(await readFile(join(root, ".skillset/cache/tests/latest/report.json"), "utf8")) as {
     ok: boolean;
-    assertions: Array<{ detail?: string; kind: string; ok: boolean; path?: string }>;
+    checks: Array<{ detail?: string; kind: string; ok: boolean; path?: string }>;
   };
   expect(report.ok).toBe(false);
-  expect(report.assertions).toContainEqual({ detail: "path does not exist", kind: "exists", ok: false, path: "missing/generated.txt" });
+  expect(report.checks).toContainEqual({ detail: "path does not exist", kind: "exists", ok: false, path: "missing/generated.txt" });
   expect(await fileExists(join(root, ".claude/skills/demo/SKILL.md"))).toBe(false);
 });
 

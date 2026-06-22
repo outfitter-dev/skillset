@@ -26,7 +26,6 @@ const CONFIG_TOP_LEVEL_KEYS = new Set([
   "distributions",
   "skillset",
   "supports",
-  "tests",
   "workspace",
 ]);
 

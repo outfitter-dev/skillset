@@ -121,7 +121,7 @@ describe("workbench source contract schema checks", () => {
   test("reports workspace config contract diagnostics", () => {
     const diagnostics = checkWorkbenchSourceContract({
       content:
-        "targets: [codex]\nskillset:\n  id: demo\n  name: ''\n  schema: v1\nsupports:\n  tools: []\ncompile:\n  build: sometimes\n  targets: [codex, nope, codex]\n  unsupportedDestination: later\n  extra: true\n  features:\n    promptArguments: yes\n    other: true\n  skillset:\n    metadata: nope\n    extra: true\nunknown: true\n",
+        "targets: [codex]\nskillset:\n  id: demo\n  name: ''\n  schema: v1\nsupports:\n  tools: []\ntests: true\ncompile:\n  build: sometimes\n  targets: [codex, nope, codex]\n  unsupportedDestination: later\n  extra: true\n  features:\n    promptArguments: yes\n    other: true\n  skillset:\n    metadata: nope\n    extra: true\nunknown: true\n",
       kind: "workspace-config",
       path: ".skillset/skillset.yaml",
     });
@@ -141,6 +141,7 @@ describe("workbench source contract schema checks", () => {
       ".skillset/skillset.yaml:1: error: schema/workspace-config: unsupported compile target nope",
       ".skillset/skillset.yaml:1: error: schema/workspace-config: unsupported supports key tools; v1 supports packages",
       ".skillset/skillset.yaml:1: error: schema/workspace-config: unsupported workspace config key targets",
+      ".skillset/skillset.yaml:1: error: schema/workspace-config: unsupported workspace config key tests",
       ".skillset/skillset.yaml:1: error: schema/workspace-config: unsupported workspace config key unknown",
       ".skillset/skillset.yaml:1: error: schema/workspace-config: workspace config must use compile.targets instead of targets",
     ]);

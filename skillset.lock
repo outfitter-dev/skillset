@@ -39,9 +39,9 @@
       ],
       "kind": "rule",
       "name": "apps/skillset/src/__tests__/AGENTS.md",
-      "outputHash": "sha256:e593cfdc9b0af577cc74e3f2899f9e552fe4aac049e7965b1fbdbeeb86320cab",
+      "outputHash": "sha256:41c1a6cd0ff9f03022a058a5a6b7bdace9ceb6387a4ed6c3fc433f2d03f7f92d",
       "outputPath": "apps/skillset/src/__tests__/AGENTS.md",
-      "sourceHash": "sha256:2803bec4ace563aabd98e3574d55872763bbefc6ff3caaef49d152e726a9959c",
+      "sourceHash": "sha256:3d87ce1731a991776a4e2125f3251a5ebdfdb1845f42a049ffed4ba361d9db36",
       "sourcePath": "skillset/rules",
       "version": "0.1.1"
     },
@@ -51,9 +51,9 @@
       ],
       "kind": "rule",
       "name": "fixtures/AGENTS.md",
-      "outputHash": "sha256:1aba45c0b07e2ee6c3fe577642ec936f97e46c31f8d3e4f53eaf8874884eae3e",
+      "outputHash": "sha256:51806b972e76bfe7295aa02fccd857c676fcfbf9971a11c7fd2b7767219ed187",
       "outputPath": "fixtures/AGENTS.md",
-      "sourceHash": "sha256:2803bec4ace563aabd98e3574d55872763bbefc6ff3caaef49d152e726a9959c",
+      "sourceHash": "sha256:3d87ce1731a991776a4e2125f3251a5ebdfdb1845f42a049ffed4ba361d9db36",
       "sourcePath": "skillset/rules",
       "version": "0.1.1"
     },

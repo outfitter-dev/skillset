@@ -16,34 +16,60 @@ Skillset currently uses internal compiler fixtures and validation commands:
 | Contract tests | `src/__tests__/` | `implemented` / internal | Unit, contract, and audit-hardening tests for compiler behavior. |
 | Validation commands | `skillset check`, `skillset verify`, `doctor`, `diff`, `change check`, `release plan` | `implemented` | Public commands that validate real source and generated output. |
 | Dogfooding | repo scripts, Linear acceptance criteria, real Skillset source changes | internal practice | Proves workflows by using them on this repo. |
-| `skillset test` | workspace manifest `tests` entries | `implemented` / first slice | Deterministic isolated projection and assertion runner. |
-| `.skillset/tests/` | n/a | `reserved` | Optional future authored test declarations; not a fixture mirror. |
+| `skillset test` | `<source-root>/tests.yaml` and `<source-root>/tests/*.yaml` | `implemented` | Deterministic isolated projection and check runner for authored source. |
 | `.skillset/evals/` | n/a | `future` | Future adapter-aware behavioral eval declarations or pointers. |
 
 Checked-in internal fixtures use the dedicated layout: `fixtures/<case>/skillset.yaml` as the workspace manifest and `fixtures/<case>/skillset/` as the source root. Inline temp fixtures may still use ordinary `.skillset/skillset.yaml` and `.skillset/src/` trees when they are testing ordinary workspace behavior directly.
 
 ## Deterministic Tests
 
-`skillset test` runs isolated deterministic scenarios. It compiles selected workspace source subjects in a run workspace and asserts generated files, text, and drift without touching live target output.
+`skillset test` runs isolated deterministic scenarios. It compiles selected source units in a run workspace and checks generated files, provider manifests, and drift without touching live target output.
 
-The implemented v1 slice is selector-driven and config-backed. The workspace manifest owns test declarations so authors can prove existing source without introducing a second source tree. Ordinary repos use `.skillset/skillset.yaml`; dedicated Skillset repos use root `skillset.yaml`. `.skillset/tests/` remains reserved for larger declarations after the source contract is proven; if it appears later, it should reference existing source subjects rather than duplicating skills, plugins, agents, or instructions.
+The implemented v1 shape is selector-driven and source-root owned. Ordinary repos use `.skillset/src/tests.yaml` or `.skillset/src/tests/*.yaml`. Dedicated Skillset repos use `skillset/tests.yaml` or `skillset/tests/*.yaml`. A single `tests.yaml` can hold many named tests; each split file is one test named from the file stem. Test declarations reference existing source units rather than duplicating skills, plugins, agents, or instructions.
 
 ```yaml
-tests:
-  self-hosted:
-    source: repo:.
-    targets:
-      - claude
-      - codex
-    output:
-      kind: isolated
-    assertions:
-      - build
-      - noDrift
-      - exists: plugins-claude/plugins/skillset/.claude-plugin/plugin.json
+self-hosted:
+  select:
+    plugins:
+      - skillset
+  targets:
+    - claude
+    - codex
+  output:
+    kind: isolated
+  checks:
+    projection: true
+    pluginManifests: true
 ```
 
-The first implementation slice supports the active workspace source selector: `repo:.skillset` for ordinary repos and `repo:.` for dedicated Skillset repos. The test runner copies only source-relevant files into an isolated run workspace: ordinary workspaces stage `.skillset/skillset.yaml`, `.skillset/src/`, and `.skillset/changes/`, while dedicated workspaces stage `skillset.yaml`, `skillset/`, and `skillset/changes/`. It does not stage operational `.skillset/cache/` or `.skillset/snapshots/` contents. If the repo has an existing workspace `skillset.lock`, the test stages that lock too so source-adjacent generated renderings such as entity `CHANGELOG.md` files remain recognized as managed inside the run. Typed source selectors such as `plugin:<name>`, `skill:<name>`, and internal `fixture:<case>` references remain the intended grammar, but they should be added only when selection narrows source inventory and generated output consistently. `--scope` continues to mean generated-destination filtering, not source selection, and `skillset test` rejects build/write flags such as `--scope`, `--yes`, `--dry-run`, `--updated`, `--all`, and `--dist`.
+Source selection uses source concepts. `select.plugins: true` selects all plugin source families. `select.plugins: ["skillset"]` selects named plugin source families. Object form can narrow plugin selection and plugin-bound skills:
+
+```yaml
+plugin-skills:
+  select:
+    plugins:
+      include:
+        - skillset
+      skills: true
+  checks:
+    projection: true
+```
+
+Skills can be selected directly:
+
+```yaml
+primary-skills:
+  select:
+    skills:
+      primary:
+        - skillset-codex-development
+  checks:
+    projection: true
+```
+
+`select.skills.plugin` is available for plugin-bound skills, but `select.plugins.skills` is the clearer spelling when the test starts from plugins. `targets` filters provider renderings; `select` filters source units. `--scope` continues to mean generated-destination filtering, not source selection, and `skillset test` rejects build/write flags such as `--scope`, `--yes`, `--dry-run`, `--updated`, `--all`, and `--dist`.
+
+The test runner copies only source-relevant files into an isolated run workspace: ordinary workspaces stage `.skillset/skillset.yaml`, `.skillset/src/`, and `.skillset/changes/`, while dedicated workspaces stage `skillset.yaml`, `skillset/`, and `skillset/changes/`. It then prunes unselected source units before building. It does not stage operational `.skillset/cache/` or `.skillset/snapshots/` contents. If the repo has an existing workspace `skillset.lock`, the test stages that lock too so source-adjacent generated files such as entity `CHANGELOG.md` files remain recognized as managed inside the run.
 
 Generated test output should live under the gitignored cache root:
 
@@ -54,32 +80,50 @@ Generated test output should live under the gitignored cache root:
   runs/<run-id>/
 ```
 
-Each run writes a complete retained directory under `runs/<run-id>/`, including the isolated workspace and `report.json` / `report.md`. `latest/` is a real refreshed copy of the most recent run, not a symlink, so local marketplaces or generated plugin trees can be inspected with stable paths on platforms where symlinks are fragile. `latest.json` records the active run id, source selector, report path, and generated output path. Retention defaults to keeping prior run directories; pruning is a future option rather than implicit cleanup.
+Each run writes a complete retained directory under `runs/<run-id>/`, including the isolated workspace and `report.json` / `report.md`. `latest/` is a real refreshed copy of the most recent run, not a symlink, so local marketplaces or generated plugin trees can be inspected with stable paths on platforms where symlinks are fragile. `latest.json` records the active run id, source selection, report path, and generated output path. Retention defaults to keeping prior run directories; pruning is a future option rather than implicit cleanup.
 
-The first assertion vocabulary is deliberately small: `build` means the isolated build command succeeded, `exists` checks for a generated file or directory, `contains` checks text in a generated file, and `noDrift` runs the generated-output diff after the isolated build. Target validation commands are reportable manual follow-up instructions in v1; `skillset test` does not install, publish, trust, symlink, or activate Claude/Codex runtime configuration.
+The check vocabulary is deliberately small. `projection: true` means the isolated build succeeds and the selected generated-output diff is clean after the build. `pluginManifests: true` derives enabled provider manifest paths and verifies selected plugin manifest identity, including release-resolved version and shared metadata. File checks remain available through `checks.files` with explicit generated paths:
+
+```yaml
+self:
+  select:
+    skills:
+      primary:
+        - demo
+  checks:
+    projection: true
+    files:
+      - path: .claude/skills/demo/SKILL.md
+      - path: .claude/skills/demo/SKILL.md
+        contains: Demo body.
+```
+
+Target validation commands are reportable manual follow-up instructions in v1; `skillset test` does not install, publish, trust, symlink, or activate Claude/Codex runtime configuration.
 
 Release state and inline versions are observable, not migrated, by deterministic tests. A test may assert the version that build emits after release state is applied, but it must not rewrite source `version` fields or start the SET-43 migration from inline versions to release-state-only authoring.
 
 ## Activation Probes
 
-Activation probes are a first layer above deterministic build assertions and below evals. They answer “can a target harness notice or invoke the expected skill, agent, or plugin?” They do not judge answer quality, call a model, install a plugin, trust global runtime config, or mutate live build roots.
+Activation probes are a first layer above deterministic build checks and below evals. They answer “can a target harness notice or invoke the expected skill, agent, or plugin?” They do not judge answer quality, call a model, install a plugin, trust global runtime config, or mutate live build roots.
 
-Root test declarations can include lightweight activation probes:
+Source-root test declarations can include lightweight activation probes:
 
 ```yaml
-tests:
+activation:
+  select:
+    skills:
+      primary:
+        - skillset-repo-test-fixtures
+  targets:
+    - claude
+    - codex
   activation:
-    source: repo:.
-    targets:
-      - claude
-      - codex
-    activation:
-      - name: fixture guidance
-        prompt: Help me inspect this Skillset fixture setup.
-        expect:
-          skill: skillset-repo-test-fixtures
-    assertions:
-      - build
+    - name: fixture guidance
+      prompt: Help me inspect this Skillset fixture setup.
+      expect:
+        skill: skillset-repo-test-fixtures
+  checks:
+    projection: true
 ```
 
 Each probe requires `prompt` and `expect`. The v1 `expect` object must name exactly one of `skill`, `agent`, or `plugin`. Probe `targets` can narrow to enabled test targets; absent probe targets inherit the enclosing test targets. Empty target arrays fail. Before a retained run is written, Skillset verifies that the expected unit was rendered for every selected target in the isolated workspace, so typos and target-disabled units fail without creating partial run directories. Probe assets are generated under the retained test run:
@@ -168,14 +212,14 @@ Eval execution should stay opt-in. Some target eval harnesses require credential
 
 ## Diagnostics
 
-- `skillset test` fails on missing declarations, unsupported source selectors, assertion failure, stale generated output inside the isolated run, malformed test declarations, and unsafe build/write flag combinations.
-- Test runs report what they generated, what they asserted, where the retained run lives, and where the refreshed `latest/` output lives.
+- `skillset test` fails on missing declarations, unsupported source selectors, failed checks, stale generated output inside the isolated run, malformed test declarations, and unsafe build/write flag combinations.
+- Test runs report what they generated, what they checked, where the retained run lives, and where the refreshed `latest/` output lives.
 - Evals should identify whether a result is structural analysis, benchmark output, model behavior, or human review.
 - Evals should distinguish read-only analysis from benchmark or runtime modes that write setup files, consume credentials, call providers, or mutate target runtime state.
 
 ## Provenance
 
-Test runs record the source selector, target set, run id, generated output paths, assertion results, retained run path, and refreshed latest path in `report.json`, `report.md`, and `latest.json`. Eval runs should use the equivalent `.skillset/cache/evals/` boundary if they become a Skillset surface later. This provenance belongs under `.skillset/cache/tests/` or `.skillset/cache/evals/`, not in ordinary generated target files.
+Test runs record the source selector, target set, run id, generated output paths, check results, retained run path, and refreshed latest path in `report.json`, `report.md`, and `latest.json`. Eval runs should use the equivalent `.skillset/cache/evals/` boundary if they become a Skillset surface later. This provenance belongs under `.skillset/cache/tests/` or `.skillset/cache/evals/`, not in ordinary generated target files.
 
 ## Evidence
 

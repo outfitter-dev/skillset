@@ -303,6 +303,11 @@
           "fromPath": "docs/adrs/drafts/20260613-deterministic-projection-and-adapter-conformance.md"
         },
         {
+          "context": "- [Fixtures, Tests, Dogfooding, and Evals](20260609-fixtures-tests-dogfooding-and-evals.md) - original reserved deterministic test surface.",
+          "from": "20260622",
+          "fromPath": "docs/adrs/drafts/20260622-source-test-selection-shape.md"
+        },
+        {
           "context": "See [Fixtures, Tests, Dogfooding, and Evals](../adrs/drafts/20260609-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../adrs/drafts/20260613-deterministic-p",
           "from": "tests-and-evals",
           "fromPath": "docs/features/tests-and-evals.md"
@@ -445,6 +450,11 @@
           "fromPath": "docs/adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md"
         },
         {
+          "context": "- [Deterministic Projection and Adapter Conformance](20260613-deterministic-projection-and-adapter-conformance.md) - isolated projection and adapter conformance context.",
+          "from": "20260622",
+          "fromPath": "docs/adrs/drafts/20260622-source-test-selection-shape.md"
+        },
+        {
           "context": "- [Deterministic Projection and Adapter Conformance](20260613-deterministic-projection-and-adapter-conformance.md) - ordering drift and generated-output stability.",
           "from": "20260622",
           "fromPath": "docs/adrs/drafts/20260622-yaml-formatting-and-bun-native-apis.md"
@@ -512,7 +522,13 @@
         "one-action-repo-adoption",
         "fixtures-tests-dogfooding-and-evals"
       ],
-      "inbound": [],
+      "inbound": [
+        {
+          "context": "- [Unified Source Layout](20260618-unified-source-layout.md) - ordinary and dedicated repos share one source-root model.",
+          "from": "20260622",
+          "fromPath": "docs/adrs/drafts/20260622-source-test-selection-shape.md"
+        }
+      ],
       "number": null,
       "owners": ["[galligan](https://github.com/galligan)"],
       "path": "docs/adrs/drafts/20260618-unified-source-layout.md",
@@ -521,6 +537,25 @@
       "superseded_by": null,
       "title": "Unified Source Layout",
       "updated": "2026-06-18"
+    },
+    {
+      "created": "2026-06-22",
+      "depends_on": [
+        "0",
+        "1",
+        "unified-source-layout",
+        "fixtures-tests-dogfooding-and-evals",
+        "deterministic-projection-and-adapter-conformance"
+      ],
+      "inbound": [],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260622-source-test-selection-shape.md",
+      "slug": "source-test-selection-shape",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Source Test Selection Shape",
+      "updated": "2026-06-22"
     },
     {
       "created": "2026-06-22",
