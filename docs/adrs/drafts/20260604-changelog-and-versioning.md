@@ -14,7 +14,7 @@ Status: design (SET-11). No implementation; this defines the model and a concret
 
 ## Context
 
-Let authors manage versions and changelogs for root, plugin, and skill source from `.skillset/`, the same way they manage everything else: source-first, derive-by-default, lock-backed provenance. Keep generated artifact version metadata simple; keep the heavy provenance in `.skillset.lock`.
+Let authors manage versions and changelogs for root, plugin, and skill source from `.skillset/`, the same way they manage everything else: source-first, derive-by-default, lock-backed provenance. Keep generated artifact version metadata simple; keep the heavy provenance in `skillset.lock`.
 
 ## Decision
 
@@ -59,7 +59,7 @@ Why entry files, not a single changelog:
 - They carry intent (scope + bump) that `skillset changes version` can apply deterministically.
 - They are source, so they review like everything else.
 
-Generated, per-scope `CHANGELOG.md` files are **derived output** (like skills and manifests): written into the relevant generated root, tracked by `.skillset.lock`, refreshed by build, and checked for freshness by verify. They are not hand-edited source truth.
+Generated, per-scope `CHANGELOG.md` files are **derived output** (like skills and manifests): written into the relevant generated root, tracked by `skillset.lock`, refreshed by build, and checked for freshness by verify. They are not hand-edited source truth.
 
 ## `skillset changes` command (proposed)
 
@@ -79,13 +79,13 @@ The changelog workflow builds on that:
 
 - A change entry can scope to a target: `scope: skill:foo` plus an optional `targets: [claude]`. `changes version` then bumps the skill version and records that Codex remains at the prior version intentionally.
 - When the skipped target is later resynced (the skill turns Codex back on), the lock's per-target `targetState`/version delta is the evidence of what changed for that target; `changes version` reconciles by emitting a catch-up entry in the Codex-scoped changelog referencing the already-bumped version.
-- Generated artifact version stays a single simple `metadata.version`; the per-target history lives in `.skillset.lock` and the generated per-scope `CHANGELOG.md`, never nested into skill frontmatter.
+- Generated artifact version stays a single simple `metadata.version`; the per-target history lives in `skillset.lock` and the generated per-scope `CHANGELOG.md`, never nested into skill frontmatter.
 
 ## Keep generated metadata simple
 
 - Generated skill frontmatter: `metadata.version` + `metadata.generated` only (unchanged).
 - Generated plugin manifest: `version` (unchanged).
-- Heavy provenance (source hashes, per-target included/skipped versions, target state, change history) stays in `.skillset.lock` and derived `CHANGELOG.md` — consistent with the "lockfiles carry heavy provenance" promise.
+- Heavy provenance (source hashes, per-target included/skipped versions, target state, change history) stays in `skillset.lock` and derived `CHANGELOG.md` — consistent with the "lockfiles carry heavy provenance" promise.
 
 ## Implementation plan (phased)
 

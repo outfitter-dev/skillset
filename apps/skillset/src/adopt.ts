@@ -702,7 +702,7 @@ export function renderAdoptReportMarkdown(
     }
     lines.push("");
     lines.push(
-      "Full structured render results are in `report.json` and in the isolated `.skillset.lock` files when the isolated build completes.",
+      "Full structured render results are in `report.json` and in the isolated `skillset.lock` files when the isolated build completes.",
       ""
     );
   }

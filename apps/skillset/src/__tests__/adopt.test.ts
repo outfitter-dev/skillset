@@ -108,7 +108,7 @@ test("adopt accepts git remotes by shallow cloning before running the existing f
   if (report.acquisition.kind === "git") {
     const ref = report.acquisition.ref;
     const pluginLock = JSON.parse(
-      await readFile(join(report.rootPath, ISOLATED_OUT_ROOT, "plugins-claude/.skillset.lock"), "utf8")
+      await readFile(join(report.rootPath, ISOLATED_OUT_ROOT, "plugins-claude/skillset.lock"), "utf8")
     ) as {
       items: readonly {
         kind: string;

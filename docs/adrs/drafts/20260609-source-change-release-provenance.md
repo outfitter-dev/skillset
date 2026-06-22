@@ -14,7 +14,7 @@ Status: design (SET-33). This promotes the settled parts of the source-change sc
 
 ## Context
 
-Skillset already reads authored versions from root config, plugin config, and skill frontmatter, lowers them into generated plugin manifests and generated skill metadata, and records output hashes in `.skillset.lock`. That is enough to detect stale generated output, but it couples ordinary content edits to mechanical release counters and does not explain why a source unit changed.
+Skillset already reads authored versions from root config, plugin config, and skill frontmatter, lowers them into generated plugin manifests and generated skill metadata, and records output hashes in `skillset.lock`. That is enough to detect stale generated output, but it couples ordinary content edits to mechanical release counters and does not explain why a source unit changed.
 
 The change and release model separates content identity, authored reason, release state, generated target metadata, support constraints, and plugin dependency behavior. Source files carry durable authored content. Change entries carry human reasons and structured evidence. Release state carries version counters and last released hashes. Generated changelog projections are readable output derived from reviewed entries. Locks and explain/status surfaces carry the heavier provenance.
 

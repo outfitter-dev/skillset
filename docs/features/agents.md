@@ -69,7 +69,7 @@ Claude plugin agents are a separate plugin component. Codex plugin docs do not d
 
 ## Provenance
 
-Project-agent outputs record source path, resolved name, target output path, generated files, validation mode, version, and hashes in the root `.skillset.lock`. `skillset list` includes `project-agent` entries, and `skillset explain .skillset/src/agents/<name>.md` points from source to the generated Claude and Codex files.
+Project-agent outputs record source path, resolved name, target output path, generated files, validation mode, version, and hashes in the root `skillset.lock`. `skillset list` includes `project-agent` entries, and `skillset explain .skillset/src/agents/<name>.md` points from source to the generated Claude and Codex files.
 
 ## Tests and Fixtures
 

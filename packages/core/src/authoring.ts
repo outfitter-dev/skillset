@@ -464,7 +464,7 @@ function errorMessage(error: unknown): string {
 function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuildGraph>>): readonly LockItemMatch[] {
   const matches: LockItemMatch[] = [];
   for (const file of rendered) {
-    if (!file.path.endsWith(".skillset.lock")) continue;
+    if (!file.path.endsWith("skillset.lock")) continue;
     let parsed: unknown;
     try {
       parsed = JSON.parse(textDecoder.decode(file.content)) as unknown;
@@ -542,7 +542,7 @@ function joinOutputRoot(outputRoot: string, file: string): string {
 
 function lockPathForEntry(entry: GeneratedEntry | undefined): string | undefined {
   if (entry === undefined) return undefined;
-  return joinOutputRoot(entry.outputRoot, ".skillset.lock");
+  return joinOutputRoot(entry.outputRoot, "skillset.lock");
 }
 
 function refusedSourceSuggestion(

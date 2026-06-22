@@ -23,7 +23,7 @@ import {
 import type { BuildGraph, BuildScope, JsonRecord, RenderedFile, SourceSkill, TargetName } from "./types";
 import { isJsonRecord } from "./yaml";
 
-const LOCK_FILE = ".skillset.lock";
+const LOCK_FILE = "skillset.lock";
 const TARGETS: readonly TargetName[] = ["claude", "codex"];
 
 type OutputPathMapper = (path: string) => string;

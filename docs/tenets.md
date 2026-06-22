@@ -83,7 +83,7 @@ Claude output should look like Claude. Codex output should look like Codex. Skil
 
 ### Lockfiles carry heavy provenance
 
-Generated skill frontmatter should stay lightweight. Product-facing generated fields such as `metadata.version` and `metadata.generated` belong in the skill itself; heavier source hashes, source paths, provider state, skipped provider information, and drift evidence belong in nearby `.skillset.lock` files.
+Generated skill frontmatter should stay lightweight. Product-facing generated fields such as `metadata.version` and `metadata.generated` belong in the skill itself; heavier source hashes, source paths, provider state, skipped provider information, and drift evidence belong in nearby `skillset.lock` files.
 
 ### Migration is explicit, ambiguity is not
 

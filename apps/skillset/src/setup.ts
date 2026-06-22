@@ -558,7 +558,7 @@ async function maybeCandidate(
 }
 
 async function isManagedCandidate(path: string): Promise<boolean> {
-  return (await pathExists(join(path, ".skillset.lock"))) || (await pathExists(join(dirname(path), ".skillset.lock")));
+  return (await pathExists(join(path, "skillset.lock"))) || (await pathExists(join(dirname(path), "skillset.lock")));
 }
 
 function compareCandidate(left: SetupImportCandidate, right: SetupImportCandidate): number {

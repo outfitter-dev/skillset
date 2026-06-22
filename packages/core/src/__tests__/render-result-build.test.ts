@@ -424,7 +424,7 @@ describe("build render results", () => {
     const build = await buildSkillsetResult(root);
     expect(build.renderResults.map(outcomeKey)).toEqual(preview.renderResults.map(outcomeKey));
 
-    const codexLock = await readJson(join(root, "plugins-codex/.skillset.lock"));
+    const codexLock = await readJson(join(root, "plugins-codex/skillset.lock"));
     const codexOutcomes = codexLock.renderResults as SkillsetRenderResult[];
     expect(codexOutcomes).toContainEqual(
       expect.objectContaining({
@@ -463,7 +463,7 @@ describe("build render results", () => {
     expect(outputPaths).toContain(".skillset/build/out/.claude/skills/repo-skill/SKILL.md");
     expect(outputPaths.some((path) => path.startsWith(root))).toBe(false);
 
-    const isolatedLock = await readJson(join(root, ".skillset/build/out/plugins-codex/.skillset.lock"));
+    const isolatedLock = await readJson(join(root, ".skillset/build/out/plugins-codex/skillset.lock"));
     const isolatedOutcomes = isolatedLock.renderResults as SkillsetRenderResult[];
     expect(isolatedOutcomes).toContainEqual(
       expect.objectContaining({

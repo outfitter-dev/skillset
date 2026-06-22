@@ -222,7 +222,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     id: "output-safety",
     kind: "workflow",
     renderOwner: "packages/core/src/output-safety.ts",
-    sourceShape: "generated .skillset.lock ownership plus current rendered output paths",
+    sourceShape: "generated skillset.lock ownership plus current rendered output paths",
     status: "implemented",
     summary: "Protects unmanaged generated-output collisions and target-side edits with reversible backups.",
     targetSupport: notTargetRuntime(),

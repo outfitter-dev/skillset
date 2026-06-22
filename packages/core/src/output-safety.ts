@@ -7,7 +7,7 @@ import { renderValidatedJson } from "./structured-output";
 import type { SkillsetDiagnostic, SkillsetWriteSummary } from "./operation-result";
 import type { JsonRecord, RenderedFile } from "./types";
 
-export const WORKSPACE_LOCK_FILE = ".skillset.lock";
+export const WORKSPACE_LOCK_FILE = "skillset.lock";
 export const OUTPUT_BACKUP_ROOT = ".skillset/build/backups";
 
 export type OutPath = (path: string) => string;

@@ -4,7 +4,7 @@ Feature id: `source-suggestions`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Source suggestions are the recovery workflow for managed generated-output edits. They help a contributor who changed a file recorded in `.skillset.lock` understand which source unit owns that file, whether the edit can be safely moved back to source, and what command or manual action should happen next. The v1 local command is diagnostics-first and only writes clean generated skill Markdown body edits when explicitly confirmed.
+Source suggestions are the recovery workflow for managed generated-output edits. They help a contributor who changed a file recorded in `skillset.lock` understand which source unit owns that file, whether the edit can be safely moved back to source, and what command or manual action should happen next. The v1 local command is diagnostics-first and only writes clean generated skill Markdown body edits when explicitly confirmed.
 
 ## Source Shape
 
@@ -17,7 +17,7 @@ skillset suggest-source <generated-path>
 skillset suggest-source <generated-path> --write --yes
 ```
 
-Preview mode is read-only. Write mode is allowed only for clean, single-source cases where the generated Markdown body can be mapped back to one source path without losing meaning, and it requires `--write --yes`. The command reuses `.skillset.lock` ownership and `skillset explain` provenance so "which source owns this generated file?" has one answer across the CLI.
+Preview mode is read-only. Write mode is allowed only for clean, single-source cases where the generated Markdown body can be mapped back to one source path without losing meaning, and it requires `--write --yes`. The command reuses `skillset.lock` ownership and `skillset explain` provenance so "which source owns this generated file?" has one answer across the CLI.
 
 ## Target Support
 
@@ -63,7 +63,7 @@ Both need reviewable previews, stable ids, conflict checks, and refusal paths, b
 [SET-152](https://linear.app/outfitter/issue/SET-152/design-ci-source-suggestion-writeback-for-managed-generated-edits) adds CI-side source suggestion diagnostics and keeps automated writeback as a future permissioned step. The intended path is:
 
 1. `skillset ci` detects a PR edit to a managed generated path.
-2. CI resolves the owning source unit from `.skillset.lock`.
+2. CI resolves the owning source unit from `skillset.lock`.
 3. CI runs the same safety classification as `skillset suggest-source` for added and changed generated paths.
 4. For unsafe or ambiguous cases, CI reports the source path, reason for refusal, and manual command in the job summary or PR comment.
 5. For clean cases, CI reports the suggested source path and local `skillset suggest-source <path> --write --yes` recovery command; it does not write source automatically in v1.

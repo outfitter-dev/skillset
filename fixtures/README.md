@@ -55,20 +55,21 @@ A checked-in case looks like a realistic content repo:
 
 ```text
 fixtures/<case>/
-  .skillset/
-    skillset.yaml
-    src/
-      plugins/
-      skills/
-      rules/
-      _claude/   # optional provider source
-      _codex/    # optional provider source
+  skillset.yaml
+  skillset/
+    plugins/
+    skills/
+    rules/
+    hooks/
+    shared/
+    _claude/   # optional provider source
+    _codex/    # optional provider source
   ...other repo files as needed
 ```
 
-`.skillset/skillset.yaml` is the ordinary workspace manifest and `.skillset/src/` is its adaptive source root. Plugins, standalone skills, instructions, project agents, shared resources, and provider source all live under the source root. Provider-specific source uses underscore-prefixed directories such as `.skillset/src/_claude`, `.skillset/src/_codex`, `.skillset/src/plugins/<plugin>/_claude`, and `.skillset/src/plugins/<plugin>/_codex`.
+Checked-in cases use the dedicated Skillset repo layout: root `skillset.yaml` is the workspace manifest, and root `skillset/` is the adaptive source root. This keeps durable fixtures aligned with this repo's self-hosted layout and reserves `.skillset/` inside fixtures for ignored build/test output. Plugins, standalone skills, instructions, project agents, shared resources, hooks, and provider source all live under the source root. Provider-specific source uses underscore-prefixed directories such as `skillset/_claude`, `skillset/_codex`, `skillset/plugins/<plugin>/_claude`, and `skillset/plugins/<plugin>/_codex`.
 
-A bare `fixtures/.skillset/src/` shape — treating `fixtures/` itself as a single fake repo root — is acceptable only when there is intentionally one case. It is not the default: named `fixtures/<case>/` directories scale to multiple cases and keep the fixture inventory from looking like live repo source.
+Inline temp fixtures may still use the ordinary `.skillset/skillset.yaml` and `.skillset/src/` shape when a test is specifically covering ordinary workspace behavior. The checked-in fixture default is dedicated layout so the fixture inventory does not look like this repo's generated `.skillset/` scratch area.
 
 ## kitchen-sink scope
 

@@ -28,7 +28,7 @@ Instruction Markdown may include `paths` frontmatter for Claude path scoping and
 
 ## Provenance
 
-Instruction outputs are tracked in the root `.skillset.lock` with source paths, output paths, hashes, target, and preprocessing dependencies. `skillset explain` works for both source instruction files and generated outputs.
+Instruction outputs are tracked in the root `skillset.lock` with source paths, output paths, hashes, target, and preprocessing dependencies. `skillset explain` works for both source instruction files and generated outputs.
 
 ## Tests and Fixtures
 

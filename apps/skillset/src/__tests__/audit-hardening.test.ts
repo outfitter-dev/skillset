@@ -10,7 +10,7 @@ import { inspectSkillset, lintSkillset } from "../lint";
 import { compareStrings } from "../path";
 import { loadBuildGraph } from "../resolver";
 
-const FIXTURE_SKILLSET = join(import.meta.dir, "..", "..", "..", "..", "fixtures", "kitchen-sink", ".skillset");
+const KITCHEN_SINK_FIXTURE = join(import.meta.dir, "..", "..", "..", "..", "fixtures", "kitchen-sink");
 
 test("kitchen-sink fixture builds every implemented surface and stays current", async () => {
   const root = await kitchenSink();
@@ -404,7 +404,7 @@ Alpha body.
   await expect(lintSkillset(root)).resolves.toBeDefined();
 });
 
-test("corrupt workspace .skillset.lock fails loudly instead of disabling guards", async () => {
+test("corrupt workspace skillset.lock fails loudly instead of disabling guards", async () => {
   const root = await fixture({
     ".skillset/config.yaml": `
 skillset:
@@ -418,13 +418,13 @@ skillset:
   });
 
   await buildSkillset(root);
-  await writeFile(join(root, ".skillset.lock"), "{ not valid json", "utf8");
+  await writeFile(join(root, "skillset.lock"), "{ not valid json", "utf8");
 
   await expect(verifySkillset(root)).rejects.toThrow("cannot guard generated state");
   await expect(buildSkillset(root)).rejects.toThrow("cannot guard generated state");
 });
 
-test("corrupt generated output .skillset.lock fails loudly instead of disabling guards", async () => {
+test("corrupt generated output skillset.lock fails loudly instead of disabling guards", async () => {
   const root = await fixture({
     ".skillset/config.yaml": `
 skillset:
@@ -447,10 +447,10 @@ Alpha body.
   });
 
   await buildSkillset(root);
-  await writeFile(join(root, "plugins-claude/.skillset.lock"), "{ not valid json", "utf8");
+  await writeFile(join(root, "plugins-claude/skillset.lock"), "{ not valid json", "utf8");
 
-  await expect(verifySkillset(root)).rejects.toThrow("generated lock plugins-claude/.skillset.lock cannot guard generated state");
-  await expect(buildSkillset(root)).rejects.toThrow("generated lock plugins-claude/.skillset.lock cannot guard generated state");
+  await expect(verifySkillset(root)).rejects.toThrow("generated lock plugins-claude/skillset.lock cannot guard generated state");
+  await expect(buildSkillset(root)).rejects.toThrow("generated lock plugins-claude/skillset.lock cannot guard generated state");
 });
 
 test("compareStrings orders by code unit independent of locale", () => {
@@ -462,7 +462,7 @@ test("compareStrings orders by code unit independent of locale", () => {
 
 async function kitchenSink(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "skillset-kitchen-"));
-  await cp(FIXTURE_SKILLSET, join(root, ".skillset"), { recursive: true });
+  await cp(KITCHEN_SINK_FIXTURE, root, { recursive: true });
   return root;
 }
 

@@ -2362,7 +2362,7 @@ Audit body.
   expect(explained.stdout).toContain("secrets-vault range =1.2.3 internal");
 
   const auditLockSourceHash = async (): Promise<string> => {
-    const lock = JSON.parse(await readFile(join(root, "plugins-claude/.skillset.lock"), "utf8")) as {
+    const lock = JSON.parse(await readFile(join(root, "plugins-claude/skillset.lock"), "utf8")) as {
       items: Array<{ outputPath?: string; sourceHash?: string }>;
     };
     return lock.items.find((item) => item.outputPath === "plugins/audit/.claude-plugin/plugin.json")?.sourceHash ?? "";
@@ -3637,7 +3637,7 @@ Pending changes stay out of committed changelog projections.
   expect(diff.exitCode).toBe(0);
   expect(diff.stdout).toContain("no generated changes");
 
-  const lock = await readFile(join(root, ".skillset.lock"), "utf8");
+  const lock = await readFile(join(root, "skillset.lock"), "utf8");
   expect(lock).toContain(`"kind": "changelog"`);
   expect(lock).toContain(`".skillset/src/skills/demo/CHANGELOG.md"`);
 });
@@ -4757,7 +4757,7 @@ Repo body.
   });
 
   await buildSkillset(root);
-  await writeFile(join(root, "plugins-claude/.skillset.lock"), "{ not valid json", "utf8");
+  await writeFile(join(root, "plugins-claude/skillset.lock"), "{ not valid json", "utf8");
 
   await expect(diffSkillset(root, { scopes: ["repo"] })).resolves.toEqual({
     added: [],
@@ -4857,7 +4857,7 @@ Body.
   const claudeManifest = await readFile(join(root, "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"), "utf8");
   const codexManifest = await readFile(join(root, "plugins-codex/plugins/alpha/.codex-plugin/plugin.json"), "utf8");
   const claudeMcp = await readFile(join(root, "plugins-claude/plugins/alpha/.mcp.json"), "utf8");
-  const lock = await readFile(join(root, "plugins-claude/.skillset.lock"), "utf8");
+  const lock = await readFile(join(root, "plugins-claude/skillset.lock"), "utf8");
   expect(claudeManifest).toContain(`"mcpServers": "./.mcp.json"`);
   expect(codexManifest).toContain(`"mcpServers": "./.mcp.json"`);
   expect(claudeMcp).toContain(`"alpha"`);
@@ -4948,7 +4948,7 @@ Body.
 
   expect(await fileExists(join(root, "plugins-claude/plugins/alpha/.mcp.json"))).toBe(true);
   expect(await fileExists(join(root, "plugins-codex/plugins/alpha/.mcp.json"))).toBe(true);
-  const lock = await readFile(join(root, "plugins-codex/.skillset.lock"), "utf8");
+  const lock = await readFile(join(root, "plugins-codex/skillset.lock"), "utf8");
   expect(lock).toContain(`"feature": "mcp"`);
   expect(lock).toContain(`"origin": "conventional"`);
 });
@@ -4984,7 +4984,7 @@ Body.
   expect(await fileExists(join(root, "plugins-claude/plugins/alpha/bin/tool"))).toBe(true);
   const manifest = await readFile(join(root, "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"), "utf8");
   expect(manifest).not.toContain("bin");
-  const lock = await readFile(join(root, "plugins-claude/.skillset.lock"), "utf8");
+  const lock = await readFile(join(root, "plugins-claude/skillset.lock"), "utf8");
   expect(lock).toContain(`"feature": "bin"`);
   expect(lock).toContain(`"origin": "conventional"`);
   expect(lock).toContain(`"targetState": "target-native"`);
@@ -5021,7 +5021,7 @@ Body.
   await buildSkillset(root);
 
   expect(await fileExists(join(root, "plugins-claude/plugins/alpha/bin/tool"))).toBe(true);
-  const lock = await readFile(join(root, "plugins-claude/.skillset.lock"), "utf8");
+  const lock = await readFile(join(root, "plugins-claude/skillset.lock"), "utf8");
   expect(lock).toContain(`"feature": "bin"`);
   expect(lock).toContain(`"origin": "explicit"`);
   expect(lock).toContain(`"sourcePointer": "repo:tools/alpha"`);
@@ -5315,7 +5315,7 @@ test("SET-62: init detects nested plugins without a marketplace manifest", async
     "plugins/alpha/.claude-plugin/plugin.json": JSON.stringify({ name: "alpha" }),
     "plugins/beta/.codex-plugin/plugin.json": JSON.stringify({ name: "beta" }),
     "plugins/managed/.claude-plugin/plugin.json": JSON.stringify({ name: "managed" }),
-    "plugins/managed/.skillset.lock": "{}",
+    "plugins/managed/skillset.lock": "{}",
     "plugins/not-a-plugin/README.md": "no manifest here",
   });
 
@@ -5739,7 +5739,7 @@ Body.
 
 test("SET-43: init does not report managed output roots as import candidates", async () => {
   const root = await contractFixture({
-    ".agents/skills/.skillset.lock": "{}",
+    ".agents/skills/skillset.lock": "{}",
     ".agents/skills/demo/SKILL.md": `
 ---
 name: demo
@@ -5748,7 +5748,7 @@ description: Demo.
 
 Body.
 `,
-    "plugins-codex/.skillset.lock": "{}",
+    "plugins-codex/skillset.lock": "{}",
     "plugins-codex/plugins/demo/plugin.json": "{}",
   });
 

@@ -57,9 +57,9 @@ Stale.
     await rm(join(root, ".skillset/src/skills/stale/SKILL.md"));
     const third = await buildSkillsetResult(root);
 
-    expect(third.writes.writtenPaths).toEqual([".claude/skills/.skillset.lock"]);
+    expect(third.writes.writtenPaths).toEqual([".claude/skills/skillset.lock"]);
     expect(third.writes.deletedPaths).toEqual([staleOutput]);
-    expect(third.writes.paths).toEqual([".claude/skills/.skillset.lock", staleOutput]);
+    expect(third.writes.paths).toEqual([".claude/skills/skillset.lock", staleOutput]);
   });
 
   it("backs up unmanaged collisions and restores the original safely", async () => {

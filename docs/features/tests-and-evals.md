@@ -12,7 +12,7 @@ Skillset currently uses internal compiler fixtures and validation commands:
 
 | Surface | Location | Status | Purpose |
 | --- | --- | --- | --- |
-| Internal fixtures | `fixtures/<case>/.skillset/` ([convention](../../fixtures/README.md)) | `implemented` / internal | Fake repos copied into temp directories by compiler tests. |
+| Internal fixtures | `fixtures/<case>/skillset.yaml` and `fixtures/<case>/skillset/` ([convention](../../fixtures/README.md)) | `implemented` / internal | Fake repos copied into temp directories by compiler tests. |
 | Contract tests | `src/__tests__/` | `implemented` / internal | Unit, contract, and audit-hardening tests for compiler behavior. |
 | Validation commands | `skillset check`, `skillset verify`, `doctor`, `diff`, `change check`, `release plan` | `implemented` | Public commands that validate real source and generated output. |
 | Dogfooding | repo scripts, Linear acceptance criteria, real Skillset source changes | internal practice | Proves workflows by using them on this repo. |
@@ -20,18 +20,18 @@ Skillset currently uses internal compiler fixtures and validation commands:
 | `.skillset/tests/` | n/a | `reserved` | Optional future authored test declarations; not a fixture mirror. |
 | `.skillset/evals/` | n/a | `future` | Future adapter-aware behavioral eval declarations or pointers. |
 
-Internal fixtures use `fixtures/<case>/.skillset/src/` as the source root. A bare `fixtures/.skillset/src/` is acceptable only if `fixtures/` itself is intentionally the fake repo root; named fixture cases are preferred so the fixture inventory can grow without looking like live repo source.
+Checked-in internal fixtures use the dedicated layout: `fixtures/<case>/skillset.yaml` as the workspace manifest and `fixtures/<case>/skillset/` as the source root. Inline temp fixtures may still use ordinary `.skillset/skillset.yaml` and `.skillset/src/` trees when they are testing ordinary workspace behavior directly.
 
 ## Deterministic Tests
 
-`skillset test` runs isolated deterministic scenarios. It compiles selected `.skillset/` source subjects in a run workspace and asserts generated files, text, and drift without touching live target output.
+`skillset test` runs isolated deterministic scenarios. It compiles selected workspace source subjects in a run workspace and asserts generated files, text, and drift without touching live target output.
 
 The implemented v1 slice is selector-driven and config-backed. The workspace manifest owns test declarations so authors can prove existing source without introducing a second source tree. Ordinary repos use `.skillset/skillset.yaml`; dedicated Skillset repos use root `skillset.yaml`. `.skillset/tests/` remains reserved for larger declarations after the source contract is proven; if it appears later, it should reference existing source subjects rather than duplicating skills, plugins, agents, or instructions.
 
 ```yaml
 tests:
   self-hosted:
-    source: repo:.skillset
+    source: repo:.
     targets:
       - claude
       - codex
@@ -43,7 +43,7 @@ tests:
       - exists: plugins-claude/plugins/skillset/.claude-plugin/plugin.json
 ```
 
-The first implementation slice supports `repo:.skillset`, which copies the current Skillset source root into an isolated run workspace and builds it there. If the repo has an existing workspace `.skillset.lock`, the test stages that lock too so source-adjacent generated renderings such as entity `CHANGELOG.md` files remain recognized as managed inside the run. Typed source selectors such as `plugin:<name>`, `skill:<name>`, and internal `fixture:<case>` references remain the intended grammar, but they should be added only when selection narrows source inventory and generated output consistently. `--scope` continues to mean generated-destination filtering, not source selection, and `skillset test` rejects build/write flags such as `--scope`, `--yes`, `--dry-run`, `--updated`, `--all`, and `--dist`.
+The first implementation slice supports the active workspace source selector: `repo:.skillset` for ordinary repos and `repo:.` for dedicated Skillset repos. The test runner copies only source-relevant files into an isolated run workspace: ordinary workspaces stage `.skillset/`, while dedicated workspaces stage `skillset.yaml`, `skillset/`, and `changes/`. If the repo has an existing workspace `skillset.lock`, the test stages that lock too so source-adjacent generated renderings such as entity `CHANGELOG.md` files remain recognized as managed inside the run. Typed source selectors such as `plugin:<name>`, `skill:<name>`, and internal `fixture:<case>` references remain the intended grammar, but they should be added only when selection narrows source inventory and generated output consistently. `--scope` continues to mean generated-destination filtering, not source selection, and `skillset test` rejects build/write flags such as `--scope`, `--yes`, `--dry-run`, `--updated`, `--all`, and `--dist`.
 
 Generated test output should live under the gitignored build root:
 
@@ -69,7 +69,7 @@ Root test declarations can include lightweight activation probes:
 ```yaml
 tests:
   activation:
-    source: repo:.skillset
+    source: repo:.
     targets:
       - claude
       - codex
@@ -108,7 +108,7 @@ bun run conformance:adapters
 bun run conformance:fast
 ```
 
-`bun run conformance:determinism` reruns the clean-root projection proofs for the checked-in kitchen-sink fixture and the self-hosted `.skillset/` source selection. `bun run conformance:adapters` reruns adapter outcome and coverage tests against representative feature-registry claims. `bun run conformance:fast` runs both. These scripts are for focused maintainer reruns; the default `bun run check` gate already includes them through `bun run test`.
+`bun run conformance:determinism` reruns the clean-root projection proofs for the checked-in kitchen-sink fixture and the self-hosted `skillset/` source selection. `bun run conformance:adapters` reruns adapter outcome and coverage tests against representative feature-registry claims. `bun run conformance:fast` runs both. These scripts are for focused maintainer reruns; the default `bun run check` gate already includes them through `bun run test`.
 
 External adoption fixtures are the opt-in slower lane:
 
@@ -137,7 +137,7 @@ skillset release apply --yes
 skillset verify
 ```
 
-The first durable dogfood pass should use a small self-hosted `.skillset/` source edit, create a real pending reason, apply release state, refresh generated output, and confirm no drift. A separate fake-repo lifecycle fixture can cover edge cases, but it should not replace using the workflow on the real repo.
+The first durable dogfood pass should use a small self-hosted `skillset/` source edit, create a real pending reason, apply release state, refresh generated output, and confirm no drift. A separate fake-repo lifecycle fixture can cover edge cases, but it should not replace using the workflow on the real repo.
 
 ## Evals
 
