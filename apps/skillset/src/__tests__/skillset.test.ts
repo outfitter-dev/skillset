@@ -3718,6 +3718,31 @@ Tools body.
   await expect(buildSkillset(root)).rejects.toThrow("allowed_tools has no Codex skill-local lowering");
 });
 
+test("allowed_tools arrays must not be empty", async () => {
+  const root = await fixture({
+    ".skillset/config.yaml": `
+skillset:
+  name: test-root
+claude: true
+`,
+    ".skillset/src/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/src/plugins/alpha/skills/tools/SKILL.md": `
+---
+name: tools
+description: Empty allowed tools.
+allowed_tools: []
+---
+
+Tools body.
+`,
+  });
+
+  await expect(buildSkillset(root)).rejects.toThrow("allowed_tools to be false, a string, a string array, or target map");
+});
+
 test("target-scoped policy maps reject unknown target keys", async () => {
   const root = await fixture({
     ".skillset/config.yaml": `
