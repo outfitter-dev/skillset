@@ -130,7 +130,7 @@ describe("workbench source contract schema checks", () => {
       ".skillset/skillset.yaml:1: error: schema/workspace-config: compile.build must be one of all, updated",
       ".skillset/skillset.yaml:1: error: schema/workspace-config: compile.features.promptArguments must be a boolean",
       ".skillset/skillset.yaml:1: error: schema/workspace-config: compile.skillset.metadata must be a boolean",
-      ".skillset/skillset.yaml:1: error: schema/workspace-config: compile.unsupportedDestination must be one of error, warn, skip, force",
+      ".skillset/skillset.yaml:1: error: schema/workspace-config: compile.unsupportedDestination must be error",
       ".skillset/skillset.yaml:1: error: schema/workspace-config: duplicate compile target codex",
       ".skillset/skillset.yaml:1: error: schema/workspace-config: skillset.id is unsupported; use skillset.name",
       ".skillset/skillset.yaml:1: error: schema/workspace-config: skillset.name must be a non-empty string when present",
@@ -164,6 +164,45 @@ describe("workbench source contract schema checks", () => {
       kind: "workspace-config",
       path: ".skillset/skillset.yaml",
     })).toEqual([]);
+  });
+
+  test("reports workspace target block diagnostics from the shared schema", () => {
+    expect(checkWorkbenchSourceContract({
+      content: "claude: nope\ncodex: []\n",
+      kind: "workspace-config",
+      path: ".skillset/skillset.yaml",
+    }).map(formatWorkbenchDiagnostic)).toEqual([
+      ".skillset/skillset.yaml:1: error: schema/workspace-config: claude must be true, false, or an object when present",
+      ".skillset/skillset.yaml:1: error: schema/workspace-config: codex must be true, false, or an object when present",
+    ]);
+  });
+
+  test("reports missing workspace supports package collection", () => {
+    expect(checkWorkbenchSourceContract({
+      content: "supports: {}\n",
+      kind: "workspace-config",
+      path: ".skillset/skillset.yaml",
+    }).map(formatWorkbenchDiagnostic)).toEqual([
+      ".skillset/skillset.yaml:1: error: schema/workspace-config: supports object form must include packages as an array",
+    ]);
+  });
+
+  test("reports stricter workspace diagnostics from the shared schema", () => {
+    expect(checkWorkbenchSourceContract({
+      content: "skillset:\n  schema: 2\n",
+      kind: "workspace-config",
+      path: ".skillset/skillset.yaml",
+    }).map(formatWorkbenchDiagnostic)).toEqual([
+      ".skillset/skillset.yaml:1: error: schema/workspace-config: skillset.schema must be 1",
+    ]);
+
+    expect(checkWorkbenchSourceContract({
+      content: "compile:\n  unsupportedDestination: later\n",
+      kind: "workspace-config",
+      path: ".skillset/skillset.yaml",
+    }).map(formatWorkbenchDiagnostic)).toEqual([
+      ".skillset/skillset.yaml:1: error: schema/workspace-config: compile.unsupportedDestination must be error",
+    ]);
   });
 
   test("rejects deferred unsupportedDestination policies", () => {

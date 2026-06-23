@@ -58,6 +58,7 @@
       "dependencies": {
         "@skillset/core": "workspace:*",
         "@skillset/lint": "workspace:*",
+        "@skillset/schema": "workspace:*",
       },
     },
   },
