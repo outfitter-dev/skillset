@@ -107,11 +107,9 @@ describe("adapter conformance", () => {
     const snapshot = getProviderDestinationFormatSnapshot("codex-plugin");
 
     expect(snapshotEvidence).toBeDefined();
-    expect(snapshot?.format).toMatchObject({
-      manifest: expect.objectContaining({
-        path: ".codex-plugin/plugin.json",
-      }),
-    });
+    expect((snapshot?.format as { readonly manifest?: { readonly path?: string } })?.manifest?.path).toBe(
+      ".codex-plugin/plugin.json"
+    );
   });
 
   it("proves unsupported feature claims through structured render results", async () => {

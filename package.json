@@ -19,7 +19,7 @@
     "changeset": "changeset",
     "changeset:check": "bun scripts/changeset-guard.ts",
     "changeset:status": "changeset status --verbose",
-    "conformance:adapters": "bun test packages/core/src/__tests__/adapter-conformance.test.ts packages/core/src/__tests__/adapter-conformance-coverage.test.ts",
+    "conformance:adapters": "bun test packages/core/src/__tests__/adapter-conformance.test.ts packages/core/src/__tests__/adapter-conformance-coverage.test.ts packages/core/src/__tests__/provider-format-conformance.test.ts",
     "conformance:determinism": "bun test packages/core/src/__tests__/deterministic-projection.test.ts",
     "conformance:external": "bun scripts/fixtures/external.ts run",
     "conformance:external:sync": "bun scripts/fixtures/external.ts sync",
