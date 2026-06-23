@@ -28,6 +28,12 @@ describe("workbench source contract schema checks", () => {
     })).toEqual([]);
 
     expect(checkWorkbenchSourceContract({
+      content: "---\nname: root\ndialect: claude\nclaude:\n  paths:\n    - src/**\n---\nFollow the repo.\n",
+      kind: "instruction",
+      path: ".skillset/src/rules/root.md",
+    })).toEqual([]);
+
+    expect(checkWorkbenchSourceContract({
       content: JSON.stringify({
         hooks: {
           SessionStart: [{ hooks: [{ command: "./run.sh", type: "command" }] }],
@@ -46,8 +52,7 @@ describe("workbench source contract schema checks", () => {
     });
 
     expect(diagnostics.map(formatWorkbenchDiagnostic)).toEqual([
-      ".skillset/src/skills/demo/SKILL.md:1: error: schema/skill-frontmatter: name must be a non-empty string when present",
-      ".skillset/src/skills/demo/SKILL.md:1: error: schema/skill-frontmatter: resources must be an object when present",
+      ".skillset/src/skills/demo/SKILL.md:1: error: schema/skill-frontmatter: name must be a non-empty string",
       ".skillset/src/skills/demo/SKILL.md:1: error: schema/skill-frontmatter: skill needs description, summary, title, or skillset descriptive metadata",
       ".skillset/src/skills/demo/SKILL.md:1: error: schema/skill-frontmatter: skills must remove targets; use root compile.targets and claude/codex blocks for file-level behavior",
       ".skillset/src/skills/demo/SKILL.md:6: error: schema/skill-body: skill body is required",
@@ -112,9 +117,23 @@ describe("workbench source contract schema checks", () => {
       ".skillset/src/agents/writer.md:1: error: schema/agent-frontmatter: agents must remove targets; use root compile.targets and claude/codex blocks for file-level behavior",
       ".skillset/src/agents/writer.md:1: error: schema/agent-frontmatter: claude must be true, false, or an object when present",
       ".skillset/src/agents/writer.md:1: error: schema/agent-frontmatter: description is required and must be a non-empty string",
-      ".skillset/src/agents/writer.md:1: error: schema/agent-frontmatter: initialPrompt must be a non-empty string when present",
+      ".skillset/src/agents/writer.md:1: error: schema/agent-frontmatter: initialPrompt must be a non-empty string",
       ".skillset/src/agents/writer.md:1: error: schema/agent-frontmatter: skills must be a string array when present",
       ".skillset/src/agents/writer.md:8: error: schema/agent-body: agent body is required",
+    ]);
+  });
+
+  test("reports instruction frontmatter contract diagnostics", () => {
+    const diagnostics = checkWorkbenchSourceContract({
+      content: "---\ndialect: codex\nclaude: nope\nsupports:\n  tools: []\n---\nFollow the repo.\n",
+      kind: "instruction",
+      path: ".skillset/src/rules/root.md",
+    });
+
+    expect(diagnostics.map(formatWorkbenchDiagnostic)).toEqual([
+      ".skillset/src/rules/root.md:1: error: schema/instruction-frontmatter: claude must be true, false, or an object when present",
+      ".skillset/src/rules/root.md:1: error: schema/instruction-frontmatter: dialect must be claude when present",
+      ".skillset/src/rules/root.md:1: error: schema/instruction-frontmatter: unsupported supports key tools; v1 supports packages",
     ]);
   });
 

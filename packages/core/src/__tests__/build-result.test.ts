@@ -231,6 +231,132 @@ codex: false
 
     expect(await readFile(join(root, unmanagedPath), "utf8")).toBe("keep me\n");
   });
+
+  it("validates skill, agent, and instruction frontmatter with the shared schemas", async () => {
+    const root = await fixture({
+      ".skillset/config.yaml": `
+skillset:
+  name: shared-frontmatter-root
+claude: true
+codex: true
+`,
+      ".skillset/src/agents/reviewer.md": `
+---
+name: reviewer
+description: Reviews project changes.
+skills:
+  - demo
+codex:
+  model: gpt-5-codex
+claude:
+  model: sonnet
+---
+
+Review the change.
+`,
+      ".skillset/src/rules/root.md": `
+---
+name: root
+dialect: claude
+claude:
+  paths:
+    - src/**
+---
+
+# Project Instructions
+`,
+      ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+dependencies:
+  plugins:
+    - plugin:base
+metadata:
+  generated: skillset@0.1.0
+  version: 1.0.0
+supports:
+  packages: []
+codex:
+  model: gpt-5-codex
+---
+
+Body.
+`,
+    });
+
+    const result = await buildSkillsetResult(root);
+
+    expect(result.diagnostics).toEqual([]);
+    expect(result.writes.writtenPaths).toEqual(expect.arrayContaining([
+      ".agents/skills/demo/SKILL.md",
+      ".claude/agents/reviewer.md",
+      ".claude/rules/root.md",
+      ".codex/agents/reviewer.toml",
+      "AGENTS.md",
+    ]));
+  });
+
+  it("rejects invalid skill frontmatter through the shared schema", async () => {
+    const root = await fixture({
+      ...DEMO_FIXTURE,
+      ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+metadata: generated-by-hand
+---
+
+Body.
+`,
+    });
+
+    await expect(buildSkillsetResult(root)).rejects.toThrow("frontmatter failed schema validation");
+    await expect(buildSkillsetResult(root)).rejects.toThrow("metadata must be an object");
+  });
+
+  it("rejects invalid agent frontmatter through the shared schema", async () => {
+    const root = await fixture({
+      ".skillset/config.yaml": `
+skillset:
+  name: invalid-agent-frontmatter
+claude: true
+`,
+      ".skillset/src/agents/reviewer.md": `
+---
+name: reviewer
+description: Reviews project changes.
+skills: demo
+---
+
+Review the change.
+`,
+    });
+
+    await expect(buildSkillsetResult(root)).rejects.toThrow("frontmatter failed schema validation");
+    await expect(buildSkillsetResult(root)).rejects.toThrow("skills must be a string array");
+  });
+
+  it("rejects invalid instruction frontmatter through the shared schema", async () => {
+    const root = await fixture({
+      ".skillset/config.yaml": `
+skillset:
+  name: invalid-instruction-frontmatter
+codex: true
+`,
+      ".skillset/src/rules/root.md": `
+---
+paths:
+  - 1
+---
+
+# Project Instructions
+`,
+    });
+
+    await expect(buildSkillsetResult(root)).rejects.toThrow("frontmatter failed schema validation");
+    await expect(buildSkillsetResult(root)).rejects.toThrow("paths entries must be strings");
+  });
 });
 
 async function fixture(files: Record<string, string>): Promise<string> {

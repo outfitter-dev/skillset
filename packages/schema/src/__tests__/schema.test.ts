@@ -165,9 +165,9 @@ describe("@skillset/schema contracts", () => {
       required: ["path"],
     });
 
-    expect(skillFrontmatterContract.schema).toHaveProperty("additionalProperties", false);
+    expect(skillFrontmatterContract.schema).toHaveProperty("additionalProperties", true);
     expect(agentFrontmatterContract.schema).toHaveProperty("additionalProperties", false);
-    expect(instructionFrontmatterContract.schema).toHaveProperty("additionalProperties", false);
+    expect(instructionFrontmatterContract.schema).toHaveProperty("additionalProperties", true);
 
     const changeProperties = changeEntryContract.schema.properties as Record<string, unknown>;
     expect(Object.keys(changeProperties).sort()).toEqual([
@@ -378,7 +378,7 @@ describe("@skillset/schema contracts", () => {
       metadata: "bad",
       model: 1,
       resources: "bad",
-      schema: 1,
+      dialect: "codex",
       targets: ["claude"],
       title: 1,
       tool_intent: "bad",
@@ -394,11 +394,10 @@ describe("@skillset/schema contracts", () => {
       "schema/skill-frontmatter/bin",
       "schema/skill-frontmatter/dependencies",
       "schema/skill-frontmatter/description",
+      "schema/skill-frontmatter/dialect",
       "schema/skill-frontmatter/mcp",
       "schema/skill-frontmatter/metadata",
       "schema/skill-frontmatter/model",
-      "schema/skill-frontmatter/resources",
-      "schema/skill-frontmatter/schema",
       "schema/skill-frontmatter/target",
       "schema/skill-frontmatter/title",
       "schema/skill-frontmatter/tool-intent",
@@ -410,7 +409,6 @@ describe("@skillset/schema contracts", () => {
     ]));
     expect(validateSkillFrontmatter({ metadata: { generated: 1, version: "nope", extra: true } }).diagnostics.map((diagnostic) => diagnostic.code)).toEqual(expect.arrayContaining([
       "schema/skill-frontmatter/metadata-generated",
-      "schema/skill-frontmatter/metadata-key",
       "schema/skill-frontmatter/metadata-version",
     ]));
     expect(validateSkillFrontmatter({ allowed_tools: "" }).diagnostics).toContainEqual({
@@ -443,10 +441,16 @@ describe("@skillset/schema contracts", () => {
       "schema/agent-frontmatter/description",
       "schema/agent-frontmatter/skills",
     ]);
+    expect(validateSkillFrontmatter({ arbitrary_context: { count: 2 }, schema: 1 }).diagnostics).toEqual([]);
     expect(validateInstructionFrontmatter({ dialect: "codex" }).diagnostics).toContainEqual({
       code: "schema/instruction-frontmatter/dialect",
       message: "$.dialect must be claude when present",
       path: "$.dialect",
+    });
+    expect(validateInstructionFrontmatter({ paths: [1] }).diagnostics).toContainEqual({
+      code: "schema/instruction-frontmatter/paths",
+      message: "$.paths entries must be strings",
+      path: "$.paths[0]",
     });
   });
 });

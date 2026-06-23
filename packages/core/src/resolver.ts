@@ -2,6 +2,13 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, dirname, join, relative, sep } from "node:path";
 
 import {
+  validateAgentFrontmatter,
+  validateInstructionFrontmatter,
+  validateSkillFrontmatter,
+  type SkillsetSchemaDiagnostic,
+} from "@skillset/schema";
+
+import {
   applyFeatureTargetDefaults,
   readCompileConfig,
   readCompileTargets,
@@ -506,6 +513,7 @@ async function loadProjectAgent(
 ): Promise<SourceProjectAgent> {
   const parts = parseMarkdown(await readFile(sourcePath, "utf8"), sourcePath);
   const sourceLabel = relative(rootPath, sourcePath);
+  validateSourceFrontmatter(validateAgentFrontmatter(parts.frontmatter, sourceLabel).diagnostics, sourceLabel, parts.frontmatter);
   rejectUnsupportedPortableFrontmatter(parts.frontmatter, sourceLabel);
   await validateSupports(parts.frontmatter.supports, { label: sourceLabel, rootPath, warnings });
   const name = readString(parts.frontmatter, "name") ?? basename(sourcePath, ".md");
@@ -609,6 +617,11 @@ async function loadInstructions(
     const parts = parseMarkdown(content, sourcePath);
     const relativePath = relative(canonicalPath, sourcePath);
     const frontmatter = normalizeRuleFrontmatter(parts.frontmatter, sourcePath);
+    validateSourceFrontmatter(
+      validateInstructionFrontmatter(frontmatter, relative(rootPath, sourcePath)).diagnostics,
+      relative(rootPath, sourcePath),
+      frontmatter
+    );
     await validateSupports(frontmatter.supports, { label: relative(rootPath, sourcePath), rootPath, warnings });
     const metadata = readSkillsetMetadata(frontmatter, sourcePath);
     const sourceOrigin = readSourceOrigin(metadata, sourcePath);
@@ -923,6 +936,7 @@ async function loadSkillsFromDirectory(
   for (const sourcePath of skillFiles) {
     const content = await readFile(sourcePath, "utf8");
     const parts = parseMarkdown(content, sourcePath);
+    validateSourceFrontmatter(validateSkillFrontmatter(parts.frontmatter, sourcePath).diagnostics, sourcePath, parts.frontmatter);
     await validateSupports(parts.frontmatter.supports, { label: relative(rootPath, sourcePath), rootPath, warnings });
     const metadata = readSkillsetMetadata(parts.frontmatter, sourcePath);
     validateVersionField(parts.frontmatter, `${sourcePath}.version`);
@@ -966,6 +980,48 @@ async function loadSkillsFromDirectory(
   }
 
   return skills.sort((left, right) => compareStrings(left.relativePath, right.relativePath));
+}
+
+function validateSourceFrontmatter(
+  diagnostics: readonly SkillsetSchemaDiagnostic[],
+  label: string,
+  frontmatter: JsonRecord
+): void {
+  if (diagnostics.length === 0) return;
+  const message = diagnostics.map((diagnostic) => sourceFrontmatterSchemaMessage(diagnostic, frontmatter)).join("; ");
+  throw new Error(`skillset: ${label} frontmatter failed schema validation: ${message}`);
+}
+
+function sourceFrontmatterSchemaMessage(diagnostic: SkillsetSchemaDiagnostic, frontmatter: JsonRecord): string {
+  if (diagnostic.code.endsWith("/key") && diagnostic.path.endsWith(".targets")) {
+    return "uses unsupported targets key; use compile.targets";
+  }
+  if (diagnostic.code.endsWith("/key") && diagnostic.path.endsWith(".tools")) {
+    return "uses unsupported tools; use tool_intent";
+  }
+  if (diagnostic.code === "schema/skill-frontmatter/allowed-tools") {
+    return diagnostic.message.replaceAll("$.", "").replace(
+      "must be false, a string, a string array, or a target map",
+      "to be false, a string, a string array, or target map"
+    );
+  }
+  if (diagnostic.code === "schema/skill-frontmatter/allowed-tools-key") {
+    return "target map to contain only claude and codex keys";
+  }
+  if (diagnostic.code === "schema/skill-frontmatter/implicit-invocation-key") {
+    return "target map to contain only claude and codex keys";
+  }
+  if (diagnostic.code === "schema/skill-frontmatter/version") {
+    return `expected ${diagnostic.path} to be a semantic version`;
+  }
+  if (diagnostic.code.endsWith("/dialect")) {
+    const dialect = readString(frontmatter, "dialect");
+    if (dialect !== undefined) return `declares unsupported dialect "${dialect}"; only "claude" is supported`;
+  }
+  if (diagnostic.code === "schema/source-metadata/key" && diagnostic.path.endsWith(".skillset.id")) {
+    return "uses unsupported skillset.id; use top-level name";
+  }
+  return diagnostic.message.replaceAll("$.", "");
 }
 
 async function loadStandaloneSkills(

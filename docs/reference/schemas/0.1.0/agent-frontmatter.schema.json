@@ -32,7 +32,7 @@
       "type": "string"
     },
     "metadata": {
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "generated": {
           "type": "string"

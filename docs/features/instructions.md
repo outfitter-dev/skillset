@@ -8,7 +8,7 @@ Instructions are durable repo guidance authored under `<source-root>/rules/**/*.
 
 ## Authoring
 
-Instruction Markdown may include `paths` frontmatter for Claude path scoping and top-level `claude` / `codex` target toggles. Bodies support preprocessing through nested `{{this.<field>}}` frontmatter references, instruction variables such as `{{skillset.repo_root}}`, source context such as `{{skillset.source_path}}` and `{{parent.tree depth:2}}`, triple-brace literal escapes such as `{{{this.title}}}`, and partials via `{{shared:path.md}}`, `{{plugin:path.md}}`, or a path relative to the source file. Set `skillset.preprocess: false` when literal braces should be preserved.
+Instruction Markdown may include `name`, `dialect`, top-level `paths` for Claude path scoping, common `skillset` metadata, `supports`, and explicit top-level `claude` / `codex` target blocks. The active frontmatter contract is generated from `@skillset/schema`; see [schema reference](../reference/schemas/README.md) and [instruction frontmatter examples](../reference/examples/instruction-frontmatter.yaml) for the current field set and provider override shape. Bodies support preprocessing through nested `{{this.<field>}}` frontmatter references, instruction variables such as `{{skillset.repo_root}}`, source context such as `{{skillset.source_path}}` and `{{parent.tree depth:2}}`, triple-brace literal escapes such as `{{{this.title}}}`, and partials via `{{shared:path.md}}`, `{{plugin:path.md}}`, or a path relative to the source file. Set `skillset.preprocess: false` when literal braces should be preserved.
 
 ## Target Rendering
 

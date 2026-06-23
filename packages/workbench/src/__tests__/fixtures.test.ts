@@ -75,7 +75,7 @@ describe("workbench fixtures", () => {
     ]);
 
     expect(diagnostics.ok).toBeFalse();
-    expect(diagnostics.errorCount).toBe(25);
+    expect(diagnostics.errorCount).toBe(28);
     expect(diagnostics.warningCount).toBe(1);
     expect(diagnostics.diagnostics.map(formatWorkbenchDiagnostic)).toEqual([
       "fixtures/workbench-invalid: warning: runtime/shimmed: codex-cli project-agents: Skill loading is not runtime-enforced.",
@@ -98,7 +98,10 @@ describe("workbench fixtures", () => {
       "skillset/hooks/hooks.json:1: error: schema/hook: hook event SessionStart must be an array",
       "skillset/hooks/hooks.json:1: error: schema/hook: hook event Stop hook handlers must be objects",
       "skillset/hooks/hooks.json:1: error: schema/hook: hook event Stop hook handlers must include a non-empty string type",
-      "skillset/skills/broken/SKILL.md:1: error: schema/skill-frontmatter: resources must be an object when present",
+      "skillset/rules/root.md:1: error: schema/instruction-frontmatter: claude must be true, false, or an object when present",
+      "skillset/rules/root.md:1: error: schema/instruction-frontmatter: dialect must be claude when present",
+      "skillset/rules/root.md:1: error: schema/instruction-frontmatter: unsupported supports key tools; v1 supports packages",
+      "skillset/skills/broken/SKILL.md:1: error: schema/skill-frontmatter: description must be a non-empty string",
       "skillset/skills/broken/SKILL.md:1: error: schema/skill-frontmatter: skill needs description, summary, title, or skillset descriptive metadata",
       "skillset/skills/broken/SKILL.md:1: error: schema/skill-frontmatter: skills must remove targets; use root compile.targets and claude/codex blocks for file-level behavior",
       "skillset/skills/broken/SKILL.md:1: error: schema/skill-frontmatter: skillset.name is unsupported in skills; use top-level name",
@@ -117,6 +120,7 @@ const cleanSources: readonly SourceContractSpec[] = [
   { kind: "workspace-config", path: "skillset.yaml" },
   { kind: "skill", path: "skillset/skills/reference/SKILL.md" },
   { kind: "agent", path: "skillset/agents/reviewer.md" },
+  { kind: "instruction", path: "skillset/rules/root.md" },
   { kind: "hook", path: "skillset/hooks/hooks.json" },
 ];
 
@@ -124,6 +128,7 @@ const invalidSources: readonly SourceContractSpec[] = [
   { kind: "workspace-config", path: "skillset.yaml" },
   { kind: "skill", path: "skillset/skills/broken/SKILL.md" },
   { kind: "agent", path: "skillset/agents/broken.md" },
+  { kind: "instruction", path: "skillset/rules/root.md" },
   { kind: "hook", path: "skillset/hooks/hooks.json" },
 ];
 

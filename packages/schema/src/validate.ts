@@ -1,8 +1,6 @@
 import {
   AGENT_FRONTMATTER_KEYS,
   COMPILE_BUILD_MODES,
-  COMMON_FRONTMATTER_KEYS,
-  INSTRUCTION_FRONTMATTER_KEYS,
   SOURCE_METADATA_KEYS,
   TARGET_NAMES,
   UNSUPPORTED_DESTINATION_POLICIES,
@@ -20,9 +18,7 @@ type KeySet = ReadonlySet<string>;
 
 const workspaceKeys = new Set<string>(WORKSPACE_CONFIG_KEYS);
 const sourceMetadataKeys = new Set<string>(SOURCE_METADATA_KEYS);
-const commonFrontmatterKeys = new Set<string>(COMMON_FRONTMATTER_KEYS);
 const agentFrontmatterKeys = new Set<string>(AGENT_FRONTMATTER_KEYS);
-const instructionFrontmatterKeys = new Set<string>(INSTRUCTION_FRONTMATTER_KEYS);
 const targetNames = new Set<string>(TARGET_NAMES);
 const compileBuildModes = new Set<string>(COMPILE_BUILD_MODES);
 const unsupportedDestinationPolicies = new Set<string>(UNSUPPORTED_DESTINATION_POLICIES);
@@ -59,22 +55,21 @@ export function validateSourceMetadata(value: unknown, path = "$"): SkillsetSche
 export function validateSkillFrontmatter(value: unknown, path = "$"): SkillsetSchemaValidationResult {
   const diagnostics: SkillsetSchemaDiagnostic[] = [];
   if (!isSchemaRecord(value)) return result([diagnostic(path, "schema/skill-frontmatter/type", "skill frontmatter must be an object")]);
-  checkAllowedKeys(value, commonFrontmatterKeys, path, "schema/skill-frontmatter/key", diagnostics);
+  checkRetiredTargetsKey(value, path, "schema/skill-frontmatter/key", diagnostics);
   checkOptionalNonEmptyString(value.name, `${path}.name`, "schema/skill-frontmatter/name", diagnostics);
   checkOptionalNonEmptyString(value.description, `${path}.description`, "schema/skill-frontmatter/description", diagnostics);
   checkOptionalNonEmptyString(value.summary, `${path}.summary`, "schema/skill-frontmatter/summary", diagnostics);
   checkOptionalNonEmptyString(value.title, `${path}.title`, "schema/skill-frontmatter/title", diagnostics);
   checkOptionalSemverString(value.version, `${path}.version`, "schema/skill-frontmatter/version", diagnostics);
+  checkOptionalDialect(value.dialect, `${path}.dialect`, "schema/skill-frontmatter/dialect", diagnostics);
   checkTargetFeature(value.bin, `${path}.bin`, "schema/skill-frontmatter/bin", diagnostics);
   checkDependencies(value.dependencies, `${path}.dependencies`, "schema/skill-frontmatter/dependencies", diagnostics);
   checkGeneratedMetadata(value.metadata, `${path}.metadata`, "schema/skill-frontmatter/metadata", diagnostics);
   checkOptionalNonEmptyString(value.model, `${path}.model`, "schema/skill-frontmatter/model", diagnostics);
   checkTargetFeature(value.mcp, `${path}.mcp`, "schema/skill-frontmatter/mcp", diagnostics);
-  checkOptionalObject(value.resources, `${path}.resources`, "schema/skill-frontmatter/resources", diagnostics);
-  checkOptionalNonEmptyString(value.schema, `${path}.schema`, "schema/skill-frontmatter/schema", diagnostics);
+  checkOptionalStringOrPositiveInteger(value.schema, `${path}.schema`, "schema/skill-frontmatter/schema", diagnostics);
   checkTargetBlock(value.claude, `${path}.claude`, "schema/skill-frontmatter/target", diagnostics);
   checkTargetBlock(value.codex, `${path}.codex`, "schema/skill-frontmatter/target", diagnostics);
-  checkOptionalDialect(value.dialect, `${path}.dialect`, "schema/skill-frontmatter/dialect", diagnostics);
   checkImplicitInvocation(value.implicit_invocation, `${path}.implicit_invocation`, diagnostics);
   checkAllowedTools(value.allowed_tools, `${path}.allowed_tools`, diagnostics);
   checkOptionalObject(value.tool_intent, `${path}.tool_intent`, "schema/skill-frontmatter/tool-intent", diagnostics);
@@ -106,14 +101,28 @@ export function validateAgentFrontmatter(value: unknown, path = "$"): SkillsetSc
 export function validateInstructionFrontmatter(value: unknown, path = "$"): SkillsetSchemaValidationResult {
   const diagnostics: SkillsetSchemaDiagnostic[] = [];
   if (!isSchemaRecord(value)) return result([diagnostic(path, "schema/instruction-frontmatter/type", "instruction frontmatter must be an object")]);
-  checkAllowedKeys(value, instructionFrontmatterKeys, path, "schema/instruction-frontmatter/key", diagnostics);
+  checkRetiredTargetsKey(value, path, "schema/instruction-frontmatter/key", diagnostics);
   checkOptionalNonEmptyString(value.name, `${path}.name`, "schema/instruction-frontmatter/name", diagnostics);
+  checkOptionalNonEmptyString(value.description, `${path}.description`, "schema/instruction-frontmatter/description", diagnostics);
+  checkOptionalNonEmptyString(value.summary, `${path}.summary`, "schema/instruction-frontmatter/summary", diagnostics);
+  checkOptionalNonEmptyString(value.title, `${path}.title`, "schema/instruction-frontmatter/title", diagnostics);
+  checkOptionalSemverString(value.version, `${path}.version`, "schema/instruction-frontmatter/version", diagnostics);
   checkOptionalDialect(value.dialect, `${path}.dialect`, "schema/instruction-frontmatter/dialect", diagnostics);
+  checkOptionalStringArray(value.paths, `${path}.paths`, "schema/instruction-frontmatter/paths", diagnostics);
   checkTargetBlock(value.claude, `${path}.claude`, "schema/instruction-frontmatter/target", diagnostics);
   checkTargetBlock(value.codex, `${path}.codex`, "schema/instruction-frontmatter/target", diagnostics);
   checkSourceMetadata(value.skillset, `${path}.skillset`, diagnostics);
   checkSupports(value.supports, `${path}.supports`, diagnostics);
   return result(diagnostics);
+}
+
+function checkRetiredTargetsKey(
+  value: SchemaJsonRecord,
+  path: string,
+  code: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  if (value.targets !== undefined) diagnostics.push(diagnostic(`${path}.targets`, code, "unsupported key targets"));
 }
 
 function checkCompile(value: SchemaJsonValue | undefined, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
@@ -265,6 +274,16 @@ function checkOptionalStringOrObject(value: SchemaJsonValue | undefined, path: s
   if (value !== undefined && typeof value !== "string" && !isSchemaRecord(value)) diagnostics.push(diagnostic(path, code, `${path} must be a string or object`));
 }
 
+function checkOptionalStringOrPositiveInteger(value: SchemaJsonValue | undefined, path: string, code: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (
+    value !== undefined &&
+    typeof value !== "string" &&
+    !(typeof value === "number" && Number.isInteger(value) && value > 0)
+  ) {
+    diagnostics.push(diagnostic(path, code, `${path} must be a string or positive integer`));
+  }
+}
+
 function checkOptionalSupportedSourceSchema(value: SchemaJsonValue | undefined, path: string, code: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
   if (value === undefined) return;
   if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
@@ -299,7 +318,6 @@ function checkGeneratedMetadata(value: SchemaJsonValue | undefined, path: string
     diagnostics.push(diagnostic(path, code, `${path} must be an object`));
     return;
   }
-  checkAllowedKeys(value, new Set(["generated", "version"]), path, `${code}-key`, diagnostics);
   checkOptionalString(value.generated, `${path}.generated`, `${code}-generated`, diagnostics);
   checkOptionalSemverString(value.version, `${path}.version`, `${code}-version`, diagnostics);
 }

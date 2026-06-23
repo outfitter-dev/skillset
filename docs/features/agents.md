@@ -39,6 +39,8 @@ Review diffs and call out correctness risks.
 .codex/agents/<resolved-name>.toml
 ```
 
+The active frontmatter contract is generated from `@skillset/schema`; see [schema reference](../reference/schemas/README.md) and [agent frontmatter examples](../reference/examples/agent-frontmatter.yaml) for the current shared fields, common metadata blocks, `supports`, and provider override blocks. Provider-specific fields remain explicit inside `claude` and `codex` blocks rather than being inferred from portable keys.
+
 Skillset must keep this separate from plugin `agents/` and skill-local Codex `agents/openai.yaml`. Reusing either surface would hide target differences and make project behavior look portable by accident.
 
 ## Support Table
