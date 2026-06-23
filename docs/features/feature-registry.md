@@ -50,7 +50,7 @@ This separation keeps docs from overpromising and keeps build reports from prete
 
 Skillset uses Markdown because skills, rules, agents, and instructions are authored and consumed as Markdown in target ecosystems. Markdown is still not the core IR.
 
-Source `SKILL.md` is parsed into a source skill record. Generated `SKILL.md` is a target artifact. `CLAUDE.md`-style files when imported or carried through target-native source, Claude rules, Claude agent files, and Codex `AGENTS.md` files are target-native renderings. Provider source can copy opaque files, but those files remain target-owned output.
+Source `SKILL.md` is parsed into a source skill record. Generated `SKILL.md` is a target artifact. `CLAUDE.md`-style files when imported or carried through target-native source, Claude rules, Claude agent files, and Codex `AGENTS.md` files are target-native renderings. Provider source can copy opaque files, but those files remain provider-specific destination output.
 
 The core contract is the resolved source graph plus typed feature entries, target support rows, render results, diagnostics, locks, and operation results.
 

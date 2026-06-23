@@ -692,15 +692,15 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
   }),
   feature({
     docs: ["docs/features/target-native-islands.md"],
-    evidence: [test("apps/skillset/src/__tests__/skillset.test.ts", "target-native island coverage")],
+    evidence: [test("apps/skillset/src/__tests__/skillset.test.ts", "provider source coverage")],
     id: "target-native-islands",
     kind: "target-native",
     renderOwner: "packages/core/src/render.ts",
     sourceShape: ".skillset/src/_claude/**, .skillset/src/_codex/**, and plugin-local provider source subdirs",
     status: "implemented",
-    summary: "Mirrors explicitly target-owned files only to their intended provider output.",
+    summary: "Mirrors explicit provider-specific files only to their intended provider output.",
     targetSupport: bothTargets("pass_through"),
-    title: "Target-Native Islands",
+    title: "Provider Source",
     validationOwner: "packages/core/src/resolver.ts",
   }),
   feature({

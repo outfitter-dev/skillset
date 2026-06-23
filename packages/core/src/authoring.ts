@@ -592,7 +592,7 @@ function sourceNotes(graph: BuildGraph, target: string): readonly string[] {
   const island = graph.projectIslands.find((candidate) => relative(graph.rootPath, candidate.sourcePath) === target);
   if (island !== undefined) {
     return [
-      `Target-native island for ${island.target}${island.plugin === undefined ? "" : ` plugin ${island.plugin}`}.`,
+      `Provider source for ${island.target}${island.plugin === undefined ? "" : ` plugin ${island.plugin}`}.`,
     ];
   }
 
