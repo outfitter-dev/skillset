@@ -1,4 +1,10 @@
-import { validateWorkspaceConfig, type SkillsetSchemaDiagnostic } from "@skillset/schema";
+import {
+  validateAgentFrontmatter,
+  validateInstructionFrontmatter,
+  validateSkillFrontmatter,
+  validateWorkspaceConfig,
+  type SkillsetSchemaDiagnostic,
+} from "@skillset/schema";
 
 import { createWorkbenchDiagnostic, sortWorkbenchDiagnostics } from "./diagnostics";
 import { parseWorkbenchDocument } from "./parser";
@@ -9,7 +15,7 @@ import type {
   WorkbenchParseResult,
 } from "./types";
 
-export type WorkbenchSourceContractKind = "agent" | "hook" | "skill" | "workspace-config";
+export type WorkbenchSourceContractKind = "agent" | "hook" | "instruction" | "skill" | "workspace-config";
 
 export interface WorkbenchSourceContractInput {
   readonly content: string;
@@ -36,6 +42,9 @@ export function checkWorkbenchSourceContract(
   if (input.kind === "hook") {
     return sortWorkbenchDiagnostics([...parseDiagnostics, ...checkHookContract(parsed, input.path)]);
   }
+  if (input.kind === "instruction") {
+    return sortWorkbenchDiagnostics([...parseDiagnostics, ...checkInstructionContract(parsed, input.path)]);
+  }
   if (input.kind === "skill") {
     return sortWorkbenchDiagnostics([...parseDiagnostics, ...checkSkillContract(parsed, input.path)]);
   }
@@ -43,7 +52,7 @@ export function checkWorkbenchSourceContract(
 }
 
 function parseKindForContract(kind: WorkbenchSourceContractKind): WorkbenchParseKind {
-  if (kind === "agent" || kind === "skill") return "markdown";
+  if (kind === "agent" || kind === "instruction" || kind === "skill") return "markdown";
   if (kind === "hook") return "json";
   return "yaml";
 }
@@ -54,21 +63,19 @@ function checkSkillContract(
 ): readonly WorkbenchDiagnostic[] {
   if (parsed.kind !== "markdown") return [wrongKind(path, "skill", "Markdown")];
 
+  const frontmatter = parsed.frontmatter ?? {};
+  const schemaDiagnostics = validateSkillFrontmatter(frontmatter).diagnostics;
   const diagnostics: WorkbenchDiagnostic[] = [];
   diagnostics.push(...checkMarkdownBody(parsed, path, "skill"));
-  diagnostics.push(...checkOptionalString(parsed.frontmatter ?? {}, "name", path, "skill", "schema/skill-frontmatter"));
-  diagnostics.push(...checkSkillDescription(parsed.frontmatter ?? {}, path));
-  diagnostics.push(...checkOptionalString(parsed.frontmatter ?? {}, "version", path, "skill", "schema/skill-frontmatter"));
-  diagnostics.push(...checkOptionalObject(parsed.frontmatter ?? {}, "resources", path, "skill", "schema/skill-frontmatter"));
-  diagnostics.push(...checkSkillsetSkillMetadata(parsed.frontmatter ?? {}, path));
-  if ((parsed.frontmatter ?? {}).targets !== undefined) {
-    diagnostics.push(schemaDiagnostic({
-      message: "skills must remove targets; use root compile.targets and claude/codex blocks for file-level behavior",
-      path,
-      ruleId: "schema/skill-frontmatter",
-      subjectKind: "skill",
-    }));
-  }
+  diagnostics.push(
+    ...schemaDiagnostics
+      .filter((diagnostic) => !isRedundantSupportsPackagesDiagnostic(diagnostic, schemaDiagnostics, frontmatter))
+      .map((diagnostic) =>
+        frontmatterSchemaDiagnostic(diagnostic, frontmatter, path, "skill", "schema/skill-frontmatter")
+      )
+  );
+  diagnostics.push(...checkSkillDescription(frontmatter, path));
+  diagnostics.push(...checkSkillsetSkillMetadata(frontmatter, path));
   return diagnostics;
 }
 
@@ -79,24 +86,93 @@ function checkAgentContract(
   if (parsed.kind !== "markdown") return [wrongKind(path, "agent", "Markdown")];
 
   const frontmatter = parsed.frontmatter ?? {};
+  const schemaDiagnostics = validateAgentFrontmatter(frontmatter).diagnostics;
   const diagnostics: WorkbenchDiagnostic[] = [];
   diagnostics.push(...checkMarkdownBody(parsed, path, "agent"));
-  diagnostics.push(...checkOptionalString(frontmatter, "name", path, "agent", "schema/agent-frontmatter"));
-  diagnostics.push(...checkRequiredString(frontmatter, "description", path, "agent", "schema/agent-frontmatter"));
-  diagnostics.push(...checkOptionalString(frontmatter, "initialPrompt", path, "agent", "schema/agent-frontmatter"));
-  diagnostics.push(...checkOptionalString(frontmatter, "model", path, "agent", "schema/agent-frontmatter"));
-  diagnostics.push(...checkOptionalStringArray(frontmatter, "skills", path, "agent", "schema/agent-frontmatter"));
-  diagnostics.push(...checkTargetBlock(frontmatter, "claude", path, "agent", "schema/agent-frontmatter"));
-  diagnostics.push(...checkTargetBlock(frontmatter, "codex", path, "agent", "schema/agent-frontmatter"));
-  if (frontmatter.targets !== undefined) {
-    diagnostics.push(schemaDiagnostic({
-      message: "agents must remove targets; use root compile.targets and claude/codex blocks for file-level behavior",
-      path,
-      ruleId: "schema/agent-frontmatter",
-      subjectKind: "agent",
-    }));
-  }
+  diagnostics.push(
+    ...schemaDiagnostics
+      .filter((diagnostic) => !isRedundantSupportsPackagesDiagnostic(diagnostic, schemaDiagnostics, frontmatter))
+      .map((diagnostic) =>
+        frontmatterSchemaDiagnostic(diagnostic, frontmatter, path, "agent", "schema/agent-frontmatter")
+      )
+  );
   return diagnostics;
+}
+
+function checkInstructionContract(
+  parsed: WorkbenchParseResult,
+  path: string
+): readonly WorkbenchDiagnostic[] {
+  if (parsed.kind !== "markdown") return [wrongKind(path, "instruction", "Markdown")];
+
+  const frontmatter = parsed.frontmatter ?? {};
+  const schemaDiagnostics = validateInstructionFrontmatter(frontmatter).diagnostics;
+  return schemaDiagnostics
+    .filter((diagnostic) => !isRedundantSupportsPackagesDiagnostic(diagnostic, schemaDiagnostics, frontmatter))
+    .map((diagnostic) =>
+      frontmatterSchemaDiagnostic(diagnostic, frontmatter, path, "instruction", "schema/instruction-frontmatter")
+    );
+}
+
+function frontmatterSchemaDiagnostic(
+  diagnostic: SkillsetSchemaDiagnostic,
+  data: Record<string, unknown>,
+  path: string,
+  subjectKind: "agent" | "instruction" | "skill",
+  ruleId: string
+): WorkbenchDiagnostic {
+  return schemaDiagnostic({
+    message: frontmatterSchemaMessage(diagnostic, data, subjectKind),
+    path,
+    ruleId,
+    subjectKind,
+  });
+}
+
+function frontmatterSchemaMessage(
+  diagnostic: SkillsetSchemaDiagnostic,
+  data: Record<string, unknown>,
+  subjectKind: "agent" | "instruction" | "skill"
+): string {
+  const key = schemaPathKey(diagnostic.path);
+  const value = schemaPathValue(data, diagnostic.path);
+
+  if (diagnostic.code.endsWith("/key") && key === "targets") {
+    return `${subjectKind}s must remove targets; use root compile.targets and claude/codex blocks for file-level behavior`;
+  }
+  if (diagnostic.code.endsWith("/target")) {
+    return `${key} must be true, false, or an object when present`;
+  }
+  if (diagnostic.code.endsWith("/description") && subjectKind === "agent") {
+    return "description is required and must be a non-empty string";
+  }
+  if (diagnostic.code.endsWith("/skills")) {
+    return "skills must be a string array when present";
+  }
+  if (diagnostic.code.endsWith("/resources")) {
+    return "resources must be an object when present";
+  }
+  if (diagnostic.code === "schema/source-metadata/type") {
+    return "skillset must be an object when present";
+  }
+  if (
+    diagnostic.code === "schema/source-metadata/key" &&
+    diagnostic.path === "$.skillset.id" &&
+    subjectKind === "skill"
+  ) {
+    return "skillset.id is unsupported in skills; use top-level name";
+  }
+  if (diagnostic.code === "schema/supports/key") {
+    return `unsupported supports key ${key}; v1 supports packages`;
+  }
+  if (diagnostic.code === "schema/supports/packages") {
+    if (value === undefined) return "supports object form must include packages as an array";
+    return "supports.packages must be an array when present";
+  }
+  if (diagnostic.code === "schema/supports/type") {
+    return "supports must be a string, array, or object when present";
+  }
+  return diagnostic.message.replaceAll("$.", "");
 }
 
 function checkWorkspaceConfigContract(
@@ -205,6 +281,14 @@ function workspaceSchemaMessage(diagnostic: SkillsetSchemaDiagnostic, data: Reco
 }
 
 function isRedundantWorkspaceSchemaDiagnostic(
+  diagnostic: SkillsetSchemaDiagnostic,
+  diagnostics: readonly SkillsetSchemaDiagnostic[],
+  data: Record<string, unknown>
+): boolean {
+  return isRedundantSupportsPackagesDiagnostic(diagnostic, diagnostics, data);
+}
+
+function isRedundantSupportsPackagesDiagnostic(
   diagnostic: SkillsetSchemaDiagnostic,
   diagnostics: readonly SkillsetSchemaDiagnostic[],
   data: Record<string, unknown>
@@ -363,87 +447,6 @@ function checkMarkdownBody(
   ];
 }
 
-function checkRequiredString(
-  record: Record<string, unknown>,
-  key: string,
-  path: string,
-  subjectKind: "agent" | "skill",
-  ruleId: string
-): readonly WorkbenchDiagnostic[] {
-  const value = record[key];
-  if (typeof value === "string" && value.trim().length > 0) return [];
-  return [
-    schemaDiagnostic({
-      message: `${key} is required and must be a non-empty string`,
-      path,
-      ruleId,
-      subjectKind,
-    }),
-  ];
-}
-
-function checkOptionalString(
-  record: Record<string, unknown>,
-  key: string,
-  path: string,
-  subjectKind: "agent" | "skill",
-  ruleId: string
-): readonly WorkbenchDiagnostic[] {
-  const value = record[key];
-  if (value === undefined || (typeof value === "string" && value.trim().length > 0)) return [];
-  return [
-    schemaDiagnostic({
-      message: `${key} must be a non-empty string when present`,
-      path,
-      ruleId,
-      subjectKind,
-    }),
-  ];
-}
-
-function checkOptionalStringArray(
-  record: Record<string, unknown>,
-  key: string,
-  path: string,
-  subjectKind: "agent" | "skill",
-  ruleId: string
-): readonly WorkbenchDiagnostic[] {
-  const value = record[key];
-  if (
-    value === undefined ||
-    (Array.isArray(value) && value.every((item) => typeof item === "string" && item.trim().length > 0))
-  ) {
-    return [];
-  }
-  return [
-    schemaDiagnostic({
-      message: `${key} must be a string array when present`,
-      path,
-      ruleId,
-      subjectKind,
-    }),
-  ];
-}
-
-function checkOptionalObject(
-  record: Record<string, unknown>,
-  key: string,
-  path: string,
-  subjectKind: "agent" | "skill",
-  ruleId: string
-): readonly WorkbenchDiagnostic[] {
-  const value = record[key];
-  if (value === undefined || isRecord(value)) return [];
-  return [
-    schemaDiagnostic({
-      message: `${key} must be an object when present`,
-      path,
-      ruleId,
-      subjectKind,
-    }),
-  ];
-}
-
 function checkSkillDescription(
   record: Record<string, unknown>,
   path: string
@@ -487,7 +490,7 @@ function checkSkillsetSkillMetadata(
   }
 
   const diagnostics: WorkbenchDiagnostic[] = [];
-  for (const key of ["id", "name", "version"]) {
+  for (const key of ["name", "version"]) {
     if (value[key] === undefined) continue;
     diagnostics.push(schemaDiagnostic({
       message: `skillset.${key} is unsupported in skills; use top-level ${key === "id" ? "name" : key}`,
@@ -499,28 +502,9 @@ function checkSkillsetSkillMetadata(
   return diagnostics;
 }
 
-function checkTargetBlock(
-  record: Record<string, unknown>,
-  key: "claude" | "codex",
-  path: string,
-  subjectKind: "agent" | "skill",
-  ruleId: string
-): readonly WorkbenchDiagnostic[] {
-  const value = record[key];
-  if (value === undefined || value === false || value === true || isRecord(value)) return [];
-  return [
-    schemaDiagnostic({
-      message: `${key} must be true, false, or an object when present`,
-      path,
-      ruleId,
-      subjectKind,
-    }),
-  ];
-}
-
 function wrongKind(
   path: string,
-  subjectKind: "agent" | "hook" | "skill" | "workspace",
+  subjectKind: "agent" | "hook" | "instruction" | "skill" | "workspace",
   expected: string
 ): WorkbenchDiagnostic {
   return schemaDiagnostic({
@@ -537,7 +521,7 @@ function schemaDiagnostic(args: {
   readonly path: string;
   readonly ruleId: string;
   readonly scope?: "source" | "workspace";
-  readonly subjectKind: "agent" | "hook" | "skill" | "workspace";
+  readonly subjectKind: "agent" | "hook" | "instruction" | "skill" | "workspace";
 }): WorkbenchDiagnostic {
   return createWorkbenchDiagnostic({
     featureId: "source-contracts",

@@ -128,7 +128,7 @@ export const workspaceConfigContract = contract("workspace-config", "Workspace C
 export const sourceMetadataContract = contract("source-metadata", "Source Metadata", "Shared source metadata for workspaces, plugins, and generated attribution.", sourceMetadataSchema());
 
 export const skillFrontmatterContract = contract("skill-frontmatter", "Skill Frontmatter", "Adaptive Skillset skill frontmatter.", {
-  additionalProperties: false,
+  additionalProperties: true,
   properties: {
     allowed_tools: allowedToolsSchema(),
     bin: targetFeatureSchema(),
@@ -142,8 +142,13 @@ export const skillFrontmatterContract = contract("skill-frontmatter", "Skill Fro
     metadata: generatedMetadataSchema(),
     model: nonEmptyStringSchema(),
     name: nonEmptyStringSchema(),
-    resources: { type: "object" },
-    schema: nonEmptyStringSchema(),
+    resources: resourceDeclarationSchema(),
+    schema: {
+      anyOf: [
+        nonEmptyStringSchema(),
+        { minimum: 1, type: "integer" },
+      ],
+    },
     skillset: sourceMetadataSchema(),
     summary: nonEmptyStringSchema(),
     supports: supportsSchema(),
@@ -173,15 +178,20 @@ export const agentFrontmatterContract = contract("agent-frontmatter", "Agent Fro
 });
 
 export const instructionFrontmatterContract = contract("instruction-frontmatter", "Instruction Frontmatter", "Adaptive Skillset instruction/rules frontmatter.", {
-  additionalProperties: false,
+  additionalProperties: true,
   properties: {
     claude: targetOverrideSchema(),
     codex: targetOverrideSchema(),
+    description: nonEmptyStringSchema(),
     dialect: { enum: ["claude"], type: "string" },
     metadata: generatedMetadataSchema(),
     name: nonEmptyStringSchema(),
+    paths: arraySchema(nonEmptyStringSchema()),
     skillset: sourceMetadataSchema(),
+    summary: nonEmptyStringSchema(),
     supports: supportsSchema(),
+    title: nonEmptyStringSchema(),
+    version: semverStringSchema(),
   },
   type: "object",
 });
@@ -287,10 +297,14 @@ function sourceMetadataSchema(): SchemaJsonRecord {
 }
 
 function generatedMetadataSchema(): SchemaJsonRecord {
-  return strictObjectSchema({
-    generated: { type: "string" },
-    version: semverStringSchema(),
-  });
+  return {
+    additionalProperties: true,
+    properties: {
+      generated: { type: "string" },
+      version: semverStringSchema(),
+    },
+    type: "object",
+  };
 }
 
 function sourceOriginSchema(): SchemaJsonRecord {
@@ -338,6 +352,33 @@ function supportsSchema(): SchemaJsonRecord {
         }),
         }),
         required: ["packages"],
+      },
+    ],
+  };
+}
+
+function resourceDeclarationSchema(): SchemaJsonRecord {
+  const resourceEntry: SchemaJsonRecord = {
+    anyOf: [
+      nonEmptyStringSchema(),
+      strictObjectSchema({
+        from: nonEmptyStringSchema(),
+        to: nonEmptyStringSchema(),
+      }),
+    ],
+  };
+  return {
+    anyOf: [
+      nonEmptyStringSchema(),
+      arraySchema(resourceEntry),
+      {
+        additionalProperties: {
+          anyOf: [
+            nonEmptyStringSchema(),
+            arraySchema(resourceEntry),
+          ],
+        },
+        type: "object",
       },
     ],
   };

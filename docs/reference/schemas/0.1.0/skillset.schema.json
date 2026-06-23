@@ -32,7 +32,7 @@
           "type": "string"
         },
         "metadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "generated": {
               "type": "string"
@@ -354,7 +354,7 @@
       "type": "object"
     },
     "instruction-frontmatter": {
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "claude": {
           "anyOf": [
@@ -376,6 +376,10 @@
             }
           ]
         },
+        "description": {
+          "minLength": 1,
+          "type": "string"
+        },
         "dialect": {
           "enum": [
             "claude"
@@ -383,7 +387,7 @@
           "type": "string"
         },
         "metadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "generated": {
               "type": "string"
@@ -398,6 +402,13 @@
         "name": {
           "minLength": 1,
           "type": "string"
+        },
+        "paths": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
         },
         "skillset": {
           "additionalProperties": false,
@@ -500,6 +511,10 @@
           },
           "type": "object"
         },
+        "summary": {
+          "minLength": 1,
+          "type": "string"
+        },
         "supports": {
           "anyOf": [
             {
@@ -579,13 +594,21 @@
               "type": "object"
             }
           ]
+        },
+        "title": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "version": {
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$",
+          "type": "string"
         }
       },
       "title": "Instruction Frontmatter",
       "type": "object"
     },
     "skill-frontmatter": {
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "allowed_tools": {
           "anyOf": [
@@ -757,7 +780,7 @@
           ]
         },
         "metadata": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "generated": {
               "type": "string"
@@ -778,11 +801,85 @@
           "type": "string"
         },
         "resources": {
-          "type": "object"
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "from": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "to": {
+                        "minLength": 1,
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "items": {
+                      "anyOf": [
+                        {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "from": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "to": {
+                              "minLength": 1,
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    "type": "array"
+                  }
+                ]
+              },
+              "type": "object"
+            }
+          ]
         },
         "schema": {
-          "minLength": 1,
-          "type": "string"
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "minimum": 1,
+              "type": "integer"
+            }
+          ]
         },
         "skillset": {
           "additionalProperties": false,

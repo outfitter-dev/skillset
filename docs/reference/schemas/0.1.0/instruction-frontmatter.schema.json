@@ -1,7 +1,7 @@
 {
   "$id": "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/instruction-frontmatter.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "additionalProperties": false,
+  "additionalProperties": true,
   "properties": {
     "claude": {
       "anyOf": [
@@ -23,6 +23,10 @@
         }
       ]
     },
+    "description": {
+      "minLength": 1,
+      "type": "string"
+    },
     "dialect": {
       "enum": [
         "claude"
@@ -30,7 +34,7 @@
       "type": "string"
     },
     "metadata": {
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "generated": {
           "type": "string"
@@ -45,6 +49,13 @@
     "name": {
       "minLength": 1,
       "type": "string"
+    },
+    "paths": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
     },
     "skillset": {
       "additionalProperties": false,
@@ -147,6 +158,10 @@
       },
       "type": "object"
     },
+    "summary": {
+      "minLength": 1,
+      "type": "string"
+    },
     "supports": {
       "anyOf": [
         {
@@ -226,6 +241,14 @@
           "type": "object"
         }
       ]
+    },
+    "title": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "version": {
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$",
+      "type": "string"
     }
   },
   "title": "Instruction Frontmatter",
