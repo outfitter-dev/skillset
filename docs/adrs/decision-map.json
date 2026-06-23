@@ -78,6 +78,11 @@
           "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source remains the product.",
           "from": "20260618",
           "fromPath": "docs/adrs/drafts/20260618-unified-source-layout.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - governing source and generated-output doctrine.",
+          "from": "20260622",
+          "fromPath": "docs/adrs/drafts/20260622-source-test-selection-shape.md"
         }
       ],
       "number": "0000",
@@ -127,6 +132,11 @@
           "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - `compile.targets` remains provider selection.",
           "from": "20260618",
           "fromPath": "docs/adrs/drafts/20260618-unified-source-layout.md"
+        },
+        {
+          "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - compile targets remain provider selection, not source selection.",
+          "from": "20260622",
+          "fromPath": "docs/adrs/drafts/20260622-source-test-selection-shape.md"
         },
         {
           "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - root manifest compile policy.",

@@ -847,11 +847,13 @@ async function collectGitSnapshotInventory(
 ): Promise<SourceInventory> {
   try {
     await normalizeLegacyBaselineSnapshot(snapshotPath, options);
+    await stripRetiredBaselineTests(snapshotPath, options);
     return await collectSourceInventory(snapshotPath, options);
   } catch (error) {
     if (options.sourceDir === undefined || !canRetryBaselineWithDetectedLayout(error)) throw error;
     const autoOptions = withoutSourceDir(options);
     await normalizeLegacyBaselineSnapshot(snapshotPath, autoOptions);
+    await stripRetiredBaselineTests(snapshotPath, autoOptions);
     return collectSourceInventory(snapshotPath, autoOptions);
   }
 }
@@ -872,7 +874,9 @@ async function normalizeLegacyBaselineSnapshot(
   options: SkillsetOptions
 ): Promise<void> {
   const sourceDir = options.sourceDir ?? ".skillset";
-  if (sourceDir === ".") return;
+  if (sourceDir === ".") {
+    return;
+  }
   const skillsetPath = join(snapshotPath, sourceDir);
   if (!(await exists(skillsetPath))) return;
 
@@ -911,6 +915,31 @@ async function splitLegacyBaselineRootConfig(skillsetPath: string): Promise<void
   await writeFile(configPath, stringifyLegacyWorkspaceConfig(workspaceConfigFromLegacyRootConfig(config)), "utf8");
 }
 
+async function stripRetiredBaselineTests(
+  snapshotPath: string,
+  options: SkillsetOptions
+): Promise<void> {
+  await stripRetiredTestsKey(join(snapshotPath, ROOT_SOURCE_MANIFEST_FILE));
+
+  const sourceDir = options.sourceDir ?? ".skillset";
+  const configPath = sourceDir === "."
+    ? join(snapshotPath, ROOT_SOURCE_MANIFEST_FILE)
+    : join(snapshotPath, sourceDir, ROOT_SOURCE_MANIFEST_FILE);
+  await stripRetiredTestsKey(configPath);
+
+  if (sourceDir !== ".") {
+    await stripRetiredTestsKey(join(snapshotPath, sourceDir, ROOT_CONFIG_FILE));
+  }
+}
+
+async function stripRetiredTestsKey(configPath: string): Promise<void> {
+  if (!(await exists(configPath))) return;
+  const config = parseYamlRecord(await readFile(configPath, "utf8"), configPath);
+  if (config.tests === undefined) return;
+  const { tests: _tests, ...rest } = config;
+  await writeFile(configPath, stringifyYaml(rest), "utf8");
+}
+
 function sourceManifestFromLegacyRootConfig(record: JsonRecord): JsonRecord | undefined {
   const manifest: Record<string, JsonRecord[keyof JsonRecord]> = {};
   if (isJsonRecord(record.skillset)) manifest.skillset = record.skillset;
@@ -921,7 +950,7 @@ function sourceManifestFromLegacyRootConfig(record: JsonRecord): JsonRecord | un
 function workspaceConfigFromLegacyRootConfig(record: JsonRecord): JsonRecord {
   const config: Record<string, JsonRecord[keyof JsonRecord]> = {};
   for (const [key, value] of Object.entries(record)) {
-    if (key === "skillset" || key === "supports") continue;
+    if (key === "skillset" || key === "supports" || key === "tests") continue;
     config[key] = value;
   }
   return config;

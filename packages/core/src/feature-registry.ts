@@ -113,7 +113,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     id: "activation-probes",
     kind: "workflow",
     renderOwner: "apps/skillset/src/test-runner.ts",
-    sourceShape: "workspace skillset.yaml tests.<name>.activation[]",
+    sourceShape: "<source-root>/tests.yaml or <source-root>/tests/*.yaml activation[]",
     status: "implemented",
     summary: "Compiles target-aware manual activation probe assets inside isolated test runs.",
     targetSupport: notTargetRuntime(),

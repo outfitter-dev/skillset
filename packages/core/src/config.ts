@@ -20,8 +20,8 @@ export type FeatureSurface = "agents" | "instructions" | "plugins" | "skills";
 
 const DEFAULT_SURFACES = new Set<FeatureSurface>(["agents", "instructions", "plugins", "skills"]);
 const CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "changes", "claude", "codex", "defaults", "dependencies", "skillset", "supports"]);
-const ROOT_CONFIG_TOP_LEVEL_KEYS = new Set([...CONFIG_TOP_LEVEL_KEYS, "compile", "distributions", "tests", "workspace"]);
-const WORKSPACE_CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "changes", "claude", "codex", "compile", "defaults", "dependencies", "distributions", "tests", "workspace"]);
+const ROOT_CONFIG_TOP_LEVEL_KEYS = new Set([...CONFIG_TOP_LEVEL_KEYS, "compile", "distributions", "workspace"]);
+const WORKSPACE_CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "changes", "claude", "codex", "compile", "defaults", "dependencies", "distributions", "workspace"]);
 const ROOT_SOURCE_MANIFEST_TOP_LEVEL_KEYS = new Set(["dependencies", "skillset", "supports"]);
 const COMPILE_BUILD_MODES = new Set<CompileBuildMode>(["updated", "all"]);
 const UNSUPPORTED_DESTINATION_POLICIES = new Set<UnsupportedDestinationPolicy>([
@@ -55,7 +55,6 @@ const SOURCE_ONLY_KEYS = new Set([
   "summary",
   "supports",
   "targets",
-  "tests",
   "title",
   "tool_intent",
   "version",

@@ -89,7 +89,7 @@ Checked-in Workbench fixtures live under `fixtures/workbench-clean` and `fixture
 - `workbench-clean` is a positive source workspace with representative config, agent, hook, skill, and inert scripts. Tests assert declaration and existence checks without executing those scripts.
 - `workbench-invalid` intentionally violates source contracts and resource expectations so diagnostics stay deterministic.
 
-These fixtures are internal compiler fixtures, not public `.skillset/tests/` source. Public deterministic build tests belong to `skillset test`; future evals remain a separate, adapter-aware feature.
+These fixtures are internal compiler fixtures, not public source-root `tests.yaml` declarations. Public deterministic build tests belong to `skillset test`; future evals remain a separate, adapter-aware feature.
 
 ## Authoring Rules
 

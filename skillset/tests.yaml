@@ -1,0 +1,9 @@
+self-hosted:
+  select:
+    plugins:
+      - skillset
+  checks:
+    projection: true
+    pluginManifests: true
+  output:
+    kind: isolated

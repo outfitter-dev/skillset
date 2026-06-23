@@ -11,16 +11,3 @@ skillset:
   summary: Self-hosted source for developing and using the skillset compiler.
   title: Skillset
   version: 0.1.0
-tests:
-  self-hosted:
-    assertions:
-      - build
-      - exists: plugins-claude/plugins/skillset/.claude-plugin/plugin.json
-      - exists: plugins-codex/plugins/skillset/.codex-plugin/plugin.json
-      - contains:
-          path: plugins-codex/plugins/skillset/.codex-plugin/plugin.json
-          text: '"name": "skillset"'
-      - noDrift
-    output:
-      kind: isolated
-    source: repo:.

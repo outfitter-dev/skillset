@@ -1068,19 +1068,29 @@ function printRestoreReport(report: OutputBackupRestoreReport): void {
 }
 
 function printSkillsetTest(report: SkillsetTestReport): void {
-  for (const assertion of report.assertions) {
-    const marker = assertion.ok ? "pass" : "fail";
-    const path = assertion.path === undefined ? "" : ` ${assertion.path}`;
-    const detail = assertion.detail === undefined ? "" : ` (${assertion.detail})`;
-    console.log(`  ${marker}: ${assertion.kind}${path}${detail}`);
+  for (const check of report.checks) {
+    const marker = check.ok ? "pass" : "fail";
+    const path = check.path === undefined ? "" : ` ${check.path}`;
+    const detail = check.detail === undefined ? "" : ` (${check.detail})`;
+    console.log(`  ${marker}: ${check.kind}${path}${detail}`);
   }
   console.log(`skillset: test ${report.name} ${report.ok ? "passed" : "failed"}`);
   console.log(`  run: ${report.runPath}`);
   console.log(`  latest: ${report.latestPath}`);
   console.log(`  report: ${report.reportPath}`);
+  console.log(`  selection: ${formatTestSelection(report.selection)}`);
   console.log(`  generated files: ${report.generatedFiles}`);
   console.log(`  activation probes: ${report.activationProbes}`);
   if (report.activationPath !== undefined) console.log(`  activation: ${report.activationPath}`);
+}
+
+function formatTestSelection(selection: SkillsetTestReport["selection"]): string {
+  const parts = [
+    selection.plugins.length === 0 ? undefined : `plugins ${selection.plugins.join(", ")}`,
+    selection.primarySkills.length === 0 ? undefined : `primary skills ${selection.primarySkills.join(", ")}`,
+    selection.pluginSkills.length === 0 ? undefined : `plugin skills ${selection.pluginSkills.join(", ")}`,
+  ].filter((part): part is string => part !== undefined);
+  return parts.length === 0 ? "none" : parts.join("; ");
 }
 
 function printFeatureCapability(feature: FeatureCapability): void {
