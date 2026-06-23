@@ -297,6 +297,53 @@ Body.
     ]));
   });
 
+  it("rejects invalid workspace config metadata through the shared schema", async () => {
+    const root = await fixture({
+      ".skillset/config.yaml": `
+skillset:
+  name: invalid-workspace-metadata
+  origin:
+    repo: outfitter-dev/skillset
+claude: true
+`,
+      ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+---
+
+Body.
+`,
+    });
+
+    await expect(buildSkillsetResult(root)).rejects.toThrow(".skillset/src/skillset.yaml.skillset.origin.path must be a non-empty string");
+  });
+
+  it("rejects invalid plugin config metadata through the shared schema", async () => {
+    const root = await fixture({
+      ".skillset/config.yaml": `
+skillset:
+  name: invalid-plugin-metadata-root
+claude: true
+`,
+      ".skillset/src/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+  preprocess: sometimes
+`,
+      ".skillset/src/plugins/demo/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+---
+
+Body.
+`,
+    });
+
+    await expect(buildSkillsetResult(root)).rejects.toThrow(".skillset/src/plugins/demo/skillset.yaml.skillset.preprocess must be a boolean");
+  });
+
   it("rejects invalid skill frontmatter through the shared schema", async () => {
     const root = await fixture({
       ...DEMO_FIXTURE,

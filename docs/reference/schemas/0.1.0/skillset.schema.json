@@ -90,6 +90,9 @@
             "manifest": {
               "type": "object"
             },
+            "marketplace": {
+              "type": "object"
+            },
             "name": {
               "minLength": 1,
               "type": "string"
@@ -628,6 +631,9 @@
             "manifest": {
               "type": "object"
             },
+            "marketplace": {
+              "type": "object"
+            },
             "name": {
               "minLength": 1,
               "type": "string"
@@ -1099,6 +1105,9 @@
             "manifest": {
               "type": "object"
             },
+            "marketplace": {
+              "type": "object"
+            },
             "name": {
               "minLength": 1,
               "type": "string"
@@ -1297,6 +1306,9 @@
           "type": "string"
         },
         "manifest": {
+          "type": "object"
+        },
+        "marketplace": {
           "type": "object"
         },
         "name": {
@@ -1520,6 +1532,9 @@
               "type": "string"
             },
             "manifest": {
+              "type": "object"
+            },
+            "marketplace": {
               "type": "object"
             },
             "name": {

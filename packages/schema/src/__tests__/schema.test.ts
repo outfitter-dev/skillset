@@ -142,6 +142,7 @@ describe("@skillset/schema contracts", () => {
       "keywords",
       "license",
       "manifest",
+      "marketplace",
       "name",
       "origin",
       "outputs",
@@ -214,6 +215,7 @@ describe("@skillset/schema contracts", () => {
         author: { name: "Outfitter" },
         category: "Developer Tools",
         license: "MIT",
+        marketplace: { name: "demo-market" },
         name: "demo",
         owner: { name: "Outfitter" },
         presentation: {
