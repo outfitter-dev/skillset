@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { getProviderDestinationFormatSnapshot } from "@skillset/provider-formats";
 
 import {
   FEATURE_STATUS_VALUES,
@@ -82,15 +83,48 @@ describe("feature registry", () => {
       for (const support of [feature.targetSupport.claude, feature.targetSupport.codex]) {
         for (const evidence of support.evidence ?? []) {
           if (evidence.kind === "external-docs") expect(evidence.verifiedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+          if (evidence.kind === "provider-snapshot") {
+            const snapshot = getProviderDestinationFormatSnapshot(evidence.ref as Parameters<typeof getProviderDestinationFormatSnapshot>[0]);
+            expect(snapshot).toBeDefined();
+            expect(evidence.verifiedAt).toBe(snapshot?.provenance.fetchedAt.slice(0, 10));
+            expect(evidence.note).toBe(snapshot?.provenance.contentHash);
+          }
         }
       }
       for (const support of Object.values(feature.runtimeSupport ?? {})) {
         expect(support.evidence?.length ?? 0).toBeGreaterThan(0);
         for (const evidence of support.evidence ?? []) {
           if (evidence.kind === "external-docs") expect(evidence.verifiedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+          if (evidence.kind === "provider-snapshot") {
+            const snapshot = getProviderDestinationFormatSnapshot(evidence.ref as Parameters<typeof getProviderDestinationFormatSnapshot>[0]);
+            expect(snapshot).toBeDefined();
+            expect(evidence.verifiedAt).toBe(snapshot?.provenance.fetchedAt.slice(0, 10));
+            expect(evidence.note).toBe(snapshot?.provenance.contentHash);
+          }
         }
       }
     }
+  });
+
+  it("ties implemented provider destination claims to adopted snapshots", () => {
+    expect(getSkillsetFeature("standalone-skills")?.targetSupport.claude.evidence).toContainEqual(
+      expect.objectContaining({ kind: "provider-snapshot", ref: "claude-skill" })
+    );
+    expect(getSkillsetFeature("standalone-skills")?.targetSupport.codex.evidence).toContainEqual(
+      expect.objectContaining({ kind: "provider-snapshot", ref: "codex-skill" })
+    );
+    expect(getSkillsetFeature("plugin-manifests")?.targetSupport.claude.evidence).toContainEqual(
+      expect.objectContaining({ kind: "provider-snapshot", ref: "claude-plugin" })
+    );
+    expect(getSkillsetFeature("plugin-manifests")?.targetSupport.codex.evidence).toContainEqual(
+      expect.objectContaining({ kind: "provider-snapshot", ref: "codex-plugin" })
+    );
+    expect(getSkillsetFeature("project-agents")?.targetSupport.codex.evidence).toContainEqual(
+      expect.objectContaining({ kind: "provider-snapshot", ref: "codex-subagent" })
+    );
+    expect(getSkillsetFeature("project-instructions")?.targetSupport.codex.evidence).toContainEqual(
+      expect.objectContaining({ kind: "provider-snapshot", ref: "codex-agents-md" })
+    );
   });
 
   it("keeps current target support claims conservative", () => {

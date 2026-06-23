@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@skillset/lint": "workspace:*",
+    "@skillset/provider-formats": "workspace:*",
     "@skillset/schema": "workspace:*",
     "@skillset/transforms": "workspace:*",
     "yaml": "^2.8.1"

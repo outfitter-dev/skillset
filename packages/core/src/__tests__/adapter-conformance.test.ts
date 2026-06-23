@@ -3,10 +3,12 @@ import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { getProviderDestinationFormatSnapshot } from "@skillset/provider-formats";
 
 import {
   checkAdapterConformance,
   diffSkillsetResult,
+  getSkillsetFeature,
   SkillsetRenderResultError,
   type AdapterConformanceCase,
   type SkillsetRenderResult,
@@ -96,6 +98,20 @@ describe("adapter conformance", () => {
     ]);
 
     expect(report).toEqual({ issues: [], ok: true });
+  });
+
+  it("can inspect adopted destination snapshots for conformance support claims", () => {
+    const pluginManifest = getSkillsetFeature("plugin-manifests");
+    const codexEvidence = pluginManifest?.targetSupport.codex.evidence ?? [];
+    const snapshotEvidence = codexEvidence.find((item) => item.kind === "provider-snapshot" && item.ref === "codex-plugin");
+    const snapshot = getProviderDestinationFormatSnapshot("codex-plugin");
+
+    expect(snapshotEvidence).toBeDefined();
+    expect(snapshot?.format).toMatchObject({
+      manifest: expect.objectContaining({
+        path: ".codex-plugin/plugin.json",
+      }),
+    });
   });
 
   it("proves unsupported feature claims through structured render results", async () => {

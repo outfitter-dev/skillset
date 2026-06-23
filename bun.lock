@@ -36,6 +36,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@skillset/lint": "workspace:*",
+        "@skillset/provider-formats": "workspace:*",
         "@skillset/schema": "workspace:*",
         "@skillset/transforms": "workspace:*",
         "yaml": "^2.8.1",
@@ -43,6 +44,10 @@
     },
     "packages/lint": {
       "name": "@skillset/lint",
+      "version": "0.0.0",
+    },
+    "packages/provider-formats": {
+      "name": "@skillset/provider-formats",
       "version": "0.0.0",
     },
     "packages/schema": {
@@ -195,6 +200,8 @@
     "@skillset/core": ["@skillset/core@workspace:packages/core"],
 
     "@skillset/lint": ["@skillset/lint@workspace:packages/lint"],
+
+    "@skillset/provider-formats": ["@skillset/provider-formats@workspace:packages/provider-formats"],
 
     "@skillset/schema": ["@skillset/schema@workspace:packages/schema"],
 

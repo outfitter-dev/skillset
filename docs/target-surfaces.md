@@ -1,8 +1,8 @@
 # Provider Surface Evidence Matrix
 
-This is the cheap-to-refresh map between Skillset source and the Claude/Codex provider surfaces it builds. It exists so provider drift is caught deliberately: each surface row has a **status** and, where it depends on live provider docs, a **verified** date and source. Golden manifest tests in `apps/skillset/src/__tests__/contract.test.ts` and `apps/skillset/src/__tests__/skillset.test.ts` pin the generated shapes that these rows claim.
+This is the cheap-to-refresh map between Skillset source and the Claude/Codex provider surfaces it builds. It exists so provider drift is caught deliberately: each surface row has a **status** and, where it depends on provider-owned destination formats, an adopted snapshot in `@skillset/provider-formats`. Golden manifest tests in `apps/skillset/src/__tests__/contract.test.ts` and `apps/skillset/src/__tests__/skillset.test.ts` pin the generated shapes that these rows claim.
 
-Refreshing is intentionally cheap: re-read the linked provider docs, update the verified date, and adjust a row + its golden test if the surface changed.
+Refreshing is intentionally cheap but explicit: re-read the linked provider docs, update the normalized snapshot with its fetched timestamp and content hash, then adjust the affected row and golden test if the surface changed. Ordinary build and check paths must not fetch provider docs.
 
 Source examples use `<source-root>` where the same surface can be authored in either workspace layout. `<source-root>` is `.skillset/src/` in ordinary repos and `skillset/` in dedicated Skillset repos.
 
