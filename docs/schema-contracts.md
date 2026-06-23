@@ -20,6 +20,15 @@ live under `docs/reference/examples/`. Do not hand-edit those files. Change the
 schema package, run `bun run schema:generate`, inspect the generated diff, and
 then verify with `bun run schema:check`.
 
+Schema contract changes are package-facing when they alter `packages/schema/src/**`
+or `packages/schema/package.json`, because the CLI, Workbench, and generated
+schema references consume that package. Add a `.changeset/*.md` entry for those
+branches, and add a Skillset pending change entry when the source contract or
+generated-output promise changes for this workspace. Generated files under
+`docs/reference/schemas/**` and `docs/reference/examples/**` should travel with
+the source change, but the generated diff is review evidence rather than release
+intent by itself.
+
 ## Adding A Field
 
 Use this checklist for any new source/config/frontmatter field:
@@ -42,7 +51,10 @@ Use this checklist for any new source/config/frontmatter field:
    parallel field list for the same source shape.
 7. Regenerate artifacts with `bun run schema:generate` and keep the generated
    schemas/examples in the same commit as the contract change.
-8. Add focused tests for the caller that consumes the field, then run
+8. Add or update the package Changeset and any Skillset pending change entry
+   using wording that names the changed field or surface and whether the change
+   is compatible, validation-tightening, or generated-output-affecting.
+9. Add focused tests for the caller that consumes the field, then run
    `bun run schema:check`, relevant focused tests, `bun run check`, and
    `bun run skillset:ci` before handoff.
 

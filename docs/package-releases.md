@@ -22,11 +22,24 @@ Package-facing means a change that can affect the published `skillset` CLI packa
 | `apps/skillset/package.json` | Published package metadata, bin entries, dependencies, and version-bearing state. |
 | `packages/core/src/**` except tests | Internal compiler/library implementation bundled through the CLI. |
 | `packages/lint/src/**` except tests | Lint implementation consumed by the CLI. |
+| `packages/provider-formats/src/**` except tests | Adopted provider destination-format snapshots, schema evidence, and migration registry consumed by the CLI and core conformance checks. |
+| `packages/schema/src/**` except tests | Source contract schemas, validators, examples, and artifact generation consumed by the CLI, Workbench, and generated editor-schema references. |
 | `packages/transforms/src/**` except tests | Transform implementation consumed by the CLI. |
-| `packages/*/package.json` for `core`, `lint`, and `transforms` | Runtime dependency and package metadata for the private workspace packages that feed the CLI. |
+| `packages/*/package.json` for `core`, `lint`, `provider-formats`, `schema`, and `transforms` | Runtime dependency and package metadata for the private workspace packages that feed the CLI. |
 | `bun.lock` / `bun.lockb` | Dependency resolution that can alter the packaged CLI runtime. |
 
 `bun run changeset:check` enforces this boundary. It fails when package-facing paths change without an active `.changeset/*.md`, and it also fails when an active Changeset appears on a branch that only changes repo machinery. Deleted Changesets are ignored so cleanup branches can remove mistaken package-release entries.
+
+Provider and schema changes usually have two evidence surfaces. The package Changeset explains the npm-facing behavior change, while the Skillset pending change entry explains any source-unit or generated-output provenance change in the local workspace. Generated schema artifacts under `docs/reference/schemas/` and `docs/reference/examples/` are reviewed with the contract change but do not replace the `.changeset/*.md` entry because they are derived from `packages/schema/src/**`.
+
+Use these package changelog shapes for common provider/schema updates:
+
+| Drift class | Changelog wording shape |
+| --- | --- |
+| Compatible provider refresh | `Refresh provider schema snapshot evidence for <surface>; generated output stays byte-compatible.` |
+| Safe migration | `Add a safe <provider> <destination> destination-format update so skillset update --yes can rewrite generated outputs without source changes.` |
+| Manual review | `Record <provider> <destination> destination-format drift as manual review so Skillset reports the affected outputs without rewriting source or generated files automatically.` |
+| Schema contract change | `Update the <field/surface> schema contract and regenerate editor schema artifacts so CLI, Workbench, and docs share the same validation shape.` |
 
 When a branch with unreleased Changesets merges to `main`, `.github/workflows/release.yml` runs `changesets/action` to create or update a `chore(release): version packages` pull request. Skillset then applies missing release intent labels to that generated version PR. It preserves any existing human-provided label family and only fills gaps. The labeler uses source PR evidence from the package release range: if every consumed Changeset source PR carries explicit `stack:boundary` evidence and the generated version is stable, it may add `publish:auto`; otherwise it adds `publish:manual` so the release stays behind the protected environment.
 
@@ -71,6 +84,14 @@ bun run publish:registry-check:published
 `bun run publish:policy` is the release-workflow policy gate. It reads the current commit, the associated Changesets release PR, exact-SHA GitHub checks, source PR stack evidence, package/changelog state, and npm registry state, then emits GitHub Actions outputs for `auto`, `manual`, `none`, or `block`.
 
 `bun run publish:check` is the local preflight: it runs the full repo check, rebuilds the npm package output, and performs `bun pm pack --dry-run` from `apps/skillset` so package contents are verified without registry authentication.
+
+Before marking a release PR ready, review provider and schema evidence when the range touches `packages/provider-formats/src/**`, `packages/schema/src/**`, `docs/reference/schemas/**`, or `docs/reference/examples/**`:
+
+1. Run `bun run schema:check` for schema contract or generated schema/example changes.
+2. Run `bun ./apps/skillset/src/cli.ts providers check --root .` and, when upstream drift is expected, `bun ./apps/skillset/src/cli.ts providers diff --root .` for provider snapshot or migration changes.
+3. Inspect `packages/provider-formats/src/{index.ts,schema-snapshots.ts,migrations.ts}` alongside `docs/target-surfaces.md` so the adopted snapshot, migration class, and user-facing diagnostics tell the same story.
+4. Confirm each package-facing provider/schema change has a `.changeset/*.md` entry using the wording class above, and each local source-unit behavior change has a Skillset pending change entry where appropriate.
+5. Keep generated `docs/reference/schemas/**` and `docs/reference/examples/**` diffs in the same branch as their `packages/schema/src/**` source change, then rerun `bun run changeset:check` and `bun run skillset:verify`.
 
 These commands mutate package state or contact the registry for publication, so they are workflow/recovery commands rather than normal local diagnostics:
 

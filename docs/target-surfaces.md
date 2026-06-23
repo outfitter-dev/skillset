@@ -12,6 +12,8 @@ Known safe update paths live in `packages/provider-formats/src/migrations.ts`. A
 
 `skillset check` reports generated-output drift that maps to safe provider destination-format migrations without writing. `skillset check --fix` and `skillset update --yes` apply only source-preserving safe plans; unregistered or manual-review drift blocks writes and prints the affected outputs.
 
+Provider-format evidence and migration changes are package-facing when they touch `packages/provider-formats/src/**` or `packages/provider-formats/package.json`. Record compatible refreshes, safe destination-format migrations, and manual-review drift in the package Changeset with the same class names that users see in diagnostics. Add a Skillset pending change entry when the target rendering model, provider support promise, or generated-output behavior changes in this workspace; leave pure docs clarification as docs-only unless it changes release-visible behavior.
+
 User-facing destination-format diagnostics should name the provider, destination, source unit, affected output, and next command or review step. Safe preview output looks like:
 
 ```text
