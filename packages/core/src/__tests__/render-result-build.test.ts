@@ -3,6 +3,7 @@ import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { getProviderDestinationFormatSnapshot } from "@skillset/provider-formats";
 
 import {
   buildSkillsetResult,
@@ -641,6 +642,13 @@ async function expectUnsupportedOutcome(
         featureId: expected.featureId,
         policy: "unsupported:error",
         reason: expected.reason,
+        evidence: expect.arrayContaining([
+          expect.objectContaining({
+            kind: "provider-snapshot",
+            note: getProviderDestinationFormatSnapshot("codex-plugin")?.provenance.contentHash,
+            ref: "codex-plugin",
+          }),
+        ]),
         sourceUnit: expected.sourceUnit,
         status: "unsupported",
         target: "codex",

@@ -46,6 +46,11 @@
           "ref": "docs/features/plugins.md"
         },
         {
+          "kind": "provider-overlay",
+          "note": "Codex plugin manifest structure is currently documented in prose; no adopted JSON Schema source is available.",
+          "ref": "codex-plugin-manifest-overlay"
+        },
+        {
           "kind": "provider-snapshot",
           "note": "sha256:ea1a87e3450a9c3959adfb9e1165fede2d9eca9fa9663d8e97f15d2a48ca3ae0",
           "ref": "codex-plugin",
@@ -71,6 +76,12 @@
         {
           "kind": "docs",
           "ref": "docs/features/skills.md"
+        },
+        {
+          "kind": "provider-schema",
+          "note": "sha256:eebe9ca02eec5263cd23ff3945b3d3301e0b57861af2d53c76bd620b83ae355b",
+          "ref": "codex-skill-metadata-schema",
+          "verifiedAt": "2026-06-23"
         },
         {
           "kind": "provider-snapshot",

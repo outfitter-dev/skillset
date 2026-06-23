@@ -63,6 +63,11 @@
           "ref": "docs/features/skills.md"
         },
         {
+          "kind": "provider-overlay",
+          "note": "Claude skill structure is currently documented in prose; no adopted JSON Schema source is available.",
+          "ref": "claude-skill-frontmatter-overlay"
+        },
+        {
           "kind": "provider-snapshot",
           "note": "sha256:a67aece088a7d8b3baa57791ab66796f2479b207ddb1d01296fed73f99bae4bc",
           "ref": "claude-skill",
@@ -134,6 +139,11 @@
           "ref": "docs/features/skills.md"
         },
         {
+          "kind": "provider-overlay",
+          "note": "Claude skill structure is currently documented in prose; no adopted JSON Schema source is available.",
+          "ref": "claude-skill-frontmatter-overlay"
+        },
+        {
           "kind": "provider-snapshot",
           "note": "sha256:a67aece088a7d8b3baa57791ab66796f2479b207ddb1d01296fed73f99bae4bc",
           "ref": "claude-skill",
@@ -159,6 +169,11 @@
         {
           "kind": "docs",
           "ref": "docs/features/skills.md"
+        },
+        {
+          "kind": "provider-overlay",
+          "note": "Claude skill structure is currently documented in prose; no adopted JSON Schema source is available.",
+          "ref": "claude-skill-frontmatter-overlay"
         },
         {
           "kind": "provider-snapshot",

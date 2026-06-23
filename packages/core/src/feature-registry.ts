@@ -1,6 +1,10 @@
 import {
   getProviderDestinationFormatSnapshot,
+  getProviderSchemaSnapshot,
+  providerSchemaManualOverlays,
   type ProviderDestinationFormatSnapshotId,
+  type ProviderSchemaManualOverlayId,
+  type ProviderSchemaSnapshotId,
 } from "@skillset/provider-formats";
 
 import { compareStrings } from "./path";
@@ -67,6 +71,8 @@ export type SkillsetEvidenceKind =
   | "docs"
   | "external-docs"
   | "fixture"
+  | "provider-overlay"
+  | "provider-schema"
   | "provider-snapshot"
   | "source"
   | "test";
@@ -81,8 +87,16 @@ export interface SkillsetFeatureEvidence {
 export interface SkillsetTargetSupport {
   readonly evidence?: readonly SkillsetFeatureEvidence[];
   readonly note?: string;
+  readonly provider?: SkillsetProviderSupportEvidence;
   readonly reason?: string;
   readonly status: SkillsetTargetSupportStatus;
+}
+
+export interface SkillsetProviderSupportEvidence {
+  readonly destinationFormat?: ProviderDestinationFormatSnapshotId;
+  readonly manualOverlays?: readonly ProviderSchemaManualOverlayId[];
+  readonly schemaSnapshots?: readonly ProviderSchemaSnapshotId[];
+  readonly unsupportedDestinations?: readonly string[];
 }
 
 export interface SkillsetRuntimeSupport {
@@ -151,11 +165,13 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     targetSupport: {
       claude: {
         evidence: [docs("docs/features/dependencies.md"), providerSnapshot("claude-plugin")],
+        provider: { destinationFormat: "claude-plugin" },
         status: "native",
       },
       codex: {
         evidence: [docs("docs/features/dependencies.md"), source("packages/core/src/dependencies.ts")],
         note: "Codex gets generated dependency notices rather than a native plugin dependency resolver.",
+        provider: { destinationFormat: "codex-plugin" },
         reason: "Codex gets generated dependency notices rather than a native plugin dependency resolver.",
         status: "degraded",
       },
@@ -249,6 +265,9 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     ], {
       claude: [providerSnapshot("claude-plugin")],
       codex: [providerSnapshot("codex-plugin")],
+    }, {
+      claude: { destinationFormat: "claude-plugin" },
+      codex: { destinationFormat: "codex-plugin" },
     }),
     title: "Plugin MCP Servers",
     validationOwner: "packages/core/src/resources.ts",
@@ -266,6 +285,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
       claude: { evidence: [docs("docs/features/apps.md")], status: "not_applicable" },
       codex: {
         evidence: [docs("docs/features/apps.md"), providerSnapshot("codex-plugin")],
+        provider: { destinationFormat: "codex-plugin" },
         status: "pass_through",
       },
     },
@@ -291,10 +311,12 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     targetSupport: {
       claude: {
         evidence: [docs("docs/features/executables.md"), providerSnapshot("claude-plugin")],
+        provider: { destinationFormat: "claude-plugin" },
         status: "pass_through",
       },
       codex: {
         evidence: [docs("docs/features/executables.md"), providerSnapshot("codex-plugin")],
+        provider: { destinationFormat: "codex-plugin", unsupportedDestinations: ["bin"] },
         reason: "Codex plugins do not expose a documented plugin-local bin contract.",
         status: "unsupported",
       },
@@ -310,6 +332,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     targetSupport: {
       claude: {
         evidence: [docs("docs/features/commands.md"), providerSnapshot("claude-plugin")],
+        provider: { destinationFormat: "claude-plugin" },
         status: "pass_through",
       },
       codex: { evidence: [docs("docs/features/commands.md")], status: "not_applicable" },
@@ -330,6 +353,9 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     ], {
       claude: [providerSnapshot("claude-hooks")],
       codex: [providerSnapshot("codex-plugin")],
+    }, {
+      claude: { destinationFormat: "claude-hooks" },
+      codex: { destinationFormat: "codex-plugin", schemaSnapshots: ["codex-hooks-schema", "codex-hook-event-schemas"] },
     }),
     title: "Plugin Hooks",
     validationOwner: "packages/core/src/hooks.ts",
@@ -342,6 +368,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     targetSupport: {
       claude: {
         evidence: [docs("docs/features/lsp-servers.md"), providerSnapshot("claude-plugin")],
+        provider: { destinationFormat: "claude-plugin" },
         status: "pass_through",
       },
       codex: { evidence: [docs("docs/features/lsp-servers.md")], status: "not_applicable" },
@@ -362,6 +389,9 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     ], {
       claude: [providerSnapshot("claude-plugin")],
       codex: [providerSnapshot("codex-plugin")],
+    }, {
+      claude: { destinationFormat: "claude-plugin", schemaSnapshots: ["claude-plugin-manifest-schema"] },
+      codex: { destinationFormat: "codex-plugin", manualOverlays: ["codex-plugin-manifest-overlay"] },
     }),
     title: "Plugin Manifests",
     validationOwner: "packages/core/src/config.ts",
@@ -374,6 +404,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     targetSupport: {
       claude: {
         evidence: [docs("docs/features/monitors.md"), providerSnapshot("claude-plugin")],
+        provider: { destinationFormat: "claude-plugin" },
         status: "pass_through",
       },
       codex: { evidence: [docs("docs/features/monitors.md")], status: "not_applicable" },
@@ -388,6 +419,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     targetSupport: {
       claude: {
         evidence: [docs("docs/features/output-styles.md"), providerSnapshot("claude-plugin")],
+        provider: { destinationFormat: "claude-plugin" },
         status: "pass_through",
       },
       codex: { evidence: [docs("docs/features/output-styles.md")], status: "not_applicable" },
@@ -422,6 +454,9 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     ], {
       claude: [providerSnapshot("claude-skill")],
       codex: [providerSnapshot("codex-skill")],
+    }, {
+      claude: { destinationFormat: "claude-skill", manualOverlays: ["claude-skill-frontmatter-overlay"] },
+      codex: { destinationFormat: "codex-skill", schemaSnapshots: ["codex-skill-metadata-schema"] },
     }),
     title: "Plugin Skills",
     validationOwner: "packages/core/src/resolver.ts",
@@ -441,6 +476,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     targetSupport: {
       claude: {
         evidence: [docs("docs/features/themes.md"), providerSnapshot("claude-plugin")],
+        provider: { destinationFormat: "claude-plugin" },
         status: "pass_through",
       },
       codex: { evidence: [docs("docs/features/themes.md")], status: "not_applicable" },
@@ -459,10 +495,12 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     targetSupport: {
       claude: {
         evidence: [docs("docs/features/agents.md"), providerSnapshot("claude-subagent")],
+        provider: { destinationFormat: "claude-subagent", manualOverlays: ["claude-subagent-frontmatter-overlay"] },
         status: "pass_through",
       },
       codex: {
         evidence: [docs("docs/features/agents.md"), providerSnapshot("codex-plugin")],
+        provider: { destinationFormat: "codex-plugin", unsupportedDestinations: ["agents"] },
         reason: "Codex plugin documentation does not include a plugin agents component.",
         status: "unsupported",
       },
@@ -483,6 +521,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
       claude: { evidence: [docs("docs/features/instructions.md")], status: "transformed" },
       codex: {
         evidence: [docs("docs/features/instructions.md"), providerSnapshot("codex-agents-md")],
+        provider: { destinationFormat: "codex-agents-md", manualOverlays: ["codex-agents-md-overlay"] },
         status: "transformed",
       },
     },
@@ -516,10 +555,12 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     targetSupport: {
       claude: {
         evidence: [docs("docs/features/agents.md"), providerSnapshot("claude-subagent")],
+        provider: { destinationFormat: "claude-subagent", manualOverlays: ["claude-subagent-frontmatter-overlay"] },
         status: "native",
       },
       codex: {
         evidence: [docs("docs/features/agents.md"), providerSnapshot("codex-subagent")],
+        provider: { destinationFormat: "codex-subagent", manualOverlays: ["codex-subagent-toml-overlay"] },
         status: "transformed",
       },
     },
@@ -608,6 +649,9 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     ], {
       claude: [providerSnapshot("claude-skill")],
       codex: [providerSnapshot("codex-skill")],
+    }, {
+      claude: { destinationFormat: "claude-skill", manualOverlays: ["claude-skill-frontmatter-overlay"] },
+      codex: { destinationFormat: "codex-skill" },
     }),
     title: "Resources",
     validationOwner: "packages/core/src/resources.ts",
@@ -626,6 +670,9 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     ], {
       claude: [providerSnapshot("claude-skill")],
       codex: [providerSnapshot("codex-skill")],
+    }, {
+      claude: { destinationFormat: "claude-skill", manualOverlays: ["claude-skill-frontmatter-overlay"] },
+      codex: { destinationFormat: "codex-skill", schemaSnapshots: ["codex-skill-metadata-schema"] },
     }),
     title: "Standalone Skills",
     validationOwner: "packages/core/src/resolver.ts",
@@ -840,8 +887,8 @@ function feature(entry: SkillsetFeatureEntry): SkillsetFeatureEntry {
   return {
     ...entry,
     targetSupport: {
-      claude: withDefaultEvidence(entry.targetSupport.claude, entry.evidence),
-      codex: withDefaultEvidence(entry.targetSupport.codex, entry.evidence),
+      claude: withDefaultEvidence(entry.id, "claude", entry.targetSupport.claude, entry.evidence),
+      codex: withDefaultEvidence(entry.id, "codex", entry.targetSupport.codex, entry.evidence),
     },
   };
 }
@@ -870,11 +917,19 @@ function pluginCompanionFeature(entry: {
 }
 
 function withDefaultEvidence(
+  featureId: string,
+  target: TargetName,
   support: SkillsetTargetSupport,
   fallbackEvidence: readonly SkillsetFeatureEvidence[]
 ): SkillsetTargetSupport {
-  if (support.evidence !== undefined && support.evidence.length > 0) return support;
-  return { ...support, evidence: fallbackEvidence };
+  const supportEvidence = support.evidence ?? [];
+  const providerEvidence = providerEvidenceForSupport(featureId, target, support);
+  const evidence = uniqueEvidence([
+    ...(supportEvidence.length > 0 ? supportEvidence : fallbackEvidence),
+    ...providerEvidence,
+  ]);
+  if (evidence.length === 0) return support;
+  return { ...support, evidence };
 }
 
 function bothTargets(
@@ -890,11 +945,20 @@ function bothTargets(
 function bothTargetsWithTargetEvidence(
   status: SkillsetTargetSupportStatus,
   commonEvidence: readonly SkillsetFeatureEvidence[],
-  targetEvidence: Readonly<Record<TargetName, readonly SkillsetFeatureEvidence[]>>
+  targetEvidence: Readonly<Record<TargetName, readonly SkillsetFeatureEvidence[]>>,
+  targetProvider?: Readonly<Record<TargetName, SkillsetProviderSupportEvidence>>
 ): Readonly<Record<TargetName, SkillsetTargetSupport>> {
   return {
-    claude: { evidence: [...commonEvidence, ...targetEvidence.claude], status },
-    codex: { evidence: [...commonEvidence, ...targetEvidence.codex], status },
+    claude: {
+      evidence: [...commonEvidence, ...targetEvidence.claude],
+      ...(targetProvider?.claude === undefined ? {} : { provider: targetProvider.claude }),
+      status,
+    },
+    codex: {
+      evidence: [...commonEvidence, ...targetEvidence.codex],
+      ...(targetProvider?.codex === undefined ? {} : { provider: targetProvider.codex }),
+      status,
+    },
   };
 }
 
@@ -917,6 +981,97 @@ function providerSnapshot(ref: ProviderDestinationFormatSnapshotId): SkillsetFea
     ref,
     verifiedAt: snapshot.provenance.fetchedAt.slice(0, 10),
   };
+}
+
+function providerSchemaSnapshot(ref: ProviderSchemaSnapshotId): SkillsetFeatureEvidence {
+  const snapshot = getProviderSchemaSnapshot(ref);
+  if (snapshot === undefined) {
+    throw new Error(`skillset: provider schema snapshot ${ref} does not exist`);
+  }
+  return {
+    kind: "provider-schema",
+    note: snapshot.provenance.contentHash,
+    ref,
+    verifiedAt: snapshot.provenance.fetchedAt.slice(0, 10),
+  };
+}
+
+function providerOverlay(ref: ProviderSchemaManualOverlayId): SkillsetFeatureEvidence {
+  const overlay = providerSchemaManualOverlays.find((candidate) => candidate.id === ref);
+  if (overlay === undefined) {
+    throw new Error(`skillset: provider schema manual overlay ${ref} does not exist`);
+  }
+  return {
+    kind: "provider-overlay",
+    note: overlay.note,
+    ref,
+  };
+}
+
+function providerEvidenceForSupport(
+  featureId: string,
+  target: TargetName,
+  support: SkillsetTargetSupport
+): readonly SkillsetFeatureEvidence[] {
+  const provider = support.provider;
+  if (provider === undefined) return [];
+
+  const evidence: SkillsetFeatureEvidence[] = [];
+  if (provider.destinationFormat !== undefined) {
+    const snapshot = getProviderDestinationFormatSnapshot(provider.destinationFormat);
+    if (snapshot === undefined) {
+      throw new Error(`skillset: provider destination format snapshot ${provider.destinationFormat} does not exist`);
+    }
+    if (snapshot.target !== target) {
+      throw new Error(`skillset: ${featureId} ${target} provider destination format ${provider.destinationFormat} targets ${snapshot.target}`);
+    }
+    evidence.push(providerSnapshot(provider.destinationFormat));
+  }
+
+  for (const schemaId of provider.schemaSnapshots ?? []) {
+    const snapshot = getProviderSchemaSnapshot(schemaId);
+    if (snapshot === undefined) {
+      throw new Error(`skillset: provider schema snapshot ${schemaId} does not exist`);
+    }
+    if (snapshot.target !== target) {
+      throw new Error(`skillset: ${featureId} ${target} provider schema ${schemaId} targets ${snapshot.target}`);
+    }
+    evidence.push(providerSchemaSnapshot(schemaId));
+  }
+
+  for (const overlayId of provider.manualOverlays ?? []) {
+    const overlay = providerSchemaManualOverlays.find((candidate) => candidate.id === overlayId);
+    if (overlay === undefined) {
+      throw new Error(`skillset: provider schema manual overlay ${overlayId} does not exist`);
+    }
+    if (overlay.target !== target) {
+      throw new Error(`skillset: ${featureId} ${target} provider overlay ${overlayId} targets ${overlay.target}`);
+    }
+    if (provider.destinationFormat !== undefined && overlay.formatSnapshotId !== provider.destinationFormat) {
+      throw new Error(`skillset: ${featureId} ${target} provider overlay ${overlayId} belongs to ${overlay.formatSnapshotId}, not ${provider.destinationFormat}`);
+    }
+    evidence.push(providerOverlay(overlayId));
+  }
+
+  for (const destination of provider.unsupportedDestinations ?? []) {
+    if (destination.trim().length === 0) {
+      throw new Error(`skillset: ${featureId} ${target} provider unsupported destination must be non-empty`);
+    }
+  }
+
+  return evidence;
+}
+
+function uniqueEvidence(evidence: readonly SkillsetFeatureEvidence[]): readonly SkillsetFeatureEvidence[] {
+  const seen = new Set<string>();
+  const unique: SkillsetFeatureEvidence[] = [];
+  for (const item of evidence) {
+    const key = `${item.kind}\0${item.ref}\0${item.verifiedAt ?? ""}\0${item.note ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(item);
+  }
+  return unique;
 }
 
 function source(ref: string): SkillsetFeatureEvidence {
