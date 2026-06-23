@@ -19,15 +19,16 @@ Use this skill when working on the local `skillset` compiler from a Claude-orien
 
 ## Development Loop
 
-1. Read `AGENTS.md`, `README.md`, and `docs/layout.md` before making a compiler contract change.
-2. Keep source edits in `skillset/`, `skillset.yaml`, `skillset/changes/`, or compiler implementation files, not in generated outputs.
-3. After source changes, run `bun run skillset:build`.
-4. Verify with `bun run skillset:check`, `bun run skillset:verify`, `bun run skillset:lint`, and `bun run check`.
-5. If generated output is stale, rebuild from source and inspect the generated diff before committing.
+1. Read `AGENTS.md`, `README.md`, `docs/layout.md`, and `docs/schema-contracts.md` before making a compiler contract change.
+2. For source contract changes, update `packages/schema/src/contracts.ts` and `packages/schema/src/validate.ts` before compiler or Workbench consumers, regenerate artifacts with `bun run schema:generate`, and verify with `bun run schema:check`.
+3. Keep source edits in `skillset/`, `skillset.yaml`, `skillset/changes/`, or compiler implementation files, not in generated outputs.
+4. After source changes, run `bun run skillset:build`.
+5. Verify with `bun run skillset:check`, `bun run skillset:verify`, `bun run skillset:lint`, and `bun run check`.
+6. If generated output is stale, rebuild from source and inspect the generated diff before committing.
 
 ## Review Focus
 
-- Schema and resolver behavior should reject ambiguous source contracts.
+- Schema and resolver behavior should reject ambiguous source contracts, and shared structural validation should live in `@skillset/schema` rather than parallel compiler or Workbench field lists.
 - Configured generated destination roots should never delete or write outside the repo or inside `skillset/`, `skillset/changes/`, `.skillset/cache/`, or `.skillset/snapshots/`. Skillset-owned operational output may live under `.skillset/cache/`, and recovery backups may live under `.skillset/snapshots/`.
 - Claude-specific dynamic context should not leak into Codex-enabled skills without an explicit fallback.
 - Generated skill frontmatter should stay light: `metadata.version` and `metadata.generated`.

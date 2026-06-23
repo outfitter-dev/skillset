@@ -70,7 +70,7 @@ Schema checks cover representative source contracts:
 
 Dedicated root `skillset.yaml` support is loaded and validated by the compiler today. Workbench's current package-level schema helper models the shared root config shape used by ordinary and dedicated workspaces, but it is not a replacement for the compiler. The checks are early, focused diagnostics for source shape mistakes that should be easy to fix before a build.
 
-The public schema reference is generated from `@skillset/schema` and checked by `bun run schema:check`. See [Skillset Schemas](../reference/schemas/README.md) for the current JSON Schema artifacts and maximal examples; Workbench should consume those contracts instead of maintaining a parallel schema description.
+The public schema reference is generated from `@skillset/schema` and checked by `bun run schema:check`. See [Skillset Schemas](../reference/schemas/README.md) for the current JSON Schema artifacts and maximal examples, and use the [schema contract workflow](../schema-contracts.md) when adding fields. Workbench should consume those contracts instead of maintaining a parallel schema description.
 
 ## Resources, Providers, And Runtime
 

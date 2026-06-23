@@ -75,6 +75,8 @@ evidence:
     sourceHash: sha256:8adabfe45a2eb64ae8a09330d7a7c0ff5daa1f96056df8c0dc0ac0bc10d03df1
   - scope: skill:skillset-codex-development
     sourceHash: sha256:8195ea5d7404e8cf6e3bbd1b3012c7c9dcb638f74e623ec7f2ff2fc60d17bfa6
+  - scope: skill:skillset-codex-development
+    sourceHash: sha256:789a9a1c5aa9e539131f6e7d2252409fc174f1657088fbc08c215fb8212c046a
 group: SET-125
 id: e75c9c55abea
 scopes:
