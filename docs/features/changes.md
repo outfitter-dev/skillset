@@ -37,6 +37,17 @@ Stacked branches may produce multiple pending entries for the same source unit. 
 
 `change check` also warns when an entry declares `bump: none` for an added, removed, or severity-bearing source unit. `supports` edits remain source-significant but are not inherently severity-bearing. Source coverage diagnostics stay separate from generated-output drift.
 
+Schema and provider-format work can need both ledgers. A Skillset pending change entry records the source-unit reason when a contract, provider support row, migration, or generated-output promise changes inside the workspace. A package Changeset records the npm-facing CLI/runtime change when the branch touches `packages/schema/src/**`, `packages/provider-formats/src/**`, or package metadata. Generated schema artifacts under `docs/reference/schemas/**` and `docs/reference/examples/**` stay with the schema source change, but they are derived evidence rather than a substitute for the source package Changeset.
+
+Use pending-entry language that names the visible drift class:
+
+| Change class | Pending-entry wording shape |
+| --- | --- |
+| Compatible provider refresh | `Refresh provider schema snapshot evidence for <surface>; generated output remains byte-compatible.` |
+| Safe destination-format migration | `Add a safe <provider> <destination> destination-format update so check --fix/update --yes can rewrite generated outputs without changing Skillset source.` |
+| Manual-review provider drift | `Record <provider> <destination> destination-format drift as manual review so affected outputs are reported without automatic writes.` |
+| Schema contract update | `Update the <field/surface> source contract and regenerate schema/example artifacts so CLI, Workbench, and docs validate the same shape.` |
+
 `skillset change add` writes pending entries non-interactively from `--reason`, `--reason-file`, `--reason -`, or piped stdin. `skillset change reason` updates or appends to a pending reason without changing the generated id. That command is the pre-release correction path for generated changelog wording: edit the pending reason, rebuild, and let Skillset refresh entity-local `CHANGELOG.md` projections. `skillset change list` prints copyable refs and supports `--group` filtering. `skillset change show` resolves pending entries before applied history. `skillset change history` reads applied history records and stays distinct from status.
 
 After release, applied change history is append-only. Post-release wording corrections use `skillset change amend <ref> --reason ...`, so the original applied entry remains auditable in `history.jsonl` and generated changelog projections are regenerated from the latest correction in `amendments.jsonl`. If the ref still points at a pending entry, use `skillset change reason <ref>` before release instead. Release-event metadata or release-note corrections belong to `skillset release amend <ref>` rather than to `change reason`.
