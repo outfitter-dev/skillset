@@ -1,3 +1,5 @@
+import { validateWorkspaceConfig, type SkillsetSchemaDiagnostic } from "@skillset/schema";
+
 import { createWorkbenchDiagnostic, sortWorkbenchDiagnostics } from "./diagnostics";
 import { parseWorkbenchDocument } from "./parser";
 import type {
@@ -14,24 +16,6 @@ export interface WorkbenchSourceContractInput {
   readonly kind: WorkbenchSourceContractKind;
   readonly path: string;
 }
-
-const CONFIG_TOP_LEVEL_KEYS = new Set([
-  "agents",
-  "changes",
-  "claude",
-  "codex",
-  "compile",
-  "defaults",
-  "dependencies",
-  "distributions",
-  "skillset",
-  "supports",
-  "workspace",
-]);
-
-const COMPILE_BUILD_MODES = new Set(["all", "updated"]);
-const COMPILE_KEYS = new Set(["build", "features", "skillset", "targets", "unsupportedDestination"]);
-const UNSUPPORTED_DESTINATION_POLICIES = new Set(["error", "force", "skip", "warn"]);
 
 export function checkWorkbenchSourceContract(
   input: WorkbenchSourceContractInput
@@ -133,71 +117,139 @@ function checkWorkspaceConfigContract(
     ];
   }
 
-  const diagnostics: WorkbenchDiagnostic[] = [];
-  for (const key of Object.keys(parsed.data).sort()) {
-    if (!CONFIG_TOP_LEVEL_KEYS.has(key)) {
-      diagnostics.push(schemaDiagnostic({
-        message: `unsupported workspace config key ${key}`,
-        path,
-        ruleId: "schema/workspace-config",
-        scope: "workspace",
-        subjectKind: "workspace",
-      }));
-    }
-  }
-  if (parsed.data.targets !== undefined) {
-    diagnostics.push(schemaDiagnostic({
-      message: "workspace config must use compile.targets instead of targets",
-      path,
-      ruleId: "schema/workspace-config",
-      scope: "workspace",
-      subjectKind: "workspace",
-    }));
-  }
-  diagnostics.push(...checkCompileBlock(parsed.data.compile, path));
-  diagnostics.push(...checkWorkspaceSkillsetMetadata(parsed.data.skillset, path));
-  diagnostics.push(...checkWorkspaceBlock(parsed.data.workspace, path));
-  diagnostics.push(...checkSupportsBlock(parsed.data.supports, path));
-  return diagnostics;
+  const data = parsed.data;
+  const diagnostics = validateWorkspaceConfig(data).diagnostics;
+  return diagnostics
+    .filter((diagnostic) => !isRedundantWorkspaceSchemaDiagnostic(diagnostic, diagnostics, data))
+    .map((diagnostic) => workspaceSchemaDiagnostic(diagnostic, data, path));
 }
 
-function checkWorkspaceBlock(value: unknown, path: string): readonly WorkbenchDiagnostic[] {
-  if (value === undefined) return [];
-  if (!isRecord(value)) {
-    return [
-      schemaDiagnostic({
-        message: "workspace must be an object when present",
-        path,
-        ruleId: "schema/workspace-config",
-        scope: "workspace",
-        subjectKind: "workspace",
-      }),
-    ];
-  }
+function workspaceSchemaDiagnostic(
+  diagnostic: SkillsetSchemaDiagnostic,
+  data: Record<string, unknown>,
+  path: string
+): WorkbenchDiagnostic {
+  return schemaDiagnostic({
+    message: workspaceSchemaMessage(diagnostic, data),
+    path,
+    ruleId: "schema/workspace-config",
+    scope: "workspace",
+    subjectKind: "workspace",
+  });
+}
 
-  const diagnostics: WorkbenchDiagnostic[] = [];
-  for (const key of Object.keys(value).sort()) {
-    if (key !== "cacheKey") {
-      diagnostics.push(schemaDiagnostic({
-        message: `unsupported workspace key ${key}`,
-        path,
-        ruleId: "schema/workspace-config",
-        scope: "workspace",
-        subjectKind: "workspace",
-      }));
+function workspaceSchemaMessage(diagnostic: SkillsetSchemaDiagnostic, data: Record<string, unknown>): string {
+  const key = schemaPathKey(diagnostic.path);
+  const value = schemaPathValue(data, diagnostic.path);
+  const displayPath = displaySchemaPath(diagnostic.path);
+
+  switch (diagnostic.code) {
+    case "schema/workspace-config/key":
+      return `unsupported workspace config key ${key}`;
+    case "schema/workspace-config/targets":
+      return "workspace config must use compile.targets instead of targets";
+    case "schema/workspace-config/target":
+      if (diagnostic.path.startsWith("$.compile.targets[")) {
+        return `unsupported compile target ${String(value)}`;
+      }
+      return `${key} must be true, false, or an object when present`;
+    case "schema/workspace-config/target-duplicate":
+      return `duplicate compile target ${String(value)}`;
+    case "schema/workspace-config/compile-key":
+      return `unsupported compile key ${key}`;
+    case "schema/workspace-config/compile-build":
+      return "compile.build must be one of all, updated";
+    case "schema/workspace-config/unsupported-destination":
+      if (value === "warn" || value === "skip" || value === "force") {
+        return "compile.unsupportedDestination warn, skip, and force are reserved; use error";
+      }
+      return "compile.unsupportedDestination must be error";
+    case "schema/workspace-config/boolean-record":
+      return `${displayPath} must be an object`;
+    case "schema/workspace-config/boolean-record-key":
+      if (diagnostic.path.startsWith("$.compile.features.")) {
+        return `unsupported compile feature key ${key}`;
+      }
+      if (diagnostic.path.startsWith("$.compile.skillset.")) {
+        return `unsupported compile skillset key ${key}`;
+      }
+      return `unsupported ${displayPath}`;
+    case "schema/workspace-config/boolean-record-value":
+      return `${displayPath} must be a boolean`;
+    case "schema/workspace-config/workspace-key":
+      return `unsupported workspace key ${key}`;
+    case "schema/workspace-config/cache-key":
+      return "workspace.cacheKey must be a lowercase repo cache key";
+    case "schema/source-metadata/type":
+      return "skillset must be an object when present";
+    case "schema/source-metadata/key":
+      if (diagnostic.path === "$.skillset.id") return "skillset.id is unsupported; use skillset.name";
+      return `unsupported skillset key ${key}`;
+    case "schema/source-metadata/name":
+      return "skillset.name must be a non-empty string when present";
+    case "schema/source-metadata/schema":
+      if (typeof value === "number" && Number.isInteger(value) && value > 0) {
+        return "skillset.schema must be 1";
+      }
+      return "skillset.schema must be a positive integer when present";
+    case "schema/supports/type":
+      return "supports must be a string, array, or object when present";
+    case "schema/supports/key":
+      return `unsupported supports key ${key}; v1 supports packages`;
+    case "schema/supports/packages":
+      if (value === undefined) return "supports object form must include packages as an array";
+      return "supports.packages must be an array when present";
+    default:
+      return diagnostic.message.replaceAll("$.", "");
+  }
+}
+
+function isRedundantWorkspaceSchemaDiagnostic(
+  diagnostic: SkillsetSchemaDiagnostic,
+  diagnostics: readonly SkillsetSchemaDiagnostic[],
+  data: Record<string, unknown>
+): boolean {
+  if (diagnostic.code !== "schema/supports/packages" || diagnostic.path !== "$.supports.packages") {
+    return false;
+  }
+  const supports = data.supports;
+  return (
+    isRecord(supports) &&
+    supports.packages === undefined &&
+    diagnostics.some((item) => item.code === "schema/supports/key" && item.path.startsWith("$.supports."))
+  );
+}
+
+function displaySchemaPath(path: string): string {
+  return path.startsWith("$.") ? path.slice(2) : path;
+}
+
+function schemaPathKey(path: string): string {
+  return path.match(/\.([A-Za-z0-9_-]+)(?:\[\d+\])?$/)?.[1] ?? displaySchemaPath(path);
+}
+
+function schemaPathValue(data: Record<string, unknown>, path: string): unknown {
+  let current: unknown = data;
+  for (const segment of schemaPathSegments(path)) {
+    if (typeof segment === "number") {
+      current = Array.isArray(current) ? current[segment] : undefined;
+      continue;
+    }
+    current = isRecord(current) ? current[segment] : undefined;
+  }
+  return current;
+}
+
+function schemaPathSegments(path: string): readonly (number | string)[] {
+  const segments: (number | string)[] = [];
+  for (const [, property, index] of path.matchAll(/\.([A-Za-z0-9_-]+)|\[(\d+)\]/g)) {
+    if (property !== undefined) {
+      segments.push(property);
+    } else if (index !== undefined) {
+      segments.push(Number(index));
     }
   }
-  const cacheKey = value.cacheKey;
-  if (cacheKey !== undefined && (typeof cacheKey !== "string" || cacheKey.trim() !== cacheKey || !/^[a-z0-9][a-z0-9._-]*(?:--[a-z0-9][a-z0-9._-]*)*$/.test(cacheKey))) {
-    diagnostics.push(schemaDiagnostic({
-      message: "workspace.cacheKey must be a lowercase repo cache key",
-      path,
-      ruleId: "schema/workspace-config",
-      scope: "workspace",
-      subjectKind: "workspace",
-    }));
-  }
-  return diagnostics;
+  return segments;
 }
 
 function checkHookContract(
@@ -309,277 +361,6 @@ function checkMarkdownBody(
       subjectKind,
     }),
   ];
-}
-
-function checkCompileBlock(value: unknown, path: string): readonly WorkbenchDiagnostic[] {
-  if (value === undefined) return [];
-  if (!isRecord(value)) {
-    return [
-      schemaDiagnostic({
-        message: "compile must be an object",
-        path,
-        ruleId: "schema/workspace-config",
-        scope: "workspace",
-        subjectKind: "workspace",
-      }),
-    ];
-  }
-
-  const diagnostics: WorkbenchDiagnostic[] = [];
-  for (const key of Object.keys(value).sort()) {
-    if (!COMPILE_KEYS.has(key)) {
-      diagnostics.push(schemaDiagnostic({
-        message: `unsupported compile key ${key}`,
-        path,
-        ruleId: "schema/workspace-config",
-        scope: "workspace",
-        subjectKind: "workspace",
-      }));
-    }
-  }
-
-  diagnostics.push(...checkCompileBuild(value.build, path));
-  diagnostics.push(...checkCompileFeatures(value.features, path));
-  diagnostics.push(...checkCompileSkillset(value.skillset, path));
-
-  const targets = value.targets;
-  if (targets !== undefined) {
-    if (!Array.isArray(targets) || targets.length === 0) {
-      diagnostics.push(schemaDiagnostic({
-        message: "compile.targets must be a non-empty array of claude/codex",
-        path,
-        ruleId: "schema/workspace-config",
-        scope: "workspace",
-        subjectKind: "workspace",
-      }));
-    } else {
-      const seen = new Set<string>();
-      for (const target of targets) {
-        if (target !== "claude" && target !== "codex") {
-          diagnostics.push(schemaDiagnostic({
-            message: `unsupported compile target ${String(target)}`,
-            path,
-            ruleId: "schema/workspace-config",
-            scope: "workspace",
-            subjectKind: "workspace",
-          }));
-        } else if (seen.has(target)) {
-          diagnostics.push(schemaDiagnostic({
-            message: `duplicate compile target ${target}`,
-            path,
-            ruleId: "schema/workspace-config",
-            scope: "workspace",
-            subjectKind: "workspace",
-          }));
-        }
-        if (typeof target === "string") seen.add(target);
-      }
-    }
-  }
-
-  const unsupportedDestination = value.unsupportedDestination;
-  if (
-    unsupportedDestination !== undefined &&
-    (typeof unsupportedDestination !== "string" ||
-      !UNSUPPORTED_DESTINATION_POLICIES.has(unsupportedDestination))
-  ) {
-    diagnostics.push(schemaDiagnostic({
-      message: "compile.unsupportedDestination must be one of error, warn, skip, force",
-      path,
-      ruleId: "schema/workspace-config",
-      scope: "workspace",
-      subjectKind: "workspace",
-    }));
-  } else if (unsupportedDestination !== undefined && unsupportedDestination !== "error") {
-    diagnostics.push(schemaDiagnostic({
-      message: "compile.unsupportedDestination warn, skip, and force are reserved; use error",
-      path,
-      ruleId: "schema/workspace-config",
-      scope: "workspace",
-      subjectKind: "workspace",
-    }));
-  }
-
-  return diagnostics;
-}
-
-function checkWorkspaceSkillsetMetadata(value: unknown, path: string): readonly WorkbenchDiagnostic[] {
-  if (value === undefined) return [];
-  if (!isRecord(value)) {
-    return [
-      schemaDiagnostic({
-        message: "skillset must be an object when present",
-        path,
-        ruleId: "schema/workspace-config",
-        scope: "workspace",
-        subjectKind: "workspace",
-      }),
-    ];
-  }
-
-  const diagnostics: WorkbenchDiagnostic[] = [];
-  for (const key of ["description", "name", "summary", "title", "version"]) {
-    const field = value[key];
-    if (field !== undefined && !isNonEmptyString(field)) {
-      diagnostics.push(schemaDiagnostic({
-        message: `skillset.${key} must be a non-empty string when present`,
-        path,
-        ruleId: "schema/workspace-config",
-        scope: "workspace",
-        subjectKind: "workspace",
-      }));
-    }
-  }
-  if (value.schema !== undefined && !isPositiveInteger(value.schema)) {
-    diagnostics.push(schemaDiagnostic({
-      message: "skillset.schema must be a positive integer when present",
-      path,
-      ruleId: "schema/workspace-config",
-      scope: "workspace",
-      subjectKind: "workspace",
-    }));
-  }
-  if (value.id !== undefined) {
-    diagnostics.push(schemaDiagnostic({
-      message: "skillset.id is unsupported; use skillset.name",
-      path,
-      ruleId: "schema/workspace-config",
-      scope: "workspace",
-      subjectKind: "workspace",
-    }));
-  }
-  return diagnostics;
-}
-
-function checkSupportsBlock(value: unknown, path: string): readonly WorkbenchDiagnostic[] {
-  if (value === undefined) return [];
-  if (typeof value === "string" || Array.isArray(value)) return [];
-  if (!isRecord(value)) {
-    return [
-      schemaDiagnostic({
-        message: "supports must be a string, array, or object when present",
-        path,
-        ruleId: "schema/workspace-config",
-        scope: "workspace",
-        subjectKind: "workspace",
-      }),
-    ];
-  }
-  for (const key of Object.keys(value).sort()) {
-    if (key !== "packages") {
-      return [
-        schemaDiagnostic({
-          message: `unsupported supports key ${key}; v1 supports packages`,
-          path,
-          ruleId: "schema/workspace-config",
-          scope: "workspace",
-          subjectKind: "workspace",
-        }),
-      ];
-    }
-  }
-  if (value.packages !== undefined && !Array.isArray(value.packages)) {
-    return [
-      schemaDiagnostic({
-        message: "supports.packages must be an array when present",
-        path,
-        ruleId: "schema/workspace-config",
-        scope: "workspace",
-        subjectKind: "workspace",
-      }),
-    ];
-  }
-  return [];
-}
-
-function checkCompileBuild(value: unknown, path: string): readonly WorkbenchDiagnostic[] {
-  if (value === undefined) return [];
-  if (typeof value === "string" && COMPILE_BUILD_MODES.has(value)) return [];
-  return [
-    schemaDiagnostic({
-      message: "compile.build must be one of all, updated",
-      path,
-      ruleId: "schema/workspace-config",
-      scope: "workspace",
-      subjectKind: "workspace",
-    }),
-  ];
-}
-
-function checkCompileFeatures(value: unknown, path: string): readonly WorkbenchDiagnostic[] {
-  if (value === undefined) return [];
-  if (!isRecord(value)) {
-    return [
-      schemaDiagnostic({
-        message: "compile.features must be an object",
-        path,
-        ruleId: "schema/workspace-config",
-        scope: "workspace",
-        subjectKind: "workspace",
-      }),
-    ];
-  }
-
-  const diagnostics: WorkbenchDiagnostic[] = [];
-  for (const key of Object.keys(value).sort()) {
-    if (key !== "promptArguments") {
-      diagnostics.push(schemaDiagnostic({
-        message: `unsupported compile feature key ${key}`,
-        path,
-        ruleId: "schema/workspace-config",
-        scope: "workspace",
-        subjectKind: "workspace",
-      }));
-    }
-  }
-  if (value.promptArguments !== undefined && typeof value.promptArguments !== "boolean") {
-    diagnostics.push(schemaDiagnostic({
-      message: "compile.features.promptArguments must be a boolean",
-      path,
-      ruleId: "schema/workspace-config",
-      scope: "workspace",
-      subjectKind: "workspace",
-    }));
-  }
-  return diagnostics;
-}
-
-function checkCompileSkillset(value: unknown, path: string): readonly WorkbenchDiagnostic[] {
-  if (value === undefined) return [];
-  if (!isRecord(value)) {
-    return [
-      schemaDiagnostic({
-        message: "compile.skillset must be an object",
-        path,
-        ruleId: "schema/workspace-config",
-        scope: "workspace",
-        subjectKind: "workspace",
-      }),
-    ];
-  }
-
-  const diagnostics: WorkbenchDiagnostic[] = [];
-  for (const key of Object.keys(value).sort()) {
-    if (key !== "metadata") {
-      diagnostics.push(schemaDiagnostic({
-        message: `unsupported compile skillset key ${key}`,
-        path,
-        ruleId: "schema/workspace-config",
-        scope: "workspace",
-        subjectKind: "workspace",
-      }));
-    }
-  }
-  if (value.metadata !== undefined && typeof value.metadata !== "boolean") {
-    diagnostics.push(schemaDiagnostic({
-      message: "compile.skillset.metadata must be a boolean",
-      path,
-      ruleId: "schema/workspace-config",
-      scope: "workspace",
-      subjectKind: "workspace",
-    }));
-  }
-  return diagnostics;
 }
 
 function checkRequiredString(
@@ -775,10 +556,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
-}
-
-function isPositiveInteger(value: unknown): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value > 0;
 }
 
 function compareEntries(left: [string, unknown], right: [string, unknown]): number {
