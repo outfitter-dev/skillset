@@ -12,6 +12,31 @@ Known safe update paths live in `packages/provider-formats/src/migrations.ts`. A
 
 `skillset check` reports generated-output drift that maps to safe provider destination-format migrations without writing. `skillset check --fix` and `skillset update --yes` apply only source-preserving safe plans; unregistered or manual-review drift blocks writes and prints the affected outputs.
 
+User-facing destination-format diagnostics should name the provider, destination, source unit, affected output, and next command or review step. Safe preview output looks like:
+
+```text
+  safe destination update: Codex plugin
+    source: plugin.alpha.config:root
+    action: Codex plugin manifests can derive dotted relative component paths during rendering.
+    output: plugins-codex/plugins/alpha/.codex-plugin/plugin.json
+    next: run skillset check --fix or skillset update --yes
+skillset: destination-format check found 1 safe update, 0 manual reviews, and 0 unplanned drift paths
+```
+
+Manual-review output is deliberately different and blocks writes:
+
+```text
+  manual review required: Codex agent
+    source: agent:reviewer
+    reason: Codex custom-agent TOML source changes require maintainer review before rewriting source.
+    output: .codex/agents/reviewer.toml
+    next: review the generated output and update Skillset source or provider support before writing
+skillset: destination-format update found 0 safe updates, 1 manual review, and 0 unplanned drift paths
+skillset: destination-format updates require manual review before writing
+```
+
+Unsupported destination policies keep their own language: `warn` means the destination issue remains visible without failing, while `skip` means Skillset records that no destination output was written. Those non-error policies remain reserved until their build semantics are implemented; current v1 source validation still asks users to keep `compile.unsupportedDestination: error`.
+
 Source examples use `<source-root>` where the same surface can be authored in either workspace layout. `<source-root>` is `.skillset/src/` in ordinary repos and `skillset/` in dedicated Skillset repos.
 
 ## Support vocabulary

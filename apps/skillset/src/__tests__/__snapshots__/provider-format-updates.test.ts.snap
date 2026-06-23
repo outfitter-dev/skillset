@@ -1,0 +1,22 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`SET-195: check preview reports user-facing safe destination-format diagnostics 1`] = `
+"  safe destination update: Codex plugin
+    source: plugin.alpha.config:root
+    action: Codex plugin manifests can derive dotted relative component paths during rendering.
+    output: plugins-codex/plugins/alpha/.codex-plugin/plugin.json
+    next: run skillset check --fix or skillset update --yes
+skillset: destination-format check found 1 safe update, 0 manual reviews, and 0 unplanned drift paths
+"
+`;
+
+exports[`SET-195: unsafe provider-format drift reports user-facing manual review diagnostics 1`] = `
+"  manual review required: Codex agent
+    source: agent:reviewer
+    reason: Codex custom-agent TOML source changes require maintainer review before rewriting source.
+    output: .codex/agents/reviewer.toml
+    next: review the generated output and update Skillset source or provider support before writing
+skillset: destination-format update found 0 safe updates, 1 manual review, and 0 unplanned drift paths
+skillset: destination-format updates require manual review before writing
+"
+`;
