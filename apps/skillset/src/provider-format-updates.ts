@@ -1,0 +1,390 @@
+import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+
+import {
+  buildSkillsetResult,
+  diffSkillsetResult,
+  type SkillsetDiff,
+  type SkillsetOptions,
+  type SkillsetRenderResult,
+} from "@skillset/core";
+import {
+  getProviderDestinationFormatSnapshot,
+  listProviderFormatMigrations,
+  type ProviderDestinationFormatSnapshotId,
+  type ProviderFormatMigrationEntry,
+} from "@skillset/provider-formats";
+
+export type ProviderFormatUpdateCommand = "check" | "update";
+
+export interface ProviderFormatUpdateOptions extends SkillsetOptions {
+  readonly write?: boolean;
+}
+
+export interface ProviderFormatUpdateAction {
+  readonly affectedPaths: readonly string[];
+  readonly description: string;
+  readonly id: string;
+  readonly provider: string;
+  readonly safety: ProviderFormatMigrationEntry["safety"];
+  readonly snapshotId: ProviderDestinationFormatSnapshotId;
+  readonly sourceUnit: string;
+  readonly surface: string;
+  readonly updatePath: ProviderFormatMigrationEntry["updatePath"];
+}
+
+export interface ProviderFormatUpdateReport {
+  readonly blocked: boolean;
+  readonly checkedFiles: number;
+  readonly command: ProviderFormatUpdateCommand;
+  readonly drift: SkillsetDiff;
+  readonly manualReviews: readonly ProviderFormatUpdateAction[];
+  readonly ok: boolean;
+  readonly safeUpdates: readonly ProviderFormatUpdateAction[];
+  readonly unplannedDriftPaths: readonly string[];
+  readonly wrote: boolean;
+  readonly writtenPaths: readonly string[];
+}
+
+export async function runProviderFormatUpdates(
+  rootPath: string,
+  command: ProviderFormatUpdateCommand,
+  options: ProviderFormatUpdateOptions = {}
+): Promise<ProviderFormatUpdateReport> {
+  const { write = false, ...skillsetOptions } = options;
+  const preview = await diffSkillsetResult(rootPath, skillsetOptions);
+  const driftPaths = allDriftPaths(preview.data);
+  const uneditedManagedPaths = await uneditedManagedOutputPaths(rootPath, driftPaths);
+  const plan = planProviderFormatUpdates(preview.renderResults, driftPaths, uneditedManagedPaths);
+  const unplannedDriftPaths = unplannedProviderDriftPaths(driftPaths, plan.safeUpdates, plan.manualReviews);
+  const blocked = plan.manualReviews.length > 0 || unplannedDriftPaths.length > 0;
+  let wrote = false;
+  let writtenPaths: readonly string[] = [];
+
+  if (write && plan.safeUpdates.length > 0 && !blocked) {
+    const built = await buildSkillsetResult(rootPath, skillsetOptions);
+    wrote = built.writes.paths.length > 0;
+    writtenPaths = built.writes.paths;
+  }
+
+  return {
+    blocked,
+    checkedFiles: preview.renderResults.length,
+    command,
+    drift: preview.data,
+    manualReviews: plan.manualReviews,
+    ok: !write || (!blocked && (plan.safeUpdates.length === 0 || wrote)),
+    safeUpdates: plan.safeUpdates,
+    unplannedDriftPaths,
+    wrote,
+    writtenPaths,
+  };
+}
+
+export function renderProviderFormatUpdateReport(report: ProviderFormatUpdateReport): string {
+  const lines: string[] = [];
+  const driftCount = allDriftPaths(report.drift).length;
+  if (driftCount === 0) {
+    lines.push(`skillset: provider format ${report.command} found no generated-output drift`);
+    return `${lines.join("\n")}\n`;
+  }
+
+  for (const action of report.safeUpdates) {
+    lines.push(
+      `  safe ${action.updatePath} ${action.id}: ${action.provider} ${action.surface} ${action.snapshotId}`
+    );
+    lines.push(`    source: ${action.sourceUnit}`);
+    lines.push(`    ${action.description}`);
+    for (const path of action.affectedPaths) lines.push(`    output: ${path}`);
+  }
+  for (const action of report.manualReviews) {
+    lines.push(
+      `  manual-review ${action.id}: ${action.provider} ${action.surface} ${action.snapshotId}`
+    );
+    lines.push(`    source: ${action.sourceUnit}`);
+    lines.push(`    ${action.description}`);
+    for (const path of action.affectedPaths) lines.push(`    output: ${path}`);
+  }
+  for (const path of report.unplannedDriftPaths) {
+    lines.push(`  drift: ${path} has no registered safe provider format migration`);
+  }
+
+  lines.push(
+    `skillset: provider format ${report.command} found ${report.safeUpdates.length} safe update` +
+      `${report.safeUpdates.length === 1 ? "" : "s"}, ${report.manualReviews.length} manual review` +
+      `${report.manualReviews.length === 1 ? "" : "s"}, and ${report.unplannedDriftPaths.length} unplanned drift path` +
+      `${report.unplannedDriftPaths.length === 1 ? "" : "s"}`
+  );
+
+  if (report.wrote) {
+    lines.push(`skillset: applied safe provider format updates to ${report.writtenPaths.length} file${report.writtenPaths.length === 1 ? "" : "s"}`);
+    for (const path of report.writtenPaths) lines.push(`  updated ${path}`);
+  } else if (report.blocked) {
+    lines.push("skillset: provider format updates require manual review before writing");
+  } else if (report.safeUpdates.length > 0 && report.command === "update") {
+    lines.push("skillset: rerun skillset update with --yes to apply safe provider format updates");
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
+function planProviderFormatUpdates(
+  renderResults: readonly SkillsetRenderResult[],
+  driftPaths: readonly string[],
+  uneditedManagedPaths: ReadonlySet<string>
+): {
+  readonly manualReviews: readonly ProviderFormatUpdateAction[];
+  readonly safeUpdates: readonly ProviderFormatUpdateAction[];
+} {
+  const driftSet = new Set(driftPaths);
+  const safeUpdates = new Map<string, ProviderFormatUpdateAction>();
+  const manualReviews = new Map<string, ProviderFormatUpdateAction>();
+
+  for (const outcome of renderResults) {
+    const affectedPaths = (outcome.outputs ?? [])
+      .map((output) => output.path)
+      .filter((path) => driftSet.has(path))
+      .sort(compareStrings);
+    if (affectedPaths.length === 0) continue;
+    for (const snapshotId of providerSnapshotEvidence(outcome)) {
+      const snapshot = getProviderDestinationFormatSnapshot(snapshotId);
+      if (snapshot === undefined || outcome.target === undefined) continue;
+      const entries = listProviderFormatMigrations().filter((entry) =>
+        entry.appliesTo.includes(snapshotId) &&
+        entry.provider === outcome.target &&
+        entry.surface === snapshot.destination
+      );
+      for (const entry of entries) {
+        const action = actionForEntry(entry, snapshotId, outcome.sourceUnit, affectedPaths);
+        if (entry.safe && entry.sourcePreserving && entry.updatePath === "adapter") {
+          if (affectedPaths.every((path) => uneditedManagedPaths.has(path))) {
+            safeUpdates.set(actionKey(action), action);
+          } else {
+            manualReviews.set(
+              actionKey(action),
+              actionForEntry(
+                entry,
+                snapshotId,
+                outcome.sourceUnit,
+                affectedPaths,
+                "Current generated output differs from its previous skillset.lock hash; review before rewriting."
+              )
+            );
+          }
+        } else if (!entry.safe || entry.requiresConfirmation || entry.updatePath === "manual") {
+          manualReviews.set(actionKey(action), action);
+        }
+      }
+    }
+  }
+
+  return {
+    manualReviews: [...manualReviews.values()].sort(compareActions),
+    safeUpdates: [...safeUpdates.values()].sort(compareActions),
+  };
+}
+
+function providerSnapshotEvidence(outcome: SkillsetRenderResult): readonly ProviderDestinationFormatSnapshotId[] {
+  const refs: ProviderDestinationFormatSnapshotId[] = [];
+  for (const item of outcome.evidence ?? []) {
+    if (item.kind !== "provider-snapshot") continue;
+    if (getProviderDestinationFormatSnapshot(item.ref as ProviderDestinationFormatSnapshotId) === undefined) continue;
+    refs.push(item.ref as ProviderDestinationFormatSnapshotId);
+  }
+  return [...new Set(refs)].sort(compareStrings);
+}
+
+function actionForEntry(
+  entry: ProviderFormatMigrationEntry,
+  snapshotId: ProviderDestinationFormatSnapshotId,
+  sourceUnit: string,
+  affectedPaths: readonly string[],
+  description = entry.description
+): ProviderFormatUpdateAction {
+  return {
+    affectedPaths,
+    description,
+    id: entry.id,
+    provider: entry.provider,
+    safety: entry.safety,
+    snapshotId,
+    sourceUnit,
+    surface: entry.surface,
+    updatePath: entry.updatePath,
+  };
+}
+
+async function uneditedManagedOutputPaths(
+  rootPath: string,
+  driftPaths: readonly string[]
+): Promise<ReadonlySet<string>> {
+  const unedited = new Set<string>();
+  for (const outputPath of driftPaths) {
+    const lockItem = await findLockItemForOutputPath(rootPath, outputPath);
+    if (lockItem === undefined || lockItem.outputHash === undefined) continue;
+    const currentHash = await currentOutputHash(rootPath, lockItem);
+    if (currentHash === lockItem.outputHash) unedited.add(outputPath);
+  }
+  return unedited;
+}
+
+async function findLockItemForOutputPath(
+  rootPath: string,
+  outputPath: string
+): Promise<LockItemState | undefined> {
+  for (const lockPath of lockCandidates(outputPath)) {
+    const parsed = await readLock(rootPath, lockPath);
+    if (parsed === undefined) continue;
+    for (const item of parsed.items) {
+      const outputPaths = item.files.map((file) => joinOutputRoot(parsed.outputRoot, file));
+      if (!outputPaths.includes(outputPath)) continue;
+      return {
+        files: item.files.map((file) => ({
+          displayPath: joinOutputRoot(parsed.outputRoot, file),
+          file,
+        })),
+        ...(item.outputHash === undefined ? {} : { outputHash: item.outputHash }),
+      };
+    }
+  }
+  return undefined;
+}
+
+async function readLock(rootPath: string, lockPath: string): Promise<ParsedLock | undefined> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(await readFile(resolveInside(rootPath, lockPath), "utf8")) as unknown;
+  } catch {
+    return undefined;
+  }
+  if (!isRecord(parsed) || typeof parsed.outputRoot !== "string" || !Array.isArray(parsed.items)) {
+    return undefined;
+  }
+  const items: ParsedLockItem[] = [];
+  for (const item of parsed.items) {
+    if (!isRecord(item) || !Array.isArray(item.files)) continue;
+    const files = item.files.filter((file): file is string => typeof file === "string" && file.length > 0);
+    if (files.length === 0) continue;
+    const outputHash = typeof item.outputHash === "string" ? item.outputHash : undefined;
+    items.push({ files, ...(outputHash === undefined ? {} : { outputHash }) });
+  }
+  return { items, outputRoot: parsed.outputRoot };
+}
+
+async function currentOutputHash(
+  rootPath: string,
+  item: LockItemState
+): Promise<string | undefined> {
+  const hash = createHash("sha256");
+  hash.update("skillset-output-v1\0");
+
+  for (const entry of item.files) {
+    let content: Uint8Array;
+    try {
+      content = await readFile(resolveInside(rootPath, entry.displayPath));
+    } catch {
+      return undefined;
+    }
+    hash.update(entry.file);
+    hash.update("\0");
+    hash.update(content);
+    hash.update("\0");
+  }
+
+  return `sha256:${hash.digest("hex")}`;
+}
+
+function lockCandidates(outputPath: string): readonly string[] {
+  const candidates: string[] = [];
+  let current = dirname(outputPath);
+  while (current !== "." && current !== "") {
+    candidates.push(`${current}/skillset.lock`);
+    const parent = dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  candidates.push("skillset.lock");
+  return candidates;
+}
+
+function joinOutputRoot(outputRoot: string, path: string): string {
+  if (outputRoot === ".") return normalizePath(path);
+  return normalizePath(join(outputRoot, path));
+}
+
+function resolveInside(rootPath: string, path: string): string {
+  const resolvedRootPath = resolve(rootPath);
+  const resolvedPath = resolve(resolvedRootPath, path);
+  const relativePath = relative(resolvedRootPath, resolvedPath);
+  if (relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath))) {
+    return resolvedPath;
+  }
+  throw new Error(`skillset: path escapes root ${path}`);
+}
+
+function normalizePath(path: string): string {
+  return path.replaceAll("\\", "/").replace(/^\.\//, "");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function unplannedProviderDriftPaths(
+  driftPaths: readonly string[],
+  safeUpdates: readonly ProviderFormatUpdateAction[],
+  manualReviews: readonly ProviderFormatUpdateAction[]
+): readonly string[] {
+  const covered = new Set<string>();
+  for (const action of [...safeUpdates, ...manualReviews]) {
+    for (const path of action.affectedPaths) covered.add(path);
+  }
+  if (safeUpdates.length > 0) {
+    for (const path of driftPaths) {
+      if (path === "skillset.lock" || path.endsWith("/skillset.lock")) covered.add(path);
+    }
+  }
+  return driftPaths.filter((path) => !covered.has(path)).sort(compareStrings);
+}
+
+function allDriftPaths(diff: SkillsetDiff): readonly string[] {
+  return [...new Set([...diff.added, ...diff.changed, ...diff.missing, ...diff.removed])].sort(compareStrings);
+}
+
+function actionKey(action: ProviderFormatUpdateAction): string {
+  return [
+    action.id,
+    action.snapshotId,
+    action.sourceUnit,
+    ...action.affectedPaths,
+  ].join("\0");
+}
+
+function compareActions(left: ProviderFormatUpdateAction, right: ProviderFormatUpdateAction): number {
+  return compareStrings(actionKey(left), actionKey(right));
+}
+
+function compareStrings(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+interface ParsedLock {
+  readonly items: readonly ParsedLockItem[];
+  readonly outputRoot: string;
+}
+
+interface ParsedLockItem {
+  readonly files: readonly string[];
+  readonly outputHash?: string;
+}
+
+interface LockItemState {
+  readonly files: readonly LockFileEntry[];
+  readonly outputHash?: string;
+}
+
+interface LockFileEntry {
+  readonly displayPath: string;
+  readonly file: string;
+}

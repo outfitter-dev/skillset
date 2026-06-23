@@ -59,20 +59,25 @@ import {
   runProviderMaintenance,
   type ProviderMaintenanceSubcommand,
 } from "./provider-maintenance";
+import {
+  renderProviderFormatUpdateReport,
+  runProviderFormatUpdates,
+} from "./provider-format-updates";
 import { createSkillset, initSkillset, type SetupInclude, type SetupReport } from "./setup";
 import { sourceUnitDisplay, sourceUnitDisplays, sourceUnitSelector } from "./source-unit-selector";
 import { renderValidatedJson } from "./structured-output";
 import { runSkillsetTest, type SkillsetTestReport } from "./test-runner";
 import type { BuildScope, CompileBuildMode, JsonRecord, SkillsetOptions, SourceOrigin, TargetName } from "./types";
 
-type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "diff" | "distribute" | "doctor" | "explain" | "features" | "hooks" | "import" | "init" | "lint" | "list" | "new" | "providers" | "release" | "restore" | "suggest-source" | "test" | "verify";
+type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "diff" | "distribute" | "doctor" | "explain" | "features" | "hooks" | "import" | "init" | "lint" | "list" | "new" | "providers" | "release" | "restore" | "suggest-source" | "test" | "update" | "verify";
 type DistributionSubcommand = "plan";
 
 const USAGE = [
   "usage: skillset build [--yes|--dry-run] [--updated|--all] [--isolated] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset verify [--updated|--all] [--isolated] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset diff [--updated|--all] [--isolated] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
-  "       skillset <check|lint> [--root <path>] [--source <dir>]",
+  "       skillset check [--fix] [--root <path>] [--source <dir>]",
+  "       skillset lint [--root <path>] [--source <dir>]",
   "       skillset list [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset doctor [--json] [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset ci [--fix] [--since <ref>] [--report <path>] [--root <path>] [--source <dir>] [--dist <dir>]",
@@ -92,6 +97,7 @@ const USAGE = [
   "       skillset suggest-source <generated-path> [--write --yes] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset distribute plan [name] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset providers <check|diff|update> [--yes|--dry-run] [--root <path>]",
+  "       skillset update [--yes|--dry-run] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset features [feature-id] [--json]",
   "       skillset test [name] [--root <path>] [--source <dir>]",
   "       skillset hooks print --runner <lefthook|husky|pre-commit|git> [--pre-commit] [--pre-push]",
@@ -321,6 +327,17 @@ export async function runCli(
     return;
   }
 
+  if (command === "update") {
+    const report = await runProviderFormatUpdates(rootPath, "update", {
+      ...options,
+      write: yes && !dryRun,
+    });
+    process.stdout.write(renderProviderFormatUpdateReport(report));
+    if (!yes || dryRun) console.log("skillset: update preview wrote no files");
+    if (!report.ok || report.blocked) process.exitCode = 1;
+    return;
+  }
+
   if (command === "restore") {
     if (importPath === undefined) throw new Error("skillset: expected backup id to restore");
     const report = await restoreOutputBackup(rootPath, importPath, { write: yes && !dryRun });
@@ -388,6 +405,16 @@ export async function runCli(
       console.log(`  warn: ${issue.path}: ${issue.code}: ${issue.message}`);
     }
     console.log(`skillset: checked ${result.checkedSkills} source skills`);
+    const providerUpdates = ciFix
+      ? await runProviderFormatUpdates(rootPath, "check", {
+          ...options,
+          write: true,
+        })
+      : await runProviderFormatUpdateAdvisory(rootPath, options);
+    if (hasProviderFormatUpdateOutput(providerUpdates)) {
+      process.stdout.write(renderProviderFormatUpdateReport(providerUpdates));
+    }
+    if (ciFix && (!providerUpdates.ok || providerUpdates.blocked)) process.exitCode = 1;
     return;
   }
 
@@ -722,6 +749,32 @@ function printChangeEntry(verb: string, entry: ChangeEntryView): void {
   if (entry.reason.length > 0) {
     console.log("  reason:");
     for (const line of entry.reason.split("\n")) console.log(`    ${line}`);
+  }
+}
+
+function hasProviderFormatUpdateOutput(report: Awaited<ReturnType<typeof runProviderFormatUpdates>>): boolean {
+  return report.safeUpdates.length > 0 || report.manualReviews.length > 0 || report.unplannedDriftPaths.length > 0;
+}
+
+async function runProviderFormatUpdateAdvisory(
+  rootPath: string,
+  options: SkillsetOptions
+): Promise<Awaited<ReturnType<typeof runProviderFormatUpdates>>> {
+  try {
+    return await runProviderFormatUpdates(rootPath, "check", options);
+  } catch {
+    return {
+      blocked: false,
+      checkedFiles: 0,
+      command: "check",
+      drift: { added: [], changed: [], missing: [], removed: [] },
+      manualReviews: [],
+      ok: true,
+      safeUpdates: [],
+      unplannedDriftPaths: [],
+      wrote: false,
+      writtenPaths: [],
+    };
   }
 }
 
@@ -1183,10 +1236,11 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     command !== "restore" &&
     command !== "suggest-source" &&
     command !== "test" &&
+    command !== "update" &&
     command !== "verify"
   ) {
     throw new Error(
-        "skillset: expected command adopt, build, change, check, ci, create, diff, distribute, doctor, explain, features, hooks, import, init, lint, list, new, providers, release, restore, suggest-source, test, or verify\n" +
+        "skillset: expected command adopt, build, change, check, ci, create, diff, distribute, doctor, explain, features, hooks, import, init, lint, list, new, providers, release, restore, suggest-source, test, update, or verify\n" +
         USAGE
     );
   }
@@ -1576,6 +1630,12 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     fix: ciFix,
     ...(ciReportPath === undefined ? {} : { reportPath: ciReportPath }),
     ...(changeSince === undefined ? {} : { since: changeSince }),
+    yes,
+  });
+  validateUpdateFlags(command, {
+    ...(buildMode === undefined ? {} : { buildMode }),
+    dryRun,
+    ...(scopes === undefined ? {} : { scopes }),
     yes,
   });
 
@@ -2134,7 +2194,7 @@ function validateCiFlags(
   }
 ): void {
   if (command !== "ci") {
-    if (ci.fix) throw new Error("skillset: --fix is only supported with ci");
+    if (ci.fix && command !== "check") throw new Error("skillset: --fix is only supported with check or ci");
     if (ci.reportPath !== undefined) throw new Error("skillset: --report is only supported with ci");
     if (ci.since !== undefined && command !== "change" && command !== "hooks") {
       throw new Error("skillset: --since is only supported with ci or change commands");
@@ -2143,6 +2203,27 @@ function validateCiFlags(
   }
   if (ci.yes || ci.dryRun) {
     throw new Error("skillset: ci does not take --yes or --dry-run; use --fix to rebuild stale generated output");
+  }
+}
+
+function validateUpdateFlags(
+  command: Command,
+  update: {
+    readonly buildMode?: CompileBuildMode;
+    readonly dryRun: boolean;
+    readonly scopes?: readonly BuildScope[];
+    readonly yes: boolean;
+  }
+): void {
+  if (command !== "update") return;
+  if (update.buildMode !== undefined) {
+    throw new Error("skillset: update does not support --updated or --all");
+  }
+  if (update.scopes !== undefined) {
+    throw new Error("skillset: update does not support --scope; provider format updates require a whole-workspace safety preflight");
+  }
+  if (update.yes && update.dryRun) {
+    throw new Error("skillset: pass either --yes or --dry-run for update, not both");
   }
 }
 

@@ -263,7 +263,7 @@ test("ci CLI exits nonzero on drift and writes the markdown report", async () =>
 test("ci CLI rejects misplaced and unsupported flags", async () => {
   const fixOutsideCi = await runSkillsetCli("build", "--fix");
   expect(fixOutsideCi.exitCode).toBe(1);
-  expect(fixOutsideCi.stderr).toContain("--fix is only supported with ci");
+  expect(fixOutsideCi.stderr).toContain("--fix is only supported with check or ci");
 
   const reportOutsideCi = await runSkillsetCli("check", "--report", "out.md");
   expect(reportOutsideCi.exitCode).toBe(1);
