@@ -1,0 +1,86 @@
+{
+  "$id": "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/change-entry.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "anyOf": [
+    {
+      "required": [
+        "scope"
+      ]
+    },
+    {
+      "required": [
+        "scopes"
+      ]
+    }
+  ],
+  "properties": {
+    "bump": {
+      "enum": [
+        "major",
+        "minor",
+        "none",
+        "patch"
+      ],
+      "type": "string"
+    },
+    "evidence": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "hash": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "sourceHash": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "group": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "provider": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      ]
+    },
+    "id": {
+      "pattern": "^[0-9a-f]{12}$",
+      "type": "string"
+    },
+    "ignored": {
+      "type": "boolean"
+    },
+    "scope": {
+      "type": "string"
+    },
+    "scopes": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "bump"
+  ],
+  "title": "Change Entry",
+  "type": "object"
+}

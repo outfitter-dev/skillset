@@ -1,0 +1,20 @@
+claude:
+  model: sonnet
+codex:
+  model: gpt-5.1-codex
+description: Use this agent for release review.
+initialPrompt: Review the release notes before changing code.
+metadata:
+  generated: skillset-schema@0.1.0
+  version: 1.0.0
+model: release-review
+name: release-reviewer
+skills:
+  - changelog
+  - release-policy
+skillset:
+  origin:
+    path: skillset/agents/release-reviewer.md
+  schema: 1
+supports:
+  - "@acme/release-cli ^1.0.0"

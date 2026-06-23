@@ -1,0 +1,31 @@
+author:
+  email: team@example.com
+  name: Example Team
+category: Developer Tools
+description: Reusable source metadata example.
+homepage: https://example.com
+keywords:
+  - agents
+  - skillset
+license: Apache-2.0
+manifest:
+  source: repo:skillset.yaml
+name: example
+origin:
+  path: skillset.yaml
+  ref: main
+  repo: https://github.com/example/team-skillset
+outputs:
+  claude: plugins-claude
+  codex: plugins-codex
+owner:
+  name: Example Team
+preprocess: false
+presentation:
+  displayName: Example
+repository: https://github.com/example/team-skillset
+schema: 1
+strict: true
+summary: Metadata summary.
+title: Example Metadata
+version: 1.2.3

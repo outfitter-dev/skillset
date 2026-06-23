@@ -17,6 +17,7 @@
     "apps/**/*.ts",
     "packages/**/*.ts",
     "scripts/build-package.ts",
+    "scripts/schema-artifacts.ts",
     "scripts/publish.ts",
     "scripts/release-policy.ts",
     "scripts/bootstrap/**/*.ts",

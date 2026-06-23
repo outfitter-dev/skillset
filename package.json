@@ -13,7 +13,7 @@
   "scripts": {
     "build": "bun run typecheck && bun run build:npm",
     "build:npm": "bun scripts/build-package.ts",
-    "check": "bun run build && bun run test && bun run ultracite:doctor && bun run skillset:check && bun run skillset:verify && git diff --check && bun run terminology:guard",
+    "check": "bun run build && bun run schema:check && bun run test && bun run ultracite:doctor && bun run skillset:check && bun run skillset:verify && git diff --check && bun run terminology:guard",
     "terminology:guard": "bun scripts/terminology-guard.ts",
     "check:workflows": "if command -v actionlint >/dev/null 2>&1; then actionlint .github/workflows/*.yml; else echo 'skillset: actionlint not installed; skipping workflow lint'; fi",
     "changeset": "changeset",
@@ -35,6 +35,8 @@
     "publish:policy": "bun scripts/release-policy.ts policy",
     "publish:registry-check": "bun scripts/publish.ts registry-check",
     "publish:registry-check:published": "bun scripts/publish.ts registry-check --require-published",
+    "schema:check": "bun scripts/schema-artifacts.ts --check",
+    "schema:generate": "bun scripts/schema-artifacts.ts",
     "skillset:build": "bun ./apps/skillset/src/cli.ts build --root . --yes",
     "skillset:check": "bun ./apps/skillset/src/cli.ts check --root .",
     "skillset:ci": "bun ./apps/skillset/src/cli.ts ci --root .",

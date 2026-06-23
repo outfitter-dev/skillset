@@ -1,0 +1,104 @@
+{
+  "$id": "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/source-metadata.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "author": {
+      "type": [
+        "object",
+        "string"
+      ]
+    },
+    "category": {
+      "type": "string"
+    },
+    "description": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "homepage": {
+      "type": "string"
+    },
+    "keywords": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "license": {
+      "type": "string"
+    },
+    "manifest": {
+      "type": "object"
+    },
+    "name": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "origin": {
+      "additionalProperties": false,
+      "dependentRequired": {
+        "ref": [
+          "repo"
+        ],
+        "repo": [
+          "ref"
+        ]
+      },
+      "properties": {
+        "path": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "repo": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "outputs": {
+      "type": "object"
+    },
+    "owner": {
+      "type": "object"
+    },
+    "preprocess": {
+      "type": "boolean"
+    },
+    "presentation": {
+      "type": "object"
+    },
+    "repository": {
+      "type": "string"
+    },
+    "schema": {
+      "const": 1,
+      "type": "integer"
+    },
+    "strict": {
+      "type": "boolean"
+    },
+    "summary": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "title": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "version": {
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$",
+      "type": "string"
+    }
+  },
+  "title": "Source Metadata",
+  "type": "object"
+}

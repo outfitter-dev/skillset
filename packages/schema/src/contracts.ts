@@ -2,7 +2,7 @@ import { sortSchemaRecord } from "./json";
 import type { SchemaJsonRecord, SkillsetSchemaContract } from "./types";
 
 export const SKILLSET_SCHEMA_VERSION = "0.1.0";
-export const SKILLSET_SCHEMA_URI_BASE = "https://schemas.skillset.dev";
+export const SKILLSET_SCHEMA_URI_BASE = "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas";
 const SEMVER_PATTERN =
   "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$";
 
@@ -238,6 +238,10 @@ export const skillsetSchemaContracts = [
   changeEntryContract,
 ] as const satisfies readonly SkillsetSchemaContract[];
 
+export function schemaUri(id: SkillsetSchemaContract["id"], version = SKILLSET_SCHEMA_VERSION): string {
+  return `${SKILLSET_SCHEMA_URI_BASE}/${version}/${id}.schema.json`;
+}
+
 function contract(
   id: SkillsetSchemaContract["id"],
   title: string,
@@ -248,7 +252,7 @@ function contract(
     description,
     id,
     schema: sortSchemaRecord({
-      $id: `${SKILLSET_SCHEMA_URI_BASE}/${SKILLSET_SCHEMA_VERSION}/${id}.schema.json`,
+      $id: schemaUri(id),
       $schema: "https://json-schema.org/draft/2020-12/schema",
       title,
       ...schema,

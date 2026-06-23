@@ -1,0 +1,90 @@
+import { sortSchemaRecord } from "./json";
+import type { SchemaJsonRecord, SkillsetSchemaContract, SkillsetSchemaContractId } from "./types";
+import {
+  SKILLSET_SCHEMA_URI_BASE,
+  SKILLSET_SCHEMA_VERSION,
+  agentFrontmatterContract,
+  changeEntryContract,
+  hookContract,
+  instructionFrontmatterContract,
+  skillFrontmatterContract,
+  skillsetSchemaContracts,
+  sourceMetadataContract,
+  workspaceConfigContract,
+} from "./contracts";
+
+export interface SkillsetJsonSchemaArtifact {
+  readonly contractId: SkillsetSchemaContractId | "skillset";
+  readonly path: string;
+  readonly schema: SchemaJsonRecord;
+}
+
+const schemaFileNames = {
+  "agent-frontmatter": "agent-frontmatter.schema.json",
+  "change-entry": "change-entry.schema.json",
+  hook: "hook.schema.json",
+  "instruction-frontmatter": "instruction-frontmatter.schema.json",
+  "skill-frontmatter": "skill-frontmatter.schema.json",
+  "source-metadata": "source-metadata.schema.json",
+  "workspace-config": "workspace-config.schema.json",
+} as const satisfies Record<SkillsetSchemaContractId, string>;
+
+export function deriveSkillsetJsonSchemaArtifacts(): readonly SkillsetJsonSchemaArtifact[] {
+  return [
+    combinedSchemaArtifact(),
+    ...skillsetSchemaContracts.map((contract) => ({
+      contractId: contract.id,
+      path: `docs/reference/schemas/${SKILLSET_SCHEMA_VERSION}/${schemaFileNames[contract.id]}`,
+      schema: contract.schema,
+    })),
+  ];
+}
+
+function combinedSchemaArtifact(): SkillsetJsonSchemaArtifact {
+  const definitions: Record<string, SchemaJsonRecord> = {};
+  for (const contract of skillsetSchemaContracts) {
+    definitions[contract.id] = embeddedContractSchema(contract);
+  }
+
+  return {
+    contractId: "skillset",
+    path: `docs/reference/schemas/${SKILLSET_SCHEMA_VERSION}/skillset.schema.json`,
+    schema: sortSchemaRecord({
+      $defs: definitions,
+      $id: `${SKILLSET_SCHEMA_URI_BASE}/${SKILLSET_SCHEMA_VERSION}/skillset.schema.json`,
+      $schema: "https://json-schema.org/draft/2020-12/schema",
+      description: "Combined Skillset source contract schema. Use the document-specific schemas for editor file associations.",
+      oneOf: [
+        { $ref: "#/$defs/workspace-config" },
+        { $ref: "#/$defs/source-metadata" },
+        { $ref: "#/$defs/skill-frontmatter" },
+        { $ref: "#/$defs/agent-frontmatter" },
+        { $ref: "#/$defs/instruction-frontmatter" },
+        { $ref: "#/$defs/hook" },
+        { $ref: "#/$defs/change-entry" },
+      ],
+      title: "Skillset Source Contracts",
+    }),
+  };
+}
+
+function embeddedContractSchema(contract: SkillsetSchemaContract): SchemaJsonRecord {
+  const { $id, $schema, ...schema } = contract.schema;
+  void $id;
+  void $schema;
+  return sortSchemaRecord(schema);
+}
+
+export function getSkillsetJsonSchemaArtifact(contractId: SkillsetJsonSchemaArtifact["contractId"]): SkillsetJsonSchemaArtifact {
+  const artifact = deriveSkillsetJsonSchemaArtifacts().find((candidate) => candidate.contractId === contractId);
+  if (!artifact) throw new Error(`unknown Skillset schema artifact ${contractId}`);
+  return artifact;
+}
+
+export const skillsetWorkspaceJsonSchema = workspaceConfigContract.schema;
+export const skillsetSourceMetadataJsonSchema = sourceMetadataContract.schema;
+export const skillsetSkillFrontmatterJsonSchema = skillFrontmatterContract.schema;
+export const skillsetAgentFrontmatterJsonSchema = agentFrontmatterContract.schema;
+export const skillsetInstructionFrontmatterJsonSchema = instructionFrontmatterContract.schema;
+export const skillsetHookJsonSchema = hookContract.schema;
+export const skillsetChangeEntryJsonSchema = changeEntryContract.schema;

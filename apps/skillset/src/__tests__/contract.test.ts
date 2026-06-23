@@ -5776,6 +5776,7 @@ test("SET-27: init previews by default and writes only with confirmation", async
   const written = await runSkillsetCli("init", "--root", root, "--targets", "claude", "--yes");
   expect(written.exitCode).toBe(0);
   const config = await readFile(join(root, ".skillset/skillset.yaml"), "utf8");
+  expect(config).toStartWith("# yaml-language-server: $schema=https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/workspace-config.schema.json\n");
   expect(config).toContain("name:");
   expect(config).toContain("compile:");
   expect(config).toContain("    - claude");
@@ -5877,6 +5878,7 @@ test("SET-27: create makes a new source repo with default naming", async () => {
   const gitignore = await readFile(join(parent, "my-skillset/.gitignore"), "utf8");
   const lock = await readFile(join(parent, "my-skillset/skillset.lock"), "utf8");
   const createdRoot = join(parent, "my-skillset");
+  expect(config).toStartWith("# yaml-language-server: $schema=https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/workspace-config.schema.json\n");
   expect(config).toContain("name: my-skillset");
   expect(config).toContain("compile:");
   for (const directory of ["agents", "hooks", "plugins", "rules", "shared", "skills", "_claude", "_codex"]) {

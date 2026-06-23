@@ -1,0 +1,49 @@
+allowed_tools:
+  claude:
+    - Read
+    - Write
+  codex: false
+bin:
+  source: repo:tools/docs-cli/bin
+claude:
+  allowed_tools:
+    - Read
+    - Write
+codex:
+  model: gpt-5.1-codex
+dependencies:
+  plugins:
+    - name: docs
+      range: ^1.0.0
+description: Use when working with the docs CLI.
+dialect: claude
+implicit_invocation:
+  claude: true
+  codex: false
+mcp:
+  source: repo:.mcp.json
+metadata:
+  generated: skillset-schema@0.1.0
+  version: 1.0.0
+model: sonnet
+name: docs-cli
+resources:
+  references:
+    - references/api.md
+schema: https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/skill-frontmatter.schema.json
+skillset:
+  origin:
+    path: skillset/skills/docs-cli/SKILL.md
+  schema: 1
+  version: 1.0.0
+summary: Docs CLI skill.
+supports:
+  packages:
+    - name: "@acme/docs-cli"
+      onMismatch: error
+      range: ^2.4.0
+title: Docs CLI
+tool_intent:
+  reads:
+    - docs
+version: 1.0.0
