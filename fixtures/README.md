@@ -64,10 +64,16 @@ fixtures/<case>/
     shared/
     _claude/   # optional provider source
     _codex/    # optional provider source
+    changes/
+      .gitkeep
+  .skillset/
+    .gitignore
+    cache/.gitignore
+    snapshots/.gitignore
   ...other repo files as needed
 ```
 
-Checked-in cases use the dedicated Skillset repo layout: root `skillset.yaml` is the workspace manifest, and root `skillset/` is the adaptive source root. This keeps durable fixtures aligned with this repo's self-hosted layout and reserves `.skillset/` inside fixtures for ignored build/test output. Plugins, standalone skills, instructions, project agents, shared resources, hooks, and provider source all live under the source root. Provider-specific source uses underscore-prefixed directories such as `skillset/_claude`, `skillset/_codex`, `skillset/plugins/<plugin>/_claude`, and `skillset/plugins/<plugin>/_codex`.
+Checked-in cases use the dedicated Skillset repo layout: root `skillset.yaml` is the workspace manifest, and root `skillset/` is the adaptive source root. This keeps durable fixtures aligned with this repo's self-hosted layout and reserves fixture `.skillset/` trees for ignored operational state only: `.skillset/cache/` is rebuildable output and `.skillset/snapshots/` is local recovery output. Fixture sentinel `.gitignore` files are tracked so the operational layout is visible while cache and snapshot contents stay ignored. Plugins, standalone skills, instructions, project agents, shared resources, hooks, and provider source all live under the source root. Provider-specific source uses underscore-prefixed directories such as `skillset/_claude`, `skillset/_codex`, `skillset/plugins/<plugin>/_claude`, and `skillset/plugins/<plugin>/_codex`.
 
 Inline temp fixtures may still use the ordinary `.skillset/skillset.yaml` and `.skillset/src/` shape when a test is specifically covering ordinary workspace behavior. The checked-in fixture default is dedicated layout so the fixture inventory does not look like this repo's generated `.skillset/` scratch area.
 

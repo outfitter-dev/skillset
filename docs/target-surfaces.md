@@ -4,6 +4,8 @@ This is the cheap-to-refresh map between Skillset source and the Claude/Codex pr
 
 Refreshing is intentionally cheap: re-read the linked provider docs, update the verified date, and adjust a row + its golden test if the surface changed.
 
+Source examples use `<source-root>` where the same surface can be authored in either workspace layout. `<source-root>` is `.skillset/src/` in ordinary repos and `skillset/` in dedicated Skillset repos.
+
 ## Support vocabulary
 
 - **Implemented** — Skillset parses, validates, renders, tests, and documents this surface today.
@@ -89,7 +91,7 @@ Live-doc verified against `code.claude.com/docs/en/sub-agents` (2026-06-04).
 
 | Source | Claude output | Status |
 | --- | --- | --- |
-| `.skillset/src/agents/*.md` | project `.claude/agents/*.md` | Portable / Implemented |
+| `<source-root>/agents/*.md` | project `.claude/agents/*.md` | Portable / Implemented |
 | user `~/.claude/agents/*.md` | user custom agents | Future |
 
 ## Plugin manifest interface (Codex `.codex-plugin/plugin.json`, `interface`)
@@ -119,16 +121,16 @@ Live-doc verified against `developers.openai.com/codex/plugins/build` and `devel
 | `.mcp.json` | `.mcp.json` | Implemented | Conventional `.mcp.json` and `mcp.source` copy into Codex plugin output and are locked as plugin features. |
 | `.app.json` | `.app.json` (manifest `apps`) | Implemented | Opaque pass-through. |
 | plugin `agents/` | (none) | Unsupported / Deferred | Codex plugin docs do not document a plugin `agents/` component. Do not copy Claude plugin agents here. |
-| `.skillset/src/agents/*.md` | project `.codex/agents/*.toml` | Adaptive / Implemented | Codex documents project/user custom agents as standalone TOML files. Skillset builds adaptive project agents into project custom agents; plugin-agent output remains unsupported. |
+| `<source-root>/agents/*.md` | project `.codex/agents/*.toml` | Adaptive / Implemented | Codex documents project/user custom agents as standalone TOML files. Skillset builds adaptive project agents into project custom agents; plugin-agent output remains unsupported. |
 | user `~/.codex/agents/*.toml` | user custom agents | Future | User/global writes need explicit setup/review flows and must not happen as a side effect of `skillset build`. |
 
 ## Instructions
 
 | Source | Claude output | Codex output | Status |
 | --- | --- | --- | --- |
-| `.skillset/src/rules/**/*.md` | `.claude/rules/**/*.md` (`paths` kept) | `AGENTS.md` at derived dirs, source-boundary comments | Implemented |
-| `.skillset/rules/**/*.md` | n/a | n/a | Unsupported — use `.skillset/src/rules/**/*.md`. |
-| `.skillset/src/_codex/rules/**/*.rules` | n/a | `.codex/rules/**/*.rules` | Provider-native / Implemented — Codex command execution policy, not instruction Markdown. |
+| `<source-root>/rules/**/*.md` | `.claude/rules/**/*.md` (`paths` kept) | `AGENTS.md` at derived dirs, source-boundary comments | Implemented |
+| `.skillset/rules/**/*.md` | n/a | n/a | Unsupported — use `<source-root>/rules/**/*.md`. |
+| `<source-root>/_codex/rules/**/*.rules` | n/a | `.codex/rules/**/*.rules` | Provider-native / Implemented — Codex command execution policy, not instruction Markdown. |
 
 Codex truncates `AGENTS.md` beyond `project_doc_max_bytes` (32 KiB default); `skillset build`/`verify` warns. Verified 2026-06-03 (`developers.openai.com/codex/guides/agents-md`, `openai/codex#7138`).
 

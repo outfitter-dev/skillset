@@ -445,6 +445,11 @@
           "fromPath": "docs/adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md"
         },
         {
+          "context": "- [Deterministic Projection and Adapter Conformance](20260613-deterministic-projection-and-adapter-conformance.md) - ordering drift and generated-output stability.",
+          "from": "20260622",
+          "fromPath": "docs/adrs/drafts/20260622-yaml-formatting-and-bun-native-apis.md"
+        },
+        {
           "context": "- [Deterministic Projection and Adapter Conformance](../adrs/drafts/20260613-deterministic-projection-and-adapter-conformance.md) defines how render results pair with the feature registry for conforma",
           "from": "render-results",
           "fromPath": "docs/features/render-results.md"
@@ -480,7 +485,7 @@
           "fromPath": "docs/adrs/drafts/20260604-feature-reference-and-schema-registry.md"
         },
         {
-          "context": "See [Lowering Outcomes and Loss Ledger](../adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md) for the ADR-level decision.",
+          "context": "See the render-results ADR, currently filed as [Lowering Outcomes and Loss Ledger](../adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md), for the historical decision.",
           "from": "render-results",
           "fromPath": "docs/features/render-results.md"
         },
@@ -501,7 +506,12 @@
     },
     {
       "created": "2026-06-18",
-      "depends_on": [],
+      "depends_on": [
+        "0",
+        "1",
+        "one-action-repo-adoption",
+        "fixtures-tests-dogfooding-and-evals"
+      ],
       "inbound": [],
       "number": null,
       "owners": ["[galligan](https://github.com/galligan)"],
@@ -511,6 +521,23 @@
       "superseded_by": null,
       "title": "Unified Source Layout",
       "updated": "2026-06-18"
+    },
+    {
+      "created": "2026-06-22",
+      "depends_on": [
+        "0",
+        "1",
+        "deterministic-projection-and-adapter-conformance"
+      ],
+      "inbound": [],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260622-yaml-formatting-and-bun-native-apis.md",
+      "slug": "yaml-formatting-and-bun-native-apis",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "YAML Formatting and Bun Native APIs",
+      "updated": "2026-06-22"
     }
   ],
   "version": 1

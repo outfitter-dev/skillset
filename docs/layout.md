@@ -52,6 +52,7 @@
       ...
   changes/
   cache/
+  snapshots/
 plugins-claude/
   skillset.lock
   README.md
@@ -100,9 +101,9 @@ Ordinary repos use `.skillset/skillset.yaml` as the workspace manifest and `.ski
 
 This compiler repo uses that same layout for its own source:
 
-- `.skillset/src/skills/skillset-claude-development` is a Claude-only internal standalone skill for compiler development.
-- `.skillset/src/skills/skillset-codex-development` is a Codex-only internal standalone skill for compiler development.
-- `.skillset/src/plugins/skillset` is the user-facing plugin that explains how to use `skillset`.
+- `skillset/skills/skillset-claude-development` is a Claude-only internal standalone skill for compiler development.
+- `skillset/skills/skillset-codex-development` is a Codex-only internal standalone skill for compiler development.
+- `skillset/plugins/skillset` is the user-facing plugin that explains how to use `skillset`.
 
 ## Operational State
 

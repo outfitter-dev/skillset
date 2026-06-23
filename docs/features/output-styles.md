@@ -8,13 +8,13 @@ Claude plugins can include output styles under `output-styles/`. Skillset treats
 
 ## Authoring
 
-Place output style files under `.skillset/src/plugins/<plugin>/output-styles/`. The directory is copied only when Claude plugin output for that plugin is active.
+Place output style files under `<source-root>/plugins/<plugin>/output-styles/`. `<source-root>` is `.skillset/src/` in ordinary repos and `skillset/` in dedicated Skillset repos. The directory is copied only when Claude plugin output for that plugin is active.
 
 ## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
-| `.skillset/src/plugins/<plugin>/output-styles/` | plugin root `output-styles/` plus manifest `outputStyles: "./output-styles/"` | n/a | `target_native` / `implemented` | Opaque pass-through; style semantics remain Claude-native. |
+| `<source-root>/plugins/<plugin>/output-styles/` | plugin root `output-styles/` plus manifest `outputStyles: "./output-styles/"` | n/a | `target_native` / `implemented` | Opaque pass-through; style semantics remain Claude-native. |
 
 ## Diagnostics
 

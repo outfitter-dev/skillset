@@ -44,7 +44,7 @@ skillset test [name]        # run an isolated deterministic projection test
 
 See [Workbench Check](docs/features/workbench.md) for the current `check`/`verify` boundary, package-level diagnostic scopes, built-in `standard` and `strict` presets, parser/schema checks, Workbench fixtures, and the bounded ast-grep proof point.
 
-The default contract is:
+The ordinary repo default contract is:
 
 - workspace root: `.skillset/`
 - workspace manifest: `.skillset/skillset.yaml`
@@ -52,6 +52,18 @@ The default contract is:
 - plugin source: `.skillset/src/plugins/<plugin-name>/`
 - standalone skill source: `.skillset/src/skills/<skill-name>/`
 - instruction source: `.skillset/src/rules/**/*.md`
+- tracked change state: `.skillset/changes/`
+- repo-local operational state: `.skillset/cache/` and `.skillset/snapshots/`
+
+Dedicated Skillset repos use the same manifest shape at the repo root:
+
+- workspace manifest: `skillset.yaml`
+- adaptive source root: `skillset/`
+- tracked change state: `skillset/changes/`
+- repo-local operational state: `.skillset/cache/` and `.skillset/snapshots/`
+
+Both layouts share the same generated destination defaults:
+
 - Claude plugin repo output: `plugins-claude/`
 - Codex plugin repo output: `plugins-codex/`
 - Claude standalone skill output: `.claude/skills`

@@ -9,4 +9,13 @@ dist/
 .agents/goals/
 .scratch/
 .skillset/
+!fixtures/*/.skillset/
+fixtures/*/.skillset/*
+!fixtures/*/.skillset/.gitignore
+!fixtures/*/.skillset/cache/
+fixtures/*/.skillset/cache/*
+!fixtures/*/.skillset/cache/.gitignore
+!fixtures/*/.skillset/snapshots/
+fixtures/*/.skillset/snapshots/*
+!fixtures/*/.skillset/snapshots/.gitignore
 fixtures/external/repos/

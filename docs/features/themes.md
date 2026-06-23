@@ -8,13 +8,13 @@ Claude plugins can include experimental themes under `themes/`. Skillset treats 
 
 ## Authoring
 
-Place theme files under `.skillset/src/plugins/<plugin>/themes/`. The directory is copied only when Claude plugin output for that plugin is active.
+Place theme files under `<source-root>/plugins/<plugin>/themes/`. `<source-root>` is `.skillset/src/` in ordinary repos and `skillset/` in dedicated Skillset repos. The directory is copied only when Claude plugin output for that plugin is active.
 
 ## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
-| `.skillset/src/plugins/<plugin>/themes/` | plugin root `themes/` plus manifest `experimental.themes: "./themes/"` | n/a | `target_native` / `implemented` | Opaque pass-through; theme semantics remain Claude-native. |
+| `<source-root>/plugins/<plugin>/themes/` | plugin root `themes/` plus manifest `experimental.themes: "./themes/"` | n/a | `target_native` / `implemented` | Opaque pass-through; theme semantics remain Claude-native. |
 
 ## Diagnostics
 

@@ -8,14 +8,14 @@ Claude plugins can include experimental monitor definitions under `monitors/`. S
 
 ## Authoring
 
-Place monitor source under `.skillset/src/plugins/<plugin>/monitors/`. The documented manifest pointer is rendered for `monitors/monitors.json`.
+Place monitor source under `<source-root>/plugins/<plugin>/monitors/`. `<source-root>` is `.skillset/src/` in ordinary repos and `skillset/` in dedicated Skillset repos. The documented manifest pointer is rendered for `monitors/monitors.json`.
 
 ## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
-| `.skillset/src/plugins/<plugin>/monitors/` | plugin root `monitors/` | n/a | `target_native` / `implemented` | Opaque directory pass-through for Claude. |
-| `.skillset/src/plugins/<plugin>/monitors/monitors.json` | manifest `experimental.monitors: "./monitors/monitors.json"` | n/a | `target_native` / `implemented` | JSON utility output is parsed after generation. |
+| `<source-root>/plugins/<plugin>/monitors/` | plugin root `monitors/` | n/a | `target_native` / `implemented` | Opaque directory pass-through for Claude. |
+| `<source-root>/plugins/<plugin>/monitors/monitors.json` | manifest `experimental.monitors: "./monitors/monitors.json"` | n/a | `target_native` / `implemented` | JSON utility output is parsed after generation. |
 
 ## Diagnostics
 

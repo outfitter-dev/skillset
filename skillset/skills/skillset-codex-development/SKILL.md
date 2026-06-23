@@ -29,7 +29,7 @@ Use this skill when working on the local `skillset` compiler from a Codex-orient
 
 ## Safety Checks
 
-- Output roots must stay inside the repo, outside `skillset/`, `skillset/changes/`, and `.skillset/`, and unique per active target output.
+- Configured generated destination roots must stay inside the repo, outside `skillset/`, `skillset/changes/`, `.skillset/cache/`, and `.skillset/snapshots/`, and unique per active target output. Skillset-owned operational output may live under `.skillset/cache/`, and recovery backups may live under `.skillset/snapshots/`.
 - `skillset import` should copy into source layout only and refuse to overwrite existing source.
 - Use root `compile.targets` for provider selection. Do not add bare top-level `targets:`.
 - Keep target adapter config and defaults in `claude` / `codex` blocks; root `defaults.<target>` is shorthand, not provider selection.

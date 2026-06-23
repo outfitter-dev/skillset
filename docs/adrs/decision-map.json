@@ -73,6 +73,11 @@
           "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - governing source and generated-output doctrine.",
           "from": "20260614",
           "fromPath": "docs/adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source remains the product.",
+          "from": "20260618",
+          "fromPath": "docs/adrs/drafts/20260618-unified-source-layout.md"
         }
       ],
       "number": "0000",
@@ -117,6 +122,16 @@
           "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - root target selection and unsupported policy context.",
           "from": "20260614",
           "fromPath": "docs/adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md"
+        },
+        {
+          "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - `compile.targets` remains provider selection.",
+          "from": "20260618",
+          "fromPath": "docs/adrs/drafts/20260618-unified-source-layout.md"
+        },
+        {
+          "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - root manifest compile policy.",
+          "from": "20260622",
+          "fromPath": "docs/adrs/drafts/20260622-yaml-formatting-and-bun-native-apis.md"
         }
       ],
       "number": "0001",
