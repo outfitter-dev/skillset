@@ -32,7 +32,7 @@ That was workable while `.skillset/src/` meant "project agents and provider-nati
 - authors have to remember that plugins and standalone skills are source but not under `src`;
 - `.skillset/instructions` competes with the wider ecosystem habit of calling durable guidance "rules";
 - provider-native directories named `claude/` and `codex/` sit beside adaptive source directories, so the layout does not visually say which content Skillset may adapt and which content is provider-owned;
-- generated and operational state such as `.skillset/changes` and `.skillset/build` already lives beside source, making `.skillset/` the workspace root rather than the source root.
+- generated and operational state such as `.skillset/changes`, `.skillset/cache`, and `.skillset/snapshots` already lives beside source, making `.skillset/` the workspace root rather than the source root.
 
 The project also needs to use Skillset soon in other repositories, especially Trails. That argues for a clean layout now, before external users depend on the old split. Migration should be explicit, but it does not need to be a long-lived public compatibility framework: the only content to migrate today is a small set of Skillset trees we created while building the compiler.
 
@@ -155,7 +155,7 @@ A repository whose whole purpose is authoring a Skillset can use root `skillset.
 
 ### Risks
 
-- **Mechanical overreach.** A path rewrite could accidentally move `.skillset/changes` or `.skillset/build`. Mitigation: scripts use an explicit allowlist of old source homes and fail if a destination already exists.
+- **Mechanical overreach.** A path rewrite could accidentally move `.skillset/changes`, `.skillset/cache`, or `.skillset/snapshots`. Mitigation: scripts use an explicit allowlist of old source homes and fail if a destination already exists.
 - **Provider source confusion.** `_claude` and `_codex` could look like private implementation folders. Mitigation: docs and explain/list output should name them as provider source, not hidden internals.
 - **Config/source drift.** Splitting root config from root manifest creates two files. Mitigation: setup writes both, validation gives each file a focused schema, and docs keep the root minimal.
 

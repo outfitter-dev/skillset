@@ -85,7 +85,7 @@ Skillset reserves these policy values:
 
 ### Clean Generated Output
 
-Generated target files should stay clean by default. Ordinary Claude and Codex output is a native projection for humans and provider runtimes, not a ledger dump. Heavy provenance belongs in `skillset.lock`, structured operation results, reports, doctor/explain output, or `.skillset/build/` artifacts.
+Generated target files should stay clean by default. Ordinary Claude and Codex output is a native projection for humans and provider runtimes, not a ledger dump. Heavy provenance belongs in `skillset.lock`, structured operation results, reports, doctor/explain output, `.skillset/cache/` artifacts, or recovery material under `.skillset/snapshots/`.
 
 Visible sentinels, source markers, or debug comments in generated target files are deferred. They may be useful for debugging or reverse-inspection modes, but they should be opt-in and must not become the default currency gate. The default check is source plus generated output plus lock/report provenance, not hand-patching generated files.
 

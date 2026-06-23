@@ -76,18 +76,18 @@ describe("normalized output trees", () => {
     const left = await fixture({
       "dist-report/index.txt": "left\n",
       "dist/index.txt": "left\n",
-      ".skillset/build/tests/runs/run-1/index.json": "{}\n",
+      ".skillset/cache/tests/runs/run-1/index.json": "{}\n",
       "stable.txt": "same\n",
     });
     const right = await fixture({
       "dist-report/index.txt": "right\n",
       "dist/index.txt": "right\n",
-      ".skillset/build/tests/runs/run-2/index.json": "{}\n",
+      ".skillset/cache/tests/runs/run-2/index.json": "{}\n",
       "stable.txt": "same\n",
     });
 
     const comparison = await compareNormalizedOutputTrees(left, right, {
-      excludePathPrefixes: [".skillset/build/tests/runs/", "dist"],
+      excludePathPrefixes: [".skillset/cache/tests/runs/", "dist"],
     });
 
     expect(comparison.different).toEqual(["dist-report/index.txt"]);

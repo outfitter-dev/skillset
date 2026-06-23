@@ -57,7 +57,8 @@ export const ALLOWLIST_PATHS: readonly string[] = [
   ".claude/",
   "plugins-claude/",
   "plugins-codex/",
-  ".skillset/build/",
+  ".skillset/cache/",
+  ".skillset/snapshots/",
   // Changesets and change-provenance notes describe the cutover / prior changes.
   ".changeset/",
   ".skillset/changes/",

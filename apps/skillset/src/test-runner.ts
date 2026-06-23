@@ -11,7 +11,7 @@ import { renderValidatedJson } from "./structured-output";
 import type { BuildGraph, JsonRecord, JsonValue, SkillsetOptions, TargetName } from "./types";
 import { isJsonRecord, parseYamlRecord } from "./yaml";
 
-const TEST_BUILD_DIR = "build/tests";
+const TEST_BUILD_DIR = "cache/tests";
 const TEST_SCHEMA = 1;
 
 export interface SkillsetTestReport {
@@ -592,10 +592,10 @@ async function copyIfExists(sourcePath: string, targetPath: string): Promise<voi
 }
 
 async function copyTestSource(graph: BuildGraph, stagingWorkspacePath: string): Promise<void> {
-  const ignoredSourceBuildPath = resolveInside(graph.rootPath, sourceBuildRoot(graph.sourceDir));
+  const ignoredOperationalPaths = ignoredSourceOperationalPaths(graph.rootPath, graph.sourceDir);
   if (graph.sourceDir !== ".") {
     await cp(graph.sourcePath, join(stagingWorkspacePath, graph.sourceDir), {
-      filter: (path) => !isSameOrInside(ignoredSourceBuildPath, path),
+      filter: (path) => !ignoredOperationalPaths.some((ignoredPath) => isSameOrInside(ignoredPath, path)),
       recursive: true,
     });
     return;
@@ -620,24 +620,35 @@ async function copyWorkspaceManagedFiles(
     return;
   }
   if (!isJsonRecord(lock) || !Array.isArray(lock.items)) return;
-  const ignoredSourceBuildPath = resolveInside(rootPath, sourceBuildRoot(sourceDir));
+  const ignoredOperationalPaths = ignoredSourceOperationalPaths(rootPath, sourceDir);
   for (const item of lock.items) {
     if (!isJsonRecord(item) || !Array.isArray(item.files)) continue;
     for (const file of item.files) {
       if (typeof file !== "string") continue;
       const sourcePath = resolveInside(rootPath, file);
-      if (isSameOrInside(ignoredSourceBuildPath, sourcePath)) continue;
+      if (ignoredOperationalPaths.some((ignoredPath) => isSameOrInside(ignoredPath, sourcePath))) continue;
       await copyIfExists(sourcePath, join(stagingWorkspacePath, file));
     }
   }
 }
 
 function testBuildRoot(sourceDir: string): string {
-  return sourceDir === "." ? join(".skillset", TEST_BUILD_DIR) : join(sourceDir, TEST_BUILD_DIR);
+  return join(".skillset", TEST_BUILD_DIR);
 }
 
-function sourceBuildRoot(sourceDir: string): string {
-  return sourceDir === "." ? ".skillset/build" : join(sourceDir, "build");
+function ignoredSourceOperationalPaths(rootPath: string, sourceDir: string): readonly string[] {
+  return [
+    resolveInside(rootPath, sourceCacheRoot(sourceDir)),
+    resolveInside(rootPath, sourceSnapshotsRoot(sourceDir)),
+  ];
+}
+
+function sourceCacheRoot(_sourceDir: string): string {
+  return ".skillset/cache";
+}
+
+function sourceSnapshotsRoot(_sourceDir: string): string {
+  return ".skillset/snapshots";
 }
 
 function makeRunId(name: string): string {

@@ -96,10 +96,10 @@ The first implementation slice should support `repo:.skillset` by copying the cu
 
 Large tests may move into `.skillset/tests/`, but that directory should not appear until the user-facing contract is clearer than a fixture mirror. If it appears, it should reference existing `.skillset/` subjects or fixture sources; it should not duplicate skills, plugins, agents, or instructions as a parallel source tree.
 
-Generated test output belongs under `.skillset/build/tests/`:
+Generated test output belongs under `.skillset/cache/tests/`:
 
 ```text
-.skillset/build/tests/
+.skillset/cache/tests/
   latest/
   latest.json
   runs/<run-id>/
@@ -125,15 +125,15 @@ evals:
     source: repo:evals/codex/skillset/benchmark.json
 ```
 
-Generated eval output belongs under `.skillset/build/evals/` if and when evals become a Skillset surface. That keeps deterministic test output and model-facing eval output separate while sharing the broader generated build root.
+Generated eval output belongs under `.skillset/cache/evals/` if and when evals become a Skillset surface. That keeps deterministic test output and model-facing eval output separate while sharing the broader operational cache root.
 
 Eval execution is opt-in. It must not become part of ordinary `skillset check` or `bun run check` until a specific eval mode is proven deterministic, local, credential-free, and side-effect-free. Target eval harnesses may require API keys, write their own benchmark setup files, or modify target runtime config, so Skillset should start by documenting and pointing at target-native eval conventions rather than wrapping them as normal compiler tests.
 
-### Build Root Carries Generated Experimental Output
+### Cache Root Carries Generated Experimental Output
 
-`.skillset/build/` is the gitignored home for generated Skillset working output that is not ordinary target projection. It can hold future preview, test, and eval outputs without confusing them with source or real generated destinations.
+`.skillset/cache/` is the gitignored home for delete-safe generated Skillset working output that is not ordinary target projection. It can hold future preview, test, and eval outputs without confusing them with source or real generated destinations. Recovery snapshots are separate and belong under `.skillset/snapshots/`.
 
-This naming is preferred over hidden sibling directories such as `.skillset/.tests/` because `build/` makes the source/output boundary explicit.
+This naming is preferred over hidden sibling directories such as `.skillset/.tests/` because `cache/` makes the delete-safe generated-output boundary explicit.
 
 ## Consequences
 

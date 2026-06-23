@@ -74,7 +74,7 @@ describe("host leak detection", () => {
     const issues = detectHostLeaks("docs.md", [
       "See https://example.com/docs/path",
       "Use docs/features/skills.md",
-      "Generated output is under .skillset/build/out",
+      "Generated output is under .skillset/cache/latest",
       "A POSIX-looking option like /docs/reference is not host-specific.",
     ].join("\n"));
 

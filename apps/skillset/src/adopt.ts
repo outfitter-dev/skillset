@@ -114,7 +114,7 @@ export interface AdoptReport {
 }
 
 /** Where write-mode adoption persists its migration report. */
-export const ADOPT_REPORT_DIR = ".skillset/build/adopt";
+export const ADOPT_REPORT_DIR = ".skillset/cache/adopt";
 
 const INSTRUCTIONS_DIR = ".skillset/src/rules";
 
@@ -122,7 +122,7 @@ const INSTRUCTIONS_DIR = ".skillset/src/rules";
  * One-action repo adoption: survey via `init`, import every candidate
  * (plugins, skills, and verbatim instruction files), lint without throwing,
  * and build isolated so the generated projection lands under
- * `.skillset/build/out/` instead of the repo's live surfaces. Write mode only
+ * `.skillset/cache/latest/` instead of the repo's live surfaces. Write mode only
  * ever creates paths under `.skillset/`; plan mode (the default) runs the
  * survey alone and writes nothing.
  */

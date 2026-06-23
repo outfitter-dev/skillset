@@ -598,10 +598,14 @@ function setupFiles(
     files.push(
       {
         path: ".skillset/.gitignore",
-        content: "build/\n",
+        content: "cache/\nsnapshots/\n",
       },
       {
-        path: ".skillset/build/.gitkeep",
+        path: ".skillset/cache/.gitkeep",
+        content: "",
+      },
+      {
+        path: ".skillset/snapshots/.gitkeep",
         content: "",
       }
     );

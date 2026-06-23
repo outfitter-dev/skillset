@@ -25,7 +25,7 @@ skillset build --yes
 
 `--dry-run` is accepted for every build scope and always prevents writes, even when `--yes` is also present. Explicit `--scope` selectors filter generated destinations for build, diff, verify, list, and explain. They are not source-coverage filters for `skillset change status` or `skillset change check`. Repo scripts that intentionally refresh all generated output should omit `--scope` and pass `--yes`.
 
-`--isolated` (build, verify, and diff only) re-roots the entire rendering under the gitignored `.skillset/build/out/` mirror, preserving repo-relative layout: writes, locks, drift detection, stale-file removal, and unmanaged-collision backups all operate against the mirror while live generated outputs stay untouched.
+`--isolated` (build, verify, and diff only) re-roots the entire rendering under the gitignored `.skillset/cache/latest/` mirror, preserving repo-relative layout: writes, locks, drift detection, stale-file removal, and unmanaged-collision backups all operate against the mirror while live generated outputs stay untouched.
 
 ## Support Table
 

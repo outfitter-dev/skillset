@@ -38,7 +38,7 @@
     "skillset:build": "bun ./apps/skillset/src/cli.ts build --root . --yes",
     "skillset:check": "bun ./apps/skillset/src/cli.ts check --root .",
     "skillset:ci": "bun ./apps/skillset/src/cli.ts ci --root .",
-    "skillset:ci:report": "bun ./apps/skillset/src/cli.ts ci --root . --since \"$(scripts/git-trunk.sh)\" --report .skillset/build/skillset-ci-report.md",
+    "skillset:ci:report": "bun ./apps/skillset/src/cli.ts ci --root . --since \"$(scripts/git-trunk.sh)\" --report .skillset/cache/reports/skillset-ci-report.md",
     "skillset:lint": "bun ./apps/skillset/src/cli.ts lint --root .",
     "skillset:verify": "bun ./apps/skillset/src/cli.ts verify --root .",
     "test": "bun test $(git ls-files 'apps/**/*.test.ts' 'packages/**/*.test.ts' 'scripts/**/*.test.ts')",

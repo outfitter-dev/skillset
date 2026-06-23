@@ -1566,16 +1566,16 @@ Demo body.
   expect(first.stdout).toContain("pass: build");
   expect(first.stdout).toContain("pass: noDrift");
 
-  const firstLatest = JSON.parse(await readFile(join(root, ".skillset/build/tests/latest.json"), "utf8")) as {
+  const firstLatest = JSON.parse(await readFile(join(root, ".skillset/cache/tests/latest.json"), "utf8")) as {
     runId: string;
     runPath: string;
     workspacePath: string;
   };
   expect(firstLatest.runId).toMatch(/^\d{8}T\d{6}Z-[0-9a-f]{8}$/);
   expect(await fileExists(join(root, firstLatest.runPath, "report.json"))).toBe(true);
-  expect(await fileExists(join(root, ".skillset/build/tests/latest/report.json"))).toBe(true);
-  expect(await fileExists(join(root, ".skillset/build/tests/latest/workspace/.claude/skills/demo/SKILL.md"))).toBe(true);
-  expect(await fileExists(join(root, ".skillset/build/tests/latest/workspace/.agents/skills/demo/SKILL.md"))).toBe(false);
+  expect(await fileExists(join(root, ".skillset/cache/tests/latest/report.json"))).toBe(true);
+  expect(await fileExists(join(root, ".skillset/cache/tests/latest/workspace/.claude/skills/demo/SKILL.md"))).toBe(true);
+  expect(await fileExists(join(root, ".skillset/cache/tests/latest/workspace/.agents/skills/demo/SKILL.md"))).toBe(false);
   expect(await fileExists(join(root, ".claude/skills/demo/SKILL.md"))).toBe(false);
   const firstReport = JSON.parse(await readFile(join(root, firstLatest.runPath, "report.json"), "utf8")) as {
     targets: readonly string[];
@@ -1584,7 +1584,7 @@ Demo body.
 
   const second = await runSkillsetCli("test", "self", "--root", root);
   expect(second.exitCode).toBe(0);
-  const secondLatest = JSON.parse(await readFile(join(root, ".skillset/build/tests/latest.json"), "utf8")) as {
+  const secondLatest = JSON.parse(await readFile(join(root, ".skillset/cache/tests/latest.json"), "utf8")) as {
     runId: string;
     runPath: string;
   };
@@ -1628,12 +1628,12 @@ Demo body.
   expect(result.exitCode).toBe(0);
   expect(result.stdout).toContain("activation probes: 1");
   expect(result.stdout).toContain("activation:");
-  expect(await fileExists(join(root, ".skillset/build/tests/latest/activation/claude/fixture-guidance.md"))).toBe(true);
-  expect(await fileExists(join(root, ".skillset/build/tests/latest/activation/codex/fixture-guidance.md"))).toBe(true);
-  const claudeProbe = await readFile(join(root, ".skillset/build/tests/latest/activation/claude/fixture-guidance.md"), "utf8");
+  expect(await fileExists(join(root, ".skillset/cache/tests/latest/activation/claude/fixture-guidance.md"))).toBe(true);
+  expect(await fileExists(join(root, ".skillset/cache/tests/latest/activation/codex/fixture-guidance.md"))).toBe(true);
+  const claudeProbe = await readFile(join(root, ".skillset/cache/tests/latest/activation/claude/fixture-guidance.md"), "utf8");
   expect(claudeProbe).toContain("Manual Claude activation probe");
   expect(claudeProbe).toContain("- skill: demo");
-  const codexProbe = await readFile(join(root, ".skillset/build/tests/latest/activation/codex/probes.json"), "utf8");
+  const codexProbe = await readFile(join(root, ".skillset/cache/tests/latest/activation/codex/probes.json"), "utf8");
   expect(codexProbe).toContain("manual-shimmed");
   expect(codexProbe).toContain("fixture-guidance");
 });
@@ -1709,7 +1709,7 @@ Second body.
   const duplicate = await runSkillsetCli("test", "activation", "--root", duplicateRoot);
   expect(duplicate.exitCode).toBe(1);
   expect(duplicate.stderr).toContain("duplicate activation probe output name");
-  expect(await fileExists(join(duplicateRoot, ".skillset/build/tests/runs"))).toBe(false);
+  expect(await fileExists(join(duplicateRoot, ".skillset/cache/tests/runs"))).toBe(false);
 
   const emptyTargetsRoot = await contractFixture({
     ".skillset/config.yaml": `
@@ -1741,7 +1741,7 @@ Demo body.
   const emptyTargets = await runSkillsetCli("test", "activation", "--root", emptyTargetsRoot);
   expect(emptyTargets.exitCode).toBe(1);
   expect(emptyTargets.stderr).toContain("targets to include at least one target");
-  expect(await fileExists(join(emptyTargetsRoot, ".skillset/build/tests/runs"))).toBe(false);
+  expect(await fileExists(join(emptyTargetsRoot, ".skillset/cache/tests/runs"))).toBe(false);
 });
 
 test("SET-112: activation probes require expected units to be emitted for the target", async () => {
@@ -1777,7 +1777,7 @@ Demo body.
   const result = await runSkillsetCli("test", "activation", "--root", root);
   expect(result.exitCode).toBe(1);
   expect(result.stderr).toContain("activation expected skill missing was not emitted for target claude");
-  expect(await fileExists(join(root, ".skillset/build/tests/runs"))).toBe(false);
+  expect(await fileExists(join(root, ".skillset/cache/tests/runs"))).toBe(false);
 });
 
 test("SET-112: test declarations are root-owned and rejected in plugin config", async () => {
@@ -1843,7 +1843,7 @@ Demo body.
   expect(result.stdout).toContain("fail: exists missing/generated.txt");
   expect(result.stdout).toContain("skillset: test self failed");
 
-  const report = JSON.parse(await readFile(join(root, ".skillset/build/tests/latest/report.json"), "utf8")) as {
+  const report = JSON.parse(await readFile(join(root, ".skillset/cache/tests/latest/report.json"), "utf8")) as {
     ok: boolean;
     assertions: Array<{ detail?: string; kind: string; ok: boolean; path?: string }>;
   };
@@ -4623,7 +4623,7 @@ codex: true
 	  expect(previewBuild.stderr).toContain("existing file is not owned by Skillset");
 	  expect(previewBuild.stderr).toContain("will be backed up");
 	  expect(previewBuild.stdout).toContain("rerun with --yes");
-	  expect(await Bun.file(join(root, ".skillset/build/backups")).exists()).toBe(false);
+	  expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(false);
 	  expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Existing Instructions");
 
 	  const build = await runSkillsetCli("build", "--root", root, "--yes");
@@ -5446,8 +5446,9 @@ test("SET-27: init previews by default and writes only with confirmation", async
     expect(await fileExists(join(root, `.skillset/src/${directory}/.gitkeep`))).toBe(true);
   }
   expect(await fileExists(join(root, ".skillset/changes/.gitkeep"))).toBe(true);
-  expect(await fileExists(join(root, ".skillset/build/.gitkeep"))).toBe(true);
-  expect(await readFile(join(root, ".skillset/.gitignore"), "utf8")).toBe("build/\n");
+  expect(await fileExists(join(root, ".skillset/cache/.gitkeep"))).toBe(true);
+  expect(await fileExists(join(root, ".skillset/snapshots/.gitkeep"))).toBe(true);
+  expect(await readFile(join(root, ".skillset/.gitignore"), "utf8")).toBe("cache/\nsnapshots/\n");
   expect(await fileExists(join(root, ".claude"))).toBe(false);
   expect(await fileExists(join(root, ".codex"))).toBe(false);
   expect(await fileExists(join(root, ".agents"))).toBe(false);
@@ -5585,7 +5586,8 @@ test("SET-27: create supports global source path without touching runtime config
   expect(await fileExists(join(home, ".skillset/src/README.md"))).toBe(false);
   expect(await fileExists(join(home, ".skillset/src/AGENTS.md"))).toBe(false);
   expect(await fileExists(join(home, ".skillset/src/.git/config"))).toBe(false);
-  expect(await fileExists(join(home, ".skillset/build"))).toBe(false);
+  expect(await fileExists(join(home, ".skillset/cache"))).toBe(false);
+  expect(await fileExists(join(home, ".skillset/snapshots"))).toBe(false);
   expect(await fileExists(join(home, ".claude"))).toBe(false);
   expect(await fileExists(join(home, ".codex"))).toBe(false);
 

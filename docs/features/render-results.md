@@ -103,7 +103,7 @@ The remaining status values are intentionally documented deferrals rather than f
 
 ## Provenance
 
-Outcome provenance belongs in structured operation results, generated `skillset.lock` files, `.skillset/build/adopt/report.json`, `skillset explain --json`, and `skillset doctor --json` today. Adopt Markdown reports and doctor/explain text output render compact summaries and point readers at structured records when more detail is needed. Generated target files stay clean by default. Debug sentinels or source markers in target files are a future opt-in, not a default generated-output contract.
+Outcome provenance belongs in structured operation results, generated `skillset.lock` files, `.skillset/cache/adopt/report.json`, `skillset explain --json`, and `skillset doctor --json` today. Adopt Markdown reports and doctor/explain text output render compact summaries and point readers at structured records when more detail is needed. Generated target files stay clean by default. Debug sentinels or source markers in target files are a future opt-in, not a default generated-output contract.
 
 ## Evidence
 

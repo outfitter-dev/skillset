@@ -24,7 +24,7 @@ import type { BuildGraph, BuildScope, CheckResult, JsonRecord, JsonValue, Render
 import { isJsonRecord, parseMarkdown } from "./yaml";
 
 /** Mirror root for isolated builds; the full projection lands under it. */
-export const ISOLATED_OUT_ROOT = ".skillset/build/out";
+export const ISOLATED_OUT_ROOT = ".skillset/cache/latest";
 
 /** Maps a repo-relative generated path to its on-disk location. */
 type OutPath = (path: string) => string;

@@ -8,9 +8,9 @@
  * exact commit. Clones live gitignored under fixtures/external/repos/ and are
  * never scanned as this repo's own source. Runs are a thin wrapper over the
  * product command: each clone is adopted in place with adoptSkillset (survey,
- * imports, lint, isolated build under .skillset/build/out/), then the harness
+ * imports, lint, isolated build under .skillset/cache/latest/), then the harness
  * checks purity and round-trips and writes reports under
- * .skillset/build/external/.
+ * .skillset/cache/fixtures/.
  *
  *   bun scripts/fixtures/external.ts sync   [name]   # reset clones pristine at pinned refs
  *   bun scripts/fixtures/external.ts update [name]   # re-pin to upstream HEAD, then sync
@@ -39,7 +39,7 @@ import { compareNormalizedOutputTrees } from "../../packages/core/src/normalized
 
 const MANIFEST_PATH = "fixtures/external/repos.yaml";
 const CLONES_DIR = "fixtures/external/repos";
-const REPORTS_DIR = ".skillset/build/external";
+const REPORTS_DIR = ".skillset/cache/fixtures";
 // .skillset is ignored because in-place adoption creates it inside the clone;
 // it is harness material, not part of the original tree being round-tripped.
 const COMPARISON_EXCLUDED_PATHS = [".DS_Store"];
@@ -228,7 +228,7 @@ const PURITY_DETAIL_CAP = 10;
 /**
  * The purity invariant: adoption may only ever create paths under .skillset/.
  * Any other path reported by `git status` after a run is a toolchain defect.
- * (.skillset/build/ is not gitignored in external repos, so it shows up in
+ * (.skillset/cache/ is not gitignored in external repos, so it shows up in
  * status — that is fine, it is under .skillset/.)
  */
 export async function checkClonePurity(
@@ -275,7 +275,7 @@ async function cleanSkillsetLeftovers(clonePath: string): Promise<void> {
  * Adopt one external repo clone in place via the product command
  * (`adoptSkillset`): survey, import every candidate (instructions included),
  * lint, and build with the isolated mirror (the projection lands under
- * .skillset/build/out/). The harness adds only what the product command does
+ * .skillset/cache/latest/). The harness adds only what the product command does
  * not own: the purity invariant and the round-trip comparison of the original
  * clone against the generated Claude projection.
  */

@@ -38,7 +38,7 @@ External fixtures are real published repos that Skillset should be able to adopt
 
 - `fixtures/external/repos.yaml` is the committed manifest. Each entry pins a repo to a full commit SHA and may set `targets:` (default `claude`) and `notes:`.
 - `fixtures/external/repos/<name>/` holds gitignored clones at the pinned SHA. They are never scanned as this repo's own source.
-- Runs execute in throwaway temp workspaces and write `report.md` / `report.json` under `.skillset/build/external/<name>/`.
+- Runs execute in throwaway temp workspaces and write `report.md` / `report.json` under `.skillset/cache/fixtures/<name>/`.
 
 ```bash
 bun scripts/fixtures/external.ts sync     # clone/fetch every entry at its pinned SHA
