@@ -460,7 +460,7 @@ async function validatePluginIslandOwners(
     if (!entry.isDirectory()) continue;
     if (pluginIds.has(entry.name)) continue;
     throw new Error(
-      `skillset: ${relative(rootPath, join(pluginsPath, entry.name))} has target-native island source for unknown plugin ${entry.name}`
+      `skillset: ${relative(rootPath, join(pluginsPath, entry.name))} has provider source for unknown plugin ${entry.name}`
     );
   }
 }

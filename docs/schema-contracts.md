@@ -59,8 +59,8 @@ Use this checklist for any new source/config/frontmatter field:
    `bun run skillset:ci` before handoff.
 
 Provider-specific behavior belongs under explicit `claude` and `codex` blocks
-unless the field is intentionally portable. Target-native islands can preserve
-provider-native files, but adaptive source should use the shared contract so
+unless the field is intentionally portable. Provider source can preserve native
+Claude or Codex files, but adaptive source should use the shared contract so
 compiler, Workbench, docs, and generated editor schemas agree.
 
 ## Drift Signals

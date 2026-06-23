@@ -44,10 +44,10 @@ function formatBlockedOutcome(outcome: SkillsetRenderResult): string {
 
 function suggestionForBlockedOutcome(outcome: SkillsetRenderResult): string {
   if (outcome.target === "codex" && outcome.featureId === "plugin-agents") {
-    return "set codex: false for the plugin, move portable project agents to .skillset/src/agents, or keep Claude-only files in a Claude target-native island";
+    return "set codex: false for the plugin, move portable project agents to .skillset/src/agents, or keep Claude-only files in Claude provider source";
   }
   if (outcome.target === "codex" && outcome.featureId === "plugin-bin") {
-    return "set bin: false, set codex: false for the plugin, remove Codex plugin output selection, or keep executable helpers in a Claude target-native island";
+    return "set bin: false, set codex: false for the plugin, remove Codex plugin output selection, or keep executable helpers in Claude provider source";
   }
-  return "scope the command away from this source, disable the unsupported target for this source, or move provider-specific files into a target-native island";
+  return "scope the command away from this source, disable the unsupported target for this source, or move provider-specific files into provider source";
 }

@@ -402,7 +402,7 @@ function featureIdForLockItem(item: RenderedLockItem): string {
 /**
  * Concrete output artifact/scope (the `destination`) a lock item renders to,
  * under its provider `target`. Collapses the skill features into the single
- * `skill` artifact and names manifests/instructions/agents/islands explicitly,
+ * `skill` artifact and names manifests/instructions/agents/provider source explicitly,
  * so `destination` describes where output lands rather than which capability
  * produced it (`featureId`).
  */

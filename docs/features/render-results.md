@@ -36,7 +36,7 @@ The schema intentionally keeps source identity and target output identity togeth
 | Status | Meaning | Typical example |
 | --- | --- | --- |
 | `rendered` | Skillset rendered a faithful target-native representation. | A standalone skill rendered to target `SKILL.md`. |
-| `target_native` | Explicit target-owned source was passed through or copied only to its target. | A Codex-only provider source or Claude-only plugin companion. |
+| `target_native` | Explicit provider-specific source was passed through or copied only to its target. | A Codex-only provider source or Claude-only plugin companion. |
 | `transformed` | Skillset changed the file shape while preserving the authored intent. | Source-root `rules/` rendered to Claude rules and Codex `AGENTS.md`. |
 | `metadata_only` | Skillset preserved information for provenance or sidecars, but the target does not enforce it directly. | Release changelog rendering or tool-intent sidecar. |
 | `degraded` | Skillset rendered a useful fallback that is weaker than a native target feature. | Codex dependency awareness material when Claude has native plugin dependencies. |
