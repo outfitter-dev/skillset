@@ -11,6 +11,8 @@ The repo now self-hosts source in the dedicated Skillset layout:
 
 Read [docs/tenets.md](docs/tenets.md) before changing the source contract, target rendering model, schema vocabulary, or generated-output promises. The tenets are the slow-moving design layer; implementation docs and generated agent guidance should align with them.
 
+For source/config/frontmatter fields, follow [docs/schema-contracts.md](docs/schema-contracts.md). Shared structural shape belongs in `@skillset/schema`; compiler and Workbench consumers should route through that package instead of maintaining parallel field lists. Regenerate schema artifacts with `bun run schema:generate` and verify with `bun run schema:check`.
+
 ## Responsibilities
 
 - Read adaptive source from an ordinary content repo's `.skillset/src/` directory with workspace/source config in `.skillset/skillset.yaml`, or from a dedicated repo's `skillset/` directory with root `skillset.yaml`.
