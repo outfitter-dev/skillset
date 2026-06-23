@@ -1,7 +1,6 @@
 bump: minor
 evidence:
-  - hash: sha256:abcdef
-    scope: skill:docs-cli
+  - scope: skill:docs-cli
     sourceHash: sha256:123456
 group:
   id: SET-182

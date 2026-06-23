@@ -1,6 +1,8 @@
 import { readFile, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 
+import { validateChangeEntryFrontmatter, type SkillsetSchemaDiagnostic } from "@skillset/schema";
+
 import {
   changeStatus,
   detectWorkspaceOptions,
@@ -23,12 +25,11 @@ export type ChangeCheckSeverity = "error" | "warning";
 export interface PendingChangeEntry {
   readonly bump: ChangeBump | undefined;
   readonly group?: ChangeGroup;
-  readonly hasExternal: boolean;
-  readonly hasInvalidGroup: boolean;
   readonly id: string | undefined;
   readonly ignored: boolean;
   readonly path: string;
   readonly reason: string;
+  readonly schemaDiagnostics: readonly SkillsetSchemaDiagnostic[];
   readonly scopes: readonly string[];
   readonly sourceHashes: ReadonlyMap<string, readonly string[]>;
 }
@@ -72,7 +73,6 @@ interface ChangeValidationContext {
 }
 
 const DEFAULT_REASON_MIN_LENGTH = 40;
-const CHANGE_ID_PATTERN = /^[0-9a-f]{12}$/;
 const CHANGE_REF_MIN_LENGTH = 6;
 const PLACEHOLDER_REASON_PATTERN = /^(todo|tbd|placeholder|none|n\/a|fill me in|write reason)$/i;
 const BUMPS = new Set<ChangeBump>(["major", "minor", "none", "patch"]);
@@ -171,6 +171,7 @@ export async function readPendingChangeEntries(
     const path = join(changesDir, file).replaceAll("\\", "/");
     const absolutePath = resolveInside(rootPath, path);
     const parts = parseMarkdown(await readFile(absolutePath, "utf8"), absolutePath);
+    const schemaDiagnostics = validateChangeEntryFrontmatter(parts.frontmatter, path).diagnostics;
     const id = readString(parts.frontmatter, "id");
     const bump = readBump(parts.frontmatter.bump);
     const ignored = parts.frontmatter.ignored === true;
@@ -180,12 +181,11 @@ export async function readPendingChangeEntries(
     entries.push({
       bump,
       ...(group === undefined ? {} : { group }),
-      hasExternal: parts.frontmatter.external !== undefined,
-      hasInvalidGroup: parts.frontmatter.group !== undefined && group === undefined,
       id,
       ignored,
       path,
       reason: parts.body.trim(),
+      schemaDiagnostics,
       scopes,
       sourceHashes,
     });
@@ -224,22 +224,19 @@ function validatePendingEntry(
   entry: PendingChangeEntry,
   context: ChangeValidationContext
 ): readonly ChangeCheckIssue[] {
-  const issues: ChangeCheckIssue[] = [];
+  const issues: ChangeCheckIssue[] = [...changeEntrySchemaIssues(entry)];
+  const schemaCodes = new Set(entry.schemaDiagnostics.map((diagnostic) => diagnostic.code));
 
-  if (entry.id === undefined) {
+  if (entry.id === undefined && !schemaCodes.has("schema/change-entry/id")) {
     issues.push(entryError(entry, "change-id-missing", "pending change entry requires id"));
-  } else if (!CHANGE_ID_PATTERN.test(entry.id)) {
-    issues.push(entryError(entry, "change-id-invalid", "pending change id must be 12 lower-case hex characters"));
-  } else if (context.duplicateIds.has(entry.id)) {
+  } else if (entry.id !== undefined && !schemaCodes.has("schema/change-entry/id") && context.duplicateIds.has(entry.id)) {
     issues.push(entryError(entry, "change-id-duplicate", `pending change id ${entry.id} is used by multiple entries`));
   }
 
-  if (entry.bump === undefined) {
-    issues.push(entryError(entry, "change-bump-missing", "pending change entry requires bump: major, minor, patch, or none"));
-  }
-
   if (entry.scopes.length === 0) {
-    issues.push(entryError(entry, "change-scope-missing", "pending change entry requires scope"));
+    if (!hasSchemaPrefix(schemaCodes, "schema/change-entry/scope")) {
+      issues.push(entryError(entry, "change-scope-missing", "pending change entry requires scope"));
+    }
   } else {
     const scopeClasses = new Set(entry.scopes.map(scopeClass));
     if (scopeClasses.size > 1) {
@@ -259,16 +256,6 @@ function validatePendingEntry(
     issues.push(entryError(entry, "change-reason-placeholder", "reason looks like a placeholder"));
   }
 
-  if (entry.group !== undefined && entry.group.id.trim().length === 0) {
-    issues.push(entryError(entry, "change-group-invalid", "group id must be non-empty"));
-  }
-  if (entry.hasInvalidGroup) {
-    issues.push(entryError(entry, "change-group-invalid", "group must be a string or an object with id"));
-  }
-  if (entry.hasExternal) {
-    issues.push(entryError(entry, "change-external-unsupported", "external issue ids belong in group"));
-  }
-
   for (const scope of entry.scopes) {
     const expectedHash = expectedHashForScope(scope, context);
     if (expectedHash === undefined) continue;
@@ -283,6 +270,31 @@ function validatePendingEntry(
   }
 
   return issues;
+}
+
+function changeEntrySchemaIssues(entry: PendingChangeEntry): readonly ChangeCheckIssue[] {
+  return entry.schemaDiagnostics.map((diagnostic): ChangeCheckIssue => {
+    const code = changeEntrySchemaIssueCode(diagnostic);
+    return entryError(entry, code, diagnostic.message.replaceAll(`${entry.path}.`, ""));
+  });
+}
+
+function changeEntrySchemaIssueCode(diagnostic: SkillsetSchemaDiagnostic): string {
+  if (diagnostic.code === "schema/change-entry/id") return "change-id-invalid";
+  if (diagnostic.code === "schema/change-entry/bump") return "change-bump-missing";
+  if (diagnostic.code === "schema/change-entry/scope" || diagnostic.code === "schema/change-entry/scopes") return "change-scope-missing";
+  if (diagnostic.code.startsWith("schema/change-entry/group")) return "change-group-invalid";
+  if (diagnostic.code === "schema/change-entry/external") return "change-external-unsupported";
+  if (diagnostic.code === "schema/change-entry/ignored") return "change-ignored-invalid";
+  if (diagnostic.code.startsWith("schema/change-entry/evidence")) return "change-evidence-invalid";
+  return "change-entry-invalid";
+}
+
+function hasSchemaPrefix(codes: ReadonlySet<string>, prefix: string): boolean {
+  for (const code of codes) {
+    if (code.startsWith(prefix)) return true;
+  }
+  return false;
 }
 
 function suggestBumpWarnings(

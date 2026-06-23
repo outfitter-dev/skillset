@@ -1,5 +1,6 @@
 import {
   validateAgentFrontmatter,
+  validateHookDefinitionSource,
   validateInstructionFrontmatter,
   validateSkillFrontmatter,
   validateWorkspaceConfig,
@@ -341,93 +342,14 @@ function checkHookContract(
   path: string
 ): readonly WorkbenchDiagnostic[] {
   if (parsed.kind !== "json") return [wrongKind(path, "hook", "JSON")];
-  if (!isRecord(parsed.data)) {
-    return [
-      schemaDiagnostic({
-        message: "hook file must contain a JSON object",
-        path,
-        ruleId: "schema/hook",
-        subjectKind: "hook",
-      }),
-    ];
-  }
-
-  const diagnostics: WorkbenchDiagnostic[] = [];
-  if (parsed.data.hooks !== undefined && !isRecord(parsed.data.hooks)) {
-    diagnostics.push(schemaDiagnostic({
-      message: "hooks must be an object when present",
+  return validateHookDefinitionSource(parsed.data).diagnostics.map((diagnostic) =>
+    schemaDiagnostic({
+      message: diagnostic.message.replaceAll("$.", ""),
       path,
       ruleId: "schema/hook",
       subjectKind: "hook",
-    }));
-    return diagnostics;
-  }
-
-  const events = parsed.data.hooks ?? parsed.data;
-  for (const [event, groups] of Object.entries(events).sort(compareEntries)) {
-    if (events === parsed.data && event === "hooks") continue;
-    if (!Array.isArray(groups)) {
-      diagnostics.push(schemaDiagnostic({
-        message: `hook event ${event} must be an array`,
-        path,
-        ruleId: "schema/hook",
-        subjectKind: "hook",
-      }));
-      continue;
-    }
-    for (const group of groups) {
-      if (!isRecord(group)) {
-        diagnostics.push(schemaDiagnostic({
-          message: `hook event ${event} entries must be objects`,
-          path,
-          ruleId: "schema/hook",
-          subjectKind: "hook",
-        }));
-        continue;
-      }
-      if (group.hooks !== undefined && !Array.isArray(group.hooks)) {
-        diagnostics.push(schemaDiagnostic({
-          message: `hook event ${event} hooks must be an array`,
-          path,
-          ruleId: "schema/hook",
-          subjectKind: "hook",
-        }));
-        continue;
-      }
-      if (Array.isArray(group.hooks)) {
-        diagnostics.push(...checkHookHandlers(group.hooks, event, path));
-      }
-    }
-  }
-  return diagnostics;
-}
-
-function checkHookHandlers(
-  handlers: readonly unknown[],
-  event: string,
-  path: string
-): readonly WorkbenchDiagnostic[] {
-  const diagnostics: WorkbenchDiagnostic[] = [];
-  for (const handler of handlers) {
-    if (!isRecord(handler)) {
-      diagnostics.push(schemaDiagnostic({
-        message: `hook event ${event} hook handlers must be objects`,
-        path,
-        ruleId: "schema/hook",
-        subjectKind: "hook",
-      }));
-      continue;
-    }
-    if (!isNonEmptyString(handler.type)) {
-      diagnostics.push(schemaDiagnostic({
-        message: `hook event ${event} hook handlers must include a non-empty string type`,
-        path,
-        ruleId: "schema/hook",
-        subjectKind: "hook",
-      }));
-    }
-  }
-  return diagnostics;
+    })
+  );
 }
 
 function checkMarkdownBody(
@@ -540,10 +462,4 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
-}
-
-function compareEntries(left: [string, unknown], right: [string, unknown]): number {
-  if (left[0] < right[0]) return -1;
-  if (left[0] > right[0]) return 1;
-  return 0;
 }

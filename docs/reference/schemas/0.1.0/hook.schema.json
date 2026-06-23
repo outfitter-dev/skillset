@@ -1,22 +1,135 @@
 {
   "$id": "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/hook.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "additionalProperties": true,
+  "additionalProperties": {
+    "items": {
+      "additionalProperties": true,
+      "properties": {
+        "hooks": {
+          "items": {
+            "additionalProperties": true,
+            "properties": {
+              "agent": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "async": {
+                "type": "boolean"
+              },
+              "command": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "prompt": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "statusMessage": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "timeout": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "type": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "matcher": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "object"
+            }
+          ]
+        },
+        "statusMessage": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "type": "array"
+  },
   "properties": {
-    "command": {
-      "type": "string"
-    },
-    "matcher": {
-      "type": [
-        "object",
-        "string"
-      ]
-    },
-    "name": {
-      "type": "string"
-    },
-    "status": {
-      "type": "string"
+    "hooks": {
+      "additionalProperties": {
+        "items": {
+          "additionalProperties": true,
+          "properties": {
+            "hooks": {
+              "items": {
+                "additionalProperties": true,
+                "properties": {
+                  "agent": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "async": {
+                    "type": "boolean"
+                  },
+                  "command": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "prompt": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "statusMessage": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "timeout": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "type": {
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "matcher": {
+              "anyOf": [
+                {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "object"
+                }
+              ]
+            },
+            "statusMessage": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "type": "object"
     }
   },
   "title": "Hook Definition",
