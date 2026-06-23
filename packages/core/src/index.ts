@@ -41,6 +41,15 @@ export {
   type AdapterConformanceCoverageStatus,
 } from "./adapter-conformance-coverage";
 export {
+  checkProviderFormatConformance,
+  formatProviderFormatConformanceReport,
+  providerFormatConformanceFiles,
+  type ProviderFormatConformanceFile,
+  type ProviderFormatConformanceIssue,
+  type ProviderFormatConformanceIssueCode,
+  type ProviderFormatConformanceReport,
+} from "./provider-format-conformance";
+export {
   assertDeterministicProjection,
   formatDeterministicProjectionReport,
   runDeterministicProjection,

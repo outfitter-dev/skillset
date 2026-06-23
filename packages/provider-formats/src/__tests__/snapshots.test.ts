@@ -56,12 +56,8 @@ describe("@skillset/provider-formats snapshots", () => {
 
     expect(codexPlugin).toBeDefined();
     expect(() => (components as { kind: string; status: string }[]).push({ kind: "mutated", status: "native" })).toThrow();
-    expect(codexPlugin?.format).toMatchObject({
-      components: expect.arrayContaining([
-        expect.objectContaining({ kind: "agents", status: "unsupported" }),
-        expect.objectContaining({ kind: "bin", status: "unsupported" }),
-      ]),
-    });
+    expect(components.some((component) => component.kind === "agents" && component.status === "unsupported")).toBe(true);
+    expect(components.some((component) => component.kind === "bin" && component.status === "unsupported")).toBe(true);
   });
 });
 
