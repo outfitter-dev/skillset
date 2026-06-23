@@ -10,6 +10,8 @@ Maintainers refresh that evidence explicitly with `skillset providers check`, `s
 
 Known safe update paths live in `packages/provider-formats/src/migrations.ts`. Add a registry entry when a provider destination-format change is understood well enough to classify as `compatible`, `adapter-only`, `source-migration`, `unsupported-drift`, or `manual-review`. Each entry must name the provider, destination surface, source and destination snapshot versions, safety and preview flags, confirmation requirement, and the adopted snapshot ids it applies to. Leave unreviewed or lossy changes unregistered so callers route them to manual review instead of rewriting source.
 
+`skillset check` reports generated-output drift that maps to safe provider destination-format migrations without writing. `skillset check --fix` and `skillset update --yes` apply only source-preserving safe plans; unregistered or manual-review drift blocks writes and prints the affected outputs.
+
 Source examples use `<source-root>` where the same surface can be authored in either workspace layout. `<source-root>` is `.skillset/src/` in ordinary repos and `skillset/` in dedicated Skillset repos.
 
 ## Support vocabulary
