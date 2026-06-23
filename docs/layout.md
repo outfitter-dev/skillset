@@ -250,6 +250,8 @@ skillset:
 
 Root and plugin source config support `skillset.schema`. The marker is source-only and never appears in generated artifacts; deeper provenance lives in `skillset.lock`.
 
+JSON Schema artifacts are generated from the same `@skillset/schema` contracts used by runtime validation and live under [docs/reference/schemas](reference/schemas/README.md). `skillset init` and `skillset create` scaffold workspace manifests with a YAML language-server comment that points to the current workspace config schema instead of adding a `$schema` key to authored YAML.
+
 ## Versioning
 
 Root `skillset.version`, plugin `skillset.version`, and skill top-level `version` fields must be semantic versions. Skill-local `skillset.version` is unsupported; use the top-level skill `version`.

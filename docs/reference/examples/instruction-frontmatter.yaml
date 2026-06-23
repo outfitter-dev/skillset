@@ -1,0 +1,16 @@
+claude:
+  path: .claude/rules/source.md
+codex:
+  path: .codex/rules/source.rules
+dialect: claude
+metadata:
+  generated: skillset-schema@0.1.0
+  version: 1.0.0
+name: source-rules
+skillset:
+  origin:
+    path: skillset/rules/source.md
+  schema: 1
+supports:
+  packages:
+    - "@acme/source-kit >=1.0.0 <2.0.0"

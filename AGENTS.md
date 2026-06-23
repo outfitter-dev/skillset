@@ -39,6 +39,8 @@ bun run changeset:status
 bun run publish:check
 bun run publish:label-release-pr
 bun run publish:policy
+bun run schema:check
+bun run schema:generate
 bun run hooks:install
 bun run hooks:pre-push
 bun run ultracite:doctor

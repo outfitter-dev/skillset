@@ -1,0 +1,402 @@
+{
+  "$id": "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/skill-frontmatter.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "allowed_tools": {
+      "anyOf": [
+        {
+          "const": false
+        },
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "claude": {
+              "anyOf": [
+                {
+                  "const": false
+                },
+                {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "items": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                }
+              ]
+            },
+            "codex": {
+              "anyOf": [
+                {
+                  "const": false
+                },
+                {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "items": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                }
+              ]
+            }
+          },
+          "type": "object"
+        }
+      ]
+    },
+    "bin": {
+      "anyOf": [
+        {
+          "const": false
+        },
+        {
+          "type": "object"
+        }
+      ]
+    },
+    "claude": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "object"
+        }
+      ]
+    },
+    "codex": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "object"
+        }
+      ]
+    },
+    "dependencies": {
+      "additionalProperties": false,
+      "properties": {
+        "plugins": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "marketplace": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "plugin": {
+                    "type": "string"
+                  },
+                  "range": {
+                    "type": "string"
+                  },
+                  "unversioned": {
+                    "type": "boolean"
+                  }
+                },
+                "type": "object"
+              }
+            ]
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "description": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "dialect": {
+      "enum": [
+        "claude"
+      ],
+      "type": "string"
+    },
+    "implicit_invocation": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "claude": {
+              "type": "boolean"
+            },
+            "codex": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        }
+      ]
+    },
+    "mcp": {
+      "anyOf": [
+        {
+          "const": false
+        },
+        {
+          "type": "object"
+        }
+      ]
+    },
+    "metadata": {
+      "additionalProperties": false,
+      "properties": {
+        "generated": {
+          "type": "string"
+        },
+        "version": {
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "model": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "name": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "resources": {
+      "type": "object"
+    },
+    "schema": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "skillset": {
+      "additionalProperties": false,
+      "properties": {
+        "author": {
+          "type": [
+            "object",
+            "string"
+          ]
+        },
+        "category": {
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "homepage": {
+          "type": "string"
+        },
+        "keywords": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "license": {
+          "type": "string"
+        },
+        "manifest": {
+          "type": "object"
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "origin": {
+          "additionalProperties": false,
+          "dependentRequired": {
+            "ref": [
+              "repo"
+            ],
+            "repo": [
+              "ref"
+            ]
+          },
+          "properties": {
+            "path": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "ref": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "repo": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "type": "object"
+        },
+        "outputs": {
+          "type": "object"
+        },
+        "owner": {
+          "type": "object"
+        },
+        "preprocess": {
+          "type": "boolean"
+        },
+        "presentation": {
+          "type": "object"
+        },
+        "repository": {
+          "type": "string"
+        },
+        "schema": {
+          "const": 1,
+          "type": "integer"
+        },
+        "strict": {
+          "type": "boolean"
+        },
+        "summary": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "version": {
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "summary": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "supports": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "onMismatch": {
+                    "enum": [
+                      "error",
+                      "warn"
+                    ],
+                    "type": "string"
+                  },
+                  "range": {
+                    "type": "string"
+                  },
+                  "source": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            ]
+          },
+          "type": "array"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "packages": {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "onMismatch": {
+                        "enum": [
+                          "error",
+                          "warn"
+                        ],
+                        "type": "string"
+                      },
+                      "range": {
+                        "type": "string"
+                      },
+                      "source": {
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  }
+                ]
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "packages"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "title": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "tool_intent": {
+      "type": "object"
+    },
+    "version": {
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$",
+      "type": "string"
+    }
+  },
+  "title": "Skill Frontmatter",
+  "type": "object"
+}

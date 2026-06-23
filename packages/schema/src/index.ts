@@ -13,11 +13,25 @@ export {
   changeEntryContract,
   hookContract,
   instructionFrontmatterContract,
+  schemaUri,
   skillFrontmatterContract,
   skillsetSchemaContracts,
   sourceMetadataContract,
   workspaceConfigContract,
 } from "./contracts";
+export { skillsetSchemaExamples } from "./examples";
+export {
+  deriveSkillsetJsonSchemaArtifacts,
+  getSkillsetJsonSchemaArtifact,
+  skillsetAgentFrontmatterJsonSchema,
+  skillsetChangeEntryJsonSchema,
+  skillsetHookJsonSchema,
+  skillsetInstructionFrontmatterJsonSchema,
+  skillsetSkillFrontmatterJsonSchema,
+  skillsetSourceMetadataJsonSchema,
+  skillsetWorkspaceJsonSchema,
+} from "./artifacts";
+export { deriveSkillsetExampleArtifacts } from "./examples";
 export { isSchemaRecord, sortSchemaRecord } from "./json";
 export type {
   SchemaJsonRecord,
@@ -28,6 +42,8 @@ export type {
   SkillsetSchemaDiagnostic,
   SkillsetSchemaValidationResult,
 } from "./types";
+export type { SkillsetJsonSchemaArtifact } from "./artifacts";
+export type { SkillsetExampleArtifact } from "./examples";
 export {
   validateAgentFrontmatter,
   validateInstructionFrontmatter,

@@ -1,0 +1,13 @@
+bump: minor
+evidence:
+  - hash: sha256:abcdef
+    scope: skill:docs-cli
+    sourceHash: sha256:123456
+group:
+  id: SET-182
+  provider: linear
+id: 01abcdef1234
+ignored: false
+scopes:
+  - skill:docs-cli
+  - plugin:docs

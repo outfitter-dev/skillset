@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, realpath, stat, writeFile } from "node:fs/pro
 import { basename, dirname, join, relative, resolve } from "node:path";
 
 import { defineRenderResult, type SkillsetRenderResult } from "@skillset/core";
+import { schemaUri } from "@skillset/schema";
 
 import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
 import { CI_WORKFLOW_PATH, renderCiWorkflow } from "./ci";
@@ -693,6 +694,7 @@ function rootConfig(targets: readonly TargetName[]): string {
 
 function workspaceManifest(name: string, targets: readonly TargetName[]): string {
   return [
+    `# yaml-language-server: $schema=${schemaUri("workspace-config")}`,
     "skillset:",
     `  name: ${name}`,
     rootConfig(targets).trimEnd(),

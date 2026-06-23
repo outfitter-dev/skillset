@@ -1,0 +1,7 @@
+command: ./scripts/source-change-guard.sh
+matcher:
+  files:
+    - skillset/**
+    - .skillset/**
+name: source-change-guard
+status: warn

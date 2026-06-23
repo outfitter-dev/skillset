@@ -4,6 +4,8 @@ import {
   SKILLSET_SCHEMA_VERSION,
   agentFrontmatterContract,
   changeEntryContract,
+  deriveSkillsetExampleArtifacts,
+  deriveSkillsetJsonSchemaArtifacts,
   instructionFrontmatterContract,
   skillFrontmatterContract,
   skillsetSchemaContracts,
@@ -28,7 +30,69 @@ describe("@skillset/schema contracts", () => {
       "hook",
       "change-entry",
     ]);
-    expect(workspaceConfigContract.schema.$id).toBe("https://schemas.skillset.dev/0.1.0/workspace-config.schema.json");
+    expect(workspaceConfigContract.schema.$id).toBe("https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/workspace-config.schema.json");
+  });
+
+  it("derives deterministic JSON Schema artifacts", () => {
+    const artifacts = deriveSkillsetJsonSchemaArtifacts();
+    expect(artifacts.map((artifact) => artifact.path)).toEqual([
+      "docs/reference/schemas/0.1.0/skillset.schema.json",
+      "docs/reference/schemas/0.1.0/workspace-config.schema.json",
+      "docs/reference/schemas/0.1.0/source-metadata.schema.json",
+      "docs/reference/schemas/0.1.0/skill-frontmatter.schema.json",
+      "docs/reference/schemas/0.1.0/agent-frontmatter.schema.json",
+      "docs/reference/schemas/0.1.0/instruction-frontmatter.schema.json",
+      "docs/reference/schemas/0.1.0/hook.schema.json",
+      "docs/reference/schemas/0.1.0/change-entry.schema.json",
+    ]);
+
+    const combined = artifacts[0]?.schema;
+    expect(combined).toMatchObject({
+      $id: "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/skillset.schema.json",
+      $schema: "https://json-schema.org/draft/2020-12/schema",
+      title: "Skillset Source Contracts",
+    });
+    expect(combined?.oneOf).toEqual([
+      { $ref: "#/$defs/workspace-config" },
+      { $ref: "#/$defs/source-metadata" },
+      { $ref: "#/$defs/skill-frontmatter" },
+      { $ref: "#/$defs/agent-frontmatter" },
+      { $ref: "#/$defs/instruction-frontmatter" },
+      { $ref: "#/$defs/hook" },
+      { $ref: "#/$defs/change-entry" },
+    ]);
+    const defs = combined?.$defs as Record<string, Record<string, unknown>>;
+    expect(Object.keys(defs).sort()).toEqual([
+      "agent-frontmatter",
+      "change-entry",
+      "hook",
+      "instruction-frontmatter",
+      "skill-frontmatter",
+      "source-metadata",
+      "workspace-config",
+    ]);
+    expect(defs["workspace-config"]).not.toHaveProperty("$id");
+    expect(defs["workspace-config"]).not.toHaveProperty("$schema");
+  });
+
+  it("derives maximal examples that validate against structural contracts", () => {
+    const examples = deriveSkillsetExampleArtifacts();
+    expect(examples.map((example) => example.path)).toEqual([
+      "docs/reference/examples/workspace-config.yaml",
+      "docs/reference/examples/source-metadata.yaml",
+      "docs/reference/examples/skill-frontmatter.yaml",
+      "docs/reference/examples/agent-frontmatter.yaml",
+      "docs/reference/examples/instruction-frontmatter.yaml",
+      "docs/reference/examples/hook.yaml",
+      "docs/reference/examples/change-entry.yaml",
+    ]);
+
+    const byId = Object.fromEntries(examples.map((example) => [example.contractId, example.value]));
+    expect(validateWorkspaceConfig(byId["workspace-config"]).diagnostics).toEqual([]);
+    expect(validateSourceMetadata(byId["source-metadata"]).diagnostics).toEqual([]);
+    expect(validateSkillFrontmatter(byId["skill-frontmatter"]).diagnostics).toEqual([]);
+    expect(validateAgentFrontmatter(byId["agent-frontmatter"]).diagnostics).toEqual([]);
+    expect(validateInstructionFrontmatter(byId["instruction-frontmatter"]).diagnostics).toEqual([]);
   });
 
   it("keeps descriptors aligned with active workspace and change contracts", () => {
