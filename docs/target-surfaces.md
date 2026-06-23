@@ -4,6 +4,8 @@ This is the cheap-to-refresh map between Skillset source and the Claude/Codex pr
 
 Refreshing is intentionally cheap but explicit: re-read the linked provider docs, update the normalized snapshot with its fetched timestamp and content hash, then adjust the affected row and golden test if the surface changed. Ordinary build and check paths must not fetch provider docs.
 
+`@skillset/provider-formats` also records rolling-latest provider schema sources for maintainer checks: Claude Code settings, plugin manifests, marketplaces, and keybindings; Codex config, hooks config, hook event schemas, and skill metadata. Those schema snapshots store source URLs, upstream content hashes, fetched timestamps, normalized summaries, and deterministic snapshot hashes. Destination areas with no adopted JSON Schema source are represented as manual overlays linked back to the docs-backed format snapshots rather than left as silent gaps.
+
 Source examples use `<source-root>` where the same surface can be authored in either workspace layout. `<source-root>` is `.skillset/src/` in ordinary repos and `skillset/` in dedicated Skillset repos.
 
 ## Support vocabulary
