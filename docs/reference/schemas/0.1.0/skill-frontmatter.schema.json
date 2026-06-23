@@ -305,6 +305,9 @@
         "manifest": {
           "type": "object"
         },
+        "marketplace": {
+          "type": "object"
+        },
         "name": {
           "minLength": 1,
           "type": "string"

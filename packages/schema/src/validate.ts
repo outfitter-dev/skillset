@@ -220,6 +220,7 @@ function checkSourceMetadata(value: SchemaJsonValue | undefined, path: string, d
   checkOptionalString(value.homepage, `${path}.homepage`, "schema/source-metadata/homepage", diagnostics);
   checkOptionalString(value.license, `${path}.license`, "schema/source-metadata/license", diagnostics);
   checkOptionalObject(value.manifest, `${path}.manifest`, "schema/source-metadata/manifest", diagnostics);
+  checkOptionalObject(value.marketplace, `${path}.marketplace`, "schema/source-metadata/marketplace", diagnostics);
   checkSourceOrigin(value.origin, `${path}.origin`, diagnostics);
   checkOptionalObject(value.owner, `${path}.owner`, "schema/source-metadata/owner", diagnostics);
   checkOptionalObject(value.outputs, `${path}.outputs`, "schema/source-metadata/outputs", diagnostics);

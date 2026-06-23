@@ -1,3 +1,11 @@
+import {
+  COMPILE_BUILD_MODES as SCHEMA_COMPILE_BUILD_MODES,
+  TARGET_NAMES as SCHEMA_TARGET_NAMES,
+  validateSourceMetadata,
+  validateWorkspaceConfig,
+  type SkillsetSchemaDiagnostic,
+} from "@skillset/schema";
+
 import type {
   CompileBuildMode,
   CompileConfig,
@@ -15,7 +23,7 @@ import type {
 import { SKILLSET_RUNTIME_IDS, type SkillsetRuntimeId } from "./feature-registry";
 import { isJsonRecord } from "./yaml";
 
-const TARGET_NAMES: readonly TargetName[] = ["claude", "codex"];
+const TARGET_NAMES = SCHEMA_TARGET_NAMES as readonly TargetName[];
 export type FeatureSurface = "agents" | "instructions" | "plugins" | "skills";
 
 const DEFAULT_SURFACES = new Set<FeatureSurface>(["agents", "instructions", "plugins", "skills"]);
@@ -23,7 +31,7 @@ const CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "changes", "claude", "codex", "
 const ROOT_CONFIG_TOP_LEVEL_KEYS = new Set([...CONFIG_TOP_LEVEL_KEYS, "compile", "distributions", "workspace"]);
 const WORKSPACE_CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "changes", "claude", "codex", "compile", "defaults", "dependencies", "distributions", "workspace"]);
 const ROOT_SOURCE_MANIFEST_TOP_LEVEL_KEYS = new Set(["dependencies", "skillset", "supports"]);
-const COMPILE_BUILD_MODES = new Set<CompileBuildMode>(["updated", "all"]);
+const COMPILE_BUILD_MODES = new Set<CompileBuildMode>(SCHEMA_COMPILE_BUILD_MODES as readonly CompileBuildMode[]);
 const UNSUPPORTED_DESTINATION_POLICIES = new Set<UnsupportedDestinationPolicy>([
   "error",
   "warn",
@@ -261,26 +269,23 @@ export function validateConfigDocument(
   label: string,
   options: { readonly allowCompile?: boolean; readonly featureKeys?: readonly string[] } = {}
 ): void {
-  rejectTargetsKey(record, label);
   const supportedKeys = options.allowCompile === true ? ROOT_CONFIG_TOP_LEVEL_KEYS : CONFIG_TOP_LEVEL_KEYS;
   const featureKeys = new Set(options.featureKeys ?? []);
+  if (options.allowCompile === true) {
+    validateWorkspaceSchemaDocument(record, label, supportedKeys, "top-level");
+    return;
+  }
+  rejectTargetsKey(record, label);
   for (const key of Object.keys(record)) {
     if (!supportedKeys.has(key) && !featureKeys.has(key)) {
       throw new Error(`skillset: unsupported top-level key ${key} in ${label}`);
     }
   }
+  validateSourceMetadataDocument(record.skillset, label);
 }
 
 export function validateWorkspaceConfigDocument(record: JsonRecord, label: string): void {
-  rejectTargetsKey(record, label);
-  for (const key of Object.keys(record)) {
-    if (!WORKSPACE_CONFIG_TOP_LEVEL_KEYS.has(key)) {
-      throw new Error(
-        `skillset: unsupported workspace config key ${key} in ${label}; ` +
-          "move source identity and compatibility metadata to the workspace manifest"
-      );
-    }
-  }
+  validateWorkspaceSchemaDocument(record, label, WORKSPACE_CONFIG_TOP_LEVEL_KEYS, "workspace");
 }
 
 export function validateRootSourceManifestDocument(record: JsonRecord, label: string): void {
@@ -290,6 +295,7 @@ export function validateRootSourceManifestDocument(record: JsonRecord, label: st
       throw new Error(`skillset: unsupported root source manifest key ${key} in ${label}`);
     }
   }
+  validateSourceMetadataDocument(record.skillset, label);
 }
 
 export function resolveTargets(
@@ -448,6 +454,175 @@ function rejectTargetsKey(record: JsonRecord, label: string): void {
   if (record.targets !== undefined) {
     throw new Error(`skillset: ${label} uses unsupported targets key; use compile.targets`);
   }
+}
+
+function validateWorkspaceSchemaDocument(
+  record: JsonRecord,
+  label: string,
+  supportedKeys: ReadonlySet<string>,
+  keyMessageKind: "top-level" | "workspace"
+): void {
+  const messages: string[] = [];
+  for (const key of Object.keys(record)) {
+    if (key === "targets") {
+      messages.push(`${label} uses unsupported targets key; use compile.targets`);
+    } else if (!supportedKeys.has(key)) {
+      messages.push(unsupportedWorkspaceKeyMessage(key, label, keyMessageKind));
+    }
+  }
+
+  for (const diagnostic of validateWorkspaceConfig(record, "$").diagnostics) {
+    if (diagnostic.code === "schema/workspace-config/unsupported-destination") continue;
+    if (shouldDeferSourceMetadataDiagnostic(diagnostic)) continue;
+    const topLevelKey = schemaTopLevelKey(diagnostic.path);
+    if (topLevelKey !== undefined && !supportedKeys.has(topLevelKey)) {
+      continue;
+    }
+    messages.push(workspaceSchemaMessage(diagnostic, record, label, keyMessageKind));
+  }
+
+  if (messages.length > 0) {
+    throw new Error(`skillset: ${dedupeMessages(messages).join("; ")}`);
+  }
+}
+
+function unsupportedWorkspaceKeyMessage(
+  key: string,
+  label: string,
+  kind: "top-level" | "workspace"
+): string {
+  if (kind === "workspace") {
+    return `unsupported workspace config key ${key} in ${label}; move source identity and compatibility metadata to the workspace manifest`;
+  }
+  return `unsupported top-level key ${key} in ${label}`;
+}
+
+function workspaceSchemaMessage(
+  diagnostic: SkillsetSchemaDiagnostic,
+  record: JsonRecord,
+  label: string,
+  keyMessageKind: "top-level" | "workspace"
+): string {
+  const path = schemaPathToLabel(diagnostic.path, label);
+  const key = diagnostic.path.split(".").at(-1) ?? "";
+  switch (diagnostic.code) {
+    case "schema/workspace-config/key":
+      if (key === "targets") return `${label} uses unsupported targets key; use compile.targets`;
+      return unsupportedWorkspaceKeyMessage(key, label, keyMessageKind);
+    case "schema/workspace-config/targets":
+      if (diagnostic.path === "$.targets") return `${label} uses unsupported targets key; use compile.targets`;
+      return workspaceCompileTargetsMessage(record, label);
+    case "schema/workspace-config/target":
+      return `unsupported target ${JSON.stringify(valueAtSchemaPath(record, diagnostic.path))} in ${path.replace(/\[\d+\]$/, "")}; expected claude or codex`;
+    case "schema/workspace-config/target-duplicate":
+      return `duplicate target ${JSON.stringify(valueAtSchemaPath(record, diagnostic.path))} in ${path.replace(/\[\d+\]$/, "")}`;
+    case "schema/workspace-config/compile":
+      return `expected ${path} to be an object`;
+    case "schema/workspace-config/compile-key":
+      return `unsupported compile key ${key} in ${label}.compile`;
+    case "schema/workspace-config/compile-build":
+      return workspaceCompileBuildMessage(record, label);
+    case "schema/workspace-config/boolean-record":
+      return `expected ${path} to be an object`;
+    case "schema/workspace-config/boolean-record-key":
+      if (diagnostic.path.startsWith("$.compile.features.")) {
+        return `unsupported compile feature key ${key} in ${label}.compile.features`;
+      }
+      if (diagnostic.path.startsWith("$.compile.skillset.")) {
+        return `unsupported compile skillset key ${key} in ${label}.compile.skillset`;
+      }
+      return diagnostic.message.replaceAll("$.", "");
+    case "schema/workspace-config/boolean-record-value":
+      return `expected ${path} to be a boolean`;
+    case "schema/workspace-config/workspace":
+      return `expected ${path} to be an object`;
+    case "schema/workspace-config/workspace-key":
+      return `unsupported workspace key ${key} in ${label}.workspace`;
+    case "schema/workspace-config/cache-key":
+      return `${path} must be a lowercase repo cache key`;
+    case "schema/source-metadata/type":
+      return `expected ${path} to be an object`;
+    case "schema/source-metadata/key":
+      if (diagnostic.path.endsWith(".skillset.id")) {
+        return `${path.replace(/\.id$/, "")} uses unsupported skillset.id; use skillset.name`;
+      }
+      return diagnostic.message.replaceAll("$.", `${label}.`).replaceAll("$", label);
+    default:
+      return diagnostic.message.replaceAll("$.", `${label}.`).replaceAll("$", label);
+  }
+}
+
+function workspaceCompileTargetsMessage(record: JsonRecord, label: string): string {
+  const compile = record.compile;
+  const targets = isJsonRecord(compile) ? compile.targets : undefined;
+  if (!Array.isArray(targets)) return `expected ${label}.compile.targets to be a string array`;
+  if (targets.length === 0) return `expected ${label}.compile.targets to include at least one target`;
+  return "compile.targets must be a non-empty array";
+}
+
+function workspaceCompileBuildMessage(record: JsonRecord, label: string): string {
+  const compile = record.compile;
+  const value = isJsonRecord(compile) ? compile.build : undefined;
+  if (typeof value !== "string") return `expected ${label}.compile.build to be one of: updated, all`;
+  return `unsupported ${label}.compile.build ${JSON.stringify(value)}; expected one of: updated, all`;
+}
+
+function validateSourceMetadataDocument(value: JsonValue | undefined, label: string): void {
+  const diagnostics = validateSourceMetadata(value, "$.skillset").diagnostics.filter(
+    (diagnostic) => !shouldDeferSourceMetadataDiagnostic(diagnostic)
+  );
+  if (diagnostics.length === 0) return;
+  throw new Error(
+    `skillset: ${diagnostics.map((diagnostic) => sourceMetadataSchemaMessage(diagnostic, label)).join("; ")}`
+  );
+}
+
+function sourceMetadataSchemaMessage(diagnostic: SkillsetSchemaDiagnostic, label: string): string {
+  if (diagnostic.code === "schema/source-metadata/type") {
+    return `expected ${label}.skillset to be an object`;
+  }
+  if (diagnostic.code === "schema/source-metadata/key") {
+    const key = diagnostic.path.split(".").at(-1) ?? "";
+    if (key === "id") return `${label}.skillset uses unsupported skillset.id; use skillset.name`;
+    return `unsupported source metadata key ${key} in ${label}.skillset`;
+  }
+  return diagnostic.message.replaceAll("$.", `${label}.`).replaceAll("$", label);
+}
+
+function shouldDeferSourceMetadataDiagnostic(diagnostic: SkillsetSchemaDiagnostic): boolean {
+  return diagnostic.path === "$.skillset.schema" || diagnostic.path === "$.skillset.version";
+}
+
+function schemaTopLevelKey(path: string): string | undefined {
+  if (!path.startsWith("$.")) return undefined;
+  return path.slice(2).split(/[.[\]]/, 1)[0];
+}
+
+function schemaPathToLabel(path: string, label: string): string {
+  if (path === "$") return label;
+  if (path.startsWith("$.")) return `${label}.${path.slice(2)}`;
+  if (path.startsWith("$[")) return `${label}${path.slice(1)}`;
+  return path.replaceAll("$", label);
+}
+
+function valueAtSchemaPath(record: JsonRecord, path: string): JsonValue | undefined {
+  if (!path.startsWith("$.")) return undefined;
+  let current: JsonValue | undefined = record;
+  for (const segment of path.slice(2).replaceAll("[", ".").replaceAll("]", "").split(".")) {
+    if (segment.length === 0) continue;
+    if (Array.isArray(current)) {
+      current = current[Number(segment)];
+    } else if (isJsonRecord(current)) {
+      current = current[segment];
+    } else {
+      return undefined;
+    }
+  }
+  return current;
+}
+
+function dedupeMessages(messages: readonly string[]): readonly string[] {
+  return [...new Set(messages)];
 }
 
 function readCompileRecord(record: JsonRecord, label: string): JsonRecord | undefined {
