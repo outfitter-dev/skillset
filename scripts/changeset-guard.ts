@@ -53,11 +53,15 @@ export function isPackageAffectingPath(path: string) {
   if (isRuntimeSourcePath(path, "apps/skillset/src")) return true;
   if (isRuntimeSourcePath(path, "packages/core/src")) return true;
   if (isRuntimeSourcePath(path, "packages/lint/src")) return true;
+  if (isRuntimeSourcePath(path, "packages/provider-formats/src")) return true;
+  if (isRuntimeSourcePath(path, "packages/schema/src")) return true;
   if (isRuntimeSourcePath(path, "packages/transforms/src")) return true;
 
   return (
     path === "packages/core/package.json" ||
     path === "packages/lint/package.json" ||
+    path === "packages/provider-formats/package.json" ||
+    path === "packages/schema/package.json" ||
     path === "packages/transforms/package.json"
   );
 }

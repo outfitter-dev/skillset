@@ -24,9 +24,8 @@
       "destination": "instruction",
       "evidence": [
         {
-          "kind": "test",
-          "note": "SET-5 instruction rendering coverage",
-          "ref": "apps/skillset/src/__tests__/contract.test.ts"
+          "kind": "docs",
+          "ref": "docs/features/instructions.md"
         }
       ],
       "featureId": "project-instructions",

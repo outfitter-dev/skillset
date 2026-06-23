@@ -57,6 +57,17 @@ describe("changeset guard", () => {
     expect(isPackageAffectingPath("packages/lint/src/rules/name-directory.ts")).toBe(true);
   });
 
+  test("requires release intent for provider and schema contract changes", () => {
+    expect(isPackageAffectingPath("packages/provider-formats/src/schema-snapshots.ts")).toBe(true);
+    expect(isPackageAffectingPath("packages/provider-formats/src/migrations.ts")).toBe(true);
+    expect(isPackageAffectingPath("packages/provider-formats/src/__tests__/snapshots.test.ts")).toBe(false);
+    expect(isPackageAffectingPath("packages/schema/src/contracts.ts")).toBe(true);
+    expect(isPackageAffectingPath("packages/schema/src/validate.ts")).toBe(true);
+    expect(isPackageAffectingPath("packages/schema/src/__tests__/schema.test.ts")).toBe(false);
+    expect(isPackageAffectingPath("docs/reference/schemas/0.1.0/skillset.schema.json")).toBe(false);
+    expect(isPackageAffectingPath("docs/reference/examples/skill-frontmatter.yaml")).toBe(false);
+  });
+
   test("ignores deleted changesets so cleanup branches can remove mistakes", () => {
     expect(isActiveChangesetEntry({ path: ".changeset/old.md", status: "D" })).toBe(false);
     expect(isActiveChangesetEntry({ path: ".changeset/new.md", status: "A" })).toBe(true);

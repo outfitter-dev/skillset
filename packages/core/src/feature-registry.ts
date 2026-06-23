@@ -1,3 +1,8 @@
+import {
+  getProviderDestinationFormatSnapshot,
+  type ProviderDestinationFormatSnapshotId,
+} from "@skillset/provider-formats";
+
 import { compareStrings } from "./path";
 import type { TargetName } from "./types";
 
@@ -62,6 +67,7 @@ export type SkillsetEvidenceKind =
   | "docs"
   | "external-docs"
   | "fixture"
+  | "provider-snapshot"
   | "source"
   | "test";
 
@@ -144,7 +150,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     summary: "Declares plugin dependencies and renders target-specific install/awareness behavior.",
     targetSupport: {
       claude: {
-        evidence: [docs("docs/features/dependencies.md"), externalDocs("https://docs.anthropic.com/en/docs/claude-code/plugins", "2026-06-12")],
+        evidence: [docs("docs/features/dependencies.md"), providerSnapshot("claude-plugin")],
         status: "native",
       },
       codex: {
@@ -238,11 +244,12 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     sourceShape: "plugin mcp/source pointer or conventional .mcp.json",
     status: "implemented",
     summary: "Copies validated plugin MCP server definitions into Claude and Codex plugin outputs.",
-    targetSupport: bothTargets("native", [
+    targetSupport: bothTargetsWithTargetEvidence("native", [
       docs("docs/features/mcp-servers.md"),
-      externalDocs("https://code.claude.com/docs/en/plugins-reference", "2026-06-04"),
-      externalDocs("https://developers.openai.com/codex/plugins/build", "2026-06-04"),
-    ]),
+    ], {
+      claude: [providerSnapshot("claude-plugin")],
+      codex: [providerSnapshot("codex-plugin")],
+    }),
     title: "Plugin MCP Servers",
     validationOwner: "packages/core/src/resources.ts",
   }),
@@ -258,7 +265,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     targetSupport: {
       claude: { evidence: [docs("docs/features/apps.md")], status: "not_applicable" },
       codex: {
-        evidence: [docs("docs/features/apps.md"), externalDocs("https://developers.openai.com/codex/plugins/build", "2026-06-04")],
+        evidence: [docs("docs/features/apps.md"), providerSnapshot("codex-plugin")],
         status: "pass_through",
       },
     },
@@ -283,11 +290,11 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     summary: "Copies Claude plugin-root executable helpers while failing loudly for Codex-enabled plugin output.",
     targetSupport: {
       claude: {
-        evidence: [docs("docs/features/executables.md"), externalDocs("https://code.claude.com/docs/en/plugins-reference", "2026-06-04")],
+        evidence: [docs("docs/features/executables.md"), providerSnapshot("claude-plugin")],
         status: "pass_through",
       },
       codex: {
-        evidence: [docs("docs/features/executables.md"), externalDocs("https://developers.openai.com/codex/plugins/build", "2026-06-04")],
+        evidence: [docs("docs/features/executables.md"), providerSnapshot("codex-plugin")],
         reason: "Codex plugins do not expose a documented plugin-local bin contract.",
         status: "unsupported",
       },
@@ -302,7 +309,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     summary: "Passes Claude plugin command companions through to Claude plugin outputs.",
     targetSupport: {
       claude: {
-        evidence: [docs("docs/features/commands.md"), externalDocs("https://code.claude.com/docs/en/plugins-reference", "2026-06-04")],
+        evidence: [docs("docs/features/commands.md"), providerSnapshot("claude-plugin")],
         status: "pass_through",
       },
       codex: { evidence: [docs("docs/features/commands.md")], status: "not_applicable" },
@@ -318,11 +325,12 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     sourceShape: "plugin hooks/hooks.json",
     status: "implemented",
     summary: "Copies plugin hook declarations with broad Claude validation and strict Codex validation.",
-    targetSupport: bothTargets("pass_through", [
+    targetSupport: bothTargetsWithTargetEvidence("pass_through", [
       docs("docs/features/hooks.md"),
-      externalDocs("https://docs.anthropic.com/en/docs/claude-code/hooks", "2026-06-04"),
-      externalDocs("https://developers.openai.com/codex/plugins/build", "2026-06-04"),
-    ]),
+    ], {
+      claude: [providerSnapshot("claude-hooks")],
+      codex: [providerSnapshot("codex-plugin")],
+    }),
     title: "Plugin Hooks",
     validationOwner: "packages/core/src/hooks.ts",
   }),
@@ -333,7 +341,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     summary: "Passes Claude plugin LSP server companions through to Claude plugin outputs.",
     targetSupport: {
       claude: {
-        evidence: [docs("docs/features/lsp-servers.md"), externalDocs("https://code.claude.com/docs/en/plugins-reference", "2026-06-04")],
+        evidence: [docs("docs/features/lsp-servers.md"), providerSnapshot("claude-plugin")],
         status: "pass_through",
       },
       codex: { evidence: [docs("docs/features/lsp-servers.md")], status: "not_applicable" },
@@ -349,11 +357,12 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     sourceShape: ".skillset/src/plugins/<plugin>/skillset.yaml",
     status: "implemented",
     summary: "Projects plugin metadata and component wiring into target-native plugin manifests.",
-    targetSupport: bothTargets("native", [
+    targetSupport: bothTargetsWithTargetEvidence("native", [
       docs("docs/features/plugins.md"),
-      externalDocs("https://code.claude.com/docs/en/plugins-reference", "2026-06-04"),
-      externalDocs("https://developers.openai.com/codex/plugins/build", "2026-06-04"),
-    ]),
+    ], {
+      claude: [providerSnapshot("claude-plugin")],
+      codex: [providerSnapshot("codex-plugin")],
+    }),
     title: "Plugin Manifests",
     validationOwner: "packages/core/src/config.ts",
   }),
@@ -364,7 +373,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     summary: "Passes Claude plugin monitor companions through to Claude plugin outputs.",
     targetSupport: {
       claude: {
-        evidence: [docs("docs/features/monitors.md"), externalDocs("https://code.claude.com/docs/en/plugins-reference", "2026-06-04")],
+        evidence: [docs("docs/features/monitors.md"), providerSnapshot("claude-plugin")],
         status: "pass_through",
       },
       codex: { evidence: [docs("docs/features/monitors.md")], status: "not_applicable" },
@@ -378,7 +387,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     summary: "Passes Claude plugin output-style companions through to Claude plugin outputs.",
     targetSupport: {
       claude: {
-        evidence: [docs("docs/features/output-styles.md"), externalDocs("https://code.claude.com/docs/en/plugins-reference", "2026-06-04")],
+        evidence: [docs("docs/features/output-styles.md"), providerSnapshot("claude-plugin")],
         status: "pass_through",
       },
       codex: { evidence: [docs("docs/features/output-styles.md")], status: "not_applicable" },
@@ -408,7 +417,12 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     sourceShape: ".skillset/src/plugins/<plugin>/skills/<skill>/SKILL.md",
     status: "implemented",
     summary: "Preserves plugin-scoped skills inside each target plugin boundary.",
-    targetSupport: bothTargets("native"),
+    targetSupport: bothTargetsWithTargetEvidence("native", [
+      docs("docs/features/skills.md"),
+    ], {
+      claude: [providerSnapshot("claude-skill")],
+      codex: [providerSnapshot("codex-skill")],
+    }),
     title: "Plugin Skills",
     validationOwner: "packages/core/src/resolver.ts",
   }),
@@ -426,7 +440,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     summary: "Passes Claude plugin theme companions through to Claude plugin outputs.",
     targetSupport: {
       claude: {
-        evidence: [docs("docs/features/themes.md"), externalDocs("https://code.claude.com/docs/en/plugins-reference", "2026-06-04")],
+        evidence: [docs("docs/features/themes.md"), providerSnapshot("claude-plugin")],
         status: "pass_through",
       },
       codex: { evidence: [docs("docs/features/themes.md")], status: "not_applicable" },
@@ -444,11 +458,11 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     summary: "Allows Claude plugin agents as target-native companion files and rejects Codex plugin agents.",
     targetSupport: {
       claude: {
-        evidence: [docs("docs/features/agents.md"), externalDocs("https://code.claude.com/docs/en/sub-agents", "2026-06-04")],
+        evidence: [docs("docs/features/agents.md"), providerSnapshot("claude-subagent")],
         status: "pass_through",
       },
       codex: {
-        evidence: [docs("docs/features/agents.md"), externalDocs("https://developers.openai.com/codex/subagents", "2026-06-04")],
+        evidence: [docs("docs/features/agents.md"), providerSnapshot("codex-plugin")],
         reason: "Codex plugin documentation does not include a plugin agents component.",
         status: "unsupported",
       },
@@ -465,7 +479,13 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     sourceShape: ".skillset/src/rules/**/*.md",
     status: "implemented",
     summary: "Renders project instructions to Claude rules and directory-local Codex AGENTS.md files.",
-    targetSupport: bothTargets("transformed"),
+    targetSupport: {
+      claude: { evidence: [docs("docs/features/instructions.md")], status: "transformed" },
+      codex: {
+        evidence: [docs("docs/features/instructions.md"), providerSnapshot("codex-agents-md")],
+        status: "transformed",
+      },
+    },
     title: "Project Instructions",
     validationOwner: "packages/core/src/resolver.ts",
   }),
@@ -480,7 +500,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     summary: "Renders portable project agents to Claude Markdown agents and Codex TOML agents.",
     runtimeSupport: {
       "claude-code": {
-        evidence: [docs("docs/features/agents.md"), externalDocs("https://code.claude.com/docs/en/sub-agents", "2026-06-04")],
+        evidence: [docs("docs/features/agents.md"), providerSnapshot("claude-subagent")],
         mechanism: "Claude Code reads project-scoped Markdown subagents from .claude/agents.",
         status: "native",
       },
@@ -488,18 +508,18 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
         caveats: [
           "Codex receives skill-loading intent as developer instructions; it is not target-enforced skill metadata.",
         ],
-        evidence: [docs("docs/features/agents.md"), externalDocs("https://developers.openai.com/codex/subagents", "2026-06-04")],
+        evidence: [docs("docs/features/agents.md"), providerSnapshot("codex-subagent")],
         mechanism: "Skillset renders Codex TOML agents and inserts a deterministic skill-loading preface when source agents declare skills.",
         status: "shimmed",
       },
     },
     targetSupport: {
       claude: {
-        evidence: [docs("docs/features/agents.md"), externalDocs("https://code.claude.com/docs/en/sub-agents", "2026-06-04")],
+        evidence: [docs("docs/features/agents.md"), providerSnapshot("claude-subagent")],
         status: "native",
       },
       codex: {
-        evidence: [docs("docs/features/agents.md"), externalDocs("https://developers.openai.com/codex/subagents", "2026-06-04")],
+        evidence: [docs("docs/features/agents.md"), providerSnapshot("codex-subagent")],
         status: "transformed",
       },
     },
@@ -583,7 +603,12 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     sourceShape: "skill resources frontmatter and .skillset/src/shared/",
     status: "implemented",
     summary: "Copies declared skill resources and validates links to shared resource declarations.",
-    targetSupport: bothTargets("native"),
+    targetSupport: bothTargetsWithTargetEvidence("native", [
+      docs("docs/features/resources.md"),
+    ], {
+      claude: [providerSnapshot("claude-skill")],
+      codex: [providerSnapshot("codex-skill")],
+    }),
     title: "Resources",
     validationOwner: "packages/core/src/resources.ts",
   }),
@@ -596,7 +621,12 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     sourceShape: ".skillset/src/skills/<skill>/SKILL.md",
     status: "implemented",
     summary: "Projects standalone repo skills into configured target skill roots.",
-    targetSupport: bothTargets("native"),
+    targetSupport: bothTargetsWithTargetEvidence("native", [
+      docs("docs/features/skills.md"),
+    ], {
+      claude: [providerSnapshot("claude-skill")],
+      codex: [providerSnapshot("codex-skill")],
+    }),
     title: "Standalone Skills",
     validationOwner: "packages/core/src/resolver.ts",
   }),
@@ -857,6 +887,17 @@ function bothTargets(
   };
 }
 
+function bothTargetsWithTargetEvidence(
+  status: SkillsetTargetSupportStatus,
+  commonEvidence: readonly SkillsetFeatureEvidence[],
+  targetEvidence: Readonly<Record<TargetName, readonly SkillsetFeatureEvidence[]>>
+): Readonly<Record<TargetName, SkillsetTargetSupport>> {
+  return {
+    claude: { evidence: [...commonEvidence, ...targetEvidence.claude], status },
+    codex: { evidence: [...commonEvidence, ...targetEvidence.codex], status },
+  };
+}
+
 function notTargetRuntime(): Readonly<Record<TargetName, SkillsetTargetSupport>> {
   return bothTargets("not_applicable");
 }
@@ -865,8 +906,17 @@ function docs(ref: string): SkillsetFeatureEvidence {
   return { kind: "docs", ref };
 }
 
-function externalDocs(ref: string, verifiedAt: string): SkillsetFeatureEvidence {
-  return { kind: "external-docs", ref, verifiedAt };
+function providerSnapshot(ref: ProviderDestinationFormatSnapshotId): SkillsetFeatureEvidence {
+  const snapshot = getProviderDestinationFormatSnapshot(ref);
+  if (snapshot === undefined) {
+    throw new Error(`skillset: provider destination format snapshot ${ref} does not exist`);
+  }
+  return {
+    kind: "provider-snapshot",
+    note: snapshot.provenance.contentHash,
+    ref,
+    verifiedAt: snapshot.provenance.fetchedAt.slice(0, 10),
+  };
 }
 
 function source(ref: string): SkillsetFeatureEvidence {

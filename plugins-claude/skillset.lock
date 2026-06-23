@@ -46,14 +46,10 @@
           "ref": "docs/features/plugins.md"
         },
         {
-          "kind": "external-docs",
-          "ref": "https://code.claude.com/docs/en/plugins-reference",
-          "verifiedAt": "2026-06-04"
-        },
-        {
-          "kind": "external-docs",
-          "ref": "https://developers.openai.com/codex/plugins/build",
-          "verifiedAt": "2026-06-04"
+          "kind": "provider-snapshot",
+          "note": "sha256:c81a4328f9e1cba88b3496ae42181d03692186cefda4abd5d07428e15e835ae4",
+          "ref": "claude-plugin",
+          "verifiedAt": "2026-06-23"
         }
       ],
       "featureId": "plugin-manifests",
@@ -73,9 +69,14 @@
       "destination": "skill",
       "evidence": [
         {
-          "kind": "test",
-          "note": "plugin skill rendering coverage",
-          "ref": "apps/skillset/src/__tests__/skillset.test.ts"
+          "kind": "docs",
+          "ref": "docs/features/skills.md"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:a67aece088a7d8b3baa57791ab66796f2479b207ddb1d01296fed73f99bae4bc",
+          "ref": "claude-skill",
+          "verifiedAt": "2026-06-23"
         }
       ],
       "featureId": "plugin-skills",

@@ -59,9 +59,14 @@
       "destination": "skill",
       "evidence": [
         {
-          "kind": "test",
-          "note": "standalone skill rendering coverage",
-          "ref": "apps/skillset/src/__tests__/skillset.test.ts"
+          "kind": "docs",
+          "ref": "docs/features/skills.md"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:7e36cc613d0443fcae2963e276a7994d2b321b04471ae2a8941e290ed2654050",
+          "ref": "codex-skill",
+          "verifiedAt": "2026-06-23"
         }
       ],
       "featureId": "standalone-skills",
@@ -125,9 +130,14 @@
       "destination": "skill",
       "evidence": [
         {
-          "kind": "test",
-          "note": "standalone skill rendering coverage",
-          "ref": "apps/skillset/src/__tests__/skillset.test.ts"
+          "kind": "docs",
+          "ref": "docs/features/skills.md"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:7e36cc613d0443fcae2963e276a7994d2b321b04471ae2a8941e290ed2654050",
+          "ref": "codex-skill",
+          "verifiedAt": "2026-06-23"
         }
       ],
       "featureId": "standalone-skills",
@@ -147,9 +157,14 @@
       "destination": "skill",
       "evidence": [
         {
-          "kind": "test",
-          "note": "standalone skill rendering coverage",
-          "ref": "apps/skillset/src/__tests__/skillset.test.ts"
+          "kind": "docs",
+          "ref": "docs/features/skills.md"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:7e36cc613d0443fcae2963e276a7994d2b321b04471ae2a8941e290ed2654050",
+          "ref": "codex-skill",
+          "verifiedAt": "2026-06-23"
         }
       ],
       "featureId": "standalone-skills",
