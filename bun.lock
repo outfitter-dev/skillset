@@ -27,6 +27,7 @@
       "devDependencies": {
         "@skillset/core": "workspace:*",
         "@skillset/lint": "workspace:*",
+        "@skillset/provider-formats": "workspace:*",
         "@skillset/schema": "workspace:*",
         "@skillset/transforms": "workspace:*",
       },
