@@ -7,8 +7,10 @@ import { getProviderDestinationFormatSnapshot } from "@skillset/provider-formats
 
 import {
   buildSkillsetResult,
+  createOperationalPathContext,
   verifySkillsetResult,
   diffSkillsetResult,
+  resolveOperationalPath,
   RENDER_RESULT_STATUS_VALUES,
   SkillsetRenderResultError,
   type SkillsetRenderResult,
@@ -464,7 +466,10 @@ describe("build render results", () => {
     expect(outputPaths).toContain(".skillset/cache/latest/.claude/skills/repo-skill/SKILL.md");
     expect(outputPaths.some((path) => path.startsWith(root))).toBe(false);
 
-    const isolatedLock = await readJson(join(root, ".skillset/cache/latest/plugins-codex/skillset.lock"));
+    const cacheContext = createOperationalPathContext(root);
+    const isolatedLock = await readJson(
+      resolveOperationalPath(cacheContext, ".skillset/cache/latest/plugins-codex/skillset.lock")
+    );
     const isolatedOutcomes = isolatedLock.renderResults as SkillsetRenderResult[];
     expect(isolatedOutcomes).toContainEqual(
       expect.objectContaining({

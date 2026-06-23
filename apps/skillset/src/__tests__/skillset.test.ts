@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 
 import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
+import { createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
 
 import { seedReleaseBaselines } from "../adoption";
 import { explainPath, listGeneratedEntries } from "../authoring";
@@ -522,8 +523,8 @@ Demo ordinary workspace skill.
 
   expect(report.ok).toBe(true);
   expect(report.source).toBe("repo:.skillset");
-  expect(await exists(join(root, ".skillset/cache/tests/latest/workspace/.claude/skills/demo/SKILL.md"))).toBe(true);
-  expect(await exists(join(root, ".skillset/cache/tests/latest/workspace/.skillset/snapshots/recovery/files/AGENTS.md.bak.recovery"))).toBe(false);
+  expect(await exists(cachePath(root, ".skillset/cache/tests/latest/workspace/.claude/skills/demo/SKILL.md"))).toBe(true);
+  expect(await exists(cachePath(root, ".skillset/cache/tests/latest/workspace/.skillset/snapshots/recovery/files/AGENTS.md.bak.recovery"))).toBe(false);
 });
 
 test("skillset test stages dedicated workspace source without copying unrelated repo files", async () => {
@@ -560,9 +561,9 @@ Demo dedicated workspace skill.
 
   expect(report.ok).toBe(true);
   expect(report.source).toBe("repo:.");
-  expect(await exists(join(root, ".skillset/cache/tests/latest/workspace/skillset.yaml"))).toBe(true);
-  expect(await exists(join(root, ".skillset/cache/tests/latest/workspace/.claude/skills/demo/SKILL.md"))).toBe(true);
-  expect(await exists(join(root, ".skillset/cache/tests/latest/workspace/package.json"))).toBe(false);
+  expect(await exists(cachePath(root, ".skillset/cache/tests/latest/workspace/skillset.yaml"))).toBe(true);
+  expect(await exists(cachePath(root, ".skillset/cache/tests/latest/workspace/.claude/skills/demo/SKILL.md"))).toBe(true);
+  expect(await exists(cachePath(root, ".skillset/cache/tests/latest/workspace/package.json"))).toBe(false);
 });
 
 test("skillset test rejects duplicate source-root declaration names", async () => {
@@ -4850,6 +4851,10 @@ async function fixture(files: Record<string, string>): Promise<string> {
 
 async function exists(path: string): Promise<boolean> {
   return Bun.file(path).exists();
+}
+
+function cachePath(root: string, logicalPath: string): string {
+  return resolveOperationalPath(createOperationalPathContext(root), logicalPath);
 }
 
 async function commitFixture(root: string): Promise<void> {

@@ -11,6 +11,8 @@ export const WORKSPACE_LOCK_FILE = "skillset.lock";
 export const OUTPUT_BACKUP_ROOT = ".skillset/snapshots";
 
 export type OutPath = (path: string) => string;
+export type OutputPathResolver = (path: string) => string;
+export type OutputPathDisplayMapper = (absolutePath: string) => string;
 
 export interface ManagedOutputState {
   readonly editedPaths: ReadonlySet<string>;
@@ -73,17 +75,19 @@ export async function readManagedOutputState(
   rootPath: string,
   liveOutputRoots: readonly string[],
   includeWorkspaceLock: boolean,
-  outPath: OutPath
+  outPath: OutPath,
+  resolveOutputPath: OutputPathResolver = (path) => resolveInside(rootPath, path),
+  displayOutputPath: OutputPathDisplayMapper = (absolutePath) => relative(rootPath, absolutePath)
 ): Promise<ManagedOutputState> {
   const paths = new Set<string>();
   const editedPaths = new Set<string>();
 
   if (includeWorkspaceLock) {
-    await addManagedPathsFromLock(rootPath, WORKSPACE_LOCK_FILE, ".", outPath, paths, editedPaths);
+    await addManagedPathsFromLock(WORKSPACE_LOCK_FILE, ".", outPath, paths, editedPaths, resolveOutputPath, displayOutputPath);
   }
 
   for (const outputRoot of liveOutputRoots) {
-    await addManagedPathsFromLock(rootPath, join(outputRoot, WORKSPACE_LOCK_FILE), outputRoot, outPath, paths, editedPaths);
+    await addManagedPathsFromLock(join(outputRoot, WORKSPACE_LOCK_FILE), outputRoot, outPath, paths, editedPaths, resolveOutputPath, displayOutputPath);
   }
 
   return { editedPaths, paths };
@@ -93,12 +97,13 @@ export async function prepareOutputBackups(
   rootPath: string,
   rendered: readonly RenderedFile[],
   deletePaths: readonly string[],
-  managedState: ManagedOutputState
+  managedState: ManagedOutputState,
+  resolveOutputPath: OutputPathResolver = (path) => resolveInside(rootPath, path)
 ): Promise<{
   readonly backup?: OutputBackupSummary;
   readonly diagnostics: readonly SkillsetDiagnostic[];
 }> {
-  const records = await collectOutputBackupRecords(rootPath, rendered, deletePaths, managedState);
+  const records = await collectOutputBackupRecords(rootPath, rendered, deletePaths, managedState, resolveOutputPath);
 
   if (records.length === 0) return { diagnostics: [] };
 
@@ -142,9 +147,10 @@ export async function diagnoseOutputBackupPreflight(
   rootPath: string,
   rendered: readonly RenderedFile[],
   deletePaths: readonly string[],
-  managedState: ManagedOutputState
+  managedState: ManagedOutputState,
+  resolveOutputPath: OutputPathResolver = (path) => resolveInside(rootPath, path)
 ): Promise<readonly SkillsetDiagnostic[]> {
-  const records = await collectOutputBackupRecords(rootPath, rendered, deletePaths, managedState);
+  const records = await collectOutputBackupRecords(rootPath, rendered, deletePaths, managedState, resolveOutputPath);
   return records.map(preflightBackupDiagnostic);
 }
 
@@ -198,24 +204,25 @@ export function withBackupSummary(
 }
 
 async function addManagedPathsFromLock(
-  rootPath: string,
   lockPath: string,
   expectedOutputRoot: string,
   outPath: OutPath,
   paths: Set<string>,
-  editedPaths: Set<string>
+  editedPaths: Set<string>,
+  resolveOutputPath: OutputPathResolver,
+  displayOutputPath: OutputPathDisplayMapper
 ): Promise<void> {
   const displayLockPath = outPath(lockPath);
-  const absoluteLockPath = resolveInside(rootPath, displayLockPath);
+  const absoluteLockPath = resolveOutputPath(displayLockPath);
   if (!(await exists(absoluteLockPath))) return;
 
-  const lock = await readManagedLock(rootPath, lockPath, displayLockPath, expectedOutputRoot);
+  const lock = await readManagedLock(lockPath, displayLockPath, expectedOutputRoot, resolveOutputPath);
   paths.add(displayLockPath);
 
   if (lock.legacyRoot === true) {
     const displayOutputRoot = outPath(expectedOutputRoot);
-    for (const file of await collectFiles(resolveInside(rootPath, displayOutputRoot))) {
-      paths.add(relative(rootPath, file));
+    for (const file of await collectFiles(resolveOutputPath(displayOutputRoot))) {
+      paths.add(displayOutputPath(file));
     }
   }
 
@@ -225,10 +232,10 @@ async function addManagedPathsFromLock(
       .sort((left, right) => compareStrings(left.file, right.file));
     for (const file of files) paths.add(file.displayPath);
     if (item.outputHash === undefined) continue;
-    const currentHash = await currentOutputHash(rootPath, files);
+    const currentHash = await currentOutputHash(files, resolveOutputPath);
     if (currentHash === undefined) {
       for (const file of files) {
-        if (await exists(resolveInside(rootPath, file.displayPath))) editedPaths.add(file.displayPath);
+        if (await exists(resolveOutputPath(file.displayPath))) editedPaths.add(file.displayPath);
       }
       continue;
     }
@@ -238,14 +245,14 @@ async function addManagedPathsFromLock(
 }
 
 async function readManagedLock(
-  rootPath: string,
   lockPath: string,
   displayLockPath: string,
-  expectedOutputRoot: string
+  expectedOutputRoot: string,
+  resolveOutputPath: OutputPathResolver
 ): Promise<ParsedLock> {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(await readFile(resolveInside(rootPath, displayLockPath), "utf8")) as unknown;
+    parsed = JSON.parse(await readFile(resolveOutputPath(displayLockPath), "utf8")) as unknown;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw corruptManagedLock(lockPath, displayLockPath, `it is not valid JSON: ${message}`);
@@ -302,17 +309,17 @@ function parseLockItem(
 }
 
 async function currentOutputHash(
-  rootPath: string,
-  files: readonly LockFileEntry[]
+  files: readonly LockFileEntry[],
+  resolveOutputPath: OutputPathResolver
 ): Promise<string | undefined> {
   const hash = createHash("sha256");
   hash.update("skillset-output-v1\0");
 
   for (const entry of files) {
-    if (!(await exists(resolveInside(rootPath, entry.displayPath)))) return undefined;
+    if (!(await exists(resolveOutputPath(entry.displayPath)))) return undefined;
     hash.update(entry.file);
     hash.update("\0");
-    hash.update(await readFile(resolveInside(rootPath, entry.displayPath)));
+    hash.update(await readFile(resolveOutputPath(entry.displayPath)));
     hash.update("\0");
   }
 
@@ -323,13 +330,14 @@ async function collectOutputBackupRecords(
   rootPath: string,
   rendered: readonly RenderedFile[],
   deletePaths: readonly string[],
-  managedState: ManagedOutputState
+  managedState: ManagedOutputState,
+  resolveOutputPath: OutputPathResolver
 ): Promise<Array<OutputBackupPlanRecord & { readonly content: Uint8Array }>> {
   const records: Array<OutputBackupPlanRecord & { readonly content: Uint8Array }> = [];
   const renderedByPath = new Map(rendered.map((file) => [file.path, file]));
 
   for (const file of rendered) {
-    const absolutePath = resolveInside(rootPath, file.path);
+    const absolutePath = resolveOutputPath(file.path);
     if (!(await exists(absolutePath))) continue;
     const current = await readFile(absolutePath);
     if (bytesEqual(current, file.content)) continue;
@@ -355,7 +363,7 @@ async function collectOutputBackupRecords(
   for (const targetPath of deletePaths) {
     if (!managedState.editedPaths.has(targetPath)) continue;
     if (renderedByPath.has(targetPath)) continue;
-    const absolutePath = resolveInside(rootPath, targetPath);
+    const absolutePath = resolveOutputPath(targetPath);
     if (!(await exists(absolutePath))) continue;
     const current = await readFile(absolutePath);
     records.push({

@@ -8,6 +8,7 @@ import {
   type SkillsetBuildResult,
 } from "./build";
 import { assertNoHostLeaks, type HostLeakDetectionOptions } from "./host-leak";
+import { createOperationalPathContext, resolveOperationalPath } from "./operational-cache";
 import { compareStrings, resolveInside } from "./path";
 import {
   compareNormalizedOutputTreeEntries,
@@ -170,15 +171,32 @@ async function runProjection(
 ): Promise<DeterministicProjectionRunContext> {
   const workspacePath = join(tempRootPath, name, "workspace");
   await copySourceSelection(rootPath, workspacePath, options.sourcePaths ?? DEFAULT_SOURCE_PATHS, copyExcludedPaths);
+  const xdgCacheHome = join(tempRootPath, name, "xdg-cache");
+  const graph = await loadBuildGraph(workspacePath, options.buildOptions ?? {});
+  const xdg = {
+    ...(options.buildOptions?.xdg ?? {}),
+    env: {
+      ...(options.buildOptions?.xdg?.env ?? {}),
+      XDG_CACHE_HOME: xdgCacheHome,
+    },
+  };
   const build = await buildSkillsetResult(workspacePath, {
     ...options.buildOptions,
     buildMode: "all",
     isolated: true,
+    xdg,
   });
   const run = {
     build,
     name,
-    outputRoot: join(workspacePath, ISOLATED_OUT_ROOT),
+    outputRoot: resolveOperationalPath(
+      createOperationalPathContext(workspacePath, {
+        ...(graph.root.workspace.cacheKey === undefined ? {} : { workspaceCacheKey: graph.root.workspace.cacheKey }),
+        env: xdg.env,
+        ...(xdg.homeDir === undefined ? {} : { homeDir: xdg.homeDir }),
+      }),
+      ISOLATED_OUT_ROOT
+    ),
     workspacePath,
   };
   await options.afterProjection?.(run);

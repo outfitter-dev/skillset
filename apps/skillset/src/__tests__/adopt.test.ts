@@ -5,6 +5,8 @@ import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
+
 import { ADOPT_REPORT_DIR, adoptSkillset, renderAdoptReportMarkdown } from "../adopt";
 import { ISOLATED_OUT_ROOT } from "../build";
 import { gitSafeEnv } from "../git-env";
@@ -101,14 +103,14 @@ test("adopt accepts git remotes by shallow cloning before running the existing f
     ["plugin", true],
   ]);
 
-  const markdown = await readFile(join(report.rootPath, ADOPT_REPORT_DIR, "report.md"), "utf8");
+  const markdown = await readFile(cachePath(report.rootPath, join(ADOPT_REPORT_DIR, "report.md")), "utf8");
   expect(markdown).toContain("## Acquisition");
   expect(markdown).toContain("- source: git remote");
   expect(markdown).toContain(`- repo: \`${remote}\``);
   if (report.acquisition.kind === "git") {
     const ref = report.acquisition.ref;
     const pluginLock = JSON.parse(
-      await readFile(join(report.rootPath, ISOLATED_OUT_ROOT, "plugins-claude/skillset.lock"), "utf8")
+      await readFile(cachePath(report.rootPath, join(ISOLATED_OUT_ROOT, "plugins-claude/skillset.lock")), "utf8")
     ) as {
       items: readonly {
         kind: string;
@@ -162,11 +164,11 @@ test("adopt write mode imports everything, builds the mirror, and writes the rep
   );
 
   // The build is isolated: the projection lives in the mirror, not the live tree.
-  expect(await exists(join(root, ISOLATED_OUT_ROOT))).toBe(true);
+  expect(await exists(cachePath(root, ISOLATED_OUT_ROOT))).toBe(true);
   expect(await exists(join(root, "plugins-claude"))).toBe(false);
 
   // The migration report persists in both shapes.
-  const markdown = await readFile(join(root, ADOPT_REPORT_DIR, "report.md"), "utf8");
+  const markdown = await readFile(cachePath(root, join(ADOPT_REPORT_DIR, "report.md")), "utf8");
   expect(markdown).toBe(renderAdoptReportMarkdown(report, { rootPath: root }));
   expect(markdown).toContain("## Summary");
   expect(markdown).toContain("## Cutover");
@@ -175,7 +177,7 @@ test("adopt write mode imports everything, builds the mirror, and writes the rep
   expect(markdown).toContain("codex rendered:");
   expect(markdown).toContain("`AGENTS.md`");
   expect(markdown).toContain("unmanaged");
-  const json = JSON.parse(await readFile(join(root, ADOPT_REPORT_DIR, "report.json"), "utf8")) as {
+  const json = JSON.parse(await readFile(cachePath(root, join(ADOPT_REPORT_DIR, "report.json")), "utf8")) as {
     renderResults: readonly {
       featureId: string;
       sourceUnit: string;
@@ -237,7 +239,7 @@ test("adopt carries import render results into the persisted report", async () =
   expect(report.imports[0]?.renderResults).toContainEqual(importOutcome);
   expect(report.renderResults).toContainEqual(importOutcome);
 
-  const json = JSON.parse(await readFile(join(root, ADOPT_REPORT_DIR, "report.json"), "utf8")) as {
+  const json = JSON.parse(await readFile(cachePath(root, join(ADOPT_REPORT_DIR, "report.json")), "utf8")) as {
     renderResults: readonly unknown[];
   };
   expect(json.renderResults).toContainEqual(importOutcome);
@@ -264,7 +266,7 @@ test("adopt preserves survey skip outcomes when isolated build cannot load sourc
     })
   );
 
-  const markdown = await readFile(join(root, ADOPT_REPORT_DIR, "report.md"), "utf8");
+  const markdown = await readFile(cachePath(root, join(ADOPT_REPORT_DIR, "report.md")), "utf8");
   expect(markdown).toContain("### Render results");
   expect(markdown).toContain("claude intentionally_skipped:");
 });
@@ -546,4 +548,8 @@ async function runSkillsetCli(...args: readonly string[]): Promise<{
     proc.exited,
   ]);
   return { exitCode, stderr, stdout };
+}
+
+function cachePath(root: string, logicalPath: string): string {
+  return resolveOperationalPath(createOperationalPathContext(root), logicalPath);
 }

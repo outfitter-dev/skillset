@@ -12,3 +12,5 @@ skillset:
   summary: Self-hosted source for developing and using the skillset compiler.
   title: Skillset
   version: 0.1.0
+workspace:
+  cacheKey: outfitter--skillset

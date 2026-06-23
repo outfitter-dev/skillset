@@ -3,6 +3,8 @@ import { createHash, randomBytes } from "node:crypto";
 import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
+import { createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
+
 import { buildSkillset, diffSkillset } from "./build";
 import { readCompileTargets, readRecord, readString, resolveTargets, targetNames } from "./config";
 import { compareStrings, resolveInside } from "./path";
@@ -104,10 +106,16 @@ export async function runSkillsetTest(
   };
 
   const runId = makeRunId(declaration.name);
-  const buildRoot = resolveInside(rootPath, testBuildRoot(sourceDir));
+  const cacheContext = createOperationalPathContext(rootPath, {
+    ...(graph.root.workspace.cacheKey === undefined ? {} : { workspaceCacheKey: graph.root.workspace.cacheKey }),
+  });
+  const logicalBuildRoot = testBuildRoot(sourceDir);
+  const buildRoot = resolveOperationalPath(cacheContext, logicalBuildRoot);
   const runsRoot = join(buildRoot, "runs");
   const runPath = join(runsRoot, runId);
   const workspacePath = join(runPath, "workspace");
+  const logicalRunPath = join(logicalBuildRoot, "runs", runId).replaceAll("\\", "/");
+  const logicalWorkspacePath = join(logicalRunPath, "workspace").replaceAll("\\", "/");
   const stagingRoot = await mkdtemp(join(tmpdir(), "skillset-test-"));
   const stagingWorkspacePath = join(stagingRoot, "workspace");
   const workspaceLockPath = resolveInside(rootPath, "skillset.lock");
@@ -150,16 +158,20 @@ export async function runSkillsetTest(
     await mkdir(runPath, { recursive: true });
     await cp(stagingWorkspacePath, workspacePath, { recursive: true });
     const activationPath = await writeActivationProbes(runPath, declaration);
+    const logicalActivationPath = activationPath === undefined
+      ? undefined
+      : join(logicalRunPath, "activation").replaceAll("\\", "/");
 
     const ok = checks.every((check) => check.ok);
     const reportPath = join(runPath, "report.json");
     const reportMarkdownPath = join(runPath, "report.md");
     const latestPath = join(buildRoot, "latest");
+    const logicalLatestPath = join(logicalBuildRoot, "latest").replaceAll("\\", "/");
     const activationReport = activationPath === undefined
       ? {}
       : {
         activation: {
-          path: relative(rootPath, activationPath),
+          path: logicalActivationPath,
           probes: declaration.activationProbes.length,
         },
       };
@@ -174,29 +186,29 @@ export async function runSkillsetTest(
       source: `repo:${sourceDir}`,
       targets: [...declaration.targets],
       ...activationReport,
-      workspacePath: relative(rootPath, workspacePath),
+      workspacePath: logicalWorkspacePath,
     };
 
-    await writeFile(reportPath, renderValidatedJson(report, relative(rootPath, reportPath)), "utf8");
+    await writeFile(reportPath, renderValidatedJson(report, join(logicalRunPath, "report.json")), "utf8");
     await writeFile(reportMarkdownPath, renderMarkdownReport(report), "utf8");
-    await refreshLatest(buildRoot, runPath, latestPath, report, rootPath);
+    await refreshLatest(buildRoot, runPath, latestPath, logicalBuildRoot, logicalLatestPath, logicalRunPath, report);
 
     return {
-      ...(activationPath === undefined ? {} : { activationPath: relative(rootPath, activationPath) }),
+      ...(logicalActivationPath === undefined ? {} : { activationPath: logicalActivationPath }),
       activationProbes: declaration.activationProbes.length,
       checks,
       generatedFiles,
-      latestPath: relative(rootPath, latestPath),
+      latestPath: logicalLatestPath,
       name: declaration.name,
       ok,
-      reportMarkdownPath: relative(rootPath, reportMarkdownPath),
-      reportPath: relative(rootPath, reportPath),
+      reportMarkdownPath: join(logicalRunPath, "report.md").replaceAll("\\", "/"),
+      reportPath: join(logicalRunPath, "report.json").replaceAll("\\", "/"),
       runId,
       selection: selectionRecord(declaration.selection),
-      runPath: relative(rootPath, runPath),
+      runPath: logicalRunPath,
       source: `repo:${sourceDir}`,
       targets: declaration.targets,
-      workspacePath: relative(rootPath, workspacePath),
+      workspacePath: logicalWorkspacePath,
     };
   } finally {
     await rm(stagingRoot, { force: true, recursive: true });
@@ -955,23 +967,29 @@ async function refreshLatest(
   buildRoot: string,
   runPath: string,
   latestPath: string,
-  report: JsonRecord,
-  rootPath: string
+  logicalBuildRoot: string,
+  logicalLatestPath: string,
+  logicalRunPath: string,
+  report: JsonRecord
 ): Promise<void> {
   await rm(latestPath, { force: true, recursive: true });
   await cp(runPath, latestPath, { recursive: true });
   const latest = {
     name: report.name,
     ok: report.ok,
-    reportPath: relative(rootPath, join(latestPath, "report.json")),
+    reportPath: join(logicalLatestPath, "report.json").replaceAll("\\", "/"),
     runId: report.runId,
-    runPath: relative(rootPath, runPath),
+    runPath: logicalRunPath,
     schemaVersion: TEST_SCHEMA,
     selection: report.selection,
     source: report.source,
-    workspacePath: relative(rootPath, join(latestPath, "workspace")),
+    workspacePath: join(logicalLatestPath, "workspace").replaceAll("\\", "/"),
   };
-  await writeFile(join(buildRoot, "latest.json"), renderValidatedJson(latest, relative(rootPath, join(buildRoot, "latest.json"))), "utf8");
+  await writeFile(
+    join(buildRoot, "latest.json"),
+    renderValidatedJson(latest, join(logicalBuildRoot, "latest.json").replaceAll("\\", "/")),
+    "utf8"
+  );
 }
 
 function renderMarkdownReport(report: JsonRecord): string {

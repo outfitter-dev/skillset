@@ -7,7 +7,11 @@ import {
   recognizeTransforms,
   type TransformMatch,
 } from "@skillset/transforms";
-import type { SkillsetRenderResult } from "@skillset/core";
+import {
+  createOperationalPathContext,
+  resolveOperationalPath,
+  type SkillsetRenderResult,
+} from "@skillset/core";
 
 import type { ReleaseBaselineEntry } from "./adoption";
 import { buildSkillsetResult, ISOLATED_OUT_ROOT } from "./build";
@@ -121,10 +125,10 @@ const INSTRUCTIONS_DIR = ".skillset/src/rules";
 /**
  * One-action repo adoption: survey via `init`, import every candidate
  * (plugins, skills, and verbatim instruction files), lint without throwing,
- * and build isolated so the generated projection lands under
- * `.skillset/cache/latest/` instead of the repo's live surfaces. Write mode only
- * ever creates paths under `.skillset/`; plan mode (the default) runs the
- * survey alone and writes nothing.
+ * and build isolated so the generated projection reports under the logical
+ * `.skillset/cache/latest/` mirror backed by XDG cache instead of the repo's
+ * live surfaces. Write mode only ever creates source paths under `.skillset/`;
+ * plan mode (the default) runs the survey alone and writes nothing.
  */
 export async function adoptSkillset(
   source: string,
@@ -190,8 +194,10 @@ async function adoptResolvedRoot(
 
   let lintIssues: readonly LintIssue[] = [];
   let buildError: string | undefined;
+  let workspaceCacheKey: string | undefined;
   try {
     const graph = await loadBuildGraph(init.rootPath, buildOptions);
+    workspaceCacheKey = graph.root.workspace.cacheKey;
     lintIssues = (await inspectSkillset(graph)).issues;
   } catch (error) {
     buildError = errorMessage(error);
@@ -238,7 +244,12 @@ async function adoptResolvedRoot(
     write: true,
   };
 
-  const reportDir = join(init.rootPath, ADOPT_REPORT_DIR);
+  const reportDir = resolveOperationalPath(
+    createOperationalPathContext(init.rootPath, {
+      ...(workspaceCacheKey === undefined ? {} : { workspaceCacheKey }),
+    }),
+    ADOPT_REPORT_DIR
+  );
   await mkdir(reportDir, { recursive: true });
   await writeFile(
     join(reportDir, "report.md"),

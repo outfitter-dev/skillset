@@ -107,7 +107,7 @@ This compiler repo uses that same layout for its own source:
 
 ## Operational State
 
-Repo-local, rebuildable operational output lives under `.skillset/cache/`. Recovery snapshots live under `.skillset/snapshots/` because they are delete-safe only after the user no longer needs rollback material. Portable source, workspace manifests, change entries, release state, generated changelogs, and `skillset.lock` stay in the repo.
+Rebuildable operational output uses logical repo paths under `.skillset/cache/`, but physical payloads live in the repo's Skillset-owned XDG cache bucket. The repo keeps `.skillset/cache/.gitignore` as a tracked sentinel so the logical cache boundary remains visible without committing cache contents. Recovery snapshots stay repo-local under `.skillset/snapshots/` because they are delete-safe only after the user no longer needs rollback material. Portable source, workspace manifests, change entries, release state, generated changelogs, and `skillset.lock` stay in the repo.
 
 Global Skillset state uses Skillset-owned XDG directories, never provider runtime directories and never a dot-prefixed `/.skillset` segment below the XDG base. Skillset uses absolute XDG base values when present; unset, empty, or relative XDG environment values fall back to the documented home-relative defaults.
 
@@ -126,6 +126,8 @@ Per-repo global cache buckets live directly under `$XDG_CACHE_HOME/skillset/<rep
 4. Local fallback `<basename>--<sha12>`, where the hash is derived from the normalized absolute repo path.
 
 Explicit and remote-derived keys are portable enough to share in docs and team config. The local fallback is deterministic on one machine, but it is intentionally local because absolute checkout paths vary across machines.
+
+Operational cache callers keep reporting logical paths such as `.skillset/cache/latest/`, `.skillset/cache/tests/`, `.skillset/cache/adopt/`, `.skillset/cache/fixtures/`, and `.skillset/cache/reports/`. When those paths are read or written by Skillset commands, they resolve to `$XDG_CACHE_HOME/skillset/<repo-key>/latest/`, `tests/`, `adopt/`, `fixtures/`, and `reports/` respectively.
 
 ## Setup Commands
 

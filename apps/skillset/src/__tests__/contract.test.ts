@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 
 import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
-import { planDistributions } from "@skillset/core";
+import { createOperationalPathContext, planDistributions, resolveOperationalPath } from "@skillset/core";
 
 import { buildSkillset, buildSkillsetResult, verifySkillset, verifySkillsetResult, diffSkillset, diffSkillsetResult } from "../build";
 import { changeStatus, collectSourceInventory } from "../change-status";
@@ -703,6 +703,10 @@ Body.
 
 async function fileExists(path: string): Promise<boolean> {
   return Bun.file(path).exists();
+}
+
+function cachePath(root: string, logicalPath: string): string {
+  return resolveOperationalPath(createOperationalPathContext(root), logicalPath);
 }
 
 async function expectFeatureDiagnosticError(
@@ -1661,7 +1665,7 @@ Demo body.
   expect(first.stdout).toContain("skillset: test self passed");
   expect(first.stdout).toContain("pass: projection");
 
-  const firstLatest = JSON.parse(await readFile(join(root, ".skillset/cache/tests/latest.json"), "utf8")) as {
+  const firstLatest = JSON.parse(await readFile(cachePath(root, ".skillset/cache/tests/latest.json"), "utf8")) as {
     runId: string;
     runPath: string;
     schemaVersion: number;
@@ -1669,12 +1673,12 @@ Demo body.
   };
   expect(firstLatest.runId).toMatch(/^\d{8}T\d{6}Z-[0-9a-f]{8}$/);
   expect(firstLatest.schemaVersion).toBe(2);
-  expect(await fileExists(join(root, firstLatest.runPath, "report.json"))).toBe(true);
-  expect(await fileExists(join(root, ".skillset/cache/tests/latest/report.json"))).toBe(true);
-  expect(await fileExists(join(root, ".skillset/cache/tests/latest/workspace/.claude/skills/demo/SKILL.md"))).toBe(true);
-  expect(await fileExists(join(root, ".skillset/cache/tests/latest/workspace/.agents/skills/demo/SKILL.md"))).toBe(false);
+  expect(await fileExists(cachePath(root, join(firstLatest.runPath, "report.json")))).toBe(true);
+  expect(await fileExists(cachePath(root, ".skillset/cache/tests/latest/report.json"))).toBe(true);
+  expect(await fileExists(cachePath(root, ".skillset/cache/tests/latest/workspace/.claude/skills/demo/SKILL.md"))).toBe(true);
+  expect(await fileExists(cachePath(root, ".skillset/cache/tests/latest/workspace/.agents/skills/demo/SKILL.md"))).toBe(false);
   expect(await fileExists(join(root, ".claude/skills/demo/SKILL.md"))).toBe(false);
-  const firstReport = JSON.parse(await readFile(join(root, firstLatest.runPath, "report.json"), "utf8")) as {
+  const firstReport = JSON.parse(await readFile(cachePath(root, join(firstLatest.runPath, "report.json")), "utf8")) as {
     schemaVersion: number;
     targets: readonly string[];
   };
@@ -1683,13 +1687,13 @@ Demo body.
 
   const second = await runSkillsetCli("test", "self", "--root", root);
   expect(second.exitCode).toBe(0);
-  const secondLatest = JSON.parse(await readFile(join(root, ".skillset/cache/tests/latest.json"), "utf8")) as {
+  const secondLatest = JSON.parse(await readFile(cachePath(root, ".skillset/cache/tests/latest.json"), "utf8")) as {
     runId: string;
     runPath: string;
   };
   expect(secondLatest.runId).not.toBe(firstLatest.runId);
-  expect(await fileExists(join(root, firstLatest.runPath, "report.json"))).toBe(true);
-  expect(await fileExists(join(root, secondLatest.runPath, "report.md"))).toBe(true);
+  expect(await fileExists(cachePath(root, join(firstLatest.runPath, "report.json")))).toBe(true);
+  expect(await fileExists(cachePath(root, join(secondLatest.runPath, "report.md")))).toBe(true);
 });
 
 test("SET-112: skillset test compiles activation probes into run and latest assets", async () => {
@@ -1729,12 +1733,12 @@ Demo body.
   expect(result.exitCode).toBe(0);
   expect(result.stdout).toContain("activation probes: 1");
   expect(result.stdout).toContain("activation:");
-  expect(await fileExists(join(root, ".skillset/cache/tests/latest/activation/claude/fixture-guidance.md"))).toBe(true);
-  expect(await fileExists(join(root, ".skillset/cache/tests/latest/activation/codex/fixture-guidance.md"))).toBe(true);
-  const claudeProbe = await readFile(join(root, ".skillset/cache/tests/latest/activation/claude/fixture-guidance.md"), "utf8");
+  expect(await fileExists(cachePath(root, ".skillset/cache/tests/latest/activation/claude/fixture-guidance.md"))).toBe(true);
+  expect(await fileExists(cachePath(root, ".skillset/cache/tests/latest/activation/codex/fixture-guidance.md"))).toBe(true);
+  const claudeProbe = await readFile(cachePath(root, ".skillset/cache/tests/latest/activation/claude/fixture-guidance.md"), "utf8");
   expect(claudeProbe).toContain("Manual Claude activation probe");
   expect(claudeProbe).toContain("- skill: demo");
-  const codexProbe = await readFile(join(root, ".skillset/cache/tests/latest/activation/codex/probes.json"), "utf8");
+  const codexProbe = await readFile(cachePath(root, ".skillset/cache/tests/latest/activation/codex/probes.json"), "utf8");
   expect(codexProbe).toContain("manual-shimmed");
   expect(codexProbe).toContain("fixture-guidance");
 });
@@ -2199,7 +2203,7 @@ Demo body.
   expect(result.stdout).toContain("fail: exists missing/generated.txt");
   expect(result.stdout).toContain("skillset: test self failed");
 
-  const report = JSON.parse(await readFile(join(root, ".skillset/cache/tests/latest/report.json"), "utf8")) as {
+  const report = JSON.parse(await readFile(cachePath(root, ".skillset/cache/tests/latest/report.json"), "utf8")) as {
     ok: boolean;
     checks: Array<{ detail?: string; kind: string; ok: boolean; path?: string }>;
   };

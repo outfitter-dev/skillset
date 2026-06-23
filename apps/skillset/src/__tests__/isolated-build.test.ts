@@ -5,6 +5,8 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
+
 import { buildSkillset, buildSkillsetResult, verifySkillset, diffSkillset, ISOLATED_OUT_ROOT } from "../build";
 
 const DEMO_FIXTURE: Record<string, string> = {
@@ -47,10 +49,10 @@ test("isolated build writes the full projection under the mirror only", async ()
   expect(await exists(join(root, LIVE_SKILL))).toBe(false);
   expect(await exists(join(root, "AGENTS.md"))).toBe(false);
   expect(await exists(join(root, "skillset.lock"))).toBe(false);
-  expect(await exists(join(root, MIRROR_SKILL))).toBe(true);
-  expect(await exists(join(root, ISOLATED_OUT_ROOT, "AGENTS.md"))).toBe(true);
-  expect(await exists(join(root, ISOLATED_OUT_ROOT, "skillset.lock"))).toBe(true);
-  expect(await exists(join(root, ISOLATED_OUT_ROOT, ".claude/skills/skillset.lock"))).toBe(true);
+  expect(await exists(cachePath(root, MIRROR_SKILL))).toBe(true);
+  expect(await exists(cachePath(root, join(ISOLATED_OUT_ROOT, "AGENTS.md")))).toBe(true);
+  expect(await exists(cachePath(root, join(ISOLATED_OUT_ROOT, "skillset.lock")))).toBe(true);
+  expect(await exists(cachePath(root, join(ISOLATED_OUT_ROOT, ".claude/skills/skillset.lock")))).toBe(true);
 });
 
 test("isolated build leaves a previous live build byte-unchanged", async () => {
@@ -71,7 +73,7 @@ test("isolated verify tracks the mirror while live generated-output verification
 
   expect((await verifySkillset(root, { isolated: true })).checkedFiles).toBeGreaterThan(0);
 
-  const mirrorPath = join(root, MIRROR_SKILL);
+  const mirrorPath = cachePath(root, MIRROR_SKILL);
   await writeFile(mirrorPath, `${await readFile(mirrorPath, "utf8")}\nhand edit\n`);
 
   await expect(verifySkillset(root, { isolated: true })).rejects.toThrow(MIRROR_SKILL);
@@ -83,7 +85,7 @@ test("isolated diff reports drift against the mirror only", async () => {
   await buildSkillset(root);
   await buildSkillset(root, { isolated: true });
 
-  const mirrorPath = join(root, MIRROR_SKILL);
+  const mirrorPath = cachePath(root, MIRROR_SKILL);
   await writeFile(mirrorPath, `${await readFile(mirrorPath, "utf8")}\nhand edit\n`);
 
   const isolatedDiff = await diffSkillset(root, { isolated: true });
@@ -108,7 +110,7 @@ test("isolated rebuild is idempotent", async () => {
 
 test("isolated build backs up unmanaged files planted inside the mirror", async () => {
   const root = await fixture(DEMO_FIXTURE);
-  await Bun.write(join(root, ISOLATED_OUT_ROOT, "AGENTS.md"), "user file\n");
+  await Bun.write(cachePath(root, join(ISOLATED_OUT_ROOT, "AGENTS.md")), "user file\n");
 
   const result = await buildSkillsetResult(root, { isolated: true });
   expect(result.diagnostics).toContainEqual(expect.objectContaining({
@@ -123,7 +125,7 @@ test("CLI accepts --isolated for build and rejects it elsewhere", async () => {
 
   const build = await runSkillsetCli("build", "--isolated", "--yes", "--root", root);
   expect(build.exitCode).toBe(0);
-  expect(await exists(join(root, MIRROR_SKILL))).toBe(true);
+  expect(await exists(cachePath(root, MIRROR_SKILL))).toBe(true);
   expect(await exists(join(root, LIVE_SKILL))).toBe(false);
 
   const verify = await runSkillsetCli("verify", "--isolated", "--root", root);
@@ -158,7 +160,7 @@ async function hashPaths(
 }
 
 async function mirrorTreeHashes(root: string): Promise<ReadonlyMap<string, string>> {
-  const mirrorRoot = join(root, ISOLATED_OUT_ROOT);
+  const mirrorRoot = cachePath(root, ISOLATED_OUT_ROOT);
   const files = await Array.fromAsync(
     new Bun.Glob("**/*").scan({ cwd: mirrorRoot, dot: true, onlyFiles: true })
   );
@@ -167,6 +169,10 @@ async function mirrorTreeHashes(root: string): Promise<ReadonlyMap<string, strin
     hashes.set(file, createHash("sha256").update(await readFile(join(mirrorRoot, file))).digest("hex"));
   }
   return hashes;
+}
+
+function cachePath(root: string, logicalPath: string): string {
+  return resolveOperationalPath(createOperationalPathContext(root), logicalPath);
 }
 
 async function runSkillsetCli(...args: readonly string[]): Promise<{

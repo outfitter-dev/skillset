@@ -30,7 +30,7 @@ Use this skill when working on the local `skillset` compiler from a Codex-orient
 
 ## Safety Checks
 
-- Configured generated destination roots must stay inside the repo, outside `skillset/`, `skillset/changes/`, `.skillset/cache/`, and `.skillset/snapshots/`, and unique per active target output. Skillset-owned operational output may live under `.skillset/cache/`, and recovery backups may live under `.skillset/snapshots/`.
+- Configured generated destination roots must stay inside the repo, outside `skillset/`, `skillset/changes/`, `.skillset/cache/`, and `.skillset/snapshots/`, and unique per active target output. Skillset-owned operational cache paths are reported under `.skillset/cache/` but physically resolve to the repo's XDG cache bucket; recovery backups may live under `.skillset/snapshots/`.
 - `skillset import` should copy into source layout only and refuse to overwrite existing source.
 - Use root `compile.targets` for provider selection. Do not add bare top-level `targets:`.
 - Keep shared source/config/frontmatter structural validation in `@skillset/schema`; do not add a compiler, Workbench, or docs-only field list for the same shape.

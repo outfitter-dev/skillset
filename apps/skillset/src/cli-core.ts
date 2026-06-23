@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 
-import { auditVersions, buildSkillsetResult, verifySkillsetResult, diffSkillsetResult, planDistributions, restoreOutputBackup, type DistributionPlanReport, type OutputBackupRestoreReport, type VersionAuditReport } from "@skillset/core";
+import { auditVersions, buildSkillsetResult, verifySkillsetResult, diffSkillsetResult, planDistributions, restoreOutputBackup, createOperationalPathContext, isRepoOperationalCachePath, resolveOperationalPath, type DistributionPlanReport, type OutputBackupRestoreReport, type VersionAuditReport } from "@skillset/core";
 
 import { changeCheck, type ChangeBump, type ChangeCheckReport } from "./change-entries";
 import { changeStatus, type ChangeStatusReport } from "./change-status";
@@ -40,6 +40,7 @@ import {
 } from "./runtime-hooks";
 import { importSources, type ImportKind, type ImportProvider, type ImportReport } from "./import";
 import { lintSkillset } from "./lint";
+import { loadBuildGraph } from "./resolver";
 import {
   scaffoldSourceUnit,
   type NewSourceKind,
@@ -201,7 +202,7 @@ export async function runCli(
       ...(changeSince === undefined ? {} : { since: changeSince }),
     });
     if (ciReportPath !== undefined) {
-      const reportPath = resolve(ciReportPath);
+      const reportPath = await resolveCliReportPath(rootPath, ciReportPath, options);
       await mkdir(dirname(reportPath), { recursive: true });
       await writeFile(reportPath, renderCiReportMarkdown(report));
     }
@@ -906,6 +907,21 @@ function printCiReport(report: CiReport): void {
   if (hasDrift(report.drift)) problems.push("generated-output drift (run skillset build --yes or ci --fix)");
   if (report.buildError !== undefined) problems.push("a build error");
   console.log(`skillset: ci found ${problems.join(" and ")}`);
+}
+
+async function resolveCliReportPath(
+  rootPath: string,
+  reportPath: string,
+  options: SkillsetOptions
+): Promise<string> {
+  if (!isRepoOperationalCachePath(reportPath)) return resolve(reportPath);
+  const graph = await loadBuildGraph(rootPath, options);
+  return resolveOperationalPath(
+    createOperationalPathContext(rootPath, {
+      ...(graph.root.workspace.cacheKey === undefined ? {} : { workspaceCacheKey: graph.root.workspace.cacheKey }),
+    }),
+    reportPath
+  );
 }
 
 function printReleasePlan(report: ReleasePlanReport): void {
@@ -1977,7 +1993,7 @@ function validateTestFlags(
     test.scopes !== undefined ||
     test.yes
   ) {
-    throw new Error("skillset: build/write options are not supported with test; test output always writes under .skillset/cache/tests");
+    throw new Error("skillset: build/write options are not supported with test; test output always writes under logical .skillset/cache/tests");
   }
 }
 
