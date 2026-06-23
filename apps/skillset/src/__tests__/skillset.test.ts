@@ -138,7 +138,7 @@ Demo dedicated workspace skill.
   });
 });
 
-test("dedicated 1.0 change status reads release state from changes/state.json", async () => {
+test("dedicated 1.0 change status reads release state from skillset/changes/state.json", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -191,12 +191,12 @@ Changed after the generated lock was written.
 
   expect(status.baseline).toMatchObject({
     kind: "source-inventory",
-    label: "changes/state.json",
+    label: "skillset/changes/state.json",
   });
   expect(status.sourceChanges.map((change) => change.id)).not.toContain("skill:demo");
 });
 
-test("dedicated 1.0 release baseline seeding writes to changes/state.json", async () => {
+test("dedicated 1.0 release baseline seeding writes to skillset/changes/state.json", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -217,9 +217,9 @@ Demo dedicated workspace skill.
 
   const report = await seedReleaseBaselines(root, {}, { write: true });
 
-  expect(report.path).toBe("changes/state.json");
+  expect(report.path).toBe("skillset/changes/state.json");
   expect(report.entries.map((entry) => entry.scope)).toContain("skill:demo");
-  expect(await exists(join(root, "changes/state.json"))).toBe(true);
+  expect(await exists(join(root, "skillset/changes/state.json"))).toBe(true);
 });
 
 test("dedicated 1.0 release baseline seeding fails loudly for malformed workspace markers", async () => {
@@ -230,14 +230,14 @@ test("dedicated 1.0 release baseline seeding fails loudly for malformed workspac
   await expect(seedReleaseBaselines(root, {}, { write: true })).rejects.toThrow("skillset.yaml");
 });
 
-test("dedicated 1.0 output roots cannot point at root changes state", async () => {
+test("dedicated 1.0 output roots cannot point at source changes state", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
   name: dedicated-root
   outputs:
     skills:
-      claude: changes
+      claude: skillset/changes
 claude: true
 codex: false
 `,
@@ -251,10 +251,10 @@ Demo dedicated workspace skill.
 `,
   });
 
-  await expect(loadBuildGraph(root)).rejects.toThrow("must not point inside change state changes");
+  await expect(loadBuildGraph(root)).rejects.toThrow("must not point inside change state skillset/changes");
 });
 
-test("dedicated 1.0 change add writes pending entries to root changes directory", async () => {
+test("dedicated 1.0 change add writes pending entries to source changes directory", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -297,12 +297,12 @@ Changed after the generated lock was written.
     scopes: ["skill:demo"],
   });
 
-  expect(report.entry.path).toMatch(/^changes\/[0-9a-f]{12}\.md$/);
+  expect(report.entry.path).toMatch(/^skillset\/changes\/[0-9a-f]{12}\.md$/);
   expect(await exists(join(root, report.entry.path))).toBe(true);
   expect(await exists(join(root, ".skillset/changes"))).toBe(false);
 });
 
-test("dedicated 1.0 release apply writes history and releases to root changes directory", async () => {
+test("dedicated 1.0 release apply writes history and releases to source changes directory", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -346,12 +346,12 @@ Changed before applying a dedicated workspace release.
 
   const report = await applyRelease(root);
 
-  expect(report.files).toContain("changes/history.jsonl");
-  expect(report.files).toContain("changes/releases.jsonl");
-  expect(report.files).toContain("changes/state.json");
-  expect(await exists(join(root, "changes/history.jsonl"))).toBe(true);
-  expect(await exists(join(root, "changes/releases.jsonl"))).toBe(true);
-  expect(await exists(join(root, "changes/state.json"))).toBe(true);
+  expect(report.files).toContain("skillset/changes/history.jsonl");
+  expect(report.files).toContain("skillset/changes/releases.jsonl");
+  expect(report.files).toContain("skillset/changes/state.json");
+  expect(await exists(join(root, "skillset/changes/history.jsonl"))).toBe(true);
+  expect(await exists(join(root, "skillset/changes/releases.jsonl"))).toBe(true);
+  expect(await exists(join(root, "skillset/changes/state.json"))).toBe(true);
   expect(await exists(join(root, added.entry.path))).toBe(false);
   expect(await exists(join(root, ".skillset/changes/history.jsonl"))).toBe(false);
 });
@@ -365,9 +365,9 @@ claude: true
 codex: false
 `,
   });
-  await mkdir(join(root, "changes"), { recursive: true });
+  await mkdir(join(root, "skillset/changes"), { recursive: true });
   await writeFile(
-    join(root, "changes/history.jsonl"),
+    join(root, "skillset/changes/history.jsonl"),
     `${JSON.stringify({
       appliedAt: "2026-06-19T00:00:00.000Z",
       bump: "patch",
@@ -381,7 +381,7 @@ codex: false
 
   const history = await readChangeHistory(root);
 
-  expect(history.entries.map((entry) => entry.path)).toEqual(["changes/history.jsonl:1"]);
+  expect(history.entries.map((entry) => entry.path)).toEqual(["skillset/changes/history.jsonl:1"]);
 });
 
 test("rejects ambiguous workspace layout markers", async () => {

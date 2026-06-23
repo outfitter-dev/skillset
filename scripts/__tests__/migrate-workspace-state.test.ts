@@ -125,9 +125,31 @@ tests:
 
       expect(result.exitCode).toBe(0);
       expect(result.stderr).toContain("move changes/pending/abc123def456.md -> changes/abc123def456.md");
+      expect(result.stderr).toContain("move changes -> skillset/changes");
       expect(result.stderr).toContain("migration dry run wrote no files");
       await expect(readFile(join(root, "changes", "pending", "abc123def456.md"), "utf8")).resolves.toBe("pending\n");
       await expect(readFile(join(root, "changes", "abc123def456.md"), "utf8")).rejects.toThrow();
+      await expect(readFile(join(root, "skillset", "changes", "abc123def456.md"), "utf8")).rejects.toThrow();
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("moves dedicated root change state into the source root", async () => {
+    const root = await mkdtemp(join(tmpdir(), "skillset-workspace-state-"));
+    try {
+      await mkdir(join(root, "skillset"), { recursive: true });
+      await mkdir(join(root, "changes", "pending"), { recursive: true });
+      await writeFile(join(root, "changes", "pending", "abc123def456.md"), "pending\n", "utf8");
+      await writeFile(join(root, "changes", "history.jsonl"), "history\n", "utf8");
+
+      const result = await runMigration(root);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toContain("move changes -> skillset/changes");
+      await expect(readFile(join(root, "skillset", "changes", "abc123def456.md"), "utf8")).resolves.toBe("pending\n");
+      await expect(readFile(join(root, "skillset", "changes", "history.jsonl"), "utf8")).resolves.toBe("history\n");
+      await expect(readFile(join(root, "changes", "history.jsonl"), "utf8")).rejects.toThrow();
     } finally {
       await rm(root, { force: true, recursive: true });
     }

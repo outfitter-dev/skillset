@@ -9,6 +9,7 @@ import { compareStrings, resolveInside } from "./path";
 import { loadBuildGraph } from "./resolver";
 import { renderValidatedJson } from "./structured-output";
 import type { BuildGraph, JsonRecord, JsonValue, SkillsetOptions, TargetName } from "./types";
+import { workspaceChangesDir } from "./workspace-state";
 import { isJsonRecord, parseYamlRecord } from "./yaml";
 
 const TEST_BUILD_DIR = "cache/tests";
@@ -603,7 +604,8 @@ async function copyTestSource(graph: BuildGraph, stagingWorkspacePath: string): 
 
   await copyIfExists(graph.rootConfigPath, join(stagingWorkspacePath, "skillset.yaml"));
   await copyIfExists(graph.sourceRootPath, join(stagingWorkspacePath, graph.sourceRoot));
-  await copyIfExists(resolveInside(graph.rootPath, "changes"), join(stagingWorkspacePath, "changes"));
+  const changesDir = workspaceChangesDir(graph.sourceDir);
+  await copyIfExists(resolveInside(graph.rootPath, changesDir), join(stagingWorkspacePath, changesDir));
 }
 
 async function copyWorkspaceManagedFiles(

@@ -119,7 +119,7 @@ skillset create team-loadout --name team-loadout --targets claude,codex --yes
 
 For a user-global source checkout, `skillset create --global` defaults to `~/.skillset/src`. This is still Skillset-owned source, not a live Claude or Codex runtime directory. Setup does not create a global preview/cache area yet and does not write to `~/.claude`, `~/.codex`, or `.agents`. The published package requires Bun and ships Bun-built JavaScript bins for `skillset` and `create-skillset`; stable releases run from the default npm dist-tag with commands such as `npx skillset create` or `bunx skillset create`. Prerelease builds remain available through their explicit tag, such as `skillset@beta`. Setup still routes through the same plan-first `create` flow.
 
-Setup commands create source files only. Ordinary `init` creates `.skillset/skillset.yaml`, `.skillset/src/.gitkeep`, and placeholders for the main source families under `.skillset/src/`. Dedicated `create` writes root `skillset.yaml`, root `skillset/` placeholders, root `changes/`, root `skillset.lock`, README, and lightweight agent guidance. `--include ci` adds an optional user-owned GitHub Actions workflow. Generated manifests use `compile.targets`, keep source identity under `skillset`, and keep target adapter config in `claude` and `codex` blocks or root `defaults.<target>.<surface>`.
+Setup commands create source files only. Ordinary `init` creates `.skillset/skillset.yaml`, `.skillset/src/.gitkeep`, and placeholders for the main source families under `.skillset/src/`. Dedicated `create` writes root `skillset.yaml`, root `skillset/` placeholders, `skillset/changes/`, root `skillset.lock`, README, and lightweight agent guidance. `--include ci` adds an optional user-owned GitHub Actions workflow. Generated manifests use `compile.targets`, keep source identity under `skillset`, and keep target adapter config in `claude` and `codex` blocks or root `defaults.<target>.<surface>`.
 
 ## Import
 
@@ -352,7 +352,7 @@ bun run skillset:verify
 bun run check
 ```
 
-Self-hosted source lives under root `skillset.yaml`, `skillset/`, and `changes/`. Generated outputs are:
+Self-hosted source lives under root `skillset.yaml`, `skillset/`, and `skillset/changes/`. Generated outputs are:
 
 - `.claude/skills/skillset-claude-development`
 - `.agents/skills/skillset-codex-development`

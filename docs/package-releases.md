@@ -1,6 +1,6 @@
 # Package Releases
 
-This page covers the npm package release path for the unscoped `skillset` package. It is separate from Skillset source-unit releases under `.skillset/changes`, which describe authored plugin, skill, and generated-output provenance.
+This page covers the npm package release path for the unscoped `skillset` package. It is separate from Skillset source-unit releases under the workspace change directory (`.skillset/changes` in ordinary workspaces or `skillset/changes` in dedicated Skillset repos), which describe authored plugin, skill, and generated-output provenance.
 
 ## Ownership
 
@@ -101,4 +101,4 @@ The repository intentionally does not commit an npm auth token in `.npmrc` and t
 
 ## No Package Release
 
-Package-facing changes should include a `.changeset/*.md` file. Internal-only changes should omit a Changeset when they do not affect the published package contract; call that out in the PR body when the distinction is subtle so the release workflow's version-PR behavior is easy to audit. Skillset source-unit changes under `.skillset/changes` are separate from npm package changes and do not satisfy package release intent by themselves.
+Package-facing changes should include a `.changeset/*.md` file. Internal-only changes should omit a Changeset when they do not affect the published package contract; call that out in the PR body when the distinction is subtle so the release workflow's version-PR behavior is easy to audit. Skillset source-unit changes under the workspace change directory are separate from npm package changes and do not satisfy package release intent by themselves.

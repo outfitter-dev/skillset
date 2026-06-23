@@ -47,7 +47,7 @@ describe("deterministic projection runner", () => {
   it("proves the self-hosted dedicated source selection deterministically", async () => {
     const report = await runDeterministicProjection(process.cwd(), {
       keepTemp: true,
-      sourcePaths: ["changes", "skillset", "skillset.yaml"],
+      sourcePaths: ["skillset", "skillset.yaml"],
     });
     try {
       expect(report.ok).toBe(true);

@@ -42,8 +42,8 @@ Runtime hook execution stays narrower than Git hooks. `skillset hooks run post-t
 - `skillset/skills`
 - `skillset/plugins`
 - `skillset/shared`
+- `skillset/changes`
 - `skillset`
-- `changes`
 - `.skillset/skillset.yaml`
 - `.skillset/src/rules`
 - `.skillset/src/skills`

@@ -39,6 +39,7 @@ import type {
   SourceRule,
   SourceSkill,
 } from "./types";
+import { workspaceChangeFile } from "./workspace-state";
 import { isJsonRecord, parseMarkdown, parseYamlRecord, stringifyJson, stringifyYaml } from "./yaml";
 
 export const SOURCE_HASH_SCHEMA = "skillset-source-unit-v2";
@@ -974,7 +975,7 @@ async function sourceInventoryFromReleaseState(
 }
 
 function releaseStateRelativePath(options: SkillsetOptions): string {
-  return join(options.sourceDir ?? ".skillset", "changes/state.json");
+  return workspaceChangeFile(options.sourceDir, "state.json");
 }
 
 function inferredReleaseUnit(id: string, hash: string): SourceUnit {

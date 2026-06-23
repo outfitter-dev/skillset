@@ -10,6 +10,7 @@ import { gitSafeEnv } from "./git-env";
 import { validateSlug } from "./path";
 import { selectorForTargetNativeIsland } from "./source-unit-selector";
 import type { TargetName } from "./types";
+import { workspaceChangesDir } from "./workspace-state";
 import { parseYamlRecord } from "./yaml";
 
 const DEFAULT_CREATE_NAME = "my-skillset";
@@ -574,7 +575,7 @@ function setupFiles(
   }
 ): readonly PlannedFile[] {
   const sourceRoot = options.layout === "dedicated" ? DEDICATED_SOURCE_ROOT : ORDINARY_SOURCE_ROOT;
-  const changesRoot = options.layout === "dedicated" ? "changes" : ".skillset/changes";
+  const changesRoot = workspaceChangesDir(options.layout === "dedicated" ? "." : ".skillset");
   const files: PlannedFile[] = [
     {
       path: options.workspaceManifestPath,
@@ -726,7 +727,7 @@ function createReadme(name: string, targets: readonly TargetName[]): string {
     "- `skillset/` is the adaptive project source area for rules, agents, hooks, skills, plugins, shared files, and provider source.",
     "- `skillset/plugins/` holds plugin source when this repo authors marketplace plugins.",
     "- `skillset/skills/` holds standalone skill source when this repo authors repo-local or user skill roots.",
-    "- `changes/` stores pending and applied Skillset change history.",
+    "- `skillset/changes/` stores pending and applied Skillset change history.",
     "- `.skillset/` is ignored operational output for previews, test runs, and build scratch data.",
     "",
     `Default compile targets: ${targets.join(", ")}.`,
@@ -744,7 +745,7 @@ function createAgentsGuide(name: string): string {
     "",
     "- Treat `skillset/` as editable source.",
     "- Treat `skillset.yaml` as workspace/build configuration and root source metadata.",
-    "- Treat `changes/` as Skillset-managed change and release state.",
+    "- Treat `skillset/changes/` as Skillset-managed change and release state.",
     "- Treat generated target directories as outputs; do not hand-edit them as source truth.",
     "- Run `skillset build --dry-run` before writing generated outputs.",
     "- Run `skillset check` and `skillset verify` before committing source changes.",

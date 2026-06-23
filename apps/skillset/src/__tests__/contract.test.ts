@@ -5491,13 +5491,13 @@ Body.
   const preview = await runSkillsetCli("init", "--root", root);
   expect(preview.exitCode).toBe(0);
   expect(preview.stdout).toContain("= skillset.yaml");
-  expect(preview.stdout).toContain("+ changes/.gitkeep");
+  expect(preview.stdout).toContain("+ skillset/changes/.gitkeep");
   expect(preview.stdout).not.toContain(".skillset/skillset.yaml");
   expect(await fileExists(join(root, ".skillset/skillset.yaml"))).toBe(false);
 
   const written = await runSkillsetCli("init", "--root", root, "--yes");
   expect(written.exitCode).toBe(0);
-  expect(await fileExists(join(root, "changes/.gitkeep"))).toBe(true);
+  expect(await fileExists(join(root, "skillset/changes/.gitkeep"))).toBe(true);
   expect(await fileExists(join(root, ".skillset/skillset.yaml"))).toBe(false);
 });
 
@@ -5538,7 +5538,7 @@ test("SET-27: create makes a new source repo with default naming", async () => {
   for (const directory of ["agents", "hooks", "plugins", "rules", "shared", "skills", "_claude", "_codex"]) {
     expect(await fileExists(join(parent, `my-skillset/skillset/${directory}/.gitkeep`))).toBe(true);
   }
-  expect(await fileExists(join(parent, "my-skillset/changes/.gitkeep"))).toBe(true);
+  expect(await fileExists(join(parent, "my-skillset/skillset/changes/.gitkeep"))).toBe(true);
   expect(gitignore).toBe(".skillset/\n");
   expect(JSON.parse(lock)).toEqual({ items: [] });
   expect(readme).toContain("# my-skillset");
@@ -5854,7 +5854,7 @@ Body.
   expect(report.targetPath).toBe(join(root, "skillset/skills/adopted"));
   expect(await fileExists(join(root, "skillset/skills/adopted/SKILL.md"))).toBe(true);
   expect(await fileExists(join(root, ".skillset/src/skills/adopted/SKILL.md"))).toBe(false);
-  expect(await fileExists(join(root, "changes/state.json"))).toBe(true);
+  expect(await fileExists(join(root, "skillset/changes/state.json"))).toBe(true);
 });
 
 test("SET-43: import seeds release baselines for adopted plugins", async () => {
