@@ -46,6 +46,12 @@
           "ref": "docs/features/plugins.md"
         },
         {
+          "kind": "provider-schema",
+          "note": "sha256:2a83eaad328540a7850c59cb422d82008e98391d47a1bba386f285c8c6679b14",
+          "ref": "claude-plugin-manifest-schema",
+          "verifiedAt": "2026-06-23"
+        },
+        {
           "kind": "provider-snapshot",
           "note": "sha256:c81a4328f9e1cba88b3496ae42181d03692186cefda4abd5d07428e15e835ae4",
           "ref": "claude-plugin",
@@ -71,6 +77,11 @@
         {
           "kind": "docs",
           "ref": "docs/features/skills.md"
+        },
+        {
+          "kind": "provider-overlay",
+          "note": "Claude skill structure is currently documented in prose; no adopted JSON Schema source is available.",
+          "ref": "claude-skill-frontmatter-overlay"
         },
         {
           "kind": "provider-snapshot",

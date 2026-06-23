@@ -1,7 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { getProviderDestinationFormatSnapshot } from "@skillset/provider-formats";
+import {
+  getProviderDestinationFormatSnapshot,
+  getProviderSchemaSnapshot,
+  providerSchemaManualOverlays,
+} from "@skillset/provider-formats";
 
 import {
   FEATURE_STATUS_VALUES,
@@ -89,6 +93,17 @@ describe("feature registry", () => {
             expect(evidence.verifiedAt).toBe(snapshot?.provenance.fetchedAt.slice(0, 10));
             expect(evidence.note).toBe(snapshot?.provenance.contentHash);
           }
+          if (evidence.kind === "provider-schema") {
+            const snapshot = getProviderSchemaSnapshot(evidence.ref as Parameters<typeof getProviderSchemaSnapshot>[0]);
+            expect(snapshot).toBeDefined();
+            expect(evidence.verifiedAt).toBe(snapshot?.provenance.fetchedAt.slice(0, 10));
+            expect(evidence.note).toBe(snapshot?.provenance.contentHash);
+          }
+          if (evidence.kind === "provider-overlay") {
+            const overlay = providerSchemaManualOverlays.find((item) => item.id === evidence.ref);
+            expect(overlay).toBeDefined();
+            expect(evidence.note).toBe(overlay?.note);
+          }
         }
       }
       for (const support of Object.values(feature.runtimeSupport ?? {})) {
@@ -100,6 +115,17 @@ describe("feature registry", () => {
             expect(snapshot).toBeDefined();
             expect(evidence.verifiedAt).toBe(snapshot?.provenance.fetchedAt.slice(0, 10));
             expect(evidence.note).toBe(snapshot?.provenance.contentHash);
+          }
+          if (evidence.kind === "provider-schema") {
+            const snapshot = getProviderSchemaSnapshot(evidence.ref as Parameters<typeof getProviderSchemaSnapshot>[0]);
+            expect(snapshot).toBeDefined();
+            expect(evidence.verifiedAt).toBe(snapshot?.provenance.fetchedAt.slice(0, 10));
+            expect(evidence.note).toBe(snapshot?.provenance.contentHash);
+          }
+          if (evidence.kind === "provider-overlay") {
+            const overlay = providerSchemaManualOverlays.find((item) => item.id === evidence.ref);
+            expect(overlay).toBeDefined();
+            expect(evidence.note).toBe(overlay?.note);
           }
         }
       }
@@ -124,6 +150,44 @@ describe("feature registry", () => {
     );
     expect(getSkillsetFeature("project-instructions")?.targetSupport.codex.evidence).toContainEqual(
       expect.objectContaining({ kind: "provider-snapshot", ref: "codex-agents-md" })
+    );
+  });
+
+  it("records provider schema, overlay, and unsupported destination facts on target support", () => {
+    expect(getSkillsetFeature("plugin-manifests")?.targetSupport.claude.provider).toEqual({
+      destinationFormat: "claude-plugin",
+      schemaSnapshots: ["claude-plugin-manifest-schema"],
+    });
+    expect(getSkillsetFeature("plugin-manifests")?.targetSupport.codex.provider).toEqual({
+      destinationFormat: "codex-plugin",
+      manualOverlays: ["codex-plugin-manifest-overlay"],
+    });
+    expect(getSkillsetFeature("plugin-hooks")?.targetSupport.codex.provider).toEqual({
+      destinationFormat: "codex-plugin",
+      schemaSnapshots: ["codex-hooks-schema", "codex-hook-event-schemas"],
+    });
+    expect(getSkillsetFeature("project-agents")?.targetSupport.codex.provider).toEqual({
+      destinationFormat: "codex-subagent",
+      manualOverlays: ["codex-subagent-toml-overlay"],
+    });
+    expect(getSkillsetFeature("project-instructions")?.targetSupport.codex.provider).toEqual({
+      destinationFormat: "codex-agents-md",
+      manualOverlays: ["codex-agents-md-overlay"],
+    });
+    expect(getSkillsetFeature("plugin-bin")?.targetSupport.codex.provider).toEqual({
+      destinationFormat: "codex-plugin",
+      unsupportedDestinations: ["bin"],
+    });
+    expect(getSkillsetFeature("plugin-agents")?.targetSupport.codex.provider).toEqual({
+      destinationFormat: "codex-plugin",
+      unsupportedDestinations: ["agents"],
+    });
+
+    expect(getSkillsetFeature("plugin-manifests")?.targetSupport.claude.evidence).toContainEqual(
+      expect.objectContaining({ kind: "provider-schema", ref: "claude-plugin-manifest-schema" })
+    );
+    expect(getSkillsetFeature("plugin-manifests")?.targetSupport.codex.evidence).toContainEqual(
+      expect.objectContaining({ kind: "provider-overlay", ref: "codex-plugin-manifest-overlay" })
     );
   });
 
