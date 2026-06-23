@@ -28,6 +28,10 @@ const SETUP_SOURCE_PLACEHOLDERS = [
   "_claude",
   "_codex",
 ] as const;
+const OPERATIONAL_GITIGNORE = "cache/*\n!cache/.gitignore\nsnapshots/*\n!snapshots/.gitignore\n";
+const OPERATIONAL_DIR_GITIGNORE = "*\n!.gitignore\n";
+const DEDICATED_ROOT_OPERATIONAL_GITIGNORE =
+  ".skillset/cache/*\n!.skillset/cache/.gitignore\n.skillset/snapshots/*\n!.skillset/snapshots/.gitignore\n";
 
 type SetupLayout = "dedicated" | "ordinary";
 
@@ -595,19 +599,19 @@ function setupFiles(
     },
   ];
 
-  if (options.layout === "ordinary") {
+  if (options.global !== true) {
     files.push(
       {
         path: ".skillset/.gitignore",
-        content: "cache/\nsnapshots/\n",
+        content: OPERATIONAL_GITIGNORE,
       },
       {
-        path: ".skillset/cache/.gitkeep",
-        content: "",
+        path: ".skillset/cache/.gitignore",
+        content: OPERATIONAL_DIR_GITIGNORE,
       },
       {
-        path: ".skillset/snapshots/.gitkeep",
-        content: "",
+        path: ".skillset/snapshots/.gitignore",
+        content: OPERATIONAL_DIR_GITIGNORE,
       }
     );
   }
@@ -616,7 +620,7 @@ function setupFiles(
     files.push(
       {
         path: ".gitignore",
-        content: ".skillset/\n",
+        content: DEDICATED_ROOT_OPERATIONAL_GITIGNORE,
       },
       {
         path: "skillset.lock",
@@ -728,7 +732,7 @@ function createReadme(name: string, targets: readonly TargetName[]): string {
     "- `skillset/plugins/` holds plugin source when this repo authors marketplace plugins.",
     "- `skillset/skills/` holds standalone skill source when this repo authors repo-local or user skill roots.",
     "- `skillset/changes/` stores pending and applied Skillset change history.",
-    "- `.skillset/` is ignored operational output for previews, test runs, and build scratch data.",
+    "- `.skillset/cache/` and `.skillset/snapshots/` hold ignored operational output; their `.gitignore` sentinels remain tracked.",
     "",
     `Default compile targets: ${targets.join(", ")}.`,
     "",

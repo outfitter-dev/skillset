@@ -5446,9 +5446,9 @@ test("SET-27: init previews by default and writes only with confirmation", async
     expect(await fileExists(join(root, `.skillset/src/${directory}/.gitkeep`))).toBe(true);
   }
   expect(await fileExists(join(root, ".skillset/changes/.gitkeep"))).toBe(true);
-  expect(await fileExists(join(root, ".skillset/cache/.gitkeep"))).toBe(true);
-  expect(await fileExists(join(root, ".skillset/snapshots/.gitkeep"))).toBe(true);
-  expect(await readFile(join(root, ".skillset/.gitignore"), "utf8")).toBe("cache/\nsnapshots/\n");
+  expect(await readFile(join(root, ".skillset/cache/.gitignore"), "utf8")).toBe("*\n!.gitignore\n");
+  expect(await readFile(join(root, ".skillset/snapshots/.gitignore"), "utf8")).toBe("*\n!.gitignore\n");
+  expect(await readFile(join(root, ".skillset/.gitignore"), "utf8")).toBe("cache/*\n!cache/.gitignore\nsnapshots/*\n!snapshots/.gitignore\n");
   expect(await fileExists(join(root, ".claude"))).toBe(false);
   expect(await fileExists(join(root, ".codex"))).toBe(false);
   expect(await fileExists(join(root, ".agents"))).toBe(false);
@@ -5492,12 +5492,16 @@ Body.
   expect(preview.exitCode).toBe(0);
   expect(preview.stdout).toContain("= skillset.yaml");
   expect(preview.stdout).toContain("+ skillset/changes/.gitkeep");
+  expect(preview.stdout).toContain("+ .skillset/cache/.gitignore");
+  expect(preview.stdout).toContain("+ .skillset/snapshots/.gitignore");
   expect(preview.stdout).not.toContain(".skillset/skillset.yaml");
   expect(await fileExists(join(root, ".skillset/skillset.yaml"))).toBe(false);
 
   const written = await runSkillsetCli("init", "--root", root, "--yes");
   expect(written.exitCode).toBe(0);
   expect(await fileExists(join(root, "skillset/changes/.gitkeep"))).toBe(true);
+  expect(await fileExists(join(root, ".skillset/cache/.gitignore"))).toBe(true);
+  expect(await fileExists(join(root, ".skillset/snapshots/.gitignore"))).toBe(true);
   expect(await fileExists(join(root, ".skillset/skillset.yaml"))).toBe(false);
 });
 
@@ -5533,18 +5537,29 @@ test("SET-27: create makes a new source repo with default naming", async () => {
   const agents = await readFile(join(parent, "my-skillset/AGENTS.md"), "utf8");
   const gitignore = await readFile(join(parent, "my-skillset/.gitignore"), "utf8");
   const lock = await readFile(join(parent, "my-skillset/skillset.lock"), "utf8");
+  const createdRoot = join(parent, "my-skillset");
   expect(config).toContain("name: my-skillset");
   expect(config).toContain("compile:");
   for (const directory of ["agents", "hooks", "plugins", "rules", "shared", "skills", "_claude", "_codex"]) {
     expect(await fileExists(join(parent, `my-skillset/skillset/${directory}/.gitkeep`))).toBe(true);
   }
   expect(await fileExists(join(parent, "my-skillset/skillset/changes/.gitkeep"))).toBe(true);
-  expect(gitignore).toBe(".skillset/\n");
+  expect(await readFile(join(parent, "my-skillset/.skillset/.gitignore"), "utf8")).toBe("cache/*\n!cache/.gitignore\nsnapshots/*\n!snapshots/.gitignore\n");
+  expect(await readFile(join(parent, "my-skillset/.skillset/cache/.gitignore"), "utf8")).toBe("*\n!.gitignore\n");
+  expect(await readFile(join(parent, "my-skillset/.skillset/snapshots/.gitignore"), "utf8")).toBe("*\n!.gitignore\n");
+  expect(gitignore).toBe(
+    ".skillset/cache/*\n!.skillset/cache/.gitignore\n.skillset/snapshots/*\n!.skillset/snapshots/.gitignore\n"
+  );
   expect(JSON.parse(lock)).toEqual({ items: [] });
   expect(readme).toContain("# my-skillset");
   expect(readme).toContain("skillset build --dry-run");
   expect(agents).toContain("Treat `skillset/` as editable source");
-  expect(await fileExists(join(parent, "my-skillset/.git/config"))).toBe(true);
+  expect(await fileExists(join(createdRoot, ".git/config"))).toBe(true);
+  await writeFile(join(createdRoot, ".skillset/cache/runtime.txt"), "ignored\n");
+  await runGit(createdRoot, "check-ignore", ".skillset/cache/runtime.txt");
+  await runGit(createdRoot, "add", ".");
+  await runGit(createdRoot, "ls-files", "--error-unmatch", ".skillset/cache/.gitignore");
+  await runGit(createdRoot, "ls-files", "--error-unmatch", ".skillset/snapshots/.gitignore");
 });
 
 test("SET-54: create supports custom path and explicit setup name", async () => {
@@ -5586,6 +5601,9 @@ test("SET-27: create supports global source path without touching runtime config
   expect(await fileExists(join(home, ".skillset/src/README.md"))).toBe(false);
   expect(await fileExists(join(home, ".skillset/src/AGENTS.md"))).toBe(false);
   expect(await fileExists(join(home, ".skillset/src/.git/config"))).toBe(false);
+  expect(await fileExists(join(home, ".skillset/src/.skillset/.gitignore"))).toBe(false);
+  expect(await fileExists(join(home, ".skillset/src/.skillset/cache/.gitignore"))).toBe(false);
+  expect(await fileExists(join(home, ".skillset/src/.skillset/snapshots/.gitignore"))).toBe(false);
   expect(await fileExists(join(home, ".skillset/cache"))).toBe(false);
   expect(await fileExists(join(home, ".skillset/snapshots"))).toBe(false);
   expect(await fileExists(join(home, ".claude"))).toBe(false);
