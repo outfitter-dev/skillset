@@ -116,6 +116,40 @@ export function validateInstructionFrontmatter(value: unknown, path = "$"): Skil
   return result(diagnostics);
 }
 
+export function validateHookDefinitionSource(value: unknown, path = "$"): SkillsetSchemaValidationResult {
+  const diagnostics: SkillsetSchemaDiagnostic[] = [];
+  if (!isSchemaRecord(value)) return result([diagnostic(path, "schema/hook/type", "hook file must contain a JSON object")]);
+
+  if (value.hooks !== undefined && !isSchemaRecord(value.hooks)) {
+    return result([diagnostic(`${path}.hooks`, "schema/hook/hooks", "hooks must be an object when present")]);
+  }
+
+  const events = isSchemaRecord(value.hooks) ? value.hooks : value;
+  for (const [event, groups] of Object.entries(events)) {
+    if (events === value && event === "hooks") continue;
+    checkHookEventGroups(groups, event, `${path}.${event}`, diagnostics);
+  }
+  return result(diagnostics);
+}
+
+export function validateChangeEntryFrontmatter(value: unknown, path = "$"): SkillsetSchemaValidationResult {
+  const diagnostics: SkillsetSchemaDiagnostic[] = [];
+  if (!isSchemaRecord(value)) return result([diagnostic(path, "schema/change-entry/type", "change entry frontmatter must be an object")]);
+
+  checkOptionalChangeId(value.id, `${path}.id`, diagnostics);
+  checkChangeBump(value.bump, `${path}.bump`, diagnostics);
+  checkChangeScopes(value, path, diagnostics);
+  checkChangeGroup(value.group, `${path}.group`, diagnostics);
+  if (value.ignored !== undefined && typeof value.ignored !== "boolean") {
+    diagnostics.push(diagnostic(`${path}.ignored`, "schema/change-entry/ignored", "ignored must be a boolean when present"));
+  }
+  if (value.external !== undefined) {
+    diagnostics.push(diagnostic(`${path}.external`, "schema/change-entry/external", "external issue ids belong in group"));
+  }
+  checkChangeEvidence(value.evidence, `${path}.evidence`, diagnostics);
+  return result(diagnostics);
+}
+
 function checkRetiredTargetsKey(
   value: SchemaJsonRecord,
   path: string,
@@ -404,6 +438,128 @@ function checkOptionalNonEmptyStringArray(value: SchemaJsonValue | undefined, pa
   for (const [index, item] of value.entries()) {
     if (typeof item !== "string" || item.trim().length === 0) diagnostics.push(diagnostic(`${path}[${index}]`, code, `${path} entries must be non-empty strings`));
   }
+}
+
+function checkHookEventGroups(value: SchemaJsonValue | undefined, event: string, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (!Array.isArray(value)) {
+    diagnostics.push(diagnostic(path, "schema/hook/event", `hook event ${event} must be an array`));
+    return;
+  }
+  for (const [index, group] of value.entries()) {
+    const groupPath = `${path}[${index}]`;
+    if (!isSchemaRecord(group)) {
+      diagnostics.push(diagnostic(groupPath, "schema/hook/group", `hook event ${event} entries must be objects`));
+      continue;
+    }
+    if (group.matcher !== undefined && typeof group.matcher !== "string" && !isSchemaRecord(group.matcher)) {
+      diagnostics.push(diagnostic(`${groupPath}.matcher`, "schema/hook/matcher", `hook event ${event} matcher must be a string or object when present`));
+    }
+    checkOptionalNonEmptyString(group.statusMessage, `${groupPath}.statusMessage`, "schema/hook/status-message", diagnostics);
+    if (group.hooks !== undefined && !Array.isArray(group.hooks)) {
+      diagnostics.push(diagnostic(`${groupPath}.hooks`, "schema/hook/hooks", `hook event ${event} hooks must be an array`));
+      continue;
+    }
+    if (Array.isArray(group.hooks)) checkHookHandlers(group.hooks, event, `${groupPath}.hooks`, diagnostics);
+  }
+}
+
+function checkHookHandlers(handlers: readonly SchemaJsonValue[], event: string, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  for (const [index, handler] of handlers.entries()) {
+    const handlerPath = `${path}[${index}]`;
+    if (!isSchemaRecord(handler)) {
+      diagnostics.push(diagnostic(handlerPath, "schema/hook/handler", `hook event ${event} hook handlers must be objects`));
+      continue;
+    }
+    if (typeof handler.type !== "string" || handler.type.trim().length === 0) {
+      diagnostics.push(diagnostic(`${handlerPath}.type`, "schema/hook/handler-type", `hook event ${event} hook handlers must include a non-empty string type`));
+    }
+    checkOptionalNonEmptyString(handler.command, `${handlerPath}.command`, "schema/hook/handler-command", diagnostics);
+    checkOptionalNonEmptyString(handler.prompt, `${handlerPath}.prompt`, "schema/hook/handler-prompt", diagnostics);
+    checkOptionalNonEmptyString(handler.agent, `${handlerPath}.agent`, "schema/hook/handler-agent", diagnostics);
+    checkOptionalNonEmptyString(handler.statusMessage, `${handlerPath}.statusMessage`, "schema/hook/status-message", diagnostics);
+    if (handler.async !== undefined && typeof handler.async !== "boolean") {
+      diagnostics.push(diagnostic(`${handlerPath}.async`, "schema/hook/handler-async", `hook event ${event} async must be a boolean when present`));
+    }
+    if (
+      handler.timeout !== undefined &&
+      !(typeof handler.timeout === "number" && Number.isInteger(handler.timeout) && handler.timeout >= 0)
+    ) {
+      diagnostics.push(diagnostic(`${handlerPath}.timeout`, "schema/hook/handler-timeout", `hook event ${event} timeout must be a non-negative integer when present`));
+    }
+  }
+}
+
+function checkOptionalChangeId(value: SchemaJsonValue | undefined, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (value === undefined) return;
+  if (typeof value !== "string" || !/^[0-9a-f]{12}$/.test(value)) {
+    diagnostics.push(diagnostic(path, "schema/change-entry/id", "pending change id must be 12 lower-case hex characters"));
+  }
+}
+
+function checkChangeBump(value: SchemaJsonValue | undefined, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (value === undefined) {
+    diagnostics.push(diagnostic(path, "schema/change-entry/bump", "pending change entry requires bump: major, minor, patch, or none"));
+    return;
+  }
+  if (value !== "major" && value !== "minor" && value !== "patch" && value !== "none") {
+    diagnostics.push(diagnostic(path, "schema/change-entry/bump", "pending change entry requires bump: major, minor, patch, or none"));
+  }
+}
+
+function checkChangeScopes(value: SchemaJsonRecord, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (value.scope === undefined && value.scopes === undefined) {
+    diagnostics.push(diagnostic(path, "schema/change-entry/scope", "pending change entry requires scope"));
+    return;
+  }
+  checkOptionalNonEmptyString(value.scope, `${path}.scope`, "schema/change-entry/scope", diagnostics);
+  checkOptionalNonEmptyStringArray(value.scopes, `${path}.scopes`, "schema/change-entry/scopes", diagnostics);
+}
+
+function checkChangeGroup(value: SchemaJsonValue | undefined, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (value === undefined || typeof value === "string") return;
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, "schema/change-entry/group", "group must be a string or an object with id"));
+    return;
+  }
+  checkAllowedKeys(value, new Set(["id", "provider"]), path, "schema/change-entry/group-key", diagnostics);
+  if (typeof value.id !== "string" || value.id.trim().length === 0) {
+    diagnostics.push(diagnostic(`${path}.id`, "schema/change-entry/group", "group id must be non-empty"));
+  }
+  checkOptionalNonEmptyString(value.provider, `${path}.provider`, "schema/change-entry/group-provider", diagnostics);
+}
+
+function checkChangeEvidence(value: SchemaJsonValue | undefined, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (value === undefined) return;
+  if (Array.isArray(value)) {
+    for (const [index, item] of value.entries()) checkChangeEvidenceEntry(item, `${path}[${index}]`, diagnostics);
+    return;
+  }
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, "schema/change-entry/evidence", "evidence must be an array or object when present"));
+    return;
+  }
+  checkOptionalNonEmptyString(value.hash, `${path}.hash`, "schema/change-entry/evidence-hash", diagnostics);
+  checkOptionalNonEmptyString(value.sourceHash, `${path}.sourceHash`, "schema/change-entry/evidence-hash", diagnostics);
+  checkOptionalNonEmptyString(value.currentHash, `${path}.currentHash`, "schema/change-entry/evidence-hash", diagnostics);
+  for (const [key, item] of Object.entries(value)) {
+    if (key === "hash" || key === "sourceHash" || key === "currentHash") continue;
+    if (typeof item === "string") {
+      if (item.trim().length === 0) diagnostics.push(diagnostic(`${path}.${key}`, "schema/change-entry/evidence-hash", "evidence hash values must be non-empty strings"));
+      continue;
+    }
+    checkChangeEvidenceEntry(item, `${path}.${key}`, diagnostics);
+  }
+}
+
+function checkChangeEvidenceEntry(value: SchemaJsonValue | undefined, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, "schema/change-entry/evidence", "evidence entries must be objects"));
+    return;
+  }
+  checkOptionalNonEmptyString(value.scope, `${path}.scope`, "schema/change-entry/evidence-scope", diagnostics);
+  checkOptionalNonEmptyString(value.hash, `${path}.hash`, "schema/change-entry/evidence-hash", diagnostics);
+  checkOptionalNonEmptyString(value.sourceHash, `${path}.sourceHash`, "schema/change-entry/evidence-hash", diagnostics);
+  checkOptionalNonEmptyString(value.currentHash, `${path}.currentHash`, "schema/change-entry/evidence-hash", diagnostics);
 }
 
 function isStringArray(value: SchemaJsonValue): value is string[] {

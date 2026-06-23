@@ -46,6 +46,8 @@ export type { SkillsetJsonSchemaArtifact } from "./artifacts";
 export type { SkillsetExampleArtifact } from "./examples";
 export {
   validateAgentFrontmatter,
+  validateChangeEntryFrontmatter,
+  validateHookDefinitionSource,
   validateInstructionFrontmatter,
   validateSkillFrontmatter,
   validateSourceMetadata,

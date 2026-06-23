@@ -1,7 +1,8 @@
-command: ./scripts/source-change-guard.sh
-matcher:
-  files:
-    - skillset/**
-    - .skillset/**
-name: source-change-guard
-status: warn
+hooks:
+  PostToolUse:
+    - hooks:
+        - command: bun ./apps/skillset/src/cli.ts hooks run post-tool-use
+          statusMessage: Checking Skillset source changes
+          timeout: 120
+          type: command
+      matcher: Write|Edit|MultiEdit|apply_patch

@@ -196,13 +196,10 @@ export const instructionFrontmatterContract = contract("instruction-frontmatter"
   type: "object",
 });
 
-export const hookContract = contract("hook", "Hook Definition", "Skillset hook definition source contract placeholder.", {
-  additionalProperties: true,
+export const hookContract = contract("hook", "Hook Definition", "Skillset hook definition source contract for aggregate hook event maps.", {
+  additionalProperties: hookEventGroupsSchema(),
   properties: {
-    command: { type: "string" },
-    matcher: { type: ["object", "string"] },
-    name: { type: "string" },
-    status: { type: "string" },
+    hooks: hookEventsSchema(),
   },
   type: "object",
 });
@@ -215,24 +212,24 @@ export const changeEntryContract = contract("change-entry", "Change Entry", "Pen
   ],
   properties: {
     bump: { enum: ["major", "minor", "none", "patch"], type: "string" },
-    evidence: arraySchema(strictObjectSchema({
-      hash: { type: "string" },
-      scope: { type: "string" },
-      sourceHash: { type: "string" },
-    })),
+    evidence: evidenceSchema(),
+    external: { description: "Unsupported legacy issue metadata; use group instead.", type: ["array", "object", "string"] },
     group: {
       anyOf: [
-        { type: "string" },
-        strictObjectSchema({
-          id: { type: "string" },
-          provider: { type: "string" },
-        }),
+        nonEmptyStringSchema(),
+        {
+          ...strictObjectSchema({
+            id: nonEmptyStringSchema(),
+            provider: nonEmptyStringSchema(),
+          }),
+          required: ["id"],
+        },
       ],
     },
     id: { pattern: "^[0-9a-f]{12}$", type: "string" },
     ignored: { type: "boolean" },
-    scope: { type: "string" },
-    scopes: arraySchema({ type: "string" }),
+    scope: nonEmptyStringSchema(),
+    scopes: arraySchema(nonEmptyStringSchema()),
   },
   required: ["bump"],
   type: "object",
@@ -377,6 +374,83 @@ function resourceDeclarationSchema(): SchemaJsonRecord {
             nonEmptyStringSchema(),
             arraySchema(resourceEntry),
           ],
+        },
+        type: "object",
+      },
+    ],
+  };
+}
+
+function hookEventsSchema(): SchemaJsonRecord {
+  return {
+    additionalProperties: hookEventGroupsSchema(),
+    type: "object",
+  };
+}
+
+function hookEventGroupsSchema(): SchemaJsonRecord {
+  return arraySchema(hookEventGroupSchema());
+}
+
+function hookEventGroupSchema(): SchemaJsonRecord {
+  return {
+    additionalProperties: true,
+    properties: {
+      hooks: arraySchema(hookHandlerSchema()),
+      matcher: {
+        anyOf: [
+          nonEmptyStringSchema(),
+          { type: "object" },
+        ],
+      },
+      statusMessage: nonEmptyStringSchema(),
+    },
+    type: "object",
+  };
+}
+
+function hookHandlerSchema(): SchemaJsonRecord {
+  return {
+    additionalProperties: true,
+    properties: {
+      agent: nonEmptyStringSchema(),
+      async: { type: "boolean" },
+      command: nonEmptyStringSchema(),
+      prompt: nonEmptyStringSchema(),
+      statusMessage: nonEmptyStringSchema(),
+      timeout: { minimum: 0, type: "integer" },
+      type: nonEmptyStringSchema(),
+    },
+    required: ["type"],
+    type: "object",
+  };
+}
+
+function evidenceSchema(): SchemaJsonRecord {
+  const evidenceEntry = {
+    additionalProperties: true,
+    properties: {
+      currentHash: nonEmptyStringSchema(),
+      hash: nonEmptyStringSchema(),
+      scope: nonEmptyStringSchema(),
+      sourceHash: nonEmptyStringSchema(),
+    },
+    type: "object",
+  } satisfies SchemaJsonRecord;
+  return {
+    anyOf: [
+      arraySchema(evidenceEntry),
+      {
+        additionalProperties: {
+          anyOf: [
+            nonEmptyStringSchema(),
+            evidenceEntry,
+          ],
+        },
+        properties: {
+          currentHash: nonEmptyStringSchema(),
+          hash: nonEmptyStringSchema(),
+          sourceHash: nonEmptyStringSchema(),
         },
         type: "object",
       },

@@ -15,7 +15,7 @@ The combined schema is [`skillset.schema.json`](./0.1.0/skillset.schema.json). U
 | `skill-frontmatter` | [`skill-frontmatter.schema.json`](./0.1.0/skill-frontmatter.schema.json) | Adaptive Skillset skill frontmatter. |
 | `agent-frontmatter` | [`agent-frontmatter.schema.json`](./0.1.0/agent-frontmatter.schema.json) | Adaptive Skillset agent frontmatter. |
 | `instruction-frontmatter` | [`instruction-frontmatter.schema.json`](./0.1.0/instruction-frontmatter.schema.json) | Adaptive Skillset instruction/rules frontmatter. |
-| `hook` | [`hook.schema.json`](./0.1.0/hook.schema.json) | Skillset hook definition source contract placeholder. |
+| `hook` | [`hook.schema.json`](./0.1.0/hook.schema.json) | Skillset hook definition source contract for aggregate hook event maps. |
 | `change-entry` | [`change-entry.schema.json`](./0.1.0/change-entry.schema.json) | Pending Skillset change entry source contract. |
 
 ## Examples

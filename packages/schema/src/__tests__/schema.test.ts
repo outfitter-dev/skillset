@@ -11,6 +11,8 @@ import {
   skillsetSchemaContracts,
   sourceMetadataContract,
   validateAgentFrontmatter,
+  validateChangeEntryFrontmatter,
+  validateHookDefinitionSource,
   validateInstructionFrontmatter,
   validateSkillFrontmatter,
   validateSourceMetadata,
@@ -93,6 +95,8 @@ describe("@skillset/schema contracts", () => {
     expect(validateSkillFrontmatter(byId["skill-frontmatter"]).diagnostics).toEqual([]);
     expect(validateAgentFrontmatter(byId["agent-frontmatter"]).diagnostics).toEqual([]);
     expect(validateInstructionFrontmatter(byId["instruction-frontmatter"]).diagnostics).toEqual([]);
+    expect(validateHookDefinitionSource(byId.hook).diagnostics).toEqual([]);
+    expect(validateChangeEntryFrontmatter(byId["change-entry"]).diagnostics).toEqual([]);
   });
 
   it("keeps descriptors aligned with active workspace and change contracts", () => {
@@ -173,6 +177,7 @@ describe("@skillset/schema contracts", () => {
     expect(Object.keys(changeProperties).sort()).toEqual([
       "bump",
       "evidence",
+      "external",
       "group",
       "id",
       "ignored",
@@ -181,6 +186,17 @@ describe("@skillset/schema contracts", () => {
     ]);
     expect(changeEntryContract.schema.required).toEqual(["bump"]);
     expect(changeEntryContract.schema.anyOf).toEqual([{ required: ["scope"] }, { required: ["scopes"] }]);
+    expect(changeProperties.scope).toEqual({ minLength: 1, type: "string" });
+    expect(changeProperties.scopes).toEqual({
+      items: { minLength: 1, type: "string" },
+      type: "array",
+    });
+    expect(changeProperties.group).toMatchObject({
+      anyOf: [
+        { minLength: 1, type: "string" },
+        { required: ["id"] },
+      ],
+    });
   });
 
   it("validates workspace config structure", () => {
@@ -452,5 +468,31 @@ describe("@skillset/schema contracts", () => {
       message: "$.paths entries must be strings",
       path: "$.paths[0]",
     });
+    expect(validateHookDefinitionSource({
+      hooks: {
+        Stop: [{ hooks: [{ type: "" }, "bad"] }],
+        SessionStart: { hooks: [] },
+      },
+    }).diagnostics.map((diagnostic) => diagnostic.code)).toEqual(expect.arrayContaining([
+      "schema/hook/event",
+      "schema/hook/handler",
+      "schema/hook/handler-type",
+    ]));
+    expect(validateChangeEntryFrontmatter({
+      bump: "oops",
+      external: ["SET-185"],
+      group: { provider: 1 },
+      id: "ABC",
+      ignored: "yes",
+      scopes: [1],
+    }).diagnostics.map((diagnostic) => diagnostic.code)).toEqual(expect.arrayContaining([
+      "schema/change-entry/bump",
+      "schema/change-entry/external",
+      "schema/change-entry/group",
+      "schema/change-entry/group-provider",
+      "schema/change-entry/id",
+      "schema/change-entry/ignored",
+      "schema/change-entry/scopes",
+    ]));
   });
 });

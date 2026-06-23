@@ -286,12 +286,21 @@ export const skillsetSchemaExamples = [
     id: "hook",
     path: "hook.yaml",
     value: {
-      command: "./scripts/source-change-guard.sh",
-      matcher: {
-        files: ["skillset/**", ".skillset/**"],
+      hooks: {
+        PostToolUse: [
+          {
+            matcher: "Write|Edit|MultiEdit|apply_patch",
+            hooks: [
+              {
+                type: "command",
+                command: "bun ./apps/skillset/src/cli.ts hooks run post-tool-use",
+                statusMessage: "Checking Skillset source changes",
+                timeout: 120,
+              },
+            ],
+          },
+        ],
       },
-      name: "source-change-guard",
-      status: "warn",
     },
   },
   {
@@ -302,7 +311,6 @@ export const skillsetSchemaExamples = [
       bump: "minor",
       evidence: [
         {
-          hash: "sha256:abcdef",
           scope: "skill:docs-cli",
           sourceHash: "sha256:123456",
         },
