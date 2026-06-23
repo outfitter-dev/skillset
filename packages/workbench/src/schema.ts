@@ -27,6 +27,7 @@ const CONFIG_TOP_LEVEL_KEYS = new Set([
   "skillset",
   "supports",
   "tests",
+  "workspace",
 ]);
 
 const COMPILE_BUILD_MODES = new Set(["all", "updated"]);
@@ -156,7 +157,47 @@ function checkWorkspaceConfigContract(
   }
   diagnostics.push(...checkCompileBlock(parsed.data.compile, path));
   diagnostics.push(...checkWorkspaceSkillsetMetadata(parsed.data.skillset, path));
+  diagnostics.push(...checkWorkspaceBlock(parsed.data.workspace, path));
   diagnostics.push(...checkSupportsBlock(parsed.data.supports, path));
+  return diagnostics;
+}
+
+function checkWorkspaceBlock(value: unknown, path: string): readonly WorkbenchDiagnostic[] {
+  if (value === undefined) return [];
+  if (!isRecord(value)) {
+    return [
+      schemaDiagnostic({
+        message: "workspace must be an object when present",
+        path,
+        ruleId: "schema/workspace-config",
+        scope: "workspace",
+        subjectKind: "workspace",
+      }),
+    ];
+  }
+
+  const diagnostics: WorkbenchDiagnostic[] = [];
+  for (const key of Object.keys(value).sort()) {
+    if (key !== "cacheKey") {
+      diagnostics.push(schemaDiagnostic({
+        message: `unsupported workspace key ${key}`,
+        path,
+        ruleId: "schema/workspace-config",
+        scope: "workspace",
+        subjectKind: "workspace",
+      }));
+    }
+  }
+  const cacheKey = value.cacheKey;
+  if (cacheKey !== undefined && (typeof cacheKey !== "string" || cacheKey.trim() !== cacheKey || !/^[a-z0-9][a-z0-9._-]*(?:--[a-z0-9][a-z0-9._-]*)*$/.test(cacheKey))) {
+    diagnostics.push(schemaDiagnostic({
+      message: "workspace.cacheKey must be a lowercase repo cache key",
+      path,
+      ruleId: "schema/workspace-config",
+      scope: "workspace",
+      subjectKind: "workspace",
+    }));
+  }
   return diagnostics;
 }
 

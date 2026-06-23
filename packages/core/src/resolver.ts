@@ -43,6 +43,7 @@ import type {
 } from "./types";
 import { validateSchemaField, validateVersionField } from "./versioning";
 import { isJsonRecord, parseMarkdown, parseYamlRecord } from "./yaml";
+import { readSkillsetWorkspaceConfig } from "./xdg";
 
 const DEFAULT_SOURCE_DIR = ".skillset";
 const ROOT_CONFIG_FILE = "config.yaml";
@@ -105,6 +106,7 @@ export async function loadBuildGraph(
     options.distDir === undefined ? {} : { distDir: options.distDir }
   );
   const distributions = readDistributionConfig(rootConfig, workspace.configPath);
+  const workspaceConfig = readSkillsetWorkspaceConfig(rootConfig, workspace.configPath);
   const rootTargets = resolveTargets(readCompileTargets(rootConfig, workspace.configPath), rootConfig, workspace.configPath, {
     allowDefaults: true,
     objectInheritsEnabled: true,
@@ -122,6 +124,7 @@ export async function loadBuildGraph(
     metadata,
     outputs,
     targets: filteredTargets,
+    workspace: workspaceConfig,
   };
 
   const warnings: string[] = [];

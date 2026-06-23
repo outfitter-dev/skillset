@@ -104,6 +104,28 @@ This compiler repo uses that same layout for its own source:
 - `.skillset/src/skills/skillset-codex-development` is a Codex-only internal standalone skill for compiler development.
 - `.skillset/src/plugins/skillset` is the user-facing plugin that explains how to use `skillset`.
 
+## Operational State
+
+Repo-local, rebuildable operational output lives under `.skillset/cache/`. Recovery snapshots live under `.skillset/snapshots/` because they are delete-safe only after the user no longer needs rollback material. Portable source, workspace manifests, change entries, release state, generated changelogs, and `skillset.lock` stay in the repo.
+
+Global Skillset state uses Skillset-owned XDG directories, never provider runtime directories and never a dot-prefixed `/.skillset` segment below the XDG base. Skillset uses absolute XDG base values when present; unset, empty, or relative XDG environment values fall back to the documented home-relative defaults.
+
+| Kind | Environment variable | Default | Skillset path |
+| --- | --- | --- | --- |
+| Config | `XDG_CONFIG_HOME` | `~/.config` | `$XDG_CONFIG_HOME/skillset` |
+| Cache | `XDG_CACHE_HOME` | `~/.cache` | `$XDG_CACHE_HOME/skillset` |
+| State | `XDG_STATE_HOME` | `~/.local/state` | `$XDG_STATE_HOME/skillset` |
+| Data | `XDG_DATA_HOME` | `~/.local/share` | `$XDG_DATA_HOME/skillset` |
+
+Per-repo global cache buckets live directly under `$XDG_CACHE_HOME/skillset/<repo-key>/`; Skillset does not add a default `repos/` layer. Repo keys resolve in this order:
+
+1. `workspace.cacheKey` from the workspace manifest.
+2. Canonical Git remote path components, rendered as `<namespace>--<repo>` for ordinary owner/repo remotes or `<group>--<subgroup>--<repo>` for nested namespaces.
+3. Host-qualified Git remote path components, rendered as `<host>--<namespace>--<repo>`, when a caller needs to avoid cross-host collisions.
+4. Local fallback `<basename>--<sha12>`, where the hash is derived from the normalized absolute repo path.
+
+Explicit and remote-derived keys are portable enough to share in docs and team config. The local fallback is deterministic on one machine, but it is intentionally local because absolute checkout paths vary across machines.
+
 ## Setup Commands
 
 `skillset init` initializes source in an existing repo or directory. It plans by default, writes only with `--yes`, resolves the Git root by default, and validates existing workspace manifests instead of replacing them with generated stubs. In an empty ordinary repo, the scaffold is `.skillset/skillset.yaml`, root `.skillset/src/.gitkeep`, placeholders for `.skillset/src/agents`, `.skillset/src/hooks`, `.skillset/src/plugins`, `.skillset/src/rules`, `.skillset/src/shared`, `.skillset/src/skills`, `.skillset/src/_claude`, and `.skillset/src/_codex`, tracked `.skillset/changes/.gitkeep`, ignored `.skillset/cache/.gitkeep` and `.skillset/snapshots/.gitkeep`, and `.skillset/.gitignore` for operational output. If root `skillset.yaml` or `skillset/` already exists, `init` treats the repo as a dedicated Skillset repo: it validates root `skillset.yaml`, scaffolds missing `skillset/` source-family placeholders, and writes tracked `changes/.gitkeep` without creating `.skillset/skillset.yaml`. `--include ci` adds a user-owned `.github/workflows/skillset-ci.yml` workflow. Init also performs repo-local adoption: it detects unmanaged repo-local Claude/Codex/Skillset artifacts, skips generated output roots with Skillset locks, and seeds release-state baselines from current versions and normalized source hashes without creating pending changes, history entries, releases, or changelog renderings.
