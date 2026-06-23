@@ -54,7 +54,7 @@ export function readAllowedTools(
   if (value === undefined) return undefined;
   if (value === false) return false;
   if (typeof value === "string") return [readNonEmptyString(value, `${label}.allowed_tools`)];
-  if (Array.isArray(value) && value.every((item) => typeof item === "string")) {
+  if (Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === "string")) {
     return value.map((item) => readNonEmptyString(item, `${label}.allowed_tools`));
   }
   throw new Error(
