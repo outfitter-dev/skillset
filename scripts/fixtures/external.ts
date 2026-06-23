@@ -38,8 +38,10 @@ import { parseYamlRecord } from "../../apps/skillset/src/yaml";
 import { compareNormalizedOutputTrees } from "../../packages/core/src/normalized-output-tree";
 import {
   createOperationalPathContext,
+  type OperationalPathContext,
   resolveOperationalPath,
 } from "../../packages/core/src/operational-cache";
+import { loadBuildGraph } from "../../packages/core/src/resolver";
 
 const MANIFEST_PATH = "fixtures/external/repos.yaml";
 const CLONES_DIR = "fixtures/external/repos";
@@ -644,12 +646,13 @@ async function main(): Promise<void> {
   }
 
   let failed = false;
+  const reportCacheContext = await operationalContextForRoot(rootPath);
   for (const entry of selected) {
     await syncRepo(rootPath, entry);
     const clonePath = join(rootPath, CLONES_DIR, entry.name);
     const report = await runExternalRepo(entry.name, clonePath, entry.targets);
     const reportDir = resolveOperationalPath(
-      createOperationalPathContext(rootPath),
+      reportCacheContext,
       join(REPORTS_DIR, entry.name)
     );
     await mkdir(reportDir, { recursive: true });
@@ -678,6 +681,17 @@ async function main(): Promise<void> {
     if (!report.ok) {failed = true;}
   }
   if (failed) {process.exitCode = 1;}
+}
+
+async function operationalContextForRoot(rootPath: string): Promise<OperationalPathContext> {
+  try {
+    const graph = await loadBuildGraph(rootPath);
+    return createOperationalPathContext(rootPath, {
+      ...(graph.root.workspace.cacheKey === undefined ? {} : { workspaceCacheKey: graph.root.workspace.cacheKey }),
+    });
+  } catch {
+    return createOperationalPathContext(rootPath);
+  }
 }
 
 if (import.meta.main) {

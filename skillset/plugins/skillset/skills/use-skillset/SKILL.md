@@ -40,7 +40,7 @@ Ordinary repos keep Skillset state inside `.skillset/`:
     _claude/
     _codex/
   changes/
-  cache/       # ignored operational output; .gitignore sentinel tracked
+  cache/       # logical cache boundary; .gitignore sentinel tracked
   snapshots/   # ignored recovery output; .gitignore sentinel tracked
 ```
 
@@ -59,7 +59,7 @@ skillset/
   _claude/
   _codex/
 .skillset/
-  cache/       # ignored operational output; .gitignore sentinel tracked
+  cache/       # logical cache boundary; .gitignore sentinel tracked
   snapshots/   # ignored recovery output; .gitignore sentinel tracked
 skillset.lock
 ```
