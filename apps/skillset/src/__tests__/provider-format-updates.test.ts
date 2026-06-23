@@ -15,7 +15,7 @@ import {
 const CODEX_PLUGIN_MANIFEST = "plugins-codex/plugins/alpha/.codex-plugin/plugin.json";
 const CODEX_AGENT = ".codex/agents/reviewer.toml";
 
-test("SET-194: check preview reports safe provider-format updates without writing", async () => {
+test("SET-195: check preview reports user-facing safe destination-format diagnostics", async () => {
   const root = await builtFixture(pluginFixture());
   const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
   const original = await readFile(manifestPath, "utf8");
@@ -30,7 +30,7 @@ test("SET-194: check preview reports safe provider-format updates without writin
   ]);
   expect(report.safeUpdates[0]?.affectedPaths).toEqual([CODEX_PLUGIN_MANIFEST]);
   expect(await readFile(manifestPath, "utf8")).not.toBe(original);
-  expect(renderProviderFormatUpdateReport(report)).toContain("safe adapter codex-plugin-component-paths-adapter-update");
+  expect(renderProviderFormatUpdateReport(report)).toMatchSnapshot();
 });
 
 test("SET-194: check --fix applies safe provider-format updates and reports changed files", async () => {
@@ -45,7 +45,7 @@ test("SET-194: check --fix applies safe provider-format updates and reports chan
   expect(fixed.exitCode).toBe(0);
   expect(fixed.stderr).toBe("");
   expect(fixed.stdout).toContain("skillset: checked 1 source skills");
-  expect(fixed.stdout).toContain("applied safe provider format updates");
+  expect(fixed.stdout).toContain("applied safe destination-format updates");
   expect(fixed.stdout).toContain(`updated ${CODEX_PLUGIN_MANIFEST}`);
   expect(await readFile(manifestPath, "utf8")).toBe(original);
 });
@@ -60,13 +60,13 @@ test("SET-194: update previews then writes the same safe provider-format plan", 
   const preview = await runSkillsetCli("update", "--root", root);
 
   expect(preview.exitCode).toBe(0);
-  expect(preview.stdout).toContain("rerun skillset update with --yes");
+  expect(preview.stdout).toContain("next: run skillset update --yes");
   expect(await readFile(manifestPath, "utf8")).not.toBe(original);
 
   const written = await runSkillsetCli("update", "--yes", "--root", root);
 
   expect(written.exitCode).toBe(0);
-  expect(written.stdout).toContain("applied safe provider format updates");
+  expect(written.stdout).toContain("applied safe destination-format updates");
   expect(await readFile(manifestPath, "utf8")).toBe(original);
 });
 
@@ -80,12 +80,30 @@ test("SET-194: arbitrary edits on safe provider paths block writes", async () =>
 
   expect(blocked.exitCode).toBe(1);
   expect(blocked.stderr).toBe("");
-  expect(blocked.stdout).toContain("manual-review codex-plugin-component-paths-adapter-update");
+  expect(blocked.stdout).toContain("manual review required: Codex plugin");
   expect(blocked.stdout).toContain("differs from its previous skillset.lock hash");
   expect(await readFile(manifestPath, "utf8")).not.toBe(original);
 });
 
-test("SET-194: unsafe provider-format drift remains blocked for manual review", async () => {
+test("SET-195: mixed safe and manual drift does not suggest blocked write commands", async () => {
+  const root = await builtFixture({ ...pluginFixture(), ...agentFixtureSource() });
+  const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
+  const agentPath = join(root, CODEX_AGENT);
+  await writeFile(manifestPath, `${await readFile(manifestPath, "utf8")}\n// stale\n`, "utf8");
+  await writeFile(agentPath, `${await readFile(agentPath, "utf8")}\n# stale\n`, "utf8");
+  await markCurrentPluginManifestAsManaged(root);
+
+  const report = await runProviderFormatUpdates(root, "check");
+  const rendered = renderProviderFormatUpdateReport(report);
+
+  expect(report.blocked).toBe(true);
+  expect(report.safeUpdates).toHaveLength(1);
+  expect(report.manualReviews).toHaveLength(1);
+  expect(rendered).toContain("next: resolve blocking manual review or unplanned drift before applying safe updates");
+  expect(rendered).not.toContain("next: run skillset check --fix or skillset update --yes");
+});
+
+test("SET-195: unsafe provider-format drift reports user-facing manual review diagnostics", async () => {
   const root = await builtFixture(agentFixture());
   const agentPath = join(root, CODEX_AGENT);
   const original = await readFile(agentPath, "utf8");
@@ -95,8 +113,8 @@ test("SET-194: unsafe provider-format drift remains blocked for manual review", 
 
   expect(blocked.exitCode).toBe(1);
   expect(blocked.stderr).toBe("");
-  expect(blocked.stdout).toContain("manual-review codex-subagent-toml-manual-review");
-  expect(blocked.stdout).toContain("provider format updates require manual review before writing");
+  expect(blocked.stdout).toMatchSnapshot();
+  expect(blocked.stdout).toContain("destination-format updates require manual review before writing");
   expect(await readFile(agentPath, "utf8")).not.toBe(original);
 });
 
@@ -110,7 +128,7 @@ test("SET-194: check --fix blocks unsafe provider-format drift", async () => {
 
   expect(blocked.exitCode).toBe(1);
   expect(blocked.stderr).toBe("");
-  expect(blocked.stdout).toContain("manual-review codex-subagent-toml-manual-review");
+  expect(blocked.stdout).toContain("manual review required: Codex agent");
   expect(await readFile(agentPath, "utf8")).not.toBe(original);
 });
 
@@ -187,6 +205,19 @@ skillset:
 claude: false
 codex: true
 `,
+    ".skillset/src/agents/reviewer.md": `
+---
+name: reviewer
+description: Reviews code.
+---
+
+Review code.
+`,
+  };
+}
+
+function agentFixtureSource(): Record<string, string> {
+  return {
     ".skillset/src/agents/reviewer.md": `
 ---
 name: reviewer

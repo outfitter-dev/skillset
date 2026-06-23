@@ -91,42 +91,53 @@ export function renderProviderFormatUpdateReport(report: ProviderFormatUpdateRep
   }
 
   for (const action of report.safeUpdates) {
-    lines.push(
-      `  safe ${action.updatePath} ${action.id}: ${action.provider} ${action.surface} ${action.snapshotId}`
-    );
+    lines.push(`  safe destination update: ${displayProvider(action.provider)} ${action.surface}`);
     lines.push(`    source: ${action.sourceUnit}`);
-    lines.push(`    ${action.description}`);
+    lines.push(`    action: ${action.description}`);
     for (const path of action.affectedPaths) lines.push(`    output: ${path}`);
+    lines.push(`    next: ${safeUpdateNextStep(report)}`);
   }
   for (const action of report.manualReviews) {
-    lines.push(
-      `  manual-review ${action.id}: ${action.provider} ${action.surface} ${action.snapshotId}`
-    );
+    lines.push(`  manual review required: ${displayProvider(action.provider)} ${action.surface}`);
     lines.push(`    source: ${action.sourceUnit}`);
-    lines.push(`    ${action.description}`);
+    lines.push(`    reason: ${action.description}`);
     for (const path of action.affectedPaths) lines.push(`    output: ${path}`);
+    lines.push("    next: review the generated output and update Skillset source or provider support before writing");
   }
   for (const path of report.unplannedDriftPaths) {
-    lines.push(`  drift: ${path} has no registered safe provider format migration`);
+    lines.push(`  unplanned destination drift: ${path}`);
+    lines.push("    reason: no registered safe destination-format update covers this generated output");
+    lines.push("    next: inspect the file, then update Skillset source or provider-format evidence before writing");
   }
 
   lines.push(
-    `skillset: provider format ${report.command} found ${report.safeUpdates.length} safe update` +
+    `skillset: destination-format ${report.command} found ${report.safeUpdates.length} safe update` +
       `${report.safeUpdates.length === 1 ? "" : "s"}, ${report.manualReviews.length} manual review` +
       `${report.manualReviews.length === 1 ? "" : "s"}, and ${report.unplannedDriftPaths.length} unplanned drift path` +
       `${report.unplannedDriftPaths.length === 1 ? "" : "s"}`
   );
 
   if (report.wrote) {
-    lines.push(`skillset: applied safe provider format updates to ${report.writtenPaths.length} file${report.writtenPaths.length === 1 ? "" : "s"}`);
+    lines.push(`skillset: applied safe destination-format updates to ${report.writtenPaths.length} file${report.writtenPaths.length === 1 ? "" : "s"}`);
     for (const path of report.writtenPaths) lines.push(`  updated ${path}`);
   } else if (report.blocked) {
-    lines.push("skillset: provider format updates require manual review before writing");
+    lines.push("skillset: destination-format updates require manual review before writing");
   } else if (report.safeUpdates.length > 0 && report.command === "update") {
-    lines.push("skillset: rerun skillset update with --yes to apply safe provider format updates");
+    lines.push("skillset: rerun skillset update with --yes to apply safe destination-format updates");
   }
 
   return `${lines.join("\n")}\n`;
+}
+
+function safeUpdateNextStep(report: ProviderFormatUpdateReport): string {
+  if (report.wrote) return "done";
+  if (report.blocked) return "resolve blocking manual review or unplanned drift before applying safe updates";
+  if (report.command === "check") return "run skillset check --fix or skillset update --yes";
+  return "run skillset update --yes";
+}
+
+function displayProvider(provider: string): string {
+  return provider === "codex" ? "Codex" : provider === "claude" ? "Claude" : provider;
 }
 
 function planProviderFormatUpdates(
