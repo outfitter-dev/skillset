@@ -54,13 +54,18 @@ import {
   type ReleasePlanReport,
   type ReleaseSubcommand,
 } from "./release";
+import {
+  renderProviderMaintenanceReport,
+  runProviderMaintenance,
+  type ProviderMaintenanceSubcommand,
+} from "./provider-maintenance";
 import { createSkillset, initSkillset, type SetupInclude, type SetupReport } from "./setup";
 import { sourceUnitDisplay, sourceUnitDisplays, sourceUnitSelector } from "./source-unit-selector";
 import { renderValidatedJson } from "./structured-output";
 import { runSkillsetTest, type SkillsetTestReport } from "./test-runner";
 import type { BuildScope, CompileBuildMode, JsonRecord, SkillsetOptions, SourceOrigin, TargetName } from "./types";
 
-type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "diff" | "distribute" | "doctor" | "explain" | "features" | "hooks" | "import" | "init" | "lint" | "list" | "new" | "release" | "restore" | "suggest-source" | "test" | "verify";
+type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "diff" | "distribute" | "doctor" | "explain" | "features" | "hooks" | "import" | "init" | "lint" | "list" | "new" | "providers" | "release" | "restore" | "suggest-source" | "test" | "verify";
 type DistributionSubcommand = "plan";
 
 const USAGE = [
@@ -86,6 +91,7 @@ const USAGE = [
   "       skillset restore <backup-id> [--yes|--dry-run] [--root <path>]",
   "       skillset suggest-source <generated-path> [--write --yes] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset distribute plan [name] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset providers <check|diff|update> [--yes|--dry-run] [--root <path>]",
   "       skillset features [feature-id] [--json]",
   "       skillset test [name] [--root <path>] [--source <dir>]",
   "       skillset hooks print --runner <lefthook|husky|pre-commit|git> [--pre-commit] [--pre-push]",
@@ -144,6 +150,7 @@ export async function runCli(
     newPresets,
     newScope,
     options,
+    providerSubcommand,
     rootPath,
     rootExplicit,
     releaseSubcommand,
@@ -302,6 +309,16 @@ export async function runCli(
       return;
     }
     throw new Error("skillset: expected release subcommand amend, apply, audit, or plan");
+  }
+
+  if (command === "providers") {
+    if (providerSubcommand === undefined) throw new Error("skillset: expected providers subcommand check, diff, or update");
+    const report = await runProviderMaintenance(rootPath, providerSubcommand, {
+      write: providerSubcommand === "update" && yes && !dryRun,
+    });
+    process.stdout.write(renderProviderMaintenanceReport(report));
+    if (!report.ok) process.exitCode = 1;
+    return;
   }
 
   if (command === "restore") {
@@ -673,6 +690,7 @@ interface ParsedArgs {
   readonly newPresets?: readonly string[];
   readonly newScope?: NewSourceScope;
   readonly options: SkillsetOptions;
+  readonly providerSubcommand?: ProviderMaintenanceSubcommand;
   readonly releaseSubcommand?: ReleaseSubcommand;
   readonly releaseReason?: ChangeReasonInput;
   readonly releaseRef?: string;
@@ -1160,6 +1178,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     command !== "lint" &&
     command !== "list" &&
     command !== "new" &&
+    command !== "providers" &&
     command !== "release" &&
     command !== "restore" &&
     command !== "suggest-source" &&
@@ -1167,7 +1186,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     command !== "verify"
   ) {
     throw new Error(
-        "skillset: expected command adopt, build, change, check, ci, create, diff, distribute, doctor, explain, features, hooks, import, init, lint, list, new, release, restore, suggest-source, test, or verify\n" +
+        "skillset: expected command adopt, build, change, check, ci, create, diff, distribute, doctor, explain, features, hooks, import, init, lint, list, new, providers, release, restore, suggest-source, test, or verify\n" +
         USAGE
     );
   }
@@ -1206,6 +1225,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let newName: string | undefined;
   let newPresets: readonly string[] | undefined;
   let newScope: NewSourceScope | undefined;
+  let providerSubcommand: ProviderMaintenanceSubcommand | undefined;
   let rootPath = process.cwd();
   let rootExplicit = false;
   let sourceDir: string | undefined;
@@ -1275,6 +1295,15 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       hookRunEvent = readHookRunEvent(args[index]);
       index += 1;
     }
+  }
+
+  if (command === "providers") {
+    const subcommand = args[index];
+    if (!isProviderMaintenanceSubcommand(subcommand)) {
+      throw new Error("skillset: expected providers subcommand check, diff, or update");
+    }
+    providerSubcommand = subcommand;
+    index += 1;
   }
 
   if (command === "import") {
@@ -1617,6 +1646,15 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(newPresets === undefined ? {} : { presets: newPresets }),
     ...(newScope === undefined ? {} : { scope: newScope }),
   });
+  validateProviderFlags(command, {
+    ...(buildMode === undefined ? {} : { buildMode }),
+    ...(distDir === undefined ? {} : { distDir }),
+    dryRun,
+    ...(scopes === undefined ? {} : { scopes }),
+    ...(sourceDir === undefined ? {} : { sourceDir }),
+    ...(providerSubcommand === undefined ? {} : { subcommand: providerSubcommand }),
+    yes,
+  });
 
   const options: SkillsetOptions = {
     ...(buildMode === undefined ? {} : { buildMode }),
@@ -1661,6 +1699,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(newPresets === undefined ? {} : { newPresets }),
     ...(newScope === undefined ? {} : { newScope }),
     options,
+    ...(providerSubcommand === undefined ? {} : { providerSubcommand }),
     ...(releaseSubcommand === undefined ? {} : { releaseSubcommand }),
     ...(releaseReason === undefined ? {} : { releaseReason }),
     ...(releaseRef === undefined ? {} : { releaseRef }),
@@ -1688,6 +1727,10 @@ function isChangeSubcommand(value: string | undefined): value is ChangeSubcomman
     value === "reason" ||
     value === "show" ||
     value === "status";
+}
+
+function isProviderMaintenanceSubcommand(value: string | undefined): value is ProviderMaintenanceSubcommand {
+  return value === "check" || value === "diff" || value === "update";
 }
 
 function isNewSourceKind(value: string | undefined): value is NewSourceKind {
@@ -1979,6 +2022,32 @@ function validateNewSourceFlags(
   if (source.importKind !== undefined) throw new Error("skillset: --kind is only supported with import");
   if (source.importProvider !== undefined) throw new Error("skillset: --from is only supported with import");
   if (source.kind === undefined) throw new Error("skillset: expected new kind skill, agent, or hook");
+}
+
+function validateProviderFlags(
+  command: Command,
+  provider: {
+    readonly buildMode?: CompileBuildMode;
+    readonly distDir?: string;
+    readonly dryRun: boolean;
+    readonly scopes?: readonly BuildScope[];
+    readonly sourceDir?: string;
+    readonly subcommand?: ProviderMaintenanceSubcommand;
+    readonly yes: boolean;
+  }
+): void {
+  if (command !== "providers") return;
+  if (provider.subcommand === undefined) throw new Error("skillset: expected providers subcommand check, diff, or update");
+  if (provider.buildMode !== undefined) throw new Error("skillset: providers does not support --updated or --all");
+  if (provider.distDir !== undefined) throw new Error("skillset: providers does not support --dist");
+  if (provider.scopes !== undefined) throw new Error("skillset: providers does not support --scope");
+  if (provider.sourceDir !== undefined) throw new Error("skillset: providers does not support --source");
+  if ((provider.yes || provider.dryRun) && provider.subcommand !== "update") {
+    throw new Error("skillset: --yes and --dry-run are only supported with providers update");
+  }
+  if (provider.yes && provider.dryRun) {
+    throw new Error("skillset: pass either --yes or --dry-run for providers update, not both");
+  }
 }
 
 function setBuildMode(current: CompileBuildMode | undefined, next: CompileBuildMode): CompileBuildMode {

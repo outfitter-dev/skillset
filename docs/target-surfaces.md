@@ -6,6 +6,8 @@ Refreshing is intentionally cheap but explicit: re-read the linked provider docs
 
 `@skillset/provider-formats` also records rolling-latest provider schema sources for maintainer checks: Claude Code settings, plugin manifests, marketplaces, and keybindings; Codex config, hooks config, hook event schemas, and skill metadata. Those schema snapshots store source URLs, upstream content hashes, fetched timestamps, normalized summaries, and deterministic snapshot hashes. Destination areas with no adopted JSON Schema source are represented as manual overlays linked back to the docs-backed format snapshots rather than left as silent gaps.
 
+Maintainers refresh that evidence explicitly with `skillset providers check`, `skillset providers diff`, and `skillset providers update --yes`. `check` compares adopted schema source hashes against live upstream sources, `diff` adds readable schema summary changes plus explicit manual-review rows for prose-only destination format snapshots, and `update --yes` rewrites `packages/provider-formats/src/schema-snapshots.ts` with refreshed schema summaries and provenance. Destination format snapshots are not machine-diffed until their source rows carry a machine-readable upstream baseline. Ordinary user builds, checks, and generated-output verification remain offline.
+
 Source examples use `<source-root>` where the same surface can be authored in either workspace layout. `<source-root>` is `.skillset/src/` in ordinary repos and `skillset/` in dedicated Skillset repos.
 
 ## Support vocabulary
