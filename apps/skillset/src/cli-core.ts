@@ -64,7 +64,7 @@ import {
   renderProviderFormatUpdateReport,
   runProviderFormatUpdates,
 } from "./provider-format-updates";
-import { createSkillset, initSkillset, type SetupInclude, type SetupReport } from "./setup";
+import { createSkillset, initSkillset, type SetupInclude, type SetupLayoutOption, type SetupReport } from "./setup";
 import { sourceUnitDisplay, sourceUnitDisplays, sourceUnitSelector } from "./source-unit-selector";
 import { renderValidatedJson } from "./structured-output";
 import { runSkillsetTest, type SkillsetTestReport } from "./test-runner";
@@ -105,7 +105,7 @@ const USAGE = [
   "       skillset hooks print --target <claude|codex> --agent-runtime",
   "       skillset hooks run <post-tool-use|stop> [--root <path>]",
   "       skillset adopt <path> [--yes|--dry-run] [--targets claude,codex] [--root <path>]",
-  "       skillset init [path] [--yes|--dry-run] [--targets claude,codex] [--include ci] [--name <name>] [--root <path>]",
+  "       skillset init [path] [--yes|--dry-run] [--targets claude,codex] [--include ci] [--layout root|nested] [--name <name>] [--root <path>]",
   "       skillset create [path|--global] [--yes|--dry-run] [--targets claude,codex] [--include ci] [--name <name>] [--root <path>]",
   "       skillset new <skill|agent|hook> [name] [--id <id>] [--name <name>] [--in <container>] [--scope repo] [--preset <preset>] [--yes|--dry-run] [--root <path>] [--source <dir>]",
   "       skillset explain <path> [--json] [--scope <scope>] [--root <path>] [--source <dir>]",
@@ -165,6 +165,7 @@ export async function runCli(
     releaseRef,
     setupGlobal,
     setupIncludes,
+    setupLayout,
     setupTargets,
     sourceSuggestionWrite,
     testName,
@@ -443,6 +444,7 @@ export async function runCli(
           ...(importName === undefined ? {} : { name: importName }),
           ...(setupTargets === undefined ? {} : { targets: setupTargets }),
           ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
+          ...(setupLayout === undefined ? {} : { layout: setupLayout }),
           useGitRoot: !rootExplicit && importPath === undefined,
           write: yes && !dryRun,
         })
@@ -726,6 +728,7 @@ interface ParsedArgs {
   readonly rootPath: string;
   readonly setupGlobal: boolean;
   readonly setupIncludes?: readonly SetupInclude[];
+  readonly setupLayout?: SetupLayoutOption;
   readonly setupTargets?: readonly TargetName[];
   readonly sourceSuggestionWrite: boolean;
   readonly testName?: string;
@@ -1306,6 +1309,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let scopes: readonly BuildScope[] | undefined;
   let setupGlobal = false;
   let setupIncludes: readonly SetupInclude[] | undefined;
+  let setupLayout: SetupLayoutOption | undefined;
   let setupTargets: readonly TargetName[] | undefined;
   let sourceSuggestionWrite = false;
   let testName: string | undefined;
@@ -1486,6 +1490,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--global" &&
       flag !== "--targets" &&
       flag !== "--include" &&
+      flag !== "--layout" &&
       flag !== "--fix" &&
       flag !== "--report" &&
       flag !== "--json" &&
@@ -1580,6 +1585,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     if (flag === "--target") hookTarget = readHookTarget(value);
     if (flag === "--targets") setupTargets = readSetupTargets(value);
     if (flag === "--include") setupIncludes = mergeSetupIncludes(setupIncludes, value);
+    if (flag === "--layout") setupLayout = readSetupLayout(value);
     if (flag === "--id") newId = value;
     if (flag === "--in") newContainer = value;
     if (flag === "--name") {
@@ -1636,6 +1642,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   validateSetupFlags(command, {
     global: setupGlobal,
     ...(setupIncludes === undefined ? {} : { includes: setupIncludes }),
+    ...(setupLayout === undefined ? {} : { layout: setupLayout }),
     ...(importPath === undefined ? {} : { path: importPath }),
     rootExplicit,
     ...(setupTargets === undefined ? {} : { targets: setupTargets }),
@@ -1783,6 +1790,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     rootPath: resolve(rootPath),
     setupGlobal,
     ...(setupIncludes === undefined ? {} : { setupIncludes }),
+    ...(setupLayout === undefined ? {} : { setupLayout }),
     ...(setupTargets === undefined ? {} : { setupTargets }),
     sourceSuggestionWrite,
     ...(testName === undefined ? {} : { testName }),
@@ -2193,6 +2201,11 @@ function readSetupTargets(value: string): readonly TargetName[] {
   return [...seen];
 }
 
+function readSetupLayout(value: string): SetupLayoutOption {
+  if (value === "root" || value === "nested") return value;
+  throw new Error("skillset: expected --layout root or nested");
+}
+
 function validateIsolatedFlag(command: Command, isolated: boolean): void {
   if (!isolated) return;
   if (command === "build" || command === "diff" || command === "verify") return;
@@ -2248,6 +2261,7 @@ function validateSetupFlags(
   setup: {
     readonly global: boolean;
     readonly includes?: readonly SetupInclude[];
+    readonly layout?: SetupLayoutOption;
     readonly path?: string;
     readonly rootExplicit: boolean;
     readonly targets?: readonly TargetName[];
@@ -2265,6 +2279,9 @@ function validateSetupFlags(
   if (command === "create" && setup.global && setup.includes !== undefined) {
     throw new Error("skillset: create --global does not support --include");
   }
+  if (setup.layout !== undefined && command !== "init") {
+    throw new Error("skillset: --layout is only supported with init");
+  }
   if (command === "adopt") {
     if (setup.global) throw new Error("skillset: --global is not supported with adopt");
     if (setup.includes !== undefined) throw new Error("skillset: --include is not supported with adopt");
@@ -2272,6 +2289,7 @@ function validateSetupFlags(
   }
   const hasSetupFlag = setup.global ||
     setup.includes !== undefined ||
+    setup.layout !== undefined ||
     setup.targets !== undefined;
   if (hasSetupFlag && command !== "init" && command !== "create") {
     throw new Error("skillset: setup options are only supported with init or create");

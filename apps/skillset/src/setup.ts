@@ -36,6 +36,8 @@ const DEDICATED_ROOT_OPERATIONAL_GITIGNORE =
 
 type SetupLayout = "dedicated" | "ordinary";
 
+export type SetupLayoutOption = "nested" | "root";
+
 export type SetupInclude = "ci";
 
 export interface SetupOptions {
@@ -43,6 +45,7 @@ export interface SetupOptions {
   readonly global?: boolean;
   readonly homeDir?: string;
   readonly include?: readonly SetupInclude[];
+  readonly layout?: SetupLayoutOption;
   readonly name?: string;
   readonly rootPath?: string;
   readonly targets?: readonly TargetName[];
@@ -135,7 +138,7 @@ async function applySetupPlan(
   // the repo look pre-adopted to the survey.
   const alreadyAdopted = await setupWorkspaceExists(rootPath, layout);
   const targets = normalizeTargets(options.targets);
-  const plannedFiles = setupFiles({ ...options, kind, layout, name, targets, workspaceManifestPath });
+  const plannedFiles = setupFiles({ ...options, kind, resolvedLayout: layout, name, targets, workspaceManifestPath });
   const git = await setupGit(kind, rootPath, options);
   const files: SetupFile[] = [];
 
@@ -202,7 +205,21 @@ async function resolveSetupLayout(
       "skillset: ambiguous setup workspace; found both dedicated root skillset.yaml/skillset and ordinary .skillset workspace"
     );
   }
+  if (options.layout !== undefined) {
+    const requested = setupLayoutOptionToInternal(options.layout);
+    if (requested === "dedicated" && ordinary) {
+      throw new Error("skillset: init --layout root cannot run in a repo that already has a .skillset workspace");
+    }
+    if (requested === "ordinary" && dedicated) {
+      throw new Error("skillset: init --layout nested cannot run in a repo that already has a root skillset.yaml/skillset workspace");
+    }
+    return requested;
+  }
   return dedicated ? "dedicated" : "ordinary";
+}
+
+function setupLayoutOptionToInternal(layout: SetupLayoutOption): SetupLayout {
+  return layout === "root" ? "dedicated" : "ordinary";
 }
 
 async function hasDedicatedWorkspaceMarker(rootPath: string): Promise<boolean> {
@@ -575,12 +592,12 @@ function compareCandidate(left: SetupImportCandidate, right: SetupImportCandidat
 function setupFiles(
   options: Required<Pick<SetupOptions, "name" | "targets">> & SetupOptions & {
     readonly kind: SetupReport["kind"];
-    readonly layout: SetupLayout;
+    readonly resolvedLayout: SetupLayout;
     readonly workspaceManifestPath: string;
   }
 ): readonly PlannedFile[] {
-  const sourceRoot = options.layout === "dedicated" ? DEDICATED_SOURCE_ROOT : ORDINARY_SOURCE_ROOT;
-  const changesRoot = workspaceChangesDir(options.layout === "dedicated" ? "." : ".skillset");
+  const sourceRoot = options.resolvedLayout === "dedicated" ? DEDICATED_SOURCE_ROOT : ORDINARY_SOURCE_ROOT;
+  const changesRoot = workspaceChangesDir(options.resolvedLayout === "dedicated" ? "." : ".skillset");
   const files: PlannedFile[] = [
     {
       path: options.workspaceManifestPath,
@@ -617,7 +634,7 @@ function setupFiles(
     );
   }
 
-  if (options.layout === "dedicated" && options.kind === "create" && options.global !== true) {
+  if (options.resolvedLayout === "dedicated" && options.kind === "create" && options.global !== true) {
     files.push(
       {
         path: ".gitignore",
