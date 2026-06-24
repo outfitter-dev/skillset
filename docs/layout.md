@@ -121,10 +121,9 @@ Global Skillset state uses Skillset-owned XDG directories, never provider runtim
 Per-repo global cache buckets live directly under `$XDG_CACHE_HOME/skillset/<repo-key>/`; Skillset does not add a default `repos/` layer. Repo keys resolve in this order:
 
 1. `workspace.cacheKey` from the workspace manifest, when a repo intentionally needs a stable override.
-2. Host-qualified Git remote path components, rendered as `<host>--<namespace>--<repo>` for ordinary owner/repo remotes or `<host>--<group>--<subgroup>--<repo>` for nested namespaces.
-3. Local fallback `<basename>--local-<sha12>`, where the hash is derived from the normalized host name and normalized absolute repo path.
+2. Automatic local key `<basename>--local-<sha12>`, where the hash is derived from the normalized host name and normalized absolute repo path.
 
-Most repos should not set `workspace.cacheKey`: remote-derived keys are portable, and the local fallback is deterministic for a given machine and checkout path without leaking the raw path into the cache bucket name. The local fallback is intentionally local because host names and absolute checkout paths vary across machines.
+Most repos should not set `workspace.cacheKey`: the automatic key is deterministic for a given machine and checkout path without leaking the raw path into the cache bucket name. It is intentionally local because operational cache contents belong to the concrete filesystem checkout, and host names and absolute checkout paths vary across machines.
 
 Operational cache callers keep reporting logical paths such as `.skillset/cache/latest/`, `.skillset/cache/tests/`, `.skillset/cache/adopt/`, `.skillset/cache/fixtures/`, and `.skillset/cache/reports/`. When those paths are read or written by Skillset commands, they resolve to `$XDG_CACHE_HOME/skillset/<repo-key>/latest/`, `tests/`, `adopt/`, `fixtures/`, and `reports/` respectively.
 

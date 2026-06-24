@@ -63,7 +63,7 @@ describe("XDG path helpers", () => {
 });
 
 describe("repo cache keys", () => {
-  test("uses explicit workspace cache keys before remote-derived keys", () => {
+  test("uses explicit workspace cache keys before automatic keys", () => {
     expect(resolveRepoCachePath({
       env: { XDG_CACHE_HOME: "/xdg/cache" },
       homeDir: "/home/matt",
@@ -78,51 +78,7 @@ describe("repo cache keys", () => {
     });
   });
 
-  test("derives owner repo keys from hosted git remotes", () => {
-    expect(resolveRepoCacheKey({
-      remoteUrl: "git@github.com:Acme/docs-cli.git",
-      rootPath: "/work/docs-cli",
-    })).toEqual({ key: "github.com--acme--docs-cli", source: "remote" });
-
-    expect(resolveRepoCacheKey({
-      remoteUrl: "https://github.com/Acme/docs-cli.git",
-      rootPath: "/work/docs-cli",
-    })).toEqual({ key: "github.com--acme--docs-cli", source: "remote" });
-
-    expect(resolveRepoCacheKey({
-      remoteUrl: "https://github.com/Acme/docs-cli.git/",
-      rootPath: "/work/docs-cli",
-    })).toEqual({ key: "github.com--acme--docs-cli", source: "remote" });
-  });
-
-  test("can opt out of host-qualified remote keys", () => {
-    expect(resolveRepoCacheKey({
-      hostQualified: false,
-      remoteUrl: "git@github.com:Acme/docs-cli.git",
-      rootPath: "/work/docs-cli",
-    })).toEqual({ key: "acme--docs-cli", source: "remote" });
-  });
-
-  test("qualifies remote keys by host to avoid cross-host collisions", () => {
-    expect(resolveRepoCacheKey({
-      remoteUrl: "ssh://git@gitlab.com/Acme/docs-cli.git",
-      rootPath: "/work/docs-cli",
-    })).toEqual({ key: "gitlab.com--acme--docs-cli", source: "remote" });
-  });
-
-  test("preserves nested remote namespaces in repo cache keys", () => {
-    expect(resolveRepoCacheKey({
-      remoteUrl: "https://gitlab.com/group-a/team/docs-cli.git",
-      rootPath: "/work/docs-cli",
-    })).toEqual({ key: "gitlab.com--group-a--team--docs-cli", source: "remote" });
-
-    expect(resolveRepoCacheKey({
-      remoteUrl: "https://gitlab.com/group-b/team/docs-cli.git",
-      rootPath: "/work/docs-cli",
-    })).toEqual({ key: "gitlab.com--group-b--team--docs-cli", source: "remote" });
-  });
-
-  test("uses a durable host-and-path local fallback when no canonical remote exists", () => {
+  test("uses a durable host-and-path automatic key", () => {
     const first = resolveRepoCacheKey({ hostName: "devbox.local", rootPath: "/work/private/docs-cli" });
     const second = resolveRepoCacheKey({ hostName: "devbox.local", rootPath: "/work/private/docs-cli" });
     const otherPath = resolveRepoCacheKey({ hostName: "devbox.local", rootPath: "/work/private/other" });
@@ -133,6 +89,28 @@ describe("repo cache keys", () => {
     expect(first.key).toMatch(/^docs-cli--local-[0-9a-f]{12}$/);
     expect(otherPath.key).not.toBe(first.key);
     expect(otherHost.key).not.toBe(first.key);
+  });
+
+  test("derives automatic keys from local storage identity instead of remotes", () => {
+    const github = resolveRepoCacheKey({
+      hostName: "devbox.local",
+      remoteUrl: "git@github.com:Acme/docs-cli.git",
+      rootPath: "/work/private/docs-cli",
+    });
+    const gitlab = resolveRepoCacheKey({
+      hostName: "devbox.local",
+      remoteUrl: "ssh://git@gitlab.com/Other/docs-cli.git",
+      rootPath: "/work/private/docs-cli",
+    });
+    const otherCheckout = resolveRepoCacheKey({
+      hostName: "devbox.local",
+      remoteUrl: "git@github.com:Acme/docs-cli.git",
+      rootPath: "/work/other/docs-cli",
+    });
+
+    expect(github).toEqual(gitlab);
+    expect(github.source).toBe("fallback");
+    expect(otherCheckout.key).not.toBe(github.key);
   });
 });
 

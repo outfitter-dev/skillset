@@ -7,4 +7,4 @@ id: bfa509c23eee
 scope: config:root
 ---
 
-Stop requiring self-hosted workspaces to pin workspace.cacheKey now that automatic XDG cache keys include host-qualified remotes and host/path local fallback hashes.
+Stop requiring self-hosted workspaces to pin workspace.cacheKey now that automatic XDG cache keys derive from deterministic host/path checkout identity.

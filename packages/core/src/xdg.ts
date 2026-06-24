@@ -27,8 +27,10 @@ export interface SkillsetXdgPaths {
 }
 
 export interface RepoCacheKeyOptions {
+  /** @deprecated Remote identity no longer affects operational cache bucket keys. */
   readonly hostQualified?: boolean;
   readonly hostName?: string;
+  /** @deprecated Remote identity no longer affects operational cache bucket keys. */
   readonly remoteUrl?: string;
   readonly rootPath: string;
   readonly workspaceCacheKey?: string;
@@ -44,11 +46,6 @@ export interface RepoCachePathOptions extends RepoCacheKeyOptions, SkillsetXdgOp
 export interface RepoCachePathResult extends RepoCacheKeyResult {
   readonly path: string;
   readonly xdgCacheBase: string;
-}
-
-interface ParsedRemote {
-  readonly host: string;
-  readonly pathParts: readonly string[];
 }
 
 export function readSkillsetWorkspaceConfig(record: JsonRecord, label: string): SkillsetWorkspaceConfig {
@@ -87,17 +84,6 @@ export function resolveRepoCacheKey(options: RepoCacheKeyOptions): RepoCacheKeyR
     };
   }
 
-  const remote = parseGitRemote(options.remoteUrl);
-  if (remote !== undefined) {
-    const pathKey = remote.pathParts.map((part) => slugPart(part, "git remote path")).join("--");
-    return {
-      key: options.hostQualified === false
-        ? pathKey
-        : `${slugPart(remote.host, "git remote host")}--${pathKey}`,
-      source: "remote",
-    };
-  }
-
   return {
     key: `${slugPart(basename(resolve(options.rootPath)), "repo basename")}--local-${fallbackHash(options.rootPath, options.hostName ?? hostname())}`,
     source: "fallback",
@@ -119,46 +105,6 @@ function readXdgBase(value: string | undefined, home: string, fallback: string):
     return join(home, fallback);
   }
   return value;
-}
-
-function parseGitRemote(remoteUrl: string | undefined): ParsedRemote | undefined {
-  if (remoteUrl === undefined || remoteUrl.trim().length === 0) return undefined;
-  const trimmed = remoteUrl.trim();
-  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) {
-    try {
-      const url = new URL(trimmed);
-      if (url.hostname.length === 0) return undefined;
-      return parsedRemoteFromParts(url.hostname, url.pathname);
-    } catch {
-      return undefined;
-    }
-  }
-
-  const scpLike = /^(?:[^@/:]+@)?([^/:]+):(.+)$/.exec(trimmed);
-  if (scpLike !== null) return parsedRemoteFromParts(scpLike[1], scpLike[2]);
-
-  try {
-    const url = new URL(trimmed);
-    if (url.hostname.length === 0) return undefined;
-    return parsedRemoteFromParts(url.hostname, url.pathname);
-  } catch {
-    return undefined;
-  }
-}
-
-function parsedRemoteFromParts(host: string | undefined, rawPath: string | undefined): ParsedRemote | undefined {
-  if (host === undefined || rawPath === undefined) return undefined;
-  const normalizedPath = rawPath.replace(/^\/+|\/+$/g, "");
-  const parts = normalizedPath.split("/").filter(Boolean);
-  if (parts.length < 2) return undefined;
-  const last = parts.at(-1);
-  if (last !== undefined) {
-    parts[parts.length - 1] = last.replace(/\.git$/i, "");
-  }
-  return {
-    host: host.toLowerCase(),
-    pathParts: parts,
-  };
 }
 
 function slugPart(value: string, label: string): string {
