@@ -28,7 +28,7 @@ export function evaluateChangesetGuard(changedFiles: readonly ChangedFile[]): Ch
     );
   }
 
-  if (packageFiles.length === 0 && changesetFiles.length > 0) {
+  if (packageFiles.length === 0 && changesetFiles.some(isNewStatus)) {
     diagnostics.push(
       `Changeset entries are only for published package payload changes. Remove ${summarizePaths(changesetFiles)} or include the package-facing change on this branch.`
     );
@@ -98,6 +98,10 @@ function isRuntimeSourcePath(path: string, root: string) {
 
 function isDeletedStatus(status: string | undefined) {
   return status === "D" || status === "deleted" || status === "removed";
+}
+
+function isNewStatus(file: ChangedFile) {
+  return file.status === "A" || file.status === "added";
 }
 
 function isStatusToken(value: string) {

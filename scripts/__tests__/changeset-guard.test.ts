@@ -41,6 +41,14 @@ describe("changeset guard", () => {
     expect(result.diagnostics[0]).toContain("Changeset entries are only for published package payload changes");
   });
 
+  test("allows correcting existing active changeset metadata", () => {
+    const result = evaluateChangesetGuard([{ path: ".changeset/release-plan.md", status: "M" }]);
+
+    expect(result.ok).toBe(true);
+    expect(result.packageFiles).toEqual([]);
+    expect(result.changesetFiles.map((file) => file.path)).toEqual([".changeset/release-plan.md"]);
+  });
+
   test("passes repo-only changes without a changeset", () => {
     const result = evaluateChangesetGuard([
       { path: ".github/workflows/release.yml", status: "M" },
