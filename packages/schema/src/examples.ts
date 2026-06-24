@@ -108,9 +108,6 @@ export const skillsetSchemaExamples = [
           },
         ],
       },
-      workspace: {
-        cacheKey: "example--team-skillset",
-      },
     },
   },
   {
