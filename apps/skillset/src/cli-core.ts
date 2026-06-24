@@ -1083,7 +1083,7 @@ function printAdoptReport(report: AdoptReport, reason: string): void {
   console.log(`  ${lintErrors === 0 ? "ok" : "FAIL"} lint: ${lintErrors} error(s), ${lintWarnings} warning(s)`);
   console.log(
     report.buildError === undefined
-      ? `  ok build: wrote ${report.builtFiles} generated files under .skillset/cache/latest/`
+      ? `  ok build: wrote ${report.builtFiles} generated files under logical .skillset/cache/latest/ (XDG-backed)`
       : `  FAIL build: ${report.buildError.split("\n")[0]}`
   );
   if (report.cutover.length > 0) {
