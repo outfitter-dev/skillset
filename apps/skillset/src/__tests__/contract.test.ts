@@ -1972,7 +1972,9 @@ Worker body.
   expect(result.exitCode).toBe(0);
   expect(result.stdout).toContain("pass: projection");
   expect(result.stdout).toContain("selection: primary skills demo");
-  expect(await fileExists(join(root, ".skillset/cache/tests/latest/workspace/plugins-codex/plugins/bad/.codex-plugin/plugin.json"))).toBe(false);
+  expect(
+    await fileExists(cachePath(root, ".skillset/cache/tests/latest/workspace/plugins-codex/plugins/bad/.codex-plugin/plugin.json"))
+  ).toBe(false);
 });
 
 test("SET-176: plugin skill selectors prune plugin-owned companion source", async () => {
@@ -2021,8 +2023,10 @@ COMMAND_EMITTED=yes
   const result = await runSkillsetCli("test", "self", "--root", root);
   expect(result.exitCode).toBe(0);
   expect(result.stdout).toContain("pass: projection");
-  expect(await fileExists(join(root, ".skillset/cache/tests/latest/workspace/plugins-claude/plugins/alpha/skills/demo/scripts/check.sh"))).toBe(true);
-  expect(await fileExists(join(root, ".skillset/cache/tests/latest/workspace/plugins-claude/plugins/alpha/commands/run.md"))).toBe(false);
+  expect(
+    await fileExists(cachePath(root, ".skillset/cache/tests/latest/workspace/plugins-claude/plugins/alpha/skills/demo/scripts/check.sh"))
+  ).toBe(true);
+  expect(await fileExists(cachePath(root, ".skillset/cache/tests/latest/workspace/plugins-claude/plugins/alpha/commands/run.md"))).toBe(false);
 });
 
 test("SET-179: plugin manifest checks derive selected provider manifests", async () => {
@@ -2073,21 +2077,21 @@ Demo body.
   expect(result.stdout).toContain("pass: pluginManifests");
   expect(result.stdout).toContain("selection: plugins alpha");
 
-  const report = JSON.parse(await readFile(join(root, ".skillset/cache/tests/latest/report.json"), "utf8")) as {
+  const report = JSON.parse(await readFile(cachePath(root, ".skillset/cache/tests/latest/report.json"), "utf8")) as {
     selection: { plugins: string[] };
   };
   expect(report.selection.plugins).toEqual(["alpha"]);
-  const latest = JSON.parse(await readFile(join(root, ".skillset/cache/tests/latest.json"), "utf8")) as {
+  const latest = JSON.parse(await readFile(cachePath(root, ".skillset/cache/tests/latest.json"), "utf8")) as {
     selection: { plugins: string[] };
   };
   expect(latest.selection).toEqual(report.selection);
-  const markdown = await readFile(join(root, ".skillset/cache/tests/latest/report.md"), "utf8");
+  const markdown = await readFile(cachePath(root, ".skillset/cache/tests/latest/report.md"), "utf8");
   expect(markdown).toContain("Selection: plugins alpha");
   const claudeManifest = JSON.parse(
-    await readFile(join(root, ".skillset/cache/tests/latest/workspace/plugins-claude/plugins/alpha/.claude-plugin/plugin.json"), "utf8")
+    await readFile(cachePath(root, ".skillset/cache/tests/latest/workspace/plugins-claude/plugins/alpha/.claude-plugin/plugin.json"), "utf8")
   ) as { keywords?: string[]; license?: string; name?: string; version?: string };
   const codexManifest = JSON.parse(
-    await readFile(join(root, ".skillset/cache/tests/latest/workspace/plugins-codex/plugins/alpha/.codex-plugin/plugin.json"), "utf8")
+    await readFile(cachePath(root, ".skillset/cache/tests/latest/workspace/plugins-codex/plugins/alpha/.codex-plugin/plugin.json"), "utf8")
   ) as { keywords?: string[]; license?: string; name?: string; version?: string };
   expect(claudeManifest.name).toBe("alpha-claude");
   expect(claudeManifest.version).toBe("2.3.4");
