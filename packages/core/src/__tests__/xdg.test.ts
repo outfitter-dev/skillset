@@ -82,22 +82,29 @@ describe("repo cache keys", () => {
     expect(resolveRepoCacheKey({
       remoteUrl: "git@github.com:Acme/docs-cli.git",
       rootPath: "/work/docs-cli",
-    })).toEqual({ key: "acme--docs-cli", source: "remote" });
+    })).toEqual({ key: "github.com--acme--docs-cli", source: "remote" });
 
     expect(resolveRepoCacheKey({
       remoteUrl: "https://github.com/Acme/docs-cli.git",
       rootPath: "/work/docs-cli",
-    })).toEqual({ key: "acme--docs-cli", source: "remote" });
+    })).toEqual({ key: "github.com--acme--docs-cli", source: "remote" });
 
     expect(resolveRepoCacheKey({
       remoteUrl: "https://github.com/Acme/docs-cli.git/",
       rootPath: "/work/docs-cli",
+    })).toEqual({ key: "github.com--acme--docs-cli", source: "remote" });
+  });
+
+  test("can opt out of host-qualified remote keys", () => {
+    expect(resolveRepoCacheKey({
+      hostQualified: false,
+      remoteUrl: "git@github.com:Acme/docs-cli.git",
+      rootPath: "/work/docs-cli",
     })).toEqual({ key: "acme--docs-cli", source: "remote" });
   });
 
-  test("can qualify remote keys by host to avoid cross-host collisions", () => {
+  test("qualifies remote keys by host to avoid cross-host collisions", () => {
     expect(resolveRepoCacheKey({
-      hostQualified: true,
       remoteUrl: "ssh://git@gitlab.com/Acme/docs-cli.git",
       rootPath: "/work/docs-cli",
     })).toEqual({ key: "gitlab.com--acme--docs-cli", source: "remote" });
@@ -105,27 +112,27 @@ describe("repo cache keys", () => {
 
   test("preserves nested remote namespaces in repo cache keys", () => {
     expect(resolveRepoCacheKey({
-      hostQualified: true,
       remoteUrl: "https://gitlab.com/group-a/team/docs-cli.git",
       rootPath: "/work/docs-cli",
     })).toEqual({ key: "gitlab.com--group-a--team--docs-cli", source: "remote" });
 
     expect(resolveRepoCacheKey({
-      hostQualified: true,
       remoteUrl: "https://gitlab.com/group-b/team/docs-cli.git",
       rootPath: "/work/docs-cli",
     })).toEqual({ key: "gitlab.com--group-b--team--docs-cli", source: "remote" });
   });
 
-  test("uses a durable local fallback when no canonical remote exists", () => {
-    const first = resolveRepoCacheKey({ rootPath: "/work/private/docs-cli" });
-    const second = resolveRepoCacheKey({ rootPath: "/work/private/docs-cli" });
-    const other = resolveRepoCacheKey({ rootPath: "/work/private/other" });
+  test("uses a durable host-and-path local fallback when no canonical remote exists", () => {
+    const first = resolveRepoCacheKey({ hostName: "devbox.local", rootPath: "/work/private/docs-cli" });
+    const second = resolveRepoCacheKey({ hostName: "devbox.local", rootPath: "/work/private/docs-cli" });
+    const otherPath = resolveRepoCacheKey({ hostName: "devbox.local", rootPath: "/work/private/other" });
+    const otherHost = resolveRepoCacheKey({ hostName: "laptop.local", rootPath: "/work/private/docs-cli" });
 
     expect(first).toEqual(second);
     expect(first.source).toBe("fallback");
-    expect(first.key).toMatch(/^docs-cli--[0-9a-f]{12}$/);
-    expect(other.key).not.toBe(first.key);
+    expect(first.key).toMatch(/^docs-cli--local-[0-9a-f]{12}$/);
+    expect(otherPath.key).not.toBe(first.key);
+    expect(otherHost.key).not.toBe(first.key);
   });
 });
 

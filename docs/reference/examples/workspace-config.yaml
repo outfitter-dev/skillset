@@ -66,5 +66,3 @@ supports:
       onMismatch: warn
       range: ^1.0.0
       source: repo:package.json
-workspace:
-  cacheKey: example--team-skillset

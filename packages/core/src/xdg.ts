@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { homedir } from "node:os";
+import { homedir, hostname } from "node:os";
 import { basename, isAbsolute, join, resolve } from "node:path";
 
 import { readRecord } from "./config";
@@ -28,6 +28,7 @@ export interface SkillsetXdgPaths {
 
 export interface RepoCacheKeyOptions {
   readonly hostQualified?: boolean;
+  readonly hostName?: string;
   readonly remoteUrl?: string;
   readonly rootPath: string;
   readonly workspaceCacheKey?: string;
@@ -90,15 +91,15 @@ export function resolveRepoCacheKey(options: RepoCacheKeyOptions): RepoCacheKeyR
   if (remote !== undefined) {
     const pathKey = remote.pathParts.map((part) => slugPart(part, "git remote path")).join("--");
     return {
-      key: options.hostQualified === true
-        ? `${slugPart(remote.host, "git remote host")}--${pathKey}`
-        : pathKey,
+      key: options.hostQualified === false
+        ? pathKey
+        : `${slugPart(remote.host, "git remote host")}--${pathKey}`,
       source: "remote",
     };
   }
 
   return {
-    key: `${slugPart(basename(resolve(options.rootPath)), "repo basename")}--${fallbackHash(options.rootPath)}`,
+    key: `${slugPart(basename(resolve(options.rootPath)), "repo basename")}--local-${fallbackHash(options.rootPath, options.hostName ?? hostname())}`,
     source: "fallback",
   };
 }
@@ -176,6 +177,12 @@ function validateRepoCacheKey(value: string, label: string): string {
   return trimmed;
 }
 
-function fallbackHash(rootPath: string): string {
-  return createHash("sha256").update(resolve(rootPath)).digest("hex").slice(0, FALLBACK_HASH_LENGTH);
+function fallbackHash(rootPath: string, hostName: string): string {
+  const normalizedHost = hostName.trim().toLowerCase();
+  return createHash("sha256")
+    .update(normalizedHost)
+    .update("\0")
+    .update(resolve(rootPath))
+    .digest("hex")
+    .slice(0, FALLBACK_HASH_LENGTH);
 }
