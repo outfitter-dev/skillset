@@ -1,3 +1,5 @@
+import type { SkillsetXdgOptions } from "./xdg";
+
 export type TargetName = "claude" | "codex";
 
 export type JsonScalar = boolean | null | number | string;
@@ -260,10 +262,12 @@ export interface SkillsetOptions {
   readonly buildMode?: CompileBuildMode;
   readonly scopes?: readonly BuildScope[];
   readonly distDir?: string;
-  /** Re-root every generated path under `.skillset/cache/latest`, leaving live outputs untouched. */
+  /** Re-root every generated path under the logical `.skillset/cache/latest` mirror, leaving live outputs untouched. */
   readonly isolated?: boolean;
   readonly sourceDir?: string;
   readonly targetFilter?: readonly TargetName[];
+  /** Internal/test harness override for XDG-backed operational paths. */
+  readonly xdg?: SkillsetXdgOptions;
 }
 
 export interface CheckResult {

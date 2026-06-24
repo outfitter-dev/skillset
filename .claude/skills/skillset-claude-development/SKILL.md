@@ -29,6 +29,6 @@ Use this skill when working on the local `skillset` compiler from a Claude-orien
 ## Review Focus
 
 - Schema and resolver behavior should reject ambiguous source contracts, and shared structural validation should live in `@skillset/schema` rather than parallel compiler or Workbench field lists.
-- Configured generated destination roots should never delete or write outside the repo or inside `skillset/`, `skillset/changes/`, `.skillset/cache/`, or `.skillset/snapshots/`. Skillset-owned operational output may live under `.skillset/cache/`, and recovery backups may live under `.skillset/snapshots/`.
+- Configured generated destination roots should never delete or write outside the repo or inside `skillset/`, `skillset/changes/`, `.skillset/cache/`, or `.skillset/snapshots/`. Skillset-owned operational cache paths are reported under `.skillset/cache/` but physically resolve to the repo's XDG cache bucket; recovery backups may live under `.skillset/snapshots/`.
 - Claude-specific dynamic context should not leak into Codex-enabled skills without an explicit fallback.
 - Generated skill frontmatter should stay light: `metadata.version` and `metadata.generated`.

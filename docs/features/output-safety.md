@@ -38,7 +38,7 @@ The manifest records the backup id, target path, backup path, action, reason, or
 
 `compile.build: updated` writes missing or changed generated files and removes stale managed files while leaving unchanged managed files and unmanaged neighbors alone. `compile.build: all` rewrites the selected generated files and removes stale managed files; it does not delete whole output roots or claim unmanaged neighbors.
 
-`--isolated` applies the same ownership and backup rules inside `.skillset/cache/latest/`, so a mirror build can be inspected without touching live target roots.
+`--isolated` applies the same ownership and backup rules inside the logical `.skillset/cache/latest/` mirror, backed by the repo's XDG cache bucket, so a mirror build can be inspected without touching live target roots.
 
 Generated changelogs are the currently implemented managed-output case where "just rebuild it" can discard useful author intent. When `skillset diff`, `skillset change status`, or `skillset ci` reports drift for a managed `CHANGELOG.md`, treat the edit as a source-side correction request: use `skillset change reason <@ref>` for pending wording before release, `skillset change amend <@ref>` for applied history wording after release, or `skillset release amend <@ref>` for release-event metadata. `skillset ci --fix` may still mechanically restore the projection from source, but the diagnostics should make the source-side recovery path visible first.
 

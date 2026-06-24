@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { dirname, join, relative } from "node:path";
+import { dirname, join } from "node:path";
 
-import { compareStrings, resolveInside } from "./path";
+import { compareStrings } from "./path";
 import { collectRenderResults } from "./render-result-collector";
 import { enforceRenderResultPolicy } from "./render-result-policy";
 import {
@@ -9,7 +9,14 @@ import {
   prepareOutputBackups,
   readManagedOutputState,
   withBackupSummary,
+  type OutputPathResolver,
 } from "./output-safety";
+import {
+  createOperationalPathContext,
+  logicalOperationalPath,
+  resolveOperationalPath,
+  type OperationalPathContext,
+} from "./operational-cache";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
 import { renderValidatedJson } from "./structured-output";
@@ -94,6 +101,8 @@ export async function buildSkillsetResult(
 ): Promise<SkillsetBuildResult> {
   const graph = await loadBuildGraph(rootPath, options);
   const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
+  const pathContext = operationalPathContextForGraph(rootPath, graph, options);
+  const resolveOutputPath = outputPathResolver(pathContext);
   const outPath = outPathMapper(options);
   const allRendered = await renderBuildGraph(graph);
   const scopedRendered = scopedRenderedFiles(graph, allRendered, options.scopes);
@@ -115,26 +124,26 @@ export async function buildSkillsetResult(
   const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
   const includeWorkspaceLock = includesProjectScope(options.scopes);
   const expectedPaths = new Set(rendered.map((file) => file.path));
-  const previousManagedState = await readManagedOutputState(rootPath, liveOutputRoots, includeWorkspaceLock, outPath);
-  diagnostics.push(...await diagnoseMissingManagedOutputs(rootPath, rendered, previousManagedState.paths));
+  const previousManagedState = await readManagedOutputState(rootPath, liveOutputRoots, includeWorkspaceLock, outPath, resolveOutputPath, displayPathMapper(pathContext));
+  diagnostics.push(...await diagnoseMissingManagedOutputs(rendered, previousManagedState.paths, resolveOutputPath));
 
   if (graph.root.compile.build === "all") {
     const staleManagedPaths = staleManagedOutputPaths(previousManagedState.paths, expectedPaths);
-    const safety = await prepareOutputBackups(rootPath, rendered, staleManagedPaths, previousManagedState);
+    const safety = await prepareOutputBackups(rootPath, rendered, staleManagedPaths, previousManagedState, resolveOutputPath);
     diagnostics.push(...safety.diagnostics);
 
-    const deletedPaths = await removeStaleGeneratedFiles(rootPath, new Set(staleManagedPaths), expectedPaths);
-    const writtenPaths = await writeRenderedFiles(rootPath, rendered);
+    const deletedPaths = await removeStaleGeneratedFiles(new Set(staleManagedPaths), expectedPaths, resolveOutputPath);
+    const writtenPaths = await writeRenderedFiles(rendered, resolveOutputPath);
     return buildResult(rendered, diagnostics, renderResultsWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
   }
 
-  const actualPaths = new Set(await listGeneratedFiles(rootPath, outputRoots, rendered, previousManagedState.paths));
+  const actualPaths = new Set(await listGeneratedFiles(pathContext, outputRoots, rendered, previousManagedState.paths, resolveOutputPath));
   const staleManagedPaths = staleManagedOutputPaths(previousManagedState.paths, expectedPaths).filter((path) => actualPaths.has(path));
-  const safety = await prepareOutputBackups(rootPath, rendered, staleManagedPaths, previousManagedState);
+  const safety = await prepareOutputBackups(rootPath, rendered, staleManagedPaths, previousManagedState, resolveOutputPath);
   diagnostics.push(...safety.diagnostics);
 
-  const deletedPaths = await removeStaleGeneratedFiles(rootPath, new Set(staleManagedPaths), expectedPaths);
-  const writtenPaths = await writeChangedRenderedFiles(rootPath, rendered, actualPaths);
+  const deletedPaths = await removeStaleGeneratedFiles(new Set(staleManagedPaths), expectedPaths, resolveOutputPath);
+  const writtenPaths = await writeChangedRenderedFiles(rendered, actualPaths, resolveOutputPath);
 
   return buildResult(rendered, diagnostics, renderResultsWithDiagnostics, withBackupSummary(writeSummary(writtenPaths, deletedPaths), safety.backup));
 }
@@ -165,6 +174,8 @@ export async function diffSkillsetResult(
 ): Promise<SkillsetDiffResult> {
   const graph = await loadBuildGraph(rootPath, options);
   const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
+  const pathContext = operationalPathContextForGraph(rootPath, graph, options);
+  const resolveOutputPath = outputPathResolver(pathContext);
   const outPath = outPathMapper(options);
   const allRendered = await renderBuildGraph(graph);
   const scopedRendered = scopedRenderedFiles(graph, allRendered, options.scopes);
@@ -186,11 +197,11 @@ export async function diffSkillsetResult(
   const liveOutputRoots = scopedOutputRoots(graph, options.scopes);
   const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
   const includeWorkspaceLock = includesProjectScope(options.scopes);
-  const previousManagedState = await readManagedOutputState(rootPath, liveOutputRoots, includeWorkspaceLock, outPath);
-  const actualPaths = await listGeneratedFiles(rootPath, outputRoots, rendered, previousManagedState.paths);
+  const previousManagedState = await readManagedOutputState(rootPath, liveOutputRoots, includeWorkspaceLock, outPath, resolveOutputPath, displayPathMapper(pathContext));
+  const actualPaths = await listGeneratedFiles(pathContext, outputRoots, rendered, previousManagedState.paths, resolveOutputPath);
   const actual = new Set(actualPaths);
   const staleManagedPaths = staleManagedOutputPaths(previousManagedState.paths, new Set(expected.keys())).filter((path) => actual.has(path));
-  diagnostics.push(...await diagnoseOutputBackupPreflight(rootPath, rendered, staleManagedPaths, previousManagedState));
+  diagnostics.push(...await diagnoseOutputBackupPreflight(rootPath, rendered, staleManagedPaths, previousManagedState, resolveOutputPath));
 
   const added: string[] = [];
   const changed: string[] = [];
@@ -206,7 +217,7 @@ export async function diffSkillsetResult(
       }
       continue;
     }
-    const current = await readFile(resolveInside(rootPath, file.path));
+    const current = await readFile(resolveOutputPath(file.path));
     if (!bytesEqual(current, file.content)) changed.push(file.path);
   }
   for (const path of actualPaths) {
@@ -254,6 +265,8 @@ export async function verifySkillsetResult(
 ): Promise<SkillsetVerifyResult> {
   const graph = await loadBuildGraph(rootPath, options);
   const diagnostics = [...graph.warnings.map(sourceWarningDiagnostic)];
+  const pathContext = operationalPathContextForGraph(rootPath, graph, options);
+  const resolveOutputPath = outputPathResolver(pathContext);
   const outPath = outPathMapper(options);
   const allRendered = await renderBuildGraph(graph);
   const scopedRendered = scopedRenderedFiles(graph, allRendered, options.scopes);
@@ -275,8 +288,8 @@ export async function verifySkillsetResult(
   const liveOutputRoots = scopedOutputRoots(graph, options.scopes);
   const outputRoots = mirroredOutputRoots(liveOutputRoots, outPath);
   const includeWorkspaceLock = includesProjectScope(options.scopes);
-  const previousManagedState = await readManagedOutputState(rootPath, liveOutputRoots, includeWorkspaceLock, outPath);
-  const actualPaths = await listGeneratedFiles(rootPath, outputRoots, rendered, previousManagedState.paths);
+  const previousManagedState = await readManagedOutputState(rootPath, liveOutputRoots, includeWorkspaceLock, outPath, resolveOutputPath, displayPathMapper(pathContext));
+  const actualPaths = await listGeneratedFiles(pathContext, outputRoots, rendered, previousManagedState.paths, resolveOutputPath);
   const actual = new Set(actualPaths);
   const failures: string[] = [];
   const driftDiagnostics: SkillsetDiagnostic[] = [];
@@ -295,7 +308,7 @@ export async function verifySkillsetResult(
       continue;
     }
 
-    const outputPath = resolveInside(rootPath, file.path);
+    const outputPath = resolveOutputPath(file.path);
     const current = await readFile(outputPath);
     if (!bytesEqual(current, file.content)) {
       const message = versionDriftMessage(file.path, current, file.content) ?? `stale generated file: ${file.path}`;
@@ -486,14 +499,14 @@ function isLockFilePath(path: string): boolean {
 }
 
 async function diagnoseMissingManagedOutputs(
-  rootPath: string,
   rendered: readonly RenderedFile[],
-  previousManagedPaths: ReadonlySet<string>
+  previousManagedPaths: ReadonlySet<string>,
+  resolveOutputPath: OutputPathResolver
 ): Promise<readonly SkillsetDiagnostic[]> {
   const diagnostics: SkillsetDiagnostic[] = [];
   for (const file of rendered) {
     if (!previousManagedPaths.has(file.path)) continue;
-    if (await exists(resolveInside(rootPath, file.path))) continue;
+    if (await exists(resolveOutputPath(file.path))) continue;
     diagnostics.push({
       code: "managed-output-missing",
       featureId: "output-safety",
@@ -506,12 +519,12 @@ async function diagnoseMissingManagedOutputs(
 }
 
 async function writeRenderedFiles(
-  rootPath: string,
-  rendered: readonly RenderedFile[]
+  rendered: readonly RenderedFile[],
+  resolveOutputPath: OutputPathResolver
 ): Promise<readonly string[]> {
   const writtenPaths: string[] = [];
   for (const file of rendered) {
-    const outputPath = resolveInside(rootPath, file.path);
+    const outputPath = resolveOutputPath(file.path);
     await mkdir(dirname(outputPath), { recursive: true });
     await writeFile(outputPath, file.content);
     writtenPaths.push(file.path);
@@ -520,13 +533,13 @@ async function writeRenderedFiles(
 }
 
 async function writeChangedRenderedFiles(
-  rootPath: string,
   rendered: readonly RenderedFile[],
-  actualPaths: ReadonlySet<string>
+  actualPaths: ReadonlySet<string>,
+  resolveOutputPath: OutputPathResolver
 ): Promise<readonly string[]> {
   const writtenPaths: string[] = [];
   for (const file of rendered) {
-    const outputPath = resolveInside(rootPath, file.path);
+    const outputPath = resolveOutputPath(file.path);
     if (actualPaths.has(file.path)) {
       const current = await readFile(outputPath);
       if (bytesEqual(current, file.content)) continue;
@@ -539,53 +552,75 @@ async function writeChangedRenderedFiles(
 }
 
 async function removeStaleGeneratedFiles(
-  rootPath: string,
   actualPaths: ReadonlySet<string>,
-  expectedPaths: ReadonlySet<string>
+  expectedPaths: ReadonlySet<string>,
+  resolveOutputPath: OutputPathResolver
 ): Promise<readonly string[]> {
   const deletedPaths: string[] = [];
   for (const path of actualPaths) {
     if (expectedPaths.has(path)) continue;
-    await rm(resolveInside(rootPath, path), { force: true });
+    await rm(resolveOutputPath(path), { force: true });
     deletedPaths.push(path);
   }
   return deletedPaths.sort(compareStrings);
 }
 
 async function listOutputFiles(
-  rootPath: string,
-  outputRoots: readonly string[]
+  context: OperationalPathContext,
+  outputRoots: readonly string[],
+  resolveOutputPath: OutputPathResolver
 ): Promise<readonly string[]> {
   const paths: string[] = [];
   for (const outputRoot of outputRoots) {
-    const absoluteTarget = resolveInside(rootPath, outputRoot);
+    const absoluteTarget = resolveOutputPath(outputRoot);
     if (!(await exists(absoluteTarget))) continue;
     for (const file of await collectFiles(absoluteTarget)) {
-      paths.push(relative(rootPath, file));
+      paths.push(logicalOperationalPath(context, file));
     }
   }
   return paths.sort();
 }
 
 async function listGeneratedFiles(
-  rootPath: string,
+  context: OperationalPathContext,
   outputRoots: readonly string[],
   rendered: readonly RenderedFile[],
-  previousManagedPaths: ReadonlySet<string>
+  previousManagedPaths: ReadonlySet<string>,
+  resolveOutputPath: OutputPathResolver
 ): Promise<readonly string[]> {
-  const paths = new Set(await listOutputFiles(rootPath, outputRoots));
+  const paths = new Set(await listOutputFiles(context, outputRoots, resolveOutputPath));
 
   for (const path of previousManagedPaths) {
     if (isInsideAnyOutputRoot(path, outputRoots)) continue;
-    if (await exists(resolveInside(rootPath, path))) paths.add(path);
+    if (await exists(resolveOutputPath(path))) paths.add(path);
   }
 
   for (const file of rendered) {
     if (isInsideAnyOutputRoot(file.path, outputRoots)) continue;
-    if (await exists(resolveInside(rootPath, file.path))) paths.add(file.path);
+    if (await exists(resolveOutputPath(file.path))) paths.add(file.path);
   }
 
   return [...paths].sort();
+}
+
+function outputPathResolver(context: OperationalPathContext): OutputPathResolver {
+  return (path) => resolveOperationalPath(context, path);
+}
+
+function displayPathMapper(context: OperationalPathContext): (absolutePath: string) => string {
+  return (absolutePath) => logicalOperationalPath(context, absolutePath);
+}
+
+function operationalPathContextForGraph(
+  rootPath: string,
+  graph: BuildGraph,
+  options: SkillsetOptions
+): OperationalPathContext {
+  return createOperationalPathContext(rootPath, {
+    ...(graph.root.workspace.cacheKey === undefined ? {} : { workspaceCacheKey: graph.root.workspace.cacheKey }),
+    ...(options.xdg?.env === undefined ? {} : { env: options.xdg.env }),
+    ...(options.xdg?.homeDir === undefined ? {} : { homeDir: options.xdg.homeDir }),
+  });
 }
 
 async function collectFiles(root: string): Promise<readonly string[]> {

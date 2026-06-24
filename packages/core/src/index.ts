@@ -137,6 +137,16 @@ export {
   type SkillsetXdgPaths,
 } from "./xdg";
 export {
+  createOperationalPathContext,
+  isRepoOperationalCachePath,
+  logicalOperationalPath,
+  REPO_OPERATIONAL_CACHE_ROOT,
+  resolveOperationalPath,
+  resolveRepoOperationalCachePath,
+  type OperationalCacheOptions,
+  type OperationalPathContext,
+} from "./operational-cache";
+export {
   WORKSPACE_CHANGES_DIR,
   workspaceChangeFile,
   workspaceChangesDir,

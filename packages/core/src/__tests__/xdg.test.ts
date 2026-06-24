@@ -6,6 +6,13 @@ import {
   resolveRepoCachePath,
   resolveSkillsetXdgPaths,
 } from "../xdg";
+import {
+  createOperationalPathContext,
+  isRepoOperationalCachePath,
+  logicalOperationalPath,
+  REPO_OPERATIONAL_CACHE_ROOT,
+  resolveOperationalPath,
+} from "../operational-cache";
 
 describe("XDG path helpers", () => {
   test("resolves Skillset-owned XDG bases without dot-prefixed global paths", () => {
@@ -119,6 +126,22 @@ describe("repo cache keys", () => {
     expect(first.source).toBe("fallback");
     expect(first.key).toMatch(/^docs-cli--[0-9a-f]{12}$/);
     expect(other.key).not.toBe(first.key);
+  });
+});
+
+describe("operational cache paths", () => {
+  test("maps logical repo cache paths into the repo XDG cache bucket", () => {
+    const context = createOperationalPathContext("/work/docs-cli", {
+      env: { XDG_CACHE_HOME: "/xdg/cache" },
+      homeDir: "/home/matt",
+      workspaceCacheKey: "acme--docs-cli",
+    });
+    const physicalPath = resolveOperationalPath(context, ".skillset/cache/latest/AGENTS.md");
+
+    expect(REPO_OPERATIONAL_CACHE_ROOT).toBe(".skillset/cache");
+    expect(isRepoOperationalCachePath(".skillset/cache/latest/AGENTS.md")).toBe(true);
+    expect(physicalPath).toBe("/xdg/cache/skillset/acme--docs-cli/latest/AGENTS.md");
+    expect(logicalOperationalPath(context, physicalPath)).toBe(".skillset/cache/latest/AGENTS.md");
   });
 });
 

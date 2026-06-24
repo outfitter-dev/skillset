@@ -8,9 +8,9 @@
  * exact commit. Clones live gitignored under fixtures/external/repos/ and are
  * never scanned as this repo's own source. Runs are a thin wrapper over the
  * product command: each clone is adopted in place with adoptSkillset (survey,
- * imports, lint, isolated build under .skillset/cache/latest/), then the harness
- * checks purity and round-trips and writes reports under
- * .skillset/cache/fixtures/.
+ * imports, lint, isolated build under the logical .skillset/cache/latest/),
+ * then the harness checks purity and round-trips and writes reports under the
+ * logical .skillset/cache/fixtures/ path backed by the repo's XDG cache bucket.
  *
  *   bun scripts/fixtures/external.ts sync   [name]   # reset clones pristine at pinned refs
  *   bun scripts/fixtures/external.ts update [name]   # re-pin to upstream HEAD, then sync
@@ -36,6 +36,12 @@ import type {
 import type { TargetName } from "../../apps/skillset/src/types";
 import { parseYamlRecord } from "../../apps/skillset/src/yaml";
 import { compareNormalizedOutputTrees } from "../../packages/core/src/normalized-output-tree";
+import {
+  createOperationalPathContext,
+  type OperationalPathContext,
+  resolveOperationalPath,
+} from "../../packages/core/src/operational-cache";
+import { loadBuildGraph } from "../../packages/core/src/resolver";
 
 const MANIFEST_PATH = "fixtures/external/repos.yaml";
 const CLONES_DIR = "fixtures/external/repos";
@@ -228,8 +234,8 @@ const PURITY_DETAIL_CAP = 10;
 /**
  * The purity invariant: adoption may only ever create paths under .skillset/.
  * Any other path reported by `git status` after a run is a toolchain defect.
- * (.skillset/cache/ is not gitignored in external repos, so it shows up in
- * status — that is fine, it is under .skillset/.)
+ * Older in-repo cache payloads may show up in status for pre-XDG runs; that is
+ * fine when they stay under .skillset/.
  */
 export async function checkClonePurity(
   clonePath: string
@@ -274,10 +280,11 @@ async function cleanSkillsetLeftovers(clonePath: string): Promise<void> {
 /**
  * Adopt one external repo clone in place via the product command
  * (`adoptSkillset`): survey, import every candidate (instructions included),
- * lint, and build with the isolated mirror (the projection lands under
- * .skillset/cache/latest/). The harness adds only what the product command does
- * not own: the purity invariant and the round-trip comparison of the original
- * clone against the generated Claude projection.
+ * lint, and build with the isolated mirror (reported under the logical
+ * .skillset/cache/latest/ path and stored in XDG cache). The harness adds only
+ * what the product command does not own: the purity invariant and the
+ * round-trip comparison of the original clone against the generated Claude
+ * projection.
  */
 export async function runExternalRepo(
   name: string,
@@ -286,6 +293,7 @@ export async function runExternalRepo(
 ): Promise<ExternalRunReport> {
   const stages: ExternalStageResult[] = [];
   const roundTrips: ExternalRoundTrip[] = [];
+  const cloneCacheContext = createOperationalPathContext(clonePath);
 
   await cleanSkillsetLeftovers(clonePath);
 
@@ -369,12 +377,13 @@ export async function runExternalRepo(
       item.kind === "plugin"
         ? join(ISOLATED_OUT_ROOT, "plugins-claude", "plugins", item.name)
         : join(ISOLATED_OUT_ROOT, ".claude", "skills", item.name);
+    const generatedRootPath = resolveOperationalPath(cloneCacheContext, generatedRoot);
     const originalRoot =
       item.sourcePath === "." ? clonePath : join(clonePath, item.sourcePath);
     roundTrips.push({
       comparison: await compareTrees(
         originalRoot,
-        join(clonePath, generatedRoot)
+        generatedRootPath
       ),
       generatedRoot,
       kind: item.kind,
@@ -637,11 +646,15 @@ async function main(): Promise<void> {
   }
 
   let failed = false;
+  const reportCacheContext = await operationalContextForRoot(rootPath);
   for (const entry of selected) {
     await syncRepo(rootPath, entry);
     const clonePath = join(rootPath, CLONES_DIR, entry.name);
     const report = await runExternalRepo(entry.name, clonePath, entry.targets);
-    const reportDir = join(rootPath, REPORTS_DIR, entry.name);
+    const reportDir = resolveOperationalPath(
+      reportCacheContext,
+      join(REPORTS_DIR, entry.name)
+    );
     await mkdir(reportDir, { recursive: true });
     const markdown = renderRunReportMarkdown(report, entry);
     await writeFile(join(reportDir, "report.md"), markdown);
@@ -668,6 +681,17 @@ async function main(): Promise<void> {
     if (!report.ok) {failed = true;}
   }
   if (failed) {process.exitCode = 1;}
+}
+
+async function operationalContextForRoot(rootPath: string): Promise<OperationalPathContext> {
+  try {
+    const graph = await loadBuildGraph(rootPath);
+    return createOperationalPathContext(rootPath, {
+      ...(graph.root.workspace.cacheKey === undefined ? {} : { workspaceCacheKey: graph.root.workspace.cacheKey }),
+    });
+  } catch {
+    return createOperationalPathContext(rootPath);
+  }
 }
 
 if (import.meta.main) {

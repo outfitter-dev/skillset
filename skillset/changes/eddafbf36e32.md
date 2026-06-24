@@ -2,9 +2,9 @@
 bump: patch
 evidence:
   - scope: skill:skillset-claude-development
-    sourceHash: sha256:17cacd4d34dc93ee1bb954e064504e36ed9d7e2dcdb205d1f3d5eca3dda31972
+    sourceHash: sha256:928e9f38d443121e53774dbfcb1376b2a38aa53e1872c14ced9d20d8e248210c
   - scope: skill:skillset-codex-development
-    sourceHash: sha256:789a9a1c5aa9e539131f6e7d2252409fc174f1657088fbc08c215fb8212c046a
+    sourceHash: sha256:253c1efb8bd29d2d73671bd279a676a988992b4d5b53549909d83127094e1f51
 group: SET-187
 id: eddafbf36e32
 scopes:
