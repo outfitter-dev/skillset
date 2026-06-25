@@ -23,8 +23,9 @@ This repo also self-hosts a small dedicated Skillset source tree:
 From a content repo:
 
 ```bash
-skillset init               # preview a .skillset/ source scaffold for the current repo
-skillset create             # preview a new my-skillset source repo scaffold
+skillset init               # preview a nested .skillset/ source scaffold for the current repo
+skillset init --layout root # preview root skillset.yaml + skillset/ source in the current repo
+skillset create             # preview a new root-layout my-skillset source repo
 skillset build              # plan generated changes without writing
 skillset build --yes        # write generated outputs
 skillset build --isolated   # mirror the projection under .skillset/cache/latest/ (also: verify, diff)
@@ -44,7 +45,7 @@ skillset test [name]        # run an isolated deterministic projection test
 
 See [Workbench Check](docs/features/workbench.md) for the current `check`/`verify` boundary, package-level diagnostic scopes, built-in `standard` and `strict` presets, parser/schema checks, Workbench fixtures, and the bounded ast-grep proof point.
 
-The ordinary repo default contract is:
+The default nested layout for existing repos is:
 
 - workspace root: `.skillset/`
 - workspace manifest: `.skillset/skillset.yaml`
@@ -55,7 +56,7 @@ The ordinary repo default contract is:
 - tracked change state: `.skillset/changes/`
 - repo-local operational state: `.skillset/cache/` and `.skillset/snapshots/`
 
-Dedicated Skillset repos use the same manifest shape at the repo root:
+Root-layout Skillset repos use the same manifest shape at the repo root:
 
 - workspace manifest: `skillset.yaml`
 - adaptive source root: `skillset/`
@@ -115,10 +116,11 @@ Initialize Skillset source in an existing repo:
 
 ```bash
 skillset init --root /path/to/content-repo
+skillset init --root /path/to/content-repo --layout root
 skillset init --root /path/to/content-repo --targets claude --include ci --yes
 ```
 
-`init` is the existing-repo entrypoint. It previews or writes the source scaffold, defaults to the Git root when possible, detects repo-local Claude/Codex/Skillset artifacts worth importing, and seeds release-state baselines from current source versions and normalized source hashes without creating a pending change, release, history entry, or changelog projection. That adoption pass is repo-local only; it does not scan or mutate user/global runtime directories.
+`init` is the existing-repo entrypoint. It previews or writes the nested `.skillset/` source scaffold by default, or the root layout when passed `--layout root`. The flag only chooses scaffold shape; no layout config is written because layout is detected from the filesystem. `init` defaults to the Git root when possible, detects repo-local Claude/Codex/Skillset artifacts worth importing, and seeds release-state baselines from current source versions and normalized source hashes without creating a pending change, release, history entry, or changelog projection. That adoption pass is repo-local only; it does not scan or mutate user/global runtime directories.
 
 Create a new source repo, defaulting to `my-skillset` under the current directory:
 
@@ -127,11 +129,11 @@ skillset create
 skillset create team-loadout --name team-loadout --targets claude,codex --yes
 ```
 
-`create` is the new-repo entrypoint. The current flow writes a dedicated Skillset repo scaffold into a new directory, initializes Git, and adds README plus lightweight agent guidance. SET-54 tracks the richer create-project experience: provide starter source files and eventually offer reviewed Claude/Codex configuration suggestions while still avoiding implicit live runtime config mutation.
+`create` is the new-repo entrypoint. The current flow writes a root-layout Skillset repo scaffold into a new directory, initializes Git, and adds README plus lightweight agent guidance. SET-54 tracks the richer create-project experience: provide starter source files and eventually offer reviewed Claude/Codex configuration suggestions while still avoiding implicit live runtime config mutation.
 
 For a user-global source checkout, `skillset create --global` defaults to `~/.skillset/src`. This is still Skillset-owned source, not a live Claude or Codex runtime directory. Setup does not create a global preview/cache area yet and does not write to `~/.claude`, `~/.codex`, or `.agents`. The published package requires Bun and ships Bun-built JavaScript bins for `skillset` and `create-skillset`; stable releases run from the default npm dist-tag with commands such as `npx skillset create` or `bunx skillset create`. Prerelease builds remain available through their explicit tag, such as `skillset@beta`. Setup still routes through the same plan-first `create` flow.
 
-Setup commands create source and repo-local operational ignore scaffolds only. Ordinary `init` creates `.skillset/skillset.yaml`, `.skillset/src/.gitkeep`, placeholders for the main source families under `.skillset/src/`, `.skillset/changes/.gitkeep`, and `.skillset/` ignore sentinels for cache and snapshots. Dedicated `init` validates root `skillset.yaml` and `skillset/`, adds missing `skillset/` source placeholders plus `skillset/changes/.gitkeep`, and creates the same `.skillset/` operational sentinels without creating `.skillset/skillset.yaml`. Dedicated `create` writes root `skillset.yaml`, root `skillset/` placeholders, `skillset/changes/`, root `skillset.lock`, `.skillset/` operational sentinels, a root `.gitignore` that ignores cache/snapshot contents while preserving sentinel files, README, and lightweight agent guidance. `--include ci` adds an optional user-owned GitHub Actions workflow. Generated manifests use `compile.targets`, keep source identity under `skillset`, and keep target adapter config in `claude` and `codex` blocks or root `defaults.<target>.<surface>`.
+Setup commands create source and repo-local operational ignore scaffolds only. Nested `init` creates `.skillset/skillset.yaml`, `.skillset/src/.gitkeep`, placeholders for the main source families under `.skillset/src/`, `.skillset/changes/.gitkeep`, and `.skillset/` ignore sentinels for cache and snapshots. Root-layout `init --layout root` creates or validates root `skillset.yaml` and `skillset/`, adds missing `skillset/` source placeholders plus `skillset/changes/.gitkeep`, and creates the same `.skillset/` operational sentinels without creating `.skillset/skillset.yaml`. Root-layout `create` writes root `skillset.yaml`, root `skillset/` placeholders, `skillset/changes/`, root `skillset.lock`, `.skillset/` operational sentinels, a root `.gitignore` that ignores cache/snapshot contents while preserving sentinel files, README, and lightweight agent guidance. `--include ci` adds an optional user-owned GitHub Actions workflow. Generated manifests use `compile.targets`, keep source identity under `skillset`, and keep target adapter config in `claude` and `codex` blocks or root `defaults.<target>.<surface>`.
 
 ## Import
 

@@ -5819,6 +5819,44 @@ test("SET-27: init previews by default and writes only with confirmation", async
   expect(await fileExists(join(root, ".agents"))).toBe(false);
 });
 
+test("SET-209: init can opt into root layout without recording layout config", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-setup-root-layout-"));
+
+  const preview = await runSkillsetCli("init", "--root", root, "--layout", "root");
+  expect(preview.exitCode).toBe(0);
+  expect(preview.stdout).toContain("+ skillset.yaml");
+  expect(preview.stdout).toContain("+ skillset/.gitkeep");
+  expect(preview.stdout).toContain("+ skillset/changes/.gitkeep");
+  expect(preview.stdout).not.toContain(".skillset/skillset.yaml");
+  expect(await fileExists(join(root, "skillset.yaml"))).toBe(false);
+
+  const written = await runSkillsetCli("init", "--root", root, "--layout", "root", "--yes");
+  expect(written.exitCode).toBe(0);
+  const config = await readFile(join(root, "skillset.yaml"), "utf8");
+  expect(config).toContain("skillset:");
+  expect(config).not.toContain("layout:");
+  expect(await fileExists(join(root, "skillset/.gitkeep"))).toBe(true);
+  expect(await fileExists(join(root, "skillset/changes/.gitkeep"))).toBe(true);
+  expect(await fileExists(join(root, ".skillset/skillset.yaml"))).toBe(false);
+  expect(await fileExists(join(root, ".skillset/cache/.gitignore"))).toBe(true);
+});
+
+test("SET-209: init layout opt-in refuses opposite existing workspace markers", async () => {
+  const ordinary = await contractFixture({
+    ".skillset/skillset.yaml": "skillset:\n  name: ordinary\n",
+  });
+  const rootInOrdinary = await runSkillsetCli("init", "--root", ordinary, "--layout", "root");
+  expect(rootInOrdinary.exitCode).toBe(1);
+  expect(rootInOrdinary.stderr).toContain("init --layout root cannot run in a repo that already has a .skillset workspace");
+
+  const dedicated = await contractFixture({
+    "skillset.yaml": "skillset:\n  name: dedicated\n",
+  });
+  const nestedInDedicated = await runSkillsetCli("init", "--root", dedicated, "--layout", "nested");
+  expect(nestedInDedicated.exitCode).toBe(1);
+  expect(nestedInDedicated.stderr).toContain("init --layout nested cannot run in a repo that already has a root skillset.yaml/skillset workspace");
+});
+
 test("SET-27: init scaffolds optional CI only when requested", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-setup-shaped-"));
 
@@ -6285,6 +6323,10 @@ test("SET-27: setup-only flags fail loudly outside their setup command", async (
   const initGlobal = await runSkillsetCli("init", "--global");
   expect(initGlobal.exitCode).toBe(1);
   expect(initGlobal.stderr).toContain("--global is only supported with create");
+
+  const createLayout = await runSkillsetCli("create", "--layout", "nested");
+  expect(createLayout.exitCode).toBe(1);
+  expect(createLayout.stderr).toContain("--layout is only supported with init");
 
   const buildTargets = await runSkillsetCli("build", "--targets", "claude");
   expect(buildTargets.exitCode).toBe(1);
