@@ -6,6 +6,8 @@ Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
 Hooks are rendered definitions only. Skillset never installs, trusts, enables, or mutates user-level Claude or Codex configuration as a side effect of build, check, diff, import, init, or create.
 
+For the planned portable source model above native aggregate pass-through, see [Adaptive Hooks](adaptive-hooks.md).
+
 ## Authoring
 
 The canonical plugin hook source is `<source-root>/plugins/<plugin>/hooks/hooks.json`. `<source-root>` is `.skillset/src/` in ordinary repos and `skillset/` in dedicated Skillset repos. Plugin-root `hooks.json` is rejected; put hook definitions under `hooks/hooks.json`.
