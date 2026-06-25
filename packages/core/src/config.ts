@@ -28,6 +28,7 @@ export type FeatureSurface = "agents" | "instructions" | "plugins" | "skills";
 
 const DEFAULT_SURFACES = new Set<FeatureSurface>(["agents", "instructions", "plugins", "skills"]);
 const CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "changes", "claude", "codex", "defaults", "dependencies", "skillset", "supports"]);
+const PLUGIN_CONFIG_TOP_LEVEL_KEYS = new Set([...CONFIG_TOP_LEVEL_KEYS, "hooks"]);
 const ROOT_CONFIG_TOP_LEVEL_KEYS = new Set([...CONFIG_TOP_LEVEL_KEYS, "compile", "distributions", "workspace"]);
 const WORKSPACE_CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "changes", "claude", "codex", "compile", "defaults", "dependencies", "distributions", "workspace"]);
 const ROOT_SOURCE_MANIFEST_TOP_LEVEL_KEYS = new Set(["dependencies", "skillset", "supports"]);
@@ -55,6 +56,7 @@ const SOURCE_ONLY_KEYS = new Set([
   "distributions",
   "dialect",
   "implicit_invocation",
+  "hooks",
   "mcp",
   "model",
   "resources",
@@ -267,9 +269,13 @@ export function readDistributionConfig(
 export function validateConfigDocument(
   record: JsonRecord,
   label: string,
-  options: { readonly allowCompile?: boolean; readonly featureKeys?: readonly string[] } = {}
+  options: { readonly allowCompile?: boolean; readonly allowHooks?: boolean; readonly featureKeys?: readonly string[] } = {}
 ): void {
-  const supportedKeys = options.allowCompile === true ? ROOT_CONFIG_TOP_LEVEL_KEYS : CONFIG_TOP_LEVEL_KEYS;
+  const supportedKeys = options.allowCompile === true
+    ? ROOT_CONFIG_TOP_LEVEL_KEYS
+    : options.allowHooks === true
+      ? PLUGIN_CONFIG_TOP_LEVEL_KEYS
+      : CONFIG_TOP_LEVEL_KEYS;
   const featureKeys = new Set(options.featureKeys ?? []);
   if (options.allowCompile === true) {
     validateWorkspaceSchemaDocument(record, label, supportedKeys, "top-level");
