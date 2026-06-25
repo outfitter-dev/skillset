@@ -25,6 +25,13 @@ export {
   type SkillsetDiffResult,
 } from "./build";
 export {
+  readHookAttachments,
+  resolveAdaptiveHookAttachments,
+  type AdaptiveHookAttachmentIssue,
+  type AdaptiveHookResolution,
+  type ResolvedAdaptiveHookAttachment,
+} from "./adaptive-hook-attachments";
+export {
   assertAdapterConformance,
   checkAdapterConformance,
   formatAdapterConformanceReport,
@@ -183,8 +190,12 @@ export {
   workspaceChangesDir,
 } from "./workspace-state";
 export type {
+  AdaptiveHookScope,
+  AdaptiveHookScopeKind,
   LintIssue,
   LintResult,
+  SourceAdaptiveHook,
+  SourceHookAttachment,
 } from "./types";
 export {
   RENDER_RESULT_SCHEMA,

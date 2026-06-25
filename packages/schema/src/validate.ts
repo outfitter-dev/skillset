@@ -70,6 +70,7 @@ export function validateSkillFrontmatter(value: unknown, path = "$"): SkillsetSc
   checkOptionalStringOrPositiveInteger(value.schema, `${path}.schema`, "schema/skill-frontmatter/schema", diagnostics);
   checkTargetBlock(value.claude, `${path}.claude`, "schema/skill-frontmatter/target", diagnostics);
   checkTargetBlock(value.codex, `${path}.codex`, "schema/skill-frontmatter/target", diagnostics);
+  checkHookAttachments(value.hooks, `${path}.hooks`, "schema/skill-frontmatter/hooks", diagnostics);
   checkImplicitInvocation(value.implicit_invocation, `${path}.implicit_invocation`, diagnostics);
   checkAllowedTools(value.allowed_tools, `${path}.allowed_tools`, diagnostics);
   checkOptionalObject(value.tool_intent, `${path}.tool_intent`, "schema/skill-frontmatter/tool-intent", diagnostics);
@@ -93,6 +94,7 @@ export function validateAgentFrontmatter(value: unknown, path = "$"): SkillsetSc
   checkOptionalNonEmptyStringArray(value.skills, `${path}.skills`, "schema/agent-frontmatter/skills", diagnostics);
   checkTargetBlock(value.claude, `${path}.claude`, "schema/agent-frontmatter/target", diagnostics);
   checkTargetBlock(value.codex, `${path}.codex`, "schema/agent-frontmatter/target", diagnostics);
+  checkHookAttachments(value.hooks, `${path}.hooks`, "schema/agent-frontmatter/hooks", diagnostics);
   checkSourceMetadata(value.skillset, `${path}.skillset`, diagnostics);
   checkSupports(value.supports, `${path}.supports`, diagnostics);
   return result(diagnostics);
@@ -504,6 +506,70 @@ function checkHookHandlers(handlers: readonly SchemaJsonValue[], event: string, 
     ) {
       diagnostics.push(diagnostic(`${handlerPath}.timeout`, "schema/hook/handler-timeout", `hook event ${event} timeout must be a non-negative integer when present`));
     }
+  }
+}
+
+function checkHookAttachments(value: SchemaJsonValue | undefined, path: string, code: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (value === undefined) return;
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, code, "hooks must be an object keyed by event name or auto"));
+    return;
+  }
+  for (const [event, entries] of Object.entries(value).sort(([left], [right]) => left.localeCompare(right))) {
+    if (event.trim().length === 0) {
+      diagnostics.push(diagnostic(`${path}.${event}`, code, "hook attachment event names must be non-empty"));
+    }
+    if (!Array.isArray(entries) || entries.length === 0) {
+      diagnostics.push(diagnostic(`${path}.${event}`, code, "hook attachment entries must be a non-empty array"));
+      continue;
+    }
+    for (const [index, entry] of entries.entries()) {
+      checkHookAttachmentEntry(entry, `${path}.${event}[${index}]`, code, diagnostics);
+    }
+  }
+}
+
+function checkHookAttachmentEntry(value: SchemaJsonValue | undefined, path: string, code: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (typeof value === "string") {
+    if (value.trim().length === 0) diagnostics.push(diagnostic(path, code, "hook attachment references must be non-empty strings"));
+    return;
+  }
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, code, "hook attachment entries must be strings or objects"));
+    return;
+  }
+  checkAllowedKeys(value, new Set(["hook", "match", "providers", "status"]), path, `${code}-key`, diagnostics);
+  if (typeof value.hook !== "string" || value.hook.trim().length === 0) {
+    diagnostics.push(diagnostic(`${path}.hook`, code, "hook attachment objects must include a non-empty hook"));
+  }
+  checkHookAttachmentMatch(value.match, `${path}.match`, code, diagnostics);
+  checkHookAttachmentProviders(value.providers, `${path}.providers`, code, diagnostics);
+  checkOptionalNonEmptyString(value.status, `${path}.status`, code, diagnostics);
+}
+
+function checkHookAttachmentMatch(value: SchemaJsonValue | undefined, path: string, code: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (value !== undefined && typeof value !== "string" && !isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, code, "hook attachment match must be a string or object when present"));
+  }
+  if (typeof value === "string" && value.trim().length === 0) {
+    diagnostics.push(diagnostic(path, code, "hook attachment match must be non-empty when present"));
+  }
+}
+
+function checkHookAttachmentProviders(value: SchemaJsonValue | undefined, path: string, code: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (value === undefined) return;
+  if (!Array.isArray(value) || value.length === 0) {
+    diagnostics.push(diagnostic(path, code, "hook attachment providers must be a non-empty array when present"));
+    return;
+  }
+  const seen = new Set<string>();
+  for (const [index, item] of value.entries()) {
+    if (typeof item !== "string" || !targetNames.has(item)) {
+      diagnostics.push(diagnostic(`${path}[${index}]`, code, "hook attachment providers entries must be claude or codex"));
+      continue;
+    }
+    if (seen.has(item)) diagnostics.push(diagnostic(`${path}[${index}]`, `${code}-duplicate`, `duplicate hook attachment provider ${item}`));
+    seen.add(item);
   }
 }
 

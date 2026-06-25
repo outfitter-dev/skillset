@@ -379,6 +379,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
       docs("docs/features/adaptive-hooks.md"),
       source("packages/core/src/hook-capabilities.ts"),
       source("packages/schema/src/contracts.ts"),
+      test("packages/core/src/__tests__/adaptive-hook-attachments.test.ts", "SET-118 hook attachment parsing and nearest-first resolution coverage"),
       test("packages/core/src/__tests__/hook-capabilities.test.ts", "SET-117 provider capability and adaptive unit path coverage"),
       test("packages/schema/src/__tests__/schema.test.ts", "SET-117 adaptive hook source contract coverage"),
     ],

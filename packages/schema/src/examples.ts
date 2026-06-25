@@ -180,6 +180,20 @@ export const skillsetSchemaExamples = [
       },
       description: "Use when working with the docs CLI.",
       dialect: "claude",
+      hooks: {
+        PreToolUse: ["shell-policy"],
+        Stop: [
+          {
+            hook: "source-change-guard",
+            match: {
+              tool: ["Bash"],
+            },
+            providers: ["claude", "codex"],
+            status: "Checking shell changes",
+          },
+        ],
+        auto: ["session-metadata"],
+      },
       implicit_invocation: {
         claude: true,
         codex: false,
@@ -233,6 +247,9 @@ export const skillsetSchemaExamples = [
         model: "gpt-5.1-codex",
       },
       description: "Use this agent for release review.",
+      hooks: {
+        auto: ["session-metadata"],
+      },
       initialPrompt: "Review the release notes before changing code.",
       metadata: {
         generated: "skillset-schema@0.1.0",

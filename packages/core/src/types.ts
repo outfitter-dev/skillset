@@ -97,10 +97,40 @@ export interface PluginConfig {
  */
 export type SourceDialect = "claude";
 
+export type AdaptiveHookScopeKind = "agent" | "plugin" | "root" | "skill";
+
+export interface AdaptiveHookScope {
+  readonly agentId?: string;
+  readonly kind: AdaptiveHookScopeKind;
+  readonly pluginId?: string;
+  readonly skillId?: string;
+}
+
+export interface SourceHookAttachment {
+  readonly event?: string;
+  readonly hook: string;
+  readonly match?: JsonValue;
+  readonly providers?: readonly TargetName[];
+  readonly scope: AdaptiveHookScope;
+  readonly sourcePath: string;
+  readonly status?: string;
+}
+
+export interface SourceAdaptiveHook {
+  readonly events: readonly string[];
+  readonly frontmatter: JsonRecord;
+  readonly name: string;
+  readonly providers?: readonly TargetName[];
+  readonly scope: AdaptiveHookScope;
+  readonly sourcePath: string;
+}
+
 export interface SourceSkill {
+  readonly adaptiveHooks: readonly SourceAdaptiveHook[];
   readonly body: string;
   readonly dialect?: SourceDialect;
   readonly frontmatter: JsonRecord;
+  readonly hookAttachments: readonly SourceHookAttachment[];
   readonly id: string;
   readonly metadata: JsonRecord;
   readonly relativePath: string;
@@ -127,6 +157,7 @@ export interface SourcePluginDependency {
 }
 
 export interface SourcePlugin {
+  readonly adaptiveHooks: readonly SourceAdaptiveHook[];
   readonly configPath: string;
   readonly dependencies: readonly SourcePluginDependency[];
   readonly features: readonly SourcePluginFeature[];
@@ -170,9 +201,11 @@ export interface SourceIslandFile {
 }
 
 export interface SourceProjectAgent {
+  readonly adaptiveHooks: readonly SourceAdaptiveHook[];
   readonly body: string;
   readonly filename: string;
   readonly frontmatter: JsonRecord;
+  readonly hookAttachments: readonly SourceHookAttachment[];
   readonly name: string;
   readonly outputName: string;
   readonly relativePath: string;
@@ -194,6 +227,8 @@ export interface TargetOutputConfig {
 }
 
 export interface BuildGraph {
+  readonly adaptiveHooks: readonly SourceAdaptiveHook[];
+  readonly hookAttachments: readonly SourceHookAttachment[];
   /** The source subdirectory instructions were loaded from. */
   readonly instructionsDir: string;
   readonly outputRoots: readonly string[];

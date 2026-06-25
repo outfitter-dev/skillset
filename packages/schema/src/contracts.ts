@@ -55,6 +55,7 @@ export const COMMON_FRONTMATTER_KEYS = [
   "dependencies",
   "description",
   "dialect",
+  "hooks",
   "implicit_invocation",
   "mcp",
   "metadata",
@@ -74,6 +75,7 @@ export const AGENT_FRONTMATTER_KEYS = [
   "claude",
   "codex",
   "description",
+  "hooks",
   "initialPrompt",
   "metadata",
   "model",
@@ -139,6 +141,7 @@ export const skillFrontmatterContract = contract("skill-frontmatter", "Skill Fro
     description: nonEmptyStringSchema(),
     dialect: { enum: ["claude"], type: "string" },
     implicit_invocation: implicitInvocationSchema(),
+    hooks: hookAttachmentSchema(),
     mcp: targetFeatureSchema(),
     metadata: generatedMetadataSchema(),
     model: nonEmptyStringSchema(),
@@ -166,6 +169,7 @@ export const agentFrontmatterContract = contract("agent-frontmatter", "Agent Fro
     claude: targetOverrideSchema(),
     codex: targetOverrideSchema(),
     description: nonEmptyStringSchema(),
+    hooks: hookAttachmentSchema(),
     initialPrompt: nonEmptyStringSchema(),
     metadata: generatedMetadataSchema(),
     model: nonEmptyStringSchema(),
@@ -410,6 +414,33 @@ function resourceDeclarationSchema(): SchemaJsonRecord {
         type: "object",
       },
     ],
+  };
+}
+
+function hookAttachmentSchema(): SchemaJsonRecord {
+  const attachmentObject = strictObjectSchema({
+    hook: nonEmptyStringSchema(),
+    match: {
+      anyOf: [
+        nonEmptyStringSchema(),
+        { type: "object" },
+      ],
+    },
+    providers: arraySchema(enumSchema(TARGET_NAMES), { minItems: 1, uniqueItems: true }),
+    status: nonEmptyStringSchema(),
+  });
+  const attachmentEntry: SchemaJsonRecord = {
+    anyOf: [
+      nonEmptyStringSchema(),
+      attachmentObject,
+    ],
+  };
+  return {
+    additionalProperties: arraySchema(attachmentEntry),
+    properties: {
+      auto: arraySchema(attachmentEntry),
+    },
+    type: "object",
   };
 }
 

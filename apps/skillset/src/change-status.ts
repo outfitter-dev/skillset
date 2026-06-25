@@ -1193,6 +1193,7 @@ function regionsForRecord(record: JsonRecord): readonly SourceUnitRegion[] {
   }
   if (record.mcp !== undefined) regions.push({ name: "mcp", severityBearing: true });
   if (record.bin !== undefined) regions.push({ name: "bin", severityBearing: true });
+  if (record.hooks !== undefined) regions.push({ name: "hooks", severityBearing: true });
   return regions.sort((left, right) => compareStrings(left.name, right.name));
 }
 

@@ -3,6 +3,9 @@ claude:
 codex:
   model: gpt-5.1-codex
 description: Use this agent for release review.
+hooks:
+  auto:
+    - session-metadata
 initialPrompt: Review the release notes before changing code.
 metadata:
   generated: skillset-schema@0.1.0
