@@ -42,7 +42,7 @@ Adaptive hook `run.script` references have two source-backed forms:
 
 Flat hook units such as `hooks/<name>.json` cannot use `./...` hook-local scripts because they do not own a private sidecar directory. Use a directory hook unit for colocated sidecars or `{{scripts.dir}}/...` for owner-level shared scripts.
 
-The current compiler validates that these script references resolve to source files and records the source facts for later rendering. Provider-native command rewriting and output path proof land with adaptive rendering.
+The current compiler validates that these script references resolve to source files and records the source facts for rendering. Plugin-level adaptive hook rendering copies referenced scripts into the generated plugin root and rewrites commands to provider runtime roots: `$CLAUDE_PLUGIN_ROOT` for Claude plugin hooks and `$PLUGIN_ROOT` for Codex plugin hooks.
 
 ## Attachments
 
@@ -62,7 +62,22 @@ hooks:
     - session-metadata
 ```
 
+Plugin-level attachments live in the plugin `skillset.yaml` next to plugin metadata:
+
+```yaml
+skillset:
+  name: source-guard
+hooks:
+  PreToolUse:
+    - hook: shell-policy
+      match: Bash
+      status: Checking shell command
+      providers: [claude, codex]
+```
+
 `hooks.auto` expands from the hook definition's declared events. Attachment-level matchers can narrow a definition but cannot broaden its declared event, matcher, handler, or provider support.
+
+The first implemented render slice supports plugin-level command hooks. When a plugin attachment resolves to a provider-compatible adaptive hook, Skillset writes provider-native `hooks/hooks.json` into the generated Claude and Codex plugin outputs and declares `hooks` in the plugin manifest. Skill-local, agent-local, project/root, degraded, skipped, and unsupported destination reporting remain later SET-119/SET-121 work.
 
 Resolution is nearest-first for named hook references:
 
@@ -139,7 +154,7 @@ The implementation stack should stay small enough to review:
 
 - SET-117 defines the adaptive hook unit schema and provider/destination capability registry. It should seed registry data from official provider docs plus Codex generated schemas, then add fixtures for capability proof.
 - SET-118 adds event-keyed attachments, `hooks.auto`, provider scoping, and nearest-first resolution.
-- SET-119 renders adaptive hooks to provider-native outputs and component frontmatter, using structured render results for transformed, degraded, skipped, and unsupported destinations.
+- SET-119 renders adaptive hooks to provider-native outputs and component frontmatter. The first implemented slice writes plugin-level command hooks to Claude and Codex plugin `hooks/hooks.json`; later slices add skill/agent surfaces and structured render results for transformed, degraded, skipped, and unsupported destinations.
 - SET-127 handles hook-adjacent scripts, `bin`, and stable runtime variables only after SET-117 has encoded the path-proof requirements.
 
 The first merged slice should make provider capability facts inspectable and testable before rendering new hook output.
