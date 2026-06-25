@@ -1,0 +1,64 @@
+{
+  "buildMode": "updated",
+  "features": {
+    "promptArguments": true
+  },
+  "generatedBy": "skillset@0.1.0",
+  "items": [
+    {
+      "files": [
+        "review-notes/SKILL.md"
+      ],
+      "kind": "standalone-skill",
+      "name": "review-notes",
+      "outputHash": "sha256:3d4603be9f58779fb68e36a053c6904842c7428d6741730152418738d85cd225",
+      "outputPath": "review-notes/SKILL.md",
+      "sourceHash": "sha256:92a42f2bc84eb8ee48fb7de681edc3c268b53b5410503061fe297a727e38f996",
+      "sourcePath": "skillset/skills/review-notes/SKILL.md",
+      "version": "0.1.0"
+    }
+  ],
+  "outputRoot": ".claude/skills",
+  "renderResults": [
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/features/skills.md"
+        },
+        {
+          "kind": "provider-overlay",
+          "note": "Claude skill structure is currently documented in prose; no adopted JSON Schema source is available.",
+          "ref": "claude-skill-frontmatter-overlay"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:a67aece088a7d8b3baa57791ab66796f2479b207ddb1d01296fed73f99bae4bc",
+          "ref": "claude-skill",
+          "verifiedAt": "2026-06-23"
+        }
+      ],
+      "featureId": "standalone-skills",
+      "outputs": [
+        {
+          "kind": "standalone-skill",
+          "path": ".claude/skills/review-notes/SKILL.md"
+        }
+      ],
+      "schema": "skillset-render-result@1",
+      "sourcePath": "skillset/skills/review-notes/SKILL.md",
+      "sourceUnit": "skill:review-notes",
+      "status": "rendered",
+      "target": "claude"
+    }
+  ],
+  "schemaVersion": 1,
+  "selectedTargets": [
+    "claude",
+    "codex"
+  ],
+  "skillsetMetadata": true,
+  "sourceRoot": "skillset",
+  "target": "claude"
+}

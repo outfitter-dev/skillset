@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=../../docs/reference/schemas/0.1.0/workspace-config.schema.json
+compile:
+  targets:
+    - claude
+    - codex
+skillset:
+  name: first-author-example
+  description: A small source-first example for the first Skillset authoring loop.

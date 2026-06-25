@@ -1,0 +1,53 @@
+{
+  "buildMode": "updated",
+  "features": {
+    "promptArguments": true
+  },
+  "generatedBy": "skillset@0.1.0",
+  "items": [
+    {
+      "files": [
+        "team-guidance.md"
+      ],
+      "kind": "rule",
+      "name": "team-guidance",
+      "outputHash": "sha256:cd5d7034ffee7a774c1c05a6795d17f0409b18e4ec4b26ad3264e6bf2dfe5f11",
+      "outputPath": "team-guidance.md",
+      "sourceHash": "sha256:2e215a4d72c736d56398118085513561c63e56588ac045aea4cfc7e4b363da9a",
+      "sourcePath": "skillset/rules/team-guidance.md",
+      "version": "0.1.0"
+    }
+  ],
+  "outputRoot": ".claude/rules",
+  "renderResults": [
+    {
+      "destination": "instruction",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/features/instructions.md"
+        }
+      ],
+      "featureId": "project-instructions",
+      "outputs": [
+        {
+          "kind": "rule",
+          "path": ".claude/rules/team-guidance.md"
+        }
+      ],
+      "schema": "skillset-render-result@1",
+      "sourcePath": "skillset/rules/team-guidance.md",
+      "sourceUnit": "instruction:team-guidance",
+      "status": "transformed",
+      "target": "claude"
+    }
+  ],
+  "schemaVersion": 1,
+  "selectedTargets": [
+    "claude",
+    "codex"
+  ],
+  "skillsetMetadata": true,
+  "sourceRoot": "skillset",
+  "target": "claude"
+}

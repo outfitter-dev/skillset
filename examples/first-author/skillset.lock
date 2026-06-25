@@ -1,0 +1,30 @@
+{
+  "buildMode": "updated",
+  "features": {
+    "promptArguments": true
+  },
+  "generatedBy": "skillset@0.1.0",
+  "items": [
+    {
+      "files": [
+        "AGENTS.md"
+      ],
+      "kind": "rule",
+      "name": "AGENTS.md",
+      "outputHash": "sha256:6f376ee87154eb883094d55183e4cfc560e8c71021167bc74c19462eb5624400",
+      "outputPath": "AGENTS.md",
+      "sourceHash": "sha256:2e215a4d72c736d56398118085513561c63e56588ac045aea4cfc7e4b363da9a",
+      "sourcePath": "skillset/rules",
+      "version": "0.1.0"
+    }
+  ],
+  "outputRoot": ".",
+  "schemaVersion": 1,
+  "selectedTargets": [
+    "claude",
+    "codex"
+  ],
+  "skillsetMetadata": true,
+  "sourceRoot": "skillset",
+  "target": "workspace"
+}

@@ -12,6 +12,10 @@ skillset create my-skillset --yes
 cd my-skillset
 ```
 
+Prefer to inspect a complete tiny source tree first? See the
+[First Author Example](../examples/first-author/README.md), which includes one
+skill and one instruction rule that build to Claude and Codex.
+
 For an existing content repo, stay in that repo and initialize the default
 nested `.skillset/` source layout:
 
