@@ -77,7 +77,7 @@ hooks:
 
 `hooks.auto` expands from the hook definition's declared events. Attachment-level matchers can narrow a definition but cannot broaden its declared event, matcher, handler, or provider support.
 
-The first implemented render slice supports plugin-level command hooks. When a plugin attachment resolves to a provider-compatible adaptive hook, Skillset writes provider-native `hooks/hooks.json` into the generated Claude and Codex plugin outputs and declares `hooks` in the plugin manifest. Skill-local, agent-local, project/root, degraded, skipped, and unsupported destination reporting remain later SET-119/SET-121 work.
+The implemented render slices support plugin-level command/script hooks and Claude frontmatter command hooks. When a plugin attachment resolves to a provider-compatible adaptive hook, Skillset writes provider-native `hooks/hooks.json` into the generated Claude and Codex plugin outputs and declares `hooks` in the plugin manifest. When a Claude skill-local or project-agent-local attachment resolves to a command hook, Skillset writes provider-native `hooks` frontmatter for the generated skill or agent. Codex skill/agent no-faithful-destination policy, project/root hooks, degraded/skipped outcomes, and structured unsupported destination reporting remain later SET-119/SET-121 work.
 
 Resolution is nearest-first for named hook references:
 
@@ -154,7 +154,7 @@ The implementation stack should stay small enough to review:
 
 - SET-117 defines the adaptive hook unit schema and provider/destination capability registry. It should seed registry data from official provider docs plus Codex generated schemas, then add fixtures for capability proof.
 - SET-118 adds event-keyed attachments, `hooks.auto`, provider scoping, and nearest-first resolution.
-- SET-119 renders adaptive hooks to provider-native outputs and component frontmatter. The first implemented slice writes plugin-level command hooks to Claude and Codex plugin `hooks/hooks.json`; later slices add skill/agent surfaces and structured render results for transformed, degraded, skipped, and unsupported destinations.
+- SET-119 renders adaptive hooks to provider-native outputs and component frontmatter. Implemented slices write plugin-level command/script hooks to Claude and Codex plugin `hooks/hooks.json` and Claude skill/project-agent command hooks to frontmatter; later slices add remaining destination policy and structured render results for transformed, degraded, skipped, and unsupported destinations.
 - SET-127 handles hook-adjacent scripts, `bin`, and stable runtime variables only after SET-117 has encoded the path-proof requirements.
 
 The first merged slice should make provider capability facts inspectable and testable before rendering new hook output.
