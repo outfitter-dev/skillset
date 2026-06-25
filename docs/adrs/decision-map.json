@@ -83,6 +83,11 @@
           "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - governing source and generated-output doctrine.",
           "from": "20260622",
           "fromPath": "docs/adrs/drafts/20260622-source-test-selection-shape.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - baseline source vocabulary doctrine.",
+          "from": "20260625",
+          "fromPath": "docs/adrs/drafts/20260625-source-manifest-listing-metadata.md"
         }
       ],
       "number": "0000",
@@ -142,6 +147,11 @@
           "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - root manifest compile policy.",
           "from": "20260622",
           "fromPath": "docs/adrs/drafts/20260622-yaml-formatting-and-bun-native-apis.md"
+        },
+        {
+          "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - compile concerns stay under `compile`, target-native options stay provider-specific.",
+          "from": "20260625",
+          "fromPath": "docs/adrs/drafts/20260625-source-manifest-listing-metadata.md"
         }
       ],
       "number": "0001",

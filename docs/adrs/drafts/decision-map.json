@@ -573,6 +573,24 @@
       "superseded_by": null,
       "title": "YAML Formatting and Bun Native APIs",
       "updated": "2026-06-22"
+    },
+    {
+      "created": "2026-06-25",
+      "depends_on": [
+        "0",
+        "1",
+        "source-change-release-provenance",
+        "one-action-repo-adoption"
+      ],
+      "inbound": [],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260625-source-manifest-listing-metadata.md",
+      "slug": "source-manifest-listing-metadata",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Source Manifest Listing Metadata",
+      "updated": "2026-06-25"
     }
   ],
   "version": 1
