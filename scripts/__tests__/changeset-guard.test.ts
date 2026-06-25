@@ -5,7 +5,7 @@ import {
   isActiveChangesetEntry,
   isPackageAffectingPath,
   parseChangedFileLine,
-} from "../changeset-guard";
+} from "../../apps/skillset/src/changeset-awareness";
 
 describe("changeset guard", () => {
   test("requires an active changeset for published package payload changes", () => {

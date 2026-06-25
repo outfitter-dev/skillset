@@ -886,6 +886,12 @@ function printCiReport(report: CiReport): void {
     const path = issue.path === undefined ? "" : `${issue.path}: `;
     console.log(`  change ${issue.severity}: ${path}${issue.code}: ${issue.message}`);
   }
+  if (report.changesetError !== undefined) {
+    console.log(`  changeset error: ${report.changesetError}`);
+  }
+  for (const issue of report.changesetIssues ?? []) {
+    console.log(`  changeset error: ${issue}`);
+  }
   for (const path of report.fixedPaths) console.log(`  fixed ${path}`);
   printGeneratedChangelogPathHint(report.fixedPaths);
   const drift = report.drift;
@@ -917,6 +923,8 @@ function printCiReport(report: CiReport): void {
   if (lintErrors > 0) problems.push(`${lintErrors} lint issue(s)`);
   if (report.changeError !== undefined) problems.push("a change check error");
   if (changeErrors > 0) problems.push(`${changeErrors} change entry error(s)`);
+  if (report.changesetError !== undefined) problems.push("a Changesets check error");
+  if ((report.changesetIssues ?? []).length > 0) problems.push(`${report.changesetIssues?.length} Changesets issue(s)`);
   if (hasDrift(report.drift)) problems.push("generated-output drift (run skillset build --yes or ci --fix)");
   if (report.buildError !== undefined) problems.push("a build error");
   console.log(`skillset: ci found ${problems.join(" and ")}`);
