@@ -47,6 +47,7 @@ import type {
   OutputSelection,
   SkillsetOptions,
   SourceAdaptiveHook,
+  SourceAdaptiveHookScriptReference,
   SourceDialect,
   SourceOrigin,
   SourcePlugin,
@@ -778,12 +779,84 @@ async function loadAdaptiveHooks(
       frontmatter: parsed,
       name: classified.name,
       ...(providers === undefined ? {} : { providers }),
+      scriptReferences: await readAdaptiveHookScriptReferences(rootPath, ownerPath, file, classified.shape, parsed),
       scope,
       sourcePath: resolveInside(rootPath, relative(rootPath, file)),
     });
   }
 
   return hooks.sort((left, right) => compareStrings(left.name, right.name) || compareStrings(left.sourcePath, right.sourcePath));
+}
+
+async function readAdaptiveHookScriptReferences(
+  rootPath: string,
+  ownerPath: string,
+  hookSourcePath: string,
+  shape: "directory-hook" | "directory-named" | "flat",
+  parsed: JsonRecord
+): Promise<readonly SourceAdaptiveHookScriptReference[]> {
+  if (!isJsonRecord(parsed.run) || typeof parsed.run.script !== "string") return [];
+  const reference = parsed.run.script;
+  const sourcePath = resolveAdaptiveHookScriptPath(rootPath, ownerPath, hookSourcePath, shape, reference);
+  await validateAdaptiveHookScriptSource(rootPath, sourcePath, hookSourcePath, reference);
+  return [{
+    kind: reference.startsWith("{{scripts.dir}}/") ? "scripts-dir" : "hook-local",
+    reference,
+    runtimePath: reference,
+    sourcePath: resolveInside(rootPath, relative(rootPath, sourcePath)),
+  }];
+}
+
+function resolveAdaptiveHookScriptPath(
+  rootPath: string,
+  ownerPath: string,
+  hookSourcePath: string,
+  shape: "directory-hook" | "directory-named" | "flat",
+  reference: string
+): string {
+  if (reference.startsWith("{{scripts.dir}}/")) {
+    const relativeScriptPath = reference.slice("{{scripts.dir}}/".length);
+    return resolveInside(ownerPath, join("scripts", relativeScriptPath));
+  }
+  if (reference.startsWith("./")) {
+    if (shape === "flat") {
+      throw new SkillsetFeatureDiagnosticError({
+        code: "adaptive-hook-script-flat",
+        featureId: "adaptive-hooks",
+        message: "skillset: adaptive hook run.script uses ./, but hook-local scripts require a directory hook unit",
+        path: relative(rootPath, hookSourcePath),
+      });
+    }
+    return resolveInside(dirname(hookSourcePath), reference);
+  }
+  return resolveInside(ownerPath, reference);
+}
+
+async function validateAdaptiveHookScriptSource(
+  rootPath: string,
+  sourcePath: string,
+  hookSourcePath: string,
+  reference: string
+): Promise<void> {
+  let sourceStat;
+  try {
+    sourceStat = await stat(sourcePath);
+  } catch {
+    throw new SkillsetFeatureDiagnosticError({
+      code: "adaptive-hook-script-missing",
+      featureId: "adaptive-hooks",
+      message: `skillset: adaptive hook run.script ${reference} does not resolve to an existing source file`,
+      path: relative(rootPath, hookSourcePath),
+    });
+  }
+  if (!sourceStat.isFile()) {
+    throw new SkillsetFeatureDiagnosticError({
+      code: "adaptive-hook-script-invalid",
+      featureId: "adaptive-hooks",
+      message: `skillset: adaptive hook run.script ${reference} must resolve to a file`,
+      path: relative(rootPath, sourcePath),
+    });
+  }
 }
 
 function validateAdaptiveHookAttachments(

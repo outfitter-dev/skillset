@@ -31,6 +31,19 @@ Directory hook units must resolve to the directory name. If both `hook.json` and
 
 Native aggregate mode and adaptive mode should not merge for the same generated destination in v1. If `hooks/hooks.json` and adaptive hook units would both write a provider plugin `hooks/hooks.json`, fail clearly and ask the author to choose one source model.
 
+## Scripts
+
+Adaptive hook `run.script` references have two source-backed forms:
+
+| Reference | Source proof |
+| --- | --- |
+| `./check.js` | Hook-local script beside a directory hook unit such as `hooks/<name>/hook.json` or `hooks/<name>/<name>.json`. |
+| `{{scripts.dir}}/check.js` | Shared script under the owner source directory's `scripts/` folder. Root hooks use `<source-root>/scripts/`; plugin hooks use `<plugin>/scripts/`; skill-local hooks use the skill directory's `scripts/`; project-agent-local hooks use the sibling agent directory's `scripts/`. |
+
+Flat hook units such as `hooks/<name>.json` cannot use `./...` hook-local scripts because they do not own a private sidecar directory. Use a directory hook unit for colocated sidecars or `{{scripts.dir}}/...` for owner-level shared scripts.
+
+The current compiler validates that these script references resolve to source files and records the source facts for later rendering. Provider-native command rewriting and output path proof land with adaptive rendering.
+
 ## Attachments
 
 Hook definitions should be reusable. Source units attach named hooks through event-keyed frontmatter or config:

@@ -121,7 +121,15 @@ export interface SourceAdaptiveHook {
   readonly frontmatter: JsonRecord;
   readonly name: string;
   readonly providers?: readonly TargetName[];
+  readonly scriptReferences: readonly SourceAdaptiveHookScriptReference[];
   readonly scope: AdaptiveHookScope;
+  readonly sourcePath: string;
+}
+
+export interface SourceAdaptiveHookScriptReference {
+  readonly kind: "hook-local" | "scripts-dir";
+  readonly reference: string;
+  readonly runtimePath: string;
   readonly sourcePath: string;
 }
 
