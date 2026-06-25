@@ -9,17 +9,39 @@ This repo also self-hosts a small dedicated Skillset source tree:
 - standalone internal skills for developing the compiler in Claude and Codex;
 - one generated `skillset` plugin that teaches agents how to use the compiler.
 
+## Start Here
+
+If you are authoring Skillset source for the first time, start with the
+[Five-Minute Quickstart](docs/quickstart.md). It walks one small source unit
+from scaffold to generated Claude and Codex outputs without touching live
+runtime configuration.
+
+To inspect a complete minimal repo, use the
+[First Author Example](examples/first-author/README.md). It is a root-layout
+Skillset source repo with one skill and one rule, plus checked-in generated
+output so `skillset check`, `skillset build`, and `skillset verify` have an
+immediate clean target.
+
+Once source exists, `skillset dev --watch` gives you the local edit loop: it
+watches source/config paths and reruns diagnostics plus generated-output
+previews. It is read-only. Skillset does not automatically install, trust,
+symlink, publish, activate, or mutate user-level Claude/Codex configuration.
+Write repo-local generated output only when you explicitly run
+`skillset build --yes`.
+
 ## Docs
 
+- [Five-Minute Quickstart](docs/quickstart.md): the shortest first-author path from source scaffold to generated output.
+- [First Author Example](examples/first-author/README.md): a minimal root-layout source repo that builds one skill and one rule to Claude and Codex.
+- [Dev Watch](docs/features/dev-watch.md): the preview-only `skillset dev --watch` authoring loop.
 - [Skillset Design Tenets](docs/tenets.md): the slow-moving doctrine for source-first loadout authoring and target-native rendering.
 - [Architecture Decision Records](docs/adrs/README.md): accepted and proposed decisions for source vocabulary, unsupported destination policy, and generated-output promises.
 - [Feature Reference](docs/features/README.md): source feature support, target adapter status, and future-only surfaces.
-- [First Author Example](examples/first-author/README.md): a minimal root-layout source repo that builds one skill and one rule to Claude and Codex.
 - [Skillset Docs](docs/README.md): the docs map.
 - [Layout](docs/layout.md): the current source layout, output shape, and compiler behavior reference.
 - [Workbench Check](docs/features/workbench.md): the authoring diagnostics and generated-output verification split.
 
-## Usage
+## Command Reference
 
 From a content repo:
 
