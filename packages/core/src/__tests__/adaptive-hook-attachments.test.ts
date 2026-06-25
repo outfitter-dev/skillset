@@ -209,7 +209,7 @@ skillset:
     await expect(loadBuildGraph(root)).rejects.toThrow("hook-local scripts require a directory hook unit");
   });
 
-  test("fails loudly for adaptive plugin hook render fields that are not supported yet", async () => {
+  test("omits adaptive plugin hooks with render fields that are not supported yet", async () => {
     const graph = await loadBuildGraph(await fixture({
       ".skillset/config.yaml": `
 skillset:
@@ -231,7 +231,8 @@ hooks:
       }),
     }));
 
-    await expect(renderBuildGraph(graph)).rejects.toThrow("provider overrides");
+    const rendered = await renderBuildGraph(graph);
+    expect(rendered.map((file) => file.path)).not.toContain("plugins-claude/plugins/demo/hooks/hooks.json");
   });
 
   test("renders plugin-level adaptive hooks to native Claude and Codex hook files", async () => {
@@ -352,7 +353,7 @@ Body.
     });
   });
 
-  test("rejects frontmatter adaptive hook scripts without stable path proof", async () => {
+  test("omits frontmatter adaptive hook scripts without stable path proof", async () => {
     const graph = await loadBuildGraph(await fixture({
       ".skillset/config.yaml": `
 skillset:
@@ -378,7 +379,9 @@ Body.
       ".skillset/src/skills/writer/hooks/local-stop/stop.sh": "#!/bin/sh\nexit 0\n",
     }));
 
-    await expect(renderBuildGraph(graph)).rejects.toThrow("frontmatter hook rendering does not have stable runtime path proof");
+    const rendered = await renderBuildGraph(graph);
+    const skillFrontmatter = renderedMarkdown(rendered, ".claude/skills/writer/SKILL.md").frontmatter;
+    expect(skillFrontmatter.hooks).toBeUndefined();
   });
 
   test("rejects adaptive plugin hook output colliding with native hooks aggregate", async () => {

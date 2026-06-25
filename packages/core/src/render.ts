@@ -9,6 +9,7 @@ import {
   resolveAdaptiveHookAttachments,
   type ResolvedAdaptiveHookAttachment,
 } from "./adaptive-hook-attachments";
+import { adaptiveHookUnsupportedRenderReason, type AdaptiveHookRenderSurface } from "./adaptive-hook-render-support";
 import {
   isOutputSelected,
   mergeRecords,
@@ -24,7 +25,6 @@ import {
   renderClaudePluginDependencies,
   renderCodexDependencyNotice,
 } from "./dependencies";
-import { hookProviderCapabilities } from "./hook-capabilities";
 import { validateHookDefinition } from "./hooks";
 import { compareStrings, validateSlug } from "./path";
 import { rewriteResourceLinks } from "./resources";
@@ -1731,20 +1731,9 @@ function validateSupportedAdaptiveHookRenderFields(
   item: ResolvedAdaptiveHookAttachment,
   target: TargetName
 ): void {
-  const providerOverride = item.definition.frontmatter[target];
-  if (providerOverride !== undefined) {
-    throw new Error(
-      `skillset: adaptive hook ${item.definition.name} uses ${target} provider overrides, but plugin hook rendering does not support overrides yet`
-    );
-  }
-
-  const run = readRecord(item.definition.frontmatter, "run") ?? {};
-  for (const key of ["args", "cwd", "env"] as const) {
-    if (run[key] !== undefined) {
-      throw new Error(
-        `skillset: adaptive hook ${item.definition.name} uses run.${key}, but plugin hook rendering only supports run.command and run.script yet`
-      );
-    }
+  const reason = adaptiveHookUnsupportedRenderReason(item, target, "plugin");
+  if (reason !== undefined) {
+    throw new Error(`skillset: ${reason}`);
   }
 }
 
@@ -1800,32 +1789,22 @@ function adaptivePluginHookAttachments(
   return resolveAdaptiveHookAttachments(graph.adaptiveHooks, graph.hookAttachments).resolved.filter((item) =>
     item.attachment.scope.kind === "plugin" &&
     item.attachment.scope.pluginId === plugin.id &&
-    supportsAdaptiveHookTarget(item, target)
+    supportsAdaptiveHookTarget(item, target, "plugin")
   );
 }
 
 function supportsAdaptiveHookTarget(
   item: ResolvedAdaptiveHookAttachment,
-  target: TargetName
+  target: TargetName,
+  surface: AdaptiveHookRenderSurface
 ): boolean {
   return providerListAllows(item.definition.providers, target) &&
     providerListAllows(item.attachment.providers, target) &&
-    adaptiveHookCapabilityAllows(item, target);
+    adaptiveHookUnsupportedRenderReason(item, target, surface) === undefined;
 }
 
 function providerListAllows(providers: readonly TargetName[] | undefined, target: TargetName): boolean {
   return providers === undefined || providers.includes(target);
-}
-
-function adaptiveHookCapabilityAllows(
-  item: ResolvedAdaptiveHookAttachment,
-  target: TargetName
-): boolean {
-  if (target !== "codex") return true;
-  const capabilities = hookProviderCapabilities.codex;
-  if (!capabilities.documentedEvents.has(item.event)) return false;
-  const matcher = item.attachment.match ?? item.definition.frontmatter.match;
-  return matcher === undefined || capabilities.matcherByEvent[item.event] !== "ignored";
 }
 
 function hasAdaptivePluginHookSources(plugin: SourcePlugin): boolean {
@@ -1873,25 +1852,9 @@ function validateSupportedAdaptiveFrontmatterHookFields(
   item: ResolvedAdaptiveHookAttachment,
   target: TargetName
 ): void {
-  const providerOverride = item.definition.frontmatter[target];
-  if (providerOverride !== undefined) {
-    throw new Error(
-      `skillset: adaptive hook ${item.definition.name} uses ${target} provider overrides, but frontmatter hook rendering does not support overrides yet`
-    );
-  }
-
-  const run = readRecord(item.definition.frontmatter, "run") ?? {};
-  for (const key of ["args", "cwd", "env"] as const) {
-    if (run[key] !== undefined) {
-      throw new Error(
-        `skillset: adaptive hook ${item.definition.name} uses run.${key}, but frontmatter hook rendering only supports run.command yet`
-      );
-    }
-  }
-  if (run.script !== undefined) {
-    throw new Error(
-      `skillset: adaptive hook ${item.definition.name} uses run.script, but frontmatter hook rendering does not have stable runtime path proof yet`
-    );
+  const reason = adaptiveHookUnsupportedRenderReason(item, target, "frontmatter");
+  if (reason !== undefined) {
+    throw new Error(`skillset: ${reason}`);
   }
 }
 
@@ -1911,7 +1874,7 @@ function adaptiveHookAttachmentsForScope(
 ): readonly ResolvedAdaptiveHookAttachment[] {
   return resolveAdaptiveHookAttachments(graph.adaptiveHooks, graph.hookAttachments).resolved.filter((item) =>
     sameAdaptiveHookScope(item.attachment.scope, scope) &&
-    supportsAdaptiveHookTarget(item, target)
+    supportsAdaptiveHookTarget(item, target, "frontmatter")
   );
 }
 
