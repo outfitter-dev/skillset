@@ -14,6 +14,7 @@ This repo also self-hosts a small dedicated Skillset source tree:
 - [Skillset Design Tenets](docs/tenets.md): the slow-moving doctrine for source-first loadout authoring and target-native rendering.
 - [Architecture Decision Records](docs/adrs/README.md): accepted and proposed decisions for source vocabulary, unsupported destination policy, and generated-output promises.
 - [Feature Reference](docs/features/README.md): source feature support, target adapter status, and future-only surfaces.
+- [First Author Example](examples/first-author/README.md): a minimal root-layout source repo that builds one skill and one rule to Claude and Codex.
 - [Skillset Docs](docs/README.md): the docs map.
 - [Layout](docs/layout.md): the current source layout, output shape, and compiler behavior reference.
 - [Workbench Check](docs/features/workbench.md): the authoring diagnostics and generated-output verification split.

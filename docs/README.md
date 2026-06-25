@@ -5,6 +5,7 @@ This directory holds durable documentation for the local Skillset compiler.
 - [Tenets](tenets.md): the slow-moving doctrine for how Skillset makes source-first Claude/Codex loadouts easier to author and safer to render.
 - [Architecture Decision Records](adrs/README.md): accepted decisions for source vocabulary, target rendering, compiler promises, and authoring workflows. Draft decisions live under [adrs/drafts](adrs/drafts/README.md).
 - [Five-Minute Quickstart](quickstart.md): a short first-author path from `init` to one built Claude and Codex skill.
+- [First Author Example](../examples/first-author/README.md): a cloneable root-layout source repo with one skill and one rule that builds to Claude and Codex.
 - [Feature Reference](features/README.md): the support registry layer for source features, target adapters, future-only surfaces, and feature-specific provenance.
 - [Layout](layout.md): the current source layout, generated output shape, shared-resource behavior, rules/instructions rendering, hooks, skill policy, and import flow.
 - [Schema Contracts](schema-contracts.md): the schema-first workflow, generated artifacts, and checklist for adding source/config/frontmatter fields without drift.

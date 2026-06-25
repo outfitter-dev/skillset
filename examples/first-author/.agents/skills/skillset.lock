@@ -1,0 +1,65 @@
+{
+  "buildMode": "updated",
+  "features": {
+    "promptArguments": true
+  },
+  "generatedBy": "skillset@0.1.0",
+  "items": [
+    {
+      "files": [
+        "review-notes/SKILL.md"
+      ],
+      "kind": "standalone-skill",
+      "name": "review-notes",
+      "outputHash": "sha256:3d4603be9f58779fb68e36a053c6904842c7428d6741730152418738d85cd225",
+      "outputPath": "review-notes/SKILL.md",
+      "sourceHash": "sha256:92a42f2bc84eb8ee48fb7de681edc3c268b53b5410503061fe297a727e38f996",
+      "sourcePath": "skillset/skills/review-notes/SKILL.md",
+      "version": "0.1.0"
+    }
+  ],
+  "outputRoot": ".agents/skills",
+  "renderResults": [
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/features/skills.md"
+        },
+        {
+          "kind": "provider-schema",
+          "note": "sha256:eebe9ca02eec5263cd23ff3945b3d3301e0b57861af2d53c76bd620b83ae355b",
+          "ref": "codex-skill-metadata-schema",
+          "verifiedAt": "2026-06-23"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:7e36cc613d0443fcae2963e276a7994d2b321b04471ae2a8941e290ed2654050",
+          "ref": "codex-skill",
+          "verifiedAt": "2026-06-23"
+        }
+      ],
+      "featureId": "standalone-skills",
+      "outputs": [
+        {
+          "kind": "standalone-skill",
+          "path": ".agents/skills/review-notes/SKILL.md"
+        }
+      ],
+      "schema": "skillset-render-result@1",
+      "sourcePath": "skillset/skills/review-notes/SKILL.md",
+      "sourceUnit": "skill:review-notes",
+      "status": "rendered",
+      "target": "codex"
+    }
+  ],
+  "schemaVersion": 1,
+  "selectedTargets": [
+    "claude",
+    "codex"
+  ],
+  "skillsetMetadata": true,
+  "sourceRoot": "skillset",
+  "target": "codex"
+}
