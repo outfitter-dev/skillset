@@ -1,0 +1,303 @@
+import { watch, type FSWatcher } from "node:fs";
+import { readdir, stat } from "node:fs/promises";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+
+import { diffSkillsetResult } from "@skillset/core";
+
+import { lintSkillset } from "./lint";
+import { loadBuildGraph } from "./resolver";
+import type { SkillsetOptions } from "./types";
+
+export interface DevWatchPlan {
+  readonly configPaths: readonly string[];
+  readonly ignoredRoots: readonly string[];
+  readonly outputRoots: readonly string[];
+  readonly rootPath: string;
+  readonly sourceRoot: string;
+  readonly watchRoots: readonly string[];
+}
+
+export interface DevWatchPreviewReport {
+  readonly checkedSkills: number;
+  readonly diagnostics: readonly {
+    readonly code: string;
+    readonly message: string;
+    readonly path?: string;
+    readonly severity: string;
+  }[];
+  readonly diff: {
+    readonly added: readonly string[];
+    readonly changed: readonly string[];
+    readonly missing: readonly string[];
+    readonly removed: readonly string[];
+  };
+  readonly error?: string;
+  readonly ok: boolean;
+  readonly outputRoots: readonly string[];
+  readonly reason: string;
+  readonly sourceRoot: string;
+  readonly warnings: readonly string[];
+}
+
+export interface DevWatchDebouncer {
+  readonly cancel: () => void;
+  readonly trigger: (reason: string) => void;
+}
+
+export interface DevWatchScheduler {
+  readonly clearTimeout: (handle: unknown) => void;
+  readonly setTimeout: (callback: () => void, delayMs: number) => unknown;
+}
+
+const DEFAULT_DEBOUNCE_MS = 200;
+const OPERATIONAL_IGNORE_ROOTS = [".skillset/cache", ".skillset/snapshots"] as const;
+
+const defaultScheduler: DevWatchScheduler = {
+  clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+  setTimeout: (callback, delayMs) => setTimeout(callback, delayMs),
+};
+
+export async function createDevWatchPlan(
+  rootPath: string,
+  options: SkillsetOptions = {}
+): Promise<DevWatchPlan> {
+  const graph = await loadBuildGraph(rootPath, options);
+  const configPaths = sortedUnique([
+    relativePath(graph.rootPath, graph.rootConfigPath),
+    relativePath(graph.rootPath, graph.rootManifestPath),
+  ]);
+  const watchRoots = sortedUnique([
+    ...configPaths.map((path) => normalizeRelativePath(dirname(path))),
+    graph.sourceRoot,
+  ]);
+  const ignoredRoots = sortedUnique([
+    ...OPERATIONAL_IGNORE_ROOTS,
+    ...graph.outputRoots.filter((outputRoot) => outputRoot !== "."),
+  ]);
+
+  return {
+    configPaths,
+    ignoredRoots,
+    outputRoots: graph.outputRoots,
+    rootPath: graph.rootPath,
+    sourceRoot: graph.sourceRoot,
+    watchRoots,
+  };
+}
+
+export function shouldRunDevPreviewForPath(
+  plan: DevWatchPlan,
+  eventPath: string | undefined
+): boolean {
+  if (eventPath === undefined || eventPath.length === 0) return true;
+  const relativeEventPath = normalizeEventPath(plan.rootPath, eventPath);
+  if (relativeEventPath === undefined) return false;
+  if (isIgnoredDevWatchPath(plan, relativeEventPath)) return false;
+  return isSameOrInside(relativeEventPath, plan.sourceRoot) || plan.configPaths.includes(relativeEventPath);
+}
+
+export function isIgnoredDevWatchPath(plan: DevWatchPlan, eventPath: string): boolean {
+  const normalized = normalizeRelativePath(eventPath);
+  if (normalized === "." || normalized === "") return false;
+  const name = basename(normalized);
+  if (name === "AGENTS.md" || name === "skillset.lock") return true;
+  return plan.ignoredRoots.some((root) => isSameOrInside(normalized, root));
+}
+
+export function createDevWatchDebouncer(
+  callback: (reason: string) => void | Promise<void>,
+  delayMs = DEFAULT_DEBOUNCE_MS,
+  scheduler: DevWatchScheduler = defaultScheduler
+): DevWatchDebouncer {
+  let timer: unknown;
+  let latestReason = "change";
+
+  return {
+    cancel: () => {
+      if (timer === undefined) return;
+      scheduler.clearTimeout(timer);
+      timer = undefined;
+    },
+    trigger: (reason) => {
+      latestReason = reason;
+      if (timer !== undefined) scheduler.clearTimeout(timer);
+      timer = scheduler.setTimeout(() => {
+        timer = undefined;
+        void callback(latestReason);
+      }, delayMs);
+    },
+  };
+}
+
+export async function runDevWatchPreview(
+  rootPath: string,
+  options: SkillsetOptions = {},
+  reason = "initial"
+): Promise<DevWatchPreviewReport> {
+  const plan = await createDevWatchPlan(rootPath, options);
+  try {
+    const lint = await lintSkillset(rootPath, options);
+    const diff = await diffSkillsetResult(rootPath, options);
+    return {
+      checkedSkills: lint.checkedSkills,
+      diagnostics: diff.diagnostics,
+      diff: diff.data,
+      ok: true,
+      outputRoots: plan.outputRoots,
+      reason,
+      sourceRoot: plan.sourceRoot,
+      warnings: lint.issues.map((issue) => `${issue.path}: ${issue.code}: ${issue.message}`),
+    };
+  } catch (error) {
+    return {
+      checkedSkills: 0,
+      diagnostics: [],
+      diff: { added: [], changed: [], missing: [], removed: [] },
+      error: error instanceof Error ? error.message : String(error),
+      ok: false,
+      outputRoots: plan.outputRoots,
+      reason,
+      sourceRoot: plan.sourceRoot,
+      warnings: [],
+    };
+  }
+}
+
+export function renderDevWatchPreview(report: DevWatchPreviewReport): string {
+  const lines = [
+    `skillset: dev preview ${report.ok ? "passed" : "failed"} (${report.reason})`,
+    `  source: ${report.sourceRoot}`,
+    `  outputs: ${report.outputRoots.length === 0 ? "none" : report.outputRoots.join(", ")}`,
+  ];
+
+  if (!report.ok) {
+    lines.push(`  error: ${report.error ?? "unknown error"}`);
+    lines.push("  next: fix the source error; the watcher will rerun the preview on the next edit");
+    return `${lines.join("\n")}\n`;
+  }
+
+  for (const warning of report.warnings) lines.push(`  warn: ${warning}`);
+  for (const diagnostic of report.diagnostics) {
+    const path = diagnostic.path ?? "";
+    lines.push(`  ${diagnostic.severity}: ${path}${path.length === 0 ? "" : ": "}${diagnostic.code}: ${diagnostic.message}`);
+  }
+  lines.push(`  source diagnostics: checked ${report.checkedSkills} source skill${report.checkedSkills === 1 ? "" : "s"}`);
+  const { added, changed, missing, removed } = report.diff;
+  for (const path of added) lines.push(`  generated + ${path}`);
+  for (const path of changed) lines.push(`  generated ~ ${path}`);
+  for (const path of missing) lines.push(`  generated ! ${path}`);
+  for (const path of removed) lines.push(`  generated - ${path}`);
+  lines.push(`  generated preview: ${added.length} added, ${changed.length} changed, ${missing.length} missing, ${removed.length} removed`);
+  lines.push("  next: run skillset build --yes when you want to write generated output");
+  return `${lines.join("\n")}\n`;
+}
+
+export async function runDevWatch(
+  rootPath: string,
+  options: SkillsetOptions = {},
+  output: NodeJS.WritableStream = process.stdout
+): Promise<void> {
+  const plan = await createDevWatchPlan(rootPath, options);
+  output.write(renderDevWatchStart(plan));
+  output.write(renderDevWatchPreview(await runDevWatchPreview(rootPath, options)));
+
+  const watchers: FSWatcher[] = [];
+  const debouncer = createDevWatchDebouncer(async (reason) => {
+    output.write(renderDevWatchPreview(await runDevWatchPreview(rootPath, options, reason)));
+  });
+
+  for (const watchRoot of await collectDevWatchDirectories(plan)) {
+    watchers.push(watch(resolve(plan.rootPath, watchRoot), (_event, filename) => {
+      const eventPath = filename === null
+        ? undefined
+        : normalizeRelativePath(join(watchRoot, filename.toString()));
+      if (shouldRunDevPreviewForPath(plan, eventPath)) {
+        debouncer.trigger(eventPath ?? "change");
+      }
+    }));
+  }
+
+  await new Promise<void>((resolvePromise) => {
+    const stop = () => {
+      debouncer.cancel();
+      for (const watcher of watchers) watcher.close();
+      process.off("SIGINT", stop);
+      process.off("SIGTERM", stop);
+      output.write("skillset: dev watch stopped\n");
+      resolvePromise();
+    };
+    process.once("SIGINT", stop);
+    process.once("SIGTERM", stop);
+  });
+}
+
+export async function collectDevWatchDirectories(plan: DevWatchPlan): Promise<readonly string[]> {
+  const directories = new Set<string>();
+  for (const root of plan.watchRoots) {
+    const absoluteRoot = resolve(plan.rootPath, root);
+    if (!(await isDirectory(absoluteRoot))) continue;
+    directories.add(root);
+    if (root === plan.sourceRoot) {
+      for (const child of await collectDirectories(absoluteRoot)) {
+        directories.add(normalizeRelativePath(relative(plan.rootPath, child)));
+      }
+    }
+  }
+  return [...directories].sort();
+}
+
+function renderDevWatchStart(plan: DevWatchPlan): string {
+  return [
+    "skillset: dev watch started (preview-only)",
+    `  source: ${plan.sourceRoot}`,
+    `  watching: ${plan.watchRoots.join(", ")}`,
+    `  ignoring: ${plan.ignoredRoots.join(", ")}`,
+    "  writes: disabled; use skillset build --yes to write generated output",
+  ].join("\n") + "\n";
+}
+
+async function collectDirectories(rootPath: string): Promise<readonly string[]> {
+  const directories: string[] = [];
+  const entries = await readdir(rootPath, { withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const child = join(rootPath, entry.name);
+    directories.push(child);
+    directories.push(...await collectDirectories(child));
+  }
+  return directories;
+}
+
+async function isDirectory(path: string): Promise<boolean> {
+  try {
+    return (await stat(path)).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function normalizeEventPath(rootPath: string, eventPath: string): string | undefined {
+  const candidate = isAbsolute(eventPath)
+    ? relative(rootPath, eventPath)
+    : eventPath;
+  const normalized = normalizeRelativePath(candidate);
+  if (normalized.startsWith("../") || normalized === "..") return undefined;
+  return normalized;
+}
+
+function relativePath(rootPath: string, path: string): string {
+  return normalizeRelativePath(relative(rootPath, path));
+}
+
+function normalizeRelativePath(path: string): string {
+  return path.replaceAll("\\", "/").replace(/\/+/gu, "/").replace(/\/$/u, "") || ".";
+}
+
+function isSameOrInside(path: string, root: string): boolean {
+  const normalizedRoot = normalizeRelativePath(root);
+  return path === normalizedRoot || path.startsWith(`${normalizedRoot}/`);
+}
+
+function sortedUnique(values: readonly string[]): readonly string[] {
+  return [...new Set(values.map(normalizeRelativePath))].sort();
+}

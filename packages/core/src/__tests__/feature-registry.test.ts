@@ -27,6 +27,7 @@ const SEEDED_FEATURE_IDS = [
   "activation-probes",
   "changes",
   "dependencies",
+  "dev-watch",
   "distributions",
   "feature-registry",
   "future-companion-source-pointers",

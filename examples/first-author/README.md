@@ -21,6 +21,7 @@ bun ./apps/skillset/src/cli.ts check --root examples/first-author
 bun ./apps/skillset/src/cli.ts build --root examples/first-author
 bun ./apps/skillset/src/cli.ts build --root examples/first-author --yes
 bun ./apps/skillset/src/cli.ts verify --root examples/first-author
+bun ./apps/skillset/src/cli.ts dev --watch --root examples/first-author
 ```
 
 From a standalone clone after installing Skillset, use the package command:
@@ -30,6 +31,7 @@ skillset check
 skillset build
 skillset build --yes
 skillset verify
+skillset dev --watch
 ```
 
 ## Expected Output
@@ -63,3 +65,6 @@ skillset verify
 
 Use `skillset diff` to inspect pending generated changes and `skillset explain`
 with either a source path or generated path when you want provenance details.
+Use `skillset dev --watch` for the same diagnostics and generated-output preview
+as a foreground watch loop. It writes nothing; use `skillset build --yes` when
+you want to refresh repo-local generated output.
