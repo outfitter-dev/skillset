@@ -6,6 +6,10 @@ import { basename, dirname, join, relative } from "node:path";
 import { lowerTransform, recognizeTransforms } from "@skillset/transforms";
 
 import {
+  resolveAdaptiveHookAttachments,
+  type ResolvedAdaptiveHookAttachment,
+} from "./adaptive-hook-attachments";
+import {
   isOutputSelected,
   mergeRecords,
   readRecord,
@@ -344,6 +348,7 @@ async function renderPluginTarget(
   }
 
   rendered.push(...(await renderPluginFeatureFiles(graph, plugin, target, basePath, outputRoot, lockRoots)));
+  rendered.push(...(await renderAdaptivePluginHookFiles(graph, plugin, target, basePath)));
   rendered.push(...(await copyPluginCompanionFiles(graph, plugin, target, basePath)));
   rendered.push(...(await renderPluginIslands(graph, plugin, target, basePath, outputRoot, lockRoots)));
   return rendered;
@@ -394,8 +399,8 @@ function renderPluginManifest(
 
   const targetBase =
     target === "claude"
-      ? withOptionalSurfacePaths(mergeRecords(base, dependencies === undefined ? {} : { dependencies }), plugin, enabledSkills, target)
-      : mergeRecords(withOptionalSurfacePaths(base, plugin, enabledSkills, target), {
+      ? withOptionalSurfacePaths(graph, mergeRecords(base, dependencies === undefined ? {} : { dependencies }), plugin, enabledSkills, target)
+      : mergeRecords(withOptionalSurfacePaths(graph, base, plugin, enabledSkills, target), {
           interface: renderCodexInterface(graph, plugin),
         });
   const withOverrides = mergeRecords(targetBase, manifestOverrides);
@@ -470,6 +475,7 @@ function readPresentationString(record: JsonRecord, ...keys: readonly string[]):
 }
 
 function withOptionalSurfacePaths(
+  graph: BuildGraph,
   manifest: JsonRecord,
   plugin: SourcePlugin,
   enabledSkills: readonly SourceSkill[],
@@ -484,7 +490,7 @@ function withOptionalSurfacePaths(
   if (target === "claude") {
     if (pluginHasPath(plugin, "commands")) withPaths.commands = "./commands";
     if (pluginHasPath(plugin, "agents")) withPaths.agents = "./agents";
-    if (pluginHasPath(plugin, "hooks/hooks.json")) withPaths.hooks = "./hooks/hooks.json";
+    if (pluginHasPath(plugin, "hooks/hooks.json") || hasAdaptivePluginHookOutput(graph, plugin, target)) withPaths.hooks = "./hooks/hooks.json";
     if (pluginHasFeature(plugin, "mcp")) withPaths.mcpServers = "./.mcp.json";
     if (pluginHasPath(plugin, ".lsp.json")) withPaths.lspServers = "./.lsp.json";
     if (pluginHasPath(plugin, "output-styles")) withPaths.outputStyles = "./output-styles/";
@@ -497,7 +503,7 @@ function withOptionalSurfacePaths(
     }
     if (Object.keys(experimental).length > 0) withPaths.experimental = experimental;
   } else {
-    if (pluginHasPath(plugin, "hooks/hooks.json")) {
+    if (pluginHasPath(plugin, "hooks/hooks.json") || hasAdaptivePluginHookOutput(graph, plugin, target)) {
       withPaths.hooks = "./hooks/hooks.json";
     }
     if (pluginHasFeature(plugin, "mcp")) withPaths.mcpServers = "./.mcp.json";
@@ -1618,6 +1624,14 @@ async function copyPluginCompanionFiles(
     if (!(await exists(sourcePath))) continue;
 
     if (target === "claude" && candidate === "hooks") {
+      if (hasAdaptivePluginHookSources(plugin)) {
+        const nativeHookPath = join(sourcePath, "hooks.json");
+        await validateHookJson(graph, nativeHookPath, "claude");
+        if (await exists(nativeHookPath)) {
+          rendered.push(...(await copyPath(nativeHookPath, join(basePath, "hooks", "hooks.json"))));
+        }
+        continue;
+      }
       await validateHookJson(graph, join(sourcePath, "hooks.json"), "claude");
     }
 
@@ -1625,6 +1639,159 @@ async function copyPluginCompanionFiles(
   }
 
   return rendered.filter((file) => !file.path.endsWith(".gitkeep"));
+}
+
+async function renderAdaptivePluginHookFiles(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  target: TargetName,
+  basePath: string
+): Promise<readonly RenderedFile[]> {
+  const resolved = adaptivePluginHookAttachments(graph, plugin, target);
+  if (resolved.length === 0) return [];
+  const nativeSource = join(plugin.path, "hooks", "hooks.json");
+  if (await exists(nativeSource)) {
+    throw new Error(
+      `skillset: plugin ${plugin.id} cannot combine adaptive hook attachments with native hooks/hooks.json for ${target}; choose one hook source model`
+    );
+  }
+
+  const hooks: Record<string, JsonValue[]> = {};
+  const scriptFiles = new Map<string, RenderedFile>();
+  for (const item of resolved) {
+    const eventGroups = hooks[item.event] ?? [];
+    eventGroups.push(renderAdaptiveHookGroup(graph, plugin, target, item, basePath, scriptFiles));
+    hooks[item.event] = eventGroups;
+  }
+
+  const normalized = { hooks };
+  validateHookDefinition(normalized, {
+    sourcePath: `${plugin.id} adaptive hooks -> ${join(basePath, "hooks", "hooks.json")}`,
+    target,
+  });
+
+  return [
+    textFile(
+      join(basePath, "hooks", "hooks.json"),
+      renderValidatedJson(normalized, `${plugin.id} ${target} adaptive hooks`),
+      relative(graph.rootPath, plugin.configPath)
+    ),
+    ...[...scriptFiles.values()].sort((left, right) => compareStrings(left.path, right.path)),
+  ];
+}
+
+function renderAdaptiveHookGroup(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  target: TargetName,
+  item: ResolvedAdaptiveHookAttachment,
+  basePath: string,
+  scriptFiles: Map<string, RenderedFile>
+): JsonRecord {
+  validateSupportedAdaptiveHookRenderFields(item, target);
+  const matcher = item.attachment.match ?? item.definition.frontmatter.match;
+  const statusMessage = item.attachment.status ?? readString(item.definition.frontmatter, "status");
+  const group: JsonRecord = {
+    ...(matcher === undefined ? {} : { matcher }),
+    ...(statusMessage === undefined ? {} : { statusMessage }),
+    hooks: [{
+      command: adaptiveHookCommand(graph, plugin, target, item, basePath, scriptFiles),
+      type: "command",
+    }],
+  };
+  return group;
+}
+
+function validateSupportedAdaptiveHookRenderFields(
+  item: ResolvedAdaptiveHookAttachment,
+  target: TargetName
+): void {
+  const providerOverride = item.definition.frontmatter[target];
+  if (providerOverride !== undefined) {
+    throw new Error(
+      `skillset: adaptive hook ${item.definition.name} uses ${target} provider overrides, but plugin hook rendering does not support overrides yet`
+    );
+  }
+
+  const run = readRecord(item.definition.frontmatter, "run") ?? {};
+  for (const key of ["args", "cwd", "env"] as const) {
+    if (run[key] !== undefined) {
+      throw new Error(
+        `skillset: adaptive hook ${item.definition.name} uses run.${key}, but plugin hook rendering only supports run.command and run.script yet`
+      );
+    }
+  }
+}
+
+function adaptiveHookCommand(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  target: TargetName,
+  item: ResolvedAdaptiveHookAttachment,
+  basePath: string,
+  scriptFiles: Map<string, RenderedFile>
+): string {
+  const run = readRecord(item.definition.frontmatter, "run") ?? {};
+  const command = readString(run, "command");
+  if (command !== undefined) return command;
+
+  const script = readString(run, "script");
+  if (script === undefined) {
+    throw new Error(`skillset: adaptive hook ${item.definition.name} must define run.command or run.script`);
+  }
+  const reference = item.definition.scriptReferences.find((candidate) => candidate.reference === script);
+  if (reference === undefined) {
+    throw new Error(`skillset: adaptive hook ${item.definition.name} has unresolved run.script ${script}`);
+  }
+  const relativeScriptPath = relative(plugin.path, reference.sourcePath).replaceAll("\\", "/");
+  if (relativeScriptPath.startsWith("../") || relativeScriptPath === "..") {
+    throw new Error(`skillset: adaptive hook ${item.definition.name} script must stay inside plugin ${plugin.id}`);
+  }
+  const outputPath = join(basePath, relativeScriptPath);
+  if (!scriptFiles.has(outputPath)) {
+    scriptFiles.set(outputPath, {
+      content: readFileSync(reference.sourcePath),
+      path: outputPath,
+      sourcePath: relative(graph.rootPath, reference.sourcePath),
+    });
+  }
+  const pluginRoot = target === "claude" ? "$CLAUDE_PLUGIN_ROOT" : "$PLUGIN_ROOT";
+  return `${pluginRoot}/${relativeScriptPath}`;
+}
+
+function hasAdaptivePluginHookOutput(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  target: TargetName
+): boolean {
+  return adaptivePluginHookAttachments(graph, plugin, target).length > 0;
+}
+
+function adaptivePluginHookAttachments(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  target: TargetName
+): readonly ResolvedAdaptiveHookAttachment[] {
+  return resolveAdaptiveHookAttachments(graph.adaptiveHooks, graph.hookAttachments).resolved.filter((item) =>
+    item.attachment.scope.kind === "plugin" &&
+    item.attachment.scope.pluginId === plugin.id &&
+    supportsAdaptiveHookTarget(item, target)
+  );
+}
+
+function supportsAdaptiveHookTarget(
+  item: ResolvedAdaptiveHookAttachment,
+  target: TargetName
+): boolean {
+  return providerListAllows(item.definition.providers, target) && providerListAllows(item.attachment.providers, target);
+}
+
+function providerListAllows(providers: readonly TargetName[] | undefined, target: TargetName): boolean {
+  return providers === undefined || providers.includes(target);
+}
+
+function hasAdaptivePluginHookSources(plugin: SourcePlugin): boolean {
+  return plugin.adaptiveHooks.length > 0 || plugin.hookAttachments.length > 0;
 }
 
 async function renderPluginFeatureFiles(

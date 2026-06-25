@@ -173,6 +173,7 @@ export async function loadBuildGraph(
     ...projectAgents.flatMap((agent) => agent.adaptiveHooks),
   ];
   const hookAttachments = [
+    ...plugins.flatMap((plugin) => plugin.hookAttachments),
     ...plugins.flatMap((plugin) => plugin.skills.flatMap((skill) => skill.hookAttachments)),
     ...standaloneSkills.flatMap((skill) => skill.hookAttachments),
     ...projectAgents.flatMap((agent) => agent.hookAttachments),
@@ -836,7 +837,7 @@ async function loadPlugin(
   let inheritedTargets: BuildGraph["root"]["targets"];
   let targets: SourcePlugin["targets"];
   try {
-    validateConfigDocument(config, configPath, { featureKeys: PLUGIN_FEATURE_KEYS });
+    validateConfigDocument(config, configPath, { allowHooks: true, featureKeys: PLUGIN_FEATURE_KEYS });
     await validateSupports(config.supports, { label: configRelativePath, rootPath, warnings });
     dependencies = readPluginDependencies(config.dependencies, configRelativePath);
     metadata = readSkillsetMetadata(config, configPath);
@@ -870,6 +871,7 @@ async function loadPlugin(
     id,
     configuredOutputRoots(outputs)
   );
+  const hookAttachments = readHookAttachments(config.hooks, { kind: "plugin", pluginId: id }, configRelativePath);
   const adaptiveHooks = await loadAdaptiveHooks(rootPath, pluginPath, { kind: "plugin", pluginId: id });
   const skills = await loadSkills(rootPath, sourceDir, sourceRootDir, pluginPath, inheritedTargets, warnings, id);
 
@@ -887,6 +889,7 @@ async function loadPlugin(
     adaptiveHooks,
     dependencies,
     features,
+    hookAttachments,
     id,
     metadata,
     path: pluginPath,
