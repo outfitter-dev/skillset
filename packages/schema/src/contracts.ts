@@ -205,6 +205,35 @@ export const hookContract = contract("hook", "Hook Definition", "Skillset hook d
   type: "object",
 });
 
+export const adaptiveHookContract = contract("adaptive-hook", "Adaptive Hook Unit", "Skillset adaptive hook unit source contract for reusable portable hooks.", {
+  ...strictObjectSchema({
+    claude: { type: "object" },
+    codex: { type: "object" },
+    description: nonEmptyStringSchema(),
+    events: arraySchema(nonEmptyStringSchema(), { minItems: 1, uniqueItems: true }),
+    match: {
+      anyOf: [
+        nonEmptyStringSchema(),
+        { type: "object" },
+      ],
+    },
+    name: nonEmptyStringSchema(),
+    providers: arraySchema(enumSchema(TARGET_NAMES), { minItems: 1, uniqueItems: true }),
+    run: strictObjectSchema({
+      args: arraySchema(nonEmptyStringSchema()),
+      command: nonEmptyStringSchema(),
+      cwd: nonEmptyStringSchema(),
+      env: {
+        additionalProperties: { type: "string" },
+        type: "object",
+      },
+      script: nonEmptyStringSchema(),
+    }),
+    status: nonEmptyStringSchema(),
+  }),
+  required: ["events", "run"],
+});
+
 export const changeEntryContract = contract("change-entry", "Change Entry", "Pending Skillset change entry source contract.", {
   additionalProperties: true,
   anyOf: [
@@ -243,6 +272,7 @@ export const skillsetSchemaContracts = [
   agentFrontmatterContract,
   instructionFrontmatterContract,
   hookContract,
+  adaptiveHookContract,
   changeEntryContract,
 ] as const satisfies readonly SkillsetSchemaContract[];
 
