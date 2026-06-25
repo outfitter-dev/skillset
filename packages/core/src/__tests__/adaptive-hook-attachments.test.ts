@@ -12,6 +12,7 @@ import {
 import { renderBuildGraph } from "../render";
 import { loadBuildGraph } from "../resolver";
 import type { JsonRecord } from "../types";
+import { parseMarkdown } from "../yaml";
 
 describe("adaptive hook attachment resolution", () => {
   test("resolves nearest definitions and expands auto attachments", () => {
@@ -290,6 +291,96 @@ hooks:
     ]));
   });
 
+  test("renders Claude skill and project-agent adaptive hooks into frontmatter", async () => {
+    const graph = await loadBuildGraph(await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-frontmatter-render
+claude: true
+codex: false
+`,
+      ".skillset/skills/writer/SKILL.md": `
+---
+name: writer
+description: Demo writer.
+hooks:
+  PreToolUse:
+    - hook: local-shell
+      match: Bash
+      status: Checking skill shell
+---
+
+Body.
+`,
+      ".skillset/skills/writer/hooks/local-shell.json": JSON.stringify({
+        events: ["PreToolUse"],
+        run: { command: "echo skill" },
+      }),
+      ".skillset/agents/helper.md": `
+---
+description: Demo helper.
+hooks:
+  Stop:
+    - hook: local-stop
+      status: Checking agent stop
+---
+
+Body.
+`,
+      ".skillset/agents/helper/hooks/local-stop.json": JSON.stringify({
+        events: ["Stop"],
+        run: { command: "echo agent" },
+      }),
+    }));
+
+    const rendered = await renderBuildGraph(graph);
+    const skillFrontmatter = renderedMarkdown(rendered, ".claude/skills/writer/SKILL.md").frontmatter;
+    const agentFrontmatter = renderedMarkdown(rendered, ".claude/agents/helper.md").frontmatter;
+
+    expect(skillFrontmatter.hooks).toEqual({
+      PreToolUse: [{
+        hooks: [{ command: "echo skill", type: "command" }],
+        matcher: "Bash",
+        statusMessage: "Checking skill shell",
+      }],
+    });
+    expect(agentFrontmatter.hooks).toEqual({
+      Stop: [{
+        hooks: [{ command: "echo agent", type: "command" }],
+        statusMessage: "Checking agent stop",
+      }],
+    });
+  });
+
+  test("rejects frontmatter adaptive hook scripts without stable path proof", async () => {
+    const graph = await loadBuildGraph(await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-frontmatter-script
+claude: true
+codex: false
+`,
+      ".skillset/skills/writer/SKILL.md": `
+---
+name: writer
+description: Demo writer.
+hooks:
+  Stop:
+    - local-stop
+---
+
+Body.
+`,
+      ".skillset/skills/writer/hooks/local-stop/hook.json": JSON.stringify({
+        events: ["Stop"],
+        run: { script: "./stop.sh" },
+      }),
+      ".skillset/skills/writer/hooks/local-stop/stop.sh": "#!/bin/sh\nexit 0\n",
+    }));
+
+    await expect(renderBuildGraph(graph)).rejects.toThrow("frontmatter hook rendering does not have stable runtime path proof");
+  });
+
   test("rejects adaptive plugin hook output colliding with native hooks aggregate", async () => {
     await expect(loadBuildGraph(await fixture({
       "skillset.yaml": `
@@ -339,4 +430,10 @@ function renderedJson(files: readonly { readonly content: Uint8Array; readonly p
   const file = files.find((candidate) => candidate.path === path);
   expect(file).toBeDefined();
   return JSON.parse(new TextDecoder().decode(file?.content)) as JsonRecord;
+}
+
+function renderedMarkdown(files: readonly { readonly content: Uint8Array; readonly path: string }[], path: string) {
+  const file = files.find((candidate) => candidate.path === path);
+  expect(file).toBeDefined();
+  return parseMarkdown(new TextDecoder().decode(file?.content), path);
 }

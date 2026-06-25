@@ -646,6 +646,17 @@ async function renderClaudeProjectAgent(
   const targetOptions = agent.targets.claude.options;
   const initialPrompt = readString(targetOptions, "initialPrompt") ?? readString(agent.frontmatter, "initialPrompt");
   const skills = readStringArray(targetOptions, "skills") ?? readStringArray(agent.frontmatter, "skills");
+  const adaptiveHooks = renderAdaptiveFrontmatterHooks(
+    graph,
+    { agentId: agent.outputName, kind: "agent" },
+    "claude",
+    relative(graph.rootPath, agent.sourcePath)
+  );
+  if (adaptiveHooks !== undefined && targetOptions.hooks !== undefined) {
+    throw new Error(
+      `skillset: ${relative(graph.rootPath, agent.sourcePath)} cannot combine adaptive hook attachments with claude.hooks`
+    );
+  }
   const frontmatter = mergeRecords(
     mergeRecords(
       mergeRecords(stripAgentTargetOptions(stripSourceFrontmatter(agent.frontmatter, agent.sourcePath)), {
@@ -653,6 +664,7 @@ async function renderClaudeProjectAgent(
         description: readString(targetOptions, "description") ?? readString(agent.frontmatter, "description") ?? agent.name,
         ...(skills === undefined ? {} : { skills: [...skills] }),
         ...(initialPrompt === undefined ? {} : { initialPrompt }),
+        ...(adaptiveHooks === undefined ? {} : { hooks: adaptiveHooks }),
       }),
       stripAgentTargetOptions(targetOptions)
     ),
@@ -1104,12 +1116,24 @@ async function renderSkillMarkdown(
   const withReferences = references === undefined ? base : mergeRecords(base, { references });
   const withClaudePolicy =
     target === "claude" ? mergeRecords(withReferences, renderClaudeSkillPolicy(skill, targetOptions)) : withReferences;
+  const adaptiveHooks = target === "claude"
+    ? renderAdaptiveFrontmatterHooks(graph, skillScope(plugin, skill), target, relative(graph.rootPath, skill.sourcePath))
+    : undefined;
+  const withAdaptiveHooks = adaptiveHooks === undefined
+    ? withClaudePolicy
+    : mergeRecords(withClaudePolicy, { hooks: adaptiveHooks });
   const withPortable = graph.root.compile.skillset.metadata
-    ? mergeRecords(withClaudePolicy, { metadata: { generated: GENERATED_BY, version } })
-    : withClaudePolicy;
+    ? mergeRecords(withAdaptiveHooks, { metadata: { generated: GENERATED_BY, version } })
+    : withAdaptiveHooks;
+  const targetFrontmatter = readRecord(targetOptions, "frontmatter") ?? {};
+  if (adaptiveHooks !== undefined && targetFrontmatter.hooks !== undefined) {
+    throw new Error(
+      `skillset: ${relative(graph.rootPath, skill.sourcePath)} cannot combine adaptive hook attachments with ${target}.frontmatter.hooks`
+    );
+  }
   const withTargetFrontmatter = mergeRecords(
     withPortable,
-    readRecord(targetOptions, "frontmatter") ?? {}
+    targetFrontmatter
   );
   const frontmatter = graph.root.compile.skillset.metadata
     ? mergeRecords(withTargetFrontmatter, {
@@ -1792,6 +1816,110 @@ function providerListAllows(providers: readonly TargetName[] | undefined, target
 
 function hasAdaptivePluginHookSources(plugin: SourcePlugin): boolean {
   return plugin.adaptiveHooks.length > 0 || plugin.hookAttachments.length > 0;
+}
+
+function renderAdaptiveFrontmatterHooks(
+  graph: BuildGraph,
+  scope: ResolvedAdaptiveHookAttachment["attachment"]["scope"],
+  target: TargetName,
+  sourceLabel: string
+): JsonRecord | undefined {
+  const resolved = adaptiveHookAttachmentsForScope(graph, scope, target);
+  if (resolved.length === 0) return undefined;
+
+  const hooks: Record<string, JsonValue[]> = {};
+  for (const item of resolved) {
+    const eventGroups = hooks[item.event] ?? [];
+    eventGroups.push(renderAdaptiveFrontmatterHookGroup(item, target));
+    hooks[item.event] = eventGroups;
+  }
+
+  validateHookDefinition({ hooks }, { sourcePath: `${sourceLabel} adaptive hooks`, target });
+  return hooks;
+}
+
+function renderAdaptiveFrontmatterHookGroup(
+  item: ResolvedAdaptiveHookAttachment,
+  target: TargetName
+): JsonRecord {
+  validateSupportedAdaptiveFrontmatterHookFields(item, target);
+  const matcher = item.attachment.match ?? item.definition.frontmatter.match;
+  const statusMessage = item.attachment.status ?? readString(item.definition.frontmatter, "status");
+  return {
+    ...(matcher === undefined ? {} : { matcher }),
+    ...(statusMessage === undefined ? {} : { statusMessage }),
+    hooks: [{
+      command: adaptiveFrontmatterHookCommand(item),
+      type: "command",
+    }],
+  };
+}
+
+function validateSupportedAdaptiveFrontmatterHookFields(
+  item: ResolvedAdaptiveHookAttachment,
+  target: TargetName
+): void {
+  const providerOverride = item.definition.frontmatter[target];
+  if (providerOverride !== undefined) {
+    throw new Error(
+      `skillset: adaptive hook ${item.definition.name} uses ${target} provider overrides, but frontmatter hook rendering does not support overrides yet`
+    );
+  }
+
+  const run = readRecord(item.definition.frontmatter, "run") ?? {};
+  for (const key of ["args", "cwd", "env"] as const) {
+    if (run[key] !== undefined) {
+      throw new Error(
+        `skillset: adaptive hook ${item.definition.name} uses run.${key}, but frontmatter hook rendering only supports run.command yet`
+      );
+    }
+  }
+  if (run.script !== undefined) {
+    throw new Error(
+      `skillset: adaptive hook ${item.definition.name} uses run.script, but frontmatter hook rendering does not have stable runtime path proof yet`
+    );
+  }
+}
+
+function adaptiveFrontmatterHookCommand(item: ResolvedAdaptiveHookAttachment): string {
+  const run = readRecord(item.definition.frontmatter, "run") ?? {};
+  const command = readString(run, "command");
+  if (command === undefined) {
+    throw new Error(`skillset: adaptive hook ${item.definition.name} must define run.command for frontmatter hook rendering`);
+  }
+  return command;
+}
+
+function adaptiveHookAttachmentsForScope(
+  graph: BuildGraph,
+  scope: ResolvedAdaptiveHookAttachment["attachment"]["scope"],
+  target: TargetName
+): readonly ResolvedAdaptiveHookAttachment[] {
+  return resolveAdaptiveHookAttachments(graph.adaptiveHooks, graph.hookAttachments).resolved.filter((item) =>
+    sameAdaptiveHookScope(item.attachment.scope, scope) &&
+    supportsAdaptiveHookTarget(item, target)
+  );
+}
+
+function sameAdaptiveHookScope(
+  left: ResolvedAdaptiveHookAttachment["attachment"]["scope"],
+  right: ResolvedAdaptiveHookAttachment["attachment"]["scope"]
+): boolean {
+  return left.kind === right.kind &&
+    left.pluginId === right.pluginId &&
+    left.skillId === right.skillId &&
+    left.agentId === right.agentId;
+}
+
+function skillScope(
+  plugin: SourcePlugin | undefined,
+  skill: SourceSkill
+): ResolvedAdaptiveHookAttachment["attachment"]["scope"] {
+  return {
+    kind: "skill",
+    ...(plugin === undefined ? {} : { pluginId: plugin.id }),
+    skillId: skill.id,
+  };
 }
 
 async function renderPluginFeatureFiles(
