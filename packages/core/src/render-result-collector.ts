@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
+import { resolveAdaptiveHookAttachments } from "./adaptive-hook-attachments";
 import { readString, isOutputSelected } from "./config";
 import { getSkillsetFeature } from "./feature-registry";
 import {
@@ -20,7 +21,7 @@ import {
   selectorForStandaloneSkill,
   selectorForTargetNativeIsland,
 } from "./source-unit-selector";
-import type { BuildGraph, BuildScope, JsonRecord, RenderedFile, SourceSkill, TargetName } from "./types";
+import type { AdaptiveHookScope, BuildGraph, BuildScope, JsonRecord, RenderedFile, SourceSkill, TargetName } from "./types";
 import { isJsonRecord } from "./yaml";
 
 const LOCK_FILE = "skillset.lock";
@@ -82,6 +83,7 @@ export function collectRenderResults(
   }
 
   outcomes.push(...unsupportedPluginFeatureOutcomes(graph, options.scopes));
+  outcomes.push(...unsupportedAdaptiveHookOutcomes(graph, options.scopes));
 
   return outcomes.sort((left, right) =>
     compareStrings(
@@ -276,6 +278,104 @@ function sourceSkillForLockItem(graph: BuildGraph, item: RenderedLockItem): Sour
   return graph.plugins
     .find((plugin) => plugin.id === item.plugin)
     ?.skills.find((skill) => skill.id === item.name);
+}
+
+function unsupportedAdaptiveHookOutcomes(
+  graph: BuildGraph,
+  scopes: readonly BuildScope[] | undefined
+): readonly SkillsetRenderResult[] {
+  if (scopes !== undefined && !scopes.includes("plugins") && !scopes.includes("project") && !scopes.includes("user")) {
+    return [];
+  }
+
+  const featureId = "adaptive-hooks";
+  const evidence = evidenceFor(featureId, "codex");
+  const outcomes: SkillsetRenderResult[] = [];
+  for (const item of resolveAdaptiveHookAttachments(graph.adaptiveHooks, graph.hookAttachments).resolved) {
+    if (!providerListAllows(item.definition.providers, "codex") || !providerListAllows(item.attachment.providers, "codex")) {
+      continue;
+    }
+    if (!isAdaptiveHookScopeRenderedForTarget(graph, item.attachment.scope, "codex", scopes)) continue;
+    const destination = unsupportedAdaptiveHookDestination(item.attachment.scope);
+    if (destination === undefined) continue;
+
+    const sourceUnit = sourceUnitForAdaptiveHookScope(item.attachment.scope);
+    if (sourceUnit === undefined) continue;
+    const sourcePath = normalizeSourcePath(graph, item.attachment.sourcePath);
+    const reason = unsupportedAdaptiveHookReason(item.attachment.scope);
+    outcomes.push(
+      defineRenderResult({
+        destination,
+        ...(evidence === undefined ? {} : { evidence }),
+        featureId,
+        policy: "unsupported:error",
+        reason,
+        sourcePath,
+        sourceUnit,
+        status: "unsupported",
+        target: "codex",
+        diagnostics: [{ code: "adaptive-hook-destination-unsupported", message: reason, path: sourcePath }],
+      })
+    );
+  }
+  return outcomes;
+}
+
+function unsupportedAdaptiveHookDestination(scope: AdaptiveHookScope): string | undefined {
+  if (scope.kind === "skill") return "skill-frontmatter";
+  if (scope.kind === "agent") return "agent-frontmatter";
+  return undefined;
+}
+
+function unsupportedAdaptiveHookReason(scope: AdaptiveHookScope): string {
+  if (scope.kind === "skill") {
+    return "Codex has no faithful skill-local hook destination for adaptive hook attachments.";
+  }
+  return "Codex has no faithful project-agent hook destination for adaptive hook attachments.";
+}
+
+function isAdaptiveHookScopeRenderedForTarget(
+  graph: BuildGraph,
+  scope: AdaptiveHookScope,
+  target: TargetName,
+  scopes: readonly BuildScope[] | undefined
+): boolean {
+  if (scope.kind === "skill") {
+    if (scope.pluginId !== undefined) {
+      if (scopes !== undefined && !scopes.includes("plugins")) return false;
+      const plugin = graph.plugins.find((candidate) => candidate.id === scope.pluginId);
+      const skill = plugin?.skills.find((candidate) => candidate.id === scope.skillId);
+      return plugin !== undefined &&
+        skill !== undefined &&
+        pluginTargetSelected(graph, plugin.id, target) &&
+        skill.targets[target].enabled;
+    }
+
+    if (scopes !== undefined && !scopes.includes("user")) return false;
+    const skill = graph.standaloneSkills.find((candidate) => candidate.id === scope.skillId);
+    return skill !== undefined &&
+      skill.targets[target].enabled &&
+      isOutputSelected(graph.root.outputs.targetOutputs[target].skills, skill.id);
+  }
+
+  if (scope.kind === "agent") {
+    if (scopes !== undefined && !scopes.includes("project")) return false;
+    const agent = graph.projectAgents.find((candidate) => candidate.outputName === scope.agentId);
+    return agent !== undefined && agent.targets[target].enabled;
+  }
+
+  return false;
+}
+
+function sourceUnitForAdaptiveHookScope(scope: AdaptiveHookScope): string | undefined {
+  if (scope.kind === "skill") {
+    if (scope.skillId === undefined) return undefined;
+    return scope.pluginId === undefined
+      ? selectorForStandaloneSkill(scope.skillId)
+      : selectorForPluginSkill(scope.pluginId, scope.skillId);
+  }
+  if (scope.kind === "agent" && scope.agentId !== undefined) return selectorForProjectAgent(scope.agentId);
+  return undefined;
 }
 
 function featureOutcome(args: {
@@ -557,6 +657,10 @@ function pluginTargetSelected(graph: BuildGraph, pluginId: string, target: Targe
   return plugin !== undefined && plugin.targets[target].enabled && isOutputSelected(graph.root.outputs.targetOutputs[target].plugins, pluginId);
 }
 
+function providerListAllows(providers: readonly TargetName[] | undefined, target: TargetName): boolean {
+  return providers === undefined || providers.includes(target);
+}
+
 function evidenceFor(featureId: string, target: TargetName | undefined) {
   const feature = getSkillsetFeature(featureId);
   if (feature === undefined) return undefined;
@@ -594,6 +698,10 @@ function isInsideOutputRoot(path: string, outputRoot: string): boolean {
 
 function normalizePath(path: string): string {
   return path.replaceAll("\\", "/").replace(/^\.\//, "");
+}
+
+function normalizeSourcePath(graph: BuildGraph, path: string): string {
+  return normalizePath(path.startsWith(graph.rootPath) ? relative(graph.rootPath, path) : path);
 }
 
 function stringField(record: JsonRecord, key: string): string {
