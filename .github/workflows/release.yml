@@ -17,7 +17,7 @@ jobs:
       issues: write
       pull-requests: write
     outputs:
-      has_changesets: ${{ steps.changesets.outputs.hasChangesets }}
+      has_changesets: ${{ steps.pending-changesets.outputs.has_changesets }}
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
@@ -26,8 +26,20 @@ jobs:
         with:
           bun-version-file: .bun-version
       - run: bun install --frozen-lockfile
+      - name: Check for pending changesets
+        id: pending-changesets
+        shell: bash
+        run: |
+          shopt -s nullglob
+          changesets=(.changeset/*.md)
+          if [ "${#changesets[@]}" -gt 0 ]; then
+            echo "has_changesets=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changesets=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Create or update version PR
         id: changesets
+        if: steps.pending-changesets.outputs.has_changesets == 'true'
         uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1
         with:
           commit: "chore(release): version packages"
@@ -36,7 +48,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Label version PR
-        if: steps.changesets.outputs.hasChangesets == 'true'
+        if: steps.pending-changesets.outputs.has_changesets == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: bun run publish:label-release-pr
