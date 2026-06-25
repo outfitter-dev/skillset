@@ -1,0 +1,4 @@
+skillset:
+  name: native
+  title: Native Hooks
+  description: Native aggregate hook source kept separate from adaptive units.
