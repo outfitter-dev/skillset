@@ -697,6 +697,61 @@ Body.
     }));
   });
 
+  it("enforces unsupported adaptive hook outcomes for Codex plugin capability gaps", async () => {
+    const eventRoot = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-policy-plugin-event
+claude: false
+codex: true
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  Notification:
+    - notify
+`,
+      ".skillset/plugins/demo/hooks/notify.json": JSON.stringify({
+        events: ["Notification"],
+        run: { command: "echo notify" },
+      }),
+    });
+    await expectUnsupportedOutcome(eventRoot, {
+      destination: "hooks",
+      featureId: "adaptive-hooks",
+      reason: "Codex does not support adaptive hook event Notification.",
+      sourceUnit: "plugin.demo.feature:hooks",
+    });
+
+    const matcherRoot = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-policy-plugin-matcher
+claude: false
+codex: true
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  Stop:
+    - hook: stop-policy
+      match: main
+`,
+      ".skillset/plugins/demo/hooks/stop-policy.json": JSON.stringify({
+        events: ["Stop"],
+        run: { command: "echo stop" },
+      }),
+    });
+    await expectUnsupportedOutcome(matcherRoot, {
+      destination: "hooks",
+      featureId: "adaptive-hooks",
+      reason: "Codex ignores matchers for adaptive hook event Stop, so this attachment cannot render faithfully.",
+      sourceUnit: "plugin.demo.feature:hooks",
+    });
+  });
+
   it("separates target (provider) from destination (concrete output scope)", async () => {
     const root = await fixture(OUTCOME_FIXTURE);
     const preview = await diffSkillsetResult(root);
