@@ -33,6 +33,7 @@ Write repo-local generated output only when you explicitly run
 
 - [Five-Minute Quickstart](docs/quickstart.md): the shortest first-author path from source scaffold to generated output.
 - [First Author Example](examples/first-author/README.md): a minimal root-layout source repo that builds one skill and one rule to Claude and Codex.
+- [Share-Ready Checklist](docs/quickstart.md#share-ready-checklist): the 0.16 author handoff bar before hooks or runtime activation enter the path.
 - [Dev Watch](docs/features/dev-watch.md): the preview-only `skillset dev --watch` authoring loop.
 - [Skillset Design Tenets](docs/tenets.md): the slow-moving doctrine for source-first loadout authoring and target-native rendering.
 - [Architecture Decision Records](docs/adrs/README.md): accepted and proposed decisions for source vocabulary, unsupported destination policy, and generated-output promises.
