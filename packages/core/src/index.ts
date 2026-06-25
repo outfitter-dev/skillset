@@ -195,6 +195,7 @@ export type {
   LintIssue,
   LintResult,
   SourceAdaptiveHook,
+  SourceAdaptiveHookScriptReference,
   SourceHookAttachment,
 } from "./types";
 export {
