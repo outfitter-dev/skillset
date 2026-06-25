@@ -1,5 +1,36 @@
 # skillset
 
+## 0.16.0
+
+### Minor Changes
+
+- 1f9198e: Make `skillset ci` report package Changesets issues alongside Skillset change-entry coverage.
+- fad1771: Add preview-only `skillset dev --watch` for first-author source diagnostics and generated-output drift.
+- 3c0b52b: Add maintainer-only `skillset providers check`, `skillset providers diff`, and `skillset providers update` commands for comparing adopted provider schema snapshots to live upstream sources, reviewing destination-format evidence, and refreshing checked-in schema provenance through an explicit `--yes` update.
+
+### Patch Changes
+
+- 94113e3: Move dedicated Skillset workspace change state to `skillset/changes` while ordinary workspaces continue using `.skillset/changes`.
+- 47f5cc6: Derive safer automatic XDG cache bucket keys from hashed host-and-path checkout identity so ordinary workspaces no longer need `workspace.cacheKey`.
+- 88d1199: Move Skillset-owned operational output paths to `.skillset/cache` and align deterministic output safety with the new cache boundary.
+- dbbc7bd: Improve provider destination-format update diagnostics with user-facing source, output, and next-step guidance.
+- d9b8d89: Add a provider destination-format migration registry for compatible, safe mechanical, and manual-review update paths.
+- 964d4fa: Add adopted provider destination-format snapshots for Claude and Codex surfaces and route feature-registry evidence through those offline snapshots.
+- bd10898: Wire safe provider destination-format migrations into `skillset check --fix` and the new `skillset update` preview/write command.
+- 80c1ed9: Connect feature-registry target support rows to adopted provider destination-format, schema, and manual-overlay snapshot evidence.
+- 438544f: Add adopted rolling-latest Claude and Codex provider schema snapshots with deterministic hashes and docs-only manual overlay records.
+- a6df6a9: Refresh provider-source and render-result wording so feature registry output and docs use provider/destination vocabulary consistently.
+- f15fdb8: Add the private Skillset schema contract package and align source validation with the descriptor contract, including stricter empty `allowed_tools` handling plus shared hook and pending change-entry schemas.
+- 2c75777: Route compiler config and frontmatter parsing through shared schema validation.
+- c0da87d: Generate checked-in Skillset schema reference artifacts and maximal examples from the shared schema contract package, and scaffold workspace manifests with a YAML language-server schema reference.
+- 5619fe5: Add `skillset init --layout root` so existing repositories can explicitly opt into the root `skillset.yaml` plus `skillset/` source layout while keeping nested `.skillset/` as the default init scaffold.
+- 259d195: Scaffold ignored operational cache and snapshot directories with tracked `.gitignore` sentinels.
+- 61d82d3: Validate skill, agent, and instruction frontmatter through the shared schema contracts.
+- 168b35d: Move deterministic test declarations into active source-root `tests.yaml` files and replace the retired `source`/`assertions` shape with selector-driven `select` and `checks` declarations.
+- c86e9ad: Route Workbench workspace checks through the shared schema contract surface.
+- 20de2d7: Add XDG path helpers and stable repository cache-key support for Skillset-owned operational state.
+- 69bcfcc: Back Skillset operational cache paths with the repo XDG cache bucket while preserving logical `.skillset/cache/...` paths in reports, locks, isolated builds, tests, and generated guidance.
+
 ## 0.15.1
 
 ### Patch Changes
