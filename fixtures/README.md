@@ -29,6 +29,7 @@ A checked-in fixture is a durable fake content repo committed to the tree. Tests
 Current checked-in cases:
 
 - [`kitchen-sink/`](kitchen-sink/README.md) is the complete-surface positive build fixture.
+- [`adaptive-hooks/`](adaptive-hooks/README.md) is the positive authoring fixture for adaptive hook recipes.
 - [`workbench-clean/`](workbench-clean/README.md) is a small positive Workbench source-contract fixture.
 - [`workbench-invalid/`](workbench-invalid/README.md) is a small negative Workbench fixture for deterministic source, resource, and runtime diagnostics.
 

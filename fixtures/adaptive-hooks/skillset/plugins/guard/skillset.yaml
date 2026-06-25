@@ -1,0 +1,14 @@
+skillset:
+  name: guard
+  title: Guard Hooks
+  description: Adaptive plugin hook recipes.
+hooks:
+  PreToolUse:
+    - hook: shell-policy
+      match: Bash
+      status: Checking shell command
+      providers:
+        - claude
+        - codex
+  auto:
+    - session-metadata

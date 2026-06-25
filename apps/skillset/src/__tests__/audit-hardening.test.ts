@@ -11,6 +11,7 @@ import { compareStrings } from "../path";
 import { loadBuildGraph } from "../resolver";
 
 const KITCHEN_SINK_FIXTURE = join(import.meta.dir, "..", "..", "..", "..", "fixtures", "kitchen-sink");
+const ADAPTIVE_HOOKS_FIXTURE = join(import.meta.dir, "..", "..", "..", "..", "fixtures", "adaptive-hooks");
 
 test("kitchen-sink fixture builds every implemented surface and stays current", async () => {
   const root = await kitchenSink();
@@ -92,6 +93,47 @@ test("kitchen-sink fixture builds every implemented surface and stays current", 
   // Generated output is internally consistent and lint-clean.
   expect((await verifySkillset(root)).checkedFiles).toBeGreaterThan(0);
   await expect(lintSkillset(root)).resolves.toBeDefined();
+});
+
+test("adaptive hooks fixture builds authoring recipes", async () => {
+  const root = await adaptiveHooksFixture();
+
+  await buildSkillset(root);
+  await verifySkillset(root);
+
+  const claudeGuardHooks = await readFile(
+    join(root, "plugins-claude/plugins/guard/hooks/hooks.json"),
+    "utf8"
+  );
+  expect(claudeGuardHooks).toContain("$CLAUDE_PLUGIN_ROOT/hooks/shell-policy/check.sh");
+  expect(claudeGuardHooks).toContain("$CLAUDE_PLUGIN_ROOT/scripts/session.sh");
+  expect(claudeGuardHooks).toContain("Checking shell command");
+  expect(claudeGuardHooks).toContain("PreToolUse");
+  expect(claudeGuardHooks).toContain("SessionStart");
+
+  const codexGuardHooks = await readFile(
+    join(root, "plugins-codex/plugins/guard/hooks/hooks.json"),
+    "utf8"
+  );
+  expect(codexGuardHooks).toContain("$PLUGIN_ROOT/hooks/shell-policy/check.sh");
+  expect(codexGuardHooks).toContain("$PLUGIN_ROOT/scripts/session.sh");
+  expect(codexGuardHooks).toContain("Checking shell command");
+  expect(codexGuardHooks).toContain("PreToolUse");
+  expect(codexGuardHooks).toContain("SessionStart");
+
+  const claudeSkill = await readFile(join(root, ".claude/skills/writer/SKILL.md"), "utf8");
+  expect(claudeSkill).toContain("Checking skill shell");
+  expect(claudeSkill).toContain("echo skill shell");
+
+  const claudeAgent = await readFile(join(root, ".claude/agents/reviewer.md"), "utf8");
+  expect(claudeAgent).toContain("echo agent session");
+
+  const nativeHooks = await readFile(
+    join(root, "plugins-codex/plugins/native/hooks/hooks.json"),
+    "utf8"
+  );
+  expect(nativeHooks).toContain("Checking native session");
+  expect(nativeHooks).toContain("echo native session");
 });
 
 test("custom resources.to rejects an ambiguous bare link to the source path", async () => {
@@ -470,6 +512,12 @@ test("compareStrings orders by code unit independent of locale", () => {
 async function kitchenSink(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "skillset-kitchen-"));
   await cp(KITCHEN_SINK_FIXTURE, root, { recursive: true });
+  return root;
+}
+
+async function adaptiveHooksFixture(): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), "skillset-adaptive-hooks-"));
+  await cp(ADAPTIVE_HOOKS_FIXTURE, root, { recursive: true });
   return root;
 }
 

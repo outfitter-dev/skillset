@@ -1,0 +1,9 @@
+{
+  "name": "agent-session",
+  "description": "Agent-local Claude hook.",
+  "events": ["SessionStart"],
+  "providers": ["claude"],
+  "run": {
+    "command": "echo agent session"
+  }
+}

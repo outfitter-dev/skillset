@@ -79,6 +79,54 @@ hooks:
 
 The implemented render slices support plugin-level command/script hooks and Claude frontmatter command hooks. When a plugin attachment resolves to a provider-compatible adaptive hook, Skillset writes provider-native `hooks/hooks.json` into the generated Claude and Codex plugin outputs and declares `hooks` in the plugin manifest. When a Claude skill-local or project-agent-local attachment resolves to a command hook, Skillset writes provider-native `hooks` frontmatter for the generated skill or agent. Codex skill/agent no-faithful-destination cases, Claude-only plugin events, Codex-ignored plugin matchers, provider overrides, unsupported `run.args`/`run.cwd`/`run.env` fields, and frontmatter `run.script` path-proof gaps now produce structured unsupported render results instead of silently widening or dropping the attachment. Project/root hooks, degraded/skipped outcomes, and structured policy for unsupported handler cases remain later SET-121 work.
 
+## Authoring Recipes
+
+Plugin-level adaptive hooks use named hook units plus `hooks:` attachments in the plugin `skillset.yaml`:
+
+```yaml
+skillset:
+  name: source-guard
+hooks:
+  PreToolUse:
+    - hook: shell-policy
+      match: Bash
+      status: Checking shell command
+      providers: [claude, codex]
+  auto:
+    - session-metadata
+```
+
+Use a directory hook unit when the hook owns sidecar scripts:
+
+```json
+{
+  "name": "shell-policy",
+  "events": ["PreToolUse"],
+  "run": {
+    "script": "./check.sh"
+  }
+}
+```
+
+In that shape, `./check.sh` must live beside `hook.json` or `<name>.json`. For shared owner-level scripts, use `{{scripts.dir}}/session.sh`; plugin rendering copies the referenced scripts and rewrites commands to `$CLAUDE_PLUGIN_ROOT/...` for Claude and `$PLUGIN_ROOT/...` for Codex.
+
+Use flat hook units for command-only definitions with no hook-local sidecars:
+
+```json
+{
+  "name": "skill-shell",
+  "events": ["PreToolUse"],
+  "providers": ["claude"],
+  "run": {
+    "command": "echo skill shell"
+  }
+}
+```
+
+Skill-local and project-agent-local attachments currently render only to Claude frontmatter. Plugin-shipped agent frontmatter hooks are not implemented; use a plugin-level hook or provider-native aggregate source until that destination has a faithful render path. Scope Codex-incompatible skill or agent attachments with `providers: [claude]` when the intent is Claude-only. If Codex is enabled and an attachment cannot be faithfully rendered, build/diff/verify surface an `adaptive-hooks` `unsupported:error` render result instead of writing a broader plugin or project hook.
+
+Keep provider-native aggregate hooks in a separate plugin or choose native aggregate mode for that plugin. A plugin cannot combine adaptive hook units with `hooks/hooks.json`, because both would claim the same generated hook destination.
+
 Resolution is nearest-first for named hook references:
 
 1. Skill-local hooks.
@@ -132,9 +180,13 @@ Codex plugin hooks default to `hooks/hooks.json`. Plugin hook commands can use `
 
 Codex upstream generated schemas live under `openai/codex` at `codex-rs/hooks/schema/generated/*.schema.json`. SET-117 should use those schema snapshots as evidence rather than relying only on hand-maintained event lists.
 
-## Fixture Plan
+## Fixtures
 
-The first fixture set should prove supported, transformed, degraded, unsupported, and collision cases:
+`fixtures/adaptive-hooks` is the checked-in positive authoring fixture for the implemented recipes. It covers plugin-level adaptive hooks, flat and directory hook units, `hooks.auto`, status messages, matcher attachments, hook-local and `{{scripts.dir}}` script paths, Claude skill/agent frontmatter hooks, and a separate native aggregate plugin.
+
+Inline tests cover the current unsupported policy cases: Codex skill/agent destinations, Claude-only plugin events for Codex, Codex ignored matchers, provider overrides, unsupported run fields, frontmatter script path gaps, and native aggregate collisions.
+
+The broader fixture set should continue proving supported, transformed, degraded, unsupported, and collision cases:
 
 | Fixture | Expected proof |
 | --- | --- |

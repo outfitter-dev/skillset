@@ -1,0 +1,8 @@
+{
+  "name": "shell-policy",
+  "description": "Checks shell commands before they run.",
+  "events": ["PreToolUse"],
+  "run": {
+    "script": "./check.sh"
+  }
+}
