@@ -43,6 +43,9 @@ function formatBlockedOutcome(outcome: SkillsetRenderResult): string {
 }
 
 function suggestionForBlockedOutcome(outcome: SkillsetRenderResult): string {
+  if (outcome.target === "codex" && outcome.featureId === "adaptive-hooks") {
+    return "scope the hook attachment to Claude with providers, disable Codex for this source, or wait for a documented Codex hook destination";
+  }
   if (outcome.target === "codex" && outcome.featureId === "plugin-agents") {
     return "set codex: false for the plugin, move portable project agents to .skillset/agents, or keep Claude-only files in Claude provider source";
   }
