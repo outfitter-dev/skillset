@@ -125,14 +125,17 @@ Claude or Codex configuration stay separate.
 
 ```bash
 skillset diff
+skillset dev --watch
 skillset explain .skillset/src/skills/review-notes/SKILL.md
 skillset explain .claude/skills/review-notes/SKILL.md
 skillset doctor
 ```
 
-Use `diff` to preview generated changes after editing source, `explain` to see
-why a source or generated path exists, and `doctor` for a broader local health
-summary.
+Use `diff` to preview generated changes after editing source, `dev --watch` to
+rerun source diagnostics and generated-output previews as you save, `explain` to
+see why a source or generated path exists, and `doctor` for a broader local
+health summary. The watch loop is preview-only; use `skillset build --yes` when
+you want to write generated output.
 
 ## Where To Go Deeper
 
@@ -141,4 +144,5 @@ summary.
 - [Skills](features/skills.md) covers skill frontmatter, resources, rendering,
   diagnostics, and provenance.
 - [Workbench Check](features/workbench.md) explains `check` versus `verify`.
+- [Dev Watch](features/dev-watch.md) covers the preview-only watch loop.
 - [CI](features/ci.md) explains the `skillset ci` gate and optional workflow.

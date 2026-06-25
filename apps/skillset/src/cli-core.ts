@@ -29,6 +29,7 @@ import {
 } from "./authoring";
 import { ciSkillset, hasDrift, renderCiReportMarkdown, type CiReport } from "./ci";
 import { printDiagnostics, printDiffPlan, printGeneratedChangelogDriftHint, printGeneratedChangelogPathHint } from "./cli-renderers";
+import { runDevWatch } from "./dev-watch";
 import {
   dispatchHookRun,
   readHookRunEvent,
@@ -70,7 +71,7 @@ import { renderValidatedJson } from "./structured-output";
 import { runSkillsetTest, type SkillsetTestReport } from "./test-runner";
 import type { BuildScope, CompileBuildMode, JsonRecord, SkillsetOptions, SourceOrigin, TargetName } from "./types";
 
-type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "diff" | "distribute" | "doctor" | "explain" | "features" | "hooks" | "import" | "init" | "lint" | "list" | "new" | "providers" | "release" | "restore" | "suggest-source" | "test" | "update" | "verify";
+type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "dev" | "diff" | "distribute" | "doctor" | "explain" | "features" | "hooks" | "import" | "init" | "lint" | "list" | "new" | "providers" | "release" | "restore" | "suggest-source" | "test" | "update" | "verify";
 type DistributionSubcommand = "plan";
 
 const USAGE = [
@@ -82,6 +83,7 @@ const USAGE = [
   "       skillset list [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset doctor [--json] [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset ci [--fix] [--since <ref>] [--report <path>] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset dev --watch [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change status [--since <ref>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change check [@ref|--ref <ref>] [--since <ref>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change <status|check> --staged [--root <path>] [--source <dir>] [--dist <dir>]",
@@ -135,6 +137,7 @@ export async function runCli(
     changeSubcommand,
     ciFix,
     ciReportPath,
+    devWatch,
     dryRun,
     distributionName,
     distributionSubcommand,
@@ -209,6 +212,12 @@ export async function runCli(
     }
     printCiReport(report);
     if (!report.ok) process.exitCode = 1;
+    return;
+  }
+
+  if (command === "dev") {
+    if (!devWatch) throw new Error("skillset: dev currently requires --watch");
+    await runDevWatch(rootPath, options);
     return;
   }
 
@@ -698,6 +707,7 @@ interface ParsedArgs {
   readonly changeSubcommand?: ChangeSubcommand;
   readonly ciFix: boolean;
   readonly ciReportPath?: string;
+  readonly devWatch: boolean;
   readonly distributionName?: string;
   readonly distributionSubcommand?: DistributionSubcommand;
   readonly dryRun: boolean;
@@ -1239,6 +1249,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     command !== "check" &&
     command !== "ci" &&
     command !== "create" &&
+    command !== "dev" &&
     command !== "diff" &&
     command !== "distribute" &&
     command !== "doctor" &&
@@ -1259,7 +1270,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     command !== "verify"
   ) {
     throw new Error(
-        "skillset: expected command adopt, build, change, check, ci, create, diff, distribute, doctor, explain, features, hooks, import, init, lint, list, new, providers, release, restore, suggest-source, test, update, or verify\n" +
+        "skillset: expected command adopt, build, change, check, ci, create, dev, diff, distribute, doctor, explain, features, hooks, import, init, lint, list, new, providers, release, restore, suggest-source, test, update, or verify\n" +
         USAGE
     );
   }
@@ -1280,6 +1291,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let changeScopes: readonly string[] | undefined;
   let ciFix = false;
   let ciReportPath: string | undefined;
+  let devWatch = false;
   let hookAgentRuntime = false;
   let hookPreCommit = false;
   let hookPrePush = false;
@@ -1499,7 +1511,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--agent-runtime" &&
       flag !== "--pre-commit" &&
       flag !== "--pre-push" &&
-      flag !== "--write"
+      flag !== "--write" &&
+      flag !== "--watch"
     ) {
       throw new Error(`skillset: unknown option ${arg}`);
     }
@@ -1518,7 +1531,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag === "--agent-runtime" ||
       flag === "--pre-commit" ||
       flag === "--pre-push" ||
-      flag === "--write"
+      flag === "--write" ||
+      flag === "--watch"
     ) {
       if (inlineValue !== undefined) throw new Error(`skillset: ${flag} does not take a value`);
       if (flag === "--yes") yes = true;
@@ -1535,6 +1549,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       if (flag === "--pre-commit") hookPreCommit = true;
       if (flag === "--pre-push") hookPrePush = true;
       if (flag === "--write") sourceSuggestionWrite = true;
+      if (flag === "--watch") devWatch = true;
       continue;
     }
 
@@ -1655,6 +1670,13 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(changeSince === undefined ? {} : { since: changeSince }),
     yes,
   });
+  validateDevFlags(command, {
+    ...(buildMode === undefined ? {} : { buildMode }),
+    dryRun,
+    ...(scopes === undefined ? {} : { scopes }),
+    watch: devWatch,
+    yes,
+  });
   validateUpdateFlags(command, {
     ...(buildMode === undefined ? {} : { buildMode }),
     dryRun,
@@ -1760,6 +1782,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(changeSubcommand === undefined ? {} : { changeSubcommand }),
     ciFix,
     ...(ciReportPath === undefined ? {} : { ciReportPath }),
+    devWatch,
     ...(distributionName === undefined ? {} : { distributionName }),
     ...(distributionSubcommand === undefined ? {} : { distributionSubcommand }),
     dryRun,
@@ -2233,6 +2256,26 @@ function validateCiFlags(
   if (ci.yes || ci.dryRun) {
     throw new Error("skillset: ci does not take --yes or --dry-run; use --fix to rebuild stale generated output");
   }
+}
+
+function validateDevFlags(
+  command: Command,
+  dev: {
+    readonly buildMode?: CompileBuildMode;
+    readonly dryRun: boolean;
+    readonly scopes?: readonly BuildScope[];
+    readonly watch: boolean;
+    readonly yes: boolean;
+  }
+): void {
+  if (dev.watch && command !== "dev") {
+    throw new Error("skillset: --watch is only supported with dev");
+  }
+  if (command !== "dev") return;
+  if (!dev.watch) throw new Error("skillset: dev currently requires --watch");
+  if (dev.buildMode !== undefined) throw new Error("skillset: dev --watch does not support --updated or --all");
+  if (dev.scopes !== undefined) throw new Error("skillset: dev --watch does not support --scope yet");
+  if (dev.yes || dev.dryRun) throw new Error("skillset: dev --watch is preview-only and does not support --yes or --dry-run");
 }
 
 function validateUpdateFlags(
