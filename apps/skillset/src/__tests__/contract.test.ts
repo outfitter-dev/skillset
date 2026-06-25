@@ -1627,6 +1627,39 @@ Demo body.
   expect(result.stderr).not.toContain("unsupported top-level key tests");
 });
 
+test("SET-177: skillset test rejects source-root assertions declarations", async () => {
+  const root = await contractFixture({
+    ".skillset/skillset.yaml": `
+skillset:
+  name: retired-assertions-source-root
+claude: true
+codex: false
+`,
+    ".skillset/src/tests.yaml": `
+self:
+  select:
+    skills:
+      primary: ["demo"]
+  assertions:
+    - build
+`,
+    ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Demo body.
+`,
+  });
+
+  const result = await runSkillsetCli("test", "self", "--root", root);
+
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain(".skillset/src/tests.yaml.self.assertions is retired");
+  expect(result.stderr).toContain("use .skillset/src/tests.yaml.self.checks");
+});
+
 test("SET-50: skillset test runs an isolated projection and refreshes latest", async () => {
   const root = await contractFixture({
     ".skillset/config.yaml": `
@@ -1677,6 +1710,7 @@ Demo body.
   expect(await fileExists(cachePath(root, ".skillset/cache/tests/latest/report.json"))).toBe(true);
   expect(await fileExists(cachePath(root, ".skillset/cache/tests/latest/workspace/.claude/skills/demo/SKILL.md"))).toBe(true);
   expect(await fileExists(cachePath(root, ".skillset/cache/tests/latest/workspace/.agents/skills/demo/SKILL.md"))).toBe(false);
+  expect(await fileExists(join(root, ".skillset/build/tests"))).toBe(false);
   expect(await fileExists(join(root, ".claude/skills/demo/SKILL.md"))).toBe(false);
   const firstReport = JSON.parse(await readFile(cachePath(root, join(firstLatest.runPath, "report.json")), "utf8")) as {
     schemaVersion: number;
@@ -2029,6 +2063,69 @@ COMMAND_EMITTED=yes
   expect(await fileExists(cachePath(root, ".skillset/cache/tests/latest/workspace/plugins-claude/plugins/alpha/commands/run.md"))).toBe(false);
 });
 
+test("SET-178: source selectors cover all plugins and all skills", async () => {
+  const root = await contractFixture({
+    ".skillset/skillset.yaml": `
+skillset:
+  name: broad-selector-root
+claude: true
+codex: false
+`,
+    ".skillset/src/tests.yaml": `
+all-plugins:
+  select:
+    plugins: true
+  checks:
+    projection: true
+all-skills:
+  select:
+    skills: true
+  checks:
+    projection: true
+`,
+    ".skillset/src/skills/primary/SKILL.md": `
+---
+name: primary
+description: Primary skill.
+---
+
+Primary body.
+`,
+    ".skillset/src/plugins/beta/skillset.yaml": `
+skillset:
+  name: beta
+`,
+    ".skillset/src/plugins/beta/skills/two/SKILL.md": `
+---
+name: two
+description: Second plugin skill.
+---
+
+Beta skill body.
+`,
+    ".skillset/src/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/src/plugins/alpha/skills/one/SKILL.md": `
+---
+name: one
+description: First plugin skill.
+---
+
+Alpha skill body.
+`,
+  });
+
+  const plugins = await runSkillsetCli("test", "all-plugins", "--root", root);
+  expect(plugins.exitCode).toBe(0);
+  expect(plugins.stdout).toContain("selection: plugins alpha, beta");
+
+  const skills = await runSkillsetCli("test", "all-skills", "--root", root);
+  expect(skills.exitCode).toBe(0);
+  expect(skills.stdout).toContain("selection: primary skills primary; plugin skills alpha/one, beta/two");
+});
+
 test("SET-179: plugin manifest checks derive selected provider manifests", async () => {
   const root = await contractFixture({
     ".skillset/skillset.yaml": `
@@ -2101,6 +2198,48 @@ Demo body.
   expect(codexManifest.version).toBe("2.3.4");
   expect(codexManifest.license).toBe("MIT");
   expect(codexManifest.keywords).toEqual(["alpha"]);
+});
+
+test("SET-179: plugin manifest checks fail when selected plugins emit no manifests", async () => {
+  const root = await contractFixture({
+    ".skillset/skillset.yaml": `
+skillset:
+  name: manifest-missing-root
+compile:
+  targets:
+    - claude
+claude: true
+codex: false
+`,
+    ".skillset/src/tests.yaml": `
+plugin-manifests:
+  select:
+    plugins:
+      - alpha
+  checks:
+    pluginManifests: true
+`,
+    ".skillset/src/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+claude:
+  enabled: false
+`,
+    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Demo body.
+`,
+  });
+
+  const result = await runSkillsetCli("test", "plugin-manifests", "--root", root);
+
+  expect(result.exitCode).toBe(1);
+  expect(result.stdout).toContain("fail: pluginManifests (no selected plugin manifests were emitted)");
+  expect(result.stderr).toBe("");
 });
 
 test("SET-178: source selectors reject missing and ambiguous plugin skills", async () => {
