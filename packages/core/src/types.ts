@@ -169,6 +169,7 @@ export interface SourcePlugin {
   readonly configPath: string;
   readonly dependencies: readonly SourcePluginDependency[];
   readonly features: readonly SourcePluginFeature[];
+  readonly hookAttachments: readonly SourceHookAttachment[];
   readonly id: string;
   readonly metadata: JsonRecord;
   readonly path: string;

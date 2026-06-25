@@ -9,7 +9,9 @@ import {
   type SourceAdaptiveHook,
   type SourceHookAttachment,
 } from "@skillset/core";
+import { renderBuildGraph } from "../render";
 import { loadBuildGraph } from "../resolver";
+import type { JsonRecord } from "../types";
 
 describe("adaptive hook attachment resolution", () => {
   test("resolves nearest definitions and expands auto attachments", () => {
@@ -61,6 +63,9 @@ codex: false
       ".skillset/src/plugins/demo/skillset.yaml": `
 skillset:
   name: demo
+hooks:
+  Stop:
+    - shell
 `,
       ".skillset/src/plugins/demo/hooks/shell.json": JSON.stringify({ events: ["Stop"], run: { command: "node ./shell.js" } }),
       ".skillset/src/plugins/demo/skills/writer/SKILL.md": `
@@ -83,6 +88,7 @@ Body.
 
     expect(graph.adaptiveHooks.map((hook) => hook.name)).toEqual(["session", "shell", "local-shell"]);
     expect(graph.hookAttachments.map((attachment) => `${attachment.event ?? "auto"}:${attachment.hook}`)).toEqual([
+      "Stop:shell",
       "PreToolUse:local-shell",
       "Stop:shell",
       "auto:session",
@@ -201,6 +207,108 @@ skillset:
 
     await expect(loadBuildGraph(root)).rejects.toThrow("hook-local scripts require a directory hook unit");
   });
+
+  test("fails loudly for adaptive plugin hook render fields that are not supported yet", async () => {
+    const graph = await loadBuildGraph(await fixture({
+      ".skillset/config.yaml": `
+skillset:
+  name: adaptive-hook-unsupported-render-fields
+claude: true
+codex: false
+`,
+      ".skillset/src/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  Stop:
+    - shell-policy
+`,
+      ".skillset/src/plugins/demo/hooks/shell-policy.json": JSON.stringify({
+        claude: { status: "Checking" },
+        events: ["Stop"],
+        run: { command: "echo ok" },
+      }),
+    }));
+
+    await expect(renderBuildGraph(graph)).rejects.toThrow("provider overrides");
+  });
+
+  test("renders plugin-level adaptive hooks to native Claude and Codex hook files", async () => {
+    const graph = await loadBuildGraph(await fixture({
+      ".skillset/config.yaml": `
+skillset:
+  name: adaptive-hook-render
+claude: true
+codex: true
+`,
+      ".skillset/src/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  PreToolUse:
+    - hook: shell-policy
+      match: Bash
+      status: Checking shell command
+      providers: [claude, codex]
+`,
+      ".skillset/src/plugins/demo/hooks/shell-policy.json": JSON.stringify({
+        events: ["PreToolUse"],
+        run: { script: "{{scripts.dir}}/check.sh" },
+      }),
+      ".skillset/src/plugins/demo/scripts/check.sh": "#!/bin/sh\nexit 0\n",
+    }));
+
+    const rendered = await renderBuildGraph(graph);
+    const claudeHooks = renderedJson(rendered, "plugins-claude/plugins/demo/hooks/hooks.json");
+    const codexHooks = renderedJson(rendered, "plugins-codex/plugins/demo/hooks/hooks.json");
+    const claudeManifest = renderedJson(rendered, "plugins-claude/plugins/demo/.claude-plugin/plugin.json");
+    const codexManifest = renderedJson(rendered, "plugins-codex/plugins/demo/.codex-plugin/plugin.json");
+
+    expect(claudeManifest.hooks).toBe("./hooks/hooks.json");
+    expect(codexManifest.hooks).toBe("./hooks/hooks.json");
+    expect(claudeHooks).toEqual({
+      hooks: {
+        PreToolUse: [{
+          hooks: [{ command: "$CLAUDE_PLUGIN_ROOT/scripts/check.sh", type: "command" }],
+          matcher: "Bash",
+          statusMessage: "Checking shell command",
+        }],
+      },
+    });
+    expect(codexHooks).toEqual({
+      hooks: {
+        PreToolUse: [{
+          hooks: [{ command: "$PLUGIN_ROOT/scripts/check.sh", type: "command" }],
+          matcher: "Bash",
+          statusMessage: "Checking shell command",
+        }],
+      },
+    });
+    expect(rendered.map((file) => file.path)).toEqual(expect.arrayContaining([
+      "plugins-claude/plugins/demo/scripts/check.sh",
+      "plugins-codex/plugins/demo/scripts/check.sh",
+    ]));
+  });
+
+  test("rejects adaptive plugin hook output colliding with native hooks aggregate", async () => {
+    await expect(loadBuildGraph(await fixture({
+      ".skillset/config.yaml": `
+skillset:
+  name: adaptive-hook-collision
+claude: true
+codex: false
+`,
+      ".skillset/src/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  Stop:
+    - shell-policy
+`,
+      ".skillset/src/plugins/demo/hooks/hooks.json": JSON.stringify({ hooks: { Stop: [] } }),
+      ".skillset/src/plugins/demo/hooks/shell-policy.json": JSON.stringify({ events: ["Stop"], run: { command: "echo ok" } }),
+    }))).rejects.toThrow("native aggregate source and cannot be combined with adaptive hook units");
+  });
 });
 
 function hook(
@@ -225,4 +333,10 @@ async function fixture(files: Record<string, string>): Promise<string> {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }
   return root;
+}
+
+function renderedJson(files: readonly { readonly content: Uint8Array; readonly path: string }[], path: string): JsonRecord {
+  const file = files.find((candidate) => candidate.path === path);
+  expect(file).toBeDefined();
+  return JSON.parse(new TextDecoder().decode(file?.content)) as JsonRecord;
 }
