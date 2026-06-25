@@ -401,6 +401,18 @@ describe("@skillset/schema contracts", () => {
       bin: false,
       dependencies: { plugins: ["plugin:base"] },
       description: "Demo skill.",
+      hooks: {
+        PreToolUse: ["shell-policy"],
+        Stop: [
+          {
+            hook: "source-change-guard",
+            match: { tool: ["Bash"] },
+            providers: ["claude", "codex"],
+            status: "Checking shell changes",
+          },
+        ],
+        auto: ["session-metadata"],
+      },
       implicit_invocation: true,
       mcp: { source: "repo:.mcp.json" },
       metadata: { generated: "skillset@0.1.0", version: "1.0.0" },
@@ -416,6 +428,7 @@ describe("@skillset/schema contracts", () => {
 
     expect(validateAgentFrontmatter({
       description: "Demo agent.",
+      hooks: { auto: ["session-metadata"] },
       initialPrompt: "{{partials.prompts.demo}}",
       model: "sonnet",
       name: "demo",
@@ -466,6 +479,21 @@ describe("@skillset/schema contracts", () => {
       "schema/skill-frontmatter/tool-intent",
       "schema/skill-frontmatter/version",
     ]));
+    expect(validateSkillFrontmatter({
+      hooks: {
+        "": [""],
+        PreToolUse: [
+          "",
+          { hook: "", match: "", providers: ["claude", "bad", "claude"], status: "" },
+          { hook: "ok", unknown: true },
+        ],
+        Stop: "bad",
+      },
+    }).diagnostics.map((diagnostic) => diagnostic.code)).toEqual(expect.arrayContaining([
+      "schema/skill-frontmatter/hooks",
+      "schema/skill-frontmatter/hooks-duplicate",
+      "schema/skill-frontmatter/hooks-key",
+    ]));
     expect(validateSkillFrontmatter({ dependencies: { plugins: [{ name: 1, unknown: true }] } }).diagnostics.map((diagnostic) => diagnostic.code)).toEqual(expect.arrayContaining([
       "schema/skill-frontmatter/dependencies-name",
       "schema/skill-frontmatter/dependencies-plugin-key",
@@ -499,6 +527,9 @@ describe("@skillset/schema contracts", () => {
       "schema/agent-frontmatter/initialPrompt",
       "schema/agent-frontmatter/skills",
       "schema/agent-frontmatter/target",
+    ]));
+    expect(validateAgentFrontmatter({ description: "Demo agent.", hooks: { auto: [{ hook: "", providers: [] }] } }).diagnostics.map((diagnostic) => diagnostic.code)).toEqual(expect.arrayContaining([
+      "schema/agent-frontmatter/hooks",
     ]));
     expect(validateAgentFrontmatter({ name: "missing-description", skills: ["one", 2] }).diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
       "schema/agent-frontmatter/description",

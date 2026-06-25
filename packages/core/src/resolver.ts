@@ -3,11 +3,16 @@ import { basename, dirname, join, relative, sep } from "node:path";
 
 import {
   validateAgentFrontmatter,
+  validateAdaptiveHookUnitSource,
   validateInstructionFrontmatter,
   validateSkillFrontmatter,
   type SkillsetSchemaDiagnostic,
 } from "@skillset/schema";
 
+import {
+  readHookAttachments,
+  resolveAdaptiveHookAttachments,
+} from "./adaptive-hook-attachments";
 import {
   applyFeatureTargetDefaults,
   readCompileConfig,
@@ -26,6 +31,10 @@ import {
   validateWorkspaceConfigDocument,
 } from "./config";
 import { readPluginDependencies, validatePluginDependencyGraph } from "./dependencies";
+import {
+  classifyAdaptiveHookUnitPath,
+  validateAdaptiveHookUnitPaths,
+} from "./hook-capabilities";
 import { SkillsetFeatureDiagnosticError } from "./operation-result";
 import { compareStrings, resolveInside, validateSlug } from "./path";
 import { readReleaseState } from "./release-state";
@@ -34,8 +43,10 @@ import { validateSupports } from "./supports";
 import type {
   BuildGraph,
   JsonRecord,
+  JsonValue,
   OutputSelection,
   SkillsetOptions,
+  SourceAdaptiveHook,
   SourceDialect,
   SourceOrigin,
   SourcePlugin,
@@ -138,6 +149,7 @@ export async function loadBuildGraph(
   await rejectLegacySourceLayout(rootPath, sourceDir, sourceRootDir);
   await validateSupports(sourceManifest.supports, { label: metadataLabel, rootPath, warnings });
   const releaseState = await readReleaseState(rootPath, { ...options, sourceDir });
+  const rootAdaptiveHooks = await loadAdaptiveHooks(rootPath, sourceRootPath, { kind: "root" });
   const plugins = await loadPlugins(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings, outputs);
   try {
     validatePluginDependencyGraph(plugins);
@@ -152,6 +164,19 @@ export async function loadBuildGraph(
   const { rules, instructionsDir } = await loadInstructions(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings);
   const projectAgents = await loadProjectAgents(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings);
   const projectIslands = await loadProjectIslands(rootPath, sourceDir, sourceRootDir, plugins);
+  const adaptiveHooks = [
+    ...rootAdaptiveHooks,
+    ...plugins.flatMap((plugin) => plugin.adaptiveHooks),
+    ...plugins.flatMap((plugin) => plugin.skills.flatMap((skill) => skill.adaptiveHooks)),
+    ...standaloneSkills.flatMap((skill) => skill.adaptiveHooks),
+    ...projectAgents.flatMap((agent) => agent.adaptiveHooks),
+  ];
+  const hookAttachments = [
+    ...plugins.flatMap((plugin) => plugin.skills.flatMap((skill) => skill.hookAttachments)),
+    ...standaloneSkills.flatMap((skill) => skill.hookAttachments),
+    ...projectAgents.flatMap((agent) => agent.hookAttachments),
+  ];
+  validateAdaptiveHookAttachments(adaptiveHooks, hookAttachments);
 
   if (plugins.length === 0 && standaloneSkills.length === 0 && rules.length === 0 && projectAgents.length === 0 && projectIslands.length === 0) {
     throw new Error(`skillset: no source plugins, skills, rules, project agents, or provider source found under ${sourceRoot}/`);
@@ -168,6 +193,8 @@ export async function loadBuildGraph(
   validateProjectRoots(rootPath, protectedRoots, outputRoots, filteredTargets, projectAgents, projectIslands);
 
   return {
+    adaptiveHooks,
+    hookAttachments,
     instructionsDir,
     outputRoots: outputRoots.map((outputRoot) => outputRoot.path),
     plugins,
@@ -518,6 +545,9 @@ async function loadProjectAgent(
   await validateSupports(parts.frontmatter.supports, { label: sourceLabel, rootPath, warnings });
   const name = readString(parts.frontmatter, "name") ?? basename(sourcePath, ".md");
   const outputName = sanitizeProjectAgentName(name, sourcePath);
+  const scope = { agentId: outputName, kind: "agent" as const };
+  const hookAttachments = readHookAttachments(parts.frontmatter.hooks, scope, sourceLabel);
+  const adaptiveHooks = await loadAdaptiveHooks(rootPath, join(agentsPath, basename(sourcePath, ".md")), scope);
   const description = readString(parts.frontmatter, "description");
   if (description === undefined) {
     throw new Error(`skillset: ${sourceLabel} project agent requires description`);
@@ -534,9 +564,11 @@ async function loadProjectAgent(
   warnPortableModel(parts.frontmatter, targets, rootPath, sourcePath, warnings);
 
   return {
+    adaptiveHooks,
     body: parts.body,
     filename: basename(sourcePath),
     frontmatter: parts.frontmatter,
+    hookAttachments,
     name,
     outputName,
     relativePath: relative(agentsPath, sourcePath),
@@ -672,6 +704,109 @@ function normalizeRuleFrontmatter(frontmatter: SourceRule["frontmatter"], label:
   return frontmatter;
 }
 
+async function loadAdaptiveHooks(
+  rootPath: string,
+  ownerPath: string,
+  scope: SourceAdaptiveHook["scope"]
+): Promise<readonly SourceAdaptiveHook[]> {
+  const hooksPath = join(ownerPath, "hooks");
+  if (!(await exists(hooksPath))) return [];
+
+  const files = await collectFiles(hooksPath);
+  const relativeHookPaths = files.map((file) => normalizeWorkspacePath(join("hooks", relative(hooksPath, file))));
+  const pathIssues = validateAdaptiveHookUnitPaths(relativeHookPaths);
+  if (pathIssues.length > 0) {
+    const firstIssue = pathIssues[0];
+    throw new SkillsetFeatureDiagnosticError({
+      code: firstIssue?.code ?? "adaptive-hook-path-invalid",
+      featureId: "adaptive-hooks",
+      message: `skillset: ${firstIssue?.message ?? "adaptive hook paths are invalid"}`,
+      path: firstIssue?.paths[0] === undefined ? relative(rootPath, hooksPath) : relative(rootPath, join(ownerPath, firstIssue.paths[0])),
+    });
+  }
+
+  const hooks: SourceAdaptiveHook[] = [];
+  for (const file of files) {
+    const relativeHookPath = normalizeWorkspacePath(join("hooks", relative(hooksPath, file)));
+    const classified = classifyAdaptiveHookUnitPath(relativeHookPath);
+    if (classified.kind !== "adaptive-unit") continue;
+
+    const label = relative(rootPath, file);
+    let parsed: JsonValue;
+    try {
+      parsed = JSON.parse(await readFile(file, "utf8")) as JsonValue;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new SkillsetFeatureDiagnosticError({
+        code: "adaptive-hook-invalid-json",
+        featureId: "adaptive-hooks",
+        message: `skillset: adaptive hook ${label} is not valid JSON: ${message}`,
+        path: label,
+      });
+    }
+    if (!isJsonRecord(parsed)) {
+      throw new SkillsetFeatureDiagnosticError({
+        code: "adaptive-hook-invalid",
+        featureId: "adaptive-hooks",
+        message: `skillset: adaptive hook ${label} must contain a JSON object`,
+        path: label,
+      });
+    }
+    const diagnostics = validateAdaptiveHookUnitSource(parsed, label).diagnostics;
+    if (diagnostics.length > 0) {
+      throw new SkillsetFeatureDiagnosticError({
+        code: "adaptive-hook-invalid",
+        featureId: "adaptive-hooks",
+        message: `skillset: adaptive hook ${label} failed schema validation: ${diagnostics.map((diagnostic) => diagnostic.message).join("; ")}`,
+        path: label,
+      });
+    }
+
+    const declaredName = readString(parsed, "name");
+    if (declaredName !== undefined && declaredName !== classified.name) {
+      throw new SkillsetFeatureDiagnosticError({
+        code: "adaptive-hook-name-mismatch",
+        featureId: "adaptive-hooks",
+        message: `skillset: adaptive hook ${label} declares name ${declaredName}, but its path resolves to ${classified.name}`,
+        path: label,
+      });
+    }
+    const events = readStringArray(parsed, "events") ?? [];
+    const providers = readTargetArray(parsed.providers);
+    hooks.push({
+      events,
+      frontmatter: parsed,
+      name: classified.name,
+      ...(providers === undefined ? {} : { providers }),
+      scope,
+      sourcePath: resolveInside(rootPath, relative(rootPath, file)),
+    });
+  }
+
+  return hooks.sort((left, right) => compareStrings(left.name, right.name) || compareStrings(left.sourcePath, right.sourcePath));
+}
+
+function validateAdaptiveHookAttachments(
+  hooks: readonly SourceAdaptiveHook[],
+  attachments: BuildGraph["hookAttachments"]
+): void {
+  const resolution = resolveAdaptiveHookAttachments(hooks, attachments);
+  const issue = resolution.issues[0];
+  if (issue === undefined) return;
+  throw new SkillsetFeatureDiagnosticError({
+    code: issue.code,
+    featureId: "adaptive-hooks",
+    message: `skillset: ${issue.message}`,
+    ...(issue.paths[0] === undefined ? {} : { path: issue.paths[0] }),
+  });
+}
+
+function readTargetArray(value: JsonValue | undefined): readonly TargetName[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const targets = value.filter((item): item is TargetName => item === "claude" || item === "codex");
+  return targets.length === 0 ? undefined : targets;
+}
+
 async function loadPlugins(
   rootPath: string,
   sourceDir: string,
@@ -749,7 +884,8 @@ async function loadPlugin(
     id,
     configuredOutputRoots(outputs)
   );
-  const skills = await loadSkills(rootPath, sourceDir, sourceRootDir, pluginPath, inheritedTargets, warnings);
+  const adaptiveHooks = await loadAdaptiveHooks(rootPath, pluginPath, { kind: "plugin", pluginId: id });
+  const skills = await loadSkills(rootPath, sourceDir, sourceRootDir, pluginPath, inheritedTargets, warnings, id);
 
   if (await exists(join(pluginPath, "hooks.json"))) {
     const path = relative(rootPath, join(pluginPath, "hooks.json"));
@@ -762,6 +898,7 @@ async function loadPlugin(
   }
   return {
     configPath,
+    adaptiveHooks,
     dependencies,
     features,
     id,
@@ -913,11 +1050,12 @@ async function loadSkills(
   sourceRootDir: string,
   pluginPath: string,
   parentTargets: SourcePlugin["targets"],
-  warnings: string[]
+  warnings: string[],
+  pluginId: string
 ): Promise<SourceSkill[]> {
   const skillsPath = join(pluginPath, SKILLS_DIR);
   if (!(await exists(skillsPath))) return [];
-  return loadSkillsFromDirectory(rootPath, sourceDir, sourceRootDir, skillsPath, pluginPath, parentTargets, warnings, pluginPath);
+  return loadSkillsFromDirectory(rootPath, sourceDir, sourceRootDir, skillsPath, pluginPath, parentTargets, warnings, { kind: "plugin", pluginId }, pluginPath);
 }
 
 async function loadSkillsFromDirectory(
@@ -928,6 +1066,7 @@ async function loadSkillsFromDirectory(
   relativeBasePath: string,
   parentTargets: SourcePlugin["targets"],
   warnings: string[],
+  parentScope: SourceAdaptiveHook["scope"],
   pluginPath?: string
 ): Promise<SourceSkill[]> {
   const skillFiles = await findSkillFiles(skillsPath);
@@ -954,6 +1093,13 @@ async function loadSkillsFromDirectory(
       readString(parts.frontmatter, "name") ?? basename(dirname(sourcePath)),
       `skill id in ${sourcePath}`
     );
+    const scope = {
+      ...parentScope,
+      kind: "skill" as const,
+      skillId: id,
+    };
+    const hookAttachments = readHookAttachments(parts.frontmatter.hooks, scope, relative(rootPath, sourcePath));
+    const adaptiveHooks = await loadAdaptiveHooks(rootPath, dirname(sourcePath), scope);
     const targets = resolveFeatureTargets(parentTargets, parts.frontmatter, sourcePath, "skills");
     warnPortableModel(parts.frontmatter, targets, rootPath, sourcePath, warnings);
     const relativePath = relative(relativeBasePath, sourcePath);
@@ -966,9 +1112,11 @@ async function loadSkillsFromDirectory(
     const dialect = readDialect(parts.frontmatter, relative(rootPath, sourcePath));
 
     skills.push({
+      adaptiveHooks,
       body: parts.body,
       ...(dialect === undefined ? {} : { dialect }),
       frontmatter: parts.frontmatter,
+      hookAttachments,
       id,
       metadata,
       relativePath,
@@ -1034,7 +1182,7 @@ async function loadStandaloneSkills(
   const skillsPath = resolveInside(rootPath, join(sourceDir, sourceRootDir, SKILLS_DIR));
   if (!(await exists(skillsPath))) return [];
 
-  const skills = await loadSkillsFromDirectory(rootPath, sourceDir, sourceRootDir, skillsPath, skillsPath, rootTargets, warnings);
+  const skills = await loadSkillsFromDirectory(rootPath, sourceDir, sourceRootDir, skillsPath, skillsPath, rootTargets, warnings, { kind: "root" });
   return skills;
 }
 
@@ -1208,6 +1356,10 @@ function outputIncludes(selection: OutputSelection, name: string): boolean {
   if (selection === true) return true;
   if (selection === false) return false;
   return selection.includes(name);
+}
+
+function normalizeWorkspacePath(path: string): string {
+  return path.replaceAll("\\", "/").replace(/^\.\//, "");
 }
 
 function isInsidePath(path: string, root: string): boolean {
