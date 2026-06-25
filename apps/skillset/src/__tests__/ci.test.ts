@@ -187,6 +187,68 @@ test("ci --fix does not rebuild when the change baseline is unresolvable", async
   expect(await readFile(generatedPath, "utf8")).toBe(edited);
 });
 
+test("SET-205: ci reports package-facing changes without a package Changeset", async () => {
+  const root = await builtFixture();
+  await writeRawFiles(root, {
+    "apps/skillset/src/package-feature.ts": "export const packageFeature = true;",
+  });
+  await commitAll(root, "package-facing change");
+
+  const report = await ciSkillset(root, { since: "HEAD~1" });
+  const markdown = renderCiReportMarkdown(report);
+
+  expect(report.ok).toBe(false);
+  expect(report.changesetIssues?.[0]).toContain("Package-facing changes require a .changeset/*.md entry");
+  expect(report.packageFiles?.map((file) => file.path)).toEqual(["apps/skillset/src/package-feature.ts"]);
+  expect(markdown).toContain("### Package Changesets");
+  expect(markdown).toContain("Use `.changeset/*.md` for published compiler package changes");
+});
+
+test("SET-205: ci accepts package-facing changes with a package Changeset", async () => {
+  const root = await builtFixture();
+  await writeRawFiles(root, {
+    ".changeset/package-feature.md": `
+---
+"skillset": patch
+---
+
+Document the package-facing feature boundary.
+`,
+    "apps/skillset/src/package-feature.ts": "export const packageFeature = true;",
+  });
+  await commitAll(root, "package-facing change with changeset");
+
+  const report = await ciSkillset(root, { since: "HEAD~1" });
+
+  expect(report.ok).toBe(true);
+  expect(report.changesetIssues).toBeUndefined();
+  expect(report.changesetFiles?.map((file) => file.path)).toEqual([".changeset/package-feature.md"]);
+  expect(report.packageFiles?.map((file) => file.path)).toEqual(["apps/skillset/src/package-feature.ts"]);
+});
+
+test("SET-205: ci does not require package Changesets for source-unit edits", async () => {
+  const root = await builtFixture();
+  await writeRawFiles(root, {
+    ".skillset/src/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Edited source body.
+`,
+  });
+  await commitAll(root, "source unit change");
+
+  const report = await ciSkillset(root, { since: "HEAD~1" });
+
+  expect(report.ok).toBe(false);
+  expect(report.changeIssues.some((issue) => issue.severity === "error")).toBe(true);
+  expect(report.changesetIssues).toBeUndefined();
+  expect(report.packageFiles).toBeUndefined();
+  expect(renderCiReportMarkdown(report)).not.toContain("### Package Changesets");
+});
+
 test("ci normalizes old source layout only for git-ref baselines", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-ci-legacy-"));
   await writeRawFiles(root, {
@@ -371,8 +433,12 @@ async function commitFixture(root: string): Promise<void> {
   await runGit(root, "init", "-q");
   await runGit(root, "config", "user.email", "skillset@example.com");
   await runGit(root, "config", "user.name", "Skillset Test");
+  await commitAll(root, "baseline");
+}
+
+async function commitAll(root: string, message: string): Promise<void> {
   await runGit(root, "add", ".");
-  await runGit(root, "commit", "-qm", "baseline");
+  await runGit(root, "commit", "-qm", message);
 }
 
 async function runGit(root: string, ...args: readonly string[]): Promise<void> {

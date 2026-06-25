@@ -1,4 +1,10 @@
 import { changeCheck, type ChangeCheckIssue } from "./change-entries";
+import {
+  defaultChangesetBaseline,
+  evaluateChangesetGuard,
+  readChangedFilesFromGit,
+  type ChangedFile,
+} from "./changeset-awareness";
 import { buildSkillset, diffSkillset, type SkillsetDiff } from "./build";
 import { suggestSource, type SourceSuggestionReport } from "./authoring";
 import { inspectSkillset } from "./lint";
@@ -18,6 +24,11 @@ export interface CiReport {
   /** Change check infrastructure failure (for example no resolvable baseline). */
   readonly changeError?: string;
   readonly changeIssues: readonly ChangeCheckIssue[];
+  /** Changesets boundary failure or infrastructure issue. */
+  readonly changesetError?: string;
+  readonly changesetIssues?: readonly string[];
+  readonly changesetFiles?: readonly ChangedFile[];
+  readonly packageFiles?: readonly ChangedFile[];
   /** Generated-output drift remaining after any fix. */
   readonly drift: SkillsetDiff;
   /** Generated paths rewritten by a `--fix` rebuild. */
@@ -64,6 +75,20 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
     changeError = errorMessage(error);
   }
 
+  let changesetIssues: readonly string[] = [];
+  let changesetError: string | undefined;
+  let changesetFiles: readonly ChangedFile[] = [];
+  let packageFiles: readonly ChangedFile[] = [];
+  try {
+    const base = since ?? await defaultChangesetBaseline(rootPath);
+    const guard = evaluateChangesetGuard(await readChangedFilesFromGit(rootPath, base));
+    changesetIssues = guard.diagnostics;
+    changesetFiles = guard.changesetFiles;
+    packageFiles = guard.packageFiles;
+  } catch (error) {
+    changesetError = errorMessage(error);
+  }
+
   let drift: SkillsetDiff = EMPTY_DRIFT;
   if (buildError === undefined) {
     try {
@@ -107,15 +132,21 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
     ...(buildError === undefined ? {} : { buildError }),
     ...(changeError === undefined ? {} : { changeError }),
     changeIssues,
+    ...(changesetError === undefined ? {} : { changesetError }),
+    ...(changesetFiles.length === 0 ? {} : { changesetFiles }),
+    ...(changesetIssues.length === 0 ? {} : { changesetIssues }),
     drift,
     fixedPaths,
     lintIssues,
     ok:
       buildError === undefined &&
       changeError === undefined &&
+      changesetError === undefined &&
       lintErrors.length === 0 &&
       changeErrors.length === 0 &&
+      changesetIssues.length === 0 &&
       !hasDrift(drift),
+    ...(packageFiles.length === 0 ? {} : { packageFiles }),
     ...(sourceSuggestions.length === 0 ? {} : { sourceSuggestions }),
     warnings,
   };
@@ -224,6 +255,22 @@ export function renderCiReportMarkdown(report: CiReport): string {
     lines.push(
       "",
       "Add or fix pending change entries with `skillset change add --scope <source-unit> --bump <bump> --reason \"...\"`.",
+      ""
+    );
+  }
+
+  if (report.changesetError !== undefined) {
+    lines.push("### Package Changesets", "", codeBlock(report.changesetError), "");
+  } else if (report.changesetIssues !== undefined && report.changesetIssues.length > 0) {
+    lines.push("### Package Changesets", "");
+    for (const issue of report.changesetIssues) lines.push(`- ${issue}`);
+    if (report.packageFiles !== undefined && report.packageFiles.length > 0) {
+      lines.push("", "Package-facing paths in this branch:");
+      for (const file of report.packageFiles) lines.push(`- \`${file.path}\``);
+    }
+    lines.push(
+      "",
+      "Use `.changeset/*.md` for published compiler package changes. Use `skillset/changes/` for Skillset source-unit/loadout history.",
       ""
     );
   }
