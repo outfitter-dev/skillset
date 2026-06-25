@@ -301,6 +301,36 @@ export const skillsetSchemaExamples = [
     },
   },
   {
+    description: "Adaptive reusable hook unit.",
+    id: "adaptive-hook",
+    path: "adaptive-hook.yaml",
+    value: {
+      claude: {
+        if: "Bash(git *)",
+      },
+      codex: {
+        matcher: "Bash",
+      },
+      description: "Checks shell commands before they run.",
+      events: ["PreToolUse"],
+      match: {
+        tool: ["Bash"],
+      },
+      name: "shell-policy",
+      providers: ["claude", "codex"],
+      run: {
+        args: ["--event", "pre-tool-use"],
+        command: "node ./hooks/shell-policy/check.js",
+        cwd: ".",
+        env: {
+          SKILLSET_HOOK: "shell-policy",
+        },
+        script: "./check.js",
+      },
+      status: "Checking shell policy",
+    },
+  },
+  {
     description: "Pending change entry frontmatter.",
     id: "change-entry",
     path: "change-entry.yaml",

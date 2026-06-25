@@ -3,6 +3,7 @@ import type { SchemaJsonRecord, SkillsetSchemaContract, SkillsetSchemaContractId
 import {
   SKILLSET_SCHEMA_URI_BASE,
   SKILLSET_SCHEMA_VERSION,
+  adaptiveHookContract,
   agentFrontmatterContract,
   changeEntryContract,
   hookContract,
@@ -20,6 +21,7 @@ export interface SkillsetJsonSchemaArtifact {
 }
 
 const schemaFileNames = {
+  "adaptive-hook": "adaptive-hook.schema.json",
   "agent-frontmatter": "agent-frontmatter.schema.json",
   "change-entry": "change-entry.schema.json",
   hook: "hook.schema.json",
@@ -61,6 +63,7 @@ function combinedSchemaArtifact(): SkillsetJsonSchemaArtifact {
         { $ref: "#/$defs/agent-frontmatter" },
         { $ref: "#/$defs/instruction-frontmatter" },
         { $ref: "#/$defs/hook" },
+        { $ref: "#/$defs/adaptive-hook" },
         { $ref: "#/$defs/change-entry" },
       ],
       title: "Skillset Source Contracts",
@@ -87,4 +90,5 @@ export const skillsetSkillFrontmatterJsonSchema = skillFrontmatterContract.schem
 export const skillsetAgentFrontmatterJsonSchema = agentFrontmatterContract.schema;
 export const skillsetInstructionFrontmatterJsonSchema = instructionFrontmatterContract.schema;
 export const skillsetHookJsonSchema = hookContract.schema;
+export const skillsetAdaptiveHookJsonSchema = adaptiveHookContract.schema;
 export const skillsetChangeEntryJsonSchema = changeEntryContract.schema;

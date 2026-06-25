@@ -373,6 +373,46 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     title: "Plugin Hooks",
     validationOwner: "packages/core/src/hooks.ts",
   }),
+  feature({
+    docs: ["docs/features/adaptive-hooks.md", "docs/features/hooks.md"],
+    evidence: [
+      docs("docs/features/adaptive-hooks.md"),
+      source("packages/core/src/hook-capabilities.ts"),
+      source("packages/schema/src/contracts.ts"),
+      test("packages/core/src/__tests__/hook-capabilities.test.ts", "SET-117 provider capability and adaptive unit path coverage"),
+      test("packages/schema/src/__tests__/schema.test.ts", "SET-117 adaptive hook source contract coverage"),
+    ],
+    id: "adaptive-hooks",
+    kind: "source",
+    renderOwner: "future",
+    sourceShape: "hooks/<name>.json or hooks/<name>/hook.json adaptive hook units",
+    status: "planned",
+    summary: "Defines reusable adaptive hook units and provider/destination capability facts before attachment and rendering.",
+    targetSupport: {
+      claude: {
+        evidence: [
+          docs("docs/features/adaptive-hooks.md"),
+          providerSnapshot("claude-hooks"),
+          source("packages/core/src/hook-capabilities.ts"),
+        ],
+        provider: { destinationFormat: "claude-hooks" },
+        status: "planned",
+      },
+      codex: {
+        evidence: [
+          docs("docs/features/adaptive-hooks.md"),
+          providerSnapshot("codex-plugin"),
+          providerSchemaSnapshot("codex-hooks-schema"),
+          providerSchemaSnapshot("codex-hook-event-schemas"),
+          source("packages/core/src/hook-capabilities.ts"),
+        ],
+        provider: { destinationFormat: "codex-plugin", schemaSnapshots: ["codex-hooks-schema", "codex-hook-event-schemas"] },
+        status: "planned",
+      },
+    },
+    title: "Adaptive Hooks",
+    validationOwner: "packages/schema/src/validate.ts",
+  }),
   pluginCompanionFeature({
     docs: ["docs/features/lsp-servers.md", "docs/features/plugins.md"],
     id: "plugin-lsp-servers",

@@ -9,6 +9,7 @@ export {
   TARGET_NAMES,
   UNSUPPORTED_DESTINATION_POLICIES,
   WORKSPACE_CONFIG_KEYS,
+  adaptiveHookContract,
   agentFrontmatterContract,
   changeEntryContract,
   hookContract,
@@ -23,6 +24,7 @@ export { skillsetSchemaExamples } from "./examples";
 export {
   deriveSkillsetJsonSchemaArtifacts,
   getSkillsetJsonSchemaArtifact,
+  skillsetAdaptiveHookJsonSchema,
   skillsetAgentFrontmatterJsonSchema,
   skillsetChangeEntryJsonSchema,
   skillsetHookJsonSchema,
@@ -46,6 +48,7 @@ export type { SkillsetJsonSchemaArtifact } from "./artifacts";
 export type { SkillsetExampleArtifact } from "./examples";
 export {
   validateAgentFrontmatter,
+  validateAdaptiveHookUnitSource,
   validateChangeEntryFrontmatter,
   validateHookDefinitionSource,
   validateInstructionFrontmatter,

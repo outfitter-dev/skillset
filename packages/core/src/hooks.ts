@@ -1,69 +1,14 @@
 import type { JsonRecord, JsonValue, TargetName } from "./types";
 import { isJsonRecord } from "./yaml";
-
-/**
- * Claude hook lifecycle events from the live Claude Code hooks reference. This
- * set is documented for source-reader fidelity only; Claude validation stays
- * broad because Claude's hook surface is larger and changes more frequently
- * than Codex's release behavior.
- */
-export const CLAUDE_HOOK_EVENTS: ReadonlySet<string> = new Set([
-  "ConfigChange",
-  "CwdChanged",
-  "Elicitation",
-  "ElicitationResult",
-  "FileChanged",
-  "InstructionsLoaded",
-  "MessageDisplay",
-  "Notification",
-  "PermissionDenied",
-  "PermissionRequest",
-  "PostCompact",
-  "PostToolBatch",
-  "PostToolUseFailure",
-  "PreToolUse",
-  "PostToolUse",
-  "PreCompact",
-  "SessionEnd",
-  "SessionStart",
-  "Setup",
-  "Stop",
-  "StopFailure",
-  "SubagentStart",
-  "SubagentStop",
-  "TaskCompleted",
-  "TaskCreated",
-  "TeammateIdle",
-  "UserPromptSubmit",
-  "UserPromptExpansion",
-  "WorktreeCreate",
-  "WorktreeRemove",
-]);
-
-/**
- * Codex hook lifecycle events from the live Codex hooks guide. Codex's set is
- * intentionally narrower than Claude's target-native hook surface.
- */
-export const CODEX_HOOK_EVENTS: ReadonlySet<string> = new Set([
-  "PreToolUse",
-  "PermissionRequest",
-  "PostToolUse",
-  "PreCompact",
-  "PostCompact",
-  "SessionStart",
-  "SubagentStart",
-  "SubagentStop",
-  "UserPromptSubmit",
-  "Stop",
-]);
-
-/**
- * Codex executes only synchronous command hook handlers. The hooks guide states
- * that prompt/agent handlers are parsed but skipped, and async command handlers
- * are parsed but skipped, so Codex-targeted definitions that rely on either
- * behavior must fail loudly.
- */
-export const CODEX_HOOK_HANDLER_TYPES: ReadonlySet<string> = new Set(["command"]);
+import {
+  CODEX_HOOK_EVENTS,
+  CODEX_HOOK_HANDLER_TYPES,
+} from "./hook-capabilities";
+export {
+  CLAUDE_HOOK_EVENTS,
+  CODEX_HOOK_EVENTS,
+  CODEX_HOOK_HANDLER_TYPES,
+} from "./hook-capabilities";
 
 /**
  * Validate a parsed hook definition for a target.

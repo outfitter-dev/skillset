@@ -25,6 +25,7 @@ import {
 
 const SEEDED_FEATURE_IDS = [
   "activation-probes",
+  "adaptive-hooks",
   "changes",
   "dependencies",
   "dev-watch",
