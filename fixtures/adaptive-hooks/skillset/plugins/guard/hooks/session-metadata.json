@@ -1,0 +1,8 @@
+{
+  "name": "session-metadata",
+  "description": "Records session metadata.",
+  "events": ["SessionStart"],
+  "run": {
+    "script": "{{scripts.dir}}/session.sh"
+  }
+}
