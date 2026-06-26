@@ -2,6 +2,7 @@ import {
   AGENT_FRONTMATTER_KEYS,
   COMPILE_BUILD_MODES,
   SOURCE_METADATA_KEYS,
+  RUNTIME_TESTER_CLAUDE_SETTING_SOURCES,
   TARGET_NAMES,
   UNSUPPORTED_DESTINATION_POLICIES,
   WORKSPACE_CONFIG_KEYS,
@@ -19,6 +20,7 @@ type KeySet = ReadonlySet<string>;
 const workspaceKeys = new Set<string>(WORKSPACE_CONFIG_KEYS);
 const sourceMetadataKeys = new Set<string>(SOURCE_METADATA_KEYS);
 const agentFrontmatterKeys = new Set<string>(AGENT_FRONTMATTER_KEYS);
+const runtimeTesterClaudeSettingSources = new Set<string>(RUNTIME_TESTER_CLAUDE_SETTING_SOURCES);
 const targetNames = new Set<string>(TARGET_NAMES);
 const compileBuildModes = new Set<string>(COMPILE_BUILD_MODES);
 const unsupportedDestinationPolicies = new Set<string>(UNSUPPORTED_DESTINATION_POLICIES);
@@ -37,6 +39,7 @@ export function validateWorkspaceConfig(value: unknown, path = "$"): SkillsetSch
   checkTargetBlock(value.codex, `${path}.codex`, "schema/workspace-config/target", diagnostics);
   checkCompile(value.compile, `${path}.compile`, diagnostics);
   checkDependencies(value.dependencies, `${path}.dependencies`, "schema/workspace-config/dependencies", diagnostics);
+  checkRuntimeTester(value.runtimeTester, `${path}.runtimeTester`, diagnostics);
   checkWorkspace(value.workspace, `${path}.workspace`, diagnostics);
   checkSourceMetadata(value.skillset, `${path}.skillset`, diagnostics);
   checkSupports(value.supports, `${path}.supports`, diagnostics);
@@ -209,6 +212,26 @@ function checkTargets(value: SchemaJsonValue, path: string, diagnostics: Skillse
     }
     if (seen.has(item)) diagnostics.push(diagnostic(`${path}[${index}]`, "schema/workspace-config/target-duplicate", `duplicate compile target ${item}`));
     seen.add(item);
+  }
+}
+
+function checkRuntimeTester(value: SchemaJsonValue | undefined, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (value === undefined) return;
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, "schema/workspace-config/runtime-tester", "runtimeTester must be an object"));
+    return;
+  }
+  checkAllowedKeys(value, new Set(["claude"]), path, "schema/workspace-config/runtime-tester-key", diagnostics);
+  const claude = value.claude;
+  if (claude === undefined) return;
+  if (!isSchemaRecord(claude)) {
+    diagnostics.push(diagnostic(`${path}.claude`, "schema/workspace-config/runtime-tester-claude", "runtimeTester.claude must be an object"));
+    return;
+  }
+  checkAllowedKeys(claude, new Set(["settingSources"]), `${path}.claude`, "schema/workspace-config/runtime-tester-claude-key", diagnostics);
+  const settingSources = claude.settingSources;
+  if (settingSources !== undefined && (typeof settingSources !== "string" || !runtimeTesterClaudeSettingSources.has(settingSources))) {
+    diagnostics.push(diagnostic(`${path}.claude.settingSources`, "schema/workspace-config/runtime-tester-setting-sources", "runtimeTester.claude.settingSources must be isolated, user, project, or local"));
   }
 }
 

@@ -1797,6 +1797,27 @@
         "distributions": {
           "type": "object"
         },
+        "runtimeTester": {
+          "additionalProperties": false,
+          "properties": {
+            "claude": {
+              "additionalProperties": false,
+              "properties": {
+                "settingSources": {
+                  "enum": [
+                    "isolated",
+                    "local",
+                    "project",
+                    "user"
+                  ],
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        },
         "skillset": {
           "additionalProperties": false,
           "properties": {

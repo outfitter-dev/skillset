@@ -3,7 +3,7 @@ import { homedir, hostname } from "node:os";
 import { basename, isAbsolute, join, resolve } from "node:path";
 
 import { readRecord } from "./config";
-import type { JsonRecord, SkillsetWorkspaceConfig } from "./types";
+import type { JsonRecord, RuntimeTesterClaudeSettingSources, SkillsetWorkspaceConfig } from "./types";
 
 export type { SkillsetWorkspaceConfig } from "./types";
 
@@ -50,7 +50,8 @@ export interface RepoCachePathResult extends RepoCacheKeyResult {
 
 export function readSkillsetWorkspaceConfig(record: JsonRecord, label: string): SkillsetWorkspaceConfig {
   const workspace = readRecord(record, "workspace");
-  if (workspace === undefined) return {};
+  const runtimeTester = readRuntimeTesterWorkspaceConfig(readRecord(record, "runtimeTester"), `${label}.runtimeTester`);
+  if (workspace === undefined) return runtimeTester === undefined ? {} : { runtimeTester };
   for (const key of Object.keys(workspace)) {
     if (key !== "cacheKey") {
       throw new Error(`skillset: unsupported workspace key ${key} in ${label}.workspace`);
@@ -58,11 +59,41 @@ export function readSkillsetWorkspaceConfig(record: JsonRecord, label: string): 
   }
 
   const cacheKey = workspace.cacheKey;
-  if (cacheKey === undefined) return {};
+  if (cacheKey === undefined) return runtimeTester === undefined ? {} : { runtimeTester };
   if (typeof cacheKey !== "string" || cacheKey.trim() !== cacheKey || cacheKey.length === 0) {
     throw new Error(`skillset: expected ${label}.workspace.cacheKey to be a lowercase repo cache key`);
   }
-  return { cacheKey: validateRepoCacheKey(cacheKey, `${label}.workspace.cacheKey`) };
+  return {
+    cacheKey: validateRepoCacheKey(cacheKey, `${label}.workspace.cacheKey`),
+    ...(runtimeTester === undefined ? {} : { runtimeTester }),
+  };
+}
+
+function readRuntimeTesterWorkspaceConfig(
+  runtimeTester: JsonRecord | undefined,
+  label: string
+): SkillsetWorkspaceConfig["runtimeTester"] {
+  if (runtimeTester === undefined) return undefined;
+  for (const key of Object.keys(runtimeTester)) {
+    if (key !== "claude") throw new Error(`skillset: unsupported runtime tester key ${key} in ${label}`);
+  }
+  const claude = readRecord(runtimeTester, "claude");
+  if (claude === undefined) return {};
+  for (const key of Object.keys(claude)) {
+    if (key !== "settingSources") throw new Error(`skillset: unsupported runtime tester Claude key ${key} in ${label}.claude`);
+  }
+  const settingSources = claude.settingSources;
+  if (settingSources === undefined) return { claude: {} };
+  return {
+    claude: {
+      settingSources: readRuntimeTesterClaudeSettingSources(settingSources, `${label}.claude.settingSources`),
+    },
+  };
+}
+
+function readRuntimeTesterClaudeSettingSources(value: unknown, label: string): RuntimeTesterClaudeSettingSources {
+  if (value === "isolated" || value === "user" || value === "project" || value === "local") return value;
+  throw new Error(`skillset: expected ${label} to be isolated, user, project, or local`);
 }
 
 export function resolveSkillsetXdgPaths(options: SkillsetXdgOptions = {}): SkillsetXdgPaths {

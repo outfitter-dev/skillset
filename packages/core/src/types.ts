@@ -30,7 +30,18 @@ export interface RootConfig {
 
 export interface SkillsetWorkspaceConfig {
   readonly cacheKey?: string;
+  readonly runtimeTester?: RuntimeTesterWorkspaceConfig;
 }
+
+export interface RuntimeTesterWorkspaceConfig {
+  readonly claude?: RuntimeTesterClaudeWorkspaceConfig;
+}
+
+export interface RuntimeTesterClaudeWorkspaceConfig {
+  readonly settingSources?: RuntimeTesterClaudeSettingSources;
+}
+
+export type RuntimeTesterClaudeSettingSources = "isolated" | "local" | "project" | "user";
 
 export interface ReleaseScopeState {
   readonly removed?: boolean;

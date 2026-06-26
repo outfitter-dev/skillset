@@ -119,6 +119,7 @@ describe("@skillset/schema contracts", () => {
       "defaults",
       "dependencies",
       "distributions",
+      "runtimeTester",
       "skillset",
       "supports",
       "workspace",
@@ -256,6 +257,7 @@ describe("@skillset/schema contracts", () => {
       },
       claude: true,
       codex: { plugins: { path: "plugins-codex" } },
+      runtimeTester: { claude: { settingSources: "isolated" } },
       skillset: {
         author: { name: "Outfitter" },
         category: "Developer Tools",
@@ -293,6 +295,7 @@ describe("@skillset/schema contracts", () => {
         unsupportedDestination: "loudly",
       },
       targets: ["claude"],
+      runtimeTester: { claude: { settingSources: "team" } },
       tests: true,
       workspace: { cacheKey: "Bad Key" },
     });
@@ -303,6 +306,7 @@ describe("@skillset/schema contracts", () => {
     expect(invalid.diagnostics.map((diagnostic) => diagnostic.code)).toContain("schema/workspace-config/compile-build");
     expect(invalid.diagnostics.map((diagnostic) => diagnostic.code)).toContain("schema/workspace-config/unsupported-destination");
     expect(invalid.diagnostics.map((diagnostic) => diagnostic.code)).toContain("schema/workspace-config/target-duplicate");
+    expect(invalid.diagnostics.map((diagnostic) => diagnostic.code)).toContain("schema/workspace-config/runtime-tester-setting-sources");
     expect(invalid.diagnostics.map((diagnostic) => diagnostic.code)).toContain("schema/workspace-config/cache-key");
     expect(validateWorkspaceConfig({ claude: "bad" }).diagnostics).toContainEqual({
       code: "schema/workspace-config/target",

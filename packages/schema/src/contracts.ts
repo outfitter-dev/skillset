@@ -9,6 +9,7 @@ const SEMVER_PATTERN =
 export const TARGET_NAMES = ["claude", "codex"] as const;
 export const COMPILE_BUILD_MODES = ["all", "updated"] as const;
 export const UNSUPPORTED_DESTINATION_POLICIES = ["error"] as const;
+export const RUNTIME_TESTER_CLAUDE_SETTING_SOURCES = ["isolated", "local", "project", "user"] as const;
 
 export const WORKSPACE_CONFIG_KEYS = [
   "agents",
@@ -19,6 +20,7 @@ export const WORKSPACE_CONFIG_KEYS = [
   "defaults",
   "dependencies",
   "distributions",
+  "runtimeTester",
   "skillset",
   "supports",
   "workspace",
@@ -116,6 +118,11 @@ export const workspaceConfigContract = contract("workspace-config", "Workspace C
     defaults: { type: "object" },
     dependencies: dependenciesSchema(),
     distributions: { type: "object" },
+    runtimeTester: strictObjectSchema({
+      claude: strictObjectSchema({
+        settingSources: enumSchema(RUNTIME_TESTER_CLAUDE_SETTING_SOURCES),
+      }),
+    }),
     skillset: sourceMetadataSchema(),
     supports: supportsSchema(),
     workspace: strictObjectSchema({

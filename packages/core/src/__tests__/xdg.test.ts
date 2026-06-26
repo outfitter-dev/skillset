@@ -131,13 +131,20 @@ describe("operational cache paths", () => {
 });
 
 describe("workspace cache key config", () => {
-  test("reads workspace.cacheKey and rejects unsupported workspace keys", () => {
-    expect(readSkillsetWorkspaceConfig({ workspace: { cacheKey: "acme--docs-cli" } }, "skillset.yaml")).toEqual({
+  test("reads workspace.cacheKey, runtime tester settings, and rejects unsupported workspace keys", () => {
+    expect(readSkillsetWorkspaceConfig({
+      runtimeTester: { claude: { settingSources: "project" } },
+      workspace: { cacheKey: "acme--docs-cli" },
+    }, "skillset.yaml")).toEqual({
       cacheKey: "acme--docs-cli",
+      runtimeTester: { claude: { settingSources: "project" } },
     });
 
     expect(() => readSkillsetWorkspaceConfig({ workspace: { other: true } }, "skillset.yaml")).toThrow(
       "unsupported workspace key other"
+    );
+    expect(() => readSkillsetWorkspaceConfig({ runtimeTester: { claude: { settingSources: "team" } } }, "skillset.yaml")).toThrow(
+      "runtimeTester.claude.settingSources"
     );
     expect(() => readSkillsetWorkspaceConfig({ workspace: { cacheKey: 123 } }, "skillset.yaml")).toThrow(
       "workspace.cacheKey"
