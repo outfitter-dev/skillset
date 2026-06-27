@@ -15,7 +15,7 @@ describe("workbench ast-grep adapter", () => {
           column: 9,
           endColumn: 31,
           endLine: 12,
-          file: ".skillset/src/hooks/scripts/check.ts",
+          file: ".skillset/hooks/scripts/check.ts",
           line: 12,
           text: "process.exit(1)",
         },
@@ -31,7 +31,7 @@ describe("workbench ast-grep adapter", () => {
     });
 
     expect(diagnostics.map(formatWorkbenchDiagnostic)).toEqual([
-      ".skillset/src/hooks/scripts/check.ts:12:9: warning: ast-grep/runtime.no-process-exit: Avoid process.exit in hook helper scripts; return a status through the hook runner.",
+      ".skillset/hooks/scripts/check.ts:12:9: warning: ast-grep/runtime.no-process-exit: Avoid process.exit in hook helper scripts; return a status through the hook runner.",
     ]);
     expect(diagnostics[0]).toMatchObject({
       help: ["Match: process.exit(1)"],
@@ -40,13 +40,13 @@ describe("workbench ast-grep adapter", () => {
         endColumn: 31,
         endLine: 12,
         line: 12,
-        path: ".skillset/src/hooks/scripts/check.ts",
+        path: ".skillset/hooks/scripts/check.ts",
       },
       ruleLevel: "strict",
       scope: "runtime",
       subject: {
         kind: "script",
-        path: ".skillset/src/hooks/scripts/check.ts",
+        path: ".skillset/hooks/scripts/check.ts",
       },
     });
     expect(selectWorkbenchDiagnostics(diagnostics, { preset: "standard" })).toEqual([]);

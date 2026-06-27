@@ -39,7 +39,7 @@ skillset: destination-format updates require manual review before writing
 
 Unsupported destination policies keep their own language: `warn` means the destination issue remains visible without failing, while `skip` means Skillset records that no destination output was written. Those non-error policies remain reserved until their build semantics are implemented; current v1 source validation still asks users to keep `compile.unsupportedDestination: error`.
 
-Source examples use `<source-root>` where the same surface can be authored in either workspace layout. `<source-root>` is `.skillset/src/` in ordinary repos and `skillset/` in dedicated Skillset repos.
+Source examples use `<source-root>` as shorthand for the canonical `.skillset/` source root.
 
 ## Support vocabulary
 
@@ -164,7 +164,6 @@ Live-doc verified against `developers.openai.com/codex/plugins/build` and `devel
 | Source | Claude output | Codex output | Status |
 | --- | --- | --- | --- |
 | `<source-root>/rules/**/*.md` | `.claude/rules/**/*.md` (`paths` kept) | `AGENTS.md` at derived dirs, source-boundary comments | Implemented |
-| `.skillset/rules/**/*.md` | n/a | n/a | Unsupported — use `<source-root>/rules/**/*.md`. |
 | `<source-root>/_codex/rules/**/*.rules` | n/a | `.codex/rules/**/*.rules` | Provider-native / Implemented — Codex command execution policy, not instruction Markdown. |
 
 Codex truncates `AGENTS.md` beyond `project_doc_max_bytes` (32 KiB default); `skillset build`/`verify` warns. Verified 2026-06-03 (`developers.openai.com/codex/guides/agents-md`, `openai/codex#7138`).

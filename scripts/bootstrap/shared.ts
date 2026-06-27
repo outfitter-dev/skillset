@@ -56,8 +56,8 @@ export const repoFile = (repoRoot: string, path: string): string =>
 export const isRepoRoot = (path: string): boolean => {
   const packageJsonPath = repoFile(path, "package.json");
   const hasWorkspaceMarker =
-    existsSync(repoFile(path, ".skillset/skillset.yaml")) ||
-    existsSync(repoFile(path, ".skillset/config.yaml")) ||
+    existsSync(repoFile(path, "skillset.yaml")) ||
+    existsSync(repoFile(path, "skillset.yaml")) ||
     (existsSync(repoFile(path, "skillset.yaml")) &&
       existsSync(repoFile(path, "skillset")));
   if (

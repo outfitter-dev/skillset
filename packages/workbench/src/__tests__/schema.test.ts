@@ -11,26 +11,26 @@ describe("workbench source contract schema checks", () => {
       content:
         "compile:\n  targets: [claude, codex]\n  unsupportedDestination: error\nskillset:\n  name: skillset\n  schema: 1\n  version: 0.1.0\nsupports:\n  packages: []\n",
       kind: "workspace-config",
-      path: ".skillset/skillset.yaml",
+      path: "skillset.yaml",
     })).toEqual([]);
 
     expect(checkWorkbenchSourceContract({
       content: "---\ndescription: Demo skill.\nname: demo\nresources: {}\n---\nUse this skill.\n",
       kind: "skill",
-      path: ".skillset/src/skills/demo/SKILL.md",
+      path: ".skillset/skills/demo/SKILL.md",
     })).toEqual([]);
 
     expect(checkWorkbenchSourceContract({
       content:
         "---\ndescription: Review agent.\nskills:\n  - review\ncodex:\n  model: gpt-5.5\n---\nReview the change.\n",
       kind: "agent",
-      path: ".skillset/src/agents/reviewer.md",
+      path: ".skillset/agents/reviewer.md",
     })).toEqual([]);
 
     expect(checkWorkbenchSourceContract({
       content: "---\nname: root\ndialect: claude\nclaude:\n  paths:\n    - src/**\n---\nFollow the repo.\n",
       kind: "instruction",
-      path: ".skillset/src/rules/root.md",
+      path: ".skillset/rules/root.md",
     })).toEqual([]);
 
     expect(checkWorkbenchSourceContract({
@@ -40,7 +40,7 @@ describe("workbench source contract schema checks", () => {
         },
       }),
       kind: "hook",
-      path: ".skillset/src/plugins/demo/hooks/hooks.json",
+      path: ".skillset/plugins/demo/hooks/hooks.json",
     })).toEqual([]);
   });
 
@@ -48,14 +48,14 @@ describe("workbench source contract schema checks", () => {
     const diagnostics = checkWorkbenchSourceContract({
       content: "---\nname: 12\ntargets: [codex]\nresources: ./refs\n---\n\n",
       kind: "skill",
-      path: ".skillset/src/skills/demo/SKILL.md",
+      path: ".skillset/skills/demo/SKILL.md",
     });
 
     expect(diagnostics.map(formatWorkbenchDiagnostic)).toEqual([
-      ".skillset/src/skills/demo/SKILL.md:1: error: schema/skill-frontmatter: name must be a non-empty string",
-      ".skillset/src/skills/demo/SKILL.md:1: error: schema/skill-frontmatter: skill needs description, summary, title, or skillset descriptive metadata",
-      ".skillset/src/skills/demo/SKILL.md:1: error: schema/skill-frontmatter: skills must remove targets; use root compile.targets and claude/codex blocks for file-level behavior",
-      ".skillset/src/skills/demo/SKILL.md:6: error: schema/skill-body: skill body is required",
+      ".skillset/skills/demo/SKILL.md:1: error: schema/skill-frontmatter: name must be a non-empty string",
+      ".skillset/skills/demo/SKILL.md:1: error: schema/skill-frontmatter: skill needs description, summary, title, or skillset descriptive metadata",
+      ".skillset/skills/demo/SKILL.md:1: error: schema/skill-frontmatter: skills must remove targets; use root compile.targets and claude/codex blocks for file-level behavior",
+      ".skillset/skills/demo/SKILL.md:6: error: schema/skill-body: skill body is required",
     ]);
   });
 
@@ -74,12 +74,12 @@ describe("workbench source contract schema checks", () => {
         "",
       ].join("\n"),
       kind: "skill",
-      path: ".skillset/src/skills/demo/SKILL.md",
+      path: ".skillset/skills/demo/SKILL.md",
     });
 
     expect(diagnostics.map(formatWorkbenchDiagnostic)).toEqual([
-      ".skillset/src/skills/demo/SKILL.md:1: error: schema/skill-frontmatter: skill needs description, summary, title, or skillset descriptive metadata",
-      ".skillset/src/skills/demo/SKILL.md:4:1: warning: markdown/code-fence-nesting: outer 3-backtick fence is not long enough for inner 3-backtick fence on line 6",
+      ".skillset/skills/demo/SKILL.md:1: error: schema/skill-frontmatter: skill needs description, summary, title, or skillset descriptive metadata",
+      ".skillset/skills/demo/SKILL.md:4:1: warning: markdown/code-fence-nesting: outer 3-backtick fence is not long enough for inner 3-backtick fence on line 6",
     ]);
   });
 
@@ -87,22 +87,22 @@ describe("workbench source contract schema checks", () => {
     expect(checkWorkbenchSourceContract({
       content: "---\ntitle: Demo Skill\n---\nUse this skill.\n",
       kind: "skill",
-      path: ".skillset/src/skills/demo/SKILL.md",
+      path: ".skillset/skills/demo/SKILL.md",
     })).toEqual([]);
     expect(checkWorkbenchSourceContract({
       content: "---\nskillset:\n  summary: Demo skill.\n---\nUse this skill.\n",
       kind: "skill",
-      path: ".skillset/src/skills/demo/SKILL.md",
+      path: ".skillset/skills/demo/SKILL.md",
     })).toEqual([]);
 
     expect(checkWorkbenchSourceContract({
       content: "---\nskillset:\n  name: demo\n  id: demo\n  version: 1.0.0\n  summary: Demo skill.\n---\nUse it.\n",
       kind: "skill",
-      path: ".skillset/src/skills/demo/SKILL.md",
+      path: ".skillset/skills/demo/SKILL.md",
     }).map(formatWorkbenchDiagnostic)).toEqual([
-      ".skillset/src/skills/demo/SKILL.md:1: error: schema/skill-frontmatter: skillset.id is unsupported in skills; use top-level name",
-      ".skillset/src/skills/demo/SKILL.md:1: error: schema/skill-frontmatter: skillset.name is unsupported in skills; use top-level name",
-      ".skillset/src/skills/demo/SKILL.md:1: error: schema/skill-frontmatter: skillset.version is unsupported in skills; use top-level version",
+      ".skillset/skills/demo/SKILL.md:1: error: schema/skill-frontmatter: skillset.id is unsupported in skills; use top-level name",
+      ".skillset/skills/demo/SKILL.md:1: error: schema/skill-frontmatter: skillset.name is unsupported in skills; use top-level name",
+      ".skillset/skills/demo/SKILL.md:1: error: schema/skill-frontmatter: skillset.version is unsupported in skills; use top-level version",
     ]);
   });
 
@@ -110,16 +110,16 @@ describe("workbench source contract schema checks", () => {
     const diagnostics = checkWorkbenchSourceContract({
       content: "---\ndescription: ''\nskills: write-docs\nclaude: nope\ninitialPrompt: 7\ntargets: [claude]\n---\n",
       kind: "agent",
-      path: ".skillset/src/agents/writer.md",
+      path: ".skillset/agents/writer.md",
     });
 
     expect(diagnostics.map(formatWorkbenchDiagnostic)).toEqual([
-      ".skillset/src/agents/writer.md:1: error: schema/agent-frontmatter: agents must remove targets; use root compile.targets and claude/codex blocks for file-level behavior",
-      ".skillset/src/agents/writer.md:1: error: schema/agent-frontmatter: claude must be true, false, or an object when present",
-      ".skillset/src/agents/writer.md:1: error: schema/agent-frontmatter: description is required and must be a non-empty string",
-      ".skillset/src/agents/writer.md:1: error: schema/agent-frontmatter: initialPrompt must be a non-empty string",
-      ".skillset/src/agents/writer.md:1: error: schema/agent-frontmatter: skills must be a string array when present",
-      ".skillset/src/agents/writer.md:8: error: schema/agent-body: agent body is required",
+      ".skillset/agents/writer.md:1: error: schema/agent-frontmatter: agents must remove targets; use root compile.targets and claude/codex blocks for file-level behavior",
+      ".skillset/agents/writer.md:1: error: schema/agent-frontmatter: claude must be true, false, or an object when present",
+      ".skillset/agents/writer.md:1: error: schema/agent-frontmatter: description is required and must be a non-empty string",
+      ".skillset/agents/writer.md:1: error: schema/agent-frontmatter: initialPrompt must be a non-empty string",
+      ".skillset/agents/writer.md:1: error: schema/agent-frontmatter: skills must be a string array when present",
+      ".skillset/agents/writer.md:8: error: schema/agent-body: agent body is required",
     ]);
   });
 
@@ -127,13 +127,13 @@ describe("workbench source contract schema checks", () => {
     const diagnostics = checkWorkbenchSourceContract({
       content: "---\ndialect: codex\nclaude: nope\nsupports:\n  tools: []\n---\nFollow the repo.\n",
       kind: "instruction",
-      path: ".skillset/src/rules/root.md",
+      path: ".skillset/rules/root.md",
     });
 
     expect(diagnostics.map(formatWorkbenchDiagnostic)).toEqual([
-      ".skillset/src/rules/root.md:1: error: schema/instruction-frontmatter: claude must be true, false, or an object when present",
-      ".skillset/src/rules/root.md:1: error: schema/instruction-frontmatter: dialect must be claude when present",
-      ".skillset/src/rules/root.md:1: error: schema/instruction-frontmatter: unsupported supports key tools; v1 supports packages",
+      ".skillset/rules/root.md:1: error: schema/instruction-frontmatter: claude must be true, false, or an object when present",
+      ".skillset/rules/root.md:1: error: schema/instruction-frontmatter: dialect must be claude when present",
+      ".skillset/rules/root.md:1: error: schema/instruction-frontmatter: unsupported supports key tools; v1 supports packages",
     ]);
   });
 
@@ -142,27 +142,27 @@ describe("workbench source contract schema checks", () => {
       content:
         "targets: [codex]\nskillset:\n  id: demo\n  name: ''\n  schema: v1\nsupports:\n  tools: []\ntests: true\ncompile:\n  build: sometimes\n  targets: [codex, nope, codex]\n  unsupportedDestination: later\n  extra: true\n  features:\n    promptArguments: yes\n    other: true\n  skillset:\n    metadata: nope\n    extra: true\nunknown: true\n",
       kind: "workspace-config",
-      path: ".skillset/skillset.yaml",
+      path: "skillset.yaml",
     });
 
     expect(diagnostics.map(formatWorkbenchDiagnostic)).toEqual([
-      ".skillset/skillset.yaml:1: error: schema/workspace-config: compile.build must be one of all, updated",
-      ".skillset/skillset.yaml:1: error: schema/workspace-config: compile.features.promptArguments must be a boolean",
-      ".skillset/skillset.yaml:1: error: schema/workspace-config: compile.skillset.metadata must be a boolean",
-      ".skillset/skillset.yaml:1: error: schema/workspace-config: compile.unsupportedDestination must be error",
-      ".skillset/skillset.yaml:1: error: schema/workspace-config: duplicate compile target codex",
-      ".skillset/skillset.yaml:1: error: schema/workspace-config: skillset.id is unsupported; use skillset.name",
-      ".skillset/skillset.yaml:1: error: schema/workspace-config: skillset.name must be a non-empty string when present",
-      ".skillset/skillset.yaml:1: error: schema/workspace-config: skillset.schema must be a positive integer when present",
-      ".skillset/skillset.yaml:1: error: schema/workspace-config: unsupported compile feature key other",
-      ".skillset/skillset.yaml:1: error: schema/workspace-config: unsupported compile key extra",
-      ".skillset/skillset.yaml:1: error: schema/workspace-config: unsupported compile skillset key extra",
-      ".skillset/skillset.yaml:1: error: schema/workspace-config: unsupported compile target nope",
-      ".skillset/skillset.yaml:1: error: schema/workspace-config: unsupported supports key tools; v1 supports packages",
-      ".skillset/skillset.yaml:1: error: schema/workspace-config: unsupported workspace config key targets",
-      ".skillset/skillset.yaml:1: error: schema/workspace-config: unsupported workspace config key tests",
-      ".skillset/skillset.yaml:1: error: schema/workspace-config: unsupported workspace config key unknown",
-      ".skillset/skillset.yaml:1: error: schema/workspace-config: workspace config must use compile.targets instead of targets",
+      "skillset.yaml:1: error: schema/workspace-config: compile.build must be one of all, updated",
+      "skillset.yaml:1: error: schema/workspace-config: compile.features.promptArguments must be a boolean",
+      "skillset.yaml:1: error: schema/workspace-config: compile.skillset.metadata must be a boolean",
+      "skillset.yaml:1: error: schema/workspace-config: compile.unsupportedDestination must be error",
+      "skillset.yaml:1: error: schema/workspace-config: duplicate compile target codex",
+      "skillset.yaml:1: error: schema/workspace-config: skillset.id is unsupported; use skillset.name",
+      "skillset.yaml:1: error: schema/workspace-config: skillset.name must be a non-empty string when present",
+      "skillset.yaml:1: error: schema/workspace-config: skillset.schema must be a positive integer when present",
+      "skillset.yaml:1: error: schema/workspace-config: unsupported compile feature key other",
+      "skillset.yaml:1: error: schema/workspace-config: unsupported compile key extra",
+      "skillset.yaml:1: error: schema/workspace-config: unsupported compile skillset key extra",
+      "skillset.yaml:1: error: schema/workspace-config: unsupported compile target nope",
+      "skillset.yaml:1: error: schema/workspace-config: unsupported supports key tools; v1 supports packages",
+      "skillset.yaml:1: error: schema/workspace-config: unsupported workspace config key targets",
+      "skillset.yaml:1: error: schema/workspace-config: unsupported workspace config key tests",
+      "skillset.yaml:1: error: schema/workspace-config: unsupported workspace config key unknown",
+      "skillset.yaml:1: error: schema/workspace-config: workspace config must use compile.targets instead of targets",
     ]);
   });
 
@@ -170,18 +170,18 @@ describe("workbench source contract schema checks", () => {
     const diagnostics = checkWorkbenchSourceContract({
       content: "workspace:\n  cacheKey: ' acme'\n  other: true\n",
       kind: "workspace-config",
-      path: ".skillset/skillset.yaml",
+      path: "skillset.yaml",
     });
 
     expect(diagnostics.map(formatWorkbenchDiagnostic)).toEqual([
-      ".skillset/skillset.yaml:1: error: schema/workspace-config: unsupported workspace key other",
-      ".skillset/skillset.yaml:1: error: schema/workspace-config: workspace.cacheKey must be a lowercase repo cache key",
+      "skillset.yaml:1: error: schema/workspace-config: unsupported workspace key other",
+      "skillset.yaml:1: error: schema/workspace-config: workspace.cacheKey must be a lowercase repo cache key",
     ]);
 
     expect(checkWorkbenchSourceContract({
       content: "workspace:\n  cacheKey: acme--docs-cli\n",
       kind: "workspace-config",
-      path: ".skillset/skillset.yaml",
+      path: "skillset.yaml",
     })).toEqual([]);
   });
 
@@ -189,10 +189,10 @@ describe("workbench source contract schema checks", () => {
     expect(checkWorkbenchSourceContract({
       content: "claude: nope\ncodex: []\n",
       kind: "workspace-config",
-      path: ".skillset/skillset.yaml",
+      path: "skillset.yaml",
     }).map(formatWorkbenchDiagnostic)).toEqual([
-      ".skillset/skillset.yaml:1: error: schema/workspace-config: claude must be true, false, or an object when present",
-      ".skillset/skillset.yaml:1: error: schema/workspace-config: codex must be true, false, or an object when present",
+      "skillset.yaml:1: error: schema/workspace-config: claude must be true, false, or an object when present",
+      "skillset.yaml:1: error: schema/workspace-config: codex must be true, false, or an object when present",
     ]);
   });
 
@@ -200,9 +200,9 @@ describe("workbench source contract schema checks", () => {
     expect(checkWorkbenchSourceContract({
       content: "supports: {}\n",
       kind: "workspace-config",
-      path: ".skillset/skillset.yaml",
+      path: "skillset.yaml",
     }).map(formatWorkbenchDiagnostic)).toEqual([
-      ".skillset/skillset.yaml:1: error: schema/workspace-config: supports object form must include packages as an array",
+      "skillset.yaml:1: error: schema/workspace-config: supports object form must include packages as an array",
     ]);
   });
 
@@ -210,17 +210,17 @@ describe("workbench source contract schema checks", () => {
     expect(checkWorkbenchSourceContract({
       content: "skillset:\n  schema: 2\n",
       kind: "workspace-config",
-      path: ".skillset/skillset.yaml",
+      path: "skillset.yaml",
     }).map(formatWorkbenchDiagnostic)).toEqual([
-      ".skillset/skillset.yaml:1: error: schema/workspace-config: skillset.schema must be 1",
+      "skillset.yaml:1: error: schema/workspace-config: skillset.schema must be 1",
     ]);
 
     expect(checkWorkbenchSourceContract({
       content: "compile:\n  unsupportedDestination: later\n",
       kind: "workspace-config",
-      path: ".skillset/skillset.yaml",
+      path: "skillset.yaml",
     }).map(formatWorkbenchDiagnostic)).toEqual([
-      ".skillset/skillset.yaml:1: error: schema/workspace-config: compile.unsupportedDestination must be error",
+      "skillset.yaml:1: error: schema/workspace-config: compile.unsupportedDestination must be error",
     ]);
   });
 
@@ -228,9 +228,9 @@ describe("workbench source contract schema checks", () => {
     expect(checkWorkbenchSourceContract({
       content: "compile:\n  unsupportedDestination: warn\n",
       kind: "workspace-config",
-      path: ".skillset/skillset.yaml",
+      path: "skillset.yaml",
     }).map(formatWorkbenchDiagnostic)).toEqual([
-      ".skillset/skillset.yaml:1: error: schema/workspace-config: compile.unsupportedDestination warn, skip, and force are reserved; use error",
+      "skillset.yaml:1: error: schema/workspace-config: compile.unsupportedDestination warn, skip, and force are reserved; use error",
     ]);
   });
 
@@ -244,15 +244,15 @@ describe("workbench source contract schema checks", () => {
         },
       }),
       kind: "hook",
-      path: ".skillset/src/plugins/demo/hooks/hooks.json",
+      path: ".skillset/plugins/demo/hooks/hooks.json",
     });
 
     expect(diagnostics.map(formatWorkbenchDiagnostic)).toEqual([
-      ".skillset/src/plugins/demo/hooks/hooks.json:1: error: schema/hook: hook event ConfigChange hook handlers must be objects",
-      ".skillset/src/plugins/demo/hooks/hooks.json:1: error: schema/hook: hook event ConfigChange hook handlers must include a non-empty string type",
-      ".skillset/src/plugins/demo/hooks/hooks.json:1: error: schema/hook: hook event SessionStart must be an array",
-      ".skillset/src/plugins/demo/hooks/hooks.json:1: error: schema/hook: hook event Stop entries must be objects",
-      ".skillset/src/plugins/demo/hooks/hooks.json:1: error: schema/hook: hook event Stop hooks must be an array",
+      ".skillset/plugins/demo/hooks/hooks.json:1: error: schema/hook: hook event ConfigChange hook handlers must be objects",
+      ".skillset/plugins/demo/hooks/hooks.json:1: error: schema/hook: hook event ConfigChange hook handlers must include a non-empty string type",
+      ".skillset/plugins/demo/hooks/hooks.json:1: error: schema/hook: hook event SessionStart must be an array",
+      ".skillset/plugins/demo/hooks/hooks.json:1: error: schema/hook: hook event Stop entries must be objects",
+      ".skillset/plugins/demo/hooks/hooks.json:1: error: schema/hook: hook event Stop hooks must be an array",
     ]);
   });
 
@@ -260,9 +260,9 @@ describe("workbench source contract schema checks", () => {
     expect(checkWorkbenchSourceContract({
       content: JSON.stringify({ hooks: [] }),
       kind: "hook",
-      path: ".skillset/src/plugins/demo/hooks/hooks.json",
+      path: ".skillset/plugins/demo/hooks/hooks.json",
     }).map(formatWorkbenchDiagnostic)).toEqual([
-      ".skillset/src/plugins/demo/hooks/hooks.json:1: error: schema/hook: hooks must be an object when present",
+      ".skillset/plugins/demo/hooks/hooks.json:1: error: schema/hook: hooks must be an object when present",
     ]);
   });
 
@@ -270,7 +270,7 @@ describe("workbench source contract schema checks", () => {
     expect(checkWorkbenchSourceContract({
       content: "---\ndescription: [\n---\n",
       kind: "skill",
-      path: ".skillset/src/skills/demo/SKILL.md",
+      path: ".skillset/skills/demo/SKILL.md",
     })).toEqual([
       expect.objectContaining({
         ruleId: "syntax/markdown-frontmatter",
@@ -280,9 +280,9 @@ describe("workbench source contract schema checks", () => {
     expect(checkWorkbenchSourceContract({
       content: "[]",
       kind: "hook",
-      path: ".skillset/src/plugins/demo/hooks/hooks.json",
+      path: ".skillset/plugins/demo/hooks/hooks.json",
     }).map(formatWorkbenchDiagnostic)).toEqual([
-      ".skillset/src/plugins/demo/hooks/hooks.json:1: error: schema/hook: hook file must contain a JSON object",
+      ".skillset/plugins/demo/hooks/hooks.json:1: error: schema/hook: hook file must contain a JSON object",
     ]);
   });
 });

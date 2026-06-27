@@ -9,7 +9,7 @@ metadata:
 name: source-rules
 skillset:
   origin:
-    path: skillset/rules/source.md
+    path: .skillset/rules/source.md
   schema: 1
 supports:
   packages:

@@ -110,15 +110,15 @@ test("runExternalRepo adopts a marketplace-shaped repo in place and reports roun
   ]);
   expect(report.ok).toBe(true);
   // The root AGENTS.md candidate now actually imports: adopt copies the body
-  // into .skillset/src/rules/ and adds source-origin metadata.
+  // into .skillset/rules/ and adds source-origin metadata.
   expect(
     report.stages.find(
       (stage) =>
         stage.stage === "import" &&
         stage.detail.includes("instructions:AGENTS.md")
     )?.detail
-  ).toContain(".skillset/src/rules/agents.md");
-  const importedAgents = await readFile(join(clone, ".skillset/src/rules/agents.md"), "utf8");
+  ).toContain(".skillset/rules/agents.md");
+  const importedAgents = await readFile(join(clone, ".skillset/rules/agents.md"), "utf8");
   expect(importedAgents).toContain("skillset:\n  origin:\n    path: AGENTS.md");
   expect(importedAgents).toContain("# Demo agents\n\nHandwritten instructions.");
   expect(report.survey.candidates).toEqual([
@@ -175,7 +175,7 @@ test("runExternalRepo adopts a marketplace-shaped repo in place and reports roun
     "- skipped commands `.claude/commands`: project-level commands have no portable source home yet"
   );
   expect(markdown).toContain(
-    "instructions:AGENTS.md -> .skillset/src/rules/agents.md"
+    "instructions:AGENTS.md -> .skillset/rules/agents.md"
   );
   expect(markdown).toContain("### plugin demo");
 });
@@ -205,12 +205,12 @@ test("runExternalRepo passes when re-run on the same clone", async () => {
 test("runExternalRepo refuses to clean a clone that tracks .skillset files", async () => {
   const clone = await gitFixture({
     ...marketplaceFiles(),
-    ".skillset/config.yaml": "skillset:\n  name: tracked\n",
+    "skillset.yaml": "skillset:\n  name: tracked\n",
   });
 
   await expect(
     runExternalRepo("demo-marketplace", clone, ["claude"])
-  ).rejects.toThrow("tracked .skillset files; refusing to clean");
+  ).rejects.toThrow("tracked Skillset source files; refusing to clean");
 });
 
 test("runExternalRepo fails the run when no import candidates are detected", async () => {
@@ -227,12 +227,12 @@ test("runExternalRepo fails the run when no import candidates are detected", asy
   expect(markdown).toContain("No imported units to compare.");
 });
 
-test("checkClonePurity accepts .skillset/ additions and flags anything else", async () => {
+test("checkClonePurity accepts skillset.yaml and .skillset/ additions and flags anything else", async () => {
   const clone = await gitFixture({ "README.md": "# Repo\n" });
 
   expect(await checkClonePurity(clone)).toEqual({ dirtyPaths: [], ok: true });
 
-  await Bun.write(join(clone, ".skillset/config.yaml"), "skillset:\n");
+  await Bun.write(join(clone, "skillset.yaml"), "skillset:\n");
   await Bun.write(join(clone, ".skillset/cache/latest/AGENTS.md"), "generated\n");
   expect(await checkClonePurity(clone)).toEqual({ dirtyPaths: [], ok: true });
 

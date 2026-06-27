@@ -8,7 +8,7 @@ Claude plugins can include an `.lsp.json` file that declares language server con
 
 ## Authoring
 
-Place `<source-root>/plugins/<plugin>/.lsp.json` in the plugin source root. `<source-root>` is `.skillset/src/` in ordinary repos and `skillset/` in dedicated Skillset repos. The file is copied only when Claude plugin output for that plugin is active.
+Place `<source-root>/plugins/<plugin>/.lsp.json` in the plugin source root. `<source-root>` is `.skillset/`. The file is copied only when Claude plugin output for that plugin is active.
 
 ## Target Rendering
 

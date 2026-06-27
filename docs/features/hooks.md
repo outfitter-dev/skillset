@@ -8,7 +8,7 @@ Hooks are rendered definitions only. Skillset never installs, trusts, enables, o
 
 ## Authoring
 
-The canonical plugin hook source is `<source-root>/plugins/<plugin>/hooks/hooks.json`. `<source-root>` is `.skillset/src/` in ordinary repos and `skillset/` in dedicated Skillset repos. Plugin-root `hooks.json` is rejected; put hook definitions under `hooks/hooks.json`.
+The canonical plugin hook source is `<source-root>/plugins/<plugin>/hooks/hooks.json`. `<source-root>` is `.skillset/`. Plugin-root `hooks.json` is rejected; put hook definitions under `hooks/hooks.json`.
 
 Hook source is JSON with an aggregate `hooks` event map. Event entries may include a `matcher`, `statusMessage`, and a `hooks` array whose handlers declare a non-empty `type` plus handler-specific fields such as `command`, `prompt`, `agent`, `timeout`, and `async`. The active source contract is generated from `@skillset/schema`; see [schema reference](../reference/schemas/README.md) and [hook examples](../reference/examples/hook.yaml) for the current field set.
 

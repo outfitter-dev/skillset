@@ -18,21 +18,21 @@ describe("resource and runtime diagnostics", () => {
         code: "hook-target-incompatible",
         featureId: "plugin-hooks",
         message: "Hook cannot render for codex.",
-        path: ".skillset/src/plugins/demo/hooks/hooks.json",
+        path: ".skillset/plugins/demo/hooks/hooks.json",
         severity: "error",
       },
       {
         code: "resource-undeclared-link",
         featureId: "resources",
-        message: ".skillset/src/skills/demo/SKILL.md links to undeclared resource ./scripts/run.sh",
-        path: ".skillset/src/skills/demo/SKILL.md",
+        message: ".skillset/skills/demo/SKILL.md links to undeclared resource ./scripts/run.sh",
+        path: ".skillset/skills/demo/SKILL.md",
         severity: "error",
       },
       {
         code: "resource-script-not-executable",
         featureId: "resources",
         message: "Script resource is not executable.",
-        path: ".skillset/src/skills/demo/SKILL.md",
+        path: ".skillset/skills/demo/SKILL.md",
         severity: "warn",
       },
     ] satisfies readonly LintIssue[];
@@ -40,8 +40,8 @@ describe("resource and runtime diagnostics", () => {
     const diagnostics = workbenchDiagnosticsFromResourceLintIssues(issues);
 
     expect(diagnostics.map(formatWorkbenchDiagnostic)).toEqual([
-      ".skillset/src/skills/demo/SKILL.md: warning: resource/resource-script-not-executable: Script resource is not executable.",
-      ".skillset/src/skills/demo/SKILL.md: error: resource/resource-undeclared-link: .skillset/src/skills/demo/SKILL.md links to undeclared resource ./scripts/run.sh",
+      ".skillset/skills/demo/SKILL.md: warning: resource/resource-script-not-executable: Script resource is not executable.",
+      ".skillset/skills/demo/SKILL.md: error: resource/resource-undeclared-link: .skillset/skills/demo/SKILL.md links to undeclared resource ./scripts/run.sh",
     ]);
     expect(diagnostics.every((diagnostic) => diagnostic.scope === "resource")).toBeTrue();
     expect(diagnostics.every((diagnostic) => diagnostic.subject.kind === "resource")).toBeTrue();
@@ -52,13 +52,13 @@ describe("resource and runtime diagnostics", () => {
       {
         code: "skill-plugin-root-script",
         message: "Skill links to plugin-root script path.",
-        path: ".skillset/src/plugins/demo/skills/tool/SKILL.md",
+        path: ".skillset/plugins/demo/skills/tool/SKILL.md",
         severity: "error",
       },
     ]);
 
     expect(formatWorkbenchDiagnostic(diagnostics[0]!)).toBe(
-      ".skillset/src/plugins/demo/skills/tool/SKILL.md: error: resource/skill-plugin-root-script: Skill links to plugin-root script path."
+      ".skillset/plugins/demo/skills/tool/SKILL.md: error: resource/skill-plugin-root-script: Skill links to plugin-root script path."
     );
   });
 
@@ -147,7 +147,7 @@ function feature(
     id,
     kind: "workflow",
     renderOwner: "packages/core/src/test.ts",
-    sourceShape: ".skillset/src/test",
+    sourceShape: ".skillset/test",
     status: "implemented",
     summary: "Test feature.",
     targetSupport: {

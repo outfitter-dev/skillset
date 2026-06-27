@@ -10,9 +10,9 @@ test("SET-165: new skill previews by default and writes ordinary repo source wit
 
   const preview = await runSkillsetCli("new", "skill", "Docs CLI Expert", "--root", root);
   expect(preview.exitCode).toBe(0);
-  expect(preview.stdout).toContain("+ .skillset/src/skills/docs-cli-expert/SKILL.md");
+  expect(preview.stdout).toContain("+ .skillset/skills/docs-cli-expert/SKILL.md");
   expect(preview.stdout).toContain("write confirmation required");
-  expect(await fileExists(join(root, ".skillset/src/skills/docs-cli-expert/SKILL.md"))).toBe(false);
+  expect(await fileExists(join(root, ".skillset/skills/docs-cli-expert/SKILL.md"))).toBe(false);
 
   const written = await runSkillsetCli("new", "skill", "Docs CLI Expert", "--root", root, "--yes");
   expect(written.exitCode).toBe(0);
@@ -20,7 +20,7 @@ test("SET-165: new skill previews by default and writes ordinary repo source wit
   expect(written.stdout).toContain("next: skillset check");
   expect(written.stdout).toContain("next: skillset verify");
 
-  const skill = await readFile(join(root, ".skillset/src/skills/docs-cli-expert/SKILL.md"), "utf8");
+  const skill = await readFile(join(root, ".skillset/skills/docs-cli-expert/SKILL.md"), "utf8");
   expect(skill).toContain("name: docs-cli-expert");
   expect(skill).toContain('title: "Docs CLI Expert"');
   expect(skill).toContain('description: "Use when working with Docs CLI Expert workflows."');
@@ -50,17 +50,17 @@ test("SET-165: new skill separates stable id and display name in dedicated sourc
     "--yes"
   );
   expect(written.exitCode).toBe(0);
-  expect(written.stdout).toContain("+ skillset/skills/docs-cli/SKILL.md");
-  expect(written.stdout).toContain("+ skillset/skills/docs-cli/references/.gitkeep");
-  expect(written.stdout).toContain("+ skillset/skills/docs-cli/assets/.gitkeep");
-  expect(written.stdout).toContain("+ skillset/skills/docs-cli/scripts/.gitkeep");
-  expect(written.stdout).toContain("+ skillset/skills/docs-cli/evals/evals.json");
+  expect(written.stdout).toContain("+ .skillset/skills/docs-cli/SKILL.md");
+  expect(written.stdout).toContain("+ .skillset/skills/docs-cli/references/.gitkeep");
+  expect(written.stdout).toContain("+ .skillset/skills/docs-cli/assets/.gitkeep");
+  expect(written.stdout).toContain("+ .skillset/skills/docs-cli/scripts/.gitkeep");
+  expect(written.stdout).toContain("+ .skillset/skills/docs-cli/evals/evals.json");
 
-  const skill = await readFile(join(root, "skillset/skills/docs-cli/SKILL.md"), "utf8");
+  const skill = await readFile(join(root, ".skillset/skills/docs-cli/SKILL.md"), "utf8");
   expect(skill).toContain("name: docs-cli");
   expect(skill).toContain('title: "Docs CLI: Expert"');
-  expect(await fileExists(join(root, ".skillset/src/skills/docs-cli/SKILL.md"))).toBe(false);
-  expect(await readFile(join(root, "skillset/skills/docs-cli/evals/evals.json"), "utf8")).toBe(
+  expect(await fileExists(join(root, ".skillset/skills/docs-cli/SKILL.md"))).toBe(true);
+  expect(await readFile(join(root, ".skillset/skills/docs-cli/evals/evals.json"), "utf8")).toBe(
     "{\n  \"evals\": []\n}\n"
   );
 
@@ -71,8 +71,8 @@ test("SET-165: new skill separates stable id and display name in dedicated sourc
 test("SET-165: new skill can place source inside an existing plugin container", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-new-plugin-"));
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
-  await mkdir(join(root, ".skillset/src/plugins/acme-tools"), { recursive: true });
-  await Bun.write(join(root, ".skillset/src/plugins/acme-tools/skillset.yaml"), "skillset:\n  name: acme-tools\n");
+  await mkdir(join(root, ".skillset/plugins/acme-tools"), { recursive: true });
+  await Bun.write(join(root, ".skillset/plugins/acme-tools/skillset.yaml"), "skillset:\n  name: acme-tools\n");
 
   const written = await runSkillsetCli(
     "new",
@@ -86,8 +86,8 @@ test("SET-165: new skill can place source inside an existing plugin container", 
   );
 
   expect(written.exitCode).toBe(0);
-  expect(written.stdout).toContain("+ .skillset/src/plugins/acme-tools/skills/docs-cli-expert/SKILL.md");
-  expect(await fileExists(join(root, ".skillset/src/plugins/acme-tools/skills/docs-cli-expert/SKILL.md"))).toBe(true);
+  expect(written.stdout).toContain("+ .skillset/plugins/acme-tools/skills/docs-cli-expert/SKILL.md");
+  expect(await fileExists(join(root, ".skillset/plugins/acme-tools/skills/docs-cli-expert/SKILL.md"))).toBe(true);
 });
 
 test("SET-165: new refuses collisions and missing plugin containers", async () => {
@@ -103,9 +103,9 @@ test("SET-165: new refuses collisions and missing plugin containers", async () =
 
   const missingContainer = await runSkillsetCli("new", "skill", "Other Skill", "--in", "missing", "--root", root);
   expect(missingContainer.exitCode).toBe(1);
-  expect(missingContainer.stderr).toContain("new --in container does not exist or has no skillset.yaml/config.yaml");
+  expect(missingContainer.stderr).toContain("new --in container does not exist or has no skillset.yaml");
 
-  await mkdir(join(root, ".skillset/src/plugins/empty"), { recursive: true });
+  await mkdir(join(root, ".skillset/plugins/empty"), { recursive: true });
   const manifestlessContainer = await runSkillsetCli(
     "new",
     "skill",
@@ -116,7 +116,7 @@ test("SET-165: new refuses collisions and missing plugin containers", async () =
     root
   );
   expect(manifestlessContainer.exitCode).toBe(1);
-  expect(manifestlessContainer.stderr).toContain("new --in container does not exist or has no skillset.yaml/config.yaml");
+  expect(manifestlessContainer.stderr).toContain("new --in container does not exist or has no skillset.yaml");
 });
 
 test("SET-165: new supports project agents and defers split hook scaffolding", async () => {
@@ -125,8 +125,8 @@ test("SET-165: new supports project agents and defers split hook scaffolding", a
 
   const agent = await runSkillsetCli("new", "agent", "Release Reviewer", "--root", root, "--yes");
   expect(agent.exitCode).toBe(0);
-  expect(agent.stdout).toContain("+ .skillset/src/agents/release-reviewer.md");
-  const source = await readFile(join(root, ".skillset/src/agents/release-reviewer.md"), "utf8");
+  expect(agent.stdout).toContain("+ .skillset/agents/release-reviewer.md");
+  const source = await readFile(join(root, ".skillset/agents/release-reviewer.md"), "utf8");
   expect(source).toContain("name: release-reviewer");
   expect(source).toContain('description: "Use this agent for Release Reviewer work."');
 
@@ -156,7 +156,7 @@ test("SET-165: new requires an initialized workspace", async () => {
   expect(result.exitCode).toBe(1);
   expect(result.stderr).toContain("new requires an initialized Skillset workspace");
   expect(result.stderr).toContain("skillset init --yes");
-  expect(await fileExists(join(root, ".skillset/src/skills/fresh-skill/SKILL.md"))).toBe(false);
+  expect(await fileExists(join(root, ".skillset/skills/fresh-skill/SKILL.md"))).toBe(false);
 });
 
 async function runSkillsetCli(...args: readonly string[]): Promise<{

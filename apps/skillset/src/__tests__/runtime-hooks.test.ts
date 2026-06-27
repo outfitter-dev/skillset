@@ -27,12 +27,12 @@ test("runtime hook source gate ignores unrelated edits", async () => {
 test("runtime hook source gate catches tracked and untracked Skillset edits", async () => {
   const root = await gitFixture();
 
-  await writeFile(join(root, ".skillset/src/_claude/settings.json"), "{}\n");
+  await writeFile(join(root, ".skillset/_claude/settings.json"), "{}\n");
   expect(await hasHookRelevantSourceChanges(root)).toBe(true);
 
-  await runGit(root, "checkout", "--", ".skillset/src/_claude/settings.json");
-  await mkdir(join(root, ".skillset/src/plugins/demo"), { recursive: true });
-  await writeFile(join(root, ".skillset/src/plugins/demo/skillset.yaml"), "skillset:\n  name: demo\n");
+  await runGit(root, "checkout", "--", ".skillset/_claude/settings.json");
+  await mkdir(join(root, ".skillset/plugins/demo"), { recursive: true });
+  await writeFile(join(root, ".skillset/plugins/demo/skillset.yaml"), "skillset:\n  name: demo\n");
 
   expect(await hasHookRelevantSourceChanges(root)).toBe(true);
 });
@@ -40,20 +40,8 @@ test("runtime hook source gate catches tracked and untracked Skillset edits", as
 test("runtime hook source paths include source, shared, and pending change entries", () => {
   expect(hookRelevantSourcePaths()).toEqual([
     "skillset.yaml",
-    "skillset/rules",
-    "skillset/skills",
-    "skillset/plugins",
-    "skillset/shared",
-    "skillset/changes",
+    ".skillset",
     "skillset",
-    ".skillset/skillset.yaml",
-    ".skillset/config.yaml",
-    ".skillset/src/rules",
-    ".skillset/src/skills",
-    ".skillset/src/plugins",
-    ".skillset/src/shared",
-    ".skillset/src",
-    ".skillset/changes",
   ]);
 });
 
@@ -253,17 +241,17 @@ function sourceGate(
     exitCode: 0,
     ok: true,
     paths: hookRelevantSourcePaths(),
-    stdout: changed ? " M .skillset/config.yaml\n" : "",
+    stdout: changed ? " M skillset.yaml\n" : "",
     ...overrides,
   };
 }
 
 async function gitFixture(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "skillset-hooks-run-"));
-  await mkdir(join(root, ".skillset/src/_claude"), { recursive: true });
+  await mkdir(join(root, ".skillset/_claude"), { recursive: true });
   await mkdir(join(root, ".skillset/changes"), { recursive: true });
-  await writeFile(join(root, ".skillset/config.yaml"), "skillset:\n  schema: 1\n");
-  await writeFile(join(root, ".skillset/src/_claude/settings.json"), "{\"hooks\":{}}\n");
+  await writeFile(join(root, "skillset.yaml"), "skillset:\n  schema: 1\n");
+  await writeFile(join(root, ".skillset/_claude/settings.json"), "{\"hooks\":{}}\n");
   await writeFile(join(root, "README.md"), "initial\n");
   await runGit(root, "init", "-q");
   await runGit(root, "config", "user.email", "skillset@example.com");

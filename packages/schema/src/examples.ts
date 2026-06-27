@@ -18,7 +18,7 @@ export interface SkillsetExampleArtifact {
 
 export const skillsetSchemaExamples = [
   {
-    description: "Maximal workspace manifest for ordinary and dedicated Skillset repos.",
+    description: "Maximal workspace manifest for Skillset repos.",
     id: "workspace-config",
     path: "workspace-config.yaml",
     value: {
@@ -199,7 +199,7 @@ export const skillsetSchemaExamples = [
       schema: schemaUri("skill-frontmatter"),
       skillset: {
         origin: {
-          path: "skillset/skills/docs-cli/SKILL.md",
+          path: ".skillset/skills/docs-cli/SKILL.md",
         },
         schema: 1,
         version: "1.0.0",
@@ -242,7 +242,7 @@ export const skillsetSchemaExamples = [
       name: "release-reviewer",
       skillset: {
         origin: {
-          path: "skillset/agents/release-reviewer.md",
+          path: ".skillset/agents/release-reviewer.md",
         },
         schema: 1,
       },
@@ -269,7 +269,7 @@ export const skillsetSchemaExamples = [
       name: "source-rules",
       skillset: {
         origin: {
-          path: "skillset/rules/source.md",
+          path: ".skillset/rules/source.md",
         },
         schema: 1,
       },

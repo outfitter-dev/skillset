@@ -12,13 +12,13 @@ import {
 } from "@skillset/core";
 
 const PROVIDER_FORMAT_FIXTURE: Record<string, string> = {
-  ".skillset/config.yaml": `
+  "skillset.yaml": `
 skillset:
   name: provider-format-root
 claude: true
 codex: true
 `,
-  ".skillset/src/skills/repo-skill/SKILL.md": `
+  ".skillset/skills/repo-skill/SKILL.md": `
 ---
 name: repo-skill
 description: Repo skill.
@@ -26,14 +26,14 @@ description: Repo skill.
 
 Use the repo skill.
 `,
-  ".skillset/src/rules/root.md": `
+  ".skillset/rules/root.md": `
 ---
 description: Root instructions.
 ---
 
 Keep generated output deterministic.
 `,
-  ".skillset/src/agents/reviewer.md": `
+  ".skillset/agents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews code.
@@ -43,20 +43,20 @@ skills:
 
 Review diffs carefully.
 `,
-  ".skillset/src/plugins/alpha/skillset.yaml": `
+  ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   description: Alpha plugin.
 mcp: true
 `,
-  ".skillset/src/plugins/alpha/.mcp.json": `
+  ".skillset/plugins/alpha/.mcp.json": `
 {
   "mcpServers": {
     "alpha": { "command": "node" }
   }
 }
 `,
-  ".skillset/src/plugins/alpha/hooks/hooks.json": `
+  ".skillset/plugins/alpha/hooks/hooks.json": `
 {
   "hooks": {
     "PreToolUse": [
@@ -70,7 +70,7 @@ mcp: true
   }
 }
 `,
-  ".skillset/src/plugins/alpha/skills/plugin-skill/SKILL.md": `
+  ".skillset/plugins/alpha/skills/plugin-skill/SKILL.md": `
 ---
 name: plugin-skill
 description: Plugin skill.
@@ -185,7 +185,7 @@ describe("provider format conformance", () => {
 
   it("uses render-result metadata to include custom output roots", async () => {
     const root = await fixture({
-      ".skillset/config.yaml": `
+      "skillset.yaml": `
 skillset:
   name: provider-format-root
 claude: false
@@ -193,7 +193,7 @@ codex:
   skills:
     path: generated/openai-skills
 `,
-      ".skillset/src/skills/repo-skill/SKILL.md": `
+      ".skillset/skills/repo-skill/SKILL.md": `
 ---
 name: repo-skill
 description: Repo skill.

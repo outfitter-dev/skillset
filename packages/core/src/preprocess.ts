@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import {
   basename,
   dirname,
@@ -10,11 +10,13 @@ import {
   sep,
 } from "node:path";
 
-import { resolveInside } from "./path";
+import { compareStrings, resolveInside } from "./path";
 import type { JsonRecord, JsonValue, TargetName } from "./types";
 
 export interface PreprocessContext {
   readonly frontmatter: JsonRecord;
+  readonly partialBasePath?: string;
+  readonly partialStack?: readonly string[];
   readonly pluginPath?: string;
   readonly preprocessDependencies?: Set<string>;
   readonly rootPath: string;
@@ -36,7 +38,6 @@ export async function preprocessText(
   const escapedTokens: string[] = [];
   let expanded = escapeTripleBraceTokens(normalizeText(content), escapedTokens);
   expanded = await expandPartials(expanded, context);
-  assertNoRetiredPartialSyntax(expanded, context);
   expanded = escapeTripleBraceTokens(expanded, escapedTokens);
   expanded = await expandVariables(expanded, context);
   return restoreTripleBraceTokens(expanded, escapedTokens);
@@ -82,27 +83,44 @@ export function isPreprocessDisabled(frontmatter: JsonRecord): boolean {
 }
 
 async function expandPartials(content: string, context: PreprocessContext): Promise<string> {
-  assertNoRetiredPartialSyntax(content, context);
-  const partialPattern = /\{\{\s*([^}\s]+)\s*\}\}/g;
+  const partialPattern = /\{\{\s*(?:>\s*([^}\s]+)|([^}\s]+))\s*\}\}/g;
   let expanded = "";
   let cursor = 0;
 
   for (const match of content.matchAll(partialPattern)) {
-    const [token, specifier] = match;
-    if (specifier === undefined) continue;
-    if (!isPartialSpecifier(specifier)) continue;
+    const [token, namedSpecifier, specifier] = match;
     expanded += content.slice(cursor, match.index);
-    expanded += normalizeText(await readPartial(specifier, context));
+    if (namedSpecifier !== undefined) {
+      expanded += await readPartial(namedSpecifier, context, "named");
+    } else if (specifier !== undefined && isPartialSpecifier(specifier)) {
+      expanded += await readPartial(specifier, context, "path");
+    } else {
+      expanded += token;
+    }
     cursor = match.index + token.length;
   }
 
   return `${expanded}${content.slice(cursor)}`;
 }
 
-async function readPartial(specifier: string, context: PreprocessContext): Promise<string> {
+async function readPartial(
+  specifier: string,
+  context: PreprocessContext,
+  kind: "named" | "path"
+): Promise<string> {
   const source = relative(context.rootPath, context.sourcePath);
   try {
-    return await readFile(resolvePartial(specifier, context), "utf8");
+    const resolved =
+      kind === "named"
+        ? await resolveNamedPartial(specifier, context)
+        : resolvePartial(specifier, context);
+    assertNoPartialCycle(resolved, specifier, context);
+    const content = normalizeText(await readFile(resolved, "utf8"));
+    return await expandPartials(content, {
+      ...context,
+      partialBasePath: resolved,
+      partialStack: [...(context.partialStack ?? []), resolved],
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`skillset: failed to read partial ${specifier} in ${source}: ${message}`);
@@ -398,13 +416,6 @@ function isPartialSpecifier(specifier: string): boolean {
   return specifier.includes("/") || /^[A-Za-z0-9._-]+\.[A-Za-z0-9._-]+$/.test(specifier);
 }
 
-function assertNoRetiredPartialSyntax(content: string, context: PreprocessContext): void {
-  if (!/\{\{\s*>/.test(content)) return;
-  throw new Error(
-    `skillset: partials in ${relative(context.rootPath, context.sourcePath)} use {{shared:path.md}}, {{plugin:path.md}}, or {{relative/path.md}} syntax`
-  );
-}
-
 function escapeTripleBraceTokens(content: string, escapedTokens: string[]): string {
   return content.replace(/\{\{\{\s*([^{}]+?)\s*\}\}\}/g, (_token, key: string) => {
     const marker = `\u0000skillset-escaped-${escapedTokens.length}\u0000`;
@@ -445,9 +456,147 @@ function resolvePartial(specifier: string, context: PreprocessContext): string {
     return resolved;
   }
 
-  const resolved = resolveInsideScoped(dirname(context.sourcePath), specifier, specifier, context);
+  const resolved = resolveInsideScoped(
+    dirname(context.partialBasePath ?? context.sourcePath),
+    specifier,
+    specifier,
+    context
+  );
   context.preprocessDependencies?.add(resolved);
   return resolved;
+}
+
+async function resolveNamedPartial(
+  specifier: string,
+  context: PreprocessContext
+): Promise<string> {
+  validateNamedPartialSpecifier(specifier, context);
+  const pluginPath = context.pluginPath;
+  const separator = specifier.indexOf(".");
+
+  if (pluginPath !== undefined && separator > 0 && specifier.slice(0, separator) === basename(pluginPath)) {
+    return resolveNamedPartialFromRoot(
+      join(pluginPath, "partials"),
+      specifier.slice(separator + 1),
+      specifier,
+      context,
+      "plugin"
+    );
+  }
+
+  const workspaceRoot = resolveInside(context.rootPath, join(context.sourceRoot, "partials"));
+  const workspacePartial = await maybeResolveNamedPartialFromRoot(
+    workspaceRoot,
+    specifier,
+    specifier,
+    context,
+    "workspace"
+  );
+  if (workspacePartial !== undefined) return workspacePartial;
+
+  if (pluginPath !== undefined) {
+    if (separator > 0) {
+      const foreignPlugin = specifier.slice(0, separator);
+      if (await isDirectory(join(resolveInside(context.rootPath, context.sourceRoot), "plugins", foreignPlugin))) {
+        throw new Error(
+          `skillset: named partial ${specifier} in ${relative(context.rootPath, context.sourcePath)} cannot reference another plugin`
+        );
+      }
+    }
+    return resolveNamedPartialFromRoot(
+      join(pluginPath, "partials"),
+      specifier,
+      specifier,
+      context,
+      "plugin"
+    );
+  }
+
+  throw new Error(
+    `skillset: named partial ${specifier} in ${relative(context.rootPath, context.sourcePath)} was not found`
+  );
+}
+
+async function resolveNamedPartialFromRoot(
+  root: string,
+  name: string,
+  specifier: string,
+  context: PreprocessContext,
+  scope: "plugin" | "workspace"
+): Promise<string> {
+  const resolved = await maybeResolveNamedPartialFromRoot(root, name, specifier, context, scope);
+  if (resolved !== undefined) return resolved;
+  throw new Error(
+    `skillset: ${scope} named partial ${specifier} in ${relative(context.rootPath, context.sourcePath)} was not found`
+  );
+}
+
+async function maybeResolveNamedPartialFromRoot(
+  root: string,
+  name: string,
+  specifier: string,
+  context: PreprocessContext,
+  scope: "plugin" | "workspace"
+): Promise<string | undefined> {
+  const direct = resolveInsideScoped(root, `${name}.md`, specifier, context);
+  if (await isFile(direct)) {
+    context.preprocessDependencies?.add(direct);
+    return direct;
+  }
+
+  const matches = await findNamedPartialMatches(root, `${name}.md`);
+  if (matches.length === 0) return undefined;
+  if (matches.length === 1) {
+    const [match] = matches;
+    if (match === undefined) return undefined;
+    context.preprocessDependencies?.add(match);
+    return match;
+  }
+
+  throw new Error(
+    `skillset: ${scope} named partial ${specifier} in ${relative(context.rootPath, context.sourcePath)} is ambiguous: ${matches
+      .map((match) => normalizePath(relative(root, match)))
+      .sort()
+      .join(", ")}`
+  );
+}
+
+async function findNamedPartialMatches(root: string, filename: string): Promise<string[]> {
+  let entries;
+  try {
+    entries = await readdir(root, { withFileTypes: true });
+  } catch (error) {
+    if (isMissingPathError(error)) return [];
+    throw error;
+  }
+
+  const matches: string[] = [];
+  for (const entry of entries
+    .filter((item) => item.name !== ".DS_Store")
+    .sort((left, right) => compareStrings(left.name, right.name))) {
+    const entryPath = join(root, entry.name);
+    if (entry.isDirectory()) {
+      matches.push(...await findNamedPartialMatches(entryPath, filename));
+    } else if (entry.isFile() && entry.name === filename) {
+      matches.push(entryPath);
+    }
+  }
+  return matches;
+}
+
+function assertNoPartialCycle(
+  resolved: string,
+  specifier: string,
+  context: PreprocessContext
+): void {
+  const stack = context.partialStack ?? [];
+  if (!stack.includes(resolved)) return;
+  const cycle = [...stack.slice(stack.indexOf(resolved)), resolved]
+    .map((path) => normalizePath(relative(context.rootPath, path)))
+    .join(" -> ");
+  throw new Error(
+    `skillset: partial ${specifier} in ${relative(context.rootPath, context.sourcePath)} creates a cycle: ${cycle}`
+  );
 }
 
 function splitSpecifier(specifier: string): readonly [string | undefined, string] {
@@ -525,4 +674,43 @@ function validatePartialPath(
       );
     }
   }
+}
+
+function validateNamedPartialSpecifier(
+  specifier: string,
+  context: PreprocessContext
+): void {
+  const source = relative(context.rootPath, context.sourcePath);
+  if (!/^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*$/u.test(specifier)) {
+    throw new Error(
+      `skillset: named partial ${specifier} in ${source} must use dot-separated name segments`
+    );
+  }
+}
+
+async function isFile(path: string): Promise<boolean> {
+  try {
+    return (await stat(path)).isFile();
+  } catch (error) {
+    if (isMissingPathError(error)) return false;
+    throw error;
+  }
+}
+
+async function isDirectory(path: string): Promise<boolean> {
+  try {
+    return (await stat(path)).isDirectory();
+  } catch (error) {
+    if (isMissingPathError(error)) return false;
+    throw error;
+  }
+}
+
+function isMissingPathError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { readonly code?: unknown }).code === "ENOENT"
+  );
 }

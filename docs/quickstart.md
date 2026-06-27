@@ -4,8 +4,8 @@ This path starts in an existing repo and creates one standalone skill. It proves
 the source-first loop without installing, trusting, symlinking, or changing
 Claude or Codex runtime configuration.
 
-Use a dedicated source repo instead when the repo exists only to author
-Skillset loadouts:
+Use a fresh source repo instead when the repo exists only to author Skillset
+loadouts:
 
 ```bash
 skillset create my-skillset --yes
@@ -16,15 +16,14 @@ Prefer to inspect a complete tiny source tree first? See the
 [First Author Example](../examples/first-author/README.md), which includes one
 skill and one instruction rule that build to Claude and Codex.
 
-For an existing content repo, stay in that repo and initialize the default
-nested `.skillset/` source layout:
+For an existing content repo, stay in that repo and initialize Skillset:
 
 ```bash
 skillset init --yes
 ```
 
-That writes the workspace manifest at `.skillset/skillset.yaml`, source
-placeholders under `.skillset/src/`, tracked change state under
+That writes the workspace manifest at `skillset.yaml`, source placeholders under
+`.skillset/`, tracked change state under
 `.skillset/changes/`, and repo-local operational sentinels for
 `.skillset/cache/` and `.skillset/snapshots/`. The cache payloads resolve to
 Skillset's XDG cache bucket; the logical `.skillset/cache/` path stays visible
@@ -41,7 +40,7 @@ skillset new skill "Review Notes" --yes
 The source lands at:
 
 ```text
-.skillset/src/skills/review-notes/SKILL.md
+.skillset/skills/review-notes/SKILL.md
 ```
 
 Open that file and replace the starter body with the guidance the skill should
@@ -105,7 +104,7 @@ skillset verify
 
 ## Inspect The Output
 
-The default nested layout writes standalone skill output to:
+The default layout writes standalone skill output to:
 
 ```text
 .claude/skills/review-notes/SKILL.md
@@ -115,7 +114,7 @@ The default nested layout writes standalone skill output to:
 Each target skill root also gets a `skillset.lock`, and the repo root gets a
 `skillset.lock`. Locks carry source paths, output paths, hashes, version state,
 target state, and generated metadata policy. They are review evidence for what
-Skillset rendered; the source remains `.skillset/src/skills/review-notes/`.
+Skillset rendered; the source remains `.skillset/skills/review-notes/`.
 
 Skillset does not make the generated skill live in a user runtime. It writes
 repo-local target-native files only. Activation, install, trust, and user-level
@@ -126,7 +125,7 @@ Claude or Codex configuration stay separate.
 ```bash
 skillset diff
 skillset dev --watch
-skillset explain .skillset/src/skills/review-notes/SKILL.md
+skillset explain .skillset/skills/review-notes/SKILL.md
 skillset explain .claude/skills/review-notes/SKILL.md
 skillset doctor
 ```
@@ -146,7 +145,7 @@ Before sharing a 0.16-era Skillset source repo with another author, make sure:
 - `skillset build --yes` has refreshed repo-local Claude and Codex output.
 - `skillset verify` passes so checked-in generated output matches source.
 - The generated output locations are visible in review, usually `.claude/`,
-  `.agents/`, and `skillset.lock` for the default nested path.
+  `.agents/`, and `skillset.lock` for the default path.
 - Runtime activation is deliberately out of band: do not ask authors to install,
   trust, symlink, or mutate user-level Claude/Codex config as part of this path.
 - Hook-dependent sharing stays deferred to the hook guardrail work. If a repo
@@ -155,7 +154,7 @@ Before sharing a 0.16-era Skillset source repo with another author, make sure:
 
 ## Where To Go Deeper
 
-- [Layout](layout.md) covers nested versus root layout, generated roots, and
+- [Layout](layout.md) covers the workspace layout, generated roots, and
   operational state.
 - [Skills](features/skills.md) covers skill frontmatter, resources, rendering,
   diagnostics, and provenance.

@@ -8,7 +8,7 @@ Claude plugins can include experimental monitor definitions under `monitors/`. S
 
 ## Authoring
 
-Place monitor source under `<source-root>/plugins/<plugin>/monitors/`. `<source-root>` is `.skillset/src/` in ordinary repos and `skillset/` in dedicated Skillset repos. The documented manifest pointer is rendered for `monitors/monitors.json`.
+Place monitor source under `<source-root>/plugins/<plugin>/monitors/`. `<source-root>` is `.skillset/`. The documented manifest pointer is rendered for `monitors/monitors.json`.
 
 ## Target Rendering
 

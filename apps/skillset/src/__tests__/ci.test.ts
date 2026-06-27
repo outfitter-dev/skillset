@@ -11,13 +11,13 @@ import { CI_REPORT_MARKER, CI_WORKFLOW_PATH, ciSkillset, renderCiReportMarkdown,
 import { initSkillset } from "../setup";
 
 const DEMO_FIXTURE: Record<string, string> = {
-  ".skillset/config.yaml": `
+  "skillset.yaml": `
 skillset:
   name: ci-root
 claude: true
 codex: false
 `,
-  ".skillset/src/skills/demo/SKILL.md": `
+  ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -55,7 +55,7 @@ test("ci reports generated drift without writing when fix is off", async () => {
   expect(report.drift.changed).toEqual([GENERATED_SKILL]);
   expect(report.fixedPaths).toEqual([]);
   expect(report.sourceSuggestions?.[0]?.status).toBe("suggestible");
-  expect(report.sourceSuggestions?.[0]?.sourcePath).toBe(".skillset/src/skills/demo/SKILL.md");
+  expect(report.sourceSuggestions?.[0]?.sourcePath).toBe(".skillset/skills/demo/SKILL.md");
   expect(await readFile(generatedPath, "utf8")).toBe(edited);
   const markdown = renderCiReportMarkdown(report);
   expect(markdown).toContain("### Stale generated output");
@@ -67,7 +67,7 @@ test("ci reports generated drift without writing when fix is off", async () => {
 test("ci report explains generated changelog drift", () => {
   const markdown = renderCiReportMarkdown({
     changeIssues: [],
-    drift: { added: [], changed: [".skillset/src/skills/demo/CHANGELOG.md"], missing: [], removed: [] },
+    drift: { added: [], changed: [".skillset/skills/demo/CHANGELOG.md"], missing: [], removed: [] },
     fixedPaths: [],
     lintIssues: [],
     ok: false,
@@ -100,7 +100,7 @@ test("ci --fix rebuilds drifted generated output mechanically", async () => {
 
 test("ci --fix explains rebuilt generated changelog drift", async () => {
   const root = await changelogFixture();
-  const changelogPath = join(root, ".skillset/src/skills/demo/CHANGELOG.md");
+  const changelogPath = join(root, ".skillset/skills/demo/CHANGELOG.md");
   const original = await readFile(changelogPath, "utf8");
   await writeFile(changelogPath, `${original}\nhand edit\n`);
   const reportPath = join(root, "ci-report.md");
@@ -108,7 +108,7 @@ test("ci --fix explains rebuilt generated changelog drift", async () => {
   const result = await runSkillsetCli("ci", "--fix", "--root", root, "--since", "HEAD", "--report", reportPath);
 
   expect(result.exitCode).toBe(0);
-  expect(result.stdout).toContain("fixed .skillset/src/skills/demo/CHANGELOG.md");
+  expect(result.stdout).toContain("fixed .skillset/skills/demo/CHANGELOG.md");
   expect(result.stdout).toContain("generated CHANGELOG.md files are managed projections");
   expect(await readFile(changelogPath, "utf8")).toBe(original);
   const markdown = await readFile(reportPath, "utf8");
@@ -121,7 +121,7 @@ test("ci --fix explains rebuilt generated changelog drift", async () => {
 test("ci --fix leaves drift untouched when change entries are missing", async () => {
   const root = await builtFixture();
   await writeFile(
-    join(root, ".skillset/src/skills/demo/SKILL.md"),
+    join(root, ".skillset/skills/demo/SKILL.md"),
     "---\nname: demo\ndescription: Demo.\n---\n\nEdited body.\n"
   );
 
@@ -141,7 +141,7 @@ test("ci --fix leaves drift untouched when change entries are missing", async ()
 test("ci surfaces build errors instead of fixing", async () => {
   const root = await fixture({
     ...DEMO_FIXTURE,
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: ci-root
 compile:
@@ -229,7 +229,7 @@ Document the package-facing feature boundary.
 test("SET-205: ci does not require package Changesets for source-unit edits", async () => {
   const root = await builtFixture();
   await writeRawFiles(root, {
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -253,13 +253,15 @@ test("ci normalizes old source layout only for git-ref baselines", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-ci-legacy-"));
   await writeRawFiles(root, {
     ".skillset/config.yaml": `
-skillset:
-  name: ci-root
-  version: 0.1.0
 claude: true
 codex: false
 `,
-    ".skillset/skills/demo/SKILL.md": `
+    ".skillset/src/skillset.yaml": `
+skillset:
+  name: ci-root
+  version: 0.1.0
+`,
+    ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -271,18 +273,16 @@ Body.
   });
   await commitFixture(root);
 
-  await rm(join(root, ".skillset/skills"), { force: true, recursive: true });
+  await rm(join(root, ".skillset"), { force: true, recursive: true });
   await writeRawFiles(root, {
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 claude: true
 codex: false
-`,
-    ".skillset/src/skillset.yaml": `
 skillset:
   name: ci-root
   version: 0.1.0
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.

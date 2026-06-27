@@ -11,7 +11,7 @@ the rest of the CLI.
 
 ## Authoring
 
-Start the loop from a nested or root-layout Skillset workspace:
+Start the loop from a Skillset workspace:
 
 ```bash
 skillset dev --watch
@@ -25,8 +25,8 @@ skillset dev --watch --root examples/first-author
 
 The command watches:
 
-- the workspace config, such as `.skillset/skillset.yaml` or `skillset.yaml`;
-- the active source root, such as `.skillset/src/` or `skillset/`.
+- the workspace config, `skillset.yaml`;
+- the active source root, `.skillset/`.
 
 It ignores generated output roots, `AGENTS.md`, `skillset.lock`, `.skillset/cache/`,
 `.skillset/snapshots/`, and generated lock/report churn so preview output does
@@ -57,6 +57,6 @@ foreground process receives `SIGINT` or `SIGTERM`.
 
 ## Tests and Fixtures
 
-Tests cover nested and root-layout watch path selection, generated/cache/output
+Tests cover workspace watch path selection, generated/cache/output
 ignore rules, debounce behavior with a fake scheduler, preview summary rendering,
 and command validation without starting a long-running watcher.

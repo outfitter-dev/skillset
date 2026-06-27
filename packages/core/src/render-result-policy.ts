@@ -44,7 +44,7 @@ function formatBlockedOutcome(outcome: SkillsetRenderResult): string {
 
 function suggestionForBlockedOutcome(outcome: SkillsetRenderResult): string {
   if (outcome.target === "codex" && outcome.featureId === "plugin-agents") {
-    return "set codex: false for the plugin, move portable project agents to .skillset/src/agents, or keep Claude-only files in Claude provider source";
+    return "set codex: false for the plugin, move portable project agents to .skillset/agents, or keep Claude-only files in Claude provider source";
   }
   if (outcome.target === "codex" && outcome.featureId === "plugin-bin") {
     return "set bin: false, set codex: false for the plugin, remove Codex plugin output selection, or keep executable helpers in Claude provider source";

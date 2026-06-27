@@ -33,10 +33,10 @@ tests:
       const result = await runMigration(root);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stderr).toContain("write .skillset/skillset.yaml");
+      expect(result.stderr).toContain("write skillset.yaml");
       expect(result.stderr).toContain("remove .skillset/config.yaml");
       expect(result.stderr).toContain("remove .skillset/src/skillset.yaml");
-      const migrated = parseYamlRecord(await readFile(join(root, ".skillset", "skillset.yaml"), "utf8"), "workspace");
+      const migrated = parseYamlRecord(await readFile(join(root, "skillset.yaml"), "utf8"), "workspace");
       expect(migrated).toEqual({
         compile: { targets: ["claude"] },
         skillset: { name: "demo", version: "0.1.0" },
@@ -125,11 +125,11 @@ tests:
 
       expect(result.exitCode).toBe(0);
       expect(result.stderr).toContain("move changes/pending/abc123def456.md -> changes/abc123def456.md");
-      expect(result.stderr).toContain("move changes -> skillset/changes");
+      expect(result.stderr).toContain("move changes -> .skillset/changes");
       expect(result.stderr).toContain("migration dry run wrote no files");
       await expect(readFile(join(root, "changes", "pending", "abc123def456.md"), "utf8")).resolves.toBe("pending\n");
       await expect(readFile(join(root, "changes", "abc123def456.md"), "utf8")).rejects.toThrow();
-      await expect(readFile(join(root, "skillset", "changes", "abc123def456.md"), "utf8")).rejects.toThrow();
+      await expect(readFile(join(root, ".skillset", "changes", "abc123def456.md"), "utf8")).rejects.toThrow();
     } finally {
       await rm(root, { force: true, recursive: true });
     }
@@ -146,9 +146,9 @@ tests:
       const result = await runMigration(root);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stderr).toContain("move changes -> skillset/changes");
-      await expect(readFile(join(root, "skillset", "changes", "abc123def456.md"), "utf8")).resolves.toBe("pending\n");
-      await expect(readFile(join(root, "skillset", "changes", "history.jsonl"), "utf8")).resolves.toBe("history\n");
+      expect(result.stderr).toContain("move changes -> .skillset/changes");
+      await expect(readFile(join(root, ".skillset", "changes", "abc123def456.md"), "utf8")).resolves.toBe("pending\n");
+      await expect(readFile(join(root, ".skillset", "changes", "history.jsonl"), "utf8")).resolves.toBe("history\n");
       await expect(readFile(join(root, "changes", "history.jsonl"), "utf8")).rejects.toThrow();
     } finally {
       await rm(root, { force: true, recursive: true });

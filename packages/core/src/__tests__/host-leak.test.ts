@@ -5,7 +5,7 @@ import { assertNoHostLeaks, detectHostLeaks } from "@skillset/core";
 describe("host leak detection", () => {
   it("detects POSIX host paths without dumping the full path", () => {
     const issues = detectHostLeaks("report.json", [
-      "path=/Users/matt/project/.skillset/config.yaml",
+      "path=/Users/matt/project/skillset.yaml",
       "temp=/private/var/folders/zz/abc/T/project/file.txt",
     ].join("\n"));
 
@@ -13,7 +13,7 @@ describe("host leak detection", () => {
       {
         kind: "posix-host-path",
         path: "report.json",
-        redacted: "/Users/.../config.yaml",
+      redacted: "/Users/.../skillset.yaml",
       },
       {
         kind: "posix-host-path",

@@ -99,7 +99,7 @@ function ensureTargetConfig(config: Record<string, JsonRecord[keyof JsonRecord]>
     return targetConfig;
   }
   if (!isJsonRecord(existing)) {
-    throw new Error(`skillset: cannot migrate legacy outputs into ${target}; split .skillset/config.yaml by hand`);
+    throw new Error(`skillset: cannot migrate legacy outputs into ${target}; split skillset.yaml by hand`);
   }
   const targetConfig: Record<string, JsonValue> = {};
   for (const [key, value] of Object.entries(existing)) {
@@ -114,12 +114,12 @@ function outputSettingWithPath(existing: JsonValue | undefined, label: string, p
   if (existing === false) return { enabled: false, path };
   if (Array.isArray(existing)) return { include: existing, path };
   if (!isJsonRecord(existing)) {
-    throw new Error(`skillset: cannot migrate legacy outputs into ${label}; split .skillset/config.yaml by hand`);
+    throw new Error(`skillset: cannot migrate legacy outputs into ${label}; split skillset.yaml by hand`);
   }
 
   const currentPath = existing.path;
   if (currentPath !== undefined && currentPath !== path) {
-    throw new Error(`skillset: legacy skillset.outputs conflicts with ${label}.path; split .skillset/config.yaml by hand`);
+    throw new Error(`skillset: legacy skillset.outputs conflicts with ${label}.path; split skillset.yaml by hand`);
   }
   return { ...existing, path };
 }

@@ -14,7 +14,7 @@ skills:
   - release-policy
 skillset:
   origin:
-    path: skillset/agents/release-reviewer.md
+    path: .skillset/agents/release-reviewer.md
   schema: 1
 supports:
   - "@acme/release-cli ^1.0.0"

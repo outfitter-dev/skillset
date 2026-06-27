@@ -176,17 +176,17 @@ async function hashLockItem(root: string, outputRoot: string, files: readonly st
 
 function pluginFixture(): Record<string, string> {
   return {
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: provider-update-root
 claude: false
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo skill.
@@ -199,13 +199,13 @@ Body.
 
 function agentFixture(): Record<string, string> {
   return {
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: provider-update-root
 claude: false
 codex: true
 `,
-    ".skillset/src/agents/reviewer.md": `
+    ".skillset/agents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews code.
@@ -218,7 +218,7 @@ Review code.
 
 function agentFixtureSource(): Record<string, string> {
   return {
-    ".skillset/src/agents/reviewer.md": `
+    ".skillset/agents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews code.

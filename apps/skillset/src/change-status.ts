@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rename, rm, rmdir, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 
@@ -119,17 +119,25 @@ interface BaselineInventory {
   readonly inventory: SourceInventory;
 }
 
-const ROOT_CONFIG_FILE = "config.yaml";
-const SOURCE_ROOT_DIR = "src";
+const LEGACY_ROOT_CONFIG_FILE = "config.yaml";
+const LEGACY_SOURCE_ROOT_DIR = "src";
+const WORKSPACE_SOURCE_DIR = ".skillset";
 const ROOT_SOURCE_MANIFEST_FILE = "skillset.yaml";
 const LEGACY_BASELINE_SOURCE_MOVES: readonly (readonly [string, string])[] = [
-  ["instructions", "src/rules"],
-  ["rules", "src/rules"],
-  ["skills", "src/skills"],
-  ["plugins", "src/plugins"],
-  ["shared", "src/shared"],
-  ["src/claude", "src/_claude"],
-  ["src/codex", "src/_codex"],
+  ["src/instructions", "rules"],
+  ["src/rules", "rules"],
+  ["src/skills", "skills"],
+  ["src/plugins", "plugins"],
+  ["src/shared", "shared"],
+  ["src/agents", "agents"],
+  ["src/hooks", "hooks"],
+  ["src/claude", "_claude"],
+  ["src/codex", "_codex"],
+  ["src/_claude", "_claude"],
+  ["src/_codex", "_codex"],
+  ["instructions", "rules"],
+  ["claude", "_claude"],
+  ["codex", "_codex"],
 ];
 const PLUGIN_COMPANION_PATHS = [
   "README.md",
@@ -873,18 +881,20 @@ async function normalizeLegacyBaselineSnapshot(
   snapshotPath: string,
   options: SkillsetOptions
 ): Promise<void> {
-  const sourceDir = options.sourceDir ?? ".skillset";
-  if (sourceDir === ".") {
-    return;
-  }
+  const sourceDir = options.sourceDir ?? WORKSPACE_SOURCE_DIR;
+  if (sourceDir !== WORKSPACE_SOURCE_DIR) return;
+
+  await moveLegacyBaselinePath(join(snapshotPath, "skillset"), join(snapshotPath, WORKSPACE_SOURCE_DIR));
+
   const skillsetPath = join(snapshotPath, sourceDir);
   if (!(await exists(skillsetPath))) return;
 
   for (const [from, to] of LEGACY_BASELINE_SOURCE_MOVES) {
     await moveLegacyBaselinePath(join(skillsetPath, from), join(skillsetPath, to));
   }
-  await moveLegacyBaselinePluginProviderDirs(join(skillsetPath, SOURCE_ROOT_DIR, "plugins"));
-  await splitLegacyBaselineRootConfig(skillsetPath);
+  await moveLegacyBaselinePluginProviderDirs(join(skillsetPath, "plugins"));
+  await writeCanonicalBaselineRootConfig(snapshotPath, skillsetPath);
+  await removeEmptyDirectory(join(skillsetPath, LEGACY_SOURCE_ROOT_DIR));
 }
 
 async function moveLegacyBaselinePluginProviderDirs(pluginsPath: string): Promise<void> {
@@ -893,26 +903,53 @@ async function moveLegacyBaselinePluginProviderDirs(pluginsPath: string): Promis
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
     const pluginPath = join(pluginsPath, entry.name);
+    await moveLegacyBaselinePath(join(pluginPath, LEGACY_ROOT_CONFIG_FILE), join(pluginPath, ROOT_SOURCE_MANIFEST_FILE));
     await moveLegacyBaselinePath(join(pluginPath, "claude"), join(pluginPath, "_claude"));
     await moveLegacyBaselinePath(join(pluginPath, "codex"), join(pluginPath, "_codex"));
   }
 }
 
-async function splitLegacyBaselineRootConfig(skillsetPath: string): Promise<void> {
-  const configPath = join(skillsetPath, ROOT_CONFIG_FILE);
-  if (!(await exists(configPath))) return;
-  const config = parseYamlRecord(await readFile(configPath, "utf8"), configPath);
-  const manifest = sourceManifestFromLegacyRootConfig(config);
-  if (manifest === undefined) return;
+async function writeCanonicalBaselineRootConfig(snapshotPath: string, skillsetPath: string): Promise<void> {
+  const rootConfigPath = join(snapshotPath, ROOT_SOURCE_MANIFEST_FILE);
+  let canonical = await readYamlRecordIfExists(rootConfigPath) ?? {};
+  const legacyConfigPaths = [
+    join(skillsetPath, LEGACY_SOURCE_ROOT_DIR, ROOT_SOURCE_MANIFEST_FILE),
+    join(skillsetPath, ROOT_SOURCE_MANIFEST_FILE),
+    join(skillsetPath, LEGACY_ROOT_CONFIG_FILE),
+  ];
 
-  const manifestPath = join(skillsetPath, SOURCE_ROOT_DIR, ROOT_SOURCE_MANIFEST_FILE);
-  if (await exists(manifestPath)) {
-    throw new Error(`skillset: cannot normalize baseline with both root source metadata and ${manifestPath}`);
+  let changed = false;
+  for (const legacyConfigPath of legacyConfigPaths) {
+    const legacyConfig = await readYamlRecordIfExists(legacyConfigPath);
+    if (legacyConfig === undefined) continue;
+    canonical = mergeMissingConfigKeys(canonical, legacyConfig);
+    await rm(legacyConfigPath, { force: true });
+    changed = true;
   }
 
-  await mkdir(dirname(manifestPath), { recursive: true });
-  await writeFile(manifestPath, stringifyYaml(manifest), "utf8");
-  await writeFile(configPath, stringifyLegacyWorkspaceConfig(workspaceConfigFromLegacyRootConfig(config)), "utf8");
+  if (changed) {
+    await writeFile(rootConfigPath, stringifyYaml(canonical), "utf8");
+  }
+}
+
+async function readYamlRecordIfExists(path: string): Promise<JsonRecord | undefined> {
+  if (!(await exists(path))) return undefined;
+  return parseYamlRecord(await readFile(path, "utf8"), path);
+}
+
+function mergeMissingConfigKeys(canonical: JsonRecord, legacyConfig: JsonRecord): JsonRecord {
+  const merged: Record<string, JsonValue> = {};
+  for (const key of Object.keys(canonical)) {
+    const value = canonical[key];
+    if (value !== undefined) merged[key] = value;
+  }
+  for (const key of Object.keys(legacyConfig)) {
+    if (key in merged) continue;
+    const value = legacyConfig[key];
+    if (value === undefined) continue;
+    merged[key] = value;
+  }
+  return merged;
 }
 
 async function stripRetiredBaselineTests(
@@ -921,15 +958,17 @@ async function stripRetiredBaselineTests(
 ): Promise<void> {
   await stripRetiredTestsKey(join(snapshotPath, ROOT_SOURCE_MANIFEST_FILE));
 
-  const sourceDir = options.sourceDir ?? ".skillset";
-  const configPath = sourceDir === "."
-    ? join(snapshotPath, ROOT_SOURCE_MANIFEST_FILE)
-    : join(snapshotPath, sourceDir, ROOT_SOURCE_MANIFEST_FILE);
-  await stripRetiredTestsKey(configPath);
+  const sourceDir = options.sourceDir ?? WORKSPACE_SOURCE_DIR;
+  await stripRetiredTestsKey(join(snapshotPath, sourceDir, ROOT_SOURCE_MANIFEST_FILE));
+  await stripRetiredTestsKey(join(snapshotPath, sourceDir, LEGACY_SOURCE_ROOT_DIR, ROOT_SOURCE_MANIFEST_FILE));
+  await stripRetiredTestsKey(join(snapshotPath, sourceDir, LEGACY_ROOT_CONFIG_FILE));
+}
 
-  if (sourceDir !== ".") {
-    await stripRetiredTestsKey(join(snapshotPath, sourceDir, ROOT_CONFIG_FILE));
-  }
+async function removeEmptyDirectory(path: string): Promise<void> {
+  if (!(await exists(path))) return;
+  const entries = await readdir(path);
+  if (entries.length > 0) return;
+  await rmdir(path);
 }
 
 async function stripRetiredTestsKey(configPath: string): Promise<void> {
@@ -940,29 +979,20 @@ async function stripRetiredTestsKey(configPath: string): Promise<void> {
   await writeFile(configPath, stringifyYaml(rest), "utf8");
 }
 
-function sourceManifestFromLegacyRootConfig(record: JsonRecord): JsonRecord | undefined {
-  const manifest: Record<string, JsonRecord[keyof JsonRecord]> = {};
-  if (isJsonRecord(record.skillset)) manifest.skillset = record.skillset;
-  if (record.supports !== undefined) manifest.supports = record.supports;
-  return Object.keys(manifest).length === 0 ? undefined : manifest;
-}
-
-function workspaceConfigFromLegacyRootConfig(record: JsonRecord): JsonRecord {
-  const config: Record<string, JsonRecord[keyof JsonRecord]> = {};
-  for (const [key, value] of Object.entries(record)) {
-    if (key === "skillset" || key === "supports" || key === "tests") continue;
-    config[key] = value;
-  }
-  return config;
-}
-
-function stringifyLegacyWorkspaceConfig(record: JsonRecord): string {
-  return Object.keys(record).length === 0 ? "\n" : stringifyYaml(record);
-}
-
 async function moveLegacyBaselinePath(from: string, to: string): Promise<void> {
   if (!(await exists(from))) return;
-  if (await exists(to)) throw new Error(`skillset: cannot normalize baseline because ${to} already exists`);
+  if (await exists(to)) {
+    const [fromStat, toStat] = await Promise.all([stat(from), stat(to)]);
+    if (!fromStat.isDirectory() || !toStat.isDirectory()) {
+      throw new Error(`skillset: cannot normalize baseline because ${to} already exists`);
+    }
+    const entries = await readdir(from, { withFileTypes: true });
+    for (const entry of entries) {
+      await moveLegacyBaselinePath(join(from, entry.name), join(to, entry.name));
+    }
+    await rmdir(from);
+    return;
+  }
   await mkdir(dirname(to), { recursive: true });
   await rename(from, to);
 }

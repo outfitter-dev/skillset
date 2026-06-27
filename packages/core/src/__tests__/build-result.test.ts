@@ -7,13 +7,13 @@ import { join } from "node:path";
 import { buildSkillsetResult, diffSkillsetResult, getSkillsetFeature, restoreOutputBackup } from "@skillset/core";
 
 const DEMO_FIXTURE: Record<string, string> = {
-  ".skillset/config.yaml": `
+  "skillset.yaml": `
 skillset:
   name: core-build-root
 claude: true
 codex: false
 `,
-  ".skillset/src/skills/demo/SKILL.md": `
+  ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo skill.
@@ -27,7 +27,7 @@ describe("buildSkillsetResult", () => {
   it("reports actual writes and deletions instead of planned managed paths", async () => {
     const root = await fixture({
       ...DEMO_FIXTURE,
-      ".skillset/src/skills/stale/SKILL.md": `
+      ".skillset/skills/stale/SKILL.md": `
 ---
 name: stale
 description: Stale skill.
@@ -54,7 +54,7 @@ Stale.
       writtenPaths: [],
     });
 
-    await rm(join(root, ".skillset/src/skills/stale/SKILL.md"));
+    await rm(join(root, ".skillset/skills/stale/SKILL.md"));
     const third = await buildSkillsetResult(root);
 
     expect(third.writes.writtenPaths).toEqual([".claude/skills/skillset.lock"]);
@@ -64,13 +64,13 @@ Stale.
 
   it("backs up unmanaged collisions and restores the original safely", async () => {
     const root = await fixture({
-      ".skillset/config.yaml": `
+      "skillset.yaml": `
 skillset:
   name: unmanaged-root
 claude: false
 codex: true
 `,
-      ".skillset/src/rules/root.md": `
+      ".skillset/rules/root.md": `
 # Generated Instructions
 `,
       "AGENTS.md": `
@@ -108,13 +108,13 @@ codex: true
 
   it("reports unmanaged collisions before writing backups", async () => {
     const root = await fixture({
-      ".skillset/config.yaml": `
+      "skillset.yaml": `
 skillset:
   name: unmanaged-preview-root
 claude: false
 codex: true
 `,
-      ".skillset/src/rules/root.md": `
+      ".skillset/rules/root.md": `
 # Generated Instructions
 `,
       "AGENTS.md": `
@@ -165,16 +165,16 @@ codex: true
 
   it("backs up edited multi-file outputs even when a sibling output is missing", async () => {
     const root = await fixture({
-      ".skillset/config.yaml": `
+      "skillset.yaml": `
 skillset:
   name: multi-file-root
 claude: true
 codex: false
 `,
-      ".skillset/src/shared/references/common.md": `
+      ".skillset/shared/references/common.md": `
 # Common Reference
 `,
-      ".skillset/src/skills/resourceful/SKILL.md": `
+      ".skillset/skills/resourceful/SKILL.md": `
 ---
 name: resourceful
 description: Resourceful skill.
@@ -215,7 +215,7 @@ Read [common](shared:references/common.md).
   it("leaves unrelated unmanaged files inside output roots alone", async () => {
     const root = await fixture({
       ...DEMO_FIXTURE,
-      ".skillset/config.yaml": `
+      "skillset.yaml": `
 skillset:
   name: core-build-root
 compile:
@@ -234,13 +234,13 @@ codex: false
 
   it("validates skill, agent, and instruction frontmatter with the shared schemas", async () => {
     const root = await fixture({
-      ".skillset/config.yaml": `
+      "skillset.yaml": `
 skillset:
   name: shared-frontmatter-root
 claude: true
 codex: true
 `,
-      ".skillset/src/agents/reviewer.md": `
+      ".skillset/agents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews project changes.
@@ -254,7 +254,7 @@ claude:
 
 Review the change.
 `,
-      ".skillset/src/rules/root.md": `
+      ".skillset/rules/root.md": `
 ---
 name: root
 dialect: claude
@@ -265,7 +265,7 @@ claude:
 
 # Project Instructions
 `,
-      ".skillset/src/skills/demo/SKILL.md": `
+      ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo skill.
@@ -299,14 +299,14 @@ Body.
 
   it("rejects invalid workspace config metadata through the shared schema", async () => {
     const root = await fixture({
-      ".skillset/config.yaml": `
+      "skillset.yaml": `
 skillset:
   name: invalid-workspace-metadata
   origin:
     repo: outfitter-dev/skillset
 claude: true
 `,
-      ".skillset/src/skills/demo/SKILL.md": `
+      ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo skill.
@@ -316,22 +316,22 @@ Body.
 `,
     });
 
-    await expect(buildSkillsetResult(root)).rejects.toThrow(".skillset/src/skillset.yaml.skillset.origin.path must be a non-empty string");
+    await expect(buildSkillsetResult(root)).rejects.toThrow("skillset.yaml.skillset.origin.path must be a non-empty string");
   });
 
   it("rejects invalid plugin config metadata through the shared schema", async () => {
     const root = await fixture({
-      ".skillset/config.yaml": `
+      "skillset.yaml": `
 skillset:
   name: invalid-plugin-metadata-root
 claude: true
 `,
-      ".skillset/src/plugins/demo/skillset.yaml": `
+      ".skillset/plugins/demo/skillset.yaml": `
 skillset:
   name: demo
   preprocess: sometimes
 `,
-      ".skillset/src/plugins/demo/skills/demo/SKILL.md": `
+      ".skillset/plugins/demo/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo skill.
@@ -341,13 +341,13 @@ Body.
 `,
     });
 
-    await expect(buildSkillsetResult(root)).rejects.toThrow(".skillset/src/plugins/demo/skillset.yaml.skillset.preprocess must be a boolean");
+    await expect(buildSkillsetResult(root)).rejects.toThrow(".skillset/plugins/demo/skillset.yaml.skillset.preprocess must be a boolean");
   });
 
   it("rejects invalid skill frontmatter through the shared schema", async () => {
     const root = await fixture({
       ...DEMO_FIXTURE,
-      ".skillset/src/skills/demo/SKILL.md": `
+      ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo skill.
@@ -364,12 +364,12 @@ Body.
 
   it("rejects invalid agent frontmatter through the shared schema", async () => {
     const root = await fixture({
-      ".skillset/config.yaml": `
+      "skillset.yaml": `
 skillset:
   name: invalid-agent-frontmatter
 claude: true
 `,
-      ".skillset/src/agents/reviewer.md": `
+      ".skillset/agents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews project changes.
@@ -386,12 +386,12 @@ Review the change.
 
   it("rejects invalid instruction frontmatter through the shared schema", async () => {
     const root = await fixture({
-      ".skillset/config.yaml": `
+      "skillset.yaml": `
 skillset:
   name: invalid-instruction-frontmatter
 codex: true
 `,
-      ".skillset/src/rules/root.md": `
+      ".skillset/rules/root.md": `
 ---
 paths:
   - 1

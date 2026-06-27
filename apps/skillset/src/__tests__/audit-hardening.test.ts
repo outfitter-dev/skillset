@@ -20,7 +20,7 @@ test("kitchen-sink fixture builds every implemented surface and stays current", 
   );
   expect(await readFile(join(root, ".skillset/cache/.gitignore"), "utf8")).toBe("*\n!.gitignore\n");
   expect(await readFile(join(root, ".skillset/snapshots/.gitignore"), "utf8")).toBe("*\n!.gitignore\n");
-  expect(await exists(join(root, "skillset/changes/.gitkeep"))).toBe(true);
+  expect(await exists(join(root, ".skillset/changes/.gitkeep"))).toBe(true);
 
   await buildSkillset(root);
 
@@ -45,6 +45,8 @@ test("kitchen-sink fixture builds every implemented surface and stays current", 
   expect(codexSkill).toContain("[report template](docs/report.md)");
   expect(codexSkill).toContain("[shared reference](references/shared-ref.md)");
   expect(codexSkill).toContain("[plugin reference](references/plugin-ref.md#usage)");
+  expect(codexSkill).toContain("Workspace partial: prefer shared setup before plugin-specific work.");
+  expect(codexSkill).toContain("Plugin partial: use the kitchen plugin conventions.");
   expect(codexSkill).not.toContain("shared:");
   expect(codexSkill).not.toContain("plugin:");
 
@@ -96,18 +98,18 @@ test("kitchen-sink fixture builds every implemented surface and stays current", 
 
 test("custom resources.to rejects an ambiguous bare link to the source path", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/shared/templates/report.md": `
+    ".skillset/plugins/alpha/shared/templates/report.md": `
 # Report
 `,
-    ".skillset/src/plugins/alpha/skills/remap/SKILL.md": `
+    ".skillset/plugins/alpha/skills/remap/SKILL.md": `
 ---
 name: remap
 description: Remaps a resource and links the bare source path.
@@ -126,18 +128,18 @@ Use the [report](templates/report.md) before writing.
 
 test("custom resources.to rejects ambiguous bare links under remapped directories", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/shared/templates/report.md": `
+    ".skillset/plugins/alpha/shared/templates/report.md": `
 # Report
 `,
-    ".skillset/src/plugins/alpha/skills/remap/SKILL.md": `
+    ".skillset/plugins/alpha/skills/remap/SKILL.md": `
 ---
 name: remap
 description: Remaps a resource directory and links the bare source path.
@@ -156,18 +158,18 @@ Use the [report](templates/report.md) before writing.
 
 test("declared directory resource URLs rewrite child links through custom to paths", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/shared/templates/report.md": `
+    ".skillset/plugins/alpha/shared/templates/report.md": `
 # Report
 `,
-    ".skillset/src/plugins/alpha/skills/remap/SKILL.md": `
+    ".skillset/plugins/alpha/skills/remap/SKILL.md": `
 ---
 name: remap
 description: Remaps a resource directory and links the resource URL.
@@ -192,24 +194,24 @@ Use the [report](plugin:templates/report.md#intro) before writing.
 
 test("Codex hooks reject unsupported events", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: false
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/hooks/hooks.json": `
+    ".skillset/plugins/alpha/hooks/hooks.json": `
 {
   "Notification": [
     { "hooks": [ { "type": "command", "command": "./run.sh" } ] }
   ]
 }
 `,
-    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -230,24 +232,24 @@ Alpha body.
 
 test("Codex hooks reject non-command handler types", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: false
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/hooks/hooks.json": `
+    ".skillset/plugins/alpha/hooks/hooks.json": `
 {
   "PreToolUse": [
     { "hooks": [ { "type": "prompt", "prompt": "ask" } ] }
   ]
 }
 `,
-    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -263,24 +265,24 @@ Alpha body.
 
 test("Codex hooks reject missing handler types", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: false
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/hooks/hooks.json": `
+    ".skillset/plugins/alpha/hooks/hooks.json": `
 {
   "PreToolUse": [
     { "hooks": [ { "command": "./run.sh" } ] }
   ]
 }
 `,
-    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -296,7 +298,7 @@ Alpha body.
 
 test("hook lint skips hooks for excluded plugin outputs", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: false
@@ -304,18 +306,18 @@ codex:
   plugins:
     - beta
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/hooks/hooks.json": `
+    ".skillset/plugins/alpha/hooks/hooks.json": `
 {
   "Notification": [
     { "hooks": [ { "type": "prompt", "prompt": "ask" } ] }
   ]
 }
 `,
-    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -323,11 +325,11 @@ description: Alpha skill.
 
 Alpha body.
 `,
-    ".skillset/src/plugins/beta/skillset.yaml": `
+    ".skillset/plugins/beta/skillset.yaml": `
 skillset:
   name: beta
 `,
-    ".skillset/src/plugins/beta/skills/beta-skill/SKILL.md": `
+    ".skillset/plugins/beta/skills/beta-skill/SKILL.md": `
 ---
 name: beta-skill
 description: Beta skill.
@@ -345,24 +347,24 @@ Beta body.
 
 test("Codex hooks reject async command handlers because Codex skips them", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: false
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/hooks/hooks.json": `
+    ".skillset/plugins/alpha/hooks/hooks.json": `
 {
   "PreToolUse": [
     { "hooks": [ { "type": "command", "command": "./run.sh", "async": true } ] }
   ]
 }
 `,
-    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -378,26 +380,26 @@ Alpha body.
 
 test("Claude hook validation stays broad and accepts Codex-only event names", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
     // SessionEnd is Claude-only; PermissionRequest would be Codex-only. Claude
     // accepts both because Claude hook validation is intentionally shape-only.
-    ".skillset/src/plugins/alpha/hooks/hooks.json": `
+    ".skillset/plugins/alpha/hooks/hooks.json": `
 {
   "hooks": {
     "SessionEnd": [ { "hooks": [ { "type": "command", "command": "./run.sh" } ] } ]
   }
 }
 `,
-    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -413,11 +415,11 @@ Alpha body.
 
 test("corrupt workspace skillset.lock fails loudly instead of disabling guards", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 `,
-    ".skillset/src/rules/global.md": `
+    ".skillset/rules/global.md": `
 # Global Rule
 
 - Keep it tidy.
@@ -433,17 +435,17 @@ skillset:
 
 test("corrupt generated output skillset.lock fails loudly instead of disabling guards", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.

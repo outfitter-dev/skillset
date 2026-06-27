@@ -36,14 +36,14 @@ test("SET-52: source-unit selectors render conventional display labels", () => {
 
 test("SET-3: source builds when skillset.schema is absent (default schema)", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: schema-default
   version: 0.2.0
 claude: true
 codex: true
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo skill without an explicit schema.
@@ -60,7 +60,7 @@ Demo.
 
 test("SET-3: source accepts an explicit supported skillset.schema alongside a version", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   schema: 1
   name: schema-explicit
@@ -68,7 +68,7 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo skill with an explicit schema.
@@ -85,14 +85,14 @@ Demo.
 
 test("SET-3: unsupported root skillset.schema fails with a clear diagnostic", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   schema: 2
   name: schema-future
 claude: true
 codex: true
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo skill.
@@ -107,13 +107,13 @@ Demo.
 
 test("SET-3: a bare top-level schema key is stripped from generated frontmatter", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: schema-strip
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo skill with a stray top-level schema key.
@@ -129,38 +129,35 @@ Demo.
   expect(skill).not.toContain("schema:");
 });
 
-test("SET-3/SET-5: retired root rules dir is rejected even when empty", async () => {
+test("SET-3/SET-5: root rules dir is accepted as canonical", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: empty-rules
 claude: true
 codex: true
 `,
-    ".skillset/src/rules/global.md": `
+    ".skillset/rules/global.md": `
 # Global
 
 - Be tidy.
 `,
-    // Present but empty (no markdown) old dir must not trigger migration errors.
     ".skillset/rules/.gitkeep": "",
   });
 
-  await expect(loadBuildGraph(root)).rejects.toThrow(
-    ".skillset/rules uses the retired source layout; move it to .skillset/src/rules"
-  );
+  await expect(loadBuildGraph(root)).resolves.toMatchObject({ instructionsDir: "rules" });
 });
 
 test("SET-3: a semver-style skillset.schema is rejected, not confused with version", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   schema: "1.0.0"
   name: schema-semver
 claude: true
 codex: true
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo skill.
@@ -175,18 +172,18 @@ Demo.
 
 test("SET-3: unsupported plugin skillset.schema fails", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: schema-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   schema: 9
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo skill.
@@ -204,16 +201,16 @@ Demo.
 
 test("SET-4: plugin and skill identity derive from directory names", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: id-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/derived-plugin/skillset.yaml": `
+    ".skillset/plugins/derived-plugin/skillset.yaml": `
 skillset: {}
 `,
-    ".skillset/src/plugins/derived-plugin/skills/derived-skill/SKILL.md": `
+    ".skillset/plugins/derived-plugin/skills/derived-skill/SKILL.md": `
 ---
 description: A skill whose id comes from its directory.
 ---
@@ -229,17 +226,17 @@ Body.
 
 test("SET-4: skillset.id is rejected before public release", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: id-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/alias-plugin/skillset.yaml": `
+    ".skillset/plugins/alias-plugin/skillset.yaml": `
 skillset:
   id: alias-plugin
 `,
-    ".skillset/src/plugins/alias-plugin/skills/aliased/SKILL.md": `
+    ".skillset/plugins/alias-plugin/skills/aliased/SKILL.md": `
 ---
 name: aliased
 description: Skill using a name.
@@ -256,14 +253,14 @@ Body.
 
 test("SET-4: root skillset.id is rejected even beside skillset.name", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: conflict-root
   id: different-root
 claude: true
 codex: true
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -278,13 +275,13 @@ Body.
 
 test("SET-4: skill-local skillset.name is rejected", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: id-root
 claude: true
 codex: true
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: top-name
 description: Demo with conflicting identity.
@@ -301,13 +298,13 @@ Body.
 
 test("SET-4: skill-local skillset.version is rejected", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: id-root
 claude: true
 codex: true
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo with old version metadata.
@@ -324,17 +321,17 @@ Body.
 
 test("SET-4: a plugin directory that disagrees with skillset.name fails", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: id-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/real-dir/skillset.yaml": `
+    ".skillset/plugins/real-dir/skillset.yaml": `
 skillset:
   name: other-name
 `,
-    ".skillset/src/plugins/real-dir/skills/demo/SKILL.md": `
+    ".skillset/plugins/real-dir/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -348,22 +345,22 @@ Body.
     code: "plugin-manifest-invalid",
     featureId: "plugin-manifests",
     message: expect.stringContaining("does not match skillset.name"),
-    path: ".skillset/src/plugins/real-dir/skillset.yaml",
+    path: ".skillset/plugins/real-dir/skillset.yaml",
   });
 });
 
-// SET-5: canonical source instructions live in .skillset/src/rules/. Claude
+// SET-5: canonical source instructions live in .skillset/rules/. Claude
 // lowers to .claude/rules, and Codex lowers to AGENTS.md.
 
 test("SET-5: canonical instructions lower to Claude rules and Codex AGENTS.md", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: instr-root
 claude: true
 codex: true
 `,
-    ".skillset/src/rules/global.md": `
+    ".skillset/rules/global.md": `
 # Global
 
 - Be tidy.
@@ -371,7 +368,7 @@ codex: true
   });
 
   const graph = await loadBuildGraph(root);
-  expect(graph.instructionsDir).toBe("src/rules");
+  expect(graph.instructionsDir).toBe("rules");
   expect(graph.warnings).toEqual([]);
 
   await buildSkillset(root);
@@ -379,9 +376,9 @@ codex: true
   expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("Be tidy.");
 });
 
-test("SET-5: .skillset/rules with markdown is rejected as retired layout", async () => {
+test("SET-5: .skillset/rules with markdown is canonical", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: old-rules-root
 claude: true
@@ -394,20 +391,19 @@ codex: true
 `,
   });
 
-  await expect(loadBuildGraph(root)).rejects.toThrow(
-    ".skillset/rules uses the retired source layout; move it to .skillset/src/rules"
-  );
+  const graph = await loadBuildGraph(root);
+  expect(graph.rules.map((rule) => rule.sourcePath)).toEqual([join(root, ".skillset/rules/global.md")]);
 });
 
-test("SET-5: canonical and retired rules dirs both with content fail on the old directory", async () => {
+test("SET-5: multiple root rules load from the canonical directory", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: ambiguous-root
 claude: true
 codex: true
 `,
-    ".skillset/src/rules/global.md": `
+    ".skillset/rules/global.md": `
 # Global
 `,
     ".skillset/rules/legacy.md": `
@@ -415,9 +411,11 @@ codex: true
 `,
   });
 
-  await expect(loadBuildGraph(root)).rejects.toThrow(
-    ".skillset/rules uses the retired source layout; move it to .skillset/src/rules"
-  );
+  const graph = await loadBuildGraph(root);
+  expect(graph.rules.map((rule) => rule.sourcePath).sort()).toEqual([
+    join(root, ".skillset/rules/global.md"),
+    join(root, ".skillset/rules/legacy.md"),
+  ]);
 });
 
 // SET-6: tool_intent is the canonical portable tool-policy key; legacy tools
@@ -425,13 +423,13 @@ codex: true
 
 test("SET-6: tool_intent lowers to Claude allowed-tools", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: ti-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/intent/SKILL.md": `
+    ".skillset/skills/intent/SKILL.md": `
 ---
 name: intent
 description: Declares a portable read and search policy.
@@ -456,13 +454,13 @@ Body.
 
 test("SET-6: the legacy tools key is rejected", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: ti-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/legacy/SKILL.md": `
+    ".skillset/skills/legacy/SKILL.md": `
 ---
 name: legacy
 description: Uses the old tools key.
@@ -480,13 +478,13 @@ Body.
 
 test("SET-6: the legacy tools key is rejected in project agents", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: ti-root
 claude: true
 codex: false
 `,
-    ".skillset/src/agents/reviewer.md": `
+    ".skillset/agents/reviewer.md": `
 ---
 name: reviewer
 description: Uses the old tools key.
@@ -504,13 +502,13 @@ Review code.
 
 test("SET-6: the legacy tools key is rejected in Codex-only project agents", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: ti-root
 claude: false
 codex: true
 `,
-    ".skillset/src/agents/reviewer.md": `
+    ".skillset/agents/reviewer.md": `
 ---
 name: reviewer
 description: Uses the old tools key.
@@ -528,13 +526,13 @@ Review code.
 
 test("SET-6: the legacy tools key is rejected in target-native Markdown islands", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: ti-root
 claude: true
 codex: false
 `,
-    ".skillset/src/_claude/agents/reviewer.md": `
+    ".skillset/_claude/agents/reviewer.md": `
 ---
 name: reviewer
 description: Uses the old tools key.
@@ -552,13 +550,13 @@ Review code.
 
 test("SET-6: unknown portable tool keys fail", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: ti-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/unknown/SKILL.md": `
+    ".skillset/skills/unknown/SKILL.md": `
 ---
 name: unknown
 description: Uses an unknown tool key.
@@ -580,24 +578,24 @@ Body.
 
 test("SET-2: a shared hooks/hooks.json emits to both Claude and Codex hook paths", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: hook-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/hooks/hooks.json": `
+    ".skillset/plugins/alpha/hooks/hooks.json": `
 {
   "hooks": {
     "SessionStart": [ { "hooks": [ { "type": "command", "command": "./scripts/run.sh" } ] } ]
   }
 }
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -626,21 +624,21 @@ test("SET-2: old root hooks.json is rejected for any enabled target", async () =
     "claude: true\ncodex: false",
   ]) {
     const root = await contractFixture({
-      ".skillset/config.yaml": `
+      "skillset.yaml": `
 skillset:
   name: hook-root
 ${targetConfig}
 `,
-      ".skillset/src/plugins/alpha/skillset.yaml": `
+      ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-      ".skillset/src/plugins/alpha/hooks.json": `
+      ".skillset/plugins/alpha/hooks.json": `
 {
   "SessionStart": [ { "hooks": [ { "type": "command", "command": "./scripts/run.sh" } ] } ]
 }
 `,
-      ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+      ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -654,25 +652,25 @@ Body.
       code: "plugin-root-hooks-unsupported",
       featureId: "plugin-hooks",
       message: expect.stringContaining("uses unsupported root hooks.json"),
-      path: ".skillset/src/plugins/alpha/hooks.json",
+      path: ".skillset/plugins/alpha/hooks.json",
     });
   }
 });
 
 test("plugin manifest validation errors carry feature diagnostic metadata", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: manifest-errors
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 commands: {}
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -686,7 +684,7 @@ Body.
     code: "plugin-manifest-invalid",
     featureId: "plugin-manifests",
     message: expect.stringContaining("unsupported top-level key commands"),
-    path: ".skillset/src/plugins/alpha/skillset.yaml",
+    path: ".skillset/plugins/alpha/skillset.yaml",
   });
 
   const doctorJson = await runSkillsetCli("doctor", "--root", root, "--json");
@@ -697,7 +695,7 @@ Body.
   expect(doctorReport.buildDiagnostics).toContainEqual(expect.objectContaining({
     code: "plugin-manifest-invalid",
     featureId: "plugin-manifests",
-    path: ".skillset/src/plugins/alpha/skillset.yaml",
+    path: ".skillset/plugins/alpha/skillset.yaml",
   }));
 });
 
@@ -752,18 +750,18 @@ test("SET-14: Codex plugin manifest interface uses documented camelCase fields",
 
 test("SET-14: Codex interface brandColor falls back to the default color", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: gold-root
 claude: false
 codex: true
 `,
-    ".skillset/src/plugins/plain/skillset.yaml": `
+    ".skillset/plugins/plain/skillset.yaml": `
 skillset:
   name: plain
   summary: Plain plugin.
 `,
-    ".skillset/src/plugins/plain/skills/demo/SKILL.md": `
+    ".skillset/plugins/plain/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -837,7 +835,7 @@ test("SET-10: skill import reports copied files and classifies frontmatter", asy
   expect(report.renderResults).toContainEqual(
     expect.objectContaining({
       featureId: "tool-intent",
-      sourcePath: ".skillset/src/skills/myskill/SKILL.md",
+      sourcePath: ".skillset/skills/myskill/SKILL.md",
       sourceUnit: "skill:myskill",
       status: "target_native",
       target: "claude",
@@ -869,8 +867,8 @@ test("SET-58: imported plugin manifests round-trip metadata fields through build
     join(external, "roundtrip/skills/demo/SKILL.md"),
     "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n"
   );
-  await Bun.write(join(root, ".skillset/config.yaml"), "claude: true\ncodex: false\n");
-  await Bun.write(join(root, ".skillset/src/skillset.yaml"), "skillset:\n  name: roundtrip-root\n");
+  await Bun.write(join(root, "skillset.yaml"), "claude: true\ncodex: false\n");
+  await Bun.write(join(root, "skillset.yaml"), "skillset:\n  name: roundtrip-root\n");
 
   await importSource({ kind: "plugin", rootPath: root, sourcePath: join(external, "roundtrip") });
   await buildSkillset(root);
@@ -903,7 +901,7 @@ test("SET-10: importing a SKILL.md path copies the full skill directory", async 
   expect(report.copiedFiles).toContain("SKILL.md");
   expect(report.copiedFiles).toContain(join("references", "notes.md"));
   expect(report.copiedFiles).toContain(join("scripts", "run.sh"));
-  expect(await Bun.file(join(root, ".skillset/src/skills/full-skill/references/notes.md")).exists()).toBe(true);
+  expect(await Bun.file(join(root, ".skillset/skills/full-skill/references/notes.md")).exists()).toBe(true);
 });
 
 test("SET-10: inferred skills-root import copies each skill and dedupes symlinked directories", async () => {
@@ -923,8 +921,8 @@ test("SET-10: inferred skills-root import copies each skill and dedupes symlinke
 
   expect(report.kind).toBe("skills");
   expect(report.imports.map((entry) => entry.name).sort()).toEqual(["other", "shared"]);
-  expect(await Bun.file(join(root, ".skillset/src/skills/other/SKILL.md")).exists()).toBe(true);
-  expect(await Bun.file(join(root, ".skillset/src/skills/shared/SKILL.md")).exists()).toBe(true);
+  expect(await Bun.file(join(root, ".skillset/skills/other/SKILL.md")).exists()).toBe(true);
+  expect(await Bun.file(join(root, ".skillset/skills/shared/SKILL.md")).exists()).toBe(true);
 });
 
 test("SET-10: plugin import reports the config and copied files", async () => {
@@ -956,8 +954,8 @@ test("SET-10: plugin import reports the config and copied files", async () => {
 test("SET-10: inferred plugin-root import writes source config for native plugin manifests", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
   const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));
-  await Bun.write(join(root, ".skillset/config.yaml"), "\n");
-  await Bun.write(join(root, ".skillset/src/skillset.yaml"), "skillset:\n  name: import-root\n");
+  await Bun.write(join(root, "skillset.yaml"), "\n");
+  await Bun.write(join(root, "skillset.yaml"), "skillset:\n  name: import-root\n");
   await Bun.write(
     join(external, "plugins/widget/.claude-plugin/plugin.json"),
     JSON.stringify({ name: "Widget", version: "0.8.0", description: "Native widget plugin." })
@@ -975,11 +973,11 @@ test("SET-10: inferred plugin-root import writes source config for native plugin
   expect(report.kind).toBe("plugins");
   expect(report.imports).toHaveLength(1);
   expect(report.imports[0]?.name).toBe("widget");
-  const config = await readFile(join(root, ".skillset/src/plugins/widget/skillset.yaml"), "utf8");
+  const config = await readFile(join(root, ".skillset/plugins/widget/skillset.yaml"), "utf8");
   expect(config).toContain("name: widget");
   expect(config).toContain("version: 0.8.0");
   expect(config).toContain("description: Native widget plugin.");
-  expect(await Bun.file(join(root, ".skillset/src/plugins/widget/.claude-plugin/plugin.json")).exists()).toBe(true);
+  expect(await Bun.file(join(root, ".skillset/plugins/widget/.claude-plugin/plugin.json")).exists()).toBe(true);
   expect((await loadBuildGraph(root)).plugins[0]?.id).toBe("widget");
 });
 
@@ -1006,21 +1004,21 @@ test("SET-10: failed imports do not leave source target directories", async () =
     importSource({ kind: "skill", rootPath: root, sourcePath: join(external, "not-a-skill.md") })
   ).rejects.toThrow("importing a file is only supported");
 
-  expect(await Bun.file(join(root, ".skillset/src/skills/partial-import")).exists()).toBe(false);
-  expect(await readdir(join(root, ".skillset/src/skills"))).toEqual([]);
+  expect(await Bun.file(join(root, ".skillset/skills/partial-import")).exists()).toBe(false);
+  expect(await readdir(join(root, ".skillset/skills"))).toEqual([]);
 });
 
 // SET-9: explain, diff, and doctor authoring commands (local-only, read-only).
 
 test("SET-9: diff reports generated changes without writing", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: diff-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1036,7 +1034,7 @@ Body.
   // Change source without rebuilding; diff must show the stale output, and must
   // not have written anything.
   await Bun.write(
-    join(root, ".skillset/src/skills/demo/SKILL.md"),
+    join(root, ".skillset/skills/demo/SKILL.md"),
     "---\nname: demo\ndescription: Demo changed.\n---\n\nNew body.\n"
   );
   const diff = await diffSkillset(root);
@@ -1047,13 +1045,13 @@ Body.
 
 test("SET-25: build CLI is plan-first and --dry-run wins over --yes", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: plan-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1087,7 +1085,7 @@ Body.
 test("SET-109: distribute plan previews plugin distribution without writing", async () => {
   const destination = await mkdtemp(join(tmpdir(), "skillset-distribution-dest-"));
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: distribution-root
 compile:
@@ -1103,11 +1101,11 @@ distributions:
       path: ${destination}
       subdirectory: bundles/alpha
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1134,7 +1132,7 @@ Body.
 test("SET-110: distribute plan reports destination-owned fields from destination manifests", async () => {
   const destination = await mkdtemp(join(tmpdir(), "skillset-distribution-dest-"));
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: distribution-root
 compile:
@@ -1150,11 +1148,11 @@ distributions:
       path: ${destination}
       subdirectory: bundles/alpha
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1184,7 +1182,7 @@ Body.
 
 test("SET-109: distribute plan rejects write flags and unknown distributions", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: distribution-root
 compile:
@@ -1199,11 +1197,11 @@ distributions:
       repo: git@example.com:acme/skillset-codex.git
       branch: main
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1225,7 +1223,7 @@ Body.
 test("SET-109: distribute plan rejects unsafe and ambiguous distribution config", async () => {
   async function planWith(distribution: string) {
     const root = await contractFixture({
-      ".skillset/config.yaml": `
+      "skillset.yaml": `
 skillset:
   name: distribution-root
 compile:
@@ -1233,11 +1231,11 @@ compile:
 distributions:
 ${distribution}
 `,
-      ".skillset/src/plugins/alpha/skillset.yaml": `
+      ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-      ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+      ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1389,13 +1387,13 @@ test("SET-154: check and lint reject build destination flags", async () => {
 
 test("SET-154: check runs source diagnostics without generated-output drift verification", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: check-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1426,13 +1424,13 @@ Body.
 
 test("SET-154: check fails on source authoring diagnostics", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: check-source-error
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1563,7 +1561,7 @@ tests:
 claude: true
 codex: false
 `,
-    "skillset/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo skill.
@@ -1580,8 +1578,7 @@ skillset:
 claude: true
 codex: false
 `);
-  await mkdir(join(root, "skillset"), { recursive: true });
-  await writeFile(join(root, "skillset/tests.yaml"), `
+  await writeFile(join(root, ".skillset/tests.yaml"), `
 self:
   select:
     skills:
@@ -1599,7 +1596,7 @@ self:
 
 test("SET-176: skillset test reports retired workspace test declarations", async () => {
   const root = await contractFixture({
-    ".skillset/skillset.yaml": `
+    "skillset.yaml": `
 skillset:
   name: retired-tests-workspace
 tests:
@@ -1609,7 +1606,7 @@ tests:
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1622,20 +1619,20 @@ Demo body.
   const result = await runSkillsetCli("test", "self", "--root", root);
 
   expect(result.exitCode).toBe(1);
-  expect(result.stderr).toContain(".skillset/skillset.yaml.tests is retired");
-  expect(result.stderr).toContain(".skillset/src/tests.yaml");
+  expect(result.stderr).toContain("skillset.yaml.tests is retired");
+  expect(result.stderr).toContain(".skillset/tests.yaml");
   expect(result.stderr).not.toContain("unsupported top-level key tests");
 });
 
 test("SET-177: skillset test rejects source-root assertions declarations", async () => {
   const root = await contractFixture({
-    ".skillset/skillset.yaml": `
+    "skillset.yaml": `
 skillset:
   name: retired-assertions-source-root
 claude: true
 codex: false
 `,
-    ".skillset/src/tests.yaml": `
+    ".skillset/tests.yaml": `
 self:
   select:
     skills:
@@ -1643,7 +1640,7 @@ self:
   assertions:
     - build
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1656,19 +1653,19 @@ Demo body.
   const result = await runSkillsetCli("test", "self", "--root", root);
 
   expect(result.exitCode).toBe(1);
-  expect(result.stderr).toContain(".skillset/src/tests.yaml.self.assertions is retired");
-  expect(result.stderr).toContain("use .skillset/src/tests.yaml.self.checks");
+  expect(result.stderr).toContain(".skillset/tests.yaml.self.assertions is retired");
+  expect(result.stderr).toContain("use .skillset/tests.yaml.self.checks");
 });
 
 test("SET-50: skillset test runs an isolated projection and refreshes latest", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: false
 `,
-    ".skillset/src/tests.yaml": `
+    ".skillset/tests.yaml": `
 self:
   select:
     skills:
@@ -1682,7 +1679,7 @@ self:
       - path: .claude/skills/demo/SKILL.md
         contains: Demo body.
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1732,13 +1729,13 @@ Demo body.
 
 test("SET-112: skillset test compiles activation probes into run and latest assets", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: activation-root
 claude: true
 codex: true
 `,
-    ".skillset/src/tests/activation.yaml": `
+    ".skillset/tests/activation.yaml": `
 select:
   skills:
     primary: ["demo"]
@@ -1753,7 +1750,7 @@ activation:
 checks:
   projection: true
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1779,13 +1776,13 @@ Demo body.
 
 test("SET-112: activation probes reject empty prompts and duplicate output names", async () => {
   const emptyPromptRoot = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: empty-prompt-root
 claude: true
 codex: false
 `,
-    ".skillset/src/tests/activation.yaml": `
+    ".skillset/tests/activation.yaml": `
 select:
   skills:
     primary: ["demo"]
@@ -1796,7 +1793,7 @@ activation:
 checks:
   projection: true
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1810,13 +1807,13 @@ Demo body.
   expect(emptyPrompt.stderr).toContain("prompt is required");
 
   const duplicateRoot = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: duplicate-probe-root
 claude: true
 codex: false
 `,
-    ".skillset/src/tests/activation.yaml": `
+    ".skillset/tests/activation.yaml": `
 select:
   skills:
     primary:
@@ -1834,7 +1831,7 @@ activation:
 checks:
   projection: true
 `,
-    ".skillset/src/skills/first/SKILL.md": `
+    ".skillset/skills/first/SKILL.md": `
 ---
 name: first
 description: First.
@@ -1842,7 +1839,7 @@ description: First.
 
 First body.
 `,
-    ".skillset/src/skills/second/SKILL.md": `
+    ".skillset/skills/second/SKILL.md": `
 ---
 name: second
 description: Second.
@@ -1857,13 +1854,13 @@ Second body.
   expect(await fileExists(join(duplicateRoot, ".skillset/cache/tests/runs"))).toBe(false);
 
   const emptyTargetsRoot = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: empty-targets-root
 claude: true
 codex: false
 `,
-    ".skillset/src/tests/activation.yaml": `
+    ".skillset/tests/activation.yaml": `
 select:
   skills:
     primary: ["demo"]
@@ -1876,7 +1873,7 @@ activation:
 checks:
   projection: true
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1893,13 +1890,13 @@ Demo body.
 
 test("SET-112: activation probes require expected units to be emitted for the target", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: missing-activation-root
 claude: true
 codex: false
 `,
-    ".skillset/src/tests/activation.yaml": `
+    ".skillset/tests/activation.yaml": `
 select:
   skills:
     primary: ["demo"]
@@ -1913,7 +1910,7 @@ activation:
 checks:
   projection: true
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1931,24 +1928,24 @@ Demo body.
 
 test("SET-112: test declarations are active source-root owned", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: root-owned-tests
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/alpha/tests.yaml": `
+    ".skillset/plugins/alpha/tests.yaml": `
 ignored:
   select:
     plugins: ["alpha"]
   checks:
     projection: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1960,18 +1957,18 @@ Demo body.
 
   const result = await runSkillsetCli("test", "ignored", "--root", root);
   expect(result.exitCode).toBe(1);
-  expect(result.stderr).toContain(".skillset/src must include tests.yaml or tests/*.yaml for skillset test");
+  expect(result.stderr).toContain(".skillset must include tests.yaml or tests/*.yaml for skillset test");
 });
 
 test("SET-176: source selectors prune unrelated source before isolated builds", async () => {
   const root = await contractFixture({
-    ".skillset/skillset.yaml": `
+    "skillset.yaml": `
 skillset:
   name: selected-source-root
 claude: true
 codex: true
 `,
-    ".skillset/src/tests.yaml": `
+    ".skillset/tests.yaml": `
 self:
   select:
     skills:
@@ -1980,7 +1977,7 @@ self:
   checks:
     projection: true
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -1988,11 +1985,11 @@ description: Demo.
 
 Demo body.
 `,
-    ".skillset/src/plugins/bad/skillset.yaml": `
+    ".skillset/plugins/bad/skillset.yaml": `
 skillset:
   name: bad
 `,
-    ".skillset/src/plugins/bad/agents/worker.md": `
+    ".skillset/plugins/bad/agents/worker.md": `
 ---
 name: worker
 description: Unsupported Codex plugin agent.
@@ -2013,13 +2010,13 @@ Worker body.
 
 test("SET-176: plugin skill selectors prune plugin-owned companion source", async () => {
   const root = await contractFixture({
-    ".skillset/skillset.yaml": `
+    "skillset.yaml": `
 skillset:
   name: selected-plugin-skill-root
 claude: true
 codex: false
 `,
-    ".skillset/src/tests.yaml": `
+    ".skillset/tests.yaml": `
 self:
   select:
     plugins:
@@ -2030,11 +2027,11 @@ self:
   checks:
     projection: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -2045,11 +2042,11 @@ resources:
 
 Demo body.
 `,
-    ".skillset/src/plugins/alpha/shared/scripts/check.sh": `
+    ".skillset/plugins/alpha/shared/scripts/check.sh": `
 #!/usr/bin/env bash
 echo shared
 `,
-    ".skillset/src/plugins/alpha/commands/run.md": `
+    ".skillset/plugins/alpha/commands/run.md": `
 COMMAND_EMITTED=yes
 `,
   });
@@ -2065,13 +2062,13 @@ COMMAND_EMITTED=yes
 
 test("SET-178: source selectors cover all plugins and all skills", async () => {
   const root = await contractFixture({
-    ".skillset/skillset.yaml": `
+    "skillset.yaml": `
 skillset:
   name: broad-selector-root
 claude: true
 codex: false
 `,
-    ".skillset/src/tests.yaml": `
+    ".skillset/tests.yaml": `
 all-plugins:
   select:
     plugins: true
@@ -2083,7 +2080,7 @@ all-skills:
   checks:
     projection: true
 `,
-    ".skillset/src/skills/primary/SKILL.md": `
+    ".skillset/skills/primary/SKILL.md": `
 ---
 name: primary
 description: Primary skill.
@@ -2091,11 +2088,11 @@ description: Primary skill.
 
 Primary body.
 `,
-    ".skillset/src/plugins/beta/skillset.yaml": `
+    ".skillset/plugins/beta/skillset.yaml": `
 skillset:
   name: beta
 `,
-    ".skillset/src/plugins/beta/skills/two/SKILL.md": `
+    ".skillset/plugins/beta/skills/two/SKILL.md": `
 ---
 name: two
 description: Second plugin skill.
@@ -2103,11 +2100,11 @@ description: Second plugin skill.
 
 Beta skill body.
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/one/SKILL.md": `
+    ".skillset/plugins/alpha/skills/one/SKILL.md": `
 ---
 name: one
 description: First plugin skill.
@@ -2128,14 +2125,14 @@ Alpha skill body.
 
 test("SET-179: plugin manifest checks derive selected provider manifests", async () => {
   const root = await contractFixture({
-    ".skillset/skillset.yaml": `
+    "skillset.yaml": `
 skillset:
   name: manifest-root
   version: 2.3.4
 claude: true
 codex: true
 `,
-    ".skillset/src/tests.yaml": `
+    ".skillset/tests.yaml": `
 plugin-manifests:
   select:
     plugins:
@@ -2144,7 +2141,7 @@ plugin-manifests:
     projection: true
     pluginManifests: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   summary: Alpha plugin.
@@ -2158,7 +2155,7 @@ codex:
   manifest:
     name: alpha-codex
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -2202,7 +2199,7 @@ Demo body.
 
 test("SET-179: plugin manifest checks fail when selected plugins emit no manifests", async () => {
   const root = await contractFixture({
-    ".skillset/skillset.yaml": `
+    "skillset.yaml": `
 skillset:
   name: manifest-missing-root
 compile:
@@ -2211,7 +2208,7 @@ compile:
 claude: true
 codex: false
 `,
-    ".skillset/src/tests.yaml": `
+    ".skillset/tests.yaml": `
 plugin-manifests:
   select:
     plugins:
@@ -2219,13 +2216,13 @@ plugin-manifests:
   checks:
     pluginManifests: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 claude:
   enabled: false
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -2244,13 +2241,13 @@ Demo body.
 
 test("SET-178: source selectors reject missing and ambiguous plugin skills", async () => {
   const root = await contractFixture({
-    ".skillset/skillset.yaml": `
+    "skillset.yaml": `
 skillset:
   name: selector-root
 claude: true
 codex: false
 `,
-    ".skillset/src/tests.yaml": `
+    ".skillset/tests.yaml": `
 missing-plugin:
   select:
     plugins:
@@ -2269,11 +2266,11 @@ empty:
   checks:
     projection: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/shared/SKILL.md": `
+    ".skillset/plugins/alpha/skills/shared/SKILL.md": `
 ---
 name: shared
 description: Shared alpha.
@@ -2281,11 +2278,11 @@ description: Shared alpha.
 
 Alpha body.
 `,
-    ".skillset/src/plugins/beta/skillset.yaml": `
+    ".skillset/plugins/beta/skillset.yaml": `
 skillset:
   name: beta
 `,
-    ".skillset/src/plugins/beta/skills/shared/SKILL.md": `
+    ".skillset/plugins/beta/skills/shared/SKILL.md": `
 ---
 name: shared
 description: Shared beta.
@@ -2306,12 +2303,12 @@ Beta body.
 
   const empty = await runSkillsetCli("test", "empty", "--root", root);
   expect(empty.exitCode).toBe(1);
-  expect(empty.stderr).toContain(".skillset/src/tests.yaml.empty.select must select at least one source unit");
+  expect(empty.stderr).toContain(".skillset/tests.yaml.empty.select must select at least one source unit");
 });
 
 test("SET-50: skillset test reports failed checks without touching live outputs", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: failing-test-root
 compile:
@@ -2320,7 +2317,7 @@ compile:
 claude: true
 codex: false
 `,
-    ".skillset/src/tests.yaml": `
+    ".skillset/tests.yaml": `
 self:
   select:
     skills:
@@ -2330,7 +2327,7 @@ self:
     files:
       - path: missing/generated.txt
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -2367,13 +2364,13 @@ test("SET-50: skillset test rejects build scope and write flags", async () => {
 
 test("SET-41: change status --staged reads the Git index", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: staged-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -2385,7 +2382,7 @@ Body.
 
   await buildSkillset(root);
   await commitFixture(root);
-  await writeFile(join(root, ".skillset/src/skills/demo/SKILL.md"), `
+  await writeFile(join(root, ".skillset/skills/demo/SKILL.md"), `
 ---
 name: demo
 description: Demo changed.
@@ -2393,8 +2390,8 @@ description: Demo changed.
 
 Changed body.
 `);
-  await mkdir(join(root, ".skillset/src/skills/unstaged"), { recursive: true });
-  await writeFile(join(root, ".skillset/src/skills/unstaged/SKILL.md"), `
+  await mkdir(join(root, ".skillset/skills/unstaged"), { recursive: true });
+  await writeFile(join(root, ".skillset/skills/unstaged/SKILL.md"), `
 ---
 name: unstaged
 description: Unstaged.
@@ -2402,7 +2399,7 @@ description: Unstaged.
 
 Unstaged body.
 `);
-  await runGit(root, "add", ".skillset/src/skills/demo/SKILL.md");
+  await runGit(root, "add", ".skillset/skills/demo/SKILL.md");
 
   const status = await runSkillsetCli("change", "status", "--staged", "--root", root);
   expect(status.exitCode).toBe(0);
@@ -2444,7 +2441,7 @@ This working-tree reason is long enough to pass, but it has not been staged.
 
 test("SET-41: change check --staged reads staged reason policy", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: staged-policy-root
 changes:
@@ -2453,7 +2450,7 @@ changes:
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -2465,7 +2462,7 @@ Body.
 
   await buildSkillset(root);
   await commitFixture(root);
-  await writeFile(join(root, ".skillset/src/skills/demo/SKILL.md"), `
+  await writeFile(join(root, ".skillset/skills/demo/SKILL.md"), `
 ---
 name: demo
 description: Demo changed.
@@ -2473,7 +2470,7 @@ description: Demo changed.
 
 Changed body.
 `);
-  await runGit(root, "add", ".skillset/src/skills/demo/SKILL.md");
+  await runGit(root, "add", ".skillset/skills/demo/SKILL.md");
   const stagedStatus = await changeStatus(root, { staged: true });
   const demoHash = stagedStatus.sourceChanges.find((change) => change.id === "skill:demo")?.currentHash;
   expect(demoHash).toBeDefined();
@@ -2490,7 +2487,7 @@ evidence:
 Staged reason ok.
 `);
   await runGit(root, "add", pendingPath);
-  await writeFile(join(root, ".skillset/config.yaml"), `
+  await writeFile(join(root, "skillset.yaml"), `
 skillset:
   name: staged-policy-root
 changes:
@@ -2507,13 +2504,13 @@ codex: false
 
 test("SET-34: source change status is read-only and deterministic for unchanged source", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: status-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -2537,13 +2534,13 @@ Body.
 
 test("SET-34: change status reports body changes and generated drift separately", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: status-drift-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -2556,7 +2553,7 @@ Body.
   await commitFixture(root);
 
   await Bun.write(
-    join(root, ".skillset/src/skills/demo/SKILL.md"),
+    join(root, ".skillset/skills/demo/SKILL.md"),
     "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n"
   );
 
@@ -2572,13 +2569,13 @@ Body.
 
 test("SET-34: support and dependency metadata are source-significant without frontmatter leakage", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: status-metadata-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -2590,7 +2587,7 @@ Body.
   await commitFixture(root);
 
   await Bun.write(
-    join(root, ".skillset/src/skills/demo/SKILL.md"),
+    join(root, ".skillset/skills/demo/SKILL.md"),
     `---
 name: demo
 description: Demo.
@@ -2627,7 +2624,7 @@ test("SET-39: supports validate ranges and warn on repo package mismatches", asy
   "version": "3.1.0"
 }
 `,
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: supports-root
 supports:
@@ -2639,7 +2636,7 @@ supports:
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -2661,7 +2658,7 @@ Body.
 
 test("SET-39: invalid supports ranges fail loudly", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: invalid-supports-root
 supports:
@@ -2669,7 +2666,7 @@ supports:
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -2690,7 +2687,7 @@ test("SET-39: supports repo sources validate package names before ranges", async
   "version": "2.5.0"
 }
 `,
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: wrong-package-root
 supports:
@@ -2702,7 +2699,7 @@ supports:
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -2717,7 +2714,7 @@ Body.
 
 test("SET-39: supports objects must use explicit package collections", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: unsupported-supports-root
 supports:
@@ -2726,7 +2723,7 @@ supports:
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -2737,18 +2734,18 @@ Body.
   });
 
   await expect(loadBuildGraph(root)).rejects.toThrow("unsupported");
-  await expect(loadBuildGraph(root)).rejects.toThrow("v1 supports packages");
+  await expect(loadBuildGraph(root)).rejects.toThrow("supports.packages must be an array");
 });
 
 test("SET-39: supports-only changes can use bump none without severity warnings", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: supports-change-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -2760,7 +2757,7 @@ Body.
   await commitFixture(root);
 
   await Bun.write(
-    join(root, ".skillset/src/skills/demo/SKILL.md"),
+    join(root, ".skillset/skills/demo/SKILL.md"),
     `---
 name: demo
 description: Demo.
@@ -2798,20 +2795,20 @@ Record the supports metadata compatibility update without changing generated art
 
 test("SET-40: plugin dependencies lower to Claude and Codex fallback notices", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: dependency-root
 compile:
   targets: [claude, codex]
 `,
-    ".skillset/src/plugins/secrets-vault/skillset.yaml": `
+    ".skillset/plugins/secrets-vault/skillset.yaml": `
 skillset:
   name: secrets-vault
   version: 1.2.3
   manifest:
     name: native-secrets-vault
 `,
-    ".skillset/src/plugins/secrets-vault/skills/secret/SKILL.md": `
+    ".skillset/plugins/secrets-vault/skills/secret/SKILL.md": `
 ---
 name: secret
 description: Secret helper.
@@ -2819,7 +2816,7 @@ description: Secret helper.
 
 Secret body.
 `,
-    ".skillset/src/plugins/audit/skillset.yaml": `
+    ".skillset/plugins/audit/skillset.yaml": `
 skillset:
   name: audit
   version: 0.4.0
@@ -2829,7 +2826,7 @@ dependencies:
       range: "^2.1.0"
       marketplace: acme
 `,
-    ".skillset/src/plugins/audit/skills/audit-skill/SKILL.md": `
+    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
 ---
 name: audit-skill
 description: Audit skill.
@@ -2859,7 +2856,7 @@ Audit body.
   const listed = await runSkillsetCli("list", "--root", root);
   expect(listed.exitCode).toBe(0);
   expect(listed.stdout).toContain("deps:external-tools range ^2.1.0 marketplace acme external");
-  const explained = await runSkillsetCli("explain", ".skillset/src/plugins/audit", "--root", root);
+  const explained = await runSkillsetCli("explain", ".skillset/plugins/audit", "--root", root);
   expect(explained.exitCode).toBe(0);
   expect(explained.stdout).toContain("dependencies: external-tools range ^2.1.0 marketplace acme external");
   expect(explained.stdout).toContain("secrets-vault range =1.2.3 internal");
@@ -2871,7 +2868,7 @@ Audit body.
     return lock.items.find((item) => item.outputPath === "plugins/audit/.claude-plugin/plugin.json")?.sourceHash ?? "";
   };
   const originalHash = await auditLockSourceHash();
-  await writeFile(join(root, ".skillset/src/plugins/secrets-vault/skillset.yaml"), `
+  await writeFile(join(root, ".skillset/plugins/secrets-vault/skillset.yaml"), `
 skillset:
   name: secrets-vault
   version: 1.2.3
@@ -2884,20 +2881,20 @@ skillset:
 
 test("SET-40: internal plugin dependencies must resolve", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: missing-dependency-root
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/audit/skillset.yaml": `
+    ".skillset/plugins/audit/skillset.yaml": `
 skillset:
   name: audit
 dependencies:
   plugins:
     - plugin:missing
 `,
-    ".skillset/src/plugins/audit/skills/audit-skill/SKILL.md": `
+    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
 ---
 name: audit-skill
 description: Audit skill.
@@ -2912,20 +2909,20 @@ Audit body.
 
 test("SET-40: external plugin dependencies require ranges unless explicit", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: invalid-external-dependency-root
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/audit/skillset.yaml": `
+    ".skillset/plugins/audit/skillset.yaml": `
 skillset:
   name: audit
 dependencies:
   plugins:
     - name: external-tools
 `,
-    ".skillset/src/plugins/audit/skills/audit-skill/SKILL.md": `
+    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
 ---
 name: audit-skill
 description: Audit skill.
@@ -2984,18 +2981,18 @@ test("SET-40: plugin dependency entries reject ambiguous shapes", async () => {
     ],
   ] as const) {
     const root = await contractFixture({
-      ".skillset/config.yaml": `
+      "skillset.yaml": `
 skillset:
   name: ${name}
 claude: true
 codex: false
 `,
-      ".skillset/src/plugins/secrets-vault/skillset.yaml": `
+      ".skillset/plugins/secrets-vault/skillset.yaml": `
 skillset:
   name: secrets-vault
   version: 1.2.3
 `,
-      ".skillset/src/plugins/secrets-vault/skills/secret/SKILL.md": `
+      ".skillset/plugins/secrets-vault/skills/secret/SKILL.md": `
 ---
 name: secret
 description: Secret helper.
@@ -3003,14 +3000,14 @@ description: Secret helper.
 
 Secret body.
 `,
-      ".skillset/src/plugins/audit/skillset.yaml": `
+      ".skillset/plugins/audit/skillset.yaml": `
 skillset:
   name: audit
 dependencies:
   plugins:
 ${dependencyYaml}
 `,
-      ".skillset/src/plugins/audit/skills/audit-skill/SKILL.md": `
+      ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
 ---
 name: audit-skill
 description: Audit skill.
@@ -3026,20 +3023,20 @@ Audit body.
 
 test("SET-40: plugin dependency graph rejects self-dependencies", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: self-dependency-root
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/audit/skillset.yaml": `
+    ".skillset/plugins/audit/skillset.yaml": `
 skillset:
   name: audit
 dependencies:
   plugins:
     - plugin: audit
 `,
-    ".skillset/src/plugins/audit/skills/audit-skill/SKILL.md": `
+    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
 ---
 name: audit-skill
 description: Audit skill.
@@ -3053,25 +3050,25 @@ Audit body.
     code: "plugin-dependencies-invalid",
     featureId: "dependencies",
     message: expect.stringContaining("must not depend on itself"),
-    path: ".skillset/src/plugins",
+    path: ".skillset/plugins",
   });
 });
 
 test("SET-40: plugin dependencies reject unsupported dependency groups", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: unsupported-dependency-root
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/audit/skillset.yaml": `
+    ".skillset/plugins/audit/skillset.yaml": `
 skillset:
   name: audit
 dependencies:
   tools: []
 `,
-    ".skillset/src/plugins/audit/skills/audit-skill/SKILL.md": `
+    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
 ---
 name: audit-skill
 description: Audit skill.
@@ -3086,18 +3083,18 @@ Audit body.
 
 test("SET-40: Claude manifest overrides must not clobber generated dependencies", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: dependency-override-root
 compile:
   targets: [claude]
 `,
-    ".skillset/src/plugins/secrets-vault/skillset.yaml": `
+    ".skillset/plugins/secrets-vault/skillset.yaml": `
 skillset:
   name: secrets-vault
   version: 1.2.3
 `,
-    ".skillset/src/plugins/secrets-vault/skills/secret/SKILL.md": `
+    ".skillset/plugins/secrets-vault/skills/secret/SKILL.md": `
 ---
 name: secret
 description: Secret helper.
@@ -3105,7 +3102,7 @@ description: Secret helper.
 
 Secret body.
 `,
-    ".skillset/src/plugins/audit/skillset.yaml": `
+    ".skillset/plugins/audit/skillset.yaml": `
 skillset:
   name: audit
 dependencies:
@@ -3117,7 +3114,7 @@ claude:
       plugins:
         - name: manual-only
 `,
-    ".skillset/src/plugins/audit/skills/audit-skill/SKILL.md": `
+    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
 ---
 name: audit-skill
 description: Audit skill.
@@ -3132,18 +3129,18 @@ Audit body.
 
 test("SET-40: Codex dependencies need an enabled skill notice surface", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: codex-dependency-notice-root
 compile:
   targets: [codex]
 `,
-    ".skillset/src/plugins/secrets-vault/skillset.yaml": `
+    ".skillset/plugins/secrets-vault/skillset.yaml": `
 skillset:
   name: secrets-vault
   version: 1.2.3
 `,
-    ".skillset/src/plugins/secrets-vault/skills/secret/SKILL.md": `
+    ".skillset/plugins/secrets-vault/skills/secret/SKILL.md": `
 ---
 name: secret
 description: Secret helper.
@@ -3151,14 +3148,14 @@ description: Secret helper.
 
 Secret body.
 `,
-    ".skillset/src/plugins/audit/skillset.yaml": `
+    ".skillset/plugins/audit/skillset.yaml": `
 skillset:
   name: audit
 dependencies:
   plugins:
     - plugin: secrets-vault
 `,
-    ".skillset/src/plugins/audit/skills/audit-skill/SKILL.md": `
+    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
 ---
 name: audit-skill
 description: Audit skill.
@@ -3178,19 +3175,19 @@ test("SET-40: internal plugin dependencies must be emitted for the target", asyn
     ["codex", "codex"],
   ] as const) {
     const root = await contractFixture({
-      ".skillset/config.yaml": `
+      "skillset.yaml": `
 skillset:
   name: target-dependency-root
 compile:
   targets: [${target}]
 `,
-      ".skillset/src/plugins/secrets-vault/skillset.yaml": `
+      ".skillset/plugins/secrets-vault/skillset.yaml": `
 skillset:
   name: secrets-vault
   version: 1.2.3
 ${disabledTarget}: false
 `,
-      ".skillset/src/plugins/secrets-vault/skills/secret/SKILL.md": `
+      ".skillset/plugins/secrets-vault/skills/secret/SKILL.md": `
 ---
 name: secret
 description: Secret helper.
@@ -3198,14 +3195,14 @@ description: Secret helper.
 
 Secret body.
 `,
-      ".skillset/src/plugins/audit/skillset.yaml": `
+      ".skillset/plugins/audit/skillset.yaml": `
 skillset:
   name: audit
 dependencies:
   plugins:
     - plugin: secrets-vault
 `,
-      ".skillset/src/plugins/audit/skills/audit-skill/SKILL.md": `
+      ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
 ---
 name: audit-skill
 description: Audit skill.
@@ -3221,18 +3218,18 @@ Audit body.
 
 test("SET-34: plugin aggregate hashes consume child content hashes before versions", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: aggregate-root
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   version: 0.1.0
 `,
-    ".skillset/src/plugins/alpha/skills/plugin-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/plugin-skill/SKILL.md": `
 ---
 name: plugin-skill
 description: Plugin skill.
@@ -3245,7 +3242,7 @@ Plugin body.
   await commitFixture(root);
 
   await Bun.write(
-    join(root, ".skillset/src/plugins/alpha/skills/plugin-skill/SKILL.md"),
+    join(root, ".skillset/plugins/alpha/skills/plugin-skill/SKILL.md"),
     "---\nname: plugin-skill\ndescription: Plugin skill.\nversion: 0.1.0\n---\n\nChanged plugin body.\n"
   );
 
@@ -3257,21 +3254,21 @@ Plugin body.
 
 test("SET-34: partial dependencies participate in source status hashes", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: partial-status-root
 claude: true
 codex: false
 `,
-    ".skillset/src/shared/common.md": `
+    ".skillset/shared/common.md": `
 Shared partial.
 `,
-    ".skillset/src/rules/root.md": `
+    ".skillset/rules/root.md": `
 # Root
 
 {{shared:common.md}}
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -3283,27 +3280,27 @@ description: Demo.
   await buildSkillset(root);
   await commitFixture(root);
 
-  await Bun.write(join(root, ".skillset/src/shared/common.md"), "Changed partial.\n");
+  await Bun.write(join(root, ".skillset/shared/common.md"), "Changed partial.\n");
 
   const report = await changeStatus(root, { since: "HEAD" });
   const changedIds = report.sourceChanges.map((change) => change.id);
   expect(changedIds).toContain("instruction:root");
   expect(changedIds).toContain("skill:demo");
   const instruction = report.sourceUnits.find((unit) => unit.id === "instruction:root");
-  expect(instruction?.sourcePaths).toContain(".skillset/src/shared/common.md");
+  expect(instruction?.sourcePaths).toContain(".skillset/shared/common.md");
   expect(report.generatedDrift.changed).toContain(".claude/rules/root.md");
   expect(report.generatedDrift.changed).toContain(".claude/skills/demo/SKILL.md");
 });
 
 test("SET-35: change check fails when source changes lack pending entries", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: missing-change-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -3315,7 +3312,7 @@ Body.
   await commitFixture(root);
 
   await Bun.write(
-    join(root, ".skillset/src/skills/demo/SKILL.md"),
+    join(root, ".skillset/skills/demo/SKILL.md"),
     "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n"
   );
 
@@ -3327,13 +3324,13 @@ Body.
 
 test("SET-35: valid pending entries cover multiple scopes with group and ignored metadata", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: valid-change-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/one/SKILL.md": `
+    ".skillset/skills/one/SKILL.md": `
 ---
 name: one
 description: One.
@@ -3341,7 +3338,7 @@ description: One.
 
 One body.
 `,
-    ".skillset/src/skills/two/SKILL.md": `
+    ".skillset/skills/two/SKILL.md": `
 ---
 name: two
 description: Two.
@@ -3352,8 +3349,8 @@ Two body.
   });
   await commitFixture(root);
 
-  await Bun.write(join(root, ".skillset/src/skills/one/SKILL.md"), "---\nname: one\ndescription: One.\n---\n\nOne changed.\n");
-  await Bun.write(join(root, ".skillset/src/skills/two/SKILL.md"), "---\nname: two\ndescription: Two.\n---\n\nTwo changed.\n");
+  await Bun.write(join(root, ".skillset/skills/one/SKILL.md"), "---\nname: one\ndescription: One.\n---\n\nOne changed.\n");
+  await Bun.write(join(root, ".skillset/skills/two/SKILL.md"), "---\nname: two\ndescription: Two.\n---\n\nTwo changed.\n");
   const report = await changeStatus(root, { since: "HEAD" });
   const one = report.sourceChanges.find((change) => change.id === "skill:one");
   const two = report.sourceChanges.find((change) => change.id === "skill:two");
@@ -3388,13 +3385,13 @@ Grouped documentation-only edits are intentionally ignored for release planning 
 
 test("SET-144: flat pending entries coexist with change ledger JSON files", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: flat-change-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -3405,7 +3402,7 @@ Body.
   });
   await commitFixture(root);
 
-  await Bun.write(join(root, ".skillset/src/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n");
+  await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n");
   const report = await changeStatus(root, { since: "HEAD" });
   const demo = report.sourceChanges.find((change) => change.id === "skill:demo");
   expect(demo?.currentHash).toBeDefined();
@@ -3440,13 +3437,13 @@ Flat pending Markdown entries coexist with JSON ledger files in the same change 
 
 test("SET-114: repeated pending entries can share current evidence for stacked changes", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: stacked-change-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -3457,7 +3454,7 @@ Body.
   });
   await commitFixture(root);
 
-  await Bun.write(join(root, ".skillset/src/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body for stacked entries.\n");
+  await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body for stacked entries.\n");
   const report = await changeStatus(root, { since: "HEAD" });
   const demo = report.sourceChanges.find((change) => change.id === "skill:demo");
   expect(demo?.currentHash).toBeDefined();
@@ -3505,13 +3502,13 @@ Second stacked branch reason also points at the final source state deliberately.
 
 test("SET-114: repeated pending entries still fail when one carries stale evidence", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: stale-stacked-change-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -3522,7 +3519,7 @@ Body.
   });
   await commitFixture(root);
 
-  await Bun.write(join(root, ".skillset/src/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body for stale stacked evidence.\n");
+  await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body for stale stacked evidence.\n");
   const report = await changeStatus(root, { since: "HEAD" });
   const demo = report.sourceChanges.find((change) => change.id === "skill:demo");
   expect(demo?.currentHash).toBeDefined();
@@ -3560,13 +3557,13 @@ Older branch reason must be refreshed instead of silently covered by another ent
 
 test("SET-35: change check rejects invalid pending entry shape, reason, and evidence", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: invalid-change-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -3605,13 +3602,13 @@ TODO
 
 test("SET-35: duplicate pending change ids fail full check", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: duplicate-change-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -3622,7 +3619,7 @@ Body.
   });
   await commitFixture(root);
 
-  await Bun.write(join(root, ".skillset/src/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n");
+  await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n");
   const report = await changeStatus(root, { since: "HEAD" });
   const demo = report.sourceChanges.find((change) => change.id === "skill:demo");
   expect(demo?.currentHash).toBeDefined();
@@ -3649,13 +3646,13 @@ This pending entry intentionally duplicates an id so the checker can reject unst
 
 test("SET-35: bump warnings include removed severity-bearing regions", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: severity-removal-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -3669,7 +3666,7 @@ Body.
   });
   await commitFixture(root);
 
-  await Bun.write(join(root, ".skillset/src/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n");
+  await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n");
   const report = await changeStatus(root, { since: "HEAD" });
   const demo = report.sourceChanges.find((change) => change.id === "skill:demo");
   expect(demo?.currentHash).toBeDefined();
@@ -3696,13 +3693,13 @@ The dependency was removed from the skill and should still be visible as release
 
 test("SET-35: ambiguous change refs fail with candidates", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: ambiguous-change-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -3744,13 +3741,13 @@ This pending entry exists only to exercise ambiguous short ref resolution in the
 
 test("SET-36: change add writes a pending entry from reason-file and exposes list/show/check", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: change-add-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -3761,7 +3758,7 @@ Body.
   });
   await commitFixture(root);
 
-  await Bun.write(join(root, ".skillset/src/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n");
+  await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n");
   const reasonPath = join(root, "reason.md");
   await writeFile(reasonPath, "Clarified the demo skill behavior and documented why this source edit needs a patch entry.\n", "utf8");
 
@@ -3803,13 +3800,13 @@ Body.
 
 test("SET-36: change reason appends stdin without changing the generated id", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: change-reason-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -3820,7 +3817,7 @@ Body.
   });
   await commitFixture(root);
 
-  await Bun.write(join(root, ".skillset/src/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n");
+  await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n");
   const added = await runSkillsetCli(
     "change",
     "add",
@@ -3866,13 +3863,13 @@ Body.
 
 test("SET-36: change show prefers pending refs and history reads applied records", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: change-history-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -3933,13 +3930,13 @@ Pending reason wins when the same ref also exists in applied history.
 
 test("SET-36: pending and history refs are ambiguous across stores", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: cross-store-ref-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -3986,13 +3983,13 @@ Pending entry has a colliding prefix with an applied history entry.
 
 test("SET-149: change amend appends correction records for applied history", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: change-amend-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4039,13 +4036,13 @@ Body.
 
 test("SET-149: change amend refuses pending refs", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: pending-amend-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4082,13 +4079,13 @@ Pending reason should use the pre-release correction command.
 
 test("SET-37: applied history generates standalone changelog projections without pending churn", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: changelog-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4128,7 +4125,7 @@ Pending changes stay out of committed changelog projections.
   ]);
 
   await buildSkillset(root);
-  const changelog = await readFile(join(root, ".skillset/src/skills/demo/CHANGELOG.md"), "utf8");
+  const changelog = await readFile(join(root, ".skillset/skills/demo/CHANGELOG.md"), "utf8");
   expect(changelog).toContain("generated: skillset@0.1.0");
   expect(changelog).toContain("## 222222bbbbbb");
   expect(changelog).toContain("bump: none");
@@ -4142,18 +4139,18 @@ Pending changes stay out of committed changelog projections.
 
   const lock = await readFile(join(root, "skillset.lock"), "utf8");
   expect(lock).toContain(`"kind": "changelog"`);
-  expect(lock).toContain(`".skillset/src/skills/demo/CHANGELOG.md"`);
+  expect(lock).toContain(`".skillset/skills/demo/CHANGELOG.md"`);
 });
 
 test("SET-149: amended change history regenerates changelog wording", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: amended-changelog-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4184,20 +4181,20 @@ Body.
   expect(amended.exitCode).toBe(0);
 
   await buildSkillset(root);
-  const changelog = await readFile(join(root, ".skillset/src/skills/demo/CHANGELOG.md"), "utf8");
+  const changelog = await readFile(join(root, ".skillset/skills/demo/CHANGELOG.md"), "utf8");
   expect(changelog).toContain("Amended changelog wording rendered");
   expect(changelog).not.toContain("Original wording before");
 });
 
 test("SET-146: generated changelog drift points back to change reasons", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: changelog-drift-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4218,12 +4215,12 @@ Body.
   await buildSkillset(root);
   await commitFixture(root);
 
-  const changelogPath = join(root, ".skillset/src/skills/demo/CHANGELOG.md");
+  const changelogPath = join(root, ".skillset/skills/demo/CHANGELOG.md");
   await writeFile(changelogPath, `${await readFile(changelogPath, "utf8")}\nHand-edited generated changelog text.\n`);
 
   const status = await runSkillsetCli("change", "status", "--root", root, "--since", "HEAD");
   expect(status.exitCode).toBe(0);
-  expect(status.stdout).toContain("generated ~ .skillset/src/skills/demo/CHANGELOG.md");
+  expect(status.stdout).toContain("generated ~ .skillset/skills/demo/CHANGELOG.md");
   expect(status.stdout).toContain("generated CHANGELOG.md files are managed projections");
   expect(status.stdout).toContain("skillset change reason <@ref>");
   expect(status.stdout).toContain("skillset change amend <@ref>");
@@ -4231,19 +4228,19 @@ Body.
 
   const diff = await runSkillsetCli("diff", "--root", root);
   expect(diff.exitCode).toBe(0);
-  expect(diff.stdout).toContain("~ .skillset/src/skills/demo/CHANGELOG.md");
+  expect(diff.stdout).toContain("~ .skillset/skills/demo/CHANGELOG.md");
   expect(diff.stdout).toContain("generated CHANGELOG.md files are managed projections");
 });
 
 test("SET-151: suggest-source previews and writes clean generated skill body edits", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: source-suggestion-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4264,10 +4261,10 @@ Original source body.
   const preview = await runSkillsetCli("suggest-source", generatedPath, "--root", root);
   expect(preview.exitCode).toBe(0);
   expect(preview.stdout).toContain("skillset: source suggestion suggestible");
-  expect(preview.stdout).toContain("source: .skillset/src/skills/demo/SKILL.md");
+  expect(preview.stdout).toContain("source: .skillset/skills/demo/SKILL.md");
   expect(preview.stdout).toContain("write: preview");
   expect(preview.stdout).toContain("rerun with `--write --yes`");
-  await expect(readFile(join(root, ".skillset/src/skills/demo/SKILL.md"), "utf8")).resolves.toContain("Original source body.");
+  await expect(readFile(join(root, ".skillset/skills/demo/SKILL.md"), "utf8")).resolves.toContain("Original source body.");
 
   const writeAttempt = await runSkillsetCli("suggest-source", generatedPath, "--write", "--root", root);
   expect(writeAttempt.exitCode).toBe(1);
@@ -4277,20 +4274,20 @@ Original source body.
   expect(written.exitCode).toBe(0);
   expect(written.stdout).toContain("skillset: source suggestion written");
   expect(written.stdout).toContain("write: applied");
-  const source = await readFile(join(root, ".skillset/src/skills/demo/SKILL.md"), "utf8");
+  const source = await readFile(join(root, ".skillset/skills/demo/SKILL.md"), "utf8");
   expect(source).toContain("Edited generated body.");
   expect(source).not.toContain("metadata:");
 });
 
 test("SET-151: suggest-source refuses generated changelog edits", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: changelog-source-suggestion-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4310,7 +4307,7 @@ Body.
   ]);
   await buildSkillset(root);
 
-  const refused = await runSkillsetCli("suggest-source", ".skillset/src/skills/demo/CHANGELOG.md", "--root", root);
+  const refused = await runSkillsetCli("suggest-source", ".skillset/skills/demo/CHANGELOG.md", "--root", root);
   expect(refused.exitCode).toBe(1);
   expect(refused.stdout).toContain("source suggestion refused");
   expect(refused.stdout).toContain("Generated changelogs are managed projections");
@@ -4320,18 +4317,18 @@ Body.
 
 test("SET-37: plugin changelog aggregates child skill applied records", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: plugin-changelog-root
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   version: 0.1.0
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4351,7 +4348,7 @@ Body.
   ]);
 
   await buildSkillset(root);
-  const pluginChangelog = await readFile(join(root, ".skillset/src/plugins/alpha/CHANGELOG.md"), "utf8");
+  const pluginChangelog = await readFile(join(root, ".skillset/plugins/alpha/CHANGELOG.md"), "utf8");
   expect(pluginChangelog).toContain("target: plugin:alpha");
   expect(pluginChangelog).toContain("## 333333cccccc");
   expect(pluginChangelog).toContain("scopes: skill(plugin:alpha): demo");
@@ -4360,13 +4357,13 @@ Body.
 
 test("SET-53: legacy source-unit scopes are rejected", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: legacy-selector-rejection-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4378,7 +4375,7 @@ Original body.
   });
   await commitFixture(root);
   await Bun.write(
-    join(root, ".skillset/src/skills/demo/SKILL.md"),
+    join(root, ".skillset/skills/demo/SKILL.md"),
     "---\nname: demo\ndescription: Demo.\nversion: 0.1.0\n---\n\nChanged body.\n"
   );
   const status = await changeStatus(root);
@@ -4419,13 +4416,13 @@ Legacy pending scope syntax should fail because Skillset is pre-public and has c
 
 test("SET-37: generated changelogs do not perturb source inventory hashes", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: changelog-inventory-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4433,12 +4430,12 @@ description: Demo.
 
 Standalone body.
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   version: 0.1.0
 `,
-    ".skillset/src/plugins/alpha/skills/child/SKILL.md": `
+    ".skillset/plugins/alpha/skills/child/SKILL.md": `
 ---
 name: child
 description: Child.
@@ -4475,13 +4472,13 @@ Plugin child body.
 
 test("SET-38: release apply creates state, history, changelog, and generated versions", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: release-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4494,7 +4491,7 @@ Body.
   await commitFixture(root);
 
   await Bun.write(
-    join(root, ".skillset/src/skills/demo/SKILL.md"),
+    join(root, ".skillset/skills/demo/SKILL.md"),
     "---\nname: demo\ndescription: Demo.\nversion: 0.1.0\n---\n\nChanged body.\n"
   );
   const status = await changeStatus(root, { since: "HEAD" });
@@ -4538,7 +4535,7 @@ Release the standalone skill body update with a patch version and generated chan
   expect(history).toContain("aaaabbbbcccc");
   const releases = await readFile(join(root, ".skillset/changes/releases.jsonl"), "utf8");
   expect(releases).toContain("skill:demo");
-  const changelog = await readFile(join(root, ".skillset/src/skills/demo/CHANGELOG.md"), "utf8");
+  const changelog = await readFile(join(root, ".skillset/skills/demo/CHANGELOG.md"), "utf8");
   expect(changelog).toContain("## aaaabbbbcccc");
   const generatedSkill = await readFile(join(root, ".claude/skills/demo/SKILL.md"), "utf8");
   expect(generatedSkill).toContain("version: 0.1.1");
@@ -4553,7 +4550,7 @@ Release the standalone skill body update with a patch version and generated chan
   await runGit(root, "add", ".");
   await runGit(root, "commit", "-qm", "release demo");
   await Bun.write(
-    join(root, ".skillset/src/skills/demo/SKILL.md"),
+    join(root, ".skillset/skills/demo/SKILL.md"),
     "---\nname: demo\ndescription: Demo.\nversion: 0.1.0\n---\n\nChanged again after release.\n"
   );
   await runGit(root, "add", ".");
@@ -4564,13 +4561,13 @@ Release the standalone skill body update with a patch version and generated chan
 
 test("SET-150: release amend appends release metadata corrections", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: release-amend-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4583,7 +4580,7 @@ Body.
   await commitFixture(root);
 
   await Bun.write(
-    join(root, ".skillset/src/skills/demo/SKILL.md"),
+    join(root, ".skillset/skills/demo/SKILL.md"),
     "---\nname: demo\ndescription: Demo.\nversion: 0.1.0\n---\n\nChanged body for release amend.\n"
   );
   const status = await changeStatus(root, { since: "HEAD" });
@@ -4632,7 +4629,7 @@ Release the standalone skill body update before correcting release-event notes.
 
 test("SET-150: release amend rejects short release refs", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: short-release-ref-root
 claude: true
@@ -4655,18 +4652,18 @@ codex: false
 
 test("SET-111: release audit reports generated version drift without writing", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: version-audit-root
 compile:
   targets: [codex]
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   version: 1.2.3
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4717,18 +4714,18 @@ Body.
 
 test("SET-111: release audit reports Claude marketplace plugin version drift", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: marketplace-audit-root
 compile:
   targets: [claude]
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   version: 1.2.3
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -4761,18 +4758,18 @@ Body.
 
 test("SET-38: plugin child release bumps the plugin aggregate by default", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: plugin-release-root
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   version: 0.1.0
 `,
-    ".skillset/src/plugins/alpha/skills/child/SKILL.md": `
+    ".skillset/plugins/alpha/skills/child/SKILL.md": `
 ---
 name: child
 description: Child.
@@ -4784,7 +4781,7 @@ Child body.
   await commitFixture(root);
 
   await Bun.write(
-    join(root, ".skillset/src/plugins/alpha/skills/child/SKILL.md"),
+    join(root, ".skillset/plugins/alpha/skills/child/SKILL.md"),
     "---\nname: child\ndescription: Child.\n---\n\nChanged child body.\n"
   );
   const status = await changeStatus(root, { since: "HEAD" });
@@ -4815,20 +4812,20 @@ Release the plugin child skill behavior as a minor update to the containing plug
   };
   expect(state.scopes["plugin.alpha.skill:child"]?.version).toBe("0.2.0");
   expect(state.scopes["plugin:alpha"]?.version).toBe("0.2.0");
-  expect(await readFile(join(root, ".skillset/src/plugins/alpha/CHANGELOG.md"), "utf8")).toContain("## dddd11112222");
+  expect(await readFile(join(root, ".skillset/plugins/alpha/CHANGELOG.md"), "utf8")).toContain("## dddd11112222");
   expect(await readFile(join(root, "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"), "utf8")).toContain('"version": "0.2.0"');
   expect(await readFile(join(root, "plugins-claude/plugins/alpha/skills/child/SKILL.md"), "utf8")).toContain("version: 0.2.0");
 });
 
 test("SET-38: bump none releases audit entries while ignored entries stay out of changelogs", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: audit-release-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/audit/SKILL.md": `
+    ".skillset/skills/audit/SKILL.md": `
 ---
 name: audit
 description: Audit.
@@ -4837,7 +4834,7 @@ version: 0.1.0
 
 Audit body.
 `,
-    ".skillset/src/skills/ignored/SKILL.md": `
+    ".skillset/skills/ignored/SKILL.md": `
 ---
 name: ignored
 description: Ignored.
@@ -4849,8 +4846,8 @@ Ignored body.
   });
   await commitFixture(root);
 
-  await Bun.write(join(root, ".skillset/src/skills/audit/SKILL.md"), "---\nname: audit\ndescription: Audit.\nversion: 0.1.0\n---\n\nAudit-only change.\n");
-  await Bun.write(join(root, ".skillset/src/skills/ignored/SKILL.md"), "---\nname: ignored\ndescription: Ignored.\nversion: 0.1.0\n---\n\nIgnored change.\n");
+  await Bun.write(join(root, ".skillset/skills/audit/SKILL.md"), "---\nname: audit\ndescription: Audit.\nversion: 0.1.0\n---\n\nAudit-only change.\n");
+  await Bun.write(join(root, ".skillset/skills/ignored/SKILL.md"), "---\nname: ignored\ndescription: Ignored.\nversion: 0.1.0\n---\n\nIgnored change.\n");
   const status = await changeStatus(root, { since: "HEAD" });
   const audit = status.sourceChanges.find((change) => change.id === "skill:audit");
   const ignored = status.sourceChanges.find((change) => change.id === "skill:ignored");
@@ -4900,8 +4897,8 @@ Preserve this ignored audit reason in history while keeping it out of release pl
   expect(state.scopes["skill:audit"]?.version).toBe("0.1.0");
   expect(state.scopes["skill:ignored"]?.version).toBe("0.1.0");
   expect(state.scopes["skill:ignored"]?.sourceHash).toBe(ignored?.currentHash);
-  expect(await readFile(join(root, ".skillset/src/skills/audit/CHANGELOG.md"), "utf8")).toContain("## 333333ffffff");
-  expect(await Bun.file(join(root, ".skillset/src/skills/ignored/CHANGELOG.md")).exists()).toBe(false);
+  expect(await readFile(join(root, ".skillset/skills/audit/CHANGELOG.md"), "utf8")).toContain("## 333333ffffff");
+  expect(await Bun.file(join(root, ".skillset/skills/ignored/CHANGELOG.md")).exists()).toBe(false);
 
   const releasedStatus = await changeStatus(root);
   expect(releasedStatus.sourceChanges.map((change) => change.id)).not.toContain("skill:ignored");
@@ -4909,13 +4906,13 @@ Preserve this ignored audit reason in history while keeping it out of release pl
 
 test("SET-38: release apply tombstones deleted source units as released", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: deletion-release-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/deleted/SKILL.md": `
+    ".skillset/skills/deleted/SKILL.md": `
 ---
 name: deleted
 description: Deleted.
@@ -4924,7 +4921,7 @@ version: 1.2.3
 
 Deleted body.
 `,
-    ".skillset/src/skills/kept/SKILL.md": `
+    ".skillset/skills/kept/SKILL.md": `
 ---
 name: kept
 description: Kept.
@@ -4947,7 +4944,7 @@ Kept body.
     },
   }, null, 2), "utf8");
 
-  await rm(join(root, ".skillset/src/skills/deleted/SKILL.md"));
+  await rm(join(root, ".skillset/skills/deleted/SKILL.md"));
   const status = await changeStatus(root, { since: "HEAD" });
   const deleted = status.sourceChanges.find((change) => change.id === "skill:deleted");
   expect(deleted?.baselineHash).toBeDefined();
@@ -4977,7 +4974,7 @@ Release the removal of the deleted standalone skill so default status treats the
   expect(releasedStatus.sourceChanges.map((change) => change.id)).not.toContain("skill:deleted");
 
   await Bun.write(
-    join(root, ".skillset/src/skills/deleted/SKILL.md"),
+    join(root, ".skillset/skills/deleted/SKILL.md"),
     "---\nname: deleted\ndescription: Deleted.\nversion: 1.2.3\n---\n\nRestored body.\n"
   );
   await buildSkillset(root);
@@ -4987,13 +4984,13 @@ Release the removal of the deleted standalone skill so default status treats the
 
 test("SET-38: release commands reject build scopes until scoped release selection exists", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: scoped-release-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -5010,18 +5007,18 @@ Body.
 
 test("SET-38: plugin feature history projects into plugin changelogs", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: feature-changelog-root
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   version: 0.1.0
 `,
-    ".skillset/src/plugins/alpha/.mcp.json": `
+    ".skillset/plugins/alpha/.mcp.json": `
 {
   "mcpServers": {
     "alpha": { "command": "node" }
@@ -5040,14 +5037,14 @@ skillset:
   ]);
 
   await buildSkillset(root);
-  const changelog = await readFile(join(root, ".skillset/src/plugins/alpha/CHANGELOG.md"), "utf8");
+  const changelog = await readFile(join(root, ".skillset/plugins/alpha/CHANGELOG.md"), "utf8");
   expect(changelog).toContain("## 666666ffffff");
   expect(changelog).toContain("feature(plugin:alpha): mcp");
 });
 
 test("SET-38: malformed release state fails loudly before version lowering", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: invalid-release-state-root
 claude: true
@@ -5061,7 +5058,7 @@ codex: false
   }
 }
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -5079,13 +5076,13 @@ Body.
 
 test("SET-25: diff reports missing managed outputs separately", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: missing-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -5107,13 +5104,13 @@ Body.
 
 test("SET-19: CLI restores backed up unmanaged output collisions", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: restore-root
 claude: false
 codex: true
 `,
-    ".skillset/src/rules/root.md": `
+    ".skillset/rules/root.md": `
 # Generated Instructions
 `,
     "AGENTS.md": `
@@ -5148,7 +5145,7 @@ codex: true
 
 test("SET-25: CLI parses build mode and scope flags", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: scoped-root
 compile:
@@ -5156,7 +5153,7 @@ compile:
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -5185,17 +5182,17 @@ Body.
 
 test("SET-25: scope filters build, diff, and list output", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: scope-root
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/plugin-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/plugin-skill/SKILL.md": `
 ---
 name: plugin-skill
 description: Plugin skill.
@@ -5203,7 +5200,7 @@ description: Plugin skill.
 
 Plugin body.
 `,
-    ".skillset/src/skills/repo-skill/SKILL.md": `
+    ".skillset/skills/repo-skill/SKILL.md": `
 ---
 name: repo-skill
 description: Repo skill.
@@ -5231,17 +5228,17 @@ Repo body.
 
 test("SET-25: scoped commands ignore corrupt locks outside the selected scope", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: scope-lock-root
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/plugin-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/plugin-skill/SKILL.md": `
 ---
 name: plugin-skill
 description: Plugin skill.
@@ -5249,7 +5246,7 @@ description: Plugin skill.
 
 Plugin body.
 `,
-    ".skillset/src/skills/repo-skill/SKILL.md": `
+    ".skillset/skills/repo-skill/SKILL.md": `
 ---
 name: repo-skill
 description: Repo skill.
@@ -5273,12 +5270,12 @@ Repo body.
 
   const explained = await runSkillsetCli("explain", ".claude/skills/repo-skill/SKILL.md", "--root", root, "--scope", "repo");
   expect(explained.exitCode).toBe(0);
-  expect(explained.stdout).toContain(".skillset/src/skills/repo-skill/SKILL.md");
+  expect(explained.stdout).toContain(".skillset/skills/repo-skill/SKILL.md");
 });
 
 test("SET-25: updated mode skips unchanged files while all mode rewrites", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: updated-root
 compile:
@@ -5286,7 +5283,7 @@ compile:
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/one/SKILL.md": `
+    ".skillset/skills/one/SKILL.md": `
 ---
 name: one
 description: One.
@@ -5294,7 +5291,7 @@ description: One.
 
 One body.
 `,
-    ".skillset/src/skills/two/SKILL.md": `
+    ".skillset/skills/two/SKILL.md": `
 ---
 name: two
 description: Two.
@@ -5310,7 +5307,7 @@ Two body.
 
   await sleepForMtime();
   await Bun.write(
-    join(root, ".skillset/src/skills/one/SKILL.md"),
+    join(root, ".skillset/skills/one/SKILL.md"),
     "---\nname: one\ndescription: One changed.\n---\n\nOne body changed.\n"
   );
   await buildSkillset(root);
@@ -5323,7 +5320,7 @@ Two body.
 
 test("SET-26: mcp source pointer copies repo file with manifest and lock provenance", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: feature-root
 claude: true
@@ -5339,13 +5336,13 @@ codex: true
   }
 }
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 mcp:
   source: repo:integrations/alpha-mcp.json
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -5381,25 +5378,25 @@ Body.
 
 test("SET-26: false disables conventional mcp discovery", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: feature-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 mcp: false
 `,
-    ".skillset/src/plugins/alpha/.mcp.json": `
+    ".skillset/plugins/alpha/.mcp.json": `
 {
   "mcpServers": {
     "alpha": { "command": "node" }
   }
 }
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -5419,25 +5416,25 @@ Body.
 
 test("SET-26: mcp true requires and copies the conventional source", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: feature-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 mcp: true
 `,
-    ".skillset/src/plugins/alpha/.mcp.json": `
+    ".skillset/plugins/alpha/.mcp.json": `
 {
   "mcpServers": {
     "alpha": { "command": "node" }
   }
 }
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -5458,21 +5455,21 @@ Body.
 
 test("SET-26: conventional bin discovery copies Claude-only feature with provenance", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: feature-root
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/bin/tool": `
+    ".skillset/plugins/alpha/bin/tool": `
 #!/usr/bin/env bash
 echo alpha
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -5495,7 +5492,7 @@ Body.
 
 test("SET-26: explicit bin source pointer copies Claude-only feature with provenance", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: feature-root
 claude: true
@@ -5505,13 +5502,13 @@ codex: false
 #!/usr/bin/env bash
 echo alpha
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 bin:
   source: repo:tools/alpha
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -5532,22 +5529,22 @@ Body.
 
 test("SET-26: bin fails loudly for enabled Codex plugin output", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: feature-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 bin: true
 `,
-    ".skillset/src/plugins/alpha/bin/tool": `
+    ".skillset/plugins/alpha/bin/tool": `
 #!/usr/bin/env bash
 echo alpha
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -5563,19 +5560,19 @@ Body.
 
 test("SET-26: repo source pointers reject escapes, generated roots, and missing paths", async () => {
   const escapeRoot = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: feature-root
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 mcp:
   source: repo:../outside.json
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -5587,7 +5584,7 @@ Body.
   await expect(buildSkillset(escapeRoot)).rejects.toThrow("outside repo root");
 
   const generatedRoot = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: feature-root
 claude: true
@@ -5600,13 +5597,13 @@ codex: false
   }
 }
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 mcp:
   source: repo:plugins-claude/alpha-mcp.json
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -5618,19 +5615,19 @@ Body.
   await expect(buildSkillset(generatedRoot)).rejects.toThrow("inside generated output root outputs.plugins.claude");
 
   const missingRoot = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: feature-root
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 mcp:
   source: repo:missing/mcp.json
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -5643,26 +5640,26 @@ Body.
     code: "plugin-mcp-invalid",
     featureId: "plugin-mcp",
     message: expect.stringContaining("points to missing path repo:missing/mcp.json"),
-    path: ".skillset/src/plugins/alpha/skillset.yaml",
+    path: ".skillset/plugins/alpha/skillset.yaml",
   });
 });
 
 test("SET-26: plugin feature source type mismatches fail loudly", async () => {
   const mcpDirectoryRoot = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: feature-root
 claude: true
 codex: false
 `,
     "integrations/mcp-dir/.gitkeep": "",
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 mcp:
   source: repo:integrations/mcp-dir
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -5675,24 +5672,24 @@ Body.
     code: "plugin-mcp-invalid",
     featureId: "plugin-mcp",
     message: expect.stringContaining("feature mcp source must be a file"),
-    path: ".skillset/src/plugins/alpha/skillset.yaml",
+    path: ".skillset/plugins/alpha/skillset.yaml",
   });
 
   const binFileRoot = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: feature-root
 claude: true
 codex: false
 `,
     "tools/alpha": "#!/usr/bin/env bash\n",
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 bin:
   source: repo:tools/alpha
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -5705,27 +5702,27 @@ Body.
     code: "plugin-bin-invalid",
     featureId: "plugin-bin",
     message: expect.stringContaining("feature bin source must be a directory"),
-    path: ".skillset/src/plugins/alpha/skillset.yaml",
+    path: ".skillset/plugins/alpha/skillset.yaml",
   });
 });
 
 test("SET-26: mcp feature sources are validated as JSON", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: feature-root
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 mcp: true
 `,
-    ".skillset/src/plugins/alpha/.mcp.json": `
+    ".skillset/plugins/alpha/.mcp.json": `
 { "mcpServers":
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -5740,7 +5737,7 @@ Body.
 
 test("SET-26: divergent feature and island outputs fail with both sources", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: feature-root
 claude: true
@@ -5753,13 +5750,13 @@ codex: false
   }
 }
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 mcp:
   source: repo:integrations/alpha-mcp.json
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -5767,7 +5764,7 @@ description: Demo.
 
 Body.
 `,
-    ".skillset/src/plugins/alpha/_claude/.mcp.json": `
+    ".skillset/plugins/alpha/_claude/.mcp.json": `
 {
   "mcpServers": {
     "other": { "command": "node" }
@@ -5866,7 +5863,7 @@ test("SET-62: init surfaces handwritten root instruction files as candidates", a
 test("SET-62: init never suggests importing skillset-generated instruction files", async () => {
   const root = await contractFixture({
     "AGENTS.md":
-      "<!-- Generated by skillset@0.1.0 from .skillset/src/rules. Do not edit directly. -->\n\n# Agents",
+      "<!-- Generated by skillset@0.1.0 from .skillset/rules. Do not edit directly. -->\n\n# Agents",
     "CLAUDE.md": "# Claude\n\nHandwritten guidance.",
   });
 
@@ -5877,7 +5874,7 @@ test("SET-62: init never suggests importing skillset-generated instruction files
 
 test("SET-62: already-adopted repos suppress instruction candidates", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: adopted
 compile:
@@ -5934,20 +5931,20 @@ test("SET-27: init previews by default and writes only with confirmation", async
   const preview = await runSkillsetCli("init", "--root", root, "--targets", "claude");
   expect(preview.exitCode).toBe(0);
   expect(preview.stdout).toContain("write confirmation required");
-  expect(preview.stdout).toContain("+ .skillset/skillset.yaml");
-  expect(await fileExists(join(root, ".skillset/skillset.yaml"))).toBe(false);
+  expect(preview.stdout).toContain("+ skillset.yaml");
+  expect(await fileExists(join(root, "skillset.yaml"))).toBe(false);
 
   const written = await runSkillsetCli("init", "--root", root, "--targets", "claude", "--yes");
   expect(written.exitCode).toBe(0);
-  const config = await readFile(join(root, ".skillset/skillset.yaml"), "utf8");
+  const config = await readFile(join(root, "skillset.yaml"), "utf8");
   expect(config).toStartWith("# yaml-language-server: $schema=https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/workspace-config.schema.json\n");
   expect(config).toContain("name:");
   expect(config).toContain("compile:");
   expect(config).toContain("    - claude");
   expect(config).not.toContain("    - codex");
-  expect(await fileExists(join(root, ".skillset/src/.gitkeep"))).toBe(true);
+  expect(await fileExists(join(root, ".skillset/.gitkeep"))).toBe(true);
   for (const directory of ["agents", "hooks", "plugins", "rules", "shared", "skills", "_claude", "_codex"]) {
-    expect(await fileExists(join(root, `.skillset/src/${directory}/.gitkeep`))).toBe(true);
+    expect(await fileExists(join(root, `.skillset/${directory}/.gitkeep`))).toBe(true);
   }
   expect(await fileExists(join(root, ".skillset/changes/.gitkeep"))).toBe(true);
   expect(await readFile(join(root, ".skillset/cache/.gitignore"), "utf8")).toBe("*\n!.gitignore\n");
@@ -5958,56 +5955,39 @@ test("SET-27: init previews by default and writes only with confirmation", async
   expect(await fileExists(join(root, ".agents"))).toBe(false);
 });
 
-test("SET-209: init can opt into root layout without recording layout config", async () => {
+test("SET-209: init rejects retired layout flags", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-setup-root-layout-"));
 
   const preview = await runSkillsetCli("init", "--root", root, "--layout", "root");
-  expect(preview.exitCode).toBe(0);
-  expect(preview.stdout).toContain("+ skillset.yaml");
-  expect(preview.stdout).toContain("+ skillset/.gitkeep");
-  expect(preview.stdout).toContain("+ skillset/changes/.gitkeep");
-  expect(preview.stdout).not.toContain(".skillset/skillset.yaml");
+  expect(preview.exitCode).toBe(1);
+  expect(preview.stderr).toContain("--layout is retired");
   expect(await fileExists(join(root, "skillset.yaml"))).toBe(false);
-
-  const written = await runSkillsetCli("init", "--root", root, "--layout", "root", "--yes");
-  expect(written.exitCode).toBe(0);
-  const config = await readFile(join(root, "skillset.yaml"), "utf8");
-  expect(config).toContain("skillset:");
-  expect(config).not.toContain("layout:");
-  expect(await fileExists(join(root, "skillset/.gitkeep"))).toBe(true);
-  expect(await fileExists(join(root, "skillset/changes/.gitkeep"))).toBe(true);
-  expect(await fileExists(join(root, ".skillset/skillset.yaml"))).toBe(false);
-  expect(await fileExists(join(root, ".skillset/cache/.gitignore"))).toBe(true);
 });
 
-test("SET-209: init layout opt-in refuses opposite existing workspace markers", async () => {
-  const ordinary = await contractFixture({
-    ".skillset/skillset.yaml": "skillset:\n  name: ordinary\n",
+test("SET-209: init layout flags stay retired in existing workspaces", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": "skillset:\n  name: ordinary\n",
   });
-  const rootInOrdinary = await runSkillsetCli("init", "--root", ordinary, "--layout", "root");
-  expect(rootInOrdinary.exitCode).toBe(1);
-  expect(rootInOrdinary.stderr).toContain("init --layout root cannot run in a repo that already has a .skillset workspace");
 
-  const dedicated = await contractFixture({
-    "skillset.yaml": "skillset:\n  name: dedicated\n",
-  });
-  const nestedInDedicated = await runSkillsetCli("init", "--root", dedicated, "--layout", "nested");
-  expect(nestedInDedicated.exitCode).toBe(1);
-  expect(nestedInDedicated.stderr).toContain("init --layout nested cannot run in a repo that already has a root skillset.yaml/skillset workspace");
+  for (const layout of ["root", "nested"]) {
+    const result = await runSkillsetCli("init", "--root", root, "--layout", layout);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("--layout is retired");
+  }
 });
 
 test("SET-27: init scaffolds optional CI only when requested", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-setup-shaped-"));
 
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
-  expect(await fileExists(join(root, ".skillset/src/agents/.gitkeep"))).toBe(true);
+  expect(await fileExists(join(root, ".skillset/agents/.gitkeep"))).toBe(true);
   expect(await fileExists(join(root, ".github/workflows/skillset-ci.yml"))).toBe(false);
 
   const shaped = await mkdtemp(join(tmpdir(), "skillset-setup-shaped-"));
   await expect(
     runSkillsetCli("init", "--root", shaped, "--include", "ci", "--yes")
   ).resolves.toMatchObject({ exitCode: 0 });
-  expect(await fileExists(join(shaped, ".skillset/src/agents/.gitkeep"))).toBe(true);
+  expect(await fileExists(join(shaped, ".skillset/agents/.gitkeep"))).toBe(true);
   expect(await fileExists(join(shaped, ".github/workflows/skillset-ci.yml"))).toBe(true);
 });
 
@@ -6020,7 +6000,7 @@ compile:
   targets:
     - claude
 `,
-    "skillset/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -6033,30 +6013,28 @@ Body.
   const preview = await runSkillsetCli("init", "--root", root);
   expect(preview.exitCode).toBe(0);
   expect(preview.stdout).toContain("= skillset.yaml");
-  expect(preview.stdout).toContain("+ skillset/changes/.gitkeep");
+  expect(preview.stdout).toContain("+ .skillset/changes/.gitkeep");
   expect(preview.stdout).toContain("+ .skillset/cache/.gitignore");
   expect(preview.stdout).toContain("+ .skillset/snapshots/.gitignore");
-  expect(preview.stdout).not.toContain(".skillset/skillset.yaml");
-  expect(await fileExists(join(root, ".skillset/skillset.yaml"))).toBe(false);
+  expect(await fileExists(join(root, "skillset.yaml"))).toBe(true);
 
   const written = await runSkillsetCli("init", "--root", root, "--yes");
   expect(written.exitCode).toBe(0);
-  expect(await fileExists(join(root, "skillset/changes/.gitkeep"))).toBe(true);
+  expect(await fileExists(join(root, ".skillset/changes/.gitkeep"))).toBe(true);
   expect(await fileExists(join(root, ".skillset/cache/.gitignore"))).toBe(true);
   expect(await fileExists(join(root, ".skillset/snapshots/.gitignore"))).toBe(true);
-  expect(await fileExists(join(root, ".skillset/skillset.yaml"))).toBe(false);
+  expect(await fileExists(join(root, "skillset.yaml"))).toBe(true);
 });
 
-test("SET-143: init refuses mixed dedicated and ordinary setup roots", async () => {
+test("SET-143: init accepts the canonical root config plus .skillset workspace", async () => {
   const root = await contractFixture({
-    "skillset.yaml": "skillset:\n  name: dedicated\n",
-    "skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n",
-    ".skillset/skillset.yaml": "skillset:\n  name: ordinary\n",
+    "skillset.yaml": "skillset:\n  name: canonical\n",
+    ".skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n",
   });
 
   const initialized = await runSkillsetCli("init", "--root", root);
-  expect(initialized.exitCode).toBe(1);
-  expect(initialized.stderr).toContain("ambiguous setup workspace");
+  expect(initialized.exitCode).toBe(0);
+  expect(initialized.stdout).toContain("= skillset.yaml");
 });
 
 test("SET-27: create makes a new source repo with default naming", async () => {
@@ -6084,9 +6062,9 @@ test("SET-27: create makes a new source repo with default naming", async () => {
   expect(config).toContain("name: my-skillset");
   expect(config).toContain("compile:");
   for (const directory of ["agents", "hooks", "plugins", "rules", "shared", "skills", "_claude", "_codex"]) {
-    expect(await fileExists(join(parent, `my-skillset/skillset/${directory}/.gitkeep`))).toBe(true);
+    expect(await fileExists(join(parent, `my-skillset/.skillset/${directory}/.gitkeep`))).toBe(true);
   }
-  expect(await fileExists(join(parent, "my-skillset/skillset/changes/.gitkeep"))).toBe(true);
+  expect(await fileExists(join(parent, "my-skillset/.skillset/changes/.gitkeep"))).toBe(true);
   expect(await readFile(join(parent, "my-skillset/.skillset/.gitignore"), "utf8")).toBe("cache/*\n!cache/.gitignore\nsnapshots/*\n!snapshots/.gitignore\n");
   expect(await readFile(join(parent, "my-skillset/.skillset/cache/.gitignore"), "utf8")).toBe("*\n!.gitignore\n");
   expect(await readFile(join(parent, "my-skillset/.skillset/snapshots/.gitignore"), "utf8")).toBe("*\n!.gitignore\n");
@@ -6096,7 +6074,7 @@ test("SET-27: create makes a new source repo with default naming", async () => {
   expect(JSON.parse(lock)).toEqual({ items: [] });
   expect(readme).toContain("# my-skillset");
   expect(readme).toContain("skillset build --dry-run");
-  expect(agents).toContain("Treat `skillset/` as editable source");
+  expect(agents).toContain("Treat `.skillset/` as editable Skillset source");
   expect(await fileExists(join(createdRoot, ".git/config"))).toBe(true);
   await writeFile(join(createdRoot, ".skillset/cache/runtime.txt"), "ignored\n");
   await runGit(createdRoot, "check-ignore", ".skillset/cache/runtime.txt");
@@ -6138,17 +6116,17 @@ test("SET-27: create supports global source path without touching runtime config
 
   const report = await createSkillset({ global: true, homeDir: home, write: true });
 
-  expect(report.rootPath).toBe(join(home, ".skillset/src"));
-  expect(await fileExists(join(home, ".skillset/src/skillset.yaml"))).toBe(true);
-  expect(await fileExists(join(home, ".skillset/src/skillset/hooks/.gitkeep"))).toBe(true);
-  expect(await fileExists(join(home, ".skillset/src/README.md"))).toBe(false);
-  expect(await fileExists(join(home, ".skillset/src/AGENTS.md"))).toBe(false);
-  expect(await fileExists(join(home, ".skillset/src/.git/config"))).toBe(false);
-  expect(await fileExists(join(home, ".skillset/src/.skillset/.gitignore"))).toBe(false);
-  expect(await fileExists(join(home, ".skillset/src/.skillset/cache/.gitignore"))).toBe(false);
-  expect(await fileExists(join(home, ".skillset/src/.skillset/snapshots/.gitignore"))).toBe(false);
-  expect(await fileExists(join(home, ".skillset/cache"))).toBe(false);
-  expect(await fileExists(join(home, ".skillset/snapshots"))).toBe(false);
+  expect(report.rootPath).toBe(join(home, ".skillset/source"));
+  expect(await fileExists(join(home, ".skillset/source/skillset.yaml"))).toBe(true);
+  expect(await fileExists(join(home, ".skillset/source/.skillset/hooks/.gitkeep"))).toBe(true);
+  expect(await fileExists(join(home, ".skillset/source/README.md"))).toBe(false);
+  expect(await fileExists(join(home, ".skillset/source/AGENTS.md"))).toBe(false);
+  expect(await fileExists(join(home, ".skillset/source/.git/config"))).toBe(false);
+  expect(await fileExists(join(home, ".skillset/source/.skillset/.gitignore"))).toBe(false);
+  expect(await fileExists(join(home, ".skillset/source/.skillset/cache/.gitignore"))).toBe(false);
+  expect(await fileExists(join(home, ".skillset/source/.skillset/snapshots/.gitignore"))).toBe(false);
+  expect(await fileExists(join(home, ".skillset/source/.skillset/cache"))).toBe(false);
+  expect(await fileExists(join(home, ".skillset/source/.skillset/snapshots"))).toBe(false);
   expect(await fileExists(join(home, ".claude"))).toBe(false);
   expect(await fileExists(join(home, ".codex"))).toBe(false);
 
@@ -6173,22 +6151,22 @@ test("SET-27: setup refuses unsafe overwrite", async () => {
   expect(create.stderr).toContain("create target must be empty");
 
   const initRoot = await mkdtemp(join(tmpdir(), "skillset-setup-overwrite-"));
-  await Bun.write(join(initRoot, ".skillset/config.yaml"), "not: skillset\n");
+  await Bun.write(join(initRoot, "skillset.yaml"), "not: skillset\n");
   const init = await runSkillsetCli("init", "--root", initRoot, "--yes");
   expect(init.exitCode).toBe(1);
-  expect(init.stderr).toContain("unsupported workspace config key not");
+  expect(init.stderr).toContain("unsupported top-level key not");
 });
 
 test("SET-43: init defaults to git root and seeds release baselines", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: adopt-root
   version: 1.2.0
 claude: true
 codex: true
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -6219,14 +6197,14 @@ Body.
 
 test("SET-43: init is idempotent for adopted release baselines", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: adopt-idempotent
   version: 0.4.0
 claude: true
 codex: true
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -6250,14 +6228,14 @@ Body.
 
 test("SET-43: init treats hashed release state as authoritative", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: adopt-released
   version: 0.4.0
 claude: true
 codex: true
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -6297,7 +6275,7 @@ Body.
   const preview = await runSkillsetCli("init", "--root", root);
   expect(preview.exitCode).toBe(0);
   expect(preview.stdout).toContain("? import candidate skills .claude/skills");
-  expect(await fileExists(join(root, ".skillset/skillset.yaml"))).toBe(false);
+  expect(await fileExists(join(root, "skillset.yaml"))).toBe(false);
 });
 
 test("SET-43: init does not report managed output roots as import candidates", async () => {
@@ -6323,7 +6301,7 @@ Body.
 
 test("SET-43: init rejects version conflicts with existing release state", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: adopt-conflict
   version: 1.0.0
@@ -6339,7 +6317,7 @@ codex: true
         },
       },
     }),
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -6358,7 +6336,7 @@ Body.
 
 test("SET-43: import seeds a release baseline for adopted skills", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: import-skill-root
   version: 1.0.0
@@ -6412,15 +6390,15 @@ Body.
 `);
 
   const report = await importSource({ kind: "skill", rootPath: root, sourcePath: external });
-  expect(report.targetPath).toBe(join(root, "skillset/skills/adopted"));
-  expect(await fileExists(join(root, "skillset/skills/adopted/SKILL.md"))).toBe(true);
-  expect(await fileExists(join(root, ".skillset/src/skills/adopted/SKILL.md"))).toBe(false);
-  expect(await fileExists(join(root, "skillset/changes/state.json"))).toBe(true);
+  expect(report.targetPath).toBe(join(root, ".skillset/skills/adopted"));
+  expect(await fileExists(join(root, ".skillset/skills/adopted/SKILL.md"))).toBe(true);
+  expect(await fileExists(join(root, "skillset/skills/adopted/SKILL.md"))).toBe(false);
+  expect(await fileExists(join(root, ".skillset/changes/state.json"))).toBe(true);
 });
 
 test("SET-43: import seeds release baselines for adopted plugins", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: import-plugin-root
   version: 1.0.0
@@ -6478,13 +6456,13 @@ test("SET-27: setup-only flags fail loudly outside their setup command", async (
 
 test("SET-9: explain resolves source and generated paths via lock provenance", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: explain-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -6495,7 +6473,7 @@ Body.
   });
   await buildSkillset(root);
 
-  const source = await explainPath(root, ".skillset/src/skills/demo/SKILL.md");
+  const source = await explainPath(root, ".skillset/skills/demo/SKILL.md");
   expect(source.kind).toBe("source-skill");
   expect(source.entries.length).toBeGreaterThan(0);
   expect(source.renderResults).toContainEqual(
@@ -6509,7 +6487,7 @@ Body.
 
   const generated = await explainPath(root, ".claude/skills/demo/SKILL.md");
   expect(generated.kind).toBe("generated");
-  expect(generated.entries[0]?.sourcePath).toBe(".skillset/src/skills/demo/SKILL.md");
+  expect(generated.entries[0]?.sourcePath).toBe(".skillset/skills/demo/SKILL.md");
   expect(generated.entries[0]?.sourceHash).toBeDefined();
   expect(generated.renderResults[0]?.status).toBe("rendered");
 
@@ -6520,13 +6498,13 @@ Body.
 
 test("SET-9: doctor aggregates lint issues and drift, and passes when clean", async () => {
   const clean = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: doctor-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -6541,13 +6519,13 @@ Body.
   expect(okReport.lintIssues).toEqual([]);
 
   const problems = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: doctor-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo with an undeclared resource link.
@@ -6567,13 +6545,13 @@ See the [guide](shared:references/guide.md).
 
 test("SET-83: explain and doctor surface render results in text and JSON", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: outcome-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/audit/skillset.yaml": `
+    ".skillset/plugins/audit/skillset.yaml": `
 skillset:
   name: audit
 dependencies:
@@ -6581,7 +6559,7 @@ dependencies:
     - name: external-tools
       range: "^2.1.0"
 `,
-    ".skillset/src/plugins/audit/skills/audit-skill/SKILL.md": `
+    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
 ---
 name: audit-skill
 description: Audit skill.
@@ -6604,7 +6582,7 @@ Audit body.
 
   const explainedJson = await runSkillsetCli(
     "explain",
-    ".skillset/src/plugins/audit",
+    ".skillset/plugins/audit",
     "--root",
     root,
     "--json"
@@ -6650,16 +6628,16 @@ Audit body.
 
 test("SET-78: feature capability inspection surfaces registry ids in explain, doctor, and features", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: feature-inspect-root
 claude: true
 codex: true
 `,
-    ".skillset/src/shared/references/guide.md": `
+    ".skillset/shared/references/guide.md": `
 # Guide
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo with resources.
@@ -6670,22 +6648,22 @@ resources:
 
 Read [the guide](shared:references/guide.md).
 `,
-    ".skillset/src/rules/root.md": `
+    ".skillset/rules/root.md": `
 ---
 description: Root instructions.
 ---
 
 Keep output inspectable.
 `,
-    ".skillset/src/_codex/rules/deny.rules": `
+    ".skillset/_codex/rules/deny.rules": `
 match = "rm -rf"
 decision = "deny"
 `,
-    ".skillset/src/plugins/audit/skillset.yaml": `
+    ".skillset/plugins/audit/skillset.yaml": `
 skillset:
   name: audit
 `,
-    ".skillset/src/plugins/audit/skills/audit-skill/SKILL.md": `
+    ".skillset/plugins/audit/skills/audit-skill/SKILL.md": `
 ---
 name: audit-skill
 description: Audit skill.
@@ -6695,7 +6673,7 @@ Audit body.
 `,
   });
 
-  const skillExplain = await runSkillsetCli("explain", ".skillset/src/skills/demo/SKILL.md", "--root", root, "--json");
+  const skillExplain = await runSkillsetCli("explain", ".skillset/skills/demo/SKILL.md", "--root", root, "--json");
   expect(skillExplain.exitCode).toBe(0);
   const skillReport = JSON.parse(skillExplain.stdout) as {
     features: readonly {
@@ -6723,9 +6701,9 @@ Audit body.
     },
   ]);
 
-  const pluginExplain = await runSkillsetCli("explain", ".skillset/src/plugins/audit/skillset.yaml", "--root", root, "--json");
-  const instructionExplain = await runSkillsetCli("explain", ".skillset/src/rules/root.md", "--root", root, "--json");
-  const islandExplain = await runSkillsetCli("explain", ".skillset/src/_codex/rules/deny.rules", "--root", root, "--json");
+  const pluginExplain = await runSkillsetCli("explain", ".skillset/plugins/audit/skillset.yaml", "--root", root, "--json");
+  const instructionExplain = await runSkillsetCli("explain", ".skillset/rules/root.md", "--root", root, "--json");
+  const islandExplain = await runSkillsetCli("explain", ".skillset/_codex/rules/deny.rules", "--root", root, "--json");
   expect(featureIds(pluginExplain.stdout)).toContain("plugin-manifests");
   expect(featureIds(instructionExplain.stdout)).toContain("project-instructions");
   expect(featureIds(islandExplain.stdout)).toContain("target-native-islands");
@@ -6785,18 +6763,18 @@ Audit body.
 
 test("SET-83: doctor reports render results from unsupported build errors", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: unsupported-outcome-root
 claude: false
 codex: true
 `,
-    ".skillset/src/plugins/tools/skillset.yaml": `
+    ".skillset/plugins/tools/skillset.yaml": `
 skillset:
   name: tools
 `,
-    ".skillset/src/plugins/tools/bin/run": "#!/usr/bin/env bash\n",
-    ".skillset/src/plugins/tools/skills/tool/SKILL.md": `
+    ".skillset/plugins/tools/bin/run": "#!/usr/bin/env bash\n",
+    ".skillset/plugins/tools/skills/tool/SKILL.md": `
 ---
 name: tool
 description: Tool skill.
@@ -6819,7 +6797,7 @@ Tool body.
     })
   );
 
-  const explainedUnsupportedFeature = await explainPath(root, ".skillset/src/plugins/tools/bin");
+  const explainedUnsupportedFeature = await explainPath(root, ".skillset/plugins/tools/bin");
   expect(explainedUnsupportedFeature.kind).toBe("source-plugin");
   expect(explainedUnsupportedFeature.entries).toEqual([]);
   expect(explainedUnsupportedFeature.renderResults).toContainEqual(
@@ -6834,13 +6812,13 @@ Tool body.
 
 async function goldenPluginFixture(): Promise<string> {
   return contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: gold-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/widget/skillset.yaml": `
+    ".skillset/plugins/widget/skillset.yaml": `
 skillset:
   name: widget
   version: 1.2.3
@@ -6856,7 +6834,7 @@ skillset:
     default_prompt: [Do the widget thing]
     color: "#123456"
 `,
-    ".skillset/src/plugins/widget/skills/demo/SKILL.md": `
+    ".skillset/plugins/widget/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -6872,13 +6850,13 @@ Body.
 
 test("SET-7: concatenated AGENTS.md has deterministic per-source boundaries without frontmatter", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: agents-root
 claude: false
 codex: true
 `,
-    ".skillset/src/rules/beta.md": `
+    ".skillset/rules/beta.md": `
 ---
 paths:
   - "**/*"
@@ -6888,7 +6866,7 @@ paths:
 
 - Second by name.
 `,
-    ".skillset/src/rules/alpha.md": `
+    ".skillset/rules/alpha.md": `
 # Alpha
 
 - First by name.
@@ -6898,8 +6876,8 @@ paths:
   await buildSkillset(root);
   const agents = await readFile(join(root, "AGENTS.md"), "utf8");
   // Both sources are bounded by a comment naming their path.
-  expect(agents).toContain("<!-- source: .skillset/src/rules/alpha.md -->");
-  expect(agents).toContain("<!-- source: .skillset/src/rules/beta.md -->");
+  expect(agents).toContain("<!-- source: .skillset/rules/alpha.md -->");
+  expect(agents).toContain("<!-- source: .skillset/rules/beta.md -->");
   // Deterministic order: alpha before beta.
   expect(agents.indexOf("alpha.md")).toBeLessThan(agents.indexOf("beta.md"));
   // Source-only frontmatter (paths) never leaks into the generated AGENTS.md.
@@ -6911,13 +6889,13 @@ paths:
 test("SET-7: build and generated-output verification report when a generated AGENTS.md exceeds Codex's size limit", async () => {
   const big = `# Big\n\n${"- padding line to grow the instruction file\n".repeat(900)}`;
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: big-root
 claude: false
 codex: true
 `,
-    ".skillset/src/rules/big.md": big,
+    ".skillset/rules/big.md": big,
   });
 
   const result = await buildSkillsetResult(root);
@@ -6978,16 +6956,16 @@ codex: true
 
 test("SET-15: lint flags an undeclared resource link with a suggested entry", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: res-root
 claude: true
 codex: false
 `,
-    ".skillset/src/shared/references/guide.md": `
+    ".skillset/shared/references/guide.md": `
 # Guide
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Links an undeclared shared resource.
@@ -7008,16 +6986,16 @@ See the [guide](shared:references/guide.md).
 
 test("SET-15: a link to a declared directory-resource child lints clean (no false undeclared)", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: res-root
 claude: true
 codex: false
 `,
-    ".skillset/src/shared/references/dir/page.md": `
+    ".skillset/shared/references/dir/page.md": `
 # Page
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Links a child of a declared directory resource.
@@ -7036,13 +7014,13 @@ See the [page](shared:references/dir/page.md) and the [dir](shared:references/di
 
 test("SET-15: lint flags a plugin-root script dependency in a skill body", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: res-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Depends on a plugin-root script path.
@@ -7057,17 +7035,17 @@ Run the [checker](\${CLAUDE_PLUGIN_ROOT}/scripts/check.sh) first.
 
 test("SET-15: lint reports a declared script resource that is not executable", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: res-root
 claude: true
 codex: false
 `,
-    ".skillset/src/shared/scripts/run.sh": `
+    ".skillset/shared/scripts/run.sh": `
 #!/usr/bin/env bash
 echo hi
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Declares a non-executable script resource.
@@ -7080,23 +7058,23 @@ Body.
 `,
   });
 
-  await chmod(join(root, ".skillset/src/shared/scripts/run.sh"), 0o644);
+  await chmod(join(root, ".skillset/shared/scripts/run.sh"), 0o644);
   await expect(lintSkillset(root)).rejects.toThrow("is not executable");
 });
 
 test("SET-15: an executable declared script resource lints clean", async () => {
   const root = await contractFixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: res-root
 claude: true
 codex: false
 `,
-    ".skillset/src/shared/scripts/run.sh": `
+    ".skillset/shared/scripts/run.sh": `
 #!/usr/bin/env bash
 echo hi
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Declares an executable script resource.
@@ -7109,7 +7087,7 @@ Body.
 `,
   });
 
-  await chmod(join(root, ".skillset/src/shared/scripts/run.sh"), 0o755);
+  await chmod(join(root, ".skillset/shared/scripts/run.sh"), 0o755);
   const result = await lintSkillset(root);
   expect(result.issues).toEqual([]);
 });

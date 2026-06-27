@@ -1,3 +1,5 @@
+import { gitSafeEnv } from "./git-env";
+
 export type ChangedFile = {
   path: string;
   status?: string;
@@ -157,6 +159,7 @@ async function runText(
 ) {
   const subprocess = Bun.spawn([...command], {
     cwd,
+    env: gitSafeEnv(),
     stderr: "pipe",
     stdout: "pipe",
   });

@@ -72,7 +72,7 @@ async function planWorkspaceManifest(rootPath: string, operations: Operation[]):
 
   const legacyConfigPath = join(skillsetPath, LEGACY_CONFIG_FILE);
   const legacySourceManifestPath = join(skillsetPath, LEGACY_SOURCE_MANIFEST_FILE);
-  const workspaceManifestPath = join(skillsetPath, WORKSPACE_MANIFEST_FILE);
+  const workspaceManifestPath = join(rootPath, WORKSPACE_MANIFEST_FILE);
   const hasLegacyConfig = await exists(legacyConfigPath);
   const hasLegacySourceManifest = await exists(legacySourceManifestPath);
   if (!hasLegacyConfig && !hasLegacySourceManifest) return;
@@ -141,10 +141,10 @@ async function planPendingChanges(rootPath: string, changeDir: string, operation
 
 async function planDedicatedChangesDirectory(rootPath: string, operations: Operation[]): Promise<void> {
   const oldPath = join(rootPath, "changes");
-  const newPath = join(rootPath, "skillset", "changes");
+  const newPath = join(rootPath, ORDINARY_DIR, "changes");
   if (!(await exists(oldPath))) return;
   if (await exists(newPath)) {
-    throw new Error("skillset: both changes and skillset/changes exist; migrate dedicated change state by hand");
+    throw new Error("skillset: both changes and .skillset/changes exist; migrate dedicated change state by hand");
   }
   operations.push({ from: oldPath, kind: "rename", to: newPath });
 }

@@ -4,7 +4,7 @@ Feature id: `plugins`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Plugins group skills and target-native companion files while preserving provider-specific bundle boundaries. Source lives under the workspace source root's `plugins/<plugin>/` directory, such as `.skillset/src/plugins/<plugin>/` in an ordinary repo or `skillset/plugins/<plugin>/` in a dedicated Skillset repo, with a plugin-local `skillset.yaml`.
+Plugins group skills and target-native companion files while preserving provider-specific bundle boundaries. Source lives under the workspace source root's `plugins/<plugin>/` directory, such as `.skillset/plugins/<plugin>/`, with a plugin-local `skillset.yaml`.
 
 ## Authoring
 

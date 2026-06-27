@@ -2,20 +2,8 @@ import { gitSafeEnv } from "../git-env";
 
 export const HOOK_RELEVANT_SOURCE_PATHS = [
   "skillset.yaml",
-  "skillset/rules",
-  "skillset/skills",
-  "skillset/plugins",
-  "skillset/shared",
-  "skillset/changes",
+  ".skillset",
   "skillset",
-  ".skillset/skillset.yaml",
-  ".skillset/config.yaml",
-  ".skillset/src/rules",
-  ".skillset/src/skills",
-  ".skillset/src/plugins",
-  ".skillset/src/shared",
-  ".skillset/src",
-  ".skillset/changes",
 ] as const;
 
 export interface HookSourceGateResult {

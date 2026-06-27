@@ -48,7 +48,7 @@ const makeRepoRoot = (): string => {
   );
   writeFileSync(join(root, ".bun-version"), "1.3.14\n");
   writeFileSync(
-    join(root, ".skillset/skillset.yaml"),
+    join(root, "skillset.yaml"),
     "skillset:\n  name: skillset\n"
   );
   writeFileSync(join(root, "apps/skillset/src/cli.ts"), "");
@@ -157,11 +157,11 @@ describe("bootstrap repo policy", () => {
     try {
       expect(isRepoRoot(ordinaryRoot)).toBe(true);
 
-      rmSync(join(legacyRoot, ".skillset/skillset.yaml"), { force: true });
-      writeFileSync(join(legacyRoot, ".skillset/config.yaml"), "skillset:\n  name: legacy\n");
+      rmSync(join(legacyRoot, "skillset.yaml"), { force: true });
+      writeFileSync(join(legacyRoot, "skillset.yaml"), "skillset:\n  name: legacy\n");
       expect(isRepoRoot(legacyRoot)).toBe(true);
 
-      rmSync(join(dedicatedRoot, ".skillset/skillset.yaml"), { force: true });
+      rmSync(join(dedicatedRoot, "skillset.yaml"), { force: true });
       writeFileSync(join(dedicatedRoot, "skillset.yaml"), "skillset:\n  name: dedicated\n");
       mkdirSync(join(dedicatedRoot, "skillset"), { recursive: true });
       expect(isRepoRoot(dedicatedRoot)).toBe(true);

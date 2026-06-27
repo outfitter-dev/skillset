@@ -20,15 +20,15 @@ import { loadBuildGraph } from "../resolver";
 import { renderValidatedToml } from "../structured-output";
 import { runSkillsetTest } from "../test-runner";
 
-test("loads ordinary 1.0 workspace from .skillset/skillset.yaml and .skillset/src", async () => {
+test("loads ordinary 1.0 workspace from skillset.yaml and .skillset", async () => {
   const root = await fixture({
-    ".skillset/skillset.yaml": `
+    "skillset.yaml": `
 skillset:
   name: ordinary-root
 claude: true
 codex: true
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo ordinary workspace skill.
@@ -40,11 +40,11 @@ Demo ordinary workspace skill.
 
   const graph = await loadBuildGraph(root);
 
-  expect(graph.rootConfigPath).toBe(join(root, ".skillset/skillset.yaml"));
-  expect(graph.rootManifestPath).toBe(join(root, ".skillset/skillset.yaml"));
+  expect(graph.rootConfigPath).toBe(join(root, "skillset.yaml"));
+  expect(graph.rootManifestPath).toBe(join(root, "skillset.yaml"));
   expect(graph.sourceDir).toBe(".skillset");
-  expect(graph.sourceRoot).toBe(".skillset/src");
-  expect(graph.sourceRootPath).toBe(join(root, ".skillset/src"));
+  expect(graph.sourceRoot).toBe(".skillset");
+  expect(graph.sourceRootPath).toBe(join(root, ".skillset"));
   expect(graph.standaloneSkills.map((skill) => skill.id)).toEqual(["demo"]);
 
   await buildSkillset(root);
@@ -53,21 +53,25 @@ Demo ordinary workspace skill.
   expect(await exists(join(root, ".agents/skills/demo/SKILL.md"))).toBe(true);
 });
 
-test("loads dedicated 1.0 workspace from root skillset.yaml and skillset directory", async () => {
+test("loads plugin-only workspace from root skillset.yaml and .skillset/plugins", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
-  name: dedicated-root
+  name: plugin-only-root
 claude: true
 codex: true
 `,
-    "skillset/skills/demo/SKILL.md": `
+    ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+`,
+    ".skillset/plugins/demo/skills/child/SKILL.md": `
 ---
-name: demo
-description: Demo dedicated workspace skill.
+name: child
+description: Demo plugin skill.
 ---
 
-Demo dedicated workspace skill.
+Demo plugin skill.
 `,
   });
 
@@ -75,18 +79,18 @@ Demo dedicated workspace skill.
 
   expect(graph.rootConfigPath).toBe(join(root, "skillset.yaml"));
   expect(graph.rootManifestPath).toBe(join(root, "skillset.yaml"));
-  expect(graph.sourceDir).toBe(".");
-  expect(graph.sourceRoot).toBe("skillset");
-  expect(graph.sourceRootPath).toBe(join(root, "skillset"));
-  expect(graph.standaloneSkills.map((skill) => skill.id)).toEqual(["demo"]);
+  expect(graph.sourceDir).toBe(".skillset");
+  expect(graph.sourceRoot).toBe(".skillset");
+  expect(graph.sourceRootPath).toBe(join(root, ".skillset"));
+  expect(graph.plugins.map((plugin) => plugin.id)).toEqual(["demo"]);
 
   await buildSkillset(root);
 
-  expect(await exists(join(root, ".claude/skills/demo/SKILL.md"))).toBe(true);
-  expect(await exists(join(root, ".agents/skills/demo/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, "plugins-claude/plugins/demo/skills/child/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, "plugins-codex/plugins/demo/skills/child/SKILL.md"))).toBe(true);
 });
 
-test("loads ordinary 1.0 workspace from a custom source directory", async () => {
+test("rejects custom source directories after workspace layout cutover", async () => {
   const root = await fixture({
     "authoring/skillset.yaml": `
 skillset:
@@ -104,15 +108,12 @@ Demo custom ordinary workspace skill.
 `,
   });
 
-  const graph = await loadBuildGraph(root, { sourceDir: "authoring" });
-
-  expect(graph.rootConfigPath).toBe(join(root, "authoring/skillset.yaml"));
-  expect(graph.sourceDir).toBe("authoring");
-  expect(graph.sourceRoot).toBe("authoring/src");
-  expect(graph.standaloneSkills.map((skill) => skill.id)).toEqual(["demo"]);
+  await expect(loadBuildGraph(root, { sourceDir: "authoring" })).rejects.toThrow(
+    "--source authoring uses a retired source layout"
+  );
 });
 
-test("dedicated 1.0 workspace ignores unrelated top-level directories", async () => {
+test("workspace ignores unrelated top-level directories", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -120,7 +121,7 @@ skillset:
 claude: true
 codex: false
 `,
-    "skillset/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo dedicated workspace skill.
@@ -134,12 +135,12 @@ Demo dedicated workspace skill.
   });
 
   await expect(loadBuildGraph(root)).resolves.toMatchObject({
-    sourceDir: ".",
-    sourceRoot: "skillset",
+    sourceDir: ".skillset",
+    sourceRoot: ".skillset",
   });
 });
 
-test("dedicated 1.0 change status reads release state from skillset/changes/state.json", async () => {
+test("dedicated 1.0 change status reads release state from .skillset/changes/state.json", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -147,7 +148,7 @@ skillset:
 claude: true
 codex: true
 `,
-    "skillset/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo dedicated workspace skill.
@@ -161,7 +162,7 @@ Demo dedicated workspace skill.
   await buildSkillset(root);
   await commitFixture(root);
   await writeFile(
-    join(root, "skillset/skills/demo/SKILL.md"),
+    join(root, ".skillset/skills/demo/SKILL.md"),
     `---
 name: demo
 description: Demo dedicated workspace skill.
@@ -185,19 +186,19 @@ Changed after the generated lock was written.
         },
       },
     },
-    { sourceDir: "." }
+    { sourceDir: ".skillset" }
   );
 
   const status = await changeStatus(root);
 
   expect(status.baseline).toMatchObject({
     kind: "source-inventory",
-    label: "skillset/changes/state.json",
+    label: ".skillset/changes/state.json",
   });
   expect(status.sourceChanges.map((change) => change.id)).not.toContain("skill:demo");
 });
 
-test("dedicated 1.0 release baseline seeding writes to skillset/changes/state.json", async () => {
+test("dedicated 1.0 release baseline seeding writes to .skillset/changes/state.json", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -205,7 +206,7 @@ skillset:
 claude: true
 codex: false
 `,
-    "skillset/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo dedicated workspace skill.
@@ -218,17 +219,26 @@ Demo dedicated workspace skill.
 
   const report = await seedReleaseBaselines(root, {}, { write: true });
 
-  expect(report.path).toBe("skillset/changes/state.json");
+  expect(report.path).toBe(".skillset/changes/state.json");
   expect(report.entries.map((entry) => entry.scope)).toContain("skill:demo");
-  expect(await exists(join(root, "skillset/changes/state.json"))).toBe(true);
+  expect(await exists(join(root, ".skillset/changes/state.json"))).toBe(true);
 });
 
-test("dedicated 1.0 release baseline seeding fails loudly for malformed workspace markers", async () => {
+test("release baseline seeding fails loudly for malformed workspace metadata", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": "claude: true\n",
+    "skillset.yaml": "skillset:\n  name: malformed\n  version: nope\nclaude: true\n",
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+version: 0.1.0
+---
+
+Demo skill.
+`,
   });
 
-  await expect(seedReleaseBaselines(root, {}, { write: true })).rejects.toThrow("skillset.yaml");
+  await expect(seedReleaseBaselines(root, {}, { write: true })).rejects.toThrow("skillset.yaml.skillset.version");
 });
 
 test("dedicated 1.0 output roots cannot point at source changes state", async () => {
@@ -238,11 +248,11 @@ skillset:
   name: dedicated-root
   outputs:
     skills:
-      claude: skillset/changes
+      claude: .skillset/changes
 claude: true
 codex: false
 `,
-    "skillset/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo dedicated workspace skill.
@@ -252,7 +262,7 @@ Demo dedicated workspace skill.
 `,
   });
 
-  await expect(loadBuildGraph(root)).rejects.toThrow("must not point inside change state skillset/changes");
+  await expect(loadBuildGraph(root)).rejects.toThrow("must not point inside change state .skillset/changes");
 });
 
 test("dedicated 1.0 change add writes pending entries to source changes directory", async () => {
@@ -263,7 +273,7 @@ skillset:
 claude: true
 codex: false
 `,
-    "skillset/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo dedicated workspace skill.
@@ -277,7 +287,7 @@ Demo dedicated workspace skill.
   await buildSkillset(root);
   await commitFixture(root);
   await writeFile(
-    join(root, "skillset/skills/demo/SKILL.md"),
+    join(root, ".skillset/skills/demo/SKILL.md"),
     `---
 name: demo
 description: Demo dedicated workspace skill.
@@ -298,9 +308,9 @@ Changed after the generated lock was written.
     scopes: ["skill:demo"],
   });
 
-  expect(report.entry.path).toMatch(/^skillset\/changes\/[0-9a-f]{12}\.md$/);
+  expect(report.entry.path).toMatch(/^\.skillset\/changes\/[0-9a-f]{12}\.md$/);
   expect(await exists(join(root, report.entry.path))).toBe(true);
-  expect(await exists(join(root, ".skillset/changes"))).toBe(false);
+  expect(await exists(join(root, "skillset/changes"))).toBe(false);
 });
 
 test("dedicated 1.0 release apply writes history and releases to source changes directory", async () => {
@@ -311,7 +321,7 @@ skillset:
 claude: true
 codex: false
 `,
-    "skillset/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo dedicated workspace skill.
@@ -325,7 +335,7 @@ Demo dedicated workspace skill.
   await buildSkillset(root);
   await commitFixture(root);
   await writeFile(
-    join(root, "skillset/skills/demo/SKILL.md"),
+    join(root, ".skillset/skills/demo/SKILL.md"),
     `---
 name: demo
 description: Demo dedicated workspace skill.
@@ -347,14 +357,14 @@ Changed before applying a dedicated workspace release.
 
   const report = await applyRelease(root);
 
-  expect(report.files).toContain("skillset/changes/history.jsonl");
-  expect(report.files).toContain("skillset/changes/releases.jsonl");
-  expect(report.files).toContain("skillset/changes/state.json");
-  expect(await exists(join(root, "skillset/changes/history.jsonl"))).toBe(true);
-  expect(await exists(join(root, "skillset/changes/releases.jsonl"))).toBe(true);
-  expect(await exists(join(root, "skillset/changes/state.json"))).toBe(true);
+  expect(report.files).toContain(".skillset/changes/history.jsonl");
+  expect(report.files).toContain(".skillset/changes/releases.jsonl");
+  expect(report.files).toContain(".skillset/changes/state.json");
+  expect(await exists(join(root, ".skillset/changes/history.jsonl"))).toBe(true);
+  expect(await exists(join(root, ".skillset/changes/releases.jsonl"))).toBe(true);
+  expect(await exists(join(root, ".skillset/changes/state.json"))).toBe(true);
   expect(await exists(join(root, added.entry.path))).toBe(false);
-  expect(await exists(join(root, ".skillset/changes/history.jsonl"))).toBe(false);
+  expect(await exists(join(root, "skillset/changes/history.jsonl"))).toBe(false);
 });
 
 test("dedicated 1.0 change history can read records while source units are absent", async () => {
@@ -366,9 +376,9 @@ claude: true
 codex: false
 `,
   });
-  await mkdir(join(root, "skillset/changes"), { recursive: true });
+  await mkdir(join(root, ".skillset/changes"), { recursive: true });
   await writeFile(
-    join(root, "skillset/changes/history.jsonl"),
+    join(root, ".skillset/changes/history.jsonl"),
     `${JSON.stringify({
       appliedAt: "2026-06-19T00:00:00.000Z",
       bump: "patch",
@@ -382,14 +392,12 @@ codex: false
 
   const history = await readChangeHistory(root);
 
-  expect(history.entries.map((entry) => entry.path)).toEqual(["skillset/changes/history.jsonl:1"]);
+  expect(history.entries.map((entry) => entry.path)).toEqual([".skillset/changes/history.jsonl:1"]);
 });
 
-test("rejects ambiguous workspace layout markers", async () => {
-  const ordinaryAndLegacy = await fixture({
-    ".skillset/config.yaml": "claude: true\n",
-    ".skillset/src/skillset.yaml": "skillset:\n  name: legacy-root\n",
-    ".skillset/skillset.yaml": "skillset:\n  name: ordinary-root\nclaude: true\n",
+test("rejects retired workspace layout markers", async () => {
+  const retiredNestedSource = await fixture({
+    "skillset.yaml": "skillset:\n  name: workspace-root\nclaude: true\n",
     ".skillset/src/skills/demo/SKILL.md": `
 ---
 name: demo
@@ -400,13 +408,11 @@ Demo skill.
 `,
   });
 
-  await expect(loadBuildGraph(ordinaryAndLegacy)).rejects.toThrow(
-    "found both .skillset/skillset.yaml and legacy .skillset/config.yaml"
-  );
+  await expect(loadBuildGraph(retiredNestedSource)).rejects.toThrow(".skillset/src uses a retired source layout");
 
-  const dedicatedAndOrdinary = await fixture({
-    "skillset.yaml": "skillset:\n  name: dedicated-root\nclaude: true\n",
-    "skillset/skills/demo/SKILL.md": `
+  const retiredWorkspaceManifest = await fixture({
+    ".skillset/skillset.yaml": "skillset:\n  name: old-root\nclaude: true\n",
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo skill.
@@ -414,19 +420,17 @@ description: Demo skill.
 
 Demo skill.
 `,
-    ".skillset/skillset.yaml": "skillset:\n  name: ordinary-root\nclaude: true\n",
   });
 
-  await expect(loadBuildGraph(dedicatedAndOrdinary)).rejects.toThrow(
-    "found both dedicated root skillset.yaml/skillset and ordinary .skillset workspace"
+  await expect(loadBuildGraph(retiredWorkspaceManifest)).rejects.toThrow(
+    ".skillset/skillset.yaml uses a retired source layout"
   );
 });
 
-test("orphan root skillset.yaml does not mask an ordinary 1.0 workspace", async () => {
+test("root skillset.yaml configures the canonical workspace", async () => {
   const root = await fixture({
-    "skillset.yaml": "skillset:\n  name: orphan-root\nclaude: true\n",
-    ".skillset/skillset.yaml": "skillset:\n  name: ordinary-root\nclaude: true\ncodex: false\n",
-    ".skillset/src/skills/demo/SKILL.md": `
+    "skillset.yaml": "skillset:\n  name: ordinary-root\nclaude: true\ncodex: false\n",
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo ordinary workspace skill.
@@ -438,21 +442,33 @@ Demo ordinary workspace skill.
 
   const graph = await loadBuildGraph(root);
 
-  expect(graph.rootConfigPath).toBe(join(root, ".skillset/skillset.yaml"));
+  expect(graph.rootConfigPath).toBe(join(root, "skillset.yaml"));
   expect(graph.sourceDir).toBe(".skillset");
-  expect(graph.sourceRoot).toBe(".skillset/src");
+  expect(graph.sourceRoot).toBe(".skillset");
 });
 
-test("orphan root skillset.yaml with unrelated skillset directory does not mask an ordinary 1.0 workspace", async () => {
+test("root skillset directory is a retired source marker", async () => {
   const root = await fixture({
-    "skillset.yaml": "skillset:\n  name: orphan-root\nclaude: true\n",
+    "skillset.yaml": "skillset:\n  name: ordinary-root\nclaude: true\ncodex: false\n",
     "skillset/README.md": "This is not Skillset source.\n",
-    "skillset/skills/README.md": "Still not Skillset source.\n",
-    "skillset/rules/README.md": "Still not Skillset source.\n",
-    "skillset/agents/README.md": "Still not Skillset source.\n",
-    "skillset/_codex/README.md": "Still not Skillset source.\n",
-    ".skillset/skillset.yaml": "skillset:\n  name: ordinary-root\nclaude: true\ncodex: false\n",
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo ordinary workspace skill.
+---
+
+Demo ordinary workspace skill.
+`,
+  });
+
+  await expect(loadBuildGraph(root)).rejects.toThrow("skillset uses a retired source layout");
+});
+
+test("workspace provider source file is canonical source", async () => {
+  const root = await fixture({
+    "skillset.yaml": "skillset:\n  name: ordinary-root\nclaude: true\ncodex: false\n",
+    ".skillset/_codex/settings.json": "{}\n",
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo ordinary workspace skill.
@@ -463,40 +479,18 @@ Demo ordinary workspace skill.
   });
 
   const graph = await loadBuildGraph(root);
-
-  expect(graph.rootConfigPath).toBe(join(root, ".skillset/skillset.yaml"));
-  expect(graph.sourceDir).toBe(".skillset");
-});
-
-test("root skillset.yaml with provider source file remains ambiguous with ordinary workspace", async () => {
-  const root = await fixture({
-    "skillset.yaml": "skillset:\n  name: dedicated-root\nclaude: true\n",
-    "skillset/_codex/settings.json": "{}\n",
-    ".skillset/skillset.yaml": "skillset:\n  name: ordinary-root\nclaude: true\ncodex: false\n",
-    ".skillset/src/skills/demo/SKILL.md": `
----
-name: demo
-description: Demo ordinary workspace skill.
----
-
-Demo ordinary workspace skill.
-`,
-  });
-
-  await expect(loadBuildGraph(root)).rejects.toThrow(
-    "found both dedicated root skillset.yaml/skillset and ordinary .skillset workspace"
-  );
+  expect(graph.projectIslands.map((island) => island.sourcePath)).toContain(join(root, ".skillset/_codex/settings.json"));
 });
 
 test("skillset test reads ordinary 1.0 workspace tests from the source root", async () => {
   const root = await fixture({
-    ".skillset/skillset.yaml": `
+    "skillset.yaml": `
 skillset:
   name: ordinary-root
 claude: true
 codex: false
 `,
-    ".skillset/src/tests.yaml": `
+    ".skillset/tests.yaml": `
 self:
   select:
     skills:
@@ -508,7 +502,7 @@ self:
     files:
       - path: .claude/skills/demo/SKILL.md
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo ordinary workspace skill.
@@ -536,7 +530,7 @@ skillset:
 claude: true
 codex: false
 `,
-    "skillset/tests/self.yaml": `
+    ".skillset/tests/self.yaml": `
 select:
   skills:
     primary: ["demo"]
@@ -547,7 +541,7 @@ checks:
   files:
     - path: .claude/skills/demo/SKILL.md
 `,
-    "skillset/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo dedicated workspace skill.
@@ -560,7 +554,7 @@ Demo dedicated workspace skill.
   const report = await runSkillsetTest(root, "self");
 
   expect(report.ok).toBe(true);
-  expect(report.source).toBe("repo:.");
+  expect(report.source).toBe("repo:.skillset");
   expect(await exists(cachePath(root, ".skillset/cache/tests/latest/workspace/skillset.yaml"))).toBe(true);
   expect(await exists(cachePath(root, ".skillset/cache/tests/latest/workspace/.claude/skills/demo/SKILL.md"))).toBe(true);
   expect(await exists(cachePath(root, ".skillset/cache/tests/latest/workspace/package.json"))).toBe(false);
@@ -568,13 +562,13 @@ Demo dedicated workspace skill.
 
 test("skillset test rejects duplicate source-root declaration names", async () => {
   const root = await fixture({
-    ".skillset/skillset.yaml": `
+    "skillset.yaml": `
 skillset:
   name: duplicate-tests
 claude: true
 codex: false
 `,
-    ".skillset/src/tests.yaml": `
+    ".skillset/tests.yaml": `
 self:
   select:
     skills:
@@ -582,14 +576,14 @@ self:
   checks:
     projection: true
 `,
-    ".skillset/src/tests/self.yaml": `
+    ".skillset/tests/self.yaml": `
 select:
   skills:
     primary: ["demo"]
 checks:
   projection: true
 `,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo ordinary workspace skill.
@@ -600,21 +594,19 @@ Demo ordinary workspace skill.
   });
 
   await expect(runSkillsetTest(root, "self")).rejects.toThrow(
-    "duplicate test self in .skillset/src/tests.yaml.self and .skillset/src/tests/self.yaml"
+    "duplicate test self in .skillset/tests.yaml.self and .skillset/tests/self.yaml"
   );
 });
 
 test("change status compares current dedicated workspace against legacy git baselines", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
+skillset:
+  name: migrating-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skillset.yaml": `
-skillset:
-  name: migrating-root
-`,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo migrated skill.
@@ -635,7 +627,48 @@ codex: false
 `
   );
   await Bun.write(
-    join(root, "skillset/skills/demo/SKILL.md"),
+    join(root, ".skillset/skills/demo/SKILL.md"),
+    `---
+name: demo
+description: Demo migrated skill.
+version: 0.1.0
+---
+
+Dedicated workspace body.
+`
+  );
+
+  const status = await changeStatus(root, { since: "HEAD" });
+
+  expect(status.baseline).toMatchObject({ kind: "git-ref", ref: "HEAD" });
+  expect(status.sourceChanges.map((change) => change.id)).toContain("skill:demo");
+});
+
+test("change status normalizes legacy source baselines with existing workspace sentinels", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: migrating-root
+claude: true
+codex: false
+`,
+    ".skillset/.gitignore": "cache/*\n!cache/.gitignore\nsnapshots/*\n!snapshots/.gitignore\n",
+    ".skillset/cache/.gitignore": "*\n!.gitignore\n",
+    ".skillset/snapshots/.gitignore": "*\n!.gitignore\n",
+    "skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo migrated skill.
+version: 0.1.0
+---
+
+Legacy workspace body.
+`,
+  });
+  await commitFixture(root);
+  await rm(join(root, "skillset"), { force: true, recursive: true });
+  await Bun.write(
+    join(root, ".skillset/skills/demo/SKILL.md"),
     `---
 name: demo
 description: Demo migrated skill.
@@ -654,15 +687,13 @@ Dedicated workspace body.
 
 test("change status explicit dedicated source compares against legacy git baselines", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
+skillset:
+  name: migrating-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skillset.yaml": `
-skillset:
-  name: migrating-root
-`,
-    ".skillset/src/skills/demo/SKILL.md": `
+    ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo migrated skill.
@@ -683,7 +714,7 @@ codex: false
 `
   );
   await Bun.write(
-    join(root, "skillset/skills/demo/SKILL.md"),
+    join(root, ".skillset/skills/demo/SKILL.md"),
     `---
 name: demo
 description: Demo migrated skill.
@@ -694,15 +725,15 @@ Dedicated workspace body.
 `
   );
 
-  const status = await changeStatus(root, { since: "HEAD", sourceDir: "." });
+  const status = await changeStatus(root, { since: "HEAD", sourceDir: ".skillset" });
 
   expect(status.baseline).toMatchObject({ kind: "git-ref", ref: "HEAD" });
   expect(status.sourceChanges.map((change) => change.id)).toContain("skill:demo");
 });
 
-test("legacy split source manifest outputs do not override workspace config outputs", async () => {
+test("legacy split source manifest is rejected", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 claude: true
 codex: false
 `,
@@ -713,11 +744,11 @@ skillset:
     plugins:
       claude: stale-source-output
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/demo/SKILL.md": `
+    ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo plugin skill.
@@ -727,28 +758,25 @@ Demo plugin skill.
 `,
   });
 
-  await buildSkillset(root);
-
-  expect(await exists(join(root, "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"))).toBe(true);
-  expect(await exists(join(root, "stale-source-output/plugins/alpha/.claude-plugin/plugin.json"))).toBe(false);
+  await expect(buildSkillset(root)).rejects.toThrow(".skillset/src uses a retired source layout");
 });
 
 test("resolves target inheritance, booleans, objects, and false opt-out", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex:
   color: "#B06DFF"
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 codex:
   color: "#123456"
 `,
-    ".skillset/src/plugins/alpha/skills/inherit/SKILL.md": `
+    ".skillset/plugins/alpha/skills/inherit/SKILL.md": `
 ---
 name: inherit
 description: Inherits both targets.
@@ -756,7 +784,7 @@ description: Inherits both targets.
 
 Inherited.
 `,
-    ".skillset/src/plugins/alpha/skills/codex-off/SKILL.md": `
+    ".skillset/plugins/alpha/skills/codex-off/SKILL.md": `
 ---
 name: codex-off
 description: Claude only.
@@ -765,7 +793,7 @@ codex: false
 
 Claude only.
 `,
-    ".skillset/src/plugins/alpha/skills/claude-off/SKILL.md": `
+    ".skillset/plugins/alpha/skills/claude-off/SKILL.md": `
 ---
 name: claude-off
 description: Codex only.
@@ -802,7 +830,7 @@ Codex only.
 
 test("root compile targets narrow providers while lower-level toggles can opt back in", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 compile:
@@ -812,11 +840,11 @@ claude:
   skills:
     path: skills-claude
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/inherit/SKILL.md": `
+    ".skillset/plugins/alpha/skills/inherit/SKILL.md": `
 ---
 name: inherit
 description: Inherits root targets.
@@ -824,12 +852,12 @@ description: Inherits root targets.
 
 Inherited.
 `,
-    ".skillset/src/plugins/beta/skillset.yaml": `
+    ".skillset/plugins/beta/skillset.yaml": `
 skillset:
   name: beta
 claude: true
 `,
-    ".skillset/src/plugins/beta/skills/opt-in/SKILL.md": `
+    ".skillset/plugins/beta/skills/opt-in/SKILL.md": `
 ---
 name: opt-in
 description: Opts Claude back in.
@@ -862,7 +890,7 @@ Opt in.
 
 test("target adapter config and defaults normalize through provider blocks", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 compile:
@@ -890,7 +918,7 @@ codex:
   projectRoot: .codex
   userRoot: ~/.codex
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 codex:
@@ -903,7 +931,7 @@ codex:
         custom-default: plugin
         plugin-default: yes
 `,
-    ".skillset/src/plugins/alpha/skills/defaulted/SKILL.md": `
+    ".skillset/plugins/alpha/skills/defaulted/SKILL.md": `
 ---
 name: defaulted
 description: Uses defaults.
@@ -950,13 +978,13 @@ Defaulted.
 
 test("compile build mode rejects invalid values", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 compile:
   build: partial
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -967,14 +995,14 @@ skillset:
 
 test("compile features validate prompt argument placeholder configuration", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 compile:
   features:
     promptArguments: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -984,14 +1012,14 @@ skillset:
   expect(graph.root.compile.features).toEqual({ promptArguments: false });
 
   const invalidRoot = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 compile:
   features:
     promptArguments: maybe
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -1004,15 +1032,15 @@ skillset:
 
 test("target defaults reject file frontmatter and unknown surfaces", async () => {
   const fileDefaultsRoot = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/bad/SKILL.md": `
+    ".skillset/plugins/alpha/skills/bad/SKILL.md": `
 ---
 name: bad
 description: Bad skill.
@@ -1031,15 +1059,15 @@ Bad.
   );
 
   const fileTargetDefaultsRoot = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/bad/SKILL.md": `
+    ".skillset/plugins/alpha/skills/bad/SKILL.md": `
 ---
 name: bad
 description: Bad skill.
@@ -1058,7 +1086,7 @@ Bad.
   );
 
   const shorthandSurfaceRoot = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 defaults:
@@ -1066,7 +1094,7 @@ defaults:
     skill:
       model: gpt-5
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -1077,7 +1105,7 @@ skillset:
   );
 
   const providerSurfaceRoot = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude:
@@ -1085,7 +1113,7 @@ claude:
     skill:
       model: sonnet
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -1098,7 +1126,7 @@ skillset:
 
 test("compile skillset metadata suppression omits generated skill metadata and records lock provenance", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 compile:
@@ -1107,11 +1135,11 @@ compile:
   skillset:
     metadata: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/plain/SKILL.md": `
+    ".skillset/plugins/alpha/skills/plain/SKILL.md": `
 ---
 name: plain
 description: Plain skill.
@@ -1138,7 +1166,7 @@ Plain.
 
 test("metadata suppression still leaves version-only changes visible through generated-output verification", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 compile:
@@ -1147,11 +1175,11 @@ compile:
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/plain/SKILL.md": `
+    ".skillset/plugins/alpha/skills/plain/SKILL.md": `
 ---
 name: plain
 description: Plain skill.
@@ -1164,7 +1192,7 @@ Plain.
 
   await buildSkillset(root);
   await writeFile(
-    join(root, ".skillset/src/plugins/alpha/skills/plain/SKILL.md"),
+    join(root, ".skillset/plugins/alpha/skills/plain/SKILL.md"),
     normalizeFixture(`
 ---
 name: plain
@@ -1181,15 +1209,15 @@ Plain.
 
 test("top-level model warns unless active target defaults or overrides handle it", async () => {
   const warnsRoot = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/modelish/SKILL.md": `
+    ".skillset/plugins/alpha/skills/modelish/SKILL.md": `
 ---
 name: modelish
 description: Has a portable-looking model.
@@ -1202,11 +1230,11 @@ Modelish.
 
   const warnsGraph = await loadBuildGraph(warnsRoot);
   expect(warnsGraph.warnings).toContain(
-    ".skillset/src/plugins/alpha/skills/modelish/SKILL.md uses top-level model, which is not portable in Skillset v1; use claude.model, codex.model, or target defaults for claude, codex."
+    ".skillset/plugins/alpha/skills/modelish/SKILL.md uses top-level model, which is not portable in Skillset v1; use claude.model, codex.model, or target defaults for claude, codex."
   );
 
   const handledRoot = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude:
@@ -1218,11 +1246,11 @@ codex:
     skills:
       model: gpt-5
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/modelish/SKILL.md": `
+    ".skillset/plugins/alpha/skills/modelish/SKILL.md": `
 ---
 name: modelish
 description: Has handled target models.
@@ -1239,7 +1267,7 @@ Modelish.
 
 test("build preserves plugin boundaries, strips source metadata, and writes locks", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
   version: 1.0.0
@@ -1252,7 +1280,7 @@ codex:
   plugins: true
   skills: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   description: Alpha plugin.
@@ -1263,9 +1291,9 @@ skillset:
 codex:
   color: "#B06DFF"
 `,
-    ".skillset/src/plugins/alpha/commands/.gitkeep": `
+    ".skillset/plugins/alpha/commands/.gitkeep": `
 `,
-    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 title: Alpha Skill
 summary: Portable alpha summary.
@@ -1283,7 +1311,7 @@ agents: true
 
 Alpha body.
 `,
-    ".skillset/src/plugins/beta/skillset.yaml": `
+    ".skillset/plugins/beta/skillset.yaml": `
 skillset:
   name: beta
   description: Beta plugin.
@@ -1291,7 +1319,7 @@ skillset:
 claude: false
 codex: true
 `,
-    ".skillset/src/plugins/beta/skills/beta-skill/SKILL.md": `
+    ".skillset/plugins/beta/skills/beta-skill/SKILL.md": `
 ---
 name: beta-skill
 description: Beta skill.
@@ -1357,7 +1385,7 @@ Beta body.
 
 test("plugin manifests keep agent and hook surfaces target-specific", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
   marketplace:
@@ -1365,19 +1393,19 @@ skillset:
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   description: Alpha plugin.
 `,
-    ".skillset/src/plugins/alpha/hooks/hooks.json": `
+    ".skillset/plugins/alpha/hooks/hooks.json": `
 {
   "hooks": {
     "SessionStart": []
   }
 }
 `,
-    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -1385,18 +1413,18 @@ description: Alpha skill.
 
 Alpha body.
 `,
-    ".skillset/src/plugins/beta/skillset.yaml": `
+    ".skillset/plugins/beta/skillset.yaml": `
 skillset:
   name: beta
   description: Beta plugin.
 codex: false
 `,
-    ".skillset/src/plugins/beta/agents/reviewer.md": `
+    ".skillset/plugins/beta/agents/reviewer.md": `
 # Reviewer
 
 Review carefully.
 `,
-    ".skillset/src/plugins/beta/skills/beta-skill/SKILL.md": `
+    ".skillset/plugins/beta/skills/beta-skill/SKILL.md": `
 ---
 name: beta-skill
 description: Beta skill.
@@ -1440,7 +1468,7 @@ Beta body.
 
 test("portable project agents lower to Claude Markdown and Codex TOML with provenance", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 defaults:
@@ -1450,13 +1478,13 @@ defaults:
 claude: true
 codex: true
 `,
-    ".skillset/src/shared/templates/body.md": `
+    ".skillset/shared/templates/body.md": `
 Use the shared review checklist.
 `,
-    ".skillset/src/shared/templates/prompt.md": `
+    ".skillset/shared/templates/prompt.md": `
 smallest complete review
 `,
-    ".skillset/src/agents/reviewer.md": `
+    ".skillset/agents/reviewer.md": `
 ---
 name: Code Reviewer
 description: Reviews project changes.
@@ -1506,17 +1534,17 @@ Tree:
 
   const lock = await readFile(join(root, "skillset.lock"), "utf8");
   expect(lock).toContain(`"kind": "project-agent"`);
-  expect(lock).toContain(`"sourcePath": ".skillset/src/agents/reviewer.md"`);
+  expect(lock).toContain(`"sourcePath": ".skillset/agents/reviewer.md"`);
   expect(lock).toContain(`"outputPath": ".claude/agents/code-reviewer.md"`);
   expect(lock).toContain(`".codex/agents/code-reviewer.toml"`);
 
-  const explained = await explainPath(root, ".skillset/src/agents/reviewer.md");
+  const explained = await explainPath(root, ".skillset/agents/reviewer.md");
   expect(explained.kind).toBe("source-project-agent");
   expect(explained.entries[0]?.kind).toBe("project-agent");
   expect(explained.entries[0]?.validation).toBe("structured");
   for (const entry of explained.entries) {
-    expect(entry.preprocessDependencies).toContain(".skillset/src/shared/templates/body.md");
-    expect(entry.preprocessDependencies).toContain("tree:.skillset/src/agents:1");
+    expect(entry.preprocessDependencies).toContain(".skillset/shared/templates/body.md");
+    expect(entry.preprocessDependencies).toContain("tree:.skillset/agents:1");
   }
   expect(explained.notes[0]).toContain("Project-scoped portable agent");
 
@@ -1524,8 +1552,8 @@ Tree:
   expect(explainedCodexOutput.kind).toBe("generated");
   expect(explainedCodexOutput.entries[0]?.kind).toBe("project-agent");
   expect(explainedCodexOutput.entries[0]?.outputPath).toBe(".codex/agents/code-reviewer.toml");
-  expect(explainedCodexOutput.entries[0]?.preprocessDependencies).toContain(".skillset/src/shared/templates/prompt.md");
-  expect(explainedCodexOutput.entries[0]?.preprocessDependencies).toContain("tree:.skillset/src/agents:1");
+  expect(explainedCodexOutput.entries[0]?.preprocessDependencies).toContain(".skillset/shared/templates/prompt.md");
+  expect(explainedCodexOutput.entries[0]?.preprocessDependencies).toContain("tree:.skillset/agents:1");
 
   const entries = await listGeneratedEntries(root);
   expect(entries.some((entry) => entry.kind === "project-agent" && entry.outputPath === ".claude/agents/code-reviewer.md")).toBe(true);
@@ -1534,7 +1562,7 @@ Tree:
 
 test("portable project agents support metadata suppression, warnings, and validation", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 compile:
@@ -1543,7 +1571,7 @@ compile:
 claude: true
 codex: true
 `,
-    ".skillset/src/agents/reviewer.md": `
+    ".skillset/agents/reviewer.md": `
 ---
 description: Reviews project changes.
 model: opus
@@ -1557,7 +1585,7 @@ Review diffs.
 
   const graph = await loadBuildGraph(root);
   expect(graph.warnings).toContain(
-    ".skillset/src/agents/reviewer.md uses top-level model, which is not portable in Skillset v1; use claude.model, codex.model, or target defaults for claude, codex."
+    ".skillset/agents/reviewer.md uses top-level model, which is not portable in Skillset v1; use claude.model, codex.model, or target defaults for claude, codex."
   );
 
   await buildSkillset(root);
@@ -1568,7 +1596,7 @@ Review diffs.
   expect(codexAgent).toContain("Use Codex-specific review steps.");
 
   const closingTagRoot = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude:
@@ -1578,7 +1606,7 @@ codex:
   projectRoot: project-codex
   userRoot: ~/.codex
 `,
-    ".skillset/src/agents/reviewer.md": `
+    ".skillset/agents/reviewer.md": `
 ---
 description: Invalid prompt.
 initialPrompt: "</initial_prompt>"
@@ -1590,7 +1618,7 @@ Review.
   await expect(loadBuildGraph(closingTagRoot)).rejects.toThrow("initialPrompt must not contain </initial_prompt>");
 
   const preprocessedClosingTagRoot = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude:
@@ -1600,10 +1628,10 @@ codex:
   projectRoot: project-codex
   userRoot: ~/.codex
 `,
-    ".skillset/src/shared/bad-prompt.md": `
+    ".skillset/shared/bad-prompt.md": `
 </initial_prompt>
 `,
-    ".skillset/src/agents/reviewer.md": `
+    ".skillset/agents/reviewer.md": `
 ---
 description: Invalid rendered prompt.
 initialPrompt: "{{shared:bad-prompt.md }}"
@@ -1615,13 +1643,13 @@ Review.
   await expect(buildSkillset(preprocessedClosingTagRoot)).rejects.toThrow("initialPrompt must not contain </initial_prompt>");
 
   const collisionRoot = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/agents/reviewer.md": `
+    ".skillset/agents/reviewer.md": `
 ---
 name: Reviewer
 description: Reviews.
@@ -1629,7 +1657,7 @@ description: Reviews.
 
 Review.
 `,
-    ".skillset/src/agents/reviewer-copy.md": `
+    ".skillset/agents/reviewer-copy.md": `
 ---
 name: Reviewer!
 description: Reviews too.
@@ -1641,13 +1669,13 @@ Review too.
   await expect(loadBuildGraph(collisionRoot)).rejects.toThrow("both generate claude agent reviewer");
 
   const targetNameCollisionRoot = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/agents/reviewer.md": `
+    ".skillset/agents/reviewer.md": `
 ---
 name: Reviewer
 description: Reviews.
@@ -1655,7 +1683,7 @@ description: Reviews.
 
 Review.
 `,
-    ".skillset/src/agents/auditor.md": `
+    ".skillset/agents/auditor.md": `
 ---
 name: Auditor
 description: Audits.
@@ -1671,7 +1699,7 @@ Audit.
 
 test("portable project agents preserve unmanaged target project files", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude:
@@ -1681,7 +1709,7 @@ codex:
   projectRoot: project-codex
   userRoot: ~/.codex
 `,
-    ".skillset/src/agents/reviewer.md": `
+    ".skillset/agents/reviewer.md": `
 ---
 description: Reviews project changes.
 ---
@@ -1713,7 +1741,7 @@ model = "gpt-5"
 
 test("portable project agents reject active output roots inside project roots", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude:
@@ -1722,14 +1750,14 @@ claude:
     path: .claude/agents
 codex: false
 `,
-    ".skillset/src/agents/reviewer.md": `
+    ".skillset/agents/reviewer.md": `
 ---
 description: Reviews project changes.
 ---
 
 Review diffs.
 `,
-    ".skillset/src/skills/helper/SKILL.md": `
+    ".skillset/skills/helper/SKILL.md": `
 ---
 description: Helps with project changes.
 ---
@@ -1739,13 +1767,13 @@ Help.
   });
 
   await expect(buildSkillset(root)).rejects.toThrow(
-    ".skillset/src/agents/reviewer.md would write inside active output root outputs.skills.claude (.claude/agents)"
+    ".skillset/agents/reviewer.md would write inside active output root outputs.skills.claude (.claude/agents)"
   );
 });
 
 test("Codex plugin agent diagnostics honor root plugin output selection", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
@@ -1753,16 +1781,16 @@ codex:
   plugins:
     - beta
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/agents/reviewer.md": `
+    ".skillset/plugins/alpha/agents/reviewer.md": `
 # Reviewer
 
 Review carefully.
 `,
-    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -1770,11 +1798,11 @@ description: Alpha skill.
 
 Alpha body.
 `,
-    ".skillset/src/plugins/beta/skillset.yaml": `
+    ".skillset/plugins/beta/skillset.yaml": `
 skillset:
   name: beta
 `,
-    ".skillset/src/plugins/beta/skills/beta-skill/SKILL.md": `
+    ".skillset/plugins/beta/skills/beta-skill/SKILL.md": `
 ---
 name: beta-skill
 description: Beta skill.
@@ -1793,22 +1821,22 @@ Beta body.
 
 test("Codex-enabled plugin agents fail loudly instead of promoting to project agents", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/agents/reviewer.md": `
+    ".skillset/plugins/alpha/agents/reviewer.md": `
 # Reviewer
 
 Review carefully.
 `,
-    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -1824,34 +1852,34 @@ Alpha body.
 
 test("build copies declared shared resources into generated skill folders", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/shared/references/root.md": `
+    ".skillset/shared/references/root.md": `
 # Root Reference
 `,
-    ".skillset/src/shared/templates/base.md": `
+    ".skillset/shared/templates/base.md": `
 # Base Template
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/scripts/plugin-tool.sh": `
+    ".skillset/plugins/alpha/scripts/plugin-tool.sh": `
 #!/usr/bin/env bash
 echo plugin-root
 `,
-    ".skillset/src/plugins/alpha/shared/references/plugin.md": `
+    ".skillset/plugins/alpha/shared/references/plugin.md": `
 # Plugin Reference
 `,
-    ".skillset/src/plugins/alpha/shared/scripts/check.sh": `
+    ".skillset/plugins/alpha/shared/scripts/check.sh": `
 #!/usr/bin/env bash
 echo shared
 `,
-    ".skillset/src/plugins/alpha/skills/resourceful/SKILL.md": `
+    ".skillset/plugins/alpha/skills/resourceful/SKILL.md": `
 ---
 name: resourceful
 description: Uses shared resources.
@@ -1923,7 +1951,7 @@ Run scripts/check.sh when deterministic checks help.
   expect(lock).toContain(`"plugins/alpha/skills/resourceful/scripts/check.sh"`);
 
   await writeFile(
-    join(root, ".skillset/src/plugins/alpha/shared/references/plugin.md"),
+    join(root, ".skillset/plugins/alpha/shared/references/plugin.md"),
     "# Changed Plugin Reference\n"
   );
   await expect(verifySkillset(root)).rejects.toThrow("stale generated file");
@@ -1931,29 +1959,29 @@ Run scripts/check.sh when deterministic checks help.
 
 test("preprocessing expands this references and partials in skill markdown and Codex YAML", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/shared/templates/intro.md": `
+    ".skillset/shared/templates/intro.md": `
 Shared intro for {{this.description}} at {{skillset.source_path}}.
 `,
-    ".skillset/src/shared/templates/openai.md": `
+    ".skillset/shared/templates/openai.md": `
 YAML prompt for {{this.description}} with "quotes".
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/preprocessed/agents/openai.yaml": `
+    ".skillset/plugins/alpha/skills/preprocessed/agents/openai.yaml": `
 notes: "{{this.description}}"
 config: {{this.metadata.config}}
 prompt: |
   {{shared:templates/openai.md}}
 `,
-    ".skillset/src/plugins/alpha/skills/preprocessed/SKILL.md": `
+    ".skillset/plugins/alpha/skills/preprocessed/SKILL.md": `
 ---
 name: preprocessed
 description: Preprocessed skill.
@@ -2023,11 +2051,11 @@ Tree:
   expect(claudeSkill).toContain('Long fence:\n~~~~\n~~~json\n{\n  "retries": 2,');
   expect(claudeSkill).toContain('Long same-length info fence:\n~~~~\n~~~~json\n{\n  "retries": 2,');
   expect(claudeSkill).not.toContain("```json\n```json");
-  expect(claudeSkill).toContain("Parent: preprocessed .skillset/src/plugins/alpha/skills/preprocessed");
+  expect(claudeSkill).toContain("Parent: preprocessed .skillset/plugins/alpha/skills/preprocessed");
   expect(claudeSkill).toContain("- SKILL.md");
   expect(claudeSkill).toContain("- agents/");
   expect(claudeSkill).toContain(
-    "Shared intro for Preprocessed skill. at .skillset/src/plugins/alpha/skills/preprocessed/SKILL.md."
+    "Shared intro for Preprocessed skill. at .skillset/plugins/alpha/skills/preprocessed/SKILL.md."
   );
   expect(codexAgent).toContain("notes: Preprocessed skill.");
   expect(codexAgent).toContain("config:");
@@ -2037,26 +2065,26 @@ Tree:
   expect(codexAgent).toContain("YAML prompt for Preprocessed skill. with \"quotes\".");
 
   const explainedClaude = await explainPath(root, "plugins-claude/plugins/alpha/skills/preprocessed/SKILL.md");
-  expect(explainedClaude.entries[0]?.preprocessDependencies).toContain(".skillset/src/shared/templates/intro.md");
-  expect(explainedClaude.entries[0]?.preprocessDependencies).not.toContain(".skillset/src/shared/templates/openai.md");
+  expect(explainedClaude.entries[0]?.preprocessDependencies).toContain(".skillset/shared/templates/intro.md");
+  expect(explainedClaude.entries[0]?.preprocessDependencies).not.toContain(".skillset/shared/templates/openai.md");
 
   const explainedCodex = await explainPath(root, "plugins-codex/plugins/alpha/skills/preprocessed/SKILL.md");
-  expect(explainedCodex.entries[0]?.preprocessDependencies).toContain(".skillset/src/shared/templates/intro.md");
-  expect(explainedCodex.entries[0]?.preprocessDependencies).toContain(".skillset/src/shared/templates/openai.md");
+  expect(explainedCodex.entries[0]?.preprocessDependencies).toContain(".skillset/shared/templates/intro.md");
+  expect(explainedCodex.entries[0]?.preprocessDependencies).toContain(".skillset/shared/templates/openai.md");
 
-  await writeFile(join(root, ".skillset/src/shared/templates/openai.md"), "Changed YAML prompt.\n");
+  await writeFile(join(root, ".skillset/shared/templates/openai.md"), "Changed YAML prompt.\n");
   await expect(verifySkillset(root)).rejects.toThrow("stale generated file");
 });
 
 test("preprocessing adapts prompt argument placeholders for Claude and shims Codex", async () => {
   const root = await fixture({
-    ".skillset/skillset.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/skills/argument-runner/SKILL.md": `
+    ".skillset/skills/argument-runner/SKILL.md": `
 ---
 name: argument-runner
 description: Runs a command with prompt arguments.
@@ -2091,7 +2119,7 @@ Literal marker: {{{ $ARGUMENTS }}}
 
 test("preprocessing rejects prompt argument placeholders when the feature is disabled", async () => {
   const root = await fixture({
-    ".skillset/skillset.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 compile:
@@ -2100,7 +2128,7 @@ compile:
 claude: true
 codex: true
 `,
-    ".skillset/src/skills/argument-runner/SKILL.md": `
+    ".skillset/skills/argument-runner/SKILL.md": `
 ---
 name: argument-runner
 description: Runs a command with prompt arguments.
@@ -2116,17 +2144,17 @@ Run \`docs-cli search "{{$ARGUMENTS[1]}}"\`.
 
 test("preprocessing opt-out preserves literal variables while stripping source controls", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/literal/SKILL.md": `
+    ".skillset/plugins/alpha/skills/literal/SKILL.md": `
 ---
 name: literal
 description: Literal skill.
@@ -2150,17 +2178,17 @@ Keep {{this.description}} literal.
 
 test("preprocessing fails loudly on missing this references", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/bad/SKILL.md": `
+    ".skillset/plugins/alpha/skills/bad/SKILL.md": `
 ---
 name: bad
 description: Bad skill.
@@ -2176,17 +2204,17 @@ Missing {{this.missing}}.
 test("preprocessing rejects invalid parent tree arguments", async () => {
   for (const token of ["{{parent.tree depth:1 format:markdown}}", "{{parent.tree depth:1 depth:2}}"]) {
     const root = await fixture({
-      ".skillset/config.yaml": `
+      "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: false
 `,
-      ".skillset/src/plugins/alpha/skillset.yaml": `
+      ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-      ".skillset/src/plugins/alpha/skills/bad/SKILL.md": `
+      ".skillset/plugins/alpha/skills/bad/SKILL.md": `
 ---
 name: bad
 description: Bad skill.
@@ -2202,7 +2230,7 @@ ${token}
 
 test("preprocessing rejects partial traversal and plugin partials outside plugins", async () => {
   const sharedTraversal = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
@@ -2211,11 +2239,11 @@ codex: false
     ".skillset/secret.md": `
 secret
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/bad/SKILL.md": `
+    ".skillset/plugins/alpha/skills/bad/SKILL.md": `
 ---
 name: bad
 description: Bad skill.
@@ -2229,20 +2257,20 @@ description: Bad skill.
   );
 
   const pluginTraversal = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/alpha/secret.md": `
+    ".skillset/plugins/alpha/secret.md": `
 secret
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/bad/SKILL.md": `
+    ".skillset/plugins/alpha/skills/bad/SKILL.md": `
 ---
 name: bad
 description: Bad skill.
@@ -2256,20 +2284,20 @@ description: Bad skill.
   );
 
   const relativeTraversal = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/secret.md": `
+    ".skillset/plugins/alpha/skills/secret.md": `
 secret
 `,
-    ".skillset/src/plugins/alpha/skills/bad/SKILL.md": `
+    ".skillset/plugins/alpha/skills/bad/SKILL.md": `
 ---
 name: bad
 description: Bad skill.
@@ -2283,17 +2311,17 @@ description: Bad skill.
   );
 
   const absolutePartial = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/bad/SKILL.md": `
+    ".skillset/plugins/alpha/skills/bad/SKILL.md": `
 ---
 name: bad
 description: Bad skill.
@@ -2305,13 +2333,13 @@ description: Bad skill.
   await expect(buildSkillset(absolutePartial)).rejects.toThrow("must be a relative path");
 
   const standalonePluginPartial = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: false
 `,
-    ".skillset/src/skills/bad/SKILL.md": `
+    ".skillset/skills/bad/SKILL.md": `
 ---
 name: bad
 description: Bad skill.
@@ -2325,18 +2353,158 @@ description: Bad skill.
   );
 });
 
-test("preprocessing rejects retired partial include syntax", async () => {
+test("preprocessing expands named partials recursively with workspace and plugin lookup", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: false
 `,
-    ".skillset/src/shared/templates/intro.md": `
-Intro.
+    ".skillset/partials/intro.md": `
+Workspace intro for {{this.description}}.
+{{> detail}}
 `,
-    ".skillset/src/skills/bad/SKILL.md": `
+    ".skillset/partials/nested/detail.md": `
+Workspace detail.
+`,
+    ".skillset/partials/preferred.md": `
+Workspace preferred.
+`,
+    ".skillset/plugins/alpha/partials/preferred.md": `
+Plugin preferred.
+`,
+    ".skillset/plugins/alpha/partials/plugin-only.md": `
+Plugin only for {{this.name}}.
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/good/SKILL.md": `
+---
+name: good
+description: Good skill.
+---
+
+{{> intro}}
+{{> preferred}}
+{{> plugin-only}}
+{{> alpha.plugin-only}}
+`,
+  });
+
+  await buildSkillset(root);
+
+  const skill = await readFile(
+    join(root, "plugins-claude/plugins/alpha/skills/good/SKILL.md"),
+    "utf8"
+  );
+  expect(skill).toContain("Workspace intro for Good skill.");
+  expect(skill).toContain("Workspace detail.");
+  expect(skill).toContain("Workspace preferred.");
+  expect(skill).not.toContain("Plugin preferred.");
+  expect(skill).toContain("Plugin only for good.");
+  expect(skill.match(/Plugin only for good\./g)?.length).toBe(2);
+
+  const explained = await explainPath(root, "plugins-claude/plugins/alpha/skills/good/SKILL.md");
+  expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/partials/intro.md");
+  expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/partials/nested/detail.md");
+  expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/partials/preferred.md");
+  expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/plugins/alpha/partials/plugin-only.md");
+});
+
+test("preprocessing reports named partial ambiguity, cycles, and cross-plugin references", async () => {
+  const ambiguousRoot = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: false
+`,
+    ".skillset/partials/one/intro.md": `
+One.
+`,
+    ".skillset/partials/two/intro.md": `
+Two.
+`,
+    ".skillset/skills/bad/SKILL.md": `
+---
+name: bad
+description: Bad skill.
+---
+
+{{> intro}}
+`,
+  });
+  await expect(buildSkillset(ambiguousRoot)).rejects.toThrow(
+    "workspace named partial intro"
+  );
+  await expect(buildSkillset(ambiguousRoot)).rejects.toThrow("is ambiguous");
+
+  const cycleRoot = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: false
+`,
+    ".skillset/partials/a.md": `
+A {{> b}}
+`,
+    ".skillset/partials/b.md": `
+B {{> a}}
+`,
+    ".skillset/skills/bad/SKILL.md": `
+---
+name: bad
+description: Bad skill.
+---
+
+{{> a}}
+`,
+  });
+  await expect(buildSkillset(cycleRoot)).rejects.toThrow("creates a cycle");
+
+  const crossPluginRoot = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/bad/SKILL.md": `
+---
+name: bad
+description: Bad skill.
+---
+
+{{> beta.secret}}
+`,
+    ".skillset/plugins/beta/skillset.yaml": `
+skillset:
+  name: beta
+`,
+    ".skillset/plugins/beta/partials/secret.md": `
+Nope.
+`,
+  });
+  await expect(buildSkillset(crossPluginRoot)).rejects.toThrow(
+    "cannot reference another plugin"
+  );
+
+  const invalidRoot = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/bad/SKILL.md": `
 ---
 name: bad
 description: Bad skill.
@@ -2345,51 +2513,23 @@ description: Bad skill.
 {{> shared:templates/intro.md}}
 `,
   });
-
-  await expect(buildSkillset(root)).rejects.toThrow(
-    "use {{shared:path.md}}, {{plugin:path.md}}, or {{relative/path.md}} syntax"
-  );
-
-  const partialRoot = await fixture({
-    ".skillset/config.yaml": `
-skillset:
-  name: test-root
-claude: true
-codex: false
-`,
-    ".skillset/src/shared/templates/intro.md": `
-{{> shared:templates/inner.md}}
-`,
-    ".skillset/src/shared/templates/inner.md": `
-Inner.
-`,
-    ".skillset/src/skills/bad/SKILL.md": `
----
-name: bad
-description: Bad skill.
----
-
-{{shared:templates/intro.md}}
-`,
-  });
-
-  await expect(buildSkillset(partialRoot)).rejects.toThrow(
-    "use {{shared:path.md}}, {{plugin:path.md}}, or {{relative/path.md}} syntax"
+  await expect(buildSkillset(invalidRoot)).rejects.toThrow(
+    "must use dot-separated name segments"
   );
 });
 
 test("preprocessing expands this references and partials in instruction markdown", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/shared/templates/rule.md": `
+    ".skillset/shared/templates/rule.md": `
 Rule partial for {{this.title}}.
 `,
-    ".skillset/src/rules/docs/rule.md": `
+    ".skillset/rules/docs/rule.md": `
 ---
 title: Docs Rule
 paths:
@@ -2402,7 +2542,7 @@ Tree:
 
 {{shared:templates/rule.md}}
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -2412,15 +2552,15 @@ skillset:
 
   const claudeRule = await readFile(join(root, ".claude/rules/docs/rule.md"), "utf8");
   const codexAgents = await readFile(join(root, "docs/AGENTS.md"), "utf8");
-  expect(claudeRule).toContain("Use Docs Rule from .skillset/src/rules/docs/rule.md.");
+  expect(claudeRule).toContain("Use Docs Rule from .skillset/rules/docs/rule.md.");
   expect(claudeRule).toContain("- rule.md");
   expect(claudeRule).toContain("Rule partial for Docs Rule.");
-  expect(codexAgents).toContain("Use Docs Rule from .skillset/src/rules/docs/rule.md.");
+  expect(codexAgents).toContain("Use Docs Rule from .skillset/rules/docs/rule.md.");
   expect(codexAgents).toContain("- rule.md");
   expect(codexAgents).toContain("Rule partial for Docs Rule.");
-  const explainedRule = await explainPath(root, ".skillset/src/rules/docs/rule.md");
+  const explainedRule = await explainPath(root, ".skillset/rules/docs/rule.md");
   for (const entry of explainedRule.entries) {
-    expect(entry.preprocessDependencies).toContain("tree:.skillset/src/rules/docs:1");
+    expect(entry.preprocessDependencies).toContain("tree:.skillset/rules/docs:1");
   }
 });
 
@@ -2447,7 +2587,7 @@ test("TOML serializer preserves multiline prompts, quotes, braces, and code fenc
 
 test("project target-native islands mirror to configured target roots", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude:
@@ -2455,14 +2595,14 @@ claude:
 codex:
   projectRoot: project-codex
 `,
-    ".skillset/src/_codex/rules/deny.rules": `
+    ".skillset/_codex/rules/deny.rules": `
 match = "rm -rf"
 decision = "deny"
 `,
-    ".skillset/src/_codex/config.json": `
+    ".skillset/_codex/config.json": `
 {"note":"codex"}
 `,
-    ".skillset/src/_claude/agents/reviewer.md": `
+    ".skillset/_claude/agents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews code.
@@ -2470,7 +2610,7 @@ description: Reviews code.
 
 Use {{this.description}}.
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -2494,20 +2634,20 @@ skillset:
 
 test("target-native islands reject frontmatter target escapes", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: false
 `,
-    ".skillset/src/_claude/agents/bad.md": `
+    ".skillset/_claude/agents/bad.md": `
 ---
 codex: true
 ---
 
 Bad.
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -2518,19 +2658,19 @@ skillset:
 
 test("target-native islands copy binary files byte-for-byte", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
   });
   const bytes = new Uint8Array([0, 255, 10, 20, 30]);
-  await Bun.write(join(root, ".skillset/src/_claude/assets/image.bin"), bytes);
+  await Bun.write(join(root, ".skillset/_claude/assets/image.bin"), bytes);
 
   await buildSkillset(root);
 
@@ -2543,17 +2683,17 @@ test("project target-native islands are workspace-managed files without claiming
     ".codex/config.toml": `
 model = "local"
 `,
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: false
 codex: true
 `,
-    ".skillset/src/_codex/rules/deny.rules": `
+    ".skillset/_codex/rules/deny.rules": `
 match = "rm -rf"
 decision = "deny"
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -2573,17 +2713,17 @@ test("project target-native islands back up unmanaged destination collisions", a
     ".codex/rules/deny.rules": `
 match = "existing"
 `,
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: false
 codex: true
 `,
-    ".skillset/src/_codex/rules/deny.rules": `
+    ".skillset/_codex/rules/deny.rules": `
 match = "rm -rf"
 decision = "deny"
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -2603,17 +2743,17 @@ skillset:
 
 test("project target-native islands reject project roots inside source root", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude:
   projectRoot: .skillset/generated-claude
 codex: false
 `,
-    ".skillset/src/_claude/settings.json": `
+    ".skillset/_claude/settings.json": `
 {"note":"claude"}
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -2624,17 +2764,17 @@ skillset:
 
 test("project target-native islands reject project roots inside active output roots", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude:
   projectRoot: plugins-claude/project
 codex: false
 `,
-    ".skillset/src/_claude/settings.json": `
+    ".skillset/_claude/settings.json": `
 {"note":"claude"}
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -2647,7 +2787,7 @@ skillset:
 
 test("project target-native islands reject active output roots inside project roots", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude:
@@ -2656,36 +2796,36 @@ claude:
     path: .claude/plugins
 codex: false
 `,
-    ".skillset/src/_claude/plugins/alpha/settings.json": `
+    ".skillset/_claude/plugins/alpha/settings.json": `
 {"note":"project island under plugin root"}
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
   });
 
   await expect(buildSkillset(root)).rejects.toThrow(
-    ".skillset/src/_claude/plugins/alpha/settings.json would write inside active output root outputs.plugins.claude (.claude/plugins)"
+    ".skillset/_claude/plugins/alpha/settings.json would write inside active output root outputs.plugins.claude (.claude/plugins)"
   );
 });
 
 test("plugin-local target-native islands mirror to matching plugin output only", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/_claude/commands/review.md": `
+    ".skillset/plugins/alpha/_claude/commands/review.md": `
 # Claude command
 `,
-    ".skillset/src/plugins/alpha/_codex/config.json": `
+    ".skillset/plugins/alpha/_codex/config.json": `
 {"codex": true}
 `,
   });
@@ -2700,17 +2840,17 @@ skillset:
 
 test("plugin-local provider source requires a plugin manifest", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alhpa/_claude/commands/review.md": `
+    ".skillset/plugins/alhpa/_claude/commands/review.md": `
 # Typo island
 `,
   });
@@ -2720,16 +2860,16 @@ skillset:
 
 test("Codex plugin rules islands fail while portable src rules do not become Codex command policy", async () => {
   const portableRoot = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/rules/portable.rules": `
+    ".skillset/rules/portable.rules": `
 allow all
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -2739,17 +2879,17 @@ skillset:
   expect(await exists(join(portableRoot, ".codex/rules/portable.rules"))).toBe(false);
 
   const pluginRulesRoot = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/_codex/rules/plugin.rules": `
+    ".skillset/plugins/alpha/_codex/rules/plugin.rules": `
 deny all
 `,
   });
@@ -2758,22 +2898,22 @@ deny all
     code: "target-native-island-unsupported",
     featureId: "target-native-islands",
     message: expect.stringContaining("Codex plugin .rules"),
-    path: ".skillset/src/plugins/alpha/_codex/rules/plugin.rules",
+    path: ".skillset/plugins/alpha/_codex/rules/plugin.rules",
   });
 });
 
 test("Codex project rules islands are only accepted under rules/", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: false
 codex: true
 `,
-    ".skillset/src/_codex/agents/bad.rules": `
+    ".skillset/_codex/agents/bad.rules": `
 deny all
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -2782,23 +2922,23 @@ skillset:
   await expectFeatureDiagnosticError(buildSkillset(root), {
     code: "target-native-island-unsupported",
     featureId: "target-native-islands",
-    message: expect.stringContaining("Codex .rules outside .skillset/src/_codex/rules/"),
-    path: ".skillset/src/_codex/agents/bad.rules",
+    message: expect.stringContaining("Codex .rules outside .skillset/_codex/rules/"),
+    path: ".skillset/_codex/agents/bad.rules",
   });
 });
 
 test("target-native island locks include partial provenance and explain/list visibility", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: false
 `,
-    ".skillset/src/shared/templates/tail.md": `
+    ".skillset/shared/templates/tail.md": `
 Tail.
 `,
-    ".skillset/src/_claude/agents/reviewer.md": `
+    ".skillset/_claude/agents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews code.
@@ -2807,7 +2947,7 @@ description: Reviews code.
 Use {{this.description}}.
 {{shared:templates/tail.md}}
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -2815,14 +2955,14 @@ skillset:
 
   await buildSkillset(root);
 
-  const explained = await explainPath(root, ".skillset/src/_claude/agents/reviewer.md");
+  const explained = await explainPath(root, ".skillset/_claude/agents/reviewer.md");
   expect(explained.kind).toBe("source-island");
   expect(explained.entries[0]?.validation).toBe("structured");
-  expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/src/shared/templates/tail.md");
+  expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/shared/templates/tail.md");
   const entries = await listGeneratedEntries(root);
   expect(entries.some((entry) => entry.kind === "island" && entry.outputPath === ".claude/agents/reviewer.md")).toBe(true);
 
-  await writeFile(join(root, ".skillset/src/shared/templates/tail.md"), "Changed.\n");
+  await writeFile(join(root, ".skillset/shared/templates/tail.md"), "Changed.\n");
   const diff = await diffSkillset(root);
   expect(diff.changed).toContain(".claude/agents/reviewer.md");
   expect(diff.changed).toContain("skillset.lock");
@@ -2830,21 +2970,21 @@ skillset:
 
 test("shared resource mappings reject unsafe and colliding output paths", async () => {
   const colliding = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 `,
-    ".skillset/src/shared/references/root.md": `
+    ".skillset/shared/references/root.md": `
 # Root Reference
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/collision/references/root.md": `
+    ".skillset/plugins/alpha/skills/collision/references/root.md": `
 # Local Reference
 `,
-    ".skillset/src/plugins/alpha/skills/collision/SKILL.md": `
+    ".skillset/plugins/alpha/skills/collision/SKILL.md": `
 ---
 name: collision
 description: Collides with a local resource.
@@ -2862,18 +3002,18 @@ Collision body.
   );
 
   const unsafe = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 `,
-    ".skillset/src/shared/references/root.md": `
+    ".skillset/shared/references/root.md": `
 # Root Reference
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/unsafe/SKILL.md": `
+    ".skillset/plugins/alpha/skills/unsafe/SKILL.md": `
 ---
 name: unsafe
 description: Writes outside the skill.
@@ -2889,11 +3029,11 @@ Unsafe body.
   await expect(loadBuildGraph(unsafe)).rejects.toThrow("target paths must stay inside the generated skill");
 
   const standalonePluginReference = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 `,
-    ".skillset/src/skills/standalone/SKILL.md": `
+    ".skillset/skills/standalone/SKILL.md": `
 ---
 name: standalone
 description: Tries to use plugin resources.
@@ -2910,15 +3050,15 @@ Standalone body.
   );
 
   const undeclaredLink = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/undeclared/SKILL.md": `
+    ".skillset/plugins/alpha/skills/undeclared/SKILL.md": `
 ---
 name: undeclared
 description: Links to an undeclared resource.
@@ -2935,20 +3075,20 @@ Read [missing](shared:references/missing.md).
 
 test("plugin hook files must be target-native JSON objects", async () => {
   const invalidCodex = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: false
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/hooks/hooks.json": `
+    ".skillset/plugins/alpha/hooks/hooks.json": `
 []
 `,
-    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -2961,20 +3101,20 @@ Alpha body.
   await expect(buildSkillset(invalidCodex)).rejects.toThrow("must contain a JSON object");
 
   const invalidClaude = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/hooks/hooks.json": `
+    ".skillset/plugins/alpha/hooks/hooks.json": `
 not-json
 `,
-    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -2989,7 +3129,7 @@ Alpha body.
 
 test("standalone skills emit without plugin manifests", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude:
@@ -2999,7 +3139,7 @@ codex:
   skills:
     path: skills-agents
 `,
-    ".skillset/src/skills/draft/SKILL.md": `
+    ".skillset/skills/draft/SKILL.md": `
 ---
 name: draft
 description: Draft standalone skill.
@@ -3027,14 +3167,14 @@ Draft body.
 
 test("rules emit Claude rules and path-derived Codex AGENTS files", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
   version: 1.0.0
 claude: true
 codex: true
 `,
-    ".skillset/src/rules/docs/writing.md": `
+    ".skillset/rules/docs/writing.md": `
 ---
 title: Docs Writing
 summary: Source-only summary.
@@ -3052,7 +3192,7 @@ skillset:
 - Output dir: {{skillset.output_dir}}
 - Source rule: {{skillset.source_rule}}
 `,
-    ".skillset/src/rules/typescript.md": `
+    ".skillset/rules/typescript.md": `
 ---
 paths:
   - "**/*.ts"
@@ -3087,12 +3227,12 @@ export const value = 1;
   expect(claudeRule).toContain("# Docs Writing");
   expect(claudeRule).toContain("- Root: ../../..");
   expect(claudeRule).toContain("- Output dir: .claude/rules/docs");
-  expect(claudeRule).toContain("- Source rule: .skillset/src/rules/docs/writing.md");
+  expect(claudeRule).toContain("- Source rule: .skillset/rules/docs/writing.md");
   expect(docsAgents).toContain("Generated by skillset@0.1.0");
   expect(docsAgents).toContain("# Docs Writing");
   expect(docsAgents).toContain("- Root: ..");
   expect(docsAgents).toContain("- Output dir: docs");
-  expect(docsAgents).toContain("- Source rule: .skillset/src/rules/docs/writing.md");
+  expect(docsAgents).toContain("- Source rule: .skillset/rules/docs/writing.md");
   expect(docsAgents).not.toContain("paths:");
   expect(docsAgents).not.toContain("skillset:");
   expect(srcAgents).toContain("# TypeScript");
@@ -3107,13 +3247,13 @@ export const value = 1;
 
 test("rules render variables for root instruction outputs", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/rules/root.md": `
+    ".skillset/rules/root.md": `
 # Root Rule
 
 - Root: {{skillset.repo_root}}
@@ -3129,21 +3269,21 @@ codex: true
 
   expect(rootAgents).toContain("- Root: .");
   expect(rootAgents).toContain("- Output dir: .");
-  expect(rootAgents).toContain("- Source rule: .skillset/src/rules/root.md");
+  expect(rootAgents).toContain("- Source rule: .skillset/rules/root.md");
   expect(claudeRule).toContain("- Root: ../..");
   expect(claudeRule).toContain("- Output dir: .claude/rules");
-  expect(claudeRule).toContain("- Source rule: .skillset/src/rules/root.md");
+  expect(claudeRule).toContain("- Source rule: .skillset/rules/root.md");
 });
 
 test("rules concatenate Codex AGENTS output and honor target opt-outs", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/rules/docs/first.md": `
+    ".skillset/rules/docs/first.md": `
 ---
 paths:
   - docs/**/*.md
@@ -3152,7 +3292,7 @@ claude: false
 
 # First Docs Rule
 `,
-    ".skillset/src/rules/docs/second.md": `
+    ".skillset/rules/docs/second.md": `
 ---
 paths:
   - docs/**/*.md
@@ -3177,13 +3317,13 @@ codex: false
 
 test("rules back up unmanaged AGENTS collisions", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/rules/root.md": `
+    ".skillset/rules/root.md": `
 # Root Rule
 `,
     "AGENTS.md": `
@@ -3202,13 +3342,13 @@ codex: true
 
 test("rules reject unknown skillset variables", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/rules/root.md": `
+    ".skillset/rules/root.md": `
 # Root Rule
 
 - Unknown: {{skillset.nope}}
@@ -3216,19 +3356,19 @@ codex: true
   });
 
   await expect(buildSkillset(root)).rejects.toThrow(
-    "unknown preprocess variable {{skillset.nope}} in .skillset/src/rules/root.md"
+    "unknown preprocess variable {{skillset.nope}} in .skillset/rules/root.md"
   );
 });
 
 test("rules generated-output verification catches stale managed AGENTS output", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/rules/docs/writing.md": `
+    ".skillset/rules/docs/writing.md": `
 ---
 paths:
   - docs/**/*.md
@@ -3250,13 +3390,13 @@ paths:
 
 test("rules reject Codex symlink mode until target-clean symlinks are designed", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/rules/docs/writing.md": `
+    ".skillset/rules/docs/writing.md": `
 ---
 paths:
   - docs/**/*.md
@@ -3273,17 +3413,17 @@ codex:
 
 test("build lowers normalized skill policy to Claude frontmatter and Codex agent metadata", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/policy/SKILL.md": `
+    ".skillset/plugins/alpha/skills/policy/SKILL.md": `
 ---
 title: Policy Skill
 description: Uses normalized policy.
@@ -3300,11 +3440,11 @@ allowed_tools:
 
 Policy body.
 `,
-    ".skillset/src/plugins/alpha/skills/policy/agents/openai.yaml": `
+    ".skillset/plugins/alpha/skills/policy/agents/openai.yaml": `
 interface:
   display_name: Policy Skill
 `,
-    ".skillset/src/plugins/alpha/skills/shared/SKILL.md": `
+    ".skillset/plugins/alpha/skills/shared/SKILL.md": `
 ---
 name: shared
 description: Uses shared policy.
@@ -3362,17 +3502,17 @@ Shared policy body.
 
 test("build lowers target-native tool escapes to target-specific artifacts", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/escape/SKILL.md": `
+    ".skillset/plugins/alpha/skills/escape/SKILL.md": `
 ---
 name: escape
 description: Uses target-native tool escapes.
@@ -3446,17 +3586,17 @@ Escape body.
 
 test("build lowers strict portable tools registry and preserves Codex metadata", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/tools/SKILL.md": `
+    ".skillset/plugins/alpha/skills/tools/SKILL.md": `
 ---
 name: tools
 description: Uses portable tool registry.
@@ -3540,17 +3680,17 @@ Tools body.
 
 test("Claude target-native tool escapes require native rule strings", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/bad-tools/SKILL.md": `
+    ".skillset/plugins/alpha/skills/bad-tools/SKILL.md": `
 ---
 name: bad-tools
 description: Has an invalid Claude target-native tool escape.
@@ -3570,17 +3710,17 @@ Bad body.
 
 test("portable tools registry rejects unknown tool keys", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/bad-tools/SKILL.md": `
+    ".skillset/plugins/alpha/skills/bad-tools/SKILL.md": `
 ---
 name: bad-tools
 description: Has an unknown portable tool key.
@@ -3599,17 +3739,17 @@ Bad body.
 
 test("target-local tools reject portable policy keys instead of ignoring them", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/bad-target-tools/SKILL.md": `
+    ".skillset/plugins/alpha/skills/bad-target-tools/SKILL.md": `
 ---
 name: bad-target-tools
 description: Has target-local portable tool policy.
@@ -3630,17 +3770,17 @@ Bad target tools body.
 
 test("target-native false escape does not clear portable tools", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/clear-native/SKILL.md": `
+    ".skillset/plugins/alpha/skills/clear-native/SKILL.md": `
 ---
 name: clear-native
 description: Keeps portable tools when native escapes are disabled.
@@ -3688,17 +3828,17 @@ Clear native body.
 
 test("build and lint reject Codex allowed_tools without an explicit Codex opt-out", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/tools/SKILL.md": `
+    ".skillset/plugins/alpha/skills/tools/SKILL.md": `
 ---
 name: tools
 description: Shares allowed tools.
@@ -3721,16 +3861,16 @@ Tools body.
 
 test("allowed_tools arrays must not be empty", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/tools/SKILL.md": `
+    ".skillset/plugins/alpha/skills/tools/SKILL.md": `
 ---
 name: tools
 description: Empty allowed tools.
@@ -3746,17 +3886,17 @@ Tools body.
 
 test("target-scoped policy maps reject unknown target keys", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/policy/SKILL.md": `
+    ".skillset/plugins/alpha/skills/policy/SKILL.md": `
 ---
 name: policy
 description: Has a mistyped target map.
@@ -3774,7 +3914,7 @@ Policy body.
 
 test("root target outputs can use defaults, booleans, lists, and include objects", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude:
@@ -3788,11 +3928,11 @@ codex:
     include:
       - public-skill
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -3800,11 +3940,11 @@ description: Alpha skill.
 
 Alpha body.
 `,
-    ".skillset/src/plugins/beta/skillset.yaml": `
+    ".skillset/plugins/beta/skillset.yaml": `
 skillset:
   name: beta
 `,
-    ".skillset/src/plugins/beta/skills/beta-skill/SKILL.md": `
+    ".skillset/plugins/beta/skills/beta-skill/SKILL.md": `
 ---
 name: beta-skill
 description: Beta skill.
@@ -3812,7 +3952,7 @@ description: Beta skill.
 
 Beta body.
 `,
-    ".skillset/src/skills/public-skill/SKILL.md": `
+    ".skillset/skills/public-skill/SKILL.md": `
 ---
 name: public-skill
 description: Public skill.
@@ -3820,7 +3960,7 @@ description: Public skill.
 
 Public body.
 `,
-    ".skillset/src/skills/private-skill/SKILL.md": `
+    ".skillset/skills/private-skill/SKILL.md": `
 ---
 name: private-skill
 description: Private skill.
@@ -3843,7 +3983,7 @@ Private body.
 
 test("disabled generated roots with skillset locks remain managed", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude:
@@ -3851,11 +3991,11 @@ claude:
   skills: false
 codex: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -3881,18 +4021,18 @@ stale
 
 test("generated-output verification catches stale generated output", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   description: Alpha plugin.
 `,
-    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -3900,7 +4040,7 @@ description: Alpha skill.
 
 Alpha body.
 `,
-    ".skillset/src/plugins/alpha/skills/stale-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/stale-skill/SKILL.md": `
 ---
 name: stale-skill
 description: Stale skill.
@@ -3911,25 +4051,25 @@ Stale body.
   });
 
   await buildSkillset(root);
-  await rm(join(root, ".skillset/src/plugins/alpha/skills/stale-skill"), { recursive: true });
+  await rm(join(root, ".skillset/plugins/alpha/skills/stale-skill"), { recursive: true });
 
   await expect(verifySkillset(root)).rejects.toThrow("stale generated file");
 });
 
 test("generated-output verification reports stale generated skill and plugin versions", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   version: 1.0.0
 `,
-    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -3942,7 +4082,7 @@ Alpha body.
 
   await buildSkillset(root);
   await writeFile(
-    join(root, ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md"),
+    join(root, ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md"),
     normalizeFixture(`
 ---
 name: alpha-skill
@@ -3960,7 +4100,7 @@ Alpha body.
 
   await buildSkillset(root);
   await writeFile(
-    join(root, ".skillset/src/plugins/alpha/skillset.yaml"),
+    join(root, ".skillset/plugins/alpha/skillset.yaml"),
     normalizeFixture(`
 skillset:
   name: alpha
@@ -3975,13 +4115,13 @@ skillset:
 
 test("source versions override target-native version overrides", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   version: 1.0.0
@@ -3992,7 +4132,7 @@ codex:
   manifest:
     version: 9.9.9
 `,
-    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -4050,16 +4190,16 @@ Alpha body.
 
 test("source version fields must be semantic versions", async () => {
   const invalidRoot = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
   version: next
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -4069,19 +4209,19 @@ Alpha body.
 `,
   });
 
-  await expect(loadBuildGraph(invalidRoot)).rejects.toThrow("src/skillset.yaml.skillset.version to be a semantic version");
+  await expect(loadBuildGraph(invalidRoot)).rejects.toThrow("skillset.yaml.skillset.version to be a semantic version");
 
   const invalidPlugin = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   version: 1.0
 `,
-    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -4094,15 +4234,15 @@ Alpha body.
   await expect(loadBuildGraph(invalidPlugin)).rejects.toThrow("skillset.version to be a semantic version");
 
   const invalidSkill = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -4118,18 +4258,18 @@ Alpha body.
 
 test("target-specific skill version bumps explain skips and later resync", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   version: 1.0.0
 `,
-    ".skillset/src/plugins/alpha/skills/shared/SKILL.md": `
+    ".skillset/plugins/alpha/skills/shared/SKILL.md": `
 ---
 name: shared
 description: Shared skill.
@@ -4138,7 +4278,7 @@ version: 1.0.0
 
 Shared body.
 `,
-    ".skillset/src/plugins/alpha/skills/claude-only/SKILL.md": `
+    ".skillset/plugins/alpha/skills/claude-only/SKILL.md": `
 ---
 name: claude-only
 description: Claude-only skill.
@@ -4161,7 +4301,7 @@ Claude-only body.
   );
 
   await writeFile(
-    join(root, ".skillset/src/plugins/alpha/skills/claude-only/SKILL.md"),
+    join(root, ".skillset/plugins/alpha/skills/claude-only/SKILL.md"),
     normalizeFixture(`
 ---
 name: claude-only
@@ -4186,7 +4326,7 @@ Claude-only body.
   expect(skippedCodexLock).toContain(`"claude-only@1.1.0"`);
 
   await writeFile(
-    join(root, ".skillset/src/plugins/alpha/skills/shared/SKILL.md"),
+    join(root, ".skillset/plugins/alpha/skills/shared/SKILL.md"),
     normalizeFixture(`
 ---
 name: shared
@@ -4209,7 +4349,7 @@ Shared body changed.
 
 test("output roots cannot overlap source or each other", async () => {
   const sourceOverlapRoot = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude:
@@ -4217,11 +4357,11 @@ claude:
     path: .skillset/generated
 codex: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -4232,17 +4372,17 @@ Alpha body.
   });
 
   await expect(buildSkillset(sourceOverlapRoot)).rejects.toThrow("must not point inside source root");
-  expect(await exists(join(sourceOverlapRoot, ".skillset/src/plugins/alpha/skillset.yaml"))).toBe(true);
+  expect(await exists(join(sourceOverlapRoot, ".skillset/plugins/alpha/skillset.yaml"))).toBe(true);
 
   const claudeProjectRootOverlap = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude:
   projectRoot: .skillset/generated-agents
 codex: false
 `,
-    ".skillset/src/agents/reviewer.md": `
+    ".skillset/agents/reviewer.md": `
 ---
 description: Reviews code.
 ---
@@ -4254,14 +4394,14 @@ Review carefully.
   await expect(buildSkillset(claudeProjectRootOverlap)).rejects.toThrow("must not point inside source root");
 
   const codexProjectRootOverlap = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: false
 codex:
   projectRoot: .skillset/generated-agents
 `,
-    ".skillset/src/agents/reviewer.md": `
+    ".skillset/agents/reviewer.md": `
 ---
 description: Reviews code.
 ---
@@ -4273,18 +4413,18 @@ Review carefully.
   await expect(buildSkillset(codexProjectRootOverlap)).rejects.toThrow("must not point inside source root");
 
   const projectRootOutputRootOverlap = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude:
   projectRoot: plugins-claude
 codex: false
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -4292,7 +4432,7 @@ description: Alpha skill.
 
 Alpha body.
 `,
-    ".skillset/src/agents/reviewer.md": `
+    ".skillset/agents/reviewer.md": `
 ---
 description: Reviews code.
 ---
@@ -4304,7 +4444,7 @@ Review carefully.
   await expect(buildSkillset(projectRootOutputRootOverlap)).rejects.toThrow("must not overlap active output root");
 
   const duplicateRoot = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude:
@@ -4314,11 +4454,11 @@ codex:
   plugins:
     path: ./generated-plugins
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -4333,13 +4473,13 @@ Alpha body.
 
 test("targets key is rejected in config and frontmatter", async () => {
   const configRoot = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 targets:
   codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -4348,15 +4488,15 @@ skillset:
   await expect(loadBuildGraph(configRoot)).rejects.toThrow("unsupported targets key");
 
   const frontmatterRoot = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/bad/SKILL.md": `
+    ".skillset/plugins/alpha/skills/bad/SKILL.md": `
 ---
 name: bad
 description: Bad skill.
@@ -4374,13 +4514,13 @@ Bad.
 test("root compile targets reject invalid target lists", async () => {
   const withCompileTargets = async (targetsYaml: string): Promise<string> =>
     fixture({
-      ".skillset/config.yaml": `
+      "skillset.yaml": `
 skillset:
   name: test-root
 compile:
   targets: ${targetsYaml}
 `,
-      ".skillset/src/plugins/alpha/skillset.yaml": `
+      ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -4402,24 +4542,24 @@ skillset:
 
 test("compile.unsupportedDestination defaults to error and accepts explicit error", async () => {
   const defaultRoot = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
   });
 
   const explicitRoot = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 compile:
   unsupportedDestination: error
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
@@ -4435,13 +4575,13 @@ skillset:
 
 test("compile.unsupportedDestination rejects malformed, unknown, and deferred policies", async () => {
   const basePlugin = {
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
   };
   const malformedRoot = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 compile: true
@@ -4452,7 +4592,7 @@ compile: true
   await expect(loadBuildGraph(malformedRoot)).rejects.toThrow(".compile to be an object");
 
   const unknownRoot = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 compile:
@@ -4464,7 +4604,7 @@ compile:
   await expect(loadBuildGraph(unknownRoot)).rejects.toThrow("expected one of: error, warn, skip, force");
 
   const warnRoot = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 compile:
@@ -4478,31 +4618,31 @@ compile:
 
 test("unknown top-level skillset config keys are rejected", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 surprise: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
   });
 
-  await expect(loadBuildGraph(root)).rejects.toThrow("unsupported workspace config key");
+  await expect(loadBuildGraph(root)).rejects.toThrow("unsupported top-level key surprise");
 });
 
-test("plugin-local config.yaml remains a fallback but not alongside skillset.yaml", async () => {
-  const fallbackRoot = await fixture({
-    ".skillset/config.yaml": `
+test("plugin-local config.yaml is rejected after workspace layout cutover", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
 skillset:
   name: test-root
 `,
-    ".skillset/src/plugins/alpha/config.yaml": `
+    ".skillset/plugins/alpha/config.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -4512,38 +4652,20 @@ Alpha body.
 `,
   });
 
-  const graph = await loadBuildGraph(fallbackRoot);
-  expect(graph.plugins[0]?.id).toBe("alpha");
-
-  const ambiguousRoot = await fixture({
-    ".skillset/config.yaml": `
-skillset:
-  name: test-root
-`,
-    ".skillset/src/plugins/alpha/config.yaml": `
-skillset:
-  name: alpha
-`,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
-skillset:
-  name: alpha
-`,
-  });
-
-  await expect(loadBuildGraph(ambiguousRoot)).rejects.toThrow("both skillset.yaml and config.yaml");
+  await expect(loadBuildGraph(root)).rejects.toThrow("uses retired plugin config.yaml");
 });
 
 test("skillset.id is rejected before public release", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   id: test-root
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   id: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/alpha-skill/SKILL.md": `
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
 ---
 name: alpha-skill
 description: Alpha skill.
@@ -4558,11 +4680,11 @@ Alpha body.
   await expect(loadBuildGraph(root)).rejects.toThrow("uses unsupported skillset.id; use skillset.name");
 
   const conflictRoot = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   id: other
@@ -4574,17 +4696,17 @@ skillset:
 
 test("lint rejects Claude dynamic context in Codex-enabled skills", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/dynamic/SKILL.md": `
+    ".skillset/plugins/alpha/skills/dynamic/SKILL.md": `
 ---
 name: dynamic
 description: Uses Claude arguments.
@@ -4599,17 +4721,17 @@ Use $ARGUMENTS and ${"${CLAUDE_SKILL_DIR}"} to prepare context.
 
 test("lint ignores shell positional arguments inside fenced examples", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/shell-example/SKILL.md": `
+    ".skillset/plugins/alpha/skills/shell-example/SKILL.md": `
 ---
 name: shell-example
 description: Shows a shell example.
@@ -4628,17 +4750,17 @@ git log --oneline | awk '{print $1}'
 
 test("lint ignores prose prices that look like positional arguments", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/pricing/SKILL.md": `
+    ".skillset/plugins/alpha/skills/pricing/SKILL.md": `
 ---
 name: pricing
 description: Mentions a normal price.
@@ -4654,13 +4776,13 @@ Small runs can also save $5, $9.99, or $1.99 in normal prose.
 
 test("lint checks Codex-enabled standalone skills", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/skills/dynamic/SKILL.md": `
+    ".skillset/skills/dynamic/SKILL.md": `
 ---
 name: dynamic
 description: Uses Claude arguments.
@@ -4675,17 +4797,17 @@ Use $ARGUMENTS to prepare context.
 
 test("lint allows Claude dynamic context when Codex is disabled", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: test-root
 claude: true
 codex: true
 `,
-    ".skillset/src/plugins/alpha/skillset.yaml": `
+    ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
 `,
-    ".skillset/src/plugins/alpha/skills/dynamic/SKILL.md": `
+    ".skillset/plugins/alpha/skills/dynamic/SKILL.md": `
 ---
 name: dynamic
 description: Uses Claude arguments.
@@ -4720,7 +4842,7 @@ Imported body.
   });
 
   expect(result.name).toBe("imported-skill");
-  expect(await exists(join(root, ".skillset/src/skills/imported-skill/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, ".skillset/skills/imported-skill/SKILL.md"))).toBe(true);
 });
 
 test("imports existing plugins into source layout", async () => {
@@ -4747,9 +4869,9 @@ Plugin skill body.
   });
 
   expect(result.name).toBe("imported-plugin");
-  expect(await exists(join(root, ".skillset/src/plugins/imported-plugin/skillset.yaml"))).toBe(true);
-  expect(await exists(join(root, ".skillset/src/plugins/imported-plugin/config.yaml"))).toBe(false);
-  expect(await exists(join(root, ".skillset/src/plugins/imported-plugin/skills/imported-skill/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, ".skillset/plugins/imported-plugin/skillset.yaml"))).toBe(true);
+  expect(await exists(join(root, ".skillset/plugins/imported-plugin/config.yaml"))).toBe(false);
+  expect(await exists(join(root, ".skillset/plugins/imported-plugin/skills/imported-skill/SKILL.md"))).toBe(true);
 });
 
 test("import command copies existing skills into source layout", async () => {
@@ -4773,7 +4895,7 @@ Imported body.
 
   expect(stderr).toBe("");
   expect(exitCode).toBe(0);
-  expect(await exists(join(root, ".skillset/src/skills/cli-imported/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, ".skillset/skills/cli-imported/SKILL.md"))).toBe(true);
 });
 
 test("import command infers paths and accepts --kind skills", async () => {
@@ -4805,13 +4927,13 @@ Second body.
 
   expect(stderr).toBe("");
   expect(exitCode).toBe(0);
-  expect(await exists(join(root, ".skillset/src/skills/first/SKILL.md"))).toBe(true);
-  expect(await exists(join(root, ".skillset/src/skills/second/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, ".skillset/skills/first/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, ".skillset/skills/second/SKILL.md"))).toBe(true);
 });
 
 test("import refuses to overwrite existing source", async () => {
   const root = await fixture({
-    ".skillset/src/skills/imported-skill/SKILL.md": `
+    ".skillset/skills/imported-skill/SKILL.md": `
 ---
 name: imported-skill
 description: Existing source skill.

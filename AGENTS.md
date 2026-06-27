@@ -2,7 +2,7 @@
 
 This repo contains the local `skillset` compiler.
 
-The repo now self-hosts source in the dedicated Skillset layout:
+The repo now self-hosts source in the canonical Skillset workspace layout:
 
 - standalone internal skills for developing `skillset` itself;
 - one generated `skillset` plugin for using the compiler in other source-first repos.
@@ -15,7 +15,7 @@ For source/config/frontmatter fields, follow [docs/schema-contracts.md](docs/sch
 
 ## Responsibilities
 
-- Read adaptive source from an ordinary content repo's `.skillset/src/` directory with workspace/source config in `.skillset/skillset.yaml`, or from a dedicated repo's `skillset/` directory with root `skillset.yaml`.
+- Read adaptive source from a repo's `.skillset/` directory with workspace/source config in root `skillset.yaml`.
 - Emit target-native plugin repositories under configured output roots, defaulting to `plugins-claude/` and `plugins-codex/`.
 - Emit standalone skills under configured target skill roots, defaulting to `.claude/skills` and `.agents/skills`.
 - Emit source instructions from `<source-root>/rules/**/*.md` to Claude `.claude/rules/**/*.md` and Codex directory-local `AGENTS.md` files without overwriting unmanaged guidance.

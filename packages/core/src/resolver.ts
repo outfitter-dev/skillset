@@ -56,9 +56,9 @@ import { readSkillsetWorkspaceConfig } from "./xdg";
 const DEFAULT_SOURCE_DIR = ".skillset";
 const ROOT_CONFIG_FILE = "config.yaml";
 const ROOT_SOURCE_MANIFEST_FILE = "skillset.yaml";
-const PLUGIN_CONFIG_FILES = ["skillset.yaml", "config.yaml"] as const;
+const PLUGIN_CONFIG_FILES = ["skillset.yaml"] as const;
 const PLUGINS_DIR = "plugins";
-const SOURCE_ROOT_DIR = "src";
+const SOURCE_ROOT_DIR = "";
 const RULES_DIR = "rules";
 const SKILLS_DIR = "skills";
 const SHARED_DIR = "shared";
@@ -74,7 +74,7 @@ const PLUGIN_FEATURE_KEYS: readonly SourcePluginFeatureKey[] = ["bin", "mcp"];
 interface WorkspaceLayout {
   readonly configPath: string;
   readonly configRelativePath: string;
-  readonly mode: "dedicated" | "legacy-ordinary" | "ordinary";
+  readonly mode: "workspace";
   readonly sourceDir: string;
   readonly sourcePath: string;
   readonly sourceRoot: string;
@@ -158,12 +158,10 @@ export async function loadBuildGraph(
   }
 
   const outputRoots = await outputRootsFor(rootPath, outputs, plugins, standaloneSkills, rules);
-  const protectedRoots = sourceDir === "."
-    ? [
-        { label: "change state", path: resolveInside(rootPath, workspaceChangesDir(sourceDir)) },
-        { label: "source root", path: sourceRootPath },
-      ]
-    : [{ label: "source root", path: sourcePath }];
+  const protectedRoots = [
+    { label: "change state", path: resolveInside(rootPath, workspaceChangesDir(sourceDir)) },
+    { label: "source root", path: sourceRootPath },
+  ];
   validateOutputRoots(rootPath, protectedRoots, outputRoots);
   validateProjectRoots(rootPath, protectedRoots, outputRoots, filteredTargets, projectAgents, projectIslands);
 
@@ -200,124 +198,43 @@ async function resolveWorkspaceLayout(
   options: SkillsetOptions
 ): Promise<WorkspaceLayout> {
   if (options.sourceDir !== undefined) {
-    if (options.sourceDir === ".") return dedicatedWorkspace(rootPath);
-    const ordinary = await ordinaryWorkspace(rootPath, options.sourceDir);
-    if (await workspaceExists(ordinary)) return ordinary;
-    return legacyOrdinaryWorkspace(rootPath, options.sourceDir);
+    if (options.sourceDir !== DEFAULT_SOURCE_DIR) {
+      throw new Error(
+        `skillset: --source ${options.sourceDir} uses a retired source layout; Skillset source lives under ${DEFAULT_SOURCE_DIR}/ with root skillset.yaml`
+      );
+    }
   }
 
-  const ordinary = await ordinaryWorkspace(rootPath);
-  const legacy = await legacyOrdinaryWorkspace(rootPath, DEFAULT_SOURCE_DIR);
-  const dedicated = await dedicatedWorkspace(rootPath);
-  const ordinaryExists = await workspaceExists(ordinary);
-  const legacyExists = await workspaceExists(legacy);
-  const dedicatedExists = await workspaceExists(dedicated);
-
-  const dedicatedSourceMarkerExists = await hasDedicatedSourceMarker(dedicated.sourceRootPath);
-  if (dedicatedExists && dedicatedSourceMarkerExists && (ordinaryExists || legacyExists)) {
-    throw new Error(
-      "skillset: ambiguous workspace layout; found both dedicated root skillset.yaml/skillset and ordinary .skillset workspace"
-    );
-  }
-  if (ordinaryExists && legacyExists) {
-    throw new Error(
-      "skillset: ambiguous workspace layout; found both .skillset/skillset.yaml and legacy .skillset/config.yaml"
-    );
-  }
-  if (dedicatedExists && dedicatedSourceMarkerExists) return dedicated;
-  if (ordinaryExists) return ordinary;
-  if (legacyExists) return legacy;
-  if (dedicatedExists) return dedicated;
-  return legacy;
+  await rejectRetiredWorkspaceMarkers(rootPath);
+  return workspaceLayout(rootPath);
 }
 
-async function hasDedicatedSourceMarker(sourceRootPath: string): Promise<boolean> {
-  if (await hasSkillSource(join(sourceRootPath, SKILLS_DIR))) return true;
-  if (await hasPluginSource(join(sourceRootPath, PLUGINS_DIR))) return true;
-  if (await hasMarkdownSource(join(sourceRootPath, RULES_DIR))) return true;
-  if (await hasProjectAgentSource(join(sourceRootPath, PROJECT_AGENTS_DIR))) return true;
-  for (const providerDir of Object.values(PROVIDER_SOURCE_DIRS)) {
-    if (await hasAnyFile(join(sourceRootPath, providerDir))) return true;
-  }
-  return false;
-}
-
-async function hasSkillSource(path: string): Promise<boolean> {
-  return (await exists(path)) && (await findSkillFiles(path)).length > 0;
-}
-
-async function hasPluginSource(path: string): Promise<boolean> {
-  if (!(await exists(path))) return false;
-  for (const entry of await readdir(path, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const pluginPath = join(path, entry.name);
-    if (await exists(join(pluginPath, "skillset.yaml"))) return true;
-    if (await exists(join(pluginPath, "config.yaml"))) return true;
-  }
-  return false;
-}
-
-async function hasMarkdownSource(path: string): Promise<boolean> {
-  return (await exists(path)) && (await findMarkdownFiles(path)).some(isNonReadmeFile);
-}
-
-async function hasProjectAgentSource(path: string): Promise<boolean> {
-  if (!(await exists(path))) return false;
-  const entries = await readdir(path, { withFileTypes: true });
-  return entries.some((entry) => entry.isFile() && entry.name.endsWith(".md") && entry.name.toLowerCase() !== "readme.md");
-}
-
-async function hasAnyFile(path: string): Promise<boolean> {
-  return (await exists(path)) && (await collectFiles(path)).some(isNonReadmeFile);
-}
-
-function isNonReadmeFile(path: string): boolean {
-  return basename(path).toLowerCase() !== "readme.md";
-}
-
-async function workspaceExists(workspace: WorkspaceLayout): Promise<boolean> {
-  return exists(workspace.configPath);
-}
-
-async function ordinaryWorkspace(rootPath: string, sourceDir = DEFAULT_SOURCE_DIR): Promise<WorkspaceLayout> {
-  return {
-    configPath: resolveInside(rootPath, join(sourceDir, ROOT_SOURCE_MANIFEST_FILE)),
-    configRelativePath: join(sourceDir, ROOT_SOURCE_MANIFEST_FILE),
-    mode: "ordinary",
-    sourceDir,
-    sourcePath: resolveInside(rootPath, sourceDir),
-    sourceRoot: join(sourceDir, SOURCE_ROOT_DIR),
-    sourceRootDir: SOURCE_ROOT_DIR,
-    sourceRootPath: resolveInside(rootPath, join(sourceDir, SOURCE_ROOT_DIR)),
-  };
-}
-
-function dedicatedWorkspace(rootPath: string): WorkspaceLayout {
+function workspaceLayout(rootPath: string, sourceDir = DEFAULT_SOURCE_DIR): WorkspaceLayout {
   return {
     configPath: resolveInside(rootPath, ROOT_SOURCE_MANIFEST_FILE),
     configRelativePath: ROOT_SOURCE_MANIFEST_FILE,
-    mode: "dedicated",
-    sourceDir: ".",
-    sourcePath: rootPath,
-    sourceRoot: "skillset",
-    sourceRootDir: "skillset",
-    sourceRootPath: resolveInside(rootPath, "skillset"),
+    mode: "workspace",
+    sourceDir,
+    sourcePath: resolveInside(rootPath, sourceDir),
+    sourceRoot: sourceDir,
+    sourceRootDir: SOURCE_ROOT_DIR,
+    sourceRootPath: resolveInside(rootPath, sourceDir),
   };
 }
 
-function legacyOrdinaryWorkspace(rootPath: string, sourceDir: string): WorkspaceLayout {
-  return {
-    configPath: resolveInside(rootPath, join(sourceDir, ROOT_CONFIG_FILE)),
-    configRelativePath: join(sourceDir, ROOT_CONFIG_FILE),
-    mode: "legacy-ordinary",
-    sourceDir,
-    sourcePath: resolveInside(rootPath, sourceDir),
-    sourceRoot: join(sourceDir, SOURCE_ROOT_DIR),
-    sourceRootDir: SOURCE_ROOT_DIR,
-    sourceRootPath: resolveInside(rootPath, join(sourceDir, SOURCE_ROOT_DIR)),
-    splitRootManifestPath: resolveInside(rootPath, join(sourceDir, SOURCE_ROOT_DIR, ROOT_SOURCE_MANIFEST_FILE)),
-    splitRootManifestRelativePath: join(sourceDir, SOURCE_ROOT_DIR, ROOT_SOURCE_MANIFEST_FILE),
-  };
+async function rejectRetiredWorkspaceMarkers(rootPath: string): Promise<void> {
+  const retiredMarkers: readonly (readonly [string, string])[] = [
+    [join(DEFAULT_SOURCE_DIR, ROOT_SOURCE_MANIFEST_FILE), "move workspace configuration to root skillset.yaml"],
+    [join(DEFAULT_SOURCE_DIR, ROOT_CONFIG_FILE), "move workspace configuration to root skillset.yaml"],
+    [join(DEFAULT_SOURCE_DIR, "src"), `move authored source from ${DEFAULT_SOURCE_DIR}/src/ to ${DEFAULT_SOURCE_DIR}/`],
+    ["skillset", `move dedicated source from skillset/ to ${DEFAULT_SOURCE_DIR}/`],
+  ];
+
+  for (const [path, guidance] of retiredMarkers) {
+    if (await exists(resolveInside(rootPath, path))) {
+      throw new Error(`skillset: ${path} uses a retired source layout; ${guidance}`);
+    }
+  }
 }
 
 function applyTargetFilter(
@@ -356,21 +273,10 @@ function featureDiagnosticError(
 }
 
 async function rejectLegacySourceLayout(rootPath: string, sourceDir: string, sourceRootDir: string): Promise<void> {
-  const moves: readonly (readonly [string, string])[] =
-    sourceDir === "."
-      ? [
-          [`${sourceRootDir}/claude`, `${sourceRootDir}/${PROVIDER_SOURCE_DIRS.claude}`],
-          [`${sourceRootDir}/codex`, `${sourceRootDir}/${PROVIDER_SOURCE_DIRS.codex}`],
-        ]
-      : [
-          ["instructions", `${sourceRootDir}/${RULES_DIR}`],
-          ["rules", `${sourceRootDir}/${RULES_DIR}`],
-          [SKILLS_DIR, `${sourceRootDir}/${SKILLS_DIR}`],
-          [PLUGINS_DIR, `${sourceRootDir}/${PLUGINS_DIR}`],
-          [SHARED_DIR, `${sourceRootDir}/${SHARED_DIR}`],
-          [`${sourceRootDir}/claude`, `${sourceRootDir}/${PROVIDER_SOURCE_DIRS.claude}`],
-          [`${sourceRootDir}/codex`, `${sourceRootDir}/${PROVIDER_SOURCE_DIRS.codex}`],
-        ];
+  const moves: readonly (readonly [string, string])[] = [
+    ["claude", PROVIDER_SOURCE_DIRS.claude],
+    ["codex", PROVIDER_SOURCE_DIRS.codex],
+  ];
 
   for (const [oldPath, newPath] of moves) {
     const absoluteOldPath = resolveInside(rootPath, join(sourceDir, oldPath));
@@ -385,6 +291,13 @@ async function rejectLegacySourceLayout(rootPath: string, sourceDir: string, sou
   if (!(await exists(pluginsPath))) return;
   for (const entry of await readdir(pluginsPath, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
+    const pluginConfigPath = join(sourceRootDir, PLUGINS_DIR, entry.name, ROOT_CONFIG_FILE);
+    const absolutePluginConfigPath = resolveInside(rootPath, join(sourceDir, pluginConfigPath));
+    if (await exists(absolutePluginConfigPath)) {
+      throw new Error(
+        `skillset: ${join(sourceDir, pluginConfigPath)} uses retired plugin config.yaml; rename it to ${join(sourceDir, sourceRootDir, PLUGINS_DIR, entry.name, ROOT_SOURCE_MANIFEST_FILE)}`
+      );
+    }
     for (const [oldProviderDir, newProviderDir] of Object.entries(PROVIDER_SOURCE_DIRS)) {
       const oldPath = join(sourceRootDir, PLUGINS_DIR, entry.name, oldProviderDir);
       const absoluteOldPath = resolveInside(rootPath, join(sourceDir, oldPath));
@@ -592,7 +505,7 @@ function validateProjectAgentCollisions(agents: readonly SourceProjectAgent[]): 
 }
 
 /**
- * Load source rules. Source lives in `.skillset/src/rules/`. Generated output
+ * Load source rules. Source lives in `.skillset/rules/`. Generated output
  * is unchanged: Claude renders to `.claude/rules/`, Codex renders to
  * `AGENTS.md`.
  */

@@ -23,14 +23,14 @@ describe("workbench fixtures", () => {
   test("clean fixture has no source-contract, resource, or runtime diagnostics", async () => {
     expect(await fixtureFileExists(
       "workbench-clean",
-      "skillset/hooks/scripts/check.sh"
+      ".skillset/hooks/scripts/check.sh"
     )).toBeTrue();
     await expectOperationalSentinels("workbench-clean");
 
     const diagnostics = [
       ...(await sourceContractDiagnostics("workbench-clean", cleanSources)),
       ...workbenchDiagnosticsFromResourceLintIssues(
-        await resourceIssuesFromFixture("workbench-clean", "skillset/skills/reference/SKILL.md")
+        await resourceIssuesFromFixture("workbench-clean", ".skillset/skills/reference/SKILL.md")
       ),
       ...workbenchDiagnosticsFromRuntimeSupport([
         feature({
@@ -78,6 +78,24 @@ describe("workbench fixtures", () => {
     expect(diagnostics.errorCount).toBe(28);
     expect(diagnostics.warningCount).toBe(1);
     expect(diagnostics.diagnostics.map(formatWorkbenchDiagnostic)).toEqual([
+      ".skillset/agents/broken.md:1: error: schema/agent-frontmatter: agents must remove targets; use root compile.targets and claude/codex blocks for file-level behavior",
+      ".skillset/agents/broken.md:1: error: schema/agent-frontmatter: codex must be true, false, or an object when present",
+      ".skillset/agents/broken.md:1: error: schema/agent-frontmatter: description is required and must be a non-empty string",
+      ".skillset/agents/broken.md:1: error: schema/agent-frontmatter: skills must be a string array when present",
+      ".skillset/agents/broken.md:11: error: schema/agent-body: agent body is required",
+      ".skillset/hooks/hooks.json:1: error: schema/hook: hook event PreToolUse entries must be objects",
+      ".skillset/hooks/hooks.json:1: error: schema/hook: hook event SessionStart must be an array",
+      ".skillset/hooks/hooks.json:1: error: schema/hook: hook event Stop hook handlers must be objects",
+      ".skillset/hooks/hooks.json:1: error: schema/hook: hook event Stop hook handlers must include a non-empty string type",
+      ".skillset/rules/root.md:1: error: schema/instruction-frontmatter: claude must be true, false, or an object when present",
+      ".skillset/rules/root.md:1: error: schema/instruction-frontmatter: dialect must be claude when present",
+      ".skillset/rules/root.md:1: error: schema/instruction-frontmatter: unsupported supports key tools; v1 supports packages",
+      ".skillset/skills/broken/SKILL.md:1: error: schema/skill-frontmatter: description must be a non-empty string",
+      ".skillset/skills/broken/SKILL.md:1: error: schema/skill-frontmatter: skill needs description, summary, title, or skillset descriptive metadata",
+      ".skillset/skills/broken/SKILL.md:1: error: schema/skill-frontmatter: skills must remove targets; use root compile.targets and claude/codex blocks for file-level behavior",
+      ".skillset/skills/broken/SKILL.md:1: error: schema/skill-frontmatter: skillset.name is unsupported in skills; use top-level name",
+      ".skillset/skills/broken/SKILL.md:1: error: schema/skill-frontmatter: skillset.version is unsupported in skills; use top-level version",
+      ".skillset/skills/broken/SKILL.md: error: resource/resource-undeclared-link: broken skill links to undeclared resource ./scripts/check.sh",
       "fixtures/workbench-invalid: warning: runtime/shimmed: codex-cli project-agents: Skill loading is not runtime-enforced.",
       "skillset.yaml:1: error: schema/workspace-config: compile.build must be one of all, updated",
       "skillset.yaml:1: error: schema/workspace-config: compile.features.promptArguments must be a boolean",
@@ -89,24 +107,6 @@ describe("workbench fixtures", () => {
       "skillset.yaml:1: error: schema/workspace-config: unsupported compile target gemini",
       "skillset.yaml:1: error: schema/workspace-config: unsupported workspace config key targets",
       "skillset.yaml:1: error: schema/workspace-config: workspace config must use compile.targets instead of targets",
-      "skillset/agents/broken.md:1: error: schema/agent-frontmatter: agents must remove targets; use root compile.targets and claude/codex blocks for file-level behavior",
-      "skillset/agents/broken.md:1: error: schema/agent-frontmatter: codex must be true, false, or an object when present",
-      "skillset/agents/broken.md:1: error: schema/agent-frontmatter: description is required and must be a non-empty string",
-      "skillset/agents/broken.md:1: error: schema/agent-frontmatter: skills must be a string array when present",
-      "skillset/agents/broken.md:11: error: schema/agent-body: agent body is required",
-      "skillset/hooks/hooks.json:1: error: schema/hook: hook event PreToolUse entries must be objects",
-      "skillset/hooks/hooks.json:1: error: schema/hook: hook event SessionStart must be an array",
-      "skillset/hooks/hooks.json:1: error: schema/hook: hook event Stop hook handlers must be objects",
-      "skillset/hooks/hooks.json:1: error: schema/hook: hook event Stop hook handlers must include a non-empty string type",
-      "skillset/rules/root.md:1: error: schema/instruction-frontmatter: claude must be true, false, or an object when present",
-      "skillset/rules/root.md:1: error: schema/instruction-frontmatter: dialect must be claude when present",
-      "skillset/rules/root.md:1: error: schema/instruction-frontmatter: unsupported supports key tools; v1 supports packages",
-      "skillset/skills/broken/SKILL.md:1: error: schema/skill-frontmatter: description must be a non-empty string",
-      "skillset/skills/broken/SKILL.md:1: error: schema/skill-frontmatter: skill needs description, summary, title, or skillset descriptive metadata",
-      "skillset/skills/broken/SKILL.md:1: error: schema/skill-frontmatter: skills must remove targets; use root compile.targets and claude/codex blocks for file-level behavior",
-      "skillset/skills/broken/SKILL.md:1: error: schema/skill-frontmatter: skillset.name is unsupported in skills; use top-level name",
-      "skillset/skills/broken/SKILL.md:1: error: schema/skill-frontmatter: skillset.version is unsupported in skills; use top-level version",
-      "skillset/skills/broken/SKILL.md: error: resource/resource-undeclared-link: broken skill links to undeclared resource ./scripts/check.sh",
     ]);
   });
 });
@@ -118,23 +118,23 @@ interface SourceContractSpec {
 
 const cleanSources: readonly SourceContractSpec[] = [
   { kind: "workspace-config", path: "skillset.yaml" },
-  { kind: "skill", path: "skillset/skills/reference/SKILL.md" },
-  { kind: "agent", path: "skillset/agents/reviewer.md" },
-  { kind: "instruction", path: "skillset/rules/root.md" },
-  { kind: "hook", path: "skillset/hooks/hooks.json" },
+  { kind: "skill", path: ".skillset/skills/reference/SKILL.md" },
+  { kind: "agent", path: ".skillset/agents/reviewer.md" },
+  { kind: "instruction", path: ".skillset/rules/root.md" },
+  { kind: "hook", path: ".skillset/hooks/hooks.json" },
 ];
 
 const invalidSources: readonly SourceContractSpec[] = [
   { kind: "workspace-config", path: "skillset.yaml" },
-  { kind: "skill", path: "skillset/skills/broken/SKILL.md" },
-  { kind: "agent", path: "skillset/agents/broken.md" },
-  { kind: "instruction", path: "skillset/rules/root.md" },
-  { kind: "hook", path: "skillset/hooks/hooks.json" },
+  { kind: "skill", path: ".skillset/skills/broken/SKILL.md" },
+  { kind: "agent", path: ".skillset/agents/broken.md" },
+  { kind: "instruction", path: ".skillset/rules/root.md" },
+  { kind: "hook", path: ".skillset/hooks/hooks.json" },
 ];
 
 const invalidResourceIssues = await resourceIssuesFromFixture(
   "workbench-invalid",
-  "skillset/skills/broken/SKILL.md"
+  ".skillset/skills/broken/SKILL.md"
 );
 
 async function sourceContractDiagnostics(
@@ -192,7 +192,7 @@ async function expectOperationalSentinels(fixtureName: string): Promise<void> {
   );
   expect(await fixtureFileText(fixtureName, ".skillset/cache/.gitignore")).toBe("*\n!.gitignore\n");
   expect(await fixtureFileText(fixtureName, ".skillset/snapshots/.gitignore")).toBe("*\n!.gitignore\n");
-  expect(await fixtureFileExists(fixtureName, "skillset/changes/.gitkeep")).toBeTrue();
+  expect(await fixtureFileExists(fixtureName, ".skillset/changes/.gitkeep")).toBeTrue();
 }
 
 function feature(
@@ -206,7 +206,7 @@ function feature(
     id,
     kind: "workflow",
     renderOwner: "packages/core/src/test.ts",
-    sourceShape: "skillset/test",
+    sourceShape: ".skillset/test",
     status: "implemented",
     summary: "Test feature.",
     targetSupport: {

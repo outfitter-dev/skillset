@@ -16,13 +16,13 @@ const SKILL_BODY = [
 ].join("\n");
 
 const DIALECT_FIXTURE: Record<string, string> = {
-  ".skillset/config.yaml": `
+  "skillset.yaml": `
 skillset:
   name: dialect-root
 claude: true
 codex: true
 `,
-  ".skillset/src/skills/x/SKILL.md": `---
+  ".skillset/skills/x/SKILL.md": `---
 name: x
 description: Claude-dialect skill.
 dialect: claude
@@ -30,7 +30,7 @@ dialect: claude
 
 ${SKILL_BODY}
 `,
-  ".skillset/src/skills/y/SKILL.md": `---
+  ".skillset/skills/y/SKILL.md": `---
 name: y
 description: Portable skill with the same body.
 ---
@@ -91,8 +91,8 @@ test("dialect: claude lowers the codex skill projection and only that projection
 
 test("unknown dialect values fail the build loudly", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": "skillset:\n  name: dialect-bad\nclaude: true\n",
-    ".skillset/src/skills/x/SKILL.md": `---
+    "skillset.yaml": "skillset:\n  name: dialect-bad\nclaude: true\n",
+    ".skillset/skills/x/SKILL.md": `---
 name: x
 description: Bad dialect.
 dialect: codex
@@ -109,13 +109,13 @@ Body.
 
 test("dialect: claude instructions translate AGENTS.md but not .claude/rules", async () => {
   const root = await fixture({
-    ".skillset/config.yaml": `
+    "skillset.yaml": `
 skillset:
   name: dialect-rules
 claude: true
 codex: true
 `,
-    ".skillset/src/rules/conventions.md": `---
+    ".skillset/rules/conventions.md": `---
 dialect: claude
 ---
 

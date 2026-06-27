@@ -18,7 +18,8 @@
  *
  * Run failures (init/import/lint/build/purity errors) exit non-zero. The
  * purity stage is the hard invariant: after a run, `git status` in the clone
- * may only show paths under .skillset/ — anything else is a toolchain defect.
+ * may only show root skillset.yaml and paths under .skillset/ — anything else
+ * is a toolchain defect.
  * The round-trip comparison is report-only for now; per-repo expectations can
  * harden into assertions once the numbers settle.
  */
@@ -46,9 +47,10 @@ import { loadBuildGraph } from "../../packages/core/src/resolver";
 const MANIFEST_PATH = "fixtures/external/repos.yaml";
 const CLONES_DIR = "fixtures/external/repos";
 const REPORTS_DIR = ".skillset/cache/fixtures";
-// .skillset is ignored because in-place adoption creates it inside the clone;
-// it is harness material, not part of the original tree being round-tripped.
-const COMPARISON_EXCLUDED_PATHS = [".DS_Store"];
+// .skillset and skillset.yaml are ignored because in-place adoption creates
+// them inside the clone; they are harness material, not part of the original
+// tree being round-tripped.
+const COMPARISON_EXCLUDED_PATHS = [".DS_Store", "skillset.yaml"];
 const COMPARISON_EXCLUDED_PREFIXES = [".git/", ".skillset/"];
 const REPORT_LIST_CAP = 100;
 
@@ -232,8 +234,9 @@ export interface ExternalRunReport {
 const PURITY_DETAIL_CAP = 10;
 
 /**
- * The purity invariant: adoption may only ever create paths under .skillset/.
- * Any other path reported by `git status` after a run is a toolchain defect.
+ * The purity invariant: adoption may only ever create root skillset.yaml and
+ * paths under .skillset/. Any other path reported by `git status` after a run
+ * is a toolchain defect.
  * Older in-repo cache payloads may show up in status for pre-XDG runs; that is
  * fine when they stay under .skillset/.
  */
@@ -253,7 +256,7 @@ export async function checkClonePurity(
     // `old -> new`; both sides must stay under .skillset/).
     for (const rawPath of line.slice(3).split(" -> ")) {
       const path = rawPath.replaceAll('"', "");
-      if (!path.startsWith(".skillset/")) {dirtyPaths.push(path);}
+      if (path !== "skillset.yaml" && !path.startsWith(".skillset/")) {dirtyPaths.push(path);}
     }
   }
   return {
@@ -264,17 +267,18 @@ export async function checkClonePurity(
 
 /**
  * Reruns must start clean: import never overwrites, so a prior run's
- * .skillset/ adoption would fail the next one. Only untracked leftovers are
- * cleaned; a clone that tracks .skillset/ content is not ours to delete.
+ * skillset.yaml + .skillset/ adoption would fail the next one. Only untracked
+ * leftovers are cleaned; a clone that tracks Skillset source is not ours to
+ * delete.
  */
 async function cleanSkillsetLeftovers(clonePath: string): Promise<void> {
-  const tracked = await gitOutput(clonePath, "ls-files", "--", ".skillset");
+  const tracked = await gitOutput(clonePath, "ls-files", "--", "skillset.yaml", ".skillset");
   if (tracked.trim().length > 0) {
     throw new Error(
-      `skillset: clone ${clonePath} has tracked .skillset files; refusing to clean`
+      `skillset: clone ${clonePath} has tracked Skillset source files; refusing to clean`
     );
   }
-  await runGit(clonePath, "clean", "-fdx", "-q", "--", ".skillset");
+  await runGit(clonePath, "clean", "-fdx", "-q", "--", "skillset.yaml", ".skillset");
 }
 
 /**
@@ -363,8 +367,8 @@ export async function runExternalRepo(
     const overflow = purity.dirtyPaths.length - listed.length;
     stages.push({
       detail: purity.ok
-        ? "git status reports nothing outside .skillset/"
-        : `dirty paths outside .skillset/: ${listed.join(", ")}${overflow > 0 ? ` (and ${overflow} more)` : ""}`,
+        ? "git status reports nothing outside skillset.yaml and .skillset/"
+        : `dirty paths outside skillset.yaml and .skillset/: ${listed.join(", ")}${overflow > 0 ? ` (and ${overflow} more)` : ""}`,
       ok: purity.ok,
       stage: "purity",
     });
