@@ -12,20 +12,20 @@ Skillset currently uses internal compiler fixtures and validation commands:
 
 | Surface | Location | Status | Purpose |
 | --- | --- | --- | --- |
-| Internal fixtures | `fixtures/<case>/skillset.yaml` and `fixtures/<case>/skillset/` ([convention](../../fixtures/README.md)) | `implemented` / internal | Fake repos copied into temp directories by compiler tests. |
+| Internal fixtures | `fixtures/<case>/skillset.yaml` and `fixtures/<case>/.skillset/` ([convention](../../fixtures/README.md)) | `implemented` / internal | Fake repos copied into temp directories by compiler tests. |
 | Contract tests | `src/__tests__/` | `implemented` / internal | Unit, contract, and audit-hardening tests for compiler behavior. |
 | Validation commands | `skillset check`, `skillset verify`, `doctor`, `diff`, `change check`, `release plan` | `implemented` | Public commands that validate real source and generated output. |
 | Dogfooding | repo scripts, Linear acceptance criteria, real Skillset source changes | internal practice | Proves workflows by using them on this repo. |
 | `skillset test` | `<source-root>/tests.yaml` and `<source-root>/tests/*.yaml` | `implemented` | Deterministic isolated projection and check runner for authored source. |
 | `.skillset/evals/` | n/a | `future` | Future adapter-aware behavioral eval declarations or pointers. |
 
-Checked-in internal fixtures use the dedicated layout: `fixtures/<case>/skillset.yaml` as the workspace manifest and `fixtures/<case>/skillset/` as the source root. Inline temp fixtures may still use ordinary `.skillset/skillset.yaml` and `.skillset/src/` trees when they are testing ordinary workspace behavior directly.
+Checked-in internal fixtures use `fixtures/<case>/skillset.yaml` as the workspace manifest and `fixtures/<case>/.skillset/` as the source root. Inline temp fixtures should use the same shape unless they are explicitly testing legacy migration rejection or normalization.
 
 ## Deterministic Tests
 
 `skillset test` runs isolated deterministic scenarios. It compiles selected source units in a run workspace and checks generated files, provider manifests, and drift without touching live target output.
 
-The implemented v1 shape is selector-driven and source-root owned. Ordinary repos use `.skillset/src/tests.yaml` or `.skillset/src/tests/*.yaml`. Dedicated Skillset repos use `skillset/tests.yaml` or `skillset/tests/*.yaml`. A single `tests.yaml` can hold many named tests; each split file is one test named from the file stem. Test declarations reference existing source units rather than duplicating skills, plugins, agents, or instructions.
+The implemented v1 shape is selector-driven and source-root owned. Repos use `.skillset/tests.yaml` or `.skillset/tests/*.yaml`. A single `tests.yaml` can hold many named tests; each split file is one test named from the file stem. Test declarations reference existing source units rather than duplicating skills, plugins, agents, or instructions.
 
 ```yaml
 self-hosted:
@@ -69,7 +69,7 @@ primary-skills:
 
 `select.skills.plugin` is available for plugin-bound skills, but `select.plugins.skills` is the clearer spelling when the test starts from plugins. `targets` filters provider renderings; `select` filters source units. `--scope` continues to mean generated-destination filtering, not source selection, and `skillset test` rejects build/write flags such as `--scope`, `--yes`, `--dry-run`, `--updated`, `--all`, and `--dist`.
 
-The test runner copies only source-relevant files into an isolated run workspace: ordinary workspaces stage `.skillset/skillset.yaml`, `.skillset/src/`, and `.skillset/changes/`, while dedicated workspaces stage `skillset.yaml`, `skillset/`, and `skillset/changes/`. It then prunes unselected source units before building. It does not stage operational `.skillset/cache/` or `.skillset/snapshots/` contents. If the repo has an existing workspace `skillset.lock`, the test stages that lock too so source-adjacent generated files such as entity `CHANGELOG.md` files remain recognized as managed inside the run.
+The test runner copies only source-relevant files into an isolated run workspace: root `skillset.yaml`, `.skillset/`, and `.skillset/changes/`. It then prunes unselected source units before building. It does not stage operational `.skillset/cache/` or `.skillset/snapshots/` contents. If the repo has an existing workspace `skillset.lock`, the test stages that lock too so source-adjacent generated files such as entity `CHANGELOG.md` files remain recognized as managed inside the run.
 
 Generated test output uses the logical cache root in reports and `latest.json`; Skillset stores the physical files in the repo's XDG cache bucket:
 

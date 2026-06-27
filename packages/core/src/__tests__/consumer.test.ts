@@ -12,13 +12,13 @@ import {
 } from "@skillset/core";
 
 const DEMO_FIXTURE: Record<string, string> = {
-  ".skillset/config.yaml": `
+  "skillset.yaml": `
 skillset:
   name: core-consumer-root
 claude: true
 codex: false
 `,
-  ".skillset/src/skills/demo/SKILL.md": `
+  ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo skill.
@@ -163,11 +163,11 @@ describe("@skillset/core consumer API", () => {
   it("classifies stale generated output for removed source units", async () => {
     const root = await fixture({
       ...DEMO_FIXTURE,
-      ".skillset/src/skills/keeper/SKILL.md": SECOND_SKILL,
+      ".skillset/skills/keeper/SKILL.md": SECOND_SKILL,
     });
     const expectedOutput = ".claude/skills/demo/SKILL.md";
     await buildSkillsetResult(root);
-    await rm(join(root, ".skillset/src/skills/demo"), { recursive: true });
+    await rm(join(root, ".skillset/skills/demo"), { recursive: true });
 
     const result = await verifySkillsetResult(root);
 
@@ -184,7 +184,7 @@ describe("@skillset/core consumer API", () => {
 
   it("still rejects invalid source config as an exceptional error", async () => {
     const root = await fixture({
-      ".skillset/config.yaml": `
+      "skillset.yaml": `
 skillset:
   name: invalid-core-check-root
 compile:

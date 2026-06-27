@@ -449,11 +449,8 @@ function readEvidenceHash(record: JsonRecord): string | undefined {
   return readString(record, "hash") ?? readString(record, "sourceHash") ?? readString(record, "currentHash");
 }
 
-async function readReasonMinLength(rootPath: string, options: ChangeStatusOptions): Promise<number> {
-  const sourceDir = options.sourceDir ?? ".skillset";
-  const configPaths = sourceDir === "."
-    ? ["skillset.yaml"]
-    : [join(sourceDir, "config.yaml"), join(sourceDir, "skillset.yaml")];
+async function readReasonMinLength(rootPath: string, _options: ChangeStatusOptions): Promise<number> {
+  const configPaths = ["skillset.yaml"];
   const resolvedConfigPath = await firstExistingPath(configPaths.map((path) => resolveInside(rootPath, path)));
   if (resolvedConfigPath === undefined) return DEFAULT_REASON_MIN_LENGTH;
   const config = parseYamlRecord(await readFile(resolvedConfigPath, "utf8"), resolvedConfigPath);

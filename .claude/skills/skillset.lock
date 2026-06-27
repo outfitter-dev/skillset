@@ -25,7 +25,7 @@
       "outputHash": "sha256:01cc40a906ca67acf3c3bda6384b3840b3b908c3ec04a8535c0839392101ab92",
       "outputPath": "skillset-adrs/SKILL.md",
       "sourceHash": "sha256:fa280cc5fbf41d263bb22b8431cdaf77378cdc2ea77a6b0b610618999152aacd",
-      "sourcePath": "skillset/skills/skillset-adrs/SKILL.md",
+      "sourcePath": ".skillset/skills/skillset-adrs/SKILL.md",
       "version": "0.1.0"
     },
     {
@@ -34,10 +34,10 @@
       ],
       "kind": "standalone-skill",
       "name": "skillset-claude-development",
-      "outputHash": "sha256:06d118fd22b8c496e966a5472de3ec01f48c3ea6982315138061d2f560d25d72",
+      "outputHash": "sha256:a215e95d005559309a88e0706e6b8f8bb3c15d5a0ecd35a0d5d48686e4aaf486",
       "outputPath": "skillset-claude-development/SKILL.md",
-      "sourceHash": "sha256:f5426322878116e4475a0ab8e24b83dd944981fdb4c98b670810f6679246d101",
-      "sourcePath": "skillset/skills/skillset-claude-development/SKILL.md",
+      "sourceHash": "sha256:2a733adc3fcd45d96265065ef56915b87de47bb74167f5b160e22aaa4709f4cb",
+      "sourcePath": ".skillset/skills/skillset-claude-development/SKILL.md",
       "version": "0.1.0"
     },
     {
@@ -46,10 +46,10 @@
       ],
       "kind": "standalone-skill",
       "name": "skillset-repo-test-fixtures",
-      "outputHash": "sha256:bf6500c975ea03db1a5ecb7bdac1c4ded7e1f7a5b0d4f22c2abc9d452322c637",
+      "outputHash": "sha256:66ce349f46964f0fe4ca342691603621058b98ce4eb5deb13bae1ccfd33778ed",
       "outputPath": "skillset-repo-test-fixtures/SKILL.md",
-      "sourceHash": "sha256:b4708e074d2e0eafe45013297b67143356de6088a8cf7dddc6d877b27963a574",
-      "sourcePath": "skillset/skills/skillset-repo-test-fixtures/SKILL.md",
+      "sourceHash": "sha256:430e5046d85f1f1099bfbd32afa8c97713d33c1e30bc27b5de8a07cba5905121",
+      "sourcePath": ".skillset/skills/skillset-repo-test-fixtures/SKILL.md",
       "version": "0.1.2"
     }
   ],
@@ -126,7 +126,7 @@
         }
       ],
       "schema": "skillset-render-result@1",
-      "sourcePath": "skillset/skills/skillset-adrs/SKILL.md",
+      "sourcePath": ".skillset/skills/skillset-adrs/SKILL.md",
       "sourceUnit": "skill:skillset-adrs",
       "status": "rendered",
       "target": "claude"
@@ -158,7 +158,7 @@
         }
       ],
       "schema": "skillset-render-result@1",
-      "sourcePath": "skillset/skills/skillset-claude-development/SKILL.md",
+      "sourcePath": ".skillset/skills/skillset-claude-development/SKILL.md",
       "sourceUnit": "skill:skillset-claude-development",
       "status": "rendered",
       "target": "claude"
@@ -190,7 +190,7 @@
         }
       ],
       "schema": "skillset-render-result@1",
-      "sourcePath": "skillset/skills/skillset-repo-test-fixtures/SKILL.md",
+      "sourcePath": ".skillset/skills/skillset-repo-test-fixtures/SKILL.md",
       "sourceUnit": "skill:skillset-repo-test-fixtures",
       "status": "rendered",
       "target": "claude"
@@ -202,6 +202,6 @@
     "codex"
   ],
   "skillsetMetadata": true,
-  "sourceRoot": "skillset",
+  "sourceRoot": ".skillset",
   "target": "claude"
 }

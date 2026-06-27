@@ -394,7 +394,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     id: "plugin-manifests",
     kind: "source",
     renderOwner: "packages/core/src/render.ts",
-    sourceShape: ".skillset/src/plugins/<plugin>/skillset.yaml",
+    sourceShape: ".skillset/plugins/<plugin>/skillset.yaml",
     status: "implemented",
     summary: "Projects plugin metadata and component wiring into target-native plugin manifests.",
     targetSupport: bothTargetsWithTargetEvidence("native", [
@@ -459,7 +459,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     id: "plugin-skills",
     kind: "source",
     renderOwner: "packages/core/src/render.ts",
-    sourceShape: ".skillset/src/plugins/<plugin>/skills/<skill>/SKILL.md",
+    sourceShape: ".skillset/plugins/<plugin>/skills/<skill>/SKILL.md",
     status: "implemented",
     summary: "Preserves plugin-scoped skills inside each target plugin boundary.",
     targetSupport: bothTargetsWithTargetEvidence("native", [
@@ -527,7 +527,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     id: "project-instructions",
     kind: "source",
     renderOwner: "packages/core/src/render.ts",
-    sourceShape: ".skillset/src/rules/**/*.md",
+    sourceShape: ".skillset/rules/**/*.md",
     status: "implemented",
     summary: "Renders project instructions to Claude rules and directory-local Codex AGENTS.md files.",
     targetSupport: {
@@ -547,7 +547,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     id: "project-agents",
     kind: "source",
     renderOwner: "packages/core/src/render.ts",
-    sourceShape: ".skillset/src/agents/*.md",
+    sourceShape: ".skillset/agents/*.md",
     status: "implemented",
     summary: "Renders portable project agents to Claude Markdown agents and Codex TOML agents.",
     runtimeSupport: {
@@ -654,7 +654,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     id: "resources",
     kind: "source",
     renderOwner: "packages/core/src/render.ts",
-    sourceShape: "skill resources frontmatter and .skillset/src/shared/",
+    sourceShape: "skill resources frontmatter and .skillset/shared/",
     status: "implemented",
     summary: "Copies declared skill resources and validates links to shared resource declarations.",
     targetSupport: bothTargetsWithTargetEvidence("native", [
@@ -675,7 +675,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     id: "standalone-skills",
     kind: "source",
     renderOwner: "packages/core/src/render.ts",
-    sourceShape: ".skillset/src/skills/<skill>/SKILL.md",
+    sourceShape: ".skillset/skills/<skill>/SKILL.md",
     status: "implemented",
     summary: "Projects standalone repo skills into configured target skill roots.",
     targetSupport: bothTargetsWithTargetEvidence("native", [
@@ -709,7 +709,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     id: "target-native-islands",
     kind: "target-native",
     renderOwner: "packages/core/src/render.ts",
-    sourceShape: ".skillset/src/_claude/**, .skillset/src/_codex/**, and plugin-local provider source subdirs",
+    sourceShape: ".skillset/_claude/**, .skillset/_codex/**, and plugin-local provider source subdirs",
     status: "implemented",
     summary: "Mirrors explicit provider-specific files only to their intended provider output.",
     targetSupport: bothTargets("pass_through"),

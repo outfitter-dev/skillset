@@ -19,7 +19,7 @@ describe("lint bridge", () => {
       },
       line: 3,
       message: "Description is too long.",
-      path: ".skillset/src/skills/demo/SKILL.md",
+      path: ".skillset/skills/demo/SKILL.md",
       rule: "skill-description-length",
       severity: "warn",
     } satisfies LintDiagnostic;
@@ -32,12 +32,12 @@ describe("lint bridge", () => {
         "Shorten the description.",
         "docs/features/skills.md",
       ],
-      location: { line: 3, path: ".skillset/src/skills/demo/SKILL.md" },
+      location: { line: 3, path: ".skillset/skills/demo/SKILL.md" },
       message: "Description is too long.",
       ruleId: "lint/skill-description-length",
       scope: "source",
       severity: "warning",
-      subject: { kind: "skill", path: ".skillset/src/skills/demo/SKILL.md" },
+      subject: { kind: "skill", path: ".skillset/skills/demo/SKILL.md" },
     } satisfies WorkbenchDiagnostic);
   });
 
@@ -46,7 +46,7 @@ describe("lint bridge", () => {
       [
         {
           message: "Hook issue",
-          path: ".skillset/src/plugins/demo/hooks/hooks.json",
+          path: ".skillset/plugins/demo/hooks/hooks.json",
           rule: "hook-target-incompatible",
           severity: "error",
         },
@@ -54,18 +54,18 @@ describe("lint bridge", () => {
       {
         rulePrefix: "compat",
         scope: "provider",
-        subject: { id: "demo", kind: "plugin", path: ".skillset/src/plugins/demo" },
+        subject: { id: "demo", kind: "plugin", path: ".skillset/plugins/demo" },
       }
     );
 
     expect(found).toEqual([
       {
-        location: { path: ".skillset/src/plugins/demo/hooks/hooks.json" },
+        location: { path: ".skillset/plugins/demo/hooks/hooks.json" },
         message: "Hook issue",
         ruleId: "compat/hook-target-incompatible",
         scope: "provider",
         severity: "error",
-        subject: { id: "demo", kind: "plugin", path: ".skillset/src/plugins/demo" },
+        subject: { id: "demo", kind: "plugin", path: ".skillset/plugins/demo" },
       },
     ]);
   });
@@ -76,7 +76,7 @@ describe("lint bridge", () => {
         code: "missing-fallback",
         featureId: "standalone-skills",
         message: "Missing fallback.",
-        path: ".skillset/src/skills/demo/SKILL.md",
+        path: ".skillset/skills/demo/SKILL.md",
         rule: "skill-env-var-no-fallback",
         severity: "warn",
       },
@@ -95,7 +95,7 @@ describe("lint bridge", () => {
   test("omits help when lint guidance is absent", () => {
     const found = workbenchDiagnosticFromLintDiagnostic({
       message: "Missing name.",
-      path: ".skillset/src/skills/demo/SKILL.md",
+      path: ".skillset/skills/demo/SKILL.md",
       rule: "skill-name-required",
       severity: "error",
     });

@@ -61,13 +61,13 @@ test("adopt plan mode surveys only and writes nothing", async () => {
 
 test("adopt reports current and dedicated workspaces as already adopted", async () => {
   const ordinary = await fixture({
-    ".skillset/skillset.yaml": "compile:\n  targets:\n    - claude\n",
-    ".skillset/src/skills/existing/SKILL.md":
+    "skillset.yaml": "compile:\n  targets:\n    - claude\n",
+    ".skillset/skills/existing/SKILL.md":
       "---\nname: existing\ndescription: Existing skill.\n---\n\nBody.\n",
   });
   const dedicated = await fixture({
     "skillset.yaml": "compile:\n  targets:\n    - claude\n",
-    "skillset/skills/existing/SKILL.md":
+    ".skillset/skills/existing/SKILL.md":
       "---\nname: existing\ndescription: Existing skill.\n---\n\nBody.\n",
   });
 
@@ -78,10 +78,10 @@ test("adopt reports current and dedicated workspaces as already adopted", async 
   expect(dedicatedReport.alreadyAdopted).toBe(true);
   const cli = await runSkillsetCli("adopt", ordinary);
   expect(cli.stdout).toContain("repo already has a Skillset workspace marker");
-  expect(cli.stdout).not.toContain("repo already has .skillset/config.yaml");
+  expect(cli.stdout).not.toContain("repo already has skillset.yaml");
   const markdown = renderAdoptReportMarkdown(ordinaryReport, { rootPath: ordinary });
   expect(markdown).toContain("repo already had a Skillset workspace marker");
-  expect(markdown).not.toContain("repo already had `.skillset/config.yaml`");
+  expect(markdown).not.toContain("repo already had `skillset.yaml`");
 });
 
 test("adopt accepts git remotes by shallow cloning before running the existing flow", async () => {
@@ -123,7 +123,7 @@ test("adopt accepts git remotes by shallow cloning before running the existing f
       ref,
       repo: remote,
     });
-    const explain = await runSkillsetCli("explain", ".skillset/src/plugins/demo", "--root", report.rootPath);
+    const explain = await runSkillsetCli("explain", ".skillset/plugins/demo", "--root", report.rootPath);
     expect(explain.exitCode).toBe(0);
     expect(explain.stdout).toContain(`source origin: ${remote} @ ${ref} path plugins/demo`);
   }
@@ -151,15 +151,15 @@ test("adopt write mode imports everything, builds the mirror, and writes the rep
   expect(report.cutover).toEqual(["AGENTS.md"]);
 
   // Imported source lands in canonical .skillset/ homes with source-origin metadata.
-  expect(await readFile(join(root, ".skillset/skillset.yaml"), "utf8")).toContain("targets:");
-  expect(await exists(join(root, ".skillset/src/plugins/demo/skillset.yaml"))).toBe(true);
-  const importedInstructions = await readFile(join(root, ".skillset/src/rules/agents.md"), "utf8");
+  expect(await readFile(join(root, "skillset.yaml"), "utf8")).toContain("targets:");
+  expect(await exists(join(root, ".skillset/plugins/demo/skillset.yaml"))).toBe(true);
+  const importedInstructions = await readFile(join(root, ".skillset/rules/agents.md"), "utf8");
   expect(importedInstructions).toContain("skillset:\n  origin:\n    path: AGENTS.md");
   expect(importedInstructions).toContain(AGENTS_CONTENT.trimEnd());
-  expect(await readFile(join(root, ".skillset/src/plugins/demo/skillset.yaml"), "utf8")).toContain(
+  expect(await readFile(join(root, ".skillset/plugins/demo/skillset.yaml"), "utf8")).toContain(
     "path: plugins/demo"
   );
-  expect(await readFile(join(root, ".skillset/src/plugins/demo/skills/demo-skill/SKILL.md"), "utf8")).toContain(
+  expect(await readFile(join(root, ".skillset/plugins/demo/skills/demo-skill/SKILL.md"), "utf8")).toContain(
     "path: plugins/demo/skills/demo-skill/SKILL.md"
   );
 
@@ -205,14 +205,14 @@ test("adopt write mode imports everything, builds the mirror, and writes the rep
   );
   expect(JSON.stringify(json.renderResults)).not.toContain(root);
 
-  const explain = await runSkillsetCli("explain", ".skillset/src/plugins/demo", "--root", root);
+  const explain = await runSkillsetCli("explain", ".skillset/plugins/demo", "--root", root);
   expect(explain.exitCode).toBe(0);
   expect(explain.stdout).toContain("source origin: path plugins/demo");
 
-  // Purity: adoption only ever creates paths under .skillset/.
+  // Purity: adoption only creates the root config plus paths under .skillset/.
   const added = [...(await walkFiles(root))].filter((path) => !before.has(path));
   expect(added.length).toBeGreaterThan(0);
-  expect(added.every((path) => path.startsWith(".skillset/"))).toBe(true);
+  expect(added.every((path) => path === "skillset.yaml" || path.startsWith(".skillset/"))).toBe(true);
 });
 
 test("adopt carries import render results into the persisted report", async () => {
@@ -226,7 +226,7 @@ test("adopt carries import render results into the persisted report", async () =
     diagnostics: expect.arrayContaining([
       expect.objectContaining({
         code: "import-preserved-target-native-frontmatter",
-        path: ".skillset/src/skills/native/SKILL.md",
+        path: ".skillset/skills/native/SKILL.md",
       }),
     ]),
     featureId: "tool-intent",
@@ -274,7 +274,7 @@ test("adopt preserves survey skip outcomes when isolated build cannot load sourc
 test("adopt records an instructions collision as a failed import without throwing", async () => {
   const root = await fixture({
     ...MARKETPLACE_FIXTURE,
-    ".skillset/src/rules/agents.md": "pre-existing\n",
+    ".skillset/rules/agents.md": "pre-existing\n",
   });
 
   const report = await adoptSkillset(root, { write: true });
@@ -283,7 +283,7 @@ test("adopt records an instructions collision as a failed import without throwin
   const failed = report.imports.find((result) => result.candidate.kind === "instructions");
   expect(failed?.ok).toBe(false);
   expect(failed?.detail).toContain("already exists");
-  expect(await readFile(join(root, ".skillset/src/rules/agents.md"), "utf8")).toBe(
+  expect(await readFile(join(root, ".skillset/rules/agents.md"), "utf8")).toBe(
     "pre-existing\n"
   );
   // The collision must not block the rest of the migration.
@@ -326,7 +326,7 @@ test("adopt previews transforms and declares dialect on transformable imports", 
   const report = await adoptSkillset(root, { write: true });
 
   const preview = report.transformPreviews.find(
-    (entry) => entry.path === ".skillset/src/skills/x/SKILL.md"
+    (entry) => entry.path === ".skillset/skills/x/SKILL.md"
   );
   expect(preview).toBeDefined();
   expect(
@@ -339,7 +339,7 @@ test("adopt previews transforms and declares dialect on transformable imports", 
   // Transformable matches present -> the imported frontmatter declares the
   // dialect; raw Claude arguments are normalized to Skillset source markers.
   expect(preview?.dialectDeclared).toBe(true);
-  const imported = await readFile(join(root, ".skillset/src/skills/x/SKILL.md"), "utf8");
+  const imported = await readFile(join(root, ".skillset/skills/x/SKILL.md"), "utf8");
   expect(imported).toStartWith("---\ndialect: claude\n");
   expect(imported).toContain("Skills live in .claude/skills/x today.");
   expect(imported).toContain("Pass {{$ARGUMENTS}} along, then ask @reviewer.");
@@ -369,13 +369,13 @@ test("adopt leaves files with only no-lowering matches undeclared", async () => 
   const report = await adoptSkillset(root, { write: true });
 
   const preview = report.transformPreviews.find(
-    (entry) => entry.path === ".skillset/src/skills/env-only/SKILL.md"
+    (entry) => entry.path === ".skillset/skills/env-only/SKILL.md"
   );
   expect(preview?.dialectDeclared).toBe(false);
   expect(preview?.matches.every((match) => match.lowering === "none")).toBe(true);
   // Nothing would translate, so no dialect is declared; source-origin metadata
   // is still recorded and the body stays untouched.
-  const imported = await readFile(join(root, ".skillset/src/skills/env-only/SKILL.md"), "utf8");
+  const imported = await readFile(join(root, ".skillset/skills/env-only/SKILL.md"), "utf8");
   expect(imported).not.toContain("dialect: claude");
   expect(imported).toContain("path: .claude/skills/env-only/SKILL.md");
   expect(imported).toContain("Pass ${CLAUDE_SKILL_DIR} along.");
@@ -394,7 +394,7 @@ test("adopt normalizes Claude arguments to Skillset prompt argument placeholders
 
   expect(report.ok).toBe(true);
   expect(report.transformPreviews).toEqual([]);
-  const imported = await readFile(join(root, ".skillset/src/skills/args/SKILL.md"), "utf8");
+  const imported = await readFile(join(root, ".skillset/skills/args/SKILL.md"), "utf8");
   expect(imported).toContain("description: Uses $ARGUMENTS literally in metadata.");
   expect(imported).toContain("Run {{$ARGUMENTS}}, {{$ARGUMENTS[0]}}, {{$ARGUMENTS[1]}}, and {{$ARGUMENTS.limit}}.");
   expect(imported).toContain("Keep {{$ARGUMENTS}} literal.");
@@ -415,7 +415,7 @@ test("adopt leaves unsupported Claude argument bracket forms raw", async () => {
       (issue) => issue.severity === "error" && issue.code === "codex-claude-dynamic-context"
     )
   ).toBe(true);
-  const imported = await readFile(join(root, ".skillset/src/skills/args/SKILL.md"), "utf8");
+  const imported = await readFile(join(root, ".skillset/skills/args/SKILL.md"), "utf8");
   expect(imported).toContain("Run $ARGUMENTS[foo].");
   expect(imported).not.toContain("{{$ARGUMENTS[foo]}}");
 });
@@ -427,10 +427,10 @@ test("adopt prepends a frontmatter block to transformable instruction imports", 
   const report = await adoptSkillset(root, { write: true });
 
   const preview = report.transformPreviews.find(
-    (entry) => entry.path === ".skillset/src/rules/claude.md"
+    (entry) => entry.path === ".skillset/rules/claude.md"
   );
   expect(preview?.dialectDeclared).toBe(true);
-  expect(await readFile(join(root, ".skillset/src/rules/claude.md"), "utf8")).toBe(
+  expect(await readFile(join(root, ".skillset/rules/claude.md"), "utf8")).toBe(
     `---\ndialect: claude\nskillset:\n  origin:\n    path: CLAUDE.md\n---\n\n${instructions}`
   );
   expect(report.buildError).toBeUndefined();

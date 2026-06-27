@@ -12,7 +12,7 @@ Project agents are a portable source surface for reusable, project-scoped specia
 <source-root>/agents/*.md
 ```
 
-`<source-root>` is `.skillset/src/` in ordinary repos and `skillset/` in dedicated Skillset repos.
+`<source-root>` is `.skillset/`.
 
 The source is Markdown with YAML frontmatter:
 

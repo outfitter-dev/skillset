@@ -15,7 +15,7 @@ Project-level provider source uses explicit provider directories:
 <source-root>/_codex/**  -> .codex/**
 ```
 
-`<source-root>` is `.skillset/src/` in ordinary repos and `skillset/` in dedicated Skillset repos. Plugin-level native pass-through remains under plugin source paths such as `<source-root>/plugins/<plugin>/hooks/hooks.json`, `<source-root>/plugins/<plugin>/.mcp.json`, `<source-root>/plugins/<plugin>/.app.json`, and Claude plugin `agents/`.
+`<source-root>` is `.skillset/`. Plugin-level native pass-through remains under plugin source paths such as `<source-root>/plugins/<plugin>/hooks/hooks.json`, `<source-root>/plugins/<plugin>/.mcp.json`, `<source-root>/plugins/<plugin>/.app.json`, and Claude plugin `agents/`.
 
 ## Support Table
 

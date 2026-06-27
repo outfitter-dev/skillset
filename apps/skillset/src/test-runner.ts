@@ -12,7 +12,6 @@ import { detectWorkspaceSourceDir, loadBuildGraph } from "./resolver";
 import { renderValidatedJson } from "./structured-output";
 import type { BuildGraph, JsonRecord, JsonValue, SkillsetOptions, TargetName } from "./types";
 import { pluginVersion } from "./versioning";
-import { workspaceChangesDir } from "./workspace-state";
 import { isJsonRecord, parseYamlRecord } from "./yaml";
 
 const TEST_BUILD_DIR = "cache/tests";
@@ -217,9 +216,7 @@ export async function runSkillsetTest(
 
 async function rejectRetiredWorkspaceTestConfig(rootPath: string, options: SkillsetOptions): Promise<void> {
   const sourceDir = await detectWorkspaceSourceDir(rootPath, options);
-  const configPaths = sourceDir === "."
-    ? ["skillset.yaml"]
-    : [join(sourceDir, "skillset.yaml"), join(sourceDir, "config.yaml")];
+  const configPaths = ["skillset.yaml"];
   for (const configPath of configPaths) {
     const absolutePath = resolveInside(rootPath, configPath);
     if (!(await pathExists(absolutePath))) continue;
@@ -309,7 +306,7 @@ function testDeclarationRoot(graph: BuildGraph): string {
 }
 
 function testDeclarationRootForSourceDir(sourceDir: string): string {
-  return sourceDir === "." ? "skillset" : join(sourceDir, "src");
+  return sourceDir;
 }
 
 function readTestObject(
@@ -1059,18 +1056,11 @@ async function copyIfExists(sourcePath: string, targetPath: string): Promise<voi
 
 async function copyTestSource(graph: BuildGraph, stagingWorkspacePath: string): Promise<void> {
   const ignoredOperationalPaths = ignoredSourceOperationalPaths(graph.rootPath, graph.sourceDir);
-  if (graph.sourceDir !== ".") {
-    await cp(graph.sourcePath, join(stagingWorkspacePath, graph.sourceDir), {
-      filter: (path) => !ignoredOperationalPaths.some((ignoredPath) => isSameOrInside(ignoredPath, path)),
-      recursive: true,
-    });
-    return;
-  }
-
   await copyIfExists(graph.rootConfigPath, join(stagingWorkspacePath, "skillset.yaml"));
-  await copyIfExists(graph.sourceRootPath, join(stagingWorkspacePath, graph.sourceRoot));
-  const changesDir = workspaceChangesDir(graph.sourceDir);
-  await copyIfExists(resolveInside(graph.rootPath, changesDir), join(stagingWorkspacePath, changesDir));
+  await cp(graph.sourcePath, join(stagingWorkspacePath, graph.sourceDir), {
+    filter: (path) => !ignoredOperationalPaths.some((ignoredPath) => isSameOrInside(ignoredPath, path)),
+    recursive: true,
+  });
 }
 
 async function applySourceSelection(

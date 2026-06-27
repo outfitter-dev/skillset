@@ -14,7 +14,7 @@
       "outputHash": "sha256:2e9429ef3ce5d0740f152b6800e4077338d099ff27ea42d1832097a0a55e2415",
       "outputPath": "fixtures.md",
       "sourceHash": "sha256:3d87ce1731a991776a4e2125f3251a5ebdfdb1845f42a049ffed4ba361d9db36",
-      "sourcePath": "skillset/rules/fixtures.md",
+      "sourcePath": ".skillset/rules/fixtures.md",
       "version": "0.1.1"
     }
   ],
@@ -36,7 +36,7 @@
         }
       ],
       "schema": "skillset-render-result@1",
-      "sourcePath": "skillset/rules/fixtures.md",
+      "sourcePath": ".skillset/rules/fixtures.md",
       "sourceUnit": "instruction:fixtures",
       "status": "transformed",
       "target": "claude"
@@ -48,6 +48,6 @@
     "codex"
   ],
   "skillsetMetadata": true,
-  "sourceRoot": "skillset",
+  "sourceRoot": ".skillset",
   "target": "claude"
 }

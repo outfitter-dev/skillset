@@ -8,7 +8,7 @@ Claude plugins can include slash-command definitions under `commands/`. Skillset
 
 ## Authoring
 
-Place Claude command files under `<source-root>/plugins/<plugin>/commands/`. `<source-root>` is `.skillset/src/` in ordinary repos and `skillset/` in dedicated Skillset repos. The directory is copied only when Claude plugin output for that plugin is active.
+Place Claude command files under `<source-root>/plugins/<plugin>/commands/`. `<source-root>` is `.skillset/`. The directory is copied only when Claude plugin output for that plugin is active.
 
 ## Target Rendering
 

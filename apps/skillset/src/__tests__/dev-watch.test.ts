@@ -22,17 +22,17 @@ test("SET-210: dev watch plan covers ordinary source and ignores generated churn
 
   const plan = await createDevWatchPlan(root);
 
-  expect(plan.sourceRoot).toBe(".skillset/src");
-  expect(plan.configPaths).toEqual([".skillset/skillset.yaml"]);
+  expect(plan.sourceRoot).toBe(".skillset");
+  expect(plan.configPaths).toEqual(["skillset.yaml"]);
   expect(plan.watchRoots).toContain(".skillset");
-  expect(plan.watchRoots).toContain(".skillset/src");
+  expect(plan.watchRoots).toContain(".skillset");
   expect(plan.ignoredRoots).toContain(".skillset/cache");
   expect(plan.ignoredRoots).toContain(".skillset/snapshots");
   expect(plan.ignoredRoots).toContain(".agents/skills");
   expect(plan.ignoredRoots).toContain(".claude/skills");
 
-  expect(shouldRunDevPreviewForPath(plan, ".skillset/src/skills/review-notes/SKILL.md")).toBe(true);
-  expect(shouldRunDevPreviewForPath(plan, ".skillset/skillset.yaml")).toBe(true);
+  expect(shouldRunDevPreviewForPath(plan, ".skillset/skills/review-notes/SKILL.md")).toBe(true);
+  expect(shouldRunDevPreviewForPath(plan, "skillset.yaml")).toBe(true);
   expect(shouldRunDevPreviewForPath(plan, ".agents/skills/review-notes/SKILL.md")).toBe(false);
   expect(shouldRunDevPreviewForPath(plan, ".skillset/cache/reports/skillset-ci-report.md")).toBe(false);
   expect(shouldRunDevPreviewForPath(plan, ".skillset/snapshots/run/manifest.json")).toBe(false);
@@ -41,7 +41,7 @@ test("SET-210: dev watch plan covers ordinary source and ignores generated churn
   expect(shouldRunDevPreviewForPath(plan, undefined)).toBe(true);
 });
 
-test("SET-210: dev watch plan covers root-layout source repos", async () => {
+test("SET-210: dev watch plan covers created source repos", async () => {
   const parent = await mkdtemp(join(tmpdir(), "skillset-dev-watch-root-"));
   await expect(runSkillsetCli("create", "team-loadout", "--root", parent, "--yes")).resolves.toMatchObject({
     exitCode: 0,
@@ -53,11 +53,10 @@ test("SET-210: dev watch plan covers root-layout source repos", async () => {
 
   const plan = await createDevWatchPlan(root);
 
-  expect(plan.sourceRoot).toBe("skillset");
+  expect(plan.sourceRoot).toBe(".skillset");
   expect(plan.configPaths).toEqual(["skillset.yaml"]);
-  expect(plan.watchRoots).toContain(".");
-  expect(plan.watchRoots).toContain("skillset");
-  expect(shouldRunDevPreviewForPath(plan, "skillset/skills/review-notes/SKILL.md")).toBe(true);
+  expect(plan.watchRoots).toContain(".skillset");
+  expect(shouldRunDevPreviewForPath(plan, ".skillset/skills/review-notes/SKILL.md")).toBe(true);
   expect(shouldRunDevPreviewForPath(plan, "skillset.yaml")).toBe(true);
   expect(shouldRunDevPreviewForPath(plan, ".claude/skills/review-notes/SKILL.md")).toBe(false);
 });

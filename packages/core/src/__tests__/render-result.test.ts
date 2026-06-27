@@ -12,7 +12,7 @@ describe("render results", () => {
   it("normalizes to a stable JSON shape with sorted nested arrays", () => {
     const outcome = defineRenderResult({
       diagnostics: [
-        { code: "z-warning", path: ".skillset/src/z.md" },
+        { code: "z-warning", path: ".skillset/z.md" },
         { code: "a-warning", message: "First." },
       ],
       evidence: [
@@ -26,7 +26,7 @@ describe("render results", () => {
         { kind: "agents", path: "AGENTS.md" },
       ],
       policy: "default",
-      sourcePath: ".skillset/src/rules/root.md",
+      sourcePath: ".skillset/rules/root.md",
       sourceUnit: "instructions:root",
       status: "transformed",
       target: "codex",
@@ -35,7 +35,7 @@ describe("render results", () => {
     expect(serializeRenderResult(outcome)).toBe(`{
   "schema": "${RENDER_RESULT_SCHEMA}",
   "sourceUnit": "instructions:root",
-  "sourcePath": ".skillset/src/rules/root.md",
+  "sourcePath": ".skillset/rules/root.md",
   "featureId": "project-instructions",
   "target": "codex",
   "destination": "instruction",
@@ -58,7 +58,7 @@ describe("render results", () => {
     },
     {
       "code": "z-warning",
-      "path": ".skillset/src/z.md"
+      "path": ".skillset/z.md"
     }
   ],
   "evidence": [
@@ -80,7 +80,7 @@ describe("render results", () => {
     const outcome = defineRenderResult({
       featureId: "supports",
       policy: "scope:excluded",
-      sourcePath: ".skillset/src/skills/demo/SKILL.md",
+      sourcePath: ".skillset/skills/demo/SKILL.md",
       sourceUnit: "skill:demo",
       status: "intentionally_skipped",
     });
@@ -97,7 +97,7 @@ describe("render results", () => {
         { path: "plugins-claude/plugins/acme/.claude-plugin/plugin.json" },
         { path: "plugins-codex/plugins/acme/.codex-plugin/plugin.json" },
       ],
-      sourcePath: ".skillset/src/plugins/acme/skillset.yaml",
+      sourcePath: ".skillset/plugins/acme/skillset.yaml",
       sourceUnit: "plugin:acme",
       status: "rendered",
     });

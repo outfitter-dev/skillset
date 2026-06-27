@@ -13,7 +13,6 @@ import type { JsonRecord, SourceOrigin } from "./types";
 import { isJsonRecord, parseMarkdown, parseYamlRecord, stringifyMarkdown, stringifyYaml } from "./yaml";
 
 const DEFAULT_SOURCE_DIR = ".skillset";
-const SOURCE_ROOT_DIR = "src";
 const PLUGINS_DIR = "plugins";
 const SKILLS_DIR = "skills";
 
@@ -139,7 +138,7 @@ export async function importSources(options: ImportSourcesOptions): Promise<Impo
 export async function importSource(options: ImportOptions): Promise<ImportReport> {
   const sourcePath = resolve(options.sourcePath);
   const sourceDir = await resolveImportSourceDir(options.rootPath, options.sourceDir);
-  const sourceRoot = sourceDir === "." ? "skillset" : join(sourceDir, SOURCE_ROOT_DIR);
+  const sourceRoot = sourceDir;
   const name = await resolveImportName(sourcePath, options);
   const targetPath = resolveInside(
     options.rootPath,
@@ -220,7 +219,14 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
 }
 
 async function resolveImportSourceDir(rootPath: string, explicitSourceDir: string | undefined): Promise<string> {
-  if (explicitSourceDir !== undefined) return explicitSourceDir;
+  if (explicitSourceDir !== undefined) {
+    if (explicitSourceDir !== DEFAULT_SOURCE_DIR) {
+      throw new Error(
+        `skillset: --source ${explicitSourceDir} uses a retired source layout; imports write under ${DEFAULT_SOURCE_DIR}/`
+      );
+    }
+    return explicitSourceDir;
+  }
   try {
     return await detectWorkspaceSourceDir(rootPath);
   } catch (error) {
@@ -461,7 +467,7 @@ async function resolveSkillFile(sourcePath: string): Promise<string> {
 }
 
 async function resolvePluginConfig(sourcePath: string): Promise<string | undefined> {
-  for (const file of ["config.yaml", "skillset.yaml"]) {
+  for (const file of ["skillset.yaml", "config.yaml"]) {
     const candidate = join(sourcePath, file);
     if (await exists(candidate)) return candidate;
   }

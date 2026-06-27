@@ -20,7 +20,7 @@ describe("workbench Markdown diagnostics", () => {
         "```",
         "",
       ].join("\n"),
-      path: ".skillset/src/skills/docs/SKILL.md",
+      path: ".skillset/skills/docs/SKILL.md",
     });
 
     expect(diagnostics).toEqual([
@@ -32,7 +32,7 @@ describe("workbench Markdown diagnostics", () => {
         location: expect.objectContaining({
           endLine: 5,
           line: 3,
-          path: ".skillset/src/skills/docs/SKILL.md",
+          path: ".skillset/skills/docs/SKILL.md",
         }),
         message:
           "outer 3-backtick fence is not long enough for inner 3-backtick fence on line 5",
@@ -40,7 +40,7 @@ describe("workbench Markdown diagnostics", () => {
         ruleLevel: "standard",
         scope: "source",
         severity: "warning",
-        subject: { kind: "markdown", path: ".skillset/src/skills/docs/SKILL.md" },
+        subject: { kind: "markdown", path: ".skillset/skills/docs/SKILL.md" },
       }),
     ]);
   });
@@ -56,7 +56,7 @@ describe("workbench Markdown diagnostics", () => {
         "```",
         "",
       ].join("\n"),
-      path: ".skillset/src/skills/docs/SKILL.md",
+      path: ".skillset/skills/docs/SKILL.md",
     });
 
     expect(diagnostics).toContainEqual(
@@ -80,7 +80,7 @@ describe("workbench Markdown diagnostics", () => {
         "```",
         "",
       ].join("\n"),
-      path: ".skillset/src/skills/docs/SKILL.md",
+      path: ".skillset/skills/docs/SKILL.md",
     });
 
     expect(diagnostics).toContainEqual(
@@ -103,7 +103,7 @@ describe("workbench Markdown diagnostics", () => {
         "````",
         "",
       ].join("\n"),
-      path: ".skillset/src/skills/docs/references/example.md",
+      path: ".skillset/skills/docs/references/example.md",
     });
 
     expect(diagnostics).toEqual([]);
@@ -222,7 +222,7 @@ describe("workbench Markdown diagnostics", () => {
         "Skillset variables such as {{this.description}} are separate.",
         "",
       ].join("\n"),
-      path: ".skillset/src/skills/templates/SKILL.md",
+      path: ".skillset/skills/templates/SKILL.md",
     });
 
     expect(diagnostics).toEqual([]);
@@ -237,7 +237,7 @@ describe("workbench Markdown diagnostics", () => {
         "Set the optional note as [].",
         "",
       ].join("\n"),
-      path: ".skillset/src/skills/templates/SKILL.md",
+      path: ".skillset/skills/templates/SKILL.md",
     });
 
     expect(diagnostics).toEqual([
@@ -260,7 +260,7 @@ describe("workbench Markdown diagnostics", () => {
   test("reports unclosed single-brace template guidance placeholders", () => {
     const diagnostics = checkWorkbenchSyntax({
       content: "Send the report to { Customer name\n",
-      path: ".skillset/src/skills/templates/SKILL.md",
+      path: ".skillset/skills/templates/SKILL.md",
     });
 
     expect(diagnostics).toEqual([
@@ -283,7 +283,7 @@ describe("workbench Markdown diagnostics", () => {
         "```",
         "",
       ].join("\n"),
-      path: ".skillset/src/skills/templates/SKILL.md",
+      path: ".skillset/skills/templates/SKILL.md",
     });
 
     expect(diagnostics).toEqual([]);
@@ -301,7 +301,7 @@ describe("workbench Markdown diagnostics", () => {
         "    1. [ ] nested ordered task",
         "",
       ].join("\n"),
-      path: ".skillset/src/skills/templates/SKILL.md",
+      path: ".skillset/skills/templates/SKILL.md",
     });
 
     expect(diagnostics).toEqual([]);

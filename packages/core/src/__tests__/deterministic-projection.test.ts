@@ -26,8 +26,8 @@ description: Demo.
 Body.
 `;
 const DEMO_FIXTURE: Record<string, string> = {
-  ".skillset/config.yaml": DEMO_CONFIG,
-  ".skillset/src/skills/demo/SKILL.md": DEMO_SKILL,
+  "skillset.yaml": DEMO_CONFIG,
+  ".skillset/skills/demo/SKILL.md": DEMO_SKILL,
 };
 
 describe("deterministic projection runner", () => {
@@ -44,10 +44,10 @@ describe("deterministic projection runner", () => {
     expect(await exists(join(root, ISOLATED_OUT_ROOT))).toBe(false);
   });
 
-  it("proves the self-hosted dedicated source selection deterministically", async () => {
+  it("proves the self-hosted workspace source selection deterministically", async () => {
     const report = await runDeterministicProjection(process.cwd(), {
       keepTemp: true,
-      sourcePaths: ["skillset", "skillset.yaml"],
+      sourcePaths: [".skillset", "skillset.yaml"],
     });
     try {
       expect(report.ok).toBe(true);
@@ -141,18 +141,17 @@ describe("deterministic projection runner", () => {
     const root = await mkdtemp(join(tmpdir(), "skillset-deterministic-projection-"));
     const external = await mkdtemp(join(tmpdir(), "skillset-deterministic-external-"));
     await Bun.write(join(external, "config.yaml"), "claude: true\ncodex: false\n");
-    await Bun.write(join(root, ".skillset/src/skillset.yaml"), "skillset:\n  name: symlink-root\n");
-    await Bun.write(join(root, ".skillset/src/skills/demo/SKILL.md"), `${DEMO_SKILL.trim()}\n`);
-    await symlink(join(external, "config.yaml"), join(root, ".skillset/config.yaml"));
+    await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), `${DEMO_SKILL.trim()}\n`);
+    await symlink(join(external, "config.yaml"), join(root, "skillset.yaml"));
 
     await expect(runDeterministicProjection(root)).rejects.toThrow(
-      "deterministic projection source does not support symlinks: .skillset/config.yaml"
+      "deterministic projection source does not support symlinks: skillset.yaml"
     );
   });
 
   it("excludes configured generated output roots from copied source workspaces", async () => {
     const root = await fixture({
-      ".skillset/config.yaml": `
+      "skillset.yaml": `
 skillset:
   name: output-root-exclusion
 claude:
@@ -160,7 +159,7 @@ claude:
     path: generated/skills
 codex: false
 `,
-      ".skillset/src/skills/demo/SKILL.md": DEMO_SKILL,
+      ".skillset/skills/demo/SKILL.md": DEMO_SKILL,
       "generated/skills/stale/SKILL.md": "stale generated output\n",
     });
 

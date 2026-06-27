@@ -77,7 +77,7 @@ export async function scaffoldSourceUnit(
   const displayName = resolveDisplayName(options, id);
   const sourceDir = await detectWorkspaceSourceDir(rootPath, options.skillsetOptions ?? {});
   await assertWorkspaceInitialized(rootPath, sourceDir);
-  const sourceRoot = sourceDir === "." ? "skillset" : join(sourceDir, "src");
+  const sourceRoot = sourceDir;
   const plans = options.kind === "skill"
     ? await planSkill(rootPath, sourceRoot, id, displayName, options)
     : planAgent(sourceRoot, id, displayName, options);
@@ -203,18 +203,13 @@ async function assertPluginContainer(
   } catch {
     // Surface the normalized source-relative path below.
   }
-  throw new Error(`skillset: new --in container does not exist or has no skillset.yaml/config.yaml: ${pluginPath}`);
+  throw new Error(`skillset: new --in container does not exist or has no skillset.yaml: ${pluginPath}`);
 }
 
 async function assertWorkspaceInitialized(rootPath: string, sourceDir: string): Promise<void> {
-  const manifests = sourceDir === "."
-    ? ["skillset.yaml"]
-    : [join(sourceDir, "skillset.yaml"), join(sourceDir, "config.yaml")];
-  for (const manifest of manifests) {
-    if (await fileExists(resolveInside(rootPath, manifest))) return;
-  }
+  if (await fileExists(resolveInside(rootPath, "skillset.yaml"))) return;
   throw new Error(
-    "skillset: new requires an initialized Skillset workspace; run skillset init --yes for an existing repo or skillset create for a dedicated repo"
+    "skillset: new requires an initialized Skillset workspace; run skillset init --yes or skillset create"
   );
 }
 

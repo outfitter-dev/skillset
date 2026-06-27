@@ -15,9 +15,9 @@ Use this skill when changing Skillset's internal compiler fixtures, fixture docu
 - Fixtures are internal compiler test material, not product source-root `tests.yaml` declarations.
 - Prefer inline temp fixtures in `apps/skillset/src/__tests__/` for focused positive cases, negative diagnostics, and lifecycle edge cases.
 - Add checked-in `fixtures/<case>/` repos only when a case needs whole-repo inspection, is shared as a golden reference, or is too large to read inline.
-- Checked-in `fixtures/<case>/` repos use the dedicated layout: root `skillset.yaml` and source under root `skillset/`.
-- Plugins, standalone skills, rules, hooks, shared files, and provider source in checked-in fixtures should use `skillset/plugins`, `skillset/skills`, `skillset/rules`, `skillset/hooks`, `skillset/shared`, and `skillset/_claude` / `skillset/_codex`.
-- Inline temp fixtures may still use ordinary `.skillset/skillset.yaml` and `.skillset/src/` paths when the test is specifically covering ordinary workspace behavior.
+- Checked-in `fixtures/<case>/` repos use root `skillset.yaml` and source under `.skillset/`.
+- Plugins, standalone skills, rules, hooks, shared files, and provider source in checked-in fixtures should use `.skillset/plugins`, `.skillset/skills`, `.skillset/rules`, `.skillset/hooks`, `.skillset/shared`, and `.skillset/_claude` / `.skillset/_codex`.
+- Inline temp fixtures should use the same shape unless the test is specifically covering retired-layout migration behavior.
 
 ## Working Loop
 
@@ -30,4 +30,4 @@ Use this skill when changing Skillset's internal compiler fixtures, fixture docu
 
 - For docs-only fixture changes, run `bun run check`.
 - For compiler behavior changes, run the smallest relevant `bun test apps/skillset/src/__tests__/<file>.test.ts` first, then `bun run check`.
-- If self-hosted source under `skillset/` changes, run `bun run skillset:build`, inspect generated output, then run `bun run check`.
+- If self-hosted source under `.skillset/` changes, run `bun run skillset:build`, inspect generated output, then run `bun run check`.

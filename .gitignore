@@ -8,8 +8,6 @@ dist/
 .claude/worktrees/
 .agents/goals/
 .scratch/
-.skillset/*
-!.skillset/.gitignore
 !.skillset/cache/
 .skillset/cache/*
 !.skillset/cache/.gitignore
@@ -17,8 +15,7 @@ dist/
 .skillset/snapshots/*
 !.skillset/snapshots/.gitignore
 !fixtures/*/.skillset/
-fixtures/*/.skillset/*
-!fixtures/*/.skillset/.gitignore
+!fixtures/*/.skillset/**
 !fixtures/*/.skillset/cache/
 fixtures/*/.skillset/cache/*
 !fixtures/*/.skillset/cache/.gitignore

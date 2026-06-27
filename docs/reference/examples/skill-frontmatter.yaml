@@ -33,7 +33,7 @@ resources:
 schema: https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/skill-frontmatter.schema.json
 skillset:
   origin:
-    path: skillset/skills/docs-cli/SKILL.md
+    path: .skillset/skills/docs-cli/SKILL.md
   schema: 1
   version: 1.0.0
 summary: Docs CLI skill.

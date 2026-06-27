@@ -10,13 +10,13 @@ import { createOperationalPathContext, resolveOperationalPath } from "@skillset/
 import { buildSkillset, buildSkillsetResult, verifySkillset, diffSkillset, ISOLATED_OUT_ROOT } from "../build";
 
 const DEMO_FIXTURE: Record<string, string> = {
-  ".skillset/config.yaml": `
+  "skillset.yaml": `
 skillset:
   name: isolated-root
 claude: true
 codex: true
 `,
-  ".skillset/src/skills/demo/SKILL.md": `
+  ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo.
@@ -24,7 +24,7 @@ description: Demo.
 
 Body.
 `,
-  ".skillset/src/rules/guide.md": `
+  ".skillset/rules/guide.md": `
 ---
 name: guide
 description: Guide.

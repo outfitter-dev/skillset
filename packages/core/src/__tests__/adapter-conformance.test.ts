@@ -15,7 +15,7 @@ import {
 } from "@skillset/core";
 
 const CONFORMANCE_FIXTURE: Record<string, string> = {
-  ".skillset/config.yaml": `
+  "skillset.yaml": `
 skillset:
   name: conformance-root
   marketplace:
@@ -23,7 +23,7 @@ skillset:
 claude: true
 codex: true
 `,
-  ".skillset/src/skills/repo-skill/SKILL.md": `
+  ".skillset/skills/repo-skill/SKILL.md": `
 ---
 name: repo-skill
 description: Repo skill.
@@ -31,14 +31,14 @@ description: Repo skill.
 
 Use the repo skill.
 `,
-  ".skillset/src/rules/root.md": `
+  ".skillset/rules/root.md": `
 ---
 description: Root instructions.
 ---
 
 Keep generated output deterministic.
 `,
-  ".skillset/src/agents/reviewer.md": `
+  ".skillset/agents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews code.
@@ -48,7 +48,7 @@ skills:
 
 Review diffs carefully.
 `,
-  ".skillset/src/plugins/alpha/skillset.yaml": `
+  ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   description: Alpha plugin.
@@ -59,14 +59,14 @@ dependencies:
       marketplace: acme
 mcp: true
 `,
-  ".skillset/src/plugins/alpha/.mcp.json": `
+  ".skillset/plugins/alpha/.mcp.json": `
 {
   "mcpServers": {
     "alpha": { "command": "node" }
   }
 }
 `,
-  ".skillset/src/plugins/alpha/skills/plugin-skill/SKILL.md": `
+  ".skillset/plugins/alpha/skills/plugin-skill/SKILL.md": `
 ---
 name: plugin-skill
 description: Plugin skill.
@@ -115,7 +115,7 @@ describe("adapter conformance", () => {
   it("proves unsupported feature claims through structured render results", async () => {
     const root = await fixture({
       ...CONFORMANCE_FIXTURE,
-      ".skillset/src/plugins/alpha/bin/tool": `
+      ".skillset/plugins/alpha/bin/tool": `
 #!/usr/bin/env bash
 echo alpha
 `,

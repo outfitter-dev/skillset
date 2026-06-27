@@ -3,53 +3,54 @@
 `skillset` expects content repositories to separate portable source from generated target outputs:
 
 ```text
+skillset.yaml
 .skillset/
-  skillset.yaml
-  src/
-    shared/
-      assets/
-      references/
-      scripts/
-      templates/
-    rules/
+  shared/
+    assets/
+    references/
+    scripts/
+    templates/
+  partials/
+  rules/
+    <topic>.md
+    <area>/
       <topic>.md
-      <area>/
-        <topic>.md
-    skills/
-      <skill-name>/
-        SKILL.md
-        references/
-        agents/
-          openai.yaml
-    plugins/
-      <plugin-name>/
-        skillset.yaml
-        README.md
-        shared/
-          assets/
-          references/
-          scripts/
-          templates/
-        skills/
-          <skill-name>/
-            SKILL.md
-            references/
-            agents/
-              openai.yaml
-        commands/
-        agents/
-        hooks/
+  skills/
+    <skill-name>/
+      SKILL.md
+      references/
+      agents/
+        openai.yaml
+  plugins/
+    <plugin-name>/
+      skillset.yaml
+      README.md
+      shared/
         assets/
+        references/
         scripts/
-        _claude/
-        _codex/
-    hooks/
-    agents/
-      <agent-name>.md
-    _claude/
-      ...
-    _codex/
-      ...
+        templates/
+      partials/
+      skills/
+        <skill-name>/
+          SKILL.md
+          references/
+          agents/
+            openai.yaml
+      commands/
+      agents/
+      hooks/
+      assets/
+      scripts/
+      _claude/
+      _codex/
+  hooks/
+  agents/
+    <agent-name>.md
+  _claude/
+    ...
+  _codex/
+    ...
   changes/
   cache/
   snapshots/
@@ -97,13 +98,13 @@ AGENTS.md
 skillset.lock
 ```
 
-Ordinary repos use `.skillset/skillset.yaml` as the workspace manifest and `.skillset/src/` as the adaptive source root. Dedicated Skillset repos use root `skillset.yaml` as the workspace manifest and root `skillset/` as the adaptive source root. Generated target roots are meant to be usable as plugin repositories or as inputs to a future publish/sync step. They are not source truth.
+Repos use root `skillset.yaml` as the workspace manifest and `.skillset/` as the adaptive source root. Generated target roots are meant to be usable as plugin repositories or as inputs to a future publish/sync step. They are not source truth.
 
 This compiler repo uses that same layout for its own source:
 
-- `skillset/skills/skillset-claude-development` is a Claude-only internal standalone skill for compiler development.
-- `skillset/skills/skillset-codex-development` is a Codex-only internal standalone skill for compiler development.
-- `skillset/plugins/skillset` is the user-facing plugin that explains how to use `skillset`.
+- `.skillset/skills/skillset-claude-development` is a Claude-only internal standalone skill for compiler development.
+- `.skillset/skills/skillset-codex-development` is a Codex-only internal standalone skill for compiler development.
+- `.skillset/plugins/skillset` is the user-facing plugin that explains how to use `skillset`.
 
 ## Operational State
 
@@ -129,15 +130,15 @@ Operational cache callers keep reporting logical paths such as `.skillset/cache/
 
 ## Setup Commands
 
-`skillset init` initializes source in an existing repo or directory. It plans by default, writes only with `--yes`, resolves the Git root by default, and validates existing workspace manifests instead of replacing them with generated stubs. In an empty repo, the default nested scaffold is `.skillset/skillset.yaml`, root `.skillset/src/.gitkeep`, placeholders for `.skillset/src/agents`, `.skillset/src/hooks`, `.skillset/src/plugins`, `.skillset/src/rules`, `.skillset/src/shared`, `.skillset/src/skills`, `.skillset/src/_claude`, and `.skillset/src/_codex`, tracked `.skillset/changes/.gitkeep`, `.skillset/.gitignore`, and `.skillset/cache/.gitignore` plus `.skillset/snapshots/.gitignore` sentinels that keep operational directory contents ignored. Pass `--layout root` when an existing repo should become a root-layout Skillset repo: `init` creates or validates root `skillset.yaml`, scaffolds missing `skillset/` source-family placeholders, writes tracked `skillset/changes/.gitkeep`, and creates `.skillset/` operational ignore sentinels without creating `.skillset/skillset.yaml`. `--layout nested` can be used when an explicit nested scaffold is clearer, but it is also the default. Layout is detected from the filesystem after scaffolding; no layout config key is written. `--include ci` adds a user-owned `.github/workflows/skillset-ci.yml` workflow. Init also performs repo-local adoption: it detects unmanaged repo-local Claude/Codex/Skillset artifacts, skips generated output roots with Skillset locks, and seeds release-state baselines from current versions and normalized source hashes without creating pending changes, history entries, releases, or changelog renderings.
+`skillset init` initializes source in an existing repo or directory. It plans by default, writes only with `--yes`, resolves the Git root by default, and validates existing workspace manifests instead of replacing them with generated stubs. In an empty repo, the scaffold is root `skillset.yaml`, `.skillset/.gitkeep`, placeholders for `.skillset/agents`, `.skillset/hooks`, `.skillset/plugins`, `.skillset/rules`, `.skillset/shared`, `.skillset/skills`, `.skillset/_claude`, and `.skillset/_codex`, tracked `.skillset/changes/.gitkeep`, `.skillset/.gitignore`, and `.skillset/cache/.gitignore` plus `.skillset/snapshots/.gitignore` sentinels that keep operational directory contents ignored. `--include ci` adds a user-owned `.github/workflows/skillset-ci.yml` workflow. Init also performs repo-local adoption: it detects unmanaged repo-local Claude/Codex/Skillset artifacts, skips generated output roots with Skillset locks, and seeds release-state baselines from current versions and normalized source hashes without creating pending changes, history entries, releases, or changelog renderings.
 
-`skillset create` creates a new root-layout Skillset source repo, defaulting to `my-skillset` under the current directory. Local create writes root `skillset.yaml`, root `skillset/` source-family placeholders, `skillset/changes/.gitkeep`, root `skillset.lock`, `.skillset/` operational ignore sentinels, a root `.gitignore` that ignores `.skillset/cache/` and `.skillset/snapshots/` contents while preserving their sentinel files, a README, lightweight `AGENTS.md` guidance, and a Git repository by default. `skillset create --global` defaults the source checkout to `~/.skillset/src` and stays source-only: it writes root `skillset.yaml`, root `skillset/` placeholders, and `skillset/changes/.gitkeep` inside that checkout without creating a Git repo, repo-local guidance, cache output, snapshots, or live runtime config. Setup does not create or mutate `~/.claude`, `~/.codex`, `.agents`, marketplaces, trust settings, or symlinks. Future create work can add starter source templates and reviewed Claude/Codex configuration suggestions without writing live runtime settings.
+`skillset create` creates a new Skillset source repo, defaulting to `my-skillset` under the current directory. Local create writes root `skillset.yaml`, `.skillset/` source-family placeholders, `.skillset/changes/.gitkeep`, root `skillset.lock`, `.skillset/` operational ignore sentinels, a root `.gitignore` that ignores `.skillset/cache/` and `.skillset/snapshots/` contents while preserving their sentinel files, a README, lightweight `AGENTS.md` guidance, and a Git repository by default. `skillset create --global` defaults the source checkout to `~/.skillset/src` and stays source-only: it writes root `skillset.yaml`, `.skillset/` placeholders, and `.skillset/changes/.gitkeep` inside that checkout without creating a Git repo, repo-local guidance, cache output, snapshots, or live runtime config. Setup does not create or mutate `~/.claude`, `~/.codex`, `.agents`, marketplaces, trust settings, or symlinks. Future create work can add starter source templates and reviewed Claude/Codex configuration suggestions without writing live runtime settings.
 
-`skillset new` scaffolds source units inside the detected workspace source root. It is preview-first like setup and build: pass `--yes` to write, or `--dry-run` to force no writes. In ordinary repos, source writes under `.skillset/src/`; in dedicated Skillset repos, source writes under root `skillset/`. `skillset new skill "Docs CLI Expert"` derives `docs-cli-expert`, writes `<source-root>/skills/docs-cli-expert/SKILL.md`, and suggests `skillset check` / `skillset verify` without building automatically. Use `--id <id>` and `--name <display name>` when the stable identity and display text differ. Use `--in <plugin-name>` to place a skill under an existing plugin container at `<source-root>/plugins/<plugin-name>/skills/<skill>/`; missing containers fail instead of creating implicit plugins. `--preset support` adds empty `references/`, `assets/`, and `scripts/` folders, `--preset evals` adds `evals/evals.json`, and `--preset reference-file` or `--preset examples-file` creates single-file support material when a directory is too heavy. `skillset new agent <name>` writes a project-agent source file under `<source-root>/agents/`. Split hook scaffolding is intentionally deferred until the hook reader supports individual hook files; current hook source remains `hooks/hooks.json`.
+`skillset new` scaffolds source units inside `.skillset/`. It is preview-first like setup and build: pass `--yes` to write, or `--dry-run` to force no writes. `skillset new skill "Docs CLI Expert"` derives `docs-cli-expert`, writes `.skillset/skills/docs-cli-expert/SKILL.md`, and suggests `skillset check` / `skillset verify` without building automatically. Use `--id <id>` and `--name <display name>` when the stable identity and display text differ. Use `--in <plugin-name>` to place a skill under an existing plugin container at `.skillset/plugins/<plugin-name>/skills/<skill>/`; missing containers fail instead of creating implicit plugins. `--preset support` adds empty `references/`, `assets/`, and `scripts/` folders, `--preset evals` adds `evals/evals.json`, and `--preset reference-file` or `--preset examples-file` creates single-file support material when a directory is too heavy. `skillset new agent <name>` writes a project-agent source file under `.skillset/agents/`. Split hook scaffolding is intentionally deferred until the hook reader supports individual hook files; current hook source remains `hooks/hooks.json`.
 
 The generated setup config uses `compile.targets` for provider selection. Target-native adapter settings still belong in `claude` and `codex` blocks, and reusable defaults belong in `defaults.<target>.<surface>` or the target-local `defaults` block. The published package requires Bun and ships Bun-built JavaScript bins for `skillset` and `create-skillset`; stable releases run from the default npm dist-tag with commands such as `npx skillset create` or `bunx skillset create`. Prerelease builds remain available through their explicit tag, such as `skillset@beta`. Setup still routes through the same plan-first `create` flow.
 
-Provider selection, plugin output roots, and standalone skill output roots can be enabled with defaults or configured from the workspace manifest, `.skillset/skillset.yaml` in ordinary repos or root `skillset.yaml` in dedicated repos:
+Provider selection, plugin output roots, and standalone skill output roots can be enabled with defaults or configured from the root `skillset.yaml` workspace manifest:
 
 ```yaml
 compile:
@@ -268,7 +269,7 @@ Each `skillset.lock` records rendered versions and hashes, plus root normalized 
 
 ## Instructions
 
-Instructions live under `<source-root>/rules/**/*.md`: `.skillset/src/rules/**/*.md` in ordinary repos and `skillset/rules/**/*.md` in dedicated Skillset repos. They are for durable repo instructions rather than invokable skills. `.skillset/rules/**/*.md` is unsupported for instruction Markdown; move those files into the active source root's `rules/` directory. Internally and in generated output these are still called rules, because Claude's native target is `.claude/rules`.
+Instructions live under `.skillset/rules/**/*.md`. They are for durable repo instructions rather than invokable skills. Internally and in generated output these are still called rules, because Claude's native target is `.claude/rules`.
 
 ```yaml
 ---
@@ -287,7 +288,7 @@ Codex output renders rules into the instruction files Codex actually discovers. 
 
 Codex truncates each `AGENTS.md` beyond `project_doc_max_bytes` (32 KiB by default) silently. When a generated `AGENTS.md` crosses that size, `skillset build`/`verify` warns. To stay under the limit, split instructions across nested directories so they render to scoped `AGENTS.md` files (which load only when working in that subtree), or raise `project_doc_max_bytes` in Codex config.
 
-Skill and instruction Markdown bodies use Skillset preprocessing before target serialization. `{{this.<field>}}` reads from the current document's shared frontmatter, including nested dot paths such as `{{this.metadata.label}}` and scalar values such as numbers and booleans; missing fields fail with the source path and field name. Object and array values render as fenced `json` code blocks in Markdown prose unless already inside a fenced code block; structured sidecars receive compact JSON. Use triple braces such as `{{{this.description}}}` to keep the literal `{{this.description}}` token in generated output. Instructions also support `{{skillset.repo_root}}`, `{{skillset.output_dir}}`, and `{{skillset.source_rule}}`; these render independently for each generated Claude rule and Codex `AGENTS.md` file. All preprocessed files support `{{skillset.source_path}}`, `{{skillset.source_dir}}`, `{{skillset.source_root}}`, `{{parent.name}}`, `{{parent.dir}}`, and `{{parent.tree}}` / `{{parent.tree depth:<depth>}}`. Skill Markdown also supports prompt argument placeholders: `{{$ARGUMENTS}}`, `{{$ARGUMENTS[0]}}`, `{{$ARGUMENTS[1]}}`, and `{{$ARGUMENTS.name}}`. Claude receives native `$ARGUMENTS...`; Codex keeps the markers and gets a one-line replacement instruction. Partials use `{{shared:path.md}}`, `{{plugin:path.md}}`, or a file path relative to the current source file. Set `skillset.preprocess: false` in source frontmatter when a Markdown body should keep literal braces; the control is stripped from generated output.
+Skill and instruction Markdown bodies use Skillset preprocessing before target serialization. `{{this.<field>}}` reads from the current document's shared frontmatter, including nested dot paths such as `{{this.metadata.label}}` and scalar values such as numbers and booleans; missing fields fail with the source path and field name. Object and array values render as fenced `json` code blocks in Markdown prose unless already inside a fenced code block; structured sidecars receive compact JSON. Use triple braces such as `{{{this.description}}}` to keep the literal `{{this.description}}` token in generated output. Instructions also support `{{skillset.repo_root}}`, `{{skillset.output_dir}}`, and `{{skillset.source_rule}}`; these render independently for each generated Claude rule and Codex `AGENTS.md` file. All preprocessed files support `{{skillset.source_path}}`, `{{skillset.source_dir}}`, `{{skillset.source_root}}`, `{{parent.name}}`, `{{parent.dir}}`, and `{{parent.tree}}` / `{{parent.tree depth:<depth>}}`. Skill Markdown also supports prompt argument placeholders: `{{$ARGUMENTS}}`, `{{$ARGUMENTS[0]}}`, `{{$ARGUMENTS[1]}}`, and `{{$ARGUMENTS.name}}`. Claude receives native `$ARGUMENTS...`; Codex keeps the markers and gets a one-line replacement instruction. Path partials use `{{shared:path.md}}`, `{{plugin:path.md}}`, or a file path relative to the current source file. Named partials use `{{> name}}`, resolve first from `.skillset/partials/`, then from the current plugin's `partials/` when the source is plugin-bound, and may recurse. `{{> <plugin>.<name>}}` can explicitly address the current plugin's own partial namespace, but cross-plugin partial references are rejected. If no direct `<name>.md` exists, Skillset falls back to a unique basename match under that partial root; multiple matches are ambiguous and fail loudly. Cycles fail with the partial chain. Set `skillset.preprocess: false` in source frontmatter when a Markdown body should keep literal braces; the control is stripped from generated output.
 
 Instruction frontmatter can use top-level `claude` and `codex` target toggles. Set `codex: false` for a Claude-only instruction or `claude: false` for a Codex-only instruction. Generated Codex `AGENTS.md` files are tracked by the root `skillset.lock`. If a build needs to replace an unmanaged `AGENTS.md`, it first backs up the existing file and warns with the restore id. Move existing hand-written guidance into `<source-root>/rules` when you want the compiler to own that destination long term.
 
@@ -384,7 +385,7 @@ codex:
 
 Portable keys are `read`, `search`, `write`, `edit`, `shell`, `web_fetch`, `web_search`, and `mcp`. Unknown keys fail `skillset lint` and build; use `_allow` or `_deny` when a target has a native tool rule that the portable registry does not know yet. Portable `allow` / `deny` belongs in the source top-level `tool_intent` block; target-local `claude.tool_intent` and `codex.tool_intent` accept only `_allow` / `_deny` escape keys. Claude renders portable and `_` entries to `allowed-tools` / `disallowed-tools` (preapproval, not enforcement). Codex preserves portable intent and target-native escapes as generated `.skillset.tools.yaml` metadata included in `skillset.lock`; it does not install, trust, or mutate user-level Codex configuration.
 
-Import helpers add imported source under the active workspace source root and seed release baselines when adoption applies. In ordinary repos, imported source lands under `.skillset/src/skills` or `.skillset/src/plugins` and baselines use `.skillset/changes/state.json`; in dedicated Skillset repos, imported source lands under `skillset/skills` or `skillset/plugins` and baselines use `skillset/changes/state.json`. Adoption normalizes raw Claude `$ARGUMENTS`, `$ARGUMENTS[n]`, and `$ARGUMENTS.name` occurrences in imported Markdown to Skillset prompt argument placeholders so the source can build for Claude and Codex.
+Import helpers add imported source under `.skillset/` and seed release baselines when adoption applies. Imported source lands under `.skillset/skills` or `.skillset/plugins`, and baselines use `.skillset/changes/state.json`. Adoption normalizes raw Claude `$ARGUMENTS`, `$ARGUMENTS[n]`, and `$ARGUMENTS.name` occurrences in imported Markdown to Skillset prompt argument placeholders so the source can build for Claude and Codex.
 
 ```bash
 skillset import /path/to/SKILL.md --root .

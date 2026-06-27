@@ -24,7 +24,7 @@ The examples are generated from typed fixtures and checked against the same sche
 
 | Contract | Example | Purpose |
 | --- | --- | --- |
-| `workspace-config` | [`workspace-config.yaml`](../examples/workspace-config.yaml) | Maximal workspace manifest for ordinary and dedicated Skillset repos. |
+| `workspace-config` | [`workspace-config.yaml`](../examples/workspace-config.yaml) | Maximal workspace manifest for Skillset repos. |
 | `source-metadata` | [`source-metadata.yaml`](../examples/source-metadata.yaml) | Shared source metadata used under the skillset key. |
 | `skill-frontmatter` | [`skill-frontmatter.yaml`](../examples/skill-frontmatter.yaml) | Adaptive skill frontmatter. |
 | `agent-frontmatter` | [`agent-frontmatter.yaml`](../examples/agent-frontmatter.yaml) | Adaptive project-agent frontmatter. |

@@ -38,9 +38,9 @@ afterAll(() => {
 
 test("lintSkillset throws on an error-severity rule violation", async () => {
   const root = await fixture({
-    ".skillset/config.yaml":
+    "skillset.yaml":
       "skillset:\n  name: lint-root\nclaude: true\ncodex: false\n",
-    ".skillset/src/skills/demo/SKILL.md":
+    ".skillset/skills/demo/SKILL.md":
       "---\nname: other\ndescription: Demo.\n---\n\nBody.\n",
   });
 
@@ -54,9 +54,9 @@ test("lintSkillset throws on an error-severity rule violation", async () => {
 
 test("lintSkillset throws on a shell-safety pre-resolution violation", async () => {
   const root = await fixture({
-    ".skillset/config.yaml":
+    "skillset.yaml":
       "skillset:\n  name: lint-root\nclaude: true\ncodex: false\n",
-    ".skillset/src/skills/demo/SKILL.md":
+    ".skillset/skills/demo/SKILL.md":
       '---\nname: demo\ndescription: Demo.\n---\n\n!`[ -n "$x" ] && echo yes || echo no`\n',
   });
 
@@ -70,26 +70,26 @@ test("lintSkillset throws on a shell-safety pre-resolution violation", async () 
 
 test("lint diagnostics carry feature ids for standalone and plugin skills", async () => {
   const root = await fixture({
-    "custom-source/config.yaml":
+    "skillset.yaml":
       "skillset:\n  name: lint-root\nclaude: true\ncodex: false\n",
-    "custom-source/src/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
-    "custom-source/src/plugins/demo/skills/plugin-skill/SKILL.md":
+    ".skillset/plugins/demo/skillset.yaml": "skillset:\n  name: demo\n",
+    ".skillset/plugins/demo/skills/plugin-skill/SKILL.md":
       "---\nname: other-plugin\ndescription: Demo.\n---\n\nBody.\n",
-    "custom-source/src/skills/solo/SKILL.md":
+    ".skillset/skills/solo/SKILL.md":
       "---\nname: other-solo\ndescription: Demo.\n---\n\nBody.\n",
   });
 
-  const result = await inspectSkillset(await loadBuildGraph(root, { sourceDir: "custom-source" }));
+  const result = await inspectSkillset(await loadBuildGraph(root));
 
   expect(result.issues).toContainEqual(expect.objectContaining({
     code: "skill-name-directory-mismatch",
     featureId: "plugin-skills",
-    path: "custom-source/src/plugins/demo/skills/plugin-skill/SKILL.md",
+    path: ".skillset/plugins/demo/skills/plugin-skill/SKILL.md",
   }));
   expect(result.issues).toContainEqual(expect.objectContaining({
     code: "skill-name-directory-mismatch",
     featureId: "standalone-skills",
-    path: "custom-source/src/skills/solo/SKILL.md",
+    path: ".skillset/skills/solo/SKILL.md",
   }));
   for (const issue of result.issues) {
     if (issue.featureId !== undefined) {
@@ -100,9 +100,9 @@ test("lint diagnostics carry feature ids for standalone and plugin skills", asyn
 
 test("ci reports env-var fallback warnings without failing", async () => {
   const root = await fixture({
-    ".skillset/config.yaml":
+    "skillset.yaml":
       "skillset:\n  name: lint-root\nclaude: true\ncodex: false\n",
-    ".skillset/src/skills/demo/SKILL.md":
+    ".skillset/skills/demo/SKILL.md":
       "---\nname: demo\ndescription: Demo.\n---\n\nRun python3 ${CLAUDE_PLUGIN_ROOT}/scripts/setup.py first.\n",
   });
   await commitFixture(root);
@@ -126,9 +126,9 @@ test("ci reports env-var fallback warnings without failing", async () => {
 
 test("lintSkillset returns warn-only issues without throwing", async () => {
   const root = await fixture({
-    ".skillset/config.yaml":
+    "skillset.yaml":
       "skillset:\n  name: lint-root\nclaude: true\ncodex: false\n",
-    ".skillset/src/skills/demo/SKILL.md":
+    ".skillset/skills/demo/SKILL.md":
       "---\nname: demo\ndescription: Demo.\n---\n\nBody with WARN-MARKER.\n",
   });
 
@@ -140,7 +140,7 @@ test("lintSkillset returns warn-only issues without throwing", async () => {
       code: WARN_RULE_NAME,
       featureId: "standalone-skills",
       message: "body contains WARN-MARKER",
-      path: ".skillset/src/skills/demo/SKILL.md",
+      path: ".skillset/skills/demo/SKILL.md",
       severity: "warn",
     },
   ]);
@@ -148,9 +148,9 @@ test("lintSkillset returns warn-only issues without throwing", async () => {
 
 test("ci reports lint warnings without failing", async () => {
   const root = await fixture({
-    ".skillset/config.yaml":
+    "skillset.yaml":
       "skillset:\n  name: lint-root\nclaude: true\ncodex: false\n",
-    ".skillset/src/skills/demo/SKILL.md":
+    ".skillset/skills/demo/SKILL.md":
       "---\nname: demo\ndescription: Demo.\n---\n\nBody with WARN-MARKER.\n",
   });
   await commitFixture(root);
@@ -164,7 +164,7 @@ test("ci reports lint warnings without failing", async () => {
       code: WARN_RULE_NAME,
       featureId: "standalone-skills",
       message: "body contains WARN-MARKER",
-      path: ".skillset/src/skills/demo/SKILL.md",
+      path: ".skillset/skills/demo/SKILL.md",
       severity: "warn",
     },
   ]);
@@ -176,9 +176,9 @@ test("ci reports lint warnings without failing", async () => {
 
 test("ci fails on error-severity lint issues", async () => {
   const root = await fixture({
-    ".skillset/config.yaml":
+    "skillset.yaml":
       "skillset:\n  name: lint-root\nclaude: true\ncodex: false\n",
-    ".skillset/src/skills/demo/SKILL.md": `---\nname: demo\ndescription: ${"x".repeat(1030)}\n---\n\nBody.\n`,
+    ".skillset/skills/demo/SKILL.md": `---\nname: demo\ndescription: ${"x".repeat(1030)}\n---\n\nBody.\n`,
   });
   await commitFixture(root);
   await buildSkillset(root);

@@ -72,7 +72,7 @@ describe("workbench presets", () => {
       ruleId: "lint/source",
       scope: "source",
       severity: "warning",
-      subject: { kind: "skill", path: ".skillset/src/skills/demo/SKILL.md" },
+      subject: { kind: "skill", path: ".skillset/skills/demo/SKILL.md" },
     });
     const workspace = createWorkbenchDiagnostic({
       message: "Workspace issue",
@@ -87,7 +87,7 @@ describe("workbench presets", () => {
       ruleLevel: "strict",
       scope: "source",
       severity: "info",
-      subject: { kind: "skill", path: ".skillset/src/skills/demo/SKILL.md" },
+      subject: { kind: "skill", path: ".skillset/skills/demo/SKILL.md" },
     });
 
     expect(selectWorkbenchDiagnostics([source, workspace, strictOnly], { scopes: ["source"] })).toEqual([source]);

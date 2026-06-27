@@ -11,12 +11,12 @@ import type { WorkbenchDiagnostic } from "../types";
 const diagnostic = (
   overrides: Partial<WorkbenchDiagnostic> = {}
 ): WorkbenchDiagnostic => createWorkbenchDiagnostic({
-  location: { column: 3, line: 2, path: ".skillset/src/skills/demo/SKILL.md" },
+  location: { column: 3, line: 2, path: ".skillset/skills/demo/SKILL.md" },
   message: "Demo finding",
   ruleId: "skillset/demo",
   scope: "source",
   severity: "warning",
-  subject: { kind: "skill", path: ".skillset/src/skills/demo/SKILL.md" },
+  subject: { kind: "skill", path: ".skillset/skills/demo/SKILL.md" },
   ...overrides,
 });
 
@@ -24,8 +24,8 @@ describe("workbench diagnostics", () => {
   test("creates JSON-safe diagnostics with optional help and fix metadata", () => {
     const fix = { kind: "manual", message: "Update the source file." } as const;
     const help = ["Keep generated files out of source changes."];
-    const location = { column: 3, line: 2, path: ".skillset/src/skills/demo/SKILL.md" };
-    const subject = { kind: "skill", path: ".skillset/src/skills/demo/SKILL.md" };
+    const location = { column: 3, line: 2, path: ".skillset/skills/demo/SKILL.md" };
+    const subject = { kind: "skill", path: ".skillset/skills/demo/SKILL.md" };
     const found = diagnostic({
       fix,
       help,
@@ -41,12 +41,12 @@ describe("workbench diagnostics", () => {
     expect(found).toEqual({
       fix: { kind: "manual", message: "Update the source file." },
       help: ["Keep generated files out of source changes."],
-      location: { column: 3, line: 2, path: ".skillset/src/skills/demo/SKILL.md" },
+      location: { column: 3, line: 2, path: ".skillset/skills/demo/SKILL.md" },
       message: "Demo finding",
       ruleId: "skillset/demo",
       scope: "source",
       severity: "warning",
-      subject: { kind: "skill", path: ".skillset/src/skills/demo/SKILL.md" },
+      subject: { kind: "skill", path: ".skillset/skills/demo/SKILL.md" },
     });
   });
 

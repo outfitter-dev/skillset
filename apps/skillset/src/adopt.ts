@@ -53,7 +53,7 @@ export interface AdoptImportedUnit {
 
 export interface AdoptImportResult {
   readonly candidate: SetupImportCandidate;
-  /** Instructions destination relative to the root (e.g. `.skillset/src/rules/agents.md`). */
+  /** Instructions destination relative to the root (e.g. `.skillset/rules/agents.md`). */
   readonly destination?: string;
   readonly detail: string;
   readonly renderResults: readonly SkillsetRenderResult[];
@@ -120,7 +120,7 @@ export interface AdoptReport {
 /** Where write-mode adoption persists its migration report. */
 export const ADOPT_REPORT_DIR = ".skillset/cache/adopt";
 
-const INSTRUCTIONS_DIR = ".skillset/src/rules";
+const INSTRUCTIONS_DIR = ".skillset/rules";
 
 /**
  * One-action repo adoption: survey via `init`, import every candidate
@@ -261,8 +261,8 @@ async function adoptResolvedRoot(
 }
 
 async function adoptedWorkspaceExists(rootPath: string): Promise<boolean> {
-  const currentOrdinary = await exists(join(rootPath, ".skillset/skillset.yaml"));
-  const legacyOrdinary = await exists(join(rootPath, ".skillset/config.yaml"));
+  const currentOrdinary = await exists(join(rootPath, "skillset.yaml"));
+  const legacyOrdinary = await exists(join(rootPath, "skillset.yaml"));
   const dedicated =
     (await exists(join(rootPath, "skillset.yaml"))) && (await exists(join(rootPath, "skillset")));
   return currentOrdinary || legacyOrdinary || dedicated;
@@ -382,7 +382,7 @@ async function importCandidate(
 
 /**
  * Minimal instructions import: copy the root instruction body into
- * `.skillset/src/rules/` under its lowercased name (`AGENTS.md` ->
+ * `.skillset/rules/` under its lowercased name (`AGENTS.md` ->
  * `agents.md`), adding source-only provenance metadata. The ADR's
  * transform-on-adopt is a later slice; adopt never overwrites an existing
  * destination.

@@ -270,7 +270,7 @@ export function renderCiReportMarkdown(report: CiReport): string {
     }
     lines.push(
       "",
-      "Use `.changeset/*.md` for published compiler package changes. Use `skillset/changes/` for Skillset source-unit/loadout history.",
+      "Use `.changeset/*.md` for published compiler package changes. Use `.skillset/changes/` for Skillset source-unit/loadout history.",
       ""
     );
   }

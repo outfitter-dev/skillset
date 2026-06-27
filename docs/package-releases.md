@@ -1,6 +1,6 @@
 # Package Releases
 
-This page covers the npm package release path for the unscoped `skillset` package. It is separate from Skillset source-unit releases under the workspace change directory (`.skillset/changes` in ordinary workspaces or `skillset/changes` in dedicated Skillset repos), which describe authored plugin, skill, and generated-output provenance.
+This page covers the npm package release path for the unscoped `skillset` package. It is separate from Skillset source-unit releases under the workspace change directory (`.skillset/changes`), which describe authored plugin, skill, and generated-output provenance.
 
 ## Ownership
 

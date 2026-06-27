@@ -18,7 +18,7 @@ import {
 } from "@skillset/core";
 
 const OUTCOME_FIXTURE: Record<string, string> = {
-  ".skillset/config.yaml": `
+  "skillset.yaml": `
 skillset:
   name: outcome-root
   marketplace:
@@ -26,7 +26,7 @@ skillset:
 claude: true
 codex: true
 `,
-  ".skillset/src/skills/repo-skill/SKILL.md": `
+  ".skillset/skills/repo-skill/SKILL.md": `
 ---
 name: repo-skill
 description: Repo skill.
@@ -34,14 +34,14 @@ description: Repo skill.
 
 Use the repo skill.
 `,
-  ".skillset/src/rules/root.md": `
+  ".skillset/rules/root.md": `
 ---
 description: Root instructions.
 ---
 
 Keep generated output deterministic.
 `,
-  ".skillset/src/agents/reviewer.md": `
+  ".skillset/agents/reviewer.md": `
 ---
 name: reviewer
 description: Reviews code.
@@ -51,11 +51,11 @@ skills:
 
 Review diffs carefully.
 `,
-  ".skillset/src/_codex/rules/deny.rules": `
+  ".skillset/_codex/rules/deny.rules": `
 match = "rm -rf"
 decision = "deny"
 `,
-  ".skillset/src/plugins/alpha/skillset.yaml": `
+  ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
   description: Alpha plugin.
@@ -66,46 +66,46 @@ dependencies:
       marketplace: acme
 mcp: true
 `,
-  ".skillset/src/plugins/alpha/.app.json": `
+  ".skillset/plugins/alpha/.app.json": `
 {"apps":[]}
 `,
-  ".skillset/src/plugins/alpha/.lsp.json": `
+  ".skillset/plugins/alpha/.lsp.json": `
 {"servers":[]}
 `,
-  ".skillset/src/plugins/alpha/.mcp.json": `
+  ".skillset/plugins/alpha/.mcp.json": `
 {
   "mcpServers": {
     "alpha": { "command": "node" }
   }
 }
 `,
-  ".skillset/src/plugins/alpha/README.md": `
+  ".skillset/plugins/alpha/README.md": `
 # Alpha
 `,
-  ".skillset/src/plugins/alpha/assets/icon.txt": `
+  ".skillset/plugins/alpha/assets/icon.txt": `
 icon
 `,
-  ".skillset/src/plugins/alpha/commands/run.md": `
+  ".skillset/plugins/alpha/commands/run.md": `
 # Run
 `,
-  ".skillset/src/plugins/alpha/hooks/hooks.json": `
+  ".skillset/plugins/alpha/hooks/hooks.json": `
 {
   "hooks": {
     "SessionStart": []
   }
 }
 `,
-  ".skillset/src/plugins/alpha/monitors/monitors.json": `
+  ".skillset/plugins/alpha/monitors/monitors.json": `
 {"monitors":[]}
 `,
-  ".skillset/src/plugins/alpha/output-styles/focused.md": `
+  ".skillset/plugins/alpha/output-styles/focused.md": `
 # Focused
 `,
-  ".skillset/src/plugins/alpha/scripts/setup.sh": `
+  ".skillset/plugins/alpha/scripts/setup.sh": `
 #!/usr/bin/env bash
 echo setup
 `,
-  ".skillset/src/plugins/alpha/skills/plugin-skill/SKILL.md": `
+  ".skillset/plugins/alpha/skills/plugin-skill/SKILL.md": `
 ---
 name: plugin-skill
 description: Plugin skill.
@@ -117,28 +117,28 @@ tool_intent:
 
 Use the plugin skill.
 `,
-  ".skillset/src/plugins/alpha/src/index.js": `
+  ".skillset/plugins/alpha/src/index.js": `
 export const alpha = true;
 `,
-  ".skillset/src/plugins/alpha/themes/dark.json": `
+  ".skillset/plugins/alpha/themes/dark.json": `
 {"name":"dark"}
 `,
-  ".skillset/src/plugins/beta/skillset.yaml": `
+  ".skillset/plugins/beta/skillset.yaml": `
 skillset:
   name: beta
   description: Beta plugin.
 codex: false
 `,
-  ".skillset/src/plugins/beta/bin/tool": `
+  ".skillset/plugins/beta/bin/tool": `
 #!/usr/bin/env bash
 echo beta
 `,
-  ".skillset/src/plugins/beta/agents/reviewer.md": `
+  ".skillset/plugins/beta/agents/reviewer.md": `
 # Plugin Reviewer
 
 Review plugin output.
 `,
-  ".skillset/src/plugins/beta/skills/plugin-skill/SKILL.md": `
+  ".skillset/plugins/beta/skills/plugin-skill/SKILL.md": `
 ---
 name: beta-skill
 description: Beta skill.
@@ -492,7 +492,7 @@ describe("build render results", () => {
     const scoped = await diffSkillsetResult(root, { scopes: ["repo"] });
     const unsupportedRoot = await fixture({
       ...OUTCOME_FIXTURE,
-      ".skillset/src/plugins/alpha/bin/tool": `
+      ".skillset/plugins/alpha/bin/tool": `
 #!/usr/bin/env bash
 echo alpha
 `,
@@ -523,7 +523,7 @@ echo alpha
   it("ignores placeholder-only plugin agent directories for unsupported Codex outcomes", async () => {
     const root = await fixture({
       ...OUTCOME_FIXTURE,
-      ".skillset/src/plugins/alpha/agents/.gitkeep": "",
+      ".skillset/plugins/alpha/agents/.gitkeep": "",
     });
 
     const result = await buildSkillsetResult(root);
@@ -539,7 +539,7 @@ echo alpha
   it("enforces unsupported outcome policy with actionable render errors", async () => {
     const agentRoot = await fixture({
       ...OUTCOME_FIXTURE,
-      ".skillset/src/plugins/alpha/agents/reviewer.md": `
+      ".skillset/plugins/alpha/agents/reviewer.md": `
 # Plugin Reviewer
 
 Review plugin output.
@@ -554,7 +554,7 @@ Review plugin output.
 
     const binRoot = await fixture({
       ...OUTCOME_FIXTURE,
-      ".skillset/src/plugins/alpha/bin/tool": `
+      ".skillset/plugins/alpha/bin/tool": `
 #!/usr/bin/env bash
 echo alpha
 `,

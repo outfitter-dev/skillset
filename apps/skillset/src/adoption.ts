@@ -182,18 +182,10 @@ function sourcePluginVersion(graph: BuildGraph, plugin: SourcePlugin): string {
 }
 
 async function workspaceMarkerExists(rootPath: string, options: SkillsetOptions): Promise<boolean> {
-  if (options.sourceDir === ".") return Bun.file(`${rootPath}/skillset.yaml`).exists();
-  if (options.sourceDir !== undefined) {
-    return (
-      (await Bun.file(`${rootPath}/${options.sourceDir}/skillset.yaml`).exists()) ||
-      (await Bun.file(`${rootPath}/${options.sourceDir}/config.yaml`).exists())
-    );
+  if (options.sourceDir !== undefined && options.sourceDir !== ".skillset") {
+    return false;
   }
-  return (
-    (await Bun.file(`${rootPath}/skillset.yaml`).exists()) ||
-    (await Bun.file(`${rootPath}/.skillset/skillset.yaml`).exists()) ||
-    (await Bun.file(`${rootPath}/.skillset/config.yaml`).exists())
-  );
+  return Bun.file(`${rootPath}/skillset.yaml`).exists();
 }
 
 function isErrno(error: unknown, code: string): boolean {

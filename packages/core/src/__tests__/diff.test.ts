@@ -7,13 +7,13 @@ import { join } from "node:path";
 import { diffSkillset, diffSkillsetResult } from "@skillset/core";
 
 const DEMO_FIXTURE: Record<string, string> = {
-  ".skillset/config.yaml": `
+  "skillset.yaml": `
 skillset:
   name: core-diff-root
 claude: true
 codex: false
 `,
-  ".skillset/src/skills/demo/SKILL.md": `
+  ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
 description: Demo skill.
@@ -83,7 +83,7 @@ describe("diffSkillset", () => {
 
   it("throws invalid source config instead of hiding it in a successful result", async () => {
     const root = await fixture({
-      ".skillset/config.yaml": `
+      "skillset.yaml": `
 skillset:
   name: invalid-core-diff-root
 compile:

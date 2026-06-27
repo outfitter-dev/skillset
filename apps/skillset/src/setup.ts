@@ -15,10 +15,9 @@ import { workspaceChangesDir } from "./workspace-state";
 import { parseYamlRecord } from "./yaml";
 
 const DEFAULT_CREATE_NAME = "my-skillset";
-const DEFAULT_GLOBAL_SOURCE = ".skillset/src";
+const DEFAULT_GLOBAL_SOURCE = ".skillset/source";
 const ORDINARY_WORKSPACE_DIR = ".skillset";
-const ORDINARY_SOURCE_ROOT = ".skillset/src";
-const DEDICATED_SOURCE_ROOT = "skillset";
+const WORKSPACE_SOURCE_ROOT = ".skillset";
 const SETUP_SOURCE_PLACEHOLDERS = [
   "agents",
   "hooks",
@@ -31,10 +30,10 @@ const SETUP_SOURCE_PLACEHOLDERS = [
 ] as const;
 const OPERATIONAL_GITIGNORE = "cache/*\n!cache/.gitignore\nsnapshots/*\n!snapshots/.gitignore\n";
 const OPERATIONAL_DIR_GITIGNORE = "*\n!.gitignore\n";
-const DEDICATED_ROOT_OPERATIONAL_GITIGNORE =
+const ROOT_OPERATIONAL_GITIGNORE =
   ".skillset/cache/*\n!.skillset/cache/.gitignore\n.skillset/snapshots/*\n!.skillset/snapshots/.gitignore\n";
 
-type SetupLayout = "dedicated" | "ordinary";
+type SetupLayout = "workspace";
 
 export type SetupLayoutOption = "nested" | "root";
 
@@ -185,7 +184,7 @@ async function applySetupPlan(
     importCandidates,
     kind,
     rootPath,
-    sourceDir: layout === "dedicated" ? "." : ORDINARY_WORKSPACE_DIR,
+    sourceDir: ORDINARY_WORKSPACE_DIR,
     surveySkips,
     write: options.write === true,
   };
@@ -196,50 +195,15 @@ async function resolveSetupLayout(
   rootPath: string,
   options: SetupOptions
 ): Promise<SetupLayout> {
-  if (options.global === true) return "dedicated";
-  if (kind === "create") return "dedicated";
-  const dedicated = await hasDedicatedWorkspaceMarker(rootPath);
-  const ordinary = await hasOrdinaryWorkspaceMarker(rootPath);
-  if (dedicated && ordinary) {
-    throw new Error(
-      "skillset: ambiguous setup workspace; found both dedicated root skillset.yaml/skillset and ordinary .skillset workspace"
-    );
-  }
   if (options.layout !== undefined) {
-    const requested = setupLayoutOptionToInternal(options.layout);
-    if (requested === "dedicated" && ordinary) {
-      throw new Error("skillset: init --layout root cannot run in a repo that already has a .skillset workspace");
-    }
-    if (requested === "ordinary" && dedicated) {
-      throw new Error("skillset: init --layout nested cannot run in a repo that already has a root skillset.yaml/skillset workspace");
-    }
-    return requested;
+    throw new Error("skillset: --layout is retired; Skillset uses root skillset.yaml plus .skillset/");
   }
-  return dedicated ? "dedicated" : "ordinary";
-}
-
-function setupLayoutOptionToInternal(layout: SetupLayoutOption): SetupLayout {
-  return layout === "root" ? "dedicated" : "ordinary";
-}
-
-async function hasDedicatedWorkspaceMarker(rootPath: string): Promise<boolean> {
-  return (await pathExists(join(rootPath, "skillset.yaml"))) || (await pathExists(join(rootPath, DEDICATED_SOURCE_ROOT)));
-}
-
-async function hasOrdinaryWorkspaceMarker(rootPath: string): Promise<boolean> {
-  return (
-    (await pathExists(join(rootPath, ".skillset/skillset.yaml"))) ||
-    (await pathExists(join(rootPath, ".skillset/config.yaml"))) ||
-    (await pathExists(join(rootPath, ORDINARY_SOURCE_ROOT)))
-  );
+  if (kind === "init") await rejectRetiredSetupMarkers(rootPath);
+  return "workspace";
 }
 
 async function setupWorkspaceExists(rootPath: string, layout: SetupLayout): Promise<boolean> {
-  if (layout === "dedicated") return (await pathExists(join(rootPath, "skillset.yaml")));
-  return (
-    (await pathExists(join(rootPath, ".skillset/skillset.yaml"))) ||
-    (await pathExists(join(rootPath, ".skillset/config.yaml")))
-  );
+  return pathExists(join(rootPath, "skillset.yaml"));
 }
 
 async function setupWorkspaceManifestPath(
@@ -247,15 +211,21 @@ async function setupWorkspaceManifestPath(
   rootPath: string,
   layout: SetupLayout
 ): Promise<string> {
-  if (layout === "dedicated") return "skillset.yaml";
-  if (
-    kind === "init" &&
-    !(await pathExists(join(rootPath, ".skillset/skillset.yaml"))) &&
-    (await pathExists(join(rootPath, ".skillset/config.yaml")))
-  ) {
-    return ".skillset/config.yaml";
+  return "skillset.yaml";
+}
+
+async function rejectRetiredSetupMarkers(rootPath: string): Promise<void> {
+  const retired = [
+    ".skillset/skillset.yaml",
+    ".skillset/config.yaml",
+    ".skillset/src",
+    "skillset",
+  ];
+  for (const path of retired) {
+    if (await pathExists(join(rootPath, path))) {
+      throw new Error(`skillset: ${path} uses a retired source layout; migrate to root skillset.yaml plus .skillset/`);
+    }
   }
-  return ".skillset/skillset.yaml";
 }
 
 async function initRootPath(options: SetupOptions): Promise<string> {
@@ -311,8 +281,8 @@ async function detectImportCandidates(
     }
   }
   // Instruction candidates are for un-adopted repos: an existing
-  // .skillset/config.yaml means the repo already authors instructions in
-  // .skillset/src/rules, so its root files are (or will be) generated.
+  // skillset.yaml means the repo already authors instructions in
+  // .skillset/rules, so its root files are (or will be) generated.
   if (!alreadyAdopted) {
     for (const name of ROOT_INSTRUCTION_FILES) {
       if (await isImportableInstructionFile(join(rootPath, name))) {
@@ -596,8 +566,8 @@ function setupFiles(
     readonly workspaceManifestPath: string;
   }
 ): readonly PlannedFile[] {
-  const sourceRoot = options.resolvedLayout === "dedicated" ? DEDICATED_SOURCE_ROOT : ORDINARY_SOURCE_ROOT;
-  const changesRoot = workspaceChangesDir(options.resolvedLayout === "dedicated" ? "." : ".skillset");
+  const sourceRoot = WORKSPACE_SOURCE_ROOT;
+  const changesRoot = workspaceChangesDir(".skillset");
   const files: PlannedFile[] = [
     {
       path: options.workspaceManifestPath,
@@ -634,11 +604,11 @@ function setupFiles(
     );
   }
 
-  if (options.resolvedLayout === "dedicated" && options.kind === "create" && options.global !== true) {
+  if (options.kind === "create" && options.global !== true) {
     files.push(
       {
         path: ".gitignore",
-        content: DEDICATED_ROOT_OPERATIONAL_GITIGNORE,
+        content: ROOT_OPERATIONAL_GITIGNORE,
       },
       {
         path: "skillset.lock",
@@ -732,7 +702,7 @@ function createReadme(name: string, targets: readonly TargetName[]): string {
   return [
     `# ${name}`,
     "",
-    "This repository is a dedicated Skillset source repo. Edit files under `skillset/`, then run Skillset commands to preview or write generated Claude and Codex outputs.",
+    "This repository is a Skillset source repo. Edit authored source under `.skillset/`, then run Skillset commands to preview or write generated Claude and Codex outputs.",
     "",
     "## Quick Start",
     "",
@@ -747,10 +717,10 @@ function createReadme(name: string, targets: readonly TargetName[]): string {
     "## Layout",
     "",
     "- `skillset.yaml` names the source loadout and selects compile targets and destination settings.",
-    "- `skillset/` is the adaptive project source area for rules, agents, hooks, skills, plugins, shared files, and provider source.",
-    "- `skillset/plugins/` holds plugin source when this repo authors marketplace plugins.",
-    "- `skillset/skills/` holds standalone skill source when this repo authors repo-local or user skill roots.",
-    "- `skillset/changes/` stores pending and applied Skillset change history.",
+    "- `.skillset/` is the Skillset workspace for rules, agents, hooks, skills, plugins, shared files, provider source, and change state.",
+    "- `.skillset/plugins/` holds plugin source when this repo authors marketplace plugins.",
+    "- `.skillset/skills/` holds standalone skill source when this repo authors repo-local or user skill roots.",
+    "- `.skillset/changes/` stores pending and applied Skillset change history.",
     "- `.skillset/cache/` keeps the logical cache boundary visible while cache payloads resolve to XDG; `.skillset/snapshots/` holds ignored recovery output. Their `.gitignore` sentinels remain tracked.",
     "",
     `Default compile targets: ${targets.join(", ")}.`,
@@ -766,9 +736,9 @@ function createAgentsGuide(name: string): string {
     "",
     "## Working Rules",
     "",
-    "- Treat `skillset/` as editable source.",
+    "- Treat `.skillset/` as editable Skillset source and source-adjacent state.",
     "- Treat `skillset.yaml` as workspace/build configuration and root source metadata.",
-    "- Treat `skillset/changes/` as Skillset-managed change and release state.",
+    "- Treat `.skillset/changes/` as Skillset-managed change and release state.",
     "- Treat generated target directories as outputs; do not hand-edit them as source truth.",
     "- Run `skillset build --dry-run` before writing generated outputs.",
     "- Run `skillset check` and `skillset verify` before committing source changes.",

@@ -1,0 +1,99 @@
+---
+bump: patch
+evidence:
+  - scope: plugin.skillset.skill:use-skillset
+    sourceHash: sha256:85e65b4c916230d474a94c19ddab08b34ffe4c26a04ec2130b09532bc94dd6a4
+  - scope: plugin.skillset.skill:use-skillset
+    sourceHash: sha256:85e65b4c916230d474a94c19ddab08b34ffe4c26a04ec2130b09532bc94dd6a4
+  - scope: plugin.skillset.skill:use-skillset
+    sourceHash: sha256:85e65b4c916230d474a94c19ddab08b34ffe4c26a04ec2130b09532bc94dd6a4
+  - scope: plugin.skillset.skill:use-skillset
+    sourceHash: sha256:85e65b4c916230d474a94c19ddab08b34ffe4c26a04ec2130b09532bc94dd6a4
+  - scope: plugin.skillset.skill:use-skillset
+    sourceHash: sha256:85e65b4c916230d474a94c19ddab08b34ffe4c26a04ec2130b09532bc94dd6a4
+  - scope: plugin.skillset.skill:use-skillset
+    sourceHash: sha256:85e65b4c916230d474a94c19ddab08b34ffe4c26a04ec2130b09532bc94dd6a4
+  - scope: plugin.skillset.skill:use-skillset
+    sourceHash: sha256:85e65b4c916230d474a94c19ddab08b34ffe4c26a04ec2130b09532bc94dd6a4
+  - scope: plugin.skillset.skill:use-skillset
+    sourceHash: sha256:85e65b4c916230d474a94c19ddab08b34ffe4c26a04ec2130b09532bc94dd6a4
+  - scope: plugin.skillset.skill:use-skillset
+    sourceHash: sha256:85e65b4c916230d474a94c19ddab08b34ffe4c26a04ec2130b09532bc94dd6a4
+  - scope: plugin.skillset.skill:use-skillset
+    sourceHash: sha256:85e65b4c916230d474a94c19ddab08b34ffe4c26a04ec2130b09532bc94dd6a4
+  - scope: plugin.skillset.skill:use-skillset
+    sourceHash: sha256:85e65b4c916230d474a94c19ddab08b34ffe4c26a04ec2130b09532bc94dd6a4
+  - scope: plugin.skillset.skill:use-skillset
+    sourceHash: sha256:85e65b4c916230d474a94c19ddab08b34ffe4c26a04ec2130b09532bc94dd6a4
+  - scope: plugin.skillset.skill:use-skillset
+    sourceHash: sha256:85e65b4c916230d474a94c19ddab08b34ffe4c26a04ec2130b09532bc94dd6a4
+  - scope: plugin.skillset.skill:use-skillset
+    sourceHash: sha256:85e65b4c916230d474a94c19ddab08b34ffe4c26a04ec2130b09532bc94dd6a4
+  - scope: plugin.skillset.skill:use-skillset
+    sourceHash: sha256:85e65b4c916230d474a94c19ddab08b34ffe4c26a04ec2130b09532bc94dd6a4
+  - scope: plugin:skillset
+    sourceHash: sha256:6b660ad0e055fe71be338d403568f5cb49d41b4436973c268647f99d712e8351
+  - scope: plugin:skillset
+    sourceHash: sha256:6b660ad0e055fe71be338d403568f5cb49d41b4436973c268647f99d712e8351
+  - scope: plugin:skillset
+    sourceHash: sha256:6b660ad0e055fe71be338d403568f5cb49d41b4436973c268647f99d712e8351
+  - scope: plugin:skillset
+    sourceHash: sha256:6b660ad0e055fe71be338d403568f5cb49d41b4436973c268647f99d712e8351
+  - scope: plugin:skillset
+    sourceHash: sha256:6b660ad0e055fe71be338d403568f5cb49d41b4436973c268647f99d712e8351
+  - scope: plugin:skillset
+    sourceHash: sha256:6b660ad0e055fe71be338d403568f5cb49d41b4436973c268647f99d712e8351
+  - scope: plugin:skillset
+    sourceHash: sha256:6b660ad0e055fe71be338d403568f5cb49d41b4436973c268647f99d712e8351
+  - scope: plugin:skillset
+    sourceHash: sha256:6b660ad0e055fe71be338d403568f5cb49d41b4436973c268647f99d712e8351
+  - scope: plugin:skillset
+    sourceHash: sha256:6b660ad0e055fe71be338d403568f5cb49d41b4436973c268647f99d712e8351
+  - scope: plugin:skillset
+    sourceHash: sha256:6b660ad0e055fe71be338d403568f5cb49d41b4436973c268647f99d712e8351
+  - scope: plugin:skillset
+    sourceHash: sha256:6b660ad0e055fe71be338d403568f5cb49d41b4436973c268647f99d712e8351
+  - scope: plugin:skillset
+    sourceHash: sha256:6b660ad0e055fe71be338d403568f5cb49d41b4436973c268647f99d712e8351
+  - scope: plugin:skillset
+    sourceHash: sha256:6b660ad0e055fe71be338d403568f5cb49d41b4436973c268647f99d712e8351
+  - scope: plugin:skillset
+    sourceHash: sha256:6b660ad0e055fe71be338d403568f5cb49d41b4436973c268647f99d712e8351
+  - scope: plugin:skillset
+    sourceHash: sha256:6b660ad0e055fe71be338d403568f5cb49d41b4436973c268647f99d712e8351
+  - scope: plugin:skillset
+    sourceHash: sha256:6b660ad0e055fe71be338d403568f5cb49d41b4436973c268647f99d712e8351
+  - scope: skill:skillset-adrs
+    sourceHash: sha256:9247c0445c6b8e3cc9cf60ef325a5e4c59101940c88c183999d2d8a80b26afe6
+  - scope: skill:skillset-adrs
+    sourceHash: sha256:9247c0445c6b8e3cc9cf60ef325a5e4c59101940c88c183999d2d8a80b26afe6
+  - scope: skill:skillset-codex-development
+    sourceHash: sha256:253c1efb8bd29d2d73671bd279a676a988992b4d5b53549909d83127094e1f51
+  - scope: skill:skillset-codex-development
+    sourceHash: sha256:253c1efb8bd29d2d73671bd279a676a988992b4d5b53549909d83127094e1f51
+  - scope: skill:skillset-codex-development
+    sourceHash: sha256:253c1efb8bd29d2d73671bd279a676a988992b4d5b53549909d83127094e1f51
+  - scope: skill:skillset-codex-development
+    sourceHash: sha256:253c1efb8bd29d2d73671bd279a676a988992b4d5b53549909d83127094e1f51
+  - scope: skill:skillset-codex-development
+    sourceHash: sha256:253c1efb8bd29d2d73671bd279a676a988992b4d5b53549909d83127094e1f51
+  - scope: plugin.skillset.skill:use-skillset
+    sourceHash: sha256:b6d7e1813d1d868f50a19e8a502c6cde3031b04cf5ff9151a5d8264eb05f94ae
+  - scope: plugin:skillset
+    sourceHash: sha256:12a399bb48f14e057d28ed99c5a4e9bfe1efc9f044ff14a3c0ce2ac2a9060024
+  - scope: plugin.skillset.skill:use-skillset
+    sourceHash: sha256:f8abc4997ef47ef03f92e202990fe3bf52350cfa06c48f99e407a02e69282d34
+  - scope: plugin:skillset
+    sourceHash: sha256:4cca19146b3c7e456ba9fafeb20432389ea2fdb1bcdbb98615bac52c7ceee4e0
+  - scope: skill:skillset-codex-development
+    sourceHash: sha256:4711e86044ad9368fe6dcb04a265bd3b924ce571d30471890faa4844f5c4bb8f
+group: SET-125
+id: e75c9c55abea
+scopes:
+  - plugin.skillset.skill:use-skillset
+  - plugin:skillset
+  - skill:skillset-adrs
+  - skill:skillset-codex-development
+---
+
+Refresh self-hosted Skillset guidance for the derive/render/destination terminology cutover: compile.unsupportedDestination, render results, rendered status, and destination wording.
