@@ -1,5 +1,14 @@
 # skillset
 
+## 0.16.1
+
+### Patch Changes
+
+- 544e75a: Store output-safety backups in per-run Git object stores while keeping existing restore commands unchanged.
+- 3d70094: Add `skillset lookup` as a read-only static reference command for source fields, hook events, and target compatibility facts.
+- dcf0291: Fix root native plugin adoption so `plugin:.` imports lift into `.skillset/plugins/<name>/` without copying root workspace config into plugin source.
+- 6fe883c: Use root `skillset.yaml` plus `.skillset/` as the only authoring workspace layout, and add first-class named partials with workspace/plugin resolution, ambiguity diagnostics, and recursion cycle checks.
+
 ## 0.16.0
 
 ### Minor Changes
