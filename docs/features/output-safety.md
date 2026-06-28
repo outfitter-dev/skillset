@@ -31,10 +31,12 @@ Backups live under the gitignored recovery snapshot root:
 
 ```text
 .skillset/snapshots/<backup-id>/manifest.json
-.skillset/snapshots/<backup-id>/files/<target-path>.bak.<backup-id>
+.skillset/snapshots/<backup-id>/git/
 ```
 
-The manifest records the backup id, target path, backup path, action, reason, original hash, generated hash when applicable, and source path when known. Build diagnostics include the backup id and manifest path, and `build --yes` prints a short backup summary when a backup was created.
+New backup manifests use schema version 2 and store backed-up bytes in a per-run bare Git object store. The manifest records the backup id, target path, Git tree path, action, reason, original hash, generated hash when applicable, source path when known, and the Git commit that owns the snapshot. Build diagnostics include the backup id and manifest path, and `build --yes` prints a short backup summary when a backup was created.
+
+Legacy schema version 1 manifests, which stored copied files below `.skillset/snapshots/<backup-id>/files/`, remain restorable so existing recovery material does not become stranded during the cutover.
 
 `compile.build: updated` writes missing or changed generated files and removes stale managed files while leaving unchanged managed files and unmanaged neighbors alone. `compile.build: all` rewrites the selected generated files and removes stale managed files; it does not delete whole output roots or claim unmanaged neighbors.
 
@@ -55,7 +57,7 @@ skillset restore <backup-id> --root . --yes
 
 The first command previews the restore. The second writes the backed-up bytes back to the original target paths.
 
-Restore validates that each backup file still matches the manifest hash. For overwrite backups, it also verifies that the current target still matches the generated replacement hash before restoring. If the target changed again after the backup, restore refuses so it does not clobber a newer edit. For delete backups, restore refuses if the target path already exists.
+Restore reads each backup payload from the manifest's Git commit and validates that it still matches the manifest hash. For overwrite backups, it also verifies that the current target still matches the generated replacement hash before restoring. If the target changed again after the backup, restore refuses so it does not clobber a newer edit. For delete backups, restore refuses if the target path already exists.
 
 ## Validation
 
@@ -71,10 +73,10 @@ Malformed generated locks fail loudly because Skillset cannot safely distinguish
 
 ## Provenance
 
-Lock files remain the source of generated-output ownership. Backup manifests are recovery aids, not source truth, and live under `.skillset/snapshots/` so they stay separate from delete-safe cache output.
+Lock files remain the source of generated-output ownership. Backup manifests and their per-run Git object stores are recovery aids, not source truth, and live under `.skillset/snapshots/` so they stay separate from delete-safe cache output.
 
 Generated skill frontmatter stays lightweight. Output ownership, hashes, target-side edit evidence, stale managed paths, and backup information belong in locks, diagnostics, and backup manifests rather than in generated target files.
 
 ## Evidence
 
-Fixtures cover unmanaged collision backups, target-side edit backups, backup restore previews and writes, unmanaged neighbors inside output roots, stale managed output checks, generated changelog recovery hints, disabled generated roots with legacy Skillset locks, and isolated mirror backup behavior.
+Fixtures cover Git-backed unmanaged collision backups, legacy file-backed manifest restore, target-side edit backups, backup restore previews and writes, unmanaged neighbors inside output roots, stale managed output checks, generated changelog recovery hints, disabled generated roots with legacy Skillset locks, and isolated mirror backup behavior.

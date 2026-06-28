@@ -64,7 +64,7 @@ export interface SkillsetWriteSummary {
   readonly backupManifestPath?: string;
   /** Records for backed-up originals created during this write. */
   readonly backupRecords?: readonly OutputBackupRecord[];
-  /** Short backup run id used in backup filenames and manifests. */
+  /** Short backup run id used in backup manifests and restore commands. */
   readonly backupRunId?: string;
 }
 

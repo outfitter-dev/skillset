@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 
 import { compareStrings, resolveInside } from "./path";
@@ -34,13 +35,31 @@ export interface OutputBackupRecord {
 
 export type OutputBackupPlanRecord = Omit<OutputBackupRecord, "backupPath">;
 
-export interface OutputBackupManifest {
+export interface OutputBackupGitStorage {
+  readonly commit: string;
+  readonly gitDir: string;
+  readonly kind: "git";
+  readonly ref: string;
+}
+
+export interface OutputBackupManifestV1 {
   readonly generatedBy: string;
   readonly records: readonly OutputBackupRecord[];
   readonly runHash: string;
   readonly runId: string;
   readonly schemaVersion: 1;
 }
+
+export interface OutputBackupManifestV2 {
+  readonly generatedBy: string;
+  readonly records: readonly OutputBackupRecord[];
+  readonly runHash: string;
+  readonly runId: string;
+  readonly schemaVersion: 2;
+  readonly storage: OutputBackupGitStorage;
+}
+
+export type OutputBackupManifest = OutputBackupManifestV1 | OutputBackupManifestV2;
 
 export interface OutputBackupSummary {
   readonly manifestPath: string;
@@ -115,23 +134,15 @@ export async function prepareOutputBackups(
   const runHash = `sha256:${createHash("sha256").update(JSON.stringify(seed)).digest("hex")}`;
   const runId = runHash.slice("sha256:".length, "sha256:".length + 12);
   const manifestPath = join(OUTPUT_BACKUP_ROOT, runId, "manifest.json");
-  const finalized: OutputBackupRecord[] = [];
+  const { records: finalized, storage } = await writeGitBackupStorage(rootPath, runId, records);
 
-  for (const record of records.sort((left, right) => compareStrings(left.targetPath, right.targetPath))) {
-    const backupPath = join(OUTPUT_BACKUP_ROOT, runId, "files", `${record.targetPath}.bak.${runId}`);
-    const absoluteBackupPath = resolveInside(rootPath, backupPath);
-    await mkdir(dirname(absoluteBackupPath), { recursive: true });
-    await writeFile(absoluteBackupPath, record.content);
-    const { content: _content, ...withoutContent } = record;
-    finalized.push({ ...withoutContent, backupPath });
-  }
-
-  const manifest: OutputBackupManifest = {
+  const manifest: OutputBackupManifestV2 = {
     generatedBy: "skillset@0.1.0",
     records: finalized,
     runHash,
     runId,
-    schemaVersion: 1,
+    schemaVersion: 2,
+    storage,
   };
   const absoluteManifestPath = resolveInside(rootPath, manifestPath);
   await mkdir(dirname(absoluteManifestPath), { recursive: true });
@@ -166,19 +177,21 @@ export async function restoreOutputBackup(
   const manifestPath = join(OUTPUT_BACKUP_ROOT, runId, "manifest.json");
   const manifest = await readBackupManifest(rootPath, manifestPath);
   const restoredPaths: string[] = [];
+  const backupContents = new Map<string, Uint8Array>();
 
   for (const record of manifest.records) {
     const targetPath = resolveInside(rootPath, record.targetPath);
-    await assertRestoreIsSafe(rootPath, record, targetPath);
+    const backupContent = await readBackupContent(rootPath, manifest, record);
+    await assertRestoreIsSafe(record, targetPath, backupContent);
+    backupContents.set(record.targetPath, backupContent);
     restoredPaths.push(record.targetPath);
   }
 
   if (options.write === true) {
     for (const record of manifest.records) {
-      const backupPath = resolveInside(rootPath, record.backupPath);
       const targetPath = resolveInside(rootPath, record.targetPath);
       await mkdir(dirname(targetPath), { recursive: true });
-      await writeFile(targetPath, await readFile(backupPath));
+      await writeFile(targetPath, backupContents.get(record.targetPath) ?? (await readBackupContent(rootPath, manifest, record)));
     }
   }
 
@@ -404,6 +417,65 @@ function backupDiagnostic(record: OutputBackupRecord, runId: string, manifestPat
   };
 }
 
+async function writeGitBackupStorage(
+  rootPath: string,
+  runId: string,
+  records: readonly (OutputBackupPlanRecord & { readonly content: Uint8Array })[]
+): Promise<{
+  readonly records: readonly OutputBackupRecord[];
+  readonly storage: OutputBackupGitStorage;
+}> {
+  const gitDir = join(OUTPUT_BACKUP_ROOT, runId, "git");
+  const absoluteGitDir = resolveInside(rootPath, gitDir);
+  const ref = `refs/skillset/backups/${runId}`;
+  const indexRoot = await mkdtemp(join(tmpdir(), "skillset-output-backup-index-"));
+  const indexPath = join(indexRoot, "index");
+  const finalized: OutputBackupRecord[] = [];
+
+  await mkdir(dirname(absoluteGitDir), { recursive: true });
+  await runGit(["init", "--bare", "-q", absoluteGitDir], { cwd: rootPath });
+
+  try {
+    for (const record of [...records].sort((left, right) => compareStrings(left.targetPath, right.targetPath))) {
+      const backupPath = `files/${record.targetPath}`;
+      const object = await runGit(["--git-dir", absoluteGitDir, "hash-object", "-w", "--stdin"], {
+        cwd: rootPath,
+        input: record.content,
+      });
+      const objectId = object.stdoutText.trim();
+      await runGit(["--git-dir", absoluteGitDir, "update-index", "--add", "--cacheinfo", "100644", objectId, backupPath], {
+        cwd: rootPath,
+        env: { GIT_INDEX_FILE: indexPath },
+      });
+      const { content: _content, ...withoutContent } = record;
+      finalized.push({ ...withoutContent, backupPath });
+    }
+
+    const tree = await runGit(["--git-dir", absoluteGitDir, "write-tree"], {
+      cwd: rootPath,
+      env: { GIT_INDEX_FILE: indexPath },
+    });
+    const commit = await runGit(["--git-dir", absoluteGitDir, "commit-tree", tree.stdoutText.trim(), "-m", `skillset output backup ${runId}`], {
+      cwd: rootPath,
+      env: gitIdentityEnv(),
+    });
+    const commitId = commit.stdoutText.trim();
+    await runGit(["--git-dir", absoluteGitDir, "update-ref", ref, commitId], { cwd: rootPath });
+
+    return {
+      records: finalized,
+      storage: {
+        commit: commitId,
+        gitDir,
+        kind: "git",
+        ref,
+      },
+    };
+  } finally {
+    await rm(indexRoot, { force: true, recursive: true });
+  }
+}
+
 async function readBackupManifest(rootPath: string, manifestPath: string): Promise<OutputBackupManifest> {
   let parsed: unknown;
   try {
@@ -412,16 +484,26 @@ async function readBackupManifest(rootPath: string, manifestPath: string): Promi
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`skillset: cannot read backup manifest ${manifestPath}: ${message}`);
   }
-  if (!isRecord(parsed) || parsed.schemaVersion !== 1 || typeof parsed.runId !== "string" || !Array.isArray(parsed.records)) {
+  if (!isRecord(parsed) || typeof parsed.runId !== "string" || !Array.isArray(parsed.records)) {
     throw new Error(`skillset: backup manifest ${manifestPath} is malformed`);
   }
-  return {
+  const common = {
     generatedBy: typeof parsed.generatedBy === "string" ? parsed.generatedBy : "",
     records: parsed.records.map((record) => parseBackupRecord(manifestPath, record)),
     runHash: typeof parsed.runHash === "string" ? parsed.runHash : "",
     runId: parsed.runId,
-    schemaVersion: 1,
   };
+  if (parsed.schemaVersion === 1) {
+    return { ...common, schemaVersion: 1 };
+  }
+  if (parsed.schemaVersion === 2) {
+    return {
+      ...common,
+      schemaVersion: 2,
+      storage: parseBackupStorage(manifestPath, parsed.storage),
+    };
+  }
+  throw new Error(`skillset: backup manifest ${manifestPath} is malformed`);
 }
 
 function parseBackupRecord(manifestPath: string, value: unknown): OutputBackupRecord {
@@ -457,16 +539,53 @@ function parseBackupRecord(manifestPath: string, value: unknown): OutputBackupRe
   };
 }
 
-async function assertRestoreIsSafe(
-  rootPath: string,
-  record: OutputBackupRecord,
-  targetPath: string
-): Promise<void> {
-  const backupPath = resolveInside(rootPath, record.backupPath);
-  if (!(await exists(backupPath))) {
-    throw new Error(`skillset: backup file is missing for ${record.targetPath}: ${record.backupPath}`);
+function parseBackupStorage(manifestPath: string, value: unknown): OutputBackupGitStorage {
+  if (!isRecord(value)) throw new Error(`skillset: backup manifest ${manifestPath} has malformed storage`);
+  const commit = value.commit;
+  const gitDir = value.gitDir;
+  const kind = value.kind;
+  const ref = value.ref;
+  if (kind !== "git" || typeof commit !== "string" || typeof gitDir !== "string" || typeof ref !== "string") {
+    throw new Error(`skillset: backup manifest ${manifestPath} has invalid git storage`);
   }
-  const backupHash = contentHash(await readFile(backupPath));
+  if (!/^[a-f0-9]{40,64}$/.test(commit)) {
+    throw new Error(`skillset: backup manifest ${manifestPath} has invalid git commit`);
+  }
+  return {
+    commit,
+    gitDir,
+    kind,
+    ref,
+  };
+}
+
+async function readBackupContent(
+  rootPath: string,
+  manifest: OutputBackupManifest,
+  record: OutputBackupRecord
+): Promise<Uint8Array> {
+  if (manifest.schemaVersion === 1) {
+    const backupPath = resolveInside(rootPath, record.backupPath);
+    if (!(await exists(backupPath))) {
+      throw new Error(`skillset: backup file is missing for ${record.targetPath}: ${record.backupPath}`);
+    }
+    return await readFile(backupPath);
+  }
+
+  const gitDir = resolveInside(rootPath, manifest.storage.gitDir);
+  if (!(await exists(gitDir))) {
+    throw new Error(`skillset: backup git store is missing for ${record.targetPath}: ${manifest.storage.gitDir}`);
+  }
+  const object = await runGit(["--git-dir", gitDir, "show", `${manifest.storage.commit}:${record.backupPath}`], { cwd: rootPath });
+  return object.stdout;
+}
+
+async function assertRestoreIsSafe(
+  record: OutputBackupRecord,
+  targetPath: string,
+  backupContent: Uint8Array
+): Promise<void> {
+  const backupHash = contentHash(backupContent);
   if (backupHash !== record.originalHash) {
     throw new Error(`skillset: backup file hash changed for ${record.targetPath}`);
   }
@@ -502,6 +621,73 @@ function corruptWorkspaceLock(displayLockPath: string, reason: string): Error {
 function joinOutputRoot(outputRoot: string, file: string): string {
   if (outputRoot === "." || outputRoot === "") return file;
   return `${outputRoot}/${file}`;
+}
+
+interface GitResult {
+  readonly stdout: Uint8Array;
+  readonly stdoutText: string;
+}
+
+async function runGit(
+  args: readonly string[],
+  options: {
+    readonly cwd: string;
+    readonly env?: Record<string, string>;
+    readonly input?: Uint8Array;
+  }
+): Promise<GitResult> {
+  const proc = Bun.spawn({
+    cmd: ["git", ...args],
+    cwd: options.cwd,
+    env: gitCommandEnv(options.env),
+    stderr: "pipe",
+    stdin: options.input === undefined ? "ignore" : new Response(options.input),
+    stdout: "pipe",
+  });
+  const [stdoutBuffer, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).arrayBuffer(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  const stdout = new Uint8Array(stdoutBuffer);
+  if (exitCode !== 0) {
+    const command = ["git", ...args].join(" ");
+    throw new Error(`skillset: git backup command failed (${command}): ${stderr.trim()}`);
+  }
+  return {
+    stdout,
+    stdoutText: new TextDecoder().decode(stdout),
+  };
+}
+
+function gitCommandEnv(overrides: Record<string, string> = {}): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value === undefined || isGitRepositoryEnv(key)) continue;
+    env[key] = value;
+  }
+  return { ...env, ...overrides };
+}
+
+function gitIdentityEnv(): Record<string, string> {
+  return {
+    GIT_AUTHOR_EMAIL: "skillset@example.invalid",
+    GIT_AUTHOR_NAME: "Skillset",
+    GIT_COMMITTER_EMAIL: "skillset@example.invalid",
+    GIT_COMMITTER_NAME: "Skillset",
+  };
+}
+
+function isGitRepositoryEnv(key: string): boolean {
+  return (
+    key === "GIT_DIR" ||
+    key === "GIT_WORK_TREE" ||
+    key === "GIT_INDEX_FILE" ||
+    key === "GIT_OBJECT_DIRECTORY" ||
+    key === "GIT_COMMON_DIR" ||
+    key === "GIT_NAMESPACE" ||
+    key.startsWith("GIT_ALTERNATE_OBJECT")
+  );
 }
 
 function contentHash(content: Uint8Array): string {

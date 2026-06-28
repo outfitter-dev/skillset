@@ -108,7 +108,7 @@ This compiler repo uses that same layout for its own source:
 
 ## Operational State
 
-Rebuildable operational output uses logical repo paths under `.skillset/cache/`, but physical payloads live in the repo's Skillset-owned XDG cache bucket. The repo keeps `.skillset/cache/.gitignore` as a tracked sentinel so the logical cache boundary remains visible without committing cache contents. Recovery snapshots stay repo-local under `.skillset/snapshots/` because they are delete-safe only after the user no longer needs rollback material. Portable source, workspace manifests, change entries, release state, generated changelogs, and `skillset.lock` stay in the repo.
+Rebuildable operational output uses logical repo paths under `.skillset/cache/`, but physical payloads live in the repo's Skillset-owned XDG cache bucket. The repo keeps `.skillset/cache/.gitignore` as a tracked sentinel so the logical cache boundary remains visible without committing cache contents. Recovery snapshots stay repo-local under `.skillset/snapshots/` because they are delete-safe only after the user no longer needs rollback material; each new snapshot stores backup payloads in a per-run bare Git object store with a manifest that names the restore commit. Portable source, workspace manifests, change entries, release state, generated changelogs, and `skillset.lock` stay in the repo.
 
 Global Skillset state uses Skillset-owned XDG directories, never provider runtime directories and never a dot-prefixed `/.skillset` segment below the XDG base. Skillset uses absolute XDG base values when present; unset, empty, or relative XDG environment values fall back to the documented home-relative defaults.
 
