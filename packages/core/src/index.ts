@@ -122,6 +122,21 @@ export {
   lintSkillset,
 } from "./lint";
 export {
+  lookupSkillsetReference,
+  type LookupCompatibility,
+  type LookupDiagnostic,
+  type LookupDiagnosticSeverity,
+  type LookupEvent,
+  type LookupEventField,
+  type LookupExample,
+  type LookupField,
+  type LookupQuery,
+  type LookupReport,
+  type LookupSubject,
+  type LookupSubjectSummary,
+  type LookupView,
+} from "./lookup";
+export {
   readSkillsetWorkspaceConfig,
   resolveRepoCacheKey,
   resolveRepoCachePath,
