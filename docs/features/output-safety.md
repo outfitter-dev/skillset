@@ -34,9 +34,7 @@ Backups live under the gitignored recovery snapshot root:
 .skillset/snapshots/<backup-id>/git/
 ```
 
-New backup manifests use schema version 2 and store backed-up bytes in a per-run bare Git object store. The manifest records the backup id, target path, Git tree path, action, reason, original hash, generated hash when applicable, source path when known, and the Git commit that owns the snapshot. Build diagnostics include the backup id and manifest path, and `build --yes` prints a short backup summary when a backup was created.
-
-Legacy schema version 1 manifests, which stored copied files below `.skillset/snapshots/<backup-id>/files/`, remain restorable so existing recovery material does not become stranded during the cutover.
+Backup manifests use schema version 2 and store backed-up bytes in a per-run bare Git object store. The manifest records the backup id, target path, Git tree path, action, reason, original hash, generated hash when applicable, source path when known, and the Git commit that owns the snapshot. Build diagnostics include the backup id and manifest path, and `build --yes` prints a short backup summary when a backup was created.
 
 `compile.build: updated` writes missing or changed generated files and removes stale managed files while leaving unchanged managed files and unmanaged neighbors alone. `compile.build: all` rewrites the selected generated files and removes stale managed files; it does not delete whole output roots or claim unmanaged neighbors.
 
@@ -79,4 +77,4 @@ Generated skill frontmatter stays lightweight. Output ownership, hashes, target-
 
 ## Evidence
 
-Fixtures cover Git-backed unmanaged collision backups, legacy file-backed manifest restore, target-side edit backups, backup restore previews and writes, unmanaged neighbors inside output roots, stale managed output checks, generated changelog recovery hints, disabled generated roots with legacy Skillset locks, and isolated mirror backup behavior.
+Fixtures cover Git-backed unmanaged collision backups, target-side edit backups, backup restore previews and writes, unmanaged neighbors inside output roots, stale managed output checks, generated changelog recovery hints, disabled generated roots with legacy Skillset locks, and isolated mirror backup behavior.

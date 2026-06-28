@@ -42,15 +42,7 @@ export interface OutputBackupGitStorage {
   readonly ref: string;
 }
 
-export interface OutputBackupManifestV1 {
-  readonly generatedBy: string;
-  readonly records: readonly OutputBackupRecord[];
-  readonly runHash: string;
-  readonly runId: string;
-  readonly schemaVersion: 1;
-}
-
-export interface OutputBackupManifestV2 {
+export interface OutputBackupManifest {
   readonly generatedBy: string;
   readonly records: readonly OutputBackupRecord[];
   readonly runHash: string;
@@ -58,8 +50,6 @@ export interface OutputBackupManifestV2 {
   readonly schemaVersion: 2;
   readonly storage: OutputBackupGitStorage;
 }
-
-export type OutputBackupManifest = OutputBackupManifestV1 | OutputBackupManifestV2;
 
 export interface OutputBackupSummary {
   readonly manifestPath: string;
@@ -136,7 +126,7 @@ export async function prepareOutputBackups(
   const manifestPath = join(OUTPUT_BACKUP_ROOT, runId, "manifest.json");
   const { records: finalized, storage } = await writeGitBackupStorage(rootPath, runId, records);
 
-  const manifest: OutputBackupManifestV2 = {
+  const manifest: OutputBackupManifest = {
     generatedBy: "skillset@0.1.0",
     records: finalized,
     runHash,
@@ -487,23 +477,17 @@ async function readBackupManifest(rootPath: string, manifestPath: string): Promi
   if (!isRecord(parsed) || typeof parsed.runId !== "string" || !Array.isArray(parsed.records)) {
     throw new Error(`skillset: backup manifest ${manifestPath} is malformed`);
   }
-  const common = {
+  if (parsed.schemaVersion !== 2) {
+    throw new Error(`skillset: backup manifest ${manifestPath} is malformed`);
+  }
+  return {
     generatedBy: typeof parsed.generatedBy === "string" ? parsed.generatedBy : "",
     records: parsed.records.map((record) => parseBackupRecord(manifestPath, record)),
     runHash: typeof parsed.runHash === "string" ? parsed.runHash : "",
     runId: parsed.runId,
+    schemaVersion: 2,
+    storage: parseBackupStorage(manifestPath, parsed.storage),
   };
-  if (parsed.schemaVersion === 1) {
-    return { ...common, schemaVersion: 1 };
-  }
-  if (parsed.schemaVersion === 2) {
-    return {
-      ...common,
-      schemaVersion: 2,
-      storage: parseBackupStorage(manifestPath, parsed.storage),
-    };
-  }
-  throw new Error(`skillset: backup manifest ${manifestPath} is malformed`);
 }
 
 function parseBackupRecord(manifestPath: string, value: unknown): OutputBackupRecord {
@@ -564,14 +548,6 @@ async function readBackupContent(
   manifest: OutputBackupManifest,
   record: OutputBackupRecord
 ): Promise<Uint8Array> {
-  if (manifest.schemaVersion === 1) {
-    const backupPath = resolveInside(rootPath, record.backupPath);
-    if (!(await exists(backupPath))) {
-      throw new Error(`skillset: backup file is missing for ${record.targetPath}: ${record.backupPath}`);
-    }
-    return await readFile(backupPath);
-  }
-
   const gitDir = resolveInside(rootPath, manifest.storage.gitDir);
   if (!(await exists(gitDir))) {
     throw new Error(`skillset: backup git store is missing for ${record.targetPath}: ${manifest.storage.gitDir}`);

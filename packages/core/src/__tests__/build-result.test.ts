@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
-import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -118,37 +117,6 @@ codex: true
     const restored = await restoreOutputBackup(root, backupRunId ?? "", { write: true });
     expect(restored.write).toBe(true);
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Hand Authored Instructions");
-  });
-
-  it("restores legacy file-backed backup manifests", async () => {
-    const root = await fixture({
-      "AGENTS.md": "# Generated Instructions\n",
-    });
-    const runId = "abcdef123456";
-    const original = new TextEncoder().encode("# Existing Instructions\n");
-    const generated = new TextEncoder().encode("# Generated Instructions\n");
-    const backupPath = `.skillset/snapshots/${runId}/files/AGENTS.md.bak.${runId}`;
-
-    await mkdir(join(root, `.skillset/snapshots/${runId}/files`), { recursive: true });
-    await Bun.write(join(root, backupPath), original);
-    await Bun.write(join(root, `.skillset/snapshots/${runId}/manifest.json`), `${JSON.stringify({
-      generatedBy: "skillset@0.1.0",
-      records: [{
-        action: "overwrite",
-        backupPath,
-        generatedHash: hash(generated),
-        originalHash: hash(original),
-        reason: "unmanaged-collision",
-        targetPath: "AGENTS.md",
-      }],
-      runHash: `sha256:${runId}`,
-      runId,
-      schemaVersion: 1,
-    }, null, 2)}\n`);
-
-    await restoreOutputBackup(root, runId, { write: true });
-
-    expect(await readFile(join(root, "AGENTS.md"), "utf8")).toBe("# Existing Instructions\n");
   });
 
   it("reports unmanaged collisions before writing backups", async () => {
@@ -467,8 +435,4 @@ function expectKnownDiagnosticFeatureIds(
       expect(getSkillsetFeature(diagnostic.featureId)?.id).toBe(diagnostic.featureId);
     }
   }
-}
-
-function hash(content: Uint8Array): string {
-  return `sha256:${createHash("sha256").update(content).digest("hex")}`;
 }
