@@ -24,6 +24,7 @@ import {
   renderClaudePluginDependencies,
   renderCodexDependencyNotice,
 } from "./dependencies";
+import { hookProviderCapabilities } from "./hook-capabilities";
 import { validateHookDefinition } from "./hooks";
 import { compareStrings, validateSlug } from "./path";
 import { rewriteResourceLinks } from "./resources";
@@ -1807,11 +1808,24 @@ function supportsAdaptiveHookTarget(
   item: ResolvedAdaptiveHookAttachment,
   target: TargetName
 ): boolean {
-  return providerListAllows(item.definition.providers, target) && providerListAllows(item.attachment.providers, target);
+  return providerListAllows(item.definition.providers, target) &&
+    providerListAllows(item.attachment.providers, target) &&
+    adaptiveHookCapabilityAllows(item, target);
 }
 
 function providerListAllows(providers: readonly TargetName[] | undefined, target: TargetName): boolean {
   return providers === undefined || providers.includes(target);
+}
+
+function adaptiveHookCapabilityAllows(
+  item: ResolvedAdaptiveHookAttachment,
+  target: TargetName
+): boolean {
+  if (target !== "codex") return true;
+  const capabilities = hookProviderCapabilities.codex;
+  if (!capabilities.documentedEvents.has(item.event)) return false;
+  const matcher = item.attachment.match ?? item.definition.frontmatter.match;
+  return matcher === undefined || capabilities.matcherByEvent[item.event] !== "ignored";
 }
 
 function hasAdaptivePluginHookSources(plugin: SourcePlugin): boolean {

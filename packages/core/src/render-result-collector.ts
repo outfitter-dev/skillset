@@ -4,6 +4,7 @@ import { join, relative } from "node:path";
 import { resolveAdaptiveHookAttachments } from "./adaptive-hook-attachments";
 import { readString, isOutputSelected } from "./config";
 import { getSkillsetFeature } from "./feature-registry";
+import { hookProviderCapabilities } from "./hook-capabilities";
 import {
   defineRenderResult,
   type SkillsetRenderResult,
@@ -298,11 +299,12 @@ function unsupportedAdaptiveHookOutcomes(
     if (!isAdaptiveHookScopeRenderedForTarget(graph, item.attachment.scope, "codex", scopes)) continue;
     const destination = unsupportedAdaptiveHookDestination(item.attachment.scope);
     if (destination === undefined) continue;
+    const reason = unsupportedAdaptiveHookReason(item);
+    if (reason === undefined) continue;
 
     const sourceUnit = sourceUnitForAdaptiveHookScope(item.attachment.scope);
     if (sourceUnit === undefined) continue;
     const sourcePath = normalizeSourcePath(graph, item.attachment.sourcePath);
-    const reason = unsupportedAdaptiveHookReason(item.attachment.scope);
     outcomes.push(
       defineRenderResult({
         destination,
@@ -324,14 +326,33 @@ function unsupportedAdaptiveHookOutcomes(
 function unsupportedAdaptiveHookDestination(scope: AdaptiveHookScope): string | undefined {
   if (scope.kind === "skill") return "skill-frontmatter";
   if (scope.kind === "agent") return "agent-frontmatter";
+  if (scope.kind === "plugin") return "hooks";
   return undefined;
 }
 
-function unsupportedAdaptiveHookReason(scope: AdaptiveHookScope): string {
+function unsupportedAdaptiveHookReason(item: {
+  readonly attachment: { readonly match?: unknown; readonly scope: AdaptiveHookScope };
+  readonly definition: { readonly frontmatter: JsonRecord };
+  readonly event: string;
+}): string | undefined {
+  const scope = item.attachment.scope;
   if (scope.kind === "skill") {
     return "Codex has no faithful skill-local hook destination for adaptive hook attachments.";
   }
-  return "Codex has no faithful project-agent hook destination for adaptive hook attachments.";
+  if (scope.kind === "agent") {
+    return "Codex has no faithful project-agent hook destination for adaptive hook attachments.";
+  }
+  if (scope.kind === "plugin") {
+    const capabilities = hookProviderCapabilities.codex;
+    if (!capabilities.documentedEvents.has(item.event)) {
+      return `Codex does not support adaptive hook event ${item.event}.`;
+    }
+    const matcher = item.attachment.match ?? item.definition.frontmatter.match;
+    if (matcher !== undefined && capabilities.matcherByEvent[item.event] === "ignored") {
+      return `Codex ignores matchers for adaptive hook event ${item.event}, so this attachment cannot render faithfully.`;
+    }
+  }
+  return undefined;
 }
 
 function isAdaptiveHookScopeRenderedForTarget(
@@ -364,6 +385,11 @@ function isAdaptiveHookScopeRenderedForTarget(
     return agent !== undefined && agent.targets[target].enabled;
   }
 
+  if (scope.kind === "plugin") {
+    if (scopes !== undefined && !scopes.includes("plugins")) return false;
+    return scope.pluginId !== undefined && pluginTargetSelected(graph, scope.pluginId, target);
+  }
+
   return false;
 }
 
@@ -375,6 +401,7 @@ function sourceUnitForAdaptiveHookScope(scope: AdaptiveHookScope): string | unde
       : selectorForPluginSkill(scope.pluginId, scope.skillId);
   }
   if (scope.kind === "agent" && scope.agentId !== undefined) return selectorForProjectAgent(scope.agentId);
+  if (scope.kind === "plugin" && scope.pluginId !== undefined) return selectorForPluginFeature(scope.pluginId, "hooks");
   return undefined;
 }
 
