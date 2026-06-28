@@ -17,6 +17,20 @@ dependencies:
       range: ^1.0.0
 description: Use when working with the docs CLI.
 dialect: claude
+hooks:
+  PreToolUse:
+    - shell-policy
+  Stop:
+    - hook: source-change-guard
+      match:
+        tool:
+          - Bash
+      providers:
+        - claude
+        - codex
+      status: Checking shell changes
+  auto:
+    - session-metadata
 implicit_invocation:
   claude: true
   codex: false

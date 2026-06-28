@@ -34,6 +34,7 @@ describe("lookupSkillsetReference", () => {
       "dependencies",
       "description",
       "dialect",
+      "hooks",
       "implicit_invocation",
       "mcp",
       "metadata",
