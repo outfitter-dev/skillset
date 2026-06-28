@@ -752,6 +752,94 @@ hooks:
     });
   });
 
+  it("enforces unsupported adaptive hook outcomes for render field gaps", async () => {
+    const providerOverrideRoot = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-policy-provider-override
+claude: true
+codex: false
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  Stop:
+    - shell-policy
+`,
+      ".skillset/plugins/demo/hooks/shell-policy.json": JSON.stringify({
+        claude: { status: "Checking" },
+        events: ["Stop"],
+        run: { command: "echo ok" },
+      }),
+    });
+    await expectUnsupportedOutcome(providerOverrideRoot, {
+      destination: "hooks",
+      featureId: "adaptive-hooks",
+      reason: "Adaptive hook shell-policy uses claude provider overrides, but plugin hook rendering does not support overrides yet.",
+      sourceUnit: "plugin.demo.feature:hooks",
+      target: "claude",
+    });
+
+    const runFieldRoot = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-policy-run-field
+claude: false
+codex: true
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  Stop:
+    - shell-policy
+`,
+      ".skillset/plugins/demo/hooks/shell-policy.json": JSON.stringify({
+        events: ["Stop"],
+        run: { command: "echo ok", env: { CHECK: "1" } },
+      }),
+    });
+    await expectUnsupportedOutcome(runFieldRoot, {
+      destination: "hooks",
+      featureId: "adaptive-hooks",
+      reason: "Adaptive hook shell-policy uses run.env, but plugin hook rendering only supports run.command and run.script yet.",
+      sourceUnit: "plugin.demo.feature:hooks",
+    });
+
+    const runtimePathRoot = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-policy-frontmatter-script
+claude: true
+codex: false
+`,
+      ".skillset/skills/writer/SKILL.md": `
+---
+name: writer
+description: Demo writer.
+hooks:
+  Stop:
+    - local-stop
+---
+
+Body.
+`,
+      ".skillset/skills/writer/hooks/local-stop/hook.json": JSON.stringify({
+        events: ["Stop"],
+        run: { script: "./stop.sh" },
+      }),
+      ".skillset/skills/writer/hooks/local-stop/stop.sh": "#!/bin/sh\nexit 0\n",
+    });
+    await expectUnsupportedOutcome(runtimePathRoot, {
+      destination: "skill-frontmatter",
+      featureId: "adaptive-hooks",
+      reason: "Adaptive hook local-stop uses run.script, but frontmatter hook rendering does not have stable runtime path proof yet.",
+      sourceUnit: "skill:writer",
+      target: "claude",
+    });
+  });
+
   it("separates target (provider) from destination (concrete output scope)", async () => {
     const root = await fixture(OUTCOME_FIXTURE);
     const preview = await diffSkillsetResult(root);
@@ -816,8 +904,13 @@ async function readJson(path: string): Promise<Record<string, unknown>> {
 
 async function expectUnsupportedOutcome(
   root: string,
-  expected: Pick<SkillsetRenderResult, "destination" | "featureId" | "sourceUnit"> & { readonly reason: string }
+  expected: Pick<SkillsetRenderResult, "destination" | "featureId" | "sourceUnit"> & {
+    readonly reason: string;
+    readonly target?: "claude" | "codex";
+  }
 ): Promise<void> {
+  const target = expected.target ?? "codex";
+  const snapshotRef = target === "claude" ? "claude-hooks" : "codex-plugin";
   await expect(buildSkillsetResult(root)).rejects.toThrow("unsupported destination policy blocked 1 render result");
   await expect(verifySkillsetResult(root)).rejects.toThrow("unsupported destination policy blocked 1 render result");
   try {
@@ -835,19 +928,19 @@ async function expectUnsupportedOutcome(
         evidence: expect.arrayContaining([
           expect.objectContaining({
             kind: "provider-snapshot",
-            note: getProviderDestinationFormatSnapshot("codex-plugin")?.provenance.contentHash,
-            ref: "codex-plugin",
+            note: getProviderDestinationFormatSnapshot(snapshotRef)?.provenance.contentHash,
+            ref: snapshotRef,
           }),
         ]),
         sourceUnit: expected.sourceUnit,
         status: "unsupported",
-        target: "codex",
+        target,
       })
     );
     const message = error instanceof Error ? error.message : String(error);
     expect(message).toContain("unsupported destination policy blocked 1 render result");
     expect(message).toContain(expected.featureId);
-    expect(message).toContain("codex");
+    expect(message).toContain(target);
     expect(message).toContain("unsupported");
     expect(message).toContain(expected.reason);
     expect(message).toContain("suggestion:");
