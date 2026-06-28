@@ -14,11 +14,15 @@ The canonical plugin hook source is `<source-root>/plugins/<plugin>/hooks/hooks.
 
 Hook source is JSON with an aggregate `hooks` event map. Event entries may include a `matcher`, `statusMessage`, and a `hooks` array whose handlers declare a non-empty `type` plus handler-specific fields such as `command`, `prompt`, `agent`, `timeout`, and `async`. The active source contract is generated from `@skillset/schema`; see [schema reference](../reference/schemas/README.md) and [hook examples](../reference/examples/hook.yaml) for the current field set.
 
+Use native aggregate source when the hook file is already provider-shaped or intentionally provider-specific. Use [adaptive hooks](adaptive-hooks.md) when the hook behavior should attach to a plugin, skill, or project agent and Skillset should render only destinations that preserve that scope.
+
+`hooks/hooks.json` is a destination-specific native aggregate source. It is not a universal sink for portable hook behavior, and it cannot be combined with adaptive hook units for the same generated plugin hook destination.
+
 ## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
-| `hooks/hooks.json` | `hooks/hooks.json` | `hooks/hooks.json` | `target_native` / `implemented` | Rendered with a top-level `hooks` object. |
+| `hooks/hooks.json` | `hooks/hooks.json` | `hooks/hooks.json` | `target_native` / `implemented` | Destination-specific native aggregate source rendered with a top-level `hooks` object. |
 | root `hooks.json` | n/a | n/a | `unsupported` | Move the file to `hooks/hooks.json`. |
 | Future `hooks.source` | n/a | n/a | `planned` | No feature-key source pointer exists in v1. |
 
@@ -36,4 +40,4 @@ Hook definitions are generated plugin files. Plugin lock hashes include hook sou
 
 ## Tests and Fixtures
 
-Fixtures cover shared hooks, root hook rejection, target-specific hook validation, async handler rejection, excluded plugin output selection, and generated manifest fields.
+Fixtures cover shared hooks, root hook rejection, target-specific hook validation, async handler rejection, excluded plugin output selection, generated manifest fields, and adaptive hook authoring in `fixtures/adaptive-hooks`.

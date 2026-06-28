@@ -1,0 +1,8 @@
+skillset:
+  name: adaptive-hooks-fixture
+  title: Adaptive Hooks Fixture
+  description: Positive authoring fixture for adaptive hook recipes.
+compile:
+  targets:
+    - claude
+    - codex

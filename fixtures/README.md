@@ -29,6 +29,7 @@ A checked-in fixture is a durable fake content repo committed to the tree. Tests
 Current checked-in cases:
 
 - [`kitchen-sink/`](kitchen-sink/README.md) is the complete-surface positive build fixture.
+- [`adaptive-hooks/`](adaptive-hooks/README.md) is the positive authoring fixture for adaptive hook recipes.
 - [`workbench-clean/`](workbench-clean/README.md) is a small positive Workbench source-contract fixture.
 - [`workbench-invalid/`](workbench-invalid/README.md) is a small negative Workbench fixture for deterministic source, resource, and runtime diagnostics.
 
@@ -56,7 +57,8 @@ A checked-in case looks like a realistic content repo:
 ```text
 fixtures/<case>/
   skillset.yaml
-  skillset/
+  .skillset/
+    .gitignore
     plugins/
     skills/
     rules/
@@ -66,16 +68,14 @@ fixtures/<case>/
     _codex/    # optional provider source
     changes/
       .gitkeep
-  .skillset/
-    .gitignore
     cache/.gitignore
     snapshots/.gitignore
   ...other repo files as needed
 ```
 
-Checked-in cases use the dedicated Skillset repo layout: root `skillset.yaml` is the workspace manifest, and root `skillset/` is the adaptive source root. This keeps durable fixtures aligned with this repo's self-hosted layout and reserves fixture `.skillset/` trees for ignored operational state only: `.skillset/cache/` is rebuildable output and `.skillset/snapshots/` is local recovery output. Fixture sentinel `.gitignore` files are tracked so the operational layout is visible while cache and snapshot contents stay ignored. Plugins, standalone skills, instructions, project agents, shared resources, hooks, and provider source all live under the source root. Provider-specific source uses underscore-prefixed directories such as `skillset/_claude`, `skillset/_codex`, `skillset/plugins/<plugin>/_claude`, and `skillset/plugins/<plugin>/_codex`.
+Checked-in cases use the current workspace layout: root `skillset.yaml` is the workspace manifest, and `.skillset/` is the adaptive source root. `.skillset/cache/` is rebuildable output and `.skillset/snapshots/` is local recovery output. Fixture sentinel `.gitignore` files are tracked so the operational layout is visible while cache and snapshot contents stay ignored. Plugins, standalone skills, instructions, project agents, shared resources, hooks, and provider source all live under the source root. Provider-specific source uses underscore-prefixed directories such as `.skillset/_claude`, `.skillset/_codex`, `.skillset/plugins/<plugin>/_claude`, and `.skillset/plugins/<plugin>/_codex`.
 
-Inline temp fixtures may still use the ordinary `.skillset/skillset.yaml` and `.skillset/src/` shape when a test is specifically covering ordinary workspace behavior. The checked-in fixture default is dedicated layout so the fixture inventory does not look like this repo's generated `.skillset/` scratch area.
+Inline temp fixtures should use root `skillset.yaml` plus `.skillset/` unless a test is specifically covering a retired-layout rejection or migration helper.
 
 ## kitchen-sink scope
 

@@ -1,0 +1,9 @@
+{
+  "name": "skill-shell",
+  "description": "Skill-local Claude hook.",
+  "events": ["PreToolUse"],
+  "providers": ["claude"],
+  "run": {
+    "command": "echo skill shell"
+  }
+}
