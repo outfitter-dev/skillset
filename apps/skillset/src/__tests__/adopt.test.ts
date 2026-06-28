@@ -215,6 +215,35 @@ test("adopt write mode imports everything, builds the mirror, and writes the rep
   expect(added.every((path) => path === "skillset.yaml" || path.startsWith(".skillset/"))).toBe(true);
 });
 
+test("adopt elevates a root native plugin without copying workspace config into plugin source", async () => {
+  const root = await fixture({
+    ".claude-plugin/plugin.json": JSON.stringify({
+      description: "Root plugin.",
+      name: "root-native",
+      version: "1.2.3",
+    }),
+    "README.md": "# Root native plugin\n",
+    "commands/hello.md": "---\ndescription: Say hello.\n---\n\nSay hello.\n",
+    "skills/helper/SKILL.md": "---\nname: helper\ndescription: Helper skill.\n---\n\nBody.\n",
+  });
+
+  const report = await adoptSkillset(root, { targets: ["claude"], write: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.candidates).toContainEqual({ kind: "plugin", path: "." });
+  expect(report.imports.find((result) => result.candidate.kind === "plugin")?.ok).toBe(true);
+
+  const workspaceConfig = await readFile(join(root, "skillset.yaml"), "utf8");
+  expect(workspaceConfig).toContain("compile:");
+  const pluginConfig = await readFile(join(root, ".skillset/plugins/root-native/skillset.yaml"), "utf8");
+  expect(pluginConfig).not.toContain("compile:");
+  expect(pluginConfig).toContain("name: root-native");
+  expect(pluginConfig).toContain("path: .");
+  expect(await exists(join(root, ".skillset/plugins/root-native/.claude-plugin/plugin.json"))).toBe(true);
+  expect(await exists(join(root, ".skillset/plugins/root-native/commands/hello.md"))).toBe(true);
+  expect(await exists(join(root, ".skillset/plugins/root-native/skills/helper/SKILL.md"))).toBe(true);
+});
+
 test("adopt carries import render results into the persisted report", async () => {
   const root = await fixture({
     ".claude/skills/native/SKILL.md":
