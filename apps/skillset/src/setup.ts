@@ -721,7 +721,7 @@ function createReadme(name: string, targets: readonly TargetName[]): string {
     "- `.skillset/plugins/` holds plugin source when this repo authors marketplace plugins.",
     "- `.skillset/skills/` holds standalone skill source when this repo authors repo-local or user skill roots.",
     "- `.skillset/changes/` stores pending and applied Skillset change history.",
-    "- `.skillset/cache/` keeps the logical cache boundary visible while cache payloads resolve to XDG; `.skillset/snapshots/` holds ignored recovery output. Their `.gitignore` sentinels remain tracked.",
+    "- `.skillset/cache/` keeps the logical cache boundary visible while cache payloads resolve to XDG; `.skillset/snapshots/` holds ignored Git-backed recovery snapshots. Their `.gitignore` sentinels remain tracked.",
     "",
     `Default compile targets: ${targets.join(", ")}.`,
     "",

@@ -510,7 +510,7 @@ description: Demo ordinary workspace skill.
 
 Demo ordinary workspace skill.
 `,
-    ".skillset/snapshots/recovery/files/AGENTS.md.bak.recovery": "do not retain me\n",
+    ".skillset/snapshots/recovery/git/config": "do not retain me\n",
   });
 
   const report = await runSkillsetTest(root, "self");
@@ -518,7 +518,7 @@ Demo ordinary workspace skill.
   expect(report.ok).toBe(true);
   expect(report.source).toBe("repo:.skillset");
   expect(await exists(cachePath(root, ".skillset/cache/tests/latest/workspace/.claude/skills/demo/SKILL.md"))).toBe(true);
-  expect(await exists(cachePath(root, ".skillset/cache/tests/latest/workspace/.skillset/snapshots/recovery/files/AGENTS.md.bak.recovery"))).toBe(false);
+  expect(await exists(cachePath(root, ".skillset/cache/tests/latest/workspace/.skillset/snapshots/recovery/git/config"))).toBe(false);
 });
 
 test("skillset test stages dedicated workspace source without copying unrelated repo files", async () => {

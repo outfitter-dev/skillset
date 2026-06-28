@@ -92,9 +92,22 @@ codex: true
     expect(result.writes.backupManifestPath).toBe(`.skillset/snapshots/${backupRunId}/manifest.json`);
     expect(result.writes.backupRecords).toContainEqual(expect.objectContaining({
       action: "overwrite",
+      backupPath: "files/AGENTS.md",
       reason: "unmanaged-collision",
       targetPath: "AGENTS.md",
     }));
+    const manifest = JSON.parse(await readFile(join(root, `.skillset/snapshots/${backupRunId}/manifest.json`), "utf8")) as {
+      readonly schemaVersion?: number;
+      readonly storage?: { readonly commit?: string; readonly gitDir?: string; readonly kind?: string };
+    };
+    expect(manifest.schemaVersion).toBe(2);
+    expect(manifest.storage).toEqual(expect.objectContaining({
+      commit: expect.stringMatching(/^[a-f0-9]{40,64}$/),
+      gitDir: `.skillset/snapshots/${backupRunId}/git`,
+      kind: "git",
+    }));
+    expect(await Bun.file(join(root, `.skillset/snapshots/${backupRunId}/git/config`)).exists()).toBe(true);
+    expect(await Bun.file(join(root, `.skillset/snapshots/${backupRunId}/files/AGENTS.md`)).exists()).toBe(false);
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Generated Instructions");
 
     const preview = await restoreOutputBackup(root, backupRunId ?? "");
