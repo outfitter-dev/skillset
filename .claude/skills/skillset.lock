@@ -34,9 +34,9 @@
       ],
       "kind": "standalone-skill",
       "name": "skillset-claude-development",
-      "outputHash": "sha256:a215e95d005559309a88e0706e6b8f8bb3c15d5a0ecd35a0d5d48686e4aaf486",
+      "outputHash": "sha256:bcbb6a496bf231c03fdd65009bf5fdc93d3e6e85cda88d1bc8353547db0e649c",
       "outputPath": "skillset-claude-development/SKILL.md",
-      "sourceHash": "sha256:2a733adc3fcd45d96265065ef56915b87de47bb74167f5b160e22aaa4709f4cb",
+      "sourceHash": "sha256:599ed5f7833ee43b830ba0fa091d019b4844dc4f298035cdf61b2478d121631a",
       "sourcePath": ".skillset/skills/skillset-claude-development/SKILL.md",
       "version": "0.1.0"
     },

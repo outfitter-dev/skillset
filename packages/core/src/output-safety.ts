@@ -563,7 +563,7 @@ async function assertRestoreIsSafe(
 ): Promise<void> {
   const backupHash = contentHash(backupContent);
   if (backupHash !== record.originalHash) {
-    throw new Error(`skillset: backup file hash changed for ${record.targetPath}`);
+    throw new Error(`skillset: backup payload hash changed for ${record.targetPath}`);
   }
   const targetExists = await exists(targetPath);
   if (record.generatedHash === undefined) {
