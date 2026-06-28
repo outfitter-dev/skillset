@@ -113,12 +113,13 @@ describe("@skillset/provider-formats schema snapshots", () => {
 
   it("captures Codex hook event schema inventory as a schema set", () => {
     const codexHookEvents = getProviderSchemaSnapshot("codex-hook-event-schemas");
+    const summary = structuredClone(codexHookEvents?.summary);
 
     expect(codexHookEvents).toBeDefined();
-    expect(codexHookEvents?.summary).toMatchObject({
+    expect(summary).toMatchObject({
       schemaCount: 20,
     });
-    expect(codexHookEvents?.summary).toMatchObject({
+    expect(summary).toMatchObject({
       entries: expect.arrayContaining([
         expect.objectContaining({
           name: "stop.command.input.schema.json",
