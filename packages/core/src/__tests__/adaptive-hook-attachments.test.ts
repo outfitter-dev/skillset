@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 
 import {
@@ -137,6 +137,70 @@ Body.
 
     await expect(loadBuildGraph(root)).rejects.toThrow("adaptive hook attachment references missing hook missing");
   });
+
+  test("resolves hook-local and shared script references", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-scripts
+claude: true
+codex: false
+`,
+      ".skillset/hooks/session.json": JSON.stringify({ events: ["SessionStart"], run: { script: "{{scripts.dir}}/session.js" } }),
+      ".skillset/scripts/session.js": "process.exit(0);\n",
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+`,
+      ".skillset/plugins/demo/hooks/shell/hook.json": JSON.stringify({ events: ["PreToolUse"], run: { script: "./check.js" } }),
+      ".skillset/plugins/demo/hooks/shell/check.js": "process.exit(0);\n",
+    });
+    const graph = await loadBuildGraph(root);
+
+    expect(graph.adaptiveHooks.flatMap((hook) =>
+      hook.scriptReferences.map((reference) => `${hook.name}:${reference.kind}:${reference.runtimePath}:${relative(root, reference.sourcePath)}`)
+    )).toEqual([
+      "session:scripts-dir:{{scripts.dir}}/session.js:.skillset/scripts/session.js",
+      "shell:hook-local:./check.js:.skillset/plugins/demo/hooks/shell/check.js",
+    ]);
+  });
+
+  test("rejects missing hook script references", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-missing-script
+claude: true
+codex: false
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+`,
+      ".skillset/plugins/demo/hooks/shell/hook.json": JSON.stringify({ events: ["PreToolUse"], run: { script: "./missing.js" } }),
+    });
+
+    await expect(loadBuildGraph(root)).rejects.toThrow("adaptive hook run.script ./missing.js does not resolve to an existing source file");
+  });
+
+  test("rejects hook-local script references from flat hook units", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-flat-script
+claude: true
+codex: false
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+`,
+      ".skillset/plugins/demo/hooks/shell.json": JSON.stringify({ events: ["PreToolUse"], run: { script: "./check.js" } }),
+      ".skillset/plugins/demo/hooks/check.js": "process.exit(0);\n",
+    });
+
+    await expect(loadBuildGraph(root)).rejects.toThrow("hook-local scripts require a directory hook unit");
+  });
 });
 
 function hook(
@@ -149,6 +213,7 @@ function hook(
     events,
     frontmatter: { events: [...events], run: { command: "node ./hook.js" } },
     name,
+    scriptReferences: [],
     scope,
     sourcePath,
   };
