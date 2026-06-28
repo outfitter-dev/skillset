@@ -158,7 +158,13 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
   let committed = false;
 
   try {
-    const copiedFiles = await copyImportSource(sourcePath, stagingPath, options.kind, name);
+    const copiedFiles = await copyImportSource({
+      kind: options.kind,
+      name,
+      rootPath: options.rootPath,
+      sourcePath,
+      targetPath: stagingPath,
+    });
     if (options.sourceOrigin !== undefined) {
       await stampImportedOrigins(stagingPath, sourcePath, copiedFiles, options.kind, options.sourceOrigin);
     }
@@ -366,9 +372,15 @@ async function resolveImportName(sourcePath: string, options: ImportOptions): Pr
     );
   }
 
-  const configPath = await resolvePluginConfig(sourcePath);
+  const rootPluginImport = options.kind === "plugin" && await isSamePath(sourcePath, options.rootPath);
+  const configPath = rootPluginImport ? undefined : await resolvePluginConfig(sourcePath);
   if (configPath === undefined) {
-    return validateSlug(basename(sourcePath), "plugin directory");
+    const nativeManifest = await readNativePluginManifest(sourcePath);
+    const nativeName = readString(nativeManifest, "name");
+    return validateSlug(
+      nativeName !== undefined && isSlug(nativeName) ? nativeName : basename(sourcePath),
+      "plugin directory"
+    );
   }
 
   const config = parseYamlRecord(await readFile(configPath, "utf8"), configPath);
@@ -376,12 +388,14 @@ async function resolveImportName(sourcePath: string, options: ImportOptions): Pr
   return validateSlug(readSkillsetName(metadata, basename(sourcePath), configPath), `skillset.name in ${configPath}`);
 }
 
-async function copyImportSource(
-  sourcePath: string,
-  targetPath: string,
-  kind: SingularImportKind,
-  name: string
-): Promise<readonly string[]> {
+async function copyImportSource(options: {
+  readonly kind: SingularImportKind;
+  readonly name: string;
+  readonly rootPath: string;
+  readonly sourcePath: string;
+  readonly targetPath: string;
+}): Promise<readonly string[]> {
+  const { kind, name, rootPath, sourcePath, targetPath } = options;
   const stats = await stat(sourcePath);
   if (stats.isFile()) {
     if (kind !== "skill" || basename(sourcePath) !== "SKILL.md") {
@@ -390,8 +404,10 @@ async function copyImportSource(
   }
 
   const copyRoot = stats.isFile() ? dirname(sourcePath) : sourcePath;
+  const rootPluginImport = kind === "plugin" && await isSamePath(copyRoot, rootPath);
   const copied: string[] = [];
-  for (const file of await collectFiles(copyRoot)) {
+  const exclude = rootPluginImport ? (path: string) => isRootPluginImportScaffold(copyRoot, path) : undefined;
+  for (const file of await collectFiles(copyRoot, exclude)) {
     const relativePath = relativeImportPath(copyRoot, file, kind);
     await mkdir(dirname(join(targetPath, relativePath)), { recursive: true });
     await writeFile(join(targetPath, relativePath), await readFile(file));
@@ -460,6 +476,30 @@ function relativeImportPath(sourceRoot: string, file: string, kind: SingularImpo
   return relativePath;
 }
 
+async function isSamePath(left: string, right: string): Promise<boolean> {
+  try {
+    return await realpath(left) === await realpath(right);
+  } catch {
+    return resolve(left) === resolve(right);
+  }
+}
+
+function isSlug(value: string): boolean {
+  return /^[a-z0-9][a-z0-9-]*$/.test(value);
+}
+
+function isRootPluginImportScaffold(rootPath: string, path: string): boolean {
+  const relativePath = relative(rootPath, path).replaceAll("\\", "/");
+  return (
+    relativePath === ".git" ||
+    relativePath.startsWith(".git/") ||
+    relativePath === ".skillset" ||
+    relativePath.startsWith(".skillset/") ||
+    relativePath === "skillset.yaml" ||
+    relativePath === "skillset.lock"
+  );
+}
+
 async function resolveSkillFile(sourcePath: string): Promise<string> {
   const stats = await stat(sourcePath);
   if (stats.isFile()) return sourcePath;
@@ -474,13 +514,14 @@ async function resolvePluginConfig(sourcePath: string): Promise<string | undefin
   return undefined;
 }
 
-async function collectFiles(root: string): Promise<readonly string[]> {
+async function collectFiles(root: string, exclude?: (path: string) => boolean): Promise<readonly string[]> {
   const entries = await readdir(root, { withFileTypes: true });
   const files: string[] = [];
   for (const entry of entries.sort((left, right) => compareStrings(left.name, right.name))) {
     const path = join(root, entry.name);
+    if (exclude?.(path)) continue;
     if (entry.isDirectory()) {
-      files.push(...(await collectFiles(path)));
+      files.push(...(await collectFiles(path, exclude)));
     } else if (entry.isFile() && entry.name !== ".DS_Store") {
       files.push(path);
     }
