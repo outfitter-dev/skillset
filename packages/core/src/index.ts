@@ -117,6 +117,22 @@ export {
   type HostLeakMatch,
 } from "./host-leak";
 export {
+  CLAUDE_HOOK_EVENTS,
+  CODEX_HOOK_EVENTS,
+  CODEX_HOOK_HANDLER_TYPES,
+  classifyAdaptiveHookUnitPath,
+  hookEventSupported,
+  hookProviderCapabilities,
+  validateAdaptiveHookUnitPaths,
+  type AdaptiveHookPathIssue,
+  type AdaptiveHookUnitPath,
+  type HookCapabilityProvider,
+  type HookMatcherKind,
+  type HookProviderCapability,
+  type HookScope,
+  type HookScopeSupport,
+} from "./hook-capabilities";
+export {
   inspectSkillset,
   lintBuildGraph,
   lintSkillset,

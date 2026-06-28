@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import {
   SKILLSET_SCHEMA_VERSION,
   agentFrontmatterContract,
+  adaptiveHookContract,
   changeEntryContract,
   deriveSkillsetExampleArtifacts,
   deriveSkillsetJsonSchemaArtifacts,
@@ -11,6 +12,7 @@ import {
   skillsetSchemaContracts,
   sourceMetadataContract,
   validateAgentFrontmatter,
+  validateAdaptiveHookUnitSource,
   validateChangeEntryFrontmatter,
   validateHookDefinitionSource,
   validateInstructionFrontmatter,
@@ -30,9 +32,11 @@ describe("@skillset/schema contracts", () => {
       "agent-frontmatter",
       "instruction-frontmatter",
       "hook",
+      "adaptive-hook",
       "change-entry",
     ]);
     expect(workspaceConfigContract.schema.$id).toBe("https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/workspace-config.schema.json");
+    expect(adaptiveHookContract.schema.$id).toBe("https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/adaptive-hook.schema.json");
   });
 
   it("derives deterministic JSON Schema artifacts", () => {
@@ -45,6 +49,7 @@ describe("@skillset/schema contracts", () => {
       "docs/reference/schemas/0.1.0/agent-frontmatter.schema.json",
       "docs/reference/schemas/0.1.0/instruction-frontmatter.schema.json",
       "docs/reference/schemas/0.1.0/hook.schema.json",
+      "docs/reference/schemas/0.1.0/adaptive-hook.schema.json",
       "docs/reference/schemas/0.1.0/change-entry.schema.json",
     ]);
 
@@ -61,10 +66,12 @@ describe("@skillset/schema contracts", () => {
       { $ref: "#/$defs/agent-frontmatter" },
       { $ref: "#/$defs/instruction-frontmatter" },
       { $ref: "#/$defs/hook" },
+      { $ref: "#/$defs/adaptive-hook" },
       { $ref: "#/$defs/change-entry" },
     ]);
     const defs = combined?.$defs as Record<string, Record<string, unknown>>;
     expect(Object.keys(defs).sort()).toEqual([
+      "adaptive-hook",
       "agent-frontmatter",
       "change-entry",
       "hook",
@@ -86,6 +93,7 @@ describe("@skillset/schema contracts", () => {
       "docs/reference/examples/agent-frontmatter.yaml",
       "docs/reference/examples/instruction-frontmatter.yaml",
       "docs/reference/examples/hook.yaml",
+      "docs/reference/examples/adaptive-hook.yaml",
       "docs/reference/examples/change-entry.yaml",
     ]);
 
@@ -96,6 +104,7 @@ describe("@skillset/schema contracts", () => {
     expect(validateAgentFrontmatter(byId["agent-frontmatter"]).diagnostics).toEqual([]);
     expect(validateInstructionFrontmatter(byId["instruction-frontmatter"]).diagnostics).toEqual([]);
     expect(validateHookDefinitionSource(byId.hook).diagnostics).toEqual([]);
+    expect(validateAdaptiveHookUnitSource(byId["adaptive-hook"]).diagnostics).toEqual([]);
     expect(validateChangeEntryFrontmatter(byId["change-entry"]).diagnostics).toEqual([]);
   });
 
@@ -198,6 +207,42 @@ describe("@skillset/schema contracts", () => {
         { required: ["id"] },
       ],
     });
+  });
+
+  it("validates adaptive hook unit source", () => {
+    expect(validateAdaptiveHookUnitSource({
+      events: ["PreToolUse"],
+      match: { tool: ["Bash"] },
+      providers: ["claude", "codex"],
+      run: {
+        args: ["--check"],
+        env: { HOOK: "shell-policy" },
+        script: "./check.js",
+      },
+      status: "Checking command",
+    }).diagnostics).toEqual([]);
+
+    expect(validateAdaptiveHookUnitSource({
+      events: ["PreToolUse", "PreToolUse", ""],
+      providers: ["claude", "bad", "claude"],
+      run: {
+        args: ["ok", 1],
+        command: "",
+        cwd: "../outside",
+        env: { OK: 1 },
+        script: "/tmp/check.js",
+      },
+    }).diagnostics.map((diagnostic) => diagnostic.code)).toEqual(expect.arrayContaining([
+      "schema/adaptive-hook/events",
+      "schema/adaptive-hook/events-duplicate",
+      "schema/adaptive-hook/providers",
+      "schema/adaptive-hook/providers-duplicate",
+      "schema/adaptive-hook/run-args",
+      "schema/adaptive-hook/run-command",
+      "schema/adaptive-hook/run-env",
+      "schema/adaptive-hook/path",
+      "schema/adaptive-hook/runtime-path-proof",
+    ]));
   });
 
   it("validates workspace config structure", () => {

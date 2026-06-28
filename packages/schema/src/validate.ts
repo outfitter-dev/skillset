@@ -132,6 +132,23 @@ export function validateHookDefinitionSource(value: unknown, path = "$"): Skills
   return result(diagnostics);
 }
 
+export function validateAdaptiveHookUnitSource(value: unknown, path = "$"): SkillsetSchemaValidationResult {
+  const diagnostics: SkillsetSchemaDiagnostic[] = [];
+  if (!isSchemaRecord(value)) return result([diagnostic(path, "schema/adaptive-hook/type", "adaptive hook unit must contain an object")]);
+
+  checkAllowedKeys(value, new Set(["claude", "codex", "description", "events", "match", "name", "providers", "run", "status"]), path, "schema/adaptive-hook/key", diagnostics);
+  checkOptionalNonEmptyString(value.name, `${path}.name`, "schema/adaptive-hook/name", diagnostics);
+  checkOptionalNonEmptyString(value.description, `${path}.description`, "schema/adaptive-hook/description", diagnostics);
+  checkOptionalNonEmptyString(value.status, `${path}.status`, "schema/adaptive-hook/status", diagnostics);
+  checkAdaptiveHookEvents(value.events, `${path}.events`, diagnostics);
+  checkAdaptiveHookProviders(value.providers, `${path}.providers`, diagnostics);
+  checkAdaptiveHookMatch(value.match, `${path}.match`, diagnostics);
+  checkOptionalObject(value.claude, `${path}.claude`, "schema/adaptive-hook/provider-override", diagnostics);
+  checkOptionalObject(value.codex, `${path}.codex`, "schema/adaptive-hook/provider-override", diagnostics);
+  checkAdaptiveHookRun(value.run, `${path}.run`, diagnostics);
+  return result(diagnostics);
+}
+
 export function validateChangeEntryFrontmatter(value: unknown, path = "$"): SkillsetSchemaValidationResult {
   const diagnostics: SkillsetSchemaDiagnostic[] = [];
   if (!isSchemaRecord(value)) return result([diagnostic(path, "schema/change-entry/type", "change entry frontmatter must be an object")]);
@@ -487,6 +504,90 @@ function checkHookHandlers(handlers: readonly SchemaJsonValue[], event: string, 
     ) {
       diagnostics.push(diagnostic(`${handlerPath}.timeout`, "schema/hook/handler-timeout", `hook event ${event} timeout must be a non-negative integer when present`));
     }
+  }
+}
+
+function checkAdaptiveHookEvents(value: SchemaJsonValue | undefined, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (!Array.isArray(value) || value.length === 0) {
+    diagnostics.push(diagnostic(path, "schema/adaptive-hook/events", "adaptive hook events must be a non-empty string array"));
+    return;
+  }
+  const seen = new Set<string>();
+  for (const [index, item] of value.entries()) {
+    if (typeof item !== "string" || item.trim().length === 0) {
+      diagnostics.push(diagnostic(`${path}[${index}]`, "schema/adaptive-hook/events", "adaptive hook events entries must be non-empty strings"));
+      continue;
+    }
+    if (seen.has(item)) diagnostics.push(diagnostic(`${path}[${index}]`, "schema/adaptive-hook/events-duplicate", `duplicate adaptive hook event ${item}`));
+    seen.add(item);
+  }
+}
+
+function checkAdaptiveHookProviders(value: SchemaJsonValue | undefined, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (value === undefined) return;
+  if (!Array.isArray(value) || value.length === 0) {
+    diagnostics.push(diagnostic(path, "schema/adaptive-hook/providers", "adaptive hook providers must be a non-empty array when present"));
+    return;
+  }
+  const seen = new Set<string>();
+  for (const [index, item] of value.entries()) {
+    if (typeof item !== "string" || !targetNames.has(item)) {
+      diagnostics.push(diagnostic(`${path}[${index}]`, "schema/adaptive-hook/providers", "adaptive hook providers entries must be claude or codex"));
+      continue;
+    }
+    if (seen.has(item)) diagnostics.push(diagnostic(`${path}[${index}]`, "schema/adaptive-hook/providers-duplicate", `duplicate adaptive hook provider ${item}`));
+    seen.add(item);
+  }
+}
+
+function checkAdaptiveHookMatch(value: SchemaJsonValue | undefined, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (value !== undefined && typeof value !== "string" && !isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, "schema/adaptive-hook/match", "adaptive hook match must be a string or object when present"));
+  }
+  if (typeof value === "string" && value.trim().length === 0) {
+    diagnostics.push(diagnostic(path, "schema/adaptive-hook/match", "adaptive hook match must be non-empty when present"));
+  }
+}
+
+function checkAdaptiveHookRun(value: SchemaJsonValue | undefined, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, "schema/adaptive-hook/run", "adaptive hook run must be an object"));
+    return;
+  }
+  checkAllowedKeys(value, new Set(["args", "command", "cwd", "env", "script"]), path, "schema/adaptive-hook/run-key", diagnostics);
+  checkOptionalNonEmptyString(value.command, `${path}.command`, "schema/adaptive-hook/run-command", diagnostics);
+  checkOptionalNonEmptyString(value.script, `${path}.script`, "schema/adaptive-hook/run-script", diagnostics);
+  checkOptionalNonEmptyString(value.cwd, `${path}.cwd`, "schema/adaptive-hook/run-cwd", diagnostics);
+  checkOptionalNonEmptyStringArray(value.args, `${path}.args`, "schema/adaptive-hook/run-args", diagnostics);
+  checkStringRecord(value.env, `${path}.env`, "schema/adaptive-hook/run-env", diagnostics);
+  if (value.command === undefined && value.script === undefined) {
+    diagnostics.push(diagnostic(path, "schema/adaptive-hook/run-handler", "adaptive hook run must include command or script"));
+  }
+  if (typeof value.script === "string") checkRuntimePath(value.script, `${path}.script`, "script", diagnostics);
+  if (typeof value.cwd === "string") checkSafeRelativePath(value.cwd, `${path}.cwd`, "cwd", diagnostics);
+}
+
+function checkStringRecord(value: SchemaJsonValue | undefined, path: string, code: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (value === undefined) return;
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, code, `${path} must be an object when present`));
+    return;
+  }
+  for (const [key, item] of Object.entries(value)) {
+    if (typeof item !== "string") diagnostics.push(diagnostic(`${path}.${key}`, code, `${path}.${key} must be a string`));
+  }
+}
+
+function checkRuntimePath(value: string, path: string, label: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  checkSafeRelativePath(value, path, label, diagnostics);
+  if (!(value.startsWith("./") || value.startsWith("{{scripts.dir}}/"))) {
+    diagnostics.push(diagnostic(path, "schema/adaptive-hook/runtime-path-proof", `adaptive hook ${label} must use ./ or {{scripts.dir}}/`));
+  }
+}
+
+function checkSafeRelativePath(value: string, path: string, label: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (value.startsWith("/") || /^[A-Za-z]:[\\/]/.test(value) || value.split(/[\\/]+/).includes("..")) {
+    diagnostics.push(diagnostic(path, "schema/adaptive-hook/path", `adaptive hook ${label} must not be absolute or escape with ..`));
   }
 }
 

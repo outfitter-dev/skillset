@@ -6,6 +6,7 @@ export interface SchemaJsonRecord {
 }
 
 export type SkillsetSchemaContractId =
+  | "adaptive-hook"
   | "agent-frontmatter"
   | "change-entry"
   | "hook"
