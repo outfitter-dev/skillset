@@ -1,5 +1,11 @@
 # skillset
 
+## 0.16.2
+
+### Patch Changes
+
+- f40a0ae: Add adaptive hook frontmatter attachment parsing and nearest-first source resolution.
+
 ## 0.16.1
 
 ### Patch Changes
