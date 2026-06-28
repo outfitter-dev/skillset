@@ -567,6 +567,136 @@ echo alpha
     });
   });
 
+  it("enforces unsupported adaptive hook outcomes for Codex component scopes", async () => {
+    const skillRoot = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-policy-skill
+claude: false
+codex: true
+`,
+      ".skillset/skills/writer/SKILL.md": `
+---
+name: writer
+description: Demo writer.
+hooks:
+  Stop:
+    - local-stop
+---
+
+Body.
+`,
+      ".skillset/skills/writer/hooks/local-stop.json": JSON.stringify({
+        events: ["Stop"],
+        run: { command: "echo skill" },
+      }),
+    });
+    await expectUnsupportedOutcome(skillRoot, {
+      destination: "skill-frontmatter",
+      featureId: "adaptive-hooks",
+      reason: "Codex has no faithful skill-local hook destination for adaptive hook attachments.",
+      sourceUnit: "skill:writer",
+    });
+
+    const pluginSkillRoot = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-policy-plugin-skill
+claude: false
+codex: true
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+`,
+      ".skillset/plugins/demo/skills/writer/SKILL.md": `
+---
+name: writer
+description: Demo writer.
+hooks:
+  Stop:
+    - local-stop
+---
+
+Body.
+`,
+      ".skillset/plugins/demo/skills/writer/hooks/local-stop.json": JSON.stringify({
+        events: ["Stop"],
+        run: { command: "echo plugin skill" },
+      }),
+    });
+    await expectUnsupportedOutcome(pluginSkillRoot, {
+      destination: "skill-frontmatter",
+      featureId: "adaptive-hooks",
+      reason: "Codex has no faithful skill-local hook destination for adaptive hook attachments.",
+      sourceUnit: "plugin.demo.skill:writer",
+    });
+
+    const agentRoot = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-policy-agent
+claude: false
+codex: true
+`,
+      ".skillset/agents/helper.md": `
+---
+description: Demo helper.
+hooks:
+  Stop:
+    - local-stop
+---
+
+Body.
+`,
+      ".skillset/agents/helper/hooks/local-stop.json": JSON.stringify({
+        events: ["Stop"],
+        run: { command: "echo agent" },
+      }),
+    });
+    await expectUnsupportedOutcome(agentRoot, {
+      destination: "agent-frontmatter",
+      featureId: "adaptive-hooks",
+      reason: "Codex has no faithful project-agent hook destination for adaptive hook attachments.",
+      sourceUnit: "agent:helper",
+    });
+  });
+
+  it("does not report unsupported Codex hook outcomes for Claude-scoped adaptive attachments", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-policy-provider-scope
+claude: true
+codex: true
+`,
+      ".skillset/skills/writer/SKILL.md": `
+---
+name: writer
+description: Demo writer.
+hooks:
+  Stop:
+    - hook: local-stop
+      providers: [claude]
+---
+
+Body.
+`,
+      ".skillset/skills/writer/hooks/local-stop.json": JSON.stringify({
+        events: ["Stop"],
+        run: { command: "echo skill" },
+      }),
+    });
+
+    const preview = await diffSkillsetResult(root);
+
+    expect(preview.renderResults).not.toContainEqual(expect.objectContaining({
+      featureId: "adaptive-hooks",
+      status: "unsupported",
+      target: "codex",
+    }));
+  });
+
   it("separates target (provider) from destination (concrete output scope)", async () => {
     const root = await fixture(OUTCOME_FIXTURE);
     const preview = await diffSkillsetResult(root);
