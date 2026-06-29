@@ -1,4 +1,5 @@
 import {
+  adaptiveHookContract,
   agentFrontmatterContract,
   hookContract,
   instructionFrontmatterContract,
@@ -148,7 +149,7 @@ const CONTRACTS_BY_SUBJECT: Partial<Record<LookupSubject, SkillsetSchemaContract
 
 const SUBJECT_FEATURES: Partial<Record<LookupSubject, readonly SkillsetFeatureId[]>> = {
   agent: ["project-agents"],
-  hooks: ["plugin-hooks"],
+  hooks: ["plugin-hooks", "adaptive-hooks"],
   instruction: ["project-instructions"],
   plugin: ["plugin-manifests"],
   skill: ["standalone-skills"],
@@ -159,8 +160,12 @@ const ASPECT_FEATURES: Partial<Record<LookupSubject, Record<string, readonly Ski
     skills: ["project-agents"],
   },
   hooks: {
-    attachments: ["plugin-hooks"],
+    adaptive: ["adaptive-hooks"],
+    attachments: ["adaptive-hooks"],
+    aggregate: ["plugin-hooks"],
     handlers: ["plugin-hooks"],
+    native: ["plugin-hooks"],
+    units: ["adaptive-hooks"],
   },
   instruction: {
     rules: ["project-instructions"],
@@ -215,7 +220,7 @@ export function lookupSkillsetReference(query: LookupQuery = {}): LookupReport {
     };
   }
 
-  const contract = CONTRACTS_BY_SUBJECT[subject];
+  const contract = contractForLookup(subject, aspects);
   const fields: LookupField[] = [];
   const events: LookupEvent[] = [];
   const compatibility: LookupCompatibility[] = [];
@@ -288,6 +293,15 @@ function normalizeViews(query: LookupQuery): readonly LookupView[] {
     return subject?.defaultViews ?? [];
   }
   return [...views].sort(compareStrings);
+}
+
+function contractForLookup(subject: LookupSubject, aspects: readonly string[]): SkillsetSchemaContract | undefined {
+  if (subject === "hooks" && aspects.some(isAdaptiveHookAspect)) return adaptiveHookContract;
+  return CONTRACTS_BY_SUBJECT[subject];
+}
+
+function isAdaptiveHookAspect(aspect: string): boolean {
+  return aspect === "adaptive" || aspect === "units";
 }
 
 function invalidCombinationDiagnostics(

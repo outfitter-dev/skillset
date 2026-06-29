@@ -59,6 +59,10 @@ evidence:
     sourceHash: sha256:f54ede11bcb4432059aabda0a5da8c5fcbc0994c2aadc77a4a7abdb50e3a303e
   - scope: plugin.skillset.skill:use-skillset
     sourceHash: sha256:f6da91992a6f2b7b0275875bedb4a4df485fd6729f13a5ee3e56bec38d5893f6
+  - scope: plugin:skillset
+    sourceHash: sha256:036d0abd1380304191e225fa6310665af0dbd2bfcf4137fc0caa958fcefb52f6
+  - scope: plugin.skillset.skill:use-skillset
+    sourceHash: sha256:45110e4eb526df16bd3d363eab660b4f30ed6eddc042d6edd1c557c5345f8687
 group: SET-139
 id: dddfa5e5ccc2
 scopes:
