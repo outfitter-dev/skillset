@@ -1,13 +1,16 @@
 import { cp, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { createHash, randomBytes } from "node:crypto";
 import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import { tmpdir } from "node:os";
-
-import { createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
 
 import { buildSkillset, diffSkillset } from "./build";
 import { readCompileTargets, readRecord, readString, resolveTargets, targetNames } from "./config";
 import { compareStrings, resolveInside } from "./path";
+import {
+  makeRetainedRunId,
+  retainedRunPaths,
+  writeRetainedRunLatest,
+  type RetainedRunPaths,
+} from "./retained-runs";
 import { detectWorkspaceSourceDir, loadBuildGraph } from "./resolver";
 import { renderValidatedJson } from "./structured-output";
 import type { BuildGraph, JsonRecord, JsonValue, SkillsetOptions, TargetName } from "./types";
@@ -104,16 +107,13 @@ export async function runSkillsetTest(
     targetFilter: declaration.targets,
   };
 
-  const runId = makeRunId(declaration.name);
-  const cacheContext = createOperationalPathContext(rootPath, {
-    ...(graph.root.workspace.cacheKey === undefined ? {} : { workspaceCacheKey: graph.root.workspace.cacheKey }),
-  });
+  const runId = makeRetainedRunId(declaration.name);
   const logicalBuildRoot = testBuildRoot(sourceDir);
-  const buildRoot = resolveOperationalPath(cacheContext, logicalBuildRoot);
-  const runsRoot = join(buildRoot, "runs");
-  const runPath = join(runsRoot, runId);
+  const paths = retainedRunPaths(rootPath, graph, logicalBuildRoot, runId, options.xdg);
+  const buildRoot = paths.absolute.rootPath;
+  const runPath = paths.absolute.runPath;
   const workspacePath = join(runPath, "workspace");
-  const logicalRunPath = join(logicalBuildRoot, "runs", runId).replaceAll("\\", "/");
+  const logicalRunPath = paths.logical.runPath;
   const logicalWorkspacePath = join(logicalRunPath, "workspace").replaceAll("\\", "/");
   const stagingRoot = await mkdtemp(join(tmpdir(), "skillset-test-"));
   const stagingWorkspacePath = join(stagingRoot, "workspace");
@@ -190,7 +190,7 @@ export async function runSkillsetTest(
 
     await writeFile(reportPath, renderValidatedJson(report, join(logicalRunPath, "report.json")), "utf8");
     await writeFile(reportMarkdownPath, renderMarkdownReport(report), "utf8");
-    await refreshLatest(buildRoot, runPath, latestPath, logicalBuildRoot, logicalLatestPath, logicalRunPath, report);
+    await refreshLatest(paths, latestPath, logicalLatestPath, report);
 
     return {
       ...(logicalActivationPath === undefined ? {} : { activationPath: logicalActivationPath }),
@@ -961,32 +961,25 @@ function slugifyProbeName(value: string): string {
 }
 
 async function refreshLatest(
-  buildRoot: string,
-  runPath: string,
+  paths: RetainedRunPaths,
   latestPath: string,
-  logicalBuildRoot: string,
   logicalLatestPath: string,
-  logicalRunPath: string,
   report: JsonRecord
 ): Promise<void> {
   await rm(latestPath, { force: true, recursive: true });
-  await cp(runPath, latestPath, { recursive: true });
+  await cp(paths.absolute.runPath, latestPath, { recursive: true });
   const latest = {
     name: report.name,
     ok: report.ok,
     reportPath: join(logicalLatestPath, "report.json").replaceAll("\\", "/"),
     runId: report.runId,
-    runPath: logicalRunPath,
+    runPath: paths.logical.runPath,
     schemaVersion: TEST_SCHEMA,
     selection: report.selection,
     source: report.source,
     workspacePath: join(logicalLatestPath, "workspace").replaceAll("\\", "/"),
   };
-  await writeFile(
-    join(buildRoot, "latest.json"),
-    renderValidatedJson(latest, join(logicalBuildRoot, "latest.json").replaceAll("\\", "/")),
-    "utf8"
-  );
+  await writeRetainedRunLatest(paths, latest);
 }
 
 function renderMarkdownReport(report: JsonRecord): string {
@@ -1163,12 +1156,6 @@ function sourceCacheRoot(_sourceDir: string): string {
 
 function sourceSnapshotsRoot(_sourceDir: string): string {
   return ".skillset/snapshots";
-}
-
-function makeRunId(name: string): string {
-  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
-  const digest = createHash("sha256").update(`${name}:${stamp}:${randomBytes(8).toString("hex")}`).digest("hex").slice(0, 8);
-  return `${stamp}-${digest}`;
 }
 
 function isSameOrInside(parentPath: string, candidatePath: string): boolean {
