@@ -165,6 +165,77 @@ Use this skill to answer fixture questions.
   expect((await readRuntimeTesterStatus(root, fromOption.runId, { xdg })).command?.join(" ")).toContain("--setting-sources local");
 });
 
+test("runtime tester validates selected plugins before running", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: runtime-plugin-selector-fixture
+claude: true
+codex: true
+`,
+    ".skillset/plugins/acme/skillset.yaml": `
+skillset:
+  name: acme
+  title: Acme
+  summary: Acme plugin fixture.
+claude: true
+`,
+    ".skillset/plugins/acme/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo Claude runtime tester skill.
+---
+
+Use this skill to answer fixture questions.
+`,
+    ".skillset/plugins/codex-only/skillset.yaml": `
+skillset:
+  name: codex-only
+  title: Codex Only
+  summary: Codex-only plugin fixture.
+claude: false
+codex: true
+`,
+    ".skillset/plugins/codex-only/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo Codex-only runtime tester skill.
+---
+
+Use this skill to answer fixture questions.
+`,
+  });
+  const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
+
+  await expect(startRuntimeTesterRun(root, {
+    plugins: ["missing"],
+    prompt: "Inspect missing plugin.",
+    target: "claude",
+    xdg,
+  })).rejects.toThrow("unknown runtime tester plugin \"missing\"; available plugins: acme, codex-only");
+
+  await expect(startRuntimeTesterRun(root, {
+    plugins: ["acme", "acme"],
+    prompt: "Inspect duplicate plugin.",
+    target: "claude",
+    xdg,
+  })).rejects.toThrow("duplicate runtime tester plugin \"acme\"");
+
+  await expect(startRuntimeTesterRun(root, {
+    plugins: ["codex-only"],
+    prompt: "Inspect disabled plugin.",
+    target: "claude",
+    xdg,
+  })).rejects.toThrow("runtime tester plugin \"codex-only\" is not enabled for claude");
+
+  await expect(startRuntimeTesterRun(root, {
+    plugins: ["acme"],
+    prompt: "Inspect Codex plugin selection.",
+    target: "codex",
+    xdg,
+  })).rejects.toThrow("runtime tester --plugin is only supported for the claude target");
+});
+
 test("runtime tester CLI supports run, status, tail, and list", async () => {
   const root = await fixture({
     "skillset.yaml": `

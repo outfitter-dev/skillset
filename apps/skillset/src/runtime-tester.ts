@@ -137,6 +137,7 @@ export async function startRuntimeTesterRun(
     throw new Error(`skillset: runtime tester target ${options.target} is not enabled by root target configuration`);
   }
   const name = options.name ?? `runtime-${options.target}`;
+  const plugins = validateRuntimeTesterPlugins(graph, options.target, options.plugins ?? []);
   const runId = makeRetainedRunId(name, { fallbackName: "runtime", includeName: true });
   const paths = runtimeTesterPaths(root, graph, runId, options.xdg);
   await mkdir(paths.absolute.runPath, { recursive: true });
@@ -144,7 +145,7 @@ export async function startRuntimeTesterRun(
   const config: RuntimeTesterStoredConfig = {
     ...(options.target === "claude" ? { claudeSettingSources: resolveClaudeSettingSources(options) } : {}),
     name,
-    plugins: [...(options.plugins ?? [])].sort(compareStrings),
+    plugins,
     prompt: options.prompt,
     ...(options.sourceDir === undefined ? {} : { sourceDir: options.sourceDir }),
     target: options.target,
@@ -403,6 +404,34 @@ function claudePluginDirs(
     .filter((plugin) => enabled.has(plugin))
     .sort(compareStrings)
     .map((plugin) => join(latestRoot, graph.root.outputs.plugins.claude, "plugins", plugin));
+}
+
+function validateRuntimeTesterPlugins(
+  graph: BuildGraph,
+  target: TargetName,
+  plugins: readonly string[]
+): readonly string[] {
+  if (plugins.length === 0) return [];
+  if (target !== "claude") {
+    throw new Error("skillset: runtime tester --plugin is only supported for the claude target");
+  }
+  const seen = new Set<string>();
+  const selected: string[] = [];
+  const knownPlugins = graph.plugins.map((plugin) => plugin.id).sort(compareStrings);
+  for (const pluginId of plugins) {
+    if (seen.has(pluginId)) throw new Error(`skillset: duplicate runtime tester plugin ${JSON.stringify(pluginId)}`);
+    seen.add(pluginId);
+    const plugin = graph.plugins.find((candidate) => candidate.id === pluginId);
+    if (plugin === undefined) {
+      const available = knownPlugins.length === 0 ? "none configured" : knownPlugins.join(", ");
+      throw new Error(`skillset: unknown runtime tester plugin ${JSON.stringify(pluginId)}; available plugins: ${available}`);
+    }
+    if (!plugin.targets.claude.enabled) {
+      throw new Error(`skillset: runtime tester plugin ${JSON.stringify(pluginId)} is not enabled for claude`);
+    }
+    selected.push(pluginId);
+  }
+  return selected.sort(compareStrings);
 }
 
 async function runCommand(
