@@ -138,7 +138,7 @@ export function validateAdaptiveHookUnitSource(value: unknown, path = "$"): Skil
   const diagnostics: SkillsetSchemaDiagnostic[] = [];
   if (!isSchemaRecord(value)) return result([diagnostic(path, "schema/adaptive-hook/type", "adaptive hook unit must contain an object")]);
 
-  checkAllowedKeys(value, new Set(["claude", "codex", "description", "events", "match", "name", "providers", "run", "status"]), path, "schema/adaptive-hook/key", diagnostics);
+  checkAllowedKeys(value, new Set(["claude", "codex", "context", "description", "events", "match", "name", "providers", "run", "status"]), path, "schema/adaptive-hook/key", diagnostics);
   checkOptionalNonEmptyString(value.name, `${path}.name`, "schema/adaptive-hook/name", diagnostics);
   checkOptionalNonEmptyString(value.description, `${path}.description`, "schema/adaptive-hook/description", diagnostics);
   checkOptionalNonEmptyString(value.status, `${path}.status`, "schema/adaptive-hook/status", diagnostics);
@@ -147,6 +147,7 @@ export function validateAdaptiveHookUnitSource(value: unknown, path = "$"): Skil
   checkAdaptiveHookMatch(value.match, `${path}.match`, diagnostics);
   checkOptionalObject(value.claude, `${path}.claude`, "schema/adaptive-hook/provider-override", diagnostics);
   checkOptionalObject(value.codex, `${path}.codex`, "schema/adaptive-hook/provider-override", diagnostics);
+  checkAdaptiveHookContext(value.context, `${path}.context`, diagnostics);
   checkAdaptiveHookRun(value.run, `${path}.run`, diagnostics);
   return result(diagnostics);
 }
@@ -612,6 +613,44 @@ function checkAdaptiveHookMatch(value: SchemaJsonValue | undefined, path: string
   }
   if (typeof value === "string" && value.trim().length === 0) {
     diagnostics.push(diagnostic(path, "schema/adaptive-hook/match", "adaptive hook match must be non-empty when present"));
+  }
+}
+
+const adaptiveHookContextStrategies = new Set(["inline", "none", "toolkit"]);
+const adaptiveHookContextEnvFields = new Set(["hook.event", "provider", "session.id"]);
+
+function checkAdaptiveHookContext(value: SchemaJsonValue | undefined, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (value === undefined) return;
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, "schema/adaptive-hook/context", "adaptive hook context must be an object when present"));
+    return;
+  }
+  checkAllowedKeys(value, new Set(["env", "includeRaw", "strategy"]), path, "schema/adaptive-hook/context-key", diagnostics);
+  if (typeof value.strategy !== "string" || !adaptiveHookContextStrategies.has(value.strategy)) {
+    diagnostics.push(diagnostic(`${path}.strategy`, "schema/adaptive-hook/context-strategy", "adaptive hook context.strategy must be inline, none, or toolkit"));
+  }
+  if (value.includeRaw !== undefined && typeof value.includeRaw !== "boolean") {
+    diagnostics.push(diagnostic(`${path}.includeRaw`, "schema/adaptive-hook/context-include-raw", "adaptive hook context.includeRaw must be a boolean"));
+  }
+  if (value.env !== undefined) checkAdaptiveHookContextEnv(value.env, `${path}.env`, diagnostics);
+  if (value.strategy === "inline" && (!Array.isArray(value.env) || value.env.length === 0)) {
+    diagnostics.push(diagnostic(`${path}.env`, "schema/adaptive-hook/context-env", "adaptive hook context.env must be a non-empty array for inline strategy"));
+  }
+}
+
+function checkAdaptiveHookContextEnv(value: SchemaJsonValue, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (!Array.isArray(value) || value.length === 0) {
+    diagnostics.push(diagnostic(path, "schema/adaptive-hook/context-env", "adaptive hook context.env must be a non-empty array when present"));
+    return;
+  }
+  const seen = new Set<string>();
+  for (const [index, item] of value.entries()) {
+    if (typeof item !== "string" || !adaptiveHookContextEnvFields.has(item)) {
+      diagnostics.push(diagnostic(`${path}[${index}]`, "schema/adaptive-hook/context-env", "adaptive hook context.env entries must be provider, hook.event, or session.id"));
+      continue;
+    }
+    if (seen.has(item)) diagnostics.push(diagnostic(`${path}[${index}]`, "schema/adaptive-hook/context-env-duplicate", `duplicate adaptive hook context env field ${item}`));
+    seen.add(item);
   }
 }
 

@@ -9,6 +9,36 @@
         "codex": {
           "type": "object"
         },
+        "context": {
+          "additionalProperties": false,
+          "properties": {
+            "env": {
+              "items": {
+                "enum": [
+                  "hook.event",
+                  "provider",
+                  "session.id"
+                ],
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array",
+              "uniqueItems": true
+            },
+            "includeRaw": {
+              "type": "boolean"
+            },
+            "strategy": {
+              "enum": [
+                "inline",
+                "none",
+                "toolkit"
+              ],
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
         "description": {
           "minLength": 1,
           "type": "string"

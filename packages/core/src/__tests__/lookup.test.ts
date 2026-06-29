@@ -107,6 +107,7 @@ describe("lookupSkillsetReference", () => {
     expect(report.fields.map((field) => `${field.contractId}:${field.path}`)).toEqual([
       "adaptive-hook:claude",
       "adaptive-hook:codex",
+      "adaptive-hook:context",
       "adaptive-hook:description",
       "adaptive-hook:events",
       "adaptive-hook:match",
