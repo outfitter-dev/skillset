@@ -20,8 +20,7 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Feature Source Pointers](feature-source-pointers.md): direct feature-key source pointers, conventional discovery, and future component ownership.
 - [Feature Registry](feature-registry.md): typed support matrix for feature ids, target capability claims, docs, evidence, render owners, and validation owners.
 - [Hook Guardrails](hook-guardrails.md): Git hook-runner snippets and optional agent-runtime nudges for change/release checks.
-- [Hooks](hooks.md): hook definition emission, canonical source paths, target validation, and activation boundaries.
-- [Adaptive Hooks](adaptive-hooks.md): planned portable hook units, provider capability registry, attachments, and fixture proof points.
+- [Hooks](hooks.md): native aggregate hook emission, adaptive hook units, target validation, and activation boundaries.
 - [Instructions](instructions.md): source-root `rules/` rendering to Claude rules and Codex `AGENTS.md`, preprocessing, and collision safety.
 - [LSP Servers](lsp-servers.md): Claude plugin `.lsp.json` pass-through, manifest wiring, and future validation boundaries.
 - [MCP Servers](mcp-servers.md): plugin `.mcp.json`, `mcp.source`, manifest wiring, and structured validation.

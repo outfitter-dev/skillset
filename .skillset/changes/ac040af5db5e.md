@@ -25,6 +25,10 @@ evidence:
     sourceHash: sha256:f6da91992a6f2b7b0275875bedb4a4df485fd6729f13a5ee3e56bec38d5893f6
   - scope: skill:skillset-claude-development
     sourceHash: sha256:4d8c785b3078fec5a4033413efd869947fc7e5c6327c92204ca239a4c7ccb817
+  - scope: plugin:skillset
+    sourceHash: sha256:036d0abd1380304191e225fa6310665af0dbd2bfcf4137fc0caa958fcefb52f6
+  - scope: plugin.skillset.skill:use-skillset
+    sourceHash: sha256:45110e4eb526df16bd3d363eab660b4f30ed6eddc042d6edd1c557c5345f8687
 group: workspace-layout-cutover
 id: ac040af5db5e
 scopes:

@@ -95,6 +95,42 @@ describe("lookupSkillsetReference", () => {
     }));
   });
 
+  it("selects adaptive hook contract and compatibility through a hook aspect", () => {
+    const report = lookupSkillsetReference({
+      aspects: ["adaptive"],
+      subject: "hooks",
+      targets: ["codex"],
+      views: ["fields", "examples", "compat"],
+    });
+
+    expect(report.diagnostics).toEqual([]);
+    expect(report.fields.map((field) => `${field.contractId}:${field.path}`)).toEqual([
+      "adaptive-hook:claude",
+      "adaptive-hook:codex",
+      "adaptive-hook:description",
+      "adaptive-hook:events",
+      "adaptive-hook:match",
+      "adaptive-hook:name",
+      "adaptive-hook:providers",
+      "adaptive-hook:run",
+      "adaptive-hook:status",
+    ]);
+    expect(report.examples.map((example) => example.contractId)).toEqual(["adaptive-hook"]);
+    expect(report.compatibility).toEqual([
+      expect.objectContaining({
+        featureId: "adaptive-hooks",
+        target: "codex",
+      }),
+    ]);
+
+    expect(lookupSkillsetReference({
+      aspects: ["attachments"],
+      subject: "hooks",
+      targets: ["claude"],
+      views: ["compat"],
+    }).compatibility.map((item) => item.featureId)).toEqual(["adaptive-hooks"]);
+  });
+
   it("derives plugin aspect compatibility from the feature registry", () => {
     const report = lookupSkillsetReference({
       aspects: ["bin"],

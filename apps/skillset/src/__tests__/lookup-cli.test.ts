@@ -47,6 +47,23 @@ test("SET-220: lookup hooks events and Codex compatibility", async () => {
   expect(result.exitCode).toBe(0);
   expect(result.stdout).toContain("[codex] pre-tool-use.command.input");
   expect(result.stdout).toContain("[codex] plugin-hooks: pass_through");
+  expect(result.stdout).toContain("[codex] adaptive-hooks:");
+});
+
+test("SET-220: lookup hooks adaptive lens shows adaptive hook fields", async () => {
+  const result = await runSkillsetCli("lookup", "hooks", "adaptive", "--fields", "--schema", "--examples", "--compat", "codex", "--json");
+
+  expect(result.exitCode).toBe(0);
+  const report = JSON.parse(result.stdout) as {
+    readonly compatibility: readonly { readonly featureId: string }[];
+    readonly examples: readonly { readonly contractId: string }[];
+    readonly fields: readonly { readonly contractId: string; readonly path: string }[];
+    readonly schema?: { readonly id: string };
+  };
+  expect(report.schema?.id).toBe("adaptive-hook");
+  expect(report.fields.map((field) => `${field.contractId}:${field.path}`)).toContain("adaptive-hook:run");
+  expect(report.examples.map((example) => example.contractId)).toEqual(["adaptive-hook"]);
+  expect(report.compatibility.map((item) => item.featureId)).toEqual(["adaptive-hooks"]);
 });
 
 test("SET-220: lookup plugin bin compatibility reports Codex unsupported reason", async () => {
