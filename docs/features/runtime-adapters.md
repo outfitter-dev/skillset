@@ -8,7 +8,7 @@ Runtime adapters describe how a Skillset rendering can be used by an actual agen
 
 ## Status
 
-Runtime adapter records are `planned`. The registry can now describe runtime support, but Skillset still only builds the Claude and Codex target renderings. Gemini, Cursor, Devin, Droid, and OpenCode are tracked as runtime candidates, not build targets.
+Runtime adapter records are `planned`. The registry can now describe runtime support, and `skillset runtime-tester` can run non-interactive Claude or Codex prompts against isolated local renderings, but Skillset still only builds the Claude and Codex target renderings. Gemini, Cursor, Devin, Droid, and OpenCode are tracked as runtime candidates, not build targets.
 
 ## Authoring
 
@@ -50,7 +50,7 @@ Runtime support records live in the feature registry as `runtimeSupport` rows. A
 | Build target | A provider rendering Skillset can render directly. | `claude`, `codex` |
 | Runtime adapter | A concrete runtime or harness that can consume a rendering or compatibility shim. | `claude-code`, `codex-cli`, `codex-app` |
 | Distribution surface | A repo, marketplace, extension root, or package shape a rendering may be synced into. | Implemented `distributions.*` plan config; sync/publish remains future |
-| Activation harness | A generated test surface that asks whether a runtime notices or invokes a skill, agent, or plugin. | Implemented manual activation probe assets under `skillset test`; runtime execution remains future |
+| Activation harness | A generated test surface that asks whether a runtime notices or invokes a skill, agent, or plugin. | Implemented manual activation probe assets under `skillset test`; implemented live non-interactive prompt runs through `skillset runtime-tester` |
 
 The test: adding a runtime must not make `compile.targets` accept a new value. It should add evidence and support records first, then a specific adapter or distribution flow only when the target behavior is proven.
 
@@ -72,6 +72,8 @@ The test: adding a runtime must not make `compile.targets` accept a new value. I
 Runtime support diagnostics should name whether behavior is native, pass-through, transformed, shimmed, degraded, lossy, externally managed, unsupported, or planned.
 
 When behavior is shimmed, diagnostics must identify the mechanism and caveat. For example, a Codex agent can receive an instruction to load skills first, but Skillset should not say Codex has native Claude-style agent `skills` metadata.
+
+`skillset runtime-tester status` reports live harness state as `queued`, `building`, `running`, `passed`, or `failed`, and `skillset runtime-tester tail` reads retained output from the logical `.skillset/cache/runtime-tester` path backed by XDG storage.
 
 ## Provenance
 
