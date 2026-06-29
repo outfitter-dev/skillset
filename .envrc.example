@@ -1,3 +1,16 @@
-# Copy this file to .envrc and replace the placeholder with a granular npm token.
-# Then run `direnv allow` from this directory, or source/export NPM_TOKEN manually.
+# Copy this file to .envrc and replace only the values you need.
+# Then run `direnv allow` from this directory. For one-off commands from tools
+# that do not load your shell hook, prefix with `direnv exec .`.
+
+# Package release preflight / publish recovery.
 export NPM_TOKEN="npm_REPLACE_ME"
+
+# Claude Code non-interactive runtime tester.
+# `claude setup-token` prints this export line for subscription-backed CLI use.
+export CLAUDE_CODE_OAUTH_TOKEN="REPLACE_WITH_CLAUDE_SETUP_TOKEN"
+# Optional: isolated is the default; alternatives are user, project, or local.
+# export SKILLSET_RUNTIME_TESTER_CLAUDE_SETTING_SOURCES="isolated"
+
+# API-key fallback for Claude SDK/API workflows. Usually leave unset when using
+# CLAUDE_CODE_OAUTH_TOKEN from `claude setup-token`.
+# export ANTHROPIC_API_KEY="sk-ant_REPLACE_ME"

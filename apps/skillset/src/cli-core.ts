@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 
 import {
@@ -82,13 +82,28 @@ import {
   renderProviderFormatUpdateReport,
   runProviderFormatUpdates,
 } from "./provider-format-updates";
+import {
+  executeRuntimeTesterRun,
+  listRuntimeTesterRuns,
+  readClaudeSettingSources,
+  readRuntimeTesterStatus,
+  startRuntimeTesterRun,
+  tailRuntimeTesterRun,
+  type RuntimeTesterClaudeSettingSources,
+  type RuntimeTesterListEntry,
+  type RuntimeTesterRunReport,
+  type RuntimeTesterState,
+  type RuntimeTesterStatus,
+  type RuntimeTesterSubcommand,
+  type RuntimeTesterTailLine,
+} from "./runtime-tester";
 import { createSkillset, initSkillset, type SetupInclude, type SetupLayoutOption, type SetupReport } from "./setup";
 import { sourceUnitDisplay, sourceUnitDisplays, sourceUnitSelector } from "./source-unit-selector";
 import { renderValidatedJson } from "./structured-output";
 import { runSkillsetTest, type SkillsetTestReport } from "./test-runner";
 import type { BuildScope, CompileBuildMode, JsonRecord, SkillsetOptions, SourceOrigin, TargetName } from "./types";
 
-type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "dev" | "diff" | "distribute" | "doctor" | "explain" | "features" | "hooks" | "import" | "init" | "lint" | "list" | "lookup" | "new" | "providers" | "release" | "restore" | "suggest-source" | "test" | "update" | "verify";
+type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "dev" | "diff" | "distribute" | "doctor" | "explain" | "features" | "hooks" | "import" | "init" | "lint" | "list" | "lookup" | "new" | "providers" | "release" | "restore" | "runtime-tester" | "suggest-source" | "test" | "update" | "verify";
 type DistributionSubcommand = "plan";
 
 const USAGE = [
@@ -121,6 +136,9 @@ const USAGE = [
   "       skillset features [feature-id] [--json]",
   "       skillset lookup [subject] [aspect...] [--frontmatter] [--fields] [--field <path>] [--values] [--events] [--compat [claude|codex...]] [--examples] [--schema] [--claude] [--codex] [--json]",
   "       skillset test [name] [--root <path>] [--source <dir>]",
+  "       skillset runtime-tester run --target <claude|codex> [--prompt <text>|--prompt-file <path>] [--plugin <id>] [--name <name>] [--timeout-ms <ms>] [--claude-setting-sources <isolated|user|project|local>] [--background] [--json] [--root <path>] [--source <dir>]",
+  "       skillset runtime-tester <status|tail> [run-id] [--lines <count>] [--json] [--root <path>]",
+  "       skillset runtime-tester list [--json] [--root <path>]",
   "       skillset hooks print --runner <lefthook|husky|pre-commit|git> [--pre-commit] [--pre-push]",
   "       skillset hooks print --target <claude|codex> --agent-runtime",
   "       skillset hooks run <post-tool-use|stop> [--root <path>]",
@@ -189,6 +207,17 @@ export async function runCli(
     releaseSubcommand,
     releaseReason,
     releaseRef,
+    runtimeTesterBackground,
+    runtimeTesterClaudeSettingSources,
+    runtimeTesterLines,
+    runtimeTesterName,
+    runtimeTesterPlugins,
+    runtimeTesterPrompt,
+    runtimeTesterPromptFile,
+    runtimeTesterRunId,
+    runtimeTesterSubcommand,
+    runtimeTesterTarget,
+    runtimeTesterTimeoutMs,
     setupGlobal,
     setupIncludes,
     setupLayout,
@@ -242,6 +271,49 @@ export async function runCli(
     if (!devWatch) throw new Error("skillset: dev currently requires --watch");
     await runDevWatch(rootPath, options);
     return;
+  }
+
+  if (command === "runtime-tester") {
+    if (runtimeTesterSubcommand === "run") {
+      const report = await startRuntimeTesterRun(rootPath, {
+        ...options,
+        background: runtimeTesterBackground,
+        ...(runtimeTesterClaudeSettingSources === undefined ? {} : { claudeSettingSources: runtimeTesterClaudeSettingSources }),
+        ...(runtimeTesterName === undefined ? {} : { name: runtimeTesterName }),
+        plugins: runtimeTesterPlugins,
+        prompt: await readRuntimeTesterPrompt(rootPath, runtimeTesterPrompt, runtimeTesterPromptFile),
+        target: requireRuntimeTesterTarget(runtimeTesterTarget),
+        ...(runtimeTesterTimeoutMs === undefined ? {} : { timeoutMs: runtimeTesterTimeoutMs }),
+      });
+      if (jsonOutput) console.log(renderValidatedJson(report as unknown as JsonRecord, "runtime tester run"));
+      else printRuntimeTesterRun(report);
+      if (!report.ok) process.exitCode = 1;
+      return;
+    }
+    if (runtimeTesterSubcommand === "worker") {
+      if (runtimeTesterRunId === undefined) throw new Error("skillset: runtime-tester worker requires run id");
+      await executeRuntimeTesterRun(rootPath, runtimeTesterRunId);
+      return;
+    }
+    if (runtimeTesterSubcommand === "status") {
+      const status = await readRuntimeTesterStatus(rootPath, runtimeTesterRunId);
+      if (jsonOutput) console.log(renderValidatedJson(status as unknown as JsonRecord, "runtime tester status"));
+      else printRuntimeTesterStatus(status);
+      if (status.state === "failed") process.exitCode = 1;
+      return;
+    }
+    if (runtimeTesterSubcommand === "tail") {
+      const lines = await tailRuntimeTesterRun(rootPath, runtimeTesterRunId, runtimeTesterLines ?? 40);
+      if (jsonOutput) console.log(renderValidatedJson({ lines: lines.map((line) => ({ ...line })), schemaVersion: 1 }, "runtime tester tail"));
+      else printRuntimeTesterTail(lines);
+      return;
+    }
+    if (runtimeTesterSubcommand === "list") {
+      const entries = await listRuntimeTesterRuns(rootPath);
+      if (jsonOutput) console.log(renderValidatedJson({ runs: entries.map((entry) => ({ ...entry })), schemaVersion: 1 }, "runtime tester list"));
+      else printRuntimeTesterList(entries);
+      return;
+    }
   }
 
   if (command === "change") {
@@ -779,6 +851,17 @@ interface ParsedArgs {
   readonly releaseSubcommand?: ReleaseSubcommand;
   readonly releaseReason?: ChangeReasonInput;
   readonly releaseRef?: string;
+  readonly runtimeTesterBackground: boolean;
+  readonly runtimeTesterClaudeSettingSources?: RuntimeTesterClaudeSettingSources;
+  readonly runtimeTesterLines?: number;
+  readonly runtimeTesterName?: string;
+  readonly runtimeTesterPlugins: readonly string[];
+  readonly runtimeTesterPrompt?: string;
+  readonly runtimeTesterPromptFile?: string;
+  readonly runtimeTesterRunId?: string;
+  readonly runtimeTesterSubcommand?: RuntimeTesterSubcommand;
+  readonly runtimeTesterTarget?: TargetName;
+  readonly runtimeTesterTimeoutMs?: number;
   readonly rootExplicit: boolean;
   readonly rootPath: string;
   readonly setupGlobal: boolean;
@@ -1237,6 +1320,56 @@ function printSkillsetTest(report: SkillsetTestReport): void {
   if (report.activationPath !== undefined) console.log(`  activation: ${report.activationPath}`);
 }
 
+function printRuntimeTesterRun(report: RuntimeTesterRunReport): void {
+  console.log(`skillset: runtime tester ${formatRuntimeTesterState(report.state)}${report.background ? " in background" : ""}`);
+  console.log(`  run: ${report.runPath}`);
+  console.log(`  latest: ${report.latestPath}`);
+  console.log(`  status: ${report.statusPath}`);
+  console.log(`  tail: ${report.tailPath}`);
+  console.log(`  report: ${report.reportPath}`);
+}
+
+function printRuntimeTesterStatus(status: RuntimeTesterStatus): void {
+  console.log(`skillset: runtime tester ${status.runId} ${formatRuntimeTesterState(status.state)}`);
+  console.log(`  target: ${status.target}`);
+  console.log(`  name: ${status.name}`);
+  if (status.pid !== undefined) console.log(`  pid: ${status.pid}`);
+  if (status.command !== undefined) console.log(`  command: ${status.command.join(" ")}`);
+  if (status.exitCode !== undefined) console.log(`  exit: ${status.exitCode}`);
+  if (status.error !== undefined) console.log(`  error: ${status.error}`);
+  console.log(`  started: ${status.startedAt}`);
+  if (status.endedAt !== undefined) console.log(`  ended: ${status.endedAt}`);
+  console.log(`  updated: ${status.updatedAt}`);
+  console.log(`  run: ${status.runPath}`);
+  console.log(`  latest: ${status.latestRoot}`);
+  console.log(`  prompt: ${status.promptPath}`);
+  console.log(`  tail: ${status.outputPath}`);
+  console.log(`  report: ${status.reportPath}`);
+  if (status.finalMessagePath !== undefined) console.log(`  final: ${status.finalMessagePath}`);
+}
+
+function printRuntimeTesterTail(lines: readonly RuntimeTesterTailLine[]): void {
+  for (const line of lines) {
+    const prefix = line.timestamp.length === 0 ? line.stream : `${line.timestamp} ${line.stream}`;
+    process.stdout.write(`${prefix}: ${line.message.endsWith("\n") ? line.message : `${line.message}\n`}`);
+  }
+}
+
+function printRuntimeTesterList(entries: readonly RuntimeTesterListEntry[]): void {
+  if (entries.length === 0) {
+    console.log("skillset: no runtime tester runs");
+    return;
+  }
+  for (const entry of entries) {
+    const ended = entry.endedAt === undefined ? "" : ` ended ${entry.endedAt}`;
+    console.log(`${entry.runId} ${entry.target} ${formatRuntimeTesterState(entry.state)} started ${entry.startedAt}${ended} ${entry.name}`);
+  }
+}
+
+function formatRuntimeTesterState(state: RuntimeTesterState): string {
+  return state;
+}
+
 function formatTestSelection(selection: SkillsetTestReport["selection"]): string {
   const parts = [
     selection.plugins.length === 0 ? undefined : `plugins ${selection.plugins.join(", ")}`,
@@ -1375,13 +1508,14 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     command !== "providers" &&
     command !== "release" &&
     command !== "restore" &&
+    command !== "runtime-tester" &&
     command !== "suggest-source" &&
     command !== "test" &&
     command !== "update" &&
     command !== "verify"
   ) {
     throw new Error(
-        "skillset: expected command adopt, build, change, check, ci, create, dev, diff, distribute, doctor, explain, features, hooks, import, init, lint, list, lookup, new, providers, release, restore, suggest-source, test, update, or verify\n" +
+        "skillset: expected command adopt, build, change, check, ci, create, dev, diff, distribute, doctor, explain, features, hooks, import, init, lint, list, lookup, new, providers, release, restore, runtime-tester, suggest-source, test, update, or verify\n" +
         USAGE
     );
   }
@@ -1392,6 +1526,17 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let releaseSubcommand: ReleaseSubcommand | undefined;
   let releaseReason: ChangeReasonInput | undefined;
   let releaseRef: string | undefined;
+  let runtimeTesterBackground = false;
+  let runtimeTesterClaudeSettingSources: RuntimeTesterClaudeSettingSources | undefined;
+  let runtimeTesterLines: number | undefined;
+  let runtimeTesterName: string | undefined;
+  let runtimeTesterPlugins: string[] = [];
+  let runtimeTesterPrompt: string | undefined;
+  let runtimeTesterPromptFile: string | undefined;
+  let runtimeTesterRunId: string | undefined;
+  let runtimeTesterSubcommand: RuntimeTesterSubcommand | undefined;
+  let runtimeTesterTarget: TargetName | undefined;
+  let runtimeTesterTimeoutMs: number | undefined;
   let changeAppend = false;
   let changeBump: ChangeBump | undefined;
   let changeGroup: string | undefined;
@@ -1506,6 +1651,20 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     }
     providerSubcommand = subcommand;
     index += 1;
+  }
+
+  if (command === "runtime-tester") {
+    const subcommand = args[index];
+    if (!isRuntimeTesterSubcommand(subcommand)) {
+      throw new Error("skillset: expected runtime-tester subcommand list, run, status, tail, or worker");
+    }
+    runtimeTesterSubcommand = subcommand;
+    index += 1;
+    const rawRunId = args[index];
+    if ((subcommand === "status" || subcommand === "tail" || subcommand === "worker") && rawRunId !== undefined && !rawRunId.startsWith("--")) {
+      runtimeTesterRunId = rawRunId;
+      index += 1;
+    }
   }
 
   if (command === "import") {
@@ -1651,7 +1810,14 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--examples" &&
       flag !== "--schema" &&
       flag !== "--claude" &&
-      flag !== "--codex"
+      flag !== "--codex" &&
+      flag !== "--prompt" &&
+      flag !== "--prompt-file" &&
+      flag !== "--plugin" &&
+      flag !== "--claude-setting-sources" &&
+      flag !== "--timeout-ms" &&
+      flag !== "--lines" &&
+      flag !== "--background"
     ) {
       throw new Error(`skillset: unknown option ${arg}`);
     }
@@ -1694,7 +1860,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag === "--examples" ||
       flag === "--schema" ||
       flag === "--claude" ||
-      flag === "--codex"
+      flag === "--codex" ||
+      flag === "--background"
     ) {
       if (inlineValue !== undefined) throw new Error(`skillset: ${flag} does not take a value`);
       if (flag === "--yes") yes = true;
@@ -1720,6 +1887,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       if (flag === "--schema") lookupViews = addLookupView(lookupViews, "schema");
       if (flag === "--claude") lookupTargets = addLookupTarget(lookupTargets, "claude");
       if (flag === "--codex") lookupTargets = addLookupTarget(lookupTargets, "codex");
+      if (flag === "--background") runtimeTesterBackground = true;
       continue;
     }
 
@@ -1768,7 +1936,18 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     if (flag === "--report") ciReportPath = value;
     if (flag === "--field") lookupField = setLookupField(lookupField, value);
     if (flag === "--runner") hookRunner = readHookRunner(value);
-    if (flag === "--target") hookTarget = readHookTarget(value);
+    if (flag === "--target") {
+      if (command === "runtime-tester") runtimeTesterTarget = readHookTarget(value);
+      else hookTarget = readHookTarget(value);
+    }
+    if (flag === "--prompt") runtimeTesterPrompt = value;
+    if (flag === "--prompt-file") runtimeTesterPromptFile = value;
+    if (flag === "--plugin") runtimeTesterPlugins = [...runtimeTesterPlugins, value];
+    if (flag === "--claude-setting-sources") {
+      runtimeTesterClaudeSettingSources = readClaudeSettingSources(value, "--claude-setting-sources");
+    }
+    if (flag === "--timeout-ms") runtimeTesterTimeoutMs = readPositiveInteger(value, "--timeout-ms");
+    if (flag === "--lines") runtimeTesterLines = readPositiveInteger(value, "--lines");
     if (flag === "--targets") setupTargets = readSetupTargets(value);
     if (flag === "--include") setupIncludes = mergeSetupIncludes(setupIncludes, value);
     if (flag === "--layout") setupLayout = readSetupLayout(value);
@@ -1776,6 +1955,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     if (flag === "--in") newContainer = value;
     if (flag === "--name") {
       if (command === "new") newName = value;
+      else if (command === "runtime-tester") runtimeTesterName = value;
       else importName = value;
     }
     if (flag === "--preset") newPresets = [...(newPresets ?? []), value];
@@ -1858,6 +2038,22 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   validateAdoptFlags(command, {
     ...(buildMode === undefined ? {} : { buildMode }),
     ...(scopes === undefined ? {} : { scopes }),
+  });
+  validateRuntimeTesterFlags(command, runtimeTesterSubcommand, {
+    background: runtimeTesterBackground,
+    ...(buildMode === undefined ? {} : { buildMode }),
+    ...(runtimeTesterClaudeSettingSources === undefined ? {} : { claudeSettingSources: runtimeTesterClaudeSettingSources }),
+    ...(distDir === undefined ? {} : { distDir }),
+    dryRun,
+    ...(runtimeTesterLines === undefined ? {} : { lines: runtimeTesterLines }),
+    ...(runtimeTesterName === undefined ? {} : { name: runtimeTesterName }),
+    plugins: runtimeTesterPlugins,
+    ...(runtimeTesterPrompt === undefined ? {} : { prompt: runtimeTesterPrompt }),
+    ...(runtimeTesterPromptFile === undefined ? {} : { promptFile: runtimeTesterPromptFile }),
+    ...(scopes === undefined ? {} : { scopes }),
+    ...(runtimeTesterTarget === undefined ? {} : { target: runtimeTesterTarget }),
+    ...(runtimeTesterTimeoutMs === undefined ? {} : { timeoutMs: runtimeTesterTimeoutMs }),
+    yes,
   });
   validateJsonFlags(command, jsonOutput);
   validateLookupFlags(command, {
@@ -1990,6 +2186,17 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(releaseSubcommand === undefined ? {} : { releaseSubcommand }),
     ...(releaseReason === undefined ? {} : { releaseReason }),
     ...(releaseRef === undefined ? {} : { releaseRef }),
+    runtimeTesterBackground,
+    ...(runtimeTesterClaudeSettingSources === undefined ? {} : { runtimeTesterClaudeSettingSources }),
+    ...(runtimeTesterLines === undefined ? {} : { runtimeTesterLines }),
+    ...(runtimeTesterName === undefined ? {} : { runtimeTesterName }),
+    runtimeTesterPlugins,
+    ...(runtimeTesterPrompt === undefined ? {} : { runtimeTesterPrompt }),
+    ...(runtimeTesterPromptFile === undefined ? {} : { runtimeTesterPromptFile }),
+    ...(runtimeTesterRunId === undefined ? {} : { runtimeTesterRunId }),
+    ...(runtimeTesterSubcommand === undefined ? {} : { runtimeTesterSubcommand }),
+    ...(runtimeTesterTarget === undefined ? {} : { runtimeTesterTarget }),
+    ...(runtimeTesterTimeoutMs === undefined ? {} : { runtimeTesterTimeoutMs }),
     rootExplicit,
     rootPath: resolve(rootPath),
     setupGlobal,
@@ -2019,6 +2226,10 @@ function isChangeSubcommand(value: string | undefined): value is ChangeSubcomman
 
 function isProviderMaintenanceSubcommand(value: string | undefined): value is ProviderMaintenanceSubcommand {
   return value === "check" || value === "diff" || value === "update";
+}
+
+function isRuntimeTesterSubcommand(value: string | undefined): value is RuntimeTesterSubcommand {
+  return value === "list" || value === "run" || value === "status" || value === "tail" || value === "worker";
 }
 
 function isNewSourceKind(value: string | undefined): value is NewSourceKind {
@@ -2079,6 +2290,30 @@ function readChangeScopes(value: string): readonly string[] {
 function readChangeBump(value: string): ChangeBump {
   if (value === "major" || value === "minor" || value === "none" || value === "patch") return value;
   throw new Error("skillset: expected --bump major, minor, patch, or none");
+}
+
+function readPositiveInteger(value: string, flag: string): number {
+  if (!/^[0-9]+$/u.test(value)) throw new Error(`skillset: expected ${flag} to be a positive integer`);
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    throw new Error(`skillset: expected ${flag} to be a positive integer`);
+  }
+  return parsed;
+}
+
+async function readRuntimeTesterPrompt(
+  rootPath: string,
+  prompt: string | undefined,
+  promptFile: string | undefined
+): Promise<string> {
+  if (prompt !== undefined) return prompt;
+  if (promptFile === undefined) throw new Error("skillset: runtime-tester run requires --prompt or --prompt-file");
+  return readFile(resolve(rootPath, promptFile), "utf8");
+}
+
+function requireRuntimeTesterTarget(target: TargetName | undefined): TargetName {
+  if (target === undefined) throw new Error("skillset: runtime-tester run requires --target claude or codex");
+  return target;
 }
 
 function setChangeReason(current: ChangeReasonInput | undefined, next: ChangeReasonInput): ChangeReasonInput {
@@ -2246,6 +2481,58 @@ function validateTestFlags(
     test.yes
   ) {
     throw new Error("skillset: build/write options are not supported with test; test output always writes under logical .skillset/cache/tests");
+  }
+}
+
+function validateRuntimeTesterFlags(
+  command: Command,
+  subcommand: RuntimeTesterSubcommand | undefined,
+  runtime: {
+    readonly background: boolean;
+    readonly buildMode?: CompileBuildMode;
+    readonly claudeSettingSources?: RuntimeTesterClaudeSettingSources;
+    readonly distDir?: string;
+    readonly dryRun: boolean;
+    readonly lines?: number;
+    readonly name?: string;
+    readonly plugins: readonly string[];
+    readonly prompt?: string;
+    readonly promptFile?: string;
+    readonly scopes?: readonly BuildScope[];
+    readonly target?: TargetName;
+    readonly timeoutMs?: number;
+    readonly yes: boolean;
+  }
+): void {
+  const hasRuntimeFlag = runtime.background ||
+    runtime.claudeSettingSources !== undefined ||
+    runtime.lines !== undefined ||
+    runtime.name !== undefined ||
+    runtime.plugins.length > 0 ||
+    runtime.prompt !== undefined ||
+    runtime.promptFile !== undefined ||
+    runtime.target !== undefined ||
+    runtime.timeoutMs !== undefined;
+  if (hasRuntimeFlag && command !== "runtime-tester") {
+    throw new Error("skillset: runtime tester options are only supported with runtime-tester");
+  }
+  if (command !== "runtime-tester") return;
+  if (subcommand === undefined) throw new Error("skillset: expected runtime-tester subcommand");
+  if (runtime.buildMode !== undefined || runtime.distDir !== undefined || runtime.dryRun || runtime.scopes !== undefined || runtime.yes) {
+    throw new Error("skillset: build/write options are not supported with runtime-tester; runtime tester builds an isolated projection under logical .skillset/cache/runtime-tester");
+  }
+  if (subcommand === "run") {
+    if (runtime.target === undefined) throw new Error("skillset: runtime-tester run requires --target claude or codex");
+    if ((runtime.prompt === undefined && runtime.promptFile === undefined) || (runtime.prompt !== undefined && runtime.promptFile !== undefined)) {
+      throw new Error("skillset: runtime-tester run requires exactly one of --prompt or --prompt-file");
+    }
+    return;
+  }
+  if (runtime.background || runtime.claudeSettingSources !== undefined || runtime.name !== undefined || runtime.plugins.length > 0 || runtime.prompt !== undefined || runtime.promptFile !== undefined || runtime.target !== undefined || runtime.timeoutMs !== undefined) {
+    throw new Error(`skillset: runtime tester run options are not supported with ${subcommand}`);
+  }
+  if (runtime.lines !== undefined && subcommand !== "tail") {
+    throw new Error("skillset: --lines is only supported with runtime-tester tail");
   }
 }
 
@@ -2577,8 +2864,8 @@ function validateAdoptFlags(
 
 function validateJsonFlags(command: Command, jsonOutput: boolean): void {
   if (!jsonOutput) return;
-  if (command === "doctor" || command === "explain" || command === "features" || command === "lookup") return;
-  throw new Error("skillset: --json is only supported with doctor, explain, features, or lookup");
+  if (command === "doctor" || command === "explain" || command === "features" || command === "lookup" || command === "runtime-tester") return;
+  throw new Error("skillset: --json is only supported with doctor, explain, features, lookup, or runtime-tester");
 }
 
 function validateLookupFlags(
