@@ -1,16 +1,22 @@
 import { appendFile, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
-import { createHash, randomBytes } from "node:crypto";
 import { spawn as spawnNode } from "node:child_process";
 import { join, resolve } from "node:path";
 
 import {
   buildSkillset,
-  createOperationalPathContext,
   ISOLATED_OUT_ROOT,
-  resolveOperationalPath,
 } from "@skillset/core";
 
 import { compareStrings } from "./path";
+import {
+  makeRetainedRunId,
+  readRetainedRunLatest,
+  resolveRetainedRunPath,
+  retainedRunRootPaths,
+  retainedRunPaths,
+  writeRetainedRunLatest,
+  type RetainedRunPaths,
+} from "./retained-runs";
 import { loadBuildGraph } from "./resolver";
 import { renderValidatedJson } from "./structured-output";
 import type { BuildGraph, JsonRecord, SkillsetOptions, TargetName } from "./types";
@@ -81,6 +87,7 @@ export interface RuntimeTesterTailLine {
 }
 
 interface RuntimeTesterRunPaths {
+  readonly retained: RetainedRunPaths;
   readonly absolute: {
     readonly finalMessagePath: string;
     readonly latestJsonPath: string;
@@ -130,7 +137,7 @@ export async function startRuntimeTesterRun(
     throw new Error(`skillset: runtime tester target ${options.target} is not enabled by root target configuration`);
   }
   const name = options.name ?? `runtime-${options.target}`;
-  const runId = makeRunId(name);
+  const runId = makeRetainedRunId(name, { fallbackName: "runtime", includeName: true });
   const paths = runtimeTesterPaths(root, graph, runId, options.xdg);
   await mkdir(paths.absolute.runPath, { recursive: true });
 
@@ -263,8 +270,7 @@ export async function listRuntimeTesterRuns(
 ): Promise<readonly RuntimeTesterListEntry[]> {
   const root = resolve(rootPath);
   const graph = await loadBuildGraph(root, options);
-  const context = runtimePathContext(root, graph, options.xdg);
-  const runsRoot = resolveOperationalPath(context, join(RUNTIME_TESTER_ROOT, "runs"));
+  const runsRoot = retainedRunRootPaths(root, graph, RUNTIME_TESTER_ROOT, options.xdg).absolute.runsRoot;
   if (!await pathExists(runsRoot)) return [];
   const entries = await readdir(runsRoot, { withFileTypes: true });
   const runs: RuntimeTesterListEntry[] = [];
@@ -315,7 +321,7 @@ function runtimeCommand(
   env: Record<string, string | undefined>,
   xdg: SkillsetOptions["xdg"]
 ): { readonly cmd: readonly string[]; readonly cwd: string; readonly display: readonly string[] } {
-  const latestRoot = resolveOperationalPath(runtimePathContext(rootPath, graph, xdg), ISOLATED_OUT_ROOT);
+  const latestRoot = resolveRetainedRunPath(rootPath, graph, ISOLATED_OUT_ROOT, xdg);
   if (config.target === "claude") {
     const bin = env.SKILLSET_RUNTIME_TESTER_CLAUDE_BIN ?? "claude";
     const pluginArgs = claudePluginDirs(graph, latestRoot, config.plugins).flatMap((pluginDir) => ["--plugin-dir", pluginDir]);
@@ -473,38 +479,29 @@ function runtimeTesterPaths(
   runId: string,
   xdg: SkillsetOptions["xdg"] = undefined
 ): RuntimeTesterRunPaths {
-  const context = runtimePathContext(rootPath, graph, xdg);
-  const logicalRunPath = join(RUNTIME_TESTER_ROOT, "runs", runId).replaceAll("\\", "/");
-  const absoluteRunPath = resolveOperationalPath(context, logicalRunPath);
+  const retained = retainedRunPaths(rootPath, graph, RUNTIME_TESTER_ROOT, runId, xdg);
   return {
+    retained,
     absolute: {
-      finalMessagePath: join(absoluteRunPath, "final-message.txt"),
-      latestJsonPath: resolveOperationalPath(context, join(RUNTIME_TESTER_ROOT, "latest.json")),
-      outputPath: join(absoluteRunPath, "output.jsonl"),
-      promptPath: join(absoluteRunPath, "prompt.md"),
-      reportPath: join(absoluteRunPath, "report.json"),
-      runPath: absoluteRunPath,
-      runsRoot: resolveOperationalPath(context, join(RUNTIME_TESTER_ROOT, "runs")),
-      statusPath: join(absoluteRunPath, "status.json"),
+      finalMessagePath: join(retained.absolute.runPath, "final-message.txt"),
+      latestJsonPath: retained.absolute.latestJsonPath,
+      outputPath: join(retained.absolute.runPath, "output.jsonl"),
+      promptPath: join(retained.absolute.runPath, "prompt.md"),
+      reportPath: join(retained.absolute.runPath, "report.json"),
+      runPath: retained.absolute.runPath,
+      runsRoot: retained.absolute.runsRoot,
+      statusPath: join(retained.absolute.runPath, "status.json"),
     },
     logical: {
-      finalMessagePath: join(logicalRunPath, "final-message.txt").replaceAll("\\", "/"),
-      latestJsonPath: join(RUNTIME_TESTER_ROOT, "latest.json").replaceAll("\\", "/"),
-      outputPath: join(logicalRunPath, "output.jsonl").replaceAll("\\", "/"),
-      promptPath: join(logicalRunPath, "prompt.md").replaceAll("\\", "/"),
-      reportPath: join(logicalRunPath, "report.json").replaceAll("\\", "/"),
-      runPath: logicalRunPath,
-      statusPath: join(logicalRunPath, "status.json").replaceAll("\\", "/"),
+      finalMessagePath: join(retained.logical.runPath, "final-message.txt").replaceAll("\\", "/"),
+      latestJsonPath: retained.logical.latestJsonPath,
+      outputPath: join(retained.logical.runPath, "output.jsonl").replaceAll("\\", "/"),
+      promptPath: join(retained.logical.runPath, "prompt.md").replaceAll("\\", "/"),
+      reportPath: join(retained.logical.runPath, "report.json").replaceAll("\\", "/"),
+      runPath: retained.logical.runPath,
+      statusPath: join(retained.logical.runPath, "status.json").replaceAll("\\", "/"),
     },
   };
-}
-
-function runtimePathContext(rootPath: string, graph: BuildGraph, xdg: SkillsetOptions["xdg"] = undefined) {
-  return createOperationalPathContext(rootPath, {
-    ...(graph.root.workspace.cacheKey === undefined ? {} : { workspaceCacheKey: graph.root.workspace.cacheKey }),
-    ...(xdg?.env === undefined ? {} : { env: xdg.env }),
-    ...(xdg?.homeDir === undefined ? {} : { homeDir: xdg.homeDir }),
-  });
 }
 
 async function updateRunState(
@@ -554,12 +551,12 @@ async function writeStatus(paths: RuntimeTesterRunPaths, status: RuntimeTesterSt
 
 async function writeLatest(paths: RuntimeTesterRunPaths, runId: string): Promise<void> {
   await mkdir(paths.absolute.runsRoot, { recursive: true });
-  await writeFile(paths.absolute.latestJsonPath, renderValidatedJson({
+  await writeRetainedRunLatest(paths.retained, {
     runId,
     runPath: paths.logical.runPath,
     schemaVersion: 1,
     statusPath: paths.logical.statusPath,
-  }, paths.logical.latestJsonPath), "utf8");
+  });
 }
 
 async function appendEvent(paths: RuntimeTesterRunPaths, stream: string, message: string): Promise<void> {
@@ -576,9 +573,7 @@ async function readLatestRunId(
   graph: BuildGraph,
   xdg: SkillsetOptions["xdg"] = undefined
 ): Promise<string> {
-  const context = runtimePathContext(rootPath, graph, xdg);
-  const latestPath = resolveOperationalPath(context, join(RUNTIME_TESTER_ROOT, "latest.json"));
-  const latest = JSON.parse(await readFile(latestPath, "utf8")) as unknown;
+  const latest = await readRetainedRunLatest(rootPath, graph, RUNTIME_TESTER_ROOT, xdg);
   if (!isRecord(latest) || typeof latest.runId !== "string") {
     throw new Error("skillset: runtime tester latest run is malformed");
   }
@@ -656,13 +651,6 @@ function runReport(
     statusPath: paths.logical.statusPath,
     tailPath: paths.logical.outputPath,
   };
-}
-
-function makeRunId(name: string): string {
-  const safeName = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "runtime";
-  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
-  const digest = createHash("sha256").update(`${safeName}:${stamp}:${randomBytes(8).toString("hex")}`).digest("hex").slice(0, 8);
-  return `${stamp}-${safeName}-${digest}`;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
