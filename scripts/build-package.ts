@@ -5,7 +5,7 @@ const outdir = "apps/skillset/dist";
 await rm(outdir, { force: true, recursive: true });
 
 const result = await Bun.build({
-  entrypoints: ["apps/skillset/src/cli.ts", "apps/skillset/src/create.ts"],
+  entrypoints: ["apps/skillset/src/cli.ts", "apps/skillset/src/create.ts", "apps/skillset/src/toolkit.ts"],
   naming: { entry: "[name].js" },
   outdir,
   target: "bun",

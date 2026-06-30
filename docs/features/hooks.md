@@ -86,7 +86,7 @@ Adaptive hook units can choose how much Skillset-normalized runtime context to p
 | --- | --- |
 | `inline` | Prefixes the generated command with requested `SKILLSET_*` environment assignments. |
 | `none` | Passes no Skillset-normalized context. Provider-native environment remains available. |
-| `toolkit` | Renders through Skillset's internal `skillset hooks context` helper, backed by the shared `@skillset/toolkit/runtime` context model. Generated hooks still use the CLI helper until the compiler integration slice switches wrappers to the package/shell boundary. |
+| `toolkit` | Renders through the `skillset-toolkit runtime context` helper shipped with the `skillset` package, backed by the shared `@skillset/toolkit/runtime` context model. |
 
 Inline v1 fields are deliberately small:
 
@@ -101,10 +101,10 @@ Omitting `context` is equivalent to `context.strategy: none`, so existing hooks 
 For `context.strategy: toolkit`, generated hooks call:
 
 ```sh
-skillset hooks context --event <event> --format env --context-fields <field,...>
+skillset-toolkit runtime context --event <event> --format env --fields <field,...>
 ```
 
-The helper prints shell `export` statements for the requested `SKILLSET_*` values and preserves provider-native environment access for the hook command. Hook scripts that run inside this repo can also import the typed package surface from `@skillset/toolkit/runtime`; generated hook output does not depend on that package until the compiler integration slice lands.
+The helper prints shell `export` statements for the requested `SKILLSET_*` values and preserves provider-native environment access for the hook command. JS and TS hook scripts can also import the typed package surface from `@skillset/toolkit/runtime`; shell and Python scripts can consume the same model through `skillset-toolkit runtime context --format json`.
 
 ### Attachments
 

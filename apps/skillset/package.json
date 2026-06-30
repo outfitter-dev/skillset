@@ -26,7 +26,8 @@
   ],
   "bin": {
     "create-skillset": "dist/create.js",
-    "skillset": "dist/cli.js"
+    "skillset": "dist/cli.js",
+    "skillset-toolkit": "dist/toolkit.js"
   },
   "dependencies": {
     "yaml": "^2.8.1"
