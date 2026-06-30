@@ -15,6 +15,8 @@ import type {
   DistributionConfig,
   JsonRecord,
   JsonValue,
+  MarketplaceCatalogConfig,
+  MarketplacePluginEntryConfig,
   OutputConfig,
   OutputSelection,
   ResolvedTarget,
@@ -29,8 +31,8 @@ export type FeatureSurface = "agents" | "instructions" | "plugins" | "skills";
 const DEFAULT_SURFACES = new Set<FeatureSurface>(["agents", "instructions", "plugins", "skills"]);
 const CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "changes", "claude", "codex", "defaults", "dependencies", "skillset", "supports"]);
 const PLUGIN_CONFIG_TOP_LEVEL_KEYS = new Set([...CONFIG_TOP_LEVEL_KEYS, "hooks"]);
-const ROOT_CONFIG_TOP_LEVEL_KEYS = new Set([...CONFIG_TOP_LEVEL_KEYS, "compile", "distributions", "workspace"]);
-const WORKSPACE_CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "changes", "claude", "codex", "compile", "defaults", "dependencies", "distributions", "workspace"]);
+const ROOT_CONFIG_TOP_LEVEL_KEYS = new Set([...CONFIG_TOP_LEVEL_KEYS, "compile", "distributions", "marketplaces", "workspace"]);
+const WORKSPACE_CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "changes", "claude", "codex", "compile", "defaults", "dependencies", "distributions", "marketplaces", "workspace"]);
 const ROOT_SOURCE_MANIFEST_TOP_LEVEL_KEYS = new Set(["dependencies", "skillset", "supports"]);
 const COMPILE_BUILD_MODES = new Set<CompileBuildMode>(SCHEMA_COMPILE_BUILD_MODES as readonly CompileBuildMode[]);
 const UNSUPPORTED_DESTINATION_POLICIES = new Set<UnsupportedDestinationPolicy>([
@@ -58,6 +60,7 @@ const SOURCE_ONLY_KEYS = new Set([
   "implicit_invocation",
   "hooks",
   "mcp",
+  "marketplaces",
   "model",
   "resources",
   "schema",
@@ -262,6 +265,35 @@ export function readDistributionConfig(
       }
     }
     result[name] = readDistributionObject(value, `${label}.distributions.${name}`);
+  }
+  return result;
+}
+
+export function readMarketplaceCatalogConfig(
+  record: JsonRecord,
+  label: string
+): Readonly<Record<string, MarketplaceCatalogConfig>> {
+  const raw = record.marketplaces;
+  if (raw === undefined) return {};
+  if (!isJsonRecord(raw)) {
+    throw new Error(`skillset: expected ${label}.marketplaces to be an object`);
+  }
+
+  const result: Record<string, MarketplaceCatalogConfig> = {};
+  for (const name of Object.keys(raw).sort()) {
+    if (!/^[a-z0-9][a-z0-9._-]*$/.test(name)) {
+      throw new Error(`skillset: expected ${label}.marketplaces key ${JSON.stringify(name)} to be a lowercase id`);
+    }
+    const value = raw[name];
+    if (!isJsonRecord(value)) {
+      throw new Error(`skillset: expected ${label}.marketplaces.${name} to be an object`);
+    }
+    for (const key of Object.keys(value)) {
+      if (key !== "description" && key !== "plugins" && key !== "targets" && key !== "title") {
+        throw new Error(`skillset: unsupported marketplace key ${key} in ${label}.marketplaces.${name}`);
+      }
+    }
+    result[name] = readMarketplaceCatalogObject(value, `${label}.marketplaces.${name}`);
   }
   return result;
 }
@@ -718,6 +750,89 @@ function readDistributionObject(record: JsonRecord, label: string): Distribution
     from,
     to,
   };
+}
+
+function readMarketplaceCatalogObject(record: JsonRecord, label: string): MarketplaceCatalogConfig {
+  const title = readOptionalString(record, "title", `${label}.title`);
+  const description = readOptionalString(record, "description", `${label}.description`);
+  const targets = readOptionalTargetNames(record.targets, `${label}.targets`) ?? targetNames();
+  const rawPlugins = record.plugins;
+  if (!Array.isArray(rawPlugins) || rawPlugins.length === 0) {
+    throw new Error(`skillset: expected ${label}.plugins to be a non-empty array`);
+  }
+
+  return {
+    ...(description === undefined ? {} : { description }),
+    plugins: rawPlugins.map((entry, index) => readMarketplacePluginEntry(entry, `${label}.plugins[${index}]`)),
+    targets,
+    ...(title === undefined ? {} : { title }),
+  };
+}
+
+function readMarketplacePluginEntry(raw: JsonValue | undefined, label: string): MarketplacePluginEntryConfig {
+  if (!isJsonRecord(raw)) {
+    throw new Error(`skillset: expected ${label} to be an object`);
+  }
+  for (const key of Object.keys(raw)) {
+    if (key !== "channel" && key !== "id" && key !== "plugin" && key !== "ref" && key !== "repo" && key !== "targets" && key !== "version") {
+      throw new Error(`skillset: unsupported marketplace plugin key ${key} in ${label}`);
+    }
+  }
+
+  const plugin = readRequiredString(raw, "plugin", `${label}.plugin`);
+  const id = readOptionalString(raw, "id", `${label}.id`) ?? plugin;
+  validateMarketplaceId(id, `${label}.id`);
+  validateMarketplaceId(plugin, `${label}.plugin`);
+  const repo = readOptionalString(raw, "repo", `${label}.repo`);
+  if (repo !== undefined) validateMarketplaceRepo(repo, `${label}.repo`);
+  const targets = readOptionalTargetNames(raw.targets, `${label}.targets`);
+  const channel = readOptionalString(raw, "channel", `${label}.channel`);
+  const ref = readOptionalString(raw, "ref", `${label}.ref`);
+  const version = readOptionalString(raw, "version", `${label}.version`);
+  return {
+    ...(channel === undefined ? {} : { channel }),
+    id,
+    plugin,
+    ...(ref === undefined ? {} : { ref }),
+    ...(repo === undefined ? {} : { repo }),
+    ...(targets === undefined ? {} : { targets }),
+    ...(version === undefined ? {} : { version }),
+  };
+}
+
+function readOptionalTargetNames(raw: JsonValue | undefined, label: string): readonly TargetName[] | undefined {
+  if (raw === undefined) return undefined;
+  if (!Array.isArray(raw) || raw.length === 0) {
+    throw new Error(`skillset: expected ${label} to be a non-empty target array`);
+  }
+  const seen = new Set<TargetName>();
+  for (const target of raw) {
+    if (target !== "claude" && target !== "codex") {
+      throw new Error(`skillset: unsupported target ${JSON.stringify(target)} in ${label}; expected claude or codex`);
+    }
+    if (seen.has(target)) {
+      throw new Error(`skillset: duplicate target ${JSON.stringify(target)} in ${label}`);
+    }
+    seen.add(target);
+  }
+  return [...seen];
+}
+
+function validateMarketplaceId(value: string, label: string): void {
+  if (/^[a-z0-9][a-z0-9-]*$/.test(value)) return;
+  throw new Error(`skillset: expected ${label} to be a lowercase plugin id`);
+}
+
+function validateMarketplaceRepo(value: string, label: string): void {
+  if (
+    value.startsWith(".") ||
+    value.startsWith("/") ||
+    value.startsWith("~") ||
+    value.startsWith("file:") ||
+    /^[A-Za-z]:[\\/]/.test(value)
+  ) {
+    throw new Error(`skillset: expected ${label} to be a remote repo reference, not a filesystem path`);
+  }
 }
 
 function readDistributionFrom(raw: JsonValue | undefined, label: string): DistributionConfig["from"] {

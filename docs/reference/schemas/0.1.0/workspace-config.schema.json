@@ -121,6 +121,93 @@
     "distributions": {
       "type": "object"
     },
+    "marketplaces": {
+      "additionalProperties": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "plugins": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "channel": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "id": {
+                  "pattern": "^[a-z0-9][a-z0-9-]*$",
+                  "type": "string"
+                },
+                "plugin": {
+                  "pattern": "^[a-z0-9][a-z0-9-]*$",
+                  "type": "string"
+                },
+                "ref": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "repo": {
+                  "minLength": 1,
+                  "not": {
+                    "pattern": "^(?:\\.|/|~|file:|[A-Za-z]:[\\\\/])"
+                  },
+                  "type": "string"
+                },
+                "targets": {
+                  "items": {
+                    "enum": [
+                      "claude",
+                      "codex"
+                    ],
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "type": "array",
+                  "uniqueItems": true
+                },
+                "version": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "plugin"
+              ],
+              "type": "object"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "targets": {
+            "items": {
+              "enum": [
+                "claude",
+                "codex"
+              ],
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "title": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "plugins"
+        ],
+        "type": "object"
+      },
+      "propertyNames": {
+        "pattern": "^[a-z0-9][a-z0-9._-]*$"
+      },
+      "type": "object"
+    },
     "skillset": {
       "additionalProperties": false,
       "properties": {

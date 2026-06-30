@@ -71,6 +71,29 @@ export const skillsetSchemaExamples = [
           path: "dist/plugins",
         },
       },
+      marketplaces: {
+        outfitter: {
+          description: "Curated Outfitter provider plugins.",
+          plugins: [
+            {
+              plugin: "outfitter-core",
+            },
+            {
+              channel: "latest",
+              plugin: "trails-review",
+              repo: "github:outfitter-dev/trails",
+            },
+            {
+              plugin: "skillset",
+              ref: "main",
+              repo: "github:outfitter-dev/skillset",
+              targets: ["claude"],
+            },
+          ],
+          targets: ["claude", "codex"],
+          title: "Outfitter",
+        },
+      },
       skillset: {
         author: {
           email: "team@example.com",

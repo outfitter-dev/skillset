@@ -119,6 +119,7 @@ describe("@skillset/schema contracts", () => {
       "defaults",
       "dependencies",
       "distributions",
+      "marketplaces",
       "skillset",
       "supports",
       "workspace",
@@ -167,6 +168,11 @@ describe("@skillset/schema contracts", () => {
     ]);
 
     const supports = workspaceProperties.supports as { anyOf: Array<Record<string, unknown>> };
+    const marketplaces = workspaceProperties.marketplaces as Record<string, unknown>;
+    expect(marketplaces).toMatchObject({
+      propertyNames: { pattern: "^[a-z0-9][a-z0-9._-]*$" },
+      type: "object",
+    });
     const objectSupports = supports.anyOf.find((variant) => variant.type === "object");
     expect(objectSupports).toMatchObject({
       additionalProperties: false,

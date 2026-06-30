@@ -19,6 +19,7 @@ export const WORKSPACE_CONFIG_KEYS = [
   "defaults",
   "dependencies",
   "distributions",
+  "marketplaces",
   "skillset",
   "supports",
   "workspace",
@@ -116,6 +117,7 @@ export const workspaceConfigContract = contract("workspace-config", "Workspace C
     defaults: { type: "object" },
     dependencies: dependenciesSchema(),
     distributions: { type: "object" },
+    marketplaces: marketplaceCatalogsSchema(),
     skillset: sourceMetadataSchema(),
     supports: supportsSchema(),
     workspace: strictObjectSchema({
@@ -357,6 +359,43 @@ function sourceOriginSchema(): SchemaJsonRecord {
       repo: ["ref"],
     },
     required: ["path"],
+  };
+}
+
+function marketplaceCatalogsSchema(): SchemaJsonRecord {
+  return {
+    additionalProperties: {
+      ...strictObjectSchema({
+        description: nonEmptyStringSchema(),
+        plugins: arraySchema(marketplacePluginEntrySchema(), { minItems: 1 }),
+        targets: arraySchema(enumSchema(TARGET_NAMES), { minItems: 1, uniqueItems: true }),
+        title: nonEmptyStringSchema(),
+      }),
+      required: ["plugins"],
+    },
+    propertyNames: { pattern: "^[a-z0-9][a-z0-9._-]*$" },
+    type: "object",
+  };
+}
+
+function marketplacePluginEntrySchema(): SchemaJsonRecord {
+  return {
+    ...strictObjectSchema({
+      channel: nonEmptyStringSchema(),
+      id: { pattern: "^[a-z0-9][a-z0-9-]*$", type: "string" },
+      plugin: { pattern: "^[a-z0-9][a-z0-9-]*$", type: "string" },
+      ref: nonEmptyStringSchema(),
+      repo: {
+        minLength: 1,
+        not: {
+          pattern: "^(?:\\.|/|~|file:|[A-Za-z]:[\\\\/])",
+        },
+        type: "string",
+      },
+      targets: arraySchema(enumSchema(TARGET_NAMES), { minItems: 1, uniqueItems: true }),
+      version: nonEmptyStringSchema(),
+    }),
+    required: ["plugin"],
   };
 }
 

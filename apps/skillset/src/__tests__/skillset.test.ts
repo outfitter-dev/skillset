@@ -113,6 +113,65 @@ Demo custom ordinary workspace skill.
   );
 });
 
+test("SET-133: workspace config loads marketplace catalog source", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: marketplace-root
+compile:
+  targets: [claude, codex]
+marketplaces:
+  outfitter:
+    title: Outfitter
+    description: Curated Outfitter plugins.
+    targets: [claude, codex]
+    plugins:
+      - plugin: local-tools
+      - id: trails
+        plugin: trails-review
+        repo: github:outfitter-dev/trails
+        channel: latest
+      - plugin: skillset
+        repo: https://github.com/outfitter-dev/skillset.git
+        ref: main
+        targets: [claude]
+`,
+    ".skillset/plugins/local-tools/skillset.yaml": `
+skillset:
+  name: local-tools
+`,
+  });
+
+  const graph = await loadBuildGraph(root);
+
+  expect(graph.root.marketplaces.outfitter).toEqual({
+    description: "Curated Outfitter plugins.",
+    plugins: [
+      { id: "local-tools", plugin: "local-tools" },
+      { channel: "latest", id: "trails", plugin: "trails-review", repo: "github:outfitter-dev/trails" },
+      { id: "skillset", plugin: "skillset", ref: "main", repo: "https://github.com/outfitter-dev/skillset.git", targets: ["claude"] },
+    ],
+    targets: ["claude", "codex"],
+    title: "Outfitter",
+  });
+});
+
+test("SET-133: marketplace catalog source rejects filesystem repo references", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: marketplace-root
+marketplaces:
+  outfitter:
+    plugins:
+      - plugin: trails-review
+        repo: ../trails
+`,
+  });
+
+  await expect(loadBuildGraph(root)).rejects.toThrow("marketplace plugin repo must be a remote repo reference");
+});
+
 test("workspace ignores unrelated top-level directories", async () => {
   const root = await fixture({
     "skillset.yaml": `

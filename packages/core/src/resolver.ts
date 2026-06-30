@@ -18,6 +18,7 @@ import {
   readCompileConfig,
   readCompileTargets,
   readDistributionConfig,
+  readMarketplaceCatalogConfig,
   readOutputConfig,
   readSkillsetMetadata,
   readSkillsetName,
@@ -125,6 +126,7 @@ export async function loadBuildGraph(
     options.distDir === undefined ? {} : { distDir: options.distDir }
   );
   const distributions = readDistributionConfig(rootConfig, workspace.configPath);
+  const marketplaces = readMarketplaceCatalogConfig(rootConfig, workspace.configPath);
   const workspaceConfig = readSkillsetWorkspaceConfig(rootConfig, workspace.configPath);
   const rootTargets = resolveTargets(readCompileTargets(rootConfig, workspace.configPath), rootConfig, workspace.configPath, {
     allowDefaults: true,
@@ -140,6 +142,7 @@ export async function loadBuildGraph(
   const root = {
     compile,
     distributions,
+    marketplaces,
     metadata,
     outputs,
     targets: filteredTargets,

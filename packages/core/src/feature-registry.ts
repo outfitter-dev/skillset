@@ -206,6 +206,34 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/config.ts",
   }),
   feature({
+    docs: ["docs/features/marketplaces.md"],
+    evidence: [
+      docs("https://linear.app/outfitter/issue/SET-133/design-skillset-marketplace-catalogs-and-external-plugin-references"),
+      test("apps/skillset/src/__tests__/skillset.test.ts", "SET-133 marketplace catalog parser coverage"),
+      test("packages/schema/src/__tests__/schema.test.ts", "workspace config marketplace contract coverage"),
+    ],
+    id: "marketplaces",
+    kind: "workflow",
+    renderOwner: "future",
+    sourceShape: "workspace skillset.yaml marketplaces",
+    status: "planned",
+    summary: "Declares curated provider marketplace catalogs that can reference local or external Skillset plugins without provider output paths.",
+    targetSupport: {
+      claude: {
+        evidence: [docs("docs/features/marketplaces.md"), providerSchemaSnapshot("claude-marketplace-schema")],
+        provider: { schemaSnapshots: ["claude-marketplace-schema"] },
+        status: "planned",
+      },
+      codex: {
+        evidence: [docs("docs/features/marketplaces.md"), providerSnapshot("codex-plugin")],
+        provider: { destinationFormat: "codex-plugin" },
+        status: "planned",
+      },
+    },
+    title: "Marketplaces",
+    validationOwner: "packages/core/src/config.ts",
+  }),
+  feature({
     docs: ["docs/features/feature-registry.md"],
     evidence: [
       docs("docs/adrs/drafts/20260604-feature-reference-and-schema-registry.md"),
