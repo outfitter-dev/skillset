@@ -26,6 +26,7 @@ import {
   renderCodexDependencyNotice,
 } from "./dependencies";
 import { validateHookDefinition } from "./hooks";
+import { resolveLicense, type ResolvedLicense } from "./licenses";
 import { compareStrings, validateSlug } from "./path";
 import { rewriteResourceLinks } from "./resources";
 import {
@@ -155,7 +156,7 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
   const rendered: RenderedFile[] = [];
   const lockRoots = new Map<string, LockRoot>();
   rendered.push(...renderRepositoryReadmes(graph));
-  rendered.push(...renderClaudeMarketplace(graph));
+  rendered.push(...(await renderClaudeMarketplace(graph)));
 
   for (const plugin of graph.plugins) {
     rendered.push(...(await renderPluginTarget(graph, plugin, "claude", lockRoots)));
@@ -253,12 +254,14 @@ function renderRepositoryReadmes(graph: BuildGraph): readonly RenderedFile[] {
   return rendered;
 }
 
-function renderClaudeMarketplace(graph: BuildGraph): readonly RenderedFile[] {
-  const plugins = graph.plugins
-    .filter((plugin) => shouldRenderPlugin(graph, plugin, "claude"))
-    .map((plugin) => {
-      const metadata = plugin.metadata;
-      return mergeRecords(
+async function renderClaudeMarketplace(graph: BuildGraph): Promise<readonly RenderedFile[]> {
+  const rootLicense = await resolveRootLicense(graph);
+  const plugins = [];
+  for (const plugin of graph.plugins.filter((candidate) => shouldRenderPlugin(graph, candidate, "claude"))) {
+    const metadata = plugin.metadata;
+    const pluginLicense = await resolvePluginLicense(graph, plugin, rootLicense);
+    plugins.push(
+      mergeRecords(
         {
           name: plugin.id,
           source: `./plugins/${plugin.id}`,
@@ -266,14 +269,15 @@ function renderClaudeMarketplace(graph: BuildGraph): readonly RenderedFile[] {
           version: pluginVersion(graph, plugin),
           author: metadata.author,
           repository: metadata.repository,
-          license: metadata.license,
+          license: pluginLicense?.manifestValue,
           keywords: metadata.keywords,
           category: metadata.category,
           strict: metadata.strict,
         },
         readRecord(plugin.targets.claude.options, "marketplace") ?? {}
-      );
-    });
+      )
+    );
+  }
 
   if (plugins.length === 0) return [];
 
@@ -325,21 +329,29 @@ async function renderPluginTarget(
       `skillset: plugin ${plugin.id} declares dependencies but has no enabled Codex skills to carry the dependency notice`
     );
   }
+  const rootLicense = await resolveRootLicense(graph);
+  const pluginLicense = await resolvePluginLicense(graph, plugin, rootLicense);
   const manifestFile = textFile(
     target === "claude"
       ? `${basePath}/.claude-plugin/plugin.json`
       : `${basePath}/.codex-plugin/plugin.json`,
     renderValidatedJson(
-      renderPluginManifest(graph, plugin, target, enabledSkills),
+      renderPluginManifest(graph, plugin, target, enabledSkills, pluginLicense),
       `${plugin.id} ${target} plugin manifest`
     ),
     relative(graph.rootPath, plugin.configPath)
   );
 
   rendered.push(manifestFile);
+  const pluginRootFiles = [manifestFile];
+  if (pluginLicense !== undefined) {
+    const licenseFile = licenseFileFor(join(basePath, "LICENSE.txt"), pluginLicense);
+    rendered.push(licenseFile);
+    pluginRootFiles.push(licenseFile);
+  }
   lockRootsFor(lockRoots, outputRoot, target).items.push(
     lockItemForPlugin({
-      file: manifestFile,
+      files: pluginRootFiles,
       graph,
       outputRoot,
       plugin,
@@ -348,7 +360,7 @@ async function renderPluginTarget(
   );
 
   for (const skill of enabledSkills) {
-    rendered.push(...(await renderPluginSkillFiles(graph, plugin, skill, target, basePath, outputRoot, lockRoots)));
+    rendered.push(...(await renderPluginSkillFiles(graph, plugin, skill, target, basePath, outputRoot, lockRoots, pluginLicense)));
   }
 
   rendered.push(...(await renderPluginFeatureFiles(graph, plugin, target, basePath, outputRoot, lockRoots)));
@@ -378,7 +390,8 @@ function renderPluginManifest(
   graph: BuildGraph,
   plugin: SourcePlugin,
   target: TargetName,
-  enabledSkills: readonly SourceSkill[]
+  enabledSkills: readonly SourceSkill[],
+  license: ResolvedLicense | undefined
 ): JsonRecord {
   const metadata = plugin.metadata;
   const targetOptions = plugin.targets[target].options;
@@ -390,7 +403,7 @@ function renderPluginManifest(
     author: metadata.author,
     homepage: metadata.homepage,
     repository: metadata.repository,
-    license: metadata.license,
+    license: license?.manifestValue,
     keywords: metadata.keywords,
   };
   const dependencies = target === "claude" ? renderClaudePluginDependencies(graph, plugin) : undefined;
@@ -524,7 +537,8 @@ async function renderPluginSkillFiles(
   target: TargetName,
   basePath: string,
   outputRoot: string,
-  lockRoots: Map<string, LockRoot>
+  lockRoots: Map<string, LockRoot>,
+  inheritedLicense: ResolvedLicense | undefined
 ): Promise<readonly RenderedFile[]> {
   const sourceDir = dirname(skill.sourcePath);
   const relativeSkillDir = dirname(skill.relativePath);
@@ -581,11 +595,29 @@ async function renderPluginSkillFiles(
       `${skill.sourcePath}.tools`
     );
   }
+  const skillLicense = await resolveLicense({
+    graph,
+    label: relative(graph.rootPath, skill.sourcePath),
+    metadata: skill.metadata,
+    ...(inheritedLicense === undefined ? {} : { parent: inheritedLicense }),
+    scopePath: sourceDir,
+    sourcePath: skill.sourcePath,
+  });
+  if (skillLicense !== undefined) {
+    pushSkillRenderedFile(
+      rendered,
+      licenseFileFor(join(targetSkillDir, "LICENSE.txt"), skillLicense),
+      targetSkillDir,
+      renderedRelativeFiles,
+      `${skill.sourcePath}.LICENSE.txt`
+    );
+  }
 
   for (const file of await collectFiles(sourceDir)) {
     const relativeFile = relative(sourceDir, file);
     if (relativeFile === "SKILL.md") continue;
     if (relativeFile === "CHANGELOG.md") continue;
+    if (relativeFile === "LICENSE.txt") continue;
     if (generatedCodexRelativeFiles.has(relativeFile)) continue;
     pushSkillRenderedFile(
       rendered,
@@ -979,11 +1011,30 @@ async function renderStandaloneSkill(
       `${skill.sourcePath}.tools`
     );
   }
+  const rootLicense = await resolveRootLicense(graph);
+  const skillLicense = await resolveLicense({
+    graph,
+    label: relative(graph.rootPath, skill.sourcePath),
+    metadata: skill.metadata,
+    ...(rootLicense === undefined ? {} : { parent: rootLicense }),
+    scopePath: sourceDir,
+    sourcePath: skill.sourcePath,
+  });
+  if (skillLicense !== undefined) {
+    pushSkillRenderedFile(
+      rendered,
+      licenseFileFor(join(targetSkillDir, "LICENSE.txt"), skillLicense),
+      targetSkillDir,
+      renderedRelativeFiles,
+      `${skill.sourcePath}.LICENSE.txt`
+    );
+  }
 
   for (const file of await collectFiles(sourceDir)) {
     const relativeFile = relative(sourceDir, file);
     if (relativeFile === "SKILL.md") continue;
     if (relativeFile === "CHANGELOG.md") continue;
+    if (relativeFile === "LICENSE.txt") continue;
     if (generatedCodexRelativeFiles.has(relativeFile)) continue;
     pushSkillRenderedFile(
       rendered,
@@ -2224,7 +2275,7 @@ function lockItemForChangelog(projection: ChangelogProjection): LockItem {
 }
 
 function lockItemForPlugin(args: {
-  readonly file: RenderedFile;
+  readonly files: readonly RenderedFile[];
   readonly graph: BuildGraph;
   readonly outputRoot: string;
   readonly plugin: SourcePlugin;
@@ -2240,15 +2291,18 @@ function lockItemForPlugin(args: {
     .sort();
   const dependencies = pluginDependencySummaries(args.graph, args.plugin);
   const dependencyHashSummaries = pluginDependencyHashSummaries(args.graph, args.plugin, args.target);
+  const files = args.files
+    .map((file) => relative(args.outputRoot, file.path))
+    .sort();
 
   return {
     ...(dependencies.length === 0 ? {} : { dependencies }),
-    files: [relative(args.outputRoot, args.file.path)],
+    files,
     includedSkills,
     kind: "plugin",
     name: args.plugin.id,
-    outputHash: hashRenderedFiles(args.outputRoot, [args.file]),
-    outputPath: relative(args.outputRoot, args.file.path),
+    outputHash: hashRenderedFiles(args.outputRoot, args.files),
+    outputPath: files.find((file) => file.endsWith("/plugin.json")) ?? files[0] ?? "",
     skippedSkills,
     sourceHash: hashPluginSource(args.plugin, args.target, includedSkills, skippedSkills, dependencyHashSummaries),
     ...(args.plugin.sourceOrigin === undefined ? {} : { sourceOrigin: args.plugin.sourceOrigin }),
@@ -2256,6 +2310,35 @@ function lockItemForPlugin(args: {
     targetState: skippedSkills.length === 0 ? "sync" : "intentionally-skipped",
     version: pluginVersion(args.graph, args.plugin),
   };
+}
+
+function licenseFileFor(path: string, license: ResolvedLicense): RenderedFile {
+  return textFile(path, license.content, license.sourcePath);
+}
+
+function resolveRootLicense(graph: BuildGraph): Promise<ResolvedLicense | undefined> {
+  return resolveLicense({
+    graph,
+    label: relative(graph.rootPath, graph.rootManifestPath),
+    metadata: graph.root.metadata,
+    scopePath: graph.sourceRootPath,
+    sourcePath: graph.rootManifestPath,
+  });
+}
+
+function resolvePluginLicense(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  rootLicense: ResolvedLicense | undefined
+): Promise<ResolvedLicense | undefined> {
+  return resolveLicense({
+    graph,
+    label: relative(graph.rootPath, plugin.configPath),
+    metadata: plugin.metadata,
+    ...(rootLicense === undefined ? {} : { parent: rootLicense }),
+    scopePath: plugin.path,
+    sourcePath: plugin.configPath,
+  });
 }
 
 async function lockItemForPluginFeature(args: {

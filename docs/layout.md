@@ -211,6 +211,35 @@ When an explicit identity is needed:
 
 Obsolete identity keys fail the build rather than resolving silently: `skillset.id` is unsupported, and skill-local `skillset.name` / `skillset.id` are not used. There is no separate top-level `name` for plugins; introducing one would give a single meaning two homes.
 
+## License Inheritance
+
+Root, plugin, and skill source scopes can declare licensing under the shared
+`skillset.license` metadata field. Supported built-in identifiers are
+`Apache-2.0`, `BSD-2-Clause`, `BSD-3-Clause`, `ISC`, `MIT`, and `MPL-2.0`.
+Use `license: none` to opt a scope and its descendants out of generated license
+output unless a child scope declares a different license.
+
+License resolution is local-first and inherited by default:
+
+```yaml
+skillset:
+  license: MIT
+```
+
+A `LICENSE.txt` file beside a source scope is also valid source. For example,
+`.skillset/LICENSE.txt` applies at the workspace source root,
+`.skillset/plugins/<plugin>/LICENSE.txt` applies to a plugin and its skills, and
+`.skillset/skills/<skill>/LICENSE.txt` applies to that skill. Literal
+`LICENSE.txt` content wins only when the same scope does not declare
+`skillset.license`; `license: none` plus a same-scope `LICENSE.txt` fails the
+build so an opt-out cannot hide a local license file.
+
+Generated plugin bundles receive a managed `LICENSE.txt` at the plugin root.
+Generated plugin skills and standalone skills receive a managed `LICENSE.txt`
+beside `SKILL.md` when their resolved scope has a license. These files are
+included in `skillset.lock`, so `skillset verify` reports stale or missing
+generated license output like any other managed file.
+
 ## Shared Resources
 
 Skill-local supporting files already work when they sit beside `SKILL.md`, for example `references/`, `scripts/`, `assets/`, and `templates/`. Use shared resources when several skills need the same file but generated Claude and Codex output still needs skill-root-relative paths:

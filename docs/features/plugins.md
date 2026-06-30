@@ -15,6 +15,7 @@ Plugin identity derives from the directory unless `skillset.name` is present and
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
 | `<source-root>/plugins/<plugin>/skillset.yaml` | `.claude-plugin/plugin.json` | `.codex-plugin/plugin.json` | `portable` / `implemented` | Manifest fields derive from source metadata and target-supported companion paths. |
+| Plugin `skillset.license` or `LICENSE.txt` | `LICENSE.txt` | `LICENSE.txt` | `portable` / `implemented` | Generated as managed plugin-bundle output and inherited by plugin skills unless overridden or opted out. |
 | Plugin `skills/` | `skills/` | `skills/` | `portable` / `implemented` | Skill inclusion is per target and recorded in locks. |
 | Claude companion paths | commands, agents, hooks, MCP, LSP, output styles, themes, monitors, assets, scripts, src, bin | n/a unless separately supported | `target_native` / `implemented` | Target truth wins over fake portability. |
 | Codex companion paths | n/a unless separately supported | hooks, MCP, app manifest, assets, scripts, src | `target_native` / `implemented` | Codex plugin `agents/` and plugin `.rules` are unsupported. |
@@ -28,7 +29,7 @@ Each generated-manifest field has exactly one writer; competing authorities are 
 | `name` | source (`skillset.name`, defaults to directory) | `manifest.name` is the explicit override. |
 | `version` | release state, with source `version` as fallback | `skillset verify` reports generated version drift; do not hand-edit generated manifests. |
 | `description` | source (`summary`, falling back to `description`) | |
-| `author`, `homepage`, `repository`, `license`, `keywords` | source metadata | Projected verbatim into generated manifests. |
+| `author`, `homepage`, `repository`, `license`, `keywords` | source metadata | Projected into generated manifests. `license` also drives managed `LICENSE.txt` generation from the supported SPDX catalog or a local source file. |
 | Component wiring (`commands`, `agents`, `skills`, `hooks`, `mcpServers`, …) | compiler | Derived from source layout and feature keys; never authored in generated output. |
 | `dependencies` (Claude) | compiler, from source `dependencies` | A `claude.manifest.dependencies` override fails the build rather than competing. |
 
