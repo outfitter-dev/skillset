@@ -10,6 +10,8 @@ Releases turn accepted source changes into stable artifact versions, generated c
 
 Release state lives with change state under the workspace change directory: `.skillset/changes/state.json`. Applied change history appends to `history.jsonl` under the same workspace change directory, and release records append to `releases.jsonl`. Entity-local `CHANGELOG.md` files are generated tracked renderings placed beside source entities like plugins and skills. Pending changes are preview/status data, not committed pending sections in tracked changelogs.
 
+The planned reason-only ledger cutover keeps generated changelogs as tracked projections but treats release/status state as rebuildable from an append-only event ledger instead of as an authoring surface. See [Reason-Only Change Ledger and Derived State](../adrs/drafts/20260630-reason-only-change-ledger-derived-state.md) for the future-state split; this page documents the current implemented compatibility surface.
+
 Generated changelogs are reviewable projections, not editing surfaces. Before release, wording changes should update the pending entry with `skillset change reason <@ref>` and then rebuild. After release, source-change reason corrections use `skillset change amend <ref>`, and release-event metadata or release-note corrections use `skillset release amend <ref>`. Both commands append correction records under the workspace change directory, leaving original history auditable while generated changelog projections can be rebuilt from source-side state.
 
 ## Target Rendering
@@ -36,4 +38,4 @@ Fixtures cover first release state creation, read-only plan and dry-run behavior
 
 ## Evidence
 
-See [Source Change, Release, and Dependency Provenance](../adrs/drafts/20260609-source-change-release-provenance.md), [Changelog and Version Bump Workflow](../adrs/drafts/20260604-changelog-and-versioning.md), and [Change and Release Edge Decisions](../adrs/drafts/20260609-change-release-edge-decisions.md).
+See [Source Change, Release, and Dependency Provenance](../adrs/drafts/20260609-source-change-release-provenance.md), [Changelog and Version Bump Workflow](../adrs/drafts/20260604-changelog-and-versioning.md), [Change and Release Edge Decisions](../adrs/drafts/20260609-change-release-edge-decisions.md), and [Reason-Only Change Ledger and Derived State](../adrs/drafts/20260630-reason-only-change-ledger-derived-state.md).

@@ -88,6 +88,11 @@
           "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - baseline source vocabulary doctrine.",
           "from": "20260625",
           "fromPath": "docs/adrs/drafts/20260625-source-manifest-listing-metadata.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) -",
+          "from": "20260630",
+          "fromPath": "docs/adrs/drafts/20260630-reason-only-change-ledger-derived-state.md"
         }
       ],
       "number": "0000",
