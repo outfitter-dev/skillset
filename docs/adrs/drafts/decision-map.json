@@ -254,7 +254,12 @@
           "fromPath": "docs/adrs/drafts/20260609-source-change-release-provenance.md"
         },
         {
-          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/drafts/20260609-source-change-release-provenance.md) and [Change and Release Edge Decisions](../adrs/drafts/20260609-change-release-edge",
+          "context": "- [Change and Release Edge Decisions](20260609-change-release-edge-decisions.md) -",
+          "from": "20260630",
+          "fromPath": "docs/adrs/drafts/20260630-reason-only-change-ledger-derived-state.md"
+        },
+        {
+          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/drafts/20260609-source-change-release-provenance.md), [Change and Release Edge Decisions](../adrs/drafts/20260609-change-release-edge-de",
           "from": "changes",
           "fromPath": "docs/features/changes.md"
         },
@@ -341,7 +346,17 @@
           "fromPath": "docs/adrs/drafts/20260612-core-library-boundary.md"
         },
         {
-          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/drafts/20260609-source-change-release-provenance.md) and [Change and Release Edge Decisions](../adrs/drafts/20260609-change-release-edge",
+          "context": "- [Source Change, Release, and Dependency Provenance](20260609-source-change-release-provenance.md) - committed change ledger model.",
+          "from": "20260627",
+          "fromPath": "docs/adrs/drafts/20260627-skillset-workspace-layout.md"
+        },
+        {
+          "context": "- [Source Change, Release, and Dependency Provenance](20260609-source-change-release-provenance.md) -",
+          "from": "20260630",
+          "fromPath": "docs/adrs/drafts/20260630-reason-only-change-ledger-derived-state.md"
+        },
+        {
+          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/drafts/20260609-source-change-release-provenance.md), [Change and Release Edge Decisions](../adrs/drafts/20260609-change-release-edge-de",
           "from": "changes",
           "fromPath": "docs/features/changes.md"
         },
@@ -527,6 +542,11 @@
           "context": "- [Unified Source Layout](20260618-unified-source-layout.md) - ordinary and dedicated repos share one source-root model.",
           "from": "20260622",
           "fromPath": "docs/adrs/drafts/20260622-source-test-selection-shape.md"
+        },
+        {
+          "context": "- [Unified Source Layout](20260618-unified-source-layout.md) - earlier",
+          "from": "20260627",
+          "fromPath": "docs/adrs/drafts/20260627-skillset-workspace-layout.md"
         }
       ],
       "number": null,
@@ -591,6 +611,71 @@
       "superseded_by": null,
       "title": "Source Manifest Listing Metadata",
       "updated": "2026-06-25"
+    },
+    {
+      "created": "2026-06-27",
+      "depends_on": ["skillset-workspace-layout"],
+      "inbound": [],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260627-named-partials.md",
+      "slug": "named-partials",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Named Partials",
+      "updated": "2026-06-27"
+    },
+    {
+      "created": "2026-06-27",
+      "depends_on": [
+        "0",
+        "1",
+        "unified-source-layout",
+        "source-change-release-provenance"
+      ],
+      "inbound": [
+        {
+          "context": "- [Skillset Workspace Layout](20260627-skillset-workspace-layout.md) - canonical workspace and plugin boundaries.",
+          "from": "20260627",
+          "fromPath": "docs/adrs/drafts/20260627-named-partials.md"
+        }
+      ],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260627-skillset-workspace-layout.md",
+      "slug": "skillset-workspace-layout",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Skillset Workspace Layout",
+      "updated": "2026-06-27"
+    },
+    {
+      "created": "2026-06-30",
+      "depends_on": [
+        "0",
+        "source-change-release-provenance",
+        "change-release-edge-decisions"
+      ],
+      "inbound": [
+        {
+          "context": "The planned cutover is a reason-only authoring model where humans write change reasons and Skillset derives ids, source hashes, coverage, and rebuildable state into a machine event ledger. See [Reason",
+          "from": "changes",
+          "fromPath": "docs/features/changes.md"
+        },
+        {
+          "context": "The planned reason-only ledger cutover keeps generated changelogs as tracked projections but treats release/status state as rebuildable from an append-only event ledger instead of as an authoring surf",
+          "from": "releases",
+          "fromPath": "docs/features/releases.md"
+        }
+      ],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260630-reason-only-change-ledger-derived-state.md",
+      "slug": "reason-only-change-ledger-derived-state",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Reason-Only Change Ledger and Derived State",
+      "updated": "2026-06-30"
     }
   ],
   "version": 1
