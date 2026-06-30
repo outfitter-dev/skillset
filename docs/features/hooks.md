@@ -63,6 +63,41 @@ Flat hook units such as `hooks/<name>.json` cannot use `./...` hook-local script
 
 Plugin-level adaptive hook rendering copies referenced scripts into the generated plugin root and rewrites commands to provider runtime roots: `$CLAUDE_PLUGIN_ROOT` for Claude plugin hooks and `$PLUGIN_ROOT` for Codex plugin hooks.
 
+### Runtime Context
+
+Adaptive hook units can choose how much Skillset-normalized runtime context to pass to their command:
+
+```json
+{
+  "events": ["Stop"],
+  "context": {
+    "strategy": "inline",
+    "env": ["provider", "hook.event", "session.id"]
+  },
+  "run": {
+    "command": "node ./session-summary.js"
+  }
+}
+```
+
+`context.strategy` supports:
+
+| Strategy | Behavior |
+| --- | --- |
+| `inline` | Prefixes the generated command with requested `SKILLSET_*` environment assignments. |
+| `none` | Passes no Skillset-normalized context. Provider-native environment remains available. |
+| `toolkit` | Reserved until Skillset has a proven internal/public runtime helper boundary. It produces an explicit unsupported render result today. |
+
+Inline v1 fields are deliberately small:
+
+| Field | Generated variable |
+| --- | --- |
+| `provider` | `SKILLSET_PROVIDER` (`claude` or `codex`) |
+| `hook.event` | `SKILLSET_HOOK_EVENT` |
+| `session.id` | `SKILLSET_SESSION_ID`, sourced from `${CLAUDE_SESSION_ID:-}` or `${CODEX_SESSION_ID:-}` |
+
+Omitting `context` is equivalent to `context.strategy: none`, so existing hooks keep their command text unchanged.
+
 ### Attachments
 
 Hook definitions are reusable. Source units attach named hooks through event-keyed frontmatter or config:

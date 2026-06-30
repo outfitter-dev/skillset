@@ -1747,7 +1747,7 @@ function adaptiveHookCommand(
 ): string {
   const run = readRecord(item.definition.frontmatter, "run") ?? {};
   const command = readString(run, "command");
-  if (command !== undefined) return command;
+  if (command !== undefined) return withAdaptiveHookContextCommand(command, item, target);
 
   const script = readString(run, "script");
   if (script === undefined) {
@@ -1770,7 +1770,7 @@ function adaptiveHookCommand(
     });
   }
   const pluginRoot = target === "claude" ? "$CLAUDE_PLUGIN_ROOT" : "$PLUGIN_ROOT";
-  return `${pluginRoot}/${relativeScriptPath}`;
+  return withAdaptiveHookContextCommand(`${pluginRoot}/${relativeScriptPath}`, item, target);
 }
 
 function hasAdaptivePluginHookOutput(
@@ -1864,7 +1864,49 @@ function adaptiveFrontmatterHookCommand(item: ResolvedAdaptiveHookAttachment): s
   if (command === undefined) {
     throw new Error(`skillset: adaptive hook ${item.definition.name} must define run.command for frontmatter hook rendering`);
   }
-  return command;
+  return withAdaptiveHookContextCommand(command, item, "claude");
+}
+
+function withAdaptiveHookContextCommand(
+  command: string,
+  item: ResolvedAdaptiveHookAttachment,
+  target: TargetName
+): string {
+  const context = readRecord(item.definition.frontmatter, "context");
+  if (context === undefined) return command;
+  const strategy = readString(context, "strategy") ?? "none";
+  if (strategy === "none") return command;
+  if (strategy !== "inline") {
+    throw new Error(`skillset: adaptive hook ${item.definition.name} context.strategy ${strategy} is not supported for rendering yet`);
+  }
+  const fields = readStringArray(context, "env") ?? [];
+  if (fields.length === 0) {
+    throw new Error(`skillset: adaptive hook ${item.definition.name} context.env must list fields for inline context rendering`);
+  }
+  const assignments = fields.map((field) => adaptiveHookContextAssignment(field, item, target));
+  return `${assignments.join(" ")} ${command}`;
+}
+
+function adaptiveHookContextAssignment(
+  field: string,
+  item: ResolvedAdaptiveHookAttachment,
+  target: TargetName
+): string {
+  switch (field) {
+    case "provider":
+      return `SKILLSET_PROVIDER=${target}`;
+    case "hook.event":
+      return `SKILLSET_HOOK_EVENT=${shellLiteral(item.event)}`;
+    case "session.id":
+      return `SKILLSET_SESSION_ID="${target === "claude" ? "${CLAUDE_SESSION_ID:-}" : "${CODEX_SESSION_ID:-}"}"`;
+    default:
+      throw new Error(`skillset: adaptive hook ${item.definition.name} context.env field ${field} is not supported`);
+  }
+}
+
+function shellLiteral(value: string): string {
+  if (/^[A-Za-z0-9_./:-]+$/.test(value)) return value;
+  return `'${value.replaceAll("'", "'\"'\"'")}'`;
 }
 
 function adaptiveHookAttachmentsForScope(

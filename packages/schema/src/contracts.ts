@@ -212,6 +212,11 @@ export const hookContract = contract("hook", "Hook Definition", "Skillset hook d
 export const adaptiveHookContract = contract("adaptive-hook", "Adaptive Hook Unit", "Skillset adaptive hook unit source contract for reusable portable hooks.", {
   ...strictObjectSchema({
     claude: { type: "object" },
+    context: strictObjectSchema({
+      env: arraySchema(enumSchema(["hook.event", "provider", "session.id"]), { minItems: 1, uniqueItems: true }),
+      includeRaw: { type: "boolean" },
+      strategy: enumSchema(["inline", "none", "toolkit"]),
+    }),
     codex: { type: "object" },
     description: nonEmptyStringSchema(),
     events: arraySchema(nonEmptyStringSchema(), { minItems: 1, uniqueItems: true }),

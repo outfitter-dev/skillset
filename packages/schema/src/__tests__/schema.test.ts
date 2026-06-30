@@ -214,6 +214,10 @@ describe("@skillset/schema contracts", () => {
       events: ["PreToolUse"],
       match: { tool: ["Bash"] },
       providers: ["claude", "codex"],
+      context: {
+        env: ["provider", "hook.event", "session.id"],
+        strategy: "inline",
+      },
       run: {
         args: ["--check"],
         env: { HOOK: "shell-policy" },
@@ -225,6 +229,10 @@ describe("@skillset/schema contracts", () => {
     expect(validateAdaptiveHookUnitSource({
       events: ["PreToolUse", "PreToolUse", ""],
       providers: ["claude", "bad", "claude"],
+      context: {
+        env: ["provider", "unknown", "provider"],
+        strategy: "later",
+      },
       run: {
         args: ["ok", 1],
         command: "",
@@ -237,6 +245,9 @@ describe("@skillset/schema contracts", () => {
       "schema/adaptive-hook/events-duplicate",
       "schema/adaptive-hook/providers",
       "schema/adaptive-hook/providers-duplicate",
+      "schema/adaptive-hook/context-strategy",
+      "schema/adaptive-hook/context-env",
+      "schema/adaptive-hook/context-env-duplicate",
       "schema/adaptive-hook/run-args",
       "schema/adaptive-hook/run-command",
       "schema/adaptive-hook/run-env",

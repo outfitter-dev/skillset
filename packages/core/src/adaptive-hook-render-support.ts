@@ -26,6 +26,12 @@ function adaptiveHookUnsupportedFieldReason(
     return `Adaptive hook ${item.definition.name} uses ${target} provider overrides, but ${surface} hook rendering does not support overrides yet.`;
   }
 
+  const context = readRecord(item.definition.frontmatter, "context");
+  const contextStrategy = context === undefined ? undefined : readContextStrategy(context);
+  if (contextStrategy === "toolkit") {
+    return `Adaptive hook ${item.definition.name} uses context.strategy toolkit, but ${surface} hook rendering does not support toolkit context delivery yet.`;
+  }
+
   const run = readRecord(item.definition.frontmatter, "run") ?? {};
   for (const key of ["args", "cwd", "env"] as const) {
     if (run[key] !== undefined) {
@@ -39,6 +45,11 @@ function adaptiveHookUnsupportedFieldReason(
   }
 
   return undefined;
+}
+
+function readContextStrategy(context: Record<string, unknown>): string | undefined {
+  const strategy = context.strategy;
+  return typeof strategy === "string" ? strategy : undefined;
 }
 
 function adaptiveHookUnsupportedCapabilityReason(
