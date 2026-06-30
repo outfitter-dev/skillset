@@ -175,6 +175,18 @@ export {
   type SkillsetXdgPaths,
 } from "./xdg";
 export {
+  knownSkillsetsIndexPath,
+  normalizeKnownSkillsetIdentity,
+  readKnownSkillsetsIndex,
+  recordKnownSkillsetWorkspace,
+  resolveKnownSkillsetWorkspace,
+  writeKnownSkillsetsIndex,
+  type KnownSkillsetEntry,
+  type KnownSkillsetsIndex,
+  type RecordKnownSkillsetOptions,
+  type ResolveKnownSkillsetOptions,
+} from "./known-skillsets";
+export {
   createOperationalPathContext,
   isRepoOperationalCachePath,
   logicalOperationalPath,

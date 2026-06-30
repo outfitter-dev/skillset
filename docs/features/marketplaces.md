@@ -57,6 +57,10 @@ The planned resolver order is:
 
 The user/XDG index is managed state, not committed source truth. CI must be able to resolve from committed marketplace source and remote refs without a developer machine's local index.
 
+The known-Skillsets index lives at `$XDG_CONFIG_HOME/skillset/skillsets.json`, falling back to `~/.config/skillset/skillsets.json` when `XDG_CONFIG_HOME` is unset. Skillset updates this managed file opportunistically after successful local workspace commands such as `skillset build --yes`, build previews, `skillset check`, `skillset init --yes`, `skillset create --yes`, and successful `skillset adopt --yes`. Entries record the canonical local checkout path, the effective repo cache key, and normalized repository identities such as `github:outfitter-dev/trails`.
+
+The index never records local filesystem paths in committed marketplace source, never mutates external plugin repos, and never writes Claude or Codex runtime settings. Stale paths are ignored during resolution so a moved or deleted checkout falls through to remote/git resolution instead of poisoning CI or marketplace checks.
+
 ## Readiness
 
 Marketplace readiness is explicit:
@@ -86,5 +90,6 @@ Marketplace provenance belongs in existing `skillset.lock` files. There is no se
 ## Evidence
 
 - [SET-133](https://linear.app/outfitter/issue/SET-133/design-skillset-marketplace-catalogs-and-external-plugin-references) - source contract and command boundary.
+- [SET-233](https://linear.app/outfitter/issue/SET-233/add-managed-known-skillsets-index-for-marketplace-repo-resolution) - managed XDG known-Skillsets index for local checkout resolution.
 - [Distributions](distributions.md) - related post-build sync planning surface.
 - [Runtime Adapters](runtime-adapters.md) - runtime support remains separate from compile targets and marketplace readiness.
