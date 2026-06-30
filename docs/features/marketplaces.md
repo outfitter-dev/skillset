@@ -48,11 +48,11 @@ Provider output paths such as `plugins-claude`, `plugins-codex`, `.claude-plugin
 
 ## Resolution
 
-The planned resolver order is:
+The resolver order is:
 
 1. Current marketplace repo for local entries.
 2. Managed user/XDG known-Skillsets index for local checkout convenience.
-3. Remote git or cache resolution for CI and portable verification.
+3. Remote git or cache resolution for CI and portable verification. This is reserved for the update/provenance follow-up work.
 4. A structured unresolved diagnostic.
 
 The user/XDG index is managed state, not committed source truth. CI must be able to resolve from committed marketplace source and remote refs without a developer machine's local index.
@@ -79,7 +79,9 @@ Marketplace readiness is explicit:
 
 ## Commands
 
-`skillset marketplace check` is planned as the read-only verifier. It should parse marketplace source, resolve local and external plugin entries, verify provider target support and generated output freshness, validate the provider-native marketplace output that would be written, and report unresolved, stale, unbuilt, target-missing, unsupported-provider, version/ref drift, and local-vs-remote differences. It must not write provider marketplace files, publish, install, trust, or activate anything.
+`skillset marketplace check [name] [--json]` is the read-only verifier. It parses marketplace source, resolves local entries from the current repo, resolves external entries from the managed known-Skillsets index when available, verifies provider target support and generated output freshness, and reports unresolved, stale, unbuilt, and target-missing entries. It does not write provider marketplace files, publish, install, trust, activate anything, mutate external repos, or register local paths in committed source.
+
+The check command exits successfully only when every selected target entry reaches `marketplace-ready`. Unresolved remote refs are reported as `not-ready` until remote/cache acquisition and lock provenance land in the follow-up slices.
 
 `skillset marketplace update` is planned as the explicit write command. It should run the same readiness checks, refuse not-ready entries, render provider-native marketplace indexes, and update existing `skillset.lock` provenance. It must require the usual write posture and must not mutate external plugin repos or runtime/user settings.
 
@@ -91,5 +93,6 @@ Marketplace provenance belongs in existing `skillset.lock` files. There is no se
 
 - [SET-133](https://linear.app/outfitter/issue/SET-133/design-skillset-marketplace-catalogs-and-external-plugin-references) - source contract and command boundary.
 - [SET-233](https://linear.app/outfitter/issue/SET-233/add-managed-known-skillsets-index-for-marketplace-repo-resolution) - managed XDG known-Skillsets index for local checkout resolution.
+- [SET-234](https://linear.app/outfitter/issue/SET-234/implement-skillset-marketplace-check-readiness-reports) - read-only marketplace readiness reports.
 - [Distributions](distributions.md) - related post-build sync planning surface.
 - [Runtime Adapters](runtime-adapters.md) - runtime support remains separate from compile targets and marketplace readiness.

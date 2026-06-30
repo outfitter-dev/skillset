@@ -210,16 +210,19 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     evidence: [
       docs("https://linear.app/outfitter/issue/SET-133/design-skillset-marketplace-catalogs-and-external-plugin-references"),
       docs("https://linear.app/outfitter/issue/SET-233/add-managed-known-skillsets-index-for-marketplace-repo-resolution"),
+      docs("https://linear.app/outfitter/issue/SET-234/implement-skillset-marketplace-check-readiness-reports"),
+      test("apps/skillset/src/__tests__/marketplace-check-cli.test.ts", "SET-234 marketplace check CLI coverage"),
+      test("packages/core/src/__tests__/marketplace-check.test.ts", "SET-234 marketplace readiness report coverage"),
       test("apps/skillset/src/__tests__/skillset.test.ts", "SET-133 marketplace catalog parser coverage"),
       test("packages/core/src/__tests__/known-skillsets.test.ts", "managed known-Skillsets XDG index coverage"),
       test("packages/schema/src/__tests__/schema.test.ts", "workspace config marketplace contract coverage"),
     ],
     id: "marketplaces",
     kind: "workflow",
-    renderOwner: "future",
+    renderOwner: "packages/core/src/marketplace-check.ts",
     sourceShape: "workspace skillset.yaml marketplaces",
     status: "planned",
-    summary: "Declares curated provider marketplace catalogs that can reference local or external Skillset plugins without provider output paths.",
+    summary: "Declares curated provider marketplace catalogs and verifies local or known-index plugin readiness before provider indexes are rendered.",
     targetSupport: {
       claude: {
         evidence: [docs("docs/features/marketplaces.md"), providerSchemaSnapshot("claude-marketplace-schema")],
