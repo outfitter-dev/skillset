@@ -72,6 +72,8 @@ describe("changeset guard", () => {
     expect(isPackageAffectingPath("packages/schema/src/contracts.ts")).toBe(true);
     expect(isPackageAffectingPath("packages/schema/src/validate.ts")).toBe(true);
     expect(isPackageAffectingPath("packages/schema/src/__tests__/schema.test.ts")).toBe(false);
+    expect(isPackageAffectingPath("packages/toolkit/src/runtime.ts")).toBe(true);
+    expect(isPackageAffectingPath("packages/toolkit/src/__tests__/runtime.test.ts")).toBe(false);
     expect(isPackageAffectingPath("docs/reference/schemas/0.1.0/skillset.schema.json")).toBe(false);
     expect(isPackageAffectingPath("docs/reference/examples/skill-frontmatter.yaml")).toBe(false);
   });

@@ -16,7 +16,7 @@
     },
     "apps/skillset": {
       "name": "skillset",
-      "version": "0.16.0",
+      "version": "0.16.2",
       "bin": {
         "create-skillset": "dist/create.js",
         "skillset": "dist/cli.js",
@@ -29,6 +29,7 @@
         "@skillset/lint": "workspace:*",
         "@skillset/provider-formats": "workspace:*",
         "@skillset/schema": "workspace:*",
+        "@skillset/toolkit": "workspace:*",
         "@skillset/transforms": "workspace:*",
       },
     },
@@ -53,6 +54,10 @@
     },
     "packages/schema": {
       "name": "@skillset/schema",
+      "version": "0.0.0",
+    },
+    "packages/toolkit": {
+      "name": "@skillset/toolkit",
       "version": "0.0.0",
     },
     "packages/transforms": {
@@ -205,6 +210,8 @@
     "@skillset/provider-formats": ["@skillset/provider-formats@workspace:packages/provider-formats"],
 
     "@skillset/schema": ["@skillset/schema@workspace:packages/schema"],
+
+    "@skillset/toolkit": ["@skillset/toolkit@workspace:packages/toolkit"],
 
     "@skillset/transforms": ["@skillset/transforms@workspace:packages/transforms"],
 
