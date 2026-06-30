@@ -11,6 +11,7 @@ import { createWorkbenchDiagnostic, sortWorkbenchDiagnostics } from "./diagnosti
 import { parseWorkbenchDocument } from "./parser";
 import type {
   WorkbenchDiagnostic,
+  WorkbenchFix,
   WorkbenchMarkdownParseResult,
   WorkbenchParseKind,
   WorkbenchParseResult,
@@ -38,18 +39,18 @@ export function checkWorkbenchSourceContract(
   }
 
   if (input.kind === "agent") {
-    return sortWorkbenchDiagnostics([...parseDiagnostics, ...checkAgentContract(parsed, input.path)]);
+    return sortWorkbenchDiagnostics([...parseDiagnostics, ...checkAgentContract(parsed, input.path, input.content)]);
   }
   if (input.kind === "hook") {
-    return sortWorkbenchDiagnostics([...parseDiagnostics, ...checkHookContract(parsed, input.path)]);
+    return sortWorkbenchDiagnostics([...parseDiagnostics, ...checkHookContract(parsed, input.path, input.content)]);
   }
   if (input.kind === "instruction") {
-    return sortWorkbenchDiagnostics([...parseDiagnostics, ...checkInstructionContract(parsed, input.path)]);
+    return sortWorkbenchDiagnostics([...parseDiagnostics, ...checkInstructionContract(parsed, input.path, input.content)]);
   }
   if (input.kind === "skill") {
-    return sortWorkbenchDiagnostics([...parseDiagnostics, ...checkSkillContract(parsed, input.path)]);
+    return sortWorkbenchDiagnostics([...parseDiagnostics, ...checkSkillContract(parsed, input.path, input.content)]);
   }
-  return sortWorkbenchDiagnostics([...parseDiagnostics, ...checkWorkspaceConfigContract(parsed, input.path)]);
+  return sortWorkbenchDiagnostics([...parseDiagnostics, ...checkWorkspaceConfigContract(parsed, input.path, input.content)]);
 }
 
 function parseKindForContract(kind: WorkbenchSourceContractKind): WorkbenchParseKind {
@@ -60,7 +61,8 @@ function parseKindForContract(kind: WorkbenchSourceContractKind): WorkbenchParse
 
 function checkSkillContract(
   parsed: WorkbenchParseResult,
-  path: string
+  path: string,
+  content: string
 ): readonly WorkbenchDiagnostic[] {
   if (parsed.kind !== "markdown") return [wrongKind(path, "skill", "Markdown")];
 
@@ -72,17 +74,18 @@ function checkSkillContract(
     ...schemaDiagnostics
       .filter((diagnostic) => !isRedundantSupportsPackagesDiagnostic(diagnostic, schemaDiagnostics, frontmatter))
       .map((diagnostic) =>
-        frontmatterSchemaDiagnostic(diagnostic, frontmatter, path, "skill", "schema/skill-frontmatter")
+        frontmatterSchemaDiagnostic(diagnostic, frontmatter, path, "skill", "schema/skill-frontmatter", content)
       )
   );
-  diagnostics.push(...checkSkillDescription(frontmatter, path));
-  diagnostics.push(...checkSkillsetSkillMetadata(frontmatter, path));
+  diagnostics.push(...checkSkillDescription(frontmatter, path, content));
+  diagnostics.push(...checkSkillsetSkillMetadata(frontmatter, path, content));
   return diagnostics;
 }
 
 function checkAgentContract(
   parsed: WorkbenchParseResult,
-  path: string
+  path: string,
+  content: string
 ): readonly WorkbenchDiagnostic[] {
   if (parsed.kind !== "markdown") return [wrongKind(path, "agent", "Markdown")];
 
@@ -94,7 +97,7 @@ function checkAgentContract(
     ...schemaDiagnostics
       .filter((diagnostic) => !isRedundantSupportsPackagesDiagnostic(diagnostic, schemaDiagnostics, frontmatter))
       .map((diagnostic) =>
-        frontmatterSchemaDiagnostic(diagnostic, frontmatter, path, "agent", "schema/agent-frontmatter")
+        frontmatterSchemaDiagnostic(diagnostic, frontmatter, path, "agent", "schema/agent-frontmatter", content)
       )
   );
   return diagnostics;
@@ -102,7 +105,8 @@ function checkAgentContract(
 
 function checkInstructionContract(
   parsed: WorkbenchParseResult,
-  path: string
+  path: string,
+  content: string
 ): readonly WorkbenchDiagnostic[] {
   if (parsed.kind !== "markdown") return [wrongKind(path, "instruction", "Markdown")];
 
@@ -111,7 +115,7 @@ function checkInstructionContract(
   return schemaDiagnostics
     .filter((diagnostic) => !isRedundantSupportsPackagesDiagnostic(diagnostic, schemaDiagnostics, frontmatter))
     .map((diagnostic) =>
-      frontmatterSchemaDiagnostic(diagnostic, frontmatter, path, "instruction", "schema/instruction-frontmatter")
+      frontmatterSchemaDiagnostic(diagnostic, frontmatter, path, "instruction", "schema/instruction-frontmatter", content)
     );
 }
 
@@ -120,10 +124,14 @@ function frontmatterSchemaDiagnostic(
   data: Record<string, unknown>,
   path: string,
   subjectKind: "agent" | "instruction" | "skill",
-  ruleId: string
+  ruleId: string,
+  content: string
 ): WorkbenchDiagnostic {
+  const message = frontmatterSchemaMessage(diagnostic, data, subjectKind);
   return schemaDiagnostic({
-    message: frontmatterSchemaMessage(diagnostic, data, subjectKind),
+    fix: sourceContractFix(diagnostic, data, subjectKind, message),
+    locationLine: sourceLineForSchemaPath(content, diagnostic.path, "markdown-frontmatter"),
+    message,
     path,
     ruleId,
     subjectKind,
@@ -178,7 +186,8 @@ function frontmatterSchemaMessage(
 
 function checkWorkspaceConfigContract(
   parsed: WorkbenchParseResult,
-  path: string
+  path: string,
+  content: string
 ): readonly WorkbenchDiagnostic[] {
   if (parsed.kind !== "yaml") return [wrongKind(path, "workspace", "YAML")];
 
@@ -198,16 +207,20 @@ function checkWorkspaceConfigContract(
   const diagnostics = validateWorkspaceConfig(data).diagnostics;
   return diagnostics
     .filter((diagnostic) => !isRedundantWorkspaceSchemaDiagnostic(diagnostic, diagnostics, data))
-    .map((diagnostic) => workspaceSchemaDiagnostic(diagnostic, data, path));
+    .map((diagnostic) => workspaceSchemaDiagnostic(diagnostic, data, path, content));
 }
 
 function workspaceSchemaDiagnostic(
   diagnostic: SkillsetSchemaDiagnostic,
   data: Record<string, unknown>,
-  path: string
+  path: string,
+  content: string
 ): WorkbenchDiagnostic {
+  const message = workspaceSchemaMessage(diagnostic, data);
   return schemaDiagnostic({
-    message: workspaceSchemaMessage(diagnostic, data),
+    fix: sourceContractFix(diagnostic, data, "workspace", message),
+    locationLine: sourceLineForSchemaPath(content, diagnostic.path, "yaml"),
+    message,
     path,
     ruleId: "schema/workspace-config",
     scope: "workspace",
@@ -339,11 +352,14 @@ function schemaPathSegments(path: string): readonly (number | string)[] {
 
 function checkHookContract(
   parsed: WorkbenchParseResult,
-  path: string
+  path: string,
+  content: string
 ): readonly WorkbenchDiagnostic[] {
   if (parsed.kind !== "json") return [wrongKind(path, "hook", "JSON")];
   return validateHookDefinitionSource(parsed.data).diagnostics.map((diagnostic) =>
     schemaDiagnostic({
+      fix: sourceContractFix(diagnostic, {}, "hook", diagnostic.message),
+      locationLine: sourceLineForSchemaPath(content, diagnostic.path, "json"),
       message: diagnostic.message.replaceAll("$.", ""),
       path,
       ruleId: "schema/hook",
@@ -371,7 +387,8 @@ function checkMarkdownBody(
 
 function checkSkillDescription(
   record: Record<string, unknown>,
-  path: string
+  path: string,
+  content: string
 ): readonly WorkbenchDiagnostic[] {
   const skillset = isRecord(record.skillset) ? record.skillset : {};
   if (
@@ -387,6 +404,8 @@ function checkSkillDescription(
   return [
     schemaDiagnostic({
       message: "skill needs description, summary, title, or skillset descriptive metadata",
+      fix: { kind: "suggestion", message: "Add `description: <what this skill does>` to the skill frontmatter." },
+      locationLine: firstFrontmatterContentLine(content),
       path,
       ruleId: "schema/skill-frontmatter",
       subjectKind: "skill",
@@ -396,7 +415,8 @@ function checkSkillDescription(
 
 function checkSkillsetSkillMetadata(
   record: Record<string, unknown>,
-  path: string
+  path: string,
+  content: string
 ): readonly WorkbenchDiagnostic[] {
   const value = record.skillset;
   if (value === undefined) return [];
@@ -416,6 +436,8 @@ function checkSkillsetSkillMetadata(
     if (value[key] === undefined) continue;
     diagnostics.push(schemaDiagnostic({
       message: `skillset.${key} is unsupported in skills; use top-level ${key === "id" ? "name" : key}`,
+      fix: { kind: "suggestion", message: `Move this to top-level \`${key}: ...\` in the skill frontmatter.` },
+      locationLine: sourceLineForSchemaPath(content, `$.skillset.${key}`, "markdown-frontmatter"),
       path,
       ruleId: "schema/skill-frontmatter",
       subjectKind: "skill",
@@ -438,7 +460,8 @@ function wrongKind(
 }
 
 function schemaDiagnostic(args: {
-  readonly locationLine?: number;
+  readonly fix?: WorkbenchFix | undefined;
+  readonly locationLine?: number | undefined;
   readonly message: string;
   readonly path: string;
   readonly ruleId: string;
@@ -447,6 +470,7 @@ function schemaDiagnostic(args: {
 }): WorkbenchDiagnostic {
   return createWorkbenchDiagnostic({
     featureId: "source-contracts",
+    ...(args.fix === undefined ? {} : { fix: args.fix }),
     location: { line: args.locationLine ?? 1, path: args.path },
     message: args.message,
     ruleId: args.ruleId,
@@ -454,6 +478,162 @@ function schemaDiagnostic(args: {
     severity: "error",
     subject: { kind: args.subjectKind, path: args.path },
   });
+}
+
+function sourceContractFix(
+  diagnostic: SkillsetSchemaDiagnostic,
+  data: Record<string, unknown>,
+  subjectKind: "agent" | "hook" | "instruction" | "skill" | "workspace",
+  message: string
+): WorkbenchFix | undefined {
+  const key = schemaPathKey(diagnostic.path);
+  const value = schemaPathValue(data, diagnostic.path);
+
+  if (diagnostic.code.endsWith("/key") && key === "targets") {
+    return {
+      kind: "suggestion",
+      message: "Move provider selection to `skillset.yaml` as `compile:\\n  targets: [claude, codex]`; keep file-level behavior in `claude:` or `codex:` blocks.",
+    };
+  }
+  if (diagnostic.code.endsWith("/target")) {
+    return { kind: "suggestion", message: `Use \`${key}: true\`, \`${key}: false\`, or \`${key}: { ... }\`.` };
+  }
+  if (diagnostic.code.endsWith("/description") && subjectKind === "agent") {
+    return { kind: "suggestion", message: "Add `description: <what this agent does>` to the agent frontmatter." };
+  }
+  if (diagnostic.code.endsWith("/skills")) {
+    return { kind: "suggestion", message: "Use a YAML list, for example `skills:\\n  - <skill-name>`." };
+  }
+  if (diagnostic.code.endsWith("/resources")) {
+    return {
+      kind: "suggestion",
+      message: "Use a resource map, for example `resources:\\n  references:\\n    - shared:references/guide.md`.",
+    };
+  }
+  if (diagnostic.code === "schema/supports/key" || diagnostic.code === "schema/supports/packages") {
+    return { kind: "suggestion", message: "Use `supports:\\n  packages: []`, or remove `supports` until package compatibility is needed." };
+  }
+  if (diagnostic.code === "schema/source-metadata/key" && diagnostic.path.endsWith(".id")) {
+    return { kind: "suggestion", message: "Replace `skillset.id` with `skillset.name`." };
+  }
+  if (diagnostic.code === "schema/source-metadata/name") {
+    return { kind: "suggestion", message: "Set `skillset:\\n  name: <workspace-name>` to a non-empty string." };
+  }
+  if (diagnostic.code === "schema/source-metadata/schema") {
+    return { kind: "suggestion", message: "Use `skillset:\\n  schema: 1`." };
+  }
+  if (diagnostic.code === "schema/workspace-config/targets") {
+    return { kind: "suggestion", message: "Replace top-level `targets` with `compile:\\n  targets: [claude, codex]`." };
+  }
+  if (diagnostic.code === "schema/workspace-config/compile-build") {
+    return { kind: "suggestion", message: "Use `compile:\\n  build: all` or `compile:\\n  build: updated`." };
+  }
+  if (diagnostic.code === "schema/workspace-config/unsupported-destination") {
+    return { kind: "suggestion", message: "Use `compile:\\n  unsupportedDestination: error`." };
+  }
+  if (diagnostic.code === "schema/workspace-config/cache-key") {
+    return {
+      kind: "suggestion",
+      message: "Remove `workspace.cacheKey` to use the automatic XDG cache key, or set a lowercase key such as `team--repo`.",
+    };
+  }
+  if (diagnostic.code === "schema/workspace-config/target" && diagnostic.path.startsWith("$.compile.targets[")) {
+    return { kind: "suggestion", message: `Remove unsupported target ${JSON.stringify(value)}; supported targets are claude and codex.` };
+  }
+  if (diagnostic.code === "schema/hook/event") {
+    return { kind: "suggestion", message: "Use supported hook event names from `skillset lookup hooks --events --compat`." };
+  }
+  if (diagnostic.code.startsWith("schema/hook/")) {
+    return {
+      kind: "suggestion",
+      message: "Use a hook event array of handler objects, for example `{ \"hooks\": { \"Stop\": [{ \"hooks\": [{ \"type\": \"command\", \"command\": \"./check.sh\" }] }] } }`.",
+    };
+  }
+  if (message.includes("must be a non-empty string")) {
+    return { kind: "suggestion", message: `Set \`${displaySchemaPath(diagnostic.path)}\` to a non-empty string.` };
+  }
+  return undefined;
+}
+
+function sourceLineForSchemaPath(
+  content: string,
+  schemaPath: string,
+  kind: "json" | "markdown-frontmatter" | "yaml"
+): number | undefined {
+  const normalized = content.replaceAll(/\r\n?/g, "\n");
+  if (kind === "json") return sourceLineForJsonPath(normalized, schemaPath);
+  if (kind === "markdown-frontmatter") {
+    const frontmatter = markdownFrontmatterRange(normalized);
+    if (frontmatter === undefined) return 1;
+    return sourceLineForYamlPath(frontmatter.text, schemaPath, frontmatter.startLine);
+  }
+  return sourceLineForYamlPath(normalized, schemaPath, 1);
+}
+
+function sourceLineForJsonPath(content: string, schemaPath: string): number {
+  const keys = schemaPathSegments(schemaPath).filter((segment): segment is string => typeof segment === "string");
+  for (const key of keys.slice().reverse()) {
+    const line = findLine(content, new RegExp(`"${escapeRegExp(key)}"\\s*:`, "u"));
+    if (line !== undefined) return line;
+  }
+  return 1;
+}
+
+function sourceLineForYamlPath(content: string, schemaPath: string, startLine: number): number {
+  const target = schemaPathSegments(schemaPath).filter((segment): segment is string => typeof segment === "string");
+  if (target.length === 0) return startLine;
+
+  let best: { readonly depth: number; readonly line: number } | undefined;
+  const stack: Array<{ readonly indent: number; readonly key: string }> = [];
+  for (const [index, rawLine] of content.split("\n").entries()) {
+    const keyMatch = /^(\s*)(?:-\s+)?([A-Za-z0-9_-]+)\s*:/u.exec(rawLine);
+    if (keyMatch === null) continue;
+    const indent = keyMatch[1]!.length;
+    const key = keyMatch[2]!;
+    while (stack.length > 0 && stack[stack.length - 1]!.indent >= indent) stack.pop();
+    const currentPath = [...stack.map((entry) => entry.key), key];
+    stack.push({ indent, key });
+
+    const depth = matchingPrefixDepth(currentPath, target);
+    if (depth === 0) continue;
+    if (best === undefined || depth > best.depth) {
+      best = { depth, line: startLine + index };
+    }
+    if (depth === target.length) return startLine + index;
+  }
+  return best?.line ?? startLine;
+}
+
+function matchingPrefixDepth(currentPath: readonly string[], target: readonly string[]): number {
+  let depth = 0;
+  for (let index = 0; index < Math.min(currentPath.length, target.length); index += 1) {
+    if (currentPath[index] !== target[index]) break;
+    depth += 1;
+  }
+  return depth;
+}
+
+function markdownFrontmatterRange(content: string): { readonly startLine: number; readonly text: string } | undefined {
+  const lines = content.split("\n");
+  if ((lines[0] ?? "").trim() !== "---") return undefined;
+  const closingIndex = lines.findIndex((line, index) => index > 0 && line.trim() === "---");
+  if (closingIndex === -1) return undefined;
+  return { startLine: 2, text: lines.slice(1, closingIndex).join("\n") };
+}
+
+function firstFrontmatterContentLine(content: string): number {
+  return markdownFrontmatterRange(content)?.startLine ?? 1;
+}
+
+function findLine(content: string, pattern: RegExp): number | undefined {
+  for (const [index, line] of content.split("\n").entries()) {
+    if (pattern.test(line)) return index + 1;
+  }
+  return undefined;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
