@@ -21,6 +21,7 @@ skillset hooks print --target claude --agent-runtime
 skillset hooks print --target codex --agent-runtime
 skillset hooks run post-tool-use
 skillset hooks run stop
+skillset hooks context --event Stop --format env --context-fields provider,hook.event,session.id
 ```
 
 ## Target Rendering
@@ -30,6 +31,7 @@ skillset hooks run stop
 | Git hook-runner snippet | n/a | n/a | `implemented` | Prints additive snippets for existing hook runners; does not install. |
 | Agent runtime hook suggestion | reviewed config suggestion | reviewed config suggestion | `implemented` / `target_specific` | Prints project-local suggestions; must not mutate runtime config automatically. |
 | Agent runtime hook execution | `skillset hooks run post-tool-use`, `skillset hooks run stop` | `skillset hooks run post-tool-use`, `skillset hooks run stop` | `implemented` / `target_specific` | Core CLI behavior called by reviewed project-local runtime config. |
+| Runtime context helper | `skillset hooks context --event <event> --format env|json` | `skillset hooks context --event <event> --format env|json` | `implemented` / `target_specific` | Internal helper used by generated adaptive hook wrappers for `context.strategy: toolkit`; public package surface is tracked separately. |
 
 ## Diagnostics
 

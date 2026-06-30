@@ -1,7 +1,7 @@
 export const HOOK_RUN_EVENTS = ["post-tool-use", "stop"] as const;
 
 export type HookRunEvent = (typeof HOOK_RUN_EVENTS)[number];
-export type HookSubcommand = "print" | "run";
+export type HookSubcommand = "context" | "print" | "run";
 
 export function isHookRunEvent(value: string | undefined): value is HookRunEvent {
   return value === "post-tool-use" || value === "stop";

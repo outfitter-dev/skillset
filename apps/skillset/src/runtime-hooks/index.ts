@@ -7,9 +7,15 @@ export {
 } from "./commands";
 export {
   readHookRuntimeContext,
+  readHookRuntimeContextField,
+  readHookRuntimeContextFormat,
   readHookStdin,
+  renderHookRuntimeContext,
   type HookRuntimeContext,
+  type HookRuntimeContextField,
+  type HookRuntimeContextFormat,
   type HookRuntimeContextOptions,
+  type HookRuntimeContextRenderOptions,
   type HookRuntimeProvider,
 } from "./context";
 export {

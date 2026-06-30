@@ -1520,6 +1520,60 @@ test("SET-41: hooks print emits target runtime suggestions without installing", 
   expect(importKind.stderr).toContain("non-hook options are not supported");
 });
 
+test("SET-228: hooks context emits helper-backed runtime context", async () => {
+  const env = await runSkillsetCliWithEnv(
+    { CODEX_SESSION_ID: "session-1", SKILLSET_PROVIDER: "codex" },
+    "hooks",
+    "context",
+    "--event",
+    "Stop",
+    "--format",
+    "env",
+    "--context-fields",
+    "provider,hook.event,session.id"
+  );
+  expect(env.exitCode).toBe(0);
+  expect(env.stderr).toBe("");
+  expect(env.stdout).toBe([
+    "export SKILLSET_PROVIDER=codex",
+    "export SKILLSET_HOOK_EVENT=Stop",
+    "export SKILLSET_SESSION_ID=session-1",
+    "",
+  ].join("\n"));
+
+  const json = await runSkillsetCliWithEnv(
+    { CLAUDE_SESSION_ID: "session-2", SKILLSET_PROVIDER: "claude" },
+    "hooks",
+    "context",
+    "--event",
+    "PreToolUse",
+    "--format",
+    "json",
+    "--context-fields",
+    "provider,hook.event"
+  );
+  expect(json.exitCode).toBe(0);
+  expect(json.stderr).toBe("");
+  expect(JSON.parse(json.stdout)).toEqual(expect.objectContaining({
+    hook: { event: "PreToolUse" },
+    provider: "claude",
+    schemaVersion: 1,
+  }));
+
+  const missingEvent = await runSkillsetCli("hooks", "context", "--format", "env");
+  expect(missingEvent.exitCode).toBe(1);
+  expect(missingEvent.stderr).toContain("hooks context requires --event");
+
+  const printWithContextFlag = await runSkillsetCli("hooks", "print", "--runner", "git", "--context-fields", "provider");
+  expect(printWithContextFlag.exitCode).toBe(1);
+  expect(printWithContextFlag.stderr).toContain("hook context options are only supported with hooks context");
+
+  const cliPath = shellQuote(join(import.meta.dir, "..", "cli.ts"));
+  const stdinPreserved = await runShell(`printf payload | (eval "$(bun ${cliPath} hooks context --event Stop --format env --context-fields provider)" && cat)`);
+  expect(stdinPreserved.exitCode).toBe(0);
+  expect(stdinPreserved.stdout).toBe("payload");
+});
+
 test("SET-55: hooks run is a CLI-owned runtime entrypoint", async () => {
   const cleanRoot = await contractFixture({ "README.md": "clean\n" });
   await commitFixture(cleanRoot);
@@ -7173,6 +7227,47 @@ async function runSkillsetCliIn(cwd: string, ...args: readonly string[]): Promis
     proc.exited,
   ]);
   return { exitCode, stderr, stdout };
+}
+
+async function runSkillsetCliWithEnv(env: Record<string, string>, ...args: readonly string[]): Promise<{
+  readonly exitCode: number;
+  readonly stderr: string;
+  readonly stdout: string;
+}> {
+  const proc = Bun.spawn({
+    cmd: ["bun", join(import.meta.dir, "..", "cli.ts"), ...args],
+    env: { ...process.env, ...env },
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  return { exitCode, stderr, stdout };
+}
+
+async function runShell(command: string): Promise<{
+  readonly exitCode: number;
+  readonly stderr: string;
+  readonly stdout: string;
+}> {
+  const proc = Bun.spawn({
+    cmd: ["sh", "-c", command],
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  return { exitCode, stderr, stdout };
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", "'\"'\"'")}'`;
 }
 
 async function runSkillsetCliWithInput(input: string, ...args: readonly string[]): Promise<{
