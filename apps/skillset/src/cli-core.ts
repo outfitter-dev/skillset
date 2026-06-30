@@ -8,6 +8,7 @@ import {
   diffSkillsetResult,
   isRepoOperationalCachePath,
   planDistributions,
+  recordKnownSkillsetWorkspace,
   resolveOperationalPath,
   restoreOutputBackup,
   verifySkillsetResult,
@@ -240,6 +241,7 @@ export async function runCli(
       const { data: diff } = result;
       printDiffPlan(diff, dryRun ? "dry run" : "write confirmation required");
       if (!dryRun) console.log("skillset: rerun with --yes to write generated files");
+      await rememberKnownSkillsetWorkspace(rootPath, options);
       return;
     }
     const result = await buildSkillsetResult(rootPath, options);
@@ -254,6 +256,7 @@ export async function runCli(
           `${result.writes.backupRecords?.length === 1 ? "" : "s"} to ${result.writes.backupManifestPath}`
       );
     }
+    await rememberKnownSkillsetWorkspace(rootPath, options);
     return;
   }
 
@@ -513,6 +516,7 @@ export async function runCli(
       process.stdout.write(renderProviderFormatUpdateReport(providerUpdates));
     }
     if (ciFix && (!providerUpdates.ok || providerUpdates.blocked)) process.exitCode = 1;
+    else await rememberKnownSkillsetWorkspace(rootPath, options);
     return;
   }
 
@@ -529,6 +533,7 @@ export async function runCli(
     printAdoptReport(report, dryRun ? "dry run" : writeMode ? "written" : "write confirmation required");
     if (!writeMode) console.log("skillset: rerun with --yes to adopt");
     if (writeMode && !report.ok) process.exitCode = 1;
+    if (writeMode && report.ok) await rememberKnownSkillsetWorkspace(report.rootPath, options);
     return;
   }
 
@@ -555,6 +560,7 @@ export async function runCli(
         });
     printSetupReport(setup, dryRun ? "dry run" : yes ? "written" : "write confirmation required");
     if (!yes || dryRun) console.log(`skillset: rerun ${command} with --yes to write setup files`);
+    if (yes && !dryRun) await rememberKnownSkillsetWorkspace(setup.rootPath, options);
     return;
   }
 
@@ -791,6 +797,16 @@ export function reportCliError(error: unknown): void {
   const message = error instanceof Error ? error.message : String(error);
   console.error(message);
   process.exitCode = 1;
+}
+
+async function rememberKnownSkillsetWorkspace(rootPath: string, options: SkillsetOptions): Promise<void> {
+  if (process.env.NODE_ENV === "test" && process.env.XDG_CONFIG_HOME === undefined) return;
+  try {
+    await recordKnownSkillsetWorkspace(rootPath, options.xdg);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`  warning: could not update known Skillsets index: ${message}`);
+  }
 }
 
 interface ParsedArgs {

@@ -209,7 +209,9 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     docs: ["docs/features/marketplaces.md"],
     evidence: [
       docs("https://linear.app/outfitter/issue/SET-133/design-skillset-marketplace-catalogs-and-external-plugin-references"),
+      docs("https://linear.app/outfitter/issue/SET-233/add-managed-known-skillsets-index-for-marketplace-repo-resolution"),
       test("apps/skillset/src/__tests__/skillset.test.ts", "SET-133 marketplace catalog parser coverage"),
+      test("packages/core/src/__tests__/known-skillsets.test.ts", "managed known-Skillsets XDG index coverage"),
       test("packages/schema/src/__tests__/schema.test.ts", "workspace config marketplace contract coverage"),
     ],
     id: "marketplaces",
