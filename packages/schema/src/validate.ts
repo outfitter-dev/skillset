@@ -1,6 +1,8 @@
 import {
   AGENT_FRONTMATTER_KEYS,
   COMPILE_BUILD_MODES,
+  SOURCE_LICENSE_IDS,
+  SOURCE_LICENSE_NONE,
   SOURCE_METADATA_KEYS,
   TARGET_NAMES,
   UNSUPPORTED_DESTINATION_POLICIES,
@@ -22,6 +24,7 @@ const agentFrontmatterKeys = new Set<string>(AGENT_FRONTMATTER_KEYS);
 const targetNames = new Set<string>(TARGET_NAMES);
 const compileBuildModes = new Set<string>(COMPILE_BUILD_MODES);
 const unsupportedDestinationPolicies = new Set<string>(UNSUPPORTED_DESTINATION_POLICIES);
+const sourceLicenseValues = new Set<string>([...SOURCE_LICENSE_IDS, SOURCE_LICENSE_NONE]);
 const semverPattern =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
 
@@ -309,7 +312,7 @@ function checkSourceMetadata(value: SchemaJsonValue | undefined, path: string, d
   checkOptionalSemverString(value.version, `${path}.version`, "schema/source-metadata/version", diagnostics);
   checkOptionalNonEmptyString(value.description, `${path}.description`, "schema/source-metadata/description", diagnostics);
   checkOptionalString(value.homepage, `${path}.homepage`, "schema/source-metadata/homepage", diagnostics);
-  checkOptionalString(value.license, `${path}.license`, "schema/source-metadata/license", diagnostics);
+  checkOptionalLicense(value.license, `${path}.license`, diagnostics);
   checkOptionalObject(value.manifest, `${path}.manifest`, "schema/source-metadata/manifest", diagnostics);
   checkOptionalObject(value.marketplace, `${path}.marketplace`, "schema/source-metadata/marketplace", diagnostics);
   checkSourceOrigin(value.origin, `${path}.origin`, diagnostics);
@@ -394,6 +397,13 @@ function checkDependencyPlugin(value: SchemaJsonValue | undefined, path: string,
 
 function checkOptionalString(value: SchemaJsonValue | undefined, path: string, code: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
   if (value !== undefined && typeof value !== "string") diagnostics.push(diagnostic(path, code, `${path} must be a string`));
+}
+
+function checkOptionalLicense(value: SchemaJsonValue | undefined, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (value === undefined) return;
+  if (typeof value !== "string" || !sourceLicenseValues.has(value)) {
+    diagnostics.push(diagnostic(path, "schema/source-metadata/license", `${path} must be one of ${[...SOURCE_LICENSE_IDS, SOURCE_LICENSE_NONE].join(", ")}`));
+  }
 }
 
 function checkOptionalStringOrObject(value: SchemaJsonValue | undefined, path: string, code: string, diagnostics: SkillsetSchemaDiagnostic[]): void {

@@ -9,6 +9,15 @@ const SEMVER_PATTERN =
 export const TARGET_NAMES = ["claude", "codex"] as const;
 export const COMPILE_BUILD_MODES = ["all", "updated"] as const;
 export const UNSUPPORTED_DESTINATION_POLICIES = ["error"] as const;
+export const SOURCE_LICENSE_IDS = [
+  "Apache-2.0",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "MIT",
+  "MPL-2.0",
+] as const;
+export const SOURCE_LICENSE_NONE = "none";
 
 export const WORKSPACE_CONFIG_KEYS = [
   "agents",
@@ -318,7 +327,7 @@ function sourceMetadataSchema(): SchemaJsonRecord {
     description: nonEmptyStringSchema(),
     homepage: { type: "string" },
     keywords: arraySchema({ type: "string" }),
-    license: { type: "string" },
+    license: enumSchema([...SOURCE_LICENSE_IDS, SOURCE_LICENSE_NONE]),
     manifest: { type: "object" },
     marketplace: { type: "object" },
     name: nonEmptyStringSchema(),

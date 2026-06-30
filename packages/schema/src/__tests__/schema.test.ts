@@ -144,6 +144,10 @@ describe("@skillset/schema contracts", () => {
       const: 1,
       type: "integer",
     });
+    expect(sourceMetadataProperties.license).toEqual({
+      enum: ["Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "MIT", "MPL-2.0", "none"],
+      type: "string",
+    });
     expect(Object.keys(sourceMetadataProperties).sort()).toEqual([
       "author",
       "category",
@@ -383,6 +387,11 @@ describe("@skillset/schema contracts", () => {
       code: "schema/source-metadata/version",
       message: "$.version must be a semantic version string",
       path: "$.version",
+    });
+    expect(validateSourceMetadata({ license: "GPL-3.0-only" }).diagnostics).toContainEqual({
+      code: "schema/source-metadata/license",
+      message: "$.license must be one of Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, MIT, MPL-2.0, none",
+      path: "$.license",
     });
     expect(validateSourceMetadata({ origin: { path: "x", repo: "https://example.com/repo.git" } }).diagnostics).toContainEqual({
       code: "schema/source-metadata/origin",

@@ -65,6 +65,7 @@ Default behavior for unsupported or lossy build results is fail-loud. Softer mod
 | skill top-level `version` (semver) | skill `metadata.version` | Implemented | Skill-local version; release state wins after `skillset release apply`. |
 | `skillset.name` | machine identity | Implemented | Root and plugin explicit identity; directory names remain the default. `skillset.id` is unsupported. |
 | skill top-level `name` | skill identity | Implemented | Skill-local `skillset.name` / `skillset.id` are unsupported. |
+| root/plugin/skill `skillset.license` or local `LICENSE.txt` | managed `LICENSE.txt`; plugin manifest `license` when declared in plugin metadata | Implemented | Supports `Apache-2.0`, `BSD-2-Clause`, `BSD-3-Clause`, `ISC`, `MIT`, `MPL-2.0`, and `none`; child scopes inherit unless overridden or opted out. |
 | `compile.targets` | enabled provider outputs | Implemented | Root-only provider selection; defaults to all supported providers. |
 | `compile.build: updated/all` | normalized build mode in lock provenance | Implemented | Parser, CLI overrides, plan-first writes, and lock metadata are implemented. |
 | `compile.features.promptArguments` | `{{$ARGUMENTS...}}` adaptive command placeholders | Implemented | Defaults to `true`; set to `false` to reject the source markers. |

@@ -141,6 +141,109 @@ describe("@skillset/core consumer API", () => {
     );
   });
 
+  it("renders inherited, overridden, local, and opted-out license outputs", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: license-root
+  license: MIT
+claude: true
+codex: true
+`,
+      ".skillset/skills/inherited/SKILL.md": `
+---
+name: inherited
+description: Inherits the workspace license.
+---
+
+Inherited body.
+`,
+      ".skillset/skills/local/LICENSE.txt": "Local license text.\n",
+      ".skillset/skills/local/SKILL.md": `
+---
+name: local
+description: Uses a local license file.
+---
+
+Local body.
+`,
+      ".skillset/skills/none/SKILL.md": `
+---
+name: none
+description: Opts out of generated license output.
+skillset:
+  license: none
+---
+
+None body.
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+`,
+      ".skillset/plugins/demo/skills/override/SKILL.md": `
+---
+name: override
+description: Overrides the plugin license.
+skillset:
+  license: Apache-2.0
+---
+
+Override body.
+`,
+      ".skillset/plugins/optout/skillset.yaml": `
+skillset:
+  name: optout
+  license: none
+`,
+    });
+
+    await buildSkillsetResult(root);
+
+    await expect(Bun.file(join(root, ".claude/skills/inherited/LICENSE.txt")).text()).resolves.toContain("SPDX-License-Identifier: MIT");
+    await expect(Bun.file(join(root, ".agents/skills/inherited/LICENSE.txt")).text()).resolves.toContain("MIT License");
+    await expect(Bun.file(join(root, ".claude/skills/local/LICENSE.txt")).text()).resolves.toBe("Local license text.\n");
+    expect(await Bun.file(join(root, ".claude/skills/none/LICENSE.txt")).exists()).toBe(false);
+    await expect(Bun.file(join(root, "plugins-claude/plugins/demo/LICENSE.txt")).text()).resolves.toContain("SPDX-License-Identifier: MIT");
+    await expect(Bun.file(join(root, "plugins-codex/plugins/demo/skills/override/LICENSE.txt")).text()).resolves.toContain("SPDX-License-Identifier: Apache-2.0");
+    const inheritedManifest = JSON.parse(await Bun.file(join(root, "plugins-claude/plugins/demo/.claude-plugin/plugin.json")).text()) as Record<string, unknown>;
+    const optoutManifest = JSON.parse(await Bun.file(join(root, "plugins-claude/plugins/optout/.claude-plugin/plugin.json")).text()) as Record<string, unknown>;
+    expect(inheritedManifest.license).toBe("MIT");
+    expect(optoutManifest).not.toHaveProperty("license");
+
+    const verify = await verifySkillsetResult(root);
+    expect(verify.ok).toBe(true);
+
+    await rm(join(root, "plugins-claude/plugins/demo/LICENSE.txt"));
+    const stale = await verifySkillsetResult(root);
+    expect(stale.ok).toBe(false);
+    expect(stale.data.failures).toContain("missing managed generated file: plugins-claude/plugins/demo/LICENSE.txt");
+  });
+
+  it("rejects local license files when the same scope opts out", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: license-conflict-root
+claude: true
+codex: false
+`,
+      ".skillset/skills/conflict/LICENSE.txt": "Local license text.\n",
+      ".skillset/skills/conflict/SKILL.md": `
+---
+name: conflict
+description: Conflicting license source.
+skillset:
+  license: none
+---
+
+Conflict body.
+`,
+    });
+
+    await expect(buildSkillsetResult(root)).rejects.toThrow("sets skillset.license to none but also has .skillset/skills/conflict/LICENSE.txt");
+  });
+
   it("classifies deleted managed generated output", async () => {
     const root = await fixture(DEMO_FIXTURE);
     const expectedOutput = ".claude/skills/demo/SKILL.md";
