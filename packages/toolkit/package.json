@@ -3,8 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "bin": {
+    "skillset-toolkit": "./src/cli.ts"
+  },
   "exports": {
     ".": "./src/index.ts",
+    "./cli": "./src/cli.ts",
     "./runtime": "./src/runtime.ts"
   }
 }
