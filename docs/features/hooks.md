@@ -98,13 +98,52 @@ Inline v1 fields are deliberately small:
 
 Omitting `context` is equivalent to `context.strategy: none`, so existing hooks keep their command text unchanged.
 
-For `context.strategy: toolkit`, generated hooks call:
+For `context.strategy: toolkit`, generated hooks call the installable helper:
 
 ```sh
 skillset-toolkit runtime context --event <event> --format env --fields <field,...>
 ```
 
-The helper prints shell `export` statements for the requested `SKILLSET_*` values and preserves provider-native environment access for the hook command. JS and TS hook scripts can also import the typed package surface from `@skillset/toolkit/runtime`; shell and Python scripts can consume the same model through `skillset-toolkit runtime context --format json`.
+The helper prints shell `export` statements for the requested `SKILLSET_*` values and preserves provider-native environment access for the hook command. It does not erase target-native variables such as `CLAUDE_SESSION_ID` or `CODEX_SESSION_ID`; scripts that need provider-specific data can still read the raw environment deliberately.
+
+Generated hooks and out-of-repo scripts should use the `skillset-toolkit` CLI because it is shipped by the published `skillset` package. Repo-local tools that already depend on the internal workspace package can import the typed runtime surface directly:
+
+```ts
+import { createHookRuntimeContext, renderHookRuntimeContextJson } from "@skillset/toolkit/runtime";
+
+const context = createHookRuntimeContext({
+  env: process.env,
+  event: "Stop",
+  fields: ["provider", "hook.event", "session.id"],
+});
+
+process.stdout.write(renderHookRuntimeContextJson(context));
+```
+
+Shell hooks can evaluate env output:
+
+```sh
+eval "$(skillset-toolkit runtime context --event Stop --format env --fields provider,hook.event,session.id)"
+printf '%s\n' "$SKILLSET_PROVIDER:$SKILLSET_HOOK_EVENT"
+```
+
+Python hooks can consume JSON output without shell evaluation:
+
+```python
+import json
+import subprocess
+
+context = json.loads(subprocess.check_output([
+    "skillset-toolkit",
+    "runtime",
+    "context",
+    "--event",
+    "Stop",
+    "--format",
+    "json",
+]))
+print(context["provider"])
+```
 
 ### Attachments
 
@@ -158,7 +197,7 @@ Unsupported cases include Codex skill/agent no-faithful-destination cases, Claud
 
 ### Provider Reference
 
-Use `skillset lookup hooks --events --compat <target>` for provider event and support facts. Use `skillset lookup hooks adaptive --fields --schema --examples` for the adaptive hook unit source contract.
+Use `skillset lookup hooks --events --compat <target>` for provider event and support facts. Use `skillset lookup hooks adaptive --fields --schema --examples` for the adaptive hook unit source contract. Use `skillset lookup hooks toolkit --field context.env --values --compat <target>` for the normalized runtime context field matrix.
 
 Provider details are intentionally registry-backed instead of duplicated here. Claude has the broader hook surface; Codex support is narrower and currently centers on synchronous command handlers. Skillset keeps provider-specific validation explicit so incompatible hooks fail visibly instead of being silently widened or dropped.
 
@@ -185,4 +224,4 @@ Hook definitions are generated plugin files. Plugin lock hashes include hook sou
 
 ## Tests and Fixtures
 
-Fixtures cover shared hooks, root hook rejection, target-specific hook validation, async handler rejection, excluded plugin output selection, generated manifest fields, and adaptive hook authoring in `fixtures/adaptive-hooks`.
+Fixtures cover shared hooks, root hook rejection, target-specific hook validation, async handler rejection, excluded plugin output selection, generated manifest fields, and adaptive hook authoring in `fixtures/adaptive-hooks`, including toolkit runtime context rendering.

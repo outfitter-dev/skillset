@@ -33,6 +33,8 @@ skillset-toolkit runtime context --event Stop --format env --fields provider,hoo
 | Agent runtime hook execution | `skillset hooks run post-tool-use`, `skillset hooks run stop` | `skillset hooks run post-tool-use`, `skillset hooks run stop` | `implemented` / `target_specific` | Core CLI behavior called by reviewed project-local runtime config. |
 | Runtime context helper | `skillset-toolkit runtime context --event <event> --format env|json` | `skillset-toolkit runtime context --event <event> --format env|json` | `implemented` / `target_specific` | Helper used by generated adaptive hook wrappers for `context.strategy: toolkit`; the shared context model lives in `@skillset/toolkit/runtime`. |
 
+For the normalized runtime context support matrix, use `skillset lookup hooks toolkit --field context.env --values --compat claude,codex` or see [Hooks](hooks.md#runtime-context).
+
 ## Diagnostics
 
 Pre-commit guardrails are staged-aware and fast through `skillset change check --staged`, which compares the Git index against `HEAD`. Pre-push snippets run broader checks through `skillset change check --since origin/main`, `skillset check`, `skillset verify`, and `skillset doctor`.

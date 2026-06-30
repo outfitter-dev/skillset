@@ -328,6 +328,10 @@ export const skillsetSchemaExamples = [
       codex: {
         matcher: "Bash",
       },
+      context: {
+        env: ["provider", "hook.event", "session.id"],
+        strategy: "toolkit",
+      },
       description: "Checks shell commands before they run.",
       events: ["PreToolUse"],
       match: {

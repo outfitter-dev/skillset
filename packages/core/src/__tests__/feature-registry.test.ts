@@ -55,6 +55,7 @@ const SEEDED_FEATURE_IDS = [
   "render-results",
   "resources",
   "runtime-adapters",
+  "runtime-context",
   "standalone-skills",
   "supports",
   "target-native-islands",
@@ -209,6 +210,14 @@ describe("feature registry", () => {
       status: "shimmed",
     }));
     expect(getSkillsetFeature("runtime-adapters")?.runtimeSupport?.cursor?.status).toBe("planned");
+    expect(getSkillsetFeature("runtime-context")?.targetSupport.claude).toEqual(expect.objectContaining({
+      note: expect.stringContaining("provider, hook.event, and session.id"),
+      status: "transformed",
+    }));
+    expect(getSkillsetFeature("runtime-context")?.targetSupport.codex).toEqual(expect.objectContaining({
+      note: expect.stringContaining("raw Codex environment remains available"),
+      status: "transformed",
+    }));
     expect(getSkillsetFeature("runtime-adapters")?.runtimeSupport?.devin?.status).toBe("future");
     expect(listSkillsetFeaturesByTarget("claude").map((entry) => entry.id)).not.toContain("changes");
     expect(listSkillsetFeaturesByTarget("codex").map((entry) => entry.id)).not.toContain("workflows");

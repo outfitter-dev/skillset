@@ -679,6 +679,46 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     validationOwner: "packages/core/src/feature-registry.ts",
   }),
   feature({
+    docs: ["docs/features/hooks.md", "docs/features/hook-guardrails.md"],
+    evidence: [
+      docs("docs/features/hooks.md"),
+      source("packages/toolkit/src/runtime.ts"),
+      source("packages/toolkit/src/cli.ts"),
+      source("packages/core/src/render.ts"),
+      test("packages/toolkit/src/__tests__/runtime.test.ts", "runtime context normalization coverage"),
+      test("packages/toolkit/src/__tests__/cli.test.ts", "shell-friendly runtime context CLI coverage"),
+      test("packages/core/src/__tests__/adaptive-hook-attachments.test.ts", "generated toolkit hook wrapper coverage"),
+    ],
+    id: "runtime-context",
+    kind: "workflow",
+    renderOwner: "packages/core/src/render.ts",
+    sourceShape: "adaptive hook context.strategy toolkit runtime context helper",
+    status: "implemented",
+    summary: "Normalizes Claude and Codex hook runtime context into Skillset fields for hook scripts through a typed API and shell-friendly CLI.",
+    targetSupport: {
+      claude: {
+        evidence: [
+          docs("docs/features/hooks.md"),
+          source("packages/toolkit/src/runtime.ts"),
+          test("packages/toolkit/src/__tests__/runtime.test.ts", "Claude-like environment normalization"),
+        ],
+        note: "Normalized fields are provider, hook.event, and session.id; raw Claude environment remains available to the hook command.",
+        status: "transformed",
+      },
+      codex: {
+        evidence: [
+          docs("docs/features/hooks.md"),
+          source("packages/toolkit/src/runtime.ts"),
+          test("packages/toolkit/src/__tests__/runtime.test.ts", "Codex-like environment normalization"),
+        ],
+        note: "Normalized fields are provider, hook.event, and session.id; raw Codex environment remains available to the hook command.",
+        status: "transformed",
+      },
+    },
+    title: "Runtime Context",
+    validationOwner: "packages/toolkit/src/runtime.ts",
+  }),
+  feature({
     docs: ["docs/features/releases.md"],
     evidence: [test("apps/skillset/src/__tests__/contract.test.ts", "SET-38 release apply coverage")],
     id: "releases",

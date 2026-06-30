@@ -132,6 +132,47 @@ describe("lookupSkillsetReference", () => {
     }).compatibility.map((item) => item.featureId)).toEqual(["adaptive-hooks"]);
   });
 
+  it("reports runtime context compatibility through toolkit hook aspects", () => {
+    const report = lookupSkillsetReference({
+      aspects: ["toolkit"],
+      field: "context.env",
+      subject: "hooks",
+      targets: ["claude", "codex"],
+      views: ["fields", "values", "compat"],
+    });
+
+    expect(report.diagnostics).toEqual([]);
+    expect(report.fields).toEqual([
+      expect.objectContaining({
+        contractId: "adaptive-hook",
+        path: "context.env",
+        type: "array<enum>",
+        values: ["hook.event", "provider", "session.id"],
+      }),
+    ]);
+    expect(report.compatibility).toEqual([
+      expect.objectContaining({
+        featureId: "runtime-context",
+        note: expect.stringContaining("raw Claude environment remains available"),
+        status: "transformed",
+        target: "claude",
+      }),
+      expect.objectContaining({
+        featureId: "runtime-context",
+        note: expect.stringContaining("raw Codex environment remains available"),
+        status: "transformed",
+        target: "codex",
+      }),
+    ]);
+
+    expect(lookupSkillsetReference({
+      aspects: ["context", "runtime"],
+      subject: "hooks",
+      targets: ["codex"],
+      views: ["compat"],
+    }).compatibility.map((item) => item.featureId)).toEqual(["runtime-context"]);
+  });
+
   it("derives plugin aspect compatibility from the feature registry", () => {
     const report = lookupSkillsetReference({
       aspects: ["bin"],
