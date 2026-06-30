@@ -1208,6 +1208,9 @@ function printMarketplaceCheck(report: MarketplaceCheckReport): void {
         `plugin ${entry.plugin} source ${source}`
     );
     console.log(`    reason: ${entry.reason}`);
+    if (entry.lock.state !== "locked") {
+      console.log(`    lock: ${entry.lock.state} ${entry.lock.policy} (${entry.lock.reason})`);
+    }
     if (entry.generatedPath !== undefined) console.log(`    generated: ${entry.generatedPath}`);
     if (entry.generatedPaths.length > 1) {
       console.log(`    generated bundle: ${entry.generatedPaths.join(", ")}`);

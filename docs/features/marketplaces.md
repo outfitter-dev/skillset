@@ -39,9 +39,10 @@ Optional plugin entry fields:
 | --- | --- |
 | `id` | Catalog entry id when it must differ from the plugin id. Defaults to `plugin`. |
 | `repo` | External Skillset repo reference, such as `github:org/repo` or an HTTPS git URL. |
-| `channel` | Floating policy such as `latest`; lock provenance must pin the resolved commit/version later. |
-| `ref` | Git ref requested by the catalog source. |
-| `version` | Version policy requested by the catalog source. |
+| `channel` | Floating policy such as `latest`; lock provenance pins the resolved commit/version. |
+| `ref` | Git ref requested by the catalog source; lock provenance records the exact resolved checkout. |
+| `sha` | Exact commit requested by the catalog source. Pinned entries fail when the resolved checkout does not match. |
+| `version` | Version policy requested by the catalog source; plugin version authority stays in the plugin repo. |
 | `targets` | Provider targets for this entry, narrowing the catalog targets. |
 
 Provider output paths such as `plugins-claude`, `plugins-codex`, `.claude-plugin`, or `.codex-plugin` are not part of the marketplace source contract. Provider-native source forms are derived output details for `marketplace update`.
@@ -81,18 +82,21 @@ Marketplace readiness is explicit:
 
 `skillset marketplace check [name] [--json]` is the read-only verifier. It parses marketplace source, resolves local entries from the current repo, resolves external entries from the managed known-Skillsets index when available, verifies provider target support and generated output freshness, and reports unresolved, stale, unbuilt, and target-missing entries. It does not write provider marketplace files, publish, install, trust, activate anything, mutate external repos, or register local paths in committed source.
 
-The check command exits successfully only when every selected target entry reaches `marketplace-ready`. Unresolved remote refs are reported as `not-ready` until remote/cache acquisition and lock provenance land in the follow-up slices.
+The check command exits successfully only when every selected target entry reaches `marketplace-ready`. Bare local and known-index entries are treated as current-checkout checks. Explicit `channel`, `ref`, `version`, and `sha` policies must also match `skillset.lock` provenance; stale or absent lock proof blocks readiness. Unresolved remote refs are reported as `not-ready` until remote/cache acquisition lands in the follow-up update slice.
 
 `skillset marketplace update` is planned as the explicit write command. It should run the same readiness checks, refuse not-ready entries, render provider-native marketplace indexes, and update existing `skillset.lock` provenance. It must require the usual write posture and must not mutate external plugin repos or runtime/user settings.
 
 ## Provenance
 
-Marketplace provenance belongs in existing `skillset.lock` files. There is no separate marketplace lock. Lock/report records should include the marketplace id, entry id, plugin id, source repo, requested channel/ref/version policy, resolved commit SHA/ref, plugin version, provider target, provider-native marketplace source form, derived provider output path, generated output hash, and readiness status.
+Marketplace provenance belongs in existing `skillset.lock` files. There is no separate marketplace lock. The root lock can carry a top-level `marketplaces.entries` section alongside generated-output `items`; `items` remains the generated-file ownership list, while marketplace entries record catalog readiness and resolved source facts without claiming ownership of external plugin repo files.
+
+Each marketplace lock/report entry records the marketplace id, entry id, plugin id, source repo when present, requested channel/ref/sha/version policy, resolved source kind/path/ref/SHA when known, plugin version, provider target, provider-native marketplace source form, derived provider output path(s), and readiness status. Explicit pinned `sha` entries fail if the resolved checkout SHA is missing or different. Floating entries fail when the current resolution differs from the lock.
 
 ## Evidence
 
 - [SET-133](https://linear.app/outfitter/issue/SET-133/design-skillset-marketplace-catalogs-and-external-plugin-references) - source contract and command boundary.
 - [SET-233](https://linear.app/outfitter/issue/SET-233/add-managed-known-skillsets-index-for-marketplace-repo-resolution) - managed XDG known-Skillsets index for local checkout resolution.
 - [SET-234](https://linear.app/outfitter/issue/SET-234/implement-skillset-marketplace-check-readiness-reports) - read-only marketplace readiness reports.
+- [SET-235](https://linear.app/outfitter/issue/SET-235/define-marketplace-ref-policy-and-lock-provenance-for-floating-and) - marketplace ref policy and `skillset.lock` provenance.
 - [Distributions](distributions.md) - related post-build sync planning surface.
 - [Runtime Adapters](runtime-adapters.md) - runtime support remains separate from compile targets and marketplace readiness.

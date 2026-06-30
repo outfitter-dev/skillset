@@ -774,7 +774,7 @@ function readMarketplacePluginEntry(raw: JsonValue | undefined, label: string): 
     throw new Error(`skillset: expected ${label} to be an object`);
   }
   for (const key of Object.keys(raw)) {
-    if (key !== "channel" && key !== "id" && key !== "plugin" && key !== "ref" && key !== "repo" && key !== "targets" && key !== "version") {
+    if (key !== "channel" && key !== "id" && key !== "plugin" && key !== "ref" && key !== "repo" && key !== "sha" && key !== "targets" && key !== "version") {
       throw new Error(`skillset: unsupported marketplace plugin key ${key} in ${label}`);
     }
   }
@@ -788,6 +788,7 @@ function readMarketplacePluginEntry(raw: JsonValue | undefined, label: string): 
   const targets = readOptionalTargetNames(raw.targets, `${label}.targets`);
   const channel = readOptionalString(raw, "channel", `${label}.channel`);
   const ref = readOptionalString(raw, "ref", `${label}.ref`);
+  const sha = readOptionalString(raw, "sha", `${label}.sha`);
   const version = readOptionalString(raw, "version", `${label}.version`);
   return {
     ...(channel === undefined ? {} : { channel }),
@@ -795,6 +796,7 @@ function readMarketplacePluginEntry(raw: JsonValue | undefined, label: string): 
     plugin,
     ...(ref === undefined ? {} : { ref }),
     ...(repo === undefined ? {} : { repo }),
+    ...(sha === undefined ? {} : { sha }),
     ...(targets === undefined ? {} : { targets }),
     ...(version === undefined ? {} : { version }),
   };

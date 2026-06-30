@@ -392,6 +392,7 @@ function marketplacePluginEntrySchema(): SchemaJsonRecord {
         },
         type: "string",
       },
+      sha: nonEmptyStringSchema(),
       targets: arraySchema(enumSchema(TARGET_NAMES), { minItems: 1, uniqueItems: true }),
       version: nonEmptyStringSchema(),
     }),
