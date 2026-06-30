@@ -37,6 +37,7 @@ export function validateWorkspaceConfig(value: unknown, path = "$"): SkillsetSch
   checkTargetBlock(value.codex, `${path}.codex`, "schema/workspace-config/target", diagnostics);
   checkCompile(value.compile, `${path}.compile`, diagnostics);
   checkDependencies(value.dependencies, `${path}.dependencies`, "schema/workspace-config/dependencies", diagnostics);
+  checkMarketplaceCatalogs(value.marketplaces, `${path}.marketplaces`, diagnostics);
   checkWorkspace(value.workspace, `${path}.workspace`, diagnostics);
   checkSourceMetadata(value.skillset, `${path}.skillset`, diagnostics);
   checkSupports(value.supports, `${path}.supports`, diagnostics);
@@ -197,19 +198,88 @@ function checkCompile(value: SchemaJsonValue | undefined, path: string, diagnost
   checkBooleanRecord(value.skillset, `${path}.skillset`, new Set(["metadata"]), diagnostics);
 }
 
-function checkTargets(value: SchemaJsonValue, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+function checkTargets(value: SchemaJsonValue, path: string, diagnostics: SkillsetSchemaDiagnostic[], label = "compile.targets"): void {
   if (!Array.isArray(value) || value.length === 0) {
-    diagnostics.push(diagnostic(path, "schema/workspace-config/targets", "compile.targets must be a non-empty array"));
+    diagnostics.push(diagnostic(path, "schema/workspace-config/targets", `${label} must be a non-empty array`));
     return;
   }
   const seen = new Set<string>();
   for (const [index, item] of value.entries()) {
     if (typeof item !== "string" || !targetNames.has(item)) {
-      diagnostics.push(diagnostic(`${path}[${index}]`, "schema/workspace-config/target", "compile.targets entries must be claude or codex"));
+      diagnostics.push(diagnostic(`${path}[${index}]`, "schema/workspace-config/target", `${label} entries must be claude or codex`));
       continue;
     }
-    if (seen.has(item)) diagnostics.push(diagnostic(`${path}[${index}]`, "schema/workspace-config/target-duplicate", `duplicate compile target ${item}`));
+    if (seen.has(item)) diagnostics.push(diagnostic(`${path}[${index}]`, "schema/workspace-config/target-duplicate", `duplicate target ${item}`));
     seen.add(item);
+  }
+}
+
+function checkMarketplaceCatalogs(value: SchemaJsonValue | undefined, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (value === undefined) return;
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, "schema/workspace-config/marketplaces", "marketplaces must be an object"));
+    return;
+  }
+  for (const [name, catalog] of Object.entries(value)) {
+    if (!/^[a-z0-9][a-z0-9._-]*$/.test(name)) {
+      diagnostics.push(diagnostic(`${path}.${name}`, "schema/workspace-config/marketplace-id", "marketplace ids must be lowercase ids"));
+    }
+    checkMarketplaceCatalog(catalog, `${path}.${name}`, diagnostics);
+  }
+}
+
+function checkMarketplaceCatalog(value: SchemaJsonValue | undefined, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, "schema/workspace-config/marketplace", "marketplace catalog must be an object"));
+    return;
+  }
+  checkAllowedKeys(value, new Set(["description", "plugins", "targets", "title"]), path, "schema/workspace-config/marketplace-key", diagnostics);
+  checkOptionalNonEmptyString(value.title, `${path}.title`, "schema/workspace-config/marketplace-title", diagnostics);
+  checkOptionalNonEmptyString(value.description, `${path}.description`, "schema/workspace-config/marketplace-description", diagnostics);
+  if (value.targets !== undefined) checkTargets(value.targets, `${path}.targets`, diagnostics, "marketplace targets");
+  if (!Array.isArray(value.plugins) || value.plugins.length === 0) {
+    diagnostics.push(diagnostic(`${path}.plugins`, "schema/workspace-config/marketplace-plugins", "marketplace plugins must be a non-empty array"));
+    return;
+  }
+  for (const [index, entry] of value.plugins.entries()) {
+    checkMarketplacePluginEntry(entry, `${path}.plugins[${index}]`, diagnostics);
+  }
+}
+
+function checkMarketplacePluginEntry(value: SchemaJsonValue, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, "schema/workspace-config/marketplace-plugin", "marketplace plugin entries must be objects"));
+    return;
+  }
+  checkAllowedKeys(value, new Set(["channel", "id", "plugin", "ref", "repo", "targets", "version"]), path, "schema/workspace-config/marketplace-plugin-key", diagnostics);
+  checkOptionalMarketplaceId(value.id, `${path}.id`, diagnostics);
+  if (value.plugin === undefined) {
+    diagnostics.push(diagnostic(`${path}.plugin`, "schema/workspace-config/marketplace-plugin", "marketplace plugin entries require plugin"));
+  } else {
+    checkOptionalMarketplaceId(value.plugin, `${path}.plugin`, diagnostics);
+  }
+  checkOptionalNonEmptyString(value.channel, `${path}.channel`, "schema/workspace-config/marketplace-plugin-channel", diagnostics);
+  checkOptionalNonEmptyString(value.ref, `${path}.ref`, "schema/workspace-config/marketplace-plugin-ref", diagnostics);
+  checkOptionalNonEmptyString(value.version, `${path}.version`, "schema/workspace-config/marketplace-plugin-version", diagnostics);
+  checkMarketplaceRepo(value.repo, `${path}.repo`, diagnostics);
+  if (value.targets !== undefined) checkTargets(value.targets, `${path}.targets`, diagnostics, "marketplace plugin targets");
+}
+
+function checkOptionalMarketplaceId(value: SchemaJsonValue | undefined, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (value === undefined) return;
+  if (typeof value !== "string" || !/^[a-z0-9][a-z0-9-]*$/.test(value)) {
+    diagnostics.push(diagnostic(path, "schema/workspace-config/marketplace-plugin-id", "marketplace plugin ids must be lowercase ids"));
+  }
+}
+
+function checkMarketplaceRepo(value: SchemaJsonValue | undefined, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (value === undefined) return;
+  if (typeof value !== "string" || value.length === 0) {
+    diagnostics.push(diagnostic(path, "schema/workspace-config/marketplace-plugin-repo", "marketplace plugin repo must be a non-empty string"));
+    return;
+  }
+  if (value.startsWith(".") || value.startsWith("/") || value.startsWith("~") || value.startsWith("file:") || /^[A-Za-z]:[\\/]/.test(value)) {
+    diagnostics.push(diagnostic(path, "schema/workspace-config/marketplace-plugin-repo", "marketplace plugin repo must be a remote repo reference, not a filesystem path"));
   }
 }
 

@@ -32,6 +32,7 @@ const SEEDED_FEATURE_IDS = [
   "distributions",
   "feature-registry",
   "future-companion-source-pointers",
+  "marketplaces",
   "output-safety",
   "plugin-agents",
   "plugin-apps",

@@ -22,6 +22,7 @@ export interface ResolvedTarget {
 export interface RootConfig {
   readonly compile: CompileConfig;
   readonly distributions: Readonly<Record<string, DistributionConfig>>;
+  readonly marketplaces: Readonly<Record<string, MarketplaceCatalogConfig>>;
   readonly metadata: JsonRecord;
   readonly outputs: OutputConfig;
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
@@ -83,6 +84,23 @@ export interface DistributionConfig {
   readonly dryRun: boolean;
   readonly from: DistributionFromConfig;
   readonly to: DistributionToConfig;
+}
+
+export interface MarketplaceCatalogConfig {
+  readonly description?: string;
+  readonly plugins: readonly MarketplacePluginEntryConfig[];
+  readonly targets: readonly TargetName[];
+  readonly title?: string;
+}
+
+export interface MarketplacePluginEntryConfig {
+  readonly channel?: string;
+  readonly id: string;
+  readonly plugin: string;
+  readonly ref?: string;
+  readonly repo?: string;
+  readonly targets?: readonly TargetName[];
+  readonly version?: string;
 }
 
 export interface PluginConfig {

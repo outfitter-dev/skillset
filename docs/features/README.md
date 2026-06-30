@@ -23,6 +23,7 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Hooks](hooks.md): native aggregate hook emission, adaptive hook units, target validation, and activation boundaries.
 - [Instructions](instructions.md): source-root `rules/` rendering to Claude rules and Codex `AGENTS.md`, preprocessing, and collision safety.
 - [LSP Servers](lsp-servers.md): Claude plugin `.lsp.json` pass-through, manifest wiring, and future validation boundaries.
+- [Marketplaces](marketplaces.md): curated provider catalogs, external plugin references, readiness states, and check/update boundaries.
 - [MCP Servers](mcp-servers.md): plugin `.mcp.json`, `mcp.source`, manifest wiring, and structured validation.
 - [Monitors](monitors.md): Claude experimental monitor pass-through, manifest wiring, and Codex unsupported boundaries.
 - [Output Safety](output-safety.md): managed output ownership, unmanaged neighbor handling, reversible backups, and restore.
