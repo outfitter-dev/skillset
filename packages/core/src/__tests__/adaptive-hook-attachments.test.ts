@@ -343,6 +343,57 @@ hooks:
     });
   });
 
+  test("renders toolkit hook context for plugin-level adaptive hooks", async () => {
+    const graph = await loadBuildGraph(await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-toolkit-context-render
+claude: true
+codex: true
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  Stop:
+    - session-summary
+`,
+      ".skillset/plugins/demo/hooks/session-summary.json": JSON.stringify({
+        context: {
+          env: ["provider", "hook.event", "session.id"],
+          strategy: "toolkit",
+        },
+        events: ["Stop"],
+        run: { command: "node ./session-summary.js" },
+      }),
+    }));
+
+    const rendered = await renderBuildGraph(graph);
+    const claudeHooks = renderedJson(rendered, "plugins-claude/plugins/demo/hooks/hooks.json");
+    const codexHooks = renderedJson(rendered, "plugins-codex/plugins/demo/hooks/hooks.json");
+
+    expect(claudeHooks).toEqual({
+      hooks: {
+        Stop: [{
+          hooks: [{
+            command: 'eval "$(SKILLSET_PROVIDER=claude SKILLSET_HOOK_EVENT=Stop skillset hooks context --event Stop --format env --context-fields \'provider,hook.event,session.id\')" && node ./session-summary.js',
+            type: "command",
+          }],
+        }],
+      },
+    });
+    expect(codexHooks).toEqual({
+      hooks: {
+        Stop: [{
+          hooks: [{
+            command: 'eval "$(SKILLSET_PROVIDER=codex SKILLSET_HOOK_EVENT=Stop skillset hooks context --event Stop --format env --context-fields \'provider,hook.event,session.id\')" && node ./session-summary.js',
+            type: "command",
+          }],
+        }],
+      },
+    });
+  });
+
   test("renders Claude skill and project-agent adaptive hooks into frontmatter", async () => {
     const graph = await loadBuildGraph(await fixture({
       "skillset.yaml": `
@@ -440,6 +491,48 @@ Body.
       Stop: [{
         hooks: [{
           command: "SKILLSET_PROVIDER=claude SKILLSET_HOOK_EVENT=Stop echo skill",
+          type: "command",
+        }],
+      }],
+    });
+  });
+
+  test("renders toolkit hook context for Claude frontmatter adaptive hooks", async () => {
+    const graph = await loadBuildGraph(await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-frontmatter-toolkit-context
+claude: true
+codex: false
+`,
+      ".skillset/skills/writer/SKILL.md": `
+---
+name: writer
+description: Demo writer.
+hooks:
+  Stop:
+    - local-stop
+---
+
+Body.
+`,
+      ".skillset/skills/writer/hooks/local-stop.json": JSON.stringify({
+        context: {
+          env: ["provider", "hook.event"],
+          strategy: "toolkit",
+        },
+        events: ["Stop"],
+        run: { command: "echo skill" },
+      }),
+    }));
+
+    const rendered = await renderBuildGraph(graph);
+    const skillFrontmatter = renderedMarkdown(rendered, ".claude/skills/writer/SKILL.md").frontmatter;
+
+    expect(skillFrontmatter.hooks).toEqual({
+      Stop: [{
+        hooks: [{
+          command: 'eval "$(SKILLSET_PROVIDER=claude SKILLSET_HOOK_EVENT=Stop skillset hooks context --event Stop --format env --context-fields \'provider,hook.event\')" && echo skill',
           type: "command",
         }],
       }],

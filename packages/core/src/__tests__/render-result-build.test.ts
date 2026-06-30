@@ -807,34 +807,6 @@ hooks:
       sourceUnit: "plugin.demo.feature:hooks",
     });
 
-    const toolkitContextRoot = await fixture({
-      "skillset.yaml": `
-skillset:
-  name: adaptive-hook-policy-toolkit-context
-claude: true
-codex: false
-`,
-      ".skillset/plugins/demo/skillset.yaml": `
-skillset:
-  name: demo
-hooks:
-  Stop:
-    - shell-policy
-`,
-      ".skillset/plugins/demo/hooks/shell-policy.json": JSON.stringify({
-        context: { strategy: "toolkit" },
-        events: ["Stop"],
-        run: { command: "echo ok" },
-      }),
-    });
-    await expectUnsupportedOutcome(toolkitContextRoot, {
-      destination: "hooks",
-      featureId: "adaptive-hooks",
-      reason: "Adaptive hook shell-policy uses context.strategy toolkit, but plugin hook rendering does not support toolkit context delivery yet.",
-      sourceUnit: "plugin.demo.feature:hooks",
-      target: "claude",
-    });
-
     const runtimePathRoot = await fixture({
       "skillset.yaml": `
 skillset:

@@ -86,7 +86,7 @@ Adaptive hook units can choose how much Skillset-normalized runtime context to p
 | --- | --- |
 | `inline` | Prefixes the generated command with requested `SKILLSET_*` environment assignments. |
 | `none` | Passes no Skillset-normalized context. Provider-native environment remains available. |
-| `toolkit` | Reserved until Skillset has a proven internal/public runtime helper boundary. It produces an explicit unsupported render result today. |
+| `toolkit` | Renders through Skillset's internal `skillset hooks context` helper. This proves the helper-backed wrapper path before the public `@skillset/toolkit/runtime` package boundary lands. |
 
 Inline v1 fields are deliberately small:
 
@@ -97,6 +97,14 @@ Inline v1 fields are deliberately small:
 | `session.id` | `SKILLSET_SESSION_ID`, sourced from `${CLAUDE_SESSION_ID:-}` or `${CODEX_SESSION_ID:-}` |
 
 Omitting `context` is equivalent to `context.strategy: none`, so existing hooks keep their command text unchanged.
+
+For `context.strategy: toolkit`, generated hooks call:
+
+```sh
+skillset hooks context --event <event> --format env --context-fields <field,...>
+```
+
+The helper prints shell `export` statements for the requested `SKILLSET_*` values and preserves provider-native environment access for the hook command. This is an internal proof surface for generated wrappers; public JS/TS and shell package surfaces are tracked separately under the `@skillset/toolkit` follow-up stack.
 
 ### Attachments
 

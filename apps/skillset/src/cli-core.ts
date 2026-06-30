@@ -47,9 +47,14 @@ import { printDiagnostics, printDiffPlan, printGeneratedChangelogDriftHint, prin
 import { runDevWatch } from "./dev-watch";
 import {
   dispatchHookRun,
+  readHookRuntimeContextField,
+  readHookRuntimeContextFormat,
   readHookRunEvent,
   readHookStdin,
   renderHookPrint,
+  renderHookRuntimeContext,
+  type HookRuntimeContextField,
+  type HookRuntimeContextFormat,
   type HookRunEvent,
   type HookRunner,
   type HookSubcommand,
@@ -139,6 +144,7 @@ const USAGE = [
   "       skillset hooks print --runner <lefthook|husky|pre-commit|git> [--pre-commit] [--pre-push]",
   "       skillset hooks print --target <claude|codex> --agent-runtime",
   "       skillset hooks run <post-tool-use|stop> [--root <path>]",
+  "       skillset hooks context --event <event> [--format env|json] [--context-fields <field,...>] [--root <path>]",
   "       skillset adopt <path> [--yes|--dry-run] [--targets claude,codex] [--root <path>]",
   "       skillset init [path] [--yes|--dry-run] [--targets claude,codex] [--include ci] [--layout root|nested] [--name <name>] [--root <path>]",
   "       skillset create [path|--global] [--yes|--dry-run] [--targets claude,codex] [--include ci] [--name <name>] [--root <path>]",
@@ -175,6 +181,9 @@ export async function runCli(
     distributionName,
     distributionSubcommand,
     hookAgentRuntime,
+    hookContextEvent,
+    hookContextFields,
+    hookContextFormat,
     hookPreCommit,
     hookPrePush,
     hookRunner,
@@ -457,7 +466,17 @@ export async function runCli(
       if (result.exitCode !== 0) process.exitCode = result.exitCode;
       return;
     }
-    throw new Error("skillset: expected hooks subcommand print or run");
+    if (hookSubcommand === "context") {
+      if (hookContextEvent === undefined) throw new Error("skillset: hooks context requires --event");
+      process.stdout.write(await renderHookRuntimeContext({
+        event: hookContextEvent,
+        ...(hookContextFields === undefined ? {} : { fields: hookContextFields }),
+        format: hookContextFormat ?? "json",
+        rootPath,
+      }));
+      return;
+    }
+    throw new Error("skillset: expected hooks subcommand context, print, or run");
   }
 
   if (command === "test") {
@@ -792,6 +811,9 @@ interface ParsedArgs {
   readonly distributionSubcommand?: DistributionSubcommand;
   readonly dryRun: boolean;
   readonly hookAgentRuntime: boolean;
+  readonly hookContextEvent?: string;
+  readonly hookContextFields?: readonly HookRuntimeContextField[];
+  readonly hookContextFormat?: HookRuntimeContextFormat;
   readonly hookPreCommit: boolean;
   readonly hookPrePush: boolean;
   readonly hookRunner?: HookRunner;
@@ -1410,6 +1432,9 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let ciReportPath: string | undefined;
   let devWatch = false;
   let hookAgentRuntime = false;
+  let hookContextEvent: string | undefined;
+  let hookContextFields: readonly HookRuntimeContextField[] | undefined;
+  let hookContextFormat: HookRuntimeContextFormat | undefined;
   let hookPreCommit = false;
   let hookPrePush = false;
   let hookRunner: HookRunner | undefined;
@@ -1494,8 +1519,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
 
   if (command === "hooks") {
     const subcommand = args[index];
-    if (subcommand !== "print" && subcommand !== "run") {
-      throw new Error("skillset: expected hooks subcommand print or run");
+    if (subcommand !== "context" && subcommand !== "print" && subcommand !== "run") {
+      throw new Error("skillset: expected hooks subcommand context, print, or run");
     }
     hookSubcommand = subcommand;
     index += 1;
@@ -1678,7 +1703,10 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--claude-setting-sources" &&
       flag !== "--timeout-ms" &&
       flag !== "--lines" &&
-      flag !== "--background"
+      flag !== "--background" &&
+      flag !== "--event" &&
+      flag !== "--format" &&
+      flag !== "--context-fields"
     ) {
       throw new Error(`skillset: unknown option ${arg}`);
     }
@@ -1797,6 +1825,9 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     if (flag === "--report") ciReportPath = value;
     if (flag === "--field") lookupField = setLookupField(lookupField, value);
     if (flag === "--runner") hookRunner = readHookRunner(value);
+    if (flag === "--event") hookContextEvent = value;
+    if (flag === "--format") hookContextFormat = readHookRuntimeContextFormat(value);
+    if (flag === "--context-fields") hookContextFields = readHookRuntimeContextFields(value);
     if (flag === "--target") {
       if (command === "runtime-tester") runtimeTesterTarget = readHookTarget(value);
       else hookTarget = readHookTarget(value);
@@ -1853,6 +1884,9 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(changeSince === undefined ? {} : { changeSince }),
     ...(distDir === undefined ? {} : { distDir }),
     dryRun,
+    ...(hookContextEvent === undefined ? {} : { contextEvent: hookContextEvent }),
+    ...(hookContextFields === undefined ? {} : { contextFields: hookContextFields }),
+    ...(hookContextFormat === undefined ? {} : { contextFormat: hookContextFormat }),
     ...(importKind === undefined ? {} : { importKind }),
     ...(importName === undefined ? {} : { importName }),
     ...(importProvider === undefined ? {} : { importProvider }),
@@ -2020,6 +2054,9 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(distributionSubcommand === undefined ? {} : { distributionSubcommand }),
     dryRun,
     hookAgentRuntime,
+    ...(hookContextEvent === undefined ? {} : { hookContextEvent }),
+    ...(hookContextFields === undefined ? {} : { hookContextFields }),
+    ...(hookContextFormat === undefined ? {} : { hookContextFormat }),
     hookPreCommit,
     hookPrePush,
     ...(hookRunner === undefined ? {} : { hookRunner }),
@@ -2102,6 +2139,12 @@ function readChangeScopes(value: string): readonly string[] {
   const scopes = value.split(",").map((scope) => scope.trim()).filter((scope) => scope.length > 0);
   if (scopes.length === 0) throw new Error("skillset: --scope requires at least one source unit scope");
   return scopes.map(sourceUnitSelector);
+}
+
+function readHookRuntimeContextFields(value: string): readonly HookRuntimeContextField[] {
+  const fields = value.split(",").map((field) => field.trim()).filter((field) => field.length > 0);
+  if (fields.length === 0) throw new Error("skillset: --context-fields requires at least one field");
+  return fields.map(readHookRuntimeContextField);
 }
 
 function readChangeBump(value: string): ChangeBump {
@@ -2194,6 +2237,9 @@ function validateHookFlags(
     readonly agentRuntime: boolean;
     readonly buildMode?: CompileBuildMode;
     readonly changeSince?: string;
+    readonly contextEvent?: string;
+    readonly contextFields?: readonly HookRuntimeContextField[];
+    readonly contextFormat?: HookRuntimeContextFormat;
     readonly distDir?: string;
     readonly dryRun: boolean;
     readonly importKind?: ImportKind;
@@ -2215,12 +2261,22 @@ function validateHookFlags(
     hooks.prePush ||
     hooks.runner !== undefined ||
     hooks.target !== undefined;
+  const hasHookContextFlag =
+    hooks.contextEvent !== undefined ||
+    hooks.contextFields !== undefined ||
+    hooks.contextFormat !== undefined;
   if (hasHookPrintFlag && (command !== "hooks" || hooks.subcommand !== "print")) {
     throw new Error("skillset: hook options are only supported with hooks print");
   }
+  if (hasHookContextFlag && (command !== "hooks" || hooks.subcommand !== "context")) {
+    throw new Error("skillset: hook context options are only supported with hooks context");
+  }
   if (command !== "hooks") return;
-  if (hooks.subcommand !== "print" && hooks.subcommand !== "run") {
-    throw new Error("skillset: expected hooks subcommand print or run");
+  if (hooks.subcommand !== "context" && hooks.subcommand !== "print" && hooks.subcommand !== "run") {
+    throw new Error("skillset: expected hooks subcommand context, print, or run");
+  }
+  if (hooks.subcommand === "context" && hooks.contextEvent === undefined) {
+    throw new Error("skillset: hooks context requires --event");
   }
   if (
     hooks.buildMode !== undefined ||

@@ -1876,6 +1876,9 @@ function withAdaptiveHookContextCommand(
   if (context === undefined) return command;
   const strategy = readString(context, "strategy") ?? "none";
   if (strategy === "none") return command;
+  if (strategy === "toolkit") {
+    return withAdaptiveHookToolkitContextCommand(command, item, target, readStringArray(context, "env") ?? []);
+  }
   if (strategy !== "inline") {
     throw new Error(`skillset: adaptive hook ${item.definition.name} context.strategy ${strategy} is not supported for rendering yet`);
   }
@@ -1885,6 +1888,20 @@ function withAdaptiveHookContextCommand(
   }
   const assignments = fields.map((field) => adaptiveHookContextAssignment(field, item, target));
   return `${assignments.join(" ")} ${command}`;
+}
+
+function withAdaptiveHookToolkitContextCommand(
+  command: string,
+  item: ResolvedAdaptiveHookAttachment,
+  target: TargetName,
+  fields: readonly string[]
+): string {
+  const event = shellLiteral(item.event);
+  const provider = `SKILLSET_PROVIDER=${target}`;
+  const hookEvent = `SKILLSET_HOOK_EVENT=${event}`;
+  const fieldArgs = fields.length === 0 ? "" : ` --context-fields ${shellLiteral(fields.join(","))}`;
+  const helper = `${provider} ${hookEvent} skillset hooks context --event ${event} --format env${fieldArgs}`;
+  return `eval "$(${helper})" && ${command}`;
 }
 
 function adaptiveHookContextAssignment(

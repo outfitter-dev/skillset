@@ -9,6 +9,7 @@ import {
   hasHookRelevantSourceChanges,
   hookRelevantSourcePaths,
   readHookRuntimeContext,
+  renderHookRuntimeContext,
   resolveSkillsetCommand,
   runHookEvent,
   runSkillsetCommand,
@@ -132,6 +133,45 @@ test("runtime hook context parser accepts unknown, Claude, Codex, and stdin payl
   expect(codex.repoRoot).toBe("/tmp/codex");
   expect(codex.payload).toBeUndefined();
   expect(codex.payloadError).toContain("JSON");
+});
+
+test("runtime hook context renderer emits env and JSON for generated wrappers", async () => {
+  const envText = await renderHookRuntimeContext({
+    env: {
+      CLAUDE_PROJECT_DIR: "/tmp/claude",
+      CLAUDE_SESSION_ID: "session 1",
+      SKILLSET_HOOK_EVENT: "Stop",
+      SKILLSET_PROVIDER: "claude",
+    },
+    event: "Stop",
+    fields: ["provider", "hook.event", "session.id"],
+    format: "env",
+    rootPath: "/tmp/repo",
+  });
+  expect(envText).toBe([
+    "export SKILLSET_PROVIDER=claude",
+    "export SKILLSET_HOOK_EVENT=Stop",
+    "export SKILLSET_SESSION_ID='session 1'",
+    "",
+  ].join("\n"));
+
+  const jsonText = await renderHookRuntimeContext({
+    env: { CODEX_REPO_ROOT: "/tmp/codex" },
+    event: "PreToolUse",
+    fields: ["provider", "hook.event", "session.id"],
+    format: "json",
+    rootPath: "/tmp/repo",
+  });
+  const report = JSON.parse(jsonText) as {
+    readonly hook: { readonly event: string };
+    readonly provider: string;
+    readonly raw: { readonly env: Record<string, string> };
+    readonly session: { readonly id?: string };
+  };
+  expect(report.provider).toBe("codex");
+  expect(report.hook.event).toBe("PreToolUse");
+  expect(report.session).toEqual({});
+  expect(report.raw.env.CODEX_REPO_ROOT).toBe("/tmp/codex");
 });
 
 test("post-tool-use is advisory and only runs status when Skillset source changed", async () => {
