@@ -36,6 +36,7 @@
     "@skillset/lint": "workspace:*",
     "@skillset/provider-formats": "workspace:*",
     "@skillset/schema": "workspace:*",
+    "@skillset/toolkit": "workspace:*",
     "@skillset/transforms": "workspace:*"
   }
 }

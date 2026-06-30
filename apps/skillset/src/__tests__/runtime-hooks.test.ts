@@ -8,8 +8,6 @@ import { gitSafeEnv } from "../git-env";
 import {
   hasHookRelevantSourceChanges,
   hookRelevantSourcePaths,
-  readHookRuntimeContext,
-  renderHookRuntimeContext,
   resolveSkillsetCommand,
   runHookEvent,
   runSkillsetCommand,
@@ -97,81 +95,6 @@ test("runtime hook command runner strips inherited Git repository environment", 
     if (previousGitDir === undefined) delete process.env.GIT_DIR;
     else process.env.GIT_DIR = previousGitDir;
   }
-});
-
-test("runtime hook context parser accepts unknown, Claude, Codex, and stdin payload shapes", async () => {
-  const unknown = await readHookRuntimeContext({
-    cwd: "/tmp/repo",
-    env: {},
-    event: "post-tool-use",
-    rootPath: "/tmp/repo",
-  });
-  expect(unknown.provider).toBe("unknown");
-  expect(unknown.repoRoot).toBe("/tmp/repo");
-
-  const claude = await readHookRuntimeContext({
-    cwd: "/tmp/repo",
-    env: { CLAUDE_PROJECT_DIR: "/tmp/claude", CLAUDE_SESSION_ID: "session-1" },
-    event: "post-tool-use",
-    stdinText: "{\"tool\":\"Write\"}",
-  });
-  expect(claude.provider).toBe("claude");
-  expect(claude.repoRoot).toBe("/tmp/claude");
-  expect(claude.payload).toEqual({ tool: "Write" });
-  expect(claude.rawEnv).toEqual({
-    CLAUDE_PROJECT_DIR: "/tmp/claude",
-    CLAUDE_SESSION_ID: "session-1",
-  });
-
-  const codex = await readHookRuntimeContext({
-    cwd: "/tmp/repo",
-    env: { CODEX_REPO_ROOT: "/tmp/codex", CODEX_SESSION_ID: "session-2" },
-    event: "stop",
-    stdinText: "{not json",
-  });
-  expect(codex.provider).toBe("codex");
-  expect(codex.repoRoot).toBe("/tmp/codex");
-  expect(codex.payload).toBeUndefined();
-  expect(codex.payloadError).toContain("JSON");
-});
-
-test("runtime hook context renderer emits env and JSON for generated wrappers", async () => {
-  const envText = await renderHookRuntimeContext({
-    env: {
-      CLAUDE_PROJECT_DIR: "/tmp/claude",
-      CLAUDE_SESSION_ID: "session 1",
-      SKILLSET_HOOK_EVENT: "Stop",
-      SKILLSET_PROVIDER: "claude",
-    },
-    event: "Stop",
-    fields: ["provider", "hook.event", "session.id"],
-    format: "env",
-    rootPath: "/tmp/repo",
-  });
-  expect(envText).toBe([
-    "export SKILLSET_PROVIDER=claude",
-    "export SKILLSET_HOOK_EVENT=Stop",
-    "export SKILLSET_SESSION_ID='session 1'",
-    "",
-  ].join("\n"));
-
-  const jsonText = await renderHookRuntimeContext({
-    env: { CODEX_REPO_ROOT: "/tmp/codex" },
-    event: "PreToolUse",
-    fields: ["provider", "hook.event", "session.id"],
-    format: "json",
-    rootPath: "/tmp/repo",
-  });
-  const report = JSON.parse(jsonText) as {
-    readonly hook: { readonly event: string };
-    readonly provider: string;
-    readonly raw: { readonly env: Record<string, string> };
-    readonly session: { readonly id?: string };
-  };
-  expect(report.provider).toBe("codex");
-  expect(report.hook.event).toBe("PreToolUse");
-  expect(report.session).toEqual({});
-  expect(report.raw.env.CODEX_REPO_ROOT).toBe("/tmp/codex");
 });
 
 test("post-tool-use is advisory and only runs status when Skillset source changed", async () => {

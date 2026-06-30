@@ -24,6 +24,7 @@ Package-facing means a change that can affect the published `skillset` CLI packa
 | `packages/lint/src/**` except tests | Lint implementation consumed by the CLI. |
 | `packages/provider-formats/src/**` except tests | Adopted provider destination-format snapshots, schema evidence, and migration registry consumed by the CLI and core conformance checks. |
 | `packages/schema/src/**` except tests | Source contract schemas, validators, examples, and artifact generation consumed by the CLI, Workbench, and generated editor-schema references. |
+| `packages/toolkit/src/**` except tests | Runtime helper surfaces intended for hook scripts and compiler-owned wrappers. |
 | `packages/transforms/src/**` except tests | Transform implementation consumed by the CLI. |
 | `packages/*/package.json` for `core`, `lint`, `provider-formats`, `schema`, and `transforms` | Runtime dependency and package metadata for the private workspace packages that feed the CLI. |
 | `bun.lock` / `bun.lockb` | Dependency resolution that can alter the packaged CLI runtime. |
