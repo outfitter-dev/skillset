@@ -85,6 +85,14 @@ export {
   type DistributionSelectorKind,
 } from "./distribution";
 export {
+  checkMarketplaces,
+  type MarketplaceCheckEntryReport,
+  type MarketplaceCheckReport,
+  type MarketplaceCheckSourceReport,
+  type MarketplaceReadinessState,
+  type MarketplaceSourceKind,
+} from "./marketplace-check";
+export {
   FEATURE_STATUS_VALUES,
   RUNTIME_SUPPORT_STATUS_VALUES,
   SKILLSET_RUNTIME_IDS,

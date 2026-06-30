@@ -183,7 +183,7 @@ export async function loadBuildGraph(
   ];
   validateAdaptiveHookAttachments(adaptiveHooks, hookAttachments);
 
-  if (plugins.length === 0 && standaloneSkills.length === 0 && rules.length === 0 && projectAgents.length === 0 && projectIslands.length === 0) {
+  if (plugins.length === 0 && standaloneSkills.length === 0 && rules.length === 0 && projectAgents.length === 0 && projectIslands.length === 0 && Object.keys(marketplaces).length === 0) {
     throw new Error(`skillset: no source plugins, skills, rules, project agents, or provider source found under ${sourceRoot}/`);
   }
 

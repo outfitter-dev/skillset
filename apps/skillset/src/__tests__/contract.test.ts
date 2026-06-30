@@ -6677,7 +6677,7 @@ Audit body.
 
   const misplacedJson = await runSkillsetCli("list", "--json");
   expect(misplacedJson.exitCode).toBe(1);
-  expect(misplacedJson.stderr).toContain("--json is only supported with doctor, explain, features, lookup, or runtime-tester");
+  expect(misplacedJson.stderr).toContain("--json is only supported with doctor, explain, features, lookup, marketplace, or runtime-tester");
 });
 
 test("SET-78: feature capability inspection surfaces registry ids in explain, doctor, and features", async () => {
