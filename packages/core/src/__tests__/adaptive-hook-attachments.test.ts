@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
@@ -364,7 +364,7 @@ hooks:
           strategy: "toolkit",
         },
         events: ["Stop"],
-        run: { command: "node ./session-summary.js" },
+        run: { command: "cat" },
       }),
     }));
 
@@ -376,7 +376,7 @@ hooks:
       hooks: {
         Stop: [{
           hooks: [{
-            command: 'eval "$(SKILLSET_PROVIDER=claude SKILLSET_HOOK_EVENT=Stop skillset hooks context --event Stop --format env --context-fields \'provider,hook.event,session.id\')" && node ./session-summary.js',
+            command: 'eval "$(SKILLSET_PROVIDER=claude SKILLSET_HOOK_EVENT=Stop skillset-toolkit runtime context --event Stop --format env --fields \'provider,hook.event,session.id\')" && cat',
             type: "command",
           }],
         }],
@@ -386,11 +386,18 @@ hooks:
       hooks: {
         Stop: [{
           hooks: [{
-            command: 'eval "$(SKILLSET_PROVIDER=codex SKILLSET_HOOK_EVENT=Stop skillset hooks context --event Stop --format env --context-fields \'provider,hook.event,session.id\')" && node ./session-summary.js',
+            command: 'eval "$(SKILLSET_PROVIDER=codex SKILLSET_HOOK_EVENT=Stop skillset-toolkit runtime context --event Stop --format env --fields \'provider,hook.event,session.id\')" && cat',
             type: "command",
           }],
         }],
       },
+    });
+
+    const command = ((claudeHooks.hooks as JsonRecord).Stop as readonly JsonRecord[])[0]?.hooks as readonly JsonRecord[];
+    expect(await runGeneratedHookCommand(String(command[0]?.command))).toEqual({
+      exitCode: 0,
+      stderr: "",
+      stdout: "payload",
     });
   });
 
@@ -532,7 +539,7 @@ Body.
     expect(skillFrontmatter.hooks).toEqual({
       Stop: [{
         hooks: [{
-          command: 'eval "$(SKILLSET_PROVIDER=claude SKILLSET_HOOK_EVENT=Stop skillset hooks context --event Stop --format env --context-fields \'provider,hook.event\')" && echo skill',
+          command: 'eval "$(SKILLSET_PROVIDER=claude SKILLSET_HOOK_EVENT=Stop skillset-toolkit runtime context --event Stop --format env --fields \'provider,hook.event\')" && echo skill',
           type: "command",
         }],
       }],
@@ -625,4 +632,41 @@ function renderedMarkdown(files: readonly { readonly content: Uint8Array; readon
   const file = files.find((candidate) => candidate.path === path);
   expect(file).toBeDefined();
   return parseMarkdown(new TextDecoder().decode(file?.content), path);
+}
+
+async function runGeneratedHookCommand(command: string): Promise<{
+  readonly exitCode: number;
+  readonly stderr: string;
+  readonly stdout: string;
+}> {
+  const root = await mkdtemp(join(tmpdir(), "skillset-generated-hook-"));
+  const binDir = join(root, "bin");
+  await mkdir(binDir);
+  const shim = join(binDir, "skillset-toolkit");
+  await Bun.write(
+    shim,
+    `#!/bin/sh\nexec ${shellQuote(process.execPath)} ${shellQuote(join(process.cwd(), "packages/toolkit/src/cli.ts"))} "$@"\n`
+  );
+  await chmod(shim, 0o755);
+  const proc = Bun.spawn({
+    cmd: ["/bin/sh", "-c", `printf payload | (${command})`],
+    cwd: root,
+    env: {
+      HOME: process.env.HOME ?? "",
+      PATH: `${binDir}:${process.env.PATH ?? ""}`,
+      TMPDIR: process.env.TMPDIR ?? "/tmp",
+    },
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  return { exitCode, stderr, stdout };
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", "'\"'\"'")}'`;
 }

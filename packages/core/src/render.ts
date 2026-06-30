@@ -1899,8 +1899,8 @@ function withAdaptiveHookToolkitContextCommand(
   const event = shellLiteral(item.event);
   const provider = `SKILLSET_PROVIDER=${target}`;
   const hookEvent = `SKILLSET_HOOK_EVENT=${event}`;
-  const fieldArgs = fields.length === 0 ? "" : ` --context-fields ${shellLiteral(fields.join(","))}`;
-  const helper = `${provider} ${hookEvent} skillset hooks context --event ${event} --format env${fieldArgs}`;
+  const fieldArgs = fields.length === 0 ? "" : ` --fields ${shellLiteral(fields.join(","))}`;
+  const helper = `${provider} ${hookEvent} skillset-toolkit runtime context --event ${event} --format env${fieldArgs}`;
   return `eval "$(${helper})" && ${command}`;
 }
 
