@@ -2,6 +2,11 @@
 
 This page covers the npm package release path for the unscoped `skillset` package. It is separate from Skillset source-unit releases under the workspace change directory (`.skillset/changes`), which describe authored plugin, skill, and generated-output provenance.
 
+For the current 0.x milestone decision record, see the
+[0.x `latest` Release Plan](0x-latest-release-plan.md). That plan defines the
+readiness gates for promoting a 0.x package to npm `latest` without making 1.0
+contract promises.
+
 ## Ownership
 
 GitHub Actions is the package release operator. Local commands are diagnostics and dry-run aids; package publication should happen from the `Release` workflow on `main`.
