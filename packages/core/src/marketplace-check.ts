@@ -51,6 +51,7 @@ export interface MarketplaceCheckEntryReport {
   readonly generatedPaths: readonly string[];
   readonly lock: MarketplaceCheckLockReport;
   readonly plugin: string;
+  readonly provenance: MarketplaceLockEntry;
   readonly providerSource: string;
   readonly reason: string;
   readonly readiness: "marketplace-ready" | "not-ready";
@@ -117,6 +118,7 @@ export interface MarketplaceResolvedLockState {
 }
 
 interface MarketplaceCheckOptions extends SkillsetOptions {
+  readonly lockMode?: "check" | "refresh";
   readonly name?: string;
 }
 
@@ -150,7 +152,7 @@ export async function checkMarketplaces(
         ? current
         : await resolveExternalInspection(entry.repo, options, inspections);
       for (const target of entry.targets ?? catalog.targets) {
-        entries.push(checkMarketplaceEntry(catalogName, entry, target, inspection, lockEntries));
+        entries.push(checkMarketplaceEntry(catalogName, entry, target, inspection, lockEntries, options.lockMode ?? "check"));
       }
     }
   }
@@ -235,7 +237,8 @@ function checkMarketplaceEntry(
   entry: MarketplacePluginEntryConfig,
   target: TargetName,
   inspection: SourceInspection | undefined,
-  lockEntries: readonly MarketplaceLockEntry[]
+  lockEntries: readonly MarketplaceLockEntry[],
+  lockMode: "check" | "refresh"
 ): MarketplaceCheckEntryReport {
   const refPolicy = requestedRefPolicy(entry);
   const policyStates = statesForRefPolicy(refPolicy);
@@ -274,6 +277,7 @@ function checkMarketplaceEntry(
       generatedPaths: [],
       lock,
       plugin: entry.plugin,
+      provenance: baseLockEntry,
       providerSource: providerSource(generatedPath),
       reason: `${target} output is not enabled for plugin ${entry.plugin}`,
       readiness: "not-ready",
@@ -307,7 +311,7 @@ function checkMarketplaceEntry(
     target,
   });
   const lock = compareMarketplaceLock(lockEntry, lockEntries);
-  if (lockBlocksReadiness(lock, refPolicy)) {
+  if (lockBlocksReadiness(lock, refPolicy, lockMode)) {
     return {
       catalog,
       entryId: entry.id,
@@ -315,6 +319,7 @@ function checkMarketplaceEntry(
       generatedPaths: outputPaths,
       lock,
       plugin: entry.plugin,
+      provenance: lockEntry,
       providerSource: providerSource(generatedPath),
       reason: lock.reason,
       readiness: "not-ready",
@@ -333,6 +338,7 @@ function checkMarketplaceEntry(
     generatedPaths: outputPaths,
     lock,
     plugin: entry.plugin,
+    provenance: lockEntry,
     providerSource: providerSource(generatedPath),
     reason: "provider output is generated and verified",
     readiness: "marketplace-ready",
@@ -366,10 +372,11 @@ function notReady(
     requested,
     target,
   } satisfies Omit<Parameters<typeof marketplaceLockEntryFor>[0], "generatedPath">;
-  const lock = compareMarketplaceLock(marketplaceLockEntryFor({
+  const provenance = marketplaceLockEntryFor({
     ...lockEntryInput,
     ...(generatedPath === undefined ? {} : { generatedPath }),
-  }), lockEntries);
+  });
+  const lock = compareMarketplaceLock(provenance, lockEntries);
   return {
     catalog,
     entryId: entry.id,
@@ -377,6 +384,7 @@ function notReady(
     generatedPaths,
     lock,
     plugin: entry.plugin,
+    provenance,
     providerSource: generatedPath === undefined ? "" : providerSource(generatedPath),
     reason,
     readiness: "not-ready",
@@ -419,7 +427,14 @@ function lockStates(lock: MarketplaceCheckLockReport): readonly MarketplaceReadi
   return [];
 }
 
-function lockBlocksReadiness(lock: MarketplaceCheckLockReport, policy: MarketplaceRequestedRefPolicy): boolean {
+function lockBlocksReadiness(
+  lock: MarketplaceCheckLockReport,
+  policy: MarketplaceRequestedRefPolicy,
+  mode: "check" | "refresh"
+): boolean {
+  if (mode === "refresh" && policy.kind === "sha" && lock.state === "stale") return true;
+  if (mode === "refresh" && policy.kind !== "local" && policy.kind !== "sha" && lock.resolvedSha === undefined) return true;
+  if (mode === "refresh") return false;
   if (lock.state === "stale") return true;
   return lock.state === "absent" && policy.kind !== "local";
 }

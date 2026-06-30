@@ -89,9 +89,16 @@ export {
   type MarketplaceCheckEntryReport,
   type MarketplaceCheckReport,
   type MarketplaceCheckSourceReport,
+  type MarketplaceLockEntry,
   type MarketplaceReadinessState,
   type MarketplaceSourceKind,
 } from "./marketplace-check";
+export {
+  updateMarketplaces,
+  type MarketplaceUpdateFile,
+  type MarketplaceUpdateOptions,
+  type MarketplaceUpdateReport,
+} from "./marketplace-update";
 export {
   FEATURE_STATUS_VALUES,
   RUNTIME_SUPPORT_STATUS_VALUES,

@@ -12,11 +12,13 @@ import {
   recordKnownSkillsetWorkspace,
   resolveOperationalPath,
   restoreOutputBackup,
+  updateMarketplaces,
   verifySkillsetResult,
   type DistributionPlanReport,
   type LookupSubject,
   type LookupView,
   type MarketplaceCheckReport,
+  type MarketplaceUpdateReport,
   type OutputBackupRestoreReport,
   type VersionAuditReport,
 } from "@skillset/core";
@@ -110,7 +112,7 @@ import type { BuildScope, CompileBuildMode, JsonRecord, SkillsetOptions, SourceO
 
 type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "dev" | "diff" | "distribute" | "doctor" | "explain" | "features" | "hooks" | "import" | "init" | "lint" | "list" | "lookup" | "marketplace" | "new" | "providers" | "release" | "restore" | "runtime-tester" | "suggest-source" | "test" | "update" | "verify";
 type DistributionSubcommand = "plan";
-type MarketplaceSubcommand = "check";
+type MarketplaceSubcommand = "check" | "update";
 
 const USAGE = [
   "usage: skillset build [--yes|--dry-run] [--updated|--all] [--isolated] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
@@ -138,6 +140,7 @@ const USAGE = [
   "       skillset suggest-source <generated-path> [--write --yes] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset distribute plan [name] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset marketplace check [name] [--json] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset marketplace update [name] [--yes|--dry-run] [--json] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset providers <check|diff|update> [--yes|--dry-run] [--root <path>]",
   "       skillset update [--yes|--dry-run] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset features [feature-id] [--json]",
@@ -468,7 +471,22 @@ export async function runCli(
       if (!report.ok) process.exitCode = 1;
       return;
     }
-    throw new Error("skillset: expected marketplace subcommand check");
+    if (marketplaceSubcommand === "update") {
+      const report = await updateMarketplaces(rootPath, {
+        ...options,
+        ...(marketplaceName === undefined ? {} : { name: marketplaceName }),
+        write: yes && !dryRun,
+      });
+      if (jsonOutput) {
+        process.stdout.write(renderValidatedJson(report as unknown as JsonRecord, "skillset marketplace update"));
+      } else {
+        printMarketplaceUpdate(report);
+      }
+      if (!yes || dryRun) console.log("skillset: marketplace update preview wrote no files");
+      if (!report.ok) process.exitCode = 1;
+      return;
+    }
+    throw new Error("skillset: expected marketplace subcommand check or update");
   }
 
   if (command === "hooks") {
@@ -1218,6 +1236,27 @@ function printMarketplaceCheck(report: MarketplaceCheckReport): void {
   }
 }
 
+function printMarketplaceUpdate(report: MarketplaceUpdateReport): void {
+  if (report.check.marketplaces.length === 0) {
+    console.log("skillset: no marketplaces configured");
+    return;
+  }
+  console.log(
+    `skillset: marketplace update ${report.ok ? "passed" : "failed"} ` +
+      `(${report.check.entries.length} target entr${report.check.entries.length === 1 ? "y" : "ies"})`
+  );
+  for (const file of report.files) {
+    const state = report.write ? (report.writtenPaths.includes(file.path) ? "wrote" : "unchanged") : "would write";
+    console.log(`  ${state}: ${file.path} (${file.catalog} ${file.target})`);
+  }
+  if (report.ok) {
+    const state = report.write ? "wrote" : "would write";
+    console.log(`  ${state}: ${report.lockPath}`);
+    return;
+  }
+  printMarketplaceCheck(report.check);
+}
+
 function formatDistributionNoOp(noOp: boolean | "unknown"): string {
   if (noOp === "unknown") return "destination state unknown";
   return noOp ? "no-op" : "would change";
@@ -1589,8 +1628,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
 
   if (command === "marketplace") {
     const subcommand = args[index];
-    if (subcommand !== "check") {
-      throw new Error("skillset: expected marketplace subcommand check");
+    if (subcommand !== "check" && subcommand !== "update") {
+      throw new Error("skillset: expected marketplace subcommand check or update");
     }
     marketplaceSubcommand = subcommand;
     index += 1;
@@ -2426,17 +2465,20 @@ function validateMarketplaceFlags(
   }
 ): void {
   if (command !== "marketplace") return;
-  if (marketplace.subcommand !== "check") throw new Error("skillset: expected marketplace subcommand check");
+  if (marketplace.subcommand !== "check" && marketplace.subcommand !== "update") {
+    throw new Error("skillset: expected marketplace subcommand check or update");
+  }
   if (marketplace.name !== undefined && !/^[a-z0-9][a-z0-9._-]*$/.test(marketplace.name)) {
     throw new Error("skillset: expected marketplace name to be a lowercase id");
   }
+  if (marketplace.subcommand === "check" && (marketplace.dryRun || marketplace.yes)) {
+    throw new Error("skillset: build/write options are not supported with marketplace check; it is always read-only");
+  }
   if (
     marketplace.buildMode !== undefined ||
-    marketplace.dryRun ||
-    marketplace.scopes !== undefined ||
-    marketplace.yes
+    marketplace.scopes !== undefined
   ) {
-    throw new Error("skillset: build/write options are not supported with marketplace check; it is always read-only");
+    throw new Error(`skillset: build scope options are not supported with marketplace ${marketplace.subcommand}`);
   }
 }
 
