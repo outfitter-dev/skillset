@@ -66,6 +66,30 @@ test("SET-220: lookup hooks adaptive lens shows adaptive hook fields", async () 
   expect(report.compatibility.map((item) => item.featureId)).toEqual(["adaptive-hooks"]);
 });
 
+test("SET-232: lookup hooks toolkit lens reports runtime context support", async () => {
+  const result = await runSkillsetCli("lookup", "hooks", "toolkit", "--field", "context.env", "--values", "--compat", "codex", "--json");
+
+  expect(result.exitCode).toBe(0);
+  const report = JSON.parse(result.stdout) as {
+    readonly compatibility: readonly { readonly featureId: string; readonly note?: string; readonly status: string; readonly target: string }[];
+    readonly fields: readonly { readonly path: string; readonly values?: readonly string[] }[];
+  };
+  expect(report.fields).toEqual([
+    expect.objectContaining({
+      path: "context.env",
+      values: ["hook.event", "provider", "session.id"],
+    }),
+  ]);
+  expect(report.compatibility).toEqual([
+    expect.objectContaining({
+      featureId: "runtime-context",
+      note: expect.stringContaining("raw Codex environment remains available"),
+      status: "transformed",
+      target: "codex",
+    }),
+  ]);
+});
+
 test("SET-220: lookup plugin bin compatibility reports Codex unsupported reason", async () => {
   const result = await runSkillsetCli("lookup", "plugin", "bin", "--compat", "codex", "--json");
 

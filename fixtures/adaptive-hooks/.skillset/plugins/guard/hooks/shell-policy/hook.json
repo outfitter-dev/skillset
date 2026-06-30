@@ -2,6 +2,10 @@
   "name": "shell-policy",
   "description": "Checks shell commands before they run.",
   "events": ["PreToolUse"],
+  "context": {
+    "strategy": "toolkit",
+    "env": ["provider", "hook.event", "session.id"]
+  },
   "run": {
     "script": "./check.sh"
   }

@@ -162,9 +162,12 @@ const ASPECT_FEATURES: Partial<Record<LookupSubject, Record<string, readonly Ski
   hooks: {
     adaptive: ["adaptive-hooks"],
     attachments: ["adaptive-hooks"],
+    context: ["runtime-context"],
     aggregate: ["plugin-hooks"],
     handlers: ["plugin-hooks"],
     native: ["plugin-hooks"],
+    runtime: ["runtime-context"],
+    toolkit: ["runtime-context"],
     units: ["adaptive-hooks"],
   },
   instruction: {
@@ -301,7 +304,7 @@ function contractForLookup(subject: LookupSubject, aspects: readonly string[]): 
 }
 
 function isAdaptiveHookAspect(aspect: string): boolean {
-  return aspect === "adaptive" || aspect === "units";
+  return aspect === "adaptive" || aspect === "context" || aspect === "runtime" || aspect === "toolkit" || aspect === "units";
 }
 
 function invalidCombinationDiagnostics(
