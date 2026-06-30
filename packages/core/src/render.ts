@@ -171,6 +171,9 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
   rendered.push(...(await renderRules(graph, lockRoots)));
   rendered.push(...(await renderProjectIslands(graph, lockRoots)));
   rendered.push(...(await renderChangelogs(graph, lockRoots)));
+  if (Object.keys(graph.root.marketplaces).length > 0) {
+    lockRootsFor(lockRoots, WORKSPACE_LOCK_ROOT, "workspace");
+  }
   rendered.push(...renderLockFiles(graph, lockRoots));
   return [...coalesceRenderedFiles(rendered)]
     .sort((left, right) => compareStrings(left.path, right.path))
@@ -2079,6 +2082,7 @@ function renderLockFiles(
       items: lock.items
         .map((item) => stripUndefinedLockItem(item))
         .sort((left, right) => compareStrings(String(left.outputPath), String(right.outputPath))),
+      ...(outputRoot === WORKSPACE_LOCK_ROOT ? marketplaceLockProvenance(graph, lockRoots) : {}),
       selectedTargets: [...graph.root.compile.targets],
       skillsetMetadata: graph.root.compile.skillset.metadata,
       outputRoot,
@@ -2090,6 +2094,92 @@ function renderLockFiles(
   }
 
   return rendered;
+}
+
+function marketplaceLockProvenance(
+  graph: BuildGraph,
+  lockRoots: ReadonlyMap<string, LockRoot>
+): JsonRecord {
+  const entries: JsonRecord[] = [];
+  for (const [catalogName, catalog] of Object.entries(graph.root.marketplaces).sort(([left], [right]) => compareStrings(left, right))) {
+    for (const entry of catalog.plugins) {
+      const plugin = graph.plugins.find((candidate) => candidate.id === entry.plugin);
+      for (const target of entry.targets ?? catalog.targets) {
+        const generatedPath = plugin === undefined ? undefined : marketplacePluginManifestPath(graph, plugin, target);
+        const renderable = plugin !== undefined && plugin.targets[target].enabled && isOutputSelected(graph.root.outputs.targetOutputs[target].plugins, plugin.id);
+        const generatedPaths = renderable ? marketplaceGeneratedPaths(lockRoots, graph.root.outputs.plugins[target], entry.plugin) : [];
+        const provider = generatedPath === undefined ? "" : marketplaceProviderSource(generatedPath);
+        entries.push(stripUndefinedJsonRecord({
+          catalog: catalogName,
+          entryId: entry.id,
+          generatedPath,
+          generatedPaths: [...generatedPaths],
+          plugin: entry.plugin,
+          providerSource: provider,
+          readiness: renderable ? "marketplace-ready" : "not-ready",
+          repo: entry.repo,
+          requested: marketplaceRequestedPolicy(entry),
+          requestedTarget: target,
+          resolved: stripUndefinedJsonRecord({
+            generatedPath,
+            generatedPaths: [...generatedPaths],
+            pluginVersion: plugin === undefined ? undefined : pluginVersion(graph, plugin),
+            providerSource: provider,
+            repository: entry.repo,
+            sourceKind: entry.repo === undefined ? "current" : "unresolved",
+            sourcePath: entry.repo === undefined ? "." : undefined,
+          }),
+        }));
+      }
+    }
+  }
+  return entries.length === 0 ? {} : { marketplaces: { entries: entries.sort((left, right) => compareStrings(`${left.catalog}\0${left.entryId}\0${left.requestedTarget}`, `${right.catalog}\0${right.entryId}\0${right.requestedTarget}`)) } };
+}
+
+function marketplaceGeneratedPaths(
+  lockRoots: ReadonlyMap<string, LockRoot>,
+  outputRoot: string,
+  pluginId: string
+): readonly string[] {
+  const lock = lockRoots.get(outputRoot);
+  if (lock === undefined) return [];
+  const paths = new Set<string>();
+  for (const item of lock.items) {
+    if (item.plugin !== pluginId && !(item.kind === "plugin" && item.name === pluginId)) continue;
+    for (const file of item.files) paths.add(join(outputRoot, file).replaceAll("\\", "/"));
+  }
+  return [...paths].sort(compareStrings);
+}
+
+function marketplaceRequestedPolicy(entry: {
+  readonly channel?: string;
+  readonly ref?: string;
+  readonly repo?: string;
+  readonly sha?: string;
+  readonly version?: string;
+}): JsonRecord {
+  if (entry.sha !== undefined) return { kind: "sha", sha: entry.sha };
+  if (entry.ref !== undefined) return { kind: "ref", ref: entry.ref };
+  if (entry.channel !== undefined) return { channel: entry.channel, kind: "channel" };
+  if (entry.version !== undefined) return { kind: "version", version: entry.version };
+  return { kind: "local" };
+}
+
+function marketplacePluginManifestPath(graph: BuildGraph, plugin: SourcePlugin, target: TargetName): string {
+  const root = graph.root.outputs.plugins[target];
+  const manifest = target === "claude" ? ".claude-plugin/plugin.json" : ".codex-plugin/plugin.json";
+  return join(root, "plugins", plugin.id, manifest).replaceAll("\\", "/");
+}
+
+function marketplaceProviderSource(path: string): string {
+  const match = path.match(/^(.*)\/plugins\/([^/]+)/);
+  if (match === null) return path;
+  const pluginId = match[2];
+  return pluginId === undefined ? path : `./plugins/${pluginId}`;
+}
+
+function stripUndefinedJsonRecord(record: Record<string, JsonValue | undefined>): JsonRecord {
+  return Object.fromEntries(Object.entries(record).filter(([, value]) => value !== undefined)) as JsonRecord;
 }
 
 function lockRootsFor(

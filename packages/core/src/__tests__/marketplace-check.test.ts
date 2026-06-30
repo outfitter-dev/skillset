@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -28,7 +28,8 @@ describe("marketplace check", () => {
       readiness: "marketplace-ready",
       requestedTarget: "claude",
       resolvedTargetSupport: true,
-      states: ["declared", "resolved", "renderable", "generated", "verified", "marketplace-ready"],
+      lock: expect.objectContaining({ state: "locked" }),
+      states: ["declared", "resolved", "renderable", "generated", "verified", "locked", "marketplace-ready"],
     }));
     expect(report.entries).toContainEqual(expect.objectContaining({
       generatedPath: "plugins-codex/plugins/local-tools/.codex-plugin/plugin.json",
@@ -94,14 +95,14 @@ codex: false
       plugin: "missing-tools",
       reason: "missing plugin missing-tools",
       requestedTarget: "claude",
-      states: ["declared", "resolved", "not-ready"],
+      states: ["declared", "resolved", "locked", "not-ready"],
     }));
     expect(report.entries).toContainEqual(expect.objectContaining({
       entryId: "claude-only",
       plugin: "claude-only",
       reason: "codex output is not enabled for plugin claude-only",
       requestedTarget: "codex",
-      states: ["declared", "resolved", "not-ready"],
+      states: ["declared", "resolved", "locked", "not-ready"],
     }));
   });
 
@@ -147,6 +148,7 @@ skillset:
     expect(report.ok).toBe(true);
     expect(report.entries).toEqual([expect.objectContaining({
       entryId: "trails",
+      lock: expect.objectContaining({ state: "absent", policy: "local" }),
       plugin: "trails-tools",
       readiness: "marketplace-ready",
       repo: "github:outfitter-dev/trails",
@@ -157,6 +159,31 @@ skillset:
         path: external,
         repository: "git@github.com:outfitter-dev/trails.git",
       }),
+    })]);
+  });
+
+  test("keeps bare external repo entries as current-checkout policy in the marketplace lock", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: marketplace-root
+marketplaces:
+  outfitter:
+    targets: [claude]
+    plugins:
+      - id: trails
+        plugin: trails-tools
+        repo: github:outfitter-dev/trails
+`,
+    });
+
+    await buildSkillsetResult(root);
+    const lock = JSON.parse(await readFile(join(root, "skillset.lock"), "utf8")) as {
+      marketplaces: { entries: Array<{ requested: { kind: string; channel?: string } }> };
+    };
+
+    expect(lock.marketplaces.entries).toEqual([expect.objectContaining({
+      requested: { kind: "local" },
     })]);
   });
 
@@ -225,6 +252,62 @@ marketplaces:
         path: invalid,
       }),
       states: ["declared", "not-ready"],
+    })]);
+  });
+
+  test("reports stale marketplace lock provenance", async () => {
+    const root = await fixture(localMarketplaceFiles());
+    await buildSkillsetResult(root);
+    const lockPath = join(root, "skillset.lock");
+    const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+      marketplaces: { entries: Array<{ generatedPaths: string[]; resolved: { generatedPaths: string[] } }> };
+    };
+    lock.marketplaces.entries[0]!.generatedPaths = ["plugins-claude/plugins/local-tools/stale.json"];
+    lock.marketplaces.entries[0]!.resolved.generatedPaths = ["plugins-claude/plugins/local-tools/stale.json"];
+    await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
+
+    const report = await checkMarketplaces(root, { name: "outfitter" });
+
+    expect(report.ok).toBe(false);
+    expect(report.entries).toContainEqual(expect.objectContaining({
+      lock: expect.objectContaining({
+        reason: "marketplace lock entry is stale for the current resolution",
+        state: "stale",
+      }),
+      readiness: "not-ready",
+      requestedTarget: "claude",
+      states: ["declared", "resolved", "renderable", "generated", "verified", "stale", "not-ready"],
+    }));
+  });
+
+  test("blocks pinned marketplace entries when the source sha cannot be verified", async () => {
+    const root = await fixture({
+      ...localMarketplaceFiles(),
+      "skillset.yaml": `
+skillset:
+  name: marketplace-root
+marketplaces:
+  outfitter:
+    targets: [claude]
+    plugins:
+      - plugin: local-tools
+        sha: deadbeef
+`,
+    });
+    await buildSkillsetResult(root);
+
+    const report = await checkMarketplaces(root, { name: "outfitter" });
+
+    expect(report.ok).toBe(false);
+    expect(report.entries).toEqual([expect.objectContaining({
+      lock: expect.objectContaining({
+        expectedSha: "deadbeef",
+        policy: "sha",
+        reason: "pinned sha deadbeef could not be verified for the resolved source",
+        state: "stale",
+      }),
+      readiness: "not-ready",
+      states: ["declared", "pinned", "resolved", "renderable", "generated", "verified", "stale", "not-ready"],
     })]);
   });
 });

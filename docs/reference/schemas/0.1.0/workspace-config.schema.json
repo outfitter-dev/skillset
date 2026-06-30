@@ -156,6 +156,10 @@
                   },
                   "type": "string"
                 },
+                "sha": {
+                  "minLength": 1,
+                  "type": "string"
+                },
                 "targets": {
                   "items": {
                     "enum": [

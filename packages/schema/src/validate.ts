@@ -251,7 +251,7 @@ function checkMarketplacePluginEntry(value: SchemaJsonValue, path: string, diagn
     diagnostics.push(diagnostic(path, "schema/workspace-config/marketplace-plugin", "marketplace plugin entries must be objects"));
     return;
   }
-  checkAllowedKeys(value, new Set(["channel", "id", "plugin", "ref", "repo", "targets", "version"]), path, "schema/workspace-config/marketplace-plugin-key", diagnostics);
+  checkAllowedKeys(value, new Set(["channel", "id", "plugin", "ref", "repo", "sha", "targets", "version"]), path, "schema/workspace-config/marketplace-plugin-key", diagnostics);
   checkOptionalMarketplaceId(value.id, `${path}.id`, diagnostics);
   if (value.plugin === undefined) {
     diagnostics.push(diagnostic(`${path}.plugin`, "schema/workspace-config/marketplace-plugin", "marketplace plugin entries require plugin"));
@@ -260,6 +260,7 @@ function checkMarketplacePluginEntry(value: SchemaJsonValue, path: string, diagn
   }
   checkOptionalNonEmptyString(value.channel, `${path}.channel`, "schema/workspace-config/marketplace-plugin-channel", diagnostics);
   checkOptionalNonEmptyString(value.ref, `${path}.ref`, "schema/workspace-config/marketplace-plugin-ref", diagnostics);
+  checkOptionalNonEmptyString(value.sha, `${path}.sha`, "schema/workspace-config/marketplace-plugin-sha", diagnostics);
   checkOptionalNonEmptyString(value.version, `${path}.version`, "schema/workspace-config/marketplace-plugin-version", diagnostics);
   checkMarketplaceRepo(value.repo, `${path}.repo`, diagnostics);
   if (value.targets !== undefined) checkTargets(value.targets, `${path}.targets`, diagnostics, "marketplace plugin targets");

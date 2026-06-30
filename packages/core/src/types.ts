@@ -99,6 +99,7 @@ export interface MarketplacePluginEntryConfig {
   readonly plugin: string;
   readonly ref?: string;
   readonly repo?: string;
+  readonly sha?: string;
   readonly targets?: readonly TargetName[];
   readonly version?: string;
 }
