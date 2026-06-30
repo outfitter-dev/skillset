@@ -18,6 +18,33 @@ The workspace change directory is a committed ledger, not a generated-output loc
 
 The planned cutover is a reason-only authoring model where humans write change reasons and Skillset derives ids, source hashes, coverage, and rebuildable state into a machine event ledger. See [Reason-Only Change Ledger and Derived State](../adrs/drafts/20260630-reason-only-change-ledger-derived-state.md) for the design; this page describes the current implemented compatibility surface until that migration lands.
 
+### Ledger Events
+
+Skillset now has reader support for the planned machine event stream at `.skillset/changes/ledger.jsonl`. The reader accepts schema-versioned JSONL records with this envelope:
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "evt-001",
+  "type": "change.covered",
+  "createdAt": "2026-06-30T00:00:00.000Z",
+  "payload": {
+    "reasonId": "change-1",
+    "evidence": [
+      {
+        "selector": "skill:demo",
+        "sourceHash": "sha256:...",
+        "hashSchema": "skillset-source-unit-v2"
+      }
+    ]
+  }
+}
+```
+
+The initial event vocabulary is `reason.created`, `reason.updated`, `change.covered`, `change.ignored`, `release.applied`, `change.amended`, `release.amended`, and `baseline.recorded`. Ledger records preserve append order and carry file/line diagnostics when malformed JSONL, unsupported event types, duplicate event ids, or invalid payloads are encountered.
+
+This reader is intentionally narrower than the full cutover. New `skillset change add` / `skillset change reason` writes still use the compatibility frontmatter-backed pending entry format until the reason-only authoring slice lands. Existing `history.jsonl`, `releases.jsonl`, `amendments.jsonl`, and `state.json` remain compatibility inputs.
+
 ## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
@@ -27,6 +54,7 @@ The planned cutover is a reason-only authoring model where humans write change r
 | `changes/*.md` | n/a | n/a | `implemented` | Created, listed, shown, edited, validated by `skillset change`, and consumed by `skillset release apply --yes`; stored under `.skillset/changes`. |
 | `changes/history.jsonl` | n/a | n/a | `implemented` | Append-only applied history is read by `skillset change history`, written by release apply, and used by changelog renderings. |
 | `changes/amendments.jsonl` | n/a | n/a | `implemented` | Append-only corrections written by `skillset change amend <@ref>`; changelog renderings use the latest correction while original history remains auditable. |
+| `changes/ledger.jsonl` | n/a | n/a | `implemented` | Reader support for the schema-versioned event stream; command writes and projection integration land in follow-up slices. |
 | `changes/baseline` records | n/a | n/a | `planned` | Explicit hash-schema baseline records, not changelog entries. |
 
 ## Diagnostics
