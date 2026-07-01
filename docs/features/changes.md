@@ -14,7 +14,7 @@ Existing YAML-frontmatter pending entries remain a compatibility input during th
 
 Compact ids are generated once at scaffold time as 12 lower-case hex characters. CLI refs use `@<prefix>` with shortest-unambiguous resolution and a minimum 6-character prefix. Group ids are filtering and reporting aids; they do not imply release grouping.
 
-The workspace change directory is a committed ledger, not a generated-output lock. Pending entries are the `*.md` files in that directory. Applied history stays in `history.jsonl`, release events stay in `releases.jsonl`, and mutable release baselines stay in `state.json`. Generated-output ownership, hashes, render results, and current drift evidence stay in nearby `skillset.lock` files instead of being folded into human-authored change reasons.
+The workspace change directory is a committed ledger, not a generated-output lock. Pending entries are the `*.md` files in that directory. Applied history stays in `history.jsonl`, release records stay in `releases.jsonl`, release events and source-unit coverage stay in `ledger.jsonl`, and `state.json` remains compatibility/cache output. Generated-output ownership, hashes, render results, and current drift evidence stay in nearby `skillset.lock` files instead of being folded into human-authored change reasons.
 
 The active cutover is a reason-only authoring model where humans write change reasons and Skillset derives ids, source hashes, coverage, and rebuildable state into a machine event ledger. See [Reason-Only Change Ledger and Derived State](../adrs/drafts/20260630-reason-only-change-ledger-derived-state.md) for the design.
 
@@ -43,7 +43,7 @@ Skillset uses `.skillset/changes/ledger.jsonl` as the machine event stream for n
 
 The initial event vocabulary is `reason.created`, `reason.updated`, `change.covered`, `change.ignored`, `release.applied`, `change.amended`, `release.amended`, and `baseline.recorded`. Ledger records preserve append order and carry file/line diagnostics when malformed JSONL, unsupported event types, duplicate event ids, or invalid payloads are encountered.
 
-`skillset change add` writes `reason.created` and `change.covered` events alongside the reason-only Markdown file. `skillset change reason` appends `reason.updated` events while preserving the pending id. Existing `history.jsonl`, `releases.jsonl`, `amendments.jsonl`, and `state.json` remain compatibility inputs until derived-state projection lands.
+`skillset change add` writes `reason.created` and `change.covered` events alongside the reason-only Markdown file. `skillset change reason` appends `reason.updated` events while preserving the pending id. `skillset release apply --yes` appends `release.applied` events with selected change ids, resolved versions, tombstones, and source-unit hashes. Existing `history.jsonl`, `releases.jsonl`, `amendments.jsonl`, and `state.json` remain compatibility inputs while ledger projection becomes the release-state authority for scopes it can rebuild.
 
 ## Target Rendering
 
@@ -54,12 +54,12 @@ The initial event vocabulary is `reason.created`, `reason.updated`, `change.cove
 | `changes/*.md` | n/a | n/a | `implemented` | New command-created entries are reason-only Markdown; legacy frontmatter entries remain compatibility-readable. Created, listed, shown, edited, validated by `skillset change`, and consumed by `skillset release apply --yes`; stored under `.skillset/changes`. |
 | `changes/history.jsonl` | n/a | n/a | `implemented` | Append-only applied history is read by `skillset change history`, written by release apply, and used by changelog renderings. |
 | `changes/amendments.jsonl` | n/a | n/a | `implemented` | Append-only corrections written by `skillset change amend <@ref>`; changelog renderings use the latest correction while original history remains auditable. |
-| `changes/ledger.jsonl` | n/a | n/a | `implemented` | Schema-versioned event stream for reason lifecycle and source-unit coverage; release/change-state projection integration lands in a follow-up slice. |
+| `changes/ledger.jsonl` | n/a | n/a | `implemented` | Schema-versioned event stream for reason lifecycle, source-unit coverage, and release-state projection. |
 | `changes/baseline` records | n/a | n/a | `planned` | Explicit hash-schema baseline records, not changelog entries. |
 
 ## Diagnostics
 
-`skillset change status --since <ref>` compares current source units with the selected git ref without writing generated output. It reports source changes needing entries and then reports generated-output drift as a separate section. The command is whole-source in v1; build `--scope` filters are rejected for `change status` and `change check` because they would only scope generated destinations, not source coverage. The default baseline overlays release-state source hashes onto the normal fallback inventory, then falls back to source-inventory locks when present, then git merge-base.
+`skillset change status --since <ref>` compares current source units with the selected git ref without writing generated output. It reports source changes needing entries and then reports generated-output drift as a separate section. The command is whole-source in v1; build `--scope` filters are rejected for `change status` and `change check` because they would only scope generated destinations, not source coverage. The default baseline overlays ledger-derived release-state source hashes onto the normal fallback inventory, then falls back to compatibility `state.json`, source-inventory locks when present, then git merge-base.
 
 `skillset change check` reads reason-only entries with ledger-owned evidence, keeps compatibility validation for old frontmatter entries, then checks duplicate ids, known scopes, required reason bodies, source hash evidence, and coverage for current source changes. Entries can cover multiple scopes, carry `ignored: true`, and use `group` for external issue or change grouping metadata. Child plugin entries cover the derived plugin aggregate for coverage and release planning, but plugin config changes still require their own plugin-level story. `external.*` is rejected in v1 so issue ids do not get duplicated outside `group`. Refs resolve as `@<hex-prefix>` with at least 6 hex characters, and ambiguous prefixes fail with candidate refs.
 

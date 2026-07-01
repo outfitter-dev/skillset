@@ -96,7 +96,19 @@ export interface ChangeIgnoredLedgerPayload {
 export interface ReleaseAppliedLedgerPayload {
   readonly changeIds: readonly string[];
   readonly releaseId: string;
+  readonly scopes: readonly ReleaseAppliedLedgerScope[];
   readonly sourceUnits: readonly ChangeLedgerSourceUnit[];
+}
+
+export interface ReleaseAppliedLedgerScope {
+  readonly bump?: ChangeLedgerBump;
+  readonly changeIds: readonly string[];
+  readonly hashSchema?: string;
+  readonly previousVersion?: string;
+  readonly removed?: boolean;
+  readonly selector: string;
+  readonly sourceHash?: string;
+  readonly version: string;
 }
 
 export interface ChangeAmendedLedgerPayload {
@@ -262,6 +274,7 @@ function readReleaseAppliedPayload(payload: JsonRecord, path: string, lineNumber
   return {
     changeIds: readStringArray(payload.changeIds ?? payload.reasonIds),
     releaseId: readRequiredString(payload, "releaseId", path, lineNumber),
+    scopes: readReleaseAppliedScopes(payload),
     sourceUnits: readRequiredSourceUnits(payload, path, lineNumber),
   };
 }
@@ -315,6 +328,34 @@ function readOptionalReasonFields(payload: JsonRecord): {
 
 function readLedgerBump(value: JsonValue | undefined): ChangeLedgerBump | undefined {
   return value === "major" || value === "minor" || value === "none" || value === "patch" ? value : undefined;
+}
+
+function readReleaseAppliedScopes(payload: JsonRecord): readonly ReleaseAppliedLedgerScope[] {
+  const rawScopes = payload.scopes;
+  if (!Array.isArray(rawScopes)) return [];
+
+  const scopes: ReleaseAppliedLedgerScope[] = [];
+  for (const item of rawScopes) {
+    if (!isJsonRecord(item)) continue;
+    const selector = readString(item, "selector") ?? readString(item, "scope");
+    const version = readString(item, "version") ?? readString(item, "nextVersion");
+    if (selector === undefined || version === undefined) continue;
+    const bump = readLedgerBump(item.bump);
+    const hashSchema = readString(item, "hashSchema") ?? readString(item, "hashSchemaId");
+    const previousVersion = readString(item, "previousVersion");
+    const sourceHash = readString(item, "sourceHash") ?? readString(item, "hash") ?? readString(item, "currentHash");
+    scopes.push({
+      ...(bump === undefined ? {} : { bump }),
+      changeIds: readStringArray(item.changeIds ?? item.entries),
+      ...(hashSchema === undefined ? {} : { hashSchema }),
+      ...(previousVersion === undefined ? {} : { previousVersion }),
+      ...(item.removed === true ? { removed: true } : {}),
+      selector: normalizeLedgerSourceUnitSelector(selector),
+      ...(sourceHash === undefined ? {} : { sourceHash }),
+      version,
+    });
+  }
+  return scopes.sort((left, right) => compareStrings(left.selector, right.selector));
 }
 
 function readStringArray(value: JsonValue | undefined): readonly string[] {

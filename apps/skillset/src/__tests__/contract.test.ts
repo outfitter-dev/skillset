@@ -4607,6 +4607,9 @@ Release the standalone skill body update with a patch version and generated chan
   };
   expect(state.scopes["skill:demo"]?.version).toBe("0.1.1");
   expect(state.scopes["skill:demo"]?.sourceHash).toBe(demo?.currentHash);
+  const ledger = await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8");
+  expect(ledger).toContain('"type":"release.applied"');
+  expect(ledger).toContain('"selector":"skill:demo"');
   const history = await readFile(join(root, ".skillset/changes/history.jsonl"), "utf8");
   expect(history).toContain("aaaabbbbcccc");
   const releases = await readFile(join(root, ".skillset/changes/releases.jsonl"), "utf8");
@@ -4621,6 +4624,14 @@ Release the standalone skill body update with a patch version and generated chan
   expect(second.stdout).toContain("no pending changes to release");
   expect(await readFile(join(root, ".skillset/changes/history.jsonl"), "utf8")).toBe(history);
 
+  await writeFile(join(root, ".skillset/changes/state.json"), "{nope\n", "utf8");
+  const derivedState = await readReleaseState(root);
+  expect(derivedState.scopes["skill:demo"]?.version).toBe("0.1.1");
+  expect(derivedState.scopes["skill:demo"]?.sourceHash).toBe(demo?.currentHash);
+  await rm(join(root, ".skillset/changes/state.json"));
+  const ledgerOnlyState = await readReleaseState(root);
+  expect(ledgerOnlyState.scopes["skill:demo"]?.version).toBe("0.1.1");
+  expect(ledgerOnlyState.scopes["skill:demo"]?.sourceHash).toBe(demo?.currentHash);
   const releasedStatus = await changeStatus(root);
   expect(releasedStatus.sourceChanges.map((change) => change.id)).not.toContain("skill:demo");
   await runGit(root, "add", ".");
