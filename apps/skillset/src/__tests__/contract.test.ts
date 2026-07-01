@@ -2828,18 +2828,21 @@ Body.
   const demo = status.sourceChanges.find((change) => change.id === "skill:demo");
   expect(demo?.currentHash).toBeDefined();
   expect(demo?.currentRegions).toContainEqual({ name: "supports", severityBearing: false });
-  await writePendingChange(root, "supports.md", `
----
-id: 888888ffffff
-bump: none
-scope: skill:demo
-evidence:
-  - scope: skill:demo
-    currentHash: ${demo?.currentHash}
----
-
-Record the supports metadata compatibility update without changing generated artifact behavior.
-`);
+  const added = await runSkillsetCli(
+    "change",
+    "add",
+    "--root",
+    root,
+    "--since",
+    "HEAD",
+    "--scope",
+    "skill:demo",
+    "--bump",
+    "none",
+    "--reason",
+    "Record the supports metadata compatibility update without changing generated artifact behavior."
+  );
+  expect(added.exitCode).toBe(0);
 
   const checked = await runSkillsetCli("change", "check", "--root", root, "--since", "HEAD");
   expect(checked.exitCode).toBe(0);
@@ -3726,18 +3729,21 @@ Body.
   expect(demo?.currentHash).toBeDefined();
   expect(demo?.baselineRegions).toContainEqual({ name: "dependencies", severityBearing: true });
 
-  await writePendingChange(root, "dependency-removal.md", `
----
-id: abcdef123456
-bump: none
-scope: skill:demo
-evidence:
-  - scope: skill:demo
-    currentHash: ${demo?.currentHash}
----
-
-The dependency was removed from the skill and should still be visible as release-relevant setup drift.
-`);
+  const added = await runSkillsetCli(
+    "change",
+    "add",
+    "--root",
+    root,
+    "--since",
+    "HEAD",
+    "--scope",
+    "skill:demo",
+    "--bump",
+    "none",
+    "--reason",
+    "The dependency was removed from the skill and should still be visible as release-relevant setup drift."
+  );
+  expect(added.exitCode).toBe(0);
 
   const checked = await runSkillsetCli("change", "check", "--root", root, "--since", "HEAD");
   expect(checked.exitCode).toBe(0);
@@ -3935,6 +3941,141 @@ Body.
   expect(ledger).toContain('"type":"reason.created"');
   expect(ledger).toContain('"type":"reason.updated"');
   expect(ledger).toContain(`"reasonId":"${fullId}"`);
+});
+
+test("SET-241: change migrate converts frontmatter entries to reason-only ledger entries", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: change-migrate-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await commitFixture(root);
+
+  await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n");
+  const status = await changeStatus(root, { since: "HEAD" });
+  const demo = status.sourceChanges.find((change) => change.id === "skill:demo");
+  expect(demo?.currentHash).toBeDefined();
+  await writePendingChange(root, "legacy-name.md", `
+---
+id: abcdef123456
+bump: patch
+ignored: true
+group:
+  provider: linear
+  id: SET-241
+scope: skill:demo
+evidence:
+  - scope: skill:demo
+    currentHash: ${demo?.currentHash}
+---
+
+Migrate this compatibility frontmatter entry without losing the release reason or its evidence.
+`);
+
+  const compatibilityCheck = await runSkillsetCli("change", "check", "--root", root, "--since", "HEAD");
+  expect(compatibilityCheck.exitCode).toBe(0);
+  expect(compatibilityCheck.stdout).toContain("change-frontmatter-compatibility");
+  expect(compatibilityCheck.stdout).toContain("skillset change migrate --yes");
+
+  const preview = await runSkillsetCli("change", "migrate", "--dry-run", "--root", root);
+  expect(preview.exitCode).toBe(0);
+  expect(preview.stdout).toContain("would migrate: .skillset/changes/legacy-name.md -> .skillset/changes/abcdef123456.md");
+  expect(preview.stdout).toContain("previewed 1 frontmatter pending entry");
+  expect(await Bun.file(join(root, ".skillset/changes/legacy-name.md")).exists()).toBe(true);
+  expect(await Bun.file(join(root, ".skillset/changes/ledger.jsonl")).exists()).toBe(false);
+
+  const migrated = await runSkillsetCli("change", "migrate", "--yes", "--root", root);
+  expect(migrated.exitCode).toBe(0);
+  expect(migrated.stdout).toContain("migrated: .skillset/changes/legacy-name.md -> .skillset/changes/abcdef123456.md");
+  expect(migrated.stdout).toContain("ledger: .skillset/changes/ledger.jsonl");
+  expect(await Bun.file(join(root, ".skillset/changes/legacy-name.md")).exists()).toBe(false);
+
+  const pending = await readFile(join(root, ".skillset/changes/abcdef123456.md"), "utf8");
+  expect(pending).not.toContain("---");
+  expect(pending).not.toContain("id:");
+  expect(pending).toContain("Migrate this compatibility frontmatter entry");
+  expect(pending).toContain("Bump: patch");
+  expect(pending).toContain("Group: linear:SET-241");
+  expect(pending).toContain("Ignored: true");
+  expect(pending).toContain("Scope: skill:demo");
+
+  const ledger = await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8");
+  expect(ledger).toContain('"type":"reason.created"');
+  expect(ledger).toContain('"type":"change.ignored"');
+  expect(ledger).toContain('"reasonId":"abcdef123456"');
+  expect(ledger).toContain(demo?.currentHash ?? "missing-hash");
+
+  const checked = await runSkillsetCli("change", "check", "--root", root, "--since", "HEAD");
+  expect(checked.exitCode).toBe(0);
+  expect(checked.stdout).not.toContain("change-frontmatter-compatibility");
+  expect(checked.stdout).toContain("0 warnings");
+});
+
+test("SET-241: change migrate rejects frontmatter entries with incomplete source evidence", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: change-migrate-evidence-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await commitFixture(root);
+
+  await Bun.write(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n");
+  const status = await changeStatus(root, { since: "HEAD" });
+  const demo = status.sourceChanges.find((change) => change.id === "skill:demo");
+  expect(demo?.currentHash).toBeDefined();
+  await writePendingChange(root, "missing-evidence.md", `
+---
+id: abcdef654321
+bump: patch
+scopes:
+  - skill:demo
+  - config:root
+evidence:
+  - scope: skill:demo
+    currentHash: ${demo?.currentHash}
+---
+
+Migrate should preserve evidence for every declared scope before rewriting this pending entry.
+`);
+
+  const migrated = await runSkillsetCli("change", "migrate", "--yes", "--root", root);
+  expect(migrated.exitCode).toBe(1);
+  expect(migrated.stderr).toContain("cannot migrate invalid frontmatter pending entries");
+  expect(migrated.stderr).toContain("missing source hash evidence for config: root");
+  expect(await Bun.file(join(root, ".skillset/changes/missing-evidence.md")).exists()).toBe(true);
+  expect(await Bun.file(join(root, ".skillset/changes/ledger.jsonl")).exists()).toBe(false);
+});
+
+test("SET-241: change write flags are scoped to explicit migration", async () => {
+  const add = await runSkillsetCli("change", "add", "--yes");
+  expect(add.exitCode).toBe(1);
+  expect(add.stderr).toContain("--yes and --dry-run are only supported with change migrate");
+
+  const conflicting = await runSkillsetCli("change", "migrate", "--yes", "--dry-run");
+  expect(conflicting.exitCode).toBe(1);
+  expect(conflicting.stderr).toContain("pass either --yes or --dry-run for change migrate");
 });
 
 test("SET-36: change show prefers pending refs and history reads applied records", async () => {
