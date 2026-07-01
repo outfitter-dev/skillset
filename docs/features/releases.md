@@ -10,7 +10,7 @@ Releases turn accepted source changes into stable artifact versions, generated c
 
 Release state lives with change state under the workspace change directory: `.skillset/changes/state.json`. Applied change history appends to `history.jsonl` under the same workspace change directory, and release records append to `releases.jsonl`. Entity-local `CHANGELOG.md` files are generated tracked renderings placed beside source entities like plugins and skills. Pending changes are preview/status data, not committed pending sections in tracked changelogs.
 
-The planned reason-only ledger cutover keeps generated changelogs as tracked projections but treats release/status state as rebuildable from an append-only event ledger instead of as an authoring surface. Skillset can read schema-versioned `.skillset/changes/ledger.jsonl` records for the initial event vocabulary, while release commands still write the existing compatibility `history.jsonl`, `releases.jsonl`, amendments, and `state.json` surfaces until the authoring/projection slices land. See [Reason-Only Change Ledger and Derived State](../adrs/drafts/20260630-reason-only-change-ledger-derived-state.md) for the future-state split.
+The reason-only ledger cutover keeps generated changelogs as tracked projections but treats release/status state as rebuildable from an append-only event ledger instead of as an authoring surface. New pending reasons write schema-versioned `.skillset/changes/ledger.jsonl` records for reason lifecycle and source coverage, while release commands still write the existing compatibility `history.jsonl`, `releases.jsonl`, amendments, and `state.json` surfaces until the projection slice lands. See [Reason-Only Change Ledger and Derived State](../adrs/drafts/20260630-reason-only-change-ledger-derived-state.md) for the future-state split.
 
 Generated changelogs are reviewable projections, not editing surfaces. Before release, wording changes should update the pending entry with `skillset change reason <@ref>` and then rebuild. After release, source-change reason corrections use `skillset change amend <ref>`, and release-event metadata or release-note corrections use `skillset release amend <ref>`. Both commands append correction records under the workspace change directory, leaving original history auditable while generated changelog projections can be rebuilt from source-side state.
 
@@ -20,8 +20,8 @@ Generated changelogs are reviewable projections, not editing surfaces. Before re
 | --- | --- | --- | --- | --- |
 | Release state | plugin `version`, skill `metadata.version` | plugin `version`, skill `metadata.version` | `implemented` | Release state wins over inline source versions; inline versions remain the import/read fallback. |
 | Entity `CHANGELOG.md` rendering | generated Markdown | generated Markdown | `implemented` | Generated frontmatter marks Skillset ownership. Ignored history entries are excluded from changelog renderings. |
-| Pending entries | n/a | n/a | `implemented` | `release plan` previews entries without writing; `release apply --yes` consumes them into append-only history. |
-| Change ledger events | n/a | n/a | `implemented` | `ledger.jsonl` reader support is available; release projection remains on compatibility history/state until the derived-state slice lands. |
+| Pending entries | n/a | n/a | `implemented` | `release plan` previews reason-only and compatibility frontmatter entries without writing; `release apply --yes` consumes them into append-only history. |
+| Change ledger events | n/a | n/a | `implemented` | `ledger.jsonl` records reason lifecycle and pending source coverage; release projection remains on compatibility history/state until the derived-state slice lands. |
 
 ## Diagnostics
 

@@ -10,6 +10,7 @@ import {
   type ChangeGroup,
   type PendingChangeEntry,
 } from "./change-entries";
+import type { ChangeLedgerEventType } from "./change-ledger";
 import { changeStatus, detectWorkspaceOptions, type ChangeStatusOptions, type SourceUnit, type SourceUnitChange } from "./change-status";
 import { readString } from "./config";
 import { compareStrings, resolveInside } from "./path";
@@ -141,15 +142,30 @@ export async function addChangeEntry(rootPath: string, options: ChangeAddOptions
   const relativePath = join(workspaceChangesDir(statusOptions.sourceDir), `${id}.md`).replaceAll("\\", "/");
   const absolutePath = resolveInside(rootPath, relativePath);
   const group = options.group === undefined ? undefined : parseGroupArgument(options.group);
-  const entryFrontmatter = pendingFrontmatter({
-    bump: options.bump,
-    ...(group === undefined ? {} : { group }),
-    id,
-    scopes,
-    sourceHashes,
-  });
+  const sourceUnits = ledgerSourceUnits(sourceHashes);
+  const groupReference = group === undefined ? undefined : groupRef(group);
   await mkdir(resolveInside(rootPath, workspaceChangesDir(statusOptions.sourceDir)), { recursive: true });
-  await writeFile(absolutePath, stringifyMarkdown(entryFrontmatter, reason), "utf8");
+  await writeFile(absolutePath, reasonOnlyMarkdown(reason, { bump: options.bump, ...(group === undefined ? {} : { group }), scopes }), "utf8");
+  await appendLedgerEvents(rootPath, statusOptions.sourceDir, [
+    {
+      payload: {
+        bump: options.bump,
+        ...(groupReference === undefined ? {} : { group: groupReference, refs: [groupReference] }),
+        path: relativePath,
+        reason,
+        reasonId: id,
+        sourceUnits,
+      },
+      type: "reason.created",
+    },
+    {
+      payload: {
+        reasonId: id,
+        sourceUnits,
+      },
+      type: "change.covered",
+    },
+  ]);
 
   const [entry] = await readPendingChangeEntries(rootPath, statusOptions).then((entries) => entries.filter((item) => item.id === id));
   if (entry === undefined) throw new Error(`skillset: failed to read created change entry ${id}`);
@@ -163,9 +179,28 @@ export async function updateChangeReason(rootPath: string, options: ChangeReason
   const entry = resolvePendingChangeRef(pendingEntries, options.ref);
   const newReason = await resolveChangeReason(rootPath, options.reason);
   const absolutePath = resolveInside(rootPath, entry.path);
-  const parts = parseMarkdown(await readFile(absolutePath, "utf8"), absolutePath);
-  const body = options.append ? `${parts.body.trimEnd()}\n\n${newReason}` : newReason;
-  await writeFile(absolutePath, stringifyMarkdown(parts.frontmatter, body), "utf8");
+  if (entry.format === "reason") {
+    const body = options.append ? `${entry.reason.trimEnd()}\n\n${newReason}` : newReason;
+    await writeFile(
+      absolutePath,
+      reasonOnlyMarkdown(body, { ...(entry.bump === undefined ? {} : { bump: entry.bump }), ...(entry.group === undefined ? {} : { group: entry.group }), scopes: entry.scopes }),
+      "utf8"
+    );
+    await appendLedgerEvents(rootPath, storageOptions.sourceDir, [
+      {
+        payload: {
+          append: options.append,
+          reason: newReason,
+          reasonId: entry.id ?? options.ref.replace(/^@/, ""),
+        },
+        type: "reason.updated",
+      },
+    ]);
+  } else {
+    const parts = parseMarkdown(await readFile(absolutePath, "utf8"), absolutePath);
+    const body = options.append ? `${parts.body.trimEnd()}\n\n${newReason}` : newReason;
+    await writeFile(absolutePath, stringifyMarkdown(parts.frontmatter, body), "utf8");
+  }
   const updated = resolvePendingChangeRef(await readPendingChangeEntries(rootPath, storageOptions), entry.id ?? options.ref);
   const refs = refIndex([updated], await readHistoryEntries(rootPath, storageOptions));
   return { entry: pendingView(updated, refs) };
@@ -257,24 +292,66 @@ async function resolveAnyChangeRef(
   return historyView(resolveHistoryRef(historyEntries, ref), refs);
 }
 
-function pendingFrontmatter(input: {
-  readonly bump: ChangeBump;
-  readonly group?: ChangeGroup;
-  readonly id: string;
-  readonly scopes: readonly string[];
-  readonly sourceHashes: ReadonlyMap<string, readonly string[]>;
-}): JsonRecord {
-  const evidence = input.scopes.map((scope): JsonRecord => {
-    const [sourceHash] = input.sourceHashes.get(scope) ?? [];
-    return { scope, sourceHash };
-  });
-  return {
-    bump: input.bump,
-    ...(input.group === undefined ? {} : { group: groupJson(input.group) }),
-    id: input.id,
-    ...(input.scopes.length === 1 ? { scope: input.scopes[0] } : { scopes: [...input.scopes] }),
-    evidence,
-  };
+function reasonOnlyMarkdown(
+  reason: string,
+  input: {
+    readonly bump?: ChangeBump;
+    readonly group?: ChangeGroup;
+    readonly scopes: readonly string[];
+  }
+): string {
+  const directives = [
+    ...(input.bump === undefined ? [] : [`Bump: ${input.bump}`]),
+    ...(input.group === undefined ? [] : [`Group: ${groupRef(input.group)}`]),
+    ...input.scopes.map((scope) => `Scope: ${sourceUnitSelector(scope)}`),
+  ];
+  const normalizedReason = reason.replaceAll(/\r\n?/g, "\n").trim();
+  return `${normalizedReason}\n\n${directives.join("\n")}\n`;
+}
+
+function ledgerSourceUnits(sourceHashes: ReadonlyMap<string, readonly string[]>): JsonRecord[] {
+  return [...sourceHashes]
+    .flatMap(([selector, hashes]) => hashes.map((sourceHash) => ({ hashSchema: "skillset-source-unit-v2", selector, sourceHash })))
+    .sort((left, right) => compareStrings(`${left.selector}\0${left.sourceHash}`, `${right.selector}\0${right.sourceHash}`));
+}
+
+async function appendLedgerEvents(
+  rootPath: string,
+  sourceDir: string | undefined,
+  events: readonly {
+    readonly payload: JsonRecord;
+    readonly type: ChangeLedgerEventType;
+  }[]
+): Promise<void> {
+  const path = workspaceChangeFile(sourceDir, "ledger.jsonl");
+  const absolutePath = resolveInside(rootPath, path);
+  await mkdir(dirname(absolutePath), { recursive: true });
+  const now = new Date().toISOString();
+  await appendFile(
+    absolutePath,
+    events
+      .map((event) =>
+        JSON.stringify({
+          createdAt: now,
+          id: ledgerEventId(event.type),
+          payload: event.payload,
+          schemaVersion: 1,
+          type: event.type,
+        })
+      )
+      .join("\n") + "\n",
+    "utf8"
+  );
+}
+
+function ledgerEventId(type: ChangeLedgerEventType): string {
+  const hash = createHash("sha256");
+  hash.update(type);
+  hash.update("\0");
+  hash.update(String(Date.now()));
+  hash.update("\0");
+  hash.update(randomBytes(16));
+  return `evt-${hash.digest("hex").slice(0, 16)}`;
 }
 
 function sourceStatusOptions(options: Omit<ChangeAddOptions, "reason" | "scopes">): ChangeStatusOptions {

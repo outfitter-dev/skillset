@@ -3848,6 +3848,19 @@ Body.
   expect(show.stdout).toContain("group: linear:SET-36");
   expect(show.stdout).toContain("source hash:");
 
+  const pendingFiles = (await readdir(join(root, ".skillset/changes"))).filter((file) => file.endsWith(".md"));
+  expect(pendingFiles).toHaveLength(1);
+  const pending = await readFile(join(root, ".skillset/changes", pendingFiles[0] ?? ""), "utf8");
+  expect(pending).not.toContain("---");
+  expect(pending).not.toContain("id:");
+  expect(pending).toContain("Bump: patch");
+  expect(pending).toContain("Group: linear:SET-36");
+  expect(pending).toContain("Scope: skill:demo");
+  const ledger = await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8");
+  expect(ledger).toContain('"type":"reason.created"');
+  expect(ledger).toContain('"type":"change.covered"');
+  expect(ledger).toContain('"hashSchema":"skillset-source-unit-v2"');
+
   const checked = await runSkillsetCli("change", "check", "--root", root, "--since", "HEAD");
   expect(checked.exitCode).toBe(0);
 });
@@ -3912,7 +3925,16 @@ Body.
   const files = (await readdir(join(root, ".skillset/changes"))).filter((file) => file.endsWith(".md"));
   expect(files).toHaveLength(1);
   const pending = await readFile(join(root, ".skillset/changes", files[0] ?? ""), "utf8");
-  expect(pending).toMatch(new RegExp(`id: "?${id}`));
+  const fullId = files[0]?.replace(/\.md$/, "") ?? "";
+  expect(fullId.startsWith(id)).toBe(true);
+  expect(pending).not.toContain("---");
+  expect(pending).not.toContain("id:");
+  expect(pending).toContain("Bump: patch");
+  expect(pending).toContain("Scope: skill:demo");
+  const ledger = await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8");
+  expect(ledger).toContain('"type":"reason.created"');
+  expect(ledger).toContain('"type":"reason.updated"');
+  expect(ledger).toContain(`"reasonId":"${fullId}"`);
 });
 
 test("SET-36: change show prefers pending refs and history reads applied records", async () => {

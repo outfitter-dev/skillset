@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { validateChangeEntryFrontmatter, type SkillsetSchemaDiagnostic } from "@skillset/schema";
 
+import { readChangeLedger, type ChangeLedgerEvent, type ChangeLedgerSourceUnit } from "./change-ledger";
 import {
   changeStatus,
   detectWorkspaceOptions,
@@ -24,6 +25,7 @@ export type ChangeCheckSeverity = "error" | "warning";
 
 export interface PendingChangeEntry {
   readonly bump: ChangeBump | undefined;
+  readonly format: "frontmatter" | "reason";
   readonly group?: ChangeGroup;
   readonly id: string | undefined;
   readonly ignored: boolean;
@@ -70,6 +72,22 @@ interface ChangeValidationContext {
   readonly duplicateIds: ReadonlySet<string>;
   readonly minReasonLength: number;
   readonly validScopeIds: ReadonlySet<string>;
+}
+
+interface PendingLedgerFacts {
+  readonly bump?: ChangeBump;
+  readonly group?: ChangeGroup;
+  readonly ignored: boolean;
+  readonly scopes: readonly string[];
+  readonly sourceHashes: ReadonlyMap<string, readonly string[]>;
+}
+
+interface ReasonOnlyDirectives {
+  readonly bump?: ChangeBump;
+  readonly group?: ChangeGroup;
+  readonly ignored: boolean;
+  readonly reason: string;
+  readonly scopes: readonly string[];
 }
 
 const DEFAULT_REASON_MIN_LENGTH = 40;
@@ -166,11 +184,34 @@ export async function readPendingChangeEntries(
   if (!(await exists(pendingPath))) return [];
 
   const files = await Array.fromAsync(new Bun.Glob("*.md").scan({ cwd: pendingPath, onlyFiles: true }));
+  const ledger = await readPendingLedgerFacts(rootPath, options);
   const entries: PendingChangeEntry[] = [];
   for (const file of files.sort(compareStrings)) {
     const path = join(changesDir, file).replaceAll("\\", "/");
     const absolutePath = resolveInside(rootPath, path);
     const parts = parseMarkdown(await readFile(absolutePath, "utf8"), absolutePath);
+    const hasFrontmatter = Object.keys(parts.frontmatter).length > 0;
+    if (!hasFrontmatter) {
+      const id = idFromReasonFilename(file);
+      const directives = readReasonOnlyDirectives(parts.body);
+      const ledgerFacts = id === undefined ? undefined : ledger.get(id);
+      const group = directives.group ?? ledgerFacts?.group;
+      const scopes = directives.scopes.length > 0 ? directives.scopes : ledgerFacts?.scopes ?? [];
+      entries.push({
+        bump: directives.bump ?? ledgerFacts?.bump,
+        format: "reason",
+        ...(group === undefined ? {} : { group }),
+        id,
+        ignored: directives.ignored || ledgerFacts?.ignored === true,
+        path,
+        reason: directives.reason,
+        schemaDiagnostics: [],
+        scopes,
+        sourceHashes: ledgerFacts?.sourceHashes ?? new Map(),
+      });
+      continue;
+    }
+
     const schemaDiagnostics = validateChangeEntryFrontmatter(parts.frontmatter, path).diagnostics;
     const id = readString(parts.frontmatter, "id");
     const bump = readBump(parts.frontmatter.bump);
@@ -180,6 +221,7 @@ export async function readPendingChangeEntries(
     const sourceHashes = readSourceHashEvidence(parts.frontmatter.evidence, scopes);
     entries.push({
       bump,
+      format: "frontmatter",
       ...(group === undefined ? {} : { group }),
       id,
       ignored,
@@ -191,6 +233,141 @@ export async function readPendingChangeEntries(
     });
   }
   return entries.sort((left, right) => compareStrings(left.path, right.path));
+}
+
+async function readPendingLedgerFacts(
+  rootPath: string,
+  options: ChangeStatusOptions
+): Promise<ReadonlyMap<string, PendingLedgerFacts>> {
+  const mutable = new Map<
+    string,
+    {
+      bump?: ChangeBump;
+      group?: ChangeGroup;
+      ignored: boolean;
+      sourceHashes: Map<string, string[]>;
+    }
+  >();
+
+  const mutableFacts = (reasonId: string): {
+    bump?: ChangeBump;
+    group?: ChangeGroup;
+    ignored: boolean;
+    sourceHashes: Map<string, string[]>;
+  } => {
+    const existing = mutable.get(reasonId);
+    if (existing !== undefined) return existing;
+    const created = { ignored: false, sourceHashes: new Map<string, string[]>() };
+    mutable.set(reasonId, created);
+    return created;
+  };
+
+  const addSourceUnits = (reasonId: string, units: readonly ChangeLedgerSourceUnit[]): void => {
+    const facts = mutableFacts(reasonId);
+    for (const unit of units) {
+      if (unit.sourceHash === undefined) continue;
+      const current = facts.sourceHashes.get(unit.selector) ?? [];
+      current.push(unit.sourceHash);
+      facts.sourceHashes.set(unit.selector, current);
+    }
+  };
+
+  for (const event of await readChangeLedger(rootPath, options)) {
+    const reasonId = ledgerReasonId(event);
+    if (reasonId === undefined) continue;
+    const facts = mutableFacts(reasonId);
+    if (event.type === "reason.created") {
+      if (event.payload.bump !== undefined) facts.bump = event.payload.bump;
+      if (event.payload.group !== undefined) {
+        const group = parseGroupDirective(event.payload.group);
+        if (group !== undefined) facts.group = group;
+      }
+      if (event.payload.ignored === true) facts.ignored = true;
+    }
+    if (event.type === "change.ignored") facts.ignored = true;
+    addSourceUnits(reasonId, event.sourceUnits);
+  }
+
+  const readonlyFacts = new Map<string, PendingLedgerFacts>();
+  for (const [reasonId, facts] of mutable) {
+    const sourceHashes = new Map(
+      [...facts.sourceHashes]
+        .map(([scope, hashes]) => [scope, [...new Set(hashes)].sort(compareStrings)] as const)
+        .sort(([left], [right]) => compareStrings(left, right))
+    );
+    readonlyFacts.set(reasonId, {
+      ...(facts.bump === undefined ? {} : { bump: facts.bump }),
+      ...(facts.group === undefined ? {} : { group: facts.group }),
+      ignored: facts.ignored,
+      scopes: [...sourceHashes.keys()].sort(compareStrings),
+      sourceHashes,
+    });
+  }
+  return readonlyFacts;
+}
+
+function ledgerReasonId(event: ChangeLedgerEvent): string | undefined {
+  if ("reasonId" in event.payload) return event.payload.reasonId;
+  if (event.type === "change.amended") return event.payload.changeId;
+  return undefined;
+}
+
+function idFromReasonFilename(file: string): string | undefined {
+  const id = file.endsWith(".md") ? file.slice(0, -".md".length) : file;
+  return /^[0-9a-f]{12}$/.test(id) ? id : undefined;
+}
+
+function readReasonOnlyDirectives(body: string): ReasonOnlyDirectives {
+  const reasonLines: string[] = [];
+  let bump: ChangeBump | undefined;
+  let group: ChangeGroup | undefined;
+  let ignored = false;
+  const scopes: string[] = [];
+
+  for (const line of body.replaceAll(/\r\n?/g, "\n").split("\n")) {
+    const match = /^(Bump|Group|Ignored|Scope|Scopes):\s*(.*?)\s*$/i.exec(line);
+    if (match === null) {
+      reasonLines.push(line);
+      continue;
+    }
+    const [, rawKey, rawValue = ""] = match;
+    if (rawKey === undefined) continue;
+    const key = rawKey.toLowerCase();
+    if (key === "bump") {
+      bump = readBump(rawValue);
+      continue;
+    }
+    if (key === "group") {
+      group = parseGroupDirective(rawValue);
+      continue;
+    }
+    if (key === "ignored") {
+      ignored = rawValue.toLowerCase() === "true" || rawValue.toLowerCase() === "yes";
+      continue;
+    }
+    for (const value of rawValue.split(",")) {
+      const trimmed = value.trim();
+      if (trimmed.length > 0) scopes.push(sourceUnitSelector(trimmed));
+    }
+  }
+
+  return {
+    ...(bump === undefined ? {} : { bump }),
+    ...(group === undefined ? {} : { group }),
+    ignored,
+    reason: reasonLines.join("\n").trim(),
+    scopes: [...new Set(scopes)].sort(compareStrings),
+  };
+}
+
+function parseGroupDirective(value: string): ChangeGroup | undefined {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return undefined;
+  const splitIndex = trimmed.indexOf(":");
+  if (splitIndex > 0 && splitIndex < trimmed.length - 1) {
+    return { provider: trimmed.slice(0, splitIndex), id: trimmed.slice(splitIndex + 1) };
+  }
+  return { id: trimmed };
 }
 
 export function resolvePendingChangeRef(
