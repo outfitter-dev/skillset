@@ -22,6 +22,11 @@ import {
   type SkillsetFeatureEntry,
   type SkillsetFeatureId,
 } from "./feature-registry";
+import {
+  hookHandlerTypesForEvent,
+  hookProviderCapabilities,
+  type HookMatcherKind,
+} from "./hook-capabilities";
 import { compareStrings } from "./path";
 import type { TargetName } from "./types";
 
@@ -54,6 +59,9 @@ export interface LookupField {
 
 export interface LookupEvent {
   readonly fields: readonly LookupEventField[];
+  readonly handlerTypes: readonly string[];
+  readonly matcherKind: HookMatcherKind;
+  readonly matcherValues: readonly string[];
   readonly name: string;
   readonly providerRef: string;
   readonly target: TargetName;
@@ -253,13 +261,6 @@ export function lookupSkillsetReference(query: LookupQuery = {}): LookupReport {
 
   if (views.includes("events") && subject === "hooks") {
     events.push(...lookupHookEvents(targets));
-    if (targets.includes("claude")) {
-      diagnostics.push({
-        code: "lookup/events/not-enumerated",
-        message: "Claude hook event names are not enumerated in the adopted provider snapshots.",
-        severity: "warning",
-      });
-    }
   }
 
   if (views.includes("compat")) {
@@ -468,19 +469,37 @@ function uniqueJsonValues(values: readonly SchemaJsonValue[]): readonly SchemaJs
 }
 
 function lookupHookEvents(targets: readonly TargetName[]): readonly LookupEvent[] {
-  if (!targets.includes("codex")) return [];
-  if (CODEX_HOOK_EVENT_SNAPSHOT === undefined || CODEX_HOOK_EVENT_ENTRIES.length === 0) return [];
-  return CODEX_HOOK_EVENT_ENTRIES
-    .map((entry) => ({
-      fields: entry.properties.map((name) => ({
-        name,
-        required: entry.required.includes(name),
-      })),
-      name: entry.title,
-      providerRef: CODEX_HOOK_EVENT_SNAPSHOT.id,
-      target: CODEX_HOOK_EVENT_SNAPSHOT.target,
-    }))
-    .sort((left, right) => compareStrings(left.name, right.name));
+  const codexInputSchemas = new Map(
+    CODEX_HOOK_EVENT_ENTRIES
+      .filter((entry) => entry.title.endsWith(".command.input"))
+      .map((entry) => [entry.title.replace(/\.command\.input$/u, ""), entry])
+  );
+  return targets.flatMap((target) => {
+    const capabilities = hookProviderCapabilities[target];
+    return [...capabilities.documentedEvents].map((event) => {
+      const schemaEntry = target === "codex" ? codexInputSchemas.get(codexSchemaEventName(event)) : undefined;
+      return {
+        fields: schemaEntry === undefined
+          ? []
+          : schemaEntry.properties.map((name) => ({
+            name,
+            required: schemaEntry.required.includes(name),
+          })),
+        handlerTypes: [...hookHandlerTypesForEvent(target, event)].sort(compareStrings),
+        matcherKind: capabilities.matcherByEvent[event] ?? "none",
+        matcherValues: [...(capabilities.matcherValuesByEvent[event] ?? [])],
+        name: event,
+        providerRef: schemaEntry === undefined || CODEX_HOOK_EVENT_SNAPSHOT === undefined
+          ? `hook-capabilities:${target}`
+          : CODEX_HOOK_EVENT_SNAPSHOT.id,
+        target,
+      };
+    });
+  }).sort((left, right) => compareStrings(`${left.target}:${left.name}`, `${right.target}:${right.name}`));
+}
+
+function codexSchemaEventName(event: string): string {
+  return event.replace(/([a-z0-9])([A-Z])/gu, "$1-$2").toLowerCase();
 }
 
 function lookupCompatibility(

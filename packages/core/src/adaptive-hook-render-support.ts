@@ -45,14 +45,14 @@ function adaptiveHookUnsupportedCapabilityReason(
   item: ResolvedAdaptiveHookAttachment,
   target: TargetName
 ): string | undefined {
-  if (target !== "codex") return undefined;
-  const capabilities = hookProviderCapabilities.codex;
+  const capabilities = hookProviderCapabilities[target];
+  const targetLabel = target === "claude" ? "Claude" : "Codex";
   if (!capabilities.documentedEvents.has(item.event)) {
-    return `Codex does not support adaptive hook event ${item.event}.`;
+    return `${targetLabel} does not support adaptive hook event ${item.event}.`;
   }
   const matcher = item.attachment.match ?? item.definition.frontmatter.match;
   if (matcher !== undefined && capabilities.matcherByEvent[item.event] === "ignored") {
-    return `Codex ignores matchers for adaptive hook event ${item.event}, so this attachment cannot render faithfully.`;
+    return `${targetLabel} ignores matchers for adaptive hook event ${item.event}, so this attachment cannot render faithfully.`;
   }
   return undefined;
 }

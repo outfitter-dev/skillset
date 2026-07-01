@@ -175,13 +175,13 @@ Codex `.rules` files are execution policy for shell command approval, prompt, or
 
 ## Hooks validation
 
-Verified 2026-06-03 (`developers.openai.com/codex/plugins/build`, Claude hooks reference). Claude validation is shape-only by design; Codex is strict.
+Verified 2026-07-01 against the provider capability registry, Codex hook schema snapshots, and Claude hooks reference. Provider-native hook validation is registry-backed for both Claude and Codex.
 
 | Concern | Claude | Codex | Status |
 | --- | --- | --- | --- |
 | JSON-object shape | required | required | Implemented |
-| Supported events | broad (shape-only) | strict allowlist | Implemented |
-| Handler types | broad | synchronous `command` only | Implemented |
+| Supported events | registry allowlist | registry allowlist | Implemented |
+| Handler types | event-specific registry allowlist | synchronous `command` only | Implemented |
 | `async: true` command handlers | allowed | rejected (parsed-but-skipped) | Implemented |
 
 ## Tool policy

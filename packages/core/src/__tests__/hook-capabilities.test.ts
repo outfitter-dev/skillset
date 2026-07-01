@@ -4,6 +4,7 @@ import {
   CODEX_HOOK_EVENTS,
   classifyAdaptiveHookUnitPath,
   hookEventSupported,
+  hookHandlerTypesForEvent,
   hookProviderCapabilities,
   validateAdaptiveHookUnitPaths,
 } from "../hook-capabilities";
@@ -26,16 +27,51 @@ describe("hook provider capabilities", () => {
     ]);
   });
 
-  test("records Codex handler, matcher, and scope constraints", () => {
+  test("records provider matcher constraints", () => {
+    const claude = hookProviderCapabilities.claude;
+    expect(claude.matcherByEvent.PreToolUse).toBe("tool");
+    expect(claude.matcherByEvent.PermissionDenied).toBe("tool");
+    expect(claude.matcherByEvent.SessionStart).toBe("session-source");
+    expect(claude.matcherByEvent.PreCompact).toBe("compact-trigger");
+    expect(claude.matcherByEvent.PostCompact).toBe("compact-trigger");
+    expect(claude.matcherByEvent.SubagentStart).toBe("agent-type");
+    expect(claude.matcherByEvent.Setup).toBe("setup-trigger");
+    expect(claude.matcherByEvent.Notification).toBe("notification-type");
+    expect(claude.matcherByEvent.InstructionsLoaded).toBe("instructions-load-reason");
+    expect(claude.matcherByEvent.Stop).toBe("ignored");
+    expect(claude.matcherByEvent.UserPromptSubmit).toBe("ignored");
+    expect(claude.matcherValuesByEvent.PreCompact).toEqual(["manual", "auto"]);
+    expect(claude.matcherValuesByEvent.SessionStart).toEqual(["startup", "resume", "clear", "compact"]);
+    expect(claude.matcherValuesByEvent.StopFailure).toContain("rate_limit");
+
+    const codex = hookProviderCapabilities.codex;
+    expect(codex.matcherByEvent.PreToolUse).toBe("tool");
+    expect(codex.matcherByEvent.PermissionRequest).toBe("tool");
+    expect(codex.matcherByEvent.SessionStart).toBe("session-source");
+    expect(codex.matcherByEvent.PreCompact).toBe("compact-trigger");
+    expect(codex.matcherByEvent.Stop).toBe("ignored");
+    expect(codex.matcherByEvent.UserPromptSubmit).toBe("ignored");
+    expect(codex.matcherValuesByEvent.PreCompact).toEqual([]);
+  });
+
+  test("records Codex handler and scope constraints", () => {
     const codex = hookProviderCapabilities.codex;
     expect([...codex.handlerTypes]).toEqual(["command"]);
     expect(codex.asyncCommand).toBe(false);
-    expect(codex.matcherByEvent.PreToolUse).toBe("tool");
-    expect(codex.matcherByEvent.Stop).toBe("ignored");
-    expect(codex.matcherByEvent.UserPromptSubmit).toBe("ignored");
+    expect([...hookHandlerTypesForEvent("codex", "PreToolUse")]).toEqual(["command"]);
     expect(codex.scopeSupport.plugin).toBe("native");
     expect(codex.scopeSupport.skill).toBe("unsupported");
     expect(codex.scopeSupport.agent).toBe("unsupported");
+  });
+
+  test("records Claude event-specific handler constraints", () => {
+    for (const event of hookProviderCapabilities.claude.documentedEvents) {
+      expect([...hookHandlerTypesForEvent("claude", event)], event).not.toEqual([]);
+    }
+    expect([...hookHandlerTypesForEvent("claude", "PreToolUse")].sort()).toEqual(["agent", "command", "http", "mcp_tool", "prompt"]);
+    expect([...hookHandlerTypesForEvent("claude", "PreCompact")].sort()).toEqual(["command", "http", "mcp_tool"]);
+    expect([...hookHandlerTypesForEvent("claude", "SessionStart")].sort()).toEqual(["command", "mcp_tool"]);
+    expect([...hookHandlerTypesForEvent("claude", "MessageDisplay")].sort()).toEqual(["command", "http", "mcp_tool"]);
   });
 });
 

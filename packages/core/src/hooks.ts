@@ -1,8 +1,8 @@
 import type { JsonRecord, JsonValue, TargetName } from "./types";
 import { isJsonRecord } from "./yaml";
 import {
-  CODEX_HOOK_EVENTS,
-  CODEX_HOOK_HANDLER_TYPES,
+  hookHandlerTypesForEvent,
+  hookProviderCapabilities,
 } from "./hook-capabilities";
 export {
   CLAUDE_HOOK_EVENTS,
@@ -13,10 +13,8 @@ export {
 /**
  * Validate a parsed hook definition for a target.
  *
- * Claude: confirm the file is a JSON object (broad, by design).
- * Codex: additionally reject events Codex does not support plus handler options
- * Codex parses but skips, so unsupported hooks fail loudly at build/lint time
- * instead of being copied through as dead configuration.
+ * Reject events and handler options that the selected provider capability
+ * registry cannot render faithfully instead of copying through dead config.
  */
 export function validateHookDefinition(
   parsed: JsonValue,
@@ -28,23 +26,27 @@ export function validateHookDefinition(
       `skillset: ${targetLabel} hook file ${context.sourcePath} must contain a JSON object`
     );
   }
-  if (context.target === "codex") {
-    validateCodexHooks(parsed, context.sourcePath);
-  }
+  validateProviderHooks(parsed, context);
 }
 
-function validateCodexHooks(parsed: JsonRecord, sourcePath: string): void {
+function validateProviderHooks(
+  parsed: JsonRecord,
+  context: { readonly sourcePath: string; readonly target: TargetName }
+): void {
+  const capabilities = hookProviderCapabilities[context.target];
+  const targetLabel = context.target === "claude" ? "Claude" : "Codex";
   const events = isJsonRecord(parsed.hooks) ? parsed.hooks : parsed;
 
   for (const [event, groups] of Object.entries(events)) {
     if (events === parsed && event === "hooks") continue;
-    if (!CODEX_HOOK_EVENTS.has(event)) {
+    if (!capabilities.documentedEvents.has(event)) {
       throw new Error(
-        `skillset: Codex hook file ${sourcePath} uses the ${event} event, which Codex does not support. ` +
-          `Codex hook events are: ${[...CODEX_HOOK_EVENTS].join(", ")}.`
+        `skillset: ${targetLabel} hook file ${context.sourcePath} uses the ${event} event, which ${targetLabel} does not support. ` +
+          `${targetLabel} hook events are: ${[...capabilities.documentedEvents].join(", ")}.`
       );
     }
     if (groups === undefined || !Array.isArray(groups)) continue;
+    const handlerTypes = hookHandlerTypesForEvent(context.target, event);
     for (const group of groups) {
       if (!isJsonRecord(group)) continue;
       const handlers = group.hooks;
@@ -52,22 +54,26 @@ function validateCodexHooks(parsed: JsonRecord, sourcePath: string): void {
       for (const handler of handlers) {
         if (!isJsonRecord(handler)) continue;
         const type = handler.type;
-        if (type !== "command") {
+        if (typeof type !== "string" || !handlerTypes.has(type)) {
           const typeLabel = typeof type === "string" ? type : "a missing/non-string type";
           throw new Error(
-            `skillset: Codex hook file ${sourcePath} uses ${typeLabel} for ${event}, ` +
-              "but Codex only runs type: command hook handlers (prompt and agent handlers are parsed but skipped). " +
-              "Use type: command or set codex: false for this plugin."
+            `skillset: ${targetLabel} hook file ${context.sourcePath} uses ${typeLabel} for ${event}, ` +
+              `but ${targetLabel} only runs ${formatHandlerTypes(handlerTypes)} hook handlers for this event. ` +
+              `Use a supported handler type or set ${context.target}: false for this plugin.`
           );
         }
-        if (handler.async === true) {
+        if (type === "command" && handler.async === true && !capabilities.asyncCommand) {
           throw new Error(
-            `skillset: Codex hook file ${sourcePath} uses async: true for ${event}, ` +
-              "but Codex parses async command hooks and skips them. " +
-              "Remove async: true or set codex: false for this plugin."
+            `skillset: ${targetLabel} hook file ${context.sourcePath} uses async: true for ${event}, ` +
+              `but ${targetLabel} parses async command hooks and skips them. ` +
+              `Remove async: true or set ${context.target}: false for this plugin.`
           );
         }
       }
     }
   }
+}
+
+function formatHandlerTypes(types: ReadonlySet<string>): string {
+  return [...types].sort().map((type) => `type: ${type}`).join(", ");
 }

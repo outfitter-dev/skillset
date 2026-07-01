@@ -750,6 +750,34 @@ hooks:
       reason: "Codex ignores matchers for adaptive hook event Stop, so this attachment cannot render faithfully.",
       sourceUnit: "plugin.demo.feature:hooks",
     });
+
+    const claudeMatcherRoot = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-policy-claude-matcher
+claude: true
+codex: false
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  Stop:
+    - hook: stop-policy
+      match: main
+`,
+      ".skillset/plugins/demo/hooks/stop-policy.json": JSON.stringify({
+        events: ["Stop"],
+        run: { command: "echo stop" },
+      }),
+    });
+    await expectUnsupportedOutcome(claudeMatcherRoot, {
+      destination: "hooks",
+      featureId: "adaptive-hooks",
+      reason: "Claude ignores matchers for adaptive hook event Stop, so this attachment cannot render faithfully.",
+      sourceUnit: "plugin.demo.feature:hooks",
+      target: "claude",
+    });
   });
 
   it("enforces unsupported adaptive hook outcomes for render field gaps", async () => {

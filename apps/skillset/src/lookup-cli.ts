@@ -102,7 +102,9 @@ function printLookupReport(report: LookupReport): void {
     for (const event of report.events) {
       const required = event.fields.filter((field) => field.required).map((field) => field.name);
       const suffix = required.length === 0 ? "" : ` required: ${required.join(", ")}`;
-      console.log(`    [${event.target}] ${event.name}${suffix}`);
+      const handlers = event.handlerTypes.length === 0 ? "" : ` handlers: ${event.handlerTypes.join(", ")}`;
+      const values = event.matcherValues.length === 0 ? "" : ` values: ${event.matcherValues.join(", ")}`;
+      console.log(`    [${event.target}] ${event.name} matcher: ${event.matcherKind}${values}${handlers}${suffix}`);
     }
   }
   if (report.compatibility.length > 0) {

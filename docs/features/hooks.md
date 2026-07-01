@@ -21,6 +21,8 @@ Use native aggregate source when the hook file is already provider-shaped or int
 
 `hooks/hooks.json` is a destination-specific native aggregate source. It is not a universal sink for portable hook behavior, and it cannot be combined with adaptive hook units for the same generated plugin hook destination.
 
+Imported provider-native hook files stay native by default. Skillset should only lift native hook material into adaptive hook units when provider capability facts prove the event, matcher, handler, scope, and runtime behavior can be preserved faithfully. Otherwise, native source remains the honest representation.
+
 ### Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |
@@ -197,9 +199,9 @@ Unsupported cases include Codex skill/agent no-faithful-destination cases, Claud
 
 ### Provider Reference
 
-Use `skillset lookup hooks --events --compat <target>` for provider event and support facts. Use `skillset lookup hooks adaptive --fields --schema --examples` for the adaptive hook unit source contract. Use `skillset lookup hooks toolkit --field context.env --values --compat <target>` for the normalized runtime context field matrix.
+Use `skillset lookup hooks --events --compat <target>` for provider event, matcher, finite matcher value, handler, and support facts. Use `skillset lookup hooks adaptive --fields --schema --examples` for the adaptive hook unit source contract. Use `skillset lookup hooks toolkit --field context.env --values --compat <target>` for the normalized runtime context field matrix.
 
-Provider details are intentionally registry-backed instead of duplicated here. Claude has the broader hook surface; Codex support is narrower and currently centers on synchronous command handlers. Skillset keeps provider-specific validation explicit so incompatible hooks fail visibly instead of being silently widened or dropped.
+Provider details are intentionally registry-backed instead of duplicated here. Claude has the broader hook surface; Codex support is narrower and currently centers on synchronous command handlers. `skillset lookup hooks --events --compat claude,codex` is the preferred way to inspect the current matrix. Skillset keeps provider-specific validation explicit so incompatible hooks fail visibly instead of being silently widened or dropped.
 
 Provider docs checked: 2026-06-25.
 
@@ -214,9 +216,9 @@ Provider docs checked: 2026-06-25.
 
 - Reject plugin-root `hooks.json` and hook files that are not JSON objects.
 - Validate hook file shape with the shared `@skillset/schema` contract used by Workbench and schema artifacts.
-- Keep Claude validation broad because Claude's hook surface is wider and still evolving.
-- Validate Codex hooks against supported events and synchronous `command` handlers.
-- Reject Codex prompt handlers, agent handlers, async command handlers, missing handler types, and unsupported events because Codex parses but skips them.
+- Validate provider-native hook events and handler types through `packages/core/src/hook-capabilities.ts`.
+- Reject unsupported events, missing handler types, and handler types that the selected provider does not run for that event.
+- Reject async command handlers for providers that parse but skip them.
 
 ## Provenance
 

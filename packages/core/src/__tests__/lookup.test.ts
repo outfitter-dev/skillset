@@ -74,18 +74,32 @@ describe("lookupSkillsetReference", () => {
     ]);
   });
 
-  it("returns hook event facts from provider schema snapshots", () => {
+  it("returns hook event facts from provider capabilities and schema snapshots", () => {
     const snapshot = getProviderSchemaSnapshot("codex-hook-event-schemas");
     const report = lookupSkillsetReference({
       subject: "hooks",
-      targets: ["codex"],
+      targets: ["claude", "codex"],
       views: ["events"],
     });
 
     expect(snapshot?.summary).toMatchObject({ schemaCount: 20 });
     expect(report.diagnostics).toEqual([]);
-    expect(report.events.map((event) => event.name)).toContain("pre-tool-use.command.input");
-    expect(report.events.find((event) => event.name === "pre-tool-use.command.input")).toEqual(expect.objectContaining({
+    expect(report.events.map((event) => `${event.target}:${event.name}`)).toEqual(expect.arrayContaining([
+      "claude:PreCompact",
+      "claude:PostCompact",
+      "codex:PreToolUse",
+    ]));
+    expect(report.events.find((event) => event.target === "claude" && event.name === "PreCompact")).toEqual(expect.objectContaining({
+      handlerTypes: ["command", "http", "mcp_tool"],
+      matcherKind: "compact-trigger",
+      matcherValues: ["manual", "auto"],
+      providerRef: "hook-capabilities:claude",
+      target: "claude",
+    }));
+    expect(report.events.find((event) => event.target === "codex" && event.name === "PreToolUse")).toEqual(expect.objectContaining({
+      handlerTypes: ["command"],
+      matcherKind: "tool",
+      matcherValues: [],
       providerRef: "codex-hook-event-schemas",
       target: "codex",
       fields: expect.arrayContaining([

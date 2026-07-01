@@ -420,7 +420,7 @@ Alpha body.
   await expect(lintSkillset(root)).rejects.toThrow("async command hooks");
 });
 
-test("Claude hook validation stays broad and accepts Codex-only event names", async () => {
+test("Claude hook validation follows provider capability registry", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -432,12 +432,11 @@ codex: false
 skillset:
   name: alpha
 `,
-    // SessionEnd is Claude-only; PermissionRequest would be Codex-only. Claude
-    // accepts both because Claude hook validation is intentionally shape-only.
     ".skillset/plugins/alpha/hooks/hooks.json": `
 {
   "hooks": {
-    "SessionEnd": [ { "hooks": [ { "type": "command", "command": "./run.sh" } ] } ]
+    "SessionEnd": [ { "hooks": [ { "type": "command", "command": "./run.sh" } ] } ],
+    "PreToolUse": [ { "hooks": [ { "type": "prompt", "prompt": "ask" } ] } ]
   }
 }
 `,
@@ -453,6 +452,66 @@ Alpha body.
 
   await expect(buildSkillset(root)).resolves.toBeDefined();
   await expect(lintSkillset(root)).resolves.toBeDefined();
+
+  const unknownEventRoot = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/hooks/hooks.json": `
+{
+  "hooks": {
+    "DefinitelyNotAHook": [ { "hooks": [ { "type": "command", "command": "./run.sh" } ] } ]
+  }
+}
+`,
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+---
+name: alpha-skill
+description: Alpha skill.
+---
+
+Alpha body.
+`,
+  });
+  await expect(buildSkillset(unknownEventRoot)).rejects.toThrow("Claude does not support");
+  await expect(lintSkillset(unknownEventRoot)).rejects.toThrow("Claude does not support");
+
+  const unsupportedHandlerRoot = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/hooks/hooks.json": `
+{
+  "hooks": {
+    "PreCompact": [ { "hooks": [ { "type": "prompt", "prompt": "ask" } ] } ]
+  }
+}
+`,
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+---
+name: alpha-skill
+description: Alpha skill.
+---
+
+Alpha body.
+`,
+  });
+  await expect(buildSkillset(unsupportedHandlerRoot)).rejects.toThrow("Claude only runs type: command, type: http, type: mcp_tool hook handlers");
+  await expect(lintSkillset(unsupportedHandlerRoot)).rejects.toThrow("Claude only runs type: command, type: http, type: mcp_tool hook handlers");
 });
 
 test("corrupt workspace skillset.lock fails loudly instead of disabling guards", async () => {
