@@ -17,7 +17,7 @@ The combined schema is [`skillset.schema.json`](./0.1.0/skillset.schema.json). U
 | `instruction-frontmatter` | [`instruction-frontmatter.schema.json`](./0.1.0/instruction-frontmatter.schema.json) | Adaptive Skillset instruction/rules frontmatter. |
 | `hook` | [`hook.schema.json`](./0.1.0/hook.schema.json) | Skillset hook definition source contract for aggregate hook event maps. |
 | `adaptive-hook` | [`adaptive-hook.schema.json`](./0.1.0/adaptive-hook.schema.json) | Skillset adaptive hook unit source contract for reusable portable hooks. |
-| `change-entry` | [`change-entry.schema.json`](./0.1.0/change-entry.schema.json) | Pending Skillset change entry source contract. |
+| `change-entry` | [`change-entry.schema.json`](./0.1.0/change-entry.schema.json) | Compatibility-only legacy pending change-entry frontmatter contract. |
 
 ## Examples
 
@@ -32,7 +32,7 @@ The examples are generated from typed fixtures and checked against the same sche
 | `instruction-frontmatter` | [`instruction-frontmatter.yaml`](../examples/instruction-frontmatter.yaml) | Adaptive instruction/rules frontmatter. |
 | `hook` | [`hook.yaml`](../examples/hook.yaml) | Hook definition source object. |
 | `adaptive-hook` | [`adaptive-hook.yaml`](../examples/adaptive-hook.yaml) | Adaptive reusable hook unit. |
-| `change-entry` | [`change-entry.yaml`](../examples/change-entry.yaml) | Pending change entry frontmatter. |
+| `change-entry` | [`change-entry.yaml`](../examples/change-entry.yaml) | Compatibility-only legacy pending change-entry frontmatter. |
 
 ## Editor Integration
 

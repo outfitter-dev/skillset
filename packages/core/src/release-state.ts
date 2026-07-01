@@ -1,6 +1,7 @@
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
+import { readChangeLedger } from "./change-ledger";
 import { readString } from "./config";
 import { compareStrings, resolveInside } from "./path";
 import { sourceUnitSelector } from "./source-unit-selector";
@@ -15,9 +16,21 @@ export async function readReleaseState(
   rootPath: string,
   options: SkillsetOptions = {}
 ): Promise<ReleaseState> {
+  const derived = await readLedgerReleaseState(rootPath, options);
   const statePath = releaseStatePath(rootPath, options);
-  if (!(await exists(statePath))) return { scopes: {} };
+  if (!(await exists(statePath))) return derived;
 
+  let cached: ReleaseState;
+  try {
+    cached = await readCachedReleaseState(statePath);
+  } catch (error) {
+    if (Object.keys(derived.scopes).length > 0) return derived;
+    throw error;
+  }
+  return mergeReleaseStates(cached, derived);
+}
+
+async function readCachedReleaseState(statePath: string): Promise<ReleaseState> {
   let parsed: unknown;
   try {
     parsed = JSON.parse(await readFile(statePath, "utf8")) as unknown;
@@ -63,6 +76,37 @@ export async function readReleaseState(
     };
   }
   return { scopes };
+}
+
+async function readLedgerReleaseState(
+  rootPath: string,
+  options: SkillsetOptions
+): Promise<ReleaseState> {
+  const scopes: Record<string, ReleaseScopeState> = {};
+  for (const event of await readChangeLedger(rootPath, options)) {
+    if (event.type !== "release.applied") continue;
+    for (const scope of event.payload.scopes) {
+      scopes[sourceUnitSelector(scope.selector)] = {
+        ...(scope.removed === true ? { removed: true } : {}),
+        ...(scope.removed === true || scope.sourceHash === undefined ? {} : { sourceHash: scope.sourceHash }),
+        updatedAt: event.createdAt,
+        version: scope.version,
+      };
+    }
+  }
+  return { scopes };
+}
+
+function mergeReleaseStates(
+  cached: ReleaseState,
+  derived: ReleaseState
+): ReleaseState {
+  return {
+    scopes: {
+      ...cached.scopes,
+      ...derived.scopes,
+    },
+  };
 }
 
 export async function writeReleaseState(

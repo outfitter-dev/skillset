@@ -1,5 +1,5 @@
 import { appendFile, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { dirname, join } from "node:path";
 
 import { buildSkillset } from "./build";
@@ -96,6 +96,7 @@ interface FileSnapshot {
 const HISTORY_FILE = "history.jsonl";
 const RELEASES_FILE = "releases.jsonl";
 const RELEASE_AMENDMENTS_FILE = "release-amendments.jsonl";
+const LEDGER_FILE = "ledger.jsonl";
 const STATE_FILE = "state.json";
 const MIN_REF_LENGTH = 6;
 const BUMP_WEIGHT: Readonly<Record<ChangeBump, number>> = {
@@ -164,6 +165,7 @@ export async function applyRelease(
       const state = await readReleaseState(rootPath, releaseOptions);
       const statePath = await writeReleaseState(rootPath, nextReleaseState(state, plan.baselineScopes, now), releaseOptions);
       files.add(statePath);
+      await appendReleaseAppliedLedgerEvent(rootPath, releaseOptions.sourceDir, plan, now, files);
     }
     if (plan.scopes.length > 0) {
       await appendReleaseRecord(rootPath, releaseOptions.sourceDir, plan, now, files);
@@ -413,6 +415,65 @@ async function appendReleaseRecord(
   files.add(relativePath);
 }
 
+async function appendReleaseAppliedLedgerEvent(
+  rootPath: string,
+  sourceDir: string | undefined,
+  plan: ReleasePlanReport,
+  appliedAt: string,
+  files: Set<string>
+): Promise<void> {
+  const relativePath = workspaceChangeFile(sourceDir, LEDGER_FILE);
+  const absolutePath = resolveInside(rootPath, relativePath);
+  const releaseId = plan.releaseId ?? releaseIdFor(plan.baselineScopes);
+  await mkdir(dirname(absolutePath), { recursive: true });
+  await appendFile(absolutePath, `${JSON.stringify({
+    createdAt: appliedAt,
+    id: ledgerEventId("release.applied", releaseId),
+    payload: {
+      changeIds: plan.entries.map((entry) => entry.id).sort(compareStrings),
+      releaseId,
+      scopes: ledgerReleaseScopes(plan.baselineScopes),
+      sourceUnits: ledgerSourceUnits(plan.baselineScopes),
+    },
+    schemaVersion: 1,
+    type: "release.applied",
+  })}\n`, "utf8");
+  files.add(relativePath);
+}
+
+function ledgerReleaseScopes(scopes: readonly ReleaseScopePlan[]): readonly JsonRecord[] {
+  return scopes.map((scope) => ({
+    bump: scope.bump,
+    changeIds: [...scope.entries].sort(compareStrings),
+    hashSchema: SOURCE_HASH_SCHEMA,
+    previousVersion: scope.currentVersion,
+    ...(scope.removed ? { removed: true } : {}),
+    selector: sourceUnitSelector(scope.scope),
+    ...(scope.sourceHash === undefined ? {} : { sourceHash: scope.sourceHash }),
+    version: scope.nextVersion,
+  }));
+}
+
+function ledgerSourceUnits(scopes: readonly ReleaseScopePlan[]): readonly JsonRecord[] {
+  return scopes.map((scope) => ({
+    hashSchema: SOURCE_HASH_SCHEMA,
+    selector: sourceUnitSelector(scope.scope),
+    ...(scope.sourceHash === undefined ? {} : { sourceHash: scope.sourceHash }),
+  }));
+}
+
+function ledgerEventId(type: string, releaseId: string): string {
+  const hash = createHash("sha256");
+  hash.update(type);
+  hash.update("\0");
+  hash.update(releaseId);
+  hash.update("\0");
+  hash.update(String(Date.now()));
+  hash.update("\0");
+  hash.update(randomBytes(16));
+  return `evt-${hash.digest("hex").slice(0, 16)}`;
+}
+
 async function snapshotReleaseFiles(
   rootPath: string,
   sourceDir: string | undefined,
@@ -420,6 +481,7 @@ async function snapshotReleaseFiles(
   includeReleaseState: boolean
 ): Promise<readonly FileSnapshot[]> {
   const paths = new Set<string>([
+    workspaceChangeFile(sourceDir, LEDGER_FILE),
     workspaceChangeFile(sourceDir, HISTORY_FILE),
     ...entries.map((entry) => entry.path),
   ]);

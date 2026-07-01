@@ -254,7 +254,7 @@ export const adaptiveHookContract = contract("adaptive-hook", "Adaptive Hook Uni
   required: ["events", "run"],
 });
 
-export const changeEntryContract = contract("change-entry", "Change Entry", "Pending Skillset change entry source contract.", {
+export const changeEntryContract = contract("change-entry", "Change Entry", "Compatibility-only legacy pending change-entry frontmatter contract.", {
   additionalProperties: true,
   anyOf: [
     { required: ["scope"] },
