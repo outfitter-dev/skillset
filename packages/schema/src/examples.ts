@@ -375,7 +375,7 @@ export const skillsetSchemaExamples = [
     },
   },
   {
-    description: "Pending change entry frontmatter.",
+    description: "Compatibility-only legacy pending change-entry frontmatter.",
     id: "change-entry",
     path: "change-entry.yaml",
     value: {

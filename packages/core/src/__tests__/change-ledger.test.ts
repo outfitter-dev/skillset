@@ -22,6 +22,15 @@ describe("readChangeLedger", () => {
       event("evt-005", "release.applied", {
         releaseId: "release-1",
         reasonIds: ["change-1"],
+        scopes: [{
+          bump: "patch",
+          entries: ["change-1"],
+          hashSchema: "skillset-source-unit-v2",
+          previousVersion: "0.1.0",
+          selector: "skill:demo",
+          sourceHash: hash("1"),
+          version: "0.1.1",
+        }],
         sourceUnits: [{ hashSchema: "skillset-source-unit-v2", selector: "skill:demo", sourceHash: hash("1") }],
       }),
       event("evt-006", "change.amended", { changeId: "change-1", reason: "Correct wording." }),
@@ -63,6 +72,15 @@ describe("readChangeLedger", () => {
     expect(events[4]?.payload).toEqual({
       changeIds: ["change-1"],
       releaseId: "release-1",
+      scopes: [{
+        bump: "patch",
+        changeIds: ["change-1"],
+        hashSchema: "skillset-source-unit-v2",
+        previousVersion: "0.1.0",
+        selector: "skill:demo",
+        sourceHash: hash("1"),
+        version: "0.1.1",
+      }],
       sourceUnits: [{ hashSchema: "skillset-source-unit-v2", selector: "skill:demo", sourceHash: hash("1") }],
     });
     expect(events[7]?.line).toBe(8);

@@ -31,10 +31,12 @@ import {
   amendAppliedChange,
   groupRef,
   listChangeEntries,
+  migratePendingChangeEntries,
   readChangeHistory,
   showChangeEntry,
   updateChangeReason,
   type ChangeEntryView,
+  type ChangeMigrationReport,
   type ChangeReasonInput,
   type ChangeSubcommand,
 } from "./change-workflow";
@@ -130,6 +132,7 @@ const USAGE = [
   "       skillset change add --scope <source-unit> --bump <bump> [--group <group>] [--reason <text>|--reason-file <path>|--reason -] [--since <ref>] [--root <path>] [--source <dir>]",
   "       skillset change reason <@ref> [--append] [--reason <text>|--reason-file <path>|--reason -] [--root <path>] [--source <dir>]",
   "       skillset change amend <@ref> [--reason <text>|--reason-file <path>|--reason -] [--root <path>] [--source <dir>]",
+  "       skillset change migrate [--yes|--dry-run] [--root <path>] [--source <dir>]",
   "       skillset change <show|history> [@ref] [--root <path>] [--source <dir>]",
   "       skillset change list [--group <group>] [--root <path>] [--source <dir>]",
   "       skillset release audit [--root <path>] [--source <dir>] [--dist <dir>]",
@@ -377,7 +380,16 @@ export async function runCli(
       })).entries);
       return;
     }
-    throw new Error("skillset: expected change subcommand add, check, history, list, reason, show, or status");
+    if (changeSubcommand === "migrate") {
+      const report = await migratePendingChangeEntries(rootPath, {
+        ...changeOptions,
+        write: yes && !dryRun,
+      });
+      printChangeMigration(report);
+      if ((!yes || dryRun) && report.entries.length > 0) console.log("skillset: rerun change migrate with --yes to rewrite pending entries");
+      return;
+    }
+    throw new Error("skillset: expected change subcommand add, amend, check, history, list, migrate, reason, show, or status");
   }
 
   if (command === "release") {
@@ -981,6 +993,17 @@ function printChangeList(entries: readonly ChangeEntryView[]): void {
 function printChangeHistory(entries: readonly ChangeEntryView[]): void {
   for (const entry of entries) printChangeEntry("show", entry);
   console.log(`skillset: listed ${entries.length} history entr${entries.length === 1 ? "y" : "ies"}`);
+}
+
+function printChangeMigration(report: ChangeMigrationReport): void {
+  for (const entry of report.entries) {
+    const action = report.written ? "migrated" : "would migrate";
+    console.log(`${action}: ${entry.fromPath} -> ${entry.toPath}`);
+  }
+  if (report.written && report.entries.length > 0) console.log(`  ledger: ${report.ledgerPath}`);
+  console.log(
+    `skillset: ${report.written ? "migrated" : "previewed"} ${report.entries.length} frontmatter pending entr${report.entries.length === 1 ? "y" : "ies"}`
+  );
 }
 
 function printChangeCheck(report: ChangeCheckReport): void {
@@ -1999,6 +2022,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(changeRef === undefined ? {} : { ref: changeRef }),
     staged: changeStaged,
     ...(changeScopes === undefined ? {} : { scopes: changeScopes }),
+    dryRun,
+    yes,
   });
 
   validateHookFlags(command, {
@@ -2250,6 +2275,7 @@ function isChangeSubcommand(value: string | undefined): value is ChangeSubcomman
     value === "check" ||
     value === "history" ||
     value === "list" ||
+    value === "migrate" ||
     value === "reason" ||
     value === "show" ||
     value === "status";
@@ -2310,6 +2336,8 @@ function validateChangeFlags(
     readonly ref?: string;
     readonly scopes?: readonly string[];
     readonly staged: boolean;
+    readonly dryRun: boolean;
+    readonly yes: boolean;
   }
 ): void {
   const hasChangeFlag = change.append ||
@@ -2323,6 +2351,12 @@ function validateChangeFlags(
     throw new Error("skillset: change options are only supported with change commands");
   }
   if (command !== "change") return;
+  if ((change.yes || change.dryRun) && subcommand !== "migrate") {
+    throw new Error("skillset: --yes and --dry-run are only supported with change migrate");
+  }
+  if (change.yes && change.dryRun) {
+    throw new Error("skillset: pass either --yes or --dry-run for change migrate, not both");
+  }
 
   const allowed = {
     append: subcommand === "reason",
