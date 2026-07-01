@@ -20,6 +20,7 @@
       "bin": {
         "create-skillset": "dist/create.js",
         "skillset": "dist/cli.js",
+        "skillset-toolkit": "dist/toolkit.js",
       },
       "dependencies": {
         "yaml": "^2.8.1",
@@ -27,7 +28,7 @@
       "devDependencies": {
         "@skillset/core": "workspace:*",
         "@skillset/lint": "workspace:*",
-        "@skillset/provider-formats": "workspace:*",
+        "@skillset/registry": "workspace:*",
         "@skillset/schema": "workspace:*",
         "@skillset/toolkit": "workspace:*",
         "@skillset/transforms": "workspace:*",
@@ -38,7 +39,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@skillset/lint": "workspace:*",
-        "@skillset/provider-formats": "workspace:*",
+        "@skillset/registry": "workspace:*",
         "@skillset/schema": "workspace:*",
         "@skillset/transforms": "workspace:*",
         "yaml": "^2.8.1",
@@ -48,8 +49,8 @@
       "name": "@skillset/lint",
       "version": "0.0.0",
     },
-    "packages/provider-formats": {
-      "name": "@skillset/provider-formats",
+    "packages/registry": {
+      "name": "@skillset/registry",
       "version": "0.0.0",
     },
     "packages/schema": {
@@ -59,6 +60,9 @@
     "packages/toolkit": {
       "name": "@skillset/toolkit",
       "version": "0.0.0",
+      "bin": {
+        "skillset-toolkit": "./src/cli.ts",
+      },
     },
     "packages/transforms": {
       "name": "@skillset/transforms",
@@ -207,7 +211,7 @@
 
     "@skillset/lint": ["@skillset/lint@workspace:packages/lint"],
 
-    "@skillset/provider-formats": ["@skillset/provider-formats@workspace:packages/provider-formats"],
+    "@skillset/registry": ["@skillset/registry@workspace:packages/registry"],
 
     "@skillset/schema": ["@skillset/schema@workspace:packages/schema"],
 

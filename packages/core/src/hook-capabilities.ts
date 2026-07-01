@@ -4,7 +4,7 @@ import {
   type ProviderHookFieldEvidence,
   type ProviderHookMatcherEvaluation,
   type ProviderHookMatcherKind,
-} from "@skillset/provider-formats";
+} from "@skillset/registry";
 
 import { compareStrings } from "./path";
 import type { TargetName } from "./types";

@@ -19,7 +19,7 @@ import {
   providerSchemaSnapshots,
 } from "../index";
 
-describe("@skillset/provider-formats snapshots", () => {
+describe("@skillset/registry snapshots", () => {
   it("exports deterministic adopted provider destination formats", () => {
     expect(listProviderDestinationFormatSnapshots()).toBe(providerDestinationFormatSnapshots);
     expect(providerDestinationFormatSnapshots.map((snapshot) => snapshot.id)).toEqual([
@@ -63,7 +63,7 @@ describe("@skillset/provider-formats snapshots", () => {
   });
 });
 
-describe("@skillset/provider-formats schema snapshots", () => {
+describe("@skillset/registry schema snapshots", () => {
   it("exports deterministic adopted provider schema snapshots", () => {
     expect(listProviderSchemaSnapshots()).toBe(providerSchemaSnapshots);
     expect(providerSchemaSnapshots.map((snapshot) => snapshot.id)).toEqual([
@@ -151,7 +151,7 @@ describe("@skillset/provider-formats schema snapshots", () => {
   });
 });
 
-describe("@skillset/provider-formats hook evidence", () => {
+describe("@skillset/registry hook evidence", () => {
   it("exports provider hook evidence for Claude overlays and Codex schemas", () => {
     expect(listProviderHookEvidence().map((evidence) => `${evidence.target}:${evidence.evidenceKind}:${evidence.providerRef}`)).toEqual([
       "claude:docs-backed-overlay:claude-hooks-overlay",

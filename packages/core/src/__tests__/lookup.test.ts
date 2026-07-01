@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { getProviderHookEvidence, getProviderSchemaSnapshot } from "@skillset/provider-formats";
+import { getProviderHookEvidence, getProviderSchemaSnapshot } from "@skillset/registry";
 
 import { lookupSkillsetReference } from "@skillset/core";
 

@@ -5,7 +5,7 @@ import {
   type ProviderDestinationFormatSnapshotId,
   type ProviderSchemaManualOverlayId,
   type ProviderSchemaSnapshotId,
-} from "@skillset/provider-formats";
+} from "@skillset/registry";
 
 import { compareStrings } from "./path";
 import type { TargetName } from "./types";
