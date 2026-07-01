@@ -1,58 +1,24 @@
 import type { ResolvedAdaptiveHookAttachment } from "./adaptive-hook-attachments";
-import { readRecord } from "./config";
-import { hookProviderCapabilities } from "./hook-capabilities";
 import type { TargetName } from "./types";
+import {
+  adaptiveHookIntentIsRenderable,
+  classifyAdaptiveHookIntent,
+  type AdaptiveHookRenderSurface,
+} from "./adaptive-hook-classifier";
 
-export type AdaptiveHookRenderSurface = "frontmatter" | "plugin";
+export {
+  adaptiveHookIntentIsRenderable,
+  classifyAdaptiveHookIntent,
+  type AdaptiveHookIntentClassification,
+  type AdaptiveHookIntentStatus,
+  type AdaptiveHookRenderSurface,
+} from "./adaptive-hook-classifier";
 
 export function adaptiveHookUnsupportedRenderReason(
   item: ResolvedAdaptiveHookAttachment,
   target: TargetName,
   surface: AdaptiveHookRenderSurface
 ): string | undefined {
-  const fieldReason = adaptiveHookUnsupportedFieldReason(item, target, surface);
-  if (fieldReason !== undefined) return fieldReason;
-  if (surface === "plugin") return adaptiveHookUnsupportedCapabilityReason(item, target);
-  return undefined;
-}
-
-function adaptiveHookUnsupportedFieldReason(
-  item: ResolvedAdaptiveHookAttachment,
-  target: TargetName,
-  surface: AdaptiveHookRenderSurface
-): string | undefined {
-  const providerOverride = item.definition.frontmatter[target];
-  if (providerOverride !== undefined) {
-    return `Adaptive hook ${item.definition.name} uses ${target} provider overrides, but ${surface} hook rendering does not support overrides yet.`;
-  }
-
-  const run = readRecord(item.definition.frontmatter, "run") ?? {};
-  for (const key of ["args", "cwd", "env"] as const) {
-    if (run[key] !== undefined) {
-      const supported = surface === "plugin" ? "run.command and run.script" : "run.command";
-      return `Adaptive hook ${item.definition.name} uses run.${key}, but ${surface} hook rendering only supports ${supported} yet.`;
-    }
-  }
-
-  if (surface === "frontmatter" && run.script !== undefined) {
-    return `Adaptive hook ${item.definition.name} uses run.script, but frontmatter hook rendering does not have stable runtime path proof yet.`;
-  }
-
-  return undefined;
-}
-
-function adaptiveHookUnsupportedCapabilityReason(
-  item: ResolvedAdaptiveHookAttachment,
-  target: TargetName
-): string | undefined {
-  const capabilities = hookProviderCapabilities[target];
-  const targetLabel = target === "claude" ? "Claude" : "Codex";
-  if (!capabilities.documentedEvents.has(item.event)) {
-    return `${targetLabel} does not support adaptive hook event ${item.event}.`;
-  }
-  const matcher = item.attachment.match ?? item.definition.frontmatter.match;
-  if (matcher !== undefined && capabilities.matcherByEvent[item.event] === "ignored") {
-    return `${targetLabel} ignores matchers for adaptive hook event ${item.event}, so this attachment cannot render faithfully.`;
-  }
-  return undefined;
+  const classification = classifyAdaptiveHookIntent(item, target, surface);
+  return adaptiveHookIntentIsRenderable(classification) ? undefined : classification.reason;
 }

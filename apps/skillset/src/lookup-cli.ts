@@ -104,7 +104,10 @@ function printLookupReport(report: LookupReport): void {
       const suffix = required.length === 0 ? "" : ` required: ${required.join(", ")}`;
       const handlers = event.handlerTypes.length === 0 ? "" : ` handlers: ${event.handlerTypes.join(", ")}`;
       const values = event.matcherValues.length === 0 ? "" : ` values: ${event.matcherValues.join(", ")}`;
-      console.log(`    [${event.target}] ${event.name} matcher: ${event.matcherKind}${values}${handlers}${suffix}`);
+      const outputs = event.outputFields.length === 0 ? "" : ` output: ${event.outputFields.join(", ")}`;
+      const unsupportedOutputs = event.unsupportedOutputFields.length === 0 ? "" : ` unsupported output: ${event.unsupportedOutputFields.join(", ")}`;
+      const blocking = event.canBlock ? " blocks" : "";
+      console.log(`    [${event.target}] ${event.name} matcher: ${event.matcherKind}/${event.matcherEvaluation}${values}${handlers}${suffix}${outputs}${unsupportedOutputs}${blocking}`);
     }
   }
   if (report.compatibility.length > 0) {

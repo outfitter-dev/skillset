@@ -191,11 +191,11 @@ Nearest-first resolution only chooses named source definitions. It does not over
 
 ### Current Render Support
 
-The implemented render slices support plugin-level command/script hooks and Claude frontmatter command hooks. When a plugin attachment resolves to a provider-compatible adaptive hook, Skillset writes provider-native `hooks/hooks.json` into the generated Claude and Codex plugin outputs and declares `hooks` in the plugin manifest. When a Claude skill-local or project-agent-local attachment resolves to a command hook, Skillset writes provider-native `hooks` frontmatter for the generated skill or agent.
+The implemented render slices support plugin-level command/script hooks, plugin-level `run.env` shell assignments, and Claude frontmatter command hooks. When a plugin attachment resolves to a provider-compatible adaptive hook, Skillset writes provider-native `hooks/hooks.json` into the generated Claude and Codex plugin outputs and declares `hooks` in the plugin manifest. When a Claude skill-local or project-agent-local attachment resolves to a command hook, Skillset writes provider-native `hooks` frontmatter for the generated skill or agent.
 
 Skill-local and project-agent-local attachments currently render only to Claude frontmatter. Plugin-shipped agent frontmatter hooks are not implemented; use a plugin-level hook or provider-native aggregate source until that destination has a faithful render path. Scope Codex-incompatible skill or agent attachments with `providers: [claude]` when the intent is Claude-only. If Codex is enabled and an attachment cannot be faithfully rendered, build/diff/verify surface an `adaptive-hooks` `unsupported:error` render result instead of writing a broader plugin or project hook.
 
-Unsupported cases include Codex skill/agent no-faithful-destination cases, Claude-only plugin events, Codex-ignored plugin matchers, provider overrides, unsupported `run.args`/`run.cwd`/`run.env` fields, and frontmatter `run.script` path-proof gaps.
+Unsupported cases include Codex skill/agent no-faithful-destination cases, Claude-only plugin events, Codex-ignored plugin matchers, provider overrides, unsupported `run.args`/`run.cwd` fields, frontmatter `run.env` fields, and frontmatter `run.script` path-proof gaps.
 
 ### Provider Reference
 

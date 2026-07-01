@@ -881,6 +881,70 @@ test("SET-58: imported plugin manifests round-trip metadata fields through build
   }
 });
 
+test("SET-10: plugin import reports native hook lift diagnostics without rewriting hooks", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
+  const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));
+  await Bun.write(join(external, "native-hooks/.claude-plugin/plugin.json"), JSON.stringify({
+    name: "native-hooks",
+    version: "1.0.0",
+  }));
+  await Bun.write(join(external, "native-hooks/.codex-plugin/plugin.json"), JSON.stringify({
+    name: "native-hooks",
+    version: "1.0.0",
+  }));
+  const hooks = {
+    hooks: {
+      Notification: [
+        {
+          hooks: [{ command: "echo notify", type: "command" }],
+        },
+      ],
+      PreToolUse: [
+        {
+          hooks: [{ command: "echo tool", type: "command" }],
+          matcher: "Bash",
+        },
+      ],
+    },
+  };
+  await Bun.write(join(external, "native-hooks/hooks/hooks.json"), JSON.stringify(hooks, null, 2));
+
+  const report = await importSource({
+    kind: "plugin",
+    rootPath: root,
+    sourcePath: join(external, "native-hooks"),
+  });
+
+  expect(report.copiedFiles).toContain("hooks/hooks.json");
+  expect(report.renderResults).toContainEqual(expect.objectContaining({
+    diagnostics: expect.arrayContaining([
+      expect.objectContaining({
+        code: "import-native-hook-lift-candidate",
+        message: expect.stringContaining("provider-scoped-adaptive for claude"),
+        path: ".skillset/plugins/native-hooks/hooks/hooks.json#/Notification/0",
+      }),
+    ]),
+    featureId: "plugin-hooks",
+    sourceUnit: "plugin.native-hooks.feature:hooks",
+    status: "target_native",
+    target: "claude",
+  }));
+  expect(report.renderResults).toContainEqual(expect.objectContaining({
+    diagnostics: expect.arrayContaining([
+      expect.objectContaining({
+        code: "import-native-hook-unsupported",
+        message: "Codex does not support adaptive hook event Notification.",
+        path: ".skillset/plugins/native-hooks/hooks/hooks.json#/Notification/0",
+      }),
+    ]),
+    featureId: "plugin-hooks",
+    sourceUnit: "plugin.native-hooks.feature:hooks",
+    status: "target_native",
+    target: "codex",
+  }));
+  expect(JSON.parse(await readFile(join(report.targetPath, "hooks/hooks.json"), "utf8"))).toEqual(hooks);
+});
+
 test("SET-10: importing a SKILL.md path copies the full skill directory", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
   const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));

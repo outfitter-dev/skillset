@@ -45,8 +45,10 @@ test("SET-220: lookup hooks events and Codex compatibility", async () => {
   const result = await runSkillsetCli("lookup", "hooks", "--events", "--compat", "codex");
 
   expect(result.exitCode).toBe(0);
-  expect(result.stdout).toContain("[codex] PreToolUse matcher: tool handlers: command");
+  expect(result.stdout).toContain("[codex] PreToolUse matcher: tool/provider-native handlers: command");
   expect(result.stdout).toContain("required: cwd");
+  expect(result.stdout).toContain("output: decision, hookSpecificOutput, reason, systemMessage unsupported output: continue, stopReason, suppressOutput");
+  expect(result.stdout).toContain("[codex] PreCompact matcher: compact-trigger/exact-values values: manual, auto");
   expect(result.stdout).toContain("[codex] plugin-hooks: pass_through");
   expect(result.stdout).toContain("[codex] adaptive-hooks:");
 });
@@ -114,16 +116,18 @@ test("SET-220: lookup target lens aliases filter non-compat views", async () => 
   expect(result.exitCode).toBe(0);
   const report = JSON.parse(result.stdout) as {
     readonly diagnostics: readonly { readonly code: string; readonly severity: string }[];
-    readonly events: readonly { readonly handlerTypes: readonly string[]; readonly matcherKind: string; readonly matcherValues: readonly string[]; readonly name: string; readonly target: string }[];
+    readonly events: readonly { readonly handlerTypes: readonly string[]; readonly matcherEvaluation: string; readonly matcherKind: string; readonly matcherValues: readonly string[]; readonly name: string; readonly providerRef: string; readonly target: string }[];
     readonly targets: readonly string[];
   };
   expect(report.targets).toEqual(["claude"]);
   expect(report.diagnostics).toEqual([]);
   expect(report.events).toContainEqual(expect.objectContaining({
     handlerTypes: ["command", "http", "mcp_tool"],
+    matcherEvaluation: "exact-values",
     matcherKind: "compact-trigger",
     matcherValues: ["manual", "auto"],
     name: "PreCompact",
+    providerRef: "claude-hooks-overlay",
     target: "claude",
   }));
 });

@@ -1801,7 +1801,7 @@ function adaptiveHookCommand(
 ): string {
   const run = readRecord(item.definition.frontmatter, "run") ?? {};
   const command = readString(run, "command");
-  if (command !== undefined) return withAdaptiveHookContextCommand(command, item, target);
+  if (command !== undefined) return withAdaptiveHookContextCommand(withAdaptiveHookRunEnv(command, item), item, target);
 
   const script = readString(run, "script");
   if (script === undefined) {
@@ -1824,7 +1824,7 @@ function adaptiveHookCommand(
     });
   }
   const pluginRoot = target === "claude" ? "$CLAUDE_PLUGIN_ROOT" : "$PLUGIN_ROOT";
-  return withAdaptiveHookContextCommand(`${pluginRoot}/${relativeScriptPath}`, item, target);
+  return withAdaptiveHookContextCommand(withAdaptiveHookRunEnv(`${pluginRoot}/${relativeScriptPath}`, item), item, target);
 }
 
 function hasAdaptivePluginHookOutput(
@@ -1919,6 +1919,25 @@ function adaptiveFrontmatterHookCommand(item: ResolvedAdaptiveHookAttachment): s
     throw new Error(`skillset: adaptive hook ${item.definition.name} must define run.command for frontmatter hook rendering`);
   }
   return withAdaptiveHookContextCommand(command, item, "claude");
+}
+
+function withAdaptiveHookRunEnv(command: string, item: ResolvedAdaptiveHookAttachment): string {
+  const run = readRecord(item.definition.frontmatter, "run") ?? {};
+  const env = readRecord(run, "env");
+  if (env === undefined) return command;
+  const assignments = Object.entries(env)
+    .sort(([left], [right]) => compareStrings(left, right))
+    .map(([key, value]) => {
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
+        throw new Error(`skillset: adaptive hook ${item.definition.name} run.env key ${key} is not a valid shell environment variable name`);
+      }
+      if (typeof value !== "string") {
+        throw new Error(`skillset: adaptive hook ${item.definition.name} run.env key ${key} must be a string`);
+      }
+      return `${key}=${shellLiteral(value)}`;
+    });
+  if (assignments.length === 0) return command;
+  return `${assignments.join(" ")} ${command}`;
 }
 
 function withAdaptiveHookContextCommand(

@@ -17,6 +17,7 @@ export type ProviderSchemaSnapshotId =
   | "codex-skill-metadata-schema";
 
 export type ProviderSchemaManualOverlayId =
+  | "claude-hooks-overlay"
   | "claude-skill-frontmatter-overlay"
   | "claude-subagent-frontmatter-overlay"
   | "codex-agents-md-overlay"
@@ -71,6 +72,7 @@ export interface ProviderSchemaSetSummary {
 
 export interface ProviderSchemaManualOverlay {
   readonly formatSnapshotId:
+    | "claude-hooks"
     | "claude-skill"
     | "claude-subagent"
     | "codex-agents-md"
@@ -484,6 +486,13 @@ const schemaSnapshots = [
 export const providerSchemaSnapshots = defineProviderSchemaSnapshots(schemaSnapshots);
 
 export const providerSchemaManualOverlays = [
+  manualOverlay({
+    formatSnapshotId: "claude-hooks",
+    id: "claude-hooks-overlay",
+    note: "Claude hook configuration, matcher behavior, event payloads, and output semantics are documented in prose and tables; no adopted per-event JSON Schema source is available.",
+    sources: [{ url: "https://code.claude.com/docs/en/hooks" }],
+    target: "claude",
+  }),
   manualOverlay({
     formatSnapshotId: "claude-skill",
     id: "claude-skill-frontmatter-overlay",

@@ -108,6 +108,7 @@ test("adaptive hooks fixture builds authoring recipes", async () => {
     "utf8"
   );
   expect(claudeGuardHooks).toContain("$CLAUDE_PLUGIN_ROOT/hooks/shell-policy/check.sh");
+  expect(claudeGuardHooks).toContain("SKILLSET_FIXTURE_HOOK=shell-policy $CLAUDE_PLUGIN_ROOT/hooks/shell-policy/check.sh");
   expect(claudeGuardHooks).toContain("$CLAUDE_PLUGIN_ROOT/scripts/session.sh");
   expect(claudeGuardHooks).toContain("Checking shell command");
   expect(claudeGuardHooks).toContain("PreToolUse");
@@ -118,6 +119,7 @@ test("adaptive hooks fixture builds authoring recipes", async () => {
     "utf8"
   );
   expect(codexGuardHooks).toContain("$PLUGIN_ROOT/hooks/shell-policy/check.sh");
+  expect(codexGuardHooks).toContain("SKILLSET_FIXTURE_HOOK=shell-policy $PLUGIN_ROOT/hooks/shell-policy/check.sh");
   expect(codexGuardHooks).toContain("$PLUGIN_ROOT/scripts/session.sh");
   expect(codexGuardHooks).toContain("Checking shell command");
   expect(codexGuardHooks).toContain("PreToolUse");

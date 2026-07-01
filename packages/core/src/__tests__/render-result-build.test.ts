@@ -825,13 +825,13 @@ hooks:
 `,
       ".skillset/plugins/demo/hooks/shell-policy.json": JSON.stringify({
         events: ["Stop"],
-        run: { command: "echo ok", env: { CHECK: "1" } },
+        run: { command: "echo ok", cwd: "scripts" },
       }),
     });
     await expectUnsupportedOutcome(runFieldRoot, {
       destination: "hooks",
       featureId: "adaptive-hooks",
-      reason: "Adaptive hook shell-policy uses run.env, but plugin hook rendering only supports run.command and run.script yet.",
+      reason: "Adaptive hook shell-policy uses run.cwd, but plugin hook rendering only supports run.command, run.script, and run.env yet.",
       sourceUnit: "plugin.demo.feature:hooks",
     });
 

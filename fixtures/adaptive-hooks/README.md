@@ -7,6 +7,7 @@ the current Skillset workspace layout and covers:
 - flat and directory adaptive hook units;
 - `hooks.auto` expansion;
 - attachment status messages and matchers;
+- plugin `run.env` shell assignment rendering;
 - `context.strategy: toolkit` runtime context rendering;
 - `{{scripts.dir}}` and hook-local `./` script references;
 - Claude skill-local and project-agent frontmatter hooks;

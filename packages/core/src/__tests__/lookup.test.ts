@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { getProviderSchemaSnapshot } from "@skillset/provider-formats";
+import { getProviderHookEvidence, getProviderSchemaSnapshot } from "@skillset/provider-formats";
 
 import { lookupSkillsetReference } from "@skillset/core";
 
@@ -76,6 +76,7 @@ describe("lookupSkillsetReference", () => {
 
   it("returns hook event facts from provider capabilities and schema snapshots", () => {
     const snapshot = getProviderSchemaSnapshot("codex-hook-event-schemas");
+    const evidence = getProviderHookEvidence("claude");
     const report = lookupSkillsetReference({
       subject: "hooks",
       targets: ["claude", "codex"],
@@ -83,6 +84,7 @@ describe("lookupSkillsetReference", () => {
     });
 
     expect(snapshot?.summary).toMatchObject({ schemaCount: 20 });
+    expect(evidence.providerRef).toBe("claude-hooks-overlay");
     expect(report.diagnostics).toEqual([]);
     expect(report.events.map((event) => `${event.target}:${event.name}`)).toEqual(expect.arrayContaining([
       "claude:PreCompact",
@@ -90,22 +92,36 @@ describe("lookupSkillsetReference", () => {
       "codex:PreToolUse",
     ]));
     expect(report.events.find((event) => event.target === "claude" && event.name === "PreCompact")).toEqual(expect.objectContaining({
+      canBlock: true,
       handlerTypes: ["command", "http", "mcp_tool"],
+      matcherEvaluation: "exact-values",
       matcherKind: "compact-trigger",
       matcherValues: ["manual", "auto"],
-      providerRef: "hook-capabilities:claude",
+      outputFields: expect.arrayContaining(["continue", "stopReason"]),
+      providerRef: "claude-hooks-overlay",
       target: "claude",
     }));
     expect(report.events.find((event) => event.target === "codex" && event.name === "PreToolUse")).toEqual(expect.objectContaining({
+      canBlock: true,
       handlerTypes: ["command"],
+      matcherEvaluation: "provider-native",
       matcherKind: "tool",
       matcherValues: [],
       providerRef: "codex-hook-event-schemas",
+      outputFields: ["decision", "hookSpecificOutput", "reason", "systemMessage"],
+      rawOutputFields: expect.arrayContaining(["continue", "decision", "hookSpecificOutput", "stopReason", "suppressOutput"]),
       target: "codex",
+      unsupportedOutputFields: ["continue", "stopReason", "suppressOutput"],
       fields: expect.arrayContaining([
         { name: "cwd", required: true },
         { name: "tool_name", required: true },
       ]),
+    }));
+    expect(report.events.find((event) => event.target === "codex" && event.name === "PreCompact")).toEqual(expect.objectContaining({
+      matcherEvaluation: "exact-values",
+      matcherKind: "compact-trigger",
+      matcherValues: ["manual", "auto"],
+      target: "codex",
     }));
   });
 

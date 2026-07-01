@@ -12,12 +12,6 @@ import {
   type SkillsetSchemaContractId,
 } from "@skillset/schema";
 import {
-  getProviderSchemaSnapshot,
-  type ProviderSchemaSetEntry,
-  type ProviderSchemaSetSummary,
-} from "@skillset/provider-formats";
-
-import {
   getSkillsetFeature,
   type SkillsetFeatureEntry,
   type SkillsetFeatureId,
@@ -59,12 +53,18 @@ export interface LookupField {
 
 export interface LookupEvent {
   readonly fields: readonly LookupEventField[];
+  readonly canBlock: boolean;
   readonly handlerTypes: readonly string[];
+  readonly matcherEvaluation: string;
   readonly matcherKind: HookMatcherKind;
   readonly matcherValues: readonly string[];
   readonly name: string;
+  readonly outputFields: readonly string[];
   readonly providerRef: string;
+  readonly rawOutputFields: readonly string[];
+  readonly runtimeNotes: readonly string[];
   readonly target: TargetName;
+  readonly unsupportedOutputFields: readonly string[];
 }
 
 export interface LookupEventField {
@@ -111,8 +111,6 @@ export interface LookupReport {
 }
 
 const DEFAULT_TARGETS = ["claude", "codex"] as const satisfies readonly TargetName[];
-const CODEX_HOOK_EVENT_SNAPSHOT = getProviderSchemaSnapshot("codex-hook-event-schemas");
-const CODEX_HOOK_EVENT_ENTRIES = readProviderSchemaSetEntries(CODEX_HOOK_EVENT_SNAPSHOT?.summary);
 
 const SUBJECTS = [
   {
@@ -469,37 +467,26 @@ function uniqueJsonValues(values: readonly SchemaJsonValue[]): readonly SchemaJs
 }
 
 function lookupHookEvents(targets: readonly TargetName[]): readonly LookupEvent[] {
-  const codexInputSchemas = new Map(
-    CODEX_HOOK_EVENT_ENTRIES
-      .filter((entry) => entry.title.endsWith(".command.input"))
-      .map((entry) => [entry.title.replace(/\.command\.input$/u, ""), entry])
-  );
   return targets.flatMap((target) => {
     const capabilities = hookProviderCapabilities[target];
     return [...capabilities.documentedEvents].map((event) => {
-      const schemaEntry = target === "codex" ? codexInputSchemas.get(codexSchemaEventName(event)) : undefined;
       return {
-        fields: schemaEntry === undefined
-          ? []
-          : schemaEntry.properties.map((name) => ({
-            name,
-            required: schemaEntry.required.includes(name),
-          })),
+        canBlock: capabilities.canBlockByEvent[event] === true,
+        fields: capabilities.inputFieldsByEvent[event] ?? [],
         handlerTypes: [...hookHandlerTypesForEvent(target, event)].sort(compareStrings),
+        matcherEvaluation: capabilities.matcherEvaluationByEvent[event] ?? "provider-native",
         matcherKind: capabilities.matcherByEvent[event] ?? "none",
-        matcherValues: [...(capabilities.matcherValuesByEvent[event] ?? [])],
+        matcherValues: readStringList(capabilities.matcherValuesByEvent[event]),
         name: event,
-        providerRef: schemaEntry === undefined || CODEX_HOOK_EVENT_SNAPSHOT === undefined
-          ? `hook-capabilities:${target}`
-          : CODEX_HOOK_EVENT_SNAPSHOT.id,
+        outputFields: readStringList(capabilities.outputFieldsByEvent[event]),
+        providerRef: capabilities.providerRefByEvent[event] ?? `hook-capabilities:${target}`,
+        rawOutputFields: readStringList(capabilities.rawOutputFieldsByEvent[event]),
+        runtimeNotes: readStringList(capabilities.runtimeNotesByEvent[event]),
         target,
+        unsupportedOutputFields: readStringList(capabilities.unsupportedOutputFieldsByEvent[event]),
       };
     });
   }).sort((left, right) => compareStrings(`${left.target}:${left.name}`, `${right.target}:${right.name}`));
-}
-
-function codexSchemaEventName(event: string): string {
-  return event.replace(/([a-z0-9])([A-Z])/gu, "$1-$2").toLowerCase();
 }
 
 function lookupCompatibility(
@@ -571,37 +558,6 @@ function summarizeLookup(
   return `${subject}${aspectText}: ${viewText}`;
 }
 
-function readProviderSchemaSetEntries(value: unknown): readonly ProviderSchemaSetEntry[] {
-  if (!isSchemaSetSummary(value)) return [];
-  const entries: unknown[] = Array.isArray(value.entries)
-    ? [...value.entries]
-    : isRecord(value.entries)
-      ? Object.values(value.entries)
-      : [];
-  return entries.filter(isProviderSchemaSetEntry).map((entry) => ({
-    contentHash: entry.contentHash,
-    name: entry.name,
-    properties: [...entry.properties],
-    required: [...entry.required],
-    title: entry.title,
-    url: entry.url,
-  }));
-}
-
-function isSchemaSetSummary(value: unknown): value is ProviderSchemaSetSummary | (Omit<ProviderSchemaSetSummary, "entries"> & { readonly entries: SchemaJsonValue }) {
-  return isRecord(value) && typeof value.schemaCount === "number";
-}
-
-function isProviderSchemaSetEntry(value: unknown): value is ProviderSchemaSetEntry {
-  return isRecord(value) &&
-    typeof value.name === "string" &&
-    Array.isArray(value.properties) &&
-    value.properties.every((item) => typeof item === "string") &&
-    Array.isArray(value.required) &&
-    value.required.every((item) => typeof item === "string") &&
-    typeof value.title === "string";
-}
-
 function isRecord(value: unknown): value is SchemaJsonRecord {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -612,6 +568,11 @@ function readRecordArray(value: SchemaJsonValue | undefined): readonly SchemaJso
 }
 
 function readStringArray(value: SchemaJsonValue | undefined): readonly string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+function readStringList(value: unknown): readonly string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === "string");
 }

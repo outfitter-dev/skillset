@@ -51,7 +51,9 @@ describe("hook provider capabilities", () => {
     expect(codex.matcherByEvent.PreCompact).toBe("compact-trigger");
     expect(codex.matcherByEvent.Stop).toBe("ignored");
     expect(codex.matcherByEvent.UserPromptSubmit).toBe("ignored");
-    expect(codex.matcherValuesByEvent.PreCompact).toEqual([]);
+    expect(codex.matcherValuesByEvent.PreCompact).toEqual(["manual", "auto"]);
+    expect(codex.matcherValuesByEvent.SessionStart).toEqual(["startup", "resume", "clear", "compact"]);
+    expect(codex.runtimeNotesByEvent.PreToolUse).toContain("matcher-values-provider-native");
   });
 
   test("records Codex handler and scope constraints", () => {
@@ -72,6 +74,30 @@ describe("hook provider capabilities", () => {
     expect([...hookHandlerTypesForEvent("claude", "PreCompact")].sort()).toEqual(["command", "http", "mcp_tool"]);
     expect([...hookHandlerTypesForEvent("claude", "SessionStart")].sort()).toEqual(["command", "mcp_tool"]);
     expect([...hookHandlerTypesForEvent("claude", "MessageDisplay")].sort()).toEqual(["command", "http", "mcp_tool"]);
+  });
+
+  test("dogfoods provider hook evidence for payload and runtime facts", () => {
+    const claude = hookProviderCapabilities.claude;
+    const codex = hookProviderCapabilities.codex;
+
+    expect(claude.providerRefByEvent.PreToolUse).toBe("claude-hooks-overlay");
+    expect(claude.matcherEvaluationByEvent.PreToolUse).toBe("exact-list-or-regex");
+    expect(claude.inputFieldsByEvent.PreToolUse).toEqual(expect.arrayContaining([
+      { name: "tool_input", required: false },
+      { name: "tool_name", required: false },
+    ]));
+    expect(claude.outputFieldsByEvent.PreToolUse).toEqual(expect.arrayContaining(["permissionDecision", "permissionDecisionReason"]));
+    expect(claude.canBlockByEvent.PreToolUse).toBe(true);
+
+    expect(codex.providerRefByEvent.PreToolUse).toBe("codex-hook-event-schemas");
+    expect(codex.inputFieldsByEvent.PreToolUse).toEqual(expect.arrayContaining([
+      { name: "cwd", required: true },
+      { name: "tool_name", required: true },
+    ]));
+    expect(codex.outputFieldsByEvent.PreToolUse).toEqual(["decision", "hookSpecificOutput", "reason", "systemMessage"]);
+    expect(codex.rawOutputFieldsByEvent.PreToolUse).toEqual(expect.arrayContaining(["continue", "decision", "hookSpecificOutput", "stopReason", "suppressOutput"]));
+    expect(codex.unsupportedOutputFieldsByEvent.PreToolUse).toEqual(["continue", "stopReason", "suppressOutput"]);
+    expect(codex.handlerSkippedFieldsByType.command).toEqual(["async"]);
   });
 });
 
