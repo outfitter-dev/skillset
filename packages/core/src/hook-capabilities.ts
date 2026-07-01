@@ -146,6 +146,7 @@ export function hookEventSupported(provider: HookCapabilityProvider, event: stri
 export function classifyAdaptiveHookUnitPath(path: string): AdaptiveHookUnitPath {
   const normalized = path.replaceAll("\\", "/").replace(/^\.\/+/, "");
   if (normalized === "hooks/hooks.json") return { kind: "native-aggregate", path: "hooks/hooks.json" };
+  if (/^hooks\/hooks-[^/]+\.json$/u.test(normalized)) return { kind: "ignored", path };
   if (!normalized.startsWith("hooks/") || !normalized.endsWith(".json")) return { kind: "ignored", path };
 
   const parts = normalized.split("/");

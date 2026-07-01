@@ -63,11 +63,16 @@ describe("adaptive hook unit path rules", () => {
       kind: "native-aggregate",
       path: "hooks/hooks.json",
     });
+    expect(classifyAdaptiveHookUnitPath("hooks/hooks-cursor.json")).toEqual({
+      kind: "ignored",
+      path: "hooks/hooks-cursor.json",
+    });
   });
 
   test("reports duplicate names, ambiguous directory manifests, and aggregate collisions", () => {
     expect(validateAdaptiveHookUnitPaths([
       "hooks/hooks.json",
+      "hooks/hooks-cursor.json",
       "hooks/.json",
       "hooks/source-change-guard.json",
       "hooks/source-change-guard/hook.json",
