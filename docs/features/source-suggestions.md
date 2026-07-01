@@ -68,7 +68,7 @@ Both need reviewable previews, stable ids, conflict checks, and refusal paths, b
 4. For unsafe or ambiguous cases, CI reports the source path, reason for refusal, and manual command in the job summary or PR comment.
 5. For clean cases, CI reports the suggested source path and local `skillset suggest-source <path> --write --yes` recovery command; it does not write source automatically in v1.
 6. Future safe same-repo writeback may commit a source update plus regenerated output back to the PR branch only after permission, branch freshness, and conflict checks pass.
-7. Meaningful source edits still require normal change-entry coverage.
+7. Meaningful source edits still require normal change coverage.
 
 Fork PRs, protected branches, stale branches, corrupt locks, concurrent pushes, and multi-source renderings should all fall back to comment-only diagnostics.
 

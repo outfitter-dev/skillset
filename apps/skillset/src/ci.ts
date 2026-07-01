@@ -43,7 +43,7 @@ const EMPTY_DRIFT: SkillsetDiff = { added: [], changed: [], missing: [], removed
 
 /**
  * Aggregate the checks a continuous-integration run needs: lint diagnostics,
- * change-entry coverage, and generated-output drift. Drift is the only
+ * change coverage, and generated-output drift. Drift is the only
  * mechanical problem: with `fix` enabled, no lint errors, clean change
  * coverage, and a resolved baseline, `ci` rebuilds generated output the same
  * way `skillset build --yes` would. Lint errors, missing change entries, and
@@ -104,7 +104,7 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
     ? await sourceSuggestionsForDrift(rootPath, drift, buildOptions)
     : [];
 
-  // Rebuild only when drift is the sole problem: lint errors, change-entry
+  // Rebuild only when drift is the sole problem: lint errors, change
   // errors, or a build error mean the source is not trustworthy, and an
   // unresolvable change baseline means the CI setup itself needs fixing before
   // pushing rebuild commits. Lint warnings are advisory and do not block.
@@ -254,7 +254,7 @@ export function renderCiReportMarkdown(report: CiReport): string {
     }
     lines.push(
       "",
-      "Add or fix pending change entries with `skillset change add --scope <source-unit> --bump <bump> --reason \"...\"`.",
+      "Add or fix pending changes with `skillset change add --scope <source-unit> --bump <bump> --reason \"...\"`, or migrate valid legacy frontmatter entries with `skillset change migrate --yes`.",
       ""
     );
   }

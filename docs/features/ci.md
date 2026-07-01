@@ -4,14 +4,14 @@ Feature id: `ci`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-`skillset ci` is the continuous-integration entrypoint: one command that runs source lint, change-entry coverage, package Changesets awareness, and generated-output drift detection, separates mechanical problems from problems that need authored source changes, and renders a Markdown report for pull-request comments and job summaries. It composes the same primitives as `skillset lint`, `skillset change check`, `.changeset/` release-intent checks, and `skillset diff`/`skillset build`, so a local run reproduces exactly what the workflow runs.
+`skillset ci` is the continuous-integration entrypoint: one command that runs source lint, change coverage, package Changesets awareness, and generated-output drift detection, separates mechanical problems from problems that need authored source changes, and renders a Markdown report for pull-request comments and job summaries. It composes the same primitives as `skillset lint`, `skillset change check`, `.changeset/` release-intent checks, and `skillset diff`/`skillset build`, so a local run reproduces exactly what the workflow runs.
 
 ## Authoring
 
 ```bash
 skillset ci                                 # read-only: lint + change check + drift, exit 1 on problems
 skillset ci --fix                           # additionally rebuild stale generated output (like build --yes)
-skillset ci --since origin/main             # change-entry baseline override
+skillset ci --since origin/main             # change baseline override
 skillset ci --report skillset-ci-report.md  # write the Markdown report for PR comments / job summaries
 skillset init --include ci --yes            # scaffold .github/workflows/skillset-ci.yml
 ```
@@ -46,7 +46,7 @@ Fork pull requests cannot receive pushes or comments with the default `GITHUB_TO
 
 ## Diagnostics
 
-The report separates five sections: stale generated output (mechanical; fixed by `--fix` or `skillset build --yes`), lint issues, change-entry errors and warnings (fix with `skillset change add`), package Changesets issues (fix with `.changeset/*.md` or by removing stray package release intent), and build errors. A change-check infrastructure failure (for example no resolvable baseline in a shallow clone) is reported distinctly so CI configuration problems are not mistaken for missing entries; the scaffolded workflow checks out with `fetch-depth: 0` to keep `origin/main` resolvable.
+The report separates five sections: stale generated output (mechanical; fixed by `--fix` or `skillset build --yes`), lint issues, change errors and warnings (fix with `skillset change add`, or `skillset change migrate --yes` for valid legacy frontmatter entries), package Changesets issues (fix with `.changeset/*.md` or by removing stray package release intent), and build errors. A change-check infrastructure failure (for example no resolvable baseline in a shallow clone) is reported distinctly so CI configuration problems are not mistaken for missing entries; the scaffolded workflow checks out with `fetch-depth: 0` to keep `origin/main` resolvable.
 
 Exit status is non-zero whenever a non-mechanical problem remains, or when drift remains and `--fix` was not passed. With `--fix`, a run whose only problem was drift exits zero after rebuilding, which lets the workflow commit the rebuild instead of failing.
 

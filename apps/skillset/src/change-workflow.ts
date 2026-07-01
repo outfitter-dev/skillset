@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { appendFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 
 import {
@@ -23,13 +23,14 @@ import {
   selectorForRootConfig,
   selectorForStandaloneSkill,
   selectorForTargetNativeIsland,
+  sourceUnitDisplay,
   sourceUnitSelector,
 } from "./source-unit-selector";
 import type { JsonRecord, JsonValue, SkillsetOptions } from "./types";
 import { workspaceChangeFile, workspaceChangesDir } from "./workspace-state";
 import { isJsonRecord, parseMarkdown, stringifyMarkdown } from "./yaml";
 
-export type ChangeSubcommand = "add" | "amend" | "check" | "history" | "list" | "reason" | "show" | "status";
+export type ChangeSubcommand = "add" | "amend" | "check" | "history" | "list" | "migrate" | "reason" | "show" | "status";
 
 export type ChangeReasonInput =
   | { readonly kind: "auto" }
@@ -67,6 +68,10 @@ export interface ChangeHistoryOptions extends ChangeStatusOptions {
   readonly ref?: string;
 }
 
+export interface ChangeMigrateOptions extends ChangeStatusOptions {
+  readonly write: boolean;
+}
+
 export interface ChangeEntryView {
   readonly bump?: ChangeBump;
   readonly group?: ChangeGroup;
@@ -102,6 +107,24 @@ export interface ChangeShowReport {
 
 export interface ChangeHistoryReport {
   readonly entries: readonly ChangeEntryView[];
+}
+
+export interface ChangeMigrationEntry {
+  readonly bump: ChangeBump;
+  readonly fromPath: string;
+  readonly group?: ChangeGroup;
+  readonly id: string;
+  readonly ignored: boolean;
+  readonly reason: string;
+  readonly scopes: readonly string[];
+  readonly sourceHashes: ReadonlyMap<string, readonly string[]>;
+  readonly toPath: string;
+}
+
+export interface ChangeMigrationReport {
+  readonly entries: readonly ChangeMigrationEntry[];
+  readonly ledgerPath: string;
+  readonly written: boolean;
 }
 
 export interface AppliedChangeRecord {
@@ -183,7 +206,12 @@ export async function updateChangeReason(rootPath: string, options: ChangeReason
     const body = options.append ? `${entry.reason.trimEnd()}\n\n${newReason}` : newReason;
     await writeFile(
       absolutePath,
-      reasonOnlyMarkdown(body, { ...(entry.bump === undefined ? {} : { bump: entry.bump }), ...(entry.group === undefined ? {} : { group: entry.group }), scopes: entry.scopes }),
+      reasonOnlyMarkdown(body, {
+        ...(entry.bump === undefined ? {} : { bump: entry.bump }),
+        ...(entry.group === undefined ? {} : { group: entry.group }),
+        ignored: entry.ignored,
+        scopes: entry.scopes,
+      }),
       "utf8"
     );
     await appendLedgerEvents(rootPath, storageOptions.sourceDir, [
@@ -270,6 +298,53 @@ export async function readChangeHistory(rootPath: string, options: ChangeHistory
   return { entries: [historyView(history, refs)] };
 }
 
+export async function migratePendingChangeEntries(
+  rootPath: string,
+  options: ChangeMigrateOptions
+): Promise<ChangeMigrationReport> {
+  const storageOptions = await detectWorkspaceOptions(rootPath, options);
+  const entries = await readPendingChangeEntries(rootPath, storageOptions);
+  const frontmatterEntries = entries.filter((entry) => entry.format === "frontmatter");
+  const migrations = await planFrontmatterMigrations(rootPath, storageOptions.sourceDir, frontmatterEntries);
+
+  if (options.write && migrations.length > 0) {
+    const snapshots = await snapshotMigrationFiles(rootPath, storageOptions.sourceDir, migrations);
+    try {
+      for (const migration of migrations) {
+        const absoluteToPath = resolveInside(rootPath, migration.toPath);
+        await mkdir(dirname(absoluteToPath), { recursive: true });
+        await writeFile(
+          absoluteToPath,
+          reasonOnlyMarkdown(migration.reason, {
+            bump: migration.bump,
+            ...(migration.group === undefined ? {} : { group: migration.group }),
+            ignored: migration.ignored,
+            scopes: migration.scopes,
+          }),
+          "utf8"
+        );
+        if (migration.fromPath !== migration.toPath) await rm(resolveInside(rootPath, migration.fromPath), { force: true });
+      }
+      await appendLedgerEvents(rootPath, storageOptions.sourceDir, migrations.flatMap((migration) => migrationLedgerEvents(migration)));
+    } catch (error) {
+      try {
+        await restoreMigrationFiles(rootPath, snapshots);
+      } catch (restoreError) {
+        throw new Error(
+          `skillset: change migration failed and rollback failed: ${errorMessage(restoreError)}; original error: ${errorMessage(error)}`
+        );
+      }
+      throw error;
+    }
+  }
+
+  return {
+    entries: migrations,
+    ledgerPath: workspaceChangeFile(storageOptions.sourceDir, "ledger.jsonl"),
+    written: options.write,
+  };
+}
+
 export async function readAppliedChangeRecords(
   rootPath: string,
   options: ChangeStatusOptions = {}
@@ -297,16 +372,137 @@ function reasonOnlyMarkdown(
   input: {
     readonly bump?: ChangeBump;
     readonly group?: ChangeGroup;
+    readonly ignored?: boolean;
     readonly scopes: readonly string[];
   }
 ): string {
   const directives = [
     ...(input.bump === undefined ? [] : [`Bump: ${input.bump}`]),
     ...(input.group === undefined ? [] : [`Group: ${groupRef(input.group)}`]),
+    ...(input.ignored === true ? ["Ignored: true"] : []),
     ...input.scopes.map((scope) => `Scope: ${sourceUnitSelector(scope)}`),
   ];
   const normalizedReason = reason.replaceAll(/\r\n?/g, "\n").trim();
   return `${normalizedReason}\n\n${directives.join("\n")}\n`;
+}
+
+async function planFrontmatterMigrations(
+  rootPath: string,
+  sourceDir: string | undefined,
+  entries: readonly PendingChangeEntry[]
+): Promise<readonly ChangeMigrationEntry[]> {
+  const migrations: ChangeMigrationEntry[] = [];
+  const errors: string[] = [];
+  const changesDir = workspaceChangesDir(sourceDir);
+  for (const entry of entries) {
+    const entryErrors = frontmatterMigrationErrors(entry);
+    const id = entry.id;
+    const bump = entry.bump;
+    const toPath = id === undefined ? undefined : join(changesDir, `${id}.md`).replaceAll("\\", "/");
+    if (toPath !== undefined && toPath !== entry.path && await exists(resolveInside(rootPath, toPath))) {
+      entryErrors.push(`target ${toPath} already exists`);
+    }
+    if (entryErrors.length > 0) {
+      errors.push(`${entry.path}: ${entryErrors.join("; ")}`);
+      continue;
+    }
+    if (id === undefined || bump === undefined || toPath === undefined) continue;
+    migrations.push({
+      bump,
+      fromPath: entry.path,
+      ...(entry.group === undefined ? {} : { group: entry.group }),
+      id,
+      ignored: entry.ignored,
+      reason: entry.reason,
+      scopes: entry.scopes.map(sourceUnitSelector),
+      sourceHashes: entry.sourceHashes,
+      toPath,
+    });
+  }
+  if (errors.length > 0) {
+    throw new Error(`skillset: cannot migrate invalid frontmatter pending entries\n${errors.join("\n")}`);
+  }
+  return migrations.sort((left, right) => compareStrings(left.fromPath, right.fromPath));
+}
+
+function frontmatterMigrationErrors(entry: PendingChangeEntry): string[] {
+  const errors = entry.schemaDiagnostics.map((diagnostic) => diagnostic.message);
+  if (entry.id === undefined) errors.push("missing id");
+  if (entry.bump === undefined) errors.push("missing bump");
+  if (entry.scopes.length === 0) errors.push("missing scope");
+  for (const scope of entry.scopes) {
+    if ((entry.sourceHashes.get(scope) ?? []).length === 0) errors.push(`missing source hash evidence for ${sourceUnitDisplay(scope)}`);
+  }
+  return errors;
+}
+
+function migrationLedgerEvents(migration: ChangeMigrationEntry): readonly {
+  readonly payload: JsonRecord;
+  readonly type: ChangeLedgerEventType;
+}[] {
+  const sourceUnits = ledgerSourceUnits(migration.sourceHashes);
+  const group = groupRef(migration.group);
+  return [
+    {
+      payload: {
+        bump: migration.bump,
+        ...(group === undefined ? {} : { group, refs: [group] }),
+        ...(migration.ignored ? { ignored: true } : {}),
+        path: migration.toPath,
+        reason: migration.reason,
+        reasonId: migration.id,
+        sourceUnits,
+      },
+      type: "reason.created",
+    },
+    {
+      payload: {
+        reasonId: migration.id,
+        sourceUnits,
+      },
+      type: migration.ignored ? "change.ignored" : "change.covered",
+    },
+  ];
+}
+
+interface MigrationFileSnapshot {
+  readonly content?: string;
+  readonly path: string;
+}
+
+async function snapshotMigrationFiles(
+  rootPath: string,
+  sourceDir: string | undefined,
+  migrations: readonly ChangeMigrationEntry[]
+): Promise<readonly MigrationFileSnapshot[]> {
+  const paths = new Set<string>([workspaceChangeFile(sourceDir, "ledger.jsonl")]);
+  for (const migration of migrations) {
+    paths.add(migration.fromPath);
+    paths.add(migration.toPath);
+  }
+  return Promise.all([...paths].sort(compareStrings).map((path) => snapshotMigrationFile(rootPath, path)));
+}
+
+async function snapshotMigrationFile(rootPath: string, path: string): Promise<MigrationFileSnapshot> {
+  const absolutePath = resolveInside(rootPath, path);
+  try {
+    return { content: await readFile(absolutePath, "utf8"), path };
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") return { path };
+    throw error;
+  }
+}
+
+async function restoreMigrationFiles(rootPath: string, snapshots: readonly MigrationFileSnapshot[]): Promise<void> {
+  for (const snapshot of snapshots) {
+    const absolutePath = resolveInside(rootPath, snapshot.path);
+    if (snapshot.content === undefined) {
+      await rm(absolutePath, { force: true });
+      continue;
+    }
+    await mkdir(dirname(absolutePath), { recursive: true });
+    await writeFile(absolutePath, snapshot.content, "utf8");
+  }
 }
 
 function ledgerSourceUnits(sourceHashes: ReadonlyMap<string, readonly string[]>): JsonRecord[] {
@@ -352,6 +548,10 @@ function ledgerEventId(type: ChangeLedgerEventType): string {
   hash.update("\0");
   hash.update(randomBytes(16));
   return `evt-${hash.digest("hex").slice(0, 16)}`;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function sourceStatusOptions(options: Omit<ChangeAddOptions, "reason" | "scopes">): ChangeStatusOptions {

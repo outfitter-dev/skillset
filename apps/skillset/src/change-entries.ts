@@ -402,6 +402,14 @@ function validatePendingEntry(
   context: ChangeValidationContext
 ): readonly ChangeCheckIssue[] {
   const issues: ChangeCheckIssue[] = [...changeEntrySchemaIssues(entry)];
+  if (entry.format === "frontmatter") {
+    issues.push({
+      code: "change-frontmatter-compatibility",
+      message: "frontmatter pending entries are compatibility-only; run `skillset change migrate --yes` to convert them to reason-only entries",
+      path: entry.path,
+      severity: "warning",
+    });
+  }
   const schemaCodes = new Set(entry.schemaDiagnostics.map((diagnostic) => diagnostic.code));
 
   if (entry.id === undefined && !schemaCodes.has("schema/change-entry/id")) {
