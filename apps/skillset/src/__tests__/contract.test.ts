@@ -6124,6 +6124,18 @@ test("SET-62: init detects nested plugins without a marketplace manifest", async
   ]);
 });
 
+test("SET-256: init ignores retired provider-first generated plugin roots", async () => {
+  const root = await contractFixture({
+    "plugins-claude/plugins/alpha/.claude-plugin/plugin.json": JSON.stringify({ name: "alpha" }),
+    "plugins-codex/plugins/beta/.codex-plugin/plugin.json": JSON.stringify({ name: "beta" }),
+    "plugins/authored/.claude-plugin/plugin.json": JSON.stringify({ name: "authored" }),
+  });
+
+  const report = await initSkillset({ cwd: root, useGitRoot: false, write: false });
+
+  expect(report.importCandidates).toEqual([{ kind: "plugin", path: "plugins/authored" }]);
+});
+
 test("SET-255: shared plugin lock does not hide authored plugin import candidates", async () => {
   const root = await contractFixture({
     ".claude-plugin/marketplace.json": JSON.stringify({
@@ -6611,7 +6623,7 @@ Body.
   const preview = await runSkillsetCli("init", "--root", root);
   expect(preview.exitCode).toBe(0);
   expect(preview.stdout).not.toContain("? import candidate skills .agents/skills");
-  expect(preview.stdout).not.toContain("? import candidate plugins plugins-codex/plugins");
+  expect(preview.stdout).not.toContain("? import candidate plugins plugins/");
 });
 
 test("SET-43: init rejects version conflicts with existing release state", async () => {

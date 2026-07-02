@@ -20,7 +20,7 @@ pre-commit:
     - name: skillset
       env:
         GIT_PAGER: cat
-      glob: "{.skillset/**,.claude/skills/**,.agents/skills/**,plugins-claude/**,plugins-codex/**,AGENTS.md}"
+      glob: "{.skillset/**,.claude/skills/**,.agents/skills/**,plugins/**,AGENTS.md}"
       run: bun run skillset:verify
     - name: workflows
       env:

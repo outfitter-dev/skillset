@@ -55,8 +55,7 @@ export const ALLOWLIST_PATHS: readonly string[] = [
   // Generated output trees are validated against `.skillset/` source by skillset:verify.
   ".agents/skills/",
   ".claude/",
-  "plugins-claude/",
-  "plugins-codex/",
+  "plugins/",
   ".skillset/cache/",
   ".skillset/snapshots/",
   // Changesets and change-provenance notes describe the cutover / prior changes.
