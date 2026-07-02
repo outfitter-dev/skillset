@@ -16,7 +16,7 @@ For source/config/frontmatter fields, follow [docs/schema-contracts.md](docs/sch
 ## Responsibilities
 
 - Read adaptive source from a repo's `.skillset/` directory with workspace/source config in root `skillset.yaml`.
-- Emit target-native plugin repositories under configured output roots, defaulting to `plugins-claude/` and `plugins-codex/`.
+- Emit target-native plugin bundles under `plugins/<plugin>/<provider>/` by default, with shared generated provenance in `plugins/skillset.lock`.
 - Emit standalone skills under configured target skill roots, defaulting to `.claude/skills` and `.agents/skills`.
 - Emit source instructions from `<source-root>/rules/**/*.md` to Claude `.claude/rules/**/*.md` and Codex directory-local `AGENTS.md` files without overwriting unmanaged guidance.
 - Preserve plugin boundaries across Claude and Codex outputs.
@@ -83,5 +83,5 @@ bun ./apps/skillset/src/cli.ts doctor --root .
 - Do not publish this package or add a remote unless the maintainer explicitly asks.
 - Do not mutate user-level Claude or Codex config.
 - Do not install, trust, or symlink generated plugins or skills into global runtime locations.
-- Do not hand-edit `.claude/skills`, `.agents/skills`, `plugins-claude`, or `plugins-codex` as source truth; in this repo, edit `skillset/` for source or `skillset.yaml` for workspace config, then rebuild.
+- Do not hand-edit `.claude/skills`, `.agents/skills`, or `plugins/` as source truth; in this repo, edit `.skillset/` for source or `skillset.yaml` for workspace config, then rebuild.
 - Keep this package focused on compilation, validation, import, and checks.

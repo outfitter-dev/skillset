@@ -11,8 +11,7 @@ export default defineConfig({
     ".scratch/**",
     ".agents/skills/**",
     ".claude/skills/**",
-    "plugins-claude/**",
-    "plugins-codex/**",
+    "plugins/**",
   ],
   proseWrap: "never",
 });

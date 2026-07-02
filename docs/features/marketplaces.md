@@ -45,7 +45,7 @@ Optional plugin entry fields:
 | `version` | Version policy requested by the catalog source; plugin version authority stays in the plugin repo. |
 | `targets` | Provider targets for this entry, narrowing the catalog targets. |
 
-Provider output paths such as `plugins-claude`, `plugins-codex`, `.claude-plugin`, or `.codex-plugin` are not part of the marketplace source contract. Provider-native source forms are derived output details for `marketplace update`.
+Provider output paths such as `plugins/<plugin>/<provider>`, `.claude-plugin`, or `.codex-plugin` are not part of the marketplace source contract. Provider-native source forms are derived output details for `marketplace update`.
 
 For Claude, local entries render as relative plugin roots such as `./plugins/outfitter-core`. External entries render as provider-native git subdirectory sources that point at the referenced repo and the derived generated Claude plugin bundle path, such as:
 

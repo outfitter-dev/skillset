@@ -269,8 +269,6 @@ async function detectImportCandidates(
   await maybeCandidate(candidates, rootPath, ".claude/skills", "skills");
   await maybeCandidate(candidates, rootPath, ".codex/skills", "skills");
   await maybeCandidate(candidates, rootPath, ".agents/skills", "skills");
-  await maybeCandidate(candidates, rootPath, "plugins-claude/plugins", "plugins");
-  await maybeCandidate(candidates, rootPath, "plugins-codex/plugins", "plugins");
   if (await pathExists(join(rootPath, ".claude-plugin/plugin.json")) || await pathExists(join(rootPath, ".codex-plugin/plugin.json"))) {
     candidates.push({ kind: "plugin", path: "." });
   }

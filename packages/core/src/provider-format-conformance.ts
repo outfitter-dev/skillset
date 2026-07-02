@@ -584,7 +584,7 @@ function readStringArray(record: JsonRecord, key: string): readonly string[] {
 }
 
 function isClaudeHookPath(path: string): boolean {
-  return (hasSegment(path, "plugins-claude") || hasPluginTargetSegment(path, "claude")) && path.endsWith("/hooks/hooks.json");
+  return hasPluginTargetSegment(path, "claude") && path.endsWith("/hooks/hooks.json");
 }
 
 function isClaudeHookFile(file: ProviderFormatConformanceFile): boolean {
@@ -592,7 +592,7 @@ function isClaudeHookFile(file: ProviderFormatConformanceFile): boolean {
 }
 
 function isCodexHookPath(path: string): boolean {
-  return (hasSegment(path, "plugins-codex") || hasPluginTargetSegment(path, "codex")) && path.endsWith("/hooks/hooks.json");
+  return hasPluginTargetSegment(path, "codex") && path.endsWith("/hooks/hooks.json");
 }
 
 function isCodexHookFile(file: ProviderFormatConformanceFile): boolean {
@@ -602,7 +602,7 @@ function isCodexHookFile(file: ProviderFormatConformanceFile): boolean {
 function isClaudeSubagentPath(path: string): boolean {
   return path.endsWith(".md") && (
     hasSegmentSequence(path, ".claude", "agents") ||
-    ((hasSegment(path, "plugins-claude") || hasPluginTargetSegment(path, "claude")) && hasSegment(path, "agents"))
+    (hasPluginTargetSegment(path, "claude") && hasSegment(path, "agents"))
   );
 }
 
@@ -623,8 +623,8 @@ function isCodexSubagentFile(file: ProviderFormatConformanceFile): boolean {
 
 function skillTarget(path: string): TargetName | undefined {
   if (!path.endsWith("/SKILL.md")) return undefined;
-  if (hasSegmentSequence(path, ".agents", "skills") || hasSegment(path, "plugins-codex") || hasPluginTargetSegment(path, "codex")) return "codex";
-  if (hasSegmentSequence(path, ".claude", "skills") || hasSegment(path, "plugins-claude") || hasPluginTargetSegment(path, "claude")) return "claude";
+  if (hasSegmentSequence(path, ".agents", "skills") || hasPluginTargetSegment(path, "codex")) return "codex";
+  if (hasSegmentSequence(path, ".claude", "skills") || hasPluginTargetSegment(path, "claude")) return "claude";
   return undefined;
 }
 
