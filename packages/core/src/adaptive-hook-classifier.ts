@@ -1,6 +1,7 @@
 import type { ResolvedAdaptiveHookAttachment } from "./adaptive-hook-attachments";
 import { readRecord } from "./config";
-import { hookProviderCapabilities } from "./hook-capabilities";
+import { canonicalHookEventName, hookProviderCapabilities } from "./hook-capabilities";
+import { targetNames } from "./targets";
 import type { AdaptiveHookScope, TargetName } from "./types";
 
 export type AdaptiveHookRenderSurface = "frontmatter" | "plugin";
@@ -24,7 +25,7 @@ export interface AdaptiveHookIntentClassification {
   readonly target: TargetName;
 }
 
-const TARGETS = ["claude", "codex"] as const satisfies readonly TargetName[];
+const TARGETS = targetNames();
 
 export function classifyAdaptiveHookIntent(
   item: ResolvedAdaptiveHookAttachment,
@@ -32,9 +33,10 @@ export function classifyAdaptiveHookIntent(
   surface: AdaptiveHookRenderSurface
 ): AdaptiveHookIntentClassification {
   const capabilities = hookProviderCapabilities[target];
-  const providerRef = capabilities.providerRefByEvent[item.event] ?? `hook-capabilities:${target}`;
-  const matcherKind = capabilities.matcherByEvent[item.event] ?? "none";
-  const matcherEvaluation = capabilities.matcherEvaluationByEvent[item.event] ?? "provider-native";
+  const capabilityEvent = canonicalHookEventName(target, item.event);
+  const providerRef = capabilities.providerRefByEvent[capabilityEvent] ?? `hook-capabilities:${target}`;
+  const matcherKind = capabilities.matcherByEvent[capabilityEvent] ?? "none";
+  const matcherEvaluation = capabilities.matcherEvaluationByEvent[capabilityEvent] ?? "provider-native";
   const unsupportedReason = adaptiveHookUnsupportedReason(item, target, surface);
   if (unsupportedReason !== undefined) {
     const status: AdaptiveHookIntentStatus = adaptiveHookNativeOnlyReason(item.attachment.scope, target) === unsupportedReason
@@ -162,11 +164,20 @@ function adaptiveHookProviderScopeReason(
 }
 
 function adaptiveHookNativeOnlyReason(scope: AdaptiveHookScope, target: TargetName): string | undefined {
-  if (scope.kind === "skill" && target === "codex") {
-    return "Codex has no faithful skill-local hook destination for adaptive hook attachments.";
-  }
-  if (scope.kind === "agent" && target === "codex") {
-    return "Codex has no faithful project-agent hook destination for adaptive hook attachments.";
+  const support = scope.kind === "skill"
+    ? hookProviderCapabilities[target].scopeSupport.skill
+    : scope.kind === "agent"
+    ? hookProviderCapabilities[target].scopeSupport.agent
+    : scope.kind === "plugin"
+    ? hookProviderCapabilities[target].scopeSupport.plugin
+    : undefined;
+  if (support === "unsupported") {
+    const destination = scope.kind === "skill"
+      ? "skill-local"
+      : scope.kind === "agent"
+      ? "project-agent"
+      : "plugin";
+    return `${targetLabel(target)} has no faithful ${destination} hook destination for adaptive hook attachments.`;
   }
   return undefined;
 }
@@ -205,17 +216,24 @@ function adaptiveHookUnsupportedCapabilityReason(
   target: TargetName
 ): string | undefined {
   const capabilities = hookProviderCapabilities[target];
-  const targetLabel = target === "claude" ? "Claude" : "Codex";
-  if (!capabilities.documentedEvents.has(item.event)) {
-    return `${targetLabel} does not support adaptive hook event ${item.event}.`;
+  const capabilityEvent = canonicalHookEventName(target, item.event);
+  const label = targetLabel(target);
+  if (!capabilities.documentedEvents.has(capabilityEvent)) {
+    return `${label} does not support adaptive hook event ${item.event}.`;
   }
   const matcher = item.attachment.match ?? item.definition.frontmatter.match;
-  if (matcher !== undefined && capabilities.matcherByEvent[item.event] === "ignored") {
-    return `${targetLabel} ignores matchers for adaptive hook event ${item.event}, so this attachment cannot render faithfully.`;
+  if (matcher !== undefined && capabilities.matcherByEvent[capabilityEvent] === "ignored") {
+    return `${label} ignores matchers for adaptive hook event ${item.event}, so this attachment cannot render faithfully.`;
   }
   return undefined;
 }
 
 function providerListAllows(providers: readonly TargetName[] | undefined, target: TargetName): boolean {
   return providers === undefined || providers.includes(target);
+}
+
+function targetLabel(target: TargetName): string {
+  if (target === "claude") return "Claude";
+  if (target === "codex") return "Codex";
+  return "Cursor";
 }

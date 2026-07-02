@@ -22,6 +22,7 @@ import {
   readOutputConfig,
   readSkillsetMetadata,
   readSkillsetName,
+  isTargetName,
   readString,
   readStringArray,
   resolveFeatureTargets,
@@ -803,7 +804,7 @@ function validateAdaptiveHookAttachments(
 
 function readTargetArray(value: JsonValue | undefined): readonly TargetName[] | undefined {
   if (!Array.isArray(value)) return undefined;
-  const targets = value.filter((item): item is TargetName => item === "claude" || item === "codex");
+  const targets = value.filter(isTargetName);
   return targets.length === 0 ? undefined : targets;
 }
 

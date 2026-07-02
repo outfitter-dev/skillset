@@ -31,6 +31,11 @@ describe("@skillset/registry snapshots", () => {
       "codex-plugin",
       "codex-skill",
       "codex-subagent",
+      "cursor-agent",
+      "cursor-hooks",
+      "cursor-plugin",
+      "cursor-rules",
+      "cursor-skill",
     ]);
     expect(providerDestinationFormatSnapshots.map((snapshot) => `${snapshot.target}:${snapshot.destination}`)).toEqual([
       "claude:hooks",
@@ -41,6 +46,11 @@ describe("@skillset/registry snapshots", () => {
       "codex:plugin",
       "codex:skill",
       "codex:agent",
+      "cursor:agent",
+      "cursor:hooks",
+      "cursor:plugin",
+      "cursor:instructions",
+      "cursor:skill",
     ]);
 
     for (const snapshot of providerDestinationFormatSnapshots) {
@@ -152,19 +162,23 @@ describe("@skillset/registry schema snapshots", () => {
 });
 
 describe("@skillset/registry hook evidence", () => {
-  it("exports provider hook evidence for Claude overlays and Codex schemas", () => {
+  it("exports provider hook evidence for Claude overlays, Codex schemas, and Cursor docs", () => {
     expect(listProviderHookEvidence().map((evidence) => `${evidence.target}:${evidence.evidenceKind}:${evidence.providerRef}`)).toEqual([
       "claude:docs-backed-overlay:claude-hooks-overlay",
       "codex:schema-backed:codex-hooks-schema",
+      "cursor:docs-backed-overlay:cursor-hooks-docs",
     ]);
 
     const claude = getProviderHookEvidence("claude");
     const codex = getProviderHookEvidence("codex");
+    const cursor = getProviderHookEvidence("cursor");
     const claudePreToolUse = claude.events.find((event) => event.name === "PreToolUse");
     const claudeStopFailure = claude.events.find((event) => event.name === "StopFailure");
     const codexPreCompact = codex.events.find((event) => event.name === "PreCompact");
     const codexSessionStart = codex.events.find((event) => event.name === "SessionStart");
     const codexPreToolUse = codex.events.find((event) => event.name === "PreToolUse");
+    const cursorBeforeSubmitPrompt = cursor.events.find((event) => event.name === "BeforeSubmitPrompt");
+    const cursorSessionStart = cursor.events.find((event) => event.name === "SessionStart");
 
     expect(claudePreToolUse).toMatchObject({
       canBlock: true,
@@ -197,5 +211,13 @@ describe("@skillset/registry hook evidence", () => {
     expect(codexPreToolUse?.unsupportedOutputFields).toEqual(["continue", "stopReason", "suppressOutput"]);
     expect(codexPreCompact?.matcherValues).toEqual(["manual", "auto"]);
     expect(codexSessionStart?.matcherValues).toEqual(["startup", "resume", "clear", "compact"]);
+    expect(cursorBeforeSubmitPrompt).toMatchObject({
+      canBlock: true,
+      evidenceKind: "docs-backed-overlay",
+      matcherKind: "ignored",
+      providerRef: "cursor-hooks-docs",
+    });
+    expect(cursorSessionStart?.matcherValues).toEqual(["startup", "resume", "clear", "compact"]);
+    expect(cursorSessionStart?.runtimeNotes).toContain("native-event-names-are-lower-camel");
   });
 });

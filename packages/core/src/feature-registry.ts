@@ -253,6 +253,11 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
         reason: "Codex plugin bundles are renderable, but Codex marketplace activation is currently a runtime config surface rather than a provider-owned generated index.",
         status: "future",
       },
+      cursor: {
+        evidence: [docs("docs/features/marketplaces.md"), providerSnapshot("cursor-plugin")],
+        provider: { destinationFormat: "cursor-plugin" },
+        status: "native",
+      },
     },
     title: "Marketplaces",
     validationOwner: "packages/core/src/config.ts",
@@ -330,9 +335,11 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     ], {
       claude: [providerSnapshot("claude-plugin")],
       codex: [providerSnapshot("codex-plugin")],
+      cursor: [providerSnapshot("cursor-plugin")],
     }, {
       claude: { destinationFormat: "claude-plugin" },
       codex: { destinationFormat: "codex-plugin" },
+      cursor: { destinationFormat: "cursor-plugin" },
     }),
     title: "Plugin MCP Servers",
     validationOwner: "packages/core/src/resources.ts",
@@ -385,6 +392,12 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
         reason: "Codex plugins do not expose a documented plugin-local bin contract.",
         status: "unsupported",
       },
+      cursor: {
+        evidence: [docs("docs/features/executables.md"), providerSnapshot("cursor-plugin")],
+        provider: { destinationFormat: "cursor-plugin", unsupportedDestinations: ["bin"] },
+        reason: "Cursor plugins do not expose a documented plugin-local bin contract.",
+        status: "unsupported",
+      },
     },
     title: "Plugin Bin",
     validationOwner: "packages/core/src/resources.ts",
@@ -401,8 +414,29 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
         status: "pass_through",
       },
       codex: { evidence: [docs("docs/features/commands.md")], status: "not_applicable" },
+      cursor: {
+        evidence: [docs("docs/features/commands.md"), providerSnapshot("cursor-plugin")],
+        provider: { destinationFormat: "cursor-plugin" },
+        status: "pass_through",
+      },
     },
     title: "Plugin Commands",
+  }),
+  pluginCompanionFeature({
+    docs: ["docs/features/instructions.md", "docs/features/plugins.md"],
+    id: "plugin-rules",
+    sourceShape: "plugin rules/",
+    summary: "Passes Cursor plugin rule companions through to Cursor plugin outputs.",
+    targetSupport: {
+      claude: { evidence: [docs("docs/features/instructions.md")], status: "not_applicable" },
+      codex: { evidence: [docs("docs/features/instructions.md")], status: "not_applicable" },
+      cursor: {
+        evidence: [docs("docs/features/instructions.md"), providerSnapshot("cursor-plugin"), providerSnapshot("cursor-rules")],
+        provider: { destinationFormat: "cursor-plugin" },
+        status: "pass_through",
+      },
+    },
+    title: "Plugin Rules",
   }),
   feature({
     docs: ["docs/features/hooks.md"],
@@ -418,9 +452,11 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     ], {
       claude: [providerSnapshot("claude-hooks")],
       codex: [providerSnapshot("codex-plugin")],
+      cursor: [providerSnapshot("cursor-hooks"), providerSnapshot("cursor-plugin")],
     }, {
       claude: { destinationFormat: "claude-hooks" },
       codex: { destinationFormat: "codex-plugin", schemaSnapshots: ["codex-hooks-schema", "codex-hook-event-schemas"] },
+      cursor: { destinationFormat: "cursor-hooks" },
     }),
     title: "Plugin Hooks",
     validationOwner: "packages/core/src/hooks.ts",
@@ -464,6 +500,17 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
         provider: { destinationFormat: "codex-plugin", schemaSnapshots: ["codex-hooks-schema", "codex-hook-event-schemas"] },
         status: "degraded",
       },
+      cursor: {
+        evidence: [
+          docs("docs/features/hooks.md"),
+          providerSnapshot("cursor-hooks"),
+          providerSnapshot("cursor-plugin"),
+          source("packages/core/src/hook-capabilities.ts"),
+        ],
+        reason: "Cursor supports plugin-level command hooks, but has no faithful skill-local or project-agent hook destination and uses provider-native lower-camel event names.",
+        provider: { destinationFormat: "cursor-hooks" },
+        status: "degraded",
+      },
     },
     title: "Adaptive Hooks",
     validationOwner: "packages/schema/src/validate.ts",
@@ -497,9 +544,11 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     ], {
       claude: [providerSnapshot("claude-plugin")],
       codex: [providerSnapshot("codex-plugin")],
+      cursor: [providerSnapshot("cursor-plugin")],
     }, {
       claude: { destinationFormat: "claude-plugin", schemaSnapshots: ["claude-plugin-manifest-schema"] },
       codex: { destinationFormat: "codex-plugin", manualOverlays: ["codex-plugin-manifest-overlay"] },
+      cursor: { destinationFormat: "cursor-plugin" },
     }),
     title: "Plugin Manifests",
     validationOwner: "packages/core/src/config.ts",
@@ -562,9 +611,11 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     ], {
       claude: [providerSnapshot("claude-skill")],
       codex: [providerSnapshot("codex-skill")],
+      cursor: [providerSnapshot("cursor-skill")],
     }, {
       claude: { destinationFormat: "claude-skill", manualOverlays: ["claude-skill-frontmatter-overlay"] },
       codex: { destinationFormat: "codex-skill", schemaSnapshots: ["codex-skill-metadata-schema"] },
+      cursor: { destinationFormat: "cursor-skill" },
     }),
     title: "Plugin Skills",
     validationOwner: "packages/core/src/resolver.ts",
@@ -612,6 +663,11 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
         reason: "Codex plugin documentation does not include a plugin agents component.",
         status: "unsupported",
       },
+      cursor: {
+        evidence: [docs("docs/features/agents.md"), providerSnapshot("cursor-agent"), providerSnapshot("cursor-plugin")],
+        provider: { destinationFormat: "cursor-agent" },
+        status: "pass_through",
+      },
     },
     title: "Plugin Agents",
     validationOwner: "packages/core/src/resolver.ts",
@@ -630,6 +686,11 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
       codex: {
         evidence: [docs("docs/features/instructions.md"), providerSnapshot("codex-agents-md")],
         provider: { destinationFormat: "codex-agents-md", manualOverlays: ["codex-agents-md-overlay"] },
+        status: "transformed",
+      },
+      cursor: {
+        evidence: [docs("docs/features/instructions.md"), providerSnapshot("cursor-rules")],
+        provider: { destinationFormat: "cursor-rules" },
         status: "transformed",
       },
     },
@@ -671,6 +732,11 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
         provider: { destinationFormat: "codex-subagent", manualOverlays: ["codex-subagent-toml-overlay"] },
         status: "transformed",
       },
+      cursor: {
+        evidence: [docs("docs/features/agents.md"), providerSnapshot("cursor-agent")],
+        provider: { destinationFormat: "cursor-agent" },
+        status: "native",
+      },
     },
     title: "Project Agents",
     validationOwner: "packages/core/src/resolver.ts",
@@ -704,8 +770,8 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
           docs("docs/adrs/drafts/20260702-cursor-is-a-first-class-provider.md"),
           fixture("fixtures/external/repos.yaml"),
         ],
-        reason: "Cursor is planned as a first-class provider target; implementation still needs target schema, registry evidence, renderers, import, conformance, and runtime smoke before Skillset can lower or distribute it.",
-        status: "planned",
+        mechanism: "Current Cursor build target projections feed Cursor plugin, project rule, project agent, hook, MCP, and skill surfaces.",
+        status: "native",
       },
       "gemini-cli": {
         evidence: [docs("docs/features/runtime-adapters.md"), fixture("fixtures/external/repos.yaml")],
@@ -771,6 +837,14 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
         note: "Normalized fields are provider, hook.event, and session.id; raw Codex environment remains available to the hook command.",
         status: "transformed",
       },
+      cursor: {
+        evidence: [
+          docs("docs/features/hooks.md"),
+          source("packages/toolkit/src/runtime.ts"),
+        ],
+        note: "Normalized fields are provider, hook.event, and session.id; raw Cursor environment remains available to the hook command.",
+        status: "transformed",
+      },
     },
     title: "Runtime Context",
     validationOwner: "packages/toolkit/src/runtime.ts",
@@ -802,9 +876,11 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     ], {
       claude: [providerSnapshot("claude-skill")],
       codex: [providerSnapshot("codex-skill")],
+      cursor: [providerSnapshot("cursor-skill")],
     }, {
       claude: { destinationFormat: "claude-skill", manualOverlays: ["claude-skill-frontmatter-overlay"] },
       codex: { destinationFormat: "codex-skill" },
+      cursor: { destinationFormat: "cursor-skill" },
     }),
     title: "Resources",
     validationOwner: "packages/core/src/resources.ts",
@@ -823,9 +899,11 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     ], {
       claude: [providerSnapshot("claude-skill")],
       codex: [providerSnapshot("codex-skill")],
+      cursor: [providerSnapshot("cursor-skill")],
     }, {
       claude: { destinationFormat: "claude-skill", manualOverlays: ["claude-skill-frontmatter-overlay"] },
       codex: { destinationFormat: "codex-skill", schemaSnapshots: ["codex-skill-metadata-schema"] },
+      cursor: { destinationFormat: "cursor-skill" },
     }),
     title: "Standalone Skills",
     validationOwner: "packages/core/src/resolver.ts",
@@ -849,7 +927,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     id: "target-native-islands",
     kind: "target-native",
     renderOwner: "packages/core/src/render.ts",
-    sourceShape: ".skillset/_claude/**, .skillset/_codex/**, and plugin-local provider source subdirs",
+    sourceShape: ".skillset/_claude/**, .skillset/_codex/**, .skillset/_cursor/**, and plugin-local provider source subdirs",
     status: "implemented",
     summary: "Mirrors explicit provider-specific files only to their intended provider output.",
     targetSupport: bothTargets("pass_through"),

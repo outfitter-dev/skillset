@@ -65,6 +65,11 @@ const PROVIDER_FORMAT_MIGRATION_SNAPSHOTS: Record<
   "codex-plugin": { provider: "codex", surface: "plugin" },
   "codex-skill": { provider: "codex", surface: "skill" },
   "codex-subagent": { provider: "codex", surface: "agent" },
+  "cursor-agent": { provider: "cursor", surface: "agent" },
+  "cursor-hooks": { provider: "cursor", surface: "hooks" },
+  "cursor-plugin": { provider: "cursor", surface: "plugin" },
+  "cursor-rules": { provider: "cursor", surface: "instructions" },
+  "cursor-skill": { provider: "cursor", surface: "skill" },
 };
 
 const PROVIDER_FORMAT_MIGRATION_TARGETS = new Set<ProviderDestinationFormatTarget>(

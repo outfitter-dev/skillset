@@ -8,6 +8,7 @@ import {
 import { adaptiveHookUnsupportedRenderReason, type AdaptiveHookRenderSurface } from "./adaptive-hook-render-support";
 import { readString, isOutputSelected } from "./config";
 import { getSkillsetFeature } from "./feature-registry";
+import { hookProviderCapabilities } from "./hook-capabilities";
 import {
   defineRenderResult,
   type SkillsetRenderResult,
@@ -339,11 +340,20 @@ function unsupportedAdaptiveHookDestination(scope: AdaptiveHookScope): string | 
 
 function unsupportedAdaptiveHookReason(item: ResolvedAdaptiveHookAttachment, target: TargetName): string | undefined {
   const scope = item.attachment.scope;
-  if (scope.kind === "skill" && target === "codex") {
-    return "Codex has no faithful skill-local hook destination for adaptive hook attachments.";
-  }
-  if (scope.kind === "agent" && target === "codex") {
-    return "Codex has no faithful project-agent hook destination for adaptive hook attachments.";
+  const support = scope.kind === "skill"
+    ? hookProviderCapabilities[target].scopeSupport.skill
+    : scope.kind === "agent"
+    ? hookProviderCapabilities[target].scopeSupport.agent
+    : scope.kind === "plugin"
+    ? hookProviderCapabilities[target].scopeSupport.plugin
+    : undefined;
+  if (support === "unsupported") {
+    const destination = scope.kind === "skill"
+      ? "skill-local"
+      : scope.kind === "agent"
+      ? "project-agent"
+      : "plugin";
+    return `${targetLabel(target)} has no faithful ${destination} hook destination for adaptive hook attachments.`;
   }
   const surface = adaptiveHookRenderSurfaceForScope(scope);
   if (surface !== undefined) return adaptiveHookUnsupportedRenderReason(item, target, surface);
@@ -445,28 +455,31 @@ function unsupportedPluginFeatureOutcomes(
   if (scopes !== undefined && !scopes.includes("plugins")) return [];
   const outcomes: SkillsetRenderResult[] = [];
   for (const plugin of graph.plugins) {
-    if (!pluginTargetSelected(graph, plugin.id, "codex")) continue;
     const pluginPath = normalizePath(relative(graph.rootPath, plugin.path));
 
-    for (const feature of plugin.features) {
-      if (feature.key !== "bin") continue;
-      const featureId = "plugin-bin";
-      const evidence = evidenceFor(featureId, "codex");
-      outcomes.push(
-        defineRenderResult({
-          destination: "bin",
-          ...(evidence === undefined ? {} : { evidence }),
-          featureId,
-          policy: "unsupported:error",
-          reason: requiredReasonForStatus(featureId, "codex", "unsupported"),
-          sourcePath: normalizePath(relative(graph.rootPath, feature.sourcePath)),
-          sourceUnit: selectorForPluginFeature(plugin.id, feature.key),
-          status: "unsupported",
-          target: "codex",
-        })
-      );
+    for (const target of TARGETS.filter((candidate) => candidate !== "claude")) {
+      if (!pluginTargetSelected(graph, plugin.id, target)) continue;
+      for (const feature of plugin.features) {
+        if (feature.key !== "bin") continue;
+        const featureId = "plugin-bin";
+        const evidence = evidenceFor(featureId, target);
+        outcomes.push(
+          defineRenderResult({
+            destination: "bin",
+            ...(evidence === undefined ? {} : { evidence }),
+            featureId,
+            policy: "unsupported:error",
+            reason: requiredReasonForStatus(featureId, target, "unsupported"),
+            sourcePath: normalizePath(relative(graph.rootPath, feature.sourcePath)),
+            sourceUnit: selectorForPluginFeature(plugin.id, feature.key),
+            status: "unsupported",
+            target,
+          })
+        );
+      }
     }
 
+    if (!pluginTargetSelected(graph, plugin.id, "codex")) continue;
     const agentsPath = join(plugin.path, "agents");
     if (!hasMeaningfulFiles(agentsPath)) continue;
     const featureId = "plugin-agents";
@@ -566,7 +579,7 @@ function sourceUnitForLockItem(item: RenderedLockItem, target: TargetName | unde
 
 function sourceUnitForIsland(item: RenderedLockItem, target: TargetName | undefined): string {
   const [nameTarget, owner, ...relativeParts] = item.name.split(":");
-  const islandTarget = target ?? (nameTarget === "claude" || nameTarget === "codex" ? nameTarget : undefined);
+  const islandTarget = target ?? (isTargetName(nameTarget) ? nameTarget : undefined);
   if (islandTarget === undefined) return item.sourcePath;
   const relativePath = relativeParts.join(":") || item.outputPath;
   if (owner !== undefined && owner !== "project") {
@@ -638,14 +651,17 @@ function companionForPath(
     if (target === "claude" && pluginPath === ".lsp.json") {
       return { featureId: "plugin-lsp-servers", featureKey: "lsp-servers", pluginId, sourceRelativePath: ".lsp.json", target };
     }
-    if (target === "claude" && isCompanionPath(pluginPath, "commands")) {
+    if ((target === "claude" || target === "cursor") && isCompanionPath(pluginPath, "commands")) {
       return { featureId: "plugin-commands", featureKey: "commands", pluginId, sourceRelativePath: pluginPath, target };
     }
     if (pluginPath === "hooks/hooks.json" || pluginPath.startsWith("hooks/")) {
       return { featureId: "plugin-hooks", featureKey: "hooks", pluginId, sourceRelativePath: pluginPath, target };
     }
-    if (target === "claude" && isCompanionPath(pluginPath, "agents")) {
+    if ((target === "claude" || target === "cursor") && isCompanionPath(pluginPath, "agents")) {
       return { featureId: "plugin-agents", featureKey: "agents", pluginId, sourceRelativePath: pluginPath, target };
+    }
+    if (target === "cursor" && isCompanionPath(pluginPath, "rules")) {
+      return { featureId: "plugin-rules", featureKey: "rules", pluginId, sourceRelativePath: pluginPath, target };
     }
     if (target === "claude" && isCompanionPath(pluginPath, "output-styles")) {
       return { featureId: "plugin-output-styles", featureKey: "output-styles", pluginId, sourceRelativePath: pluginPath, target };
@@ -674,7 +690,14 @@ function isCompanionPath(path: string, topLevelPath: string): boolean {
 }
 
 function targetProjectRoot(graph: BuildGraph, target: TargetName): string {
-  return readString(graph.root.targets[target].options, "projectRoot") ?? (target === "claude" ? ".claude" : ".codex");
+  return readString(graph.root.targets[target].options, "projectRoot") ??
+    (target === "claude" ? ".claude" : target === "codex" ? ".codex" : ".cursor");
+}
+
+function targetLabel(target: TargetName): string {
+  if (target === "claude") return "Claude";
+  if (target === "codex") return "Codex";
+  return "Cursor";
 }
 
 function pluginTargetSelected(graph: BuildGraph, pluginId: string, target: TargetName): boolean {

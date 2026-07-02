@@ -6,7 +6,7 @@ export * from "./schema-snapshots";
 
 export const PROVIDER_DESTINATION_FORMAT_SNAPSHOT_SCHEMA = "skillset-provider-destination-format@1";
 
-export const PROVIDER_DESTINATION_FORMAT_TARGETS = ["claude", "codex"] as const;
+export const PROVIDER_DESTINATION_FORMAT_TARGETS = ["claude", "codex", "cursor"] as const;
 
 export type ProviderDestinationFormatTarget = (typeof PROVIDER_DESTINATION_FORMAT_TARGETS)[number];
 
@@ -18,7 +18,12 @@ export type ProviderDestinationFormatSnapshotId =
   | "codex-agents-md"
   | "codex-plugin"
   | "codex-skill"
-  | "codex-subagent";
+  | "codex-subagent"
+  | "cursor-agent"
+  | "cursor-hooks"
+  | "cursor-plugin"
+  | "cursor-rules"
+  | "cursor-skill";
 
 export type ProviderDestinationFormatJsonValue =
   | boolean
@@ -294,6 +299,138 @@ const snapshots = [
     },
     target: "codex",
     title: "Codex Project Instructions Destination Format",
+  }),
+  snapshot({
+    destination: "plugin",
+    format: {
+      components: [
+        { defaultPath: "skills/", kind: "skills", manifestField: "skills", status: "native" },
+        { defaultPath: "rules/", kind: "rules", manifestField: "rules", status: "native" },
+        { defaultPath: "agents/", kind: "agents", manifestField: "agents", status: "native" },
+        { defaultPath: "commands/", kind: "commands", manifestField: "commands", status: "native" },
+        { defaultPath: "hooks/hooks.json", kind: "hooks", manifestField: "hooks", status: "native" },
+        { defaultPath: "mcp.json", kind: "mcp", manifestField: "mcpServers", status: "native" },
+        { defaultPath: "assets/", kind: "assets", manifestField: null, status: "native" },
+        { defaultPath: "scripts/", kind: "scripts", manifestField: null, status: "native" },
+        { defaultPath: "bin/", kind: "bin", manifestField: null, status: "unsupported" },
+      ],
+      manifest: {
+        path: ".cursor-plugin/plugin.json",
+        requiredFields: ["name", "description"],
+        optionalFields: [
+          "agents",
+          "category",
+          "commands",
+          "displayName",
+          "hooks",
+          "logo",
+          "mcpServers",
+          "rules",
+          "skills",
+          "tags",
+          "version",
+        ],
+      },
+      pathRules: {
+        componentDirectoriesAtPluginRoot: true,
+        metadataDirectory: ".cursor-plugin/",
+      },
+    },
+    id: "cursor-plugin",
+    provenance: {
+      contentHash: "sha256:1d87b97a074afb49078bda9fa1e399a653229001c134b8fe0a5a2937ccbde5f9",
+      fetchedAt: FETCHED_AT,
+      sources: [
+        { url: "https://cursor.com/docs/plugins" },
+        { url: "https://github.com/cursor/plugins" },
+      ],
+    },
+    target: "cursor",
+    title: "Cursor Plugin Destination Format",
+  }),
+  snapshot({
+    destination: "skill",
+    format: {
+      directoryPattern: ".cursor/skills/<skill-name>/",
+      frontmatter: {
+        requiredFields: ["name", "description"],
+      },
+      requiredFiles: ["SKILL.md"],
+      serialization: "markdown-with-yaml-frontmatter",
+      supportingDirectories: ["assets/", "references/", "scripts/"],
+    },
+    id: "cursor-skill",
+    provenance: {
+      contentHash: "sha256:70eb2f6bac761f362c4895d71da72e9e5c047b9525f40214844e79122f569201",
+      fetchedAt: FETCHED_AT,
+      sources: [
+        { url: "https://cursor.com/docs/plugins" },
+        { url: "https://github.com/cursor/plugins" },
+      ],
+    },
+    target: "cursor",
+    title: "Cursor Skill Destination Format",
+  }),
+  snapshot({
+    destination: "agent",
+    format: {
+      filePattern: ".cursor/agents/*.md",
+      frontmatter: {
+        optionalFields: ["is_background", "model", "readonly", "skills"],
+        requiredFields: ["name", "description"],
+      },
+      serialization: "markdown-with-yaml-frontmatter",
+    },
+    id: "cursor-agent",
+    provenance: {
+      contentHash: "sha256:eb6d9afc41c0bb38724157466cab2a9a81809d5df477b85231df4ee7e190a5c0",
+      fetchedAt: FETCHED_AT,
+      sources: [
+        { url: "https://cursor.com/docs/plugins" },
+        { url: "https://github.com/cursor/plugins" },
+      ],
+    },
+    target: "cursor",
+    title: "Cursor Agent Destination Format",
+  }),
+  snapshot({
+    destination: "instructions",
+    format: {
+      filePattern: ".cursor/rules/*.mdc",
+      frontmatter: {
+        optionalFields: ["alwaysApply", "globs"],
+        requiredFields: ["description"],
+      },
+      serialization: "markdown-with-yaml-frontmatter",
+    },
+    id: "cursor-rules",
+    provenance: {
+      contentHash: "sha256:b02aeab7b95d881cd961dfb8c34a5f1e32d2368f234c27d6d2eb65d74e995bd3",
+      fetchedAt: FETCHED_AT,
+      sources: [{ url: "https://cursor.com/docs/rules" }],
+    },
+    target: "cursor",
+    title: "Cursor Rules Destination Format",
+  }),
+  snapshot({
+    destination: "hooks",
+    format: {
+      canonicalEventNames: "skillset-pascal-case",
+      nativeEventNames: "cursor-lower-camel",
+      filePattern: "hooks/hooks.json",
+      handlerFields: ["type", "command", "timeout"],
+      rootFields: ["hooks"],
+      shape: "event-map",
+      supportedHandlerTypes: ["command"],
+    },
+    id: "cursor-hooks",
+    provenance: {
+      contentHash: "sha256:9bc3b608cc0ebc7ce09e52754c69ac1148290d8165d778e488abb138654cda19",
+      fetchedAt: FETCHED_AT,
+      sources: [{ url: "https://cursor.com/docs/hooks" }],
+    },
+    target: "cursor",
+    title: "Cursor Hook Destination Format",
   }),
 ] as const satisfies readonly ProviderDestinationFormatSnapshot[];
 

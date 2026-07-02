@@ -2,10 +2,12 @@ import { describe, expect, test } from "bun:test";
 
 import {
   CODEX_HOOK_EVENTS,
+  canonicalHookEventName,
   classifyAdaptiveHookUnitPath,
   hookEventSupported,
   hookHandlerTypesForEvent,
   hookProviderCapabilities,
+  nativeHookEventName,
   validateAdaptiveHookUnitPaths,
 } from "../hook-capabilities";
 
@@ -66,6 +68,20 @@ describe("hook provider capabilities", () => {
     expect(codex.scopeSupport.agent).toBe("unsupported");
   });
 
+  test("records Cursor handler, scope, and native event-name constraints", () => {
+    const cursor = hookProviderCapabilities.cursor;
+    expect(hookEventSupported("cursor", "SessionStart")).toBe(true);
+    expect(hookEventSupported("cursor", "sessionStart")).toBe(true);
+    expect(nativeHookEventName("cursor", "SessionStart")).toBe("sessionStart");
+    expect(canonicalHookEventName("cursor", "sessionStart")).toBe("SessionStart");
+    expect([...hookHandlerTypesForEvent("cursor", "sessionStart")]).toEqual(["command"]);
+    expect(cursor.asyncCommand).toBe(false);
+    expect(cursor.scopeSupport.plugin).toBe("native");
+    expect(cursor.scopeSupport.skill).toBe("unsupported");
+    expect(cursor.scopeSupport.agent).toBe("unsupported");
+    expect(cursor.runtimeNotesByEvent.SessionStart).toContain("native-event-names-are-lower-camel");
+  });
+
   test("records Claude event-specific handler constraints", () => {
     for (const event of hookProviderCapabilities.claude.documentedEvents) {
       expect([...hookHandlerTypesForEvent("claude", event)], event).not.toEqual([]);
@@ -79,6 +95,7 @@ describe("hook provider capabilities", () => {
   test("dogfoods provider hook evidence for payload and runtime facts", () => {
     const claude = hookProviderCapabilities.claude;
     const codex = hookProviderCapabilities.codex;
+    const cursor = hookProviderCapabilities.cursor;
 
     expect(claude.providerRefByEvent.PreToolUse).toBe("claude-hooks-overlay");
     expect(claude.matcherEvaluationByEvent.PreToolUse).toBe("exact-list-or-regex");
@@ -98,6 +115,10 @@ describe("hook provider capabilities", () => {
     expect(codex.rawOutputFieldsByEvent.PreToolUse).toEqual(expect.arrayContaining(["continue", "decision", "hookSpecificOutput", "stopReason", "suppressOutput"]));
     expect(codex.unsupportedOutputFieldsByEvent.PreToolUse).toEqual(["continue", "stopReason", "suppressOutput"]);
     expect(codex.handlerSkippedFieldsByType.command).toEqual(["async"]);
+
+    expect(cursor.providerRefByEvent.BeforeSubmitPrompt).toBe("cursor-hooks-docs");
+    expect(cursor.matcherEvaluationByEvent.BeforeSubmitPrompt).toBe("ignored");
+    expect(cursor.canBlockByEvent.BeforeSubmitPrompt).toBe(true);
   });
 });
 

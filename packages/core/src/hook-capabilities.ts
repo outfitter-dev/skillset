@@ -69,6 +69,37 @@ export type AdaptiveHookUnitPath =
 
 const CLAUDE_HOOK_EVIDENCE = getProviderHookEvidence("claude");
 const CODEX_HOOK_EVIDENCE = getProviderHookEvidence("codex");
+const CURSOR_HOOK_EVIDENCE = getProviderHookEvidence("cursor");
+
+const CURSOR_NATIVE_EVENT_BY_CANONICAL: Readonly<Record<string, string>> = {
+  AfterAgentResponse: "afterAgentResponse",
+  AfterAgentThought: "afterAgentThought",
+  AfterFileEdit: "afterFileEdit",
+  AfterMCPExecution: "afterMCPExecution",
+  AfterShellExecution: "afterShellExecution",
+  AfterTabFileEdit: "afterTabFileEdit",
+  BeforeMCPExecution: "beforeMCPExecution",
+  BeforeReadFile: "beforeReadFile",
+  BeforeShellExecution: "beforeShellExecution",
+  BeforeSubmitPrompt: "beforeSubmitPrompt",
+  BeforeTabFileRead: "beforeTabFileRead",
+  PostCompact: "postCompact",
+  PostToolUse: "postToolUse",
+  PostToolUseFailure: "postToolUseFailure",
+  PreCompact: "preCompact",
+  PreToolUse: "preToolUse",
+  SessionEnd: "sessionEnd",
+  SessionStart: "sessionStart",
+  Stop: "stop",
+  SubagentStart: "subagentStart",
+  SubagentStop: "subagentStop",
+  UserPromptSubmit: "userPromptSubmit",
+  WorkspaceOpen: "workspaceOpen",
+};
+
+const CURSOR_CANONICAL_EVENT_BY_NATIVE: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.entries(CURSOR_NATIVE_EVENT_BY_CANONICAL).map(([canonical, native]) => [native, canonical])
+);
 
 export const CLAUDE_HOOK_EVENTS: ReadonlySet<string> = eventSet(CLAUDE_HOOK_EVIDENCE);
 export const CODEX_HOOK_EVENTS: ReadonlySet<string> = eventSet(CODEX_HOOK_EVIDENCE);
@@ -97,7 +128,17 @@ export const hookProviderCapabilities: Readonly<Record<HookCapabilityProvider, H
     },
     statusMessage: true,
   }),
-  cursor: unsupportedCapability("cursor"),
+  cursor: capabilityFromEvidence(CURSOR_HOOK_EVIDENCE, {
+    asyncCommand: false,
+    scopeSupport: {
+      agent: "unsupported",
+      plugin: "native",
+      project: "native",
+      skill: "unsupported",
+      user: "native",
+    },
+    statusMessage: false,
+  }),
 };
 
 function eventSet(evidence: ProviderHookEvidence): ReadonlySet<string> {
@@ -106,41 +147,6 @@ function eventSet(evidence: ProviderHookEvidence): ReadonlySet<string> {
 
 function handlerTypeSet(evidence: ProviderHookEvidence): ReadonlySet<string> {
   return new Set(evidence.handlerTypes.map((handler) => handler.type));
-}
-
-function unsupportedCapability(provider: HookCapabilityProvider): HookProviderCapability {
-  return {
-    asyncCommand: false,
-    canBlockByEvent: {},
-    configFields: {
-      groupFields: [],
-      handlerCommonFields: [],
-      rootFields: [],
-    },
-    documentedEvents: new Set(),
-    handlerFieldsByType: {},
-    handlerSkippedFieldsByType: {},
-    handlerTypes: new Set(),
-    handlerTypesByEvent: {},
-    inputFieldsByEvent: {},
-    matcherByEvent: {},
-    matcherEvaluationByEvent: {},
-    matcherValuesByEvent: {},
-    outputFieldsByEvent: {},
-    provider,
-    providerRefByEvent: {},
-    rawOutputFieldsByEvent: {},
-    runtimeNotesByEvent: {},
-    scopeSupport: {
-      agent: "unsupported",
-      plugin: "unsupported",
-      project: "unsupported",
-      skill: "unsupported",
-      user: "unsupported",
-    },
-    statusMessage: false,
-    unsupportedOutputFieldsByEvent: {},
-  };
 }
 
 function capabilityFromEvidence(
@@ -176,11 +182,21 @@ function capabilityFromEvidence(
 }
 
 export function hookHandlerTypesForEvent(provider: HookCapabilityProvider, event: string): ReadonlySet<string> {
-  return hookProviderCapabilities[provider].handlerTypesByEvent[event] ?? new Set();
+  return hookProviderCapabilities[provider].handlerTypesByEvent[canonicalHookEventName(provider, event)] ?? new Set();
 }
 
 export function hookEventSupported(provider: HookCapabilityProvider, event: string): boolean {
-  return hookProviderCapabilities[provider].documentedEvents.has(event);
+  return hookProviderCapabilities[provider].documentedEvents.has(canonicalHookEventName(provider, event));
+}
+
+export function canonicalHookEventName(provider: HookCapabilityProvider, event: string): string {
+  if (provider !== "cursor") return event;
+  return CURSOR_CANONICAL_EVENT_BY_NATIVE[event] ?? event;
+}
+
+export function nativeHookEventName(provider: HookCapabilityProvider, event: string): string {
+  if (provider !== "cursor") return event;
+  return CURSOR_NATIVE_EVENT_BY_CANONICAL[event] ?? event;
 }
 
 export function classifyAdaptiveHookUnitPath(path: string): AdaptiveHookUnitPath {
