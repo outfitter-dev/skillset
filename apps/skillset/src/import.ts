@@ -11,7 +11,7 @@ import {
 } from "@skillset/core";
 
 import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
-import { readSkillsetMetadata, readSkillsetName, readString } from "./config";
+import { readSkillsetMetadata, readSkillsetName, readString, targetNames } from "./config";
 import { compareStrings, resolveInside, validateSlug } from "./path";
 import { detectWorkspaceSourceDir } from "./resolver";
 import { selectorForPluginConfig, selectorForPluginFeature, selectorForStandaloneSkill } from "./source-unit-selector";
@@ -23,7 +23,7 @@ const PLUGINS_DIR = "plugins";
 const SKILLS_DIR = "skills";
 
 export type ImportKind = "plugin" | "plugins" | "skill" | "skills";
-export type ImportProvider = "agents" | "claude" | "codex" | "skillset";
+export type ImportProvider = "agents" | "claude" | "codex" | "cursor" | "skillset";
 type SingularImportKind = "plugin" | "skill";
 
 /**
@@ -35,6 +35,7 @@ const RECOGNIZED_SOURCE_KEYS: ReadonlySet<string> = new Set([
   "allowed_tools",
   "claude",
   "codex",
+  "cursor",
   "description",
   "id",
   "implicit_invocation",
@@ -48,9 +49,9 @@ const RECOGNIZED_SOURCE_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Frontmatter keys that are target-native (Claude/Codex) rather than Skillset
+ * Frontmatter keys that are target-native provider fields rather than Skillset
  * source. Import preserves them verbatim and reports them so the author can
- * decide whether to move them under a portable key or a `claude`/`codex` block.
+ * decide whether to move them under a portable key or a provider-specific block.
  */
 const KNOWN_TARGET_NATIVE_KEYS: ReadonlySet<string> = new Set([
   "allowed-tools",
@@ -301,7 +302,7 @@ function importWarnings(classification: FrontmatterClassification): readonly str
   if (classification.targetNative.length > 0) {
     warnings.push(
       `preserved target-native fields verbatim: ${classification.targetNative.join(", ")}. ` +
-        "Consider moving them to a portable source key (e.g. tool_intent, implicit_invocation) or a claude/codex block."
+        "Consider moving them to a portable source key (e.g. tool_intent, implicit_invocation) or a provider-specific block."
     );
   }
   if (classification.unsupported.length > 0) {
@@ -441,9 +442,10 @@ function importNativeHookRenderResult(
 
 async function importedNativePluginTargets(targetPath: string): Promise<readonly TargetName[]> {
   const targets: TargetName[] = [];
-  if (await exists(join(targetPath, ".claude-plugin", "plugin.json"))) targets.push("claude");
-  if (await exists(join(targetPath, ".codex-plugin", "plugin.json"))) targets.push("codex");
-  return targets.length === 0 ? ["claude", "codex"] : targets;
+  for (const target of targetNames()) {
+    if (await exists(join(targetPath, `.${target}-plugin`, "plugin.json"))) targets.push(target);
+  }
+  return targets.length === 0 ? targetNames() : targets;
 }
 
 function isClaudeToolPolicyField(field: string): boolean {
@@ -665,6 +667,7 @@ function defaultProviderSkillRoot(provider: ImportProvider): string {
   if (provider === "agents") return join(home, ".agents", "skills");
   if (provider === "claude") return join(home, ".claude", "skills");
   if (provider === "codex") return join(home, ".codex", "skills");
+  if (provider === "cursor") return join(home, ".cursor", "skills");
   return join(home, ".skillset");
 }
 
@@ -742,8 +745,7 @@ async function isPluginSource(sourcePath: string): Promise<boolean> {
   return (
     (await exists(join(sourcePath, "skillset.yaml"))) ||
     (await exists(join(sourcePath, "config.yaml"))) ||
-    (await exists(join(sourcePath, ".claude-plugin", "plugin.json"))) ||
-    (await exists(join(sourcePath, ".codex-plugin", "plugin.json")))
+    (await nativePluginManifestPath(sourcePath)) !== undefined
   );
 }
 
@@ -813,16 +815,21 @@ async function writeImportedPluginConfig(
 }
 
 async function readNativePluginManifest(targetPath: string): Promise<JsonRecord> {
-  for (const file of [".claude-plugin/plugin.json", ".codex-plugin/plugin.json"]) {
-    const candidate = join(targetPath, file);
-    if (!(await exists(candidate))) continue;
+  const candidate = await nativePluginManifestPath(targetPath);
+  if (candidate !== undefined) {
     const parsed = JSON.parse(await readFile(candidate, "utf8")) as unknown;
-    if (!isJsonRecord(parsed)) {
-      throw new Error(`skillset: expected native plugin manifest ${candidate} to contain a JSON object`);
-    }
-    return parsed;
+    if (isJsonRecord(parsed)) return parsed;
+    throw new Error(`skillset: expected native plugin manifest ${candidate} to contain a JSON object`);
   }
   return {};
+}
+
+async function nativePluginManifestPath(targetPath: string): Promise<string | undefined> {
+  for (const target of targetNames()) {
+    const candidate = join(targetPath, `.${target}-plugin`, "plugin.json");
+    if (await exists(candidate)) return candidate;
+  }
+  return undefined;
 }
 
 async function exists(path: string): Promise<boolean> {

@@ -14,8 +14,8 @@ Use this skill when working on the local `skillset` compiler from a Claude-orien
 
 - The compiler repo is `/path/to/skillset`.
 - `.skillset/` and `skillset.yaml` are source truth/state for this repo's own generated skills and plugin.
-- `.skillset/`, `plugins/`, `.claude/skills`, and `.agents/skills` are generated or operational outputs when self-building this repo.
-- Do not publish, globally install, symlink, or mutate user-level Claude/Codex config as part of normal development.
+- `.skillset/`, `plugins/`, `.claude/skills`, `.agents/skills`, and `.cursor/skills` are generated or operational outputs when self-building this repo.
+- Do not publish, globally install, symlink, or mutate user-level provider config as part of normal development.
 
 ## Development Loop
 
@@ -30,5 +30,5 @@ Use this skill when working on the local `skillset` compiler from a Claude-orien
 
 - Schema and resolver behavior should reject ambiguous source contracts, and shared structural validation should live in `@skillset/schema` rather than parallel compiler or Workbench field lists.
 - Configured generated destination roots should never delete or write outside the repo or inside `.skillset/`, `.skillset/cache/`, or `.skillset/snapshots/`. Skillset-owned operational cache paths are reported under `.skillset/cache/` but physically resolve to the repo's XDG cache bucket; Git-backed recovery snapshots may live under `.skillset/snapshots/`.
-- Claude-specific dynamic context should not leak into Codex-enabled skills without an explicit fallback.
+- Claude-specific dynamic context should not leak into non-Claude provider outputs without an explicit fallback.
 - Generated skill frontmatter should stay light: `metadata.version` and `metadata.generated`.

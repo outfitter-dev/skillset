@@ -34,7 +34,7 @@ The command builds the current rendering in memory, extracts expected versions, 
 
 ## Current Loci
 
-Current audits cover generated Claude and Codex plugin manifests, plugin skill manifests, standalone skill manifests, Claude marketplace metadata versions, and Claude marketplace plugin entry versions. The authority is release state when a release scope exists, otherwise source version metadata and inheritance rules.
+Current audits cover generated provider plugin manifests, plugin skill manifests, standalone skill manifests, marketplace metadata versions, and marketplace plugin entry versions. The authority is release state when a release scope exists, otherwise source version metadata and inheritance rules.
 
 Future extensions can add downstream distribution manifests and package metadata by classifying each locus with the same shape: path, field, scope, target, expected version, actual version, authority, and status.
 

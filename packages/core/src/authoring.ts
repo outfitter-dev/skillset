@@ -16,6 +16,7 @@ import { inspectSkillset } from "./lint";
 import { compareStrings } from "./path";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
+import { targetNames } from "./targets";
 import type { BuildGraph, GeneratedEntry, LintIssue, SkillsetOptions, SourceOrigin } from "./types";
 import { isJsonRecord, parseMarkdown, stringifyMarkdown } from "./yaml";
 
@@ -583,7 +584,7 @@ function explainSourceKind(graph: BuildGraph, target: string): ExplainKind {
 function sourceNotes(graph: BuildGraph, target: string): readonly string[] {
   const agent = graph.projectAgents.find((candidate) => relative(graph.rootPath, candidate.sourcePath) === target);
   if (agent !== undefined) {
-    const targets = (["claude", "codex"] as const)
+    const targets = targetNames()
       .filter((name) => agent.targets[name].enabled)
       .join(", ");
     return [`Project-scoped portable agent. Enabled targets: ${targets.length > 0 ? targets : "none"}.`];
@@ -602,7 +603,7 @@ function sourceNotes(graph: BuildGraph, target: string): readonly string[] {
   ].find((candidate) => relative(graph.rootPath, candidate.sourcePath) === target);
   if (skill === undefined) return [];
 
-  const targets = (["claude", "codex"] as const)
+  const targets = targetNames()
     .filter((name) => skill.targets[name].enabled)
     .join(", ");
   const notes = [`Enabled targets: ${targets.length > 0 ? targets : "none"}.`];

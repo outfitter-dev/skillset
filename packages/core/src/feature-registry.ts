@@ -329,7 +329,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     renderOwner: "packages/core/src/render.ts",
     sourceShape: "plugin mcp/source pointer or conventional .mcp.json",
     status: "implemented",
-    summary: "Copies validated plugin MCP server definitions into Claude and Codex plugin outputs.",
+    summary: "Copies validated plugin MCP server definitions into generated provider plugin outputs.",
     targetSupport: bothTargetsWithTargetEvidence("native", [
       docs("docs/features/mcp-servers.md"),
     ], {
@@ -367,7 +367,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
   pluginCompanionFeature({
     id: "plugin-assets",
     sourceShape: "plugin assets/",
-    summary: "Copies plugin asset companions into Claude and Codex plugin outputs.",
+    summary: "Copies plugin asset companions into generated provider plugin outputs.",
     targetSupport: bothTargets("pass_through", [docs("docs/features/plugins.md")]),
     title: "Plugin Assets",
   }),
@@ -586,14 +586,14 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
   pluginCompanionFeature({
     id: "plugin-readme",
     sourceShape: "plugin README.md",
-    summary: "Copies plugin README companions into Claude and Codex plugin outputs.",
+    summary: "Copies plugin README companions into generated provider plugin outputs.",
     targetSupport: bothTargets("pass_through", [docs("docs/features/plugins.md")]),
     title: "Plugin README",
   }),
   pluginCompanionFeature({
     id: "plugin-scripts",
     sourceShape: "plugin scripts/",
-    summary: "Copies plugin script companions into Claude and Codex plugin outputs.",
+    summary: "Copies plugin script companions into generated provider plugin outputs.",
     targetSupport: bothTargets("pass_through", [docs("docs/features/plugins.md")]),
     title: "Plugin Scripts",
   }),
@@ -623,7 +623,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
   pluginCompanionFeature({
     id: "plugin-src",
     sourceShape: "plugin src/",
-    summary: "Copies plugin source companions into Claude and Codex plugin outputs.",
+    summary: "Copies plugin source companions into generated provider plugin outputs.",
     targetSupport: bothTargets("pass_through", [docs("docs/features/plugins.md")]),
     title: "Plugin Source",
   }),
@@ -817,7 +817,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     renderOwner: "packages/core/src/render.ts",
     sourceShape: "adaptive hook context.strategy toolkit runtime context helper",
     status: "implemented",
-    summary: "Normalizes Claude and Codex hook runtime context into Skillset fields for hook scripts through a typed API and shell-friendly CLI.",
+    summary: "Normalizes provider hook runtime context into Skillset fields for hook scripts through a typed API and shell-friendly CLI.",
     targetSupport: {
       claude: {
         evidence: [

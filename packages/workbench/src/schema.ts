@@ -1,4 +1,5 @@
 import {
+  TARGET_NAMES,
   validateAgentFrontmatter,
   validateHookDefinitionSource,
   validateInstructionFrontmatter,
@@ -18,6 +19,8 @@ import type {
 } from "./types";
 
 export type WorkbenchSourceContractKind = "agent" | "hook" | "instruction" | "skill" | "workspace-config";
+
+const TARGET_LIST = TARGET_NAMES.join(", ");
 
 export interface WorkbenchSourceContractInput {
   readonly content: string;
@@ -147,7 +150,7 @@ function frontmatterSchemaMessage(
   const value = schemaPathValue(data, diagnostic.path);
 
   if (diagnostic.code.endsWith("/key") && key === "targets") {
-    return `${subjectKind}s must remove targets; use root compile.targets and claude/codex blocks for file-level behavior`;
+    return `${subjectKind}s must remove targets; use root compile.targets and provider-specific blocks for file-level behavior`;
   }
   if (diagnostic.code.endsWith("/target")) {
     return `${key} must be true, false, or an object when present`;
@@ -492,7 +495,7 @@ function sourceContractFix(
   if (diagnostic.code.endsWith("/key") && key === "targets") {
     return {
       kind: "suggestion",
-      message: "Move provider selection to `skillset.yaml` as `compile:\\n  targets: [claude, codex]`; keep file-level behavior in `claude:` or `codex:` blocks.",
+      message: `Move provider selection to \`skillset.yaml\` as \`compile:\\n  targets: [${TARGET_LIST}]\`; keep file-level behavior in provider-specific blocks.`,
     };
   }
   if (diagnostic.code.endsWith("/target")) {
@@ -523,7 +526,7 @@ function sourceContractFix(
     return { kind: "suggestion", message: "Use `skillset:\\n  schema: 1`." };
   }
   if (diagnostic.code === "schema/workspace-config/targets") {
-    return { kind: "suggestion", message: "Replace top-level `targets` with `compile:\\n  targets: [claude, codex]`." };
+    return { kind: "suggestion", message: `Replace top-level \`targets\` with \`compile:\\n  targets: [${TARGET_LIST}]\`.` };
   }
   if (diagnostic.code === "schema/workspace-config/compile-build") {
     return { kind: "suggestion", message: "Use `compile:\\n  build: all` or `compile:\\n  build: updated`." };
@@ -538,7 +541,7 @@ function sourceContractFix(
     };
   }
   if (diagnostic.code === "schema/workspace-config/target" && diagnostic.path.startsWith("$.compile.targets[")) {
-    return { kind: "suggestion", message: `Remove unsupported target ${JSON.stringify(value)}; supported targets are claude and codex.` };
+    return { kind: "suggestion", message: `Remove unsupported target ${JSON.stringify(value)}; supported targets are ${TARGET_LIST}.` };
   }
   if (diagnostic.code === "schema/hook/event") {
     return { kind: "suggestion", message: "Use supported hook event names from `skillset lookup hooks --events --compat`." };

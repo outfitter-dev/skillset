@@ -113,19 +113,25 @@ function isProviderFormatConformanceOutcome(outcome: SkillsetRenderResult): bool
   if (outcome.featureId === "standalone-skills") return true;
   if (outcome.featureId === "plugin-skills") return true;
   if (outcome.featureId === "plugin-agents" && outcome.target === "claude") return true;
+  if (outcome.featureId === "plugin-agents" && outcome.target === "cursor") return true;
   if (outcome.featureId === "project-instructions" && outcome.target === "codex") return true;
+  if (outcome.featureId === "project-instructions" && outcome.target === "cursor") return true;
   return false;
 }
 
 function isProviderFormatConformanceFile(file: RenderedFile): boolean {
   if (file.path.endsWith("/.claude-plugin/plugin.json")) return true;
   if (file.path.endsWith("/.codex-plugin/plugin.json")) return true;
+  if (file.path.endsWith("/.cursor-plugin/plugin.json")) return true;
   if (isClaudeHookPath(file.path)) return true;
   if (isCodexHookPath(file.path)) return true;
+  if (isCursorHookPath(file.path)) return true;
   if (file.path === "AGENTS.md" || file.path.endsWith("/AGENTS.md")) return true;
   if (file.path.endsWith("/SKILL.md") && skillTarget(file.path) !== undefined) return true;
   if (isClaudeSubagentPath(file.path)) return true;
   if (isCodexSubagentPath(file.path)) return true;
+  if (isCursorAgentPath(file.path)) return true;
+  if (isCursorRulePath(file.path)) return true;
   return false;
 }
 
@@ -138,11 +144,17 @@ function checkProviderFormatConformanceFile(
   if (file.path.endsWith("/.codex-plugin/plugin.json")) {
     return checkCodexPluginManifest(file);
   }
+  if (file.path.endsWith("/.cursor-plugin/plugin.json")) {
+    return checkCursorPluginManifest(file);
+  }
   if (isClaudeHookFile(file)) {
     return checkClaudeHooks(file);
   }
   if (isCodexHookFile(file)) {
     return checkCodexHooks(file);
+  }
+  if (isCursorHookFile(file)) {
+    return checkCursorHooks(file);
   }
   if (file.path === "AGENTS.md" || file.path.endsWith("/AGENTS.md")) {
     return checkAgentsMarkdown(file);
@@ -152,6 +164,12 @@ function checkProviderFormatConformanceFile(
   }
   if (isCodexSubagentFile(file)) {
     return checkCodexSubagent(file);
+  }
+  if (isCursorAgentFile(file)) {
+    return checkCursorAgent(file);
+  }
+  if (isCursorRuleFile(file)) {
+    return checkCursorRule(file);
   }
   if (file.path.endsWith("/SKILL.md")) {
     return checkSkillMarkdown(file);
@@ -244,6 +262,35 @@ function checkCodexPluginManifest(
   return issues;
 }
 
+function checkCursorPluginManifest(
+  file: ProviderFormatConformanceFile
+): readonly ProviderFormatConformanceIssue[] {
+  const parsed = parseJsonRecord(file, "cursor", "cursor-plugin");
+  if (!parsed.ok) return parsed.issues;
+
+  const issues: ProviderFormatConformanceIssue[] = [];
+  const format = pluginManifestFormat("cursor-plugin");
+  const allowedFields = new Set([...format.requiredFields, ...format.optionalFields]);
+  issues.push(...checkRequiredFields(file, parsed.value, "cursor", "cursor-plugin", format.requiredFields));
+  issues.push(...checkFieldTypes(file, parsed.value, "cursor", "cursor-plugin", {
+    agents: "string",
+    category: "string",
+    commands: "string",
+    description: "string",
+    displayName: "string",
+    hooks: "string",
+    logo: "string",
+    mcpServers: "string",
+    name: "string",
+    rules: "string",
+    skills: "string",
+    tags: "string-array",
+    version: "string",
+  }));
+  issues.push(...checkUnknownFields(file, parsed.value, "cursor", "cursor-plugin", [...allowedFields]));
+  return issues;
+}
+
 function checkClaudeHooks(
   file: ProviderFormatConformanceFile
 ): readonly ProviderFormatConformanceIssue[] {
@@ -288,6 +335,25 @@ function checkCodexHooks(
     validateHookDefinition(parsed.value, { sourcePath: file.path, target: "codex" });
   } catch (error) {
     issues.push(issue(file, "codex", "codex-hooks-schema", "invalid-shape", errorMessage(error)));
+  }
+  return issues;
+}
+
+function checkCursorHooks(
+  file: ProviderFormatConformanceFile
+): readonly ProviderFormatConformanceIssue[] {
+  const parsed = parseJsonRecord(file, "cursor", "cursor-hooks");
+  if (!parsed.ok) return parsed.issues;
+
+  const format = cursorHooksFormat();
+  const issues: ProviderFormatConformanceIssue[] = [
+    ...checkFieldTypes(file, parsed.value, "cursor", "cursor-hooks", { hooks: "object" }),
+    ...checkUnknownFields(file, parsed.value, "cursor", "cursor-hooks", format.rootFields),
+  ];
+  try {
+    validateHookDefinition(parsed.value, { sourcePath: file.path, target: "cursor" });
+  } catch (error) {
+    issues.push(issue(file, "cursor", "cursor-hooks", "invalid-shape", errorMessage(error)));
   }
   return issues;
 }
@@ -347,12 +413,56 @@ function checkCodexSubagent(
   ];
 }
 
+function checkCursorAgent(
+  file: ProviderFormatConformanceFile
+): readonly ProviderFormatConformanceIssue[] {
+  const text = textDecoder.decode(file.content);
+  let frontmatter: JsonRecord;
+  try {
+    frontmatter = parseMarkdown(text, file.path).frontmatter;
+  } catch (error) {
+    return [issue(file, "cursor", "cursor-agent", "invalid-markdown", errorMessage(error))];
+  }
+
+  const format = cursorAgentFormat();
+  return [
+    ...checkRequiredFields(file, frontmatter, "cursor", "cursor-agent", format.requiredFields),
+    ...checkUnknownFields(file, frontmatter, "cursor", "cursor-agent", [
+      ...format.requiredFields,
+      ...format.optionalFields,
+      "metadata",
+    ]),
+  ];
+}
+
+function checkCursorRule(
+  file: ProviderFormatConformanceFile
+): readonly ProviderFormatConformanceIssue[] {
+  const text = textDecoder.decode(file.content);
+  let frontmatter: JsonRecord;
+  try {
+    frontmatter = parseMarkdown(text, file.path).frontmatter;
+  } catch (error) {
+    return [issue(file, "cursor", "cursor-rules", "invalid-markdown", errorMessage(error))];
+  }
+
+  const format = cursorRuleFormat();
+  return [
+    ...checkRequiredFields(file, frontmatter, "cursor", "cursor-rules", format.requiredFields),
+    ...checkUnknownFields(file, frontmatter, "cursor", "cursor-rules", [
+      ...format.requiredFields,
+      ...format.optionalFields,
+      "metadata",
+    ]),
+  ];
+}
+
 function checkSkillMarkdown(
   file: ProviderFormatConformanceFile
 ): readonly ProviderFormatConformanceIssue[] {
   const target = file.target ?? skillTarget(file.path) ?? "claude";
   const providerRef =
-    target === "codex" ? "codex-skill" : "claude-skill-frontmatter-overlay";
+    target === "codex" ? "codex-skill" : target === "cursor" ? "cursor-skill" : "claude-skill-frontmatter-overlay";
   const text = textDecoder.decode(file.content);
   let frontmatter: JsonRecord;
   try {
@@ -371,11 +481,12 @@ function checkSkillMarkdown(
     ]);
   }
 
-  const format = skillFrontmatterFormat("codex-skill");
+  const format = skillFrontmatterFormat(target === "cursor" ? "cursor-skill" : "codex-skill");
   return [
-    ...checkRequiredFields(file, frontmatter, "codex", providerRef, format.requiredFields ?? []),
-    ...checkUnknownFields(file, frontmatter, "codex", providerRef, [
+    ...checkRequiredFields(file, frontmatter, target, providerRef, format.requiredFields ?? []),
+    ...checkUnknownFields(file, frontmatter, target, providerRef, [
       ...(format.requiredFields ?? []),
+      ...(format.optionalFields ?? []),
       "metadata",
       "references",
     ]),
@@ -500,7 +611,7 @@ function fieldTypeLabel(expected: FieldType): string {
   return "a string";
 }
 
-function pluginManifestFormat(id: "claude-plugin" | "codex-plugin"): {
+function pluginManifestFormat(id: "claude-plugin" | "codex-plugin" | "cursor-plugin"): {
   readonly interfaceFields: readonly string[];
   readonly optionalFields: readonly string[];
   readonly requiredFields: readonly string[];
@@ -526,6 +637,16 @@ function claudeHooksFormat(): {
   };
 }
 
+function cursorHooksFormat(): {
+  readonly rootFields: readonly string[];
+} {
+  const snapshot = getProviderDestinationFormatSnapshot("cursor-hooks");
+  const format = isJsonRecord(snapshot?.format) ? snapshot.format : {};
+  return {
+    rootFields: readStringArray(format, "rootFields"),
+  };
+}
+
 function claudeSubagentFormat(): {
   readonly optionalFields: readonly string[];
   readonly requiredFields: readonly string[];
@@ -540,7 +661,7 @@ function claudeSubagentFormat(): {
   };
 }
 
-function skillFrontmatterFormat(id: "claude-skill" | "codex-skill"): {
+function skillFrontmatterFormat(id: "claude-skill" | "codex-skill" | "cursor-skill"): {
   readonly optionalFields?: readonly string[];
   readonly recommendedFields?: readonly string[];
   readonly requiredFields?: readonly string[];
@@ -565,6 +686,34 @@ function codexSubagentFormat(): {
   return {
     optionalFields: readStringArray(format, "optionalFields"),
     requiredFields: readStringArray(format, "requiredFields"),
+  };
+}
+
+function cursorAgentFormat(): {
+  readonly optionalFields: readonly string[];
+  readonly requiredFields: readonly string[];
+} {
+  const snapshot = getProviderDestinationFormatSnapshot("cursor-agent");
+  const frontmatter = isJsonRecord(snapshot?.format) && isJsonRecord(snapshot.format.frontmatter)
+    ? snapshot.format.frontmatter
+    : {};
+  return {
+    optionalFields: readStringArray(frontmatter, "optionalFields"),
+    requiredFields: readStringArray(frontmatter, "requiredFields"),
+  };
+}
+
+function cursorRuleFormat(): {
+  readonly optionalFields: readonly string[];
+  readonly requiredFields: readonly string[];
+} {
+  const snapshot = getProviderDestinationFormatSnapshot("cursor-rules");
+  const frontmatter = isJsonRecord(snapshot?.format) && isJsonRecord(snapshot.format.frontmatter)
+    ? snapshot.format.frontmatter
+    : {};
+  return {
+    optionalFields: readStringArray(frontmatter, "optionalFields"),
+    requiredFields: readStringArray(frontmatter, "requiredFields"),
   };
 }
 
@@ -599,6 +748,14 @@ function isCodexHookFile(file: ProviderFormatConformanceFile): boolean {
   return (file.target === "codex" && file.destination === "hooks") || isCodexHookPath(file.path);
 }
 
+function isCursorHookPath(path: string): boolean {
+  return hasPluginTargetSegment(path, "cursor") && path.endsWith("/hooks/hooks.json");
+}
+
+function isCursorHookFile(file: ProviderFormatConformanceFile): boolean {
+  return (file.target === "cursor" && file.destination === "hooks") || isCursorHookPath(file.path);
+}
+
 function isClaudeSubagentPath(path: string): boolean {
   return path.endsWith(".md") && (
     hasSegmentSequence(path, ".claude", "agents") ||
@@ -621,10 +778,36 @@ function isCodexSubagentFile(file: ProviderFormatConformanceFile): boolean {
   return (file.target === "codex" && file.destination === "agent") || isCodexSubagentPath(file.path);
 }
 
+function isCursorAgentPath(path: string): boolean {
+  return path.endsWith(".md") && (
+    hasSegmentSequence(path, ".cursor", "agents") ||
+    (hasPluginTargetSegment(path, "cursor") && hasSegment(path, "agents"))
+  );
+}
+
+function isCursorAgentFile(file: ProviderFormatConformanceFile): boolean {
+  return (
+    file.target === "cursor" &&
+    (file.destination === "agent" || file.destination === "agents")
+  ) || isCursorAgentPath(file.path);
+}
+
+function isCursorRulePath(path: string): boolean {
+  return path.endsWith(".mdc") && (
+    hasSegmentSequence(path, ".cursor", "rules") ||
+    (hasPluginTargetSegment(path, "cursor") && hasSegment(path, "rules"))
+  );
+}
+
+function isCursorRuleFile(file: ProviderFormatConformanceFile): boolean {
+  return (file.target === "cursor" && file.destination === "instructions") || isCursorRulePath(file.path);
+}
+
 function skillTarget(path: string): TargetName | undefined {
   if (!path.endsWith("/SKILL.md")) return undefined;
   if (hasSegmentSequence(path, ".agents", "skills") || hasPluginTargetSegment(path, "codex")) return "codex";
   if (hasSegmentSequence(path, ".claude", "skills") || hasPluginTargetSegment(path, "claude")) return "claude";
+  if (hasSegmentSequence(path, ".cursor", "skills") || hasPluginTargetSegment(path, "cursor")) return "cursor";
   return undefined;
 }
 

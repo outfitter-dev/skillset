@@ -1,0 +1,232 @@
+{
+  "buildMode": "updated",
+  "features": {
+    "promptArguments": true
+  },
+  "generatedBy": "skillset@0.1.0",
+  "items": [
+    {
+      "files": [
+        "skillset-adrs/SKILL.md",
+        "skillset-adrs/assets/adr-management.md",
+        "skillset-adrs/scripts/__tests__/promote-rewrite.test.ts",
+        "skillset-adrs/scripts/adr.ts",
+        "skillset-adrs/scripts/lib/cli.ts",
+        "skillset-adrs/scripts/lib/decision-map.ts",
+        "skillset-adrs/scripts/lib/discovery.ts",
+        "skillset-adrs/scripts/lib/frontmatter.ts",
+        "skillset-adrs/scripts/lib/git.ts",
+        "skillset-adrs/scripts/lib/index.ts",
+        "skillset-adrs/scripts/lib/paths.ts",
+        "skillset-adrs/scripts/lib/references.ts"
+      ],
+      "kind": "standalone-skill",
+      "name": "skillset-adrs",
+      "outputHash": "sha256:2d8b1827edf14c73728636774799c7e14601201597c435567a2b3a9308399e29",
+      "outputPath": "skillset-adrs/SKILL.md",
+      "sourceHash": "sha256:b4f15e3dd5655f4e96f0ee31c937ddb1564de511afbcf7178f900ede8aca6fbb",
+      "sourcePath": ".skillset/skills/skillset-adrs/SKILL.md",
+      "version": "0.1.0"
+    },
+    {
+      "files": [
+        "skillset-claude-development/SKILL.md"
+      ],
+      "kind": "standalone-skill",
+      "name": "skillset-claude-development",
+      "outputHash": "sha256:5956a0f2b50d35f87aee12e0716cc63440f56a2cde4826daa35d0713cc2a8e2b",
+      "outputPath": "skillset-claude-development/SKILL.md",
+      "sourceHash": "sha256:5dcc76361a9a0f5f3b5646e8b515be97a97b6afe779b295e829faa842240711c",
+      "sourcePath": ".skillset/skills/skillset-claude-development/SKILL.md",
+      "version": "0.1.0"
+    },
+    {
+      "files": [
+        "skillset-codex-development/SKILL.md"
+      ],
+      "kind": "standalone-skill",
+      "name": "skillset-codex-development",
+      "outputHash": "sha256:0d1d4dd9ce51e78063ec0d3057370f0e22ea54a8284220f825e00788eebebdc6",
+      "outputPath": "skillset-codex-development/SKILL.md",
+      "sourceHash": "sha256:3494a95a158ce156c26971ca5f348471a65fc54e2af513ab76479ccf33a88768",
+      "sourcePath": ".skillset/skills/skillset-codex-development/SKILL.md",
+      "version": "0.1.1"
+    },
+    {
+      "files": [
+        "skillset-repo-test-fixtures/SKILL.md"
+      ],
+      "kind": "standalone-skill",
+      "name": "skillset-repo-test-fixtures",
+      "outputHash": "sha256:66ce349f46964f0fe4ca342691603621058b98ce4eb5deb13bae1ccfd33778ed",
+      "outputPath": "skillset-repo-test-fixtures/SKILL.md",
+      "sourceHash": "sha256:430e5046d85f1f1099bfbd32afa8c97713d33c1e30bc27b5de8a07cba5905121",
+      "sourcePath": ".skillset/skills/skillset-repo-test-fixtures/SKILL.md",
+      "version": "0.1.2"
+    }
+  ],
+  "outputRoot": ".cursor/skills",
+  "renderResults": [
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/features/skills.md"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:70eb2f6bac761f362c4895d71da72e9e5c047b9525f40214844e79122f569201",
+          "ref": "cursor-skill",
+          "verifiedAt": "2026-06-23"
+        }
+      ],
+      "featureId": "standalone-skills",
+      "outputs": [
+        {
+          "kind": "standalone-skill",
+          "path": ".cursor/skills/skillset-adrs/SKILL.md"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".cursor/skills/skillset-adrs/assets/adr-management.md"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".cursor/skills/skillset-adrs/scripts/__tests__/promote-rewrite.test.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".cursor/skills/skillset-adrs/scripts/adr.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".cursor/skills/skillset-adrs/scripts/lib/cli.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".cursor/skills/skillset-adrs/scripts/lib/decision-map.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".cursor/skills/skillset-adrs/scripts/lib/discovery.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".cursor/skills/skillset-adrs/scripts/lib/frontmatter.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".cursor/skills/skillset-adrs/scripts/lib/git.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".cursor/skills/skillset-adrs/scripts/lib/index.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".cursor/skills/skillset-adrs/scripts/lib/paths.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".cursor/skills/skillset-adrs/scripts/lib/references.ts"
+        }
+      ],
+      "schema": "skillset-render-result@1",
+      "sourcePath": ".skillset/skills/skillset-adrs/SKILL.md",
+      "sourceUnit": "skill:skillset-adrs",
+      "status": "rendered",
+      "target": "cursor"
+    },
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/features/skills.md"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:70eb2f6bac761f362c4895d71da72e9e5c047b9525f40214844e79122f569201",
+          "ref": "cursor-skill",
+          "verifiedAt": "2026-06-23"
+        }
+      ],
+      "featureId": "standalone-skills",
+      "outputs": [
+        {
+          "kind": "standalone-skill",
+          "path": ".cursor/skills/skillset-claude-development/SKILL.md"
+        }
+      ],
+      "schema": "skillset-render-result@1",
+      "sourcePath": ".skillset/skills/skillset-claude-development/SKILL.md",
+      "sourceUnit": "skill:skillset-claude-development",
+      "status": "rendered",
+      "target": "cursor"
+    },
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/features/skills.md"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:70eb2f6bac761f362c4895d71da72e9e5c047b9525f40214844e79122f569201",
+          "ref": "cursor-skill",
+          "verifiedAt": "2026-06-23"
+        }
+      ],
+      "featureId": "standalone-skills",
+      "outputs": [
+        {
+          "kind": "standalone-skill",
+          "path": ".cursor/skills/skillset-codex-development/SKILL.md"
+        }
+      ],
+      "schema": "skillset-render-result@1",
+      "sourcePath": ".skillset/skills/skillset-codex-development/SKILL.md",
+      "sourceUnit": "skill:skillset-codex-development",
+      "status": "rendered",
+      "target": "cursor"
+    },
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/features/skills.md"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:70eb2f6bac761f362c4895d71da72e9e5c047b9525f40214844e79122f569201",
+          "ref": "cursor-skill",
+          "verifiedAt": "2026-06-23"
+        }
+      ],
+      "featureId": "standalone-skills",
+      "outputs": [
+        {
+          "kind": "standalone-skill",
+          "path": ".cursor/skills/skillset-repo-test-fixtures/SKILL.md"
+        }
+      ],
+      "schema": "skillset-render-result@1",
+      "sourcePath": ".skillset/skills/skillset-repo-test-fixtures/SKILL.md",
+      "sourceUnit": "skill:skillset-repo-test-fixtures",
+      "status": "rendered",
+      "target": "cursor"
+    }
+  ],
+  "schemaVersion": 1,
+  "selectedTargets": [
+    "claude",
+    "codex",
+    "cursor"
+  ],
+  "skillsetMetadata": true,
+  "sourceRoot": ".skillset",
+  "target": "workspace"
+}

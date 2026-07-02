@@ -2,8 +2,8 @@ skillset:
   schema: 1
   name: skillset
   title: Skillset
-  summary: Build source skills and plugins into Claude and Codex outputs.
-  description: Skillset compiles portable source skills and plugin bundles into target-native Claude and Codex artifacts.
+  summary: Build source skills and plugins into Claude, Codex, and Cursor outputs.
+  description: Skillset compiles portable source skills and plugin bundles into target-native Claude, Codex, and Cursor artifacts.
   version: 0.1.0
   author:
     name: Skillset Maintainers
@@ -27,3 +27,4 @@ skillset:
 
 claude: true
 codex: true
+cursor: true

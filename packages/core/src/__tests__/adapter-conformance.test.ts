@@ -22,6 +22,7 @@ skillset:
     name: conformance-market
 claude: true
 codex: true
+cursor: true
 `,
   ".skillset/skills/repo-skill/SKILL.md": `
 ---
@@ -89,12 +90,17 @@ describe("adapter conformance", () => {
       { featureId: "standalone-skills", sourceUnit: "skill:repo-skill", target: "claude" },
       { featureId: "plugin-skills", sourceUnit: "plugin.alpha.skill:plugin-skill", target: "codex" },
       { featureId: "project-instructions", sourceUnit: "instruction:AGENTS.md", target: "codex" },
+      { featureId: "project-instructions", sourceUnit: "instruction:root", target: "cursor" },
       { featureId: "project-agents", sourceUnit: "agent:reviewer", target: "codex" },
+      { featureId: "project-agents", sourceUnit: "agent:reviewer", target: "cursor" },
       { featureId: "plugin-mcp", sourceUnit: "plugin.alpha.feature:mcp", target: "claude" },
+      { featureId: "plugin-mcp", sourceUnit: "plugin.alpha.feature:mcp", target: "cursor" },
       { featureId: "dependencies", sourceUnit: "plugin.alpha.feature:dependencies", target: "claude" },
       { featureId: "dependencies", sourceUnit: "plugin.alpha.feature:dependencies", target: "codex" },
       { featureId: "tool-intent", sourceUnit: "plugin.alpha.skill:plugin-skill", target: "claude" },
       { featureId: "tool-intent", sourceUnit: "plugin.alpha.skill:plugin-skill", target: "codex" },
+      { featureId: "standalone-skills", sourceUnit: "skill:repo-skill", target: "cursor" },
+      { featureId: "plugin-skills", sourceUnit: "plugin.alpha.skill:plugin-skill", target: "cursor" },
     ]);
 
     expect(report).toEqual({ issues: [], ok: true });
@@ -102,13 +108,13 @@ describe("adapter conformance", () => {
 
   it("can inspect adopted destination snapshots for conformance support claims", () => {
     const pluginManifest = getSkillsetFeature("plugin-manifests");
-    const codexEvidence = pluginManifest?.targetSupport.codex.evidence ?? [];
-    const snapshotEvidence = codexEvidence.find((item) => item.kind === "provider-snapshot" && item.ref === "codex-plugin");
-    const snapshot = getProviderDestinationFormatSnapshot("codex-plugin");
+    const cursorEvidence = pluginManifest?.targetSupport.cursor.evidence ?? [];
+    const snapshotEvidence = cursorEvidence.find((item) => item.kind === "provider-snapshot" && item.ref === "cursor-plugin");
+    const snapshot = getProviderDestinationFormatSnapshot("cursor-plugin");
 
     expect(snapshotEvidence).toBeDefined();
     expect((snapshot?.format as { readonly manifest?: { readonly path?: string } })?.manifest?.path).toBe(
-      ".codex-plugin/plugin.json"
+      ".cursor-plugin/plugin.json"
     );
   });
 

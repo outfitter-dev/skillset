@@ -22,6 +22,7 @@ import {
   type HookMatcherKind,
 } from "./hook-capabilities";
 import { compareStrings } from "./path";
+import { targetNames } from "./targets";
 import type { TargetName } from "./types";
 
 export type LookupSubject = "agent" | "hooks" | "instruction" | "plugin" | "skill" | "workspace";
@@ -109,8 +110,6 @@ export interface LookupReport {
   readonly targets: readonly TargetName[];
   readonly views: readonly LookupView[];
 }
-
-const DEFAULT_TARGETS = ["claude", "codex"] as const satisfies readonly TargetName[];
 
 const SUBJECTS = [
   {
@@ -282,7 +281,7 @@ export function lookupSkillsetReference(query: LookupQuery = {}): LookupReport {
 }
 
 function normalizeTargets(targets: readonly TargetName[] | undefined): readonly TargetName[] {
-  if (targets === undefined || targets.length === 0) return DEFAULT_TARGETS;
+  if (targets === undefined || targets.length === 0) return targetNames();
   return [...new Set(targets)].sort(compareStrings);
 }
 

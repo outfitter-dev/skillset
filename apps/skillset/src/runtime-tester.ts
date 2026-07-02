@@ -18,6 +18,7 @@ import {
   writeRetainedRunLatest,
   type RetainedRunPaths,
 } from "./retained-runs";
+import { isTargetName } from "./config";
 import { loadBuildGraph } from "./resolver";
 import { renderValidatedJson } from "./structured-output";
 import type { BuildGraph, JsonRecord, SkillsetOptions, TargetName } from "./types";
@@ -326,7 +327,10 @@ function runtimeCommand(
   const latestRoot = resolveRetainedRunPath(rootPath, graph, ISOLATED_OUT_ROOT, xdg);
   if (config.target === "claude") {
     const bin = env.SKILLSET_RUNTIME_TESTER_CLAUDE_BIN ?? "claude";
-    const pluginArgs = claudePluginDirs(graph, latestRoot, config.plugins).flatMap((pluginDir) => ["--plugin-dir", pluginDir]);
+    const pluginArgs = runtimeTesterPluginDirs(graph, latestRoot, config.target, config.plugins).flatMap((pluginDir) => [
+      "--plugin-dir",
+      pluginDir,
+    ]);
     const settingSourcesArg = claudeSettingSourcesArg(config.claudeSettingSources ?? DEFAULT_CLAUDE_SETTING_SOURCES);
     const cmd = [
       bin,
@@ -346,6 +350,28 @@ function runtimeCommand(
       cwd: latestRoot,
       display: cmd.map((arg) => arg === ISOLATED_CLAUDE_SETTING_SOURCES_ARG ? CLAUDE_SETTING_SOURCES_DISPLAY : arg),
     };
+  }
+
+  if (config.target === "cursor") {
+    const bin = env.SKILLSET_RUNTIME_TESTER_CURSOR_BIN ?? "cursor-agent";
+    const pluginArgs = runtimeTesterPluginDirs(graph, latestRoot, config.target, config.plugins).flatMap((pluginDir) => [
+      "--plugin-dir",
+      pluginDir,
+    ]);
+    const cmd = [
+      bin,
+      "--print",
+      "--output-format",
+      "json",
+      "--mode",
+      "ask",
+      "--trust",
+      "--workspace",
+      latestRoot,
+      ...pluginArgs,
+      config.prompt,
+    ];
+    return { cmd, cwd: latestRoot, display: cmd };
   }
 
   const bin = env.SKILLSET_RUNTIME_TESTER_CODEX_BIN ?? "codex";
@@ -388,9 +414,10 @@ export function readClaudeSettingSources(
   throw new Error(`skillset: expected ${label} to be isolated, user, project, or local`);
 }
 
-function claudePluginDirs(
+function runtimeTesterPluginDirs(
   graph: BuildGraph,
   latestRoot: string,
+  target: "claude" | "cursor",
   plugins: readonly string[]
 ): readonly string[] {
   const selected = plugins.length === 0
@@ -398,13 +425,13 @@ function claudePluginDirs(
     : plugins;
   const enabled = new Set(
     graph.plugins
-      .filter((plugin) => plugin.targets.claude.enabled)
+      .filter((plugin) => plugin.targets[target].enabled)
       .map((plugin) => plugin.id)
   );
   return selected
     .filter((plugin) => enabled.has(plugin))
     .sort(compareStrings)
-    .map((plugin) => join(latestRoot, pluginTargetRoot(graph.root.outputs.plugins.claude, "claude", plugin)));
+    .map((plugin) => join(latestRoot, pluginTargetRoot(graph.root.outputs.plugins[target], target, plugin)));
 }
 
 function validateRuntimeTesterPlugins(
@@ -413,8 +440,8 @@ function validateRuntimeTesterPlugins(
   plugins: readonly string[]
 ): readonly string[] {
   if (plugins.length === 0) return [];
-  if (target !== "claude") {
-    throw new Error("skillset: runtime tester --plugin is only supported for the claude target");
+  if (target === "codex") {
+    throw new Error("skillset: runtime tester --plugin is only supported for targets with local plugin-dir support: claude, cursor");
   }
   const seen = new Set<string>();
   const selected: string[] = [];
@@ -427,8 +454,8 @@ function validateRuntimeTesterPlugins(
       const available = knownPlugins.length === 0 ? "none configured" : knownPlugins.join(", ");
       throw new Error(`skillset: unknown runtime tester plugin ${JSON.stringify(pluginId)}; available plugins: ${available}`);
     }
-    if (!plugin.targets.claude.enabled) {
-      throw new Error(`skillset: runtime tester plugin ${JSON.stringify(pluginId)} is not enabled for claude`);
+    if (!plugin.targets[target].enabled) {
+      throw new Error(`skillset: runtime tester plugin ${JSON.stringify(pluginId)} is not enabled for ${target}`);
     }
     selected.push(pluginId);
   }
@@ -613,7 +640,7 @@ async function readLatestRunId(
 async function readConfig(path: string): Promise<RuntimeTesterStoredConfig> {
   const raw = JSON.parse(await readFile(path, "utf8")) as unknown;
   if (!isRecord(raw)) throw new Error("skillset: runtime tester config is malformed");
-  if (raw.target !== "claude" && raw.target !== "codex") throw new Error("skillset: runtime tester config target is malformed");
+  if (!isTargetName(raw.target)) throw new Error("skillset: runtime tester config target is malformed");
   if (typeof raw.prompt !== "string") throw new Error("skillset: runtime tester config prompt is malformed");
   const claudeSettingSources = typeof raw.claudeSettingSources === "string"
     ? readClaudeSettingSources(raw.claudeSettingSources, "runtime tester config claudeSettingSources")
@@ -631,7 +658,7 @@ async function readConfig(path: string): Promise<RuntimeTesterStoredConfig> {
 
 async function readStatus(path: string): Promise<RuntimeTesterStatus> {
   const raw = JSON.parse(await readFile(path, "utf8")) as unknown;
-  if (!isRecord(raw) || typeof raw.runId !== "string" || (raw.target !== "claude" && raw.target !== "codex")) {
+  if (!isRecord(raw) || typeof raw.runId !== "string" || !isTargetName(raw.target)) {
     throw new Error("skillset: runtime tester status is malformed");
   }
   return raw as unknown as RuntimeTesterStatus;

@@ -2,7 +2,7 @@
   "author": {
     "name": "Skillset Maintainers"
   },
-  "description": "Build source skills and plugins into Claude and Codex outputs.",
+  "description": "Build source skills and plugins into Claude, Codex, and Cursor outputs.",
   "keywords": [
     "skillset",
     "skills",

@@ -8,7 +8,7 @@ Hook guardrails help humans and agents notice missing change reasons, stale gene
 
 ## Authoring
 
-V1 is print/snippet-first for installation and first-class for runtime execution. Skillset generates snippets for existing hook runners such as lefthook, Husky, pre-commit, or plain Git fallback hooks, and exposes `skillset hooks run` commands for reviewed Claude/Codex runtime configs to call. It should not take over `.git/hooks`, overwrite hook-manager config, or mutate user-level Claude/Codex runtime config during build/check/diff/import/init/create.
+V1 is print/snippet-first for installation and first-class for runtime execution. Skillset generates snippets for existing hook runners such as lefthook, Husky, pre-commit, or plain Git fallback hooks, and exposes `skillset hooks run` commands for reviewed provider runtime configs to call. It should not take over `.git/hooks`, overwrite hook-manager config, or mutate user-level provider runtime config during build/check/diff/import/init/create.
 
 Examples:
 

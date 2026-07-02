@@ -425,7 +425,7 @@ export function renderProviderSchemaSnapshotsSource(
 
 export const PROVIDER_SCHEMA_SNAPSHOT_SCHEMA = "skillset-provider-schema@1";
 
-export const PROVIDER_SCHEMA_TARGETS = ["claude", "codex"] as const;
+export const PROVIDER_SCHEMA_TARGETS = ["claude", "codex", "cursor"] as const;
 
 export type ProviderSchemaTarget = (typeof PROVIDER_SCHEMA_TARGETS)[number];
 

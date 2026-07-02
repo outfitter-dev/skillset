@@ -1,7 +1,7 @@
 {
   "name": "skillset",
   "version": "0.16.2",
-  "description": "Source-first compiler for Claude and Codex agent loadouts.",
+  "description": "Source-first compiler for provider-native agent loadouts.",
   "type": "module",
   "files": [
     "dist/*.js"
@@ -21,6 +21,7 @@
     "agents",
     "claude",
     "codex",
+    "cursor",
     "plugins",
     "skills"
   ],

@@ -34,6 +34,18 @@
       "version": "0.1.1"
     },
     {
+      "files": [
+        ".cursor/rules/fixtures.mdc"
+      ],
+      "kind": "rule",
+      "name": "fixtures",
+      "outputHash": "sha256:935fbea7a2406a4266a82f89a19a16d3cac23dc99682b530066cbb24b9e580d3",
+      "outputPath": ".cursor/rules/fixtures.mdc",
+      "sourceHash": "sha256:3d87ce1731a991776a4e2125f3251a5ebdfdb1845f42a049ffed4ba361d9db36",
+      "sourcePath": ".skillset/rules/fixtures.md",
+      "version": "0.1.1"
+    },
+    {
       "feature": "plugin",
       "files": [
         ".skillset/plugins/skillset/CHANGELOG.md"
@@ -249,6 +261,33 @@
           "ref": "docs/features/instructions.md"
         },
         {
+          "kind": "provider-snapshot",
+          "note": "sha256:b02aeab7b95d881cd961dfb8c34a5f1e32d2368f234c27d6d2eb65d74e995bd3",
+          "ref": "cursor-rules",
+          "verifiedAt": "2026-06-23"
+        }
+      ],
+      "featureId": "project-instructions",
+      "outputs": [
+        {
+          "kind": "rule",
+          "path": ".cursor/rules/fixtures.mdc"
+        }
+      ],
+      "schema": "skillset-render-result@1",
+      "sourcePath": ".skillset/rules/fixtures.md",
+      "sourceUnit": "instruction:fixtures",
+      "status": "transformed",
+      "target": "cursor"
+    },
+    {
+      "destination": "instruction",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/features/instructions.md"
+        },
+        {
           "kind": "provider-overlay",
           "note": "Codex AGENTS.md discovery and merge behavior is currently documented in prose; no adopted JSON Schema source is available.",
           "ref": "codex-agents-md-overlay"
@@ -277,7 +316,8 @@
   "schemaVersion": 1,
   "selectedTargets": [
     "claude",
-    "codex"
+    "codex",
+    "cursor"
   ],
   "skillsetMetadata": true,
   "sourceRoot": ".skillset",

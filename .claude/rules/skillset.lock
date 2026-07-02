@@ -45,7 +45,8 @@
   "schemaVersion": 1,
   "selectedTargets": [
     "claude",
-    "codex"
+    "codex",
+    "cursor"
   ],
   "skillsetMetadata": true,
   "sourceRoot": ".skillset",

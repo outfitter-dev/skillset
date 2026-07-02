@@ -2,7 +2,7 @@
 
 This directory holds durable documentation for the local Skillset compiler.
 
-- [Tenets](tenets.md): the slow-moving doctrine for how Skillset makes source-first Claude/Codex loadouts easier to author and safer to render.
+- [Tenets](tenets.md): the slow-moving doctrine for how Skillset makes source-first provider loadouts easier to author and safer to render.
 - [Architecture Decision Records](adrs/README.md): accepted decisions for source vocabulary, target rendering, compiler promises, and authoring workflows. Draft decisions live under [adrs/drafts](adrs/drafts/README.md).
 - [Five-Minute Quickstart](quickstart.md): a short first-author path from `init` to one built Claude and Codex skill.
 - [Share-Ready Checklist](quickstart.md#share-ready-checklist): the 0.16 author handoff bar before hooks or runtime activation enter the path.
@@ -12,7 +12,7 @@ This directory holds durable documentation for the local Skillset compiler.
 - [Schema Contracts](schema-contracts.md): the schema-first workflow, generated artifacts, and checklist for adding source/config/frontmatter fields without drift.
 - [Package Releases](package-releases.md): the GitHub Actions, Changesets, Bun package preflight, npm publish, and Trusted Publishing flow for the public package.
 - [0.x Latest Release Plan](0x-latest-release-plan.md): the release readiness bar for promoting the public package to npm `latest` without making 1.0 promises.
-- [Target Surfaces](target-surfaces.md): the evidence matrix mapping Skillset source to Claude/Codex target surfaces, with support vocabulary and live-doc verification dates. Golden manifest tests pin the shapes it claims.
+- [Target Surfaces](target-surfaces.md): the evidence matrix mapping Skillset source to provider target surfaces, with support vocabulary and live-doc verification dates. Golden manifest tests pin the shapes it claims.
 - [Workbench Check](features/workbench.md): the authoring diagnostics and generated-output verification split, plus package-level diagnostic scopes, presets, and fixtures.
 
 When changing the source contract, read the tenets first, check ADRs for prior decisions, use the feature reference for support shape, use the layout reference for current behavior, and follow the schema contract checklist.

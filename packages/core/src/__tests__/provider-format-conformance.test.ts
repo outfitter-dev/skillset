@@ -17,6 +17,7 @@ skillset:
   name: provider-format-root
 claude: true
 codex: true
+cursor: true
 `,
   ".skillset/skills/repo-skill/SKILL.md": `
 ---
@@ -70,6 +71,13 @@ mcp: true
   }
 }
 `,
+  ".skillset/plugins/alpha/rules/plugin.md": `
+---
+description: Plugin instructions.
+---
+
+Keep plugin output deterministic.
+`,
   ".skillset/plugins/alpha/skills/plugin-skill/SKILL.md": `
 ---
 name: plugin-skill
@@ -81,7 +89,7 @@ Use the plugin skill.
 };
 
 describe("provider format conformance", () => {
-  it("validates generated Claude and Codex outputs against adopted snapshots", async () => {
+  it("validates generated provider outputs against adopted snapshots", async () => {
     const root = await fixture(PROVIDER_FORMAT_FIXTURE);
     const build = await buildSkillsetResult(root, { isolated: true });
 
@@ -96,6 +104,11 @@ describe("provider format conformance", () => {
       ".skillset/cache/latest/plugins/alpha/codex/.codex-plugin/plugin.json",
       ".skillset/cache/latest/plugins/alpha/codex/hooks/hooks.json",
       ".skillset/cache/latest/plugins/alpha/codex/skills/plugin-skill/SKILL.md",
+      ".skillset/cache/latest/plugins/alpha/cursor/.cursor-plugin/plugin.json",
+      ".skillset/cache/latest/plugins/alpha/cursor/hooks/hooks.json",
+      ".skillset/cache/latest/plugins/alpha/cursor/skills/plugin-skill/SKILL.md",
+      ".skillset/cache/latest/.cursor/agents/reviewer.md",
+      ".skillset/cache/latest/.cursor/rules/root.mdc",
     ]));
     expect(report).toEqual({ checkedFiles: files.length, issues: [], ok: true });
   });
@@ -115,6 +128,16 @@ describe("provider format conformance", () => {
         hooks: {},
         stale: true,
       }),
+      rendered("plugins/alpha/cursor/.cursor-plugin/plugin.json", {
+        description: "Cursor plugin.",
+        mystery: true,
+        name: "alpha",
+        tags: "not-an-array",
+      }),
+      rendered("plugins/alpha/cursor/hooks/hooks.json", {
+        hooks: {},
+        stale: true,
+      }),
     ]);
 
     expect(report.ok).toBe(false);
@@ -125,6 +148,9 @@ describe("provider format conformance", () => {
       ["claude-plugin-manifest-schema", "unknown-destination-field", "plugins/alpha/claude/.claude-plugin/plugin.json"],
       ["claude-hooks", "unknown-destination-field", "plugins/alpha/claude/hooks/hooks.json"],
       ["codex-hooks-schema", "unknown-destination-field", "plugins/alpha/codex/hooks/hooks.json"],
+      ["cursor-plugin", "invalid-field-type", "plugins/alpha/cursor/.cursor-plugin/plugin.json"],
+      ["cursor-plugin", "unknown-destination-field", "plugins/alpha/cursor/.cursor-plugin/plugin.json"],
+      ["cursor-hooks", "unknown-destination-field", "plugins/alpha/cursor/hooks/hooks.json"],
     ]);
     expect(formatProviderFormatConformanceReport(report)).toContain("claude-plugin-manifest-schema");
   });
@@ -156,12 +182,33 @@ describe("provider format conformance", () => {
         "Review diffs carefully.",
         "",
       ].join("\n")),
+      textFile(".cursor/agents/reviewer.md", [
+        "---",
+        "name: reviewer",
+        "description: Reviews code.",
+        "surprise: true",
+        "---",
+        "",
+        "Review diffs carefully.",
+        "",
+      ].join("\n")),
+      textFile(".cursor/rules/repo.mdc", [
+        "---",
+        "description: Repo rule.",
+        "surprise: true",
+        "---",
+        "",
+        "Follow repo rules.",
+        "",
+      ].join("\n")),
     ]);
 
     expect(report.ok).toBe(false);
     expect(report.issues.map((issue) => [issue.providerRef, issue.code])).toEqual([
       ["claude-subagent-frontmatter-overlay", "unknown-destination-field"],
       ["codex-subagent-toml-overlay", "unknown-destination-field"],
+      ["cursor-agent", "unknown-destination-field"],
+      ["cursor-rules", "unknown-destination-field"],
       ["codex-plugin-manifest-overlay", "unknown-destination-field"],
       ["codex-plugin-manifest-overlay", "unknown-destination-field"],
     ]);

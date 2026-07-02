@@ -8,16 +8,15 @@ Runtime adapters describe how a Skillset rendering can be used by an actual agen
 
 ## Status
 
-Runtime adapter records are `planned`. The registry can now describe runtime
-support, and `skillset runtime-tester` can run non-interactive Claude or Codex
-prompts against isolated local renderings, but Skillset still only builds the
-Claude and Codex target renderings.
+Runtime adapter records describe how a generated provider rendering can be
+smoke-tested or consumed by a concrete runtime. `skillset runtime-tester` can
+run non-interactive Claude, Codex, and Cursor prompts against isolated local
+renderings while retaining inspectable run artifacts under the logical
+`.skillset/cache/runtime-tester` path.
 
-Cursor is now designed as the next first-class provider target, not a runtime-only
-compatibility candidate. Until the Cursor target schema, registry evidence,
-renderers, import path, conformance fixtures, and runtime smoke tests land
-together, `cursor` remains invalid in `compile.targets` and the runtime support
-record remains `planned`.
+Cursor is a first-class provider target, not a runtime-only compatibility
+candidate. It is opt-in through explicit `compile.targets: [cursor]`; the
+default target plan remains Claude and Codex.
 
 ## Authoring
 
@@ -56,8 +55,8 @@ Runtime support records live in the feature registry as `runtimeSupport` rows. A
 
 | Concept | Meaning | Current examples |
 | --- | --- | --- |
-| Build target | A provider rendering Skillset can render directly. | `claude`, `codex` |
-| Runtime adapter | A concrete runtime or harness that can consume a rendering or compatibility shim. | `claude-code`, `codex-cli`, `codex-app` |
+| Build target | A provider rendering Skillset can render directly. | `claude`, `codex`, `cursor` |
+| Runtime adapter | A concrete runtime or harness that can consume a rendering or compatibility shim. | `claude-code`, `codex-cli`, `codex-app`, `cursor` |
 | Distribution surface | A repo, marketplace, extension root, or package shape a rendering may be synced into. | Implemented `distributions.*` plan config; sync/publish remains future |
 | Activation harness | A generated test surface that asks whether a runtime notices or invokes a skill, agent, or plugin. | Implemented manual activation probe assets under `skillset test`; implemented live non-interactive prompt runs through `skillset runtime-tester` |
 
@@ -70,7 +69,7 @@ The test: adding a runtime must not make `compile.targets` accept a new value. I
 | Claude Code | `native` for current Claude target renderings | Claude project agents, plugin agents, plugin manifests, skills, hooks, and related surfaces remain target-native Claude output. |
 | Codex CLI | `native` for current Codex target renderings, `shimmed` for some near-match behavior | Codex TOML agents are native. Claude-style agent skill metadata is approximated through deterministic developer-instruction prefaces. |
 | Codex App | `externally_managed` where app/runtime activation is involved | Build can render app definitions, but activation and trust stay outside build. |
-| Cursor | `planned` | Planned first-class provider target; see the Cursor provider ADR and provider-surface baseline. Runtime smoke should use the local `agent` / `cursor-agent` CLI with isolated workspaces and `--plugin-dir` once Cursor output exists. |
+| Cursor | `native` for current Cursor target renderings | Runtime smoke uses the local `agent` / `cursor-agent` CLI with isolated workspaces, `--print`, `--output-format json`, `--mode ask`, `--trust`, `--workspace`, and `--plugin-dir`. |
 | Gemini CLI | `planned` | Needs current extension/distribution docs and fixture evidence before Skillset claims rendering or distribution support. |
 | Devin | `future` | Tracked as a possible runtime, not a current target. |
 | Droid | `future` | Tracked as a possible runtime, not a current target. |

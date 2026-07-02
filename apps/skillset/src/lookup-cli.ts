@@ -1,5 +1,7 @@
 import {
+  isTargetName,
   lookupSkillsetReference,
+  targetNames,
   type LookupReport,
   type LookupSubject,
   type LookupView,
@@ -48,8 +50,8 @@ export function readLookupSubject(value: string): LookupSubject {
 }
 
 export function readLookupTarget(value: string): TargetName {
-  if (value === "claude" || value === "codex") return value;
-  throw new Error(`skillset: unknown lookup compatibility target ${value}; expected claude or codex`);
+  if (isTargetName(value)) return value;
+  throw new Error(`skillset: unknown lookup compatibility target ${value}; expected ${targetNames().join(", ")}`);
 }
 
 export function addLookupTarget(targets: readonly TargetName[], target: TargetName): TargetName[] {
@@ -80,7 +82,7 @@ function printLookupReport(report: LookupReport): void {
       console.log(`  ${subject.subject}: ${subject.description}`);
       console.log(`    views: ${subject.defaultViews.join(", ")}`);
     }
-    console.log("  flags: --frontmatter --fields --field <path> --values --events --compat [claude|codex...] --examples --schema --claude --codex --json");
+    console.log("  flags: --frontmatter --fields --field <path> --values --events --compat [claude|codex|cursor...] --examples --schema --claude --codex --cursor --json");
     console.log(`skillset: listed ${report.subjects.length} lookup subjects`);
     return;
   }
