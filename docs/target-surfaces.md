@@ -56,6 +56,30 @@ Source examples use `<source-root>` as shorthand for the canonical `.skillset/` 
 
 Default behavior for unsupported or lossy build results is fail-loud. Softer modes must record visible warnings, skipped-source provenance, or force provenance before they can be treated as safe.
 
+## Cursor provider baseline
+
+Cursor provider support is planned as a first-class compile target, not a Claude
+or Codex compatibility shim. The contract is defined by the [Cursor provider
+ADR](adrs/drafts/20260702-cursor-is-a-first-class-provider.md). Provider evidence
+was live-doc checked on 2026-07-02 against the official Cursor docs.
+
+Cursor becomes implemented only when schema, registry, core, Workbench, lookup,
+generated schema artifacts, renderers, import/adopt, conformance fixtures,
+runtime-tester, docs, and generated guidance all agree on the same provider facts.
+Until then, `compile.targets: [cursor]` must remain invalid.
+
+| Cursor surface | Cursor destination | Status | Notes |
+| --- | --- | --- | --- |
+| Skills | `.cursor/skills/<skill>/SKILL.md` | Planned | Project-level Cursor skills use `SKILL.md`; plugin skills live under plugin-root `skills/`. |
+| Rules | `.cursor/rules/**/*.mdc` | Planned | Cursor also documents `AGENTS.md`; Skillset must decide project-rule rendering from Cursor intent, not from Claude/Codex filenames. |
+| Project subagents | `.cursor/agents/*.md` | Planned | Cursor frontmatter includes `name`, `description`, `model`, `readonly`, and `is_background`; Cursor-specific fields stay provider-native until portable intent is proven. |
+| Plugins | `.cursor-plugin/plugin.json` plus plugin-root components | Planned | Components include `rules/`, `skills/`, `agents/`, `commands/`, `hooks/hooks.json`, `mcp.json`, `assets/`, `scripts/`, and `README.md`. |
+| Marketplace | `.cursor-plugin/marketplace.json` | Planned | Multi-plugin repository catalog surface. External plugin references need provider evidence before marketplace update claims support. |
+| MCP | plugin-root `mcp.json` with `mcpServers` | Planned | Cursor detects plugin-root `mcp.json`; manifest `mcpServers` is needed only for custom paths or inline config. |
+| Hooks | plugin-root `hooks/hooks.json` | Planned | Cursor events are lower-camel provider-native names such as `sessionStart`, `beforeShellExecution`, `afterFileEdit`, `beforeSubmitPrompt`, `preCompact`, and `workspaceOpen`. |
+| Provider-native source | `<source-root>/_cursor/**` and `<source-root>/plugins/<plugin>/_cursor/**` | Planned | Native source remains provider-native by default and is lifted to adaptive source only when registry facts prove a faithful mapping. |
+| Runtime smoke | local `agent` / `cursor-agent` CLI | Planned | Use isolated workspaces, `--print`, `--output-format`, `--mode`, `--plugin-dir`, and `--workspace`; build must not install, trust, or mutate user-level Cursor config. |
+
 ## Source contract
 
 | Source | Renders to | Status | Notes |
