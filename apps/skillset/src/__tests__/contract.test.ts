@@ -6124,6 +6124,25 @@ test("SET-62: init detects nested plugins without a marketplace manifest", async
   ]);
 });
 
+test("SET-255: shared plugin lock does not hide authored plugin import candidates", async () => {
+  const root = await contractFixture({
+    ".claude-plugin/marketplace.json": JSON.stringify({
+      name: "demo-marketplace",
+      plugins: [
+        { name: "authored", source: "./plugins/authored" },
+        { name: "generated", source: "./plugins/generated/claude" },
+      ],
+    }),
+    "plugins/skillset.lock": "{}",
+    "plugins/authored/.claude-plugin/plugin.json": JSON.stringify({ name: "authored" }),
+    "plugins/generated/claude/.claude-plugin/plugin.json": JSON.stringify({ name: "generated" }),
+  });
+
+  const report = await initSkillset({ cwd: root, useGitRoot: false, write: false });
+
+  expect(report.importCandidates).toEqual([{ kind: "plugin", path: "plugins/authored" }]);
+});
+
 test("SET-62: nested plugin scan dedupes marketplace sources and guards containment", async () => {
   const root = await contractFixture({
     ".claude-plugin/marketplace.json": JSON.stringify({

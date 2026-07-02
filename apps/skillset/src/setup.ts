@@ -314,9 +314,7 @@ async function nestedPluginSources(rootPath: string): Promise<readonly string[]>
     if (!hasManifest) continue;
     const realSource = await realpath(absolutePath);
     if (realSource !== realRoot && !realSource.startsWith(`${realRoot}/`)) continue;
-    // Shared plugin output uses one lock at plugins/skillset.lock; only skip
-    // candidates that carry their own lock, not every sibling under plugins/.
-    if (await pathExists(join(absolutePath, "skillset.lock"))) continue;
+    if (await isManagedCandidate(absolutePath)) continue;
     const path = relative(realRoot, realSource).replaceAll("\\", "/");
     if (path.length === 0 || sources.includes(path)) continue;
     sources.push(path);
@@ -553,7 +551,8 @@ async function maybeCandidate(
 }
 
 async function isManagedCandidate(path: string): Promise<boolean> {
-  return (await pathExists(join(path, "skillset.lock"))) || (await pathExists(join(dirname(path), "skillset.lock")));
+  if (await pathExists(join(path, "skillset.lock"))) return true;
+  return basename(path) === "plugins" && (await pathExists(join(dirname(path), "skillset.lock")));
 }
 
 async function isManagedPluginOutputCandidate(rootPath: string, absolutePath: string): Promise<boolean> {
@@ -561,7 +560,11 @@ async function isManagedPluginOutputCandidate(rootPath: string, absolutePath: st
   const resolvedOutputRoot = resolve(outputRoot);
   const resolvedPath = resolve(absolutePath);
   if (resolvedPath !== resolvedOutputRoot && !resolvedPath.startsWith(`${resolvedOutputRoot}/`)) return false;
-  return pathExists(join(outputRoot, "skillset.lock"));
+  if (!(await pathExists(join(outputRoot, "skillset.lock")))) return false;
+  const relativePath = relative(resolvedOutputRoot, resolvedPath).replaceAll("\\", "/");
+  if (relativePath.length === 0) return true;
+  const parts = relativePath.split("/");
+  return parts.length >= 2 && (parts[1] === "claude" || parts[1] === "codex");
 }
 
 function compareCandidate(left: SetupImportCandidate, right: SetupImportCandidate): number {
