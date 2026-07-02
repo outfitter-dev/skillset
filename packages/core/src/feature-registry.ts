@@ -5,7 +5,7 @@ import {
   type ProviderDestinationFormatSnapshotId,
   type ProviderSchemaManualOverlayId,
   type ProviderSchemaSnapshotId,
-} from "@skillset/provider-formats";
+} from "@skillset/registry";
 
 import { compareStrings } from "./path";
 import type { TargetName } from "./types";
@@ -398,7 +398,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     renderOwner: "packages/core/src/render.ts",
     sourceShape: "plugin hooks/hooks.json",
     status: "implemented",
-    summary: "Copies plugin hook declarations with broad Claude validation and strict Codex validation.",
+    summary: "Copies plugin hook declarations with registry-backed provider event and handler validation.",
     targetSupport: bothTargetsWithTargetEvidence("pass_through", [
       docs("docs/features/hooks.md"),
     ], {

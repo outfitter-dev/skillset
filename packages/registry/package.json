@@ -1,5 +1,5 @@
 {
-  "name": "@skillset/provider-formats",
+  "name": "@skillset/registry",
   "version": "0.0.0",
   "private": true,
   "type": "module",

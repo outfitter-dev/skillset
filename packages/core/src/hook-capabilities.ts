@@ -1,3 +1,11 @@
+import {
+  getProviderHookEvidence,
+  type ProviderHookEvidence,
+  type ProviderHookFieldEvidence,
+  type ProviderHookMatcherEvaluation,
+  type ProviderHookMatcherKind,
+} from "@skillset/registry";
+
 import { compareStrings } from "./path";
 import type { TargetName } from "./types";
 
@@ -7,22 +15,34 @@ export type HookScope = "agent" | "plugin" | "project" | "skill" | "user";
 
 export type HookScopeSupport = "native" | "unsupported";
 
-export type HookMatcherKind =
-  | "agent-type"
-  | "compact-trigger"
-  | "ignored"
-  | "none"
-  | "session-source"
-  | "tool";
+export type HookMatcherKind = ProviderHookMatcherKind;
+export type HookMatcherEvaluation = ProviderHookMatcherEvaluation;
 
 export interface HookProviderCapability {
   readonly asyncCommand: boolean;
+  readonly canBlockByEvent: Readonly<Record<string, boolean>>;
+  readonly configFields: {
+    readonly groupFields: readonly string[];
+    readonly handlerCommonFields: readonly string[];
+    readonly rootFields: readonly string[];
+  };
   readonly documentedEvents: ReadonlySet<string>;
+  readonly handlerFieldsByType: Readonly<Record<string, readonly string[]>>;
+  readonly handlerSkippedFieldsByType: Readonly<Record<string, readonly string[]>>;
   readonly handlerTypes: ReadonlySet<string>;
+  readonly handlerTypesByEvent: Readonly<Record<string, ReadonlySet<string>>>;
+  readonly inputFieldsByEvent: Readonly<Record<string, readonly ProviderHookFieldEvidence[]>>;
   readonly matcherByEvent: Readonly<Record<string, HookMatcherKind>>;
+  readonly matcherEvaluationByEvent: Readonly<Record<string, HookMatcherEvaluation>>;
+  readonly matcherValuesByEvent: Readonly<Record<string, readonly string[]>>;
+  readonly outputFieldsByEvent: Readonly<Record<string, readonly string[]>>;
   readonly provider: HookCapabilityProvider;
+  readonly providerRefByEvent: Readonly<Record<string, string>>;
+  readonly rawOutputFieldsByEvent: Readonly<Record<string, readonly string[]>>;
+  readonly runtimeNotesByEvent: Readonly<Record<string, readonly string[]>>;
   readonly scopeSupport: Readonly<Record<HookScope, HookScopeSupport>>;
   readonly statusMessage: boolean;
+  readonly unsupportedOutputFieldsByEvent: Readonly<Record<string, readonly string[]>>;
 }
 
 export interface AdaptiveHookPathIssue {
@@ -47,61 +67,16 @@ export type AdaptiveHookUnitPath =
       readonly path: string;
     };
 
-export const CLAUDE_HOOK_EVENTS: ReadonlySet<string> = new Set([
-  "ConfigChange",
-  "CwdChanged",
-  "Elicitation",
-  "ElicitationResult",
-  "FileChanged",
-  "InstructionsLoaded",
-  "MessageDisplay",
-  "Notification",
-  "PermissionDenied",
-  "PermissionRequest",
-  "PostCompact",
-  "PostToolBatch",
-  "PostToolUseFailure",
-  "PreToolUse",
-  "PostToolUse",
-  "PreCompact",
-  "SessionEnd",
-  "SessionStart",
-  "Setup",
-  "Stop",
-  "StopFailure",
-  "SubagentStart",
-  "SubagentStop",
-  "TaskCompleted",
-  "TaskCreated",
-  "TeammateIdle",
-  "UserPromptSubmit",
-  "UserPromptExpansion",
-  "WorktreeCreate",
-  "WorktreeRemove",
-]);
+const CLAUDE_HOOK_EVIDENCE = getProviderHookEvidence("claude");
+const CODEX_HOOK_EVIDENCE = getProviderHookEvidence("codex");
 
-export const CODEX_HOOK_EVENTS: ReadonlySet<string> = new Set([
-  "PreToolUse",
-  "PermissionRequest",
-  "PostToolUse",
-  "PreCompact",
-  "PostCompact",
-  "SessionStart",
-  "SubagentStart",
-  "SubagentStop",
-  "UserPromptSubmit",
-  "Stop",
-]);
-
-export const CODEX_HOOK_HANDLER_TYPES: ReadonlySet<string> = new Set(["command"]);
+export const CLAUDE_HOOK_EVENTS: ReadonlySet<string> = eventSet(CLAUDE_HOOK_EVIDENCE);
+export const CODEX_HOOK_EVENTS: ReadonlySet<string> = eventSet(CODEX_HOOK_EVIDENCE);
+export const CODEX_HOOK_HANDLER_TYPES: ReadonlySet<string> = handlerTypeSet(CODEX_HOOK_EVIDENCE);
 
 export const hookProviderCapabilities: Readonly<Record<HookCapabilityProvider, HookProviderCapability>> = {
-  claude: {
+  claude: capabilityFromEvidence(CLAUDE_HOOK_EVIDENCE, {
     asyncCommand: true,
-    documentedEvents: CLAUDE_HOOK_EVENTS,
-    handlerTypes: new Set(["agent", "command", "http", "mcp_tool", "prompt"]),
-    matcherByEvent: Object.fromEntries([...CLAUDE_HOOK_EVENTS].map((event) => [event, "none" as const])),
-    provider: "claude",
     scopeSupport: {
       agent: "native",
       plugin: "native",
@@ -110,24 +85,9 @@ export const hookProviderCapabilities: Readonly<Record<HookCapabilityProvider, H
       user: "native",
     },
     statusMessage: true,
-  },
-  codex: {
+  }),
+  codex: capabilityFromEvidence(CODEX_HOOK_EVIDENCE, {
     asyncCommand: false,
-    documentedEvents: CODEX_HOOK_EVENTS,
-    handlerTypes: CODEX_HOOK_HANDLER_TYPES,
-    matcherByEvent: {
-      PermissionRequest: "tool",
-      PostCompact: "compact-trigger",
-      PostToolUse: "tool",
-      PreCompact: "compact-trigger",
-      PreToolUse: "tool",
-      SessionStart: "session-source",
-      Stop: "ignored",
-      SubagentStart: "agent-type",
-      SubagentStop: "agent-type",
-      UserPromptSubmit: "ignored",
-    },
-    provider: "codex",
     scopeSupport: {
       agent: "unsupported",
       plugin: "native",
@@ -136,8 +96,52 @@ export const hookProviderCapabilities: Readonly<Record<HookCapabilityProvider, H
       user: "native",
     },
     statusMessage: true,
-  },
+  }),
 };
+
+function eventSet(evidence: ProviderHookEvidence): ReadonlySet<string> {
+  return new Set(evidence.events.map((event) => event.name));
+}
+
+function handlerTypeSet(evidence: ProviderHookEvidence): ReadonlySet<string> {
+  return new Set(evidence.handlerTypes.map((handler) => handler.type));
+}
+
+function capabilityFromEvidence(
+  evidence: ProviderHookEvidence,
+  options: {
+    readonly asyncCommand: boolean;
+    readonly scopeSupport: Readonly<Record<HookScope, HookScopeSupport>>;
+    readonly statusMessage: boolean;
+  }
+): HookProviderCapability {
+  return {
+    asyncCommand: options.asyncCommand,
+    canBlockByEvent: Object.fromEntries(evidence.events.map((event) => [event.name, event.canBlock])),
+    configFields: evidence.config,
+    documentedEvents: eventSet(evidence),
+    handlerFieldsByType: Object.fromEntries(evidence.handlerTypes.map((handler) => [handler.type, handler.fields])),
+    handlerSkippedFieldsByType: Object.fromEntries(evidence.handlerTypes.map((handler) => [handler.type, handler.skippedFields ?? []])),
+    handlerTypes: handlerTypeSet(evidence),
+    handlerTypesByEvent: Object.fromEntries(evidence.events.map((event) => [event.name, new Set(event.handlerTypes)])),
+    inputFieldsByEvent: Object.fromEntries(evidence.events.map((event) => [event.name, event.inputFields])),
+    matcherByEvent: Object.fromEntries(evidence.events.map((event) => [event.name, event.matcherKind])),
+    matcherEvaluationByEvent: Object.fromEntries(evidence.events.map((event) => [event.name, event.matcherEvaluation])),
+    matcherValuesByEvent: Object.fromEntries(evidence.events.map((event) => [event.name, event.matcherValues])),
+    outputFieldsByEvent: Object.fromEntries(evidence.events.map((event) => [event.name, event.outputFields])),
+    provider: evidence.target,
+    providerRefByEvent: Object.fromEntries(evidence.events.map((event) => [event.name, event.providerRef])),
+    rawOutputFieldsByEvent: Object.fromEntries(evidence.events.map((event) => [event.name, event.rawOutputFields])),
+    runtimeNotesByEvent: Object.fromEntries(evidence.events.map((event) => [event.name, event.runtimeNotes])),
+    scopeSupport: options.scopeSupport,
+    statusMessage: options.statusMessage,
+    unsupportedOutputFieldsByEvent: Object.fromEntries(evidence.events.map((event) => [event.name, event.unsupportedOutputFields])),
+  };
+}
+
+export function hookHandlerTypesForEvent(provider: HookCapabilityProvider, event: string): ReadonlySet<string> {
+  return hookProviderCapabilities[provider].handlerTypesByEvent[event] ?? new Set();
+}
 
 export function hookEventSupported(provider: HookCapabilityProvider, event: string): boolean {
   return hookProviderCapabilities[provider].documentedEvents.has(event);
@@ -146,6 +150,7 @@ export function hookEventSupported(provider: HookCapabilityProvider, event: stri
 export function classifyAdaptiveHookUnitPath(path: string): AdaptiveHookUnitPath {
   const normalized = path.replaceAll("\\", "/").replace(/^\.\/+/, "");
   if (normalized === "hooks/hooks.json") return { kind: "native-aggregate", path: "hooks/hooks.json" };
+  if (/^hooks\/hooks-[^/]+\.json$/u.test(normalized)) return { kind: "ignored", path };
   if (!normalized.startsWith("hooks/") || !normalized.endsWith(".json")) return { kind: "ignored", path };
 
   const parts = normalized.split("/");

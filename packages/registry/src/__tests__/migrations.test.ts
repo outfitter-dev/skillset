@@ -10,7 +10,7 @@ import {
   type ProviderFormatMigrationEntry,
 } from "../index";
 
-describe("@skillset/provider-formats migrations", () => {
+describe("@skillset/registry migrations", () => {
   it("defines the destination-format update classifications", () => {
     expect(PROVIDER_FORMAT_MIGRATION_SAFETY_VALUES).toEqual([
       "compatible",

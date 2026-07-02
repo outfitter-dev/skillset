@@ -14,7 +14,7 @@ import {
   type ProviderSchemaSetSummary,
   type ProviderSchemaSnapshot,
   type ProviderSchemaSource,
-} from "@skillset/provider-formats";
+} from "@skillset/registry";
 
 export type ProviderMaintenanceSubcommand = "check" | "diff" | "update";
 
@@ -86,7 +86,7 @@ export async function runProviderMaintenance(
   command: ProviderMaintenanceSubcommand,
   options: ProviderMaintenanceOptions = {}
 ): Promise<ProviderMaintenanceReport> {
-  const schemaPath = options.schemaSnapshotPath ?? resolve(rootPath, "packages/provider-formats/src/schema-snapshots.ts");
+  const schemaPath = options.schemaSnapshotPath ?? resolve(rootPath, "packages/registry/src/schema-snapshots.ts");
   const schemaSnapshots = options.schemaSnapshots ?? listProviderSchemaSnapshots();
   const destinationSnapshots = options.destinationSnapshots ?? listProviderDestinationFormatSnapshots();
   const fetcher = options.fetcher ?? fetch;

@@ -66,9 +66,9 @@ describe("changeset guard", () => {
   });
 
   test("requires release intent for provider and schema contract changes", () => {
-    expect(isPackageAffectingPath("packages/provider-formats/src/schema-snapshots.ts")).toBe(true);
-    expect(isPackageAffectingPath("packages/provider-formats/src/migrations.ts")).toBe(true);
-    expect(isPackageAffectingPath("packages/provider-formats/src/__tests__/snapshots.test.ts")).toBe(false);
+    expect(isPackageAffectingPath("packages/registry/src/schema-snapshots.ts")).toBe(true);
+    expect(isPackageAffectingPath("packages/registry/src/migrations.ts")).toBe(true);
+    expect(isPackageAffectingPath("packages/registry/src/__tests__/snapshots.test.ts")).toBe(false);
     expect(isPackageAffectingPath("packages/schema/src/contracts.ts")).toBe(true);
     expect(isPackageAffectingPath("packages/schema/src/validate.ts")).toBe(true);
     expect(isPackageAffectingPath("packages/schema/src/__tests__/schema.test.ts")).toBe(false);

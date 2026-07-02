@@ -50,3 +50,8 @@ Draft map: `docs/adrs/drafts/decision-map.json`; numbered map: `docs/adrs/decisi
   - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md), [Source Change, Release, and Dependency Provenance](20260609-source-change-release-provenance.md), [Unified Source Layout](20260618-unified-source-layout.md)
 - [Reason-Only Change Ledger and Derived State](20260630-reason-only-change-ledger-derived-state.md)
   - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [Change and Release Edge Decisions](20260609-change-release-edge-decisions.md), [Source Change, Release, and Dependency Provenance](20260609-source-change-release-provenance.md)
+
+## 2026-07
+
+- [Source References Resolve And Rename Together](20260701-path-references-resolve-and-rename-together.md)
+  - depends on [Agent / Subagent Source Model](20260604-agent-source-model.md), [First-Class Sets](20260604-first-class-sets.md), [Named Partials](20260627-named-partials.md), [Skillset Workspace Layout](20260627-skillset-workspace-layout.md)

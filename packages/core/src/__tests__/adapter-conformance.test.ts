@@ -3,7 +3,7 @@ import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { getProviderDestinationFormatSnapshot } from "@skillset/provider-formats";
+import { getProviderDestinationFormatSnapshot } from "@skillset/registry";
 
 import {
   checkAdapterConformance,

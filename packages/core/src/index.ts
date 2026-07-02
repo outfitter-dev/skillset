@@ -32,6 +32,19 @@ export {
   type ResolvedAdaptiveHookAttachment,
 } from "./adaptive-hook-attachments";
 export {
+  adaptiveHookIntentIsRenderable,
+  classifyAdaptiveHookIntent,
+  type AdaptiveHookIntentClassification,
+  type AdaptiveHookIntentStatus,
+  type AdaptiveHookRenderSurface,
+} from "./adaptive-hook-classifier";
+export {
+  classifyNativeHookLiftDiagnostics,
+  type NativeHookLiftDiagnostic,
+  type NativeHookLiftDiagnosticCode,
+  type NativeHookLiftDiagnosticsOptions,
+} from "./adaptive-hook-native-lift";
+export {
   assertAdapterConformance,
   checkAdapterConformance,
   formatAdapterConformanceReport,
@@ -219,6 +232,7 @@ export {
 export type {
   AdaptiveHookScope,
   AdaptiveHookScopeKind,
+  JsonValue,
   LintIssue,
   LintResult,
   SourceAdaptiveHook,

@@ -6,7 +6,7 @@ import {
   type ProviderJsonSchemaSummary,
   type ProviderSchemaManualOverlayId,
   type ProviderSchemaSnapshotId,
-} from "@skillset/provider-formats";
+} from "@skillset/registry";
 
 import { CLAUDE_HOOK_EVENTS, validateHookDefinition } from "./hooks";
 import { compareStrings } from "./path";

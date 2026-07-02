@@ -658,12 +658,12 @@
       ],
       "inbound": [
         {
-          "context": "The planned cutover is a reason-only authoring model where humans write change reasons and Skillset derives ids, source hashes, coverage, and rebuildable state into a machine event ledger. See [Reason",
+          "context": "The active cutover is a reason-only authoring model where humans write change reasons and Skillset derives ids, source hashes, coverage, and rebuildable state into a machine event ledger. See [Reason-",
           "from": "changes",
           "fromPath": "docs/features/changes.md"
         },
         {
-          "context": "The planned reason-only ledger cutover keeps generated changelogs as tracked projections but treats release/status state as rebuildable from an append-only event ledger instead of as an authoring surf",
+          "context": "The reason-only ledger cutover keeps generated changelogs as tracked projections but treats release/status state as rebuildable from an append-only event ledger instead of as an authoring surface. New",
           "from": "releases",
           "fromPath": "docs/features/releases.md"
         }
@@ -676,6 +676,24 @@
       "superseded_by": null,
       "title": "Reason-Only Change Ledger and Derived State",
       "updated": "2026-06-30"
+    },
+    {
+      "created": "2026-07-01",
+      "depends_on": [
+        "named-partials",
+        "skillset-workspace-layout",
+        "first-class-sets",
+        "agent-source-model"
+      ],
+      "inbound": [],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260701-path-references-resolve-and-rename-together.md",
+      "slug": "path-references-resolve-and-rename-together",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Source References Resolve And Rename Together",
+      "updated": "2026-07-01"
     }
   ],
   "version": 1

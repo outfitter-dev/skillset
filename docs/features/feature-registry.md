@@ -65,12 +65,12 @@ Evidence should be strong enough for the claim:
 | `test` | Tests proving behavior, schema guards, or drift checks. |
 | `fixture` | Fixture cases proving generated output or adoption behavior. |
 | `external-docs` | Provider docs with verification dates for target surfaces. |
-| `provider-snapshot` | Checked-in `@skillset/provider-formats` snapshot ids for adopted destination formats. |
-| `provider-schema` | Checked-in `@skillset/provider-formats` schema snapshot ids for adopted rolling-latest provider JSON Schema sources. |
+| `provider-snapshot` | Checked-in `@skillset/registry` snapshot ids for adopted destination formats. |
+| `provider-schema` | Checked-in `@skillset/registry` schema snapshot ids for adopted rolling-latest provider JSON Schema sources. |
 | `provider-overlay` | Checked-in manual overlay ids for destination areas where provider docs are prose-only and no adopted JSON Schema source exists. |
 | `assumption` | Explicit bounded assumption to replace with stronger evidence before graduation. |
 
-Provider snapshots are the preferred evidence for implemented Claude and Codex destination-format claims. They carry source URLs, fetch timestamps, and content hashes in `@skillset/provider-formats`, so normal build and check paths can stay deterministic and offline. Target support rows can also point to provider schema snapshots and manual overlays through their `provider` block. The registry remains the support decision surface: provider snapshots strengthen a row with evidence, while the row's `status`, `reason`, and optional `unsupportedDestinations` still express Skillset's support decision.
+Provider snapshots are the preferred evidence for implemented Claude and Codex destination-format claims. They carry source URLs, fetch timestamps, and content hashes in `@skillset/registry`, so normal build and check paths can stay deterministic and offline. Target support rows can also point to provider schema snapshots and manual overlays through their `provider` block. The registry remains the support decision surface: provider snapshots strengthen a row with evidence, while the row's `status`, `reason`, and optional `unsupportedDestinations` still express Skillset's support decision.
 
 External docs remain useful for future or exploratory rows before a destination format is adopted. Neither evidence type proves Skillset's rendering is correct or that a runtime activation path works; runtime support and activation probes stay separate from compile-target support.
 
@@ -94,7 +94,7 @@ Feature ids can appear in render results, `skillset.lock`, reports, doctor/expla
 
 - [Feature Reference and Schema Registry](../adrs/drafts/20260604-feature-reference-and-schema-registry.md) defines the decision.
 - `packages/core/src/feature-registry.ts` defines the current typed registry.
-- `packages/provider-formats/src/index.ts` stores adopted provider destination-format snapshots used as registry evidence.
-- `packages/provider-formats/src/schema-snapshots.ts` stores adopted provider JSON Schema snapshots and manual overlays used as registry evidence.
+- `packages/registry/src/index.ts` stores adopted provider destination-format snapshots used as registry evidence.
+- `packages/registry/src/schema-snapshots.ts` stores adopted provider JSON Schema snapshots and manual overlays used as registry evidence.
 - `packages/core/src/__tests__/feature-registry.test.ts` pins registry ids, vocabulary, evidence expectations, and guard behavior.
 - [Render Results](render-results.md) explains the separate build-result report.

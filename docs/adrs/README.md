@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-ADRs document the significant design decisions behind Skillset: choices that, if reversed, would change the source contract, target lowering model, compiler promises, or authoring workflow. They capture the context, the decision, the consequences, and the alternatives considered.
+ADRs document the significant design decisions behind Skillset: choices that, if reversed, would change the source contract, target rendering model, compiler promises, or authoring workflow. They capture the context, the decision, the consequences, and the alternatives considered.
 
 ## Conventions
 
