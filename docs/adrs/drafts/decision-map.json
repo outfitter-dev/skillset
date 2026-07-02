@@ -8,6 +8,11 @@
           "context": "- [Agent / Subagent Source Model](20260604-agent-source-model.md) - project agents as the first close-match surface.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-model-and-reasoning-alias-profiles.md"
+        },
+        {
+          "context": "- [Agent / Subagent Source Model](20260604-agent-source-model.md) - project and plugin agent boundaries.",
+          "from": "20260702",
+          "fromPath": "docs/adrs/drafts/20260702-cursor-is-a-first-class-provider.md"
         }
       ],
       "number": null,
@@ -91,6 +96,11 @@
           "context": "- [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - static feature capability and registry evidence model.",
           "from": "20260614",
           "fromPath": "docs/adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md"
+        },
+        {
+          "context": "- [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - registry-backed capability claims and evidence.",
+          "from": "20260702",
+          "fromPath": "docs/adrs/drafts/20260702-cursor-is-a-first-class-provider.md"
         },
         {
           "context": "See [Feature Reference and Schema Registry](../adrs/drafts/20260604-feature-reference-and-schema-registry.md) for the ADR-level decision.",
@@ -510,6 +520,11 @@
           "fromPath": "docs/adrs/drafts/20260604-feature-reference-and-schema-registry.md"
         },
         {
+          "context": "- [Lowering Outcomes and Loss Ledger](20260614-lowering-outcomes-and-loss-ledger.md) - vocabulary for transformed, degraded, lossy, and unsupported outcomes.",
+          "from": "20260702",
+          "fromPath": "docs/adrs/drafts/20260702-cursor-is-a-first-class-provider.md"
+        },
+        {
           "context": "See the render-results ADR, currently filed as [Lowering Outcomes and Loss Ledger](../adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md), for the historical decision.",
           "from": "render-results",
           "fromPath": "docs/features/render-results.md"
@@ -694,6 +709,36 @@
       "superseded_by": null,
       "title": "Source References Resolve And Rename Together",
       "updated": "2026-07-01"
+    },
+    {
+      "created": "2026-07-02",
+      "depends_on": [
+        "0",
+        "1",
+        "feature-reference-and-schema-registry",
+        "agent-source-model",
+        "lowering-outcomes-and-loss-ledger"
+      ],
+      "inbound": [
+        {
+          "context": "- [Cursor provider ADR](../adrs/drafts/20260702-cursor-is-a-first-class-provider.md) - first-class Cursor provider contract.",
+          "from": "runtime-adapters",
+          "fromPath": "docs/features/runtime-adapters.md"
+        },
+        {
+          "context": "ADR](adrs/drafts/20260702-cursor-is-a-first-class-provider.md). Provider evidence",
+          "from": "target-surfaces",
+          "fromPath": "docs/target-surfaces.md"
+        }
+      ],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260702-cursor-is-a-first-class-provider.md",
+      "slug": "cursor-is-a-first-class-provider",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Cursor Is a First-Class Provider",
+      "updated": "2026-07-02"
     }
   ],
   "version": 1

@@ -684,8 +684,13 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
         status: "externally_managed",
       },
       cursor: {
-        evidence: [docs("docs/features/runtime-adapters.md"), fixture("fixtures/external/repos.yaml")],
-        reason: "Cursor support needs target documentation and adapter evidence before Skillset can lower or distribute it.",
+        evidence: [
+          docs("docs/features/runtime-adapters.md"),
+          docs("docs/target-surfaces.md#cursor-provider-baseline"),
+          docs("docs/adrs/drafts/20260702-cursor-is-a-first-class-provider.md"),
+          fixture("fixtures/external/repos.yaml"),
+        ],
+        reason: "Cursor is planned as a first-class provider target; implementation still needs target schema, registry evidence, renderers, import, conformance, and runtime smoke before Skillset can lower or distribute it.",
         status: "planned",
       },
       "gemini-cli": {
