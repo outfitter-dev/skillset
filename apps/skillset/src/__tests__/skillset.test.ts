@@ -711,8 +711,7 @@ skillset:
 claude: true
 codex: false
 `,
-    ".skillset/.gitignore": "cache/*\n!cache/.gitignore\nsnapshots/*\n!snapshots/.gitignore\n",
-    ".skillset/cache/.gitignore": "*\n!.gitignore\n",
+    ".skillset/.gitignore": "cache/\nsnapshots/*\n!snapshots/.gitignore\n",
     ".skillset/snapshots/.gitignore": "*\n!.gitignore\n",
     "skillset/skills/demo/SKILL.md": `
 ---

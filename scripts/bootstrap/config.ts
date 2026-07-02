@@ -40,7 +40,7 @@ export const loadBootstrapConfig = (): BootstrapConfig => ({
     optionalTools: ["git", "gh", "rg", "jq", "direnv"],
   },
   cleanup: {
-    directories: ["dist", ".skillset/cache"],
+    directories: ["dist"],
     files: [],
   },
   bun: {

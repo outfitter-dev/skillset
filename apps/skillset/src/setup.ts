@@ -28,10 +28,9 @@ const SETUP_SOURCE_PLACEHOLDERS = [
   "_claude",
   "_codex",
 ] as const;
-const OPERATIONAL_GITIGNORE = "cache/*\n!cache/.gitignore\nsnapshots/*\n!snapshots/.gitignore\n";
+const OPERATIONAL_GITIGNORE = "cache/\nsnapshots/*\n!snapshots/.gitignore\n";
 const OPERATIONAL_DIR_GITIGNORE = "*\n!.gitignore\n";
-const ROOT_OPERATIONAL_GITIGNORE =
-  ".skillset/cache/*\n!.skillset/cache/.gitignore\n.skillset/snapshots/*\n!.skillset/snapshots/.gitignore\n";
+const ROOT_OPERATIONAL_GITIGNORE = ".skillset/cache/\n.skillset/snapshots/*\n!.skillset/snapshots/.gitignore\n";
 
 type SetupLayout = "workspace";
 
@@ -594,10 +593,6 @@ function setupFiles(
         content: OPERATIONAL_GITIGNORE,
       },
       {
-        path: ".skillset/cache/.gitignore",
-        content: OPERATIONAL_DIR_GITIGNORE,
-      },
-      {
         path: ".skillset/snapshots/.gitignore",
         content: OPERATIONAL_DIR_GITIGNORE,
       }
@@ -721,7 +716,7 @@ function createReadme(name: string, targets: readonly TargetName[]): string {
     "- `.skillset/plugins/` holds plugin source when this repo authors marketplace plugins.",
     "- `.skillset/skills/` holds standalone skill source when this repo authors repo-local or user skill roots.",
     "- `.skillset/changes/` stores pending and applied Skillset change history.",
-    "- `.skillset/cache/` keeps the logical cache boundary visible while cache payloads resolve to XDG; `.skillset/snapshots/` holds ignored Git-backed recovery snapshots. Their `.gitignore` sentinels remain tracked.",
+    "- Operational cache payloads resolve to Skillset's XDG cache bucket and are reported as logical `.skillset/cache/...` paths; `.skillset/snapshots/` holds ignored Git-backed recovery snapshots with a tracked `.gitignore` sentinel.",
     "",
     `Default compile targets: ${targets.join(", ")}.`,
     "",

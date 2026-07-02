@@ -1,4 +1,3 @@
-cache/*
-!cache/.gitignore
+cache/
 snapshots/*
 !snapshots/.gitignore

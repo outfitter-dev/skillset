@@ -354,7 +354,7 @@ describe("bootstrap repo policy", () => {
   test("teardown cleanup includes current generated state paths", () => {
     const config = loadBootstrapConfig();
     expect(config.cleanup.directories).toContain("dist");
-    expect(config.cleanup.directories).toContain(".skillset/cache");
+    expect(config.cleanup.directories).not.toContain(".skillset/cache");
     expect(config.cleanup.directories).not.toContain(".skillset/snapshots");
   });
 });

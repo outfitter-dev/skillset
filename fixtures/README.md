@@ -68,12 +68,11 @@ fixtures/<case>/
     _codex/    # optional provider source
     changes/
       .gitkeep
-    cache/.gitignore
     snapshots/.gitignore
   ...other repo files as needed
 ```
 
-Checked-in cases use the current workspace layout: root `skillset.yaml` is the workspace manifest, and `.skillset/` is the adaptive source root. `.skillset/cache/` is rebuildable output and `.skillset/snapshots/` is local recovery output. Fixture sentinel `.gitignore` files are tracked so the operational layout is visible while cache and snapshot contents stay ignored. Plugins, standalone skills, instructions, project agents, shared resources, hooks, and provider source all live under the source root. Provider-specific source uses underscore-prefixed directories such as `.skillset/_claude`, `.skillset/_codex`, `.skillset/plugins/<plugin>/_claude`, and `.skillset/plugins/<plugin>/_codex`.
+Checked-in cases use the current workspace layout: root `skillset.yaml` is the workspace manifest, and `.skillset/` is the adaptive source root. `.skillset/cache/` is rebuildable operational output backed by XDG storage and stays ignored rather than checked in; `.skillset/snapshots/` is local recovery output with a tracked ignore sentinel. Plugins, standalone skills, instructions, project agents, shared resources, hooks, and provider source all live under the source root. Provider-specific source uses underscore-prefixed directories such as `.skillset/_claude`, `.skillset/_codex`, `.skillset/plugins/<plugin>/_claude`, and `.skillset/plugins/<plugin>/_codex`.
 
 Inline temp fixtures should use root `skillset.yaml` plus `.skillset/` unless a test is specifically covering a retired-layout rejection or migration helper.
 

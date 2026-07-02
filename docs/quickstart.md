@@ -23,12 +23,12 @@ skillset init --yes
 ```
 
 That writes the workspace manifest at `skillset.yaml`, source placeholders under
-`.skillset/`, tracked change state under
-`.skillset/changes/`, and repo-local operational sentinels for
-`.skillset/cache/` and `.skillset/snapshots/`. The cache payloads resolve to
-Skillset's XDG cache bucket; the logical `.skillset/cache/` path stays visible
-for reports and command output. Recovery snapshots stay repo-local under
-`.skillset/snapshots/` and store backup payloads in per-run Git object stores.
+`.skillset/`, tracked change state under `.skillset/changes/`, ignores the
+logical `.skillset/cache/` path, and tracks a snapshot ignore sentinel under
+`.skillset/snapshots/`. Cache payloads resolve to Skillset's XDG cache bucket;
+the logical `.skillset/cache/` path stays visible for reports and command
+output. Recovery snapshots stay repo-local under `.skillset/snapshots/` and
+store backup payloads in per-run Git object stores.
 
 ## Create One Skill
 

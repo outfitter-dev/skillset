@@ -188,9 +188,9 @@ async function fixtureFileExists(fixtureName: string, path: string): Promise<boo
 
 async function expectOperationalSentinels(fixtureName: string): Promise<void> {
   expect(await fixtureFileText(fixtureName, ".skillset/.gitignore")).toBe(
-    "cache/*\n!cache/.gitignore\nsnapshots/*\n!snapshots/.gitignore\n"
+    "cache/\nsnapshots/*\n!snapshots/.gitignore\n"
   );
-  expect(await fixtureFileText(fixtureName, ".skillset/cache/.gitignore")).toBe("*\n!.gitignore\n");
+  expect(await fixtureFileExists(fixtureName, ".skillset/cache/.gitignore")).toBeFalse();
   expect(await fixtureFileText(fixtureName, ".skillset/snapshots/.gitignore")).toBe("*\n!.gitignore\n");
   expect(await fixtureFileExists(fixtureName, ".skillset/changes/.gitkeep")).toBeTrue();
 }
