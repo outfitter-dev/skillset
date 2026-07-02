@@ -244,6 +244,32 @@ test("adopt elevates a root native plugin without copying workspace config into 
   expect(await exists(join(root, ".skillset/plugins/root-native/skills/helper/SKILL.md"))).toBe(true);
 });
 
+test("adopt elevates a root Cursor native plugin", async () => {
+  const root = await fixture({
+    ".cursor-plugin/plugin.json": JSON.stringify({
+      description: "Root Cursor plugin.",
+      name: "cursor-native",
+      version: "1.2.3",
+    }),
+    "README.md": "# Root Cursor plugin\n",
+    "skills/helper/SKILL.md": "---\nname: helper\ndescription: Helper skill.\n---\n\nBody.\n",
+  });
+
+  const report = await adoptSkillset(root, { targets: ["cursor"], write: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.candidates).toContainEqual({ kind: "plugin", path: "." });
+  expect(report.imports.find((result) => result.candidate.kind === "plugin")?.ok).toBe(true);
+
+  const workspaceConfig = await readFile(join(root, "skillset.yaml"), "utf8");
+  expect(workspaceConfig).toContain("- cursor");
+  const pluginConfig = await readFile(join(root, ".skillset/plugins/cursor-native/skillset.yaml"), "utf8");
+  expect(pluginConfig).toContain("name: cursor-native");
+  expect(pluginConfig).toContain("path: .");
+  expect(await exists(join(root, ".skillset/plugins/cursor-native/.cursor-plugin/plugin.json"))).toBe(true);
+  expect(await exists(join(root, ".skillset/plugins/cursor-native/skills/helper/SKILL.md"))).toBe(true);
+});
+
 test("adopt carries import render results into the persisted report", async () => {
   const root = await fixture({
     ".claude/skills/native/SKILL.md":

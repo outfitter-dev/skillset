@@ -1,6 +1,6 @@
 # Feature Reference
 
-The feature reference is the human-readable support registry for Skillset v1. It explains how authored source maps to Claude and Codex target surfaces, which features are portable, which are target-native, and where support is deferred or future-only. This directory is manual for now; future schema-backed generation is deliberately deferred until the page shape proves itself.
+The feature reference is the human-readable support registry for Skillset v1. It explains how authored source maps to provider target surfaces, which features are portable, which are target-native, and where support is deferred or future-only. This directory is manual for now; future schema-backed generation is deliberately deferred until the page shape proves itself.
 
 Use these pages alongside the [target surface evidence matrix](../target-surfaces.md). The matrix is the compact target-fact table; feature pages explain authoring shape, target rendering, diagnostics, provenance, examples, and test coverage.
 
@@ -37,7 +37,7 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Skills](skills.md): standalone and plugin-bound skill frontmatter, target rendering, versions, metadata, and generated sidecars.
 - [Source Suggestions](source-suggestions.md): future managed-output edit recovery through source-side suggestions, distinct from settings suggestions.
 - [Supports](supports.md): compatibility metadata, support ranges, source significance, and release severity boundaries.
-- [Provider Source](target-native-islands.md): explicit Claude/Codex provider source, Codex `.rules` pass-through, and leakage rules.
+- [Provider Source](target-native-islands.md): explicit provider-native source islands, Codex `.rules` pass-through, and leakage rules.
 - [Tests and Evals](tests-and-evals.md): internal fixtures, dogfooding, deterministic `skillset test`, future adapter-aware evals, and generated run output boundaries.
 - [Themes](themes.md): Claude experimental theme pass-through, manifest wiring, and Codex unsupported boundaries.
 - [Tool Intent](tool-intent.md): portable tool intent metadata, Claude preapproval rendering, Codex metadata, and target-native escapes.

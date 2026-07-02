@@ -143,12 +143,12 @@ Before sharing a 0.16-era Skillset source repo with another author, make sure:
 
 - `skillset check` passes for source authoring diagnostics.
 - `skillset build` shows the generated-output plan you expect.
-- `skillset build --yes` has refreshed repo-local Claude and Codex output.
+- `skillset build --yes` has refreshed the repo-local generated output you expect.
 - `skillset verify` passes so checked-in generated output matches source.
 - The generated output locations are visible in review, usually `.claude/`,
   `.agents/`, and `skillset.lock` for the default path.
 - Runtime activation is deliberately out of band: do not ask authors to install,
-  trust, symlink, or mutate user-level Claude/Codex config as part of this path.
+  trust, symlink, or mutate user-level provider config as part of this path.
 - Hook-dependent sharing stays deferred to the hook guardrail work. If a repo
   has local Git or runtime hooks, document them separately from the compiler
   quickstart.

@@ -24,7 +24,7 @@ Each entry records:
 | `kind` | Broad feature family such as source, metadata, workflow, plugin component, target-native, adoption, or change management. |
 | `status` | Feature entry status: implemented, planned, reserved, deferred, future, or unsupported. |
 | `sourceShape` | Source path, config key, frontmatter key, or generated fact shape that defines the feature. |
-| `targetSupport` | Per-target capability records for Claude and Codex. |
+| `targetSupport` | Per-target capability records for supported providers such as Claude, Codex, and Cursor. |
 | `targetSupport.<target>.provider` | Optional provider evidence links: adopted destination-format snapshot id, adopted JSON Schema snapshot ids, docs-only manual overlay ids, and unsupported destination keys. |
 | `runtimeSupport` | Optional runtime, distribution, or harness support records. |
 | `renderOwner` | Module or workflow that owns rendering/reporting behavior. |
@@ -70,7 +70,7 @@ Evidence should be strong enough for the claim:
 | `provider-overlay` | Checked-in manual overlay ids for destination areas where provider docs are prose-only and no adopted JSON Schema source exists. |
 | `assumption` | Explicit bounded assumption to replace with stronger evidence before graduation. |
 
-Provider snapshots are the preferred evidence for implemented Claude and Codex destination-format claims. They carry source URLs, fetch timestamps, and content hashes in `@skillset/registry`, so normal build and check paths can stay deterministic and offline. Target support rows can also point to provider schema snapshots and manual overlays through their `provider` block. The registry remains the support decision surface: provider snapshots strengthen a row with evidence, while the row's `status`, `reason`, and optional `unsupportedDestinations` still express Skillset's support decision.
+Provider snapshots are the preferred evidence for implemented destination-format claims. They carry source URLs, fetch timestamps, and content hashes in `@skillset/registry`, so normal build and check paths can stay deterministic and offline. Target support rows can also point to provider schema snapshots and manual overlays through their `provider` block. The registry remains the support decision surface: provider snapshots strengthen a row with evidence, while the row's `status`, `reason`, and optional `unsupportedDestinations` still express Skillset's support decision.
 
 External docs remain useful for future or exploratory rows before a destination format is adopted. Neither evidence type proves Skillset's rendering is correct or that a runtime activation path works; runtime support and activation probes stay separate from compile-target support.
 

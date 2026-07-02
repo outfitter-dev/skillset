@@ -105,6 +105,59 @@ Use this skill to answer fixture questions.
   expect(tail.some((line) => line.message.includes("fake-claude prompt=Inspect Claude fixture."))).toBe(true);
 });
 
+test("runtime tester runs a Cursor prompt with trusted isolated workspace and explicit plugin dirs", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: runtime-cursor-fixture
+compile:
+  targets: [cursor]
+cursor: true
+`,
+    ".skillset/plugins/acme/skillset.yaml": `
+skillset:
+  name: acme
+  title: Acme
+  summary: Acme Cursor plugin fixture.
+cursor: true
+`,
+    ".skillset/plugins/acme/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo Cursor runtime tester skill.
+---
+
+Use this skill to answer fixture questions.
+`,
+  });
+  const bin = await fakeCursorBin(root);
+  const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
+
+  const report = await startRuntimeTesterRun(root, {
+    env: { ...process.env, SKILLSET_RUNTIME_TESTER_CURSOR_BIN: bin },
+    plugins: ["acme"],
+    prompt: "Inspect Cursor fixture.",
+    target: "cursor",
+    xdg,
+  });
+
+  expect(report.ok).toBe(true);
+  expect(report.state).toBe("passed");
+
+  const status = await readRuntimeTesterStatus(root, report.runId, { xdg });
+  const command = status.command?.join(" ");
+  expect(command).toContain("--print");
+  expect(command).toContain("--output-format json");
+  expect(command).toContain("--mode ask");
+  expect(command).toContain("--trust");
+  expect(command).toContain("--workspace");
+  expect(command).toContain("--plugin-dir");
+  expect(command).toContain("plugins/acme/cursor");
+
+  const tail = await tailRuntimeTesterRun(root, report.runId, 20, { xdg });
+  expect(tail.some((line) => line.message.includes("fake-cursor prompt=Inspect Cursor fixture."))).toBe(true);
+});
+
 test("runtime tester resolves Claude setting sources from defaults, env, and CLI options", async () => {
   const root = await fixture({
     "skillset.yaml": `
@@ -233,7 +286,7 @@ Use this skill to answer fixture questions.
     prompt: "Inspect Codex plugin selection.",
     target: "codex",
     xdg,
-  })).rejects.toThrow("runtime tester --plugin is only supported for the claude target");
+  })).rejects.toThrow("runtime tester --plugin is only supported for targets with local plugin-dir support: claude, cursor");
 });
 
 test("runtime tester CLI supports run, status, tail, and list", async () => {
@@ -366,6 +419,21 @@ for arg in "$@"; do
 done
 echo "fake-claude cwd=$(pwd)"
 echo "fake-claude prompt=$last"
+`, "utf8");
+  await chmod(bin, 0o755);
+  return bin;
+}
+
+async function fakeCursorBin(root: string): Promise<string> {
+  const bin = join(root, "bin", "fake-cursor");
+  await mkdir(dirname(bin), { recursive: true });
+  await writeFile(bin, `#!/bin/sh
+last=""
+for arg in "$@"; do
+  last="$arg"
+done
+echo "fake-cursor cwd=$(pwd)"
+echo "fake-cursor prompt=$last"
 `, "utf8");
   await chmod(bin, 0o755);
   return bin;

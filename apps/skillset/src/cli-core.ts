@@ -149,22 +149,22 @@ const USAGE = [
   "       skillset providers <check|diff|update> [--yes|--dry-run] [--root <path>]",
   "       skillset update [--yes|--dry-run] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset features [feature-id] [--json]",
-  "       skillset lookup [subject] [aspect...] [--frontmatter] [--fields] [--field <path>] [--values] [--events] [--compat [claude|codex...]] [--examples] [--schema] [--claude] [--codex] [--json]",
+  "       skillset lookup [subject] [aspect...] [--frontmatter] [--fields] [--field <path>] [--values] [--events] [--compat [claude|codex|cursor...]] [--examples] [--schema] [--claude] [--codex] [--cursor] [--json]",
   "       skillset test [name] [--root <path>] [--source <dir>]",
-  "       skillset runtime-tester run --target <claude|codex> [--prompt <text>|--prompt-file <path>] [--plugin <id>] [--name <name>] [--timeout-ms <ms>] [--claude-setting-sources <isolated|user|project|local>] [--background] [--json] [--root <path>] [--source <dir>]",
+  "       skillset runtime-tester run --target <claude|codex|cursor> [--prompt <text>|--prompt-file <path>] [--plugin <id>] [--name <name>] [--timeout-ms <ms>] [--claude-setting-sources <isolated|user|project|local>] [--background] [--json] [--root <path>] [--source <dir>]",
   "       skillset runtime-tester <status|tail> [run-id] [--lines <count>] [--json] [--root <path>]",
   "       skillset runtime-tester list [--json] [--root <path>]",
   "       skillset hooks print --runner <lefthook|husky|pre-commit|git> [--pre-commit] [--pre-push]",
   "       skillset hooks print --target <claude|codex> --agent-runtime",
   "       skillset hooks run <post-tool-use|stop> [--root <path>]",
   "       skillset hooks context --event <event> [--format env|json] [--context-fields <field,...>] [--root <path>]",
-  "       skillset adopt <path> [--yes|--dry-run] [--targets claude,codex] [--root <path>]",
-  "       skillset init [path] [--yes|--dry-run] [--targets claude,codex] [--include ci] [--layout root|nested] [--name <name>] [--root <path>]",
-  "       skillset create [path|--global] [--yes|--dry-run] [--targets claude,codex] [--include ci] [--name <name>] [--root <path>]",
+  "       skillset adopt <path> [--yes|--dry-run] [--targets claude,codex,cursor] [--root <path>]",
+  "       skillset init [path] [--yes|--dry-run] [--targets claude,codex,cursor] [--include ci] [--layout root|nested] [--name <name>] [--root <path>]",
+  "       skillset create [path|--global] [--yes|--dry-run] [--targets claude,codex,cursor] [--include ci] [--name <name>] [--root <path>]",
   "       skillset new <skill|agent|hook> [name] [--id <id>] [--name <name>] [--in <container>] [--scope repo] [--preset <preset>] [--yes|--dry-run] [--root <path>] [--source <dir>]",
   "       skillset explain <path> [--json] [--scope <scope>] [--root <path>] [--source <dir>]",
   "       skillset import <path> [--kind <skill|skills|plugin|plugins>] [--from <provider>] [--name <name>] [--root <path>] [--source <dir>]",
-  "       skillset import <claude|codex|agents> [--root <path>] [--source <dir>]",
+  "       skillset import <claude|codex|cursor|agents> [--root <path>] [--source <dir>]",
 ].join("\n");
 
 export async function runCli(
@@ -1845,6 +1845,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--schema" &&
       flag !== "--claude" &&
       flag !== "--codex" &&
+      flag !== "--cursor" &&
       flag !== "--prompt" &&
       flag !== "--prompt-file" &&
       flag !== "--plugin" &&
@@ -1898,6 +1899,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag === "--schema" ||
       flag === "--claude" ||
       flag === "--codex" ||
+      flag === "--cursor" ||
       flag === "--background"
     ) {
       if (inlineValue !== undefined) throw new Error(`skillset: ${flag} does not take a value`);
@@ -1924,6 +1926,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       if (flag === "--schema") lookupViews = addLookupView(lookupViews, "schema");
       if (flag === "--claude") lookupTargets = addLookupTarget(lookupTargets, "claude");
       if (flag === "--codex") lookupTargets = addLookupTarget(lookupTargets, "codex");
+      if (flag === "--cursor") lookupTargets = addLookupTarget(lookupTargets, "cursor");
       if (flag === "--background") runtimeTesterBackground = true;
       continue;
     }
@@ -1977,7 +1980,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     if (flag === "--format") hookContextFormat = readHookRuntimeContextFormat(value);
     if (flag === "--context-fields") hookContextFields = readHookRuntimeContextFields(value);
     if (flag === "--target") {
-      if (command === "runtime-tester") runtimeTesterTarget = readHookTarget(value);
+      if (command === "runtime-tester") runtimeTesterTarget = readTargetName(value);
       else hookTarget = readHookTarget(value);
     }
     if (flag === "--prompt") runtimeTesterPrompt = value;
@@ -2010,7 +2013,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     }
     if (flag === "--from") {
       if (!isImportProvider(value)) {
-        throw new Error("skillset: expected --from claude, codex, agents, or skillset");
+        throw new Error("skillset: expected --from claude, codex, cursor, agents, or skillset");
       }
       importProvider = value;
     }
@@ -2707,6 +2710,11 @@ function readHookTarget(value: string): TargetName {
   throw new Error("skillset: expected --target claude or codex");
 }
 
+function readTargetName(value: string): TargetName {
+  if (isTargetName(value)) return value;
+  throw new Error(`skillset: expected --target ${targetNames().join(", ")}`);
+}
+
 function mergeSetupIncludes(
   current: readonly SetupInclude[] | undefined,
   value: string
@@ -2891,5 +2899,5 @@ function isImportKind(value: string): value is ImportKind {
 }
 
 function isImportProvider(value: string): value is ImportProvider {
-  return value === "agents" || value === "claude" || value === "codex" || value === "skillset";
+  return value === "agents" || value === "claude" || value === "codex" || value === "cursor" || value === "skillset";
 }

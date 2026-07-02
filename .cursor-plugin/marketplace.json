@@ -1,0 +1,16 @@
+{
+  "metadata": {
+    "description": "Self-hosted source for developing and using the skillset compiler."
+  },
+  "name": "skillset",
+  "owner": {
+    "name": "Skillset Maintainers"
+  },
+  "plugins": [
+    {
+      "description": "Build source skills and plugins into Claude, Codex, and Cursor outputs.",
+      "name": "skillset",
+      "source": "plugins/skillset/cursor"
+    }
+  ]
+}

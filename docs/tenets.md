@@ -29,7 +29,7 @@ Power should come from derivation, defaults, validation, and clear escape hatche
 
 ### Source is the product
 
-The active workspace source root is the authored source of truth: repos use root `skillset.yaml` for workspace configuration and `.skillset/` for authored Skillset source. Claude and Codex outputs are provider-native build artifacts written to concrete destinations.
+The active workspace source root is the authored source of truth: repos use root `skillset.yaml` for workspace configuration and `.skillset/` for authored Skillset source. Generated provider outputs are provider-native build artifacts written to concrete destinations.
 
 Generated plugin repositories, standalone skill roots, lockfiles, and instruction files can be committed and reviewed, but they are not source truth. Edits should flow from source to generated output through `skillset build`, and `skillset verify` should make stale output visible.
 

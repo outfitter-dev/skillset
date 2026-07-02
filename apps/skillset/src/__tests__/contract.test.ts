@@ -945,6 +945,49 @@ test("SET-10: plugin import reports native hook lift diagnostics without rewriti
   expect(JSON.parse(await readFile(join(report.targetPath, "hooks/hooks.json"), "utf8"))).toEqual(hooks);
 });
 
+test("SET-250: plugin import detects Cursor manifests and native hook lift diagnostics", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-import-root-"));
+  const external = await mkdtemp(join(tmpdir(), "skillset-import-src-"));
+  await Bun.write(join(external, "cursor-hooks/.cursor-plugin/plugin.json"), JSON.stringify({
+    description: "Cursor hooks.",
+    name: "cursor-hooks",
+    version: "1.0.0",
+  }));
+  const hooks = {
+    hooks: {
+      sessionStart: [
+        {
+          hooks: [{ command: "echo session", type: "command" }],
+        },
+      ],
+    },
+  };
+  await Bun.write(join(external, "cursor-hooks/hooks/hooks.json"), JSON.stringify(hooks, null, 2));
+
+  const report = await importSource({
+    kind: "plugin",
+    rootPath: root,
+    sourcePath: join(external, "cursor-hooks"),
+  });
+
+  expect(report.name).toBe("cursor-hooks");
+  expect(report.copiedFiles).toContain(".cursor-plugin/plugin.json");
+  expect(report.renderResults).toContainEqual(expect.objectContaining({
+    diagnostics: expect.arrayContaining([
+      expect.objectContaining({
+        code: "import-native-hook-lift-candidate",
+        message: expect.stringContaining("provider-scoped-adaptive for cursor"),
+        path: ".skillset/plugins/cursor-hooks/hooks/hooks.json#/sessionStart/0",
+      }),
+    ]),
+    featureId: "plugin-hooks",
+    sourceUnit: "plugin.cursor-hooks.feature:hooks",
+    status: "target_native",
+    target: "cursor",
+  }));
+  expect(JSON.parse(await readFile(join(report.targetPath, "hooks/hooks.json"), "utf8"))).toEqual(hooks);
+});
+
 test("SET-10: copied import paths normalize native separators before hook lift checks", () => {
   expect(normalizeCopiedImportPath("hooks\\hooks.json")).toBe("hooks/hooks.json");
   expect(normalizeCopiedImportPath("hooks/hooks.json")).toBe("hooks/hooks.json");
@@ -6217,10 +6260,19 @@ compile:
   expect(report.importCandidates).toEqual([]);
 });
 
+test("SET-250: init accepts Cursor as an explicit setup target", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-setup-cursor-"));
+
+  const written = await runSkillsetCli("init", "--root", root, "--targets", "cursor", "--yes");
+
+  expect(written.exitCode).toBe(0);
+  expect(await readFile(join(root, "skillset.yaml"), "utf8")).toContain("    - cursor");
+});
+
 test("SET-62: recognized-but-unimportable surfaces become structured survey skips", async () => {
   const root = await contractFixture({
     ".claude/commands/release.md": "Run the release.",
-    ".cursor-plugin/plugin.json": JSON.stringify({ name: "foreign" }),
+    ".gemini-plugin/plugin.json": JSON.stringify({ name: "foreign" }),
   });
 
   const report = await initSkillset({ cwd: root, useGitRoot: false, write: false });
@@ -6242,12 +6294,12 @@ test("SET-62: recognized-but-unimportable surfaces become structured survey skip
     expect.objectContaining({
       renderResult: expect.objectContaining({
         featureId: "runtime-adapters",
-        sourceUnit: "runtime-adapter:cursor",
+        sourceUnit: "runtime-adapter:gemini",
         status: "intentionally_skipped",
       }),
-      path: ".cursor-plugin",
+      path: ".gemini-plugin",
       reason:
-        "plugin manifest for an unsupported target; skillset can only represent claude and codex surfaces",
+        "plugin manifest for an unsupported target; skillset can only represent claude, codex, cursor surfaces",
       surface: "foreign-manifest",
     }),
   ]);

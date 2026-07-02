@@ -1,6 +1,6 @@
 # Provider Surface Evidence Matrix
 
-This is the cheap-to-refresh map between Skillset source and the Claude/Codex provider surfaces it builds. It exists so provider drift is caught deliberately: each surface row has a **status** and, where it depends on provider-owned destination formats, an adopted snapshot in `@skillset/registry`. Golden manifest tests in `apps/skillset/src/__tests__/contract.test.ts` and `apps/skillset/src/__tests__/skillset.test.ts` pin the generated shapes that these rows claim.
+This is the cheap-to-refresh map between Skillset source and the provider surfaces it builds. It exists so provider drift is caught deliberately: each surface row has a **status** and, where it depends on provider-owned destination formats, an adopted snapshot in `@skillset/registry`. Golden manifest tests in `apps/skillset/src/__tests__/contract.test.ts` and `apps/skillset/src/__tests__/skillset.test.ts` pin the generated shapes that these rows claim.
 
 Refreshing is intentionally cheap but explicit: re-read the linked provider docs, update the normalized snapshot with its fetched timestamp and content hash, then adjust the affected row and golden test if the surface changed. Ordinary build and check paths must not fetch provider docs.
 
@@ -58,29 +58,25 @@ Default behavior for unsupported or lossy build results is fail-loud. Softer mod
 
 ## Cursor provider baseline
 
-Cursor provider support is planned as a first-class compile target, not a Claude
-or Codex compatibility shim. The contract is defined by the [Cursor provider
+Cursor provider support is implemented as a first-class compile target, not a
+Claude or Codex compatibility shim. The contract is defined by the [Cursor provider
 ADR](adrs/drafts/20260702-cursor-is-a-first-class-provider.md). Provider evidence
 was live-doc checked on 2026-07-02 against the official Cursor docs.
 
-Cursor becomes fully implemented only when registry, renderers, import/adopt,
-conformance fixtures, runtime-tester, docs, and generated guidance all agree on
-the same provider facts. `compile.targets: [cursor]` is schema-valid as an
-explicit provider plan while renderer and runtime milestones are completed; the
-default provider plan remains Claude and Codex until the Cursor parity gate
-passes.
+Cursor is opt-in through `compile.targets: [cursor]`; the default provider plan
+remains Claude and Codex unless a repo explicitly adds Cursor.
 
 | Cursor surface | Cursor destination | Status | Notes |
 | --- | --- | --- | --- |
-| Skills | `.cursor/skills/<skill>/SKILL.md` | Planned | Project-level Cursor skills use `SKILL.md`; plugin skills live under plugin-root `skills/`. |
-| Rules | `.cursor/rules/**/*.mdc` | Planned | Cursor also documents `AGENTS.md`; Skillset must decide project-rule rendering from Cursor intent, not from Claude/Codex filenames. |
-| Project subagents | `.cursor/agents/*.md` | Planned | Cursor frontmatter includes `name`, `description`, `model`, `readonly`, and `is_background`; Cursor-specific fields stay provider-native until portable intent is proven. |
-| Plugins | `.cursor-plugin/plugin.json` plus plugin-root components | Planned | Components include `rules/`, `skills/`, `agents/`, `commands/`, `hooks/hooks.json`, `mcp.json`, `assets/`, `scripts/`, and `README.md`. |
-| Marketplace | `.cursor-plugin/marketplace.json` | Planned | Multi-plugin repository catalog surface. External plugin references need provider evidence before marketplace update claims support. |
-| MCP | plugin-root `mcp.json` with `mcpServers` | Planned | Cursor detects plugin-root `mcp.json`; manifest `mcpServers` is needed only for custom paths or inline config. |
-| Hooks | plugin-root `hooks/hooks.json` | Planned | Cursor events are lower-camel provider-native names such as `sessionStart`, `beforeShellExecution`, `afterFileEdit`, `beforeSubmitPrompt`, `preCompact`, and `workspaceOpen`. |
-| Provider-native source | `<source-root>/_cursor/**` and `<source-root>/plugins/<plugin>/_cursor/**` | Planned | Native source remains provider-native by default and is lifted to adaptive source only when registry facts prove a faithful mapping. |
-| Runtime smoke | local `agent` / `cursor-agent` CLI | Planned | Use isolated workspaces, `--print`, `--output-format`, `--mode`, `--plugin-dir`, and `--workspace`; build must not install, trust, or mutate user-level Cursor config. |
+| Skills | `.cursor/skills/<skill>/SKILL.md` | Implemented | Project-level Cursor skills use `SKILL.md`; plugin skills live under plugin-root `skills/`. |
+| Rules | `.cursor/rules/**/*.mdc` | Implemented | Skillset renders project and plugin rules as Cursor `.mdc` files with Cursor frontmatter. |
+| Project subagents | `.cursor/agents/*.md` | Implemented | Cursor frontmatter includes `name`, `description`, `model`, `readonly`, and `is_background`; Cursor-specific fields stay provider-native until portable intent is proven. |
+| Plugins | `.cursor-plugin/plugin.json` plus plugin-root components | Implemented | Components include `rules/`, `skills/`, `agents/`, `commands/`, `hooks/hooks.json`, `mcp.json`, `assets/`, `scripts/`, and source companions. |
+| Marketplace | `.cursor-plugin/marketplace.json` | Implemented | Multi-plugin repository catalog surface for generated local plugins. External plugin references remain governed by marketplace config and lock provenance. |
+| MCP | plugin-root `mcp.json` with `mcpServers` | Implemented | Cursor receives plugin-root `mcp.json`; manifest `mcpServers` is declared for the generated component path. |
+| Hooks | plugin-root `hooks/hooks.json` | Implemented | Cursor events are lower-camel provider-native names such as `sessionStart`, `beforeShellExecution`, `afterFileEdit`, `beforeSubmitPrompt`, `preCompact`, and `workspaceOpen`. |
+| Provider-native source | `<source-root>/_cursor/**` and `<source-root>/plugins/<plugin>/_cursor/**` | Implemented | Native source remains provider-native by default and is lifted to adaptive source only when registry facts prove a faithful mapping. |
+| Runtime smoke | local `agent` / `cursor-agent` CLI | Implemented | Runtime tester uses isolated workspaces, `--print`, `--output-format`, `--mode ask`, `--plugin-dir`, `--trust`, and `--workspace`; build does not install, trust, or mutate user-level Cursor config. |
 
 ## Source contract
 
@@ -92,7 +88,7 @@ passes.
 | `skillset.name` | machine identity | Implemented | Root and plugin explicit identity; directory names remain the default. `skillset.id` is unsupported. |
 | skill top-level `name` | skill identity | Implemented | Skill-local `skillset.name` / `skillset.id` are unsupported. |
 | root/plugin/skill `skillset.license` or local `LICENSE.txt` | managed `LICENSE.txt`; plugin manifest `license` when declared in plugin metadata | Implemented | Supports `Apache-2.0`, `BSD-2-Clause`, `BSD-3-Clause`, `ISC`, `MIT`, `MPL-2.0`, and `none`; child scopes inherit unless overridden or opted out. |
-| `compile.targets` | enabled provider outputs | Implemented | Root-only provider selection; accepts `claude`, `codex`, and explicit `cursor`. Defaults remain Claude and Codex until Cursor parity is complete. |
+| `compile.targets` | enabled provider outputs | Implemented | Root-only provider selection; accepts `claude`, `codex`, and explicit `cursor`. Defaults remain Claude and Codex unless a repo opts into Cursor. |
 | `compile.build: updated/all` | normalized build mode in lock provenance | Implemented | Parser, CLI overrides, plan-first writes, and lock metadata are implemented. |
 | `compile.features.promptArguments` | `{{$ARGUMENTS...}}` adaptive command placeholders | Implemented | Defaults to `true`; set to `false` to reject the source markers. |
 | `compile.skillset.metadata: false` | suppress generated skill `metadata.generated` / `metadata.version` | Implemented | Source metadata remains source-only; locks record `skillsetMetadata`. |
@@ -201,7 +197,7 @@ Codex `.rules` files are execution policy for shell command approval, prompt, or
 
 ## Hooks validation
 
-Verified 2026-07-01 against the provider capability registry, Codex hook schema snapshots, and Claude hooks reference. Provider-native hook validation is registry-backed for both Claude and Codex.
+Verified 2026-07-02 against the provider capability registry, Codex hook schema snapshots, Claude hooks reference, and Cursor hooks docs. Provider-native hook validation is registry-backed for Claude, Codex, and Cursor.
 
 | Concern | Claude | Codex | Status |
 | --- | --- | --- | --- |

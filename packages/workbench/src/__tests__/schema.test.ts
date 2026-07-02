@@ -54,12 +54,12 @@ describe("workbench source contract schema checks", () => {
     expect(diagnostics.map(formatWorkbenchDiagnostic)).toEqual([
       ".skillset/skills/demo/SKILL.md:2: error: schema/skill-frontmatter: name must be a non-empty string",
       ".skillset/skills/demo/SKILL.md:2: error: schema/skill-frontmatter: skill needs description, summary, title, or skillset descriptive metadata",
-      ".skillset/skills/demo/SKILL.md:3: error: schema/skill-frontmatter: skills must remove targets; use root compile.targets and claude/codex blocks for file-level behavior",
+      ".skillset/skills/demo/SKILL.md:3: error: schema/skill-frontmatter: skills must remove targets; use root compile.targets and provider-specific blocks for file-level behavior",
       ".skillset/skills/demo/SKILL.md:6: error: schema/skill-body: skill body is required",
     ]);
     expect(diagnostics.find((diagnostic) => diagnostic.message.startsWith("skills must remove targets"))?.fix).toEqual({
       kind: "suggestion",
-      message: "Move provider selection to `skillset.yaml` as `compile:\\n  targets: [claude, codex]`; keep file-level behavior in `claude:` or `codex:` blocks.",
+      message: "Move provider selection to `skillset.yaml` as `compile:\\n  targets: [claude, codex, cursor]`; keep file-level behavior in provider-specific blocks.",
     });
   });
 
@@ -122,7 +122,7 @@ describe("workbench source contract schema checks", () => {
       ".skillset/agents/writer.md:3: error: schema/agent-frontmatter: skills must be a string array when present",
       ".skillset/agents/writer.md:4: error: schema/agent-frontmatter: claude must be true, false, or an object when present",
       ".skillset/agents/writer.md:5: error: schema/agent-frontmatter: initialPrompt must be a non-empty string",
-      ".skillset/agents/writer.md:6: error: schema/agent-frontmatter: agents must remove targets; use root compile.targets and claude/codex blocks for file-level behavior",
+      ".skillset/agents/writer.md:6: error: schema/agent-frontmatter: agents must remove targets; use root compile.targets and provider-specific blocks for file-level behavior",
       ".skillset/agents/writer.md:8: error: schema/agent-body: agent body is required",
     ]);
     expect(diagnostics.find((diagnostic) => diagnostic.message.startsWith("description is required"))?.fix).toEqual({
@@ -174,7 +174,7 @@ describe("workbench source contract schema checks", () => {
     ]);
     expect(diagnostics.find((diagnostic) => diagnostic.message === "workspace config must use compile.targets instead of targets")?.fix).toEqual({
       kind: "suggestion",
-      message: "Replace top-level `targets` with `compile:\\n  targets: [claude, codex]`.",
+      message: "Replace top-level `targets` with `compile:\\n  targets: [claude, codex, cursor]`.",
     });
   });
 

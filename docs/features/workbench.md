@@ -76,7 +76,7 @@ The public schema reference is generated from `@skillset/schema` and checked by 
 
 Workbench can consume existing resource lint issues and report them in the `resource` scope. This keeps authoring mistakes such as undeclared shared resource links, plugin-root script dependencies, and non-executable declared scripts visible in the same diagnostic model as parser and schema findings.
 
-Provider and runtime diagnostics consume structured reports from the feature registry, adapter conformance, adapter coverage, and runtime support records. The important boundary is that provider/runtime diagnostics report what Skillset knows; they do not install hooks, trust plugins, execute scripts, or mutate Claude/Codex runtime settings.
+Provider and runtime diagnostics consume structured reports from the feature registry, adapter conformance, adapter coverage, and runtime support records. The important boundary is that provider/runtime diagnostics report what Skillset knows; they do not install hooks, trust plugins, execute scripts, or mutate provider runtime settings.
 
 ## ast-grep Proof Point
 

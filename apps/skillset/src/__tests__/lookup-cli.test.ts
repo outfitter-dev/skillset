@@ -111,7 +111,7 @@ test("SET-220: lookup plugin bin compatibility reports Codex unsupported reason"
 });
 
 test("SET-220: lookup target lens aliases filter non-compat views", async () => {
-  const result = await runSkillsetCli("lookup", "hooks", "--events", "--claude", "--json");
+  const result = await runSkillsetCli("lookup", "hooks", "--events", "--cursor", "--json");
 
   expect(result.exitCode).toBe(0);
   const report = JSON.parse(result.stdout) as {
@@ -119,22 +119,23 @@ test("SET-220: lookup target lens aliases filter non-compat views", async () => 
     readonly events: readonly { readonly handlerTypes: readonly string[]; readonly matcherEvaluation: string; readonly matcherKind: string; readonly matcherValues: readonly string[]; readonly name: string; readonly providerRef: string; readonly target: string }[];
     readonly targets: readonly string[];
   };
-  expect(report.targets).toEqual(["claude"]);
+  expect(report.targets).toEqual(["cursor"]);
   expect(report.diagnostics).toEqual([]);
   expect(report.events).toContainEqual(expect.objectContaining({
-    handlerTypes: ["command", "http", "mcp_tool"],
+    handlerTypes: ["command"],
     matcherEvaluation: "exact-values",
-    matcherKind: "compact-trigger",
-    matcherValues: ["manual", "auto"],
-    name: "PreCompact",
-    providerRef: "claude-hooks-overlay",
-    target: "claude",
+    matcherKind: "session-source",
+    matcherValues: ["startup", "resume", "clear", "compact"],
+    name: "SessionStart",
+    providerRef: "cursor-hooks-docs",
+    target: "cursor",
   }));
 });
 
 test("SET-220: lookup invalid combinations and targets produce helpful diagnostics", async () => {
   const invalidView = await runSkillsetCli("lookup", "workspace", "--frontmatter", "--json");
-  const invalidTarget = await runSkillsetCli("lookup", "hooks", "--compat", "cursor");
+  const cursorTarget = await runSkillsetCli("lookup", "hooks", "--compat", "cursor", "--json");
+  const invalidTarget = await runSkillsetCli("lookup", "hooks", "--compat", "unknown");
 
   expect(invalidView.exitCode).toBe(1);
   const report = JSON.parse(invalidView.stdout) as {
@@ -146,8 +147,10 @@ test("SET-220: lookup invalid combinations and targets produce helpful diagnosti
     severity: "error",
   });
 
+  expect(cursorTarget.exitCode).toBe(0);
+  expect(JSON.parse(cursorTarget.stdout).targets).toEqual(["cursor"]);
   expect(invalidTarget.exitCode).toBe(1);
-  expect(invalidTarget.stderr).toContain("unknown lookup compatibility target cursor");
+  expect(invalidTarget.stderr).toContain("unknown lookup compatibility target unknown");
 });
 
 async function runSkillsetCli(...args: readonly string[]): Promise<{

@@ -119,7 +119,7 @@ export function validateRuntimeTesterFlags(
     throw new Error("skillset: build/write options are not supported with runtime-tester; runtime tester builds an isolated projection under logical .skillset/cache/runtime-tester");
   }
   if (subcommand === "run") {
-    if (runtime.target === undefined) throw new Error("skillset: runtime-tester run requires --target claude or codex");
+    if (runtime.target === undefined) throw new Error("skillset: runtime-tester run requires --target claude, codex, or cursor");
     if ((runtime.prompt === undefined && runtime.promptFile === undefined) || (runtime.prompt !== undefined && runtime.promptFile !== undefined)) {
       throw new Error("skillset: runtime-tester run requires exactly one of --prompt or --prompt-file");
     }
@@ -144,7 +144,7 @@ async function readRuntimeTesterPrompt(
 }
 
 function requireRuntimeTesterTarget(target: TargetName | undefined): TargetName {
-  if (target === undefined) throw new Error("skillset: runtime-tester run requires --target claude or codex");
+  if (target === undefined) throw new Error("skillset: runtime-tester run requires --target claude, codex, or cursor");
   return target;
 }
 

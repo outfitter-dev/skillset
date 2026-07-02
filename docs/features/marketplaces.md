@@ -99,7 +99,7 @@ The check command exits successfully only when every selected target entry reach
 
 `skillset marketplace update [name] [--yes|--dry-run] [--json]` is the explicit write command. It runs the same source resolution, generated-output verification, and target support checks as `marketplace check`, refuses unresolved/unbuilt/stale generated output, renders provider-supported marketplace indexes, and updates existing `skillset.lock` provenance. Without `--yes`, it previews the files it would write and writes nothing.
 
-`marketplace update` is allowed to refresh absent or stale marketplace lock entries when the referenced source and generated provider output are otherwise ready. It still blocks unresolved sources, stale generated plugin bundles, missing target support, and pinned `sha` mismatches. The command never mutates external plugin repos, publishes marketplaces, installs/trusts/activates plugins, or writes user-level Claude/Codex runtime settings.
+`marketplace update` is allowed to refresh absent or stale marketplace lock entries when the referenced source and generated provider output are otherwise ready. It still blocks unresolved sources, stale generated plugin bundles, missing target support, and pinned `sha` mismatches. The command never mutates external plugin repos, publishes marketplaces, installs/trusts/activates plugins, or writes user-level provider runtime settings.
 
 ## Provenance
 

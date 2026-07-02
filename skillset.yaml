@@ -3,6 +3,7 @@ compile:
   targets:
     - claude
     - codex
+    - cursor
 skillset:
   description: Source skills and plugins for developing, reviewing, and using the skillset compiler.
   name: skillset

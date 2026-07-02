@@ -42,14 +42,14 @@ prints:
 - active output roots where generated files would land.
 
 Use `skillset build --yes` when the preview is acceptable and you want to write
-repo-local Claude/Codex generated output.
+repo-local generated provider output.
 
 ## Diagnostics
 
 The watch loop reports source errors without exiting the process. Fix the file
 and save again to rerun the preview. Build/render errors are shown as preview
 errors; no generated files, source files, hooks, scripts, runtime settings, trust
-state, or user-level Claude/Codex config are mutated.
+state, or user-level provider config are mutated.
 
 `skillset dev --watch` is intentionally not a daemon, background service,
 runtime activation layer, or provider-specific live preview. It ends when the

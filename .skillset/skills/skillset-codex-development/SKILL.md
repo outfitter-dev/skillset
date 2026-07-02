@@ -14,9 +14,9 @@ Use this skill when working on the local `skillset` compiler from a Codex-orient
 
 - Work in `/path/to/skillset`.
 - Treat `.skillset/` and `skillset.yaml` as editable source/state.
-- Treat `.skillset/`, `plugins/`, `.claude/skills`, and `.agents/skills` as generated or operational output.
+- Treat `.skillset/`, `plugins/`, `.claude/skills`, `.agents/skills`, and `.cursor/skills` as generated or operational output.
 - Do not hand-edit generated outputs as source truth.
-- Do not publish, globally install, symlink, or mutate user-level Claude/Codex config during normal repo work.
+- Do not publish, globally install, symlink, or mutate user-level provider config during normal repo work.
 
 ## Implementation Loop
 
@@ -34,7 +34,7 @@ Use this skill when working on the local `skillset` compiler from a Codex-orient
 - `skillset import` should copy into source layout only and refuse to overwrite existing source.
 - Use root `compile.targets` for provider selection. Do not add bare top-level `targets:`.
 - Keep shared source/config/frontmatter structural validation in `@skillset/schema`; do not add a compiler, Workbench, or docs-only field list for the same shape.
-- Keep target adapter config and defaults in `claude` / `codex` blocks; root `defaults.<target>` is shorthand, not provider selection.
-- Use target-specific `claude.model`, `codex.model`, or defaults for model choices. Top-level skill `model` warns in v1.
+- Keep target adapter config and defaults in provider-specific blocks such as `claude`, `codex`, or `cursor`; root `defaults.<target>` is shorthand, not provider selection.
+- Use target-specific model keys such as `claude.model`, `codex.model`, `cursor.model`, or defaults for model choices. Top-level skill `model` warns in v1.
 - `compile.unsupportedDestination` defaults to `error`, which gates unsupported/lossy/failed render from structured render results before writes; `warn`, `skip`, and `force` are reserved until their non-error semantics are implemented.
 - Use `skillset.name` for root/plugin explicit identity. `skillset.id` is unsupported.

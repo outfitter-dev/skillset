@@ -2,7 +2,7 @@
   "author": {
     "name": "Skillset Maintainers"
   },
-  "description": "Build source skills and plugins into Claude and Codex outputs.",
+  "description": "Build source skills and plugins into Claude, Codex, and Cursor outputs.",
   "interface": {
     "brandColor": "#B06DFF",
     "capabilities": [
@@ -16,9 +16,9 @@
     ],
     "developerName": "Skillset Maintainers",
     "displayName": "Skillset",
-    "longDescription": "Skillset compiles portable source skills and plugin bundles into target-native Claude and Codex artifacts.",
+    "longDescription": "Skillset compiles portable source skills and plugin bundles into target-native Claude, Codex, and Cursor artifacts.",
     "screenshots": [],
-    "shortDescription": "Build source skills and plugins into Claude and Codex outputs."
+    "shortDescription": "Build source skills and plugins into Claude, Codex, and Cursor outputs."
   },
   "keywords": [
     "skillset",
