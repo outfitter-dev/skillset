@@ -25,7 +25,7 @@
       ],
       "license": "MIT",
       "name": "skillset",
-      "source": "./plugins/skillset",
+      "source": "./plugins/skillset/claude",
       "strict": true,
       "version": "0.1.1"
     }

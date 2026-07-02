@@ -14,7 +14,7 @@ Use this skill when working on the local `skillset` compiler from a Claude-orien
 
 - The compiler repo is `/path/to/skillset`.
 - `.skillset/` and `skillset.yaml` are source truth/state for this repo's own generated skills and plugin.
-- `.skillset/`, `plugins-claude/`, `plugins-codex/`, `.claude/skills`, and `.agents/skills` are generated or operational outputs when self-building this repo.
+- `.skillset/`, `plugins/`, `.claude/skills`, and `.agents/skills` are generated or operational outputs when self-building this repo.
 - Do not publish, globally install, symlink, or mutate user-level Claude/Codex config as part of normal development.
 
 ## Development Loop

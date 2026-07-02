@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 
 import { isOutputSelected } from "./config";
 import { compareStrings } from "./path";
+import { pluginManifestPath as pluginManifestOutputPath } from "./plugin-output";
 import { pluginIdForSelector } from "./source-unit-selector";
 import { loadBuildGraph } from "./resolver";
 import { verifySkillsetResult } from "./build";
@@ -619,9 +620,7 @@ function pluginTargetRenderable(graph: BuildGraph, plugin: SourcePlugin, target:
 }
 
 function pluginManifestPath(graph: BuildGraph, plugin: SourcePlugin, target: TargetName): string {
-  const root = graph.root.outputs.plugins[target];
-  const manifest = target === "claude" ? ".claude-plugin/plugin.json" : ".codex-plugin/plugin.json";
-  return join(root, "plugins", plugin.id, manifest).replaceAll("\\", "/");
+  return pluginManifestOutputPath(graph.root.outputs.plugins[target], target, plugin.id);
 }
 
 function pluginOutputPaths(
@@ -644,12 +643,12 @@ function failuresForPath(failures: readonly string[], path: string): readonly st
 }
 
 function providerSource(path: string): string {
-  const match = path.match(/^(.*)\/plugins\/([^/]+)/);
-  if (match === null) return path;
-  const outputRoot = match[1];
-  const pluginId = match[2];
-  if (outputRoot === undefined || pluginId === undefined) return path;
-  return `./plugins/${pluginId}`;
+  const defaultMatch = path.match(/^plugins\/([^/]+)\/(claude|codex)\//);
+  if (defaultMatch !== null) return `./plugins/${defaultMatch[1]}/${defaultMatch[2]}`;
+  const overrideMatch = path.match(/^(.*)\/plugins\/([^/]+)/);
+  if (overrideMatch === null) return path;
+  const pluginId = overrideMatch[2];
+  return pluginId === undefined ? path : `./plugins/${pluginId}`;
 }
 
 function compareMarketplaceEntries(left: MarketplaceCheckEntryReport, right: MarketplaceCheckEntryReport): number {

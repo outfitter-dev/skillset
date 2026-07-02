@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 
 import { compareStrings, resolveInside } from "./path";
+import { pluginTargetForOutputPath } from "./plugin-output";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
 import {
@@ -108,7 +109,7 @@ async function auditVersionLocus(
 }
 
 function expectedVersionLoci(graph: BuildGraph, file: RenderedFile): readonly ExpectedVersionLocus[] {
-  if (file.path.endsWith("/.claude-plugin/marketplace.json")) {
+  if (file.path === ".claude-plugin/marketplace.json" || file.path.endsWith("/.claude-plugin/marketplace.json")) {
     return expectedMarketplaceVersionLoci(graph, file);
   }
 
@@ -128,7 +129,7 @@ function expectedVersionLoci(graph: BuildGraph, file: RenderedFile): readonly Ex
 }
 
 function expectedMarketplaceVersionLoci(graph: BuildGraph, file: RenderedFile): readonly ExpectedVersionLocus[] {
-  const target = targetForPath(graph, file.path);
+  const target = targetForPath(graph, file.path) ?? "claude";
   let record;
   try {
     const parsed = JSON.parse(new TextDecoder().decode(file.content)) as unknown;
@@ -184,12 +185,20 @@ function identifyVersionPath(
   path: string
 ): { readonly scope: string; readonly target?: TargetName } | undefined {
   const target = targetForPath(graph, path);
-  if (path.endsWith("/.claude-plugin/marketplace.json")) {
-    return { scope: selectorForRootConfig(), ...(target === undefined ? {} : { target }) };
+  if (path === ".claude-plugin/marketplace.json" || path.endsWith("/.claude-plugin/marketplace.json")) {
+    return { scope: selectorForRootConfig(), target: target ?? "claude" };
+  }
+  const pluginFirstManifest = path.match(/(?:^|\/)plugins\/([^/]+)\/(?:claude|codex)\/\.(?:claude|codex)-plugin\/plugin\.json$/);
+  if (pluginFirstManifest?.[1] !== undefined) {
+    return { scope: `plugin:${pluginFirstManifest[1]}`, ...(target === undefined ? {} : { target }) };
   }
   const pluginManifest = path.match(/\/plugins\/([^/]+)\/\.(?:claude|codex)-plugin\/plugin\.json$/);
   if (pluginManifest?.[1] !== undefined) {
     return { scope: `plugin:${pluginManifest[1]}`, ...(target === undefined ? {} : { target }) };
+  }
+  const pluginFirstSkill = path.match(/(?:^|\/)plugins\/([^/]+)\/(?:claude|codex)\/skills\/([^/]+)\/SKILL\.md$/);
+  if (pluginFirstSkill?.[1] !== undefined && pluginFirstSkill[2] !== undefined) {
+    return { scope: selectorForPluginSkill(pluginFirstSkill[1], pluginFirstSkill[2]), ...(target === undefined ? {} : { target }) };
   }
   const pluginSkill = path.match(/\/plugins\/([^/]+)\/skills\/([^/]+)\/SKILL\.md$/);
   if (pluginSkill?.[1] !== undefined && pluginSkill[2] !== undefined) {
@@ -203,8 +212,10 @@ function identifyVersionPath(
 }
 
 function targetForPath(graph: BuildGraph, path: string): TargetName | undefined {
-  if (isInside(path, graph.root.outputs.plugins.claude) || isInside(path, graph.root.outputs.skills.claude)) return "claude";
-  if (isInside(path, graph.root.outputs.plugins.codex) || isInside(path, graph.root.outputs.skills.codex)) return "codex";
+  const pluginTarget = pluginTargetForOutputPath(graph, path);
+  if (pluginTarget !== undefined) return pluginTarget;
+  if (isInside(path, graph.root.outputs.skills.claude)) return "claude";
+  if (isInside(path, graph.root.outputs.skills.codex)) return "codex";
   return undefined;
 }
 

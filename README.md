@@ -81,8 +81,9 @@ The default workspace layout is:
 
 Generated destination defaults:
 
-- Claude plugin repo output: `plugins-claude/`
-- Codex plugin repo output: `plugins-codex/`
+- plugin output root: `plugins/`
+- Claude plugin bundle output: `plugins/<plugin-name>/claude/`
+- Codex plugin bundle output: `plugins/<plugin-name>/codex/`
 - Claude standalone skill output: `.claude/skills`
 - Codex standalone skill output: `.agents/skills`
 - Claude rule output: `.claude/rules`
@@ -97,7 +98,7 @@ skillset verify --root /path/to/content-repo
 skillset build --root /tmp/example --dist generated
 ```
 
-`--dist` is a compatibility override for plugin outputs. Without it, plugin outputs default to `plugins-claude/` and `plugins-codex/`. Source config can also set explicit output roots in target output objects such as `claude.plugins.path` or `codex.skills.path`.
+`--dist` is a compatibility override for plugin outputs. Without it, plugin outputs default to plugin-first bundles under `plugins/<plugin-name>/<target>/`. Source config can also set explicit output roots in target output objects such as `claude.plugins.path` or `codex.skills.path`; explicit provider roots remain self-contained target roots.
 
 ## Setup
 
@@ -386,7 +387,7 @@ Self-hosted source lives under root `skillset.yaml`, `.skillset/`, and `.skillse
 - `.claude/skills/skillset-claude-development`
 - `.agents/skills/skillset-codex-development`
 - `.claude/rules` when source rules exist
-- `plugins-claude/plugins/skillset`
-- `plugins-codex/plugins/skillset`
+- `plugins/skillset/claude`
+- `plugins/skillset/codex`
 
 These are repo-local generated artifacts. Do not symlink them into global Claude/Codex config or publish them as part of normal compiler development.

@@ -7,7 +7,7 @@ changes:
 claude: true
 codex:
   plugins:
-    path: plugins-codex
+    path: generated/codex
 compile:
   build: updated
   features:

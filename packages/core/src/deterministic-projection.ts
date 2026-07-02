@@ -31,8 +31,7 @@ const DEFAULT_COPY_EXCLUDED_PATHS = [
   ".skillset/cache",
   ".skillset/snapshots",
   "node_modules",
-  "plugins-claude",
-  "plugins-codex",
+  "plugins",
 ] as const;
 
 const textEncoder = new TextEncoder();

@@ -609,12 +609,12 @@ Body.
   expect(graph.warnings).toEqual([]);
 
   await buildSkillset(root);
-  const claudeHook = await readFile(join(root, "plugins-claude/plugins/alpha/hooks/hooks.json"), "utf8");
-  const codexHook = await readFile(join(root, "plugins-codex/plugins/alpha/hooks/hooks.json"), "utf8");
+  const claudeHook = await readFile(join(root, "plugins/alpha/claude/hooks/hooks.json"), "utf8");
+  const codexHook = await readFile(join(root, "plugins/alpha/codex/hooks/hooks.json"), "utf8");
   expect(claudeHook).toContain("SessionStart");
   expect(codexHook).toContain("SessionStart");
   expect(codexHook).toContain(`"hooks"`);
-  const codexManifest = await readFile(join(root, "plugins-codex/plugins/alpha/.codex-plugin/plugin.json"), "utf8");
+  const codexManifest = await readFile(join(root, "plugins/alpha/codex/.codex-plugin/plugin.json"), "utf8");
   expect(codexManifest).toContain(`"hooks": "./hooks/hooks.json"`);
 });
 
@@ -727,7 +727,7 @@ test("SET-14: Codex plugin manifest interface uses documented camelCase fields",
   const root = await goldenPluginFixture();
   await buildSkillset(root);
   const manifest = JSON.parse(
-    await readFile(join(root, "plugins-codex/plugins/widget/.codex-plugin/plugin.json"), "utf8")
+    await readFile(join(root, "plugins/widget/codex/.codex-plugin/plugin.json"), "utf8")
   ) as { name: string; version: string; interface: Record<string, unknown> };
 
   expect(manifest.name).toBe("widget");
@@ -773,7 +773,7 @@ Body.
 
   await buildSkillset(root);
   const manifest = JSON.parse(
-    await readFile(join(root, "plugins-codex/plugins/plain/.codex-plugin/plugin.json"), "utf8")
+    await readFile(join(root, "plugins/plain/codex/.codex-plugin/plugin.json"), "utf8")
   ) as { interface: { brandColor?: string } };
   expect(manifest.interface.brandColor).toBe("#B06DFF");
 });
@@ -782,7 +782,7 @@ test("SET-14: Claude plugin manifest emits the documented top-level fields", asy
   const root = await goldenPluginFixture();
   await buildSkillset(root);
   const manifest = JSON.parse(
-    await readFile(join(root, "plugins-claude/plugins/widget/.claude-plugin/plugin.json"), "utf8")
+    await readFile(join(root, "plugins/widget/claude/.claude-plugin/plugin.json"), "utf8")
   ) as Record<string, unknown>;
 
   expect(manifest.name).toBe("widget");
@@ -874,7 +874,7 @@ test("SET-58: imported plugin manifests round-trip metadata fields through build
   await buildSkillset(root);
 
   const generated = JSON.parse(
-    await readFile(join(root, "plugins-claude/plugins/roundtrip/.claude-plugin/plugin.json"), "utf8")
+    await readFile(join(root, "plugins/roundtrip/claude/.claude-plugin/plugin.json"), "utf8")
   ) as Record<string, unknown>;
   for (const [key, value] of Object.entries(originalManifest)) {
     expect(generated[key]).toEqual(value);
@@ -1191,10 +1191,10 @@ Body.
   expect(planned.stdout).toContain("from: codex plugin:alpha");
   expect(planned.stdout).toContain("runtime: codex-cli");
   expect(planned.stdout).toContain(`to: local ${destination}`);
-  expect(planned.stdout).toContain("add: plugins-codex/plugins/alpha/.codex-plugin/plugin.json -> bundles/alpha/.codex-plugin/plugin.json");
+  expect(planned.stdout).toContain("add: plugins/alpha/codex/.codex-plugin/plugin.json -> bundles/alpha/.codex-plugin/plugin.json");
   expect(planned.stdout).toContain("ownership: file:generated");
   expect(planned.stdout).toContain("destination-owned");
-  expect(await fileExists(join(root, "plugins-codex/plugins/alpha/.codex-plugin/plugin.json"))).toBe(false);
+  expect(await fileExists(join(root, "plugins/alpha/codex/.codex-plugin/plugin.json"))).toBe(false);
   expect(await fileExists(join(destination, "bundles/alpha/.codex-plugin/plugin.json"))).toBe(false);
 });
 
@@ -2127,7 +2127,7 @@ Worker body.
   expect(result.stdout).toContain("pass: projection");
   expect(result.stdout).toContain("selection: primary skills demo");
   expect(
-    await fileExists(cachePath(root, ".skillset/cache/tests/latest/workspace/plugins-codex/plugins/bad/.codex-plugin/plugin.json"))
+    await fileExists(cachePath(root, ".skillset/cache/tests/latest/workspace/plugins/bad/codex/.codex-plugin/plugin.json"))
   ).toBe(false);
 });
 
@@ -2178,9 +2178,9 @@ COMMAND_EMITTED=yes
   expect(result.exitCode).toBe(0);
   expect(result.stdout).toContain("pass: projection");
   expect(
-    await fileExists(cachePath(root, ".skillset/cache/tests/latest/workspace/plugins-claude/plugins/alpha/skills/demo/scripts/check.sh"))
+    await fileExists(cachePath(root, ".skillset/cache/tests/latest/workspace/plugins/alpha/claude/skills/demo/scripts/check.sh"))
   ).toBe(true);
-  expect(await fileExists(cachePath(root, ".skillset/cache/tests/latest/workspace/plugins-claude/plugins/alpha/commands/run.md"))).toBe(false);
+  expect(await fileExists(cachePath(root, ".skillset/cache/tests/latest/workspace/plugins/alpha/claude/commands/run.md"))).toBe(false);
 });
 
 test("SET-178: source selectors cover all plugins and all skills", async () => {
@@ -2305,10 +2305,10 @@ Demo body.
   const markdown = await readFile(cachePath(root, ".skillset/cache/tests/latest/report.md"), "utf8");
   expect(markdown).toContain("Selection: plugins alpha");
   const claudeManifest = JSON.parse(
-    await readFile(cachePath(root, ".skillset/cache/tests/latest/workspace/plugins-claude/plugins/alpha/.claude-plugin/plugin.json"), "utf8")
+    await readFile(cachePath(root, ".skillset/cache/tests/latest/workspace/plugins/alpha/claude/.claude-plugin/plugin.json"), "utf8")
   ) as { keywords?: string[]; license?: string; name?: string; version?: string };
   const codexManifest = JSON.parse(
-    await readFile(cachePath(root, ".skillset/cache/tests/latest/workspace/plugins-codex/plugins/alpha/.codex-plugin/plugin.json"), "utf8")
+    await readFile(cachePath(root, ".skillset/cache/tests/latest/workspace/plugins/alpha/codex/.codex-plugin/plugin.json"), "utf8")
   ) as { keywords?: string[]; license?: string; name?: string; version?: string };
   expect(claudeManifest.name).toBe("alpha-claude");
   expect(claudeManifest.version).toBe("2.3.4");
@@ -2966,14 +2966,14 @@ Audit body.
   });
 
   await buildSkillset(root);
-  const claudeManifest = await readFile(join(root, "plugins-claude/plugins/audit/.claude-plugin/plugin.json"), "utf8");
+  const claudeManifest = await readFile(join(root, "plugins/audit/claude/.claude-plugin/plugin.json"), "utf8");
   expect(claudeManifest).toContain('"dependencies"');
   expect(claudeManifest).toContain('"name": "native-secrets-vault"');
   expect(claudeManifest).toContain('"range": "=1.2.3"');
   expect(claudeManifest).toContain('"name": "external-tools"');
   expect(claudeManifest).toContain('"marketplace": "acme"');
 
-  const codexSkill = await readFile(join(root, "plugins-codex/plugins/audit/skills/audit-skill/SKILL.md"), "utf8");
+  const codexSkill = await readFile(join(root, "plugins/audit/codex/skills/audit-skill/SKILL.md"), "utf8");
   expect(codexSkill).toContain("<skillset_plugin_dependencies>");
   expect(codexSkill).toContain("secrets-vault range =1.2.3 internal");
   expect(codexSkill).toContain("external-tools range ^2.1.0 marketplace acme external");
@@ -2988,10 +2988,10 @@ Audit body.
   expect(explained.stdout).toContain("secrets-vault range =1.2.3 internal");
 
   const auditLockSourceHash = async (): Promise<string> => {
-    const lock = JSON.parse(await readFile(join(root, "plugins-claude/skillset.lock"), "utf8")) as {
+    const lock = JSON.parse(await readFile(join(root, "plugins/skillset.lock"), "utf8")) as {
       items: Array<{ outputPath?: string; sourceHash?: string }>;
     };
-    return lock.items.find((item) => item.outputPath === "plugins/audit/.claude-plugin/plugin.json")?.sourceHash ?? "";
+    return lock.items.find((item) => item.outputPath === "audit/claude/.claude-plugin/plugin.json")?.sourceHash ?? "";
   };
   const originalHash = await auditLockSourceHash();
   await writeFile(join(root, ".skillset/plugins/secrets-vault/skillset.yaml"), `
@@ -4977,7 +4977,7 @@ Body.
   expect(clean.stdout).toContain("in-sync: [codex] plugin:alpha");
   expect(clean.stdout).toContain("expected 1.2.3");
 
-  const manifestPath = join(root, "plugins-codex/plugins/alpha/.codex-plugin/plugin.json");
+  const manifestPath = join(root, "plugins/alpha/codex/.codex-plugin/plugin.json");
   await rm(manifestPath);
   const missing = await runSkillsetCli("release", "audit", "--root", root);
   expect(missing.exitCode).toBe(1);
@@ -5033,7 +5033,7 @@ Body.
   });
 
   await buildSkillset(root);
-  const marketplacePath = join(root, "plugins-claude/.claude-plugin/marketplace.json");
+  const marketplacePath = join(root, ".claude-plugin/marketplace.json");
   const clean = await runSkillsetCli("release", "audit", "--root", root);
   expect(clean.exitCode).toBe(0);
   expect(clean.stdout).toContain("in-sync: [claude] plugin:alpha");
@@ -5110,8 +5110,8 @@ Release the plugin child skill behavior as a minor update to the containing plug
   expect(state.scopes["plugin.alpha.skill:child"]?.version).toBe("0.2.0");
   expect(state.scopes["plugin:alpha"]?.version).toBe("0.2.0");
   expect(await readFile(join(root, ".skillset/plugins/alpha/CHANGELOG.md"), "utf8")).toContain("## dddd11112222");
-  expect(await readFile(join(root, "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"), "utf8")).toContain('"version": "0.2.0"');
-  expect(await readFile(join(root, "plugins-claude/plugins/alpha/skills/child/SKILL.md"), "utf8")).toContain("version: 0.2.0");
+  expect(await readFile(join(root, "plugins/alpha/claude/.claude-plugin/plugin.json"), "utf8")).toContain('"version": "0.2.0"');
+  expect(await readFile(join(root, "plugins/alpha/claude/skills/child/SKILL.md"), "utf8")).toContain("version: 0.2.0");
 });
 
 test("SET-38: bump none releases audit entries while ignored entries stay out of changelogs", async () => {
@@ -5509,17 +5509,17 @@ Repo body.
 
   const pluginsOnly = await runSkillsetCli("build", "--root", root, "--scope", "plugins", "--yes");
   expect(pluginsOnly.exitCode).toBe(0);
-  expect(await Bun.file(join(root, "plugins-claude/plugins/alpha/skills/plugin-skill/SKILL.md")).exists()).toBe(true);
+  expect(await Bun.file(join(root, "plugins/alpha/claude/skills/plugin-skill/SKILL.md")).exists()).toBe(true);
   expect(await Bun.file(join(root, ".claude/skills/repo-skill/SKILL.md")).exists()).toBe(false);
 
   const repoDiff = await runSkillsetCli("diff", "--root", root, "--scope", "repo");
   expect(repoDiff.exitCode).toBe(0);
   expect(repoDiff.stdout).toContain(".claude/skills/repo-skill/SKILL.md");
-  expect(repoDiff.stdout).not.toContain("plugins-claude/plugins/alpha");
+  expect(repoDiff.stdout).not.toContain("plugins/alpha/claude");
 
   const pluginList = await runSkillsetCli("list", "--root", root, "--scope", "plugins");
   expect(pluginList.exitCode).toBe(0);
-  expect(pluginList.stdout).toContain("plugins-claude/plugins/alpha");
+  expect(pluginList.stdout).toContain("plugins/alpha/claude");
   expect(pluginList.stdout).not.toContain(".claude/skills/repo-skill");
 });
 
@@ -5554,7 +5554,7 @@ Repo body.
   });
 
   await buildSkillset(root);
-  await writeFile(join(root, "plugins-claude/skillset.lock"), "{ not valid json", "utf8");
+  await writeFile(join(root, "plugins/skillset.lock"), "{ not valid json", "utf8");
 
   await expect(diffSkillset(root, { scopes: ["repo"] })).resolves.toEqual({
     added: [],
@@ -5651,10 +5651,10 @@ Body.
 
   await buildSkillset(root);
 
-  const claudeManifest = await readFile(join(root, "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"), "utf8");
-  const codexManifest = await readFile(join(root, "plugins-codex/plugins/alpha/.codex-plugin/plugin.json"), "utf8");
-  const claudeMcp = await readFile(join(root, "plugins-claude/plugins/alpha/.mcp.json"), "utf8");
-  const lock = await readFile(join(root, "plugins-claude/skillset.lock"), "utf8");
+  const claudeManifest = await readFile(join(root, "plugins/alpha/claude/.claude-plugin/plugin.json"), "utf8");
+  const codexManifest = await readFile(join(root, "plugins/alpha/codex/.codex-plugin/plugin.json"), "utf8");
+  const claudeMcp = await readFile(join(root, "plugins/alpha/claude/.mcp.json"), "utf8");
+  const lock = await readFile(join(root, "plugins/skillset.lock"), "utf8");
   expect(claudeManifest).toContain(`"mcpServers": "./.mcp.json"`);
   expect(codexManifest).toContain(`"mcpServers": "./.mcp.json"`);
   expect(claudeMcp).toContain(`"alpha"`);
@@ -5666,7 +5666,7 @@ Body.
   const listed = await runSkillsetCli("list", "--root", root, "--scope", "plugins");
   expect(listed.stdout).toContain("plugin-feature mcp (explicit)");
 
-  const explained = await runSkillsetCli("explain", "plugins-claude/plugins/alpha/.mcp.json", "--root", root);
+  const explained = await runSkillsetCli("explain", "plugins/alpha/claude/.mcp.json", "--root", root);
   expect(explained.exitCode).toBe(0);
   expect(explained.stdout).toContain("feature: mcp");
   expect(explained.stdout).toContain("origin: explicit");
@@ -5705,10 +5705,10 @@ Body.
 
   await buildSkillset(root);
 
-  const manifest = await readFile(join(root, "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"), "utf8");
+  const manifest = await readFile(join(root, "plugins/alpha/claude/.claude-plugin/plugin.json"), "utf8");
   expect(manifest).not.toContain("mcpServers");
-  expect(await fileExists(join(root, "plugins-claude/plugins/alpha/.mcp.json"))).toBe(false);
-  expect(await fileExists(join(root, "plugins-codex/plugins/alpha/.mcp.json"))).toBe(false);
+  expect(await fileExists(join(root, "plugins/alpha/claude/.mcp.json"))).toBe(false);
+  expect(await fileExists(join(root, "plugins/alpha/codex/.mcp.json"))).toBe(false);
 });
 
 test("SET-26: mcp true requires and copies the conventional source", async () => {
@@ -5743,9 +5743,9 @@ Body.
 
   await buildSkillset(root);
 
-  expect(await fileExists(join(root, "plugins-claude/plugins/alpha/.mcp.json"))).toBe(true);
-  expect(await fileExists(join(root, "plugins-codex/plugins/alpha/.mcp.json"))).toBe(true);
-  const lock = await readFile(join(root, "plugins-codex/skillset.lock"), "utf8");
+  expect(await fileExists(join(root, "plugins/alpha/claude/.mcp.json"))).toBe(true);
+  expect(await fileExists(join(root, "plugins/alpha/codex/.mcp.json"))).toBe(true);
+  const lock = await readFile(join(root, "plugins/skillset.lock"), "utf8");
   expect(lock).toContain(`"feature": "mcp"`);
   expect(lock).toContain(`"origin": "conventional"`);
 });
@@ -5778,10 +5778,10 @@ Body.
 
   await buildSkillset(root);
 
-  expect(await fileExists(join(root, "plugins-claude/plugins/alpha/bin/tool"))).toBe(true);
-  const manifest = await readFile(join(root, "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"), "utf8");
+  expect(await fileExists(join(root, "plugins/alpha/claude/bin/tool"))).toBe(true);
+  const manifest = await readFile(join(root, "plugins/alpha/claude/.claude-plugin/plugin.json"), "utf8");
   expect(manifest).not.toContain("bin");
-  const lock = await readFile(join(root, "plugins-claude/skillset.lock"), "utf8");
+  const lock = await readFile(join(root, "plugins/skillset.lock"), "utf8");
   expect(lock).toContain(`"feature": "bin"`);
   expect(lock).toContain(`"origin": "conventional"`);
   expect(lock).toContain(`"targetState": "target-native"`);
@@ -5817,8 +5817,8 @@ Body.
 
   await buildSkillset(root);
 
-  expect(await fileExists(join(root, "plugins-claude/plugins/alpha/bin/tool"))).toBe(true);
-  const lock = await readFile(join(root, "plugins-claude/skillset.lock"), "utf8");
+  expect(await fileExists(join(root, "plugins/alpha/claude/bin/tool"))).toBe(true);
+  const lock = await readFile(join(root, "plugins/skillset.lock"), "utf8");
   expect(lock).toContain(`"feature": "bin"`);
   expect(lock).toContain(`"origin": "explicit"`);
   expect(lock).toContain(`"sourcePointer": "repo:tools/alpha"`);
@@ -5887,7 +5887,7 @@ skillset:
 claude: true
 codex: false
 `,
-    "plugins-claude/alpha-mcp.json": `
+    "plugins/alpha/claude/alpha-mcp.json": `
 {
   "mcpServers": {
     "alpha": { "command": "node" }
@@ -5898,7 +5898,7 @@ codex: false
 skillset:
   name: alpha
 mcp:
-  source: repo:plugins-claude/alpha-mcp.json
+  source: repo:plugins/alpha/claude/alpha-mcp.json
 `,
     ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
@@ -6585,8 +6585,8 @@ description: Demo.
 
 Body.
 `,
-    "plugins-codex/skillset.lock": "{}",
-    "plugins-codex/plugins/demo/plugin.json": "{}",
+    "plugins/skillset.lock": "{}",
+    "plugins/demo/codex/plugin.json": "{}",
   });
 
   const preview = await runSkillsetCli("init", "--root", root);
@@ -6868,7 +6868,7 @@ Audit body.
 
   const explained = await runSkillsetCli(
     "explain",
-    "plugins-codex/plugins/audit/skills/audit-skill/SKILL.md",
+    "plugins/audit/codex/skills/audit-skill/SKILL.md",
     "--root",
     root
   );

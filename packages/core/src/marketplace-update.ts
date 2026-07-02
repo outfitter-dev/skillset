@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { readRecord, readString } from "./config";
 import { checkMarketplaces, type MarketplaceCheckEntryReport, type MarketplaceCheckReport, type MarketplaceLockEntry } from "./marketplace-check";
 import { compareStrings, resolveInside } from "./path";
+import { claudeMarketplacePath } from "./plugin-output";
 import { loadBuildGraph } from "./resolver";
 import { renderValidatedJson } from "./structured-output";
 import type { BuildGraph, JsonRecord, JsonValue, SkillsetOptions, TargetName } from "./types";
@@ -67,7 +68,7 @@ async function renderMarketplaceUpdateFiles(
   const catalogConfig = graph.root.marketplaces[catalog];
   if (catalogConfig === undefined) throw new Error(`skillset: unknown marketplace ${catalog}`);
 
-  const path = `${graph.root.outputs.plugins.claude}/.claude-plugin/marketplace.json`;
+  const path = claudeMarketplacePath(graph.root.outputs.plugins.claude);
   const plugins = await Promise.all(claudeEntries.map((entry) => claudeMarketplacePlugin(rootPath, entry)));
   const root = graph.root.metadata;
   const owner = readRecord(root, "owner") ?? readRecord(root, "author") ?? { name: readString(root, "name") ?? catalog };

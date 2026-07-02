@@ -1,0 +1,5 @@
+Update self-hosted Skillset guidance for plugin-first generated output under plugins/<plugin>/<target> and root-level marketplace output.
+
+Bump: patch
+Group: SET-255
+Scope: skill:skillset-claude-development

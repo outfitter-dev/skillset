@@ -145,7 +145,7 @@ test("runExternalRepo adopts a marketplace-shaped repo in place and reports roun
   expect(roundTrip?.name).toBe("demo");
   expect(roundTrip?.originalRoot).toBe("plugins/demo");
   expect(roundTrip?.generatedRoot).toBe(
-    ".skillset/cache/latest/plugins-claude/plugins/demo"
+    ".skillset/cache/latest/plugins/demo/claude"
   );
   expect(roundTrip?.comparison.identical).toContain("commands/hello.md");
   // Generated skill frontmatter gains metadata.version/generated, so the

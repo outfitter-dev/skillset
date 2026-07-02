@@ -94,8 +94,8 @@ describe("render results", () => {
     const outcome = defineRenderResult({
       featureId: "plugin-manifests",
       outputs: [
-        { path: "plugins-claude/plugins/acme/.claude-plugin/plugin.json" },
-        { path: "plugins-codex/plugins/acme/.codex-plugin/plugin.json" },
+        { path: "plugins/acme/claude/.claude-plugin/plugin.json" },
+        { path: "plugins/acme/codex/.codex-plugin/plugin.json" },
       ],
       sourcePath: ".skillset/plugins/acme/skillset.yaml",
       sourceUnit: "plugin:acme",
@@ -103,8 +103,8 @@ describe("render results", () => {
     });
 
     expect(outcome.outputs?.map((output) => output.path)).toEqual([
-      "plugins-claude/plugins/acme/.claude-plugin/plugin.json",
-      "plugins-codex/plugins/acme/.codex-plugin/plugin.json",
+      "plugins/acme/claude/.claude-plugin/plugin.json",
+      "plugins/acme/codex/.codex-plugin/plugin.json",
     ]);
   });
 

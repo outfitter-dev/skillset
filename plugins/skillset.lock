@@ -1,0 +1,230 @@
+{
+  "buildMode": "updated",
+  "features": {
+    "promptArguments": true
+  },
+  "generatedBy": "skillset@0.1.0",
+  "items": [
+    {
+      "files": [
+        "skillset/claude/.claude-plugin/plugin.json",
+        "skillset/claude/LICENSE.txt"
+      ],
+      "includedSkills": [
+        "use-skillset@0.1.1"
+      ],
+      "kind": "plugin",
+      "name": "skillset",
+      "outputHash": "sha256:866904f276852c7cf105a3718a2cf370342a3ea17fabf096c094c98ba66a8642",
+      "outputPath": "skillset/claude/.claude-plugin/plugin.json",
+      "skippedSkills": [],
+      "sourceHash": "sha256:68a9d3fe865d96886114dca2cf2962c31592ce69b1466e4a4150986aced494c6",
+      "sourcePath": ".skillset/plugins/skillset",
+      "targetState": "sync",
+      "version": "0.1.1"
+    },
+    {
+      "files": [
+        "skillset/claude/skills/use-skillset/LICENSE.txt",
+        "skillset/claude/skills/use-skillset/SKILL.md"
+      ],
+      "kind": "plugin-skill",
+      "name": "use-skillset",
+      "outputHash": "sha256:d024402dcaef3aba4ef12e10cc7afdf81be84fbccc00dd9cdc9a752b275172fc",
+      "outputPath": "skillset/claude/skills/use-skillset/SKILL.md",
+      "plugin": "skillset",
+      "sourceHash": "sha256:75d75b25dc2781985edae4e50070833600f3a1ad7c17d6a540e0ab0caa570b12",
+      "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
+      "version": "0.1.1"
+    },
+    {
+      "files": [
+        "skillset/codex/.codex-plugin/plugin.json",
+        "skillset/codex/LICENSE.txt"
+      ],
+      "includedSkills": [
+        "use-skillset@0.1.1"
+      ],
+      "kind": "plugin",
+      "name": "skillset",
+      "outputHash": "sha256:a75745ca893e6bc1703ed0ad3e97f6c7e80e8548f07bf04c8cc2fc85ed9d5847",
+      "outputPath": "skillset/codex/.codex-plugin/plugin.json",
+      "skippedSkills": [],
+      "sourceHash": "sha256:0b4240dea28c814cb25736ea568ce4963308d7601dcd5652ba244aca1e7038c7",
+      "sourcePath": ".skillset/plugins/skillset",
+      "targetState": "sync",
+      "version": "0.1.1"
+    },
+    {
+      "files": [
+        "skillset/codex/skills/use-skillset/LICENSE.txt",
+        "skillset/codex/skills/use-skillset/SKILL.md"
+      ],
+      "kind": "plugin-skill",
+      "name": "use-skillset",
+      "outputHash": "sha256:38f1cf36c2d747e849716b28d66ec6a7891b872b1064fe7f23613859ce3d13c9",
+      "outputPath": "skillset/codex/skills/use-skillset/SKILL.md",
+      "plugin": "skillset",
+      "sourceHash": "sha256:75d75b25dc2781985edae4e50070833600f3a1ad7c17d6a540e0ab0caa570b12",
+      "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
+      "version": "0.1.1"
+    }
+  ],
+  "outputRoot": "plugins",
+  "renderResults": [
+    {
+      "destination": "plugin-manifest",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/features/plugins.md"
+        },
+        {
+          "kind": "provider-schema",
+          "note": "sha256:2a83eaad328540a7850c59cb422d82008e98391d47a1bba386f285c8c6679b14",
+          "ref": "claude-plugin-manifest-schema",
+          "verifiedAt": "2026-06-23"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:c81a4328f9e1cba88b3496ae42181d03692186cefda4abd5d07428e15e835ae4",
+          "ref": "claude-plugin",
+          "verifiedAt": "2026-06-23"
+        }
+      ],
+      "featureId": "plugin-manifests",
+      "outputs": [
+        {
+          "kind": "plugin",
+          "path": "plugins/skillset/claude/.claude-plugin/plugin.json"
+        },
+        {
+          "kind": "plugin",
+          "path": "plugins/skillset/claude/LICENSE.txt"
+        }
+      ],
+      "schema": "skillset-render-result@1",
+      "sourcePath": ".skillset/plugins/skillset",
+      "sourceUnit": "plugin.skillset.config:root",
+      "status": "rendered",
+      "target": "claude"
+    },
+    {
+      "destination": "plugin-manifest",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/features/plugins.md"
+        },
+        {
+          "kind": "provider-overlay",
+          "note": "Codex plugin manifest structure is currently documented in prose; no adopted JSON Schema source is available.",
+          "ref": "codex-plugin-manifest-overlay"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:ea1a87e3450a9c3959adfb9e1165fede2d9eca9fa9663d8e97f15d2a48ca3ae0",
+          "ref": "codex-plugin",
+          "verifiedAt": "2026-06-23"
+        }
+      ],
+      "featureId": "plugin-manifests",
+      "outputs": [
+        {
+          "kind": "plugin",
+          "path": "plugins/skillset/codex/.codex-plugin/plugin.json"
+        },
+        {
+          "kind": "plugin",
+          "path": "plugins/skillset/codex/LICENSE.txt"
+        }
+      ],
+      "schema": "skillset-render-result@1",
+      "sourcePath": ".skillset/plugins/skillset",
+      "sourceUnit": "plugin.skillset.config:root",
+      "status": "rendered",
+      "target": "codex"
+    },
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/features/skills.md"
+        },
+        {
+          "kind": "provider-overlay",
+          "note": "Claude skill structure is currently documented in prose; no adopted JSON Schema source is available.",
+          "ref": "claude-skill-frontmatter-overlay"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:a67aece088a7d8b3baa57791ab66796f2479b207ddb1d01296fed73f99bae4bc",
+          "ref": "claude-skill",
+          "verifiedAt": "2026-06-23"
+        }
+      ],
+      "featureId": "plugin-skills",
+      "outputs": [
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/claude/skills/use-skillset/LICENSE.txt"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/claude/skills/use-skillset/SKILL.md"
+        }
+      ],
+      "schema": "skillset-render-result@1",
+      "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
+      "sourceUnit": "plugin.skillset.skill:use-skillset",
+      "status": "rendered",
+      "target": "claude"
+    },
+    {
+      "destination": "skill",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/features/skills.md"
+        },
+        {
+          "kind": "provider-schema",
+          "note": "sha256:eebe9ca02eec5263cd23ff3945b3d3301e0b57861af2d53c76bd620b83ae355b",
+          "ref": "codex-skill-metadata-schema",
+          "verifiedAt": "2026-06-23"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:7e36cc613d0443fcae2963e276a7994d2b321b04471ae2a8941e290ed2654050",
+          "ref": "codex-skill",
+          "verifiedAt": "2026-06-23"
+        }
+      ],
+      "featureId": "plugin-skills",
+      "outputs": [
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/codex/skills/use-skillset/LICENSE.txt"
+        },
+        {
+          "kind": "plugin-skill",
+          "path": "plugins/skillset/codex/skills/use-skillset/SKILL.md"
+        }
+      ],
+      "schema": "skillset-render-result@1",
+      "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
+      "sourceUnit": "plugin.skillset.skill:use-skillset",
+      "status": "rendered",
+      "target": "codex"
+    }
+  ],
+  "schemaVersion": 1,
+  "selectedTargets": [
+    "claude",
+    "codex"
+  ],
+  "skillsetMetadata": true,
+  "sourceRoot": ".skillset",
+  "target": "workspace"
+}

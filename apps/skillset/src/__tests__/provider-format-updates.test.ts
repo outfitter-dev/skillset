@@ -12,7 +12,7 @@ import {
   runProviderFormatUpdates,
 } from "../provider-format-updates";
 
-const CODEX_PLUGIN_MANIFEST = "plugins-codex/plugins/alpha/.codex-plugin/plugin.json";
+const CODEX_PLUGIN_MANIFEST = "plugins/alpha/codex/.codex-plugin/plugin.json";
 const CODEX_AGENT = ".codex/agents/reviewer.toml";
 
 test("SET-195: check preview reports user-facing safe destination-format diagnostics", async () => {
@@ -148,7 +148,7 @@ async function builtFixture(files: Record<string, string>): Promise<string> {
 }
 
 async function markCurrentPluginManifestAsManaged(root: string): Promise<void> {
-  const lockPath = join(root, "plugins-codex/skillset.lock");
+  const lockPath = join(root, "plugins/skillset.lock");
   const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
     readonly outputRoot: string;
     readonly items: Array<{
@@ -156,7 +156,7 @@ async function markCurrentPluginManifestAsManaged(root: string): Promise<void> {
       outputHash?: string;
     }>;
   };
-  const item = lock.items.find((candidate) => candidate.files?.includes("plugins/alpha/.codex-plugin/plugin.json"));
+  const item = lock.items.find((candidate) => candidate.files?.includes("alpha/codex/.codex-plugin/plugin.json"));
   if (item?.files === undefined) throw new Error("missing plugin manifest lock item");
   item.outputHash = await hashLockItem(root, lock.outputRoot, item.files);
   await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");

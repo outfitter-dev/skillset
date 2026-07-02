@@ -16,8 +16,8 @@ origin:
   ref: main
   repo: https://github.com/example/team-skillset
 outputs:
-  claude: plugins-claude
-  codex: plugins-codex
+  claude: plugins
+  codex: plugins
 owner:
   name: Example Team
 preprocess: false

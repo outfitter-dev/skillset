@@ -164,6 +164,114 @@
       "sourcePath": ".skillset/skills/skillset-repo-test-fixtures/SKILL.md",
       "sourceUnit": ".skillset/skills/skillset-repo-test-fixtures/SKILL.md",
       "status": "metadata_only"
+    },
+    {
+      "destination": "target-native-island",
+      "evidence": [
+        {
+          "kind": "test",
+          "note": "provider source coverage",
+          "ref": "apps/skillset/src/__tests__/skillset.test.ts"
+        }
+      ],
+      "featureId": "target-native-islands",
+      "outputs": [
+        {
+          "kind": "island",
+          "path": ".claude/settings.json"
+        }
+      ],
+      "schema": "skillset-render-result@1",
+      "sourcePath": ".skillset/_claude/settings.json",
+      "sourceUnit": "claude.settingsjson:settings.json",
+      "status": "target_native",
+      "target": "claude"
+    },
+    {
+      "destination": "target-native-island",
+      "evidence": [
+        {
+          "kind": "test",
+          "note": "provider source coverage",
+          "ref": "apps/skillset/src/__tests__/skillset.test.ts"
+        }
+      ],
+      "featureId": "target-native-islands",
+      "outputs": [
+        {
+          "kind": "island",
+          "path": ".codex/hooks/hooks.json"
+        }
+      ],
+      "schema": "skillset-render-result@1",
+      "sourcePath": ".skillset/_codex/hooks/hooks.json",
+      "sourceUnit": "codex.hooks:hooks/hooks.json",
+      "status": "target_native",
+      "target": "codex"
+    },
+    {
+      "destination": "instruction",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/features/instructions.md"
+        },
+        {
+          "kind": "provider-overlay",
+          "note": "Codex AGENTS.md discovery and merge behavior is currently documented in prose; no adopted JSON Schema source is available.",
+          "ref": "codex-agents-md-overlay"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:3f6a53f45530261b0b2fafa705b1b01b8cc2b7c817eae3263226f2fd89fbae17",
+          "ref": "codex-agents-md",
+          "verifiedAt": "2026-06-23"
+        }
+      ],
+      "featureId": "project-instructions",
+      "outputs": [
+        {
+          "kind": "rule",
+          "path": "apps/skillset/src/__tests__/AGENTS.md"
+        }
+      ],
+      "schema": "skillset-render-result@1",
+      "sourcePath": ".skillset/rules",
+      "sourceUnit": "instruction:apps/skillset/src/__tests__/AGENTS.md",
+      "status": "transformed",
+      "target": "codex"
+    },
+    {
+      "destination": "instruction",
+      "evidence": [
+        {
+          "kind": "docs",
+          "ref": "docs/features/instructions.md"
+        },
+        {
+          "kind": "provider-overlay",
+          "note": "Codex AGENTS.md discovery and merge behavior is currently documented in prose; no adopted JSON Schema source is available.",
+          "ref": "codex-agents-md-overlay"
+        },
+        {
+          "kind": "provider-snapshot",
+          "note": "sha256:3f6a53f45530261b0b2fafa705b1b01b8cc2b7c817eae3263226f2fd89fbae17",
+          "ref": "codex-agents-md",
+          "verifiedAt": "2026-06-23"
+        }
+      ],
+      "featureId": "project-instructions",
+      "outputs": [
+        {
+          "kind": "rule",
+          "path": "fixtures/AGENTS.md"
+        }
+      ],
+      "schema": "skillset-render-result@1",
+      "sourcePath": ".skillset/rules",
+      "sourceUnit": "instruction:fixtures/AGENTS.md",
+      "status": "transformed",
+      "target": "codex"
     }
   ],
   "schemaVersion": 1,

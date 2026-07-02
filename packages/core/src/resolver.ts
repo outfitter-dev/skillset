@@ -38,6 +38,7 @@ import {
 } from "./hook-capabilities";
 import { SkillsetFeatureDiagnosticError } from "./operation-result";
 import { compareStrings, resolveInside, validateSlug } from "./path";
+import { DEFAULT_PLUGIN_OUTPUT_ROOT } from "./plugin-output";
 import { readReleaseState } from "./release-state";
 import { readSkillResources } from "./resources";
 import { validateSupports } from "./supports";
@@ -71,6 +72,13 @@ const ROOT_CONFIG_FILE = "config.yaml";
 const ROOT_SOURCE_MANIFEST_FILE = "skillset.yaml";
 const PLUGIN_CONFIG_FILES = ["skillset.yaml"] as const;
 const PLUGINS_DIR = "plugins";
+const RESERVED_PLUGIN_OUTPUT_NAMES = new Set([
+  ".claude-plugin",
+  ".codex-plugin",
+  ".cursor-plugin",
+  "README.md",
+  "skillset.lock",
+]);
 const SOURCE_ROOT_DIR = "";
 const RULES_DIR = "rules";
 const SKILLS_DIR = "skills";
@@ -813,11 +821,17 @@ async function loadPlugins(
 
   for (const entry of entries.sort((left, right) => compareStrings(left.name, right.name))) {
     if (!entry.isDirectory()) continue;
+    validatePluginOutputName(entry.name);
     const id = validateSlug(entry.name, "plugin directory");
     plugins.push(await loadPlugin(rootPath, sourceDir, sourceRootDir, id, rootTargets, warnings, outputs));
   }
 
   return plugins;
+}
+
+function validatePluginOutputName(name: string): void {
+  if (!RESERVED_PLUGIN_OUTPUT_NAMES.has(name)) return;
+  throw new Error(`skillset: plugin directory ${name} is reserved by generated plugin output layout`);
 }
 
 async function loadPlugin(
@@ -1417,19 +1431,28 @@ function validateOutputRoots(
   protectedRoots: readonly ProtectedRoot[],
   outputRoots: readonly ActiveOutputRoot[]
 ): void {
-  const seen = new Map<string, string>();
+  const seen = new Map<string, ActiveOutputRoot>();
 
   for (const outputRoot of outputRoots) {
     const absoluteOutputRoot = validateOutputRootNotInsideProtectedRoots(rootPath, protectedRoots, outputRoot);
 
     const existing = seen.get(absoluteOutputRoot);
     if (existing !== undefined) {
+      if (canShareOutputRoot(existing, outputRoot)) continue;
       throw new Error(
-        `skillset: ${outputRoot.label} reuses output root ${outputRoot.path}; already used by ${existing}`
+        `skillset: ${outputRoot.label} reuses output root ${outputRoot.path}; already used by ${existing.label}`
       );
     }
-    seen.set(absoluteOutputRoot, outputRoot.label);
+    seen.set(absoluteOutputRoot, outputRoot);
   }
+}
+
+function canShareOutputRoot(left: ActiveOutputRoot, right: ActiveOutputRoot): boolean {
+  const labels = new Set([left.label, right.label]);
+  return left.path === DEFAULT_PLUGIN_OUTPUT_ROOT &&
+    right.path === DEFAULT_PLUGIN_OUTPUT_ROOT &&
+    labels.has("outputs.plugins.claude") &&
+    labels.has("outputs.plugins.codex");
 }
 
 interface ProtectedRoot {

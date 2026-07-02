@@ -54,24 +54,20 @@ skillset.yaml
   changes/
   cache/
   snapshots/
-plugins-claude/
+plugins/
   skillset.lock
   README.md
-  .claude-plugin/
-    marketplace.json
-  plugins/
-    <plugin-name>/
+  <plugin-name>/
+    claude/
       .claude-plugin/
         plugin.json
       skills/
-plugins-codex/
-  skillset.lock
-  README.md
-  plugins/
-    <plugin-name>/
+    codex/
       .codex-plugin/
         plugin.json
       skills/
+.claude-plugin/
+  marketplace.json
 .claude/
   agents/
     <agent-name>.md
@@ -192,7 +188,7 @@ codex:
     path: .agents/skills
 ```
 
-Boolean output settings use the default roots: `plugins-claude/`, `plugins-codex/`, `.claude/skills`, and `.agents/skills`. Arrays select specific plugin or standalone skill names. Object settings can set `path`, `include`, or `enabled: false`. When `compile.targets` is present, a root provider object without `enabled` inherits the compile target set, so output-path objects do not accidentally re-enable a provider. Lower-level plugin, skill, and instruction objects keep the existing opt-in semantics. Do not add a bare top-level `targets:` key; provider selection has one home.
+Boolean output settings use the default roots: `plugins/`, `.claude/skills`, and `.agents/skills`; plugin bundles default to `plugins/<plugin-name>/<target>/`. Arrays select specific plugin or standalone skill names. Object settings can set `path`, `include`, or `enabled: false`. Explicit `claude.plugins.path` and `codex.plugins.path` values remain self-contained provider roots. When `compile.targets` is present, a root provider object without `enabled` inherits the compile target set, so output-path objects do not accidentally re-enable a provider. Lower-level plugin, skill, and instruction objects keep the existing opt-in semantics. Do not add a bare top-level `targets:` key; provider selection has one home.
 
 Target defaults use `claude.defaults.<surface>` and `codex.defaults.<surface>` as the canonical target-local form. Root `defaults.<target>.<surface>` is a shorthand that normalizes into the same target defaults without making `targets:` a config surface. Supported surfaces are `agents`, `instructions`, `plugins`, and `skills`; unknown surfaces such as `defaults.codex.skill` fail instead of silently no-oping. Defaults fill omitted target options for that surface: plugin defaults override root defaults, file-level target fields override plugin defaults, and target-specific fields override shared portable fields at render time. For example, a root `codex.defaults.skills.model` applies to Codex-enabled skills unless a plugin or skill provides `codex.model`, and `codex.defaults.agents.skillsPrefaceTemplate` customizes generated Codex project-agent skill prefaces.
 

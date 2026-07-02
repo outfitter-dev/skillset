@@ -204,20 +204,20 @@ skillset:
     await expect(Bun.file(join(root, ".agents/skills/inherited/LICENSE.txt")).text()).resolves.toContain("MIT License");
     await expect(Bun.file(join(root, ".claude/skills/local/LICENSE.txt")).text()).resolves.toBe("Local license text.\n");
     expect(await Bun.file(join(root, ".claude/skills/none/LICENSE.txt")).exists()).toBe(false);
-    await expect(Bun.file(join(root, "plugins-claude/plugins/demo/LICENSE.txt")).text()).resolves.toContain("SPDX-License-Identifier: MIT");
-    await expect(Bun.file(join(root, "plugins-codex/plugins/demo/skills/override/LICENSE.txt")).text()).resolves.toContain("SPDX-License-Identifier: Apache-2.0");
-    const inheritedManifest = JSON.parse(await Bun.file(join(root, "plugins-claude/plugins/demo/.claude-plugin/plugin.json")).text()) as Record<string, unknown>;
-    const optoutManifest = JSON.parse(await Bun.file(join(root, "plugins-claude/plugins/optout/.claude-plugin/plugin.json")).text()) as Record<string, unknown>;
+    await expect(Bun.file(join(root, "plugins/demo/claude/LICENSE.txt")).text()).resolves.toContain("SPDX-License-Identifier: MIT");
+    await expect(Bun.file(join(root, "plugins/demo/codex/skills/override/LICENSE.txt")).text()).resolves.toContain("SPDX-License-Identifier: Apache-2.0");
+    const inheritedManifest = JSON.parse(await Bun.file(join(root, "plugins/demo/claude/.claude-plugin/plugin.json")).text()) as Record<string, unknown>;
+    const optoutManifest = JSON.parse(await Bun.file(join(root, "plugins/optout/claude/.claude-plugin/plugin.json")).text()) as Record<string, unknown>;
     expect(inheritedManifest.license).toBe("MIT");
     expect(optoutManifest).not.toHaveProperty("license");
 
     const verify = await verifySkillsetResult(root);
     expect(verify.ok).toBe(true);
 
-    await rm(join(root, "plugins-claude/plugins/demo/LICENSE.txt"));
+    await rm(join(root, "plugins/demo/claude/LICENSE.txt"));
     const stale = await verifySkillsetResult(root);
     expect(stale.ok).toBe(false);
-    expect(stale.data.failures).toContain("missing managed generated file: plugins-claude/plugins/demo/LICENSE.txt");
+    expect(stale.data.failures).toContain("missing managed generated file: plugins/demo/claude/LICENSE.txt");
   });
 
   it("rejects local license files when the same scope opts out", async () => {

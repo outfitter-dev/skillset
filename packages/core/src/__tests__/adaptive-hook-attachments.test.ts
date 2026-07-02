@@ -232,7 +232,7 @@ hooks:
     }));
 
     const rendered = await renderBuildGraph(graph);
-    expect(rendered.map((file) => file.path)).not.toContain("plugins-claude/plugins/demo/hooks/hooks.json");
+    expect(rendered.map((file) => file.path)).not.toContain("plugins/demo/claude/hooks/hooks.json");
   });
 
   test("renders plugin-level adaptive hooks to native Claude and Codex hook files", async () => {
@@ -267,10 +267,10 @@ hooks:
     }));
 
     const rendered = await renderBuildGraph(graph);
-    const claudeHooks = renderedJson(rendered, "plugins-claude/plugins/demo/hooks/hooks.json");
-    const codexHooks = renderedJson(rendered, "plugins-codex/plugins/demo/hooks/hooks.json");
-    const claudeManifest = renderedJson(rendered, "plugins-claude/plugins/demo/.claude-plugin/plugin.json");
-    const codexManifest = renderedJson(rendered, "plugins-codex/plugins/demo/.codex-plugin/plugin.json");
+    const claudeHooks = renderedJson(rendered, "plugins/demo/claude/hooks/hooks.json");
+    const codexHooks = renderedJson(rendered, "plugins/demo/codex/hooks/hooks.json");
+    const claudeManifest = renderedJson(rendered, "plugins/demo/claude/.claude-plugin/plugin.json");
+    const codexManifest = renderedJson(rendered, "plugins/demo/codex/.codex-plugin/plugin.json");
 
     expect(claudeManifest.hooks).toBe("./hooks/hooks.json");
     expect(codexManifest.hooks).toBe("./hooks/hooks.json");
@@ -293,8 +293,8 @@ hooks:
       },
     });
     expect(rendered.map((file) => file.path)).toEqual(expect.arrayContaining([
-      "plugins-claude/plugins/demo/scripts/check.sh",
-      "plugins-codex/plugins/demo/scripts/check.sh",
+      "plugins/demo/claude/scripts/check.sh",
+      "plugins/demo/codex/scripts/check.sh",
     ]));
   });
 
@@ -347,7 +347,7 @@ hooks:
     }));
 
     const rendered = await renderBuildGraph(graph);
-    const claudeHooks = renderedJson(rendered, "plugins-claude/plugins/demo/hooks/hooks.json");
+    const claudeHooks = renderedJson(rendered, "plugins/demo/claude/hooks/hooks.json");
     expect(claudeHooks).toEqual({
       hooks: {
         Stop: [{
@@ -383,8 +383,8 @@ hooks:
     }));
 
     const rendered = await renderBuildGraph(graph);
-    const claudeHooks = renderedJson(rendered, "plugins-claude/plugins/demo/hooks/hooks.json");
-    const codexHooks = renderedJson(rendered, "plugins-codex/plugins/demo/hooks/hooks.json");
+    const claudeHooks = renderedJson(rendered, "plugins/demo/claude/hooks/hooks.json");
+    const codexHooks = renderedJson(rendered, "plugins/demo/codex/hooks/hooks.json");
 
     expect(claudeHooks).toEqual({
       hooks: {
@@ -434,8 +434,8 @@ hooks:
     }));
 
     const rendered = await renderBuildGraph(graph);
-    const claudeHooks = renderedJson(rendered, "plugins-claude/plugins/demo/hooks/hooks.json");
-    const codexHooks = renderedJson(rendered, "plugins-codex/plugins/demo/hooks/hooks.json");
+    const claudeHooks = renderedJson(rendered, "plugins/demo/claude/hooks/hooks.json");
+    const codexHooks = renderedJson(rendered, "plugins/demo/codex/hooks/hooks.json");
 
     expect(claudeHooks).toEqual({
       hooks: {

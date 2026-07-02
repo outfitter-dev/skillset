@@ -33,7 +33,7 @@ export const skillsetSchemaExamples = [
       claude: true,
       codex: {
         plugins: {
-          path: "plugins-codex",
+          path: "generated/codex",
         },
       },
       compile: {
@@ -160,8 +160,8 @@ export const skillsetSchemaExamples = [
         name: "Example Team",
       },
       outputs: {
-        claude: "plugins-claude",
-        codex: "plugins-codex",
+        claude: "plugins",
+        codex: "plugins",
       },
       presentation: {
         displayName: "Example",

@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { buildSkillset, diffSkillset } from "./build";
 import { readCompileTargets, readRecord, readString, resolveTargets, targetNames } from "./config";
 import { compareStrings, resolveInside } from "./path";
+import { pluginManifestPath as pluginManifestOutputPath, pluginTargetRoot } from "./plugin-output";
 import {
   makeRetainedRunId,
   retainedRunPaths,
@@ -797,8 +798,7 @@ async function pluginManifestCheck(
 }
 
 function pluginManifestPath(graph: BuildGraph, target: TargetName, pluginId: string): string {
-  const manifestDirectory = target === "claude" ? ".claude-plugin" : ".codex-plugin";
-  return `${graph.root.outputs.plugins[target]}/plugins/${pluginId}/${manifestDirectory}/plugin.json`;
+  return pluginManifestOutputPath(graph.root.outputs.plugins[target], target, pluginId);
 }
 
 function expectedPluginManifestFields(graph: BuildGraph, plugin: BuildGraph["plugins"][number], target: TargetName): JsonRecord {
@@ -858,8 +858,7 @@ function activationExpectationCandidatePaths(
   expect: ActivationExpectation
 ): readonly string[] {
   if (expect.kind === "plugin") {
-    const manifestDirectory = target === "claude" ? ".claude-plugin" : ".codex-plugin";
-    return [`${graph.root.outputs.plugins[target]}/plugins/${expect.name}/${manifestDirectory}/plugin.json`];
+    return [pluginManifestOutputPath(graph.root.outputs.plugins[target], target, expect.name)];
   }
 
   if (expect.kind === "agent") {
@@ -876,7 +875,7 @@ function activationExpectationCandidatePaths(
     ...graph.plugins.flatMap((plugin) =>
       plugin.skills
         .filter((skill) => skill.id === expect.name)
-        .map((skill) => join(graph.root.outputs.plugins[target], "plugins", plugin.id, dirname(skill.relativePath), "SKILL.md"))
+        .map((skill) => join(pluginTargetRoot(graph.root.outputs.plugins[target], target, plugin.id), dirname(skill.relativePath), "SKILL.md"))
     ),
   ];
 }

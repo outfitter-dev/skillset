@@ -20,7 +20,7 @@ User-facing destination-format diagnostics should name the provider, destination
   safe destination update: Codex plugin
     source: plugin.alpha.config:root
     action: Codex plugin manifests can derive dotted relative component paths during rendering.
-    output: plugins-codex/plugins/alpha/.codex-plugin/plugin.json
+    output: plugins/alpha/codex/.codex-plugin/plugin.json
     next: run skillset check --fix or skillset update --yes
 skillset: destination-format check found 1 safe update, 0 manual reviews, and 0 unplanned drift paths
 ```

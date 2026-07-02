@@ -523,6 +523,7 @@ async function marketplacePluginSources(rootPath: string): Promise<readonly stri
     if (absolutePath === resolve(rootPath)) continue;
     if (!(await pathExists(absolutePath))) continue;
     if (!(await stat(absolutePath)).isDirectory()) continue;
+    if (await isManagedPluginOutputCandidate(rootPath, absolutePath)) continue;
     const realSource = await realpath(absolutePath);
     if (realSource !== realRoot && !realSource.startsWith(`${realRoot}/`)) continue;
     if (await isManagedCandidate(absolutePath)) continue;
@@ -551,6 +552,14 @@ async function maybeCandidate(
 
 async function isManagedCandidate(path: string): Promise<boolean> {
   return (await pathExists(join(path, "skillset.lock"))) || (await pathExists(join(dirname(path), "skillset.lock")));
+}
+
+async function isManagedPluginOutputCandidate(rootPath: string, absolutePath: string): Promise<boolean> {
+  const outputRoot = join(rootPath, "plugins");
+  const resolvedOutputRoot = resolve(outputRoot);
+  const resolvedPath = resolve(absolutePath);
+  if (resolvedPath !== resolvedOutputRoot && !resolvedPath.startsWith(`${resolvedOutputRoot}/`)) return false;
+  return pathExists(join(outputRoot, "skillset.lock"));
 }
 
 function compareCandidate(left: SetupImportCandidate, right: SetupImportCandidate): number {
