@@ -314,7 +314,9 @@ async function nestedPluginSources(rootPath: string): Promise<readonly string[]>
     if (!hasManifest) continue;
     const realSource = await realpath(absolutePath);
     if (realSource !== realRoot && !realSource.startsWith(`${realRoot}/`)) continue;
-    if (await isManagedCandidate(absolutePath)) continue;
+    // Shared plugin output uses one lock at plugins/skillset.lock; only skip
+    // candidates that carry their own lock, not every sibling under plugins/.
+    if (await pathExists(join(absolutePath, "skillset.lock"))) continue;
     const path = relative(realRoot, realSource).replaceAll("\\", "/");
     if (path.length === 0 || sources.includes(path)) continue;
     sources.push(path);
