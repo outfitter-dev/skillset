@@ -1,7 +1,9 @@
 import type { JsonRecord, JsonValue, TargetName } from "./types";
 import { isJsonRecord } from "./yaml";
 import {
+  canonicalHookEventName,
   hookHandlerTypesForEvent,
+  hookEventSupported,
   hookProviderCapabilities,
 } from "./hook-capabilities";
 export {
@@ -20,7 +22,7 @@ export function validateHookDefinition(
   parsed: JsonValue,
   context: { readonly sourcePath: string; readonly target: TargetName }
 ): void {
-  const targetLabel = context.target === "claude" ? "Claude" : "Codex";
+  const targetLabel = labelForTarget(context.target);
   if (!isJsonRecord(parsed)) {
     throw new Error(
       `skillset: ${targetLabel} hook file ${context.sourcePath} must contain a JSON object`
@@ -34,12 +36,13 @@ function validateProviderHooks(
   context: { readonly sourcePath: string; readonly target: TargetName }
 ): void {
   const capabilities = hookProviderCapabilities[context.target];
-  const targetLabel = context.target === "claude" ? "Claude" : "Codex";
+  const targetLabel = labelForTarget(context.target);
   const events = isJsonRecord(parsed.hooks) ? parsed.hooks : parsed;
 
   for (const [event, groups] of Object.entries(events)) {
     if (events === parsed && event === "hooks") continue;
-    if (!capabilities.documentedEvents.has(event)) {
+    const capabilityEvent = canonicalHookEventName(context.target, event);
+    if (!hookEventSupported(context.target, event)) {
       throw new Error(
         `skillset: ${targetLabel} hook file ${context.sourcePath} uses the ${event} event, which ${targetLabel} does not support. ` +
           `${targetLabel} hook events are: ${[...capabilities.documentedEvents].join(", ")}.`
@@ -64,7 +67,7 @@ function validateProviderHooks(
         }
         if (type === "command" && handler.async === true && !capabilities.asyncCommand) {
           throw new Error(
-            `skillset: ${targetLabel} hook file ${context.sourcePath} uses async: true for ${event}, ` +
+            `skillset: ${targetLabel} hook file ${context.sourcePath} uses async: true for ${capabilityEvent}, ` +
               `but ${targetLabel} parses async command hooks and skips them. ` +
               `Remove async: true or set ${context.target}: false for this plugin.`
           );
@@ -76,4 +79,10 @@ function validateProviderHooks(
 
 function formatHandlerTypes(types: ReadonlySet<string>): string {
   return [...types].sort().map((type) => `type: ${type}`).join(", ");
+}
+
+function labelForTarget(target: TargetName): string {
+  if (target === "claude") return "Claude";
+  if (target === "codex") return "Codex";
+  return "Cursor";
 }

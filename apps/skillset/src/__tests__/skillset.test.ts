@@ -90,6 +90,185 @@ Demo plugin skill.
   expect(await exists(join(root, "plugins/demo/codex/skills/child/SKILL.md"))).toBe(true);
 });
 
+test("Cursor target emits native plugin, skill, rule, agent, hook, MCP, and marketplace outputs", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: cursor-root
+  title: Cursor Root
+  marketplace:
+    name: cursor-market
+compile:
+  targets: [cursor]
+cursor: true
+`,
+    ".skillset/skills/standalone/SKILL.md": `
+---
+name: standalone
+description: Standalone Cursor skill.
+---
+
+Standalone body.
+`,
+    ".skillset/rules/docs/writing.md": `
+---
+description: Write docs clearly.
+paths:
+  - docs/**/*.md
+---
+
+Write docs clearly.
+`,
+    ".skillset/agents/reviewer.md": `
+---
+description: Review Cursor changes.
+cursor:
+  readonly: true
+  model: cursor-fast
+---
+
+Review changes.
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+  title: Alpha Plugin
+  summary: Alpha Cursor plugin.
+hooks:
+  SessionStart:
+    - greet-session
+cursor:
+  manifest:
+    displayName: Alpha Cursor
+    category: productivity
+    tags: [review, docs]
+`,
+    ".skillset/plugins/alpha/skills/plugin-skill/SKILL.md": `
+---
+name: plugin-skill
+description: Plugin Cursor skill.
+---
+
+Plugin skill body.
+`,
+    ".skillset/plugins/alpha/hooks/greet-session.json": JSON.stringify({
+      events: ["SessionStart"],
+      run: { command: "echo hello" },
+    }),
+    ".skillset/plugins/alpha/.mcp.json": JSON.stringify({
+      mcpServers: {
+        alpha: {
+          command: "alpha-mcp",
+        },
+      },
+    }),
+    ".skillset/plugins/alpha/rules/plugin-quality.mdc": `
+---
+description: Keep alpha quality high.
+alwaysApply: true
+---
+
+Keep quality high.
+`,
+    ".skillset/plugins/alpha/agents/plugin-architect.md": `
+---
+name: plugin-architect
+description: Design alpha plugin changes.
+readonly: true
+---
+
+Design alpha plugin changes.
+`,
+    ".skillset/plugins/alpha/commands/check.md": `
+# Check
+
+Run alpha checks.
+`,
+  });
+
+  await buildSkillset(root);
+
+  expect(await exists(join(root, ".cursor/skills/standalone/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, ".cursor/rules/docs/writing.mdc"))).toBe(true);
+  expect(await exists(join(root, ".cursor/agents/reviewer.md"))).toBe(true);
+  expect(await exists(join(root, "plugins/alpha/cursor/.cursor-plugin/plugin.json"))).toBe(true);
+  expect(await exists(join(root, "plugins/alpha/cursor/skills/plugin-skill/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, "plugins/alpha/cursor/rules/plugin-quality.mdc"))).toBe(true);
+  expect(await exists(join(root, "plugins/alpha/cursor/agents/plugin-architect.md"))).toBe(true);
+  expect(await exists(join(root, "plugins/alpha/cursor/commands/check.md"))).toBe(true);
+  expect(await exists(join(root, "plugins/alpha/cursor/mcp.json"))).toBe(true);
+
+  const marketplace = JSON.parse(await readFile(join(root, ".cursor-plugin/marketplace.json"), "utf8")) as {
+    readonly plugins: readonly { readonly description: string; readonly name: string; readonly source: string }[];
+  };
+  expect(marketplace.plugins).toEqual([
+    { description: "Alpha Cursor plugin.", name: "alpha", source: "plugins/alpha/cursor" },
+  ]);
+
+  const manifest = JSON.parse(await readFile(join(root, "plugins/alpha/cursor/.cursor-plugin/plugin.json"), "utf8")) as Record<string, unknown>;
+  expect(manifest).toMatchObject({
+    agents: "./agents/",
+    commands: "./commands/",
+    displayName: "Alpha Cursor",
+    hooks: "./hooks/hooks.json",
+    mcpServers: "./mcp.json",
+    name: "alpha",
+    rules: "./rules/",
+    skills: "./skills/",
+  });
+
+  const hooks = JSON.parse(await readFile(join(root, "plugins/alpha/cursor/hooks/hooks.json"), "utf8")) as {
+    readonly hooks: Record<string, unknown>;
+  };
+  expect(Object.keys(hooks.hooks)).toEqual(["sessionStart"]);
+
+  const rule = await readFile(join(root, ".cursor/rules/docs/writing.mdc"), "utf8");
+  expect(rule).toContain("description: Write docs clearly.");
+  expect(rule).toContain("globs:");
+  expect(rule).toContain("docs/**/*.md");
+
+  const agent = await readFile(join(root, ".cursor/agents/reviewer.md"), "utf8");
+  expect(agent).toContain("readonly: true");
+  expect(agent).toContain("model: cursor-fast");
+
+  const lock = await readFile(join(root, "plugins/skillset.lock"), "utf8");
+  expect(lock).toContain(`"target": "workspace"`);
+  expect(lock).toContain(`"outputPath": "alpha/cursor/mcp.json"`);
+});
+
+test("Cursor native plugin hooks render provider-native event names", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: cursor-root
+compile:
+  targets: [cursor]
+cursor: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/hooks/hooks.json": JSON.stringify({
+      hooks: {
+        SessionStart: [
+          {
+            hooks: [{ command: "echo hello", type: "command" }],
+            matcher: "*",
+          },
+        ],
+      },
+    }),
+  });
+
+  await buildSkillset(root);
+
+  const hooks = JSON.parse(await readFile(join(root, "plugins/alpha/cursor/hooks/hooks.json"), "utf8")) as {
+    readonly hooks: Record<string, unknown>;
+  };
+  expect(Object.keys(hooks.hooks)).toEqual(["sessionStart"]);
+});
+
 test("rejects custom source directories after workspace layout cutover", async () => {
   const root = await fixture({
     "authoring/skillset.yaml": `

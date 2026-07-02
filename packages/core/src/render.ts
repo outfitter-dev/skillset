@@ -25,6 +25,7 @@ import {
   renderClaudePluginDependencies,
   renderCodexDependencyNotice,
 } from "./dependencies";
+import { nativeHookEventName } from "./hook-capabilities";
 import { validateHookDefinition } from "./hooks";
 import { resolveLicense, type ResolvedLicense } from "./licenses";
 import { compareStrings, validateSlug } from "./path";
@@ -72,6 +73,7 @@ import type {
   StandaloneSkill,
   TargetName,
 } from "./types";
+import { targetNames } from "./targets";
 import { pluginVersion, rootVersion, skillVersion, skillVersionLabel } from "./versioning";
 import { isJsonRecord, parseMarkdown, parseYamlRecord, stringifyJson } from "./yaml";
 
@@ -164,15 +166,18 @@ export async function renderBuildGraph(graph: BuildGraph): Promise<readonly Rend
   const lockRoots = new Map<string, LockRoot>();
   rendered.push(...renderRepositoryReadmes(graph));
   rendered.push(...(await renderClaudeMarketplace(graph)));
+  rendered.push(...(await renderCursorMarketplace(graph)));
 
   for (const plugin of graph.plugins) {
-    rendered.push(...(await renderPluginTarget(graph, plugin, "claude", lockRoots)));
-    rendered.push(...(await renderPluginTarget(graph, plugin, "codex", lockRoots)));
+    for (const target of targetNames()) {
+      rendered.push(...(await renderPluginTarget(graph, plugin, target, lockRoots)));
+    }
   }
 
   for (const skill of graph.standaloneSkills) {
-    rendered.push(...(await renderStandaloneSkill(graph, skill, "claude", lockRoots)));
-    rendered.push(...(await renderStandaloneSkill(graph, skill, "codex", lockRoots)));
+    for (const target of targetNames()) {
+      rendered.push(...(await renderStandaloneSkill(graph, skill, target, lockRoots)));
+    }
   }
 
   rendered.push(...(await renderProjectAgents(graph, lockRoots)));
@@ -225,57 +230,44 @@ function shouldRenderStandaloneSkill(
 
 function renderRepositoryReadmes(graph: BuildGraph): readonly RenderedFile[] {
   const rendered: RenderedFile[] = [];
-  const claudeActive = graph.plugins.some((plugin) => shouldRenderPlugin(graph, plugin, "claude"));
-  const codexActive = graph.plugins.some((plugin) => shouldRenderPlugin(graph, plugin, "codex"));
-  if (
-    graph.root.outputs.plugins.claude === graph.root.outputs.plugins.codex &&
-    isDefaultPluginOutputRoot(graph.root.outputs.plugins.claude) &&
-    (claudeActive || codexActive)
-  ) {
-    rendered.push(
-      textFile(
-        `${graph.root.outputs.plugins.claude}/README.md`,
-        [
-          "# Skillset Plugins",
-          "",
-          "Generated Skillset plugin repository.",
-          "",
-          "- `<plugin-id>/claude/` contains each Claude plugin bundle.",
-          "- `<plugin-id>/codex/` contains each Codex plugin bundle.",
-          "- `skillset.lock` records deterministic generated-state provenance.",
-          "",
-        ].join("\n")
-      )
-    );
-    return rendered;
+  const activeTargets = targetNames().filter((target) =>
+    graph.plugins.some((plugin) => shouldRenderPlugin(graph, plugin, target))
+  );
+  const outputRoots = new Set(activeTargets.map((target) => graph.root.outputs.plugins[target]));
+  if (outputRoots.size === 1 && activeTargets.length > 0) {
+    const [outputRoot] = outputRoots;
+    if (outputRoot !== undefined && isDefaultPluginOutputRoot(outputRoot)) {
+      const bundleLines = activeTargets.map((target) =>
+        `- \`<plugin-id>/${target}/\` contains each ${targetLabel(target)} plugin bundle.`
+      );
+      rendered.push(
+        textFile(
+          `${outputRoot}/README.md`,
+          [
+            "# Skillset Plugins",
+            "",
+            "Generated Skillset plugin repository.",
+            "",
+            ...bundleLines,
+            "- `skillset.lock` records deterministic generated-state provenance.",
+            "",
+          ].join("\n")
+        )
+      );
+      return rendered;
+    }
   }
-  if (claudeActive) {
+  for (const target of activeTargets) {
+    const outputRoot = graph.root.outputs.plugins[target];
     rendered.push(
       textFile(
-        `${graph.root.outputs.plugins.claude}/README.md`,
+        `${outputRoot}/README.md`,
         [
-          isDefaultPluginOutputRoot(graph.root.outputs.plugins.claude) ? "# Skillset Plugins" : "# Claude Plugins",
+          isDefaultPluginOutputRoot(outputRoot) ? "# Skillset Plugins" : `# ${targetLabel(target)} Plugins`,
           "",
-          isDefaultPluginOutputRoot(graph.root.outputs.plugins.claude) ? "Generated Skillset plugin repository." : "Generated Claude plugin repository.",
+          isDefaultPluginOutputRoot(outputRoot) ? "Generated Skillset plugin repository." : `Generated ${targetLabel(target)} plugin repository.`,
           "",
-          isDefaultPluginOutputRoot(graph.root.outputs.plugins.claude) ? "- `../.claude-plugin/marketplace.json` indexes generated Claude plugins." : "- `.claude-plugin/marketplace.json` indexes the generated plugins.",
-          isDefaultPluginOutputRoot(graph.root.outputs.plugins.claude) ? "- `<plugin-id>/claude/` contains each Claude plugin bundle." : "- `plugins/<plugin-id>/` contains each Claude plugin bundle.",
-          "- `skillset.lock` records deterministic generated-state provenance.",
-          "",
-        ].join("\n")
-      )
-    );
-  }
-  if (codexActive) {
-    rendered.push(
-      textFile(
-        `${graph.root.outputs.plugins.codex}/README.md`,
-        [
-          isDefaultPluginOutputRoot(graph.root.outputs.plugins.codex) ? "# Skillset Plugins" : "# Codex Plugins",
-          "",
-          isDefaultPluginOutputRoot(graph.root.outputs.plugins.codex) ? "Generated Skillset plugin repository." : "Generated Codex plugin repository.",
-          "",
-          isDefaultPluginOutputRoot(graph.root.outputs.plugins.codex) ? "- `<plugin-id>/codex/` contains each Codex plugin bundle." : "- `plugins/<plugin-id>/` contains each Codex plugin bundle.",
+          ...marketplaceReadmeLines(outputRoot, target),
           "- `skillset.lock` records deterministic generated-state provenance.",
           "",
         ].join("\n")
@@ -283,6 +275,30 @@ function renderRepositoryReadmes(graph: BuildGraph): readonly RenderedFile[] {
     );
   }
   return rendered;
+}
+
+function targetLabel(target: TargetName): string {
+  if (target === "claude") return "Claude";
+  if (target === "codex") return "Codex";
+  return "Cursor";
+}
+
+function marketplaceReadmeLines(outputRoot: string, target: TargetName): readonly string[] {
+  if (target === "claude") {
+    return [
+      isDefaultPluginOutputRoot(outputRoot) ? "- `../.claude-plugin/marketplace.json` indexes generated Claude plugins." : "- `.claude-plugin/marketplace.json` indexes the generated plugins.",
+      isDefaultPluginOutputRoot(outputRoot) ? "- `<plugin-id>/claude/` contains each Claude plugin bundle." : "- `plugins/<plugin-id>/` contains each Claude plugin bundle.",
+    ];
+  }
+  if (target === "cursor") {
+    return [
+      isDefaultPluginOutputRoot(outputRoot) ? "- `../.cursor-plugin/marketplace.json` indexes generated Cursor plugins." : "- `.cursor-plugin/marketplace.json` indexes the generated plugins.",
+      isDefaultPluginOutputRoot(outputRoot) ? "- `<plugin-id>/cursor/` contains each Cursor plugin bundle." : "- `plugins/<plugin-id>/` contains each Cursor plugin bundle.",
+    ];
+  }
+  return [
+    isDefaultPluginOutputRoot(outputRoot) ? "- `<plugin-id>/codex/` contains each Codex plugin bundle." : "- `plugins/<plugin-id>/` contains each Codex plugin bundle.",
+  ];
 }
 
 async function renderClaudeMarketplace(graph: BuildGraph): Promise<readonly RenderedFile[]> {
@@ -341,6 +357,56 @@ async function renderClaudeMarketplace(graph: BuildGraph): Promise<readonly Rend
   ];
 }
 
+async function renderCursorMarketplace(graph: BuildGraph): Promise<readonly RenderedFile[]> {
+  const plugins = [];
+  for (const plugin of graph.plugins.filter((candidate) => shouldRenderPlugin(graph, candidate, "cursor"))) {
+    const metadata = plugin.metadata;
+    plugins.push(
+      mergeRecords(
+        {
+          name: plugin.id,
+          source: providerSourceForPlugin(graph.root.outputs.plugins.cursor, "cursor", plugin.id).replace(/^\.\//, ""),
+          description: readString(metadata, "summary") ?? readString(metadata, "description") ?? plugin.id,
+        },
+        readRecord(plugin.targets.cursor.options, "marketplace") ?? {}
+      )
+    );
+  }
+
+  if (plugins.length === 0) return [];
+
+  const root = graph.root.metadata;
+  const owner = readRecord(root, "owner") ?? readRecord(root, "author") ?? {};
+  const portableMarketplace = readRecord(root, "marketplace") ?? {};
+  const marketplace = mergeRecords(
+    {
+      name: readString(portableMarketplace, "name") ?? readString(root, "name") ?? readString(root, "id") ?? "skillset",
+      owner,
+      metadata: {
+        description:
+          readString(root, "summary") ??
+          readString(root, "description") ??
+          "Source-first Skillset plugins",
+      },
+      plugins,
+    },
+    readRecord(graph.root.targets.cursor.options, "marketplace") ?? {}
+  );
+
+  return [
+    textFile(
+      cursorMarketplacePath(graph.root.outputs.plugins.cursor),
+      renderValidatedJson(marketplace, "Cursor marketplace")
+    ),
+  ];
+}
+
+function cursorMarketplacePath(outputRoot: string): string {
+  return isDefaultPluginOutputRoot(outputRoot)
+    ? ".cursor-plugin/marketplace.json"
+    : join(outputRoot, ".cursor-plugin", "marketplace.json").replaceAll("\\", "/");
+}
+
 async function renderPluginTarget(
   graph: BuildGraph,
   plugin: SourcePlugin,
@@ -363,9 +429,7 @@ async function renderPluginTarget(
   const rootLicense = await resolveRootLicense(graph);
   const pluginLicense = await resolvePluginLicense(graph, plugin, rootLicense);
   const manifestFile = textFile(
-    target === "claude"
-      ? `${basePath}/.claude-plugin/plugin.json`
-      : `${basePath}/.codex-plugin/plugin.json`,
+    pluginManifestPath(outputRoot, target, plugin.id),
     renderValidatedJson(
       renderPluginManifest(graph, plugin, target, enabledSkills, pluginLicense),
       `${plugin.id} ${target} plugin manifest`
@@ -448,14 +512,35 @@ function renderPluginManifest(
   const targetBase =
     target === "claude"
       ? withOptionalSurfacePaths(graph, mergeRecords(base, dependencies === undefined ? {} : { dependencies }), plugin, enabledSkills, target)
-      : mergeRecords(withOptionalSurfacePaths(graph, base, plugin, enabledSkills, target), {
+      : target === "codex"
+      ? mergeRecords(withOptionalSurfacePaths(graph, base, plugin, enabledSkills, target), {
           interface: renderCodexInterface(graph, plugin),
-        });
+        })
+      : withOptionalSurfacePaths(
+          graph,
+          mergeRecords(base, renderCursorPluginDisplayFields(metadata, portableManifest)),
+          plugin,
+          enabledSkills,
+          target
+        );
   const withOverrides = mergeRecords(targetBase, manifestOverrides);
 
   return mergeRecords(withOverrides, {
     version: pluginVersion(graph, plugin),
   });
+}
+
+function renderCursorPluginDisplayFields(
+  metadata: JsonRecord,
+  portableManifest: JsonRecord
+): JsonRecord {
+  const tags = readStringArray(portableManifest, "tags");
+  return {
+    displayName: readString(portableManifest, "displayName") ?? readString(metadata, "title"),
+    category: readString(portableManifest, "category"),
+    logo: readString(portableManifest, "logo") ?? readString(metadata, "logo"),
+    ...(tags === undefined ? {} : { tags: [...tags] }),
+  };
 }
 
 function renderCodexInterface(graph: BuildGraph, plugin: SourcePlugin): JsonRecord {
@@ -550,12 +635,20 @@ function withOptionalSurfacePaths(
       experimental.monitors = "./monitors/monitors.json";
     }
     if (Object.keys(experimental).length > 0) withPaths.experimental = experimental;
-  } else {
+  } else if (target === "codex") {
     if (pluginHasPath(plugin, "hooks/hooks.json") || hasAdaptivePluginHookOutput(graph, plugin, target)) {
       withPaths.hooks = "./hooks/hooks.json";
     }
     if (pluginHasFeature(plugin, "mcp")) withPaths.mcpServers = "./.mcp.json";
     if (pluginHasPath(plugin, ".app.json")) withPaths.apps = "./.app.json";
+  } else {
+    if (pluginHasPath(plugin, "rules")) withPaths.rules = "./rules/";
+    if (pluginHasPath(plugin, "commands")) withPaths.commands = "./commands/";
+    if (pluginHasPath(plugin, "agents")) withPaths.agents = "./agents/";
+    if (pluginHasPath(plugin, "hooks/hooks.json") || hasAdaptivePluginHookOutput(graph, plugin, target)) {
+      withPaths.hooks = "./hooks/hooks.json";
+    }
+    if (pluginHasFeature(plugin, "mcp")) withPaths.mcpServers = "./mcp.json";
   }
 
   return withPaths;
@@ -693,6 +786,9 @@ async function renderProjectAgents(
     if (agent.targets.codex.enabled) {
       results.push(await renderCodexProjectAgent(graph, agent));
     }
+    if (agent.targets.cursor.enabled) {
+      results.push(await renderCursorProjectAgent(graph, agent));
+    }
     if (results.length === 0) continue;
     const files = results.map((result) => result.file);
     rendered.push(...files);
@@ -704,6 +800,47 @@ async function renderProjectAgents(
     }
   }
   return rendered;
+}
+
+async function renderCursorProjectAgent(
+  graph: BuildGraph,
+  agent: SourceProjectAgent
+): Promise<RenderedProjectAgentFile> {
+  const targetOptions = agent.targets.cursor.options;
+  const initialPrompt = readString(targetOptions, "initialPrompt") ?? readString(agent.frontmatter, "initialPrompt");
+  const skills = readStringArray(targetOptions, "skills") ?? readStringArray(agent.frontmatter, "skills");
+  const frontmatter = mergeRecords(
+    mergeRecords(
+      stripAgentTargetOptions(stripSourceFrontmatter(agent.frontmatter, agent.sourcePath)),
+      stripAgentTargetOptions(targetOptions)
+    ),
+    {
+      name: readString(targetOptions, "name") ?? agent.name,
+      description: readString(targetOptions, "description") ?? readString(agent.frontmatter, "description") ?? agent.name,
+      ...(skills === undefined ? {} : { skills: [...skills] }),
+      ...(initialPrompt === undefined ? {} : { initialPrompt }),
+      ...(graph.root.compile.skillset.metadata
+        ? { metadata: { skillset: { generated: GENERATED_BY } } }
+        : {}),
+    }
+  );
+  const preprocessDependencies = new Set<string>();
+  const body = await preprocessText(agent.body, {
+    frontmatter: agent.frontmatter,
+    preprocessDependencies,
+    rootPath: graph.rootPath,
+    sourcePath: agent.sourcePath,
+    sourceRoot: graph.sourceRoot,
+  });
+  const targetPath = join(targetProjectRoot(graph, "cursor"), "agents", `${agent.outputName}.md`);
+  return {
+    file: textFile(
+      targetPath,
+      renderValidatedMarkdown(frontmatter, body, `${relative(graph.rootPath, agent.sourcePath)} -> ${targetPath}`),
+      relative(graph.rootPath, agent.sourcePath)
+    ),
+    preprocessDependencies: projectAgentPreprocessDependencies(graph, preprocessDependencies),
+  };
 }
 
 async function renderClaudeProjectAgent(
@@ -1389,6 +1526,7 @@ async function renderRules(
   const rendered: RenderedFile[] = [];
   rendered.push(...(await renderClaudeRules(graph, lockRoots)));
   rendered.push(...(await renderCodexAgentsFiles(graph, lockRoots)));
+  rendered.push(...(await renderCursorRules(graph, lockRoots)));
   return rendered;
 }
 
@@ -1466,6 +1604,44 @@ async function renderCodexAgentsFiles(
   return rendered;
 }
 
+async function renderCursorRules(
+  graph: BuildGraph,
+  lockRoots: Map<string, LockRoot>
+): Promise<readonly RenderedFile[]> {
+  const rendered: RenderedFile[] = [];
+  const outputRoot = join(targetProjectRoot(graph, "cursor"), "rules");
+
+  for (const rule of graph.rules.filter((sourceRule) => sourceRule.targets.cursor.enabled)) {
+    const targetFile = join(outputRoot, cursorRuleRelativePath(rule.relativePath));
+    const markdown = await renderCursorRuleMarkdown(graph, rule, targetFile);
+    const file = textFile(
+      targetFile,
+      markdown.content,
+      relative(graph.rootPath, rule.sourcePath)
+    );
+    rendered.push(file);
+    lockRootsFor(lockRoots, WORKSPACE_LOCK_ROOT, "workspace").items.push(
+      lockItemForRule({
+        files: [file],
+        graph,
+        name: rule.id,
+        outputRoot: WORKSPACE_LOCK_ROOT,
+        outputPath: targetFile,
+        preprocessDependencies: markdown.preprocessDependencies,
+        sourceHash: hashTextRule(rule, markdown.preprocessDependencies, graph.rootPath),
+        ...(rule.sourceOrigin === undefined ? {} : { sourceOrigin: rule.sourceOrigin }),
+        sourcePath: relative(graph.rootPath, rule.sourcePath),
+      })
+    );
+  }
+
+  return rendered;
+}
+
+function cursorRuleRelativePath(path: string): string {
+  return path.replace(/\.md$/u, ".mdc");
+}
+
 async function renderClaudeRuleMarkdown(
   graph: BuildGraph,
   rule: SourceRule,
@@ -1477,6 +1653,30 @@ async function renderClaudeRuleMarkdown(
   const body = await renderRuleBody(graph, rule, outputPath, preprocessDependencies);
   return {
     content: stringifyOptionalMarkdown(frontmatter, body),
+    preprocessDependencies: formattedPreprocessDependencies(graph, preprocessDependencies),
+  };
+}
+
+async function renderCursorRuleMarkdown(
+  graph: BuildGraph,
+  rule: SourceRule,
+  outputPath: string
+): Promise<RenderedRuleMarkdown> {
+  const paths = readRulePaths(rule);
+  const description =
+    readString(rule.frontmatter, "description") ??
+    readString(rule.frontmatter, "summary") ??
+    readString(rule.frontmatter, "title") ??
+    rule.id;
+  const frontmatter: JsonRecord = {
+    description,
+    alwaysApply: paths.length === 0,
+    ...(paths.length === 0 ? {} : { globs: [...paths] }),
+  };
+  const preprocessDependencies = new Set<string>();
+  const body = await renderRuleBody(graph, rule, outputPath, preprocessDependencies);
+  return {
+    content: renderValidatedMarkdown(frontmatter, normalizeRuleBody(body), `${relative(graph.rootPath, rule.sourcePath)} -> ${outputPath}`),
     preprocessDependencies: formattedPreprocessDependencies(graph, preprocessDependencies),
   };
 }
@@ -1724,11 +1924,13 @@ async function copyPluginCompanionFiles(
           "scripts",
           "src",
         ]
-      : ["README.md", ".app.json", "assets", "scripts", "src"];
+      : target === "codex"
+      ? ["README.md", ".app.json", "assets", "scripts", "src"]
+      : ["README.md", "rules", "commands", "agents", "hooks", "assets", "scripts", "src"];
 
-  if (target === "codex") {
-    const codexHook = await renderCodexHookFile(graph, plugin, basePath);
-    if (codexHook !== undefined) rendered.push(codexHook);
+  if (target === "codex" || target === "cursor") {
+    const hook = await renderNormalizedPluginHookFile(graph, plugin, target, basePath);
+    if (hook !== undefined) rendered.push(hook);
   }
 
   for (const candidate of candidates) {
@@ -1746,6 +1948,7 @@ async function copyPluginCompanionFiles(
       }
       await validateHookJson(graph, join(sourcePath, "hooks.json"), "claude");
     }
+    if ((target === "codex" || target === "cursor") && candidate === "hooks") continue;
 
     rendered.push(...(await copyPath(sourcePath, join(basePath, candidate))));
   }
@@ -1771,9 +1974,10 @@ async function renderAdaptivePluginHookFiles(
   const hooks: Record<string, JsonValue[]> = {};
   const scriptFiles = new Map<string, RenderedFile>();
   for (const item of resolved) {
-    const eventGroups = hooks[item.event] ?? [];
+    const event = nativeHookEventName(target, item.event);
+    const eventGroups = hooks[event] ?? [];
     eventGroups.push(renderAdaptiveHookGroup(graph, plugin, target, item, basePath, scriptFiles));
-    hooks[item.event] = eventGroups;
+    hooks[event] = eventGroups;
   }
 
   const normalized = { hooks };
@@ -1909,9 +2113,10 @@ function renderAdaptiveFrontmatterHooks(
 
   const hooks: Record<string, JsonValue[]> = {};
   for (const item of resolved) {
-    const eventGroups = hooks[item.event] ?? [];
+    const event = nativeHookEventName(target, item.event);
+    const eventGroups = hooks[event] ?? [];
     eventGroups.push(renderAdaptiveFrontmatterHookGroup(item, target));
-    hooks[item.event] = eventGroups;
+    hooks[event] = eventGroups;
   }
 
   validateHookDefinition({ hooks }, { sourcePath: `${sourceLabel} adaptive hooks`, target });
@@ -2021,10 +2226,16 @@ function adaptiveHookContextAssignment(
     case "hook.event":
       return `SKILLSET_HOOK_EVENT=${shellLiteral(item.event)}`;
     case "session.id":
-      return `SKILLSET_SESSION_ID="${target === "claude" ? "${CLAUDE_SESSION_ID:-}" : "${CODEX_SESSION_ID:-}"}"`;
+      return `SKILLSET_SESSION_ID="${targetSessionIdExpression(target)}"`;
     default:
       throw new Error(`skillset: adaptive hook ${item.definition.name} context.env field ${field} is not supported`);
   }
+}
+
+function targetSessionIdExpression(target: TargetName): string {
+  if (target === "claude") return "${CLAUDE_SESSION_ID:-}";
+  if (target === "codex") return "${CODEX_SESSION_ID:-}";
+  return "${CURSOR_SESSION_ID:-}";
 }
 
 function shellLiteral(value: string): string {
@@ -2075,7 +2286,8 @@ async function renderPluginFeatureFiles(
   const rendered: RenderedFile[] = [];
   for (const feature of plugin.features) {
     if (!pluginFeatureSupportsTarget(feature, target)) continue;
-    const files = (await copyPath(feature.sourcePath, join(basePath, feature.targetPath)))
+    const targetPath = pluginFeatureTargetPath(feature, target);
+    const files = (await copyPath(feature.sourcePath, join(basePath, targetPath)))
       .filter((file) => !file.path.endsWith(".gitkeep"))
       .map((file) =>
         feature.key === "mcp"
@@ -2103,34 +2315,63 @@ function pluginFeatureSupportsTarget(feature: SourcePluginFeature, target: Targe
   return true;
 }
 
+function pluginFeatureTargetPath(feature: SourcePluginFeature, target: TargetName): string {
+  if (feature.key === "mcp" && target === "cursor") return "mcp.json";
+  return feature.targetPath;
+}
+
 function pluginHasFeature(plugin: SourcePlugin, key: SourcePluginFeature["key"]): boolean {
   return plugin.features.some((feature) => feature.key === key);
 }
 
 /**
- * Render the Codex plugin hook file at the documented default path
+ * Render Codex and Cursor plugin hook files at the documented default path
  * `hooks/hooks.json` with a top-level `hooks` object.
  *
  * Source resolution: `hooks/hooks.json` is the canonical hook source for both
  * plugin targets. Flat event maps are normalized into the canonical
  * `{ "hooks": { ... } }` shape.
  */
-async function renderCodexHookFile(
+async function renderNormalizedPluginHookFile(
   graph: BuildGraph,
   plugin: SourcePlugin,
+  target: TargetName,
   basePath: string
 ): Promise<RenderedFile | undefined> {
   const canonicalSource = join(plugin.path, "hooks", "hooks.json");
   if (!(await exists(canonicalSource))) return undefined;
 
-  await validateHookJson(graph, canonicalSource, "codex");
+  await validateHookJson(graph, canonicalSource, target);
   const parsed = JSON.parse(await readFile(canonicalSource, "utf8")) as JsonValue;
   const normalized = isJsonRecord(parsed) && isJsonRecord(parsed.hooks) ? parsed : { hooks: parsed };
+  const providerNative = normalizePluginHookEventNames(normalized, target, relative(graph.rootPath, canonicalSource));
   return textFile(
     join(basePath, "hooks", "hooks.json"),
-    renderValidatedJson(normalized, `${relative(graph.rootPath, canonicalSource)} -> ${join(basePath, "hooks", "hooks.json")}`),
+    renderValidatedJson(providerNative, `${relative(graph.rootPath, canonicalSource)} -> ${join(basePath, "hooks", "hooks.json")}`),
     relative(graph.rootPath, canonicalSource)
   );
+}
+
+function normalizePluginHookEventNames(
+  normalized: JsonRecord,
+  target: TargetName,
+  sourceLabel: string
+): JsonRecord {
+  if (target !== "cursor" || !isJsonRecord(normalized.hooks)) return normalized;
+
+  const hooks: Record<string, JsonValue> = {};
+  for (const [event, groups] of Object.entries(normalized.hooks)) {
+    if (groups === undefined) continue;
+    const nativeEvent = nativeHookEventName(target, event);
+    if (Object.hasOwn(hooks, nativeEvent)) {
+      throw new Error(
+        `skillset: Cursor hook file ${sourceLabel} maps multiple events to ${nativeEvent}; keep only one canonical or native spelling.`
+      );
+    }
+    hooks[nativeEvent] = groups;
+  }
+
+  return { ...normalized, hooks };
 }
 
 async function validateHookJson(
@@ -2140,17 +2381,17 @@ async function validateHookJson(
 ): Promise<void> {
   if (!(await exists(sourcePath))) return;
 
-  const label = relative(graph.rootPath, sourcePath);
+  const sourceLabel = relative(graph.rootPath, sourcePath);
   let parsed: JsonValue;
   try {
     parsed = JSON.parse(await readFile(sourcePath, "utf8")) as JsonValue;
   } catch (error) {
-    const targetLabel = target === "claude" ? "Claude" : "Codex";
+    const provider = targetLabel(target);
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`skillset: ${targetLabel} hook file ${label} is not valid JSON: ${message}`);
+    throw new Error(`skillset: ${provider} hook file ${sourceLabel} is not valid JSON: ${message}`);
   }
 
-  validateHookDefinition(parsed, { sourcePath: label, target });
+  validateHookDefinition(parsed, { sourcePath: sourceLabel, target });
 }
 
 async function copyPath(sourcePath: string, targetPath: string): Promise<readonly RenderedFile[]> {
@@ -2277,7 +2518,7 @@ function marketplacePluginManifestPath(graph: BuildGraph, plugin: SourcePlugin, 
 }
 
 function marketplaceProviderSource(path: string): string {
-  const defaultMatch = path.match(/^plugins\/([^/]+)\/(claude|codex)\//);
+  const defaultMatch = path.match(/^plugins\/([^/]+)\/(claude|codex|cursor)\//);
   if (defaultMatch !== null) return `./plugins/${defaultMatch[1]}/${defaultMatch[2]}`;
   const overrideMatch = path.match(/^(.*)\/plugins\/([^/]+)/);
   if (overrideMatch === null) return path;
@@ -2307,7 +2548,9 @@ function lockRootsFor(
 }
 
 function pluginLockTarget(graph: BuildGraph, target: TargetName): TargetName | "workspace" {
-  return graph.root.outputs.plugins.claude === graph.root.outputs.plugins.codex
+  return targetNames().some((candidate) =>
+    candidate !== target && graph.root.outputs.plugins[candidate] === graph.root.outputs.plugins[target]
+  )
     ? "workspace"
     : target;
 }
@@ -2416,6 +2659,7 @@ async function lockItemForPluginFeature(args: {
   readonly plugin: SourcePlugin;
   readonly target: TargetName;
 }): Promise<LockItem> {
+  const targetPath = pluginFeatureTargetPath(args.feature, args.target);
   return {
     feature: args.feature.key,
     files: args.files.map((file) => relative(args.outputRoot, file.path)).sort(),
@@ -2423,7 +2667,7 @@ async function lockItemForPluginFeature(args: {
     name: `${args.plugin.id}:${args.feature.key}`,
     origin: args.feature.origin,
     outputHash: hashRenderedFiles(args.outputRoot, args.files),
-    outputPath: relative(args.outputRoot, join(pluginTargetRoot(args.outputRoot, args.target, args.plugin.id), args.feature.targetPath)),
+    outputPath: relative(args.outputRoot, join(pluginTargetRoot(args.outputRoot, args.target, args.plugin.id), targetPath)),
     plugin: args.plugin.id,
     sourceHash: await hashPluginFeatureSource(args.feature),
     sourcePath: relative(args.graph.rootPath, args.feature.sourcePath),

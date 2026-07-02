@@ -47,6 +47,7 @@ const SEEDED_FEATURE_IDS = [
   "plugin-monitors",
   "plugin-output-styles",
   "plugin-readme",
+  "plugin-rules",
   "plugin-scripts",
   "plugin-skills",
   "plugin-src",
@@ -87,9 +88,11 @@ describe("feature registry", () => {
       expect(feature.evidence.length).toBeGreaterThan(0);
       expect(feature.targetSupport.claude).toBeDefined();
       expect(feature.targetSupport.codex).toBeDefined();
+      expect(feature.targetSupport.cursor).toBeDefined();
       expect(feature.targetSupport.claude.evidence?.length ?? 0).toBeGreaterThan(0);
       expect(feature.targetSupport.codex.evidence?.length ?? 0).toBeGreaterThan(0);
-      for (const support of [feature.targetSupport.claude, feature.targetSupport.codex]) {
+      expect(feature.targetSupport.cursor.evidence?.length ?? 0).toBeGreaterThan(0);
+      for (const support of [feature.targetSupport.claude, feature.targetSupport.codex, feature.targetSupport.cursor]) {
         for (const evidence of support.evidence ?? []) {
           if (evidence.kind === "external-docs") expect(evidence.verifiedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
           if (evidence.kind === "provider-snapshot") {
@@ -211,7 +214,7 @@ describe("feature registry", () => {
       mechanism: expect.stringContaining("skill-loading preface"),
       status: "shimmed",
     }));
-    expect(getSkillsetFeature("runtime-adapters")?.runtimeSupport?.cursor?.status).toBe("planned");
+    expect(getSkillsetFeature("runtime-adapters")?.runtimeSupport?.cursor?.status).toBe("native");
     expect(getSkillsetFeature("runtime-context")?.targetSupport.claude).toEqual(expect.objectContaining({
       note: expect.stringContaining("provider, hook.event, and session.id"),
       status: "transformed",

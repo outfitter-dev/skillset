@@ -189,6 +189,32 @@ const CODEX_SUPPORTED_OUTPUT_FIELDS_BY_EVENT: Readonly<Record<string, readonly s
 const CODEX_HOOK_EVENT_SNAPSHOT = getProviderSchemaSnapshot("codex-hook-event-schemas");
 const CODEX_HOOK_EVENT_ENTRIES = readProviderSchemaSetEntries(CODEX_HOOK_EVENT_SNAPSHOT?.summary);
 
+const CURSOR_HOOK_EVENT_FACTS = [
+  cursorFact("AfterAgentResponse", "ignored", false),
+  cursorFact("AfterAgentThought", "ignored", false),
+  cursorFact("AfterFileEdit", "file-name", false),
+  cursorFact("AfterMCPExecution", "mcp-server", false),
+  cursorFact("AfterShellExecution", "ignored", false),
+  cursorFact("AfterTabFileEdit", "file-name", false),
+  cursorFact("BeforeMCPExecution", "mcp-server", true),
+  cursorFact("BeforeReadFile", "file-name", true),
+  cursorFact("BeforeShellExecution", "ignored", true),
+  cursorFact("BeforeSubmitPrompt", "ignored", true),
+  cursorFact("BeforeTabFileRead", "file-name", true),
+  cursorFact("PostCompact", "compact-trigger", false, { matcherValues: ["manual", "auto"] }),
+  cursorFact("PostToolUse", "tool", false),
+  cursorFact("PostToolUseFailure", "tool", false),
+  cursorFact("PreCompact", "compact-trigger", true, { matcherValues: ["manual", "auto"] }),
+  cursorFact("PreToolUse", "tool", true),
+  cursorFact("SessionEnd", "session-end-reason", false),
+  cursorFact("SessionStart", "session-source", false, { matcherValues: ["startup", "resume", "clear", "compact"] }),
+  cursorFact("Stop", "ignored", true),
+  cursorFact("SubagentStart", "agent-type", false),
+  cursorFact("SubagentStop", "agent-type", true),
+  cursorFact("UserPromptSubmit", "ignored", true),
+  cursorFact("WorkspaceOpen", "ignored", false),
+] as const;
+
 const codexHookEvidence = defineProviderHookEvidence({
   config: {
     groupFields: ["matcher", "hooks", "statusMessage"],
@@ -209,13 +235,30 @@ const codexHookEvidence = defineProviderHookEvidence({
   target: "codex",
 });
 
+const cursorHookEvidence = defineProviderHookEvidence({
+  config: {
+    groupFields: ["matcher", "hooks"],
+    handlerCommonFields: ["type", "command", "timeout"],
+    rootFields: ["hooks"],
+  },
+  events: CURSOR_HOOK_EVENT_FACTS.map(cursorEvent),
+  evidenceKind: "docs-backed-overlay",
+  handlerTypes: [
+    { type: "command", fields: ["type", "command", "timeout"] },
+  ],
+  providerRef: "cursor-hooks-docs",
+  sources: ["https://cursor.com/docs/hooks"],
+  target: "cursor",
+});
+
 const providerHookEvidence = {
   claude: claudeHookEvidence,
   codex: codexHookEvidence,
+  cursor: cursorHookEvidence,
 } as const satisfies Readonly<Record<ProviderHookEvidenceTarget, ProviderHookEvidence>>;
 
 export function listProviderHookEvidence(): readonly ProviderHookEvidence[] {
-  return [providerHookEvidence.claude, providerHookEvidence.codex];
+  return [providerHookEvidence.claude, providerHookEvidence.codex, providerHookEvidence.cursor];
 }
 
 export function getProviderHookEvidence(target: ProviderHookEvidenceTarget): ProviderHookEvidence {
@@ -334,6 +377,53 @@ function supportedCodexOutputFields(event: string, rawOutputFields: readonly str
 
 function codexSchemaEntry(title: string): ProviderSchemaSetEntry | undefined {
   return CODEX_HOOK_EVENT_ENTRIES.find((entry) => entry.title === title);
+}
+
+function cursorFact(
+  name: string,
+  matcherKind: ProviderHookMatcherKind,
+  canBlock: boolean,
+  options: {
+    readonly matcherValues?: readonly string[];
+    readonly runtimeNotes?: readonly string[];
+  } = {}
+): {
+  readonly canBlock: boolean;
+  readonly matcherKind: ProviderHookMatcherKind;
+  readonly matcherValues: readonly string[];
+  readonly name: string;
+  readonly runtimeNotes: readonly string[];
+} {
+  return {
+    canBlock,
+    matcherKind,
+    matcherValues: options.matcherValues ?? [],
+    name,
+    runtimeNotes: options.runtimeNotes ?? [],
+  };
+}
+
+function cursorEvent(fact: (typeof CURSOR_HOOK_EVENT_FACTS)[number]): ProviderHookEventEvidence {
+  const matcherEvaluation = fact.matcherKind === "ignored" ? "ignored" : fact.matcherValues.length > 0 ? "exact-values" : "provider-native";
+  return {
+    canBlock: fact.canBlock,
+    evidenceKind: "docs-backed-overlay",
+    handlerTypes: ["command"],
+    inputFields: [],
+    matcherEvaluation,
+    matcherKind: fact.matcherKind,
+    matcherValues: fact.matcherValues,
+    name: fact.name,
+    outputFields: [],
+    providerRef: "cursor-hooks-docs",
+    rawOutputFields: [],
+    runtimeNotes: [
+      ...fact.runtimeNotes,
+      "native-event-names-are-lower-camel",
+      ...(matcherEvaluation === "provider-native" ? ["matcher-values-provider-native"] : []),
+    ],
+    unsupportedOutputFields: [],
+  };
 }
 
 function fields(names: readonly string[], required: readonly string[]): readonly ProviderHookFieldEvidence[] {
