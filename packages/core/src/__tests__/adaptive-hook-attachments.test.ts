@@ -277,7 +277,7 @@ hooks:
     expect(claudeHooks).toEqual({
       hooks: {
         PreToolUse: [{
-          hooks: [{ command: "CHECK=1 MESSAGE='two words' $CLAUDE_PLUGIN_ROOT/scripts/check.sh", type: "command" }],
+          hooks: [{ command: "env CHECK=1 MESSAGE='two words' sh -c '$CLAUDE_PLUGIN_ROOT/scripts/check.sh'", type: "command" }],
           matcher: "Bash",
           statusMessage: "Checking shell command",
         }],
@@ -286,7 +286,7 @@ hooks:
     expect(codexHooks).toEqual({
       hooks: {
         PreToolUse: [{
-          hooks: [{ command: "CHECK=1 MESSAGE='two words' $PLUGIN_ROOT/scripts/check.sh", type: "command" }],
+          hooks: [{ command: "env CHECK=1 MESSAGE='two words' sh -c '$PLUGIN_ROOT/scripts/check.sh'", type: "command" }],
           matcher: "Bash",
           statusMessage: "Checking shell command",
         }],
@@ -320,6 +320,41 @@ hooks:
     }));
 
     await expect(renderBuildGraph(graph)).rejects.toThrow("run.env key BAD-NAME is not a valid shell environment variable name");
+  });
+
+  test("renders plugin hook run.env around the whole shell command", async () => {
+    const graph = await loadBuildGraph(await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-env-command
+claude: true
+codex: false
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  Stop:
+    - shell-policy
+`,
+      ".skillset/plugins/demo/hooks/shell-policy.json": JSON.stringify({
+        events: ["Stop"],
+        run: {
+          command: "echo \"$CHECK\" && ./check.sh",
+          env: { CHECK: "1" },
+        },
+      }),
+    }));
+
+    const rendered = await renderBuildGraph(graph);
+    const claudeHooks = renderedJson(rendered, "plugins-claude/plugins/demo/hooks/hooks.json");
+    expect(claudeHooks).toEqual({
+      hooks: {
+        Stop: [{
+          hooks: [{ command: "env CHECK=1 sh -c 'echo \"$CHECK\" && ./check.sh'", type: "command" }],
+        }],
+      },
+    });
   });
 
   test("renders inline hook context for plugin-level adaptive hooks", async () => {

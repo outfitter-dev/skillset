@@ -9,7 +9,7 @@ import { createOperationalPathContext, planDistributions, resolveOperationalPath
 import { buildSkillset, buildSkillsetResult, verifySkillset, verifySkillsetResult, diffSkillset, diffSkillsetResult } from "../build";
 import { changeStatus, collectSourceInventory } from "../change-status";
 import { doctorSkillset, explainPath } from "../authoring";
-import { importSource, importSources } from "../import";
+import { importSource, importSources, normalizeCopiedImportPath } from "../import";
 import { inspectSkillset, lintSkillset } from "../lint";
 import { readReleaseState } from "../release-state";
 import { loadBuildGraph } from "../resolver";
@@ -943,6 +943,11 @@ test("SET-10: plugin import reports native hook lift diagnostics without rewriti
     target: "codex",
   }));
   expect(JSON.parse(await readFile(join(report.targetPath, "hooks/hooks.json"), "utf8"))).toEqual(hooks);
+});
+
+test("SET-10: copied import paths normalize native separators before hook lift checks", () => {
+  expect(normalizeCopiedImportPath("hooks\\hooks.json")).toBe("hooks/hooks.json");
+  expect(normalizeCopiedImportPath("hooks/hooks.json")).toBe("hooks/hooks.json");
 });
 
 test("SET-10: importing a SKILL.md path copies the full skill directory", async () => {

@@ -366,7 +366,7 @@ async function importNativeHookRenderResults(args: {
   readonly rootPath: string;
   readonly targetPath: string;
 }): Promise<readonly SkillsetRenderResult[]> {
-  if (args.kind !== "plugin" || !args.copiedFiles.includes("hooks/hooks.json")) return [];
+  if (args.kind !== "plugin" || !args.copiedFiles.some((file) => normalizeCopiedImportPath(file) === "hooks/hooks.json")) return [];
   const hookPath = join(args.targetPath, "hooks", "hooks.json");
   const sourcePath = relative(args.rootPath, hookPath).replaceAll("\\", "/");
   const targets = await importedNativePluginTargets(args.targetPath);
@@ -583,7 +583,11 @@ function relativeImportPath(sourceRoot: string, file: string, kind: SingularImpo
   if (kind === "plugin" && (relativePath === "skillset.yaml" || relativePath === "config.yaml")) {
     return "skillset.yaml";
   }
-  return relativePath;
+  return normalizeCopiedImportPath(relativePath);
+}
+
+export function normalizeCopiedImportPath(path: string): string {
+  return path.replaceAll("\\", "/");
 }
 
 async function isSamePath(left: string, right: string): Promise<boolean> {

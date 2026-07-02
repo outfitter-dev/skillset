@@ -1937,7 +1937,7 @@ function withAdaptiveHookRunEnv(command: string, item: ResolvedAdaptiveHookAttac
       return `${key}=${shellLiteral(value)}`;
     });
   if (assignments.length === 0) return command;
-  return `${assignments.join(" ")} ${command}`;
+  return `env ${assignments.join(" ")} sh -c ${shellLiteral(command)}`;
 }
 
 function withAdaptiveHookContextCommand(
