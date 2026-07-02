@@ -27,6 +27,7 @@ import {
   resolveFeatureTargets,
   resolveTargets,
   targetNames,
+  targetRecord,
   validateConfigDocument,
   validateRootSourceManifestDocument,
   validateWorkspaceConfigDocument,
@@ -89,6 +90,7 @@ const PROJECT_AGENTS_DIR = "agents";
 const PROVIDER_SOURCE_DIRS: Readonly<Record<TargetName, string>> = {
   claude: "_claude",
   codex: "_codex",
+  cursor: "_cursor",
 };
 const PLUGIN_FEATURE_KEYS: readonly SourcePluginFeatureKey[] = ["bin", "mcp"];
 
@@ -289,10 +291,9 @@ function applyTargetFilter(
       throw new Error(`skillset: test target ${target} is not enabled by ${label} target configuration`);
     }
   }
-  return {
-    claude: enabledTargets.has("claude") ? targets.claude : { enabled: false, options: {} },
-    codex: enabledTargets.has("codex") ? targets.codex : { enabled: false, options: {} },
-  };
+  return targetRecord((target) =>
+    enabledTargets.has(target) ? targets[target] : { enabled: false, options: {} }
+  );
 }
 
 function featureDiagnosticError(
@@ -316,6 +317,7 @@ async function rejectLegacySourceLayout(rootPath: string, sourceDir: string, sou
   const moves: readonly (readonly [string, string])[] = [
     ["claude", PROVIDER_SOURCE_DIRS.claude],
     ["codex", PROVIDER_SOURCE_DIRS.codex],
+    ["cursor", PROVIDER_SOURCE_DIRS.cursor],
   ];
 
   for (const [oldPath, newPath] of moves) {
@@ -1206,7 +1208,7 @@ function warnPortableModel(
   if (missingTargets.length === 0) return;
   warnings.push(
     `${relative(rootPath, sourcePath)} uses top-level model, which is not portable in Skillset v1; ` +
-      `use claude.model, codex.model, or target defaults for ${missingTargets.join(", ")}.`
+      `use target-specific model fields or target defaults for ${missingTargets.join(", ")}.`
   );
 }
 
@@ -1326,10 +1328,10 @@ async function outputRootsFor(
 function configuredOutputRoots(outputs: BuildGraph["root"]["outputs"]): readonly ActiveOutputRoot[] {
   return [
     { label: "outputs.rules.claude", path: RULES_OUTPUT_ROOT },
-    { label: "outputs.plugins.claude", path: outputs.plugins.claude },
-    { label: "outputs.plugins.codex", path: outputs.plugins.codex },
-    { label: "outputs.skills.claude", path: outputs.skills.claude },
-    { label: "outputs.skills.codex", path: outputs.skills.codex },
+    ...targetNames().flatMap((target) => [
+      { label: `outputs.plugins.${target}`, path: outputs.plugins[target] },
+      { label: `outputs.skills.${target}`, path: outputs.skills[target] },
+    ]),
   ];
 }
 
@@ -1343,17 +1345,13 @@ function activeOutputRoots(
   if (rules.some((rule) => rule.targets.claude.enabled)) {
     roots.push({ label: "outputs.rules.claude", path: RULES_OUTPUT_ROOT });
   }
-  if (plugins.some((plugin) => plugin.targets.claude.enabled && outputIncludes(outputs.targetOutputs.claude.plugins, plugin.id))) {
-    roots.push({ label: "outputs.plugins.claude", path: outputs.plugins.claude });
-  }
-  if (plugins.some((plugin) => plugin.targets.codex.enabled && outputIncludes(outputs.targetOutputs.codex.plugins, plugin.id))) {
-    roots.push({ label: "outputs.plugins.codex", path: outputs.plugins.codex });
-  }
-  if (standaloneSkills.some((skill) => skill.targets.claude.enabled && outputIncludes(outputs.targetOutputs.claude.skills, skill.id))) {
-    roots.push({ label: "outputs.skills.claude", path: outputs.skills.claude });
-  }
-  if (standaloneSkills.some((skill) => skill.targets.codex.enabled && outputIncludes(outputs.targetOutputs.codex.skills, skill.id))) {
-    roots.push({ label: "outputs.skills.codex", path: outputs.skills.codex });
+  for (const target of targetNames()) {
+    if (plugins.some((plugin) => plugin.targets[target].enabled && outputIncludes(outputs.targetOutputs[target].plugins, plugin.id))) {
+      roots.push({ label: `outputs.plugins.${target}`, path: outputs.plugins[target] });
+    }
+    if (standaloneSkills.some((skill) => skill.targets[target].enabled && outputIncludes(outputs.targetOutputs[target].skills, skill.id))) {
+      roots.push({ label: `outputs.skills.${target}`, path: outputs.skills[target] });
+    }
   }
   return roots.sort((left, right) => compareStrings(left.path, right.path));
 }
@@ -1418,12 +1416,18 @@ function validateProjectRoots(
   }
 }
 
-function targetProjectRoot(rootTargets: BuildGraph["root"]["targets"], target: "claude" | "codex"): string {
-  return readString(rootTargets[target].options, "projectRoot") ?? (target === "claude" ? ".claude" : ".codex");
+function targetProjectRoot(rootTargets: BuildGraph["root"]["targets"], target: TargetName): string {
+  return readString(rootTargets[target].options, "projectRoot") ?? defaultProjectRoot(target);
 }
 
-function projectAgentOutputPath(projectRoot: string, target: "claude" | "codex", agent: SourceProjectAgent): string {
-  return join(projectRoot, "agents", `${agent.outputName}.${target === "claude" ? "md" : "toml"}`);
+function projectAgentOutputPath(projectRoot: string, target: TargetName, agent: SourceProjectAgent): string {
+  return join(projectRoot, "agents", `${agent.outputName}.${target === "codex" ? "toml" : "md"}`);
+}
+
+function defaultProjectRoot(target: TargetName): string {
+  if (target === "claude") return ".claude";
+  if (target === "codex") return ".codex";
+  return ".cursor";
 }
 
 function validateOutputRoots(
@@ -1451,8 +1455,7 @@ function canShareOutputRoot(left: ActiveOutputRoot, right: ActiveOutputRoot): bo
   const labels = new Set([left.label, right.label]);
   return left.path === DEFAULT_PLUGIN_OUTPUT_ROOT &&
     right.path === DEFAULT_PLUGIN_OUTPUT_ROOT &&
-    labels.has("outputs.plugins.claude") &&
-    labels.has("outputs.plugins.codex");
+    [...labels].every((label) => label.startsWith("outputs.plugins."));
 }
 
 interface ProtectedRoot {

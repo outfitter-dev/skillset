@@ -961,7 +961,7 @@ async function renderTextIslandFile(
 }
 
 function rejectIslandTargetEscape(frontmatter: JsonRecord, island: SourceIslandFile): void {
-  if (frontmatter.claude !== undefined || frontmatter.codex !== undefined || frontmatter.targets !== undefined) {
+  if (frontmatter.claude !== undefined || frontmatter.codex !== undefined || frontmatter.cursor !== undefined || frontmatter.targets !== undefined) {
     throw new Error(
       `skillset: ${island.sourcePath} is already target-native for ${island.target}; remove target override frontmatter`
     );
@@ -975,7 +975,9 @@ function isTextIslandFile(path: string): boolean {
 function targetProjectRoot(graph: BuildGraph, target: TargetName): string {
   const configured = readString(graph.root.targets[target].options, "projectRoot");
   if (configured !== undefined) return configured;
-  return target === "claude" ? ".claude" : ".codex";
+  if (target === "claude") return ".claude";
+  if (target === "codex") return ".codex";
+  return ".cursor";
 }
 
 async function renderStandaloneSkill(

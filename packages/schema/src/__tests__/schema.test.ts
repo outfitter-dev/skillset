@@ -116,6 +116,7 @@ describe("@skillset/schema contracts", () => {
       "claude",
       "codex",
       "compile",
+      "cursor",
       "defaults",
       "dependencies",
       "distributions",
@@ -138,6 +139,7 @@ describe("@skillset/schema contracts", () => {
       ],
     });
     expect(workspaceProperties.codex).toEqual(workspaceProperties.claude);
+    expect(workspaceProperties.cursor).toEqual(workspaceProperties.claude);
 
     const sourceMetadataProperties = sourceMetadataContract.schema.properties as Record<string, unknown>;
     expect(sourceMetadataProperties.schema).toEqual({

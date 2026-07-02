@@ -36,7 +36,7 @@ test("SET-220: lookup workspace nested field values", async () => {
   expect(report.fields).toEqual([
     expect.objectContaining({
       path: "compile.targets",
-      values: ["claude", "codex"],
+      values: ["claude", "codex", "cursor"],
     }),
   ]);
 });

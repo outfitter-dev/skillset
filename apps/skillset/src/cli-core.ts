@@ -14,6 +14,8 @@ import {
   restoreOutputBackup,
   updateMarketplaces,
   verifySkillsetResult,
+  isTargetName,
+  targetNames,
   type DistributionPlanReport,
   type LookupSubject,
   type LookupView,
@@ -2726,8 +2728,8 @@ function readSetupTargets(value: string): readonly TargetName[] {
   if (targets.length === 0) throw new Error("skillset: --targets requires at least one target");
   const seen = new Set<TargetName>();
   for (const target of targets) {
-    if (target !== "claude" && target !== "codex") {
-      throw new Error("skillset: expected --targets claude, codex, or claude,codex");
+    if (!isTargetName(target)) {
+      throw new Error(`skillset: expected --targets ${targetNames().join(", ")}`);
     }
     seen.add(target);
   }

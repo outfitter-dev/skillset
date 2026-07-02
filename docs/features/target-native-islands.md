@@ -4,7 +4,7 @@ Current internal feature id: `target-native-islands`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Provider source is the explicit source area for native Claude or Codex files that should be mirrored to provider dotfolders without pretending to be portable Skillset concepts. It preserves provider truth while keeping generated output reviewable and locked. The current registry id remains `target-native-islands` until a later schema migration changes internal selectors.
+Provider source is the explicit source area for native provider files that should be mirrored to provider dotfolders without pretending to be portable Skillset concepts. It preserves provider truth while keeping generated output reviewable and locked. The current registry id remains `target-native-islands` until a later schema migration changes internal selectors.
 
 ## Authoring
 
@@ -13,6 +13,7 @@ Project-level provider source uses explicit provider directories:
 ```text
 <source-root>/_claude/** -> .claude/**
 <source-root>/_codex/**  -> .codex/**
+<source-root>/_cursor/** -> .cursor/**
 ```
 
 `<source-root>` is `.skillset/`. Plugin-level native pass-through remains under plugin source paths such as `<source-root>/plugins/<plugin>/hooks/hooks.json`, `<source-root>/plugins/<plugin>/.mcp.json`, `<source-root>/plugins/<plugin>/.app.json`, and Claude plugin `agents/`.

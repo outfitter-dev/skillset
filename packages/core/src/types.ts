@@ -1,6 +1,6 @@
 import type { SkillsetXdgOptions } from "./xdg";
 
-export type TargetName = "claude" | "codex";
+export type TargetName = "claude" | "codex" | "cursor";
 
 export type JsonScalar = boolean | null | number | string;
 export type JsonValue = JsonScalar | JsonValue[] | JsonRecord;

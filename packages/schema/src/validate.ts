@@ -22,6 +22,7 @@ const workspaceKeys = new Set<string>(WORKSPACE_CONFIG_KEYS);
 const sourceMetadataKeys = new Set<string>(SOURCE_METADATA_KEYS);
 const agentFrontmatterKeys = new Set<string>(AGENT_FRONTMATTER_KEYS);
 const targetNames = new Set<string>(TARGET_NAMES);
+const targetListText = formatList(TARGET_NAMES);
 const compileBuildModes = new Set<string>(COMPILE_BUILD_MODES);
 const unsupportedDestinationPolicies = new Set<string>(UNSUPPORTED_DESTINATION_POLICIES);
 const sourceLicenseValues = new Set<string>([...SOURCE_LICENSE_IDS, SOURCE_LICENSE_NONE]);
@@ -38,6 +39,7 @@ export function validateWorkspaceConfig(value: unknown, path = "$"): SkillsetSch
   }
   checkTargetBlock(value.claude, `${path}.claude`, "schema/workspace-config/target", diagnostics);
   checkTargetBlock(value.codex, `${path}.codex`, "schema/workspace-config/target", diagnostics);
+  checkTargetBlock(value.cursor, `${path}.cursor`, "schema/workspace-config/target", diagnostics);
   checkCompile(value.compile, `${path}.compile`, diagnostics);
   checkDependencies(value.dependencies, `${path}.dependencies`, "schema/workspace-config/dependencies", diagnostics);
   checkMarketplaceCatalogs(value.marketplaces, `${path}.marketplaces`, diagnostics);
@@ -74,6 +76,7 @@ export function validateSkillFrontmatter(value: unknown, path = "$"): SkillsetSc
   checkOptionalStringOrPositiveInteger(value.schema, `${path}.schema`, "schema/skill-frontmatter/schema", diagnostics);
   checkTargetBlock(value.claude, `${path}.claude`, "schema/skill-frontmatter/target", diagnostics);
   checkTargetBlock(value.codex, `${path}.codex`, "schema/skill-frontmatter/target", diagnostics);
+  checkTargetBlock(value.cursor, `${path}.cursor`, "schema/skill-frontmatter/target", diagnostics);
   checkHookAttachments(value.hooks, `${path}.hooks`, "schema/skill-frontmatter/hooks", diagnostics);
   checkImplicitInvocation(value.implicit_invocation, `${path}.implicit_invocation`, diagnostics);
   checkAllowedTools(value.allowed_tools, `${path}.allowed_tools`, diagnostics);
@@ -98,6 +101,7 @@ export function validateAgentFrontmatter(value: unknown, path = "$"): SkillsetSc
   checkOptionalNonEmptyStringArray(value.skills, `${path}.skills`, "schema/agent-frontmatter/skills", diagnostics);
   checkTargetBlock(value.claude, `${path}.claude`, "schema/agent-frontmatter/target", diagnostics);
   checkTargetBlock(value.codex, `${path}.codex`, "schema/agent-frontmatter/target", diagnostics);
+  checkTargetBlock(value.cursor, `${path}.cursor`, "schema/agent-frontmatter/target", diagnostics);
   checkHookAttachments(value.hooks, `${path}.hooks`, "schema/agent-frontmatter/hooks", diagnostics);
   checkSourceMetadata(value.skillset, `${path}.skillset`, diagnostics);
   checkSupports(value.supports, `${path}.supports`, diagnostics);
@@ -117,6 +121,7 @@ export function validateInstructionFrontmatter(value: unknown, path = "$"): Skil
   checkOptionalStringArray(value.paths, `${path}.paths`, "schema/instruction-frontmatter/paths", diagnostics);
   checkTargetBlock(value.claude, `${path}.claude`, "schema/instruction-frontmatter/target", diagnostics);
   checkTargetBlock(value.codex, `${path}.codex`, "schema/instruction-frontmatter/target", diagnostics);
+  checkTargetBlock(value.cursor, `${path}.cursor`, "schema/instruction-frontmatter/target", diagnostics);
   checkSourceMetadata(value.skillset, `${path}.skillset`, diagnostics);
   checkSupports(value.supports, `${path}.supports`, diagnostics);
   return result(diagnostics);
@@ -142,7 +147,7 @@ export function validateAdaptiveHookUnitSource(value: unknown, path = "$"): Skil
   const diagnostics: SkillsetSchemaDiagnostic[] = [];
   if (!isSchemaRecord(value)) return result([diagnostic(path, "schema/adaptive-hook/type", "adaptive hook unit must contain an object")]);
 
-  checkAllowedKeys(value, new Set(["claude", "codex", "context", "description", "events", "match", "name", "providers", "run", "status"]), path, "schema/adaptive-hook/key", diagnostics);
+  checkAllowedKeys(value, new Set(["claude", "codex", "context", "cursor", "description", "events", "match", "name", "providers", "run", "status"]), path, "schema/adaptive-hook/key", diagnostics);
   checkOptionalNonEmptyString(value.name, `${path}.name`, "schema/adaptive-hook/name", diagnostics);
   checkOptionalNonEmptyString(value.description, `${path}.description`, "schema/adaptive-hook/description", diagnostics);
   checkOptionalNonEmptyString(value.status, `${path}.status`, "schema/adaptive-hook/status", diagnostics);
@@ -151,6 +156,7 @@ export function validateAdaptiveHookUnitSource(value: unknown, path = "$"): Skil
   checkAdaptiveHookMatch(value.match, `${path}.match`, diagnostics);
   checkOptionalObject(value.claude, `${path}.claude`, "schema/adaptive-hook/provider-override", diagnostics);
   checkOptionalObject(value.codex, `${path}.codex`, "schema/adaptive-hook/provider-override", diagnostics);
+  checkOptionalObject(value.cursor, `${path}.cursor`, "schema/adaptive-hook/provider-override", diagnostics);
   checkAdaptiveHookContext(value.context, `${path}.context`, diagnostics);
   checkAdaptiveHookRun(value.run, `${path}.run`, diagnostics);
   return result(diagnostics);
@@ -209,7 +215,7 @@ function checkTargets(value: SchemaJsonValue, path: string, diagnostics: Skillse
   const seen = new Set<string>();
   for (const [index, item] of value.entries()) {
     if (typeof item !== "string" || !targetNames.has(item)) {
-      diagnostics.push(diagnostic(`${path}[${index}]`, "schema/workspace-config/target", `${label} entries must be claude or codex`));
+      diagnostics.push(diagnostic(`${path}[${index}]`, "schema/workspace-config/target", `${label} entries must be ${targetListText}`));
       continue;
     }
     if (seen.has(item)) diagnostics.push(diagnostic(`${path}[${index}]`, "schema/workspace-config/target-duplicate", `duplicate target ${item}`));
@@ -647,7 +653,7 @@ function checkHookAttachmentProviders(value: SchemaJsonValue | undefined, path: 
   const seen = new Set<string>();
   for (const [index, item] of value.entries()) {
     if (typeof item !== "string" || !targetNames.has(item)) {
-      diagnostics.push(diagnostic(`${path}[${index}]`, code, "hook attachment providers entries must be claude or codex"));
+      diagnostics.push(diagnostic(`${path}[${index}]`, code, `hook attachment providers entries must be ${targetListText}`));
       continue;
     }
     if (seen.has(item)) diagnostics.push(diagnostic(`${path}[${index}]`, `${code}-duplicate`, `duplicate hook attachment provider ${item}`));
@@ -680,7 +686,7 @@ function checkAdaptiveHookProviders(value: SchemaJsonValue | undefined, path: st
   const seen = new Set<string>();
   for (const [index, item] of value.entries()) {
     if (typeof item !== "string" || !targetNames.has(item)) {
-      diagnostics.push(diagnostic(`${path}[${index}]`, "schema/adaptive-hook/providers", "adaptive hook providers entries must be claude or codex"));
+      diagnostics.push(diagnostic(`${path}[${index}]`, "schema/adaptive-hook/providers", `adaptive hook providers entries must be ${targetListText}`));
       continue;
     }
     if (seen.has(item)) diagnostics.push(diagnostic(`${path}[${index}]`, "schema/adaptive-hook/providers-duplicate", `duplicate adaptive hook provider ${item}`));
@@ -881,4 +887,9 @@ function result(diagnostics: readonly SkillsetSchemaDiagnostic[]): SkillsetSchem
     diagnostics,
     ok: diagnostics.length === 0,
   };
+}
+
+function formatList(values: readonly string[]): string {
+  if (values.length <= 1) return values.join("");
+  return `${values.slice(0, -1).join(", ")}, or ${values.at(-1)}`;
 }

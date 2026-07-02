@@ -11,6 +11,7 @@ import {
   type SkillsetRuntimeSupport,
   type SkillsetTargetSupport,
 } from "./feature-registry";
+import { targetNames } from "./targets";
 
 export type FeatureRegistryDriftCode =
   | "missing-doc-ref"
@@ -68,7 +69,7 @@ function checkEvidencePresence(
     });
   }
 
-  for (const target of ["claude", "codex"] as const) {
+  for (const target of targetNames()) {
     const support = feature.targetSupport[target];
     if (supportRequiresEvidence(support) && (support.evidence?.length ?? 0) === 0) {
       issues.push({
@@ -148,7 +149,7 @@ async function checkEvidenceRefs(
 ): Promise<void> {
   await checkEvidenceList(issues, rootPath, feature.id, "evidence", feature.evidence);
 
-  for (const target of ["claude", "codex"] as const) {
+  for (const target of targetNames()) {
     await checkEvidenceList(
       issues,
       rootPath,

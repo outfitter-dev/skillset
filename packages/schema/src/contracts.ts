@@ -6,7 +6,8 @@ export const SKILLSET_SCHEMA_URI_BASE = "https://raw.githubusercontent.com/outfi
 const SEMVER_PATTERN =
   "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$";
 
-export const TARGET_NAMES = ["claude", "codex"] as const;
+export const TARGET_NAMES = ["claude", "codex", "cursor"] as const;
+export const DEFAULT_TARGET_NAMES = ["claude", "codex"] as const;
 export const COMPILE_BUILD_MODES = ["all", "updated"] as const;
 export const UNSUPPORTED_DESTINATION_POLICIES = ["error"] as const;
 export const SOURCE_LICENSE_IDS = [
@@ -24,6 +25,7 @@ export const WORKSPACE_CONFIG_KEYS = [
   "changes",
   "claude",
   "codex",
+  "cursor",
   "compile",
   "defaults",
   "dependencies",
@@ -62,6 +64,7 @@ export const COMMON_FRONTMATTER_KEYS = [
   "bin",
   "claude",
   "codex",
+  "cursor",
   "dependencies",
   "description",
   "dialect",
@@ -84,6 +87,7 @@ export const COMMON_FRONTMATTER_KEYS = [
 export const AGENT_FRONTMATTER_KEYS = [
   "claude",
   "codex",
+  "cursor",
   "description",
   "hooks",
   "initialPrompt",
@@ -98,6 +102,7 @@ export const AGENT_FRONTMATTER_KEYS = [
 export const INSTRUCTION_FRONTMATTER_KEYS = [
   "claude",
   "codex",
+  "cursor",
   "dialect",
   "metadata",
   "name",
@@ -112,6 +117,7 @@ export const workspaceConfigContract = contract("workspace-config", "Workspace C
     changes: { type: "object" },
     claude: targetOverrideSchema(),
     codex: targetOverrideSchema(),
+    cursor: targetOverrideSchema(),
     compile: strictObjectSchema({
       build: enumSchema(COMPILE_BUILD_MODES),
       features: strictObjectSchema({
@@ -148,6 +154,7 @@ export const skillFrontmatterContract = contract("skill-frontmatter", "Skill Fro
     bin: targetFeatureSchema(),
     claude: targetOverrideSchema(),
     codex: targetOverrideSchema(),
+    cursor: targetOverrideSchema(),
     dependencies: dependenciesSchema(),
     description: nonEmptyStringSchema(),
     dialect: { enum: ["claude"], type: "string" },
@@ -179,6 +186,7 @@ export const agentFrontmatterContract = contract("agent-frontmatter", "Agent Fro
   properties: {
     claude: targetOverrideSchema(),
     codex: targetOverrideSchema(),
+    cursor: targetOverrideSchema(),
     description: nonEmptyStringSchema(),
     hooks: hookAttachmentSchema(),
     initialPrompt: nonEmptyStringSchema(),
@@ -198,6 +206,7 @@ export const instructionFrontmatterContract = contract("instruction-frontmatter"
   properties: {
     claude: targetOverrideSchema(),
     codex: targetOverrideSchema(),
+    cursor: targetOverrideSchema(),
     description: nonEmptyStringSchema(),
     dialect: { enum: ["claude"], type: "string" },
     metadata: generatedMetadataSchema(),
@@ -229,6 +238,7 @@ export const adaptiveHookContract = contract("adaptive-hook", "Adaptive Hook Uni
       strategy: enumSchema(["inline", "none", "toolkit"]),
     }),
     codex: { type: "object" },
+    cursor: { type: "object" },
     description: nonEmptyStringSchema(),
     events: arraySchema(nonEmptyStringSchema(), { minItems: 1, uniqueItems: true }),
     match: {
@@ -606,6 +616,7 @@ function allowedToolsSchema(): SchemaJsonRecord {
       strictObjectSchema({
         claude: value,
         codex: value,
+        cursor: value,
       }),
     ],
   };
@@ -618,6 +629,7 @@ function implicitInvocationSchema(): SchemaJsonRecord {
       strictObjectSchema({
         claude: { type: "boolean" },
         codex: { type: "boolean" },
+        cursor: { type: "boolean" },
       }),
     ],
   };

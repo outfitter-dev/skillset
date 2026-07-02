@@ -8,6 +8,7 @@ import {
 } from "@skillset/registry";
 
 import { compareStrings } from "./path";
+import { targetNames, targetRecord } from "./targets";
 import type { TargetName } from "./types";
 
 export type SkillsetFeatureId = string;
@@ -125,6 +126,19 @@ export interface SkillsetFeatureEntry {
 }
 
 export type SkillsetFeatureRegistry = readonly SkillsetFeatureEntry[];
+
+type FeatureTargetSupportInput =
+  Readonly<Record<"claude" | "codex", SkillsetTargetSupport>> &
+  Partial<Readonly<Record<TargetName, SkillsetTargetSupport>>>;
+
+type SkillsetFeatureEntryInput = Omit<SkillsetFeatureEntry, "targetSupport"> & {
+  readonly targetSupport: FeatureTargetSupportInput;
+};
+
+const CURSOR_PROVIDER_EVIDENCE = [
+  docs("docs/adrs/drafts/20260702-cursor-is-a-first-class-provider.md"),
+  docs("docs/target-surfaces.md#cursor-provider-baseline"),
+] as const satisfies readonly SkillsetFeatureEvidence[];
 
 export const skillsetFeatureRegistry = defineFeatureRegistry([
   feature({
@@ -965,7 +979,7 @@ function assertFeatureStatusVocabulary(entries: readonly SkillsetFeatureEntry[])
     if (!featureStatuses.has(entry.status)) {
       throw new Error(`skillset: unknown feature registry status ${entry.status} for ${entry.id}`);
     }
-    for (const target of ["claude", "codex"] as const satisfies readonly TargetName[]) {
+    for (const target of targetNames()) {
       const support = entry.targetSupport[target];
       if (!targetStatuses.has(support.status)) {
         throw new Error(
@@ -1022,13 +1036,17 @@ function assertRuntimeSupportVocabulary(entries: readonly SkillsetFeatureEntry[]
   }
 }
 
-function feature(entry: SkillsetFeatureEntry): SkillsetFeatureEntry {
+function feature(entry: SkillsetFeatureEntryInput): SkillsetFeatureEntry {
   return {
     ...entry,
-    targetSupport: {
-      claude: withDefaultEvidence(entry.id, "claude", entry.targetSupport.claude, entry.evidence),
-      codex: withDefaultEvidence(entry.id, "codex", entry.targetSupport.codex, entry.evidence),
-    },
+    targetSupport: targetRecord((target) =>
+      withDefaultEvidence(
+        entry.id,
+        target,
+        entry.targetSupport[target] ?? plannedProviderSupport(target),
+        entry.evidence
+      )
+    ),
   };
 }
 
@@ -1037,7 +1055,7 @@ function pluginCompanionFeature(entry: {
   readonly id: string;
   readonly sourceShape: string;
   readonly summary: string;
-  readonly targetSupport: Readonly<Record<TargetName, SkillsetTargetSupport>>;
+  readonly targetSupport: FeatureTargetSupportInput;
   readonly title: string;
 }): SkillsetFeatureEntry {
   return feature({
@@ -1074,35 +1092,44 @@ function withDefaultEvidence(
 function bothTargets(
   status: SkillsetTargetSupportStatus,
   evidence?: readonly SkillsetFeatureEvidence[]
-): Readonly<Record<TargetName, SkillsetTargetSupport>> {
+): FeatureTargetSupportInput {
+  const support = { ...(evidence === undefined ? {} : { evidence }), status };
   return {
-    claude: { ...(evidence === undefined ? {} : { evidence }), status },
-    codex: { ...(evidence === undefined ? {} : { evidence }), status },
+    claude: support,
+    codex: support,
   };
 }
 
 function bothTargetsWithTargetEvidence(
   status: SkillsetTargetSupportStatus,
   commonEvidence: readonly SkillsetFeatureEvidence[],
-  targetEvidence: Readonly<Record<TargetName, readonly SkillsetFeatureEvidence[]>>,
-  targetProvider?: Readonly<Record<TargetName, SkillsetProviderSupportEvidence>>
-): Readonly<Record<TargetName, SkillsetTargetSupport>> {
-  return {
-    claude: {
-      evidence: [...commonEvidence, ...targetEvidence.claude],
-      ...(targetProvider?.claude === undefined ? {} : { provider: targetProvider.claude }),
+  targetEvidence: Partial<Readonly<Record<TargetName, readonly SkillsetFeatureEvidence[]>>>,
+  targetProvider?: Partial<Readonly<Record<TargetName, SkillsetProviderSupportEvidence>>>
+): FeatureTargetSupportInput {
+  const supports: Partial<Record<TargetName, SkillsetTargetSupport>> = {};
+  for (const target of targetNames()) {
+    if (target !== "claude" && target !== "codex" && targetEvidence[target] === undefined && targetProvider?.[target] === undefined) {
+      continue;
+    }
+    supports[target] = {
+      evidence: [...commonEvidence, ...(targetEvidence[target] ?? [])],
+      ...(targetProvider?.[target] === undefined ? {} : { provider: targetProvider[target] }),
       status,
-    },
-    codex: {
-      evidence: [...commonEvidence, ...targetEvidence.codex],
-      ...(targetProvider?.codex === undefined ? {} : { provider: targetProvider.codex }),
-      status,
-    },
-  };
+    };
+  }
+  return supports as FeatureTargetSupportInput;
 }
 
-function notTargetRuntime(): Readonly<Record<TargetName, SkillsetTargetSupport>> {
+function notTargetRuntime(): FeatureTargetSupportInput {
   return bothTargets("not_applicable");
+}
+
+function plannedProviderSupport(target: TargetName): SkillsetTargetSupport {
+  return {
+    evidence: target === "cursor" ? CURSOR_PROVIDER_EVIDENCE : [],
+    reason: `${target} provider support is not registered for this feature yet.`,
+    status: "planned",
+  };
 }
 
 function docs(ref: string): SkillsetFeatureEvidence {

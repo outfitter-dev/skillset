@@ -63,10 +63,12 @@ or Codex compatibility shim. The contract is defined by the [Cursor provider
 ADR](adrs/drafts/20260702-cursor-is-a-first-class-provider.md). Provider evidence
 was live-doc checked on 2026-07-02 against the official Cursor docs.
 
-Cursor becomes implemented only when schema, registry, core, Workbench, lookup,
-generated schema artifacts, renderers, import/adopt, conformance fixtures,
-runtime-tester, docs, and generated guidance all agree on the same provider facts.
-Until then, `compile.targets: [cursor]` must remain invalid.
+Cursor becomes fully implemented only when registry, renderers, import/adopt,
+conformance fixtures, runtime-tester, docs, and generated guidance all agree on
+the same provider facts. `compile.targets: [cursor]` is schema-valid as an
+explicit provider plan while renderer and runtime milestones are completed; the
+default provider plan remains Claude and Codex until the Cursor parity gate
+passes.
 
 | Cursor surface | Cursor destination | Status | Notes |
 | --- | --- | --- | --- |
@@ -90,18 +92,18 @@ Until then, `compile.targets: [cursor]` must remain invalid.
 | `skillset.name` | machine identity | Implemented | Root and plugin explicit identity; directory names remain the default. `skillset.id` is unsupported. |
 | skill top-level `name` | skill identity | Implemented | Skill-local `skillset.name` / `skillset.id` are unsupported. |
 | root/plugin/skill `skillset.license` or local `LICENSE.txt` | managed `LICENSE.txt`; plugin manifest `license` when declared in plugin metadata | Implemented | Supports `Apache-2.0`, `BSD-2-Clause`, `BSD-3-Clause`, `ISC`, `MIT`, `MPL-2.0`, and `none`; child scopes inherit unless overridden or opted out. |
-| `compile.targets` | enabled provider outputs | Implemented | Root-only provider selection; defaults to all supported providers. |
+| `compile.targets` | enabled provider outputs | Implemented | Root-only provider selection; accepts `claude`, `codex`, and explicit `cursor`. Defaults remain Claude and Codex until Cursor parity is complete. |
 | `compile.build: updated/all` | normalized build mode in lock provenance | Implemented | Parser, CLI overrides, plan-first writes, and lock metadata are implemented. |
 | `compile.features.promptArguments` | `{{$ARGUMENTS...}}` adaptive command placeholders | Implemented | Defaults to `true`; set to `false` to reject the source markers. |
 | `compile.skillset.metadata: false` | suppress generated skill `metadata.generated` / `metadata.version` | Implemented | Source metadata remains source-only; locks record `skillsetMetadata`. |
 | `compile.unsupportedDestination: error` | build/diff/verify unsupported destination policy | Implemented | Default policy; preserves current fail-loud unsupported behavior. |
 | `compile.unsupportedDestination: warn/skip/force` | doctor/lock provenance | Reserved | Recognized names that fail until non-error unsupported destination policy semantics are implemented and documented. |
-| omitted `compile.targets` | all supported provider outputs | Implemented | Shorthand for the default provider plan; equivalent to `compile.targets: [claude, codex]` while both providers are supported. |
-| `claude.projectRoot` / `codex.projectRoot` | provider adapter metadata | Implemented | Parsed and inherited with provider blocks; build still does not mutate user-level config. |
-| `claude.userRoot` / `codex.userRoot` | provider adapter metadata | Implemented | Parsed and inherited with provider blocks for future setup/explain flows. |
-| `claude.defaults.<surface>` / `codex.defaults.<surface>` | provider option defaults for `agents`, `instructions`, `plugins`, `skills` | Implemented | Canonical provider-local defaults; file-level provider fields win. |
+| omitted `compile.targets` | default provider outputs | Implemented | Equivalent to `compile.targets: [claude, codex]` until Cursor parity is complete. |
+| `<provider>.projectRoot` | provider adapter metadata | Implemented | Parsed and inherited with provider blocks; build still does not mutate user-level config. |
+| `<provider>.userRoot` | provider adapter metadata | Implemented | Parsed and inherited with provider blocks for future setup/explain flows. |
+| `<provider>.defaults.<surface>` | provider option defaults for `agents`, `instructions`, `plugins`, `skills` | Implemented | Canonical provider-local defaults; file-level provider fields win. |
 | `defaults.<provider>.<surface>` | same provider option defaults | Implemented | Root/plugin shorthand; does not introduce bare top-level `targets:` provider selection. |
-| skill top-level `model` | (source-only warning) | Implemented | Warns unless every enabled provider has `claude.model`, `codex.model`, or provider defaults. |
+| skill top-level `model` | (source-only warning) | Implemented | Warns unless every enabled provider has a provider-specific model or provider defaults. |
 | `profiles.models` / `model_profile` | provider-native model and reasoning fields | Future | Deferred alias design for repo-local model intent names; see the [model and reasoning alias profiles ADR](adrs/drafts/20260604-model-and-reasoning-alias-profiles.md). |
 | `.skillset/sets/<name>/set.yaml` / `set:<name>` | focused generated-output selection and future marketplace/bundle indexes | Future | Deferred collection design for grouped marketplaces, bundles, and curated loadouts; see the [first-class sets ADR](adrs/drafts/20260604-first-class-sets.md). |
 
@@ -124,7 +126,7 @@ compile:
 
 When `compile.targets` is omitted, Skillset also normalizes to the same all-supported-provider plan. Provider-specific `claude` and `codex` blocks configure native output details and nested opt-outs; they are not a second provider-selection surface.
 
-Adapter defaults deliberately use `claude` / `codex` blocks or the `defaults.<provider>` shorthand, not a top-level `targets:` map. That preserves the ADR-0001 boundary: `compile.targets` selects provider outputs, while provider blocks carry provider-native config and scoped overrides.
+Adapter defaults deliberately use explicit provider blocks such as `claude`, `codex`, and `cursor`, or the `defaults.<provider>` shorthand, not a top-level `targets:` map. That preserves the ADR-0001 boundary: `compile.targets` selects provider outputs, while provider blocks carry provider-native config and scoped overrides.
 
 ## Plugin manifest (Claude `.claude-plugin/plugin.json`)
 

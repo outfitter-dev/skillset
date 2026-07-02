@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 
 import { compareStrings } from "./path";
 import { pluginTargetForOutputPath } from "./plugin-output";
+import { targetNames } from "./targets";
 import { collectRenderResults } from "./render-result-collector";
 import { enforceRenderResultPolicy } from "./render-result-policy";
 import {
@@ -697,14 +698,12 @@ function isPathInScopes(
 function scopeForPath(graph: BuildGraph, path: string): BuildScope {
   if (
     pluginTargetForOutputPath(graph, path) !== undefined ||
-    isInsideOutputRoot(path, graph.root.outputs.plugins.claude) ||
-    isInsideOutputRoot(path, graph.root.outputs.plugins.codex)
+    targetNames().some((target) => isInsideOutputRoot(path, graph.root.outputs.plugins[target]))
   ) {
     return "plugins";
   }
   if (
-    isInsideOutputRoot(path, graph.root.outputs.skills.claude) ||
-    isInsideOutputRoot(path, graph.root.outputs.skills.codex)
+    targetNames().some((target) => isInsideOutputRoot(path, graph.root.outputs.skills[target]))
   ) {
     return "repo";
   }
@@ -748,7 +747,8 @@ function generatedVersion(
   }
   if (
     path.endsWith("/.claude-plugin/plugin.json") ||
-    path.endsWith("/.codex-plugin/plugin.json")
+    path.endsWith("/.codex-plugin/plugin.json") ||
+    path.endsWith("/.cursor-plugin/plugin.json")
   ) {
     return generatedPluginVersion(content);
   }

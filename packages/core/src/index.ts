@@ -143,6 +143,12 @@ export {
   type FeatureRegistryDriftReport,
 } from "./feature-registry-check";
 export {
+  defaultTargetNames,
+  isTargetName,
+  targetNames,
+  targetRecord,
+} from "./targets";
+export {
   assertNoHostLeaks,
   detectHostLeaks,
   detectHostLeaksInBytes,

@@ -7,6 +7,7 @@ import {
   type AdapterConformanceCase,
   type SkillsetFeatureEntry,
   type SkillsetFeatureRegistry,
+  targetRecord,
 } from "@skillset/core";
 
 describe("adapter conformance coverage", () => {
@@ -39,123 +40,25 @@ describe("adapter conformance coverage", () => {
     ], registry());
 
     expect(report.ok).toBe(false);
-    expect(JSON.stringify(report, null, 2)).toBe(`{
-  "entries": [
-    {
-      "coverage": "covered",
-      "featureId": "covered-feature",
-      "featureStatus": "implemented",
-      "fixtureRefs": [
-        "packages/core/src/__tests__/adapter-conformance.test.ts"
-      ],
-      "supportStatus": "native",
-      "target": "claude",
-      "title": "Covered Feature"
-    },
-    {
-      "coverage": "missing_fixture",
-      "featureId": "covered-feature",
-      "featureStatus": "implemented",
-      "fixtureRefs": [],
-      "supportStatus": "transformed",
-      "target": "codex",
-      "title": "Covered Feature"
-    },
-    {
-      "coverage": "stale_fixture",
-      "featureId": "deleted-feature",
-      "fixtureRefs": [
-        "packages/core/src/__tests__/deleted-conformance.test.ts"
-      ],
-      "reason": "feature id is not present in registry",
-      "target": "claude"
-    },
-    {
-      "coverage": "future",
-      "featureId": "future-feature",
-      "featureStatus": "future",
-      "fixtureRefs": [],
-      "supportStatus": "future",
-      "target": "claude",
-      "title": "Future Feature"
-    },
-    {
-      "coverage": "invalid_fixture",
-      "featureId": "future-feature",
-      "featureStatus": "future",
-      "fixtureRefs": [
-        "packages/core/src/__tests__/adapter-conformance.test.ts"
-      ],
-      "supportStatus": "not_applicable",
-      "target": "codex",
-      "title": "Future Feature"
-    },
-    {
-      "coverage": "covered",
-      "featureId": "unsupported-feature",
-      "featureStatus": "implemented",
-      "fixtureRefs": [
-        "packages/core/src/__tests__/adapter-conformance.test.ts"
-      ],
-      "reason": "Claude does not support this demo feature.",
-      "supportStatus": "unsupported",
-      "target": "claude",
-      "title": "Unsupported Feature"
-    },
-    {
-      "coverage": "unsupported_without_fixture",
-      "featureId": "unsupported-feature",
-      "featureStatus": "implemented",
-      "fixtureRefs": [],
-      "reason": "Codex does not support this demo feature.",
-      "supportStatus": "unsupported",
-      "target": "codex",
-      "title": "Unsupported Feature"
-    }
-  ],
-  "gaps": [
-    {
-      "coverage": "missing_fixture",
-      "featureId": "covered-feature",
-      "featureStatus": "implemented",
-      "fixtureRefs": [],
-      "supportStatus": "transformed",
-      "target": "codex",
-      "title": "Covered Feature"
-    },
-    {
-      "coverage": "stale_fixture",
-      "featureId": "deleted-feature",
-      "fixtureRefs": [
-        "packages/core/src/__tests__/deleted-conformance.test.ts"
-      ],
-      "reason": "feature id is not present in registry",
-      "target": "claude"
-    },
-    {
-      "coverage": "invalid_fixture",
-      "featureId": "future-feature",
-      "featureStatus": "future",
-      "fixtureRefs": [
-        "packages/core/src/__tests__/adapter-conformance.test.ts"
-      ],
-      "supportStatus": "not_applicable",
-      "target": "codex",
-      "title": "Future Feature"
-    },
-    {
-      "coverage": "unsupported_without_fixture",
-      "featureId": "unsupported-feature",
-      "featureStatus": "implemented",
-      "fixtureRefs": [],
-      "reason": "Codex does not support this demo feature.",
-      "supportStatus": "unsupported",
-      "target": "codex",
-      "title": "Unsupported Feature"
-    }
-  ],
-  "ok": false
-}`);
+    expect(report.entries.map((entry) => `${entry.featureId}:${entry.target}:${entry.coverage}:${entry.supportStatus ?? ""}`)).toEqual([
+      "covered-feature:claude:covered:native",
+      "covered-feature:codex:missing_fixture:transformed",
+      "covered-feature:cursor:planned:planned",
+      "deleted-feature:claude:stale_fixture:",
+      "future-feature:claude:future:future",
+      "future-feature:codex:invalid_fixture:not_applicable",
+      "future-feature:cursor:future:planned",
+      "unsupported-feature:claude:covered:unsupported",
+      "unsupported-feature:codex:unsupported_without_fixture:unsupported",
+      "unsupported-feature:cursor:planned:planned",
+    ]);
+    expect(report.gaps.map((entry) => `${entry.featureId}:${entry.target}:${entry.coverage}`)).toEqual([
+      "covered-feature:codex:missing_fixture",
+      "deleted-feature:claude:stale_fixture",
+      "future-feature:codex:invalid_fixture",
+      "unsupported-feature:codex:unsupported_without_fixture",
+    ]);
+    expect(report.gaps).toHaveLength(4);
   });
 
   it("formats the gap list without coverage percentages", () => {
@@ -215,7 +118,9 @@ function registry(): SkillsetFeatureRegistry {
 }
 
 function feature(
-  overrides: Pick<SkillsetFeatureEntry, "id" | "status" | "targetSupport" | "title">
+  overrides: Pick<SkillsetFeatureEntry, "id" | "status" | "title"> & {
+    readonly targetSupport: Partial<SkillsetFeatureEntry["targetSupport"]> & Pick<SkillsetFeatureEntry["targetSupport"], "claude" | "codex">;
+  }
 ): SkillsetFeatureEntry {
   const evidence = [{ kind: "test" as const, ref: "packages/core/src/__tests__/adapter-conformance-coverage.test.ts" }];
   return {
@@ -225,10 +130,10 @@ function feature(
     renderOwner: "packages/core/src/__tests__/adapter-conformance-coverage.test.ts",
     sourceShape: "test fixture",
     summary: `${overrides.title} summary.`,
-    targetSupport: {
-      claude: { evidence, ...overrides.targetSupport.claude },
-      codex: { evidence, ...overrides.targetSupport.codex },
-    },
+    targetSupport: targetRecord((target) => ({
+      evidence,
+      ...(overrides.targetSupport[target] ?? { reason: "Cursor fixture support is not asserted here.", status: "planned" }),
+    })),
     validationOwner: "packages/core/src/__tests__/adapter-conformance-coverage.test.ts",
     id: overrides.id,
     status: overrides.status,

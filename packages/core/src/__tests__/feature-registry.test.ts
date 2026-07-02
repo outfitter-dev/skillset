@@ -22,6 +22,7 @@ import {
   type SkillsetFeatureEntry,
   type SkillsetRuntimeSupport,
 } from "../feature-registry";
+import { targetRecord } from "../targets";
 
 const SEEDED_FEATURE_IDS = [
   "activation-probes",
@@ -414,11 +415,20 @@ describe("feature registry", () => {
   });
 });
 
-function feature(overrides: Partial<SkillsetFeatureEntry> & { readonly id: string }): SkillsetFeatureEntry {
+type FeatureOverrides = Omit<Partial<SkillsetFeatureEntry>, "targetSupport"> & {
+  readonly id: string;
+  readonly targetSupport?: Partial<SkillsetFeatureEntry["targetSupport"]> & Pick<SkillsetFeatureEntry["targetSupport"], "claude" | "codex">;
+};
+
+function feature(overrides: FeatureOverrides): SkillsetFeatureEntry {
   const defaultEvidence: readonly SkillsetFeatureEvidence[] = [
     { kind: "test", ref: "packages/core/src/__tests__/feature-registry.test.ts" },
   ];
-  const entry: SkillsetFeatureEntry = {
+  const targetSupport = overrides.targetSupport ?? {
+    claude: { status: "native" },
+    codex: { status: "native" },
+  };
+  const entry: Omit<SkillsetFeatureEntry, "targetSupport"> & { readonly targetSupport: typeof targetSupport } = {
     docs: overrides.docs ?? ["docs/features/README.md"],
     evidence: overrides.evidence ?? defaultEvidence,
     id: overrides.id,
@@ -428,19 +438,15 @@ function feature(overrides: Partial<SkillsetFeatureEntry> & { readonly id: strin
     sourceShape: overrides.sourceShape ?? ".skillset/**",
     status: overrides.status ?? "implemented",
     summary: overrides.summary ?? `${overrides.id} summary.`,
-    targetSupport: overrides.targetSupport ?? {
-      claude: { status: "native" },
-      codex: { status: "native" },
-    },
+    targetSupport,
     title: overrides.title ?? overrides.id,
     validationOwner: overrides.validationOwner ?? "packages/core/src/resolver.ts",
   };
   return {
     ...entry,
-    targetSupport: {
-      claude: supportWithEvidence(entry.targetSupport.claude, entry.evidence),
-      codex: supportWithEvidence(entry.targetSupport.codex, entry.evidence),
-    },
+    targetSupport: targetRecord((target) =>
+      supportWithEvidence(entry.targetSupport[target] ?? { reason: "Cursor fixture support is not asserted here.", status: "planned" }, entry.evidence)
+    ),
   };
 }
 

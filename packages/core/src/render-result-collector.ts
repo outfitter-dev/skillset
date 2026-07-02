@@ -16,6 +16,7 @@ import {
 } from "./render-result";
 import { compareStrings } from "./path";
 import { pluginPathPartsForOutput, pluginTargetForOutputPath } from "./plugin-output";
+import { isTargetName, targetNames } from "./targets";
 import { readClaudeNativeToolRules } from "./skill-policy";
 import {
   selectorForInstruction,
@@ -30,7 +31,7 @@ import type { AdaptiveHookScope, BuildGraph, BuildScope, JsonRecord, RenderedFil
 import { isJsonRecord } from "./yaml";
 
 const LOCK_FILE = "skillset.lock";
-const TARGETS: readonly TargetName[] = ["claude", "codex"];
+const TARGETS = targetNames();
 
 type OutputPathMapper = (path: string) => string;
 
@@ -112,7 +113,7 @@ function parseRenderedLock(file: RenderedFile): RenderedLock {
   return {
     items: rawItems.map((item) => parseRenderedLockItem(file.path, item)),
     outputRoot,
-    target: target === "claude" || target === "codex" ? target : "workspace",
+    target: isTargetName(target) ? target : "workspace",
   };
 }
 

@@ -1,7 +1,8 @@
 import type { JsonRecord, JsonValue, TargetName } from "./types";
+import { targetNames } from "./targets";
 import { isJsonRecord } from "./yaml";
 
-const TARGET_KEYS: readonly TargetName[] = ["claude", "codex"];
+const TARGET_KEYS = targetNames();
 const PORTABLE_TOOL_KEYS = new Set([
   "edit",
   "mcp",

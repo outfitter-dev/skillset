@@ -1288,7 +1288,7 @@ Modelish.
 
   const warnsGraph = await loadBuildGraph(warnsRoot);
   expect(warnsGraph.warnings).toContain(
-    ".skillset/plugins/alpha/skills/modelish/SKILL.md uses top-level model, which is not portable in Skillset v1; use claude.model, codex.model, or target defaults for claude, codex."
+    ".skillset/plugins/alpha/skills/modelish/SKILL.md uses top-level model, which is not portable in Skillset v1; use target-specific model fields or target defaults for claude, codex."
   );
 
   const handledRoot = await fixture({
@@ -1643,7 +1643,7 @@ Review diffs.
 
   const graph = await loadBuildGraph(root);
   expect(graph.warnings).toContain(
-    ".skillset/agents/reviewer.md uses top-level model, which is not portable in Skillset v1; use claude.model, codex.model, or target defaults for claude, codex."
+    ".skillset/agents/reviewer.md uses top-level model, which is not portable in Skillset v1; use target-specific model fields or target defaults for claude, codex."
   );
 
   await buildSkillset(root);
