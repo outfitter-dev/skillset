@@ -17,6 +17,7 @@ compile:
   targets:
     - claude
     - codex
+    - cursor
   unsupportedDestination: error
 defaults:
   codex:
@@ -49,6 +50,7 @@ marketplaces:
     targets:
       - claude
       - codex
+      - cursor
     title: Outfitter
 skillset:
   author:

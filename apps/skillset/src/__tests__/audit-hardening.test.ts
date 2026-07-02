@@ -353,6 +353,7 @@ claude: false
 codex:
   plugins:
     - beta
+cursor: false
 `,
     ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
@@ -433,6 +434,7 @@ skillset:
   name: test-root
 claude: true
 codex: false
+cursor: false
 `,
     ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
@@ -465,6 +467,7 @@ skillset:
   name: test-root
 claude: true
 codex: false
+cursor: false
 `,
     ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
@@ -495,6 +498,7 @@ skillset:
   name: test-root
 claude: true
 codex: false
+cursor: false
 `,
     ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
@@ -547,6 +551,7 @@ skillset:
   name: test-root
 claude: true
 codex: false
+cursor: false
 `,
     ".skillset/plugins/alpha/skillset.yaml": `
 skillset:

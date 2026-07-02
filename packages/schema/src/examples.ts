@@ -44,7 +44,7 @@ export const skillsetSchemaExamples = [
         skillset: {
           metadata: true,
         },
-        targets: ["claude", "codex"],
+        targets: ["claude", "codex", "cursor"],
         unsupportedDestination: "error",
       },
       defaults: {
@@ -90,7 +90,7 @@ export const skillsetSchemaExamples = [
               targets: ["claude"],
             },
           ],
-          targets: ["claude", "codex"],
+          targets: ["claude", "codex", "cursor"],
           title: "Outfitter",
         },
       },

@@ -15,8 +15,9 @@ renderings while retaining inspectable run artifacts under the logical
 `.skillset/cache/runtime-tester` path.
 
 Cursor is a first-class provider target, not a runtime-only compatibility
-candidate. It is opt-in through explicit `compile.targets: [cursor]`; the
-default target plan remains Claude and Codex.
+candidate. It participates in the default provider plan alongside Claude and
+Codex; explicit `compile.targets` narrows that provider set when a repo wants a
+smaller projection.
 
 ## Authoring
 

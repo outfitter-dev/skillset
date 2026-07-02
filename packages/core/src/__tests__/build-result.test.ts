@@ -12,6 +12,7 @@ skillset:
   name: core-build-root
 claude: true
 codex: false
+cursor: false
 `,
   ".skillset/skills/demo/SKILL.md": `
 ---

@@ -112,6 +112,7 @@ skillset:
   name: schema-strip
 claude: true
 codex: false
+cursor: false
 `,
     ".skillset/skills/demo/SKILL.md": `
 ---
@@ -428,6 +429,7 @@ skillset:
   name: ti-root
 claude: true
 codex: false
+cursor: false
 `,
     ".skillset/skills/intent/SKILL.md": `
 ---
@@ -459,6 +461,7 @@ skillset:
   name: ti-root
 claude: true
 codex: false
+cursor: false
 `,
     ".skillset/skills/legacy/SKILL.md": `
 ---
@@ -483,6 +486,7 @@ skillset:
   name: ti-root
 claude: true
 codex: false
+cursor: false
 `,
     ".skillset/agents/reviewer.md": `
 ---
@@ -531,6 +535,7 @@ skillset:
   name: ti-root
 claude: true
 codex: false
+cursor: false
 `,
     ".skillset/_claude/agents/reviewer.md": `
 ---
@@ -555,6 +560,7 @@ skillset:
   name: ti-root
 claude: true
 codex: false
+cursor: false
 `,
     ".skillset/skills/unknown/SKILL.md": `
 ---
@@ -1830,6 +1836,7 @@ skillset:
   name: test-root
 claude: true
 codex: false
+cursor: false
 `,
     ".skillset/tests.yaml": `
 self:
@@ -5800,6 +5807,7 @@ skillset:
   name: feature-root
 claude: true
 codex: false
+cursor: false
 `,
     ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
@@ -5837,6 +5845,7 @@ skillset:
   name: feature-root
 claude: true
 codex: false
+cursor: false
 `,
     "tools/alpha/tool": `
 #!/usr/bin/env bash
