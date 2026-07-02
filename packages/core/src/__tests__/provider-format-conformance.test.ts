@@ -91,27 +91,27 @@ describe("provider format conformance", () => {
     expect(files.map((file) => file.path).sort()).toEqual(expect.arrayContaining([
       ".skillset/cache/latest/AGENTS.md",
       ".skillset/cache/latest/.claude/agents/reviewer.md",
-      ".skillset/cache/latest/plugins-claude/plugins/alpha/.claude-plugin/plugin.json",
-      ".skillset/cache/latest/plugins-claude/plugins/alpha/hooks/hooks.json",
-      ".skillset/cache/latest/plugins-codex/plugins/alpha/.codex-plugin/plugin.json",
-      ".skillset/cache/latest/plugins-codex/plugins/alpha/hooks/hooks.json",
-      ".skillset/cache/latest/plugins-codex/plugins/alpha/skills/plugin-skill/SKILL.md",
+      ".skillset/cache/latest/plugins/alpha/claude/.claude-plugin/plugin.json",
+      ".skillset/cache/latest/plugins/alpha/claude/hooks/hooks.json",
+      ".skillset/cache/latest/plugins/alpha/codex/.codex-plugin/plugin.json",
+      ".skillset/cache/latest/plugins/alpha/codex/hooks/hooks.json",
+      ".skillset/cache/latest/plugins/alpha/codex/skills/plugin-skill/SKILL.md",
     ]));
     expect(report).toEqual({ checkedFiles: files.length, issues: [], ok: true });
   });
 
   it("reports schema-backed missing and unknown fields with provider refs", () => {
     const report = checkProviderFormatConformance([
-      rendered("plugins-claude/plugins/alpha/.claude-plugin/plugin.json", {
+      rendered("plugins/alpha/claude/.claude-plugin/plugin.json", {
         description: 123,
         keywords: "not-an-array",
         unexpected: true,
       }),
-      rendered("plugins-codex/plugins/alpha/hooks/hooks.json", {
+      rendered("plugins/alpha/codex/hooks/hooks.json", {
         hooks: {},
         stale: true,
       }),
-      rendered("plugins-claude/plugins/alpha/hooks/hooks.json", {
+      rendered("plugins/alpha/claude/hooks/hooks.json", {
         hooks: {},
         stale: true,
       }),
@@ -119,19 +119,19 @@ describe("provider format conformance", () => {
 
     expect(report.ok).toBe(false);
     expect(report.issues.map((issue) => [issue.providerRef, issue.code, issue.outputPath])).toEqual([
-      ["claude-plugin", "missing-required-field", "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"],
-      ["claude-plugin-manifest-schema", "invalid-field-type", "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"],
-      ["claude-plugin-manifest-schema", "invalid-field-type", "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"],
-      ["claude-plugin-manifest-schema", "unknown-destination-field", "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"],
-      ["claude-hooks", "unknown-destination-field", "plugins-claude/plugins/alpha/hooks/hooks.json"],
-      ["codex-hooks-schema", "unknown-destination-field", "plugins-codex/plugins/alpha/hooks/hooks.json"],
+      ["claude-plugin", "missing-required-field", "plugins/alpha/claude/.claude-plugin/plugin.json"],
+      ["claude-plugin-manifest-schema", "invalid-field-type", "plugins/alpha/claude/.claude-plugin/plugin.json"],
+      ["claude-plugin-manifest-schema", "invalid-field-type", "plugins/alpha/claude/.claude-plugin/plugin.json"],
+      ["claude-plugin-manifest-schema", "unknown-destination-field", "plugins/alpha/claude/.claude-plugin/plugin.json"],
+      ["claude-hooks", "unknown-destination-field", "plugins/alpha/claude/hooks/hooks.json"],
+      ["codex-hooks-schema", "unknown-destination-field", "plugins/alpha/codex/hooks/hooks.json"],
     ]);
     expect(formatProviderFormatConformanceReport(report)).toContain("claude-plugin-manifest-schema");
   });
 
   it("reports manual-overlay unknown destination fields", () => {
     const report = checkProviderFormatConformance([
-      rendered("plugins-codex/plugins/alpha/.codex-plugin/plugin.json", {
+      rendered("plugins/alpha/codex/.codex-plugin/plugin.json", {
         interface: {
           displayName: "Alpha",
           mysteryPanel: true,
@@ -170,7 +170,7 @@ describe("provider format conformance", () => {
 
   it("classifies skill targets by output path segments instead of substrings", () => {
     const report = checkProviderFormatConformance([
-      textFile("plugins-claude/plugins/codex-helper/skills/demo/SKILL.md", [
+      textFile("plugins/codex-helper/claude/skills/demo/SKILL.md", [
         "---",
         "allowed-tools: Read",
         "---",

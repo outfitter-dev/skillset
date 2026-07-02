@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 
 import { classifyDestinationOwnership, type DestinationOwnershipClassification } from "./destination-ownership";
 import { compareStrings } from "./path";
+import { pluginTargetRoot } from "./plugin-output";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
 import type { BuildGraph, DistributionConfig, RenderedFile, SkillsetOptions, SourcePlugin, StandaloneSkill, TargetName } from "./types";
@@ -154,7 +155,7 @@ function selectDistributionFiles(
   const plugin = parsePrefixedSelector(selector, "plugin");
   if (plugin !== undefined) {
     assertPluginExists(graph.plugins, plugin);
-    const sourcePrefix = `${graph.root.outputs.plugins[target]}/plugins/${plugin}`;
+    const sourcePrefix = pluginTargetRoot(graph.root.outputs.plugins[target], target, plugin);
     return {
       destinationPrefix,
       files: filesUnder(rendered, sourcePrefix, `distribution ${selector}`),

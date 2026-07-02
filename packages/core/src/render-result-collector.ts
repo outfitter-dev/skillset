@@ -15,6 +15,7 @@ import {
   type SkillsetRenderResultPolicy,
 } from "./render-result";
 import { compareStrings } from "./path";
+import { pluginPathPartsForOutput, pluginTargetForOutputPath } from "./plugin-output";
 import { readClaudeNativeToolRules } from "./skill-policy";
 import {
   selectorForInstruction,
@@ -601,8 +602,9 @@ function targetForLockItem(
 }
 
 function targetForOutputPath(graph: BuildGraph, path: string): TargetName | undefined {
+  const pluginTarget = pluginTargetForOutputPath(graph, path);
+  if (pluginTarget !== undefined) return pluginTarget;
   for (const target of TARGETS) {
-    if (isInsideOutputRoot(path, graph.root.outputs.plugins[target])) return target;
     if (isInsideOutputRoot(path, graph.root.outputs.skills[target])) return target;
     if (isInsideOutputRoot(path, targetProjectRoot(graph, target))) return target;
   }
@@ -623,13 +625,9 @@ function companionForPath(
   | undefined {
   for (const target of TARGETS) {
     const outputRoot = graph.root.outputs.plugins[target];
-    const prefix = `${outputRoot}/plugins/`;
-    if (!path.startsWith(prefix)) continue;
-    const rest = path.slice(prefix.length);
-    const separator = rest.indexOf("/");
-    if (separator < 0) continue;
-    const pluginId = rest.slice(0, separator);
-    const pluginPath = rest.slice(separator + 1);
+    const parts = pluginPathPartsForOutput(outputRoot, target, path);
+    if (parts === undefined) continue;
+    const { pluginId, pluginPath } = parts;
     if (pluginPath === "README.md") {
       return { featureId: "plugin-readme", featureKey: "readme", pluginId, sourceRelativePath: "README.md", target };
     }

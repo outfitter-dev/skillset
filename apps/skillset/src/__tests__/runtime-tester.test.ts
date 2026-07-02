@@ -99,7 +99,7 @@ Use this skill to answer fixture questions.
   const command = status.command?.join(" ");
   expect(command).toContain("--setting-sources \"\"");
   expect(command).toContain("--plugin-dir");
-  expect(command).toContain("plugins-claude/plugins/acme");
+  expect(command).toContain("plugins/acme/claude");
 
   const tail = await tailRuntimeTesterRun(root, report.runId, 20, { xdg });
   expect(tail.some((line) => line.message.includes("fake-claude prompt=Inspect Claude fixture."))).toBe(true);

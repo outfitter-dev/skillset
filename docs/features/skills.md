@@ -16,7 +16,7 @@ Use `skillset new skill <name>` to create a minimal valid skill source file in t
 
 | Source | Claude output | Codex output | Status | Notes |
 | --- | --- | --- | --- | --- |
-| Plugin skill source | `plugins-claude/plugins/<plugin>/skills/<skill>/SKILL.md` | `plugins-codex/plugins/<plugin>/skills/<skill>/SKILL.md` plus sidecars when needed | `portable` / `implemented` | Plugin boundaries are preserved per target. |
+| Plugin skill source | `plugins/<plugin>/claude/skills/<skill>/SKILL.md` | `plugins/<plugin>/codex/skills/<skill>/SKILL.md` plus sidecars when needed | `portable` / `implemented` | Plugin boundaries are preserved per target. |
 | Standalone skill source | `.claude/skills/<skill>/SKILL.md` | `.agents/skills/<skill>/SKILL.md` plus sidecars when needed | `portable` / `implemented` | Standalone roots are configured by target skill output paths. |
 | Release state / inline version fields | `metadata.version` and plugin manifest version | `metadata.version` and plugin manifest version | `metadata_only` / `implemented` | Release state wins after `skillset release apply`; inline versions remain the fallback. `skillset verify` reports generated version drift. |
 | `{{$ARGUMENTS...}}` source placeholders | native `$ARGUMENTS...` placeholders | preserved `{{$ARGUMENTS...}}` markers plus a one-line replacement instruction | `shimmed` / `implemented` | Enabled by default through `compile.features.promptArguments`; disable to reject the source markers. |

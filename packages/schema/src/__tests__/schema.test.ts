@@ -276,7 +276,7 @@ describe("@skillset/schema contracts", () => {
         unsupportedDestination: "error",
       },
       claude: true,
-      codex: { plugins: { path: "plugins-codex" } },
+      codex: { plugins: { path: "generated/codex" } },
       skillset: {
         author: { name: "Outfitter" },
         category: "Developer Tools",

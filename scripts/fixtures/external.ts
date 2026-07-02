@@ -379,7 +379,7 @@ export async function runExternalRepo(
   for (const item of imported) {
     const generatedRoot =
       item.kind === "plugin"
-        ? join(ISOLATED_OUT_ROOT, "plugins-claude", "plugins", item.name)
+        ? join(ISOLATED_OUT_ROOT, "plugins", item.name, "claude")
         : join(ISOLATED_OUT_ROOT, ".claude", "skills", item.name);
     const generatedRootPath = resolveOperationalPath(cloneCacheContext, generatedRoot);
     const originalRoot =

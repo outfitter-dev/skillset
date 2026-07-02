@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path";
 
 import { compareStrings } from "./path";
+import { pluginTargetForOutputPath } from "./plugin-output";
 import { collectRenderResults } from "./render-result-collector";
 import { enforceRenderResultPolicy } from "./render-result-policy";
 import {
@@ -458,7 +459,7 @@ function renderResultsForLock(
   const lockOutputs = outputPathsForLock(outputRoot, lock);
   return renderResults
     .filter((outcome) => {
-      if (target !== undefined && (outcome.target ?? "workspace") !== target) return false;
+      if (target !== undefined && target !== "workspace" && (outcome.target ?? "workspace") !== target) return false;
       const outputPaths = outcome.outputs?.map((output) => output.path) ?? [];
       if (outputPaths.length === 0) {
         return outputRoot === "." && outcome.target === undefined;
@@ -695,6 +696,7 @@ function isPathInScopes(
 
 function scopeForPath(graph: BuildGraph, path: string): BuildScope {
   if (
+    pluginTargetForOutputPath(graph, path) !== undefined ||
     isInsideOutputRoot(path, graph.root.outputs.plugins.claude) ||
     isInsideOutputRoot(path, graph.root.outputs.plugins.codex)
   ) {

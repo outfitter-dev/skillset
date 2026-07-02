@@ -86,8 +86,8 @@ Demo plugin skill.
 
   await buildSkillset(root);
 
-  expect(await exists(join(root, "plugins-claude/plugins/demo/skills/child/SKILL.md"))).toBe(true);
-  expect(await exists(join(root, "plugins-codex/plugins/demo/skills/child/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, "plugins/demo/claude/skills/child/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, "plugins/demo/codex/skills/child/SKILL.md"))).toBe(true);
 });
 
 test("rejects custom source directories after workspace layout cutover", async () => {
@@ -941,9 +941,9 @@ Opt in.
 
   await buildSkillset(root);
 
-  expect(await exists(join(root, "plugins-codex/plugins/alpha/.codex-plugin/plugin.json"))).toBe(true);
-  expect(await exists(join(root, "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"))).toBe(false);
-  expect(await exists(join(root, "plugins-claude/plugins/beta/.claude-plugin/plugin.json"))).toBe(true);
+  expect(await exists(join(root, "plugins/alpha/codex/.codex-plugin/plugin.json"))).toBe(true);
+  expect(await exists(join(root, "plugins/alpha/claude/.claude-plugin/plugin.json"))).toBe(false);
+  expect(await exists(join(root, "plugins/beta/claude/.claude-plugin/plugin.json"))).toBe(true);
 });
 
 test("target adapter config and defaults normalize through provider blocks", async () => {
@@ -1210,13 +1210,13 @@ Plain.
   await buildSkillset(root);
 
   const skill = await readFile(
-    join(root, "plugins-codex/plugins/alpha/skills/plain/SKILL.md"),
+    join(root, "plugins/alpha/codex/skills/plain/SKILL.md"),
     "utf8"
   );
   expect(skill).not.toContain("generated: skillset");
   expect(skill).not.toContain("version:");
 
-  const lock = JSON.parse(await readFile(join(root, "plugins-codex/skillset.lock"), "utf8"));
+  const lock = JSON.parse(await readFile(join(root, "plugins/skillset.lock"), "utf8"));
   expect(lock.buildMode).toBe("all");
   expect(lock.selectedTargets).toEqual(["codex"]);
   expect(lock.skillsetMetadata).toBe(false);
@@ -1389,26 +1389,26 @@ Beta body.
 
   await buildSkillset(root);
 
-  expect(await exists(join(root, "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"))).toBe(true);
-  expect(await exists(join(root, "plugins-codex/plugins/alpha/.codex-plugin/plugin.json"))).toBe(true);
-  expect(await exists(join(root, "plugins-codex/plugins/beta/.codex-plugin/plugin.json"))).toBe(true);
-  expect(await exists(join(root, "plugins-claude/plugins/beta/.claude-plugin/plugin.json"))).toBe(false);
-  expect(await exists(join(root, "plugins-codex/plugins/alpha/skillset.yaml"))).toBe(false);
-  expect(await exists(join(root, "plugins-codex/skillset.lock"))).toBe(true);
+  expect(await exists(join(root, "plugins/alpha/claude/.claude-plugin/plugin.json"))).toBe(true);
+  expect(await exists(join(root, "plugins/alpha/codex/.codex-plugin/plugin.json"))).toBe(true);
+  expect(await exists(join(root, "plugins/beta/codex/.codex-plugin/plugin.json"))).toBe(true);
+  expect(await exists(join(root, "plugins/beta/claude/.claude-plugin/plugin.json"))).toBe(false);
+  expect(await exists(join(root, "plugins/alpha/codex/skillset.yaml"))).toBe(false);
+  expect(await exists(join(root, "plugins/skillset.lock"))).toBe(true);
 
   const codexSkill = await readFile(
-    join(root, "plugins-codex/plugins/alpha/skills/alpha-skill/SKILL.md"),
+    join(root, "plugins/alpha/codex/skills/alpha-skill/SKILL.md"),
     "utf8"
   );
   const claudeManifest = await readFile(
-    join(root, "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"),
+    join(root, "plugins/alpha/claude/.claude-plugin/plugin.json"),
     "utf8"
   );
   const marketplace = await readFile(
-    join(root, "plugins-claude/.claude-plugin/marketplace.json"),
+    join(root, ".claude-plugin/marketplace.json"),
     "utf8"
   );
-  const lock = await readFile(join(root, "plugins-codex/skillset.lock"), "utf8");
+  const lock = await readFile(join(root, "plugins/skillset.lock"), "utf8");
 
   expect(marketplace).toContain(`"name": "test-market"`);
   expect(claudeManifest).not.toContain("commands");
@@ -1430,10 +1430,10 @@ Beta body.
   expect(lock).toContain(`"targetState": "sync"`);
   expect(lock).toContain(`"includedSkills": [`);
   expect(lock).toContain(`"alpha-skill@2.1.0"`);
-  expect(lock).toContain(`"outputPath": "plugins/alpha/skills/alpha-skill/SKILL.md"`);
+  expect(lock).toContain(`"outputPath": "alpha/claude/skills/alpha-skill/SKILL.md"`);
 
   const betaSkill = await readFile(
-    join(root, "plugins-codex/plugins/beta/skills/beta-skill/SKILL.md"),
+    join(root, "plugins/beta/codex/skills/beta-skill/SKILL.md"),
     "utf8"
   );
   expect(betaSkill).toContain(`metadata:
@@ -1494,32 +1494,32 @@ Beta body.
 
   await buildSkillset(root);
 
-  const marketplace = await readFile(join(root, "plugins-claude/.claude-plugin/marketplace.json"), "utf8");
+  const marketplace = await readFile(join(root, ".claude-plugin/marketplace.json"), "utf8");
   const claudeManifest = await readFile(
-    join(root, "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"),
+    join(root, "plugins/alpha/claude/.claude-plugin/plugin.json"),
     "utf8"
   );
   const codexManifest = await readFile(
-    join(root, "plugins-codex/plugins/alpha/.codex-plugin/plugin.json"),
+    join(root, "plugins/alpha/codex/.codex-plugin/plugin.json"),
     "utf8"
   );
 
-  expect(marketplace).toContain(`"source": "./plugins/alpha"`);
-  expect(marketplace).toContain(`"source": "./plugins/beta"`);
+  expect(marketplace).toContain(`"source": "./plugins/alpha/claude"`);
+  expect(marketplace).toContain(`"source": "./plugins/beta/claude"`);
   expect(claudeManifest).toContain(`"hooks": "./hooks/hooks.json"`);
   expect(codexManifest).not.toContain(`"agents"`);
   expect(codexManifest).toContain(`"hooks": "./hooks/hooks.json"`);
   const betaClaudeManifest = await readFile(
-    join(root, "plugins-claude/plugins/beta/.claude-plugin/plugin.json"),
+    join(root, "plugins/beta/claude/.claude-plugin/plugin.json"),
     "utf8"
   );
   expect(betaClaudeManifest).toContain(`"agents": "./agents"`);
-  expect(await exists(join(root, "plugins-claude/plugins/beta/agents/reviewer.md"))).toBe(true);
-  expect(await exists(join(root, "plugins-codex/plugins/alpha/agents/reviewer.md"))).toBe(false);
-  expect(await exists(join(root, "plugins-codex/plugins/beta/agents/reviewer.md"))).toBe(false);
+  expect(await exists(join(root, "plugins/beta/claude/agents/reviewer.md"))).toBe(true);
+  expect(await exists(join(root, "plugins/alpha/codex/agents/reviewer.md"))).toBe(false);
+  expect(await exists(join(root, "plugins/beta/codex/agents/reviewer.md"))).toBe(false);
   // SET-2: Codex hooks emit at the documented hooks/hooks.json path.
-  expect(await exists(join(root, "plugins-codex/plugins/alpha/hooks.json"))).toBe(false);
-  const codexHook = await readFile(join(root, "plugins-codex/plugins/alpha/hooks/hooks.json"), "utf8");
+  expect(await exists(join(root, "plugins/alpha/codex/hooks.json"))).toBe(false);
+  const codexHook = await readFile(join(root, "plugins/alpha/codex/hooks/hooks.json"), "utf8");
   expect(codexHook).toContain(`"hooks"`);
   expect(codexHook).toContain("SessionStart");
 });
@@ -1872,9 +1872,9 @@ Beta body.
 
   await buildSkillset(root);
 
-  expect(await exists(join(root, "plugins-claude/plugins/alpha/agents/reviewer.md"))).toBe(true);
-  expect(await exists(join(root, "plugins-codex/plugins/alpha"))).toBe(false);
-  expect(await exists(join(root, "plugins-codex/plugins/beta/skills/beta-skill/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, "plugins/alpha/claude/agents/reviewer.md"))).toBe(true);
+  expect(await exists(join(root, "plugins/alpha/codex"))).toBe(false);
+  expect(await exists(join(root, "plugins/beta/codex/skills/beta-skill/SKILL.md"))).toBe(true);
 });
 
 test("Codex-enabled plugin agents fail loudly instead of promoting to project agents", async () => {
@@ -1961,14 +1961,14 @@ Run scripts/check.sh when deterministic checks help.
   await buildSkillset(root);
 
   const claudeSkill = await readFile(
-    join(root, "plugins-claude/plugins/alpha/skills/resourceful/SKILL.md"),
+    join(root, "plugins/alpha/claude/skills/resourceful/SKILL.md"),
     "utf8"
   );
   const codexSkill = await readFile(
-    join(root, "plugins-codex/plugins/alpha/skills/resourceful/SKILL.md"),
+    join(root, "plugins/alpha/codex/skills/resourceful/SKILL.md"),
     "utf8"
   );
-  const lock = await readFile(join(root, "plugins-codex/skillset.lock"), "utf8");
+  const lock = await readFile(join(root, "plugins/skillset.lock"), "utf8");
 
   expect(claudeSkill).not.toContain("resources:");
   expect(codexSkill).not.toContain("shared:");
@@ -1977,36 +1977,36 @@ Run scripts/check.sh when deterministic checks help.
   expect(codexSkill).toContain("[plugin](references/plugin.md#usage)");
   expect(
     await readFile(
-      join(root, "plugins-claude/plugins/alpha/skills/resourceful/references/root.md"),
+      join(root, "plugins/alpha/claude/skills/resourceful/references/root.md"),
       "utf8"
     )
   ).toContain("Root Reference");
   expect(
     await readFile(
-      join(root, "plugins-codex/plugins/alpha/skills/resourceful/references/plugin.md"),
+      join(root, "plugins/alpha/codex/skills/resourceful/references/plugin.md"),
       "utf8"
     )
   ).toContain("Plugin Reference");
   expect(
     await readFile(
-      join(root, "plugins-codex/plugins/alpha/skills/resourceful/scripts/check.sh"),
+      join(root, "plugins/alpha/codex/skills/resourceful/scripts/check.sh"),
       "utf8"
     )
   ).toContain("echo shared");
   expect(
     await readFile(
-      join(root, "plugins-claude/plugins/alpha/skills/resourceful/templates/base.md"),
+      join(root, "plugins/alpha/claude/skills/resourceful/templates/base.md"),
       "utf8"
     )
   ).toContain("Base Template");
   expect(
-    await exists(join(root, "plugins-claude/plugins/alpha/scripts/plugin-tool.sh"))
+    await exists(join(root, "plugins/alpha/claude/scripts/plugin-tool.sh"))
   ).toBe(true);
   expect(
-    await exists(join(root, "plugins-codex/plugins/alpha/scripts/plugin-tool.sh"))
+    await exists(join(root, "plugins/alpha/codex/scripts/plugin-tool.sh"))
   ).toBe(true);
-  expect(lock).toContain(`"plugins/alpha/skills/resourceful/references/root.md"`);
-  expect(lock).toContain(`"plugins/alpha/skills/resourceful/scripts/check.sh"`);
+  expect(lock).toContain(`"alpha/claude/skills/resourceful/references/root.md"`);
+  expect(lock).toContain(`"alpha/claude/skills/resourceful/scripts/check.sh"`);
 
   await writeFile(
     join(root, ".skillset/plugins/alpha/shared/references/plugin.md"),
@@ -2090,11 +2090,11 @@ Tree:
   await buildSkillset(root);
 
   const claudeSkill = await readFile(
-    join(root, "plugins-claude/plugins/alpha/skills/preprocessed/SKILL.md"),
+    join(root, "plugins/alpha/claude/skills/preprocessed/SKILL.md"),
     "utf8"
   );
   const codexAgent = await readFile(
-    join(root, "plugins-codex/plugins/alpha/skills/preprocessed/agents/openai.yaml"),
+    join(root, "plugins/alpha/codex/skills/preprocessed/agents/openai.yaml"),
     "utf8"
   );
 
@@ -2122,11 +2122,11 @@ Tree:
   expect(codexAgent).not.toContain("```json");
   expect(codexAgent).toContain("YAML prompt for Preprocessed skill. with \"quotes\".");
 
-  const explainedClaude = await explainPath(root, "plugins-claude/plugins/alpha/skills/preprocessed/SKILL.md");
+  const explainedClaude = await explainPath(root, "plugins/alpha/claude/skills/preprocessed/SKILL.md");
   expect(explainedClaude.entries[0]?.preprocessDependencies).toContain(".skillset/shared/templates/intro.md");
   expect(explainedClaude.entries[0]?.preprocessDependencies).not.toContain(".skillset/shared/templates/openai.md");
 
-  const explainedCodex = await explainPath(root, "plugins-codex/plugins/alpha/skills/preprocessed/SKILL.md");
+  const explainedCodex = await explainPath(root, "plugins/alpha/codex/skills/preprocessed/SKILL.md");
   expect(explainedCodex.entries[0]?.preprocessDependencies).toContain(".skillset/shared/templates/intro.md");
   expect(explainedCodex.entries[0]?.preprocessDependencies).toContain(".skillset/shared/templates/openai.md");
 
@@ -2227,7 +2227,7 @@ Keep {{this.description}} literal.
   await buildSkillset(root);
 
   const skill = await readFile(
-    join(root, "plugins-claude/plugins/alpha/skills/literal/SKILL.md"),
+    join(root, "plugins/alpha/claude/skills/literal/SKILL.md"),
     "utf8"
   );
   expect(skill).toContain("Keep {{this.description}} literal.");
@@ -2455,7 +2455,7 @@ description: Good skill.
   await buildSkillset(root);
 
   const skill = await readFile(
-    join(root, "plugins-claude/plugins/alpha/skills/good/SKILL.md"),
+    join(root, "plugins/alpha/claude/skills/good/SKILL.md"),
     "utf8"
   );
   expect(skill).toContain("Workspace intro for Good skill.");
@@ -2465,7 +2465,7 @@ description: Good skill.
   expect(skill).toContain("Plugin only for good.");
   expect(skill.match(/Plugin only for good\./g)?.length).toBe(2);
 
-  const explained = await explainPath(root, "plugins-claude/plugins/alpha/skills/good/SKILL.md");
+  const explained = await explainPath(root, "plugins/alpha/claude/skills/good/SKILL.md");
   expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/partials/intro.md");
   expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/partials/nested/detail.md");
   expect(explained.entries[0]?.preprocessDependencies).toContain(".skillset/partials/preferred.md");
@@ -2826,7 +2826,7 @@ test("project target-native islands reject project roots inside active output ro
 skillset:
   name: test-root
 claude:
-  projectRoot: plugins-claude/project
+  projectRoot: plugins/project
 codex: false
 `,
     ".skillset/_claude/settings.json": `
@@ -2839,7 +2839,7 @@ skillset:
   });
 
   await expect(buildSkillset(root)).rejects.toThrow(
-    "claude.projectRoot must not overlap active output root outputs.plugins.claude (plugins-claude)"
+    "claude.projectRoot must not overlap active output root outputs.plugins.claude (plugins)"
   );
 });
 
@@ -2890,10 +2890,10 @@ skillset:
 
   await buildSkillset(root);
 
-  expect(await exists(join(root, "plugins-claude/plugins/alpha/commands/review.md"))).toBe(true);
-  expect(await exists(join(root, "plugins-codex/plugins/alpha/commands/review.md"))).toBe(false);
-  expect(await exists(join(root, "plugins-codex/plugins/alpha/config.json"))).toBe(true);
-  expect(await exists(join(root, "plugins-claude/plugins/alpha/config.json"))).toBe(false);
+  expect(await exists(join(root, "plugins/alpha/claude/commands/review.md"))).toBe(true);
+  expect(await exists(join(root, "plugins/alpha/codex/commands/review.md"))).toBe(false);
+  expect(await exists(join(root, "plugins/alpha/codex/config.json"))).toBe(true);
+  expect(await exists(join(root, "plugins/alpha/claude/config.json"))).toBe(false);
 });
 
 test("plugin-local provider source requires a plugin manifest", async () => {
@@ -3214,7 +3214,7 @@ Draft body.
   expect(await exists(join(root, "skills-claude/draft/SKILL.md"))).toBe(true);
   expect(await exists(join(root, "skills-claude/skillset.lock"))).toBe(true);
   expect(await exists(join(root, "skills-agents/draft/SKILL.md"))).toBe(false);
-  expect(await exists(join(root, "plugins-claude/.claude-plugin/marketplace.json"))).toBe(false);
+  expect(await exists(join(root, ".claude-plugin/marketplace.json"))).toBe(false);
 
   const skill = await readFile(join(root, "skills-claude/draft/SKILL.md"), "utf8");
   expect(skill).not.toContain("skillset:");
@@ -3520,26 +3520,26 @@ Shared policy body.
   await buildSkillset(root);
 
   const claudeSkill = await readFile(
-    join(root, "plugins-claude/plugins/alpha/skills/policy/SKILL.md"),
+    join(root, "plugins/alpha/claude/skills/policy/SKILL.md"),
     "utf8"
   );
   const codexSkill = await readFile(
-    join(root, "plugins-codex/plugins/alpha/skills/policy/SKILL.md"),
+    join(root, "plugins/alpha/codex/skills/policy/SKILL.md"),
     "utf8"
   );
   const codexAgentMetadata = await readFile(
-    join(root, "plugins-codex/plugins/alpha/skills/policy/agents/openai.yaml"),
+    join(root, "plugins/alpha/codex/skills/policy/agents/openai.yaml"),
     "utf8"
   );
   const sharedClaudeSkill = await readFile(
-    join(root, "plugins-claude/plugins/alpha/skills/shared/SKILL.md"),
+    join(root, "plugins/alpha/claude/skills/shared/SKILL.md"),
     "utf8"
   );
   const sharedCodexAgentMetadata = await readFile(
-    join(root, "plugins-codex/plugins/alpha/skills/shared/agents/openai.yaml"),
+    join(root, "plugins/alpha/codex/skills/shared/agents/openai.yaml"),
     "utf8"
   );
-  const lock = await readFile(join(root, "plugins-codex/skillset.lock"), "utf8");
+  const lock = await readFile(join(root, "plugins/skillset.lock"), "utf8");
 
   expect(claudeSkill).toContain(`allowed-tools:
   - Read
@@ -3554,8 +3554,8 @@ Shared policy body.
   expect(sharedClaudeSkill).toContain("disable-model-invocation: true");
   expect(sharedCodexAgentMetadata).toContain(`policy:
   allow_implicit_invocation: false`);
-  expect(lock).toContain(`"plugins/alpha/skills/policy/agents/openai.yaml"`);
-  expect(lock).toContain(`"plugins/alpha/skills/shared/agents/openai.yaml"`);
+  expect(lock).toContain(`"alpha/codex/skills/policy/agents/openai.yaml"`);
+  expect(lock).toContain(`"alpha/codex/skills/shared/agents/openai.yaml"`);
 });
 
 test("build lowers target-native tool escapes to target-specific artifacts", async () => {
@@ -3613,18 +3613,18 @@ Escape body.
   await buildSkillset(root);
 
   const claudeSkill = await readFile(
-    join(root, "plugins-claude/plugins/alpha/skills/escape/SKILL.md"),
+    join(root, "plugins/alpha/claude/skills/escape/SKILL.md"),
     "utf8"
   );
   const codexSkill = await readFile(
-    join(root, "plugins-codex/plugins/alpha/skills/escape/SKILL.md"),
+    join(root, "plugins/alpha/codex/skills/escape/SKILL.md"),
     "utf8"
   );
   const codexTools = await readFile(
-    join(root, "plugins-codex/plugins/alpha/skills/escape/.skillset.tools.yaml"),
+    join(root, "plugins/alpha/codex/skills/escape/.skillset.tools.yaml"),
     "utf8"
   );
-  const lock = await readFile(join(root, "plugins-codex/skillset.lock"), "utf8");
+  const lock = await readFile(join(root, "plugins/skillset.lock"), "utf8");
 
   expect(claudeSkill).toContain(`allowed-tools:
   - Read
@@ -3639,7 +3639,7 @@ Escape body.
   expect(codexTools).toContain("issues.*");
   expect(codexTools).toContain("experimental.*");
   expect(codexTools).toContain("experimental.delete");
-  expect(lock).toContain(`"plugins/alpha/skills/escape/.skillset.tools.yaml"`);
+  expect(lock).toContain(`"alpha/codex/skills/escape/.skillset.tools.yaml"`);
 });
 
 test("build lowers strict portable tools registry and preserves Codex metadata", async () => {
@@ -3702,18 +3702,18 @@ Tools body.
   await buildSkillset(root);
 
   const claudeSkill = await readFile(
-    join(root, "plugins-claude/plugins/alpha/skills/tools/SKILL.md"),
+    join(root, "plugins/alpha/claude/skills/tools/SKILL.md"),
     "utf8"
   );
   const codexSkill = await readFile(
-    join(root, "plugins-codex/plugins/alpha/skills/tools/SKILL.md"),
+    join(root, "plugins/alpha/codex/skills/tools/SKILL.md"),
     "utf8"
   );
   const codexTools = await readFile(
-    join(root, "plugins-codex/plugins/alpha/skills/tools/.skillset.tools.yaml"),
+    join(root, "plugins/alpha/codex/skills/tools/.skillset.tools.yaml"),
     "utf8"
   );
-  const lock = await readFile(join(root, "plugins-codex/skillset.lock"), "utf8");
+  const lock = await readFile(join(root, "plugins/skillset.lock"), "utf8");
 
   expect(claudeSkill).toContain("Read(docs/**)");
   expect(claudeSkill).toContain("Grep");
@@ -3733,7 +3733,7 @@ Tools body.
   expect(codexTools).toContain("docs/**");
   expect(codexTools).toContain("issues.*");
   expect(codexTools).toContain("chat.*");
-  expect(lock).toContain(`"plugins/alpha/skills/tools/.skillset.tools.yaml"`);
+  expect(lock).toContain(`"alpha/codex/skills/tools/.skillset.tools.yaml"`);
 });
 
 test("Claude target-native tool escapes require native rule strings", async () => {
@@ -3869,11 +3869,11 @@ Clear native body.
   await buildSkillset(root);
 
   const claudeSkill = await readFile(
-    join(root, "plugins-claude/plugins/alpha/skills/clear-native/SKILL.md"),
+    join(root, "plugins/alpha/claude/skills/clear-native/SKILL.md"),
     "utf8"
   );
   const codexTools = await readFile(
-    join(root, "plugins-codex/plugins/alpha/skills/clear-native/.skillset.tools.yaml"),
+    join(root, "plugins/alpha/codex/skills/clear-native/.skillset.tools.yaml"),
     "utf8"
   );
 
@@ -4030,9 +4030,9 @@ Private body.
 
   await buildSkillset(root);
 
-  expect(await exists(join(root, "plugins-claude/README.md"))).toBe(false);
-  expect(await exists(join(root, "plugins-codex/plugins/alpha/.codex-plugin/plugin.json"))).toBe(true);
-  expect(await exists(join(root, "plugins-codex/plugins/beta/.codex-plugin/plugin.json"))).toBe(false);
+  expect(await exists(join(root, "plugins/README.md"))).toBe(true);
+  expect(await exists(join(root, "plugins/alpha/codex/.codex-plugin/plugin.json"))).toBe(true);
+  expect(await exists(join(root, "plugins/beta/codex/.codex-plugin/plugin.json"))).toBe(false);
   expect(await exists(join(root, ".claude/skills/public-skill/SKILL.md"))).toBe(true);
   expect(await exists(join(root, ".claude/skills/private-skill/SKILL.md"))).toBe(true);
   expect(await exists(join(root, "codex-skills/public-skill/SKILL.md"))).toBe(true);
@@ -4061,20 +4061,20 @@ description: Alpha skill.
 
 Alpha body.
 `,
-    "plugins-claude/skillset.lock": `
+    "plugins/skillset.lock": `
 {
   "generatedBy": "skillset@0.1.0"
 }
 `,
-    "plugins-claude/stale.txt": `
+    "plugins/stale.txt": `
 stale
 `,
   });
 
   await expect(verifySkillset(root)).rejects.toThrow("stale generated file");
   await buildSkillset(root);
-  expect(await exists(join(root, "plugins-claude/skillset.lock"))).toBe(false);
-  expect(await exists(join(root, "plugins-claude/stale.txt"))).toBe(false);
+  expect(await exists(join(root, "plugins/skillset.lock"))).toBe(false);
+  expect(await exists(join(root, "plugins/stale.txt"))).toBe(false);
 });
 
 test("generated-output verification catches stale generated output", async () => {
@@ -4153,7 +4153,7 @@ Alpha body.
   );
 
   await expect(verifySkillset(root)).rejects.toThrow(
-    "version drift: plugins-claude/plugins/alpha/skills/alpha-skill/SKILL.md metadata.version is 1.0.0, expected 1.1.0"
+    "version drift: plugins/alpha/claude/skills/alpha-skill/SKILL.md metadata.version is 1.0.0, expected 1.1.0"
   );
 
   await buildSkillset(root);
@@ -4167,7 +4167,7 @@ skillset:
   );
 
   await expect(verifySkillset(root)).rejects.toThrow(
-    "version drift: plugins-claude/plugins/alpha/.claude-plugin/plugin.json version is 1.0.0, expected 1.1.0"
+    "version drift: plugins/alpha/claude/.claude-plugin/plugin.json version is 1.0.0, expected 1.1.0"
   );
 });
 
@@ -4216,19 +4216,19 @@ Alpha body.
   await buildSkillset(root);
 
   const claudeManifest = await readFile(
-    join(root, "plugins-claude/plugins/alpha/.claude-plugin/plugin.json"),
+    join(root, "plugins/alpha/claude/.claude-plugin/plugin.json"),
     "utf8"
   );
   const codexManifest = await readFile(
-    join(root, "plugins-codex/plugins/alpha/.codex-plugin/plugin.json"),
+    join(root, "plugins/alpha/codex/.codex-plugin/plugin.json"),
     "utf8"
   );
   const claudeSkill = await readFile(
-    join(root, "plugins-claude/plugins/alpha/skills/alpha-skill/SKILL.md"),
+    join(root, "plugins/alpha/claude/skills/alpha-skill/SKILL.md"),
     "utf8"
   );
   const codexSkill = await readFile(
-    join(root, "plugins-codex/plugins/alpha/skills/alpha-skill/SKILL.md"),
+    join(root, "plugins/alpha/codex/skills/alpha-skill/SKILL.md"),
     "utf8"
   );
 
@@ -4350,11 +4350,11 @@ Claude-only body.
 
   await buildSkillset(root);
   const initialCodexSkill = await readFile(
-    join(root, "plugins-codex/plugins/alpha/skills/shared/SKILL.md"),
+    join(root, "plugins/alpha/codex/skills/shared/SKILL.md"),
     "utf8"
   );
   const initialCodexManifest = await readFile(
-    join(root, "plugins-codex/plugins/alpha/.codex-plugin/plugin.json"),
+    join(root, "plugins/alpha/codex/.codex-plugin/plugin.json"),
     "utf8"
   );
 
@@ -4374,12 +4374,12 @@ Claude-only body.
   await buildSkillset(root);
 
   expect(
-    await readFile(join(root, "plugins-codex/plugins/alpha/skills/shared/SKILL.md"), "utf8")
+    await readFile(join(root, "plugins/alpha/codex/skills/shared/SKILL.md"), "utf8")
   ).toBe(initialCodexSkill);
   expect(
-    await readFile(join(root, "plugins-codex/plugins/alpha/.codex-plugin/plugin.json"), "utf8")
+    await readFile(join(root, "plugins/alpha/codex/.codex-plugin/plugin.json"), "utf8")
   ).toBe(initialCodexManifest);
-  const skippedCodexLock = await readFile(join(root, "plugins-codex/skillset.lock"), "utf8");
+  const skippedCodexLock = await readFile(join(root, "plugins/skillset.lock"), "utf8");
   expect(skippedCodexLock).toContain(`"targetState": "intentionally-skipped"`);
   expect(skippedCodexLock).toContain(`"claude-only@1.1.0"`);
 
@@ -4398,7 +4398,7 @@ Shared body changed.
   await buildSkillset(root);
 
   const resyncedCodexSkill = await readFile(
-    join(root, "plugins-codex/plugins/alpha/skills/shared/SKILL.md"),
+    join(root, "plugins/alpha/codex/skills/shared/SKILL.md"),
     "utf8"
   );
   expect(resyncedCodexSkill).toContain(`version: 1.1.0`);
@@ -4475,7 +4475,7 @@ Review carefully.
 skillset:
   name: test-root
 claude:
-  projectRoot: plugins-claude
+  projectRoot: plugins
 codex: false
 `,
     ".skillset/plugins/alpha/skillset.yaml": `

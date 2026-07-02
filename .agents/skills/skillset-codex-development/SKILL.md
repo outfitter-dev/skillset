@@ -14,7 +14,7 @@ Use this skill when working on the local `skillset` compiler from a Codex-orient
 
 - Work in `/path/to/skillset`.
 - Treat `.skillset/` and `skillset.yaml` as editable source/state.
-- Treat `.skillset/`, `plugins-claude/`, `plugins-codex/`, `.claude/skills`, and `.agents/skills` as generated or operational output.
+- Treat `.skillset/`, `plugins/`, `.claude/skills`, and `.agents/skills` as generated or operational output.
 - Do not hand-edit generated outputs as source truth.
 - Do not publish, globally install, symlink, or mutate user-level Claude/Codex config during normal repo work.
 

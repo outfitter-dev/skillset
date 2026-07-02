@@ -8,6 +8,7 @@ import {
 } from "@skillset/core";
 
 import { compareStrings } from "./path";
+import { pluginTargetRoot } from "./plugin-output";
 import {
   makeRetainedRunId,
   readRetainedRunLatest,
@@ -403,7 +404,7 @@ function claudePluginDirs(
   return selected
     .filter((plugin) => enabled.has(plugin))
     .sort(compareStrings)
-    .map((plugin) => join(latestRoot, graph.root.outputs.plugins.claude, "plugins", plugin));
+    .map((plugin) => join(latestRoot, pluginTargetRoot(graph.root.outputs.plugins.claude, "claude", plugin)));
 }
 
 function validateRuntimeTesterPlugins(

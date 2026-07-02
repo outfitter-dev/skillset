@@ -23,6 +23,7 @@ import type {
   TargetName,
 } from "./types";
 import { SKILLSET_RUNTIME_IDS, type SkillsetRuntimeId } from "./feature-registry";
+import { DEFAULT_PLUGIN_OUTPUT_ROOT } from "./plugin-output";
 import { isJsonRecord } from "./yaml";
 
 const TARGET_NAMES = SCHEMA_TARGET_NAMES as readonly TargetName[];
@@ -217,11 +218,11 @@ export function readOutputConfig(
       claude:
         claudePlugins.path ??
         readString(pluginOutputs, "claude") ??
-        (options.distDir === undefined ? "plugins-claude" : `${options.distDir}/claude`),
+        (options.distDir === undefined ? DEFAULT_PLUGIN_OUTPUT_ROOT : `${options.distDir}/claude`),
       codex:
         codexPlugins.path ??
         readString(pluginOutputs, "codex") ??
-        (options.distDir === undefined ? "plugins-codex" : `${options.distDir}/codex`),
+        (options.distDir === undefined ? DEFAULT_PLUGIN_OUTPUT_ROOT : `${options.distDir}/codex`),
     },
     skills: {
       claude: claudeSkills.path ?? readString(skillOutputs, "claude") ?? ".claude/skills",

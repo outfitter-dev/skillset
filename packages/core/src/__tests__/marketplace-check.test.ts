@@ -22,9 +22,9 @@ describe("marketplace check", () => {
     expect(report.entries).toContainEqual(expect.objectContaining({
       catalog: "outfitter",
       entryId: "local-tools",
-      generatedPath: "plugins-claude/plugins/local-tools/.claude-plugin/plugin.json",
+      generatedPath: "plugins/local-tools/claude/.claude-plugin/plugin.json",
       plugin: "local-tools",
-      providerSource: "./plugins/local-tools",
+      providerSource: "./plugins/local-tools/claude",
       readiness: "marketplace-ready",
       requestedTarget: "claude",
       resolvedTargetSupport: true,
@@ -32,7 +32,7 @@ describe("marketplace check", () => {
       states: ["declared", "resolved", "renderable", "generated", "verified", "locked", "marketplace-ready"],
     }));
     expect(report.entries).toContainEqual(expect.objectContaining({
-      generatedPath: "plugins-codex/plugins/local-tools/.codex-plugin/plugin.json",
+      generatedPath: "plugins/local-tools/codex/.codex-plugin/plugin.json",
       requestedTarget: "codex",
     }));
   });
@@ -45,14 +45,14 @@ describe("marketplace check", () => {
     expect(unbuiltReport.ok).toBe(false);
     expect(unbuiltReport.entries[0]).toEqual(expect.objectContaining({
       readiness: "not-ready",
-      reason: "missing generated file: plugins-claude/plugins/local-tools/.claude-plugin/plugin.json",
+      reason: "missing generated file: plugins/local-tools/claude/.claude-plugin/plugin.json",
       resolvedTargetSupport: true,
     }));
 
     const stale = await fixture(localMarketplaceFiles());
     await buildSkillsetResult(stale);
     await writeFile(
-      join(stale, "plugins-claude/plugins/local-tools/.claude-plugin/plugin.json"),
+      join(stale, "plugins/local-tools/claude/.claude-plugin/plugin.json"),
       "{ \"stale\": true }\n"
     );
 
@@ -61,7 +61,7 @@ describe("marketplace check", () => {
     expect(staleReport.ok).toBe(false);
     expect(staleReport.entries[0]).toEqual(expect.objectContaining({
       readiness: "not-ready",
-      reason: "version drift: plugins-claude/plugins/local-tools/.claude-plugin/plugin.json version is missing, expected 0.1.0",
+      reason: "version drift: plugins/local-tools/claude/.claude-plugin/plugin.json version is missing, expected 0.1.0",
       resolvedTargetSupport: true,
     }));
   });
@@ -262,8 +262,8 @@ marketplaces:
     const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
       marketplaces: { entries: Array<{ generatedPaths: string[]; resolved: { generatedPaths: string[] } }> };
     };
-    lock.marketplaces.entries[0]!.generatedPaths = ["plugins-claude/plugins/local-tools/stale.json"];
-    lock.marketplaces.entries[0]!.resolved.generatedPaths = ["plugins-claude/plugins/local-tools/stale.json"];
+    lock.marketplaces.entries[0]!.generatedPaths = ["plugins/local-tools/claude/stale.json"];
+    lock.marketplaces.entries[0]!.resolved.generatedPaths = ["plugins/local-tools/claude/stale.json"];
     await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
 
     const report = await checkMarketplaces(root, { name: "outfitter" });

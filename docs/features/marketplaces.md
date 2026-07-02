@@ -53,7 +53,7 @@ For Claude, local entries render as relative plugin roots such as `./plugins/out
 {
   "source": "git-subdir",
   "url": "outfitter-dev/trails",
-  "path": "plugins-claude/plugins/trails-review",
+  "path": "plugins/trails-review/claude",
   "sha": "..."
 }
 ```

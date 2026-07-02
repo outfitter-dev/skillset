@@ -51,9 +51,9 @@ describe("deterministic projection runner", () => {
     });
     try {
       expect(report.ok).toBe(true);
-      expect(report.outputComparison.identical).toContain("plugins-claude/plugins/skillset/.claude-plugin/plugin.json");
-      expect(report.outputComparison.identical).toContain("plugins-codex/plugins/skillset/.codex-plugin/plugin.json");
-      expect(await exists(join(report.runs[0].outputRoot, "plugins-claude/plugins/skillset/.claude-plugin/plugin.json"))).toBe(true);
+      expect(report.outputComparison.identical).toContain("plugins/skillset/claude/.claude-plugin/plugin.json");
+      expect(report.outputComparison.identical).toContain("plugins/skillset/codex/.codex-plugin/plugin.json");
+      expect(await exists(join(report.runs[0].outputRoot, "plugins/skillset/claude/.claude-plugin/plugin.json"))).toBe(true);
     } finally {
       await rm(report.tempRootPath, { force: true, recursive: true });
     }

@@ -27,20 +27,20 @@ test("kitchen-sink fixture builds every implemented surface and stays current", 
 
   // Plugin-local + root shared resources copied beside SKILL.md.
   expect(
-    await readFile(join(root, "plugins-claude/plugins/kitchen/skills/sink/references/shared-ref.md"), "utf8")
+    await readFile(join(root, "plugins/kitchen/claude/skills/sink/references/shared-ref.md"), "utf8")
   ).toContain("Shared Reference");
   expect(
-    await readFile(join(root, "plugins-codex/plugins/kitchen/skills/sink/references/plugin-ref.md"), "utf8")
+    await readFile(join(root, "plugins/kitchen/codex/skills/sink/references/plugin-ref.md"), "utf8")
   ).toContain("Plugin Reference");
 
   // Custom from/to mapping emits at the remapped path...
   expect(
-    await readFile(join(root, "plugins-claude/plugins/kitchen/skills/sink/docs/report.md"), "utf8")
+    await readFile(join(root, "plugins/kitchen/claude/skills/sink/docs/report.md"), "utf8")
   ).toContain("Report Template");
 
   // ...and prose links through that mapping are rewritten to the emitted path.
   const codexSkill = await readFile(
-    join(root, "plugins-codex/plugins/kitchen/skills/sink/SKILL.md"),
+    join(root, "plugins/kitchen/codex/skills/sink/SKILL.md"),
     "utf8"
   );
   expect(codexSkill).toContain("[report template](docs/report.md)");
@@ -52,26 +52,26 @@ test("kitchen-sink fixture builds every implemented surface and stays current", 
   expect(codexSkill).not.toContain("plugin:");
 
   // Target-native companion surfaces.
-  expect(await exists(join(root, "plugins-claude/plugins/kitchen/commands/review.md"))).toBe(true);
-  expect(await exists(join(root, "plugins-claude/plugins/kitchen/hooks/hooks.json"))).toBe(true);
-  expect(await exists(join(root, "plugins-claude/plugins/kitchen/.mcp.json"))).toBe(true);
+  expect(await exists(join(root, "plugins/kitchen/claude/commands/review.md"))).toBe(true);
+  expect(await exists(join(root, "plugins/kitchen/claude/hooks/hooks.json"))).toBe(true);
+  expect(await exists(join(root, "plugins/kitchen/claude/.mcp.json"))).toBe(true);
   // SET-2: Codex hooks emit at the documented hooks/hooks.json path.
-  expect(await exists(join(root, "plugins-codex/plugins/kitchen/hooks.json"))).toBe(false);
+  expect(await exists(join(root, "plugins/kitchen/codex/hooks.json"))).toBe(false);
   const codexKitchenHook = await readFile(
-    join(root, "plugins-codex/plugins/kitchen/hooks/hooks.json"),
+    join(root, "plugins/kitchen/codex/hooks/hooks.json"),
     "utf8"
   );
   expect(codexKitchenHook).toContain(`"hooks"`);
   expect(codexKitchenHook).toContain("SessionStart");
-  expect(await exists(join(root, "plugins-codex/plugins/kitchen/.app.json"))).toBe(true);
-  expect(await exists(join(root, "plugins-codex/plugins/kitchen/.mcp.json"))).toBe(true);
+  expect(await exists(join(root, "plugins/kitchen/codex/.app.json"))).toBe(true);
+  expect(await exists(join(root, "plugins/kitchen/codex/.mcp.json"))).toBe(true);
   // SET-8: Claude-native pass-through surfaces are copied and declared in the manifest.
-  expect(await exists(join(root, "plugins-claude/plugins/kitchen/.lsp.json"))).toBe(true);
-  expect(await exists(join(root, "plugins-claude/plugins/kitchen/output-styles/concise.md"))).toBe(true);
-  expect(await exists(join(root, "plugins-claude/plugins/kitchen/themes/midnight.json"))).toBe(true);
-  expect(await exists(join(root, "plugins-claude/plugins/kitchen/monitors/monitors.json"))).toBe(true);
+  expect(await exists(join(root, "plugins/kitchen/claude/.lsp.json"))).toBe(true);
+  expect(await exists(join(root, "plugins/kitchen/claude/output-styles/concise.md"))).toBe(true);
+  expect(await exists(join(root, "plugins/kitchen/claude/themes/midnight.json"))).toBe(true);
+  expect(await exists(join(root, "plugins/kitchen/claude/monitors/monitors.json"))).toBe(true);
   const claudeKitchenManifest = await readFile(
-    join(root, "plugins-claude/plugins/kitchen/.claude-plugin/plugin.json"),
+    join(root, "plugins/kitchen/claude/.claude-plugin/plugin.json"),
     "utf8"
   );
   expect(claudeKitchenManifest).toContain(`"lspServers": "./.lsp.json"`);
@@ -79,10 +79,10 @@ test("kitchen-sink fixture builds every implemented surface and stays current", 
   expect(claudeKitchenManifest).toContain(`"themes": "./themes/"`);
   expect(claudeKitchenManifest).toContain(`"monitors": "./monitors/monitors.json"`);
   // SET-8: these Claude-native surfaces are not copied into Codex output.
-  expect(await exists(join(root, "plugins-codex/plugins/kitchen/.lsp.json"))).toBe(false);
-  expect(await exists(join(root, "plugins-codex/plugins/kitchen/themes/midnight.json"))).toBe(false);
+  expect(await exists(join(root, "plugins/kitchen/codex/.lsp.json"))).toBe(false);
+  expect(await exists(join(root, "plugins/kitchen/codex/themes/midnight.json"))).toBe(false);
   // Claude agents/ surface absent from Codex output (none declared here either).
-  expect(await exists(join(root, "plugins-codex/plugins/kitchen/commands/review.md"))).toBe(false);
+  expect(await exists(join(root, "plugins/kitchen/codex/commands/review.md"))).toBe(false);
 
   // Rules lower to Claude rules and Codex AGENTS.md, with build-time variables.
   expect(await readFile(join(root, ".claude/rules/global.md"), "utf8")).toContain("Global Rule");
@@ -104,7 +104,7 @@ test("adaptive hooks fixture builds authoring recipes", async () => {
   await verifySkillset(root);
 
   const claudeGuardHooks = await readFile(
-    join(root, "plugins-claude/plugins/guard/hooks/hooks.json"),
+    join(root, "plugins/guard/claude/hooks/hooks.json"),
     "utf8"
   );
   expect(claudeGuardHooks).toContain("$CLAUDE_PLUGIN_ROOT/hooks/shell-policy/check.sh");
@@ -117,7 +117,7 @@ test("adaptive hooks fixture builds authoring recipes", async () => {
   expect(claudeGuardHooks).toContain("SessionStart");
 
   const codexGuardHooks = await readFile(
-    join(root, "plugins-codex/plugins/guard/hooks/hooks.json"),
+    join(root, "plugins/guard/codex/hooks/hooks.json"),
     "utf8"
   );
   expect(codexGuardHooks).toContain("$PLUGIN_ROOT/hooks/shell-policy/check.sh");
@@ -137,7 +137,7 @@ test("adaptive hooks fixture builds authoring recipes", async () => {
   expect(claudeAgent).toContain("echo agent session");
 
   const nativeHooks = await readFile(
-    join(root, "plugins-codex/plugins/native/hooks/hooks.json"),
+    join(root, "plugins/native/codex/hooks/hooks.json"),
     "utf8"
   );
   expect(nativeHooks).toContain("Checking native session");
@@ -234,7 +234,7 @@ Use the [report](plugin:templates/report.md#intro) before writing.
   await buildSkillset(root);
 
   const skill = await readFile(
-    join(root, "plugins-claude/plugins/alpha/skills/remap/SKILL.md"),
+    join(root, "plugins/alpha/claude/skills/remap/SKILL.md"),
     "utf8"
   );
   expect(skill).toContain("[report](docs/report.md#intro)");
@@ -389,8 +389,8 @@ Beta body.
 
   await expect(buildSkillset(root)).resolves.toBeDefined();
   await expect(lintSkillset(root)).resolves.toBeDefined();
-  expect(await exists(join(root, "plugins-codex/plugins/alpha/.codex-plugin/plugin.json"))).toBe(false);
-  expect(await exists(join(root, "plugins-codex/plugins/beta/.codex-plugin/plugin.json"))).toBe(true);
+  expect(await exists(join(root, "plugins/alpha/codex/.codex-plugin/plugin.json"))).toBe(false);
+  expect(await exists(join(root, "plugins/beta/codex/.codex-plugin/plugin.json"))).toBe(true);
 });
 
 test("Codex hooks reject async command handlers because Codex skips them", async () => {
@@ -563,10 +563,10 @@ Alpha body.
   });
 
   await buildSkillset(root);
-  await writeFile(join(root, "plugins-claude/skillset.lock"), "{ not valid json", "utf8");
+  await writeFile(join(root, "plugins/skillset.lock"), "{ not valid json", "utf8");
 
-  await expect(verifySkillset(root)).rejects.toThrow("generated lock plugins-claude/skillset.lock cannot guard generated state");
-  await expect(buildSkillset(root)).rejects.toThrow("generated lock plugins-claude/skillset.lock cannot guard generated state");
+  await expect(verifySkillset(root)).rejects.toThrow("generated lock plugins/skillset.lock cannot guard generated state");
+  await expect(buildSkillset(root)).rejects.toThrow("generated lock plugins/skillset.lock cannot guard generated state");
 });
 
 test("compareStrings orders by code unit independent of locale", () => {

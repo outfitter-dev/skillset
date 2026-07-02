@@ -48,7 +48,7 @@ Use this demo skill.
   expect(json).toMatchObject({ exitCode: 0, stderr: "" });
   expect(report.ok).toBe(true);
   expect(report.entries).toEqual([expect.objectContaining({
-    generatedPath: "plugins-claude/plugins/local-tools/.claude-plugin/plugin.json",
+    generatedPath: "plugins/local-tools/claude/.claude-plugin/plugin.json",
     readiness: "marketplace-ready",
   })]);
 });
@@ -76,7 +76,7 @@ skillset:
   expect(checked.exitCode).toBe(1);
   expect(checked.stderr).toBe("");
   expect(checked.stdout).toContain("skillset: marketplace check failed");
-  expect(checked.stdout).toContain("missing generated file: plugins-claude/plugins/local-tools/.claude-plugin/plugin.json");
+  expect(checked.stdout).toContain("missing generated file: plugins/local-tools/claude/.claude-plugin/plugin.json");
   await expect(readdir(root)).resolves.toEqual(before);
 });
 
@@ -132,22 +132,22 @@ Use this demo skill.
 
   expect(preview).toMatchObject({ exitCode: 0, stderr: "" });
   expect(preview.stdout).toContain("skillset: marketplace update passed");
-  expect(preview.stdout).toContain("would write: plugins-claude/.claude-plugin/marketplace.json");
+  expect(preview.stdout).toContain("would write: .claude-plugin/marketplace.json");
   expect(preview.stdout).toContain("skillset: marketplace update preview wrote no files");
   await expect(readdir(marketplace)).resolves.not.toContain("plugins-claude");
 
   const updated = await runSkillsetCliWithEnv(xdg.env, "marketplace", "update", "outfitter", "--yes", "--root", marketplace);
 
   expect(updated).toMatchObject({ exitCode: 0, stderr: "" });
-  expect(updated.stdout).toContain("wrote: plugins-claude/.claude-plugin/marketplace.json");
+  expect(updated.stdout).toContain("wrote: .claude-plugin/marketplace.json");
   expect(updated.stdout).toContain("wrote: skillset.lock");
-  const marketplaceJson = JSON.parse(await readFile(join(marketplace, "plugins-claude/.claude-plugin/marketplace.json"), "utf8")) as {
+  const marketplaceJson = JSON.parse(await readFile(join(marketplace, ".claude-plugin/marketplace.json"), "utf8")) as {
     readonly plugins: readonly { readonly name: string; readonly source: { readonly source: string; readonly url: string; readonly path: string } }[];
   };
   expect(marketplaceJson.plugins).toEqual([expect.objectContaining({
     name: "trails-tools",
     source: {
-      path: "plugins-claude/plugins/trails-tools",
+      path: "plugins/trails-tools/claude",
       source: "git-subdir",
       url: "outfitter-dev/trails",
     },
@@ -224,15 +224,15 @@ Use this demo skill.
   const updated = await runSkillsetCliWithEnv(xdg.env, "marketplace", "update", "outfitter", "--yes", "--root", marketplace);
 
   expect(updated).toMatchObject({ exitCode: 0, stderr: "" });
-  const marketplaceJson = JSON.parse(await readFile(join(marketplace, "plugins-claude/.claude-plugin/marketplace.json"), "utf8")) as {
+  const marketplaceJson = JSON.parse(await readFile(join(marketplace, ".claude-plugin/marketplace.json"), "utf8")) as {
     readonly plugins: readonly { readonly name: string; readonly source: unknown }[];
   };
   expect(marketplaceJson.plugins).toEqual([
-    expect.objectContaining({ name: "local-tools", source: "./plugins/local-tools" }),
+    expect.objectContaining({ name: "local-tools", source: "./plugins/local-tools/claude" }),
     expect.objectContaining({
       name: "trails-tools",
       source: expect.objectContaining({
-        path: "plugins-claude/plugins/trails-tools",
+        path: "plugins/trails-tools/claude",
         source: "git-subdir",
         url: "outfitter-dev/trails",
       }),

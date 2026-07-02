@@ -208,7 +208,7 @@ describe("build render results", () => {
       expect.objectContaining({
         featureId: "plugin-bin",
         outputs: expect.arrayContaining([
-          expect.objectContaining({ path: "plugins-claude/plugins/beta/bin/tool" }),
+          expect.objectContaining({ path: "plugins/beta/claude/bin/tool" }),
         ]),
         sourceUnit: "plugin.beta.feature:bin",
         status: "target_native",
@@ -219,7 +219,7 @@ describe("build render results", () => {
       expect.objectContaining({
         featureId: "plugin-hooks",
         outputs: expect.arrayContaining([
-          expect.objectContaining({ path: "plugins-codex/plugins/alpha/hooks/hooks.json" }),
+          expect.objectContaining({ path: "plugins/alpha/codex/hooks/hooks.json" }),
         ]),
         sourceUnit: "plugin.alpha.feature:hooks",
         status: "target_native",
@@ -255,7 +255,7 @@ describe("build render results", () => {
       expect.objectContaining({
         featureId: "tool-intent",
         outputs: expect.arrayContaining([
-          expect.objectContaining({ path: "plugins-claude/plugins/alpha/skills/plugin-skill/SKILL.md" }),
+          expect.objectContaining({ path: "plugins/alpha/claude/skills/plugin-skill/SKILL.md" }),
         ]),
         sourceUnit: "plugin.alpha.skill:plugin-skill",
         status: "transformed",
@@ -266,7 +266,7 @@ describe("build render results", () => {
       expect.objectContaining({
         featureId: "tool-intent",
         outputs: expect.arrayContaining([
-          expect.objectContaining({ path: "plugins-codex/plugins/alpha/skills/plugin-skill/.skillset.tools.yaml" }),
+          expect.objectContaining({ path: "plugins/alpha/codex/skills/plugin-skill/.skillset.tools.yaml" }),
         ]),
         sourceUnit: "plugin.alpha.skill:plugin-skill",
         status: "metadata_only",
@@ -277,7 +277,7 @@ describe("build render results", () => {
       expect.objectContaining({
         featureId: "plugin-agents",
         outputs: expect.arrayContaining([
-          expect.objectContaining({ path: "plugins-claude/plugins/beta/agents/reviewer.md" }),
+          expect.objectContaining({ path: "plugins/beta/claude/agents/reviewer.md" }),
         ]),
         sourceUnit: "plugin.beta.feature:agents",
         status: "target_native",
@@ -287,55 +287,55 @@ describe("build render results", () => {
     const companionExpectations = [
       {
         featureId: "plugin-readme",
-        path: "plugins-claude/plugins/alpha/README.md",
+        path: "plugins/alpha/claude/README.md",
         sourceUnit: "plugin.alpha.feature:readme",
         target: "claude",
       },
       {
         featureId: "plugin-assets",
-        path: "plugins-codex/plugins/alpha/assets/icon.txt",
+        path: "plugins/alpha/codex/assets/icon.txt",
         sourceUnit: "plugin.alpha.feature:assets",
         target: "codex",
       },
       {
         featureId: "plugin-scripts",
-        path: "plugins-codex/plugins/alpha/scripts/setup.sh",
+        path: "plugins/alpha/codex/scripts/setup.sh",
         sourceUnit: "plugin.alpha.feature:scripts",
         target: "codex",
       },
       {
         featureId: "plugin-src",
-        path: "plugins-codex/plugins/alpha/src/index.js",
+        path: "plugins/alpha/codex/src/index.js",
         sourceUnit: "plugin.alpha.feature:src",
         target: "codex",
       },
       {
         featureId: "plugin-commands",
-        path: "plugins-claude/plugins/alpha/commands/run.md",
+        path: "plugins/alpha/claude/commands/run.md",
         sourceUnit: "plugin.alpha.feature:commands",
         target: "claude",
       },
       {
         featureId: "plugin-lsp-servers",
-        path: "plugins-claude/plugins/alpha/.lsp.json",
+        path: "plugins/alpha/claude/.lsp.json",
         sourceUnit: "plugin.alpha.feature:lsp-servers",
         target: "claude",
       },
       {
         featureId: "plugin-output-styles",
-        path: "plugins-claude/plugins/alpha/output-styles/focused.md",
+        path: "plugins/alpha/claude/output-styles/focused.md",
         sourceUnit: "plugin.alpha.feature:output-styles",
         target: "claude",
       },
       {
         featureId: "plugin-themes",
-        path: "plugins-claude/plugins/alpha/themes/dark.json",
+        path: "plugins/alpha/claude/themes/dark.json",
         sourceUnit: "plugin.alpha.feature:themes",
         target: "claude",
       },
       {
         featureId: "plugin-monitors",
-        path: "plugins-claude/plugins/alpha/monitors/monitors.json",
+        path: "plugins/alpha/claude/monitors/monitors.json",
         sourceUnit: "plugin.alpha.feature:monitors",
         target: "claude",
       },
@@ -427,9 +427,9 @@ describe("build render results", () => {
     const build = await buildSkillsetResult(root);
     expect(build.renderResults.map(outcomeKey)).toEqual(preview.renderResults.map(outcomeKey));
 
-    const codexLock = await readJson(join(root, "plugins-codex/skillset.lock"));
-    const codexOutcomes = codexLock.renderResults as SkillsetRenderResult[];
-    expect(codexOutcomes).toContainEqual(
+    const pluginLock = await readJson(join(root, "plugins/skillset.lock"));
+    const pluginOutcomes = pluginLock.renderResults as SkillsetRenderResult[];
+    expect(pluginOutcomes).toContainEqual(
       expect.objectContaining({
         featureId: "plugin-skills",
         sourceUnit: "plugin.alpha.skill:plugin-skill",
@@ -437,7 +437,7 @@ describe("build render results", () => {
         target: "codex",
       })
     );
-    expect(codexOutcomes).toContainEqual(
+    expect(pluginOutcomes).toContainEqual(
       expect.objectContaining({
         featureId: "dependencies",
         sourceUnit: "plugin.alpha.feature:dependencies",
@@ -445,15 +445,16 @@ describe("build render results", () => {
         target: "codex",
       })
     );
-    expect(codexOutcomes).not.toContainEqual(
+    expect(pluginOutcomes).toContainEqual(
       expect.objectContaining({
+        sourceUnit: "plugin.beta.feature:bin",
         target: "claude",
       })
     );
 
-    const codexSkill = await readFile(join(root, "plugins-codex/plugins/alpha/skills/plugin-skill/SKILL.md"), "utf8");
+    const codexSkill = await readFile(join(root, "plugins/alpha/codex/skills/plugin-skill/SKILL.md"), "utf8");
     expect(codexSkill).not.toContain("renderResults");
-    expect(JSON.stringify(codexLock)).not.toContain(root);
+    expect(JSON.stringify(pluginLock)).not.toContain(root);
   });
 
   it("records isolated output paths relative to the isolated projection root", async () => {
@@ -468,14 +469,14 @@ describe("build render results", () => {
 
     const cacheContext = createOperationalPathContext(root);
     const isolatedLock = await readJson(
-      resolveOperationalPath(cacheContext, ".skillset/cache/latest/plugins-codex/skillset.lock")
+      resolveOperationalPath(cacheContext, ".skillset/cache/latest/plugins/skillset.lock")
     );
     const isolatedOutcomes = isolatedLock.renderResults as SkillsetRenderResult[];
     expect(isolatedOutcomes).toContainEqual(
       expect.objectContaining({
         outputs: expect.arrayContaining([
           expect.objectContaining({
-            path: ".skillset/cache/latest/plugins-codex/plugins/alpha/skills/plugin-skill/SKILL.md",
+            path: ".skillset/cache/latest/plugins/alpha/codex/skills/plugin-skill/SKILL.md",
           }),
         ]),
         sourceUnit: "plugin.alpha.skill:plugin-skill",

@@ -28,6 +28,13 @@ import {
 import { validateHookDefinition } from "./hooks";
 import { resolveLicense, type ResolvedLicense } from "./licenses";
 import { compareStrings, validateSlug } from "./path";
+import {
+  claudeMarketplacePath,
+  isDefaultPluginOutputRoot,
+  pluginManifestPath,
+  pluginTargetRoot,
+  providerSourceForPlugin,
+} from "./plugin-output";
 import { rewriteResourceLinks } from "./resources";
 import {
   readAllowedTools,
@@ -218,33 +225,57 @@ function shouldRenderStandaloneSkill(
 
 function renderRepositoryReadmes(graph: BuildGraph): readonly RenderedFile[] {
   const rendered: RenderedFile[] = [];
-  if (graph.plugins.some((plugin) => shouldRenderPlugin(graph, plugin, "claude"))) {
+  const claudeActive = graph.plugins.some((plugin) => shouldRenderPlugin(graph, plugin, "claude"));
+  const codexActive = graph.plugins.some((plugin) => shouldRenderPlugin(graph, plugin, "codex"));
+  if (
+    graph.root.outputs.plugins.claude === graph.root.outputs.plugins.codex &&
+    isDefaultPluginOutputRoot(graph.root.outputs.plugins.claude) &&
+    (claudeActive || codexActive)
+  ) {
     rendered.push(
       textFile(
         `${graph.root.outputs.plugins.claude}/README.md`,
         [
-          "# Claude Plugins",
+          "# Skillset Plugins",
           "",
-          "Generated Claude plugin repository.",
+          "Generated Skillset plugin repository.",
           "",
-          "- `.claude-plugin/marketplace.json` indexes the generated plugins.",
-          "- `plugins/<plugin-id>/` contains each Claude plugin bundle.",
+          "- `<plugin-id>/claude/` contains each Claude plugin bundle.",
+          "- `<plugin-id>/codex/` contains each Codex plugin bundle.",
+          "- `skillset.lock` records deterministic generated-state provenance.",
+          "",
+        ].join("\n")
+      )
+    );
+    return rendered;
+  }
+  if (claudeActive) {
+    rendered.push(
+      textFile(
+        `${graph.root.outputs.plugins.claude}/README.md`,
+        [
+          isDefaultPluginOutputRoot(graph.root.outputs.plugins.claude) ? "# Skillset Plugins" : "# Claude Plugins",
+          "",
+          isDefaultPluginOutputRoot(graph.root.outputs.plugins.claude) ? "Generated Skillset plugin repository." : "Generated Claude plugin repository.",
+          "",
+          isDefaultPluginOutputRoot(graph.root.outputs.plugins.claude) ? "- `../.claude-plugin/marketplace.json` indexes generated Claude plugins." : "- `.claude-plugin/marketplace.json` indexes the generated plugins.",
+          isDefaultPluginOutputRoot(graph.root.outputs.plugins.claude) ? "- `<plugin-id>/claude/` contains each Claude plugin bundle." : "- `plugins/<plugin-id>/` contains each Claude plugin bundle.",
           "- `skillset.lock` records deterministic generated-state provenance.",
           "",
         ].join("\n")
       )
     );
   }
-  if (graph.plugins.some((plugin) => shouldRenderPlugin(graph, plugin, "codex"))) {
+  if (codexActive) {
     rendered.push(
       textFile(
         `${graph.root.outputs.plugins.codex}/README.md`,
         [
-          "# Codex Plugins",
+          isDefaultPluginOutputRoot(graph.root.outputs.plugins.codex) ? "# Skillset Plugins" : "# Codex Plugins",
           "",
-          "Generated Codex plugin repository.",
+          isDefaultPluginOutputRoot(graph.root.outputs.plugins.codex) ? "Generated Skillset plugin repository." : "Generated Codex plugin repository.",
           "",
-          "- `plugins/<plugin-id>/` contains each Codex plugin bundle.",
+          isDefaultPluginOutputRoot(graph.root.outputs.plugins.codex) ? "- `<plugin-id>/codex/` contains each Codex plugin bundle." : "- `plugins/<plugin-id>/` contains each Codex plugin bundle.",
           "- `skillset.lock` records deterministic generated-state provenance.",
           "",
         ].join("\n")
@@ -264,7 +295,7 @@ async function renderClaudeMarketplace(graph: BuildGraph): Promise<readonly Rend
       mergeRecords(
         {
           name: plugin.id,
-          source: `./plugins/${plugin.id}`,
+          source: providerSourceForPlugin(graph.root.outputs.plugins.claude, "claude", plugin.id),
           description: readString(metadata, "summary") ?? readString(metadata, "description") ?? plugin.id,
           version: pluginVersion(graph, plugin),
           author: metadata.author,
@@ -294,7 +325,7 @@ async function renderClaudeMarketplace(graph: BuildGraph): Promise<readonly Rend
           readString(root, "description") ??
           "Source-first Skillset plugins",
         version: rootVersion(graph),
-        pluginRoot: "./plugins",
+        pluginRoot: isDefaultPluginOutputRoot(graph.root.outputs.plugins.claude) ? "./plugins" : "./plugins",
         generatedBy: "example content repo skillset compiler",
       },
       plugins,
@@ -304,7 +335,7 @@ async function renderClaudeMarketplace(graph: BuildGraph): Promise<readonly Rend
 
   return [
     textFile(
-      `${graph.root.outputs.plugins.claude}/.claude-plugin/marketplace.json`,
+      claudeMarketplacePath(graph.root.outputs.plugins.claude),
       renderValidatedJson(marketplace, "Claude marketplace")
     ),
   ];
@@ -321,7 +352,7 @@ async function renderPluginTarget(
 
   const rendered: RenderedFile[] = [];
   const outputRoot = graph.root.outputs.plugins[target];
-  const basePath = `${outputRoot}/plugins/${plugin.id}`;
+  const basePath = pluginTargetRoot(outputRoot, target, plugin.id);
   const enabledSkills = plugin.skills.filter((skill) => skill.targets[target].enabled);
   const dependencySummaries = pluginDependencySummaries(graph, plugin);
   if (target === "codex" && dependencySummaries.length > 0 && enabledSkills.length === 0) {
@@ -349,7 +380,7 @@ async function renderPluginTarget(
     rendered.push(licenseFile);
     pluginRootFiles.push(licenseFile);
   }
-  lockRootsFor(lockRoots, outputRoot, target).items.push(
+  lockRootsFor(lockRoots, outputRoot, pluginLockTarget(graph, target)).items.push(
     lockItemForPlugin({
       files: pluginRootFiles,
       graph,
@@ -632,7 +663,7 @@ async function renderPluginSkillFiles(
   }
   rendered.push(...(await renderSkillResources(skill, targetSkillDir, renderedRelativeFiles)));
 
-  lockRootsFor(lockRoots, outputRoot, target).items.push(
+  lockRootsFor(lockRoots, outputRoot, pluginLockTarget(graph, target)).items.push(
     await lockItemForSkill({
       files: rendered,
       graph,
@@ -865,7 +896,7 @@ async function renderPluginIslands(
     const targetPath = join(basePath, island.relativePath);
     const result = await renderIslandFile(graph, island, targetPath);
     rendered.push(result.file);
-    lockRootsFor(lockRoots, outputRoot, target).items.push(
+    lockRootsFor(lockRoots, outputRoot, pluginLockTarget(graph, target)).items.push(
       lockItemForIsland({ graph, island, outputRoot, outputPath: targetPath, result })
     );
   }
@@ -1049,7 +1080,7 @@ async function renderStandaloneSkill(
   }
   rendered.push(...(await renderSkillResources(skill, targetSkillDir, renderedRelativeFiles)));
 
-  lockRootsFor(lockRoots, outputRoot, target).items.push(
+  lockRootsFor(lockRoots, outputRoot, pluginLockTarget(graph, target)).items.push(
     await lockItemForSkill({
       files: rendered,
       graph,
@@ -2051,7 +2082,7 @@ async function renderPluginFeatureFiles(
       );
     rendered.push(...files);
     if (files.length === 0) continue;
-    lockRootsFor(lockRoots, outputRoot, target).items.push(
+    lockRootsFor(lockRoots, outputRoot, pluginLockTarget(graph, target)).items.push(
       await lockItemForPluginFeature({
         feature,
         files,
@@ -2177,7 +2208,7 @@ function marketplaceLockProvenance(
       for (const target of entry.targets ?? catalog.targets) {
         const generatedPath = plugin === undefined ? undefined : marketplacePluginManifestPath(graph, plugin, target);
         const renderable = plugin !== undefined && plugin.targets[target].enabled && isOutputSelected(graph.root.outputs.targetOutputs[target].plugins, plugin.id);
-        const generatedPaths = renderable ? marketplaceGeneratedPaths(lockRoots, graph.root.outputs.plugins[target], entry.plugin) : [];
+        const generatedPaths = renderable ? marketplaceGeneratedPaths(lockRoots, graph.root.outputs.plugins[target], target, entry.plugin) : [];
         const provider = generatedPath === undefined ? "" : marketplaceProviderSource(generatedPath);
         entries.push(stripUndefinedJsonRecord({
           catalog: catalogName,
@@ -2209,6 +2240,7 @@ function marketplaceLockProvenance(
 function marketplaceGeneratedPaths(
   lockRoots: ReadonlyMap<string, LockRoot>,
   outputRoot: string,
+  target: TargetName,
   pluginId: string
 ): readonly string[] {
   const lock = lockRoots.get(outputRoot);
@@ -2216,7 +2248,10 @@ function marketplaceGeneratedPaths(
   const paths = new Set<string>();
   for (const item of lock.items) {
     if (item.plugin !== pluginId && !(item.kind === "plugin" && item.name === pluginId)) continue;
-    for (const file of item.files) paths.add(join(outputRoot, file).replaceAll("\\", "/"));
+    for (const file of item.files) {
+      if (isDefaultPluginOutputRoot(outputRoot) && !file.startsWith(`${pluginId}/${target}/`)) continue;
+      paths.add(join(outputRoot, file).replaceAll("\\", "/"));
+    }
   }
   return [...paths].sort(compareStrings);
 }
@@ -2236,15 +2271,15 @@ function marketplaceRequestedPolicy(entry: {
 }
 
 function marketplacePluginManifestPath(graph: BuildGraph, plugin: SourcePlugin, target: TargetName): string {
-  const root = graph.root.outputs.plugins[target];
-  const manifest = target === "claude" ? ".claude-plugin/plugin.json" : ".codex-plugin/plugin.json";
-  return join(root, "plugins", plugin.id, manifest).replaceAll("\\", "/");
+  return pluginManifestPath(graph.root.outputs.plugins[target], target, plugin.id);
 }
 
 function marketplaceProviderSource(path: string): string {
-  const match = path.match(/^(.*)\/plugins\/([^/]+)/);
-  if (match === null) return path;
-  const pluginId = match[2];
+  const defaultMatch = path.match(/^plugins\/([^/]+)\/(claude|codex)\//);
+  if (defaultMatch !== null) return `./plugins/${defaultMatch[1]}/${defaultMatch[2]}`;
+  const overrideMatch = path.match(/^(.*)\/plugins\/([^/]+)/);
+  if (overrideMatch === null) return path;
+  const pluginId = overrideMatch[2];
   return pluginId === undefined ? path : `./plugins/${pluginId}`;
 }
 
@@ -2258,10 +2293,21 @@ function lockRootsFor(
   target: TargetName | "workspace"
 ): LockRoot {
   const existing = lockRoots.get(outputRoot);
-  if (existing !== undefined) return existing;
+  if (existing !== undefined) {
+    if (existing.target === target) return existing;
+    const merged: LockRoot = { items: [...existing.items], target: "workspace" };
+    lockRoots.set(outputRoot, merged);
+    return merged;
+  }
   const created: LockRoot = { items: [], target };
   lockRoots.set(outputRoot, created);
   return created;
+}
+
+function pluginLockTarget(graph: BuildGraph, target: TargetName): TargetName | "workspace" {
+  return graph.root.outputs.plugins.claude === graph.root.outputs.plugins.codex
+    ? "workspace"
+    : target;
 }
 
 async function renderChangelogs(
@@ -2375,7 +2421,7 @@ async function lockItemForPluginFeature(args: {
     name: `${args.plugin.id}:${args.feature.key}`,
     origin: args.feature.origin,
     outputHash: hashRenderedFiles(args.outputRoot, args.files),
-    outputPath: relative(args.outputRoot, join(args.outputRoot, "plugins", args.plugin.id, args.feature.targetPath)),
+    outputPath: relative(args.outputRoot, join(pluginTargetRoot(args.outputRoot, args.target, args.plugin.id), args.feature.targetPath)),
     plugin: args.plugin.id,
     sourceHash: await hashPluginFeatureSource(args.feature),
     sourcePath: relative(args.graph.rootPath, args.feature.sourcePath),
