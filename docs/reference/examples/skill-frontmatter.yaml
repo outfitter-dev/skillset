@@ -57,7 +57,8 @@ supports:
       onMismatch: error
       range: ^2.4.0
 title: Docs CLI
-tool_intent:
-  reads:
-    - docs
+tools:
+  read: true
+  search: true
+  write: false
 version: 1.0.0

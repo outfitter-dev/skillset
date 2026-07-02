@@ -212,7 +212,7 @@ Verified 2026-07-02 against the provider capability registry, Codex hook schema 
 
 | Source | Claude output | Codex output | Status |
 | --- | --- | --- | --- |
-| `tool_intent` | `allowed-tools` / `disallowed-tools` (preapproval) | `.skillset.tools.yaml` metadata | Implemented / Metadata-only (Codex) |
-| `tools` | n/a | n/a | Unsupported — use `tool_intent`. |
+| `tools` | `allowed-tools` / `disallowed-tools` (preapproval and denial rules) | `.skillset.tools.yaml` metadata | Implemented / Metadata-only (Codex) |
+| `tool_intent` | n/a | n/a | Retired — use `tools`. |
 | `allowed_tools` | `allowed-tools` | unset/false only | Implemented (Claude); Codex has no skill-local surface. |
-| `_allow` / `_deny` escapes | native rules | `.skillset.tools.yaml` `target_native` | Implemented (escape hatch) |
+| `tools.<provider>.allow` / `deny` | native rules | `.skillset.tools.yaml` `target_native` | Implemented (provider-native block) |

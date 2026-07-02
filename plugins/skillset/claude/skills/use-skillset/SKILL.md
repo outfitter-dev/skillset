@@ -120,51 +120,29 @@ allowed_tools:
 
 `implicit_invocation` renders to Claude `disable-model-invocation` and Codex `agents/openai.yaml` `policy.allow_implicit_invocation`. `allowed_tools` renders to Claude `allowed-tools`, which is preapproval / no-prompt behavior rather than a portable sandbox; Codex has no confirmed skill-local allowed-tools equivalent, so leave `allowed_tools.codex` unset or set it to `false`.
 
-Use portable `tool_intent.allow` and `tool_intent.deny` for known tool intent. The old `tools` key is unsupported. The name records intent and metadata, not target-enforced permissions:
+Use portable `tools` for known tool policy. The block records open-world policy and metadata; it is not a complete target-enforced sandbox on every provider:
 
 ```yaml
-tool_intent:
-  allow:
-    read:
-      - docs/**
-    search: true
-    shell:
-      - git status
-      - prefix:
-          - bun
-          - run
-    web_fetch:
-      domains:
-        - example.com
-    mcp:
-      linear:
-        tools:
-          - issues.*
-  deny:
-    edit:
-      - secrets/**
-  _allow:
-    claude:
-      - Read
-    codex:
-      mcp:
-        linear:
-          tools:
-            - issues.*
-claude:
-  tool_intent:
-    _allow:
-      - "NewClaudeTool(project:*)"
-codex:
-  tool_intent:
-    _deny:
-      mcp:
-        linear:
-          tools:
-            - experimental.delete
+tools:
+  read: true
+  search: true
+  write: false
+  shell:
+    - git status
+    - git diff *
+  mcp:
+    linear:
+      - issues.*
+
+  claude:
+    deny:
+      - Bash(rm *)
+  codex:
+    allow:
+      - mcp__linear__experimental.*
 ```
 
-Portable keys are `read`, `search`, `write`, `edit`, `shell`, `web_fetch`, `web_search`, and `mcp`; unknown keys fail lint/build. Portable `allow` / `deny` belongs in the source top-level `tool_intent` block; target-local `claude.tool_intent` and `codex.tool_intent` accept only `_allow` / `_deny` escape keys. Claude renders portable and `_` entries to `allowed-tools` and `disallowed-tools` (preapproval, not enforcement). Codex renders generated `.skillset.tools.yaml` metadata for portable and target-native intent; it does not install, trust, or mutate user-level Codex configuration.
+`tools: readonly` expands to `read: true`, `search: true`, and `write: false`. Portable keys are `read`, `search`, `write`, `shell`, and `mcp`; unknown keys fail lint/build. Provider-native strings belong under `tools.<provider>.allow` or `tools.<provider>.deny`, not at the top level and not under target-local `claude.tools` / `codex.tools`. Claude renders portable policy and `tools.claude` strings to `allowed-tools` and `disallowed-tools` (preapproval and denial rules, not a complete sandbox). Codex renders generated `.skillset.tools.yaml` metadata for portable and target-native policy; it does not install, trust, or mutate user-level Codex configuration.
 
 ## Build And Check
 

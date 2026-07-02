@@ -47,7 +47,7 @@ describe("lookupSkillsetReference", () => {
       "summary",
       "supports",
       "title",
-      "tool_intent",
+      "tools",
       "version",
     ]);
     expect(report.fields.find((field) => field.path === "resources")).toEqual(expect.objectContaining({

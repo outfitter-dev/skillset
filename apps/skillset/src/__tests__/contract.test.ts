@@ -419,10 +419,10 @@ codex: true
   ]);
 });
 
-// SET-6: tool_intent is the canonical portable tool-policy key; legacy tools
+// SET-6: tools is the canonical portable tool-policy key; retired tool_intent
 // fails loudly instead of being ignored.
 
-test("SET-6: tool_intent lowers to Claude allowed-tools", async () => {
+test("SET-6: tools lowers to Claude allowed-tools", async () => {
   const root = await contractFixture({
     "skillset.yaml": `
 skillset:
@@ -435,10 +435,9 @@ cursor: false
 ---
 name: intent
 description: Declares a portable read and search policy.
-tool_intent:
-  allow:
-    read: true
-    web_search: true
+tools:
+  read: true
+  search: true
 ---
 
 Body.
@@ -449,12 +448,13 @@ Body.
   const skill = await readFile(join(root, ".claude/skills/intent/SKILL.md"), "utf8");
   expect(skill).toContain("allowed-tools");
   expect(skill).toContain("Read");
-  expect(skill).toContain("WebSearch");
+  expect(skill).toContain("Grep");
+  expect(skill).toContain("Glob");
   // Source key is stripped from generated frontmatter.
-  expect(skill).not.toContain("tool_intent");
+  expect(skill).not.toContain("\ntools:");
 });
 
-test("SET-6: the legacy tools key is rejected", async () => {
+test("SET-6: the retired tool_intent key is rejected", async () => {
   const root = await contractFixture({
     "skillset.yaml": `
 skillset:
@@ -466,8 +466,8 @@ cursor: false
     ".skillset/skills/legacy/SKILL.md": `
 ---
 name: legacy
-description: Uses the old tools key.
-tools:
+description: Uses the retired tool_intent key.
+tool_intent:
   allow:
     write: true
 ---
@@ -476,10 +476,10 @@ Body.
 `,
   });
 
-  await expect(buildSkillset(root)).rejects.toThrow("uses unsupported tools; use tool_intent");
+  await expect(buildSkillset(root)).rejects.toThrow("tool_intent is retired");
 });
 
-test("SET-6: the legacy tools key is rejected in project agents", async () => {
+test("SET-6: the retired tool_intent key is rejected in project agents", async () => {
   const root = await contractFixture({
     "skillset.yaml": `
 skillset:
@@ -491,8 +491,8 @@ cursor: false
     ".skillset/agents/reviewer.md": `
 ---
 name: reviewer
-description: Uses the old tools key.
-tools:
+description: Uses the retired tool_intent key.
+tool_intent:
   allow:
     write: true
 ---
@@ -501,10 +501,10 @@ Review code.
 `,
   });
 
-  await expect(buildSkillset(root)).rejects.toThrow("uses unsupported tools; use tool_intent");
+  await expect(buildSkillset(root)).rejects.toThrow("uses retired tool_intent; use tools");
 });
 
-test("SET-6: the legacy tools key is rejected in Codex-only project agents", async () => {
+test("SET-6: the retired tool_intent key is rejected in Codex-only project agents", async () => {
   const root = await contractFixture({
     "skillset.yaml": `
 skillset:
@@ -515,8 +515,8 @@ codex: true
     ".skillset/agents/reviewer.md": `
 ---
 name: reviewer
-description: Uses the old tools key.
-tools:
+description: Uses the retired tool_intent key.
+tool_intent:
   allow:
     write: true
 ---
@@ -525,10 +525,10 @@ Review code.
 `,
   });
 
-  await expect(buildSkillset(root)).rejects.toThrow("uses unsupported tools; use tool_intent");
+  await expect(buildSkillset(root)).rejects.toThrow("uses retired tool_intent; use tools");
 });
 
-test("SET-6: the legacy tools key is rejected in target-native Markdown islands", async () => {
+test("SET-6: the retired tool_intent key is rejected in target-native Markdown islands", async () => {
   const root = await contractFixture({
     "skillset.yaml": `
 skillset:
@@ -540,8 +540,8 @@ cursor: false
     ".skillset/_claude/agents/reviewer.md": `
 ---
 name: reviewer
-description: Uses the old tools key.
-tools:
+description: Uses the retired tool_intent key.
+tool_intent:
   allow:
     write: true
 ---
@@ -550,7 +550,7 @@ Review code.
 `,
   });
 
-  await expect(buildSkillset(root)).rejects.toThrow("uses unsupported tools; use tool_intent");
+  await expect(buildSkillset(root)).rejects.toThrow("uses retired tool_intent; use tools");
 });
 
 test("SET-6: unknown portable tool keys fail", async () => {
@@ -566,16 +566,47 @@ cursor: false
 ---
 name: unknown
 description: Uses an unknown tool key.
-tool_intent:
-  allow:
-    teleport: true
+tools:
+  teleport: true
 ---
 
 Body.
 `,
   });
 
-  await expect(buildSkillset(root)).rejects.toThrow("unknown portable tool key teleport");
+  await expect(buildSkillset(root)).rejects.toThrow("unsupported key teleport");
+});
+
+test("SET-257: tools MCP policy lowers Claude wildcards using provider-native glob syntax", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: ti-root
+claude: true
+codex: false
+cursor: false
+`,
+    ".skillset/skills/mcp/SKILL.md": `
+---
+name: mcp
+description: Declares MCP policy.
+tools:
+  mcp:
+    github: true
+    linear:
+      - get_*
+  claude:
+    mcp: false
+---
+
+Body.
+`,
+  });
+
+  await buildSkillset(root);
+  const skill = await readFile(join(root, ".claude/skills/mcp/SKILL.md"), "utf8");
+  expect(skill).toContain("mcp__*");
+  expect(skill).not.toContain("mcp__.*");
 });
 
 // SET-2: Codex plugin hooks emit at the documented hooks/hooks.json path with a
@@ -840,7 +871,7 @@ test("SET-10: skill import reports copied files and classifies frontmatter", asy
   expect(report.warnings.join("\n")).toContain("unrecognized");
   expect(report.renderResults).toContainEqual(
     expect.objectContaining({
-      featureId: "tool-intent",
+      featureId: "tools-policy",
       sourcePath: ".skillset/skills/myskill/SKILL.md",
       sourceUnit: "skill:myskill",
       status: "target_native",

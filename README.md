@@ -183,7 +183,7 @@ Import shares the same version-baseline adoption machinery as `init` when the de
 
 Repos keep workspace source metadata, build configuration, and destination configuration in root `skillset.yaml`, with authored source under `.skillset/`.
 
-Each plugin lives at `<source-root>/plugins/<plugin-name>/` and has its own `skillset.yaml`. Portable plugin fields live under `skillset`; target-specific overrides live under top-level `claude` and `codex` blocks. Skill source frontmatter can use top-level `name`, `title`, `summary`, `description`, `version`, `resources`, `implicit_invocation`, `allowed_tools`, and the source-only `tool_intent` map; the compiler derives target-native generated metadata, Claude frontmatter, Codex `agents/openai.yaml` policy where supported, and skill-local copies of declared resources.
+Each plugin lives at `<source-root>/plugins/<plugin-name>/` and has its own `skillset.yaml`. Portable plugin fields live under `skillset`; target-specific overrides live under top-level `claude` and `codex` blocks. Skill source frontmatter can use top-level `name`, `title`, `summary`, `description`, `version`, `resources`, `implicit_invocation`, `allowed_tools`, and the source-only `tools` policy; the compiler derives target-native generated metadata, Claude frontmatter, Codex `agents/openai.yaml` policy where supported, and skill-local copies of declared resources.
 
 Use root/plugin `skillset.name` only when explicit identity is needed; directory names are the default. Skill identity uses top-level `name`. `skillset.id`, skill-local `skillset.name`, and skill-local `skillset.version` are unsupported. Use root `compile.targets` for provider selection, and do not use bare top-level `targets:`. `compile.build` defaults to `updated` and accepts `all`; CLI `--updated` and `--all` override config for the current command and the resolved mode is recorded in lock metadata. `compile.skillset.metadata: false` suppresses Skillset's generated skill frontmatter metadata. `compile.features.promptArguments` defaults to `true`; set it to `false` to reject Skillset-owned `{{$ARGUMENTS...}}` placeholders. `compile.unsupportedDestination` currently defaults to `error`; softer modes are reserved until warning, skip, or force provenance is implemented.
 
@@ -205,7 +205,7 @@ claude:
 
 Defaults fill omitted target options for the named surface (`agents`, `instructions`, `plugins`, or `skills`). Exact file-level `claude` / `codex` fields win over plugin defaults, plugin defaults win over root defaults, and target-specific fields win over shared portable fields at render time. A top-level skill or project-agent `model` is source-only and warns in v1 unless every enabled target has a target-specific model from defaults or an override; use `claude.model`, `codex.model`, or target defaults instead.
 
-Generated output strips source-only keys such as `skillset`, `claude`, `codex`, `agents`, `resources`, `implicit_invocation`, `allowed_tools`, `tool_intent`, `model`, `defaults`, and `targets`. Generated skills receive only lightweight metadata unless `compile.skillset.metadata: false` suppresses it:
+Generated output strips source-only keys such as `skillset`, `claude`, `codex`, `agents`, `resources`, `implicit_invocation`, `allowed_tools`, `tools`, `model`, `defaults`, and `targets`. Generated skills receive only lightweight metadata unless `compile.skillset.metadata: false` suppresses it:
 
 ```yaml
 metadata:
@@ -256,54 +256,31 @@ allowed_tools:
 
 `implicit_invocation` renders to Claude `disable-model-invocation` and Codex `agents/openai.yaml` `policy.allow_implicit_invocation`. `allowed_tools` renders to Claude `allowed-tools`; Codex has no confirmed skill-local allowed-tools equivalent, so Codex-enabled source must omit `allowed_tools.codex` or set it to `false`.
 
-Portable tool policy uses the `tool_intent` block. The old `tools` key is unsupported. The name reflects authoring *intent*, not a target-enforced sandbox. Target-native escape hatches use underscore keys: shared escapes live under top-level `tool_intent`, and target-local escapes live under `claude.tool_intent` or `codex.tool_intent`:
+Portable tool policy uses the `tools` block. It is open-world: unset means provider default, `true` grants or preapproves where possible, and `false` constrains where possible. Provider-native rule strings live only under provider blocks:
 
 ```yaml
-tool_intent:
-  allow:
-    read:
-      - docs/**
-    search: true
-    shell:
-      - git status
-      - prefix:
-          - bun
-          - run
-    web_fetch:
-      domains:
-        - example.com
-    mcp:
-      linear:
-        tools:
-          - issues.*
-  deny:
-    edit:
-      - secrets/**
-  _allow:
-    claude:
-      - Read
-    codex:
-      mcp:
-        linear:
-          tools:
-            - issues.*
-claude:
-  tool_intent:
-    _allow:
-      - "NewClaudeTool(project:*)"
-      - rule: "Bash(newcli safe *)"
-codex:
-  tool_intent:
-    _deny:
-      mcp:
-        linear:
-          tools:
-            - experimental.delete
+tools:
+  read: true
+  search: true
+  write: false
+  shell:
+    - git status
+    - git diff *
+  mcp:
+    linear:
+      - issues.*
+
+  claude:
+    deny:
+      - Bash(rm *)
+  codex:
+    allow:
+      - mcp__linear__experimental.*
 ```
 
-Portable `tool_intent.allow` and `tool_intent.deny` accept only known keys: `read`, `search`, `write`, `edit`, `shell`, `web_fetch`, `web_search`, and `mcp`. Unknown keys fail lint/build. Portable `allow` / `deny` belongs in the source top-level `tool_intent` block; target-local `claude.tool_intent` and `codex.tool_intent` accept only `_allow` / `_deny` escape keys.
+`tools: readonly` expands to `read: true`, `search: true`, and `write: false`. Portable keys are `read`, `search`, `write`, `shell`, and `mcp`. Unknown keys fail lint/build. `read`, `search`, and `write` are boolean-only; `shell` accepts booleans or a flat list of shell patterns; `mcp` accepts `false` or literal server names mapped to booleans or tool glob lists. Top-level `tools.allow` / `tools.deny` and target-local `claude.tools` / `codex.tools` are rejected; use `tools.<provider>.allow` / `deny`.
 
-`tool_intent` is intent and metadata, not a portable security boundary. Claude renders portable entries to `allowed-tools` and `disallowed-tools`, which are **preapproval / no-prompt** hints — they reduce permission prompts for listed tools, not a sandbox that blocks everything else. Codex has no documented skill-local enforcement surface, so Codex preserves portable intent in generated `.skillset.tools.yaml` metadata without mutating user-level Codex policy or trust. Claude `_allow` and `_deny` entries render to native rules too. Codex `_allow` and `_deny` entries emit to `.skillset.tools.yaml` under `target_native`, so they are committed, locked, and reviewable.
+`tools` is policy and metadata, not a portable security boundary on every provider. Claude renders portable entries and `tools.claude` strings to `allowed-tools` and `disallowed-tools`, which are **preapproval / no-prompt** and denial rules, not a complete sandbox. Codex has no proven skill-local enforcement surface, so Codex preserves portable policy and `tools.codex` strings in generated `.skillset.tools.yaml` metadata without mutating user-level Codex policy or trust.
 
 ## Instructions
 

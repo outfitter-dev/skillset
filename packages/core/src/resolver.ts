@@ -507,8 +507,8 @@ async function loadProjectAgent(
 }
 
 function rejectUnsupportedPortableFrontmatter(frontmatter: JsonRecord, label: string): void {
-  if (frontmatter.tools !== undefined) {
-    throw new Error(`skillset: ${label} uses unsupported tools; use tool_intent`);
+  if (frontmatter.tool_intent !== undefined) {
+    throw new Error(`skillset: ${label} uses retired tool_intent; use tools`);
   }
 }
 
@@ -1153,8 +1153,8 @@ function sourceFrontmatterSchemaMessage(diagnostic: SkillsetSchemaDiagnostic, fr
   if (diagnostic.code.endsWith("/key") && diagnostic.path.endsWith(".targets")) {
     return "uses unsupported targets key; use compile.targets";
   }
-  if (diagnostic.code.endsWith("/key") && diagnostic.path.endsWith(".tools")) {
-    return "uses unsupported tools; use tool_intent";
+  if (diagnostic.code.endsWith("/key") && diagnostic.path.endsWith(".tool_intent")) {
+    return "uses retired tool_intent; use tools";
   }
   if (diagnostic.code === "schema/skill-frontmatter/allowed-tools") {
     return diagnostic.message.replaceAll("$.", "").replace(
@@ -1163,10 +1163,10 @@ function sourceFrontmatterSchemaMessage(diagnostic: SkillsetSchemaDiagnostic, fr
     );
   }
   if (diagnostic.code === "schema/skill-frontmatter/allowed-tools-key") {
-    return "target map to contain only claude and codex keys";
+    return "target map to contain only claude, codex, or cursor keys";
   }
   if (diagnostic.code === "schema/skill-frontmatter/implicit-invocation-key") {
-    return "target map to contain only claude and codex keys";
+    return "target map to contain only claude, codex, or cursor keys";
   }
   if (diagnostic.code === "schema/skill-frontmatter/version") {
     return `expected ${diagnostic.path} to be a semantic version`;

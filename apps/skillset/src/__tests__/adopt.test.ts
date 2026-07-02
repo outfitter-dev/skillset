@@ -284,7 +284,7 @@ test("adopt carries import render results into the persisted report", async () =
         path: ".skillset/skills/native/SKILL.md",
       }),
     ]),
-    featureId: "tool-intent",
+    featureId: "tools-policy",
     sourceUnit: "skill:native",
     status: "target_native",
     target: "claude",
@@ -343,17 +343,18 @@ test("adopt carries native hook lift diagnostics into the persisted report", asy
   expect(json.renderResults).toContainEqual(importOutcome);
 });
 
-test("adopt preserves survey skip outcomes when isolated build cannot load source", async () => {
+test("adopt preserves survey skip outcomes when imported source cannot load", async () => {
   const root = await fixture({
     ".claude/commands/x.md": "---\ndescription: Project command.\n---\n\nDo x.\n",
     ".claude/skills/bad/SKILL.md":
-      "---\nname: bad\ndescription: Uses unsupported source key.\ntools:\n  - Read\n---\n\nBody.\n",
+      "---\nname: bad\ndescription: Uses a missing partial.\n---\n\n{{> missing}}\n",
   });
 
   const report = await adoptSkillset(root, { write: true });
 
   expect(report.ok).toBe(false);
-  expect(report.buildError).toContain("uses unsupported tools");
+  expect(report.buildError).toBeUndefined();
+  expect(report.imports[0]?.detail).toContain("named partial missing");
   expect(report.surveySkips.map((skip) => skip.path)).toEqual([".claude/commands"]);
   expect(report.renderResults).toContainEqual(
     expect.objectContaining({

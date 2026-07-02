@@ -26,6 +26,8 @@ const targetListText = formatList(TARGET_NAMES);
 const compileBuildModes = new Set<string>(COMPILE_BUILD_MODES);
 const unsupportedDestinationPolicies = new Set<string>(UNSUPPORTED_DESTINATION_POLICIES);
 const sourceLicenseValues = new Set<string>([...SOURCE_LICENSE_IDS, SOURCE_LICENSE_NONE]);
+const toolsPolicyKeys = new Set<string>(["claude", "codex", "cursor", "mcp", "read", "search", "shell", "write"]);
+const toolsProviderKeys = new Set<string>(["allow", "deny", "mcp", "read", "search", "shell", "write"]);
 const semverPattern =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
 
@@ -80,7 +82,10 @@ export function validateSkillFrontmatter(value: unknown, path = "$"): SkillsetSc
   checkHookAttachments(value.hooks, `${path}.hooks`, "schema/skill-frontmatter/hooks", diagnostics);
   checkImplicitInvocation(value.implicit_invocation, `${path}.implicit_invocation`, diagnostics);
   checkAllowedTools(value.allowed_tools, `${path}.allowed_tools`, diagnostics);
-  checkOptionalObject(value.tool_intent, `${path}.tool_intent`, "schema/skill-frontmatter/tool-intent", diagnostics);
+  if (value.tool_intent !== undefined) {
+    diagnostics.push(diagnostic(`${path}.tool_intent`, "schema/skill-frontmatter/tool-intent-retired", `${path}.tool_intent is retired; use ${path}.tools`));
+  }
+  checkToolsPolicy(value.tools, `${path}.tools`, diagnostics);
   checkSourceMetadata(value.skillset, `${path}.skillset`, diagnostics);
   checkSupports(value.supports, `${path}.supports`, diagnostics);
   return result(diagnostics);
@@ -506,6 +511,88 @@ function checkAllowedTools(value: SchemaJsonValue | undefined, path: string, dia
     } else if (item !== undefined && item !== false && typeof item !== "string" && !(isStringArray(item) && item.length > 0)) {
       diagnostics.push(diagnostic(`${path}.${key}`, "schema/skill-frontmatter/allowed-tools", `${path}.${key} must be false, a string, or a string array`));
     }
+  }
+}
+
+function checkToolsPolicy(value: SchemaJsonValue | undefined, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (value === undefined) return;
+  if (value === "readonly") return;
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, "schema/skill-frontmatter/tools", `${path} must be readonly or an object`));
+    return;
+  }
+  checkAllowedKeys(value, toolsPolicyKeys, path, "schema/skill-frontmatter/tools-key", diagnostics);
+  if (value.allow !== undefined || value.deny !== undefined) {
+    diagnostics.push(diagnostic(path, "schema/skill-frontmatter/tools-native", `${path}.allow and ${path}.deny must live under a provider block`));
+  }
+  checkPortableTools(value, path, diagnostics);
+  for (const target of TARGET_NAMES) {
+    checkProviderTools(value[target], `${path}.${target}`, diagnostics);
+  }
+}
+
+function checkProviderTools(value: SchemaJsonValue | undefined, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (value === undefined) return;
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, "schema/skill-frontmatter/tools-provider", `${path} must be an object`));
+    return;
+  }
+  checkAllowedKeys(value, toolsProviderKeys, path, "schema/skill-frontmatter/tools-provider-key", diagnostics);
+  checkNativeRules(value.allow, `${path}.allow`, diagnostics);
+  checkNativeRules(value.deny, `${path}.deny`, diagnostics);
+  checkPortableTools(value, path, diagnostics);
+}
+
+function checkPortableTools(value: SchemaJsonRecord, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  checkOptionalBoolean(value.read, `${path}.read`, "schema/skill-frontmatter/tools-bool", diagnostics);
+  checkOptionalBoolean(value.search, `${path}.search`, "schema/skill-frontmatter/tools-bool", diagnostics);
+  checkOptionalBoolean(value.write, `${path}.write`, "schema/skill-frontmatter/tools-bool", diagnostics);
+  checkShellTool(value.shell, `${path}.shell`, diagnostics);
+  checkMcpTool(value.mcp, `${path}.mcp`, diagnostics);
+}
+
+function checkNativeRules(value: SchemaJsonValue | undefined, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (value === undefined || value === false) return;
+  if (typeof value === "string") {
+    if (value.trim().length === 0) diagnostics.push(diagnostic(path, "schema/skill-frontmatter/tools-native", `${path} must be a non-empty string`));
+    return;
+  }
+  if (isStringArray(value) && value.length > 0) return;
+  diagnostics.push(diagnostic(path, "schema/skill-frontmatter/tools-native", `${path} must be a native rule string or string array`));
+}
+
+function checkOptionalBoolean(value: SchemaJsonValue | undefined, path: string, code: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (value !== undefined && typeof value !== "boolean") diagnostics.push(diagnostic(path, code, `${path} must be true or false`));
+}
+
+function checkShellTool(value: SchemaJsonValue | undefined, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (value === undefined || typeof value === "boolean") return;
+  if (typeof value === "string") {
+    if (value.trim().length === 0) diagnostics.push(diagnostic(path, "schema/skill-frontmatter/tools-shell", `${path} must be a non-empty shell pattern`));
+    return;
+  }
+  if (isStringArray(value) && value.length > 0) return;
+  diagnostics.push(diagnostic(path, "schema/skill-frontmatter/tools-shell", `${path} must be true, false, a shell pattern, or a shell pattern list`));
+}
+
+function checkMcpTool(value: SchemaJsonValue | undefined, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (value === undefined || value === false) return;
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, "schema/skill-frontmatter/tools-mcp", `${path} must be false or an object keyed by literal MCP server name`));
+    return;
+  }
+  for (const [server, serverValue] of Object.entries(value)) {
+    if (server.trim().length === 0 || server.includes("*")) {
+      diagnostics.push(diagnostic(`${path}.${server}`, "schema/skill-frontmatter/tools-mcp-server", `${path}.${server} must use a literal MCP server name`));
+    }
+    if (serverValue === undefined) continue;
+    if (typeof serverValue === "boolean") continue;
+    if (typeof serverValue === "string") {
+      if (serverValue.trim().length === 0) diagnostics.push(diagnostic(`${path}.${server}`, "schema/skill-frontmatter/tools-mcp", `${path}.${server} must be a non-empty tool glob`));
+      continue;
+    }
+    if (isStringArray(serverValue) && serverValue.length > 0) continue;
+    diagnostics.push(diagnostic(`${path}.${server}`, "schema/skill-frontmatter/tools-mcp", `${path}.${server} must be true, false, a tool glob, or a tool glob list`));
   }
 }
 

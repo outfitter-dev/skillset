@@ -252,8 +252,10 @@ export const skillsetSchemaExamples = [
         ],
       },
       title: "Docs CLI",
-      tool_intent: {
-        reads: ["docs"],
+      tools: {
+        read: true,
+        search: true,
+        write: false,
       },
       version: "1.0.0",
     },

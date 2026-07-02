@@ -3758,36 +3758,19 @@ skillset:
 ---
 name: escape
 description: Uses target-native tool escapes.
-tool_intent:
-  _allow:
-    claude:
-      - Read
-    codex:
-      mcp:
-        linear:
-          tools:
-            - issues.*
-  _deny:
-    claude:
-      - AskUserQuestion
-claude:
-  tool_intent:
-    _allow:
+tools:
+  read: true
+  claude:
+    allow:
       - "NewClaudeTool(project:*)"
-      - rule: "Bash(newcli safe *)"
-        reason: New Claude tool surface.
-codex:
-  tool_intent:
-    _allow:
-      mcp:
-        linear:
-          tools:
-            - experimental.*
-    _deny:
-      mcp:
-        linear:
-          tools:
-            - experimental.delete
+      - "Bash(newcli safe *)"
+    deny:
+      - AskUserQuestion
+  codex:
+    allow:
+      - mcp__linear__experimental.*
+    deny:
+      - mcp__linear__experimental.delete
 ---
 
 Escape body.
@@ -3817,10 +3800,10 @@ Escape body.
   expect(claudeSkill).toContain(`disallowed-tools:
   - AskUserQuestion`);
   expect(codexSkill).not.toContain("tools:");
-  expect(codexSkill).not.toContain("_allow:");
-  expect(codexSkill).not.toContain("_deny:");
   expect(codexTools).toContain("generated: skillset@0.1.0");
-  expect(codexTools).toContain("issues.*");
+  expect(codexTools).toContain("portable:");
+  expect(codexTools).toContain("read: true");
+  expect(codexTools).toContain("target_native:");
   expect(codexTools).toContain("experimental.*");
   expect(codexTools).toContain("experimental.delete");
   expect(lock).toContain(`"alpha/codex/skills/escape/.skillset.tools.yaml"`);
@@ -3842,41 +3825,22 @@ skillset:
 ---
 name: tools
 description: Uses portable tool registry.
-tool_intent:
-  allow:
-    read:
-      - docs/**
-    search: true
-    write:
-      - generated/**
-    shell:
-      - git status
-      - prefix:
-          - bun
-          - run
-    web_fetch:
-      domains:
-        - example.com
-    web_search: true
-    mcp:
-      linear:
-        tools:
-          - issues.*
-  deny:
-    edit:
-      - secrets/**
-    mcp:
-      linear:
-        tools:
-          - delete.*
-  _allow:
-    claude:
+tools:
+  read: true
+  search: true
+  write: false
+  shell:
+    - git status
+    - bun run *
+  mcp:
+    linear:
+      - issues.*
+  claude:
+    allow:
       - AskUserQuestion
-    codex:
-      mcp:
-        slack:
-          tools:
-            - chat.*
+  codex:
+    allow:
+      - mcp__slack__chat.*
 ---
 
 Tools body.
@@ -3899,22 +3863,20 @@ Tools body.
   );
   const lock = await readFile(join(root, "plugins/skillset.lock"), "utf8");
 
-  expect(claudeSkill).toContain("Read(docs/**)");
+  expect(claudeSkill).toContain("Read");
   expect(claudeSkill).toContain("Grep");
   expect(claudeSkill).toContain("Glob");
-  expect(claudeSkill).toContain("Edit(generated/**)");
+  expect(claudeSkill).toContain("Write");
+  expect(claudeSkill).toContain("Edit");
   expect(claudeSkill).toContain("Bash(git status)");
   expect(claudeSkill).toContain("Bash(bun run *)");
-  expect(claudeSkill).toContain("WebFetch(domain:example.com)");
-  expect(claudeSkill).toContain("WebSearch");
   expect(claudeSkill).toContain("mcp__linear__issues.*");
   expect(claudeSkill).toContain("AskUserQuestion");
-  expect(claudeSkill).toContain("Edit(secrets/**)");
-  expect(claudeSkill).toContain("mcp__linear__delete.*");
   expect(codexSkill).not.toContain("tools:");
   expect(codexTools).toContain("portable:");
   expect(codexTools).toContain("target_native:");
-  expect(codexTools).toContain("docs/**");
+  expect(codexTools).toContain("read: true");
+  expect(codexTools).toContain("write: false");
   expect(codexTools).toContain("issues.*");
   expect(codexTools).toContain("chat.*");
   expect(lock).toContain(`"alpha/codex/skills/tools/.skillset.tools.yaml"`);
@@ -3936,9 +3898,9 @@ skillset:
 ---
 name: bad-tools
 description: Has an invalid Claude target-native tool escape.
-claude:
-  tool_intent:
-    _allow:
+tools:
+  claude:
+    allow:
       - reason: Missing the native rule string.
 ---
 
@@ -3946,8 +3908,8 @@ Bad body.
 `,
   });
 
-  await expect(lintSkillset(root)).rejects.toThrow("skill-tools-invalid");
-  await expect(buildSkillset(root)).rejects.toThrow("entries for Claude to be strings or objects with rule");
+  await expect(lintSkillset(root)).rejects.toThrow("must be a native rule string or string array");
+  await expect(buildSkillset(root)).rejects.toThrow("must be a native rule string or string array");
 });
 
 test("portable tools registry rejects unknown tool keys", async () => {
@@ -3966,17 +3928,16 @@ skillset:
 ---
 name: bad-tools
 description: Has an unknown portable tool key.
-tool_intent:
-  allow:
-    browser: true
+tools:
+  browser: true
 ---
 
 Bad body.
 `,
   });
 
-  await expect(lintSkillset(root)).rejects.toThrow("skill-tools-invalid");
-  await expect(buildSkillset(root)).rejects.toThrow("unknown portable tool key browser");
+  await expect(lintSkillset(root)).rejects.toThrow("unsupported key browser");
+  await expect(buildSkillset(root)).rejects.toThrow("unsupported key browser");
 });
 
 test("target-local tools reject portable policy keys instead of ignoring them", async () => {
@@ -3996,10 +3957,8 @@ skillset:
 name: bad-target-tools
 description: Has target-local portable tool policy.
 claude:
-  tool_intent:
-    allow:
-      read:
-        - docs/**
+  tools:
+    read: true
 ---
 
 Bad target tools body.
@@ -4007,10 +3966,10 @@ Bad target tools body.
   });
 
   await expect(lintSkillset(root)).rejects.toThrow("skill-tools-invalid");
-  await expect(buildSkillset(root)).rejects.toThrow("target tool_intent to contain only _allow and _deny keys");
+  await expect(buildSkillset(root)).rejects.toThrow("claude.tools is unsupported; use top-level tools.claude");
 });
 
-test("target-native false escape does not clear portable tools", async () => {
+test("provider portable overrides can narrow base tools policy", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -4025,25 +3984,13 @@ skillset:
     ".skillset/plugins/alpha/skills/clear-native/SKILL.md": `
 ---
 name: clear-native
-description: Keeps portable tools when native escapes are disabled.
-tool_intent:
-  allow:
-    read:
-      - docs/**
-  _allow:
-    claude:
-      - AskUserQuestion
-    codex:
-      mcp:
-        linear:
-          tools:
-            - issues.*
-claude:
-  tool_intent:
-    _allow: false
-codex:
-  tool_intent:
-    _allow: false
+description: Narrows portable tools for provider-specific output.
+tools:
+  read: true
+  claude:
+    read: false
+  codex:
+    read: false
 ---
 
 Clear native body.
@@ -4061,11 +4008,11 @@ Clear native body.
     "utf8"
   );
 
-  expect(claudeSkill).toContain("Read(docs/**)");
-  expect(claudeSkill).not.toContain("AskUserQuestion");
+  expect(claudeSkill).toContain(`disallowed-tools:
+  - Read`);
   expect(codexTools).toContain("portable:");
+  expect(codexTools).toContain("read: false");
   expect(codexTools).not.toContain("target_native:");
-  expect(codexTools).not.toContain("issues.*");
 });
 
 test("build and lint reject Codex allowed_tools without an explicit Codex opt-out", async () => {
@@ -4095,7 +4042,7 @@ Tools body.
   const lintReport = await inspectSkillset(await loadBuildGraph(root));
   expect(lintReport.issues).toContainEqual(expect.objectContaining({
     code: "codex-allowed-tools-unsupported",
-    featureId: "tool-intent",
+    featureId: "tools-policy",
   }));
   await expect(lintSkillset(root)).rejects.toThrow("codex-allowed-tools-unsupported");
   await expect(buildSkillset(root)).rejects.toThrow("allowed_tools has no Codex skill-local lowering");
@@ -4151,7 +4098,7 @@ Policy body.
 `,
   });
 
-  await expect(buildSkillset(root)).rejects.toThrow("target map to contain only claude and codex keys");
+  await expect(buildSkillset(root)).rejects.toThrow("target map to contain only claude, codex, or cursor keys");
 });
 
 test("root target outputs can use defaults, booleans, lists, and include objects", async () => {

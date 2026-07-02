@@ -113,7 +113,7 @@ The default posture is to compile for every first-class provider when source is 
 
 ### Keep escape hatches visible
 
-Provider-native escape hatches should be obvious in source. Underscore-prefixed keys such as `_allow` and `_deny` signal that the author is intentionally leaving the adaptive layer. Escape hatches should still be validated for file safety, locked for provenance, and written only where the provider can accept them.
+Provider-native escape hatches should be obvious in source. Provider blocks such as `tools.claude.allow` and `tools.codex.deny` signal that the author is intentionally leaving the adaptive layer. Escape hatches should still be validated for file safety, locked for provenance, and written only where the provider can accept them.
 
 ### Treat tooling as authoring surface
 
@@ -123,7 +123,7 @@ Provider-native escape hatches should be obvious in source. Underscore-prefixed 
 
 These are not a replacement for the schema reference. They are examples of how the tenets should guide near-term design.
 
-- Prefer `tool_intent` for adaptive tool-policy meaning, with provider-native `_` escape hatches for provider-specific vocabulary.
+- Prefer `tools` for adaptive tool-policy meaning, with provider-native `tools.<provider>.allow` / `deny` blocks for provider-specific vocabulary.
 - Prefer `instructions` as the source concept for repo guidance, even if Claude output still uses rules and Codex output still uses `AGENTS.md`.
 - Use `skillset.schema` for the version of the source contract or compiler schema, while generated skill product versions stay simple through fields like `metadata.version`.
 - Do not require a source name that is distinct from the real plugin or skill name unless there is a concrete identity problem that derivation cannot solve.

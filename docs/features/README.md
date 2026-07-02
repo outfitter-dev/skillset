@@ -40,7 +40,7 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Provider Source](target-native-islands.md): explicit provider-native source islands, Codex `.rules` pass-through, and leakage rules.
 - [Tests and Evals](tests-and-evals.md): internal fixtures, dogfooding, deterministic `skillset test`, future adapter-aware evals, and generated run output boundaries.
 - [Themes](themes.md): Claude experimental theme pass-through, manifest wiring, and Codex unsupported boundaries.
-- [Tool Intent](tool-intent.md): portable tool intent metadata, Claude preapproval rendering, Codex metadata, and target-native escapes.
+- [Tools Policy](tools-policy.md): portable tool policy, Claude tool-rule rendering, provider metadata, and target-native provider blocks.
 - [Version Audit](version-audit.md): read-only version-locus audit across source, release state, generated output, and future destinations.
 - [Workbench Check](workbench.md): `skillset check`, `skillset verify`, package-level diagnostic scopes/presets, parser/schema checks, fixtures, and optional ast-grep proof points.
 

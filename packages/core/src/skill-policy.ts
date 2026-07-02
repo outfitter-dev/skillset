@@ -3,16 +3,15 @@ import { targetNames } from "./targets";
 import { isJsonRecord } from "./yaml";
 
 const TARGET_KEYS = targetNames();
-const PORTABLE_TOOL_KEYS = new Set([
-  "edit",
-  "mcp",
-  "read",
-  "search",
-  "shell",
-  "web_fetch",
-  "web_search",
-  "write",
-]);
+const PORTABLE_TOOL_KEYS = new Set(["mcp", "read", "search", "shell", "write"]);
+const PROVIDER_NATIVE_KEYS = new Set(["allow", "deny"]);
+const READONLY_TOOLS: JsonRecord = {
+  read: true,
+  search: true,
+  write: false,
+};
+
+type ToolFamily = "mcp" | "read" | "search" | "shell" | "write";
 
 export type AllowedToolsValue = false | readonly string[];
 
@@ -21,14 +20,17 @@ export interface ClaudeNativeToolRules {
   readonly deny: readonly string[];
 }
 
-export interface CodexNativeToolEscapes extends JsonRecord {
-  readonly allow?: JsonValue;
-  readonly deny?: JsonValue;
+export interface CodexToolMetadata extends JsonRecord {
+  readonly portable?: JsonRecord;
+  readonly target_native?: JsonRecord;
 }
 
-export interface CodexToolMetadata extends JsonRecord {
-  readonly allow?: JsonRecord;
-  readonly deny?: JsonRecord;
+export interface EffectiveToolsPolicy {
+  readonly hasSource: boolean;
+  readonly nativeAllow: readonly string[];
+  readonly nativeDeny: readonly string[];
+  readonly portable: JsonRecord;
+  readonly target: TargetName;
 }
 
 export function readImplicitInvocation(
@@ -63,53 +65,43 @@ export function readAllowedTools(
   );
 }
 
+export function readEffectiveToolsPolicy(
+  record: JsonRecord,
+  targetOptions: JsonRecord,
+  target: TargetName,
+  label: string
+): EffectiveToolsPolicy {
+  rejectTargetLocalToolPolicy(targetOptions, target, label);
+  const tools = readToolsSource(record, label);
+  if (tools === undefined) {
+    return { hasSource: false, nativeAllow: [], nativeDeny: [], portable: {}, target };
+  }
+
+  const base = readPortableTools(tools, `${label}.tools`);
+  const provider = readProviderTools(tools[target], target, `${label}.tools.${target}`);
+  const portable = mergePortableTools(base, provider.portable);
+  validateNativeAllowContradictions(provider.allow, portable, `${label}.tools.${target}.allow`);
+
+  return {
+    hasSource: true,
+    nativeAllow: provider.allow,
+    nativeDeny: provider.deny,
+    portable,
+    target,
+  };
+}
+
 export function readClaudeNativeToolRules(
   record: JsonRecord,
   targetOptions: JsonRecord,
   label: string
 ): ClaudeNativeToolRules {
-  const targetAllow = readTargetNativeToolEscape(targetOptions, "_allow", label);
-  const targetDeny = readTargetNativeToolEscape(targetOptions, "_deny", label);
-  const portable = readPortableToolsPolicy(record, label);
-  const nativeAllow =
-    targetAllow === false
-      ? []
-      : [
-          ...readClaudeToolRuleList(readPortableToolEscape(record, "_allow", "claude", label), label),
-          ...readClaudeToolRuleList(targetAllow, label),
-        ];
-  const nativeDeny =
-    targetDeny === false
-      ? []
-      : [
-          ...readClaudeToolRuleList(readPortableToolEscape(record, "_deny", "claude", label), label),
-          ...readClaudeToolRuleList(targetDeny, label),
-        ];
-
+  const policy = readEffectiveToolsPolicy(record, targetOptions, "claude", label);
+  const renderedRules = lowerPortableToolsForClaude(policy.portable, label);
   return {
-    allow: [...lowerPortableToolsForClaude(portable.allow, label), ...nativeAllow],
-    deny: [...lowerPortableToolsForClaude(portable.deny, label), ...nativeDeny],
+    allow: [...renderedRules.allow, ...policy.nativeAllow],
+    deny: [...renderedRules.deny, ...policy.nativeDeny],
   };
-}
-
-export function readCodexNativeToolEscapes(
-  record: JsonRecord,
-  targetOptions: JsonRecord,
-  label: string
-): CodexNativeToolEscapes {
-  const escapes: Record<string, JsonValue> = {};
-  const allow = mergeCodexEscapeValues(
-    readPortableToolEscape(record, "_allow", "codex", label),
-    readTargetNativeToolEscape(targetOptions, "_allow", label)
-  );
-  const deny = mergeCodexEscapeValues(
-    readPortableToolEscape(record, "_deny", "codex", label),
-    readTargetNativeToolEscape(targetOptions, "_deny", label)
-  );
-
-  if (allow !== undefined) escapes.allow = allow;
-  if (deny !== undefined) escapes.deny = deny;
-  return escapes;
 }
 
 export function readCodexToolMetadata(
@@ -117,14 +109,13 @@ export function readCodexToolMetadata(
   targetOptions: JsonRecord,
   label: string
 ): CodexToolMetadata {
-  const portable = readPortableToolsPolicy(record, label);
-  const native = readCodexNativeToolEscapes(record, targetOptions, label);
+  const policy = readEffectiveToolsPolicy(record, targetOptions, "codex", label);
   const metadata: Record<string, JsonRecord> = {};
-  const allow = codexToolActionMetadata(portable.allow, native.allow);
-  const deny = codexToolActionMetadata(portable.deny, native.deny);
-
-  if (allow !== undefined) metadata.allow = allow;
-  if (deny !== undefined) metadata.deny = deny;
+  if (Object.keys(policy.portable).length > 0) metadata.portable = policy.portable;
+  const targetNative: Record<string, JsonValue> = {};
+  if (policy.nativeAllow.length > 0) targetNative.allow = [...policy.nativeAllow];
+  if (policy.nativeDeny.length > 0) targetNative.deny = [...policy.nativeDeny];
+  if (Object.keys(targetNative).length > 0) metadata.target_native = targetNative;
   return metadata;
 }
 
@@ -145,233 +136,132 @@ function readTargetedValue(
   for (const mapKey of Object.keys(value as JsonRecord)) {
     if (!TARGET_KEYS.includes(mapKey as TargetName)) {
       throw new Error(
-        `skillset: expected ${label}.${key} target map to contain only claude and codex keys`
+        `skillset: expected ${label}.${key} target map to contain only ${formatTargetKeys()} keys`
       );
     }
   }
   return (value as JsonRecord)[target];
 }
 
-function readPortableToolEscape(
-  record: JsonRecord,
-  key: "_allow" | "_deny",
+function readToolsSource(record: JsonRecord, label: string): JsonRecord | undefined {
+  if (record.tool_intent !== undefined) {
+    throw new Error(`skillset: ${label} uses retired tool_intent; use tools`);
+  }
+  const value = record.tools;
+  if (value === undefined) return undefined;
+  if (value === "readonly") return READONLY_TOOLS;
+  if (!isJsonRecord(value)) {
+    throw new Error(`skillset: expected ${label}.tools to be readonly or an object`);
+  }
+
+  for (const key of Object.keys(value)) {
+    if (PORTABLE_TOOL_KEYS.has(key) || TARGET_KEYS.includes(key as TargetName)) continue;
+    if (PROVIDER_NATIVE_KEYS.has(key)) {
+      throw new Error(`skillset: ${label}.tools.${key} is provider-native; move it under tools.<provider>.${key}`);
+    }
+    throw new Error(`skillset: unknown tools key ${key} in ${label}.tools`);
+  }
+
+  return value;
+}
+
+function rejectTargetLocalToolPolicy(targetOptions: JsonRecord, target: TargetName, label: string): void {
+  if (targetOptions.tool_intent !== undefined) {
+    throw new Error(`skillset: ${label}.${target}.tool_intent is retired; use top-level tools.${target}`);
+  }
+  if (targetOptions.tools !== undefined) {
+    throw new Error(`skillset: ${label}.${target}.tools is unsupported; use top-level tools.${target}`);
+  }
+}
+
+function readProviderTools(
+  value: JsonValue | undefined,
   target: TargetName,
   label: string
-): JsonValue | undefined {
-  const tools = readToolsRecord(record, `${label}.tool_intent`, true);
-  if (tools === undefined) return undefined;
-  const value = tools[key];
-  if (value === undefined) return undefined;
-  if (!hasTargetMap(value)) return value;
-  for (const mapKey of Object.keys(value as JsonRecord)) {
-    if (!TARGET_KEYS.includes(mapKey as TargetName)) {
-      throw new Error(
-        `skillset: expected ${label}.tool_intent.${key} target map to contain only claude and codex keys`
-      );
-    }
-  }
-  return (value as JsonRecord)[target];
-}
-
-function readTargetNativeToolEscape(
-  targetOptions: JsonRecord,
-  key: "_allow" | "_deny",
-  label: string
-): JsonValue | undefined {
-  const tools = readToolsRecord(targetOptions, `${label} target tool_intent`, false);
-  return tools?.[key];
-}
-
-/**
- * Read the portable tool-intent block. The name signals authoring intent, not a
- * target-enforced permission sandbox.
- */
-function readToolsRecord(
-  record: JsonRecord,
-  label: string,
-  allowPortablePolicy: boolean
-): JsonRecord | undefined {
-  if (record.tools !== undefined) {
-    throw new Error(`skillset: ${label} uses unsupported tools; use tool_intent`);
-  }
-  const value = record.tool_intent;
-  if (value === undefined) return undefined;
+): { readonly allow: readonly string[]; readonly deny: readonly string[]; readonly portable: JsonRecord } {
+  if (value === undefined) return { allow: [], deny: [], portable: {} };
   if (!isJsonRecord(value)) {
     throw new Error(`skillset: expected ${label} to be an object`);
   }
   for (const key of Object.keys(value)) {
-    if (key === "_allow" || key === "_deny") continue;
-    if (allowPortablePolicy && (key === "allow" || key === "deny")) continue;
-    const allowedKeys = allowPortablePolicy
-      ? "allow, deny, _allow, and _deny"
-      : "_allow and _deny";
-    throw new Error(`skillset: expected ${label} to contain only ${allowedKeys} keys`);
+    if (PORTABLE_TOOL_KEYS.has(key) || PROVIDER_NATIVE_KEYS.has(key)) continue;
+    throw new Error(`skillset: unknown tools key ${key} in ${label}`);
   }
-  return value;
+  return {
+    allow: readNativeRuleList(value.allow, `${label}.allow`),
+    deny: readNativeRuleList(value.deny, `${label}.deny`),
+    portable: readPortableTools(value, label),
+  };
 }
 
-function hasTargetMap(value: JsonValue): boolean {
-  return isJsonRecord(value) && TARGET_KEYS.some((target) => value[target] !== undefined);
-}
-
-function readClaudeToolRuleList(value: JsonValue | undefined, label: string): readonly string[] {
-  if (value === undefined || value === false) return [];
-  if (typeof value === "string") return [readNonEmptyString(value, `${label}.tool_intent`)];
-  if (Array.isArray(value)) {
-    return value.map((item) => readClaudeToolRule(item, label));
-  }
-  if (isJsonRecord(value)) return [readClaudeToolRule(value, label)];
-  throw new Error(
-    `skillset: expected ${label}.tool_intent _allow/_deny entries for Claude to be strings or objects with rule`
-  );
-}
-
-function readClaudeToolRule(value: JsonValue, label: string): string {
-  if (typeof value === "string") return readNonEmptyString(value, `${label}.tool_intent`);
-  if (isJsonRecord(value)) {
-    const rule = value.rule;
-    if (typeof rule === "string") return readNonEmptyString(rule, `${label}.tool_intent.rule`);
-  }
-  throw new Error(
-    `skillset: expected ${label}.tool_intent _allow/_deny entries for Claude to be strings or objects with rule`
-  );
-}
-
-function readPortableToolsPolicy(
-  record: JsonRecord,
-  label: string
-): { readonly allow?: JsonRecord; readonly deny?: JsonRecord } {
-  const tools = readToolsRecord(record, `${label}.tool_intent`, true);
-  if (tools === undefined) return {};
-  const policy: { allow?: JsonRecord; deny?: JsonRecord } = {};
-  const allow = readPortableToolsAction(tools.allow, `${label}.tool_intent.allow`);
-  const deny = readPortableToolsAction(tools.deny, `${label}.tool_intent.deny`);
-  if (allow !== undefined) policy.allow = allow;
-  if (deny !== undefined) policy.deny = deny;
-  return policy;
-}
-
-function readPortableToolsAction(value: JsonValue | undefined, label: string): JsonRecord | undefined {
-  if (value === undefined || value === false) return undefined;
-  if (!isJsonRecord(value)) {
-    throw new Error(`skillset: expected ${label} to be an object of known portable tool keys`);
-  }
-
+function readPortableTools(record: JsonRecord, label: string): JsonRecord {
   const normalized: Record<string, JsonValue> = {};
-  for (const [key, rawValue] of Object.entries(value)) {
-    if (!PORTABLE_TOOL_KEYS.has(key)) {
-      throw new Error(
-        `skillset: unknown portable tool key ${key} in ${label}; use a known key or _allow/_deny`
-      );
-    }
-    if (rawValue === undefined || rawValue === false) continue;
-    normalized[key] = normalizePortableToolValue(key, rawValue, `${label}.${key}`);
+  for (const [key, rawValue] of Object.entries(record)) {
+    if (!PORTABLE_TOOL_KEYS.has(key)) continue;
+    if (rawValue === undefined) continue;
+    normalized[key] = normalizePortableToolValue(key as ToolFamily, rawValue, `${label}.${key}`);
   }
-
-  return Object.keys(normalized).length === 0 ? undefined : normalized;
+  return normalized;
 }
 
-function normalizePortableToolValue(key: string, value: JsonValue, label: string): JsonValue {
+function normalizePortableToolValue(key: ToolFamily, value: JsonValue, label: string): JsonValue {
   switch (key) {
-    case "edit":
     case "read":
     case "search":
     case "write":
-      return normalizeBooleanStringList(value, label);
+      return normalizeBoolean(value, label);
     case "shell":
       return normalizeShellToolValue(value, label);
-    case "web_fetch":
-      return normalizeWebFetchToolValue(value, label);
-    case "web_search":
-      if (value !== true) {
-        throw new Error(`skillset: expected ${label} to be true`);
-      }
-      return true;
     case "mcp":
       return normalizeMcpToolValue(value, label);
-    default:
-      throw new Error(`skillset: unknown portable tool key ${key} in ${label}`);
   }
 }
 
-function normalizeBooleanStringList(value: JsonValue, label: string): JsonValue {
-  if (value === true) return true;
+function normalizeBoolean(value: JsonValue, label: string): boolean {
+  if (typeof value === "boolean") return value;
+  throw new Error(`skillset: expected ${label} to be true or false`);
+}
+
+function normalizeShellToolValue(value: JsonValue, label: string): JsonValue {
+  if (typeof value === "boolean") return value;
   if (typeof value === "string") return [readNonEmptyString(value, label)];
   if (Array.isArray(value) && value.every((item) => typeof item === "string")) {
     return value.map((item) => readNonEmptyString(item, label));
   }
-  throw new Error(`skillset: expected ${label} to be true, a string, or a string array`);
-}
-
-function normalizeShellToolValue(value: JsonValue, label: string): JsonValue {
-  if (value === true) return true;
-  const items = Array.isArray(value) ? value : [value];
-  return items.map((item) => {
-    if (typeof item === "string") {
-      return { pattern: readNonEmptyString(item, label) };
-    }
-    if (isJsonRecord(item)) {
-      const pattern = item.pattern;
-      const command = item.command;
-      const prefix = item.prefix;
-      if (typeof pattern === "string") {
-        return { pattern: readNonEmptyString(pattern, `${label}.pattern`) };
-      }
-      if (typeof command === "string") {
-        return { pattern: readNonEmptyString(command, `${label}.command`) };
-      }
-      if (Array.isArray(prefix) && prefix.every((part) => typeof part === "string")) {
-        const parts = prefix.map((part) => readNonEmptyString(part, `${label}.prefix`));
-        return { pattern: `${parts.join(" ")} *` };
-      }
-    }
-    throw new Error(
-      `skillset: expected ${label} shell entries to be strings or objects with pattern, command, or prefix`
-    );
-  });
-}
-
-function normalizeWebFetchToolValue(value: JsonValue, label: string): JsonValue {
-  if (value === true) return true;
-  if (typeof value === "string" || Array.isArray(value)) {
-    return { domains: normalizeStringList(value, label) };
-  }
-  if (isJsonRecord(value)) {
-    const domains = value.domains;
-    return { domains: normalizeStringList(domains, `${label}.domains`) };
-  }
-  throw new Error(`skillset: expected ${label} to be true, a domain string/list, or domains object`);
+  throw new Error(`skillset: expected ${label} to be true, false, a shell pattern, or shell pattern list`);
 }
 
 function normalizeMcpToolValue(value: JsonValue, label: string): JsonValue {
+  if (value === false) return false;
   if (!isJsonRecord(value)) {
-    throw new Error(`skillset: expected ${label} to be an object keyed by MCP server name`);
+    throw new Error(`skillset: expected ${label} to be false or an object keyed by literal MCP server name`);
   }
 
   const servers: Record<string, JsonValue> = {};
   for (const [server, rawServerValue] of Object.entries(value)) {
-    const serverName = readNonEmptyString(server, `${label} server`);
-    if (rawServerValue === undefined || rawServerValue === false) continue;
-    if (rawServerValue === true) {
-      servers[serverName] = { tools: ["*"] };
+    const serverName = readMcpServerName(server, `${label} server`);
+    if (typeof rawServerValue === "boolean") {
+      servers[serverName] = rawServerValue;
       continue;
     }
     if (typeof rawServerValue === "string" || Array.isArray(rawServerValue)) {
-      servers[serverName] = { tools: normalizeStringList(rawServerValue, `${label}.${serverName}`) };
-      continue;
-    }
-    if (isJsonRecord(rawServerValue)) {
-      servers[serverName] = {
-        tools: normalizeStringList(rawServerValue.tools, `${label}.${serverName}.tools`),
-      };
+      servers[serverName] = normalizeStringList(rawServerValue, `${label}.${serverName}`);
       continue;
     }
     throw new Error(
-      `skillset: expected ${label}.${serverName} to be true, a tool string/list, or an object with tools`
+      `skillset: expected ${label}.${serverName} to be true, false, a tool glob, or a tool glob list`
     );
   }
 
   return servers;
+}
+
+function readMcpServerName(value: string, label: string): string {
+  const server = readNonEmptyString(value, label);
+  if (server.includes("*")) {
+    throw new Error(`skillset: ${label} must be a literal MCP server name; wildcard server grants are unsupported`);
+  }
+  return server;
 }
 
 function normalizeStringList(value: JsonValue | undefined, label: string): string[] {
@@ -382,155 +272,165 @@ function normalizeStringList(value: JsonValue | undefined, label: string): strin
   throw new Error(`skillset: expected ${label} to be a string or string array`);
 }
 
+function readNativeRuleList(value: JsonValue | undefined, label: string): readonly string[] {
+  if (value === undefined || value === false) return [];
+  if (typeof value === "string") return [readNonEmptyString(value, label)];
+  if (Array.isArray(value) && value.every((item) => typeof item === "string")) {
+    return value.map((item) => readNonEmptyString(item, label));
+  }
+  throw new Error(`skillset: expected ${label} to be a native rule string or string array`);
+}
+
+function mergePortableTools(base: JsonRecord, override: JsonRecord): JsonRecord {
+  const merged: Record<string, JsonValue> = {};
+  for (const [key, value] of Object.entries(base)) {
+    if (value !== undefined) merged[key] = value;
+  }
+  for (const [key, value] of Object.entries(override)) {
+    if (value === undefined) continue;
+    if (key === "mcp" && isJsonRecord(merged.mcp) && isJsonRecord(value)) {
+      merged.mcp = { ...merged.mcp, ...value };
+      continue;
+    }
+    merged[key] = value;
+  }
+  return merged;
+}
+
 function lowerPortableToolsForClaude(
-  tools: JsonRecord | undefined,
+  tools: JsonRecord,
   label: string
-): readonly string[] {
-  if (tools === undefined) return [];
-  const rules: string[] = [];
+): ClaudeNativeToolRules {
+  const allow: string[] = [];
+  const deny: string[] = [];
 
   for (const [key, value] of Object.entries(tools)) {
     if (value === undefined) continue;
     switch (key) {
-      case "edit":
-        rules.push(...lowerPathRules("Edit", value, `${label}.tool_intent.${key}`));
-        break;
       case "read":
-        rules.push(...lowerPathRules("Read", value, `${label}.tool_intent.${key}`));
+        pushBooleanRules(allow, deny, value, ["Read"], `${label}.tools.read`);
         break;
       case "search":
-        rules.push(...lowerSearchRules(value, `${label}.tool_intent.${key}`));
+        pushBooleanRules(allow, deny, value, ["Grep", "Glob"], `${label}.tools.search`);
         break;
       case "write":
-        rules.push(...lowerWriteRules(value, `${label}.tool_intent.${key}`));
+        pushBooleanRules(allow, deny, value, ["Write", "Edit"], `${label}.tools.write`);
         break;
       case "shell":
-        rules.push(...lowerShellRules(value, `${label}.tool_intent.${key}`));
-        break;
-      case "web_fetch":
-        rules.push(...lowerWebFetchRules(value, `${label}.tool_intent.${key}`));
-        break;
-      case "web_search":
-        rules.push("WebSearch");
+        lowerShellRules(allow, deny, value, `${label}.tools.shell`);
         break;
       case "mcp":
-        rules.push(...lowerMcpRules(value, `${label}.tool_intent.${key}`));
+        lowerMcpRules(allow, deny, value, `${label}.tools.mcp`);
         break;
     }
   }
 
-  return rules;
+  return { allow, deny };
 }
 
-function lowerPathRules(tool: "Edit" | "Read", value: JsonValue, label: string): readonly string[] {
-  if (value === true) return [tool];
-  const paths = normalizeStringList(value, label);
-  return paths.map((path) => `${tool}(${path})`);
+function pushBooleanRules(
+  allow: string[],
+  deny: string[],
+  value: JsonValue,
+  rules: readonly string[],
+  label: string
+): void {
+  if (value === true) {
+    allow.push(...rules);
+    return;
+  }
+  if (value === false) {
+    deny.push(...rules);
+    return;
+  }
+  throw new Error(`skillset: expected ${label} to be true or false`);
 }
 
-function lowerSearchRules(value: JsonValue, label: string): readonly string[] {
-  if (value === true) return ["Grep", "Glob"];
-  const paths = normalizeStringList(value, label);
-  return paths.map((path) => `Read(${path})`);
-}
-
-function lowerWriteRules(value: JsonValue, label: string): readonly string[] {
-  if (value === true) return ["Write"];
-  return lowerPathRules("Edit", value, label);
-}
-
-function lowerShellRules(value: JsonValue, label: string): readonly string[] {
-  if (value === true) return ["Bash"];
+function lowerShellRules(allow: string[], deny: string[], value: JsonValue, label: string): void {
+  if (value === true) {
+    allow.push("Bash");
+    return;
+  }
+  if (value === false) {
+    deny.push("Bash");
+    return;
+  }
   if (!Array.isArray(value)) {
-    throw new Error(`skillset: expected ${label} to be true or normalized shell entries`);
+    throw new Error(`skillset: expected ${label} to be true, false, or normalized shell pattern list`);
   }
-  return value.map((entry) => {
-    if (!isJsonRecord(entry) || typeof entry.pattern !== "string") {
-      throw new Error(`skillset: expected ${label} shell entries to contain pattern`);
+  for (const pattern of value) {
+    if (typeof pattern !== "string") {
+      throw new Error(`skillset: expected ${label} entries to be strings`);
     }
-    return `Bash(${readNonEmptyString(entry.pattern, `${label}.pattern`)})`;
-  });
+    allow.push(`Bash(${readNonEmptyString(pattern, label)})`);
+  }
 }
 
-function lowerWebFetchRules(value: JsonValue, label: string): readonly string[] {
-  if (value === true) return ["WebFetch"];
-  if (!isJsonRecord(value)) {
-    throw new Error(`skillset: expected ${label} to be true or normalized web_fetch domains`);
+function lowerMcpRules(allow: string[], deny: string[], value: JsonValue, label: string): void {
+  if (value === false) {
+    deny.push("mcp__*");
+    return;
   }
-  const domains = normalizeStringList(value.domains, `${label}.domains`);
-  return domains.map((domain) => `WebFetch(domain:${domain})`);
-}
-
-function lowerMcpRules(value: JsonValue, label: string): readonly string[] {
   if (!isJsonRecord(value)) {
-    throw new Error(`skillset: expected ${label} to be normalized MCP server entries`);
+    throw new Error(`skillset: expected ${label} to be false or normalized MCP server entries`);
   }
-  const rules: string[] = [];
   for (const [server, rawServerValue] of Object.entries(value)) {
-    if (!isJsonRecord(rawServerValue)) {
-      throw new Error(`skillset: expected ${label}.${server} to be an object with tools`);
+    if (rawServerValue === true) {
+      allow.push(`mcp__${server}`);
+      continue;
     }
-    const tools = normalizeStringList(rawServerValue.tools, `${label}.${server}.tools`);
+    if (rawServerValue === false) {
+      deny.push(`mcp__${server}`);
+      continue;
+    }
+    const tools = normalizeStringList(rawServerValue, `${label}.${server}`);
     for (const tool of tools) {
-      rules.push(mcpToolRule(server, tool));
+      allow.push(`mcp__${server}__${readNonEmptyString(tool, `${label}.${server}`)}`);
     }
   }
-  return rules;
 }
 
-function mcpToolRule(server: string, tool: string): string {
-  const serverPattern = server === "*" ? ".*" : server;
-  const toolPattern = tool === "*" ? ".*" : tool;
-  return `mcp__${serverPattern}__${toolPattern}`;
-}
-
-function codexToolActionMetadata(
-  portable: JsonRecord | undefined,
-  native: JsonValue | undefined
-): JsonRecord | undefined {
-  const action: Record<string, JsonValue> = {};
-  if (portable !== undefined) action.portable = portable;
-  if (native !== undefined) action.target_native = native;
-  return Object.keys(action).length === 0 ? undefined : action;
-}
-
-function mergeCodexEscapeValues(
-  shared: JsonValue | undefined,
-  targetSpecific: JsonValue | undefined
-): JsonValue | undefined {
-  const normalizedShared = shared === false ? undefined : shared;
-  if (targetSpecific === false) return undefined;
-  if (targetSpecific === undefined) return normalizedShared;
-  if (normalizedShared === undefined) return targetSpecific;
-  if (Array.isArray(normalizedShared) && Array.isArray(targetSpecific)) {
-    return [...normalizedShared, ...targetSpecific];
-  }
-  if (isJsonRecord(normalizedShared) && isJsonRecord(targetSpecific)) {
-    return mergeJsonRecords(normalizedShared, targetSpecific);
-  }
-  return targetSpecific;
-}
-
-function mergeJsonRecords(base: JsonRecord, override: JsonRecord): JsonRecord {
-  const merged: Record<string, JsonValue> = {};
-
-  for (const [key, value] of Object.entries(base)) {
-    if (value !== undefined) merged[key] = value;
-  }
-
-  for (const [key, value] of Object.entries(override)) {
-    if (value === undefined) continue;
-    const current = merged[key];
-    if (isJsonRecord(current) && isJsonRecord(value)) {
-      merged[key] = mergeJsonRecords(current, value);
-    } else if (Array.isArray(current) && Array.isArray(value)) {
-      merged[key] = [...current, ...value];
-    } else {
-      merged[key] = value;
+function validateNativeAllowContradictions(
+  nativeAllow: readonly string[],
+  portable: JsonRecord,
+  label: string
+): void {
+  for (const rule of nativeAllow) {
+    const family = classifyNativeRule(rule);
+    if (family === undefined) continue;
+    if (portableDeniesFamily(portable, family, rule)) {
+      throw new Error(
+        `skillset: ${label} native allow ${rule} contradicts effective tools.${family}: false; use a provider portable override to change the constraint`
+      );
     }
   }
+}
 
-  return merged;
+function classifyNativeRule(rule: string): ToolFamily | undefined {
+  if (/^Bash(?:\(|$)/u.test(rule)) return "shell";
+  if (rule.startsWith("mcp__")) return "mcp";
+  if (/^(?:Write|Edit)(?:\(|$)/u.test(rule)) return "write";
+  if (/^Read(?:\(|$)/u.test(rule)) return "read";
+  if (/^(?:Grep|Glob)(?:\(|$)/u.test(rule)) return "search";
+  return undefined;
+}
+
+function portableDeniesFamily(portable: JsonRecord, family: ToolFamily, rule: string): boolean {
+  const value = portable[family];
+  if (value === false) return true;
+  if (family !== "mcp" || !isJsonRecord(value)) return false;
+  const server = mcpServerFromRule(rule);
+  return server !== undefined && value[server] === false;
+}
+
+function mcpServerFromRule(rule: string): string | undefined {
+  const match = /^mcp__([^_]+)(?:__|$)/u.exec(rule);
+  return match?.[1];
+}
+
+function formatTargetKeys(): string {
+  if (TARGET_KEYS.length <= 1) return TARGET_KEYS.join("");
+  return `${TARGET_KEYS.slice(0, -1).join(", ")}, or ${TARGET_KEYS.at(-1)}`;
 }
 
 function readNonEmptyString(value: string, label: string): string {

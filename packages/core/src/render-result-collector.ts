@@ -236,7 +236,7 @@ function featureOutcomesForLockItem(
     outcomes.push(
       featureOutcome({
         destination: "skill-frontmatter",
-        featureId: "tool-intent",
+        featureId: "tools-policy",
         isIncluded: claudeToolIntentOutputPaths.some((path) => includedPaths.has(path)),
         mapOutputPath,
         outputKind: "metadata",
@@ -254,7 +254,7 @@ function featureOutcomesForLockItem(
     outcomes.push(
       featureOutcome({
         destination: "skill-tools",
-        featureId: "tool-intent",
+        featureId: "tools-policy",
         isIncluded: toolIntentOutputPaths.some((path) => includedPaths.has(path)),
         mapOutputPath,
         outputKind: "metadata",

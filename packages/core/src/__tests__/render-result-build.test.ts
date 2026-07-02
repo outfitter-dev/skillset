@@ -110,10 +110,8 @@ echo setup
 ---
 name: plugin-skill
 description: Plugin skill.
-tool_intent:
-  allow:
-    read:
-      - docs/**
+tools:
+  read: true
 ---
 
 Use the plugin skill.
@@ -255,7 +253,7 @@ describe("build render results", () => {
     );
     expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
-        featureId: "tool-intent",
+        featureId: "tools-policy",
         outputs: expect.arrayContaining([
           expect.objectContaining({ path: "plugins/alpha/claude/skills/plugin-skill/SKILL.md" }),
         ]),
@@ -266,7 +264,7 @@ describe("build render results", () => {
     );
     expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
-        featureId: "tool-intent",
+        featureId: "tools-policy",
         outputs: expect.arrayContaining([
           expect.objectContaining({ path: "plugins/alpha/codex/skills/plugin-skill/.skillset.tools.yaml" }),
         ]),
@@ -400,7 +398,7 @@ describe("build render results", () => {
     );
     expect(scoped.renderResults).toContainEqual(
       expect.objectContaining({
-        featureId: "tool-intent",
+        featureId: "tools-policy",
         policy: "scope:excluded",
         sourceUnit: "plugin.alpha.skill:plugin-skill",
         status: "intentionally_skipped",
@@ -409,7 +407,7 @@ describe("build render results", () => {
     );
     expect(scoped.renderResults).toContainEqual(
       expect.objectContaining({
-        featureId: "tool-intent",
+        featureId: "tools-policy",
         policy: "scope:excluded",
         sourceUnit: "plugin.alpha.skill:plugin-skill",
         status: "intentionally_skipped",
@@ -886,7 +884,7 @@ Body.
     const preview = await diffSkillsetResult(root);
 
     // Multi-destination under one target: a single source skill renders both the
-    // skill artifact and its tool-intent frontmatter scope under claude.
+    // skill artifact and its tools-policy frontmatter scope under claude.
     const claudeSkillDestinations = preview.renderResults
       .filter(
         (result) =>
@@ -897,12 +895,12 @@ Body.
     expect(claudeSkillDestinations).toContain("skill");
     expect(claudeSkillDestinations).toContain("skill-frontmatter");
 
-    // The same skill under codex carries a distinct tool-intent destination,
+    // The same skill under codex carries a distinct tools-policy destination,
     // proving destination varies by scope while target stays the provider.
     expect(preview.renderResults).toContainEqual(
       expect.objectContaining({
         destination: "skill-tools",
-        featureId: "tool-intent",
+        featureId: "tools-policy",
         sourceUnit: "plugin.alpha.skill:plugin-skill",
         target: "codex",
       })
