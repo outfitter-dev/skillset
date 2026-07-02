@@ -16,6 +16,7 @@ skillset:
   name: ci-root
 claude: true
 codex: false
+cursor: false
 `,
   ".skillset/skills/demo/SKILL.md": `
 ---
@@ -148,6 +149,7 @@ compile:
   build: bogus
 claude: true
 codex: false
+cursor: false
 `,
   });
   await commitFixture(root);
@@ -252,9 +254,10 @@ Edited source body.
 test("ci normalizes old source layout only for git-ref baselines", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-ci-legacy-"));
   await writeRawFiles(root, {
-    ".skillset/config.yaml": `
+	".skillset/config.yaml": `
 claude: true
 codex: false
+cursor: false
 `,
     ".skillset/src/skillset.yaml": `
 skillset:
@@ -278,6 +281,7 @@ Body.
     "skillset.yaml": `
 claude: true
 codex: false
+cursor: false
 skillset:
   name: ci-root
   version: 0.1.0

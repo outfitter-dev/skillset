@@ -157,7 +157,7 @@ The canonical provider-selection shape is the `compile.targets` list above. This
 
 ```yaml
 compile:
-  targets: [claude, codex]
+  targets: [claude, codex, cursor]
 ```
 
 When `compile.targets` is omitted, Skillset normalizes to the default provider plan. Target-specific provider blocks configure native output details and provider-specific opt-outs; they are not a second target-selection surface.

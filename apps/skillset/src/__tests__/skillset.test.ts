@@ -1190,7 +1190,7 @@ Defaulted.
     build: "all",
     features: { promptArguments: true },
     skillset: { metadata: false },
-    targets: ["claude", "codex"],
+    targets: ["claude", "codex", "cursor"],
     unsupportedDestination: "error",
   });
   expect(graph.root.targets.claude.options.projectRoot).toBe(".claude");
@@ -1467,7 +1467,7 @@ Modelish.
 
   const warnsGraph = await loadBuildGraph(warnsRoot);
   expect(warnsGraph.warnings).toContain(
-    ".skillset/plugins/alpha/skills/modelish/SKILL.md uses top-level model, which is not portable in Skillset v1; use target-specific model fields or target defaults for claude, codex."
+    ".skillset/plugins/alpha/skills/modelish/SKILL.md uses top-level model, which is not portable in Skillset v1; use target-specific model fields or target defaults for claude, codex, cursor."
   );
 
   const handledRoot = await fixture({
@@ -1479,6 +1479,10 @@ claude:
     skills:
       model: sonnet
 codex:
+  defaults:
+    skills:
+      model: gpt-5
+cursor:
   defaults:
     skills:
       model: gpt-5
@@ -1822,7 +1826,7 @@ Review diffs.
 
   const graph = await loadBuildGraph(root);
   expect(graph.warnings).toContain(
-    ".skillset/agents/reviewer.md uses top-level model, which is not portable in Skillset v1; use target-specific model fields or target defaults for claude, codex."
+    ".skillset/agents/reviewer.md uses top-level model, which is not portable in Skillset v1; use target-specific model fields or target defaults for claude, codex, cursor."
   );
 
   await buildSkillset(root);
@@ -3007,6 +3011,7 @@ skillset:
 claude:
   projectRoot: plugins/project
 codex: false
+cursor: false
 `,
     ".skillset/_claude/settings.json": `
 {"note":"claude"}
@@ -4227,6 +4232,7 @@ claude:
   plugins: false
   skills: false
 codex: false
+cursor: false
 `,
     ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
@@ -4803,10 +4809,10 @@ skillset:
   });
 
   await expect(loadBuildGraph(defaultRoot)).resolves.toMatchObject({
-    root: { compile: { targets: ["claude", "codex"], unsupportedDestination: "error" } },
+    root: { compile: { targets: ["claude", "codex", "cursor"], unsupportedDestination: "error" } },
   });
   await expect(loadBuildGraph(explicitRoot)).resolves.toMatchObject({
-    root: { compile: { targets: ["claude", "codex"], unsupportedDestination: "error" } },
+    root: { compile: { targets: ["claude", "codex", "cursor"], unsupportedDestination: "error" } },
   });
 });
 

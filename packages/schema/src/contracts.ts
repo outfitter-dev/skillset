@@ -7,7 +7,7 @@ const SEMVER_PATTERN =
   "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$";
 
 export const TARGET_NAMES = ["claude", "codex", "cursor"] as const;
-export const DEFAULT_TARGET_NAMES = ["claude", "codex"] as const;
+export const DEFAULT_TARGET_NAMES = TARGET_NAMES;
 export const COMPILE_BUILD_MODES = ["all", "updated"] as const;
 export const UNSUPPORTED_DESTINATION_POLICIES = ["error"] as const;
 export const SOURCE_LICENSE_IDS = [

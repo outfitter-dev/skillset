@@ -63,8 +63,9 @@ Claude or Codex compatibility shim. The contract is defined by the [Cursor provi
 ADR](adrs/drafts/20260702-cursor-is-a-first-class-provider.md). Provider evidence
 was live-doc checked on 2026-07-02 against the official Cursor docs.
 
-Cursor is opt-in through `compile.targets: [cursor]`; the default provider plan
-remains Claude and Codex unless a repo explicitly adds Cursor.
+Cursor participates in the default provider plan. Repos can still narrow
+provider output with explicit `compile.targets` when they do not want Cursor
+artifacts.
 
 | Cursor surface | Cursor destination | Status | Notes |
 | --- | --- | --- | --- |
@@ -88,13 +89,13 @@ remains Claude and Codex unless a repo explicitly adds Cursor.
 | `skillset.name` | machine identity | Implemented | Root and plugin explicit identity; directory names remain the default. `skillset.id` is unsupported. |
 | skill top-level `name` | skill identity | Implemented | Skill-local `skillset.name` / `skillset.id` are unsupported. |
 | root/plugin/skill `skillset.license` or local `LICENSE.txt` | managed `LICENSE.txt`; plugin manifest `license` when declared in plugin metadata | Implemented | Supports `Apache-2.0`, `BSD-2-Clause`, `BSD-3-Clause`, `ISC`, `MIT`, `MPL-2.0`, and `none`; child scopes inherit unless overridden or opted out. |
-| `compile.targets` | enabled provider outputs | Implemented | Root-only provider selection; accepts `claude`, `codex`, and explicit `cursor`. Defaults remain Claude and Codex unless a repo opts into Cursor. |
+| `compile.targets` | enabled provider outputs | Implemented | Root-only provider selection; accepts `claude`, `codex`, and `cursor`. Defaults include all three first-class providers. |
 | `compile.build: updated/all` | normalized build mode in lock provenance | Implemented | Parser, CLI overrides, plan-first writes, and lock metadata are implemented. |
 | `compile.features.promptArguments` | `{{$ARGUMENTS...}}` adaptive command placeholders | Implemented | Defaults to `true`; set to `false` to reject the source markers. |
 | `compile.skillset.metadata: false` | suppress generated skill `metadata.generated` / `metadata.version` | Implemented | Source metadata remains source-only; locks record `skillsetMetadata`. |
 | `compile.unsupportedDestination: error` | build/diff/verify unsupported destination policy | Implemented | Default policy; preserves current fail-loud unsupported behavior. |
 | `compile.unsupportedDestination: warn/skip/force` | doctor/lock provenance | Reserved | Recognized names that fail until non-error unsupported destination policy semantics are implemented and documented. |
-| omitted `compile.targets` | default provider outputs | Implemented | Equivalent to `compile.targets: [claude, codex]` until Cursor parity is complete. |
+| omitted `compile.targets` | default provider outputs | Implemented | Equivalent to `compile.targets: [claude, codex, cursor]`. |
 | `<provider>.projectRoot` | provider adapter metadata | Implemented | Parsed and inherited with provider blocks; build still does not mutate user-level config. |
 | `<provider>.userRoot` | provider adapter metadata | Implemented | Parsed and inherited with provider blocks for future setup/explain flows. |
 | `<provider>.defaults.<surface>` | provider option defaults for `agents`, `instructions`, `plugins`, `skills` | Implemented | Canonical provider-local defaults; file-level provider fields win. |
@@ -110,6 +111,7 @@ compile:
   targets:
     - claude
     - codex
+    - cursor
   unsupportedDestination: error
 ```
 
@@ -117,10 +119,10 @@ Shorthand provider selection with the same internal provider plan:
 
 ```yaml
 compile:
-  targets: [claude, codex]
+  targets: [claude, codex, cursor]
 ```
 
-When `compile.targets` is omitted, Skillset also normalizes to the same all-supported-provider plan. Provider-specific `claude` and `codex` blocks configure native output details and nested opt-outs; they are not a second provider-selection surface.
+When `compile.targets` is omitted, Skillset also normalizes to the same all-supported-provider plan. Provider-specific `claude`, `codex`, and `cursor` blocks configure native output details and nested opt-outs; they are not a second provider-selection surface.
 
 Adapter defaults deliberately use explicit provider blocks such as `claude`, `codex`, and `cursor`, or the `defaults.<provider>` shorthand, not a top-level `targets:` map. That preserves the ADR-0001 boundary: `compile.targets` selects provider outputs, while provider blocks carry provider-native config and scoped overrides.
 

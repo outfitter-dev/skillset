@@ -11,7 +11,7 @@ import {
 import type { JsonRecord } from "../types";
 
 describe("target vocabulary", () => {
-  it("accepts cursor as an explicit target without changing the default target plan", () => {
+  it("includes cursor in the default target plan while preserving explicit narrowing", () => {
     const record: JsonRecord = {
       compile: {
         targets: ["cursor"],
@@ -23,9 +23,9 @@ describe("target vocabulary", () => {
     };
 
     expect(targetNames()).toEqual(["claude", "codex", "cursor"]);
-    expect(defaultTargetNames()).toEqual(["claude", "codex"]);
-    expect(defaultTargets().cursor.enabled).toBe(false);
-    expect(readCompileConfig({}, "skillset.yaml").targets).toEqual(["claude", "codex"]);
+    expect(defaultTargetNames()).toEqual(["claude", "codex", "cursor"]);
+    expect(defaultTargets().cursor.enabled).toBe(true);
+    expect(readCompileConfig({}, "skillset.yaml").targets).toEqual(["claude", "codex", "cursor"]);
     expect(readCompileConfig(record, "skillset.yaml").targets).toEqual(["cursor"]);
 
     const targets = readCompileTargets(record, "skillset.yaml");

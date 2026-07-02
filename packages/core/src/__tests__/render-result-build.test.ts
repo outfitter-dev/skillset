@@ -25,6 +25,7 @@ skillset:
     name: outcome-market
 claude: true
 codex: true
+cursor: false
 `,
   ".skillset/skills/repo-skill/SKILL.md": `
 ---
@@ -128,6 +129,7 @@ skillset:
   name: beta
   description: Beta plugin.
 codex: false
+cursor: false
 `,
   ".skillset/plugins/beta/bin/tool": `
 #!/usr/bin/env bash
@@ -575,6 +577,7 @@ skillset:
   name: adaptive-hook-policy-skill
 claude: false
 codex: true
+cursor: false
 `,
       ".skillset/skills/writer/SKILL.md": `
 ---
@@ -605,6 +608,7 @@ skillset:
   name: adaptive-hook-policy-plugin-skill
 claude: false
 codex: true
+cursor: false
 `,
       ".skillset/plugins/demo/skillset.yaml": `
 skillset:
@@ -639,6 +643,7 @@ skillset:
   name: adaptive-hook-policy-agent
 claude: false
 codex: true
+cursor: false
 `,
       ".skillset/agents/helper.md": `
 ---
@@ -670,6 +675,7 @@ skillset:
   name: adaptive-hook-policy-provider-scope
 claude: true
 codex: true
+cursor: false
 `,
       ".skillset/skills/writer/SKILL.md": `
 ---
@@ -705,6 +711,7 @@ skillset:
   name: adaptive-hook-policy-plugin-event
 claude: false
 codex: true
+cursor: false
 `,
       ".skillset/plugins/demo/skillset.yaml": `
 skillset:
@@ -731,6 +738,7 @@ skillset:
   name: adaptive-hook-policy-plugin-matcher
 claude: false
 codex: true
+cursor: false
 `,
       ".skillset/plugins/demo/skillset.yaml": `
 skillset:
@@ -758,6 +766,7 @@ skillset:
   name: adaptive-hook-policy-claude-matcher
 claude: true
 codex: false
+cursor: false
 `,
       ".skillset/plugins/demo/skillset.yaml": `
 skillset:
@@ -788,6 +797,7 @@ skillset:
   name: adaptive-hook-policy-provider-override
 claude: true
 codex: false
+cursor: false
 `,
       ".skillset/plugins/demo/skillset.yaml": `
 skillset:
@@ -816,6 +826,7 @@ skillset:
   name: adaptive-hook-policy-run-field
 claude: false
 codex: true
+cursor: false
 `,
       ".skillset/plugins/demo/skillset.yaml": `
 skillset:
@@ -842,6 +853,7 @@ skillset:
   name: adaptive-hook-policy-frontmatter-script
 claude: true
 codex: false
+cursor: false
 `,
       ".skillset/skills/writer/SKILL.md": `
 ---

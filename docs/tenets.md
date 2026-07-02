@@ -109,7 +109,7 @@ When features are similar but not identical, name the intent first and design th
 
 ### Prefer defaults and scoped overrides
 
-The default posture is to compile for both Claude and Codex when source is adaptive. Root `compile.targets` can narrow that provider set, and nested source can opt out or back in with `claude` and `codex` toggles where the resolver supports it. Boolean provider settings should use defaults; objects should exist for real overrides.
+The default posture is to compile for every first-class provider when source is adaptive. Root `compile.targets` can narrow that provider set, and nested source can opt out or back in with provider blocks such as `claude`, `codex`, and `cursor` where the resolver supports it. Boolean provider settings should use defaults; objects should exist for real overrides.
 
 ### Keep escape hatches visible
 

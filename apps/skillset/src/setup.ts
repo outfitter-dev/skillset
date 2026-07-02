@@ -782,7 +782,7 @@ function slugifySetupName(value: string): string {
 }
 
 function normalizeTargets(targets: readonly TargetName[] | undefined): readonly TargetName[] {
-  if (targets === undefined || targets.length === 0) return ["claude", "codex"];
+  if (targets === undefined || targets.length === 0) return targetNames();
   const seen = new Set<TargetName>();
   for (const target of targets) {
     if (!isTargetName(target)) {
