@@ -6244,9 +6244,9 @@ test("SET-27: init previews by default and writes only with confirmation", async
     expect(await fileExists(join(root, `.skillset/${directory}/.gitkeep`))).toBe(true);
   }
   expect(await fileExists(join(root, ".skillset/changes/.gitkeep"))).toBe(true);
-  expect(await readFile(join(root, ".skillset/cache/.gitignore"), "utf8")).toBe("*\n!.gitignore\n");
   expect(await readFile(join(root, ".skillset/snapshots/.gitignore"), "utf8")).toBe("*\n!.gitignore\n");
-  expect(await readFile(join(root, ".skillset/.gitignore"), "utf8")).toBe("cache/*\n!cache/.gitignore\nsnapshots/*\n!snapshots/.gitignore\n");
+  expect(await fileExists(join(root, ".skillset/cache/.gitignore"))).toBe(false);
+  expect(await readFile(join(root, ".skillset/.gitignore"), "utf8")).toBe("cache/\nsnapshots/*\n!snapshots/.gitignore\n");
   expect(await fileExists(join(root, ".claude"))).toBe(false);
   expect(await fileExists(join(root, ".codex"))).toBe(false);
   expect(await fileExists(join(root, ".agents"))).toBe(false);
@@ -6311,14 +6311,14 @@ Body.
   expect(preview.exitCode).toBe(0);
   expect(preview.stdout).toContain("= skillset.yaml");
   expect(preview.stdout).toContain("+ .skillset/changes/.gitkeep");
-  expect(preview.stdout).toContain("+ .skillset/cache/.gitignore");
+  expect(preview.stdout).not.toContain("+ .skillset/cache/.gitignore");
   expect(preview.stdout).toContain("+ .skillset/snapshots/.gitignore");
   expect(await fileExists(join(root, "skillset.yaml"))).toBe(true);
 
   const written = await runSkillsetCli("init", "--root", root, "--yes");
   expect(written.exitCode).toBe(0);
   expect(await fileExists(join(root, ".skillset/changes/.gitkeep"))).toBe(true);
-  expect(await fileExists(join(root, ".skillset/cache/.gitignore"))).toBe(true);
+  expect(await fileExists(join(root, ".skillset/cache/.gitignore"))).toBe(false);
   expect(await fileExists(join(root, ".skillset/snapshots/.gitignore"))).toBe(true);
   expect(await fileExists(join(root, "skillset.yaml"))).toBe(true);
 });
@@ -6362,21 +6362,20 @@ test("SET-27: create makes a new source repo with default naming", async () => {
     expect(await fileExists(join(parent, `my-skillset/.skillset/${directory}/.gitkeep`))).toBe(true);
   }
   expect(await fileExists(join(parent, "my-skillset/.skillset/changes/.gitkeep"))).toBe(true);
-  expect(await readFile(join(parent, "my-skillset/.skillset/.gitignore"), "utf8")).toBe("cache/*\n!cache/.gitignore\nsnapshots/*\n!snapshots/.gitignore\n");
-  expect(await readFile(join(parent, "my-skillset/.skillset/cache/.gitignore"), "utf8")).toBe("*\n!.gitignore\n");
+  expect(await readFile(join(parent, "my-skillset/.skillset/.gitignore"), "utf8")).toBe("cache/\nsnapshots/*\n!snapshots/.gitignore\n");
+  expect(await fileExists(join(parent, "my-skillset/.skillset/cache/.gitignore"))).toBe(false);
   expect(await readFile(join(parent, "my-skillset/.skillset/snapshots/.gitignore"), "utf8")).toBe("*\n!.gitignore\n");
-  expect(gitignore).toBe(
-    ".skillset/cache/*\n!.skillset/cache/.gitignore\n.skillset/snapshots/*\n!.skillset/snapshots/.gitignore\n"
-  );
+  expect(gitignore).toBe(".skillset/cache/\n.skillset/snapshots/*\n!.skillset/snapshots/.gitignore\n");
   expect(JSON.parse(lock)).toEqual({ items: [] });
   expect(readme).toContain("# my-skillset");
   expect(readme).toContain("skillset build --dry-run");
   expect(agents).toContain("Treat `.skillset/` as editable Skillset source");
   expect(await fileExists(join(createdRoot, ".git/config"))).toBe(true);
+  await mkdir(join(createdRoot, ".skillset/cache"), { recursive: true });
   await writeFile(join(createdRoot, ".skillset/cache/runtime.txt"), "ignored\n");
   await runGit(createdRoot, "check-ignore", ".skillset/cache/runtime.txt");
   await runGit(createdRoot, "add", ".");
-  await runGit(createdRoot, "ls-files", "--error-unmatch", ".skillset/cache/.gitignore");
+  await expect(runGit(createdRoot, "ls-files", "--error-unmatch", ".skillset/cache/.gitignore")).rejects.toThrow();
   await runGit(createdRoot, "ls-files", "--error-unmatch", ".skillset/snapshots/.gitignore");
 });
 

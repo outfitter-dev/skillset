@@ -77,7 +77,7 @@ The default workspace layout is:
 - standalone skill source: `.skillset/skills/<skill-name>/`
 - instruction source: `.skillset/rules/**/*.md`
 - tracked change state: `.skillset/changes/`
-- repo-local operational state: `.skillset/cache/` and `.skillset/snapshots/`
+- operational state: logical `.skillset/cache/` records backed by the XDG cache bucket, plus repo-local `.skillset/snapshots/`
 
 Generated destination defaults:
 
@@ -108,7 +108,7 @@ Prepare this repository checkout for local development or agent startup:
 ./scripts/bootstrap.sh claude     # Claude startup hook entrypoint
 ./scripts/bootstrap.sh codex      # Codex startup hook entrypoint
 ./scripts/bootstrap.sh doctor     # read-only environment diagnostics
-./scripts/bootstrap.sh teardown   # remove dist/ and delete-safe .skillset/cache/
+./scripts/bootstrap.sh teardown   # remove dist/ and delete-safe local operational leftovers
 bun run hooks:install             # install repo-local Lefthook git hooks
 bun run ultracite:doctor          # verify the Ultracite/Oxlint/Oxfmt setup
 ```
@@ -148,7 +148,7 @@ skillset create team-loadout --name team-loadout --targets claude,codex --yes
 
 For a user-global source checkout, `skillset create --global` defaults to `~/.skillset/src`. This is still Skillset-owned source, not a live Claude or Codex runtime directory. Setup does not create a global preview/cache area yet and does not write to `~/.claude`, `~/.codex`, or `.agents`. The published package requires Bun and ships Bun-built JavaScript bins for `skillset` and `create-skillset`; stable releases run from the default npm dist-tag with commands such as `npx skillset create` or `bunx skillset create`. Prerelease builds remain available through their explicit tag, such as `skillset@beta`. Setup still routes through the same plan-first `create` flow.
 
-Setup commands create source and repo-local operational ignore scaffolds only. `init` creates root `skillset.yaml`, `.skillset/.gitkeep`, placeholders for the main source families under `.skillset/`, `.skillset/changes/.gitkeep`, and `.skillset/` ignore sentinels for cache and snapshots. `create` writes root `skillset.yaml`, `.skillset/` placeholders, root `skillset.lock`, a root `.gitignore` that ignores cache/snapshot contents while preserving sentinel files, README, and lightweight agent guidance. `--include ci` adds an optional user-owned GitHub Actions workflow. Generated manifests use `compile.targets`, keep source identity under `skillset`, and keep target adapter config in `claude` and `codex` blocks or root `defaults.<target>.<surface>`.
+Setup commands create source and repo-local operational ignore scaffolds only. `init` creates root `skillset.yaml`, `.skillset/.gitkeep`, placeholders for the main source families under `.skillset/`, `.skillset/changes/.gitkeep`, `.skillset/.gitignore` that ignores the logical `.skillset/cache/` path, and a snapshots ignore sentinel. `create` writes root `skillset.yaml`, `.skillset/` placeholders, root `skillset.lock`, `.skillset/.gitignore`, a snapshots ignore sentinel, a root `.gitignore` that ignores `.skillset/cache/` and `.skillset/snapshots/` contents, README, and lightweight agent guidance. `--include ci` adds an optional user-owned GitHub Actions workflow. Generated manifests use `compile.targets`, keep source identity under `skillset`, and keep target adapter config in `claude` and `codex` blocks or root `defaults.<target>.<surface>`.
 
 ## Import
 
