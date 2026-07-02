@@ -274,6 +274,49 @@ test("adopt carries import render results into the persisted report", async () =
   expect(json.renderResults).toContainEqual(importOutcome);
 });
 
+test("adopt carries native hook lift diagnostics into the persisted report", async () => {
+  const hooks = {
+    hooks: {
+      SessionStart: [
+        {
+          hooks: [{ command: "echo session", type: "command" }],
+        },
+      ],
+    },
+  };
+  const root = await fixture({
+    ".claude-plugin/plugin.json": JSON.stringify({
+      name: "native-hooks",
+      version: "1.0.0",
+    }),
+    "hooks/hooks.json": JSON.stringify(hooks, null, 2),
+  });
+
+  const report = await adoptSkillset(root, { targets: ["claude"], write: true });
+  const importOutcome = expect.objectContaining({
+    diagnostics: expect.arrayContaining([
+      expect.objectContaining({
+        code: "import-native-hook-lift-candidate",
+        message: expect.stringContaining("lossless-adaptive for claude"),
+        path: ".skillset/plugins/native-hooks/hooks/hooks.json#/SessionStart/0",
+      }),
+    ]),
+    featureId: "plugin-hooks",
+    sourceUnit: "plugin.native-hooks.feature:hooks",
+    status: "target_native",
+    target: "claude",
+  });
+
+  expect(report.ok).toBe(true);
+  expect(report.imports.find((result) => result.candidate.kind === "plugin")?.renderResults).toContainEqual(importOutcome);
+  expect(report.renderResults).toContainEqual(importOutcome);
+
+  const json = JSON.parse(await readFile(cachePath(root, join(ADOPT_REPORT_DIR, "report.json")), "utf8")) as {
+    renderResults: readonly unknown[];
+  };
+  expect(json.renderResults).toContainEqual(importOutcome);
+});
+
 test("adopt preserves survey skip outcomes when isolated build cannot load source", async () => {
   const root = await fixture({
     ".claude/commands/x.md": "---\ndescription: Project command.\n---\n\nDo x.\n",

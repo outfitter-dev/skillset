@@ -14,7 +14,7 @@ import {
   type ProviderDestinationFormatSnapshot,
   type ProviderJsonSchemaSummary,
   type ProviderSchemaSnapshot,
-} from "@skillset/provider-formats";
+} from "@skillset/registry";
 import { describe, expect, test } from "bun:test";
 
 import {

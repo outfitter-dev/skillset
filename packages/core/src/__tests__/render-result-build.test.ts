@@ -3,7 +3,7 @@ import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { getProviderDestinationFormatSnapshot } from "@skillset/provider-formats";
+import { getProviderDestinationFormatSnapshot } from "@skillset/registry";
 
 import {
   buildSkillsetResult,
@@ -750,6 +750,34 @@ hooks:
       reason: "Codex ignores matchers for adaptive hook event Stop, so this attachment cannot render faithfully.",
       sourceUnit: "plugin.demo.feature:hooks",
     });
+
+    const claudeMatcherRoot = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-policy-claude-matcher
+claude: true
+codex: false
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  Stop:
+    - hook: stop-policy
+      match: main
+`,
+      ".skillset/plugins/demo/hooks/stop-policy.json": JSON.stringify({
+        events: ["Stop"],
+        run: { command: "echo stop" },
+      }),
+    });
+    await expectUnsupportedOutcome(claudeMatcherRoot, {
+      destination: "hooks",
+      featureId: "adaptive-hooks",
+      reason: "Claude ignores matchers for adaptive hook event Stop, so this attachment cannot render faithfully.",
+      sourceUnit: "plugin.demo.feature:hooks",
+      target: "claude",
+    });
   });
 
   it("enforces unsupported adaptive hook outcomes for render field gaps", async () => {
@@ -797,13 +825,13 @@ hooks:
 `,
       ".skillset/plugins/demo/hooks/shell-policy.json": JSON.stringify({
         events: ["Stop"],
-        run: { command: "echo ok", env: { CHECK: "1" } },
+        run: { command: "echo ok", cwd: "scripts" },
       }),
     });
     await expectUnsupportedOutcome(runFieldRoot, {
       destination: "hooks",
       featureId: "adaptive-hooks",
-      reason: "Adaptive hook shell-policy uses run.env, but plugin hook rendering only supports run.command and run.script yet.",
+      reason: "Adaptive hook shell-policy uses run.cwd, but plugin hook rendering only supports run.command, run.script, and run.env yet.",
       sourceUnit: "plugin.demo.feature:hooks",
     });
 

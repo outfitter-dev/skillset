@@ -255,7 +255,13 @@ hooks:
 `,
       ".skillset/plugins/demo/hooks/shell-policy.json": JSON.stringify({
         events: ["PreToolUse"],
-        run: { script: "{{scripts.dir}}/check.sh" },
+        run: {
+          env: {
+            CHECK: "1",
+            MESSAGE: "two words",
+          },
+          script: "{{scripts.dir}}/check.sh",
+        },
       }),
       ".skillset/plugins/demo/scripts/check.sh": "#!/bin/sh\nexit 0\n",
     }));
@@ -271,7 +277,7 @@ hooks:
     expect(claudeHooks).toEqual({
       hooks: {
         PreToolUse: [{
-          hooks: [{ command: "$CLAUDE_PLUGIN_ROOT/scripts/check.sh", type: "command" }],
+          hooks: [{ command: "env CHECK=1 MESSAGE='two words' sh -c '$CLAUDE_PLUGIN_ROOT/scripts/check.sh'", type: "command" }],
           matcher: "Bash",
           statusMessage: "Checking shell command",
         }],
@@ -280,7 +286,7 @@ hooks:
     expect(codexHooks).toEqual({
       hooks: {
         PreToolUse: [{
-          hooks: [{ command: "$PLUGIN_ROOT/scripts/check.sh", type: "command" }],
+          hooks: [{ command: "env CHECK=1 MESSAGE='two words' sh -c '$PLUGIN_ROOT/scripts/check.sh'", type: "command" }],
           matcher: "Bash",
           statusMessage: "Checking shell command",
         }],
@@ -290,6 +296,65 @@ hooks:
       "plugins-claude/plugins/demo/scripts/check.sh",
       "plugins-codex/plugins/demo/scripts/check.sh",
     ]));
+  });
+
+  test("rejects plugin adaptive hook run.env keys that cannot render as shell assignments", async () => {
+    const graph = await loadBuildGraph(await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-env-key
+claude: true
+codex: false
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  Stop:
+    - shell-policy
+`,
+      ".skillset/plugins/demo/hooks/shell-policy.json": JSON.stringify({
+        events: ["Stop"],
+        run: { command: "echo ok", env: { "BAD-NAME": "1" } },
+      }),
+    }));
+
+    await expect(renderBuildGraph(graph)).rejects.toThrow("run.env key BAD-NAME is not a valid shell environment variable name");
+  });
+
+  test("renders plugin hook run.env around the whole shell command", async () => {
+    const graph = await loadBuildGraph(await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-env-command
+claude: true
+codex: false
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  Stop:
+    - shell-policy
+`,
+      ".skillset/plugins/demo/hooks/shell-policy.json": JSON.stringify({
+        events: ["Stop"],
+        run: {
+          command: "echo \"$CHECK\" && ./check.sh",
+          env: { CHECK: "1" },
+        },
+      }),
+    }));
+
+    const rendered = await renderBuildGraph(graph);
+    const claudeHooks = renderedJson(rendered, "plugins-claude/plugins/demo/hooks/hooks.json");
+    expect(claudeHooks).toEqual({
+      hooks: {
+        Stop: [{
+          hooks: [{ command: "env CHECK=1 sh -c 'echo \"$CHECK\" && ./check.sh'", type: "command" }],
+        }],
+      },
+    });
   });
 
   test("renders inline hook context for plugin-level adaptive hooks", async () => {

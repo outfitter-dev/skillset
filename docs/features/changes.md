@@ -67,7 +67,7 @@ Stacked branches may produce multiple pending entries for the same source unit. 
 
 `change check` also warns when an entry declares `bump: none` for an added, removed, or severity-bearing source unit. `supports` edits remain source-significant but are not inherently severity-bearing. Source coverage diagnostics stay separate from generated-output drift.
 
-Schema and provider-format work can need both ledgers. A Skillset pending change entry records the source-unit reason when a contract, provider support row, migration, or generated-output promise changes inside the workspace. A package Changeset records the npm-facing CLI/runtime change when the branch touches `packages/schema/src/**`, `packages/provider-formats/src/**`, or package metadata. Generated schema artifacts under `docs/reference/schemas/**` and `docs/reference/examples/**` stay with the schema source change, but they are derived evidence rather than a substitute for the source package Changeset.
+Schema and provider-format work can need both ledgers. A Skillset pending change entry records the source-unit reason when a contract, provider support row, migration, or generated-output promise changes inside the workspace. A package Changeset records the npm-facing CLI/runtime change when the branch touches `packages/schema/src/**`, `packages/registry/src/**`, or package metadata. Generated schema artifacts under `docs/reference/schemas/**` and `docs/reference/examples/**` stay with the schema source change, but they are derived evidence rather than a substitute for the source package Changeset.
 
 Use pending-entry language that names the visible drift class:
 

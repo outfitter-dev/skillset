@@ -7,6 +7,9 @@
     "env": ["provider", "hook.event", "session.id"]
   },
   "run": {
+    "env": {
+      "SKILLSET_FIXTURE_HOOK": "shell-policy"
+    },
     "script": "./check.sh"
   }
 }

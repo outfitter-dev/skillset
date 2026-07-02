@@ -102,7 +102,12 @@ function printLookupReport(report: LookupReport): void {
     for (const event of report.events) {
       const required = event.fields.filter((field) => field.required).map((field) => field.name);
       const suffix = required.length === 0 ? "" : ` required: ${required.join(", ")}`;
-      console.log(`    [${event.target}] ${event.name}${suffix}`);
+      const handlers = event.handlerTypes.length === 0 ? "" : ` handlers: ${event.handlerTypes.join(", ")}`;
+      const values = event.matcherValues.length === 0 ? "" : ` values: ${event.matcherValues.join(", ")}`;
+      const outputs = event.outputFields.length === 0 ? "" : ` output: ${event.outputFields.join(", ")}`;
+      const unsupportedOutputs = event.unsupportedOutputFields.length === 0 ? "" : ` unsupported output: ${event.unsupportedOutputFields.join(", ")}`;
+      const blocking = event.canBlock ? " blocks" : "";
+      console.log(`    [${event.target}] ${event.name} matcher: ${event.matcherKind}/${event.matcherEvaluation}${values}${handlers}${suffix}${outputs}${unsupportedOutputs}${blocking}`);
     }
   }
   if (report.compatibility.length > 0) {

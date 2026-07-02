@@ -2,14 +2,20 @@ import { mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, stat, writeFil
 import { homedir } from "node:os";
 import { basename, dirname, join, relative, resolve } from "node:path";
 
-import { defineRenderResult, type SkillsetRenderResult } from "@skillset/core";
+import {
+  classifyNativeHookLiftDiagnostics,
+  defineRenderResult,
+  type JsonValue,
+  type NativeHookLiftDiagnostic,
+  type SkillsetRenderResult,
+} from "@skillset/core";
 
 import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
 import { readSkillsetMetadata, readSkillsetName, readString } from "./config";
 import { compareStrings, resolveInside, validateSlug } from "./path";
 import { detectWorkspaceSourceDir } from "./resolver";
-import { selectorForPluginConfig, selectorForStandaloneSkill } from "./source-unit-selector";
-import type { JsonRecord, SourceOrigin } from "./types";
+import { selectorForPluginConfig, selectorForPluginFeature, selectorForStandaloneSkill } from "./source-unit-selector";
+import type { JsonRecord, SourceOrigin, TargetName } from "./types";
 import { isJsonRecord, parseMarkdown, parseYamlRecord, stringifyMarkdown, stringifyYaml } from "./yaml";
 
 const DEFAULT_SOURCE_DIR = ".skillset";
@@ -192,19 +198,22 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       throw error;
     }
 
+    const renderResults = await importRenderResults({
+      classification,
+      copiedFiles,
+      kind: options.kind,
+      name,
+      rootPath: options.rootPath,
+      targetPath,
+    });
+
     return {
       baselines: baselineReport.entries,
       copiedFiles,
       files: copiedFiles.length,
       inferredSourceFields: classification.recognized,
       kind: options.kind,
-      renderResults: importRenderResults({
-        classification,
-        kind: options.kind,
-        name,
-        rootPath: options.rootPath,
-        targetPath,
-      }),
+      renderResults,
       name,
       nextChecks: [
         "skillset lint",
@@ -304,7 +313,21 @@ function importWarnings(classification: FrontmatterClassification): readonly str
   return warnings;
 }
 
-function importRenderResults(args: {
+async function importRenderResults(args: {
+  readonly classification: FrontmatterClassification;
+  readonly copiedFiles: readonly string[];
+  readonly kind: SingularImportKind;
+  readonly name: string;
+  readonly rootPath: string;
+  readonly targetPath: string;
+}): Promise<readonly SkillsetRenderResult[]> {
+  return [
+    ...importFrontmatterRenderResults(args),
+    ...(await importNativeHookRenderResults(args)),
+  ];
+}
+
+function importFrontmatterRenderResults(args: {
   readonly classification: FrontmatterClassification;
   readonly kind: SingularImportKind;
   readonly name: string;
@@ -334,6 +357,93 @@ function importRenderResults(args: {
       target: "claude",
     }),
   ];
+}
+
+async function importNativeHookRenderResults(args: {
+  readonly copiedFiles: readonly string[];
+  readonly kind: SingularImportKind;
+  readonly name: string;
+  readonly rootPath: string;
+  readonly targetPath: string;
+}): Promise<readonly SkillsetRenderResult[]> {
+  if (args.kind !== "plugin" || !args.copiedFiles.some((file) => normalizeCopiedImportPath(file) === "hooks/hooks.json")) return [];
+  const hookPath = join(args.targetPath, "hooks", "hooks.json");
+  const sourcePath = relative(args.rootPath, hookPath).replaceAll("\\", "/");
+  const targets = await importedNativePluginTargets(args.targetPath);
+  let parsed: JsonValue;
+  try {
+    parsed = JSON.parse(await readFile(hookPath, "utf8")) as JsonValue;
+  } catch (error) {
+    return targets.map((target) => importNativeHookParseResult(args, sourcePath, target, errorMessage(error)));
+  }
+  const diagnostics = classifyNativeHookLiftDiagnostics({
+    parsed,
+    scope: { kind: "plugin", pluginId: args.name },
+    sourcePath,
+    targets,
+  });
+  return diagnostics.map((diagnostic) => importNativeHookRenderResult(args, sourcePath, diagnostic));
+}
+
+function importNativeHookParseResult(
+  args: {
+    readonly name: string;
+  },
+  sourcePath: string,
+  target: TargetName,
+  message: string
+): SkillsetRenderResult {
+  const reason = `could not classify native hook lift for ${sourcePath}: ${message}`;
+  return defineRenderResult({
+    destination: "hooks",
+    diagnostics: [
+      {
+        code: "import-native-hook-lift-unclassified",
+        message: reason,
+        path: sourcePath,
+      },
+    ],
+    featureId: "plugin-hooks",
+    outputs: [{ kind: "imported-source", path: sourcePath }],
+    reason,
+    sourcePath,
+    sourceUnit: selectorForPluginFeature(args.name, "hooks"),
+    status: "target_native",
+    target,
+  });
+}
+
+function importNativeHookRenderResult(
+  args: {
+    readonly name: string;
+  },
+  sourcePath: string,
+  diagnostic: NativeHookLiftDiagnostic
+): SkillsetRenderResult {
+  return defineRenderResult({
+    destination: "hooks",
+    diagnostics: [
+      {
+        code: `import-${diagnostic.code}`,
+        message: diagnostic.message,
+        path: diagnostic.path,
+      },
+    ],
+    featureId: "plugin-hooks",
+    outputs: [{ kind: "imported-source", path: sourcePath }],
+    reason: diagnostic.message,
+    sourcePath,
+    sourceUnit: selectorForPluginFeature(args.name, "hooks"),
+    status: "target_native",
+    target: diagnostic.target,
+  });
+}
+
+async function importedNativePluginTargets(targetPath: string): Promise<readonly TargetName[]> {
+  const targets: TargetName[] = [];
+  if (await exists(join(targetPath, ".claude-plugin", "plugin.json"))) targets.push("claude");
+  if (await exists(join(targetPath, ".codex-plugin", "plugin.json"))) targets.push("codex");
+  return targets.length === 0 ? ["claude", "codex"] : targets;
 }
 
 function isClaudeToolPolicyField(field: string): boolean {
@@ -473,7 +583,11 @@ function relativeImportPath(sourceRoot: string, file: string, kind: SingularImpo
   if (kind === "plugin" && (relativePath === "skillset.yaml" || relativePath === "config.yaml")) {
     return "skillset.yaml";
   }
-  return relativePath;
+  return normalizeCopiedImportPath(relativePath);
+}
+
+export function normalizeCopiedImportPath(path: string): string {
+  return path.replaceAll("\\", "/");
 }
 
 async function isSamePath(left: string, right: string): Promise<boolean> {
@@ -721,4 +835,8 @@ async function exists(path: string): Promise<boolean> {
     }
     throw error;
   }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

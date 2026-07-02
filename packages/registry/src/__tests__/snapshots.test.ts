@@ -5,9 +5,11 @@ import {
   PROVIDER_SCHEMA_SNAPSHOT_SCHEMA,
   assertProviderSchemaSnapshots,
   getProviderDestinationFormatSnapshot,
+  getProviderHookEvidence,
   getProviderSchemaSnapshot,
   hashProviderDestinationFormatSnapshot,
   hashProviderSchemaSnapshot,
+  listProviderHookEvidence,
   listProviderDestinationFormatSnapshots,
   listProviderSchemaSnapshots,
   normalizeProviderDestinationFormatSnapshot,
@@ -17,7 +19,7 @@ import {
   providerSchemaSnapshots,
 } from "../index";
 
-describe("@skillset/provider-formats snapshots", () => {
+describe("@skillset/registry snapshots", () => {
   it("exports deterministic adopted provider destination formats", () => {
     expect(listProviderDestinationFormatSnapshots()).toBe(providerDestinationFormatSnapshots);
     expect(providerDestinationFormatSnapshots.map((snapshot) => snapshot.id)).toEqual([
@@ -61,7 +63,7 @@ describe("@skillset/provider-formats snapshots", () => {
   });
 });
 
-describe("@skillset/provider-formats schema snapshots", () => {
+describe("@skillset/registry schema snapshots", () => {
   it("exports deterministic adopted provider schema snapshots", () => {
     expect(listProviderSchemaSnapshots()).toBe(providerSchemaSnapshots);
     expect(providerSchemaSnapshots.map((snapshot) => snapshot.id)).toEqual([
@@ -135,6 +137,7 @@ describe("@skillset/provider-formats schema snapshots", () => {
 
   it("documents current docs-only schema gaps as manual overlays", () => {
     expect(providerSchemaManualOverlays.map((overlay) => overlay.id)).toEqual([
+      "claude-hooks-overlay",
       "claude-skill-frontmatter-overlay",
       "claude-subagent-frontmatter-overlay",
       "codex-plugin-manifest-overlay",
@@ -145,5 +148,54 @@ describe("@skillset/provider-formats schema snapshots", () => {
       formatSnapshotId: "codex-plugin",
       note: expect.stringContaining("no adopted JSON Schema source"),
     }));
+  });
+});
+
+describe("@skillset/registry hook evidence", () => {
+  it("exports provider hook evidence for Claude overlays and Codex schemas", () => {
+    expect(listProviderHookEvidence().map((evidence) => `${evidence.target}:${evidence.evidenceKind}:${evidence.providerRef}`)).toEqual([
+      "claude:docs-backed-overlay:claude-hooks-overlay",
+      "codex:schema-backed:codex-hooks-schema",
+    ]);
+
+    const claude = getProviderHookEvidence("claude");
+    const codex = getProviderHookEvidence("codex");
+    const claudePreToolUse = claude.events.find((event) => event.name === "PreToolUse");
+    const claudeStopFailure = claude.events.find((event) => event.name === "StopFailure");
+    const codexPreCompact = codex.events.find((event) => event.name === "PreCompact");
+    const codexSessionStart = codex.events.find((event) => event.name === "SessionStart");
+    const codexPreToolUse = codex.events.find((event) => event.name === "PreToolUse");
+
+    expect(claudePreToolUse).toMatchObject({
+      canBlock: true,
+      evidenceKind: "docs-backed-overlay",
+      matcherEvaluation: "exact-list-or-regex",
+      matcherKind: "tool",
+      providerRef: "claude-hooks-overlay",
+    });
+    expect(claudePreToolUse?.inputFields.map((field) => field.name)).toEqual(expect.arrayContaining(["tool_input", "tool_name"]));
+    expect(claudePreToolUse?.outputFields).toEqual(expect.arrayContaining(["permissionDecision", "permissionDecisionReason"]));
+    expect(claudeStopFailure).toMatchObject({
+      outputFields: [],
+      rawOutputFields: expect.arrayContaining(["continue", "stopReason", "systemMessage"]),
+      runtimeNotes: ["output-and-exit-code-ignored"],
+      unsupportedOutputFields: expect.arrayContaining(["continue", "stopReason", "systemMessage"]),
+    });
+    expect(codexPreToolUse).toMatchObject({
+      canBlock: true,
+      evidenceKind: "schema-backed",
+      matcherEvaluation: "provider-native",
+      matcherKind: "tool",
+      providerRef: "codex-hook-event-schemas",
+    });
+    expect(codexPreToolUse?.inputFields).toEqual(expect.arrayContaining([
+      { name: "cwd", required: true },
+      { name: "tool_name", required: true },
+    ]));
+    expect(codexPreToolUse?.outputFields).toEqual(["decision", "hookSpecificOutput", "reason", "systemMessage"]);
+    expect(codexPreToolUse?.rawOutputFields).toEqual(expect.arrayContaining(["continue", "decision", "hookSpecificOutput", "stopReason", "suppressOutput"]));
+    expect(codexPreToolUse?.unsupportedOutputFields).toEqual(["continue", "stopReason", "suppressOutput"]);
+    expect(codexPreCompact?.matcherValues).toEqual(["manual", "auto"]);
+    expect(codexSessionStart?.matcherValues).toEqual(["startup", "resume", "clear", "compact"]);
   });
 });

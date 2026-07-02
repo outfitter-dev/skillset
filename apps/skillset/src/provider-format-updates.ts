@@ -14,7 +14,7 @@ import {
   listProviderFormatMigrations,
   type ProviderDestinationFormatSnapshotId,
   type ProviderFormatMigrationEntry,
-} from "@skillset/provider-formats";
+} from "@skillset/registry";
 
 export type ProviderFormatUpdateCommand = "check" | "update";
 
