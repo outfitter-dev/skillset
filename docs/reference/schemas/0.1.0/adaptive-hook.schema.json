@@ -39,6 +39,9 @@
       },
       "type": "object"
     },
+    "cursor": {
+      "type": "object"
+    },
     "description": {
       "minLength": 1,
       "type": "string"
@@ -71,7 +74,8 @@
       "items": {
         "enum": [
           "claude",
-          "codex"
+          "codex",
+          "cursor"
         ],
         "type": "string"
       },

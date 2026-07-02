@@ -1,6 +1,5 @@
 import {
   COMPILE_BUILD_MODES as SCHEMA_COMPILE_BUILD_MODES,
-  TARGET_NAMES as SCHEMA_TARGET_NAMES,
   validateSourceMetadata,
   validateWorkspaceConfig,
   type SkillsetSchemaDiagnostic,
@@ -24,16 +23,26 @@ import type {
 } from "./types";
 import { SKILLSET_RUNTIME_IDS, type SkillsetRuntimeId } from "./feature-registry";
 import { DEFAULT_PLUGIN_OUTPUT_ROOT } from "./plugin-output";
+import {
+  DEFAULT_TARGET_NAME_SET,
+  DEFAULT_TARGET_NAMES,
+  TARGET_LIST_TEXT,
+  TARGET_NAMES,
+  isTargetName,
+  targetNames,
+  targetRecord,
+} from "./targets";
 import { isJsonRecord } from "./yaml";
 
-const TARGET_NAMES = SCHEMA_TARGET_NAMES as readonly TargetName[];
+export { defaultTargetNames, isTargetName, targetNames, targetRecord } from "./targets";
+
 export type FeatureSurface = "agents" | "instructions" | "plugins" | "skills";
 
 const DEFAULT_SURFACES = new Set<FeatureSurface>(["agents", "instructions", "plugins", "skills"]);
-const CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "changes", "claude", "codex", "defaults", "dependencies", "skillset", "supports"]);
+const CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "changes", "claude", "codex", "cursor", "defaults", "dependencies", "skillset", "supports"]);
 const PLUGIN_CONFIG_TOP_LEVEL_KEYS = new Set([...CONFIG_TOP_LEVEL_KEYS, "hooks"]);
 const ROOT_CONFIG_TOP_LEVEL_KEYS = new Set([...CONFIG_TOP_LEVEL_KEYS, "compile", "distributions", "marketplaces", "workspace"]);
-const WORKSPACE_CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "changes", "claude", "codex", "compile", "defaults", "dependencies", "distributions", "marketplaces", "workspace"]);
+const WORKSPACE_CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "changes", "claude", "codex", "cursor", "compile", "defaults", "dependencies", "distributions", "marketplaces", "workspace"]);
 const ROOT_SOURCE_MANIFEST_TOP_LEVEL_KEYS = new Set(["dependencies", "skillset", "supports"]);
 const COMPILE_BUILD_MODES = new Set<CompileBuildMode>(SCHEMA_COMPILE_BUILD_MODES as readonly CompileBuildMode[]);
 const UNSUPPORTED_DESTINATION_POLICIES = new Set<UnsupportedDestinationPolicy>([
@@ -45,6 +54,7 @@ const UNSUPPORTED_DESTINATION_POLICIES = new Set<UnsupportedDestinationPolicy>([
 const DISTRIBUTION_RUNTIME_TARGETS: Readonly<Record<TargetName, readonly SkillsetRuntimeId[]>> = {
   claude: ["claude-code"],
   codex: ["codex-app", "codex-cli"],
+  cursor: ["cursor"],
 };
 const SOURCE_ONLY_KEYS = new Set([
   "agents",
@@ -54,6 +64,7 @@ const SOURCE_ONLY_KEYS = new Set([
   "changes",
   "compile",
   "codex",
+  "cursor",
   "defaults",
   "dependencies",
   "distributions",
@@ -75,10 +86,7 @@ const SOURCE_ONLY_KEYS = new Set([
 ]);
 
 export function defaultTargets(): Readonly<Record<TargetName, ResolvedTarget>> {
-  return {
-    claude: { enabled: true, options: {} },
-    codex: { enabled: true, options: {} },
-  };
+  return targetRecord((target) => ({ enabled: DEFAULT_TARGET_NAME_SET.has(target), options: {} }));
 }
 
 export function readCompileConfig(record: JsonRecord, label: string): CompileConfig {
@@ -88,7 +96,7 @@ export function readCompileConfig(record: JsonRecord, label: string): CompileCon
       build: "updated",
       features: { promptArguments: true },
       skillset: { metadata: true },
-      targets: [...TARGET_NAMES],
+      targets: [...DEFAULT_TARGET_NAMES],
       unsupportedDestination: "error",
     };
   }
@@ -133,15 +141,15 @@ export function readCompileTargets(
   const targets = readCompileTargetNames(compile, `${label}.compile.targets`);
   const enabledTargets = new Set(targets);
 
-  return mergeTargetDefaults({
-    claude: { enabled: enabledTargets.has("claude"), options: {} },
-    codex: { enabled: enabledTargets.has("codex"), options: {} },
-  }, rootDefaults);
+  return mergeTargetDefaults(
+    targetRecord((target) => ({ enabled: enabledTargets.has(target), options: {} })),
+    rootDefaults
+  );
 }
 
 function readCompileTargetNames(record: JsonRecord, label: string): readonly TargetName[] {
   const targets = record.targets;
-  if (targets === undefined) return [...TARGET_NAMES];
+  if (targets === undefined) return [...DEFAULT_TARGET_NAMES];
   if (!Array.isArray(targets)) {
     throw new Error(`skillset: expected ${label} to be a string array`);
   }
@@ -151,9 +159,9 @@ function readCompileTargetNames(record: JsonRecord, label: string): readonly Tar
 
   const enabledTargets = new Set<TargetName>();
   for (const target of targets) {
-    if (target !== "claude" && target !== "codex") {
+    if (!isTargetName(target)) {
       throw new Error(
-        `skillset: unsupported target ${JSON.stringify(target)} in ${label}; expected claude or codex`
+        `skillset: unsupported target ${JSON.stringify(target)} in ${label}; expected ${TARGET_LIST_TEXT}`
       );
     }
     if (enabledTargets.has(target)) {
@@ -212,6 +220,8 @@ export function readOutputConfig(
   const claudeSkills = readTargetOutputSetting(record.claude, "skills", "claude.skills");
   const codexPlugins = readTargetOutputSetting(record.codex, "plugins", "codex.plugins");
   const codexSkills = readTargetOutputSetting(record.codex, "skills", "codex.skills");
+  const cursorPlugins = readTargetOutputSetting(record.cursor, "plugins", "cursor.plugins");
+  const cursorSkills = readTargetOutputSetting(record.cursor, "skills", "cursor.skills");
 
   return {
     plugins: {
@@ -223,10 +233,15 @@ export function readOutputConfig(
         codexPlugins.path ??
         readString(pluginOutputs, "codex") ??
         (options.distDir === undefined ? DEFAULT_PLUGIN_OUTPUT_ROOT : `${options.distDir}/codex`),
+      cursor:
+        cursorPlugins.path ??
+        readString(pluginOutputs, "cursor") ??
+        (options.distDir === undefined ? DEFAULT_PLUGIN_OUTPUT_ROOT : `${options.distDir}/cursor`),
     },
     skills: {
       claude: claudeSkills.path ?? readString(skillOutputs, "claude") ?? ".claude/skills",
       codex: codexSkills.path ?? readString(skillOutputs, "codex") ?? ".agents/skills",
+      cursor: cursorSkills.path ?? readString(skillOutputs, "cursor") ?? ".cursor/skills",
     },
     targetOutputs: {
       claude: {
@@ -236,6 +251,10 @@ export function readOutputConfig(
       codex: {
         plugins: codexPlugins.selection,
         skills: codexSkills.selection,
+      },
+      cursor: {
+        plugins: cursorPlugins.selection,
+        skills: cursorSkills.selection,
       },
     },
   };
@@ -356,10 +375,9 @@ export function resolveTargets(
     options.allowDefaults === true
       ? mergeTargetDefaults(parent, readShorthandTargetDefaults(record, label))
       : parent;
-  return {
-    claude: resolveTarget(parentWithDefaults.claude, record.claude, `${label}.claude`, options),
-    codex: resolveTarget(parentWithDefaults.codex, record.codex, `${label}.codex`, options),
-  };
+  return targetRecord((target) =>
+    resolveTarget(parentWithDefaults[target], record[target], `${label}.${target}`, options)
+  );
 }
 
 export function resolveFeatureTargets(
@@ -379,10 +397,7 @@ export function applyFeatureTargetDefaults(
   targets: Readonly<Record<TargetName, ResolvedTarget>>,
   surface: FeatureSurface
 ): Readonly<Record<TargetName, ResolvedTarget>> {
-  return {
-    claude: applyFeatureDefaults(targets.claude, surface),
-    codex: applyFeatureDefaults(targets.codex, surface),
-  };
+  return targetRecord((target) => applyFeatureDefaults(targets[target], surface));
 }
 
 export function resolveTarget(
@@ -479,10 +494,6 @@ export function readRecord(record: JsonRecord, key: string): JsonRecord | undefi
   return value;
 }
 
-export function targetNames(): readonly TargetName[] {
-  return TARGET_NAMES;
-}
-
 export function isOutputSelected(selection: OutputSelection, name: string): boolean {
   if (selection === true) return true;
   if (selection === false) return false;
@@ -552,7 +563,7 @@ function workspaceSchemaMessage(
       if (diagnostic.path === "$.targets") return `${label} uses unsupported targets key; use compile.targets`;
       return workspaceCompileTargetsMessage(record, label);
     case "schema/workspace-config/target":
-      return `unsupported target ${JSON.stringify(valueAtSchemaPath(record, diagnostic.path))} in ${path.replace(/\[\d+\]$/, "")}; expected claude or codex`;
+      return `unsupported target ${JSON.stringify(valueAtSchemaPath(record, diagnostic.path))} in ${path.replace(/\[\d+\]$/, "")}; expected ${TARGET_LIST_TEXT}`;
     case "schema/workspace-config/target-duplicate":
       return `duplicate target ${JSON.stringify(valueAtSchemaPath(record, diagnostic.path))} in ${path.replace(/\[\d+\]$/, "")}`;
     case "schema/workspace-config/compile":
@@ -810,8 +821,8 @@ function readOptionalTargetNames(raw: JsonValue | undefined, label: string): rea
   }
   const seen = new Set<TargetName>();
   for (const target of raw) {
-    if (target !== "claude" && target !== "codex") {
-      throw new Error(`skillset: unsupported target ${JSON.stringify(target)} in ${label}; expected claude or codex`);
+    if (!isTargetName(target)) {
+      throw new Error(`skillset: unsupported target ${JSON.stringify(target)} in ${label}; expected ${TARGET_LIST_TEXT}`);
     }
     if (seen.has(target)) {
       throw new Error(`skillset: duplicate target ${JSON.stringify(target)} in ${label}`);
@@ -849,8 +860,8 @@ function readDistributionFrom(raw: JsonValue | undefined, label: string): Distri
   }
 
   const target = raw.target;
-  if (target !== "claude" && target !== "codex") {
-    throw new Error(`skillset: expected ${label}.target to be claude or codex`);
+  if (!isTargetName(target)) {
+    throw new Error(`skillset: expected ${label}.target to be ${TARGET_LIST_TEXT}`);
   }
   const selector = readRequiredString(raw, "selector", `${label}.selector`);
   const runtime = readDistributionRuntime(raw, target, label);
@@ -940,15 +951,15 @@ function readShorthandTargetDefaults(
   label: string
 ): Readonly<Record<TargetName, JsonRecord>> {
   const defaults = record.defaults;
-  const result: Record<TargetName, JsonRecord> = { claude: {}, codex: {} };
+  const result = targetRecord(() => ({}));
   if (defaults === undefined) return result;
   if (!isJsonRecord(defaults)) {
     throw new Error(`skillset: expected ${label}.defaults to be an object`);
   }
   for (const key of Object.keys(defaults)) {
-    if (key !== "claude" && key !== "codex") {
+    if (!isTargetName(key)) {
       throw new Error(
-        `skillset: unsupported target ${JSON.stringify(key)} in ${label}.defaults; expected claude or codex`
+        `skillset: unsupported target ${JSON.stringify(key)} in ${label}.defaults; expected ${TARGET_LIST_TEXT}`
       );
     }
     const targetDefaults = defaults[key];
@@ -975,10 +986,7 @@ function mergeTargetDefaults(
   targets: Readonly<Record<TargetName, ResolvedTarget>>,
   defaults: Readonly<Record<TargetName, JsonRecord>>
 ): Readonly<Record<TargetName, ResolvedTarget>> {
-  return {
-    claude: mergeTargetDefault(targets.claude, defaults.claude),
-    codex: mergeTargetDefault(targets.codex, defaults.codex),
-  };
+  return targetRecord((target) => mergeTargetDefault(targets[target], defaults[target]));
 }
 
 function mergeTargetDefault(target: ResolvedTarget, defaults: JsonRecord): ResolvedTarget {

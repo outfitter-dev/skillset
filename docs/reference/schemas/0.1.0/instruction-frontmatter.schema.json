@@ -23,6 +23,16 @@
         }
       ]
     },
+    "cursor": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "object"
+        }
+      ]
+    },
     "description": {
       "minLength": 1,
       "type": "string"

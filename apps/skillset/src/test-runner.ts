@@ -3,7 +3,7 @@ import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
 import { buildSkillset, diffSkillset } from "./build";
-import { readCompileTargets, readRecord, readString, resolveTargets, targetNames } from "./config";
+import { isTargetName, readCompileTargets, readRecord, readString, resolveTargets, targetNames } from "./config";
 import { compareStrings, resolveInside } from "./path";
 import { pluginManifestPath as pluginManifestOutputPath, pluginTargetRoot } from "./plugin-output";
 import {
@@ -356,8 +356,8 @@ function readTargets(value: JsonValue | undefined, label: string, defaultTargets
   const enabled = new Set(defaultTargets);
   const seen = new Set<TargetName>();
   for (const target of value) {
-    if (target !== "claude" && target !== "codex") {
-      throw new Error(`skillset: unsupported target ${JSON.stringify(target)} in ${label}; expected claude or codex`);
+    if (!isTargetName(target)) {
+      throw new Error(`skillset: unsupported target ${JSON.stringify(target)} in ${label}; expected ${targetNames().join(", ")}`);
     }
     if (seen.has(target)) throw new Error(`skillset: duplicate target ${JSON.stringify(target)} in ${label}`);
     if (!enabled.has(target)) throw new Error(`skillset: test target ${target} in ${label} is not enabled by root target configuration`);

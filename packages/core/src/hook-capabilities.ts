@@ -97,6 +97,7 @@ export const hookProviderCapabilities: Readonly<Record<HookCapabilityProvider, H
     },
     statusMessage: true,
   }),
+  cursor: unsupportedCapability("cursor"),
 };
 
 function eventSet(evidence: ProviderHookEvidence): ReadonlySet<string> {
@@ -105,6 +106,41 @@ function eventSet(evidence: ProviderHookEvidence): ReadonlySet<string> {
 
 function handlerTypeSet(evidence: ProviderHookEvidence): ReadonlySet<string> {
   return new Set(evidence.handlerTypes.map((handler) => handler.type));
+}
+
+function unsupportedCapability(provider: HookCapabilityProvider): HookProviderCapability {
+  return {
+    asyncCommand: false,
+    canBlockByEvent: {},
+    configFields: {
+      groupFields: [],
+      handlerCommonFields: [],
+      rootFields: [],
+    },
+    documentedEvents: new Set(),
+    handlerFieldsByType: {},
+    handlerSkippedFieldsByType: {},
+    handlerTypes: new Set(),
+    handlerTypesByEvent: {},
+    inputFieldsByEvent: {},
+    matcherByEvent: {},
+    matcherEvaluationByEvent: {},
+    matcherValuesByEvent: {},
+    outputFieldsByEvent: {},
+    provider,
+    providerRefByEvent: {},
+    rawOutputFieldsByEvent: {},
+    runtimeNotesByEvent: {},
+    scopeSupport: {
+      agent: "unsupported",
+      plugin: "unsupported",
+      project: "unsupported",
+      skill: "unsupported",
+      user: "unsupported",
+    },
+    statusMessage: false,
+    unsupportedOutputFieldsByEvent: {},
+  };
 }
 
 function capabilityFromEvidence(

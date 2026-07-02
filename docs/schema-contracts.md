@@ -58,9 +58,10 @@ Use this checklist for any new source/config/frontmatter field:
    `bun run schema:check`, relevant focused tests, `bun run check`, and
    `bun run skillset:ci` before handoff.
 
-Provider-specific behavior belongs under explicit `claude` and `codex` blocks
-unless the field is intentionally portable. Provider source can preserve native
-Claude or Codex files, but adaptive source should use the shared contract so
+Provider-specific behavior belongs under explicit provider blocks such as
+`claude`, `codex`, and `cursor` unless the field is intentionally portable.
+Provider source can preserve native Claude, Codex, or Cursor files, but adaptive
+source should use the shared contract so
 compiler, Workbench, docs, and generated editor schemas agree.
 
 ## Drift Signals
@@ -74,8 +75,7 @@ Treat any of these as a contract drift smell:
 - generated schema artifacts pass while a runtime validator rejects the maximal
   example;
 - a docs page documents a field that is not present in `contracts.ts`;
-- a provider override is added at top level instead of inside `claude` or
-  `codex`.
+- a provider override is added at top level outside a known provider block.
 
 Fix drift by moving the shared structural rule into `@skillset/schema`, then
 adapting compiler and Workbench consumers to that shared result.

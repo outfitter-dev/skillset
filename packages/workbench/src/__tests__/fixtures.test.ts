@@ -4,6 +4,7 @@ import type {
   LintIssue,
   SkillsetFeatureEntry,
 } from "@skillset/core";
+import { targetRecord } from "@skillset/core";
 
 import {
   checkWorkbenchSourceContract,
@@ -209,10 +210,7 @@ function feature(
     sourceShape: ".skillset/test",
     status: "implemented",
     summary: "Test feature.",
-    targetSupport: {
-      claude: { status: "native" },
-      codex: { status: "native" },
-    },
+    targetSupport: targetRecord(() => ({ status: "native" })),
     title: "Test Feature",
     validationOwner: "packages/core/src/test.ts",
     ...rest,

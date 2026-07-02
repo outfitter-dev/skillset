@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { targetNames } from "./targets";
 import type { BuildGraph, TargetName } from "./types";
 
 export const DEFAULT_PLUGIN_OUTPUT_ROOT = "plugins";
@@ -22,8 +23,12 @@ export function pluginManifestPath(
   target: TargetName,
   pluginId: string
 ): string {
-  const manifestDirectory = target === "claude" ? ".claude-plugin" : ".codex-plugin";
+  const manifestDirectory = pluginManifestDirectory(target);
   return join(pluginTargetRoot(outputRoot, target, pluginId), manifestDirectory, "plugin.json").replaceAll("\\", "/");
+}
+
+export function pluginManifestDirectory(target: TargetName): string {
+  return `.${target}-plugin`;
 }
 
 export function claudeMarketplacePath(outputRoot: string): string {
@@ -46,7 +51,7 @@ export function pluginTargetForOutputPath(
   graph: BuildGraph,
   path: string
 ): TargetName | undefined {
-  for (const target of ["claude", "codex"] as const) {
+  for (const target of targetNames()) {
     const outputRoot = graph.root.outputs.plugins[target];
     if (isDefaultPluginOutputRoot(outputRoot)) {
       const parts = path.split("/");

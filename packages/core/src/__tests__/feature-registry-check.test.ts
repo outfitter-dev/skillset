@@ -8,6 +8,7 @@ import {
   listSkillsetFeatures,
   type SkillsetFeatureEntry,
   type SkillsetFeatureEvidence,
+  targetRecord,
 } from "@skillset/core";
 
 describe("feature registry drift checks", () => {
@@ -175,6 +176,8 @@ describe("feature registry drift checks", () => {
       "targetSupport.claude.evidence[1]:tests/missing.test.ts",
       "targetSupport.codex.evidence[0]:fixtures/missing",
       "targetSupport.codex.evidence[1]:tests/missing.test.ts",
+      "targetSupport.cursor.evidence[0]:fixtures/missing",
+      "targetSupport.cursor.evidence[1]:tests/missing.test.ts",
     ]);
   });
 
@@ -220,10 +223,7 @@ function feature(
     sourceShape: overrides.sourceShape ?? ".skillset/demo",
     status: overrides.status ?? "implemented",
     summary: overrides.summary ?? "Demo feature.",
-    targetSupport: overrides.targetSupport ?? {
-      claude: { evidence, status: "native" },
-      codex: { evidence, status: "native" },
-    },
+    targetSupport: overrides.targetSupport ?? targetRecord(() => ({ evidence, status: "native" })),
     title: overrides.title ?? "Demo",
     validationOwner: overrides.validationOwner ?? "src/demo.ts",
   };

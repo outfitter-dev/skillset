@@ -7,6 +7,7 @@ import {
   type SkillsetTargetSupportStatus,
 } from "./feature-registry";
 import { compareStrings } from "./path";
+import { targetNames } from "./targets";
 import type { TargetName } from "./types";
 
 export type AdapterConformanceCoverageStatus =
@@ -43,7 +44,7 @@ export function createAdapterConformanceCoverageReport(
 ): AdapterConformanceCoverageReport {
   const entries = [
     ...registry.flatMap((feature) =>
-      (["claude", "codex"] as const satisfies readonly TargetName[]).map((target) =>
+      targetNames().map((target) =>
         coverageEntry(feature, target, fixtureRefsFor(cases, feature.id, target))
       )
     ),

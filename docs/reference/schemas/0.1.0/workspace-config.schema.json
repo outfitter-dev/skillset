@@ -61,7 +61,8 @@
           "items": {
             "enum": [
               "claude",
-              "codex"
+              "codex",
+              "cursor"
             ],
             "type": "string"
           },
@@ -77,6 +78,16 @@
         }
       },
       "type": "object"
+    },
+    "cursor": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "object"
+        }
+      ]
     },
     "defaults": {
       "type": "object"
@@ -164,7 +175,8 @@
                   "items": {
                     "enum": [
                       "claude",
-                      "codex"
+                      "codex",
+                      "cursor"
                     ],
                     "type": "string"
                   },
@@ -189,7 +201,8 @@
             "items": {
               "enum": [
                 "claude",
-                "codex"
+                "codex",
+                "cursor"
               ],
               "type": "string"
             },

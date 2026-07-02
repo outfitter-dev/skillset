@@ -31,6 +31,7 @@ describe("lookupSkillsetReference", () => {
       "bin",
       "claude",
       "codex",
+      "cursor",
       "dependencies",
       "description",
       "dialect",
@@ -69,7 +70,7 @@ describe("lookupSkillsetReference", () => {
         path: "compile.targets",
         required: false,
         type: "array<enum>",
-        values: ["claude", "codex"],
+        values: ["claude", "codex", "cursor"],
       }),
     ]);
   });
@@ -138,6 +139,7 @@ describe("lookupSkillsetReference", () => {
       "adaptive-hook:claude",
       "adaptive-hook:codex",
       "adaptive-hook:context",
+      "adaptive-hook:cursor",
       "adaptive-hook:description",
       "adaptive-hook:events",
       "adaptive-hook:match",

@@ -1,8 +1,9 @@
 import { compareStrings } from "./path";
+import { targetNames } from "./targets";
 
 export type SourceUnitDisplayMode = "display" | "selector";
 
-const TARGETS = new Set(["claude", "codex"]);
+const TARGETS = new Set<string>(targetNames());
 
 export function sourceUnitSelector(raw: string): string {
   return raw;

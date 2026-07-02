@@ -60,6 +60,25 @@
                   "type": "array"
                 }
               ]
+            },
+            "cursor": {
+              "anyOf": [
+                {
+                  "const": false
+                },
+                {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "items": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                }
+              ]
             }
           },
           "type": "object"
@@ -87,6 +106,16 @@
       ]
     },
     "codex": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "object"
+        }
+      ]
+    },
+    "cursor": {
       "anyOf": [
         {
           "type": "boolean"
@@ -173,7 +202,8 @@
                   "items": {
                     "enum": [
                       "claude",
-                      "codex"
+                      "codex",
+                      "cursor"
                     ],
                     "type": "string"
                   },
@@ -222,7 +252,8 @@
                     "items": {
                       "enum": [
                         "claude",
-                        "codex"
+                        "codex",
+                        "cursor"
                       ],
                       "type": "string"
                     },
@@ -256,6 +287,9 @@
               "type": "boolean"
             },
             "codex": {
+              "type": "boolean"
+            },
+            "cursor": {
               "type": "boolean"
             }
           },
