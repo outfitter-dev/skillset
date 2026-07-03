@@ -7,18 +7,24 @@ import {
 } from "./adaptive-hook-attachments";
 import { adaptiveHookUnsupportedRenderReason, type AdaptiveHookRenderSurface } from "./adaptive-hook-render-support";
 import { readString, isOutputSelected } from "./config";
-import { getSkillsetFeature } from "./feature-registry";
+import { getSkillsetFeature, type SkillsetFeatureEvidence } from "./feature-registry";
 import { hookProviderCapabilities } from "./hook-capabilities";
 import {
   defineRenderResult,
   type SkillsetRenderResult,
+  type SkillsetRenderResultDiagnosticRef,
   type SkillsetRenderResultStatus,
   type SkillsetRenderResultPolicy,
 } from "./render-result";
 import { compareStrings } from "./path";
 import { pluginPathPartsForOutput, pluginTargetForOutputPath } from "./plugin-output";
 import { isTargetName, targetNames } from "./targets";
-import { readClaudeNativeToolRules } from "./skill-policy";
+import { readClaudeNativeToolRules, readEffectiveToolsPolicy } from "./skill-policy";
+import {
+  planToolsRealization,
+  renderResultStatusForToolsTier,
+  type ToolsRealizationPlan,
+} from "./tools-realization";
 import {
   selectorForInstruction,
   selectorForPluginConfig,
@@ -233,9 +239,11 @@ function featureOutcomesForLockItem(
       ? outputPaths.filter((path) => path.endsWith("/SKILL.md") || path === "SKILL.md")
       : [];
   if (claudeToolIntentOutputPaths.length > 0) {
+    const plan = toolsRealizationPlanForLockItem(graph, item, "claude");
     outcomes.push(
       featureOutcome({
         destination: "skill-frontmatter",
+        ...toolsPlanRenderFacts(plan, item.sourcePath),
         featureId: "tools-policy",
         isIncluded: claudeToolIntentOutputPaths.some((path) => includedPaths.has(path)),
         mapOutputPath,
@@ -243,17 +251,19 @@ function featureOutcomesForLockItem(
         outputPaths: claudeToolIntentOutputPaths,
         sourcePath: item.sourcePath,
         sourceUnit: sourceUnitForLockItem(item, target),
-        status: "transformed",
+        status: toolsFrontmatterStatus(plan),
         target,
       })
     );
   }
 
   const toolIntentOutputPaths = outputPaths.filter((path) => path.endsWith("/.skillset.tools.yaml"));
-  if (toolIntentOutputPaths.length > 0) {
+  if (toolIntentOutputPaths.length > 0 && target !== undefined) {
+    const plan = toolsRealizationPlanForLockItem(graph, item, target);
     outcomes.push(
       featureOutcome({
         destination: "skill-tools",
+        ...toolsPlanRenderFacts(plan, item.sourcePath),
         featureId: "tools-policy",
         isIncluded: toolIntentOutputPaths.some((path) => includedPaths.has(path)),
         mapOutputPath,
@@ -261,7 +271,7 @@ function featureOutcomesForLockItem(
         outputPaths: toolIntentOutputPaths,
         sourcePath: item.sourcePath,
         sourceUnit: sourceUnitForLockItem(item, target),
-        status: "metadata_only",
+        status: renderResultStatusForToolsTier("metadata-only"),
         target,
       })
     );
@@ -275,6 +285,70 @@ function skillHasClaudeToolIntent(graph: BuildGraph, item: RenderedLockItem): bo
   if (skill === undefined) return false;
   const rules = readClaudeNativeToolRules(skill.frontmatter, skill.targets.claude.options, item.sourcePath);
   return rules.allow.length > 0 || rules.deny.length > 0;
+}
+
+function toolsRealizationPlanForLockItem(
+  graph: BuildGraph,
+  item: RenderedLockItem,
+  target: TargetName
+): ToolsRealizationPlan | undefined {
+  const skill = sourceSkillForLockItem(graph, item);
+  if (skill === undefined) return undefined;
+  const policy = readEffectiveToolsPolicy(skill.frontmatter, skill.targets[target].options, target, item.sourcePath);
+  if (!policy.hasSource) return undefined;
+  return planToolsRealization(policy);
+}
+
+interface ToolsPlanRenderFacts {
+  readonly diagnostics?: readonly SkillsetRenderResultDiagnosticRef[];
+  readonly evidence?: readonly SkillsetFeatureEvidence[];
+}
+
+/**
+ * Registry-backed render facts for a tools-policy outcome: the plan's
+ * realization diagnostics become structured diagnostic refs and the plan's
+ * registry evidence replaces the coarse feature-level evidence.
+ */
+function toolsPlanRenderFacts(
+  plan: ToolsRealizationPlan | undefined,
+  sourcePath: string
+): ToolsPlanRenderFacts {
+  if (plan === undefined) return {};
+  const messages = [...new Set(plan.entries.flatMap((entry) => entry.diagnostics))].sort(compareStrings);
+  const evidence = uniqueToolsEvidence(plan.entries.flatMap((entry) => entry.evidence));
+  return {
+    ...(messages.length === 0
+      ? {}
+      : {
+          diagnostics: messages.map((message) => ({
+            code: "tools-policy-realization",
+            message,
+            path: sourcePath,
+          })),
+        }),
+    ...(evidence.length === 0 ? {} : { evidence }),
+  };
+}
+
+function toolsFrontmatterStatus(plan: ToolsRealizationPlan | undefined): SkillsetRenderResultStatus {
+  if (plan === undefined) return "transformed";
+  const rendered = plan.entries.filter((entry) => entry.emits.length > 0);
+  if (rendered.some((entry) => entry.kind === "portable")) {
+    return renderResultStatusForToolsTier("transformed");
+  }
+  return renderResultStatusForToolsTier("native");
+}
+
+function uniqueToolsEvidence(evidence: readonly SkillsetFeatureEvidence[]): readonly SkillsetFeatureEvidence[] {
+  const seen = new Set<string>();
+  const unique: SkillsetFeatureEvidence[] = [];
+  for (const item of evidence) {
+    const key = `${item.kind}\0${item.ref}\0${item.verifiedAt ?? ""}\0${item.note ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(item);
+  }
+  return unique;
 }
 
 function sourceSkillForLockItem(graph: BuildGraph, item: RenderedLockItem): SourceSkill | undefined {
@@ -418,6 +492,8 @@ function sourceUnitForAdaptiveHookScope(scope: AdaptiveHookScope): string | unde
 
 function featureOutcome(args: {
   readonly destination: string;
+  readonly diagnostics?: readonly SkillsetRenderResultDiagnosticRef[];
+  readonly evidence?: readonly SkillsetFeatureEvidence[];
   readonly featureId: string;
   readonly isIncluded: boolean;
   readonly mapOutputPath: OutputPathMapper;
@@ -429,11 +505,12 @@ function featureOutcome(args: {
   readonly target: TargetName | undefined;
 }): SkillsetRenderResult {
   const status: SkillsetRenderResultStatus = args.isIncluded ? args.status : "intentionally_skipped";
-  const evidence = evidenceFor(args.featureId, args.target);
+  const evidence = args.evidence ?? evidenceFor(args.featureId, args.target);
   const reason = args.isIncluded ? reasonForStatus(args.featureId, args.target, status) : "excluded by build scope";
 
   return defineRenderResult({
     destination: args.destination,
+    ...(args.diagnostics === undefined ? {} : { diagnostics: args.diagnostics }),
     ...(evidence === undefined ? {} : { evidence }),
     featureId: args.featureId,
     ...(args.isIncluded
