@@ -13,6 +13,11 @@
           "context": "- [Agent / Subagent Source Model](20260604-agent-source-model.md) - project and plugin agent boundaries.",
           "from": "20260702",
           "fromPath": "docs/adrs/drafts/20260702-cursor-is-a-first-class-provider.md"
+        },
+        {
+          "context": "- [Agent / Subagent Source Model](20260604-agent-source-model.md) - project-agent and plugin-agent boundaries.",
+          "from": "20260702",
+          "fromPath": "docs/adrs/drafts/20260702-portable-agent-authority-intent.md"
         }
       ],
       "number": null,
@@ -101,6 +106,11 @@
           "context": "- [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - registry-backed capability claims and evidence.",
           "from": "20260702",
           "fromPath": "docs/adrs/drafts/20260702-cursor-is-a-first-class-provider.md"
+        },
+        {
+          "context": "- [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - registry-backed feature and capability evidence.",
+          "from": "20260702",
+          "fromPath": "docs/adrs/drafts/20260702-portable-agent-authority-intent.md"
         },
         {
           "context": "See [Feature Reference and Schema Registry](../adrs/drafts/20260604-feature-reference-and-schema-registry.md) for the ADR-level decision.",
@@ -223,6 +233,11 @@
           "context": "- [Reviewed Settings Suggestions](20260604-reviewed-settings-suggestions.md) - keeps settings and marketplace activation out of build.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-first-class-sets.md"
+        },
+        {
+          "context": "- [Reviewed Settings Suggestions](20260604-reviewed-settings-suggestions.md) - authority-changing settings are reviewable plans, not build side effects.",
+          "from": "20260702",
+          "fromPath": "docs/adrs/drafts/20260702-portable-agent-authority-intent.md"
         },
         {
           "context": "See [Source Change, Release, and Dependency Provenance](../adrs/drafts/20260609-source-change-release-provenance.md) and [Reviewed Settings Suggestions](../adrs/drafts/20260604-reviewed-settings-sugge",
@@ -525,6 +540,11 @@
           "fromPath": "docs/adrs/drafts/20260702-cursor-is-a-first-class-provider.md"
         },
         {
+          "context": "- [Lowering Outcomes and Loss Ledger](20260614-lowering-outcomes-and-loss-ledger.md) - visible degraded, lossy, and unsupported render results.",
+          "from": "20260702",
+          "fromPath": "docs/adrs/drafts/20260702-portable-agent-authority-intent.md"
+        },
+        {
           "context": "See the render-results ADR, currently filed as [Lowering Outcomes and Loss Ledger](../adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md), for the historical decision.",
           "from": "render-results",
           "fromPath": "docs/features/render-results.md"
@@ -721,6 +741,11 @@
       ],
       "inbound": [
         {
+          "context": "- [Cursor Is a First-Class Provider](20260702-cursor-is-a-first-class-provider.md) - Cursor-specific provider boundary this ADR specializes.",
+          "from": "20260702",
+          "fromPath": "docs/adrs/drafts/20260702-portable-agent-authority-intent.md"
+        },
+        {
           "context": "- [Cursor provider ADR](../adrs/drafts/20260702-cursor-is-a-first-class-provider.md) - first-class Cursor provider contract.",
           "from": "runtime-adapters",
           "fromPath": "docs/features/runtime-adapters.md"
@@ -738,6 +763,27 @@
       "status": "draft",
       "superseded_by": null,
       "title": "Cursor Is a First-Class Provider",
+      "updated": "2026-07-02"
+    },
+    {
+      "created": "2026-07-02",
+      "depends_on": [
+        "0",
+        "1",
+        "feature-reference-and-schema-registry",
+        "agent-source-model",
+        "lowering-outcomes-and-loss-ledger",
+        "reviewed-settings-suggestions",
+        "cursor-is-a-first-class-provider"
+      ],
+      "inbound": [],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260702-portable-agent-authority-intent.md",
+      "slug": "portable-agent-authority-intent",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Portable Tools Policy and Agent Authority",
       "updated": "2026-07-02"
     }
   ],

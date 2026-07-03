@@ -391,7 +391,7 @@ function lintToolEscapes(graph: BuildGraph, skill: SourceSkill): readonly LintIs
     return [
       {
         code: "skill-tools-invalid",
-        featureId: "tool-intent",
+        featureId: "tools-policy",
         severity: "error",
         path,
         message,
@@ -410,7 +410,7 @@ function lintCodexAllowedTools(graph: BuildGraph, skill: SourceSkill): readonly 
   return [
     {
       code: "codex-allowed-tools-unsupported",
-      featureId: "tool-intent",
+      featureId: "tools-policy",
       severity: "error",
       path,
       message:

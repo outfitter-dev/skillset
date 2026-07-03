@@ -1505,7 +1505,7 @@ function renderCodexSkillToolsFile(
 
   const label = relative(graph.rootPath, skill.sourcePath);
   const tools = readCodexToolMetadata(skill.frontmatter, skill.targets.codex.options, label);
-  if (tools.allow === undefined && tools.deny === undefined) return undefined;
+  if (Object.keys(tools).length === 0) return undefined;
 
   return textFile(
     join(targetSkillDir, ".skillset.tools.yaml"),

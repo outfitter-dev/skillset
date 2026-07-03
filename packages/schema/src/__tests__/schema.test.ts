@@ -450,7 +450,7 @@ describe("@skillset/schema contracts", () => {
       schema: "schema@0.1.0",
       supports: "@acme/docs-cli ^2.4.0",
       title: "Demo Skill",
-      tool_intent: { allow: { read: true } },
+      tools: { read: true, search: true, write: false },
       version: "1.0.0",
     }).ok).toBe(true);
 
@@ -486,6 +486,13 @@ describe("@skillset/schema contracts", () => {
       targets: ["claude"],
       title: 1,
       tool_intent: "bad",
+      tools: {
+        allow: ["Read"],
+        mcp: {
+          "*": true,
+        },
+        read: "bad",
+      },
       version: 1,
     }).diagnostics;
     expect(skillDiagnostics).toContainEqual({
@@ -504,7 +511,11 @@ describe("@skillset/schema contracts", () => {
       "schema/skill-frontmatter/model",
       "schema/skill-frontmatter/target",
       "schema/skill-frontmatter/title",
-      "schema/skill-frontmatter/tool-intent",
+      "schema/skill-frontmatter/tool-intent-retired",
+      "schema/skill-frontmatter/tools-bool",
+      "schema/skill-frontmatter/tools-key",
+      "schema/skill-frontmatter/tools-mcp-server",
+      "schema/skill-frontmatter/tools-native",
       "schema/skill-frontmatter/version",
     ]));
     expect(validateSkillFrontmatter({

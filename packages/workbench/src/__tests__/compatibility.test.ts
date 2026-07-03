@@ -59,12 +59,12 @@ describe("workbench compatibility diagnostics", () => {
       gaps: [
         {
           coverage: "missing_fixture",
-          featureId: "tool-intent",
+          featureId: "tools-policy",
           featureStatus: "implemented",
           fixtureRefs: [],
           supportStatus: "transformed",
           target: "codex",
-          title: "Tool Intent",
+          title: "Tools Policy",
         },
         {
           coverage: "stale_fixture",
@@ -80,12 +80,12 @@ describe("workbench compatibility diagnostics", () => {
     const diagnostics = workbenchDiagnosticsFromAdapterCoverageReport(report);
 
     expect(diagnostics.map(formatWorkbenchDiagnostic)).toEqual([
-      "warning: compat/coverage/missing_fixture: codex tool-intent: missing_fixture",
+      "warning: compat/coverage/missing_fixture: codex tools-policy: missing_fixture",
       "warning: compat/coverage/stale_fixture: claude deleted-feature: stale_fixture",
     ]);
     expect(diagnostics.map((diagnostic) => diagnostic.ruleLevel)).toEqual(["strict", "strict"]);
     expect(diagnostics[0]?.help).toEqual([
-      "Feature: Tool Intent",
+      "Feature: Tools Policy",
       "Support: transformed",
     ]);
     expect(diagnostics[1]?.help).toEqual([

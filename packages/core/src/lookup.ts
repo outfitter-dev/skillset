@@ -201,8 +201,8 @@ const ASPECT_FEATURES: Partial<Record<LookupSubject, Record<string, readonly Ski
     bin: ["plugin-bin"],
     mcp: ["plugin-mcp"],
     resources: ["resources"],
-    tool_intent: ["tool-intent"],
-    "tool-intent": ["tool-intent"],
+    tools: ["tools-policy"],
+    "tools-policy": ["tools-policy"],
   },
 };
 

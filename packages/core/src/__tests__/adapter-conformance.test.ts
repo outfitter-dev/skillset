@@ -71,10 +71,8 @@ mcp: true
 ---
 name: plugin-skill
 description: Plugin skill.
-tool_intent:
-  allow:
-    read:
-      - docs/**
+tools:
+  read: true
 ---
 
 Use the plugin skill.
@@ -97,8 +95,8 @@ describe("adapter conformance", () => {
       { featureId: "plugin-mcp", sourceUnit: "plugin.alpha.feature:mcp", target: "cursor" },
       { featureId: "dependencies", sourceUnit: "plugin.alpha.feature:dependencies", target: "claude" },
       { featureId: "dependencies", sourceUnit: "plugin.alpha.feature:dependencies", target: "codex" },
-      { featureId: "tool-intent", sourceUnit: "plugin.alpha.skill:plugin-skill", target: "claude" },
-      { featureId: "tool-intent", sourceUnit: "plugin.alpha.skill:plugin-skill", target: "codex" },
+      { featureId: "tools-policy", sourceUnit: "plugin.alpha.skill:plugin-skill", target: "claude" },
+      { featureId: "tools-policy", sourceUnit: "plugin.alpha.skill:plugin-skill", target: "codex" },
       { featureId: "standalone-skills", sourceUnit: "skill:repo-skill", target: "cursor" },
       { featureId: "plugin-skills", sourceUnit: "plugin.alpha.skill:plugin-skill", target: "cursor" },
     ]);

@@ -1188,7 +1188,7 @@ function regionsForRecord(record: JsonRecord): readonly SourceUnitRegion[] {
   const regions: SourceUnitRegion[] = [];
   if (record.supports !== undefined) regions.push({ name: "supports", severityBearing: false });
   if (record.dependencies !== undefined) regions.push({ name: "dependencies", severityBearing: true });
-  if (record.allowed_tools !== undefined || record.tool_intent !== undefined) {
+  if (record.allowed_tools !== undefined || record.tools !== undefined) {
     regions.push({ name: "tools", severityBearing: true });
   }
   if (record.mcp !== undefined) regions.push({ name: "mcp", severityBearing: true });

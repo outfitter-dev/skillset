@@ -356,61 +356,29 @@ Values can be shared (`implicit_invocation: false`) or target-scoped (`implicit_
 
 `allowed_tools` renders to Claude `allowed-tools`, which is preapproval / no-prompt behavior — it suppresses permission prompts for the listed tools, not a portable security sandbox. Codex `agents/openai.yaml` supports tool dependencies and invocation policy, but it is not a skill-local equivalent to Claude tool preapproval. For now Codex-enabled skills must leave `allowed_tools.codex` unset or set it to `false`; `skillset lint` rejects shared or Codex-targeted allowed tools until a real Codex permission render is validated.
 
-Use the portable `tool_intent` registry for known tool intent. The old `tools` key is unsupported. The name is deliberate: it records intent and metadata, not a target-enforced permission boundary. The registry is strict, so provider drift is visible instead of silently copied through:
+Use the portable `tools` policy for provider-neutral tool meaning. The block is open-world: unset means provider default, `true` grants or preapproves where possible, and `false` constrains where possible. The registry is strict, so provider drift is visible instead of silently copied through:
 
 ```yaml
-tool_intent:
-  allow:
-    read:
-      - docs/**
-    search: true
-    write:
-      - generated/**
-    shell:
-      - git status
-      - prefix:
-          - bun
-          - run
-    web_fetch:
-      domains:
-        - example.com
-    web_search: true
-    mcp:
-      linear:
-        tools:
-          - issues.*
-  deny:
-    edit:
-      - secrets/**
-    mcp:
-      linear:
-        tools:
-          - delete.*
-  _allow:
-    claude:
-      - Read
-    codex:
-      mcp:
-        linear:
-          tools:
-            - issues.*
-claude:
-  tool_intent:
-    _allow:
-      - "NewClaudeTool(project:*)"
-      - rule: "Bash(newcli safe *)"
-    _deny:
-      - AskUserQuestion
-codex:
-  tool_intent:
-    _allow:
-      mcp:
-        linear:
-          tools:
-            - experimental.*
+tools:
+  read: true
+  search: true
+  write: false
+  shell:
+    - git status
+    - git diff *
+  mcp:
+    linear:
+      - issues.*
+
+  claude:
+    deny:
+      - Bash(rm *)
+  codex:
+    allow:
+      - mcp__linear__experimental.*
 ```
 
-Portable keys are `read`, `search`, `write`, `edit`, `shell`, `web_fetch`, `web_search`, and `mcp`. Unknown keys fail `skillset lint` and build; use `_allow` or `_deny` when a target has a native tool rule that the portable registry does not know yet. Portable `allow` / `deny` belongs in the source top-level `tool_intent` block; target-local `claude.tool_intent` and `codex.tool_intent` accept only `_allow` / `_deny` escape keys. Claude renders portable and `_` entries to `allowed-tools` / `disallowed-tools` (preapproval, not enforcement). Codex preserves portable intent and target-native escapes as generated `.skillset.tools.yaml` metadata included in `skillset.lock`; it does not install, trust, or mutate user-level Codex configuration.
+`tools: readonly` expands to `read: true`, `search: true`, and `write: false`. The first portable keys are `read`, `search`, `write`, `shell`, and `mcp`. `read`, `search`, and `write` are boolean-only; `shell` accepts booleans or a flat list of shell patterns; `mcp` accepts `false` or literal server names mapped to booleans or tool glob lists. Provider-native strings belong only under `tools.<provider>.allow` or `tools.<provider>.deny`. Claude renders portable policy and `tools.claude` native strings to `allowed-tools` / `disallowed-tools` (preapproval and denial rules, not a complete sandbox). Codex preserves portable policy and target-native strings as generated `.skillset.tools.yaml` metadata included in `skillset.lock`; it does not install, trust, or mutate user-level Codex configuration.
 
 Import helpers add imported source under `.skillset/` and seed release baselines when adoption applies. Imported source lands under `.skillset/skills` or `.skillset/plugins`, and baselines use `.skillset/changes/state.json`. Adoption normalizes raw Claude `$ARGUMENTS`, `$ARGUMENTS[n]`, and `$ARGUMENTS.name` occurrences in imported Markdown to Skillset prompt argument placeholders so the source can build for Claude and Codex.
 

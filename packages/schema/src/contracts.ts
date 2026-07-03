@@ -80,7 +80,7 @@ export const COMMON_FRONTMATTER_KEYS = [
   "summary",
   "supports",
   "title",
-  "tool_intent",
+  "tools",
   "version",
 ] as const;
 
@@ -175,7 +175,7 @@ export const skillFrontmatterContract = contract("skill-frontmatter", "Skill Fro
     summary: nonEmptyStringSchema(),
     supports: supportsSchema(),
     title: nonEmptyStringSchema(),
-    tool_intent: { type: "object" },
+    tools: toolsPolicySchema(),
     version: semverStringSchema(),
   },
   type: "object",
@@ -618,6 +618,15 @@ function allowedToolsSchema(): SchemaJsonRecord {
         codex: value,
         cursor: value,
       }),
+    ],
+  };
+}
+
+function toolsPolicySchema(): SchemaJsonRecord {
+  return {
+    anyOf: [
+      { const: "readonly" },
+      { type: "object" },
     ],
   };
 }

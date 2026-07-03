@@ -81,7 +81,7 @@ const SOURCE_ONLY_KEYS = new Set([
   "supports",
   "targets",
   "title",
-  "tool_intent",
+  "tools",
   "version",
 ]);
 
@@ -443,8 +443,8 @@ export function resolveTarget(
 }
 
 export function stripSourceFrontmatter(frontmatter: JsonRecord, label = "source frontmatter"): JsonRecord {
-  if (frontmatter.tools !== undefined) {
-    throw new Error(`skillset: ${label} uses unsupported tools; use tool_intent`);
+  if (frontmatter.tool_intent !== undefined) {
+    throw new Error(`skillset: ${label} uses retired tool_intent; use tools`);
   }
   const stripped: Record<string, JsonValue> = {};
   for (const [key, value] of Object.entries(frontmatter)) {

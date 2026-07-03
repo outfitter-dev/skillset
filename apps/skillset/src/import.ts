@@ -44,7 +44,7 @@ const RECOGNIZED_SOURCE_KEYS: ReadonlySet<string> = new Set([
   "skillset",
   "summary",
   "title",
-  "tool_intent",
+  "tools",
   "version",
 ]);
 
@@ -302,7 +302,7 @@ function importWarnings(classification: FrontmatterClassification): readonly str
   if (classification.targetNative.length > 0) {
     warnings.push(
       `preserved target-native fields verbatim: ${classification.targetNative.join(", ")}. ` +
-        "Consider moving them to a portable source key (e.g. tool_intent, implicit_invocation) or a provider-specific block."
+        "Consider moving them to a portable source key (e.g. tools, implicit_invocation) or a provider-specific block."
     );
   }
   if (classification.unsupported.length > 0) {
@@ -348,7 +348,7 @@ function importFrontmatterRenderResults(args: {
           path: sourcePath,
         },
       ],
-      featureId: "tool-intent",
+      featureId: "tools-policy",
       outputs: [{ kind: "imported-source", path: sourcePath }],
       sourcePath,
       sourceUnit: args.kind === "skill"

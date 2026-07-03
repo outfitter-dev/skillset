@@ -62,7 +62,7 @@ const SEEDED_FEATURE_IDS = [
   "standalone-skills",
   "supports",
   "target-native-islands",
-  "tool-intent",
+  "tools-policy",
   "version-audit",
   "workflows",
 ];
@@ -75,7 +75,7 @@ const REPRESENTATIVE_DIAGNOSTIC_FEATURE_IDS = [
   "project-instructions",
   "resources",
   "standalone-skills",
-  "tool-intent",
+  "tools-policy",
 ] as const;
 
 describe("feature registry", () => {
