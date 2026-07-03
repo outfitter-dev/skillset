@@ -24,17 +24,18 @@ immediate clean target.
 
 Once source exists, `skillset dev --watch` gives you the local edit loop: it
 watches source/config paths and reruns diagnostics plus generated-output
-previews. It is read-only. Skillset does not automatically install, trust,
-symlink, publish, activate, or mutate user-level Claude/Codex configuration.
-Write repo-local generated output only when you explicitly run
-`skillset build --yes`.
+previews. It is read-only by default; add `--apply` when you want the loop to
+write repo-local generated output with the same ownership, backup, and restore
+safeguards as `skillset build --yes`. Skillset does not automatically install,
+trust, symlink, publish, activate, or mutate user-level Claude/Codex
+configuration.
 
 ## Docs
 
 - [Five-Minute Quickstart](docs/quickstart.md): the shortest first-author path from source scaffold to generated output.
 - [First Author Example](examples/first-author/README.md): a minimal source repo that builds one skill and one rule to Claude and Codex.
 - [Share-Ready Checklist](docs/quickstart.md#share-ready-checklist): the 0.16 author handoff bar before hooks or runtime activation enter the path.
-- [Dev Watch](docs/features/dev-watch.md): the preview-only `skillset dev --watch` authoring loop.
+- [Dev Watch](docs/features/dev-watch.md): the default-preview `skillset dev --watch` authoring loop, with explicit `--apply` write mode.
 - [Skillset Design Tenets](docs/tenets.md): the slow-moving doctrine for source-first loadout authoring and target-native rendering.
 - [Architecture Decision Records](docs/adrs/README.md): accepted and proposed decisions for source vocabulary, unsupported destination policy, and generated-output promises.
 - [Feature Reference](docs/features/README.md): source feature support, target adapter status, and future-only surfaces.
@@ -55,6 +56,7 @@ skillset build --isolated   # mirror the projection under .skillset/cache/latest
 skillset lint               # source authoring diagnostics
 skillset check              # source authoring diagnostics
 skillset dev --watch        # rerun source diagnostics and generated-output previews on source edits
+skillset dev --watch --apply # write generated output after clean source edits
 skillset verify             # fail if generated outputs are stale
 skillset diff               # show pending generated changes without writing
 skillset explain <path>     # explain a source or generated path (rendering, lock provenance, hashes; add --json for records)
@@ -65,7 +67,7 @@ skillset ci                 # CI entrypoint: lint + change check + drift, with -
 skillset test [name]        # run an isolated deterministic projection test
 ```
 
-`init`, `create`, and `build` are plan-first: they print pending filesystem changes and write only with `--yes`; `--dry-run` always prevents writes, even when paired with `--yes`. `--scope repo`, `--scope plugins`, `--scope project`, and combinations filter generated destinations for build, diff, verify, list, and explain; `--scope user` is accepted but currently has no build outputs. `skillset change status` and `skillset change check` are whole-source coverage commands and reject build scopes. `skillset test` writes isolated runs under `.skillset/cache/tests/` and does not mutate live generated target roots. `diff`, `dev --watch`, `explain`, `features`, and `doctor` are read-only authoring aids: they never write generated outputs, install, trust, publish, or mutate user-level config. `dev --watch` watches source/config paths and reruns diagnostics plus generated-output previews; write with `skillset build --yes` when the preview is acceptable. `diff`, `verify`, and `doctor` report missing managed outputs separately from new outputs so intentional deletion and stale locks are visible. Confirmed builds back up unmanaged collisions and target-side edits under `.skillset/snapshots/<backup-id>/` before overwriting or deleting them; `skillset restore <backup-id>` previews restoring a backup and writes only with `--yes` (see [Output Safety](docs/features/output-safety.md)). `explain` accepts either a source path (e.g. `.skillset/skills/foo/SKILL.md`) or a generated output path and reports how it renders, matching render results, its lock entry, target state, and source/output hashes; `explain --json` includes full render result records for automation. `features` lists the feature registry by id and shows each target adapter's support status; pass a feature id to inspect one capability. `doctor` exits non-zero when it finds lint issues, drift, or a build error, and it also summarizes notable render result advisories such as degraded or unsupported results; `doctor --json` includes the full render report. `skillset ci` is the continuous-integration entrypoint: it aggregates lint, Skillset change-entry coverage, package Changesets awareness, and generated drift, rebuilds stale generated output mechanically with `--fix`, and writes a PR-comment-ready Markdown report with `--report`; `skillset init --include ci` scaffolds a ready-to-use GitHub Actions workflow (see [CI](docs/features/ci.md)).
+`init`, `create`, and `build` are plan-first: they print pending filesystem changes and write only with `--yes`; `--dry-run` always prevents writes, even when paired with `--yes`. `--scope repo`, `--scope plugins`, `--scope project`, and combinations filter generated destinations for build, diff, verify, list, and explain; `--scope user` is accepted but currently has no build outputs. `skillset change status` and `skillset change check` are whole-source coverage commands and reject build scopes. `skillset test` writes isolated runs under `.skillset/cache/tests/` and does not mutate live generated target roots. `diff`, `explain`, `features`, `doctor`, and default `dev --watch` are read-only authoring aids: they never write generated outputs, install, trust, publish, or mutate user-level config. `dev --watch` watches source/config paths and reruns diagnostics plus generated-output previews; `dev --watch --apply` explicitly writes repo-local generated output after clean refreshes and reuses the same ownership checks, backup snapshots, and restore guidance as confirmed builds. `diff`, `verify`, and `doctor` report missing managed outputs separately from new outputs so intentional deletion and stale locks are visible. Confirmed builds back up unmanaged collisions and target-side edits under `.skillset/snapshots/<backup-id>/` before overwriting or deleting them; `skillset restore <backup-id>` previews restoring a backup and writes only with `--yes` (see [Output Safety](docs/features/output-safety.md)). `explain` accepts either a source path (e.g. `.skillset/skills/foo/SKILL.md`) or a generated output path and reports how it renders, matching render results, its lock entry, target state, and source/output hashes; `explain --json` includes full render result records for automation. `features` lists the feature registry by id and shows each target adapter's support status; pass a feature id to inspect one capability. `doctor` exits non-zero when it finds lint issues, drift, or a build error, and it also summarizes notable render result advisories such as degraded or unsupported results; `doctor --json` includes the full render report. `skillset ci` is the continuous-integration entrypoint: it aggregates lint, Skillset change-entry coverage, package Changesets awareness, and generated drift, rebuilds stale generated output mechanically with `--fix`, and writes a PR-comment-ready Markdown report with `--report`; `skillset init --include ci` scaffolds a ready-to-use GitHub Actions workflow (see [CI](docs/features/ci.md)).
 
 See [Workbench Check](docs/features/workbench.md) for the current `check`/`verify` boundary, package-level diagnostic scopes, built-in `standard` and `strict` presets, parser/schema checks, Workbench fixtures, and the bounded ast-grep proof point.
 

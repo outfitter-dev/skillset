@@ -1,4 +1,4 @@
-import { mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -8,6 +8,7 @@ import {
   createDevWatchDebouncer,
   createDevWatchPlan,
   renderDevWatchPreview,
+  runDevWatchApply,
   runDevWatchPreview,
   shouldRunDevPreviewForPath,
   type DevWatchScheduler,
@@ -108,14 +109,84 @@ test("SET-210: dev preview reports clean generated-output state", async () => {
   expect(rendered).toContain("run skillset build --yes");
 });
 
-test("SET-210: dev command validation keeps watch preview-only", async () => {
+test("SET-212: dev apply writes generated output with build safeguards", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-dev-watch-apply-"));
+  await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
+  await expect(runSkillsetCli("new", "skill", "Review Notes", "--root", root, "--yes")).resolves.toMatchObject({
+    exitCode: 0,
+  });
+
+  const report = await runDevWatchApply(root, {}, "test");
+  const rendered = renderDevWatchPreview(report);
+
+  expect(report.ok).toBe(true);
+  expect(report.mode).toBe("apply");
+  expect(report.writes?.writtenPaths.length).toBeGreaterThan(0);
+  expect(report.writes?.writtenPaths).toContain(".claude/skills/review-notes/SKILL.md");
+  expect(await Bun.file(join(root, ".claude/skills/review-notes/SKILL.md")).exists()).toBe(true);
+  expect(rendered).toContain("skillset: dev apply passed (test)");
+  expect(rendered).toContain("generated apply:");
+  expect(rendered).toContain("generated output applied");
+
+  const freshReport = await runDevWatchApply(root, {}, "fresh");
+  const freshRendered = renderDevWatchPreview(freshReport);
+
+  expect(freshReport.ok).toBe(true);
+  expect(freshReport.writes?.writtenPaths).toEqual([]);
+  expect(freshReport.writes?.deletedPaths).toEqual([]);
+  expect(freshRendered).toContain("generated output already fresh");
+});
+
+test("SET-212: dev apply reports backup recovery guidance", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-dev-watch-apply-backup-"));
+  await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
+  await expect(runSkillsetCli("new", "skill", "Review Notes", "--root", root, "--yes")).resolves.toMatchObject({
+    exitCode: 0,
+  });
+  await mkdir(join(root, ".claude/skills/review-notes"), { recursive: true });
+  await Bun.write(join(root, ".claude/skills/review-notes/SKILL.md"), "hand-authored collision\n");
+
+  const report = await runDevWatchApply(root, {}, "test");
+  const rendered = renderDevWatchPreview(report);
+
+  expect(report.ok).toBe(true);
+  expect(report.writes?.backupRunId).toBeString();
+  expect(report.writes?.backupManifestPath).toBe(`.skillset/snapshots/${report.writes?.backupRunId}/manifest.json`);
+  expect(rendered).toContain("backup: 1 file saved");
+  expect(rendered).toContain(`skillset restore ${report.writes?.backupRunId} --yes`);
+});
+
+test("SET-212: dev apply failures render recovery guidance", () => {
+  const rendered = renderDevWatchPreview({
+    checkedSkills: 0,
+    diagnostics: [],
+    diff: { added: [], changed: [], missing: [], removed: [] },
+    error: "write failed",
+    mode: "apply",
+    ok: false,
+    outputRoots: [".claude/skills"],
+    reason: "test",
+    sourceRoot: ".skillset",
+    warnings: [],
+  });
+
+  expect(rendered).toContain("skillset: dev apply failed (test)");
+  expect(rendered).toContain("no completed apply was reported");
+  expect(rendered).toContain("skillset restore <backup-id>");
+});
+
+test("SET-210/SET-212: dev command validation keeps writes explicitly opt-in", async () => {
   const missingWatch = await runSkillsetCli("dev");
   expect(missingWatch.exitCode).toBe(1);
   expect(missingWatch.stderr).toContain("dev currently requires --watch");
 
   const writeFlag = await runSkillsetCli("dev", "--watch", "--yes");
   expect(writeFlag.exitCode).toBe(1);
-  expect(writeFlag.stderr).toContain("dev --watch is preview-only");
+  expect(writeFlag.stderr).toContain("write mode with --apply");
+
+  const applyWrongCommand = await runSkillsetCli("build", "--apply");
+  expect(applyWrongCommand.exitCode).toBe(1);
+  expect(applyWrongCommand.stderr).toContain("--apply is only supported with dev");
 
   const wrongCommand = await runSkillsetCli("build", "--watch");
   expect(wrongCommand.exitCode).toBe(1);

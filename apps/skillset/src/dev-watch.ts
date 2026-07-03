@@ -2,7 +2,11 @@ import { watch, type FSWatcher } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 
-import { diffSkillsetResult } from "@skillset/core";
+import {
+  buildSkillsetResult,
+  diffSkillsetResult,
+  type SkillsetWriteSummary,
+} from "@skillset/core";
 
 import { lintSkillset } from "./lint";
 import { loadBuildGraph } from "./resolver";
@@ -16,6 +20,8 @@ export interface DevWatchPlan {
   readonly sourceRoot: string;
   readonly watchRoots: readonly string[];
 }
+
+export type DevWatchMode = "apply" | "preview";
 
 export interface DevWatchPreviewReport {
   readonly checkedSkills: number;
@@ -32,11 +38,13 @@ export interface DevWatchPreviewReport {
     readonly removed: readonly string[];
   };
   readonly error?: string;
+  readonly mode: DevWatchMode;
   readonly ok: boolean;
   readonly outputRoots: readonly string[];
   readonly reason: string;
   readonly sourceRoot: string;
   readonly warnings: readonly string[];
+  readonly writes?: SkillsetWriteSummary;
 }
 
 export interface DevWatchDebouncer {
@@ -142,6 +150,7 @@ export async function runDevWatchPreview(
       checkedSkills: lint.checkedSkills,
       diagnostics: diff.diagnostics,
       diff: diff.data,
+      mode: "preview",
       ok: true,
       outputRoots: plan.outputRoots,
       reason,
@@ -154,6 +163,44 @@ export async function runDevWatchPreview(
       diagnostics: [],
       diff: { added: [], changed: [], missing: [], removed: [] },
       error: error instanceof Error ? error.message : String(error),
+      mode: "preview",
+      ok: false,
+      outputRoots: plan.outputRoots,
+      reason,
+      sourceRoot: plan.sourceRoot,
+      warnings: [],
+    };
+  }
+}
+
+export async function runDevWatchApply(
+  rootPath: string,
+  options: SkillsetOptions = {},
+  reason = "initial"
+): Promise<DevWatchPreviewReport> {
+  const plan = await createDevWatchPlan(rootPath, options);
+  try {
+    const lint = await lintSkillset(rootPath, options);
+    const build = await buildSkillsetResult(rootPath, options);
+    return {
+      checkedSkills: lint.checkedSkills,
+      diagnostics: build.diagnostics,
+      diff: { added: [], changed: [], missing: [], removed: [] },
+      mode: "apply",
+      ok: true,
+      outputRoots: plan.outputRoots,
+      reason,
+      sourceRoot: plan.sourceRoot,
+      warnings: lint.issues.map((issue) => `${issue.path}: ${issue.code}: ${issue.message}`),
+      writes: build.writes,
+    };
+  } catch (error) {
+    return {
+      checkedSkills: 0,
+      diagnostics: [],
+      diff: { added: [], changed: [], missing: [], removed: [] },
+      error: error instanceof Error ? error.message : String(error),
+      mode: "apply",
       ok: false,
       outputRoots: plan.outputRoots,
       reason,
@@ -165,14 +212,19 @@ export async function runDevWatchPreview(
 
 export function renderDevWatchPreview(report: DevWatchPreviewReport): string {
   const lines = [
-    `skillset: dev preview ${report.ok ? "passed" : "failed"} (${report.reason})`,
+    `skillset: dev ${report.mode} ${report.ok ? "passed" : "failed"} (${report.reason})`,
     `  source: ${report.sourceRoot}`,
     `  outputs: ${report.outputRoots.length === 0 ? "none" : report.outputRoots.join(", ")}`,
   ];
 
   if (!report.ok) {
     lines.push(`  error: ${report.error ?? "unknown error"}`);
-    lines.push("  next: fix the source error; the watcher will rerun the preview on the next edit");
+    if (report.mode === "apply") {
+      lines.push("  next: fix the source or output error; no completed apply was reported");
+      lines.push("  recovery: if a backup was reported before the failure, use skillset restore <backup-id>");
+    } else {
+      lines.push("  next: fix the source error; the watcher will rerun the preview on the next edit");
+    }
     return `${lines.join("\n")}\n`;
   }
 
@@ -182,6 +234,26 @@ export function renderDevWatchPreview(report: DevWatchPreviewReport): string {
     lines.push(`  ${diagnostic.severity}: ${path}${path.length === 0 ? "" : ": "}${diagnostic.code}: ${diagnostic.message}`);
   }
   lines.push(`  source diagnostics: checked ${report.checkedSkills} source skill${report.checkedSkills === 1 ? "" : "s"}`);
+  if (report.mode === "apply") {
+    const writes = report.writes;
+    const writtenPaths = writes?.writtenPaths ?? [];
+    const deletedPaths = writes?.deletedPaths ?? [];
+    for (const path of writtenPaths) lines.push(`  generated wrote ${path}`);
+    for (const path of deletedPaths) lines.push(`  generated removed ${path}`);
+    lines.push(`  generated apply: ${writtenPaths.length} written, ${deletedPaths.length} removed`);
+    if (writes?.backupManifestPath !== undefined) {
+      const count = writes.backupRecords?.length ?? 0;
+      lines.push(`  backup: ${count} file${count === 1 ? "" : "s"} saved to ${writes.backupManifestPath}`);
+      if (writes.backupRunId !== undefined) {
+        lines.push(`  recovery: skillset restore ${writes.backupRunId} --yes`);
+      }
+    }
+    lines.push(writtenPaths.length === 0 && deletedPaths.length === 0
+      ? "  next: generated output already fresh; watching for source edits"
+      : "  next: generated output applied; watching for source edits");
+    return `${lines.join("\n")}\n`;
+  }
+
   const { added, changed, missing, removed } = report.diff;
   for (const path of added) lines.push(`  generated + ${path}`);
   for (const path of changed) lines.push(`  generated ~ ${path}`);
@@ -195,15 +267,16 @@ export function renderDevWatchPreview(report: DevWatchPreviewReport): string {
 export async function runDevWatch(
   rootPath: string,
   options: SkillsetOptions = {},
-  output: NodeJS.WritableStream = process.stdout
+  output: NodeJS.WritableStream = process.stdout,
+  mode: DevWatchMode = "preview"
 ): Promise<void> {
   const plan = await createDevWatchPlan(rootPath, options);
-  output.write(renderDevWatchStart(plan));
-  output.write(renderDevWatchPreview(await runDevWatchPreview(rootPath, options)));
+  output.write(renderDevWatchStart(plan, mode));
+  output.write(renderDevWatchPreview(await runDevWatchOnce(rootPath, options, mode)));
 
   const watchers: FSWatcher[] = [];
   const debouncer = createDevWatchDebouncer(async (reason) => {
-    output.write(renderDevWatchPreview(await runDevWatchPreview(rootPath, options, reason)));
+    output.write(renderDevWatchPreview(await runDevWatchOnce(rootPath, options, mode, reason)));
   });
 
   for (const watchRoot of await collectDevWatchDirectories(plan)) {
@@ -246,7 +319,18 @@ export async function collectDevWatchDirectories(plan: DevWatchPlan): Promise<re
   return [...directories].sort();
 }
 
-function renderDevWatchStart(plan: DevWatchPlan): string {
+function renderDevWatchStart(plan: DevWatchPlan, mode: DevWatchMode): string {
+  if (mode === "apply") {
+    return [
+      "skillset: dev watch started (apply mode)",
+      `  source: ${plan.sourceRoot}`,
+      `  watching: ${plan.watchRoots.join(", ")}`,
+      `  ignoring: ${plan.ignoredRoots.join(", ")}`,
+      "  writes: enabled; applies generated output with build ownership and backup safeguards",
+      "  recovery: if a backup is reported, use skillset restore <backup-id>",
+    ].join("\n") + "\n";
+  }
+
   return [
     "skillset: dev watch started (preview-only)",
     `  source: ${plan.sourceRoot}`,
@@ -254,6 +338,17 @@ function renderDevWatchStart(plan: DevWatchPlan): string {
     `  ignoring: ${plan.ignoredRoots.join(", ")}`,
     "  writes: disabled; use skillset build --yes to write generated output",
   ].join("\n") + "\n";
+}
+
+async function runDevWatchOnce(
+  rootPath: string,
+  options: SkillsetOptions,
+  mode: DevWatchMode,
+  reason = "initial"
+): Promise<DevWatchPreviewReport> {
+  return mode === "apply"
+    ? runDevWatchApply(rootPath, options, reason)
+    : runDevWatchPreview(rootPath, options, reason);
 }
 
 async function collectDirectories(rootPath: string): Promise<readonly string[]> {

@@ -4,10 +4,11 @@ Feature id: `dev-watch`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-`skillset dev --watch` runs a preview-only authoring loop for first authors. It
+`skillset dev --watch` runs a foreground authoring loop for first authors. It
 watches the active Skillset workspace source and config paths, debounces edits,
-and reruns the same safe source diagnostics and generated-output preview used by
-the rest of the CLI.
+and reruns source diagnostics plus generated-output checks as files change. The
+default mode is preview-only; `--apply` opts into writing repo-local generated
+output on each clean refresh.
 
 ## Authoring
 
@@ -15,6 +16,12 @@ Start the loop from a Skillset workspace:
 
 ```bash
 skillset dev --watch
+```
+
+To apply generated output after each source edit, opt in explicitly:
+
+```bash
+skillset dev --watch --apply
 ```
 
 For another checkout, pass `--root`:
@@ -28,14 +35,13 @@ The command watches:
 - the workspace config, `skillset.yaml`;
 - the active source root, `.skillset/`.
 
-It ignores generated output roots, `AGENTS.md`, `skillset.lock`, `.skillset/cache/`,
-`.skillset/snapshots/`, and generated lock/report churn so preview output does
-not trigger itself.
+It ignores generated output roots, `AGENTS.md`, `skillset.lock`,
+`.skillset/cache/`, `.skillset/snapshots/`, and generated lock/report churn so
+preview and apply output do not trigger the watcher.
 
 ## Target Rendering
 
-`skillset dev --watch` does not render or write target files. Each refresh
-prints:
+Preview mode does not render or write target files. Each refresh prints:
 
 - source diagnostics;
 - generated-output drift that `skillset build` would write;
@@ -44,19 +50,31 @@ prints:
 Use `skillset build --yes` when the preview is acceptable and you want to write
 repo-local generated provider output.
 
+Apply mode uses the same build path as `skillset build --yes`. It writes only
+repo-local generated output, uses generated-output ownership checks, creates
+reversible backups for unmanaged collisions or target-side edits, and reports
+the `skillset restore <backup-id>` recovery command when a backup is created.
+`--apply` is the confirmation; `dev --watch` does not accept `--yes` or
+`--dry-run`.
+
 ## Diagnostics
 
 The watch loop reports source errors without exiting the process. Fix the file
-and save again to rerun the preview. Build/render errors are shown as preview
-errors; no generated files, source files, hooks, scripts, runtime settings, trust
-state, or user-level provider config are mutated.
+and save again to rerun the preview or apply refresh. Build/render errors are
+shown inline. In apply mode, a failed refresh reports that no completed apply was
+recorded and points at restore if an earlier backup was reported.
 
 `skillset dev --watch` is intentionally not a daemon, background service,
 runtime activation layer, or provider-specific live preview. It ends when the
 foreground process receives `SIGINT` or `SIGTERM`.
 
+Neither preview nor apply mode installs, trusts, activates, symlinks, publishes,
+executes hooks/scripts, or mutates user-level Claude, Codex, or Cursor
+configuration.
+
 ## Tests and Fixtures
 
-Tests cover workspace watch path selection, generated/cache/output
-ignore rules, debounce behavior with a fake scheduler, preview summary rendering,
-and command validation without starting a long-running watcher.
+Tests cover workspace watch path selection, generated/cache/output ignore rules,
+debounce behavior with a fake scheduler, preview summary rendering, apply writes,
+backup recovery guidance, and command validation without starting a long-running
+watcher.
