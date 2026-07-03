@@ -136,7 +136,19 @@ Use this demo skill.
   expect(preview.stdout).toContain("skillset: marketplace update preview wrote no files");
   await expect(readdir(marketplace)).resolves.not.toContain("plugins-claude");
 
-  const updated = await runSkillsetCliWithEnv(xdg.env, "marketplace", "update", "outfitter", "--yes", "--root", marketplace);
+  const updated = await runSkillsetCliWithEnv(
+    {
+      ...xdg.env,
+      GIT_DIR: ".git",
+      GIT_WORK_TREE: process.cwd(),
+    },
+    "marketplace",
+    "update",
+    "outfitter",
+    "--yes",
+    "--root",
+    marketplace
+  );
 
   expect(updated).toMatchObject({ exitCode: 0, stderr: "" });
   expect(updated.stdout).toContain("wrote: .claude-plugin/marketplace.json");

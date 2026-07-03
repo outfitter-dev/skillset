@@ -669,12 +669,36 @@ async function gitIdentity(path: string): Promise<{ readonly ref?: string; reado
 
 async function runGit(path: string, args: readonly string[]): Promise<string | undefined> {
   try {
-    const result = await execFileAsync("git", ["-C", path, ...args], { timeout: 5000 });
+    const result = await execFileAsync("git", ["-C", path, ...args], {
+      env: gitCommandEnv(),
+      timeout: 5000,
+    });
     const stdout = String(result.stdout).trim();
     return stdout.length === 0 ? undefined : stdout;
   } catch {
     return undefined;
   }
+}
+
+function gitCommandEnv(): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value === undefined || isGitRepositoryEnv(key)) continue;
+    env[key] = value;
+  }
+  return env;
+}
+
+function isGitRepositoryEnv(key: string): boolean {
+  return (
+    key === "GIT_DIR" ||
+    key === "GIT_WORK_TREE" ||
+    key === "GIT_INDEX_FILE" ||
+    key === "GIT_OBJECT_DIRECTORY" ||
+    key === "GIT_COMMON_DIR" ||
+    key === "GIT_NAMESPACE" ||
+    key.startsWith("GIT_ALTERNATE_OBJECT")
+  );
 }
 
 async function exists(path: string): Promise<boolean> {
