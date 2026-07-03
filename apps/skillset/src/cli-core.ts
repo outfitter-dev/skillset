@@ -127,7 +127,7 @@ const USAGE = [
   "       skillset list [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset doctor [--json] [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset ci [--fix] [--since <ref>] [--report <path>] [--root <path>] [--source <dir>] [--dist <dir>]",
-  "       skillset dev --watch [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset dev --watch [--apply] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change status [--since <ref>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change check [@ref|--ref <ref>] [--since <ref>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change <status|check> --staged [--root <path>] [--source <dir>] [--dist <dir>]",
@@ -189,6 +189,7 @@ export async function runCli(
     changeSubcommand,
     ciFix,
     ciReportPath,
+    devApply,
     devWatch,
     dryRun,
     distributionName,
@@ -292,7 +293,7 @@ export async function runCli(
 
   if (command === "dev") {
     if (!devWatch) throw new Error("skillset: dev currently requires --watch");
-    await runDevWatch(rootPath, options);
+    await runDevWatch(rootPath, options, process.stdout, devApply ? "apply" : "preview");
     return;
   }
 
@@ -878,6 +879,7 @@ interface ParsedArgs {
   readonly ciFix: boolean;
   readonly ciReportPath?: string;
   readonly devWatch: boolean;
+  readonly devApply: boolean;
   readonly distributionName?: string;
   readonly distributionSubcommand?: DistributionSubcommand;
   readonly dryRun: boolean;
@@ -1562,6 +1564,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let changeScopes: readonly string[] | undefined;
   let ciFix = false;
   let ciReportPath: string | undefined;
+  let devApply = false;
   let devWatch = false;
   let hookAgentRuntime = false;
   let hookContextEvent: string | undefined;
@@ -1828,6 +1831,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--fix" &&
       flag !== "--report" &&
       flag !== "--json" &&
+      flag !== "--apply" &&
       flag !== "--runner" &&
       flag !== "--target" &&
       flag !== "--agent-runtime" &&
@@ -1886,6 +1890,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag === "--global" ||
       flag === "--fix" ||
       flag === "--json" ||
+      flag === "--apply" ||
       flag === "--agent-runtime" ||
       flag === "--pre-commit" ||
       flag === "--pre-push" ||
@@ -1913,6 +1918,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       if (flag === "--global") setupGlobal = true;
       if (flag === "--fix") ciFix = true;
       if (flag === "--json") jsonOutput = true;
+      if (flag === "--apply") devApply = true;
       if (flag === "--agent-runtime") hookAgentRuntime = true;
       if (flag === "--pre-commit") hookPreCommit = true;
       if (flag === "--pre-push") hookPrePush = true;
@@ -2070,6 +2076,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     yes,
   });
   validateDevFlags(command, {
+    apply: devApply,
     ...(buildMode === undefined ? {} : { buildMode }),
     dryRun,
     ...(scopes === undefined ? {} : { scopes }),
@@ -2210,6 +2217,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(changeSubcommand === undefined ? {} : { changeSubcommand }),
     ciFix,
     ...(ciReportPath === undefined ? {} : { ciReportPath }),
+    devApply,
     devWatch,
     ...(distributionName === undefined ? {} : { distributionName }),
     ...(distributionSubcommand === undefined ? {} : { distributionSubcommand }),
@@ -2781,6 +2789,7 @@ function validateCiFlags(
 function validateDevFlags(
   command: Command,
   dev: {
+    readonly apply: boolean;
     readonly buildMode?: CompileBuildMode;
     readonly dryRun: boolean;
     readonly scopes?: readonly BuildScope[];
@@ -2791,11 +2800,16 @@ function validateDevFlags(
   if (dev.watch && command !== "dev") {
     throw new Error("skillset: --watch is only supported with dev");
   }
+  if (dev.apply && command !== "dev") {
+    throw new Error("skillset: --apply is only supported with dev");
+  }
   if (command !== "dev") return;
   if (!dev.watch) throw new Error("skillset: dev currently requires --watch");
   if (dev.buildMode !== undefined) throw new Error("skillset: dev --watch does not support --updated or --all");
   if (dev.scopes !== undefined) throw new Error("skillset: dev --watch does not support --scope yet");
-  if (dev.yes || dev.dryRun) throw new Error("skillset: dev --watch is preview-only and does not support --yes or --dry-run");
+  if (dev.yes || dev.dryRun) {
+    throw new Error("skillset: dev --watch uses preview mode by default or write mode with --apply; it does not support --yes or --dry-run");
+  }
 }
 
 function validateUpdateFlags(

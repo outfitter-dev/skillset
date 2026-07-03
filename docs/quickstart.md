@@ -134,8 +134,10 @@ skillset doctor
 Use `diff` to preview generated changes after editing source, `dev --watch` to
 rerun source diagnostics and generated-output previews as you save, `explain` to
 see why a source or generated path exists, and `doctor` for a broader local
-health summary. The watch loop is preview-only; use `skillset build --yes` when
-you want to write generated output.
+health summary. The watch loop is read-only by default; use
+`skillset dev --watch --apply` when you want each clean refresh to write
+repo-local generated output with build ownership, backup, and restore safeguards.
+Use `skillset build --yes` when you want a single confirmed write instead.
 
 ## Share-Ready Checklist
 
@@ -160,5 +162,5 @@ Before sharing a 0.16-era Skillset source repo with another author, make sure:
 - [Skills](features/skills.md) covers skill frontmatter, resources, rendering,
   diagnostics, and provenance.
 - [Workbench Check](features/workbench.md) explains `check` versus `verify`.
-- [Dev Watch](features/dev-watch.md) covers the preview-only watch loop.
+- [Dev Watch](features/dev-watch.md) covers the default-preview watch loop and explicit apply mode.
 - [CI](features/ci.md) explains the `skillset ci` gate and optional workflow.
