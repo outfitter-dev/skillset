@@ -3882,6 +3882,153 @@ Tools body.
   expect(lock).toContain(`"alpha/codex/skills/tools/.skillset.tools.yaml"`);
 });
 
+test("SET-130: build renders Cursor tools metadata and explain exposes realization plans", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: true
+cursor: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/skills/readonly-verifier/SKILL.md": `
+---
+name: readonly-verifier
+description: Readonly verifier with a Cursor override and native overlay.
+tools:
+  read: true
+  search: true
+  write: false
+  cursor:
+    search: false
+    allow:
+      - CustomCursorRule
+  claude:
+    allow:
+      - AskUserQuestion
+---
+
+Verifier body.
+`,
+  });
+
+  await buildSkillset(root);
+
+  const cursorSkill = await readFile(
+    join(root, "plugins/alpha/cursor/skills/readonly-verifier/SKILL.md"),
+    "utf8"
+  );
+  const cursorTools = await readFile(
+    join(root, "plugins/alpha/cursor/skills/readonly-verifier/.skillset.tools.yaml"),
+    "utf8"
+  );
+  const lock = await readFile(join(root, "plugins/skillset.lock"), "utf8");
+
+  expect(cursorSkill).not.toContain("tools:");
+  expect(cursorTools).toContain("target: cursor");
+  expect(cursorTools).toContain("portable:");
+  expect(cursorTools).toContain("read: true");
+  expect(cursorTools).toContain("search: false");
+  expect(cursorTools).toContain("write: false");
+  expect(cursorTools).toContain("target_native:");
+  expect(cursorTools).toContain("CustomCursorRule");
+  expect(lock).toContain(`"alpha/cursor/skills/readonly-verifier/.skillset.tools.yaml"`);
+
+  const explained = await explainPath(root, ".skillset/plugins/alpha/skills/readonly-verifier/SKILL.md");
+  expect(explained.kind).toBe("source-skill");
+  expect(explained.toolsRealization.map((plan) => plan.target)).toEqual(["claude", "codex", "cursor"]);
+
+  const claudePlan = explained.toolsRealization.find((plan) => plan.target === "claude");
+  const claudeRead = claudePlan?.entries.find((entry) => entry.aspect === "read");
+  expect(claudeRead?.decidingLayer).toBe("base");
+  expect(claudeRead?.tier).toBe("transformed");
+  expect(claudeRead?.emits).toEqual(["allowed-tools: Read"]);
+  const claudeWrite = claudePlan?.entries.find((entry) => entry.aspect === "write");
+  expect(claudeWrite?.diagnostics.join(" ")).toContain("Bash and MCP tools can still change state");
+  const claudeOverlay = claudePlan?.entries.find((entry) => entry.rule === "AskUserQuestion");
+  expect(claudeOverlay?.unclassified).toBe(true);
+  expect(claudeOverlay?.tier).toBe("native");
+
+  const cursorPlan = explained.toolsRealization.find((plan) => plan.target === "cursor");
+  const cursorSearch = cursorPlan?.entries.find((entry) => entry.aspect === "search");
+  expect(cursorSearch?.decidingLayer).toBe("provider-override");
+  expect(cursorSearch?.tier).toBe("metadata-only");
+  expect(cursorSearch?.value).toBe(false);
+  const cursorOverlay = cursorPlan?.entries.find((entry) => entry.rule === "CustomCursorRule");
+  expect(cursorOverlay?.tier).toBe("metadata-only");
+  expect(cursorOverlay?.emits).toEqual([".skillset.tools.yaml: tools.target_native.allow"]);
+
+  const renderResults = explained.renderResults.filter((outcome) => outcome.featureId === "tools-policy");
+  const cursorSidecar = renderResults.find(
+    (outcome) => outcome.target === "cursor" && outcome.destination === "skill-tools"
+  );
+  expect(cursorSidecar?.status).toBe("metadata_only");
+  expect(cursorSidecar?.diagnostics?.some((ref) => ref.code === "tools-policy-realization")).toBe(true);
+  const claudeFrontmatter = renderResults.find(
+    (outcome) => outcome.target === "claude" && outcome.destination === "skill-frontmatter"
+  );
+  expect(claudeFrontmatter?.status).toBe("transformed");
+});
+
+test("SET-130: tools: readonly explain plans show macro expansion as the deciding layer", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: test-root
+claude: true
+codex: false
+cursor: false
+`,
+    ".skillset/skills/readonly-macro/SKILL.md": `
+---
+name: readonly-macro
+description: Uses the readonly macro.
+tools: readonly
+---
+
+Macro body.
+`,
+  });
+
+  await buildSkillset(root);
+
+  const explained = await explainPath(root, ".skillset/skills/readonly-macro/SKILL.md");
+  const plan = explained.toolsRealization.find((candidate) => candidate.target === "claude");
+  expect(plan?.macro).toBe("readonly");
+  expect(plan?.entries.every((entry) => entry.decidingLayer === "macro")).toBe(true);
+});
+
+test("SET-130: invalid Cursor tools overrides fail lint and build", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: test-root
+claude: false
+codex: false
+cursor: true
+`,
+    ".skillset/skills/bad-cursor-tools/SKILL.md": `
+---
+name: bad-cursor-tools
+description: Has an invalid Cursor target-native tool escape.
+tools:
+  cursor:
+    allow:
+      - reason: Missing the native rule string.
+---
+
+Bad body.
+`,
+  });
+
+  await expect(lintSkillset(root)).rejects.toThrow("must be a native rule string or string array");
+  await expect(buildSkillset(root)).rejects.toThrow("must be a native rule string or string array");
+});
+
 test("Claude target-native tool escapes require native rule strings", async () => {
   const root = await fixture({
     "skillset.yaml": `

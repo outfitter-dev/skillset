@@ -53,6 +53,52 @@ test("SET-220: lookup hooks events and Codex compatibility", async () => {
   expect(result.stdout).toContain("[codex] adaptive-hooks:");
 });
 
+test("SET-130: lookup skill tools exposes the realization matrix", async () => {
+  const text = await runSkillsetCli("lookup", "skill", "tools", "--compat", "claude,codex,cursor");
+  const json = await runSkillsetCli("lookup", "skill", "tools", "--compat", "claude,codex,cursor", "--json");
+
+  expect(text.exitCode).toBe(0);
+  expect(text.stdout).toContain("tools realization:");
+  expect(text.stdout).toContain("[claude] read grant: transformed via skill-frontmatter emits: allowed-tools: Read");
+  expect(text.stdout).toContain("[codex] write constrain: settings-required via agent-definition (not rendered)");
+  expect(text.stdout).toContain("[cursor] mcp: unsupported via none (not rendered)");
+
+  expect(json.exitCode).toBe(0);
+  const report = JSON.parse(json.stdout) as {
+    readonly compatibility: readonly { readonly featureId: string; readonly status: string; readonly target: string }[];
+    readonly realizations: readonly {
+      readonly aspect: string;
+      readonly direction?: string;
+      readonly emits?: string;
+      readonly rendered: boolean;
+      readonly surface: string;
+      readonly target: string;
+      readonly tier: string;
+    }[];
+  };
+  expect(report.compatibility.map((item) => `${item.target}:${item.status}`)).toEqual([
+    "claude:transformed",
+    "codex:metadata_only",
+    "cursor:metadata_only",
+  ]);
+
+  const rendered = report.realizations.filter((row) => row.rendered);
+  for (const target of ["claude", "codex", "cursor"]) {
+    const aspects = new Set(rendered.filter((row) => row.target === target).map((row) => row.aspect));
+    expect([...aspects].sort()).toEqual(["mcp", "read", "search", "shell", "write"]);
+  }
+  expect(
+    report.realizations.some(
+      (row) => row.target === "cursor" && row.aspect === "write" && row.tier === "settings-required"
+    )
+  ).toBe(true);
+  expect(
+    rendered
+      .filter((row) => row.target === "codex")
+      .every((row) => row.tier === "metadata-only" && row.surface === "metadata")
+  ).toBe(true);
+});
+
 test("SET-220: lookup hooks adaptive lens shows adaptive hook fields", async () => {
   const result = await runSkillsetCli("lookup", "hooks", "adaptive", "--fields", "--schema", "--examples", "--compat", "codex", "--json");
 

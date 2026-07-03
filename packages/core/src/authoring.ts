@@ -16,8 +16,10 @@ import { inspectSkillset } from "./lint";
 import { compareStrings } from "./path";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
+import { readEffectiveToolsPolicy } from "./skill-policy";
 import { targetNames } from "./targets";
-import type { BuildGraph, GeneratedEntry, LintIssue, SkillsetOptions, SourceOrigin } from "./types";
+import { planToolsRealization, type ToolsRealizationPlanEntry } from "./tools-realization";
+import type { BuildGraph, GeneratedEntry, LintIssue, SkillsetOptions, SourceOrigin, TargetName } from "./types";
 import { isJsonRecord, parseMarkdown, stringifyMarkdown } from "./yaml";
 
 const textDecoder = new TextDecoder();
@@ -38,6 +40,20 @@ export interface ExplainResult {
   readonly renderResults: readonly SkillsetRenderResult[];
   readonly notes: readonly string[];
   readonly path: string;
+  readonly toolsRealization: readonly ExplainToolsRealization[];
+}
+
+/**
+ * Per-target tools realization plan for a skill that authors portable `tools`
+ * policy: each entry names the intent key or native rule, its deciding layer
+ * (macro / base / provider override / native overlay), realization tier,
+ * emitted field or rule, and residual-risk diagnostics.
+ */
+export interface ExplainToolsRealization {
+  readonly entries: readonly ToolsRealizationPlanEntry[];
+  readonly macro?: "readonly";
+  readonly sourcePath: string;
+  readonly target: TargetName;
 }
 
 export interface FeatureSupportCapability {
@@ -109,6 +125,7 @@ export async function explainPath(
       features: featureCapabilitiesForPath(graph, target, asSource, matchedRenderResults),
       renderResults: matchedRenderResults,
       notes: sourceNotes(graph, target),
+      toolsRealization: toolsRealizationForPath(graph, target, asSource),
     };
   }
 
@@ -128,6 +145,7 @@ export async function explainPath(
       features: featureCapabilitiesForPath(graph, target, asGenerated, matchedRenderResults),
       renderResults: matchedRenderResults,
       notes: [`Generated output; rebuild with skillset build, verify with skillset verify.`],
+      toolsRealization: toolsRealizationForPath(graph, target, asGenerated),
     };
   }
 
@@ -143,6 +161,7 @@ export async function explainPath(
       features: featureCapabilitiesForPath(graph, target, prefixMatch, matchedRenderResults),
       renderResults: matchedRenderResults,
       notes: [`Matched ${prefixMatch.length} generated entries under this source path.`],
+      toolsRealization: toolsRealizationForPath(graph, target, prefixMatch),
     };
   }
 
@@ -155,6 +174,7 @@ export async function explainPath(
       features: featureCapabilitiesForPath(graph, target, [], sourceOnlyOutcomes),
       renderResults: sourceOnlyOutcomes,
       notes: [`Matched ${sourceOnlyOutcomes.length} render result(s) under this source path.`],
+      toolsRealization: toolsRealizationForPath(graph, target, []),
     };
   }
 
@@ -167,7 +187,52 @@ export async function explainPath(
     notes: [
       `No lock entry references ${target}. Pass a source path under ${graph.sourceRoot}/ or a generated output path.`,
     ],
+    toolsRealization: [],
   };
+}
+
+/**
+ * Tools realization plans for skills matched by an explain query: the exact
+ * path, any lock-item source paths, or skills under a directory prefix.
+ */
+function toolsRealizationForPath(
+  graph: BuildGraph,
+  target: string,
+  items: readonly LockItemMatch[]
+): readonly ExplainToolsRealization[] {
+  const sourcePaths = new Set<string>([target, ...items.map((item) => item.sourcePath)]);
+  const skills = [
+    ...graph.plugins.flatMap((plugin) => plugin.skills),
+    ...graph.standaloneSkills,
+  ].filter((skill) => {
+    const sourcePath = relative(graph.rootPath, skill.sourcePath).replaceAll("\\", "/");
+    return sourcePaths.has(sourcePath) || sourcePath.startsWith(`${target}/`);
+  });
+
+  const results: ExplainToolsRealization[] = [];
+  for (const skill of skills) {
+    const sourcePath = relative(graph.rootPath, skill.sourcePath).replaceAll("\\", "/");
+    for (const targetName of targetNames()) {
+      if (!skill.targets[targetName].enabled) continue;
+      const policy = readEffectiveToolsPolicy(
+        skill.frontmatter,
+        skill.targets[targetName].options,
+        targetName,
+        sourcePath
+      );
+      if (!policy.hasSource) continue;
+      const plan = planToolsRealization(policy);
+      results.push({
+        entries: plan.entries,
+        ...(plan.macro === undefined ? {} : { macro: plan.macro }),
+        sourcePath,
+        target: targetName,
+      });
+    }
+  }
+  return results.sort((left, right) =>
+    compareStrings(`${left.sourcePath}\0${left.target}`, `${right.sourcePath}\0${right.target}`)
+  );
 }
 
 export async function listGeneratedEntries(

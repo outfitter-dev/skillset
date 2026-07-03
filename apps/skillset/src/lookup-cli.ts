@@ -120,6 +120,16 @@ function printLookupReport(report: LookupReport): void {
       console.log(`    [${item.target}] ${item.featureId}: ${item.status}${reason}${note}`);
     }
   }
+  if (report.realizations.length > 0) {
+    console.log("  tools realization:");
+    for (const row of report.realizations) {
+      const direction = row.direction === undefined ? "" : ` ${row.direction}`;
+      const emits = row.emits === undefined ? "" : ` emits: ${row.emits}`;
+      const rendered = row.rendered ? "" : " (not rendered)";
+      const diagnostic = row.diagnostic === undefined ? "" : ` note: ${row.diagnostic}`;
+      console.log(`    [${row.target}] ${row.aspect}${direction}: ${row.tier} via ${row.surface}${rendered}${emits}${diagnostic}`);
+    }
+  }
   if (report.examples.length > 0) {
     console.log("  examples:");
     for (const example of report.examples) {
