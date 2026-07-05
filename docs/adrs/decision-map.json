@@ -157,6 +157,11 @@
           "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - compile concerns stay under `compile`, target-native options stay provider-specific.",
           "from": "20260625",
           "fromPath": "docs/adrs/drafts/20260625-source-manifest-listing-metadata.md"
+        },
+        {
+          "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - root provider selection and reserved unsupported-destination policy.",
+          "from": "20260705",
+          "fromPath": "docs/adrs/drafts/20260705-post-tools-policy-boundary.md"
         }
       ],
       "number": "0001",

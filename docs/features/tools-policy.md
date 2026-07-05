@@ -9,6 +9,14 @@ native names and enforcement models. It is open-world: unset means provider
 default, `true` grants or preapproves where possible, `false` constrains where
 possible, and unsupported realizations must stay visible.
 
+The post-tools policy boundary is deliberately narrow: Skillset does not have a
+separate user-facing `policy` source family. Tool availability intent belongs
+in `tools`; provider-native policy strings belong under `tools.<provider>`;
+settings, trust, install, activation, and managed-policy changes remain
+reviewed suggestions or external workflows. Generated prose, scripts, shims,
+and metadata sidecars can explain or preserve policy intent, but they do not
+count as enforcement unless the provider enforces that surface.
+
 ## Authoring
 
 Use lowercase portable keys at the top level. Native provider rule strings live
@@ -60,6 +68,14 @@ server names are not portable.
 Claude MCP rendering emits provider-native glob strings such as `mcp__github`,
 `mcp__github__get_*`, `mcp__linear`, and `mcp__*`; Skillset does not emit
 regex-style `mcp__.*__.*` rules.
+
+Policy-like target behavior that cannot be enforced through the rendered
+provider surface must remain visible as `metadata_only`, `degraded`,
+`unsupported`, `externally_managed`, or another structured render-result
+status. For example, Codex and Cursor skill-local tools policy is preserved as
+metadata today, while Claude receives native frontmatter rules. If a future
+provider surface can enforce the same portable intent, the realization registry
+should be updated first and renderers should consume the registry fact.
 
 ## Realization Registry
 
@@ -119,6 +135,11 @@ runtime trust, settings, or user-level provider configuration. Tools-policy
 render results cite realization-registry evidence and carry
 `tools-policy-realization` diagnostic refs for residual-risk and
 metadata-honesty notes.
+
+See the [Post-Tools Policy Boundary ADR](../adrs/drafts/20260705-post-tools-policy-boundary.md)
+for the rule that a generated instruction, probe, shim, helper script, or
+sidecar is compatibility/provenance material unless the provider itself
+enforces the behavior.
 
 ## Tests and Fixtures
 

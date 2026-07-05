@@ -113,6 +113,11 @@
           "fromPath": "docs/adrs/drafts/20260702-portable-agent-authority-intent.md"
         },
         {
+          "context": "- [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - feature ids, support evidence, and conformance expectations.",
+          "from": "20260705",
+          "fromPath": "docs/adrs/drafts/20260705-post-tools-policy-boundary.md"
+        },
+        {
           "context": "See [Feature Reference and Schema Registry](../adrs/drafts/20260604-feature-reference-and-schema-registry.md) for the ADR-level decision.",
           "from": "feature-registry",
           "fromPath": "docs/features/feature-registry.md"
@@ -238,6 +243,11 @@
           "context": "- [Reviewed Settings Suggestions](20260604-reviewed-settings-suggestions.md) - authority-changing settings are reviewable plans, not build side effects.",
           "from": "20260702",
           "fromPath": "docs/adrs/drafts/20260702-portable-agent-authority-intent.md"
+        },
+        {
+          "context": "- [Reviewed Settings Suggestions](20260604-reviewed-settings-suggestions.md) - authority-changing provider settings remain reviewed plans, not build side effects.",
+          "from": "20260705",
+          "fromPath": "docs/adrs/drafts/20260705-post-tools-policy-boundary.md"
         },
         {
           "context": "See [Source Change, Release, and Dependency Provenance](../adrs/drafts/20260609-source-change-release-provenance.md) and [Reviewed Settings Suggestions](../adrs/drafts/20260604-reviewed-settings-sugge",
@@ -545,6 +555,11 @@
           "fromPath": "docs/adrs/drafts/20260702-portable-agent-authority-intent.md"
         },
         {
+          "context": "- [Lowering Outcomes and Loss Ledger](20260614-lowering-outcomes-and-loss-ledger.md) - render-result status and policy semantics that this ADR specializes.",
+          "from": "20260705",
+          "fromPath": "docs/adrs/drafts/20260705-post-tools-policy-boundary.md"
+        },
+        {
           "context": "See the render-results ADR, currently filed as [Lowering Outcomes and Loss Ledger](../adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md), for the historical decision.",
           "from": "render-results",
           "fromPath": "docs/features/render-results.md"
@@ -746,6 +761,11 @@
           "fromPath": "docs/adrs/drafts/20260702-portable-agent-authority-intent.md"
         },
         {
+          "context": "- [Cursor Is a First-Class Provider](20260702-cursor-is-a-first-class-provider.md) - Cursor provider evidence and activation boundary.",
+          "from": "20260705",
+          "fromPath": "docs/adrs/drafts/20260705-post-tools-policy-boundary.md"
+        },
+        {
           "context": "- [Cursor provider ADR](../adrs/drafts/20260702-cursor-is-a-first-class-provider.md) - first-class Cursor provider contract.",
           "from": "runtime-adapters",
           "fromPath": "docs/features/runtime-adapters.md"
@@ -776,7 +796,13 @@
         "reviewed-settings-suggestions",
         "cursor-is-a-first-class-provider"
       ],
-      "inbound": [],
+      "inbound": [
+        {
+          "context": "- [Portable Tools Policy and Agent Authority](20260702-portable-agent-authority-intent.md) - `tools` source shape and registry-backed realization model.",
+          "from": "20260705",
+          "fromPath": "docs/adrs/drafts/20260705-post-tools-policy-boundary.md"
+        }
+      ],
       "number": null,
       "owners": ["[galligan](https://github.com/galligan)"],
       "path": "docs/adrs/drafts/20260702-portable-agent-authority-intent.md",
@@ -785,6 +811,38 @@
       "superseded_by": null,
       "title": "Portable Tools Policy and Agent Authority",
       "updated": "2026-07-02"
+    },
+    {
+      "created": "2026-07-05",
+      "depends_on": [
+        "0",
+        "1",
+        "portable-agent-authority-intent",
+        "lowering-outcomes-and-loss-ledger",
+        "feature-reference-and-schema-registry",
+        "reviewed-settings-suggestions",
+        "cursor-is-a-first-class-provider"
+      ],
+      "inbound": [
+        {
+          "context": "- [Post-Tools Policy Boundary](../adrs/drafts/20260705-post-tools-policy-boundary.md) defines how `tools`, provider-native policy, generated compatibility material, and unsupported-destination policy ",
+          "from": "render-results",
+          "fromPath": "docs/features/render-results.md"
+        },
+        {
+          "context": "See the [Post-Tools Policy Boundary ADR](../adrs/drafts/20260705-post-tools-policy-boundary.md)",
+          "from": "tools-policy",
+          "fromPath": "docs/features/tools-policy.md"
+        }
+      ],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260705-post-tools-policy-boundary.md",
+      "slug": "post-tools-policy-boundary",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Post-Tools Policy Boundary",
+      "updated": "2026-07-05"
     }
   ],
   "version": 1
