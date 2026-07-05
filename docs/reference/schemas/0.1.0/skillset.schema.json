@@ -1881,7 +1881,10 @@
             },
             "unsupportedDestination": {
               "enum": [
-                "error"
+                "error",
+                "warn",
+                "skip",
+                "force"
               ],
               "type": "string"
             }

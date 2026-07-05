@@ -129,7 +129,7 @@ describe("@skillset/schema contracts", () => {
     const compile = workspaceProperties.compile as { properties: Record<string, unknown> };
     expect(compile).toHaveProperty("additionalProperties", false);
     expect(compile.properties.unsupportedDestination).toEqual({
-      enum: ["error"],
+      enum: ["error", "warn", "skip", "force"],
       type: "string",
     });
     expect(workspaceProperties.claude).toEqual({
@@ -332,11 +332,7 @@ describe("@skillset/schema contracts", () => {
       message: "$.claude must be true, false, or an object",
       path: "$.claude",
     });
-    expect(validateWorkspaceConfig({ compile: { unsupportedDestination: "skip" } }).diagnostics).toContainEqual({
-      code: "schema/workspace-config/unsupported-destination",
-      message: "compile.unsupportedDestination must be error",
-      path: "$.compile.unsupportedDestination",
-    });
+    expect(validateWorkspaceConfig({ compile: { unsupportedDestination: "skip" } }).diagnostics).toEqual([]);
     expect(validateWorkspaceConfig({ supports: {} }).diagnostics).toContainEqual({
       code: "schema/supports/packages",
       message: "supports.packages must be an array",
