@@ -37,7 +37,7 @@ skillset: destination-format update found 0 safe updates, 1 manual review, and 0
 skillset: destination-format updates require manual review before writing
 ```
 
-Unsupported destination policies keep their own language: `warn` means the destination issue remains visible without failing, while `skip` means Skillset records that no destination output was written. Those non-error policies remain reserved until their build semantics are implemented; current v1 source validation still asks users to keep `compile.unsupportedDestination: error`.
+Unsupported destination policies keep their own language: `error` fails before writes, `warn` keeps the destination issue visible without failing, `skip` records that no unsupported destination output was written, and `force` records an explicit override without pretending the unsupported behavior became portable.
 
 Source examples use `<source-root>` as shorthand for the canonical `.skillset/` source root.
 
@@ -94,7 +94,7 @@ artifacts.
 | `compile.features.promptArguments` | `{{$ARGUMENTS...}}` adaptive command placeholders | Implemented | Defaults to `true`; set to `false` to reject the source markers. |
 | `compile.skillset.metadata: false` | suppress generated skill `metadata.generated` / `metadata.version` | Implemented | Source metadata remains source-only; locks record `skillsetMetadata`. |
 | `compile.unsupportedDestination: error` | build/diff/verify unsupported destination policy | Implemented | Default policy; preserves current fail-loud unsupported behavior. |
-| `compile.unsupportedDestination: warn/skip/force` | doctor/lock provenance | Reserved | Recognized names that fail until non-error unsupported destination policy semantics are implemented and documented. |
+| `compile.unsupportedDestination: warn/skip/force` | diagnostics, doctor, lock provenance | Implemented | Non-error policies soften unsupported/lossy render results only; failed render results still block. |
 | omitted `compile.targets` | default provider outputs | Implemented | Equivalent to `compile.targets: [claude, codex, cursor]`. |
 | `<provider>.projectRoot` | provider adapter metadata | Implemented | Parsed and inherited with provider blocks; build still does not mutate user-level config. |
 | `<provider>.userRoot` | provider adapter metadata | Implemented | Parsed and inherited with provider blocks for future setup/explain flows. |

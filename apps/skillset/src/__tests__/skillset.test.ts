@@ -4879,7 +4879,7 @@ skillset:
   );
 });
 
-test("compile.unsupportedDestination defaults to error and accepts explicit error", async () => {
+test("compile.unsupportedDestination defaults to error and accepts explicit policies", async () => {
   const defaultRoot = await fixture({
     "skillset.yaml": `
 skillset:
@@ -4904,15 +4904,31 @@ skillset:
 `,
   });
 
+  const softPolicyRoot = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: test-root
+compile:
+  unsupportedDestination: warn
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+  });
+
   await expect(loadBuildGraph(defaultRoot)).resolves.toMatchObject({
     root: { compile: { targets: ["claude", "codex", "cursor"], unsupportedDestination: "error" } },
   });
   await expect(loadBuildGraph(explicitRoot)).resolves.toMatchObject({
     root: { compile: { targets: ["claude", "codex", "cursor"], unsupportedDestination: "error" } },
   });
+  await expect(loadBuildGraph(softPolicyRoot)).resolves.toMatchObject({
+    root: { compile: { targets: ["claude", "codex", "cursor"], unsupportedDestination: "warn" } },
+  });
 });
 
-test("compile.unsupportedDestination rejects malformed, unknown, and deferred policies", async () => {
+test("compile.unsupportedDestination rejects malformed and unknown policies", async () => {
   const basePlugin = {
     ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
@@ -4942,17 +4958,6 @@ compile:
 
   await expect(loadBuildGraph(unknownRoot)).rejects.toThrow("expected one of: error, warn, skip, force");
 
-  const warnRoot = await fixture({
-    "skillset.yaml": `
-skillset:
-  name: test-root
-compile:
-  unsupportedDestination: warn
-`,
-    ...basePlugin,
-  });
-
-  await expect(loadBuildGraph(warnRoot)).rejects.toThrow("reserved but not supported yet");
 });
 
 test("unknown top-level skillset config keys are rejected", async () => {

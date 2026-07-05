@@ -568,6 +568,66 @@ echo alpha
     });
   });
 
+  it("soft unsupported destination policies keep diagnostics and lock provenance visible", async () => {
+    for (const policy of ["warn", "skip", "force"] as const) {
+      const root = await fixture({
+        ...OUTCOME_FIXTURE,
+        "skillset.yaml": `
+skillset:
+  name: outcome-root
+  marketplace:
+    name: outcome-market
+compile:
+  unsupportedDestination: ${policy}
+claude: true
+codex: true
+cursor: false
+`,
+        ".skillset/plugins/alpha/bin/tool": `
+#!/usr/bin/env bash
+echo alpha
+`,
+      });
+
+      const result = await buildSkillsetResult(root);
+      expect(result.ok).toBe(true);
+      expect(result.diagnostics).toContainEqual(
+        expect.objectContaining({
+          code: `unsupported-destination-${policy}`,
+          featureId: "plugin-bin",
+          severity: "warning",
+          sourceUnit: "plugin.alpha.feature:bin",
+          target: "codex",
+        })
+      );
+      expect(result.renderResults).toContainEqual(
+        expect.objectContaining({
+          destination: "bin",
+          featureId: "plugin-bin",
+          policy: `unsupported:${policy}`,
+          reason: "Codex plugins do not expose a documented plugin-local bin contract.",
+          sourceUnit: "plugin.alpha.feature:bin",
+          status: "unsupported",
+          target: "codex",
+        })
+      );
+
+      const lock = await readJson(join(root, "skillset.lock"));
+      expect(JSON.stringify(lock)).toContain(`"policy":"unsupported:${policy}"`);
+      expect(JSON.stringify(lock)).toContain("Codex plugins do not expose a documented plugin-local bin contract.");
+
+      const verify = await verifySkillsetResult(root);
+      expect(verify.ok).toBe(true);
+      expect(verify.diagnostics).toContainEqual(
+        expect.objectContaining({
+          code: `unsupported-destination-${policy}`,
+          featureId: "plugin-bin",
+          severity: "warning",
+        })
+      );
+    }
+  });
+
   it("enforces unsupported adaptive hook outcomes for Codex component scopes", async () => {
     const skillRoot = await fixture({
       "skillset.yaml": `

@@ -114,12 +114,6 @@ export function readCompileConfig(record: JsonRecord, label: string): CompileCon
   }
 
   const unsupportedDestination = readUnsupportedDestinationPolicy(compile, `${label}.compile.unsupportedDestination`);
-  if (unsupportedDestination !== "error") {
-    throw new Error(
-      `skillset: ${label}.compile.unsupportedDestination ${unsupportedDestination} is reserved but not supported yet; ` +
-        "use error until warning, skip, or force provenance is implemented"
-    );
-  }
 
   return {
     build: readCompileBuildMode(compile, `${label}.compile.build`),

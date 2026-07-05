@@ -164,7 +164,7 @@ describe("workbench source contract schema checks", () => {
       "skillset.yaml:10: error: schema/workspace-config: compile.build must be one of all, updated",
       "skillset.yaml:11: error: schema/workspace-config: duplicate compile target codex",
       "skillset.yaml:11: error: schema/workspace-config: unsupported compile target nope",
-      "skillset.yaml:12: error: schema/workspace-config: compile.unsupportedDestination must be error",
+      "skillset.yaml:12: error: schema/workspace-config: compile.unsupportedDestination must be one of error, warn, skip, force",
       "skillset.yaml:13: error: schema/workspace-config: unsupported compile key extra",
       "skillset.yaml:15: error: schema/workspace-config: compile.features.promptArguments must be a boolean",
       "skillset.yaml:16: error: schema/workspace-config: unsupported compile feature key other",
@@ -236,17 +236,7 @@ describe("workbench source contract schema checks", () => {
       kind: "workspace-config",
       path: "skillset.yaml",
     }).map(formatWorkbenchDiagnostic)).toEqual([
-      "skillset.yaml:2: error: schema/workspace-config: compile.unsupportedDestination must be error",
-    ]);
-  });
-
-  test("rejects deferred unsupportedDestination policies", () => {
-    expect(checkWorkbenchSourceContract({
-      content: "compile:\n  unsupportedDestination: warn\n",
-      kind: "workspace-config",
-      path: "skillset.yaml",
-    }).map(formatWorkbenchDiagnostic)).toEqual([
-      "skillset.yaml:2: error: schema/workspace-config: compile.unsupportedDestination warn, skip, and force are reserved; use error",
+      "skillset.yaml:2: error: schema/workspace-config: compile.unsupportedDestination must be one of error, warn, skip, force",
     ]);
   });
 

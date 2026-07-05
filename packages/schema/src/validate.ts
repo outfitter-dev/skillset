@@ -205,7 +205,7 @@ function checkCompile(value: SchemaJsonValue | undefined, path: string, diagnost
     diagnostics.push(diagnostic(`${path}.build`, "schema/workspace-config/compile-build", "compile.build must be all or updated"));
   }
   if (value.unsupportedDestination !== undefined && (typeof value.unsupportedDestination !== "string" || !unsupportedDestinationPolicies.has(value.unsupportedDestination))) {
-    diagnostics.push(diagnostic(`${path}.unsupportedDestination`, "schema/workspace-config/unsupported-destination", "compile.unsupportedDestination must be error"));
+    diagnostics.push(diagnostic(`${path}.unsupportedDestination`, "schema/workspace-config/unsupported-destination", "compile.unsupportedDestination must be one of error, warn, skip, force"));
   }
   if (value.targets !== undefined) checkTargets(value.targets, `${path}.targets`, diagnostics);
   checkBooleanRecord(value.features, `${path}.features`, new Set(["promptArguments"]), diagnostics);

@@ -5,7 +5,7 @@ export function enforceRenderResultPolicy(
   renderResults: readonly SkillsetRenderResult[],
   unsupportedPolicy: UnsupportedDestinationPolicy
 ): void {
-  const blocked = renderResults.filter(isPolicyBlockingOutcome);
+  const blocked = renderResults.filter((outcome) => isPolicyBlockingOutcome(outcome, unsupportedPolicy));
   if (blocked.length === 0) return;
 
   throw new SkillsetRenderResultError(
@@ -14,8 +14,13 @@ export function enforceRenderResultPolicy(
   );
 }
 
-function isPolicyBlockingOutcome(outcome: SkillsetRenderResult): boolean {
-  return outcome.status === "failed" || outcome.status === "lossy" || outcome.status === "unsupported";
+function isPolicyBlockingOutcome(
+  outcome: SkillsetRenderResult,
+  unsupportedPolicy: UnsupportedDestinationPolicy
+): boolean {
+  if (outcome.status === "failed") return true;
+  if (outcome.status !== "lossy" && outcome.status !== "unsupported") return false;
+  return unsupportedPolicy === "error";
 }
 
 function formatRenderResultPolicyError(
