@@ -62,6 +62,34 @@ The schema intentionally keeps source identity and target output identity togeth
 
 The default posture is error. Build, diff, and verify enforce `failed`, `lossy`, and `unsupported` render results from the structured report before writing generated output. `warn`, `skip`, and `force` remain reserved escape hatches until their non-error semantics are implemented and documented. When these policies are used internally or transitionally, they must still surface through render results, diagnostics, or reports.
 
+Before non-error unsupported-destination policies become user-facing, every
+affected render result must carry enough provenance for a reviewer or CI job to
+see what happened without reading generated output by hand:
+
+- source unit and source path;
+- provider target;
+- destination or scope;
+- feature id or event;
+- unsupported, lossy, or failed reason;
+- selected unsupported-destination policy;
+- provider evidence or registry row behind the classification;
+- outputs written, outputs skipped, and whether no target output was produced;
+- surfaced diagnostic refs in JSON and text output.
+
+The future reserved semantics are:
+
+- `warn` writes supported outputs, keeps unsupported/lossy facts visible, and
+  makes warning counts machine-readable.
+- `skip` writes supported outputs, omits unsupported outputs, and records the
+  skipped source/destination in locks and reports.
+- `force` allows only an explicit provider-native or debug output path with
+  provenance; it must not pretend unsupported portable behavior became
+  faithful.
+
+If an enabled target would produce no usable output under a non-error policy,
+the command must still fail. A successful command with no output would be
+silent drift, even if the policy name says `warn`, `skip`, or `force`.
+
 ## Target Rendering
 
 | Source pattern | Claude result | Codex result | Notes |
@@ -101,6 +129,9 @@ The remaining status values are intentionally documented deferrals rather than f
 - Doctor output summarizes non-happy-path render results such as degraded, lossy, unsupported, externally managed, skipped, and failed render results without dumping every rendered file by default.
 - `skillset explain --json` and `skillset doctor --json` include full render-result records for agents and automation.
 - Adapter conformance tests should compare feature-registry support rows with produced render results or render errors.
+- Generated prose, scripts, activation probes, shimmed instructions, helper
+  files, and metadata sidecars can explain compatibility behavior, but they do
+  not count as policy enforcement unless the provider enforces that surface.
 
 ## Provenance
 
@@ -109,6 +140,7 @@ Outcome provenance belongs in structured operation results, generated `skillset.
 ## Evidence
 
 - The render-results ADR, currently filed as [Lowering Outcomes and Loss Ledger](../adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md), defines the decision and status semantics.
+- [Post-Tools Policy Boundary](../adrs/drafts/20260705-post-tools-policy-boundary.md) defines how `tools`, provider-native policy, generated compatibility material, and unsupported-destination policy fit together after the `tools` cutover.
 - [Deterministic Projection and Adapter Conformance](../adrs/drafts/20260613-deterministic-projection-and-adapter-conformance.md) defines how render results pair with the feature registry for conformance.
 - `packages/core/src/render-result.ts` defines the current schema, status values, policy values, and validation rules.
 - `packages/core/src/render-result-collector.ts` derives render results from generated locks, target-native companions, transformations, and unsupported plugin features.
