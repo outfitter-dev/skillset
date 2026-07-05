@@ -1461,6 +1461,7 @@ function printSkillsetTest(report: SkillsetTestReport): void {
 
 function formatTestSelection(selection: SkillsetTestReport["selection"]): string {
   const parts = [
+    selection.agents.length === 0 ? undefined : `agents ${selection.agents.join(", ")}`,
     selection.plugins.length === 0 ? undefined : `plugins ${selection.plugins.join(", ")}`,
     selection.primarySkills.length === 0 ? undefined : `primary skills ${selection.primarySkills.join(", ")}`,
     selection.pluginSkills.length === 0 ? undefined : `plugin skills ${selection.pluginSkills.join(", ")}`,

@@ -68,6 +68,17 @@ primary-skills:
     projection: true
 ```
 
+Project agents can be selected by their resolved output name:
+
+```yaml
+project-agent:
+  select:
+    agents:
+      - reviewer
+  checks:
+    projection: true
+```
+
 `select.skills.plugin` is available for plugin-bound skills, but `select.plugins.skills` is the clearer spelling when the test starts from plugins. `targets` filters provider renderings; `select` filters source units. `--scope` continues to mean generated-destination filtering, not source selection, and `skillset test` rejects build/write flags such as `--scope`, `--yes`, `--dry-run`, `--updated`, `--all`, and `--dist`.
 
 The test runner copies only source-relevant files into an isolated run workspace: root `skillset.yaml`, `.skillset/`, and source-adjacent state such as `.skillset/changes/`. It then prunes unselected source units before building. It does not stage operational `.skillset/cache/` or `.skillset/snapshots/` contents. If the repo has an existing workspace `skillset.lock`, the test stages that lock too so source-adjacent generated files such as entity `CHANGELOG.md` files remain recognized as managed inside the run.
@@ -135,7 +146,7 @@ Each probe requires `prompt` and `expect`. The v1 `expect` object must name exac
   <probe-name>.md
 ```
 
-`latest/` receives the same activation directory when the run refreshes. Claude probes are rendered as manual native harness prompts. Codex probes are rendered as manual shim-aware prompts because Codex can follow generated loading instructions, but Skillset should not pretend that every Claude-style activation signal is target-enforced in Codex. Future Codex plugin-eval integration can consume the same `probes.json` shape once that runner boundary is proven.
+`latest/` receives the same activation directory when the run refreshes. Claude and Cursor probes are rendered as manual native harness prompts. Codex probes are rendered as manual shim-aware prompts because Codex can follow generated loading instructions, but Skillset should not pretend that every Claude-style activation signal is target-enforced in Codex. Future Codex plugin-eval integration can consume the same `probes.json` shape once that runner boundary is proven.
 
 Edge cases stay explicit: multiple matching skills should be disambiguated in the expected selector, provider source may need target-specific probes, missing plugin dependencies should appear as activation setup failures rather than build successes, and compatibility shims should be reported as shims in the generated probe material.
 

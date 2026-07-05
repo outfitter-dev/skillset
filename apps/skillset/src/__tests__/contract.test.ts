@@ -1978,6 +1978,69 @@ Demo body.
   expect(codexProbe).toContain("fixture-guidance");
 });
 
+test("SET-132: activation probes handle Cursor as native project-agent output", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: activation-cursor-root
+cursor: true
+`,
+    ".skillset/tests/activation.yaml": `
+select:
+  agents:
+    - reviewer
+  skills:
+    primary:
+      - helper
+targets:
+  - cursor
+activation:
+  - name: cursor helper skill
+    prompt: Help me inspect this Skillset helper.
+    expect:
+      skill: helper
+  - name: cursor project agent
+    prompt: Ask the reviewer to inspect this workspace.
+    expect:
+      agent: reviewer
+checks:
+  projection: true
+`,
+    ".skillset/agents/reviewer.md": `
+---
+name: Reviewer
+description: Reviews Cursor workspaces.
+---
+
+Review the workspace.
+`,
+    ".skillset/skills/helper/SKILL.md": `
+---
+name: helper
+description: Helper.
+---
+
+Helper body.
+`,
+  });
+
+  const result = await runSkillsetCli("test", "activation", "--root", root);
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout).toContain("selection: agents reviewer; primary skills helper");
+  expect(await fileExists(cachePath(root, ".skillset/cache/tests/latest/activation/cursor/cursor-helper-skill.md"))).toBe(true);
+  expect(await fileExists(cachePath(root, ".skillset/cache/tests/latest/activation/cursor/cursor-project-agent.md"))).toBe(true);
+  const probes = await readFile(cachePath(root, ".skillset/cache/tests/latest/activation/cursor/probes.json"), "utf8");
+  expect(probes).toContain("manual-native");
+  expect(probes).toContain("Manual Cursor activation probe");
+  expect(probes).not.toContain("Manual Codex activation probe");
+  expect(probes).not.toContain("manual-shimmed");
+  const report = JSON.parse(await readFile(cachePath(root, ".skillset/cache/tests/latest/report.json"), "utf8")) as {
+    selection: { agents: string[]; primarySkills: string[] };
+  };
+  expect(report.selection.agents).toEqual(["reviewer"]);
+  expect(report.selection.primarySkills).toEqual(["helper"]);
+});
+
 test("SET-112: activation probes reject empty prompts and duplicate output names", async () => {
   const emptyPromptRoot = await contractFixture({
     "skillset.yaml": `

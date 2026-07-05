@@ -47,6 +47,7 @@ export interface SkillsetTestCheckResult {
 }
 
 export interface SkillsetTestSelectionReport extends JsonRecord {
+  readonly agents: string[];
   readonly filterSource: boolean;
   readonly pluginSkills: string[];
   readonly plugins: string[];
@@ -73,7 +74,13 @@ interface PluginSkillSelection {
   readonly skillId: string;
 }
 
+interface ProjectAgentSelection {
+  readonly filename: string;
+  readonly outputName: string;
+}
+
 interface TestSelection {
+  readonly agents: readonly ProjectAgentSelection[];
   readonly filterSource: boolean;
   readonly pluginSkills: readonly PluginSkillSelection[];
   readonly plugins: readonly string[];
@@ -375,14 +382,15 @@ function readEffectiveTargets(record: JsonRecord, label: string): readonly Targe
 }
 
 function readSelection(graph: BuildGraph, value: JsonValue | undefined, label: string): TestSelection {
-  if (value === undefined) return { filterSource: false, pluginSkills: [], plugins: [], primarySkills: [] };
+  if (value === undefined) return { agents: [], filterSource: false, pluginSkills: [], plugins: [], primarySkills: [] };
   if (!isJsonRecord(value)) throw new Error(`skillset: expected ${label} to be an object`);
   for (const key of Object.keys(value)) {
-    if (key !== "plugins" && key !== "skills") {
+    if (key !== "agents" && key !== "plugins" && key !== "skills") {
       throw new Error(`skillset: unsupported selector key ${key} in ${label}`);
     }
   }
 
+  const agents = readAgentSelection(graph, value.agents, `${label}.agents`);
   const pluginIds = new Set<string>();
   const primarySkillIds = new Set<string>();
   const pluginSkillKeys = new Set<string>();
@@ -399,15 +407,35 @@ function readSelection(graph: BuildGraph, value: JsonValue | undefined, label: s
   readSkillSelection(graph, value.skills, `${label}.skills`, primarySkillIds, addPluginSkill);
 
   const selection = {
+    agents,
     filterSource: true,
     pluginSkills: pluginSkills.sort((left, right) => compareStrings(`${left.pluginId}/${left.skillId}`, `${right.pluginId}/${right.skillId}`)),
     plugins: [...pluginIds].sort(compareStrings),
     primarySkills: [...primarySkillIds].sort(compareStrings),
   };
-  if (selection.plugins.length === 0 && selection.primarySkills.length === 0 && selection.pluginSkills.length === 0) {
+  if (selection.agents.length === 0 && selection.plugins.length === 0 && selection.primarySkills.length === 0 && selection.pluginSkills.length === 0) {
     throw new Error(`skillset: ${label} must select at least one source unit`);
   }
   return selection;
+}
+
+function readAgentSelection(
+  graph: BuildGraph,
+  value: JsonValue | undefined,
+  label: string
+): readonly ProjectAgentSelection[] {
+  if (value === undefined) return [];
+  if (value === true) {
+    return graph.projectAgents
+      .map((agent) => ({ filename: agent.filename, outputName: agent.outputName }))
+      .sort((left, right) => compareStrings(left.outputName, right.outputName));
+  }
+  const outputNames = graph.projectAgents.map((agent) => agent.outputName);
+  return readSelectorNames(outputNames, value, label, "project agent").map((outputName) => {
+    const agent = graph.projectAgents.find((candidate) => candidate.outputName === outputName);
+    if (agent === undefined) throw new Error(`skillset: unknown project agent ${JSON.stringify(outputName)} in ${label}`);
+    return { filename: agent.filename, outputName: agent.outputName };
+  });
 }
 
 function readPluginSelection(
@@ -828,6 +856,7 @@ function outputIncludes(selection: boolean | readonly string[], id: string): boo
 
 function selectionRecord(selection: TestSelection): SkillsetTestSelectionReport {
   return {
+    agents: selection.agents.map((agent) => agent.outputName),
     filterSource: selection.filterSource,
     pluginSkills: selection.pluginSkills.map((skill) => `${skill.pluginId}/${skill.skillId}`),
     plugins: [...selection.plugins],
@@ -865,7 +894,7 @@ function activationExpectationCandidatePaths(
     const projectRoot = targetProjectRoot(graph, target);
     return graph.projectAgents
       .filter((agent) => agent.name === expect.name || agent.outputName === expect.name)
-      .map((agent) => join(projectRoot, "agents", `${agent.outputName}.${target === "claude" ? "md" : "toml"}`));
+      .map((agent) => join(projectRoot, "agents", `${agent.outputName}.${target === "codex" ? "toml" : "md"}`));
   }
 
   return [
@@ -881,7 +910,8 @@ function activationExpectationCandidatePaths(
 }
 
 function targetProjectRoot(graph: BuildGraph, target: TargetName): string {
-  return readString(graph.root.targets[target].options, "projectRoot") ?? (target === "claude" ? ".claude" : ".codex");
+  return readString(graph.root.targets[target].options, "projectRoot") ??
+    (target === "claude" ? ".claude" : target === "codex" ? ".codex" : ".cursor");
 }
 
 async function writeActivationProbes(
@@ -917,7 +947,7 @@ function activationProbeRecord(probe: ActivationProbe, target: TargetName): Json
     harness: activationHarness(target),
     name: slugifyProbeName(probe.name),
     prompt: probe.prompt,
-    status: target === "claude" ? "manual-native" : "manual-shimmed",
+    status: target === "codex" ? "manual-shimmed" : "manual-native",
     target,
   };
 }
@@ -925,6 +955,9 @@ function activationProbeRecord(probe: ActivationProbe, target: TargetName): Json
 function activationHarness(target: TargetName): string {
   if (target === "claude") {
     return "Manual Claude activation probe. Run against the generated workspace or plugin path and confirm the expected source unit is loaded or invoked.";
+  }
+  if (target === "cursor") {
+    return "Manual Cursor activation probe. Run against the generated workspace or plugin path and confirm the expected source unit is loaded or invoked.";
   }
   return "Manual Codex activation probe. Use generated Codex output or plugin-eval tooling when available; compatibility shims should be reported explicitly.";
 }
@@ -1008,10 +1041,12 @@ function renderMarkdownReport(report: JsonRecord): string {
 
 function selectionMarkdownLines(value: JsonValue | undefined): readonly string[] {
   if (!isJsonRecord(value)) return ["Selection: none"];
+  const agents = readSelectionList(value.agents);
   const plugins = readSelectionList(value.plugins);
   const primarySkills = readSelectionList(value.primarySkills);
   const pluginSkills = readSelectionList(value.pluginSkills);
   const parts = [
+    agents.length === 0 ? undefined : `agents ${agents.join(", ")}`,
     plugins.length === 0 ? undefined : `plugins ${plugins.join(", ")}`,
     primarySkills.length === 0 ? undefined : `primary skills ${primarySkills.join(", ")}`,
     pluginSkills.length === 0 ? undefined : `plugin skills ${pluginSkills.join(", ")}`,
@@ -1063,6 +1098,7 @@ async function applySourceSelection(
   if (!selection.filterSource) return;
 
   const sourceRootPath = resolveInside(stagingWorkspacePath, graph.sourceRoot);
+  await pruneSelectedChildren(join(sourceRootPath, "agents"), selection.agents.map((agent) => agent.filename));
   await pruneSelectedChildren(join(sourceRootPath, "skills"), selection.primarySkills);
 
   const selectedPluginIds = new Set([
@@ -1083,7 +1119,6 @@ async function applySourceSelection(
     await prunePluginToSelectedSkills(join(pluginsPath, pluginId), skillIds);
   }
 
-  await removeIfExists(join(sourceRootPath, "agents"));
   await removeIfExists(join(sourceRootPath, "rules"));
   await removeIfExists(join(sourceRootPath, "_claude"));
   await removeIfExists(join(sourceRootPath, "_codex"));
