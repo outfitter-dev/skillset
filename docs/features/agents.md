@@ -63,6 +63,16 @@ The Codex skills preface is a runtime compatibility shim. It is useful and inten
 
 Claude plugin agents are a separate plugin component. Codex plugin docs do not document plugin agents, so copying Claude plugin agents into Codex output would be fake portability. A Codex-enabled plugin with `agents/` fails loudly; set `codex: false` for that plugin or move project-scoped roles to `<source-root>/agents/`.
 
+## Orchestration Compatibility
+
+Project-agent skill loading is the current orchestration boundary:
+
+- Claude receives native project-agent `skills` metadata in `.claude/agents/*.md`.
+- Cursor receives native project-agent Markdown with the shared `skills` field.
+- Codex receives a deterministic developer-instruction preface that asks the agent to load the named skills first.
+
+The Codex behavior is intentionally classified as `shimmed`, not native, because it depends on instruction following rather than target-enforced metadata. `skillset test` activation probes can cover both sides of that boundary by selecting the helper skill and project agent together, asserting the generated Claude/Codex files, and retaining manual probe assets that label Codex as `manual-shimmed`.
+
 ## Diagnostics
 
 - Duplicate or invalid resolved agent names fail before writing target files.

@@ -708,7 +708,11 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     summary: "Renders portable project agents to Claude Markdown agents and Codex TOML agents.",
     runtimeSupport: {
       "claude-code": {
-        evidence: [docs("docs/features/agents.md"), providerSnapshot("claude-subagent")],
+        evidence: [
+          docs("docs/features/agents.md"),
+          providerSnapshot("claude-subagent"),
+          test("apps/skillset/src/__tests__/contract.test.ts", "SET-134 project-agent orchestration activation proof"),
+        ],
         mechanism: "Claude Code reads project-scoped Markdown subagents from .claude/agents.",
         status: "native",
       },
@@ -716,7 +720,11 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
         caveats: [
           "Codex receives skill-loading intent as developer instructions; it is not target-enforced skill metadata.",
         ],
-        evidence: [docs("docs/features/agents.md"), providerSnapshot("codex-subagent")],
+        evidence: [
+          docs("docs/features/agents.md"),
+          providerSnapshot("codex-subagent"),
+          test("apps/skillset/src/__tests__/contract.test.ts", "SET-134 project-agent orchestration activation proof"),
+        ],
         mechanism: "Skillset renders Codex TOML agents and inserts a deterministic skill-loading preface when source agents declare skills.",
         status: "shimmed",
       },
