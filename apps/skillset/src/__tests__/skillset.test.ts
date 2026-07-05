@@ -1752,6 +1752,8 @@ Tree:
   expect(claudeAgent).toContain(`name: Code Reviewer`);
   expect(claudeAgent).toContain(`description: Reviews project changes.`);
   expect(claudeAgent).toContain(`color: blue`);
+  expect(claudeAgent).toContain("skills:");
+  expect(claudeAgent).toContain("- skillset-codex-development");
   expect(claudeAgent).toContain(`generated: skillset@0.1.0`);
   expect(claudeAgent).toContain("Review diffs and call out correctness risks.");
   expect(claudeAgent).toContain("- reviewer.md");
