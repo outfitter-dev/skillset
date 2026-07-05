@@ -2041,6 +2041,72 @@ Helper body.
   expect(report.selection.primarySkills).toEqual(["helper"]);
 });
 
+test("SET-134: project-agent orchestration activation proof distinguishes Claude native skills from Codex shim", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: activation-orchestration-root
+claude: true
+codex: true
+`,
+    ".skillset/tests/orchestration.yaml": `
+select:
+  agents:
+    - reviewer
+  skills:
+    primary:
+      - helper
+targets:
+  - claude
+  - codex
+activation:
+  - name: reviewer helper delegation
+    prompt: Ask the reviewer to use the helper guidance before reviewing.
+    expect:
+      agent: reviewer
+checks:
+  projection: true
+  files:
+    - path: .claude/agents/reviewer.md
+      contains: "skills:"
+    - path: .claude/agents/reviewer.md
+      contains: "- helper"
+    - path: .codex/agents/reviewer.toml
+      contains: "Load the following skills first"
+    - path: .codex/agents/reviewer.toml
+      contains: "- helper"
+`,
+    ".skillset/agents/reviewer.md": `
+---
+name: Reviewer
+description: Reviews with helper guidance.
+skills:
+  - helper
+---
+
+Review the workspace after loading helper guidance.
+`,
+    ".skillset/skills/helper/SKILL.md": `
+---
+name: helper
+description: Helper.
+---
+
+Helper body.
+`,
+  });
+
+  const result = await runSkillsetCli("test", "orchestration", "--root", root);
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout).toContain("selection: agents reviewer; primary skills helper");
+  expect(result.stdout).toContain("activation probes: 1");
+  const claudeProbe = await readFile(cachePath(root, ".skillset/cache/tests/latest/activation/claude/reviewer-helper-delegation.md"), "utf8");
+  expect(claudeProbe).toContain("Manual Claude activation probe");
+  const codexProbe = await readFile(cachePath(root, ".skillset/cache/tests/latest/activation/codex/probes.json"), "utf8");
+  expect(codexProbe).toContain("manual-shimmed");
+  expect(codexProbe).toContain("reviewer-helper-delegation");
+});
+
 test("SET-112: activation probes reject empty prompts and duplicate output names", async () => {
   const emptyPromptRoot = await contractFixture({
     "skillset.yaml": `
