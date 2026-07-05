@@ -76,7 +76,7 @@ describe("workbench fixtures", () => {
     ]);
 
     expect(diagnostics.ok).toBeFalse();
-    expect(diagnostics.errorCount).toBe(28);
+    expect(diagnostics.errorCount).toBe(27);
     expect(diagnostics.warningCount).toBe(1);
     expect(diagnostics.diagnostics.map(formatWorkbenchDiagnostic)).toEqual([
       ".skillset/agents/broken.md:3: error: schema/agent-frontmatter: description is required and must be a non-empty string",
@@ -107,7 +107,6 @@ describe("workbench fixtures", () => {
       "skillset.yaml:13: error: schema/workspace-config: unsupported compile feature key surprise",
       "skillset.yaml:15: error: schema/workspace-config: compile.skillset.metadata must be a boolean",
       "skillset.yaml:16: error: schema/workspace-config: unsupported compile skillset key surprise",
-      "skillset.yaml:17: error: schema/workspace-config: compile.unsupportedDestination warn, skip, and force are reserved; use error",
     ]);
   });
 });

@@ -28,8 +28,8 @@ import {
   type SkillsetOperationResult,
   type SkillsetWriteSummary,
 } from "./operation-result";
-import { defineRenderResult, type SkillsetRenderResult } from "./render-result";
-import type { BuildGraph, BuildScope, CheckResult, JsonRecord, JsonValue, RenderedFile, SkillsetOptions } from "./types";
+import { SkillsetRenderResultError, defineRenderResult, type SkillsetRenderResult, type SkillsetRenderResultPolicy } from "./render-result";
+import type { BuildGraph, BuildScope, CheckResult, JsonRecord, JsonValue, RenderedFile, SkillsetOptions, UnsupportedDestinationPolicy } from "./types";
 import { isJsonRecord, parseMarkdown } from "./yaml";
 
 /** Mirror root for isolated builds; the full projection lands under it. */
@@ -113,11 +113,14 @@ export async function buildSkillsetResult(
     mapOutputPath: outPath,
     scopes: options.scopes,
   });
-  enforceRenderResultPolicy(renderResults, graph.root.compile.unsupportedDestination);
+  const policyAdjustedRenderResults = applyUnsupportedDestinationPolicy(renderResults, graph.root.compile.unsupportedDestination);
+  enforceSoftPolicyHasUsableOutput(scopedRendered, policyAdjustedRenderResults, graph.root.compile.unsupportedDestination);
+  enforceRenderResultPolicy(policyAdjustedRenderResults, graph.root.compile.unsupportedDestination);
+  diagnostics.push(...unsupportedDestinationPolicyDiagnostics(policyAdjustedRenderResults, graph.root.compile.unsupportedDestination));
   const renderedWithoutOutcomeMetadata = mirroredRenderedFiles(scopedRendered, outPath);
   const instructionDiagnostics = diagnoseLargeInstructionFiles(renderedWithoutOutcomeMetadata);
   diagnostics.push(...instructionDiagnostics);
-  const renderResultsWithDiagnostics = attachDiagnosticsToRenderResults(renderResults, instructionDiagnostics);
+  const renderResultsWithDiagnostics = attachDiagnosticsToRenderResults(policyAdjustedRenderResults, instructionDiagnostics);
   const rendered = withPersistedRenderResults(
     renderedWithoutOutcomeMetadata,
     renderResultsWithDiagnostics
@@ -186,11 +189,14 @@ export async function diffSkillsetResult(
     mapOutputPath: outPath,
     scopes: options.scopes,
   });
-  enforceRenderResultPolicy(renderResults, graph.root.compile.unsupportedDestination);
+  const policyAdjustedRenderResults = applyUnsupportedDestinationPolicy(renderResults, graph.root.compile.unsupportedDestination);
+  enforceSoftPolicyHasUsableOutput(scopedRendered, policyAdjustedRenderResults, graph.root.compile.unsupportedDestination);
+  enforceRenderResultPolicy(policyAdjustedRenderResults, graph.root.compile.unsupportedDestination);
+  diagnostics.push(...unsupportedDestinationPolicyDiagnostics(policyAdjustedRenderResults, graph.root.compile.unsupportedDestination));
   const renderedWithoutOutcomeMetadata = mirroredRenderedFiles(scopedRendered, outPath);
   const instructionDiagnostics = diagnoseLargeInstructionFiles(renderedWithoutOutcomeMetadata);
   diagnostics.push(...instructionDiagnostics);
-  const renderResultsWithDiagnostics = attachDiagnosticsToRenderResults(renderResults, instructionDiagnostics);
+  const renderResultsWithDiagnostics = attachDiagnosticsToRenderResults(policyAdjustedRenderResults, instructionDiagnostics);
   const rendered = withPersistedRenderResults(
     renderedWithoutOutcomeMetadata,
     renderResultsWithDiagnostics
@@ -277,11 +283,14 @@ export async function verifySkillsetResult(
     mapOutputPath: outPath,
     scopes: options.scopes,
   });
-  enforceRenderResultPolicy(renderResults, graph.root.compile.unsupportedDestination);
+  const policyAdjustedRenderResults = applyUnsupportedDestinationPolicy(renderResults, graph.root.compile.unsupportedDestination);
+  enforceSoftPolicyHasUsableOutput(scopedRendered, policyAdjustedRenderResults, graph.root.compile.unsupportedDestination);
+  enforceRenderResultPolicy(policyAdjustedRenderResults, graph.root.compile.unsupportedDestination);
+  diagnostics.push(...unsupportedDestinationPolicyDiagnostics(policyAdjustedRenderResults, graph.root.compile.unsupportedDestination));
   const renderedWithoutOutcomeMetadata = mirroredRenderedFiles(scopedRendered, outPath);
   const instructionDiagnostics = diagnoseLargeInstructionFiles(renderedWithoutOutcomeMetadata);
   diagnostics.push(...instructionDiagnostics);
-  const renderResultsWithDiagnostics = attachDiagnosticsToRenderResults(renderResults, instructionDiagnostics);
+  const renderResultsWithDiagnostics = attachDiagnosticsToRenderResults(policyAdjustedRenderResults, instructionDiagnostics);
   const rendered = withPersistedRenderResults(
     renderedWithoutOutcomeMetadata,
     renderResultsWithDiagnostics
@@ -363,6 +372,80 @@ function generatedDriftMessage(
   if (kind === "missing") return `missing generated file: ${path}`;
   if (kind === "missing-managed") return `missing managed generated file: ${path}`;
   return `stale generated file: ${path}`;
+}
+
+function applyUnsupportedDestinationPolicy(
+  renderResults: readonly SkillsetRenderResult[],
+  unsupportedPolicy: UnsupportedDestinationPolicy
+): readonly SkillsetRenderResult[] {
+  if (unsupportedPolicy === "error") return renderResults;
+  const policy = unsupportedDestinationRenderPolicy(unsupportedPolicy);
+  return renderResults.map((outcome) => {
+    if (!isSoftUnsupportedDestinationOutcome(outcome)) return outcome;
+    return defineRenderResult({ ...outcome, policy });
+  });
+}
+
+function unsupportedDestinationPolicyDiagnostics(
+  renderResults: readonly SkillsetRenderResult[],
+  unsupportedPolicy: UnsupportedDestinationPolicy
+): readonly SkillsetDiagnostic[] {
+  if (unsupportedPolicy === "error") return [];
+  return renderResults
+    .filter(isSoftUnsupportedDestinationOutcome)
+    .map((outcome) => ({
+      code: `unsupported-destination-${unsupportedPolicy}`,
+      featureId: outcome.featureId,
+      message: unsupportedDestinationPolicyMessage(outcome, unsupportedPolicy),
+      ...(outcome.sourcePath === undefined ? {} : { path: outcome.sourcePath }),
+      severity: "warning" as const,
+      sourceUnit: outcome.sourceUnit,
+      ...(outcome.target === undefined ? {} : { target: outcome.target }),
+    }));
+}
+
+function unsupportedDestinationPolicyMessage(
+  outcome: SkillsetRenderResult,
+  unsupportedPolicy: UnsupportedDestinationPolicy
+): string {
+  const target = outcome.target ?? "workspace";
+  const destination = outcome.destination === undefined ? "" : ` ${outcome.destination}`;
+  const reason = outcome.reason ?? "no reason recorded";
+  if (unsupportedPolicy === "warn") {
+    return `unsupported destination warning: ${target}${destination} ${outcome.featureId} ${outcome.status}; ${reason}`;
+  }
+  if (unsupportedPolicy === "skip") {
+    return `unsupported destination skipped: ${target}${destination} ${outcome.featureId} ${outcome.status}; ${reason}`;
+  }
+  return `unsupported destination forced: ${target}${destination} ${outcome.featureId} ${outcome.status}; ${reason}`;
+}
+
+function unsupportedDestinationRenderPolicy(
+  unsupportedPolicy: UnsupportedDestinationPolicy
+): SkillsetRenderResultPolicy {
+  return `unsupported:${unsupportedPolicy}`;
+}
+
+function isSoftUnsupportedDestinationOutcome(outcome: SkillsetRenderResult): boolean {
+  return outcome.status === "lossy" || outcome.status === "unsupported";
+}
+
+function enforceSoftPolicyHasUsableOutput(
+  rendered: readonly RenderedFile[],
+  renderResults: readonly SkillsetRenderResult[],
+  unsupportedPolicy: UnsupportedDestinationPolicy
+): void {
+  if (unsupportedPolicy === "error") return;
+  const softened = renderResults.filter(isSoftUnsupportedDestinationOutcome);
+  if (softened.length === 0) return;
+  if (rendered.some((file) => !isLockFilePath(file.path))) return;
+  throw new SkillsetRenderResultError(
+    [
+      `skillset: unsupported destination policy ${unsupportedPolicy} produced no usable target output`,
+      "at least one non-lock output must remain so unsupported source cannot look synchronized",
+    ].join("\n"),
+    softened
+  );
 }
 
 function buildResult(
@@ -463,7 +546,7 @@ function renderResultsForLock(
       if (target !== undefined && target !== "workspace" && (outcome.target ?? "workspace") !== target) return false;
       const outputPaths = outcome.outputs?.map((output) => output.path) ?? [];
       if (outputPaths.length === 0) {
-        return outputRoot === "." && outcome.target === undefined;
+        return outputRoot === "." || noOutputOutcomeBelongsToLock(outcome, outputRoot);
       }
       return outputPaths.some((path) => lockOutputs.has(path));
     })
@@ -473,6 +556,23 @@ function renderResultsForLock(
         `${right.sourceUnit}\0${right.target ?? ""}\0${right.featureId}\0${right.destination ?? ""}\0${right.status}\0${right.sourcePath ?? ""}`
       )
     );
+}
+
+function noOutputOutcomeBelongsToLock(
+  outcome: SkillsetRenderResult,
+  outputRoot: string
+): boolean {
+  if (outcome.sourceUnit.startsWith("plugin.")) {
+    const pluginId = outcome.sourceUnit.slice("plugin.".length).split(".")[0];
+    return outputRoot.startsWith(`plugins/${pluginId}/`);
+  }
+  if (outcome.sourceUnit.startsWith("skill:")) {
+    return outputRoot.endsWith("/skills") || outputRoot.endsWith(".agents/skills");
+  }
+  if (outcome.sourceUnit.startsWith("agent:")) {
+    return outputRoot.endsWith("/agents");
+  }
+  return false;
 }
 
 function outputPathsForLock(outputRoot: string, lock: JsonRecord): ReadonlySet<string> {

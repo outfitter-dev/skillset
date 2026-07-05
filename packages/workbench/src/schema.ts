@@ -253,10 +253,7 @@ function workspaceSchemaMessage(diagnostic: SkillsetSchemaDiagnostic, data: Reco
     case "schema/workspace-config/compile-build":
       return "compile.build must be one of all, updated";
     case "schema/workspace-config/unsupported-destination":
-      if (value === "warn" || value === "skip" || value === "force") {
-        return "compile.unsupportedDestination warn, skip, and force are reserved; use error";
-      }
-      return "compile.unsupportedDestination must be error";
+      return "compile.unsupportedDestination must be one of error, warn, skip, force";
     case "schema/workspace-config/boolean-record":
       return `${displayPath} must be an object`;
     case "schema/workspace-config/boolean-record-key":
@@ -532,7 +529,7 @@ function sourceContractFix(
     return { kind: "suggestion", message: "Use `compile:\\n  build: all` or `compile:\\n  build: updated`." };
   }
   if (diagnostic.code === "schema/workspace-config/unsupported-destination") {
-    return { kind: "suggestion", message: "Use `compile:\\n  unsupportedDestination: error`." };
+    return { kind: "suggestion", message: "Use `compile:\\n  unsupportedDestination: error` unless you intentionally need warn, skip, or force." };
   }
   if (diagnostic.code === "schema/workspace-config/cache-key") {
     return {

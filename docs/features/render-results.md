@@ -56,15 +56,15 @@ The schema intentionally keeps source identity and target output identity togeth
 | `scope:excluded` | Output was excluded by the selected build scope. |
 | `target:disabled` | Target was disabled by config or source-level target toggle. |
 | `unsupported:error` | Unsupported/lossy render fails build, diff, and verify before generated-output freshness is reported. |
-| `unsupported:warn` | Unsupported/lossy render is reported but does not fail. |
-| `unsupported:skip` | Unsupported/lossy render writes no target output and is recorded as skipped/unsupported. |
-| `unsupported:force` | A future explicit override allows a target-native/debug output without pretending portability. |
+| `unsupported:warn` | Unsupported/lossy render is reported as warning diagnostics but does not fail. |
+| `unsupported:skip` | Unsupported/lossy render writes supported outputs, emits no unsupported target output, and records the skipped source/destination. |
+| `unsupported:force` | An explicit override allows the build to continue while preserving unsupported/lossy provenance; it does not pretend portability. |
 
-The default posture is error. Build, diff, and verify enforce `failed`, `lossy`, and `unsupported` render results from the structured report before writing generated output. `warn`, `skip`, and `force` remain reserved escape hatches until their non-error semantics are implemented and documented. When these policies are used internally or transitionally, they must still surface through render results, diagnostics, or reports.
+The default posture is error. Build, diff, and verify enforce `failed`, `lossy`, and `unsupported` render results from the structured report before writing generated output. `compile.unsupportedDestination: warn`, `skip`, and `force` soften only `lossy` and `unsupported` render results. A `failed` render result still blocks every policy because the compiler could not produce safe output.
 
-Before non-error unsupported-destination policies become user-facing, every
-affected render result must carry enough provenance for a reviewer or CI job to
-see what happened without reading generated output by hand:
+Every affected non-error render result must carry enough provenance for a
+reviewer or CI job to see what happened without reading generated output by
+hand:
 
 - source unit and source path;
 - provider target;
@@ -73,10 +73,10 @@ see what happened without reading generated output by hand:
 - unsupported, lossy, or failed reason;
 - selected unsupported-destination policy;
 - provider evidence or registry row behind the classification;
-- outputs written, outputs skipped, and whether no target output was produced;
+- outputs written, outputs skipped, or clear no-output provenance;
 - surfaced diagnostic refs in JSON and text output.
 
-The future reserved semantics are:
+The non-error semantics are:
 
 - `warn` writes supported outputs, keeps unsupported/lossy facts visible, and
   makes warning counts machine-readable.

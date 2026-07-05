@@ -62,9 +62,10 @@ policy boundary is this:
    preface, an activation probe, a shimmed instruction, or a generated helper
    script can be useful compatibility material, but it cannot satisfy a policy
    enforcement claim unless the provider itself enforces that surface.
-5. **`compile.unsupportedDestination` remains `error` until SET-18 lands the
-   missing provenance and semantics.** `warn`, `skip`, and `force` stay
-   reserved names that fail validation.
+5. **`compile.unsupportedDestination` can soften unsupported/lossy render
+   results only when provenance stays visible.** `error` remains the default,
+   `failed` render results always block, and `warn`, `skip`, and `force` must
+   preserve diagnostics and lock/report evidence.
 
 This means `tools` can grow more capable without becoming a catch-all policy
 object. Future provider surfaces such as Codex sandbox suggestions, Cursor
@@ -87,8 +88,8 @@ parallel `policy.yaml` or `policy:` tree now.
 
 ### SET-18 Implementation Bar
 
-SET-18 can enable `warn`, `skip`, and `force` only after the implementation can
-prove these facts for every affected render result:
+SET-18 can enable `warn`, `skip`, and `force` because the implementation proves
+these facts for every affected render result:
 
 - source unit and source path;
 - provider target;
@@ -97,17 +98,17 @@ prove these facts for every affected render result:
 - unsupported/lossy/failed reason;
 - selected unsupported-destination policy;
 - provider evidence or registry row that justified the classification;
-- outputs written, outputs skipped, and whether no target output was produced;
+- outputs written, outputs skipped, or clear no-output provenance;
 - surfaced diagnostic refs in JSON and text output.
 
-The future semantics are:
+The semantics are:
 
 | Policy | Required behavior |
 | --- | --- |
 | `error` | Current behavior: fail build, diff, and verify before generated-output freshness can look clean. |
 | `warn` | Write supported outputs, keep unsupported/lossy facts visible, and make warning counts machine-readable. |
 | `skip` | Write supported outputs, omit unsupported outputs, and record the skipped source/destination in locks and reports. |
-| `force` | Allow only an explicit provider-native or debug output path with provenance; never pretend unsupported portable behavior became faithful. |
+| `force` | Allow the build to continue with explicit unsupported/lossy provenance; never pretend unsupported portable behavior became faithful. |
 
 If an enabled target would produce no usable output under a non-error policy,
 the command must still fail. A clean build with no output is silent drift in a
@@ -153,8 +154,8 @@ authoring contract.
 
 ### What This Does NOT Decide
 
-This ADR does not implement `compile.unsupportedDestination: warn`, `skip`, or
-`force`. It states the implementation bar for SET-18.
+This ADR does not make `warn`, `skip`, or `force` override `failed` render
+results. A compiler failure still means Skillset could not produce safe output.
 
 This ADR does not define install, activation, trust, marketplace approval, or
 managed-settings workflows. Those remain external or reviewed-suggestion

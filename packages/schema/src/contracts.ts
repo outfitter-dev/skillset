@@ -9,7 +9,7 @@ const SEMVER_PATTERN =
 export const TARGET_NAMES = ["claude", "codex", "cursor"] as const;
 export const DEFAULT_TARGET_NAMES = TARGET_NAMES;
 export const COMPILE_BUILD_MODES = ["all", "updated"] as const;
-export const UNSUPPORTED_DESTINATION_POLICIES = ["error"] as const;
+export const UNSUPPORTED_DESTINATION_POLICIES = ["error", "warn", "skip", "force"] as const;
 export const SOURCE_LICENSE_IDS = [
   "Apache-2.0",
   "BSD-2-Clause",
