@@ -40,9 +40,10 @@ import { rewriteResourceLinks } from "./resources";
 import {
   readAllowedTools,
   readClaudeNativeToolRules,
-  readCodexToolMetadata,
+  readToolsPolicyMetadata,
   readImplicitInvocation,
 } from "./skill-policy";
+import { toolsMetadataSidecarTargets } from "./tools-realization";
 import {
   formatPreprocessDependency,
   preprocessText,
@@ -676,14 +677,14 @@ async function renderPluginSkillFiles(
     sourceDir,
     targetSkillDir
   );
-  const generatedCodexToolsFile = renderCodexSkillToolsFile(
+  const generatedToolsMetadataFile = renderSkillToolsMetadataFile(
     graph,
     skill,
     target,
     targetSkillDir
   );
   const generatedCodexRelativeFiles = new Set(
-    [generatedCodexAgentFile?.file, generatedCodexToolsFile]
+    [generatedCodexAgentFile?.file, generatedToolsMetadataFile]
       .filter((file): file is RenderedFile => file !== undefined)
       .map((file) => relative(targetSkillDir, file.path))
   );
@@ -710,10 +711,10 @@ async function renderPluginSkillFiles(
       `${skill.sourcePath}.agents/openai.yaml`
     );
   }
-  if (generatedCodexToolsFile !== undefined) {
+  if (generatedToolsMetadataFile !== undefined) {
     pushSkillRenderedFile(
       rendered,
-      generatedCodexToolsFile,
+      generatedToolsMetadataFile,
       targetSkillDir,
       renderedRelativeFiles,
       `${skill.sourcePath}.tools`
@@ -1138,14 +1139,14 @@ async function renderStandaloneSkill(
     sourceDir,
     targetSkillDir
   );
-  const generatedCodexToolsFile = renderCodexSkillToolsFile(
+  const generatedToolsMetadataFile = renderSkillToolsMetadataFile(
     graph,
     skill,
     target,
     targetSkillDir
   );
   const generatedCodexRelativeFiles = new Set(
-    [generatedCodexAgentFile?.file, generatedCodexToolsFile]
+    [generatedCodexAgentFile?.file, generatedToolsMetadataFile]
       .filter((file): file is RenderedFile => file !== undefined)
       .map((file) => relative(targetSkillDir, file.path))
   );
@@ -1172,10 +1173,10 @@ async function renderStandaloneSkill(
       `${skill.sourcePath}.agents/openai.yaml`
     );
   }
-  if (generatedCodexToolsFile !== undefined) {
+  if (generatedToolsMetadataFile !== undefined) {
     pushSkillRenderedFile(
       rendered,
-      generatedCodexToolsFile,
+      generatedToolsMetadataFile,
       targetSkillDir,
       renderedRelativeFiles,
       `${skill.sourcePath}.tools`
@@ -1495,16 +1496,16 @@ function renderCodexSkillAgentConfig(skill: SourceSkill, label: string): JsonRec
   return { policy: { allow_implicit_invocation: implicitInvocation } };
 }
 
-function renderCodexSkillToolsFile(
+function renderSkillToolsMetadataFile(
   graph: BuildGraph,
   skill: SourceSkill,
   target: TargetName,
   targetSkillDir: string
 ): RenderedFile | undefined {
-  if (target !== "codex") return undefined;
+  if (!toolsMetadataSidecarTargets().includes(target)) return undefined;
 
   const label = relative(graph.rootPath, skill.sourcePath);
-  const tools = readCodexToolMetadata(skill.frontmatter, skill.targets.codex.options, label);
+  const tools = readToolsPolicyMetadata(skill.frontmatter, skill.targets[target].options, target, label);
   if (Object.keys(tools).length === 0) return undefined;
 
   return textFile(
@@ -1512,7 +1513,7 @@ function renderCodexSkillToolsFile(
     renderValidatedYaml({
       generated: GENERATED_BY,
       schema_version: 1,
-      target: "codex",
+      target,
       tools,
     }, `${relative(graph.rootPath, skill.sourcePath)} -> ${join(targetSkillDir, ".skillset.tools.yaml")}`),
     relative(graph.rootPath, skill.sourcePath)

@@ -768,6 +768,22 @@ export async function runCli(
     for (const outcome of result.renderResults) {
       printRenderResult(outcome);
     }
+    for (const realization of result.toolsRealization) {
+      if (realization.entries.length === 0) continue;
+      const macro = realization.macro === undefined ? "" : ` (macro: ${realization.macro})`;
+      console.log(`  tools realization [${realization.target}]${macro}:`);
+      for (const entry of realization.entries) {
+        const name = entry.kind === "native-overlay"
+          ? `native ${entry.ruleDirection ?? ""} ${entry.rule ?? ""}`.trim()
+          : entry.aspect ?? "unknown";
+        const classified = entry.unclassified === true ? " (unclassified)" : "";
+        const emits = entry.emits.length === 0 ? "" : ` -> ${entry.emits.join(", ")}`;
+        console.log(`    ${name}${classified}: ${entry.decidingLayer} -> ${entry.tier} via ${entry.surface}${emits}`);
+        for (const diagnostic of entry.diagnostics) {
+          console.log(`      risk: ${diagnostic}`);
+        }
+      }
+    }
     for (const note of result.notes) console.log(`  note: ${note}`);
     if (result.kind === "unknown") process.exitCode = 1;
     return;

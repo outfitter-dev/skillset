@@ -936,7 +936,11 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
   }),
   feature({
     docs: ["docs/features/tools-policy.md"],
-    evidence: [test("apps/skillset/src/__tests__/skillset.test.ts", "tool policy rendering coverage")],
+    evidence: [
+      source("packages/core/src/tools-realization.ts"),
+      test("apps/skillset/src/__tests__/skillset.test.ts", "tool policy rendering coverage"),
+      test("packages/core/src/__tests__/tools-realization.test.ts", "realization registry facts and planner coverage"),
+    ],
     id: "tools-policy",
     kind: "source",
     renderOwner: "packages/core/src/render.ts",
@@ -944,9 +948,18 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     status: "implemented",
     summary: "Normalizes portable tools policy into Claude tool rules and provider metadata where no proven skill-local enforcement surface exists.",
     targetSupport: {
-      claude: { status: "transformed" },
-      codex: { status: "metadata_only" },
-      cursor: { status: "metadata_only" },
+      claude: {
+        note: "Portable keys lower to allowed-tools / disallowed-tools preapproval and denial rules; native overlay strings pass through verbatim.",
+        status: "transformed",
+      },
+      codex: {
+        note: "Recorded as .skillset.tools.yaml metadata; no proven skill-local enforcement surface.",
+        status: "metadata_only",
+      },
+      cursor: {
+        note: "Recorded as .skillset.tools.yaml metadata; no proven skill-local enforcement surface.",
+        status: "metadata_only",
+      },
     },
     title: "Tools Policy",
     validationOwner: "packages/core/src/skill-policy.ts",

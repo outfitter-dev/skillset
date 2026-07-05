@@ -23,6 +23,14 @@ import {
 } from "./hook-capabilities";
 import { compareStrings } from "./path";
 import { targetNames } from "./targets";
+import {
+  listToolsRealizationFacts,
+  type ToolsAspect,
+  type ToolsRealizationDirection,
+  type ToolsRealizationEnforcement,
+  type ToolsRealizationSurface,
+  type ToolsRealizationTier,
+} from "./tools-realization";
 import type { TargetName } from "./types";
 
 export type LookupSubject = "agent" | "hooks" | "instruction" | "plugin" | "skill" | "workspace";
@@ -96,6 +104,23 @@ export interface LookupDiagnostic {
   readonly severity: LookupDiagnosticSeverity;
 }
 
+/**
+ * One row of the portable tools realization matrix: how a portable aspect is
+ * realized on a target. `rendered: false` rows document provider surfaces
+ * Skillset knows about but deliberately does not drive during build.
+ */
+export interface LookupToolsRealization {
+  readonly aspect: ToolsAspect;
+  readonly diagnostic?: string;
+  readonly direction?: ToolsRealizationDirection;
+  readonly emits?: string;
+  readonly enforcement: ToolsRealizationEnforcement;
+  readonly rendered: boolean;
+  readonly surface: ToolsRealizationSurface;
+  readonly target: TargetName;
+  readonly tier: ToolsRealizationTier;
+}
+
 export interface LookupReport {
   readonly aspects: readonly string[];
   readonly compatibility: readonly LookupCompatibility[];
@@ -103,6 +128,7 @@ export interface LookupReport {
   readonly events: readonly LookupEvent[];
   readonly examples: readonly LookupExample[];
   readonly fields: readonly LookupField[];
+  readonly realizations: readonly LookupToolsRealization[];
   readonly schema?: SkillsetSchemaContract;
   readonly subject?: LookupSubject;
   readonly subjects: readonly LookupSubjectSummary[];
@@ -221,6 +247,7 @@ export function lookupSkillsetReference(query: LookupQuery = {}): LookupReport {
       events: [],
       examples: [],
       fields: [],
+      realizations: [],
       subjects: SUBJECTS,
       summary: "Skillset lookup subjects.",
       targets,
@@ -264,6 +291,10 @@ export function lookupSkillsetReference(query: LookupQuery = {}): LookupReport {
     compatibility.push(...lookupCompatibility(subject, aspects, targets, diagnostics));
   }
 
+  const realizations = views.includes("compat") && subject === "skill" && aspects.some(isToolsPolicyAspect)
+    ? lookupToolsRealizations(targets)
+    : [];
+
   return {
     aspects,
     compatibility,
@@ -271,6 +302,7 @@ export function lookupSkillsetReference(query: LookupQuery = {}): LookupReport {
     events,
     examples,
     fields,
+    realizations,
     ...(schema === undefined ? {} : { schema }),
     subject,
     subjects: [],
@@ -278,6 +310,35 @@ export function lookupSkillsetReference(query: LookupQuery = {}): LookupReport {
     targets,
     views,
   };
+}
+
+function isToolsPolicyAspect(aspect: string): boolean {
+  return aspect === "tools" || aspect === "tools-policy";
+}
+
+function lookupToolsRealizations(targets: readonly TargetName[]): readonly LookupToolsRealization[] {
+  return targets
+    .flatMap((target) =>
+      listToolsRealizationFacts({ provider: target }).flatMap((fact) =>
+        fact.aspects.map((aspect): LookupToolsRealization => ({
+          aspect,
+          ...(fact.diagnostic === undefined ? {} : { diagnostic: fact.diagnostic }),
+          ...(fact.direction === undefined ? {} : { direction: fact.direction }),
+          ...(fact.emits === undefined ? {} : { emits: fact.emits }),
+          enforcement: fact.enforcement,
+          rendered: fact.rendered,
+          surface: fact.surface,
+          target,
+          tier: fact.tier,
+        }))
+      )
+    )
+    .sort((left, right) =>
+      compareStrings(
+        `${left.target}\0${left.aspect}\0${left.rendered ? 0 : 1}\0${left.tier}\0${left.direction ?? ""}`,
+        `${right.target}\0${right.aspect}\0${right.rendered ? 0 : 1}\0${right.tier}\0${right.direction ?? ""}`
+      )
+    );
 }
 
 function normalizeTargets(targets: readonly TargetName[] | undefined): readonly TargetName[] {

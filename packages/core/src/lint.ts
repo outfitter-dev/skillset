@@ -14,8 +14,9 @@ import { loadBuildGraph } from "./resolver";
 import {
   readAllowedTools,
   readClaudeNativeToolRules,
-  readCodexToolMetadata,
+  readToolsPolicyMetadata,
 } from "./skill-policy";
+import { targetNames } from "./targets";
 import type {
   BuildGraph,
   JsonValue,
@@ -383,8 +384,9 @@ function lintToolEscapes(graph: BuildGraph, skill: SourceSkill): readonly LintIs
     if (skill.targets.claude.enabled) {
       readClaudeNativeToolRules(skill.frontmatter, skill.targets.claude.options, path);
     }
-    if (skill.targets.codex.enabled) {
-      readCodexToolMetadata(skill.frontmatter, skill.targets.codex.options, path);
+    for (const target of targetNames()) {
+      if (target === "claude" || !skill.targets[target].enabled) continue;
+      readToolsPolicyMetadata(skill.frontmatter, skill.targets[target].options, target, path);
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

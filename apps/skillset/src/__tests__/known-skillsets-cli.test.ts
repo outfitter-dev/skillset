@@ -4,6 +4,8 @@ import { join } from "node:path";
 
 import { expect, test } from "bun:test";
 
+import { gitSafeEnv } from "../git-env";
+
 test("SET-233: check records the workspace in the managed known-Skillsets index", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-known-cli-"));
   const xdgConfigHome = join(root, "xdg-config");
@@ -14,7 +16,11 @@ test("SET-233: check records the workspace in the managed known-Skillsets index"
   const before = await readdir(workspace);
 
   const checked = await runSkillsetCli(
-    { XDG_CONFIG_HOME: xdgConfigHome },
+    {
+      GIT_DIR: ".git",
+      GIT_WORK_TREE: process.cwd(),
+      XDG_CONFIG_HOME: xdgConfigHome,
+    },
     "check",
     "--root",
     workspace
@@ -82,6 +88,7 @@ async function runGit(root: string, ...args: readonly string[]): Promise<void> {
   const proc = Bun.spawn({
     cmd: ["git", ...args],
     cwd: root,
+    env: gitSafeEnv(),
     stderr: "pipe",
     stdout: "pipe",
   });

@@ -3,7 +3,12 @@ import { targetNames } from "./targets";
 import { isJsonRecord } from "./yaml";
 
 const TARGET_KEYS = targetNames();
-const PORTABLE_TOOL_KEYS = new Set(["mcp", "read", "search", "shell", "write"]);
+
+export const PORTABLE_TOOL_ASPECTS = ["mcp", "read", "search", "shell", "write"] as const;
+
+export type ToolsAspect = (typeof PORTABLE_TOOL_ASPECTS)[number];
+
+const PORTABLE_TOOL_KEYS = new Set<string>(PORTABLE_TOOL_ASPECTS);
 const PROVIDER_NATIVE_KEYS = new Set(["allow", "deny"]);
 const READONLY_TOOLS: JsonRecord = {
   read: true,
@@ -11,7 +16,7 @@ const READONLY_TOOLS: JsonRecord = {
   write: false,
 };
 
-type ToolFamily = "mcp" | "read" | "search" | "shell" | "write";
+export type ToolsPolicyLayer = "base" | "macro" | "provider-override";
 
 export type AllowedToolsValue = false | readonly string[];
 
@@ -20,16 +25,18 @@ export interface ClaudeNativeToolRules {
   readonly deny: readonly string[];
 }
 
-export interface CodexToolMetadata extends JsonRecord {
+export interface ToolsPolicyMetadata extends JsonRecord {
   readonly portable?: JsonRecord;
   readonly target_native?: JsonRecord;
 }
 
 export interface EffectiveToolsPolicy {
   readonly hasSource: boolean;
+  readonly macro?: "readonly";
   readonly nativeAllow: readonly string[];
   readonly nativeDeny: readonly string[];
   readonly portable: JsonRecord;
+  readonly portableLayers: Readonly<Record<string, ToolsPolicyLayer>>;
   readonly target: TargetName;
 }
 
@@ -72,21 +79,23 @@ export function readEffectiveToolsPolicy(
   label: string
 ): EffectiveToolsPolicy {
   rejectTargetLocalToolPolicy(targetOptions, target, label);
-  const tools = readToolsSource(record, label);
-  if (tools === undefined) {
-    return { hasSource: false, nativeAllow: [], nativeDeny: [], portable: {}, target };
+  const source = readToolsSource(record, label);
+  if (source === undefined) {
+    return { hasSource: false, nativeAllow: [], nativeDeny: [], portable: {}, portableLayers: {}, target };
   }
 
-  const base = readPortableTools(tools, `${label}.tools`);
-  const provider = readProviderTools(tools[target], target, `${label}.tools.${target}`);
-  const portable = mergePortableTools(base, provider.portable);
-  validateNativeAllowContradictions(provider.allow, portable, `${label}.tools.${target}.allow`);
+  const base = readPortableTools(source.tools, `${label}.tools`);
+  const provider = readProviderTools(source.tools[target], `${label}.tools.${target}`);
+  const merged = mergePortableTools(base, provider.portable, source.macro);
+  validateNativeAllowContradictions(provider.allow, merged.portable, `${label}.tools.${target}.allow`);
 
   return {
     hasSource: true,
+    ...(source.macro === undefined ? {} : { macro: source.macro }),
     nativeAllow: provider.allow,
     nativeDeny: provider.deny,
-    portable,
+    portable: merged.portable,
+    portableLayers: merged.layers,
     target,
   };
 }
@@ -104,12 +113,13 @@ export function readClaudeNativeToolRules(
   };
 }
 
-export function readCodexToolMetadata(
+export function readToolsPolicyMetadata(
   record: JsonRecord,
   targetOptions: JsonRecord,
+  target: TargetName,
   label: string
-): CodexToolMetadata {
-  const policy = readEffectiveToolsPolicy(record, targetOptions, "codex", label);
+): ToolsPolicyMetadata {
+  const policy = readEffectiveToolsPolicy(record, targetOptions, target, label);
   const metadata: Record<string, JsonRecord> = {};
   if (Object.keys(policy.portable).length > 0) metadata.portable = policy.portable;
   const targetNative: Record<string, JsonValue> = {};
@@ -143,13 +153,16 @@ function readTargetedValue(
   return (value as JsonRecord)[target];
 }
 
-function readToolsSource(record: JsonRecord, label: string): JsonRecord | undefined {
+function readToolsSource(
+  record: JsonRecord,
+  label: string
+): { readonly macro?: "readonly"; readonly tools: JsonRecord } | undefined {
   if (record.tool_intent !== undefined) {
     throw new Error(`skillset: ${label} uses retired tool_intent; use tools`);
   }
   const value = record.tools;
   if (value === undefined) return undefined;
-  if (value === "readonly") return READONLY_TOOLS;
+  if (value === "readonly") return { macro: "readonly", tools: READONLY_TOOLS };
   if (!isJsonRecord(value)) {
     throw new Error(`skillset: expected ${label}.tools to be readonly or an object`);
   }
@@ -162,7 +175,7 @@ function readToolsSource(record: JsonRecord, label: string): JsonRecord | undefi
     throw new Error(`skillset: unknown tools key ${key} in ${label}.tools`);
   }
 
-  return value;
+  return { tools: value };
 }
 
 function rejectTargetLocalToolPolicy(targetOptions: JsonRecord, target: TargetName, label: string): void {
@@ -176,7 +189,6 @@ function rejectTargetLocalToolPolicy(targetOptions: JsonRecord, target: TargetNa
 
 function readProviderTools(
   value: JsonValue | undefined,
-  target: TargetName,
   label: string
 ): { readonly allow: readonly string[]; readonly deny: readonly string[]; readonly portable: JsonRecord } {
   if (value === undefined) return { allow: [], deny: [], portable: {} };
@@ -197,14 +209,14 @@ function readProviderTools(
 function readPortableTools(record: JsonRecord, label: string): JsonRecord {
   const normalized: Record<string, JsonValue> = {};
   for (const [key, rawValue] of Object.entries(record)) {
-    if (!PORTABLE_TOOL_KEYS.has(key)) continue;
+    if (!isToolsAspect(key)) continue;
     if (rawValue === undefined) continue;
-    normalized[key] = normalizePortableToolValue(key as ToolFamily, rawValue, `${label}.${key}`);
+    normalized[key] = normalizePortableToolValue(key, rawValue, `${label}.${key}`);
   }
   return normalized;
 }
 
-function normalizePortableToolValue(key: ToolFamily, value: JsonValue, label: string): JsonValue {
+function normalizePortableToolValue(key: ToolsAspect, value: JsonValue, label: string): JsonValue {
   switch (key) {
     case "read":
     case "search":
@@ -281,20 +293,30 @@ function readNativeRuleList(value: JsonValue | undefined, label: string): readon
   throw new Error(`skillset: expected ${label} to be a native rule string or string array`);
 }
 
-function mergePortableTools(base: JsonRecord, override: JsonRecord): JsonRecord {
+function mergePortableTools(
+  base: JsonRecord,
+  override: JsonRecord,
+  macro: "readonly" | undefined
+): { readonly layers: Readonly<Record<string, ToolsPolicyLayer>>; readonly portable: JsonRecord } {
   const merged: Record<string, JsonValue> = {};
+  const layers: Record<string, ToolsPolicyLayer> = {};
+  const baseLayer: ToolsPolicyLayer = macro === undefined ? "base" : "macro";
   for (const [key, value] of Object.entries(base)) {
-    if (value !== undefined) merged[key] = value;
+    if (value === undefined) continue;
+    merged[key] = value;
+    layers[key] = baseLayer;
   }
   for (const [key, value] of Object.entries(override)) {
     if (value === undefined) continue;
     if (key === "mcp" && isJsonRecord(merged.mcp) && isJsonRecord(value)) {
       merged.mcp = { ...merged.mcp, ...value };
+      layers.mcp = "provider-override";
       continue;
     }
     merged[key] = value;
+    layers[key] = "provider-override";
   }
-  return merged;
+  return { layers, portable: merged };
 }
 
 function lowerPortableToolsForClaude(
@@ -305,26 +327,43 @@ function lowerPortableToolsForClaude(
   const deny: string[] = [];
 
   for (const [key, value] of Object.entries(tools)) {
-    if (value === undefined) continue;
-    switch (key) {
-      case "read":
-        pushBooleanRules(allow, deny, value, ["Read"], `${label}.tools.read`);
-        break;
-      case "search":
-        pushBooleanRules(allow, deny, value, ["Grep", "Glob"], `${label}.tools.search`);
-        break;
-      case "write":
-        pushBooleanRules(allow, deny, value, ["Write", "Edit"], `${label}.tools.write`);
-        break;
-      case "shell":
-        lowerShellRules(allow, deny, value, `${label}.tools.shell`);
-        break;
-      case "mcp":
-        lowerMcpRules(allow, deny, value, `${label}.tools.mcp`);
-        break;
-    }
+    if (value === undefined || !isToolsAspect(key)) continue;
+    const aspectRules = lowerClaudeToolAspect(key, value, `${label}.tools.${key}`);
+    allow.push(...aspectRules.allow);
+    deny.push(...aspectRules.deny);
   }
 
+  return { allow, deny };
+}
+
+export function isToolsAspect(value: string): value is ToolsAspect {
+  return PORTABLE_TOOL_KEYS.has(value);
+}
+
+export function lowerClaudeToolAspect(
+  aspect: ToolsAspect,
+  value: JsonValue,
+  label: string
+): ClaudeNativeToolRules {
+  const allow: string[] = [];
+  const deny: string[] = [];
+  switch (aspect) {
+    case "read":
+      pushBooleanRules(allow, deny, value, ["Read"], label);
+      break;
+    case "search":
+      pushBooleanRules(allow, deny, value, ["Grep", "Glob"], label);
+      break;
+    case "write":
+      pushBooleanRules(allow, deny, value, ["Write", "Edit"], label);
+      break;
+    case "shell":
+      lowerShellRules(allow, deny, value, label);
+      break;
+    case "mcp":
+      lowerMcpRules(allow, deny, value, label);
+      break;
+  }
   return { allow, deny };
 }
 
@@ -396,7 +435,7 @@ function validateNativeAllowContradictions(
   label: string
 ): void {
   for (const rule of nativeAllow) {
-    const family = classifyNativeRule(rule);
+    const family = classifyNativeToolRule(rule);
     if (family === undefined) continue;
     if (portableDeniesFamily(portable, family, rule)) {
       throw new Error(
@@ -406,7 +445,12 @@ function validateNativeAllowContradictions(
   }
 }
 
-function classifyNativeRule(rule: string): ToolFamily | undefined {
+/**
+ * Attributes a provider-native rule string to a portable capability family for
+ * contradiction detection. Unknown rules return undefined and stay valid as
+ * unclassified, provenance-only native source.
+ */
+export function classifyNativeToolRule(rule: string): ToolsAspect | undefined {
   if (/^Bash(?:\(|$)/u.test(rule)) return "shell";
   if (rule.startsWith("mcp__")) return "mcp";
   if (/^(?:Write|Edit)(?:\(|$)/u.test(rule)) return "write";
@@ -415,7 +459,7 @@ function classifyNativeRule(rule: string): ToolFamily | undefined {
   return undefined;
 }
 
-function portableDeniesFamily(portable: JsonRecord, family: ToolFamily, rule: string): boolean {
+function portableDeniesFamily(portable: JsonRecord, family: ToolsAspect, rule: string): boolean {
   const value = portable[family];
   if (value === false) return true;
   if (family !== "mcp" || !isJsonRecord(value)) return false;
