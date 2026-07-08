@@ -7,8 +7,8 @@ import {
   type LookupView,
 } from "@skillset/core";
 
-import { renderValidatedJson } from "./structured-output";
-import type { JsonRecord, TargetName } from "./types";
+import { renderValidatedJson } from "@skillset/core/internal/structured-output";
+import type { JsonRecord, TargetName } from "@skillset/core/internal/types";
 
 export interface LookupCommandOptions {
   readonly aspects: readonly string[];

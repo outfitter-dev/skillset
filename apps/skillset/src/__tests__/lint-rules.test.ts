@@ -7,11 +7,11 @@ import { join } from "node:path";
 import { getSkillsetFeature } from "@skillset/core";
 import { lintRules, registerLintRule } from "@skillset/lint";
 
-import { buildSkillset } from "../build";
+import { buildSkillset } from "@skillset/core";
 import { ciSkillset, renderCiReportMarkdown } from "../ci";
 import { gitSafeEnv } from "../git-env";
-import { inspectSkillset, lintSkillset } from "../lint";
-import { loadBuildGraph } from "../resolver";
+import { inspectSkillset, lintSkillset } from "@skillset/core";
+import { loadBuildGraph } from "@skillset/core/internal/resolver";
 
 const WARN_RULE_NAME = "test-warn-marker";
 

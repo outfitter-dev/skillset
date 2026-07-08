@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { validateChangeEntryFrontmatter, type SkillsetSchemaDiagnostic } from "@skillset/schema";
 
-import { readChangeLedger, type ChangeLedgerEvent, type ChangeLedgerSourceUnit } from "./change-ledger";
+import { readChangeLedger, type ChangeLedgerEvent, type ChangeLedgerSourceUnit } from "@skillset/core/internal/change-ledger";
 import {
   changeStatus,
   detectWorkspaceOptions,
@@ -13,12 +13,12 @@ import {
   type SourceUnit,
   type SourceUnitChange,
 } from "./change-status";
-import { readString } from "./config";
-import { compareStrings, resolveInside } from "./path";
-import { pluginScopeFromSourceUnit, sourceUnitDisplay, sourceUnitSelector } from "./source-unit-selector";
-import type { JsonRecord, JsonValue } from "./types";
-import { workspaceChangesDir } from "./workspace-state";
-import { isJsonRecord, parseMarkdown, parseYamlRecord } from "./yaml";
+import { readString } from "@skillset/core/internal/config";
+import { compareStrings, resolveInside } from "@skillset/core/internal/path";
+import { pluginScopeFromSourceUnit, sourceUnitDisplay, sourceUnitSelector } from "@skillset/core/internal/source-unit-selector";
+import type { JsonRecord, JsonValue } from "@skillset/core/internal/types";
+import { workspaceChangesDir } from "@skillset/core";
+import { isJsonRecord, parseMarkdown, parseYamlRecord } from "@skillset/core/internal/yaml";
 
 export type ChangeBump = "major" | "minor" | "none" | "patch";
 export type ChangeCheckSeverity = "error" | "warning";

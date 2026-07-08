@@ -15,8 +15,8 @@ import {
   type RuntimeTesterSubcommand,
   type RuntimeTesterTailLine,
 } from "./runtime-tester";
-import { renderValidatedJson } from "./structured-output";
-import type { BuildScope, CompileBuildMode, JsonRecord, SkillsetOptions, TargetName } from "./types";
+import { renderValidatedJson } from "@skillset/core/internal/structured-output";
+import type { BuildScope, CompileBuildMode, JsonRecord, SkillsetOptions, TargetName } from "@skillset/core/internal/types";
 
 export interface RuntimeTesterCommandOptions {
   readonly background: boolean;

@@ -6,16 +6,16 @@ import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { createOperationalPathContext, planDistributions, resolveOperationalPath } from "@skillset/core";
 
-import { buildSkillset, buildSkillsetResult, verifySkillset, verifySkillsetResult, diffSkillset, diffSkillsetResult } from "../build";
+import { buildSkillset, buildSkillsetResult, verifySkillset, verifySkillsetResult, diffSkillset, diffSkillsetResult } from "@skillset/core";
 import { changeStatus, collectSourceInventory } from "../change-status";
-import { doctorSkillset, explainPath } from "../authoring";
+import { doctorSkillset, explainPath } from "@skillset/core/internal/authoring";
 import { importSource, importSources, normalizeCopiedImportPath } from "../import";
-import { inspectSkillset, lintSkillset } from "../lint";
-import { readReleaseState } from "../release-state";
-import { loadBuildGraph } from "../resolver";
+import { inspectSkillset, lintSkillset } from "@skillset/core";
+import { readReleaseState } from "@skillset/core/internal/release-state";
+import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { createSkillset, initSkillset } from "../setup";
 import { gitSafeEnv } from "../git-env";
-import { sourceUnitDisplay } from "../source-unit-selector";
+import { sourceUnitDisplay } from "@skillset/core/internal/source-unit-selector";
 
 test("SET-52: source-unit selectors render conventional display labels", () => {
   const cases: Array<[string, string]> = [

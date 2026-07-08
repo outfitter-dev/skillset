@@ -49,9 +49,12 @@ bun run ultracite:doctor
 bun run typecheck
 bun test
 bun run check
+bun run package-ownership:guard
 bun run terminology:guard
 ./scripts/bootstrap.sh [repo|agent|codex|claude|doctor|teardown]
 ```
+
+`bun run package-ownership:guard` blocks app-level package facade files from returning under `apps/skillset/src/`. Prefer importing an owned package root API or a documented private workspace internal directly instead of adding `export * from "@skillset/<package>/internal/*"` shims in the CLI app.
 
 `bun run terminology:guard` blocks retired compiler vocabulary (the render-result and `compile.unsupportedDestination` cutover) from drifting back into active source, docs, generated guidance, CLI output, schema names, and tests. It runs inside `bun run check`. When it fails, prefer fixing the source to use the derive/render/destination vocabulary; only extend the explicit allowlists in `scripts/terminology-guard.ts` for deliberate historical (ADR) or deferred-concept context.
 

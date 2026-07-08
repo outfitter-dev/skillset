@@ -2,7 +2,7 @@ import type { LintDiagnostic, LintRule, LintSubject } from "../types";
 
 /**
  * Markdown link/image destinations, mirroring the pattern the compiler's
- * resource machinery scans (apps/skillset/src/resources.ts). That machinery
+ * resource machinery scans (packages/core/src/resources.ts). That machinery
  * only validates `shared:`/`plugin:` resource URLs and plugin-root script
  * links; bare `../` traversal and absolute filesystem paths pass through
  * untouched, so this rule covers them.

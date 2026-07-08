@@ -2,21 +2,21 @@ import { cp, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node
 import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
-import { buildSkillset, diffSkillset } from "./build";
-import { isTargetName, readCompileTargets, readRecord, readString, resolveTargets, targetNames } from "./config";
-import { compareStrings, resolveInside } from "./path";
-import { pluginManifestPath as pluginManifestOutputPath, pluginTargetRoot } from "./plugin-output";
+import { buildSkillset, diffSkillset } from "@skillset/core";
+import { isTargetName, readCompileTargets, readRecord, readString, resolveTargets, targetNames } from "@skillset/core/internal/config";
+import { compareStrings, resolveInside } from "@skillset/core/internal/path";
+import { pluginManifestPath as pluginManifestOutputPath, pluginTargetRoot } from "@skillset/core/internal/plugin-output";
 import {
   makeRetainedRunId,
   retainedRunPaths,
   writeRetainedRunLatest,
   type RetainedRunPaths,
 } from "./retained-runs";
-import { detectWorkspaceSourceDir, loadBuildGraph } from "./resolver";
-import { renderValidatedJson } from "./structured-output";
-import type { BuildGraph, JsonRecord, JsonValue, SkillsetOptions, TargetName } from "./types";
-import { pluginVersion } from "./versioning";
-import { isJsonRecord, parseYamlRecord } from "./yaml";
+import { detectWorkspaceSourceDir, loadBuildGraph } from "@skillset/core/internal/resolver";
+import { renderValidatedJson } from "@skillset/core/internal/structured-output";
+import type { BuildGraph, JsonRecord, JsonValue, SkillsetOptions, TargetName } from "@skillset/core/internal/types";
+import { pluginVersion } from "@skillset/core/internal/versioning";
+import { isJsonRecord, parseYamlRecord } from "@skillset/core/internal/yaml";
 
 const TEST_BUILD_DIR = "cache/tests";
 const TEST_SCHEMA = 2;

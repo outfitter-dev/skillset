@@ -7,8 +7,8 @@ import {
   ISOLATED_OUT_ROOT,
 } from "@skillset/core";
 
-import { compareStrings } from "./path";
-import { pluginTargetRoot } from "./plugin-output";
+import { compareStrings } from "@skillset/core/internal/path";
+import { pluginTargetRoot } from "@skillset/core/internal/plugin-output";
 import {
   makeRetainedRunId,
   readRetainedRunLatest,
@@ -18,10 +18,10 @@ import {
   writeRetainedRunLatest,
   type RetainedRunPaths,
 } from "./retained-runs";
-import { isTargetName } from "./config";
-import { loadBuildGraph } from "./resolver";
-import { renderValidatedJson } from "./structured-output";
-import type { BuildGraph, JsonRecord, SkillsetOptions, TargetName } from "./types";
+import { isTargetName } from "@skillset/core/internal/config";
+import { loadBuildGraph } from "@skillset/core/internal/resolver";
+import { renderValidatedJson } from "@skillset/core/internal/structured-output";
+import type { BuildGraph, JsonRecord, SkillsetOptions, TargetName } from "@skillset/core/internal/types";
 
 export type RuntimeTesterSubcommand = "list" | "run" | "status" | "tail" | "worker";
 export type RuntimeTesterState = "building" | "failed" | "passed" | "queued" | "running";

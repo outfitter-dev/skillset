@@ -5,11 +5,11 @@ import {
   readChangedFilesFromGit,
   type ChangedFile,
 } from "./changeset-awareness";
-import { buildSkillset, diffSkillset, type SkillsetDiff } from "./build";
-import { suggestSource, type SourceSuggestionReport } from "./authoring";
-import { inspectSkillset } from "./lint";
-import { loadBuildGraph } from "./resolver";
-import type { LintIssue, SkillsetOptions } from "./types";
+import { buildSkillset, diffSkillset, type SkillsetDiff } from "@skillset/core";
+import { suggestSource, type SourceSuggestionReport } from "@skillset/core/internal/authoring";
+import { inspectSkillset } from "@skillset/core";
+import { loadBuildGraph } from "@skillset/core/internal/resolver";
+import type { LintIssue, SkillsetOptions } from "@skillset/core/internal/types";
 
 export interface CiOptions extends SkillsetOptions {
   /** Rebuild generated output when drift is the only mechanical problem. */
