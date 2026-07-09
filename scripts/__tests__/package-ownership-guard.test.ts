@@ -21,6 +21,34 @@ describe("package ownership guard", () => {
     ]);
   });
 
+  test("flags type-only app-level package internal facades", () => {
+    expect(
+      scanPackageOwnershipContent(
+        "apps/skillset/src/types.ts",
+        'export type { BuildGraph } from "@skillset/core/internal/types";'
+      )
+    ).toEqual([
+      {
+        file: "apps/skillset/src/types.ts",
+        line: 1,
+        text: 'export type { BuildGraph } from "@skillset/core/internal/types";',
+      },
+    ]);
+
+    expect(
+      scanPackageOwnershipContent(
+        "apps/skillset/src/types.ts",
+        'export type * from "@skillset/core/internal/types";'
+      )
+    ).toEqual([
+      {
+        file: "apps/skillset/src/types.ts",
+        line: 1,
+        text: 'export type * from "@skillset/core/internal/types";',
+      },
+    ]);
+  });
+
   test("allows direct imports from package internals", () => {
     expect(
       scanPackageOwnershipContent(

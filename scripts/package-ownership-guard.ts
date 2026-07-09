@@ -10,7 +10,7 @@ export interface PackageOwnershipViolation {
 
 const APP_SOURCE_PREFIX = "apps/skillset/src/";
 const PACKAGE_INTERNAL_EXPORT_PATTERN =
-  /^\s*export\s+(?:\*\s+|\{[^}]*\}\s+)from\s+["']@skillset\/[^"']+\/internal\/[^"']+["'];?\s*$/u;
+  /^\s*export\s+(?:type\s+)?(?:\*\s+|\{[^}]*\}\s+)from\s+["']@skillset\/[^"']+\/internal\/[^"']+["'];?\s*$/u;
 
 export function isScannablePackageOwnershipPath(path: string): boolean {
   return path.startsWith(APP_SOURCE_PREFIX) && path.endsWith(".ts") && !path.includes("/__tests__/");
