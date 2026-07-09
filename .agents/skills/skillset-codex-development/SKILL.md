@@ -20,7 +20,7 @@ Use this skill when working on the local `skillset` compiler from a Codex-orient
 
 ## Implementation Loop
 
-1. Inspect the closest existing code path before editing. The core modules are `apps/skillset/src/resolver.ts`, `apps/skillset/src/render.ts`, `apps/skillset/src/build.ts`, `apps/skillset/src/config.ts`, `apps/skillset/src/lint.ts`, and `apps/skillset/src/import.ts`.
+1. Inspect the closest existing code path before editing. The core modules are `packages/core/src/resolver.ts`, `packages/core/src/render.ts`, `packages/core/src/build.ts`, `packages/core/src/config.ts`, and `packages/core/src/lint.ts`; source import remains in `apps/skillset/src/import.ts`.
 2. For source contract changes, follow `docs/schema-contracts.md`: update `packages/schema/src/contracts.ts` and `packages/schema/src/validate.ts` before compiler or Workbench consumers, regenerate artifacts with `bun run schema:generate`, and verify with `bun run schema:check`.
 3. Add or update focused tests or fixtures in the appropriate `apps/skillset/src/__tests__/`, `packages/schema/src/__tests__/`, or `packages/workbench/src/__tests__/` file for every behavior change.
 4. For source-only skill/plugin edits, run `bun run skillset:build`.
