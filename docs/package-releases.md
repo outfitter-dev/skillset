@@ -34,7 +34,7 @@ Package-facing means a change that can affect the published `skillset` CLI packa
 | `packages/*/package.json` for `core`, `lint`, `registry`, `schema`, and `transforms` | Runtime dependency and package metadata for the private workspace packages that feed the CLI. |
 | `bun.lock` / `bun.lockb` | Dependency resolution that can alter the packaged CLI runtime. |
 
-`bun run changeset:check` enforces this boundary. It fails when package-facing paths change without an active `.changeset/*.md`, and it also fails when an active Changeset appears on a branch that only changes repo machinery. Deleted Changesets are ignored so cleanup branches can remove mistaken package-release entries.
+`bun run changeset:check` enforces this boundary. It fails when package-facing paths change without an active `.changeset/*.md`, when an active Changeset appears on a branch that only changes repo machinery, or when a pending Changeset mixes the published `skillset` package with ignored private `@skillset/*` packages. Deleted Changesets are ignored so cleanup branches can remove mistaken package-release entries. Private-only Changesets remain valid internal evidence; a public Changeset should list only packages that Changesets can version.
 
 Provider and schema changes usually have two evidence surfaces. The package Changeset explains the npm-facing behavior change, while the Skillset pending change entry explains any source-unit or generated-output provenance change in the local workspace. Generated schema artifacts under `docs/reference/schemas/` and `docs/reference/examples/` are reviewed with the contract change but do not replace the `.changeset/*.md` entry because they are derived from `packages/schema/src/**`.
 

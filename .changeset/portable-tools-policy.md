@@ -1,7 +1,4 @@
 ---
-"@skillset/core": patch
-"@skillset/schema": patch
-"@skillset/workbench": patch
 "skillset": patch
 ---
 

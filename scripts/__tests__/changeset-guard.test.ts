@@ -1,11 +1,16 @@
 import { describe, expect, test } from "bun:test";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import {
   evaluateChangesetGuard,
+  findMixedChangesetReleaseEntries,
   isActiveChangesetEntry,
   isPackageAffectingPath,
   parseChangedFileLine,
 } from "../../apps/skillset/src/changeset-awareness";
+import { runChangesetGuard } from "../changeset-guard";
 
 describe("changeset guard", () => {
   test("requires an active changeset for published package payload changes", () => {
@@ -26,6 +31,113 @@ describe("changeset guard", () => {
 
     expect(result.ok).toBe(true);
     expect(result.diagnostics).toEqual([]);
+  });
+
+  test("reports changesets that mix published and ignored private packages", async () => {
+    const root = await mkdtemp(join(tmpdir(), "skillset-changeset-guard-"));
+    try {
+      await mkdir(join(root, "apps/skillset"), { recursive: true });
+      await mkdir(join(root, "packages/schema"), { recursive: true });
+      await mkdir(join(root, ".changeset"), { recursive: true });
+      await writeFile(join(root, "apps/skillset/package.json"), JSON.stringify({ name: "skillset" }));
+      await writeFile(
+        join(root, "packages/schema/package.json"),
+        JSON.stringify({ name: "@skillset/schema", private: true })
+      );
+      await writeFile(
+        join(root, ".changeset/config.json"),
+        JSON.stringify({ ignore: [], privatePackages: { version: false } })
+      );
+      await writeFile(
+        join(root, ".changeset/mixed.md"),
+        '---\n"@skillset/schema": patch\n"skillset": patch\n---\n\nRelease both.\n'
+      );
+
+      await expect(findMixedChangesetReleaseEntries(root)).resolves.toEqual([
+        {
+          changesetPath: ".changeset/mixed.md",
+          ignoredPackages: ["@skillset/schema"],
+          publishedPackages: ["skillset"],
+        },
+      ]);
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  test("command rejects mixed release entries with an actionable diagnostic", async () => {
+    const root = await mkdtemp(join(tmpdir(), "skillset-changeset-command-"));
+    try {
+      await mkdir(join(root, "apps/skillset/src"), { recursive: true });
+      await mkdir(join(root, "packages/schema"), { recursive: true });
+      await mkdir(join(root, ".changeset"), { recursive: true });
+      await writeFile(join(root, "apps/skillset/package.json"), JSON.stringify({ name: "skillset" }));
+      await writeFile(
+        join(root, "packages/schema/package.json"),
+        JSON.stringify({ name: "@skillset/schema", private: true })
+      );
+      await writeFile(
+        join(root, ".changeset/config.json"),
+        JSON.stringify({ ignore: [], privatePackages: { version: false } })
+      );
+      await writeFile(
+        join(root, ".changeset/mixed.md"),
+        '---\n"@skillset/schema": patch\n"skillset": patch\n---\n\nRelease both.\n'
+      );
+      const changedFilesPath = join(root, "changed-files.txt");
+      await writeFile(
+        changedFilesPath,
+        "M\tapps/skillset/src/cli.ts\nM\t.changeset/mixed.md\n"
+      );
+      const output: string[] = [];
+
+      const exitCode = await runChangesetGuard(
+        ["--changed-files", changedFilesPath],
+        { rootPath: root, writeLine: (line) => output.push(line) }
+      );
+
+      expect(exitCode).toBe(1);
+      expect(output.join("\n")).toContain(
+        ".changeset/mixed.md mixes ignored package(s) @skillset/schema with published package(s) skillset"
+      );
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  test("classifies private-only, public-only, explicit ignore, and versioned private entries", async () => {
+    const ignoredRoot = await writeReleaseBoundaryFixture({
+      changesets: {
+        "explicit-ignore.md": '---\n"@skillset/ignored": patch\n"skillset": patch\n---\n',
+        "private-only.md": '---\n"@skillset/schema": patch\n---\n',
+        "public-only.md": '---\n"skillset": patch\n---\n',
+      },
+      ignore: ["@skillset/ignored"],
+      privatePackageVersioning: false,
+    });
+    const versionedRoot = await writeReleaseBoundaryFixture({
+      changesets: {
+        "versioned-private.md": '---\n"@skillset/schema": patch\n"skillset": patch\n---\n',
+      },
+      ignore: [],
+      privatePackageVersioning: true,
+    });
+
+    try {
+      await expect(findMixedChangesetReleaseEntries(ignoredRoot)).resolves.toEqual([
+        {
+          changesetPath: ".changeset/explicit-ignore.md",
+          ignoredPackages: ["@skillset/ignored"],
+          publishedPackages: ["skillset"],
+        },
+      ]);
+      await expect(findMixedChangesetReleaseEntries(versionedRoot)).resolves.toEqual([]);
+    } finally {
+      await Promise.all([
+        rm(ignoredRoot, { force: true, recursive: true }),
+        rm(versionedRoot, { force: true, recursive: true }),
+      ]);
+    }
   });
 
   test("blocks active changesets when only repo machinery changed", () => {
@@ -108,3 +220,37 @@ describe("changeset guard", () => {
     expect(parseChangedFileLine("")).toBeUndefined();
   });
 });
+
+async function writeReleaseBoundaryFixture(options: {
+  readonly changesets: Readonly<Record<string, string>>;
+  readonly ignore: readonly string[];
+  readonly privatePackageVersioning: boolean;
+}) {
+  const root = await mkdtemp(join(tmpdir(), "skillset-changeset-boundary-"));
+  await mkdir(join(root, "apps/skillset"), { recursive: true });
+  await mkdir(join(root, "packages/ignored"), { recursive: true });
+  await mkdir(join(root, "packages/schema"), { recursive: true });
+  await mkdir(join(root, ".changeset"), { recursive: true });
+  await writeFile(join(root, "apps/skillset/package.json"), JSON.stringify({ name: "skillset" }));
+  await writeFile(
+    join(root, "packages/ignored/package.json"),
+    JSON.stringify({ name: "@skillset/ignored" })
+  );
+  await writeFile(
+    join(root, "packages/schema/package.json"),
+    JSON.stringify({ name: "@skillset/schema", private: true })
+  );
+  await writeFile(
+    join(root, ".changeset/config.json"),
+    JSON.stringify({
+      ignore: options.ignore,
+      privatePackages: { version: options.privatePackageVersioning },
+    })
+  );
+  await Promise.all(
+    Object.entries(options.changesets).map(([name, source]) =>
+      writeFile(join(root, ".changeset", name), source)
+    )
+  );
+  return root;
+}

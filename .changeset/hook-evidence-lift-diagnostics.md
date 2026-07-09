@@ -1,6 +1,4 @@
 ---
-"@skillset/core": patch
-"@skillset/registry": patch
 "skillset": patch
 ---
 
