@@ -3,17 +3,17 @@ import { mkdir, mkdtemp, readdir, readFile, rename, rm, rmdir, stat, writeFile }
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 
-import { diffSkillset, type SkillsetDiff } from "./build";
-import { readString } from "./config";
-import { compareStrings, resolveInside } from "./path";
+import { diffSkillset, type SkillsetDiff } from "@skillset/core";
+import { readString } from "@skillset/core/internal/config";
+import { compareStrings, resolveInside } from "@skillset/core/internal/path";
 import { gitSafeEnv } from "./git-env";
 import {
   formatPreprocessDependency,
   preprocessText,
   readPreprocessDependencySync,
-} from "./preprocess";
-import { readReleaseState } from "./release-state";
-import { detectWorkspaceSourceDir, loadBuildGraph } from "./resolver";
+} from "@skillset/core/internal/preprocess";
+import { readReleaseState } from "@skillset/core/internal/release-state";
+import { detectWorkspaceSourceDir, loadBuildGraph } from "@skillset/core/internal/resolver";
 import {
   isPluginOwnedSelector,
   selectorForInstruction,
@@ -26,7 +26,7 @@ import {
   selectorForStandaloneSkill,
   selectorForTargetNativeIsland,
   sourceUnitSelector,
-} from "./source-unit-selector";
+} from "@skillset/core/internal/source-unit-selector";
 import type {
   BuildGraph,
   JsonRecord,
@@ -38,9 +38,9 @@ import type {
   SourceResource,
   SourceRule,
   SourceSkill,
-} from "./types";
-import { workspaceChangeFile } from "./workspace-state";
-import { isJsonRecord, parseMarkdown, parseYamlRecord, stringifyJson, stringifyYaml } from "./yaml";
+} from "@skillset/core/internal/types";
+import { workspaceChangeFile } from "@skillset/core";
+import { isJsonRecord, parseMarkdown, parseYamlRecord, stringifyJson, stringifyYaml } from "@skillset/core/internal/yaml";
 
 export const SOURCE_HASH_SCHEMA = "skillset-source-unit-v2";
 

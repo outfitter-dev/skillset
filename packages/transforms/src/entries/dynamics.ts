@@ -9,7 +9,7 @@ import type { TransformEntry, TransformEvidence } from "../types";
  * Pattern parity: these recognizers are aligned with skillset's lint
  * CLAUDE_DYNAMIC_PATTERNS (codes claude-arguments,
  * claude-positional-argument, claude-env-substitution,
- * claude-shell-placeholder in apps/skillset/src/lint.ts). Lint keeps owning
+ * claude-shell-placeholder in packages/core/src/lint.ts). Lint keeps owning
  * the codex-enabled gate; this registry only adds recognition for adopt
  * reporting.
  */

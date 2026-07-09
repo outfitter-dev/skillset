@@ -89,7 +89,7 @@ test("registry rejects duplicates, missing evidence, and unreasoned none-lowerin
 });
 
 test("dynamic recognizers stay aligned with skillset lint's CLAUDE_DYNAMIC_PATTERNS", () => {
-  // Mirrors apps/skillset/src/lint.ts; lint owns the codex-enabled gate,
+  // Mirrors packages/core/src/lint.ts; lint owns the codex-enabled gate,
   // the registry only adds recognition. Keep both recognizing the same
   // language — lint's patterns are the battle-tested reference.
   const samples: ReadonlyArray<readonly [string, string]> = [

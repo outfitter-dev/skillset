@@ -1,4 +1,4 @@
-import type { TargetName } from "../types";
+import type { TargetName } from "@skillset/core/internal/types";
 
 export type HookRunner = "git" | "husky" | "lefthook" | "pre-commit";
 

@@ -6,14 +6,14 @@ import { schemaUri } from "@skillset/schema";
 
 import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
 import { CI_WORKFLOW_PATH, renderCiWorkflow } from "./ci";
-import { validateConfigDocument, validateWorkspaceConfigDocument } from "./config";
+import { validateConfigDocument, validateWorkspaceConfigDocument } from "@skillset/core/internal/config";
 import { gitSafeEnv } from "./git-env";
-import { validateSlug } from "./path";
-import { selectorForTargetNativeIsland } from "./source-unit-selector";
-import { isTargetName, targetNames } from "./config";
-import type { TargetName } from "./types";
-import { workspaceChangesDir } from "./workspace-state";
-import { parseYamlRecord } from "./yaml";
+import { validateSlug } from "@skillset/core/internal/path";
+import { selectorForTargetNativeIsland } from "@skillset/core/internal/source-unit-selector";
+import { isTargetName, targetNames } from "@skillset/core/internal/config";
+import type { TargetName } from "@skillset/core/internal/types";
+import { workspaceChangesDir } from "@skillset/core";
+import { parseYamlRecord } from "@skillset/core/internal/yaml";
 
 const DEFAULT_CREATE_NAME = "my-skillset";
 const DEFAULT_GLOBAL_SOURCE = ".skillset/source";

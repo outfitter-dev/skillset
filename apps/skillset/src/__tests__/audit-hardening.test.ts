@@ -5,10 +5,10 @@ import { tmpdir } from "node:os";
 import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 
-import { buildSkillset, verifySkillset } from "../build";
-import { inspectSkillset, lintSkillset } from "../lint";
-import { compareStrings } from "../path";
-import { loadBuildGraph } from "../resolver";
+import { buildSkillset, verifySkillset } from "@skillset/core";
+import { inspectSkillset, lintSkillset } from "@skillset/core";
+import { compareStrings } from "@skillset/core/internal/path";
+import { loadBuildGraph } from "@skillset/core/internal/resolver";
 
 const KITCHEN_SINK_FIXTURE = join(import.meta.dir, "..", "..", "..", "..", "fixtures", "kitchen-sink");
 const ADAPTIVE_HOOKS_FIXTURE = join(import.meta.dir, "..", "..", "..", "..", "fixtures", "adaptive-hooks");

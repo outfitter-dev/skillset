@@ -4,8 +4,8 @@ import { join } from "node:path";
 
 import { createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
 
-import { renderValidatedJson } from "./structured-output";
-import type { BuildGraph, JsonRecord, SkillsetOptions } from "./types";
+import { renderValidatedJson } from "@skillset/core/internal/structured-output";
+import type { BuildGraph, JsonRecord, SkillsetOptions } from "@skillset/core/internal/types";
 
 export interface RetainedRunIdOptions {
   readonly fallbackName?: string;

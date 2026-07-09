@@ -8,9 +8,9 @@ import {
   type SkillsetWriteSummary,
 } from "@skillset/core";
 
-import { lintSkillset } from "./lint";
-import { loadBuildGraph } from "./resolver";
-import type { SkillsetOptions } from "./types";
+import { lintSkillset } from "@skillset/core";
+import { loadBuildGraph } from "@skillset/core/internal/resolver";
+import type { SkillsetOptions } from "@skillset/core/internal/types";
 
 export interface DevWatchPlan {
   readonly configPaths: readonly string[];

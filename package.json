@@ -13,7 +13,8 @@
   "scripts": {
     "build": "bun run typecheck && bun run build:npm",
     "build:npm": "bun scripts/build-package.ts",
-    "check": "bun run build && bun run schema:check && bun run test && bun run ultracite:doctor && bun run skillset:check && bun run skillset:verify && git diff --check && bun run terminology:guard",
+    "check": "bun run build && bun run schema:check && bun run test && bun run ultracite:doctor && bun run skillset:check && bun run skillset:verify && git diff --check && bun run package-ownership:guard && bun run terminology:guard",
+    "package-ownership:guard": "bun scripts/package-ownership-guard.ts",
     "terminology:guard": "bun scripts/terminology-guard.ts",
     "check:workflows": "if command -v actionlint >/dev/null 2>&1; then actionlint .github/workflows/*.yml; else echo 'skillset: actionlint not installed; skipping workflow lint'; fi",
     "changeset": "changeset",

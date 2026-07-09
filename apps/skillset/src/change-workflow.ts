@@ -10,10 +10,10 @@ import {
   type ChangeGroup,
   type PendingChangeEntry,
 } from "./change-entries";
-import type { ChangeLedgerEventType } from "./change-ledger";
+import type { ChangeLedgerEventType } from "@skillset/core/internal/change-ledger";
 import { changeStatus, detectWorkspaceOptions, type ChangeStatusOptions, type SourceUnit, type SourceUnitChange } from "./change-status";
-import { readString } from "./config";
-import { compareStrings, resolveInside } from "./path";
+import { readString } from "@skillset/core/internal/config";
+import { compareStrings, resolveInside } from "@skillset/core/internal/path";
 import {
   selectorForPluginCompanion,
   selectorForPluginConfig,
@@ -25,10 +25,10 @@ import {
   selectorForTargetNativeIsland,
   sourceUnitDisplay,
   sourceUnitSelector,
-} from "./source-unit-selector";
-import type { JsonRecord, JsonValue, SkillsetOptions } from "./types";
-import { workspaceChangeFile, workspaceChangesDir } from "./workspace-state";
-import { isJsonRecord, parseMarkdown, stringifyMarkdown } from "./yaml";
+} from "@skillset/core/internal/source-unit-selector";
+import type { JsonRecord, JsonValue, SkillsetOptions } from "@skillset/core/internal/types";
+import { workspaceChangeFile, workspaceChangesDir } from "@skillset/core";
+import { isJsonRecord, parseMarkdown, stringifyMarkdown } from "@skillset/core/internal/yaml";
 
 export type ChangeSubcommand = "add" | "amend" | "check" | "history" | "list" | "migrate" | "reason" | "show" | "status";
 

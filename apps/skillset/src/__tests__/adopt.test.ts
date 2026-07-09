@@ -8,7 +8,7 @@ import { pathToFileURL } from "node:url";
 import { createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
 
 import { ADOPT_REPORT_DIR, adoptSkillset, renderAdoptReportMarkdown } from "../adopt";
-import { ISOLATED_OUT_ROOT } from "../build";
+import { ISOLATED_OUT_ROOT } from "@skillset/core";
 import { gitSafeEnv } from "../git-env";
 
 const AGENTS_CONTENT = "# Demo agents\n\nHandwritten instructions.\n";

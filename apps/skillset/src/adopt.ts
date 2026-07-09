@@ -14,14 +14,14 @@ import {
 } from "@skillset/core";
 
 import type { ReleaseBaselineEntry } from "./adoption";
-import { buildSkillsetResult, ISOLATED_OUT_ROOT } from "./build";
+import { buildSkillsetResult, ISOLATED_OUT_ROOT } from "@skillset/core";
 import { gitSafeEnv } from "./git-env";
 import { importSources } from "./import";
-import { inspectSkillset } from "./lint";
-import { loadBuildGraph } from "./resolver";
+import { inspectSkillset } from "@skillset/core";
+import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { initSkillset, type SetupFile, type SetupImportCandidate, type SurveySkip } from "./setup";
-import type { JsonRecord, LintIssue, SkillsetOptions, SourceOrigin, TargetName } from "./types";
-import { isJsonRecord, parseMarkdown, stringifyMarkdown } from "./yaml";
+import type { JsonRecord, LintIssue, SkillsetOptions, SourceOrigin, TargetName } from "@skillset/core/internal/types";
+import { isJsonRecord, parseMarkdown, stringifyMarkdown } from "@skillset/core/internal/yaml";
 
 export interface AdoptOptions extends SkillsetOptions {
   readonly cwd?: string;

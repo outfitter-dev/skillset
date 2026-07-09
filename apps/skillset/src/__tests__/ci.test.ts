@@ -4,9 +4,9 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { parseYamlRecord } from "../yaml";
+import { parseYamlRecord } from "@skillset/core/internal/yaml";
 import { gitSafeEnv } from "../git-env";
-import { buildSkillset } from "../build";
+import { buildSkillset } from "@skillset/core";
 import { CI_REPORT_MARKER, CI_WORKFLOW_PATH, ciSkillset, renderCiReportMarkdown, renderCiWorkflow } from "../ci";
 import { initSkillset } from "../setup";
 

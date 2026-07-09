@@ -50,7 +50,7 @@ import {
   suggestSource,
   type FeatureCapability,
   type SourceSuggestionReport,
-} from "./authoring";
+} from "@skillset/core/internal/authoring";
 import { ciSkillset, hasDrift, renderCiReportMarkdown, type CiReport } from "./ci";
 import { printDiagnostics, printDiffPlan, printGeneratedChangelogDriftHint, printGeneratedChangelogPathHint } from "./cli-renderers";
 import { runDevWatch } from "./dev-watch";
@@ -69,7 +69,7 @@ import {
   type HookSubcommand,
 } from "./runtime-hooks";
 import { importSources, type ImportKind, type ImportProvider, type ImportReport } from "./import";
-import { lintSkillset } from "./lint";
+import { lintSkillset } from "@skillset/core";
 import {
   addLookupTarget,
   addLookupTargets,
@@ -78,7 +78,7 @@ import {
   runLookupCommand,
   setLookupField,
 } from "./lookup-cli";
-import { loadBuildGraph } from "./resolver";
+import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import {
   scaffoldSourceUnit,
   type NewSourceKind,
@@ -109,10 +109,10 @@ import {
   validateRuntimeTesterFlags,
 } from "./runtime-tester-cli";
 import { createSkillset, initSkillset, type SetupInclude, type SetupLayoutOption, type SetupReport } from "./setup";
-import { sourceUnitDisplay, sourceUnitDisplays, sourceUnitSelector } from "./source-unit-selector";
-import { renderValidatedJson } from "./structured-output";
+import { sourceUnitDisplay, sourceUnitDisplays, sourceUnitSelector } from "@skillset/core/internal/source-unit-selector";
+import { renderValidatedJson } from "@skillset/core/internal/structured-output";
 import { runSkillsetTest, type SkillsetTestReport } from "./test-runner";
-import type { BuildScope, CompileBuildMode, JsonRecord, SkillsetOptions, SourceOrigin, TargetName } from "./types";
+import type { BuildScope, CompileBuildMode, JsonRecord, SkillsetOptions, SourceOrigin, TargetName } from "@skillset/core/internal/types";
 
 type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "dev" | "diff" | "distribute" | "doctor" | "explain" | "features" | "hooks" | "import" | "init" | "lint" | "list" | "lookup" | "marketplace" | "new" | "providers" | "release" | "restore" | "runtime-tester" | "suggest-source" | "test" | "update" | "verify";
 type DistributionSubcommand = "plan";

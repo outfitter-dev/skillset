@@ -2,21 +2,21 @@ import { appendFile, mkdir, readFile, rm, stat, writeFile } from "node:fs/promis
 import { createHash, randomBytes } from "node:crypto";
 import { dirname, join } from "node:path";
 
-import { buildSkillset } from "./build";
+import { buildSkillset } from "@skillset/core";
 import { changeCheck, readPendingChangeEntries, type ChangeBump, type PendingChangeEntry } from "./change-entries";
 import { resolveChangeReason, type ChangeReasonInput } from "./change-workflow";
 import { detectWorkspaceOptions, SOURCE_HASH_SCHEMA } from "./change-status";
-import { compareStrings, resolveInside } from "./path";
-import { readReleaseState, writeReleaseState } from "./release-state";
-import { loadBuildGraph } from "./resolver";
+import { compareStrings, resolveInside } from "@skillset/core/internal/path";
+import { readReleaseState, writeReleaseState } from "@skillset/core/internal/release-state";
+import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import {
   pluginIdForSelector,
   pluginScopeFromSourceUnit,
   sourceUnitSelector,
-} from "./source-unit-selector";
-import type { BuildGraph, JsonRecord, ReleaseScopeState, ReleaseState, SkillsetOptions, SourcePlugin } from "./types";
-import { pluginVersion, rootVersion, skillVersion } from "./versioning";
-import { workspaceChangeFile } from "./workspace-state";
+} from "@skillset/core/internal/source-unit-selector";
+import type { BuildGraph, JsonRecord, ReleaseScopeState, ReleaseState, SkillsetOptions, SourcePlugin } from "@skillset/core/internal/types";
+import { pluginVersion, rootVersion, skillVersion } from "@skillset/core/internal/versioning";
+import { workspaceChangeFile } from "@skillset/core";
 
 export type ReleaseSubcommand = "amend" | "apply" | "audit" | "plan";
 

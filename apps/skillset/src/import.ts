@@ -11,12 +11,12 @@ import {
 } from "@skillset/core";
 
 import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
-import { readSkillsetMetadata, readSkillsetName, readString, targetNames } from "./config";
-import { compareStrings, resolveInside, validateSlug } from "./path";
-import { detectWorkspaceSourceDir } from "./resolver";
-import { selectorForPluginConfig, selectorForPluginFeature, selectorForStandaloneSkill } from "./source-unit-selector";
-import type { JsonRecord, SourceOrigin, TargetName } from "./types";
-import { isJsonRecord, parseMarkdown, parseYamlRecord, stringifyMarkdown, stringifyYaml } from "./yaml";
+import { readSkillsetMetadata, readSkillsetName, readString, targetNames } from "@skillset/core/internal/config";
+import { compareStrings, resolveInside, validateSlug } from "@skillset/core/internal/path";
+import { detectWorkspaceSourceDir } from "@skillset/core/internal/resolver";
+import { selectorForPluginConfig, selectorForPluginFeature, selectorForStandaloneSkill } from "@skillset/core/internal/source-unit-selector";
+import type { JsonRecord, SourceOrigin, TargetName } from "@skillset/core/internal/types";
+import { isJsonRecord, parseMarkdown, parseYamlRecord, stringifyMarkdown, stringifyYaml } from "@skillset/core/internal/yaml";
 
 const DEFAULT_SOURCE_DIR = ".skillset";
 const PLUGINS_DIR = "plugins";

@@ -4,8 +4,8 @@ import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { buildSkillset } from "../build";
-import { parseMarkdown } from "../yaml";
+import { buildSkillset } from "@skillset/core";
+import { parseMarkdown } from "@skillset/core/internal/yaml";
 
 const SKILL_BODY = [
   "Skills live in .claude/skills/x and config in ~/.claude/foo.",

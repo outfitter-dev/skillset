@@ -27,22 +27,22 @@ import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 
 import { adoptSkillset, type AdoptReport } from "../../apps/skillset/src/adopt";
-import { ISOLATED_OUT_ROOT } from "../../apps/skillset/src/build";
 import { gitSafeEnv } from "../../apps/skillset/src/git-env";
-import { compareStrings, validateSlug } from "../../apps/skillset/src/path";
 import type {
   SetupImportCandidate,
   SurveySkip,
 } from "../../apps/skillset/src/setup";
-import type { TargetName } from "../../apps/skillset/src/types";
-import { parseYamlRecord } from "../../apps/skillset/src/yaml";
+import { ISOLATED_OUT_ROOT } from "../../packages/core/src/build";
 import { compareNormalizedOutputTrees } from "../../packages/core/src/normalized-output-tree";
 import {
   createOperationalPathContext,
   type OperationalPathContext,
   resolveOperationalPath,
 } from "../../packages/core/src/operational-cache";
+import { compareStrings, validateSlug } from "../../packages/core/src/path";
 import { loadBuildGraph } from "../../packages/core/src/resolver";
+import type { TargetName } from "../../packages/core/src/types";
+import { parseYamlRecord } from "../../packages/core/src/yaml";
 
 const MANIFEST_PATH = "fixtures/external/repos.yaml";
 const CLONES_DIR = "fixtures/external/repos";

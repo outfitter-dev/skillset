@@ -7,17 +7,17 @@ import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/
 import { createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
 
 import { seedReleaseBaselines } from "../adoption";
-import { explainPath, listGeneratedEntries } from "../authoring";
-import { buildSkillset, buildSkillsetResult, verifySkillset, diffSkillset } from "../build";
+import { explainPath, listGeneratedEntries } from "@skillset/core/internal/authoring";
+import { buildSkillset, buildSkillsetResult, verifySkillset, diffSkillset } from "@skillset/core";
 import { changeStatus, collectSourceInventory } from "../change-status";
 import { addChangeEntry, readChangeHistory } from "../change-workflow";
 import { gitSafeEnv } from "../git-env";
 import { importSource } from "../import";
-import { inspectSkillset, lintSkillset } from "../lint";
+import { inspectSkillset, lintSkillset } from "@skillset/core";
 import { applyRelease } from "../release";
-import { writeReleaseState } from "../release-state";
-import { loadBuildGraph } from "../resolver";
-import { renderValidatedToml } from "../structured-output";
+import { writeReleaseState } from "@skillset/core/internal/release-state";
+import { loadBuildGraph } from "@skillset/core/internal/resolver";
+import { renderValidatedToml } from "@skillset/core/internal/structured-output";
 import { runSkillsetTest } from "../test-runner";
 
 test("loads ordinary 1.0 workspace from skillset.yaml and .skillset", async () => {

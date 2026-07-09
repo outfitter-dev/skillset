@@ -1,15 +1,15 @@
 import { collectSourceInventory } from "./change-status";
-import { readString } from "./config";
-import { compareStrings } from "./path";
-import { readReleaseState, writeReleaseState } from "./release-state";
-import { loadBuildGraph } from "./resolver";
+import { readString } from "@skillset/core/internal/config";
+import { compareStrings } from "@skillset/core/internal/path";
+import { readReleaseState, writeReleaseState } from "@skillset/core/internal/release-state";
+import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import {
   pluginIdForSelector,
   selectorForRootConfig,
   sourceUnitSelector,
-} from "./source-unit-selector";
-import type { BuildGraph, ReleaseScopeState, ReleaseState, SkillsetOptions, SourcePlugin } from "./types";
-import { DEFAULT_VERSION } from "./versioning";
+} from "@skillset/core/internal/source-unit-selector";
+import type { BuildGraph, ReleaseScopeState, ReleaseState, SkillsetOptions, SourcePlugin } from "@skillset/core/internal/types";
+import { DEFAULT_VERSION } from "@skillset/core/internal/versioning";
 
 export type ReleaseBaselineStatus = "create" | "exists";
 

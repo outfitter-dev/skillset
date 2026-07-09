@@ -7,7 +7,7 @@ import { join } from "node:path";
 
 import { createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
 
-import { buildSkillset, buildSkillsetResult, verifySkillset, diffSkillset, ISOLATED_OUT_ROOT } from "../build";
+import { buildSkillset, buildSkillsetResult, verifySkillset, diffSkillset, ISOLATED_OUT_ROOT } from "@skillset/core";
 
 const DEMO_FIXTURE: Record<string, string> = {
   "skillset.yaml": `

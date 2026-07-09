@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 
-import { buildSkillset } from "../build";
+import { buildSkillset } from "@skillset/core";
 import {
   renderProviderFormatUpdateReport,
   runProviderFormatUpdates,

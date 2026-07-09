@@ -1,9 +1,9 @@
 import { mkdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { detectWorkspaceSourceDir } from "./resolver";
-import { resolveInside, validateSlug } from "./path";
-import type { SkillsetOptions } from "./types";
+import { detectWorkspaceSourceDir } from "@skillset/core/internal/resolver";
+import { resolveInside, validateSlug } from "@skillset/core/internal/path";
+import type { SkillsetOptions } from "@skillset/core/internal/types";
 
 export type NewSourceKind = "agent" | "hook" | "skill";
 export type NewSourceScope = "repo";
