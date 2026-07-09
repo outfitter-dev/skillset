@@ -1,5 +1,4 @@
 ---
-"@skillset/schema": patch
 "skillset": patch
 ---
 

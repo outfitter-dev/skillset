@@ -1,3 +1,8 @@
+import { readdir } from "node:fs/promises";
+import { join } from "node:path";
+
+import { parseMarkdown } from "@skillset/core/internal/yaml";
+
 import { gitSafeEnv } from "./git-env";
 
 export type ChangedFile = {
@@ -11,6 +16,53 @@ export type ChangesetGuardResult = {
   ok: boolean;
   packageFiles: readonly ChangedFile[];
 };
+
+export type MixedChangesetReleaseEntry = {
+  readonly changesetPath: string;
+  readonly ignoredPackages: readonly string[];
+  readonly publishedPackages: readonly string[];
+};
+
+export async function findMixedChangesetReleaseEntries(
+  rootPath: string
+): Promise<readonly MixedChangesetReleaseEntry[]> {
+  const changesetConfig = await readJsonRecord(join(rootPath, ".changeset/config.json"));
+  const ignoredPackages = new Set(readStringArray(changesetConfig.ignore));
+  const privatePackages = isRecord(changesetConfig.privatePackages)
+    ? changesetConfig.privatePackages
+    : {};
+
+  for (const workspaceRoot of ["apps", "packages"]) {
+    const entries = await readDirectory(join(rootPath, workspaceRoot));
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const manifest = await readJsonRecord(join(rootPath, workspaceRoot, entry.name, "package.json"));
+      const name = typeof manifest.name === "string" ? manifest.name : undefined;
+      if (name && manifest.private === true && privatePackages.version !== true) {
+        ignoredPackages.add(name);
+      }
+    }
+  }
+
+  const mixed: MixedChangesetReleaseEntry[] = [];
+  for (const entry of (await readDirectory(join(rootPath, ".changeset")))
+    .filter((candidate) => candidate.isFile() && candidate.name.endsWith(".md"))
+    .sort((left, right) => left.name.localeCompare(right.name))) {
+    const changesetPath = `.changeset/${entry.name}`;
+    const source = await Bun.file(join(rootPath, changesetPath)).text();
+    const packageNames = Object.keys(parseMarkdown(source, changesetPath).frontmatter).sort();
+    const ignored = packageNames.filter((name) => ignoredPackages.has(name));
+    const published = packageNames.filter((name) => !ignoredPackages.has(name));
+    if (ignored.length === 0 || published.length === 0) continue;
+    mixed.push({
+      changesetPath,
+      ignoredPackages: ignored,
+      publishedPackages: published,
+    });
+  }
+
+  return mixed;
+}
 
 export function evaluateChangesetGuard(changedFiles: readonly ChangedFile[]): ChangesetGuardResult {
   const packageFiles = changedFiles.filter((file) => isPackageAffectingPath(file.path));
@@ -152,6 +204,31 @@ function summarizePaths(files: readonly ChangedFile[]) {
   const shown = paths.slice(0, 8);
   const suffix = paths.length > shown.length ? `, and ${paths.length - shown.length} more` : "";
   return shown.join(", ") + suffix;
+}
+
+async function readDirectory(path: string) {
+  try {
+    return await readdir(path, { withFileTypes: true });
+  } catch (error) {
+    if (isRecord(error) && error.code === "ENOENT") return [];
+    throw error;
+  }
+}
+
+async function readJsonRecord(path: string): Promise<Record<string, unknown>> {
+  const parsed = await Bun.file(path).json() as unknown;
+  if (!isRecord(parsed)) throw new Error(`skillset: expected ${path} to contain a JSON object`);
+  return parsed;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readStringArray(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === "string")
+    : [];
 }
 
 async function runText(

@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import {
   defaultChangesetBaseline,
   evaluateChangesetGuard,
+  findMixedChangesetReleaseEntries,
   readChangedFilesFromGit,
   readChangedFilesFromPath,
 } from "../apps/skillset/src/changeset-awareness";
@@ -12,28 +13,51 @@ const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const changedFilesOption = "--changed-files";
 const baseOption = "--base";
 
-async function main() {
-  const args = Bun.argv.slice(2);
+export type ChangesetGuardCommandOptions = {
+  readonly rootPath?: string;
+  readonly writeLine?: (line: string) => void;
+};
+
+export async function runChangesetGuard(
+  args: readonly string[],
+  options: ChangesetGuardCommandOptions = {}
+) {
+  const rootPath = options.rootPath ?? rootDir;
+  const writeLine = options.writeLine ?? ((line: string) => console.error(line));
   const changedFilesPath = valueAfter(args, changedFilesOption);
-  const base = valueAfter(args, baseOption) ?? (await defaultChangesetBaseline(rootDir));
   const changedFiles = changedFilesPath
     ? await readChangedFilesFromPath(changedFilesPath)
-    : await readChangedFilesFromGit(rootDir, base);
+    : await readChangedFilesFromGit(
+      rootPath,
+      valueAfter(args, baseOption) ?? (await defaultChangesetBaseline(rootPath))
+    );
   const result = evaluateChangesetGuard(changedFiles);
+  const mixedChangesets = await findMixedChangesetReleaseEntries(rootPath);
 
   if (result.packageFiles.length === 0 && result.changesetFiles.length === 0) {
-    console.error("skillset: changeset guard found no package-facing changes");
+    writeLine("skillset: changeset guard found no package-facing changes");
   } else {
-    console.error(
+    writeLine(
       `skillset: changeset guard found ${result.packageFiles.length} package-facing path(s) and ${result.changesetFiles.length} active changeset(s)`
     );
   }
 
   for (const diagnostic of result.diagnostics) {
-    console.error(`skillset: ${diagnostic}`);
+    writeLine(`skillset: ${diagnostic}`);
   }
 
-  if (!result.ok) process.exit(1);
+  for (const entry of mixedChangesets) {
+    writeLine(
+      `skillset: ${entry.changesetPath} mixes ignored package(s) ${entry.ignoredPackages.join(", ")} with published package(s) ${entry.publishedPackages.join(", ")}; remove ignored package entries from this public Changeset`
+    );
+  }
+
+  return result.ok && mixedChangesets.length === 0 ? 0 : 1;
+}
+
+async function main() {
+  const exitCode = await runChangesetGuard(Bun.argv.slice(2));
+  if (exitCode !== 0) process.exit(exitCode);
 }
 
 function valueAfter(args: readonly string[], option: string) {
