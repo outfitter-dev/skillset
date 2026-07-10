@@ -13,6 +13,7 @@ jobs:
     if: github.repository == 'outfitter-dev/skillset' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
+      actions: write
       contents: write
       issues: write
       pull-requests: write
@@ -49,6 +50,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: bun run publish:label-release-pr
+      - name: Trigger version PR CI
+        if: steps.pending-changesets.outputs.has_changesets == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci.yml --ref changeset-release/main
 
   publish-plan:
     name: Publish Plan
