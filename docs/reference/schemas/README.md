@@ -18,6 +18,7 @@ The combined schema is [`skillset.schema.json`](./0.1.0/skillset.schema.json). U
 | `hook` | [`hook.schema.json`](./0.1.0/hook.schema.json) | Skillset hook definition source contract for aggregate hook event maps. |
 | `adaptive-hook` | [`adaptive-hook.schema.json`](./0.1.0/adaptive-hook.schema.json) | Skillset adaptive hook unit source contract for reusable portable hooks. |
 | `change-entry` | [`change-entry.schema.json`](./0.1.0/change-entry.schema.json) | Compatibility-only legacy pending change-entry frontmatter contract. |
+| `test-declaration` | [`test-declaration.schema.json`](./0.1.0/test-declaration.schema.json) | A deterministic Skillset test with optional explicit live-runtime activation assertions. |
 
 ## Examples
 
@@ -33,6 +34,7 @@ The examples are generated from typed fixtures and checked against the same sche
 | `hook` | [`hook.yaml`](../examples/hook.yaml) | Hook definition source object. |
 | `adaptive-hook` | [`adaptive-hook.yaml`](../examples/adaptive-hook.yaml) | Adaptive reusable hook unit. |
 | `change-entry` | [`change-entry.yaml`](../examples/change-entry.yaml) | Compatibility-only legacy pending change-entry frontmatter. |
+| `test-declaration` | [`test-declaration.yaml`](../examples/test-declaration.yaml) | Deterministic test with an explicit live-runtime activation assertion. |
 
 ## Editor Integration
 

@@ -21,6 +21,7 @@ export {
   skillFrontmatterContract,
   skillsetSchemaContracts,
   sourceMetadataContract,
+  testDeclarationContract,
   workspaceConfigContract,
 } from "./contracts";
 export { skillsetSchemaExamples } from "./examples";
@@ -34,6 +35,7 @@ export {
   skillsetInstructionFrontmatterJsonSchema,
   skillsetSkillFrontmatterJsonSchema,
   skillsetSourceMetadataJsonSchema,
+  skillsetTestDeclarationJsonSchema,
   skillsetWorkspaceJsonSchema,
 } from "./artifacts";
 export { deriveSkillsetExampleArtifacts } from "./examples";
@@ -57,5 +59,6 @@ export {
   validateInstructionFrontmatter,
   validateSkillFrontmatter,
   validateSourceMetadata,
+  validateTestDeclaration,
   validateWorkspaceConfig,
 } from "./validate";

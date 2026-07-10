@@ -227,6 +227,7 @@ describe("feature registry", () => {
     expect(listSkillsetFeaturesByTarget("claude").map((entry) => entry.id)).not.toContain("changes");
     expect(listSkillsetFeaturesByTarget("codex").map((entry) => entry.id)).not.toContain("workflows");
     expect(listSkillsetFeaturesByRuntime("codex-cli").map((entry) => entry.id)).toEqual([
+      "activation-probes",
       "project-agents",
       "runtime-adapters",
     ]);

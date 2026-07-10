@@ -1473,6 +1473,13 @@ function printSkillsetTest(report: SkillsetTestReport): void {
   console.log(`  generated files: ${report.generatedFiles}`);
   console.log(`  activation probes: ${report.activationProbes}`);
   if (report.activationPath !== undefined) console.log(`  activation: ${report.activationPath}`);
+  console.log(`  runtime tests: ${report.runtimeTests.length}`);
+  for (const runtimeTest of report.runtimeTests) {
+    const failure = runtimeTest.failureClass === undefined ? "" : ` (${runtimeTest.failureClass})`;
+    const detail = runtimeTest.detail === undefined ? "" : ` - ${runtimeTest.detail}`;
+    console.log(`  ${runtimeTest.ok ? "pass" : "fail"}: runtime ${runtimeTest.name} [${runtimeTest.target}]${failure}${detail}`);
+    if (runtimeTest.outputPath !== undefined) console.log(`    output: ${runtimeTest.outputPath}`);
+  }
 }
 
 function formatTestSelection(selection: SkillsetTestReport["selection"]): string {

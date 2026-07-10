@@ -13,6 +13,7 @@ export type SkillsetSchemaContractId =
   | "instruction-frontmatter"
   | "skill-frontmatter"
   | "source-metadata"
+  | "test-declaration"
   | "workspace-config";
 
 export interface SkillsetSchemaDiagnostic {

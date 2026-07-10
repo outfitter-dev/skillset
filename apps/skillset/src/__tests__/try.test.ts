@@ -1,4 +1,4 @@
-import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -11,6 +11,7 @@ import {
   startTryRun,
   tailTryRun,
 } from "../try";
+import { runSkillsetTest } from "../test-runner";
 
 test("try runs a Codex prompt and records inspectable artifacts", async () => {
   const root = await fixture({
@@ -428,6 +429,391 @@ Background fixture body.
   expect(state).toBe("passed");
 }, 15_000);
 
+test("SET-273: declared runtime tests reuse try across providers and retain normalized evidence", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: declared-runtime-fixture
+claude: true
+codex: true
+cursor: true
+`,
+    ".skillset/prompts/claude.md": "Inspect the Claude runtime fixture.",
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Declared runtime fixture.
+---
+
+Runtime fixture body.
+`,
+    ".skillset/tests/runtime.yaml": `
+select:
+  skills:
+    primary: [demo]
+targets: [claude, codex, cursor]
+activation:
+  - name: codex runtime
+    targets: [codex]
+    prompt: Inspect the Codex runtime fixture.
+    expect:
+      skill: demo
+    runtime:
+      timeoutMs: 5000
+      expect:
+        contains: fake codex final
+        notContains: impossible failure text
+  - name: claude runtime
+    targets: [claude]
+    promptFile: prompts/claude.md
+    expect:
+      skill: demo
+    runtime:
+      claude:
+        settingSources: isolated
+      expect:
+        contains: Inspect the Claude runtime fixture.
+  - name: cursor runtime
+    targets: [cursor]
+    prompt: Inspect the Cursor runtime fixture.
+    expect:
+      skill: demo
+    runtime:
+      expect:
+        contains: fake-cursor
+checks:
+  projection: true
+`,
+  });
+  const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
+  const runtimeEnv = {
+    ...process.env,
+    SKILLSET_TRY_CLAUDE_BIN: await fakeClaudeBin(root),
+    SKILLSET_TRY_CODEX_BIN: await fakeCodexBin(root),
+    SKILLSET_TRY_CURSOR_BIN: await fakeCursorBin(root),
+  };
+  const report = await runSkillsetTest(root, "runtime", {
+    runtimeEnv,
+    xdg,
+  });
+
+  expect(report.ok).toBe(true);
+  expect(report.runtimeTests).toHaveLength(3);
+  expect(report.runtimeTests.map((result) => result.target)).toEqual(["codex", "claude", "cursor"]);
+  expect(report.runtimeTests.every((result) => result.ok)).toBe(true);
+  expect(report.runtimeTests.map((result) => result.promptProvenance)).toEqual([
+    "inline",
+    ".skillset/prompts/claude.md",
+    "inline",
+  ]);
+  for (const result of report.runtimeTests) {
+    expect(result.runPath).toStartWith(".skillset/cache/runtime-tests/runs/");
+    expect(await exists(cachePath(root, xdg, String(result.reportPath)))).toBe(true);
+    expect(await exists(cachePath(root, xdg, String(result.outputPath)))).toBe(true);
+    expect(result.assertions.every((assertion) => assertion.ok)).toBe(true);
+  }
+  const structured = JSON.parse(await readFile(cachePath(root, xdg, report.reportPath), "utf8")) as {
+    runtimeTests: Array<{ promptProvenance: string; target: string }>;
+  };
+  expect(structured.runtimeTests.map((result) => result.target)).toEqual(["codex", "claude", "cursor"]);
+  expect(await readFile(cachePath(root, xdg, report.reportMarkdownPath), "utf8")).toContain("## Runtime Tests");
+
+  const cli = await runSkillsetCli(
+    { ...runtimeEnv, XDG_CACHE_HOME: xdg.env.XDG_CACHE_HOME },
+    "test",
+    "runtime",
+    "--root",
+    root
+  );
+  expect(cli.exitCode).toBe(0);
+  expect(cli.stdout).toContain("runtime tests: 3");
+  expect(cli.stdout).toContain("pass: runtime claude runtime [claude]");
+});
+
+test("SET-273: declared runtime expectation failures are distinct from provider failures", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: declared-runtime-assertion-fixture
+codex: true
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Assertion fixture.
+---
+
+Assertion fixture body.
+`,
+    ".skillset/tests/runtime.yaml": `
+select:
+  skills:
+    primary: [demo]
+targets: [codex]
+activation:
+  - prompt: Inspect the assertion fixture.
+    expect:
+      skill: demo
+    runtime:
+      expect:
+        contains: text that is not returned
+checks:
+  projection: true
+`,
+  });
+  const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
+  const report = await runSkillsetTest(root, "runtime", {
+    runtimeEnv: { ...process.env, SKILLSET_TRY_CODEX_BIN: await fakeCodexBin(root) },
+    xdg,
+  });
+
+  expect(report.ok).toBe(false);
+  expect(report.runtimeTests).toHaveLength(1);
+  expect(report.runtimeTests[0]).toEqual(expect.objectContaining({
+    failureClass: "assertion",
+    ok: false,
+    state: "passed",
+    target: "codex",
+  }));
+
+  const authBin = await fakeFailureBin(root, "declared-auth-codex", "Not logged in. Run setup-token.", 1);
+  const authReport = await runSkillsetTest(root, "runtime", {
+    runtimeEnv: { ...process.env, SKILLSET_TRY_CODEX_BIN: authBin },
+    xdg,
+  });
+  expect(authReport.runtimeTests[0]).toEqual(expect.objectContaining({
+    assertions: [],
+    detail: "Not logged in. Run setup-token.",
+    failureClass: "auth",
+    ok: false,
+  }));
+});
+
+test("SET-273: declared runtime render failures stop before provider invocation", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: declared-runtime-setup-fixture
+codex: true
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Setup fixture.
+---
+
+Setup fixture body.
+`,
+    ".skillset/tests/runtime.yaml": `
+select:
+  skills:
+    primary: [demo]
+targets: [codex]
+activation:
+  - prompt: Inspect the missing unit.
+    expect:
+      skill: missing
+    runtime:
+      expect:
+        contains: never invoked
+checks:
+  projection: true
+`,
+  });
+  const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
+  const report = await runSkillsetTest(root, "runtime", {
+    runtimeEnv: { ...process.env, SKILLSET_TRY_CODEX_BIN: join(root, "must-not-run") },
+    xdg,
+  });
+
+  expect(report.ok).toBe(false);
+  expect(report.runtimeTests).toEqual([
+    expect.objectContaining({
+      detail: "expected skill missing was not rendered for codex",
+      failureClass: "render",
+      ok: false,
+      target: "codex",
+    }),
+  ]);
+  expect(await exists(cachePath(root, xdg, ".skillset/cache/runtime-tests/latest.json"))).toBe(false);
+});
+
+test("SET-273: failed isolated builds produce normalized render failures", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: declared-runtime-build-fixture
+codex: true
+`,
+    ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+bin: true
+`,
+    ".skillset/plugins/demo/skills/helper/SKILL.md": `
+---
+name: helper
+description: Render failure fixture.
+---
+
+Render failure body.
+`,
+    ".skillset/plugins/demo/bin/tool": "#!/bin/sh\n",
+    ".skillset/tests/runtime.yaml": `
+select:
+  plugins: [demo]
+targets: [codex]
+activation:
+  - prompt: Inspect the render failure.
+    expect:
+      plugin: demo
+    runtime:
+      expect:
+        contains: never invoked
+checks:
+  projection: true
+`,
+  });
+  const report = await runSkillsetTest(root, "runtime", {
+    runtimeEnv: { ...process.env, SKILLSET_TRY_CODEX_BIN: join(root, "must-not-run") },
+  });
+
+  expect(report.ok).toBe(false);
+  expect(report.checks[0]).toEqual(expect.objectContaining({ kind: "projection", ok: false }));
+  expect(report.runtimeTests).toEqual([
+    expect.objectContaining({ failureClass: "render", ok: false, target: "codex" }),
+  ]);
+});
+
+test("SET-273: runtime prompt files stay source-local and are exclusive with inline prompts", async () => {
+  const files = {
+    "skillset.yaml": `
+skillset:
+  name: runtime-prompt-contract
+codex: true
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Prompt contract fixture.
+---
+
+Prompt fixture body.
+`,
+  };
+  const bothRoot = await fixture({
+    ...files,
+    ".skillset/prompts/demo.md": "Prompt file.",
+    ".skillset/tests/runtime.yaml": `
+select:
+  skills:
+    primary: [demo]
+activation:
+  - prompt: Inline prompt.
+    promptFile: prompts/demo.md
+    expect:
+      skill: demo
+    runtime:
+      expect:
+        contains: demo
+checks:
+  projection: true
+`,
+  });
+  await expect(runSkillsetTest(bothRoot, "runtime")).rejects.toThrow("must name exactly one of prompt or promptFile");
+
+  const escapeRoot = await fixture({
+    ...files,
+    ".skillset/tests/runtime.yaml": `
+select:
+  skills:
+    primary: [demo]
+activation:
+  - promptFile: ../skillset.yaml
+    expect:
+      skill: demo
+    runtime:
+      expect:
+        contains: demo
+checks:
+  projection: true
+`,
+  });
+  await expect(runSkillsetTest(escapeRoot, "runtime")).rejects.toThrow("inside the source root");
+
+  const symlinkRoot = await fixture({
+    ...files,
+    ".skillset/tests/runtime.yaml": `
+select:
+  skills:
+    primary: [demo]
+activation:
+  - promptFile: prompts/leak.md
+    expect:
+      skill: demo
+    runtime:
+      expect:
+        contains: sentinel
+checks:
+  projection: true
+`,
+    "outside.md": "external prompt sentinel",
+  });
+  await mkdir(join(symlinkRoot, ".skillset/prompts"), { recursive: true });
+  await symlink("../../outside.md", join(symlinkRoot, ".skillset/prompts/leak.md"));
+  await expect(runSkillsetTest(symlinkRoot, "runtime")).rejects.toThrow("resolves outside the source root");
+});
+
+test("SET-273: try classifies setup, auth, and timeout failures", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: runtime-failure-fixture
+claude: true
+codex: true
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Runtime failure fixture.
+---
+
+Runtime failure body.
+`,
+  });
+  const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
+
+  const missing = await startTryRun(root, {
+    env: { ...process.env, SKILLSET_TRY_CODEX_BIN: join(root, "missing-codex") },
+    name: "missing-runtime",
+    prompt: "Missing runtime.",
+    target: "codex",
+    xdg,
+  });
+  expect((await readTryStatus(root, missing.runId, { xdg })).failureClass).toBe("binary");
+
+  const authBin = await fakeFailureBin(root, "auth-claude", "Not logged in. Run setup-token.", 1);
+  const auth = await startTryRun(root, {
+    env: { ...process.env, SKILLSET_TRY_CLAUDE_BIN: authBin },
+    name: "auth-runtime",
+    prompt: "Auth runtime.",
+    target: "claude",
+    xdg,
+  });
+  expect((await readTryStatus(root, auth.runId, { xdg })).failureClass).toBe("auth");
+
+  const timeoutBin = await fakeSleepingBin(root);
+  const timeout = await startTryRun(root, {
+    env: { ...process.env, SKILLSET_TRY_CODEX_BIN: timeoutBin },
+    name: "timeout-runtime",
+    prompt: "Timeout runtime.",
+    target: "codex",
+    timeoutMs: 10,
+    xdg,
+  });
+  expect((await readTryStatus(root, timeout.runId, { xdg })).failureClass).toBe("timeout");
+});
+
 async function fixture(files: Record<string, string>): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "skillset-try-"));
   for (const [path, content] of Object.entries(files)) {
@@ -487,6 +873,22 @@ done
 echo "fake-cursor cwd=$(pwd)"
 echo "fake-cursor prompt=$last"
 `, "utf8");
+  await chmod(bin, 0o755);
+  return bin;
+}
+
+async function fakeFailureBin(root: string, name: string, message: string, exitCode: number): Promise<string> {
+  const bin = join(root, "bin", name);
+  await mkdir(dirname(bin), { recursive: true });
+  await writeFile(bin, `#!/bin/sh\nprintf '%s\\n' ${JSON.stringify(message)} >&2\nexit ${exitCode}\n`, "utf8");
+  await chmod(bin, 0o755);
+  return bin;
+}
+
+async function fakeSleepingBin(root: string): Promise<string> {
+  const bin = join(root, "bin", "sleeping-codex");
+  await mkdir(dirname(bin), { recursive: true });
+  await writeFile(bin, "#!/bin/sh\nsleep 1\n", "utf8");
   await chmod(bin, 0o755);
   return bin;
 }

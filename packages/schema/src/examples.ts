@@ -397,6 +397,37 @@ export const skillsetSchemaExamples = [
       scopes: ["skill:docs-cli", "plugin:docs"],
     },
   },
+  {
+    description: "Deterministic test with an explicit live-runtime activation assertion.",
+    id: "test-declaration",
+    path: "test-declaration.yaml",
+    value: {
+      activation: [
+        {
+          expect: { skill: "docs-cli" },
+          name: "docs activation",
+          promptFile: "prompts/docs-activation.md",
+          runtime: {
+            claude: { settingSources: "isolated" },
+            expect: {
+              contains: "docs-cli",
+              notContains: "missing skill",
+            },
+            timeoutMs: 30_000,
+          },
+          targets: ["claude"],
+        },
+      ],
+      checks: {
+        projection: true,
+      },
+      output: { kind: "isolated" },
+      select: {
+        skills: { primary: ["docs-cli"] },
+      },
+      targets: ["claude", "codex", "cursor"],
+    },
+  },
 ] as const satisfies readonly SkillsetSchemaExample[];
 
 export function deriveSkillsetExampleArtifacts(): readonly SkillsetExampleArtifact[] {

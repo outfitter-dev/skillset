@@ -295,6 +295,116 @@ export const changeEntryContract = contract("change-entry", "Change Entry", "Com
   type: "object",
 });
 
+export const testDeclarationContract = contract("test-declaration", "Test Declaration", "A deterministic Skillset test with optional explicit live-runtime activation assertions.", {
+  additionalProperties: false,
+  properties: {
+    activation: arraySchema({
+      additionalProperties: false,
+      allOf: [
+        { oneOf: [{ required: ["prompt"] }, { required: ["promptFile"] }] },
+      ],
+      properties: {
+        expect: {
+          additionalProperties: false,
+          oneOf: [
+            { required: ["agent"] },
+            { required: ["plugin"] },
+            { required: ["skill"] },
+          ],
+          properties: {
+            agent: nonEmptyStringSchema(),
+            plugin: nonEmptyStringSchema(),
+            skill: nonEmptyStringSchema(),
+          },
+          type: "object",
+        },
+        name: nonEmptyStringSchema(),
+        prompt: nonEmptyStringSchema(),
+        promptFile: nonEmptyStringSchema(),
+        runtime: {
+          ...strictObjectSchema({
+            claude: {
+              ...strictObjectSchema({ settingSources: enumSchema(["isolated", "local", "project", "user"]) }),
+              required: ["settingSources"],
+            },
+            expect: {
+              ...strictObjectSchema({
+                contains: nonEmptyStringSchema(),
+                notContains: nonEmptyStringSchema(),
+              }),
+              anyOf: [{ required: ["contains"] }, { required: ["notContains"] }],
+            },
+            timeoutMs: { minimum: 1, type: "integer" },
+          }),
+          required: ["expect"],
+        },
+        targets: arraySchema(enumSchema(TARGET_NAMES), { minItems: 1, uniqueItems: true }),
+      },
+      required: ["expect"],
+      type: "object",
+    }),
+    checks: {
+      ...strictObjectSchema({
+        files: arraySchema({
+          ...strictObjectSchema({
+            contains: nonEmptyStringSchema(),
+            path: nonEmptyStringSchema(),
+          }),
+          required: ["path"],
+        }, { minItems: 1 }),
+        pluginManifests: { type: "boolean" },
+        projection: { type: "boolean" },
+      }),
+      anyOf: [
+        { required: ["files"] },
+        { properties: { pluginManifests: { const: true } }, required: ["pluginManifests"] },
+        { properties: { projection: { const: true } }, required: ["projection"] },
+      ],
+    },
+    output: {
+      ...strictObjectSchema({ kind: { const: "isolated", type: "string" } }),
+    },
+    select: {
+      ...strictObjectSchema({
+        agents: selectorSchema(),
+        plugins: {
+          anyOf: [
+            selectorSchema(),
+            {
+              ...strictObjectSchema({
+                include: selectorSchema(),
+                skills: selectorSchema(),
+              }),
+              minProperties: 1,
+            },
+          ],
+        },
+        skills: {
+          anyOf: [
+            selectorSchema(),
+            {
+              ...strictObjectSchema({
+                plugin: {
+                  anyOf: [
+                    selectorSchema(),
+                    { additionalProperties: selectorSchema(), minProperties: 1, type: "object" },
+                  ],
+                },
+                primary: selectorSchema(),
+              }),
+              minProperties: 1,
+            },
+          ],
+        },
+      }),
+      minProperties: 1,
+    },
+    targets: arraySchema(enumSchema(TARGET_NAMES), { minItems: 1, uniqueItems: true }),
+  },
+  required: ["checks"],
+  type: "object",
+});
+
 export const skillsetSchemaContracts = [
   workspaceConfigContract,
   sourceMetadataContract,
@@ -304,6 +414,7 @@ export const skillsetSchemaContracts = [
   hookContract,
   adaptiveHookContract,
   changeEntryContract,
+  testDeclarationContract,
 ] as const satisfies readonly SkillsetSchemaContract[];
 
 export function schemaUri(id: SkillsetSchemaContract["id"], version = SKILLSET_SCHEMA_VERSION): string {
@@ -676,6 +787,15 @@ function semverStringSchema(): SchemaJsonRecord {
 
 function nonEmptyStringSchema(): SchemaJsonRecord {
   return { minLength: 1, type: "string" };
+}
+
+function selectorSchema(): SchemaJsonRecord {
+  return {
+    anyOf: [
+      { const: true, type: "boolean" },
+      arraySchema(nonEmptyStringSchema(), { minItems: 1, uniqueItems: true }),
+    ],
+  };
 }
 
 function strictObjectSchema(properties: Record<string, SchemaJsonRecord>): SchemaJsonRecord {

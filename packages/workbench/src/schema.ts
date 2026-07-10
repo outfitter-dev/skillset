@@ -4,6 +4,7 @@ import {
   validateHookDefinitionSource,
   validateInstructionFrontmatter,
   validateSkillFrontmatter,
+  validateTestDeclaration,
   validateWorkspaceConfig,
   type SkillsetSchemaDiagnostic,
 } from "@skillset/schema";
@@ -18,7 +19,7 @@ import type {
   WorkbenchParseResult,
 } from "./types";
 
-export type WorkbenchSourceContractKind = "agent" | "hook" | "instruction" | "skill" | "workspace-config";
+export type WorkbenchSourceContractKind = "agent" | "hook" | "instruction" | "skill" | "test-declaration" | "workspace-config";
 
 const TARGET_LIST = TARGET_NAMES.join(", ");
 
@@ -52,6 +53,9 @@ export function checkWorkbenchSourceContract(
   }
   if (input.kind === "skill") {
     return sortWorkbenchDiagnostics([...parseDiagnostics, ...checkSkillContract(parsed, input.path, input.content)]);
+  }
+  if (input.kind === "test-declaration") {
+    return sortWorkbenchDiagnostics([...parseDiagnostics, ...checkTestDeclarationContract(parsed, input.path, input.content)]);
   }
   return sortWorkbenchDiagnostics([...parseDiagnostics, ...checkWorkspaceConfigContract(parsed, input.path, input.content)]);
 }
@@ -211,6 +215,31 @@ function checkWorkspaceConfigContract(
   return diagnostics
     .filter((diagnostic) => !isRedundantWorkspaceSchemaDiagnostic(diagnostic, diagnostics, data))
     .map((diagnostic) => workspaceSchemaDiagnostic(diagnostic, data, path, content));
+}
+
+function checkTestDeclarationContract(
+  parsed: WorkbenchParseResult,
+  path: string,
+  content: string
+): readonly WorkbenchDiagnostic[] {
+  if (parsed.kind !== "yaml") return [wrongKind(path, "test", "YAML")];
+  if (!isRecord(parsed.data)) {
+    return [schemaDiagnostic({
+      message: "test declaration must be a YAML object",
+      path,
+      ruleId: "schema/test-declaration",
+      subjectKind: "test",
+    })];
+  }
+  return validateTestDeclaration(parsed.data).diagnostics.map((diagnostic) =>
+    schemaDiagnostic({
+      locationLine: sourceLineForSchemaPath(content, diagnostic.path, "yaml"),
+      message: diagnostic.message.replaceAll("$.", ""),
+      path,
+      ruleId: "schema/test-declaration",
+      subjectKind: "test",
+    })
+  );
 }
 
 function workspaceSchemaDiagnostic(
@@ -448,7 +477,7 @@ function checkSkillsetSkillMetadata(
 
 function wrongKind(
   path: string,
-  subjectKind: "agent" | "hook" | "instruction" | "skill" | "workspace",
+  subjectKind: "agent" | "hook" | "instruction" | "skill" | "test" | "workspace",
   expected: string
 ): WorkbenchDiagnostic {
   return schemaDiagnostic({
@@ -466,7 +495,7 @@ function schemaDiagnostic(args: {
   readonly path: string;
   readonly ruleId: string;
   readonly scope?: "source" | "workspace";
-  readonly subjectKind: "agent" | "hook" | "instruction" | "skill" | "workspace";
+  readonly subjectKind: "agent" | "hook" | "instruction" | "skill" | "test" | "workspace";
 }): WorkbenchDiagnostic {
   return createWorkbenchDiagnostic({
     featureId: "source-contracts",

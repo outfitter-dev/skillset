@@ -26,9 +26,11 @@ import type { BuildGraph, JsonRecord, SkillsetOptions, TargetName } from "@skill
 export type TrySubcommand = "list" | "status" | "tail" | "worker";
 export type TryState = "building" | "failed" | "passed" | "queued" | "running";
 export type TryClaudeSettingSources = "isolated" | "local" | "project" | "user";
+export type TryFailureClass = "auth" | "binary" | "render" | "runtime" | "setup" | "timeout";
 
 export interface TryRunOptions extends SkillsetOptions {
   readonly background?: boolean;
+  readonly cacheRootPath?: string;
   readonly claudeSettingSources?: TryClaudeSettingSources;
   readonly env?: Record<string, string | undefined>;
   readonly name?: string;
@@ -43,6 +45,7 @@ export interface TryStatus {
   readonly endedAt?: string;
   readonly error?: string;
   readonly exitCode?: number;
+  readonly failureClass?: TryFailureClass;
   readonly finalMessagePath?: string;
   readonly latestRoot: string;
   readonly name: string;
@@ -58,6 +61,15 @@ export interface TryStatus {
   readonly target: TargetName;
   readonly timeoutMs: number;
   readonly updatedAt: string;
+}
+
+export interface TryEvidence {
+  readonly finalMessage?: string;
+  readonly outputPath: string;
+  readonly reportPath: string;
+  readonly response: string;
+  readonly stderr: string;
+  readonly stdout: string;
 }
 
 export interface TryRunReport {
@@ -134,6 +146,10 @@ export async function startTryRun(
   options: TryRunOptions
 ): Promise<TryRunReport> {
   const root = resolve(rootPath);
+  const cacheRoot = resolve(options.cacheRootPath ?? root);
+  if (options.background === true && cacheRoot !== root) {
+    throw new Error("skillset: background tries cannot use a separate cache root");
+  }
   const graph = await loadBuildGraph(root, options);
   if (!graph.root.targets[options.target].enabled) {
     throw new Error(`skillset: try target ${options.target} is not enabled by root target configuration`);
@@ -141,7 +157,7 @@ export async function startTryRun(
   const name = options.name ?? `try-${options.target}`;
   const plugins = validateTryPlugins(graph, options.target, options.plugins ?? []);
   const runId = makeRetainedRunId(name, { fallbackName: "try", includeName: true });
-  const paths = tryPaths(root, graph, runId, options.xdg);
+  const paths = tryPaths(cacheRoot, graph, runId, options.xdg);
   await mkdir(paths.absolute.runPath, { recursive: true });
 
   const config: TryStoredConfig = {
@@ -188,7 +204,7 @@ export async function startTryRun(
     return runReport(paths, runId, "queued", true);
   }
 
-  await executeTryRun(root, runId, options.env, options.xdg);
+  await executeTryRun(root, runId, options.env, options.xdg, cacheRoot);
   const status = await readStatus(paths.absolute.statusPath);
   return runReport(paths, runId, status.state, false);
 }
@@ -197,10 +213,11 @@ export async function executeTryRun(
   rootPath: string,
   runId: string,
   env: Record<string, string | undefined> = process.env,
-  xdg: SkillsetOptions["xdg"] = undefined
+  xdg: SkillsetOptions["xdg"] = undefined,
+  cacheRootPath: string = rootPath
 ): Promise<void> {
   const root = resolve(rootPath);
-  const paths = tryPaths(root, await loadBuildGraph(root, xdg === undefined ? {} : { xdg }), runId, xdg);
+  const paths = tryPaths(resolve(cacheRootPath), await loadBuildGraph(root, xdg === undefined ? {} : { xdg }), runId, xdg);
   const config = await readConfig(join(paths.absolute.runPath, "config.json"));
   const target = config.target;
   const runOptions: SkillsetOptions = {
@@ -217,16 +234,26 @@ export async function executeTryRun(
   try {
     await buildSkillset(root, runOptions);
   } catch (error) {
-    await failRun(paths, status, messageFor(error));
+    await failRun(paths, status, messageFor(error), "render");
     return;
   }
 
   const graph = await loadBuildGraph(root, runOptions);
-  const command = runtimeCommand(root, graph, paths, config, env, xdg);
-  await appendEvent(paths, "status", `running ${target} non-interactive prompt`);
-  status = await updateRunState(paths, status, "running", { command: command.display });
-  const result = await runCommand(command, config.prompt, paths, config.timeoutMs, env);
+  let command: ReturnType<typeof runtimeCommand>;
+  let result: { readonly exitCode: number; readonly timedOut: boolean };
+  try {
+    command = runtimeCommand(root, graph, paths, config, env, xdg);
+    await appendEvent(paths, "status", `running ${target} non-interactive prompt`);
+    status = await updateRunState(paths, status, "running", { command: command.display });
+    result = await runCommand(command, config.prompt, paths, config.timeoutMs, env);
+  } catch (error) {
+    await failRun(paths, status, messageFor(error), isMissingBinaryError(error) ? "binary" : "setup");
+    return;
+  }
   const finalMessage = await readOptional(paths.absolute.finalMessagePath);
+  const stdout = await readOptional(join(paths.absolute.runPath, "stdout.txt")) ?? "";
+  const stderr = await readOptional(join(paths.absolute.runPath, "stderr.txt")) ?? "";
+  const failureClass = classifyTryFailure(result, `${stderr}\n${stdout}`);
   const report: JsonRecord = {
     command: [...command.display],
     endedAt: new Date().toISOString(),
@@ -239,6 +266,7 @@ export async function executeTryRun(
     state: result.exitCode === 0 && !result.timedOut ? "passed" : "failed",
     target,
     timedOut: result.timedOut,
+    ...(failureClass === undefined ? {} : { failureClass }),
   };
   await writeFile(paths.absolute.reportPath, renderValidatedJson(report, paths.logical.reportPath), "utf8");
   const nextState: TryState = report.ok === true ? "passed" : "failed";
@@ -250,9 +278,52 @@ export async function executeTryRun(
     reportPath: paths.logical.reportPath,
     state: nextState,
     updatedAt: new Date().toISOString(),
-    ...(result.timedOut ? { error: `try command timed out after ${config.timeoutMs}ms` } : {}),
+    ...(failureClass === undefined ? {} : { failureClass }),
+    ...(result.timedOut
+      ? { error: `try command timed out after ${config.timeoutMs}ms` }
+      : result.exitCode === 0 ? {} : { error: stderr.trim() || `try command exited with code ${result.exitCode}` }),
   });
   await appendEvent(paths, "status", `try ${nextState}`);
+}
+
+export async function readTryEvidence(
+  rootPath: string,
+  runId: string,
+  options: Pick<SkillsetOptions, "xdg"> = {}
+): Promise<TryEvidence> {
+  const root = resolve(rootPath);
+  const graph = await loadBuildGraph(root, options);
+  const paths = tryPaths(root, graph, runId, options.xdg);
+  const finalMessage = await readOptional(paths.absolute.finalMessagePath);
+  const stdout = await readOptional(join(paths.absolute.runPath, "stdout.txt")) ?? "";
+  const stderr = await readOptional(join(paths.absolute.runPath, "stderr.txt")) ?? "";
+  const status = await readStatus(paths.absolute.statusPath);
+  return {
+    ...(finalMessage === undefined ? {} : { finalMessage }),
+    outputPath: paths.logical.outputPath,
+    reportPath: paths.logical.reportPath,
+    response: normalizeTryResponse(status.target, finalMessage, stdout),
+    stderr,
+    stdout,
+  };
+}
+
+function normalizeTryResponse(target: TargetName, finalMessage: string | undefined, stdout: string): string {
+  if (finalMessage !== undefined) return finalMessage;
+  if (target === "codex") return stdout;
+  const candidates = [stdout.trim(), ...stdout.trim().split("\n").reverse()];
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate) as unknown;
+      if (!isRecord(parsed)) continue;
+      for (const key of ["result", "text", "message"]) {
+        if (typeof parsed[key] === "string") return parsed[key];
+      }
+    } catch {
+      // Provider output may be plain text or mixed JSONL; preserve it verbatim.
+    }
+  }
+  return stdout;
 }
 
 export async function readTryStatus(
@@ -575,13 +646,15 @@ async function updateRunState(
 async function failRun(
   paths: TryRunPaths,
   status: TryStatus,
-  error: string
+  error: string,
+  failureClass: TryFailureClass
 ): Promise<void> {
   const endedAt = new Date().toISOString();
   const report: JsonRecord = {
     endedAt,
     error,
     exitCode: 1,
+    failureClass,
     name: status.name,
     ok: false,
     runId: status.runId,
@@ -595,10 +668,28 @@ async function failRun(
     endedAt,
     error,
     exitCode: 1,
+    failureClass,
     state: "failed",
     updatedAt: endedAt,
   });
   await appendEvent(paths, "status", `try failed: ${error}`);
+}
+
+function classifyTryFailure(
+  result: { readonly exitCode: number; readonly timedOut: boolean },
+  stderr: string
+): TryFailureClass | undefined {
+  if (result.timedOut) return "timeout";
+  if (result.exitCode === 0) return undefined;
+  if (/not logged in|unauthori[sz]ed|authentication|authenticate|credential|api[ -]?key|oauth|setup-token/iu.test(stderr)) {
+    return "auth";
+  }
+  return "runtime";
+}
+
+function isMissingBinaryError(error: unknown): boolean {
+  if (error instanceof Error && "code" in error && error.code === "ENOENT") return true;
+  return /enoent|failed to spawn|no such file or directory/iu.test(messageFor(error));
 }
 
 async function writeStatus(paths: TryRunPaths, status: TryStatus): Promise<void> {

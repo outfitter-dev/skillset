@@ -1,0 +1,26 @@
+activation:
+  - expect:
+      skill: docs-cli
+    name: docs activation
+    promptFile: prompts/docs-activation.md
+    runtime:
+      claude:
+        settingSources: isolated
+      expect:
+        contains: docs-cli
+        notContains: missing skill
+      timeoutMs: 30000
+    targets:
+      - claude
+checks:
+  projection: true
+output:
+  kind: isolated
+select:
+  skills:
+    primary:
+      - docs-cli
+targets:
+  - claude
+  - codex
+  - cursor

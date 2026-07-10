@@ -53,6 +53,215 @@ export function validateWorkspaceConfig(value: unknown, path = "$"): SkillsetSch
   return result(diagnostics);
 }
 
+export function validateTestDeclaration(value: unknown, path = "$"): SkillsetSchemaValidationResult {
+  const diagnostics: SkillsetSchemaDiagnostic[] = [];
+  if (!isSchemaRecord(value)) return result([diagnostic(path, "schema/test-declaration/type", "test declaration must be an object")]);
+  checkAllowedKeys(value, new Set(["activation", "checks", "output", "select", "targets"]), path, "schema/test-declaration/key", diagnostics);
+  if (!isSchemaRecord(value.checks)) {
+    diagnostics.push(diagnostic(`${path}.checks`, "schema/test-declaration/checks", "test declaration checks must be an object"));
+  } else {
+    checkTestChecks(value.checks, `${path}.checks`, diagnostics);
+  }
+  if (value.output !== undefined) checkTestOutput(value.output, `${path}.output`, diagnostics);
+  if (value.select !== undefined) checkTestSelection(value.select, `${path}.select`, diagnostics);
+  if (value.targets !== undefined) {
+    checkTargetNameArray(value.targets, `${path}.targets`, "schema/test-declaration/targets", diagnostics);
+  }
+  if (value.activation !== undefined) {
+    if (!Array.isArray(value.activation)) {
+      diagnostics.push(diagnostic(`${path}.activation`, "schema/test-declaration/activation", "activation must be an array"));
+    } else {
+      for (const [index, probe] of value.activation.entries()) {
+        checkTestActivationProbe(probe, `${path}.activation[${index}]`, diagnostics);
+      }
+    }
+  }
+  return result(diagnostics);
+}
+
+function checkTestChecks(value: SchemaJsonRecord, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  checkAllowedKeys(value, new Set(["files", "pluginManifests", "projection"]), path, "schema/test-declaration/check-key", diagnostics);
+  for (const key of ["pluginManifests", "projection"] as const) {
+    if (value[key] !== undefined && typeof value[key] !== "boolean") {
+      diagnostics.push(diagnostic(`${path}.${key}`, "schema/test-declaration/check", `${key} must be true or false`));
+    }
+  }
+  if (value.files !== undefined) {
+    if (!Array.isArray(value.files) || value.files.length === 0) {
+      diagnostics.push(diagnostic(`${path}.files`, "schema/test-declaration/check-files", "checks.files must be a non-empty array"));
+    } else {
+      for (const [index, file] of value.files.entries()) {
+        const filePath = `${path}.files[${index}]`;
+        if (!isSchemaRecord(file)) {
+          diagnostics.push(diagnostic(filePath, "schema/test-declaration/check-file", "file check must be an object"));
+          continue;
+        }
+        checkAllowedKeys(file, new Set(["contains", "path"]), filePath, "schema/test-declaration/check-file-key", diagnostics);
+        checkOptionalNonEmptyString(file.path, `${filePath}.path`, "schema/test-declaration/check-file", diagnostics);
+        if (file.path === undefined) diagnostics.push(diagnostic(`${filePath}.path`, "schema/test-declaration/check-file", "file check path is required"));
+        checkOptionalNonEmptyString(file.contains, `${filePath}.contains`, "schema/test-declaration/check-file", diagnostics);
+      }
+    }
+  }
+  if (value.files === undefined && value.pluginManifests !== true && value.projection !== true) {
+    diagnostics.push(diagnostic(path, "schema/test-declaration/checks", "test checks must enable files, pluginManifests, or projection"));
+  }
+}
+
+function checkTestOutput(value: SchemaJsonValue, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, "schema/test-declaration/output", "test output must be an object"));
+    return;
+  }
+  checkAllowedKeys(value, new Set(["kind"]), path, "schema/test-declaration/output-key", diagnostics);
+  if (value.kind !== undefined && value.kind !== "isolated") {
+    diagnostics.push(diagnostic(`${path}.kind`, "schema/test-declaration/output-kind", "test output kind must be isolated"));
+  }
+}
+
+function checkTestSelection(value: SchemaJsonValue, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, "schema/test-declaration/select", "test select must be an object"));
+    return;
+  }
+  if (Object.keys(value).length === 0) {
+    diagnostics.push(diagnostic(path, "schema/test-declaration/select", "test select must include agents, plugins, or skills"));
+  }
+  checkAllowedKeys(value, new Set(["agents", "plugins", "skills"]), path, "schema/test-declaration/select-key", diagnostics);
+  if (value.agents !== undefined) checkTestSelector(value.agents, `${path}.agents`, diagnostics);
+  if (value.plugins !== undefined) {
+    if (isSchemaRecord(value.plugins)) {
+      if (Object.keys(value.plugins).length === 0) {
+        diagnostics.push(diagnostic(`${path}.plugins`, "schema/test-declaration/select", "test plugin selector must include include or skills"));
+      }
+      checkAllowedKeys(value.plugins, new Set(["include", "skills"]), `${path}.plugins`, "schema/test-declaration/select-key", diagnostics);
+      if (value.plugins.include !== undefined) checkTestSelector(value.plugins.include, `${path}.plugins.include`, diagnostics);
+      if (value.plugins.skills !== undefined) checkTestSelector(value.plugins.skills, `${path}.plugins.skills`, diagnostics);
+    } else {
+      checkTestSelector(value.plugins, `${path}.plugins`, diagnostics);
+    }
+  }
+  if (value.skills !== undefined) checkTestSkillSelection(value.skills, `${path}.skills`, diagnostics);
+}
+
+function checkTestSkillSelection(value: SchemaJsonValue, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (!isSchemaRecord(value)) {
+    checkTestSelector(value, path, diagnostics);
+    return;
+  }
+  if (Object.keys(value).length === 0) {
+    diagnostics.push(diagnostic(path, "schema/test-declaration/select", "test skill selector must include primary or plugin"));
+  }
+  checkAllowedKeys(value, new Set(["plugin", "primary"]), path, "schema/test-declaration/select-key", diagnostics);
+  if (value.primary !== undefined) checkTestSelector(value.primary, `${path}.primary`, diagnostics);
+  if (value.plugin !== undefined) {
+    if (isSchemaRecord(value.plugin)) {
+      if (Object.keys(value.plugin).length === 0) {
+        diagnostics.push(diagnostic(`${path}.plugin`, "schema/test-declaration/select", "test plugin-skill selector must include at least one plugin"));
+      }
+      for (const [plugin, selector] of Object.entries(value.plugin)) {
+        if (selector !== undefined) checkTestSelector(selector, `${path}.plugin.${plugin}`, diagnostics);
+      }
+    } else {
+      checkTestSelector(value.plugin, `${path}.plugin`, diagnostics);
+    }
+  }
+}
+
+function checkTestSelector(value: SchemaJsonValue, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (value === true) return;
+  if (!Array.isArray(value) || value.length === 0 || value.some((item) => typeof item !== "string" || item.trim().length === 0)) {
+    diagnostics.push(diagnostic(path, "schema/test-declaration/select", "test selector must be true or a non-empty string array"));
+    return;
+  }
+  if (new Set(value).size !== value.length) {
+    diagnostics.push(diagnostic(path, "schema/test-declaration/select", "test selector entries must be unique"));
+  }
+}
+
+function checkTestActivationProbe(
+  value: SchemaJsonValue,
+  path: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, "schema/test-declaration/activation", "activation probe must be an object"));
+    return;
+  }
+  checkAllowedKeys(value, new Set(["expect", "name", "prompt", "promptFile", "runtime", "targets"]), path, "schema/test-declaration/activation-key", diagnostics);
+  const hasPrompt = typeof value.prompt === "string" && value.prompt.trim().length > 0;
+  const hasPromptFile = typeof value.promptFile === "string" && value.promptFile.trim().length > 0;
+  if (hasPrompt === hasPromptFile) {
+    diagnostics.push(diagnostic(path, "schema/test-declaration/prompt", "activation probe must name exactly one of prompt or promptFile"));
+  }
+  if (value.promptFile !== undefined && hasPromptFile) {
+    const promptFile = String(value.promptFile);
+    if (promptFile.startsWith("/") || /^[A-Za-z]:[\\/]/.test(promptFile) || promptFile.split(/[\\/]+/).includes("..")) {
+      diagnostics.push(diagnostic(`${path}.promptFile`, "schema/test-declaration/prompt-file", "test promptFile must stay inside the source root"));
+    }
+  }
+  if (!isSchemaRecord(value.expect)) {
+    diagnostics.push(diagnostic(`${path}.expect`, "schema/test-declaration/expect", "activation expectation must be an object"));
+  } else {
+    checkAllowedKeys(value.expect, new Set(["agent", "plugin", "skill"]), `${path}.expect`, "schema/test-declaration/expect-key", diagnostics);
+    const expected = [value.expect.agent, value.expect.plugin, value.expect.skill]
+      .filter((item) => typeof item === "string" && item.trim().length > 0);
+    if (expected.length !== 1) {
+      diagnostics.push(diagnostic(`${path}.expect`, "schema/test-declaration/expect", "activation expectation must name exactly one of agent, plugin, or skill"));
+    }
+  }
+  if (value.targets !== undefined) {
+    checkTargetNameArray(value.targets, `${path}.targets`, "schema/test-declaration/targets", diagnostics);
+  }
+  if (value.runtime !== undefined) checkTestRuntime(value.runtime, `${path}.runtime`, diagnostics);
+}
+
+function checkTestRuntime(value: SchemaJsonValue, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, "schema/test-declaration/runtime", "runtime must be an object"));
+    return;
+  }
+  checkAllowedKeys(value, new Set(["claude", "expect", "timeoutMs"]), path, "schema/test-declaration/runtime-key", diagnostics);
+  if (!isSchemaRecord(value.expect)) {
+    diagnostics.push(diagnostic(`${path}.expect`, "schema/test-declaration/runtime-expect", "runtime expect must be an object"));
+  } else {
+    checkAllowedKeys(value.expect, new Set(["contains", "notContains"]), `${path}.expect`, "schema/test-declaration/runtime-expect-key", diagnostics);
+    const contains = typeof value.expect.contains === "string" && value.expect.contains.trim().length > 0;
+    const notContains = typeof value.expect.notContains === "string" && value.expect.notContains.trim().length > 0;
+    if (!contains && !notContains) {
+      diagnostics.push(diagnostic(`${path}.expect`, "schema/test-declaration/runtime-expect", "runtime expect must include contains or notContains"));
+    }
+  }
+  if (value.timeoutMs !== undefined && (typeof value.timeoutMs !== "number" || !Number.isSafeInteger(value.timeoutMs) || value.timeoutMs <= 0)) {
+    diagnostics.push(diagnostic(`${path}.timeoutMs`, "schema/test-declaration/runtime-timeout", "runtime timeoutMs must be a positive integer"));
+  }
+  if (value.claude !== undefined) {
+    if (!isSchemaRecord(value.claude)) {
+      diagnostics.push(diagnostic(`${path}.claude`, "schema/test-declaration/runtime-claude", "runtime claude settings must be an object"));
+    } else {
+      checkAllowedKeys(value.claude, new Set(["settingSources"]), `${path}.claude`, "schema/test-declaration/runtime-claude-key", diagnostics);
+      if (!new Set(["isolated", "local", "project", "user"]).has(String(value.claude.settingSources))) {
+        diagnostics.push(diagnostic(`${path}.claude.settingSources`, "schema/test-declaration/runtime-claude", "Claude runtime settingSources must be isolated, local, project, or user"));
+      }
+    }
+  }
+}
+
+function checkTargetNameArray(
+  value: SchemaJsonValue,
+  path: string,
+  code: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  if (!Array.isArray(value) || value.length === 0 || value.some((item) => typeof item !== "string" || !targetNames.has(item))) {
+    diagnostics.push(diagnostic(path, code, `targets must be a non-empty array of ${targetListText}`));
+    return;
+  }
+  if (new Set(value).size !== value.length) {
+    diagnostics.push(diagnostic(path, code, "test targets must be unique"));
+  }
+}
+
 export function validateSourceMetadata(value: unknown, path = "$"): SkillsetSchemaValidationResult {
   const diagnostics: SkillsetSchemaDiagnostic[] = [];
   if (value !== undefined && !isSchemaRecord(value)) {

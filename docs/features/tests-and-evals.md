@@ -116,7 +116,7 @@ Release state and inline versions are observable, not migrated, by deterministic
 
 ## Activation Probes
 
-Activation probes are a first layer above deterministic build checks and below evals. They answer “can a target harness notice or invoke the expected skill, agent, or plugin?” They do not judge answer quality, call a model, install a plugin, trust global runtime config, or mutate live build roots.
+Activation probes are a first layer above deterministic build checks and below evals. They answer “can a target harness notice or invoke the expected skill, agent, or plugin?” By default they do not call a model, install a plugin, trust global runtime config, or mutate live build roots. A probe calls a provider only when it includes an explicit `runtime` block.
 
 Source-root test declarations can include lightweight activation probes:
 
@@ -138,7 +138,7 @@ activation:
     projection: true
 ```
 
-Each probe requires `prompt` and `expect`. The v1 `expect` object must name exactly one of `skill`, `agent`, or `plugin`. Probe `targets` can narrow to enabled test targets; absent probe targets inherit the enclosing test targets. Empty target arrays fail. Before a retained run is written, Skillset verifies that the expected unit was rendered for every selected target in the isolated workspace, so typos and target-disabled units fail without creating partial run directories. Probe assets are generated under the retained test run:
+Each probe requires exactly one of `prompt` or `promptFile` plus `expect`. The v1 `expect` object must name exactly one of `skill`, `agent`, or `plugin`. Probe `targets` can narrow to enabled test targets; absent probe targets inherit the enclosing test targets. Empty target arrays fail. Manual probes verify that the expected unit was rendered before a retained run is written. Declared runtime probes report a missing unit as a `render` failure without launching the provider. Probe assets are generated under the retained test run:
 
 ```text
 .skillset/cache/tests/runs/<run-id>/activation/<target>/
@@ -149,6 +149,54 @@ Each probe requires `prompt` and `expect`. The v1 `expect` object must name exac
 `latest/` receives the same activation directory when the run refreshes. Claude and Cursor probes are rendered as manual native harness prompts. Codex probes are rendered as manual shim-aware prompts because Codex can follow generated loading instructions, but Skillset should not pretend that every Claude-style activation signal is target-enforced in Codex. Future Codex plugin-eval integration can consume the same `probes.json` shape once that runner boundary is proven.
 
 Edge cases stay explicit: multiple matching skills should be disambiguated in the expected selector, provider source may need target-specific probes, missing plugin dependencies should appear as activation setup failures rather than build successes, and compatibility shims should be reported as shims in the generated probe material.
+
+### Declared Runtime Tests
+
+An activation probe becomes a committed live-runtime test when it includes `runtime`. The enclosing `skillset test` declaration still performs its deterministic checks first; only then does Skillset invoke each selected target through the same isolated runner used by `skillset try`.
+
+```yaml
+select:
+  skills:
+    primary: [docs-cli]
+targets: [claude, codex]
+activation:
+  - name: docs activation
+    targets: [claude]
+    promptFile: prompts/docs-activation.md
+    expect:
+      skill: docs-cli
+    runtime:
+      claude:
+        settingSources: isolated
+      timeoutMs: 30000
+      expect:
+        contains: docs-cli
+        notContains: missing skill
+  - name: codex docs activation
+    targets: [codex]
+    prompt: Which documentation skill is available?
+    expect:
+      skill: docs-cli
+    runtime:
+      expect:
+        contains: docs-cli
+checks:
+  projection: true
+```
+
+`prompt` and `promptFile` are mutually exclusive. Prompt files resolve inside the active Skillset source root, so committed declarations remain portable. Probe `targets` select the provider invocations; the expected `skill`, `agent`, or `plugin` must be present in the isolated rendering before Skillset launches a runtime. `runtime.expect` supports literal `contains` and `notContains` assertions. This deliberately small vocabulary proves a repeatable fact without introducing model graders, scores, comparisons, or repeated trials.
+
+Run the declaration through the normal command:
+
+```bash
+skillset test docs-activation
+```
+
+The command remains credential-free when the selected declaration has no `runtime` block. Live declarations use provider credentials and binaries already available to the process; they do not install, trust, publish, or edit user-level provider configuration. Claude defaults to isolated setting sources and can explicitly select `isolated`, `user`, `project`, or `local` for a declared probe.
+
+Runtime results distinguish `render`, `binary`, `setup`, `auth`, `timeout`, `runtime`, and `assertion` failures. A provider process can therefore complete successfully while its declared expectation fails as `assertion`; missing generated units fail as `render` before provider launch, while a missing executable fails as `binary`. JSON and Markdown test reports record the target, command context, prompt provenance, normalized assertion results, and logical raw evidence paths. The raw try report, stdout/stderr events, prompt, and final response remain under the repo's XDG-backed `.skillset/cache/runtime-tests/` bucket.
+
+The promotion path is intentionally direct: use `skillset try` to refine a provider prompt, move the prompt inline or into a source-root file, add the expected rendered unit and literal response assertion to an activation probe, then run it with `skillset test`. Subjective quality evaluation remains separate work under SET-51.
 
 ## Runtime Tries
 

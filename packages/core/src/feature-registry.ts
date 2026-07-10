@@ -143,13 +143,33 @@ const CURSOR_PROVIDER_EVIDENCE = [
 export const skillsetFeatureRegistry = defineFeatureRegistry([
   feature({
     docs: ["docs/features/tests-and-evals.md"],
-    evidence: [test("apps/skillset/src/__tests__/contract.test.ts", "SET-112 activation probe coverage")],
+    evidence: [
+      test("apps/skillset/src/__tests__/contract.test.ts", "SET-112 activation probe coverage"),
+      test("apps/skillset/src/__tests__/try.test.ts", "SET-273 declared runtime provider coverage"),
+    ],
     id: "activation-probes",
     kind: "workflow",
     renderOwner: "apps/skillset/src/test-runner.ts",
+    runtimeSupport: {
+      "claude-code": {
+        evidence: [test("apps/skillset/src/__tests__/try.test.ts", "SET-273 declared runtime provider coverage")],
+        mechanism: "Explicit runtime activation probes invoke Claude Code through the shared isolated try harness.",
+        status: "native",
+      },
+      "codex-cli": {
+        evidence: [test("apps/skillset/src/__tests__/try.test.ts", "SET-273 declared runtime provider coverage")],
+        mechanism: "Explicit runtime activation probes invoke Codex CLI through the shared isolated try harness.",
+        status: "native",
+      },
+      cursor: {
+        evidence: [test("apps/skillset/src/__tests__/try.test.ts", "SET-273 declared runtime provider coverage")],
+        mechanism: "Explicit runtime activation probes invoke Cursor Agent through the shared isolated try harness.",
+        status: "native",
+      },
+    },
     sourceShape: "<source-root>/tests.yaml or <source-root>/tests/*.yaml activation[]",
     status: "implemented",
-    summary: "Compiles target-aware manual activation probe assets inside isolated test runs.",
+    summary: "Compiles target-aware manual activation assets and runs explicit declared runtime assertions through isolated provider harnesses.",
     targetSupport: notTargetRuntime(),
     title: "Activation Probes",
     validationOwner: "apps/skillset/src/test-runner.ts",
