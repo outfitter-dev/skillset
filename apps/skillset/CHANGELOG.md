@@ -1,5 +1,12 @@
 # skillset
 
+## 0.16.4
+
+### Patch Changes
+
+- 121c5af: Normalize equivalent Claude, Codex, and Cursor plugin candidates during whole-repo adoption, and diagnose divergent or ambiguous candidates before writing source.
+- 753cf43: Resolve external marketplace repositories into a deterministic XDG Git cache with portable lock provenance, strict revision validation, and clean-CI check/update support.
+
 ## 0.16.3
 
 ### Patch Changes
