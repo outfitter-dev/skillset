@@ -141,7 +141,7 @@ describe("provider maintainer commands", () => {
       readonly listProviderSchemaSnapshots: () => readonly ProviderSchemaSnapshot[];
     };
     expect(imported.listProviderSchemaSnapshots().length).toBe(listProviderSchemaSnapshots().length);
-  }, 15_000);
+  });
 });
 
 function schemaBody(properties: readonly string[]): string {
