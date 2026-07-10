@@ -94,9 +94,12 @@ jobs:
           else
             echo "skip_skillset_ci=false" >> "$GITHUB_OUTPUT"
           fi
+      - name: Check generated release package
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/changeset-release/main'
+        run: bun scripts/publish.ts check
       - name: Run skillset ci
         id: skillset
-        if: steps.stack.outputs.skip_skillset_ci != 'true'
+        if: steps.stack.outputs.skip_skillset_ci != 'true' && (github.event_name != 'workflow_dispatch' || github.ref != 'refs/heads/changeset-release/main')
         run: >-
           bun ./apps/skillset/src/cli.ts ci
           ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && '--fix' || '' }}
