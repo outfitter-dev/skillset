@@ -1,5 +1,45 @@
 # skillset
 
+## 0.16.3
+
+### Patch Changes
+
+- 8e6a698: Add `skillset change migrate` for converting legacy frontmatter pending entries to reason-only ledger entries, and demote the `change-entry` schema docs to compatibility-only recovery guidance.
+- 8e6a698: Add schema-versioned change ledger reader support for reason-only provenance events.
+- bf17d71: Extract lookup and runtime tester CLI command islands from the shared CLI core.
+- 8f5fcdc: Fix `skillset test` activation probes for Cursor by treating Cursor project agents as native Markdown outputs, and add `select.agents` for project-agent test selection.
+- 7e828dc: Include Cursor in the default provider target plan so omitted `compile.targets` builds Claude, Codex, and Cursor outputs by default.
+- 1463ea2: Render Cursor as a first-class provider target with native plugin, marketplace, skill, rule, agent, hook, and MCP outputs backed by provider registry evidence.
+- 6543594: Complete the Cursor provider cutover across runtime tester, import/adopt, provider-format conformance, setup, lookup, Workbench diagnostics, docs, and self-hosted generated output.
+- cff89f4: Add Cursor to the shared target vocabulary, schema contracts, lookup surfaces, and core provider plumbing.
+- ea272e0: Add explicit `skillset dev --watch --apply` write mode that reuses build ownership, backup, and restore safeguards while keeping default watch mode read-only.
+- 9e2b7c6: Add inline adaptive hook runtime context delivery while reserving toolkit-backed hooks until helper provenance is ready.
+- 6df1d3b: Rename the built-in provider facts package to `@skillset/registry`, then add structured hook provider evidence, classifier-backed native hook lift diagnostics during import/adopt, and plugin adaptive hook `run.env` rendering with deterministic shell assignments.
+- 4b04ab5: Add the managed XDG known-Skillsets index used to remember local checkout identities for future marketplace repository resolution without committing local filesystem paths.
+- 8e6a698: Append `release.applied` ledger events during `skillset release apply` and derive release state from ledger evidence when present.
+- daab572: Support inherited Skillset license declarations, local source `LICENSE.txt` files, `license: none` opt-outs, and managed generated `LICENSE.txt` outputs for plugin bundles and skill roots.
+- e786cc3: Add read-only `skillset marketplace check` readiness reports for local and known-index external marketplace entries, including generated-output freshness, target support, JSON output, and not-ready diagnostics.
+- 08e64b4: Add marketplace `sha` source support, lock provenance, and stale/pinned readiness diagnostics for `skillset marketplace check`.
+- 17c221d: Add `skillset marketplace update` to render provider-supported marketplace indexes from Skillset marketplace source, refresh marketplace provenance in the existing root `skillset.lock`, and support mixed local/external Claude catalog entries through derived git-subdirectory sources.
+- 6df1d3b: Keep native hook companion JSON files such as `hooks/hooks-cursor.json` from being misclassified as adaptive hook units during plugin adoption.
+- 7ba60b7: Retire app-level core re-export facades and add a package ownership guard so CLI modules import owned package APIs or documented package internals directly.
+- 02dfdfa: Move default generated plugin output to the plugin-first `plugins/<plugin>/<target>/` layout, with root-level Claude marketplace output and compatibility for explicit provider output roots.
+- d542328: Replace the retired `tool_intent` contract with portable `tools` policy frontmatter, including provider-native overrides, schema validation, lookup docs, and generated target metadata.
+- 85e6a5c: Document and prove project-agent orchestration compatibility by tying Claude native agent skill metadata and Codex skill-loading prefaces to activation probe evidence.
+- 8e6a698: Cut change authoring commands over to reason-only pending entries backed by ledger events.
+- f1f8a4a: Stop scaffolding tracked `.skillset/cache/.gitignore` sentinels now that operational cache payloads are XDG-backed.
+- 771eba8: Stop treating retired provider-first plugin output roots as importable or conformance-relevant paths now that generated plugin output uses the plugin-first `plugins/<plugin>/<provider>` layout.
+- 886998f: Share retained-run cache plumbing between `skillset test` and `skillset runtime-tester`.
+- ed41dce: Fail loudly when `skillset runtime-tester --plugin` names an unknown or unsupported plugin.
+- 816f3cb: Add `skillset runtime-tester` for retained non-interactive Claude and Codex prompt runs against isolated generated output, with Claude setting sources configurable by CLI flag or environment variable.
+- da413f7: Render adaptive hooks with `context.strategy: toolkit` through an internal `skillset hooks context` runtime helper, proving helper-backed context delivery before the public toolkit package boundary lands.
+- 1caebf3: Render adaptive hook `context.strategy: toolkit` wrappers through the published `skillset-toolkit` runtime context bin.
+- 8b7f0f5: Add a shell-friendly `@skillset/toolkit` runtime context CLI for JSON and env output.
+- 49dad00: Document and verify the toolkit runtime context support matrix through lookup output, schema examples, and adaptive hook fixtures.
+- e2cbe8b: Promote the runtime context helper into the private `@skillset/toolkit/runtime` workspace package so hook scripts can build against the same typed provider context model the CLI uses.
+- e0918ae: Add the portable tools capability registry and realization planner: registry facts record realization tier, surface, emitted field/rule family, diagnostics, and evidence per provider and aspect; renderers, render results, `skillset lookup skill tools --compat`, and `skillset explain` consume those facts; Cursor skills now receive the `.skillset.tools.yaml` metadata sidecar and Cursor tools overrides are validated at lint/build.
+- 571d094: Enable `compile.unsupportedDestination: warn`, `skip`, and `force` for unsupported or lossy render results while failed render results still block every policy and selected soft policies remain visible in diagnostics plus lock provenance.
+
 ## 0.16.2
 
 ### Patch Changes
