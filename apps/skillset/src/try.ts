@@ -23,13 +23,13 @@ import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { renderValidatedJson } from "@skillset/core/internal/structured-output";
 import type { BuildGraph, JsonRecord, SkillsetOptions, TargetName } from "@skillset/core/internal/types";
 
-export type RuntimeTesterSubcommand = "list" | "run" | "status" | "tail" | "worker";
-export type RuntimeTesterState = "building" | "failed" | "passed" | "queued" | "running";
-export type RuntimeTesterClaudeSettingSources = "isolated" | "local" | "project" | "user";
+export type TrySubcommand = "list" | "status" | "tail" | "worker";
+export type TryState = "building" | "failed" | "passed" | "queued" | "running";
+export type TryClaudeSettingSources = "isolated" | "local" | "project" | "user";
 
-export interface RuntimeTesterRunOptions extends SkillsetOptions {
+export interface TryRunOptions extends SkillsetOptions {
   readonly background?: boolean;
-  readonly claudeSettingSources?: RuntimeTesterClaudeSettingSources;
+  readonly claudeSettingSources?: TryClaudeSettingSources;
   readonly env?: Record<string, string | undefined>;
   readonly name?: string;
   readonly plugins?: readonly string[];
@@ -38,7 +38,7 @@ export interface RuntimeTesterRunOptions extends SkillsetOptions {
   readonly timeoutMs?: number;
 }
 
-export interface RuntimeTesterStatus {
+export interface TryStatus {
   readonly command?: readonly string[];
   readonly endedAt?: string;
   readonly error?: string;
@@ -54,41 +54,41 @@ export interface RuntimeTesterStatus {
   readonly runPath: string;
   readonly schemaVersion: 1;
   readonly startedAt: string;
-  readonly state: RuntimeTesterState;
+  readonly state: TryState;
   readonly target: TargetName;
   readonly timeoutMs: number;
   readonly updatedAt: string;
 }
 
-export interface RuntimeTesterRunReport {
+export interface TryRunReport {
   readonly background: boolean;
   readonly latestPath: string;
   readonly ok: boolean;
   readonly reportPath: string;
   readonly runId: string;
   readonly runPath: string;
-  readonly state: RuntimeTesterState;
+  readonly state: TryState;
   readonly statusPath: string;
   readonly tailPath: string;
 }
 
-export interface RuntimeTesterListEntry {
+export interface TryListEntry {
   readonly endedAt?: string;
   readonly name: string;
   readonly runId: string;
   readonly runPath: string;
   readonly startedAt: string;
-  readonly state: RuntimeTesterState;
+  readonly state: TryState;
   readonly target: TargetName;
 }
 
-export interface RuntimeTesterTailLine {
+export interface TryTailLine {
   readonly message: string;
   readonly stream: string;
   readonly timestamp: string;
 }
 
-interface RuntimeTesterRunPaths {
+interface TryRunPaths {
   readonly retained: RetainedRunPaths;
   readonly absolute: {
     readonly finalMessagePath: string;
@@ -111,8 +111,8 @@ interface RuntimeTesterRunPaths {
   };
 }
 
-interface RuntimeTesterStoredConfig {
-  readonly claudeSettingSources?: RuntimeTesterClaudeSettingSources;
+interface TryStoredConfig {
+  readonly claudeSettingSources?: TryClaudeSettingSources;
   readonly name: string;
   readonly plugins: readonly string[];
   readonly prompt: string;
@@ -121,30 +121,30 @@ interface RuntimeTesterStoredConfig {
   readonly timeoutMs: number;
 }
 
-const RUNTIME_TESTER_ROOT = ".skillset/cache/runtime-tester";
+const RUNTIME_TEST_ROOT = ".skillset/cache/runtime-tests";
 const DEFAULT_TIMEOUT_MS = 120_000;
-const DEFAULT_CLAUDE_SETTING_SOURCES: RuntimeTesterClaudeSettingSources = "isolated";
-const RUNTIME_TESTER_CLAUDE_SETTING_SOURCES_ENV = "SKILLSET_RUNTIME_TESTER_CLAUDE_SETTING_SOURCES";
+const DEFAULT_CLAUDE_SETTING_SOURCES: TryClaudeSettingSources = "isolated";
+const TRY_CLAUDE_SETTING_SOURCES_ENV = "SKILLSET_TRY_CLAUDE_SETTING_SOURCES";
 // Empty --setting-sources keeps Claude probes independent from user/project/local settings while preserving env auth and explicit --plugin-dir inputs.
 const ISOLATED_CLAUDE_SETTING_SOURCES_ARG = "";
 const CLAUDE_SETTING_SOURCES_DISPLAY = "\"\"";
 
-export async function startRuntimeTesterRun(
+export async function startTryRun(
   rootPath: string,
-  options: RuntimeTesterRunOptions
-): Promise<RuntimeTesterRunReport> {
+  options: TryRunOptions
+): Promise<TryRunReport> {
   const root = resolve(rootPath);
   const graph = await loadBuildGraph(root, options);
   if (!graph.root.targets[options.target].enabled) {
-    throw new Error(`skillset: runtime tester target ${options.target} is not enabled by root target configuration`);
+    throw new Error(`skillset: try target ${options.target} is not enabled by root target configuration`);
   }
-  const name = options.name ?? `runtime-${options.target}`;
-  const plugins = validateRuntimeTesterPlugins(graph, options.target, options.plugins ?? []);
-  const runId = makeRetainedRunId(name, { fallbackName: "runtime", includeName: true });
-  const paths = runtimeTesterPaths(root, graph, runId, options.xdg);
+  const name = options.name ?? `try-${options.target}`;
+  const plugins = validateTryPlugins(graph, options.target, options.plugins ?? []);
+  const runId = makeRetainedRunId(name, { fallbackName: "try", includeName: true });
+  const paths = tryPaths(root, graph, runId, options.xdg);
   await mkdir(paths.absolute.runPath, { recursive: true });
 
-  const config: RuntimeTesterStoredConfig = {
+  const config: TryStoredConfig = {
     ...(options.target === "claude" ? { claudeSettingSources: resolveClaudeSettingSources(options) } : {}),
     name,
     plugins,
@@ -177,7 +177,7 @@ export async function startRuntimeTesterRun(
   await writeLatest(paths, runId);
 
   if (options.background === true) {
-    const pid = spawnRuntimeWorker(root, runId);
+    const pid = spawnTryWorker(root, runId);
     const status = await readStatus(paths.absolute.statusPath);
     await writeStatus(paths, {
       ...status,
@@ -188,19 +188,19 @@ export async function startRuntimeTesterRun(
     return runReport(paths, runId, "queued", true);
   }
 
-  await executeRuntimeTesterRun(root, runId, options.env, options.xdg);
+  await executeTryRun(root, runId, options.env, options.xdg);
   const status = await readStatus(paths.absolute.statusPath);
   return runReport(paths, runId, status.state, false);
 }
 
-export async function executeRuntimeTesterRun(
+export async function executeTryRun(
   rootPath: string,
   runId: string,
   env: Record<string, string | undefined> = process.env,
   xdg: SkillsetOptions["xdg"] = undefined
 ): Promise<void> {
   const root = resolve(rootPath);
-  const paths = runtimeTesterPaths(root, await loadBuildGraph(root, xdg === undefined ? {} : { xdg }), runId, xdg);
+  const paths = tryPaths(root, await loadBuildGraph(root, xdg === undefined ? {} : { xdg }), runId, xdg);
   const config = await readConfig(join(paths.absolute.runPath, "config.json"));
   const target = config.target;
   const runOptions: SkillsetOptions = {
@@ -241,7 +241,7 @@ export async function executeRuntimeTesterRun(
     timedOut: result.timedOut,
   };
   await writeFile(paths.absolute.reportPath, renderValidatedJson(report, paths.logical.reportPath), "utf8");
-  const nextState: RuntimeTesterState = report.ok === true ? "passed" : "failed";
+  const nextState: TryState = report.ok === true ? "passed" : "failed";
   await writeStatus(paths, {
     ...status,
     endedAt: String(report.endedAt),
@@ -250,33 +250,33 @@ export async function executeRuntimeTesterRun(
     reportPath: paths.logical.reportPath,
     state: nextState,
     updatedAt: new Date().toISOString(),
-    ...(result.timedOut ? { error: `runtime tester command timed out after ${config.timeoutMs}ms` } : {}),
+    ...(result.timedOut ? { error: `try command timed out after ${config.timeoutMs}ms` } : {}),
   });
-  await appendEvent(paths, "status", `runtime tester ${nextState}`);
+  await appendEvent(paths, "status", `try ${nextState}`);
 }
 
-export async function readRuntimeTesterStatus(
+export async function readTryStatus(
   rootPath: string,
   runId?: string,
   options: Pick<SkillsetOptions, "xdg"> = {}
-): Promise<RuntimeTesterStatus> {
+): Promise<TryStatus> {
   const root = resolve(rootPath);
   const graph = await loadBuildGraph(root, options);
   const resolvedRunId = runId ?? await readLatestRunId(root, graph, options.xdg);
-  const paths = runtimeTesterPaths(root, graph, resolvedRunId, options.xdg);
+  const paths = tryPaths(root, graph, resolvedRunId, options.xdg);
   return readStatus(paths.absolute.statusPath);
 }
 
-export async function listRuntimeTesterRuns(
+export async function listTryRuns(
   rootPath: string,
   options: Pick<SkillsetOptions, "xdg"> = {}
-): Promise<readonly RuntimeTesterListEntry[]> {
+): Promise<readonly TryListEntry[]> {
   const root = resolve(rootPath);
   const graph = await loadBuildGraph(root, options);
-  const runsRoot = retainedRunRootPaths(root, graph, RUNTIME_TESTER_ROOT, options.xdg).absolute.runsRoot;
+  const runsRoot = retainedRunRootPaths(root, graph, RUNTIME_TEST_ROOT, options.xdg).absolute.runsRoot;
   if (!await pathExists(runsRoot)) return [];
   const entries = await readdir(runsRoot, { withFileTypes: true });
-  const runs: RuntimeTesterListEntry[] = [];
+  const runs: TryListEntry[] = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
     try {
@@ -297,16 +297,16 @@ export async function listRuntimeTesterRuns(
   return runs.sort((left, right) => compareStrings(right.startedAt, left.startedAt));
 }
 
-export async function tailRuntimeTesterRun(
+export async function tailTryRun(
   rootPath: string,
   runId: string | undefined,
   lines: number,
   options: Pick<SkillsetOptions, "xdg"> = {}
-): Promise<readonly RuntimeTesterTailLine[]> {
+): Promise<readonly TryTailLine[]> {
   const root = resolve(rootPath);
   const graph = await loadBuildGraph(root, options);
   const resolvedRunId = runId ?? await readLatestRunId(root, graph, options.xdg);
-  const paths = runtimeTesterPaths(root, graph, resolvedRunId, options.xdg);
+  const paths = tryPaths(root, graph, resolvedRunId, options.xdg);
   const raw = await readOptional(paths.absolute.outputPath);
   if (raw === undefined) return [];
   return raw
@@ -319,15 +319,15 @@ export async function tailRuntimeTesterRun(
 function runtimeCommand(
   rootPath: string,
   graph: BuildGraph,
-  paths: RuntimeTesterRunPaths,
-  config: RuntimeTesterStoredConfig,
+  paths: TryRunPaths,
+  config: TryStoredConfig,
   env: Record<string, string | undefined>,
   xdg: SkillsetOptions["xdg"]
 ): { readonly cmd: readonly string[]; readonly cwd: string; readonly display: readonly string[] } {
   const latestRoot = resolveRetainedRunPath(rootPath, graph, ISOLATED_OUT_ROOT, xdg);
   if (config.target === "claude") {
-    const bin = env.SKILLSET_RUNTIME_TESTER_CLAUDE_BIN ?? "claude";
-    const pluginArgs = runtimeTesterPluginDirs(graph, latestRoot, config.target, config.plugins).flatMap((pluginDir) => [
+    const bin = env.SKILLSET_TRY_CLAUDE_BIN ?? "claude";
+    const pluginArgs = tryPluginDirs(graph, latestRoot, config.target, config.plugins).flatMap((pluginDir) => [
       "--plugin-dir",
       pluginDir,
     ]);
@@ -353,8 +353,8 @@ function runtimeCommand(
   }
 
   if (config.target === "cursor") {
-    const bin = env.SKILLSET_RUNTIME_TESTER_CURSOR_BIN ?? "cursor-agent";
-    const pluginArgs = runtimeTesterPluginDirs(graph, latestRoot, config.target, config.plugins).flatMap((pluginDir) => [
+    const bin = env.SKILLSET_TRY_CURSOR_BIN ?? "cursor-agent";
+    const pluginArgs = tryPluginDirs(graph, latestRoot, config.target, config.plugins).flatMap((pluginDir) => [
       "--plugin-dir",
       pluginDir,
     ]);
@@ -374,7 +374,7 @@ function runtimeCommand(
     return { cmd, cwd: latestRoot, display: cmd };
   }
 
-  const bin = env.SKILLSET_RUNTIME_TESTER_CODEX_BIN ?? "codex";
+  const bin = env.SKILLSET_TRY_CODEX_BIN ?? "codex";
   const cmd = [
     bin,
     "exec",
@@ -391,21 +391,21 @@ function runtimeCommand(
   return { cmd, cwd: latestRoot, display: cmd };
 }
 
-function resolveClaudeSettingSources(options: RuntimeTesterRunOptions): RuntimeTesterClaudeSettingSources {
+function resolveClaudeSettingSources(options: TryRunOptions): TryClaudeSettingSources {
   const env = options.env ?? process.env;
   return options.claudeSettingSources ??
-    readClaudeSettingSources(env[RUNTIME_TESTER_CLAUDE_SETTING_SOURCES_ENV], RUNTIME_TESTER_CLAUDE_SETTING_SOURCES_ENV) ??
+    readClaudeSettingSources(env[TRY_CLAUDE_SETTING_SOURCES_ENV], TRY_CLAUDE_SETTING_SOURCES_ENV) ??
     DEFAULT_CLAUDE_SETTING_SOURCES;
 }
 
-function claudeSettingSourcesArg(value: RuntimeTesterClaudeSettingSources): string {
+function claudeSettingSourcesArg(value: TryClaudeSettingSources): string {
   return value === "isolated" ? ISOLATED_CLAUDE_SETTING_SOURCES_ARG : value;
 }
 
 export function readClaudeSettingSources(
   value: string | undefined,
   label: string
-): RuntimeTesterClaudeSettingSources | undefined {
+): TryClaudeSettingSources | undefined {
   if (value === undefined) return undefined;
   const normalized = value.trim();
   if (normalized === "isolated" || normalized === "user" || normalized === "project" || normalized === "local") {
@@ -414,7 +414,7 @@ export function readClaudeSettingSources(
   throw new Error(`skillset: expected ${label} to be isolated, user, project, or local`);
 }
 
-function runtimeTesterPluginDirs(
+function tryPluginDirs(
   graph: BuildGraph,
   latestRoot: string,
   target: "claude" | "cursor",
@@ -434,28 +434,28 @@ function runtimeTesterPluginDirs(
     .map((plugin) => join(latestRoot, pluginTargetRoot(graph.root.outputs.plugins[target], target, plugin)));
 }
 
-function validateRuntimeTesterPlugins(
+function validateTryPlugins(
   graph: BuildGraph,
   target: TargetName,
   plugins: readonly string[]
 ): readonly string[] {
   if (plugins.length === 0) return [];
   if (target === "codex") {
-    throw new Error("skillset: runtime tester --plugin is only supported for targets with local plugin-dir support: claude, cursor");
+    throw new Error("skillset: try --plugin is only supported for targets with local plugin-dir support: claude, cursor");
   }
   const seen = new Set<string>();
   const selected: string[] = [];
   const knownPlugins = graph.plugins.map((plugin) => plugin.id).sort(compareStrings);
   for (const pluginId of plugins) {
-    if (seen.has(pluginId)) throw new Error(`skillset: duplicate runtime tester plugin ${JSON.stringify(pluginId)}`);
+    if (seen.has(pluginId)) throw new Error(`skillset: duplicate try plugin ${JSON.stringify(pluginId)}`);
     seen.add(pluginId);
     const plugin = graph.plugins.find((candidate) => candidate.id === pluginId);
     if (plugin === undefined) {
       const available = knownPlugins.length === 0 ? "none configured" : knownPlugins.join(", ");
-      throw new Error(`skillset: unknown runtime tester plugin ${JSON.stringify(pluginId)}; available plugins: ${available}`);
+      throw new Error(`skillset: unknown try plugin ${JSON.stringify(pluginId)}; available plugins: ${available}`);
     }
     if (!plugin.targets[target].enabled) {
-      throw new Error(`skillset: runtime tester plugin ${JSON.stringify(pluginId)} is not enabled for ${target}`);
+      throw new Error(`skillset: try plugin ${JSON.stringify(pluginId)} is not enabled for ${target}`);
     }
     selected.push(pluginId);
   }
@@ -465,7 +465,7 @@ function validateRuntimeTesterPlugins(
 async function runCommand(
   command: { readonly cmd: readonly string[]; readonly cwd: string },
   prompt: string,
-  paths: RuntimeTesterRunPaths,
+  paths: TryRunPaths,
   timeoutMs: number,
   env: Record<string, string | undefined>
 ): Promise<{ readonly exitCode: number; readonly timedOut: boolean }> {
@@ -496,7 +496,7 @@ async function runCommand(
 }
 
 async function collectStream(
-  paths: RuntimeTesterRunPaths,
+  paths: TryRunPaths,
   streamName: "stderr" | "stdout",
   stream: ReadableStream<Uint8Array>
 ): Promise<void> {
@@ -517,10 +517,10 @@ function cleanEnv(env: Record<string, string | undefined>): Record<string, strin
   return cleaned;
 }
 
-function spawnRuntimeWorker(rootPath: string, runId: string): number | undefined {
+function spawnTryWorker(rootPath: string, runId: string): number | undefined {
   const cliPath = process.argv[1];
-  if (cliPath === undefined) throw new Error("skillset: runtime tester cannot locate CLI entrypoint for background worker");
-  const child = spawnNode(process.execPath, [cliPath, "runtime-tester", "worker", runId, "--root", rootPath], {
+  if (cliPath === undefined) throw new Error("skillset: try cannot locate CLI entrypoint for background worker");
+  const child = spawnNode(process.execPath, [cliPath, "try", "worker", runId, "--root", rootPath], {
     cwd: rootPath,
     detached: true,
     env: process.env,
@@ -530,13 +530,13 @@ function spawnRuntimeWorker(rootPath: string, runId: string): number | undefined
   return child.pid;
 }
 
-function runtimeTesterPaths(
+function tryPaths(
   rootPath: string,
   graph: BuildGraph,
   runId: string,
   xdg: SkillsetOptions["xdg"] = undefined
-): RuntimeTesterRunPaths {
-  const retained = retainedRunPaths(rootPath, graph, RUNTIME_TESTER_ROOT, runId, xdg);
+): TryRunPaths {
+  const retained = retainedRunPaths(rootPath, graph, RUNTIME_TEST_ROOT, runId, xdg);
   return {
     retained,
     absolute: {
@@ -562,19 +562,19 @@ function runtimeTesterPaths(
 }
 
 async function updateRunState(
-  paths: RuntimeTesterRunPaths,
-  status: RuntimeTesterStatus,
-  state: RuntimeTesterState,
-  updates: Partial<RuntimeTesterStatus> = {}
-): Promise<RuntimeTesterStatus> {
+  paths: TryRunPaths,
+  status: TryStatus,
+  state: TryState,
+  updates: Partial<TryStatus> = {}
+): Promise<TryStatus> {
   const next = { ...status, ...updates, state, updatedAt: new Date().toISOString() };
   await writeStatus(paths, next);
   return next;
 }
 
 async function failRun(
-  paths: RuntimeTesterRunPaths,
-  status: RuntimeTesterStatus,
+  paths: TryRunPaths,
+  status: TryStatus,
   error: string
 ): Promise<void> {
   const endedAt = new Date().toISOString();
@@ -598,15 +598,15 @@ async function failRun(
     state: "failed",
     updatedAt: endedAt,
   });
-  await appendEvent(paths, "status", `runtime tester failed: ${error}`);
+  await appendEvent(paths, "status", `try failed: ${error}`);
 }
 
-async function writeStatus(paths: RuntimeTesterRunPaths, status: RuntimeTesterStatus): Promise<void> {
+async function writeStatus(paths: TryRunPaths, status: TryStatus): Promise<void> {
   await mkdir(paths.absolute.runPath, { recursive: true });
   await writeFile(paths.absolute.statusPath, renderValidatedJson(status as unknown as JsonRecord, paths.logical.statusPath), "utf8");
 }
 
-async function writeLatest(paths: RuntimeTesterRunPaths, runId: string): Promise<void> {
+async function writeLatest(paths: TryRunPaths, runId: string): Promise<void> {
   await mkdir(paths.absolute.runsRoot, { recursive: true });
   await writeRetainedRunLatest(paths.retained, {
     runId,
@@ -616,7 +616,7 @@ async function writeLatest(paths: RuntimeTesterRunPaths, runId: string): Promise
   });
 }
 
-async function appendEvent(paths: RuntimeTesterRunPaths, stream: string, message: string): Promise<void> {
+async function appendEvent(paths: TryRunPaths, stream: string, message: string): Promise<void> {
   const event = {
     message,
     stream,
@@ -630,20 +630,20 @@ async function readLatestRunId(
   graph: BuildGraph,
   xdg: SkillsetOptions["xdg"] = undefined
 ): Promise<string> {
-  const latest = await readRetainedRunLatest(rootPath, graph, RUNTIME_TESTER_ROOT, xdg);
+  const latest = await readRetainedRunLatest(rootPath, graph, RUNTIME_TEST_ROOT, xdg);
   if (!isRecord(latest) || typeof latest.runId !== "string") {
-    throw new Error("skillset: runtime tester latest run is malformed");
+    throw new Error("skillset: try latest run is malformed");
   }
   return latest.runId;
 }
 
-async function readConfig(path: string): Promise<RuntimeTesterStoredConfig> {
+async function readConfig(path: string): Promise<TryStoredConfig> {
   const raw = JSON.parse(await readFile(path, "utf8")) as unknown;
-  if (!isRecord(raw)) throw new Error("skillset: runtime tester config is malformed");
-  if (!isTargetName(raw.target)) throw new Error("skillset: runtime tester config target is malformed");
-  if (typeof raw.prompt !== "string") throw new Error("skillset: runtime tester config prompt is malformed");
+  if (!isRecord(raw)) throw new Error("skillset: try config is malformed");
+  if (!isTargetName(raw.target)) throw new Error("skillset: try config target is malformed");
+  if (typeof raw.prompt !== "string") throw new Error("skillset: try config prompt is malformed");
   const claudeSettingSources = typeof raw.claudeSettingSources === "string"
-    ? readClaudeSettingSources(raw.claudeSettingSources, "runtime tester config claudeSettingSources")
+    ? readClaudeSettingSources(raw.claudeSettingSources, "try config claudeSettingSources")
     : undefined;
   return {
     ...(claudeSettingSources === undefined ? {} : { claudeSettingSources }),
@@ -656,12 +656,12 @@ async function readConfig(path: string): Promise<RuntimeTesterStoredConfig> {
   };
 }
 
-async function readStatus(path: string): Promise<RuntimeTesterStatus> {
+async function readStatus(path: string): Promise<TryStatus> {
   const raw = JSON.parse(await readFile(path, "utf8")) as unknown;
   if (!isRecord(raw) || typeof raw.runId !== "string" || !isTargetName(raw.target)) {
-    throw new Error("skillset: runtime tester status is malformed");
+    throw new Error("skillset: try status is malformed");
   }
-  return raw as unknown as RuntimeTesterStatus;
+  return raw as unknown as TryStatus;
 }
 
 async function readOptional(path: string): Promise<string | undefined> {
@@ -681,7 +681,7 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-function parseTailLine(line: string): RuntimeTesterTailLine {
+function parseTailLine(line: string): TryTailLine {
   const parsed = JSON.parse(line) as unknown;
   if (!isRecord(parsed)) return { message: line, stream: "raw", timestamp: "" };
   return {
@@ -692,11 +692,11 @@ function parseTailLine(line: string): RuntimeTesterTailLine {
 }
 
 function runReport(
-  paths: RuntimeTesterRunPaths,
+  paths: TryRunPaths,
   runId: string,
-  state: RuntimeTesterState,
+  state: TryState,
   background: boolean
-): RuntimeTesterRunReport {
+): TryRunReport {
   return {
     background,
     latestPath: paths.logical.latestJsonPath,

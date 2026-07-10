@@ -6,13 +6,13 @@ import { expect, test } from "bun:test";
 import { createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
 
 import {
-  listRuntimeTesterRuns,
-  readRuntimeTesterStatus,
-  startRuntimeTesterRun,
-  tailRuntimeTesterRun,
-} from "../runtime-tester";
+  listTryRuns,
+  readTryStatus,
+  startTryRun,
+  tailTryRun,
+} from "../try";
 
-test("runtime tester runs a Codex prompt and records inspectable artifacts", async () => {
+test("try runs a Codex prompt and records inspectable artifacts", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -22,7 +22,7 @@ codex: true
     ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
-description: Demo runtime tester skill.
+description: Demo try skill.
 ---
 
 Use this skill to answer fixture questions.
@@ -31,8 +31,8 @@ Use this skill to answer fixture questions.
   const bin = await fakeCodexBin(root);
   const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
 
-  const report = await startRuntimeTesterRun(root, {
-    env: { ...process.env, SKILLSET_RUNTIME_TESTER_CODEX_BIN: bin },
+  const report = await startTryRun(root, {
+    env: { ...process.env, SKILLSET_TRY_CODEX_BIN: bin },
     prompt: "List the available fixture skills.",
     target: "codex",
     xdg,
@@ -40,25 +40,25 @@ Use this skill to answer fixture questions.
 
   expect(report.ok).toBe(true);
   expect(report.state).toBe("passed");
-  expect(report.runPath).toStartWith(".skillset/cache/runtime-tester/runs/");
+  expect(report.runPath).toStartWith(".skillset/cache/runtime-tests/runs/");
   expect(await exists(cachePath(root, xdg, report.tailPath))).toBe(true);
   expect(await readFile(cachePath(root, xdg, report.reportPath), "utf8")).toContain("fake codex final");
 
-  const status = await readRuntimeTesterStatus(root, report.runId, { xdg });
+  const status = await readTryStatus(root, report.runId, { xdg });
   expect(status.state).toBe("passed");
   expect(status.command?.join(" ")).toContain("--output-last-message");
   expect(status.command?.join(" ")).toContain("--skip-git-repo-check");
   expect(status.finalMessagePath).toBeDefined();
 
-  const tail = await tailRuntimeTesterRun(root, report.runId, 20, { xdg });
+  const tail = await tailTryRun(root, report.runId, 20, { xdg });
   expect(tail.map((line) => line.stream)).toContain("stdout");
   expect(tail.some((line) => line.message.includes("List the available fixture skills."))).toBe(true);
 
-  const runs = await listRuntimeTesterRuns(root, { xdg });
+  const runs = await listTryRuns(root, { xdg });
   expect(runs.map((run) => run.runId)).toContain(report.runId);
 });
 
-test("runtime tester runs a Claude prompt with isolated settings and explicit plugin dirs", async () => {
+test("try runs a Claude prompt with isolated settings and explicit plugin dirs", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -75,7 +75,7 @@ claude: true
     ".skillset/plugins/acme/skills/demo/SKILL.md": `
 ---
 name: demo
-description: Demo Claude runtime tester skill.
+description: Demo Claude try skill.
 ---
 
 Use this skill to answer fixture questions.
@@ -84,8 +84,8 @@ Use this skill to answer fixture questions.
   const bin = await fakeClaudeBin(root);
   const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
 
-  const report = await startRuntimeTesterRun(root, {
-    env: { ...process.env, SKILLSET_RUNTIME_TESTER_CLAUDE_BIN: bin },
+  const report = await startTryRun(root, {
+    env: { ...process.env, SKILLSET_TRY_CLAUDE_BIN: bin },
     plugins: ["acme"],
     prompt: "Inspect Claude fixture.",
     target: "claude",
@@ -95,17 +95,17 @@ Use this skill to answer fixture questions.
   expect(report.ok).toBe(true);
   expect(report.state).toBe("passed");
 
-  const status = await readRuntimeTesterStatus(root, report.runId, { xdg });
+  const status = await readTryStatus(root, report.runId, { xdg });
   const command = status.command?.join(" ");
   expect(command).toContain("--setting-sources \"\"");
   expect(command).toContain("--plugin-dir");
   expect(command).toContain("plugins/acme/claude");
 
-  const tail = await tailRuntimeTesterRun(root, report.runId, 20, { xdg });
+  const tail = await tailTryRun(root, report.runId, 20, { xdg });
   expect(tail.some((line) => line.message.includes("fake-claude prompt=Inspect Claude fixture."))).toBe(true);
 });
 
-test("runtime tester runs a Cursor prompt with trusted isolated workspace and explicit plugin dirs", async () => {
+test("try runs a Cursor prompt with trusted isolated workspace and explicit plugin dirs", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -124,7 +124,7 @@ cursor: true
     ".skillset/plugins/acme/skills/demo/SKILL.md": `
 ---
 name: demo
-description: Demo Cursor runtime tester skill.
+description: Demo Cursor try skill.
 ---
 
 Use this skill to answer fixture questions.
@@ -133,8 +133,8 @@ Use this skill to answer fixture questions.
   const bin = await fakeCursorBin(root);
   const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
 
-  const report = await startRuntimeTesterRun(root, {
-    env: { ...process.env, SKILLSET_RUNTIME_TESTER_CURSOR_BIN: bin },
+  const report = await startTryRun(root, {
+    env: { ...process.env, SKILLSET_TRY_CURSOR_BIN: bin },
     plugins: ["acme"],
     prompt: "Inspect Cursor fixture.",
     target: "cursor",
@@ -144,7 +144,7 @@ Use this skill to answer fixture questions.
   expect(report.ok).toBe(true);
   expect(report.state).toBe("passed");
 
-  const status = await readRuntimeTesterStatus(root, report.runId, { xdg });
+  const status = await readTryStatus(root, report.runId, { xdg });
   const command = status.command?.join(" ");
   expect(command).toContain("--print");
   expect(command).toContain("--output-format json");
@@ -154,11 +154,11 @@ Use this skill to answer fixture questions.
   expect(command).toContain("--plugin-dir");
   expect(command).toContain("plugins/acme/cursor");
 
-  const tail = await tailRuntimeTesterRun(root, report.runId, 20, { xdg });
+  const tail = await tailTryRun(root, report.runId, 20, { xdg });
   expect(tail.some((line) => line.message.includes("fake-cursor prompt=Inspect Cursor fixture."))).toBe(true);
 });
 
-test("runtime tester resolves Claude setting sources from defaults, env, and CLI options", async () => {
+test("try resolves Claude setting sources from defaults, env, and CLI options", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -175,7 +175,7 @@ claude: true
     ".skillset/plugins/acme/skills/demo/SKILL.md": `
 ---
 name: demo
-description: Demo Claude runtime tester skill.
+description: Demo Claude try skill.
 ---
 
 Use this skill to answer fixture questions.
@@ -184,41 +184,41 @@ Use this skill to answer fixture questions.
   const bin = await fakeClaudeBin(root);
   const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
 
-  const fromDefault = await startRuntimeTesterRun(root, {
-    env: { ...process.env, SKILLSET_RUNTIME_TESTER_CLAUDE_BIN: bin },
+  const fromDefault = await startTryRun(root, {
+    env: { ...process.env, SKILLSET_TRY_CLAUDE_BIN: bin },
     prompt: "Inspect Claude default fixture.",
     target: "claude",
     xdg,
   });
-  expect((await readRuntimeTesterStatus(root, fromDefault.runId, { xdg })).command?.join(" ")).toContain("--setting-sources \"\"");
+  expect((await readTryStatus(root, fromDefault.runId, { xdg })).command?.join(" ")).toContain("--setting-sources \"\"");
 
-  const fromEnv = await startRuntimeTesterRun(root, {
+  const fromEnv = await startTryRun(root, {
     env: {
       ...process.env,
-      SKILLSET_RUNTIME_TESTER_CLAUDE_BIN: bin,
-      SKILLSET_RUNTIME_TESTER_CLAUDE_SETTING_SOURCES: "user",
+      SKILLSET_TRY_CLAUDE_BIN: bin,
+      SKILLSET_TRY_CLAUDE_SETTING_SOURCES: "user",
     },
     prompt: "Inspect Claude env fixture.",
     target: "claude",
     xdg,
   });
-  expect((await readRuntimeTesterStatus(root, fromEnv.runId, { xdg })).command?.join(" ")).toContain("--setting-sources user");
+  expect((await readTryStatus(root, fromEnv.runId, { xdg })).command?.join(" ")).toContain("--setting-sources user");
 
-  const fromOption = await startRuntimeTesterRun(root, {
+  const fromOption = await startTryRun(root, {
     claudeSettingSources: "local",
     env: {
       ...process.env,
-      SKILLSET_RUNTIME_TESTER_CLAUDE_BIN: bin,
-      SKILLSET_RUNTIME_TESTER_CLAUDE_SETTING_SOURCES: "user",
+      SKILLSET_TRY_CLAUDE_BIN: bin,
+      SKILLSET_TRY_CLAUDE_SETTING_SOURCES: "user",
     },
     prompt: "Inspect Claude option fixture.",
     target: "claude",
     xdg,
   });
-  expect((await readRuntimeTesterStatus(root, fromOption.runId, { xdg })).command?.join(" ")).toContain("--setting-sources local");
+  expect((await readTryStatus(root, fromOption.runId, { xdg })).command?.join(" ")).toContain("--setting-sources local");
 });
 
-test("runtime tester validates selected plugins before running", async () => {
+test("try validates selected plugins before running", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -236,7 +236,7 @@ claude: true
     ".skillset/plugins/acme/skills/demo/SKILL.md": `
 ---
 name: demo
-description: Demo Claude runtime tester skill.
+description: Demo Claude try skill.
 ---
 
 Use this skill to answer fixture questions.
@@ -252,7 +252,7 @@ codex: true
     ".skillset/plugins/codex-only/skills/demo/SKILL.md": `
 ---
 name: demo
-description: Demo Codex-only runtime tester skill.
+description: Demo Codex-only try skill.
 ---
 
 Use this skill to answer fixture questions.
@@ -260,36 +260,36 @@ Use this skill to answer fixture questions.
   });
   const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
 
-  await expect(startRuntimeTesterRun(root, {
+  await expect(startTryRun(root, {
     plugins: ["missing"],
     prompt: "Inspect missing plugin.",
     target: "claude",
     xdg,
-  })).rejects.toThrow("unknown runtime tester plugin \"missing\"; available plugins: acme, codex-only");
+  })).rejects.toThrow("unknown try plugin \"missing\"; available plugins: acme, codex-only");
 
-  await expect(startRuntimeTesterRun(root, {
+  await expect(startTryRun(root, {
     plugins: ["acme", "acme"],
     prompt: "Inspect duplicate plugin.",
     target: "claude",
     xdg,
-  })).rejects.toThrow("duplicate runtime tester plugin \"acme\"");
+  })).rejects.toThrow("duplicate try plugin \"acme\"");
 
-  await expect(startRuntimeTesterRun(root, {
+  await expect(startTryRun(root, {
     plugins: ["codex-only"],
     prompt: "Inspect disabled plugin.",
     target: "claude",
     xdg,
-  })).rejects.toThrow("runtime tester plugin \"codex-only\" is not enabled for claude");
+  })).rejects.toThrow("try plugin \"codex-only\" is not enabled for claude");
 
-  await expect(startRuntimeTesterRun(root, {
+  await expect(startTryRun(root, {
     plugins: ["acme"],
     prompt: "Inspect Codex plugin selection.",
     target: "codex",
     xdg,
-  })).rejects.toThrow("runtime tester --plugin is only supported for targets with local plugin-dir support: claude, cursor");
+  })).rejects.toThrow("try --plugin is only supported for targets with local plugin-dir support: claude, cursor");
 });
 
-test("runtime tester CLI supports run, status, tail, and list", async () => {
+test("SET-272: try CLI starts directly and supports status, tail, and list", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -299,7 +299,7 @@ codex: true
     ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
-description: Demo runtime tester CLI skill.
+description: Demo try CLI skill.
 ---
 
 CLI fixture body.
@@ -308,29 +308,34 @@ CLI fixture body.
   const bin = await fakeCodexBin(root);
   const env = {
     ...process.env,
-    SKILLSET_RUNTIME_TESTER_CODEX_BIN: bin,
+    SKILLSET_TRY_CODEX_BIN: bin,
     XDG_CACHE_HOME: join(root, "xdg-cache"),
   };
 
-  const run = await runSkillsetCli(env, "runtime-tester", "run", "--target", "codex", "--prompt", "Inspect CLI fixture.", "--json", "--root", root);
+  const run = await runSkillsetCli(env, "try", "--target", "codex", "--prompt", "Inspect CLI fixture.", "--json", "--root", root);
   expect(run.exitCode).toBe(0);
-  const report = JSON.parse(run.stdout) as { runId: string; state: string };
+  const report = JSON.parse(run.stdout) as { runId: string; runPath: string; state: string };
   expect(report.state).toBe("passed");
+  expect(report.runPath).toStartWith(".skillset/cache/runtime-tests/runs/");
 
-  const status = await runSkillsetCli(env, "runtime-tester", "status", report.runId, "--json", "--root", root);
+  const status = await runSkillsetCli(env, "try", "status", report.runId, "--json", "--root", root);
   expect(status.exitCode).toBe(0);
   expect(JSON.parse(status.stdout)).toEqual(expect.objectContaining({ runId: report.runId, state: "passed" }));
 
-  const tail = await runSkillsetCli(env, "runtime-tester", "tail", report.runId, "--lines", "10", "--json", "--root", root);
+  const tail = await runSkillsetCli(env, "try", "tail", report.runId, "--lines", "10", "--json", "--root", root);
   expect(tail.exitCode).toBe(0);
   expect(tail.stdout).toContain("Inspect CLI fixture.");
 
-  const list = await runSkillsetCli(env, "runtime-tester", "list", "--json", "--root", root);
+  const list = await runSkillsetCli(env, "try", "list", "--json", "--root", root);
   expect(list.exitCode).toBe(0);
   expect(list.stdout).toContain(report.runId);
+
+  const retired = await runSkillsetCli(env, "runtime-tester", "run", "--target", "codex", "--prompt", "Old command.", "--root", root);
+  expect(retired.exitCode).toBe(1);
+  expect(retired.stderr).toContain("expected command");
 });
 
-test("runtime tester CLI supports Claude setting source override", async () => {
+test("try CLI supports Claude setting source override", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -340,7 +345,7 @@ claude: true
     ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
-description: Demo runtime tester CLI Claude skill.
+description: Demo try CLI Claude skill.
 ---
 
 CLI Claude fixture body.
@@ -349,14 +354,13 @@ CLI Claude fixture body.
   const bin = await fakeClaudeBin(root);
   const env = {
     ...process.env,
-    SKILLSET_RUNTIME_TESTER_CLAUDE_BIN: bin,
+    SKILLSET_TRY_CLAUDE_BIN: bin,
     XDG_CACHE_HOME: join(root, "xdg-cache"),
   };
 
   const run = await runSkillsetCli(
     env,
-    "runtime-tester",
-    "run",
+    "try",
     "--target",
     "claude",
     "--prompt",
@@ -371,13 +375,61 @@ CLI Claude fixture body.
   const report = JSON.parse(run.stdout) as { runId: string; state: string };
   expect(report.state).toBe("passed");
 
-  const status = await runSkillsetCli(env, "runtime-tester", "status", report.runId, "--json", "--root", root);
+  const status = await runSkillsetCli(env, "try", "status", report.runId, "--json", "--root", root);
   expect(status.exitCode).toBe(0);
   expect(JSON.parse(status.stdout).command.join(" ")).toContain("--setting-sources local");
 });
 
+test("SET-272: background tries complete through the renamed worker command", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: background-try-fixture
+codex: true
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Background try fixture.
+---
+
+Background fixture body.
+`,
+  });
+  const env = {
+    ...process.env,
+    SKILLSET_TRY_CODEX_BIN: await fakeCodexBin(root),
+    XDG_CACHE_HOME: join(root, "xdg-cache"),
+  };
+  const xdg = { env };
+
+  const started = await runSkillsetCli(
+    env,
+    "try",
+    "--target",
+    "codex",
+    "--prompt",
+    "Inspect background fixture.",
+    "--background",
+    "--json",
+    "--root",
+    root
+  );
+  expect(started.exitCode).toBe(0);
+  const report = JSON.parse(started.stdout) as { runId: string; state: string };
+  expect(report.state).toBe("queued");
+
+  let state = report.state;
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline && state !== "passed" && state !== "failed") {
+    await Bun.sleep(20);
+    state = (await readTryStatus(root, report.runId, { xdg })).state;
+  }
+  expect(state).toBe("passed");
+}, 15_000);
+
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-runtime-tester-"));
+  const root = await mkdtemp(join(tmpdir(), "skillset-try-"));
   for (const [path, content] of Object.entries(files)) {
     const fullPath = join(root, path);
     await mkdir(dirname(fullPath), { recursive: true });

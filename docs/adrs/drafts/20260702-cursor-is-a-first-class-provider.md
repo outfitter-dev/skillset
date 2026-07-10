@@ -88,7 +88,7 @@ This means:
 
 The provider contract is deliberately stronger than "make Cursor compile." The
 test is whether `skillset lookup`, `skillset explain`, build diagnostics,
-render results, locks, docs, fixtures, and runtime-tester output all tell the same
+render results, locks, docs, fixtures, and `skillset try` output all tell the same
 truth for Cursor that they tell for Claude and Codex.
 
 ## Implementation Milestones
@@ -102,7 +102,7 @@ instead of patching the renderer locally.
 | Evidence and contract | Cursor docs and local CLI evidence are recorded; this ADR and the portable capability/permission intent model define what can be native, transformed, shimmed, degraded, lossy, or unsupported. |
 | Target and output plumbing | `cursor` is accepted by schema/core/registry/Workbench/lookup; output roots, `_cursor` source islands, locks, safety checks, and generated schema artifacts include Cursor. |
 | Native renderers | Skills, rules, subagents, plugins, marketplaces, MCP, hooks, commands, and provider-native companions render only where Cursor has a faithful destination. |
-| Import and runtime proof | Cursor imports preserve native source unless a faithful adaptive lift exists; runtime-tester dogfoods generated Cursor output with the local CLI in isolated workspaces. |
+| Import and runtime proof | Cursor imports preserve native source unless a faithful adaptive lift exists; `skillset try` dogfoods generated Cursor output with the local CLI in isolated workspaces. |
 | Parity gate | Adapter conformance, deterministic projection, fixtures, docs, generated guidance, Linear, PR checks, and local review all agree that Cursor is fully working. |
 
 ## Consequences
