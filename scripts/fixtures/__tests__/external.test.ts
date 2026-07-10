@@ -125,6 +125,7 @@ test("runExternalRepo adopts a marketplace-shaped repo in place and reports roun
     { kind: "instructions", path: "AGENTS.md" },
     { kind: "plugin", path: "plugins/demo" },
   ]);
+  expect(report.survey.diagnostics).toEqual([]);
   expect(report.survey.skips).toEqual([
     expect.objectContaining({
       renderResult: expect.objectContaining({
@@ -225,6 +226,38 @@ test("runExternalRepo fails the run when no import candidates are detected", asy
   expect(markdown).toContain("- result: fail");
   expect(markdown).toContain("No adoptable surfaces recognized.");
   expect(markdown).toContain("No imported units to compare.");
+});
+
+test("runExternalRepo reports competing provider plugins before import", async () => {
+  const clone = await gitFixture({
+    "plugins/claude-demo/.claude-plugin/plugin.json": JSON.stringify({ name: "demo" }),
+    "plugins/claude-demo/skills/helper/SKILL.md":
+      "---\nname: helper\ndescription: Helper.\n---\n\nClaude body.\n",
+    "plugins/codex-demo/.codex-plugin/plugin.json": JSON.stringify({ name: "demo" }),
+    "plugins/codex-demo/skills/helper/SKILL.md":
+      "---\nname: helper\ndescription: Helper.\n---\n\nCodex body.\n",
+  });
+
+  const report = await runExternalRepo("competing-plugins", clone, ["claude", "codex"]);
+
+  expect(report.ok).toBe(false);
+  expect(report.stages).toEqual([
+    expect.objectContaining({
+      detail: expect.stringContaining("competing-plugin-sources"),
+      ok: false,
+      stage: "init",
+    }),
+  ]);
+  expect(report.survey.diagnostics).toEqual([
+    expect.objectContaining({
+      code: "competing-plugin-sources",
+      paths: ["plugins/claude-demo", "plugins/codex-demo"],
+      severity: "error",
+    }),
+  ]);
+  const markdown = renderRunReportMarkdown(report, { ref: SHA, repo: "r" });
+  expect(markdown).toContain("`competing-plugin-sources`");
+  expect(markdown).toContain("one shared plugin source");
 });
 
 test("checkClonePurity accepts skillset.yaml and .skillset/ additions and flags anything else", async () => {

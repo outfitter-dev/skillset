@@ -20,6 +20,12 @@ import { importSources } from "./import";
 import { inspectSkillset } from "@skillset/core";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { initSkillset, type SetupFile, type SetupImportCandidate, type SurveySkip } from "./setup";
+import type { PluginAdoptionDiagnostic } from "./plugin-adoption";
+import {
+  preparePluginAdoptionSource,
+  preparedPluginOriginPath,
+  removePreparedPluginAdoptionSource,
+} from "./plugin-adoption-source";
 import type { JsonRecord, LintIssue, SkillsetOptions, SourceOrigin, TargetName } from "@skillset/core/internal/types";
 import { isJsonRecord, parseMarkdown, stringifyMarkdown } from "@skillset/core/internal/yaml";
 
@@ -105,6 +111,7 @@ export interface AdoptReport {
   readonly ok: boolean;
   readonly rootPath: string;
   readonly setupFiles: readonly SetupFile[];
+  readonly surveyDiagnostics: readonly PluginAdoptionDiagnostic[];
   readonly surveySkips: readonly SurveySkip[];
   /**
    * Per-file preview of Claude-dialect constructs in imported markdown
@@ -155,10 +162,10 @@ async function adoptResolvedRoot(
   // the report should still say so honestly.
   const alreadyAdopted = await adoptedWorkspaceExists(resolvedRoot);
 
-  const init = await initSkillset({
+  const survey = await initSkillset({
     cwd: resolvedRoot,
     useGitRoot: false,
-    write: writeMode,
+    write: false,
     ...(targets === undefined ? {} : { targets }),
   });
 
@@ -166,27 +173,67 @@ async function adoptResolvedRoot(
     return {
       acquisition,
       alreadyAdopted,
-      baselines: init.baselines,
+      baselines: survey.baselines,
       builtFiles: 0,
-      candidates: init.importCandidates,
+      candidates: survey.importCandidates,
       cutover: [],
       imports: [],
       lintIssues: [],
-      renderResults: surveySkipRenderResults(init.surveySkips),
-      ok: true,
-      rootPath: init.rootPath,
-      setupFiles: init.files,
-      surveySkips: init.surveySkips,
+      renderResults: surveySkipRenderResults(survey.surveySkips),
+      ok: !hasBlockingSurveyDiagnostic(survey.surveyDiagnostics),
+      rootPath: survey.rootPath,
+      setupFiles: survey.files,
+      surveyDiagnostics: survey.surveyDiagnostics,
+      surveySkips: survey.surveySkips,
       transformPreviews: [],
       write: false,
     };
   }
 
+  if (hasBlockingSurveyDiagnostic(survey.surveyDiagnostics)) {
+    const report: AdoptReport = {
+      acquisition,
+      alreadyAdopted,
+      baselines: survey.baselines,
+      builtFiles: 0,
+      candidates: survey.importCandidates,
+      cutover: [],
+      imports: [],
+      lintIssues: [],
+      renderResults: surveySkipRenderResults(survey.surveySkips),
+      ok: false,
+      rootPath: survey.rootPath,
+      setupFiles: survey.files,
+      surveyDiagnostics: survey.surveyDiagnostics,
+      surveySkips: survey.surveySkips,
+      transformPreviews: [],
+      write: false,
+    };
+    await persistAdoptReport(report);
+    return report;
+  }
+
+  const init = await initSkillset({
+    cwd: resolvedRoot,
+    useGitRoot: false,
+    write: true,
+    ...(targets === undefined ? {} : { targets }),
+  });
+
   const imports: AdoptImportResult[] = [];
   const cutover: string[] = [];
   const previewSources: string[] = [];
-  for (const candidate of init.importCandidates) {
-    imports.push(await importCandidate(init.rootPath, acquisition, candidate, cutover, previewSources));
+  for (const candidate of survey.importCandidates) {
+    imports.push(
+      await importCandidate(
+        init.rootPath,
+        acquisition,
+        candidate,
+        survey.importCandidates,
+        cutover,
+        previewSources
+      )
+    );
   }
   // Dialect declaration must land before the graph loads: the isolated build
   // below is what translates the Codex projection of the marked files.
@@ -205,7 +252,7 @@ async function adoptResolvedRoot(
 
   let builtFiles = 0;
   let renderResults: readonly SkillsetRenderResult[] = [
-    ...surveySkipRenderResults(init.surveySkips),
+    ...surveySkipRenderResults(survey.surveySkips),
     ...imports.flatMap((result) => result.renderResults),
   ];
   if (buildError === undefined) {
@@ -228,7 +275,7 @@ async function adoptResolvedRoot(
     baselines: init.baselines,
     ...(buildError === undefined ? {} : { buildError }),
     builtFiles,
-    candidates: init.importCandidates,
+    candidates: survey.importCandidates,
     cutover,
     imports,
     lintIssues,
@@ -239,13 +286,29 @@ async function adoptResolvedRoot(
       buildError === undefined,
     rootPath: init.rootPath,
     setupFiles: init.files,
-    surveySkips: init.surveySkips,
+    surveyDiagnostics: survey.surveyDiagnostics,
+    surveySkips: survey.surveySkips,
     transformPreviews,
     write: true,
   };
 
+  await persistAdoptReport(report, workspaceCacheKey);
+
+  return report;
+}
+
+function hasBlockingSurveyDiagnostic(
+  diagnostics: readonly PluginAdoptionDiagnostic[]
+): boolean {
+  return diagnostics.some((diagnostic) => diagnostic.severity === "error");
+}
+
+async function persistAdoptReport(
+  report: AdoptReport,
+  workspaceCacheKey?: string
+): Promise<void> {
   const reportDir = resolveOperationalPath(
-    createOperationalPathContext(init.rootPath, {
+    createOperationalPathContext(report.rootPath, {
       ...(workspaceCacheKey === undefined ? {} : { workspaceCacheKey }),
     }),
     ADOPT_REPORT_DIR
@@ -253,11 +316,9 @@ async function adoptResolvedRoot(
   await mkdir(reportDir, { recursive: true });
   await writeFile(
     join(reportDir, "report.md"),
-    renderAdoptReportMarkdown(report, { rootPath: init.rootPath })
+    renderAdoptReportMarkdown(report, { rootPath: report.rootPath })
   );
   await writeFile(join(reportDir, "report.json"), `${JSON.stringify(report, null, 2)}\n`);
-
-  return report;
 }
 
 async function adoptedWorkspaceExists(rootPath: string): Promise<boolean> {
@@ -321,6 +382,7 @@ async function importCandidate(
   rootPath: string,
   acquisition: AdoptAcquisition,
   candidate: SetupImportCandidate,
+  allCandidates: readonly SetupImportCandidate[],
   cutover: string[],
   previewSources: string[]
 ): Promise<AdoptImportResult> {
@@ -344,15 +406,11 @@ async function importCandidate(
   }
 
   try {
-    const batch = await importSources({
-      kind: candidate.kind,
-      rootPath,
-      sourceOrigin: (sourcePath, copiedFile) =>
-        sourceOriginFor(acquisition, relativeOriginPath(rootPath, sourcePath, copiedFile)),
-      sourcePath: join(rootPath, candidate.path),
-    });
+    const batch = await importCandidateSources(rootPath, acquisition, candidate, allCandidates);
     const units = batch.imports.map((report) => {
-      const sourcePath = relative(rootPath, report.sourcePath).replaceAll("\\", "/");
+      const sourcePath = candidate.kind === "plugin"
+        ? candidate.path
+        : relative(rootPath, report.sourcePath).replaceAll("\\", "/");
       return {
         kind: report.kind,
         name: report.name,
@@ -378,6 +436,43 @@ async function importCandidate(
   } catch (error) {
     return { candidate, detail: errorMessage(error), renderResults: [], ok: false, units: [] };
   }
+}
+
+async function importCandidateSources(
+  rootPath: string,
+  acquisition: AdoptAcquisition,
+  candidate: SetupImportCandidate,
+  allCandidates: readonly SetupImportCandidate[]
+) {
+  if (candidate.kind === "instructions") {
+    throw new Error("skillset: instruction candidates use the dedicated instruction importer");
+  }
+  const prepared = await preparePluginAdoptionSource(rootPath, candidate, allCandidates);
+  if (candidate.kind === "plugin" && prepared !== undefined) {
+    try {
+      return await importSources({
+        kind: "plugin",
+        ...(candidate.plugin?.relation === "equivalent" ? { name: candidate.plugin.identity } : {}),
+        rootPath,
+        sourceOrigin: (_sourcePath, copiedFile) =>
+          sourceOriginFor(
+            acquisition,
+            preparedPluginOriginPath(prepared, candidate, copiedFile)
+          ),
+        sourcePath: prepared.sourcePath,
+      });
+    } finally {
+      await removePreparedPluginAdoptionSource(prepared);
+    }
+  }
+
+  return importSources({
+    kind: candidate.kind,
+    rootPath,
+    sourceOrigin: (sourcePath, copiedFile) =>
+      sourceOriginFor(acquisition, relativeOriginPath(rootPath, sourcePath, copiedFile)),
+    sourcePath: join(rootPath, candidate.path),
+  });
 }
 
 /**
@@ -565,6 +660,7 @@ export function renderAdoptReportMarkdown(
   const lintWarnings = report.lintIssues.filter((issue) => issue.severity === "warn");
   const succeeded = report.imports.filter((result) => result.ok);
   const failed = report.imports.filter((result) => !result.ok);
+  const blockedBeforeWrite = !report.write && hasBlockingSurveyDiagnostic(report.surveyDiagnostics);
 
   const lines: string[] = ["# Skillset adoption report", ""];
 
@@ -576,8 +672,11 @@ export function renderAdoptReportMarkdown(
   }
   lines.push(
     `- imports: ${succeeded.length} succeeded, ${failed.length} failed`,
+    `- plugin candidate diagnostics: ${report.surveyDiagnostics.filter((diagnostic) => diagnostic.severity === "error").length} error(s), ${report.surveyDiagnostics.filter((diagnostic) => diagnostic.severity === "warning").length} warning(s)`,
     `- lint: ${lintErrors.length} error(s), ${lintWarnings.length} warning(s)`,
-    report.buildError === undefined
+    blockedBeforeWrite
+      ? "- build (isolated): not run; adoption blocked before source writes"
+      : report.buildError === undefined
       ? `- build (isolated): ${report.builtFiles} generated files`
       : "- build (isolated): failed",
     `- render results: ${report.renderResults.length}`,
@@ -603,13 +702,28 @@ export function renderAdoptReportMarkdown(
 
   lines.push("## Setup", "");
   for (const file of report.setupFiles) {
-    lines.push(`- ${file.status === "create" ? "created" : "already present"}: \`${file.path}\``);
+    const status = file.status === "create"
+      ? report.write ? "created" : "planned"
+      : "already present";
+    lines.push(`- ${status}: \`${file.path}\``);
   }
   for (const baseline of report.baselines) {
     if (baseline.status !== "create") continue;
     lines.push(`- baseline: ${baseline.scope} ${baseline.version}`);
   }
   lines.push("");
+
+  if (report.surveyDiagnostics.length > 0) {
+    lines.push("## Plugin candidate diagnostics", "");
+    for (const diagnostic of report.surveyDiagnostics) {
+      lines.push(
+        `- ${diagnostic.severity} \`${diagnostic.code}\` (${diagnostic.providers.join(", ")}): ${diagnostic.message}`,
+        `  Resolution: ${diagnostic.recommendation}`,
+        `  Evidence: ${diagnostic.evidence.join("; ")}`
+      );
+    }
+    lines.push("");
+  }
 
   lines.push("## Imported", "");
   if (succeeded.length === 0) {
@@ -696,7 +810,9 @@ export function renderAdoptReportMarkdown(
   }
 
   lines.push("## Build (isolated)", "");
-  if (report.buildError === undefined) {
+  if (blockedBeforeWrite) {
+    lines.push("Not run. Adoption stopped before source writes because plugin candidate diagnostics must be resolved.", "");
+  } else if (report.buildError === undefined) {
     lines.push(
       `Wrote ${report.builtFiles} generated files into the mirror under \`${ISOLATED_OUT_ROOT}/\`, laid out as the repo root would be. The live tree is untouched.`,
       ""

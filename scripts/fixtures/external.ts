@@ -28,6 +28,7 @@ import { join, relative, resolve } from "node:path";
 
 import { adoptSkillset, type AdoptReport } from "../../apps/skillset/src/adopt";
 import { gitSafeEnv } from "../../apps/skillset/src/git-env";
+import type { PluginAdoptionDiagnostic } from "../../apps/skillset/src/plugin-adoption";
 import type {
   SetupImportCandidate,
   SurveySkip,
@@ -219,6 +220,7 @@ export interface ExternalRoundTrip {
  * surfaces it cannot import yet (structured skips with reasons). */
 export interface ExternalSurvey {
   readonly candidates: readonly SetupImportCandidate[];
+  readonly diagnostics: readonly PluginAdoptionDiagnostic[];
   readonly skips: readonly SurveySkip[];
 }
 
@@ -301,7 +303,7 @@ export async function runExternalRepo(
 
   await cleanSkillsetLeftovers(clonePath);
 
-  let survey: ExternalSurvey = { candidates: [], skips: [] };
+  let survey: ExternalSurvey = { candidates: [], diagnostics: [], skips: [] };
   let adopt: AdoptReport;
   try {
     adopt = await adoptSkillset(clonePath, { targets, write: true });
@@ -311,13 +313,24 @@ export async function runExternalRepo(
   }
 
   const { candidates } = adopt;
-  survey = { candidates, skips: adopt.surveySkips };
+  survey = {
+    candidates,
+    diagnostics: adopt.surveyDiagnostics,
+    skips: adopt.surveySkips,
+  };
+  const blockingDiagnostics = adopt.surveyDiagnostics.filter(
+    (diagnostic) => diagnostic.severity === "error"
+  );
   stages.push({
-    detail: `${candidates.length} import candidate(s): ${candidates.map((candidate) => `${candidate.kind}:${candidate.path}`).join(", ") || "none"}`,
-    ok: candidates.length > 0,
+    detail:
+      `${candidates.length} import candidate(s): ${candidates.map((candidate) => `${candidate.kind}:${candidate.path}`).join(", ") || "none"}` +
+      (adopt.surveyDiagnostics.length === 0
+        ? ""
+        : `; ${adopt.surveyDiagnostics.length} plugin candidate diagnostic(s): ${adopt.surveyDiagnostics.map((diagnostic) => diagnostic.code).join(", ")}`),
+    ok: candidates.length > 0 && blockingDiagnostics.length === 0,
     stage: "init",
   });
-  if (candidates.length === 0) {
+  if (candidates.length === 0 || blockingDiagnostics.length > 0) {
     return { name, ok: false, roundTrips, stages, survey };
   }
 
@@ -432,12 +445,19 @@ export function renderRunReportMarkdown(
   lines.push("", "## Survey", "");
   if (
     report.survey.candidates.length === 0 &&
+    report.survey.diagnostics.length === 0 &&
     report.survey.skips.length === 0
   ) {
     lines.push("No adoptable surfaces recognized.");
   }
   for (const candidate of report.survey.candidates) {
-    lines.push(`- candidate ${candidate.kind}: \`${candidate.path}\``);
+    const sources = candidate.plugin === undefined ? "" : ` (sources: ${candidate.plugin.paths.map((path) => `\`${path}\``).join(", ")})`;
+    lines.push(`- candidate ${candidate.kind}: \`${candidate.path}\`${sources}`);
+  }
+  for (const diagnostic of report.survey.diagnostics) {
+    lines.push(
+      `- ${diagnostic.severity} \`${diagnostic.code}\`: ${diagnostic.message} Resolution: ${diagnostic.recommendation}`
+    );
   }
   for (const skip of report.survey.skips) {
     lines.push(`- skipped ${skip.surface} \`${skip.path}\`: ${skip.reason}`);
