@@ -587,7 +587,7 @@ function corruptManagedLock(lockPath: string, displayLockPath: string, reason: s
   );
 }
 
-function corruptWorkspaceLock(displayLockPath: string, reason: string): Error {
+export function corruptWorkspaceLock(displayLockPath: string, reason: string): Error {
   return new Error(
     `skillset: workspace lock ${displayLockPath} cannot guard generated state because ${reason}. ` +
       "Restore it from a clean build (skillset build) or remove it deliberately before rebuilding."

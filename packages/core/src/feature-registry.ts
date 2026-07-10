@@ -227,10 +227,13 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
       docs("https://linear.app/outfitter/issue/SET-234/implement-skillset-marketplace-check-readiness-reports"),
       docs("https://linear.app/outfitter/issue/SET-235/define-marketplace-ref-policy-and-lock-provenance-for-floating-and"),
       docs("https://linear.app/outfitter/issue/SET-236/implement-skillset-marketplace-update-provider-index-rendering"),
+      docs("https://linear.app/outfitter/issue/SET-268/resolve-external-marketplace-repositories-into-deterministic-xdg-cache"),
       test("apps/skillset/src/__tests__/marketplace-check-cli.test.ts", "SET-234 marketplace check CLI coverage"),
       test("apps/skillset/src/__tests__/marketplace-check-cli.test.ts", "SET-236 marketplace update CLI coverage"),
       test("packages/core/src/__tests__/marketplace-check.test.ts", "SET-234 marketplace readiness report coverage"),
       test("packages/core/src/__tests__/marketplace-check.test.ts", "SET-235 marketplace lock provenance coverage"),
+      test("packages/core/src/__tests__/marketplace-check.test.ts", "SET-268 remote marketplace resolution coverage"),
+      test("packages/core/src/__tests__/remote-repository-cache.test.ts", "SET-268 deterministic XDG Git cache coverage"),
       test("apps/skillset/src/__tests__/skillset.test.ts", "SET-133 marketplace catalog parser coverage"),
       test("packages/core/src/__tests__/known-skillsets.test.ts", "managed known-Skillsets XDG index coverage"),
       test("packages/schema/src/__tests__/schema.test.ts", "workspace config marketplace contract coverage"),
@@ -240,7 +243,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     renderOwner: "packages/core/src/marketplace-update.ts",
     sourceShape: "workspace skillset.yaml marketplaces",
     status: "implemented",
-    summary: "Declares curated provider marketplace catalogs, verifies local or known-index plugin readiness with lock provenance, and renders provider-supported marketplace indexes.",
+    summary: "Declares curated provider marketplace catalogs, resolves local or remote-cached plugin readiness with portable lock provenance, and renders provider-supported marketplace indexes.",
     targetSupport: {
       claude: {
         evidence: [docs("docs/features/marketplaces.md"), providerSchemaSnapshot("claude-marketplace-schema")],

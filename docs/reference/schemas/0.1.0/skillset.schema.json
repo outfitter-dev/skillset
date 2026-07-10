@@ -1955,9 +1955,59 @@
               "plugins": {
                 "items": {
                   "additionalProperties": false,
+                  "allOf": [
+                    {
+                      "not": {
+                        "required": [
+                          "channel",
+                          "ref"
+                        ]
+                      }
+                    },
+                    {
+                      "not": {
+                        "required": [
+                          "channel",
+                          "sha"
+                        ]
+                      }
+                    },
+                    {
+                      "not": {
+                        "required": [
+                          "channel",
+                          "version"
+                        ]
+                      }
+                    },
+                    {
+                      "not": {
+                        "required": [
+                          "ref",
+                          "sha"
+                        ]
+                      }
+                    },
+                    {
+                      "not": {
+                        "required": [
+                          "ref",
+                          "version"
+                        ]
+                      }
+                    },
+                    {
+                      "not": {
+                        "required": [
+                          "sha",
+                          "version"
+                        ]
+                      }
+                    }
+                  ],
                   "properties": {
                     "channel": {
-                      "minLength": 1,
+                      "const": "latest",
                       "type": "string"
                     },
                     "id": {
@@ -1969,18 +2019,15 @@
                       "type": "string"
                     },
                     "ref": {
-                      "minLength": 1,
+                      "pattern": "^(?!.*(?:\\.\\.|//|@\\{|\\.lock$))[A-Za-z0-9][A-Za-z0-9._/-]*(?<![./])$",
                       "type": "string"
                     },
                     "repo": {
-                      "minLength": 1,
-                      "not": {
-                        "pattern": "^(?:\\.|/|~|file:|[A-Za-z]:[\\\\/])"
-                      },
+                      "pattern": "^(?:github:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:\\.git)?|[^:@/\\s]+@[^:\\s/]+:[^\\s]+|https://(?![^/]*@)[^\\s/?#]+/[^\\s?#]+|ssh://(?:[^:@\\s]+@)?[^\\s/?#]+/[^\\s?#]+)$",
                       "type": "string"
                     },
                     "sha": {
-                      "minLength": 1,
+                      "pattern": "^[0-9a-f]{40}$",
                       "type": "string"
                     },
                     "targets": {
@@ -1997,7 +2044,7 @@
                       "uniqueItems": true
                     },
                     "version": {
-                      "minLength": 1,
+                      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$",
                       "type": "string"
                     }
                   },

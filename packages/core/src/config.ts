@@ -24,6 +24,10 @@ import type {
 import { SKILLSET_RUNTIME_IDS, type SkillsetRuntimeId } from "./feature-registry";
 import { DEFAULT_PLUGIN_OUTPUT_ROOT } from "./plugin-output";
 import {
+  parseRemoteRepositoryReference,
+  validateRemoteRepositoryRevision,
+} from "./remote-repository-reference";
+import {
   DEFAULT_TARGET_NAME_SET,
   DEFAULT_TARGET_NAMES,
   TARGET_LIST_TEXT,
@@ -796,6 +800,16 @@ function readMarketplacePluginEntry(raw: JsonValue | undefined, label: string): 
   const ref = readOptionalString(raw, "ref", `${label}.ref`);
   const sha = readOptionalString(raw, "sha", `${label}.sha`);
   const version = readOptionalString(raw, "version", `${label}.version`);
+  const policies = [channel, ref, sha, version].filter((value) => value !== undefined);
+  if (policies.length > 1) {
+    throw new Error(`skillset: expected ${label} to set at most one of channel, ref, sha, or version`);
+  }
+  if (channel !== undefined && channel !== "latest") {
+    throw new Error(`skillset: expected ${label}.channel to be latest`);
+  }
+  if (ref !== undefined) validateRemoteRepositoryRevision({ kind: "ref", ref });
+  if (sha !== undefined) validateRemoteRepositoryRevision({ kind: "sha", sha });
+  if (version !== undefined) validateRemoteRepositoryRevision({ kind: "version", version });
   return {
     ...(channel === undefined ? {} : { channel }),
     id,
@@ -840,6 +854,12 @@ function validateMarketplaceRepo(value: string, label: string): void {
     /^[A-Za-z]:[\\/]/.test(value)
   ) {
     throw new Error(`skillset: expected ${label} to be a remote repo reference, not a filesystem path`);
+  }
+  try {
+    parseRemoteRepositoryReference(value);
+  } catch (error) {
+    const message = error instanceof Error ? error.message.replace(/^skillset:\s*/u, "") : String(error);
+    throw new Error(`skillset: invalid ${label}: ${message}`);
   }
 }
 

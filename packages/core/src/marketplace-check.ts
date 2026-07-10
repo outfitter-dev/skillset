@@ -5,8 +5,19 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 
 import { isOutputSelected } from "./config";
+import { storedClaudeMarketplaceProviderEntry } from "./claude-marketplace";
+import {
+  marketplaceRequestedRefPolicy,
+  type MarketplaceRefPolicyKind,
+  type MarketplaceRequestedRefPolicy,
+} from "./marketplace-ref-policy";
 import { compareStrings } from "./path";
 import { pluginManifestPath as pluginManifestOutputPath } from "./plugin-output";
+import {
+  acquireRemoteRepository,
+  parseRemoteRepositoryReference,
+  type RemoteRepositoryRevision,
+} from "./remote-repository-cache";
 import { pluginIdForSelector } from "./source-unit-selector";
 import { loadBuildGraph } from "./resolver";
 import { verifySkillsetResult } from "./build";
@@ -16,11 +27,14 @@ import type {
   BuildGraph,
   MarketplaceCatalogConfig,
   MarketplacePluginEntryConfig,
+  JsonRecord,
   SkillsetOptions,
   SourcePlugin,
   TargetName,
 } from "./types";
 import type { SkillsetRenderResult } from "./render-result";
+
+export type { MarketplaceRefPolicyKind, MarketplaceRequestedRefPolicy } from "./marketplace-ref-policy";
 
 const execFileAsync = promisify(execFile);
 
@@ -37,7 +51,8 @@ export type MarketplaceReadinessState =
   | "marketplace-ready"
   | "not-ready";
 
-export type MarketplaceSourceKind = "current" | "known-index" | "unresolved";
+export type MarketplaceSourceKind = "current" | "known-index" | "remote-cache" | "unresolved";
+export type MarketplaceLockSourceKind = "current" | "external" | "unresolved";
 
 export interface MarketplaceCheckReport {
   readonly entries: readonly MarketplaceCheckEntryReport[];
@@ -73,15 +88,11 @@ export interface MarketplaceCheckLockReport {
 }
 
 export interface MarketplaceCheckSourceReport {
-  readonly cacheKey?: string;
   readonly ref?: string;
   readonly kind: MarketplaceSourceKind;
-  readonly path?: string;
   readonly repository?: string;
   readonly sha?: string;
 }
-
-export type MarketplaceRefPolicyKind = "channel" | "local" | "ref" | "sha" | "version";
 
 export interface MarketplaceLockEntry {
   readonly catalog: string;
@@ -89,6 +100,7 @@ export interface MarketplaceLockEntry {
   readonly generatedPath?: string;
   readonly generatedPaths: readonly string[];
   readonly plugin: string;
+  readonly providerEntry?: JsonRecord;
   readonly providerSource: string;
   readonly readiness: "marketplace-ready" | "not-ready";
   readonly repo?: string;
@@ -97,16 +109,7 @@ export interface MarketplaceLockEntry {
   readonly resolved: MarketplaceResolvedLockState;
 }
 
-export interface MarketplaceRequestedRefPolicy {
-  readonly channel?: string;
-  readonly kind: MarketplaceRefPolicyKind;
-  readonly ref?: string;
-  readonly sha?: string;
-  readonly version?: string;
-}
-
 export interface MarketplaceResolvedLockState {
-  readonly cacheKey?: string;
   readonly generatedPath?: string;
   readonly generatedPaths: readonly string[];
   readonly pluginVersion?: string;
@@ -114,8 +117,7 @@ export interface MarketplaceResolvedLockState {
   readonly ref?: string;
   readonly repository?: string;
   readonly sha?: string;
-  readonly sourceKind: MarketplaceSourceKind;
-  readonly sourcePath?: string;
+  readonly sourceKind: MarketplaceLockSourceKind;
 }
 
 interface MarketplaceCheckOptions extends SkillsetOptions {
@@ -136,33 +138,64 @@ interface SourceInspection {
   readonly verifyFailures: readonly string[];
 }
 
+export interface MarketplaceCheckResolution {
+  readonly report: MarketplaceCheckReport;
+  readonly sourceRoots: ReadonlyMap<string, string>;
+}
+
 export async function checkMarketplaces(
   rootPath: string,
   options: MarketplaceCheckOptions = {}
 ): Promise<MarketplaceCheckReport> {
+  return (await resolveMarketplaceChecks(rootPath, options)).report;
+}
+
+export async function resolveMarketplaceChecks(
+  rootPath: string,
+  options: MarketplaceCheckOptions = {}
+): Promise<MarketplaceCheckResolution> {
   const rootGraph = await loadBuildGraph(rootPath, options);
   const catalogs = selectedCatalogs(rootGraph.root.marketplaces, options.name);
   const lockEntries = await readMarketplaceLockEntries(rootPath);
   const current = await inspectSource(rootPath, "current", options);
   const inspections = new Map<string, Promise<SourceInspection | undefined>>();
   const entries: MarketplaceCheckEntryReport[] = [];
+  const sourceRoots = new Map<string, string>();
 
   for (const [catalogName, catalog] of catalogs) {
     for (const entry of catalog.plugins) {
+      const requested = marketplaceRequestedRefPolicy(entry);
       const inspection = entry.repo === undefined
         ? current
-        : await resolveExternalInspection(entry.repo, options, inspections);
+        : await resolveExternalInspection(entry.repo, requested, options, inspections);
       for (const target of entry.targets ?? catalog.targets) {
-        entries.push(checkMarketplaceEntry(catalogName, entry, target, inspection, lockEntries, options.lockMode ?? "check"));
+        const checked = checkMarketplaceEntry(
+          catalogName,
+          entry,
+          target,
+          inspection,
+          lockEntries,
+          options.lockMode ?? "check",
+          requested
+        );
+        entries.push(checked);
+        if (inspection?.path !== undefined) sourceRoots.set(marketplaceEntryResolutionKey(checked), inspection.path);
       }
     }
   }
 
   return {
-    entries: entries.sort(compareMarketplaceEntries),
-    marketplaces: catalogs.map(([name]) => name),
-    ok: entries.every((entry) => entry.readiness === "marketplace-ready"),
+    report: {
+      entries: entries.sort(compareMarketplaceEntries),
+      marketplaces: catalogs.map(([name]) => name),
+      ok: entries.every((entry) => entry.readiness === "marketplace-ready"),
+    },
+    sourceRoots,
   };
+}
+
+export function marketplaceEntryResolutionKey(entry: MarketplaceCheckEntryReport): string {
+  return `${entry.catalog}\0${entry.entryId}\0${entry.requestedTarget}`;
 }
 
 function selectedCatalogs(
@@ -179,37 +212,114 @@ function selectedCatalogs(
 
 async function resolveExternalInspection(
   repo: string,
+  requested: MarketplaceRequestedRefPolicy,
   options: SkillsetOptions,
   inspections: Map<string, Promise<SourceInspection | undefined>>
 ): Promise<SourceInspection | undefined> {
-  const existing = inspections.get(repo);
+  const key = `${repo}\0${JSON.stringify(requested)}`;
+  const existing = inspections.get(key);
   if (existing !== undefined) return existing;
-  const pending = resolveKnownSkillsetWorkspace(repo, options.xdg).then((entry) =>
-    entry === undefined ? undefined : inspectKnownSource(entry, options).catch((error: unknown) => failedKnownSourceInspection(entry, error))
-  );
-  inspections.set(repo, pending);
+  const pending = resolveKnownSkillsetWorkspace(repo, options.xdg).then(async (entry) => {
+    if (entry !== undefined && requested.kind === "sha" && requested.sha !== undefined) {
+      const known = await inspectKnownSource(entry, repo, options).catch(() => undefined);
+      if (known?.sha === requested.sha) {
+        const { ref: _localRef, ...pinnedKnown } = known;
+        return pinnedKnown;
+      }
+    }
+    return inspectRemoteSource(repo, requested, options).catch((error: unknown) =>
+      failedRemoteSourceInspection(repo, error)
+    );
+  });
+  inspections.set(key, pending);
   return pending;
 }
 
-function failedKnownSourceInspection(entry: KnownSkillsetEntry, error: unknown): SourceInspection {
+function failedRemoteSourceInspection(repo: string, error: unknown): SourceInspection {
   return {
-    cacheKey: entry.cacheKey,
-    error: error instanceof Error ? error.message : String(error),
-    kind: "known-index",
-    path: entry.path,
-    ...(entry.repository === undefined ? {} : { repository: entry.repository }),
+    error: portableRemoteInspectionError(error),
+    kind: "remote-cache",
+    repository: canonicalRepository(repo),
     renderResults: [],
     verifyFailures: [],
   };
 }
 
+function portableRemoteInspectionError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.startsWith("skillset: corrupt remote cache")) return "skillset: remote cache is corrupt";
+  if (message.startsWith("skillset: origin mismatch in remote cache")) {
+    return "skillset: remote cache origin does not match the requested repository";
+  }
+  if (message.startsWith("skillset: timed out waiting for the remote cache lock")) {
+    return "skillset: timed out waiting for the remote cache lock";
+  }
+  const portablePrefixes = [
+    "skillset: remote ",
+    "skillset: resolved remote commit changed",
+  ];
+  if (portablePrefixes.some((prefix) => message.startsWith(prefix))) return message;
+  return "skillset: resolved remote repository is not a valid generated Skillset workspace";
+}
+
 async function inspectKnownSource(
   entry: KnownSkillsetEntry,
+  repo: string,
   options: SkillsetOptions
 ): Promise<SourceInspection> {
+  await assertKnownRepositoryIdentity(entry.path, repo);
   return inspectSource(entry.path, "known-index", options, {
     cacheKey: entry.cacheKey,
-    ...(entry.repository === undefined ? {} : { repository: entry.repository }),
+    repository: canonicalRepository(repo),
+  });
+}
+
+async function assertKnownRepositoryIdentity(path: string, repo: string): Promise<void> {
+  const origin = await runGit(path, ["config", "--get", "remote.origin.url"]);
+  if (origin === undefined) throw new Error("skillset: known Skillset checkout is missing an origin remote");
+  let canonical: string;
+  try {
+    canonical = canonicalRepository(origin);
+  } catch {
+    throw new Error("skillset: known Skillset checkout has an unsupported origin remote");
+  }
+  if (canonical !== canonicalRepository(repo)) {
+    throw new Error("skillset: known Skillset checkout origin does not match the marketplace repository");
+  }
+  const status = await execFileAsync("git", [
+    "-C",
+    path,
+    "-c",
+    "core.fsmonitor=false",
+    "-c",
+    "core.untrackedCache=false",
+    "status",
+    "--porcelain=v1",
+    "--untracked-files=all",
+  ], {
+    env: { ...gitCommandEnv(), GIT_OPTIONAL_LOCKS: "0" },
+    timeout: 5000,
+  });
+  if (String(status.stdout).trim().length > 0) {
+    throw new Error("skillset: known Skillset checkout has uncommitted content");
+  }
+}
+
+async function inspectRemoteSource(
+  repo: string,
+  requested: MarketplaceRequestedRefPolicy,
+  options: SkillsetOptions
+): Promise<SourceInspection> {
+  const acquired = await acquireRemoteRepository({
+    repository: repo,
+    revision: remoteRevision(requested),
+    ...(options.xdg === undefined ? {} : { xdg: options.xdg }),
+  });
+  return inspectSource(acquired.rootPath, "remote-cache", options, {
+    cacheKey: acquired.cacheKey,
+    ...(acquired.ref === undefined ? {} : { ref: acquired.ref }),
+    repository: acquired.repository,
+    sha: acquired.sha,
   });
 }
 
@@ -217,17 +327,26 @@ async function inspectSource(
   path: string,
   kind: MarketplaceSourceKind,
   options: SkillsetOptions,
-  metadata: { readonly cacheKey?: string; readonly repository?: string } = {}
+  metadata: {
+    readonly cacheKey?: string;
+    readonly ref?: string;
+    readonly repository?: string;
+    readonly sha?: string;
+  } = {}
 ): Promise<SourceInspection> {
   const graph = await loadBuildGraph(path, options);
   const verified = await verifySkillsetResult(path, options);
+  const identity = await gitIdentity(path);
+  const ref = metadata.ref ?? identity.ref;
+  const sha = metadata.sha ?? identity.sha;
   return {
     graph,
     kind,
     path,
     ...(metadata.cacheKey === undefined ? {} : { cacheKey: metadata.cacheKey }),
     ...(metadata.repository === undefined ? {} : { repository: metadata.repository }),
-    ...(await gitIdentity(path)),
+    ...(ref === undefined ? {} : { ref }),
+    ...(sha === undefined ? {} : { sha }),
     renderResults: verified.renderResults,
     verifyFailures: verified.data.failures,
   };
@@ -239,9 +358,9 @@ function checkMarketplaceEntry(
   target: TargetName,
   inspection: SourceInspection | undefined,
   lockEntries: readonly MarketplaceLockEntry[],
-  lockMode: "check" | "refresh"
+  lockMode: "check" | "refresh",
+  refPolicy: MarketplaceRequestedRefPolicy
 ): MarketplaceCheckEntryReport {
-  const refPolicy = requestedRefPolicy(entry);
   const policyStates = statesForRefPolicy(refPolicy);
   const declared = ["declared", ...policyStates] as const;
   if (inspection === undefined) {
@@ -399,21 +518,11 @@ function notReady(
 
 function sourceReport(inspection: SourceInspection): MarketplaceCheckSourceReport {
   return {
-    ...(inspection.cacheKey === undefined ? {} : { cacheKey: inspection.cacheKey }),
     kind: inspection.kind,
-    ...(inspection.path === undefined ? {} : { path: inspection.path }),
     ...(inspection.ref === undefined ? {} : { ref: inspection.ref }),
     ...(inspection.repository === undefined ? {} : { repository: inspection.repository }),
     ...(inspection.sha === undefined ? {} : { sha: inspection.sha }),
   };
-}
-
-function requestedRefPolicy(entry: MarketplacePluginEntryConfig): MarketplaceRequestedRefPolicy {
-  if (entry.sha !== undefined) return { kind: "sha", sha: entry.sha };
-  if (entry.ref !== undefined) return { kind: "ref", ref: entry.ref };
-  if (entry.channel !== undefined) return { channel: entry.channel, kind: "channel" };
-  if (entry.version !== undefined) return { kind: "version", version: entry.version };
-  return { kind: "local" };
 }
 
 function statesForRefPolicy(policy: MarketplaceRequestedRefPolicy): readonly MarketplaceReadinessState[] {
@@ -464,7 +573,6 @@ function marketplaceLockEntryFor(args: {
     requested: args.requested,
     requestedTarget: args.target,
     resolved: {
-      ...(args.inspection?.cacheKey === undefined ? {} : { cacheKey: args.inspection.cacheKey }),
       ...(args.generatedPath === undefined ? {} : { generatedPath: args.generatedPath }),
       generatedPaths: args.generatedPaths,
       ...(args.pluginVersion === undefined ? {} : { pluginVersion: args.pluginVersion }),
@@ -472,8 +580,7 @@ function marketplaceLockEntryFor(args: {
       ...(args.inspection?.ref === undefined ? {} : { ref: args.inspection.ref }),
       ...(args.inspection?.repository === undefined ? {} : { repository: args.inspection.repository }),
       ...(args.inspection?.sha === undefined ? {} : { sha: args.inspection.sha }),
-      sourceKind: args.inspection?.kind ?? "unresolved",
-      ...(args.inspection?.path === undefined ? {} : { sourcePath: args.inspection.path }),
+      sourceKind: marketplaceLockSourceKind(args.entry, args.inspection),
     },
   };
 }
@@ -557,7 +664,6 @@ function stableMarketplaceLockFingerprint(entry: MarketplaceLockEntry): string {
   if (entry.requested.kind === "local") {
     delete resolved.ref;
     delete resolved.sha;
-    delete resolved.sourcePath;
   }
   return stableJson({
     catalog: entry.catalog,
@@ -581,6 +687,31 @@ function compareMarketplaceLockEntries(left: MarketplaceLockEntry, right: Market
   );
 }
 
+function marketplaceLockSourceKind(
+  entry: MarketplacePluginEntryConfig,
+  inspection: SourceInspection | undefined
+): MarketplaceLockSourceKind {
+  if (inspection?.graph === undefined) return "unresolved";
+  return entry.repo === undefined ? "current" : "external";
+}
+
+function remoteRevision(policy: MarketplaceRequestedRefPolicy): RemoteRepositoryRevision {
+  if (policy.kind === "sha" && policy.sha !== undefined) return { kind: "sha", sha: policy.sha };
+  if (policy.kind === "ref" && policy.ref !== undefined) return { kind: "ref", ref: policy.ref };
+  if (policy.kind === "version" && policy.version !== undefined) {
+    return { kind: "version", version: policy.version };
+  }
+  if (policy.kind === "channel" && policy.channel === "latest") return { kind: "default" };
+  if (policy.kind === "channel") {
+    throw new Error(`skillset: unsupported marketplace channel ${policy.channel ?? ""}`);
+  }
+  throw new Error("skillset: external marketplace repositories require a remote ref policy");
+}
+
+function canonicalRepository(repo: string): string {
+  return parseRemoteRepositoryReference(repo).canonical;
+}
+
 async function readMarketplaceLockEntries(rootPath: string): Promise<readonly MarketplaceLockEntry[]> {
   const lockPath = join(rootPath, "skillset.lock");
   if (!(await exists(lockPath))) return [];
@@ -597,7 +728,7 @@ async function readMarketplaceLockEntries(rootPath: string): Promise<readonly Ma
 }
 
 function isMarketplaceLockEntry(value: unknown): value is MarketplaceLockEntry {
-  return isRecord(value) &&
+  if (!(isRecord(value) &&
     typeof value.catalog === "string" &&
     typeof value.entryId === "string" &&
     Array.isArray(value.generatedPaths) &&
@@ -612,7 +743,12 @@ function isMarketplaceLockEntry(value: unknown): value is MarketplaceLockEntry {
     Array.isArray(value.resolved.generatedPaths) &&
     value.resolved.generatedPaths.every((path) => typeof path === "string") &&
     typeof value.resolved.providerSource === "string" &&
-    typeof value.resolved.sourceKind === "string";
+    typeof value.resolved.sourceKind === "string")) {
+    return false;
+  }
+  return value.repo === undefined ||
+    value.requestedTarget !== "claude" ||
+    storedClaudeMarketplaceProviderEntry(value as unknown as JsonRecord) !== undefined;
 }
 
 function pluginTargetRenderable(graph: BuildGraph, plugin: SourcePlugin, target: TargetName): boolean {

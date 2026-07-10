@@ -5,7 +5,8 @@ import { join } from "node:path";
 import { expect, test } from "bun:test";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
-import { buildSkillsetResult, writeKnownSkillsetsIndex } from "@skillset/core";
+import { createTestGitRemote } from "../../../../scripts/test-helpers/git-remote";
+import { buildSkillsetResult } from "@skillset/core";
 
 test("SET-234: marketplace check reports readiness and supports JSON output", async () => {
   const root = await fixture({
@@ -117,18 +118,13 @@ Use this demo skill.
 `,
   }, parent);
   await buildSkillsetResult(external);
-  const xdg = xdgOptions(parent);
-  await writeKnownSkillsetsIndex({
-    schemaVersion: 1,
-    skillsets: [{
-      cacheKey: "trails",
-      identities: ["github:outfitter-dev/trails"],
-      path: external,
-      repository: "git@github.com:outfitter-dev/trails.git",
-    }],
-  }, xdg);
+  const gitRoot = await mkdtemp(join(parent, "git-"));
+  const remote = await createTestGitRemote(external, {
+    repository: "https://github.com/outfitter-dev/trails.git",
+    rootPath: gitRoot,
+  });
 
-  const preview = await runSkillsetCliWithEnv(xdg.env, "marketplace", "update", "outfitter", "--root", marketplace);
+  const preview = await runSkillsetCliWithEnv(remote.env, "marketplace", "update", "outfitter", "--root", marketplace);
 
   expect(preview).toMatchObject({ exitCode: 0, stderr: "" });
   expect(preview.stdout).toContain("skillset: marketplace update passed");
@@ -138,7 +134,7 @@ Use this demo skill.
 
   const updated = await runSkillsetCliWithEnv(
     {
-      ...xdg.env,
+      ...remote.env,
       GIT_DIR: ".git",
       GIT_WORK_TREE: process.cwd(),
     },
@@ -158,11 +154,12 @@ Use this demo skill.
   };
   expect(marketplaceJson.plugins).toEqual([expect.objectContaining({
     name: "trails-tools",
-    source: {
+    source: expect.objectContaining({
       path: "plugins/trails-tools/claude",
+      sha: remote.sha,
       source: "git-subdir",
       url: "outfitter-dev/trails",
-    },
+    }),
   })]);
   const lock = JSON.parse(await readFile(join(marketplace, "skillset.lock"), "utf8")) as {
     readonly marketplaces: { readonly entries: readonly { readonly catalog: string; readonly repo?: string }[] };
@@ -171,6 +168,36 @@ Use this demo skill.
     catalog: "outfitter",
     repo: "github:outfitter-dev/trails",
   })]);
+
+  const checkedJson = await runSkillsetCliWithEnv(
+    remote.env,
+    "marketplace",
+    "check",
+    "outfitter",
+    "--json",
+    "--root",
+    marketplace
+  );
+  const updateJson = await runSkillsetCliWithEnv(
+    remote.env,
+    "marketplace",
+    "update",
+    "outfitter",
+    "--json",
+    "--root",
+    marketplace
+  );
+  expect(checkedJson).toMatchObject({ exitCode: 0, stderr: "" });
+  expect(updateJson).toMatchObject({ exitCode: 0, stderr: "" });
+  const checkedReport = JSON.parse(checkedJson.stdout) as {
+    readonly entries: readonly { readonly provenance: unknown }[];
+  };
+  const updateReport = JSON.parse(updateJson.stdout) as {
+    readonly check: { readonly entries: readonly { readonly provenance: unknown }[] };
+  };
+  expect(checkedReport.entries[0]?.provenance).toEqual(updateReport.check.entries[0]?.provenance);
+  expect(checkedJson.stdout).not.toContain(parent);
+  expect(updateJson.stdout).not.toContain(parent);
 });
 
 test("SET-236: marketplace update renders mixed local and external Claude entries", async () => {
@@ -223,17 +250,13 @@ Use this demo skill.
   }, parent);
   await buildSkillsetResult(marketplace);
   await buildSkillsetResult(external);
-  const xdg = xdgOptions(parent);
-  await writeKnownSkillsetsIndex({
-    schemaVersion: 1,
-    skillsets: [{
-      cacheKey: "trails",
-      identities: ["github:outfitter-dev/trails"],
-      path: external,
-    }],
-  }, xdg);
+  const gitRoot = await mkdtemp(join(parent, "git-"));
+  const remote = await createTestGitRemote(external, {
+    repository: "https://github.com/outfitter-dev/trails.git",
+    rootPath: gitRoot,
+  });
 
-  const updated = await runSkillsetCliWithEnv(xdg.env, "marketplace", "update", "outfitter", "--yes", "--root", marketplace);
+  const updated = await runSkillsetCliWithEnv(remote.env, "marketplace", "update", "outfitter", "--yes", "--root", marketplace);
 
   expect(updated).toMatchObject({ exitCode: 0, stderr: "" });
   const marketplaceJson = JSON.parse(await readFile(join(marketplace, ".claude-plugin/marketplace.json"), "utf8")) as {
@@ -250,9 +273,19 @@ Use this demo skill.
       }),
     }),
   ]);
-});
+  const verified = await runSkillsetCliWithEnv(
+    {
+      ...remote.env,
+      GIT_CONFIG_VALUE_0: "file:///definitely-unavailable/",
+    },
+    "verify",
+    "--root",
+    marketplace
+  );
+  expect(verified).toMatchObject({ exitCode: 0, stderr: "" });
+}, 15_000);
 
-test("SET-236: marketplace update requires resolved sha proof for floating external refs", async () => {
+test("SET-268: marketplace update does not treat a warm floating cache as current while offline", async () => {
   const parent = await mkdtemp(join(tmpdir(), "skillset-marketplace-floating-"));
   const marketplace = await fixture({
     "skillset.yaml": `
@@ -287,24 +320,40 @@ Use this demo skill.
 `,
   }, parent);
   await buildSkillsetResult(external);
-  const xdg = xdgOptions(parent);
-  await writeKnownSkillsetsIndex({
-    schemaVersion: 1,
-    skillsets: [{
-      cacheKey: "trails",
-      identities: ["github:outfitter-dev/trails"],
-      path: external,
-    }],
-  }, xdg);
+  const gitRoot = await mkdtemp(join(parent, "git-"));
+  const remote = await createTestGitRemote(external, {
+    repository: "https://github.com/outfitter-dev/trails.git",
+    rootPath: gitRoot,
+  });
+  const warm = await runSkillsetCliWithEnv(
+    remote.env,
+    "marketplace",
+    "update",
+    "outfitter",
+    "--root",
+    marketplace
+  );
+  expect(warm.exitCode).toBe(0);
 
-  const updated = await runSkillsetCliWithEnv(xdg.env, "marketplace", "update", "outfitter", "--yes", "--root", marketplace);
+  const updated = await runSkillsetCliWithEnv(
+    {
+      ...remote.env,
+      GIT_CONFIG_VALUE_0: "file:///definitely-unavailable/",
+    },
+    "marketplace",
+    "update",
+    "outfitter",
+    "--yes",
+    "--root",
+    marketplace
+  );
 
   expect(updated.exitCode).toBe(1);
   expect(updated.stderr).toBe("");
   expect(updated.stdout).toContain("skillset: marketplace update failed");
-  expect(updated.stdout).toContain("channel marketplace entry is not locked");
+  expect(updated.stdout).toContain("remote repository could not be reached");
   await expect(readdir(marketplace)).resolves.not.toContain("plugins-claude");
-});
+}, 15_000);
 
 async function fixture(files: Record<string, string>, parent?: string): Promise<string> {
   const root = await mkdtemp(join(parent ?? tmpdir(), "skillset-marketplace-cli-"));
@@ -344,13 +393,4 @@ async function runSkillsetCliWithEnv(
     proc.exited,
   ]);
   return { exitCode, stderr, stdout };
-}
-
-function xdgOptions(root: string): { env: Record<string, string>; homeDir: string } {
-  return {
-    env: {
-      XDG_CONFIG_HOME: join(root, "config"),
-    },
-    homeDir: join(root, "home"),
-  };
 }

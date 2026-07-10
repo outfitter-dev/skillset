@@ -497,7 +497,7 @@ export async function runCli(
       } else {
         printMarketplaceUpdate(report);
       }
-      if (!yes || dryRun) console.log("skillset: marketplace update preview wrote no files");
+      if (!jsonOutput && (!yes || dryRun)) console.log("skillset: marketplace update preview wrote no files");
       if (!report.ok) process.exitCode = 1;
       return;
     }
@@ -1268,7 +1268,7 @@ function printMarketplaceCheck(report: MarketplaceCheckReport): void {
       `(${report.entries.length} target entr${report.entries.length === 1 ? "y" : "ies"})`
   );
   for (const entry of report.entries) {
-    const source = entry.source.path ?? entry.repo ?? entry.source.kind;
+    const source = entry.repo ?? entry.source.repository ?? entry.source.kind;
     console.log(
       `  ${entry.readiness}: ${entry.catalog}/${entry.entryId} ${entry.requestedTarget} ` +
         `plugin ${entry.plugin} source ${source}`
