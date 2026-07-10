@@ -93,6 +93,11 @@
           "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) -",
           "from": "20260630",
           "fromPath": "docs/adrs/drafts/20260630-reason-only-change-ledger-derived-state.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source remains the reviewed product; generated catalog files remain output.",
+          "from": "20260710",
+          "fromPath": "docs/adrs/drafts/20260710-catalog-owned-marketplace-refresh-pull-requests.md"
         }
       ],
       "number": "0000",
