@@ -185,6 +185,11 @@
           "context": "- [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md) - separates build from install/sync/trust and user-level mutation.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-reviewed-settings-suggestions.md"
+        },
+        {
+          "context": "- [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md) - establishes Skillset-owned XDG state and the no-activation boundary.",
+          "from": "20260710",
+          "fromPath": "docs/adrs/drafts/20260710-catalog-owned-marketplace-refresh-pull-requests.md"
         }
       ],
       "number": null,
@@ -843,6 +848,19 @@
       "superseded_by": null,
       "title": "Post-Tools Policy Boundary",
       "updated": "2026-07-05"
+    },
+    {
+      "created": "2026-07-10",
+      "depends_on": ["0", "global-xdg-managed-installs-and-sync"],
+      "inbound": [],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260710-catalog-owned-marketplace-refresh-pull-requests.md",
+      "slug": "catalog-owned-marketplace-refresh-pull-requests",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Catalog-Owned Marketplace Refresh Pull Requests",
+      "updated": "2026-07-10"
     }
   ],
   "version": 1
