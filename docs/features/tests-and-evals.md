@@ -17,7 +17,7 @@ Skillset currently uses internal compiler fixtures and validation commands:
 | Validation commands | `skillset check`, `skillset verify`, `doctor`, `diff`, `change check`, `release plan` | `implemented` | Public commands that validate real source and generated output. |
 | Dogfooding | repo scripts, Linear acceptance criteria, real Skillset source changes | internal practice | Proves workflows by using them on this repo. |
 | `skillset test` | `<source-root>/tests.yaml` and `<source-root>/tests/*.yaml` | `implemented` | Deterministic isolated projection and check runner for authored source. |
-| `skillset runtime-tester` | `.skillset/cache/runtime-tester/` logical reports backed by XDG cache storage | `implemented` / maintainer harness | Runs non-interactive Claude or Codex prompts against an isolated rendering and retains status, output, tail, and report files. |
+| `skillset try` | `.skillset/cache/runtime-tests/` logical reports backed by XDG cache storage | `implemented` / maintainer harness | Runs non-interactive Claude, Codex, or Cursor prompts against an isolated rendering and retains status, output, tail, and report files. |
 | `.skillset/evals/` | n/a | `future` | Future adapter-aware behavioral eval declarations or pointers. |
 
 Checked-in internal fixtures use the current workspace layout: `fixtures/<case>/skillset.yaml` as the workspace manifest and `fixtures/<case>/.skillset/` as the source root.
@@ -150,22 +150,22 @@ Each probe requires `prompt` and `expect`. The v1 `expect` object must name exac
 
 Edge cases stay explicit: multiple matching skills should be disambiguated in the expected selector, provider source may need target-specific probes, missing plugin dependencies should appear as activation setup failures rather than build successes, and compatibility shims should be reported as shims in the generated probe material.
 
-## Runtime Tester
+## Runtime Tries
 
-`skillset runtime-tester` is the first live runtime harness. It is separate from `skillset test`: deterministic tests prove projection and generated files, while the runtime tester builds an isolated latest rendering and asks a real local runtime a non-interactive prompt.
+`skillset try` is the ad hoc live-runtime harness. It is separate from `skillset test`: deterministic tests prove projection and generated files, while a try builds an isolated latest rendering and asks a real local runtime a non-interactive prompt. A successful try means the runtime process completed; it does not claim that the response satisfied a committed assertion.
 
 ```bash
-skillset runtime-tester run --target codex --prompt "What skills can you see?"
-skillset runtime-tester run --target claude --prompt-file prompts/smoke.md --claude-setting-sources isolated --background
-skillset runtime-tester status
-skillset runtime-tester tail --lines 80
-skillset runtime-tester list
+skillset try --target codex --prompt "What skills can you see?"
+skillset try --target claude --prompt-file prompts/smoke.md --claude-setting-sources isolated --background
+skillset try status
+skillset try tail --lines 80
+skillset try list
 ```
 
 Runs write retained artifacts under the logical repo cache path:
 
 ```text
-.skillset/cache/runtime-tester/
+.skillset/cache/runtime-tests/
   latest.json
   runs/<run-id>/
     config.json
@@ -187,13 +187,13 @@ The tester does not install, trust, publish, or enable generated artifacts. It i
 Claude setting sources can be overridden for probes that intentionally need more runtime context. Precedence is CLI flag, then env var, then the isolated default:
 
 ```bash
-skillset runtime-tester run --target claude --claude-setting-sources user --prompt "What do you see?"
-SKILLSET_RUNTIME_TESTER_CLAUDE_SETTING_SOURCES=project skillset runtime-tester run --target claude --prompt "What do you see?"
+skillset try --target claude --claude-setting-sources user --prompt "What do you see?"
+SKILLSET_TRY_CLAUDE_SETTING_SOURCES=project skillset try --target claude --prompt "What do you see?"
 ```
 
-Override runtime binaries with `SKILLSET_RUNTIME_TESTER_CODEX_BIN` or `SKILLSET_RUNTIME_TESTER_CLAUDE_BIN` for tests, shims, or machine-specific installs.
+Override runtime binaries with `SKILLSET_TRY_CODEX_BIN`, `SKILLSET_TRY_CLAUDE_BIN`, or `SKILLSET_TRY_CURSOR_BIN` for tests, shims, or machine-specific installs.
 
-For Claude Code non-interactive runs, the CLI process must see a non-interactive credential. If `claude --print` reports `Not logged in`, run `claude setup-token`, put the printed `CLAUDE_CODE_OAUTH_TOKEN` export in the repo-local ignored `.envrc`, and run `direnv allow`. The committed `.envrc.example` shows the expected shape without storing secrets. From shells or automation that do not load the direnv hook, run the tester through `direnv exec . skillset runtime-tester ...`.
+For Claude Code non-interactive runs, the CLI process must see a non-interactive credential. If `claude --print` reports `Not logged in`, run `claude setup-token`, put the printed `CLAUDE_CODE_OAUTH_TOKEN` export in the repo-local ignored `.envrc`, and run `direnv allow`. The committed `.envrc.example` shows the expected shape without storing secrets. From shells or automation that do not load the direnv hook, run the try through `direnv exec . skillset try ...`.
 
 ## Compiler Determinism and Adapter Conformance
 
