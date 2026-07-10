@@ -5,6 +5,8 @@ import {
   type ReleasePolicyInput,
   ciStateFromCheckRuns,
   evaluateReleasePolicy,
+  planReleasePullRequestLabels,
+  readReleaseLabelVersions,
   shouldReadExactShaCi,
 } from "../release-policy";
 import { distTagForVersion } from "../publish";
@@ -282,6 +284,56 @@ describe("npm dist-tag derivation", () => {
     expect(distTagForVersion("0.13.4")).toBe("latest");
     expect(distTagForVersion("0.14.0-beta.1")).toBe("beta");
     expect(distTagForVersion("0.14.0-canary.20260615")).toBe("canary");
+  });
+});
+
+describe("release PR label planning", () => {
+  test("reads the previous version from the pushed base SHA instead of local disk", async () => {
+    const refs: string[] = [];
+    const versions = await readReleaseLabelVersions(
+      "outfitter-dev/skillset",
+      {
+        baseRefName: "main",
+        headRefName: "changeset-release/main",
+      },
+      "immutable-base-sha",
+      async (_repository, ref) => {
+        refs.push(ref);
+        return {
+          version: ref === "immutable-base-sha" ? "0.16.3" : "0.16.4",
+        };
+      }
+    );
+
+    expect(refs).toEqual(["immutable-base-sha", "changeset-release/main"]);
+    expect(versions).toEqual({
+      nextVersion: "0.16.4",
+      previousVersion: "0.16.3",
+    });
+  });
+
+  test("adds the version delta label when publish and channel labels already exist", () => {
+    expect(
+      planReleasePullRequestLabels({
+        labels: ["publish:manual", "channel:stable"],
+        nextTag: "latest",
+        nextVersion: "0.16.4",
+        previousVersion: "0.16.3",
+        stackReady: true,
+      })
+    ).toEqual(["release:patch"]);
+  });
+
+  test("plans every missing label family from immutable base and release versions", () => {
+    expect(
+      planReleasePullRequestLabels({
+        labels: [],
+        nextTag: "latest",
+        nextVersion: "1.0.0",
+        previousVersion: "0.16.4",
+        stackReady: true,
+      })
+    ).toEqual(["publish:auto", "channel:stable", "release:major"]);
   });
 });
 

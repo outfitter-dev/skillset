@@ -26,6 +26,19 @@ export type ReleaseIntent = "release:major" | "release:minor" | "release:patch";
 export type ReleasePolicyDecision = "auto" | "block" | "manual" | "none";
 export type StackIntent = "stack:boundary";
 
+export type ReleasePullRequestLabelPlanInput = {
+  labels: readonly string[];
+  nextTag: string;
+  nextVersion: string;
+  previousVersion: string;
+  stackReady: boolean;
+};
+
+type PackageVersionReader = (
+  repository: string,
+  ref: string
+) => Promise<{ version: string }>;
+
 export type ChangedFile = {
   path: string;
   status: string;
@@ -557,7 +570,6 @@ async function commandPolicy() {
 }
 
 async function commandLabelReleasePr() {
-  const packageInfo = await readPackageInfo();
   const repository = process.env.GITHUB_REPOSITORY ?? (await runText(["gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"]));
   const releasePullRequest = await readOpenReleasePullRequest(repository);
 
@@ -566,30 +578,26 @@ async function commandLabelReleasePr() {
     return;
   }
 
-  const nextPackageInfo = await readPackageInfoFromRef(repository, releasePullRequest.headRefName);
-  const nextTag = distTagForVersion(nextPackageInfo.version);
-  const sourcePullRequests = await readSourcePullRequests(repository, packageInfo.version, "HEAD");
+  const versions = await readReleaseLabelVersions(
+    repository,
+    releasePullRequest,
+    process.env.GITHUB_SHA
+  );
+  const nextTag = distTagForVersion(versions.nextVersion);
+  const sourcePullRequests = await readSourcePullRequests(repository, versions.previousVersion, "HEAD");
   const stack = readSourceStackLabels(sourcePullRequests);
   const stackDiagnostics = [
     ...stack.conflicts,
     ...stack.unknown,
     ...evaluateSourceStackEvidence(sourcePullRequests, stack.value),
   ];
-  const expectedRelease = releaseIntentForVersionDelta(packageInfo.version, nextPackageInfo.version);
-  const labels = new Set(releasePullRequest.labels);
-  const labelsToAdd: string[] = [];
-
-  if (!hasLabelFamily(labels, "publish:")) {
-    labelsToAdd.push(stackDiagnostics.length === 0 && nextTag === "latest" ? "publish:auto" : "publish:manual");
-  }
-
-  if (!hasLabelFamily(labels, "channel:") && nextTag === "latest") {
-    labelsToAdd.push("channel:stable");
-  }
-
-  if (expectedRelease && !hasLabelFamily(labels, "release:")) {
-    labelsToAdd.push(expectedRelease);
-  }
+  const labelsToAdd = planReleasePullRequestLabels({
+    labels: releasePullRequest.labels,
+    nextTag,
+    nextVersion: versions.nextVersion,
+    previousVersion: versions.previousVersion,
+    stackReady: stackDiagnostics.length === 0,
+  });
 
   if (labelsToAdd.length === 0) {
     console.error(`skillset: release PR #${releasePullRequest.number} already has release intent labels`);
@@ -604,6 +612,51 @@ async function commandLabelReleasePr() {
   for (const diagnostic of stackDiagnostics) {
     console.error(`skillset: stack diagnostic: ${diagnostic}`);
   }
+}
+
+export async function readReleaseLabelVersions(
+  repository: string,
+  releasePullRequest: Pick<ReleasePullRequest, "baseRefName" | "headRefName">,
+  githubSha: string | undefined,
+  readVersion: PackageVersionReader = readPackageInfoFromRef
+) {
+  const previousRef = githubSha ?? releasePullRequest.baseRefName;
+  const [previous, next] = await Promise.all([
+    readVersion(repository, previousRef),
+    readVersion(repository, releasePullRequest.headRefName),
+  ]);
+
+  return {
+    nextVersion: next.version,
+    previousVersion: previous.version,
+  };
+}
+
+export function planReleasePullRequestLabels(
+  input: ReleasePullRequestLabelPlanInput
+): string[] {
+  const labels = new Set(input.labels);
+  const labelsToAdd: string[] = [];
+
+  if (!hasLabelFamily(labels, "publish:")) {
+    labelsToAdd.push(
+      input.stackReady && input.nextTag === "latest" ? "publish:auto" : "publish:manual"
+    );
+  }
+
+  if (!hasLabelFamily(labels, "channel:") && input.nextTag === "latest") {
+    labelsToAdd.push("channel:stable");
+  }
+
+  const expectedRelease = releaseIntentForVersionDelta(
+    input.previousVersion,
+    input.nextVersion
+  );
+  if (expectedRelease && !hasLabelFamily(labels, "release:")) {
+    labelsToAdd.push(expectedRelease);
+  }
+
+  return labelsToAdd;
 }
 
 async function readPolicyInput(): Promise<ReleasePolicyInput> {
