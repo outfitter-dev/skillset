@@ -1,14 +1,21 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 
-import { readRecord, readString } from "./config";
-import { checkMarketplaces, type MarketplaceCheckEntryReport, type MarketplaceCheckReport, type MarketplaceLockEntry } from "./marketplace-check";
+import { writeAtomicFileSet } from "./atomic-file-set";
+import { claudeMarketplacePluginRoot, claudeMarketplaceRepoSource } from "./claude-marketplace";
+import {
+  marketplaceEntryResolutionKey,
+  resolveMarketplaceChecks,
+  type MarketplaceCheckEntryReport,
+  type MarketplaceCheckReport,
+  type MarketplaceLockEntry,
+} from "./marketplace-check";
 import { compareStrings, resolveInside } from "./path";
 import { claudeMarketplacePath } from "./plugin-output";
+import { renderBuildGraph, renderClaudeMarketplaceDocument } from "./render";
 import { loadBuildGraph } from "./resolver";
 import { renderValidatedJson } from "./structured-output";
 import type { BuildGraph, JsonRecord, JsonValue, SkillsetOptions, TargetName } from "./types";
-import { rootVersion } from "./versioning";
 
 export interface MarketplaceUpdateOptions extends SkillsetOptions {
   readonly name?: string;
@@ -37,10 +44,14 @@ export async function updateMarketplaces(
   options: MarketplaceUpdateOptions = {}
 ): Promise<MarketplaceUpdateReport> {
   const graph = await loadBuildGraph(rootPath, options);
-  const check = await checkMarketplaces(rootPath, { ...options, lockMode: "refresh" });
-  const files = check.ok ? await renderMarketplaceUpdateFiles(rootPath, graph, check) : [];
+  const resolution = await resolveMarketplaceChecks(rootPath, { ...options, lockMode: "refresh" });
+  const check = resolution.report;
+  const rendered = check.ok
+    ? await renderMarketplaceUpdateFiles(rootPath, graph, check, resolution.sourceRoots)
+    : { files: [], providerEntries: new Map<string, JsonRecord>() };
+  const files = rendered.files;
   const writtenPaths = options.write === true && check.ok
-    ? await writeMarketplaceUpdate(rootPath, check, files)
+    ? await writeMarketplaceUpdate(rootPath, graph, check, files, rendered.providerEntries)
     : [];
 
   return {
@@ -56,52 +67,53 @@ export async function updateMarketplaces(
 async function renderMarketplaceUpdateFiles(
   rootPath: string,
   graph: BuildGraph,
-  check: MarketplaceCheckReport
-): Promise<readonly MarketplaceUpdateFileWithContent[]> {
+  check: MarketplaceCheckReport,
+  sourceRoots: ReadonlyMap<string, string>
+): Promise<RenderedMarketplaceUpdate> {
   const claudeEntries = check.entries.filter((entry) => entry.requestedTarget === "claude");
   const catalogs = new Set(claudeEntries.map((entry) => entry.catalog));
   if (catalogs.size > 1) {
     throw new Error("skillset: marketplace update requires a marketplace name when multiple Claude catalogs are configured");
   }
   const catalog = [...catalogs][0];
-  if (catalog === undefined) return [];
+  if (catalog === undefined) return { files: [], providerEntries: new Map() };
   const catalogConfig = graph.root.marketplaces[catalog];
   if (catalogConfig === undefined) throw new Error(`skillset: unknown marketplace ${catalog}`);
 
   const path = claudeMarketplacePath(graph.root.outputs.plugins.claude);
-  const plugins = await Promise.all(claudeEntries.map((entry) => claudeMarketplacePlugin(rootPath, entry)));
-  const root = graph.root.metadata;
-  const owner = readRecord(root, "owner") ?? readRecord(root, "author") ?? { name: readString(root, "name") ?? catalog };
-  const marketplace = {
-    name: catalog,
-    owner,
-    ...(catalogConfig.description === undefined ? {} : { description: catalogConfig.description }),
-    metadata: {
-      description:
-        catalogConfig.description ??
-        readString(root, "summary") ??
-        readString(root, "description") ??
-        "Source-first Skillset plugins",
-      generatedBy: "skillset@0.1.0",
-      version: rootVersion(graph),
-    },
-    plugins: plugins.sort((left, right) => compareStrings(String(left.name), String(right.name))),
-  } satisfies JsonRecord;
+  const resolvedPlugins = await Promise.all(
+    claudeEntries.map(async (entry) => ({
+      entry,
+      plugin: await claudeMarketplacePlugin(rootPath, entry, sourceRoots),
+    }))
+  );
+  const plugins = resolvedPlugins.map(({ plugin }) => plugin);
+  const providerEntries = new Map(
+    resolvedPlugins
+      .filter(({ entry }) => entry.repo !== undefined)
+      .map(({ entry, plugin }) => [marketplaceEntryResolutionKey(entry), plugin] as const)
+  );
+  const marketplace = renderClaudeMarketplaceDocument(graph, catalog, catalogConfig, plugins);
 
-  return [{
-    catalog,
-    content: textEncoder.encode(renderValidatedJson(marketplace, "Claude marketplace")),
-    path,
-    target: "claude",
-  }];
+  return {
+    files: [{
+      catalog,
+      content: textEncoder.encode(renderValidatedJson(marketplace, "Claude marketplace")),
+      path,
+      target: "claude",
+    }],
+    providerEntries,
+  };
 }
 
 async function claudeMarketplacePlugin(
   rootPath: string,
-  entry: MarketplaceCheckEntryReport
+  entry: MarketplaceCheckEntryReport,
+  sourceRoots: ReadonlyMap<string, string>
 ): Promise<JsonRecord> {
   if (entry.generatedPath === undefined) throw new Error(`skillset: marketplace entry ${entry.catalog}/${entry.entryId} is missing a generated Claude plugin manifest path`);
-  const sourceRoot = entry.source.path ?? (entry.source.kind === "current" ? rootPath : undefined);
+  const sourceRoot = sourceRoots.get(marketplaceEntryResolutionKey(entry)) ??
+    (entry.source.kind === "current" ? rootPath : undefined);
   if (sourceRoot === undefined) throw new Error(`skillset: marketplace entry ${entry.catalog}/${entry.entryId} is missing a resolved source path`);
   const manifest = await readJsonRecord(resolveInside(sourceRoot, entry.generatedPath), entry.generatedPath);
   const marketplaceEntry = pickClaudeMarketplaceFields(manifest);
@@ -133,7 +145,7 @@ function claudeMarketplaceSource(entry: MarketplaceCheckEntryReport): JsonValue 
   return stripUndefinedJsonRecord({
     path: pluginRootPath(entry.generatedPath),
     source: "git-subdir",
-    url: claudeRepoSource(entry.repo),
+    url: claudeMarketplaceRepoSource(entry.repo),
     ...claudeRefFields(entry),
   });
 }
@@ -151,75 +163,58 @@ function fortyCharSha(value: string | undefined): string | undefined {
   return value !== undefined && /^[a-f0-9]{40}$/u.test(value) ? value : undefined;
 }
 
-function claudeRepoSource(repo: string): string {
-  const github = repo.match(/^github:([^/]+\/[^/]+)$/u);
-  return github?.[1] ?? repo;
-}
-
 function pluginRootPath(generatedPath: string): string {
-  const suffix = "/.claude-plugin/plugin.json";
-  if (!generatedPath.endsWith(suffix)) return dirname(generatedPath).replaceAll("\\", "/");
-  return generatedPath.slice(0, -suffix.length);
+  return claudeMarketplacePluginRoot(generatedPath);
 }
 
 async function writeMarketplaceUpdate(
   rootPath: string,
+  graph: BuildGraph,
   check: MarketplaceCheckReport,
-  files: readonly MarketplaceUpdateFileWithContent[]
+  files: readonly MarketplaceUpdateFileWithContent[],
+  providerEntries: ReadonlyMap<string, JsonRecord>
 ): Promise<readonly string[]> {
-  const written: string[] = [];
-  for (const file of files) {
-    const absolute = resolveInside(rootPath, file.path);
-    await mkdir(dirname(absolute), { recursive: true });
-    await writeFile(absolute, file.content);
-    written.push(file.path);
-  }
-  await writeMarketplaceLock(rootPath, check);
-  written.push("skillset.lock");
-  return written.sort(compareStrings);
+  const lockContent = await renderMarketplaceLock(graph, check, files, providerEntries);
+  await writeAtomicFileSet([
+    ...files.map((file) => ({ content: file.content, path: resolveInside(rootPath, file.path) })),
+    { content: lockContent, path: resolveInside(rootPath, "skillset.lock") },
+  ]);
+  return [...files.map(({ path }) => path), "skillset.lock"].sort(compareStrings);
 }
 
-async function writeMarketplaceLock(rootPath: string, check: MarketplaceCheckReport): Promise<void> {
-  const lockPath = resolveInside(rootPath, "skillset.lock");
-  const existing = await readExistingLock(lockPath);
+async function renderMarketplaceLock(
+  graph: BuildGraph,
+  check: MarketplaceCheckReport,
+  files: readonly MarketplaceUpdateFileWithContent[],
+  providerEntries: ReadonlyMap<string, JsonRecord>
+): Promise<string> {
+  const rendered = await renderBuildGraph(graph);
+  const baseline = rendered.find((file) => file.path === "skillset.lock");
+  if (baseline === undefined) throw new Error("skillset: marketplace update could not render skillset.lock");
+  const existing = JSON.parse(new TextDecoder().decode(baseline.content)) as JsonRecord;
   const selected = new Set(check.marketplaces);
   const previousEntries = marketplaceLockEntries(existing);
   const nextEntries = [
     ...previousEntries.filter((entry) => !selected.has(entry.catalog)),
-    ...check.entries.map((entry) => entry.provenance),
+    ...check.entries.map((entry) => {
+      const providerEntry = providerEntries.get(marketplaceEntryResolutionKey(entry));
+      return providerEntry === undefined ? entry.provenance : { ...entry.provenance, providerEntry };
+    }),
   ].sort(compareMarketplaceLockEntries);
+  const previousMarketplaces = isRecord(existing.marketplaces) ? existing.marketplaces : {};
+  const activeCatalogs = isRecord(previousMarketplaces.activeCatalogs)
+    ? { ...previousMarketplaces.activeCatalogs }
+    : {};
+  for (const file of files) activeCatalogs[file.target] = file.catalog;
   const next = stripUndefinedJsonRecord({
-    generatedBy: existing.generatedBy ?? "skillset@0.1.0",
-    items: Array.isArray(existing.items) ? existing.items : [],
     ...existing,
     marketplaces: {
-      ...(isRecord(existing.marketplaces) ? existing.marketplaces : {}),
+      ...previousMarketplaces,
+      activeCatalogs,
       entries: nextEntries as unknown as JsonValue,
     },
-    outputRoot: existing.outputRoot ?? ".",
-    schemaVersion: existing.schemaVersion ?? 1,
-    target: existing.target ?? "workspace",
   });
-  await writeFile(lockPath, renderValidatedJson(next, "skillset.lock"));
-}
-
-async function readExistingLock(path: string): Promise<JsonRecord> {
-  let raw: string;
-  try {
-    raw = await readFile(path, "utf8");
-  } catch (error) {
-    if (isNotFoundError(error)) return {};
-    throw error;
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw) as unknown;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`skillset: cannot update corrupt skillset.lock: ${message}`);
-  }
-  if (!isRecord(parsed)) throw new Error("skillset: cannot update skillset.lock because it is not a JSON object");
-  return parsed as JsonRecord;
+  return renderValidatedJson(next, "skillset.lock");
 }
 
 function marketplaceLockEntries(lock: JsonRecord): readonly MarketplaceLockEntry[] {
@@ -259,10 +254,11 @@ function isRecord(value: unknown): value is Record<string, JsonValue> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isNotFoundError(error: unknown): boolean {
-  return isRecord(error) && error.code === "ENOENT";
-}
-
 interface MarketplaceUpdateFileWithContent extends MarketplaceUpdateFile {
   readonly content: Uint8Array;
+}
+
+interface RenderedMarketplaceUpdate {
+  readonly files: readonly MarketplaceUpdateFileWithContent[];
+  readonly providerEntries: ReadonlyMap<string, JsonRecord>;
 }

@@ -400,21 +400,29 @@ function marketplaceCatalogsSchema(): SchemaJsonRecord {
 function marketplacePluginEntrySchema(): SchemaJsonRecord {
   return {
     ...strictObjectSchema({
-      channel: nonEmptyStringSchema(),
+      channel: { const: "latest", type: "string" },
       id: { pattern: "^[a-z0-9][a-z0-9-]*$", type: "string" },
       plugin: { pattern: "^[a-z0-9][a-z0-9-]*$", type: "string" },
-      ref: nonEmptyStringSchema(),
-      repo: {
-        minLength: 1,
-        not: {
-          pattern: "^(?:\\.|/|~|file:|[A-Za-z]:[\\\\/])",
-        },
+      ref: {
+        pattern: "^(?!.*(?:\\.\\.|//|@\\{|\\.lock$))[A-Za-z0-9][A-Za-z0-9._/-]*(?<![./])$",
         type: "string",
       },
-      sha: nonEmptyStringSchema(),
+      repo: {
+        pattern: "^(?:github:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:\\.git)?|[^:@/\\s]+@[^:\\s/]+:[^\\s]+|https://(?![^/]*@)[^\\s/?#]+/[^\\s?#]+|ssh://(?:[^:@\\s]+@)?[^\\s/?#]+/[^\\s?#]+)$",
+        type: "string",
+      },
+      sha: { pattern: "^[0-9a-f]{40}$", type: "string" },
       targets: arraySchema(enumSchema(TARGET_NAMES), { minItems: 1, uniqueItems: true }),
-      version: nonEmptyStringSchema(),
+      version: semverStringSchema(),
     }),
+    allOf: [
+      ["channel", "ref"],
+      ["channel", "sha"],
+      ["channel", "version"],
+      ["ref", "sha"],
+      ["ref", "version"],
+      ["sha", "version"],
+    ].map((required) => ({ not: { required } })),
     required: ["plugin"],
   };
 }

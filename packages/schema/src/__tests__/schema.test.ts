@@ -345,6 +345,46 @@ describe("@skillset/schema contracts", () => {
     });
   });
 
+  it("keeps marketplace repository and revision policy structurally safe", () => {
+    expect(validateWorkspaceConfig({
+      marketplaces: {
+        outfitter: {
+          plugins: [
+            { plugin: "github", repo: "github:outfitter-dev/skillset", sha: "a".repeat(40) },
+            { plugin: "https", ref: "release/1.0", repo: "https://git.example:8443/acme/plugin.git" },
+            { plugin: "ssh", repo: "ssh://git@git.example/acme/plugin.git", version: "1.2.3" },
+            { channel: "latest", plugin: "scp", repo: "git@git.example:acme/plugin.git" },
+          ],
+        },
+      },
+    }).diagnostics).toEqual([]);
+
+    const invalid = validateWorkspaceConfig({
+      marketplaces: {
+        outfitter: {
+          plugins: [
+            {
+              channel: "nightly",
+              plugin: "bad",
+              ref: "../main",
+              repo: "https://user:SENTINEL@git.example:443/acme/plugin.git",
+              sha: "deadbeef",
+              version: "next",
+            },
+          ],
+        },
+      },
+    });
+    expect(invalid.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(expect.arrayContaining([
+      "schema/workspace-config/marketplace-plugin-channel",
+      "schema/workspace-config/marketplace-plugin-policy",
+      "schema/workspace-config/marketplace-plugin-ref",
+      "schema/workspace-config/marketplace-plugin-repo",
+      "schema/workspace-config/marketplace-plugin-sha",
+      "schema/workspace-config/marketplace-plugin-version",
+    ]));
+  });
+
   it("validates shared source metadata and frontmatter", () => {
     expect(validateSourceMetadata({
       author: { name: "Outfitter" },

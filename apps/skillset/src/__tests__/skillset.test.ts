@@ -351,6 +351,51 @@ marketplaces:
   await expect(loadBuildGraph(root)).rejects.toThrow("marketplace plugin repo must be a remote repo reference");
 });
 
+test("SET-268: marketplace source rejects ambiguous or unsafe remote revisions", async () => {
+  const conflicting = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: marketplace-root
+marketplaces:
+  outfitter:
+    plugins:
+      - plugin: trails-review
+        repo: github:outfitter-dev/trails
+        ref: main
+        sha: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+`,
+  });
+  await expect(loadBuildGraph(conflicting)).rejects.toThrow("at most one of channel, ref, sha, or version");
+
+  const credentialed = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: marketplace-root
+marketplaces:
+  outfitter:
+    plugins:
+      - plugin: trails-review
+        repo: https://token@github.com/outfitter-dev/trails.git
+        ref: main
+`,
+  });
+  await expect(loadBuildGraph(credentialed)).rejects.toThrow("credential-free");
+
+  const shortSha = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: marketplace-root
+marketplaces:
+  outfitter:
+    plugins:
+      - plugin: trails-review
+        repo: github:outfitter-dev/trails
+        sha: deadbeef
+`,
+  });
+  await expect(loadBuildGraph(shortSha)).rejects.toThrow("full lowercase 40-character commit");
+});
+
 test("workspace ignores unrelated top-level directories", async () => {
   const root = await fixture({
     "skillset.yaml": `

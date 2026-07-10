@@ -30,6 +30,8 @@ const toolsPolicyKeys = new Set<string>(["claude", "codex", "cursor", "mcp", "re
 const toolsProviderKeys = new Set<string>(["allow", "deny", "mcp", "read", "search", "shell", "write"]);
 const semverPattern =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
+const fullGitShaPattern = /^[0-9a-f]{40}$/;
+const safeGitRefPattern = /^[A-Za-z0-9][A-Za-z0-9._/-]*$/;
 
 export function validateWorkspaceConfig(value: unknown, path = "$"): SkillsetSchemaValidationResult {
   const diagnostics: SkillsetSchemaDiagnostic[] = [];
@@ -272,10 +274,22 @@ function checkMarketplacePluginEntry(value: SchemaJsonValue, path: string, diagn
   } else {
     checkOptionalMarketplaceId(value.plugin, `${path}.plugin`, diagnostics);
   }
-  checkOptionalNonEmptyString(value.channel, `${path}.channel`, "schema/workspace-config/marketplace-plugin-channel", diagnostics);
-  checkOptionalNonEmptyString(value.ref, `${path}.ref`, "schema/workspace-config/marketplace-plugin-ref", diagnostics);
-  checkOptionalNonEmptyString(value.sha, `${path}.sha`, "schema/workspace-config/marketplace-plugin-sha", diagnostics);
-  checkOptionalNonEmptyString(value.version, `${path}.version`, "schema/workspace-config/marketplace-plugin-version", diagnostics);
+  if (value.channel !== undefined && value.channel !== "latest") {
+    diagnostics.push(diagnostic(`${path}.channel`, "schema/workspace-config/marketplace-plugin-channel", "marketplace plugin channel must be latest"));
+  }
+  if (value.ref !== undefined && (typeof value.ref !== "string" || !isSafeGitRef(value.ref))) {
+    diagnostics.push(diagnostic(`${path}.ref`, "schema/workspace-config/marketplace-plugin-ref", "marketplace plugin ref must be a safe Git ref"));
+  }
+  if (value.sha !== undefined && (typeof value.sha !== "string" || !fullGitShaPattern.test(value.sha))) {
+    diagnostics.push(diagnostic(`${path}.sha`, "schema/workspace-config/marketplace-plugin-sha", "marketplace plugin sha must be a full lowercase 40-character commit"));
+  }
+  if (value.version !== undefined && (typeof value.version !== "string" || !semverPattern.test(value.version))) {
+    diagnostics.push(diagnostic(`${path}.version`, "schema/workspace-config/marketplace-plugin-version", "marketplace plugin version must be a semantic version"));
+  }
+  const policies = [value.channel, value.ref, value.sha, value.version].filter((item) => item !== undefined);
+  if (policies.length > 1) {
+    diagnostics.push(diagnostic(path, "schema/workspace-config/marketplace-plugin-policy", "marketplace plugin entries may set at most one of channel, ref, sha, or version"));
+  }
   checkMarketplaceRepo(value.repo, `${path}.repo`, diagnostics);
   if (value.targets !== undefined) checkTargets(value.targets, `${path}.targets`, diagnostics, "marketplace plugin targets");
 }
@@ -293,8 +307,42 @@ function checkMarketplaceRepo(value: SchemaJsonValue | undefined, path: string, 
     diagnostics.push(diagnostic(path, "schema/workspace-config/marketplace-plugin-repo", "marketplace plugin repo must be a non-empty string"));
     return;
   }
-  if (value.startsWith(".") || value.startsWith("/") || value.startsWith("~") || value.startsWith("file:") || /^[A-Za-z]:[\\/]/.test(value)) {
-    diagnostics.push(diagnostic(path, "schema/workspace-config/marketplace-plugin-repo", "marketplace plugin repo must be a remote repo reference, not a filesystem path"));
+  if (!isSupportedRemoteRepository(value)) {
+    diagnostics.push(diagnostic(
+      path,
+      "schema/workspace-config/marketplace-plugin-repo",
+      "marketplace plugin repo must be a remote repo reference using credential-free GitHub, HTTPS, SSH, or SCP syntax, not a filesystem path"
+    ));
+  }
+}
+
+function isSafeGitRef(value: string): boolean {
+  return safeGitRefPattern.test(value) &&
+    !value.includes("..") &&
+    !value.includes("//") &&
+    !value.includes("@{") &&
+    !value.endsWith(".") &&
+    !value.endsWith("/") &&
+    !value.endsWith(".lock");
+}
+
+function isSupportedRemoteRepository(value: string): boolean {
+  if (/^github:[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:\.git)?$/.test(value)) return true;
+  if (!value.includes("://") && /^[^:@/\s]+@[^:\s/]+:[^\s]+$/.test(value)) return !value.includes("..");
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "https:" && url.protocol !== "ssh:") return false;
+  if (url.password.length > 0 || (url.protocol === "https:" && url.username.length > 0)) return false;
+  if (url.search.length > 0 || url.hash.length > 0 || url.hostname.length === 0) return false;
+  try {
+    const path = decodeURIComponent(url.pathname).replace(/^\/+|\.git$/g, "");
+    return path.length > 0 && !path.includes("..");
+  } catch {
+    return false;
   }
 }
 
