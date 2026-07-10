@@ -458,6 +458,24 @@ export function getProviderDestinationFormatSnapshot(
   return providerDestinationFormatSnapshots.find((snapshot) => snapshot.id === id);
 }
 
+/** Manifest paths the compiler derives from a provider plugin's component layout. */
+export function listProviderPluginComponentManifestFields(
+  target: ProviderDestinationFormatTarget
+): readonly string[] {
+  const snapshot = providerDestinationFormatSnapshots.find(
+    (candidate) => candidate.target === target && candidate.destination === "plugin"
+  );
+  if (!isFormatRecord(snapshot?.format)) return [];
+  const components = snapshot.format.components;
+  if (!Array.isArray(components)) return [];
+
+  const fields = components.flatMap((component) => {
+    if (!isFormatRecord(component)) return [];
+    return typeof component.manifestField === "string" ? [component.manifestField] : [];
+  });
+  return Object.freeze([...new Set(fields)].sort());
+}
+
 export function assertProviderDestinationFormatSnapshots(
   entries: readonly ProviderDestinationFormatSnapshot[]
 ): void {
@@ -518,6 +536,10 @@ function snapshot(
     schema: PROVIDER_DESTINATION_FORMAT_SNAPSHOT_SCHEMA,
     ...input,
   };
+}
+
+function isFormatRecord(value: unknown): value is Readonly<Record<string, ProviderDestinationFormatJsonValue>> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function stableStringify(value: unknown): string {

@@ -11,6 +11,7 @@ import {
   hashProviderSchemaSnapshot,
   listProviderHookEvidence,
   listProviderDestinationFormatSnapshots,
+  listProviderPluginComponentManifestFields,
   listProviderSchemaSnapshots,
   normalizeProviderDestinationFormatSnapshot,
   normalizeProviderSchemaSnapshot,
@@ -70,6 +71,34 @@ describe("@skillset/registry snapshots", () => {
     expect(() => (components as { kind: string; status: string }[]).push({ kind: "mutated", status: "native" })).toThrow();
     expect(components.some((component) => component.kind === "agents" && component.status === "unsupported")).toBe(true);
     expect(components.some((component) => component.kind === "bin" && component.status === "unsupported")).toBe(true);
+  });
+
+  it("derives compiler-owned plugin component manifest fields from provider snapshots", () => {
+    expect(listProviderPluginComponentManifestFields("claude")).toEqual([
+      "agents",
+      "commands",
+      "experimental.monitors",
+      "experimental.themes",
+      "hooks",
+      "lspServers",
+      "mcpServers",
+      "outputStyles",
+      "skills",
+    ]);
+    expect(listProviderPluginComponentManifestFields("codex")).toEqual([
+      "apps",
+      "hooks",
+      "mcpServers",
+      "skills",
+    ]);
+    expect(listProviderPluginComponentManifestFields("cursor")).toEqual([
+      "agents",
+      "commands",
+      "hooks",
+      "mcpServers",
+      "rules",
+      "skills",
+    ]);
   });
 });
 

@@ -586,9 +586,14 @@ export async function runCli(
         write: writeMode,
       }
     );
-    printAdoptReport(report, dryRun ? "dry run" : writeMode ? "written" : "write confirmation required");
-    if (!writeMode) console.log("skillset: rerun with --yes to adopt");
-    if (writeMode && !report.ok) process.exitCode = 1;
+    const reason = dryRun
+      ? "dry run"
+      : writeMode
+        ? report.write ? "written" : "blocked before write"
+        : "write confirmation required";
+    printAdoptReport(report, reason);
+    if (!writeMode && report.ok) console.log("skillset: rerun with --yes to adopt");
+    if (!report.ok) process.exitCode = 1;
     if (writeMode && report.ok) await rememberKnownSkillsetWorkspace(report.rootPath, options);
     return;
   }
@@ -1355,7 +1360,13 @@ function printAdoptReport(report: AdoptReport, reason: string): void {
     console.log(`  ${file.status === "create" ? "+" : "="} ${file.path}`);
   }
   for (const candidate of report.candidates) {
-    console.log(`  ? import candidate ${candidate.kind} ${candidate.path}`);
+    const sources = candidate.plugin === undefined ? "" : ` (${candidate.plugin.paths.join(", ")})`;
+    console.log(`  ? import candidate ${candidate.kind} ${candidate.path}${sources}`);
+  }
+  for (const diagnostic of report.surveyDiagnostics) {
+    const marker = diagnostic.severity === "error" ? "FAIL" : "warning";
+    console.log(`  ${marker} ${diagnostic.code} ${diagnostic.paths.join(", ")}: ${diagnostic.message}`);
+    console.log(`    resolution: ${diagnostic.recommendation}`);
   }
   for (const skip of report.surveySkips) {
     console.log(`  ! skipped ${skip.surface} ${skip.path}: ${skip.reason}`);
@@ -1403,6 +1414,11 @@ function printSetupReport(result: SetupReport, reason: string): void {
   }
   for (const candidate of result.importCandidates) {
     console.log(`  ? import candidate ${candidate.kind} ${candidate.path}`);
+  }
+  for (const diagnostic of result.surveyDiagnostics) {
+    const marker = diagnostic.severity === "error" ? "FAIL" : "warning";
+    console.log(`  ${marker} ${diagnostic.code} ${diagnostic.paths.join(", ")}: ${diagnostic.message}`);
+    console.log(`    resolution: ${diagnostic.recommendation}`);
   }
   for (const skip of result.surveySkips) {
     console.log(`  ! skipped ${skip.surface} ${skip.path}: ${skip.reason}`);

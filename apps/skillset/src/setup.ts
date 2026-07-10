@@ -14,6 +14,11 @@ import { isTargetName, targetNames } from "@skillset/core/internal/config";
 import type { TargetName } from "@skillset/core/internal/types";
 import { workspaceChangesDir } from "@skillset/core";
 import { parseYamlRecord } from "@skillset/core/internal/yaml";
+import {
+  classifyPluginAdoptionCandidates,
+  type PluginAdoptionDiagnostic,
+  type PluginAdoptionRelation,
+} from "./plugin-adoption";
 
 const DEFAULT_CREATE_NAME = "my-skillset";
 const DEFAULT_GLOBAL_SOURCE = ".skillset/source";
@@ -70,6 +75,7 @@ export interface SetupReport {
   readonly kind: "create" | "init";
   readonly rootPath: string;
   readonly sourceDir: string;
+  readonly surveyDiagnostics: readonly PluginAdoptionDiagnostic[];
   readonly surveySkips: readonly SurveySkip[];
   readonly write: boolean;
 }
@@ -77,6 +83,12 @@ export interface SetupReport {
 export interface SetupImportCandidate {
   readonly kind: "instructions" | "plugin" | "plugins" | "skills";
   readonly path: string;
+  readonly plugin?: {
+    readonly identity: string;
+    readonly paths: readonly string[];
+    readonly providers: readonly TargetName[];
+    readonly relation: PluginAdoptionRelation;
+  };
 }
 
 /**
@@ -174,17 +186,20 @@ async function applySetupPlan(
   const baselines = kind === "init"
     ? (await seedReleaseBaselines(rootPath, {}, { write: options.write === true })).entries
     : [];
-  const importCandidates = kind === "init" ? await detectImportCandidates(rootPath, alreadyAdopted) : [];
+  const importSurvey = kind === "init"
+    ? await detectImportCandidates(rootPath, alreadyAdopted)
+    : { candidates: [], diagnostics: [] };
   const surveySkips = kind === "init" ? await detectSurveySkips(rootPath) : [];
 
   return {
     baselines,
     files,
     ...(git === undefined ? {} : { git }),
-    importCandidates,
+    importCandidates: importSurvey.candidates,
     kind,
     rootPath,
     sourceDir: ORDINARY_WORKSPACE_DIR,
+    surveyDiagnostics: importSurvey.diagnostics,
     surveySkips,
     write: options.write === true,
   };
@@ -265,19 +280,38 @@ const NATIVE_PLUGIN_MANIFEST_DIRS = new Set(targetNames().map((target) => `.${ta
 async function detectImportCandidates(
   rootPath: string,
   alreadyAdopted: boolean
-): Promise<readonly SetupImportCandidate[]> {
+): Promise<{
+  readonly candidates: readonly SetupImportCandidate[];
+  readonly diagnostics: readonly PluginAdoptionDiagnostic[];
+}> {
   const candidates: SetupImportCandidate[] = [];
+  const pluginPaths: string[] = [];
   await maybeCandidate(candidates, rootPath, ".claude/skills", "skills");
   await maybeCandidate(candidates, rootPath, ".codex/skills", "skills");
   await maybeCandidate(candidates, rootPath, ".cursor/skills", "skills");
   await maybeCandidate(candidates, rootPath, ".agents/skills", "skills");
   if (await hasNativePluginManifest(rootPath)) {
-    candidates.push({ kind: "plugin", path: "." });
+    pluginPaths.push(".");
   }
   for (const path of [...(await marketplacePluginSources(rootPath)), ...(await nestedPluginSources(rootPath))]) {
-    if (!candidates.some((candidate) => candidate.kind === "plugin" && candidate.path === path)) {
-      candidates.push({ kind: "plugin", path });
-    }
+    if (!pluginPaths.includes(path)) pluginPaths.push(path);
+  }
+  const pluginClassification = await classifyPluginAdoptionCandidates(rootPath, pluginPaths);
+  for (const group of pluginClassification.groups) {
+    candidates.push({
+      kind: "plugin",
+      path: group.primaryPath,
+      ...(group.relation === "equivalent"
+        ? {
+            plugin: {
+              identity: group.identity,
+              paths: group.paths,
+              providers: group.providers,
+              relation: group.relation,
+            },
+          }
+        : {}),
+    });
   }
   // Instruction candidates are for un-adopted repos: an existing
   // skillset.yaml means the repo already authors instructions in
@@ -289,7 +323,10 @@ async function detectImportCandidates(
       }
     }
   }
-  return candidates.sort((left, right) => compareCandidate(left, right));
+  return {
+    candidates: candidates.sort((left, right) => compareCandidate(left, right)),
+    diagnostics: pluginClassification.diagnostics,
+  };
 }
 
 /**

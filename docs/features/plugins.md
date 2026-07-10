@@ -22,7 +22,7 @@ Plugin identity derives from the directory unless `skillset.name` is present and
 
 ## Manifest Field Authority
 
-Each generated-manifest field has exactly one writer; competing authorities are how versions drift. `skillset import` lifts all of these from a native manifest into plugin source metadata so imported plugins round-trip.
+Each generated-manifest field has exactly one writer; competing authorities are how versions drift. `skillset import` lifts portable metadata from a native manifest into canonical plugin source, re-derives component wiring from the imported layout, and keeps only residual provider-specific options in target manifest overrides.
 
 | Field | Authority | Notes |
 | --- | --- | --- |
@@ -38,6 +38,11 @@ Target-native `claude.manifest` / `codex.manifest` blocks remain the visible per
 ## Diagnostics
 
 - Reject plugin identity conflicts and unsupported plugin config keys.
+- During whole-repo adoption, compare Claude, Codex, and Cursor native candidates by manifest identity plus deterministic non-manifest source evidence before writing.
+- Normalize equivalent provider roots into one canonical `.skillset/plugins/<plugin>/` source while preserving provider-specific manifest options without shadowing portable metadata or compiler-owned component paths.
+- Coalesce compatible sparse portable metadata into canonical source, and block conflicting portable values before choosing a primary provider manifest.
+- Block same-identity divergent roots and name-only matches; keep similar different identities separate with an advisory merge warning.
+- Exclude nested plugin candidates from a root plugin import so adoption never crosses plugin boundaries.
 - Preserve plugin boundaries; do not promote plugin agents into project agents.
 - Reject Codex-enabled plugin `agents/` and Codex plugin `.rules`.
 - Reject divergent feature and provider-source outputs to the same generated path.
@@ -49,4 +54,4 @@ Plugin lock entries include plugin version, included and skipped skills, target 
 
 ## Tests and Fixtures
 
-Fixtures cover manifest shape, companion path declarations, plugin boundary preservation, target-specific output selection, Codex plugin-agent failure, feature/provider-source collisions, and generated lock provenance.
+Fixtures cover manifest shape, companion path declarations, plugin boundary preservation, target-specific output selection, Codex plugin-agent failure, feature/provider-source collisions, generated lock provenance, three-provider adoption permutations, equivalent and divergent candidate roots, root/nested boundaries, traversal determinism, and external-report diagnostics.

@@ -9,6 +9,7 @@ import {
   type NativeHookLiftDiagnostic,
   type SkillsetRenderResult,
 } from "@skillset/core";
+import { listProviderPluginComponentManifestFields } from "@skillset/registry";
 
 import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
 import { readSkillsetMetadata, readSkillsetName, readString, targetNames } from "@skillset/core/internal/config";
@@ -18,9 +19,20 @@ import { selectorForPluginConfig, selectorForPluginFeature, selectorForStandalon
 import type { JsonRecord, SourceOrigin, TargetName } from "@skillset/core/internal/types";
 import { isJsonRecord, parseMarkdown, parseYamlRecord, stringifyMarkdown, stringifyYaml } from "@skillset/core/internal/yaml";
 
+import {
+  firstPortablePluginMetadataValue,
+  portablePluginMetadataConflicts,
+  PORTABLE_PLUGIN_METADATA_FIELDS,
+} from "./plugin-manifest-authority";
+
 const DEFAULT_SOURCE_DIR = ".skillset";
 const PLUGINS_DIR = "plugins";
 const SKILLS_DIR = "skills";
+const SOURCE_OWNED_PLUGIN_MANIFEST_FIELDS: ReadonlySet<string> = new Set([
+  "name",
+  "version",
+  ...PORTABLE_PLUGIN_METADATA_FIELDS,
+]);
 
 export type ImportKind = "plugin" | "plugins" | "skill" | "skills";
 export type ImportProvider = "agents" | "claude" | "codex" | "cursor" | "skillset";
@@ -791,27 +803,80 @@ async function writeImportedPluginConfig(
   targetPath: string,
   name: string
 ): Promise<void> {
-  const nativeManifest = await readNativePluginManifest(targetPath);
+  const nativeManifests = await readNativePluginManifests(targetPath);
+  const metadataConflicts = portablePluginMetadataConflicts(nativeManifests);
+  if (metadataConflicts.length > 0) {
+    throw new Error(
+      `skillset: native plugin manifests disagree on portable metadata: ${metadataConflicts.map((conflict) => conflict.field).join(", ")}`
+    );
+  }
+  const firstMetadataValue = (field: (typeof PORTABLE_PLUGIN_METADATA_FIELDS)[number]) =>
+    firstPortablePluginMetadataValue(nativeManifests, field);
+  const version = [...nativeManifests.values()]
+    .map((manifest) => readString(manifest, "version"))
+    .find((value) => value !== undefined);
   // Lift every manifest field the generated projection round-trips, so an
   // imported plugin compiles back to a manifest substantially identical to
   // its origin. `version` stays a source fallback: release state owns it once
   // releases exist (see the field-authority table in docs/features/plugins.md).
   const metadata: JsonRecord = {
     name,
-    description: readString(nativeManifest, "description"),
-    version: readString(nativeManifest, "version"),
-    author: nativeManifest.author,
-    homepage: nativeManifest.homepage,
-    repository: nativeManifest.repository,
-    license: nativeManifest.license,
-    keywords: nativeManifest.keywords,
+    description: firstMetadataValue("description"),
+    version,
+    author: firstMetadataValue("author"),
+    homepage: firstMetadataValue("homepage"),
+    repository: firstMetadataValue("repository"),
+    license: firstMetadataValue("license"),
+    keywords: firstMetadataValue("keywords"),
   };
+  const providerOverrides = Object.fromEntries(
+    [...nativeManifests.entries()].flatMap(([provider, manifest]) => {
+      const override = importedManifestOverride(provider, manifest);
+      return Object.keys(override).length === 0 ? [] : [[provider, { manifest: override }]];
+    })
+  );
   await writeFile(
     join(targetPath, "skillset.yaml"),
     stringifyYaml({
       skillset: metadata,
+      ...providerOverrides,
     })
   );
+}
+
+function importedManifestOverride(provider: TargetName, manifest: JsonRecord): JsonRecord {
+  const override: Record<string, JsonValue> = {};
+  for (const [key, value] of Object.entries(manifest)) {
+    if (!SOURCE_OWNED_PLUGIN_MANIFEST_FIELDS.has(key) && value !== undefined) {
+      override[key] = value;
+    }
+  }
+  for (const field of listProviderPluginComponentManifestFields(provider)) {
+    removeManifestField(override, field.split("."));
+  }
+  return override;
+}
+
+function removeManifestField(record: Record<string, JsonValue>, path: readonly string[]): void {
+  const [key, ...rest] = path;
+  if (key === undefined) return;
+  if (rest.length === 0) {
+    delete record[key];
+    return;
+  }
+
+  const value = record[key];
+  if (!isJsonRecord(value)) return;
+  const nested: Record<string, JsonValue> = {};
+  for (const [nestedKey, nestedValue] of Object.entries(value)) {
+    if (nestedValue !== undefined) nested[nestedKey] = nestedValue;
+  }
+  removeManifestField(nested, rest);
+  if (Object.keys(nested).length === 0) {
+    delete record[key];
+  } else {
+    record[key] = nested;
+  }
 }
 
 async function readNativePluginManifest(targetPath: string): Promise<JsonRecord> {
@@ -822,6 +887,22 @@ async function readNativePluginManifest(targetPath: string): Promise<JsonRecord>
     throw new Error(`skillset: expected native plugin manifest ${candidate} to contain a JSON object`);
   }
   return {};
+}
+
+async function readNativePluginManifests(
+  targetPath: string
+): Promise<ReadonlyMap<TargetName, JsonRecord>> {
+  const manifests = new Map<TargetName, JsonRecord>();
+  for (const target of targetNames()) {
+    const candidate = join(targetPath, `.${target}-plugin`, "plugin.json");
+    if (!(await exists(candidate))) continue;
+    const parsed = JSON.parse(await readFile(candidate, "utf8")) as unknown;
+    if (!isJsonRecord(parsed)) {
+      throw new Error(`skillset: expected native plugin manifest ${candidate} to contain a JSON object`);
+    }
+    manifests.set(target, parsed);
+  }
+  return manifests;
 }
 
 async function nativePluginManifestPath(targetPath: string): Promise<string | undefined> {
