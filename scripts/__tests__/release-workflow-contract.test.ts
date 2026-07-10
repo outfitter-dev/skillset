@@ -5,7 +5,7 @@ import { join } from "node:path";
 type Workflow = {
   jobs?: Record<string, {
     permissions?: Record<string, string>;
-    steps?: Array<{ name?: string; run?: string }>;
+    steps?: Array<{ if?: string; name?: string; run?: string }>;
   }>;
   on?: Record<string, unknown>;
 };
@@ -21,8 +21,18 @@ async function readWorkflow(name: string): Promise<Workflow> {
 describe("generated release PR workflow contract", () => {
   test("CI exposes an explicit dispatch path for bot-authored release heads", async () => {
     const workflow = await readWorkflow("ci.yml");
+    const steps = workflow.jobs?.["skillset-ci"]?.steps ?? [];
+    const releaseCheck = steps.find(
+      (step) => step.name === "Check generated release package"
+    );
+    const sourceCheck = steps.find((step) => step.name === "Run skillset ci");
 
     expect(workflow.on?.workflow_dispatch).toEqual({});
+    expect(releaseCheck?.run).toBe("bun scripts/publish.ts check");
+    expect(releaseCheck?.if).toContain("github.event_name == 'workflow_dispatch'");
+    expect(releaseCheck?.if).toContain("refs/heads/changeset-release/main");
+    expect(sourceCheck?.if).toContain("github.event_name != 'workflow_dispatch'");
+    expect(sourceCheck?.if).toContain("refs/heads/changeset-release/main");
   });
 
   test("release automation dispatches CI after updating and labeling the version PR", async () => {
