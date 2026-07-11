@@ -1,5 +1,5 @@
-import { cp, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { basename, dirname, extname, join, relative, resolve } from "node:path";
+import { cp, mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
+import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
 
 import { buildSkillset, diffSkillset } from "@skillset/core";
@@ -17,9 +17,18 @@ import { renderValidatedJson } from "@skillset/core/internal/structured-output";
 import type { BuildGraph, JsonRecord, JsonValue, SkillsetOptions, TargetName } from "@skillset/core/internal/types";
 import { pluginVersion } from "@skillset/core/internal/versioning";
 import { isJsonRecord, parseYamlRecord } from "@skillset/core/internal/yaml";
+import { validateTestDeclaration } from "@skillset/schema";
+import {
+  readTryEvidence,
+  readTryStatus,
+  startTryRun,
+  type TryClaudeSettingSources,
+  type TryFailureClass,
+  type TryState,
+} from "./try";
 
 const TEST_BUILD_DIR = "cache/tests";
-const TEST_SCHEMA = 2;
+const TEST_SCHEMA = 3;
 
 export interface SkillsetTestReport {
   readonly activationPath?: string;
@@ -34,9 +43,38 @@ export interface SkillsetTestReport {
   readonly runId: string;
   readonly selection: SkillsetTestSelectionReport;
   readonly runPath: string;
+  readonly runtimeTests: readonly SkillsetRuntimeTestResult[];
   readonly source: string;
   readonly targets: readonly TargetName[];
   readonly workspacePath: string;
+}
+
+export interface SkillsetTestOptions extends SkillsetOptions {
+  readonly runtimeEnv?: Record<string, string | undefined>;
+}
+
+export interface SkillsetRuntimeAssertionResult extends JsonRecord {
+  readonly actual: boolean;
+  readonly expected: string;
+  readonly kind: "contains" | "notContains";
+  readonly ok: boolean;
+}
+
+export interface SkillsetRuntimeTestResult extends JsonRecord {
+  readonly assertions: SkillsetRuntimeAssertionResult[];
+  readonly command: string[];
+  readonly detail?: string;
+  readonly failureClass?: TryFailureClass | "assertion";
+  readonly name: string;
+  readonly ok: boolean;
+  readonly outputPath?: string;
+  readonly promptPath?: string;
+  readonly promptProvenance: string;
+  readonly reportPath?: string;
+  readonly runId?: string;
+  readonly runPath?: string;
+  readonly state: TryState;
+  readonly target: TargetName;
 }
 
 export interface SkillsetTestCheckResult {
@@ -91,7 +129,16 @@ interface ActivationProbe {
   readonly expect: ActivationExpectation;
   readonly name: string;
   readonly prompt: string;
+  readonly promptProvenance: string;
+  readonly runtime?: ActivationRuntime;
   readonly targets: readonly TargetName[];
+}
+
+interface ActivationRuntime {
+  readonly claudeSettingSources?: TryClaudeSettingSources;
+  readonly contains?: string;
+  readonly notContains?: string;
+  readonly timeoutMs?: number;
 }
 
 interface ActivationExpectation {
@@ -102,7 +149,7 @@ interface ActivationExpectation {
 export async function runSkillsetTest(
   rootPath: string,
   name: string | undefined,
-  options: SkillsetOptions = {}
+  options: SkillsetTestOptions = {}
 ): Promise<SkillsetTestReport> {
   await rejectRetiredWorkspaceTestConfig(rootPath, options);
   const graph = await loadBuildGraph(rootPath, options);
@@ -169,7 +216,12 @@ export async function runSkillsetTest(
       ? undefined
       : join(logicalRunPath, "activation").replaceAll("\\", "/");
 
-    const ok = checks.every((check) => check.ok);
+    const runtimeTests = buildError !== undefined
+      ? runtimeRenderFailures(declaration, buildError)
+      : checks.every((check) => check.ok)
+        ? await runDeclaredRuntimeTests(rootPath, workspacePath, declaration, options)
+        : [];
+    const ok = checks.every((check) => check.ok) && runtimeTests.every((result) => result.ok);
     const reportPath = join(runPath, "report.json");
     const reportMarkdownPath = join(runPath, "report.md");
     const latestPath = join(buildRoot, "latest");
@@ -193,6 +245,7 @@ export async function runSkillsetTest(
       source: `repo:${sourceDir}`,
       targets: [...declaration.targets],
       ...activationReport,
+      runtimeTests,
       workspacePath: logicalWorkspacePath,
     };
 
@@ -213,6 +266,7 @@ export async function runSkillsetTest(
       runId,
       selection: selectionRecord(declaration.selection),
       runPath: logicalRunPath,
+      runtimeTests,
       source: `repo:${sourceDir}`,
       targets: declaration.targets,
       workspacePath: logicalWorkspacePath,
@@ -317,13 +371,17 @@ function testDeclarationRootForSourceDir(sourceDir: string): string {
   return sourceDir;
 }
 
-function readTestObject(
+async function readTestObject(
   graph: BuildGraph,
   record: JsonRecord,
   label: string,
   name: string,
   defaultTargets: readonly TargetName[]
-): TestDeclaration {
+): Promise<TestDeclaration> {
+  if (usesDeclaredRuntimeContract(record)) {
+    const diagnostic = validateTestDeclaration(record).diagnostics[0];
+    if (diagnostic !== undefined) throw new Error(`skillset: ${label}: ${diagnostic.message}`);
+  }
   for (const key of Object.keys(record)) {
     if (key === "assertions" || key === "assert") {
       throw new Error(`skillset: ${label}.${key} is retired; use ${label}.checks`);
@@ -339,7 +397,7 @@ function readTestObject(
   const targets = readTargets(record.targets, `${label}.targets`, defaultTargets);
   const selection = readSelection(graph, record.select, `${label}.select`);
   const checks = readChecks(record.checks, `${label}.checks`, selection);
-  const activationProbes = readActivationProbes(record.activation, `${label}.activation`, targets);
+  const activationProbes = await readActivationProbes(graph, record.activation, `${label}.activation`, targets);
   validateActivationProbeNames(activationProbes, targets);
   const output = record.output;
   if (output !== undefined) {
@@ -354,6 +412,13 @@ function readTestObject(
   }
 
   return { activationProbes, checks, name, selection, targets };
+}
+
+function usesDeclaredRuntimeContract(record: JsonRecord): boolean {
+  if (!Array.isArray(record.activation)) return false;
+  return record.activation.some((probe) =>
+    isJsonRecord(probe) && (probe.runtime !== undefined || probe.promptFile !== undefined)
+  );
 }
 
 function readTargets(value: JsonValue | undefined, label: string, defaultTargets: readonly TargetName[]): readonly TargetName[] {
@@ -458,6 +523,7 @@ function readPluginSelection(
     return;
   }
   if (!isJsonRecord(value)) throw new Error(`skillset: expected ${label} to be true, a string array, or an object`);
+  if (Object.keys(value).length === 0) throw new Error(`skillset: ${label} must include include or skills; use true to select all plugins`);
   for (const key of Object.keys(value)) {
     if (key !== "include" && key !== "skills") throw new Error(`skillset: unsupported selector key ${key} in ${label}`);
   }
@@ -491,6 +557,7 @@ function readSkillSelection(
     return;
   }
   if (!isJsonRecord(value)) throw new Error(`skillset: expected ${label} to be true, a string array, or an object`);
+  if (Object.keys(value).length === 0) throw new Error(`skillset: ${label} must include primary or plugin; use true to select all skills`);
   for (const key of Object.keys(value)) {
     if (key !== "primary" && key !== "plugin") throw new Error(`skillset: unsupported selector key ${key} in ${label}`);
   }
@@ -528,6 +595,7 @@ function readPluginSkillSelection(
     return;
   }
   if (!isJsonRecord(value)) throw new Error(`skillset: expected ${label} to be true, a string array, or an object`);
+  if (Object.keys(value).length === 0) throw new Error(`skillset: ${label} must include at least one plugin; use true to select all plugin skills`);
   for (const [pluginId, raw] of Object.entries(value).sort(([left], [right]) => compareStrings(left, right))) {
     assertPlugin(graph, pluginId, label);
     readPluginSkillSelectionForPlugins(graph, [pluginId], raw, `${label}.${pluginId}`, addPluginSkill);
@@ -648,38 +716,115 @@ function readFileCheck(value: JsonValue, label: string): TestCheck {
   return { kind: "exists", path };
 }
 
-function readActivationProbes(
+async function readActivationProbes(
+  graph: BuildGraph,
   value: JsonValue | undefined,
   label: string,
   defaultTargets: readonly TargetName[]
-): readonly ActivationProbe[] {
+): Promise<readonly ActivationProbe[]> {
   if (value === undefined) return [];
   if (!Array.isArray(value)) throw new Error(`skillset: expected ${label} to be an array`);
-  return value.map((item, index) => readActivationProbe(item, `${label}[${index}]`, defaultTargets));
+  return Promise.all(value.map((item, index) => readActivationProbe(graph, item, `${label}[${index}]`, defaultTargets)));
 }
 
-function readActivationProbe(
+async function readActivationProbe(
+  graph: BuildGraph,
   value: JsonValue,
   label: string,
   defaultTargets: readonly TargetName[]
-): ActivationProbe {
+): Promise<ActivationProbe> {
   if (!isJsonRecord(value)) throw new Error(`skillset: expected ${label} to be an object`);
   for (const key of Object.keys(value)) {
-    if (key !== "expect" && key !== "name" && key !== "prompt" && key !== "targets") {
+    if (key !== "expect" && key !== "name" && key !== "prompt" && key !== "promptFile" && key !== "runtime" && key !== "targets") {
       throw new Error(`skillset: unsupported activation key ${key} in ${label}`);
     }
   }
-  const prompt = readString(value, "prompt");
-  if (prompt === undefined) throw new Error(`skillset: ${label}.prompt is required`);
+  const inlinePrompt = readString(value, "prompt");
+  const promptFile = readString(value, "promptFile");
+  if (value.prompt !== undefined && inlinePrompt === undefined) throw new Error(`skillset: ${label}.prompt is required`);
+  if (value.promptFile !== undefined && promptFile === undefined) throw new Error(`skillset: ${label}.promptFile is required`);
+  if ((inlinePrompt === undefined) === (promptFile === undefined)) {
+    throw new Error(`skillset: ${label} must name exactly one of prompt or promptFile`);
+  }
+  const promptPath = promptFile === undefined
+    ? undefined
+    : resolveInside(graph.sourceRootPath, promptFile);
+  const prompt = inlinePrompt ?? await readSourcePromptFile(graph.sourceRootPath, promptPath as string, label);
   const expect = readActivationExpectation(value.expect, `${label}.expect`);
   const targets = readTargets(value.targets, `${label}.targets`, defaultTargets);
   const configuredName = readString(value, "name");
+  const runtime = readActivationRuntime(value.runtime, `${label}.runtime`);
   return {
     expect,
     name: configuredName ?? activationProbeName(expect),
     prompt,
+    promptProvenance: promptFile === undefined ? "inline" : join(graph.sourceRoot, promptFile).replaceAll("\\", "/"),
+    ...(runtime === undefined ? {} : { runtime }),
     targets,
   };
+}
+
+async function readSourcePromptFile(sourceRootPath: string, promptPath: string, label: string): Promise<string> {
+  const [sourceRootRealPath, promptRealPath] = await Promise.all([
+    realpath(sourceRootPath),
+    realpath(promptPath),
+  ]);
+  const relativePromptPath = relative(sourceRootRealPath, promptRealPath);
+  if (relativePromptPath === "" || relativePromptPath.startsWith(`..${sep}`) || relativePromptPath === ".." || isAbsolute(relativePromptPath)) {
+    throw new Error(`skillset: ${label}.promptFile resolves outside the source root`);
+  }
+  return readFile(promptRealPath, "utf8");
+}
+
+function readActivationRuntime(value: JsonValue | undefined, label: string): ActivationRuntime | undefined {
+  if (value === undefined) return undefined;
+  if (!isJsonRecord(value)) throw new Error(`skillset: expected ${label} to be an object`);
+  for (const key of Object.keys(value)) {
+    if (key !== "claude" && key !== "expect" && key !== "timeoutMs") {
+      throw new Error(`skillset: unsupported runtime key ${key} in ${label}`);
+    }
+  }
+  if (!isJsonRecord(value.expect)) throw new Error(`skillset: ${label}.expect is required`);
+  for (const key of Object.keys(value.expect)) {
+    if (key !== "contains" && key !== "notContains") {
+      throw new Error(`skillset: unsupported runtime expectation ${key} in ${label}.expect`);
+    }
+  }
+  const contains = readString(value.expect, "contains");
+  const notContains = readString(value.expect, "notContains");
+  if (contains === undefined && notContains === undefined) {
+    throw new Error(`skillset: ${label}.expect must include contains or notContains`);
+  }
+  const timeoutMs = readOptionalPositiveInteger(value.timeoutMs, `${label}.timeoutMs`);
+  const claudeSettingSources = readRuntimeClaudeSettings(value.claude, `${label}.claude`);
+  return {
+    ...(claudeSettingSources === undefined ? {} : { claudeSettingSources }),
+    ...(contains === undefined ? {} : { contains }),
+    ...(notContains === undefined ? {} : { notContains }),
+    ...(timeoutMs === undefined ? {} : { timeoutMs }),
+  };
+}
+
+function readRuntimeClaudeSettings(value: JsonValue | undefined, label: string): TryClaudeSettingSources | undefined {
+  if (value === undefined) return undefined;
+  if (!isJsonRecord(value)) throw new Error(`skillset: expected ${label} to be an object`);
+  for (const key of Object.keys(value)) {
+    if (key !== "settingSources") throw new Error(`skillset: unsupported Claude runtime key ${key} in ${label}`);
+  }
+  const settingSources = readString(value, "settingSources");
+  if (settingSources === undefined) return undefined;
+  if (settingSources === "isolated" || settingSources === "local" || settingSources === "project" || settingSources === "user") {
+    return settingSources;
+  }
+  throw new Error(`skillset: expected ${label}.settingSources to be isolated, user, project, or local`);
+}
+
+function readOptionalPositiveInteger(value: JsonValue | undefined, label: string): number | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`skillset: expected ${label} to be a positive integer`);
+  }
+  return value;
 }
 
 function readActivationExpectation(value: JsonValue | undefined, label: string): ActivationExpectation {
@@ -872,6 +1017,7 @@ async function validateActivationExpectations(
   if (declaration.activationProbes.length === 0) return;
   const graph = await loadBuildGraph(workspacePath, options);
   for (const probe of declaration.activationProbes) {
+    if (probe.runtime !== undefined) continue;
     for (const target of probe.targets) {
       const candidates = activationExpectationCandidatePaths(graph, target, probe.expect);
       const matched = await Promise.all(candidates.map(async (path) => pathExists(resolveInside(workspacePath, path))));
@@ -879,6 +1025,109 @@ async function validateActivationExpectations(
       throw new Error(`skillset: activation expected ${probe.expect.kind} ${probe.expect.name} was not emitted for target ${target}`);
     }
   }
+}
+
+async function runDeclaredRuntimeTests(
+  rootPath: string,
+  workspacePath: string,
+  declaration: TestDeclaration,
+  options: SkillsetTestOptions
+): Promise<SkillsetRuntimeTestResult[]> {
+  const results: SkillsetRuntimeTestResult[] = [];
+  const graph = await loadBuildGraph(workspacePath, options);
+  for (const probe of declaration.activationProbes) {
+    if (probe.runtime === undefined) continue;
+    for (const target of probe.targets) {
+      const candidates = activationExpectationCandidatePaths(graph, target, probe.expect);
+      const rendered = await Promise.all(candidates.map(async (path) => pathExists(resolveInside(workspacePath, path))));
+      if (!rendered.some(Boolean)) {
+        results.push({
+          assertions: [],
+          command: [],
+          detail: `expected ${probe.expect.kind} ${probe.expect.name} was not rendered for ${target}`,
+          failureClass: "render",
+          name: probe.name,
+          ok: false,
+          promptProvenance: probe.promptProvenance,
+          state: "failed",
+          target,
+        });
+        continue;
+      }
+      const run = await startTryRun(workspacePath, {
+        cacheRootPath: rootPath,
+        ...(probe.runtime.claudeSettingSources === undefined
+          ? {}
+          : { claudeSettingSources: probe.runtime.claudeSettingSources }),
+        ...(options.runtimeEnv === undefined ? {} : { env: options.runtimeEnv }),
+        name: `${declaration.name}-${slugifyProbeName(probe.name)}-${target}`,
+        prompt: probe.prompt,
+        target,
+        ...(probe.runtime.timeoutMs === undefined ? {} : { timeoutMs: probe.runtime.timeoutMs }),
+        ...(options.xdg === undefined ? {} : { xdg: options.xdg }),
+      });
+      const status = await readTryStatus(rootPath, run.runId, options);
+      const evidence = await readTryEvidence(rootPath, run.runId, options);
+      const assertions = status.state === "passed" ? runtimeAssertions(evidence.response, probe.runtime) : [];
+      const assertionsPassed = assertions.every((assertion) => assertion.ok);
+      const ok = status.state === "passed" && assertionsPassed;
+      results.push({
+        assertions,
+        command: [...(status.command ?? [])],
+        ...(status.error === undefined ? {} : { detail: status.error }),
+        ...(ok
+          ? {}
+          : { failureClass: status.failureClass ?? (status.state === "passed" ? "assertion" : "runtime") }),
+        name: probe.name,
+        ok,
+        outputPath: evidence.outputPath,
+        promptPath: status.promptPath,
+        promptProvenance: probe.promptProvenance,
+        reportPath: evidence.reportPath,
+        runId: run.runId,
+        runPath: run.runPath,
+        state: status.state,
+        target,
+      });
+    }
+  }
+  return results;
+}
+
+function runtimeRenderFailures(
+  declaration: TestDeclaration,
+  detail: string
+): SkillsetRuntimeTestResult[] {
+  return declaration.activationProbes.flatMap((probe) => {
+    if (probe.runtime === undefined) return [];
+    return probe.targets.map((target) => ({
+      assertions: [],
+      command: [],
+      detail,
+      failureClass: "render" as const,
+      name: probe.name,
+      ok: false,
+      promptProvenance: probe.promptProvenance,
+      state: "failed" as const,
+      target,
+    }));
+  });
+}
+
+function runtimeAssertions(
+  response: string,
+  runtime: ActivationRuntime
+): SkillsetRuntimeAssertionResult[] {
+  const assertions: SkillsetRuntimeAssertionResult[] = [];
+  if (runtime.contains !== undefined) {
+    const actual = response.includes(runtime.contains);
+    assertions.push({ actual, expected: runtime.contains, kind: "contains", ok: actual });
+  }
+  if (runtime.notContains !== undefined) {
+    const actual = !response.includes(runtime.notContains);
+    assertions.push({ actual, expected: runtime.notContains, kind: "notContains", ok: actual });
+  }
+  return assertions;
 }
 
 function activationExpectationCandidatePaths(
@@ -941,12 +1190,14 @@ async function writeActivationProbes(
 
 function activationProbeRecord(probe: ActivationProbe, target: TargetName): JsonRecord {
   return {
+    execution: probe.runtime === undefined ? "manual" : "live",
     expect: {
       [probe.expect.kind]: probe.expect.name,
     },
     harness: activationHarness(target),
     name: slugifyProbeName(probe.name),
     prompt: probe.prompt,
+    promptProvenance: probe.promptProvenance,
     status: target === "codex" ? "manual-shimmed" : "manual-native",
     target,
   };
@@ -1016,6 +1267,7 @@ async function refreshLatest(
 
 function renderMarkdownReport(report: JsonRecord): string {
   const checks = Array.isArray(report.checks) ? report.checks : [];
+  const runtimeTests = Array.isArray(report.runtimeTests) ? report.runtimeTests : [];
   const lines = [
     `# Skillset Test ${report.name}`,
     "",
@@ -1035,6 +1287,18 @@ function renderMarkdownReport(report: JsonRecord): string {
     const path = typeof check.path === "string" ? ` ${check.path}` : "";
     const detail = typeof check.detail === "string" ? ` - ${check.detail}` : "";
     lines.push(`- ${mark}: ${check.kind}${path}${detail}`);
+  }
+  if (runtimeTests.length > 0) {
+    lines.push("", "## Runtime Tests", "");
+    for (const runtimeTest of runtimeTests) {
+      if (!isJsonRecord(runtimeTest)) continue;
+      const mark = runtimeTest.ok === true ? "pass" : "fail";
+      const failureClass = typeof runtimeTest.failureClass === "string" ? ` (${runtimeTest.failureClass})` : "";
+      const detail = typeof runtimeTest.detail === "string" ? ` - ${runtimeTest.detail}` : "";
+      lines.push(`- ${mark}: ${runtimeTest.name} [${runtimeTest.target}]${failureClass}${detail}`);
+      if (typeof runtimeTest.outputPath === "string") lines.push(`  - output: ${runtimeTest.outputPath}`);
+      if (typeof runtimeTest.reportPath === "string") lines.push(`  - report: ${runtimeTest.reportPath}`);
+    }
   }
   return `${lines.join("\n").trimEnd()}\n`;
 }

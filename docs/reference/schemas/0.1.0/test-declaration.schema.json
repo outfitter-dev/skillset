@@ -1,0 +1,413 @@
+{
+  "$id": "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/test-declaration.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "activation": {
+      "items": {
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "oneOf": [
+              {
+                "required": [
+                  "prompt"
+                ]
+              },
+              {
+                "required": [
+                  "promptFile"
+                ]
+              }
+            ]
+          }
+        ],
+        "properties": {
+          "expect": {
+            "additionalProperties": false,
+            "oneOf": [
+              {
+                "required": [
+                  "agent"
+                ]
+              },
+              {
+                "required": [
+                  "plugin"
+                ]
+              },
+              {
+                "required": [
+                  "skill"
+                ]
+              }
+            ],
+            "properties": {
+              "agent": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "plugin": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "skill": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "prompt": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "promptFile": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "runtime": {
+            "additionalProperties": false,
+            "properties": {
+              "claude": {
+                "additionalProperties": false,
+                "properties": {
+                  "settingSources": {
+                    "enum": [
+                      "isolated",
+                      "local",
+                      "project",
+                      "user"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "settingSources"
+                ],
+                "type": "object"
+              },
+              "expect": {
+                "additionalProperties": false,
+                "anyOf": [
+                  {
+                    "required": [
+                      "contains"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "notContains"
+                    ]
+                  }
+                ],
+                "properties": {
+                  "contains": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "notContains": {
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              },
+              "timeoutMs": {
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "expect"
+            ],
+            "type": "object"
+          },
+          "targets": {
+            "items": {
+              "enum": [
+                "claude",
+                "codex",
+                "cursor"
+              ],
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "expect"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "checks": {
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": [
+            "files"
+          ]
+        },
+        {
+          "properties": {
+            "pluginManifests": {
+              "const": true
+            }
+          },
+          "required": [
+            "pluginManifests"
+          ]
+        },
+        {
+          "properties": {
+            "projection": {
+              "const": true
+            }
+          },
+          "required": [
+            "projection"
+          ]
+        }
+      ],
+      "properties": {
+        "files": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "contains": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "path": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "path"
+            ],
+            "type": "object"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "pluginManifests": {
+          "type": "boolean"
+        },
+        "projection": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "output": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "isolated",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "select": {
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "agents": {
+          "anyOf": [
+            {
+              "const": true,
+              "type": "boolean"
+            },
+            {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array",
+              "uniqueItems": true
+            }
+          ]
+        },
+        "plugins": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "const": true,
+                  "type": "boolean"
+                },
+                {
+                  "items": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "type": "array",
+                  "uniqueItems": true
+                }
+              ]
+            },
+            {
+              "additionalProperties": false,
+              "minProperties": 1,
+              "properties": {
+                "include": {
+                  "anyOf": [
+                    {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    {
+                      "items": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "minItems": 1,
+                      "type": "array",
+                      "uniqueItems": true
+                    }
+                  ]
+                },
+                "skills": {
+                  "anyOf": [
+                    {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    {
+                      "items": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "minItems": 1,
+                      "type": "array",
+                      "uniqueItems": true
+                    }
+                  ]
+                }
+              },
+              "type": "object"
+            }
+          ]
+        },
+        "skills": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "const": true,
+                  "type": "boolean"
+                },
+                {
+                  "items": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "type": "array",
+                  "uniqueItems": true
+                }
+              ]
+            },
+            {
+              "additionalProperties": false,
+              "minProperties": 1,
+              "properties": {
+                "plugin": {
+                  "anyOf": [
+                    {
+                      "anyOf": [
+                        {
+                          "const": true,
+                          "type": "boolean"
+                        },
+                        {
+                          "items": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "minItems": 1,
+                          "type": "array",
+                          "uniqueItems": true
+                        }
+                      ]
+                    },
+                    {
+                      "additionalProperties": {
+                        "anyOf": [
+                          {
+                            "const": true,
+                            "type": "boolean"
+                          },
+                          {
+                            "items": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "minItems": 1,
+                            "type": "array",
+                            "uniqueItems": true
+                          }
+                        ]
+                      },
+                      "minProperties": 1,
+                      "type": "object"
+                    }
+                  ]
+                },
+                "primary": {
+                  "anyOf": [
+                    {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    {
+                      "items": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "minItems": 1,
+                      "type": "array",
+                      "uniqueItems": true
+                    }
+                  ]
+                }
+              },
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "targets": {
+      "items": {
+        "enum": [
+          "claude",
+          "codex",
+          "cursor"
+        ],
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "checks"
+  ],
+  "title": "Test Declaration",
+  "type": "object"
+}

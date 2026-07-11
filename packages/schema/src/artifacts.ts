@@ -11,6 +11,7 @@ import {
   skillFrontmatterContract,
   skillsetSchemaContracts,
   sourceMetadataContract,
+  testDeclarationContract,
   workspaceConfigContract,
 } from "./contracts";
 
@@ -28,6 +29,7 @@ const schemaFileNames = {
   "instruction-frontmatter": "instruction-frontmatter.schema.json",
   "skill-frontmatter": "skill-frontmatter.schema.json",
   "source-metadata": "source-metadata.schema.json",
+  "test-declaration": "test-declaration.schema.json",
   "workspace-config": "workspace-config.schema.json",
 } as const satisfies Record<SkillsetSchemaContractId, string>;
 
@@ -65,6 +67,7 @@ function combinedSchemaArtifact(): SkillsetJsonSchemaArtifact {
         { $ref: "#/$defs/hook" },
         { $ref: "#/$defs/adaptive-hook" },
         { $ref: "#/$defs/change-entry" },
+        { $ref: "#/$defs/test-declaration" },
       ],
       title: "Skillset Source Contracts",
     }),
@@ -92,3 +95,4 @@ export const skillsetInstructionFrontmatterJsonSchema = instructionFrontmatterCo
 export const skillsetHookJsonSchema = hookContract.schema;
 export const skillsetAdaptiveHookJsonSchema = adaptiveHookContract.schema;
 export const skillsetChangeEntryJsonSchema = changeEntryContract.schema;
+export const skillsetTestDeclarationJsonSchema = testDeclarationContract.schema;

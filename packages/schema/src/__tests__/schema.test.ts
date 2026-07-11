@@ -18,6 +18,7 @@ import {
   validateInstructionFrontmatter,
   validateSkillFrontmatter,
   validateSourceMetadata,
+  validateTestDeclaration,
   validateWorkspaceConfig,
   workspaceConfigContract,
 } from "../index";
@@ -34,6 +35,7 @@ describe("@skillset/schema contracts", () => {
       "hook",
       "adaptive-hook",
       "change-entry",
+      "test-declaration",
     ]);
     expect(workspaceConfigContract.schema.$id).toBe("https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/workspace-config.schema.json");
     expect(adaptiveHookContract.schema.$id).toBe("https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/adaptive-hook.schema.json");
@@ -51,6 +53,7 @@ describe("@skillset/schema contracts", () => {
       "docs/reference/schemas/0.1.0/hook.schema.json",
       "docs/reference/schemas/0.1.0/adaptive-hook.schema.json",
       "docs/reference/schemas/0.1.0/change-entry.schema.json",
+      "docs/reference/schemas/0.1.0/test-declaration.schema.json",
     ]);
 
     const combined = artifacts[0]?.schema;
@@ -68,6 +71,7 @@ describe("@skillset/schema contracts", () => {
       { $ref: "#/$defs/hook" },
       { $ref: "#/$defs/adaptive-hook" },
       { $ref: "#/$defs/change-entry" },
+      { $ref: "#/$defs/test-declaration" },
     ]);
     const defs = combined?.$defs as Record<string, Record<string, unknown>>;
     expect(Object.keys(defs).sort()).toEqual([
@@ -78,6 +82,7 @@ describe("@skillset/schema contracts", () => {
       "instruction-frontmatter",
       "skill-frontmatter",
       "source-metadata",
+      "test-declaration",
       "workspace-config",
     ]);
     expect(defs["workspace-config"]).not.toHaveProperty("$id");
@@ -95,6 +100,7 @@ describe("@skillset/schema contracts", () => {
       "docs/reference/examples/hook.yaml",
       "docs/reference/examples/adaptive-hook.yaml",
       "docs/reference/examples/change-entry.yaml",
+      "docs/reference/examples/test-declaration.yaml",
     ]);
 
     const byId = Object.fromEntries(examples.map((example) => [example.contractId, example.value]));
@@ -305,6 +311,30 @@ describe("@skillset/schema contracts", () => {
     });
 
     expect(valid).toEqual({ diagnostics: [], ok: true });
+  });
+
+  it("validates declared runtime test structure", () => {
+    expect(validateTestDeclaration({
+      activation: [{
+        expect: { skill: "demo" },
+        prompt: "Inspect demo.",
+        runtime: { expect: { contains: "demo" }, timeoutMs: 30_000 },
+        targets: ["codex"],
+      }],
+      checks: { projection: true },
+    }).diagnostics).toEqual([]);
+    expect(validateTestDeclaration({
+      activation: [{
+        expect: { skill: "demo" },
+        promptFile: "../outside.md",
+        runtime: { expect: {}, timeoutMs: 0 },
+      }],
+      checks: { projection: true },
+    }).diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
+      "schema/test-declaration/prompt-file",
+      "schema/test-declaration/runtime-expect",
+      "schema/test-declaration/runtime-timeout",
+    ]);
   });
 
   it("reports invalid workspace config structure without raw schema noise", () => {

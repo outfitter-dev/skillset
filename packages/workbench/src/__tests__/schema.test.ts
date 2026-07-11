@@ -15,6 +15,25 @@ describe("workbench source contract schema checks", () => {
     })).toEqual([]);
 
     expect(checkWorkbenchSourceContract({
+      content: [
+        "select:",
+        "  skills:",
+        "    primary: [demo]",
+        "activation:",
+        "  - prompt: Inspect demo.",
+        "    expect:",
+        "      skill: demo",
+        "    runtime:",
+        "      expect:",
+        "        contains: demo",
+        "checks:",
+        "  projection: true",
+      ].join("\n"),
+      kind: "test-declaration",
+      path: ".skillset/tests/demo.yaml",
+    })).toEqual([]);
+
+    expect(checkWorkbenchSourceContract({
       content: "---\ndescription: Demo skill.\nname: demo\nresources: {}\n---\nUse this skill.\n",
       kind: "skill",
       path: ".skillset/skills/demo/SKILL.md",
@@ -42,6 +61,74 @@ describe("workbench source contract schema checks", () => {
       kind: "hook",
       path: ".skillset/plugins/demo/hooks/hooks.json",
     })).toEqual([]);
+  });
+
+  test("reports declared runtime test contract diagnostics", () => {
+    const diagnostics = checkWorkbenchSourceContract({
+      content: [
+        "activation:",
+        "  - prompt: Inline.",
+        "    promptFile: ../outside.md",
+        "    expect:",
+        "      skill: demo",
+        "    runtime:",
+        "      timeoutMs: 0",
+        "      expect: {}",
+        "checks:",
+        "  projection: true",
+      ].join("\n"),
+      kind: "test-declaration",
+      path: ".skillset/tests/demo.yaml",
+    });
+
+    expect(diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+      "activation probe must name exactly one of prompt or promptFile",
+      "runtime expect must include contains or notContains",
+      "runtime timeoutMs must be a positive integer",
+      "test promptFile must stay inside the source root",
+    ]);
+    expect(diagnostics.every((diagnostic) => diagnostic.ruleId === "schema/test-declaration")).toBe(true);
+
+    const grammarDiagnostics = checkWorkbenchSourceContract({
+      content: [
+        "select:",
+        "  invented: true",
+        "output:",
+        "  kind: live",
+        "checks:",
+        "  imaginary: true",
+      ].join("\n"),
+      kind: "test-declaration",
+      path: ".skillset/tests/invalid.yaml",
+    });
+    expect(grammarDiagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+      "unsupported key invented",
+      "test output kind must be isolated",
+      "test checks must enable files, pluginManifests, or projection",
+      "unsupported key imaginary",
+    ]);
+
+    expect(checkWorkbenchSourceContract({
+      content: "select: {}\nchecks:\n  projection: true\n",
+      kind: "test-declaration",
+      path: ".skillset/tests/empty-select.yaml",
+    }).map((diagnostic) => diagnostic.message)).toEqual([
+      "test select must include agents, plugins, or skills",
+    ]);
+    expect(checkWorkbenchSourceContract({
+      content: "select:\n  skills: {}\nchecks:\n  projection: true\n",
+      kind: "test-declaration",
+      path: ".skillset/tests/empty-skills.yaml",
+    }).map((diagnostic) => diagnostic.message)).toEqual([
+      "test skill selector must include primary or plugin",
+    ]);
+    expect(checkWorkbenchSourceContract({
+      content: "select:\n  plugins: {}\nchecks:\n  projection: true\n",
+      kind: "test-declaration",
+      path: ".skillset/tests/empty-plugins.yaml",
+    }).map((diagnostic) => diagnostic.message)).toEqual([
+      "test plugin selector must include include or skills",
+    ]);
   });
 
   test("reports skill frontmatter and body contract diagnostics", () => {
