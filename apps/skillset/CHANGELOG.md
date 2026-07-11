@@ -1,5 +1,12 @@
 # skillset
 
+## 0.16.5
+
+### Patch Changes
+
+- 6b01f98: Allow explicit activation probes in `skillset test` declarations to invoke Claude, Codex, or Cursor through the shared `skillset try` harness, assert literal response facts, classify provider and assertion failures, and retain raw evidence in the XDG-backed runtime-test cache.
+- 46f2862: Replace the implementation-shaped `runtime-tester` command with `skillset try`, including direct prompt execution, retained status/tail/list workflows, `SKILLSET_TRY_*` overrides, and XDG-backed `.skillset/cache/runtime-tests/` reports.
+
 ## 0.16.4
 
 ### Patch Changes
