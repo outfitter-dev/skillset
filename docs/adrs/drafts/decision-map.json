@@ -118,6 +118,11 @@
           "fromPath": "docs/adrs/drafts/20260705-post-tools-policy-boundary.md"
         },
         {
+          "context": "- `lookup` teaches the static Skillset contract. `lookup features [id]` absorbs the feature registry command and continues to draw facts from the [registry-owned support model](20260604-feature-refere",
+          "from": "20260712",
+          "fromPath": "docs/adrs/drafts/20260712-workflow-oriented-cli.md"
+        },
+        {
           "context": "See [Feature Reference and Schema Registry](../adrs/drafts/20260604-feature-reference-and-schema-registry.md) for the ADR-level decision.",
           "from": "feature-registry",
           "fromPath": "docs/features/feature-registry.md"
@@ -353,6 +358,11 @@
           "fromPath": "docs/adrs/drafts/20260622-source-test-selection-shape.md"
         },
         {
+          "context": "`skillset test` owns committed declarations and ad hoc runtime evidence. This extends the separation between deterministic tests and evals in [Fixtures, Tests, Dogfooding, and Evals](20260609-fixtures",
+          "from": "20260712",
+          "fromPath": "docs/adrs/drafts/20260712-workflow-oriented-cli.md"
+        },
+        {
           "context": "See [Fixtures, Tests, Dogfooding, and Evals](../adrs/drafts/20260609-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../adrs/drafts/20260613-deterministic-p",
           "from": "tests-and-evals",
           "fromPath": "docs/features/tests-and-evals.md"
@@ -443,6 +453,11 @@
           "context": "- [One-Action Repo Adoption](20260610-one-action-repo-adoption.md) - import/adopt/setup boundary context.",
           "from": "20260612",
           "fromPath": "docs/adrs/drafts/20260612-core-library-boundary.md"
+        },
+        {
+          "context": "`skillset init [destination]` owns new-repo creation, existing-repo setup, and whole-repo adoption. It specializes the [one-action adoption survey](20260610-one-action-repo-adoption.md#adoption-survey",
+          "from": "20260712",
+          "fromPath": "docs/adrs/drafts/20260712-workflow-oriented-cli.md"
         }
       ],
       "number": null,
@@ -513,6 +528,11 @@
           "context": "- [Deterministic Projection and Adapter Conformance](20260613-deterministic-projection-and-adapter-conformance.md) - ordering drift and generated-output stability.",
           "from": "20260622",
           "fromPath": "docs/adrs/drafts/20260622-yaml-formatting-and-bun-native-apis.md"
+        },
+        {
+          "context": "The narrow verification primitive remains reusable internally, but top-level `lint`, `verify`, and `ci` are removed. This preserves the [deterministic projection boundary](20260613-deterministic-proje",
+          "from": "20260712",
+          "fromPath": "docs/adrs/drafts/20260712-workflow-oriented-cli.md"
         },
         {
           "context": "- [Deterministic Projection and Adapter Conformance](../adrs/drafts/20260613-deterministic-projection-and-adapter-conformance.md) defines how render results pair with the feature registry for conforma",
@@ -861,6 +881,25 @@
       "superseded_by": null,
       "title": "Catalog-Owned Marketplace Refresh Pull Requests",
       "updated": "2026-07-10"
+    },
+    {
+      "created": "2026-07-12",
+      "depends_on": [
+        "0",
+        "feature-reference-and-schema-registry",
+        "fixtures-tests-dogfooding-and-evals",
+        "one-action-repo-adoption",
+        "deterministic-projection-and-adapter-conformance"
+      ],
+      "inbound": [],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260712-workflow-oriented-cli.md",
+      "slug": "workflow-oriented-cli",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Workflow-Oriented CLI With A Flat Loop And Explicit Domains",
+      "updated": "2026-07-12"
     }
   ],
   "version": 1

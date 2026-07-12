@@ -98,6 +98,11 @@
           "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source remains the reviewed product; generated catalog files remain output.",
           "from": "20260710",
           "fromPath": "docs/adrs/drafts/20260710-catalog-owned-marketplace-refresh-pull-requests.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source remains the authored truth while commands inspect or render it.",
+          "from": "20260712",
+          "fromPath": "docs/adrs/drafts/20260712-workflow-oriented-cli.md"
         }
       ],
       "number": "0000",
