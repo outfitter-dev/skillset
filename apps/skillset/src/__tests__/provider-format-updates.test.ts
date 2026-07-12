@@ -33,21 +33,21 @@ test("SET-195: check preview reports user-facing safe destination-format diagnos
   expect(renderProviderFormatUpdateReport(report)).toMatchSnapshot();
 });
 
-test("SET-194: check --fix applies safe provider-format updates and reports changed files", async () => {
+test("SET-278: check write modes leave provider-format updates to update", async () => {
   const root = await builtFixture(pluginFixture());
   const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
   const original = await readFile(manifestPath, "utf8");
   await writeFile(manifestPath, `${original}\n// stale\n`, "utf8");
   await markCurrentPluginManifestAsManaged(root);
 
-  const fixed = await runSkillsetCli("check", "--fix", "--root", root);
+  const local = await runSkillsetCli("check", "--write", "--root", root);
+  const ci = await runSkillsetCli("check", "--ci", "--fix", "--since", "HEAD", "--root", root);
 
-  expect(fixed.exitCode).toBe(0);
-  expect(fixed.stderr).toBe("");
-  expect(fixed.stdout).toContain("skillset: checked 1 source skills");
-  expect(fixed.stdout).toContain("applied safe destination-format updates");
-  expect(fixed.stdout).toContain(`updated ${CODEX_PLUGIN_MANIFEST}`);
-  expect(await readFile(manifestPath, "utf8")).toBe(original);
+  expect(local.exitCode).toBe(1);
+  expect(local.stdout).toContain(`provider-format update ${CODEX_PLUGIN_MANIFEST}`);
+  expect(local.stdout).toContain("run skillset update");
+  expect(ci.exitCode).toBe(1);
+  expect(await readFile(manifestPath, "utf8")).not.toBe(original);
 });
 
 test("SET-194: update previews then writes the same safe provider-format plan", async () => {
@@ -118,7 +118,7 @@ test("SET-195: unsafe provider-format drift reports user-facing manual review di
   expect(await readFile(agentPath, "utf8")).not.toBe(original);
 });
 
-test("SET-194: check --fix blocks unsafe provider-format drift", async () => {
+test("SET-278: check --fix requires CI mode and does not replace update", async () => {
   const root = await builtFixture(agentFixture());
   const agentPath = join(root, CODEX_AGENT);
   const original = await readFile(agentPath, "utf8");
@@ -127,8 +127,7 @@ test("SET-194: check --fix blocks unsafe provider-format drift", async () => {
   const blocked = await runSkillsetCli("check", "--fix", "--root", root);
 
   expect(blocked.exitCode).toBe(1);
-  expect(blocked.stderr).toBe("");
-  expect(blocked.stdout).toContain("manual review required: Codex agent");
+  expect(blocked.stderr).toContain("check --fix requires --ci");
   expect(await readFile(agentPath, "utf8")).not.toBe(original);
 });
 

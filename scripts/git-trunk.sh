@@ -2,7 +2,7 @@
 #
 # git-trunk.sh - print the remote trunk ref (e.g. origin/main).
 #
-# Push-range gates (lefthook pre-push, skillset:ci:report) diff against the
+# Push-range gates (lefthook pre-push, skillset:check:ci:report) diff against the
 # remote default branch. Resolving origin/HEAD instead of hardcoding the name
 # keeps them correct if the default branch ever changes. `git clone` sets
 # origin/HEAD; `git remote set-head origin --auto` repairs it when missing.

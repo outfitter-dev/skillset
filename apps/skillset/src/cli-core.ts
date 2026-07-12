@@ -127,13 +127,10 @@ type MarketplaceSubcommand = "check" | "update";
 
 const USAGE = [
   "usage: skillset build [--yes|--dry-run] [--updated|--all] [--isolated] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
-  "       skillset verify [--updated|--all] [--isolated] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset diff [--updated|--all] [--isolated] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
-  "       skillset check [--fix] [--root <path>] [--source <dir>]",
-  "       skillset lint [--root <path>] [--source <dir>]",
+  "       skillset check [--write|--only outputs|--ci [--fix] [--since <ref>] [--report <path>]] [--json] [--root <path>]",
   "       skillset list [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset doctor [--json] [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
-  "       skillset ci [--fix] [--since <ref>] [--report <path>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset dev --watch [--apply] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change status [--since <ref>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change check [@ref|--ref <ref>] [--since <ref>] [--root <path>] [--source <dir>] [--dist <dir>]",
@@ -192,7 +189,10 @@ export async function runCli(
     changeScopes,
     changeSubcommand,
     ciFix,
+    ciMode,
     ciReportPath,
+    checkOnly,
+    checkWrite,
     devApply,
     devWatch,
     dryRun,
@@ -276,22 +276,6 @@ export async function runCli(
       );
     }
     await rememberKnownSkillsetWorkspace(rootPath, options);
-    return;
-  }
-
-  if (command === "ci") {
-    const report = await ciSkillset(rootPath, {
-      ...options,
-      ...(ciFix ? { fix: true } : {}),
-      ...(changeSince === undefined ? {} : { since: changeSince }),
-    });
-    if (ciReportPath !== undefined) {
-      const reportPath = await resolveCliReportPath(rootPath, ciReportPath, options);
-      await mkdir(dirname(reportPath), { recursive: true });
-      await writeFile(reportPath, renderCiReportMarkdown(report));
-    }
-    printCiReport(report);
-    if (!report.ok) process.exitCode = 1;
     return;
   }
 
@@ -586,52 +570,36 @@ export async function runCli(
     return;
   }
 
-  if (command === "lint") {
-    const result = await lintSkillset(rootPath, options);
-    for (const issue of result.issues) {
-      if (issue.severity !== "warn") continue;
-      console.log(`  warn: ${issue.path}: ${issue.code}: ${issue.message}`);
-    }
-    console.log(`skillset: linted ${result.checkedSkills} source skills`);
-    return;
-  }
-
   if (command === "check") {
-    if (jsonOutput) {
-      const result = await inspectSkillset(await loadBuildGraph(rootPath, options));
-      const diagnostics = result.issues.map((issue): SkillsetCliDiagnostic => ({
-        code: issue.code,
-        message: issue.message,
-        path: issue.path,
-        severity: issue.severity === "warn" ? "warning" : "error",
-      }));
-      const providerUpdates = ciFix
-        ? await runProviderFormatUpdates(rootPath, "check", { ...options, write: true })
-        : await runProviderFormatUpdateAdvisory(rootPath, options);
-      const exitCode = result.issues.some((issue) => issue.severity === "error") ||
-          (ciFix && (!providerUpdates.ok || providerUpdates.blocked))
-        ? 1
-        : 0;
-      printCliJsonData("check", { checkedSkills: result.checkedSkills, providerUpdates }, exitCode, "diagnostics", diagnostics);
+    if (checkOnly === "outputs") {
+      const result = await verifySkillsetResult(rootPath, options);
+      if (jsonOutput) {
+        printCliJsonData("check", result.data, result.ok ? 0 : 1, "diagnostics", result.diagnostics);
+      } else {
+        printDiagnostics(result.diagnostics);
+        console.log(`skillset: checked ${result.data.checkedFiles} generated files`);
+        if (!result.ok) {
+          for (const failure of result.data.failures) console.error(failure);
+          process.exitCode = 1;
+        }
+      }
       return;
     }
-    const result = await lintSkillset(rootPath, options);
-    for (const issue of result.issues) {
-      if (issue.severity !== "warn") continue;
-      console.log(`  warn: ${issue.path}: ${issue.code}: ${issue.message}`);
+    const report = await ciSkillset(rootPath, {
+      ...options,
+      ci: ciMode,
+      ...((checkWrite || ciFix) ? { fix: true } : {}),
+      ...(changeSince === undefined ? {} : { since: changeSince }),
+    });
+    if (ciReportPath !== undefined) {
+      const reportPath = await resolveCliReportPath(rootPath, ciReportPath, options);
+      await mkdir(dirname(reportPath), { recursive: true });
+      await writeFile(reportPath, renderCiReportMarkdown(report));
     }
-    console.log(`skillset: checked ${result.checkedSkills} source skills`);
-    const providerUpdates = ciFix
-      ? await runProviderFormatUpdates(rootPath, "check", {
-          ...options,
-          write: true,
-        })
-      : await runProviderFormatUpdateAdvisory(rootPath, options);
-    if (hasProviderFormatUpdateOutput(providerUpdates)) {
-      process.stdout.write(renderProviderFormatUpdateReport(providerUpdates));
-    }
-    if (ciFix && (!providerUpdates.ok || providerUpdates.blocked)) process.exitCode = 1;
-    else await rememberKnownSkillsetWorkspace(rootPath, options);
+    if (jsonOutput) printCliJsonData("check", report, report.ok ? 0 : 1, "diagnostics", ciReportDiagnostics(report));
+    else printCiReport(report);
+    if (!report.ok) process.exitCode = 1;
+    else if (!ciMode && !jsonOutput) await rememberKnownSkillsetWorkspace(rootPath, options);
     return;
   }
 
@@ -983,14 +951,7 @@ export async function runCli(
     return;
   }
 
-  const result = await verifySkillsetResult(rootPath, options);
-  printDiagnostics(result.diagnostics);
-  console.log(`skillset: verified ${result.data.checkedFiles} generated files`);
-  if (!result.ok) {
-    console.error(`skillset: generated output is not current`);
-    for (const failure of result.data.failures) console.error(failure);
-    process.exitCode = 1;
-  }
+  throw new Error(`skillset: unhandled command ${command}`);
 }
 
 export function readInitAdoptionSelection(
@@ -1092,7 +1053,10 @@ interface ParsedArgs {
   readonly changeScopes?: readonly string[];
   readonly changeSubcommand?: ChangeSubcommand;
   readonly ciFix: boolean;
+  readonly ciMode: boolean;
   readonly ciReportPath?: string;
+  readonly checkOnly?: "outputs";
+  readonly checkWrite: boolean;
   readonly devWatch: boolean;
   readonly devApply: boolean;
   readonly distributionName?: string;
@@ -1172,32 +1136,6 @@ function printChangeEntry(verb: string, entry: ChangeEntryView): void {
   if (entry.reason.length > 0) {
     console.log("  reason:");
     for (const line of entry.reason.split("\n")) console.log(`    ${line}`);
-  }
-}
-
-function hasProviderFormatUpdateOutput(report: Awaited<ReturnType<typeof runProviderFormatUpdates>>): boolean {
-  return report.safeUpdates.length > 0 || report.manualReviews.length > 0 || report.unplannedDriftPaths.length > 0;
-}
-
-async function runProviderFormatUpdateAdvisory(
-  rootPath: string,
-  options: SkillsetOptions
-): Promise<Awaited<ReturnType<typeof runProviderFormatUpdates>>> {
-  try {
-    return await runProviderFormatUpdates(rootPath, "check", options);
-  } catch {
-    return {
-      blocked: false,
-      checkedFiles: 0,
-      command: "check",
-      drift: { added: [], changed: [], missing: [], removed: [] },
-      manualReviews: [],
-      ok: true,
-      safeUpdates: [],
-      unplannedDriftPaths: [],
-      wrote: false,
-      writtenPaths: [],
-    };
   }
 }
 
@@ -1313,6 +1251,8 @@ function printCiReport(report: CiReport): void {
     console.log(`  changeset error: ${issue}`);
   }
   for (const path of report.fixedPaths) console.log(`  fixed ${path}`);
+  for (const path of report.outputEditedPaths) console.log(`  target-side generated edit ${path}`);
+  for (const path of report.providerUpdatePaths) console.log(`  provider-format update ${path} (run skillset update)`);
   printGeneratedChangelogPathHint(report.fixedPaths);
   const drift = report.drift;
   for (const path of drift.added) console.log(`  generated + ${path}`);
@@ -1332,8 +1272,8 @@ function printCiReport(report: CiReport): void {
   if (report.ok) {
     console.log(
       report.fixedPaths.length === 0
-        ? "skillset: ci passed"
-        : `skillset: ci passed after rebuilding ${report.fixedPaths.length} generated file${report.fixedPaths.length === 1 ? "" : "s"}`
+        ? "skillset: check passed"
+        : `skillset: check passed after rebuilding ${report.fixedPaths.length} generated file${report.fixedPaths.length === 1 ? "" : "s"}`
     );
     return;
   }
@@ -1345,9 +1285,11 @@ function printCiReport(report: CiReport): void {
   if (changeErrors > 0) problems.push(`${changeErrors} change entry error(s)`);
   if (report.changesetError !== undefined) problems.push("a Changesets check error");
   if ((report.changesetIssues ?? []).length > 0) problems.push(`${report.changesetIssues?.length} Changesets issue(s)`);
-  if (hasDrift(report.drift)) problems.push("generated-output drift (run skillset build --yes or ci --fix)");
+  if (report.outputEditedPaths.length > 0) problems.push(`${report.outputEditedPaths.length} target-side generated edit(s) to reconcile`);
+  if (report.providerUpdatePaths.length > 0) problems.push(`${report.providerUpdatePaths.length} provider-format update(s)`);
+  if (hasDrift(report.drift)) problems.push("generated-output drift (run skillset check --write, or check --ci --fix in CI)");
   if (report.buildError !== undefined) problems.push("a build error");
-  console.log(`skillset: ci found ${problems.join(" and ")}`);
+  console.log(`skillset: check found ${problems.join(" and ")}`);
 }
 
 async function resolveCliReportPath(
@@ -1642,7 +1584,7 @@ function printNewSourceReport(result: NewSourceReport, reason: string): void {
   console.log(`  name: ${result.displayName}`);
   if (result.write) {
     console.log("  next: skillset check");
-    console.log("  next: skillset verify");
+    console.log("  next: skillset check --only outputs");
   }
 }
 
@@ -1769,7 +1711,10 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let changeStaged = false;
   let changeScopes: readonly string[] | undefined;
   let ciFix = false;
+  let ciMode = false;
   let ciReportPath: string | undefined;
+  let checkOnly: "outputs" | undefined;
+  let checkWrite = false;
   let devApply = false;
   let devWatch = false;
   let hookAgentRuntime = false;
@@ -2037,6 +1982,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--targets" &&
       flag !== "--include" &&
       flag !== "--fix" &&
+      flag !== "--ci" &&
+      flag !== "--only" &&
       flag !== "--report" &&
       flag !== "--json" &&
       flag !== "--jsonl" &&
@@ -2097,6 +2044,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag === "--append" ||
       flag === "--staged" ||
       flag === "--fix" ||
+      flag === "--ci" ||
       flag === "--json" ||
       flag === "--jsonl" ||
       flag === "--apply" ||
@@ -2125,13 +2073,17 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       if (flag === "--append") changeAppend = true;
       if (flag === "--staged") changeStaged = true;
       if (flag === "--fix") ciFix = true;
+      if (flag === "--ci") ciMode = true;
       if (flag === "--json") jsonOutput = true;
       if (flag === "--jsonl") jsonlOutput = true;
       if (flag === "--apply") devApply = true;
       if (flag === "--agent-runtime") hookAgentRuntime = true;
       if (flag === "--pre-commit") hookPreCommit = true;
       if (flag === "--pre-push") hookPrePush = true;
-      if (flag === "--write") sourceSuggestionWrite = true;
+      if (flag === "--write") {
+        if (command === "check") checkWrite = true;
+        else sourceSuggestionWrite = true;
+      }
       if (flag === "--watch") devWatch = true;
       if (flag === "--frontmatter") lookupViews = addLookupView(lookupViews, "frontmatter");
       if (flag === "--fields") lookupViews = addLookupView(lookupViews, "fields");
@@ -2189,6 +2141,10 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     }
     if (flag === "--bump") changeBump = readChangeBump(value);
     if (flag === "--report") ciReportPath = value;
+    if (flag === "--only") {
+      if (value !== "outputs") throw new Error("skillset: expected --only outputs");
+      checkOnly = value;
+    }
     if (flag === "--field") lookupField = setLookupField(lookupField, value);
     if (flag === "--runner") hookRunner = readHookRunner(value);
     if (flag === "--event") hookContextEvent = value;
@@ -2280,10 +2236,13 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   }
 
   validateCiFlags(command, {
+    ci: ciMode,
     dryRun,
     fix: ciFix,
+    ...(checkOnly === undefined ? {} : { only: checkOnly }),
     ...(ciReportPath === undefined ? {} : { reportPath: ciReportPath }),
     ...(changeSince === undefined ? {} : { since: changeSince }),
+    write: checkWrite,
     yes,
   });
   validateDevFlags(command, {
@@ -2323,7 +2282,6 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   });
   validateJsonFlags(command, jsonOutput, {
     ...(changeSubcommand === undefined ? {} : { changeSubcommand }),
-    ciFix,
     ...(distributionSubcommand === undefined ? {} : { distributionSubcommand }),
   });
   if (jsonlOutput) throw new Error("skillset: --jsonl is not supported until a streaming route is enabled");
@@ -2340,7 +2298,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     yes,
   });
 
-  validateIsolatedFlag(command, isolated);
+  validateIsolatedFlag(command, isolated, checkOnly);
   validateDistributionFlags(command, {
     ...(buildMode === undefined ? {} : { buildMode }),
     dryRun,
@@ -2432,7 +2390,10 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(changeScopes === undefined ? {} : { changeScopes }),
     ...(changeSubcommand === undefined ? {} : { changeSubcommand }),
     ciFix,
+    ciMode,
     ...(ciReportPath === undefined ? {} : { ciReportPath }),
+    ...(checkOnly === undefined ? {} : { checkOnly }),
+    checkWrite,
     devApply,
     devWatch,
     ...(distributionName === undefined ? {} : { distributionName }),
@@ -2788,7 +2749,7 @@ function validateSourceDiagnosticFlags(
     readonly yes: boolean;
   }
 ): void {
-  if (command !== "check" && command !== "lint") return;
+  if (command !== "check") return;
   const label = `skillset ${command}`;
   if (sourceCheck.buildMode !== undefined) {
     throw new Error(`${label} does not support --updated or --all; it checks source diagnostics`);
@@ -2979,32 +2940,40 @@ function readSetupTargets(value: string): readonly TargetName[] {
   return [...seen];
 }
 
-function validateIsolatedFlag(command: Command, isolated: boolean): void {
+function validateIsolatedFlag(command: Command, isolated: boolean, checkOnly?: "outputs"): void {
   if (!isolated) return;
-  if (command === "build" || command === "diff" || command === "verify") return;
-  throw new Error("skillset: --isolated is only supported with build, diff, or verify");
+  if (command === "build" || command === "diff" || (command === "check" && checkOnly === "outputs")) return;
+  throw new Error("skillset: --isolated is only supported with build, check --only outputs, or diff");
 }
 
 function validateCiFlags(
   command: Command,
   ci: {
+    readonly ci: boolean;
     readonly dryRun: boolean;
     readonly fix: boolean;
+    readonly only?: "outputs";
     readonly reportPath?: string;
     readonly since?: string;
+    readonly write: boolean;
     readonly yes: boolean;
   }
 ): void {
-  if (command !== "ci") {
-    if (ci.fix && command !== "check") throw new Error("skillset: --fix is only supported with check or ci");
-    if (ci.reportPath !== undefined) throw new Error("skillset: --report is only supported with ci");
+  if (command !== "check") {
+    if (ci.ci || ci.fix || ci.only !== undefined || ci.reportPath !== undefined || ci.write) {
+      throw new Error("skillset: readiness flags are only supported with check");
+    }
     if (ci.since !== undefined && command !== "change" && command !== "hooks") {
-      throw new Error("skillset: --since is only supported with ci or change commands");
+      throw new Error("skillset: --since is only supported with check --ci or change commands");
     }
     return;
   }
-  if (ci.yes || ci.dryRun) {
-    throw new Error("skillset: ci does not take --yes or --dry-run; use --fix to rebuild stale generated output");
+  if (ci.yes || ci.dryRun) throw new Error("skillset: check does not take --yes or --dry-run");
+  if (ci.fix && !ci.ci) throw new Error("skillset: check --fix requires --ci");
+  if (ci.write && ci.ci) throw new Error("skillset: check --ci uses --fix instead of --write");
+  if ((ci.reportPath !== undefined || ci.since !== undefined) && !ci.ci) throw new Error("skillset: --report and --since require check --ci");
+  if (ci.only !== undefined && (ci.ci || ci.fix || ci.write || ci.reportPath !== undefined || ci.since !== undefined)) {
+    throw new Error("skillset: check --only outputs cannot be combined with CI or write flags");
   }
 }
 
@@ -3088,12 +3057,11 @@ function validateJsonFlags(
   jsonOutput: boolean,
   route: {
     readonly changeSubcommand?: ChangeSubcommand;
-    readonly ciFix: boolean;
     readonly distributionSubcommand?: DistributionSubcommand;
   }
 ): void {
   if (!jsonOutput) return;
-  if (command === "check" && !route.ciFix) return;
+  if (command === "check") return;
   if (command === "change" && (route.changeSubcommand === "check" || route.changeSubcommand === "history" || route.changeSubcommand === "list" || route.changeSubcommand === "show" || route.changeSubcommand === "status")) return;
   if (command === "diff" || command === "doctor" || command === "explain" || command === "features" || command === "list" || command === "lookup" || command === "marketplace" || command === "try") return;
   if (command === "distribute" && route.distributionSubcommand === "plan") return;

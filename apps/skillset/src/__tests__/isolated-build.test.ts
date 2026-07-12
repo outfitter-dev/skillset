@@ -120,7 +120,7 @@ test("isolated build backs up unmanaged files planted inside the mirror", async 
   expect(result.writes.backupRunId).toBeDefined();
 });
 
-test("CLI accepts --isolated for build and rejects it elsewhere", async () => {
+test("CLI accepts --isolated for build and the narrow output check", async () => {
   const root = await fixture(DEMO_FIXTURE);
 
   const build = await runSkillsetCli("build", "--isolated", "--yes", "--root", root);
@@ -128,12 +128,12 @@ test("CLI accepts --isolated for build and rejects it elsewhere", async () => {
   expect(await exists(cachePath(root, MIRROR_SKILL))).toBe(true);
   expect(await exists(join(root, LIVE_SKILL))).toBe(false);
 
-  const verify = await runSkillsetCli("verify", "--isolated", "--root", root);
-  expect(verify.exitCode).toBe(0);
+  const outputs = await runSkillsetCli("check", "--only", "outputs", "--isolated", "--root", root);
+  expect(outputs.exitCode).toBe(0);
 
-  const lint = await runSkillsetCli("lint", "--isolated", "--root", root);
-  expect(lint.exitCode).toBe(1);
-  expect(lint.stderr).toContain("--isolated is only supported with build, diff, or verify");
+  const check = await runSkillsetCli("check", "--isolated", "--root", root);
+  expect(check.exitCode).toBe(1);
+  expect(check.stderr).toContain("--isolated is only supported with build, check --only outputs, or diff");
 });
 
 async function fixture(files: Record<string, string>): Promise<string> {

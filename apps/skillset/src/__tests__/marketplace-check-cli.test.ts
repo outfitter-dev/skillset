@@ -294,7 +294,9 @@ Use this demo skill.
       ...remote.env,
       GIT_CONFIG_VALUE_0: "file:///definitely-unavailable/",
     },
-    "verify",
+    "check",
+    "--only",
+    "outputs",
     "--root",
     marketplace
   );

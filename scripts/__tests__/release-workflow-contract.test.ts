@@ -25,7 +25,7 @@ describe("generated release PR workflow contract", () => {
     const releaseCheck = steps.find(
       (step) => step.name === "Check generated release package"
     );
-    const sourceCheck = steps.find((step) => step.name === "Run skillset ci");
+    const sourceCheck = steps.find((step) => step.name === "Run skillset check --ci");
 
     expect(workflow.on?.workflow_dispatch).toEqual({});
     expect(releaseCheck?.run).toBe("bun scripts/publish.ts check");

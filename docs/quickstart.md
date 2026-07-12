@@ -100,7 +100,7 @@ skillset build --yes
 Then verify the generated files are current:
 
 ```bash
-skillset verify
+skillset check --only outputs
 ```
 
 ## Inspect The Output
@@ -146,7 +146,7 @@ Before sharing a 0.16-era Skillset source repo with another author, make sure:
 - `skillset check` passes for source authoring diagnostics.
 - `skillset build` shows the generated-output plan you expect.
 - `skillset build --yes` has refreshed the repo-local generated output you expect.
-- `skillset verify` passes so checked-in generated output matches source.
+- `skillset check --only outputs` passes so checked-in generated output matches source.
 - The generated output locations are visible in review, usually `.claude/`,
   `.agents/`, and `skillset.lock` for the default path.
 - Runtime activation is deliberately out of band: do not ask authors to install,
@@ -163,4 +163,4 @@ Before sharing a 0.16-era Skillset source repo with another author, make sure:
   diagnostics, and provenance.
 - [Workbench Check](features/workbench.md) explains `check` versus `verify`.
 - [Dev Watch](features/dev-watch.md) covers the default-preview watch loop and explicit apply mode.
-- [CI](features/ci.md) explains the `skillset ci` gate and optional workflow.
+- [CI](features/ci.md) explains the `skillset check --ci` gate and optional workflow.

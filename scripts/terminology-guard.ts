@@ -52,7 +52,7 @@ export const ALLOWLIST_PATHS: readonly string[] = [
   "docs/adrs/",
   // Goal packets describe the old vocabulary they are cutting over.
   ".agents/plans/",
-  // Generated output trees are validated against `.skillset/` source by skillset:verify.
+  // Generated output trees are validated against `.skillset/` source by check --only outputs.
   ".agents/skills/",
   ".claude/",
   "plugins/",

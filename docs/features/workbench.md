@@ -4,25 +4,25 @@ Related feature id: `workflows`
 
 Support vocabulary: [Feature Reference](README.md#feature-reference-vocabulary)
 
-Workbench is Skillset's source and workspace correctness surface. It is the place for checks that help authors make a better Skillset workspace before generated output is written or trusted. The public `skillset check` command is part of the `workflows` feature entry and currently runs the existing authoring diagnostics path; the private `@skillset/workbench` workspace package is the internal implementation layer for richer parser, schema, preset, scope, and rule-id diagnostics as they move toward the CLI.
+Workbench is Skillset's source and workspace correctness surface. The public `skillset check` family combines source diagnostics and generated-output readiness behind one command; the private `@skillset/workbench` workspace package remains the internal implementation layer for richer parser, schema, preset, scope, and rule-id diagnostics.
 
 ## Commands
 
-Use `skillset check` for the currently wired source authoring diagnostics:
+Use `skillset check` for comprehensive, read-only readiness:
 
 ```bash
 skillset check --root .
 ```
 
-Use `skillset verify` for generated-output freshness:
+Use the narrow mode when a hook or script needs only generated-output freshness:
 
 ```bash
-skillset verify --root .
+skillset check --only outputs --root .
 ```
 
-That split is intentional. `check` answers "does the current authoring diagnostics path find source issues?" `verify` answers "do the generated files on disk still match what this source would build?" Hooks and CI usually run both, with `change check` first when a repo uses pending change entries.
+`check --write` repairs ordinary source-driven drift only after the non-drift checks pass. It refuses target-side generated edits and provider-format migrations; use the reconciliation flow for the former and `skillset update` for the latter. `check --ci` adds branch-aware change-entry and package Changesets gates, and `check --ci --fix` enables the same bounded mechanical repair for CI. The old top-level `lint`, `verify`, and `ci` commands are removed without aliases.
 
-`skillset lint` remains available as the direct lint surface for current source diagnostics. `skillset check` is the Workbench-facing command and currently routes implemented source diagnostics through the existing lint engine. Parser/schema checks, diagnostic scopes, presets, and exact rule-id selection are implemented in the private `@skillset/workbench` workspace package for tests and future CLI integration; they are not yet exposed as `skillset check --preset`, `--scope`, or `--rule` flags.
+Parser/schema checks, diagnostic scopes, presets, and exact rule-id selection are implemented in the private `@skillset/workbench` workspace package for tests and future CLI integration; they are not yet exposed as `skillset check --preset`, `--scope`, or `--rule` flags.
 
 ## Diagnostic Model
 
