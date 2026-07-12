@@ -4785,7 +4785,7 @@ Body.
   expect(diff.stdout).toContain("generated CHANGELOG.md files are managed projections");
 });
 
-test("SET-151: suggest-source previews and writes clean generated skill body edits", async () => {
+test("SET-282: reconcile previews and applies output-wins skill edits", async () => {
   const root = await contractFixture({
     "skillset.yaml": `
 skillset:
@@ -4811,28 +4811,43 @@ Original source body.
     "utf8"
   );
 
-  const preview = await runSkillsetCli("suggest-source", generatedPath, "--root", root);
+  const preview = await runSkillsetCli("reconcile", generatedPath, "--root", root);
   expect(preview.exitCode).toBe(0);
-  expect(preview.stdout).toContain("skillset: source suggestion suggestible");
+  expect(preview.stdout).toContain("output wins: available");
+  expect(preview.stdout).toContain("source wins: available");
   expect(preview.stdout).toContain("source: .skillset/skills/demo/SKILL.md");
-  expect(preview.stdout).toContain("write: preview");
-  expect(preview.stdout).toContain("rerun with `--write --yes`");
   await expect(readFile(join(root, ".skillset/skills/demo/SKILL.md"), "utf8")).resolves.toContain("Original source body.");
 
-  const writeAttempt = await runSkillsetCli("suggest-source", generatedPath, "--write", "--root", root);
-  expect(writeAttempt.exitCode).toBe(1);
-  expect(writeAttempt.stderr).toContain("suggest-source --write requires --yes");
-
-  const written = await runSkillsetCli("suggest-source", generatedPath, "--write", "--yes", "--root", root);
+  const written = await runSkillsetCli("reconcile", generatedPath, "--use", "output", "--yes", "--root", root);
   expect(written.exitCode).toBe(0);
-  expect(written.stdout).toContain("skillset: source suggestion written");
-  expect(written.stdout).toContain("write: applied");
+  expect(written.stdout).toContain("reconciled using output");
   const source = await readFile(join(root, ".skillset/skills/demo/SKILL.md"), "utf8");
   expect(source).toContain("Edited generated body.");
   expect(source).not.toContain("metadata:");
+
+  const removed = await runSkillsetCli("suggest-source", generatedPath, "--root", root);
+  expect(removed.exitCode).toBe(1);
+  expect(removed.stderr).toContain("expected command");
 });
 
-test("SET-151: suggest-source refuses generated changelog edits", async () => {
+test("SET-282: reconcile applies source-wins with output backup safety", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": "skillset:\n  name: reconcile-source\nclaude: true\ncodex: false\n",
+    ".skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo.\n---\n\nSource body.\n",
+  });
+  await buildSkillset(root);
+  const generatedPath = ".claude/skills/demo/SKILL.md";
+  await writeFile(join(root, generatedPath), "---\nname: demo\ndescription: Demo.\n---\n\nOutput edit.\n", "utf8");
+
+  const result = await runSkillsetCli("reconcile", generatedPath, "--use", "source", "--yes", "--root", root);
+
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout).toContain("reconciled using source");
+  expect(await readFile(join(root, generatedPath), "utf8")).toContain("Source body.");
+  expect(await readFile(join(root, ".skillset/skills/demo/SKILL.md"), "utf8")).not.toContain("Output edit.");
+});
+
+test("SET-282: reconcile refuses output-wins generated changelog edits", async () => {
   const root = await contractFixture({
     "skillset.yaml": `
 skillset:
@@ -4860,12 +4875,9 @@ Body.
   ]);
   await buildSkillset(root);
 
-  const refused = await runSkillsetCli("suggest-source", ".skillset/skills/demo/CHANGELOG.md", "--root", root);
+  const refused = await runSkillsetCli("reconcile", ".skillset/skills/demo/CHANGELOG.md", "--use", "output", "--yes", "--root", root);
   expect(refused.exitCode).toBe(1);
-  expect(refused.stdout).toContain("source suggestion refused");
-  expect(refused.stdout).toContain("Generated changelogs are managed projections");
-  expect(refused.stdout).toContain("skillset change amend <@ref>");
-  expect(refused.stdout).toContain("skillset release amend <@ref>");
+  expect(refused.stderr).toContain("Generated changelogs are managed projections");
 });
 
 test("SET-37: plugin changelog aggregates child skill applied records", async () => {

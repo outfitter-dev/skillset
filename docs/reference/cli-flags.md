@@ -90,7 +90,6 @@ The entries below are the complete final public flag set. Positional arguments a
 | `--global` | Removed with top-level `create`; external destination uses `init [destination]`. |
 | `--dry-run` | Removed; preview is already the default. |
 | `dev --watch --apply` | Becomes bare `dev` and explicit `dev --write`. |
-| `suggest-source --write --yes` | Becomes `reconcile --use output --yes`. |
 | `check --fix` | Becomes local `check --write`; `--fix` remains CI-only. |
 | `--claude`, `--codex`, `--cursor` lookup aliases | Removed; use `--compat <providers>`. |
 | command-local `--json` | Standardized as one finite versioned result document by SET-284. |

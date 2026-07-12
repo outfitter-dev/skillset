@@ -49,9 +49,7 @@ import {
   explainPath,
   listFeatureCapabilities,
   listGeneratedEntries,
-  suggestSource,
   type FeatureCapability,
-  type SourceSuggestionReport,
 } from "@skillset/core/internal/authoring";
 import { ciSkillset, hasDrift, renderCiReportMarkdown, type CiReport } from "./ci";
 import { printDiagnostics, printDiffPlan, printGeneratedChangelogDriftHint, printGeneratedChangelogPathHint } from "./cli-renderers";
@@ -100,6 +98,7 @@ import {
   renderProviderFormatUpdateReport,
   runProviderFormatUpdates,
 } from "./provider-format-updates";
+import { reconcileManagedPath, renderReconcileReport, type ReconcileChoice } from "./reconcile";
 import { readClaudeSettingSources, type TryClaudeSettingSources, type TrySubcommand } from "./try";
 import {
   isTrySubcommand,
@@ -139,7 +138,7 @@ const USAGE = [
   "       skillset release apply [--yes|--dry-run] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset release amend <@ref> [--reason <text>|--reason-file <path>|--reason -] [--root <path>]",
   "       skillset restore <backup-id> [--yes|--dry-run] [--root <path>]",
-  "       skillset suggest-source <generated-path> [--write --yes] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset reconcile <managed-path> [--use <source|output> --yes] [--root <path>]",
   "       skillset distribute plan [name] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset marketplace check [name] [--json] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset marketplace update [name] [--yes|--dry-run] [--json] [--root <path>] [--source <dir>] [--dist <dir>]",
@@ -239,12 +238,13 @@ export async function runCli(
     tryTimeoutMs,
     setupIncludes,
     setupTargets,
-    sourceSuggestionWrite,
+    reconcileChoice,
     testName,
     yes,
   } = parseCliArgs(args);
 
   if (command === "build") {
+    console.log("skillset: build projects source to generated output");
     if (dryRun || !yes) {
       const result = await diffSkillsetResult(rootPath, options);
       printDiagnostics(result.diagnostics);
@@ -871,16 +871,16 @@ export async function runCli(
     return;
   }
 
-  if (command === "suggest-source") {
+  if (command === "reconcile") {
     if (importPath === undefined) {
-      throw new Error("skillset: expected a generated path to suggest source");
+      throw new Error("skillset: expected a managed path to reconcile");
     }
-    const report = await suggestSource(rootPath, importPath, {
+    const report = await reconcileManagedPath(rootPath, importPath, {
       ...options,
-      write: sourceSuggestionWrite && yes,
+      ...(reconcileChoice === undefined ? {} : { choice: reconcileChoice }),
+      write: reconcileChoice !== undefined && yes,
     });
-    printSourceSuggestion(report);
-    if (report.status === "refused") process.exitCode = 1;
+    process.stdout.write(renderReconcileReport(report));
     return;
   }
 
@@ -1139,7 +1139,7 @@ interface ParsedArgs {
   readonly rootPath: string;
   readonly setupIncludes?: readonly SetupInclude[];
   readonly setupTargets?: readonly TargetName[];
-  readonly sourceSuggestionWrite: boolean;
+  readonly reconcileChoice?: ReconcileChoice;
   readonly testName?: string;
   readonly yes: boolean;
 }
@@ -1210,21 +1210,6 @@ function printChangeCheck(report: ChangeCheckReport): void {
   process.exitCode = 1;
 }
 
-function printSourceSuggestion(report: SourceSuggestionReport): void {
-  console.log(`skillset: source suggestion ${report.status} ${report.generatedPath}`);
-  if (report.sourcePath !== undefined) console.log(`  source: ${report.sourcePath}`);
-  if (report.lockPath !== undefined) console.log(`  lock: ${report.lockPath}`);
-  console.log(`  message: ${report.message}`);
-  if (report.wouldWrite) console.log(`  write: ${report.wrote ? "applied" : "preview"}`);
-  for (const entry of report.entries) {
-    console.log(`  owner: [${entry.target}] ${entry.kind ?? "generated"} ${entry.sourcePath} -> ${entry.outputPath}`);
-  }
-  if (report.nextSteps.length > 0) {
-    console.log("  next:");
-    for (const step of report.nextSteps) console.log(`    ${step}`);
-  }
-}
-
 function printChangeStatus(report: ChangeStatusReport): void {
   const baseline =
     report.baseline.kind === "git-ref"
@@ -1288,7 +1273,7 @@ function printCiReport(report: CiReport): void {
   for (const path of drift.removed) console.log(`  generated - ${path}`);
   printGeneratedChangelogDriftHint(drift);
   for (const suggestion of report.sourceSuggestions ?? []) {
-    console.log(`  source suggestion ${suggestion.status}: ${suggestion.generatedPath}`);
+    console.log(`  reconcile output ${suggestion.status}: ${suggestion.generatedPath}`);
     if (suggestion.sourcePath !== undefined) console.log(`    source: ${suggestion.sourcePath}`);
     console.log(`    ${suggestion.message}`);
   }
@@ -1787,7 +1772,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let scopes: readonly BuildScope[] | undefined;
   let setupIncludes: readonly SetupInclude[] | undefined;
   let setupTargets: readonly TargetName[] | undefined;
-  let sourceSuggestionWrite = false;
+  let reconcileChoice: ReconcileChoice | undefined;
   let testName: string | undefined;
   let yes = false;
   let index = 1;
@@ -1903,7 +1888,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     }
   }
 
-  if (command === "explain" || command === "suggest-source") {
+  if (command === "explain" || command === "reconcile") {
     const rawPath = args[index];
     if (rawPath === undefined || rawPath.startsWith("--")) {
       throw new Error(`skillset: expected a path to ${command}`);
@@ -2000,6 +1985,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--fix" &&
       flag !== "--ci" &&
       flag !== "--only" &&
+      flag !== "--use" &&
       flag !== "--report" &&
       flag !== "--json" &&
       flag !== "--jsonl" &&
@@ -2096,10 +2082,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       if (flag === "--agent-runtime") hookAgentRuntime = true;
       if (flag === "--pre-commit") hookPreCommit = true;
       if (flag === "--pre-push") hookPrePush = true;
-      if (flag === "--write") {
-        if (command === "check") checkWrite = true;
-        else sourceSuggestionWrite = true;
-      }
+      if (flag === "--write" && command === "check") checkWrite = true;
       if (flag === "--watch") devWatch = true;
       if (flag === "--frontmatter") lookupViews = addLookupView(lookupViews, "frontmatter");
       if (flag === "--fields") lookupViews = addLookupView(lookupViews, "fields");
@@ -2160,6 +2143,10 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     if (flag === "--only") {
       if (value !== "outputs") throw new Error("skillset: expected --only outputs");
       checkOnly = value;
+    }
+    if (flag === "--use") {
+      if (value !== "source" && value !== "output") throw new Error("skillset: --use expects source or output");
+      reconcileChoice = value;
     }
     if (flag === "--field") lookupField = setLookupField(lookupField, value);
     if (flag === "--runner") hookRunner = readHookRunner(value);
@@ -2373,12 +2360,12 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(scopes === undefined ? {} : { scopes }),
     ...(sourceDir === undefined ? {} : { sourceDir }),
   });
-  validateSuggestSourceFlags(command, {
+  validateReconcileFlags(command, {
     ...(buildMode === undefined ? {} : { buildMode }),
     ...(changeSince === undefined ? {} : { changeSince }),
     dryRun,
     ...(scopes === undefined ? {} : { scopes }),
-    write: sourceSuggestionWrite,
+    ...(reconcileChoice === undefined ? {} : { choice: reconcileChoice }),
     yes,
   });
   validateNewSourceFlags(command, {
@@ -2472,7 +2459,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     rootPath: resolve(rootPath),
     ...(setupIncludes === undefined ? {} : { setupIncludes }),
     ...(setupTargets === undefined ? {} : { setupTargets }),
-    sourceSuggestionWrite,
+    ...(reconcileChoice === undefined ? {} : { reconcileChoice }),
     ...(testName === undefined ? {} : { testName }),
     yes,
   };
@@ -2815,27 +2802,24 @@ function validateRestoreFlags(
   }
 }
 
-function validateSuggestSourceFlags(
+function validateReconcileFlags(
   command: Command,
-  suggestion: {
+  reconcile: {
     readonly buildMode?: CompileBuildMode;
     readonly changeSince?: string;
     readonly dryRun: boolean;
     readonly scopes?: readonly BuildScope[];
-    readonly write: boolean;
+    readonly choice?: ReconcileChoice;
     readonly yes: boolean;
   }
 ): void {
-  if (suggestion.write && command !== "suggest-source") {
-    throw new Error("skillset: --write is only supported with suggest-source");
-  }
-  if (command !== "suggest-source") return;
-  if (suggestion.buildMode !== undefined) throw new Error("skillset: --updated and --all are not supported with suggest-source");
-  if (suggestion.changeSince !== undefined) throw new Error("skillset: --since is not supported with suggest-source");
-  if (suggestion.dryRun) throw new Error("skillset: --dry-run is redundant for suggest-source preview mode");
-  if (suggestion.scopes !== undefined) throw new Error("skillset: --scope is not supported with suggest-source");
-  if (suggestion.yes && !suggestion.write) throw new Error("skillset: --yes is only supported with suggest-source --write");
-  if (suggestion.write && !suggestion.yes) throw new Error("skillset: suggest-source --write requires --yes");
+  if (reconcile.choice !== undefined && command !== "reconcile") throw new Error("skillset: --use is only supported with reconcile");
+  if (command !== "reconcile") return;
+  if (reconcile.buildMode !== undefined) throw new Error("skillset: --updated and --all are not supported with reconcile");
+  if (reconcile.changeSince !== undefined) throw new Error("skillset: --since is not supported with reconcile");
+  if (reconcile.dryRun) throw new Error("skillset: --dry-run is redundant for reconcile preview mode");
+  if (reconcile.scopes !== undefined) throw new Error("skillset: --scope is not supported with reconcile");
+  if (reconcile.yes && reconcile.choice === undefined) throw new Error("skillset: reconcile --yes requires --use source or --use output");
 }
 
 function validateNewSourceFlags(

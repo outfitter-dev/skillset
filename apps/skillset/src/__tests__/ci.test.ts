@@ -60,7 +60,7 @@ test("ci reports generated drift without writing when fix is off", async () => {
   expect(await readFile(generatedPath, "utf8")).toBe(edited);
   const markdown = renderCiReportMarkdown(report);
   expect(markdown).toContain("### Stale generated output");
-  expect(markdown).toContain("### Source suggestions");
+  expect(markdown).toContain("### Reconciliation");
   expect(markdown).toContain("Generated Markdown body can be moved back to the source file");
   expect(markdown).toContain("skillset build --yes");
 });
@@ -167,7 +167,7 @@ test("check --write refuses target-side generated edits", async () => {
   const markdown = renderCiReportMarkdown(report);
   expect(markdown).toContain("### Target-side generated edits");
   expect(markdown).toContain("will not overwrite");
-  expect(markdown).toContain("### Source suggestions");
+  expect(markdown).toContain("### Reconciliation");
 });
 
 test("check --write refuses unmanaged output collisions", async () => {

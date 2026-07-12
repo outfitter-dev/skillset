@@ -334,7 +334,7 @@ export async function suggestSource(
       : "Generated Markdown body can be moved back to the source file.",
     nextSteps: write
       ? ["Run `skillset build --yes` to refresh generated output.", "Run `skillset change add` or `skillset change check` if the source edit needs change coverage."]
-      : ["Review the body change, then rerun with `--write --yes` to update source.", "After accepting, run `skillset build --yes`."],
+      : [`Review the body change, then run \`skillset reconcile ${generatedPath} --use output --yes\`.`],
     sourcePath,
     status: write ? "written" : "suggestible",
     wouldWrite: true,

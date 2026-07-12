@@ -356,7 +356,7 @@ export function renderCiReportMarkdown(report: CiReport): string {
   }
 
   if (report.sourceSuggestions !== undefined && report.sourceSuggestions.length > 0) {
-    lines.push("### Source suggestions", "");
+    lines.push("### Reconciliation", "");
     for (const suggestion of report.sourceSuggestions) {
       const source = suggestion.sourcePath === undefined ? "" : ` source \`${suggestion.sourcePath}\``;
       lines.push(`- ${suggestion.status}: \`${suggestion.generatedPath}\`${source}: ${suggestion.message}`);
