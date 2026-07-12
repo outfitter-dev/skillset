@@ -153,9 +153,9 @@ const USAGE = [
   "       skillset features [feature-id] [--json]",
   "       skillset lookup [subject] [aspect...] [--frontmatter] [--fields] [--field <path>] [--values] [--events] [--compat [claude|codex|cursor...]] [--examples] [--schema] [--claude] [--codex] [--cursor] [--json]",
   "       skillset test [name] [--root <path>] [--source <dir>]",
-  "       skillset try --target <claude|codex|cursor> [--prompt <text>|--prompt-file <path>] [--plugin <id>] [--name <name>] [--timeout-ms <ms>] [--claude-setting-sources <isolated|user|project|local>] [--background] [--json] [--root <path>] [--source <dir>]",
-  "       skillset try <status|tail> [run-id] [--lines <count>] [--json] [--root <path>]",
-  "       skillset try list [--json] [--root <path>]",
+  "       skillset test --target <claude|codex|cursor> [--prompt <text>|--prompt-file <path>] [--plugin <id>] [--name <name>] [--timeout-ms <ms>] [--claude-setting-sources <isolated|user|project|local>] [--background] [--json] [--root <path>] [--source <dir>]",
+  "       skillset test <status|tail> [run-id] [--lines <count>] [--json] [--root <path>]",
+  "       skillset test list [--json] [--root <path>]",
   "       skillset hooks print --runner <lefthook|husky|pre-commit|git> [--pre-commit] [--pre-push]",
   "       skillset hooks print --target <claude|codex> --agent-runtime",
   "       skillset hooks run <post-tool-use|stop> [--root <path>]",
@@ -280,25 +280,6 @@ export async function runCli(
   if (command === "dev") {
     if (!devWatch) throw new Error("skillset: dev currently requires --watch");
     await runDevWatch(rootPath, options, process.stdout, devApply ? "apply" : "preview");
-    return;
-  }
-
-  if (command === "try") {
-    await runTryCommand(rootPath, {
-      background: tryBackground,
-      ...(tryClaudeSettingSources === undefined ? {} : { claudeSettingSources: tryClaudeSettingSources }),
-      json: jsonOutput,
-      ...(tryLines === undefined ? {} : { lines: tryLines }),
-      ...(tryName === undefined ? {} : { name: tryName }),
-      plugins: tryPlugins,
-      ...(tryPrompt === undefined ? {} : { prompt: tryPrompt }),
-      ...(tryPromptFile === undefined ? {} : { promptFile: tryPromptFile }),
-      ...(tryRunId === undefined ? {} : { runId: tryRunId }),
-      skillsetOptions: options,
-      ...(trySubcommand === undefined ? {} : { subcommand: trySubcommand }),
-      ...(tryTarget === undefined ? {} : { target: tryTarget }),
-      ...(tryTimeoutMs === undefined ? {} : { timeoutMs: tryTimeoutMs }),
-    });
     return;
   }
 
@@ -562,6 +543,24 @@ export async function runCli(
   }
 
   if (command === "test") {
+    if (trySubcommand !== undefined || tryTarget !== undefined) {
+      await runTryCommand(rootPath, {
+        background: tryBackground,
+        ...(tryClaudeSettingSources === undefined ? {} : { claudeSettingSources: tryClaudeSettingSources }),
+        json: jsonOutput,
+        ...(tryLines === undefined ? {} : { lines: tryLines }),
+        ...(tryName === undefined ? {} : { name: tryName }),
+        plugins: tryPlugins,
+        ...(tryPrompt === undefined ? {} : { prompt: tryPrompt }),
+        ...(tryPromptFile === undefined ? {} : { promptFile: tryPromptFile }),
+        ...(tryRunId === undefined ? {} : { runId: tryRunId }),
+        skillsetOptions: options,
+        ...(trySubcommand === undefined ? {} : { subcommand: trySubcommand }),
+        ...(tryTarget === undefined ? {} : { target: tryTarget }),
+        ...(tryTimeoutMs === undefined ? {} : { timeoutMs: tryTimeoutMs }),
+      });
+      return;
+    }
     const report = await runSkillsetTest(rootPath, testName, options);
     printSkillsetTest(report);
     if (!report.ok) process.exitCode = 1;
@@ -1889,11 +1888,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     index += 1;
   }
 
-  if (command === "try") {
+  if (command === "test") {
     const subcommand = args[index];
-    if (subcommand !== undefined && !subcommand.startsWith("--") && !isTrySubcommand(subcommand)) {
-      throw new Error("skillset: expected try options or subcommand list, status, or tail");
-    }
     if (isTrySubcommand(subcommand)) {
       trySubcommand = subcommand;
       index += 1;
@@ -1973,7 +1969,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     index += 1;
   }
 
-  if (command === "test") {
+  if (command === "test" && trySubcommand === undefined) {
     const rawName = args[index];
     if (rawName !== undefined && !rawName.startsWith("--")) {
       testName = rawName;
@@ -2198,7 +2194,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     if (flag === "--format") hookContextFormat = readHookRuntimeContextFormat(value);
     if (flag === "--context-fields") hookContextFields = readHookRuntimeContextFields(value);
     if (flag === "--target") {
-      if (command === "try") tryTarget = readTargetName(value);
+      if (command === "test") tryTarget = readTargetName(value);
       else hookTarget = readHookTarget(value);
     }
     if (flag === "--prompt") tryPrompt = value;
@@ -2215,7 +2211,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     if (flag === "--in") newContainer = value;
     if (flag === "--name") {
       if (command === "new") newName = value;
-      else if (command === "try") tryName = value;
+      else if (command === "test") tryName = value;
       else importName = value;
     }
     if (flag === "--preset") newPresets = [...(newPresets ?? []), value];
@@ -3113,7 +3109,7 @@ function validateJsonFlags(
   if (!jsonOutput) return;
   if (command === "check") return;
   if (command === "change" && (route.changeSubcommand === "check" || route.changeSubcommand === "history" || route.changeSubcommand === "list" || route.changeSubcommand === "show" || route.changeSubcommand === "status")) return;
-  if (command === "diff" || command === "doctor" || command === "explain" || command === "features" || command === "list" || command === "lookup" || command === "marketplace" || command === "try") return;
+  if (command === "diff" || command === "doctor" || command === "explain" || command === "features" || command === "list" || command === "lookup" || command === "marketplace" || command === "test") return;
   if (command === "distribute" && route.distributionSubcommand === "plan") return;
   throw new Error("skillset: --json is not supported for this command route");
 }

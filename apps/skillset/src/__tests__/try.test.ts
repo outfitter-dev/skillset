@@ -33,7 +33,7 @@ Use this skill to answer fixture questions.
   const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
 
   const report = await startTryRun(root, {
-    env: { ...process.env, SKILLSET_TRY_CODEX_BIN: bin },
+    env: { ...process.env, SKILLSET_TEST_CODEX_BIN: bin },
     prompt: "List the available fixture skills.",
     target: "codex",
     xdg,
@@ -41,7 +41,7 @@ Use this skill to answer fixture questions.
 
   expect(report.ok).toBe(true);
   expect(report.state).toBe("passed");
-  expect(report.runPath).toStartWith(".skillset/cache/runtime-tests/runs/");
+  expect(report.runPath).toStartWith(".skillset/cache/tests/ad-hoc/runs/");
   expect(await exists(cachePath(root, xdg, report.tailPath))).toBe(true);
   expect(await readFile(cachePath(root, xdg, report.reportPath), "utf8")).toContain("fake codex final");
 
@@ -86,7 +86,7 @@ Use this skill to answer fixture questions.
   const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
 
   const report = await startTryRun(root, {
-    env: { ...process.env, SKILLSET_TRY_CLAUDE_BIN: bin },
+    env: { ...process.env, SKILLSET_TEST_CLAUDE_BIN: bin },
     plugins: ["acme"],
     prompt: "Inspect Claude fixture.",
     target: "claude",
@@ -135,7 +135,7 @@ Use this skill to answer fixture questions.
   const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
 
   const report = await startTryRun(root, {
-    env: { ...process.env, SKILLSET_TRY_CURSOR_BIN: bin },
+    env: { ...process.env, SKILLSET_TEST_CURSOR_BIN: bin },
     plugins: ["acme"],
     prompt: "Inspect Cursor fixture.",
     target: "cursor",
@@ -186,7 +186,7 @@ Use this skill to answer fixture questions.
   const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
 
   const fromDefault = await startTryRun(root, {
-    env: { ...process.env, SKILLSET_TRY_CLAUDE_BIN: bin },
+    env: { ...process.env, SKILLSET_TEST_CLAUDE_BIN: bin },
     prompt: "Inspect Claude default fixture.",
     target: "claude",
     xdg,
@@ -196,8 +196,8 @@ Use this skill to answer fixture questions.
   const fromEnv = await startTryRun(root, {
     env: {
       ...process.env,
-      SKILLSET_TRY_CLAUDE_BIN: bin,
-      SKILLSET_TRY_CLAUDE_SETTING_SOURCES: "user",
+      SKILLSET_TEST_CLAUDE_BIN: bin,
+      SKILLSET_TEST_CLAUDE_SETTING_SOURCES: "user",
     },
     prompt: "Inspect Claude env fixture.",
     target: "claude",
@@ -209,8 +209,8 @@ Use this skill to answer fixture questions.
     claudeSettingSources: "local",
     env: {
       ...process.env,
-      SKILLSET_TRY_CLAUDE_BIN: bin,
-      SKILLSET_TRY_CLAUDE_SETTING_SOURCES: "user",
+      SKILLSET_TEST_CLAUDE_BIN: bin,
+      SKILLSET_TEST_CLAUDE_SETTING_SOURCES: "user",
     },
     prompt: "Inspect Claude option fixture.",
     target: "claude",
@@ -309,27 +309,32 @@ CLI fixture body.
   const bin = await fakeCodexBin(root);
   const env = {
     ...process.env,
-    SKILLSET_TRY_CODEX_BIN: bin,
+    SKILLSET_TEST_CODEX_BIN: bin,
     XDG_CACHE_HOME: join(root, "xdg-cache"),
   };
 
-  const run = await runSkillsetCli(env, "try", "--target", "codex", "--prompt", "Inspect CLI fixture.", "--json", "--root", root);
+  const run = await runSkillsetCli(env, "test", "--target", "codex", "--prompt", "Inspect CLI fixture.", "--json", "--root", root);
   expect(run.exitCode).toBe(0);
-  const report = JSON.parse(run.stdout) as { runId: string; runPath: string; state: string };
+  const report = JSON.parse(run.stdout) as { kind: string; runId: string; runPath: string; state: string };
+  expect(report.kind).toBe("ad-hoc");
   expect(report.state).toBe("passed");
-  expect(report.runPath).toStartWith(".skillset/cache/runtime-tests/runs/");
+  expect(report.runPath).toStartWith(".skillset/cache/tests/ad-hoc/runs/");
 
-  const status = await runSkillsetCli(env, "try", "status", report.runId, "--json", "--root", root);
+  const status = await runSkillsetCli(env, "test", "status", report.runId, "--json", "--root", root);
   expect(status.exitCode).toBe(0);
   expect(JSON.parse(status.stdout)).toEqual(expect.objectContaining({ runId: report.runId, state: "passed" }));
 
-  const tail = await runSkillsetCli(env, "try", "tail", report.runId, "--lines", "10", "--json", "--root", root);
+  const tail = await runSkillsetCli(env, "test", "tail", report.runId, "--lines", "10", "--json", "--root", root);
   expect(tail.exitCode).toBe(0);
   expect(tail.stdout).toContain("Inspect CLI fixture.");
 
-  const list = await runSkillsetCli(env, "try", "list", "--json", "--root", root);
+  const list = await runSkillsetCli(env, "test", "list", "--json", "--root", root);
   expect(list.exitCode).toBe(0);
   expect(list.stdout).toContain(report.runId);
+
+  const oldTry = await runSkillsetCli(env, "try", "--target", "codex", "--prompt", "Old command.", "--root", root);
+  expect(oldTry.exitCode).toBe(1);
+  expect(oldTry.stderr).toContain("expected command");
 
   const retired = await runSkillsetCli(env, "runtime-tester", "run", "--target", "codex", "--prompt", "Old command.", "--root", root);
   expect(retired.exitCode).toBe(1);
@@ -355,13 +360,13 @@ CLI Claude fixture body.
   const bin = await fakeClaudeBin(root);
   const env = {
     ...process.env,
-    SKILLSET_TRY_CLAUDE_BIN: bin,
+    SKILLSET_TEST_CLAUDE_BIN: bin,
     XDG_CACHE_HOME: join(root, "xdg-cache"),
   };
 
   const run = await runSkillsetCli(
     env,
-    "try",
+    "test",
     "--target",
     "claude",
     "--prompt",
@@ -376,7 +381,7 @@ CLI Claude fixture body.
   const report = JSON.parse(run.stdout) as { runId: string; state: string };
   expect(report.state).toBe("passed");
 
-  const status = await runSkillsetCli(env, "try", "status", report.runId, "--json", "--root", root);
+  const status = await runSkillsetCli(env, "test", "status", report.runId, "--json", "--root", root);
   expect(status.exitCode).toBe(0);
   expect(JSON.parse(status.stdout).command.join(" ")).toContain("--setting-sources local");
 });
@@ -399,14 +404,14 @@ Background fixture body.
   });
   const env = {
     ...process.env,
-    SKILLSET_TRY_CODEX_BIN: await fakeCodexBin(root),
+    SKILLSET_TEST_CODEX_BIN: await fakeCodexBin(root),
     XDG_CACHE_HOME: join(root, "xdg-cache"),
   };
   const xdg = { env };
 
   const started = await runSkillsetCli(
     env,
-    "try",
+    "test",
     "--target",
     "codex",
     "--prompt",
@@ -488,9 +493,9 @@ checks:
   const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
   const runtimeEnv = {
     ...process.env,
-    SKILLSET_TRY_CLAUDE_BIN: await fakeClaudeBin(root),
-    SKILLSET_TRY_CODEX_BIN: await fakeCodexBin(root),
-    SKILLSET_TRY_CURSOR_BIN: await fakeCursorBin(root),
+    SKILLSET_TEST_CLAUDE_BIN: await fakeClaudeBin(root),
+    SKILLSET_TEST_CODEX_BIN: await fakeCodexBin(root),
+    SKILLSET_TEST_CURSOR_BIN: await fakeCursorBin(root),
   };
   const report = await runSkillsetTest(root, "runtime", {
     runtimeEnv,
@@ -507,7 +512,7 @@ checks:
     "inline",
   ]);
   for (const result of report.runtimeTests) {
-    expect(result.runPath).toStartWith(".skillset/cache/runtime-tests/runs/");
+    expect(result.runPath).toStartWith(".skillset/cache/tests/ad-hoc/runs/");
     expect(await exists(cachePath(root, xdg, String(result.reportPath)))).toBe(true);
     expect(await exists(cachePath(root, xdg, String(result.outputPath)))).toBe(true);
     expect(result.assertions.every((assertion) => assertion.ok)).toBe(true);
@@ -563,7 +568,7 @@ checks:
   });
   const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
   const report = await runSkillsetTest(root, "runtime", {
-    runtimeEnv: { ...process.env, SKILLSET_TRY_CODEX_BIN: await fakeCodexBin(root) },
+    runtimeEnv: { ...process.env, SKILLSET_TEST_CODEX_BIN: await fakeCodexBin(root) },
     xdg,
   });
 
@@ -578,7 +583,7 @@ checks:
 
   const authBin = await fakeFailureBin(root, "declared-auth-codex", "Not logged in. Run setup-token.", 1);
   const authReport = await runSkillsetTest(root, "runtime", {
-    runtimeEnv: { ...process.env, SKILLSET_TRY_CODEX_BIN: authBin },
+    runtimeEnv: { ...process.env, SKILLSET_TEST_CODEX_BIN: authBin },
     xdg,
   });
   expect(authReport.runtimeTests[0]).toEqual(expect.objectContaining({
@@ -622,7 +627,7 @@ checks:
   });
   const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
   const report = await runSkillsetTest(root, "runtime", {
-    runtimeEnv: { ...process.env, SKILLSET_TRY_CODEX_BIN: join(root, "must-not-run") },
+    runtimeEnv: { ...process.env, SKILLSET_TEST_CODEX_BIN: join(root, "must-not-run") },
     xdg,
   });
 
@@ -635,7 +640,7 @@ checks:
       target: "codex",
     }),
   ]);
-  expect(await exists(cachePath(root, xdg, ".skillset/cache/runtime-tests/latest.json"))).toBe(false);
+  expect(await exists(cachePath(root, xdg, ".skillset/cache/tests/ad-hoc/latest.json"))).toBe(false);
 });
 
 test("SET-273: failed isolated builds produce normalized render failures", async () => {
@@ -675,7 +680,7 @@ checks:
 `,
   });
   const report = await runSkillsetTest(root, "runtime", {
-    runtimeEnv: { ...process.env, SKILLSET_TRY_CODEX_BIN: join(root, "must-not-run") },
+    runtimeEnv: { ...process.env, SKILLSET_TEST_CODEX_BIN: join(root, "must-not-run") },
   });
 
   expect(report.ok).toBe(false);
@@ -784,7 +789,7 @@ Runtime failure body.
   const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
 
   const missing = await startTryRun(root, {
-    env: { ...process.env, SKILLSET_TRY_CODEX_BIN: join(root, "missing-codex") },
+    env: { ...process.env, SKILLSET_TEST_CODEX_BIN: join(root, "missing-codex") },
     name: "missing-runtime",
     prompt: "Missing runtime.",
     target: "codex",
@@ -794,7 +799,7 @@ Runtime failure body.
 
   const authBin = await fakeFailureBin(root, "auth-claude", "Not logged in. Run setup-token.", 1);
   const auth = await startTryRun(root, {
-    env: { ...process.env, SKILLSET_TRY_CLAUDE_BIN: authBin },
+    env: { ...process.env, SKILLSET_TEST_CLAUDE_BIN: authBin },
     name: "auth-runtime",
     prompt: "Auth runtime.",
     target: "claude",
@@ -804,7 +809,7 @@ Runtime failure body.
 
   const timeoutBin = await fakeSleepingBin(root);
   const timeout = await startTryRun(root, {
-    env: { ...process.env, SKILLSET_TRY_CODEX_BIN: timeoutBin },
+    env: { ...process.env, SKILLSET_TEST_CODEX_BIN: timeoutBin },
     name: "timeout-runtime",
     prompt: "Timeout runtime.",
     target: "codex",

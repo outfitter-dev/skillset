@@ -1896,6 +1896,19 @@ Demo body.
   expect(result.stderr).toContain("use .skillset/tests.yaml.self.checks");
 });
 
+test("SET-280: test lifecycle words are reserved declaration names", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": "skillset:\n  name: reserved-test-name\nclaude: true\ncodex: false\n",
+    ".skillset/tests.yaml": "status:\n  select:\n    skills:\n      primary: [demo]\n  checks:\n    projection: true\n",
+    ".skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n",
+  });
+
+  const result = await runSkillsetCli("test", "--root", root);
+
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain("test name status is reserved for the retained-run lifecycle");
+});
+
 test("SET-50: skillset test runs an isolated projection and refreshes latest", async () => {
   const root = await contractFixture({
     "skillset.yaml": `

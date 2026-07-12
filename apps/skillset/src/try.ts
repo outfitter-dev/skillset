@@ -48,6 +48,7 @@ export interface TryStatus {
   readonly failureClass?: TryFailureClass;
   readonly finalMessagePath?: string;
   readonly latestRoot: string;
+  readonly kind: "ad-hoc";
   readonly name: string;
   readonly outputPath: string;
   readonly pid?: number;
@@ -74,6 +75,7 @@ export interface TryEvidence {
 
 export interface TryRunReport {
   readonly background: boolean;
+  readonly kind: "ad-hoc";
   readonly latestPath: string;
   readonly ok: boolean;
   readonly reportPath: string;
@@ -87,6 +89,7 @@ export interface TryRunReport {
 export interface TryListEntry {
   readonly endedAt?: string;
   readonly name: string;
+  readonly kind: "ad-hoc";
   readonly runId: string;
   readonly runPath: string;
   readonly startedAt: string;
@@ -133,10 +136,10 @@ interface TryStoredConfig {
   readonly timeoutMs: number;
 }
 
-const RUNTIME_TEST_ROOT = ".skillset/cache/runtime-tests";
+const RUNTIME_TEST_ROOT = ".skillset/cache/tests/ad-hoc";
 const DEFAULT_TIMEOUT_MS = 120_000;
 const DEFAULT_CLAUDE_SETTING_SOURCES: TryClaudeSettingSources = "isolated";
-const TRY_CLAUDE_SETTING_SOURCES_ENV = "SKILLSET_TRY_CLAUDE_SETTING_SOURCES";
+const TRY_CLAUDE_SETTING_SOURCES_ENV = "SKILLSET_TEST_CLAUDE_SETTING_SOURCES";
 // Empty --setting-sources keeps Claude probes independent from user/project/local settings while preserving env auth and explicit --plugin-dir inputs.
 const ISOLATED_CLAUDE_SETTING_SOURCES_ARG = "";
 const CLAUDE_SETTING_SOURCES_DISPLAY = "\"\"";
@@ -148,15 +151,15 @@ export async function startTryRun(
   const root = resolve(rootPath);
   const cacheRoot = resolve(options.cacheRootPath ?? root);
   if (options.background === true && cacheRoot !== root) {
-    throw new Error("skillset: background tries cannot use a separate cache root");
+    throw new Error("skillset: background ad hoc tests cannot use a separate cache root");
   }
   const graph = await loadBuildGraph(root, options);
   if (!graph.root.targets[options.target].enabled) {
-    throw new Error(`skillset: try target ${options.target} is not enabled by root target configuration`);
+    throw new Error(`skillset: test target ${options.target} is not enabled by root target configuration`);
   }
-  const name = options.name ?? `try-${options.target}`;
+  const name = options.name ?? `ad-hoc-${options.target}`;
   const plugins = validateTryPlugins(graph, options.target, options.plugins ?? []);
-  const runId = makeRetainedRunId(name, { fallbackName: "try", includeName: true });
+  const runId = makeRetainedRunId(name, { fallbackName: "ad-hoc", includeName: true });
   const paths = tryPaths(cacheRoot, graph, runId, options.xdg);
   await mkdir(paths.absolute.runPath, { recursive: true });
 
@@ -176,6 +179,7 @@ export async function startTryRun(
   );
   await writeFile(paths.absolute.promptPath, options.prompt, "utf8");
   await writeStatus(paths, {
+    kind: "ad-hoc",
     latestRoot: ISOLATED_OUT_ROOT,
     name,
     outputPath: paths.logical.outputPath,
@@ -354,6 +358,7 @@ export async function listTryRuns(
       const status = await readStatus(join(runsRoot, entry.name, "status.json"));
       runs.push({
         ...(status.endedAt === undefined ? {} : { endedAt: status.endedAt }),
+        kind: status.kind,
         name: status.name,
         runId: status.runId,
         runPath: status.runPath,
@@ -397,7 +402,7 @@ function runtimeCommand(
 ): { readonly cmd: readonly string[]; readonly cwd: string; readonly display: readonly string[] } {
   const latestRoot = resolveRetainedRunPath(rootPath, graph, ISOLATED_OUT_ROOT, xdg);
   if (config.target === "claude") {
-    const bin = env.SKILLSET_TRY_CLAUDE_BIN ?? "claude";
+    const bin = env.SKILLSET_TEST_CLAUDE_BIN ?? "claude";
     const pluginArgs = tryPluginDirs(graph, latestRoot, config.target, config.plugins).flatMap((pluginDir) => [
       "--plugin-dir",
       pluginDir,
@@ -424,7 +429,7 @@ function runtimeCommand(
   }
 
   if (config.target === "cursor") {
-    const bin = env.SKILLSET_TRY_CURSOR_BIN ?? "cursor-agent";
+    const bin = env.SKILLSET_TEST_CURSOR_BIN ?? "cursor-agent";
     const pluginArgs = tryPluginDirs(graph, latestRoot, config.target, config.plugins).flatMap((pluginDir) => [
       "--plugin-dir",
       pluginDir,
@@ -445,7 +450,7 @@ function runtimeCommand(
     return { cmd, cwd: latestRoot, display: cmd };
   }
 
-  const bin = env.SKILLSET_TRY_CODEX_BIN ?? "codex";
+  const bin = env.SKILLSET_TEST_CODEX_BIN ?? "codex";
   const cmd = [
     bin,
     "exec",
@@ -590,8 +595,8 @@ function cleanEnv(env: Record<string, string | undefined>): Record<string, strin
 
 function spawnTryWorker(rootPath: string, runId: string): number | undefined {
   const cliPath = process.argv[1];
-  if (cliPath === undefined) throw new Error("skillset: try cannot locate CLI entrypoint for background worker");
-  const child = spawnNode(process.execPath, [cliPath, "try", "worker", runId, "--root", rootPath], {
+  if (cliPath === undefined) throw new Error("skillset: test cannot locate CLI entrypoint for background worker");
+  const child = spawnNode(process.execPath, [cliPath, "test", "worker", runId, "--root", rootPath], {
     cwd: rootPath,
     detached: true,
     env: process.env,
@@ -790,6 +795,7 @@ function runReport(
 ): TryRunReport {
   return {
     background,
+    kind: "ad-hoc",
     latestPath: paths.logical.latestJsonPath,
     ok: state === "passed" || background,
     reportPath: paths.logical.reportPath,

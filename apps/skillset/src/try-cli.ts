@@ -52,7 +52,7 @@ export async function runTryCommand(rootPath: string, options: TryCommandOptions
     return;
   }
   if (options.subcommand === "worker") {
-    if (options.runId === undefined) throw new Error("skillset: try worker requires run id");
+    if (options.runId === undefined) throw new Error("skillset: test worker requires run id");
     await executeTryRun(rootPath, options.runId);
     return;
   }
@@ -110,25 +110,26 @@ export function validateTryFlags(
     runtime.promptFile !== undefined ||
     runtime.target !== undefined ||
     runtime.timeoutMs !== undefined;
-  if (hasRuntimeFlag && command !== "try") {
-    throw new Error("skillset: try options are only supported with try");
+  if (hasRuntimeFlag && command !== "test") {
+    throw new Error("skillset: ad hoc test options are only supported with test");
   }
-  if (command !== "try") return;
+  if (command !== "test") return;
+  if (!hasRuntimeFlag && subcommand === undefined) return;
   if (runtime.buildMode !== undefined || runtime.distDir !== undefined || runtime.dryRun || runtime.scopes !== undefined || runtime.yes) {
-    throw new Error("skillset: build/write options are not supported with try; try builds an isolated projection under logical .skillset/cache/runtime-tests");
+    throw new Error("skillset: build/write options are not supported with ad hoc test runs; test uses logical .skillset/cache/tests/ad-hoc");
   }
   if (subcommand === undefined) {
-    if (runtime.target === undefined) throw new Error("skillset: try requires --target claude, codex, or cursor");
+    if (runtime.target === undefined) throw new Error("skillset: ad hoc test requires --target claude, codex, or cursor");
     if ((runtime.prompt === undefined && runtime.promptFile === undefined) || (runtime.prompt !== undefined && runtime.promptFile !== undefined)) {
-      throw new Error("skillset: try requires exactly one of --prompt or --prompt-file");
+      throw new Error("skillset: ad hoc test requires exactly one of --prompt or --prompt-file");
     }
     return;
   }
   if (runtime.background || runtime.claudeSettingSources !== undefined || runtime.name !== undefined || runtime.plugins.length > 0 || runtime.prompt !== undefined || runtime.promptFile !== undefined || runtime.target !== undefined || runtime.timeoutMs !== undefined) {
-    throw new Error(`skillset: try execution options are not supported with ${subcommand}`);
+    throw new Error(`skillset: test execution options are not supported with ${subcommand}`);
   }
   if (runtime.lines !== undefined && subcommand !== "tail") {
-    throw new Error("skillset: --lines is only supported with try tail");
+    throw new Error("skillset: --lines is only supported with test tail");
   }
 }
 
@@ -138,17 +139,17 @@ async function readTryPrompt(
   promptFile: string | undefined
 ): Promise<string> {
   if (prompt !== undefined) return prompt;
-  if (promptFile === undefined) throw new Error("skillset: try requires --prompt or --prompt-file");
+  if (promptFile === undefined) throw new Error("skillset: ad hoc test requires --prompt or --prompt-file");
   return readFile(resolve(rootPath, promptFile), "utf8");
 }
 
 function requireTryTarget(target: TargetName | undefined): TargetName {
-  if (target === undefined) throw new Error("skillset: try requires --target claude, codex, or cursor");
+  if (target === undefined) throw new Error("skillset: ad hoc test requires --target claude, codex, or cursor");
   return target;
 }
 
 function printTryRun(report: TryRunReport): void {
-  console.log(`skillset: try ${formatTryState(report.state)}${report.background ? " in background" : ""}`);
+  console.log(`skillset: ad hoc test ${formatTryState(report.state)}${report.background ? " in background" : ""}`);
   console.log(`  run: ${report.runPath}`);
   console.log(`  latest: ${report.latestPath}`);
   console.log(`  status: ${report.statusPath}`);
@@ -157,7 +158,7 @@ function printTryRun(report: TryRunReport): void {
 }
 
 function printTryStatus(status: TryStatus): void {
-  console.log(`skillset: try ${status.runId} ${formatTryState(status.state)}`);
+  console.log(`skillset: test ${status.runId} ${formatTryState(status.state)}`);
   console.log(`  target: ${status.target}`);
   console.log(`  name: ${status.name}`);
   if (status.pid !== undefined) console.log(`  pid: ${status.pid}`);
@@ -184,7 +185,7 @@ function printTryTail(lines: readonly TryTailLine[]): void {
 
 function printTryList(entries: readonly TryListEntry[]): void {
   if (entries.length === 0) {
-    console.log("skillset: no try runs");
+    console.log("skillset: no ad hoc test runs");
     return;
   }
   for (const entry of entries) {

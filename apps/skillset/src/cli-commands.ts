@@ -2,7 +2,7 @@ export const CLI_COMMANDS = [
   "build", "change", "check", "dev", "diff",
   "distribute", "doctor", "explain", "features", "hooks", "import", "init",
   "list", "lookup", "marketplace", "new", "providers", "release",
-  "restore", "suggest-source", "test", "try", "update",
+  "restore", "suggest-source", "test", "update",
 ] as const;
 
 export type CliCommand = (typeof CLI_COMMANDS)[number];
@@ -15,7 +15,7 @@ export const CLI_LEAF_SUBCOMMANDS: Readonly<Partial<Record<CliCommand, readonly 
   marketplace: ["check", "update"],
   providers: ["check", "diff", "update"],
   release: ["amend", "apply", "audit", "plan"],
-  try: ["list", "status", "tail", "worker"],
+  test: ["list", "status", "tail", "worker"],
 };
 
 const CLI_COMMAND_SET = new Set<string>(CLI_COMMANDS);
