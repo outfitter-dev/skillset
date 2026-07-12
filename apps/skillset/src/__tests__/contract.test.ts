@@ -7620,13 +7620,13 @@ Audit body.
     }),
   ]);
 
-  const misplacedJson = await runSkillsetCli("build", "--json");
-  expect(misplacedJson.exitCode).toBe(2);
-  expect(misplacedJson.stderr).toBe("");
-  expect(JSON.parse(misplacedJson.stdout)).toMatchObject({
-    diagnostics: [{ message: expect.stringContaining("--json is not supported for this command route") }],
-    exitCode: 2,
-    ok: false,
+  const buildJson = await runSkillsetCli("build", "--root", root, "--json");
+  expect(buildJson.exitCode).toBe(0);
+  expect(buildJson.stderr).toBe("");
+  expect(JSON.parse(buildJson.stdout)).toMatchObject({
+    data: { state: "planned", writes: [] },
+    exitCode: 0,
+    ok: true,
     schemaVersion: "skillset.cli.result@1",
   });
 });
