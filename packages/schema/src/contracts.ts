@@ -3,6 +3,8 @@ import type { SchemaJsonRecord, SkillsetSchemaContract } from "./types";
 
 export const SKILLSET_SCHEMA_VERSION = "0.1.0";
 export const SKILLSET_SCHEMA_URI_BASE = "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas";
+export const CLI_RESULT_SCHEMA_VERSION = "skillset.cli.result@1";
+export const CLI_EVENT_SCHEMA_VERSION = "skillset.cli.event@1";
 const SEMVER_PATTERN =
   "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$";
 
@@ -402,6 +404,30 @@ export const testDeclarationContract = contract("test-declaration", "Test Declar
     targets: arraySchema(enumSchema(TARGET_NAMES), { minItems: 1, uniqueItems: true }),
   },
   required: ["checks"],
+  type: "object",
+});
+
+export const cliResultContract = contract("cli-result", "Skillset CLI Result", "Finite machine-readable result emitted by a Skillset CLI command.", {
+  additionalProperties: false,
+  properties: {
+    changes: { items: { ...strictObjectSchema({ action: enumSchema(["create", "delete", "move", "update"]), path: nonEmptyStringSchema(), reason: nonEmptyStringSchema(), state: enumSchema(["planned", "refused", "skipped", "written"]) }), required: ["action", "path", "state"] }, type: "array" },
+    command: nonEmptyStringSchema(),
+    data: { type: "object" },
+    diagnostics: { items: { ...strictObjectSchema({ code: nonEmptyStringSchema(), column: { minimum: 1, type: "integer" }, help: nonEmptyStringSchema(), line: { minimum: 1, type: "integer" }, message: nonEmptyStringSchema(), path: nonEmptyStringSchema(), severity: enumSchema(["error", "info", "warning"]) }), required: ["code", "message", "severity"] }, type: "array" },
+    exitCode: { minimum: 0, type: "integer" },
+    kind: nonEmptyStringSchema(),
+    meta: { type: "object" },
+    ok: { type: "boolean" },
+    schemaVersion: { const: CLI_RESULT_SCHEMA_VERSION, type: "string" },
+  },
+  required: ["changes", "command", "data", "diagnostics", "exitCode", "kind", "meta", "ok", "schemaVersion"],
+  type: "object",
+});
+
+export const cliEventContract = contract("cli-event", "Skillset CLI Event", "One machine-readable event in a Skillset CLI JSONL stream.", {
+  additionalProperties: false,
+  properties: { command: nonEmptyStringSchema(), data: { type: "object" }, event: nonEmptyStringSchema(), schemaVersion: { const: CLI_EVENT_SCHEMA_VERSION, type: "string" }, sequence: { minimum: 1, type: "integer" } },
+  required: ["command", "data", "event", "schemaVersion", "sequence"],
   type: "object",
 });
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
 
-import { reportCliError, runCli } from "./cli-core";
+import { runCliEntrypoint } from "./cli-entrypoint";
 
-runCli().catch(reportCliError);
+await runCliEntrypoint();

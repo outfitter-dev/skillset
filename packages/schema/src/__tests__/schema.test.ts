@@ -54,6 +54,8 @@ describe("@skillset/schema contracts", () => {
       "docs/reference/schemas/0.1.0/adaptive-hook.schema.json",
       "docs/reference/schemas/0.1.0/change-entry.schema.json",
       "docs/reference/schemas/0.1.0/test-declaration.schema.json",
+      "docs/reference/schemas/0.1.0/cli-result.schema.json",
+      "docs/reference/schemas/0.1.0/cli-event.schema.json",
     ]);
 
     const combined = artifacts[0]?.schema;

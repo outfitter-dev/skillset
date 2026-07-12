@@ -1,0 +1,131 @@
+{
+  "$id": "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/cli-result.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "changes": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "create",
+              "delete",
+              "move",
+              "update"
+            ],
+            "type": "string"
+          },
+          "path": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "planned",
+              "refused",
+              "skipped",
+              "written"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "path",
+          "state"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "command": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "data": {
+      "type": "object"
+    },
+    "diagnostics": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "column": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "help": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "line": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "message": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "path": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "error",
+              "info",
+              "warning"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "severity"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "exitCode": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "kind": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "meta": {
+      "type": "object"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "schemaVersion": {
+      "const": "skillset.cli.result@1",
+      "type": "string"
+    }
+  },
+  "required": [
+    "changes",
+    "command",
+    "data",
+    "diagnostics",
+    "exitCode",
+    "kind",
+    "meta",
+    "ok",
+    "schemaVersion"
+  ],
+  "title": "Skillset CLI Result",
+  "type": "object"
+}
