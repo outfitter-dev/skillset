@@ -49,7 +49,7 @@ From a content repo:
 
 ```bash
 skillset init               # preview root skillset.yaml + .skillset/ source for the current repo
-skillset create             # preview a new my-skillset source repo
+skillset init my-skillset   # preview a new source repo
 skillset build              # plan generated changes without writing
 skillset build --yes        # write generated outputs
 skillset build --isolated   # mirror the projection under .skillset/cache/latest/ (also: verify, diff)
@@ -143,13 +143,13 @@ skillset init --root /path/to/content-repo --targets claude --include ci --yes
 Create a new source repo, defaulting to `my-skillset` under the current directory:
 
 ```bash
-skillset create
-skillset create team-loadout --name team-loadout --targets claude,codex --yes
+skillset init my-skillset
+skillset init team-loadout --name team-loadout --targets claude,codex --yes
 ```
 
 `create` is the new-repo entrypoint. The current flow writes the Skillset repo scaffold into a new directory, initializes Git, and adds README plus lightweight agent guidance. SET-54 tracks the richer create-project experience: provide starter source files and eventually offer reviewed Claude/Codex configuration suggestions while still avoiding implicit live runtime config mutation.
 
-For a user-global source checkout, `skillset create --global` defaults to `~/.skillset/src`. This is still Skillset-owned source, not a live Claude or Codex runtime directory. Setup does not create a global preview/cache area yet and does not write to `~/.claude`, `~/.codex`, or `.agents`. The published package requires Bun and ships Bun-built JavaScript bins for `skillset` and `create-skillset`; stable releases run from the default npm dist-tag with commands such as `npx skillset create` or `bunx skillset create`. Prerelease builds remain available through their explicit tag, such as `skillset@beta`. Setup still routes through the same plan-first `create` flow.
+`skillset init [destination]` is the single setup entrypoint. It previews before writing, can scaffold an existing repository or a new destination, and never writes live Claude, Codex, Cursor, or `.agents` configuration. The published package ships the `skillset` and `skillset-toolkit` Bun-built bins; stable releases run from the default npm dist-tag with commands such as `npx skillset init my-skillset` or `bunx skillset init my-skillset`. Prerelease builds remain available through their explicit tag, such as `skillset@beta`.
 
 Setup commands create source and repo-local operational ignore scaffolds only. `init` creates root `skillset.yaml`, `.skillset/.gitkeep`, placeholders for the main source families under `.skillset/`, `.skillset/changes/.gitkeep`, `.skillset/.gitignore` that ignores the logical `.skillset/cache/` path, and a snapshots ignore sentinel. `create` writes root `skillset.yaml`, `.skillset/` placeholders, root `skillset.lock`, `.skillset/.gitignore`, a snapshots ignore sentinel, a root `.gitignore` that ignores `.skillset/cache/` and `.skillset/snapshots/` contents, README, and lightweight agent guidance. `--include ci` adds an optional user-owned GitHub Actions workflow. Generated manifests use `compile.targets`, keep source identity under `skillset`, and keep target adapter config in `claude` and `codex` blocks or root `defaults.<target>.<surface>`.
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
  * Maintainer harness for external fixture repos: real published repos that
- * `skillset adopt` should migrate cleanly, compile, and round-trip into
+ * `skillset init --adopt all` should migrate cleanly, compile, and round-trip into
  * substantially similar generated output.
  *
  * The committed manifest (fixtures/external/repos.yaml) pins each repo to an

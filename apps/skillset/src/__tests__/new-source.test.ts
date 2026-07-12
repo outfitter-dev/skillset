@@ -31,7 +31,7 @@ test("SET-165: new skill previews by default and writes ordinary repo source wit
 
 test("SET-165: new skill separates stable id and display name in dedicated source repos", async () => {
   const parent = await mkdtemp(join(tmpdir(), "skillset-new-dedicated-"));
-  await expect(runSkillsetCli("create", "team-loadout", "--root", parent, "--yes")).resolves.toMatchObject({
+  await expect(runSkillsetCli("init", "team-loadout", "--root", parent, "--yes")).resolves.toMatchObject({
     exitCode: 0,
   });
   const root = join(parent, "team-loadout");

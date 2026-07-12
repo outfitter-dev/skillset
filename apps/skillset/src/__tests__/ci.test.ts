@@ -391,7 +391,7 @@ test("init --include rejects unknown values and non-setup commands", async () =>
 
   const wrongCommand = await runSkillsetCli("build", "--include", "ci");
   expect(wrongCommand.exitCode).toBe(1);
-  expect(wrongCommand.stderr).toContain("setup options are only supported with init or create");
+  expect(wrongCommand.stderr).toContain("setup options are only supported with init");
 });
 
 async function builtFixture(): Promise<string> {

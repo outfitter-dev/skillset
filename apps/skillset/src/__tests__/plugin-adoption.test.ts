@@ -297,7 +297,7 @@ test("SET-225: adopt blocks divergent identities before mutating the repo", asyn
   expect(markdown).toContain("planned: `skillset.yaml`");
   expect(markdown).not.toContain("created: `skillset.yaml`");
 
-  const cli = await runSkillsetCli("adopt", root, "--yes");
+  const cli = await runSkillsetCli("init", "--from", root, "--adopt", "all", "--yes");
   expect(cli.exitCode).toBe(1);
   expect(cli.stdout).toContain("FAIL competing-plugin-sources");
   expect(cli.stdout).toContain("plugins/claude-demo");

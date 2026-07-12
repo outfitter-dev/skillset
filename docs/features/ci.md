@@ -28,7 +28,7 @@ For added or changed generated paths, CI also runs the same read-only classifica
 
 [Source Suggestions](source-suggestions.md) is the future recovery path for managed generated-output edits that should become source changes. CI writeback remains future-only until the local suggestion command can classify clean source patches, refusal cases, and stale lock/conflict risks.
 
-`skillset init --include ci` (and `skillset create --include ci`) scaffolds `.github/workflows/skillset-ci.yml`. The workflow is user-owned after creation: rerunning `init --include ci` reports an edited workflow as existing and never overwrites it. The scaffolded workflow:
+`skillset init --include ci` scaffolds `.github/workflows/skillset-ci.yml`. The workflow is user-owned after creation: rerunning `init --include ci` reports an edited workflow as existing and never overwrites it. The scaffolded workflow:
 
 - runs `skillset ci --fix` on same-repo pull requests and plain `skillset ci` on fork pull requests or pushes to `main`;
 - appends the Markdown report to the job summary on every run;

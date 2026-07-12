@@ -327,7 +327,7 @@ export const CI_WORKFLOW_PATH = ".github/workflows/skillset-ci.yml";
 
 /**
  * GitHub Actions workflow scaffolded by `skillset init --include ci` and
- * `skillset create --include ci`. Mechanical drift is rebuilt and pushed back to
+ * `skillset init --include ci`. Mechanical drift is rebuilt and pushed back to
  * same-repo pull-request branches; non-mechanical problems become an updated
  * PR comment and a failing check. Fork PRs run read-only because they cannot
  * receive pushes or comments with the default token, so they only get the

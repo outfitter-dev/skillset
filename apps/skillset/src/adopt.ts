@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve } from "node:path";
 
@@ -19,7 +19,7 @@ import { gitSafeEnv } from "./git-env";
 import { importSources } from "./import";
 import { inspectSkillset } from "@skillset/core";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
-import { initSkillset, type SetupFile, type SetupImportCandidate, type SurveySkip } from "./setup";
+import { initSkillset, type SetupFile, type SetupImportCandidate, type SetupInclude, type SurveySkip } from "./setup";
 import type { PluginAdoptionDiagnostic } from "./plugin-adoption";
 import {
   preparePluginAdoptionSource,
@@ -30,7 +30,10 @@ import type { JsonRecord, LintIssue, SkillsetOptions, SourceOrigin, TargetName }
 import { isJsonRecord, parseMarkdown, stringifyMarkdown } from "@skillset/core/internal/yaml";
 
 export interface AdoptOptions extends SkillsetOptions {
+  readonly candidates?: readonly string[];
+  readonly include?: readonly SetupInclude[];
   readonly cwd?: string;
+  readonly destination?: string;
   readonly targets?: readonly TargetName[];
   readonly write?: boolean;
 }
@@ -129,6 +132,25 @@ export const ADOPT_REPORT_DIR = ".skillset/cache/adopt";
 
 const INSTRUCTIONS_DIR = ".skillset/rules";
 
+export function adoptCandidateId(candidate: { readonly kind: string; readonly path: string }): string {
+  return `${candidate.kind}:${candidate.path}`;
+}
+
+function selectAdoptCandidates(
+  candidates: readonly SetupImportCandidate[],
+  selection: readonly string[] | undefined
+): readonly SetupImportCandidate[] {
+  if (selection === undefined || selection.includes("all")) return candidates;
+  const available = new Map(candidates.map((candidate) => [adoptCandidateId(candidate), candidate]));
+  return selection.map((id) => {
+    const candidate = available.get(id);
+    if (candidate === undefined) {
+      throw new Error(`skillset: unknown adoption candidate ${id}; expected all or ${[...available.keys()].join(", ")}`);
+    }
+    return candidate;
+  });
+}
+
 /**
  * One-action repo adoption: survey via `init`, import every candidate
  * (plugins, skills, and verbatim instruction files), lint without throwing,
@@ -141,8 +163,11 @@ export async function adoptSkillset(
   source: string,
   options: AdoptOptions = {}
 ): Promise<AdoptReport> {
-  const { cwd, targets, write, ...buildOptions } = options;
-  const acquisition = await acquireAdoptSource(source, cwd ?? process.cwd());
+  const { cwd, destination, targets, write, ...buildOptions } = options;
+  const acquired = await acquireAdoptSource(source, cwd ?? process.cwd());
+  const acquisition = destination === undefined
+    ? acquired
+    : await copyAdoptAcquisition(acquired, destination);
   return adoptResolvedRoot(acquisition, {
     ...buildOptions,
     ...(targets === undefined ? {} : { targets }),
@@ -150,11 +175,26 @@ export async function adoptSkillset(
   });
 }
 
+async function copyAdoptAcquisition(acquisition: AdoptAcquisition, destination: string): Promise<AdoptAcquisition> {
+  const rootPath = resolve(destination);
+  try {
+    if ((await readdir(rootPath)).length > 0) throw new Error(`skillset: init acquisition destination must be empty: ${rootPath}`);
+  } catch (error) {
+    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
+  }
+  await mkdir(rootPath, { recursive: true });
+  await cp(acquisition.rootPath, rootPath, {
+    filter: (source) => relative(acquisition.rootPath, source).split(/[\\/]/u)[0] !== ".git",
+    recursive: true,
+  });
+  return { ...acquisition, rootPath };
+}
+
 async function adoptResolvedRoot(
   acquisition: AdoptAcquisition,
   options: AdoptOptions = {}
 ): Promise<AdoptReport> {
-  const { targets, write, ...buildOptions } = options;
+  const { candidates: selectedCandidates, include, targets, write, ...buildOptions } = options;
   const writeMode = write === true;
   const resolvedRoot = acquisition.rootPath;
   // Captured before init scaffolds source: an existing workspace marker means
@@ -166,8 +206,10 @@ async function adoptResolvedRoot(
     cwd: resolvedRoot,
     useGitRoot: false,
     write: false,
+    ...(include === undefined ? {} : { include }),
     ...(targets === undefined ? {} : { targets }),
   });
+  const candidates = selectAdoptCandidates(survey.importCandidates, selectedCandidates);
 
   if (!writeMode) {
     return {
@@ -175,7 +217,7 @@ async function adoptResolvedRoot(
       alreadyAdopted,
       baselines: survey.baselines,
       builtFiles: 0,
-      candidates: survey.importCandidates,
+      candidates,
       cutover: [],
       imports: [],
       lintIssues: [],
@@ -196,7 +238,7 @@ async function adoptResolvedRoot(
       alreadyAdopted,
       baselines: survey.baselines,
       builtFiles: 0,
-      candidates: survey.importCandidates,
+      candidates,
       cutover: [],
       imports: [],
       lintIssues: [],
@@ -217,19 +259,20 @@ async function adoptResolvedRoot(
     cwd: resolvedRoot,
     useGitRoot: false,
     write: true,
+    ...(include === undefined ? {} : { include }),
     ...(targets === undefined ? {} : { targets }),
   });
 
   const imports: AdoptImportResult[] = [];
   const cutover: string[] = [];
   const previewSources: string[] = [];
-  for (const candidate of survey.importCandidates) {
+  for (const candidate of candidates) {
     imports.push(
       await importCandidate(
         init.rootPath,
         acquisition,
         candidate,
-        survey.importCandidates,
+        candidates,
         cutover,
         previewSources
       )
@@ -275,7 +318,7 @@ async function adoptResolvedRoot(
     baselines: init.baselines,
     ...(buildError === undefined ? {} : { buildError }),
     builtFiles,
-    candidates: survey.importCandidates,
+    candidates,
     cutover,
     imports,
     lintIssues,
