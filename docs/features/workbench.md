@@ -22,6 +22,8 @@ skillset check --only outputs --root .
 
 `check --write` repairs ordinary source-driven drift only after the non-drift checks pass. It refuses target-side generated edits and provider-format migrations; use the reconciliation flow for the former and `skillset update` for the latter. `check --ci` adds branch-aware change-entry and package Changesets gates, and `check --ci --fix` enables the same bounded mechanical repair for CI. The old top-level `lint`, `verify`, and `ci` commands are removed without aliases.
 
+The drift directions are intentionally separate: `build` and `check --write` project source toward generated output, `update` applies only registered source-preserving provider-format migrations, and `reconcile` recovers an intentional generated-output edit toward source. No one command silently crosses those ownership boundaries.
+
 Parser/schema checks, diagnostic scopes, presets, and exact rule-id selection are implemented in the private `@skillset/workbench` workspace package for tests and future CLI integration; they are not yet exposed as `skillset check --preset`, `--scope`, or `--rule` flags.
 
 ## Diagnostic Model

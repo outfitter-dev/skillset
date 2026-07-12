@@ -521,7 +521,23 @@ test("SET-194: update previews then writes the same safe provider-format plan", 
   const written = await runSkillsetCli("update", "--yes", "--root", root);
 
   expect(written.exitCode).toBe(0);
+  expect(written.stdout).toContain("update owns registered, source-preserving provider-format migrations only");
   expect(written.stdout).toContain("applied safe destination-format updates");
+  expect(await readFile(manifestPath, "utf8")).toBe(original);
+});
+
+test("SET-279: update refuses ordinary source-driven drift", async () => {
+  const root = await builtFixture(pluginFixture());
+  const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
+  const original = await readFile(manifestPath, "utf8");
+  const sourcePath = join(root, ".skillset/plugins/alpha/skills/demo/SKILL.md");
+  await writeFile(sourcePath, `${await readFile(sourcePath, "utf8")}\nChanged source.\n`, "utf8");
+
+  const blocked = await runSkillsetCli("update", "--yes", "--root", root);
+
+  expect(blocked.exitCode).toBe(1);
+  expect(blocked.stdout).toContain("unplanned destination drift");
+  expect(blocked.stdout).toContain("no registered safe destination-format update");
   expect(await readFile(manifestPath, "utf8")).toBe(original);
 });
 

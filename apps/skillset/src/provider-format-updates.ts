@@ -134,7 +134,9 @@ async function changedSourceOutputPaths(
 }
 
 export function renderProviderFormatUpdateReport(report: ProviderFormatUpdateReport): string {
-  const lines: string[] = [];
+  const lines: string[] = [
+    "skillset: update owns registered, source-preserving provider-format migrations only",
+  ];
   const driftCount = allDriftPaths(report.drift).length;
   if (driftCount === 0) {
     lines.push(`skillset: provider format ${report.command} found no generated-output drift`);
