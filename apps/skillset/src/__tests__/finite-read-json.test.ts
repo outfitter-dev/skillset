@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { chmod, mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -32,6 +32,19 @@ describe("SET-287 finite read-only JSON", () => {
       }
     });
   }
+
+  test("init JSON preserves preview versus confirmed write authority", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-init-"));
+    const preview = await runJsonRoute("init", "--root", root);
+    const previewEnvelope = JSON.parse(preview.stdout) as SkillsetCliResult & { data: { state: string; writes: unknown[] } };
+    expect(previewEnvelope.data).toMatchObject({ state: "planned", writes: [] });
+    expect(await readdir(root)).toEqual([]);
+
+    const written = await runJsonRoute("init", "--root", root, "--yes");
+    const writtenEnvelope = JSON.parse(written.stdout) as SkillsetCliResult & { data: { state: string; writes: unknown[] } };
+    expect(writtenEnvelope.data.state).toBe("written");
+    expect(writtenEnvelope.data.writes.length).toBeGreaterThan(0);
+  });
 
   for (const route of [
     ["change", "status", "--root", repoRoot],
@@ -198,6 +211,20 @@ describe("SET-287 finite read-only JSON", () => {
     expect(stderr).toBe("");
     expect(validateCliResult(JSON.parse(stdout))).toEqual({ diagnostics: [], ok: true });
   });
+
+  for (const route of [
+    ["build", "--root", fixtureRoot],
+    ["update", "--root", fixtureRoot],
+  ] as const) {
+    test(`${route[0]} preview emits a versioned plan without writes`, async () => {
+      const result = await runJsonRoute(...route);
+      expect(result.stderr).toBe("");
+      const envelope = JSON.parse(result.stdout) as SkillsetCliResult & { data: { state: string; writes: unknown[] } };
+      expect(validateCliResult(envelope)).toEqual({ diagnostics: [], ok: true });
+      expect(envelope.data.state).toBe("planned");
+      expect(envelope.data.writes).toEqual([]);
+    });
+  }
 });
 
 async function runJsonRoute(...args: readonly string[]): Promise<{ exitCode: number; stderr: string; stdout: string }> {
