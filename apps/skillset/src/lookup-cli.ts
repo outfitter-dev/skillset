@@ -7,8 +7,9 @@ import {
   type LookupView,
 } from "@skillset/core";
 
-import { renderValidatedJson } from "@skillset/core/internal/structured-output";
-import type { JsonRecord, TargetName } from "@skillset/core/internal/types";
+import type { TargetName } from "@skillset/core/internal/types";
+import type { SchemaJsonRecord } from "@skillset/schema";
+import { renderCliDataResult } from "./cli-output";
 
 export interface LookupCommandOptions {
   readonly aspects: readonly string[];
@@ -28,7 +29,12 @@ export function runLookupCommand(options: LookupCommandOptions): void {
     ...(options.views.length === 0 ? {} : { views: options.views }),
   });
   if (options.json) {
-    process.stdout.write(renderValidatedJson(report as unknown as JsonRecord, "skillset lookup"));
+    const failed = report.diagnostics.some((diagnostic) => diagnostic.severity === "error");
+    process.stdout.write(renderCliDataResult({
+      command: "lookup",
+      data: report as unknown as SchemaJsonRecord,
+      exitCode: failed ? 1 : 0,
+    }));
   } else {
     printLookupReport(report);
   }

@@ -96,6 +96,22 @@ export function renderCliResult(result: SkillsetCliResult): string {
   return `${JSON.stringify(result)}\n`;
 }
 
+export function renderCliDataResult(input: {
+  readonly command: string;
+  readonly data: SchemaJsonRecord;
+  readonly diagnostics?: readonly SkillsetCliDiagnostic[];
+  readonly exitCode?: number;
+  readonly kind?: string;
+}): string {
+  return renderCliResult(createCliResult({
+    command: input.command,
+    data: input.data,
+    ...(input.diagnostics === undefined ? {} : { diagnostics: input.diagnostics }),
+    ...(input.exitCode === undefined ? {} : { exitCode: input.exitCode }),
+    kind: input.kind ?? "data",
+  }));
+}
+
 export function renderCliEvent(event: SkillsetCliEvent): string {
   assertValid(validateCliEvent(event));
   return `${JSON.stringify(event)}\n`;

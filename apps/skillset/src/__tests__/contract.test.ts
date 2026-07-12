@@ -726,9 +726,9 @@ Body.
 
   const doctorJson = await runSkillsetCli("doctor", "--root", root, "--json");
   expect(doctorJson.exitCode).toBe(1);
-  const doctorReport = JSON.parse(doctorJson.stdout) as {
-    buildDiagnostics: readonly { code: string; featureId: string; path?: string }[];
-  };
+  const doctorReport = (JSON.parse(doctorJson.stdout) as {
+    readonly data: { buildDiagnostics: readonly { code: string; featureId: string; path?: string }[] };
+  }).data;
   expect(doctorReport.buildDiagnostics).toContainEqual(expect.objectContaining({
     code: "plugin-manifest-invalid",
     featureId: "plugin-manifests",
@@ -1274,6 +1274,13 @@ Body.
   expect(planned.stdout).toContain("add: plugins/alpha/codex/.codex-plugin/plugin.json -> bundles/alpha/.codex-plugin/plugin.json");
   expect(planned.stdout).toContain("ownership: file:generated");
   expect(planned.stdout).toContain("destination-owned");
+  const json = await runSkillsetCli("distribute", "plan", "codex-marketplace", "--json", "--root", root);
+  expect(json).toMatchObject({ exitCode: 0, stderr: "" });
+  expect(JSON.parse(json.stdout)).toMatchObject({
+    command: "distribute.plan",
+    kind: "plan",
+    schemaVersion: "skillset.cli.result@1",
+  });
   expect(await fileExists(join(root, "plugins/alpha/codex/.codex-plugin/plugin.json"))).toBe(false);
   expect(await fileExists(join(destination, "bundles/alpha/.codex-plugin/plugin.json"))).toBe(false);
 });
@@ -7136,9 +7143,9 @@ Audit body.
     "--json"
   );
   expect(explainedJson.exitCode).toBe(0);
-  const explainReport = JSON.parse(explainedJson.stdout) as {
+  const explainReport = (JSON.parse(explainedJson.stdout) as { readonly data: {
     renderResults: readonly { destination?: string; featureId: string; status: string; target?: string }[];
-  };
+  } }).data;
   expect(explainReport.renderResults).toContainEqual(
     expect.objectContaining({
       destination: "plugin-manifest",
@@ -7155,10 +7162,10 @@ Audit body.
 
   const doctorJson = await runSkillsetCli("doctor", "--root", root, "--json");
   expect(doctorJson.exitCode).toBe(0);
-  const doctorReport = JSON.parse(doctorJson.stdout) as {
+  const doctorReport = (JSON.parse(doctorJson.stdout) as { readonly data: {
     renderResults: readonly { destination?: string; featureId: string; status: string; target?: string }[];
     notableRenderResults: readonly { destination?: string; featureId: string; status: string; target?: string }[];
-  };
+  } }).data;
   expect(doctorReport.renderResults.length).toBeGreaterThan(0);
   expect(doctorReport.notableRenderResults).toEqual([
     expect.objectContaining({
@@ -7169,11 +7176,11 @@ Audit body.
     }),
   ]);
 
-  const misplacedJson = await runSkillsetCli("list", "--json");
+  const misplacedJson = await runSkillsetCli("build", "--json");
   expect(misplacedJson.exitCode).toBe(2);
   expect(misplacedJson.stderr).toBe("");
   expect(JSON.parse(misplacedJson.stdout)).toMatchObject({
-    diagnostics: [{ message: expect.stringContaining("--json is only supported with doctor, explain, features, lookup, marketplace, or try") }],
+    diagnostics: [{ message: expect.stringContaining("--json is not supported for this command route") }],
     exitCode: 2,
     ok: false,
     schemaVersion: "skillset.cli.result@1",
@@ -7229,7 +7236,7 @@ Audit body.
 
   const skillExplain = await runSkillsetCli("explain", ".skillset/skills/demo/SKILL.md", "--root", root, "--json");
   expect(skillExplain.exitCode).toBe(0);
-  const skillReport = JSON.parse(skillExplain.stdout) as {
+  const skillReport = (JSON.parse(skillExplain.stdout) as { readonly data: {
     features: readonly {
       docs: readonly string[];
       id: string;
@@ -7237,7 +7244,7 @@ Audit body.
       targetSupport: { claude: { status: string }; codex: { status: string } };
       title: string;
     }[];
-  };
+  } }).data;
   expect(skillReport.features).toEqual([
     {
       docs: ["docs/features/resources.md"],
@@ -7269,7 +7276,7 @@ Audit body.
 
   const featureJson = await runSkillsetCli("features", "plugin-bin", "--json");
   expect(featureJson.exitCode).toBe(0);
-  const featureReport = JSON.parse(featureJson.stdout) as {
+  const featureReport = (JSON.parse(featureJson.stdout) as { readonly data: {
     features: readonly {
       docs: readonly string[];
       id: string;
@@ -7277,7 +7284,7 @@ Audit body.
       targetSupport: { claude: { status: string }; codex: { reason?: string; status: string } };
       title: string;
     }[];
-  };
+  } }).data;
   expect(featureReport.features).toEqual([
     {
       docs: ["docs/features/executables.md", "docs/features/feature-source-pointers.md"],
@@ -7294,7 +7301,7 @@ Audit body.
 
   const missingFeature = await runSkillsetCli("features", "no-such-feature", "--json");
   expect(missingFeature.exitCode).toBe(1);
-  expect(JSON.parse(missingFeature.stdout)).toEqual({ features: [] });
+  expect(JSON.parse(missingFeature.stdout)).toMatchObject({ data: { features: [] }, exitCode: 1, schemaVersion: "skillset.cli.result@1" });
 
   const doctor = await runSkillsetCli("doctor", "--root", root);
   expect(doctor.stdout).toContain("features:");
@@ -7302,13 +7309,13 @@ Audit body.
   expect(doctor.stdout).toContain("feature support: claude");
   expect(doctor.stdout).toContain("feature support: codex");
   const doctorJson = await runSkillsetCli("doctor", "--root", root, "--json");
-  const doctorReport = JSON.parse(doctorJson.stdout) as {
+  const doctorReport = (JSON.parse(doctorJson.stdout) as { readonly data: {
     featureCapabilities: {
       byTargetSupport: { claude: Record<string, number>; codex: Record<string, number> };
       featureIds: readonly string[];
       total: number;
     };
-  };
+  } }).data;
   expect(doctorReport.featureCapabilities.total).toBeGreaterThan(0);
   expect(doctorReport.featureCapabilities.byTargetSupport.claude.native).toBeGreaterThan(0);
   expect(doctorReport.featureCapabilities.byTargetSupport.codex.native).toBeGreaterThan(0);
@@ -7688,7 +7695,7 @@ function extractBackupId(stdout: string): string {
 }
 
 function featureIds(stdout: string): readonly string[] {
-  const report = JSON.parse(stdout) as { readonly features?: readonly { readonly id: string }[] };
+  const report = (JSON.parse(stdout) as { readonly data: { readonly features?: readonly { readonly id: string }[] } }).data;
   return report.features?.map((feature) => feature.id) ?? [];
 }
 

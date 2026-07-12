@@ -95,6 +95,12 @@ The entries below are the complete final public flag set. Positional arguments a
 | `--claude`, `--codex`, `--cursor` lookup aliases | Removed; use `--compat <providers>`. |
 | command-local `--json` | Standardized as one finite versioned result document by SET-284. |
 
+## Structured-output migration coverage
+
+SET-287 moves the available finite read-only routes onto `skillset.cli.result@1`: `check`, `diff`, `list`, `explain`, `lookup`, `change status|check|show|list|history`, `marketplace check`, and `distribute plan`. Transitional `doctor` and `features` reads use the same envelope until their command-family cutovers remove them.
+
+The final top-level `status` route is intentionally pending SET-280 because it does not exist before that command-family cutover. Plan and mutation routes remain assigned to SET-288; `dev` and continuous test output remain assigned to SET-289. `marketplace update` and the current test/try family therefore still have legacy command-local JSON on this slice and are explicitly outside SET-287.
+
 ## Environment contract
 
 Environment overrides exist only for explicit runtime-test and installed-hook integration boundaries. Ordinary source, check, build, update, and reconcile behavior has no environment-variable compatibility layer.

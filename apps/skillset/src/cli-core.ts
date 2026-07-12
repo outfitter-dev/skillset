@@ -113,8 +113,10 @@ import {
 import { createSkillset, initSkillset, type SetupInclude, type SetupLayoutOption, type SetupReport } from "./setup";
 import { sourceUnitDisplay, sourceUnitDisplays, sourceUnitSelector } from "@skillset/core/internal/source-unit-selector";
 import { renderValidatedJson } from "@skillset/core/internal/structured-output";
+import { renderCliDataResult } from "./cli-output";
 import { runSkillsetTest, type SkillsetTestReport } from "./test-runner";
 import type { BuildScope, CompileBuildMode, JsonRecord, SkillsetOptions, SourceOrigin, TargetName } from "@skillset/core/internal/types";
+import type { SchemaJsonRecord, SkillsetCliDiagnostic } from "@skillset/schema";
 
 type Command = CliCommand;
 type DistributionSubcommand = "plan";
@@ -321,18 +323,22 @@ export async function runCli(
   if (command === "change") {
     const changeOptions = { ...options, ...(changeSince === undefined ? {} : { since: changeSince }) };
     if (changeSubcommand === "status") {
-      printChangeStatus(await changeStatus(rootPath, {
+      const report = await changeStatus(rootPath, {
         ...changeOptions,
         ...(changeStaged ? { staged: true } : {}),
-      }));
+      });
+      if (jsonOutput) printCliJsonData("change.status", report);
+      else printChangeStatus(report);
       return;
     }
     if (changeSubcommand === "check") {
-      printChangeCheck(await changeCheck(rootPath, {
+      const report = await changeCheck(rootPath, {
         ...changeOptions,
         ...(changeRef === undefined ? {} : { ref: changeRef }),
         ...(changeStaged ? { staged: true } : {}),
-      }));
+      });
+      if (jsonOutput) printCliJsonData("change.check", report, report.ok ? 0 : 1);
+      else printChangeCheck(report);
       return;
     }
     if (changeSubcommand === "add") {
@@ -368,21 +374,27 @@ export async function runCli(
     }
     if (changeSubcommand === "show") {
       if (changeRef === undefined) throw new Error("skillset: change show requires @ref");
-      printChangeEntry("show", (await showChangeEntry(rootPath, { ...changeOptions, ref: changeRef })).entry);
+      const report = await showChangeEntry(rootPath, { ...changeOptions, ref: changeRef });
+      if (jsonOutput) printCliJsonData("change.show", report);
+      else printChangeEntry("show", report.entry);
       return;
     }
     if (changeSubcommand === "list") {
-      printChangeList((await listChangeEntries(rootPath, {
+      const report = await listChangeEntries(rootPath, {
         ...changeOptions,
         ...(changeGroup === undefined ? {} : { group: changeGroup }),
-      })).entries);
+      });
+      if (jsonOutput) printCliJsonData("change.list", report);
+      else printChangeList(report.entries);
       return;
     }
     if (changeSubcommand === "history") {
-      printChangeHistory((await readChangeHistory(rootPath, {
+      const report = await readChangeHistory(rootPath, {
         ...changeOptions,
         ...(changeRef === undefined ? {} : { ref: changeRef }),
-      })).entries);
+      });
+      if (jsonOutput) printCliJsonData("change.history", report);
+      else printChangeHistory(report.entries);
       return;
     }
     if (changeSubcommand === "migrate") {
@@ -465,10 +477,12 @@ export async function runCli(
 
   if (command === "distribute") {
     if (distributionSubcommand === "plan") {
-      printDistributionPlan(await planDistributions(rootPath, {
+      const report = await planDistributions(rootPath, {
         ...options,
         ...(distributionName === undefined ? {} : { name: distributionName }),
-      }));
+      });
+      if (jsonOutput) printCliJsonData("distribute.plan", report, 0, "plan");
+      else printDistributionPlan(report);
       return;
     }
     throw new Error("skillset: expected distribute subcommand plan");
@@ -481,7 +495,7 @@ export async function runCli(
         ...(marketplaceName === undefined ? {} : { name: marketplaceName }),
       });
       if (jsonOutput) {
-        process.stdout.write(renderValidatedJson(report as unknown as JsonRecord, "skillset marketplace check"));
+        printCliJsonData("marketplace.check", report, report.ok ? 0 : 1, "diagnostics");
       } else {
         printMarketplaceCheck(report);
       }
@@ -559,6 +573,17 @@ export async function runCli(
 
   if (command === "check") {
     const result = await lintSkillset(rootPath, options);
+    if (jsonOutput) {
+      const diagnostics = result.issues.map((issue): SkillsetCliDiagnostic => ({
+        code: issue.code,
+        message: issue.message,
+        path: issue.path,
+        severity: issue.severity === "warn" ? "warning" : "error",
+      }));
+      printCliJsonData("check", { checkedSkills: result.checkedSkills }, 0, "diagnostics", diagnostics);
+      await rememberKnownSkillsetWorkspace(rootPath, options);
+      return;
+    }
     for (const issue of result.issues) {
       if (issue.severity !== "warn") continue;
       console.log(`  warn: ${issue.path}: ${issue.code}: ${issue.message}`);
@@ -670,6 +695,10 @@ export async function runCli(
 
   if (command === "diff") {
     const result = await diffSkillsetResult(rootPath, options);
+    if (jsonOutput) {
+      printCliJsonData("diff", result.data);
+      return;
+    }
     printDiagnostics(result.diagnostics);
     const { data: diff } = result;
     const total = diff.added.length + diff.changed.length + diff.missing.length + diff.removed.length;
@@ -690,6 +719,10 @@ export async function runCli(
 
   if (command === "list") {
     const entries = await listGeneratedEntries(rootPath, options);
+    if (jsonOutput) {
+      printCliJsonData("list", { entries });
+      return;
+    }
     for (const entry of entries) {
       const feature = entry.feature === undefined ? "" : ` ${entry.feature}`;
       const origin = entry.origin === undefined ? "" : ` (${entry.origin})`;
@@ -705,8 +738,9 @@ export async function runCli(
   if (command === "features") {
     const features = listFeatureCapabilities(importPath);
     if (jsonOutput) {
-      process.stdout.write(renderValidatedJson({ features } as unknown as JsonRecord, "skillset features"));
-      if (importPath !== undefined && features.length === 0) process.exitCode = 1;
+      const exitCode = importPath !== undefined && features.length === 0 ? 1 : 0;
+      printCliJsonData("lookup.features", { features }, exitCode);
+      if (exitCode !== 0) process.exitCode = exitCode;
       return;
     }
     if (features.length === 0) {
@@ -739,8 +773,9 @@ export async function runCli(
     }
     const result = await explainPath(rootPath, importPath, options);
     if (jsonOutput) {
-      process.stdout.write(renderValidatedJson(result as unknown as JsonRecord, "skillset explain"));
-      if (result.kind === "unknown") process.exitCode = 1;
+      const exitCode = result.kind === "unknown" ? 1 : 0;
+      printCliJsonData("explain", result, exitCode, "diagnostics");
+      if (exitCode !== 0) process.exitCode = exitCode;
       return;
     }
     console.log(`skillset: ${result.path} (${result.kind})`);
@@ -814,8 +849,9 @@ export async function runCli(
     // renders them below instead of relying on core operations to print.
     const report = await doctorSkillset(rootPath, options);
     if (jsonOutput) {
-      process.stdout.write(renderValidatedJson(report as unknown as JsonRecord, "skillset doctor"));
-      if (!report.ok) process.exitCode = 1;
+      const exitCode = report.ok ? 0 : 1;
+      printCliJsonData("check.doctor", report, exitCode, "diagnostics");
+      if (exitCode !== 0) process.exitCode = exitCode;
       return;
     }
     for (const issue of report.lintIssues) {
@@ -876,6 +912,23 @@ export function reportCliError(error: unknown): void {
   const message = error instanceof Error ? error.message : String(error);
   console.error(message);
   process.exitCode = 1;
+}
+
+function printCliJsonData(
+  command: string,
+  data: unknown,
+  exitCode = 0,
+  kind = "data",
+  diagnostics: readonly SkillsetCliDiagnostic[] = []
+): void {
+  process.stdout.write(renderCliDataResult({
+    command,
+    data: data as SchemaJsonRecord,
+    diagnostics,
+    exitCode,
+    kind,
+  }));
+  if (exitCode !== 0) process.exitCode = exitCode;
 }
 
 async function rememberKnownSkillsetWorkspace(rootPath: string, options: SkillsetOptions): Promise<void> {
@@ -2130,7 +2183,11 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(tryTimeoutMs === undefined ? {} : { timeoutMs: tryTimeoutMs }),
     yes,
   });
-  validateJsonFlags(command, jsonOutput);
+  validateJsonFlags(command, jsonOutput, {
+    ...(changeSubcommand === undefined ? {} : { changeSubcommand }),
+    ciFix,
+    ...(distributionSubcommand === undefined ? {} : { distributionSubcommand }),
+  });
   if (jsonlOutput) throw new Error("skillset: --jsonl is not supported until a streaming route is enabled");
   validateLookupFlags(command, {
     ...(lookupField === undefined ? {} : { field: lookupField }),
@@ -2920,10 +2977,21 @@ function validateAdoptFlags(
   }
 }
 
-function validateJsonFlags(command: Command, jsonOutput: boolean): void {
+function validateJsonFlags(
+  command: Command,
+  jsonOutput: boolean,
+  route: {
+    readonly changeSubcommand?: ChangeSubcommand;
+    readonly ciFix: boolean;
+    readonly distributionSubcommand?: DistributionSubcommand;
+  }
+): void {
   if (!jsonOutput) return;
-  if (command === "doctor" || command === "explain" || command === "features" || command === "lookup" || command === "marketplace" || command === "try") return;
-  throw new Error("skillset: --json is only supported with doctor, explain, features, lookup, marketplace, or try");
+  if (command === "check" && !route.ciFix) return;
+  if (command === "change" && (route.changeSubcommand === "check" || route.changeSubcommand === "history" || route.changeSubcommand === "list" || route.changeSubcommand === "show" || route.changeSubcommand === "status")) return;
+  if (command === "diff" || command === "doctor" || command === "explain" || command === "features" || command === "list" || command === "lookup" || command === "marketplace" || command === "try") return;
+  if (command === "distribute" && route.distributionSubcommand === "plan") return;
+  throw new Error("skillset: --json is not supported for this command route");
 }
 
 function validateLookupFlags(
