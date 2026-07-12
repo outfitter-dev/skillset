@@ -208,9 +208,13 @@ Use this demo skill.
   const checkedReport = (JSON.parse(checkedJson.stdout) as {
     readonly data: { readonly entries: readonly { readonly provenance: unknown }[] };
   }).data;
-  const updateReport = JSON.parse(updateJson.stdout) as {
-    readonly check: { readonly entries: readonly { readonly provenance: unknown }[] };
-  };
+  const updateReport = (JSON.parse(updateJson.stdout) as {
+    readonly data: {
+      readonly report: {
+        readonly check: { readonly entries: readonly { readonly provenance: unknown }[] };
+      };
+    };
+  }).data.report;
   expect(checkedReport.entries[0]?.provenance).toEqual(updateReport.check.entries[0]?.provenance);
   expect(checkedJson.stdout).not.toContain(parent);
   expect(updateJson.stdout).not.toContain(parent);
