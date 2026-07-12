@@ -4,10 +4,13 @@ import {
   CLI_COMMANDS,
   CLI_ENVIRONMENT,
   CLI_FLAGS,
+  FINITE_JSON_ROUTES,
+  JSONL_ROUTES,
   CLI_ROUTE_FLAGS,
   RETIRED_CLI_COMMANDS,
   RETIRED_CLI_ENVIRONMENT,
   RETIRED_CLI_FLAGS,
+  STRUCTURED_OUTPUT_EXCEPTIONS,
 } from "../cli-contract";
 
 describe("SET-275 final CLI contract", () => {
@@ -61,8 +64,13 @@ describe("SET-275 final CLI contract", () => {
     expect(CLI_ROUTE_FLAGS.check).toContain("--write");
     expect(CLI_ROUTE_FLAGS.check).toContain("--ci");
     expect(CLI_ROUTE_FLAGS.check).toContain("--fix");
-    expect(CLI_ROUTE_FLAGS.update).toEqual(["--root", "--yes"]);
-    expect(CLI_ROUTE_FLAGS.reconcile).toEqual(["--root", "--use", "--yes"]);
+    expect(CLI_ROUTE_FLAGS.update).toEqual(["--json", "--root", "--yes"]);
+    expect(CLI_ROUTE_FLAGS.reconcile).toEqual([
+      "--json",
+      "--root",
+      "--use",
+      "--yes",
+    ]);
   });
 
   test("hard-cuts try environment overrides to the test family", () => {
@@ -81,5 +89,25 @@ describe("SET-275 final CLI contract", () => {
         CLI_ENVIRONMENT[retired as keyof typeof CLI_ENVIRONMENT]
       ).toBeUndefined();
     }
+  });
+
+  test("classifies every top-level command for structured output", () => {
+    const classifiedRoutes = [
+      ...FINITE_JSON_ROUTES,
+      ...JSONL_ROUTES,
+      ...STRUCTURED_OUTPUT_EXCEPTIONS.map(
+        (entry) => entry.split(":", 1)[0] ?? ""
+      ),
+    ];
+    for (const command of CLI_COMMANDS) {
+      expect(
+        classifiedRoutes.some(
+          (route) => route === command || route.startsWith(`${command} `)
+        )
+      ).toBe(true);
+    }
+    expect(CLI_FLAGS["--json"].meaning).toContain("exactly one");
+    expect(CLI_FLAGS["--jsonl"].meaning).toContain("newline-delimited");
+    expect(JSONL_ROUTES).toEqual(["dev"]);
   });
 });

@@ -489,6 +489,11 @@
           "context": "- [Core Library and CLI Boundary](20260612-core-library-boundary.md) - places structured compiler facts in `@skillset/core`.",
           "from": "20260614",
           "fromPath": "docs/adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md"
+        },
+        {
+          "context": "- [Core Library and CLI Boundary](20260612-core-library-boundary.md) - core returns facts while the CLI owns rendering.",
+          "from": "20260712",
+          "fromPath": "docs/adrs/drafts/20260712-versioned-structured-output-for-cli-automation.md"
         }
       ],
       "number": null,
@@ -528,6 +533,11 @@
           "context": "- [Deterministic Projection and Adapter Conformance](20260613-deterministic-projection-and-adapter-conformance.md) - ordering drift and generated-output stability.",
           "from": "20260622",
           "fromPath": "docs/adrs/drafts/20260622-yaml-formatting-and-bun-native-apis.md"
+        },
+        {
+          "context": "- [Deterministic Projection and Adapter Conformance](20260613-deterministic-projection-and-adapter-conformance.md) - stable structured result evidence and host normalization.",
+          "from": "20260712",
+          "fromPath": "docs/adrs/drafts/20260712-versioned-structured-output-for-cli-automation.md"
         },
         {
           "context": "The narrow verification primitive remains reusable internally, but top-level `lint`, `verify`, and `ci` are removed. This preserves the [deterministic projection boundary](20260613-deterministic-proje",
@@ -583,6 +593,11 @@
           "context": "- [Lowering Outcomes and Loss Ledger](20260614-lowering-outcomes-and-loss-ledger.md) - render-result status and policy semantics that this ADR specializes.",
           "from": "20260705",
           "fromPath": "docs/adrs/drafts/20260705-post-tools-policy-boundary.md"
+        },
+        {
+          "context": "- [Lowering Outcomes and Loss Ledger](20260614-lowering-outcomes-and-loss-ledger.md) - existing structured diagnostic and outcome vocabulary.",
+          "from": "20260712",
+          "fromPath": "docs/adrs/drafts/20260712-versioned-structured-output-for-cli-automation.md"
         },
         {
           "context": "See the render-results ADR, currently filed as [Lowering Outcomes and Loss Ledger](../adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md), for the historical decision.",
@@ -886,12 +901,48 @@
       "created": "2026-07-12",
       "depends_on": [
         "0",
+        "workflow-oriented-cli",
+        "core-library-boundary",
+        "deterministic-projection-and-adapter-conformance",
+        "lowering-outcomes-and-loss-ledger"
+      ],
+      "inbound": [
+        {
+          "context": "- `--json` and `--jsonl` are mutually exclusive. Leaf-route support follows the [structured-output ADR](../adrs/drafts/20260712-versioned-structured-output-for-cli-automation.md), not a permissive glo",
+          "from": "cli-flags",
+          "fromPath": "docs/reference/cli-flags.md"
+        }
+      ],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260712-versioned-structured-output-for-cli-automation.md",
+      "slug": "versioned-structured-output-for-cli-automation",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Versioned Structured Output For CLI Automation",
+      "updated": "2026-07-12"
+    },
+    {
+      "created": "2026-07-12",
+      "depends_on": [
+        "0",
         "feature-reference-and-schema-registry",
         "fixtures-tests-dogfooding-and-evals",
         "one-action-repo-adoption",
         "deterministic-projection-and-adapter-conformance"
       ],
-      "inbound": [],
+      "inbound": [
+        {
+          "context": "- [Workflow-Oriented CLI With A Flat Loop And Explicit Domains](20260712-workflow-oriented-cli.md) - canonical command names and hard-cut policy.",
+          "from": "20260712",
+          "fromPath": "docs/adrs/drafts/20260712-versioned-structured-output-for-cli-automation.md"
+        },
+        {
+          "context": "The [workflow-oriented CLI ADR](../adrs/drafts/20260712-workflow-oriented-cli.md) fixes the top-level commands. This document fixes the flag vocabulary those command-family implementations consume. Th",
+          "from": "cli-flags",
+          "fromPath": "docs/reference/cli-flags.md"
+        }
+      ],
       "number": null,
       "owners": ["[galligan](https://github.com/galligan)"],
       "path": "docs/adrs/drafts/20260712-workflow-oriented-cli.md",

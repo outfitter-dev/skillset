@@ -100,6 +100,11 @@
           "fromPath": "docs/adrs/drafts/20260710-catalog-owned-marketplace-refresh-pull-requests.md"
         },
         {
+          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source and rendered output authority.",
+          "from": "20260712",
+          "fromPath": "docs/adrs/drafts/20260712-versioned-structured-output-for-cli-automation.md"
+        },
+        {
           "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source remains the authored truth while commands inspect or render it.",
           "from": "20260712",
           "fromPath": "docs/adrs/drafts/20260712-workflow-oriented-cli.md"
