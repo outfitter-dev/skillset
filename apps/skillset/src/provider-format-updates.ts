@@ -70,7 +70,8 @@ export async function runProviderFormatUpdates(
   const plan = planProviderFormatUpdates(
     preview.renderResults,
     driftPaths,
-    managedState.unchangedPaths
+    managedState.unchangedPaths,
+    new Set(managedState.sourceDriftPaths)
   );
   const plannedPaths = new Set(
     [...plan.safeUpdates, ...plan.manualReviews].flatMap((action) => action.affectedPaths)
@@ -179,7 +180,8 @@ function displayProvider(provider: string): string {
 function planProviderFormatUpdates(
   renderResults: readonly SkillsetRenderResult[],
   driftPaths: readonly string[],
-  uneditedManagedPaths: ReadonlySet<string>
+  uneditedManagedPaths: ReadonlySet<string>,
+  sourceDriftPaths: ReadonlySet<string>
 ): {
   readonly manualReviews: readonly ProviderFormatUpdateAction[];
   readonly safeUpdates: readonly ProviderFormatUpdateAction[];
@@ -208,6 +210,9 @@ function planProviderFormatUpdates(
           if (affectedPaths.every((path) => uneditedManagedPaths.has(path))) {
             safeUpdates.set(actionKey(action), action);
           } else {
+            const description = affectedPaths.some((path) => sourceDriftPaths.has(path))
+              ? "Source changed since the previous skillset.lock hash; review the provider migration after rebuilding source-driven drift."
+              : "Current generated output differs from its previous skillset.lock hash; review before rewriting.";
             manualReviews.set(
               actionKey(action),
               actionForEntry(
@@ -215,7 +220,7 @@ function planProviderFormatUpdates(
                 snapshotId,
                 outcome.sourceUnit,
                 affectedPaths,
-                "Current generated output differs from its previous skillset.lock hash; review before rewriting."
+                description
               )
             );
           }

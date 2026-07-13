@@ -558,6 +558,8 @@ test("SET-279: source drift overlapping a provider migration blocks update", asy
 
   expect(blocked.exitCode).toBe(1);
   expect(blocked.stdout).toContain("manual review required: Codex plugin");
+  expect(blocked.stdout).toContain("Source changed since the previous skillset.lock hash");
+  expect(blocked.stdout).not.toContain("Current generated output differs from its previous skillset.lock hash");
   expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
 });
 
