@@ -657,7 +657,7 @@ export async function runCli(
       if (writeMode && report.ok) await rememberKnownSkillsetWorkspace(report.rootPath, options);
       return;
     }
-    if (!yes && process.stdin.isTTY && process.stdout.isTTY) {
+    if (!yes && !dryRun && process.stdin.isTTY && process.stdout.isTTY) {
       const survey = await initSkillset({
         cwd: rootPath,
         ...(importPath === undefined ? {} : { rootPath: importPath }),
@@ -670,9 +670,10 @@ export async function runCli(
         printSetupReport(survey, "interactive preview");
         const selection = await promptForInitAdoption(survey.importCandidates);
         if (selection.confirmed && selection.candidates.length > 0) {
-          const report = await adoptSkillset(importPath ?? rootPath, {
+          const report = await adoptSkillset(importPath ?? survey.rootPath, {
             candidates: selection.candidates,
             cwd: rootPath,
+            ...(importName === undefined ? {} : { name: importName }),
             ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
             ...(setupTargets === undefined ? {} : { targets: setupTargets }),
             write: true,
