@@ -39,7 +39,7 @@ export async function reconcileManagedPath(
   if (write) {
     await assertReconcileDriftIsScoped(
       rootPath,
-      managedPath,
+      explanation.path,
       sourcePaths,
       skillsetOptions
     );

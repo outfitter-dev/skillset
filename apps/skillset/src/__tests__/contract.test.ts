@@ -4839,7 +4839,7 @@ test("SET-282: reconcile applies source-wins with output backup safety", async (
   const generatedPath = ".claude/skills/demo/SKILL.md";
   await writeFile(join(root, generatedPath), "---\nname: demo\ndescription: Demo.\n---\n\nOutput edit.\n", "utf8");
 
-  const result = await runSkillsetCli("reconcile", generatedPath, "--use", "source", "--yes", "--root", root);
+  const result = await runSkillsetCli("reconcile", `./${generatedPath}`, "--use", "source", "--yes", "--root", root);
 
   expect(result.exitCode).toBe(0);
   expect(result.stdout).toContain("reconciled using source");
