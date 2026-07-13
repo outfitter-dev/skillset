@@ -288,18 +288,26 @@ function actionForEntry(
   };
 }
 
-async function uneditedManagedOutputPaths(
+async function unchangedManagedOutputPaths(
   rootPath: string,
-  driftPaths: readonly string[]
+  driftPaths: readonly string[],
+  options: SkillsetOptions
 ): Promise<ReadonlySet<string>> {
-  const unedited = new Set<string>();
+  const expectedEntries = await listGeneratedEntries(rootPath, options);
+  const expectedSourceHashes = new Map(
+    expectedEntries.map((entry) => [normalizePath(entry.outputPath), entry.sourceHash])
+  );
+  const unchanged = new Set<string>();
   for (const outputPath of driftPaths) {
     const lockItem = await findLockItemForOutputPath(rootPath, outputPath);
-    if (lockItem === undefined || lockItem.outputHash === undefined) continue;
+    if (lockItem === undefined || lockItem.outputHash === undefined || lockItem.sourceHash === undefined) continue;
     const currentHash = await currentOutputHash(rootPath, lockItem);
-    if (currentHash === lockItem.outputHash) unedited.add(outputPath);
+    const expectedSourceHash = expectedSourceHashes.get(normalizePath(outputPath));
+    if (currentHash === lockItem.outputHash && expectedSourceHash === lockItem.sourceHash) {
+      unchanged.add(outputPath);
+    }
   }
-  return unedited;
+  return unchanged;
 }
 
 async function findLockItemForOutputPath(
