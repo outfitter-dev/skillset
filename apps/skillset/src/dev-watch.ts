@@ -60,6 +60,15 @@ export interface DevWatchScheduler {
   readonly setTimeout: (callback: () => void, delayMs: number) => unknown;
 }
 
+export interface DevWatchRuntime {
+  readonly addSignalListeners: (listener: () => void) => void;
+  readonly collectDirectories: typeof collectDevWatchDirectories;
+  readonly removeSignalListeners: (listener: () => void) => void;
+  readonly runOnce: typeof runDevWatchOnce;
+  readonly scheduler: DevWatchScheduler;
+  readonly watch: typeof watch;
+}
+
 export function createDevWatchJsonlStream(output: Pick<NodeJS.WritableStream, "write">) {
   const stream = createCliEventStream("dev", output);
   return {
@@ -75,6 +84,9 @@ export function createDevWatchJsonlStream(output: Pick<NodeJS.WritableStream, "w
     },
     completed(reason = "signal") {
       return stream.emit("completed", { reason });
+    },
+    failed(message: string, stage: string) {
+      return stream.emit("failed", { message, stage });
     },
   };
 }
@@ -291,47 +303,93 @@ export async function runDevWatch(
   options: SkillsetOptions = {},
   output: NodeJS.WritableStream = process.stdout,
   mode: DevWatchMode = "preview",
-  machineMode?: "jsonl"
+  machineMode?: "jsonl",
+  runtime: DevWatchRuntime = {
+    addSignalListeners: (listener) => {
+      process.once("SIGINT", listener);
+      process.once("SIGTERM", listener);
+    },
+    collectDirectories: collectDevWatchDirectories,
+    removeSignalListeners: (listener) => {
+      process.off("SIGINT", listener);
+      process.off("SIGTERM", listener);
+    },
+    runOnce: runDevWatchOnce,
+    scheduler: defaultScheduler,
+    watch,
+  }
 ): Promise<void> {
   const plan = await createDevWatchPlan(rootPath, options);
   const stream = machineMode === "jsonl" ? createDevWatchJsonlStream(output) : undefined;
   if (stream === undefined) output.write(renderDevWatchStart(plan, mode));
   else stream.started(plan, mode);
   const writeOperation = async (reason = "initial") => {
-    const report = await runDevWatchOnce(rootPath, options, mode, reason);
+    const report = await runtime.runOnce(rootPath, options, mode, reason);
     if (stream === undefined) output.write(renderDevWatchPreview(report));
     else stream.operation(report);
   };
-  await writeOperation();
+  let activeOperation: Promise<void> | undefined;
+  const startOperation = async (reason: string) => {
+    const previous = activeOperation;
+    const operation = (previous ?? Promise.resolve()).then(() => writeOperation(reason));
+    activeOperation = operation;
+    try {
+      await operation;
+    } finally {
+      if (activeOperation === operation) activeOperation = undefined;
+    }
+  };
+  await startOperation("initial");
 
   const watchers: FSWatcher[] = [];
   const debouncer = createDevWatchDebouncer(async (reason) => {
-    await writeOperation(reason);
-  });
+    await startOperation(reason);
+  }, DEFAULT_DEBOUNCE_MS, runtime.scheduler);
 
-  for (const watchRoot of await collectDevWatchDirectories(plan)) {
-    watchers.push(watch(resolve(plan.rootPath, watchRoot), (_event, filename) => {
-      const eventPath = filename === null
-        ? undefined
-        : normalizeRelativePath(join(watchRoot, filename.toString()));
-      if (shouldRunDevPreviewForPath(plan, eventPath)) {
-        debouncer.trigger(eventPath ?? "change");
-      }
-    }));
+  try {
+    for (const watchRoot of await runtime.collectDirectories(plan)) {
+      watchers.push(runtime.watch(resolve(plan.rootPath, watchRoot), (_event, filename) => {
+        const eventPath = filename === null
+          ? undefined
+          : normalizeRelativePath(join(watchRoot, filename.toString()));
+        if (shouldRunDevPreviewForPath(plan, eventPath)) {
+          debouncer.trigger(eventPath ?? "change");
+        }
+      }));
+    }
+  } catch (error) {
+    for (const watcher of watchers) watcher.close();
+    if (stream === undefined) throw error;
+    stream.failed(error instanceof Error ? error.message : String(error), "watch-setup");
+    if (output === process.stdout) process.exitCode = 1;
+    return;
   }
 
-  await new Promise<void>((resolvePromise) => {
+  await new Promise<void>((resolvePromise, rejectPromise) => {
+    let stopping = false;
     const stop = () => {
+      if (stopping) return;
+      stopping = true;
       debouncer.cancel();
       for (const watcher of watchers) watcher.close();
-      process.off("SIGINT", stop);
-      process.off("SIGTERM", stop);
-      if (stream === undefined) output.write("skillset: dev watch stopped\n");
-      else stream.completed();
-      resolvePromise();
+      runtime.removeSignalListeners(stop);
+      void (async () => {
+        try {
+          await activeOperation;
+          if (stream === undefined) output.write("skillset: dev watch stopped\n");
+          else stream.completed();
+          resolvePromise();
+        } catch (error) {
+          if (stream === undefined) rejectPromise(error);
+          else {
+            stream.failed(error instanceof Error ? error.message : String(error), "operation");
+            if (output === process.stdout) process.exitCode = 1;
+            resolvePromise();
+          }
+        }
+      })();
     };
-    process.once("SIGINT", stop);
-    process.once("SIGTERM", stop);
+    runtime.addSignalListeners(stop);
   });
 }
 

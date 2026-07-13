@@ -9,6 +9,7 @@ import {
   createDevWatchDebouncer,
   createDevWatchPlan,
   renderDevWatchPreview,
+  runDevWatch,
   runDevWatchApply,
   runDevWatchPreview,
   shouldRunDevPreviewForPath,
@@ -222,6 +223,26 @@ test("SET-289: dev JSONL emits controlled started, operation, and terminal event
   expect(events.map((event) => event.event)).toEqual(["started", "operation", "completed"]);
   expect(events.map((event) => event.sequence)).toEqual([1, 2, 3]);
   expect(output).not.toContain("skillset: dev");
+});
+
+test("SET-289: JSONL watch setup failures stay in the active sequence", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-dev-jsonl-setup-"));
+  await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
+  let output = "";
+
+  await runDevWatch(root, {}, { write: (chunk) => { output += String(chunk); return true; } } as NodeJS.WritableStream, "preview", "jsonl", {
+    addSignalListeners: () => {},
+    collectDirectories: async () => ["."],
+    removeSignalListeners: () => {},
+    runOnce: runDevWatchPreview,
+    scheduler: { clearTimeout: () => {}, setTimeout: () => 0 },
+    watch: () => { throw new Error("watch setup failed"); },
+  });
+
+  const events = parseCliEventStream(output);
+  expect(events.map((event) => event.event)).toEqual(["started", "operation", "failed"]);
+  expect(events.map((event) => event.sequence)).toEqual([1, 2, 3]);
+  expect(events[2]?.data).toMatchObject({ stage: "watch-setup" });
 });
 
 test("SET-289: dev --jsonl terminates a real controlled stream without human output", async () => {
