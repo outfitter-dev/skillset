@@ -284,10 +284,10 @@ export async function executeTryRun(
     updatedAt: new Date().toISOString(),
     ...(failureClass === undefined ? {} : { failureClass }),
     ...(result.timedOut
-      ? { error: `try command timed out after ${config.timeoutMs}ms` }
-      : result.exitCode === 0 ? {} : { error: stderr.trim() || `try command exited with code ${result.exitCode}` }),
+      ? { error: `test command timed out after ${config.timeoutMs}ms` }
+      : result.exitCode === 0 ? {} : { error: stderr.trim() || `test command exited with code ${result.exitCode}` }),
   });
-  await appendEvent(paths, "status", `try ${nextState}`);
+  await appendEvent(paths, "status", `test ${nextState}`);
 }
 
 export async function readTryEvidence(
@@ -517,21 +517,21 @@ function validateTryPlugins(
 ): readonly string[] {
   if (plugins.length === 0) return [];
   if (target === "codex") {
-    throw new Error("skillset: try --plugin is only supported for targets with local plugin-dir support: claude, cursor");
+    throw new Error("skillset: test --plugin is only supported for targets with local plugin-dir support: claude, cursor");
   }
   const seen = new Set<string>();
   const selected: string[] = [];
   const knownPlugins = graph.plugins.map((plugin) => plugin.id).sort(compareStrings);
   for (const pluginId of plugins) {
-    if (seen.has(pluginId)) throw new Error(`skillset: duplicate try plugin ${JSON.stringify(pluginId)}`);
+    if (seen.has(pluginId)) throw new Error(`skillset: duplicate test plugin ${JSON.stringify(pluginId)}`);
     seen.add(pluginId);
     const plugin = graph.plugins.find((candidate) => candidate.id === pluginId);
     if (plugin === undefined) {
       const available = knownPlugins.length === 0 ? "none configured" : knownPlugins.join(", ");
-      throw new Error(`skillset: unknown try plugin ${JSON.stringify(pluginId)}; available plugins: ${available}`);
+      throw new Error(`skillset: unknown test plugin ${JSON.stringify(pluginId)}; available plugins: ${available}`);
     }
     if (!plugin.targets[target].enabled) {
-      throw new Error(`skillset: try plugin ${JSON.stringify(pluginId)} is not enabled for ${target}`);
+      throw new Error(`skillset: test plugin ${JSON.stringify(pluginId)} is not enabled for ${target}`);
     }
     selected.push(pluginId);
   }
@@ -677,7 +677,7 @@ async function failRun(
     state: "failed",
     updatedAt: endedAt,
   });
-  await appendEvent(paths, "status", `try failed: ${error}`);
+  await appendEvent(paths, "status", `test failed: ${error}`);
 }
 
 function classifyTryFailure(
@@ -728,18 +728,18 @@ async function readLatestRunId(
 ): Promise<string> {
   const latest = await readRetainedRunLatest(rootPath, graph, RUNTIME_TEST_ROOT, xdg);
   if (!isRecord(latest) || typeof latest.runId !== "string") {
-    throw new Error("skillset: try latest run is malformed");
+    throw new Error("skillset: test latest run is malformed");
   }
   return latest.runId;
 }
 
 async function readConfig(path: string): Promise<TryStoredConfig> {
   const raw = JSON.parse(await readFile(path, "utf8")) as unknown;
-  if (!isRecord(raw)) throw new Error("skillset: try config is malformed");
-  if (!isTargetName(raw.target)) throw new Error("skillset: try config target is malformed");
-  if (typeof raw.prompt !== "string") throw new Error("skillset: try config prompt is malformed");
+  if (!isRecord(raw)) throw new Error("skillset: test config is malformed");
+  if (!isTargetName(raw.target)) throw new Error("skillset: test config target is malformed");
+  if (typeof raw.prompt !== "string") throw new Error("skillset: test config prompt is malformed");
   const claudeSettingSources = typeof raw.claudeSettingSources === "string"
-    ? readClaudeSettingSources(raw.claudeSettingSources, "try config claudeSettingSources")
+    ? readClaudeSettingSources(raw.claudeSettingSources, "test config claudeSettingSources")
     : undefined;
   return {
     ...(claudeSettingSources === undefined ? {} : { claudeSettingSources }),
@@ -755,7 +755,7 @@ async function readConfig(path: string): Promise<TryStoredConfig> {
 async function readStatus(path: string): Promise<TryStatus> {
   const raw = JSON.parse(await readFile(path, "utf8")) as unknown;
   if (!isRecord(raw) || typeof raw.runId !== "string" || !isTargetName(raw.target)) {
-    throw new Error("skillset: try status is malformed");
+    throw new Error("skillset: test status is malformed");
   }
   return raw as unknown as TryStatus;
 }

@@ -266,28 +266,28 @@ Use this skill to answer fixture questions.
     prompt: "Inspect missing plugin.",
     target: "claude",
     xdg,
-  })).rejects.toThrow("unknown try plugin \"missing\"; available plugins: acme, codex-only");
+  })).rejects.toThrow("unknown test plugin \"missing\"; available plugins: acme, codex-only");
 
   await expect(startTryRun(root, {
     plugins: ["acme", "acme"],
     prompt: "Inspect duplicate plugin.",
     target: "claude",
     xdg,
-  })).rejects.toThrow("duplicate try plugin \"acme\"");
+  })).rejects.toThrow("duplicate test plugin \"acme\"");
 
   await expect(startTryRun(root, {
     plugins: ["codex-only"],
     prompt: "Inspect disabled plugin.",
     target: "claude",
     xdg,
-  })).rejects.toThrow("try plugin \"codex-only\" is not enabled for claude");
+  })).rejects.toThrow("test plugin \"codex-only\" is not enabled for claude");
 
   await expect(startTryRun(root, {
     plugins: ["acme"],
     prompt: "Inspect Codex plugin selection.",
     target: "codex",
     xdg,
-  })).rejects.toThrow("try --plugin is only supported for targets with local plugin-dir support: claude, cursor");
+  })).rejects.toThrow("test --plugin is only supported for targets with local plugin-dir support: claude, cursor");
 });
 
 test("SET-272: try CLI starts directly and supports status, tail, and list", async () => {
@@ -327,6 +327,8 @@ CLI fixture body.
   const tail = await runSkillsetCli(env, "test", "tail", report.runId, "--lines", "10", "--json", "--root", root);
   expect(tail.exitCode).toBe(0);
   expect(tail.stdout).toContain("Inspect CLI fixture.");
+  expect(tail.stdout).toContain("test passed");
+  expect(tail.stdout).not.toContain("try passed");
 
   const list = await runSkillsetCli(env, "test", "list", "--json", "--root", root);
   expect(list.exitCode).toBe(0);
@@ -816,7 +818,10 @@ Runtime failure body.
     timeoutMs: 10,
     xdg,
   });
-  expect((await readTryStatus(root, timeout.runId, { xdg })).failureClass).toBe("timeout");
+  const timeoutStatus = await readTryStatus(root, timeout.runId, { xdg });
+  expect(timeoutStatus.failureClass).toBe("timeout");
+  expect(timeoutStatus.error).toContain("test command timed out");
+  expect(timeoutStatus.error).not.toContain("try command");
 });
 
 async function fixture(files: Record<string, string>): Promise<string> {
