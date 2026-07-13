@@ -216,6 +216,19 @@ test("SET-277: init adoption resolves the repo root from a subdirectory", async 
   expect(await exists(join(nested, "skillset.yaml"))).toBe(false);
 });
 
+test("SET-277: init adoption preserves its positional destination without --from", async () => {
+  const source = await gitFixture(MARKETPLACE_FIXTURE);
+  const destinationName = `${source.split("/").at(-1)}-migrated`;
+  const destination = join(source, "..", destinationName);
+  const before = await walkFiles(source);
+
+  const result = await runSkillsetCliIn(source, "init", `../${destinationName}`, "--adopt", "all", "--yes");
+
+  expect(result.exitCode).toBe(0);
+  expect(await exists(join(destination, ".skillset", "plugins", "demo", "skillset.yaml"))).toBe(true);
+  expect(await walkFiles(source)).toEqual(before);
+});
+
 test("SET-277: init --from previews without creating its destination", async () => {
   const source = await fixture(MARKETPLACE_FIXTURE);
   const parent = await mkdtemp(join(tmpdir(), "skillset-init-preview-"));

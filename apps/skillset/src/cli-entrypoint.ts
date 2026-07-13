@@ -11,8 +11,7 @@ import {
 } from "./cli-output";
 
 export async function runCliEntrypoint(
-  args: readonly string[] = process.argv.slice(2),
-  binaryName = "skillset"
+  args: readonly string[] = process.argv.slice(2)
 ): Promise<void> {
   let mode: CliMachineMode | undefined;
   try {
@@ -24,7 +23,7 @@ export async function runCliEntrypoint(
         readCliCommand(args)
       );
     }
-    await runCli(args, binaryName);
+    await runCli(args);
   } catch (error) {
     mode ??= args.includes("--json") ? "json" : undefined;
     if (!mode) {
