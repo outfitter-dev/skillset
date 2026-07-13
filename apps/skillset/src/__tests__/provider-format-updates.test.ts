@@ -561,6 +561,29 @@ test("SET-279: source drift overlapping a provider migration blocks update", asy
   expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
 });
 
+test("SET-279: unrelated source-hash drift blocks provider updates", async () => {
+  const root = await builtFixture(pluginFixture());
+  const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
+  const sourcePath = join(root, ".skillset/plugins/alpha/skills/demo/SKILL.md");
+  const original = await readFile(manifestPath, "utf8");
+  await writeFile(manifestPath, `${original}\n// stale provider format\n`, "utf8");
+  await markCurrentPluginManifestAsManaged(root);
+  await writeFile(
+    sourcePath,
+    (await readFile(sourcePath, "utf8")).replace(
+      "description: Demo skill.\n",
+      "description: Demo skill.\nmodel: gpt-5\n"
+    ),
+    "utf8"
+  );
+
+  const blocked = await runSkillsetCli("update", "--yes", "--root", root);
+
+  expect(blocked.exitCode).toBe(1);
+  expect(blocked.stdout).toContain("unplanned destination drift");
+  expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
+});
+
 test("SET-194: arbitrary edits on safe provider paths block writes", async () => {
   const root = await builtFixture(pluginFixture());
   const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);

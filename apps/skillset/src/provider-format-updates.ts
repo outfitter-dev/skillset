@@ -57,29 +57,32 @@ export async function runProviderFormatUpdates(
   const { write = false, ...skillsetOptions } = options;
   const preview = await diffSkillsetResult(rootPath, skillsetOptions);
   const driftPaths = allDriftPaths(preview.data);
-  const sourceDriftPaths = [...await changedSourceOutputPaths(
+  const managedState = await inspectManagedOutputState(
     rootPath,
     driftPaths,
     preview.data.missing,
     preview.data.removed,
     skillsetOptions
-  )];
-  const providerDriftPaths = driftPaths.filter((path) => !sourceDriftPaths.includes(path));
-  const uneditedManagedPaths = await uneditedManagedOutputPaths(rootPath, driftPaths);
-  const plan = planProviderFormatUpdates(preview.renderResults, providerDriftPaths, uneditedManagedPaths);
-  sourceDriftPaths.sort(compareStrings);
-  const unplannedDriftPaths = unplannedProviderDriftPaths(
-    providerDriftPaths,
-    plan.safeUpdates,
-    plan.manualReviews
   );
-  const substantiveSourceDriftPaths = sourceDriftPaths.filter((path) =>
-    path !== "skillset.lock" && !path.endsWith("/skillset.lock")
+  const sourceDriftPaths = managedState.sourceDriftPaths;
+  const sourceDriftSet = new Set(sourceDriftPaths);
+  const providerDriftPaths = driftPaths.filter((path) => !sourceDriftSet.has(path));
+  const plan = planProviderFormatUpdates(
+    preview.renderResults,
+    driftPaths,
+    managedState.unchangedPaths
   );
-  const mixedSourceAndProviderDrift =
-    command === "update" && plan.safeUpdates.length > 0 && substantiveSourceDriftPaths.length > 0;
-  const blocked =
-    plan.manualReviews.length > 0 || unplannedDriftPaths.length > 0 || mixedSourceAndProviderDrift;
+  const plannedPaths = new Set(
+    [...plan.safeUpdates, ...plan.manualReviews].flatMap((action) => action.affectedPaths)
+  );
+  const hasProviderPlan = plannedPaths.size > 0;
+  const unplannedDriftPaths = [
+    ...new Set([
+      ...unplannedProviderDriftPaths(providerDriftPaths, plan.safeUpdates, plan.manualReviews),
+      ...(hasProviderPlan ? sourceDriftPaths.filter((path) => !plannedPaths.has(path)) : []),
+    ]),
+  ].sort(compareStrings);
+  const blocked = plan.manualReviews.length > 0 || unplannedDriftPaths.length > 0;
   let wrote = false;
   let writtenPaths: readonly string[] = [];
 
@@ -102,35 +105,6 @@ export async function runProviderFormatUpdates(
     wrote,
     writtenPaths,
   };
-}
-
-async function changedSourceOutputPaths(
-  rootPath: string,
-  driftPaths: readonly string[],
-  missingPaths: readonly string[],
-  removedPaths: readonly string[],
-  options: SkillsetOptions
-): Promise<readonly string[]> {
-  const driftSet = new Set(driftPaths);
-  const missingSet = new Set(missingPaths);
-  const changed = new Set(removedPaths);
-  for (const path of driftPaths) {
-    if (await findLockItemForOutputPath(rootPath, path) === undefined) changed.add(path);
-  }
-  for (const expected of await listGeneratedEntries(rootPath, options)) {
-    const current = await findLockItemForOutputPath(rootPath, expected.outputPath);
-    const affectedPaths = current?.files.map((file) => file.displayPath) ?? [expected.outputPath];
-    if (!affectedPaths.some((path) => driftSet.has(path)) || expected.sourceHash === undefined) continue;
-    if (
-      (current?.sourceHash !== undefined && current.sourceHash !== expected.sourceHash) ||
-      (current?.version !== undefined && current.version !== expected.version)
-    ) {
-      for (const path of affectedPaths) {
-        if (driftSet.has(path) && !missingSet.has(path)) changed.add(path);
-      }
-    }
-  }
-  return [...changed].sort(compareStrings);
 }
 
 export function renderProviderFormatUpdateReport(report: ProviderFormatUpdateReport): string {
@@ -288,26 +262,55 @@ function actionForEntry(
   };
 }
 
-async function unchangedManagedOutputPaths(
+async function inspectManagedOutputState(
   rootPath: string,
   driftPaths: readonly string[],
+  missingPaths: readonly string[],
+  removedPaths: readonly string[],
   options: SkillsetOptions
-): Promise<ReadonlySet<string>> {
+): Promise<{
+  readonly sourceDriftPaths: readonly string[];
+  readonly unchangedPaths: ReadonlySet<string>;
+}> {
   const expectedEntries = await listGeneratedEntries(rootPath, options);
   const expectedSourceHashes = new Map(
     expectedEntries.map((entry) => [normalizePath(entry.outputPath), entry.sourceHash])
   );
+  const expectedVersions = new Map(
+    expectedEntries.map((entry) => [normalizePath(entry.outputPath), entry.version])
+  );
+  const missingSet = new Set(missingPaths.map(normalizePath));
+  const sourceDriftPaths = [...removedPaths];
+  for (const entry of expectedEntries) {
+    const outputPath = normalizePath(entry.outputPath);
+    const lockItem = await findLockItemForOutputPath(rootPath, outputPath);
+    if (
+      lockItem?.sourceHash !== undefined &&
+      (entry.sourceHash !== lockItem.sourceHash ||
+        (lockItem.version !== undefined && entry.version !== lockItem.version))
+    ) {
+      if (!missingSet.has(outputPath)) sourceDriftPaths.push(outputPath);
+    }
+  }
   const unchanged = new Set<string>();
   for (const outputPath of driftPaths) {
     const lockItem = await findLockItemForOutputPath(rootPath, outputPath);
     if (lockItem === undefined || lockItem.outputHash === undefined || lockItem.sourceHash === undefined) continue;
     const currentHash = await currentOutputHash(rootPath, lockItem);
     const expectedSourceHash = expectedSourceHashes.get(normalizePath(outputPath));
-    if (currentHash === lockItem.outputHash && expectedSourceHash === lockItem.sourceHash) {
+    const expectedVersion = expectedVersions.get(normalizePath(outputPath));
+    if (
+      currentHash === lockItem.outputHash &&
+      expectedSourceHash === lockItem.sourceHash &&
+      (lockItem.version === undefined || expectedVersion === lockItem.version)
+    ) {
       unchanged.add(outputPath);
     }
   }
-  return unchanged;
+  return {
+    sourceDriftPaths: [...new Set(sourceDriftPaths)].sort(compareStrings),
+    unchangedPaths: unchanged,
+  };
 }
 
 async function findLockItemForOutputPath(
