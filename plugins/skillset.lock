@@ -30,10 +30,17 @@
       ],
       "kind": "plugin-skill",
       "name": "use-skillset",
+<<<<<<< HEAD
       "outputHash": "sha256:bec5e2638bbcf405c6a9351aa4fccd7e44b037e8832baffb19c7e08448cc2485",
       "outputPath": "skillset/claude/skills/use-skillset/SKILL.md",
       "plugin": "skillset",
       "sourceHash": "sha256:ebbc6c14cefb731724fb257e93cf80f6a317235b874c0ac5bedf3e4fbf60007a",
+=======
+      "outputHash": "sha256:2b83eb1165ef05f0bb0280d90c163ed91def717f22b168b9002c020cf7edb0c6",
+      "outputPath": "skillset/claude/skills/use-skillset/SKILL.md",
+      "plugin": "skillset",
+      "sourceHash": "sha256:0ca76b89d3b5916687c41c908f069a3f5846156222c397e3152a77ef4686e659",
+>>>>>>> 0012b491 (fix(cli): migrate stop hooks to output checks)
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "version": "0.1.1"
     },
@@ -62,10 +69,17 @@
       ],
       "kind": "plugin-skill",
       "name": "use-skillset",
+<<<<<<< HEAD
       "outputHash": "sha256:4087b2fd3ae53f5cb6fe4e6baa88d765dc08965519b362e4b168624146ef5007",
       "outputPath": "skillset/codex/skills/use-skillset/SKILL.md",
       "plugin": "skillset",
       "sourceHash": "sha256:ebbc6c14cefb731724fb257e93cf80f6a317235b874c0ac5bedf3e4fbf60007a",
+=======
+      "outputHash": "sha256:f48694e1b3894ca9ff59dcdc0a36d5ef50c4a05addf28491ec4cb89d794a16b5",
+      "outputPath": "skillset/codex/skills/use-skillset/SKILL.md",
+      "plugin": "skillset",
+      "sourceHash": "sha256:0ca76b89d3b5916687c41c908f069a3f5846156222c397e3152a77ef4686e659",
+>>>>>>> 0012b491 (fix(cli): migrate stop hooks to output checks)
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "version": "0.1.1"
     },
@@ -94,10 +108,17 @@
       ],
       "kind": "plugin-skill",
       "name": "use-skillset",
+<<<<<<< HEAD
       "outputHash": "sha256:e009a6db0b92097840c7d02ffa1a0fe4ee5320233eb7152fbc316f1d99edd6d2",
       "outputPath": "skillset/cursor/skills/use-skillset/SKILL.md",
       "plugin": "skillset",
       "sourceHash": "sha256:ebbc6c14cefb731724fb257e93cf80f6a317235b874c0ac5bedf3e4fbf60007a",
+=======
+      "outputHash": "sha256:c9e7237cada1994d79f534a22dfae8001a272b017277d0114ad4f36abf35b794",
+      "outputPath": "skillset/cursor/skills/use-skillset/SKILL.md",
+      "plugin": "skillset",
+      "sourceHash": "sha256:0ca76b89d3b5916687c41c908f069a3f5846156222c397e3152a77ef4686e659",
+>>>>>>> 0012b491 (fix(cli): migrate stop hooks to output checks)
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "version": "0.1.1"
     }
