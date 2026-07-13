@@ -55,6 +55,40 @@ describe("SET-287 finite read-only JSON", () => {
     expect(envelope.exitCode).toBe(result.exitCode);
   });
 
+  test("change entry JSON preserves source hash evidence", async () => {
+    const result = await runJsonRoute("change", "list", "--root", repoRoot);
+    const envelope = JSON.parse(result.stdout) as SkillsetCliResult;
+    const entries = envelope.data.entries as unknown as readonly {
+      readonly sourceHashes: Readonly<Record<string, readonly string[]>>;
+    }[];
+    expect(entries.length).toBeGreaterThan(0);
+    expect(Object.keys(entries[0]?.sourceHashes ?? {}).length).toBeGreaterThan(0);
+    expect(Object.values(entries[0]?.sourceHashes ?? {}).every(Array.isArray)).toBe(true);
+  });
+
+  test("diff JSON preserves source diagnostics", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "skillset-diff-json-"));
+    await mkdir(path.join(root, ".skillset", "plugins", "alpha", "skills", "modelish"), {
+      recursive: true,
+    });
+    await writeFile(path.join(root, "skillset.yaml"), "skillset:\n  name: diff-json\n");
+    await writeFile(
+      path.join(root, ".skillset", "plugins", "alpha", "skillset.yaml"),
+      "skillset:\n  name: alpha\n"
+    );
+    await writeFile(
+      path.join(root, ".skillset", "plugins", "alpha", "skills", "modelish", "SKILL.md"),
+      "---\nname: modelish\ndescription: Model warning.\nmodel: gpt-5\n---\n\nBody.\n"
+    );
+
+    const result = await runJsonRoute("diff", "--root", root);
+    expect(result.stderr).toBe("");
+    const envelope = JSON.parse(result.stdout) as SkillsetCliResult;
+    expect(envelope.diagnostics).toEqual([
+      expect.objectContaining({ code: "source-warning", severity: "warning" }),
+    ]);
+  });
+
   test("check keeps lint failures structured", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "skillset-check-json-"));
     await mkdir(path.join(root, ".skillset", "skills", "demo"), { recursive: true });

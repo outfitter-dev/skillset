@@ -23,6 +23,7 @@ import {
   type MarketplaceCheckReport,
   type MarketplaceUpdateReport,
   type OutputBackupRestoreReport,
+  type SkillsetDiagnostic,
   type VersionAuditReport,
 } from "@skillset/core";
 
@@ -338,7 +339,10 @@ export async function runCli(
         ...(changeRef === undefined ? {} : { ref: changeRef }),
         ...(changeStaged ? { staged: true } : {}),
       });
-      if (jsonOutput) printCliJsonData("change.check", report, report.ok ? 0 : 1);
+      if (jsonOutput) printCliJsonData("change.check", {
+        ...report,
+        entries: report.entries.map(serializeChangeEntry),
+      }, report.ok ? 0 : 1);
       else printChangeCheck(report);
       return;
     }
@@ -376,7 +380,10 @@ export async function runCli(
     if (changeSubcommand === "show") {
       if (changeRef === undefined) throw new Error("skillset: change show requires @ref");
       const report = await showChangeEntry(rootPath, { ...changeOptions, ref: changeRef });
-      if (jsonOutput) printCliJsonData("change.show", report);
+      if (jsonOutput) printCliJsonData("change.show", {
+        ...report,
+        entry: serializeChangeEntry(report.entry),
+      });
       else printChangeEntry("show", report.entry);
       return;
     }
@@ -385,7 +392,10 @@ export async function runCli(
         ...changeOptions,
         ...(changeGroup === undefined ? {} : { group: changeGroup }),
       });
-      if (jsonOutput) printCliJsonData("change.list", report);
+      if (jsonOutput) printCliJsonData("change.list", {
+        ...report,
+        entries: report.entries.map(serializeChangeEntry),
+      });
       else printChangeList(report.entries);
       return;
     }
@@ -394,7 +404,10 @@ export async function runCli(
         ...changeOptions,
         ...(changeRef === undefined ? {} : { ref: changeRef }),
       });
-      if (jsonOutput) printCliJsonData("change.history", report);
+      if (jsonOutput) printCliJsonData("change.history", {
+        ...report,
+        entries: report.entries.map(serializeChangeEntry),
+      });
       else printChangeHistory(report.entries);
       return;
     }
@@ -705,7 +718,14 @@ export async function runCli(
   if (command === "diff") {
     const result = await diffSkillsetResult(rootPath, options);
     if (jsonOutput) {
-      printCliJsonData("diff", result.data);
+      const exitCode = result.ok ? 0 : 1;
+      printCliJsonData(
+        "diff",
+        result.data,
+        exitCode,
+        "diagnostics",
+        serializeDiagnostics(result.diagnostics)
+      );
       return;
     }
     printDiagnostics(result.diagnostics);
@@ -938,6 +958,32 @@ function printCliJsonData(
     kind,
   }));
   if (exitCode !== 0) process.exitCode = exitCode;
+}
+
+function serializeChangeEntry<
+  T extends { readonly sourceHashes: ReadonlyMap<string, readonly string[]> },
+>(entry: T): Omit<T, "sourceHashes"> & {
+  readonly sourceHashes: Readonly<Record<string, readonly string[]>>;
+} {
+  return {
+    ...entry,
+    sourceHashes: Object.fromEntries(
+      [...entry.sourceHashes].sort(([left], [right]) => left.localeCompare(right))
+    ),
+  };
+}
+
+function serializeDiagnostics(
+  diagnostics: readonly SkillsetDiagnostic[]
+): readonly SkillsetCliDiagnostic[] {
+  return diagnostics.map((diagnostic) => ({
+    code: diagnostic.code,
+    message: diagnostic.message,
+    ...(diagnostic.path === undefined && diagnostic.outputPath === undefined
+      ? {}
+      : { path: diagnostic.path ?? diagnostic.outputPath }),
+    severity: diagnostic.severity,
+  }));
 }
 
 async function rememberKnownSkillsetWorkspace(rootPath: string, options: SkillsetOptions): Promise<void> {
