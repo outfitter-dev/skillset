@@ -22,10 +22,13 @@ describe("SET-286 CLI output kernel", () => {
     }
     expect(readCliCommand(["not-a-command", "--json"])).toBe("cli");
   });
-  test("pre-scans the supported finite machine mode", () => {
+  test("pre-scans requested machine modes before route parsing", () => {
     expect(readCliMachineMode(["check", "--json"])).toBe("json");
-    expect(readCliMachineMode(["dev", "--jsonl"])).toBeUndefined();
+    expect(readCliMachineMode(["dev", "--jsonl"])).toBe("jsonl");
     expect(readCliMachineMode(["check"])).toBeUndefined();
+    expect(() => readCliMachineMode(["check", "--json", "--jsonl"])).toThrow(
+      "skillset: --json and --jsonl are mutually exclusive"
+    );
   });
 
   test("renders validated finite results with one trailing newline", () => {
