@@ -500,7 +500,7 @@ export async function runCli(
         ...options,
         ...(distributionName === undefined ? {} : { name: distributionName }),
       });
-      if (jsonOutput) printCliJsonData("distribute.plan", report, 0, "plan");
+      if (jsonOutput) printCliJsonData("distribute.plan", { plans: report.plans }, 0, "plan");
       else printDistributionPlan(report);
       return;
     }

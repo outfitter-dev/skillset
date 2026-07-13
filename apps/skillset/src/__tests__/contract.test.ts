@@ -1276,11 +1276,14 @@ Body.
   expect(planned.stdout).toContain("destination-owned");
   const json = await runSkillsetCli("distribute", "plan", "codex-marketplace", "--json", "--root", root);
   expect(json).toMatchObject({ exitCode: 0, stderr: "" });
-  expect(JSON.parse(json.stdout)).toMatchObject({
+  const jsonResult = JSON.parse(json.stdout) as { readonly data: Record<string, unknown> };
+  expect(jsonResult).toMatchObject({
     command: "distribute.plan",
     kind: "plan",
     schemaVersion: "skillset.cli.result@1",
   });
+  expect(jsonResult.data.rootPath).toBeUndefined();
+  expect(json.stdout).not.toContain(root);
   expect(await fileExists(join(root, "plugins/alpha/codex/.codex-plugin/plugin.json"))).toBe(false);
   expect(await fileExists(join(destination, "bundles/alpha/.codex-plugin/plugin.json"))).toBe(false);
 });
