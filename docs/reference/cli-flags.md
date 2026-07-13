@@ -39,7 +39,7 @@ The entries below are the complete final public flag set. Positional arguments a
 | `new` | `--root`, `--id`, `--name`, `--in`, `--scope`, `--preset`, `--yes` | Preview by default. |
 | `check` | `--root`, `--only`, `--write`, `--ci`, `--fix`, `--since`, `--report` | `--fix` requires `--ci`; `--since` and `--report` are CI-only. |
 | `dev` | `--root`, `--write` | Watching is the command's default; `--watch` and `--apply` disappear. |
-| `reconcile <path>` | `--root`, `--use source|output`, `--yes` | Diagnosis is default; direction can be previewed before confirmation. |
+| `reconcile <path>` | `--root`, `--use source` or `--use output`, `--yes` | Diagnosis is default; direction can be previewed before confirmation. |
 | `build` | `--root`, `--updated`, `--all`, `--isolated`, `--scope`, `--yes` | Plan-first explicit compilation. |
 | `update` | `--root`, `--yes` | Whole-workspace registered provider/compiler format migrations only. |
 | `diff` | `--root`, `--updated`, `--all`, `--isolated`, `--scope` | Always read-only. |
@@ -49,7 +49,7 @@ The entries below are the complete final public flag set. Positional arguments a
 | `explain <path>` | `--root`, `--scope`; structured output deferred | Workspace-specific provenance. |
 | `lookup` | `--root`, `--frontmatter`, `--fields`, `--field`, `--values`, `--events`, `--compat`, `--examples`, `--schema`; structured output deferred | Provider aliases become values of `--compat`, not separate `--claude`/`--codex`/`--cursor` flags. |
 | `test [name]` | `--root`, `--target`, `--prompt`, `--prompt-file`, `--plugin`, `--name`, `--timeout-ms`, `--claude-setting-sources`, `--background`; structured output deferred | Runtime flags select ad hoc execution; named declarations remain positional. |
-| `test status|list` | `--root`; structured output deferred | Retained-run lifecycle. |
+| `test status` or `test list` | `--root`; structured output deferred | Retained-run lifecycle. |
 | `test tail` | `--root`, `--lines`; structured output deferred | Retained output view. |
 | `change status` | `--root`, `--since`, `--staged` | Read-only ledger status. |
 | `change check` | `--root`, `--ref`, `--since`, `--staged` | Read-only ledger gate. |
@@ -57,9 +57,9 @@ The entries below are the complete final public flag set. Positional arguments a
 | `change reason` | `--root`, `--ref`, `--append`, `--reason`, `--reason-file` | Explicit ledger edit. |
 | `change amend` | `--root`, `--ref`, `--reason`, `--reason-file` | Explicit corrective record. |
 | `change migrate` | `--root`, `--yes` | Plan-first migration. |
-| `change show|history` | `--root`, `--ref` | Read-only. |
+| `change show` or `change history` | `--root`, `--ref` | Read-only. |
 | `change list` | `--root`, `--group` | Read-only. |
-| `release audit|plan` | `--root` | Read-only. |
+| `release audit` or `release plan` | `--root` | Read-only. |
 | `release apply` | `--root`, `--yes` | Plan-first ledger application. |
 | `release amend` | `--root`, `--ref`, `--reason`, `--reason-file` | Explicit corrective record. |
 | `marketplace check` | `--root`; structured output deferred | Read-only catalog readiness. |
@@ -85,7 +85,7 @@ The entries below are the complete final public flag set. Positional arguments a
 | --- | --- |
 | `--source <dir>` | Removed; canonical `.skillset/` source is configured by the workspace. |
 | `--dist <dir>` | Removed; output roots are workspace configuration. |
-| `--layout root|nested` | Removed; retired layout compatibility is not public. |
+| `--layout root` or `--layout nested` | Removed; retired layout compatibility is not public. |
 | `--global` | Removed with top-level `create`; external destination uses `init [destination]`. |
 | `--dry-run` | Removed; preview is already the default. |
 | `dev --watch --apply` | Becomes bare `dev` and explicit `dev --write`. |
