@@ -68,6 +68,7 @@ export interface SetupGit {
 }
 
 export interface SetupReport {
+  readonly baselinePath?: string;
   readonly baselines: readonly ReleaseBaselineEntry[];
   readonly files: readonly SetupFile[];
   readonly git?: SetupGit;
@@ -192,15 +193,17 @@ async function applySetupPlan(
     if (git?.status === "create") await initializeGit(rootPath);
   }
 
-  const baselines = kind === "init"
-    ? (await seedReleaseBaselines(rootPath, {}, { write: options.write === true })).entries
-    : [];
+  const baselineReport = kind === "init"
+    ? await seedReleaseBaselines(rootPath, {}, { write: options.write === true })
+    : undefined;
+  const baselines = baselineReport?.entries ?? [];
   const importSurvey = kind === "init"
     ? await detectImportCandidates(rootPath, alreadyAdopted)
     : { candidates: [], diagnostics: [] };
   const surveySkips = kind === "init" ? await detectSurveySkips(rootPath) : [];
 
   return {
+    ...(baselineReport?.path === undefined ? {} : { baselinePath: baselineReport.path }),
     baselines,
     files,
     ...(git === undefined ? {} : { git }),

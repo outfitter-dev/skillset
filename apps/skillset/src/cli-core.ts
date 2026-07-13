@@ -737,7 +737,16 @@ export async function runCli(
       useGitRoot: !rootExplicit && importPath === undefined,
       write: yes && !dryRun,
     });
-    if (jsonOutput) printCliJsonData("init", { report: setup, state: yes && !dryRun ? "written" : "planned", writes: yes && !dryRun ? setup.files.filter((file) => file.status === "create").map((file) => file.path) : [] });
+    if (jsonOutput) printCliJsonData("init", {
+      report: setup,
+      state: yes && !dryRun ? "written" : "planned",
+      writes: yes && !dryRun
+        ? [
+            ...setup.files.filter((file) => file.status === "create").map((file) => file.path),
+            ...(setup.baselinePath === undefined ? [] : [setup.baselinePath]),
+          ]
+        : [],
+    });
     else {
       printSetupReport(setup, dryRun ? "dry run" : yes ? "written" : "write confirmation required");
       if (!yes || dryRun) console.log("skillset: rerun init with --yes to write setup files");
@@ -756,7 +765,14 @@ export async function runCli(
       ...(options.sourceDir === undefined ? {} : { sourceDir: options.sourceDir }),
     });
     if (jsonOutput) {
-      printCliJsonData("import", { result, state: "written", writes: result.imports.flatMap((entry) => [entry.targetPath]) });
+      printCliJsonData("import", {
+        result,
+        state: "written",
+        writes: [...new Set(result.imports.flatMap((entry) => [
+          entry.targetPath,
+          ...(entry.baselinePath === undefined ? [] : [entry.baselinePath]),
+        ]))],
+      });
     } else if (result.imports.length === 1) {
       const [single] = result.imports;
       if (single !== undefined) printImportReport(single);

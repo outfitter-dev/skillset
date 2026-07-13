@@ -51,6 +51,35 @@ describe("SET-287 finite read-only JSON", () => {
     expect(unchangedEnvelope.data.writes).toEqual([]);
   });
 
+  test("init JSON reports a seeded release-state write", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-init-baseline-"));
+    await mkdir(path.join(root, ".skillset", "skills", "demo"), { recursive: true });
+    await writeFile(
+      path.join(root, ".skillset", "skills", "demo", "SKILL.md"),
+      "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n"
+    );
+
+    const written = await runJsonRoute("init", "--root", root, "--yes");
+    const envelope = JSON.parse(written.stdout) as SkillsetCliResult & { data: { writes: string[] } };
+
+    expect(envelope.data.writes).toContain(".skillset/changes/state.json");
+  });
+
+  test("import JSON reports the imported source and seeded release state", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-import-baseline-"));
+    const source = path.join(root, "incoming", "SKILL.md");
+    await mkdir(path.join(root, ".skillset"), { recursive: true });
+    await mkdir(path.dirname(source), { recursive: true });
+    await writeFile(path.join(root, "skillset.yaml"), "skillset:\n  name: import-json\n");
+    await writeFile(source, "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n");
+
+    const imported = await runJsonRoute("import", source, "--kind", "skill", "--root", root);
+    const envelope = JSON.parse(imported.stdout) as SkillsetCliResult & { data: { writes: string[] } };
+
+    expect(envelope.data.writes.some((write) => write.endsWith("/.skillset/skills/demo"))).toBe(true);
+    expect(envelope.data.writes).toContain(".skillset/changes/state.json");
+  });
+
   test("build apply emits a finite summary and every changed path", async () => {
     const parent = await mkdtemp(path.join(tmpdir(), "skillset-json-build-"));
     const root = path.join(parent, "workspace");

@@ -97,6 +97,7 @@ export interface ImportSourcesOptions {
 }
 
 export interface ImportReport {
+  readonly baselinePath?: string;
   readonly baselines: readonly ReleaseBaselineEntry[];
   readonly copiedFiles: readonly string[];
   readonly files: number;
@@ -199,7 +200,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
 
     await rename(stagingPath, targetPath);
     committed = true;
-    let baselineReport: { readonly entries: readonly ReleaseBaselineEntry[] };
+    let baselineReport: { readonly entries: readonly ReleaseBaselineEntry[]; readonly path?: string };
     try {
       baselineReport = await seedImportedBaselines(options.rootPath, {
         kind: options.kind,
@@ -221,6 +222,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
     });
 
     return {
+      ...(baselineReport.path === undefined ? {} : { baselinePath: baselineReport.path }),
       baselines: baselineReport.entries,
       copiedFiles,
       files: copiedFiles.length,
@@ -276,7 +278,7 @@ async function seedImportedBaselines(
     readonly name: string;
     readonly sourceDir: string;
   }
-): Promise<{ readonly entries: readonly ReleaseBaselineEntry[] }> {
+): Promise<{ readonly entries: readonly ReleaseBaselineEntry[]; readonly path?: string }> {
   const includeScope = (scope: string): boolean => {
     if (options.kind === "skill") return scope === `skill:${options.name}`;
     return scope === `plugin:${options.name}` || scope.startsWith(`plugin.${options.name}.`);
@@ -286,7 +288,10 @@ async function seedImportedBaselines(
     { sourceDir: options.sourceDir },
     { includeScope, write: true }
   );
-  return { entries: report.entries };
+  return {
+    entries: report.entries,
+    ...(report.path === undefined ? {} : { path: report.path }),
+  };
 }
 
 interface FrontmatterClassification {
