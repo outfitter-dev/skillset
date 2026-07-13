@@ -564,6 +564,28 @@ test("SET-279: source drift overlapping a provider migration blocks update", asy
   expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
 });
 
+test("SET-279: root owner drift blocks an overlapping Codex manifest migration", async () => {
+  const root = await builtFixture(pluginFixture());
+  const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
+  const rootConfigPath = join(root, "skillset.yaml");
+  await writeFile(manifestPath, `${await readFile(manifestPath, "utf8")}\n// stale provider format\n`, "utf8");
+  await markCurrentPluginManifestAsManaged(root);
+  await writeFile(
+    rootConfigPath,
+    (await readFile(rootConfigPath, "utf8")).replace(
+      "  name: provider-update-root",
+      "  name: provider-update-root\n  owner:\n    name: Updated Maintainer"
+    ),
+    "utf8"
+  );
+
+  const blocked = await runSkillsetCli("update", "--yes", "--root", root);
+
+  expect(blocked.exitCode).toBe(1);
+  expect(blocked.stdout).toContain("Source changed since the previous skillset.lock hash");
+  expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
+});
+
 test("SET-279: unrelated source-hash drift blocks provider updates", async () => {
   const root = await builtFixture(pluginFixture());
   const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
