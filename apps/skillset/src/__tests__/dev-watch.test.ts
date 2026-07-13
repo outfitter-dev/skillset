@@ -379,7 +379,7 @@ test("SET-289: signals do not wait for stalled watch-root collection", async () 
   ]);
 });
 
-test("SET-289: apply signals wait for the initial write before completing", async () => {
+test("SET-289: write signals wait for the initial operation before completing", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-dev-jsonl-apply-signal-"));
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   let output = "";
@@ -393,7 +393,7 @@ test("SET-289: apply signals wait for the initial write before completing", asyn
     finishApply = resolvePromise;
   });
 
-  const watching = runDevWatch(root, {}, { write: (chunk) => { output += String(chunk); return true; } } as NodeJS.WritableStream, "apply", "jsonl", {
+  const watching = runDevWatch(root, {}, { write: (chunk) => { output += String(chunk); return true; } } as NodeJS.WritableStream, "write", "jsonl", {
     addSignalListeners: (listener) => { signal = listener; },
     collectDirectories: async () => ["."],
     removeSignalListeners: () => {},
@@ -415,7 +415,7 @@ test("SET-289: apply signals wait for the initial write before completing", asyn
     checkedSkills: 1,
     diagnostics: [],
     diff: { added: [], changed: [], missing: [], removed: [] },
-    mode: "apply",
+    mode: "write",
     ok: true,
     outputRoots: [".claude/skills"],
     reason: "initial",
