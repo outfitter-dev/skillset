@@ -124,9 +124,11 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
   if (buildError === undefined && hasDrift(drift)) {
     try {
       const providerReport = await runProviderFormatUpdates(rootPath, "check", buildOptions);
+      const sourceDriftPaths = new Set(providerReport.sourceDriftPaths);
       providerUpdatePaths = [...new Set(
         [...providerReport.safeUpdates, ...providerReport.manualReviews]
           .flatMap((action) => action.affectedPaths)
+          .filter((path) => !sourceDriftPaths.has(path))
       )].sort();
     } catch {
       // The main readiness report already owns build and drift failures.
