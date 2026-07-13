@@ -132,7 +132,7 @@ async function assertReconcileDriftIsScoped(
     managedPath,
     ...owningEntries.flatMap((entry) => [entry.outputPath, ...(entry.files ?? [])]),
     ...entries.map((entry) => join(entry.outputRoot, "skillset.lock")),
-  ]);
+  ].map(normalizeReconcilePath));
   const preview = await diffSkillsetResult(rootPath, options);
   const driftPaths = [
     ...preview.data.added,
@@ -140,7 +140,7 @@ async function assertReconcileDriftIsScoped(
     ...preview.data.missing,
     ...preview.data.removed,
   ];
-  const unrelated = driftPaths.filter((path) => !allowedPaths.has(path));
+  const unrelated = driftPaths.filter((path) => !allowedPaths.has(normalizeReconcilePath(path)));
   if (unrelated.length > 0) {
     throw new Error(
       `skillset: reconcile ${managedPath} refuses to write while unrelated generated drift exists: ${unrelated.join(", ")}`
@@ -160,11 +160,17 @@ export function renderReconcileReport(report: ReconcileReport): string {
     if (report.backupRunId !== undefined) {
       lines.push(`  recovery: skillset restore ${report.backupRunId} --yes`);
     }
-  } else if (report.choice === "source" || report.outputResolution.wouldWrite) {
-    lines.push(`skillset: preview only; rerun with --use ${report.choice} --yes to apply`);
+  } else if (report.choice === "source") {
+    lines.push("skillset: preview only; rerun with --use source --yes to apply");
+  } else if (report.outputResolution.wouldWrite) {
+    lines.push("skillset: preview only; rerun with --use output --yes to apply");
   } else {
     lines.push("skillset: choose --use source or --use output, then pass --yes to apply");
   }
   for (const step of report.outputResolution.nextSteps) lines.push(`  output next: ${step}`);
   return `${lines.join("\n")}\n`;
+}
+
+function normalizeReconcilePath(path: string): string {
+  return path.replaceAll("\\", "/");
 }

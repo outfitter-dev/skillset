@@ -4816,6 +4816,8 @@ Original source body.
   expect(preview.stdout).toContain("output wins: available");
   expect(preview.stdout).toContain("source wins: available");
   expect(preview.stdout).toContain("source: .skillset/skills/demo/SKILL.md");
+  expect(preview.stdout).toContain("rerun with --use output --yes to apply");
+  expect(preview.stdout).not.toContain("--use undefined");
   await expect(readFile(join(root, ".skillset/skills/demo/SKILL.md"), "utf8")).resolves.toContain("Original source body.");
 
   const written = await runSkillsetCli("reconcile", generatedPath, "--use", "output", "--yes", "--root", root);
