@@ -694,7 +694,7 @@ export async function runCli(
             ...(entry.destination === undefined ? [] : [entry.destination]),
             ...entry.units.map((unit) => `.skillset/${unit.kind === "skill" ? "skills" : "plugins"}/${unit.name}`),
           ]),
-          ...(report.baselinePath === undefined ? [] : [report.baselinePath]),
+          ...report.baselinePaths,
         ])] : [],
       }, report.ok ? 0 : 1);
       else {

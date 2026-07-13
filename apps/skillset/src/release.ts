@@ -2,7 +2,7 @@ import { appendFile, mkdir, readFile, rm, stat, writeFile } from "node:fs/promis
 import { createHash, randomBytes } from "node:crypto";
 import { dirname, join } from "node:path";
 
-import { buildSkillset } from "@skillset/core";
+import { buildSkillsetResult } from "@skillset/core";
 import { changeCheck, readPendingChangeEntries, type ChangeBump, type PendingChangeEntry } from "./change-entries";
 import { resolveChangeReason, type ChangeReasonInput } from "./change-workflow";
 import { detectWorkspaceOptions, SOURCE_HASH_SCHEMA } from "./change-status";
@@ -171,9 +171,9 @@ export async function applyRelease(
       await appendReleaseRecord(rootPath, releaseOptions.sourceDir, plan, now, files);
     }
 
-    const rendered = await buildSkillset(rootPath, releaseOptions);
-    renderedFiles = rendered.length;
-    for (const file of rendered) files.add(file.path);
+    const build = await buildSkillsetResult(rootPath, releaseOptions);
+    renderedFiles = build.data.length;
+    for (const path of build.writes.paths) files.add(path);
   } catch (error) {
     await restoreSnapshots(rootPath, snapshots);
     throw error;

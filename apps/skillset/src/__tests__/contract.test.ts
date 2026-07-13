@@ -5473,7 +5473,17 @@ version: 0.1.0
 
 Body.
 `,
+    ".skillset/skills/untouched/SKILL.md": `
+---
+name: untouched
+description: Unchanged release neighbor.
+version: 0.1.0
+---
+
+Unchanged body.
+`,
   });
+  await buildSkillset(root);
   await commitFixture(root);
 
   await Bun.write(
@@ -5507,9 +5517,11 @@ Release the standalone skill body update with a patch version and generated chan
   expect(dryRun.stdout).toContain("dry run wrote no files");
   expect(await Bun.file(join(root, ".skillset/changes/state.json")).exists()).toBe(false);
 
-  const applied = await runSkillsetCli("release", "apply", "--yes", "--root", root);
+  const applied = await runSkillsetCli("release", "apply", "--yes", "--json", "--root", root);
   expect(applied.exitCode).toBe(0);
-  expect(applied.stdout).toContain("skillset: applied release");
+  const appliedEnvelope = JSON.parse(applied.stdout) as { data: { writes: string[] } };
+  expect(appliedEnvelope.data.writes).toContain(".claude/skills/demo/SKILL.md");
+  expect(appliedEnvelope.data.writes).not.toContain(".claude/skills/untouched/SKILL.md");
   expect(await Bun.file(join(root, ".skillset/changes/demo.md")).exists()).toBe(false);
 
   const state = JSON.parse(await readFile(join(root, ".skillset/changes/state.json"), "utf8")) as {

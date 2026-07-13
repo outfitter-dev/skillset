@@ -87,6 +87,7 @@ describe("SET-287 finite read-only JSON", () => {
 
   test("init adoption JSON reports imported units and release state", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "skillset-json-adopt-writes-"));
+    await runJsonRoute("init", "--yes", "--root", root);
     await mkdir(path.join(root, ".agents", "skills", "one"), { recursive: true });
     await writeFile(
       path.join(root, ".agents", "skills", "one", "SKILL.md"),

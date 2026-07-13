@@ -62,6 +62,7 @@ export interface AdoptImportedUnit {
 }
 
 export interface AdoptImportResult {
+  readonly baselinePaths: readonly string[];
   readonly candidate: SetupImportCandidate;
   /** Instructions destination relative to the root (e.g. `.skillset/rules/agents.md`). */
   readonly destination?: string;
@@ -100,6 +101,7 @@ export interface AdoptReport {
   readonly acquisition: AdoptAcquisition;
   readonly alreadyAdopted: boolean;
   readonly baselinePath?: string;
+  readonly baselinePaths: readonly string[];
   readonly baselines: readonly ReleaseBaselineEntry[];
   readonly buildError?: string;
   readonly builtFiles: number;
@@ -261,6 +263,7 @@ async function adoptResolvedRoot(
     return {
       acquisition,
       alreadyAdopted,
+      baselinePaths: [],
       baselines: survey.baselines,
       builtFiles: 0,
       candidates,
@@ -282,6 +285,7 @@ async function adoptResolvedRoot(
     const report: AdoptReport = {
       acquisition,
       alreadyAdopted,
+      baselinePaths: [],
       baselines: survey.baselines,
       builtFiles: 0,
       candidates,
@@ -359,10 +363,15 @@ async function adoptResolvedRoot(
   }
 
   const lintErrors = lintIssues.filter((issue) => issue.severity === "error");
+  const baselinePaths = [...new Set([
+    ...(init.baselinePath === undefined ? [] : [init.baselinePath]),
+    ...imports.flatMap((result) => result.baselinePaths),
+  ])];
   const report: AdoptReport = {
     acquisition,
     alreadyAdopted,
     ...(init.baselinePath === undefined ? {} : { baselinePath: init.baselinePath }),
+    baselinePaths,
     baselines: init.baselines,
     ...(buildError === undefined ? {} : { buildError }),
     builtFiles,
@@ -490,9 +499,9 @@ async function importCandidate(
       // protection, so it belongs on the cutover list.
       cutover.push(candidate.path);
       previewSources.push(destination);
-      return { candidate, destination, detail: destination, renderResults: [], ok: true, units: [] };
+      return { baselinePaths: [], candidate, destination, detail: destination, renderResults: [], ok: true, units: [] };
     } catch (error) {
-      return { candidate, detail: errorMessage(error), renderResults: [], ok: false, units: [] };
+      return { baselinePaths: [], candidate, detail: errorMessage(error), renderResults: [], ok: false, units: [] };
     }
   }
 
@@ -518,6 +527,9 @@ async function importCandidate(
       }
     }
     return {
+      baselinePaths: [...new Set(batch.imports.flatMap((report) =>
+        report.baselinePath === undefined ? [] : [report.baselinePath]
+      ))],
       candidate,
       detail: `${units.map((unit) => `${unit.kind} ${unit.name}`).join(", ")} (${batch.files} files)`,
       renderResults: batch.renderResults,
@@ -525,7 +537,7 @@ async function importCandidate(
       units,
     };
   } catch (error) {
-    return { candidate, detail: errorMessage(error), renderResults: [], ok: false, units: [] };
+    return { baselinePaths: [], candidate, detail: errorMessage(error), renderResults: [], ok: false, units: [] };
   }
 }
 
