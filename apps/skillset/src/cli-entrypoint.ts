@@ -25,7 +25,12 @@ export async function runCliEntrypoint(
     }
     await runCli(args);
   } catch (error) {
-    mode ??= args.includes("--json") ? "json" : undefined;
+    mode ??=
+      args.includes("--jsonl") && !args.includes("--json")
+        ? "jsonl"
+        : args.includes("--json")
+          ? "json"
+          : undefined;
     if (!mode) {
       reportCliError(error);
       return;
