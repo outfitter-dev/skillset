@@ -6628,7 +6628,13 @@ test("SET-277: init creates a new source repo at an explicit destination", async
   expect(await fileExists(join(parent, "my-skillset/.skillset/cache/.gitignore"))).toBe(false);
   expect(await readFile(join(parent, "my-skillset/.skillset/snapshots/.gitignore"), "utf8")).toBe("*\n!.gitignore\n");
   expect(gitignore).toBe(".skillset/cache/\n.skillset/snapshots/*\n!.skillset/snapshots/.gitignore\n");
-  expect(JSON.parse(lock)).toEqual({ items: [] });
+  expect(JSON.parse(lock)).toEqual({
+    generatedBy: "skillset@0.1.0",
+    items: [],
+    outputRoot: ".",
+    schemaVersion: 1,
+    target: "workspace",
+  });
   expect(readme).toContain("# my-skillset");
   expect(readme).toContain("skillset build --dry-run");
   expect(agents).toContain("Treat `.skillset/` as editable Skillset source");

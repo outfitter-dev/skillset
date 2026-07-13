@@ -751,6 +751,10 @@ function workspaceManifest(name: string, targets: readonly TargetName[]): string
 function emptyWorkspaceLock(): string {
   return [
     "{",
+    "  \"schemaVersion\": 1,",
+    "  \"generatedBy\": \"skillset@0.1.0\",",
+    "  \"outputRoot\": \".\",",
+    "  \"target\": \"workspace\",",
     "  \"items\": []",
     "}",
     "",
