@@ -33,7 +33,8 @@ export function classifyCliFailure(error: unknown): number {
   if (
     error instanceof Error &&
     (error.message.startsWith("skillset: expected") ||
-      error.message.startsWith("skillset: --"))
+      error.message.startsWith("skillset: --") ||
+      error.message.startsWith("skillset: unknown option"))
   ) {
     return 2;
   }
