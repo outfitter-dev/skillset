@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { validateCliResult, type SkillsetCliResult } from "@skillset/schema";
@@ -23,6 +25,9 @@ describe("SET-287 finite read-only JSON", () => {
       const envelope = JSON.parse(result.stdout) as SkillsetCliResult;
       expect(validateCliResult(envelope)).toEqual({ diagnostics: [], ok: true });
       expect(envelope.exitCode).toBe(result.exitCode);
+      if (route[0] === "check") {
+        expect(envelope.data).toHaveProperty("providerUpdates");
+      }
     });
   }
 
@@ -48,6 +53,27 @@ describe("SET-287 finite read-only JSON", () => {
     expect(validateCliResult(envelope)).toEqual({ diagnostics: [], ok: true });
     expect(envelope.command).toBe("change.check");
     expect(envelope.exitCode).toBe(result.exitCode);
+  });
+
+  test("check keeps lint failures structured", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "skillset-check-json-"));
+    await mkdir(path.join(root, ".skillset", "skills", "demo"), { recursive: true });
+    await writeFile(path.join(root, "skillset.yaml"), "skillset:\n  name: check-json\nclaude: true\ncodex: false\n");
+    await writeFile(
+      path.join(root, ".skillset", "skills", "demo", "SKILL.md"),
+      "---\nname: wrong-name\ndescription: Demo.\n---\n\nBody.\n"
+    );
+
+    const result = await runJsonRoute("check", "--root", root);
+    expect(result.stderr).toBe("");
+    const envelope = JSON.parse(result.stdout) as SkillsetCliResult;
+    expect(validateCliResult(envelope)).toEqual({ diagnostics: [], ok: true });
+    expect(envelope).toMatchObject({
+      command: "check",
+      diagnostics: [{ code: "skill-name-directory-mismatch", severity: "error" }],
+      exitCode: 1,
+      ok: false,
+    });
   });
 });
 

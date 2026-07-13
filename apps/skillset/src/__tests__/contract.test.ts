@@ -7276,6 +7276,7 @@ Audit body.
 
   const featureJson = await runSkillsetCli("features", "plugin-bin", "--json");
   expect(featureJson.exitCode).toBe(0);
+  expect(JSON.parse(featureJson.stdout)).toMatchObject({ command: "features" });
   const featureReport = (JSON.parse(featureJson.stdout) as { readonly data: {
     features: readonly {
       docs: readonly string[];
@@ -7309,6 +7310,7 @@ Audit body.
   expect(doctor.stdout).toContain("feature support: claude");
   expect(doctor.stdout).toContain("feature support: codex");
   const doctorJson = await runSkillsetCli("doctor", "--root", root, "--json");
+  expect(JSON.parse(doctorJson.stdout)).toMatchObject({ command: "doctor" });
   const doctorReport = (JSON.parse(doctorJson.stdout) as { readonly data: {
     featureCapabilities: {
       byTargetSupport: { claude: Record<string, number>; codex: Record<string, number> };

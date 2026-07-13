@@ -7,6 +7,7 @@ import {
   checkMarketplaces,
   createOperationalPathContext,
   diffSkillsetResult,
+  inspectSkillset,
   isRepoOperationalCachePath,
   planDistributions,
   recordKnownSkillsetWorkspace,
@@ -572,18 +573,26 @@ export async function runCli(
   }
 
   if (command === "check") {
-    const result = await lintSkillset(rootPath, options);
     if (jsonOutput) {
+      const result = await inspectSkillset(await loadBuildGraph(rootPath, options));
       const diagnostics = result.issues.map((issue): SkillsetCliDiagnostic => ({
         code: issue.code,
         message: issue.message,
         path: issue.path,
         severity: issue.severity === "warn" ? "warning" : "error",
       }));
-      printCliJsonData("check", { checkedSkills: result.checkedSkills }, 0, "diagnostics", diagnostics);
-      await rememberKnownSkillsetWorkspace(rootPath, options);
+      const providerUpdates = ciFix
+        ? await runProviderFormatUpdates(rootPath, "check", { ...options, write: true })
+        : await runProviderFormatUpdateAdvisory(rootPath, options);
+      const exitCode = result.issues.some((issue) => issue.severity === "error") ||
+          (ciFix && (!providerUpdates.ok || providerUpdates.blocked))
+        ? 1
+        : 0;
+      printCliJsonData("check", { checkedSkills: result.checkedSkills, providerUpdates }, exitCode, "diagnostics", diagnostics);
+      if (exitCode === 0) await rememberKnownSkillsetWorkspace(rootPath, options);
       return;
     }
+    const result = await lintSkillset(rootPath, options);
     for (const issue of result.issues) {
       if (issue.severity !== "warn") continue;
       console.log(`  warn: ${issue.path}: ${issue.code}: ${issue.message}`);
@@ -739,7 +748,7 @@ export async function runCli(
     const features = listFeatureCapabilities(importPath);
     if (jsonOutput) {
       const exitCode = importPath !== undefined && features.length === 0 ? 1 : 0;
-      printCliJsonData("lookup.features", { features }, exitCode);
+      printCliJsonData("features", { features }, exitCode);
       if (exitCode !== 0) process.exitCode = exitCode;
       return;
     }
@@ -850,7 +859,7 @@ export async function runCli(
     const report = await doctorSkillset(rootPath, options);
     if (jsonOutput) {
       const exitCode = report.ok ? 0 : 1;
-      printCliJsonData("check.doctor", report, exitCode, "diagnostics");
+      printCliJsonData("doctor", report, exitCode, "diagnostics");
       if (exitCode !== 0) process.exitCode = exitCode;
       return;
     }
