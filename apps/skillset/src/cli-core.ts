@@ -143,7 +143,7 @@ const USAGE = [
   "       skillset marketplace update [name] [--yes] [--json] [--root <path>]",
   "       skillset update [--yes] [--json] [--root <path>]",
   "       skillset lookup features [feature-id] [--json]",
-  "       skillset lookup [subject] [aspect...] [--frontmatter] [--fields] [--field <path>] [--values] [--events] [--compat [claude|codex|cursor...]] [--examples] [--schema] [--claude] [--codex] [--cursor] [--json]",
+  "       skillset lookup [subject] [aspect...] [--frontmatter] [--fields] [--field <path>] [--values] [--events] [--compat [claude|codex|cursor...]] [--examples] [--schema] [--json]",
   "       skillset test [name] [--root <path>]",
   "       skillset test --target <claude|codex|cursor> [--prompt <text>|--prompt-file <path>] [--plugin <id>] [--name <name>] [--timeout-ms <ms>] [--claude-setting-sources <isolated|user|project|local>] [--background] [--json] [--root <path>]",
   "       skillset test <status|tail> [run-id] [--lines <count>] [--json] [--root <path>]",
@@ -2184,9 +2184,6 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--compat" &&
       flag !== "--examples" &&
       flag !== "--schema" &&
-      flag !== "--claude" &&
-      flag !== "--codex" &&
-      flag !== "--cursor" &&
       flag !== "--prompt" &&
       flag !== "--prompt-file" &&
       flag !== "--plugin" &&
@@ -2237,9 +2234,6 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag === "--events" ||
       flag === "--examples" ||
       flag === "--schema" ||
-      flag === "--claude" ||
-      flag === "--codex" ||
-      flag === "--cursor" ||
       flag === "--background"
     ) {
       if (inlineValue !== undefined) throw new Error(`skillset: ${flag} does not take a value`);
@@ -2267,9 +2261,6 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       if (flag === "--events") lookupViews = addLookupView(lookupViews, "events");
       if (flag === "--examples") lookupViews = addLookupView(lookupViews, "examples");
       if (flag === "--schema") lookupViews = addLookupView(lookupViews, "schema");
-      if (flag === "--claude") lookupTargets = addLookupTarget(lookupTargets, "claude");
-      if (flag === "--codex") lookupTargets = addLookupTarget(lookupTargets, "codex");
-      if (flag === "--cursor") lookupTargets = addLookupTarget(lookupTargets, "cursor");
       if (flag === "--background") tryBackground = true;
       continue;
     }

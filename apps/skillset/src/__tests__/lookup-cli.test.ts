@@ -156,8 +156,8 @@ test("SET-220: lookup plugin bin compatibility reports Codex unsupported reason"
   expect(report.compatibility[0]?.reason).toContain("Codex plugins");
 });
 
-test("SET-220: lookup target lens aliases filter non-compat views", async () => {
-  const result = await runSkillsetCli("lookup", "hooks", "--events", "--cursor", "--json");
+test("SET-220: lookup compatibility values filter non-compat views", async () => {
+  const result = await runSkillsetCli("lookup", "hooks", "--events", "--compat", "cursor", "--json");
 
   expect(result.exitCode).toBe(0);
   const report = readResultData(result.stdout) as {
@@ -176,6 +176,19 @@ test("SET-220: lookup target lens aliases filter non-compat views", async () => 
     providerRef: "cursor-hooks-docs",
     target: "cursor",
   }));
+});
+
+test("SET-285: lookup provider flag aliases are retired", async () => {
+  for (const flag of ["--claude", "--codex", "--cursor"] as const) {
+    const result = await runSkillsetCli("lookup", "hooks", flag, "--json");
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      diagnostics: [{ message: expect.stringContaining(`unknown option ${flag}`) }],
+      exitCode: 2,
+      ok: false,
+    });
+  }
 });
 
 test("SET-220: lookup invalid combinations and targets produce helpful diagnostics", async () => {

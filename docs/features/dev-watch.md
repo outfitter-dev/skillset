@@ -60,8 +60,8 @@ does not accept `--yes`.
 ## Diagnostics
 
 The watch loop reports source errors without exiting the process. Fix the file
-and save again to rerun the preview or apply refresh. Build/render errors are
-shown inline. In apply mode, a failed refresh reports that no completed apply was
+and save again to rerun the preview or write refresh. Build/render errors are
+shown inline. In write mode, a failed refresh reports that no completed write was
 recorded and points at restore if an earlier backup was reported.
 
 `skillset dev` is intentionally not a daemon, background service,
