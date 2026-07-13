@@ -109,5 +109,7 @@ describe("SET-275 final CLI contract", () => {
     expect(CLI_FLAGS["--json"].meaning).toContain("exactly one");
     expect(CLI_FLAGS["--jsonl"].meaning).toContain("newline-delimited");
     expect(JSONL_ROUTES).toEqual(["dev"]);
+    expect(FINITE_JSON_ROUTES).not.toContain("change");
+    expect(FINITE_JSON_ROUTES).not.toContain("release");
   });
 });
