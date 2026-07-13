@@ -33,6 +33,7 @@ export function runLookupCommand(options: LookupCommandOptions): void {
     process.stdout.write(renderCliDataResult({
       command: "lookup",
       data: report as unknown as SchemaJsonRecord,
+      ...(failed ? { diagnostics: report.diagnostics, kind: "diagnostics" } : {}),
       exitCode: failed ? 1 : 0,
     }));
   } else {

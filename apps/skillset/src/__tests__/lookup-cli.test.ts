@@ -184,6 +184,11 @@ test("SET-220: lookup invalid combinations and targets produce helpful diagnosti
   const invalidTarget = await runSkillsetCli("lookup", "hooks", "--compat", "unknown");
 
   expect(invalidView.exitCode).toBe(1);
+  expect(JSON.parse(invalidView.stdout)).toMatchObject({
+    diagnostics: [{ code: "lookup/frontmatter/not-applicable", severity: "error" }],
+    kind: "diagnostics",
+    ok: false,
+  });
   const report = readResultData(invalidView.stdout) as {
     readonly diagnostics: readonly { readonly code: string; readonly message: string; readonly severity: string }[];
   };
