@@ -203,7 +203,12 @@ async function copyAdoptAcquisition(acquisition: AdoptAcquisition, destination: 
 }
 
 async function initializeAdoptGit(rootPath: string): Promise<void> {
-  const proc = Bun.spawn(["git", "init", "-q"], { cwd: rootPath, stderr: "pipe", stdout: "pipe" });
+  const proc = Bun.spawn(["git", "init", "-q"], {
+    cwd: rootPath,
+    env: gitSafeEnv(),
+    stderr: "pipe",
+    stdout: "pipe",
+  });
   const [exitCode, stderr] = await Promise.all([proc.exited, new Response(proc.stderr).text()]);
   if (exitCode !== 0) throw new Error(`skillset: failed to initialize Git repository at ${rootPath}: ${stderr.trim()}`);
 }

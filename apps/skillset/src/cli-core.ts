@@ -690,6 +690,7 @@ export async function runCli(
         const setup = await initSkillset({
           cwd: rootPath,
           ...(importPath === undefined ? {} : { rootPath: importPath }),
+          ...(importName === undefined ? {} : { name: importName }),
           ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
           ...(setupTargets === undefined ? {} : { targets: setupTargets }),
           useGitRoot: !rootExplicit && importPath === undefined,
