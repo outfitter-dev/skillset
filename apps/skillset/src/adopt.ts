@@ -317,7 +317,7 @@ async function adoptResolvedRoot(
         init.rootPath,
         acquisition,
         candidate,
-        candidates,
+        survey.importCandidates,
         cutover,
         previewSources
       )
