@@ -71,6 +71,13 @@ describe("SET-286 CLI structured-output contracts", () => {
     expect(validateCliResult({ ...valid, command: "" })).toMatchObject({
       ok: false,
     });
+    expect(
+      validateCliResult({
+        ...valid,
+        changes: [{ action: "update", path: "skillset.yaml", reason: "", state: "planned" }],
+        diagnostics: [{ code: "invalid", column: 0, help: "", line: 0, message: "Invalid", path: "", severity: "error" }],
+      })
+    ).toMatchObject({ ok: false });
   });
 
   test("validates sequenced CLI events", () => {

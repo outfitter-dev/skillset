@@ -70,6 +70,14 @@ function checkCliDiagnostic(value: SchemaJsonValue, path: string, diagnostics: S
   checkAllowedKeys(value, new Set(["code", "column", "help", "line", "message", "path", "severity"]), path, "schema/cli-result/diagnostic-key", diagnostics);
   checkRequiredNonEmptyString(value.code, `${path}.code`, "schema/cli-result/diagnostic-code", diagnostics);
   checkRequiredNonEmptyString(value.message, `${path}.message`, "schema/cli-result/diagnostic-message", diagnostics);
+  for (const key of ["help", "path"] as const) {
+    checkOptionalNonEmptyString(value[key], `${path}.${key}`, "schema/cli-result/diagnostic-string", diagnostics);
+  }
+  for (const key of ["column", "line"] as const) {
+    if (value[key] !== undefined && (!Number.isInteger(value[key]) || Number(value[key]) < 1)) {
+      diagnostics.push(diagnostic(`${path}.${key}`, "schema/cli-result/diagnostic-position", `${key} must be a positive integer`));
+    }
+  }
   if (!new Set(["error", "info", "warning"]).has(String(value.severity))) diagnostics.push(diagnostic(`${path}.severity`, "schema/cli-result/diagnostic-severity", "severity must be error, info, or warning"));
 }
 
@@ -77,6 +85,7 @@ function checkCliChange(value: SchemaJsonValue, path: string, diagnostics: Skill
   if (!isSchemaRecord(value)) { diagnostics.push(diagnostic(path, "schema/cli-result/change", "change must be an object")); return; }
   checkAllowedKeys(value, new Set(["action", "path", "reason", "state"]), path, "schema/cli-result/change-key", diagnostics);
   checkRequiredNonEmptyString(value.path, `${path}.path`, "schema/cli-result/change-path", diagnostics);
+  checkOptionalNonEmptyString(value.reason, `${path}.reason`, "schema/cli-result/change-reason", diagnostics);
   if (!new Set(["create", "delete", "move", "update"]).has(String(value.action))) diagnostics.push(diagnostic(`${path}.action`, "schema/cli-result/change-action", "action must be create, delete, move, or update"));
   if (!new Set(["planned", "refused", "skipped", "written"]).has(String(value.state))) diagnostics.push(diagnostic(`${path}.state`, "schema/cli-result/change-state", "state must be planned, refused, skipped, or written"));
 }
