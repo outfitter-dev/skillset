@@ -4957,6 +4957,16 @@ Read the guide.
 
   expect(result.exitCode).toBe(0);
   expect(await readFile(join(root, secondaryPath), "utf8")).toBe("# Source guide\n");
+
+  await writeFile(join(root, secondaryPath), "# Edited guide again\n", "utf8");
+  const refused = await runSkillsetCli(
+    "reconcile", secondaryPath, "--use", "output", "--yes", "--root", root
+  );
+
+  expect(refused.exitCode).toBe(1);
+  expect(refused.stderr).toContain("Auxiliary skill outputs cannot replace the owning SKILL.md source body");
+  expect(await readFile(join(root, ".skillset/skills/demo/SKILL.md"), "utf8")).toContain("Read the guide.");
+  expect(await readFile(join(root, ".skillset/shared/references/guide.md"), "utf8")).toBe("# Source guide\n");
 });
 
 test("SET-282: --write is rejected outside check", async () => {

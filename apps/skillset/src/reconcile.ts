@@ -36,6 +36,11 @@ export async function reconcileManagedPath(
   const outputExists = await stat(resolve(rootPath, explanation.path)).then(() => true, () => false);
   const sourcePaths = [...new Set(explanation.entries.map((entry) => entry.sourcePath))];
   const sourcePath = sourcePaths.length === 1 ? sourcePaths[0] : undefined;
+  const auxiliarySkillOutput = explanation.entries.some((entry) =>
+    (entry.kind === "standalone-skill" || entry.kind === "plugin-skill") &&
+    entry.outputPath !== explanation.path &&
+    entry.files?.includes(explanation.path) === true
+  );
   if (write) {
     await assertReconcileDriftIsScoped(
       rootPath,
@@ -50,6 +55,17 @@ export async function reconcileManagedPath(
         generatedPath: explanation.path,
         message: "Source selected; output reverse-patch analysis was skipped.",
         nextSteps: ["Rebuild the managed output from its source."],
+        ...(sourcePath === undefined ? {} : { sourcePath }),
+        status: "refused" as const,
+        wouldWrite: false,
+        wrote: false,
+      }
+    : outputExists && auxiliarySkillOutput
+    ? {
+        entries: explanation.entries,
+        generatedPath: explanation.path,
+        message: "Auxiliary skill outputs cannot replace the owning SKILL.md source body.",
+        nextSteps: ["Update the auxiliary source resource directly, or use source resolution to restore its generated copy."],
         ...(sourcePath === undefined ? {} : { sourcePath }),
         status: "refused" as const,
         wouldWrite: false,
