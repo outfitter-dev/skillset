@@ -53,6 +53,10 @@ describe("SET-287 finite read-only JSON", () => {
     expect(validateCliResult(envelope)).toEqual({ diagnostics: [], ok: true });
     expect(envelope.command).toBe("change.check");
     expect(envelope.exitCode).toBe(result.exitCode);
+    if (result.exitCode !== 0) {
+      expect(envelope.kind).toBe("diagnostics");
+      expect(envelope.diagnostics.length).toBeGreaterThan(0);
+    }
   });
 
   test("change entry JSON preserves source hash evidence", async () => {

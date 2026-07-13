@@ -342,7 +342,12 @@ export async function runCli(
       if (jsonOutput) printCliJsonData("change.check", {
         ...report,
         entries: report.entries.map(serializeChangeEntry),
-      }, report.ok ? 0 : 1);
+      }, report.ok ? 0 : 1, report.ok ? "data" : "diagnostics", report.issues.map((issue) => ({
+        code: issue.code,
+        message: issue.message,
+        ...(issue.path === undefined ? {} : { path: issue.path }),
+        severity: issue.severity,
+      })));
       else printChangeCheck(report);
       return;
     }
