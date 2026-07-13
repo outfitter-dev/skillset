@@ -815,7 +815,15 @@ export async function runCli(
     const result = await explainPath(rootPath, importPath, options);
     if (jsonOutput) {
       const exitCode = result.kind === "unknown" ? 1 : 0;
-      printCliJsonData("explain", result, exitCode, "diagnostics");
+      const diagnostics = result.kind === "unknown"
+        ? result.notes.map((message): SkillsetCliDiagnostic => ({
+            code: "explain.path-unknown",
+            message,
+            path: result.path,
+            severity: "error",
+          }))
+        : [];
+      printCliJsonData("explain", result, exitCode, "diagnostics", diagnostics);
       if (exitCode !== 0) process.exitCode = exitCode;
       return;
     }

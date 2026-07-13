@@ -93,6 +93,21 @@ describe("SET-287 finite read-only JSON", () => {
     ]);
   });
 
+  test("explain JSON promotes an unknown path note to a diagnostic", async () => {
+    const result = await runJsonRoute("explain", "missing/path", "--root", fixtureRoot);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe("");
+    const envelope = JSON.parse(result.stdout) as SkillsetCliResult;
+    expect(validateCliResult(envelope)).toEqual({ diagnostics: [], ok: true });
+    expect(envelope).toMatchObject({
+      command: "explain",
+      diagnostics: [{ code: "explain.path-unknown", path: "missing/path", severity: "error" }],
+      exitCode: 1,
+      kind: "diagnostics",
+      ok: false,
+    });
+  });
+
   test("check keeps lint failures structured", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "skillset-check-json-"));
     await mkdir(path.join(root, ".skillset", "skills", "demo"), { recursive: true });
