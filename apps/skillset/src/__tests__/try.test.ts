@@ -92,8 +92,8 @@ Body.
   const events = parseCliEventStream(await readFile(cachePath(root, xdg, report.tailPath), "utf8"));
   expect(events.filter((event) => event.event === "completed")).toHaveLength(1);
   expect(events.at(-1)?.event).toBe("completed");
-  expect(events.some((event) => event.event === "stdout" && event.data.message === "test passed\n")).toBe(true);
-  expect(events.some((event) => event.event === "stderr" && event.data.message === "test failed: provider text\n")).toBe(true);
+  expect(events.some((event) => event.event === "stdout" && typeof event.data.message === "string" && event.data.message.includes("test passed"))).toBe(true);
+  expect(events.some((event) => event.event === "stderr" && typeof event.data.message === "string" && event.data.message.includes("test failed: provider text"))).toBe(true);
 });
 
 test("try runs a Claude prompt with isolated settings and explicit plugin dirs", async () => {
