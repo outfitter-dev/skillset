@@ -52,6 +52,9 @@ describe("SET-275 final CLI contract", () => {
   });
 
   test("removes compatibility and redundant mutation flags", () => {
+    for (const retiredAlias of ["--claude", "--codex", "--cursor"] as const) {
+      expect(RETIRED_CLI_FLAGS).toContain(retiredAlias);
+    }
     for (const retired of RETIRED_CLI_FLAGS) {
       expect(CLI_FLAGS[retired as keyof typeof CLI_FLAGS]).toBeUndefined();
     }

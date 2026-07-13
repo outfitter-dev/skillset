@@ -36,6 +36,9 @@ export const RETIRED_CLI_COMMANDS = [
 
 export const RETIRED_CLI_FLAGS = [
   "--apply",
+  "--claude",
+  "--codex",
+  "--cursor",
   "--dist",
   "--dry-run",
   "--global",
