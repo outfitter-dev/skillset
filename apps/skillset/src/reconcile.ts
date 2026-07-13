@@ -1,3 +1,6 @@
+import { stat } from "node:fs/promises";
+import { resolve } from "node:path";
+
 import { buildSkillsetResult } from "@skillset/core";
 import { explainPath, suggestSource, type SourceSuggestionReport } from "@skillset/core/internal/authoring";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
@@ -25,10 +28,24 @@ export async function reconcileManagedPath(
     throw new Error(`skillset: reconcile requires a managed generated path; ${managedPath} has no generated owner`);
   }
 
-  const outputResolution = await suggestSource(rootPath, managedPath, {
-    ...skillsetOptions,
-    write: write && choice === "output",
-  });
+  const outputExists = await stat(resolve(rootPath, explanation.path)).then(() => true, () => false);
+  const sourcePaths = [...new Set(explanation.entries.map((entry) => entry.sourcePath))];
+  const sourcePath = sourcePaths.length === 1 ? sourcePaths[0] : undefined;
+  const outputResolution = outputExists
+    ? await suggestSource(rootPath, managedPath, {
+        ...skillsetOptions,
+        write: write && choice === "output",
+      })
+    : {
+        entries: explanation.entries,
+        generatedPath: explanation.path,
+        message: "Generated output is missing; output cannot win.",
+        nextSteps: ["Use source resolution to rebuild the missing managed output."],
+        ...(sourcePath === undefined ? {} : { sourcePath }),
+        status: "refused" as const,
+        wouldWrite: false,
+        wrote: false,
+      };
   let writtenPaths: readonly string[] = [];
   if (write && choice !== undefined) {
     if (choice === "output" && !outputResolution.wrote) {
@@ -47,7 +64,7 @@ export async function reconcileManagedPath(
     ...(choice === undefined ? {} : { choice }),
     generatedPath: explanation.path,
     outputResolution,
-    ...(outputResolution.sourcePath === undefined ? {} : { sourcePath: outputResolution.sourcePath }),
+    ...(sourcePath === undefined ? {} : { sourcePath }),
     sourceResolutionAvailable: true,
     writtenPaths,
   };

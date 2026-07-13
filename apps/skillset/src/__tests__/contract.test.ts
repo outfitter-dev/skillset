@@ -4845,6 +4845,22 @@ test("SET-282: reconcile applies source-wins with output backup safety", async (
   expect(result.stdout).toContain("reconciled using source");
   expect(await readFile(join(root, generatedPath), "utf8")).toContain("Source body.");
   expect(await readFile(join(root, ".skillset/skills/demo/SKILL.md"), "utf8")).not.toContain("Output edit.");
+
+  await rm(join(root, generatedPath));
+  const rebuilt = await runSkillsetCli("reconcile", generatedPath, "--use", "source", "--yes", "--root", root);
+  expect(rebuilt.exitCode).toBe(0);
+  expect(rebuilt.stdout).toContain("reconciled using source");
+  expect(await readFile(join(root, generatedPath), "utf8")).toContain("Source body.");
+
+  const structured = await runSkillsetCli("reconcile", generatedPath, "--root", root, "--json");
+  expect(structured.exitCode).toBe(0);
+  expect(structured.stderr).toBe("");
+  expect(JSON.parse(structured.stdout)).toMatchObject({
+    command: "reconcile",
+    data: { generatedPath, sourceResolutionAvailable: true },
+    kind: "plan",
+    ok: true,
+  });
 });
 
 test("SET-282: reconcile refuses output-wins generated changelog edits", async () => {

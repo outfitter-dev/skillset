@@ -880,7 +880,11 @@ export async function runCli(
       ...(reconcileChoice === undefined ? {} : { choice: reconcileChoice }),
       write: reconcileChoice !== undefined && yes,
     });
-    process.stdout.write(renderReconcileReport(report));
+    if (jsonOutput) {
+      printCliJsonData("reconcile", report, 0, report.applied ? "mutation" : "plan");
+    } else {
+      process.stdout.write(renderReconcileReport(report));
+    }
     return;
   }
 
@@ -3049,7 +3053,7 @@ function validateJsonFlags(
   if (!jsonOutput) return;
   if (command === "check") return;
   if (command === "change" && (route.changeSubcommand === "check" || route.changeSubcommand === "history" || route.changeSubcommand === "list" || route.changeSubcommand === "show" || route.changeSubcommand === "status")) return;
-  if (command === "diff" || command === "doctor" || command === "explain" || command === "features" || command === "list" || command === "lookup" || command === "marketplace" || command === "test") return;
+  if (command === "diff" || command === "doctor" || command === "explain" || command === "features" || command === "list" || command === "lookup" || command === "marketplace" || command === "reconcile" || command === "test") return;
   if (command === "distribute" && route.distributionSubcommand === "plan") return;
   throw new Error("skillset: --json is not supported for this command route");
 }
