@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
-import { mkdtemp, readdir, readFile, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -187,6 +187,31 @@ test("SET-277: local and remote init --from write the same adoption plan into a 
   expect(await Bun.file(join(localDestination, ".skillset/plugins/demo/skillset.yaml")).exists()).toBe(true);
   expect(await Bun.file(join(remoteDestination, ".skillset/plugins/demo/skillset.yaml")).exists()).toBe(true);
   expect(await walkFiles(source)).toEqual(before);
+});
+
+test("SET-277: init adoption honors an explicit workspace name", async () => {
+  const source = await fixture(MARKETPLACE_FIXTURE);
+  const parent = await mkdtemp(join(tmpdir(), "skillset-init-name-"));
+  const destination = join(parent, "destination");
+
+  const result = await runSkillsetCli(
+    "init", destination, "--from", source, "--adopt", "all", "--name", "team", "--yes"
+  );
+
+  expect(result.exitCode).toBe(0);
+  expect(await readFile(join(destination, "skillset.yaml"), "utf8")).toContain("name: team");
+});
+
+test("SET-277: init adoption resolves the repo root from a subdirectory", async () => {
+  const root = await gitFixture(MARKETPLACE_FIXTURE);
+  const nested = join(root, "packages", "demo");
+  await mkdir(nested, { recursive: true });
+
+  const result = await runSkillsetCliIn(nested, "init", "--adopt", "all", "--yes");
+
+  expect(result.exitCode).toBe(0);
+  expect(await exists(join(root, ".skillset", "plugins", "demo", "skillset.yaml"))).toBe(true);
+  expect(await exists(join(nested, "skillset.yaml"))).toBe(false);
 });
 
 test("SET-277: init --from previews without creating its destination", async () => {
@@ -724,6 +749,21 @@ async function runSkillsetCli(...args: readonly string[]): Promise<{
 }> {
   const proc = Bun.spawn({
     cmd: ["bun", join(import.meta.dir, "..", "cli.ts"), ...args],
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  return { exitCode, stderr, stdout };
+}
+
+async function runSkillsetCliIn(cwd: string, ...args: readonly string[]): ReturnType<typeof runSkillsetCli> {
+  const proc = Bun.spawn({
+    cmd: ["bun", join(import.meta.dir, "..", "cli.ts"), ...args],
+    cwd,
     stderr: "pipe",
     stdout: "pipe",
   });

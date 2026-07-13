@@ -34,6 +34,7 @@ export interface AdoptOptions extends SkillsetOptions {
   readonly include?: readonly SetupInclude[];
   readonly cwd?: string;
   readonly destination?: string;
+  readonly name?: string;
   readonly targets?: readonly TargetName[];
   readonly write?: boolean;
 }
@@ -202,7 +203,7 @@ async function adoptResolvedRoot(
   acquisition: AdoptAcquisition,
   options: AdoptOptions = {}
 ): Promise<AdoptReport> {
-  const { candidates: selectedCandidates, include, targets, write, ...buildOptions } = options;
+  const { candidates: selectedCandidates, include, name, targets, write, ...buildOptions } = options;
   const writeMode = write === true;
   const resolvedRoot = acquisition.rootPath;
   // Captured before init scaffolds source: an existing workspace marker means
@@ -215,6 +216,7 @@ async function adoptResolvedRoot(
     useGitRoot: false,
     write: false,
     ...(include === undefined ? {} : { include }),
+    ...(name === undefined ? {} : { name }),
     ...(targets === undefined ? {} : { targets }),
   });
   const candidates = selectAdoptCandidates(survey.importCandidates, selectedCandidates);
@@ -268,6 +270,7 @@ async function adoptResolvedRoot(
     useGitRoot: false,
     write: true,
     ...(include === undefined ? {} : { include }),
+    ...(name === undefined ? {} : { name }),
     ...(targets === undefined ? {} : { targets }),
   });
 

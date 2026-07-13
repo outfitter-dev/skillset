@@ -638,11 +638,15 @@ export async function runCli(
   if (command === "init") {
     if (initAdopt !== undefined || initFrom !== undefined) {
       const writeMode = initAdopt !== undefined && yes && !dryRun;
-      const report = await adoptSkillset(initFrom ?? importPath ?? rootPath, {
+      const inferredRoot = initFrom === undefined && importPath === undefined
+        ? (await initSkillset({ cwd: rootPath, useGitRoot: !rootExplicit, write: false })).rootPath
+        : rootPath;
+      const report = await adoptSkillset(initFrom ?? importPath ?? inferredRoot, {
         cwd: rootPath,
         ...(initAdopt === undefined ? {} : { candidates: initAdopt }),
         ...(initFrom === undefined || importPath === undefined ? {} : { destination: resolve(rootPath, importPath) }),
         ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
+        ...(importName === undefined ? {} : { name: importName }),
         ...(setupTargets === undefined ? {} : { targets: setupTargets }),
         write: writeMode,
       });
