@@ -1,4 +1,5 @@
 import { mkdir, mkdtemp } from "node:fs/promises";
+import type { FSWatcher } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -243,6 +244,33 @@ test("SET-289: JSONL watch setup failures stay in the active sequence", async ()
   expect(events.map((event) => event.event)).toEqual(["started", "operation", "failed"]);
   expect(events.map((event) => event.sequence)).toEqual([1, 2, 3]);
   expect(events[2]?.data).toMatchObject({ stage: "watch-setup" });
+});
+
+test("SET-289: debounced JSONL operation failures terminate the active sequence", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-dev-jsonl-operation-"));
+  await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
+  let output = "";
+  let runs = 0;
+
+  await runDevWatch(root, {}, { write: (chunk) => { output += String(chunk); return true; } } as NodeJS.WritableStream, "preview", "jsonl", {
+    addSignalListeners: () => {},
+    collectDirectories: async () => ["."],
+    removeSignalListeners: () => {},
+    runOnce: async (runRoot, runOptions, _mode, reason) => {
+      runs += 1;
+      if (runs > 1) throw new Error("debounced operation failed");
+      return runDevWatchPreview(runRoot, runOptions, reason);
+    },
+    scheduler: { clearTimeout: () => {}, setTimeout: (callback) => { callback(); return 0; } },
+    watch: ((_path: string, callback: (event: string, filename: string | null) => void) => {
+      queueMicrotask(() => callback("change", "skillset.yaml"));
+      return { close: () => {} } as FSWatcher;
+    }) as typeof import("node:fs").watch,
+  });
+
+  const events = parseCliEventStream(output);
+  expect(events.map((event) => event.event)).toEqual(["started", "operation", "failed"]);
+  expect(events[2]?.data).toMatchObject({ message: "debounced operation failed", stage: "operation" });
 });
 
 test("SET-289: dev --jsonl terminates a real controlled stream without human output", async () => {

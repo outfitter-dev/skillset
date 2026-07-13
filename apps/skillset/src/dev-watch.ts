@@ -329,6 +329,8 @@ export async function runDevWatch(
     else stream.operation(report);
   };
   let activeOperation: Promise<void> | undefined;
+  let pendingOperationError: unknown;
+  let stopWithError: ((error: unknown) => void) | undefined;
   const startOperation = async (reason: string) => {
     const previous = activeOperation;
     const operation = (previous ?? Promise.resolve()).then(() => writeOperation(reason));
@@ -343,7 +345,12 @@ export async function runDevWatch(
 
   const watchers: FSWatcher[] = [];
   const debouncer = createDevWatchDebouncer(async (reason) => {
-    await startOperation(reason);
+    try {
+      await startOperation(reason);
+    } catch (error) {
+      if (stopWithError === undefined) pendingOperationError = error;
+      else stopWithError(error);
+    }
   }, DEFAULT_DEBOUNCE_MS, runtime.scheduler);
 
   try {
@@ -367,15 +374,16 @@ export async function runDevWatch(
 
   await new Promise<void>((resolvePromise, rejectPromise) => {
     let stopping = false;
-    const stop = () => {
+    const stop = (operationError?: unknown) => {
       if (stopping) return;
       stopping = true;
       debouncer.cancel();
       for (const watcher of watchers) watcher.close();
-      runtime.removeSignalListeners(stop);
+      runtime.removeSignalListeners(signalStop);
       void (async () => {
         try {
           await activeOperation;
+          if (operationError !== undefined) throw operationError;
           if (stream === undefined) output.write("skillset: dev watch stopped\n");
           else stream.completed();
           resolvePromise();
@@ -389,7 +397,10 @@ export async function runDevWatch(
         }
       })();
     };
-    runtime.addSignalListeners(stop);
+    const signalStop = () => stop();
+    stopWithError = (error) => stop(error);
+    runtime.addSignalListeners(signalStop);
+    if (pendingOperationError !== undefined) stop(pendingOperationError);
   });
 }
 
