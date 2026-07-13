@@ -550,7 +550,11 @@ export async function runCli(
         write: yes && !dryRun,
       });
       if (jsonOutput) {
-        printCliJsonData("marketplace.update", { report, state: report.write ? "written" : "planned", writes: report.writtenPaths }, report.ok ? 0 : 1);
+        printCliJsonData("marketplace.update", {
+          report,
+          state: report.ok && report.writtenPaths.length > 0 ? "written" : "planned",
+          writes: report.writtenPaths,
+        }, report.ok ? 0 : 1);
       } else {
         printMarketplaceUpdate(report);
       }
@@ -664,7 +668,12 @@ export async function runCli(
     if (initAdopt !== undefined || initFrom !== undefined) {
       const writeMode = initAdopt !== undefined && yes && !dryRun;
       const inferredRoot = initFrom === undefined
-        ? (await initSkillset({ cwd: rootPath, useGitRoot: !rootExplicit, write: false })).rootPath
+        ? (await initSkillset({
+            cwd: rootPath,
+            ...(rootExplicit ? { rootPath } : {}),
+            useGitRoot: !rootExplicit,
+            write: false,
+          })).rootPath
         : rootPath;
       const report = await adoptSkillset(initFrom ?? inferredRoot, {
         cwd: rootPath,
@@ -699,7 +708,7 @@ export async function runCli(
     if (!jsonOutput && !yes && !dryRun && process.stdin.isTTY && process.stdout.isTTY) {
       const survey = await initSkillset({
         cwd: rootPath,
-        ...(importPath === undefined ? {} : { rootPath: importPath }),
+        ...(importPath === undefined ? rootExplicit ? { rootPath } : {} : { rootPath: importPath }),
         ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
         ...(setupTargets === undefined ? {} : { targets: setupTargets }),
         useGitRoot: !rootExplicit && importPath === undefined,
@@ -728,7 +737,7 @@ export async function runCli(
         }
         const setup = await initSkillset({
           cwd: rootPath,
-          ...(importPath === undefined ? {} : { rootPath: importPath }),
+          ...(importPath === undefined ? rootExplicit ? { rootPath } : {} : { rootPath: importPath }),
           ...(importName === undefined ? {} : { name: importName }),
           ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
           ...(setupTargets === undefined ? {} : { targets: setupTargets }),
@@ -742,7 +751,7 @@ export async function runCli(
     }
     const setup = await initSkillset({
       cwd: rootPath,
-      ...(importPath === undefined ? {} : { rootPath: importPath }),
+      ...(importPath === undefined ? rootExplicit ? { rootPath } : {} : { rootPath: importPath }),
       ...(importName === undefined ? {} : { name: importName }),
       ...(setupTargets === undefined ? {} : { targets: setupTargets }),
       ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
@@ -755,6 +764,7 @@ export async function runCli(
       writes: yes && !dryRun
         ? [
             ...setup.files.filter((file) => file.status === "create").map((file) => file.path),
+            ...(setup.git?.status === "create" ? [setup.git.path] : []),
             ...(setup.baselinePath === undefined ? [] : [setup.baselinePath]),
           ]
         : [],

@@ -366,14 +366,17 @@ Use this demo skill.
     "update",
     "outfitter",
     "--yes",
+    "--json",
     "--root",
     marketplace
   );
 
   expect(updated.exitCode).toBe(1);
   expect(updated.stderr).toBe("");
-  expect(updated.stdout).toContain("skillset: marketplace update failed");
-  expect(updated.stdout).toContain("remote repository could not be reached");
+  const envelope = JSON.parse(updated.stdout) as {
+    readonly data: { readonly state: string; readonly writes: readonly string[] };
+  };
+  expect(envelope.data).toEqual(expect.objectContaining({ state: "planned", writes: [] }));
   await expect(readdir(marketplace)).resolves.not.toContain("plugins-claude");
 }, 15_000);
 

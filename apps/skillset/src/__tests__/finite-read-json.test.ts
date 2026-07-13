@@ -45,6 +45,11 @@ describe("SET-287 finite read-only JSON", () => {
     expect(writtenEnvelope.data.state).toBe("written");
     expect(writtenEnvelope.data.writes.length).toBeGreaterThan(0);
     expect(writtenEnvelope.data.writes.every((entry) => typeof entry === "string")).toBe(true);
+    expect(writtenEnvelope.data.writes).toContain(".git");
+
+    const seeded = await runJsonRoute("init", "--root", root, "--yes");
+    const seededEnvelope = JSON.parse(seeded.stdout) as SkillsetCliResult & { data: { writes: unknown[] } };
+    expect(seededEnvelope.data.writes).toEqual([".skillset/changes/state.json"]);
 
     const unchanged = await runJsonRoute("init", "--root", root, "--yes");
     const unchangedEnvelope = JSON.parse(unchanged.stdout) as SkillsetCliResult & { data: { writes: unknown[] } };
