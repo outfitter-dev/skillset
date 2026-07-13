@@ -1579,6 +1579,22 @@ Body.
   expect(outputs.exitCode).toBe(1);
   expect(outputs.stderr).toContain(".claude/skills/demo/SKILL.md");
   expect(outputs.stderr).toContain("version drift");
+
+  const scopedOutputs = await runSkillsetCli(
+    "check",
+    "--only",
+    "outputs",
+    "--scope",
+    "repo",
+    "--updated",
+    "--dist",
+    "generated",
+    "--root",
+    root
+  );
+  expect(scopedOutputs.stderr).not.toContain("does not support --scope");
+  expect(scopedOutputs.stderr).not.toContain("does not support --updated");
+  expect(scopedOutputs.stderr).not.toContain("does not support --dist");
 });
 
 test("SET-154: check fails on source authoring diagnostics", async () => {

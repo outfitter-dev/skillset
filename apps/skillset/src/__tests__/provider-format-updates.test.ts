@@ -51,6 +51,23 @@ test("SET-278: check write modes leave provider-format updates to update", async
   expect(await readFile(manifestPath, "utf8")).not.toBe(original);
 });
 
+test("SET-278: check writes provider-backed drift caused by source changes", async () => {
+  const root = await builtFixture(pluginFixture());
+  const sourcePath = join(root, ".skillset/plugins/alpha/skillset.yaml");
+  const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
+  await writeFile(
+    sourcePath,
+    (await readFile(sourcePath, "utf8")).replace("  name: alpha", "  name: alpha\n  description: Updated plugin."),
+    "utf8"
+  );
+
+  const checked = await runSkillsetCli("check", "--write", "--root", root);
+
+  expect(checked.exitCode).toBe(0);
+  expect(checked.stdout).not.toContain("provider-format update");
+  expect(await readFile(manifestPath, "utf8")).toContain("Updated plugin.");
+});
+
 test("SET-194: update previews then writes the same safe provider-format plan", async () => {
   const root = await builtFixture(pluginFixture());
   const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);

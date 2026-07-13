@@ -9,6 +9,7 @@ import {
   type SkillsetOptions,
   type SkillsetRenderResult,
 } from "@skillset/core";
+import { listGeneratedEntries } from "@skillset/core/internal/authoring";
 import {
   getProviderDestinationFormatSnapshot,
   listProviderFormatMigrations,
@@ -42,6 +43,7 @@ export interface ProviderFormatUpdateReport {
   readonly manualReviews: readonly ProviderFormatUpdateAction[];
   readonly ok: boolean;
   readonly safeUpdates: readonly ProviderFormatUpdateAction[];
+  readonly sourceDriftPaths: readonly string[];
   readonly unplannedDriftPaths: readonly string[];
   readonly wrote: boolean;
   readonly writtenPaths: readonly string[];
@@ -55,8 +57,10 @@ export async function runProviderFormatUpdates(
   const { write = false, ...skillsetOptions } = options;
   const preview = await diffSkillsetResult(rootPath, skillsetOptions);
   const driftPaths = allDriftPaths(preview.data);
+  const sourceDriftPaths = await changedSourceOutputPaths(rootPath, driftPaths, skillsetOptions);
+  const providerDriftPaths = driftPaths.filter((path) => !sourceDriftPaths.includes(path));
   const uneditedManagedPaths = await uneditedManagedOutputPaths(rootPath, driftPaths);
-  const plan = planProviderFormatUpdates(preview.renderResults, driftPaths, uneditedManagedPaths);
+  const plan = planProviderFormatUpdates(preview.renderResults, providerDriftPaths, uneditedManagedPaths);
   const unplannedDriftPaths = unplannedProviderDriftPaths(driftPaths, plan.safeUpdates, plan.manualReviews);
   const blocked = plan.manualReviews.length > 0 || unplannedDriftPaths.length > 0;
   let wrote = false;
@@ -76,10 +80,28 @@ export async function runProviderFormatUpdates(
     manualReviews: plan.manualReviews,
     ok: !write || (!blocked && (plan.safeUpdates.length === 0 || wrote)),
     safeUpdates: plan.safeUpdates,
+    sourceDriftPaths,
     unplannedDriftPaths,
     wrote,
     writtenPaths,
   };
+}
+
+async function changedSourceOutputPaths(
+  rootPath: string,
+  driftPaths: readonly string[],
+  options: SkillsetOptions
+): Promise<readonly string[]> {
+  const driftSet = new Set(driftPaths);
+  const changed = new Set<string>();
+  for (const expected of await listGeneratedEntries(rootPath, options)) {
+    if (!driftSet.has(expected.outputPath) || expected.sourceHash === undefined) continue;
+    const current = await findLockItemForOutputPath(rootPath, expected.outputPath);
+    if (current?.sourceHash !== undefined && current.sourceHash !== expected.sourceHash) {
+      changed.add(expected.outputPath);
+    }
+  }
+  return [...changed].sort(compareStrings);
 }
 
 export function renderProviderFormatUpdateReport(report: ProviderFormatUpdateReport): string {
@@ -256,6 +278,7 @@ async function findLockItemForOutputPath(
           file,
         })),
         ...(item.outputHash === undefined ? {} : { outputHash: item.outputHash }),
+        ...(item.sourceHash === undefined ? {} : { sourceHash: item.sourceHash }),
       };
     }
   }
@@ -278,7 +301,12 @@ async function readLock(rootPath: string, lockPath: string): Promise<ParsedLock 
     const files = item.files.filter((file): file is string => typeof file === "string" && file.length > 0);
     if (files.length === 0) continue;
     const outputHash = typeof item.outputHash === "string" ? item.outputHash : undefined;
-    items.push({ files, ...(outputHash === undefined ? {} : { outputHash }) });
+    const sourceHash = typeof item.sourceHash === "string" ? item.sourceHash : undefined;
+    items.push({
+      files,
+      ...(outputHash === undefined ? {} : { outputHash }),
+      ...(sourceHash === undefined ? {} : { sourceHash }),
+    });
   }
   return { items, outputRoot: parsed.outputRoot };
 }
@@ -388,11 +416,13 @@ interface ParsedLock {
 interface ParsedLockItem {
   readonly files: readonly string[];
   readonly outputHash?: string;
+  readonly sourceHash?: string;
 }
 
 interface LockItemState {
   readonly files: readonly LockFileEntry[];
   readonly outputHash?: string;
+  readonly sourceHash?: string;
 }
 
 interface LockFileEntry {

@@ -2331,6 +2331,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(buildMode === undefined ? {} : { buildMode }),
     ...(distDir === undefined ? {} : { distDir }),
     dryRun,
+    ...(checkOnly === undefined ? {} : { only: checkOnly }),
     ...(scopes === undefined ? {} : { scopes }),
     yes,
   });
@@ -2782,12 +2783,19 @@ function validateSourceDiagnosticFlags(
     readonly buildMode?: CompileBuildMode;
     readonly distDir?: string;
     readonly dryRun: boolean;
+    readonly only?: "outputs";
     readonly scopes?: readonly BuildScope[];
     readonly yes: boolean;
   }
 ): void {
   if (command !== "check") return;
   const label = `skillset ${command}`;
+  if (sourceCheck.only === "outputs") {
+    if (sourceCheck.dryRun || sourceCheck.yes) {
+      throw new Error(`${label} --only outputs is read-only and does not support --yes or --dry-run`);
+    }
+    return;
+  }
   if (sourceCheck.buildMode !== undefined) {
     throw new Error(`${label} does not support --updated or --all; it checks source diagnostics`);
   }
