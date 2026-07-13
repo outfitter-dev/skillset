@@ -607,6 +607,25 @@ test("SET-279: root version drift blocks an overlapping Codex manifest migration
   expect(blocked.stdout).toContain("Source changed since the previous skillset.lock hash");
 });
 
+test("SET-279: inherited root license drift blocks an overlapping Codex manifest migration", async () => {
+  const root = await builtFixture({
+    ...pluginFixture(),
+    ".skillset/LICENSE.txt": "Original inherited license.\n",
+  });
+  const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
+  const licensePath = join(root, "plugins/alpha/codex/LICENSE.txt");
+  await writeFile(manifestPath, `${await readFile(manifestPath, "utf8")}\n// stale provider format\n`, "utf8");
+  await markCurrentPluginManifestAsManaged(root);
+  await writeFile(join(root, ".skillset/LICENSE.txt"), "Updated inherited license.\n", "utf8");
+
+  const blocked = await runSkillsetCli("update", "--yes", "--root", root);
+
+  expect(blocked.exitCode).toBe(1);
+  expect(blocked.stdout).toContain("Source changed since the previous skillset.lock hash");
+  expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
+  expect(await readFile(licensePath, "utf8")).toBe("Original inherited license.\n");
+});
+
 test("SET-279: legacy plugin source hashes remain eligible for safe migration", async () => {
   const root = await builtFixture(pluginFixture());
   const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);

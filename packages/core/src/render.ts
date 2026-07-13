@@ -2876,7 +2876,7 @@ function lockItemForPlugin(args: {
     outputHash: hashRenderedFiles(args.outputRoot, args.files),
     outputPath: files.find((file) => file.endsWith("/plugin.json")) ?? files[0] ?? "",
     skippedSkills,
-    renderInputsHash: hashPluginRenderInputs(args.graph, args.plugin),
+    renderInputsHash: hashPluginRenderInputs(args.graph, args.plugin, args.license),
     sourceHash: hashPluginSource(
       args.graph,
       args.plugin,
@@ -3271,12 +3271,27 @@ function hashPluginSource(
   return `sha256:${hash.digest("hex")}`;
 }
 
-function hashPluginRenderInputs(graph: BuildGraph, plugin: SourcePlugin): string {
+function hashPluginRenderInputs(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  license: ResolvedLicense | undefined
+): string {
   const hash = createHash("sha256");
   hash.update("skillset-plugin-render-inputs-v1\0");
   hash.update(stringifyJson(readRecord(graph.root.metadata, "owner") ?? {}));
   hash.update("\0");
   hash.update(pluginVersion(graph, plugin));
+  hash.update("\0");
+  hash.update(
+    stringifyJson(
+      license === undefined
+        ? {}
+        : {
+            content: license.content,
+            manifestValue: license.manifestValue,
+          }
+    )
+  );
   return `sha256:${hash.digest("hex")}`;
 }
 
