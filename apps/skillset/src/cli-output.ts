@@ -15,13 +15,39 @@ import {
 export type CliMachineMode = "json" | "jsonl";
 
 export class CliOutputError extends Error {
+  readonly command?: string;
   readonly exitCode: number;
 
-  constructor(message: string, exitCode = 2) {
+  constructor(message: string, exitCode = 2, command?: string) {
     super(message);
     this.name = "CliOutputError";
     this.exitCode = exitCode;
+    this.command = command;
   }
+}
+
+const LEAF_SUBCOMMANDS: Readonly<Record<string, readonly string[]>> = {
+  change: ["add", "amend", "check", "history", "list", "migrate", "reason", "show", "status"],
+  distribute: ["plan"],
+  hooks: ["context", "print", "run"],
+  lookup: ["features"],
+  marketplace: ["check", "update"],
+  release: ["amend", "apply", "audit", "plan"],
+  test: ["list", "status", "tail"],
+};
+const KNOWN_COMMANDS = new Set([
+  "build", "change", "check", "dev", "diff", "distribute", "explain",
+  "hooks", "import", "init", "list", "lookup", "marketplace", "new",
+  "reconcile", "release", "restore", "status", "test", "update",
+]);
+
+export function readCliCommand(args: readonly string[]): string {
+  const command = args[0];
+  if (command === undefined || !KNOWN_COMMANDS.has(command)) return "cli";
+  const subcommand = args[1];
+  return subcommand !== undefined && LEAF_SUBCOMMANDS[command]?.includes(subcommand)
+    ? `${command} ${subcommand}`
+    : command;
 }
 
 export function readCliMachineMode(

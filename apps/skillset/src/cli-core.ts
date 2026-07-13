@@ -53,7 +53,7 @@ import {
 } from "@skillset/core/internal/authoring";
 import { ciSkillset, hasDrift, renderCiReportMarkdown, type CiReport } from "./ci";
 import { printDiagnostics, printDiffPlan, printGeneratedChangelogDriftHint, printGeneratedChangelogPathHint } from "./cli-renderers";
-import { CliOutputError } from "./cli-output";
+import { CliOutputError, readCliCommand } from "./cli-output";
 import { runDevWatch } from "./dev-watch";
 import {
   dispatchHookRun,
@@ -2327,7 +2327,7 @@ function parseCliArgs(args: readonly string[]): ParsedArgs {
   } catch (error) {
     if (error instanceof CliOutputError) throw error;
     const message = error instanceof Error ? error.message : String(error);
-    throw new CliOutputError(message, 2);
+    throw new CliOutputError(message, 2, readCliCommand(args));
   }
 }
 

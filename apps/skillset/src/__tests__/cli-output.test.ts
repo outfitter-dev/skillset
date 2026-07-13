@@ -79,9 +79,9 @@ describe("SET-286 CLI output kernel", () => {
 
   test("classifies route option validation as structured usage failures", async () => {
     const cli = join(import.meta.dir, "..", "cli.ts");
-    for (const args of [
-      ["update", "--yes", "--dry-run", "--json"],
-      ["check", "--scope", "repo", "--json"],
+    for (const [command, args] of [
+      ["update", ["update", "--yes", "--dry-run", "--json"]],
+      ["check", ["check", "--scope", "repo", "--json"]],
     ]) {
       const proc = Bun.spawn([process.execPath, cli, ...args], {
         stderr: "pipe",
@@ -95,12 +95,28 @@ describe("SET-286 CLI output kernel", () => {
       expect(exitCode).toBe(2);
       expect(stderr).toBe("");
       expect(JSON.parse(stdout)).toMatchObject({
-        command: "cli",
+        command,
         exitCode: 2,
         kind: "diagnostics",
         ok: false,
       });
     }
+  });
+
+  test("keeps human help out of machine output", async () => {
+    const cli = join(import.meta.dir, "..", "cli.ts");
+    const proc = Bun.spawn([process.execPath, cli, "--help", "--json"], {
+      stderr: "pipe",
+      stdout: "pipe",
+    });
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
+    expect(exitCode).toBe(2);
+    expect(stderr).toBe("");
+    expect(JSON.parse(stdout)).toMatchObject({ command: "cli", exitCode: 2, ok: false });
   });
 
   test("returns a structured JSONL failure for invalid early stream usage", async () => {

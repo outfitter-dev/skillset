@@ -3,6 +3,7 @@ import {
   CliOutputError,
   createCliEvent,
   createCliResult,
+  readCliCommand,
   readCliMachineMode,
   renderCliEvent,
   renderCliResult,
@@ -15,6 +16,13 @@ export async function runCliEntrypoint(
   let mode: CliMachineMode | undefined;
   try {
     mode = readCliMachineMode(args);
+    if (mode !== undefined && (args.includes("--help") || args.includes("-h"))) {
+      throw new CliOutputError(
+        "skillset: --help cannot be combined with --json or --jsonl",
+        2,
+        readCliCommand(args)
+      );
+    }
     await runCli(args);
   } catch (error) {
     mode ??=
@@ -29,12 +37,15 @@ export async function runCliEntrypoint(
     }
     const message = error instanceof Error ? error.message : String(error);
     const exitCode = classifyCliFailure(error);
+    const command = error instanceof CliOutputError
+      ? error.command ?? readCliCommand(args)
+      : readCliCommand(args);
     const data = { exitCode, message };
     const output =
       mode === "jsonl"
         ? renderCliEvent(
             createCliEvent({
-              command: "cli",
+              command,
               data,
               event: "failed",
               sequence: 1,
@@ -42,7 +53,7 @@ export async function runCliEntrypoint(
           )
         : renderCliResult(
             createCliResult({
-              command: "cli",
+              command,
               data: {},
               diagnostics: [{ code: "cli.usage", message, severity: "error" }],
               exitCode,
