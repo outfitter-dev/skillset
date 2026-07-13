@@ -344,6 +344,60 @@ test("SET-289: signals do not wait for a stalled initial operation", async () =>
   expect(parseCliEventStream(output).map((event) => event.event)).toEqual(["started", "completed"]);
 });
 
+test("SET-289: apply signals wait for the initial write before completing", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-dev-jsonl-apply-signal-"));
+  await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
+  let output = "";
+  let signal: (() => void) | undefined;
+  let markStarted: (() => void) | undefined;
+  let finishApply: ((report: DevWatchPreviewReport) => void) | undefined;
+  const started = new Promise<void>((resolvePromise) => {
+    markStarted = resolvePromise;
+  });
+  const apply = new Promise<DevWatchPreviewReport>((resolvePromise) => {
+    finishApply = resolvePromise;
+  });
+
+  const watching = runDevWatch(root, {}, { write: (chunk) => { output += String(chunk); return true; } } as NodeJS.WritableStream, "apply", "jsonl", {
+    addSignalListeners: (listener) => { signal = listener; },
+    collectDirectories: async () => ["."],
+    removeSignalListeners: () => {},
+    runOnce: async () => {
+      markStarted?.();
+      return apply;
+    },
+    scheduler: { clearTimeout: () => {}, setTimeout: () => 0 },
+    watch: () => ({ close: () => {} } as FSWatcher),
+  });
+
+  await started;
+  signal?.();
+  await expect(Promise.race([
+    watching.then(() => "stopped"),
+    Bun.sleep(50).then(() => "pending"),
+  ])).resolves.toBe("pending");
+  finishApply?.({
+    checkedSkills: 1,
+    diagnostics: [],
+    diff: { added: [], changed: [], missing: [], removed: [] },
+    mode: "apply",
+    ok: true,
+    outputRoots: [".claude/skills"],
+    reason: "initial",
+    sourceRoot: ".skillset",
+    warnings: [],
+    writes: {
+      deletedPaths: [],
+      mode: "write",
+      paths: [".claude/skills/demo/SKILL.md"],
+      writtenPaths: [".claude/skills/demo/SKILL.md"],
+    },
+  });
+  await watching;
+
+  expect(parseCliEventStream(output).map((event) => event.event)).toEqual(["started", "operation", "completed"]);
+});
+
 test("SET-289: dev --jsonl terminates a real controlled stream without human output", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-dev-jsonl-"));
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });

@@ -342,8 +342,10 @@ export async function runDevWatch(
   const signalStop = () => {
     if (stopFromSignal === undefined) {
       pendingSignal = true;
-      initialSignalReceived = true;
-      resolveInitialSignal?.();
+      if (mode === "preview") {
+        initialSignalReceived = true;
+        resolveInitialSignal?.();
+      }
     } else stopFromSignal();
   };
   const startOperation = async (reason: string) => {
