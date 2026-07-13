@@ -204,6 +204,18 @@ test("SET-220: lookup invalid combinations and targets produce helpful diagnosti
   expect(invalidTarget.stderr).toContain("unknown lookup compatibility target unknown");
 });
 
+test("SET-283: lookup features rejects unrelated lookup filters", async () => {
+  const result = await runSkillsetCli("lookup", "features", "--fields", "--json");
+
+  expect(result.exitCode).toBe(3);
+  expect(result.stderr).toBe("");
+  expect(JSON.parse(result.stdout)).toMatchObject({
+    diagnostics: [{ message: expect.stringContaining("lookup features only supports") }],
+    exitCode: 3,
+    ok: false,
+  });
+});
+
 async function runSkillsetCli(...args: readonly string[]): Promise<{
   readonly exitCode: number;
   readonly stderr: string;

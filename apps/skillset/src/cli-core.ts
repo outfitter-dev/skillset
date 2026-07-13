@@ -2315,6 +2315,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   });
   if (jsonlOutput) throw new Error("skillset: --jsonl is not supported until a streaming route is enabled");
   validateLookupFlags(command, {
+    features: lookupFeatures,
     ...(lookupField === undefined ? {} : { field: lookupField }),
     targets: lookupTargets,
     views: lookupViews,
@@ -3079,12 +3080,18 @@ function validateJsonFlags(
 function validateLookupFlags(
   command: Command,
   lookup: {
+    readonly features: boolean;
     readonly field?: string;
     readonly targets: readonly TargetName[];
     readonly views: readonly LookupView[];
   }
 ): void {
-  if (command === "lookup") return;
+  if (command === "lookup") {
+    if (lookup.features && (lookup.field !== undefined || lookup.targets.length > 0 || lookup.views.length > 0)) {
+      throw new Error("skillset: lookup features only supports an optional feature id and --json");
+    }
+    return;
+  }
   if (lookup.field !== undefined || lookup.targets.length > 0 || lookup.views.length > 0) {
     throw new Error("skillset: lookup flags are only supported with lookup");
   }

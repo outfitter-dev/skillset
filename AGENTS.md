@@ -75,7 +75,7 @@ Read-only authoring aids (never write outputs or mutate config):
 ```bash
 bun ./apps/skillset/src/cli.ts diff --root .
 bun ./apps/skillset/src/cli.ts explain <path> --root .
-bun ./apps/skillset/src/cli.ts doctor --root .
+bun ./apps/skillset/src/cli.ts status --root .
 ```
 
 `bun run check` includes self-hosted source checks and generated-output verification. If `skillset:check:outputs` reports stale output, run `bun run skillset:build`, inspect the generated diff, then rerun `bun run check`.
