@@ -129,6 +129,27 @@ describe("SET-286 CLI output kernel", () => {
     expect(JSON.parse(stdout)).toMatchObject({ command: "cli", exitCode: 2, ok: false });
   });
 
+  test("rejects not-yet-enabled streams through JSONL", async () => {
+    const cli = join(import.meta.dir, "..", "cli.ts");
+    const proc = Bun.spawn([process.execPath, cli, "dev", "--watch", "--jsonl"], {
+      stderr: "pipe",
+      stdout: "pipe",
+    });
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
+    expect(exitCode).toBe(2);
+    expect(stderr).toBe("");
+    expect(JSON.parse(stdout)).toMatchObject({
+      command: "dev",
+      data: { message: "skillset: --jsonl is not supported until a streaming route is enabled" },
+      event: "failed",
+      schemaVersion: "skillset.cli.event@1",
+    });
+  });
+
   test("keeps create-skillset failures on the structured entrypoint", async () => {
     const cli = join(import.meta.dir, "..", "create.ts");
     const proc = Bun.spawn([process.execPath, cli, "create", "--bad", "--json"], {

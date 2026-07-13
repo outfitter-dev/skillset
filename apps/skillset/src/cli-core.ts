@@ -921,6 +921,7 @@ interface ParsedArgs {
   readonly importPath?: string;
   readonly importProvider?: ImportProvider;
   readonly jsonOutput: boolean;
+  readonly jsonlOutput: boolean;
   readonly lookupAspects: readonly string[];
   readonly lookupField?: string;
   readonly lookupSubject?: LookupSubject;
@@ -1594,6 +1595,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let importPath: string | undefined;
   let importProvider: ImportProvider | undefined;
   let jsonOutput = false;
+  let jsonlOutput = false;
   let lookupAspects: string[] = [];
   let lookupField: string | undefined;
   let lookupSubject: LookupSubject | undefined;
@@ -1846,6 +1848,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--fix" &&
       flag !== "--report" &&
       flag !== "--json" &&
+      flag !== "--jsonl" &&
       flag !== "--apply" &&
       flag !== "--runner" &&
       flag !== "--target" &&
@@ -1905,6 +1908,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag === "--global" ||
       flag === "--fix" ||
       flag === "--json" ||
+      flag === "--jsonl" ||
       flag === "--apply" ||
       flag === "--agent-runtime" ||
       flag === "--pre-commit" ||
@@ -1933,6 +1937,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       if (flag === "--global") setupGlobal = true;
       if (flag === "--fix") ciFix = true;
       if (flag === "--json") jsonOutput = true;
+      if (flag === "--jsonl") jsonlOutput = true;
       if (flag === "--apply") devApply = true;
       if (flag === "--agent-runtime") hookAgentRuntime = true;
       if (flag === "--pre-commit") hookPreCommit = true;
@@ -2126,6 +2131,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     yes,
   });
   validateJsonFlags(command, jsonOutput);
+  if (jsonlOutput) throw new Error("skillset: --jsonl is not supported until a streaming route is enabled");
   validateLookupFlags(command, {
     ...(lookupField === undefined ? {} : { field: lookupField }),
     targets: lookupTargets,
@@ -2252,6 +2258,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(importPath === undefined ? {} : { importPath }),
     ...(importProvider === undefined ? {} : { importProvider }),
     jsonOutput,
+    jsonlOutput,
     lookupAspects,
     ...(lookupField === undefined ? {} : { lookupField }),
     ...(lookupSubject === undefined ? {} : { lookupSubject }),
