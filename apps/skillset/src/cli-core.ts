@@ -53,6 +53,7 @@ import {
 } from "@skillset/core/internal/authoring";
 import { ciSkillset, hasDrift, renderCiReportMarkdown, type CiReport } from "./ci";
 import { printDiagnostics, printDiffPlan, printGeneratedChangelogDriftHint, printGeneratedChangelogPathHint } from "./cli-renderers";
+import { CliOutputError } from "./cli-output";
 import { runDevWatch } from "./dev-watch";
 import {
   dispatchHookRun,
@@ -247,7 +248,7 @@ export async function runCli(
     sourceSuggestionWrite,
     testName,
     yes,
-  } = parseArgs(args);
+  } = parseCliArgs(args);
 
   if (command === "build") {
     if (dryRun || !yes) {
@@ -2318,6 +2319,16 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(testName === undefined ? {} : { testName }),
     yes,
   };
+}
+
+function parseCliArgs(args: readonly string[]): ParsedArgs {
+  try {
+    return parseArgs(args);
+  } catch (error) {
+    if (error instanceof CliOutputError) throw error;
+    const message = error instanceof Error ? error.message : String(error);
+    throw new CliOutputError(message, 2);
+  }
 }
 
 function isReleaseSubcommand(value: string | undefined): value is ReleaseSubcommand {
