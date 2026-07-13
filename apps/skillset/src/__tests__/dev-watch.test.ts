@@ -273,6 +273,24 @@ test("SET-289: debounced JSONL operation failures terminate the active sequence"
   expect(events[2]?.data).toMatchObject({ message: "debounced operation failed", stage: "operation" });
 });
 
+test("SET-289: JSONL signals during the initial operation still terminate the sequence", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-dev-jsonl-initial-signal-"));
+  await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
+  let output = "";
+
+  await runDevWatch(root, {}, { write: (chunk) => { output += String(chunk); return true; } } as NodeJS.WritableStream, "preview", "jsonl", {
+    addSignalListeners: (listener) => listener(),
+    collectDirectories: async () => ["."],
+    removeSignalListeners: () => {},
+    runOnce: runDevWatchPreview,
+    scheduler: { clearTimeout: () => {}, setTimeout: () => 0 },
+    watch: () => ({ close: () => {} } as FSWatcher),
+  });
+
+  const events = parseCliEventStream(output);
+  expect(events.map((event) => event.event)).toEqual(["started", "operation", "completed"]);
+});
+
 test("SET-289: dev --jsonl terminates a real controlled stream without human output", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-dev-jsonl-"));
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });

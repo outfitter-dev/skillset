@@ -330,7 +330,13 @@ export async function runDevWatch(
   };
   let activeOperation: Promise<void> | undefined;
   let pendingOperationError: unknown;
+  let pendingSignal = false;
   let stopWithError: ((error: unknown) => void) | undefined;
+  let stopFromSignal: (() => void) | undefined;
+  const signalStop = () => {
+    if (stopFromSignal === undefined) pendingSignal = true;
+    else stopFromSignal();
+  };
   const startOperation = async (reason: string) => {
     const previous = activeOperation;
     const operation = (previous ?? Promise.resolve()).then(() => writeOperation(reason));
@@ -341,7 +347,19 @@ export async function runDevWatch(
       if (activeOperation === operation) activeOperation = undefined;
     }
   };
-  await startOperation("initial");
+  runtime.addSignalListeners(signalStop);
+  try {
+    await startOperation("initial");
+  } catch (error) {
+    runtime.removeSignalListeners(signalStop);
+    throw error;
+  }
+  if (pendingSignal) {
+    runtime.removeSignalListeners(signalStop);
+    if (stream === undefined) output.write("skillset: dev watch stopped\n");
+    else stream.completed();
+    return;
+  }
 
   const watchers: FSWatcher[] = [];
   const debouncer = createDevWatchDebouncer(async (reason) => {
@@ -366,6 +384,7 @@ export async function runDevWatch(
     }
   } catch (error) {
     for (const watcher of watchers) watcher.close();
+    runtime.removeSignalListeners(signalStop);
     if (stream === undefined) throw error;
     stream.failed(error instanceof Error ? error.message : String(error), "watch-setup");
     if (output === process.stdout) process.exitCode = 1;
@@ -397,9 +416,9 @@ export async function runDevWatch(
         }
       })();
     };
-    const signalStop = () => stop();
+    stopFromSignal = () => stop();
     stopWithError = (error) => stop(error);
-    runtime.addSignalListeners(signalStop);
+    if (pendingSignal) stop();
     if (pendingOperationError !== undefined) stop(pendingOperationError);
   });
 }
