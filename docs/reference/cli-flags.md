@@ -51,11 +51,15 @@ The entries below are the complete final public flag set. Positional arguments a
 | `test [name]` | `--root`, `--target`, `--prompt`, `--prompt-file`, `--plugin`, `--name`, `--timeout-ms`, `--claude-setting-sources`, `--background`, `--json` | Runtime flags select ad hoc execution; named declarations remain positional. |
 | `test status` or `test list` | `--root`, `--json` | Retained-run lifecycle. |
 | `test tail` | `--root`, `--lines`, `--json` | Bounded retained output; a future `--follow` uses `--jsonl`. |
-| `change status` or `change check` | route-owned selectors plus `--json` | Read-only ledger status/gate. |
-| `change add` | route-owned entry flags plus `--json` | The subcommand is already an explicit write; no generic write-mode flag. |
-| `change reason` or `change amend` | route-owned reason flags plus `--json` | Explicit ledger edit/correction. |
+| `change status` | `--root`, `--since`, `--staged`, `--json` | Read-only ledger status. |
+| `change check` | `--root`, `--since`, `--staged`, `--ref`, `--json` | Read-only ledger gate. |
+| `change add` | `--root`, `--since`, `--scope`, `--bump`, `--group`, `--reason`, `--reason-file`, `--json` | The subcommand is already an explicit write; no generic write-mode flag. |
+| `change reason` | `--root`, `--ref`, `--reason`, `--reason-file`, `--append`, `--json` | Explicit pending-reason edit. |
+| `change amend` | `--root`, `--ref`, `--reason`, `--reason-file`, `--json` | Explicit applied-history correction. |
 | `change migrate` | `--root`, `--yes`, `--json` | Plan-first migration. |
-| `change show`, `change history`, or `change list` | route-owned selectors plus `--json` | Read-only. |
+| `change show` | `--root`, `--ref`, `--json` | Read-only pending or history lookup. |
+| `change history` | `--root`, `--ref`, `--json` | Read-only applied history. |
+| `change list` | `--root`, `--group`, `--json` | Read-only pending-entry inventory. |
 | `release audit` or `release plan` | `--root`, `--json` | Read-only. |
 | `release apply` | `--root`, `--yes`, `--json` | Plan-first ledger application. |
 | `release amend` | `--root`, `--ref`, `--reason`, `--reason-file`, `--json` | Explicit corrective record. |
