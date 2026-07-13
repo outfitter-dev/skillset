@@ -8,6 +8,12 @@ const subcommand = process.argv[2];
 if (!isSubcommand(subcommand)) {
   throw new Error("skillset: expected provider maintenance command check, diff, or update");
 }
+const unexpectedArgs = process.argv.slice(3);
+if (unexpectedArgs.length > 0) {
+  throw new Error(
+    `skillset: provider maintenance does not accept additional arguments: ${unexpectedArgs.join(" ")}`
+  );
+}
 
 const report = await runProviderMaintenance(process.cwd(), subcommand, {
   write: subcommand === "update",

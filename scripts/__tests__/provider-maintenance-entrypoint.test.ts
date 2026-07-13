@@ -19,4 +19,17 @@ test("SET-281: provider evidence maintenance is repo-script owned", async () => 
   });
   expect(await child.exited).toBe(1);
   expect(await new Response(child.stderr).text()).toContain("expected provider maintenance command check, diff, or update");
+
+  const ignoredFlag = Bun.spawn(
+    [process.execPath, "scripts/provider-maintenance.ts", "update", "--dry-run"],
+    {
+      cwd: root,
+      stderr: "pipe",
+      stdout: "pipe",
+    }
+  );
+  expect(await ignoredFlag.exited).toBe(1);
+  expect(await new Response(ignoredFlag.stderr).text()).toContain(
+    "provider maintenance does not accept additional arguments: --dry-run"
+  );
 });
