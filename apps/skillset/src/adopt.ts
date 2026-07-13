@@ -195,30 +195,30 @@ async function copyAdoptAcquisition(acquisition: AdoptAcquisition, destination: 
   const destinationIsNested = destinationFromSource !== "" &&
     !isAbsolute(destinationFromSource) &&
     !/^\.\.(?:[\\/]|$)/u.test(destinationFromSource);
+  const excludesGitMetadata = (source: string) =>
+    relative(acquisition.rootPath, source).split(/[\\/]/u)[0] !== ".git";
   let copyRoot = acquisition.rootPath;
   let stagedRoot: string | undefined;
   try {
     if (destinationIsNested) {
       stagedRoot = await mkdtemp(join(tmpdir(), "skillset-adopt-copy-"));
       await cp(acquisition.rootPath, stagedRoot, {
-        ...(acquisition.kind === "path"
-          ? { filter: (source: string) => relative(acquisition.rootPath, source).split(/[\\/]/u)[0] !== ".git" }
-          : {}),
+        filter: excludesGitMetadata,
         recursive: true,
       });
       copyRoot = stagedRoot;
     }
     await mkdir(rootPath, { recursive: true });
     await cp(copyRoot, rootPath, {
-      ...(!destinationIsNested && acquisition.kind === "path"
-        ? { filter: (source: string) => relative(acquisition.rootPath, source).split(/[\\/]/u)[0] !== ".git" }
+      ...(!destinationIsNested
+        ? { filter: excludesGitMetadata }
         : {}),
       recursive: true,
     });
   } finally {
     if (stagedRoot !== undefined) await rm(stagedRoot, { force: true, recursive: true });
   }
-  if (acquisition.kind === "path") await initializeAdoptGit(rootPath);
+  await initializeAdoptGit(rootPath);
   return { ...acquisition, rootPath };
 }
 

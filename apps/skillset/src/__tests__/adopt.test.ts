@@ -188,6 +188,8 @@ test("SET-277: local and remote init --from write the same adoption plan into a 
   expect(await Bun.file(join(remoteDestination, ".skillset/plugins/demo/skillset.yaml")).exists()).toBe(true);
   expect(await exists(join(localDestination, ".git"))).toBe(true);
   expect(await exists(join(remoteDestination, ".git"))).toBe(true);
+  expect(await readFile(join(remoteDestination, ".git", "config"), "utf8")).not.toContain('[remote "origin"]');
+  expect(await exists(join(remoteDestination, ".git", "shallow"))).toBe(false);
   expect(await walkFiles(source)).toEqual(before);
 });
 
