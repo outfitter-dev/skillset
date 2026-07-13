@@ -125,17 +125,17 @@ Claude or Codex configuration stay separate.
 
 ```bash
 skillset diff
-skillset dev --watch
+skillset dev
 skillset explain .skillset/skills/review-notes/SKILL.md
 skillset explain .claude/skills/review-notes/SKILL.md
 skillset status
 ```
 
-Use `diff` to preview generated changes after editing source, `dev --watch` to
+Use `diff` to preview generated changes after editing source, `dev` to
 rerun source diagnostics and generated-output previews as you save, `explain` to
 see why a source or generated path exists, and `status` for a broader local
 health summary. The watch loop is read-only by default; use
-`skillset dev --watch --apply` when you want each clean refresh to write
+`skillset dev --write` when you want each clean refresh to write
 repo-local generated output with build ownership, backup, and restore safeguards.
 Use `skillset build --yes` when you want a single confirmed write instead.
 

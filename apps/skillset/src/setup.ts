@@ -119,7 +119,7 @@ export async function initSkillset(options: SetupOptions = {}): Promise<SetupRep
 
 export async function createSkillset(options: SetupOptions = {}): Promise<SetupReport> {
   if (options.global === true && options.include !== undefined && options.include.length > 0) {
-    throw new Error("skillset: create --global does not support --include");
+    throw new Error("skillset: global setup does not support optional scaffold includes");
   }
   const rootPath = createRootPath(options);
   if (await pathExists(rootPath)) {
@@ -223,7 +223,7 @@ async function resolveSetupLayout(
   options: SetupOptions
 ): Promise<SetupLayout> {
   if (options.layout !== undefined) {
-    throw new Error("skillset: --layout is retired; Skillset uses root skillset.yaml plus .skillset/");
+    throw new Error("skillset: layout overrides are retired; Skillset uses root skillset.yaml plus .skillset/");
   }
   if (kind === "init") await rejectRetiredSetupMarkers(rootPath);
   return "workspace";
@@ -773,7 +773,7 @@ function createReadme(name: string, targets: readonly TargetName[]): string {
     "## Quick Start",
     "",
     "```bash",
-    "skillset build --dry-run",
+    "skillset build",
     "skillset build --yes",
     "skillset check",
     "skillset check --only outputs",
@@ -806,7 +806,7 @@ function createAgentsGuide(name: string): string {
     "- Treat `skillset.yaml` as workspace/build configuration and root source metadata.",
     "- Treat `.skillset/changes/` as Skillset-managed change and release state.",
     "- Treat generated target directories as outputs; do not hand-edit them as source truth.",
-    "- Run `skillset build --dry-run` before writing generated outputs.",
+    "- Run `skillset build` to preview before writing generated outputs.",
     "- Run `skillset check` before committing source changes.",
     "- Add pending change entries with `skillset change add` when source units change and the repo uses Skillset release tracking.",
     "",

@@ -9,12 +9,12 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Activation Probes](tests-and-evals.md#activation-probes): target-aware manual harness prompts generated inside `skillset test` runs.
 - [Agents](agents.md): portable project agents, Claude plugin agents, Codex project agents, and skill-local Codex policy boundaries.
 - [Apps](apps.md): Codex plugin `.app.json` pass-through and why there is no v1 `apps.source` feature key.
-- [Build Scopes](build-scopes.md): build mode, destination scopes, dry-run safety, diff/list/explain behavior, and lock semantics.
+- [Build Scopes](build-scopes.md): build mode, destination scopes, preview safety, diff/list/explain behavior, and lock semantics.
 - [Changes](changes.md): pending change entries, source coverage, compact refs, groups, and append-only history boundaries.
 - [CI](ci.md): the `skillset check --ci` aggregate check, mechanical drift rebuilds, PR-comment reports, and the `--include ci` workflow scaffold.
 - [Commands](commands.md): Claude plugin command pass-through, manifest wiring, and Codex unsupported boundaries.
 - [Dependencies](dependencies.md): plugin dependency declarations, Claude rendering, Codex fallback notices, and provenance.
-- [Dev Watch](dev-watch.md): default-preview `skillset dev --watch` for first-author source diagnostics, generated-output drift, and explicit apply mode.
+- [Dev Watch](dev-watch.md): default-preview `skillset dev` for first-author source diagnostics, generated-output drift, and explicit write mode.
 - [Distributions](distributions.md): post-build distribution planning, destination reports, and build/distribution/activation boundaries.
 - [Executables](executables.md): Claude plugin `bin/` conventional discovery, `bin.source`, and Codex unsupported diagnostics.
 - [Feature Source Pointers](feature-source-pointers.md): direct feature-key source pointers, conventional discovery, and future component ownership.

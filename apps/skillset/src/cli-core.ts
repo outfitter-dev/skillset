@@ -117,35 +117,35 @@ type DistributionSubcommand = "plan";
 type MarketplaceSubcommand = "check" | "update";
 
 const USAGE = [
-  "usage: skillset build [--yes|--dry-run] [--updated|--all] [--isolated] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
-  "       skillset diff [--updated|--all] [--isolated] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "usage: skillset build [--yes] [--updated|--all] [--isolated] [--scope <scope>] [--root <path>]",
+  "       skillset diff [--updated|--all] [--isolated] [--scope <scope>] [--root <path>]",
   "       skillset check [--write|--only outputs|--ci [--fix] [--since <ref>] [--report <path>]] [--json] [--root <path>]",
-  "       skillset list [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset list [--updated|--all] [--scope <scope>] [--root <path>]",
   "       skillset status [--json] [--root <path>]",
-  "       skillset dev --watch [--apply] [--jsonl] [--root <path>] [--source <dir>] [--dist <dir>]",
-  "       skillset change status [--since <ref>] [--root <path>] [--source <dir>] [--dist <dir>]",
-  "       skillset change check [@ref|--ref <ref>] [--since <ref>] [--root <path>] [--source <dir>] [--dist <dir>]",
-  "       skillset change <status|check> --staged [--root <path>] [--source <dir>] [--dist <dir>]",
-  "       skillset change add --scope <source-unit> --bump <bump> [--group <group>] [--reason <text>|--reason-file <path>|--reason -] [--since <ref>] [--root <path>] [--source <dir>]",
-  "       skillset change reason <@ref> [--append] [--reason <text>|--reason-file <path>|--reason -] [--root <path>] [--source <dir>]",
-  "       skillset change amend <@ref> [--reason <text>|--reason-file <path>|--reason -] [--root <path>] [--source <dir>]",
-  "       skillset change migrate [--yes|--dry-run] [--root <path>] [--source <dir>]",
-  "       skillset change <show|history> [@ref] [--root <path>] [--source <dir>]",
-  "       skillset change list [--group <group>] [--root <path>] [--source <dir>]",
-  "       skillset release audit [--root <path>] [--source <dir>] [--dist <dir>]",
-  "       skillset release plan [--root <path>] [--source <dir>] [--dist <dir>]",
-  "       skillset release apply [--yes|--dry-run] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset dev [--write] [--jsonl] [--root <path>]",
+  "       skillset change status [--since <ref>] [--root <path>]",
+  "       skillset change check [@ref|--ref <ref>] [--since <ref>] [--root <path>]",
+  "       skillset change <status|check> --staged [--root <path>]",
+  "       skillset change add --scope <source-unit> --bump <bump> [--group <group>] [--reason <text>|--reason-file <path>|--reason -] [--since <ref>] [--root <path>]",
+  "       skillset change reason <@ref> [--append] [--reason <text>|--reason-file <path>|--reason -] [--root <path>]",
+  "       skillset change amend <@ref> [--reason <text>|--reason-file <path>|--reason -] [--root <path>]",
+  "       skillset change migrate [--yes] [--root <path>]",
+  "       skillset change <show|history> [@ref] [--root <path>]",
+  "       skillset change list [--group <group>] [--root <path>]",
+  "       skillset release audit [--root <path>]",
+  "       skillset release plan [--root <path>]",
+  "       skillset release apply [--yes] [--root <path>]",
   "       skillset release amend <@ref> [--reason <text>|--reason-file <path>|--reason -] [--root <path>]",
-  "       skillset restore <backup-id> [--yes|--dry-run] [--root <path>]",
+  "       skillset restore <backup-id> [--yes] [--root <path>]",
   "       skillset reconcile <managed-path> [--use <source|output> --yes] [--root <path>]",
-  "       skillset distribute plan [name] [--root <path>] [--source <dir>] [--dist <dir>]",
-  "       skillset marketplace check [name] [--json] [--root <path>] [--source <dir>] [--dist <dir>]",
-  "       skillset marketplace update [name] [--yes|--dry-run] [--json] [--root <path>] [--source <dir>] [--dist <dir>]",
-  "       skillset update [--yes|--dry-run] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset distribute plan [name] [--root <path>]",
+  "       skillset marketplace check [name] [--json] [--root <path>]",
+  "       skillset marketplace update [name] [--yes] [--json] [--root <path>]",
+  "       skillset update [--yes] [--json] [--root <path>]",
   "       skillset lookup features [feature-id] [--json]",
   "       skillset lookup [subject] [aspect...] [--frontmatter] [--fields] [--field <path>] [--values] [--events] [--compat [claude|codex|cursor...]] [--examples] [--schema] [--claude] [--codex] [--cursor] [--json]",
-  "       skillset test [name] [--root <path>] [--source <dir>]",
-  "       skillset test --target <claude|codex|cursor> [--prompt <text>|--prompt-file <path>] [--plugin <id>] [--name <name>] [--timeout-ms <ms>] [--claude-setting-sources <isolated|user|project|local>] [--background] [--json] [--root <path>] [--source <dir>]",
+  "       skillset test [name] [--root <path>]",
+  "       skillset test --target <claude|codex|cursor> [--prompt <text>|--prompt-file <path>] [--plugin <id>] [--name <name>] [--timeout-ms <ms>] [--claude-setting-sources <isolated|user|project|local>] [--background] [--json] [--root <path>]",
   "       skillset test <status|tail> [run-id] [--lines <count>] [--json] [--root <path>]",
   "       skillset test list [--json] [--root <path>]",
   "       skillset hooks print --runner <lefthook|husky|pre-commit|git> [--pre-commit] [--pre-push]",
@@ -153,10 +153,10 @@ const USAGE = [
   "       skillset hooks run <post-tool-use|stop> [--root <path>]",
   "       skillset hooks context --event <event> [--format env|json] [--context-fields <field,...>] [--root <path>]",
   "       skillset init [destination] [--from <path|git-url>] [--adopt <all|candidate-id>] [--yes] [--targets claude,codex,cursor] [--include ci] [--name <name>] [--root <path>]",
-  "       skillset new <skill|agent|hook> [name] [--id <id>] [--name <name>] [--in <container>] [--scope repo] [--preset <preset>] [--yes|--dry-run] [--root <path>] [--source <dir>]",
-  "       skillset explain <path> [--json] [--scope <scope>] [--root <path>] [--source <dir>]",
-  "       skillset import <path> [--kind <skill|skills|plugin|plugins>] [--from <provider>] [--name <name>] [--root <path>] [--source <dir>]",
-  "       skillset import <claude|codex|cursor|agents> [--root <path>] [--source <dir>]",
+  "       skillset new <skill|agent|hook> [name] [--id <id>] [--name <name>] [--in <container>] [--scope repo] [--preset <preset>] [--yes] [--root <path>]",
+  "       skillset explain <path> [--json] [--scope <scope>] [--root <path>]",
+  "       skillset import <path> [--kind <skill|skills|plugin|plugins>] [--from <provider>] [--name <name>] [--root <path>]",
+  "       skillset import <claude|codex|cursor|agents> [--root <path>]",
 ].join("\n");
 
 export async function runCli(
@@ -183,8 +183,7 @@ export async function runCli(
     ciReportPath,
     checkOnly,
     checkWrite,
-    devApply,
-    devWatch,
+    devWrite,
     dryRun,
     distributionName,
     distributionSubcommand,
@@ -298,8 +297,7 @@ export async function runCli(
   }
 
   if (command === "dev") {
-    if (!devWatch) throw new Error("skillset: dev currently requires --watch");
-    await runDevWatch(rootPath, options, process.stdout, devApply ? "apply" : "preview", jsonlOutput ? "jsonl" : undefined);
+    await runDevWatch(rootPath, options, process.stdout, devWrite ? "write" : "preview", jsonlOutput ? "jsonl" : undefined);
     return;
   }
 
@@ -1266,8 +1264,7 @@ interface ParsedArgs {
   readonly ciReportPath?: string;
   readonly checkOnly?: "outputs";
   readonly checkWrite: boolean;
-  readonly devWatch: boolean;
-  readonly devApply: boolean;
+  readonly devWrite: boolean;
   readonly distributionName?: string;
   readonly distributionSubcommand?: DistributionSubcommand;
   readonly dryRun: boolean;
@@ -1915,8 +1912,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let ciReportPath: string | undefined;
   let checkOnly: "outputs" | undefined;
   let checkWrite = false;
-  let devApply = false;
-  let devWatch = false;
+  let devWrite = false;
   let hookAgentRuntime = false;
   let hookContextEvent: string | undefined;
   let hookContextFields: readonly HookRuntimeContextField[] | undefined;
@@ -2145,8 +2141,6 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     const inlineValue = equalsIndex === -1 ? undefined : arg.slice(equalsIndex + 1);
     if (
       flag !== "--root" &&
-      flag !== "--source" &&
-      flag !== "--dist" &&
       flag !== "--id" &&
       flag !== "--name" &&
       flag !== "--in" &&
@@ -2163,7 +2157,6 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--since" &&
       flag !== "--staged" &&
       flag !== "--yes" &&
-      flag !== "--dry-run" &&
       flag !== "--updated" &&
       flag !== "--all" &&
       flag !== "--isolated" &&
@@ -2177,14 +2170,12 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--report" &&
       flag !== "--json" &&
       flag !== "--jsonl" &&
-      flag !== "--apply" &&
       flag !== "--runner" &&
       flag !== "--target" &&
       flag !== "--agent-runtime" &&
       flag !== "--pre-commit" &&
       flag !== "--pre-push" &&
       flag !== "--write" &&
-      flag !== "--watch" &&
       flag !== "--frontmatter" &&
       flag !== "--fields" &&
       flag !== "--field" &&
@@ -2227,7 +2218,6 @@ function parseArgs(args: readonly string[]): ParsedArgs {
 
     if (
       flag === "--yes" ||
-      flag === "--dry-run" ||
       flag === "--updated" ||
       flag === "--all" ||
       flag === "--isolated" ||
@@ -2237,12 +2227,10 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag === "--ci" ||
       flag === "--json" ||
       flag === "--jsonl" ||
-      flag === "--apply" ||
       flag === "--agent-runtime" ||
       flag === "--pre-commit" ||
       flag === "--pre-push" ||
       flag === "--write" ||
-      flag === "--watch" ||
       flag === "--frontmatter" ||
       flag === "--fields" ||
       flag === "--values" ||
@@ -2256,7 +2244,6 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ) {
       if (inlineValue !== undefined) throw new Error(`skillset: ${flag} does not take a value`);
       if (flag === "--yes") yes = true;
-      if (flag === "--dry-run") dryRun = true;
       if (flag === "--updated") buildMode = setBuildMode(buildMode, "updated");
       if (flag === "--all") buildMode = setBuildMode(buildMode, "all");
       if (flag === "--isolated") isolated = true;
@@ -2266,13 +2253,13 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       if (flag === "--ci") ciMode = true;
       if (flag === "--json") jsonOutput = true;
       if (flag === "--jsonl") jsonlOutput = true;
-      if (flag === "--apply") devApply = true;
       if (flag === "--agent-runtime") hookAgentRuntime = true;
       if (flag === "--pre-commit") hookPreCommit = true;
       if (flag === "--pre-push") hookPrePush = true;
       if (flag === "--write") {
-        if (command !== "check") throw new Error("skillset: --write is only supported with check");
-        checkWrite = true;
+        if (command === "check") checkWrite = true;
+        else if (command === "dev") devWrite = true;
+        else throw new Error("skillset: --write is only supported with check or dev");
       }
       if (flag === "--watch") devWatch = true;
       if (flag === "--frontmatter") lookupViews = addLookupView(lookupViews, "frontmatter");
@@ -2298,8 +2285,6 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       rootPath = value;
       rootExplicit = true;
     }
-    if (flag === "--source") sourceDir = value;
-    if (flag === "--dist") distDir = value;
     if (flag === "--ref") {
       if (command === "release" && releaseSubcommand === "amend") releaseRef = value;
       else changeRef = value;
@@ -2440,11 +2425,10 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     yes,
   });
   validateDevFlags(command, {
-    apply: devApply,
+    write: devWrite,
     ...(buildMode === undefined ? {} : { buildMode }),
     dryRun,
     ...(scopes === undefined ? {} : { scopes }),
-    watch: devWatch,
     yes,
   });
   validateUpdateFlags(command, {
@@ -2531,7 +2515,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     throw new Error("skillset: --scope is not supported with release commands yet");
   }
   if (command === "release" && releaseSubcommand !== "apply" && (dryRun || yes)) {
-    throw new Error("skillset: --yes and --dry-run are only supported with release apply");
+    throw new Error("skillset: --yes is only supported with release apply");
   }
   validateReleaseFlags(command, releaseSubcommand, {
     ...(releaseReason === undefined ? {} : { reason: releaseReason }),
@@ -2600,8 +2584,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(ciReportPath === undefined ? {} : { ciReportPath }),
     ...(checkOnly === undefined ? {} : { checkOnly }),
     checkWrite,
-    devApply,
-    devWatch,
+    devWrite,
     ...(distributionName === undefined ? {} : { distributionName }),
     ...(distributionSubcommand === undefined ? {} : { distributionSubcommand }),
     dryRun,
@@ -2755,10 +2738,10 @@ function validateChangeFlags(
   }
   if (command !== "change") return;
   if ((change.yes || change.dryRun) && subcommand !== "migrate") {
-    throw new Error("skillset: --yes and --dry-run are only supported with change migrate");
+    throw new Error("skillset: --yes is only supported with change migrate");
   }
   if (change.yes && change.dryRun) {
-    throw new Error("skillset: pass either --yes or --dry-run for change migrate, not both");
+    throw new Error("skillset: conflicting change migrate write modes");
   }
 
   const allowed = {
@@ -2973,7 +2956,7 @@ function validateSourceDiagnosticFlags(
     throw new Error(`${label} does not support --scope; it checks source diagnostics`);
   }
   if (sourceCheck.dryRun || sourceCheck.yes) {
-    throw new Error(`${label} is read-only and does not support --yes or --dry-run`);
+    throw new Error(`${label} is read-only and does not support --yes`);
   }
 }
 
@@ -2995,7 +2978,7 @@ function validateRestoreFlags(
     restore.scopes !== undefined ||
     restore.sourceDir !== undefined
   ) {
-    throw new Error("skillset: restore only supports --root, --yes, and --dry-run");
+    throw new Error("skillset: restore only supports --root and --yes");
   }
 }
 
@@ -3035,7 +3018,7 @@ function validateReconcileFlags(
   if (reconcile.distDir !== undefined || reconcile.sourceDir !== undefined) {
     throw new Error("skillset: reconcile does not support --source or --dist overrides");
   }
-  if (reconcile.dryRun) throw new Error("skillset: --dry-run is redundant for reconcile preview mode");
+  if (reconcile.dryRun) throw new Error("skillset: reconcile preview mode cannot use a second preview mode");
   if (reconcile.scopes !== undefined) throw new Error("skillset: --scope is not supported with reconcile");
   if (reconcile.yes && reconcile.choice === undefined) throw new Error("skillset: reconcile --yes requires --use source or --use output");
 }
@@ -3066,7 +3049,7 @@ function validateNewSourceFlags(
   }
   if (command !== "new") return;
   if (source.buildMode !== undefined) throw new Error("skillset: --updated and --all are not supported with new");
-  if (source.distDir !== undefined) throw new Error("skillset: --dist is not supported with new");
+  if (source.distDir !== undefined) throw new Error("skillset: output-root overrides are not supported with new");
   if (source.importKind !== undefined) throw new Error("skillset: --kind is only supported with import");
   if (source.importProvider !== undefined) throw new Error("skillset: --from is only supported with import");
   if (source.kind === undefined) throw new Error("skillset: expected new kind skill, agent, or hook");
@@ -3172,7 +3155,7 @@ function validateCiFlags(
     }
     return;
   }
-  if (ci.yes || ci.dryRun) throw new Error("skillset: check does not take --yes or --dry-run");
+  if (ci.yes || ci.dryRun) throw new Error("skillset: check does not take mutation confirmation flags");
   if (ci.fix && !ci.ci) throw new Error("skillset: check --fix requires --ci");
   if (ci.write && ci.ci) throw new Error("skillset: check --ci uses --fix instead of --write");
   if ((ci.reportPath !== undefined || ci.since !== undefined) && !ci.ci) throw new Error("skillset: --report and --since require check --ci");
@@ -3184,26 +3167,21 @@ function validateCiFlags(
 function validateDevFlags(
   command: Command,
   dev: {
-    readonly apply: boolean;
+    readonly write: boolean;
     readonly buildMode?: CompileBuildMode;
     readonly dryRun: boolean;
     readonly scopes?: readonly BuildScope[];
-    readonly watch: boolean;
     readonly yes: boolean;
   }
 ): void {
-  if (dev.watch && command !== "dev") {
-    throw new Error("skillset: --watch is only supported with dev");
-  }
-  if (dev.apply && command !== "dev") {
-    throw new Error("skillset: --apply is only supported with dev");
+  if (dev.write && command !== "dev") {
+    throw new Error("skillset: dev write mode is only supported with dev");
   }
   if (command !== "dev") return;
-  if (!dev.watch) throw new Error("skillset: dev currently requires --watch");
-  if (dev.buildMode !== undefined) throw new Error("skillset: dev --watch does not support --updated or --all");
-  if (dev.scopes !== undefined) throw new Error("skillset: dev --watch does not support --scope yet");
+  if (dev.buildMode !== undefined) throw new Error("skillset: dev does not support --updated or --all");
+  if (dev.scopes !== undefined) throw new Error("skillset: dev does not support --scope yet");
   if (dev.yes || dev.dryRun) {
-    throw new Error("skillset: dev --watch uses preview mode by default or write mode with --apply; it does not support --yes or --dry-run");
+    throw new Error("skillset: dev uses preview mode by default or write mode with --write; it does not support --yes");
   }
 }
 
@@ -3224,7 +3202,7 @@ function validateUpdateFlags(
     throw new Error("skillset: update does not support --scope; provider format updates require a whole-workspace safety preflight");
   }
   if (update.yes && update.dryRun) {
-    throw new Error("skillset: pass either --yes or --dry-run for update, not both");
+    throw new Error("skillset: conflicting update write modes");
   }
 }
 

@@ -193,7 +193,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     id: "dev-watch",
     kind: "workflow",
     renderOwner: "apps/skillset/src/dev-watch.ts",
-    sourceShape: "workspace config plus active source root watched by skillset dev --watch",
+    sourceShape: "workspace config plus active source root watched by skillset dev",
     status: "implemented",
     summary: "Runs a foreground authoring loop over source diagnostics and generated-output drift, with explicit apply mode for generated writes.",
     targetSupport: notTargetRuntime(),

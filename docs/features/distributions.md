@@ -56,7 +56,7 @@ skillset distribute plan
 skillset distribute plan codex-marketplace
 ```
 
-The command is always read-only. It rejects build/write flags such as `--yes`, `--dry-run`, `--updated`, `--all`, and `--scope` because those flags belong to build or future sync behavior.
+The command is always read-only. It rejects build/write flags such as `--yes`, `--updated`, `--all`, and `--scope` because those flags belong to build or future sync behavior.
 
 For local destinations the plan reads destination files and marks each file as `add`, `change`, or `unchanged`. For git destinations the file status is `unknown` until a future sync command checks out or fetches the destination.
 

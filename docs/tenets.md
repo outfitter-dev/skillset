@@ -59,7 +59,7 @@ Overrides are healthy when derivation is wrong. They should be scoped, explicit,
 
 ### Builds do not imply trust
 
-Skillset compiler operations, including `skillset build`, `skillset check`, `skillset check --only outputs`, `skillset check`, `skillset import`, `skillset check --ci`, `skillset test`, and change/release commands, are local source-management tools. They should not publish plugins, mutate registries, install into global runtime locations, symlink into user config, trust hooks, or enable generated artifacts.
+Skillset compiler operations, including `skillset build`, `skillset check`, `skillset import`, `skillset test`, and change/release commands, are local source-management tools. They should not publish plugins, mutate registries, install into global runtime locations, symlink into user config, trust hooks, or enable generated artifacts.
 
 Build output may define hooks, app manifests, MCP manifests, plugins, skills, and instructions. Activation is a separate workflow.
 
@@ -117,7 +117,7 @@ Provider-native escape hatches should be obvious in source. Provider blocks such
 
 ### Treat tooling as authoring surface
 
-`skillset check`, `skillset check --only outputs`, `skillset check`, `skillset import`, and future explain/scaffold tools are not secondary conveniences. They are how Skillset codifies good loadout authoring, keeps provider behavior honest, and teaches the next author what to fix.
+`skillset check`, `skillset import`, and future explain/scaffold tools are not secondary conveniences. They are how Skillset codifies good loadout authoring, keeps provider behavior honest, and teaches the next author what to fix.
 
 ## Current Doctrine Implications
 

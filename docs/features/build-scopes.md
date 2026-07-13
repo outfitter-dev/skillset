@@ -23,7 +23,7 @@ compile:
 skillset build --yes
 ```
 
-`--dry-run` is accepted for every build scope and always prevents writes, even when `--yes` is also present. Explicit `--scope` selectors filter generated destinations for build, diff, verify, list, and explain. They are not source-coverage filters for `skillset change status` or `skillset change check`. Repo scripts that intentionally refresh all generated output should omit `--scope` and pass `--yes`.
+Explicit `--scope` selectors filter generated destinations for build, diff, verify, list, and explain. They are not source-coverage filters for `skillset change status` or `skillset change check`. Repo scripts that intentionally refresh all generated output should omit `--scope` and pass `--yes`.
 
 `--isolated` (build, verify, and diff only) re-roots the entire rendering under the logical `.skillset/cache/latest/` mirror, preserving repo-relative layout in reports and locks while storing the mirror in the repo's XDG cache bucket. Writes, locks, drift detection, stale-file removal, and unmanaged-collision backups all operate against that mirror while live generated outputs stay untouched.
 
@@ -58,4 +58,4 @@ User/global destinations require the most conservative posture. `skillset build`
 
 ## Tests and Fixtures
 
-Fixtures cover plan-first build behavior, `--yes`, `--dry-run` precedence, build-mode flag conflicts, scope validation/filtering, updated-mode no-churn behavior, all-mode rewrites, and missing managed output classification. Existing SET-9 and SET-24 fixtures cover diff/list/explain lock visibility for generated skills, provider source, and project agents.
+Fixtures cover plan-first build behavior, `--yes`, retired preview-flag rejection, build-mode flag conflicts, scope validation/filtering, updated-mode no-churn behavior, all-mode rewrites, and missing managed output classification. Existing SET-9 and SET-24 fixtures cover diff/list/explain lock visibility for generated skills, provider source, and project agents.

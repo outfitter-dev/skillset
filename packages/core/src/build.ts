@@ -164,7 +164,7 @@ export type SkillsetDiffResult = SkillsetOperationResult<SkillsetDiff>;
 
 /**
  * Compute the generated changes a build would make, without writing anything.
- * Backs `skillset diff` and `skillset doctor`.
+ * Backs `skillset diff` and `skillset status`.
  */
 export async function diffSkillset(
   rootPath: string,

@@ -484,7 +484,7 @@ test("ci CLI rejects misplaced and unsupported flags", async () => {
 
   const yesWithCi = await runSkillsetCli("check", "--ci", "--yes");
   expect(yesWithCi.exitCode).toBe(1);
-  expect(yesWithCi.stderr).toContain("check does not take --yes or --dry-run");
+  expect(yesWithCi.stderr).toContain("check does not take mutation confirmation flags");
 
   const sinceWithBuild = await runSkillsetCli("build", "--since", "HEAD");
   expect(sinceWithBuild.exitCode).toBe(1);
