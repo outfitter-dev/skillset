@@ -353,7 +353,6 @@ In this repo, run:
 
 ```bash
 bun run skillset:build
-bun run skillset:lint
 bun run skillset:check
 bun run skillset:check:outputs
 bun run check

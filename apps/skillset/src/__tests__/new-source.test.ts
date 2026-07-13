@@ -17,8 +17,8 @@ test("SET-165: new skill previews by default and writes ordinary repo source wit
   const written = await runSkillsetCli("new", "skill", "Docs CLI Expert", "--root", root, "--yes");
   expect(written.exitCode).toBe(0);
   expect(written.stdout).toContain("created skill docs-cli-expert");
+  expect(written.stdout).toContain("next: skillset build --yes");
   expect(written.stdout).toContain("next: skillset check");
-  expect(written.stdout).toContain("next: skillset check --only outputs");
 
   const skill = await readFile(join(root, ".skillset/skills/docs-cli-expert/SKILL.md"), "utf8");
   expect(skill).toContain("name: docs-cli-expert");

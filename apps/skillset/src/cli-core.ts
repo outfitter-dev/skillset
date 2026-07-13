@@ -1620,8 +1620,8 @@ function printNewSourceReport(result: NewSourceReport, reason: string): void {
   console.log(`  source: ${result.sourceRoot}`);
   console.log(`  name: ${result.displayName}`);
   if (result.write) {
+    console.log("  next: skillset build --yes");
     console.log("  next: skillset check");
-    console.log("  next: skillset check --only outputs");
   }
 }
 
