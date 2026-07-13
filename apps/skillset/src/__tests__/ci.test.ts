@@ -134,6 +134,21 @@ test("check --write refuses target-side generated edits", async () => {
   expect(markdown).toContain("### Source suggestions");
 });
 
+test("check --write refreshes stale locks after an output edit is reconciled", async () => {
+  const root = await builtFixture();
+  const sourcePath = join(root, ".skillset/skills/demo/SKILL.md");
+  const generatedPath = join(root, GENERATED_SKILL);
+  await writeFile(sourcePath, `${await readFile(sourcePath, "utf8").then((text) => text.trimEnd())}\n\nReconciled.\n`);
+  await writeFile(generatedPath, `${await readFile(generatedPath, "utf8").then((text) => text.trimEnd())}\n\nReconciled.\n`);
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.outputEditedPaths).toEqual([]);
+  expect(report.fixedPaths.some((path) => path.endsWith("skillset.lock"))).toBe(true);
+  expect(await readFile(generatedPath, "utf8")).toContain("Reconciled.");
+});
+
 test("ci --fix explains rebuilt generated changelog drift", async () => {
   const root = await changelogFixture();
   const changelogPath = join(root, ".skillset/skills/demo/CHANGELOG.md");

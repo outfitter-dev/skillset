@@ -112,6 +112,8 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
       buildError = errorMessage(error);
     }
   }
+  const driftPaths = new Set([...drift.added, ...drift.changed, ...drift.missing, ...drift.removed]);
+  outputEditedPaths = outputEditedPaths.filter((path) => driftPaths.has(path));
 
   const changeErrors = changeIssues.filter((issue) => issue.severity === "error");
   const lintErrors = lintIssues.filter((issue) => issue.severity === "error");
@@ -122,7 +124,10 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
   if (buildError === undefined && hasDrift(drift)) {
     try {
       const providerReport = await runProviderFormatUpdates(rootPath, "check", buildOptions);
-      providerUpdatePaths = [...new Set(providerReport.safeUpdates.flatMap((action) => action.affectedPaths))].sort();
+      providerUpdatePaths = [...new Set(
+        [...providerReport.safeUpdates, ...providerReport.manualReviews]
+          .flatMap((action) => action.affectedPaths)
+      )].sort();
     } catch {
       // The main readiness report already owns build and drift failures.
     }

@@ -7,6 +7,7 @@ import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 
 import { buildSkillset } from "@skillset/core";
+import { ciSkillset } from "../ci";
 import {
   renderProviderFormatUpdateReport,
   runProviderFormatUpdates,
@@ -118,6 +119,21 @@ test("SET-195: unsafe provider-format drift reports user-facing manual review di
   expect(await readFile(agentPath, "utf8")).not.toBe(original);
 });
 
+test("SET-278: check write modes block lock-matching manual provider migrations", async () => {
+  const root = await builtFixture(agentFixture());
+  const agentPath = join(root, CODEX_AGENT);
+  const migrated = `${await readFile(agentPath, "utf8")}\n# old provider format\n`;
+  await writeFile(agentPath, migrated, "utf8");
+  await markCurrentGeneratedPathAsManaged(root, CODEX_AGENT);
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(false);
+  expect(report.fixedPaths).toEqual([]);
+  expect(report.providerUpdatePaths).toContain(CODEX_AGENT);
+  expect(await readFile(agentPath, "utf8")).toBe(migrated);
+});
+
 test("SET-278: check --fix requires CI mode and does not replace update", async () => {
   const root = await builtFixture(agentFixture());
   const agentPath = join(root, CODEX_AGENT);
@@ -147,7 +163,11 @@ async function builtFixture(files: Record<string, string>): Promise<string> {
 }
 
 async function markCurrentPluginManifestAsManaged(root: string): Promise<void> {
-  const lockPath = join(root, "plugins/skillset.lock");
+  await markCurrentGeneratedPathAsManaged(root, CODEX_PLUGIN_MANIFEST.replace("plugins/", ""));
+}
+
+async function markCurrentGeneratedPathAsManaged(root: string, generatedPath: string): Promise<void> {
+  const lockPath = join(root, generatedPath.startsWith(".codex/") ? "skillset.lock" : "plugins/skillset.lock");
   const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
     readonly outputRoot: string;
     readonly items: Array<{
@@ -155,7 +175,9 @@ async function markCurrentPluginManifestAsManaged(root: string): Promise<void> {
       outputHash?: string;
     }>;
   };
-  const item = lock.items.find((candidate) => candidate.files?.includes("alpha/codex/.codex-plugin/plugin.json"));
+  const item = lock.items.find((candidate) => candidate.files?.some((file) =>
+    file === generatedPath || join(lock.outputRoot, file) === generatedPath
+  ));
   if (item?.files === undefined) throw new Error("missing plugin manifest lock item");
   item.outputHash = await hashLockItem(root, lock.outputRoot, item.files);
   await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
