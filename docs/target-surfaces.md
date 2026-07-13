@@ -94,7 +94,7 @@ artifacts.
 | `compile.features.promptArguments` | `{{$ARGUMENTS...}}` adaptive command placeholders | Implemented | Defaults to `true`; set to `false` to reject the source markers. |
 | `compile.skillset.metadata: false` | suppress generated skill `metadata.generated` / `metadata.version` | Implemented | Source metadata remains source-only; locks record `skillsetMetadata`. |
 | `compile.unsupportedDestination: error` | build/diff/verify unsupported destination policy | Implemented | Default policy; preserves current fail-loud unsupported behavior. |
-| `compile.unsupportedDestination: warn/skip/force` | diagnostics, doctor, lock provenance | Implemented | Non-error policies soften unsupported/lossy render results only; failed render results still block. |
+| `compile.unsupportedDestination: warn/skip/force` | diagnostics, status, lock provenance | Implemented | Non-error policies soften unsupported/lossy render results only; failed render results still block. |
 | omitted `compile.targets` | default provider outputs | Implemented | Equivalent to `compile.targets: [claude, codex, cursor]`. |
 | `<provider>.projectRoot` | provider adapter metadata | Implemented | Parsed and inherited with provider blocks; build still does not mutate user-level config. |
 | `<provider>.userRoot` | provider adapter metadata | Implemented | Parsed and inherited with provider blocks for future setup/explain flows. |

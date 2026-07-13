@@ -50,7 +50,7 @@ User/global destinations require the most conservative posture. `skillset build`
 - Dry-run commands must never write generated files, locks, target config, or user-level settings.
 - Missing managed outputs are reported with `!` in `diff`/build plans and as `missing managed generated file` in `verify`.
 - Scope/entity selectors should fail on unknown scopes or ambiguous entity selectors rather than guessing.
-- Diff/list/explain should make skipped, future, unsupported, and target-native states visible. Explain and doctor read render results so degraded or unsupported facts do not require hand-reading target files.
+- Diff/list/explain should make skipped, future, unsupported, and target-native states visible. `explain` and `status` read render results so degraded or unsupported facts do not require hand-reading target files.
 
 ## Provenance
 

@@ -76,7 +76,7 @@ The feature reference uses related but separate vocabularies. Feature entry stat
 | `unsupported` | The target cannot represent the feature faithfully through a portable render and must carry a reason. |
 | `lossy` | A possible target render would drop required meaning or behavior and must carry a reason. |
 
-Unsupported and lossy render must fail loudly by default. Softer policies such as warn, skip, or force require visible diagnostics and lock or doctor provenance before they can become runtime behavior.
+Unsupported and lossy render must fail loudly by default. Softer policies such as warn, skip, or force require visible diagnostics and lock or status provenance before they can become runtime behavior.
 
 ### Render-Result Status
 
@@ -93,7 +93,7 @@ Each feature page uses the same registry-oriented fields. The current typed seed
 | Target support | Per-target support status, output paths, target-native escape hatches, and unsupported cases. |
 | Render owner | Whether behavior belongs to the portable resolver, the Claude adapter, the Codex adapter, or a target-native pass-through. |
 | Validation | Source checks, build/verify diagnostics, and structured output validation ownership. |
-| Provenance | Lock entries, hashes, warnings, skipped output, target state, and explain/doctor surfaces. |
+| Provenance | Lock entries, hashes, warnings, skipped output, target state, and `explain`/`status` surfaces. |
 | Evidence | Provider docs, ADRs, Linear issues, tests, and fixtures that justify the current status. |
 
 Future schema generation can turn these fields into richer generated docs, but the registry source of truth belongs in `@skillset/core`; the CLI should render registry-backed facts rather than own feature semantics.

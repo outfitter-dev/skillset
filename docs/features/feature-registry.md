@@ -82,7 +82,7 @@ The current diagnostic ownership slice covers core build/write diagnostics, sele
 
 ## Provenance
 
-Feature ids can appear in render results, `skillset.lock`, reports, doctor/explain output, and conformance fixtures. They should not be injected into ordinary generated target files by default.
+Feature ids can appear in render results, `skillset.lock`, reports, `status`/`explain` output, and conformance fixtures. They should not be injected into ordinary generated target files by default.
 
 ## Future Work
 
