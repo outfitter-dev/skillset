@@ -5,7 +5,7 @@
 # Package release preflight / publish recovery.
 export NPM_TOKEN="npm_REPLACE_ME"
 
-# Claude Code non-interactive runtime tries.
+# Claude Code non-interactive runtime tests.
 # `claude setup-token` prints this export line for subscription-backed CLI use.
 export CLAUDE_CODE_OAUTH_TOKEN="REPLACE_WITH_CLAUDE_SETUP_TOKEN"
 # Optional: isolated is the default; alternatives are user, project, or local.

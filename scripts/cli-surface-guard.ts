@@ -39,6 +39,7 @@ const EXCLUDED = [
 export function isCliSurfacePath(path: string): boolean {
   if (path.includes("/__tests__/") || path.startsWith("scripts/__tests__/")) return false;
   if (EXCLUDED.some((prefix) => path === prefix || path.startsWith(prefix))) return false;
+  if (path === ".envrc" || path.endsWith("/.envrc") || path.endsWith(".envrc.example")) return true;
   return /\.(?:json|md|ts|yaml|yml)$/u.test(path);
 }
 

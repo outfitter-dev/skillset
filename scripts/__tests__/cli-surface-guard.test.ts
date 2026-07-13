@@ -23,5 +23,7 @@ test("SET-285: CLI surface guard preserves deliberate history and migration evid
   expect(isCliSurfacePath("docs/adrs/20260101-old.md")).toBe(false);
   expect(isCliSurfacePath("docs/reference/cli-flags.md")).toBe(false);
   expect(isCliSurfacePath("apps/skillset/src/__tests__/contract.test.ts")).toBe(false);
+  expect(isCliSurfacePath(".envrc.example")).toBe(true);
+  expect(isCliSurfacePath("fixtures/example/.envrc")).toBe(true);
   expect(isCliSurfacePath("README.md")).toBe(true);
 });
