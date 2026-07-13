@@ -727,9 +727,9 @@ async function appendEvent(paths: TryRunPaths, stream: string, message: string):
     };
     const existing = await readOptional(path) ?? "";
     const sequence = existing.split("\n").filter((line) => line.length > 0).length + 1;
-    const event = message === "test passed"
+    const event = stream === "status" && message === "test passed"
       ? "completed"
-      : message.startsWith("test failed")
+      : stream === "status" && message.startsWith("test failed")
         ? "failed"
         : stream;
     await appendFile(path, renderCliEvent(createCliEvent({
