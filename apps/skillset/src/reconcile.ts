@@ -107,7 +107,7 @@ async function assertReconcileDriftIsScoped(
     entry.outputPath === managedPath || entry.files?.includes(managedPath) === true
   );
   const allowedPaths = new Set([
-    ...entries.map((entry) => entry.outputPath),
+    managedPath,
     ...owningEntries.flatMap((entry) => [entry.outputPath, ...(entry.files ?? [])]),
     ...entries.map((entry) => join(entry.outputRoot, "skillset.lock")),
   ]);

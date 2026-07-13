@@ -4911,6 +4911,68 @@ test("SET-282: reconcile refuses to overwrite unrelated generated drift", async 
   expect(await readFile(join(root, betaPath), "utf8")).toContain("Beta output edit.");
 });
 
+test("SET-282: reconcile refuses sibling target drift from the same source", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": "skillset:\n  name: reconcile-siblings\nclaude: true\ncodex: true\n",
+    ".skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo.\n---\n\nSource body.\n",
+  });
+  await buildSkillset(root);
+  const claudePath = ".claude/skills/demo/SKILL.md";
+  const codexPath = ".agents/skills/demo/SKILL.md";
+  await writeFile(join(root, claudePath), "---\nname: demo\n---\n\nClaude edit.\n", "utf8");
+  await writeFile(join(root, codexPath), "---\nname: demo\n---\n\nCodex edit.\n", "utf8");
+
+  const result = await runSkillsetCli(
+    "reconcile", claudePath, "--use", "output", "--yes", "--root", root
+  );
+
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain(codexPath);
+  expect(await readFile(join(root, claudePath), "utf8")).toContain("Claude edit.");
+  expect(await readFile(join(root, codexPath), "utf8")).toContain("Codex edit.");
+});
+
+test("SET-282: reconcile accepts a selected secondary lock file", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": "skillset:\n  name: reconcile-secondary\nclaude: true\ncodex: false\n",
+    ".skillset/shared/references/guide.md": "# Source guide\n",
+    ".skillset/skills/demo/SKILL.md": `---
+name: demo
+description: Demo.
+resources:
+  references:
+    - shared:references/guide.md
+---
+
+Read the guide.
+`,
+  });
+  await buildSkillset(root);
+  const secondaryPath = ".claude/skills/demo/references/guide.md";
+  await writeFile(join(root, secondaryPath), "# Edited guide\n", "utf8");
+
+  const result = await runSkillsetCli(
+    "reconcile", secondaryPath, "--use", "source", "--yes", "--root", root
+  );
+
+  expect(result.exitCode).toBe(0);
+  expect(await readFile(join(root, secondaryPath), "utf8")).toBe("# Source guide\n");
+});
+
+test("SET-282: --write is rejected outside check", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": "skillset:\n  name: write-route\nclaude: true\ncodex: false\n",
+  });
+  for (const args of [
+    ["build", "--write", "--root", root],
+    ["reconcile", "missing", "--write", "--root", root],
+  ]) {
+    const result = await runSkillsetCli(...args);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("--write is only supported with check");
+  }
+});
+
 test("SET-282: reconcile refuses output-wins generated changelog edits", async () => {
   const root = await contractFixture({
     "skillset.yaml": `

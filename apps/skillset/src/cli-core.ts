@@ -2086,7 +2086,10 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       if (flag === "--agent-runtime") hookAgentRuntime = true;
       if (flag === "--pre-commit") hookPreCommit = true;
       if (flag === "--pre-push") hookPrePush = true;
-      if (flag === "--write" && command === "check") checkWrite = true;
+      if (flag === "--write") {
+        if (command !== "check") throw new Error("skillset: --write is only supported with check");
+        checkWrite = true;
+      }
       if (flag === "--watch") devWatch = true;
       if (flag === "--frontmatter") lookupViews = addLookupView(lookupViews, "frontmatter");
       if (flag === "--fields") lookupViews = addLookupView(lookupViews, "fields");
