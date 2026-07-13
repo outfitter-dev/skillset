@@ -147,9 +147,8 @@ tools:
 
 ```bash
 skillset build --root .
-skillset lint --root .
 skillset check --root .
-skillset verify --root .
+skillset check --only outputs --root .
 skillset diff --root .            # pending generated changes, no writes
 skillset explain <path> --root .  # rendering + lock provenance for a source/generated path; add --json for records
 skillset restore <backup> --root . # preview restore; add --yes to write
@@ -160,9 +159,7 @@ skillset hooks run post-tool-use  # advisory runtime guardrail, source-gated
 skillset hooks run stop           # blocking runtime guardrail, source-gated
 ```
 
-`skillset check` is the current source authoring diagnostics command. Run it before writing generated output when you changed source covered by current lint-style diagnostics, such as skills, hooks, resources, tool intent, or Codex portability-sensitive content. Use `skillset change check` for pending change-entry coverage and `skillset doctor` when you want a broader aggregate read.
-
-`skillset verify` is generated-output freshness. Run it after `skillset build --yes`, before handoff, and whenever you need to prove managed outputs still match source. It reports missing or stale managed files and version drift; it is not a source-authoring linter.
+`skillset check` is the comprehensive readiness command: source diagnostics, generated-output freshness, and provider-format advisories. Run `skillset check --only outputs` when you only need to prove managed outputs still match source.
 
 Workbench package diagnostics provide stable scopes, severities, rule ids, and `standard`/`strict` presets for tests and future CLI integration. Scopes are `source`, `workspace`, `provider`, `resource`, `runtime`, `generated`, and `release`. Treat `standard` as the ordinary local/CI bar and `strict` as opt-in convention hardening. Parser/schema checks cover YAML, TOML, JSON, Markdown frontmatter, ordinary workspace config, skills, agents, and hook definitions at the package layer. Resource/runtime/provider diagnostics report facts; they must not install hooks, trust plugins, execute scripts, or mutate provider settings.
 

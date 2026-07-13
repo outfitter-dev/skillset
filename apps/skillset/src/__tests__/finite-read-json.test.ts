@@ -27,7 +27,7 @@ describe("SET-287 finite read-only JSON", () => {
       expect(envelope.exitCode).toBe(result.exitCode);
       if (route[0] === "diff" || route[0] === "explain") expect(envelope.kind).toBe("data");
       if (route[0] === "check") {
-        expect(envelope.data).toHaveProperty("providerUpdates");
+        expect(envelope.data).toHaveProperty("providerUpdatePaths");
       }
     });
   }
@@ -158,10 +158,12 @@ describe("SET-287 finite read-only JSON", () => {
     expect(validateCliResult(envelope)).toEqual({ diagnostics: [], ok: true });
     expect(envelope).toMatchObject({
       command: "check",
-      diagnostics: [{ code: "skill-name-directory-mismatch", severity: "error" }],
       exitCode: 1,
       ok: false,
     });
+    expect(envelope.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "skill-name-directory-mismatch", severity: "error" }),
+    ]));
   });
 
   test("check JSON remains stderr-clean when the known-workspace index is unwritable", async () => {

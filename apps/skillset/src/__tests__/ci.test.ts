@@ -65,6 +65,38 @@ test("ci reports generated drift without writing when fix is off", async () => {
   expect(markdown).toContain("skillset build --yes");
 });
 
+test("check JSON promotes readiness failures to envelope diagnostics", async () => {
+  const root = await builtFixture();
+  await writeFile(join(root, GENERATED_SKILL), "stale\n");
+
+  const result = await runSkillsetCli("check", "--root", root, "--json");
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toBe("");
+  expect(JSON.parse(result.stdout)).toMatchObject({
+    command: "check",
+    diagnostics: [{ code: "check-generated-drift", path: GENERATED_SKILL, severity: "error" }],
+    exitCode: 1,
+    kind: "diagnostics",
+    ok: false,
+  });
+});
+
+test("check --only outputs supports structured output", async () => {
+  const root = await builtFixture();
+
+  const result = await runSkillsetCli("check", "--only", "outputs", "--root", root, "--json");
+  expect(result.exitCode).toBe(0);
+  expect(result.stderr).toBe("");
+  expect(JSON.parse(result.stdout)).toMatchObject({
+    command: "check",
+    data: { checkedFiles: expect.any(Number), failures: [] },
+    diagnostics: [],
+    exitCode: 0,
+    kind: "diagnostics",
+    ok: true,
+  });
+});
+
 test("ci report explains generated changelog drift", () => {
   const markdown = renderCiReportMarkdown({
     changeIssues: [],

@@ -43,7 +43,6 @@
     "skillset:check:ci": "bun ./apps/skillset/src/cli.ts check --ci --root .",
     "skillset:check:ci:report": "bun ./apps/skillset/src/cli.ts check --ci --root . --since \"$(scripts/git-trunk.sh)\" --report .skillset/cache/reports/skillset-ci-report.md",
     "skillset:check:outputs": "bun ./apps/skillset/src/cli.ts check --only outputs --root .",
-    "skillset:lint": "bun ./apps/skillset/src/cli.ts lint --root .",
     "test": "bun test --timeout 15000 $(git ls-files 'apps/**/*.test.ts' 'packages/**/*.test.ts' 'scripts/**/*.test.ts')",
     "typecheck": "tsc --noEmit",
     "ultracite:check": "ultracite check",

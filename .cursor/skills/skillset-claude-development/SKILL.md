@@ -23,7 +23,7 @@ Use this skill when working on the local `skillset` compiler from a Claude-orien
 2. For source contract changes, update `packages/schema/src/contracts.ts` and `packages/schema/src/validate.ts` before compiler or Workbench consumers, regenerate artifacts with `bun run schema:generate`, and verify with `bun run schema:check`.
 3. Keep source edits in `.skillset/`, `skillset.yaml`, or compiler implementation files, not in generated outputs.
 4. After source changes, run `bun run skillset:build`.
-5. Verify with `bun run skillset:check`, `bun run skillset:verify`, `bun run skillset:lint`, and `bun run check`.
+5. Verify with `bun run skillset:check`, `bun run skillset:check:outputs`, and `bun run check`.
 6. If generated output is stale, rebuild from source and inspect the generated diff before committing.
 
 ## Review Focus

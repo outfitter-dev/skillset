@@ -34,9 +34,9 @@
       ],
       "kind": "standalone-skill",
       "name": "skillset-claude-development",
-      "outputHash": "sha256:5956a0f2b50d35f87aee12e0716cc63440f56a2cde4826daa35d0713cc2a8e2b",
+      "outputHash": "sha256:e81da87c55661decae85c47e3221b8e0156f5c07d6aa76251fbe49c6c91b557f",
       "outputPath": "skillset-claude-development/SKILL.md",
-      "sourceHash": "sha256:5dcc76361a9a0f5f3b5646e8b515be97a97b6afe779b295e829faa842240711c",
+      "sourceHash": "sha256:7f59a56e53fc9600903cd6dc0c1f6f8984e4311aaa0ef580905a0169febdf2ba",
       "sourcePath": ".skillset/skills/skillset-claude-development/SKILL.md",
       "version": "0.1.0"
     },
@@ -46,9 +46,9 @@
       ],
       "kind": "standalone-skill",
       "name": "skillset-codex-development",
-      "outputHash": "sha256:4d6b055aeb70eff21f1bd88245778a1b8cb1168dc6d921268f0e2d905075c9b6",
+      "outputHash": "sha256:8ffe90e3636cf4a779469c5c91d00af2da76dcdda09abe9cec8ea222c1bbea44",
       "outputPath": "skillset-codex-development/SKILL.md",
-      "sourceHash": "sha256:a2f6eea6e441ac23023c59ef5f54817efcd21ef2dbc0fdd3865707d7059c3011",
+      "sourceHash": "sha256:19d250bc101ede8294c0f1ed3a7ced59153f58c219329859d4ba91ddbe6b5755",
       "sourcePath": ".skillset/skills/skillset-codex-development/SKILL.md",
       "version": "0.1.1"
     },

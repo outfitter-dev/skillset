@@ -8,7 +8,6 @@ import {
   checkMarketplaces,
   createOperationalPathContext,
   diffSkillsetResult,
-  inspectSkillset,
   isRepoOperationalCachePath,
   planDistributions,
   recordKnownSkillsetWorkspace,
@@ -74,7 +73,6 @@ import {
   type HookSubcommand,
 } from "./runtime-hooks";
 import { importSources, type ImportKind, type ImportProvider, type ImportReport } from "./import";
-import { lintSkillset } from "@skillset/core";
 import {
   addLookupTarget,
   addLookupTargets,
@@ -1029,6 +1027,45 @@ function serializeDiagnostics(
       : { path: diagnostic.path ?? diagnostic.outputPath }),
     severity: diagnostic.severity,
   }));
+}
+
+function ciReportDiagnostics(report: CiReport): readonly SkillsetCliDiagnostic[] {
+  const diagnostics: SkillsetCliDiagnostic[] = [
+    ...report.lintIssues.map((issue) => ({
+      code: issue.code,
+      message: issue.message,
+      ...(issue.path === undefined ? {} : { path: issue.path }),
+      severity: issue.severity === "warn" ? "warning" as const : "error" as const,
+    })),
+    ...report.changeIssues.map((issue) => ({
+      code: issue.code,
+      message: issue.message,
+      ...(issue.path === undefined ? {} : { path: issue.path }),
+      severity: issue.severity,
+    })),
+    ...report.warnings.map((message) => ({ code: "source-warning", message, severity: "warning" as const })),
+  ];
+  for (const [code, message] of [
+    ["check-build-error", report.buildError],
+    ["check-change-error", report.changeError],
+    ["check-changeset-error", report.changesetError],
+  ] as const) {
+    if (message !== undefined) diagnostics.push({ code, message, severity: "error" });
+  }
+  for (const message of report.changesetIssues ?? []) {
+    diagnostics.push({ code: "check-changeset", message, severity: "error" });
+  }
+  for (const [state, paths] of Object.entries(report.drift)) {
+    for (const path of paths) {
+      diagnostics.push({
+        code: "check-generated-drift",
+        message: `generated output is ${state}`,
+        path,
+        severity: "error",
+      });
+    }
+  }
+  return diagnostics;
 }
 
 async function rememberKnownSkillsetWorkspace(rootPath: string, options: SkillsetOptions): Promise<void> {

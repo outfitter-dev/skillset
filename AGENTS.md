@@ -28,10 +28,9 @@ For source/config/frontmatter fields, follow [docs/schema-contracts.md](docs/sch
 
 ```bash
 bun run skillset:build
-bun run skillset:lint
 bun run skillset:check
-bun run skillset:verify
-bun run skillset:ci
+bun run skillset:check:outputs
+bun run skillset:check:ci
 bun run conformance:fast
 bun run conformance:determinism
 bun run conformance:adapters
@@ -79,7 +78,7 @@ bun ./apps/skillset/src/cli.ts explain <path> --root .
 bun ./apps/skillset/src/cli.ts doctor --root .
 ```
 
-`bun run check` includes self-hosted source checks and generated-output verification. If `skillset:verify` reports stale output, run `bun run skillset:build`, inspect the generated diff, then rerun `bun run check`.
+`bun run check` includes self-hosted source checks and generated-output verification. If `skillset:check:outputs` reports stale output, run `bun run skillset:build`, inspect the generated diff, then rerun `bun run check`.
 
 ## Constraints
 
