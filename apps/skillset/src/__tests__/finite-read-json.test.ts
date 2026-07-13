@@ -113,6 +113,29 @@ describe("SET-287 finite read-only JSON", () => {
       ok: false,
     });
   });
+
+  test("check JSON remains stderr-clean when the known-workspace index is unwritable", async () => {
+    const configHome = path.join(await mkdtemp(path.join(tmpdir(), "skillset-json-xdg-")), "not-a-directory");
+    await writeFile(configHome, "occupied\n");
+    const proc = Bun.spawn(
+      [process.execPath, cli, "check", "--root", fixtureRoot, "--json"],
+      {
+        cwd: repoRoot,
+        env: { ...process.env, NODE_ENV: "test", XDG_CONFIG_HOME: configHome },
+        stderr: "pipe",
+        stdout: "pipe",
+      }
+    );
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
+
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe("");
+    expect(validateCliResult(JSON.parse(stdout))).toEqual({ diagnostics: [], ok: true });
+  });
 });
 
 async function runJsonRoute(...args: readonly string[]): Promise<{ exitCode: number; stderr: string; stdout: string }> {

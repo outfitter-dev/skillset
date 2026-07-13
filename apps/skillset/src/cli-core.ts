@@ -607,7 +607,6 @@ export async function runCli(
         ? 1
         : 0;
       printCliJsonData("check", { checkedSkills: result.checkedSkills, providerUpdates }, exitCode, "diagnostics", diagnostics);
-      if (exitCode === 0) await rememberKnownSkillsetWorkspace(rootPath, options);
       return;
     }
     const result = await lintSkillset(rootPath, options);
