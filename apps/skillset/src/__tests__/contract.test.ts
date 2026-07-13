@@ -5016,6 +5016,11 @@ Body.
   ]);
   await buildSkillset(root);
 
+  const preview = await runSkillsetCli("reconcile", ".skillset/skills/demo/CHANGELOG.md", "--use", "output", "--root", root);
+  expect(preview.exitCode).toBe(0);
+  expect(preview.stdout).toContain("output wins: refused");
+  expect(preview.stdout).not.toContain("rerun with --use output --yes");
+
   const refused = await runSkillsetCli("reconcile", ".skillset/skills/demo/CHANGELOG.md", "--use", "output", "--yes", "--root", root);
   expect(refused.exitCode).toBe(1);
   expect(refused.stderr).toContain("Generated changelogs are managed projections");

@@ -160,7 +160,7 @@ export function renderReconcileReport(report: ReconcileReport): string {
     if (report.backupRunId !== undefined) {
       lines.push(`  recovery: skillset restore ${report.backupRunId} --yes`);
     }
-  } else if (report.choice !== undefined) {
+  } else if (report.choice === "source" || report.outputResolution.wouldWrite) {
     lines.push(`skillset: preview only; rerun with --use ${report.choice} --yes to apply`);
   } else {
     lines.push("skillset: choose --use source or --use output, then pass --yes to apply");
