@@ -409,6 +409,10 @@ export const testDeclarationContract = contract("test-declaration", "Test Declar
 
 export const cliResultContract = contract("cli-result", "Skillset CLI Result", "Finite machine-readable result emitted by a Skillset CLI command.", {
   additionalProperties: false,
+  oneOf: [
+    { properties: { exitCode: { const: 0 }, ok: { const: true } } },
+    { properties: { exitCode: { minimum: 1 }, ok: { const: false } } },
+  ],
   properties: {
     changes: { items: { ...strictObjectSchema({ action: enumSchema(["create", "delete", "move", "update"]), path: nonEmptyStringSchema(), reason: nonEmptyStringSchema(), state: enumSchema(["planned", "refused", "skipped", "written"]) }), required: ["action", "path", "state"] }, type: "array" },
     command: nonEmptyStringSchema(),

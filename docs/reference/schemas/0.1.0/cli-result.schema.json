@@ -2,6 +2,28 @@
   "$id": "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/cli-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "exitCode": {
+          "const": 0
+        },
+        "ok": {
+          "const": true
+        }
+      }
+    },
+    {
+      "properties": {
+        "exitCode": {
+          "minimum": 1
+        },
+        "ok": {
+          "const": false
+        }
+      }
+    }
+  ],
   "properties": {
     "changes": {
       "items": {

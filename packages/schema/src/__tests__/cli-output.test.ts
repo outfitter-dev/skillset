@@ -16,6 +16,10 @@ describe("SET-286 CLI structured-output contracts", () => {
     expect(CLI_EVENT_SCHEMA_VERSION).toBe("skillset.cli.event@1");
     expect(cliResultContract.schema).toMatchObject({
       additionalProperties: false,
+      oneOf: [
+        { properties: { exitCode: { const: 0 }, ok: { const: true } } },
+        { properties: { exitCode: { minimum: 1 }, ok: { const: false } } },
+      ],
       required: [
         "changes",
         "command",
