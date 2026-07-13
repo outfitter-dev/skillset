@@ -125,12 +125,8 @@ async function assertReconcileDriftIsScoped(
   const entries = (await listGeneratedEntries(rootPath, options)).filter((entry) =>
     sourcePaths.includes(entry.sourcePath)
   );
-  const owningEntries = entries.filter((entry) =>
-    entry.outputPath === managedPath || entry.files?.includes(managedPath) === true
-  );
   const allowedPaths = new Set([
     managedPath,
-    ...owningEntries.flatMap((entry) => [entry.outputPath, ...(entry.files ?? [])]),
     ...entries.map((entry) => join(entry.outputRoot, "skillset.lock")),
   ].map(normalizeReconcilePath));
   const preview = await diffSkillsetResult(rootPath, options);

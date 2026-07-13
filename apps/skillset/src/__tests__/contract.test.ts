@@ -4939,6 +4939,39 @@ test("SET-282: reconcile refuses sibling target drift from the same source", asy
   expect(await readFile(join(root, codexPath), "utf8")).toContain("Codex edit.");
 });
 
+test("SET-282: reconcile refuses sibling resource drift from the same output", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": "skillset:\n  name: reconcile-resources\nclaude: true\ncodex: false\n",
+    ".skillset/shared/references/guide.md": "# Source guide\n",
+    ".skillset/skills/demo/SKILL.md": `---
+name: demo
+description: Demo.
+resources:
+  references:
+    - shared:references/guide.md
+---
+
+Source body.
+`,
+  });
+  await buildSkillset(root);
+  const skillPath = ".claude/skills/demo/SKILL.md";
+  const guidePath = ".claude/skills/demo/references/guide.md";
+  await writeFile(join(root, skillPath), "---\nname: demo\n---\n\nOutput edit.\n", "utf8");
+  await writeFile(join(root, guidePath), "# Output guide edit\n", "utf8");
+
+  const result = await runSkillsetCli(
+    "reconcile", skillPath, "--use", "output", "--yes", "--root", root
+  );
+
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain("unrelated generated drift exists");
+  expect(result.stderr).toContain(guidePath);
+  expect(await readFile(join(root, skillPath), "utf8")).toContain("Output edit.");
+  expect(await readFile(join(root, guidePath), "utf8")).toBe("# Output guide edit\n");
+  expect(await readFile(join(root, ".skillset/skills/demo/SKILL.md"), "utf8")).toContain("Source body.");
+});
+
 test("SET-282: reconcile accepts a selected secondary lock file", async () => {
   const root = await contractFixture({
     "skillset.yaml": "skillset:\n  name: reconcile-secondary\nclaude: true\ncodex: false\n",
