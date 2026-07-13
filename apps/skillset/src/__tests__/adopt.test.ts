@@ -189,6 +189,17 @@ test("SET-277: local and remote init --from write the same adoption plan into a 
   expect(await walkFiles(source)).toEqual(before);
 });
 
+test("SET-277: init --from previews without creating its destination", async () => {
+  const source = await fixture(MARKETPLACE_FIXTURE);
+  const parent = await mkdtemp(join(tmpdir(), "skillset-init-preview-"));
+  const destination = join(parent, "preview");
+
+  const preview = await runSkillsetCli("init", destination, "--from", source, "--adopt", "all");
+
+  expect(preview.exitCode).toBe(0);
+  expect(await exists(destination)).toBe(false);
+});
+
 test("adopt write mode imports everything, builds the mirror, and writes the report", async () => {
   const root = await fixture(MARKETPLACE_FIXTURE);
   const before = await walkFiles(root);

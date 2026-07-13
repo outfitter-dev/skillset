@@ -165,7 +165,7 @@ export async function adoptSkillset(
 ): Promise<AdoptReport> {
   const { cwd, destination, targets, write, ...buildOptions } = options;
   const acquired = await acquireAdoptSource(source, cwd ?? process.cwd());
-  const acquisition = destination === undefined
+  const acquisition = destination === undefined || write !== true
     ? acquired
     : await copyAdoptAcquisition(acquired, destination);
   return adoptResolvedRoot(acquisition, {

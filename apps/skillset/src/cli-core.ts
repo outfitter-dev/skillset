@@ -657,6 +657,8 @@ export async function runCli(
       const survey = await initSkillset({
         cwd: rootPath,
         ...(importPath === undefined ? {} : { rootPath: importPath }),
+        ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
+        ...(setupTargets === undefined ? {} : { targets: setupTargets }),
         useGitRoot: !rootExplicit && importPath === undefined,
         write: false,
       });
@@ -667,6 +669,8 @@ export async function runCli(
           const report = await adoptSkillset(importPath ?? rootPath, {
             candidates: selection.candidates,
             cwd: rootPath,
+            ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
+            ...(setupTargets === undefined ? {} : { targets: setupTargets }),
             write: true,
           });
           printAdoptReport(report, report.write ? "written" : "blocked before write");
@@ -680,6 +684,8 @@ export async function runCli(
         const setup = await initSkillset({
           cwd: rootPath,
           ...(importPath === undefined ? {} : { rootPath: importPath }),
+          ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
+          ...(setupTargets === undefined ? {} : { targets: setupTargets }),
           useGitRoot: !rootExplicit && importPath === undefined,
           write: true,
         });
