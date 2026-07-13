@@ -1969,6 +1969,21 @@ Demo body.
   expect(firstReport.schemaVersion).toBe(3);
   expect(firstReport.targets).toEqual(["claude"]);
 
+  const structured = await runSkillsetCli("test", "self", "--root", root, "--json");
+  expect(structured.exitCode).toBe(0);
+  expect(structured.stderr).toBe("");
+  expect(JSON.parse(structured.stdout)).toMatchObject({
+    command: "test",
+    data: { name: "self", ok: true },
+    exitCode: 0,
+    kind: "test",
+    ok: true,
+  });
+
+  const mixed = await runSkillsetCli("test", "self", "--target", "claude", "--root", root);
+  expect(mixed.exitCode).toBe(1);
+  expect(mixed.stderr).toContain("declared test self cannot be combined with ad hoc test flags");
+
   const second = await runSkillsetCli("test", "self", "--root", root);
   expect(second.exitCode).toBe(0);
   const secondLatest = JSON.parse(await readFile(cachePath(root, ".skillset/cache/tests/latest.json"), "utf8")) as {

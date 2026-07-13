@@ -562,7 +562,8 @@ export async function runCli(
       return;
     }
     const report = await runSkillsetTest(rootPath, testName, options);
-    printSkillsetTest(report);
+    if (jsonOutput) printCliJsonData("test", report, report.ok ? 0 : 1, "test");
+    else printSkillsetTest(report);
     if (!report.ok) process.exitCode = 1;
     return;
   }
@@ -2307,6 +2308,21 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(buildMode === undefined ? {} : { buildMode }),
     ...(scopes === undefined ? {} : { scopes }),
   });
+  const hasAdHocTestFlags =
+    trySubcommand !== undefined ||
+    tryTarget !== undefined ||
+    tryPrompt !== undefined ||
+    tryPromptFile !== undefined ||
+    tryPlugins.length > 0 ||
+    tryName !== undefined ||
+    tryTimeoutMs !== undefined ||
+    tryClaudeSettingSources !== undefined ||
+    tryBackground;
+  if (command === "test" && testName !== undefined && hasAdHocTestFlags) {
+    throw new Error(
+      `skillset: declared test ${testName} cannot be combined with ad hoc test flags`
+    );
+  }
   validateTryFlags(command, trySubcommand, {
     background: tryBackground,
     ...(buildMode === undefined ? {} : { buildMode }),
@@ -2370,7 +2386,9 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(releaseRef === undefined ? {} : { ref: releaseRef }),
   });
   validateTestFlags(command, {
+    adHoc: hasAdHocTestFlags,
     ...(buildMode === undefined ? {} : { buildMode }),
+    ...(testName === undefined ? {} : { declaredName: testName }),
     ...(distDir === undefined ? {} : { distDir }),
     dryRun,
     ...(scopes === undefined ? {} : { scopes }),
@@ -2763,7 +2781,9 @@ function validateMarketplaceFlags(
 function validateTestFlags(
   command: Command,
   test: {
+    readonly adHoc: boolean;
     readonly buildMode?: CompileBuildMode;
+    readonly declaredName?: string;
     readonly distDir?: string;
     readonly dryRun: boolean;
     readonly scopes?: readonly BuildScope[];
@@ -2771,6 +2791,11 @@ function validateTestFlags(
   }
 ): void {
   if (command !== "test") return;
+  if (test.declaredName !== undefined && test.adHoc) {
+    throw new Error(
+      `skillset: declared test ${test.declaredName} cannot be combined with ad hoc test flags`
+    );
+  }
   if (
     test.buildMode !== undefined ||
     test.distDir !== undefined ||
