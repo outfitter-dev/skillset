@@ -91,6 +91,7 @@ export interface ChangeAddReport {
 
 export interface ChangeReasonReport {
   readonly entry: ChangeEntryView;
+  readonly ledgerPath?: string;
 }
 
 export interface ChangeAmendReport {
@@ -235,7 +236,12 @@ export async function updateChangeReason(rootPath: string, options: ChangeReason
   }
   const updated = resolvePendingChangeRef(await readPendingChangeEntries(rootPath, storageOptions), entry.id ?? options.ref);
   const refs = refIndex([updated], await readHistoryEntries(rootPath, storageOptions));
-  return { entry: pendingView(updated, refs) };
+  return {
+    entry: pendingView(updated, refs),
+    ...(entry.format === "reason"
+      ? { ledgerPath: workspaceChangeFile(storageOptions.sourceDir, "ledger.jsonl") }
+      : {}),
+  };
 }
 
 export async function amendAppliedChange(rootPath: string, options: ChangeAmendOptions): Promise<ChangeAmendReport> {

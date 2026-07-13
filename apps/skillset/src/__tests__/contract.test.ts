@@ -4226,13 +4226,30 @@ Body.
   );
   expect(structuredAdd.exitCode).toBe(0);
   const structuredData = (JSON.parse(structuredAdd.stdout) as {
-    data: { report: { entry: { path: string }; ledgerPath: string }; writes: string[] };
+    data: { report: { entry: { path: string; ref: string; sourceHashes: Record<string, string[]> }; ledgerPath: string }; writes: string[] };
   }).data;
   expect(structuredData.writes).toEqual([
     structuredData.report.entry.path,
     structuredData.report.ledgerPath,
   ]);
   expect(structuredData.report.ledgerPath).toBe(".skillset/changes/ledger.jsonl");
+  expect(Object.keys(structuredData.report.entry.sourceHashes)).not.toHaveLength(0);
+
+  const structuredReason = await runSkillsetCli(
+    "change",
+    "reason",
+    structuredData.report.entry.ref,
+    "--root",
+    root,
+    "--reason",
+    "Clarified the structured change reason while preserving a complete mutation path audit.",
+    "--json"
+  );
+  expect(structuredReason.exitCode).toBe(0);
+  expect((JSON.parse(structuredReason.stdout) as { data: { writes: string[] } }).data.writes).toEqual([
+    structuredData.report.entry.path,
+    ".skillset/changes/ledger.jsonl",
+  ]);
 
   const checked = await runSkillsetCli("change", "check", "--root", root, "--since", "HEAD");
   expect(checked.exitCode).toBe(0);

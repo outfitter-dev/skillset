@@ -334,7 +334,11 @@ export async function runCli(
         reason: changeReason ?? { kind: "auto" },
         scopes: changeScopes ?? [],
       });
-      if (jsonOutput) printCliJsonData("change.add", { report, state: "written", writes: [report.entry.path, report.ledgerPath] });
+      if (jsonOutput) printCliJsonData("change.add", {
+        report: { ...report, entry: serializeChangeEntry(report.entry) },
+        state: "written",
+        writes: [report.entry.path, report.ledgerPath],
+      });
       else printChangeEntry("added", report.entry);
       return;
     }
@@ -346,7 +350,11 @@ export async function runCli(
         reason: changeReason ?? { kind: "auto" },
         ref: changeRef,
       });
-      if (jsonOutput) printCliJsonData("change.reason", { report, state: "written", writes: [report.entry.path] });
+      if (jsonOutput) printCliJsonData("change.reason", {
+        report: { ...report, entry: serializeChangeEntry(report.entry) },
+        state: "written",
+        writes: [report.entry.path, ...(report.ledgerPath === undefined ? [] : [report.ledgerPath])],
+      });
       else printChangeEntry("updated", report.entry);
       return;
     }
@@ -357,7 +365,11 @@ export async function runCli(
         reason: changeReason ?? { kind: "auto" },
         ref: changeRef,
       });
-      if (jsonOutput) printCliJsonData("change.amend", { report, state: "written", writes: [report.path] });
+      if (jsonOutput) printCliJsonData("change.amend", {
+        report: { ...report, entry: serializeChangeEntry(report.entry) },
+        state: "written",
+        writes: [report.path],
+      });
       else {
         printChangeEntry("amended", report.entry);
         console.log(`  amendment: ${report.path}`);
