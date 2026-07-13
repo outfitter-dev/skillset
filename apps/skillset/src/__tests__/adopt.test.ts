@@ -229,6 +229,17 @@ test("SET-277: init adoption preserves its positional destination without --from
   expect(await walkFiles(source)).toEqual(before);
 });
 
+test("SET-277: init adoption can copy into a destination nested below its source", async () => {
+  const source = await gitFixture(MARKETPLACE_FIXTURE);
+  const destination = join(source, "migrated");
+
+  const result = await runSkillsetCliIn(source, "init", "migrated", "--from", ".", "--adopt", "all", "--yes");
+
+  expect(result.exitCode).toBe(0);
+  expect(await exists(join(destination, ".skillset", "plugins", "demo", "skillset.yaml"))).toBe(true);
+  expect(await exists(join(destination, "migrated"))).toBe(false);
+});
+
 test("SET-277: init --from previews without creating its destination", async () => {
   const source = await fixture(MARKETPLACE_FIXTURE);
   const parent = await mkdtemp(join(tmpdir(), "skillset-init-preview-"));
