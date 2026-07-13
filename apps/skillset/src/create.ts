@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
 
-import { reportCliError, runCli } from "./cli-core";
+import { runCliEntrypoint } from "./cli-entrypoint";
 
-runCli(process.argv.slice(2), "create-skillset").catch(reportCliError);
+await runCliEntrypoint(process.argv.slice(2), "create-skillset");

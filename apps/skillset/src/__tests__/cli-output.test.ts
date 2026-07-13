@@ -22,13 +22,10 @@ describe("SET-286 CLI output kernel", () => {
     }
     expect(readCliCommand(["not-a-command", "--json"])).toBe("cli");
   });
-  test("pre-scans mutually exclusive machine modes", () => {
+  test("pre-scans the supported finite machine mode", () => {
     expect(readCliMachineMode(["check", "--json"])).toBe("json");
-    expect(readCliMachineMode(["dev", "--jsonl"])).toBe("jsonl");
+    expect(readCliMachineMode(["dev", "--jsonl"])).toBeUndefined();
     expect(readCliMachineMode(["check"])).toBeUndefined();
-    expect(() => readCliMachineMode(["check", "--json", "--jsonl"])).toThrow(
-      CliOutputError
-    );
   });
 
   test("renders validated finite results with one trailing newline", () => {
@@ -129,12 +126,12 @@ describe("SET-286 CLI output kernel", () => {
     expect(JSON.parse(stdout)).toMatchObject({ command: "cli", exitCode: 2, ok: false });
   });
 
-  test("returns a structured JSONL failure for invalid early stream usage", async () => {
-    const cli = join(import.meta.dir, "..", "cli.ts");
-    const proc = Bun.spawn(
-      [process.execPath, cli, "not-a-command", "--jsonl"],
-      { stderr: "pipe", stdout: "pipe" }
-    );
+  test("keeps create-skillset failures on the structured entrypoint", async () => {
+    const cli = join(import.meta.dir, "..", "create.ts");
+    const proc = Bun.spawn([process.execPath, cli, "create", "--bad", "--json"], {
+      stderr: "pipe",
+      stdout: "pipe",
+    });
     const [stdout, stderr, exitCode] = await Promise.all([
       new Response(proc.stdout).text(),
       new Response(proc.stderr).text(),
@@ -142,12 +139,6 @@ describe("SET-286 CLI output kernel", () => {
     ]);
     expect(exitCode).toBe(2);
     expect(stderr).toBe("");
-    const event = JSON.parse(stdout) as Record<string, unknown>;
-    expect(event).toMatchObject({
-      command: "cli",
-      event: "failed",
-      schemaVersion: "skillset.cli.event@1",
-      sequence: 1,
-    });
+    expect(JSON.parse(stdout)).toMatchObject({ command: "create", exitCode: 2, ok: false });
   });
 });

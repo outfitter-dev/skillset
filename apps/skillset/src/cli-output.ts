@@ -40,15 +40,7 @@ export function readCliCommand(args: readonly string[]): string {
 export function readCliMachineMode(
   args: readonly string[]
 ): CliMachineMode | undefined {
-  const json = args.includes("--json");
-  const jsonl = args.includes("--jsonl");
-  if (json && jsonl)
-    throw new CliOutputError(
-      "skillset: --json and --jsonl are mutually exclusive"
-    );
-  if (json) return "json";
-  if (jsonl) return "jsonl";
-  return undefined;
+  return args.includes("--json") ? "json" : undefined;
 }
 
 export function createCliResult(input: {
