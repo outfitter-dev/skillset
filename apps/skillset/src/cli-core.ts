@@ -514,7 +514,15 @@ export async function runCli(
         ...(marketplaceName === undefined ? {} : { name: marketplaceName }),
       });
       if (jsonOutput) {
-        printCliJsonData("marketplace.check", report, report.ok ? 0 : 1, "diagnostics");
+        const diagnostics = report.entries
+          .filter((entry) => entry.readiness === "not-ready")
+          .map((entry): SkillsetCliDiagnostic => ({
+            code: "marketplace.not-ready",
+            message: `${entry.catalog}/${entry.entryId}: ${entry.reason}`,
+            ...(entry.generatedPath === undefined ? {} : { path: entry.generatedPath }),
+            severity: "error",
+          }));
+        printCliJsonData("marketplace.check", report, report.ok ? 0 : 1, "diagnostics", diagnostics);
       } else {
         printMarketplaceCheck(report);
       }

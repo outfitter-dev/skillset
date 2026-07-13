@@ -84,6 +84,17 @@ skillset:
   expect(checked.stdout).toContain("skillset: marketplace check failed");
   expect(checked.stdout).toContain("missing generated file: plugins/local-tools/claude/.claude-plugin/plugin.json");
   await expect(readdir(root)).resolves.toEqual(before);
+
+  const json = await runSkillsetCli("marketplace", "check", "--json", "--root", root);
+  const envelope = JSON.parse(json.stdout) as {
+    readonly diagnostics: readonly { readonly code: string; readonly message: string; readonly path?: string }[];
+  };
+  expect(json).toMatchObject({ exitCode: 1, stderr: "" });
+  expect(envelope.diagnostics).toEqual([expect.objectContaining({
+    code: "marketplace.not-ready",
+    message: expect.stringContaining("missing generated file"),
+    path: "plugins/local-tools/claude/.claude-plugin/plugin.json",
+  })]);
 });
 
 test("SET-236: marketplace update previews and writes an external Claude marketplace index", async () => {
