@@ -766,7 +766,7 @@ export async function runCli(
     const features = listFeatureCapabilities(importPath);
     if (jsonOutput) {
       const exitCode = importPath !== undefined && features.length === 0 ? 1 : 0;
-      printCliJsonData("features", { features }, exitCode);
+      printCliJsonData("lookup features", { features }, exitCode);
       if (exitCode !== 0) process.exitCode = exitCode;
       return;
     }

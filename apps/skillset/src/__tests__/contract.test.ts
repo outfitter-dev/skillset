@@ -7714,7 +7714,7 @@ Audit body.
 
   const featureJson = await runSkillsetCli("lookup", "features", "plugin-bin", "--json");
   expect(featureJson.exitCode).toBe(0);
-  expect(JSON.parse(featureJson.stdout)).toMatchObject({ command: "features" });
+  expect(JSON.parse(featureJson.stdout)).toMatchObject({ command: "lookup features" });
   const featureReport = (JSON.parse(featureJson.stdout) as { readonly data: {
     features: readonly {
       docs: readonly string[];
