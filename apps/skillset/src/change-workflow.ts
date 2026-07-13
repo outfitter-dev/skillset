@@ -86,6 +86,7 @@ export interface ChangeEntryView {
 
 export interface ChangeAddReport {
   readonly entry: ChangeEntryView;
+  readonly ledgerPath: string;
 }
 
 export interface ChangeReasonReport {
@@ -193,7 +194,10 @@ export async function addChangeEntry(rootPath: string, options: ChangeAddOptions
   const [entry] = await readPendingChangeEntries(rootPath, statusOptions).then((entries) => entries.filter((item) => item.id === id));
   if (entry === undefined) throw new Error(`skillset: failed to read created change entry ${id}`);
   const refs = refIndex([entry], await readHistoryEntries(rootPath, statusOptions));
-  return { entry: pendingView(entry, refs) };
+  return {
+    entry: pendingView(entry, refs),
+    ledgerPath: workspaceChangeFile(statusOptions.sourceDir, "ledger.jsonl"),
+  };
 }
 
 export async function updateChangeReason(rootPath: string, options: ChangeReasonOptions): Promise<ChangeReasonReport> {

@@ -4209,6 +4209,31 @@ Body.
   expect(ledger).toContain('"type":"change.covered"');
   expect(ledger).toContain('"hashSchema":"skillset-source-unit-v2"');
 
+  const structuredAdd = await runSkillsetCli(
+    "change",
+    "add",
+    "--root",
+    root,
+    "--since",
+    "HEAD",
+    "--scope",
+    "skill:demo",
+    "--bump",
+    "patch",
+    "--reason",
+    "Recorded the structured mutation paths so automation can audit both files written by change add.",
+    "--json"
+  );
+  expect(structuredAdd.exitCode).toBe(0);
+  const structuredData = (JSON.parse(structuredAdd.stdout) as {
+    data: { report: { entry: { path: string }; ledgerPath: string }; writes: string[] };
+  }).data;
+  expect(structuredData.writes).toEqual([
+    structuredData.report.entry.path,
+    structuredData.report.ledgerPath,
+  ]);
+  expect(structuredData.report.ledgerPath).toBe(".skillset/changes/ledger.jsonl");
+
   const checked = await runSkillsetCli("change", "check", "--root", root, "--since", "HEAD");
   expect(checked.exitCode).toBe(0);
 });
