@@ -2261,7 +2261,6 @@ function parseArgs(args: readonly string[]): ParsedArgs {
         else if (command === "dev") devWrite = true;
         else throw new Error("skillset: --write is only supported with check or dev");
       }
-      if (flag === "--watch") devWatch = true;
       if (flag === "--frontmatter") lookupViews = addLookupView(lookupViews, "frontmatter");
       if (flag === "--fields") lookupViews = addLookupView(lookupViews, "fields");
       if (flag === "--values") lookupViews = addLookupView(lookupViews, "values");
