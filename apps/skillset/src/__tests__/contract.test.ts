@@ -4843,6 +4843,7 @@ test("SET-282: reconcile applies source-wins with output backup safety", async (
 
   expect(result.exitCode).toBe(0);
   expect(result.stdout).toContain("reconciled using source");
+  expect(result.stdout).toContain("recovery: skillset restore ");
   expect(await readFile(join(root, generatedPath), "utf8")).toContain("Source body.");
   expect(await readFile(join(root, ".skillset/skills/demo/SKILL.md"), "utf8")).not.toContain("Output edit.");
 

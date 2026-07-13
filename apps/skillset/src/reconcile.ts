@@ -14,6 +14,8 @@ export type ReconcileChoice = "output" | "source";
 
 export interface ReconcileReport {
   readonly applied: boolean;
+  readonly backupManifestPath?: string;
+  readonly backupRunId?: string;
   readonly choice?: ReconcileChoice;
   readonly generatedPath: string;
   readonly outputResolution: SourceSuggestionReport;
@@ -85,6 +87,8 @@ export async function reconcileManagedPath(
         wrote: false,
       };
   let writtenPaths: readonly string[] = [];
+  let backupManifestPath: string | undefined;
+  let backupRunId: string | undefined;
   if (write && choice !== undefined) {
     if (choice === "output" && !outputResolution.wrote) {
       throw new Error(`skillset: output cannot win for ${managedPath}: ${outputResolution.message}`);
@@ -95,10 +99,14 @@ export async function reconcileManagedPath(
       throw new Error(`skillset: reconcile build failed${reason.length === 0 ? "" : `: ${reason}`}`);
     }
     writtenPaths = built.writes.paths;
+    backupManifestPath = built.writes.backupManifestPath;
+    backupRunId = built.writes.backupRunId;
   }
 
   return {
     applied: write && choice !== undefined,
+    ...(backupManifestPath === undefined ? {} : { backupManifestPath }),
+    ...(backupRunId === undefined ? {} : { backupRunId }),
     ...(choice === undefined ? {} : { choice }),
     generatedPath: explanation.path,
     outputResolution,
@@ -149,6 +157,9 @@ export function renderReconcileReport(report: ReconcileReport): string {
   ];
   if (report.applied) {
     lines.push(`skillset: reconciled using ${report.choice} (${report.writtenPaths.length} generated file${report.writtenPaths.length === 1 ? "" : "s"} refreshed)`);
+    if (report.backupRunId !== undefined) {
+      lines.push(`  recovery: skillset restore ${report.backupRunId} --yes`);
+    }
   } else if (report.choice !== undefined) {
     lines.push(`skillset: preview only; rerun with --use ${report.choice} --yes to apply`);
   } else {
