@@ -680,6 +680,7 @@ export async function runCli(
           });
           printAdoptReport(report, report.write ? "written" : "blocked before write");
           if (!report.ok) process.exitCode = 1;
+          else await rememberKnownSkillsetWorkspace(report.rootPath, options);
           return;
         }
         if (!selection.confirmed) {
