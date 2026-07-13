@@ -1,8 +1,13 @@
 import { stat } from "node:fs/promises";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 
-import { buildSkillsetResult } from "@skillset/core";
-import { explainPath, suggestSource, type SourceSuggestionReport } from "@skillset/core/internal/authoring";
+import { buildSkillsetResult, diffSkillsetResult } from "@skillset/core";
+import {
+  explainPath,
+  listGeneratedEntries,
+  suggestSource,
+  type SourceSuggestionReport,
+} from "@skillset/core/internal/authoring";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
 
 export type ReconcileChoice = "output" | "source";
@@ -31,7 +36,26 @@ export async function reconcileManagedPath(
   const outputExists = await stat(resolve(rootPath, explanation.path)).then(() => true, () => false);
   const sourcePaths = [...new Set(explanation.entries.map((entry) => entry.sourcePath))];
   const sourcePath = sourcePaths.length === 1 ? sourcePaths[0] : undefined;
-  const outputResolution = outputExists
+  if (write) {
+    await assertReconcileDriftIsScoped(
+      rootPath,
+      managedPath,
+      sourcePaths,
+      skillsetOptions
+    );
+  }
+  const outputResolution = choice === "source"
+    ? {
+        entries: explanation.entries,
+        generatedPath: explanation.path,
+        message: "Source selected; output reverse-patch analysis was skipped.",
+        nextSteps: ["Rebuild the managed output from its source."],
+        ...(sourcePath === undefined ? {} : { sourcePath }),
+        status: "refused" as const,
+        wouldWrite: false,
+        wrote: false,
+      }
+    : outputExists
     ? await suggestSource(rootPath, managedPath, {
         ...skillsetOptions,
         write: write && choice === "output",
@@ -68,6 +92,38 @@ export async function reconcileManagedPath(
     sourceResolutionAvailable: true,
     writtenPaths,
   };
+}
+
+async function assertReconcileDriftIsScoped(
+  rootPath: string,
+  managedPath: string,
+  sourcePaths: readonly string[],
+  options: SkillsetOptions
+): Promise<void> {
+  const entries = (await listGeneratedEntries(rootPath, options)).filter((entry) =>
+    sourcePaths.includes(entry.sourcePath)
+  );
+  const owningEntries = entries.filter((entry) =>
+    entry.outputPath === managedPath || entry.files?.includes(managedPath) === true
+  );
+  const allowedPaths = new Set([
+    ...entries.map((entry) => entry.outputPath),
+    ...owningEntries.flatMap((entry) => [entry.outputPath, ...(entry.files ?? [])]),
+    ...entries.map((entry) => join(entry.outputRoot, "skillset.lock")),
+  ]);
+  const preview = await diffSkillsetResult(rootPath, options);
+  const driftPaths = [
+    ...preview.data.added,
+    ...preview.data.changed,
+    ...preview.data.missing,
+    ...preview.data.removed,
+  ];
+  const unrelated = driftPaths.filter((path) => !allowedPaths.has(path));
+  if (unrelated.length > 0) {
+    throw new Error(
+      `skillset: reconcile ${managedPath} refuses to write while unrelated generated drift exists: ${unrelated.join(", ")}`
+    );
+  }
 }
 
 export function renderReconcileReport(report: ReconcileReport): string {

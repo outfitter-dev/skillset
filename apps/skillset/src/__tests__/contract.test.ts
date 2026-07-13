@@ -4852,6 +4852,23 @@ test("SET-282: reconcile applies source-wins with output backup safety", async (
   expect(rebuilt.stdout).toContain("reconciled using source");
   expect(await readFile(join(root, generatedPath), "utf8")).toContain("Source body.");
 
+  await writeFile(
+    join(root, generatedPath),
+    "---\nname: demo\ndescription: Broken output without a closing fence.\n",
+    "utf8"
+  );
+  const recovered = await runSkillsetCli(
+    "reconcile",
+    generatedPath,
+    "--use",
+    "source",
+    "--yes",
+    "--root",
+    root
+  );
+  expect(recovered.exitCode).toBe(0);
+  expect(await readFile(join(root, generatedPath), "utf8")).toContain("Source body.");
+
   const structured = await runSkillsetCli("reconcile", generatedPath, "--root", root, "--json");
   expect(structured.exitCode).toBe(0);
   expect(structured.stderr).toBe("");
@@ -4861,6 +4878,37 @@ test("SET-282: reconcile applies source-wins with output backup safety", async (
     kind: "plan",
     ok: true,
   });
+});
+
+test("SET-282: reconcile refuses to overwrite unrelated generated drift", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": "skillset:\n  name: reconcile-scope\nclaude: true\ncodex: false\n",
+    ".skillset/skills/alpha/SKILL.md":
+      "---\nname: alpha\ndescription: Alpha.\n---\n\nAlpha source.\n",
+    ".skillset/skills/beta/SKILL.md":
+      "---\nname: beta\ndescription: Beta.\n---\n\nBeta source.\n",
+  });
+  await buildSkillset(root);
+  const alphaPath = ".claude/skills/alpha/SKILL.md";
+  const betaPath = ".claude/skills/beta/SKILL.md";
+  await writeFile(join(root, alphaPath), "---\nname: alpha\n---\n\nAlpha output edit.\n", "utf8");
+  await writeFile(join(root, betaPath), "---\nname: beta\n---\n\nBeta output edit.\n", "utf8");
+
+  const result = await runSkillsetCli(
+    "reconcile",
+    alphaPath,
+    "--use",
+    "source",
+    "--yes",
+    "--root",
+    root
+  );
+
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain("unrelated generated drift exists");
+  expect(result.stderr).toContain(betaPath);
+  expect(await readFile(join(root, alphaPath), "utf8")).toContain("Alpha output edit.");
+  expect(await readFile(join(root, betaPath), "utf8")).toContain("Beta output edit.");
 });
 
 test("SET-282: reconcile refuses output-wins generated changelog edits", async () => {
