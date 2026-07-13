@@ -40,7 +40,7 @@ Support constraints participate in normalized source hashes and `change status`.
 
 ## Provenance
 
-Support constraints appear in source-unit provenance, history evidence, and `explain`/`status` output. Aggregates may report child supports for inspection, but they do not copy constraints into child identity by default.
+Support constraints appear in source-unit provenance, history evidence, and status/explain output. Aggregates may report child supports for inspection, but they do not copy constraints into child identity by default.
 
 ## Evidence
 

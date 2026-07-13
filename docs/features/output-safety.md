@@ -16,11 +16,11 @@ Unmanaged files are files under or beside generated output roots that no Skillse
 
 | Case | Behavior | Status |
 | --- | --- | --- |
-| Unmanaged neighbor inside an output root | Ignored by diff/verify/stale cleanup | `implemented` |
+| Unmanaged neighbor inside an output root | Ignored by diff/output checks/stale cleanup | `implemented` |
 | Unmanaged file at a path Skillset must emit | Back up, warn, then overwrite during a confirmed build | `implemented` |
 | Managed generated file edited after the previous lock | Back up before replacing or deleting it | `implemented` |
 | Missing managed file | Warn that it will be regenerated | `implemented` |
-| Corrupt Skillset lock | Fail before build/verify/diff can make ownership decisions | `implemented` |
+| Corrupt Skillset lock | Fail before build/output checks/diff can make ownership decisions | `implemented` |
 | Restore backup by ref | Preview by default, write only with `--yes` | `implemented` |
 
 ## Build Behavior

@@ -22,9 +22,9 @@
       ],
       "kind": "standalone-skill",
       "name": "skillset-adrs",
-      "outputHash": "sha256:2d8b1827edf14c73728636774799c7e14601201597c435567a2b3a9308399e29",
+      "outputHash": "sha256:f7bc8cd2377ec948b02a7cf5d0c7607ce976c7a3533586c8b5c9320b47e437a3",
       "outputPath": "skillset-adrs/SKILL.md",
-      "sourceHash": "sha256:287e915f8e9382a8743c82f0fa6b4f2e8786f5a5b590325542339f87821ecb47",
+      "sourceHash": "sha256:84bcbf148d2b89413b93c51576c64f6ed7042e1f1f7a4472313acc312a8b4e4a",
       "sourcePath": ".skillset/skills/skillset-adrs/SKILL.md",
       "version": "0.1.0"
     },

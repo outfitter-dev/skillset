@@ -14,7 +14,7 @@ Skillset currently uses internal compiler fixtures and validation commands:
 | --- | --- | --- | --- |
 | Internal fixtures | `fixtures/<case>/skillset.yaml` and `fixtures/<case>/.skillset/` ([convention](../../fixtures/README.md)) | `implemented` / internal | Fake repos copied into temp directories by compiler tests. |
 | Contract tests | `src/__tests__/` | `implemented` / internal | Unit, contract, and audit-hardening tests for compiler behavior. |
-| Validation commands | `skillset check`, `skillset check --only outputs`, `status`, `diff`, `change check`, `release plan` | `implemented` | Public commands that validate real source and generated output. |
+| Validation commands | `skillset check`, `skillset check --only outputs`, `status`, `diff`, `change check`, `release plan` | `implemented` | Public commands that validate or inspect real source and generated output. |
 | Dogfooding | repo scripts, Linear acceptance criteria, real Skillset source changes | internal practice | Proves workflows by using them on this repo. |
 | `skillset test` | `<source-root>/tests.yaml` and `<source-root>/tests/*.yaml` | `implemented` | Deterministic isolated projection and check runner for authored source. |
 | `skillset test --target …` | `.skillset/cache/tests/ad-hoc/` logical reports backed by XDG cache storage | `implemented` | Runs an ad hoc non-interactive provider test and retains status, output, tail, and report files. |

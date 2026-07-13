@@ -10,9 +10,14 @@ export interface CliSurfaceViolation {
 
 const RETIRED_SURFACE = [
   /(?:\bskillset|cli\.ts)\s+(?:adopt|ci|create|doctor|features|lint|providers|suggest-source|try|verify)\b/u,
+  /\bbun run skillset:(?:lint|verify)\b/u,
+  /\b(?:build|diff)(?:\/|,\s*and\s+)verify\b/u,
+  /\b(?:doctor\/explain|explain\/doctor)\b/u,
   /\bSKILLSET_TRY_[A-Z_]+\b/u,
   /\bskillset\b[^\n]{0,100}(?:^|[\s`[])--(?:apply|dist|dry-run|global|layout|source|watch)\b/u,
   /["'`]--(?:claude|codex|cursor)["'`]/u,
+  /["'`]skillset: [^"'`\n]*\btry\b/u,
+  /["'`]try (?:command|config|failed|latest|passed|plugin|run|status|tail|list)\b/u,
 ] as const;
 
 const EXCLUDED = [
@@ -22,6 +27,7 @@ const EXCLUDED = [
   ".changeset/",
   ".skillset/changes/",
   "docs/adrs/",
+  "docs/package-ownership.md",
   "docs/reference/cli-flags.md",
   "apps/skillset/CHANGELOG.md",
   "scripts/cli-contract.ts",

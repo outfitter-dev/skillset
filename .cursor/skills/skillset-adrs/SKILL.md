@@ -259,7 +259,7 @@ Use accepted Skillset vocabulary consistently:
 - `rendered output`, not source truth, for generated provider files.
 - `compile.targets`, not bare `targets`, for root provider selection.
 - `compile.unsupportedDestination`, not silent fallback, for unsupported destination policy.
-- `provenance`, not comments, for lock/doctor evidence.
+- `provenance`, not comments, for lock/status evidence.
 
 Read `docs/tenets.md` before writing. Every ADR must be consistent with the tenets.
 

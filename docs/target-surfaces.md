@@ -93,8 +93,8 @@ artifacts.
 | `compile.build: updated/all` | normalized build mode in lock provenance | Implemented | Parser, CLI overrides, plan-first writes, and lock metadata are implemented. |
 | `compile.features.promptArguments` | `{{$ARGUMENTS...}}` adaptive command placeholders | Implemented | Defaults to `true`; set to `false` to reject the source markers. |
 | `compile.skillset.metadata: false` | suppress generated skill `metadata.generated` / `metadata.version` | Implemented | Source metadata remains source-only; locks record `skillsetMetadata`. |
-| `compile.unsupportedDestination: error` | build/diff/verify unsupported destination policy | Implemented | Default policy; preserves current fail-loud unsupported behavior. |
-| `compile.unsupportedDestination: warn/skip/force` | diagnostics, status, lock provenance | Implemented | Non-error policies soften unsupported/lossy render results only; failed render results still block. |
+| `compile.unsupportedDestination: error` | build/diff/output-check unsupported destination policy | Implemented | Default policy; preserves current fail-loud unsupported behavior. |
+| `compile.unsupportedDestination: warn/skip/force` | diagnostics, status/explain, lock provenance | Implemented | Non-error policies soften unsupported/lossy render results only; failed render results still block. |
 | omitted `compile.targets` | default provider outputs | Implemented | Equivalent to `compile.targets: [claude, codex, cursor]`. |
 | `<provider>.projectRoot` | provider adapter metadata | Implemented | Parsed and inherited with provider blocks; build still does not mutate user-level config. |
 | `<provider>.userRoot` | provider adapter metadata | Implemented | Parsed and inherited with provider blocks for future setup/explain flows. |
@@ -191,7 +191,7 @@ Live-doc verified against `developers.openai.com/codex/plugins/build` and `devel
 | `<source-root>/rules/**/*.md` | `.claude/rules/**/*.md` (`paths` kept) | `AGENTS.md` at derived dirs, source-boundary comments | Implemented |
 | `<source-root>/_codex/rules/**/*.rules` | n/a | `.codex/rules/**/*.rules` | Provider-native / Implemented — Codex command execution policy, not instruction Markdown. |
 
-Codex truncates `AGENTS.md` beyond `project_doc_max_bytes` (32 KiB default); `skillset build`/`verify` warns. Verified 2026-06-03 (`developers.openai.com/codex/guides/agents-md`, `openai/codex#7138`).
+Codex truncates `AGENTS.md` beyond `project_doc_max_bytes` (32 KiB default); `skillset build` and `skillset check --only outputs` warn. Verified 2026-06-03 (`developers.openai.com/codex/guides/agents-md`, `openai/codex#7138`).
 
 Codex discovers project guidance from `AGENTS.md` files at the repo root and scoped directories. Skillset should not render default Codex project guidance to `.codex/AGENTS.md`; `.codex/` is for Codex configuration surfaces such as agents, hooks, rules, and config files.
 
