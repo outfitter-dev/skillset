@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { expect, test } from "bun:test";
 
 import {
+  createDevWatchJsonlStream,
   createDevWatchDebouncer,
   createDevWatchPlan,
   renderDevWatchPreview,
@@ -13,6 +14,7 @@ import {
   shouldRunDevPreviewForPath,
   type DevWatchScheduler,
 } from "../dev-watch";
+import { parseCliEventStream } from "../cli-output";
 
 test("SET-210: dev watch plan covers ordinary source and ignores generated churn", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-dev-watch-ordinary-"));
@@ -191,6 +193,57 @@ test("SET-210/SET-212: dev command validation keeps writes explicitly opt-in", a
   const wrongCommand = await runSkillsetCli("build", "--watch");
   expect(wrongCommand.exitCode).toBe(1);
   expect(wrongCommand.stderr).toContain("--watch is only supported with dev");
+});
+
+test("SET-289: dev JSONL emits controlled started, operation, and terminal events", () => {
+  let output = "";
+  const stream = createDevWatchJsonlStream({ write: (chunk) => { output += String(chunk); return true; } });
+  stream.started({
+    configPaths: ["skillset.yaml"],
+    ignoredRoots: ["plugins"],
+    outputRoots: ["plugins"],
+    rootPath: "/repo",
+    sourceRoot: ".skillset",
+    watchRoots: [".", ".skillset"],
+  }, "preview");
+  stream.operation({
+    checkedSkills: 1,
+    diagnostics: [],
+    diff: { added: [], changed: [], missing: [], removed: [] },
+    mode: "preview",
+    ok: true,
+    outputRoots: ["plugins"],
+    reason: "initial",
+    sourceRoot: ".skillset",
+    warnings: [],
+  });
+  stream.completed();
+  const events = parseCliEventStream(output);
+  expect(events.map((event) => event.event)).toEqual(["started", "operation", "completed"]);
+  expect(events.map((event) => event.sequence)).toEqual([1, 2, 3]);
+  expect(output).not.toContain("skillset: dev");
+});
+
+test("SET-289: dev --jsonl terminates a real controlled stream without human output", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-dev-jsonl-"));
+  await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
+  const proc = Bun.spawn({
+    cmd: ["bun", join(import.meta.dir, "..", "cli.ts"), "dev", "--watch", "--jsonl", "--root", root],
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const timer = setTimeout(() => proc.kill("SIGTERM"), 1000);
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  clearTimeout(timer);
+  expect(exitCode).toBe(0);
+  expect(stderr).toBe("");
+  const events = parseCliEventStream(stdout);
+  expect(events.map((event) => event.event)).toEqual(["started", "operation", "completed"]);
+  expect(stdout).not.toContain("skillset: dev");
 });
 
 async function runSkillsetCli(...args: readonly string[]): Promise<{

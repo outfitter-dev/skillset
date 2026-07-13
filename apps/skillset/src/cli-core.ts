@@ -122,7 +122,7 @@ const USAGE = [
   "       skillset check [--write|--only outputs|--ci [--fix] [--since <ref>] [--report <path>]] [--json] [--root <path>]",
   "       skillset list [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset status [--json] [--root <path>]",
-  "       skillset dev --watch [--apply] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset dev --watch [--apply] [--jsonl] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change status [--since <ref>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change check [@ref|--ref <ref>] [--since <ref>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change <status|check> --staged [--root <path>] [--source <dir>] [--dist <dir>]",
@@ -205,6 +205,7 @@ export async function runCli(
     initAdopt,
     initFrom,
     jsonOutput,
+    jsonlOutput,
     lookupAspects,
     lookupField,
     lookupFeatures,
@@ -298,7 +299,7 @@ export async function runCli(
 
   if (command === "dev") {
     if (!devWatch) throw new Error("skillset: dev currently requires --watch");
-    await runDevWatch(rootPath, options, process.stdout, devApply ? "apply" : "preview");
+    await runDevWatch(rootPath, options, process.stdout, devApply ? "apply" : "preview", jsonlOutput ? "jsonl" : undefined);
     return;
   }
 
@@ -2493,7 +2494,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(distributionSubcommand === undefined ? {} : { distributionSubcommand }),
     ...(releaseSubcommand === undefined ? {} : { releaseSubcommand }),
   });
-  if (jsonlOutput) throw new Error("skillset: --jsonl is not supported until a streaming route is enabled");
+  if (jsonlOutput && command !== "dev") throw new Error("skillset: --jsonl is only supported with dev");
   validateLookupFlags(command, args, {
     features: lookupFeatures,
     ...(lookupField === undefined ? {} : { field: lookupField }),

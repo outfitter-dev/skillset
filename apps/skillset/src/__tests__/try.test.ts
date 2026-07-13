@@ -13,6 +13,7 @@ import {
   tailTryRun,
 } from "../try";
 import { runSkillsetTest } from "../test-runner";
+import { parseCliEventStream } from "../cli-output";
 
 test("try runs a Codex prompt and records inspectable artifacts", async () => {
   const root = await fixture({
@@ -55,6 +56,9 @@ Use this skill to answer fixture questions.
   const tail = await tailTryRun(root, report.runId, 20, { xdg });
   expect(tail.map((line) => line.stream)).toContain("stdout");
   expect(tail.some((line) => line.message.includes("List the available fixture skills."))).toBe(true);
+  const retainedEvents = parseCliEventStream(await readFile(cachePath(root, xdg, report.tailPath), "utf8"));
+  expect(retainedEvents.at(-1)?.event).toBe("completed");
+  expect(retainedEvents.every((event) => event.command === "test")).toBe(true);
 
   const runs = await listTryRuns(root, { xdg });
   expect(runs.map((run) => run.runId)).toContain(report.runId);

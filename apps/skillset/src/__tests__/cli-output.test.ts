@@ -4,9 +4,11 @@ import { join } from "node:path";
 import {
   CliOutputError,
   createCliEvent,
+  createCliEventStream,
   createCliResult,
   readCliCommand,
   readCliMachineMode,
+  parseCliEventStream,
   renderCliEvent,
   renderCliResult,
 } from "../cli-output";
@@ -129,24 +131,40 @@ describe("SET-286 CLI output kernel", () => {
     expect(JSON.parse(stdout)).toMatchObject({ command: "cli", exitCode: 2, ok: false });
   });
 
-  test("rejects not-yet-enabled streams through JSONL", async () => {
-    const cli = join(import.meta.dir, "..", "cli.ts");
-    const proc = Bun.spawn([process.execPath, cli, "dev", "--watch", "--jsonl"], {
-      stderr: "pipe",
-      stdout: "pipe",
-    });
-    const [stdout, stderr, exitCode] = await Promise.all([
-      new Response(proc.stdout).text(),
-      new Response(proc.stderr).text(),
-      proc.exited,
+  test("enforces monotonic streams with exactly one terminal event", () => {
+    let output = "";
+    const stream = createCliEventStream("dev", { write: (chunk) => { output += String(chunk); return true; } });
+    stream.emit("started", {});
+    stream.emit("operation", { ok: true });
+    stream.emit("completed", { reason: "signal" });
+    expect(parseCliEventStream(output).map((event) => [event.sequence, event.event])).toEqual([
+      [1, "started"],
+      [2, "operation"],
+      [3, "completed"],
     ]);
-    expect(exitCode).toBe(2);
-    expect(stderr).toBe("");
-    expect(JSON.parse(stdout)).toMatchObject({
-      command: "dev",
-      data: { message: "skillset: --jsonl is not supported until a streaming route is enabled" },
-      event: "failed",
-      schemaVersion: "skillset.cli.event@1",
-    });
+    expect(() => stream.emit("operation", {})).toThrow(CliOutputError);
+    expect(() => parseCliEventStream(output.split("\n").slice(0, 2).join("\n"))).toThrow(
+      "ended without exactly one terminal event"
+    );
+  });
+
+  test("rejects unsupported finite and streaming machine routes", async () => {
+    const cli = join(import.meta.dir, "..", "cli.ts");
+    const cases = [
+      ["hooks", "print", "--json"],
+      ["hooks", "run", "post-tool-use", "--jsonl"],
+      ["check", "--jsonl"],
+    ];
+    for (const args of cases) {
+      const proc = Bun.spawn([process.execPath, cli, ...args], { stderr: "pipe", stdout: "pipe" });
+      const [stdout, stderr, exitCode] = await Promise.all([
+        new Response(proc.stdout).text(),
+        new Response(proc.stderr).text(),
+        proc.exited,
+      ]);
+      expect(exitCode).toBe(2);
+      expect(stderr).toBe("");
+      expect(stdout).toContain("skillset.cli.");
+    }
   });
 });

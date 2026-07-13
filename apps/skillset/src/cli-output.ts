@@ -117,6 +117,50 @@ export function renderCliEvent(event: SkillsetCliEvent): string {
   return `${JSON.stringify(event)}\n`;
 }
 
+const TERMINAL_CLI_EVENTS = new Set(["completed", "failed"]);
+
+export function createCliEventStream(
+  command: string,
+  output: Pick<NodeJS.WritableStream, "write">
+): { readonly emit: (event: string, data: SchemaJsonRecord) => SkillsetCliEvent } {
+  let sequence = 0;
+  let terminal = false;
+  return {
+    emit(event, data) {
+      if (terminal) throw new CliOutputError("skillset: cannot emit an event after a terminal CLI event", 4);
+      const value = createCliEvent({ command, data, event, sequence: sequence + 1 });
+      sequence = value.sequence;
+      terminal = TERMINAL_CLI_EVENTS.has(event);
+      output.write(renderCliEvent(value));
+      return value;
+    },
+  };
+}
+
+export function parseCliEventStream(input: string): readonly SkillsetCliEvent[] {
+  const lines = input.split("\n").filter((line) => line.length > 0);
+  const events = lines.map((line, index) => {
+    let value: unknown;
+    try {
+      value = JSON.parse(line);
+    } catch {
+      throw new CliOutputError(`skillset: invalid JSONL event at line ${index + 1}`, 4);
+    }
+    assertValid(validateCliEvent(value));
+    return value as SkillsetCliEvent;
+  });
+  for (let index = 0; index < events.length; index += 1) {
+    if (events[index]?.sequence !== index + 1) {
+      throw new CliOutputError(`skillset: non-monotonic CLI event sequence at line ${index + 1}`, 4);
+    }
+  }
+  const terminals = events.filter((event) => TERMINAL_CLI_EVENTS.has(event.event));
+  if (terminals.length !== 1 || !TERMINAL_CLI_EVENTS.has(events.at(-1)?.event ?? "")) {
+    throw new CliOutputError("skillset: CLI event stream ended without exactly one terminal event", 4);
+  }
+  return events;
+}
+
 function assertValid(validation: ReturnType<typeof validateCliResult>): void {
   if (validation.ok) return;
   const detail = validation.diagnostics

@@ -23,6 +23,8 @@ import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { renderValidatedJson } from "@skillset/core/internal/structured-output";
 import type { BuildGraph, JsonRecord, SkillsetOptions, TargetName } from "@skillset/core/internal/types";
 
+import { createCliEvent, renderCliEvent } from "./cli-output";
+
 export type TrySubcommand = "list" | "status" | "tail" | "worker";
 export type TryState = "building" | "failed" | "passed" | "queued" | "running";
 export type TryClaudeSettingSources = "isolated" | "local" | "project" | "user";
@@ -39,6 +41,8 @@ export interface TryRunOptions extends SkillsetOptions {
   readonly target: TargetName;
   readonly timeoutMs?: number;
 }
+
+const eventAppendQueues = new Map<string, Promise<void>>();
 
 export interface TryStatus {
   readonly command?: readonly string[];
@@ -713,12 +717,34 @@ async function writeLatest(paths: TryRunPaths, runId: string): Promise<void> {
 }
 
 async function appendEvent(paths: TryRunPaths, stream: string, message: string): Promise<void> {
-  const event = {
-    message,
-    stream,
-    timestamp: new Date().toISOString(),
-  };
-  await appendFile(paths.absolute.outputPath, `${JSON.stringify(event)}\n`, "utf8");
+  const path = paths.absolute.outputPath;
+  const previous = eventAppendQueues.get(path) ?? Promise.resolve();
+  const queued = previous.catch(() => undefined).then(async () => {
+    const data = {
+      message,
+      stream,
+      timestamp: new Date().toISOString(),
+    };
+    const existing = await readOptional(path) ?? "";
+    const sequence = existing.split("\n").filter((line) => line.length > 0).length + 1;
+    const event = message === "try passed"
+      ? "completed"
+      : message.startsWith("try failed")
+        ? "failed"
+        : stream;
+    await appendFile(path, renderCliEvent(createCliEvent({
+      command: "test",
+      data,
+      event,
+      sequence,
+    })), "utf8");
+  });
+  eventAppendQueues.set(path, queued);
+  try {
+    await queued;
+  } finally {
+    if (eventAppendQueues.get(path) === queued) eventAppendQueues.delete(path);
+  }
 }
 
 async function readLatestRunId(
@@ -780,10 +806,11 @@ async function pathExists(path: string): Promise<boolean> {
 function parseTailLine(line: string): TryTailLine {
   const parsed = JSON.parse(line) as unknown;
   if (!isRecord(parsed)) return { message: line, stream: "raw", timestamp: "" };
+  const data = isRecord(parsed.data) ? parsed.data : parsed;
   return {
-    message: typeof parsed.message === "string" ? parsed.message : "",
-    stream: typeof parsed.stream === "string" ? parsed.stream : "raw",
-    timestamp: typeof parsed.timestamp === "string" ? parsed.timestamp : "",
+    message: typeof data.message === "string" ? data.message : "",
+    stream: typeof data.stream === "string" ? data.stream : "raw",
+    timestamp: typeof data.timestamp === "string" ? data.timestamp : "",
   };
 }
 

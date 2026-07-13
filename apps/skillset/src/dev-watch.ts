@@ -11,6 +11,9 @@ import {
 import { lintSkillset } from "@skillset/core";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
+import type { SchemaJsonRecord } from "@skillset/schema";
+
+import { createCliEventStream } from "./cli-output";
 
 export interface DevWatchPlan {
   readonly configPaths: readonly string[];
@@ -55,6 +58,25 @@ export interface DevWatchDebouncer {
 export interface DevWatchScheduler {
   readonly clearTimeout: (handle: unknown) => void;
   readonly setTimeout: (callback: () => void, delayMs: number) => unknown;
+}
+
+export function createDevWatchJsonlStream(output: Pick<NodeJS.WritableStream, "write">) {
+  const stream = createCliEventStream("dev", output);
+  return {
+    started(plan: DevWatchPlan, mode: DevWatchMode) {
+      return stream.emit("started", {
+        mode,
+        sourceRoot: plan.sourceRoot,
+        watchRoots: [...plan.watchRoots],
+      } as unknown as SchemaJsonRecord);
+    },
+    operation(report: DevWatchPreviewReport) {
+      return stream.emit("operation", report as unknown as SchemaJsonRecord);
+    },
+    completed(reason = "signal") {
+      return stream.emit("completed", { reason });
+    },
+  };
 }
 
 const DEFAULT_DEBOUNCE_MS = 200;
@@ -268,15 +290,23 @@ export async function runDevWatch(
   rootPath: string,
   options: SkillsetOptions = {},
   output: NodeJS.WritableStream = process.stdout,
-  mode: DevWatchMode = "preview"
+  mode: DevWatchMode = "preview",
+  machineMode?: "jsonl"
 ): Promise<void> {
   const plan = await createDevWatchPlan(rootPath, options);
-  output.write(renderDevWatchStart(plan, mode));
-  output.write(renderDevWatchPreview(await runDevWatchOnce(rootPath, options, mode)));
+  const stream = machineMode === "jsonl" ? createDevWatchJsonlStream(output) : undefined;
+  if (stream === undefined) output.write(renderDevWatchStart(plan, mode));
+  else stream.started(plan, mode);
+  const writeOperation = async (reason = "initial") => {
+    const report = await runDevWatchOnce(rootPath, options, mode, reason);
+    if (stream === undefined) output.write(renderDevWatchPreview(report));
+    else stream.operation(report);
+  };
+  await writeOperation();
 
   const watchers: FSWatcher[] = [];
   const debouncer = createDevWatchDebouncer(async (reason) => {
-    output.write(renderDevWatchPreview(await runDevWatchOnce(rootPath, options, mode, reason)));
+    await writeOperation(reason);
   });
 
   for (const watchRoot of await collectDevWatchDirectories(plan)) {
@@ -296,7 +326,8 @@ export async function runDevWatch(
       for (const watcher of watchers) watcher.close();
       process.off("SIGINT", stop);
       process.off("SIGTERM", stop);
-      output.write("skillset: dev watch stopped\n");
+      if (stream === undefined) output.write("skillset: dev watch stopped\n");
+      else stream.completed();
       resolvePromise();
     };
     process.once("SIGINT", stop);
