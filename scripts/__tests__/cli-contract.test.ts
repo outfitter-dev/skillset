@@ -91,21 +91,15 @@ describe("SET-275 final CLI contract", () => {
     }
   });
 
-  test("classifies every top-level command for structured output", () => {
-    const classifiedRoutes = [
+  test("classifies every final route for structured output", () => {
+    const classifiedRoutes = new Set([
       ...FINITE_JSON_ROUTES,
       ...JSONL_ROUTES,
       ...STRUCTURED_OUTPUT_EXCEPTIONS.map(
         (entry) => entry.split(":", 1)[0] ?? ""
       ),
-    ];
-    for (const command of CLI_COMMANDS) {
-      expect(
-        classifiedRoutes.some(
-          (route) => route === command || route.startsWith(`${command} `)
-        )
-      ).toBe(true);
-    }
+    ]);
+    expect([...classifiedRoutes].sort()).toEqual(Object.keys(CLI_ROUTE_FLAGS).sort());
     expect(CLI_FLAGS["--json"].meaning).toContain("exactly one");
     expect(CLI_FLAGS["--jsonl"].meaning).toContain("newline-delimited");
     expect(JSONL_ROUTES).toEqual(["dev"]);
