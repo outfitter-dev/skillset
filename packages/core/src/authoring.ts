@@ -574,6 +574,7 @@ function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuildGraph>>
           outputPath: joinOutputRoot(outputRoot, outputPath),
           ...(dependencies === undefined ? {} : { dependencies }),
           ...(typeof rawItem.feature === "string" ? { feature: rawItem.feature } : {}),
+          ...(files.length === 0 ? {} : { files: files.map((file) => joinOutputRoot(outputRoot, file)) }),
           ...(typeof rawItem.kind === "string" ? { kind: rawItem.kind } : {}),
           ...(typeof rawItem.origin === "string" ? { origin: rawItem.origin } : {}),
           ...(typeof rawItem.outputHash === "string" ? { outputHash: rawItem.outputHash } : {}),

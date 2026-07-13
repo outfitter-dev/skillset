@@ -304,6 +304,7 @@ export interface SourceOrigin {
 export interface GeneratedEntry {
   readonly dependencies?: readonly string[];
   readonly feature?: string;
+  readonly files?: readonly string[];
   readonly origin?: string;
   readonly kind?: string;
   readonly outputHash?: string;
