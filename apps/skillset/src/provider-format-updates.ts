@@ -285,14 +285,17 @@ async function inspectManagedOutputState(
     expectedEntries.map((entry) => [normalizePath(entry.outputPath), entry.version])
   );
   const missingSet = new Set(missingPaths.map(normalizePath));
+  const expectedRenderInputsHashes = new Map(
+    expectedEntries.map((entry) => [normalizePath(entry.outputPath), entry.renderInputsHash])
+  );
   const sourceDriftPaths = [...removedPaths];
   for (const entry of expectedEntries) {
     const outputPath = normalizePath(entry.outputPath);
     const lockItem = await findLockItemForOutputPath(rootPath, outputPath);
     if (
-      lockItem?.sourceHash !== undefined &&
-      (entry.sourceHash !== lockItem.sourceHash ||
-        (lockItem.version !== undefined && entry.version !== lockItem.version))
+      (lockItem?.sourceHash !== undefined && entry.sourceHash !== lockItem.sourceHash) ||
+      (lockItem?.renderInputsHash !== undefined && entry.renderInputsHash !== lockItem.renderInputsHash) ||
+      (lockItem?.version !== undefined && entry.version !== lockItem.version)
     ) {
       if (!missingSet.has(outputPath)) sourceDriftPaths.push(outputPath);
     }
@@ -304,9 +307,13 @@ async function inspectManagedOutputState(
     const currentHash = await currentOutputHash(rootPath, lockItem);
     const expectedSourceHash = expectedSourceHashes.get(normalizePath(outputPath));
     const expectedVersion = expectedVersions.get(normalizePath(outputPath));
+    const expectedRenderInputsHash = expectedRenderInputsHashes.get(normalizePath(outputPath));
+    const renderInputsUnchanged = lockItem.renderInputsHash === undefined ||
+      expectedRenderInputsHash === lockItem.renderInputsHash;
     if (
       currentHash === lockItem.outputHash &&
       expectedSourceHash === lockItem.sourceHash &&
+      renderInputsUnchanged &&
       (lockItem.version === undefined || expectedVersion === lockItem.version)
     ) {
       unchanged.add(outputPath);
@@ -334,6 +341,7 @@ async function findLockItemForOutputPath(
           file,
         })),
         ...(item.outputHash === undefined ? {} : { outputHash: item.outputHash }),
+        ...(item.renderInputsHash === undefined ? {} : { renderInputsHash: item.renderInputsHash }),
         ...(item.sourceHash === undefined ? {} : { sourceHash: item.sourceHash }),
         ...(item.version === undefined ? {} : { version: item.version }),
       };
@@ -358,11 +366,13 @@ async function readLock(rootPath: string, lockPath: string): Promise<ParsedLock 
     const files = item.files.filter((file): file is string => typeof file === "string" && file.length > 0);
     if (files.length === 0) continue;
     const outputHash = typeof item.outputHash === "string" ? item.outputHash : undefined;
+    const renderInputsHash = typeof item.renderInputsHash === "string" ? item.renderInputsHash : undefined;
     const sourceHash = typeof item.sourceHash === "string" ? item.sourceHash : undefined;
     const version = typeof item.version === "string" ? item.version : undefined;
     items.push({
       files,
       ...(outputHash === undefined ? {} : { outputHash }),
+      ...(renderInputsHash === undefined ? {} : { renderInputsHash }),
       ...(sourceHash === undefined ? {} : { sourceHash }),
       ...(version === undefined ? {} : { version }),
     });
@@ -475,6 +485,7 @@ interface ParsedLock {
 interface ParsedLockItem {
   readonly files: readonly string[];
   readonly outputHash?: string;
+  readonly renderInputsHash?: string;
   readonly sourceHash?: string;
   readonly version?: string;
 }
@@ -482,6 +493,7 @@ interface ParsedLockItem {
 interface LockItemState {
   readonly files: readonly LockFileEntry[];
   readonly outputHash?: string;
+  readonly renderInputsHash?: string;
   readonly sourceHash?: string;
   readonly version?: string;
 }

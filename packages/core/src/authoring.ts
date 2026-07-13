@@ -578,6 +578,7 @@ function collectLockItems(rendered: Awaited<ReturnType<typeof renderBuildGraph>>
           ...(typeof rawItem.origin === "string" ? { origin: rawItem.origin } : {}),
           ...(typeof rawItem.outputHash === "string" ? { outputHash: rawItem.outputHash } : {}),
           ...(preprocessDependencies === undefined ? {} : { preprocessDependencies }),
+          ...(typeof rawItem.renderInputsHash === "string" ? { renderInputsHash: rawItem.renderInputsHash } : {}),
           ...(typeof rawItem.sourceHash === "string" ? { sourceHash: rawItem.sourceHash } : {}),
           ...(sourceOrigin === undefined ? {} : { sourceOrigin }),
           ...(typeof rawItem.sourcePointer === "string" ? { sourcePointer: rawItem.sourcePointer } : {}),

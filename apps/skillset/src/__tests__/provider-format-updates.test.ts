@@ -586,6 +586,40 @@ test("SET-279: root owner drift blocks an overlapping Codex manifest migration",
   expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
 });
 
+test("SET-279: root version drift blocks an overlapping Codex manifest migration", async () => {
+  const root = await builtFixture({
+    ...pluginFixture(),
+    "skillset.yaml": "skillset:\n  name: provider-update-root\n  version: 1.0.0\nclaude: false\ncodex: true\n",
+  });
+  const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
+  const rootConfigPath = join(root, "skillset.yaml");
+  await writeFile(manifestPath, `${await readFile(manifestPath, "utf8")}\n// stale provider format\n`, "utf8");
+  await markCurrentPluginManifestAsManaged(root);
+  await writeFile(
+    rootConfigPath,
+    (await readFile(rootConfigPath, "utf8")).replace("version: 1.0.0", "version: 2.0.0"),
+    "utf8"
+  );
+
+  const blocked = await runSkillsetCli("update", "--yes", "--root", root);
+
+  expect(blocked.exitCode).toBe(1);
+  expect(blocked.stdout).toContain("Source changed since the previous skillset.lock hash");
+});
+
+test("SET-279: legacy plugin source hashes remain eligible for safe migration", async () => {
+  const root = await builtFixture(pluginFixture());
+  const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
+  await writeFile(manifestPath, `${await readFile(manifestPath, "utf8")}\n// stale provider format\n`, "utf8");
+  await markCurrentPluginManifestAsManaged(root);
+  await removePluginRenderInputsHash(root);
+
+  const updated = await runSkillsetCli("update", "--yes", "--root", root);
+
+  expect(updated.exitCode).toBe(0);
+  expect(await readFile(manifestPath, "utf8")).not.toContain("stale provider format");
+});
+
 test("SET-279: unrelated source-hash drift blocks provider updates", async () => {
   const root = await builtFixture(pluginFixture());
   const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
@@ -702,6 +736,15 @@ async function builtFixture(files: Record<string, string>): Promise<string> {
 
 async function markCurrentPluginManifestAsManaged(root: string): Promise<void> {
   await markCurrentGeneratedPathAsManaged(root, CODEX_PLUGIN_MANIFEST.replace("plugins/", ""));
+}
+
+async function removePluginRenderInputsHash(root: string): Promise<void> {
+  const lockPath = join(root, "plugins/skillset.lock");
+  const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+    readonly items: Array<{ renderInputsHash?: string }>;
+  };
+  for (const item of lock.items) delete item.renderInputsHash;
+  await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
 }
 
 async function markCurrentGeneratedPathAsManaged(root: string, generatedPath: string): Promise<void> {

@@ -105,6 +105,7 @@ interface LockItem {
   readonly outputPath: string;
   readonly plugin?: string;
   readonly preprocessDependencies?: readonly string[];
+  readonly renderInputsHash?: string;
   readonly skippedSkills?: readonly string[];
   readonly sourceHash: string;
   readonly sourceOrigin?: SourceOrigin;
@@ -2875,6 +2876,7 @@ function lockItemForPlugin(args: {
     outputHash: hashRenderedFiles(args.outputRoot, args.files),
     outputPath: files.find((file) => file.endsWith("/plugin.json")) ?? files[0] ?? "",
     skippedSkills,
+    renderInputsHash: hashPluginRenderInputs(args.graph, args.plugin),
     sourceHash: hashPluginSource(
       args.graph,
       args.plugin,
@@ -3167,6 +3169,7 @@ function stripUndefinedLockItem(item: LockItem): JsonRecord {
     outputPath: item.outputPath,
     plugin: item.plugin,
     preprocessDependencies: item.preprocessDependencies === undefined ? undefined : [...item.preprocessDependencies],
+    renderInputsHash: item.renderInputsHash,
     skippedSkills: item.skippedSkills === undefined ? undefined : [...item.skippedSkills],
     sourceHash: item.sourceHash,
     sourceOrigin: item.sourceOrigin === undefined ? undefined : sourceOriginRecord(item.sourceOrigin),
@@ -3207,8 +3210,6 @@ function hashPluginSource(
   hash.update(target);
   hash.update("\0");
   hash.update(stringifyJson(plugin.metadata));
-  hash.update("\0");
-  hash.update(stringifyJson(readRecord(graph.root.metadata, "owner") ?? {}));
   hash.update("\0");
   hash.update(stringifyJson(plugin.targets[target].options));
   hash.update("\0plugin-surfaces\0");
@@ -3267,6 +3268,15 @@ function hashPluginSource(
     hash.update("\0dependencies\0");
     hash.update(dependencies.join("\n"));
   }
+  return `sha256:${hash.digest("hex")}`;
+}
+
+function hashPluginRenderInputs(graph: BuildGraph, plugin: SourcePlugin): string {
+  const hash = createHash("sha256");
+  hash.update("skillset-plugin-render-inputs-v1\0");
+  hash.update(stringifyJson(readRecord(graph.root.metadata, "owner") ?? {}));
+  hash.update("\0");
+  hash.update(pluginVersion(graph, plugin));
   return `sha256:${hash.digest("hex")}`;
 }
 
