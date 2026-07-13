@@ -159,6 +159,10 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
       const providerReport = await runProviderFormatUpdates(rootPath, "check", buildOptions);
       const sourceDriftPaths = new Set(providerReport.sourceDriftPaths);
       providerSourceDriftPaths = sourceDriftPaths;
+      const manualReviewPaths = new Set(
+        providerReport.manualReviews.flatMap((action) => action.affectedPaths)
+      );
+      const absentOutputPaths = new Set([...drift.added, ...drift.missing]);
       providerUpdatePaths = [...new Set(
         [
           ...[...providerReport.safeUpdates, ...providerReport.manualReviews]
@@ -166,8 +170,9 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
           ...providerReport.unplannedDriftPaths,
         ]
           .filter((path) =>
-            !sourceDriftPaths.has(path) &&
-            !(sourceDriftPaths.size > 0 && (path === "skillset.lock" || path.endsWith("/skillset.lock")))
+            (manualReviewPaths.has(path) && !absentOutputPaths.has(path)) ||
+            (!sourceDriftPaths.has(path) &&
+              !(sourceDriftPaths.size > 0 && (path === "skillset.lock" || path.endsWith("/skillset.lock"))))
           )
       )].sort();
     } catch {

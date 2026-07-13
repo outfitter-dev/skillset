@@ -51,7 +51,7 @@ test("SET-278: check write modes leave provider-format updates to update", async
   expect(await readFile(manifestPath, "utf8")).not.toBe(original);
 });
 
-test("SET-278: check writes provider-backed drift caused by source changes", async () => {
+test("SET-278: check does not fold reviewed provider drift into source writes", async () => {
   const root = await builtFixture(pluginFixture());
   const sourcePath = join(root, ".skillset/plugins/alpha/skillset.yaml");
   const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
@@ -63,9 +63,9 @@ test("SET-278: check writes provider-backed drift caused by source changes", asy
 
   const checked = await runSkillsetCli("check", "--write", "--root", root);
 
-  expect(checked.exitCode).toBe(0);
-  expect(checked.stdout).not.toContain("provider-format update");
-  expect(await readFile(manifestPath, "utf8")).toContain("Updated plugin.");
+  expect(checked.exitCode).toBe(1);
+  expect(checked.stdout).toContain(`provider-format update ${CODEX_PLUGIN_MANIFEST}`);
+  expect(await readFile(manifestPath, "utf8")).not.toContain("Updated plugin.");
 });
 
 test("SET-278: update ignores ordinary source-driven drift", async () => {
@@ -561,6 +561,11 @@ test("SET-279: source drift overlapping a provider migration blocks update", asy
   expect(blocked.stdout).toContain("Source changed since the previous skillset.lock hash");
   expect(blocked.stdout).not.toContain("Current generated output differs from its previous skillset.lock hash");
   expect(blocked.stdout.split(CODEX_PLUGIN_MANIFEST)).toHaveLength(2);
+  expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
+
+  const checked = await ciSkillset(root, { fix: true });
+  expect(checked.fixedPaths).toEqual([]);
+  expect(checked.providerUpdatePaths).toContain(CODEX_PLUGIN_MANIFEST);
   expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
 });
 
