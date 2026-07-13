@@ -4894,6 +4894,10 @@ test("SET-282: reconcile refuses to overwrite unrelated generated drift", async 
   await writeFile(join(root, alphaPath), "---\nname: alpha\n---\n\nAlpha output edit.\n", "utf8");
   await writeFile(join(root, betaPath), "---\nname: beta\n---\n\nBeta output edit.\n", "utf8");
 
+  const preview = await runSkillsetCli("reconcile", alphaPath, "--root", root);
+  expect(preview.exitCode).toBe(1);
+  expect(preview.stderr).toContain(betaPath);
+
   const result = await runSkillsetCli(
     "reconcile",
     alphaPath,

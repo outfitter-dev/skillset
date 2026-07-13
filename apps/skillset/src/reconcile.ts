@@ -41,14 +41,12 @@ export async function reconcileManagedPath(
     entry.outputPath !== explanation.path &&
     entry.files?.includes(explanation.path) === true
   );
-  if (write) {
-    await assertReconcileDriftIsScoped(
-      rootPath,
-      explanation.path,
-      sourcePaths,
-      skillsetOptions
-    );
-  }
+  await assertReconcileDriftIsScoped(
+    rootPath,
+    explanation.path,
+    sourcePaths,
+    skillsetOptions
+  );
   const outputResolution = choice === "source"
     ? {
         entries: explanation.entries,
