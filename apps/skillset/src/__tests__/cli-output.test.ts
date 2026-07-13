@@ -5,6 +5,7 @@ import {
   CliOutputError,
   createCliEvent,
   createCliResult,
+  readCliCommand,
   readCliMachineMode,
   renderCliEvent,
   renderCliResult,
@@ -12,6 +13,15 @@ import {
 import { CLI_COMMANDS, CLI_LEAF_SUBCOMMANDS } from "../cli-commands";
 
 describe("SET-286 CLI output kernel", () => {
+  test("keeps structured command identity aligned with the parser roster", () => {
+    for (const command of CLI_COMMANDS) {
+      expect(readCliCommand([command, "--bad", "--json"])).toBe(command);
+      for (const subcommand of CLI_LEAF_SUBCOMMANDS[command] ?? []) {
+        expect(readCliCommand([command, subcommand, "--json"])).toBe(`${command} ${subcommand}`);
+      }
+    }
+    expect(readCliCommand(["not-a-command", "--json"])).toBe("cli");
+  });
   test("pre-scans mutually exclusive machine modes", () => {
     expect(readCliMachineMode(["check", "--json"])).toBe("json");
     expect(readCliMachineMode(["dev", "--jsonl"])).toBe("jsonl");

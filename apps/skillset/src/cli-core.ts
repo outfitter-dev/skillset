@@ -54,6 +54,7 @@ import {
 import { ciSkillset, hasDrift, renderCiReportMarkdown, type CiReport } from "./ci";
 import { printDiagnostics, printDiffPlan, printGeneratedChangelogDriftHint, printGeneratedChangelogPathHint } from "./cli-renderers";
 import { CliOutputError, readCliCommand } from "./cli-output";
+import { isCliCommand, renderExpectedCliCommands, type CliCommand } from "./cli-commands";
 import { runDevWatch } from "./dev-watch";
 import {
   dispatchHookRun,
@@ -115,7 +116,7 @@ import { renderValidatedJson } from "@skillset/core/internal/structured-output";
 import { runSkillsetTest, type SkillsetTestReport } from "./test-runner";
 import type { BuildScope, CompileBuildMode, JsonRecord, SkillsetOptions, SourceOrigin, TargetName } from "@skillset/core/internal/types";
 
-type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "dev" | "diff" | "distribute" | "doctor" | "explain" | "features" | "hooks" | "import" | "init" | "lint" | "list" | "lookup" | "marketplace" | "new" | "providers" | "release" | "restore" | "try" | "suggest-source" | "test" | "update" | "verify";
+type Command = CliCommand;
 type DistributionSubcommand = "plan";
 type MarketplaceSubcommand = "check" | "update";
 
@@ -1542,38 +1543,9 @@ function printRenderResult(outcome: {
 
 function parseArgs(args: readonly string[]): ParsedArgs {
   const command = args[0];
-  if (
-    command !== "adopt" &&
-    command !== "build" &&
-    command !== "change" &&
-    command !== "check" &&
-    command !== "ci" &&
-    command !== "create" &&
-    command !== "dev" &&
-    command !== "diff" &&
-    command !== "distribute" &&
-    command !== "doctor" &&
-    command !== "explain" &&
-    command !== "features" &&
-    command !== "hooks" &&
-    command !== "import" &&
-    command !== "init" &&
-    command !== "lint" &&
-    command !== "list" &&
-    command !== "lookup" &&
-    command !== "marketplace" &&
-    command !== "new" &&
-    command !== "providers" &&
-    command !== "release" &&
-    command !== "restore" &&
-    command !== "try" &&
-    command !== "suggest-source" &&
-    command !== "test" &&
-    command !== "update" &&
-    command !== "verify"
-  ) {
+  if (!isCliCommand(command)) {
     throw new Error(
-        "skillset: expected command adopt, build, change, check, ci, create, dev, diff, distribute, doctor, explain, features, hooks, import, init, lint, list, lookup, marketplace, new, providers, release, restore, try, suggest-source, test, update, or verify\n" +
+        `skillset: expected command ${renderExpectedCliCommands()}\n` +
         USAGE
     );
   }
