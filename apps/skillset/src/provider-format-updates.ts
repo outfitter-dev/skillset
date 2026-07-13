@@ -289,6 +289,12 @@ async function inspectManagedOutputState(
     expectedEntries.map((entry) => [normalizePath(entry.outputPath), entry.renderInputsHash])
   );
   const sourceDriftPaths = [...removedPaths];
+  for (const outputPath of driftPaths) {
+    if (outputPath === "skillset.lock" || outputPath.endsWith("/skillset.lock")) continue;
+    if (await findLockItemForOutputPath(rootPath, outputPath) === undefined) {
+      sourceDriftPaths.push(outputPath);
+    }
+  }
   for (const entry of expectedEntries) {
     const outputPath = normalizePath(entry.outputPath);
     const lockItem = await findLockItemForOutputPath(rootPath, outputPath);
