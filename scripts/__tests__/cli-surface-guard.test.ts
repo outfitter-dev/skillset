@@ -10,11 +10,12 @@ test("SET-285: CLI surface guard rejects retired commands, flags, and environmen
     "Inspect doctor/explain output.",
     "Use skillset dev --watch --apply.",
     "const retiredTarget = \"--codex\";",
+    "flags: --claude --codex --cursor --json",
     "Set SKILLSET_TRY_CODEX_BIN for tests.",
     "throw new Error(`skillset: unknown try plugin ${pluginId}`);",
     "const label = \"try status\";",
   ].join("\n");
-  expect(scanCliSurface("README.md", content)).toHaveLength(9);
+  expect(scanCliSurface("README.md", content)).toHaveLength(10);
   expect(scanCliSurface("README.md", "Run skillset check --only outputs and skillset dev --write.")).toEqual([]);
 });
 

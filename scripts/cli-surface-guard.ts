@@ -15,7 +15,7 @@ const RETIRED_SURFACE = [
   /\b(?:doctor\/explain|explain\/doctor)\b/u,
   /\bSKILLSET_TRY_[A-Z_]+\b/u,
   /\bskillset\b[^\n]{0,100}(?:^|[\s`[])--(?:apply|dist|dry-run|global|layout|source|watch)\b/u,
-  /["'`]--(?:claude|codex|cursor)["'`]/u,
+  /--(?:claude|codex|cursor)(?![-\w])/u,
   /["'`]skillset: [^"'`\n]*\btry\b/u,
   /["'`]try (?:command|config|failed|latest|passed|plugin|run|status|tail|list)\b/u,
 ] as const;
