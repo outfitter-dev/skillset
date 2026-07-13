@@ -99,6 +99,7 @@ export interface TransformPreview {
 export interface AdoptReport {
   readonly acquisition: AdoptAcquisition;
   readonly alreadyAdopted: boolean;
+  readonly baselinePath?: string;
   readonly baselines: readonly ReleaseBaselineEntry[];
   readonly buildError?: string;
   readonly builtFiles: number;
@@ -361,6 +362,7 @@ async function adoptResolvedRoot(
   const report: AdoptReport = {
     acquisition,
     alreadyAdopted,
+    ...(init.baselinePath === undefined ? {} : { baselinePath: init.baselinePath }),
     baselines: init.baselines,
     ...(buildError === undefined ? {} : { buildError }),
     builtFiles,

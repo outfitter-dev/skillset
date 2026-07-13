@@ -80,6 +80,21 @@ describe("SET-287 finite read-only JSON", () => {
     expect(envelope.data.writes).toContain(".skillset/changes/state.json");
   });
 
+  test("init adoption JSON reports imported units and release state", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-adopt-writes-"));
+    await mkdir(path.join(root, ".agents", "skills", "one"), { recursive: true });
+    await writeFile(
+      path.join(root, ".agents", "skills", "one", "SKILL.md"),
+      "---\nname: one\ndescription: One.\n---\n\nBody.\n"
+    );
+
+    const adopted = await runJsonRoute("init", "--adopt", "all", "--yes", "--root", root);
+    const envelope = JSON.parse(adopted.stdout) as SkillsetCliResult & { data: { writes: string[] } };
+
+    expect(envelope.data.writes).toContain(".skillset/skills/one");
+    expect(envelope.data.writes).toContain(".skillset/changes/state.json");
+  });
+
   test("build apply emits a finite summary and every changed path", async () => {
     const parent = await mkdtemp(path.join(tmpdir(), "skillset-json-build-"));
     const root = path.join(parent, "workspace");

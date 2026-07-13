@@ -273,6 +273,7 @@ export async function runCli(
         writes: result.writes.paths,
       }, result.ok ? 0 : 1, "diagnostics", serializeDiagnostics(result.diagnostics));
       if (!result.ok) process.exitCode = 1;
+      else await rememberKnownSkillsetWorkspace(rootPath, options);
       return;
     }
     console.log("skillset: build projects source to generated output");
@@ -675,7 +676,18 @@ export async function runCli(
         write: writeMode,
       });
       const reason = writeMode ? report.write ? "written" : "blocked before write" : "write confirmation required";
-      if (jsonOutput) printCliJsonData("init.adopt", { report, state: report.write ? "written" : "planned", writes: report.write ? [...report.setupFiles.filter((file) => file.status === "create").map((file) => file.path), ...report.imports.flatMap((entry) => entry.destination === undefined ? [] : [entry.destination])] : [] }, report.ok ? 0 : 1);
+      if (jsonOutput) printCliJsonData("init.adopt", {
+        report,
+        state: report.write ? "written" : "planned",
+        writes: report.write ? [...new Set([
+          ...report.setupFiles.filter((file) => file.status === "create").map((file) => file.path),
+          ...report.imports.flatMap((entry) => [
+            ...(entry.destination === undefined ? [] : [entry.destination]),
+            ...entry.units.map((unit) => `.skillset/${unit.kind === "skill" ? "skills" : "plugins"}/${unit.name}`),
+          ]),
+          ...(report.baselinePath === undefined ? [] : [report.baselinePath]),
+        ])] : [],
+      }, report.ok ? 0 : 1);
       else {
         printAdoptReport(report, reason);
         if (!writeMode && report.ok && initAdopt !== undefined) console.log("skillset: rerun init with --adopt and --yes to write adopted source");
