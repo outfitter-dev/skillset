@@ -4908,8 +4908,12 @@ test("SET-282: reconcile applies source-wins with output backup safety", async (
   expect(structured.stderr).toBe("");
   expect(JSON.parse(structured.stdout)).toMatchObject({
     command: "reconcile",
-    data: { generatedPath, sourceResolutionAvailable: true },
-    kind: "plan",
+    data: {
+      report: { generatedPath, sourceResolutionAvailable: true },
+      state: "planned",
+      writes: [],
+    },
+    kind: "data",
     ok: true,
   });
 });
