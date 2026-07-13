@@ -70,6 +70,25 @@ describe("SET-287 finite read-only JSON", () => {
     expect(envelope.data.writes).toEqual(envelope.data.report.writes.paths);
   });
 
+  test("build JSON normalizes output-safety diagnostics", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-build-diagnostics-"));
+    await mkdir(path.join(root, ".skillset", "rules"), { recursive: true });
+    await writeFile(
+      path.join(root, "skillset.yaml"),
+      "skillset:\n  name: build-diagnostics-json\nclaude: false\ncodex: true\n"
+    );
+    await writeFile(path.join(root, ".skillset", "rules", "guide.md"), "# Managed guidance\n");
+    await writeFile(path.join(root, "AGENTS.md"), "# Unmanaged guidance\n");
+
+    const result = await runJsonRoute("build", "--root", root, "--yes");
+    expect(result.stderr).toBe("");
+    const envelope = JSON.parse(result.stdout) as SkillsetCliResult;
+    expect(validateCliResult(envelope)).toEqual({ diagnostics: [], ok: true });
+    expect(envelope.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: "AGENTS.md", severity: "warning" }),
+    ]));
+  });
+
   test("change migrate does not report a ledger write for a no-op", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "skillset-json-migrate-"));
     await mkdir(path.join(root, ".skillset"), { recursive: true });

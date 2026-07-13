@@ -247,7 +247,7 @@ export async function runCli(
     if (dryRun || !yes) {
       const result = await diffSkillsetResult(rootPath, options);
       if (jsonOutput) {
-        printCliJsonData("build.plan", { changes: result.data, state: "planned", writes: [] }, result.ok ? 0 : 1, "diagnostics", result.diagnostics);
+        printCliJsonData("build.plan", { changes: result.data, state: "planned", writes: [] }, result.ok ? 0 : 1, "diagnostics", serializeDiagnostics(result.diagnostics));
         if (!result.ok) process.exitCode = 1;
         return;
       }
@@ -271,7 +271,7 @@ export async function runCli(
         },
         state: "written",
         writes: result.writes.paths,
-      }, result.ok ? 0 : 1, "diagnostics", result.diagnostics);
+      }, result.ok ? 0 : 1, "diagnostics", serializeDiagnostics(result.diagnostics));
       if (!result.ok) process.exitCode = 1;
       return;
     }
