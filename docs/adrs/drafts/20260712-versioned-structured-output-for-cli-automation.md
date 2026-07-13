@@ -65,7 +65,7 @@ Required fields have one meaning:
 | Field | Contract |
 | --- | --- |
 | `schemaVersion` | Exact envelope vocabulary version. Major changes require a new value and schema path. |
-| `command` | Canonical final leaf identity such as `check`, `test.tail`, or `marketplace.update`; never a retired alias. |
+| `command` | Canonical final leaf identity such as `check`, `test.tail`, or `marketplace.update`; `cli` when failure occurs before a route can be resolved; never a retired alias. |
 | `ok` | Whether the requested operation satisfied its contract. |
 | `exitCode` | The process exit code, repeated so retained results are self-describing. |
 | `kind` | One of `data`, `diagnostics`, `plan`, or `mutation`. |
@@ -78,7 +78,7 @@ Optional metadata may include duration, selected target, or a portable report id
 
 ### Command data is namespaced and versioned with the envelope
 
-The envelope is shared; `data` remains command-owned. Each supported leaf command has a JSON Schema that composes the envelope and fixes its `command`, `kind`, data shape, diagnostic codes, and change records.
+The envelope is shared; `data` remains command-owned. Each supported leaf command has a JSON Schema that composes the envelope and fixes its `command`, `kind`, data shape, diagnostic codes, and change records. Pre-route failures use the reserved `cli` command identity and the shared usage-diagnostic envelope because no canonical leaf exists yet.
 
 The schema source belongs in `@skillset/schema`. Generated JSON Schema artifacts live under the existing versioned schema reference. TypeScript result types derive from or stay mechanically checked against that source; command renderers do not maintain parallel field lists.
 
