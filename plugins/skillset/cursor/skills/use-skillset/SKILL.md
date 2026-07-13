@@ -169,7 +169,7 @@ Workbench package diagnostics provide stable scopes, severities, rule ids, and `
 
 Generated plugin bundles default to `plugins/<plugin-name>/<target>/` with shared provenance under `plugins/skillset.lock`. Explicit provider plugin paths such as `claude.plugins.path`, `codex.plugins.path`, or `cursor.plugins.path` remain self-contained provider roots. Standalone generated skills default to provider-native skill roots such as `.claude/skills`, `.agents/skills`, and `.cursor/skills`. Generated roots include `skillset.lock` files for deterministic provenance.
 
-Version fields must be semantic versions. Plugin `skillset.version` renders into generated plugin manifests. Skill top-level `version` renders into generated `metadata.version`; plugin-bound skills fall back to plugin version, and standalone skills fall back to root version. `skillset verify` reports version drift when a generated plugin manifest version or skill `metadata.version` is stale. Plugin lock entries include included and skipped skill versions so target-specific skips are visible without changing unrelated generated skill files.
+Version fields must be semantic versions. Plugin `skillset.version` renders into generated plugin manifests. Skill top-level `version` renders into generated `metadata.version`; plugin-bound skills fall back to plugin version, and standalone skills fall back to root version. `skillset check --only outputs` reports version drift when a generated plugin manifest version or skill `metadata.version` is stale. Plugin lock entries include included and skipped skill versions so target-specific skips are visible without changing unrelated generated skill files.
 
 ## Import Existing Source
 
