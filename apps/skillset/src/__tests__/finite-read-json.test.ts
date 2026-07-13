@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { validateCliResult, type SkillsetCliResult } from "@skillset/schema";
+import { buildSkillset } from "@skillset/core";
 
 const cli = path.join(import.meta.dir, "..", "cli.ts");
 const repoRoot = path.resolve(import.meta.dir, "../../../..");
@@ -167,10 +168,18 @@ describe("SET-287 finite read-only JSON", () => {
   });
 
   test("check JSON remains stderr-clean when the known-workspace index is unwritable", async () => {
-    const configHome = path.join(await mkdtemp(path.join(tmpdir(), "skillset-json-xdg-")), "not-a-directory");
-    await writeFile(configHome, "occupied\n");
+    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-check-clean-"));
+    await mkdir(path.join(root, ".skillset", "skills", "demo"), { recursive: true });
+    await writeFile(path.join(root, "skillset.yaml"), "skillset:\n  name: clean-json-check\n");
+    await writeFile(
+      path.join(root, ".skillset", "skills", "demo", "SKILL.md"),
+      "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n"
+    );
+    await buildSkillset(root);
+    const configHome = await mkdtemp(path.join(tmpdir(), "skillset-json-xdg-"));
+    await chmod(configHome, 0o555);
     const proc = Bun.spawn(
-      [process.execPath, cli, "check", "--root", fixtureRoot, "--json"],
+      [process.execPath, cli, "check", "--root", root, "--json"],
       {
         cwd: repoRoot,
         env: { ...process.env, NODE_ENV: "test", XDG_CONFIG_HOME: configHome },
@@ -183,6 +192,7 @@ describe("SET-287 finite read-only JSON", () => {
       new Response(proc.stderr).text(),
       proc.exited,
     ]);
+    await chmod(configHome, 0o755);
 
     expect(exitCode).toBe(0);
     expect(stderr).toBe("");
