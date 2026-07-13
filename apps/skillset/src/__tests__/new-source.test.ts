@@ -67,7 +67,7 @@ test("SET-165: new skill separates stable id and display name in dedicated sourc
 
   const check = await runSkillsetCli("check", "--root", root);
   expect(check.exitCode).toBe(1);
-  expect(check.stdout).toContain("build error");
+  expect(check.stdout).toContain("generated-output drift");
 });
 
 test("SET-165: new skill can place source inside an existing plugin container", async () => {
