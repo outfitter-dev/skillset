@@ -57,7 +57,12 @@ export async function runProviderFormatUpdates(
   const { write = false, ...skillsetOptions } = options;
   const preview = await diffSkillsetResult(rootPath, skillsetOptions);
   const driftPaths = allDriftPaths(preview.data);
-  const sourceDriftPaths = await changedSourceOutputPaths(rootPath, driftPaths, skillsetOptions);
+  const sourceDriftPaths = await changedSourceOutputPaths(
+    rootPath,
+    driftPaths,
+    preview.data.removed,
+    skillsetOptions
+  );
   const providerDriftPaths = driftPaths.filter((path) => !sourceDriftPaths.includes(path));
   const uneditedManagedPaths = await uneditedManagedOutputPaths(rootPath, driftPaths);
   const plan = planProviderFormatUpdates(preview.renderResults, providerDriftPaths, uneditedManagedPaths);
@@ -90,10 +95,11 @@ export async function runProviderFormatUpdates(
 async function changedSourceOutputPaths(
   rootPath: string,
   driftPaths: readonly string[],
+  removedPaths: readonly string[],
   options: SkillsetOptions
 ): Promise<readonly string[]> {
   const driftSet = new Set(driftPaths);
-  const changed = new Set<string>();
+  const changed = new Set(removedPaths);
   for (const path of driftPaths) {
     if (await findLockItemForOutputPath(rootPath, path) === undefined) changed.add(path);
   }

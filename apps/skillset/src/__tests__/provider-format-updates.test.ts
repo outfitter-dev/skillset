@@ -78,6 +78,21 @@ test("SET-278: check writes first-time provider-backed outputs", async () => {
   expect(await readFile(join(root, CODEX_PLUGIN_MANIFEST), "utf8")).toContain('"name": "alpha"');
 });
 
+test("SET-278: check writes stale managed outputs caused by source deletion", async () => {
+  const root = await builtFixture({
+    ...pluginFixture(),
+    ".skillset/skills/keep/SKILL.md": "---\nname: keep\ndescription: Keep.\n---\n\nBody.\n",
+  });
+  await rm(join(root, ".skillset/plugins/alpha"), { recursive: true });
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.providerUpdatePaths).toEqual([]);
+  expect(report.fixedPaths).toContain(CODEX_PLUGIN_MANIFEST);
+  expect(await Bun.file(join(root, CODEX_PLUGIN_MANIFEST)).exists()).toBe(false);
+});
+
 test("SET-278: check does not rebuild unplanned non-source drift", async () => {
   const root = await builtFixture({
     "skillset.yaml": "skillset:\n  name: unplanned-drift\nclaude: true\ncodex: false\n",
