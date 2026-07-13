@@ -261,7 +261,17 @@ export async function runCli(
     }
     const result = await buildSkillsetResult(rootPath, options);
     if (jsonOutput) {
-      printCliJsonData("build.apply", { result, state: "written", writes: result.writes.writtenPaths }, result.ok ? 0 : 1, "diagnostics", result.diagnostics);
+      printCliJsonData("build.apply", {
+        report: {
+          ok: result.ok,
+          operation: result.operation,
+          renderedFiles: result.data.length,
+          renderResults: result.renderResults.length,
+          writes: result.writes,
+        },
+        state: "written",
+        writes: result.writes.paths,
+      }, result.ok ? 0 : 1, "diagnostics", result.diagnostics);
       if (!result.ok) process.exitCode = 1;
       return;
     }
@@ -393,7 +403,21 @@ export async function runCli(
         ...changeOptions,
         write: yes && !dryRun,
       });
-      if (jsonOutput) printCliJsonData("change.migrate", { report, state: report.written ? "written" : "planned", writes: report.written ? [report.ledgerPath] : [] });
+      if (jsonOutput) {
+        const writes = report.written && report.entries.length > 0
+          ? [...new Set([
+              ...report.entries.flatMap((entry) => entry.fromPath === entry.toPath
+                ? [entry.toPath]
+                : [entry.fromPath, entry.toPath]),
+              report.ledgerPath,
+            ])].sort()
+          : [];
+        printCliJsonData("change.migrate", {
+          report: { ...report, entries: report.entries.map(serializeChangeEntry) },
+          state: report.written ? "written" : "planned",
+          writes,
+        });
+      }
       else {
         printChangeMigration(report);
         if ((!yes || dryRun) && report.entries.length > 0) console.log("skillset: rerun change migrate with --yes to rewrite pending entries");
@@ -639,7 +663,7 @@ export async function runCli(
         write: writeMode,
       });
       const reason = writeMode ? report.write ? "written" : "blocked before write" : "write confirmation required";
-      if (jsonOutput) printCliJsonData("init.adopt", { report, state: report.write ? "written" : "planned", writes: report.write ? [...report.setupFiles.map((file) => file.path), ...report.imports.flatMap((entry) => entry.destination === undefined ? [] : [entry.destination])] : [] }, report.ok ? 0 : 1);
+      if (jsonOutput) printCliJsonData("init.adopt", { report, state: report.write ? "written" : "planned", writes: report.write ? [...report.setupFiles.filter((file) => file.status === "create").map((file) => file.path), ...report.imports.flatMap((entry) => entry.destination === undefined ? [] : [entry.destination])] : [] }, report.ok ? 0 : 1);
       else {
         printAdoptReport(report, reason);
         if (!writeMode && report.ok && initAdopt !== undefined) console.log("skillset: rerun init with --adopt and --yes to write adopted source");
@@ -701,7 +725,7 @@ export async function runCli(
       useGitRoot: !rootExplicit && importPath === undefined,
       write: yes && !dryRun,
     });
-    if (jsonOutput) printCliJsonData("init", { report: setup, state: yes && !dryRun ? "written" : "planned", writes: yes && !dryRun ? setup.files : [] });
+    if (jsonOutput) printCliJsonData("init", { report: setup, state: yes && !dryRun ? "written" : "planned", writes: yes && !dryRun ? setup.files.filter((file) => file.status === "create").map((file) => file.path) : [] });
     else {
       printSetupReport(setup, dryRun ? "dry run" : yes ? "written" : "write confirmation required");
       if (!yes || dryRun) console.log("skillset: rerun init with --yes to write setup files");

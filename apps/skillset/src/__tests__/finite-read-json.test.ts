@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { chmod, mkdir, mkdtemp, readdir, writeFile } from "node:fs/promises";
+import { chmod, cp, mkdir, mkdtemp, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -44,6 +44,41 @@ describe("SET-287 finite read-only JSON", () => {
     const writtenEnvelope = JSON.parse(written.stdout) as SkillsetCliResult & { data: { state: string; writes: unknown[] } };
     expect(writtenEnvelope.data.state).toBe("written");
     expect(writtenEnvelope.data.writes.length).toBeGreaterThan(0);
+    expect(writtenEnvelope.data.writes.every((entry) => typeof entry === "string")).toBe(true);
+
+    const unchanged = await runJsonRoute("init", "--root", root, "--yes");
+    const unchangedEnvelope = JSON.parse(unchanged.stdout) as SkillsetCliResult & { data: { writes: unknown[] } };
+    expect(unchangedEnvelope.data.writes).toEqual([]);
+  });
+
+  test("build apply emits a finite summary and every changed path", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "skillset-json-build-"));
+    const root = path.join(parent, "workspace");
+    await cp(fixtureRoot, root, { recursive: true });
+
+    const result = await runJsonRoute("build", "--root", root, "--yes");
+    expect(result.stderr).toBe("");
+    const envelope = JSON.parse(result.stdout) as SkillsetCliResult & {
+      data: {
+        report: { data?: unknown; renderedFiles: number; writes: { paths: string[] } };
+        writes: string[];
+      };
+    };
+    expect(validateCliResult(envelope)).toEqual({ diagnostics: [], ok: true });
+    expect(envelope.data.report.data).toBeUndefined();
+    expect(envelope.data.report.renderedFiles).toBeGreaterThan(0);
+    expect(envelope.data.writes).toEqual(envelope.data.report.writes.paths);
+  });
+
+  test("change migrate does not report a ledger write for a no-op", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-migrate-"));
+    await mkdir(path.join(root, ".skillset"), { recursive: true });
+    await writeFile(path.join(root, "skillset.yaml"), "skillset:\n  name: migrate-json\n");
+
+    const result = await runJsonRoute("change", "migrate", "--root", root, "--yes");
+    expect(result.stderr).toBe("");
+    const envelope = JSON.parse(result.stdout) as SkillsetCliResult & { data: { writes: string[] } };
+    expect(envelope.data.writes).toEqual([]);
   });
 
   for (const route of [
