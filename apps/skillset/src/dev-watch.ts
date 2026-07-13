@@ -352,7 +352,10 @@ export async function runDevWatch(
     await startOperation("initial");
   } catch (error) {
     runtime.removeSignalListeners(signalStop);
-    throw error;
+    if (stream === undefined) throw error;
+    stream.failed(error instanceof Error ? error.message : String(error), "initial-operation");
+    if (output === process.stdout) process.exitCode = 1;
+    return;
   }
   if (pendingSignal) {
     runtime.removeSignalListeners(signalStop);

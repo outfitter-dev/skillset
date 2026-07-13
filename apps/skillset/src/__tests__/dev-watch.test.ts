@@ -246,6 +246,26 @@ test("SET-289: JSONL watch setup failures stay in the active sequence", async ()
   expect(events[2]?.data).toMatchObject({ stage: "watch-setup" });
 });
 
+test("SET-289: initial JSONL operation failures stay in the active sequence", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-dev-jsonl-initial-failure-"));
+  await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
+  let output = "";
+
+  await runDevWatch(root, {}, { write: (chunk) => { output += String(chunk); return true; } } as NodeJS.WritableStream, "preview", "jsonl", {
+    addSignalListeners: () => {},
+    collectDirectories: async () => ["."],
+    removeSignalListeners: () => {},
+    runOnce: async () => { throw new Error("initial operation failed"); },
+    scheduler: { clearTimeout: () => {}, setTimeout: () => 0 },
+    watch: () => ({ close: () => {} } as FSWatcher),
+  });
+
+  const events = parseCliEventStream(output);
+  expect(events.map((event) => event.event)).toEqual(["started", "failed"]);
+  expect(events.map((event) => event.sequence)).toEqual([1, 2]);
+  expect(events[1]?.data).toMatchObject({ message: "initial operation failed", stage: "initial-operation" });
+});
+
 test("SET-289: debounced JSONL operation failures terminate the active sequence", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-dev-jsonl-operation-"));
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
