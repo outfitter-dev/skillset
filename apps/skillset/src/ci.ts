@@ -126,9 +126,15 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
       const providerReport = await runProviderFormatUpdates(rootPath, "check", buildOptions);
       const sourceDriftPaths = new Set(providerReport.sourceDriftPaths);
       providerUpdatePaths = [...new Set(
-        [...providerReport.safeUpdates, ...providerReport.manualReviews]
-          .flatMap((action) => action.affectedPaths)
-          .filter((path) => !sourceDriftPaths.has(path))
+        [
+          ...[...providerReport.safeUpdates, ...providerReport.manualReviews]
+            .flatMap((action) => action.affectedPaths),
+          ...providerReport.unplannedDriftPaths,
+        ]
+          .filter((path) =>
+            !sourceDriftPaths.has(path) &&
+            !(sourceDriftPaths.size > 0 && (path === "skillset.lock" || path.endsWith("/skillset.lock")))
+          )
       )].sort();
     } catch {
       // The main readiness report already owns build and drift failures.

@@ -94,6 +94,9 @@ async function changedSourceOutputPaths(
 ): Promise<readonly string[]> {
   const driftSet = new Set(driftPaths);
   const changed = new Set<string>();
+  for (const path of driftPaths) {
+    if (await findLockItemForOutputPath(rootPath, path) === undefined) changed.add(path);
+  }
   for (const expected of await listGeneratedEntries(rootPath, options)) {
     if (!driftSet.has(expected.outputPath) || expected.sourceHash === undefined) continue;
     const current = await findLockItemForOutputPath(rootPath, expected.outputPath);

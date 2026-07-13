@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -66,6 +66,31 @@ test("SET-278: check writes provider-backed drift caused by source changes", asy
   expect(checked.exitCode).toBe(0);
   expect(checked.stdout).not.toContain("provider-format update");
   expect(await readFile(manifestPath, "utf8")).toContain("Updated plugin.");
+});
+
+test("SET-278: check writes first-time provider-backed outputs", async () => {
+  const root = await fixture(pluginFixture());
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.providerUpdatePaths).toEqual([]);
+  expect(await readFile(join(root, CODEX_PLUGIN_MANIFEST), "utf8")).toContain('"name": "alpha"');
+});
+
+test("SET-278: check does not rebuild unplanned non-source drift", async () => {
+  const root = await builtFixture({
+    "skillset.yaml": "skillset:\n  name: unplanned-drift\nclaude: true\ncodex: false\n",
+    ".skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n",
+  });
+  const generatedPath = ".claude/skills/demo/SKILL.md";
+  await rm(join(root, generatedPath));
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(false);
+  expect(report.fixedPaths).toEqual([]);
+  expect(report.providerUpdatePaths).toContain(generatedPath);
 });
 
 test("SET-194: update previews then writes the same safe provider-format plan", async () => {
