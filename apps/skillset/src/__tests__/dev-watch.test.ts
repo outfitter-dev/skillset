@@ -14,6 +14,7 @@ import {
   runDevWatchApply,
   runDevWatchPreview,
   shouldRunDevPreviewForPath,
+  type DevWatchPreviewReport,
   type DevWatchScheduler,
 } from "../dev-watch";
 import { parseCliEventStream } from "../cli-output";
@@ -308,7 +309,39 @@ test("SET-289: JSONL signals during the initial operation still terminate the se
   });
 
   const events = parseCliEventStream(output);
-  expect(events.map((event) => event.event)).toEqual(["started", "operation", "completed"]);
+  expect(events.map((event) => event.event)).toEqual(["started", "completed"]);
+});
+
+test("SET-289: signals do not wait for a stalled initial operation", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-dev-jsonl-stalled-initial-signal-"));
+  await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
+  let output = "";
+  let signal: (() => void) | undefined;
+  let markStarted: (() => void) | undefined;
+  const started = new Promise<void>((resolvePromise) => {
+    markStarted = resolvePromise;
+  });
+  const stalled = new Promise<DevWatchPreviewReport>(() => {});
+
+  const watching = runDevWatch(root, {}, { write: (chunk) => { output += String(chunk); return true; } } as NodeJS.WritableStream, "preview", "jsonl", {
+    addSignalListeners: (listener) => { signal = listener; },
+    collectDirectories: async () => ["."],
+    removeSignalListeners: () => {},
+    runOnce: async () => {
+      markStarted?.();
+      return stalled;
+    },
+    scheduler: { clearTimeout: () => {}, setTimeout: () => 0 },
+    watch: () => ({ close: () => {} } as FSWatcher),
+  });
+
+  await started;
+  signal?.();
+  await expect(Promise.race([
+    watching.then(() => "stopped"),
+    Bun.sleep(100).then(() => "timed-out"),
+  ])).resolves.toBe("stopped");
+  expect(parseCliEventStream(output).map((event) => event.event)).toEqual(["started", "completed"]);
 });
 
 test("SET-289: dev --jsonl terminates a real controlled stream without human output", async () => {

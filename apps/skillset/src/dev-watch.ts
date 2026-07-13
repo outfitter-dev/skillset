@@ -325,17 +325,26 @@ export async function runDevWatch(
   else stream.started(plan, mode);
   const writeOperation = async (reason = "initial") => {
     const report = await runtime.runOnce(rootPath, options, mode, reason);
+    if (initialSignalReceived) return;
     if (stream === undefined) output.write(renderDevWatchPreview(report));
     else stream.operation(report);
   };
   let activeOperation: Promise<void> | undefined;
   let pendingOperationError: unknown;
   let pendingSignal = false;
+  let initialSignalReceived = false;
+  let resolveInitialSignal: (() => void) | undefined;
+  const initialSignal = new Promise<void>((resolvePromise) => {
+    resolveInitialSignal = resolvePromise;
+  });
   let stopWithError: ((error: unknown) => void) | undefined;
   let stopFromSignal: (() => void) | undefined;
   const signalStop = () => {
-    if (stopFromSignal === undefined) pendingSignal = true;
-    else stopFromSignal();
+    if (stopFromSignal === undefined) {
+      pendingSignal = true;
+      initialSignalReceived = true;
+      resolveInitialSignal?.();
+    } else stopFromSignal();
   };
   const startOperation = async (reason: string) => {
     const previous = activeOperation;
@@ -348,8 +357,9 @@ export async function runDevWatch(
     }
   };
   runtime.addSignalListeners(signalStop);
+  const initialOperation = startOperation("initial");
   try {
-    await startOperation("initial");
+    await Promise.race([initialOperation, initialSignal]);
   } catch (error) {
     runtime.removeSignalListeners(signalStop);
     if (stream === undefined) throw error;
@@ -359,6 +369,7 @@ export async function runDevWatch(
   }
   if (pendingSignal) {
     runtime.removeSignalListeners(signalStop);
+    void initialOperation.catch(() => {});
     if (stream === undefined) output.write("skillset: dev watch stopped\n");
     else stream.completed();
     return;
