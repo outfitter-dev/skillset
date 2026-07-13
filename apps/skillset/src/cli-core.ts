@@ -463,7 +463,7 @@ export async function runCli(
   if (command === "restore") {
     if (importPath === undefined) throw new Error("skillset: expected backup id to restore");
     const report = await restoreOutputBackup(rootPath, importPath, { write: yes && !dryRun });
-    if (jsonOutput) printCliJsonData("restore", { report, state: report.write ? "written" : "planned", writes: report.restoredPaths });
+    if (jsonOutput) printCliJsonData("restore", { report, state: report.write ? "written" : "planned", writes: report.write ? report.restoredPaths : [] });
     else {
       printRestoreReport(report);
       if (!yes || dryRun) console.log("skillset: rerun restore with --yes to write restored files");
@@ -648,7 +648,7 @@ export async function runCli(
       if (writeMode && report.ok) await rememberKnownSkillsetWorkspace(report.rootPath, options);
       return;
     }
-    if (!yes && !dryRun && process.stdin.isTTY && process.stdout.isTTY) {
+    if (!jsonOutput && !yes && !dryRun && process.stdin.isTTY && process.stdout.isTTY) {
       const survey = await initSkillset({
         cwd: rootPath,
         ...(importPath === undefined ? {} : { rootPath: importPath }),

@@ -6088,6 +6088,15 @@ codex: true
   expect(preview.stdout).toContain("restore preview 1 file");
   expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Generated Instructions");
 
+  const structuredPreview = await runSkillsetCli("restore", backupId, "--root", root, "--json");
+  expect(structuredPreview.exitCode).toBe(0);
+  expect(structuredPreview.stderr).toBe("");
+  expect(JSON.parse(structuredPreview.stdout)).toMatchObject({
+    command: "restore",
+    data: { state: "planned", writes: [] },
+    ok: true,
+  });
+
   const restored = await runSkillsetCli("restore", backupId, "--root", root, "--yes");
   expect(restored.exitCode).toBe(0);
   expect(restored.stdout).toContain("restored 1 file");
