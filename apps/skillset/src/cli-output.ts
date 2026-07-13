@@ -22,7 +22,7 @@ export class CliOutputError extends Error {
     super(message);
     this.name = "CliOutputError";
     this.exitCode = exitCode;
-    this.command = command;
+    if (command !== undefined) this.command = command;
   }
 }
 

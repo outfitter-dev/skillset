@@ -82,7 +82,7 @@ describe("SET-286 CLI output kernel", () => {
     for (const [command, args] of [
       ["update", ["update", "--yes", "--dry-run", "--json"]],
       ["check", ["check", "--scope", "repo", "--json"]],
-    ]) {
+    ] as const) {
       const proc = Bun.spawn([process.execPath, cli, ...args], {
         stderr: "pipe",
         stdout: "pipe",
