@@ -200,6 +200,26 @@ test("SET-277: init --from previews without creating its destination", async () 
   expect(await exists(destination)).toBe(false);
 });
 
+test("SET-277: init --from validates adoption before copying its destination", async () => {
+  const source = await fixture(MARKETPLACE_FIXTURE);
+  const parent = await mkdtemp(join(tmpdir(), "skillset-init-preflight-"));
+  const destination = join(parent, "invalid-selection");
+
+  const result = await runSkillsetCli(
+    "init",
+    destination,
+    "--from",
+    source,
+    "--adopt",
+    "plugin:missing",
+    "--yes"
+  );
+
+  expect(result.exitCode).not.toBe(0);
+  expect(result.stderr).toContain("unknown adoption candidate");
+  expect(await exists(destination)).toBe(false);
+});
+
 test("adopt write mode imports everything, builds the mirror, and writes the report", async () => {
   const root = await fixture(MARKETPLACE_FIXTURE);
   const before = await walkFiles(root);
