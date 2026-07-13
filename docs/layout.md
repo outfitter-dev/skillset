@@ -132,7 +132,7 @@ Operational cache callers keep reporting logical paths such as `.skillset/cache/
 
 `skillset init [destination]` is the single setup entrypoint. For a new destination it writes root `skillset.yaml`, `.skillset/` source-family placeholders, release baselines, repo guidance, and a Git repository. For an existing repository it preserves unrelated files and plans only missing Skillset setup. Setup does not create or mutate user-level runtime configuration, marketplaces, trust settings, or symlinks.
 
-`skillset new` scaffolds source units inside `.skillset/`. It is preview-first like setup and build: pass `--yes` to write, or `--dry-run` to force no writes. `skillset new skill "Docs CLI Expert"` derives `docs-cli-expert`, writes `.skillset/skills/docs-cli-expert/SKILL.md`, and suggests `skillset check` / `skillset verify` without building automatically. Use `--id <id>` and `--name <display name>` when the stable identity and display text differ. Use `--in <plugin-name>` to place a skill under an existing plugin container at `.skillset/plugins/<plugin-name>/skills/<skill>/`; missing containers fail instead of creating implicit plugins. `--preset support` adds empty `references/`, `assets/`, and `scripts/` folders, `--preset evals` adds `evals/evals.json`, and `--preset reference-file` or `--preset examples-file` creates single-file support material when a directory is too heavy. `skillset new agent <name>` writes a project-agent source file under `.skillset/agents/`. Hook scaffolding is still deferred; author native aggregate hooks at `hooks/hooks.json` or adaptive hook units at `hooks/<name>.json` / `hooks/<name>/hook.json`.
+`skillset new` scaffolds source units inside `.skillset/`. It is preview-first like setup and build: pass `--yes` to write, or `--dry-run` to force no writes. `skillset new skill "Docs CLI Expert"` derives `docs-cli-expert`, writes `.skillset/skills/docs-cli-expert/SKILL.md`, and suggests `skillset check` / `skillset check --only outputs` without building automatically. Use `--id <id>` and `--name <display name>` when the stable identity and display text differ. Use `--in <plugin-name>` to place a skill under an existing plugin container at `.skillset/plugins/<plugin-name>/skills/<skill>/`; missing containers fail instead of creating implicit plugins. `--preset support` adds empty `references/`, `assets/`, and `scripts/` folders, `--preset evals` adds `evals/evals.json`, and `--preset reference-file` or `--preset examples-file` creates single-file support material when a directory is too heavy. `skillset new agent <name>` writes a project-agent source file under `.skillset/agents/`. Hook scaffolding is still deferred; author native aggregate hooks at `hooks/hooks.json` or adaptive hook units at `hooks/<name>.json` / `hooks/<name>/hook.json`.
 
 The generated setup config uses `compile.targets` for provider selection. Target-native adapter settings belong in explicit provider blocks such as `claude`, `codex`, and `cursor`, and reusable defaults belong in `defaults.<target>.<surface>` or the target-local `defaults` block. The published package requires Bun and ships Bun-built JavaScript bins for `skillset` and `skillset-toolkit`; stable releases run from the default npm dist-tag with commands such as `npx skillset init my-skillset` or `bunx skillset init my-skillset`.
 
@@ -233,7 +233,7 @@ build so an opt-out cannot hide a local license file.
 Generated plugin bundles receive a managed `LICENSE.txt` at the plugin root.
 Generated plugin skills and standalone skills receive a managed `LICENSE.txt`
 beside `SKILL.md` when their resolved scope has a license. These files are
-included in `skillset.lock`, so `skillset verify` reports stale or missing
+included in `skillset.lock`, so `skillset check --only outputs` reports stale or missing
 generated license output like any other managed file.
 
 ## Shared Resources
@@ -258,7 +258,7 @@ resources:
 
 Only declared resources are copied. Resource mappings may point at files or directories, but they cannot traverse outside the shared root, write outside the generated skill directory, or overwrite `SKILL.md`, generated Codex sidecars, or skill-local files. Markdown links in `SKILL.md` that target declared `shared:` or `plugin:` resource URLs are rewritten to generated skill-local links; undeclared shared resource links fail the build with a suggested `resources` entry. When a resource uses a custom `to`, a bare link to its source path fails the build, since that path is no longer where the resource lands; link to the rendered target path or use the resource URL. Resource contents are included in `skillset.lock` hashes and stale-output checks.
 
-`skillset lint` adds authoring diagnostics that catch these earlier:
+`skillset check` adds authoring diagnostics that catch these earlier:
 
 - `resource-undeclared-link`: a `SKILL.md` markdown link to a `shared:`/`plugin:` resource that is not declared, reported with a suggested `resources` entry.
 - `skill-plugin-root-script`: a skill body that links to a plugin-root script path (`${CLAUDE_PLUGIN_ROOT}`/`${PLUGIN_ROOT}`, or a `../` link escaping the skill to a script). Skills should copy scripts skill-local via `resources.scripts` and reference `./scripts/<name>` so the script travels with the generated skill.
@@ -292,7 +292,7 @@ metadata:
   generated: skillset@0.1.0
 ```
 
-Each `skillset.lock` records rendered versions and hashes, plus root normalized build metadata such as `buildMode`, `selectedTargets`, and whether generated Skillset skill metadata was rendered. Locks also carry `renderResults` for the source units represented by that lock, using the `skillset-render-result@1` schema so rendered, transformed, target-native, degraded, skipped, unsupported, and failed render facts survive beyond console output. Plugin lock entries include `includedSkills`, `skippedSkills`, and `targetState`; a target with skipped source skills uses `targetState: intentionally-skipped` so target-specific version bumps are visible even when that target's manifest and skills stay byte-for-byte unchanged. `skillset verify` reports version drift directly when generated plugin manifest `version` or generated skill `metadata.version` is stale.
+Each `skillset.lock` records rendered versions and hashes, plus root normalized build metadata such as `buildMode`, `selectedTargets`, and whether generated Skillset skill metadata was rendered. Locks also carry `renderResults` for the source units represented by that lock, using the `skillset-render-result@1` schema so rendered, transformed, target-native, degraded, skipped, unsupported, and failed render facts survive beyond console output. Plugin lock entries include `includedSkills`, `skippedSkills`, and `targetState`; a target with skipped source skills uses `targetState: intentionally-skipped` so target-specific version bumps are visible even when that target's manifest and skills stay byte-for-byte unchanged. `skillset check --only outputs` reports version drift directly when generated plugin manifest `version` or generated skill `metadata.version` is stale.
 
 ## Instructions
 
@@ -354,7 +354,7 @@ allowed_tools:
 
 Values can be shared (`implicit_invocation: false`) or target-scoped (`implicit_invocation: { claude: false, codex: true }`). `implicit_invocation` renders to Claude `disable-model-invocation` and Codex `agents/openai.yaml` `policy.allow_implicit_invocation`. If a Codex source skill already has `agents/openai.yaml`, generated policy is merged into it instead of overwriting the rest of the file.
 
-`allowed_tools` renders to Claude `allowed-tools`, which is preapproval / no-prompt behavior — it suppresses permission prompts for the listed tools, not a portable security sandbox. Codex `agents/openai.yaml` supports tool dependencies and invocation policy, but it is not a skill-local equivalent to Claude tool preapproval. For now Codex-enabled skills must leave `allowed_tools.codex` unset or set it to `false`; `skillset lint` rejects shared or Codex-targeted allowed tools until a real Codex permission render is validated.
+`allowed_tools` renders to Claude `allowed-tools`, which is preapproval / no-prompt behavior — it suppresses permission prompts for the listed tools, not a portable security sandbox. Codex `agents/openai.yaml` supports tool dependencies and invocation policy, but it is not a skill-local equivalent to Claude tool preapproval. For now Codex-enabled skills must leave `allowed_tools.codex` unset or set it to `false`; `skillset check` rejects shared or Codex-targeted allowed tools until a real Codex permission render is validated.
 
 Use the portable `tools` policy for provider-neutral tool meaning. The block is open-world: unset means provider default, `true` grants or preapproves where possible, and `false` constrains where possible. The registry is strict, so provider drift is visible instead of silently copied through:
 

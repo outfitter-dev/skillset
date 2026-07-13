@@ -27,7 +27,7 @@ Each generated-manifest field has exactly one writer; competing authorities are 
 | Field | Authority | Notes |
 | --- | --- | --- |
 | `name` | source (`skillset.name`, defaults to directory) | `manifest.name` is the explicit override. |
-| `version` | release state, with source `version` as fallback | `skillset verify` reports generated version drift; do not hand-edit generated manifests. |
+| `version` | release state, with source `version` as fallback | `skillset check --only outputs` reports generated version drift; do not hand-edit generated manifests. |
 | `description` | source (`summary`, falling back to `description`) | |
 | `author`, `homepage`, `repository`, `license`, `keywords` | source metadata | Projected into generated manifests. `license` also drives managed `LICENSE.txt` generation from the supported SPDX catalog or a local source file. |
 | Component wiring (`commands`, `agents`, `skills`, `hooks`, `mcpServers`, …) | compiler | Derived from source layout and feature keys; never authored in generated output. |

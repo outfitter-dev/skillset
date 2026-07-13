@@ -163,7 +163,7 @@ export function renderProviderFormatUpdateReport(report: ProviderFormatUpdateRep
 function safeUpdateNextStep(report: ProviderFormatUpdateReport): string {
   if (report.wrote) return "done";
   if (report.blocked) return "resolve blocking manual review or unplanned drift before applying safe updates";
-  if (report.command === "check") return "run skillset check --fix or skillset update --yes";
+  if (report.command === "check") return "run skillset update --yes";
   return "run skillset update --yes";
 }
 

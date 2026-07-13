@@ -41,11 +41,11 @@ The first implementation should make diagnostics useful before attempting writes
 - explain the generated files that would need to be rebuilt after accepting the source edit;
 - keep refusal messages specific: metadata, multi-source rendering, provider-native no-round-trip, post-release changelog, unmanaged path, or stale/corrupt lock.
 
-`skillset ci --fix` remains mechanical generated-output repair. It may restore generated files from source, but it must not treat a managed generated edit as source truth. For generated changelogs, current diagnostics already point contributors toward `skillset change reason <@ref>` for pending wording before release, `skillset change amend <@ref>` for applied-history wording after release, and `skillset release amend <@ref>` for release-event metadata. Because committed changelog projections render applied history, not pending entries, a generated `CHANGELOG.md` edit is usually a released-history correction and refuses local reverse-patching.
+`skillset check --ci --fix` remains mechanical generated-output repair. It may restore generated files from source, but it must not treat a managed generated edit as source truth. For generated changelogs, current diagnostics already point contributors toward `skillset change reason <@ref>` for pending wording before release, `skillset change amend <@ref>` for applied-history wording after release, and `skillset release amend <@ref>` for release-event metadata. Because committed changelog projections render applied history, not pending entries, a generated `CHANGELOG.md` edit is usually a released-history correction and refuses local reverse-patching.
 
 ## Provenance
 
-Source suggestions should not create a second source of truth. Accepted source suggestions change the real source file or pending reason, then normal build/release machinery updates generated outputs and locks and `skillset verify` checks the result.
+Source suggestions should not create a second source of truth. Accepted source suggestions change the real source file or pending reason, then normal build/release machinery updates generated outputs and locks and `skillset check --only outputs` checks the result.
 
 When CI suggestions arrive later, they should record enough evidence to avoid noisy repeat comments: suggestion id, generated path, owning source path, lock hash or source hash reviewed, suggested action, accepted/rejected/skipped status, and whether a writeback commit was attempted. That evidence belongs to suggestion workflow state, not generated target files.
 
@@ -62,7 +62,7 @@ Both need reviewable previews, stable ids, conflict checks, and refusal paths, b
 
 [SET-152](https://linear.app/outfitter/issue/SET-152/design-ci-source-suggestion-writeback-for-managed-generated-edits) adds CI-side source suggestion diagnostics and keeps automated writeback as a future permissioned step. The intended path is:
 
-1. `skillset ci` detects a PR edit to a managed generated path.
+1. `skillset check --ci` detects a PR edit to a managed generated path.
 2. CI resolves the owning source unit from `skillset.lock`.
 3. CI runs the same safety classification as `skillset suggest-source` for added and changed generated paths.
 4. For unsafe or ambiguous cases, CI reports the source path, reason for refusal, and manual command in the job summary or PR comment.

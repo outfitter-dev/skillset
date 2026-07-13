@@ -11,7 +11,7 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Apps](apps.md): Codex plugin `.app.json` pass-through and why there is no v1 `apps.source` feature key.
 - [Build Scopes](build-scopes.md): build mode, destination scopes, dry-run safety, diff/list/explain behavior, and lock semantics.
 - [Changes](changes.md): pending change entries, source coverage, compact refs, groups, and append-only history boundaries.
-- [CI](ci.md): the `skillset ci` aggregate check, mechanical drift rebuilds, PR-comment reports, and the `--include ci` workflow scaffold.
+- [CI](ci.md): the `skillset check --ci` aggregate check, mechanical drift rebuilds, PR-comment reports, and the `--include ci` workflow scaffold.
 - [Commands](commands.md): Claude plugin command pass-through, manifest wiring, and Codex unsupported boundaries.
 - [Dependencies](dependencies.md): plugin dependency declarations, Claude rendering, Codex fallback notices, and provenance.
 - [Dev Watch](dev-watch.md): default-preview `skillset dev --watch` for first-author source diagnostics, generated-output drift, and explicit apply mode.
@@ -42,7 +42,7 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Themes](themes.md): Claude experimental theme pass-through, manifest wiring, and Codex unsupported boundaries.
 - [Tools Policy](tools-policy.md): portable tool policy, Claude tool-rule rendering, provider metadata, and target-native provider blocks.
 - [Version Audit](version-audit.md): read-only version-locus audit across source, release state, generated output, and future destinations.
-- [Workbench Check](workbench.md): `skillset check`, `skillset verify`, package-level diagnostic scopes/presets, parser/schema checks, fixtures, and optional ast-grep proof points.
+- [Workbench Check](workbench.md): `skillset check`, `skillset check --only outputs`, package-level diagnostic scopes/presets, parser/schema checks, fixtures, and optional ast-grep proof points.
 
 ## Feature Reference Vocabulary
 

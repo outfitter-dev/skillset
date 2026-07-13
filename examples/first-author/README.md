@@ -30,7 +30,7 @@ From a standalone clone after installing Skillset, use the package command:
 skillset check
 skillset build
 skillset build --yes
-skillset verify
+skillset check --only outputs
 skillset dev --watch
 ```
 
@@ -60,7 +60,7 @@ Change the skill body or rule guidance, then rerun:
 skillset check
 skillset build
 skillset build --yes
-skillset verify
+skillset check --only outputs
 ```
 
 Use `skillset diff` to inspect pending generated changes and `skillset explain`

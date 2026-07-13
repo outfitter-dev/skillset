@@ -30,12 +30,12 @@ builds remain on explicit prerelease tags such as `beta`.
 | Gate | Current release bar | Required evidence |
 | --- | --- | --- |
 | Source/config/frontmatter contract | Mostly stable for 0.x. Known exceptions must stay documented rather than silently drifting. | `docs/schema-contracts.md`, generated schema artifacts, `bun run schema:check`, and Workbench schema diagnostics. |
-| First-author path | Needs a real authoring pass before final release approval. SET-211 adds source-positioned diagnostic guidance, but onboarding still needs human feedback. | `docs/quickstart.md`, `examples/first-author/`, SET-198, SET-211, `skillset init`, `skillset check`, and `skillset verify` runs. |
+| First-author path | Needs a real authoring pass before final release approval. SET-211 adds source-positioned diagnostic guidance, but onboarding still needs human feedback. | `docs/quickstart.md`, `examples/first-author/`, SET-198, SET-211, `skillset init`, `skillset check`, and `skillset check --only outputs` runs. |
 | Hooks/runtime context | Must be either done through the helper-backed toolkit lane or explicitly deferred from release notes. Do not imply universal adaptive hook parity. | SET-16, SET-228, `docs/features/hooks.md`, `packages/toolkit/src/__tests__/`, runtime hook tests, and provider capability docs. |
 | Package release automation | Must remain GitHub Actions-owned, with clear release-intent labels and exact-SHA CI before publish. | `docs/package-releases.md`, `.github/workflows/release.yml`, `scripts/release-policy.ts`, `bun run publish:check`, and release-policy tests. |
 | Provider/schema evidence | Provider snapshots and schema references must be checked in and fresh for any changed contract or target surface. | `bun run schema:check`, provider format tests, `docs/target-surfaces.md`, generated schema/example diffs when applicable. |
 | Change/release provenance | Source-unit changes and npm package changes must stay separate, with pending Skillset entries and Changesets used for their separate jobs. | `skillset change status`, `skillset change check`, `bun run changeset:check`, and `docs/features/changes.md`. |
-| Local gates | Local full gate must pass before a release PR leaves draft. CI must pass before the generated version PR is approved or published. | `bun run check`, `bun run skillset:ci`, pre-push hook output, GitHub CI on the exact release commit. |
+| Local gates | Local full gate must pass before a release PR leaves draft. CI must pass before the generated version PR is approved or published. | `bun run check`, `bun run skillset:check:ci`, pre-push hook output, GitHub CI on the exact release commit. |
 
 ## Explicit Contract Exceptions
 
@@ -65,7 +65,7 @@ near-empty repo and record the result in SET-198 or its successor:
 2. Add one simple skill and one rule through the documented source layout.
 3. Intentionally make one common frontmatter/config mistake and confirm
    Workbench diagnostics point to the source line with a suggested fix.
-4. Run `skillset check`, `skillset build --yes`, `skillset verify`, and
+4. Run `skillset check`, `skillset build --yes`, `skillset check --only outputs`, and
    `skillset diff`.
 5. Confirm the quickstart and first-author example match what the commands now
    do.
@@ -137,7 +137,7 @@ Use these notes when preparing the package changelog or release announcement:
 1. Merge all intended source PRs for the cut, with local review reports and green
    CI.
 2. Confirm any package-facing source PR has a branch-local Changeset.
-3. Run `bun run check`, `bun run skillset:ci`, `bun run changeset:status`, and
+3. Run `bun run check`, `bun run skillset:check:ci`, `bun run changeset:status`, and
    `bun run publish:check` locally before asking for the version PR to leave
    draft.
 4. Let the release workflow create or update

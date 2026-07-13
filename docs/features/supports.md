@@ -36,7 +36,7 @@ supports:
 
 ## Diagnostics
 
-Support constraints participate in normalized source hashes and `change status`. A supports-only edit is significant but not inherently severity-bearing. The default suggested bump is `none`, or `patch` when rendered user-facing metadata changes. V1 validates compact strings and expanded `supports.packages` entries with common semver-like comparators, caret ranges, and tilde ranges. `repo:<path>` package sources are read as package JSON; `skillset verify` and `doctor` warn by default, or fail when `onMismatch: error` is set, when the local version falls outside the declared range.
+Support constraints participate in normalized source hashes and `change status`. A supports-only edit is significant but not inherently severity-bearing. The default suggested bump is `none`, or `patch` when rendered user-facing metadata changes. V1 validates compact strings and expanded `supports.packages` entries with common semver-like comparators, caret ranges, and tilde ranges. `repo:<path>` package sources are read as package JSON; `skillset check --only outputs` and `doctor` warn by default, or fail when `onMismatch: error` is set, when the local version falls outside the declared range.
 
 ## Provenance
 

@@ -96,7 +96,7 @@ These fixtures are internal compiler fixtures, not public source-root `tests.yam
 ## Authoring Rules
 
 - Run `skillset check` before `skillset build --yes` when editing source that is covered by current authoring diagnostics.
-- Run `skillset verify` after building or when checking whether generated output is stale.
+- Run `skillset check --only outputs` after building or when checking whether generated output is stale.
 - Run `skillset change check` for pending change coverage.
 - Keep generated-output edits out of source truth; use `skillset explain`, `skillset diff`, `skillset restore`, and source suggestions when a generated file was edited directly.
 - Treat `strict` rules as opt-in until a repo explicitly chooses them.
