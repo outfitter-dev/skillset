@@ -679,17 +679,19 @@ test("SET-278: check rebuilds source-owned Codex manifest reviews", async () => 
   expect(await readFile(manifestPath, "utf8")).toContain("Updated Maintainer");
 });
 
-test("SET-279: legacy plugin source hashes remain eligible for safe migration", async () => {
+test("SET-279: legacy locks require refresh before safe provider migration", async () => {
   const root = await builtFixture(pluginFixture());
   const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
   await writeFile(manifestPath, `${await readFile(manifestPath, "utf8")}\n// stale provider format\n`, "utf8");
   await markCurrentPluginManifestAsManaged(root);
   await removePluginRenderInputsHash(root);
 
-  const updated = await runSkillsetCli("update", "--yes", "--root", root);
+  const blocked = await runSkillsetCli("update", "--yes", "--root", root);
 
-  expect(updated.exitCode).toBe(0);
-  expect(await readFile(manifestPath, "utf8")).not.toContain("stale provider format");
+  expect(blocked.exitCode).toBe(1);
+  expect(blocked.stdout).toContain("manual review required: Codex plugin");
+  expect(blocked.stdout).toContain("unplanned destination drift: plugins/skillset.lock");
+  expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
 });
 
 test("SET-279: check refreshes legacy locks missing render input hashes", async () => {

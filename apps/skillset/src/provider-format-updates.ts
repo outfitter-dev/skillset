@@ -338,7 +338,7 @@ async function inspectManagedOutputState(
     const expectedSourceHash = expectedSourceHashes.get(normalizedOutputPath);
     const expectedVersion = expectedVersions.get(normalizedOutputPath);
     const expectedRenderInputsHash = expectedRenderInputsHashes.get(normalizedOutputPath);
-    const renderInputsUnchanged = lockItem.renderInputsHash === undefined ||
+    const renderInputsUnchanged = lockItem.renderInputsHash !== undefined &&
       expectedRenderInputsHash === lockItem.renderInputsHash;
     if (currentHash === lockItem.outputHash && expectedSourceHashes.has(normalizedOutputPath)) {
       unchanged.add(outputPath);
