@@ -165,7 +165,8 @@ export async function adoptSkillset(
   options: AdoptOptions = {}
 ): Promise<AdoptReport> {
   const { cwd, destination, targets, write, ...buildOptions } = options;
-  const acquired = await acquireAdoptSource(source, cwd ?? process.cwd());
+  const basePath = cwd ?? process.cwd();
+  const acquired = await acquireAdoptSource(source, basePath);
   if (destination !== undefined && write === true) {
     const preflight = await adoptResolvedRoot(acquired, {
       ...buildOptions,
@@ -176,7 +177,7 @@ export async function adoptSkillset(
   }
   const acquisition = destination === undefined || write !== true
     ? acquired
-    : await copyAdoptAcquisition(acquired, destination);
+    : await copyAdoptAcquisition(acquired, resolve(basePath, destination));
   return adoptResolvedRoot(acquisition, {
     ...buildOptions,
     ...(targets === undefined ? {} : { targets }),

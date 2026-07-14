@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
-import { mkdir, mkdtemp, readdir, readFile, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -170,6 +170,23 @@ test("adopt accepts git remotes by shallow cloning before running the existing f
   expect(cli.exitCode).toBe(0);
   expect(cli.stdout).toContain(`source: git ${remote} @ `);
   expect(cli.stdout).toContain("adopt passed");
+});
+
+test("SET-277: adoption resolves relative destinations from the caller cwd", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "skillset-adopt-cwd-"));
+  const source = join(cwd, "source");
+  await mkdir(source);
+  await writeFile(join(source, "AGENTS.md"), AGENTS_CONTENT, "utf8");
+
+  const report = await adoptSkillset("source", {
+    cwd,
+    destination: "destination",
+    write: true,
+  });
+
+  expect(report.ok).toBe(true);
+  expect(report.rootPath).toBe(join(cwd, "destination"));
+  expect(await Bun.file(join(cwd, "destination/.skillset/rules/agents.md")).exists()).toBe(true);
 });
 
 test("SET-277: local and remote init --from write the same adoption plan into a destination", async () => {
