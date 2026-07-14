@@ -709,6 +709,17 @@ test("SET-279: check refreshes legacy locks missing render input hashes", async 
   expect(lock.items.some((item) => item.renderInputsHash !== undefined)).toBe(true);
 });
 
+test("SET-279: legacy lock drift does not report clean provider outputs", async () => {
+  const root = await builtFixture(pluginFixture());
+  await removePluginRenderInputsHash(root);
+
+  const report = await runProviderFormatUpdates(root, "update", { write: true });
+
+  expect(report.unplannedDriftPaths).toContain("plugins/skillset.lock");
+  expect(report.unplannedDriftPaths).not.toContain(CODEX_PLUGIN_MANIFEST);
+  expect(report.sourceDriftPaths).toContain(CODEX_PLUGIN_MANIFEST);
+});
+
 test("SET-279: unrelated source-hash drift blocks provider updates", async () => {
   const root = await builtFixture(pluginFixture());
   const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);

@@ -57,6 +57,7 @@ export async function runProviderFormatUpdates(
   const { write = false, ...skillsetOptions } = options;
   const preview = await diffSkillsetResult(rootPath, skillsetOptions);
   const driftPaths = allDriftPaths(preview.data);
+  const driftPathSet = new Set(driftPaths);
   const managedState = await inspectManagedOutputState(
     rootPath,
     driftPaths,
@@ -88,7 +89,10 @@ export async function runProviderFormatUpdates(
     ...new Set([
       ...unplannedProviderDriftPaths(providerDriftPaths, plan.safeUpdates, plan.manualReviews),
       ...(hasProviderPlan
-        ? [...sourceDriftPaths].filter((path) => !plannedPaths.has(path))
+        ? [...sourceDriftPaths].filter((path) =>
+            !plannedPaths.has(path) &&
+            (!managedState.missingRenderInputsPaths.includes(path) || driftPathSet.has(path))
+          )
         : []),
     ]),
   ].sort(compareStrings);
