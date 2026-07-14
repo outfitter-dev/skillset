@@ -1485,7 +1485,8 @@ test("SET-25: CLI help succeeds before command validation", async () => {
   expect(rootHelp.stdout).not.toContain("skillset ci");
   expect(rootHelp.stdout).toContain("skillset update [--yes] [--json] [--root <path>]");
   expect(rootHelp.stdout).toContain("skillset dev [--write] [--jsonl] [--root <path>]");
-  expect(rootHelp.stdout).toContain("skillset list [--updated|--all]");
+  expect(rootHelp.stdout).toContain("skillset list [--json] [--scope <scope>] [--root <path>]");
+  expect(rootHelp.stdout).not.toContain("skillset list [--updated|--all]");
   expect(rootHelp.stdout).not.toContain("skillset <check|lint|list> [--updated|--all]");
   expect(rootHelp.stdout).toContain("skillset change status [--since <ref>] [--root <path>]");
   expect(rootHelp.stdout).toContain("skillset change check [@ref|--ref <ref>] [--since <ref>] [--root <path>]");
@@ -1536,6 +1537,14 @@ test("SET-278: check rejects destination flags and retired check commands are re
     expect(retired.exitCode).toBe(1);
     expect(retired.stderr).toContain("expected command");
     expect(retired.stderr).not.toContain(`skillset ${command} [`);
+  }
+});
+
+test("SET-285: list rejects build-mode flags", async () => {
+  for (const flag of ["--updated", "--all"]) {
+    const result = await runSkillsetCli("list", flag);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("skillset: list does not support --updated or --all");
   }
 });
 

@@ -120,7 +120,7 @@ const USAGE = [
   "usage: skillset build [--yes] [--updated|--all] [--isolated] [--scope <scope>] [--root <path>]",
   "       skillset diff [--updated|--all] [--isolated] [--scope <scope>] [--root <path>]",
   "       skillset check [--write|--only outputs|--ci [--fix] [--since <ref>] [--report <path>]] [--json] [--root <path>]",
-  "       skillset list [--updated|--all] [--scope <scope>] [--root <path>]",
+  "       skillset list [--json] [--scope <scope>] [--root <path>]",
   "       skillset status [--json] [--root <path>]",
   "       skillset dev [--write] [--jsonl] [--root <path>]",
   "       skillset change status [--since <ref>] [--root <path>]",
@@ -2482,6 +2482,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(scopes === undefined ? {} : { scopes }),
     yes,
   });
+  validateListFlags(command, buildMode);
 
   validateIsolatedFlag(command, isolated, checkOnly);
   validateDistributionFlags(command, {
@@ -2947,6 +2948,12 @@ function validateSourceDiagnosticFlags(
   }
   if (sourceCheck.dryRun || sourceCheck.yes) {
     throw new Error(`${label} is read-only and does not support --yes`);
+  }
+}
+
+function validateListFlags(command: Command, buildMode: CompileBuildMode | undefined): void {
+  if (command === "list" && buildMode !== undefined) {
+    throw new Error("skillset: list does not support --updated or --all");
   }
 }
 
