@@ -1,11 +1,21 @@
 import { changeCheck, type ChangeCheckIssue } from "./change-entries";
+import { join } from "node:path";
 import {
   defaultChangesetBaseline,
   evaluateChangesetGuard,
   readChangedFilesFromGit,
   type ChangedFile,
 } from "./changeset-awareness";
-import { buildSkillset, diffSkillsetResult, type SkillsetDiagnostic, type SkillsetDiff } from "@skillset/core";
+import {
+  buildSkillset,
+  createOperationalPathContext,
+  diffSkillsetResult,
+  ISOLATED_OUT_ROOT,
+  logicalOperationalPath,
+  resolveOperationalPath,
+  type SkillsetDiagnostic,
+  type SkillsetDiff,
+} from "@skillset/core";
 import { suggestSource, type SourceSuggestionReport } from "@skillset/core/internal/authoring";
 import { inspectSkillset } from "@skillset/core";
 import { readManagedOutputState } from "@skillset/core/internal/output-safety";
@@ -72,7 +82,22 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
     const graph = await loadBuildGraph(rootPath, buildOptions);
     lintIssues = (await inspectSkillset(graph)).issues;
     warnings = graph.warnings;
-    const managed = await readManagedOutputState(rootPath, graph.outputRoots, true, (path) => path);
+    const outPath = buildOptions.isolated === true
+      ? (path: string) => join(ISOLATED_OUT_ROOT, path)
+      : (path: string) => path;
+    const pathContext = createOperationalPathContext(rootPath, {
+      ...(graph.root.workspace.cacheKey === undefined ? {} : { workspaceCacheKey: graph.root.workspace.cacheKey }),
+      ...(buildOptions.xdg?.env === undefined ? {} : { env: buildOptions.xdg.env }),
+      ...(buildOptions.xdg?.homeDir === undefined ? {} : { homeDir: buildOptions.xdg.homeDir }),
+    });
+    const managed = await readManagedOutputState(
+      rootPath,
+      graph.outputRoots,
+      true,
+      outPath,
+      (path) => resolveOperationalPath(pathContext, path),
+      (path) => logicalOperationalPath(pathContext, path)
+    );
     managedOutputPaths = managed.paths;
     outputEditedPaths = [...managed.editedPaths].sort();
   } catch (error) {

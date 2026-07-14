@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 
 import { parseYamlRecord } from "@skillset/core/internal/yaml";
 import { gitSafeEnv } from "../git-env";
-import { buildSkillset } from "@skillset/core";
+import { buildSkillset, createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
 import { CI_REPORT_MARKER, CI_WORKFLOW_PATH, ciSkillset, renderCiReportMarkdown, renderCiWorkflow } from "../ci";
 import { initSkillset } from "../setup";
 
@@ -186,6 +186,22 @@ test("check --write refuses unmanaged output collisions", async () => {
     outputPath: GENERATED_SKILL,
   }));
   expect(await readFile(join(root, GENERATED_SKILL), "utf8")).toBe(unmanaged);
+});
+
+test("check --write refuses managed edits in the isolated mirror", async () => {
+  const root = await fixture(DEMO_FIXTURE);
+  await buildSkillset(root, { isolated: true });
+  const mirroredSkill = join(".skillset/cache/latest", GENERATED_SKILL);
+  const generatedPath = resolveOperationalPath(createOperationalPathContext(root), mirroredSkill);
+  await writeFile(generatedPath, `${await readFile(generatedPath, "utf8")}\nhand edit\n`);
+
+  const report = await ciSkillset(root, { fix: true, isolated: true });
+
+  expect(report.ok).toBe(false);
+  expect(report.fixedPaths).toEqual([]);
+  expect(report.drift.changed).toContain(mirroredSkill);
+  expect(report.outputEditedPaths).toContain(mirroredSkill);
+  expect(await readFile(generatedPath, "utf8")).toContain("hand edit");
 });
 
 test("check --write refreshes stale locks after an output edit is reconciled", async () => {
