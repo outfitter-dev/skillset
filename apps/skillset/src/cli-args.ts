@@ -213,7 +213,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     const subcommand = args[index];
     if (!isChangeSubcommand(subcommand)) {
       throw new Error(
-        "skillset: expected change subcommand add, amend, check, history, list, reason, show, or status"
+        "skillset: expected change subcommand add, amend, check, history, list, migrate, reason, show, or status"
       );
     }
     changeSubcommand = subcommand;
