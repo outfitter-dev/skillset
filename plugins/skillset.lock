@@ -18,7 +18,7 @@
       "outputHash": "sha256:3b20c9eeba2bed9a46fcc4c3fc0a801dd247d694722f6c699ba50ab077cd7c33",
       "outputPath": "skillset/claude/.claude-plugin/plugin.json",
       "skippedSkills": [],
-      "sourceHash": "sha256:afce261dc54892cd3339988cca4ee90a4be9513f9b0b702beb45195e91ac334e",
+      "sourceHash": "sha256:054a38afd92e8567005e4c070b0505df9efc4debe366562a35980d1798597564",
       "sourcePath": ".skillset/plugins/skillset",
       "targetState": "sync",
       "version": "0.1.1"
@@ -50,7 +50,7 @@
       "outputHash": "sha256:44a0da27dabf4d817c35d7ad6a16597c3f062f49f6585491635838495e54eb00",
       "outputPath": "skillset/codex/.codex-plugin/plugin.json",
       "skippedSkills": [],
-      "sourceHash": "sha256:9ab5264c2d4bbe127a472816c42614fab8fcdb70377fda36812481c1fc53db44",
+      "sourceHash": "sha256:fe4707f452f1ce49475db7fbebe1dc57a52c441528416d4828f2404e197b54ff",
       "sourcePath": ".skillset/plugins/skillset",
       "targetState": "sync",
       "version": "0.1.1"
@@ -82,7 +82,7 @@
       "outputHash": "sha256:bf27cd1054e75946343e013727d4a2e9f3c9b1b88be88665ec468a13f5c800be",
       "outputPath": "skillset/cursor/.cursor-plugin/plugin.json",
       "skippedSkills": [],
-      "sourceHash": "sha256:8ff1a2d70b1addde40203b9f169a0ec7ef12c6301788e401dd2d3af7411968bb",
+      "sourceHash": "sha256:65fa6d72ca08383cea7765575ca4b029c4f848e48efd847d1609710dce08a6ff",
       "sourcePath": ".skillset/plugins/skillset",
       "targetState": "sync",
       "version": "0.1.1"

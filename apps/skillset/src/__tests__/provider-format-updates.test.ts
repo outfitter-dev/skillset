@@ -191,6 +191,29 @@ test("SET-278: check writes inherited plugin license metadata drift", async () =
   expect(report.fixedPaths).toContain("plugins/alpha/codex/LICENSE.txt");
 });
 
+test("SET-278: check writes root-owner-derived plugin manifest drift", async () => {
+  const root = await builtFixture({
+    ...pluginFixture(),
+    "skillset.yaml": pluginFixture()["skillset.yaml"]?.replace(
+      "  name: provider-update-root",
+      "  name: provider-update-root\n  owner:\n    name: Original Maintainer"
+    ) ?? "",
+  });
+  const rootConfigPath = join(root, "skillset.yaml");
+  await writeFile(
+    rootConfigPath,
+    (await readFile(rootConfigPath, "utf8")).replace("Original Maintainer", "Updated Maintainer"),
+    "utf8"
+  );
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.providerUpdatePaths).toEqual([]);
+  expect(report.fixedPaths).toContain(CODEX_PLUGIN_MANIFEST);
+  expect(await readFile(join(root, CODEX_PLUGIN_MANIFEST), "utf8")).toContain("Updated Maintainer");
+});
+
 test("SET-278: check writes lock-only source provenance drift", async () => {
   const root = await builtFixture(pluginFixture());
   const lockPath = join(root, "plugins/skillset.lock");

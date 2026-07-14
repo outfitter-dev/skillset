@@ -2872,6 +2872,7 @@ function lockItemForPlugin(args: {
     outputPath: files.find((file) => file.endsWith("/plugin.json")) ?? files[0] ?? "",
     skippedSkills,
     sourceHash: hashPluginSource(
+      args.graph,
       args.plugin,
       args.target,
       includedSkills,
@@ -3149,6 +3150,7 @@ function sourceOriginRecord(origin: SourceOrigin): JsonRecord {
 }
 
 function hashPluginSource(
+  graph: BuildGraph,
   plugin: SourcePlugin,
   target: TargetName,
   includedSkills: readonly string[],
@@ -3157,7 +3159,7 @@ function hashPluginSource(
   license: ResolvedLicense | undefined
 ): string {
   const hash = createHash("sha256");
-  hash.update("skillset-plugin-source-v2\0");
+  hash.update("skillset-plugin-source-v3\0");
   hash.update(plugin.id);
   hash.update("\0");
   hash.update(target);
@@ -3165,6 +3167,10 @@ function hashPluginSource(
   hash.update(stringifyJson(plugin.metadata));
   hash.update("\0");
   hash.update(stringifyJson(plugin.targets[target].options));
+  if (target === "codex") {
+    hash.update("\0root-derived-interface\0");
+    hash.update(stringifyJson({ developerName: renderCodexInterface(graph, plugin).developerName }));
+  }
   hash.update("\0");
   hash.update(includedSkills.join("\n"));
   hash.update("\0");
