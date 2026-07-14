@@ -205,15 +205,23 @@ test("SET-220: lookup invalid combinations and targets produce helpful diagnosti
 });
 
 test("SET-283: lookup features rejects unrelated lookup filters", async () => {
-  const result = await runSkillsetCli("lookup", "features", "--fields", "--json");
+  for (const flags of [
+    ["--fields"],
+    ["plugin-bin", "--name", "demo"],
+    ["plugin-bin", "--dry-run"],
+    ["plugin-bin", "--source", ".skillset"],
+    ["plugin-bin", "--from", "claude"],
+  ]) {
+    const result = await runSkillsetCli("lookup", "features", ...flags, "--json");
 
-  expect(result.exitCode).toBe(2);
-  expect(result.stderr).toBe("");
-  expect(JSON.parse(result.stdout)).toMatchObject({
-    diagnostics: [{ message: expect.stringContaining("expected lookup features to use only") }],
-    exitCode: 2,
-    ok: false,
-  });
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      diagnostics: [{ message: expect.stringContaining("expected lookup features to use only") }],
+      exitCode: 2,
+      ok: false,
+    });
+  }
 });
 
 test("SET-283: status rejects flags outside root and JSON", async () => {
