@@ -47,6 +47,7 @@ export async function reconcileManagedPath(
     rootPath,
     explanation.path,
     sourcePaths,
+    choice === "source",
     skillsetOptions
   );
   const outputResolution = choice === "source"
@@ -120,6 +121,7 @@ async function assertReconcileDriftIsScoped(
   rootPath: string,
   managedPath: string,
   sourcePaths: readonly string[],
+  allowSourceSiblings: boolean,
   options: SkillsetOptions
 ): Promise<void> {
   const entries = (await listGeneratedEntries(rootPath, options)).filter((entry) =>
@@ -127,6 +129,9 @@ async function assertReconcileDriftIsScoped(
   );
   const allowedPaths = new Set([
     managedPath,
+    ...(allowSourceSiblings
+      ? entries.flatMap((entry) => [entry.outputPath, ...(entry.files ?? [])])
+      : []),
     ...entries.map((entry) => join(entry.outputRoot, "skillset.lock")),
   ].map(normalizeReconcilePath));
   const preview = await diffSkillsetResult(rootPath, options);

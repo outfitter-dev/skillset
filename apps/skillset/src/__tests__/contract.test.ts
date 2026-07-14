@@ -4939,6 +4939,26 @@ test("SET-282: reconcile refuses sibling target drift from the same source", asy
   expect(await readFile(join(root, codexPath), "utf8")).toContain("Codex edit.");
 });
 
+test("SET-282: source-wins rebuilds sibling target drift", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": "skillset:\n  name: reconcile-source-siblings\nclaude: true\ncodex: true\n",
+    ".skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo.\n---\n\nInitial source.\n",
+  });
+  await buildSkillset(root);
+  const claudePath = ".claude/skills/demo/SKILL.md";
+  const codexPath = ".agents/skills/demo/SKILL.md";
+  await writeFile(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nUpdated source.\n", "utf8");
+  await writeFile(join(root, claudePath), "---\nname: demo\n---\n\nClaude edit.\n", "utf8");
+
+  const result = await runSkillsetCli(
+    "reconcile", claudePath, "--use", "source", "--yes", "--root", root
+  );
+
+  expect(result.exitCode).toBe(0);
+  expect(await readFile(join(root, claudePath), "utf8")).toContain("Updated source.");
+  expect(await readFile(join(root, codexPath), "utf8")).toContain("Updated source.");
+});
+
 test("SET-282: reconcile refuses sibling resource drift from the same output", async () => {
   const root = await contractFixture({
     "skillset.yaml": "skillset:\n  name: reconcile-resources\nclaude: true\ncodex: false\n",
