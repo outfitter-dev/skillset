@@ -3031,7 +3031,13 @@ async function lockItemForSkill(args: {
     outputHash: hashRenderedFiles(args.outputRoot, args.files),
     outputPath: files.find((file) => file.endsWith("/SKILL.md")) ?? files[0] ?? "",
     ...(args.preprocessDependencies.length === 0 ? {} : { preprocessDependencies: args.preprocessDependencies }),
-    sourceHash: await hashSkillSource(args.sourceDir, args.skill.resources, args.preprocessDependencies, args.graph.rootPath),
+    sourceHash: await hashSkillSource(
+      args.sourceDir,
+      args.skill.resources,
+      args.skill.targets,
+      args.preprocessDependencies,
+      args.graph.rootPath
+    ),
     ...(args.skill.sourceOrigin === undefined ? {} : { sourceOrigin: args.skill.sourceOrigin }),
     sourcePath: relative(args.graph.rootPath, args.skill.sourcePath),
     ...(args.transforms.length === 0 ? {} : { transforms: args.transforms }),
@@ -3187,11 +3193,12 @@ async function hashPluginFeatureSource(feature: SourcePluginFeature): Promise<st
 async function hashSkillSource(
   sourceDir: string,
   resources: readonly SourceResource[],
+  targets: SourceSkill["targets"],
   preprocessDependencies: readonly string[],
   rootPath: string
 ): Promise<string> {
   const hash = createHash("sha256");
-  hash.update("skillset-skill-source-v2\0");
+  hash.update("skillset-skill-source-v3\0");
 
   for (const file of await collectFiles(sourceDir)) {
     const relativeFile = relative(sourceDir, file);
@@ -3213,6 +3220,15 @@ async function hashSkillSource(
     hash.update("\0");
     await hashResourceSource(hash, resource);
   }
+
+  hash.update("resolved-targets\0");
+  hash.update(stringifyJson(Object.fromEntries(
+    targetNames().map((target) => [target, {
+      enabled: targets[target].enabled,
+      options: targets[target].options,
+    }])
+  )));
+  hash.update("\0");
 
   for (const dependency of preprocessDependencies) {
     hash.update("preprocess-dependency\0");

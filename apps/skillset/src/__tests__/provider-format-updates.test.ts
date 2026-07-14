@@ -171,6 +171,24 @@ test("SET-278: check does not rebuild unplanned non-source drift", async () => {
   expect(report.providerUpdatePaths).toContain(generatedPath);
 });
 
+test("SET-278: check blocks lock-clean unplanned destination drift", async () => {
+  const root = await builtFixture({
+    "skillset.yaml": "skillset:\n  name: lock-clean-unplanned-drift\nclaude: true\ncodex: false\n",
+    ".skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n",
+  });
+  const generatedPath = ".claude/skills/demo/SKILL.md";
+  const absolutePath = join(root, generatedPath);
+  await writeFile(absolutePath, `${await readFile(absolutePath, "utf8")}\nUnregistered destination change.\n`);
+  await markCurrentGeneratedPathAsManaged(root, generatedPath);
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(false);
+  expect(report.fixedPaths).toEqual([]);
+  expect(report.providerUpdatePaths).toContain(generatedPath);
+  expect(await readFile(absolutePath, "utf8")).toContain("Unregistered destination change.");
+});
+
 test("SET-194: update previews then writes the same safe provider-format plan", async () => {
   const root = await builtFixture(pluginFixture());
   const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
@@ -287,7 +305,12 @@ async function markCurrentPluginManifestAsManaged(root: string): Promise<void> {
 }
 
 async function markCurrentGeneratedPathAsManaged(root: string, generatedPath: string): Promise<void> {
-  const lockPath = join(root, generatedPath.startsWith(".codex/") ? "skillset.lock" : "plugins/skillset.lock");
+  const relativeLockPath = generatedPath.startsWith(".codex/")
+    ? "skillset.lock"
+    : generatedPath.startsWith(".claude/skills/")
+      ? ".claude/skills/skillset.lock"
+      : "plugins/skillset.lock";
+  const lockPath = join(root, relativeLockPath);
   const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
     readonly outputRoot: string;
     readonly items: Array<{
