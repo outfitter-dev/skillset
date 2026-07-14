@@ -65,6 +65,33 @@ test("ci reports generated drift without writing when fix is off", async () => {
   expect(markdown).toContain("skillset build --yes");
 });
 
+test("ci does not recommend output reconciliation that reconcile would refuse", async () => {
+  const root = await fixture({
+    ...DEMO_FIXTURE,
+    ".skillset/skills/other/SKILL.md": `
+---
+name: other
+description: Other.
+---
+
+Other body.
+`,
+  });
+  await commitFixture(root);
+  await buildSkillset(root);
+  const otherPath = ".claude/skills/other/SKILL.md";
+  await writeFile(join(root, GENERATED_SKILL), "---\nname: demo\n---\n\nDemo output edit.\n");
+  await writeFile(join(root, otherPath), "---\nname: other\n---\n\nOther output edit.\n");
+
+  const report = await ciSkillset(root, { since: "HEAD" });
+
+  expect(report.sourceSuggestions).toHaveLength(2);
+  expect(report.sourceSuggestions?.every((suggestion) => suggestion.status === "refused")).toBe(true);
+  expect(report.sourceSuggestions?.every((suggestion) =>
+    suggestion.message.includes("unrelated generated drift exists")
+  )).toBe(true);
+});
+
 test("check JSON promotes readiness failures to envelope diagnostics", async () => {
   const root = await builtFixture();
   await writeFile(join(root, GENERATED_SKILL), "stale\n");

@@ -16,12 +16,13 @@ import {
   type SkillsetDiagnostic,
   type SkillsetDiff,
 } from "@skillset/core";
-import { suggestSource, type SourceSuggestionReport } from "@skillset/core/internal/authoring";
+import type { SourceSuggestionReport } from "@skillset/core/internal/authoring";
 import { inspectSkillset } from "@skillset/core";
 import { readManagedOutputState } from "@skillset/core/internal/output-safety";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import type { LintIssue, SkillsetOptions } from "@skillset/core/internal/types";
 import { runProviderFormatUpdates } from "./provider-format-updates";
+import { reconcileManagedPath } from "./reconcile";
 
 export interface CiOptions extends SkillsetOptions {
   /** Include branch-aware source and package change gates. */
@@ -440,7 +441,8 @@ async function sourceSuggestionsForDrift(
   const reports: SourceSuggestionReport[] = [];
   for (const path of paths) {
     try {
-      reports.push(await suggestSource(rootPath, path, options));
+      const preview = await reconcileManagedPath(rootPath, path, options);
+      reports.push(preview.outputResolution);
     } catch (error) {
       reports.push({
         entries: [],
