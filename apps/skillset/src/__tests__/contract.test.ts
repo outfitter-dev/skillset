@@ -1,5 +1,5 @@
 import { chmod, mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, symlink, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
 import { expect, test } from "bun:test";
@@ -4987,6 +4987,13 @@ test("SET-282: reconcile refuses sibling target drift from the same source", asy
   await writeFile(join(root, claudePath), "---\nname: demo\n---\n\nClaude edit.\n", "utf8");
   await writeFile(join(root, codexPath), "---\nname: demo\n---\n\nCodex edit.\n", "utf8");
 
+  const preview = await runSkillsetCli("reconcile", claudePath, "--root", root);
+  expect(preview.exitCode).toBe(0);
+  expect(preview.stdout).toContain("source wins: available");
+  expect(preview.stdout).toContain("output wins: refused");
+  expect(preview.stdout).toContain(codexPath);
+  expect(preview.stdout).not.toContain("rerun with --use output --yes");
+
   const result = await runSkillsetCli(
     "reconcile", claudePath, "--use", "output", "--yes", "--root", root
   );
@@ -4995,6 +5002,30 @@ test("SET-282: reconcile refuses sibling target drift from the same source", asy
   expect(result.stderr).toContain(codexPath);
   expect(await readFile(join(root, claudePath), "utf8")).toContain("Claude edit.");
   expect(await readFile(join(root, codexPath), "utf8")).toContain("Codex edit.");
+});
+
+test("SET-282: output-wins normalizes equivalent selected paths", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": "skillset:\n  name: reconcile-normalized\nclaude: true\ncodex: false\n",
+    ".skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo.\n---\n\nSource body.\n",
+  });
+  await buildSkillset(root);
+  const generatedPath = ".claude/skills/demo/SKILL.md";
+  await writeFile(join(root, generatedPath), "---\nname: demo\n---\n\nOutput edit.\n", "utf8");
+
+  const result = await runSkillsetCli(
+    "reconcile",
+    resolve(root, generatedPath),
+    "--use",
+    "output",
+    "--yes",
+    "--root",
+    root
+  );
+
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout).toContain("reconciled using output");
+  expect(await readFile(join(root, ".skillset/skills/demo/SKILL.md"), "utf8")).toContain("Output edit.");
 });
 
 test("SET-282: source-wins rebuilds sibling target drift", async () => {

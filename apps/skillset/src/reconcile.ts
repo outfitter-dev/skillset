@@ -35,7 +35,10 @@ export async function reconcileManagedPath(
   const liveEntry = explanation.kind === "generated" && explanation.entries.length > 0
     ? undefined
     : await findLiveLockEntry(rootPath, managedPath);
-  const generatedPath = liveEntry?.generatedPath ?? explanation.path;
+  const generatedPath = normalizeManagedPath(
+    rootPath,
+    liveEntry?.generatedPath ?? explanation.path
+  );
   const ownershipEntries = liveEntry === undefined ? explanation.entries : [liveEntry.entry];
   if (ownershipEntries.length === 0) {
     throw new Error(`skillset: reconcile requires a managed generated path; ${managedPath} has no generated owner`);
@@ -57,12 +60,32 @@ export async function reconcileManagedPath(
     skillsetOptions,
     ownershipEntries
   );
+  const outputScopeError = choice === undefined
+    ? await readReconcileScopeError(
+        rootPath,
+        generatedPath,
+        sourcePaths,
+        skillsetOptions,
+        ownershipEntries
+      )
+    : undefined;
   let outputResolution = choice === "source"
     ? {
         entries: ownershipEntries,
         generatedPath,
         message: "Source selected; output reverse-patch analysis was skipped.",
         nextSteps: ["Rebuild the managed output from its source."],
+        ...(sourcePath === undefined ? {} : { sourcePath }),
+        status: "refused" as const,
+        wouldWrite: false,
+        wrote: false,
+      }
+    : outputScopeError !== undefined
+    ? {
+        entries: ownershipEntries,
+        generatedPath,
+        message: outputScopeError,
+        nextSteps: ["Resolve sibling generated drift before letting this output replace its source."],
         ...(sourcePath === undefined ? {} : { sourcePath }),
         status: "refused" as const,
         wouldWrite: false,
@@ -144,6 +167,28 @@ export async function reconcileManagedPath(
     sourceResolutionAvailable: true,
     writtenPaths,
   };
+}
+
+async function readReconcileScopeError(
+  rootPath: string,
+  managedPath: string,
+  sourcePaths: readonly string[],
+  options: SkillsetOptions,
+  ownershipEntries: readonly GeneratedEntry[]
+): Promise<string | undefined> {
+  try {
+    await assertReconcileDriftIsScoped(
+      rootPath,
+      managedPath,
+      sourcePaths,
+      false,
+      options,
+      ownershipEntries
+    );
+    return undefined;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
 }
 
 async function assertReconcileDriftIsScoped(
