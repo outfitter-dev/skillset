@@ -418,6 +418,21 @@ test("blocked adoption reports its persisted audit artifacts", async () => {
   expect(await exists(cachePath(root, join(ADOPT_REPORT_DIR, "report.json")))).toBe(true);
 });
 
+test("failed instruction adoption reports its partial copied destination", async () => {
+  const root = await fixture({
+    "AGENTS.md": "---\ninvalid: [\n---\n\nHandwritten guidance.\n",
+  });
+
+  const report = await adoptSkillset(root, { write: true });
+  const imported = report.imports.find((result) => result.candidate.kind === "instructions");
+
+  expect(report.ok).toBe(false);
+  expect(imported?.ok).toBe(false);
+  expect(imported?.destination).toBe(".skillset/rules/agents.md");
+  expect(report.writtenPaths).toContain(".skillset/rules/agents.md");
+  expect(await exists(join(root, ".skillset/rules/agents.md"))).toBe(true);
+});
+
 test("adopt elevates a root Cursor native plugin", async () => {
   const root = await fixture({
     ".cursor-plugin/plugin.json": JSON.stringify({

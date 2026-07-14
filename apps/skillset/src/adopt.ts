@@ -529,6 +529,8 @@ async function importCandidate(
   previewSources: string[]
 ): Promise<AdoptImportResult> {
   if (candidate.kind === "instructions") {
+    const expectedDestination = instructionDestination(candidate.path);
+    const destinationExisted = await exists(join(rootPath, expectedDestination));
     try {
       const destination = await importInstructionFile(rootPath, candidate.path);
       await writeMarkdownSourceOrigin(
@@ -543,7 +545,16 @@ async function importCandidate(
       previewSources.push(destination);
       return { baselinePaths: [], candidate, destination, detail: destination, renderResults: [], ok: true, units: [] };
     } catch (error) {
-      return { baselinePaths: [], candidate, detail: errorMessage(error), renderResults: [], ok: false, units: [] };
+      const copiedBeforeFailure = !destinationExisted && await exists(join(rootPath, expectedDestination));
+      return {
+        baselinePaths: [],
+        candidate,
+        ...(copiedBeforeFailure ? { destination: expectedDestination } : {}),
+        detail: errorMessage(error),
+        renderResults: [],
+        ok: false,
+        units: [],
+      };
     }
   }
 
@@ -646,7 +657,7 @@ async function importCandidateSources(
  * destination.
  */
 async function importInstructionFile(rootPath: string, sourceName: string): Promise<string> {
-  const destinationRelative = `${INSTRUCTIONS_DIR}/${sourceName.toLowerCase()}`;
+  const destinationRelative = instructionDestination(sourceName);
   const destination = join(rootPath, destinationRelative);
   if (await exists(destination)) {
     throw new Error(
@@ -658,6 +669,10 @@ async function importInstructionFile(rootPath: string, sourceName: string): Prom
   await mkdir(dirname(destination), { recursive: true });
   await writeFile(destination, content);
   return destinationRelative;
+}
+
+function instructionDestination(sourceName: string): string {
+  return `${INSTRUCTIONS_DIR}/${sourceName.toLowerCase()}`;
 }
 
 function sourceOriginFor(acquisition: AdoptAcquisition, path: string): SourceOrigin {
