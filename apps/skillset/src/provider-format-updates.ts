@@ -67,7 +67,11 @@ export async function runProviderFormatUpdates(
   const uneditedManagedPaths = await uneditedManagedOutputPaths(rootPath, driftPaths);
   const plan = planProviderFormatUpdates(preview.renderResults, providerDriftPaths, uneditedManagedPaths);
   sourceDriftPaths.sort(compareStrings);
-  const unplannedDriftPaths = unplannedProviderDriftPaths(driftPaths, plan.safeUpdates, plan.manualReviews);
+  const unplannedDriftPaths = unplannedProviderDriftPaths(
+    providerDriftPaths,
+    plan.safeUpdates,
+    plan.manualReviews
+  );
   const blocked = plan.manualReviews.length > 0 || unplannedDriftPaths.length > 0;
   let wrote = false;
   let writtenPaths: readonly string[] = [];

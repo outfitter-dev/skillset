@@ -68,6 +68,22 @@ test("SET-278: check writes provider-backed drift caused by source changes", asy
   expect(await readFile(manifestPath, "utf8")).toContain("Updated plugin.");
 });
 
+test("SET-278: update ignores ordinary source-driven drift", async () => {
+  const root = await builtFixture(pluginFixture());
+  const sourcePath = join(root, ".skillset/plugins/alpha/skillset.yaml");
+  await writeFile(
+    sourcePath,
+    (await readFile(sourcePath, "utf8")).replace("  name: alpha", "  name: alpha\n  description: Updated plugin."),
+    "utf8"
+  );
+
+  const report = await runProviderFormatUpdates(root, "update");
+
+  expect(report.blocked).toBe(false);
+  expect(report.sourceDriftPaths).toContain(CODEX_PLUGIN_MANIFEST);
+  expect(report.unplannedDriftPaths).toEqual([]);
+});
+
 test("SET-278: check writes generated drift caused by target defaults", async () => {
   const root = await builtFixture({
     "skillset.yaml": `
