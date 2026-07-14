@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 
 import { expect, test } from "bun:test";
 import { createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
+import { validateCliResult, type SkillsetCliResult } from "@skillset/schema";
 
 import {
   listTryRuns,
@@ -315,24 +316,37 @@ CLI fixture body.
 
   const run = await runSkillsetCli(env, "test", "--target", "codex", "--prompt", "Inspect CLI fixture.", "--json", "--root", root);
   expect(run.exitCode).toBe(0);
-  const report = JSON.parse(run.stdout) as { kind: string; runId: string; runPath: string; state: string };
+  const runEnvelope = JSON.parse(run.stdout) as SkillsetCliResult;
+  expect(validateCliResult(runEnvelope)).toEqual({ diagnostics: [], ok: true });
+  expect(runEnvelope.command).toBe("test");
+  expect(runEnvelope.kind).toBe("test");
+  const report = runEnvelope.data as { kind: string; runId: string; runPath: string; state: string };
   expect(report.kind).toBe("ad-hoc");
   expect(report.state).toBe("passed");
   expect(report.runPath).toStartWith(".skillset/cache/tests/ad-hoc/runs/");
 
   const status = await runSkillsetCli(env, "test", "status", report.runId, "--json", "--root", root);
   expect(status.exitCode).toBe(0);
-  expect(JSON.parse(status.stdout)).toEqual(expect.objectContaining({ runId: report.runId, state: "passed" }));
+  const statusEnvelope = JSON.parse(status.stdout) as SkillsetCliResult;
+  expect(validateCliResult(statusEnvelope)).toEqual({ diagnostics: [], ok: true });
+  expect(statusEnvelope.command).toBe("test status");
+  expect(statusEnvelope.data).toEqual(expect.objectContaining({ runId: report.runId, state: "passed" }));
 
   const tail = await runSkillsetCli(env, "test", "tail", report.runId, "--lines", "10", "--json", "--root", root);
   expect(tail.exitCode).toBe(0);
-  expect(tail.stdout).toContain("Inspect CLI fixture.");
-  expect(tail.stdout).toContain("test passed");
+  const tailEnvelope = JSON.parse(tail.stdout) as SkillsetCliResult;
+  expect(validateCliResult(tailEnvelope)).toEqual({ diagnostics: [], ok: true });
+  expect(tailEnvelope.command).toBe("test tail");
+  expect(JSON.stringify(tailEnvelope.data)).toContain("Inspect CLI fixture.");
+  expect(JSON.stringify(tailEnvelope.data)).toContain("test passed");
   expect(tail.stdout).not.toContain("try passed");
 
   const list = await runSkillsetCli(env, "test", "list", "--json", "--root", root);
   expect(list.exitCode).toBe(0);
-  expect(list.stdout).toContain(report.runId);
+  const listEnvelope = JSON.parse(list.stdout) as SkillsetCliResult;
+  expect(validateCliResult(listEnvelope)).toEqual({ diagnostics: [], ok: true });
+  expect(listEnvelope.command).toBe("test list");
+  expect(JSON.stringify(listEnvelope.data)).toContain(report.runId);
 
   const oldTry = await runSkillsetCli(env, "try", "--target", "codex", "--prompt", "Old command.", "--root", root);
   expect(oldTry.exitCode).toBe(1);
@@ -380,12 +394,13 @@ CLI Claude fixture body.
     root
   );
   expect(run.exitCode).toBe(0);
-  const report = JSON.parse(run.stdout) as { runId: string; state: string };
+  const report = (JSON.parse(run.stdout) as SkillsetCliResult).data as { runId: string; state: string };
   expect(report.state).toBe("passed");
 
   const status = await runSkillsetCli(env, "test", "status", report.runId, "--json", "--root", root);
   expect(status.exitCode).toBe(0);
-  expect(JSON.parse(status.stdout).command.join(" ")).toContain("--setting-sources local");
+  const statusData = (JSON.parse(status.stdout) as SkillsetCliResult).data as { command: string[] };
+  expect(statusData.command.join(" ")).toContain("--setting-sources local");
 });
 
 test("SET-272: background tries complete through the renamed worker command", async () => {
@@ -424,7 +439,7 @@ Background fixture body.
     root
   );
   expect(started.exitCode).toBe(0);
-  const report = JSON.parse(started.stdout) as { runId: string; state: string };
+  const report = (JSON.parse(started.stdout) as SkillsetCliResult).data as { runId: string; state: string };
   expect(report.state).toBe("queued");
 
   let state = report.state;

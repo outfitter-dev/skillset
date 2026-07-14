@@ -15,8 +15,9 @@ import {
   type TrySubcommand,
   type TryTailLine,
 } from "./try";
-import { renderValidatedJson } from "@skillset/core/internal/structured-output";
-import type { BuildScope, CompileBuildMode, JsonRecord, SkillsetOptions, TargetName } from "@skillset/core/internal/types";
+import type { SchemaJsonRecord } from "@skillset/schema";
+import type { BuildScope, CompileBuildMode, SkillsetOptions, TargetName } from "@skillset/core/internal/types";
+import { renderCliDataResult } from "./cli-output";
 
 export interface TryCommandOptions {
   readonly background: boolean;
@@ -46,7 +47,7 @@ export async function runTryCommand(rootPath: string, options: TryCommandOptions
       target: requireTryTarget(options.target),
       ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
     });
-    if (options.json) console.log(renderValidatedJson(report as unknown as JsonRecord, "test run"));
+    if (options.json) printTryJson("test", report, report.ok ? 0 : 1);
     else printTryRun(report);
     if (!report.ok) process.exitCode = 1;
     return;
@@ -58,23 +59,32 @@ export async function runTryCommand(rootPath: string, options: TryCommandOptions
   }
   if (options.subcommand === "status") {
     const status = await readTryStatus(rootPath, options.runId);
-    if (options.json) console.log(renderValidatedJson(status as unknown as JsonRecord, "test status"));
+    if (options.json) printTryJson("test status", status, status.state === "failed" ? 1 : 0);
     else printTryStatus(status);
     if (status.state === "failed") process.exitCode = 1;
     return;
   }
   if (options.subcommand === "tail") {
     const lines = await tailTryRun(rootPath, options.runId, options.lines ?? 40);
-    if (options.json) console.log(renderValidatedJson({ lines: lines.map((line) => ({ ...line })), schemaVersion: 1 }, "test tail"));
+    if (options.json) printTryJson("test tail", { lines: lines.map((line) => ({ ...line })) });
     else printTryTail(lines);
     return;
   }
   if (options.subcommand === "list") {
     const entries = await listTryRuns(rootPath);
-    if (options.json) console.log(renderValidatedJson({ runs: entries.map((entry) => ({ ...entry })), schemaVersion: 1 }, "test list"));
+    if (options.json) printTryJson("test list", { runs: entries.map((entry) => ({ ...entry })) });
     else printTryList(entries);
     return;
   }
+}
+
+function printTryJson(command: string, data: unknown, exitCode = 0): void {
+  process.stdout.write(renderCliDataResult({
+    command,
+    data: data as SchemaJsonRecord,
+    exitCode,
+    kind: "test",
+  }));
 }
 
 export function isTrySubcommand(value: string | undefined): value is TrySubcommand {
