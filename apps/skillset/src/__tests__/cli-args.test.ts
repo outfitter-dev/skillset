@@ -927,6 +927,31 @@ describe("SET-299 CLI request characterization", () => {
   });
 });
 
+describe("SET-300 CLI parse context", () => {
+  test("resolves default and relative roots against the injected cwd", () => {
+    expect(canonical(parseCliRequest(["build"], { cwd: ROOT }))).toEqual({
+      command: "build",
+      request: {
+        jsonOutput: false,
+        options: {},
+        rootPath: ROOT,
+        yes: false,
+      },
+    });
+    expect(
+      canonical(parseCliRequest(["build", "--root", "nested"], { cwd: ROOT }))
+    ).toEqual({
+      command: "build",
+      request: {
+        jsonOutput: false,
+        options: {},
+        rootPath: `${ROOT}/nested`,
+        yes: false,
+      },
+    });
+  });
+});
+
 describe("SET-299 parser failure contract", () => {
   const cases = [
     {
