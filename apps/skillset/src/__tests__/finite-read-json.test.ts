@@ -156,6 +156,28 @@ describe("SET-287 finite read-only JSON", () => {
     expect(envelope.data.writes.some((write) => write.startsWith(".skillset/cache/latest/"))).toBe(true);
   });
 
+  test("destination adoption JSON reports acquired source files", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "skillset-json-adopt-destination-"));
+    const source = path.join(parent, "source");
+    const destination = path.join(parent, "destination");
+    await mkdir(path.join(source, ".agents", "skills", "one"), { recursive: true });
+    await writeFile(path.join(source, "README.md"), "# Acquired repo\n");
+    await writeFile(
+      path.join(source, ".agents", "skills", "one", "SKILL.md"),
+      "---\nname: one\ndescription: One.\n---\n\nBody.\n"
+    );
+
+    const adopted = await runJsonRoute(
+      "init", destination, "--from", source, "--adopt", "all", "--yes"
+    );
+    const envelope = JSON.parse(adopted.stdout) as SkillsetCliResult & { data: { writes: string[] } };
+
+    expect(adopted.exitCode).toBe(0);
+    expect(envelope.data.writes).toContain("README.md");
+    expect(envelope.data.writes).toContain(".agents/skills/one/SKILL.md");
+    expect(envelope.data.writes).toContain(".git");
+  });
+
   test("blocked init adoption JSON reports persisted audit writes", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "skillset-json-adopt-blocked-"));
     await mkdir(path.join(root, ".claude-plugin"), { recursive: true });

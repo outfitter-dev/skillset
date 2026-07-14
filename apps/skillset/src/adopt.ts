@@ -184,17 +184,20 @@ export async function adoptSkillset(
     });
     if (!preflight.ok) return preflight;
   }
-  const acquisition = destination === undefined || write !== true
-    ? acquired
+  const copied = destination === undefined || write !== true
+    ? { acquisition: acquired, writtenPaths: [] }
     : await copyAdoptAcquisition(acquired, resolve(basePath, destination));
-  return adoptResolvedRoot(acquisition, {
+  return adoptResolvedRoot(copied.acquisition, {
     ...buildOptions,
     ...(targets === undefined ? {} : { targets }),
     ...(write === undefined ? {} : { write }),
-  });
+  }, copied.writtenPaths);
 }
 
-async function copyAdoptAcquisition(acquisition: AdoptAcquisition, destination: string): Promise<AdoptAcquisition> {
+async function copyAdoptAcquisition(
+  acquisition: AdoptAcquisition,
+  destination: string
+): Promise<{ readonly acquisition: AdoptAcquisition; readonly writtenPaths: readonly string[] }> {
   const rootPath = resolve(destination);
   try {
     if ((await readdir(rootPath)).length > 0) throw new Error(`skillset: init acquisition destination must be empty: ${rootPath}`);
@@ -228,8 +231,24 @@ async function copyAdoptAcquisition(acquisition: AdoptAcquisition, destination: 
   } finally {
     if (stagedRoot !== undefined) await rm(stagedRoot, { force: true, recursive: true });
   }
+  const writtenPaths = await listAcquisitionFiles(rootPath);
   await initializeAdoptGit(rootPath);
-  return { ...acquisition, rootPath };
+  return {
+    acquisition: { ...acquisition, rootPath },
+    writtenPaths: [...writtenPaths, ".git"],
+  };
+}
+
+async function listAcquisitionFiles(rootPath: string, currentPath = rootPath): Promise<readonly string[]> {
+  const paths: string[] = [];
+  const entries = (await readdir(currentPath, { withFileTypes: true }))
+    .sort((left, right) => left.name.localeCompare(right.name));
+  for (const entry of entries) {
+    const path = join(currentPath, entry.name);
+    if (entry.isDirectory()) paths.push(...await listAcquisitionFiles(rootPath, path));
+    else paths.push(relative(rootPath, path));
+  }
+  return paths;
 }
 
 async function initializeAdoptGit(rootPath: string): Promise<void> {
@@ -245,7 +264,8 @@ async function initializeAdoptGit(rootPath: string): Promise<void> {
 
 async function adoptResolvedRoot(
   acquisition: AdoptAcquisition,
-  options: AdoptOptions = {}
+  options: AdoptOptions = {},
+  acquisitionWrittenPaths: readonly string[] = []
 ): Promise<AdoptReport> {
   const { candidates: selectedCandidates, include, name, targets, write, ...buildOptions } = options;
   const writeMode = write === true;
@@ -307,7 +327,7 @@ async function adoptResolvedRoot(
       surveySkips: survey.surveySkips,
       transformPreviews: [],
       write: false,
-      writtenPaths: ADOPT_REPORT_PATHS,
+      writtenPaths: [...new Set([...acquisitionWrittenPaths, ...ADOPT_REPORT_PATHS])],
     };
     await persistAdoptReport(report);
     return report;
@@ -378,6 +398,7 @@ async function adoptResolvedRoot(
     ...imports.flatMap((result) => result.baselinePaths),
   ])];
   const writtenPaths = [...new Set([
+    ...acquisitionWrittenPaths,
     ...init.files.filter((file) => file.status === "create").map((file) => file.path),
     ...imports.flatMap((entry) => [
       ...(entry.destination === undefined ? [] : [entry.destination]),
