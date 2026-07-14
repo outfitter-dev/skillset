@@ -5073,6 +5073,14 @@ test("SET-282: --write is rejected outside check", async () => {
   }
 });
 
+test("SET-282: reconcile rejects source and output root overrides", async () => {
+  for (const flag of ["--source", "--dist"]) {
+    const result = await runSkillsetCli("reconcile", "missing", flag, "alternate");
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("reconcile does not support --source or --dist overrides");
+  }
+});
+
 test("SET-282: reconcile refuses output-wins generated changelog edits", async () => {
   const root = await contractFixture({
     "skillset.yaml": `
