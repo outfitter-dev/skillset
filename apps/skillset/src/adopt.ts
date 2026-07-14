@@ -246,7 +246,7 @@ async function listAcquisitionFiles(rootPath: string, currentPath = rootPath): P
   for (const entry of entries) {
     const path = join(currentPath, entry.name);
     if (entry.isDirectory()) paths.push(...await listAcquisitionFiles(rootPath, path));
-    else paths.push(relative(rootPath, path));
+    else paths.push(relative(rootPath, path).replaceAll("\\", "/"));
   }
   return paths;
 }
