@@ -131,8 +131,10 @@ describe("SET-287 finite read-only JSON", () => {
     const imported = await runJsonRoute("import", source, "--kind", "skill", "--root", root);
     const envelope = JSON.parse(imported.stdout) as SkillsetCliResult & { data: { writes: string[] } };
 
-    expect(envelope.data.writes.some((write) => write.endsWith("/.skillset/skills/demo"))).toBe(true);
-    expect(envelope.data.writes).toContain(".skillset/changes/state.json");
+    expect(envelope.data.writes).toEqual([
+      ".skillset/skills/demo",
+      ".skillset/changes/state.json",
+    ]);
   });
 
   test("init adoption JSON reports imported units and release state", async () => {

@@ -1,5 +1,5 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import { basename, dirname, resolve } from "node:path";
+import { basename, dirname, relative, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 
 import {
@@ -793,8 +793,10 @@ export async function runCli(
         result,
         state: "written",
         writes: [...new Set(result.imports.flatMap((entry) => [
-          entry.targetPath,
-          ...(entry.baselinePath === undefined ? [] : [entry.baselinePath]),
+          workspaceRelativePath(rootPath, entry.targetPath),
+          ...(entry.baselinePath === undefined
+            ? []
+            : [workspaceRelativePath(rootPath, entry.baselinePath)]),
         ]))],
       });
     } else if (result.imports.length === 1) {
@@ -1064,6 +1066,10 @@ export async function runCli(
   }
 
   throw new Error(`skillset: unhandled command ${command}`);
+}
+
+function workspaceRelativePath(rootPath: string, path: string): string {
+  return relative(resolve(rootPath), resolve(rootPath, path)).replaceAll("\\", "/");
 }
 
 export function readInitAdoptionSelection(
