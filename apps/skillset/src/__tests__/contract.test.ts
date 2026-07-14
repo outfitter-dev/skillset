@@ -1493,7 +1493,7 @@ test("SET-25: CLI help succeeds before command validation", async () => {
   expect(rootHelp.stdout).toContain("skillset explain <path>");
   expect(rootHelp.stdout).toContain("skillset import <path> [--kind <skill|skills|plugin|plugins>]");
   expect(rootHelp.stdout).toContain("skillset distribute plan [name]");
-  expect(rootHelp.stdout).toContain("skillset providers <check|diff|update>");
+  expect(rootHelp.stdout).not.toContain("skillset providers");
 
   const shortHelp = await runSkillsetCli("-h");
   expect(shortHelp.exitCode).toBe(0);
@@ -1514,18 +1514,11 @@ test("SET-25: CLI help succeeds before command validation", async () => {
   expect(explainHelp.stderr).not.toContain("expected a path to explain");
 });
 
-test("SET-191: providers command validates maintainer-only flags", async () => {
-  const missing = await runSkillsetCli("providers");
-  expect(missing.exitCode).toBe(1);
-  expect(missing.stderr).toContain("expected providers subcommand check, diff, or update");
-
-  const checkWrite = await runSkillsetCli("providers", "check", "--yes");
-  expect(checkWrite.exitCode).toBe(1);
-  expect(checkWrite.stderr).toContain("--yes and --dry-run are only supported with providers update");
-
-  const sourceFlag = await runSkillsetCli("providers", "diff", "--source", "skillset");
-  expect(sourceFlag.exitCode).toBe(1);
-  expect(sourceFlag.stderr).toContain("providers does not support --source");
+test("SET-281: providers is not a public CLI command", async () => {
+  const removed = await runSkillsetCli("providers", "check");
+  expect(removed.exitCode).toBe(1);
+  expect(removed.stderr).toContain("expected command");
+  expect(removed.stderr).not.toContain("skillset providers");
 });
 
 test("SET-278: check rejects destination flags and retired check commands are removed", async () => {

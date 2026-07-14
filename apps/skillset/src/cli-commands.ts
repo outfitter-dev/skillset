@@ -1,7 +1,7 @@
 export const CLI_COMMANDS = [
   "build", "change", "check", "dev", "diff",
   "distribute", "doctor", "explain", "features", "hooks", "import", "init",
-  "list", "lookup", "marketplace", "new", "providers", "release",
+  "list", "lookup", "marketplace", "new", "release",
   "restore", "suggest-source", "test", "update",
 ] as const;
 
@@ -13,7 +13,6 @@ export const CLI_LEAF_SUBCOMMANDS: Readonly<Partial<Record<CliCommand, readonly 
   hooks: ["context", "print", "run"],
   lookup: ["features"],
   marketplace: ["check", "update"],
-  providers: ["check", "diff", "update"],
   release: ["amend", "apply", "audit", "plan"],
   test: ["list", "status", "tail", "worker"],
 };
