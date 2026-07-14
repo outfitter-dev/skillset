@@ -336,7 +336,7 @@ export function renderReconcileReport(report: ReconcileReport): string {
   ];
   if (report.applied) {
     lines.push(`skillset: reconciled using ${report.choice} (${report.writtenPaths.length} generated file${report.writtenPaths.length === 1 ? "" : "s"} refreshed)`);
-    if (report.backupRunId !== undefined) {
+    if (report.choice === "source" && report.backupRunId !== undefined) {
       lines.push(`  recovery: skillset restore ${report.backupRunId} --yes`);
     }
   } else if (report.choice === "source") {

@@ -4823,6 +4823,7 @@ Original source body.
   const written = await runSkillsetCli("reconcile", generatedPath, "--use", "output", "--yes", "--root", root);
   expect(written.exitCode).toBe(0);
   expect(written.stdout).toContain("reconciled using output");
+  expect(written.stdout).not.toContain("recovery: skillset restore");
   const source = await readFile(join(root, ".skillset/skills/demo/SKILL.md"), "utf8");
   expect(source).toContain("Edited generated body.");
   expect(source).not.toContain("metadata:");
