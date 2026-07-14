@@ -20,7 +20,7 @@ From the Skillset repo root:
 bun ./apps/skillset/src/cli.ts check --root examples/first-author
 bun ./apps/skillset/src/cli.ts build --root examples/first-author
 bun ./apps/skillset/src/cli.ts build --root examples/first-author --yes
-bun ./apps/skillset/src/cli.ts verify --root examples/first-author
+bun ./apps/skillset/src/cli.ts check --only outputs --root examples/first-author
 bun ./apps/skillset/src/cli.ts dev --watch --root examples/first-author
 ```
 
