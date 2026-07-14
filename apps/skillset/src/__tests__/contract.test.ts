@@ -1488,8 +1488,12 @@ test("SET-25: CLI help succeeds before command validation", async () => {
   expect(rootHelp.stdout).toContain("skillset list [--json] [--scope <scope>] [--root <path>]");
   expect(rootHelp.stdout).not.toContain("skillset list [--updated|--all]");
   expect(rootHelp.stdout).not.toContain("skillset <check|lint|list> [--updated|--all]");
-  expect(rootHelp.stdout).toContain("skillset change status [--since <ref>] [--root <path>]");
-  expect(rootHelp.stdout).toContain("skillset change check [@ref|--ref <ref>] [--since <ref>] [--root <path>]");
+  expect(rootHelp.stdout).toContain(
+    "skillset change status [--since <ref>] [--json] [--root <path>]"
+  );
+  expect(rootHelp.stdout).toContain(
+    "skillset change check [@ref|--ref <ref>] [--since <ref>] [--json] [--root <path>]"
+  );
   expect(rootHelp.stdout).not.toContain("skillset change status [--since <ref>] [--scope <scope>]");
   expect(rootHelp.stdout).not.toContain("skillset change check [@ref|--ref <ref>] [--since <ref>] [--scope <scope>]");
   expect(rootHelp.stdout).toContain("skillset explain <path>");

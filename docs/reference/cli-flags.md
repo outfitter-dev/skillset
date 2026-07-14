@@ -47,7 +47,7 @@ The entries below are the complete final public flag set. Positional arguments a
 | `status` | `--root`, `--json` | Read-only human health/advisory view. |
 | `list` | `--root`, `--scope`, `--json` | Inventory, not build-mode selection. |
 | `explain <path>` | `--root`, `--scope`, `--json` | Workspace-specific provenance. |
-| `lookup` | `--root`, `--frontmatter`, `--fields`, `--field`, `--values`, `--events`, `--compat`, `--examples`, `--schema`, `--json` | Provider aliases become values of `--compat`, not separate `--claude`/`--codex`/`--cursor` flags. |
+| `lookup` | `--frontmatter`, `--fields`, `--field`, `--values`, `--events`, `--compat`, `--examples`, `--schema`, `--json` | Workspace-independent reference lookup; `--root` is rejected. Provider aliases become values of `--compat`, not separate `--claude`/`--codex`/`--cursor` flags. |
 | `test [name]` | `--root`, `--target`, `--prompt`, `--prompt-file`, `--plugin`, `--name`, `--timeout-ms`, `--claude-setting-sources`, `--background`, `--json` | Runtime flags select ad hoc execution; named declarations remain positional. |
 | `test status` or `test list` | `--root`, `--json` | Retained-run lifecycle. |
 | `test tail` | `--root`, `--lines`, `--json` | Bounded retained output; a future `--follow` uses `--jsonl`. |

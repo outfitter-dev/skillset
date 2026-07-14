@@ -1,24 +1,24 @@
 export const CLI_COMMANDS = [
-  "init",
-  "import",
-  "new",
+  "build",
+  "change",
   "check",
   "dev",
-  "reconcile",
-  "build",
-  "update",
   "diff",
+  "distribute",
+  "explain",
+  "hooks",
+  "import",
+  "init",
+  "list",
+  "lookup",
+  "marketplace",
+  "new",
+  "release",
+  "reconcile",
   "restore",
   "status",
-  "list",
-  "explain",
-  "lookup",
   "test",
-  "change",
-  "release",
-  "marketplace",
-  "distribute",
-  "hooks",
+  "update",
 ] as const;
 
 export const RETIRED_CLI_COMMANDS = [
@@ -456,7 +456,6 @@ export const CLI_ROUTE_FLAGS = {
     "--fields",
     "--frontmatter",
     "--json",
-    "--root",
     "--schema",
     "--values",
   ],
@@ -496,6 +495,10 @@ export const CLI_ROUTE_FLAGS = {
   "test status": ["--json", "--root"],
   "test tail": ["--json", "--lines", "--root"],
   update: ["--json", "--root", "--yes"],
+} as const;
+
+export const HIDDEN_CLI_ROUTES = {
+  "test worker": ["--root"],
 } as const;
 
 export const FINITE_JSON_ROUTES = [
