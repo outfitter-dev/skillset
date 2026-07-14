@@ -120,6 +120,32 @@ describe("SET-287 finite read-only JSON", () => {
     expect(envelope.data.writes).toEqual(envelope.data.report.writes.paths);
   });
 
+  test("build JSON stays stderr-clean when the known-workspace index is unwritable", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "skillset-json-build-xdg-"));
+    const root = path.join(parent, "workspace");
+    const configHome = path.join(parent, "not-a-directory");
+    await cp(fixtureRoot, root, { recursive: true });
+    await writeFile(configHome, "occupied\n");
+    const proc = Bun.spawn(
+      [process.execPath, cli, "build", "--root", root, "--yes", "--json"],
+      {
+        cwd: repoRoot,
+        env: { ...process.env, NODE_ENV: "test", XDG_CONFIG_HOME: configHome },
+        stderr: "pipe",
+        stdout: "pipe",
+      }
+    );
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
+
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe("");
+    expect(validateCliResult(JSON.parse(stdout))).toEqual({ diagnostics: [], ok: true });
+  });
+
   test("build JSON normalizes output-safety diagnostics", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "skillset-json-build-diagnostics-"));
     await mkdir(path.join(root, ".skillset", "rules"), { recursive: true });

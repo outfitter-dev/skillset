@@ -261,6 +261,7 @@ export async function runCli(
     }
     const result = await buildSkillsetResult(rootPath, options);
     if (jsonOutput) {
+      if (result.ok) await rememberKnownSkillsetWorkspace(rootPath, options, true);
       printCliJsonData("build.apply", {
         report: {
           ok: result.ok,
@@ -273,7 +274,6 @@ export async function runCli(
         writes: result.writes.paths,
       }, result.ok ? 0 : 1, "diagnostics", serializeDiagnostics(result.diagnostics));
       if (!result.ok) process.exitCode = 1;
-      else await rememberKnownSkillsetWorkspace(rootPath, options);
       return;
     }
     console.log("skillset: build projects source to generated output");
@@ -1181,11 +1181,16 @@ function ciReportDiagnostics(report: CiReport): readonly SkillsetCliDiagnostic[]
   return diagnostics;
 }
 
-async function rememberKnownSkillsetWorkspace(rootPath: string, options: SkillsetOptions): Promise<void> {
+async function rememberKnownSkillsetWorkspace(
+  rootPath: string,
+  options: SkillsetOptions,
+  quiet = false
+): Promise<void> {
   if (process.env.NODE_ENV === "test" && process.env.XDG_CONFIG_HOME === undefined) return;
   try {
     await recordKnownSkillsetWorkspace(rootPath, options.xdg);
   } catch (error) {
+    if (quiet) return;
     const message = error instanceof Error ? error.message : String(error);
     console.warn(`  warning: could not update known Skillsets index: ${message}`);
   }
