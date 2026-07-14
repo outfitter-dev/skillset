@@ -52,8 +52,10 @@ describe("SET-287 finite read-only JSON", () => {
     expect(seededEnvelope.data.writes).toEqual([".skillset/changes/state.json"]);
 
     const unchanged = await runJsonRoute("init", "--root", root, "--yes");
-    const unchangedEnvelope = JSON.parse(unchanged.stdout) as SkillsetCliResult & { data: { writes: unknown[] } };
-    expect(unchangedEnvelope.data.writes).toEqual([]);
+    const unchangedEnvelope = JSON.parse(unchanged.stdout) as SkillsetCliResult & {
+      data: { state: string; writes: unknown[] };
+    };
+    expect(unchangedEnvelope.data).toMatchObject({ state: "planned", writes: [] });
   });
 
   test("init JSON resolves a relative --root once from the invocation cwd", async () => {
@@ -233,10 +235,18 @@ describe("SET-287 finite read-only JSON", () => {
     await cp(fixtureRoot, root, { recursive: true });
 
     const preview = JSON.parse((await runJsonRoute("build", "--root", root)).stdout) as SkillsetCliResult;
-    const applied = JSON.parse((await runJsonRoute("build", "--root", root, "--yes")).stdout) as SkillsetCliResult;
+    const applied = JSON.parse((await runJsonRoute("build", "--root", root, "--yes")).stdout) as SkillsetCliResult & {
+      data: { state: string; writes: string[] };
+    };
+    const unchanged = JSON.parse((await runJsonRoute("build", "--root", root, "--yes")).stdout) as SkillsetCliResult & {
+      data: { state: string; writes: string[] };
+    };
 
     expect(preview.kind).toBe("plan");
     expect(applied.kind).toBe("mutation");
+    expect(applied.data.state).toBe("written");
+    expect(applied.data.writes.length).toBeGreaterThan(0);
+    expect(unchanged.data).toMatchObject({ state: "planned", writes: [] });
   });
 
   test("build apply emits a finite summary and every changed path", async () => {

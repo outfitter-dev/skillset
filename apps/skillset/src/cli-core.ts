@@ -274,7 +274,7 @@ export async function runCli(
           renderResults: result.renderResults.length,
           writes: result.writes,
         },
-        state: "written",
+        state: writes.length > 0 ? "written" : "planned",
         writes,
       }, result.ok ? 0 : 1, "mutation", serializeDiagnostics(result.diagnostics));
       if (!result.ok) process.exitCode = 1;
@@ -782,17 +782,20 @@ export async function runCli(
     if (jsonOutput && yes && !dryRun) {
       await rememberKnownSkillsetWorkspace(setup.rootPath, options, true);
     }
-    if (jsonOutput) printCliJsonData("init", {
-      report: setup,
-      state: yes && !dryRun ? "written" : "planned",
-      writes: yes && !dryRun
+    if (jsonOutput) {
+      const writes = yes && !dryRun
         ? [
             ...setup.files.filter((file) => file.status === "create").map((file) => file.path),
             ...(setup.git?.status === "create" ? [setup.git.path] : []),
             ...(setup.baselinePath === undefined ? [] : [setup.baselinePath]),
           ]
-        : [],
-    });
+        : [];
+      printCliJsonData("init", {
+        report: setup,
+        state: writes.length > 0 ? "written" : "planned",
+        writes,
+      });
+    }
     else {
       printSetupReport(setup, dryRun ? "dry run" : yes ? "written" : "write confirmation required");
       if (!yes || dryRun) console.log("skillset: rerun init with --yes to write setup files");
