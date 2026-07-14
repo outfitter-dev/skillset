@@ -99,7 +99,6 @@ export function validateTryFlags(
     readonly buildMode?: CompileBuildMode;
     readonly claudeSettingSources?: TryClaudeSettingSources;
     readonly distDir?: string;
-    readonly dryRun: boolean;
     readonly lines?: number;
     readonly name?: string;
     readonly plugins: readonly string[];
@@ -125,7 +124,7 @@ export function validateTryFlags(
   }
   if (command !== "test") return;
   if (!hasRuntimeFlag && subcommand === undefined) return;
-  if (runtime.buildMode !== undefined || runtime.distDir !== undefined || runtime.dryRun || runtime.scopes !== undefined || runtime.yes) {
+  if (runtime.buildMode !== undefined || runtime.distDir !== undefined || runtime.scopes !== undefined || runtime.yes) {
     throw new Error("skillset: build/write options are not supported with ad hoc test runs; test uses logical .skillset/cache/tests/ad-hoc");
   }
   if (subcommand === undefined) {

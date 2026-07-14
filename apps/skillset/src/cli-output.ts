@@ -125,6 +125,23 @@ export function renderCliDataResult(input: {
   }));
 }
 
+export function printCliJsonData(
+  command: string,
+  data: unknown,
+  exitCode = 0,
+  kind = "data",
+  diagnostics: readonly SkillsetCliDiagnostic[] = []
+): void {
+  process.stdout.write(renderCliDataResult({
+    command,
+    data: data as SchemaJsonRecord,
+    diagnostics,
+    exitCode,
+    kind,
+  }));
+  if (exitCode !== 0) process.exitCode = exitCode;
+}
+
 export function renderCliEvent(event: SkillsetCliEvent): string {
   assertValid(validateCliEvent(event));
   return `${JSON.stringify(event)}\n`;
