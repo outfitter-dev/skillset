@@ -108,7 +108,10 @@ async function changedSourceOutputPaths(
     const current = await findLockItemForOutputPath(rootPath, expected.outputPath);
     const affectedPaths = current?.files.map((file) => file.displayPath) ?? [expected.outputPath];
     if (!affectedPaths.some((path) => driftSet.has(path)) || expected.sourceHash === undefined) continue;
-    if (current?.sourceHash !== undefined && current.sourceHash !== expected.sourceHash) {
+    if (
+      (current?.sourceHash !== undefined && current.sourceHash !== expected.sourceHash) ||
+      (current?.version !== undefined && current.version !== expected.version)
+    ) {
       for (const path of affectedPaths) {
         if (driftSet.has(path)) changed.add(path);
       }
@@ -292,6 +295,7 @@ async function findLockItemForOutputPath(
         })),
         ...(item.outputHash === undefined ? {} : { outputHash: item.outputHash }),
         ...(item.sourceHash === undefined ? {} : { sourceHash: item.sourceHash }),
+        ...(item.version === undefined ? {} : { version: item.version }),
       };
     }
   }
@@ -315,10 +319,12 @@ async function readLock(rootPath: string, lockPath: string): Promise<ParsedLock 
     if (files.length === 0) continue;
     const outputHash = typeof item.outputHash === "string" ? item.outputHash : undefined;
     const sourceHash = typeof item.sourceHash === "string" ? item.sourceHash : undefined;
+    const version = typeof item.version === "string" ? item.version : undefined;
     items.push({
       files,
       ...(outputHash === undefined ? {} : { outputHash }),
       ...(sourceHash === undefined ? {} : { sourceHash }),
+      ...(version === undefined ? {} : { version }),
     });
   }
   return { items, outputRoot: parsed.outputRoot };
@@ -430,12 +436,14 @@ interface ParsedLockItem {
   readonly files: readonly string[];
   readonly outputHash?: string;
   readonly sourceHash?: string;
+  readonly version?: string;
 }
 
 interface LockItemState {
   readonly files: readonly LockFileEntry[];
   readonly outputHash?: string;
   readonly sourceHash?: string;
+  readonly version?: string;
 }
 
 interface LockFileEntry {

@@ -99,6 +99,27 @@ codex: true
   expect(await readFile(join(root, generatedPath), "utf8")).toContain("review-state: updated");
 });
 
+test("SET-278: check writes version-only source drift", async () => {
+  const root = await builtFixture({
+    "skillset.yaml": "skillset:\n  name: version-drift\n  version: 1.0.0\nclaude: true\ncodex: false\n",
+    ".skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n",
+  });
+  const configPath = join(root, "skillset.yaml");
+  const generatedPath = ".claude/skills/demo/SKILL.md";
+  await writeFile(
+    configPath,
+    (await readFile(configPath, "utf8")).replace("version: 1.0.0", "version: 2.0.0"),
+    "utf8"
+  );
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.providerUpdatePaths).toEqual([]);
+  expect(report.fixedPaths).toContain(generatedPath);
+  expect(await readFile(join(root, generatedPath), "utf8")).toContain("version: 2.0.0");
+});
+
 test("SET-278: check propagates source drift to secondary generated files", async () => {
   const root = await builtFixture({
     "skillset.yaml": "skillset:\n  name: secondary-source-drift\nclaude: true\ncodex: false\n",
