@@ -709,6 +709,32 @@ test("SET-279: legacy locks require refresh before safe provider migration", asy
   expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
 });
 
+test("SET-279: unrelated legacy lock items block otherwise safe migrations", async () => {
+  const root = await builtFixture({
+    ...pluginFixture(),
+    ".skillset/plugins/beta/skillset.yaml": "skillset:\n  name: beta\n",
+    ".skillset/plugins/beta/skills/demo/SKILL.md":
+      "---\nname: demo\ndescription: Beta demo.\n---\n\nBody.\n",
+  });
+  const alphaManifestPath = join(root, CODEX_PLUGIN_MANIFEST);
+  await writeFile(
+    alphaManifestPath,
+    `${await readFile(alphaManifestPath, "utf8")}\n// stale provider format\n`,
+    "utf8"
+  );
+  await markCurrentPluginManifestAsManaged(root);
+  await removePluginRenderInputsHashForPath(
+    root,
+    "plugins/beta/codex/.codex-plugin/plugin.json"
+  );
+
+  const blocked = await runSkillsetCli("update", "--yes", "--root", root);
+
+  expect(blocked.exitCode).toBe(1);
+  expect(blocked.stdout).toContain("unplanned destination drift: plugins/skillset.lock");
+  expect(await readFile(alphaManifestPath, "utf8")).toContain("stale provider format");
+});
+
 test("SET-279: check refreshes legacy locks missing render input hashes", async () => {
   const root = await builtFixture(pluginFixture());
   await removePluginRenderInputsHash(root);
@@ -859,6 +885,23 @@ async function removePluginRenderInputsHash(root: string): Promise<void> {
     readonly items: Array<{ renderInputsHash?: string }>;
   };
   for (const item of lock.items) delete item.renderInputsHash;
+  await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+}
+
+async function removePluginRenderInputsHashForPath(
+  root: string,
+  generatedPath: string
+): Promise<void> {
+  const lockPath = join(root, "plugins/skillset.lock");
+  const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+    readonly outputRoot: string;
+    readonly items: Array<{ files?: readonly string[]; renderInputsHash?: string }>;
+  };
+  const item = lock.items.find((candidate) => candidate.files?.some((file) =>
+    join(lock.outputRoot, file) === generatedPath
+  ));
+  if (item === undefined) throw new Error(`missing lock item for ${generatedPath}`);
+  delete item.renderInputsHash;
   await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
 }
 

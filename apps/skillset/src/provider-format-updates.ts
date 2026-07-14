@@ -75,9 +75,12 @@ export async function runProviderFormatUpdates(
   const plannedPaths = new Set(
     [...plan.safeUpdates, ...plan.manualReviews].flatMap((action) => action.affectedPaths)
   );
-  if (plannedPaths.size === 0) {
-    for (const path of managedState.missingRenderInputsPaths) sourceDriftPaths.add(path);
-  }
+  for (const path of managedState.missingRenderInputsPaths) sourceDriftPaths.add(path);
+  const uncoveredLegacyLockPaths = managedState.missingRenderInputsPaths.some(
+    (path) => !plannedPaths.has(path)
+  )
+    ? managedState.missingRenderInputsLockPaths.filter((path) => driftPathSet.has(path))
+    : [];
   for (const path of driftPaths) {
     if (managedState.unchangedPaths.has(path) && !plannedPaths.has(path)) {
       sourceDriftPaths.add(path);
@@ -88,6 +91,7 @@ export async function runProviderFormatUpdates(
   const unplannedDriftPaths = [
     ...new Set([
       ...unplannedProviderDriftPaths(providerDriftPaths, plan.safeUpdates, plan.manualReviews),
+      ...uncoveredLegacyLockPaths,
       ...(hasProviderPlan
         ? [...sourceDriftPaths].filter((path) =>
             !plannedPaths.has(path) &&
@@ -287,6 +291,7 @@ async function inspectManagedOutputState(
   removedPaths: readonly string[],
   options: SkillsetOptions
 ): Promise<{
+  readonly missingRenderInputsLockPaths: readonly string[];
   readonly missingRenderInputsPaths: readonly string[];
   readonly providerEligiblePaths: ReadonlySet<string>;
   readonly sourceDriftPaths: readonly string[];
@@ -308,6 +313,7 @@ async function inspectManagedOutputState(
   }
   const missingSet = new Set(missingPaths.map(normalizePath));
   const missingRenderInputsPaths: string[] = [];
+  const missingRenderInputsLockPaths: string[] = [];
   const sourceDriftPaths = [...removedPaths];
   for (const outputPath of driftPaths) {
     if (outputPath === "skillset.lock" || outputPath.endsWith("/skillset.lock")) continue;
@@ -320,6 +326,7 @@ async function inspectManagedOutputState(
     const lockItem = await findLockItemForOutputPath(rootPath, outputPath);
     if (entry.renderInputsHash !== undefined && lockItem?.renderInputsHash === undefined) {
       missingRenderInputsPaths.push(outputPath);
+      if (lockItem !== undefined) missingRenderInputsLockPaths.push(lockItem.lockPath);
     }
     if (
       (lockItem?.sourceHash !== undefined && entry.sourceHash !== lockItem.sourceHash) ||
@@ -356,6 +363,7 @@ async function inspectManagedOutputState(
     }
   }
   return {
+    missingRenderInputsLockPaths: [...new Set(missingRenderInputsLockPaths)].sort(compareStrings),
     missingRenderInputsPaths: [...new Set(missingRenderInputsPaths)].sort(compareStrings),
     providerEligiblePaths: providerEligible,
     sourceDriftPaths: [...new Set(sourceDriftPaths)].sort(compareStrings),
@@ -378,6 +386,7 @@ async function findLockItemForOutputPath(
           displayPath: joinOutputRoot(parsed.outputRoot, file),
           file,
         })),
+        lockPath,
         ...(item.outputHash === undefined ? {} : { outputHash: item.outputHash }),
         ...(item.renderInputsHash === undefined ? {} : { renderInputsHash: item.renderInputsHash }),
         ...(item.sourceHash === undefined ? {} : { sourceHash: item.sourceHash }),
@@ -530,6 +539,7 @@ interface ParsedLockItem {
 
 interface LockItemState {
   readonly files: readonly LockFileEntry[];
+  readonly lockPath: string;
   readonly outputHash?: string;
   readonly renderInputsHash?: string;
   readonly sourceHash?: string;
