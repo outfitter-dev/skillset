@@ -40,6 +40,7 @@ export interface ProviderFormatUpdateReport {
   readonly checkedFiles: number;
   readonly command: ProviderFormatUpdateCommand;
   readonly drift: SkillsetDiff;
+  readonly legacyLockOutputPaths: readonly string[];
   readonly manualReviews: readonly ProviderFormatUpdateAction[];
   readonly ok: boolean;
   readonly safeUpdates: readonly ProviderFormatUpdateAction[];
@@ -57,29 +58,49 @@ export async function runProviderFormatUpdates(
   const { write = false, ...skillsetOptions } = options;
   const preview = await diffSkillsetResult(rootPath, skillsetOptions);
   const driftPaths = allDriftPaths(preview.data);
-  const sourceDriftPaths = [...await changedSourceOutputPaths(
+  const driftPathSet = new Set(driftPaths);
+  const managedState = await inspectManagedOutputState(
     rootPath,
     driftPaths,
     preview.data.missing,
     preview.data.removed,
     skillsetOptions
-  )];
-  const providerDriftPaths = driftPaths.filter((path) => !sourceDriftPaths.includes(path));
-  const uneditedManagedPaths = await uneditedManagedOutputPaths(rootPath, driftPaths);
-  const plan = planProviderFormatUpdates(preview.renderResults, providerDriftPaths, uneditedManagedPaths);
-  sourceDriftPaths.sort(compareStrings);
-  const unplannedDriftPaths = unplannedProviderDriftPaths(
+  );
+  const sourceDriftPaths = new Set(managedState.sourceDriftPaths);
+  if (sourceDriftPaths.size > 0) {
+    for (const path of driftPaths) {
+      if (path === "skillset.lock" || path.endsWith("/skillset.lock")) sourceDriftPaths.add(path);
+    }
+  }
+  const providerDriftPaths = driftPaths.filter((path) => !sourceDriftPaths.has(path));
+  const plan = planProviderFormatUpdates(
+    preview.renderResults,
     providerDriftPaths,
-    plan.safeUpdates,
-    plan.manualReviews
+    managedState.providerEligiblePaths,
+    sourceDriftPaths
   );
-  const substantiveSourceDriftPaths = sourceDriftPaths.filter((path) =>
-    path !== "skillset.lock" && !path.endsWith("/skillset.lock")
+  const plannedPaths = new Set(
+    [...plan.safeUpdates, ...plan.manualReviews].flatMap((action) => action.affectedPaths)
   );
-  const mixedSourceAndProviderDrift =
-    command === "update" && plan.safeUpdates.length > 0 && substantiveSourceDriftPaths.length > 0;
-  const blocked =
-    plan.manualReviews.length > 0 || unplannedDriftPaths.length > 0 || mixedSourceAndProviderDrift;
+  for (const path of managedState.missingRenderInputsPaths) sourceDriftPaths.add(path);
+  const uncoveredLegacyLockPaths = managedState.missingRenderInputsPaths.some(
+    (path) => !plannedPaths.has(path)
+  )
+    ? managedState.missingRenderInputsLockPaths.filter((path) => driftPathSet.has(path))
+    : [];
+  const hasProviderPlan = plannedPaths.size > 0;
+  const unplannedDriftPaths = [
+    ...new Set([
+      ...unplannedProviderDriftPaths(providerDriftPaths, plan.safeUpdates, plan.manualReviews),
+      ...uncoveredLegacyLockPaths,
+      ...(hasProviderPlan
+        ? [...sourceDriftPaths].filter((path) =>
+            driftPathSet.has(path) && !plannedPaths.has(path)
+          )
+        : []),
+    ]),
+  ].sort(compareStrings);
+  const blocked = plan.manualReviews.length > 0 || unplannedDriftPaths.length > 0;
   let wrote = false;
   let writtenPaths: readonly string[] = [];
 
@@ -94,47 +115,21 @@ export async function runProviderFormatUpdates(
     checkedFiles: preview.renderResults.length,
     command,
     drift: preview.data,
+    legacyLockOutputPaths: managedState.missingRenderInputsLockOutputPaths,
     manualReviews: plan.manualReviews,
     ok: !write || (!blocked && (plan.safeUpdates.length === 0 || wrote)),
     safeUpdates: plan.safeUpdates,
-    sourceDriftPaths,
+    sourceDriftPaths: [...sourceDriftPaths].sort(compareStrings),
     unplannedDriftPaths,
     wrote,
     writtenPaths,
   };
 }
 
-async function changedSourceOutputPaths(
-  rootPath: string,
-  driftPaths: readonly string[],
-  missingPaths: readonly string[],
-  removedPaths: readonly string[],
-  options: SkillsetOptions
-): Promise<readonly string[]> {
-  const driftSet = new Set(driftPaths);
-  const missingSet = new Set(missingPaths);
-  const changed = new Set(removedPaths);
-  for (const path of driftPaths) {
-    if (await findLockItemForOutputPath(rootPath, path) === undefined) changed.add(path);
-  }
-  for (const expected of await listGeneratedEntries(rootPath, options)) {
-    const current = await findLockItemForOutputPath(rootPath, expected.outputPath);
-    const affectedPaths = current?.files.map((file) => file.displayPath) ?? [expected.outputPath];
-    if (!affectedPaths.some((path) => driftSet.has(path)) || expected.sourceHash === undefined) continue;
-    if (
-      (current?.sourceHash !== undefined && current.sourceHash !== expected.sourceHash) ||
-      (current?.version !== undefined && current.version !== expected.version)
-    ) {
-      for (const path of affectedPaths) {
-        if (driftSet.has(path) && !missingSet.has(path)) changed.add(path);
-      }
-    }
-  }
-  return [...changed].sort(compareStrings);
-}
-
 export function renderProviderFormatUpdateReport(report: ProviderFormatUpdateReport): string {
-  const lines: string[] = [];
+  const lines: string[] = [
+    "skillset: update owns registered, source-preserving provider-format migrations only",
+  ];
   const driftCount = allDriftPaths(report.drift).length;
   if (driftCount === 0) {
     lines.push(`skillset: provider format ${report.command} found no generated-output drift`);
@@ -203,7 +198,8 @@ function displayProvider(provider: string): string {
 function planProviderFormatUpdates(
   renderResults: readonly SkillsetRenderResult[],
   driftPaths: readonly string[],
-  uneditedManagedPaths: ReadonlySet<string>
+  uneditedManagedPaths: ReadonlySet<string>,
+  sourceDriftPaths: ReadonlySet<string>
 ): {
   readonly manualReviews: readonly ProviderFormatUpdateAction[];
   readonly safeUpdates: readonly ProviderFormatUpdateAction[];
@@ -232,6 +228,9 @@ function planProviderFormatUpdates(
           if (affectedPaths.every((path) => uneditedManagedPaths.has(path))) {
             safeUpdates.set(actionKey(action), action);
           } else {
+            const description = affectedPaths.some((path) => sourceDriftPaths.has(path))
+              ? "Source changed since the previous skillset.lock hash; review the provider migration after rebuilding source-driven drift."
+              : "Current generated output differs from its previous skillset.lock hash; review before rewriting.";
             manualReviews.set(
               actionKey(action),
               actionForEntry(
@@ -239,7 +238,7 @@ function planProviderFormatUpdates(
                 snapshotId,
                 outcome.sourceUnit,
                 affectedPaths,
-                "Current generated output differs from its previous skillset.lock hash; review before rewriting."
+                description
               )
             );
           }
@@ -286,18 +285,97 @@ function actionForEntry(
   };
 }
 
-async function uneditedManagedOutputPaths(
+async function inspectManagedOutputState(
   rootPath: string,
-  driftPaths: readonly string[]
-): Promise<ReadonlySet<string>> {
-  const unedited = new Set<string>();
+  driftPaths: readonly string[],
+  missingPaths: readonly string[],
+  removedPaths: readonly string[],
+  options: SkillsetOptions
+): Promise<{
+  readonly missingRenderInputsLockPaths: readonly string[];
+  readonly missingRenderInputsLockOutputPaths: readonly string[];
+  readonly missingRenderInputsPaths: readonly string[];
+  readonly providerEligiblePaths: ReadonlySet<string>;
+  readonly sourceDriftPaths: readonly string[];
+  readonly unchangedPaths: ReadonlySet<string>;
+}> {
+  const expectedEntries = await listGeneratedEntries(rootPath, options);
+  const expectedSourceHashes = new Map<string, string | undefined>();
+  const expectedVersions = new Map<string, string | undefined>();
+  const expectedRenderInputsHashes = new Map<string, string | undefined>();
+  for (const entry of expectedEntries) {
+    const current = await findLockItemForOutputPath(rootPath, entry.outputPath);
+    const outputPaths = current?.files.map((file) => file.displayPath) ?? [entry.outputPath];
+    for (const outputPath of outputPaths) {
+      const normalizedPath = normalizePath(outputPath);
+      expectedSourceHashes.set(normalizedPath, entry.sourceHash);
+      expectedVersions.set(normalizedPath, entry.version);
+      expectedRenderInputsHashes.set(normalizedPath, entry.renderInputsHash);
+    }
+  }
+  const missingSet = new Set(missingPaths.map(normalizePath));
+  const missingRenderInputsPaths: string[] = [];
+  const missingRenderInputsLockPaths: string[] = [];
+  const missingRenderInputsLockOutputPaths: string[] = [];
+  const sourceDriftPaths = [...removedPaths];
+  for (const outputPath of driftPaths) {
+    if (outputPath === "skillset.lock" || outputPath.endsWith("/skillset.lock")) continue;
+    if (await findLockItemForOutputPath(rootPath, outputPath) === undefined) {
+      sourceDriftPaths.push(outputPath);
+    }
+  }
+  for (const entry of expectedEntries) {
+    const outputPath = normalizePath(entry.outputPath);
+    const lockItem = await findLockItemForOutputPath(rootPath, outputPath);
+    if (entry.renderInputsHash !== undefined && lockItem?.renderInputsHash === undefined) {
+      missingRenderInputsPaths.push(outputPath);
+      if (lockItem !== undefined) {
+        missingRenderInputsLockPaths.push(lockItem.lockPath);
+        missingRenderInputsLockOutputPaths.push(outputPath);
+      }
+    }
+    if (
+      (lockItem?.sourceHash !== undefined && entry.sourceHash !== lockItem.sourceHash) ||
+      (lockItem?.renderInputsHash !== undefined && entry.renderInputsHash !== lockItem.renderInputsHash) ||
+      (lockItem?.version !== undefined && entry.version !== lockItem.version)
+    ) {
+      sourceDriftPaths.push(
+        ...(lockItem?.files.map((file) => normalizePath(file.displayPath)) ?? [outputPath])
+          .filter((path) => !missingSet.has(path))
+      );
+    }
+  }
+  const unchanged = new Set<string>();
+  const providerEligible = new Set<string>();
   for (const outputPath of driftPaths) {
     const lockItem = await findLockItemForOutputPath(rootPath, outputPath);
-    if (lockItem === undefined || lockItem.outputHash === undefined) continue;
+    if (lockItem === undefined || lockItem.outputHash === undefined || lockItem.sourceHash === undefined) continue;
     const currentHash = await currentOutputHash(rootPath, lockItem);
-    if (currentHash === lockItem.outputHash) unedited.add(outputPath);
+    const normalizedOutputPath = normalizePath(outputPath);
+    const expectedSourceHash = expectedSourceHashes.get(normalizedOutputPath);
+    const expectedVersion = expectedVersions.get(normalizedOutputPath);
+    const expectedRenderInputsHash = expectedRenderInputsHashes.get(normalizedOutputPath);
+    const renderInputsUnchanged = lockItem.renderInputsHash !== undefined &&
+      expectedRenderInputsHash === lockItem.renderInputsHash;
+    if (currentHash === lockItem.outputHash && expectedSourceHashes.has(normalizedOutputPath)) {
+      unchanged.add(outputPath);
+      if (
+        expectedSourceHash === lockItem.sourceHash &&
+        renderInputsUnchanged &&
+        (lockItem.version === undefined || expectedVersion === lockItem.version)
+      ) {
+        providerEligible.add(outputPath);
+      }
+    }
   }
-  return unedited;
+  return {
+    missingRenderInputsLockPaths: [...new Set(missingRenderInputsLockPaths)].sort(compareStrings),
+    missingRenderInputsLockOutputPaths: [...new Set(missingRenderInputsLockOutputPaths)].sort(compareStrings),
+    missingRenderInputsPaths: [...new Set(missingRenderInputsPaths)].sort(compareStrings),
+    providerEligiblePaths: providerEligible,
+    sourceDriftPaths: [...new Set(sourceDriftPaths)].sort(compareStrings),
+    unchangedPaths: unchanged,
+  };
 }
 
 async function findLockItemForOutputPath(
@@ -315,7 +393,9 @@ async function findLockItemForOutputPath(
           displayPath: joinOutputRoot(parsed.outputRoot, file),
           file,
         })),
+        lockPath,
         ...(item.outputHash === undefined ? {} : { outputHash: item.outputHash }),
+        ...(item.renderInputsHash === undefined ? {} : { renderInputsHash: item.renderInputsHash }),
         ...(item.sourceHash === undefined ? {} : { sourceHash: item.sourceHash }),
         ...(item.version === undefined ? {} : { version: item.version }),
       };
@@ -340,11 +420,13 @@ async function readLock(rootPath: string, lockPath: string): Promise<ParsedLock 
     const files = item.files.filter((file): file is string => typeof file === "string" && file.length > 0);
     if (files.length === 0) continue;
     const outputHash = typeof item.outputHash === "string" ? item.outputHash : undefined;
+    const renderInputsHash = typeof item.renderInputsHash === "string" ? item.renderInputsHash : undefined;
     const sourceHash = typeof item.sourceHash === "string" ? item.sourceHash : undefined;
     const version = typeof item.version === "string" ? item.version : undefined;
     items.push({
       files,
       ...(outputHash === undefined ? {} : { outputHash }),
+      ...(renderInputsHash === undefined ? {} : { renderInputsHash }),
       ...(sourceHash === undefined ? {} : { sourceHash }),
       ...(version === undefined ? {} : { version }),
     });
@@ -457,13 +539,16 @@ interface ParsedLock {
 interface ParsedLockItem {
   readonly files: readonly string[];
   readonly outputHash?: string;
+  readonly renderInputsHash?: string;
   readonly sourceHash?: string;
   readonly version?: string;
 }
 
 interface LockItemState {
   readonly files: readonly LockFileEntry[];
+  readonly lockPath: string;
   readonly outputHash?: string;
+  readonly renderInputsHash?: string;
   readonly sourceHash?: string;
   readonly version?: string;
 }

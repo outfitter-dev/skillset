@@ -17,8 +17,9 @@
       "name": "skillset",
       "outputHash": "sha256:3b20c9eeba2bed9a46fcc4c3fc0a801dd247d694722f6c699ba50ab077cd7c33",
       "outputPath": "skillset/claude/.claude-plugin/plugin.json",
+      "renderInputsHash": "sha256:7322ba9e8d1c72822b23195c5a46b2a4fe7931074b448edf089be195b66b7381",
       "skippedSkills": [],
-      "sourceHash": "sha256:f0ad2fedb3c61b0f0c83e523961ef5422afee3676729c6970abfbce8c8bc4192",
+      "sourceHash": "sha256:d7d83c7cda8cf7b97292c1c424c6a0c98e6ea1e0a44b788be3db7f4a5d212fdc",
       "sourcePath": ".skillset/plugins/skillset",
       "targetState": "sync",
       "version": "0.1.1"
@@ -49,8 +50,9 @@
       "name": "skillset",
       "outputHash": "sha256:44a0da27dabf4d817c35d7ad6a16597c3f062f49f6585491635838495e54eb00",
       "outputPath": "skillset/codex/.codex-plugin/plugin.json",
+      "renderInputsHash": "sha256:7322ba9e8d1c72822b23195c5a46b2a4fe7931074b448edf089be195b66b7381",
       "skippedSkills": [],
-      "sourceHash": "sha256:5db366af12a6d92fc0d83d9cdb606d408cff34d3d8343fa37ba36d648c102323",
+      "sourceHash": "sha256:89aeed2d30aa34abbad25867085e86a92b3ef804a599a3fb7a66aa3388e2b168",
       "sourcePath": ".skillset/plugins/skillset",
       "targetState": "sync",
       "version": "0.1.1"
@@ -81,8 +83,9 @@
       "name": "skillset",
       "outputHash": "sha256:bf27cd1054e75946343e013727d4a2e9f3c9b1b88be88665ec468a13f5c800be",
       "outputPath": "skillset/cursor/.cursor-plugin/plugin.json",
+      "renderInputsHash": "sha256:7322ba9e8d1c72822b23195c5a46b2a4fe7931074b448edf089be195b66b7381",
       "skippedSkills": [],
-      "sourceHash": "sha256:d566970434467f52da886d27d9462cd8fde9ec922fc909e087bdf3e5aa1ce304",
+      "sourceHash": "sha256:8ef06aed93515ddd238cf76d4be8e1a17d47de5a819138cdcdea6a3d7a476a8b",
       "sourcePath": ".skillset/plugins/skillset",
       "targetState": "sync",
       "version": "0.1.1"

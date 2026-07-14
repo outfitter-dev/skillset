@@ -310,6 +310,7 @@ export interface GeneratedEntry {
   readonly outputPath: string;
   readonly outputRoot: string;
   readonly preprocessDependencies?: readonly string[];
+  readonly renderInputsHash?: string;
   readonly sourceHash?: string;
   readonly sourceOrigin?: SourceOrigin;
   readonly sourcePath: string;
