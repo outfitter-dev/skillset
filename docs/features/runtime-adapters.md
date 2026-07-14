@@ -86,7 +86,7 @@ When behavior is shimmed, diagnostics must identify the mechanism and caveat. Fo
 
 ## Provenance
 
-Runtime support records are registry evidence, not generated target files. Future distribution plans, activation probes, and status output can reference them, but ordinary build output should stay target-native and compact.
+Runtime support records are registry evidence, not generated target files. Distribution plans, activation probes, and status output can reference them, but ordinary build output should stay target-native and compact.
 
 ## Evidence
 

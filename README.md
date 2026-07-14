@@ -22,9 +22,9 @@ source repo with one skill and one rule, plus checked-in generated
 output so `skillset check` and `skillset build` have an
 immediate clean target.
 
-Once source exists, `skillset dev --watch` gives you the local edit loop: it
+Once source exists, `skillset dev` gives you the local edit loop: it
 watches source/config paths and reruns diagnostics plus generated-output
-previews. It is read-only by default; add `--apply` when you want the loop to
+previews. It is read-only by default; add `--write` when you want the loop to
 write repo-local generated output with the same ownership, backup, and restore
 safeguards as `skillset build --yes`. Skillset does not automatically install,
 trust, symlink, publish, activate, or mutate user-level Claude/Codex
@@ -35,7 +35,7 @@ configuration.
 - [Five-Minute Quickstart](docs/quickstart.md): the shortest first-author path from source scaffold to generated output.
 - [First Author Example](examples/first-author/README.md): a minimal source repo that builds one skill and one rule to Claude and Codex.
 - [Share-Ready Checklist](docs/quickstart.md#share-ready-checklist): the 0.16 author handoff bar before hooks or runtime activation enter the path.
-- [Dev Watch](docs/features/dev-watch.md): the default-preview `skillset dev --watch` authoring loop, with explicit `--apply` write mode.
+- [Dev Watch](docs/features/dev-watch.md): the default-preview `skillset dev` authoring loop, with explicit `--write` mode.
 - [Skillset Design Tenets](docs/tenets.md): the slow-moving doctrine for source-first loadout authoring and target-native rendering.
 - [Architecture Decision Records](docs/adrs/README.md): accepted and proposed decisions for source vocabulary, unsupported destination policy, and generated-output promises.
 - [Feature Reference](docs/features/README.md): source feature support, target adapter status, and future-only surfaces.
@@ -57,8 +57,8 @@ skillset check              # comprehensive read-only source + generated-output 
 skillset check --write      # repair source-driven generated drift; refuses target edits and format migrations
 skillset check --only outputs # narrow generated-output freshness check
 skillset check --ci --fix   # branch-aware CI gates plus safe mechanical repair
-skillset dev --watch        # rerun source diagnostics and generated-output previews on source edits
-skillset dev --watch --apply # write generated output after clean source edits
+skillset dev         # rerun source diagnostics and generated-output previews on source edits
+skillset dev --write # write generated output after clean source edits
 skillset diff               # show pending generated changes without writing
 skillset explain <path>     # explain a source or generated path (rendering, lock provenance, hashes; add --json for records)
 skillset lookup features [id]      # inspect registry feature capabilities and target support; add --json for records
@@ -69,7 +69,7 @@ skillset test --target codex --prompt "..." # run an ad hoc provider test
 skillset test status        # inspect the retained ad hoc test lifecycle (also: tail, list)
 ```
 
-`init` and `build` are plan-first: they print pending filesystem changes and write only with `--yes`; `--dry-run` always prevents writes, even when paired with `--yes`. `skillset check` is read-only by default and combines source diagnostics with generated-output readiness. `check --only outputs` is the narrow freshness check. `check --write` repairs only source-driven drift: it refuses managed target-side edits and provider-format migrations, which must be reconciled or applied through `skillset update`. `check --ci` adds branch-aware Skillset change-entry and package Changesets gates; CI uses `--fix`, not `--write`, and may also emit a Markdown report with `--report`. The retired top-level `lint`, `verify`, and `ci` commands have no compatibility aliases. `skillset init --include ci` scaffolds the corresponding workflow (see [CI](docs/features/ci.md)).
+`init` and `build` are plan-first: they print pending filesystem changes and write only with `--yes`. `skillset check` is read-only by default and combines source diagnostics with generated-output readiness. `check --only outputs` is the narrow freshness check. `check --write` repairs only source-driven drift: it refuses managed target-side edits and provider-format migrations, which must be reconciled or applied through `skillset update`. `check --ci` adds branch-aware Skillset change-entry and package Changesets gates; CI uses `--fix`, not `--write`, and may also emit a Markdown report with `--report`. Removed top-level readiness commands have no compatibility aliases. `skillset init --include ci` scaffolds the corresponding workflow (see [CI](docs/features/ci.md)).
 
 Inspection stays split by question: `status` summarizes current workspace health, `list` inventories generated entries, `explain` traces one path's provenance, and `lookup` answers static contract questions such as `lookup features`.
 
@@ -101,10 +101,10 @@ Use explicit paths when building another repo:
 skillset build --root /path/to/content-repo
 skillset check --root /path/to/content-repo
 skillset check --only outputs --root /path/to/content-repo
-skillset build --root /tmp/example --dist generated
+skillset build --root /tmp/example
 ```
 
-`--dist` is a compatibility override for plugin outputs. Without it, plugin outputs default to plugin-first bundles under `plugins/<plugin-name>/<target>/`. Source config can also set explicit output roots in target output objects such as `claude.plugins.path` or `codex.skills.path`; explicit provider roots remain self-contained target roots.
+Plugin outputs default to plugin-first bundles under `plugins/<plugin-name>/<target>/`. Source config can also set explicit output roots in target output objects such as `claude.plugins.path` or `codex.skills.path`; explicit provider roots remain self-contained target roots.
 
 ## Setup
 
@@ -303,7 +303,7 @@ paths:
 
 The compiler preserves the source hierarchy when writing Claude rules, so `<source-root>/rules/docs/writing.md` becomes `.claude/rules/docs/writing.md`. `paths` frontmatter is kept for Claude and stripped from Codex output.
 
-For Codex, `skillset` derives the nearest useful `AGENTS.md` destination from each path pattern. `docs/**/*.md` writes `docs/AGENTS.md`; `**/*.ts` scans matching repo files and writes to the lowest common directory, such as `src/AGENTS.md` when matching TypeScript files live under `src/`. Multiple source rules that land at the same destination are concatenated deterministically, each preceded by a `<!-- source: ... -->` boundary comment naming its source. Codex truncates `AGENTS.md` beyond `project_doc_max_bytes` (32 KiB default); `skillset build`/`verify` warns when a generated `AGENTS.md` exceeds it so you can split instructions across nested directories or raise the limit.
+For Codex, `skillset` derives the nearest useful `AGENTS.md` destination from each path pattern. `docs/**/*.md` writes `docs/AGENTS.md`; `**/*.ts` scans matching repo files and writes to the lowest common directory, such as `src/AGENTS.md` when matching TypeScript files live under `src/`. Multiple source rules that land at the same destination are concatenated deterministically, each preceded by a `<!-- source: ... -->` boundary comment naming its source. Codex truncates `AGENTS.md` beyond `project_doc_max_bytes` (32 KiB default); `skillset build` and `skillset check --only outputs` warn when a generated `AGENTS.md` exceeds it so you can split instructions across nested directories or raise the limit.
 
 Skill and instruction Markdown bodies use Skillset preprocessing before target serialization. `{{this.<field>}}` reads from the current document's shared frontmatter, including nested dot paths and scalar values such as numbers and booleans; missing fields fail with the source path and field name. Use triple braces such as `{{{this.description}}}` to keep `{{this.description}}` literal in generated output. Instructions also support Skillset build-time variables when prose needs target-correct paths:
 

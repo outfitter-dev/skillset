@@ -78,7 +78,7 @@ export async function lintSkillset(
 }
 
 /**
- * Collect lint issues without throwing. Used by `skillset doctor` to aggregate
+ * Collect lint issues without throwing. Used by `skillset status` to aggregate
  * findings alongside other health checks.
  */
 export async function inspectSkillset(

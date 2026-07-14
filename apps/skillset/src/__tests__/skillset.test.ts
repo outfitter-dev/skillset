@@ -288,7 +288,7 @@ Demo custom ordinary workspace skill.
   });
 
   await expect(loadBuildGraph(root, { sourceDir: "authoring" })).rejects.toThrow(
-    "--source authoring uses a retired source layout"
+    "sourceDir override authoring uses a retired source layout"
   );
 });
 

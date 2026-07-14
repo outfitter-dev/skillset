@@ -9,12 +9,12 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Activation Probes](tests-and-evals.md#activation-probes): target-aware manual harness prompts generated inside `skillset test` runs.
 - [Agents](agents.md): portable project agents, Claude plugin agents, Codex project agents, and skill-local Codex policy boundaries.
 - [Apps](apps.md): Codex plugin `.app.json` pass-through and why there is no v1 `apps.source` feature key.
-- [Build Scopes](build-scopes.md): build mode, destination scopes, dry-run safety, diff/list/explain behavior, and lock semantics.
+- [Build Scopes](build-scopes.md): build mode, destination scopes, preview safety, diff/list/explain behavior, and lock semantics.
 - [Changes](changes.md): pending change entries, source coverage, compact refs, groups, and append-only history boundaries.
 - [CI](ci.md): the `skillset check --ci` aggregate check, mechanical drift rebuilds, PR-comment reports, and the `--include ci` workflow scaffold.
 - [Commands](commands.md): Claude plugin command pass-through, manifest wiring, and Codex unsupported boundaries.
 - [Dependencies](dependencies.md): plugin dependency declarations, Claude rendering, Codex fallback notices, and provenance.
-- [Dev Watch](dev-watch.md): default-preview `skillset dev --watch` for first-author source diagnostics, generated-output drift, and explicit apply mode.
+- [Dev Watch](dev-watch.md): default-preview `skillset dev` for first-author source diagnostics, generated-output drift, and explicit write mode.
 - [Distributions](distributions.md): post-build distribution planning, destination reports, and build/distribution/activation boundaries.
 - [Executables](executables.md): Claude plugin `bin/` conventional discovery, `bin.source`, and Codex unsupported diagnostics.
 - [Feature Source Pointers](feature-source-pointers.md): direct feature-key source pointers, conventional discovery, and future component ownership.
@@ -92,8 +92,8 @@ Each feature page uses the same registry-oriented fields. The current typed seed
 | Source shape | Source paths, config keys, frontmatter keys, defaults, and conventional discovery. |
 | Target support | Per-target support status, output paths, target-native escape hatches, and unsupported cases. |
 | Render owner | Whether behavior belongs to the portable resolver, the Claude adapter, the Codex adapter, or a target-native pass-through. |
-| Validation | Source checks, build/verify diagnostics, and structured output validation ownership. |
-| Provenance | Lock entries, hashes, warnings, skipped output, target state, and `explain`/`status` surfaces. |
+| Validation | Source checks, build/output-check diagnostics, and structured output validation ownership. |
+| Provenance | Lock entries, hashes, warnings, skipped output, target state, and status/explain surfaces. |
 | Evidence | Provider docs, ADRs, Linear issues, tests, and fixtures that justify the current status. |
 
 Future schema generation can turn these fields into richer generated docs, but the registry source of truth belongs in `@skillset/core`; the CLI should render registry-backed facts rather than own feature semantics.

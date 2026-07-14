@@ -117,7 +117,7 @@ test("post-tool-use is advisory and only runs status when Skillset source change
   expect(runner.calls.map((call) => call.args)).toEqual([["change", "status", "--root", "."]]);
 });
 
-test("stop hook runs change check, check, then output check and propagates blocking failures", async () => {
+test("stop hook runs change coverage then comprehensive check and propagates failures", async () => {
   const changeFails = commandRunner([9]);
   const failed = await runHookEvent("stop", {
     commandRunner: changeFails.run,
@@ -136,35 +136,17 @@ test("stop hook runs change check, check, then output check and propagates block
   expect(checkFailed.exitCode).toBe(7);
   expect(checkFailed.ranCommands).toEqual(["change check --root .", "check --root ."]);
 
-  const outputCheckFails = commandRunner([0, 0, 5]);
-  const outputCheckFailed = await runHookEvent("stop", {
-    commandRunner: outputCheckFails.run,
-    rootPath: "/tmp/repo",
-    sourceGate: async () => sourceGate(true),
-  });
-  expect(outputCheckFailed.exitCode).toBe(5);
-  expect(outputCheckFailed.ranCommands).toEqual([
-    "change check --root .",
-    "check --root .",
-    "check --only outputs --root .",
-  ]);
-
-  const passes = commandRunner([0, 0, 0]);
+  const passes = commandRunner([0, 0]);
   const ok = await runHookEvent("stop", {
     commandRunner: passes.run,
     rootPath: "/tmp/repo",
     sourceGate: async () => sourceGate(true),
   });
   expect(ok.exitCode).toBe(0);
-  expect(ok.ranCommands).toEqual([
-    "change check --root .",
-    "check --root .",
-    "check --only outputs --root .",
-  ]);
+  expect(ok.ranCommands).toEqual(["change check --root .", "check --root ."]);
   expect(passes.calls.map((call) => call.args)).toEqual([
     ["change", "check", "--root", "."],
     ["check", "--root", "."],
-    ["check", "--only", "outputs", "--root", "."],
   ]);
 });
 

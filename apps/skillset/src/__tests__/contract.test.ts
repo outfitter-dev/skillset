@@ -1193,7 +1193,7 @@ Body.
   expect(await readFile(join(root, ".claude/skills/demo/SKILL.md"), "utf8")).toContain("Body.");
 });
 
-test("SET-25: build CLI is plan-first and --dry-run wins over --yes", async () => {
+test("SET-25: build CLI is plan-first and retired preview flags fail", async () => {
   const root = await contractFixture({
     "skillset.yaml": `
 skillset:
@@ -1217,9 +1217,9 @@ Body.
   expect(planned.stdout).toContain("rerun with --yes");
   expect(await Bun.file(join(root, ".claude/skills/demo/SKILL.md")).exists()).toBe(false);
 
-  const dryRun = await runSkillsetCli("build", "--root", root, "--yes", "--dry-run");
-  expect(dryRun.exitCode).toBe(0);
-  expect(dryRun.stdout).toContain("dry run");
+  const retiredPreviewFlag = await runSkillsetCli("build", "--root", root, "--dry-run");
+  expect(retiredPreviewFlag.exitCode).toBe(1);
+  expect(retiredPreviewFlag.stderr).toContain("unknown option");
   expect(await Bun.file(join(root, ".claude/skills/demo/SKILL.md")).exists()).toBe(false);
 
   const written = await runSkillsetCli("build", "--root", root, "--yes");
@@ -1483,8 +1483,10 @@ test("SET-25: CLI help succeeds before command validation", async () => {
   expect(rootHelp.stdout).not.toContain("skillset verify");
   expect(rootHelp.stdout).not.toContain("skillset lint");
   expect(rootHelp.stdout).not.toContain("skillset ci");
-  expect(rootHelp.stdout).toContain("skillset update [--yes|--dry-run] [--root <path>] [--source <dir>] [--dist <dir>]");
-  expect(rootHelp.stdout).toContain("skillset list [--updated|--all]");
+  expect(rootHelp.stdout).toContain("skillset update [--yes] [--json] [--root <path>]");
+  expect(rootHelp.stdout).toContain("skillset dev [--write] [--jsonl] [--root <path>]");
+  expect(rootHelp.stdout).toContain("skillset list [--json] [--scope <scope>] [--root <path>]");
+  expect(rootHelp.stdout).not.toContain("skillset list [--updated|--all]");
   expect(rootHelp.stdout).not.toContain("skillset <check|lint|list> [--updated|--all]");
   expect(rootHelp.stdout).toContain("skillset change status [--since <ref>] [--root <path>]");
   expect(rootHelp.stdout).toContain("skillset change check [@ref|--ref <ref>] [--since <ref>] [--root <path>]");
@@ -1503,7 +1505,7 @@ test("SET-25: CLI help succeeds before command validation", async () => {
   const buildHelp = await runSkillsetCli("build", "--help");
   expect(buildHelp.exitCode).toBe(0);
   expect(buildHelp.stderr).toBe("");
-  expect(buildHelp.stdout).toContain("skillset build [--yes|--dry-run]");
+  expect(buildHelp.stdout).toContain("skillset build [--yes]");
   expect(buildHelp.stdout).toContain("skillset release plan");
   expect(buildHelp.stdout).toContain("skillset distribute plan");
 
@@ -1535,6 +1537,20 @@ test("SET-278: check rejects destination flags and retired check commands are re
     expect(retired.exitCode).toBe(1);
     expect(retired.stderr).toContain("expected command");
     expect(retired.stderr).not.toContain(`skillset ${command} [`);
+  }
+});
+
+test("SET-285: list rejects build-mode flags", async () => {
+  for (const flag of ["--updated", "--all"]) {
+    const result = await runSkillsetCli("list", flag, "--json");
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      command: "list",
+      diagnostics: [expect.objectContaining({ message: "skillset: --updated and --all are not supported with list" })],
+      exitCode: 2,
+      ok: false,
+    });
   }
 });
 
@@ -1640,8 +1656,8 @@ test("SET-41: hooks print emits additive runner snippets", async () => {
     expect(printed.stdout).toContain("skillset change check --staged");
     expect(printed.stdout).toContain("skillset change check --since origin/main");
     expect(printed.stdout).toContain("skillset check");
-    expect(printed.stdout).toContain("skillset check --only outputs");
-    expect(printed.stdout).toContain("skillset status");
+    expect(printed.stdout).not.toContain("skillset check --only outputs");
+    expect(printed.stdout).not.toContain("skillset status");
     if (runner === "pre-commit") expect(printed.stdout).toContain("entry: sh -c");
   }
 });
@@ -4372,7 +4388,7 @@ Migrate this compatibility frontmatter entry without losing the release reason o
   expect(compatibilityCheck.stdout).toContain("change-frontmatter-compatibility");
   expect(compatibilityCheck.stdout).toContain("skillset change migrate --yes");
 
-  const preview = await runSkillsetCli("change", "migrate", "--dry-run", "--root", root);
+  const preview = await runSkillsetCli("change", "migrate", "--root", root);
   expect(preview.exitCode).toBe(0);
   expect(preview.stdout).toContain("would migrate: .skillset/changes/legacy-name.md -> .skillset/changes/abcdef123456.md");
   expect(preview.stdout).toContain("previewed 1 frontmatter pending entry");
@@ -4455,11 +4471,11 @@ Migrate should preserve evidence for every declared scope before rewriting this 
 test("SET-241: change write flags are scoped to explicit migration", async () => {
   const add = await runSkillsetCli("change", "add", "--yes");
   expect(add.exitCode).toBe(1);
-  expect(add.stderr).toContain("--yes and --dry-run are only supported with change migrate");
+  expect(add.stderr).toContain("--yes is only supported with change migrate");
 
-  const conflicting = await runSkillsetCli("change", "migrate", "--yes", "--dry-run");
+  const conflicting = await runSkillsetCli("change", "migrate", "--dry-run");
   expect(conflicting.exitCode).toBe(1);
-  expect(conflicting.stderr).toContain("pass either --yes or --dry-run for change migrate");
+  expect(conflicting.stderr).toContain("unknown option --dry-run");
 });
 
 test("SET-36: change show prefers pending refs and history reads applied records", async () => {
@@ -5253,11 +5269,11 @@ test("SET-282: --write is rejected outside check", async () => {
   }
 });
 
-test("SET-282: reconcile rejects source and output root overrides", async () => {
+test("SET-282: reconcile rejects retired source and output root options", async () => {
   for (const flag of ["--source", "--dist"]) {
     const result = await runSkillsetCli("reconcile", "missing", flag, "alternate");
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("reconcile does not support --source or --dist overrides");
+    expect(result.stderr).toContain(`unknown option ${flag}`);
   }
 });
 
@@ -5519,9 +5535,9 @@ Release the standalone skill body update with a patch version and generated chan
     schemaVersion: "skillset.cli.result@1",
   });
 
-  const dryRun = await runSkillsetCli("release", "apply", "--dry-run", "--root", root);
-  expect(dryRun.exitCode).toBe(0);
-  expect(dryRun.stdout).toContain("dry run wrote no files");
+  const preview = await runSkillsetCli("release", "apply", "--root", root);
+  expect(preview.exitCode).toBe(0);
+  expect(preview.stdout).toContain("rerun release apply with --yes to write release state");
   expect(await Bun.file(join(root, ".skillset/changes/state.json")).exists()).toBe(false);
 
   await writeFile(join(root, ".claude/skills/demo/SKILL.md"), "hand edit\n", "utf8");
@@ -5759,11 +5775,11 @@ Body.
 
   const yesFlag = await runSkillsetCli("release", "audit", "--yes", "--root", root);
   expect(yesFlag.exitCode).toBe(1);
-  expect(yesFlag.stderr).toContain("--yes and --dry-run are only supported with release apply");
+  expect(yesFlag.stderr).toContain("--yes is only supported with release apply");
 
   const dryRun = await runSkillsetCli("release", "audit", "--dry-run", "--root", root);
   expect(dryRun.exitCode).toBe(1);
-  expect(dryRun.stderr).toContain("--yes and --dry-run are only supported with release apply");
+  expect(dryRun.stderr).toContain("unknown option --dry-run");
 });
 
 test("SET-111: release audit reports Claude marketplace plugin version drift", async () => {
@@ -6226,19 +6242,19 @@ Body.
 `,
   });
 
-  const scoped = await runSkillsetCli("build", "--root", root, "--scope", "repo,plugins", "--all", "--dry-run");
+  const scoped = await runSkillsetCli("build", "--root", root, "--scope", "repo,plugins", "--all");
   expect(scoped.exitCode).toBe(0);
-  expect(scoped.stdout).toContain("dry run");
+  expect(scoped.stdout).toContain("write confirmation required");
 
   const scopedWrite = await runSkillsetCli("build", "--root", root, "--scope", "repo", "--yes");
   expect(scopedWrite.exitCode).toBe(0);
   expect(scopedWrite.stdout).toContain("wrote");
 
-  const conflicting = await runSkillsetCli("build", "--root", root, "--updated", "--all", "--dry-run");
+  const conflicting = await runSkillsetCli("build", "--root", root, "--updated", "--all");
   expect(conflicting.exitCode).toBe(1);
   expect(conflicting.stderr).toContain("conflicting build mode flags");
 
-  const unknownScope = await runSkillsetCli("build", "--root", root, "--scope", "nope", "--dry-run");
+  const unknownScope = await runSkillsetCli("build", "--root", root, "--scope", "nope");
   expect(unknownScope.exitCode).toBe(1);
   expect(unknownScope.stderr).toContain("expected --scope");
 });
@@ -7182,7 +7198,7 @@ test("SET-277: init creates a new source repo at an explicit destination", async
     target: "workspace",
   });
   expect(readme).toContain("# my-skillset");
-  expect(readme).toContain("skillset build --dry-run");
+  expect(readme).toContain("skillset build");
   expect(agents).toContain("Treat `.skillset/` as editable Skillset source");
   expect(await fileExists(join(createdRoot, ".git/config"))).toBe(true);
   await mkdir(join(createdRoot, ".skillset/cache"), { recursive: true });
@@ -7245,7 +7261,7 @@ test("SET-27: create supports global source path without touching runtime config
   expect(removedCreate.stderr).toContain("expected command");
 
   await expect(createSkillset({ global: true, homeDir: home, include: ["ci"], write: false }))
-    .rejects.toThrow("create --global does not support --include");
+    .rejects.toThrow("global setup does not support optional scaffold includes");
 });
 
 test("SET-27: setup refuses unsafe overwrite", async () => {

@@ -114,7 +114,7 @@ test("SET-210: dev preview reports clean generated-output state", async () => {
   expect(rendered).toContain("run skillset build --yes");
 });
 
-test("SET-212: dev apply writes generated output with build safeguards", async () => {
+test("SET-212: dev write writes generated output with build safeguards", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-dev-watch-apply-"));
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   await expect(runSkillsetCli("new", "skill", "Review Notes", "--root", root, "--yes")).resolves.toMatchObject({
@@ -125,12 +125,12 @@ test("SET-212: dev apply writes generated output with build safeguards", async (
   const rendered = renderDevWatchPreview(report);
 
   expect(report.ok).toBe(true);
-  expect(report.mode).toBe("apply");
+  expect(report.mode).toBe("write");
   expect(report.writes?.writtenPaths.length).toBeGreaterThan(0);
   expect(report.writes?.writtenPaths).toContain(".claude/skills/review-notes/SKILL.md");
   expect(await Bun.file(join(root, ".claude/skills/review-notes/SKILL.md")).exists()).toBe(true);
-  expect(rendered).toContain("skillset: dev apply passed (test)");
-  expect(rendered).toContain("generated apply:");
+  expect(rendered).toContain("skillset: dev write passed (test)");
+  expect(rendered).toContain("generated write:");
   expect(rendered).toContain("generated output applied");
 
   const freshReport = await runDevWatchApply(root, {}, "fresh");
@@ -142,7 +142,7 @@ test("SET-212: dev apply writes generated output with build safeguards", async (
   expect(freshRendered).toContain("generated output already fresh");
 });
 
-test("SET-212: dev apply reports backup recovery guidance", async () => {
+test("SET-212: dev write reports backup recovery guidance", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-dev-watch-apply-backup-"));
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   await expect(runSkillsetCli("new", "skill", "Review Notes", "--root", root, "--yes")).resolves.toMatchObject({
@@ -161,13 +161,13 @@ test("SET-212: dev apply reports backup recovery guidance", async () => {
   expect(rendered).toContain(`skillset restore ${report.writes?.backupRunId} --yes`);
 });
 
-test("SET-212: dev apply failures render recovery guidance", () => {
+test("SET-212: dev write failures render recovery guidance", () => {
   const rendered = renderDevWatchPreview({
     checkedSkills: 0,
     diagnostics: [],
     diff: { added: [], changed: [], missing: [], removed: [] },
     error: "write failed",
-    mode: "apply",
+    mode: "write",
     ok: false,
     outputRoots: [".claude/skills"],
     reason: "test",
@@ -175,27 +175,23 @@ test("SET-212: dev apply failures render recovery guidance", () => {
     warnings: [],
   });
 
-  expect(rendered).toContain("skillset: dev apply failed (test)");
-  expect(rendered).toContain("no completed apply was reported");
+  expect(rendered).toContain("skillset: dev write failed (test)");
+  expect(rendered).toContain("no completed write was reported");
   expect(rendered).toContain("skillset restore <backup-id>");
 });
 
 test("SET-210/SET-212: dev command validation keeps writes explicitly opt-in", async () => {
-  const missingWatch = await runSkillsetCli("dev");
-  expect(missingWatch.exitCode).toBe(1);
-  expect(missingWatch.stderr).toContain("dev currently requires --watch");
-
-  const writeFlag = await runSkillsetCli("dev", "--watch", "--yes");
+  const writeFlag = await runSkillsetCli("dev", "--yes");
   expect(writeFlag.exitCode).toBe(1);
-  expect(writeFlag.stderr).toContain("write mode with --apply");
+  expect(writeFlag.stderr).toContain("write mode with --write");
 
   const applyWrongCommand = await runSkillsetCli("build", "--apply");
   expect(applyWrongCommand.exitCode).toBe(1);
-  expect(applyWrongCommand.stderr).toContain("--apply is only supported with dev");
+  expect(applyWrongCommand.stderr).toContain("unknown option --apply");
 
   const wrongCommand = await runSkillsetCli("build", "--watch");
   expect(wrongCommand.exitCode).toBe(1);
-  expect(wrongCommand.stderr).toContain("--watch is only supported with dev");
+  expect(wrongCommand.stderr).toContain("unknown option --watch");
 });
 
 test("SET-289: dev JSONL emits controlled started, operation, and terminal events", () => {
@@ -383,7 +379,7 @@ test("SET-289: signals do not wait for stalled watch-root collection", async () 
   ]);
 });
 
-test("SET-289: apply signals wait for the initial write before completing", async () => {
+test("SET-289: write signals wait for the initial operation before completing", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-dev-jsonl-apply-signal-"));
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   let output = "";
@@ -397,7 +393,7 @@ test("SET-289: apply signals wait for the initial write before completing", asyn
     finishApply = resolvePromise;
   });
 
-  const watching = runDevWatch(root, {}, { write: (chunk) => { output += String(chunk); return true; } } as NodeJS.WritableStream, "apply", "jsonl", {
+  const watching = runDevWatch(root, {}, { write: (chunk) => { output += String(chunk); return true; } } as NodeJS.WritableStream, "write", "jsonl", {
     addSignalListeners: (listener) => { signal = listener; },
     collectDirectories: async () => ["."],
     removeSignalListeners: () => {},
@@ -419,7 +415,7 @@ test("SET-289: apply signals wait for the initial write before completing", asyn
     checkedSkills: 1,
     diagnostics: [],
     diff: { added: [], changed: [], missing: [], removed: [] },
-    mode: "apply",
+    mode: "write",
     ok: true,
     outputRoots: [".claude/skills"],
     reason: "initial",
@@ -491,7 +487,7 @@ test("SET-289: dev --jsonl terminates a real controlled stream without human out
   const root = await mkdtemp(join(tmpdir(), "skillset-dev-jsonl-"));
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   const proc = Bun.spawn({
-    cmd: ["bun", join(import.meta.dir, "..", "cli.ts"), "dev", "--watch", "--jsonl", "--root", root],
+    cmd: ["bun", join(import.meta.dir, "..", "cli.ts"), "dev", "--jsonl", "--root", root],
     stderr: "pipe",
     stdout: "pipe",
   });

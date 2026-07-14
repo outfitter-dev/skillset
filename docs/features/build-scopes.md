@@ -23,13 +23,13 @@ compile:
 skillset build --yes
 ```
 
-`--dry-run` is accepted for every build scope and always prevents writes, even when `--yes` is also present. Explicit `--scope` selectors filter generated destinations for build, diff, verify, list, and explain. They are not source-coverage filters for `skillset change status` or `skillset change check`. Repo scripts that intentionally refresh all generated output should omit `--scope` and pass `--yes`.
+Explicit `--scope` selectors filter generated destinations for build, diff, list, and explain. They are not source-coverage filters for `skillset change status` or `skillset change check`. Repo scripts that intentionally refresh all generated output should omit `--scope` and pass `--yes`.
 
-`--isolated` (build, verify, and diff only) re-roots the entire rendering under the logical `.skillset/cache/latest/` mirror, preserving repo-relative layout in reports and locks while storing the mirror in the repo's XDG cache bucket. Writes, locks, drift detection, stale-file removal, and unmanaged-collision backups all operate against that mirror while live generated outputs stay untouched.
+`--isolated` on build, diff, or `check --only outputs` re-roots the entire rendering under the logical `.skillset/cache/latest/` mirror, preserving repo-relative layout in reports and locks while storing the mirror in the repo's XDG cache bucket. Writes, locks, drift detection, stale-file removal, and unmanaged-collision backups all operate against that mirror while live generated outputs stay untouched.
 
 ## Support Table
 
-| Behavior | Build | Verify | Diff/list/explain | Status | Notes |
+| Behavior | Build | Output check | Diff/list/explain | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `compile.build: updated` | writes missing/changed outputs and removes stale scoped outputs | detect drift | explain target state | `implemented` | No usable lock falls back to the rendered configured outputs and writes a fresh baseline only when build runs with `--yes`; unchanged files are left untouched. |
 | `compile.build: all` | rewrites selected output roots | detect drift | explain full plan | `implemented` | CLI `--all` overrides config and records the resolved mode in lock metadata. |
@@ -48,9 +48,9 @@ User/global destinations require the most conservative posture. `skillset build`
 
 - Missing or corrupt locks should not silently disable guards. The workspace lock still fails loudly when corrupt because it guards unmanaged project files; absent locks are treated as a first baseline build.
 - Dry-run commands must never write generated files, locks, target config, or user-level settings.
-- Missing managed outputs are reported with `!` in `diff`/build plans and as `missing managed generated file` in `verify`.
+- Missing managed outputs are reported with `!` in `diff`/build plans and as `missing managed generated file` in `skillset check --only outputs`.
 - Scope/entity selectors should fail on unknown scopes or ambiguous entity selectors rather than guessing.
-- Diff/list/explain should make skipped, future, unsupported, and target-native states visible. `explain` and `status` read render results so degraded or unsupported facts do not require hand-reading target files.
+- Diff/list/explain should make skipped, future, unsupported, and target-native states visible. Status and explain read render results so degraded or unsupported facts do not require hand-reading target files.
 
 ## Provenance
 
@@ -58,4 +58,4 @@ User/global destinations require the most conservative posture. `skillset build`
 
 ## Tests and Fixtures
 
-Fixtures cover plan-first build behavior, `--yes`, `--dry-run` precedence, build-mode flag conflicts, scope validation/filtering, updated-mode no-churn behavior, all-mode rewrites, and missing managed output classification. Existing SET-9 and SET-24 fixtures cover diff/list/explain lock visibility for generated skills, provider source, and project agents.
+Fixtures cover plan-first build behavior, `--yes`, retired preview-flag rejection, build-mode flag conflicts, scope validation/filtering, updated-mode no-churn behavior, all-mode rewrites, and missing managed output classification. Existing SET-9 and SET-24 fixtures cover diff/list/explain lock visibility for generated skills, provider source, and project agents.

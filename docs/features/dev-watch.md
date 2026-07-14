@@ -4,10 +4,10 @@ Feature id: `dev-watch`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-`skillset dev --watch` runs a foreground authoring loop for first authors. It
+`skillset dev` runs a foreground authoring loop for first authors. It
 watches the active Skillset workspace source and config paths, debounces edits,
 and reruns source diagnostics plus generated-output checks as files change. The
-default mode is preview-only; `--apply` opts into writing repo-local generated
+default mode is preview-only; `--write` opts into writing repo-local generated
 output on each clean refresh.
 
 ## Authoring
@@ -15,19 +15,19 @@ output on each clean refresh.
 Start the loop from a Skillset workspace:
 
 ```bash
-skillset dev --watch
+skillset dev
 ```
 
 To apply generated output after each source edit, opt in explicitly:
 
 ```bash
-skillset dev --watch --apply
+skillset dev --write
 ```
 
 For another checkout, pass `--root`:
 
 ```bash
-skillset dev --watch --root examples/first-author
+skillset dev --root examples/first-author
 ```
 
 The command watches:
@@ -50,25 +50,25 @@ Preview mode does not render or write target files. Each refresh prints:
 Use `skillset build --yes` when the preview is acceptable and you want to write
 repo-local generated provider output.
 
-Apply mode uses the same build path as `skillset build --yes`. It writes only
+Write mode uses the same build path as `skillset build --yes`. It writes only
 repo-local generated output, uses generated-output ownership checks, creates
 reversible backups for unmanaged collisions or target-side edits, and reports
 the `skillset restore <backup-id>` recovery command when a backup is created.
-`--apply` is the confirmation; `dev --watch` does not accept `--yes` or
-`--dry-run`.
+`--write` is the continuous-write opt-in; bare `dev` remains preview-only and
+does not accept `--yes`.
 
 ## Diagnostics
 
 The watch loop reports source errors without exiting the process. Fix the file
-and save again to rerun the preview or apply refresh. Build/render errors are
-shown inline. In apply mode, a failed refresh reports that no completed apply was
+and save again to rerun the preview or write refresh. Build/render errors are
+shown inline. In write mode, a failed refresh reports that no completed write was
 recorded and points at restore if an earlier backup was reported.
 
-`skillset dev --watch` is intentionally not a daemon, background service,
+`skillset dev` is intentionally not a daemon, background service,
 runtime activation layer, or provider-specific live preview. It ends when the
 foreground process receives `SIGINT` or `SIGTERM`.
 
-Neither preview nor apply mode installs, trusts, activates, symlinks, publishes,
+Neither preview nor write mode installs, trusts, activates, symlinks, publishes,
 executes hooks/scripts, or mutates user-level Claude, Codex, or Cursor
 configuration.
 

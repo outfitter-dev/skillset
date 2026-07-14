@@ -243,7 +243,7 @@ async function resolveWorkspaceLayout(
   if (options.sourceDir !== undefined) {
     if (options.sourceDir !== DEFAULT_SOURCE_DIR) {
       throw new Error(
-        `skillset: --source ${options.sourceDir} uses a retired source layout; Skillset source lives under ${DEFAULT_SOURCE_DIR}/ with root skillset.yaml`
+        `skillset: sourceDir override ${options.sourceDir} uses a retired source layout; Skillset source lives under ${DEFAULT_SOURCE_DIR}/ with root skillset.yaml`
       );
     }
   }

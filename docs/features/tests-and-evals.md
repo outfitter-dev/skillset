@@ -14,7 +14,7 @@ Skillset currently uses internal compiler fixtures and validation commands:
 | --- | --- | --- | --- |
 | Internal fixtures | `fixtures/<case>/skillset.yaml` and `fixtures/<case>/.skillset/` ([convention](../../fixtures/README.md)) | `implemented` / internal | Fake repos copied into temp directories by compiler tests. |
 | Contract tests | `src/__tests__/` | `implemented` / internal | Unit, contract, and audit-hardening tests for compiler behavior. |
-| Validation commands | `skillset check`, `skillset check --only outputs`, `status`, `diff`, `change check`, `release plan` | `implemented` | Public commands that validate real source and generated output. |
+| Validation commands | `skillset check`, `skillset check --only outputs`, `status`, `diff`, `change check`, `release plan` | `implemented` | Public commands that validate or inspect real source and generated output. |
 | Dogfooding | repo scripts, Linear acceptance criteria, real Skillset source changes | internal practice | Proves workflows by using them on this repo. |
 | `skillset test` | `<source-root>/tests.yaml` and `<source-root>/tests/*.yaml` | `implemented` | Deterministic isolated projection and check runner for authored source. |
 | `skillset test --target …` | `.skillset/cache/tests/ad-hoc/` logical reports backed by XDG cache storage | `implemented` | Runs an ad hoc non-interactive provider test and retains status, output, tail, and report files. |
@@ -79,7 +79,7 @@ project-agent:
     projection: true
 ```
 
-`select.skills.plugin` is available for plugin-bound skills, but `select.plugins.skills` is the clearer spelling when the test starts from plugins. `targets` filters provider renderings; `select` filters source units. `--scope` continues to mean generated-destination filtering, not source selection, and `skillset test` rejects build/write flags such as `--scope`, `--yes`, `--dry-run`, `--updated`, `--all`, and `--dist`.
+`select.skills.plugin` is available for plugin-bound skills, but `select.plugins.skills` is the clearer spelling when the test starts from plugins. `targets` filters provider renderings; `select` filters source units. `--scope` continues to mean generated-destination filtering, not source selection, and `skillset test` rejects build/write flags such as `--scope`, `--yes`, `--updated`, `--all`.
 
 The test runner copies only source-relevant files into an isolated run workspace: root `skillset.yaml`, `.skillset/`, and source-adjacent state such as `.skillset/changes/`. It then prunes unselected source units before building. It does not stage operational `.skillset/cache/` or `.skillset/snapshots/` contents. If the repo has an existing workspace `skillset.lock`, the test stages that lock too so source-adjacent generated files such as entity `CHANGELOG.md` files remain recognized as managed inside the run.
 

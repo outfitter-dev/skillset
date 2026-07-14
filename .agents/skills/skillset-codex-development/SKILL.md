@@ -24,7 +24,7 @@ Use this skill when working on the local `skillset` compiler from a Codex-orient
 2. For source contract changes, follow `docs/schema-contracts.md`: update `packages/schema/src/contracts.ts` and `packages/schema/src/validate.ts` before compiler or Workbench consumers, regenerate artifacts with `bun run schema:generate`, and verify with `bun run schema:check`.
 3. Add or update focused tests or fixtures in the appropriate `apps/skillset/src/__tests__/`, `packages/schema/src/__tests__/`, or `packages/workbench/src/__tests__/` file for every behavior change.
 4. For source-only skill/plugin edits, run `bun run skillset:build`.
-5. Run `bun run skillset:check` for comprehensive readiness and `bun run skillset:check:outputs` when you only need generated-output freshness.
+5. Run `bun run skillset:check` for comprehensive source and workspace diagnostics, and `bun run skillset:check:outputs` for generated-output freshness when the change touches Skillset source, generated output, or docs/guidance that explain the command boundary.
 6. Run `bun run check` before handoff.
 7. Report generated file counts and any skipped checks explicitly.
 

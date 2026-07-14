@@ -95,7 +95,7 @@ release notes:
 - Skillset is a source-first compiler for Claude and Codex loadouts.
 - The 0.x `latest` release stabilizes the current workspace layout:
   `skillset.yaml` plus `.skillset/`.
-- Authors can build deterministic generated output, verify drift, inspect
+- Authors can build deterministic generated output, check drift, inspect
   provider support, and keep source-change provenance separate from package
   release state.
 - The package ships the `skillset` and `skillset-toolkit`

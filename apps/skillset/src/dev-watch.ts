@@ -24,7 +24,7 @@ export interface DevWatchPlan {
   readonly watchRoots: readonly string[];
 }
 
-export type DevWatchMode = "apply" | "preview";
+export type DevWatchMode = "preview" | "write";
 
 export interface DevWatchPreviewReport {
   readonly checkedSkills: number;
@@ -221,7 +221,7 @@ export async function runDevWatchApply(
       checkedSkills: lint.checkedSkills,
       diagnostics: build.diagnostics,
       diff: { added: [], changed: [], missing: [], removed: [] },
-      mode: "apply",
+      mode: "write",
       ok: true,
       outputRoots: plan.outputRoots,
       reason,
@@ -235,7 +235,7 @@ export async function runDevWatchApply(
       diagnostics: [],
       diff: { added: [], changed: [], missing: [], removed: [] },
       error: error instanceof Error ? error.message : String(error),
-      mode: "apply",
+      mode: "write",
       ok: false,
       outputRoots: plan.outputRoots,
       reason,
@@ -254,8 +254,8 @@ export function renderDevWatchPreview(report: DevWatchPreviewReport): string {
 
   if (!report.ok) {
     lines.push(`  error: ${report.error ?? "unknown error"}`);
-    if (report.mode === "apply") {
-      lines.push("  next: fix the source or output error; no completed apply was reported");
+    if (report.mode === "write") {
+      lines.push("  next: fix the source or output error; no completed write was reported");
       lines.push("  recovery: if a backup was reported before the failure, use skillset restore <backup-id>");
     } else {
       lines.push("  next: fix the source error; the watcher will rerun the preview on the next edit");
@@ -269,13 +269,13 @@ export function renderDevWatchPreview(report: DevWatchPreviewReport): string {
     lines.push(`  ${diagnostic.severity}: ${path}${path.length === 0 ? "" : ": "}${diagnostic.code}: ${diagnostic.message}`);
   }
   lines.push(`  source diagnostics: checked ${report.checkedSkills} source skill${report.checkedSkills === 1 ? "" : "s"}`);
-  if (report.mode === "apply") {
+  if (report.mode === "write") {
     const writes = report.writes;
     const writtenPaths = writes?.writtenPaths ?? [];
     const deletedPaths = writes?.deletedPaths ?? [];
     for (const path of writtenPaths) lines.push(`  generated wrote ${path}`);
     for (const path of deletedPaths) lines.push(`  generated removed ${path}`);
-    lines.push(`  generated apply: ${writtenPaths.length} written, ${deletedPaths.length} removed`);
+    lines.push(`  generated write: ${writtenPaths.length} written, ${deletedPaths.length} removed`);
     if (writes?.backupManifestPath !== undefined) {
       const count = writes.backupRecords?.length ?? 0;
       lines.push(`  backup: ${count} file${count === 1 ? "" : "s"} saved to ${writes.backupManifestPath}`);
@@ -476,9 +476,9 @@ export async function collectDevWatchDirectories(plan: DevWatchPlan): Promise<re
 }
 
 function renderDevWatchStart(plan: DevWatchPlan, mode: DevWatchMode): string {
-  if (mode === "apply") {
+  if (mode === "write") {
     return [
-      "skillset: dev watch started (apply mode)",
+      "skillset: dev watch started (write mode)",
       `  source: ${plan.sourceRoot}`,
       `  watching: ${plan.watchRoots.join(", ")}`,
       `  ignoring: ${plan.ignoredRoots.join(", ")}`,
@@ -502,7 +502,7 @@ async function runDevWatchOnce(
   mode: DevWatchMode,
   reason = "initial"
 ): Promise<DevWatchPreviewReport> {
-  return mode === "apply"
+  return mode === "write"
     ? runDevWatchApply(rootPath, options, reason)
     : runDevWatchPreview(rootPath, options, reason);
 }

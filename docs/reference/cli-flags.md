@@ -96,9 +96,9 @@ The entries below are the complete final public flag set. Positional arguments a
 
 ## Structured-output migration coverage
 
-SET-287 moves the available finite read-only routes onto `skillset.cli.result@1`: `check`, `diff`, `list`, `explain`, `lookup`, `change status|check|show|list|history`, `marketplace check`, and `distribute plan`. Transitional `doctor` and `features` reads use the same envelope until their command-family cutovers remove them.
+SET-287 moved finite read-only routes onto `skillset.cli.result@1`: `check`, `diff`, `list`, `status`, `explain`, `lookup`, `change status|check|show|list|history`, `marketplace check`, and `distribute plan`.
 
-The final top-level `status` route is intentionally pending SET-280 because it does not exist before that command-family cutover. Plan and mutation routes remain assigned to SET-288; `dev` and continuous test output remain assigned to SET-289. `marketplace update` and the current test/try family therefore still have legacy command-local JSON on this slice and are explicitly outside SET-287.
+SET-288 applied the same versioned result contract to finite plan and mutation routes. SET-289 added versioned JSONL events for continuous `dev` output and kept retained runtime-test evidence as an explicit raw-protocol exception.
 
 ## Environment contract
 

@@ -264,7 +264,7 @@ async function resolveImportSourceDir(rootPath: string, explicitSourceDir: strin
   if (explicitSourceDir !== undefined) {
     if (explicitSourceDir !== DEFAULT_SOURCE_DIR) {
       throw new Error(
-        `skillset: --source ${explicitSourceDir} uses a retired source layout; imports write under ${DEFAULT_SOURCE_DIR}/`
+        `skillset: sourceDir override ${explicitSourceDir} uses a retired source layout; imports write under ${DEFAULT_SOURCE_DIR}/`
       );
     }
     return explicitSourceDir;

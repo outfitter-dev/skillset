@@ -89,7 +89,7 @@ function printLookupReport(report: LookupReport): void {
       console.log(`  ${subject.subject}: ${subject.description}`);
       console.log(`    views: ${subject.defaultViews.join(", ")}`);
     }
-    console.log("  flags: --frontmatter --fields --field <path> --values --events --compat [claude|codex|cursor...] --examples --schema --claude --codex --cursor --json");
+    console.log("  flags: --frontmatter --fields --field <path> --values --events --compat [claude|codex|cursor...] --examples --schema --json");
     console.log(`skillset: listed ${report.subjects.length} lookup subjects`);
     return;
   }

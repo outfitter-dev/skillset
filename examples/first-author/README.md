@@ -9,7 +9,7 @@ It contains:
 - one standalone skill source at `skillset/skills/review-notes/SKILL.md`;
 - one portable instruction rule at `skillset/rules/team-guidance.md`;
 - a root `skillset.yaml` manifest that targets Claude and Codex;
-- checked-in generated Claude and Codex output so `check` and `verify` pass
+- checked-in generated Claude and Codex output so `check` passes
   immediately after cloning.
 
 ## Try It
@@ -21,7 +21,7 @@ bun ./apps/skillset/src/cli.ts check --root examples/first-author
 bun ./apps/skillset/src/cli.ts build --root examples/first-author
 bun ./apps/skillset/src/cli.ts build --root examples/first-author --yes
 bun ./apps/skillset/src/cli.ts check --only outputs --root examples/first-author
-bun ./apps/skillset/src/cli.ts dev --watch --root examples/first-author
+bun ./apps/skillset/src/cli.ts dev --root examples/first-author
 ```
 
 From a standalone clone after installing Skillset, use the package command:
@@ -31,7 +31,7 @@ skillset check
 skillset build
 skillset build --yes
 skillset check --only outputs
-skillset dev --watch
+skillset dev
 ```
 
 ## Expected Output
@@ -65,6 +65,6 @@ skillset check --only outputs
 
 Use `skillset diff` to inspect pending generated changes and `skillset explain`
 with either a source path or generated path when you want provenance details.
-Use `skillset dev --watch` for the same diagnostics and generated-output preview
+Use `skillset dev` for the same diagnostics and generated-output preview
 as a foreground watch loop. It writes nothing; use `skillset build --yes` when
 you want to refresh repo-local generated output.
