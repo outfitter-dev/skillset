@@ -473,7 +473,13 @@ export async function runCli(
         return;
       }
       const result = await applyRelease(rootPath, options);
-      if (jsonOutput) printCliJsonData("release.apply", { result, state: "written", writes: result.files });
+      if (jsonOutput) {
+        printCliJsonData("release.apply", {
+          result,
+          state: result.files.length > 0 ? "written" : "planned",
+          writes: result.files,
+        });
+      }
       else printReleaseApply(result.plan, result.files, result.renderedFiles);
       return;
     }

@@ -5563,6 +5563,18 @@ Release the standalone skill body update with a patch version and generated chan
   expect(second.stdout).toContain("no pending changes to release");
   expect(await readFile(join(root, ".skillset/changes/history.jsonl"), "utf8")).toBe(history);
 
+  const noOpJson = await runSkillsetCli("release", "apply", "--yes", "--json", "--root", root);
+  expect(noOpJson.exitCode).toBe(0);
+  expect(JSON.parse(noOpJson.stdout)).toMatchObject({
+    command: "release.apply",
+    data: {
+      result: { files: [] },
+      state: "planned",
+      writes: [],
+    },
+    schemaVersion: "skillset.cli.result@1",
+  });
+
   await writeFile(join(root, ".skillset/changes/state.json"), "{nope\n", "utf8");
   const derivedState = await readReleaseState(root);
   expect(derivedState.scopes["skill:demo"]?.version).toBe("0.1.1");
