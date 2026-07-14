@@ -162,5 +162,5 @@ Before sharing a 0.16-era Skillset source repo with another author, make sure:
 - [Skills](features/skills.md) covers skill frontmatter, resources, rendering,
   diagnostics, and provenance.
 - [Workbench Check](features/workbench.md) explains comprehensive checks, output-only checks, repair, and CI modes.
-- [Dev Watch](features/dev-watch.md) covers the default-preview watch loop and explicit apply mode.
+- [Dev Watch](features/dev-watch.md) covers the default-preview watch loop and explicit write mode.
 - [CI](features/ci.md) explains the `skillset check --ci` gate and optional workflow.

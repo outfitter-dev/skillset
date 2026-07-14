@@ -50,7 +50,7 @@ Preview mode does not render or write target files. Each refresh prints:
 Use `skillset build --yes` when the preview is acceptable and you want to write
 repo-local generated provider output.
 
-Apply mode uses the same build path as `skillset build --yes`. It writes only
+Write mode uses the same build path as `skillset build --yes`. It writes only
 repo-local generated output, uses generated-output ownership checks, creates
 reversible backups for unmanaged collisions or target-side edits, and reports
 the `skillset restore <backup-id>` recovery command when a backup is created.
@@ -68,7 +68,7 @@ recorded and points at restore if an earlier backup was reported.
 runtime activation layer, or provider-specific live preview. It ends when the
 foreground process receives `SIGINT` or `SIGTERM`.
 
-Neither preview nor apply mode installs, trusts, activates, symlinks, publishes,
+Neither preview nor write mode installs, trusts, activates, symlinks, publishes,
 executes hooks/scripts, or mutates user-level Claude, Codex, or Cursor
 configuration.
 
