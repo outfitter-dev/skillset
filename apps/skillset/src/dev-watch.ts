@@ -11,6 +11,9 @@ import {
 import { lintSkillset } from "@skillset/core";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
+import type { SchemaJsonRecord } from "@skillset/schema";
+
+import { classifyCliFailure, createCliEventStream } from "./cli-output";
 
 export interface DevWatchPlan {
   readonly configPaths: readonly string[];
@@ -55,6 +58,38 @@ export interface DevWatchDebouncer {
 export interface DevWatchScheduler {
   readonly clearTimeout: (handle: unknown) => void;
   readonly setTimeout: (callback: () => void, delayMs: number) => unknown;
+}
+
+export interface DevWatchRuntime {
+  readonly addSignalListeners: (listener: () => void) => void;
+  readonly collectDirectories: typeof collectDevWatchDirectories;
+  readonly removeSignalListeners: (listener: () => void) => void;
+  readonly runOnce: typeof runDevWatchOnce;
+  readonly scheduler: DevWatchScheduler;
+  readonly setExitCode?: (exitCode: number) => void;
+  readonly watch: typeof watch;
+}
+
+export function createDevWatchJsonlStream(output: Pick<NodeJS.WritableStream, "write">) {
+  const stream = createCliEventStream("dev", output);
+  return {
+    started(plan: DevWatchPlan, mode: DevWatchMode) {
+      return stream.emit("started", {
+        mode,
+        sourceRoot: plan.sourceRoot,
+        watchRoots: [...plan.watchRoots],
+      } as unknown as SchemaJsonRecord);
+    },
+    operation(report: DevWatchPreviewReport) {
+      return stream.emit("operation", report as unknown as SchemaJsonRecord);
+    },
+    completed(reason = "signal") {
+      return stream.emit("completed", { reason });
+    },
+    failed(message: string, stage: string) {
+      return stream.emit("failed", { message, stage });
+    },
+  };
 }
 
 const DEFAULT_DEBOUNCE_MS = 200;
@@ -268,39 +303,160 @@ export async function runDevWatch(
   rootPath: string,
   options: SkillsetOptions = {},
   output: NodeJS.WritableStream = process.stdout,
-  mode: DevWatchMode = "preview"
+  mode: DevWatchMode = "preview",
+  machineMode?: "jsonl",
+  runtime: DevWatchRuntime = {
+    addSignalListeners: (listener) => {
+      process.once("SIGINT", listener);
+      process.once("SIGTERM", listener);
+    },
+    collectDirectories: collectDevWatchDirectories,
+    removeSignalListeners: (listener) => {
+      process.off("SIGINT", listener);
+      process.off("SIGTERM", listener);
+    },
+    runOnce: runDevWatchOnce,
+    scheduler: defaultScheduler,
+    watch,
+  }
 ): Promise<void> {
   const plan = await createDevWatchPlan(rootPath, options);
-  output.write(renderDevWatchStart(plan, mode));
-  output.write(renderDevWatchPreview(await runDevWatchOnce(rootPath, options, mode)));
+  const stream = machineMode === "jsonl" ? createDevWatchJsonlStream(output) : undefined;
+  const recordStreamFailure = (error: unknown, stage: string): void => {
+    stream?.failed(error instanceof Error ? error.message : String(error), stage);
+    const exitCode = classifyCliFailure(error);
+    if (runtime.setExitCode !== undefined) runtime.setExitCode(exitCode);
+    else if (output === process.stdout) process.exitCode = exitCode;
+  };
+  if (stream === undefined) output.write(renderDevWatchStart(plan, mode));
+  else stream.started(plan, mode);
+  const writeOperation = async (reason = "initial") => {
+    const report = await runtime.runOnce(rootPath, options, mode, reason);
+    if (initialSignalReceived) return;
+    if (stream === undefined) output.write(renderDevWatchPreview(report));
+    else stream.operation(report);
+  };
+  let activeOperation: Promise<void> | undefined;
+  let stopping = false;
+  let pendingOperationError: unknown;
+  let pendingSignal = false;
+  let initialSignalReceived = false;
+  let resolveInitialSignal: (() => void) | undefined;
+  const initialSignal = new Promise<void>((resolvePromise) => {
+    resolveInitialSignal = resolvePromise;
+  });
+  let resolveWatchSetupSignal: (() => void) | undefined;
+  const watchSetupSignal = new Promise<void>((resolvePromise) => {
+    resolveWatchSetupSignal = resolvePromise;
+  });
+  let stopWithError: ((error: unknown) => void) | undefined;
+  let stopFromSignal: (() => void) | undefined;
+  const signalStop = () => {
+    resolveWatchSetupSignal?.();
+    if (stopFromSignal === undefined) {
+      pendingSignal = true;
+      if (mode === "preview") {
+        initialSignalReceived = true;
+        resolveInitialSignal?.();
+      }
+    } else stopFromSignal();
+  };
+  const startOperation = async (reason: string) => {
+    const previous = activeOperation;
+    const operation = (previous ?? Promise.resolve()).then(() =>
+      stopping ? undefined : writeOperation(reason)
+    );
+    activeOperation = operation;
+    try {
+      await operation;
+    } finally {
+      if (activeOperation === operation) activeOperation = undefined;
+    }
+  };
+  runtime.addSignalListeners(signalStop);
+  const initialOperation = startOperation("initial");
+  try {
+    await Promise.race([initialOperation, initialSignal]);
+  } catch (error) {
+    runtime.removeSignalListeners(signalStop);
+    if (stream === undefined) throw error;
+    recordStreamFailure(error, "initial-operation");
+    return;
+  }
+  if (pendingSignal) {
+    runtime.removeSignalListeners(signalStop);
+    void initialOperation.catch(() => {});
+    if (stream === undefined) output.write("skillset: dev watch stopped\n");
+    else stream.completed();
+    return;
+  }
 
   const watchers: FSWatcher[] = [];
   const debouncer = createDevWatchDebouncer(async (reason) => {
-    output.write(renderDevWatchPreview(await runDevWatchOnce(rootPath, options, mode, reason)));
-  });
+    try {
+      await startOperation(reason);
+    } catch (error) {
+      if (stopWithError === undefined) pendingOperationError = error;
+      else stopWithError(error);
+    }
+  }, DEFAULT_DEBOUNCE_MS, runtime.scheduler);
 
-  for (const watchRoot of await collectDevWatchDirectories(plan)) {
-    watchers.push(watch(resolve(plan.rootPath, watchRoot), (_event, filename) => {
-      const eventPath = filename === null
-        ? undefined
-        : normalizeRelativePath(join(watchRoot, filename.toString()));
-      if (shouldRunDevPreviewForPath(plan, eventPath)) {
-        debouncer.trigger(eventPath ?? "change");
-      }
-    }));
+  try {
+    const watchRoots = await Promise.race([
+      runtime.collectDirectories(plan),
+      watchSetupSignal.then(() => undefined),
+    ]);
+    if (watchRoots === undefined) {
+      runtime.removeSignalListeners(signalStop);
+      if (stream === undefined) output.write("skillset: dev watch stopped\n");
+      else stream.completed();
+      return;
+    }
+    for (const watchRoot of watchRoots) {
+      watchers.push(runtime.watch(resolve(plan.rootPath, watchRoot), (_event, filename) => {
+        const eventPath = filename === null
+          ? undefined
+          : normalizeRelativePath(join(watchRoot, filename.toString()));
+        if (shouldRunDevPreviewForPath(plan, eventPath)) {
+          debouncer.trigger(eventPath ?? "change");
+        }
+      }));
+    }
+  } catch (error) {
+    for (const watcher of watchers) watcher.close();
+    runtime.removeSignalListeners(signalStop);
+    if (stream === undefined) throw error;
+    recordStreamFailure(error, "watch-setup");
+    return;
   }
 
-  await new Promise<void>((resolvePromise) => {
-    const stop = () => {
+  await new Promise<void>((resolvePromise, rejectPromise) => {
+    const stop = (operationError?: unknown) => {
+      if (stopping) return;
+      stopping = true;
       debouncer.cancel();
       for (const watcher of watchers) watcher.close();
-      process.off("SIGINT", stop);
-      process.off("SIGTERM", stop);
-      output.write("skillset: dev watch stopped\n");
-      resolvePromise();
+      runtime.removeSignalListeners(signalStop);
+      void (async () => {
+        try {
+          await activeOperation;
+          if (operationError !== undefined) throw operationError;
+          if (stream === undefined) output.write("skillset: dev watch stopped\n");
+          else stream.completed();
+          resolvePromise();
+        } catch (error) {
+          if (stream === undefined) rejectPromise(error);
+          else {
+            recordStreamFailure(error, "operation");
+            resolvePromise();
+          }
+        }
+      })();
     };
-    process.once("SIGINT", stop);
-    process.once("SIGTERM", stop);
+    stopFromSignal = () => stop();
+    stopWithError = (error) => stop(error);
+    if (pendingSignal) stop();
+    if (pendingOperationError !== undefined) stop(pendingOperationError);
   });
 }
 

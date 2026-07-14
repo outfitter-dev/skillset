@@ -13,6 +13,7 @@ import {
   tailTryRun,
 } from "../try";
 import { runSkillsetTest } from "../test-runner";
+import { parseCliEventStream } from "../cli-output";
 
 test("try runs a Codex prompt and records inspectable artifacts", async () => {
   const root = await fixture({
@@ -55,9 +56,44 @@ Use this skill to answer fixture questions.
   const tail = await tailTryRun(root, report.runId, 20, { xdg });
   expect(tail.map((line) => line.stream)).toContain("stdout");
   expect(tail.some((line) => line.message.includes("List the available fixture skills."))).toBe(true);
+  const retainedEvents = parseCliEventStream(await readFile(cachePath(root, xdg, report.tailPath), "utf8"));
+  expect(retainedEvents.at(-1)?.event).toBe("completed");
+  expect(retainedEvents.every((event) => event.command === "test")).toBe(true);
 
   const runs = await listTryRuns(root, { xdg });
   expect(runs.map((run) => run.runId)).toContain(report.runId);
+});
+
+test("provider output cannot terminate the retained test event stream", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: provider-status-text-fixture
+codex: true
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Provider status text fixture.
+---
+
+Body.
+`,
+  });
+  const bin = await fakeCodexStatusTextBin(root);
+  const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
+  const report = await startTryRun(root, {
+    env: { ...process.env, SKILLSET_TEST_CODEX_BIN: bin },
+    prompt: "Print misleading status text.",
+    target: "codex",
+    xdg,
+  });
+
+  const events = parseCliEventStream(await readFile(cachePath(root, xdg, report.tailPath), "utf8"));
+  expect(events.filter((event) => event.event === "completed")).toHaveLength(1);
+  expect(events.at(-1)?.event).toBe("completed");
+  expect(events.some((event) => event.event === "stdout" && typeof event.data.message === "string" && event.data.message.includes("test passed"))).toBe(true);
+  expect(events.some((event) => event.event === "stderr" && typeof event.data.message === "string" && event.data.message.includes("test failed: provider text"))).toBe(true);
 });
 
 test("try runs a Claude prompt with isolated settings and explicit plugin dirs", async () => {
@@ -869,6 +905,20 @@ if [ -n "$last" ]; then
 fi
 `, "utf8");
   await chmod(bin, 0o755);
+  return bin;
+}
+
+async function fakeCodexStatusTextBin(root: string): Promise<string> {
+  const bin = await fakeCodexBin(root);
+  const script = await readFile(bin, "utf8");
+  await writeFile(
+    bin,
+    script.replace(
+      'echo "fake-codex cwd=$(pwd)"',
+      'printf \'test passed\\n\'\nprintf \'test failed: provider text\\n\' >&2\necho "fake-codex cwd=$(pwd)"'
+    ),
+    "utf8"
+  );
   return bin;
 }
 

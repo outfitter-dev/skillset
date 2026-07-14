@@ -1,6 +1,7 @@
 import { reportCliError, runCli } from "./cli-core";
 import {
   CliOutputError,
+  classifyCliFailure,
   createCliEvent,
   createCliResult,
   readCliCommand,
@@ -25,7 +26,12 @@ export async function runCliEntrypoint(
     }
     await runCli(args);
   } catch (error) {
-    mode ??= args.includes("--json") ? "json" : undefined;
+    mode ??=
+      args.includes("--jsonl") && !args.includes("--json")
+        ? "jsonl"
+        : args.includes("--json")
+          ? "json"
+          : undefined;
     if (!mode) {
       reportCliError(error);
       return;
@@ -58,15 +64,4 @@ export async function runCliEntrypoint(
     process.stdout.write(output);
     process.exitCode = exitCode;
   }
-}
-
-function classifyCliFailure(error: unknown): number {
-  if (error instanceof CliOutputError) return error.exitCode;
-  if (
-    error instanceof Error &&
-    (error.message.startsWith("skillset: expected") ||
-      error.message.startsWith("skillset: --"))
-  )
-    return 2;
-  return 3;
 }
