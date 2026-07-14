@@ -3059,6 +3059,12 @@ async function lockItemForSkill(args: {
       args.sourceDir,
       args.skill.resources,
       args.skill.targets,
+      renderAdaptiveFrontmatterHooks(
+        args.graph,
+        skillScope(args.plugin, args.skill),
+        "claude",
+        relative(args.graph.rootPath, args.skill.sourcePath)
+      ),
       args.license,
       args.graph.root.compile.skillset.metadata,
       args.preprocessDependencies,
@@ -3294,13 +3300,14 @@ async function hashSkillSource(
   sourceDir: string,
   resources: readonly SourceResource[],
   targets: SourceSkill["targets"],
+  adaptiveHooks: JsonRecord | undefined,
   license: ResolvedLicense | undefined,
   skillsetMetadata: boolean,
   preprocessDependencies: readonly string[],
   rootPath: string
 ): Promise<string> {
   const hash = createHash("sha256");
-  hash.update("skillset-skill-source-v4\0");
+  hash.update("skillset-skill-source-v5\0");
 
   for (const file of await collectFiles(sourceDir)) {
     const relativeFile = relative(sourceDir, file);
@@ -3330,6 +3337,10 @@ async function hashSkillSource(
       options: targets[target].options,
     }])
   )));
+  hash.update("\0");
+
+  hash.update("resolved-adaptive-hooks\0");
+  hash.update(stringifyJson(adaptiveHooks ?? {}));
   hash.update("\0");
 
   hash.update("skillset-metadata\0");

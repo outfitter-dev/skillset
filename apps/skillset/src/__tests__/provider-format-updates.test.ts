@@ -250,6 +250,41 @@ Review code.
   expect(await readFile(join(root, generatedPath), "utf8")).toContain("echo updated");
 });
 
+test("SET-278: check writes skill drift caused by inherited adaptive hooks", async () => {
+  const generatedPath = ".claude/skills/reviewer/SKILL.md";
+  const hookPath = ".skillset/hooks/session.json";
+  const root = await builtFixture({
+    "skillset.yaml": "skillset:\n  name: skill-hook-drift\nclaude: true\ncodex: false\ncursor: false\n",
+    ".skillset/skills/reviewer/SKILL.md": `
+---
+name: reviewer
+description: Reviews code.
+hooks:
+  SessionStart:
+    - session
+---
+
+Review code.
+`,
+    [hookPath]: JSON.stringify({
+      events: ["SessionStart"],
+      run: { command: "echo initial" },
+    }),
+  });
+  await writeFile(
+    join(root, hookPath),
+    JSON.stringify({ events: ["SessionStart"], run: { command: "echo updated" } }),
+    "utf8"
+  );
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.providerUpdatePaths).toEqual([]);
+  expect(report.fixedPaths).toContain(generatedPath);
+  expect(await readFile(join(root, generatedPath), "utf8")).toContain("echo updated");
+});
+
 test("SET-278: check writes version-only source drift", async () => {
   const root = await builtFixture({
     "skillset.yaml": "skillset:\n  name: version-drift\n  version: 1.0.0\nclaude: true\ncodex: false\n",
