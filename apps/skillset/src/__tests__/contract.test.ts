@@ -4845,6 +4845,7 @@ test("SET-282: reconcile applies source-wins with output backup safety", async (
 
   expect(result.exitCode).toBe(0);
   expect(result.stdout).toContain("reconciled using source");
+  expect(result.stdout).not.toContain("output next:");
   expect(result.stdout).toContain("recovery: skillset restore ");
   expect(await readFile(join(root, generatedPath), "utf8")).toContain("Source body.");
   expect(await readFile(join(root, ".skillset/skills/demo/SKILL.md"), "utf8")).not.toContain("Output edit.");
@@ -4911,6 +4912,33 @@ test("SET-282: failed output-wins reconciliation restores source", async () => {
   expect(result.exitCode).toBe(1);
   expect(result.stderr).toContain("links to undeclared shared resource");
   expect(await readFile(sourcePath, "utf8")).toBe(originalSource);
+});
+
+test("SET-282: source-wins removes edited output after its source is deleted", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": "skillset:\n  name: reconcile-removed-source\nclaude: true\ncodex: false\n",
+    ".skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo.\n---\n\nSource body.\n",
+    ".skillset/skills/keep/SKILL.md": "---\nname: keep\ndescription: Keep.\n---\n\nKeep body.\n",
+  });
+  await buildSkillset(root);
+  const generatedPath = ".claude/skills/demo/SKILL.md";
+  await writeFile(join(root, generatedPath), "Edited managed output.\n", "utf8");
+  await rm(join(root, ".skillset/skills/demo"), { recursive: true });
+
+  const result = await runSkillsetCli(
+    "reconcile",
+    generatedPath,
+    "--use",
+    "source",
+    "--yes",
+    "--root",
+    root
+  );
+
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout).toContain("reconciled using source");
+  expect(result.stdout).not.toContain("output next:");
+  expect(await Bun.file(join(root, generatedPath)).exists()).toBe(false);
 });
 
 test("SET-282: reconcile refuses to overwrite unrelated generated drift", async () => {

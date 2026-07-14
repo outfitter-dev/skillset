@@ -1,5 +1,5 @@
 import { readFile, stat, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 import { buildSkillsetResult, diffSkillsetResult } from "@skillset/core";
 import {
@@ -9,6 +9,7 @@ import {
   type SourceSuggestionReport,
 } from "@skillset/core/internal/authoring";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
+import type { GeneratedEntry } from "@skillset/core/internal/types";
 
 export type ReconcileChoice = "output" | "source";
 
@@ -31,29 +32,35 @@ export async function reconcileManagedPath(
 ): Promise<ReconcileReport> {
   const { choice, write = false, ...skillsetOptions } = options;
   const explanation = await explainPath(rootPath, managedPath, skillsetOptions);
-  if (explanation.kind !== "generated" || explanation.entries.length === 0) {
+  const liveEntry = explanation.kind === "generated" && explanation.entries.length > 0
+    ? undefined
+    : await findLiveLockEntry(rootPath, managedPath);
+  const generatedPath = liveEntry?.generatedPath ?? explanation.path;
+  const ownershipEntries = liveEntry === undefined ? explanation.entries : [liveEntry.entry];
+  if (ownershipEntries.length === 0) {
     throw new Error(`skillset: reconcile requires a managed generated path; ${managedPath} has no generated owner`);
   }
 
-  const outputExists = await stat(resolve(rootPath, explanation.path)).then(() => true, () => false);
-  const sourcePaths = [...new Set(explanation.entries.map((entry) => entry.sourcePath))];
+  const outputExists = await stat(resolve(rootPath, generatedPath)).then(() => true, () => false);
+  const sourcePaths = [...new Set(ownershipEntries.map((entry) => entry.sourcePath))];
   const sourcePath = sourcePaths.length === 1 ? sourcePaths[0] : undefined;
-  const auxiliarySkillOutput = explanation.entries.some((entry) =>
+  const auxiliarySkillOutput = ownershipEntries.some((entry) =>
     (entry.kind === "standalone-skill" || entry.kind === "plugin-skill") &&
-    entry.outputPath !== explanation.path &&
-    entry.files?.includes(explanation.path) === true
+    entry.outputPath !== generatedPath &&
+    entry.files?.includes(generatedPath) === true
   );
   await assertReconcileDriftIsScoped(
     rootPath,
-    explanation.path,
+    generatedPath,
     sourcePaths,
     choice === "source",
-    skillsetOptions
+    skillsetOptions,
+    ownershipEntries
   );
   let outputResolution = choice === "source"
     ? {
-        entries: explanation.entries,
-        generatedPath: explanation.path,
+        entries: ownershipEntries,
+        generatedPath,
         message: "Source selected; output reverse-patch analysis was skipped.",
         nextSteps: ["Rebuild the managed output from its source."],
         ...(sourcePath === undefined ? {} : { sourcePath }),
@@ -63,8 +70,8 @@ export async function reconcileManagedPath(
       }
     : outputExists && auxiliarySkillOutput
     ? {
-        entries: explanation.entries,
-        generatedPath: explanation.path,
+        entries: ownershipEntries,
+        generatedPath,
         message: "Auxiliary skill outputs cannot replace the owning SKILL.md source body.",
         nextSteps: ["Update the auxiliary source resource directly, or use source resolution to restore its generated copy."],
         ...(sourcePath === undefined ? {} : { sourcePath }),
@@ -78,8 +85,8 @@ export async function reconcileManagedPath(
         write: false,
       })
     : {
-        entries: explanation.entries,
-        generatedPath: explanation.path,
+        entries: ownershipEntries,
+        generatedPath,
         message: "Generated output is missing; output cannot win.",
         nextSteps: ["Use source resolution to rebuild the missing managed output."],
         ...(sourcePath === undefined ? {} : { sourcePath }),
@@ -123,6 +130,7 @@ export async function reconcileManagedPath(
     } else {
       await applyBuild();
     }
+    outputResolution = { ...outputResolution, nextSteps: [] };
   }
 
   return {
@@ -130,7 +138,7 @@ export async function reconcileManagedPath(
     ...(backupManifestPath === undefined ? {} : { backupManifestPath }),
     ...(backupRunId === undefined ? {} : { backupRunId }),
     ...(choice === undefined ? {} : { choice }),
-    generatedPath: explanation.path,
+    generatedPath,
     outputResolution,
     ...(sourcePath === undefined ? {} : { sourcePath }),
     sourceResolutionAvailable: true,
@@ -143,10 +151,31 @@ async function assertReconcileDriftIsScoped(
   managedPath: string,
   sourcePaths: readonly string[],
   allowSourceSiblings: boolean,
-  options: SkillsetOptions
+  options: SkillsetOptions,
+  ownershipEntries: readonly GeneratedEntry[]
 ): Promise<void> {
-  const entries = (await listGeneratedEntries(rootPath, options)).filter((entry) =>
-    sourcePaths.includes(entry.sourcePath)
+  const preview = await diffSkillsetResult(rootPath, options);
+  const driftPaths = [
+    ...preview.data.added,
+    ...preview.data.changed,
+    ...preview.data.missing,
+    ...preview.data.removed,
+  ];
+  const liveSiblingEntries = (await Promise.all(
+    driftPaths.map((path) => findLiveLockEntry(rootPath, path))
+  )).flatMap((match) =>
+    match !== undefined && sourcePaths.includes(match.entry.sourcePath) ? [match.entry] : []
+  );
+  const entries = [
+    ...(await listGeneratedEntries(rootPath, options)).filter((entry) =>
+      sourcePaths.includes(entry.sourcePath)
+    ),
+    ...ownershipEntries,
+    ...liveSiblingEntries,
+  ].filter((entry, index, all) =>
+    all.findIndex((candidate) =>
+      candidate.outputRoot === entry.outputRoot && candidate.outputPath === entry.outputPath
+    ) === index
   );
   const lockedSiblingPaths = allowSourceSiblings
     ? await listLockedSiblingPaths(rootPath, entries, sourcePaths)
@@ -159,19 +188,72 @@ async function assertReconcileDriftIsScoped(
     ...lockedSiblingPaths,
     ...entries.map((entry) => join(entry.outputRoot, "skillset.lock")),
   ].map(normalizeReconcilePath));
-  const preview = await diffSkillsetResult(rootPath, options);
-  const driftPaths = [
-    ...preview.data.added,
-    ...preview.data.changed,
-    ...preview.data.missing,
-    ...preview.data.removed,
-  ];
   const unrelated = driftPaths.filter((path) => !allowedPaths.has(normalizeReconcilePath(path)));
   if (unrelated.length > 0) {
     throw new Error(
       `skillset: reconcile ${managedPath} refuses to write while unrelated generated drift exists: ${unrelated.join(", ")}`
     );
   }
+}
+
+async function findLiveLockEntry(
+  rootPath: string,
+  managedPath: string
+): Promise<{ readonly entry: GeneratedEntry; readonly generatedPath: string } | undefined> {
+  const generatedPath = normalizeManagedPath(rootPath, managedPath);
+  for (const lockPath of lockCandidates(generatedPath)) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(await readFile(resolve(rootPath, lockPath), "utf8")) as unknown;
+    } catch {
+      continue;
+    }
+    if (!isRecord(parsed) || typeof parsed.outputRoot !== "string" || !Array.isArray(parsed.items)) continue;
+    const outputRoot = normalizeReconcilePath(parsed.outputRoot);
+    for (const item of parsed.items) {
+      if (!isRecord(item) || typeof item.outputPath !== "string" || typeof item.sourcePath !== "string") continue;
+      const files = Array.isArray(item.files)
+        ? item.files.filter((file): file is string => typeof file === "string")
+        : [];
+      const ownedPaths = [item.outputPath, ...files].map((path) =>
+        normalizeReconcilePath(outputRoot === "." ? path : join(outputRoot, path))
+      );
+      if (!ownedPaths.includes(generatedPath)) continue;
+      return {
+        entry: {
+          files: ownedPaths,
+          ...(typeof item.kind === "string" ? { kind: item.kind } : {}),
+          outputPath: normalizeReconcilePath(outputRoot === "." ? item.outputPath : join(outputRoot, item.outputPath)),
+          outputRoot,
+          sourcePath: item.sourcePath,
+          target: "live-lock",
+        },
+        generatedPath,
+      };
+    }
+  }
+  return undefined;
+}
+
+function lockCandidates(outputPath: string): readonly string[] {
+  const candidates: string[] = [];
+  let current = dirname(outputPath);
+  while (current !== "." && current !== "") {
+    candidates.push(`${current}/skillset.lock`);
+    const parent = dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  candidates.push("skillset.lock");
+  return candidates;
+}
+
+function normalizeManagedPath(rootPath: string, path: string): string {
+  const normalized = normalizeReconcilePath(relative(resolve(rootPath), resolve(rootPath, path)));
+  if (normalized === "" || normalized.startsWith("../") || isAbsolute(normalized)) {
+    throw new Error(`skillset: reconcile path escapes root: ${path}`);
+  }
+  return normalized;
 }
 
 async function listLockedSiblingPaths(
