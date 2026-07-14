@@ -61,7 +61,41 @@ describe("SET-287 finite read-only JSON", () => {
   });
 
   test("change entry JSON preserves source hash evidence", async () => {
-    const result = await runJsonRoute("change", "list", "--root", repoRoot);
+    const root = await mkdtemp(path.join(tmpdir(), "skillset-change-json-"));
+    const skillPath = path.join(root, ".skillset", "skills", "demo", "SKILL.md");
+    await mkdir(path.dirname(skillPath), { recursive: true });
+    await writeFile(
+      path.join(root, "skillset.yaml"),
+      "skillset:\n  name: change-json\nclaude: true\ncodex: false\n"
+    );
+    await writeFile(
+      skillPath,
+      "---\nname: demo\ndescription: Demo.\n---\n\nOriginal body.\n"
+    );
+    await commitFixture(root);
+    await writeFile(
+      skillPath,
+      "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n"
+    );
+    const reasonPath = path.join(root, "reason.md");
+    await writeFile(reasonPath, "Record source-hash evidence for the isolated JSON fixture.\n");
+    const added = await runRoute(
+      "change",
+      "add",
+      "--root",
+      root,
+      "--since",
+      "HEAD",
+      "--scope",
+      "skill:demo",
+      "--bump",
+      "patch",
+      "--reason-file",
+      reasonPath
+    );
+    expect(added.exitCode).toBe(0);
+
+    const result = await runJsonRoute("change", "list", "--root", root);
     const envelope = JSON.parse(result.stdout) as SkillsetCliResult;
     const entries = envelope.data.entries as unknown as readonly {
       readonly sourceHashes: Readonly<Record<string, readonly string[]>>;
@@ -155,7 +189,11 @@ describe("SET-287 finite read-only JSON", () => {
 });
 
 async function runJsonRoute(...args: readonly string[]): Promise<{ exitCode: number; stderr: string; stdout: string }> {
-  const proc = Bun.spawn([process.execPath, cli, ...args, "--json"], {
+  return runRoute(...args, "--json");
+}
+
+async function runRoute(...args: readonly string[]): Promise<{ exitCode: number; stderr: string; stdout: string }> {
+  const proc = Bun.spawn([process.execPath, cli, ...args], {
     cwd: repoRoot,
     env: { ...process.env, NODE_ENV: "test" },
     stderr: "pipe",
@@ -167,4 +205,18 @@ async function runJsonRoute(...args: readonly string[]): Promise<{ exitCode: num
     proc.exited,
   ]);
   return { exitCode, stderr, stdout };
+}
+
+async function commitFixture(root: string): Promise<void> {
+  await runGit(root, "init", "-q");
+  await runGit(root, "config", "user.email", "skillset@example.com");
+  await runGit(root, "config", "user.name", "Skillset Test");
+  await runGit(root, "add", ".");
+  await runGit(root, "commit", "-qm", "baseline");
+}
+
+async function runGit(root: string, ...args: readonly string[]): Promise<void> {
+  const proc = Bun.spawn(["git", ...args], { cwd: root, stderr: "pipe", stdout: "pipe" });
+  const [stderr, exitCode] = await Promise.all([new Response(proc.stderr).text(), proc.exited]);
+  if (exitCode !== 0) throw new Error(stderr.trim());
 }
