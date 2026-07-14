@@ -84,6 +84,54 @@ test("SET-278: update ignores ordinary source-driven drift", async () => {
   expect(report.unplannedDriftPaths).toEqual([]);
 });
 
+test("SET-278: update does not write source drift alongside provider updates", async () => {
+  const root = await builtFixture({
+    ...pluginFixture(),
+    ".skillset/skills/other/SKILL.md": "---\nname: other\ndescription: Original.\n---\n\nBody.\n",
+  });
+  const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
+  const generatedSkillPath = join(root, ".agents/skills/other/SKILL.md");
+  const originalManifest = await readFile(manifestPath, "utf8");
+  const originalSkill = await readFile(generatedSkillPath, "utf8");
+  await writeFile(manifestPath, `${originalManifest}\n// stale\n`, "utf8");
+  await markCurrentPluginManifestAsManaged(root);
+  const sourcePath = join(root, ".skillset/skills/other/SKILL.md");
+  await writeFile(
+    sourcePath,
+    (await readFile(sourcePath, "utf8")).replace("Original.", "Updated."),
+    "utf8"
+  );
+
+  const updated = await runSkillsetCli("update", "--yes", "--root", root);
+
+  expect(updated.exitCode).toBe(1);
+  expect(updated.stdout).toContain("source drift must be written separately");
+  expect(await readFile(manifestPath, "utf8")).not.toBe(originalManifest);
+  expect(await readFile(generatedSkillPath, "utf8")).toBe(originalSkill);
+});
+
+test("SET-278: missing managed output stays target drift when its source also changes", async () => {
+  const root = await builtFixture({
+    "skillset.yaml": "skillset:\n  name: missing-target\nclaude: true\ncodex: false\n",
+    ".skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Original.\n---\n\nBody.\n",
+  });
+  const sourcePath = join(root, ".skillset/skills/demo/SKILL.md");
+  const generatedPath = ".claude/skills/demo/SKILL.md";
+  await rm(join(root, generatedPath));
+  await writeFile(
+    sourcePath,
+    (await readFile(sourcePath, "utf8")).replace("Original.", "Updated."),
+    "utf8"
+  );
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(false);
+  expect(report.fixedPaths).toEqual([]);
+  expect(report.providerUpdatePaths).toContain(generatedPath);
+  expect(await Bun.file(join(root, generatedPath)).exists()).toBe(false);
+});
+
 test("SET-278: check writes generated drift caused by target defaults", async () => {
   const root = await builtFixture({
     "skillset.yaml": `

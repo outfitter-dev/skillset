@@ -60,6 +60,7 @@ export async function runProviderFormatUpdates(
   const sourceDriftPaths = [...await changedSourceOutputPaths(
     rootPath,
     driftPaths,
+    preview.data.missing,
     preview.data.removed,
     skillsetOptions
   )];
@@ -72,7 +73,13 @@ export async function runProviderFormatUpdates(
     plan.safeUpdates,
     plan.manualReviews
   );
-  const blocked = plan.manualReviews.length > 0 || unplannedDriftPaths.length > 0;
+  const substantiveSourceDriftPaths = sourceDriftPaths.filter((path) =>
+    path !== "skillset.lock" && !path.endsWith("/skillset.lock")
+  );
+  const mixedSourceAndProviderDrift =
+    command === "update" && plan.safeUpdates.length > 0 && substantiveSourceDriftPaths.length > 0;
+  const blocked =
+    plan.manualReviews.length > 0 || unplannedDriftPaths.length > 0 || mixedSourceAndProviderDrift;
   let wrote = false;
   let writtenPaths: readonly string[] = [];
 
@@ -100,10 +107,12 @@ export async function runProviderFormatUpdates(
 async function changedSourceOutputPaths(
   rootPath: string,
   driftPaths: readonly string[],
+  missingPaths: readonly string[],
   removedPaths: readonly string[],
   options: SkillsetOptions
 ): Promise<readonly string[]> {
   const driftSet = new Set(driftPaths);
+  const missingSet = new Set(missingPaths);
   const changed = new Set(removedPaths);
   for (const path of driftPaths) {
     if (await findLockItemForOutputPath(rootPath, path) === undefined) changed.add(path);
@@ -117,7 +126,7 @@ async function changedSourceOutputPaths(
       (current?.version !== undefined && current.version !== expected.version)
     ) {
       for (const path of affectedPaths) {
-        if (driftSet.has(path)) changed.add(path);
+        if (driftSet.has(path) && !missingSet.has(path)) changed.add(path);
       }
     }
   }
@@ -151,6 +160,13 @@ export function renderProviderFormatUpdateReport(report: ProviderFormatUpdateRep
     lines.push("    reason: no registered safe destination-format update covers this generated output");
     lines.push("    next: inspect the file, then update Skillset source or provider-format evidence before writing");
   }
+  const mixedSourceAndProviderDrift = report.command === "update" &&
+    report.safeUpdates.length > 0 &&
+    report.sourceDriftPaths.some((path) => path !== "skillset.lock" && !path.endsWith("/skillset.lock"));
+  if (mixedSourceAndProviderDrift) {
+    lines.push("  source drift must be written separately before destination-format updates");
+    lines.push("    next: run skillset check --write, then rerun skillset update");
+  }
 
   lines.push(
     `skillset: destination-format ${report.command} found ${report.safeUpdates.length} safe update` +
@@ -163,7 +179,9 @@ export function renderProviderFormatUpdateReport(report: ProviderFormatUpdateRep
     lines.push(`skillset: applied safe destination-format updates to ${report.writtenPaths.length} file${report.writtenPaths.length === 1 ? "" : "s"}`);
     for (const path of report.writtenPaths) lines.push(`  updated ${path}`);
   } else if (report.blocked) {
-    lines.push("skillset: destination-format updates require manual review before writing");
+    lines.push(mixedSourceAndProviderDrift
+      ? "skillset: destination-format updates are blocked until source drift is written"
+      : "skillset: destination-format updates require manual review before writing");
   } else if (report.safeUpdates.length > 0 && report.command === "update") {
     lines.push("skillset: rerun skillset update with --yes to apply safe destination-format updates");
   }
