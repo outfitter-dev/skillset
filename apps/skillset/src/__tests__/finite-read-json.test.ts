@@ -121,6 +121,8 @@ describe("SET-287 finite read-only JSON", () => {
 
     expect(envelope.data.writes).toContain(".skillset/skills/one");
     expect(envelope.data.writes).toContain(".skillset/changes/state.json");
+    expect(envelope.data.writes).toContain(".skillset/cache/adopt/report.md");
+    expect(envelope.data.writes).toContain(".skillset/cache/adopt/report.json");
   });
 
   test("build apply emits a finite summary and every changed path", async () => {
