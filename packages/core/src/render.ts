@@ -864,6 +864,7 @@ async function renderPluginSkillFiles(
       files: rendered,
       graph,
       kind: "plugin-skill",
+      license: skillLicense,
       outputRoot,
       plugin,
       preprocessDependencies: skillPreprocessDependencies(skillMarkdown, generatedCodexAgentFile),
@@ -1327,6 +1328,7 @@ async function renderStandaloneSkill(
       files: rendered,
       graph,
       kind: "standalone-skill",
+      license: skillLicense,
       outputRoot,
       preprocessDependencies: skillPreprocessDependencies(skillMarkdown, generatedCodexAgentFile),
       skill,
@@ -3013,6 +3015,7 @@ async function lockItemForSkill(args: {
   readonly files: readonly RenderedFile[];
   readonly graph: BuildGraph;
   readonly kind: LockItem["kind"];
+  readonly license: ResolvedLicense | undefined;
   readonly outputRoot: string;
   readonly plugin?: SourcePlugin;
   readonly preprocessDependencies: readonly string[];
@@ -3035,6 +3038,7 @@ async function lockItemForSkill(args: {
       args.sourceDir,
       args.skill.resources,
       args.skill.targets,
+      args.license,
       args.preprocessDependencies,
       args.graph.rootPath
     ),
@@ -3194,6 +3198,7 @@ async function hashSkillSource(
   sourceDir: string,
   resources: readonly SourceResource[],
   targets: SourceSkill["targets"],
+  license: ResolvedLicense | undefined,
   preprocessDependencies: readonly string[],
   rootPath: string
 ): Promise<string> {
@@ -3228,6 +3233,17 @@ async function hashSkillSource(
       options: targets[target].options,
     }])
   )));
+  hash.update("\0");
+
+  hash.update("resolved-license\0");
+  hash.update(stringifyJson(
+    license === undefined
+      ? {}
+      : {
+          content: license.content,
+          manifestValue: license.manifestValue,
+        }
+  ));
   hash.update("\0");
 
   for (const dependency of preprocessDependencies) {
