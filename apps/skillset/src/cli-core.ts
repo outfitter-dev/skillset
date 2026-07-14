@@ -428,7 +428,7 @@ export async function runCli(
           : [];
         printCliJsonData("change.migrate", {
           report: { ...report, entries: report.entries.map(serializeChangeEntry) },
-          state: report.written ? "written" : "planned",
+          state: writes.length > 0 ? "written" : "planned",
           writes,
         });
       }

@@ -286,7 +286,10 @@ describe("SET-287 finite read-only JSON", () => {
 
     const result = await runJsonRoute("change", "migrate", "--root", root, "--yes");
     expect(result.stderr).toBe("");
-    const envelope = JSON.parse(result.stdout) as SkillsetCliResult & { data: { writes: string[] } };
+    const envelope = JSON.parse(result.stdout) as SkillsetCliResult & {
+      data: { state: string; writes: string[] };
+    };
+    expect(envelope.data.state).toBe("planned");
     expect(envelope.data.writes).toEqual([]);
   });
 
