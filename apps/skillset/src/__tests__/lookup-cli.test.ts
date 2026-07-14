@@ -210,7 +210,7 @@ test("SET-283: lookup features rejects unrelated lookup filters", async () => {
   expect(result.exitCode).toBe(2);
   expect(result.stderr).toBe("");
   expect(JSON.parse(result.stdout)).toMatchObject({
-    diagnostics: [{ message: expect.stringContaining("lookup features only supports") }],
+    diagnostics: [{ message: expect.stringContaining("expected lookup features to use only") }],
     exitCode: 2,
     ok: false,
   });

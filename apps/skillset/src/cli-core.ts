@@ -3088,7 +3088,7 @@ function validateLookupFlags(
 ): void {
   if (command === "lookup") {
     if (lookup.features && (lookup.field !== undefined || lookup.targets.length > 0 || lookup.views.length > 0)) {
-      throw new Error("skillset: lookup features only supports an optional feature id and --json");
+      throw new Error("skillset: expected lookup features to use only an optional feature id and --json");
     }
     return;
   }
