@@ -2329,7 +2329,6 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   });
   validateSourceDiagnosticFlags(command, {
     ...(buildMode === undefined ? {} : { buildMode }),
-    ...(distDir === undefined ? {} : { distDir }),
     dryRun,
     ...(checkOnly === undefined ? {} : { only: checkOnly }),
     ...(scopes === undefined ? {} : { scopes }),
@@ -2781,7 +2780,6 @@ function validateSourceDiagnosticFlags(
   command: Command,
   sourceCheck: {
     readonly buildMode?: CompileBuildMode;
-    readonly distDir?: string;
     readonly dryRun: boolean;
     readonly only?: "outputs";
     readonly scopes?: readonly BuildScope[];
@@ -2801,9 +2799,6 @@ function validateSourceDiagnosticFlags(
   }
   if (sourceCheck.scopes !== undefined) {
     throw new Error(`${label} does not support --scope; it checks source diagnostics`);
-  }
-  if (sourceCheck.distDir !== undefined) {
-    throw new Error(`${label} does not support --dist; it checks source diagnostics`);
   }
   if (sourceCheck.dryRun || sourceCheck.yes) {
     throw new Error(`${label} is read-only and does not support --yes or --dry-run`);

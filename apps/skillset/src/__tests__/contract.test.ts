@@ -1595,6 +1595,18 @@ Body.
   expect(scopedOutputs.stderr).not.toContain("does not support --scope");
   expect(scopedOutputs.stderr).not.toContain("does not support --updated");
   expect(scopedOutputs.stderr).not.toContain("does not support --dist");
+
+  for (const mode of ["--ci", "--write"] as const) {
+    const comprehensive = await runSkillsetCli(
+      "check",
+      mode,
+      "--dist",
+      "generated",
+      "--root",
+      root
+    );
+    expect(comprehensive.stderr).not.toContain("does not support --dist");
+  }
 });
 
 test("SET-154: check fails on source authoring diagnostics", async () => {
