@@ -56,6 +56,28 @@ describe("SET-287 finite read-only JSON", () => {
     expect(unchangedEnvelope.data.writes).toEqual([]);
   });
 
+  test("init JSON stays stderr-clean when the known-workspace index is unwritable", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "skillset-json-init-xdg-"));
+    const root = path.join(parent, "workspace");
+    const configHome = path.join(parent, "not-a-directory");
+    await writeFile(configHome, "occupied\n");
+    const proc = Bun.spawn([process.execPath, cli, "init", "--root", root, "--yes", "--json"], {
+      cwd: repoRoot,
+      env: { ...process.env, NODE_ENV: "test", XDG_CONFIG_HOME: configHome },
+      stderr: "pipe",
+      stdout: "pipe",
+    });
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
+
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe("");
+    expect(validateCliResult(JSON.parse(stdout))).toEqual({ diagnostics: [], ok: true });
+  });
+
   test("init JSON reports a seeded release-state write", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "skillset-json-init-baseline-"));
     await mkdir(path.join(root, ".skillset", "skills", "demo"), { recursive: true });

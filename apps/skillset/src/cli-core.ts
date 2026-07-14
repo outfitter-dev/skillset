@@ -685,6 +685,9 @@ export async function runCli(
         write: writeMode,
       });
       const reason = writeMode ? report.write ? "written" : "blocked before write" : "write confirmation required";
+      if (jsonOutput && writeMode && report.ok) {
+        await rememberKnownSkillsetWorkspace(report.rootPath, options, true);
+      }
       if (jsonOutput) printCliJsonData("init.adopt", {
         report,
         state: report.write ? "written" : "planned",
@@ -702,7 +705,7 @@ export async function runCli(
         if (!writeMode && report.ok && initAdopt !== undefined) console.log("skillset: rerun init with --adopt and --yes to write adopted source");
       }
       if (!report.ok) process.exitCode = 1;
-      if (writeMode && report.ok) await rememberKnownSkillsetWorkspace(report.rootPath, options);
+      if (!jsonOutput && writeMode && report.ok) await rememberKnownSkillsetWorkspace(report.rootPath, options);
       return;
     }
     if (!jsonOutput && !yes && !dryRun && process.stdin.isTTY && process.stdout.isTTY) {
@@ -758,6 +761,9 @@ export async function runCli(
       useGitRoot: !rootExplicit && importPath === undefined,
       write: yes && !dryRun,
     });
+    if (jsonOutput && yes && !dryRun) {
+      await rememberKnownSkillsetWorkspace(setup.rootPath, options, true);
+    }
     if (jsonOutput) printCliJsonData("init", {
       report: setup,
       state: yes && !dryRun ? "written" : "planned",
@@ -773,7 +779,7 @@ export async function runCli(
       printSetupReport(setup, dryRun ? "dry run" : yes ? "written" : "write confirmation required");
       if (!yes || dryRun) console.log("skillset: rerun init with --yes to write setup files");
     }
-    if (yes && !dryRun) await rememberKnownSkillsetWorkspace(setup.rootPath, options);
+    if (!jsonOutput && yes && !dryRun) await rememberKnownSkillsetWorkspace(setup.rootPath, options);
     return;
   }
 
