@@ -99,6 +99,38 @@ codex: true
   expect(await readFile(join(root, generatedPath), "utf8")).toContain("review-state: updated");
 });
 
+test("SET-278: check propagates source drift to secondary generated files", async () => {
+  const root = await builtFixture({
+    "skillset.yaml": "skillset:\n  name: secondary-source-drift\nclaude: true\ncodex: false\n",
+    ".skillset/shared/references/guide.md": "# Initial guide\n",
+    ".skillset/skills/demo/SKILL.md": `---
+name: demo
+description: Demo.
+resources:
+  references:
+    - shared:references/guide.md
+---
+
+Initial body.
+`,
+  });
+  const sourcePath = join(root, ".skillset/skills/demo/SKILL.md");
+  const generatedPath = ".claude/skills/demo/references/guide.md";
+  await writeFile(
+    sourcePath,
+    (await readFile(sourcePath, "utf8")).replace("Initial body.", "Updated body."),
+    "utf8"
+  );
+  await writeFile(join(root, ".skillset/shared/references/guide.md"), "# Updated guide\n", "utf8");
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.providerUpdatePaths).toEqual([]);
+  expect(report.fixedPaths).toContain(generatedPath);
+  expect(await readFile(join(root, generatedPath), "utf8")).toBe("# Updated guide\n");
+});
+
 test("SET-278: check writes first-time provider-backed outputs", async () => {
   const root = await fixture(pluginFixture());
 

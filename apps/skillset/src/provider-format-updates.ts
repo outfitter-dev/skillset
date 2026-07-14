@@ -113,10 +113,13 @@ async function changedSourceOutputPaths(
     if (await findLockItemForOutputPath(rootPath, path) === undefined) changed.add(path);
   }
   for (const expected of await listGeneratedEntries(rootPath, options)) {
-    if (!driftSet.has(expected.outputPath) || expected.sourceHash === undefined) continue;
     const current = await findLockItemForOutputPath(rootPath, expected.outputPath);
+    const affectedPaths = current?.files.map((file) => file.displayPath) ?? [expected.outputPath];
+    if (!affectedPaths.some((path) => driftSet.has(path)) || expected.sourceHash === undefined) continue;
     if (current?.sourceHash !== undefined && current.sourceHash !== expected.sourceHash) {
-      changed.add(expected.outputPath);
+      for (const path of affectedPaths) {
+        if (driftSet.has(path)) changed.add(path);
+      }
     }
   }
   return [...changed].sort(compareStrings);
