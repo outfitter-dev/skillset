@@ -7170,8 +7170,14 @@ Audit body.
   ]);
 
   const misplacedJson = await runSkillsetCli("list", "--json");
-  expect(misplacedJson.exitCode).toBe(1);
-  expect(misplacedJson.stderr).toContain("--json is only supported with doctor, explain, features, lookup, marketplace, or try");
+  expect(misplacedJson.exitCode).toBe(2);
+  expect(misplacedJson.stderr).toBe("");
+  expect(JSON.parse(misplacedJson.stdout)).toMatchObject({
+    diagnostics: [{ message: expect.stringContaining("--json is only supported with doctor, explain, features, lookup, marketplace, or try") }],
+    exitCode: 2,
+    ok: false,
+    schemaVersion: "skillset.cli.result@1",
+  });
 });
 
 test("SET-78: feature capability inspection surfaces registry ids in explain, doctor, and features", async () => {

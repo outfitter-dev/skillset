@@ -1,5 +1,7 @@
 import {
   AGENT_FRONTMATTER_KEYS,
+  CLI_EVENT_SCHEMA_VERSION,
+  CLI_RESULT_SCHEMA_VERSION,
   COMPILE_BUILD_MODES,
   SOURCE_LICENSE_IDS,
   SOURCE_LICENSE_NONE,
@@ -32,6 +34,61 @@ const semverPattern =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
 const fullGitShaPattern = /^[0-9a-f]{40}$/;
 const safeGitRefPattern = /^[A-Za-z0-9][A-Za-z0-9._/-]*$/;
+
+export function validateCliResult(value: unknown, root = "$"): SkillsetSchemaValidationResult {
+  const diagnostics: SkillsetSchemaDiagnostic[] = [];
+  if (!isSchemaRecord(value)) return result([diagnostic(root, "schema/cli-result/type", "CLI result must be an object")]);
+  checkAllowedKeys(value, new Set(["changes", "command", "data", "diagnostics", "exitCode", "kind", "meta", "ok", "schemaVersion"]), root, "schema/cli-result/key", diagnostics);
+  checkRequiredNonEmptyString(value.command, `${root}.command`, "schema/cli-result/command", diagnostics);
+  checkRequiredNonEmptyString(value.kind, `${root}.kind`, "schema/cli-result/kind", diagnostics);
+  if (value.schemaVersion !== CLI_RESULT_SCHEMA_VERSION) diagnostics.push(diagnostic(`${root}.schemaVersion`, "schema/cli-result/version", `schemaVersion must be ${CLI_RESULT_SCHEMA_VERSION}`));
+  if (typeof value.ok !== "boolean") diagnostics.push(diagnostic(`${root}.ok`, "schema/cli-result/ok", "ok must be a boolean"));
+  if (!Number.isInteger(value.exitCode) || Number(value.exitCode) < 0) diagnostics.push(diagnostic(`${root}.exitCode`, "schema/cli-result/exit-code", "exitCode must be a non-negative integer"));
+  if (typeof value.ok === "boolean" && Number.isInteger(value.exitCode) && value.ok !== (value.exitCode === 0)) diagnostics.push(diagnostic(root, "schema/cli-result/state", "ok must be true exactly when exitCode is zero"));
+  for (const key of ["data", "meta"] as const) if (!isSchemaRecord(value[key])) diagnostics.push(diagnostic(`${root}.${key}`, "schema/cli-result/object", `${key} must be an object`));
+  if (!Array.isArray(value.changes)) diagnostics.push(diagnostic(`${root}.changes`, "schema/cli-result/array", "changes must be an array"));
+  else for (const [index, item] of value.changes.entries()) checkCliChange(item, `${root}.changes[${index}]`, diagnostics);
+  if (!Array.isArray(value.diagnostics)) diagnostics.push(diagnostic(`${root}.diagnostics`, "schema/cli-result/array", "diagnostics must be an array"));
+  else for (const [index, item] of value.diagnostics.entries()) checkCliDiagnostic(item, `${root}.diagnostics[${index}]`, diagnostics);
+  return result(diagnostics);
+}
+
+export function validateCliEvent(value: unknown, root = "$"): SkillsetSchemaValidationResult {
+  const diagnostics: SkillsetSchemaDiagnostic[] = [];
+  if (!isSchemaRecord(value)) return result([diagnostic(root, "schema/cli-event/type", "CLI event must be an object")]);
+  checkAllowedKeys(value, new Set(["command", "data", "event", "schemaVersion", "sequence"]), root, "schema/cli-event/key", diagnostics);
+  checkRequiredNonEmptyString(value.command, `${root}.command`, "schema/cli-event/command", diagnostics);
+  checkRequiredNonEmptyString(value.event, `${root}.event`, "schema/cli-event/event", diagnostics);
+  if (value.schemaVersion !== CLI_EVENT_SCHEMA_VERSION) diagnostics.push(diagnostic(`${root}.schemaVersion`, "schema/cli-event/version", `schemaVersion must be ${CLI_EVENT_SCHEMA_VERSION}`));
+  if (!Number.isInteger(value.sequence) || Number(value.sequence) < 1) diagnostics.push(diagnostic(`${root}.sequence`, "schema/cli-event/sequence", "sequence must be a positive integer"));
+  if (!isSchemaRecord(value.data)) diagnostics.push(diagnostic(`${root}.data`, "schema/cli-event/data", "data must be an object"));
+  return result(diagnostics);
+}
+
+function checkCliDiagnostic(value: SchemaJsonValue, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (!isSchemaRecord(value)) { diagnostics.push(diagnostic(path, "schema/cli-result/diagnostic", "diagnostic must be an object")); return; }
+  checkAllowedKeys(value, new Set(["code", "column", "help", "line", "message", "path", "severity"]), path, "schema/cli-result/diagnostic-key", diagnostics);
+  checkRequiredNonEmptyString(value.code, `${path}.code`, "schema/cli-result/diagnostic-code", diagnostics);
+  checkRequiredNonEmptyString(value.message, `${path}.message`, "schema/cli-result/diagnostic-message", diagnostics);
+  for (const key of ["help", "path"] as const) {
+    checkOptionalNonEmptyString(value[key], `${path}.${key}`, "schema/cli-result/diagnostic-string", diagnostics);
+  }
+  for (const key of ["column", "line"] as const) {
+    if (value[key] !== undefined && (!Number.isInteger(value[key]) || Number(value[key]) < 1)) {
+      diagnostics.push(diagnostic(`${path}.${key}`, "schema/cli-result/diagnostic-position", `${key} must be a positive integer`));
+    }
+  }
+  if (!new Set(["error", "info", "warning"]).has(String(value.severity))) diagnostics.push(diagnostic(`${path}.severity`, "schema/cli-result/diagnostic-severity", "severity must be error, info, or warning"));
+}
+
+function checkCliChange(value: SchemaJsonValue, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (!isSchemaRecord(value)) { diagnostics.push(diagnostic(path, "schema/cli-result/change", "change must be an object")); return; }
+  checkAllowedKeys(value, new Set(["action", "path", "reason", "state"]), path, "schema/cli-result/change-key", diagnostics);
+  checkRequiredNonEmptyString(value.path, `${path}.path`, "schema/cli-result/change-path", diagnostics);
+  checkOptionalNonEmptyString(value.reason, `${path}.reason`, "schema/cli-result/change-reason", diagnostics);
+  if (!new Set(["create", "delete", "move", "update"]).has(String(value.action))) diagnostics.push(diagnostic(`${path}.action`, "schema/cli-result/change-action", "action must be create, delete, move, or update"));
+  if (!new Set(["planned", "refused", "skipped", "written"]).has(String(value.state))) diagnostics.push(diagnostic(`${path}.state`, "schema/cli-result/change-state", "state must be planned, refused, skipped, or written"));
+}
 
 export function validateWorkspaceConfig(value: unknown, path = "$"): SkillsetSchemaValidationResult {
   const diagnostics: SkillsetSchemaDiagnostic[] = [];
@@ -1220,6 +1277,10 @@ function checkAllowedKeys(record: SchemaJsonRecord, allowed: KeySet, path: strin
   for (const key of Object.keys(record).sort()) {
     if (!allowed.has(key)) diagnostics.push(diagnostic(`${path}.${key}`, code, `unsupported key ${key}`));
   }
+}
+
+function checkRequiredNonEmptyString(value: SchemaJsonValue | undefined, path: string, code: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (typeof value !== "string" || value.trim().length === 0) diagnostics.push(diagnostic(path, code, `${path} must be a non-empty string`));
 }
 
 function diagnostic(path: string, code: string, message: string): SkillsetSchemaDiagnostic {

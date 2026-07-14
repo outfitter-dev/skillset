@@ -1,0 +1,35 @@
+{
+  "$id": "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/cli-event.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "command": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "data": {
+      "type": "object"
+    },
+    "event": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": "skillset.cli.event@1",
+      "type": "string"
+    },
+    "sequence": {
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "command",
+    "data",
+    "event",
+    "schemaVersion",
+    "sequence"
+  ],
+  "title": "Skillset CLI Event",
+  "type": "object"
+}

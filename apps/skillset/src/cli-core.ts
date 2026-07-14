@@ -53,6 +53,8 @@ import {
 } from "@skillset/core/internal/authoring";
 import { ciSkillset, hasDrift, renderCiReportMarkdown, type CiReport } from "./ci";
 import { printDiagnostics, printDiffPlan, printGeneratedChangelogDriftHint, printGeneratedChangelogPathHint } from "./cli-renderers";
+import { CliOutputError, readCliCommand } from "./cli-output";
+import { isCliCommand, renderExpectedCliCommands, type CliCommand } from "./cli-commands";
 import { runDevWatch } from "./dev-watch";
 import {
   dispatchHookRun,
@@ -114,7 +116,7 @@ import { renderValidatedJson } from "@skillset/core/internal/structured-output";
 import { runSkillsetTest, type SkillsetTestReport } from "./test-runner";
 import type { BuildScope, CompileBuildMode, JsonRecord, SkillsetOptions, SourceOrigin, TargetName } from "@skillset/core/internal/types";
 
-type Command = "adopt" | "build" | "change" | "check" | "ci" | "create" | "dev" | "diff" | "distribute" | "doctor" | "explain" | "features" | "hooks" | "import" | "init" | "lint" | "list" | "lookup" | "marketplace" | "new" | "providers" | "release" | "restore" | "try" | "suggest-source" | "test" | "update" | "verify";
+type Command = CliCommand;
 type DistributionSubcommand = "plan";
 type MarketplaceSubcommand = "check" | "update";
 
@@ -247,7 +249,7 @@ export async function runCli(
     sourceSuggestionWrite,
     testName,
     yes,
-  } = parseArgs(args);
+  } = parseCliArgs(args);
 
   if (command === "build") {
     if (dryRun || !yes) {
@@ -919,6 +921,7 @@ interface ParsedArgs {
   readonly importPath?: string;
   readonly importProvider?: ImportProvider;
   readonly jsonOutput: boolean;
+  readonly jsonlOutput: boolean;
   readonly lookupAspects: readonly string[];
   readonly lookupField?: string;
   readonly lookupSubject?: LookupSubject;
@@ -1541,38 +1544,9 @@ function printRenderResult(outcome: {
 
 function parseArgs(args: readonly string[]): ParsedArgs {
   const command = args[0];
-  if (
-    command !== "adopt" &&
-    command !== "build" &&
-    command !== "change" &&
-    command !== "check" &&
-    command !== "ci" &&
-    command !== "create" &&
-    command !== "dev" &&
-    command !== "diff" &&
-    command !== "distribute" &&
-    command !== "doctor" &&
-    command !== "explain" &&
-    command !== "features" &&
-    command !== "hooks" &&
-    command !== "import" &&
-    command !== "init" &&
-    command !== "lint" &&
-    command !== "list" &&
-    command !== "lookup" &&
-    command !== "marketplace" &&
-    command !== "new" &&
-    command !== "providers" &&
-    command !== "release" &&
-    command !== "restore" &&
-    command !== "try" &&
-    command !== "suggest-source" &&
-    command !== "test" &&
-    command !== "update" &&
-    command !== "verify"
-  ) {
+  if (!isCliCommand(command)) {
     throw new Error(
-        "skillset: expected command adopt, build, change, check, ci, create, dev, diff, distribute, doctor, explain, features, hooks, import, init, lint, list, lookup, marketplace, new, providers, release, restore, try, suggest-source, test, update, or verify\n" +
+        `skillset: expected command ${renderExpectedCliCommands()}\n` +
         USAGE
     );
   }
@@ -1621,6 +1595,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let importPath: string | undefined;
   let importProvider: ImportProvider | undefined;
   let jsonOutput = false;
+  let jsonlOutput = false;
   let lookupAspects: string[] = [];
   let lookupField: string | undefined;
   let lookupSubject: LookupSubject | undefined;
@@ -1873,6 +1848,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--fix" &&
       flag !== "--report" &&
       flag !== "--json" &&
+      flag !== "--jsonl" &&
       flag !== "--apply" &&
       flag !== "--runner" &&
       flag !== "--target" &&
@@ -1932,6 +1908,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag === "--global" ||
       flag === "--fix" ||
       flag === "--json" ||
+      flag === "--jsonl" ||
       flag === "--apply" ||
       flag === "--agent-runtime" ||
       flag === "--pre-commit" ||
@@ -1960,6 +1937,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       if (flag === "--global") setupGlobal = true;
       if (flag === "--fix") ciFix = true;
       if (flag === "--json") jsonOutput = true;
+      if (flag === "--jsonl") jsonlOutput = true;
       if (flag === "--apply") devApply = true;
       if (flag === "--agent-runtime") hookAgentRuntime = true;
       if (flag === "--pre-commit") hookPreCommit = true;
@@ -2153,6 +2131,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     yes,
   });
   validateJsonFlags(command, jsonOutput);
+  if (jsonlOutput) throw new Error("skillset: --jsonl is not supported until a streaming route is enabled");
   validateLookupFlags(command, {
     ...(lookupField === undefined ? {} : { field: lookupField }),
     targets: lookupTargets,
@@ -2279,6 +2258,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(importPath === undefined ? {} : { importPath }),
     ...(importProvider === undefined ? {} : { importProvider }),
     jsonOutput,
+    jsonlOutput,
     lookupAspects,
     ...(lookupField === undefined ? {} : { lookupField }),
     ...(lookupSubject === undefined ? {} : { lookupSubject }),
@@ -2318,6 +2298,16 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(testName === undefined ? {} : { testName }),
     yes,
   };
+}
+
+function parseCliArgs(args: readonly string[]): ParsedArgs {
+  try {
+    return parseArgs(args);
+  } catch (error) {
+    if (error instanceof CliOutputError) throw error;
+    const message = error instanceof Error ? error.message : String(error);
+    throw new CliOutputError(message, 2, readCliCommand(args));
+  }
 }
 
 function isReleaseSubcommand(value: string | undefined): value is ReleaseSubcommand {
