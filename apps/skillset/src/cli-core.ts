@@ -2935,7 +2935,7 @@ function validateSourceDiagnosticFlags(
   const label = `skillset ${command}`;
   if (sourceCheck.only === "outputs") {
     if (sourceCheck.dryRun || sourceCheck.yes) {
-      throw new Error(`${label} --only outputs is read-only and does not support --yes or --dry-run`);
+      throw new Error(`${label} --only outputs is read-only and does not support --yes`);
     }
     return;
   }

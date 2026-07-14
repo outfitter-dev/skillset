@@ -19,6 +19,8 @@ test("SET-285: CLI surface guard rejects retired commands, flags, and environmen
     "const label = \"try status\";",
   ].join("\n");
   expect(scanCliSurface("README.md", content)).toHaveLength(10);
+  expect(scanCliSurface("apps/skillset/src/cli-core.ts", "throw new Error(`${label} does not support --dry-run`);")).toHaveLength(1);
+  expect(scanCliSurface("docs/package-releases.md", "Run bun pm pack --dry-run before publishing.")).toEqual([]);
   expect(scanCliSurface("README.md", "Run skillset check --only outputs and skillset dev --write.")).toEqual([]);
 });
 

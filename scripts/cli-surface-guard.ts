@@ -16,7 +16,7 @@ const RETIRED_SURFACE = [
   /\b(?:build|diff)(?:\/|,\s*and\s+)verify\b/u,
   /\b(?:doctor\/explain|explain\/doctor)\b/u,
   /\bSKILLSET_TRY_[A-Z_]+\b/u,
-  /\bskillset\b[^\n]{0,100}(?:^|[\s`[])--(?:apply|dist|dry-run|global|layout|source|watch)\b/u,
+  /(?:^|[\s`["'])--(?:apply|dist|dry-run|global|layout|source|watch)\b/u,
   /--(?:claude|codex|cursor)(?![-\w])/u,
   /["'`]skillset: [^"'`\n]*\btry\b/u,
   /["'`]try (?:command|config|failed|latest|passed|plugin|run|status|tail|list)\b/u,
@@ -47,10 +47,15 @@ export function isCliSurfacePath(path: string): boolean {
 
 export function scanCliSurface(file: string, content: string): readonly CliSurfaceViolation[] {
   return content.split(/\r?\n/u).flatMap((text, index) =>
-    RETIRED_SURFACE.some((pattern) => pattern.test(text))
+    RETIRED_SURFACE.some((pattern) => pattern.test(text)) && !allowedRetiredFlagUse(file, text)
       ? [{ file, line: index + 1, text: text.trim() }]
       : []
   );
+}
+
+function allowedRetiredFlagUse(file: string, text: string): boolean {
+  return file.startsWith(".skillset/skills/skillset-adrs/scripts/") ||
+    (file === "docs/package-releases.md" && /\bbun pm pack --dry-run\b/u.test(text));
 }
 
 const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));
