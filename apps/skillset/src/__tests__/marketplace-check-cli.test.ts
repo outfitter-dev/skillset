@@ -41,14 +41,19 @@ Use this demo skill.
   expect(checked.stdout).toContain("marketplace-ready: outfitter/local-tools claude plugin local-tools");
 
   const json = await runSkillsetCli("marketplace", "check", "outfitter", "--json", "--root", root);
-  const report = JSON.parse(json.stdout) as {
-    readonly ok: boolean;
-    readonly entries: readonly { readonly readiness: string; readonly generatedPath?: string }[];
+  const envelope = JSON.parse(json.stdout) as {
+    readonly command: string;
+    readonly data: {
+      readonly ok: boolean;
+      readonly entries: readonly { readonly readiness: string; readonly generatedPath?: string }[];
+    };
+    readonly schemaVersion: string;
   };
 
   expect(json).toMatchObject({ exitCode: 0, stderr: "" });
-  expect(report.ok).toBe(true);
-  expect(report.entries).toEqual([expect.objectContaining({
+  expect(envelope).toMatchObject({ command: "marketplace.check", schemaVersion: "skillset.cli.result@1" });
+  expect(envelope.data.ok).toBe(true);
+  expect(envelope.data.entries).toEqual([expect.objectContaining({
     generatedPath: "plugins/local-tools/claude/.claude-plugin/plugin.json",
     readiness: "marketplace-ready",
   })]);
@@ -79,6 +84,17 @@ skillset:
   expect(checked.stdout).toContain("skillset: marketplace check failed");
   expect(checked.stdout).toContain("missing generated file: plugins/local-tools/claude/.claude-plugin/plugin.json");
   await expect(readdir(root)).resolves.toEqual(before);
+
+  const json = await runSkillsetCli("marketplace", "check", "--json", "--root", root);
+  const envelope = JSON.parse(json.stdout) as {
+    readonly diagnostics: readonly { readonly code: string; readonly message: string; readonly path?: string }[];
+  };
+  expect(json).toMatchObject({ exitCode: 1, stderr: "" });
+  expect(envelope.diagnostics).toEqual([expect.objectContaining({
+    code: "marketplace.not-ready",
+    message: expect.stringContaining("missing generated file"),
+    path: "plugins/local-tools/claude/.claude-plugin/plugin.json",
+  })]);
 });
 
 test("SET-236: marketplace update previews and writes an external Claude marketplace index", async () => {
@@ -189,9 +205,9 @@ Use this demo skill.
   );
   expect(checkedJson).toMatchObject({ exitCode: 0, stderr: "" });
   expect(updateJson).toMatchObject({ exitCode: 0, stderr: "" });
-  const checkedReport = JSON.parse(checkedJson.stdout) as {
-    readonly entries: readonly { readonly provenance: unknown }[];
-  };
+  const checkedReport = (JSON.parse(checkedJson.stdout) as {
+    readonly data: { readonly entries: readonly { readonly provenance: unknown }[] };
+  }).data;
   const updateReport = JSON.parse(updateJson.stdout) as {
     readonly check: { readonly entries: readonly { readonly provenance: unknown }[] };
   };

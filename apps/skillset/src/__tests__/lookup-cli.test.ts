@@ -20,7 +20,7 @@ test("SET-220: lookup skill frontmatter renders schema-backed fields", async () 
   expect(text.stdout).toContain("resources:");
 
   expect(json.exitCode).toBe(0);
-  const report = JSON.parse(json.stdout) as {
+  const report = readResultData(json.stdout) as {
     readonly fields: readonly { readonly contractId: string; readonly path: string }[];
   };
   expect(report.fields.map((field) => `${field.contractId}:${field.path}`)).toContain("skill-frontmatter:resources");
@@ -30,7 +30,7 @@ test("SET-220: lookup workspace nested field values", async () => {
   const result = await runSkillsetCli("lookup", "workspace", "--field", "compile.targets", "--values", "--json");
 
   expect(result.exitCode).toBe(0);
-  const report = JSON.parse(result.stdout) as {
+  const report = readResultData(result.stdout) as {
     readonly fields: readonly { readonly path: string; readonly values?: readonly string[] }[];
   };
   expect(report.fields).toEqual([
@@ -64,7 +64,7 @@ test("SET-130: lookup skill tools exposes the realization matrix", async () => {
   expect(text.stdout).toContain("[cursor] mcp: unsupported via none (not rendered)");
 
   expect(json.exitCode).toBe(0);
-  const report = JSON.parse(json.stdout) as {
+  const report = readResultData(json.stdout) as {
     readonly compatibility: readonly { readonly featureId: string; readonly status: string; readonly target: string }[];
     readonly realizations: readonly {
       readonly aspect: string;
@@ -103,7 +103,7 @@ test("SET-220: lookup hooks adaptive lens shows adaptive hook fields", async () 
   const result = await runSkillsetCli("lookup", "hooks", "adaptive", "--fields", "--schema", "--examples", "--compat", "codex", "--json");
 
   expect(result.exitCode).toBe(0);
-  const report = JSON.parse(result.stdout) as {
+  const report = readResultData(result.stdout) as {
     readonly compatibility: readonly { readonly featureId: string }[];
     readonly examples: readonly { readonly contractId: string }[];
     readonly fields: readonly { readonly contractId: string; readonly path: string }[];
@@ -119,7 +119,7 @@ test("SET-232: lookup hooks toolkit lens reports runtime context support", async
   const result = await runSkillsetCli("lookup", "hooks", "toolkit", "--field", "context.env", "--values", "--compat", "codex", "--json");
 
   expect(result.exitCode).toBe(0);
-  const report = JSON.parse(result.stdout) as {
+  const report = readResultData(result.stdout) as {
     readonly compatibility: readonly { readonly featureId: string; readonly note?: string; readonly status: string; readonly target: string }[];
     readonly fields: readonly { readonly path: string; readonly values?: readonly string[] }[];
   };
@@ -143,7 +143,7 @@ test("SET-220: lookup plugin bin compatibility reports Codex unsupported reason"
   const result = await runSkillsetCli("lookup", "plugin", "bin", "--compat", "codex", "--json");
 
   expect(result.exitCode).toBe(0);
-  const report = JSON.parse(result.stdout) as {
+  const report = readResultData(result.stdout) as {
     readonly compatibility: readonly { readonly featureId: string; readonly reason?: string; readonly status: string; readonly target: string }[];
   };
   expect(report.compatibility).toEqual([
@@ -160,7 +160,7 @@ test("SET-220: lookup target lens aliases filter non-compat views", async () => 
   const result = await runSkillsetCli("lookup", "hooks", "--events", "--cursor", "--json");
 
   expect(result.exitCode).toBe(0);
-  const report = JSON.parse(result.stdout) as {
+  const report = readResultData(result.stdout) as {
     readonly diagnostics: readonly { readonly code: string; readonly severity: string }[];
     readonly events: readonly { readonly handlerTypes: readonly string[]; readonly matcherEvaluation: string; readonly matcherKind: string; readonly matcherValues: readonly string[]; readonly name: string; readonly providerRef: string; readonly target: string }[];
     readonly targets: readonly string[];
@@ -184,7 +184,12 @@ test("SET-220: lookup invalid combinations and targets produce helpful diagnosti
   const invalidTarget = await runSkillsetCli("lookup", "hooks", "--compat", "unknown");
 
   expect(invalidView.exitCode).toBe(1);
-  const report = JSON.parse(invalidView.stdout) as {
+  expect(JSON.parse(invalidView.stdout)).toMatchObject({
+    diagnostics: [{ code: "lookup/frontmatter/not-applicable", severity: "error" }],
+    kind: "diagnostics",
+    ok: false,
+  });
+  const report = readResultData(invalidView.stdout) as {
     readonly diagnostics: readonly { readonly code: string; readonly message: string; readonly severity: string }[];
   };
   expect(report.diagnostics).toContainEqual({
@@ -194,7 +199,7 @@ test("SET-220: lookup invalid combinations and targets produce helpful diagnosti
   });
 
   expect(cursorTarget.exitCode).toBe(0);
-  expect(JSON.parse(cursorTarget.stdout).targets).toEqual(["cursor"]);
+  expect((readResultData(cursorTarget.stdout) as { readonly targets: readonly string[] }).targets).toEqual(["cursor"]);
   expect(invalidTarget.exitCode).toBe(1);
   expect(invalidTarget.stderr).toContain("unknown lookup compatibility target unknown");
 });
@@ -215,4 +220,8 @@ async function runSkillsetCli(...args: readonly string[]): Promise<{
     proc.exited,
   ]);
   return { exitCode, stderr, stdout };
+}
+
+function readResultData(stdout: string): unknown {
+  return (JSON.parse(stdout) as { readonly data: unknown }).data;
 }
