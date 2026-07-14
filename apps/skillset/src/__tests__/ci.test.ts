@@ -74,7 +74,9 @@ test("check JSON promotes readiness failures to envelope diagnostics", async () 
   expect(result.stderr).toBe("");
   expect(JSON.parse(result.stdout)).toMatchObject({
     command: "check",
-    diagnostics: [{ code: "check-generated-drift", path: GENERATED_SKILL, severity: "error" }],
+    diagnostics: expect.arrayContaining([
+      expect.objectContaining({ code: "check-generated-drift", path: GENERATED_SKILL, severity: "error" }),
+    ]),
     exitCode: 1,
     kind: "diagnostics",
     ok: false,
@@ -113,6 +115,23 @@ test("check --only outputs serializes drift diagnostics", async () => {
   });
 });
 
+test("check preserves generated-output diagnostics without drift", async () => {
+  const root = await fixture({
+    "skillset.yaml": "skillset:\n  name: large-agents\nclaude: false\ncodex: true\n",
+    ".skillset/rules/big.md": `# Big\n\n${"- padding line\n".repeat(2500)}`,
+  });
+  await buildSkillset(root);
+
+  const report = await ciSkillset(root);
+  const result = await runSkillsetCli("check", "--root", root, "--json");
+  const envelope = JSON.parse(result.stdout) as { diagnostics: Array<{ code: string; path?: string; severity: string }> };
+
+  expect(report.ok).toBe(true);
+  expect(report.drift).toEqual({ added: [], changed: [], missing: [], removed: [] });
+  expect(report.outputDiagnostics).toContainEqual(expect.objectContaining({ code: "codex-agents-size", outputPath: "AGENTS.md" }));
+  expect(envelope.diagnostics).toContainEqual(expect.objectContaining({ code: "codex-agents-size", path: "AGENTS.md", severity: "warning" }));
+});
+
 test("ci report explains generated changelog drift", () => {
   const markdown = renderCiReportMarkdown({
     changeIssues: [],
@@ -121,6 +140,7 @@ test("ci report explains generated changelog drift", () => {
     lintIssues: [],
     ok: false,
     outputEditedPaths: [],
+    outputDiagnostics: [],
     providerUpdatePaths: [],
     warnings: [],
   });

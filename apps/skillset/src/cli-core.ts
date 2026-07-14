@@ -1037,6 +1037,7 @@ function serializeDiagnostics(
 
 function ciReportDiagnostics(report: CiReport): readonly SkillsetCliDiagnostic[] {
   const diagnostics: SkillsetCliDiagnostic[] = [
+    ...serializeDiagnostics(report.outputDiagnostics),
     ...report.lintIssues.map((issue) => ({
       code: issue.code,
       message: issue.message,
@@ -1277,6 +1278,7 @@ function printChangeStatus(report: ChangeStatusReport): void {
 }
 
 function printCiReport(report: CiReport): void {
+  printDiagnostics(report.outputDiagnostics);
   for (const issue of report.lintIssues) {
     console.log(`  lint ${issue.severity}: ${issue.path}: ${issue.code}: ${issue.message}`);
   }
@@ -1330,6 +1332,8 @@ function printCiReport(report: CiReport): void {
   if ((report.changesetIssues ?? []).length > 0) problems.push(`${report.changesetIssues?.length} Changesets issue(s)`);
   if (report.outputEditedPaths.length > 0) problems.push(`${report.outputEditedPaths.length} target-side generated edit(s) to reconcile`);
   if (report.providerUpdatePaths.length > 0) problems.push(`${report.providerUpdatePaths.length} provider-format update(s)`);
+  const outputErrors = report.outputDiagnostics.filter((diagnostic) => diagnostic.severity === "error").length;
+  if (outputErrors > 0) problems.push(`${outputErrors} generated-output diagnostic(s)`);
   if (hasDrift(report.drift)) problems.push("generated-output drift (run skillset check --write, or check --ci --fix in CI)");
   if (report.buildError !== undefined) problems.push("a build error");
   console.log(`skillset: check found ${problems.join(" and ")}`);

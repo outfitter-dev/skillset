@@ -5,7 +5,7 @@ import {
   readChangedFilesFromGit,
   type ChangedFile,
 } from "./changeset-awareness";
-import { buildSkillset, diffSkillset, type SkillsetDiff } from "@skillset/core";
+import { buildSkillset, diffSkillsetResult, type SkillsetDiagnostic, type SkillsetDiff } from "@skillset/core";
 import { suggestSource, type SourceSuggestionReport } from "@skillset/core/internal/authoring";
 import { inspectSkillset } from "@skillset/core";
 import { readManagedOutputState } from "@skillset/core/internal/output-safety";
@@ -41,6 +41,8 @@ export interface CiReport {
   readonly ok: boolean;
   /** Managed generated paths changed since the last recorded output hash. */
   readonly outputEditedPaths: readonly string[];
+  /** Diagnostics produced while deriving and validating generated output. */
+  readonly outputDiagnostics: readonly SkillsetDiagnostic[];
   /** Drift owned by explicit provider-format migrations and therefore `update`. */
   readonly providerUpdatePaths: readonly string[];
   readonly sourceSuggestions?: readonly SourceSuggestionReport[];
@@ -105,9 +107,12 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
   }
 
   let drift: SkillsetDiff = EMPTY_DRIFT;
+  let outputDiagnostics: readonly SkillsetDiagnostic[] = [];
   if (buildError === undefined) {
     try {
-      drift = await diffSkillset(rootPath, buildOptions);
+      const result = await diffSkillsetResult(rootPath, buildOptions);
+      drift = result.data;
+      outputDiagnostics = result.diagnostics;
     } catch (error) {
       buildError = errorMessage(error);
     }
@@ -159,7 +164,9 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
     const staleBefore = [...drift.added, ...drift.changed, ...drift.missing, ...drift.removed];
     try {
       await buildSkillset(rootPath, buildOptions);
-      drift = await diffSkillset(rootPath, buildOptions);
+      const result = await diffSkillsetResult(rootPath, buildOptions);
+      drift = result.data;
+      outputDiagnostics = result.diagnostics;
       const remaining = new Set([...drift.added, ...drift.changed, ...drift.missing, ...drift.removed]);
       fixedPaths = staleBefore.filter((path) => !remaining.has(path));
     } catch (error) {
@@ -184,8 +191,10 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
       lintErrors.length === 0 &&
       changeErrors.length === 0 &&
       changesetIssues.length === 0 &&
+      !outputDiagnostics.some((diagnostic) => diagnostic.severity === "error") &&
       !hasDrift(drift),
     outputEditedPaths,
+    outputDiagnostics,
     providerUpdatePaths,
     ...(packageFiles.length === 0 ? {} : { packageFiles }),
     ...(sourceSuggestions.length === 0 ? {} : { sourceSuggestions }),
@@ -213,8 +222,9 @@ export function renderCiReportMarkdown(report: CiReport): string {
   const lines: string[] = [CI_REPORT_MARKER, "## Skillset CI", ""];
   const lintErrors = report.lintIssues.filter((issue) => issue.severity === "error");
   const lintWarnings = report.lintIssues.filter((issue) => issue.severity === "warn");
+  const outputWarnings = report.outputDiagnostics.filter((diagnostic) => diagnostic.severity !== "error");
 
-  if (report.ok && report.fixedPaths.length === 0 && lintWarnings.length === 0) {
+  if (report.ok && report.fixedPaths.length === 0 && lintWarnings.length === 0 && outputWarnings.length === 0) {
     lines.push("All checks passed: source lint, change entries, and generated output are current.", "");
     return `${lines.join("\n").trimEnd()}\n`;
   }
@@ -242,6 +252,15 @@ export function renderCiReportMarkdown(report: CiReport): string {
       );
     }
     lines.push("", "These files were regenerated from source the same way `skillset build --yes` would. Commit the rebuilt output if it is not committed for you.", "");
+  }
+
+  if (report.outputDiagnostics.length > 0) {
+    lines.push("### Generated-output diagnostics", "");
+    for (const diagnostic of report.outputDiagnostics) {
+      const path = diagnostic.path ?? diagnostic.outputPath;
+      lines.push(`- ${diagnostic.severity}: ${path === undefined ? "" : `\`${path}\`: `}${diagnostic.code}: ${diagnostic.message}`);
+    }
+    lines.push("");
   }
 
   if (hasDrift(report.drift)) {
