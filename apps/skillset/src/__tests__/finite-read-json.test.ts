@@ -170,7 +170,7 @@ describe("SET-287 finite read-only JSON", () => {
     );
 
     const blocked = await runJsonRoute("init", "--adopt", "all", "--yes", "--root", root);
-    const envelope = JSON.parse(blocked.stdout) as SkillsetCliResult & { data: { writes: string[] } };
+    const envelope = JSON.parse(blocked.stdout) as SkillsetCliResult & { data: { state: string; writes: string[] } };
 
     expect(blocked.exitCode).toBe(1);
     expect(blocked.stderr).toBe("");
@@ -178,6 +178,19 @@ describe("SET-287 finite read-only JSON", () => {
       ".skillset/cache/adopt/report.md",
       ".skillset/cache/adopt/report.json",
     ]);
+    expect(envelope.data.state).toBe("written");
+  });
+
+  test("build JSON distinguishes plans from mutations", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "skillset-json-build-kinds-"));
+    const root = path.join(parent, "workspace");
+    await cp(fixtureRoot, root, { recursive: true });
+
+    const preview = JSON.parse((await runJsonRoute("build", "--root", root)).stdout) as SkillsetCliResult;
+    const applied = JSON.parse((await runJsonRoute("build", "--root", root, "--yes")).stdout) as SkillsetCliResult;
+
+    expect(preview.kind).toBe("plan");
+    expect(applied.kind).toBe("mutation");
   });
 
   test("build apply emits a finite summary and every changed path", async () => {
