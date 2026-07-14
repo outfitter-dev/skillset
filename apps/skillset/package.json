@@ -1,6 +1,6 @@
 {
   "name": "skillset",
-  "version": "0.17.0",
+  "version": "0.17.1",
   "description": "Source-first compiler for provider-native agent loadouts.",
   "type": "module",
   "files": [
