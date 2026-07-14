@@ -160,6 +160,7 @@ interface RenderedIslandFile {
 interface RenderedProjectAgentFile {
   readonly file: RenderedFile;
   readonly preprocessDependencies: readonly string[];
+  readonly target: TargetName;
 }
 
 interface RenderedRuleMarkdown {
@@ -945,6 +946,7 @@ async function renderCursorProjectAgent(
       relative(graph.rootPath, agent.sourcePath)
     ),
     preprocessDependencies: projectAgentPreprocessDependencies(graph, preprocessDependencies),
+    target: "cursor",
   };
 }
 
@@ -997,6 +999,7 @@ async function renderClaudeProjectAgent(
       relative(graph.rootPath, agent.sourcePath)
     ),
     preprocessDependencies: projectAgentPreprocessDependencies(graph, preprocessDependencies),
+    target: "claude",
   };
 }
 
@@ -1031,6 +1034,7 @@ async function renderCodexProjectAgent(
       relative(graph.rootPath, agent.sourcePath)
     ),
     preprocessDependencies: projectAgentPreprocessDependencies(graph, preprocessDependencies),
+    target: "codex",
   };
 }
 
@@ -3014,7 +3018,13 @@ function lockItemForProjectAgent(args: {
     outputHash: hashRenderedFiles(args.outputRoot, args.files),
     outputPath: files[0] ?? "",
     preprocessDependencies: args.result.preprocessDependencies,
-    sourceHash: hashProjectAgentSource(args.agent, args.result.preprocessDependencies, args.graph.rootPath),
+    sourceHash: hashProjectAgentSource(
+      args.agent,
+      args.result.target,
+      args.graph.root.compile.skillset.metadata,
+      args.result.preprocessDependencies,
+      args.graph.rootPath
+    ),
     sourcePath: relative(args.graph.rootPath, args.agent.sourcePath),
     validation: "structured",
     version: rootVersion(args.graph),
@@ -3049,6 +3059,7 @@ async function lockItemForSkill(args: {
       args.skill.resources,
       args.skill.targets,
       args.license,
+      args.graph.root.compile.skillset.metadata,
       args.preprocessDependencies,
       args.graph.rootPath
     ),
@@ -3087,11 +3098,13 @@ function hashIslandSource(
 
 function hashProjectAgentSource(
   agent: SourceProjectAgent,
+  target: TargetName,
+  skillsetMetadata: boolean,
   preprocessDependencies: readonly string[],
   rootPath: string
 ): string {
   const hash = createHash("sha256");
-  hash.update("skillset-project-agent-source-v1\0");
+  hash.update("skillset-project-agent-source-v2\0");
   hash.update(agent.relativePath);
   hash.update("\0");
   hash.update(agent.name);
@@ -3101,6 +3114,16 @@ function hashProjectAgentSource(
   hash.update(stringifyJson(agent.frontmatter));
   hash.update("\0");
   hash.update(agent.body);
+  hash.update("\0");
+  hash.update("resolved-target\0");
+  hash.update(target);
+  hash.update("\0");
+  hash.update(stringifyJson({
+    enabled: agent.targets[target].enabled,
+    options: agent.targets[target].options,
+  }));
+  hash.update("\0skillset-metadata\0");
+  hash.update(String(skillsetMetadata));
   hash.update("\0");
   for (const dependency of preprocessDependencies) {
     hash.update("dependency\0");
@@ -3224,11 +3247,12 @@ async function hashSkillSource(
   resources: readonly SourceResource[],
   targets: SourceSkill["targets"],
   license: ResolvedLicense | undefined,
+  skillsetMetadata: boolean,
   preprocessDependencies: readonly string[],
   rootPath: string
 ): Promise<string> {
   const hash = createHash("sha256");
-  hash.update("skillset-skill-source-v3\0");
+  hash.update("skillset-skill-source-v4\0");
 
   for (const file of await collectFiles(sourceDir)) {
     const relativeFile = relative(sourceDir, file);
@@ -3258,6 +3282,10 @@ async function hashSkillSource(
       options: targets[target].options,
     }])
   )));
+  hash.update("\0");
+
+  hash.update("skillset-metadata\0");
+  hash.update(String(skillsetMetadata));
   hash.update("\0");
 
   hash.update("resolved-license\0");

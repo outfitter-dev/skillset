@@ -115,6 +115,58 @@ codex: true
   expect(await readFile(join(root, generatedPath), "utf8")).toContain("review-state: updated");
 });
 
+test("SET-278: check writes skill drift caused by root metadata toggles", async () => {
+  const root = await builtFixture({
+    "skillset.yaml": `
+skillset:
+  name: metadata-drift
+compile:
+  skillset:
+    metadata: false
+claude: false
+codex: true
+`,
+    ".skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n",
+  });
+  const configPath = join(root, "skillset.yaml");
+  const generatedPath = ".agents/skills/demo/SKILL.md";
+  await writeFile(
+    configPath,
+    (await readFile(configPath, "utf8")).replace("metadata: false", "metadata: true"),
+    "utf8"
+  );
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.providerUpdatePaths).toEqual([]);
+  expect(report.fixedPaths).toContain(generatedPath);
+  expect(await readFile(join(root, generatedPath), "utf8")).toContain("generated: skillset");
+});
+
+test("SET-278: check writes project-agent drift caused by target defaults", async () => {
+  const root = await builtFixture({
+    ...agentFixture(),
+    "skillset.yaml": agentFixture()["skillset.yaml"]?.replace(
+      "codex: true",
+      "defaults:\n  codex:\n    agents:\n      model: gpt-5\ncodex: true"
+    ) ?? "",
+  });
+  const configPath = join(root, "skillset.yaml");
+  await writeFile(
+    configPath,
+    (await readFile(configPath, "utf8")).replace("model: gpt-5", "model: gpt-5.1"),
+    "utf8"
+  );
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.providerUpdatePaths).toEqual([]);
+  expect(report.fixedPaths).toContain(CODEX_AGENT);
+  expect(await readFile(join(root, CODEX_AGENT), "utf8")).toContain('model = "gpt-5.1"');
+});
+
 test("SET-278: check writes version-only source drift", async () => {
   const root = await builtFixture({
     "skillset.yaml": "skillset:\n  name: version-drift\n  version: 1.0.0\nclaude: true\ncodex: false\n",

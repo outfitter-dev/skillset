@@ -24,7 +24,7 @@
       "name": "skillset-adrs",
       "outputHash": "sha256:2d8b1827edf14c73728636774799c7e14601201597c435567a2b3a9308399e29",
       "outputPath": "skillset-adrs/SKILL.md",
-      "sourceHash": "sha256:3cc0b3f4ba82a0bb94fa89473d93883af75e51de7852c3de8988234dbfca9f76",
+      "sourceHash": "sha256:23b5206d6d7f1404c3161503ec8824483a13ca9cd18e154dacedc0392f142a54",
       "sourcePath": ".skillset/skills/skillset-adrs/SKILL.md",
       "version": "0.1.0"
     },
@@ -36,7 +36,7 @@
       "name": "skillset-codex-development",
       "outputHash": "sha256:8ffe90e3636cf4a779469c5c91d00af2da76dcdda09abe9cec8ea222c1bbea44",
       "outputPath": "skillset-codex-development/SKILL.md",
-      "sourceHash": "sha256:8f5fecdcf44f2190ab1779b980a10c18456f7bf937929b16b4a47ea0fe6cbeb8",
+      "sourceHash": "sha256:9f39d20f0b938c4838d3a81368090f6bd1b0411dbbcfa3e933a19f04c5c9947a",
       "sourcePath": ".skillset/skills/skillset-codex-development/SKILL.md",
       "version": "0.1.1"
     },
@@ -48,7 +48,7 @@
       "name": "skillset-repo-test-fixtures",
       "outputHash": "sha256:66ce349f46964f0fe4ca342691603621058b98ce4eb5deb13bae1ccfd33778ed",
       "outputPath": "skillset-repo-test-fixtures/SKILL.md",
-      "sourceHash": "sha256:dcc052b8371e783d571adc7fb96fc7b2c0d6a502c9b9a354fce4ed7a1e5147ff",
+      "sourceHash": "sha256:d17f4fefe571ef1ac568ce225b0473484391e9675eec652a5f1ebe103449ca09",
       "sourcePath": ".skillset/skills/skillset-repo-test-fixtures/SKILL.md",
       "version": "0.1.2"
     }
