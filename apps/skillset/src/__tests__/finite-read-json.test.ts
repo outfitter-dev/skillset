@@ -296,11 +296,23 @@ describe("SET-287 finite read-only JSON", () => {
 
     const result = await runJsonRoute("build", "--root", root, "--yes");
     expect(result.stderr).toBe("");
-    const envelope = JSON.parse(result.stdout) as SkillsetCliResult;
+    const envelope = JSON.parse(result.stdout) as SkillsetCliResult & {
+      data: {
+        report: { writes: { backupManifestPath?: string; paths: string[] } };
+        writes: string[];
+      };
+    };
     expect(validateCliResult(envelope)).toEqual({ diagnostics: [], ok: true });
     expect(envelope.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({ path: "AGENTS.md", severity: "warning" }),
     ]));
+    const backupManifestPath = envelope.data.report.writes.backupManifestPath;
+    expect(backupManifestPath).toMatch(/^\.skillset\/snapshots\/[^/]+\/manifest\.json$/u);
+    if (backupManifestPath === undefined) throw new Error("missing build backup manifest path");
+    expect(envelope.data.writes).toEqual([
+      ...envelope.data.report.writes.paths,
+      backupManifestPath,
+    ]);
   });
 
   test("change migrate does not report a ledger write for a no-op", async () => {

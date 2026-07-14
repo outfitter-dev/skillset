@@ -263,6 +263,9 @@ export async function runCli(
     const result = await buildSkillsetResult(rootPath, options);
     if (jsonOutput) {
       if (result.ok) await rememberKnownSkillsetWorkspace(rootPath, options, true);
+      const writes = result.writes.backupManifestPath === undefined
+        ? result.writes.paths
+        : [...result.writes.paths, result.writes.backupManifestPath];
       printCliJsonData("build.apply", {
         report: {
           ok: result.ok,
@@ -272,7 +275,7 @@ export async function runCli(
           writes: result.writes,
         },
         state: "written",
-        writes: result.writes.paths,
+        writes,
       }, result.ok ? 0 : 1, "mutation", serializeDiagnostics(result.diagnostics));
       if (!result.ok) process.exitCode = 1;
       return;
