@@ -572,7 +572,13 @@ export async function runCli(
     if (checkOnly === "outputs") {
       const result = await verifySkillsetResult(rootPath, options);
       if (jsonOutput) {
-        printCliJsonData("check", result.data, result.ok ? 0 : 1, "diagnostics", result.diagnostics);
+        printCliJsonData(
+          "check",
+          result.data,
+          result.ok ? 0 : 1,
+          "diagnostics",
+          serializeDiagnostics(result.diagnostics)
+        );
       } else {
         printDiagnostics(result.diagnostics);
         console.log(`skillset: checked ${result.data.checkedFiles} generated files`);
