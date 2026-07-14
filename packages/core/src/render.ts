@@ -3191,7 +3191,7 @@ function hashPluginSource(
   hash.update("\0");
   hash.update(stringifyJson(plugin.targets[target].options));
   hash.update("\0plugin-surfaces\0");
-  hash.update(stringifyJson({
+  hash.update(stringifyJson(JSON.parse(JSON.stringify({
     adaptiveHooks: plugin.adaptiveHooks,
     features: plugin.features,
     hookAttachments: plugin.hookAttachments,
@@ -3199,7 +3199,7 @@ function hashPluginSource(
       .filter((island) => island.plugin === plugin.id && island.target === target)
       .map((island) => ({ relativePath: island.relativePath, target: island.target }))
       .sort((left, right) => compareStrings(left.relativePath, right.relativePath)),
-  }));
+  })) as JsonRecord));
   if (target === "codex") {
     hash.update("\0root-derived-interface\0");
     hash.update(stringifyJson({ developerName: renderCodexInterface(graph, plugin).developerName }));
