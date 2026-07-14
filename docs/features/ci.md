@@ -24,7 +24,7 @@ Skillset uses two separate change ledgers. `.skillset/changes/` records source-u
 
 Generated entity `CHANGELOG.md` files are managed projections. When one has been edited directly, `--fix` refuses to overwrite it and the report points to `skillset change reason <@ref>`, `skillset change amend <@ref>`, or `skillset release amend <@ref>` as appropriate.
 
-For added or changed generated paths, CI also runs the same read-only classification used by `skillset suggest-source`. Reports include the generated path, owning source path when known, whether the edit is suggestible or refused, and the next manual command. CI does not perform source writeback in v1; contributors accept clean suggestions locally with `skillset suggest-source <path> --write --yes`, then rebuild generated output and add the required change entry.
+For added or changed generated paths, CI runs the same read-only ownership and safety classification used by `skillset reconcile`. Reports include the generated path, owning source path when known, whether output-wins is available or refused, and the next manual command. CI never chooses a conflict direction automatically.
 
 [Source Suggestions](source-suggestions.md) is the future recovery path for managed generated-output edits that should become source changes. CI writeback remains future-only until the local suggestion command can classify clean source patches, refusal cases, and stale lock/conflict risks.
 

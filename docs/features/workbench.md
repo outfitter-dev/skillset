@@ -100,7 +100,7 @@ These fixtures are internal compiler fixtures, not public source-root `tests.yam
 - Run `skillset check` before `skillset build --yes` when editing source that is covered by current authoring diagnostics.
 - Run `skillset check --only outputs` after building or when checking whether generated output is stale.
 - Run `skillset change check` for pending change coverage.
-- Keep generated-output edits out of source truth; use `skillset explain`, `skillset diff`, `skillset restore`, and source suggestions when a generated file was edited directly.
+- Keep generated-output edits out of source truth; use `skillset reconcile` to choose source-wins or output-wins explicitly.
 - Treat `strict` rules as opt-in until a repo explicitly chooses them.
 - Do not add rule backends that execute source scripts during checks. Workbench may inspect files and parse source, but runtime execution belongs to explicit tests, harnesses, or user-approved hooks.
 
