@@ -356,6 +356,9 @@ function addTestDeclaration(
   name: string,
   declaration: TestDeclarationRecord
 ): void {
+  if (name === "list" || name === "status" || name === "tail" || name === "worker") {
+    throw new Error(`skillset: test name ${name} is reserved for the retained-run lifecycle`);
+  }
   const existing = declarations[name];
   if (existing !== undefined) {
     throw new Error(`skillset: duplicate test ${name} in ${existing.label} and ${declaration.label}`);

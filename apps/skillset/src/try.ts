@@ -48,6 +48,7 @@ export interface TryStatus {
   readonly failureClass?: TryFailureClass;
   readonly finalMessagePath?: string;
   readonly latestRoot: string;
+  readonly kind: "ad-hoc";
   readonly name: string;
   readonly outputPath: string;
   readonly pid?: number;
@@ -74,6 +75,7 @@ export interface TryEvidence {
 
 export interface TryRunReport {
   readonly background: boolean;
+  readonly kind: "ad-hoc";
   readonly latestPath: string;
   readonly ok: boolean;
   readonly reportPath: string;
@@ -87,6 +89,7 @@ export interface TryRunReport {
 export interface TryListEntry {
   readonly endedAt?: string;
   readonly name: string;
+  readonly kind: "ad-hoc";
   readonly runId: string;
   readonly runPath: string;
   readonly startedAt: string;
@@ -133,10 +136,10 @@ interface TryStoredConfig {
   readonly timeoutMs: number;
 }
 
-const RUNTIME_TEST_ROOT = ".skillset/cache/runtime-tests";
+const RUNTIME_TEST_ROOT = ".skillset/cache/tests/ad-hoc";
 const DEFAULT_TIMEOUT_MS = 120_000;
 const DEFAULT_CLAUDE_SETTING_SOURCES: TryClaudeSettingSources = "isolated";
-const TRY_CLAUDE_SETTING_SOURCES_ENV = "SKILLSET_TRY_CLAUDE_SETTING_SOURCES";
+const TRY_CLAUDE_SETTING_SOURCES_ENV = "SKILLSET_TEST_CLAUDE_SETTING_SOURCES";
 // Empty --setting-sources keeps Claude probes independent from user/project/local settings while preserving env auth and explicit --plugin-dir inputs.
 const ISOLATED_CLAUDE_SETTING_SOURCES_ARG = "";
 const CLAUDE_SETTING_SOURCES_DISPLAY = "\"\"";
@@ -148,15 +151,15 @@ export async function startTryRun(
   const root = resolve(rootPath);
   const cacheRoot = resolve(options.cacheRootPath ?? root);
   if (options.background === true && cacheRoot !== root) {
-    throw new Error("skillset: background tries cannot use a separate cache root");
+    throw new Error("skillset: background ad hoc tests cannot use a separate cache root");
   }
   const graph = await loadBuildGraph(root, options);
   if (!graph.root.targets[options.target].enabled) {
-    throw new Error(`skillset: try target ${options.target} is not enabled by root target configuration`);
+    throw new Error(`skillset: test target ${options.target} is not enabled by root target configuration`);
   }
-  const name = options.name ?? `try-${options.target}`;
+  const name = options.name ?? `ad-hoc-${options.target}`;
   const plugins = validateTryPlugins(graph, options.target, options.plugins ?? []);
-  const runId = makeRetainedRunId(name, { fallbackName: "try", includeName: true });
+  const runId = makeRetainedRunId(name, { fallbackName: "ad-hoc", includeName: true });
   const paths = tryPaths(cacheRoot, graph, runId, options.xdg);
   await mkdir(paths.absolute.runPath, { recursive: true });
 
@@ -176,6 +179,7 @@ export async function startTryRun(
   );
   await writeFile(paths.absolute.promptPath, options.prompt, "utf8");
   await writeStatus(paths, {
+    kind: "ad-hoc",
     latestRoot: ISOLATED_OUT_ROOT,
     name,
     outputPath: paths.logical.outputPath,
@@ -280,10 +284,10 @@ export async function executeTryRun(
     updatedAt: new Date().toISOString(),
     ...(failureClass === undefined ? {} : { failureClass }),
     ...(result.timedOut
-      ? { error: `try command timed out after ${config.timeoutMs}ms` }
-      : result.exitCode === 0 ? {} : { error: stderr.trim() || `try command exited with code ${result.exitCode}` }),
+      ? { error: `test command timed out after ${config.timeoutMs}ms` }
+      : result.exitCode === 0 ? {} : { error: stderr.trim() || `test command exited with code ${result.exitCode}` }),
   });
-  await appendEvent(paths, "status", `try ${nextState}`);
+  await appendEvent(paths, "status", `test ${nextState}`);
 }
 
 export async function readTryEvidence(
@@ -354,6 +358,7 @@ export async function listTryRuns(
       const status = await readStatus(join(runsRoot, entry.name, "status.json"));
       runs.push({
         ...(status.endedAt === undefined ? {} : { endedAt: status.endedAt }),
+        kind: status.kind,
         name: status.name,
         runId: status.runId,
         runPath: status.runPath,
@@ -397,7 +402,7 @@ function runtimeCommand(
 ): { readonly cmd: readonly string[]; readonly cwd: string; readonly display: readonly string[] } {
   const latestRoot = resolveRetainedRunPath(rootPath, graph, ISOLATED_OUT_ROOT, xdg);
   if (config.target === "claude") {
-    const bin = env.SKILLSET_TRY_CLAUDE_BIN ?? "claude";
+    const bin = env.SKILLSET_TEST_CLAUDE_BIN ?? "claude";
     const pluginArgs = tryPluginDirs(graph, latestRoot, config.target, config.plugins).flatMap((pluginDir) => [
       "--plugin-dir",
       pluginDir,
@@ -424,7 +429,7 @@ function runtimeCommand(
   }
 
   if (config.target === "cursor") {
-    const bin = env.SKILLSET_TRY_CURSOR_BIN ?? "cursor-agent";
+    const bin = env.SKILLSET_TEST_CURSOR_BIN ?? "cursor-agent";
     const pluginArgs = tryPluginDirs(graph, latestRoot, config.target, config.plugins).flatMap((pluginDir) => [
       "--plugin-dir",
       pluginDir,
@@ -445,7 +450,7 @@ function runtimeCommand(
     return { cmd, cwd: latestRoot, display: cmd };
   }
 
-  const bin = env.SKILLSET_TRY_CODEX_BIN ?? "codex";
+  const bin = env.SKILLSET_TEST_CODEX_BIN ?? "codex";
   const cmd = [
     bin,
     "exec",
@@ -512,21 +517,21 @@ function validateTryPlugins(
 ): readonly string[] {
   if (plugins.length === 0) return [];
   if (target === "codex") {
-    throw new Error("skillset: try --plugin is only supported for targets with local plugin-dir support: claude, cursor");
+    throw new Error("skillset: test --plugin is only supported for targets with local plugin-dir support: claude, cursor");
   }
   const seen = new Set<string>();
   const selected: string[] = [];
   const knownPlugins = graph.plugins.map((plugin) => plugin.id).sort(compareStrings);
   for (const pluginId of plugins) {
-    if (seen.has(pluginId)) throw new Error(`skillset: duplicate try plugin ${JSON.stringify(pluginId)}`);
+    if (seen.has(pluginId)) throw new Error(`skillset: duplicate test plugin ${JSON.stringify(pluginId)}`);
     seen.add(pluginId);
     const plugin = graph.plugins.find((candidate) => candidate.id === pluginId);
     if (plugin === undefined) {
       const available = knownPlugins.length === 0 ? "none configured" : knownPlugins.join(", ");
-      throw new Error(`skillset: unknown try plugin ${JSON.stringify(pluginId)}; available plugins: ${available}`);
+      throw new Error(`skillset: unknown test plugin ${JSON.stringify(pluginId)}; available plugins: ${available}`);
     }
     if (!plugin.targets[target].enabled) {
-      throw new Error(`skillset: try plugin ${JSON.stringify(pluginId)} is not enabled for ${target}`);
+      throw new Error(`skillset: test plugin ${JSON.stringify(pluginId)} is not enabled for ${target}`);
     }
     selected.push(pluginId);
   }
@@ -590,8 +595,8 @@ function cleanEnv(env: Record<string, string | undefined>): Record<string, strin
 
 function spawnTryWorker(rootPath: string, runId: string): number | undefined {
   const cliPath = process.argv[1];
-  if (cliPath === undefined) throw new Error("skillset: try cannot locate CLI entrypoint for background worker");
-  const child = spawnNode(process.execPath, [cliPath, "try", "worker", runId, "--root", rootPath], {
+  if (cliPath === undefined) throw new Error("skillset: test cannot locate CLI entrypoint for background worker");
+  const child = spawnNode(process.execPath, [cliPath, "test", "worker", runId, "--root", rootPath], {
     cwd: rootPath,
     detached: true,
     env: process.env,
@@ -672,7 +677,7 @@ async function failRun(
     state: "failed",
     updatedAt: endedAt,
   });
-  await appendEvent(paths, "status", `try failed: ${error}`);
+  await appendEvent(paths, "status", `test failed: ${error}`);
 }
 
 function classifyTryFailure(
@@ -723,18 +728,18 @@ async function readLatestRunId(
 ): Promise<string> {
   const latest = await readRetainedRunLatest(rootPath, graph, RUNTIME_TEST_ROOT, xdg);
   if (!isRecord(latest) || typeof latest.runId !== "string") {
-    throw new Error("skillset: try latest run is malformed");
+    throw new Error("skillset: test latest run is malformed");
   }
   return latest.runId;
 }
 
 async function readConfig(path: string): Promise<TryStoredConfig> {
   const raw = JSON.parse(await readFile(path, "utf8")) as unknown;
-  if (!isRecord(raw)) throw new Error("skillset: try config is malformed");
-  if (!isTargetName(raw.target)) throw new Error("skillset: try config target is malformed");
-  if (typeof raw.prompt !== "string") throw new Error("skillset: try config prompt is malformed");
+  if (!isRecord(raw)) throw new Error("skillset: test config is malformed");
+  if (!isTargetName(raw.target)) throw new Error("skillset: test config target is malformed");
+  if (typeof raw.prompt !== "string") throw new Error("skillset: test config prompt is malformed");
   const claudeSettingSources = typeof raw.claudeSettingSources === "string"
-    ? readClaudeSettingSources(raw.claudeSettingSources, "try config claudeSettingSources")
+    ? readClaudeSettingSources(raw.claudeSettingSources, "test config claudeSettingSources")
     : undefined;
   return {
     ...(claudeSettingSources === undefined ? {} : { claudeSettingSources }),
@@ -750,7 +755,7 @@ async function readConfig(path: string): Promise<TryStoredConfig> {
 async function readStatus(path: string): Promise<TryStatus> {
   const raw = JSON.parse(await readFile(path, "utf8")) as unknown;
   if (!isRecord(raw) || typeof raw.runId !== "string" || !isTargetName(raw.target)) {
-    throw new Error("skillset: try status is malformed");
+    throw new Error("skillset: test status is malformed");
   }
   return raw as unknown as TryStatus;
 }
@@ -790,6 +795,7 @@ function runReport(
 ): TryRunReport {
   return {
     background,
+    kind: "ad-hoc",
     latestPath: paths.logical.latestJsonPath,
     ok: state === "passed" || background,
     reportPath: paths.logical.reportPath,

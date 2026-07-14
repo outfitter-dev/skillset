@@ -1896,6 +1896,19 @@ Demo body.
   expect(result.stderr).toContain("use .skillset/tests.yaml.self.checks");
 });
 
+test("SET-280: test lifecycle words are reserved declaration names", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": "skillset:\n  name: reserved-test-name\nclaude: true\ncodex: false\n",
+    ".skillset/tests.yaml": "status:\n  select:\n    skills:\n      primary: [demo]\n  checks:\n    projection: true\n",
+    ".skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n",
+  });
+
+  const result = await runSkillsetCli("test", "--root", root);
+
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain("test name status is reserved for the retained-run lifecycle");
+});
+
 test("SET-50: skillset test runs an isolated projection and refreshes latest", async () => {
   const root = await contractFixture({
     "skillset.yaml": `
@@ -1955,6 +1968,21 @@ Demo body.
   };
   expect(firstReport.schemaVersion).toBe(3);
   expect(firstReport.targets).toEqual(["claude"]);
+
+  const structured = await runSkillsetCli("test", "self", "--root", root, "--json");
+  expect(structured.exitCode).toBe(0);
+  expect(structured.stderr).toBe("");
+  expect(JSON.parse(structured.stdout)).toMatchObject({
+    command: "test",
+    data: { name: "self", ok: true },
+    exitCode: 0,
+    kind: "test",
+    ok: true,
+  });
+
+  const mixed = await runSkillsetCli("test", "self", "--target", "claude", "--root", root);
+  expect(mixed.exitCode).toBe(1);
+  expect(mixed.stderr).toContain("declared test self cannot be combined with ad hoc test flags");
 
   const second = await runSkillsetCli("test", "self", "--root", root);
   expect(second.exitCode).toBe(0);

@@ -116,6 +116,6 @@ Environment overrides exist only for explicit runtime-test and installed-hook in
 | `SKILLSET_HOOK_EVENT` | Normalized event context carried into an explicit hook command. |
 | `SKILLSET_SESSION_ID` | Normalized provider session id carried into an explicit hook command. |
 
-`SKILLSET_TRY_CLAUDE_BIN`, `SKILLSET_TRY_CODEX_BIN`, `SKILLSET_TRY_CURSOR_BIN`, and `SKILLSET_TRY_CLAUDE_SETTING_SOURCES` are removed without fallback. Standard `XDG_CACHE_HOME`, `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, and `XDG_STATE_HOME` behavior remains platform context rather than Skillset CLI vocabulary.
+The former `SKILLSET_TRY_*` variables are removed without fallback. Standard `XDG_CACHE_HOME`, `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, and `XDG_STATE_HOME` behavior remains platform context rather than Skillset CLI vocabulary.
 
 Every implementation issue must update `CLI_ROUTE_FLAGS` with any evidence-backed divergence before changing parser behavior. SET-285 closes the loop by asserting root help, route help, and parser acceptance against this contract.

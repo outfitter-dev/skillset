@@ -64,7 +64,9 @@ skillset explain <path>     # explain a source or generated path (rendering, loc
 skillset features [id]      # inspect registry feature capabilities and target support; add --json for records
 skillset restore <backup>   # preview restoring a generated-output backup; write with --yes
 skillset doctor             # aggregate lint issues, drift, warnings, and render result advisories; add --json for records
-skillset test [name]        # run an isolated deterministic projection test
+skillset test [name]        # run a committed deterministic/runtime declaration
+skillset test --target codex --prompt "..." # run an ad hoc provider test
+skillset test status        # inspect the retained ad hoc test lifecycle (also: tail, list)
 ```
 
 `init` and `build` are plan-first: they print pending filesystem changes and write only with `--yes`; `--dry-run` always prevents writes, even when paired with `--yes`. `skillset check` is read-only by default and combines source diagnostics with generated-output readiness. `check --only outputs` is the narrow freshness check. `check --write` repairs only source-driven drift: it refuses managed target-side edits and provider-format migrations, which must be reconciled or applied through `skillset update`. `check --ci` adds branch-aware Skillset change-entry and package Changesets gates; CI uses `--fix`, not `--write`, and may also emit a Markdown report with `--report`. The retired top-level `lint`, `verify`, and `ci` commands have no compatibility aliases. `skillset init --include ci` scaffolds the corresponding workflow (see [CI](docs/features/ci.md)).

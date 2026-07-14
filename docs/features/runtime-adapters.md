@@ -9,10 +9,10 @@ Runtime adapters describe how a Skillset rendering can be used by an actual agen
 ## Status
 
 Runtime adapter records describe how a generated provider rendering can be
-smoke-tested or consumed by a concrete runtime. `skillset try` can
+smoke-tested or consumed by a concrete runtime. `skillset test` can
 run non-interactive Claude, Codex, and Cursor prompts against isolated local
 renderings while retaining inspectable run artifacts under the logical
-`.skillset/cache/runtime-tests` path.
+`.skillset/cache/tests/ad-hoc` path.
 
 Cursor is a first-class provider target, not a runtime-only compatibility
 candidate. It participates in the default provider plan alongside Claude and
@@ -59,7 +59,7 @@ Runtime support records live in the feature registry as `runtimeSupport` rows. A
 | Build target | A provider rendering Skillset can render directly. | `claude`, `codex`, `cursor` |
 | Runtime adapter | A concrete runtime or harness that can consume a rendering or compatibility shim. | `claude-code`, `codex-cli`, `codex-app`, `cursor` |
 | Distribution surface | A repo, marketplace, extension root, or package shape a rendering may be synced into. | Implemented `distributions.*` plan config; sync/publish remains future |
-| Activation harness | A generated test surface that asks whether a runtime notices or invokes a skill, agent, or plugin. | Implemented manual activation assets and explicit declared live assertions under `skillset test`; implemented ad hoc live non-interactive prompt runs through `skillset try` |
+| Activation harness | A generated test surface that asks whether a runtime notices or invokes a skill, agent, or plugin. | Declared assertions and ad hoc non-interactive runs share the `skillset test` family. |
 
 The test: adding a runtime must not make `compile.targets` accept a new value. It should add evidence and support records first, then a specific adapter or distribution flow only when the target behavior is proven.
 
@@ -82,7 +82,7 @@ Runtime support diagnostics should name whether behavior is native, pass-through
 
 When behavior is shimmed, diagnostics must identify the mechanism and caveat. For example, a Codex agent can receive an instruction to load skills first, but Skillset should not say Codex has native Claude-style agent `skills` metadata.
 
-`skillset try status` reports live harness state as `queued`, `building`, `running`, `passed`, or `failed`, and `skillset try tail` reads retained output from the logical `.skillset/cache/runtime-tests` path backed by XDG storage.
+`skillset test status` reports live harness state as `queued`, `building`, `running`, `passed`, or `failed`, and `skillset test tail` reads retained output from the logical `.skillset/cache/tests/ad-hoc` path backed by XDG storage.
 
 ## Provenance
 

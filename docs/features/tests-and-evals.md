@@ -17,7 +17,7 @@ Skillset currently uses internal compiler fixtures and validation commands:
 | Validation commands | `skillset check`, `skillset check --only outputs`, `doctor`, `diff`, `change check`, `release plan` | `implemented` | Public commands that validate real source and generated output. |
 | Dogfooding | repo scripts, Linear acceptance criteria, real Skillset source changes | internal practice | Proves workflows by using them on this repo. |
 | `skillset test` | `<source-root>/tests.yaml` and `<source-root>/tests/*.yaml` | `implemented` | Deterministic isolated projection and check runner for authored source. |
-| `skillset try` | `.skillset/cache/runtime-tests/` logical reports backed by XDG cache storage | `implemented` / maintainer harness | Runs non-interactive Claude, Codex, or Cursor prompts against an isolated rendering and retains status, output, tail, and report files. |
+| `skillset test --target …` | `.skillset/cache/tests/ad-hoc/` logical reports backed by XDG cache storage | `implemented` | Runs an ad hoc non-interactive provider test and retains status, output, tail, and report files. |
 | `.skillset/evals/` | n/a | `future` | Future adapter-aware behavioral eval declarations or pointers. |
 
 Checked-in internal fixtures use the current workspace layout: `fixtures/<case>/skillset.yaml` as the workspace manifest and `fixtures/<case>/.skillset/` as the source root.
@@ -152,7 +152,7 @@ Edge cases stay explicit: multiple matching skills should be disambiguated in th
 
 ### Declared Runtime Tests
 
-An activation probe becomes a committed live-runtime test when it includes `runtime`. The enclosing `skillset test` declaration still performs its deterministic checks first; only then does Skillset invoke each selected target through the same isolated runner used by `skillset try`.
+An activation probe becomes a committed live-runtime test when it includes `runtime`. The enclosing `skillset test` declaration still performs its deterministic checks first; only then does Skillset invoke each selected target through the same isolated runner used by ad hoc `skillset test`.
 
 ```yaml
 select:
@@ -194,26 +194,26 @@ skillset test docs-activation
 
 The command remains credential-free when the selected declaration has no `runtime` block. Live declarations use provider credentials and binaries already available to the process; they do not install, trust, publish, or edit user-level provider configuration. Claude defaults to isolated setting sources and can explicitly select `isolated`, `user`, `project`, or `local` for a declared probe.
 
-Runtime results distinguish `render`, `binary`, `setup`, `auth`, `timeout`, `runtime`, and `assertion` failures. A provider process can therefore complete successfully while its declared expectation fails as `assertion`; missing generated units fail as `render` before provider launch, while a missing executable fails as `binary`. JSON and Markdown test reports record the target, command context, prompt provenance, normalized assertion results, and logical raw evidence paths. The raw try report, stdout/stderr events, prompt, and final response remain under the repo's XDG-backed `.skillset/cache/runtime-tests/` bucket.
+Runtime results distinguish `render`, `binary`, `setup`, `auth`, `timeout`, `runtime`, and `assertion` failures. A provider process can therefore complete successfully while its declared expectation fails as `assertion`; missing generated units fail as `render` before provider launch, while a missing executable fails as `binary`. JSON and Markdown test reports record the target, command context, prompt provenance, normalized assertion results, and logical raw evidence paths. Raw ad hoc reports, stdout/stderr events, prompts, and final responses remain under the repo's XDG-backed `.skillset/cache/tests/ad-hoc/` bucket.
 
-The promotion path is intentionally direct: use `skillset try` to refine a provider prompt, move the prompt inline or into a source-root file, add the expected rendered unit and literal response assertion to an activation probe, then run it with `skillset test`. Subjective quality evaluation remains separate work under SET-51.
+The promotion path is intentionally direct: use `skillset test` to refine a provider prompt, move the prompt inline or into a source-root file, add the expected rendered unit and literal response assertion to an activation probe, then run it with `skillset test`. Subjective quality evaluation remains separate work under SET-51.
 
-## Runtime Tries
+## Ad Hoc Runtime Tests
 
-`skillset try` is the ad hoc live-runtime harness. It is separate from `skillset test`: deterministic tests prove projection and generated files, while a try builds an isolated latest rendering and asks a real local runtime a non-interactive prompt. A successful try means the runtime process completed; it does not claim that the response satisfied a committed assertion.
+The same `skillset test` family owns ad hoc live-runtime probes. A named test runs a committed declaration; `--target` plus exactly one prompt input starts an ad hoc provider process. Ad hoc success means the provider process completed. Committed runtime blocks retain their stronger declared assertion contract.
 
 ```bash
-skillset try --target codex --prompt "What skills can you see?"
-skillset try --target claude --prompt-file prompts/smoke.md --claude-setting-sources isolated --background
-skillset try status
-skillset try tail --lines 80
-skillset try list
+skillset test --target codex --prompt "What skills can you see?"
+skillset test --target claude --prompt-file prompts/smoke.md --claude-setting-sources isolated --background
+skillset test status
+skillset test tail --lines 80
+skillset test list
 ```
 
 Runs write retained artifacts under the logical repo cache path:
 
 ```text
-.skillset/cache/runtime-tests/
+.skillset/cache/tests/ad-hoc/
   latest.json
   runs/<run-id>/
     config.json
@@ -228,20 +228,20 @@ Runs write retained artifacts under the logical repo cache path:
 
 The physical files live in the repo's XDG-backed Skillset cache bucket. Reports keep logical `.skillset/cache/...` paths so humans, issue comments, and future eval tooling can refer to stable locations without depending on a machine-specific cache root.
 
-`status` reports `queued`, `building`, `running`, `passed`, or `failed`; `tail` streams the retained JSONL output after the fact; and `list` shows recent retained runs. `--background` starts a worker and returns as soon as the queued run is recorded, so long-running probes can be checked later without watching the whole process.
+`status` reports `queued`, `building`, `running`, `passed`, or `failed`; `tail` streams retained JSONL output; and `list` shows recent ad hoc runs. Those lifecycle words are reserved and cannot be declaration names. `--background` starts a worker and returns as soon as the queued run is recorded.
 
 The tester does not install, trust, publish, or enable generated artifacts. It invokes local runtimes against the isolated `latest` rendering. Claude probes default to `--claude-setting-sources isolated`, which passes an explicit empty Claude `--setting-sources` list and loads generated plugins with `--plugin-dir`, so env auth and the rendered plugin directories are the only intended Claude inputs.
 
 Claude setting sources can be overridden for probes that intentionally need more runtime context. Precedence is CLI flag, then env var, then the isolated default:
 
 ```bash
-skillset try --target claude --claude-setting-sources user --prompt "What do you see?"
-SKILLSET_TRY_CLAUDE_SETTING_SOURCES=project skillset try --target claude --prompt "What do you see?"
+skillset test --target claude --claude-setting-sources user --prompt "What do you see?"
+SKILLSET_TEST_CLAUDE_SETTING_SOURCES=project skillset test --target claude --prompt "What do you see?"
 ```
 
-Override runtime binaries with `SKILLSET_TRY_CODEX_BIN`, `SKILLSET_TRY_CLAUDE_BIN`, or `SKILLSET_TRY_CURSOR_BIN` for tests, shims, or machine-specific installs.
+Override runtime binaries with `SKILLSET_TEST_CODEX_BIN`, `SKILLSET_TEST_CLAUDE_BIN`, or `SKILLSET_TEST_CURSOR_BIN` for tests, shims, or machine-specific installs.
 
-For Claude Code non-interactive runs, the CLI process must see a non-interactive credential. If `claude --print` reports `Not logged in`, run `claude setup-token`, put the printed `CLAUDE_CODE_OAUTH_TOKEN` export in the repo-local ignored `.envrc`, and run `direnv allow`. The committed `.envrc.example` shows the expected shape without storing secrets. From shells or automation that do not load the direnv hook, run the try through `direnv exec . skillset try ...`.
+For Claude Code non-interactive runs, the CLI process must see a non-interactive credential. If `claude --print` reports `Not logged in`, run `claude setup-token`, put the printed `CLAUDE_CODE_OAUTH_TOKEN` export in the repo-local ignored `.envrc`, and run `direnv allow`. The committed `.envrc.example` shows the expected shape without storing secrets. From shells or automation that do not load the direnv hook, use `direnv exec . skillset test ...`.
 
 ## Compiler Determinism and Adapter Conformance
 
