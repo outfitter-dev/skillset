@@ -42,7 +42,12 @@ export interface TryRunOptions extends SkillsetOptions {
   readonly timeoutMs?: number;
 }
 
-const eventAppendQueues = new Map<string, Promise<void>>();
+interface EventAppendState {
+  nextSequence?: number;
+  queue: Promise<void>;
+}
+
+const eventAppendStates = new Map<string, EventAppendState>();
 
 export interface TryStatus {
   readonly command?: readonly string[];
@@ -718,32 +723,39 @@ async function writeLatest(paths: TryRunPaths, runId: string): Promise<void> {
 
 async function appendEvent(paths: TryRunPaths, stream: string, message: string): Promise<void> {
   const path = paths.absolute.outputPath;
-  const previous = eventAppendQueues.get(path) ?? Promise.resolve();
-  const queued = previous.catch(() => undefined).then(async () => {
+  const state = eventAppendStates.get(path) ?? { queue: Promise.resolve() };
+  const event = stream === "status" && message === "test passed"
+    ? "completed"
+    : stream === "status" && message.startsWith("test failed")
+      ? "failed"
+      : stream;
+  const queued = state.queue.catch(() => undefined).then(async () => {
     const data = {
       message,
       stream,
       timestamp: new Date().toISOString(),
     };
-    const existing = await readOptional(path) ?? "";
-    const sequence = existing.split("\n").filter((line) => line.length > 0).length + 1;
-    const event = stream === "status" && message === "test passed"
-      ? "completed"
-      : stream === "status" && message.startsWith("test failed")
-        ? "failed"
-        : stream;
+    if (state.nextSequence === undefined) {
+      const existing = await readOptional(path) ?? "";
+      state.nextSequence = existing.split("\n").filter((line) => line.length > 0).length + 1;
+    }
+    const sequence = state.nextSequence;
     await appendFile(path, renderCliEvent(createCliEvent({
       command: "test",
       data,
       event,
       sequence,
     })), "utf8");
+    state.nextSequence = sequence + 1;
   });
-  eventAppendQueues.set(path, queued);
+  state.queue = queued;
+  eventAppendStates.set(path, state);
   try {
     await queued;
   } finally {
-    if (eventAppendQueues.get(path) === queued) eventAppendQueues.delete(path);
+    if ((event === "completed" || event === "failed") && eventAppendStates.get(path)?.queue === queued) {
+      eventAppendStates.delete(path);
+    }
   }
 }
 
