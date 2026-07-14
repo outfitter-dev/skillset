@@ -1,4 +1,7 @@
 import { expect, test } from "bun:test";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { isCliSurfacePath, scanCliSurface } from "../cli-surface-guard";
 
@@ -26,4 +29,24 @@ test("SET-285: CLI surface guard preserves deliberate history and migration evid
   expect(isCliSurfacePath(".envrc.example")).toBe(true);
   expect(isCliSurfacePath("fixtures/example/.envrc")).toBe(true);
   expect(isCliSurfacePath("README.md")).toBe(true);
+});
+
+test("SET-285: CLI surface guard ignores inherited repository targeting", async () => {
+  const gitDir = join(await mkdtemp(join(tmpdir(), "skillset-cli-guard-git-")), "foreign.git");
+  const initialized = Bun.spawnSync(["git", "init", "--bare", "-q", gitDir]);
+  expect(initialized.exitCode).toBe(0);
+
+  const proc = Bun.spawn([process.execPath, join(import.meta.dir, "..", "cli-surface-guard.ts")], {
+    env: { ...process.env, GIT_DIR: gitDir },
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [stderr, exitCode] = await Promise.all([
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+
+  expect(exitCode).toBe(0);
+  expect(stderr).toContain("CLI surface guard scanned");
+  expect(stderr).not.toContain("scanned 0 files");
 });

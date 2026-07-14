@@ -2,6 +2,8 @@ import { existsSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { gitSafeEnv } from "../apps/skillset/src/git-env";
+
 export interface CliSurfaceViolation {
   readonly file: string;
   readonly line: number;
@@ -54,7 +56,12 @@ export function scanCliSurface(file: string, content: string): readonly CliSurfa
 const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));
 
 async function gitFiles(): Promise<readonly string[]> {
-  const proc = Bun.spawn(["git", "ls-files"], { cwd: rootDir, stderr: "pipe", stdout: "pipe" });
+  const proc = Bun.spawn(["git", "ls-files"], {
+    cwd: rootDir,
+    env: gitSafeEnv(),
+    stderr: "pipe",
+    stdout: "pipe",
+  });
   const [exitCode, stdout, stderr] = await Promise.all([
     proc.exited,
     new Response(proc.stdout).text(),
