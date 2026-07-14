@@ -773,6 +773,29 @@ test("SET-279: legacy lock drift does not report clean provider outputs", async 
   expect(report.sourceDriftPaths).toContain(CODEX_PLUGIN_MANIFEST);
 });
 
+test("SET-279: provider plans do not report clean source-owned paths as drift", async () => {
+  const root = await builtFixture(pluginFixture());
+  const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
+  await writeFile(manifestPath, `${await readFile(manifestPath, "utf8")}\n// stale provider format\n`, "utf8");
+  await markCurrentPluginManifestAsManaged(root);
+  const lockPath = join(root, "plugins/skillset.lock");
+  const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+    readonly items: Array<{ kind?: string; outputPath?: string; sourceHash?: string }>;
+    readonly outputRoot: string;
+  };
+  const pluginSkill = lock.items.find((item) => item.kind === "plugin-skill");
+  if (pluginSkill?.outputPath === undefined) throw new Error("missing plugin skill lock item");
+  pluginSkill.sourceHash = `sha256:${"0".repeat(64)}`;
+  await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+
+  const report = await runProviderFormatUpdates(root, "update", { write: true });
+
+  expect(report.unplannedDriftPaths).toContain("plugins/skillset.lock");
+  expect(report.unplannedDriftPaths).not.toContain(
+    join(lock.outputRoot, pluginSkill.outputPath).replaceAll("\\", "/")
+  );
+});
+
 test("SET-279: unrelated source-hash drift blocks provider updates", async () => {
   const root = await builtFixture(pluginFixture());
   const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
