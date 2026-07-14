@@ -444,12 +444,17 @@ export async function runCli(
   if (command === "release") {
     if (releaseSubcommand === "audit") {
       const report = await auditVersions(rootPath, options);
-      printVersionAudit(report);
-      if (report.issues.length > 0) process.exitCode = 1;
+      if (jsonOutput) printCliJsonData("release.audit", report, report.issues.length > 0 ? 1 : 0);
+      else {
+        printVersionAudit(report);
+        if (report.issues.length > 0) process.exitCode = 1;
+      }
       return;
     }
     if (releaseSubcommand === "plan") {
-      printReleasePlan(await planRelease(rootPath, options));
+      const report = await planRelease(rootPath, options);
+      if (jsonOutput) printCliJsonData("release.plan", report);
+      else printReleasePlan(report);
       return;
     }
     if (releaseSubcommand === "apply") {
@@ -474,11 +479,18 @@ export async function runCli(
     }
     if (releaseSubcommand === "amend") {
       if (releaseRef === undefined) throw new Error("skillset: release amend requires @ref");
-      printReleaseAmend(await amendReleaseRecord(rootPath, {
+      const report = await amendReleaseRecord(rootPath, {
         ...options,
         reason: releaseReason ?? { kind: "auto" },
         ref: releaseRef,
-      }));
+      });
+      if (jsonOutput) {
+        printCliJsonData("release.amend", {
+          report,
+          state: "written",
+          writes: [report.amendmentPath],
+        });
+      } else printReleaseAmend(report);
       return;
     }
     throw new Error("skillset: expected release subcommand amend, apply, audit, or plan");
@@ -3245,7 +3257,7 @@ function validateJsonFlags(
   if (command === "check") return;
   if (command === "change" && (route.changeSubcommand === "check" || route.changeSubcommand === "history" || route.changeSubcommand === "list" || route.changeSubcommand === "show" || route.changeSubcommand === "status")) return;
   if (command === "change" && (route.changeSubcommand === "add" || route.changeSubcommand === "amend" || route.changeSubcommand === "migrate" || route.changeSubcommand === "reason")) return;
-  if (command === "release" && route.releaseSubcommand === "apply") return;
+  if (command === "release" && route.releaseSubcommand !== undefined) return;
   if (command === "diff" || command === "status" || command === "explain" || command === "list" || command === "lookup" || command === "marketplace" || command === "test") return;
   if (command === "distribute" && route.distributionSubcommand === "plan") return;
   throw new Error("skillset: --json is not supported for this command route");

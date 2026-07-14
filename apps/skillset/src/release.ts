@@ -174,6 +174,9 @@ export async function applyRelease(
     const build = await buildSkillsetResult(rootPath, releaseOptions);
     renderedFiles = build.data.length;
     for (const path of build.writes.paths) files.add(path);
+    if (build.writes.backupManifestPath !== undefined) {
+      files.add(build.writes.backupManifestPath);
+    }
   } catch (error) {
     await restoreSnapshots(rootPath, snapshots);
     throw error;
