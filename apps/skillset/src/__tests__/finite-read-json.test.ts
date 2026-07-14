@@ -14,7 +14,7 @@ describe("SET-287 finite read-only JSON", () => {
     ["check", "--root", fixtureRoot],
     ["diff", "--root", fixtureRoot],
     ["list", "--root", fixtureRoot],
-    ["explain", "skillset.yaml", "--root", fixtureRoot],
+    ["explain", ".skillset/plugins/kitchen/skills/sink/SKILL.md", "--root", fixtureRoot],
     ["lookup", "skill", "frontmatter"],
   ] as const) {
     test(`${route.join(" ")} emits one versioned result`, async () => {
@@ -25,6 +25,7 @@ describe("SET-287 finite read-only JSON", () => {
       const envelope = JSON.parse(result.stdout) as SkillsetCliResult;
       expect(validateCliResult(envelope)).toEqual({ diagnostics: [], ok: true });
       expect(envelope.exitCode).toBe(result.exitCode);
+      if (route[0] === "diff" || route[0] === "explain") expect(envelope.kind).toBe("data");
       if (route[0] === "check") {
         expect(envelope.data).toHaveProperty("providerUpdates");
       }

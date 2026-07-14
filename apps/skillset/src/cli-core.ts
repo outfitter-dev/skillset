@@ -735,7 +735,7 @@ export async function runCli(
         "diff",
         result.data,
         exitCode,
-        "diagnostics",
+        "data",
         serializeDiagnostics(result.diagnostics)
       );
       return;
@@ -823,7 +823,13 @@ export async function runCli(
             severity: "error",
           }))
         : [];
-      printCliJsonData("explain", result, exitCode, "diagnostics", diagnostics);
+      printCliJsonData(
+        "explain",
+        result,
+        exitCode,
+        result.kind === "unknown" ? "diagnostics" : "data",
+        diagnostics
+      );
       if (exitCode !== 0) process.exitCode = exitCode;
       return;
     }
