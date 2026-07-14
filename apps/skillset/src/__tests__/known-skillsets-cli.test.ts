@@ -75,6 +75,29 @@ test("SET-288: JSON build records the workspace in the managed index", async () 
   expect(index.skillsets.map((entry) => entry.path)).toEqual([await realpath(workspace)]);
 });
 
+test("SET-288: JSON build preview records the workspace in the managed index", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-known-json-preview-"));
+  const xdgConfigHome = join(root, "xdg-config");
+  const workspace = join(root, "workspace");
+  await writeWorkspace(workspace);
+  await runGit(workspace, "init", "-q");
+  await runGit(workspace, "remote", "add", "origin", "git@github.com:Acme/docs-cli.git");
+
+  const preview = await runSkillsetCli(
+    { GIT_DIR: ".git", GIT_WORK_TREE: process.cwd(), XDG_CONFIG_HOME: xdgConfigHome },
+    "build",
+    "--json",
+    "--root",
+    workspace
+  );
+
+  expect(preview.exitCode).toBe(0);
+  const index = JSON.parse(await readFile(join(xdgConfigHome, "skillset", "skillsets.json"), "utf8")) as {
+    readonly skillsets: readonly { readonly path: string }[];
+  };
+  expect(index.skillsets.map((entry) => entry.path)).toEqual([await realpath(workspace)]);
+});
+
 async function writeWorkspace(root: string): Promise<void> {
   await mkdir(join(root, ".skillset/skills/demo"), { recursive: true });
   await writeFile(join(root, "skillset.yaml"), `

@@ -247,6 +247,7 @@ export async function runCli(
     if (dryRun || !yes) {
       const result = await diffSkillsetResult(rootPath, options);
       if (jsonOutput) {
+        if (result.ok) await rememberKnownSkillsetWorkspace(rootPath, options, true);
         printCliJsonData("build.plan", { changes: result.data, state: "planned", writes: [] }, result.ok ? 0 : 1, "plan", serializeDiagnostics(result.diagnostics));
         if (!result.ok) process.exitCode = 1;
         return;
