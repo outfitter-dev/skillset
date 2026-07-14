@@ -32,6 +32,9 @@ export async function reconcileManagedPath(
 ): Promise<ReconcileReport> {
   const { choice, write = false, ...skillsetOptions } = options;
   const explanation = await explainPath(rootPath, managedPath, skillsetOptions);
+  if (explanation.kind.startsWith("source-")) {
+    throw new Error(`skillset: reconcile requires a managed generated path; ${managedPath} is source`);
+  }
   const liveEntry = explanation.kind === "generated" && explanation.entries.length > 0
     ? undefined
     : await findLiveLockEntry(rootPath, managedPath);

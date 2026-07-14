@@ -4833,6 +4833,29 @@ Original source body.
   expect(removed.stderr).toContain("expected command");
 });
 
+test("SET-282: reconcile rejects adaptive source paths before writing", async () => {
+  const sourcePath = ".skillset/skills/demo/SKILL.md";
+  const root = await contractFixture({
+    "skillset.yaml": "skillset:\n  name: reconcile-source-path\nclaude: true\ncodex: false\n",
+    [sourcePath]: "---\nname: demo\ndescription: Demo.\n---\n\nSource body.\n",
+  });
+  await buildSkillset(root);
+
+  const result = await runSkillsetCli(
+    "reconcile",
+    sourcePath,
+    "--use",
+    "source",
+    "--yes",
+    "--root",
+    root
+  );
+
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain("reconcile requires a managed generated path");
+  expect(result.stderr).toContain(`${sourcePath} is source`);
+});
+
 test("SET-282: reconcile applies source-wins with output backup safety", async () => {
   const root = await contractFixture({
     "skillset.yaml": "skillset:\n  name: reconcile-source\nclaude: true\ncodex: false\n",
