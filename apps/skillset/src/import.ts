@@ -97,6 +97,7 @@ export interface ImportSourcesOptions {
 }
 
 export interface ImportReport {
+  readonly baselinePath?: string;
   readonly baselines: readonly ReleaseBaselineEntry[];
   readonly copiedFiles: readonly string[];
   readonly files: number;
@@ -122,6 +123,16 @@ export interface ImportBatchReport {
   readonly warnings: readonly string[];
 }
 
+export class ImportBatchError extends Error {
+  readonly imports: readonly ImportReport[];
+
+  constructor(message: string, imports: readonly ImportReport[]) {
+    super(message);
+    this.name = "ImportBatchError";
+    this.imports = imports;
+  }
+}
+
 export async function importSources(options: ImportSourcesOptions): Promise<ImportBatchReport> {
   const sourcePath = resolveImportSourcePath(options);
   const plan = await planImports(sourcePath, options.kind);
@@ -131,16 +142,18 @@ export async function importSources(options: ImportSourcesOptions): Promise<Impo
 
   const imports: ImportReport[] = [];
   for (const item of plan.items) {
-    imports.push(
-      await importSource({
+    try {
+      imports.push(await importSource({
         kind: item.kind,
         rootPath: options.rootPath,
         sourcePath: item.sourcePath,
         ...(options.name === undefined ? {} : { name: options.name }),
         ...(options.sourceDir === undefined ? {} : { sourceDir: options.sourceDir }),
         ...(options.sourceOrigin === undefined ? {} : { sourceOrigin: options.sourceOrigin }),
-      })
-    );
+      }));
+    } catch (error) {
+      throw new ImportBatchError(errorMessage(error), imports);
+    }
   }
 
   return {
@@ -199,7 +212,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
 
     await rename(stagingPath, targetPath);
     committed = true;
-    let baselineReport: { readonly entries: readonly ReleaseBaselineEntry[] };
+    let baselineReport: { readonly entries: readonly ReleaseBaselineEntry[]; readonly path?: string };
     try {
       baselineReport = await seedImportedBaselines(options.rootPath, {
         kind: options.kind,
@@ -221,6 +234,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
     });
 
     return {
+      ...(baselineReport.path === undefined ? {} : { baselinePath: baselineReport.path }),
       baselines: baselineReport.entries,
       copiedFiles,
       files: copiedFiles.length,
@@ -276,7 +290,7 @@ async function seedImportedBaselines(
     readonly name: string;
     readonly sourceDir: string;
   }
-): Promise<{ readonly entries: readonly ReleaseBaselineEntry[] }> {
+): Promise<{ readonly entries: readonly ReleaseBaselineEntry[]; readonly path?: string }> {
   const includeScope = (scope: string): boolean => {
     if (options.kind === "skill") return scope === `skill:${options.name}`;
     return scope === `plugin:${options.name}` || scope.startsWith(`plugin.${options.name}.`);
@@ -286,7 +300,10 @@ async function seedImportedBaselines(
     { sourceDir: options.sourceDir },
     { includeScope, write: true }
   );
-  return { entries: report.entries };
+  return {
+    entries: report.entries,
+    ...(report.path === undefined ? {} : { path: report.path }),
+  };
 }
 
 interface FrontmatterClassification {

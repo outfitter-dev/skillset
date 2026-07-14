@@ -400,6 +400,39 @@ test("adopt elevates a root native plugin without copying workspace config into 
   expect(await exists(join(root, ".skillset/plugins/root-native/skills/helper/SKILL.md"))).toBe(true);
 });
 
+test("blocked adoption reports its persisted audit artifacts", async () => {
+  const root = await fixture({
+    ".claude-plugin/plugin.json": JSON.stringify({ name: "claude-name", version: "1.0.0" }),
+    ".codex-plugin/plugin.json": JSON.stringify({ name: "codex-name", version: "1.0.0" }),
+  });
+
+  const report = await adoptSkillset(root, { write: true });
+
+  expect(report.ok).toBe(false);
+  expect(report.write).toBe(false);
+  expect(report.writtenPaths).toEqual([
+    `${ADOPT_REPORT_DIR}/report.md`,
+    `${ADOPT_REPORT_DIR}/report.json`,
+  ]);
+  expect(await exists(cachePath(root, join(ADOPT_REPORT_DIR, "report.md")))).toBe(true);
+  expect(await exists(cachePath(root, join(ADOPT_REPORT_DIR, "report.json")))).toBe(true);
+});
+
+test("failed instruction adoption reports its partial copied destination", async () => {
+  const root = await fixture({
+    "AGENTS.md": "---\ninvalid: [\n---\n\nHandwritten guidance.\n",
+  });
+
+  const report = await adoptSkillset(root, { write: true });
+  const imported = report.imports.find((result) => result.candidate.kind === "instructions");
+
+  expect(report.ok).toBe(false);
+  expect(imported?.ok).toBe(false);
+  expect(imported?.destination).toBe(".skillset/rules/agents.md");
+  expect(report.writtenPaths).toContain(".skillset/rules/agents.md");
+  expect(await exists(join(root, ".skillset/rules/agents.md"))).toBe(true);
+});
+
 test("adopt elevates a root Cursor native plugin", async () => {
   const root = await fixture({
     ".cursor-plugin/plugin.json": JSON.stringify({
@@ -545,6 +578,24 @@ test("adopt records an instructions collision as a failed import without throwin
   expect(report.imports.find((result) => result.candidate.kind === "plugin")?.ok).toBe(true);
   expect(report.cutover).toEqual([]);
   expect(renderAdoptReportMarkdown(report, { rootPath: root })).toContain("## Failed imports");
+});
+
+test("adopt reports source written before a later batch import fails", async () => {
+  const root = await fixture({
+    ".agents/skills/first/SKILL.md": "---\nname: duplicate\ndescription: First.\n---\n\nFirst.\n",
+    ".agents/skills/second/SKILL.md": "---\nname: duplicate\ndescription: Second.\n---\n\nSecond.\n",
+  });
+
+  const report = await adoptSkillset(root, { write: true });
+
+  expect(report.ok).toBe(false);
+  const failed = report.imports.find((result) => result.candidate.path === ".agents/skills");
+  expect(failed?.ok).toBe(false);
+  expect(failed?.units).toEqual([
+    expect.objectContaining({ kind: "skill", name: "duplicate" }),
+  ]);
+  expect(report.writtenPaths).toContain(".skillset/skills/duplicate");
+  expect(await exists(join(root, ".skillset/skills/duplicate/SKILL.md"))).toBe(true);
 });
 
 test("adopt fails on lint errors and the CLI exits nonzero", async () => {

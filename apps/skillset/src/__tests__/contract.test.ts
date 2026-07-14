@@ -4209,6 +4209,48 @@ Body.
   expect(ledger).toContain('"type":"change.covered"');
   expect(ledger).toContain('"hashSchema":"skillset-source-unit-v2"');
 
+  const structuredAdd = await runSkillsetCli(
+    "change",
+    "add",
+    "--root",
+    root,
+    "--since",
+    "HEAD",
+    "--scope",
+    "skill:demo",
+    "--bump",
+    "patch",
+    "--reason",
+    "Recorded the structured mutation paths so automation can audit both files written by change add.",
+    "--json"
+  );
+  expect(structuredAdd.exitCode).toBe(0);
+  const structuredData = (JSON.parse(structuredAdd.stdout) as {
+    data: { report: { entry: { path: string; ref: string; sourceHashes: Record<string, string[]> }; ledgerPath: string }; writes: string[] };
+  }).data;
+  expect(structuredData.writes).toEqual([
+    structuredData.report.entry.path,
+    structuredData.report.ledgerPath,
+  ]);
+  expect(structuredData.report.ledgerPath).toBe(".skillset/changes/ledger.jsonl");
+  expect(Object.keys(structuredData.report.entry.sourceHashes)).not.toHaveLength(0);
+
+  const structuredReason = await runSkillsetCli(
+    "change",
+    "reason",
+    structuredData.report.entry.ref,
+    "--root",
+    root,
+    "--reason",
+    "Clarified the structured change reason while preserving a complete mutation path audit.",
+    "--json"
+  );
+  expect(structuredReason.exitCode).toBe(0);
+  expect((JSON.parse(structuredReason.stdout) as { data: { writes: string[] } }).data.writes).toEqual([
+    structuredData.report.entry.path,
+    ".skillset/changes/ledger.jsonl",
+  ]);
+
   const checked = await runSkillsetCli("change", "check", "--root", root, "--since", "HEAD");
   expect(checked.exitCode).toBe(0);
 });
@@ -4908,8 +4950,12 @@ test("SET-282: reconcile applies source-wins with output backup safety", async (
   expect(structured.stderr).toBe("");
   expect(JSON.parse(structured.stdout)).toMatchObject({
     command: "reconcile",
-    data: { generatedPath, sourceResolutionAvailable: true },
-    kind: "plan",
+    data: {
+      report: { generatedPath, sourceResolutionAvailable: true },
+      state: "planned",
+      writes: [],
+    },
+    kind: "data",
     ok: true,
   });
 });
@@ -5427,7 +5473,17 @@ version: 0.1.0
 
 Body.
 `,
+    ".skillset/skills/untouched/SKILL.md": `
+---
+name: untouched
+description: Unchanged release neighbor.
+version: 0.1.0
+---
+
+Unchanged body.
+`,
   });
+  await buildSkillset(root);
   await commitFixture(root);
 
   await Bun.write(
@@ -5455,15 +5511,34 @@ Release the standalone skill body update with a patch version and generated chan
   expect(plan.stdout).toContain("@aaaabb pending patch skill: demo");
   expect(plan.stdout).toContain("skill: demo: 0.1.0 -> 0.1.1 (patch)");
   expect(await Bun.file(join(root, ".skillset/changes/state.json")).exists()).toBe(false);
+  const planJson = await runSkillsetCli("release", "plan", "--json", "--root", root);
+  expect(planJson.exitCode).toBe(0);
+  expect(JSON.parse(planJson.stdout)).toMatchObject({
+    command: "release.plan",
+    data: { entries: [expect.objectContaining({ id: "aaaabbbbcccc" })] },
+    schemaVersion: "skillset.cli.result@1",
+  });
 
   const dryRun = await runSkillsetCli("release", "apply", "--dry-run", "--root", root);
   expect(dryRun.exitCode).toBe(0);
   expect(dryRun.stdout).toContain("dry run wrote no files");
   expect(await Bun.file(join(root, ".skillset/changes/state.json")).exists()).toBe(false);
 
-  const applied = await runSkillsetCli("release", "apply", "--yes", "--root", root);
+  await writeFile(join(root, ".claude/skills/demo/SKILL.md"), "hand edit\n", "utf8");
+
+  const applied = await runSkillsetCli("release", "apply", "--yes", "--json", "--root", root);
   expect(applied.exitCode).toBe(0);
-  expect(applied.stdout).toContain("skillset: applied release");
+  const appliedEnvelope = JSON.parse(applied.stdout) as {
+    data: { result: { files: string[] }; writes: string[] };
+  };
+  expect(appliedEnvelope.data.writes).toContain(".claude/skills/demo/SKILL.md");
+  expect(appliedEnvelope.data.writes).not.toContain(".claude/skills/untouched/SKILL.md");
+  const backupManifest = appliedEnvelope.data.writes.find((path) =>
+    /^\.skillset\/snapshots\/[^/]+\/manifest\.json$/u.test(path)
+  );
+  expect(backupManifest).toBeDefined();
+  expect(appliedEnvelope.data.result.files).toContain(backupManifest!);
+  expect(await Bun.file(join(root, backupManifest!)).exists()).toBe(true);
   expect(await Bun.file(join(root, ".skillset/changes/demo.md")).exists()).toBe(false);
 
   const state = JSON.parse(await readFile(join(root, ".skillset/changes/state.json"), "utf8")) as {
@@ -5487,6 +5562,18 @@ Release the standalone skill body update with a patch version and generated chan
   expect(second.exitCode).toBe(0);
   expect(second.stdout).toContain("no pending changes to release");
   expect(await readFile(join(root, ".skillset/changes/history.jsonl"), "utf8")).toBe(history);
+
+  const noOpJson = await runSkillsetCli("release", "apply", "--yes", "--json", "--root", root);
+  expect(noOpJson.exitCode).toBe(0);
+  expect(JSON.parse(noOpJson.stdout)).toMatchObject({
+    command: "release.apply",
+    data: {
+      result: { files: [] },
+      state: "planned",
+      writes: [],
+    },
+    schemaVersion: "skillset.cli.result@1",
+  });
 
   await writeFile(join(root, ".skillset/changes/state.json"), "{nope\n", "utf8");
   const derivedState = await readReleaseState(root);
@@ -5565,13 +5652,22 @@ Release the standalone skill body update before correcting release-event notes.
     "--root",
     root,
     "--reason",
-    "Corrected release-event notes after reviewing the generated changelog projection."
+    "Corrected release-event notes after reviewing the generated changelog projection.",
+    "--json"
   );
   expect(amended.exitCode).toBe(0);
-  expect(amended.stdout).toContain(`skillset: amended release ${ref}`);
-  expect(amended.stdout).toContain("changes/release-amendments.jsonl");
-  expect(amended.stdout).toContain("Corrected release-event notes");
-  expect(amended.stdout).toContain("scope: skill: demo");
+  expect(JSON.parse(amended.stdout)).toMatchObject({
+    command: "release.amend",
+    data: {
+      report: {
+        amendmentPath: ".skillset/changes/release-amendments.jsonl",
+        release: { ref },
+      },
+      state: "written",
+      writes: [".skillset/changes/release-amendments.jsonl"],
+    },
+    schemaVersion: "skillset.cli.result@1",
+  });
 
   const amendments = await readFile(join(root, ".skillset/changes/release-amendments.jsonl"), "utf8");
   expect(amendments).toContain(releaseRecord!.id);
@@ -5630,6 +5726,13 @@ Body.
   expect(clean.stdout).toContain("skillset: version audit passed");
   expect(clean.stdout).toContain("in-sync: [codex] plugin:alpha");
   expect(clean.stdout).toContain("expected 1.2.3");
+  const cleanJson = await runSkillsetCli("release", "audit", "--json", "--root", root);
+  expect(cleanJson.exitCode).toBe(0);
+  expect(JSON.parse(cleanJson.stdout)).toMatchObject({
+    command: "release.audit",
+    data: { issues: [] },
+    schemaVersion: "skillset.cli.result@1",
+  });
 
   const manifestPath = join(root, "plugins/alpha/codex/.codex-plugin/plugin.json");
   await rm(manifestPath);
@@ -6087,6 +6190,15 @@ codex: true
   expect(preview.exitCode).toBe(0);
   expect(preview.stdout).toContain("restore preview 1 file");
   expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Generated Instructions");
+
+  const structuredPreview = await runSkillsetCli("restore", backupId, "--root", root, "--json");
+  expect(structuredPreview.exitCode).toBe(0);
+  expect(structuredPreview.stderr).toBe("");
+  expect(JSON.parse(structuredPreview.stdout)).toMatchObject({
+    command: "restore",
+    data: { state: "planned", writes: [] },
+    ok: true,
+  });
 
   const restored = await runSkillsetCli("restore", backupId, "--root", root, "--yes");
   expect(restored.exitCode).toBe(0);
@@ -7620,13 +7732,13 @@ Audit body.
     }),
   ]);
 
-  const misplacedJson = await runSkillsetCli("build", "--json");
-  expect(misplacedJson.exitCode).toBe(2);
-  expect(misplacedJson.stderr).toBe("");
-  expect(JSON.parse(misplacedJson.stdout)).toMatchObject({
-    diagnostics: [{ message: expect.stringContaining("--json is not supported for this command route") }],
-    exitCode: 2,
-    ok: false,
+  const buildJson = await runSkillsetCli("build", "--root", root, "--json");
+  expect(buildJson.exitCode).toBe(0);
+  expect(buildJson.stderr).toBe("");
+  expect(JSON.parse(buildJson.stdout)).toMatchObject({
+    data: { state: "planned", writes: [] },
+    exitCode: 0,
+    ok: true,
     schemaVersion: "skillset.cli.result@1",
   });
 });

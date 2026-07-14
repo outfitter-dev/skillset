@@ -16,7 +16,7 @@ import {
 import type { ReleaseBaselineEntry } from "./adoption";
 import { buildSkillsetResult, ISOLATED_OUT_ROOT } from "@skillset/core";
 import { gitSafeEnv } from "./git-env";
-import { importSources } from "./import";
+import { ImportBatchError, type ImportReport, importSources } from "./import";
 import { inspectSkillset } from "@skillset/core";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { initSkillset, type SetupFile, type SetupImportCandidate, type SetupInclude, type SurveySkip } from "./setup";
@@ -62,6 +62,7 @@ export interface AdoptImportedUnit {
 }
 
 export interface AdoptImportResult {
+  readonly baselinePaths: readonly string[];
   readonly candidate: SetupImportCandidate;
   /** Instructions destination relative to the root (e.g. `.skillset/rules/agents.md`). */
   readonly destination?: string;
@@ -99,6 +100,8 @@ export interface TransformPreview {
 export interface AdoptReport {
   readonly acquisition: AdoptAcquisition;
   readonly alreadyAdopted: boolean;
+  readonly baselinePath?: string;
+  readonly baselinePaths: readonly string[];
   readonly baselines: readonly ReleaseBaselineEntry[];
   readonly buildError?: string;
   readonly builtFiles: number;
@@ -126,10 +129,16 @@ export interface AdoptReport {
    */
   readonly transformPreviews: readonly TransformPreview[];
   readonly write: boolean;
+  /** Logical paths actually written by this adoption attempt, including audit artifacts. */
+  readonly writtenPaths: readonly string[];
 }
 
 /** Where write-mode adoption persists its migration report. */
 export const ADOPT_REPORT_DIR = ".skillset/cache/adopt";
+const ADOPT_REPORT_PATHS = [
+  `${ADOPT_REPORT_DIR}/report.md`,
+  `${ADOPT_REPORT_DIR}/report.json`,
+] as const;
 
 const INSTRUCTIONS_DIR = ".skillset/rules";
 
@@ -175,17 +184,20 @@ export async function adoptSkillset(
     });
     if (!preflight.ok) return preflight;
   }
-  const acquisition = destination === undefined || write !== true
-    ? acquired
+  const copied = destination === undefined || write !== true
+    ? { acquisition: acquired, writtenPaths: [] }
     : await copyAdoptAcquisition(acquired, resolve(basePath, destination));
-  return adoptResolvedRoot(acquisition, {
+  return adoptResolvedRoot(copied.acquisition, {
     ...buildOptions,
     ...(targets === undefined ? {} : { targets }),
     ...(write === undefined ? {} : { write }),
-  });
+  }, copied.writtenPaths);
 }
 
-async function copyAdoptAcquisition(acquisition: AdoptAcquisition, destination: string): Promise<AdoptAcquisition> {
+async function copyAdoptAcquisition(
+  acquisition: AdoptAcquisition,
+  destination: string
+): Promise<{ readonly acquisition: AdoptAcquisition; readonly writtenPaths: readonly string[] }> {
   const rootPath = resolve(destination);
   try {
     if ((await readdir(rootPath)).length > 0) throw new Error(`skillset: init acquisition destination must be empty: ${rootPath}`);
@@ -219,8 +231,24 @@ async function copyAdoptAcquisition(acquisition: AdoptAcquisition, destination: 
   } finally {
     if (stagedRoot !== undefined) await rm(stagedRoot, { force: true, recursive: true });
   }
+  const writtenPaths = await listAcquisitionFiles(rootPath);
   await initializeAdoptGit(rootPath);
-  return { ...acquisition, rootPath };
+  return {
+    acquisition: { ...acquisition, rootPath },
+    writtenPaths: [...writtenPaths, ".git"],
+  };
+}
+
+async function listAcquisitionFiles(rootPath: string, currentPath = rootPath): Promise<readonly string[]> {
+  const paths: string[] = [];
+  const entries = (await readdir(currentPath, { withFileTypes: true }))
+    .sort((left, right) => left.name.localeCompare(right.name));
+  for (const entry of entries) {
+    const path = join(currentPath, entry.name);
+    if (entry.isDirectory()) paths.push(...await listAcquisitionFiles(rootPath, path));
+    else paths.push(relative(rootPath, path).replaceAll("\\", "/"));
+  }
+  return paths;
 }
 
 async function initializeAdoptGit(rootPath: string): Promise<void> {
@@ -236,7 +264,8 @@ async function initializeAdoptGit(rootPath: string): Promise<void> {
 
 async function adoptResolvedRoot(
   acquisition: AdoptAcquisition,
-  options: AdoptOptions = {}
+  options: AdoptOptions = {},
+  acquisitionWrittenPaths: readonly string[] = []
 ): Promise<AdoptReport> {
   const { candidates: selectedCandidates, include, name, targets, write, ...buildOptions } = options;
   const writeMode = write === true;
@@ -260,6 +289,7 @@ async function adoptResolvedRoot(
     return {
       acquisition,
       alreadyAdopted,
+      baselinePaths: [],
       baselines: survey.baselines,
       builtFiles: 0,
       candidates,
@@ -274,6 +304,7 @@ async function adoptResolvedRoot(
       surveySkips: survey.surveySkips,
       transformPreviews: [],
       write: false,
+      writtenPaths: [],
     };
   }
 
@@ -281,6 +312,7 @@ async function adoptResolvedRoot(
     const report: AdoptReport = {
       acquisition,
       alreadyAdopted,
+      baselinePaths: [],
       baselines: survey.baselines,
       builtFiles: 0,
       candidates,
@@ -295,6 +327,7 @@ async function adoptResolvedRoot(
       surveySkips: survey.surveySkips,
       transformPreviews: [],
       write: false,
+      writtenPaths: [...new Set([...acquisitionWrittenPaths, ...ADOPT_REPORT_PATHS])],
     };
     await persistAdoptReport(report);
     return report;
@@ -340,6 +373,7 @@ async function adoptResolvedRoot(
   }
 
   let builtFiles = 0;
+  let buildWritePaths: readonly string[] = [];
   let renderResults: readonly SkillsetRenderResult[] = [
     ...surveySkipRenderResults(survey.surveySkips),
     ...imports.flatMap((result) => result.renderResults),
@@ -348,6 +382,7 @@ async function adoptResolvedRoot(
     try {
       const build = await buildSkillsetResult(init.rootPath, { ...buildOptions, isolated: true });
       builtFiles = build.data.length;
+      buildWritePaths = build.writes.paths;
       renderResults = [
         ...renderResults,
         ...build.renderResults,
@@ -358,9 +393,26 @@ async function adoptResolvedRoot(
   }
 
   const lintErrors = lintIssues.filter((issue) => issue.severity === "error");
+  const baselinePaths = [...new Set([
+    ...(init.baselinePath === undefined ? [] : [init.baselinePath]),
+    ...imports.flatMap((result) => result.baselinePaths),
+  ])];
+  const writtenPaths = [...new Set([
+    ...acquisitionWrittenPaths,
+    ...init.files.filter((file) => file.status === "create").map((file) => file.path),
+    ...imports.flatMap((entry) => [
+      ...(entry.destination === undefined ? [] : [entry.destination]),
+      ...entry.units.map((unit) => `.skillset/${unit.kind === "skill" ? "skills" : "plugins"}/${unit.name}`),
+    ]),
+    ...baselinePaths,
+    ...buildWritePaths,
+    ...ADOPT_REPORT_PATHS,
+  ])];
   const report: AdoptReport = {
     acquisition,
     alreadyAdopted,
+    ...(init.baselinePath === undefined ? {} : { baselinePath: init.baselinePath }),
+    baselinePaths,
     baselines: init.baselines,
     ...(buildError === undefined ? {} : { buildError }),
     builtFiles,
@@ -379,6 +431,7 @@ async function adoptResolvedRoot(
     surveySkips: survey.surveySkips,
     transformPreviews,
     write: true,
+    writtenPaths,
   };
 
   await persistAdoptReport(report, workspaceCacheKey);
@@ -476,6 +529,8 @@ async function importCandidate(
   previewSources: string[]
 ): Promise<AdoptImportResult> {
   if (candidate.kind === "instructions") {
+    const expectedDestination = instructionDestination(candidate.path);
+    const destinationExisted = await exists(join(rootPath, expectedDestination));
     try {
       const destination = await importInstructionFile(rootPath, candidate.path);
       await writeMarkdownSourceOrigin(
@@ -488,24 +543,24 @@ async function importCandidate(
       // protection, so it belongs on the cutover list.
       cutover.push(candidate.path);
       previewSources.push(destination);
-      return { candidate, destination, detail: destination, renderResults: [], ok: true, units: [] };
+      return { baselinePaths: [], candidate, destination, detail: destination, renderResults: [], ok: true, units: [] };
     } catch (error) {
-      return { candidate, detail: errorMessage(error), renderResults: [], ok: false, units: [] };
+      const copiedBeforeFailure = !destinationExisted && await exists(join(rootPath, expectedDestination));
+      return {
+        baselinePaths: [],
+        candidate,
+        ...(copiedBeforeFailure ? { destination: expectedDestination } : {}),
+        detail: errorMessage(error),
+        renderResults: [],
+        ok: false,
+        units: [],
+      };
     }
   }
 
   try {
     const batch = await importCandidateSources(rootPath, acquisition, candidate, allCandidates);
-    const units = batch.imports.map((report) => {
-      const sourcePath = candidate.kind === "plugin"
-        ? candidate.path
-        : relative(rootPath, report.sourcePath).replaceAll("\\", "/");
-      return {
-        kind: report.kind,
-        name: report.name,
-        sourcePath: sourcePath.length === 0 ? "." : sourcePath,
-      };
-    });
+    const units = adoptedUnits(rootPath, candidate, batch.imports);
     for (const report of batch.imports) {
       for (const file of report.copiedFiles) {
         if (basename(file) !== "SKILL.md") continue;
@@ -516,6 +571,9 @@ async function importCandidate(
       }
     }
     return {
+      baselinePaths: [...new Set(batch.imports.flatMap((report) =>
+        report.baselinePath === undefined ? [] : [report.baselinePath]
+      ))],
       candidate,
       detail: `${units.map((unit) => `${unit.kind} ${unit.name}`).join(", ")} (${batch.files} files)`,
       renderResults: batch.renderResults,
@@ -523,8 +581,35 @@ async function importCandidate(
       units,
     };
   } catch (error) {
-    return { candidate, detail: errorMessage(error), renderResults: [], ok: false, units: [] };
+    const partialImports = error instanceof ImportBatchError ? error.imports : [];
+    return {
+      baselinePaths: [...new Set(partialImports.flatMap((report) =>
+        report.baselinePath === undefined ? [] : [report.baselinePath]
+      ))],
+      candidate,
+      detail: errorMessage(error),
+      renderResults: partialImports.flatMap((report) => report.renderResults),
+      ok: false,
+      units: adoptedUnits(rootPath, candidate, partialImports),
+    };
   }
+}
+
+function adoptedUnits(
+  rootPath: string,
+  candidate: SetupImportCandidate,
+  imports: readonly ImportReport[]
+): readonly AdoptImportedUnit[] {
+  return imports.map((report) => {
+    const sourcePath = candidate.kind === "plugin"
+      ? candidate.path
+      : relative(rootPath, report.sourcePath).replaceAll("\\", "/");
+    return {
+      kind: report.kind,
+      name: report.name,
+      sourcePath: sourcePath.length === 0 ? "." : sourcePath,
+    };
+  });
 }
 
 async function importCandidateSources(
@@ -572,7 +657,7 @@ async function importCandidateSources(
  * destination.
  */
 async function importInstructionFile(rootPath: string, sourceName: string): Promise<string> {
-  const destinationRelative = `${INSTRUCTIONS_DIR}/${sourceName.toLowerCase()}`;
+  const destinationRelative = instructionDestination(sourceName);
   const destination = join(rootPath, destinationRelative);
   if (await exists(destination)) {
     throw new Error(
@@ -584,6 +669,10 @@ async function importInstructionFile(rootPath: string, sourceName: string): Prom
   await mkdir(dirname(destination), { recursive: true });
   await writeFile(destination, content);
   return destinationRelative;
+}
+
+function instructionDestination(sourceName: string): string {
+  return `${INSTRUCTIONS_DIR}/${sourceName.toLowerCase()}`;
 }
 
 function sourceOriginFor(acquisition: AdoptAcquisition, path: string): SourceOrigin {

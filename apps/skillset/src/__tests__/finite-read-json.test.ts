@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { chmod, mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { chmod, cp, mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -32,6 +32,312 @@ describe("SET-287 finite read-only JSON", () => {
       }
     });
   }
+
+  test("init JSON preserves preview versus confirmed write authority", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-init-"));
+    const preview = await runJsonRoute("init", "--root", root);
+    const previewEnvelope = JSON.parse(preview.stdout) as SkillsetCliResult & { data: { state: string; writes: unknown[] } };
+    expect(previewEnvelope.data).toMatchObject({ state: "planned", writes: [] });
+    expect(await readdir(root)).toEqual([]);
+
+    const written = await runJsonRoute("init", "--root", root, "--yes");
+    const writtenEnvelope = JSON.parse(written.stdout) as SkillsetCliResult & { data: { state: string; writes: unknown[] } };
+    expect(writtenEnvelope.data.state).toBe("written");
+    expect(writtenEnvelope.data.writes.length).toBeGreaterThan(0);
+    expect(writtenEnvelope.data.writes.every((entry) => typeof entry === "string")).toBe(true);
+    expect(writtenEnvelope.data.writes).toContain(".git");
+
+    const seeded = await runJsonRoute("init", "--root", root, "--yes");
+    const seededEnvelope = JSON.parse(seeded.stdout) as SkillsetCliResult & { data: { writes: unknown[] } };
+    expect(seededEnvelope.data.writes).toEqual([".skillset/changes/state.json"]);
+
+    const unchanged = await runJsonRoute("init", "--root", root, "--yes");
+    const unchangedEnvelope = JSON.parse(unchanged.stdout) as SkillsetCliResult & {
+      data: { state: string; writes: unknown[] };
+    };
+    expect(unchangedEnvelope.data).toMatchObject({ state: "planned", writes: [] });
+  });
+
+  test("init JSON resolves a relative --root once from the invocation cwd", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "skillset-json-relative-root-"));
+    const proc = Bun.spawn(
+      [process.execPath, cli, "init", "--root", "workspace", "--yes", "--json"],
+      {
+        cwd: parent,
+        env: { ...process.env, NODE_ENV: "test" },
+        stderr: "pipe",
+        stdout: "pipe",
+      }
+    );
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
+
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe("");
+    expect(validateCliResult(JSON.parse(stdout))).toEqual({ diagnostics: [], ok: true });
+    await expect(readFile(path.join(parent, "workspace", "skillset.yaml"), "utf8")).resolves.toContain(
+      "skillset:"
+    );
+    await expect(
+      readFile(path.join(parent, "workspace", "workspace", "skillset.yaml"), "utf8")
+    ).rejects.toThrow();
+  });
+
+  test("init JSON stays stderr-clean when the known-workspace index is unwritable", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "skillset-json-init-xdg-"));
+    const root = path.join(parent, "workspace");
+    const configHome = path.join(parent, "not-a-directory");
+    await writeFile(configHome, "occupied\n");
+    const proc = Bun.spawn([process.execPath, cli, "init", "--root", root, "--yes", "--json"], {
+      cwd: repoRoot,
+      env: { ...process.env, NODE_ENV: "test", XDG_CONFIG_HOME: configHome },
+      stderr: "pipe",
+      stdout: "pipe",
+    });
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
+
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe("");
+    expect(validateCliResult(JSON.parse(stdout))).toEqual({ diagnostics: [], ok: true });
+  });
+
+  test("init JSON reports a seeded release-state write", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-init-baseline-"));
+    await mkdir(path.join(root, ".skillset", "skills", "demo"), { recursive: true });
+    await writeFile(
+      path.join(root, ".skillset", "skills", "demo", "SKILL.md"),
+      "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n"
+    );
+
+    const written = await runJsonRoute("init", "--root", root, "--yes");
+    const envelope = JSON.parse(written.stdout) as SkillsetCliResult & { data: { writes: string[] } };
+
+    expect(envelope.data.writes).toContain(".skillset/changes/state.json");
+  });
+
+  test("import JSON reports the imported source and seeded release state", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-import-baseline-"));
+    const source = path.join(root, "incoming", "SKILL.md");
+    await mkdir(path.join(root, ".skillset"), { recursive: true });
+    await mkdir(path.dirname(source), { recursive: true });
+    await writeFile(path.join(root, "skillset.yaml"), "skillset:\n  name: import-json\n");
+    await writeFile(source, "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n");
+
+    const imported = await runJsonRoute("import", source, "--kind", "skill", "--root", root);
+    const envelope = JSON.parse(imported.stdout) as SkillsetCliResult & { data: { writes: string[] } };
+
+    expect(envelope.data.writes).toEqual([
+      ".skillset/skills/demo",
+      ".skillset/changes/state.json",
+    ]);
+  });
+
+  test("import JSON reports writes completed before a batch failure", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-import-partial-"));
+    const source = path.join(root, "incoming");
+    await mkdir(path.join(root, ".skillset"), { recursive: true });
+    await mkdir(path.join(source, "first"), { recursive: true });
+    await mkdir(path.join(source, "second"), { recursive: true });
+    await writeFile(path.join(root, "skillset.yaml"), "skillset:\n  name: import-json-partial\n");
+    await writeFile(path.join(source, "first", "SKILL.md"), "---\nname: duplicate\ndescription: First.\n---\n\nFirst.\n");
+    await writeFile(path.join(source, "second", "SKILL.md"), "---\nname: duplicate\ndescription: Second.\n---\n\nSecond.\n");
+
+    const imported = await runJsonRoute("import", source, "--kind", "skills", "--root", root);
+    const envelope = JSON.parse(imported.stdout) as SkillsetCliResult & {
+      data: { state: string; writes: string[] };
+    };
+
+    expect(imported.exitCode).toBe(1);
+    expect(envelope.kind).toBe("diagnostics");
+    expect(envelope.data.state).toBe("written");
+    expect(envelope.data.writes).toEqual([
+      ".skillset/skills/duplicate",
+      ".skillset/changes/state.json",
+    ]);
+  });
+
+  test("init adoption JSON reports imported units and release state", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-adopt-writes-"));
+    await runJsonRoute("init", "--yes", "--root", root);
+    await mkdir(path.join(root, ".agents", "skills", "one"), { recursive: true });
+    await writeFile(
+      path.join(root, ".agents", "skills", "one", "SKILL.md"),
+      "---\nname: one\ndescription: One.\n---\n\nBody.\n"
+    );
+
+    const adopted = await runJsonRoute("init", "--adopt", "all", "--yes", "--root", root);
+    const envelope = JSON.parse(adopted.stdout) as SkillsetCliResult & { data: { writes: string[] } };
+
+    expect(envelope.data.writes).toContain(".skillset/skills/one");
+    expect(envelope.data.writes).toContain(".skillset/changes/state.json");
+    expect(envelope.data.writes).toContain(".skillset/cache/adopt/report.md");
+    expect(envelope.data.writes).toContain(".skillset/cache/adopt/report.json");
+    expect(envelope.data.writes.some((write) => write.startsWith(".skillset/cache/latest/"))).toBe(true);
+  });
+
+  test("destination adoption JSON reports acquired source files", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "skillset-json-adopt-destination-"));
+    const source = path.join(parent, "source");
+    const destination = path.join(parent, "destination");
+    await mkdir(path.join(source, ".agents", "skills", "one"), { recursive: true });
+    await writeFile(path.join(source, "README.md"), "# Acquired repo\n");
+    await writeFile(
+      path.join(source, ".agents", "skills", "one", "SKILL.md"),
+      "---\nname: one\ndescription: One.\n---\n\nBody.\n"
+    );
+
+    const adopted = await runJsonRoute(
+      "init", destination, "--from", source, "--adopt", "all", "--yes"
+    );
+    const envelope = JSON.parse(adopted.stdout) as SkillsetCliResult & { data: { writes: string[] } };
+
+    expect(adopted.exitCode).toBe(0);
+    expect(envelope.data.writes).toContain("README.md");
+    expect(envelope.data.writes).toContain(".agents/skills/one/SKILL.md");
+    expect(envelope.data.writes).toContain(".git");
+  });
+
+  test("blocked init adoption JSON reports persisted audit writes", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-adopt-blocked-"));
+    await mkdir(path.join(root, ".claude-plugin"), { recursive: true });
+    await mkdir(path.join(root, ".codex-plugin"), { recursive: true });
+    await writeFile(
+      path.join(root, ".claude-plugin", "plugin.json"),
+      JSON.stringify({ name: "claude-name", version: "1.0.0" })
+    );
+    await writeFile(
+      path.join(root, ".codex-plugin", "plugin.json"),
+      JSON.stringify({ name: "codex-name", version: "1.0.0" })
+    );
+
+    const blocked = await runJsonRoute("init", "--adopt", "all", "--yes", "--root", root);
+    const envelope = JSON.parse(blocked.stdout) as SkillsetCliResult & { data: { state: string; writes: string[] } };
+
+    expect(blocked.exitCode).toBe(1);
+    expect(blocked.stderr).toBe("");
+    expect(envelope.data.writes).toEqual([
+      ".skillset/cache/adopt/report.md",
+      ".skillset/cache/adopt/report.json",
+    ]);
+    expect(envelope.data.state).toBe("written");
+  });
+
+  test("build JSON distinguishes plans from mutations", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "skillset-json-build-kinds-"));
+    const root = path.join(parent, "workspace");
+    await cp(fixtureRoot, root, { recursive: true });
+
+    const preview = JSON.parse((await runJsonRoute("build", "--root", root)).stdout) as SkillsetCliResult;
+    const applied = JSON.parse((await runJsonRoute("build", "--root", root, "--yes")).stdout) as SkillsetCliResult & {
+      data: { state: string; writes: string[] };
+    };
+    const unchanged = JSON.parse((await runJsonRoute("build", "--root", root, "--yes")).stdout) as SkillsetCliResult & {
+      data: { state: string; writes: string[] };
+    };
+
+    expect(preview.kind).toBe("plan");
+    expect(applied.kind).toBe("mutation");
+    expect(applied.data.state).toBe("written");
+    expect(applied.data.writes.length).toBeGreaterThan(0);
+    expect(unchanged.data).toMatchObject({ state: "planned", writes: [] });
+  });
+
+  test("build apply emits a finite summary and every changed path", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "skillset-json-build-"));
+    const root = path.join(parent, "workspace");
+    await cp(fixtureRoot, root, { recursive: true });
+
+    const result = await runJsonRoute("build", "--root", root, "--yes");
+    expect(result.stderr).toBe("");
+    const envelope = JSON.parse(result.stdout) as SkillsetCliResult & {
+      data: {
+        report: { data?: unknown; renderedFiles: number; writes: { paths: string[] } };
+        writes: string[];
+      };
+    };
+    expect(validateCliResult(envelope)).toEqual({ diagnostics: [], ok: true });
+    expect(envelope.data.report.data).toBeUndefined();
+    expect(envelope.data.report.renderedFiles).toBeGreaterThan(0);
+    expect(envelope.data.writes).toEqual(envelope.data.report.writes.paths);
+  });
+
+  test("build JSON stays stderr-clean when the known-workspace index is unwritable", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "skillset-json-build-xdg-"));
+    const root = path.join(parent, "workspace");
+    const configHome = path.join(parent, "not-a-directory");
+    await cp(fixtureRoot, root, { recursive: true });
+    await writeFile(configHome, "occupied\n");
+    const proc = Bun.spawn(
+      [process.execPath, cli, "build", "--root", root, "--yes", "--json"],
+      {
+        cwd: repoRoot,
+        env: { ...process.env, NODE_ENV: "test", XDG_CONFIG_HOME: configHome },
+        stderr: "pipe",
+        stdout: "pipe",
+      }
+    );
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
+
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe("");
+    expect(validateCliResult(JSON.parse(stdout))).toEqual({ diagnostics: [], ok: true });
+  });
+
+  test("build JSON normalizes output-safety diagnostics", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-build-diagnostics-"));
+    await mkdir(path.join(root, ".skillset", "rules"), { recursive: true });
+    await writeFile(
+      path.join(root, "skillset.yaml"),
+      "skillset:\n  name: build-diagnostics-json\nclaude: false\ncodex: true\n"
+    );
+    await writeFile(path.join(root, ".skillset", "rules", "guide.md"), "# Managed guidance\n");
+    await writeFile(path.join(root, "AGENTS.md"), "# Unmanaged guidance\n");
+
+    const result = await runJsonRoute("build", "--root", root, "--yes");
+    expect(result.stderr).toBe("");
+    const envelope = JSON.parse(result.stdout) as SkillsetCliResult & {
+      data: {
+        report: { writes: { backupManifestPath?: string; paths: string[] } };
+        writes: string[];
+      };
+    };
+    expect(validateCliResult(envelope)).toEqual({ diagnostics: [], ok: true });
+    expect(envelope.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: "AGENTS.md", severity: "warning" }),
+    ]));
+    const backupManifestPath = envelope.data.report.writes.backupManifestPath;
+    expect(backupManifestPath).toMatch(/^\.skillset\/snapshots\/[^/]+\/manifest\.json$/u);
+    if (backupManifestPath === undefined) throw new Error("missing build backup manifest path");
+    expect(envelope.data.writes).toEqual([
+      ...envelope.data.report.writes.paths,
+      backupManifestPath,
+    ]);
+  });
+
+  test("change migrate does not report a ledger write for a no-op", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-migrate-"));
+    await mkdir(path.join(root, ".skillset"), { recursive: true });
+    await writeFile(path.join(root, "skillset.yaml"), "skillset:\n  name: migrate-json\n");
+
+    const result = await runJsonRoute("change", "migrate", "--root", root, "--yes");
+    expect(result.stderr).toBe("");
+    const envelope = JSON.parse(result.stdout) as SkillsetCliResult & {
+      data: { state: string; writes: string[] };
+    };
+    expect(envelope.data.state).toBe("planned");
+    expect(envelope.data.writes).toEqual([]);
+  });
 
   for (const route of [
     ["change", "status", "--root", repoRoot],
@@ -198,6 +504,20 @@ describe("SET-287 finite read-only JSON", () => {
     expect(stderr).toBe("");
     expect(validateCliResult(JSON.parse(stdout))).toEqual({ diagnostics: [], ok: true });
   });
+
+  for (const route of [
+    ["build", "--root", fixtureRoot],
+    ["update", "--root", fixtureRoot],
+  ] as const) {
+    test(`${route[0]} preview emits a versioned plan without writes`, async () => {
+      const result = await runJsonRoute(...route);
+      expect(result.stderr).toBe("");
+      const envelope = JSON.parse(result.stdout) as SkillsetCliResult & { data: { state: string; writes: unknown[] } };
+      expect(validateCliResult(envelope)).toEqual({ diagnostics: [], ok: true });
+      expect(envelope.data.state).toBe("planned");
+      expect(envelope.data.writes).toEqual([]);
+    });
+  }
 });
 
 async function runJsonRoute(...args: readonly string[]): Promise<{ exitCode: number; stderr: string; stdout: string }> {

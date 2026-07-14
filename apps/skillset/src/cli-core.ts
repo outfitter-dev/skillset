@@ -1,5 +1,5 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import { basename, dirname, resolve } from "node:path";
+import { basename, dirname, relative, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 
 import {
@@ -70,7 +70,7 @@ import {
   type HookRunner,
   type HookSubcommand,
 } from "./runtime-hooks";
-import { importSources, type ImportKind, type ImportProvider, type ImportReport } from "./import";
+import { ImportBatchError, importSources, type ImportKind, type ImportProvider, type ImportReport } from "./import";
 import {
   addLookupTarget,
   addLookupTargets,
@@ -107,10 +107,9 @@ import {
 } from "./try-cli";
 import { initSkillset, type SetupInclude, type SetupReport } from "./setup";
 import { sourceUnitDisplay, sourceUnitDisplays, sourceUnitSelector } from "@skillset/core/internal/source-unit-selector";
-import { renderValidatedJson } from "@skillset/core/internal/structured-output";
 import { renderCliDataResult } from "./cli-output";
 import { runSkillsetTest, type SkillsetTestReport } from "./test-runner";
-import type { BuildScope, CompileBuildMode, JsonRecord, SkillsetOptions, SourceOrigin, TargetName } from "@skillset/core/internal/types";
+import type { BuildScope, CompileBuildMode, SkillsetOptions, SourceOrigin, TargetName } from "@skillset/core/internal/types";
 import type { SchemaJsonRecord, SkillsetCliDiagnostic } from "@skillset/schema";
 
 type Command = CliCommand;
@@ -245,9 +244,15 @@ export async function runCli(
   } = parseCliArgs(args);
 
   if (command === "build") {
-    console.log("skillset: build projects source to generated output");
     if (dryRun || !yes) {
       const result = await diffSkillsetResult(rootPath, options);
+      if (jsonOutput) {
+        if (result.ok) await rememberKnownSkillsetWorkspace(rootPath, options, true);
+        printCliJsonData("build.plan", { changes: result.data, state: "planned", writes: [] }, result.ok ? 0 : 1, "plan", serializeDiagnostics(result.diagnostics));
+        if (!result.ok) process.exitCode = 1;
+        return;
+      }
+      console.log("skillset: build projects source to generated output");
       printDiagnostics(result.diagnostics);
       const { data: diff } = result;
       printDiffPlan(diff, dryRun ? "dry run" : "write confirmation required");
@@ -256,6 +261,26 @@ export async function runCli(
       return;
     }
     const result = await buildSkillsetResult(rootPath, options);
+    if (jsonOutput) {
+      if (result.ok) await rememberKnownSkillsetWorkspace(rootPath, options, true);
+      const writes = result.writes.backupManifestPath === undefined
+        ? result.writes.paths
+        : [...result.writes.paths, result.writes.backupManifestPath];
+      printCliJsonData("build.apply", {
+        report: {
+          ok: result.ok,
+          operation: result.operation,
+          renderedFiles: result.data.length,
+          renderResults: result.renderResults.length,
+          writes: result.writes,
+        },
+        state: writes.length > 0 ? "written" : "planned",
+        writes,
+      }, result.ok ? 0 : 1, "mutation", serializeDiagnostics(result.diagnostics));
+      if (!result.ok) process.exitCode = 1;
+      return;
+    }
+    console.log("skillset: build projects source to generated output");
     printDiagnostics(result.diagnostics);
     console.log(`skillset: wrote ${result.writes.writtenPaths.length} generated files`);
     if (result.writes.deletedPaths.length > 0) {
@@ -307,23 +332,35 @@ export async function runCli(
       return;
     }
     if (changeSubcommand === "add") {
-      printChangeEntry("added", (await addChangeEntry(rootPath, {
+      const report = await addChangeEntry(rootPath, {
         ...changeOptions,
         ...(changeBump === undefined ? {} : { bump: changeBump }),
         ...(changeGroup === undefined ? {} : { group: changeGroup }),
         reason: changeReason ?? { kind: "auto" },
         scopes: changeScopes ?? [],
-      })).entry);
+      });
+      if (jsonOutput) printCliJsonData("change.add", {
+        report: { ...report, entry: serializeChangeEntry(report.entry) },
+        state: "written",
+        writes: [report.entry.path, report.ledgerPath],
+      });
+      else printChangeEntry("added", report.entry);
       return;
     }
     if (changeSubcommand === "reason") {
       if (changeRef === undefined) throw new Error("skillset: change reason requires @ref");
-      printChangeEntry("updated", (await updateChangeReason(rootPath, {
+      const report = await updateChangeReason(rootPath, {
         ...changeOptions,
         append: changeAppend,
         reason: changeReason ?? { kind: "auto" },
         ref: changeRef,
-      })).entry);
+      });
+      if (jsonOutput) printCliJsonData("change.reason", {
+        report: { ...report, entry: serializeChangeEntry(report.entry) },
+        state: "written",
+        writes: [report.entry.path, ...(report.ledgerPath === undefined ? [] : [report.ledgerPath])],
+      });
+      else printChangeEntry("updated", report.entry);
       return;
     }
     if (changeSubcommand === "amend") {
@@ -333,8 +370,15 @@ export async function runCli(
         reason: changeReason ?? { kind: "auto" },
         ref: changeRef,
       });
-      printChangeEntry("amended", report.entry);
-      console.log(`  amendment: ${report.path}`);
+      if (jsonOutput) printCliJsonData("change.amend", {
+        report: { ...report, entry: serializeChangeEntry(report.entry) },
+        state: "written",
+        writes: [report.path],
+      });
+      else {
+        printChangeEntry("amended", report.entry);
+        console.log(`  amendment: ${report.path}`);
+      }
       return;
     }
     if (changeSubcommand === "show") {
@@ -376,8 +420,25 @@ export async function runCli(
         ...changeOptions,
         write: yes && !dryRun,
       });
-      printChangeMigration(report);
-      if ((!yes || dryRun) && report.entries.length > 0) console.log("skillset: rerun change migrate with --yes to rewrite pending entries");
+      if (jsonOutput) {
+        const writes = report.written && report.entries.length > 0
+          ? [...new Set([
+              ...report.entries.flatMap((entry) => entry.fromPath === entry.toPath
+                ? [entry.toPath]
+                : [entry.fromPath, entry.toPath]),
+              report.ledgerPath,
+            ])].sort()
+          : [];
+        printCliJsonData("change.migrate", {
+          report: { ...report, entries: report.entries.map(serializeChangeEntry) },
+          state: writes.length > 0 ? "written" : "planned",
+          writes,
+        });
+      }
+      else {
+        printChangeMigration(report);
+        if ((!yes || dryRun) && report.entries.length > 0) console.log("skillset: rerun change migrate with --yes to rewrite pending entries");
+      }
       return;
     }
     throw new Error("skillset: expected change subcommand add, amend, check, history, list, migrate, reason, show, or status");
@@ -386,17 +447,27 @@ export async function runCli(
   if (command === "release") {
     if (releaseSubcommand === "audit") {
       const report = await auditVersions(rootPath, options);
-      printVersionAudit(report);
-      if (report.issues.length > 0) process.exitCode = 1;
+      if (jsonOutput) printCliJsonData("release.audit", report, report.issues.length > 0 ? 1 : 0);
+      else {
+        printVersionAudit(report);
+        if (report.issues.length > 0) process.exitCode = 1;
+      }
       return;
     }
     if (releaseSubcommand === "plan") {
-      printReleasePlan(await planRelease(rootPath, options));
+      const report = await planRelease(rootPath, options);
+      if (jsonOutput) printCliJsonData("release.plan", report);
+      else printReleasePlan(report);
       return;
     }
     if (releaseSubcommand === "apply") {
       if (dryRun || !yes) {
-        printReleasePlan(await planRelease(rootPath, options));
+        const plan = await planRelease(rootPath, options);
+        if (jsonOutput) {
+          printCliJsonData("release.apply", { plan, state: "planned", writes: [] });
+          return;
+        }
+        printReleasePlan(plan);
         if (dryRun) {
           console.log("skillset: release apply dry run wrote no files");
         } else {
@@ -405,16 +476,30 @@ export async function runCli(
         return;
       }
       const result = await applyRelease(rootPath, options);
-      printReleaseApply(result.plan, result.files, result.renderedFiles);
+      if (jsonOutput) {
+        printCliJsonData("release.apply", {
+          result,
+          state: result.files.length > 0 ? "written" : "planned",
+          writes: result.files,
+        });
+      }
+      else printReleaseApply(result.plan, result.files, result.renderedFiles);
       return;
     }
     if (releaseSubcommand === "amend") {
       if (releaseRef === undefined) throw new Error("skillset: release amend requires @ref");
-      printReleaseAmend(await amendReleaseRecord(rootPath, {
+      const report = await amendReleaseRecord(rootPath, {
         ...options,
         reason: releaseReason ?? { kind: "auto" },
         ref: releaseRef,
-      }));
+      });
+      if (jsonOutput) {
+        printCliJsonData("release.amend", {
+          report,
+          state: "written",
+          writes: [report.amendmentPath],
+        });
+      } else printReleaseAmend(report);
       return;
     }
     throw new Error("skillset: expected release subcommand amend, apply, audit, or plan");
@@ -425,8 +510,11 @@ export async function runCli(
       ...options,
       write: yes && !dryRun,
     });
-    process.stdout.write(renderProviderFormatUpdateReport(report));
-    if (!yes || dryRun) console.log("skillset: update preview wrote no files");
+    if (jsonOutput) printCliJsonData("update", { report, state: report.wrote ? "written" : "planned", writes: report.writtenPaths }, report.ok && !report.blocked ? 0 : 1);
+    else {
+      process.stdout.write(renderProviderFormatUpdateReport(report));
+      if (!yes || dryRun) console.log("skillset: update preview wrote no files");
+    }
     if (!report.ok || report.blocked) process.exitCode = 1;
     return;
   }
@@ -434,8 +522,11 @@ export async function runCli(
   if (command === "restore") {
     if (importPath === undefined) throw new Error("skillset: expected backup id to restore");
     const report = await restoreOutputBackup(rootPath, importPath, { write: yes && !dryRun });
-    printRestoreReport(report);
-    if (!yes || dryRun) console.log("skillset: rerun restore with --yes to write restored files");
+    if (jsonOutput) printCliJsonData("restore", { report, state: report.write ? "written" : "planned", writes: report.write ? report.restoredPaths : [] });
+    else {
+      printRestoreReport(report);
+      if (!yes || dryRun) console.log("skillset: rerun restore with --yes to write restored files");
+    }
     return;
   }
 
@@ -481,7 +572,11 @@ export async function runCli(
         write: yes && !dryRun,
       });
       if (jsonOutput) {
-        process.stdout.write(renderValidatedJson(report as unknown as JsonRecord, "skillset marketplace update"));
+        printCliJsonData("marketplace.update", {
+          report,
+          state: report.ok && report.writtenPaths.length > 0 ? "written" : "planned",
+          writes: report.writtenPaths,
+        }, report.ok ? 0 : 1);
       } else {
         printMarketplaceUpdate(report);
       }
@@ -592,34 +687,52 @@ export async function runCli(
   }
 
   if (command === "init") {
+    const initCwd = resolve(rootPath);
+    const explicitInitRootPath = rootExplicit ? initCwd : undefined;
+    const setupRootPath = importPath ?? explicitInitRootPath;
     if (initAdopt !== undefined || initFrom !== undefined) {
       const writeMode = initAdopt !== undefined && yes && !dryRun;
       const inferredRoot = initFrom === undefined
-        ? (await initSkillset({ cwd: rootPath, useGitRoot: !rootExplicit, write: false })).rootPath
+        ? (await initSkillset({
+            cwd: initCwd,
+            ...(explicitInitRootPath === undefined ? {} : { rootPath: explicitInitRootPath }),
+            useGitRoot: !rootExplicit,
+            write: false,
+          })).rootPath
         : rootPath;
       const report = await adoptSkillset(initFrom ?? inferredRoot, {
-        cwd: rootPath,
+        cwd: initCwd,
         ...(initAdopt === undefined ? {} : { candidates: initAdopt }),
-        ...(importPath === undefined ? {} : { destination: resolve(rootPath, importPath) }),
+        ...(importPath === undefined ? {} : { destination: resolve(initCwd, importPath) }),
         ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
         ...(importName === undefined ? {} : { name: importName }),
         ...(setupTargets === undefined ? {} : { targets: setupTargets }),
         write: writeMode,
       });
       const reason = writeMode ? report.write ? "written" : "blocked before write" : "write confirmation required";
-      printAdoptReport(report, reason);
-      if (!writeMode && report.ok && initAdopt !== undefined) console.log("skillset: rerun init with --adopt and --yes to write adopted source");
+      if (jsonOutput && writeMode && report.ok) {
+        await rememberKnownSkillsetWorkspace(report.rootPath, options, true);
+      }
+      if (jsonOutput) printCliJsonData("init.adopt", {
+        report,
+        state: report.writtenPaths.length > 0 ? "written" : "planned",
+        writes: report.writtenPaths,
+      }, report.ok ? 0 : 1);
+      else {
+        printAdoptReport(report, reason);
+        if (!writeMode && report.ok && initAdopt !== undefined) console.log("skillset: rerun init with --adopt and --yes to write adopted source");
+      }
       if (!report.ok) process.exitCode = 1;
-      if (writeMode && report.ok) await rememberKnownSkillsetWorkspace(report.rootPath, options);
+      if (!jsonOutput && writeMode && report.ok) await rememberKnownSkillsetWorkspace(report.rootPath, options);
       return;
     }
-    if (!yes && !dryRun && process.stdin.isTTY && process.stdout.isTTY) {
+    if (!jsonOutput && !yes && !dryRun && process.stdin.isTTY && process.stdout.isTTY) {
       const survey = await initSkillset({
-        cwd: rootPath,
-        ...(importPath === undefined ? {} : { rootPath: importPath }),
+        cwd: initCwd,
+        ...(setupRootPath === undefined ? {} : { rootPath: setupRootPath }),
         ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
         ...(setupTargets === undefined ? {} : { targets: setupTargets }),
-        useGitRoot: !rootExplicit && importPath === undefined,
+        useGitRoot: setupRootPath === undefined,
         write: false,
       });
       if (survey.importCandidates.length > 0) {
@@ -628,7 +741,7 @@ export async function runCli(
         if (selection.confirmed && selection.candidates.length > 0) {
           const report = await adoptSkillset(importPath ?? survey.rootPath, {
             candidates: selection.candidates,
-            cwd: rootPath,
+            cwd: initCwd,
             ...(importName === undefined ? {} : { name: importName }),
             ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
             ...(setupTargets === undefined ? {} : { targets: setupTargets }),
@@ -644,12 +757,12 @@ export async function runCli(
           return;
         }
         const setup = await initSkillset({
-          cwd: rootPath,
-          ...(importPath === undefined ? {} : { rootPath: importPath }),
+          cwd: initCwd,
+          ...(setupRootPath === undefined ? {} : { rootPath: setupRootPath }),
           ...(importName === undefined ? {} : { name: importName }),
           ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
           ...(setupTargets === undefined ? {} : { targets: setupTargets }),
-          useGitRoot: !rootExplicit && importPath === undefined,
+          useGitRoot: setupRootPath === undefined,
           write: true,
         });
         printSetupReport(setup, "written");
@@ -658,30 +771,71 @@ export async function runCli(
       }
     }
     const setup = await initSkillset({
-      cwd: rootPath,
-      ...(importPath === undefined ? {} : { rootPath: importPath }),
+      cwd: initCwd,
+      ...(setupRootPath === undefined ? {} : { rootPath: setupRootPath }),
       ...(importName === undefined ? {} : { name: importName }),
       ...(setupTargets === undefined ? {} : { targets: setupTargets }),
       ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
-      useGitRoot: !rootExplicit && importPath === undefined,
+      useGitRoot: setupRootPath === undefined,
       write: yes && !dryRun,
     });
-    printSetupReport(setup, dryRun ? "dry run" : yes ? "written" : "write confirmation required");
-    if (!yes || dryRun) console.log("skillset: rerun init with --yes to write setup files");
-    if (yes && !dryRun) await rememberKnownSkillsetWorkspace(setup.rootPath, options);
+    if (jsonOutput && yes && !dryRun) {
+      await rememberKnownSkillsetWorkspace(setup.rootPath, options, true);
+    }
+    if (jsonOutput) {
+      const writes = yes && !dryRun
+        ? [
+            ...setup.files.filter((file) => file.status === "create").map((file) => file.path),
+            ...(setup.git?.status === "create" ? [setup.git.path] : []),
+            ...(setup.baselinePath === undefined ? [] : [setup.baselinePath]),
+          ]
+        : [];
+      printCliJsonData("init", {
+        report: setup,
+        state: writes.length > 0 ? "written" : "planned",
+        writes,
+      });
+    }
+    else {
+      printSetupReport(setup, dryRun ? "dry run" : yes ? "written" : "write confirmation required");
+      if (!yes || dryRun) console.log("skillset: rerun init with --yes to write setup files");
+    }
+    if (!jsonOutput && yes && !dryRun) await rememberKnownSkillsetWorkspace(setup.rootPath, options);
     return;
   }
 
   if (command === "import") {
-    const result = await importSources({
-      ...(importKind === undefined ? {} : { kind: importKind }),
-      ...(importName === undefined ? {} : { name: importName }),
-      ...(importPath === undefined ? {} : { sourcePath: importPath }),
-      ...(importProvider === undefined ? {} : { provider: importProvider }),
-      rootPath,
-      ...(options.sourceDir === undefined ? {} : { sourceDir: options.sourceDir }),
-    });
-    if (result.imports.length === 1) {
+    let result;
+    try {
+      result = await importSources({
+        ...(importKind === undefined ? {} : { kind: importKind }),
+        ...(importName === undefined ? {} : { name: importName }),
+        ...(importPath === undefined ? {} : { sourcePath: importPath }),
+        ...(importProvider === undefined ? {} : { provider: importProvider }),
+        rootPath,
+        ...(options.sourceDir === undefined ? {} : { sourceDir: options.sourceDir }),
+      });
+    } catch (error) {
+      if (!jsonOutput || !(error instanceof ImportBatchError)) throw error;
+      const writes = importWritePaths(rootPath, error.imports);
+      printCliJsonData("import", {
+        imports: error.imports,
+        state: writes.length > 0 ? "written" : "planned",
+        writes,
+      }, 1, "diagnostics", [{
+        code: "import.partial",
+        message: error.message,
+        severity: "error",
+      }]);
+      return;
+    }
+    if (jsonOutput) {
+      printCliJsonData("import", {
+        result,
+        state: "written",
+        writes: importWritePaths(rootPath, result.imports),
+      });
+    } else if (result.imports.length === 1) {
       const [single] = result.imports;
       if (single !== undefined) printImportReport(single);
     } else {
@@ -691,7 +845,7 @@ export async function runCli(
         console.log(`  - ${imported.kind} ${imported.name}: ${imported.targetPath} (${imported.files} files)`);
       }
     }
-    for (const warning of result.warnings) console.warn(`  warning: ${warning}`);
+    if (!jsonOutput) for (const warning of result.warnings) console.warn(`  warning: ${warning}`);
     return;
   }
 
@@ -708,8 +862,15 @@ export async function runCli(
       skillsetOptions: options,
       write: yes && !dryRun,
     });
-    printNewSourceReport(report, dryRun ? "dry run" : yes ? "written" : "write confirmation required");
-    if (!yes || dryRun) console.log("skillset: rerun new with --yes to write source files");
+    if (jsonOutput) printCliJsonData("new", {
+      report,
+      state: report.write ? "written" : "planned",
+      writes: report.write ? report.files.map((file) => file.path) : [],
+    });
+    else {
+      printNewSourceReport(report, dryRun ? "dry run" : yes ? "written" : "write confirmation required");
+      if (!yes || dryRun) console.log("skillset: rerun new with --yes to write source files");
+    }
     return;
   }
 
@@ -881,11 +1042,8 @@ export async function runCli(
       ...(reconcileChoice === undefined ? {} : { choice: reconcileChoice }),
       write: reconcileChoice !== undefined && yes,
     });
-    if (jsonOutput) {
-      printCliJsonData("reconcile", report, 0, report.applied ? "mutation" : "plan");
-    } else {
-      process.stdout.write(renderReconcileReport(report));
-    }
+    if (jsonOutput) printCliJsonData("reconcile", { report, state: report.applied ? "written" : "planned", writes: report.writtenPaths });
+    else process.stdout.write(renderReconcileReport(report));
     return;
   }
 
@@ -944,6 +1102,19 @@ export async function runCli(
   }
 
   throw new Error(`skillset: unhandled command ${command}`);
+}
+
+function importWritePaths(rootPath: string, imports: readonly ImportReport[]): readonly string[] {
+  return [...new Set(imports.flatMap((entry) => [
+    workspaceRelativePath(rootPath, entry.targetPath),
+    ...(entry.baselinePath === undefined
+      ? []
+      : [workspaceRelativePath(rootPath, entry.baselinePath)]),
+  ]))];
+}
+
+function workspaceRelativePath(rootPath: string, path: string): string {
+  return relative(resolve(rootPath), resolve(rootPath, path)).replaceAll("\\", "/");
 }
 
 export function readInitAdoptionSelection(
@@ -1063,11 +1234,16 @@ function ciReportDiagnostics(report: CiReport): readonly SkillsetCliDiagnostic[]
   return diagnostics;
 }
 
-async function rememberKnownSkillsetWorkspace(rootPath: string, options: SkillsetOptions): Promise<void> {
+async function rememberKnownSkillsetWorkspace(
+  rootPath: string,
+  options: SkillsetOptions,
+  quiet = false
+): Promise<void> {
   if (process.env.NODE_ENV === "test" && process.env.XDG_CONFIG_HOME === undefined) return;
   try {
     await recordKnownSkillsetWorkspace(rootPath, options.xdg);
   } catch (error) {
+    if (quiet) return;
     const message = error instanceof Error ? error.message : String(error);
     console.warn(`  warning: could not update known Skillsets index: ${message}`);
   }
@@ -2315,6 +2491,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   validateJsonFlags(command, jsonOutput, {
     ...(changeSubcommand === undefined ? {} : { changeSubcommand }),
     ...(distributionSubcommand === undefined ? {} : { distributionSubcommand }),
+    ...(releaseSubcommand === undefined ? {} : { releaseSubcommand }),
   });
   if (jsonlOutput) throw new Error("skillset: --jsonl is not supported until a streaming route is enabled");
   validateLookupFlags(command, args, {
@@ -3084,12 +3261,16 @@ function validateJsonFlags(
   route: {
     readonly changeSubcommand?: ChangeSubcommand;
     readonly distributionSubcommand?: DistributionSubcommand;
+    readonly releaseSubcommand?: ReleaseSubcommand;
   }
 ): void {
   if (!jsonOutput) return;
+  if (command === "build" || command === "import" || command === "init" || command === "new" || command === "reconcile" || command === "restore" || command === "update") return;
   if (command === "check") return;
   if (command === "change" && (route.changeSubcommand === "check" || route.changeSubcommand === "history" || route.changeSubcommand === "list" || route.changeSubcommand === "show" || route.changeSubcommand === "status")) return;
-  if (command === "diff" || command === "status" || command === "explain" || command === "list" || command === "lookup" || command === "marketplace" || command === "reconcile" || command === "test") return;
+  if (command === "change" && (route.changeSubcommand === "add" || route.changeSubcommand === "amend" || route.changeSubcommand === "migrate" || route.changeSubcommand === "reason")) return;
+  if (command === "release" && route.releaseSubcommand !== undefined) return;
+  if (command === "diff" || command === "status" || command === "explain" || command === "list" || command === "lookup" || command === "marketplace" || command === "test") return;
   if (command === "distribute" && route.distributionSubcommand === "plan") return;
   throw new Error("skillset: --json is not supported for this command route");
 }

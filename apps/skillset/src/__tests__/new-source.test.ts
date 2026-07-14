@@ -25,6 +25,12 @@ test("SET-165: new skill previews by default and writes ordinary repo source wit
   expect(skill).toContain('title: "Docs CLI Expert"');
   expect(skill).toContain('description: "Use when working with Docs CLI Expert workflows."');
 
+  const jsonWritten = await runSkillsetCli("new", "skill", "JSON Skill", "--root", root, "--yes", "--json");
+  expect(jsonWritten.exitCode).toBe(0);
+  const jsonWrites = (JSON.parse(jsonWritten.stdout) as { data: { writes: unknown[] } }).data.writes;
+  expect(jsonWrites).toEqual([".skillset/skills/json-skill/SKILL.md"]);
+  expect(jsonWrites.every((path) => typeof path === "string")).toBe(true);
+
   await expect(runSkillsetCli("build", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   const check = await runSkillsetCli("check", "--root", root);
   expect(check.exitCode).toBe(0);
