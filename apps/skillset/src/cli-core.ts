@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
+import { createInterface } from "node:readline/promises";
 
 import {
   auditVersions,
@@ -29,7 +30,7 @@ import {
 
 import { changeCheck, type ChangeBump, type ChangeCheckReport } from "./change-entries";
 import { changeStatus, type ChangeStatusReport } from "./change-status";
-import { ADOPT_REPORT_DIR, adoptSkillset, type AdoptReport } from "./adopt";
+import { ADOPT_REPORT_DIR, adoptCandidateId, adoptSkillset, type AdoptReport } from "./adopt";
 import {
   addChangeEntry,
   amendAppliedChange,
@@ -112,7 +113,7 @@ import {
   runTryCommand,
   validateTryFlags,
 } from "./try-cli";
-import { createSkillset, initSkillset, type SetupInclude, type SetupLayoutOption, type SetupReport } from "./setup";
+import { initSkillset, type SetupInclude, type SetupReport } from "./setup";
 import { sourceUnitDisplay, sourceUnitDisplays, sourceUnitSelector } from "@skillset/core/internal/source-unit-selector";
 import { renderValidatedJson } from "@skillset/core/internal/structured-output";
 import { renderCliDataResult } from "./cli-output";
@@ -164,9 +165,7 @@ const USAGE = [
   "       skillset hooks print --target <claude|codex> --agent-runtime",
   "       skillset hooks run <post-tool-use|stop> [--root <path>]",
   "       skillset hooks context --event <event> [--format env|json] [--context-fields <field,...>] [--root <path>]",
-  "       skillset adopt <path> [--yes|--dry-run] [--targets claude,codex,cursor] [--root <path>]",
-  "       skillset init [path] [--yes|--dry-run] [--targets claude,codex,cursor] [--include ci] [--layout root|nested] [--name <name>] [--root <path>]",
-  "       skillset create [path|--global] [--yes|--dry-run] [--targets claude,codex,cursor] [--include ci] [--name <name>] [--root <path>]",
+  "       skillset init [destination] [--from <path|git-url>] [--adopt <all|candidate-id>] [--yes] [--targets claude,codex,cursor] [--include ci] [--name <name>] [--root <path>]",
   "       skillset new <skill|agent|hook> [name] [--id <id>] [--name <name>] [--in <container>] [--scope repo] [--preset <preset>] [--yes|--dry-run] [--root <path>] [--source <dir>]",
   "       skillset explain <path> [--json] [--scope <scope>] [--root <path>] [--source <dir>]",
   "       skillset import <path> [--kind <skill|skills|plugin|plugins>] [--from <provider>] [--name <name>] [--root <path>] [--source <dir>]",
@@ -174,10 +173,9 @@ const USAGE = [
 ].join("\n");
 
 export async function runCli(
-  rawArgs: readonly string[] = process.argv.slice(2),
-  invokedName = basename(process.argv[1] ?? "")
+  rawArgs: readonly string[] = process.argv.slice(2)
 ): Promise<void> {
-  const args = invokedName === "create-skillset" ? ["create", ...rawArgs] : rawArgs;
+  const args = rawArgs;
   if (args.some((arg) => arg === "--help" || arg === "-h")) {
     console.log(USAGE);
     return;
@@ -214,6 +212,8 @@ export async function runCli(
     importPath,
     importName,
     importProvider,
+    initAdopt,
+    initFrom,
     jsonOutput,
     lookupAspects,
     lookupField,
@@ -246,9 +246,7 @@ export async function runCli(
     trySubcommand,
     tryTarget,
     tryTimeoutMs,
-    setupGlobal,
     setupIncludes,
-    setupLayout,
     setupTargets,
     sourceSuggestionWrite,
     testName,
@@ -637,51 +635,83 @@ export async function runCli(
     return;
   }
 
-  if (command === "adopt") {
-    const writeMode = yes && !dryRun;
-    const report = await adoptSkillset(
-      importPath === undefined ? rootPath : importPath,
-      {
+  if (command === "init") {
+    if (initAdopt !== undefined || initFrom !== undefined) {
+      const writeMode = initAdopt !== undefined && yes && !dryRun;
+      const inferredRoot = initFrom === undefined
+        ? (await initSkillset({ cwd: rootPath, useGitRoot: !rootExplicit, write: false })).rootPath
+        : rootPath;
+      const report = await adoptSkillset(initFrom ?? inferredRoot, {
         cwd: rootPath,
+        ...(initAdopt === undefined ? {} : { candidates: initAdopt }),
+        ...(importPath === undefined ? {} : { destination: resolve(rootPath, importPath) }),
+        ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
+        ...(importName === undefined ? {} : { name: importName }),
         ...(setupTargets === undefined ? {} : { targets: setupTargets }),
         write: writeMode,
-      }
-    );
-    const reason = dryRun
-      ? "dry run"
-      : writeMode
-        ? report.write ? "written" : "blocked before write"
-        : "write confirmation required";
-    printAdoptReport(report, reason);
-    if (!writeMode && report.ok) console.log("skillset: rerun with --yes to adopt");
-    if (!report.ok) process.exitCode = 1;
-    if (writeMode && report.ok) await rememberKnownSkillsetWorkspace(report.rootPath, options);
-    return;
-  }
-
-  if (command === "init" || command === "create") {
-    const setup = command === "init"
-      ? await initSkillset({
+      });
+      const reason = writeMode ? report.write ? "written" : "blocked before write" : "write confirmation required";
+      printAdoptReport(report, reason);
+      if (!writeMode && report.ok && initAdopt !== undefined) console.log("skillset: rerun init with --adopt and --yes to write adopted source");
+      if (!report.ok) process.exitCode = 1;
+      if (writeMode && report.ok) await rememberKnownSkillsetWorkspace(report.rootPath, options);
+      return;
+    }
+    if (!yes && !dryRun && process.stdin.isTTY && process.stdout.isTTY) {
+      const survey = await initSkillset({
+        cwd: rootPath,
+        ...(importPath === undefined ? {} : { rootPath: importPath }),
+        ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
+        ...(setupTargets === undefined ? {} : { targets: setupTargets }),
+        useGitRoot: !rootExplicit && importPath === undefined,
+        write: false,
+      });
+      if (survey.importCandidates.length > 0) {
+        printSetupReport(survey, "interactive preview");
+        const selection = await promptForInitAdoption(survey.importCandidates);
+        if (selection.confirmed && selection.candidates.length > 0) {
+          const report = await adoptSkillset(importPath ?? survey.rootPath, {
+            candidates: selection.candidates,
+            cwd: rootPath,
+            ...(importName === undefined ? {} : { name: importName }),
+            ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
+            ...(setupTargets === undefined ? {} : { targets: setupTargets }),
+            write: true,
+          });
+          printAdoptReport(report, report.write ? "written" : "blocked before write");
+          if (!report.ok) process.exitCode = 1;
+          else await rememberKnownSkillsetWorkspace(report.rootPath, options);
+          return;
+        }
+        if (!selection.confirmed) {
+          printSetupReport(survey, "write confirmation declined");
+          return;
+        }
+        const setup = await initSkillset({
           cwd: rootPath,
           ...(importPath === undefined ? {} : { rootPath: importPath }),
           ...(importName === undefined ? {} : { name: importName }),
-          ...(setupTargets === undefined ? {} : { targets: setupTargets }),
           ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
-          ...(setupLayout === undefined ? {} : { layout: setupLayout }),
+          ...(setupTargets === undefined ? {} : { targets: setupTargets }),
           useGitRoot: !rootExplicit && importPath === undefined,
-          write: yes && !dryRun,
-        })
-      : await createSkillset({
-          cwd: rootPath,
-          global: setupGlobal,
-          ...(importPath === undefined ? {} : { rootPath: importPath }),
-          ...(importName === undefined ? {} : { name: importName }),
-          ...(setupTargets === undefined ? {} : { targets: setupTargets }),
-          ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
-          write: yes && !dryRun,
+          write: true,
         });
+        printSetupReport(setup, "written");
+        await rememberKnownSkillsetWorkspace(setup.rootPath, options);
+        return;
+      }
+    }
+    const setup = await initSkillset({
+      cwd: rootPath,
+      ...(importPath === undefined ? {} : { rootPath: importPath }),
+      ...(importName === undefined ? {} : { name: importName }),
+      ...(setupTargets === undefined ? {} : { targets: setupTargets }),
+      ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
+      useGitRoot: !rootExplicit && importPath === undefined,
+      write: yes && !dryRun,
+    });
     printSetupReport(setup, dryRun ? "dry run" : yes ? "written" : "write confirmation required");
-    if (!yes || dryRun) console.log(`skillset: rerun ${command} with --yes to write setup files`);
+    if (!yes || dryRun) console.log("skillset: rerun init with --yes to write setup files");
     if (yes && !dryRun) await rememberKnownSkillsetWorkspace(setup.rootPath, options);
     return;
   }
@@ -963,6 +993,34 @@ export async function runCli(
   }
 }
 
+export function readInitAdoptionSelection(
+  answer: string,
+  candidates: readonly { readonly kind: string; readonly path: string }[]
+): readonly string[] {
+  const value = answer.trim();
+  if (value === "" || value === "none") return [];
+  const available = new Set(candidates.map((candidate) => `${candidate.kind}:${candidate.path}`));
+  const selected = value === "all" ? [...available] : value.split(",").map((item) => item.trim()).filter(Boolean);
+  for (const id of selected) if (!available.has(id)) throw new Error(`skillset: unknown adoption candidate ${id}`);
+  return [...new Set(selected)];
+}
+
+async function promptForInitAdoption(
+  candidates: readonly { readonly kind: string; readonly path: string }[]
+): Promise<{ readonly candidates: readonly string[]; readonly confirmed: boolean }> {
+  console.log("skillset: detected adoptable sources");
+  for (const candidate of candidates) console.log(`  ${adoptCandidateId(candidate)}`);
+  const prompt = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const answer = await prompt.question("Adopt all, comma-separated candidate ids, or none [none]: ");
+    const selected = readInitAdoptionSelection(answer, candidates);
+    const confirmation = await prompt.question(`Write init plan (${selected.length === 0 ? "scaffold only" : `${selected.length} adoption candidate(s)`})? [y/N]: `);
+    return { candidates: selected, confirmed: /^(?:y|yes)$/iu.test(confirmation.trim()) };
+  } finally {
+    prompt.close();
+  }
+}
+
 export function reportCliError(error: unknown): void {
   const message = error instanceof Error ? error.message : String(error);
   console.error(message);
@@ -1054,6 +1112,8 @@ interface ParsedArgs {
   readonly importName?: string;
   readonly importPath?: string;
   readonly importProvider?: ImportProvider;
+  readonly initAdopt?: readonly string[];
+  readonly initFrom?: string;
   readonly jsonOutput: boolean;
   readonly jsonlOutput: boolean;
   readonly lookupAspects: readonly string[];
@@ -1087,9 +1147,7 @@ interface ParsedArgs {
   readonly tryTimeoutMs?: number;
   readonly rootExplicit: boolean;
   readonly rootPath: string;
-  readonly setupGlobal: boolean;
   readonly setupIncludes?: readonly SetupInclude[];
-  readonly setupLayout?: SetupLayoutOption;
   readonly setupTargets?: readonly TargetName[];
   readonly sourceSuggestionWrite: boolean;
   readonly testName?: string;
@@ -1498,7 +1556,7 @@ function printAdoptReport(report: AdoptReport, reason: string): void {
   }
   for (const candidate of report.candidates) {
     const sources = candidate.plugin === undefined ? "" : ` (${candidate.plugin.paths.join(", ")})`;
-    console.log(`  ? import candidate ${candidate.kind} ${candidate.path}${sources}`);
+    console.log(`  ? import candidate ${candidate.kind} ${candidate.path}${sources} (id: ${adoptCandidateId(candidate)})`);
   }
   for (const diagnostic of report.surveyDiagnostics) {
     const marker = diagnostic.severity === "error" ? "FAIL" : "warning";
@@ -1550,7 +1608,7 @@ function printSetupReport(result: SetupReport, reason: string): void {
     console.log(`  ${marker} baseline ${sourceUnitDisplay(baseline.scope)} ${baseline.version}`);
   }
   for (const candidate of result.importCandidates) {
-    console.log(`  ? import candidate ${candidate.kind} ${candidate.path}`);
+    console.log(`  ? import candidate ${candidate.kind} ${candidate.path} (id: ${adoptCandidateId(candidate)})`);
   }
   for (const diagnostic of result.surveyDiagnostics) {
     const marker = diagnostic.severity === "error" ? "FAIL" : "warning";
@@ -1728,6 +1786,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let importName: string | undefined;
   let importPath: string | undefined;
   let importProvider: ImportProvider | undefined;
+  let initAdopt: readonly string[] | undefined;
+  let initFrom: string | undefined;
   let jsonOutput = false;
   let jsonlOutput = false;
   let lookupAspects: string[] = [];
@@ -1752,9 +1812,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let dryRun = false;
   let isolated = false;
   let scopes: readonly BuildScope[] | undefined;
-  let setupGlobal = false;
   let setupIncludes: readonly SetupInclude[] | undefined;
-  let setupLayout: SetupLayoutOption | undefined;
   let setupTargets: readonly TargetName[] | undefined;
   let sourceSuggestionWrite = false;
   let testName: string | undefined;
@@ -1876,7 +1934,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     }
   }
 
-  if (command === "adopt" || command === "init" || command === "create") {
+  if (command === "init") {
     const rawPath = args[index];
     if (rawPath !== undefined && !rawPath.startsWith("--")) {
       importPath = rawPath;
@@ -1960,6 +2018,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--in" &&
       flag !== "--kind" &&
       flag !== "--from" &&
+      flag !== "--adopt" &&
       flag !== "--preset" &&
       flag !== "--append" &&
       flag !== "--bump" &&
@@ -1975,10 +2034,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag !== "--all" &&
       flag !== "--isolated" &&
       flag !== "--scope" &&
-      flag !== "--global" &&
       flag !== "--targets" &&
       flag !== "--include" &&
-      flag !== "--layout" &&
       flag !== "--fix" &&
       flag !== "--report" &&
       flag !== "--json" &&
@@ -2039,7 +2096,6 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag === "--isolated" ||
       flag === "--append" ||
       flag === "--staged" ||
-      flag === "--global" ||
       flag === "--fix" ||
       flag === "--json" ||
       flag === "--jsonl" ||
@@ -2068,7 +2124,6 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       if (flag === "--isolated") isolated = true;
       if (flag === "--append") changeAppend = true;
       if (flag === "--staged") changeStaged = true;
-      if (flag === "--global") setupGlobal = true;
       if (flag === "--fix") ciFix = true;
       if (flag === "--json") jsonOutput = true;
       if (flag === "--jsonl") jsonlOutput = true;
@@ -2153,7 +2208,6 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     if (flag === "--lines") tryLines = readPositiveInteger(value, "--lines");
     if (flag === "--targets") setupTargets = readSetupTargets(value);
     if (flag === "--include") setupIncludes = mergeSetupIncludes(setupIncludes, value);
-    if (flag === "--layout") setupLayout = readSetupLayout(value);
     if (flag === "--id") newId = value;
     if (flag === "--in") newContainer = value;
     if (flag === "--name") {
@@ -2172,11 +2226,15 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       importKind = value;
     }
     if (flag === "--from") {
-      if (!isImportProvider(value)) {
+      if (command === "init") {
+        initFrom = value;
+      } else if (!isImportProvider(value)) {
         throw new Error("skillset: expected --from claude, codex, cursor, agents, or skillset");
+      } else {
+        importProvider = value;
       }
-      importProvider = value;
     }
+    if (flag === "--adopt") initAdopt = [...(initAdopt ?? []), value];
   }
 
   validateChangeFlags(command, changeSubcommand, {
@@ -2214,13 +2272,12 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   });
 
   validateSetupFlags(command, {
-    global: setupGlobal,
     ...(setupIncludes === undefined ? {} : { includes: setupIncludes }),
-    ...(setupLayout === undefined ? {} : { layout: setupLayout }),
-    ...(importPath === undefined ? {} : { path: importPath }),
-    rootExplicit,
     ...(setupTargets === undefined ? {} : { targets: setupTargets }),
   });
+  if (command !== "init" && (initAdopt !== undefined || initFrom !== undefined)) {
+    throw new Error("skillset: --adopt and init acquisition --from are only supported with init");
+  }
 
   validateCiFlags(command, {
     dryRun,
@@ -2395,6 +2452,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(importName === undefined ? {} : { importName }),
     ...(importPath === undefined ? {} : { importPath }),
     ...(importProvider === undefined ? {} : { importProvider }),
+    ...(initAdopt === undefined ? {} : { initAdopt }),
+    ...(initFrom === undefined ? {} : { initFrom }),
     jsonOutput,
     jsonlOutput,
     lookupAspects,
@@ -2428,9 +2487,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(tryTimeoutMs === undefined ? {} : { tryTimeoutMs }),
     rootExplicit,
     rootPath: resolve(rootPath),
-    setupGlobal,
     ...(setupIncludes === undefined ? {} : { setupIncludes }),
-    ...(setupLayout === undefined ? {} : { setupLayout }),
     ...(setupTargets === undefined ? {} : { setupTargets }),
     sourceSuggestionWrite,
     ...(testName === undefined ? {} : { testName }),
@@ -2922,11 +2979,6 @@ function readSetupTargets(value: string): readonly TargetName[] {
   return [...seen];
 }
 
-function readSetupLayout(value: string): SetupLayoutOption {
-  if (value === "root" || value === "nested") return value;
-  throw new Error("skillset: expected --layout root or nested");
-}
-
 function validateIsolatedFlag(command: Command, isolated: boolean): void {
   if (!isolated) return;
   if (command === "build" || command === "diff" || command === "verify") return;
@@ -3006,40 +3058,13 @@ function validateUpdateFlags(
 function validateSetupFlags(
   command: Command,
   setup: {
-    readonly global: boolean;
     readonly includes?: readonly SetupInclude[];
-    readonly layout?: SetupLayoutOption;
-    readonly path?: string;
-    readonly rootExplicit: boolean;
     readonly targets?: readonly TargetName[];
   }
 ): void {
-  if ((command === "init" || command === "create") && setup.global && command !== "create") {
-    throw new Error("skillset: --global is only supported with create");
-  }
-  if (command === "create" && setup.global && setup.path !== undefined) {
-    throw new Error("skillset: create accepts either a path or --global, not both");
-  }
-  if (command === "create" && setup.global && setup.rootExplicit) {
-    throw new Error("skillset: create --global does not support --root; use the default global source path");
-  }
-  if (command === "create" && setup.global && setup.includes !== undefined) {
-    throw new Error("skillset: create --global does not support --include");
-  }
-  if (setup.layout !== undefined && command !== "init") {
-    throw new Error("skillset: --layout is only supported with init");
-  }
-  if (command === "adopt") {
-    if (setup.global) throw new Error("skillset: --global is not supported with adopt");
-    if (setup.includes !== undefined) throw new Error("skillset: --include is not supported with adopt");
-    return;
-  }
-  const hasSetupFlag = setup.global ||
-    setup.includes !== undefined ||
-    setup.layout !== undefined ||
-    setup.targets !== undefined;
-  if (hasSetupFlag && command !== "init" && command !== "create") {
-    throw new Error("skillset: setup options are only supported with init or create");
+  const hasSetupFlag = setup.includes !== undefined || setup.targets !== undefined;
+  if (hasSetupFlag && command !== "init") {
+    throw new Error("skillset: setup options are only supported with init");
   }
 }
 
@@ -3050,7 +3075,7 @@ function validateAdoptFlags(
     readonly scopes?: readonly BuildScope[];
   }
 ): void {
-  if (command !== "adopt") return;
+  if (command !== "init") return;
   if (adopt.buildMode !== undefined || adopt.scopes !== undefined) {
     throw new Error(
       "skillset: build mode and scope flags are not supported with adopt; adoption always builds the full projection isolated"

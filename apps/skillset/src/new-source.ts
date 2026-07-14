@@ -209,7 +209,7 @@ async function assertPluginContainer(
 async function assertWorkspaceInitialized(rootPath: string, sourceDir: string): Promise<void> {
   if (await fileExists(resolveInside(rootPath, "skillset.yaml"))) return;
   throw new Error(
-    "skillset: new requires an initialized Skillset workspace; run skillset init --yes or skillset create"
+    "skillset: new requires an initialized Skillset workspace; run skillset init --yes"
   );
 }
 

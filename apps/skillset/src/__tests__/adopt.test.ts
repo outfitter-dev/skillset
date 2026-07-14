@@ -1,15 +1,16 @@
 import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
-import { mkdtemp, readdir, readFile, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
 
-import { ADOPT_REPORT_DIR, adoptSkillset, renderAdoptReportMarkdown } from "../adopt";
+import { ADOPT_REPORT_DIR, adoptCandidateId, adoptSkillset, renderAdoptReportMarkdown } from "../adopt";
 import { ISOLATED_OUT_ROOT } from "@skillset/core";
 import { gitSafeEnv } from "../git-env";
+import { readInitAdoptionSelection } from "../cli-core";
 
 const AGENTS_CONTENT = "# Demo agents\n\nHandwritten instructions.\n";
 
@@ -29,6 +30,43 @@ const MARKETPLACE_FIXTURE: Record<string, string> = {
   "plugins/demo/skills/demo-skill/SKILL.md":
     "---\nname: demo-skill\ndescription: Demo skill.\n---\n\nBody.\n",
 };
+
+test("SET-277: interactive init selection supports all, individual candidates, and scaffold-only", () => {
+  const candidates = [
+    { kind: "plugin", path: "plugins/demo" },
+    { kind: "skills", path: ".agents/skills" },
+  ];
+  expect(readInitAdoptionSelection("all", candidates)).toEqual(["plugin:plugins/demo", "skills:.agents/skills"]);
+  expect(readInitAdoptionSelection("skills:.agents/skills", candidates)).toEqual(["skills:.agents/skills"]);
+  expect(readInitAdoptionSelection("none", candidates)).toEqual([]);
+  expect(() => readInitAdoptionSelection("plugin:missing", candidates)).toThrow("unknown adoption candidate plugin:missing");
+});
+
+test("SET-277: removed setup commands have no aliases", async () => {
+  const create = await runSkillsetCli("create");
+  const adopt = await runSkillsetCli("adopt", ".");
+  expect(create.exitCode).toBe(1);
+  expect(adopt.exitCode).toBe(1);
+  expect(create.stderr).toContain("expected command");
+  expect(adopt.stderr).toContain("expected command");
+  const packageJson = JSON.parse(await readFile(join(import.meta.dir, "../../package.json"), "utf8")) as { readonly bin: Record<string, string> };
+  expect(packageJson.bin).not.toHaveProperty("create-skillset");
+});
+
+test("SET-277: non-interactive init adoption can select one stable candidate", async () => {
+  const root = await fixture({
+    ".agents/skills/one/SKILL.md": "---\nname: one\ndescription: One.\n---\n\nOne.\n",
+    ".claude/skills/two/SKILL.md": "---\nname: two\ndescription: Two.\n---\n\nTwo.\n",
+  });
+  const plan = await adoptSkillset(root);
+  const selected = plan.candidates.find((candidate) => candidate.path === ".agents/skills");
+  expect(selected).toBeDefined();
+  const report = await adoptSkillset(root, { candidates: [adoptCandidateId(selected!)], write: true });
+  expect(report.imports).toHaveLength(1);
+  expect(report.imports[0]?.candidate.path).toBe(".agents/skills");
+  expect(await Bun.file(join(root, ".skillset/skills/one/SKILL.md")).exists()).toBe(true);
+  expect(await Bun.file(join(root, ".skillset/skills/two/SKILL.md")).exists()).toBe(false);
+});
 
 test("adopt plan mode surveys only and writes nothing", async () => {
   const root = await fixture(MARKETPLACE_FIXTURE);
@@ -76,7 +114,7 @@ test("adopt reports current and dedicated workspaces as already adopted", async 
 
   expect(ordinaryReport.alreadyAdopted).toBe(true);
   expect(dedicatedReport.alreadyAdopted).toBe(true);
-  const cli = await runSkillsetCli("adopt", ordinary);
+  const cli = await runSkillsetCli("init", "--from", ordinary, "--adopt", "all");
   expect(cli.stdout).toContain("repo already has a Skillset workspace marker");
   expect(cli.stdout).not.toContain("repo already has skillset.yaml");
   const markdown = renderAdoptReportMarkdown(ordinaryReport, { rootPath: ordinary });
@@ -128,10 +166,128 @@ test("adopt accepts git remotes by shallow cloning before running the existing f
     expect(explain.stdout).toContain(`source origin: ${remote} @ ${ref} path plugins/demo`);
   }
 
-  const cli = await runSkillsetCli("adopt", remote, "--yes");
+  const cli = await runSkillsetCli("init", "--from", remote, "--adopt", "all", "--yes");
   expect(cli.exitCode).toBe(0);
   expect(cli.stdout).toContain(`source: git ${remote} @ `);
   expect(cli.stdout).toContain("adopt passed");
+});
+
+test("SET-277: adoption resolves relative destinations from the caller cwd", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "skillset-adopt-cwd-"));
+  const source = join(cwd, "source");
+  await mkdir(source);
+  await writeFile(join(source, "AGENTS.md"), AGENTS_CONTENT, "utf8");
+
+  const report = await adoptSkillset("source", {
+    cwd,
+    destination: "destination",
+    write: true,
+  });
+
+  expect(report.ok).toBe(true);
+  expect(report.rootPath).toBe(join(cwd, "destination"));
+  expect(await Bun.file(join(cwd, "destination/.skillset/rules/agents.md")).exists()).toBe(true);
+});
+
+test("SET-277: local and remote init --from write the same adoption plan into a destination", async () => {
+  const source = await gitFixture(MARKETPLACE_FIXTURE);
+  const parent = await mkdtemp(join(tmpdir(), "skillset-init-from-"));
+  const localDestination = join(parent, "local");
+  const remoteDestination = join(parent, "remote");
+  const before = await walkFiles(source);
+
+  const local = await runSkillsetCli("init", localDestination, "--from", source, "--adopt", "all", "--yes");
+  const remote = await runSkillsetCli("init", remoteDestination, "--from", pathToFileURL(source).href, "--adopt", "all", "--yes");
+
+  expect(local.exitCode).toBe(0);
+  expect(remote.exitCode).toBe(0);
+  expect(await Bun.file(join(localDestination, ".skillset/plugins/demo/skillset.yaml")).exists()).toBe(true);
+  expect(await Bun.file(join(remoteDestination, ".skillset/plugins/demo/skillset.yaml")).exists()).toBe(true);
+  expect(await exists(join(localDestination, ".git"))).toBe(true);
+  expect(await exists(join(remoteDestination, ".git"))).toBe(true);
+  expect(await readFile(join(remoteDestination, ".git", "config"), "utf8")).not.toContain('[remote "origin"]');
+  expect(await exists(join(remoteDestination, ".git", "shallow"))).toBe(false);
+  expect(await walkFiles(source)).toEqual(before);
+});
+
+test("SET-277: init adoption honors an explicit workspace name", async () => {
+  const source = await fixture(MARKETPLACE_FIXTURE);
+  const parent = await mkdtemp(join(tmpdir(), "skillset-init-name-"));
+  const destination = join(parent, "destination");
+
+  const result = await runSkillsetCli(
+    "init", destination, "--from", source, "--adopt", "all", "--name", "team", "--yes"
+  );
+
+  expect(result.exitCode).toBe(0);
+  expect(await readFile(join(destination, "skillset.yaml"), "utf8")).toContain("name: team");
+});
+
+test("SET-277: init adoption resolves the repo root from a subdirectory", async () => {
+  const root = await gitFixture(MARKETPLACE_FIXTURE);
+  const nested = join(root, "packages", "demo");
+  await mkdir(nested, { recursive: true });
+
+  const result = await runSkillsetCliIn(nested, "init", "--adopt", "all", "--yes");
+
+  expect(result.exitCode).toBe(0);
+  expect(await exists(join(root, ".skillset", "plugins", "demo", "skillset.yaml"))).toBe(true);
+  expect(await exists(join(nested, "skillset.yaml"))).toBe(false);
+});
+
+test("SET-277: init adoption preserves its positional destination without --from", async () => {
+  const source = await gitFixture(MARKETPLACE_FIXTURE);
+  const destinationName = `${source.split("/").at(-1)}-migrated`;
+  const destination = join(source, "..", destinationName);
+  const before = await walkFiles(source);
+
+  const result = await runSkillsetCliIn(source, "init", `../${destinationName}`, "--adopt", "all", "--yes");
+
+  expect(result.exitCode).toBe(0);
+  expect(await exists(join(destination, ".skillset", "plugins", "demo", "skillset.yaml"))).toBe(true);
+  expect(await walkFiles(source)).toEqual(before);
+});
+
+test("SET-277: init adoption can copy into a destination nested below its source", async () => {
+  const source = await gitFixture(MARKETPLACE_FIXTURE);
+  const destination = join(source, "migrated");
+
+  const result = await runSkillsetCliIn(source, "init", "migrated", "--from", ".", "--adopt", "all", "--yes");
+
+  expect(result.exitCode).toBe(0);
+  expect(await exists(join(destination, ".skillset", "plugins", "demo", "skillset.yaml"))).toBe(true);
+  expect(await exists(join(destination, "migrated"))).toBe(false);
+});
+
+test("SET-277: init --from previews without creating its destination", async () => {
+  const source = await fixture(MARKETPLACE_FIXTURE);
+  const parent = await mkdtemp(join(tmpdir(), "skillset-init-preview-"));
+  const destination = join(parent, "preview");
+
+  const preview = await runSkillsetCli("init", destination, "--from", source, "--adopt", "all");
+
+  expect(preview.exitCode).toBe(0);
+  expect(await exists(destination)).toBe(false);
+});
+
+test("SET-277: init --from validates adoption before copying its destination", async () => {
+  const source = await fixture(MARKETPLACE_FIXTURE);
+  const parent = await mkdtemp(join(tmpdir(), "skillset-init-preflight-"));
+  const destination = join(parent, "invalid-selection");
+
+  const result = await runSkillsetCli(
+    "init",
+    destination,
+    "--from",
+    source,
+    "--adopt",
+    "plugin:missing",
+    "--yes"
+  );
+
+  expect(result.exitCode).not.toBe(0);
+  expect(result.stderr).toContain("unknown adoption candidate");
+  expect(await exists(destination)).toBe(false);
 });
 
 test("adopt write mode imports everything, builds the mirror, and writes the report", async () => {
@@ -409,7 +565,7 @@ test("adopt fails on lint errors and the CLI exits nonzero", async () => {
   expect(markdown).toContain("codex-claude-dynamic-context");
 
   const cliRoot = await fixture(files);
-  const result = await runSkillsetCli("adopt", cliRoot, "--yes");
+  const result = await runSkillsetCli("init", "--from", cliRoot, "--adopt", "all", "--yes");
   expect(result.exitCode).toBe(1);
   expect(result.stdout).toContain("FAIL lint");
   expect(result.stdout).toContain("adopt found problems");
@@ -539,32 +695,32 @@ test("adopt CLI without --yes prints the survey and writes nothing", async () =>
   const root = await fixture(MARKETPLACE_FIXTURE);
   const before = await walkFiles(root);
 
-  const result = await runSkillsetCli("adopt", root);
+  const result = await runSkillsetCli("init", "--from", root, "--adopt", "all");
 
   expect(result.exitCode).toBe(0);
   expect(result.stdout).toContain("import candidate instructions AGENTS.md");
   expect(result.stdout).toContain("import candidate plugin plugins/demo");
   expect(result.stdout).toContain("skipped commands .claude/commands");
-  expect(result.stdout).toContain("rerun with --yes to adopt");
+  expect(result.stdout).toContain("rerun init with --adopt and --yes");
   expect(await walkFiles(root)).toEqual(before);
 });
 
 test("adopt CLI rejects isolation and build-shape flags", async () => {
-  const isolated = await runSkillsetCli("adopt", ".", "--isolated");
+  const isolated = await runSkillsetCli("init", "--from", ".", "--adopt", "all", "--isolated");
   expect(isolated.exitCode).toBe(1);
   expect(isolated.stderr).toContain("--isolated is only supported with build, diff, or verify");
 
-  const scoped = await runSkillsetCli("adopt", ".", "--scope", "plugins");
+  const scoped = await runSkillsetCli("init", "--from", ".", "--adopt", "all", "--scope", "plugins");
   expect(scoped.exitCode).toBe(1);
   expect(scoped.stderr).toContain("not supported with adopt");
 
-  const updated = await runSkillsetCli("adopt", ".", "--updated");
+  const updated = await runSkillsetCli("init", "--from", ".", "--adopt", "all", "--updated");
   expect(updated.exitCode).toBe(1);
   expect(updated.stderr).toContain("not supported with adopt");
 
-  const include = await runSkillsetCli("adopt", ".", "--include", "ci");
-  expect(include.exitCode).toBe(1);
-  expect(include.stderr).toContain("--include is not supported with adopt");
+  const include = await runSkillsetCli("init", "--from", ".", "--adopt", "all", "--include", "ci");
+  expect(include.exitCode).toBe(0);
+  expect(include.stdout).toContain(".github/workflows/skillset-ci.yml");
 });
 
 async function fixture(files: Record<string, string>): Promise<string> {
@@ -638,6 +794,21 @@ async function runSkillsetCli(...args: readonly string[]): Promise<{
 }> {
   const proc = Bun.spawn({
     cmd: ["bun", join(import.meta.dir, "..", "cli.ts"), ...args],
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  return { exitCode, stderr, stdout };
+}
+
+async function runSkillsetCliIn(cwd: string, ...args: readonly string[]): ReturnType<typeof runSkillsetCli> {
+  const proc = Bun.spawn({
+    cmd: ["bun", join(import.meta.dir, "..", "cli.ts"), ...args],
+    cwd,
     stderr: "pipe",
     stdout: "pipe",
   });

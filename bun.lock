@@ -18,7 +18,6 @@
       "name": "skillset",
       "version": "0.16.2",
       "bin": {
-        "create-skillset": "dist/create.js",
         "skillset": "dist/cli.js",
         "skillset-toolkit": "dist/toolkit.js",
       },

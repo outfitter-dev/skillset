@@ -23,7 +23,7 @@ Package-facing means a change that can affect the published `skillset` CLI packa
 
 | Path | Why it requires a package Changeset |
 | --- | --- |
-| `apps/skillset/src/**` except tests | CLI and `create-skillset` runtime source bundled into the package. |
+| `apps/skillset/src/**` except tests | CLI runtime source bundled into the package. |
 | `apps/skillset/package.json` | Published package metadata, bin entries, dependencies, and version-bearing state. |
 | `packages/core/src/**` except tests | Internal compiler/library implementation bundled through the CLI. |
 | `packages/lint/src/**` except tests | Lint implementation consumed by the CLI. |

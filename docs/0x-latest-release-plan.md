@@ -30,7 +30,7 @@ builds remain on explicit prerelease tags such as `beta`.
 | Gate | Current release bar | Required evidence |
 | --- | --- | --- |
 | Source/config/frontmatter contract | Mostly stable for 0.x. Known exceptions must stay documented rather than silently drifting. | `docs/schema-contracts.md`, generated schema artifacts, `bun run schema:check`, and Workbench schema diagnostics. |
-| First-author path | Needs a real authoring pass before final release approval. SET-211 adds source-positioned diagnostic guidance, but the onboarding path still needs human feedback from the quickstart/create flow. | `docs/quickstart.md`, `examples/first-author/`, SET-198, SET-211, `skillset create`, `skillset init`, `skillset check`, and `skillset verify` runs. |
+| First-author path | Needs a real authoring pass before final release approval. SET-211 adds source-positioned diagnostic guidance, but onboarding still needs human feedback. | `docs/quickstart.md`, `examples/first-author/`, SET-198, SET-211, `skillset init`, `skillset check`, and `skillset verify` runs. |
 | Hooks/runtime context | Must be either done through the helper-backed toolkit lane or explicitly deferred from release notes. Do not imply universal adaptive hook parity. | SET-16, SET-228, `docs/features/hooks.md`, `packages/toolkit/src/__tests__/`, runtime hook tests, and provider capability docs. |
 | Package release automation | Must remain GitHub Actions-owned, with clear release-intent labels and exact-SHA CI before publish. | `docs/package-releases.md`, `.github/workflows/release.yml`, `scripts/release-policy.ts`, `bun run publish:check`, and release-policy tests. |
 | Provider/schema evidence | Provider snapshots and schema references must be checked in and fresh for any changed contract or target surface. | `bun run schema:check`, provider format tests, `docs/target-surfaces.md`, generated schema/example diffs when applicable. |
@@ -61,7 +61,7 @@ plainly:
 Before approving the release cut, run a fresh authoring pass from an empty or
 near-empty repo and record the result in SET-198 or its successor:
 
-1. Run `skillset create` or `skillset init` in preview mode, then with `--yes`.
+1. Run `skillset init [destination]` in preview mode, then with `--yes`.
 2. Add one simple skill and one rule through the documented source layout.
 3. Intentionally make one common frontmatter/config mistake and confirm
    Workbench diagnostics point to the source line with a suggested fix.
@@ -98,7 +98,7 @@ release notes:
 - Authors can build deterministic generated output, verify drift, inspect
   provider support, and keep source-change provenance separate from package
   release state.
-- The package ships the `skillset`, `create-skillset`, and `skillset-toolkit`
+- The package ships the `skillset` and `skillset-toolkit`
   bins.
 - Workbench diagnostics now teach common first-author mistakes with source
   positions and suggested fixes.

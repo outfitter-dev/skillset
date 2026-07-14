@@ -26,7 +26,6 @@
     "skills"
   ],
   "bin": {
-    "create-skillset": "dist/create.js",
     "skillset": "dist/cli.js",
     "skillset-toolkit": "dist/toolkit.js"
   },

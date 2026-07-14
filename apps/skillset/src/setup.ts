@@ -110,6 +110,9 @@ interface PlannedFile {
 
 export async function initSkillset(options: SetupOptions = {}): Promise<SetupReport> {
   const rootPath = await initRootPath(options);
+  if (options.rootPath !== undefined && await pathIsMissingOrEmpty(rootPath)) {
+    return createSkillset({ ...options, rootPath });
+  }
   return applySetupPlan("init", rootPath, options);
 }
 
@@ -133,6 +136,12 @@ export async function createSkillset(options: SetupOptions = {}): Promise<SetupR
 
 export function defaultGlobalSourcePath(homeDir = process.env.HOME ?? "~"): string {
   return resolve(homeDir, DEFAULT_GLOBAL_SOURCE);
+}
+
+async function pathIsMissingOrEmpty(path: string): Promise<boolean> {
+  if (!await pathExists(path)) return true;
+  const stats = await stat(path);
+  return stats.isDirectory() && (await readdir(path)).length === 0;
 }
 
 async function applySetupPlan(
@@ -369,7 +378,7 @@ async function isImportableInstructionFile(path: string): Promise<boolean> {
 
 /**
  * Recognized-but-unimportable surfaces. Import cannot represent them yet;
- * `skillset adopt` will handle them in the transform milestone. Until then the
+ * `skillset init --adopt all` handles them through the adoption flow. Until then the
  * survey reports them with a reason instead of staying silent.
  */
 async function detectSurveySkips(rootPath: string): Promise<readonly SurveySkip[]> {
@@ -742,6 +751,10 @@ function workspaceManifest(name: string, targets: readonly TargetName[]): string
 function emptyWorkspaceLock(): string {
   return [
     "{",
+    "  \"schemaVersion\": 1,",
+    "  \"generatedBy\": \"skillset@0.1.0\",",
+    "  \"outputRoot\": \".\",",
+    "  \"target\": \"workspace\",",
     "  \"items\": []",
     "}",
     "",

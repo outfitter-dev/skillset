@@ -297,7 +297,7 @@ test("SET-225: adopt blocks divergent identities before mutating the repo", asyn
   expect(markdown).toContain("planned: `skillset.yaml`");
   expect(markdown).not.toContain("created: `skillset.yaml`");
 
-  const cli = await runSkillsetCli("adopt", root, "--yes");
+  const cli = await runSkillsetCli("init", "--from", root, "--adopt", "all", "--yes");
   expect(cli.exitCode).toBe(1);
   expect(cli.stdout).toContain("FAIL competing-plugin-sources");
   expect(cli.stdout).toContain("plugins/claude-demo");
@@ -498,12 +498,14 @@ test("SET-225: a root plugin does not absorb a separate nested plugin", async ()
     "plugins/beta/skills/helper/SKILL.md": skill("beta body"),
   });
 
-  const report = await adoptSkillset(root, { write: true });
+  const plan = await adoptSkillset(root);
+  const report = await adoptSkillset(root, { candidates: ["plugin:."], write: true });
 
   expect(report.ok).toBe(true);
-  expect(report.imports.map((result) => result.units[0]?.name)).toEqual(["alpha", "beta"]);
+  expect(plan.candidates.map((candidate) => `${candidate.kind}:${candidate.path}`)).toEqual(["plugin:.", "plugin:plugins/beta"]);
+  expect(report.imports.map((result) => result.units[0]?.name)).toEqual(["alpha"]);
   expect(await exists(join(root, ".skillset/plugins/alpha/plugins/beta"))).toBe(false);
-  expect(await exists(join(root, ".skillset/plugins/beta/skillset.yaml"))).toBe(true);
+  expect(await exists(join(root, ".skillset/plugins/beta/skillset.yaml"))).toBe(false);
 });
 
 function manifest(
