@@ -10,7 +10,7 @@ import { createOperationalPathContext, resolveOperationalPath } from "@skillset/
 import { ADOPT_REPORT_DIR, adoptCandidateId, adoptSkillset, renderAdoptReportMarkdown } from "../adopt";
 import { ISOLATED_OUT_ROOT } from "@skillset/core";
 import { gitSafeEnv } from "../git-env";
-import { readInitAdoptionSelection } from "../cli-core";
+import { readInitAdoptionSelection } from "../init-cli";
 
 const AGENTS_CONTENT = "# Demo agents\n\nHandwritten instructions.\n";
 
