@@ -81,11 +81,6 @@ export async function runProviderFormatUpdates(
   )
     ? managedState.missingRenderInputsLockPaths.filter((path) => driftPathSet.has(path))
     : [];
-  for (const path of driftPaths) {
-    if (managedState.unchangedPaths.has(path) && !plannedPaths.has(path)) {
-      sourceDriftPaths.add(path);
-    }
-  }
   const providerDriftPaths = driftPaths.filter((path) => !sourceDriftPaths.has(path));
   const hasProviderPlan = plannedPaths.size > 0;
   const unplannedDriftPaths = [
