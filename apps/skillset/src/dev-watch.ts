@@ -345,9 +345,14 @@ export async function runDevWatch(
   const initialSignal = new Promise<void>((resolvePromise) => {
     resolveInitialSignal = resolvePromise;
   });
+  let resolveWatchSetupSignal: (() => void) | undefined;
+  const watchSetupSignal = new Promise<void>((resolvePromise) => {
+    resolveWatchSetupSignal = resolvePromise;
+  });
   let stopWithError: ((error: unknown) => void) | undefined;
   let stopFromSignal: (() => void) | undefined;
   const signalStop = () => {
+    resolveWatchSetupSignal?.();
     if (stopFromSignal === undefined) {
       pendingSignal = true;
       if (mode === "preview") {
@@ -397,7 +402,17 @@ export async function runDevWatch(
   }, DEFAULT_DEBOUNCE_MS, runtime.scheduler);
 
   try {
-    for (const watchRoot of await runtime.collectDirectories(plan)) {
+    const watchRoots = await Promise.race([
+      runtime.collectDirectories(plan),
+      watchSetupSignal.then(() => undefined),
+    ]);
+    if (watchRoots === undefined) {
+      runtime.removeSignalListeners(signalStop);
+      if (stream === undefined) output.write("skillset: dev watch stopped\n");
+      else stream.completed();
+      return;
+    }
+    for (const watchRoot of watchRoots) {
       watchers.push(runtime.watch(resolve(plan.rootPath, watchRoot), (_event, filename) => {
         const eventPath = filename === null
           ? undefined

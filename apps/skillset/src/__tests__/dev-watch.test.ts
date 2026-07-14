@@ -347,6 +347,42 @@ test("SET-289: signals do not wait for a stalled initial operation", async () =>
   expect(parseCliEventStream(output).map((event) => event.event)).toEqual(["started", "completed"]);
 });
 
+test("SET-289: signals do not wait for stalled watch-root collection", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-dev-jsonl-stalled-roots-signal-"));
+  await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
+  let output = "";
+  let signal: (() => void) | undefined;
+  let markCollecting: (() => void) | undefined;
+  const collecting = new Promise<void>((resolvePromise) => {
+    markCollecting = resolvePromise;
+  });
+  const stalled = new Promise<readonly string[]>(() => {});
+
+  const watching = runDevWatch(root, {}, { write: (chunk) => { output += String(chunk); return true; } } as NodeJS.WritableStream, "preview", "jsonl", {
+    addSignalListeners: (listener) => { signal = listener; },
+    collectDirectories: async () => {
+      markCollecting?.();
+      return stalled;
+    },
+    removeSignalListeners: () => {},
+    runOnce: runDevWatchPreview,
+    scheduler: { clearTimeout: () => {}, setTimeout: () => 0 },
+    watch: () => ({ close: () => {} } as FSWatcher),
+  });
+
+  await collecting;
+  signal?.();
+  await expect(Promise.race([
+    watching.then(() => "stopped"),
+    Bun.sleep(100).then(() => "timed-out"),
+  ])).resolves.toBe("stopped");
+  expect(parseCliEventStream(output).map((event) => event.event)).toEqual([
+    "started",
+    "operation",
+    "completed",
+  ]);
+});
+
 test("SET-289: apply signals wait for the initial write before completing", async () => {
   const root = await mkdtemp(join(tmpdir(), "skillset-dev-jsonl-apply-signal-"));
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
