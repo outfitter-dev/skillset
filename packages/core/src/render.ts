@@ -551,6 +551,7 @@ async function renderPluginTarget(
     lockItemForPlugin({
       files: pluginRootFiles,
       graph,
+      license: pluginLicense,
       outputRoot,
       plugin,
       target,
@@ -2842,6 +2843,7 @@ function lockItemForChangelog(projection: ChangelogProjection): LockItem {
 function lockItemForPlugin(args: {
   readonly files: readonly RenderedFile[];
   readonly graph: BuildGraph;
+  readonly license: ResolvedLicense | undefined;
   readonly outputRoot: string;
   readonly plugin: SourcePlugin;
   readonly target: TargetName;
@@ -2869,7 +2871,14 @@ function lockItemForPlugin(args: {
     outputHash: hashRenderedFiles(args.outputRoot, args.files),
     outputPath: files.find((file) => file.endsWith("/plugin.json")) ?? files[0] ?? "",
     skippedSkills,
-    sourceHash: hashPluginSource(args.plugin, args.target, includedSkills, skippedSkills, dependencyHashSummaries),
+    sourceHash: hashPluginSource(
+      args.plugin,
+      args.target,
+      includedSkills,
+      skippedSkills,
+      dependencyHashSummaries,
+      args.license
+    ),
     ...(args.plugin.sourceOrigin === undefined ? {} : { sourceOrigin: args.plugin.sourceOrigin }),
     sourcePath: relative(args.graph.rootPath, args.plugin.path),
     targetState: skippedSkills.length === 0 ? "sync" : "intentionally-skipped",
@@ -3144,10 +3153,11 @@ function hashPluginSource(
   target: TargetName,
   includedSkills: readonly string[],
   skippedSkills: readonly string[],
-  dependencies: readonly string[]
+  dependencies: readonly string[],
+  license: ResolvedLicense | undefined
 ): string {
   const hash = createHash("sha256");
-  hash.update("skillset-plugin-source-v1\0");
+  hash.update("skillset-plugin-source-v2\0");
   hash.update(plugin.id);
   hash.update("\0");
   hash.update(target);
@@ -3159,6 +3169,15 @@ function hashPluginSource(
   hash.update(includedSkills.join("\n"));
   hash.update("\0");
   hash.update(skippedSkills.join("\n"));
+  hash.update("\0resolved-license\0");
+  hash.update(stringifyJson(
+    license === undefined
+      ? {}
+      : {
+          content: license.content,
+          manifestValue: license.manifestValue,
+        }
+  ));
   if (dependencies.length > 0) {
     hash.update("\0dependencies\0");
     hash.update(dependencies.join("\n"));

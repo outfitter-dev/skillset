@@ -131,6 +131,47 @@ Initial body.
   expect(await readFile(join(root, generatedPath), "utf8")).toBe("# Updated guide\n");
 });
 
+test("SET-278: check writes inherited plugin license metadata drift", async () => {
+  const root = await builtFixture({
+    ...pluginFixture(),
+    "skillset.yaml": pluginFixture()["skillset.yaml"]?.replace(
+      "  name: provider-update-root",
+      "  name: provider-update-root\n  license: MIT"
+    ) ?? "",
+  });
+  const rootConfigPath = join(root, "skillset.yaml");
+  await writeFile(
+    rootConfigPath,
+    (await readFile(rootConfigPath, "utf8")).replace("license: MIT", "license: Apache-2.0"),
+    "utf8"
+  );
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.providerUpdatePaths).toEqual([]);
+  expect(report.fixedPaths).toContain(CODEX_PLUGIN_MANIFEST);
+  expect(report.fixedPaths).toContain("plugins/alpha/codex/LICENSE.txt");
+});
+
+test("SET-278: check writes lock-only source provenance drift", async () => {
+  const root = await builtFixture(pluginFixture());
+  const lockPath = join(root, "plugins/skillset.lock");
+  const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+    readonly items: Array<{ kind?: string; sourceHash?: string }>;
+  };
+  const item = lock.items.find((candidate) => candidate.kind === "plugin");
+  if (item === undefined) throw new Error("missing plugin lock item");
+  item.sourceHash = `sha256:${"0".repeat(64)}`;
+  await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.providerUpdatePaths).toEqual([]);
+  expect(report.fixedPaths).toEqual(["plugins/skillset.lock"]);
+});
+
 test("SET-278: check writes first-time provider-backed outputs", async () => {
   const root = await fixture(pluginFixture());
 
