@@ -2993,11 +2993,9 @@ function validateReconcileFlags(
   reconcile: {
     readonly buildMode?: CompileBuildMode;
     readonly changeSince?: string;
-    readonly distDir?: string;
     readonly dryRun: boolean;
     readonly scopes?: readonly BuildScope[];
     readonly choice?: ReconcileChoice;
-    readonly sourceDir?: string;
     readonly yes: boolean;
   }
 ): void {
@@ -3005,9 +3003,6 @@ function validateReconcileFlags(
   if (command !== "reconcile") return;
   if (reconcile.buildMode !== undefined) throw new Error("skillset: --updated and --all are not supported with reconcile");
   if (reconcile.changeSince !== undefined) throw new Error("skillset: --since is not supported with reconcile");
-  if (reconcile.distDir !== undefined || reconcile.sourceDir !== undefined) {
-    throw new Error("skillset: reconcile does not support --source or --dist overrides");
-  }
   if (reconcile.dryRun) throw new Error("skillset: reconcile preview mode cannot use a second preview mode");
   if (reconcile.scopes !== undefined) throw new Error("skillset: --scope is not supported with reconcile");
   if (reconcile.yes && reconcile.choice === undefined) throw new Error("skillset: reconcile --yes requires --use source or --use output");

@@ -5254,11 +5254,11 @@ test("SET-282: --write is rejected outside check", async () => {
   }
 });
 
-test("SET-282: reconcile rejects source and output root overrides", async () => {
+test("SET-282: reconcile rejects retired source and output root options", async () => {
   for (const flag of ["--source", "--dist"]) {
     const result = await runSkillsetCli("reconcile", "missing", flag, "alternate");
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("reconcile does not support --source or --dist overrides");
+    expect(result.stderr).toContain(`unknown option ${flag}`);
   }
 });
 
