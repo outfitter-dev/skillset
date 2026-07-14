@@ -746,6 +746,35 @@ test("SET-279: check refreshes legacy locks missing render input hashes", async 
   expect(lock.items.some((item) => item.renderInputsHash !== undefined)).toBe(true);
 });
 
+test("SET-279: ownerless legacy plugin hashes stay eligible for provider updates", async () => {
+  const root = await builtFixture(pluginFixture());
+  const lockPath = join(root, "plugins/skillset.lock");
+  const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+    readonly items: Array<{
+      kind?: string;
+      renderInputsHash?: string;
+      sourceHash?: string;
+    }>;
+  };
+  const plugin = lock.items.find((item) => item.kind === "plugin");
+  if (plugin === undefined) throw new Error("missing plugin lock item");
+  plugin.sourceHash = "sha256:dcc61b5427f850699c111bbc08d10b9c2be3d248aece8d12208a9a51513d3a4e";
+  delete plugin.renderInputsHash;
+  await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+
+  const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
+  await writeFile(manifestPath, `${await readFile(manifestPath, "utf8")}\n// stale provider format\n`, "utf8");
+  await markCurrentPluginManifestAsManaged(root);
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(false);
+  expect(report.providerUpdatePaths).toContain(CODEX_PLUGIN_MANIFEST);
+  expect(report.providerUpdatePaths).toContain("plugins/skillset.lock");
+  expect(report.fixedPaths).toEqual([]);
+  expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
+});
+
 test("SET-279: check does not combine legacy lock refresh with a provider migration", async () => {
   const root = await builtFixture(pluginFixture());
   const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
