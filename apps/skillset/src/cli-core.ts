@@ -1252,6 +1252,9 @@ function printChangeStatus(report: ChangeStatusReport): void {
 
 function printCiReport(report: CiReport): void {
   printDiagnostics(report.outputDiagnostics);
+  for (const warning of report.warnings) {
+    console.log(`  warning: ${warning}`);
+  }
   for (const issue of report.lintIssues) {
     console.log(`  lint ${issue.severity}: ${issue.path}: ${issue.code}: ${issue.message}`);
   }

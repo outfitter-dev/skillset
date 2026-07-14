@@ -3044,6 +3044,12 @@ Body.
   expect(checked.exitCode).toBe(0);
   expect(checked.stderr).toContain("@acme/docs-cli supports >=2.4.0 <3.0.0");
   expect(checked.stderr).toContain("repo:packages/docs-cli/package.json is 3.1.0");
+
+  const readiness = await runSkillsetCli("check", "--root", root);
+  expect(readiness.exitCode).toBe(0);
+  expect(readiness.stdout).toContain("@acme/docs-cli supports >=2.4.0 <3.0.0");
+  expect(readiness.stdout).toContain("repo:packages/docs-cli/package.json is 3.1.0");
+  expect(readiness.stdout).toContain("skillset: check passed");
 });
 
 test("SET-39: invalid supports ranges fail loudly", async () => {
