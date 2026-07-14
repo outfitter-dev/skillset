@@ -464,12 +464,27 @@ test("SET-278: check writes lock-only source provenance drift", async () => {
   if (item === undefined) throw new Error("missing plugin lock item");
   item.sourceHash = `sha256:${"0".repeat(64)}`;
   await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
-
   const report = await ciSkillset(root, { fix: true });
 
   expect(report.ok).toBe(true);
   expect(report.providerUpdatePaths).toEqual([]);
   expect(report.fixedPaths).toEqual(["plugins/skillset.lock"]);
+});
+
+test("SET-278: check writes source drift in secondary provider files", async () => {
+  const root = await builtFixture({
+    ...pluginFixture(),
+    ".skillset/LICENSE.txt": "Original inherited license.\n",
+  });
+  const generatedPath = "plugins/alpha/codex/LICENSE.txt";
+  await writeFile(join(root, ".skillset/LICENSE.txt"), "Updated inherited license.\n", "utf8");
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.providerUpdatePaths).toEqual([]);
+  expect(report.fixedPaths).toContain(generatedPath);
+  expect(await readFile(join(root, generatedPath), "utf8")).toBe("Updated inherited license.\n");
 });
 
 test("SET-278: check writes first-time provider-backed outputs", async () => {
