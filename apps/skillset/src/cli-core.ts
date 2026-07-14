@@ -2953,7 +2953,7 @@ function validateSourceDiagnosticFlags(
 
 function validateListFlags(command: Command, buildMode: CompileBuildMode | undefined): void {
   if (command === "list" && buildMode !== undefined) {
-    throw new Error("skillset: list does not support --updated or --all");
+    throw new Error("skillset: --updated and --all are not supported with list");
   }
 }
 

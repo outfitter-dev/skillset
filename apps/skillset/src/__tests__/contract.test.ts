@@ -1542,9 +1542,15 @@ test("SET-278: check rejects destination flags and retired check commands are re
 
 test("SET-285: list rejects build-mode flags", async () => {
   for (const flag of ["--updated", "--all"]) {
-    const result = await runSkillsetCli("list", flag);
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("skillset: list does not support --updated or --all");
+    const result = await runSkillsetCli("list", flag, "--json");
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      command: "list",
+      diagnostics: [expect.objectContaining({ message: "skillset: --updated and --all are not supported with list" })],
+      exitCode: 2,
+      ok: false,
+    });
   }
 });
 
