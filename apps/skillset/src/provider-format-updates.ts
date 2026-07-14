@@ -68,7 +68,7 @@ export async function runProviderFormatUpdates(
   const plan = planProviderFormatUpdates(
     preview.renderResults,
     driftPaths,
-    managedState.unchangedPaths,
+    managedState.providerEligiblePaths,
     sourceDriftPaths
   );
   const plannedPaths = new Set(
@@ -284,6 +284,7 @@ async function inspectManagedOutputState(
   options: SkillsetOptions
 ): Promise<{
   readonly missingRenderInputsPaths: readonly string[];
+  readonly providerEligiblePaths: ReadonlySet<string>;
   readonly sourceDriftPaths: readonly string[];
   readonly unchangedPaths: ReadonlySet<string>;
 }> {
@@ -307,9 +308,7 @@ async function inspectManagedOutputState(
   for (const outputPath of driftPaths) {
     if (outputPath === "skillset.lock" || outputPath.endsWith("/skillset.lock")) continue;
     if (await findLockItemForOutputPath(rootPath, outputPath) === undefined) {
-      sourceDriftPaths.push(
-        ...(lockItem?.files.map((file) => normalizePath(file.displayPath)) ?? [outputPath])
-      );
+      sourceDriftPaths.push(outputPath);
     }
   }
   for (const entry of expectedEntries) {
@@ -323,10 +322,14 @@ async function inspectManagedOutputState(
       (lockItem?.renderInputsHash !== undefined && entry.renderInputsHash !== lockItem.renderInputsHash) ||
       (lockItem?.version !== undefined && entry.version !== lockItem.version)
     ) {
-      if (!missingSet.has(outputPath)) sourceDriftPaths.push(outputPath);
+      sourceDriftPaths.push(
+        ...(lockItem?.files.map((file) => normalizePath(file.displayPath)) ?? [outputPath])
+          .filter((path) => !missingSet.has(path))
+      );
     }
   }
   const unchanged = new Set<string>();
+  const providerEligible = new Set<string>();
   for (const outputPath of driftPaths) {
     const lockItem = await findLockItemForOutputPath(rootPath, outputPath);
     if (lockItem === undefined || lockItem.outputHash === undefined || lockItem.sourceHash === undefined) continue;
@@ -337,18 +340,20 @@ async function inspectManagedOutputState(
     const expectedRenderInputsHash = expectedRenderInputsHashes.get(normalizedOutputPath);
     const renderInputsUnchanged = lockItem.renderInputsHash === undefined ||
       expectedRenderInputsHash === lockItem.renderInputsHash;
-    if (
-      currentHash === lockItem.outputHash &&
-      expectedSourceHashes.has(normalizedOutputPath) &&
-      expectedSourceHash === lockItem.sourceHash &&
-      renderInputsUnchanged &&
-      (lockItem.version === undefined || expectedVersion === lockItem.version)
-    ) {
+    if (currentHash === lockItem.outputHash && expectedSourceHashes.has(normalizedOutputPath)) {
       unchanged.add(outputPath);
+      if (
+        expectedSourceHash === lockItem.sourceHash &&
+        renderInputsUnchanged &&
+        (lockItem.version === undefined || expectedVersion === lockItem.version)
+      ) {
+        providerEligible.add(outputPath);
+      }
     }
   }
   return {
     missingRenderInputsPaths: [...new Set(missingRenderInputsPaths)].sort(compareStrings),
+    providerEligiblePaths: providerEligible,
     sourceDriftPaths: [...new Set(sourceDriftPaths)].sort(compareStrings),
     unchangedPaths: unchanged,
   };
