@@ -24,7 +24,7 @@
       "name": "skillset-adrs",
       "outputHash": "sha256:2d8b1827edf14c73728636774799c7e14601201597c435567a2b3a9308399e29",
       "outputPath": "skillset-adrs/SKILL.md",
-      "sourceHash": "sha256:b4f15e3dd5655f4e96f0ee31c937ddb1564de511afbcf7178f900ede8aca6fbb",
+      "sourceHash": "sha256:3cc0b3f4ba82a0bb94fa89473d93883af75e51de7852c3de8988234dbfca9f76",
       "sourcePath": ".skillset/skills/skillset-adrs/SKILL.md",
       "version": "0.1.0"
     },
@@ -36,7 +36,7 @@
       "name": "skillset-claude-development",
       "outputHash": "sha256:e81da87c55661decae85c47e3221b8e0156f5c07d6aa76251fbe49c6c91b557f",
       "outputPath": "skillset-claude-development/SKILL.md",
-      "sourceHash": "sha256:7f59a56e53fc9600903cd6dc0c1f6f8984e4311aaa0ef580905a0169febdf2ba",
+      "sourceHash": "sha256:210e966e51ef5ce2ff21a5f29a86c8277cd06712469102c25cf48362741fa956",
       "sourcePath": ".skillset/skills/skillset-claude-development/SKILL.md",
       "version": "0.1.0"
     },
@@ -48,7 +48,7 @@
       "name": "skillset-codex-development",
       "outputHash": "sha256:8ffe90e3636cf4a779469c5c91d00af2da76dcdda09abe9cec8ea222c1bbea44",
       "outputPath": "skillset-codex-development/SKILL.md",
-      "sourceHash": "sha256:19d250bc101ede8294c0f1ed3a7ced59153f58c219329859d4ba91ddbe6b5755",
+      "sourceHash": "sha256:8f5fecdcf44f2190ab1779b980a10c18456f7bf937929b16b4a47ea0fe6cbeb8",
       "sourcePath": ".skillset/skills/skillset-codex-development/SKILL.md",
       "version": "0.1.1"
     },
@@ -60,7 +60,7 @@
       "name": "skillset-repo-test-fixtures",
       "outputHash": "sha256:66ce349f46964f0fe4ca342691603621058b98ce4eb5deb13bae1ccfd33778ed",
       "outputPath": "skillset-repo-test-fixtures/SKILL.md",
-      "sourceHash": "sha256:430e5046d85f1f1099bfbd32afa8c97713d33c1e30bc27b5de8a07cba5905121",
+      "sourceHash": "sha256:dcc052b8371e783d571adc7fb96fc7b2c0d6a502c9b9a354fce4ed7a1e5147ff",
       "sourcePath": ".skillset/skills/skillset-repo-test-fixtures/SKILL.md",
       "version": "0.1.2"
     }
