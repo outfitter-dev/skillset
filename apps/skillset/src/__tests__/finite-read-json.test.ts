@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { chmod, cp, mkdir, mkdtemp, readdir, writeFile } from "node:fs/promises";
+import { chmod, cp, mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -54,6 +54,34 @@ describe("SET-287 finite read-only JSON", () => {
     const unchanged = await runJsonRoute("init", "--root", root, "--yes");
     const unchangedEnvelope = JSON.parse(unchanged.stdout) as SkillsetCliResult & { data: { writes: unknown[] } };
     expect(unchangedEnvelope.data.writes).toEqual([]);
+  });
+
+  test("init JSON resolves a relative --root once from the invocation cwd", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "skillset-json-relative-root-"));
+    const proc = Bun.spawn(
+      [process.execPath, cli, "init", "--root", "workspace", "--yes", "--json"],
+      {
+        cwd: parent,
+        env: { ...process.env, NODE_ENV: "test" },
+        stderr: "pipe",
+        stdout: "pipe",
+      }
+    );
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
+
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe("");
+    expect(validateCliResult(JSON.parse(stdout))).toEqual({ diagnostics: [], ok: true });
+    await expect(readFile(path.join(parent, "workspace", "skillset.yaml"), "utf8")).resolves.toContain(
+      "skillset:"
+    );
+    await expect(
+      readFile(path.join(parent, "workspace", "workspace", "skillset.yaml"), "utf8")
+    ).rejects.toThrow();
   });
 
   test("init JSON stays stderr-clean when the known-workspace index is unwritable", async () => {

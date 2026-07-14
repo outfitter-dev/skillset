@@ -665,20 +665,23 @@ export async function runCli(
   }
 
   if (command === "init") {
+    const initCwd = resolve(rootPath);
+    const explicitInitRootPath = rootExplicit ? initCwd : undefined;
+    const setupRootPath = importPath ?? explicitInitRootPath;
     if (initAdopt !== undefined || initFrom !== undefined) {
       const writeMode = initAdopt !== undefined && yes && !dryRun;
       const inferredRoot = initFrom === undefined
         ? (await initSkillset({
-            cwd: rootPath,
-            ...(rootExplicit ? { rootPath } : {}),
+            cwd: initCwd,
+            ...(explicitInitRootPath === undefined ? {} : { rootPath: explicitInitRootPath }),
             useGitRoot: !rootExplicit,
             write: false,
           })).rootPath
         : rootPath;
       const report = await adoptSkillset(initFrom ?? inferredRoot, {
-        cwd: rootPath,
+        cwd: initCwd,
         ...(initAdopt === undefined ? {} : { candidates: initAdopt }),
-        ...(importPath === undefined ? {} : { destination: resolve(rootPath, importPath) }),
+        ...(importPath === undefined ? {} : { destination: resolve(initCwd, importPath) }),
         ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
         ...(importName === undefined ? {} : { name: importName }),
         ...(setupTargets === undefined ? {} : { targets: setupTargets }),
@@ -712,11 +715,11 @@ export async function runCli(
     }
     if (!jsonOutput && !yes && !dryRun && process.stdin.isTTY && process.stdout.isTTY) {
       const survey = await initSkillset({
-        cwd: rootPath,
-        ...(importPath === undefined ? rootExplicit ? { rootPath } : {} : { rootPath: importPath }),
+        cwd: initCwd,
+        ...(setupRootPath === undefined ? {} : { rootPath: setupRootPath }),
         ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
         ...(setupTargets === undefined ? {} : { targets: setupTargets }),
-        useGitRoot: !rootExplicit && importPath === undefined,
+        useGitRoot: setupRootPath === undefined,
         write: false,
       });
       if (survey.importCandidates.length > 0) {
@@ -725,7 +728,7 @@ export async function runCli(
         if (selection.confirmed && selection.candidates.length > 0) {
           const report = await adoptSkillset(importPath ?? survey.rootPath, {
             candidates: selection.candidates,
-            cwd: rootPath,
+            cwd: initCwd,
             ...(importName === undefined ? {} : { name: importName }),
             ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
             ...(setupTargets === undefined ? {} : { targets: setupTargets }),
@@ -741,12 +744,12 @@ export async function runCli(
           return;
         }
         const setup = await initSkillset({
-          cwd: rootPath,
-          ...(importPath === undefined ? rootExplicit ? { rootPath } : {} : { rootPath: importPath }),
+          cwd: initCwd,
+          ...(setupRootPath === undefined ? {} : { rootPath: setupRootPath }),
           ...(importName === undefined ? {} : { name: importName }),
           ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
           ...(setupTargets === undefined ? {} : { targets: setupTargets }),
-          useGitRoot: !rootExplicit && importPath === undefined,
+          useGitRoot: setupRootPath === undefined,
           write: true,
         });
         printSetupReport(setup, "written");
@@ -755,12 +758,12 @@ export async function runCli(
       }
     }
     const setup = await initSkillset({
-      cwd: rootPath,
-      ...(importPath === undefined ? rootExplicit ? { rootPath } : {} : { rootPath: importPath }),
+      cwd: initCwd,
+      ...(setupRootPath === undefined ? {} : { rootPath: setupRootPath }),
       ...(importName === undefined ? {} : { name: importName }),
       ...(setupTargets === undefined ? {} : { targets: setupTargets }),
       ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
-      useGitRoot: !rootExplicit && importPath === undefined,
+      useGitRoot: setupRootPath === undefined,
       write: yes && !dryRun,
     });
     if (jsonOutput && yes && !dryRun) {
