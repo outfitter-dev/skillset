@@ -3182,7 +3182,7 @@ function hashPluginSource(
   license: ResolvedLicense | undefined
 ): string {
   const hash = createHash("sha256");
-  hash.update("skillset-plugin-source-v3\0");
+  hash.update("skillset-plugin-source-v4\0");
   hash.update(plugin.id);
   hash.update("\0");
   hash.update(target);
@@ -3190,6 +3190,16 @@ function hashPluginSource(
   hash.update(stringifyJson(plugin.metadata));
   hash.update("\0");
   hash.update(stringifyJson(plugin.targets[target].options));
+  hash.update("\0plugin-surfaces\0");
+  hash.update(stringifyJson({
+    adaptiveHooks: plugin.adaptiveHooks,
+    features: plugin.features,
+    hookAttachments: plugin.hookAttachments,
+    islands: graph.projectIslands
+      .filter((island) => island.plugin === plugin.id && island.target === target)
+      .map((island) => ({ relativePath: island.relativePath, target: island.target }))
+      .sort((left, right) => compareStrings(left.relativePath, right.relativePath)),
+  }));
   if (target === "codex") {
     hash.update("\0root-derived-interface\0");
     hash.update(stringifyJson({ developerName: renderCodexInterface(graph, plugin).developerName }));

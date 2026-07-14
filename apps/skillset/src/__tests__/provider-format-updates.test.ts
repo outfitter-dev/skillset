@@ -314,6 +314,35 @@ test("SET-278: check writes root-owner-derived plugin manifest drift", async () 
   expect(await readFile(join(root, CODEX_PLUGIN_MANIFEST), "utf8")).toContain("Updated Maintainer");
 });
 
+test("SET-278: check writes plugin manifest drift caused by companion surfaces", async () => {
+  const root = await builtFixture({
+    ...pluginFixture(),
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+mcp: false
+`,
+  });
+  const configPath = join(root, ".skillset/plugins/alpha/skillset.yaml");
+  await writeFile(
+    configPath,
+    (await readFile(configPath, "utf8")).replace("mcp: false", "mcp: true"),
+    "utf8"
+  );
+  await writeFile(
+    join(root, ".skillset/plugins/alpha/.mcp.json"),
+    '{"mcpServers":{"alpha":{"command":"node"}}}\n',
+    "utf8"
+  );
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.providerUpdatePaths).toEqual([]);
+  expect(report.fixedPaths).toContain(CODEX_PLUGIN_MANIFEST);
+  expect(await readFile(join(root, CODEX_PLUGIN_MANIFEST), "utf8")).toContain('"mcpServers": "./.mcp.json"');
+});
+
 test("SET-278: check writes lock-only source provenance drift", async () => {
   const root = await builtFixture(pluginFixture());
   const lockPath = join(root, "plugins/skillset.lock");
