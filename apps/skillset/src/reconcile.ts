@@ -148,11 +148,15 @@ async function assertReconcileDriftIsScoped(
   const entries = (await listGeneratedEntries(rootPath, options)).filter((entry) =>
     sourcePaths.includes(entry.sourcePath)
   );
+  const lockedSiblingPaths = allowSourceSiblings
+    ? await listLockedSiblingPaths(rootPath, entries, sourcePaths)
+    : [];
   const allowedPaths = new Set([
     managedPath,
     ...(allowSourceSiblings
       ? entries.flatMap((entry) => [entry.outputPath, ...(entry.files ?? [])])
       : []),
+    ...lockedSiblingPaths,
     ...entries.map((entry) => join(entry.outputRoot, "skillset.lock")),
   ].map(normalizeReconcilePath));
   const preview = await diffSkillsetResult(rootPath, options);
@@ -168,6 +172,32 @@ async function assertReconcileDriftIsScoped(
       `skillset: reconcile ${managedPath} refuses to write while unrelated generated drift exists: ${unrelated.join(", ")}`
     );
   }
+}
+
+async function listLockedSiblingPaths(
+  rootPath: string,
+  entries: readonly { readonly outputRoot: string }[],
+  sourcePaths: readonly string[]
+): Promise<readonly string[]> {
+  const siblings = new Set<string>();
+  for (const outputRoot of new Set(entries.map((entry) => entry.outputRoot))) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(await readFile(resolve(rootPath, outputRoot, "skillset.lock"), "utf8")) as unknown;
+    } catch {
+      continue;
+    }
+    if (!isRecord(parsed) || !Array.isArray(parsed.items)) continue;
+    for (const item of parsed.items) {
+      if (!isRecord(item) || !sourcePaths.includes(readString(item.sourcePath))) continue;
+      if (typeof item.outputPath === "string") siblings.add(join(outputRoot, item.outputPath));
+      if (!Array.isArray(item.files)) continue;
+      for (const file of item.files) {
+        if (typeof file === "string") siblings.add(join(outputRoot, file));
+      }
+    }
+  }
+  return [...siblings].sort();
 }
 
 export function renderReconcileReport(report: ReconcileReport): string {
@@ -195,4 +225,12 @@ export function renderReconcileReport(report: ReconcileReport): string {
 
 function normalizeReconcilePath(path: string): string {
   return path.replaceAll("\\", "/");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readString(value: unknown): string {
+  return typeof value === "string" ? value : "";
 }

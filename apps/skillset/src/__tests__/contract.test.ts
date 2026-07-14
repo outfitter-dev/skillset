@@ -4989,6 +4989,40 @@ test("SET-282: source-wins rebuilds sibling target drift", async () => {
   expect(await readFile(join(root, codexPath), "utf8")).toContain("Updated source.");
 });
 
+test("SET-282: source-wins deletes stale sibling outputs", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": "skillset:\n  name: reconcile-stale-sibling\nclaude: true\ncodex: false\n",
+    ".skillset/shared/references/guide.md": "# Guide\n",
+    ".skillset/skills/demo/SKILL.md": `---
+name: demo
+description: Demo.
+resources:
+  references:
+    - shared:references/guide.md
+---
+
+Source body.
+`,
+  });
+  await buildSkillset(root);
+  const sourcePath = join(root, ".skillset/skills/demo/SKILL.md");
+  const skillPath = ".claude/skills/demo/SKILL.md";
+  const staleSiblingPath = ".claude/skills/demo/references/guide.md";
+  await writeFile(
+    sourcePath,
+    "---\nname: demo\ndescription: Demo.\n---\n\nSource body without the reference.\n",
+    "utf8"
+  );
+
+  const result = await runSkillsetCli(
+    "reconcile", skillPath, "--use", "source", "--yes", "--root", root
+  );
+
+  expect(result.exitCode).toBe(0);
+  expect(await Bun.file(join(root, staleSiblingPath)).exists()).toBe(false);
+  expect(await readFile(join(root, skillPath), "utf8")).toContain("without the reference");
+});
+
 test("SET-282: reconcile refuses sibling resource drift from the same output", async () => {
   const root = await contractFixture({
     "skillset.yaml": "skillset:\n  name: reconcile-resources\nclaude: true\ncodex: false\n",
