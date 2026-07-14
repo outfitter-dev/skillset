@@ -129,10 +129,16 @@ export interface AdoptReport {
    */
   readonly transformPreviews: readonly TransformPreview[];
   readonly write: boolean;
+  /** Logical paths actually written by this adoption attempt, including audit artifacts. */
+  readonly writtenPaths: readonly string[];
 }
 
 /** Where write-mode adoption persists its migration report. */
 export const ADOPT_REPORT_DIR = ".skillset/cache/adopt";
+const ADOPT_REPORT_PATHS = [
+  `${ADOPT_REPORT_DIR}/report.md`,
+  `${ADOPT_REPORT_DIR}/report.json`,
+] as const;
 
 const INSTRUCTIONS_DIR = ".skillset/rules";
 
@@ -278,6 +284,7 @@ async function adoptResolvedRoot(
       surveySkips: survey.surveySkips,
       transformPreviews: [],
       write: false,
+      writtenPaths: [],
     };
   }
 
@@ -300,6 +307,7 @@ async function adoptResolvedRoot(
       surveySkips: survey.surveySkips,
       transformPreviews: [],
       write: false,
+      writtenPaths: ADOPT_REPORT_PATHS,
     };
     await persistAdoptReport(report);
     return report;
@@ -345,6 +353,7 @@ async function adoptResolvedRoot(
   }
 
   let builtFiles = 0;
+  let buildWritePaths: readonly string[] = [];
   let renderResults: readonly SkillsetRenderResult[] = [
     ...surveySkipRenderResults(survey.surveySkips),
     ...imports.flatMap((result) => result.renderResults),
@@ -353,6 +362,7 @@ async function adoptResolvedRoot(
     try {
       const build = await buildSkillsetResult(init.rootPath, { ...buildOptions, isolated: true });
       builtFiles = build.data.length;
+      buildWritePaths = build.writes.paths;
       renderResults = [
         ...renderResults,
         ...build.renderResults,
@@ -366,6 +376,16 @@ async function adoptResolvedRoot(
   const baselinePaths = [...new Set([
     ...(init.baselinePath === undefined ? [] : [init.baselinePath]),
     ...imports.flatMap((result) => result.baselinePaths),
+  ])];
+  const writtenPaths = [...new Set([
+    ...init.files.filter((file) => file.status === "create").map((file) => file.path),
+    ...imports.flatMap((entry) => [
+      ...(entry.destination === undefined ? [] : [entry.destination]),
+      ...entry.units.map((unit) => `.skillset/${unit.kind === "skill" ? "skills" : "plugins"}/${unit.name}`),
+    ]),
+    ...baselinePaths,
+    ...buildWritePaths,
+    ...ADOPT_REPORT_PATHS,
   ])];
   const report: AdoptReport = {
     acquisition,
@@ -390,6 +410,7 @@ async function adoptResolvedRoot(
     surveySkips: survey.surveySkips,
     transformPreviews,
     write: true,
+    writtenPaths,
   };
 
   await persistAdoptReport(report, workspaceCacheKey);

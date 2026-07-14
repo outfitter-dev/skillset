@@ -151,6 +151,31 @@ describe("SET-287 finite read-only JSON", () => {
     expect(envelope.data.writes).toContain(".skillset/changes/state.json");
     expect(envelope.data.writes).toContain(".skillset/cache/adopt/report.md");
     expect(envelope.data.writes).toContain(".skillset/cache/adopt/report.json");
+    expect(envelope.data.writes.some((write) => write.startsWith(".skillset/cache/latest/"))).toBe(true);
+  });
+
+  test("blocked init adoption JSON reports persisted audit writes", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-adopt-blocked-"));
+    await mkdir(path.join(root, ".claude-plugin"), { recursive: true });
+    await mkdir(path.join(root, ".codex-plugin"), { recursive: true });
+    await writeFile(
+      path.join(root, ".claude-plugin", "plugin.json"),
+      JSON.stringify({ name: "claude-name", version: "1.0.0" })
+    );
+    await writeFile(
+      path.join(root, ".codex-plugin", "plugin.json"),
+      JSON.stringify({ name: "codex-name", version: "1.0.0" })
+    );
+
+    const blocked = await runJsonRoute("init", "--adopt", "all", "--yes", "--root", root);
+    const envelope = JSON.parse(blocked.stdout) as SkillsetCliResult & { data: { writes: string[] } };
+
+    expect(blocked.exitCode).toBe(1);
+    expect(blocked.stderr).toBe("");
+    expect(envelope.data.writes).toEqual([
+      ".skillset/cache/adopt/report.md",
+      ".skillset/cache/adopt/report.json",
+    ]);
   });
 
   test("build apply emits a finite summary and every changed path", async () => {

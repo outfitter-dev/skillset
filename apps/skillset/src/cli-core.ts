@@ -694,16 +694,7 @@ export async function runCli(
       if (jsonOutput) printCliJsonData("init.adopt", {
         report,
         state: report.write ? "written" : "planned",
-        writes: report.write ? [...new Set([
-          ...report.setupFiles.filter((file) => file.status === "create").map((file) => file.path),
-          ...report.imports.flatMap((entry) => [
-            ...(entry.destination === undefined ? [] : [entry.destination]),
-            ...entry.units.map((unit) => `.skillset/${unit.kind === "skill" ? "skills" : "plugins"}/${unit.name}`),
-          ]),
-          ...report.baselinePaths,
-          `${ADOPT_REPORT_DIR}/report.md`,
-          `${ADOPT_REPORT_DIR}/report.json`,
-        ])] : [],
+        writes: report.writtenPaths,
       }, report.ok ? 0 : 1);
       else {
         printAdoptReport(report, reason);

@@ -400,6 +400,24 @@ test("adopt elevates a root native plugin without copying workspace config into 
   expect(await exists(join(root, ".skillset/plugins/root-native/skills/helper/SKILL.md"))).toBe(true);
 });
 
+test("blocked adoption reports its persisted audit artifacts", async () => {
+  const root = await fixture({
+    ".claude-plugin/plugin.json": JSON.stringify({ name: "claude-name", version: "1.0.0" }),
+    ".codex-plugin/plugin.json": JSON.stringify({ name: "codex-name", version: "1.0.0" }),
+  });
+
+  const report = await adoptSkillset(root, { write: true });
+
+  expect(report.ok).toBe(false);
+  expect(report.write).toBe(false);
+  expect(report.writtenPaths).toEqual([
+    `${ADOPT_REPORT_DIR}/report.md`,
+    `${ADOPT_REPORT_DIR}/report.json`,
+  ]);
+  expect(await exists(cachePath(root, join(ADOPT_REPORT_DIR, "report.md")))).toBe(true);
+  expect(await exists(cachePath(root, join(ADOPT_REPORT_DIR, "report.json")))).toBe(true);
+});
+
 test("adopt elevates a root Cursor native plugin", async () => {
   const root = await fixture({
     ".cursor-plugin/plugin.json": JSON.stringify({
