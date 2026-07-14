@@ -6,6 +6,8 @@ import {
 } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
 import type { DevCommandRequest } from "./dev-cli";
+import { rejectProjectionForeignOption } from "./projection-foreign-args";
+import { readImportKind, readImportProvider } from "./source-arg-values";
 
 export const parseDevCommandRequest = (
   args: readonly string[],
@@ -18,6 +20,7 @@ export const parseDevCommandRequest = (
   let readinessFlag = false;
   let rootPath: string | undefined;
   let scopes: readonly string[] | undefined;
+  let sinceFlag = false;
   let yes = false;
   let write = false;
   const reader = new CliArgReader(args, 1);
@@ -55,7 +58,11 @@ export const parseDevCommandRequest = (
         yes = true;
         break;
       case "--from":
+        readImportProvider(reader.readRequiredOptionValue(option));
+        break;
       case "--kind":
+        readImportKind(reader.readRequiredOptionValue(option));
+        break;
       case "--name":
         reader.readRequiredOptionValue(option);
         break;
@@ -69,26 +76,35 @@ export const parseDevCommandRequest = (
         readinessFlag = true;
         break;
       case "--only":
-      case "--report":
-      case "--since":
-        reader.readRequiredOptionValue(option);
+      case "--report": {
+        const value = reader.readRequiredOptionValue(option);
+        if (option.flag === "--only" && value !== "outputs") {
+          throw new Error("skillset: expected --only outputs");
+        }
         readinessFlag = true;
         break;
-      case "--include":
-      case "--targets":
+      }
+      case "--since":
         reader.readRequiredOptionValue(option);
-        throw new Error("skillset: setup options are only supported with init");
+        sinceFlag = true;
+        break;
       case "--isolated":
         assertBooleanOption(option);
         isolated = true;
         break;
       default:
+        rejectProjectionForeignOption(reader, option);
         throw new Error(`skillset: unknown option ${option.raw}`);
     }
   }
 
   if (readinessFlag) {
     throw new Error("skillset: readiness flags are only supported with check");
+  }
+  if (sinceFlag) {
+    throw new Error(
+      "skillset: --since is only supported with check --ci or change commands"
+    );
   }
   if (buildMode !== undefined) {
     throw new Error("skillset: dev does not support --updated or --all");

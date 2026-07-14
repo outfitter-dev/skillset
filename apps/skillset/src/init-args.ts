@@ -12,9 +12,9 @@ import {
   tokenizeCsv,
 } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
-import type { ImportKind } from "./import";
 import type { InitCommandRequest } from "./init-cli";
 import type { SetupInclude } from "./setup";
+import { readImportKind, type ImportKind } from "./source-arg-values";
 
 export interface InitExplicitOptions {
   readonly adopt: readonly string[] | undefined;
@@ -99,6 +99,11 @@ export const parseInitCommandRequest = (
       case "--scope":
         scopes = readBuildScopes(reader.readRequiredOptionValue(option));
         break;
+      case "--isolated":
+        assertBooleanOption(option);
+        throw new Error(
+          "skillset: --isolated is only supported with build, check --only outputs, or diff"
+        );
       default:
         throw new Error(`skillset: unknown option ${option.raw}`);
     }
@@ -157,18 +162,4 @@ const mergeSetupIncludes = (
     seen.add(include);
   }
   return [...seen];
-};
-
-const readImportKind = (value: string): ImportKind => {
-  if (
-    value === "skill" ||
-    value === "skills" ||
-    value === "plugin" ||
-    value === "plugins"
-  ) {
-    return value;
-  }
-  throw new Error(
-    "skillset: expected --kind skill, skills, plugin, or plugins"
-  );
 };

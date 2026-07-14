@@ -166,6 +166,11 @@ const parseRecoveryOptions = (
         assertBooleanOption(option);
         jsonOutput = true;
         break;
+      case "--write":
+        assertBooleanOption(option);
+        throw new Error(
+          "skillset: --write is only supported with check or dev"
+        );
       case "--name":
       case "--kind":
       case "--from":

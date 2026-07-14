@@ -8,6 +8,8 @@ import {
   resolveCliRoot,
 } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
+import { rejectProjectionForeignOption } from "./projection-foreign-args";
+import { readImportKind, readImportProvider } from "./source-arg-values";
 
 export const parseBuildCommandRequest = (
   args: readonly string[],
@@ -89,7 +91,11 @@ const parseProjectionArgs = (
         yes = true;
         break;
       case "--from":
+        readImportProvider(reader.readRequiredOptionValue(option));
+        break;
       case "--kind":
+        readImportKind(reader.readRequiredOptionValue(option));
+        break;
       case "--name":
         reader.readRequiredOptionValue(option);
         break;
@@ -99,18 +105,18 @@ const parseProjectionArgs = (
         readinessFlag = true;
         break;
       case "--only":
-      case "--report":
-        reader.readRequiredOptionValue(option);
+      case "--report": {
+        const value = reader.readRequiredOptionValue(option);
+        if (option.flag === "--only" && value !== "outputs") {
+          throw new Error("skillset: expected --only outputs");
+        }
         readinessFlag = true;
         break;
+      }
       case "--since":
         reader.readRequiredOptionValue(option);
         sinceFlag = true;
         break;
-      case "--include":
-      case "--targets":
-        reader.readRequiredOptionValue(option);
-        throw new Error("skillset: setup options are only supported with init");
       case "--write":
         assertBooleanOption(option);
         throw new Error(
@@ -121,6 +127,7 @@ const parseProjectionArgs = (
         jsonlOutput = true;
         break;
       default:
+        rejectProjectionForeignOption(reader, option);
         throw new Error(`skillset: unknown option ${option.raw}`);
     }
   }

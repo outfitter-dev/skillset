@@ -1,7 +1,5 @@
 import {
-  isTargetName,
   lookupSkillsetReference,
-  targetNames,
   type LookupReport,
   type LookupSubject,
   type LookupView,
@@ -9,6 +7,7 @@ import {
 
 import type { TargetName } from "@skillset/core/internal/types";
 import type { SchemaJsonRecord } from "@skillset/schema";
+import { readLookupTarget } from "./cli-arg-values";
 import { renderCliDataResult } from "./cli-output";
 
 export interface LookupCommandOptions {
@@ -54,11 +53,6 @@ export function readLookupSubject(value: string): LookupSubject {
     return value;
   }
   throw new Error("skillset: expected lookup subject skill, agent, instruction, workspace, hooks, or plugin");
-}
-
-export function readLookupTarget(value: string): TargetName {
-  if (isTargetName(value)) return value;
-  throw new Error(`skillset: unknown lookup compatibility target ${value}; expected ${targetNames().join(", ")}`);
 }
 
 export function addLookupTarget(targets: readonly TargetName[], target: TargetName): TargetName[] {

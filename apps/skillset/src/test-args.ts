@@ -9,6 +9,7 @@ import { assertBooleanOption, CliArgReader } from "./cli-arg-reader";
 import {
   mergeBuildMode,
   readBuildScopes,
+  readClaudeSettingSources,
   readPositiveInteger,
   readTargetName,
   readTargetNames,
@@ -22,7 +23,6 @@ import {
   readHookRuntimeContextFormat,
 } from "./runtime-hooks";
 import type { TestCommandRequest } from "./test-cli";
-import { readClaudeSettingSources } from "./try";
 import type { TryClaudeSettingSources, TrySubcommand } from "./try";
 import { isTrySubcommand, validateTryFlags } from "./try-cli";
 

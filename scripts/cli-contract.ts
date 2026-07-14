@@ -1,25 +1,6 @@
-export const CLI_COMMANDS = [
-  "build",
-  "change",
-  "check",
-  "dev",
-  "diff",
-  "distribute",
-  "explain",
-  "hooks",
-  "import",
-  "init",
-  "list",
-  "lookup",
-  "marketplace",
-  "new",
-  "release",
-  "reconcile",
-  "restore",
-  "status",
-  "test",
-  "update",
-] as const;
+import { CLI_COMMANDS } from "../apps/skillset/src/cli-commands";
+
+export { CLI_COMMANDS };
 
 export const RETIRED_CLI_COMMANDS = [
   "adopt",

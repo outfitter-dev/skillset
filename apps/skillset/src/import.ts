@@ -24,6 +24,9 @@ import {
   portablePluginMetadataConflicts,
   PORTABLE_PLUGIN_METADATA_FIELDS,
 } from "./plugin-manifest-authority";
+import type { ImportKind, ImportProvider } from "./source-arg-values";
+
+export type { ImportKind, ImportProvider } from "./source-arg-values";
 
 const DEFAULT_SOURCE_DIR = ".skillset";
 const PLUGINS_DIR = "plugins";
@@ -34,8 +37,6 @@ const SOURCE_OWNED_PLUGIN_MANIFEST_FIELDS: ReadonlySet<string> = new Set([
   ...PORTABLE_PLUGIN_METADATA_FIELDS,
 ]);
 
-export type ImportKind = "plugin" | "plugins" | "skill" | "skills";
-export type ImportProvider = "agents" | "claude" | "codex" | "cursor" | "skillset";
 type SingularImportKind = "plugin" | "skill";
 
 /**

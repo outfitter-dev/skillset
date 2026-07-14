@@ -3,6 +3,7 @@ import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { gitSafeEnv } from "../apps/skillset/src/git-env";
+import { validateCliContractParity } from "./cli-contract-parity";
 
 export interface CliSurfaceViolation {
   readonly file: string;
@@ -84,15 +85,23 @@ async function main(): Promise<void> {
     if (!existsSync(path)) continue;
     violations.push(...scanCliSurface(file, await Bun.file(path).text()));
   }
-  if (violations.length === 0) {
-    console.error(`skillset: CLI surface guard scanned ${files.length} files; final vocabulary is clean`);
-    return;
+  const parityViolations = validateCliContractParity();
+  if (violations.length > 0) {
+    console.error(`skillset: CLI surface guard found ${violations.length} retired surface use(s):`);
+    for (const violation of violations) {
+      console.error(`  ${violation.file}:${violation.line}: ${violation.text}`);
+    }
   }
-  console.error(`skillset: CLI surface guard found ${violations.length} retired surface use(s):`);
-  for (const violation of violations) {
-    console.error(`  ${violation.file}:${violation.line}: ${violation.text}`);
+  if (parityViolations.length > 0) {
+    console.error(`skillset: CLI contract parity found ${parityViolations.length} violation(s):`);
+    for (const violation of parityViolations) {
+      console.error(`  [${violation.surface}] ${violation.message}`);
+    }
   }
-  process.exit(1);
+  if (violations.length > 0 || parityViolations.length > 0) {
+    process.exit(1);
+  }
+  console.error(`skillset: CLI surface guard scanned ${files.length} files; final vocabulary and contract parity are clean`);
 }
 
 if (import.meta.main) main().catch((error) => {

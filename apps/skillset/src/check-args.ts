@@ -8,6 +8,8 @@ import {
   resolveCliRoot,
 } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
+import { rejectProjectionForeignOption } from "./projection-foreign-args";
+import { readImportKind, readImportProvider } from "./source-arg-values";
 
 export const parseCheckCommandRequest = (
   args: readonly string[],
@@ -80,7 +82,11 @@ export const parseCheckCommandRequest = (
         yes = true;
         break;
       case "--from":
+        readImportProvider(reader.readRequiredOptionValue(option));
+        break;
       case "--kind":
+        readImportKind(reader.readRequiredOptionValue(option));
+        break;
       case "--name":
         reader.readRequiredOptionValue(option);
         break;
@@ -95,11 +101,8 @@ export const parseCheckCommandRequest = (
       case "--scope":
         scopes = readBuildScopes(reader.readRequiredOptionValue(option));
         break;
-      case "--include":
-      case "--targets":
-        reader.readRequiredOptionValue(option);
-        throw new Error("skillset: setup options are only supported with init");
       default:
+        rejectProjectionForeignOption(reader, option);
         throw new Error(`skillset: unknown option ${option.raw}`);
     }
   }
