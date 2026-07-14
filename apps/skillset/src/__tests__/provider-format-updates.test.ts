@@ -215,6 +215,41 @@ test("SET-278: check writes project-agent drift caused by target defaults", asyn
   expect(await readFile(join(root, CODEX_AGENT), "utf8")).toContain('model = "gpt-5.1"');
 });
 
+test("SET-278: check writes project-agent drift caused by adaptive hooks", async () => {
+  const generatedPath = ".claude/agents/reviewer.md";
+  const hookPath = ".skillset/agents/reviewer/hooks/session.json";
+  const root = await builtFixture({
+    "skillset.yaml": "skillset:\n  name: agent-hook-drift\nclaude: true\ncodex: false\ncursor: false\n",
+    ".skillset/agents/reviewer.md": `
+---
+name: reviewer
+description: Reviews code.
+hooks:
+  SessionStart:
+    - session
+---
+
+Review code.
+`,
+    [hookPath]: JSON.stringify({
+      events: ["SessionStart"],
+      run: { command: "echo initial" },
+    }),
+  });
+  await writeFile(
+    join(root, hookPath),
+    JSON.stringify({ events: ["SessionStart"], run: { command: "echo updated" } }),
+    "utf8"
+  );
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.providerUpdatePaths).toEqual([]);
+  expect(report.fixedPaths).toContain(generatedPath);
+  expect(await readFile(join(root, generatedPath), "utf8")).toContain("echo updated");
+});
+
 test("SET-278: check writes version-only source drift", async () => {
   const root = await builtFixture({
     "skillset.yaml": "skillset:\n  name: version-drift\n  version: 1.0.0\nclaude: true\ncodex: false\n",
@@ -341,6 +376,22 @@ mcp: false
   expect(report.providerUpdatePaths).toEqual([]);
   expect(report.fixedPaths).toContain(CODEX_PLUGIN_MANIFEST);
   expect(await readFile(join(root, CODEX_PLUGIN_MANIFEST), "utf8")).toContain('"mcpServers": "./.mcp.json"');
+});
+
+test("SET-278: check writes plugin manifest drift caused by native companion paths", async () => {
+  const root = await builtFixture(pluginFixture());
+  const appPath = ".skillset/plugins/alpha/.app.json";
+  await writeFile(join(root, appPath), '{"apps":[]}\n', "utf8");
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.providerUpdatePaths).toEqual([]);
+  expect(report.fixedPaths).toContain(CODEX_PLUGIN_MANIFEST);
+  expect(report.fixedPaths).toContain("plugins/alpha/codex/.app.json");
+  expect(await readFile(join(root, CODEX_PLUGIN_MANIFEST), "utf8")).toContain(
+    '"apps": "./.app.json"'
+  );
 });
 
 test("SET-278: check writes lock-only source provenance drift", async () => {

@@ -3019,6 +3019,7 @@ function lockItemForProjectAgent(args: {
     outputPath: files[0] ?? "",
     preprocessDependencies: args.result.preprocessDependencies,
     sourceHash: hashProjectAgentSource(
+      args.graph,
       args.agent,
       args.result.target,
       args.graph.root.compile.skillset.metadata,
@@ -3097,6 +3098,7 @@ function hashIslandSource(
 }
 
 function hashProjectAgentSource(
+  graph: BuildGraph,
   agent: SourceProjectAgent,
   target: TargetName,
   skillsetMetadata: boolean,
@@ -3104,7 +3106,7 @@ function hashProjectAgentSource(
   rootPath: string
 ): string {
   const hash = createHash("sha256");
-  hash.update("skillset-project-agent-source-v2\0");
+  hash.update("skillset-project-agent-source-v3\0");
   hash.update(agent.relativePath);
   hash.update("\0");
   hash.update(agent.name);
@@ -3124,6 +3126,17 @@ function hashProjectAgentSource(
   }));
   hash.update("\0skillset-metadata\0");
   hash.update(String(skillsetMetadata));
+  hash.update("\0");
+  const adaptiveHooks = target === "claude"
+    ? renderAdaptiveFrontmatterHooks(
+      graph,
+      { agentId: agent.outputName, kind: "agent" },
+      target,
+      relative(graph.rootPath, agent.sourcePath)
+    )
+    : undefined;
+  hash.update("resolved-adaptive-hooks\0");
+  hash.update(stringifyJson(adaptiveHooks ?? {}));
   hash.update("\0");
   for (const dependency of preprocessDependencies) {
     hash.update("dependency\0");
@@ -3191,6 +3204,7 @@ function hashPluginSource(
   hash.update("\0");
   hash.update(stringifyJson(plugin.targets[target].options));
   hash.update("\0plugin-surfaces\0");
+  const manifestSurfacePaths = withOptionalSurfacePaths(graph, {}, plugin, [], target);
   hash.update(stringifyJson(JSON.parse(JSON.stringify({
     adaptiveHooks: plugin.adaptiveHooks.map((hook) => ({
       events: hook.events,
@@ -3218,6 +3232,7 @@ function hashPluginSource(
       scope: attachment.scope,
       status: attachment.status,
     })),
+    ...(Object.keys(manifestSurfacePaths).length === 0 ? {} : { manifestSurfacePaths }),
     islands: graph.projectIslands
       .filter((island) => island.plugin === plugin.id && island.target === target)
       .map((island) => ({ relativePath: island.relativePath, target: island.target }))
