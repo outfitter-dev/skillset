@@ -36,11 +36,11 @@ supports:
 
 ## Diagnostics
 
-Support constraints participate in normalized source hashes and `change status`. A supports-only edit is significant but not inherently severity-bearing. The default suggested bump is `none`, or `patch` when rendered user-facing metadata changes. V1 validates compact strings and expanded `supports.packages` entries with common semver-like comparators, caret ranges, and tilde ranges. `repo:<path>` package sources are read as package JSON; `skillset check --only outputs` and `doctor` warn by default, or fail when `onMismatch: error` is set, when the local version falls outside the declared range.
+Support constraints participate in normalized source hashes and `change status`. A supports-only edit is significant but not inherently severity-bearing. The default suggested bump is `none`, or `patch` when rendered user-facing metadata changes. V1 validates compact strings and expanded `supports.packages` entries with common semver-like comparators, caret ranges, and tilde ranges. `repo:<path>` package sources are read as package JSON; `skillset check` warns by default, or fails when `onMismatch: error` is set, when the local version falls outside the declared range.
 
 ## Provenance
 
-Support constraints appear in source-unit provenance, history evidence, and explain/doctor output. Aggregates may report child supports for inspection, but they do not copy constraints into child identity by default.
+Support constraints appear in source-unit provenance, history evidence, and `explain`/`status` output. Aggregates may report child supports for inspection, but they do not copy constraints into child identity by default.
 
 ## Evidence
 

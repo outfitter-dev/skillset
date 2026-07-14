@@ -128,12 +128,12 @@ skillset diff
 skillset dev --watch
 skillset explain .skillset/skills/review-notes/SKILL.md
 skillset explain .claude/skills/review-notes/SKILL.md
-skillset doctor
+skillset status
 ```
 
 Use `diff` to preview generated changes after editing source, `dev --watch` to
 rerun source diagnostics and generated-output previews as you save, `explain` to
-see why a source or generated path exists, and `doctor` for a broader local
+see why a source or generated path exists, and `status` for a broader local
 health summary. The watch loop is read-only by default; use
 `skillset dev --watch --apply` when you want each clean refresh to write
 repo-local generated output with build ownership, backup, and restore safeguards.

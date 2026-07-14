@@ -724,7 +724,7 @@ Body.
     path: ".skillset/plugins/alpha/skillset.yaml",
   });
 
-  const doctorJson = await runSkillsetCli("doctor", "--root", root, "--json");
+  const doctorJson = await runSkillsetCli("status", "--root", root, "--json");
   expect(doctorJson.exitCode).toBe(1);
   const doctorReport = (JSON.parse(doctorJson.stdout) as {
     readonly data: { buildDiagnostics: readonly { code: string; featureId: string; path?: string }[] };
@@ -1641,7 +1641,7 @@ test("SET-41: hooks print emits additive runner snippets", async () => {
     expect(printed.stdout).toContain("skillset change check --since origin/main");
     expect(printed.stdout).toContain("skillset check");
     expect(printed.stdout).toContain("skillset check --only outputs");
-    expect(printed.stdout).toContain("skillset doctor");
+    expect(printed.stdout).toContain("skillset status");
     if (runner === "pre-commit") expect(printed.stdout).toContain("entry: sh -c");
   }
 });
@@ -1654,7 +1654,7 @@ test("SET-41: hooks print emits target runtime suggestions without installing", 
   expect(claude.stdout).toContain("Stop");
   expect(claude.stdout).toContain("skillset hooks run post-tool-use");
   expect(claude.stdout).toContain("skillset hooks run stop");
-  expect(claude.stdout).not.toContain("skillset doctor");
+  expect(claude.stdout).not.toContain("skillset status");
   expect(claude.stdout).toContain("Skillset does not install or trust hooks");
 
   const codex = await runSkillsetCli("hooks", "print", "--target", "codex", "--agent-runtime");
@@ -3044,6 +3044,12 @@ Body.
   expect(checked.exitCode).toBe(0);
   expect(checked.stderr).toContain("@acme/docs-cli supports >=2.4.0 <3.0.0");
   expect(checked.stderr).toContain("repo:packages/docs-cli/package.json is 3.1.0");
+
+  const readiness = await runSkillsetCli("check", "--root", root);
+  expect(readiness.exitCode).toBe(0);
+  expect(readiness.stdout).toContain("@acme/docs-cli supports >=2.4.0 <3.0.0");
+  expect(readiness.stdout).toContain("repo:packages/docs-cli/package.json is 3.1.0");
+  expect(readiness.stdout).toContain("skillset: check passed");
 });
 
 test("SET-39: invalid supports ranges fail loudly", async () => {
@@ -7593,12 +7599,12 @@ Audit body.
     })
   );
 
-  const doctor = await runSkillsetCli("doctor", "--root", root);
+  const doctor = await runSkillsetCli("status", "--root", root);
   expect(doctor.exitCode).toBe(0);
   expect(doctor.stdout).toContain("render [codex] plugin.audit.feature:dependencies: dependencies -> plugin-manifest degraded");
-  expect(doctor.stdout).toContain("doctor found 1 render result advisory");
+  expect(doctor.stdout).toContain("status found 1 render result advisory");
 
-  const doctorJson = await runSkillsetCli("doctor", "--root", root, "--json");
+  const doctorJson = await runSkillsetCli("status", "--root", root, "--json");
   expect(doctorJson.exitCode).toBe(0);
   const doctorReport = (JSON.parse(doctorJson.stdout) as { readonly data: {
     renderResults: readonly { destination?: string; featureId: string; status: string; target?: string }[];
@@ -7707,14 +7713,14 @@ Audit body.
   expect(featureIds(instructionExplain.stdout)).toContain("project-instructions");
   expect(featureIds(islandExplain.stdout)).toContain("target-native-islands");
 
-  const featureText = await runSkillsetCli("features", "plugin-bin");
+  const featureText = await runSkillsetCli("lookup", "features", "plugin-bin");
   expect(featureText.exitCode).toBe(0);
   expect(featureText.stdout).toContain("feature plugin-bin: Plugin Bin");
   expect(featureText.stdout).toContain("codex: unsupported");
 
-  const featureJson = await runSkillsetCli("features", "plugin-bin", "--json");
+  const featureJson = await runSkillsetCli("lookup", "features", "plugin-bin", "--json");
   expect(featureJson.exitCode).toBe(0);
-  expect(JSON.parse(featureJson.stdout)).toMatchObject({ command: "features" });
+  expect(JSON.parse(featureJson.stdout)).toMatchObject({ command: "lookup features" });
   const featureReport = (JSON.parse(featureJson.stdout) as { readonly data: {
     features: readonly {
       docs: readonly string[];
@@ -7738,17 +7744,17 @@ Audit body.
   ]);
   expect(featureReport.features[0]?.targetSupport.codex.reason).toContain("Codex plugins");
 
-  const missingFeature = await runSkillsetCli("features", "no-such-feature", "--json");
+  const missingFeature = await runSkillsetCli("lookup", "features", "no-such-feature", "--json");
   expect(missingFeature.exitCode).toBe(1);
   expect(JSON.parse(missingFeature.stdout)).toMatchObject({ data: { features: [] }, exitCode: 1, schemaVersion: "skillset.cli.result@1" });
 
-  const doctor = await runSkillsetCli("doctor", "--root", root);
+  const doctor = await runSkillsetCli("status", "--root", root);
   expect(doctor.stdout).toContain("features:");
   expect(doctor.stdout).toContain("status implemented");
   expect(doctor.stdout).toContain("feature support: claude");
   expect(doctor.stdout).toContain("feature support: codex");
-  const doctorJson = await runSkillsetCli("doctor", "--root", root, "--json");
-  expect(JSON.parse(doctorJson.stdout)).toMatchObject({ command: "doctor" });
+  const doctorJson = await runSkillsetCli("status", "--root", root, "--json");
+  expect(JSON.parse(doctorJson.stdout)).toMatchObject({ command: "status" });
   const doctorReport = (JSON.parse(doctorJson.stdout) as { readonly data: {
     featureCapabilities: {
       byTargetSupport: { claude: Record<string, number>; codex: Record<string, number> };
@@ -7760,6 +7766,12 @@ Audit body.
   expect(doctorReport.featureCapabilities.byTargetSupport.claude.native).toBeGreaterThan(0);
   expect(doctorReport.featureCapabilities.byTargetSupport.codex.native).toBeGreaterThan(0);
   expect(doctorReport.featureCapabilities.featureIds).toContain("plugin-bin");
+
+  for (const retired of ["doctor", "features"]) {
+    const removed = await runSkillsetCli(retired);
+    expect(removed.exitCode).toBe(1);
+    expect(removed.stderr).toContain("expected command");
+  }
 });
 
 test("SET-83: doctor reports render results from unsupported build errors", async () => {

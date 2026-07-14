@@ -122,7 +122,7 @@ const USAGE = [
   "       skillset diff [--updated|--all] [--isolated] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset check [--write|--only outputs|--ci [--fix] [--since <ref>] [--report <path>]] [--json] [--root <path>]",
   "       skillset list [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
-  "       skillset doctor [--json] [--updated|--all] [--scope <scope>] [--root <path>] [--source <dir>] [--dist <dir>]",
+  "       skillset status [--json] [--root <path>]",
   "       skillset dev --watch [--apply] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change status [--since <ref>] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset change check [@ref|--ref <ref>] [--since <ref>] [--root <path>] [--source <dir>] [--dist <dir>]",
@@ -143,7 +143,7 @@ const USAGE = [
   "       skillset marketplace check [name] [--json] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset marketplace update [name] [--yes|--dry-run] [--json] [--root <path>] [--source <dir>] [--dist <dir>]",
   "       skillset update [--yes|--dry-run] [--root <path>] [--source <dir>] [--dist <dir>]",
-  "       skillset features [feature-id] [--json]",
+  "       skillset lookup features [feature-id] [--json]",
   "       skillset lookup [subject] [aspect...] [--frontmatter] [--fields] [--field <path>] [--values] [--events] [--compat [claude|codex|cursor...]] [--examples] [--schema] [--claude] [--codex] [--cursor] [--json]",
   "       skillset test [name] [--root <path>] [--source <dir>]",
   "       skillset test --target <claude|codex|cursor> [--prompt <text>|--prompt-file <path>] [--plugin <id>] [--name <name>] [--timeout-ms <ms>] [--claude-setting-sources <isolated|user|project|local>] [--background] [--json] [--root <path>] [--source <dir>]",
@@ -208,6 +208,7 @@ export async function runCli(
     jsonOutput,
     lookupAspects,
     lookupField,
+    lookupFeatures,
     lookupSubject,
     lookupTargets,
     lookupViews,
@@ -761,11 +762,11 @@ export async function runCli(
     return;
   }
 
-  if (command === "features") {
+  if (command === "lookup" && lookupFeatures) {
     const features = listFeatureCapabilities(importPath);
     if (jsonOutput) {
       const exitCode = importPath !== undefined && features.length === 0 ? 1 : 0;
-      printCliJsonData("features", { features }, exitCode);
+      printCliJsonData("lookup features", { features }, exitCode);
       if (exitCode !== 0) process.exitCode = exitCode;
       return;
     }
@@ -888,13 +889,13 @@ export async function runCli(
     return;
   }
 
-  if (command === "doctor") {
+  if (command === "status") {
     // doctorSkillset carries source warnings in the structured report; the CLI
     // renders them below instead of relying on core operations to print.
     const report = await doctorSkillset(rootPath, options);
     if (jsonOutput) {
       const exitCode = report.ok ? 0 : 1;
-      printCliJsonData("doctor", report, exitCode, "diagnostics");
+      printCliJsonData("status", report, exitCode, "diagnostics");
       if (exitCode !== 0) process.exitCode = exitCode;
       return;
     }
@@ -922,10 +923,10 @@ export async function runCli(
     }
     if (report.ok) {
       if (report.notableRenderResults.length === 0) {
-        console.log("skillset: doctor found no problems");
+        console.log("skillset: status found no problems");
       } else {
         console.log(
-          `skillset: doctor found ${report.notableRenderResults.length} render result advisor${report.notableRenderResults.length === 1 ? "y" : "ies"}`
+          `skillset: status found ${report.notableRenderResults.length} render result advisor${report.notableRenderResults.length === 1 ? "y" : "ies"}`
         );
       }
     } else {
@@ -936,7 +937,7 @@ export async function runCli(
       if (report.notableRenderResults.length > 0) {
         problems.push(`${report.notableRenderResults.length} render result advisor${report.notableRenderResults.length === 1 ? "y" : "ies"}`);
       }
-      console.log(`skillset: doctor found ${problems.join(" and ")}`);
+      console.log(`skillset: status found ${problems.join(" and ")}`);
       process.exitCode = 1;
     }
     return;
@@ -1113,6 +1114,7 @@ interface ParsedArgs {
   readonly jsonlOutput: boolean;
   readonly lookupAspects: readonly string[];
   readonly lookupField?: string;
+  readonly lookupFeatures: boolean;
   readonly lookupSubject?: LookupSubject;
   readonly lookupTargets: readonly TargetName[];
   readonly lookupViews: readonly LookupView[];
@@ -1250,6 +1252,9 @@ function printChangeStatus(report: ChangeStatusReport): void {
 
 function printCiReport(report: CiReport): void {
   printDiagnostics(report.outputDiagnostics);
+  for (const warning of report.warnings) {
+    console.log(`  warning: ${warning}`);
+  }
   for (const issue of report.lintIssues) {
     console.log(`  lint ${issue.severity}: ${issue.path}: ${issue.code}: ${issue.message}`);
   }
@@ -1755,6 +1760,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let jsonlOutput = false;
   let lookupAspects: string[] = [];
   let lookupField: string | undefined;
+  let lookupFeatures = false;
   let lookupSubject: LookupSubject | undefined;
   let lookupTargets: TargetName[] = [];
   let lookupViews: LookupView[] = [];
@@ -1901,16 +1907,17 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     index += 1;
   }
 
-  if (command === "features") {
-    const rawFeatureId = args[index];
-    if (rawFeatureId !== undefined && !rawFeatureId.startsWith("--")) {
-      importPath = rawFeatureId;
-      index += 1;
-    }
-  }
-
   if (command === "lookup") {
     const rawSubject = args[index];
+    if (rawSubject === "features") {
+      lookupFeatures = true;
+      index += 1;
+      const rawFeatureId = args[index];
+      if (rawFeatureId !== undefined && !rawFeatureId.startsWith("--")) {
+        importPath = rawFeatureId;
+        index += 1;
+      }
+    } else
     if (rawSubject !== undefined && !rawSubject.startsWith("--")) {
       lookupSubject = readLookupSubject(rawSubject);
       index += 1;
@@ -2310,7 +2317,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(distributionSubcommand === undefined ? {} : { distributionSubcommand }),
   });
   if (jsonlOutput) throw new Error("skillset: --jsonl is not supported until a streaming route is enabled");
-  validateLookupFlags(command, {
+  validateLookupFlags(command, args, {
+    features: lookupFeatures,
     ...(lookupField === undefined ? {} : { field: lookupField }),
     targets: lookupTargets,
     views: lookupViews,
@@ -2367,6 +2375,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(scopes === undefined ? {} : { scopes }),
     ...(sourceDir === undefined ? {} : { sourceDir }),
   });
+  validateStatusFlags(command, args);
   validateReconcileFlags(command, {
     ...(buildMode === undefined ? {} : { buildMode }),
     ...(changeSince === undefined ? {} : { changeSince }),
@@ -2438,6 +2447,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     jsonlOutput,
     lookupAspects,
     ...(lookupField === undefined ? {} : { lookupField }),
+    lookupFeatures,
     ...(lookupSubject === undefined ? {} : { lookupSubject }),
     lookupTargets,
     lookupViews,
@@ -2811,6 +2821,22 @@ function validateRestoreFlags(
   }
 }
 
+function validateStatusFlags(command: Command, args: readonly string[]): void {
+  if (command !== "status") return;
+  for (let index = 1; index < args.length; index += 1) {
+    const argument = args[index];
+    if (argument === undefined) break;
+    const equalsIndex = argument.indexOf("=");
+    const flag = equalsIndex === -1 ? argument : argument.slice(0, equalsIndex);
+    if (flag === "--json") continue;
+    if (flag === "--root") {
+      if (equalsIndex === -1) index += 1;
+      continue;
+    }
+    throw new Error("skillset: status only supports --root and --json");
+  }
+}
+
 function validateReconcileFlags(
   command: Command,
   reconcile: {
@@ -3063,20 +3089,39 @@ function validateJsonFlags(
   if (!jsonOutput) return;
   if (command === "check") return;
   if (command === "change" && (route.changeSubcommand === "check" || route.changeSubcommand === "history" || route.changeSubcommand === "list" || route.changeSubcommand === "show" || route.changeSubcommand === "status")) return;
-  if (command === "diff" || command === "doctor" || command === "explain" || command === "features" || command === "list" || command === "lookup" || command === "marketplace" || command === "reconcile" || command === "test") return;
+  if (command === "diff" || command === "status" || command === "explain" || command === "list" || command === "lookup" || command === "marketplace" || command === "reconcile" || command === "test") return;
   if (command === "distribute" && route.distributionSubcommand === "plan") return;
   throw new Error("skillset: --json is not supported for this command route");
 }
 
 function validateLookupFlags(
   command: Command,
+  args: readonly string[],
   lookup: {
+    readonly features: boolean;
     readonly field?: string;
     readonly targets: readonly TargetName[];
     readonly views: readonly LookupView[];
   }
 ): void {
-  if (command === "lookup") return;
+  if (command === "lookup") {
+    if (lookup.features) {
+      const unsupportedFlag = args.slice(2).find((argument) => {
+        if (!argument.startsWith("--")) return false;
+        const flag = argument.split("=", 1)[0];
+        return flag !== "--json";
+      });
+      if (
+        unsupportedFlag !== undefined ||
+        lookup.field !== undefined ||
+        lookup.targets.length > 0 ||
+        lookup.views.length > 0
+      ) {
+        throw new Error("skillset: expected lookup features to use only an optional feature id and --json");
+      }
+    }
+    return;
+  }
   if (lookup.field !== undefined || lookup.targets.length > 0 || lookup.views.length > 0) {
     throw new Error("skillset: lookup flags are only supported with lookup");
   }

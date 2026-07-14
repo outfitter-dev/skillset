@@ -12,7 +12,7 @@ See the render-results ADR, currently filed as [Lowering Outcomes and Loss Ledge
 
 ## Current Boundary
 
-The current core schema is `skillset-render-result@1`. Build, diff, and verify render-result records are produced by `@skillset/core` and are persisted in structured operation results, generated `skillset.lock` files, adopt reports, and the `doctor` / `explain` JSON surfaces. Import and adopt reports may also attach render-result records to render-relevant warnings, such as preserved target-native tool-policy frontmatter or recognized survey skips. Pure source invalidity, unknown import metadata, and lint-only authoring problems stay in diagnostics instead of being forced into the render report. Future adapter conformance surfaces should read the same report instead of inventing parallel diagnostics. Render results are not written into ordinary generated `SKILL.md`, `CLAUDE.md`, `AGENTS.md`, plugin manifest, hook, MCP, app, or resource files by default.
+The current core schema is `skillset-render-result@1`. Build, diff, and verify render-result records are produced by `@skillset/core` and are persisted in structured operation results, generated `skillset.lock` files, adopt reports, and the `status` / `explain` JSON surfaces. Import and adopt reports may also attach render-result records to render-relevant warnings, such as preserved target-native tool-policy frontmatter or recognized survey skips. Pure source invalidity, unknown import metadata, and lint-only authoring problems stay in diagnostics instead of being forced into the render report. Future adapter conformance surfaces should read the same report instead of inventing parallel diagnostics. Render results are not written into ordinary generated `SKILL.md`, `CLAUDE.md`, `AGENTS.md`, plugin manifest, hook, MCP, app, or resource files by default.
 
 | Field | Meaning |
 | --- | --- |
@@ -126,8 +126,8 @@ The remaining status values are intentionally documented deferrals rather than f
 - Import reports keep unrecognized frontmatter warnings separate, but target-native Claude tool-policy fields such as `allowed-tools` and `disable-model-invocation` also produce `tools-policy` `target_native` render-result records.
 - Adopt survey skips for recognized native surfaces produce `intentionally_skipped` render-result records in the report so planned migrations are visible without pretending the dry-run rendered output.
 - Explain output summarizes matching render results by source unit, feature id, target, status, policy, reason, outputs, and diagnostics. Explaining a source path can show every target render result for that source; explaining a generated path stays scoped to the generated output's target.
-- Doctor output summarizes non-happy-path render results such as degraded, lossy, unsupported, externally managed, skipped, and failed render results without dumping every rendered file by default.
-- `skillset explain --json` and `skillset doctor --json` include full render-result records for agents and automation.
+- Status output summarizes non-happy-path render results such as degraded, lossy, unsupported, externally managed, skipped, and failed render results without dumping every rendered file by default.
+- `skillset explain --json` and `skillset status --json` include full render-result records for agents and automation.
 - Adapter conformance tests should compare feature-registry support rows with produced render results or render errors.
 - Generated prose, scripts, activation probes, shimmed instructions, helper
   files, and metadata sidecars can explain compatibility behavior, but they do
@@ -135,7 +135,7 @@ The remaining status values are intentionally documented deferrals rather than f
 
 ## Provenance
 
-Outcome provenance belongs in structured operation results, generated `skillset.lock` files, the logical `.skillset/cache/adopt/report.json` report backed by the repo's XDG cache bucket, `skillset explain --json`, and `skillset doctor --json` today. Adopt Markdown reports and doctor/explain text output render compact summaries and point readers at structured records when more detail is needed. Generated target files stay clean by default. Debug sentinels or source markers in target files are a future opt-in, not a default generated-output contract.
+Outcome provenance belongs in structured operation results, generated `skillset.lock` files, the logical `.skillset/cache/adopt/report.json` report backed by the repo's XDG cache bucket, `skillset explain --json`, and `skillset status --json` today. Adopt Markdown reports and status/explain text output render compact summaries and point readers at structured records when more detail is needed. Generated target files stay clean by default. Debug sentinels or source markers in target files are a future opt-in, not a default generated-output contract.
 
 ## Evidence
 
