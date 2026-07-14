@@ -19,7 +19,7 @@ runtime configuration.
 To inspect a complete minimal repo, use the
 [First Author Example](examples/first-author/README.md). It is a Skillset
 source repo with one skill and one rule, plus checked-in generated
-output so `skillset check`, `skillset build`, and `skillset verify` have an
+output so `skillset check` and `skillset build` have an
 immediate clean target.
 
 Once source exists, `skillset dev --watch` gives you the local edit loop: it
@@ -52,24 +52,24 @@ skillset init               # preview root skillset.yaml + .skillset/ source for
 skillset init my-skillset   # preview a new source repo
 skillset build              # plan generated changes without writing
 skillset build --yes        # write generated outputs
-skillset build --isolated   # mirror the projection under .skillset/cache/latest/ (also: verify, diff)
-skillset lint               # source authoring diagnostics
-skillset check              # source authoring diagnostics
+skillset build --isolated   # mirror the projection under .skillset/cache/latest/ (also: check --only outputs, diff)
+skillset check              # comprehensive read-only source + generated-output readiness
+skillset check --write      # repair source-driven generated drift; refuses target edits and format migrations
+skillset check --only outputs # narrow generated-output freshness check
+skillset check --ci --fix   # branch-aware CI gates plus safe mechanical repair
 skillset dev --watch        # rerun source diagnostics and generated-output previews on source edits
 skillset dev --watch --apply # write generated output after clean source edits
-skillset verify             # fail if generated outputs are stale
 skillset diff               # show pending generated changes without writing
 skillset explain <path>     # explain a source or generated path (rendering, lock provenance, hashes; add --json for records)
 skillset features [id]      # inspect registry feature capabilities and target support; add --json for records
 skillset restore <backup>   # preview restoring a generated-output backup; write with --yes
 skillset doctor             # aggregate lint issues, drift, warnings, and render result advisories; add --json for records
-skillset ci                 # CI entrypoint: lint + change check + drift, with --fix and --report
 skillset test [name]        # run an isolated deterministic projection test
 ```
 
-`init` and `build` are plan-first: they print pending filesystem changes and write only with `--yes`; `--dry-run` always prevents writes, even when paired with `--yes`. `--scope repo`, `--scope plugins`, `--scope project`, and combinations filter generated destinations for build, diff, verify, list, and explain; `--scope user` is accepted but currently has no build outputs. `skillset change status` and `skillset change check` are whole-source coverage commands and reject build scopes. `skillset test` writes isolated runs under `.skillset/cache/tests/` and does not mutate live generated target roots. `diff`, `explain`, `features`, `doctor`, and default `dev --watch` are read-only authoring aids: they never write generated outputs, install, trust, publish, or mutate user-level config. `dev --watch` watches source/config paths and reruns diagnostics plus generated-output previews; `dev --watch --apply` explicitly writes repo-local generated output after clean refreshes and reuses the same ownership checks, backup snapshots, and restore guidance as confirmed builds. `diff`, `verify`, and `doctor` report missing managed outputs separately from new outputs so intentional deletion and stale locks are visible. Confirmed builds back up unmanaged collisions and target-side edits under `.skillset/snapshots/<backup-id>/` before overwriting or deleting them; `skillset restore <backup-id>` previews restoring a backup and writes only with `--yes` (see [Output Safety](docs/features/output-safety.md)). `explain` accepts either a source path (e.g. `.skillset/skills/foo/SKILL.md`) or a generated output path and reports how it renders, matching render results, its lock entry, target state, and source/output hashes; `explain --json` includes full render result records for automation. `features` lists the feature registry by id and shows each target adapter's support status; pass a feature id to inspect one capability. `doctor` exits non-zero when it finds lint issues, drift, or a build error, and it also summarizes notable render result advisories such as degraded or unsupported results; `doctor --json` includes the full render report. `skillset ci` is the continuous-integration entrypoint: it aggregates lint, Skillset change-entry coverage, package Changesets awareness, and generated drift, rebuilds stale generated output mechanically with `--fix`, and writes a PR-comment-ready Markdown report with `--report`; `skillset init --include ci` scaffolds a ready-to-use GitHub Actions workflow (see [CI](docs/features/ci.md)).
+`init` and `build` are plan-first: they print pending filesystem changes and write only with `--yes`; `--dry-run` always prevents writes, even when paired with `--yes`. `skillset check` is read-only by default and combines source diagnostics with generated-output readiness. `check --only outputs` is the narrow freshness check. `check --write` repairs only source-driven drift: it refuses managed target-side edits and provider-format migrations, which must be reconciled or applied through `skillset update`. `check --ci` adds branch-aware Skillset change-entry and package Changesets gates; CI uses `--fix`, not `--write`, and may also emit a Markdown report with `--report`. The retired top-level `lint`, `verify`, and `ci` commands have no compatibility aliases. `skillset init --include ci` scaffolds the corresponding workflow (see [CI](docs/features/ci.md)).
 
-See [Workbench Check](docs/features/workbench.md) for the current `check`/`verify` boundary, package-level diagnostic scopes, built-in `standard` and `strict` presets, parser/schema checks, Workbench fixtures, and the bounded ast-grep proof point.
+See [Workbench Check](docs/features/workbench.md) for the cohesive `check` family, package-level diagnostic scopes, built-in `standard` and `strict` presets, parser/schema checks, Workbench fixtures, and the bounded ast-grep proof point.
 
 The default workspace layout is:
 
@@ -96,7 +96,7 @@ Use explicit paths when building another repo:
 ```bash
 skillset build --root /path/to/content-repo
 skillset check --root /path/to/content-repo
-skillset verify --root /path/to/content-repo
+skillset check --only outputs --root /path/to/content-repo
 skillset build --root /tmp/example --dist generated
 ```
 
@@ -127,7 +127,7 @@ Skillset pins its development/runtime toolchain in `.bun-version` and
 published package floor for people running the compiled CLI through local
 installs, `npx`, or `bunx`; the pin is for reproducible repo bootstrap and CI.
 
-The optional Lefthook setup mirrors the repo's local review gates, and `lefthook.yml` is their single source of truth. Pre-commit checks staged whitespace and, when Skillset source or generated outputs are staged, runs self-hosted generated-output verification through `bun run skillset:verify`. Pre-push fails fast on cheap gates first — whitespace across the pushed range, Changeset coverage, and workflow lint when `actionlint` is available — then runs the two heavy gates in parallel: `bun run check` (the same aggregate CI runs) and `skillset ci` scoped to the remote trunk with a report under `.skillset/cache/reports/`. Both range gates resolve the trunk via `scripts/git-trunk.sh` (`origin/HEAD`, typically `origin/main`) instead of hardcoding the branch name. Both hooks can be run anywhere via `bun run hooks:pre-commit` / `bun run hooks:pre-push`.
+The optional Lefthook setup mirrors the repo's local review gates, and `lefthook.yml` is their single source of truth. Pre-commit uses `bun run skillset:check:outputs`; pre-push runs the repo aggregate and `bun run skillset:check:ci:report`. Both range gates resolve the trunk via `scripts/git-trunk.sh` (`origin/HEAD`, typically `origin/main`).
 
 Ultracite is installed with the documented Oxlint/Oxfmt provider setup (`oxlint.config.ts` extending `ultracite/oxlint/core`, `oxfmt.config.ts` extending `ultracite/oxfmt`). `bun run ultracite:doctor` is part of `bun run check` and must stay clean. `bun run ultracite:check` and `bun run ultracite:fix` are available for the strict formatting/lint cleanup pass, but they are not yet gating the repo because the first strict run has existing formatting and rule findings to resolve deliberately.
 
@@ -175,7 +175,7 @@ skillset import agents --root /path/to/content-repo  # ~/.agents/skills
 
 Imports copy files into the active workspace source root, such as `.skillset/skills/<name>` and `.skillset/plugins/<name>`. Passing a `SKILL.md` path imports the full containing skill directory, including sibling `references/`, `scripts/`, `assets/`, `agents/`, and other sidecars. Skills-root imports de-dupe symlinked directories by real path, so the same global skill is not imported twice when `.claude/skills`, `.codex/skills`, and `.agents/skills` point at one another. Plugin imports write plugin-local `skillset.yaml`; when importing a native Claude/Codex generated plugin that only has `.claude-plugin/plugin.json` or `.codex-plugin/plugin.json`, Skillset synthesizes a minimal source `skillset.yaml` from the native manifest while preserving the native manifest files as imported context. Import does not install, trust, symlink, publish, mutate registries, or change user-level Claude/Codex config.
 
-Import is a safe bridge, not a lossy copier. It returns a report — printed by the CLI — summarizing the copied files, the source fields it recognized, target-native fields preserved verbatim (e.g. Claude `allowed-tools`, `disable-model-invocation`), unrecognized fields kept as-is, warnings, and the next checks to run (`skillset lint`, `skillset build`, `skillset verify`). Target-native and unknown frontmatter is preserved rather than dropped, so nothing is silently lost; the warnings point you at fields worth moving to a portable source key or a `claude`/`codex` block. Import never overwrites an existing source — remove it or import under a different `--name`.
+Import is a safe bridge, not a lossy copier. It returns a report — printed by the CLI — summarizing the copied files, recognized and target-native fields, warnings, and the next checks to run (`skillset check`, `skillset build`, `skillset check --only outputs`). Target-native and unknown frontmatter is preserved rather than dropped, so nothing is silently lost. Import never overwrites existing source.
 
 Import shares the same version-baseline adoption machinery as `init` when the destination has a buildable Skillset root: imported versions become the starting release-state truth for those source units instead of forcing a fake release or a one-time inline-version migration. Import skips baseline seeding when there is no local Skillset config yet.
 
@@ -233,11 +233,11 @@ resources:
 
 `shared:` points at `<source-root>/shared/`. `plugin:` points at `<source-root>/plugins/<plugin-name>/shared/` and is valid only for plugin-bound skills. Grouped resources default to skill-local target paths such as `references/common.md`, `scripts/check.sh`, `assets/...`, or `templates/...`; use `from` / `to` when the output path should differ.
 
-Generated Claude and Codex skills receive the copied files beside `SKILL.md`, so links and script references stay skill-root-relative. Markdown links that use declared `shared:` or `plugin:` resource URLs are rewritten to the generated skill-local path; undeclared shared resource links fail the build with a suggested `resources` entry. When a resource uses a custom `to`, a bare (schemeless) link to the resource's source path is ambiguous and fails the build with a diagnostic: link to the emitted target path or use the `shared:`/`plugin:` resource URL instead. Resource mappings cannot write outside the generated skill directory or overwrite `SKILL.md`, generated Codex sidecars, or skill-local files. Resource contents participate in `skillset.lock` hashes and `skillset verify`.
+Generated Claude and Codex skills receive the copied files beside `SKILL.md`, so links and script references stay skill-root-relative. Markdown links that use declared `shared:` or `plugin:` resource URLs are rewritten to the generated skill-local path; undeclared shared resource links fail the build with a suggested `resources` entry. When a resource uses a custom `to`, a bare (schemeless) link to the resource's source path is ambiguous and fails the build with a diagnostic: link to the emitted target path or use the `shared:`/`plugin:` resource URL instead. Resource mappings cannot write outside the generated skill directory or overwrite `SKILL.md`, generated Codex sidecars, or skill-local files. Resource contents participate in `skillset.lock` hashes and `skillset check --only outputs`.
 
-`skillset lint` adds earlier, actionable diagnostics: undeclared resource links (with a suggested entry), skill bodies that depend on plugin-root script paths instead of skill-local copies, and declared `scripts/` resources whose source file is missing an executable bit.
+`skillset check` adds earlier, actionable diagnostics: undeclared resource links (with a suggested entry), skill bodies that depend on plugin-root script paths instead of skill-local copies, and declared `scripts/` resources whose source file is missing an executable bit.
 
-`skillset.schema` marks the source-contract schema and is separate from content versions. It is an optional integer (currently `1`) on root and plugin config that defaults to the current schema when absent; future or non-integer values fail the build. Source `skillset.version` and skill `version` fields must be semantic versions. When adding source/config/frontmatter fields, follow the [schema contract workflow](docs/schema-contracts.md) so `@skillset/schema`, compiler validation, Workbench diagnostics, and generated schema artifacts stay aligned. `skillset verify` reports explicit version drift when a generated plugin manifest or skill `metadata.version` is stale.
+`skillset.schema` marks the source-contract schema and is separate from content versions. It is an optional integer (currently `1`) on root and plugin config that defaults to the current schema when absent; future or non-integer values fail the build. Source `skillset.version` and skill `version` fields must be semantic versions. When adding source/config/frontmatter fields, follow the [schema contract workflow](docs/schema-contracts.md) so `@skillset/schema`, compiler validation, Workbench diagnostics, and generated schema artifacts stay aligned. `skillset check --only outputs` reports explicit version drift when a generated plugin manifest or skill `metadata.version` is stale.
 
 Plugin lock entries include the emitted plugin version plus `includedSkills`, `skippedSkills`, and `targetState`. When a target-specific skill version bump does not affect the other target's generated skill or manifest, that target's lock can still explain the intentionally skipped source version.
 
@@ -345,7 +345,7 @@ Plugin companion directories are target-native. Claude receives `commands/`, `ag
 
 Hook files are emitted as definitions only. `skillset` does not install, trust, or enable hooks in user-level Claude/Codex config. Both targets emit hooks at the documented default `hooks/hooks.json` with a top-level `{ "hooks": { ... } }` object, sourced from `hooks/hooks.json`. Plugin-root `hooks.json` is unsupported. The compiler does not auto-render Claude hooks into Codex hooks.
 
-Hook definitions are checked for target compatibility. Codex hook files must use Codex-supported events — `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PreCompact`, `PostCompact`, `SessionStart`, `SubagentStart`, `SubagentStop`, `UserPromptSubmit`, `Stop` — and synchronous `command` handlers only, because Codex parses but skips prompt handlers, agent handlers, and `async: true` command handlers. Unsupported Codex events or skipped handler forms fail both `skillset build` and `skillset lint`. Claude hook validation stays broad (JSON-object shape) because Claude's hook surface is wider and still evolving.
+Hook definitions are checked for target compatibility. Codex hook files must use Codex-supported events — `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PreCompact`, `PostCompact`, `SessionStart`, `SubagentStart`, `SubagentStop`, `UserPromptSubmit`, `Stop` — and synchronous `command` handlers only, because Codex parses but skips prompt handlers, agent handlers, and `async: true` command handlers. Unsupported Codex events or skipped handler forms fail both `skillset build` and `skillset check`. Claude hook validation stays broad (JSON-object shape) because Claude's hook surface is wider and still evolving.
 
 ## Self-Hosted Outputs
 
@@ -353,9 +353,8 @@ In this repo, run:
 
 ```bash
 bun run skillset:build
-bun run skillset:lint
 bun run skillset:check
-bun run skillset:verify
+bun run skillset:check:outputs
 bun run check
 ```
 

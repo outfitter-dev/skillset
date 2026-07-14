@@ -21,7 +21,7 @@ User-facing destination-format diagnostics should name the provider, destination
     source: plugin.alpha.config:root
     action: Codex plugin manifests can derive dotted relative component paths during rendering.
     output: plugins/alpha/codex/.codex-plugin/plugin.json
-    next: run skillset check --fix or skillset update --yes
+    next: run skillset update --yes
 skillset: destination-format check found 1 safe update, 0 manual reviews, and 0 unplanned drift paths
 ```
 
@@ -84,7 +84,7 @@ artifacts.
 | Source | Renders to | Status | Notes |
 | --- | --- | --- | --- |
 | `skillset.schema` (int) | (source-only) | Implemented | Source-contract marker, separate from `skillset.version`; never in generated output. |
-| root/plugin `skillset.version` (semver) | plugin manifest `version`, fallback skill `metadata.version` | Implemented | Content version; generated drift reported by `skillset verify`. |
+| root/plugin `skillset.version` (semver) | plugin manifest `version`, fallback skill `metadata.version` | Implemented | Content version; generated drift reported by `skillset check --only outputs`. |
 | skill top-level `version` (semver) | skill `metadata.version` | Implemented | Skill-local version; release state wins after `skillset release apply`. |
 | `skillset.name` | machine identity | Implemented | Root and plugin explicit identity; directory names remain the default. `skillset.id` is unsupported. |
 | skill top-level `name` | skill identity | Implemented | Skill-local `skillset.name` / `skillset.id` are unsupported. |

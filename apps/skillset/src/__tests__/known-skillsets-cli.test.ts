@@ -13,6 +13,13 @@ test("SET-233: check records the workspace in the managed known-Skillsets index"
   await writeWorkspace(workspace);
   await runGit(workspace, "init", "-q");
   await runGit(workspace, "remote", "add", "origin", "git@github.com:Acme/docs-cli.git");
+  await runSkillsetCli(
+    { GIT_DIR: ".git", GIT_WORK_TREE: process.cwd(), XDG_CONFIG_HOME: xdgConfigHome },
+    "build",
+    "--yes",
+    "--root",
+    workspace
+  );
   const before = await readdir(workspace);
 
   const checked = await runSkillsetCli(

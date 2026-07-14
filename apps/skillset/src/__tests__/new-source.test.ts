@@ -17,14 +17,15 @@ test("SET-165: new skill previews by default and writes ordinary repo source wit
   const written = await runSkillsetCli("new", "skill", "Docs CLI Expert", "--root", root, "--yes");
   expect(written.exitCode).toBe(0);
   expect(written.stdout).toContain("created skill docs-cli-expert");
+  expect(written.stdout).toContain("next: skillset build --yes");
   expect(written.stdout).toContain("next: skillset check");
-  expect(written.stdout).toContain("next: skillset verify");
 
   const skill = await readFile(join(root, ".skillset/skills/docs-cli-expert/SKILL.md"), "utf8");
   expect(skill).toContain("name: docs-cli-expert");
   expect(skill).toContain('title: "Docs CLI Expert"');
   expect(skill).toContain('description: "Use when working with Docs CLI Expert workflows."');
 
+  await expect(runSkillsetCli("build", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   const check = await runSkillsetCli("check", "--root", root);
   expect(check.exitCode).toBe(0);
 });
@@ -65,7 +66,8 @@ test("SET-165: new skill separates stable id and display name in dedicated sourc
   );
 
   const check = await runSkillsetCli("check", "--root", root);
-  expect(check.exitCode).toBe(0);
+  expect(check.exitCode).toBe(1);
+  expect(check.stdout).toContain("generated-output drift");
 });
 
 test("SET-165: new skill can place source inside an existing plugin container", async () => {

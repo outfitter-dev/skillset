@@ -97,7 +97,7 @@ Before marking a release PR ready, review provider and schema evidence when the 
 2. Run `bun ./apps/skillset/src/cli.ts providers check --root .` and, when upstream drift is expected, `bun ./apps/skillset/src/cli.ts providers diff --root .` for provider snapshot or migration changes.
 3. Inspect `packages/registry/src/{index.ts,schema-snapshots.ts,migrations.ts}` alongside `docs/target-surfaces.md` so the adopted snapshot, migration class, and user-facing diagnostics tell the same story.
 4. Confirm each package-facing provider/schema change has a `.changeset/*.md` entry using the wording class above, and each local source-unit behavior change has a Skillset pending change entry where appropriate.
-5. Keep generated `docs/reference/schemas/**` and `docs/reference/examples/**` diffs in the same branch as their `packages/schema/src/**` source change, then rerun `bun run changeset:check` and `bun run skillset:verify`.
+5. Keep generated `docs/reference/schemas/**` and `docs/reference/examples/**` diffs in the same branch as their `packages/schema/src/**` source change, then rerun `bun run changeset:check` and `bun run skillset:check:outputs`.
 
 These commands mutate package state or contact the registry for publication, so they are workflow/recovery commands rather than normal local diagnostics:
 

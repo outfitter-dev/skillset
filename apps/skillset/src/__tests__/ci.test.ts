@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 
 import { parseYamlRecord } from "@skillset/core/internal/yaml";
 import { gitSafeEnv } from "../git-env";
-import { buildSkillset } from "@skillset/core";
+import { buildSkillset, createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
 import { CI_REPORT_MARKER, CI_WORKFLOW_PATH, ciSkillset, renderCiReportMarkdown, renderCiWorkflow } from "../ci";
 import { initSkillset } from "../setup";
 
@@ -65,6 +65,73 @@ test("ci reports generated drift without writing when fix is off", async () => {
   expect(markdown).toContain("skillset build --yes");
 });
 
+test("check JSON promotes readiness failures to envelope diagnostics", async () => {
+  const root = await builtFixture();
+  await writeFile(join(root, GENERATED_SKILL), "stale\n");
+
+  const result = await runSkillsetCli("check", "--root", root, "--json");
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toBe("");
+  expect(JSON.parse(result.stdout)).toMatchObject({
+    command: "check",
+    diagnostics: expect.arrayContaining([
+      expect.objectContaining({ code: "check-generated-drift", path: GENERATED_SKILL, severity: "error" }),
+    ]),
+    exitCode: 1,
+    kind: "diagnostics",
+    ok: false,
+  });
+});
+
+test("check --only outputs supports structured output", async () => {
+  const root = await builtFixture();
+
+  const result = await runSkillsetCli("check", "--only", "outputs", "--root", root, "--json");
+  expect(result.exitCode).toBe(0);
+  expect(result.stderr).toBe("");
+  expect(JSON.parse(result.stdout)).toMatchObject({
+    command: "check",
+    data: { checkedFiles: expect.any(Number), failures: [] },
+    diagnostics: [],
+    exitCode: 0,
+    kind: "diagnostics",
+    ok: true,
+  });
+});
+
+test("check --only outputs serializes drift diagnostics", async () => {
+  const root = await builtFixture();
+  await writeFile(join(root, GENERATED_SKILL), "stale\n");
+
+  const result = await runSkillsetCli("check", "--only", "outputs", "--root", root, "--json");
+
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toBe("");
+  expect(JSON.parse(result.stdout)).toMatchObject({
+    diagnostics: [expect.objectContaining({ path: GENERATED_SKILL, severity: "error" })],
+    exitCode: 1,
+    kind: "diagnostics",
+    ok: false,
+  });
+});
+
+test("check preserves generated-output diagnostics without drift", async () => {
+  const root = await fixture({
+    "skillset.yaml": "skillset:\n  name: large-agents\nclaude: false\ncodex: true\n",
+    ".skillset/rules/big.md": `# Big\n\n${"- padding line\n".repeat(2500)}`,
+  });
+  await buildSkillset(root);
+
+  const report = await ciSkillset(root);
+  const result = await runSkillsetCli("check", "--root", root, "--json");
+  const envelope = JSON.parse(result.stdout) as { diagnostics: Array<{ code: string; path?: string; severity: string }> };
+
+  expect(report.ok).toBe(true);
+  expect(report.drift).toEqual({ added: [], changed: [], missing: [], removed: [] });
+  expect(report.outputDiagnostics).toContainEqual(expect.objectContaining({ code: "codex-agents-size", outputPath: "AGENTS.md" }));
+  expect(envelope.diagnostics).toContainEqual(expect.objectContaining({ code: "codex-agents-size", path: "AGENTS.md", severity: "warning" }));
+});
+
 test("ci report explains generated changelog drift", () => {
   const markdown = renderCiReportMarkdown({
     changeIssues: [],
@@ -72,6 +139,9 @@ test("ci report explains generated changelog drift", () => {
     fixedPaths: [],
     lintIssues: [],
     ok: false,
+    outputEditedPaths: [],
+    outputDiagnostics: [],
+    providerUpdatePaths: [],
     warnings: [],
   });
 
@@ -81,7 +151,7 @@ test("ci report explains generated changelog drift", () => {
   expect(markdown).toContain("skillset release amend <@ref>");
 });
 
-test("ci --fix rebuilds drifted generated output mechanically", async () => {
+test("check --write refuses target-side generated edits", async () => {
   const root = await builtFixture();
   const generatedPath = join(root, GENERATED_SKILL);
   const original = await readFile(generatedPath, "utf8");
@@ -89,14 +159,64 @@ test("ci --fix rebuilds drifted generated output mechanically", async () => {
 
   const report = await ciSkillset(root, { fix: true, since: "HEAD" });
 
-  expect(report.ok).toBe(true);
-  expect(report.fixedPaths).toEqual([GENERATED_SKILL]);
-  expect(report.drift.changed).toEqual([]);
-  expect(await readFile(generatedPath, "utf8")).toBe(original);
+  expect(report.ok).toBe(false);
+  expect(report.fixedPaths).toEqual([]);
+  expect(report.drift.changed).toEqual([GENERATED_SKILL]);
+  expect(report.outputEditedPaths).toContain(GENERATED_SKILL);
+  expect(await readFile(generatedPath, "utf8")).toContain("hand edit");
   const markdown = renderCiReportMarkdown(report);
-  expect(markdown).toContain("### Rebuilt generated output");
-  expect(markdown).toContain("rebuilt mechanically");
+  expect(markdown).toContain("### Target-side generated edits");
+  expect(markdown).toContain("will not overwrite");
   expect(markdown).toContain("### Source suggestions");
+});
+
+test("check --write refuses unmanaged output collisions", async () => {
+  const unmanaged = "hand-authored\n";
+  const root = await fixture({
+    ...DEMO_FIXTURE,
+    [GENERATED_SKILL]: unmanaged,
+  });
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(false);
+  expect(report.fixedPaths).toEqual([]);
+  expect(report.outputDiagnostics).toContainEqual(expect.objectContaining({
+    code: "unmanaged-output-collision",
+    outputPath: GENERATED_SKILL,
+  }));
+  expect(await readFile(join(root, GENERATED_SKILL), "utf8")).toBe(unmanaged);
+});
+
+test("check --write refuses managed edits in the isolated mirror", async () => {
+  const root = await fixture(DEMO_FIXTURE);
+  await buildSkillset(root, { isolated: true });
+  const mirroredSkill = join(".skillset/cache/latest", GENERATED_SKILL);
+  const generatedPath = resolveOperationalPath(createOperationalPathContext(root), mirroredSkill);
+  await writeFile(generatedPath, `${await readFile(generatedPath, "utf8")}\nhand edit\n`);
+
+  const report = await ciSkillset(root, { fix: true, isolated: true });
+
+  expect(report.ok).toBe(false);
+  expect(report.fixedPaths).toEqual([]);
+  expect(report.drift.changed).toContain(mirroredSkill);
+  expect(report.outputEditedPaths).toContain(mirroredSkill);
+  expect(await readFile(generatedPath, "utf8")).toContain("hand edit");
+});
+
+test("check --write refreshes stale locks after an output edit is reconciled", async () => {
+  const root = await builtFixture();
+  const sourcePath = join(root, ".skillset/skills/demo/SKILL.md");
+  const generatedPath = join(root, GENERATED_SKILL);
+  await writeFile(sourcePath, `${await readFile(sourcePath, "utf8").then((text) => text.trimEnd())}\n\nReconciled.\n`);
+  await writeFile(generatedPath, `${await readFile(generatedPath, "utf8").then((text) => text.trimEnd())}\n\nReconciled.\n`);
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.outputEditedPaths).toEqual([]);
+  expect(report.fixedPaths.some((path) => path.endsWith("skillset.lock"))).toBe(true);
+  expect(await readFile(generatedPath, "utf8")).toContain("Reconciled.");
 });
 
 test("ci --fix explains rebuilt generated changelog drift", async () => {
@@ -106,15 +226,14 @@ test("ci --fix explains rebuilt generated changelog drift", async () => {
   await writeFile(changelogPath, `${original}\nhand edit\n`);
   const reportPath = join(root, "ci-report.md");
 
-  const result = await runSkillsetCli("ci", "--fix", "--root", root, "--since", "HEAD", "--report", reportPath);
+  const result = await runSkillsetCli("check", "--ci", "--fix", "--root", root, "--since", "HEAD", "--report", reportPath);
 
-  expect(result.exitCode).toBe(0);
-  expect(result.stdout).toContain("fixed .skillset/skills/demo/CHANGELOG.md");
+  expect(result.exitCode).toBe(1);
+  expect(result.stdout).not.toContain("fixed .skillset/skills/demo/CHANGELOG.md");
   expect(result.stdout).toContain("generated CHANGELOG.md files are managed projections");
-  expect(await readFile(changelogPath, "utf8")).toBe(original);
+  expect(await readFile(changelogPath, "utf8")).toContain("hand edit");
   const markdown = await readFile(reportPath, "utf8");
-  expect(markdown).toContain("### Rebuilt generated output");
-  expect(markdown).not.toContain("No source changes are needed");
+  expect(markdown).toContain("### Target-side generated edits");
   expect(markdown).toContain("Generated `CHANGELOG.md` files are managed projections");
   expect(markdown).toContain("skillset change reason <@ref>");
 });
@@ -166,7 +285,7 @@ test("ci surfaces an unresolvable change baseline as a change error", async () =
   const root = await fixture(DEMO_FIXTURE);
   await buildSkillset(root);
 
-  const report = await ciSkillset(root);
+  const report = await ciSkillset(root, { ci: true });
 
   expect(report.ok).toBe(false);
   expect(report.changeError).toContain("baseline");
@@ -180,7 +299,7 @@ test("ci --fix does not rebuild when the change baseline is unresolvable", async
   const edited = `${await readFile(generatedPath, "utf8")}\nhand edit\n`;
   await writeFile(generatedPath, edited);
 
-  const report = await ciSkillset(root, { fix: true });
+  const report = await ciSkillset(root, { ci: true, fix: true });
 
   expect(report.ok).toBe(false);
   expect(report.changeError).toContain("baseline");
@@ -311,37 +430,38 @@ test("ci CLI exits nonzero on drift and writes the markdown report", async () =>
   await writeFile(generatedPath, `${await readFile(generatedPath, "utf8")}\nhand edit\n`);
   const reportPath = join(root, "ci-report.md");
 
-  const failed = await runSkillsetCli("ci", "--root", root, "--since", "HEAD", "--report", reportPath);
+  const failed = await runSkillsetCli("check", "--ci", "--root", root, "--since", "HEAD", "--report", reportPath);
   expect(failed.exitCode).toBe(1);
   expect(failed.stdout).toContain("generated-output drift");
   expect(await readFile(reportPath, "utf8")).toStartWith(CI_REPORT_MARKER);
 
-  const fixed = await runSkillsetCli("ci", "--fix", "--root", root, "--since", "HEAD", "--report", reportPath);
-  expect(fixed.exitCode).toBe(0);
-  expect(fixed.stdout).toContain("ci passed after rebuilding 1 generated file");
-  expect(await readFile(reportPath, "utf8")).toContain("rebuilt mechanically");
+  const fixed = await runSkillsetCli("check", "--ci", "--fix", "--root", root, "--since", "HEAD", "--report", reportPath);
+  expect(fixed.exitCode).toBe(1);
+  expect(fixed.stdout).toContain("target-side generated edit");
+  expect(await readFile(reportPath, "utf8")).toContain("will not overwrite");
 
-  const clean = await runSkillsetCli("ci", "--root", root, "--since", "HEAD");
+  await buildSkillset(root);
+  const clean = await runSkillsetCli("check", "--ci", "--root", root, "--since", "HEAD");
   expect(clean.exitCode).toBe(0);
-  expect(clean.stdout).toContain("ci passed");
+  expect(clean.stdout).toContain("check passed");
 });
 
 test("ci CLI rejects misplaced and unsupported flags", async () => {
   const fixOutsideCi = await runSkillsetCli("build", "--fix");
   expect(fixOutsideCi.exitCode).toBe(1);
-  expect(fixOutsideCi.stderr).toContain("--fix is only supported with check or ci");
+  expect(fixOutsideCi.stderr).toContain("readiness flags are only supported with check");
 
   const reportOutsideCi = await runSkillsetCli("check", "--report", "out.md");
   expect(reportOutsideCi.exitCode).toBe(1);
-  expect(reportOutsideCi.stderr).toContain("--report is only supported with ci");
+  expect(reportOutsideCi.stderr).toContain("--report and --since require check --ci");
 
-  const yesWithCi = await runSkillsetCli("ci", "--yes");
+  const yesWithCi = await runSkillsetCli("check", "--ci", "--yes");
   expect(yesWithCi.exitCode).toBe(1);
-  expect(yesWithCi.stderr).toContain("ci does not take --yes or --dry-run");
+  expect(yesWithCi.stderr).toContain("check does not take --yes or --dry-run");
 
   const sinceWithBuild = await runSkillsetCli("build", "--since", "HEAD");
   expect(sinceWithBuild.exitCode).toBe(1);
-  expect(sinceWithBuild.stderr).toContain("--since is only supported with ci or change commands");
+  expect(sinceWithBuild.stderr).toContain("--since is only supported with check --ci or change commands");
 });
 
 test("init --include ci scaffolds a valid workflow and keeps user edits", async () => {
@@ -357,10 +477,10 @@ test("init --include ci scaffolds a valid workflow and keeps user edits", async 
   const parsed = parseYamlRecord(content, CI_WORKFLOW_PATH);
   expect(parsed.name).toBe("Skillset CI");
   expect(parsed.jobs).toBeDefined();
-  expect(content).toContain("skillset ci");
+  expect(content).toContain("skillset check --ci");
   expect(content).toContain("--fix");
 
-  const customized = content.replace("bunx skillset ci", "bunx skillset@9.9.9 ci");
+  const customized = content.replace("bunx skillset check --ci", "bunx skillset@9.9.9 check --ci");
   await writeFile(workflowPath, customized);
   const rerun = await initSkillset({ cwd: root, include: ["ci"], useGitRoot: false, write: true });
   const replanned = rerun.files.find((file) => file.path === CI_WORKFLOW_PATH);

@@ -160,6 +160,7 @@ interface RenderedIslandFile {
 interface RenderedProjectAgentFile {
   readonly file: RenderedFile;
   readonly preprocessDependencies: readonly string[];
+  readonly target: TargetName;
 }
 
 interface RenderedRuleMarkdown {
@@ -551,6 +552,7 @@ async function renderPluginTarget(
     lockItemForPlugin({
       files: pluginRootFiles,
       graph,
+      license: pluginLicense,
       outputRoot,
       plugin,
       target,
@@ -864,6 +866,7 @@ async function renderPluginSkillFiles(
       files: rendered,
       graph,
       kind: "plugin-skill",
+      license: skillLicense,
       outputRoot,
       plugin,
       preprocessDependencies: skillPreprocessDependencies(skillMarkdown, generatedCodexAgentFile),
@@ -943,6 +946,7 @@ async function renderCursorProjectAgent(
       relative(graph.rootPath, agent.sourcePath)
     ),
     preprocessDependencies: projectAgentPreprocessDependencies(graph, preprocessDependencies),
+    target: "cursor",
   };
 }
 
@@ -995,6 +999,7 @@ async function renderClaudeProjectAgent(
       relative(graph.rootPath, agent.sourcePath)
     ),
     preprocessDependencies: projectAgentPreprocessDependencies(graph, preprocessDependencies),
+    target: "claude",
   };
 }
 
@@ -1029,6 +1034,7 @@ async function renderCodexProjectAgent(
       relative(graph.rootPath, agent.sourcePath)
     ),
     preprocessDependencies: projectAgentPreprocessDependencies(graph, preprocessDependencies),
+    target: "codex",
   };
 }
 
@@ -1327,6 +1333,7 @@ async function renderStandaloneSkill(
       files: rendered,
       graph,
       kind: "standalone-skill",
+      license: skillLicense,
       outputRoot,
       preprocessDependencies: skillPreprocessDependencies(skillMarkdown, generatedCodexAgentFile),
       skill,
@@ -2840,6 +2847,7 @@ function lockItemForChangelog(projection: ChangelogProjection): LockItem {
 function lockItemForPlugin(args: {
   readonly files: readonly RenderedFile[];
   readonly graph: BuildGraph;
+  readonly license: ResolvedLicense | undefined;
   readonly outputRoot: string;
   readonly plugin: SourcePlugin;
   readonly target: TargetName;
@@ -2867,7 +2875,15 @@ function lockItemForPlugin(args: {
     outputHash: hashRenderedFiles(args.outputRoot, args.files),
     outputPath: files.find((file) => file.endsWith("/plugin.json")) ?? files[0] ?? "",
     skippedSkills,
-    sourceHash: hashPluginSource(args.plugin, args.target, includedSkills, skippedSkills, dependencyHashSummaries),
+    sourceHash: hashPluginSource(
+      args.graph,
+      args.plugin,
+      args.target,
+      includedSkills,
+      skippedSkills,
+      dependencyHashSummaries,
+      args.license
+    ),
     ...(args.plugin.sourceOrigin === undefined ? {} : { sourceOrigin: args.plugin.sourceOrigin }),
     sourcePath: relative(args.graph.rootPath, args.plugin.path),
     targetState: skippedSkills.length === 0 ? "sync" : "intentionally-skipped",
@@ -3002,7 +3018,14 @@ function lockItemForProjectAgent(args: {
     outputHash: hashRenderedFiles(args.outputRoot, args.files),
     outputPath: files[0] ?? "",
     preprocessDependencies: args.result.preprocessDependencies,
-    sourceHash: hashProjectAgentSource(args.agent, args.result.preprocessDependencies, args.graph.rootPath),
+    sourceHash: hashProjectAgentSource(
+      args.graph,
+      args.agent,
+      args.result.target,
+      args.graph.root.compile.skillset.metadata,
+      args.result.preprocessDependencies,
+      args.graph.rootPath
+    ),
     sourcePath: relative(args.graph.rootPath, args.agent.sourcePath),
     validation: "structured",
     version: rootVersion(args.graph),
@@ -3013,6 +3036,7 @@ async function lockItemForSkill(args: {
   readonly files: readonly RenderedFile[];
   readonly graph: BuildGraph;
   readonly kind: LockItem["kind"];
+  readonly license: ResolvedLicense | undefined;
   readonly outputRoot: string;
   readonly plugin?: SourcePlugin;
   readonly preprocessDependencies: readonly string[];
@@ -3031,7 +3055,21 @@ async function lockItemForSkill(args: {
     outputHash: hashRenderedFiles(args.outputRoot, args.files),
     outputPath: files.find((file) => file.endsWith("/SKILL.md")) ?? files[0] ?? "",
     ...(args.preprocessDependencies.length === 0 ? {} : { preprocessDependencies: args.preprocessDependencies }),
-    sourceHash: await hashSkillSource(args.sourceDir, args.skill.resources, args.preprocessDependencies, args.graph.rootPath),
+    sourceHash: await hashSkillSource(
+      args.sourceDir,
+      args.skill.resources,
+      args.skill.targets,
+      renderAdaptiveFrontmatterHooks(
+        args.graph,
+        skillScope(args.plugin, args.skill),
+        "claude",
+        relative(args.graph.rootPath, args.skill.sourcePath)
+      ),
+      args.license,
+      args.graph.root.compile.skillset.metadata,
+      args.preprocessDependencies,
+      args.graph.rootPath
+    ),
     ...(args.skill.sourceOrigin === undefined ? {} : { sourceOrigin: args.skill.sourceOrigin }),
     sourcePath: relative(args.graph.rootPath, args.skill.sourcePath),
     ...(args.transforms.length === 0 ? {} : { transforms: args.transforms }),
@@ -3066,12 +3104,15 @@ function hashIslandSource(
 }
 
 function hashProjectAgentSource(
+  graph: BuildGraph,
   agent: SourceProjectAgent,
+  target: TargetName,
+  skillsetMetadata: boolean,
   preprocessDependencies: readonly string[],
   rootPath: string
 ): string {
   const hash = createHash("sha256");
-  hash.update("skillset-project-agent-source-v1\0");
+  hash.update("skillset-project-agent-source-v3\0");
   hash.update(agent.relativePath);
   hash.update("\0");
   hash.update(agent.name);
@@ -3081,6 +3122,27 @@ function hashProjectAgentSource(
   hash.update(stringifyJson(agent.frontmatter));
   hash.update("\0");
   hash.update(agent.body);
+  hash.update("\0");
+  hash.update("resolved-target\0");
+  hash.update(target);
+  hash.update("\0");
+  hash.update(stringifyJson({
+    enabled: agent.targets[target].enabled,
+    options: agent.targets[target].options,
+  }));
+  hash.update("\0skillset-metadata\0");
+  hash.update(String(skillsetMetadata));
+  hash.update("\0");
+  const adaptiveHooks = target === "claude"
+    ? renderAdaptiveFrontmatterHooks(
+      graph,
+      { agentId: agent.outputName, kind: "agent" },
+      target,
+      relative(graph.rootPath, agent.sourcePath)
+    )
+    : undefined;
+  hash.update("resolved-adaptive-hooks\0");
+  hash.update(stringifyJson(adaptiveHooks ?? {}));
   hash.update("\0");
   for (const dependency of preprocessDependencies) {
     hash.update("dependency\0");
@@ -3130,14 +3192,16 @@ function sourceOriginRecord(origin: SourceOrigin): JsonRecord {
 }
 
 function hashPluginSource(
+  graph: BuildGraph,
   plugin: SourcePlugin,
   target: TargetName,
   includedSkills: readonly string[],
   skippedSkills: readonly string[],
-  dependencies: readonly string[]
+  dependencies: readonly string[],
+  license: ResolvedLicense | undefined
 ): string {
   const hash = createHash("sha256");
-  hash.update("skillset-plugin-source-v1\0");
+  hash.update("skillset-plugin-source-v4\0");
   hash.update(plugin.id);
   hash.update("\0");
   hash.update(target);
@@ -3145,10 +3209,58 @@ function hashPluginSource(
   hash.update(stringifyJson(plugin.metadata));
   hash.update("\0");
   hash.update(stringifyJson(plugin.targets[target].options));
+  hash.update("\0plugin-surfaces\0");
+  const manifestSurfacePaths = withOptionalSurfacePaths(graph, {}, plugin, [], target);
+  hash.update(stringifyJson(JSON.parse(JSON.stringify({
+    adaptiveHooks: plugin.adaptiveHooks.map((hook) => ({
+      events: hook.events,
+      frontmatter: hook.frontmatter,
+      name: hook.name,
+      providers: hook.providers,
+      scope: hook.scope,
+      scriptReferences: hook.scriptReferences.map((reference) => ({
+        kind: reference.kind,
+        reference: reference.reference,
+        runtimePath: reference.runtimePath,
+      })),
+    })),
+    features: plugin.features.map((feature) => ({
+      key: feature.key,
+      origin: feature.origin,
+      sourcePointer: feature.sourcePointer,
+      targetPath: feature.targetPath,
+    })),
+    hookAttachments: plugin.hookAttachments.map((attachment) => ({
+      event: attachment.event,
+      hook: attachment.hook,
+      match: attachment.match,
+      providers: attachment.providers,
+      scope: attachment.scope,
+      status: attachment.status,
+    })),
+    ...(Object.keys(manifestSurfacePaths).length === 0 ? {} : { manifestSurfacePaths }),
+    islands: graph.projectIslands
+      .filter((island) => island.plugin === plugin.id && island.target === target)
+      .map((island) => ({ relativePath: island.relativePath, target: island.target }))
+      .sort((left, right) => compareStrings(left.relativePath, right.relativePath)),
+  })) as JsonRecord));
+  if (target === "codex") {
+    hash.update("\0root-derived-interface\0");
+    hash.update(stringifyJson({ developerName: renderCodexInterface(graph, plugin).developerName }));
+  }
   hash.update("\0");
   hash.update(includedSkills.join("\n"));
   hash.update("\0");
   hash.update(skippedSkills.join("\n"));
+  hash.update("\0resolved-license\0");
+  hash.update(stringifyJson(
+    license === undefined
+      ? {}
+      : {
+          content: license.content,
+          manifestValue: license.manifestValue,
+        }
+  ));
   if (dependencies.length > 0) {
     hash.update("\0dependencies\0");
     hash.update(dependencies.join("\n"));
@@ -3187,11 +3299,15 @@ async function hashPluginFeatureSource(feature: SourcePluginFeature): Promise<st
 async function hashSkillSource(
   sourceDir: string,
   resources: readonly SourceResource[],
+  targets: SourceSkill["targets"],
+  adaptiveHooks: JsonRecord | undefined,
+  license: ResolvedLicense | undefined,
+  skillsetMetadata: boolean,
   preprocessDependencies: readonly string[],
   rootPath: string
 ): Promise<string> {
   const hash = createHash("sha256");
-  hash.update("skillset-skill-source-v2\0");
+  hash.update("skillset-skill-source-v5\0");
 
   for (const file of await collectFiles(sourceDir)) {
     const relativeFile = relative(sourceDir, file);
@@ -3213,6 +3329,34 @@ async function hashSkillSource(
     hash.update("\0");
     await hashResourceSource(hash, resource);
   }
+
+  hash.update("resolved-targets\0");
+  hash.update(stringifyJson(Object.fromEntries(
+    targetNames().map((target) => [target, {
+      enabled: targets[target].enabled,
+      options: targets[target].options,
+    }])
+  )));
+  hash.update("\0");
+
+  hash.update("resolved-adaptive-hooks\0");
+  hash.update(stringifyJson(adaptiveHooks ?? {}));
+  hash.update("\0");
+
+  hash.update("skillset-metadata\0");
+  hash.update(String(skillsetMetadata));
+  hash.update("\0");
+
+  hash.update("resolved-license\0");
+  hash.update(stringifyJson(
+    license === undefined
+      ? {}
+      : {
+          content: license.content,
+          manifestValue: license.manifestValue,
+        }
+  ));
+  hash.update("\0");
 
   for (const dependency of preprocessDependencies) {
     hash.update("preprocess-dependency\0");

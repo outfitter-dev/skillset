@@ -18,7 +18,7 @@ Use `skillset new skill <name>` to create a minimal valid skill source file in t
 | --- | --- | --- | --- | --- |
 | Plugin skill source | `plugins/<plugin>/claude/skills/<skill>/SKILL.md` | `plugins/<plugin>/codex/skills/<skill>/SKILL.md` plus sidecars when needed | `portable` / `implemented` | Plugin boundaries are preserved per target. |
 | Standalone skill source | `.claude/skills/<skill>/SKILL.md` | `.agents/skills/<skill>/SKILL.md` plus sidecars when needed | `portable` / `implemented` | Standalone roots are configured by target skill output paths. |
-| Release state / inline version fields | `metadata.version` and plugin manifest version | `metadata.version` and plugin manifest version | `metadata_only` / `implemented` | Release state wins after `skillset release apply`; inline versions remain the fallback. `skillset verify` reports generated version drift. |
+| Release state / inline version fields | `metadata.version` and plugin manifest version | `metadata.version` and plugin manifest version | `metadata_only` / `implemented` | Release state wins after `skillset release apply`; inline versions remain the fallback. `skillset check --only outputs` reports generated version drift. |
 | `{{$ARGUMENTS...}}` source placeholders | native `$ARGUMENTS...` placeholders | preserved `{{$ARGUMENTS...}}` markers plus a one-line replacement instruction | `shimmed` / `implemented` | Enabled by default through `compile.features.promptArguments`; disable to reject the source markers. |
 | `compile.skillset.metadata: false` | suppress generated Skillset metadata | suppress generated Skillset metadata | `implemented` | Locks still carry provenance. |
 
@@ -28,11 +28,11 @@ Use `skillset new skill <name>` to create a minimal valid skill source file in t
 - Reject identity conflicts between directory names and top-level `name`; reject skill-local `skillset.name`, `skillset.id`, and `skillset.version`.
 - Reject unknown portable frontmatter keys unless they are accepted target-native fields inside a target block.
 - Warn for top-level `model` unless every enabled target has an exact target model through file-level fields or defaults.
-- Reject stale generated skills and manifests in `skillset verify`.
+- Reject stale generated skills and manifests in `skillset check --only outputs`.
 
 ## Provenance
 
-Generated skill and plugin lock entries record source paths, output paths, hashes, version state, target state, skipped target-specific skill versions, copied resources, preprocessing dependencies, and generated metadata policy. Partial files referenced from skill Markdown or generated Codex YAML participate in source hashes so `skillset verify`, `skillset explain`, and `skillset list` can show why a generated skill became stale.
+Generated skill and plugin lock entries record source paths, output paths, hashes, version state, target state, skipped target-specific skill versions, copied resources, preprocessing dependencies, and generated metadata policy. Partial files referenced from skill Markdown or generated Codex YAML participate in source hashes so `skillset check --only outputs`, `skillset explain`, and `skillset list` can show why a generated skill became stale.
 
 ## Tests and Fixtures
 

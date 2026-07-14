@@ -21,7 +21,7 @@ pre-commit:
       env:
         GIT_PAGER: cat
       glob: "{.skillset/**,.claude/skills/**,.agents/skills/**,plugins/**,AGENTS.md}"
-      run: bun run skillset:verify
+      run: bun run skillset:check:outputs
     - name: workflows
       env:
         GIT_PAGER: cat
@@ -30,7 +30,7 @@ pre-commit:
 
 # Cheap gates run first and fail fast (piped); the two heavy gates are
 # independent, so they run in parallel. `bun run check` is the same aggregate
-# CI runs, and `skillset ci` already covers skillset lint + generated drift,
+# CI runs, and `skillset check --ci` already covers source diagnostics + generated drift,
 # so neither is re-enumerated here.
 pre-push:
   piped: true
@@ -63,4 +63,4 @@ pre-push:
           - name: skillset-ci
             env:
               GIT_PAGER: cat
-            run: bun run skillset:ci:report
+            run: bun run skillset:check:ci:report

@@ -1,4 +1,4 @@
-# Repo CI plus a dogfood of the `skillset ci` workflow that
+# Repo CI plus a dogfood of the `skillset check --ci` workflow that
 # `skillset init --include ci` scaffolds for adopting repos. The skillset-ci job
 # mirrors that template but runs the compiler from this repo's source.
 # Notes:
@@ -90,18 +90,18 @@ jobs:
 
           if [ "$child_count" != "0" ]; then
             echo "skip_skillset_ci=true" >> "$GITHUB_OUTPUT"
-            echo "Skipping skillset ci on non-boundary stack PR with $child_count child PR(s)." >> "$GITHUB_STEP_SUMMARY"
+            echo "Skipping skillset check --ci on non-boundary stack PR with $child_count child PR(s)." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "skip_skillset_ci=false" >> "$GITHUB_OUTPUT"
           fi
       - name: Check generated release package
         if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/changeset-release/main'
         run: bun scripts/publish.ts check
-      - name: Run skillset ci
+      - name: Run skillset check --ci
         id: skillset
         if: steps.stack.outputs.skip_skillset_ci != 'true' && (github.event_name != 'workflow_dispatch' || github.ref != 'refs/heads/changeset-release/main')
         run: >-
-          bun ./apps/skillset/src/cli.ts ci
+          bun ./apps/skillset/src/cli.ts check --ci
           ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && '--fix' || '' }}
           --report "$RUNNER_TEMP/skillset-ci-report.md"
         continue-on-error: true

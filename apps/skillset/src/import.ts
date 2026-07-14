@@ -229,9 +229,9 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       renderResults,
       name,
       nextChecks: [
-        "skillset lint",
+        "skillset check",
         "skillset build",
-        "skillset verify",
+        "skillset check --only outputs",
       ],
       preservedTargetNativeFields: classification.targetNative,
       sourcePath,

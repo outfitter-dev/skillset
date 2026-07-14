@@ -24,7 +24,7 @@
       "name": "skillset-adrs",
       "outputHash": "sha256:2d8b1827edf14c73728636774799c7e14601201597c435567a2b3a9308399e29",
       "outputPath": "skillset-adrs/SKILL.md",
-      "sourceHash": "sha256:b4f15e3dd5655f4e96f0ee31c937ddb1564de511afbcf7178f900ede8aca6fbb",
+      "sourceHash": "sha256:287e915f8e9382a8743c82f0fa6b4f2e8786f5a5b590325542339f87821ecb47",
       "sourcePath": ".skillset/skills/skillset-adrs/SKILL.md",
       "version": "0.1.0"
     },
@@ -34,9 +34,9 @@
       ],
       "kind": "standalone-skill",
       "name": "skillset-claude-development",
-      "outputHash": "sha256:5956a0f2b50d35f87aee12e0716cc63440f56a2cde4826daa35d0713cc2a8e2b",
+      "outputHash": "sha256:e81da87c55661decae85c47e3221b8e0156f5c07d6aa76251fbe49c6c91b557f",
       "outputPath": "skillset-claude-development/SKILL.md",
-      "sourceHash": "sha256:5dcc76361a9a0f5f3b5646e8b515be97a97b6afe779b295e829faa842240711c",
+      "sourceHash": "sha256:402f4641b36968333ffba0651ad6dc24396b8fbd1a526423d5f871b54ee847c1",
       "sourcePath": ".skillset/skills/skillset-claude-development/SKILL.md",
       "version": "0.1.0"
     },
@@ -48,7 +48,7 @@
       "name": "skillset-repo-test-fixtures",
       "outputHash": "sha256:66ce349f46964f0fe4ca342691603621058b98ce4eb5deb13bae1ccfd33778ed",
       "outputPath": "skillset-repo-test-fixtures/SKILL.md",
-      "sourceHash": "sha256:430e5046d85f1f1099bfbd32afa8c97713d33c1e30bc27b5de8a07cba5905121",
+      "sourceHash": "sha256:f2d873a80b21d81c01e53b2b6283a9680e488ef6d0335e4571d5f25d8deae4c0",
       "sourcePath": ".skillset/skills/skillset-repo-test-fixtures/SKILL.md",
       "version": "0.1.2"
     }

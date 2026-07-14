@@ -1,17 +1,31 @@
 import { changeCheck, type ChangeCheckIssue } from "./change-entries";
+import { join } from "node:path";
 import {
   defaultChangesetBaseline,
   evaluateChangesetGuard,
   readChangedFilesFromGit,
   type ChangedFile,
 } from "./changeset-awareness";
-import { buildSkillset, diffSkillset, type SkillsetDiff } from "@skillset/core";
+import {
+  buildSkillset,
+  createOperationalPathContext,
+  diffSkillsetResult,
+  ISOLATED_OUT_ROOT,
+  logicalOperationalPath,
+  resolveOperationalPath,
+  type SkillsetDiagnostic,
+  type SkillsetDiff,
+} from "@skillset/core";
 import { suggestSource, type SourceSuggestionReport } from "@skillset/core/internal/authoring";
 import { inspectSkillset } from "@skillset/core";
+import { readManagedOutputState } from "@skillset/core/internal/output-safety";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import type { LintIssue, SkillsetOptions } from "@skillset/core/internal/types";
+import { runProviderFormatUpdates } from "./provider-format-updates";
 
 export interface CiOptions extends SkillsetOptions {
+  /** Include branch-aware source and package change gates. */
+  readonly ci?: boolean;
   /** Rebuild generated output when drift is the only mechanical problem. */
   readonly fix?: boolean;
   /** Change-entry baseline ref, forwarded to `skillset change check`. */
@@ -35,6 +49,12 @@ export interface CiReport {
   readonly fixedPaths: readonly string[];
   readonly lintIssues: readonly LintIssue[];
   readonly ok: boolean;
+  /** Managed generated paths changed since the last recorded output hash. */
+  readonly outputEditedPaths: readonly string[];
+  /** Diagnostics produced while deriving and validating generated output. */
+  readonly outputDiagnostics: readonly SkillsetDiagnostic[];
+  /** Drift owned by explicit provider-format migrations and therefore `update`. */
+  readonly providerUpdatePaths: readonly string[];
   readonly sourceSuggestions?: readonly SourceSuggestionReport[];
   readonly warnings: readonly string[];
 }
@@ -43,66 +63,137 @@ const EMPTY_DRIFT: SkillsetDiff = { added: [], changed: [], missing: [], removed
 
 /**
  * Aggregate the checks a continuous-integration run needs: lint diagnostics,
- * change coverage, and generated-output drift. Drift is the only
+ * change coverage, and generated-output drift. Source-driven drift is the only
  * mechanical problem: with `fix` enabled, no lint errors, clean change
- * coverage, and a resolved baseline, `ci` rebuilds generated output the same
- * way `skillset build --yes` would. Lint errors, missing change entries, and
+ * coverage, a resolved baseline, and no target-side edits, the check rebuilds
+ * generated output the same way `skillset build --yes` would. Lint errors, missing change entries, and
  * build errors need authored source changes, so they stay report-only; lint
  * warnings are advisory and never fail the run.
  */
 export async function ciSkillset(rootPath: string, options: CiOptions = {}): Promise<CiReport> {
-  const { fix, since, ...buildOptions } = options;
+  const { ci, fix, since, ...buildOptions } = options;
 
   let lintIssues: readonly LintIssue[] = [];
   let warnings: readonly string[] = [];
+  let outputEditedPaths: readonly string[] = [];
+  let managedOutputPaths: ReadonlySet<string> = new Set();
   let buildError: string | undefined;
   try {
     const graph = await loadBuildGraph(rootPath, buildOptions);
     lintIssues = (await inspectSkillset(graph)).issues;
     warnings = graph.warnings;
+    const outPath = buildOptions.isolated === true
+      ? (path: string) => join(ISOLATED_OUT_ROOT, path)
+      : (path: string) => path;
+    const pathContext = createOperationalPathContext(rootPath, {
+      ...(graph.root.workspace.cacheKey === undefined ? {} : { workspaceCacheKey: graph.root.workspace.cacheKey }),
+      ...(buildOptions.xdg?.env === undefined ? {} : { env: buildOptions.xdg.env }),
+      ...(buildOptions.xdg?.homeDir === undefined ? {} : { homeDir: buildOptions.xdg.homeDir }),
+    });
+    const managed = await readManagedOutputState(
+      rootPath,
+      graph.outputRoots,
+      true,
+      outPath,
+      (path) => resolveOperationalPath(pathContext, path),
+      (path) => logicalOperationalPath(pathContext, path)
+    );
+    managedOutputPaths = managed.paths;
+    outputEditedPaths = [...managed.editedPaths].sort();
   } catch (error) {
     buildError = errorMessage(error);
   }
 
   let changeIssues: readonly ChangeCheckIssue[] = [];
   let changeError: string | undefined;
-  try {
-    changeIssues = (await changeCheck(rootPath, {
-      ...buildOptions,
-      ...(since === undefined ? {} : { since }),
-    })).issues;
-  } catch (error) {
-    changeError = errorMessage(error);
+  if (ci === true || since !== undefined) {
+    try {
+      changeIssues = (await changeCheck(rootPath, {
+        ...buildOptions,
+        ...(since === undefined ? {} : { since }),
+      })).issues;
+    } catch (error) {
+      changeError = errorMessage(error);
+    }
   }
 
   let changesetIssues: readonly string[] = [];
   let changesetError: string | undefined;
   let changesetFiles: readonly ChangedFile[] = [];
   let packageFiles: readonly ChangedFile[] = [];
-  try {
-    const base = since ?? await defaultChangesetBaseline(rootPath);
-    const guard = evaluateChangesetGuard(await readChangedFilesFromGit(rootPath, base));
-    changesetIssues = guard.diagnostics;
-    changesetFiles = guard.changesetFiles;
-    packageFiles = guard.packageFiles;
-  } catch (error) {
-    changesetError = errorMessage(error);
+  if (ci === true || since !== undefined) {
+    try {
+      const base = since ?? await defaultChangesetBaseline(rootPath);
+      const guard = evaluateChangesetGuard(await readChangedFilesFromGit(rootPath, base));
+      changesetIssues = guard.diagnostics;
+      changesetFiles = guard.changesetFiles;
+      packageFiles = guard.packageFiles;
+    } catch (error) {
+      changesetError = errorMessage(error);
+    }
   }
 
   let drift: SkillsetDiff = EMPTY_DRIFT;
+  let outputDiagnostics: readonly SkillsetDiagnostic[] = [];
   if (buildError === undefined) {
     try {
-      drift = await diffSkillset(rootPath, buildOptions);
+      const result = await diffSkillsetResult(rootPath, buildOptions);
+      drift = result.data;
+      outputDiagnostics = result.diagnostics;
     } catch (error) {
       buildError = errorMessage(error);
     }
   }
+  const driftPaths = new Set([...drift.added, ...drift.changed, ...drift.missing, ...drift.removed]);
+  outputEditedPaths = outputEditedPaths.filter((path) => driftPaths.has(path));
 
   const changeErrors = changeIssues.filter((issue) => issue.severity === "error");
   const lintErrors = lintIssues.filter((issue) => issue.severity === "error");
   const sourceSuggestions = buildError === undefined && hasDrift(drift)
     ? await sourceSuggestionsForDrift(rootPath, drift, buildOptions)
     : [];
+  let providerUpdatePaths: readonly string[] = [];
+  let providerSourceDriftPaths: ReadonlySet<string> = new Set();
+  if (buildError === undefined && hasDrift(drift)) {
+    try {
+      const providerReport = await runProviderFormatUpdates(rootPath, "check", buildOptions);
+      const sourceDriftPaths = new Set(providerReport.sourceDriftPaths);
+      providerSourceDriftPaths = sourceDriftPaths;
+      providerUpdatePaths = [...new Set(
+        [
+          ...[...providerReport.safeUpdates, ...providerReport.manualReviews]
+            .flatMap((action) => action.affectedPaths),
+          ...providerReport.unplannedDriftPaths,
+        ]
+          .filter((path) =>
+            !sourceDriftPaths.has(path) &&
+            !(sourceDriftPaths.size > 0 && (path === "skillset.lock" || path.endsWith("/skillset.lock")))
+          )
+      )].sort();
+    } catch {
+      // The main readiness report already owns build and drift failures.
+    }
+  }
+  const hasUnmanagedOutputCollisions = outputDiagnostics.some(
+    (diagnostic) => {
+      if (diagnostic.code !== "unmanaged-output-collision" || diagnostic.outputPath === undefined) {
+        return false;
+      }
+      if (managedOutputPaths.has(diagnostic.outputPath)) return false;
+
+      // Provider marketplace indexes predate per-file lock ownership. Preserve
+      // source-driven refreshes for established generated workspaces while
+      // still refusing a first-build collision at the same path.
+      const isEstablishedMarketplaceIndex =
+        managedOutputPaths.size > 0 &&
+        providerSourceDriftPaths.has(diagnostic.outputPath) &&
+        (diagnostic.outputPath.endsWith("/.claude-plugin/marketplace.json") ||
+          diagnostic.outputPath.endsWith("/.cursor-plugin/marketplace.json") ||
+          diagnostic.outputPath === ".claude-plugin/marketplace.json" ||
+          diagnostic.outputPath === ".cursor-plugin/marketplace.json");
+      return !isEstablishedMarketplaceIndex;
+    }
+  );
 
   // Rebuild only when drift is the sole problem: lint errors, change
   // errors, or a build error mean the source is not trustworthy, and an
@@ -115,12 +206,17 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
     buildError === undefined &&
     changeError === undefined &&
     changeErrors.length === 0 &&
-    lintErrors.length === 0
+    lintErrors.length === 0 &&
+    outputEditedPaths.length === 0 &&
+    providerUpdatePaths.length === 0 &&
+    !hasUnmanagedOutputCollisions
   ) {
     const staleBefore = [...drift.added, ...drift.changed, ...drift.missing, ...drift.removed];
     try {
       await buildSkillset(rootPath, buildOptions);
-      drift = await diffSkillset(rootPath, buildOptions);
+      const result = await diffSkillsetResult(rootPath, buildOptions);
+      drift = result.data;
+      outputDiagnostics = result.diagnostics;
       const remaining = new Set([...drift.added, ...drift.changed, ...drift.missing, ...drift.removed]);
       fixedPaths = staleBefore.filter((path) => !remaining.has(path));
     } catch (error) {
@@ -145,7 +241,11 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
       lintErrors.length === 0 &&
       changeErrors.length === 0 &&
       changesetIssues.length === 0 &&
+      !outputDiagnostics.some((diagnostic) => diagnostic.severity === "error") &&
       !hasDrift(drift),
+    outputEditedPaths,
+    outputDiagnostics,
+    providerUpdatePaths,
     ...(packageFiles.length === 0 ? {} : { packageFiles }),
     ...(sourceSuggestions.length === 0 ? {} : { sourceSuggestions }),
     warnings,
@@ -172,8 +272,9 @@ export function renderCiReportMarkdown(report: CiReport): string {
   const lines: string[] = [CI_REPORT_MARKER, "## Skillset CI", ""];
   const lintErrors = report.lintIssues.filter((issue) => issue.severity === "error");
   const lintWarnings = report.lintIssues.filter((issue) => issue.severity === "warn");
+  const outputWarnings = report.outputDiagnostics.filter((diagnostic) => diagnostic.severity !== "error");
 
-  if (report.ok && report.fixedPaths.length === 0 && lintWarnings.length === 0) {
+  if (report.ok && report.fixedPaths.length === 0 && lintWarnings.length === 0 && outputWarnings.length === 0) {
     lines.push("All checks passed: source lint, change entries, and generated output are current.", "");
     return `${lines.join("\n").trimEnd()}\n`;
   }
@@ -203,6 +304,15 @@ export function renderCiReportMarkdown(report: CiReport): string {
     lines.push("", "These files were regenerated from source the same way `skillset build --yes` would. Commit the rebuilt output if it is not committed for you.", "");
   }
 
+  if (report.outputDiagnostics.length > 0) {
+    lines.push("### Generated-output diagnostics", "");
+    for (const diagnostic of report.outputDiagnostics) {
+      const path = diagnostic.path ?? diagnostic.outputPath;
+      lines.push(`- ${diagnostic.severity}: ${path === undefined ? "" : `\`${path}\`: `}${diagnostic.code}: ${diagnostic.message}`);
+    }
+    lines.push("");
+  }
+
   if (hasDrift(report.drift)) {
     lines.push("### Stale generated output", "");
     for (const path of report.drift.added) lines.push(`- added: \`${path}\``);
@@ -216,6 +326,22 @@ export function renderCiReportMarkdown(report: CiReport): string {
       );
     }
     lines.push("", "Run `skillset build --yes`, review the generated diff, and commit it.", "");
+  }
+
+  if (report.outputEditedPaths.length > 0) {
+    lines.push("### Target-side generated edits", "");
+    for (const path of report.outputEditedPaths) lines.push(`- \`${path}\``);
+    lines.push(
+      "",
+      "`skillset check --write` will not overwrite these edits. Reconcile them into source first, or intentionally discard them before rebuilding.",
+      ""
+    );
+  }
+
+  if (report.providerUpdatePaths.length > 0) {
+    lines.push("### Provider-format updates", "");
+    for (const path of report.providerUpdatePaths) lines.push(`- \`${path}\``);
+    lines.push("", "Run `skillset update` to preview these migrations, then `skillset update --yes` to apply them.", "");
   }
 
   if (report.sourceSuggestions !== undefined && report.sourceSuggestions.length > 0) {
@@ -233,7 +359,7 @@ export function renderCiReportMarkdown(report: CiReport): string {
     for (const issue of lintErrors) {
       lines.push(`- \`${issue.path}\`: ${issue.code}: ${issue.message}`);
     }
-    lines.push("", "Fix the source issues, then run `skillset lint` locally.", "");
+    lines.push("", "Fix the source issues, then rerun `skillset check`.", "");
   }
 
   if (lintWarnings.length > 0) {
@@ -375,10 +501,10 @@ export function renderCiWorkflow(): string {
     "        with:",
     "          fetch-depth: 0",
     "      - uses: oven-sh/setup-bun@v2",
-    "      - name: Run skillset ci",
+    "      - name: Run skillset check",
     "        id: skillset",
     "        run: >-",
-    "          bunx skillset ci",
+    "          bunx skillset check --ci",
     "          ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && '--fix' || '' }}",
     '          --report "$RUNNER_TEMP/skillset-ci-report.md"',
     "        continue-on-error: true",

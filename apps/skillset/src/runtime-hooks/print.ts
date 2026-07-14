@@ -11,7 +11,7 @@ export interface HookPrintOptions {
 }
 
 const PRE_COMMIT_COMMAND = "skillset change check --staged";
-const PRE_PUSH_COMMAND = "skillset change check --since origin/main && skillset check && skillset verify && skillset doctor";
+const PRE_PUSH_COMMAND = "skillset change check --since origin/main && skillset check && skillset check --only outputs && skillset doctor";
 const RUNTIME_POST_TOOL_USE_COMMAND = "skillset hooks run post-tool-use";
 const RUNTIME_STOP_COMMAND = "skillset hooks run stop";
 

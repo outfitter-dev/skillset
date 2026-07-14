@@ -10,7 +10,7 @@ There is no author-facing source key for output safety. Ownership is derived fro
 
 Managed files are files recorded by a current or previous Skillset lock. Workspace-managed project files such as generated `AGENTS.md` and provider-source project files are recorded in the root `skillset.lock`. Plugin and standalone skill roots record ownership in their nearby generated `skillset.lock` files. Entity-local `CHANGELOG.md` files are also managed projections when release history renders them beside source entities.
 
-Unmanaged files are files under or beside generated output roots that no Skillset lock currently owns. `skillset diff`, `skillset verify`, and stale-file cleanup ignore unmanaged neighbors so a repo can keep hand-authored files near generated output without Skillset claiming or deleting them.
+Unmanaged files are files under or beside generated output roots that no Skillset lock currently owns. `skillset diff`, `skillset check --only outputs`, and stale-file cleanup ignore unmanaged neighbors so a repo can keep hand-authored files near generated output without Skillset claiming or deleting them.
 
 ## Target Support
 
@@ -40,7 +40,7 @@ Backup manifests use schema version 2 and store backed-up bytes in a per-run bar
 
 `--isolated` applies the same ownership and backup rules inside the logical `.skillset/cache/latest/` mirror, backed by the repo's XDG cache bucket, so a mirror build can be inspected without touching live target roots.
 
-Generated changelogs are the currently implemented managed-output case where "just rebuild it" can discard useful author intent. When `skillset diff`, `skillset change status`, or `skillset ci` reports drift for a managed `CHANGELOG.md`, treat the edit as a source-side correction request: use `skillset change reason <@ref>` for pending wording before release, `skillset change amend <@ref>` for applied history wording after release, or `skillset release amend <@ref>` for release-event metadata. `skillset ci --fix` may still mechanically restore the projection from source, but the diagnostics should make the source-side recovery path visible first.
+Generated changelogs are the currently implemented managed-output case where "just rebuild it" can discard useful author intent. When `skillset diff`, `skillset change status`, or `skillset check --ci` reports drift for a managed `CHANGELOG.md`, treat the edit as a source-side correction request: use `skillset change reason <@ref>` for pending wording before release, `skillset change amend <@ref>` for applied history wording after release, or `skillset release amend <@ref>` for release-event metadata. `skillset check --ci --fix` may still mechanically restore the projection from source, but the diagnostics should make the source-side recovery path visible first.
 
 The broader recovery model is [Source Suggestions](source-suggestions.md). That future workflow should use lock ownership to explain the source path behind a generated edit, preview clean source-side patches, and refuse unsafe reverse patches. Until it lands, output safety remains conservative: back up or rebuild generated output, but do not silently accept generated edits as source truth.
 

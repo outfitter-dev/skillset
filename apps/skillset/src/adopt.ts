@@ -945,9 +945,9 @@ export function renderAdoptReportMarkdown(
   lines.push(
     "## Next steps",
     "",
-    "- `skillset lint`",
-    "- `skillset verify --isolated`",
-    "- `skillset ci`",
+    "- `skillset check`",
+    "- `skillset check --only outputs --isolated`",
+    "- `skillset check --ci`",
     ""
   );
 

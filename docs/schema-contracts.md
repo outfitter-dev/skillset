@@ -56,7 +56,7 @@ Use this checklist for any new source/config/frontmatter field:
    is compatible, validation-tightening, or generated-output-affecting.
 9. Add focused tests for the caller that consumes the field, then run
    `bun run schema:check`, relevant focused tests, `bun run check`, and
-   `bun run skillset:ci` before handoff.
+   `bun run skillset:check:ci` before handoff.
 
 Provider-specific behavior belongs under explicit provider blocks such as
 `claude`, `codex`, and `cursor` unless the field is intentionally portable.

@@ -878,7 +878,8 @@ test("SET-10: skill import reports copied files and classifies frontmatter", asy
       target: "claude",
     })
   );
-  expect(report.nextChecks).toContain("skillset lint");
+  expect(report.nextChecks).toContain("skillset check");
+  expect(report.nextChecks).toContain("skillset check --only outputs");
 
   // Target-native and unknown fields are preserved verbatim in the copied source.
   const copied = await readFile(join(report.targetPath, "SKILL.md"), "utf8");
@@ -1478,9 +1479,10 @@ test("SET-25: CLI help succeeds before command validation", async () => {
   expect(rootHelp.exitCode).toBe(0);
   expect(rootHelp.stderr).toBe("");
   expect(rootHelp.stdout).toContain("usage: skillset build");
-  expect(rootHelp.stdout).toContain("skillset verify [--updated|--all]");
-  expect(rootHelp.stdout).toContain("skillset check [--fix] [--root <path>] [--source <dir>]");
-  expect(rootHelp.stdout).toContain("skillset lint [--root <path>] [--source <dir>]");
+  expect(rootHelp.stdout).toContain("skillset check [--write|--only outputs|--ci [--fix]");
+  expect(rootHelp.stdout).not.toContain("skillset verify");
+  expect(rootHelp.stdout).not.toContain("skillset lint");
+  expect(rootHelp.stdout).not.toContain("skillset ci");
   expect(rootHelp.stdout).toContain("skillset update [--yes|--dry-run] [--root <path>] [--source <dir>] [--dist <dir>]");
   expect(rootHelp.stdout).toContain("skillset list [--updated|--all]");
   expect(rootHelp.stdout).not.toContain("skillset <check|lint|list> [--updated|--all]");
@@ -1526,7 +1528,7 @@ test("SET-191: providers command validates maintainer-only flags", async () => {
   expect(sourceFlag.stderr).toContain("providers does not support --source");
 });
 
-test("SET-154: check and lint reject build destination flags", async () => {
+test("SET-278: check rejects destination flags and retired check commands are removed", async () => {
   const checkScope = await runSkillsetCli("check", "--scope", "repo");
   expect(checkScope.exitCode).toBe(1);
   expect(checkScope.stderr).toContain("skillset check does not support --scope");
@@ -1535,16 +1537,15 @@ test("SET-154: check and lint reject build destination flags", async () => {
   expect(checkUpdated.exitCode).toBe(1);
   expect(checkUpdated.stderr).toContain("skillset check does not support --updated or --all");
 
-  const lintDist = await runSkillsetCli("lint", "--dist", "out");
-  expect(lintDist.exitCode).toBe(1);
-  expect(lintDist.stderr).toContain("skillset lint does not support --dist");
-
-  const lintWrite = await runSkillsetCli("lint", "--dry-run");
-  expect(lintWrite.exitCode).toBe(1);
-  expect(lintWrite.stderr).toContain("skillset lint is read-only");
+  for (const command of ["lint", "verify", "ci"]) {
+    const retired = await runSkillsetCli(command);
+    expect(retired.exitCode).toBe(1);
+    expect(retired.stderr).toContain("expected command");
+    expect(retired.stderr).not.toContain(`skillset ${command} [`);
+  }
 });
 
-test("SET-154: check runs source diagnostics without generated-output drift verification", async () => {
+test("SET-278: check is comprehensive and --only outputs is the narrow drift check", async () => {
   const root = await contractFixture({
     "skillset.yaml": `
 skillset:
@@ -1562,23 +1563,50 @@ Body.
 `,
   });
 
+  await buildSkillset(root);
   const cleanCheck = await runSkillsetCli("check", "--root", root);
   expect(cleanCheck.exitCode).toBe(0);
   expect(cleanCheck.stderr).toBe("");
-  expect(cleanCheck.stdout).toContain("skillset: checked 1 source skills");
+  expect(cleanCheck.stdout).toContain("skillset: check passed");
 
-  await buildSkillset(root);
   await writeFile(join(root, ".claude/skills/demo/SKILL.md"), "stale generated output\n", "utf8");
 
-  const driftIgnored = await runSkillsetCli("check", "--root", root);
-  expect(driftIgnored.exitCode).toBe(0);
-  expect(driftIgnored.stderr).toBe("");
-  expect(driftIgnored.stdout).toContain("skillset: checked 1 source skills");
-
-  const driftCaught = await runSkillsetCli("verify", "--root", root);
+  const driftCaught = await runSkillsetCli("check", "--root", root);
   expect(driftCaught.exitCode).toBe(1);
-  expect(driftCaught.stderr).toContain(".claude/skills/demo/SKILL.md");
-  expect(driftCaught.stderr).toContain("generated output is not current");
+  expect(driftCaught.stdout).toContain("generated-output drift");
+
+  const outputs = await runSkillsetCli("check", "--only", "outputs", "--root", root);
+  expect(outputs.exitCode).toBe(1);
+  expect(outputs.stderr).toContain(".claude/skills/demo/SKILL.md");
+  expect(outputs.stderr).toContain("version drift");
+
+  const scopedOutputs = await runSkillsetCli(
+    "check",
+    "--only",
+    "outputs",
+    "--scope",
+    "repo",
+    "--updated",
+    "--dist",
+    "generated",
+    "--root",
+    root
+  );
+  expect(scopedOutputs.stderr).not.toContain("does not support --scope");
+  expect(scopedOutputs.stderr).not.toContain("does not support --updated");
+  expect(scopedOutputs.stderr).not.toContain("does not support --dist");
+
+  for (const mode of ["--ci", "--write"] as const) {
+    const comprehensive = await runSkillsetCli(
+      "check",
+      mode,
+      "--dist",
+      "generated",
+      "--root",
+      root
+    );
+    expect(comprehensive.stderr).not.toContain("does not support --dist");
+  }
 });
 
 test("SET-154: check fails on source authoring diagnostics", async () => {
@@ -1601,10 +1629,8 @@ See [Guide](shared:references/guide.md).
 
   const checked = await runSkillsetCli("check", "--root", root);
   expect(checked.exitCode).toBe(1);
-  expect(checked.stdout).toBe("");
-  expect(checked.stderr).toContain("skillset: lint failed");
-  expect(checked.stderr).toContain("resource-undeclared-link");
-  expect(checked.stderr).toContain("shared:references/guide.md");
+  expect(checked.stdout).toContain("resource-undeclared-link");
+  expect(checked.stdout).toContain("shared:references/guide.md");
 });
 
 test("SET-41: hooks print emits additive runner snippets", async () => {
@@ -1621,7 +1647,7 @@ test("SET-41: hooks print emits additive runner snippets", async () => {
     expect(printed.stdout).toContain("skillset change check --staged");
     expect(printed.stdout).toContain("skillset change check --since origin/main");
     expect(printed.stdout).toContain("skillset check");
-    expect(printed.stdout).toContain("skillset verify");
+    expect(printed.stdout).toContain("skillset check --only outputs");
     expect(printed.stdout).toContain("skillset doctor");
     if (runner === "pre-commit") expect(printed.stdout).toContain("entry: sh -c");
   }
@@ -2993,7 +3019,7 @@ Body.
   });
 
   await buildSkillset(root);
-  const checked = await runSkillsetCli("verify", "--root", root);
+  const checked = await runSkillsetCli("check", "--only", "outputs", "--root", root);
   expect(checked.exitCode).toBe(0);
   expect(checked.stderr).toContain("@acme/docs-cli supports >=2.4.0 <3.0.0");
   expect(checked.stderr).toContain("repo:packages/docs-cli/package.json is 3.1.0");
@@ -5585,7 +5611,7 @@ Body.
 `,
   });
 
-  const checked = await runSkillsetCli("verify", "--root", root);
+  const checked = await runSkillsetCli("check", "--only", "outputs", "--root", root);
   expect(checked.exitCode).toBe(1);
   expect(checked.stderr).toContain("release state scope skill:demo.version");
   expect(checked.stderr).toContain("semantic version");
