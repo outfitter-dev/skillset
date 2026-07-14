@@ -4883,6 +4883,36 @@ test("SET-282: reconcile applies source-wins with output backup safety", async (
   });
 });
 
+test("SET-282: failed output-wins reconciliation restores source", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": "skillset:\n  name: reconcile-invalid-output\nclaude: true\ncodex: false\n",
+    ".skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo.\n---\n\nOriginal source body.\n",
+  });
+  await buildSkillset(root);
+  const sourcePath = join(root, ".skillset/skills/demo/SKILL.md");
+  const originalSource = await readFile(sourcePath, "utf8");
+  const generatedPath = ".claude/skills/demo/SKILL.md";
+  await writeFile(
+    join(root, generatedPath),
+    "---\nname: demo\ndescription: Demo.\n---\n\nSee [missing](shared:references/missing.md).\n",
+    "utf8"
+  );
+
+  const result = await runSkillsetCli(
+    "reconcile",
+    generatedPath,
+    "--use",
+    "output",
+    "--yes",
+    "--root",
+    root
+  );
+
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain("links to undeclared shared resource");
+  expect(await readFile(sourcePath, "utf8")).toBe(originalSource);
+});
+
 test("SET-282: reconcile refuses to overwrite unrelated generated drift", async () => {
   const root = await contractFixture({
     "skillset.yaml": "skillset:\n  name: reconcile-scope\nclaude: true\ncodex: false\n",

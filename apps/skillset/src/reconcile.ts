@@ -1,4 +1,4 @@
-import { stat } from "node:fs/promises";
+import { readFile, stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 import { buildSkillsetResult, diffSkillsetResult } from "@skillset/core";
@@ -50,7 +50,7 @@ export async function reconcileManagedPath(
     choice === "source",
     skillsetOptions
   );
-  const outputResolution = choice === "source"
+  let outputResolution = choice === "source"
     ? {
         entries: explanation.entries,
         generatedPath: explanation.path,
@@ -75,7 +75,7 @@ export async function reconcileManagedPath(
     : outputExists
     ? await suggestSource(rootPath, managedPath, {
         ...skillsetOptions,
-        write: write && choice === "output",
+        write: false,
       })
     : {
         entries: explanation.entries,
@@ -91,17 +91,38 @@ export async function reconcileManagedPath(
   let backupManifestPath: string | undefined;
   let backupRunId: string | undefined;
   if (write && choice !== undefined) {
-    if (choice === "output" && !outputResolution.wrote) {
-      throw new Error(`skillset: output cannot win for ${managedPath}: ${outputResolution.message}`);
+    const applyBuild = async (): Promise<void> => {
+      const built = await buildSkillsetResult(rootPath, skillsetOptions);
+      if (!built.ok) {
+        const reason = built.diagnostics.map((diagnostic) => diagnostic.message).join("; ");
+        throw new Error(`skillset: reconcile build failed${reason.length === 0 ? "" : `: ${reason}`}`);
+      }
+      writtenPaths = built.writes.paths;
+      backupManifestPath = built.writes.backupManifestPath;
+      backupRunId = built.writes.backupRunId;
+    };
+    if (choice === "output") {
+      if (!outputResolution.wouldWrite || sourcePath === undefined) {
+        throw new Error(`skillset: output cannot win for ${managedPath}: ${outputResolution.message}`);
+      }
+      const sourceAbsolute = resolve(rootPath, sourcePath);
+      const originalSource = await readFile(sourceAbsolute, "utf8");
+      try {
+        outputResolution = await suggestSource(rootPath, managedPath, {
+          ...skillsetOptions,
+          write: true,
+        });
+        if (!outputResolution.wrote) {
+          throw new Error(`skillset: output cannot win for ${managedPath}: ${outputResolution.message}`);
+        }
+        await applyBuild();
+      } catch (error) {
+        await writeFile(sourceAbsolute, originalSource, "utf8");
+        throw error;
+      }
+    } else {
+      await applyBuild();
     }
-    const built = await buildSkillsetResult(rootPath, skillsetOptions);
-    if (!built.ok) {
-      const reason = built.diagnostics.map((diagnostic) => diagnostic.message).join("; ");
-      throw new Error(`skillset: reconcile build failed${reason.length === 0 ? "" : `: ${reason}`}`);
-    }
-    writtenPaths = built.writes.paths;
-    backupManifestPath = built.writes.backupManifestPath;
-    backupRunId = built.writes.backupRunId;
   }
 
   return {
