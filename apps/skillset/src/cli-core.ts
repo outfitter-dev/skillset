@@ -70,7 +70,7 @@ import {
   type HookRunner,
   type HookSubcommand,
 } from "./runtime-hooks";
-import { importSources, type ImportKind, type ImportProvider, type ImportReport } from "./import";
+import { ImportBatchError, importSources, type ImportKind, type ImportProvider, type ImportReport } from "./import";
 import {
   addLookupTarget,
   addLookupTargets,
@@ -781,24 +781,35 @@ export async function runCli(
   }
 
   if (command === "import") {
-    const result = await importSources({
-      ...(importKind === undefined ? {} : { kind: importKind }),
-      ...(importName === undefined ? {} : { name: importName }),
-      ...(importPath === undefined ? {} : { sourcePath: importPath }),
-      ...(importProvider === undefined ? {} : { provider: importProvider }),
-      rootPath,
-      ...(options.sourceDir === undefined ? {} : { sourceDir: options.sourceDir }),
-    });
+    let result;
+    try {
+      result = await importSources({
+        ...(importKind === undefined ? {} : { kind: importKind }),
+        ...(importName === undefined ? {} : { name: importName }),
+        ...(importPath === undefined ? {} : { sourcePath: importPath }),
+        ...(importProvider === undefined ? {} : { provider: importProvider }),
+        rootPath,
+        ...(options.sourceDir === undefined ? {} : { sourceDir: options.sourceDir }),
+      });
+    } catch (error) {
+      if (!jsonOutput || !(error instanceof ImportBatchError)) throw error;
+      const writes = importWritePaths(rootPath, error.imports);
+      printCliJsonData("import", {
+        imports: error.imports,
+        state: writes.length > 0 ? "written" : "planned",
+        writes,
+      }, 1, "diagnostics", [{
+        code: "import.partial",
+        message: error.message,
+        severity: "error",
+      }]);
+      return;
+    }
     if (jsonOutput) {
       printCliJsonData("import", {
         result,
         state: "written",
-        writes: [...new Set(result.imports.flatMap((entry) => [
-          workspaceRelativePath(rootPath, entry.targetPath),
-          ...(entry.baselinePath === undefined
-            ? []
-            : [workspaceRelativePath(rootPath, entry.baselinePath)]),
-        ]))],
+        writes: importWritePaths(rootPath, result.imports),
       });
     } else if (result.imports.length === 1) {
       const [single] = result.imports;
@@ -1067,6 +1078,15 @@ export async function runCli(
   }
 
   throw new Error(`skillset: unhandled command ${command}`);
+}
+
+function importWritePaths(rootPath: string, imports: readonly ImportReport[]): readonly string[] {
+  return [...new Set(imports.flatMap((entry) => [
+    workspaceRelativePath(rootPath, entry.targetPath),
+    ...(entry.baselinePath === undefined
+      ? []
+      : [workspaceRelativePath(rootPath, entry.baselinePath)]),
+  ]))];
 }
 
 function workspaceRelativePath(rootPath: string, path: string): string {

@@ -137,6 +137,30 @@ describe("SET-287 finite read-only JSON", () => {
     ]);
   });
 
+  test("import JSON reports writes completed before a batch failure", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-import-partial-"));
+    const source = path.join(root, "incoming");
+    await mkdir(path.join(root, ".skillset"), { recursive: true });
+    await mkdir(path.join(source, "first"), { recursive: true });
+    await mkdir(path.join(source, "second"), { recursive: true });
+    await writeFile(path.join(root, "skillset.yaml"), "skillset:\n  name: import-json-partial\n");
+    await writeFile(path.join(source, "first", "SKILL.md"), "---\nname: duplicate\ndescription: First.\n---\n\nFirst.\n");
+    await writeFile(path.join(source, "second", "SKILL.md"), "---\nname: duplicate\ndescription: Second.\n---\n\nSecond.\n");
+
+    const imported = await runJsonRoute("import", source, "--kind", "skills", "--root", root);
+    const envelope = JSON.parse(imported.stdout) as SkillsetCliResult & {
+      data: { state: string; writes: string[] };
+    };
+
+    expect(imported.exitCode).toBe(1);
+    expect(envelope.kind).toBe("diagnostics");
+    expect(envelope.data.state).toBe("written");
+    expect(envelope.data.writes).toEqual([
+      ".skillset/skills/duplicate",
+      ".skillset/changes/state.json",
+    ]);
+  });
+
   test("init adoption JSON reports imported units and release state", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "skillset-json-adopt-writes-"));
     await runJsonRoute("init", "--yes", "--root", root);
