@@ -66,12 +66,14 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
   let lintIssues: readonly LintIssue[] = [];
   let warnings: readonly string[] = [];
   let outputEditedPaths: readonly string[] = [];
+  let managedOutputPaths: ReadonlySet<string> = new Set();
   let buildError: string | undefined;
   try {
     const graph = await loadBuildGraph(rootPath, buildOptions);
     lintIssues = (await inspectSkillset(graph)).issues;
     warnings = graph.warnings;
     const managed = await readManagedOutputState(rootPath, graph.outputRoots, true, (path) => path);
+    managedOutputPaths = managed.paths;
     outputEditedPaths = [...managed.editedPaths].sort();
   } catch (error) {
     buildError = errorMessage(error);
@@ -126,10 +128,12 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
     ? await sourceSuggestionsForDrift(rootPath, drift, buildOptions)
     : [];
   let providerUpdatePaths: readonly string[] = [];
+  let providerSourceDriftPaths: ReadonlySet<string> = new Set();
   if (buildError === undefined && hasDrift(drift)) {
     try {
       const providerReport = await runProviderFormatUpdates(rootPath, "check", buildOptions);
       const sourceDriftPaths = new Set(providerReport.sourceDriftPaths);
+      providerSourceDriftPaths = sourceDriftPaths;
       providerUpdatePaths = [...new Set(
         [
           ...[...providerReport.safeUpdates, ...providerReport.manualReviews]
@@ -145,6 +149,26 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
       // The main readiness report already owns build and drift failures.
     }
   }
+  const hasUnmanagedOutputCollisions = outputDiagnostics.some(
+    (diagnostic) => {
+      if (diagnostic.code !== "unmanaged-output-collision" || diagnostic.outputPath === undefined) {
+        return false;
+      }
+      if (managedOutputPaths.has(diagnostic.outputPath)) return false;
+
+      // Provider marketplace indexes predate per-file lock ownership. Preserve
+      // source-driven refreshes for established generated workspaces while
+      // still refusing a first-build collision at the same path.
+      const isEstablishedMarketplaceIndex =
+        managedOutputPaths.size > 0 &&
+        providerSourceDriftPaths.has(diagnostic.outputPath) &&
+        (diagnostic.outputPath.endsWith("/.claude-plugin/marketplace.json") ||
+          diagnostic.outputPath.endsWith("/.cursor-plugin/marketplace.json") ||
+          diagnostic.outputPath === ".claude-plugin/marketplace.json" ||
+          diagnostic.outputPath === ".cursor-plugin/marketplace.json");
+      return !isEstablishedMarketplaceIndex;
+    }
+  );
 
   // Rebuild only when drift is the sole problem: lint errors, change
   // errors, or a build error mean the source is not trustworthy, and an
@@ -159,7 +183,8 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
     changeErrors.length === 0 &&
     lintErrors.length === 0 &&
     outputEditedPaths.length === 0 &&
-    providerUpdatePaths.length === 0
+    providerUpdatePaths.length === 0 &&
+    !hasUnmanagedOutputCollisions
   ) {
     const staleBefore = [...drift.added, ...drift.changed, ...drift.missing, ...drift.removed];
     try {

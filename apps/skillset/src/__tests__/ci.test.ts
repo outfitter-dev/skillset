@@ -170,6 +170,24 @@ test("check --write refuses target-side generated edits", async () => {
   expect(markdown).toContain("### Source suggestions");
 });
 
+test("check --write refuses unmanaged output collisions", async () => {
+  const unmanaged = "hand-authored\n";
+  const root = await fixture({
+    ...DEMO_FIXTURE,
+    [GENERATED_SKILL]: unmanaged,
+  });
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(false);
+  expect(report.fixedPaths).toEqual([]);
+  expect(report.outputDiagnostics).toContainEqual(expect.objectContaining({
+    code: "unmanaged-output-collision",
+    outputPath: GENERATED_SKILL,
+  }));
+  expect(await readFile(join(root, GENERATED_SKILL), "utf8")).toBe(unmanaged);
+});
+
 test("check --write refreshes stale locks after an output edit is reconciled", async () => {
   const root = await builtFixture();
   const sourcePath = join(root, ".skillset/skills/demo/SKILL.md");
