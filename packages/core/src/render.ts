@@ -3192,9 +3192,32 @@ function hashPluginSource(
   hash.update(stringifyJson(plugin.targets[target].options));
   hash.update("\0plugin-surfaces\0");
   hash.update(stringifyJson(JSON.parse(JSON.stringify({
-    adaptiveHooks: plugin.adaptiveHooks,
-    features: plugin.features,
-    hookAttachments: plugin.hookAttachments,
+    adaptiveHooks: plugin.adaptiveHooks.map((hook) => ({
+      events: hook.events,
+      frontmatter: hook.frontmatter,
+      name: hook.name,
+      providers: hook.providers,
+      scope: hook.scope,
+      scriptReferences: hook.scriptReferences.map((reference) => ({
+        kind: reference.kind,
+        reference: reference.reference,
+        runtimePath: reference.runtimePath,
+      })),
+    })),
+    features: plugin.features.map((feature) => ({
+      key: feature.key,
+      origin: feature.origin,
+      sourcePointer: feature.sourcePointer,
+      targetPath: feature.targetPath,
+    })),
+    hookAttachments: plugin.hookAttachments.map((attachment) => ({
+      event: attachment.event,
+      hook: attachment.hook,
+      match: attachment.match,
+      providers: attachment.providers,
+      scope: attachment.scope,
+      status: attachment.status,
+    })),
     islands: graph.projectIslands
       .filter((island) => island.plugin === plugin.id && island.target === target)
       .map((island) => ({ relativePath: island.relativePath, target: island.target }))
