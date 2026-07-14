@@ -288,22 +288,28 @@ async function inspectManagedOutputState(
   readonly unchangedPaths: ReadonlySet<string>;
 }> {
   const expectedEntries = await listGeneratedEntries(rootPath, options);
-  const expectedSourceHashes = new Map(
-    expectedEntries.map((entry) => [normalizePath(entry.outputPath), entry.sourceHash])
-  );
-  const expectedVersions = new Map(
-    expectedEntries.map((entry) => [normalizePath(entry.outputPath), entry.version])
-  );
+  const expectedSourceHashes = new Map<string, string | undefined>();
+  const expectedVersions = new Map<string, string | undefined>();
+  const expectedRenderInputsHashes = new Map<string, string | undefined>();
+  for (const entry of expectedEntries) {
+    const current = await findLockItemForOutputPath(rootPath, entry.outputPath);
+    const outputPaths = current?.files.map((file) => file.displayPath) ?? [entry.outputPath];
+    for (const outputPath of outputPaths) {
+      const normalizedPath = normalizePath(outputPath);
+      expectedSourceHashes.set(normalizedPath, entry.sourceHash);
+      expectedVersions.set(normalizedPath, entry.version);
+      expectedRenderInputsHashes.set(normalizedPath, entry.renderInputsHash);
+    }
+  }
   const missingSet = new Set(missingPaths.map(normalizePath));
-  const expectedRenderInputsHashes = new Map(
-    expectedEntries.map((entry) => [normalizePath(entry.outputPath), entry.renderInputsHash])
-  );
   const missingRenderInputsPaths: string[] = [];
   const sourceDriftPaths = [...removedPaths];
   for (const outputPath of driftPaths) {
     if (outputPath === "skillset.lock" || outputPath.endsWith("/skillset.lock")) continue;
     if (await findLockItemForOutputPath(rootPath, outputPath) === undefined) {
-      sourceDriftPaths.push(outputPath);
+      sourceDriftPaths.push(
+        ...(lockItem?.files.map((file) => normalizePath(file.displayPath)) ?? [outputPath])
+      );
     }
   }
   for (const entry of expectedEntries) {
@@ -325,13 +331,15 @@ async function inspectManagedOutputState(
     const lockItem = await findLockItemForOutputPath(rootPath, outputPath);
     if (lockItem === undefined || lockItem.outputHash === undefined || lockItem.sourceHash === undefined) continue;
     const currentHash = await currentOutputHash(rootPath, lockItem);
-    const expectedSourceHash = expectedSourceHashes.get(normalizePath(outputPath));
-    const expectedVersion = expectedVersions.get(normalizePath(outputPath));
-    const expectedRenderInputsHash = expectedRenderInputsHashes.get(normalizePath(outputPath));
+    const normalizedOutputPath = normalizePath(outputPath);
+    const expectedSourceHash = expectedSourceHashes.get(normalizedOutputPath);
+    const expectedVersion = expectedVersions.get(normalizedOutputPath);
+    const expectedRenderInputsHash = expectedRenderInputsHashes.get(normalizedOutputPath);
     const renderInputsUnchanged = lockItem.renderInputsHash === undefined ||
       expectedRenderInputsHash === lockItem.renderInputsHash;
     if (
       currentHash === lockItem.outputHash &&
+      expectedSourceHashes.has(normalizedOutputPath) &&
       expectedSourceHash === lockItem.sourceHash &&
       renderInputsUnchanged &&
       (lockItem.version === undefined || expectedVersion === lockItem.version)

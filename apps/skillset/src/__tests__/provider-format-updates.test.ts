@@ -352,7 +352,6 @@ test("SET-278: check writes inherited plugin license metadata drift", async () =
     (await readFile(rootConfigPath, "utf8")).replace("license: MIT", "license: Apache-2.0"),
     "utf8"
   );
-
   const report = await ciSkillset(root, { fix: true });
 
   expect(report.ok).toBe(true);
@@ -427,6 +426,32 @@ test("SET-278: check writes plugin manifest drift caused by native companion pat
   expect(await readFile(join(root, CODEX_PLUGIN_MANIFEST), "utf8")).toContain(
     '"apps": "./.app.json"'
   );
+});
+
+test("SET-278: check writes source drift in secondary generated files", async () => {
+  const root = await builtFixture({
+    "skillset.yaml": "skillset:\n  name: resource-drift\nclaude: true\ncodex: false\n",
+    ".skillset/shared/references/guide.md": "# Initial guide\n",
+    ".skillset/skills/demo/SKILL.md": `---
+name: demo
+description: Demo.
+resources:
+  references:
+    - shared:references/guide.md
+---
+
+Body.
+`,
+  });
+  const generatedPath = ".claude/skills/demo/references/guide.md";
+  await writeFile(join(root, ".skillset/shared/references/guide.md"), "# Updated guide\n", "utf8");
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.providerUpdatePaths).toEqual([]);
+  expect(report.fixedPaths).toContain(generatedPath);
+  expect(await readFile(join(root, generatedPath), "utf8")).toBe("# Updated guide\n");
 });
 
 test("SET-278: check writes lock-only source provenance drift", async () => {
