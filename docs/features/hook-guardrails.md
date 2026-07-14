@@ -37,7 +37,7 @@ For the normalized runtime context support matrix, use `skillset lookup hooks to
 
 ## Diagnostics
 
-Pre-commit guardrails are staged-aware and fast through `skillset change check --staged`, which compares the Git index against `HEAD`. Pre-push snippets run broader checks through `skillset change check --since origin/main`, `skillset check`, `skillset check --only outputs`, and `skillset status`.
+Pre-commit guardrails are staged-aware and fast through `skillset change check --staged`, which compares the Git index against `HEAD`. Pre-push snippets run `skillset change check --since origin/main` followed by the comprehensive `skillset check`.
 
 Runtime hook execution stays narrower than Git hooks. `skillset hooks run post-tool-use` and `skillset hooks run stop` first inspect the Skillset source/change-entry paths that can affect source provenance, including untracked files:
 
