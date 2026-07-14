@@ -3211,6 +3211,8 @@ function hashPluginSource(
   hash.update("\0");
   hash.update(stringifyJson(plugin.metadata));
   hash.update("\0");
+  hash.update(stringifyJson(readRecord(graph.root.metadata, "owner") ?? {}));
+  hash.update("\0");
   hash.update(stringifyJson(plugin.targets[target].options));
   hash.update("\0plugin-surfaces\0");
   const manifestSurfacePaths = withOptionalSurfacePaths(graph, {}, plugin, [], target);
