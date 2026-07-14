@@ -25,7 +25,7 @@ skillset build --yes
 
 Explicit `--scope` selectors filter generated destinations for build, diff, list, and explain. They are not source-coverage filters for `skillset change status` or `skillset change check`. Repo scripts that intentionally refresh all generated output should omit `--scope` and pass `--yes`.
 
-`--isolated` (build and diff only) re-roots the entire rendering under the logical `.skillset/cache/latest/` mirror, preserving repo-relative layout in reports and locks while storing the mirror in the repo's XDG cache bucket. Writes, locks, drift detection, stale-file removal, and unmanaged-collision backups all operate against that mirror while live generated outputs stay untouched.
+`--isolated` on build, diff, or `check --only outputs` re-roots the entire rendering under the logical `.skillset/cache/latest/` mirror, preserving repo-relative layout in reports and locks while storing the mirror in the repo's XDG cache bucket. Writes, locks, drift detection, stale-file removal, and unmanaged-collision backups all operate against that mirror while live generated outputs stay untouched.
 
 ## Support Table
 
