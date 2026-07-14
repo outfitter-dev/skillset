@@ -2372,9 +2372,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(scopes === undefined ? {} : { scopes }),
     ...(sourceDir === undefined ? {} : { sourceDir }),
   });
-  if (command === "status" && (buildMode !== undefined || distDir !== undefined || dryRun || scopes !== undefined || sourceDir !== undefined || yes)) {
-    throw new Error("skillset: status only supports --root and --json");
-  }
+  validateStatusFlags(command, args);
   validateReconcileFlags(command, {
     ...(buildMode === undefined ? {} : { buildMode }),
     ...(changeSince === undefined ? {} : { changeSince }),
@@ -2817,6 +2815,22 @@ function validateRestoreFlags(
     restore.sourceDir !== undefined
   ) {
     throw new Error("skillset: restore only supports --root, --yes, and --dry-run");
+  }
+}
+
+function validateStatusFlags(command: Command, args: readonly string[]): void {
+  if (command !== "status") return;
+  for (let index = 1; index < args.length; index += 1) {
+    const argument = args[index];
+    if (argument === undefined) break;
+    const equalsIndex = argument.indexOf("=");
+    const flag = equalsIndex === -1 ? argument : argument.slice(0, equalsIndex);
+    if (flag === "--json") continue;
+    if (flag === "--root") {
+      if (equalsIndex === -1) index += 1;
+      continue;
+    }
+    throw new Error("skillset: status only supports --root and --json");
   }
 }
 

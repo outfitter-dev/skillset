@@ -216,6 +216,20 @@ test("SET-283: lookup features rejects unrelated lookup filters", async () => {
   });
 });
 
+test("SET-283: status rejects flags outside root and JSON", async () => {
+  for (const flags of [["--kind", "skill"], ["--from", "claude"], ["--name", "demo"]]) {
+    const result = await runSkillsetCli("status", ...flags, "--json");
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      diagnostics: [{ message: "skillset: status only supports --root and --json" }],
+      exitCode: 2,
+      ok: false,
+    });
+  }
+});
+
 async function runSkillsetCli(...args: readonly string[]): Promise<{
   readonly exitCode: number;
   readonly stderr: string;
