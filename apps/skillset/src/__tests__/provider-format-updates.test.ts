@@ -566,22 +566,21 @@ test("SET-194: update previews then writes the same safe provider-format plan", 
   expect(await readFile(manifestPath, "utf8")).toBe(original);
 });
 
-test("SET-279: update refuses ordinary source-driven drift", async () => {
+test("SET-279: update ignores ordinary source-driven drift", async () => {
   const root = await builtFixture(pluginFixture());
   const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
   const original = await readFile(manifestPath, "utf8");
   const sourcePath = join(root, ".skillset/plugins/alpha/skills/demo/SKILL.md");
   await writeFile(sourcePath, `${await readFile(sourcePath, "utf8")}\nChanged source.\n`, "utf8");
 
-  const blocked = await runSkillsetCli("update", "--yes", "--root", root);
+  const result = await runSkillsetCli("update", "--yes", "--root", root);
 
-  expect(blocked.exitCode).toBe(1);
-  expect(blocked.stdout).toContain("unplanned destination drift");
-  expect(blocked.stdout).toContain("no registered safe destination-format update");
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout).not.toContain("unplanned destination drift");
   expect(await readFile(manifestPath, "utf8")).toBe(original);
 });
 
-test("SET-279: source drift overlapping a provider migration blocks update", async () => {
+test("SET-279: source drift defers an overlapping provider migration", async () => {
   const root = await builtFixture(pluginFixture());
   const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
   const configPath = join(root, ".skillset/plugins/alpha/skillset.yaml");
@@ -594,13 +593,10 @@ test("SET-279: source drift overlapping a provider migration blocks update", asy
     "utf8"
   );
 
-  const blocked = await runSkillsetCli("update", "--yes", "--root", root);
+  const result = await runSkillsetCli("update", "--yes", "--root", root);
 
-  expect(blocked.exitCode).toBe(1);
-  expect(blocked.stdout).toContain("manual review required: Codex plugin");
-  expect(blocked.stdout).toContain("Source changed since the previous skillset.lock hash");
-  expect(blocked.stdout).not.toContain("Current generated output differs from its previous skillset.lock hash");
-  expect(blocked.stdout.split(CODEX_PLUGIN_MANIFEST)).toHaveLength(2);
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout).not.toContain("safe destination update");
   expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
 
   const checked = await ciSkillset(root, { fix: true });
@@ -611,7 +607,7 @@ test("SET-279: source drift overlapping a provider migration blocks update", asy
   expect(await readFile(manifestPath, "utf8")).not.toContain("stale provider format");
 });
 
-test("SET-279: root owner drift blocks an overlapping Codex manifest migration", async () => {
+test("SET-279: root owner drift defers an overlapping Codex manifest migration", async () => {
   const root = await builtFixture(pluginFixture());
   const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
   const rootConfigPath = join(root, "skillset.yaml");
@@ -626,14 +622,14 @@ test("SET-279: root owner drift blocks an overlapping Codex manifest migration",
     "utf8"
   );
 
-  const blocked = await runSkillsetCli("update", "--yes", "--root", root);
+  const result = await runSkillsetCli("update", "--yes", "--root", root);
 
-  expect(blocked.exitCode).toBe(1);
-  expect(blocked.stdout).toContain("Source changed since the previous skillset.lock hash");
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout).not.toContain("safe destination update");
   expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
 });
 
-test("SET-279: root version drift blocks an overlapping Codex manifest migration", async () => {
+test("SET-279: root version drift defers an overlapping Codex manifest migration", async () => {
   const root = await builtFixture({
     ...pluginFixture(),
     "skillset.yaml": "skillset:\n  name: provider-update-root\n  version: 1.0.0\nclaude: false\ncodex: true\n",
@@ -648,13 +644,13 @@ test("SET-279: root version drift blocks an overlapping Codex manifest migration
     "utf8"
   );
 
-  const blocked = await runSkillsetCli("update", "--yes", "--root", root);
+  const result = await runSkillsetCli("update", "--yes", "--root", root);
 
-  expect(blocked.exitCode).toBe(1);
-  expect(blocked.stdout).toContain("Source changed since the previous skillset.lock hash");
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout).not.toContain("safe destination update");
 });
 
-test("SET-279: inherited root license drift blocks an overlapping Codex manifest migration", async () => {
+test("SET-279: inherited root license drift defers an overlapping Codex manifest migration", async () => {
   const root = await builtFixture({
     ...pluginFixture(),
     ".skillset/LICENSE.txt": "Original inherited license.\n",
@@ -665,10 +661,10 @@ test("SET-279: inherited root license drift blocks an overlapping Codex manifest
   await markCurrentPluginManifestAsManaged(root);
   await writeFile(join(root, ".skillset/LICENSE.txt"), "Updated inherited license.\n", "utf8");
 
-  const blocked = await runSkillsetCli("update", "--yes", "--root", root);
+  const result = await runSkillsetCli("update", "--yes", "--root", root);
 
-  expect(blocked.exitCode).toBe(1);
-  expect(blocked.stdout).toContain("Source changed since the previous skillset.lock hash");
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout).not.toContain("safe destination update");
   expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
   expect(await readFile(licensePath, "utf8")).toBe("Original inherited license.\n");
 });

@@ -67,9 +67,13 @@ export async function runProviderFormatUpdates(
     skillsetOptions
   );
   const sourceDriftPaths = new Set(managedState.sourceDriftPaths);
+  const providerDriftPaths = driftPaths.filter((path) =>
+    !sourceDriftPaths.has(path) &&
+    !(sourceDriftPaths.size > 0 && (path === "skillset.lock" || path.endsWith("/skillset.lock")))
+  );
   const plan = planProviderFormatUpdates(
     preview.renderResults,
-    driftPaths,
+    providerDriftPaths,
     managedState.providerEligiblePaths,
     sourceDriftPaths
   );
@@ -82,7 +86,6 @@ export async function runProviderFormatUpdates(
   )
     ? managedState.missingRenderInputsLockPaths.filter((path) => driftPathSet.has(path))
     : [];
-  const providerDriftPaths = driftPaths.filter((path) => !sourceDriftPaths.has(path));
   const hasProviderPlan = plannedPaths.size > 0;
   const unplannedDriftPaths = [
     ...new Set([
