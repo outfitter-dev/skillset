@@ -337,6 +337,7 @@ export async function runDevWatch(
     else stream.operation(report);
   };
   let activeOperation: Promise<void> | undefined;
+  let stopping = false;
   let pendingOperationError: unknown;
   let pendingSignal = false;
   let initialSignalReceived = false;
@@ -357,7 +358,9 @@ export async function runDevWatch(
   };
   const startOperation = async (reason: string) => {
     const previous = activeOperation;
-    const operation = (previous ?? Promise.resolve()).then(() => writeOperation(reason));
+    const operation = (previous ?? Promise.resolve()).then(() =>
+      stopping ? undefined : writeOperation(reason)
+    );
     activeOperation = operation;
     try {
       await operation;
@@ -413,7 +416,6 @@ export async function runDevWatch(
   }
 
   await new Promise<void>((resolvePromise, rejectPromise) => {
-    let stopping = false;
     const stop = (operationError?: unknown) => {
       if (stopping) return;
       stopping = true;
