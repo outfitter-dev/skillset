@@ -16,7 +16,7 @@ import {
 import type { ReleaseBaselineEntry } from "./adoption";
 import { buildSkillsetResult, ISOLATED_OUT_ROOT } from "@skillset/core";
 import { gitSafeEnv } from "./git-env";
-import { importSources } from "./import";
+import { ImportBatchError, type ImportReport, importSources } from "./import";
 import { inspectSkillset } from "@skillset/core";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { initSkillset, type SetupFile, type SetupImportCandidate, type SetupInclude, type SurveySkip } from "./setup";
@@ -549,16 +549,7 @@ async function importCandidate(
 
   try {
     const batch = await importCandidateSources(rootPath, acquisition, candidate, allCandidates);
-    const units = batch.imports.map((report) => {
-      const sourcePath = candidate.kind === "plugin"
-        ? candidate.path
-        : relative(rootPath, report.sourcePath).replaceAll("\\", "/");
-      return {
-        kind: report.kind,
-        name: report.name,
-        sourcePath: sourcePath.length === 0 ? "." : sourcePath,
-      };
-    });
+    const units = adoptedUnits(rootPath, candidate, batch.imports);
     for (const report of batch.imports) {
       for (const file of report.copiedFiles) {
         if (basename(file) !== "SKILL.md") continue;
@@ -579,8 +570,35 @@ async function importCandidate(
       units,
     };
   } catch (error) {
-    return { baselinePaths: [], candidate, detail: errorMessage(error), renderResults: [], ok: false, units: [] };
+    const partialImports = error instanceof ImportBatchError ? error.imports : [];
+    return {
+      baselinePaths: [...new Set(partialImports.flatMap((report) =>
+        report.baselinePath === undefined ? [] : [report.baselinePath]
+      ))],
+      candidate,
+      detail: errorMessage(error),
+      renderResults: partialImports.flatMap((report) => report.renderResults),
+      ok: false,
+      units: adoptedUnits(rootPath, candidate, partialImports),
+    };
   }
+}
+
+function adoptedUnits(
+  rootPath: string,
+  candidate: SetupImportCandidate,
+  imports: readonly ImportReport[]
+): readonly AdoptImportedUnit[] {
+  return imports.map((report) => {
+    const sourcePath = candidate.kind === "plugin"
+      ? candidate.path
+      : relative(rootPath, report.sourcePath).replaceAll("\\", "/");
+    return {
+      kind: report.kind,
+      name: report.name,
+      sourcePath: sourcePath.length === 0 ? "." : sourcePath,
+    };
+  });
 }
 
 async function importCandidateSources(

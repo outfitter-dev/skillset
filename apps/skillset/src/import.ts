@@ -123,6 +123,16 @@ export interface ImportBatchReport {
   readonly warnings: readonly string[];
 }
 
+export class ImportBatchError extends Error {
+  readonly imports: readonly ImportReport[];
+
+  constructor(message: string, imports: readonly ImportReport[]) {
+    super(message);
+    this.name = "ImportBatchError";
+    this.imports = imports;
+  }
+}
+
 export async function importSources(options: ImportSourcesOptions): Promise<ImportBatchReport> {
   const sourcePath = resolveImportSourcePath(options);
   const plan = await planImports(sourcePath, options.kind);
@@ -132,16 +142,18 @@ export async function importSources(options: ImportSourcesOptions): Promise<Impo
 
   const imports: ImportReport[] = [];
   for (const item of plan.items) {
-    imports.push(
-      await importSource({
+    try {
+      imports.push(await importSource({
         kind: item.kind,
         rootPath: options.rootPath,
         sourcePath: item.sourcePath,
         ...(options.name === undefined ? {} : { name: options.name }),
         ...(options.sourceDir === undefined ? {} : { sourceDir: options.sourceDir }),
         ...(options.sourceOrigin === undefined ? {} : { sourceOrigin: options.sourceOrigin }),
-      })
-    );
+      }));
+    } catch (error) {
+      throw new ImportBatchError(errorMessage(error), imports);
+    }
   }
 
   return {

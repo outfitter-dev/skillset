@@ -565,6 +565,24 @@ test("adopt records an instructions collision as a failed import without throwin
   expect(renderAdoptReportMarkdown(report, { rootPath: root })).toContain("## Failed imports");
 });
 
+test("adopt reports source written before a later batch import fails", async () => {
+  const root = await fixture({
+    ".agents/skills/first/SKILL.md": "---\nname: duplicate\ndescription: First.\n---\n\nFirst.\n",
+    ".agents/skills/second/SKILL.md": "---\nname: duplicate\ndescription: Second.\n---\n\nSecond.\n",
+  });
+
+  const report = await adoptSkillset(root, { write: true });
+
+  expect(report.ok).toBe(false);
+  const failed = report.imports.find((result) => result.candidate.path === ".agents/skills");
+  expect(failed?.ok).toBe(false);
+  expect(failed?.units).toEqual([
+    expect.objectContaining({ kind: "skill", name: "duplicate" }),
+  ]);
+  expect(report.writtenPaths).toContain(".skillset/skills/duplicate");
+  expect(await exists(join(root, ".skillset/skills/duplicate/SKILL.md"))).toBe(true);
+});
+
 test("adopt fails on lint errors and the CLI exits nonzero", async () => {
   const files = {
     ".claude/skills/bad/SKILL.md":
