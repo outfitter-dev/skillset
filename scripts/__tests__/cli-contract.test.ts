@@ -71,6 +71,7 @@ describe("SET-275 final CLI contract", () => {
       "--use",
       "--yes",
     ]);
+    expect(CLI_ROUTE_FLAGS["lookup features"]).toEqual(["--json"]);
   });
 
   test("hard-cuts try environment overrides to the test family", () => {
