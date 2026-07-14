@@ -163,16 +163,19 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
       const plannedProviderPaths = [...providerReport.safeUpdates, ...providerReport.manualReviews]
         .flatMap((action) => action.affectedPaths);
       const legacyMigrationPaths = new Set(
-        plannedProviderPaths.filter((path) => legacyLockOutputPaths.has(path))
+        [...legacyLockOutputPaths].filter((path) => driftPaths.has(path))
       );
       const preserveLegacyMigrationBoundary = legacyMigrationPaths.size > 0;
       providerUpdatePaths = [...new Set(
         [
           ...plannedProviderPaths,
+          ...legacyMigrationPaths,
           ...providerReport.unplannedDriftPaths,
         ]
           .filter((path) =>
             legacyMigrationPaths.has(path) ||
+            (preserveLegacyMigrationBoundary &&
+              (path === "skillset.lock" || path.endsWith("/skillset.lock"))) ||
             (!sourceDriftPaths.has(path) &&
               !(
                 sourceDriftPaths.size > 0 &&

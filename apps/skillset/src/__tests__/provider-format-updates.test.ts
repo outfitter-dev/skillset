@@ -762,6 +762,30 @@ test("SET-279: check does not combine legacy lock refresh with a provider migrat
   expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
 });
 
+test("SET-279: source hash drift preserves the legacy provider boundary", async () => {
+  const root = await builtFixture(pluginFixture());
+  const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
+  await writeFile(manifestPath, `${await readFile(manifestPath, "utf8")}\n// stale provider format\n`, "utf8");
+  await markCurrentPluginManifestAsManaged(root);
+  await removePluginRenderInputsHash(root);
+  const lockPath = join(root, "plugins/skillset.lock");
+  const lock = JSON.parse(await readFile(lockPath, "utf8")) as {
+    readonly items: Array<{ kind?: string; sourceHash?: string }>;
+  };
+  const plugin = lock.items.find((item) => item.kind === "plugin");
+  if (plugin === undefined) throw new Error("missing plugin lock item");
+  plugin.sourceHash = `sha256:${"0".repeat(64)}`;
+  await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(false);
+  expect(report.providerUpdatePaths).toContain(CODEX_PLUGIN_MANIFEST);
+  expect(report.providerUpdatePaths).toContain("plugins/skillset.lock");
+  expect(report.fixedPaths).toEqual([]);
+  expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
+});
+
 test("SET-279: legacy lock drift does not report clean provider outputs", async () => {
   const root = await builtFixture(pluginFixture());
   await removePluginRenderInputsHash(root);
