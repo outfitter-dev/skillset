@@ -59,18 +59,14 @@ export function runLookupFeaturesCommand({
   featureId,
   jsonOutput,
 }: LookupFeaturesCommandRequest): void {
-  const importPath = featureId;
-  const features = listFeatureCapabilities(importPath);
+  const features = listFeatureCapabilities(featureId);
   if (jsonOutput) {
-    const exitCode = importPath !== undefined && features.length === 0 ? 1 : 0;
+    const exitCode = featureId !== undefined && features.length === 0 ? 1 : 0;
     printCliJsonData("lookup features", { features }, exitCode);
-    if (exitCode !== 0) {
-      process.exitCode = exitCode;
-    }
     return;
   }
   if (features.length === 0) {
-    console.log(`skillset: feature ${importPath ?? ""} not found`);
+    console.log(`skillset: feature ${featureId ?? ""} not found`);
     process.exitCode = 1;
     return;
   }
@@ -148,9 +144,6 @@ export async function runExplainCommand({
       result.kind === "unknown" ? "diagnostics" : "data",
       diagnostics
     );
-    if (exitCode !== 0) {
-      process.exitCode = exitCode;
-    }
     return;
   }
   console.log(`skillset: ${result.path} (${result.kind})`);
@@ -261,9 +254,6 @@ export async function runStatusCommand({
   if (jsonOutput) {
     const exitCode = report.ok ? 0 : 1;
     printCliJsonData("status", report, exitCode, "diagnostics");
-    if (exitCode !== 0) {
-      process.exitCode = exitCode;
-    }
     return;
   }
   for (const issue of report.lintIssues) {
