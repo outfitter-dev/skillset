@@ -64,23 +64,32 @@ export async function runProviderFormatUpdates(
     preview.data.removed,
     skillsetOptions
   );
-  const sourceDriftPaths = managedState.sourceDriftPaths;
-  const sourceDriftSet = new Set(sourceDriftPaths);
-  const providerDriftPaths = driftPaths.filter((path) => !sourceDriftSet.has(path));
+  const sourceDriftPaths = new Set(managedState.sourceDriftPaths);
   const plan = planProviderFormatUpdates(
     preview.renderResults,
     driftPaths,
     managedState.unchangedPaths,
-    new Set(managedState.sourceDriftPaths)
+    sourceDriftPaths
   );
   const plannedPaths = new Set(
     [...plan.safeUpdates, ...plan.manualReviews].flatMap((action) => action.affectedPaths)
   );
+  if (plannedPaths.size === 0) {
+    for (const path of managedState.missingRenderInputsPaths) sourceDriftPaths.add(path);
+  }
+  for (const path of driftPaths) {
+    if (managedState.unchangedPaths.has(path) && !plannedPaths.has(path)) {
+      sourceDriftPaths.add(path);
+    }
+  }
+  const providerDriftPaths = driftPaths.filter((path) => !sourceDriftPaths.has(path));
   const hasProviderPlan = plannedPaths.size > 0;
   const unplannedDriftPaths = [
     ...new Set([
       ...unplannedProviderDriftPaths(providerDriftPaths, plan.safeUpdates, plan.manualReviews),
-      ...(hasProviderPlan ? sourceDriftPaths.filter((path) => !plannedPaths.has(path)) : []),
+      ...(hasProviderPlan
+        ? [...sourceDriftPaths].filter((path) => !plannedPaths.has(path))
+        : []),
     ]),
   ].sort(compareStrings);
   const blocked = plan.manualReviews.length > 0 || unplannedDriftPaths.length > 0;
@@ -101,7 +110,7 @@ export async function runProviderFormatUpdates(
     manualReviews: plan.manualReviews,
     ok: !write || (!blocked && (plan.safeUpdates.length === 0 || wrote)),
     safeUpdates: plan.safeUpdates,
-    sourceDriftPaths,
+    sourceDriftPaths: [...sourceDriftPaths].sort(compareStrings),
     unplannedDriftPaths,
     wrote,
     writtenPaths,
@@ -274,6 +283,7 @@ async function inspectManagedOutputState(
   removedPaths: readonly string[],
   options: SkillsetOptions
 ): Promise<{
+  readonly missingRenderInputsPaths: readonly string[];
   readonly sourceDriftPaths: readonly string[];
   readonly unchangedPaths: ReadonlySet<string>;
 }> {
@@ -288,6 +298,7 @@ async function inspectManagedOutputState(
   const expectedRenderInputsHashes = new Map(
     expectedEntries.map((entry) => [normalizePath(entry.outputPath), entry.renderInputsHash])
   );
+  const missingRenderInputsPaths: string[] = [];
   const sourceDriftPaths = [...removedPaths];
   for (const outputPath of driftPaths) {
     if (outputPath === "skillset.lock" || outputPath.endsWith("/skillset.lock")) continue;
@@ -298,6 +309,9 @@ async function inspectManagedOutputState(
   for (const entry of expectedEntries) {
     const outputPath = normalizePath(entry.outputPath);
     const lockItem = await findLockItemForOutputPath(rootPath, outputPath);
+    if (entry.renderInputsHash !== undefined && lockItem?.renderInputsHash === undefined) {
+      missingRenderInputsPaths.push(outputPath);
+    }
     if (
       (lockItem?.sourceHash !== undefined && entry.sourceHash !== lockItem.sourceHash) ||
       (lockItem?.renderInputsHash !== undefined && entry.renderInputsHash !== lockItem.renderInputsHash) ||
@@ -326,6 +340,7 @@ async function inspectManagedOutputState(
     }
   }
   return {
+    missingRenderInputsPaths: [...new Set(missingRenderInputsPaths)].sort(compareStrings),
     sourceDriftPaths: [...new Set(sourceDriftPaths)].sort(compareStrings),
     unchangedPaths: unchanged,
   };

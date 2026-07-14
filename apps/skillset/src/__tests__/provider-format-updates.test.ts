@@ -644,6 +644,21 @@ test("SET-279: legacy plugin source hashes remain eligible for safe migration", 
   expect(await readFile(manifestPath, "utf8")).not.toContain("stale provider format");
 });
 
+test("SET-279: check refreshes legacy locks missing render input hashes", async () => {
+  const root = await builtFixture(pluginFixture());
+  await removePluginRenderInputsHash(root);
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.providerUpdatePaths).toEqual([]);
+  expect(report.fixedPaths).toContain("plugins/skillset.lock");
+  const lock = JSON.parse(await readFile(join(root, "plugins/skillset.lock"), "utf8")) as {
+    readonly items: readonly { renderInputsHash?: string }[];
+  };
+  expect(lock.items.some((item) => item.renderInputsHash !== undefined)).toBe(true);
+});
+
 test("SET-279: unrelated source-hash drift blocks provider updates", async () => {
   const root = await builtFixture(pluginFixture());
   const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
