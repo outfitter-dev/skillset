@@ -5107,6 +5107,13 @@ Source body.
   await writeFile(join(root, skillPath), "---\nname: demo\n---\n\nOutput edit.\n", "utf8");
   await writeFile(join(root, guidePath), "# Output guide edit\n", "utf8");
 
+  const preview = await runSkillsetCli(
+    "reconcile", skillPath, "--use", "output", "--root", root
+  );
+  expect(preview.exitCode).toBe(0);
+  expect(preview.stdout).toContain("output wins: refused");
+  expect(preview.stdout).toContain(guidePath);
+
   const result = await runSkillsetCli(
     "reconcile", skillPath, "--use", "output", "--yes", "--root", root
   );

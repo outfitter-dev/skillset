@@ -56,11 +56,11 @@ export async function reconcileManagedPath(
     rootPath,
     generatedPath,
     sourcePaths,
-    choice !== "output",
+    choice !== "output" || !write,
     skillsetOptions,
     ownershipEntries
   );
-  const outputScopeError = choice === undefined
+  const outputScopeError = choice === undefined || (choice === "output" && !write)
     ? await readReconcileScopeError(
         rootPath,
         generatedPath,
