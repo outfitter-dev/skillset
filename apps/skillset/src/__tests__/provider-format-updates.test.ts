@@ -51,7 +51,7 @@ test("SET-278: check write modes leave provider-format updates to update", async
   expect(await readFile(manifestPath, "utf8")).not.toBe(original);
 });
 
-test("SET-278: check does not fold reviewed provider drift into source writes", async () => {
+test("SET-278: check writes provider paths when their drift is source-owned", async () => {
   const root = await builtFixture(pluginFixture());
   const sourcePath = join(root, ".skillset/plugins/alpha/skillset.yaml");
   const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
@@ -63,9 +63,9 @@ test("SET-278: check does not fold reviewed provider drift into source writes", 
 
   const checked = await runSkillsetCli("check", "--write", "--root", root);
 
-  expect(checked.exitCode).toBe(1);
-  expect(checked.stdout).toContain(`provider-format update ${CODEX_PLUGIN_MANIFEST}`);
-  expect(await readFile(manifestPath, "utf8")).not.toContain("Updated plugin.");
+  expect(checked.exitCode).toBe(0);
+  expect(checked.stdout).not.toContain(`provider-format update ${CODEX_PLUGIN_MANIFEST}`);
+  expect(await readFile(manifestPath, "utf8")).toContain("Updated plugin.");
 });
 
 test("SET-278: update ignores ordinary source-driven drift", async () => {
@@ -589,9 +589,11 @@ test("SET-279: source drift overlapping a provider migration blocks update", asy
   expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
 
   const checked = await ciSkillset(root, { fix: true });
-  expect(checked.fixedPaths).toEqual([]);
-  expect(checked.providerUpdatePaths).toContain(CODEX_PLUGIN_MANIFEST);
-  expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
+  expect(checked.ok).toBe(true);
+  expect(checked.fixedPaths).toContain(CODEX_PLUGIN_MANIFEST);
+  expect(checked.outputEditedPaths).toEqual([]);
+  expect(checked.providerUpdatePaths).toEqual([]);
+  expect(await readFile(manifestPath, "utf8")).not.toContain("stale provider format");
 });
 
 test("SET-279: root owner drift blocks an overlapping Codex manifest migration", async () => {
@@ -654,6 +656,27 @@ test("SET-279: inherited root license drift blocks an overlapping Codex manifest
   expect(blocked.stdout).toContain("Source changed since the previous skillset.lock hash");
   expect(await readFile(manifestPath, "utf8")).toContain("stale provider format");
   expect(await readFile(licensePath, "utf8")).toBe("Original inherited license.\n");
+});
+
+test("SET-278: check rebuilds source-owned Codex manifest reviews", async () => {
+  const root = await builtFixture(pluginFixture());
+  const manifestPath = join(root, CODEX_PLUGIN_MANIFEST);
+  const rootConfigPath = join(root, "skillset.yaml");
+  await writeFile(
+    rootConfigPath,
+    (await readFile(rootConfigPath, "utf8")).replace(
+      "  name: provider-update-root",
+      "  name: provider-update-root\n  owner:\n    name: Updated Maintainer"
+    ),
+    "utf8"
+  );
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.providerUpdatePaths).toEqual([]);
+  expect(report.fixedPaths).toContain(CODEX_PLUGIN_MANIFEST);
+  expect(await readFile(manifestPath, "utf8")).toContain("Updated Maintainer");
 });
 
 test("SET-279: legacy plugin source hashes remain eligible for safe migration", async () => {
