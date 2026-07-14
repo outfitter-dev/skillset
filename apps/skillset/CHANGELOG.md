@@ -1,5 +1,25 @@
 # skillset
 
+## 0.17.0
+
+### Minor Changes
+
+- ecef9d2: Consolidate source diagnostics, generated-output verification, and CI readiness under `skillset check`, with explicit local write, narrow output, and CI modes. Remove the former top-level `lint`, `verify`, and `ci` commands without compatibility aliases.
+- dd6dda7: Replace `doctor` with read-only workspace `status`, move feature capability inspection to `lookup features [id]`, and remove the former top-level commands without aliases.
+- acb2b3e: Remove maintainer-only provider evidence maintenance from the shipped CLI and expose it only through repository-owned `providers:check`, `providers:diff`, and `providers:update` scripts.
+- cd673c3: Complete the pre-1.0 CLI hard cut across runtime flags, hooks, active documentation, fixtures, and generated Skillset guidance. Bare `dev` now watches in preview mode and `dev --write` enables continuous writes; retired commands, flags, and environment vocabulary are guarded from maintained surfaces.
+- 9a2b2f0: Emit versioned structured results for plan-first and mutating CLI routes, with explicit planned versus written state and actual write paths without changing confirmation authority.
+- ab72e72: Replace `suggest-source` with a two-direction `reconcile` workflow that previews managed conflicts and applies an explicit source-wins or output-wins plan with one confirmation.
+- 208480e: Add validated JSONL event streams for `skillset dev` and align retained runtime-test events with the same versioned event contract.
+- 05f49cd: Unify setup and adoption behind `skillset init`, and remove the `create`, `adopt`, and `create-skillset` public entrypoints before 1.0.
+- 685ddf8: Unify declared and ad hoc provider runs under `skillset test`, move retained ad hoc evidence beneath `.skillset/cache/tests/ad-hoc`, rename runtime overrides to `SKILLSET_TEST_*`, and remove top-level `try` without aliases.
+
+### Patch Changes
+
+- a279660: Add versioned finite-result and event schemas plus the CLI entrypoint kernel for structured automation failures.
+- ae124e9: Return versioned structured results from finite read-only CLI routes when `--json` is selected.
+- f810217: Clarify that `skillset update` owns only registered source-preserving provider-format migrations and refuses ordinary source-driven drift.
+
 ## 0.16.5
 
 ### Patch Changes
