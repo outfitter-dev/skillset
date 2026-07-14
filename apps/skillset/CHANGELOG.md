@@ -1,5 +1,11 @@
 # skillset
 
+## 0.17.1
+
+### Patch Changes
+
+- 3330347: Modularize the CLI router behind command-owned request and execution seams without changing the public command contract.
+
 ## 0.17.0
 
 ### Minor Changes
