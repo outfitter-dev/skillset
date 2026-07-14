@@ -5217,6 +5217,8 @@ Body.
   const preview = await runSkillsetCli("reconcile", ".skillset/skills/demo/CHANGELOG.md", "--use", "output", "--root", root);
   expect(preview.exitCode).toBe(0);
   expect(preview.stdout).toContain("output wins: refused");
+  expect(preview.stdout).toContain("rerun with --use source --yes to apply");
+  expect(preview.stdout).not.toContain("choose --use source or --use output");
   expect(preview.stdout).not.toContain("rerun with --use output --yes");
 
   const refused = await runSkillsetCli("reconcile", ".skillset/skills/demo/CHANGELOG.md", "--use", "output", "--yes", "--root", root);

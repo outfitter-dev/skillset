@@ -344,7 +344,9 @@ export function renderReconcileReport(report: ReconcileReport): string {
   } else if (report.outputResolution.wouldWrite) {
     lines.push("skillset: preview only; rerun with --use output --yes to apply");
   } else {
-    lines.push("skillset: choose --use source or --use output, then pass --yes to apply");
+    lines.push(
+      "skillset: preview only; rerun with --use source --yes to apply, or address the output refusal manually"
+    );
   }
   for (const step of report.outputResolution.nextSteps) lines.push(`  output next: ${step}`);
   return `${lines.join("\n")}\n`;
