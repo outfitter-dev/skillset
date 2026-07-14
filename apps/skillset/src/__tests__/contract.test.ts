@@ -5008,6 +5008,10 @@ test("SET-282: source-wins rebuilds sibling target drift", async () => {
   await writeFile(join(root, ".skillset/skills/demo/SKILL.md"), "---\nname: demo\ndescription: Demo.\n---\n\nUpdated source.\n", "utf8");
   await writeFile(join(root, claudePath), "---\nname: demo\n---\n\nClaude edit.\n", "utf8");
 
+  const preview = await runSkillsetCli("reconcile", claudePath, "--root", root);
+  expect(preview.exitCode).toBe(0);
+  expect(preview.stdout).toContain("source wins: available");
+
   const result = await runSkillsetCli(
     "reconcile", claudePath, "--use", "source", "--yes", "--root", root
   );

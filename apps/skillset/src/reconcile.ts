@@ -53,7 +53,7 @@ export async function reconcileManagedPath(
     rootPath,
     generatedPath,
     sourcePaths,
-    choice === "source",
+    choice !== "output",
     skillsetOptions,
     ownershipEntries
   );
