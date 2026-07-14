@@ -894,7 +894,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(releaseSubcommand === undefined ? {} : { releaseSubcommand }),
   });
   if (jsonlOutput && command !== "dev") {
-    throw new Error("skillset: --jsonl is only supported with dev");
+    throw new Error("skillset: unknown option --jsonl");
   }
   validateLookupFlags(
     command,

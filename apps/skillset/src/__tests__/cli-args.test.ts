@@ -945,6 +945,11 @@ describe("SET-299 parser failure contract", () => {
       message: "skillset: unknown option --dry-run",
     },
     {
+      args: ["change", "add", "--jsonl"],
+      command: "change add",
+      message: "skillset: unknown option --jsonl",
+    },
+    {
       args: ["build", "--json=true"],
       command: "build",
       message: "skillset: --json does not take a value",
