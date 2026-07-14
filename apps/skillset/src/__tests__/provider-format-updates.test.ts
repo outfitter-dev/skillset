@@ -68,6 +68,37 @@ test("SET-278: check writes provider-backed drift caused by source changes", asy
   expect(await readFile(manifestPath, "utf8")).toContain("Updated plugin.");
 });
 
+test("SET-278: check writes generated drift caused by target defaults", async () => {
+  const root = await builtFixture({
+    "skillset.yaml": `
+skillset:
+  name: config-drift
+defaults:
+  codex:
+    skills:
+      frontmatter:
+        review-state: initial
+claude: false
+codex: true
+`,
+    ".skillset/skills/demo/SKILL.md": "---\nname: demo\ndescription: Demo.\n---\n\nBody.\n",
+  });
+  const configPath = join(root, "skillset.yaml");
+  const generatedPath = ".agents/skills/demo/SKILL.md";
+  await writeFile(
+    configPath,
+    (await readFile(configPath, "utf8")).replace("review-state: initial", "review-state: updated"),
+    "utf8"
+  );
+
+  const report = await ciSkillset(root, { fix: true });
+
+  expect(report.ok).toBe(true);
+  expect(report.providerUpdatePaths).toEqual([]);
+  expect(report.fixedPaths).toContain(generatedPath);
+  expect(await readFile(join(root, generatedPath), "utf8")).toContain("review-state: updated");
+});
+
 test("SET-278: check writes first-time provider-backed outputs", async () => {
   const root = await fixture(pluginFixture());
 

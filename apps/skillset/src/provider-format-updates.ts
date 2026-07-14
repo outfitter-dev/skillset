@@ -57,15 +57,24 @@ export async function runProviderFormatUpdates(
   const { write = false, ...skillsetOptions } = options;
   const preview = await diffSkillsetResult(rootPath, skillsetOptions);
   const driftPaths = allDriftPaths(preview.data);
-  const sourceDriftPaths = await changedSourceOutputPaths(
+  const sourceDriftPaths = [...await changedSourceOutputPaths(
     rootPath,
     driftPaths,
     preview.data.removed,
     skillsetOptions
-  );
+  )];
   const providerDriftPaths = driftPaths.filter((path) => !sourceDriftPaths.includes(path));
   const uneditedManagedPaths = await uneditedManagedOutputPaths(rootPath, driftPaths);
   const plan = planProviderFormatUpdates(preview.renderResults, providerDriftPaths, uneditedManagedPaths);
+  const plannedProviderPaths = new Set(
+    [...plan.safeUpdates, ...plan.manualReviews].flatMap((action) => action.affectedPaths)
+  );
+  for (const path of providerDriftPaths) {
+    if (uneditedManagedPaths.has(path) && !plannedProviderPaths.has(path)) {
+      sourceDriftPaths.push(path);
+    }
+  }
+  sourceDriftPaths.sort(compareStrings);
   const unplannedDriftPaths = unplannedProviderDriftPaths(driftPaths, plan.safeUpdates, plan.manualReviews);
   const blocked = plan.manualReviews.length > 0 || unplannedDriftPaths.length > 0;
   let wrote = false;
