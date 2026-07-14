@@ -28,6 +28,18 @@ export class CliOutputError extends Error {
   }
 }
 
+export function classifyCliFailure(error: unknown): number {
+  if (error instanceof CliOutputError) return error.exitCode;
+  if (
+    error instanceof Error &&
+    (error.message.startsWith("skillset: expected") ||
+      error.message.startsWith("skillset: --"))
+  ) {
+    return 2;
+  }
+  return 3;
+}
+
 export function readCliCommand(args: readonly string[]): string {
   const command = args[0];
   if (!isCliCommand(command)) return "cli";

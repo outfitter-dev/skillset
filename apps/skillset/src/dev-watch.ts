@@ -13,7 +13,7 @@ import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
 import type { SchemaJsonRecord } from "@skillset/schema";
 
-import { createCliEventStream } from "./cli-output";
+import { classifyCliFailure, createCliEventStream } from "./cli-output";
 
 export interface DevWatchPlan {
   readonly configPaths: readonly string[];
@@ -66,6 +66,7 @@ export interface DevWatchRuntime {
   readonly removeSignalListeners: (listener: () => void) => void;
   readonly runOnce: typeof runDevWatchOnce;
   readonly scheduler: DevWatchScheduler;
+  readonly setExitCode?: (exitCode: number) => void;
   readonly watch: typeof watch;
 }
 
@@ -321,6 +322,12 @@ export async function runDevWatch(
 ): Promise<void> {
   const plan = await createDevWatchPlan(rootPath, options);
   const stream = machineMode === "jsonl" ? createDevWatchJsonlStream(output) : undefined;
+  const recordStreamFailure = (error: unknown, stage: string): void => {
+    stream?.failed(error instanceof Error ? error.message : String(error), stage);
+    const exitCode = classifyCliFailure(error);
+    if (runtime.setExitCode !== undefined) runtime.setExitCode(exitCode);
+    else if (output === process.stdout) process.exitCode = exitCode;
+  };
   if (stream === undefined) output.write(renderDevWatchStart(plan, mode));
   else stream.started(plan, mode);
   const writeOperation = async (reason = "initial") => {
@@ -365,8 +372,7 @@ export async function runDevWatch(
   } catch (error) {
     runtime.removeSignalListeners(signalStop);
     if (stream === undefined) throw error;
-    stream.failed(error instanceof Error ? error.message : String(error), "initial-operation");
-    if (output === process.stdout) process.exitCode = 1;
+    recordStreamFailure(error, "initial-operation");
     return;
   }
   if (pendingSignal) {
@@ -402,8 +408,7 @@ export async function runDevWatch(
     for (const watcher of watchers) watcher.close();
     runtime.removeSignalListeners(signalStop);
     if (stream === undefined) throw error;
-    stream.failed(error instanceof Error ? error.message : String(error), "watch-setup");
-    if (output === process.stdout) process.exitCode = 1;
+    recordStreamFailure(error, "watch-setup");
     return;
   }
 
@@ -425,8 +430,7 @@ export async function runDevWatch(
         } catch (error) {
           if (stream === undefined) rejectPromise(error);
           else {
-            stream.failed(error instanceof Error ? error.message : String(error), "operation");
-            if (output === process.stdout) process.exitCode = 1;
+            recordStreamFailure(error, "operation");
             resolvePromise();
           }
         }

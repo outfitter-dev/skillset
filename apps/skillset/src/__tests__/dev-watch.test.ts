@@ -231,6 +231,7 @@ test("SET-289: JSONL watch setup failures stay in the active sequence", async ()
   const root = await mkdtemp(join(tmpdir(), "skillset-dev-jsonl-setup-"));
   await expect(runSkillsetCli("init", "--root", root, "--yes")).resolves.toMatchObject({ exitCode: 0 });
   let output = "";
+  let exitCode: number | undefined;
 
   await runDevWatch(root, {}, { write: (chunk) => { output += String(chunk); return true; } } as NodeJS.WritableStream, "preview", "jsonl", {
     addSignalListeners: () => {},
@@ -238,6 +239,7 @@ test("SET-289: JSONL watch setup failures stay in the active sequence", async ()
     removeSignalListeners: () => {},
     runOnce: runDevWatchPreview,
     scheduler: { clearTimeout: () => {}, setTimeout: () => 0 },
+    setExitCode: (code) => { exitCode = code; },
     watch: () => { throw new Error("watch setup failed"); },
   });
 
@@ -245,6 +247,7 @@ test("SET-289: JSONL watch setup failures stay in the active sequence", async ()
   expect(events.map((event) => event.event)).toEqual(["started", "operation", "failed"]);
   expect(events.map((event) => event.sequence)).toEqual([1, 2, 3]);
   expect(events[2]?.data).toMatchObject({ stage: "watch-setup" });
+  expect(exitCode).toBe(3);
 });
 
 test("SET-289: initial JSONL operation failures stay in the active sequence", async () => {
