@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import path from "node:path";
 
+import { parseCliRequest } from "../../apps/skillset/src/cli-args";
+import { CliOutputError } from "../../apps/skillset/src/cli-output";
 import { USAGE } from "../../apps/skillset/src/cli-usage";
 import {
   CLI_ROUTE_FLAGS,
@@ -28,6 +30,37 @@ describe("SET-305 CLI contract parity", () => {
 
   test("keeps runtime grammar, public help, and machine output aligned", () => {
     expect(validateCliContractParity()).toEqual([]);
+  });
+
+  test("keeps help-required lifecycle operands inside the parser boundary", () => {
+    for (const helpFragment of [
+      "skillset change add --scope <source-unit> --bump <bump>",
+      "skillset change reason <@ref>",
+      "skillset change amend <@ref>",
+      "skillset change show <@ref>",
+      "skillset release amend <@ref>",
+    ]) {
+      expect(USAGE).toContain(helpFragment);
+    }
+    expect(USAGE).toContain("skillset change history [@ref]");
+
+    const cases = [
+      ["change", "add"],
+      ["change", "add", "--scope", "plugin:demo"],
+      ["change", "reason", "--reason", "why"],
+      ["change", "amend", "--reason", "why"],
+      ["change", "show"],
+      ["release", "amend", "--reason", "why"],
+    ] as const;
+    for (const args of cases) {
+      try {
+        parseCliRequest(args);
+        throw new Error(`expected ${args.join(" ")} to fail parsing`);
+      } catch (error) {
+        expect(error).toBeInstanceOf(CliOutputError);
+        expect(error).toMatchObject({ exitCode: 2 });
+      }
+    }
   });
 
   test("detects one-surface help and maintained-contract drift", () => {

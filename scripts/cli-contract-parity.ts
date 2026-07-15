@@ -224,6 +224,7 @@ function runtimeRouteSeed(route: string, flag?: CliFlag): readonly string[] {
       return ["change", "add", "--scope", "plugin:example", "--bump", "patch"];
     case "change amend":
     case "change reason":
+    case "change show":
     case "release amend":
       return [...route.split(" "), "@example"];
     case "explain":
