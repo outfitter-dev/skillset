@@ -7,8 +7,13 @@ import type {
   TargetName,
 } from "@skillset/core/internal/types";
 
+import {
+  parseBuildCommandRequest,
+  parseDiffCommandRequest,
+} from "./build-args";
 import type { ChangeBump } from "./change-entries";
 import type { ChangeReasonInput, ChangeSubcommand } from "./change-workflow";
+import { parseCheckCommandRequest } from "./check-args";
 import { assertBooleanOption, CliArgReader } from "./cli-arg-reader";
 import {
   mergeBuildMode,
@@ -25,6 +30,7 @@ import type { CliCommand } from "./cli-commands";
 import { CliOutputError, readCliCommand } from "./cli-output";
 import type { CliRequest } from "./cli-request";
 import { USAGE } from "./cli-usage";
+import { parseDevCommandRequest } from "./dev-args";
 import type { ImportKind, ImportProvider } from "./import";
 import {
   addLookupTarget,
@@ -52,6 +58,7 @@ import type { SetupInclude } from "./setup";
 import { readClaudeSettingSources } from "./try";
 import type { TryClaudeSettingSources, TrySubcommand } from "./try";
 import { isTrySubcommand, validateTryFlags } from "./try-cli";
+import { parseUpdateCommandRequest } from "./update-args";
 
 type Command = CliCommand;
 type DistributionSubcommand = "plan";
@@ -68,12 +75,6 @@ interface ParsedArgs {
   readonly changeStaged: boolean;
   readonly changeScopes?: readonly string[];
   readonly changeSubcommand?: ChangeSubcommand;
-  readonly ciFix: boolean;
-  readonly ciMode: boolean;
-  readonly ciReportPath?: string;
-  readonly checkOnly?: "outputs";
-  readonly checkWrite: boolean;
-  readonly devWrite: boolean;
   readonly distributionName?: string;
   readonly distributionSubcommand?: DistributionSubcommand;
   readonly hookAgentRuntime: boolean;
@@ -93,7 +94,6 @@ interface ParsedArgs {
   readonly initAdopt?: readonly string[];
   readonly initFrom?: string;
   readonly jsonOutput: boolean;
-  readonly jsonlOutput: boolean;
   readonly lookupAspects: readonly string[];
   readonly lookupField?: string;
   readonly lookupFeatures: boolean;
@@ -133,16 +133,10 @@ interface ParsedArgs {
 }
 
 function parseArgs(
+  command: Command,
   args: readonly string[],
   context: CliParseContext
 ): ParsedArgs {
-  const command = args[0];
-  if (!isCliCommand(command)) {
-    throw new Error(
-      `skillset: expected command ${renderExpectedCliCommands()}\n${USAGE}`
-    );
-  }
-
   let changeSubcommand: ChangeSubcommand | undefined;
   let distributionName: string | undefined;
   let distributionSubcommand: DistributionSubcommand | undefined;
@@ -168,12 +162,6 @@ function parseArgs(
   let changeSince: string | undefined;
   let changeStaged = false;
   let changeScopes: readonly string[] | undefined;
-  let ciFix = false;
-  let ciMode = false;
-  let ciReportPath: string | undefined;
-  let checkOnly: "outputs" | undefined;
-  let checkWrite = false;
-  let devWrite = false;
   let hookAgentRuntime = false;
   let hookContextEvent: string | undefined;
   let hookContextFields: readonly HookRuntimeContextField[] | undefined;
@@ -191,7 +179,6 @@ function parseArgs(
   let initAdopt: readonly string[] | undefined;
   let initFrom: string | undefined;
   let jsonOutput = false;
-  let jsonlOutput = false;
   let lookupAspects: string[] = [];
   let lookupField: string | undefined;
   let lookupFeatures = false;
@@ -540,17 +527,8 @@ function parseArgs(
       if (flag === "--staged") {
         changeStaged = true;
       }
-      if (flag === "--fix") {
-        ciFix = true;
-      }
-      if (flag === "--ci") {
-        ciMode = true;
-      }
       if (flag === "--json") {
         jsonOutput = true;
-      }
-      if (flag === "--jsonl") {
-        jsonlOutput = true;
       }
       if (flag === "--agent-runtime") {
         hookAgentRuntime = true;
@@ -562,11 +540,7 @@ function parseArgs(
         hookPrePush = true;
       }
       if (flag === "--write") {
-        if (command === "check") {
-          checkWrite = true;
-        } else if (command === "dev") {
-          devWrite = true;
-        } else {
+        if (command !== "check" && command !== "dev") {
           throw new Error(
             "skillset: --write is only supported with check or dev"
           );
@@ -657,14 +631,10 @@ function parseArgs(
     if (flag === "--bump") {
       changeBump = readChangeBump(value);
     }
-    if (flag === "--report") {
-      ciReportPath = value;
-    }
     if (flag === "--only") {
       if (value !== "outputs") {
         throw new Error("skillset: expected --only outputs");
       }
-      checkOnly = value;
     }
     if (flag === "--use") {
       if (value !== "source" && value !== "output") {
@@ -820,26 +790,7 @@ function parseArgs(
     );
   }
 
-  validateCiFlags(command, {
-    ci: ciMode,
-    fix: ciFix,
-    ...(checkOnly === undefined ? {} : { only: checkOnly }),
-    ...(ciReportPath === undefined ? {} : { reportPath: ciReportPath }),
-    ...(changeSince === undefined ? {} : { since: changeSince }),
-    write: checkWrite,
-    yes,
-  });
-  validateDevFlags(command, {
-    write: devWrite,
-    ...(buildMode === undefined ? {} : { buildMode }),
-    ...(scopes === undefined ? {} : { scopes }),
-    yes,
-  });
-  validateUpdateFlags(command, {
-    ...(buildMode === undefined ? {} : { buildMode }),
-    ...(scopes === undefined ? {} : { scopes }),
-    yes,
-  });
+  validateLegacyReadinessFlags(command, args);
 
   validateAdoptFlags(command, {
     ...(buildMode === undefined ? {} : { buildMode }),
@@ -882,7 +833,14 @@ function parseArgs(
     ...(distributionSubcommand === undefined ? {} : { distributionSubcommand }),
     ...(releaseSubcommand === undefined ? {} : { releaseSubcommand }),
   });
-  if (jsonlOutput && command !== "dev") {
+  if (
+    hasCliFlag(args, "--jsonl") &&
+    command !== "build" &&
+    command !== "check" &&
+    command !== "dev" &&
+    command !== "diff" &&
+    command !== "update"
+  ) {
     throw new Error("skillset: unknown option --jsonl");
   }
   validateLookupFlags(
@@ -896,15 +854,9 @@ function parseArgs(
     },
     rootExplicit
   );
-  validateSourceDiagnosticFlags(command, {
-    ...(buildMode === undefined ? {} : { buildMode }),
-    ...(checkOnly === undefined ? {} : { only: checkOnly }),
-    ...(scopes === undefined ? {} : { scopes }),
-    yes,
-  });
   validateListFlags(command, buildMode);
 
-  validateIsolatedFlag(command, isolated, checkOnly);
+  validateLegacyIsolatedFlag(command, isolated);
   validateDistributionFlags(command, {
     ...(buildMode === undefined ? {} : { buildMode }),
     ...(distributionName === undefined ? {} : { name: distributionName }),
@@ -1020,12 +972,6 @@ function parseArgs(
     changeStaged,
     ...(changeScopes === undefined ? {} : { changeScopes }),
     ...(changeSubcommand === undefined ? {} : { changeSubcommand }),
-    ciFix,
-    ciMode,
-    ...(ciReportPath === undefined ? {} : { ciReportPath }),
-    ...(checkOnly === undefined ? {} : { checkOnly }),
-    checkWrite,
-    devWrite,
     ...(distributionName === undefined ? {} : { distributionName }),
     ...(distributionSubcommand === undefined ? {} : { distributionSubcommand }),
     hookAgentRuntime,
@@ -1045,7 +991,6 @@ function parseArgs(
     ...(initAdopt === undefined ? {} : { initAdopt }),
     ...(initFrom === undefined ? {} : { initFrom }),
     jsonOutput,
-    jsonlOutput,
     lookupAspects,
     ...(lookupField === undefined ? {} : { lookupField }),
     lookupFeatures,
@@ -1089,20 +1034,6 @@ function parseArgs(
 
 function createCliRequest(parsed: ParsedArgs): CliRequest {
   const { command, jsonOutput, options, rootPath, yes } = parsed;
-  if (command === "build")
-    return { command, request: { jsonOutput, options, rootPath, yes } };
-  if (command === "diff")
-    return { command, request: { jsonOutput, options, rootPath } };
-  if (command === "dev")
-    return {
-      command,
-      request: {
-        jsonlOutput: parsed.jsonlOutput,
-        options,
-        rootPath,
-        write: parsed.devWrite,
-      },
-    };
   if (command === "change")
     return {
       command,
@@ -1135,8 +1066,6 @@ function createCliRequest(parsed: ParsedArgs): CliRequest {
         yes,
       },
     };
-  if (command === "update")
-    return { command, request: { jsonOutput, options, rootPath, yes } };
   if (command === "restore")
     return {
       command,
@@ -1207,21 +1136,6 @@ function createCliRequest(parsed: ParsedArgs): CliRequest {
         trySubcommand: parsed.trySubcommand,
         tryTarget: parsed.tryTarget,
         tryTimeoutMs: parsed.tryTimeoutMs,
-      },
-    };
-  if (command === "check")
-    return {
-      command,
-      request: {
-        changeSince: parsed.changeSince,
-        checkOnly: parsed.checkOnly,
-        checkWrite: parsed.checkWrite,
-        ciFix: parsed.ciFix,
-        ciMode: parsed.ciMode,
-        ciReportPath: parsed.ciReportPath,
-        jsonOutput,
-        options,
-        rootPath,
       },
     };
   if (command === "init")
@@ -1320,7 +1234,29 @@ export function parseCliRequest(
   context: CliParseContext = { cwd: process.cwd() }
 ): CliRequest {
   try {
-    return createCliRequest(parseArgs(args, context));
+    const command = args[0];
+    if (!isCliCommand(command)) {
+      throw new Error(
+        `skillset: expected command ${renderExpectedCliCommands()}\n${USAGE}`
+      );
+    }
+    const parsed = parseArgs(command, args, context);
+    if (command === "build") {
+      return { command, request: parseBuildCommandRequest(args, context) };
+    }
+    if (command === "check") {
+      return { command, request: parseCheckCommandRequest(args, context) };
+    }
+    if (command === "dev") {
+      return { command, request: parseDevCommandRequest(args, context) };
+    }
+    if (command === "diff") {
+      return { command, request: parseDiffCommandRequest(args, context) };
+    }
+    if (command === "update") {
+      return { command, request: parseUpdateCommandRequest(args, context) };
+    }
+    return createCliRequest(parsed);
   } catch (error) {
     if (error instanceof CliOutputError) {
       throw error;
@@ -1729,42 +1665,6 @@ function validateTestFlags(
   }
 }
 
-function validateSourceDiagnosticFlags(
-  command: Command,
-  sourceCheck: {
-    readonly buildMode?: CompileBuildMode;
-    readonly only?: "outputs";
-    readonly scopes?: readonly BuildScope[];
-    readonly yes: boolean;
-  }
-): void {
-  if (command !== "check") {
-    return;
-  }
-  const label = `skillset ${command}`;
-  if (sourceCheck.only === "outputs") {
-    if (sourceCheck.yes) {
-      throw new Error(
-        `${label} --only outputs is read-only and does not support --yes`
-      );
-    }
-    return;
-  }
-  if (sourceCheck.buildMode !== undefined) {
-    throw new Error(
-      `${label} does not support --updated or --all; it checks source diagnostics`
-    );
-  }
-  if (sourceCheck.scopes !== undefined) {
-    throw new Error(
-      `${label} does not support --scope; it checks source diagnostics`
-    );
-  }
-  if (sourceCheck.yes) {
-    throw new Error(`${label} is read-only and does not support --yes`);
-  }
-}
-
 function validateListFlags(
   command: Command,
   buildMode: CompileBuildMode | undefined
@@ -1944,18 +1844,16 @@ function mergeSetupIncludes(
   return [...seen];
 }
 
-function validateIsolatedFlag(
-  command: Command,
-  isolated: boolean,
-  checkOnly?: "outputs"
-): void {
+function validateLegacyIsolatedFlag(command: Command, isolated: boolean): void {
   if (!isolated) {
     return;
   }
   if (
     command === "build" ||
+    command === "check" ||
+    command === "dev" ||
     command === "diff" ||
-    (command === "check" && checkOnly === "outputs")
+    command === "update"
   ) {
     return;
   }
@@ -1964,112 +1862,34 @@ function validateIsolatedFlag(
   );
 }
 
-function validateCiFlags(
+function validateLegacyReadinessFlags(
   command: Command,
-  ci: {
-    readonly ci: boolean;
-    readonly fix: boolean;
-    readonly only?: "outputs";
-    readonly reportPath?: string;
-    readonly since?: string;
-    readonly write: boolean;
-    readonly yes: boolean;
-  }
+  args: readonly string[]
 ): void {
-  if (command !== "check") {
-    if (
-      ci.ci ||
-      ci.fix ||
-      ci.only !== undefined ||
-      ci.reportPath !== undefined ||
-      ci.write
-    ) {
-      throw new Error(
-        "skillset: readiness flags are only supported with check"
-      );
-    }
-    if (ci.since !== undefined && command !== "change" && command !== "hooks") {
-      throw new Error(
-        "skillset: --since is only supported with check --ci or change commands"
-      );
-    }
+  if (command === "check") {
     return;
-  }
-  if (ci.yes) {
-    throw new Error(
-      "skillset: check does not take mutation confirmation flags"
-    );
-  }
-  if (ci.fix && !ci.ci) {
-    throw new Error("skillset: check --fix requires --ci");
-  }
-  if (ci.write && ci.ci) {
-    throw new Error("skillset: check --ci uses --fix instead of --write");
-  }
-  if ((ci.reportPath !== undefined || ci.since !== undefined) && !ci.ci) {
-    throw new Error("skillset: --report and --since require check --ci");
   }
   if (
-    ci.only !== undefined &&
-    (ci.ci ||
-      ci.fix ||
-      ci.write ||
-      ci.reportPath !== undefined ||
-      ci.since !== undefined)
+    hasCliFlag(args, "--ci") ||
+    hasCliFlag(args, "--fix") ||
+    hasCliFlag(args, "--only") ||
+    hasCliFlag(args, "--report")
+  ) {
+    throw new Error("skillset: readiness flags are only supported with check");
+  }
+  if (
+    hasCliFlag(args, "--since") &&
+    command !== "change" &&
+    command !== "hooks"
   ) {
     throw new Error(
-      "skillset: check --only outputs cannot be combined with CI or write flags"
+      "skillset: --since is only supported with check --ci or change commands"
     );
   }
 }
 
-function validateDevFlags(
-  command: Command,
-  dev: {
-    readonly write: boolean;
-    readonly buildMode?: CompileBuildMode;
-    readonly scopes?: readonly BuildScope[];
-    readonly yes: boolean;
-  }
-): void {
-  if (dev.write && command !== "dev") {
-    throw new Error("skillset: dev write mode is only supported with dev");
-  }
-  if (command !== "dev") {
-    return;
-  }
-  if (dev.buildMode !== undefined) {
-    throw new Error("skillset: dev does not support --updated or --all");
-  }
-  if (dev.scopes !== undefined) {
-    throw new Error("skillset: dev does not support --scope yet");
-  }
-  if (dev.yes) {
-    throw new Error(
-      "skillset: dev uses preview mode by default or write mode with --write; it does not support --yes"
-    );
-  }
-}
-
-function validateUpdateFlags(
-  command: Command,
-  update: {
-    readonly buildMode?: CompileBuildMode;
-    readonly scopes?: readonly BuildScope[];
-    readonly yes: boolean;
-  }
-): void {
-  if (command !== "update") {
-    return;
-  }
-  if (update.buildMode !== undefined) {
-    throw new Error("skillset: update does not support --updated or --all");
-  }
-  if (update.scopes !== undefined) {
-    throw new Error(
-      "skillset: update does not support --scope; provider format updates require a whole-workspace safety preflight"
-    );
-  }
+function hasCliFlag(args: readonly string[], expected: string): boolean {
+  return args.some((argument) => argument.split("=", 1)[0] === expected);
 }
 
 function validateSetupFlags(
@@ -2115,8 +1935,12 @@ function validateJsonFlags(
   if (!jsonOutput) {
     return;
   }
+  if (command === "dev") {
+    return;
+  }
   if (
     command === "build" ||
+    command === "check" ||
     command === "import" ||
     command === "init" ||
     command === "new" ||
@@ -2124,9 +1948,6 @@ function validateJsonFlags(
     command === "restore" ||
     command === "update"
   ) {
-    return;
-  }
-  if (command === "check") {
     return;
   }
   if (
