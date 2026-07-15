@@ -31,7 +31,12 @@ import { CliOutputError, readCliCommand } from "./cli-output";
 import type { CliRequest } from "./cli-request";
 import { USAGE } from "./cli-usage";
 import { parseDevCommandRequest } from "./dev-args";
+import {
+  parseDistributionCommandRequest,
+  parseMarketplaceCommandRequest,
+} from "./distribution-args";
 import type { ImportKind, ImportProvider } from "./import";
+import { parseInitCommandRequest } from "./init-args";
 import {
   addLookupTarget,
   addLookupTargets,
@@ -55,6 +60,10 @@ import type {
   HookSubcommand,
 } from "./runtime-hooks";
 import type { SetupInclude } from "./setup";
+import {
+  parseImportCommandRequest,
+  parseNewCommandRequest,
+} from "./source-args";
 import { readClaudeSettingSources } from "./try";
 import type { TryClaudeSettingSources, TrySubcommand } from "./try";
 import { isTrySubcommand, validateTryFlags } from "./try-cli";
@@ -75,8 +84,6 @@ interface ParsedArgs {
   readonly changeStaged: boolean;
   readonly changeScopes?: readonly string[];
   readonly changeSubcommand?: ChangeSubcommand;
-  readonly distributionName?: string;
-  readonly distributionSubcommand?: DistributionSubcommand;
   readonly hookAgentRuntime: boolean;
   readonly hookContextEvent?: string;
   readonly hookContextFields?: readonly HookRuntimeContextField[];
@@ -87,12 +94,7 @@ interface ParsedArgs {
   readonly hookRunEvent?: HookRunEvent;
   readonly hookSubcommand?: HookSubcommand;
   readonly hookTarget?: TargetName;
-  readonly importKind?: ImportKind;
-  readonly importName?: string;
   readonly importPath?: string;
-  readonly importProvider?: ImportProvider;
-  readonly initAdopt?: readonly string[];
-  readonly initFrom?: string;
   readonly jsonOutput: boolean;
   readonly lookupAspects: readonly string[];
   readonly lookupField?: string;
@@ -100,14 +102,6 @@ interface ParsedArgs {
   readonly lookupSubject?: LookupSubject;
   readonly lookupTargets: readonly TargetName[];
   readonly lookupViews: readonly LookupView[];
-  readonly marketplaceName?: string;
-  readonly marketplaceSubcommand?: MarketplaceSubcommand;
-  readonly newContainer?: string;
-  readonly newId?: string;
-  readonly newKind?: NewSourceKind;
-  readonly newName?: string;
-  readonly newPresets?: readonly string[];
-  readonly newScope?: NewSourceScope;
   readonly options: SkillsetOptions;
   readonly releaseSubcommand?: ReleaseSubcommand;
   readonly releaseReason?: ChangeReasonInput;
@@ -125,8 +119,6 @@ interface ParsedArgs {
   readonly tryTimeoutMs?: number;
   readonly rootExplicit: boolean;
   readonly rootPath: string;
-  readonly setupIncludes?: readonly SetupInclude[];
-  readonly setupTargets?: readonly TargetName[];
   readonly reconcileChoice?: ReconcileChoice;
   readonly testName?: string;
   readonly yes: boolean;
@@ -792,10 +784,6 @@ function parseArgs(
 
   validateLegacyReadinessFlags(command, args);
 
-  validateAdoptFlags(command, {
-    ...(buildMode === undefined ? {} : { buildMode }),
-    ...(scopes === undefined ? {} : { scopes }),
-  });
   const hasAdHocTestFlags =
     trySubcommand !== undefined ||
     tryTarget !== undefined ||
@@ -857,24 +845,6 @@ function parseArgs(
   validateListFlags(command, buildMode);
 
   validateLegacyIsolatedFlag(command, isolated);
-  validateDistributionFlags(command, {
-    ...(buildMode === undefined ? {} : { buildMode }),
-    ...(distributionName === undefined ? {} : { name: distributionName }),
-    ...(distributionSubcommand === undefined
-      ? {}
-      : { subcommand: distributionSubcommand }),
-    ...(scopes === undefined ? {} : { scopes }),
-    yes,
-  });
-  validateMarketplaceFlags(command, {
-    ...(buildMode === undefined ? {} : { buildMode }),
-    ...(marketplaceName === undefined ? {} : { name: marketplaceName }),
-    ...(scopes === undefined ? {} : { scopes }),
-    ...(marketplaceSubcommand === undefined
-      ? {}
-      : { subcommand: marketplaceSubcommand }),
-    yes,
-  });
 
   if (command === "release" && scopes !== undefined) {
     throw new Error(
@@ -915,13 +885,9 @@ function parseArgs(
     ...(sourceDir === undefined ? {} : { sourceDir }),
     yes,
   });
-  validateNewSourceFlags(command, {
-    ...(buildMode === undefined ? {} : { buildMode }),
-    ...(distDir === undefined ? {} : { distDir }),
+  validateLegacyNewSourceFlags(command, {
     ...(newContainer === undefined ? {} : { container: newContainer }),
     ...(newId === undefined ? {} : { id: newId }),
-    ...(importKind === undefined ? {} : { importKind }),
-    ...(importProvider === undefined ? {} : { importProvider }),
     ...(newKind === undefined ? {} : { kind: newKind }),
     ...(newName === undefined ? {} : { name: newName }),
     ...(newPresets === undefined ? {} : { presets: newPresets }),
@@ -972,8 +938,6 @@ function parseArgs(
     changeStaged,
     ...(changeScopes === undefined ? {} : { changeScopes }),
     ...(changeSubcommand === undefined ? {} : { changeSubcommand }),
-    ...(distributionName === undefined ? {} : { distributionName }),
-    ...(distributionSubcommand === undefined ? {} : { distributionSubcommand }),
     hookAgentRuntime,
     ...(hookContextEvent === undefined ? {} : { hookContextEvent }),
     ...(hookContextFields === undefined ? {} : { hookContextFields }),
@@ -984,12 +948,7 @@ function parseArgs(
     ...(hookRunEvent === undefined ? {} : { hookRunEvent }),
     ...(hookSubcommand === undefined ? {} : { hookSubcommand }),
     ...(hookTarget === undefined ? {} : { hookTarget }),
-    ...(importKind === undefined ? {} : { importKind }),
-    ...(importName === undefined ? {} : { importName }),
     ...(importPath === undefined ? {} : { importPath }),
-    ...(importProvider === undefined ? {} : { importProvider }),
-    ...(initAdopt === undefined ? {} : { initAdopt }),
-    ...(initFrom === undefined ? {} : { initFrom }),
     jsonOutput,
     lookupAspects,
     ...(lookupField === undefined ? {} : { lookupField }),
@@ -997,14 +956,6 @@ function parseArgs(
     ...(lookupSubject === undefined ? {} : { lookupSubject }),
     lookupTargets,
     lookupViews,
-    ...(marketplaceName === undefined ? {} : { marketplaceName }),
-    ...(marketplaceSubcommand === undefined ? {} : { marketplaceSubcommand }),
-    ...(newContainer === undefined ? {} : { newContainer }),
-    ...(newId === undefined ? {} : { newId }),
-    ...(newKind === undefined ? {} : { newKind }),
-    ...(newName === undefined ? {} : { newName }),
-    ...(newPresets === undefined ? {} : { newPresets }),
-    ...(newScope === undefined ? {} : { newScope }),
     options,
     ...(releaseSubcommand === undefined ? {} : { releaseSubcommand }),
     ...(releaseReason === undefined ? {} : { releaseReason }),
@@ -1024,8 +975,6 @@ function parseArgs(
     ...(tryTimeoutMs === undefined ? {} : { tryTimeoutMs }),
     rootExplicit,
     rootPath: resolveCliRoot(context, rootPath),
-    ...(setupIncludes === undefined ? {} : { setupIncludes }),
-    ...(setupTargets === undefined ? {} : { setupTargets }),
     ...(reconcileChoice === undefined ? {} : { reconcileChoice }),
     ...(testName === undefined ? {} : { testName }),
     yes,
@@ -1077,29 +1026,6 @@ function createCliRequest(parsed: ParsedArgs): CliRequest {
         yes,
       },
     };
-  if (command === "distribute")
-    return {
-      command,
-      request: {
-        distributionName: parsed.distributionName,
-        distributionSubcommand: parsed.distributionSubcommand,
-        jsonOutput,
-        options,
-        rootPath,
-      },
-    };
-  if (command === "marketplace")
-    return {
-      command,
-      request: {
-        jsonOutput,
-        marketplaceName: parsed.marketplaceName,
-        marketplaceSubcommand: parsed.marketplaceSubcommand,
-        options,
-        rootPath,
-        yes,
-      },
-    };
   if (command === "hooks")
     return {
       command,
@@ -1136,53 +1062,6 @@ function createCliRequest(parsed: ParsedArgs): CliRequest {
         trySubcommand: parsed.trySubcommand,
         tryTarget: parsed.tryTarget,
         tryTimeoutMs: parsed.tryTimeoutMs,
-      },
-    };
-  if (command === "init")
-    return {
-      command,
-      request: {
-        destination: parsed.importPath,
-        importName: parsed.importName,
-        initAdopt: parsed.initAdopt,
-        initFrom: parsed.initFrom,
-        jsonOutput,
-        options,
-        rootExplicit: parsed.rootExplicit,
-        rootPath,
-        setupIncludes: parsed.setupIncludes,
-        setupTargets: parsed.setupTargets,
-        yes,
-      },
-    };
-  if (command === "import")
-    return {
-      command,
-      request: {
-        importKind: parsed.importKind,
-        importName: parsed.importName,
-        importProvider: parsed.importProvider,
-        jsonOutput,
-        options,
-        rootPath,
-        sourcePath: parsed.importPath,
-      },
-    };
-  if (command === "new")
-    return {
-      command,
-      request: {
-        jsonOutput,
-        newContainer: parsed.newContainer,
-        newId: parsed.newId,
-        newKind: parsed.newKind,
-        newName: parsed.newName,
-        newPresets: parsed.newPresets,
-        newScope: parsed.newScope,
-        options,
-        positionalName: parsed.importPath,
-        rootPath,
-        yes,
       },
     };
   if (command === "list")
@@ -1252,6 +1131,27 @@ export function parseCliRequest(
     }
     if (command === "diff") {
       return { command, request: parseDiffCommandRequest(args, context) };
+    }
+    if (command === "distribute") {
+      return {
+        command,
+        request: parseDistributionCommandRequest(args, context),
+      };
+    }
+    if (command === "import") {
+      return { command, request: parseImportCommandRequest(args, context) };
+    }
+    if (command === "init") {
+      return { command, request: parseInitCommandRequest(args, context) };
+    }
+    if (command === "marketplace") {
+      return {
+        command,
+        request: parseMarketplaceCommandRequest(args, context),
+      };
+    }
+    if (command === "new") {
+      return { command, request: parseNewCommandRequest(args, context) };
     }
     if (command === "update") {
       return { command, request: parseUpdateCommandRequest(args, context) };
@@ -1541,80 +1441,6 @@ function validateHookFlags(
   }
 }
 
-function validateDistributionFlags(
-  command: Command,
-  distribution: {
-    readonly buildMode?: CompileBuildMode;
-    readonly name?: string;
-    readonly scopes?: readonly BuildScope[];
-    readonly subcommand?: DistributionSubcommand;
-    readonly yes: boolean;
-  }
-): void {
-  if (command !== "distribute") {
-    return;
-  }
-  if (distribution.subcommand !== "plan") {
-    throw new Error("skillset: expected distribute subcommand plan");
-  }
-  if (
-    distribution.name !== undefined &&
-    !/^[a-z0-9][a-z0-9._-]*$/.test(distribution.name)
-  ) {
-    throw new Error(
-      "skillset: expected distribution name to be a lowercase id"
-    );
-  }
-  if (
-    distribution.buildMode !== undefined ||
-    distribution.scopes !== undefined ||
-    distribution.yes
-  ) {
-    throw new Error(
-      "skillset: build/write options are not supported with distribute plan; it is always read-only"
-    );
-  }
-}
-
-function validateMarketplaceFlags(
-  command: Command,
-  marketplace: {
-    readonly buildMode?: CompileBuildMode;
-    readonly name?: string;
-    readonly scopes?: readonly BuildScope[];
-    readonly subcommand?: MarketplaceSubcommand;
-    readonly yes: boolean;
-  }
-): void {
-  if (command !== "marketplace") {
-    return;
-  }
-  if (
-    marketplace.subcommand !== "check" &&
-    marketplace.subcommand !== "update"
-  ) {
-    throw new Error(
-      "skillset: expected marketplace subcommand check or update"
-    );
-  }
-  if (
-    marketplace.name !== undefined &&
-    !/^[a-z0-9][a-z0-9._-]*$/.test(marketplace.name)
-  ) {
-    throw new Error("skillset: expected marketplace name to be a lowercase id");
-  }
-  if (marketplace.subcommand === "check" && marketplace.yes) {
-    throw new Error(
-      "skillset: build/write options are not supported with marketplace check; it is always read-only"
-    );
-  }
-  if (marketplace.buildMode !== undefined || marketplace.scopes !== undefined) {
-    throw new Error(
-      `skillset: build scope options are not supported with marketplace ${marketplace.subcommand}`
-    );
-  }
-}
-
 function validateTestFlags(
   command: Command,
   args: readonly string[],
@@ -1758,15 +1584,11 @@ function validateReconcileFlags(
   }
 }
 
-function validateNewSourceFlags(
+function validateLegacyNewSourceFlags(
   command: Command,
   source: {
-    readonly buildMode?: CompileBuildMode;
     readonly container?: string;
-    readonly distDir?: string;
     readonly id?: string;
-    readonly importKind?: ImportKind;
-    readonly importProvider?: ImportProvider;
     readonly kind?: NewSourceKind;
     readonly name?: string;
     readonly presets?: readonly string[];
@@ -1782,26 +1604,6 @@ function validateNewSourceFlags(
     source.scope !== undefined;
   if (hasNewFlag && command !== "new") {
     throw new Error("skillset: new options are only supported with new");
-  }
-  if (command !== "new") {
-    return;
-  }
-  if (source.buildMode !== undefined) {
-    throw new Error("skillset: --updated and --all are not supported with new");
-  }
-  if (source.distDir !== undefined) {
-    throw new Error(
-      "skillset: output-root overrides are not supported with new"
-    );
-  }
-  if (source.importKind !== undefined) {
-    throw new Error("skillset: --kind is only supported with import");
-  }
-  if (source.importProvider !== undefined) {
-    throw new Error("skillset: --from is only supported with import");
-  }
-  if (source.kind === undefined) {
-    throw new Error("skillset: expected new kind skill, agent, or hook");
   }
 }
 
@@ -1903,23 +1705,6 @@ function validateSetupFlags(
     setup.includes !== undefined || setup.targets !== undefined;
   if (hasSetupFlag && command !== "init") {
     throw new Error("skillset: setup options are only supported with init");
-  }
-}
-
-function validateAdoptFlags(
-  command: Command,
-  adopt: {
-    readonly buildMode?: CompileBuildMode;
-    readonly scopes?: readonly BuildScope[];
-  }
-): void {
-  if (command !== "init") {
-    return;
-  }
-  if (adopt.buildMode !== undefined || adopt.scopes !== undefined) {
-    throw new Error(
-      "skillset: build mode and scope flags are not supported with adopt; adoption always builds the full projection isolated"
-    );
   }
 }
 
