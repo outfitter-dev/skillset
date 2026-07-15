@@ -1,5 +1,4 @@
 import type { LookupSubject, LookupView } from "@skillset/core";
-import { sourceUnitSelector } from "@skillset/core/internal/source-unit-selector";
 import type {
   BuildScope,
   CompileBuildMode,
@@ -11,6 +10,13 @@ import {
   parseBuildCommandRequest,
   parseDiffCommandRequest,
 } from "./build-args";
+import {
+  isChangeSubcommand,
+  parseChangeCommandRequest,
+  readChangeBump,
+  readChangeScopes,
+  setChangeReason,
+} from "./change-args";
 import type { ChangeBump } from "./change-entries";
 import type { ChangeReasonInput, ChangeSubcommand } from "./change-workflow";
 import { parseCheckCommandRequest } from "./check-args";
@@ -46,7 +52,15 @@ import {
 } from "./lookup-cli";
 import type { NewSourceKind, NewSourceScope } from "./new-source";
 import type { ReconcileChoice } from "./reconcile";
+import {
+  parseReconcileCommandRequest,
+  parseRestoreCommandRequest,
+} from "./recovery-args";
 import type { ReleaseSubcommand } from "./release";
+import {
+  isReleaseSubcommand,
+  parseReleaseCommandRequest,
+} from "./release-args";
 import {
   readHookRuntimeContextField,
   readHookRuntimeContextFormat,
@@ -75,15 +89,6 @@ type MarketplaceSubcommand = "check" | "update";
 
 interface ParsedArgs {
   readonly command: Command;
-  readonly changeAppend: boolean;
-  readonly changeBump?: ChangeBump;
-  readonly changeGroup?: string;
-  readonly changeReason?: ChangeReasonInput;
-  readonly changeRef?: string;
-  readonly changeSince?: string;
-  readonly changeStaged: boolean;
-  readonly changeScopes?: readonly string[];
-  readonly changeSubcommand?: ChangeSubcommand;
   readonly hookAgentRuntime: boolean;
   readonly hookContextEvent?: string;
   readonly hookContextFields?: readonly HookRuntimeContextField[];
@@ -103,9 +108,6 @@ interface ParsedArgs {
   readonly lookupTargets: readonly TargetName[];
   readonly lookupViews: readonly LookupView[];
   readonly options: SkillsetOptions;
-  readonly releaseSubcommand?: ReleaseSubcommand;
-  readonly releaseReason?: ChangeReasonInput;
-  readonly releaseRef?: string;
   readonly tryBackground: boolean;
   readonly tryClaudeSettingSources?: TryClaudeSettingSources;
   readonly tryLines?: number;
@@ -119,7 +121,6 @@ interface ParsedArgs {
   readonly tryTimeoutMs?: number;
   readonly rootExplicit: boolean;
   readonly rootPath: string;
-  readonly reconcileChoice?: ReconcileChoice;
   readonly testName?: string;
   readonly yes: boolean;
 }
@@ -730,7 +731,7 @@ function parseArgs(
     }
   }
 
-  validateChangeFlags(command, changeSubcommand, {
+  validateLegacyChangeFlags(command, {
     append: changeAppend,
     ...(changeBump === undefined ? {} : { bump: changeBump }),
     ...(changeGroup === undefined ? {} : { group: changeGroup }),
@@ -738,7 +739,6 @@ function parseArgs(
     ...(changeRef === undefined ? {} : { ref: changeRef }),
     staged: changeStaged,
     ...(changeScopes === undefined ? {} : { scopes: changeScopes }),
-    yes,
   });
 
   validateHookFlags(command, {
@@ -846,15 +846,7 @@ function parseArgs(
 
   validateLegacyIsolatedFlag(command, isolated);
 
-  if (command === "release" && scopes !== undefined) {
-    throw new Error(
-      "skillset: --scope is not supported with release commands yet"
-    );
-  }
-  if (command === "release" && releaseSubcommand !== "apply" && yes) {
-    throw new Error("skillset: --yes is only supported with release apply");
-  }
-  validateReleaseFlags(command, releaseSubcommand, {
+  validateLegacyReleaseFlags(command, {
     ...(releaseReason === undefined ? {} : { reason: releaseReason }),
     ...(releaseRef === undefined ? {} : { ref: releaseRef }),
   });
@@ -868,22 +860,9 @@ function parseArgs(
     ...(trySubcommand === undefined ? {} : { subcommand: trySubcommand }),
     yes,
   });
-  validateRestoreFlags(command, {
-    ...(buildMode === undefined ? {} : { buildMode }),
-    ...(changeSince === undefined ? {} : { changeSince }),
-    ...(distDir === undefined ? {} : { distDir }),
-    ...(scopes === undefined ? {} : { scopes }),
-    ...(sourceDir === undefined ? {} : { sourceDir }),
-  });
   validateStatusFlags(command, args);
-  validateReconcileFlags(command, {
-    ...(buildMode === undefined ? {} : { buildMode }),
-    ...(changeSince === undefined ? {} : { changeSince }),
-    ...(distDir === undefined ? {} : { distDir }),
-    ...(scopes === undefined ? {} : { scopes }),
+  validateLegacyReconcileFlags(command, {
     ...(reconcileChoice === undefined ? {} : { choice: reconcileChoice }),
-    ...(sourceDir === undefined ? {} : { sourceDir }),
-    yes,
   });
   validateLegacyNewSourceFlags(command, {
     ...(newContainer === undefined ? {} : { container: newContainer }),
@@ -893,32 +872,6 @@ function parseArgs(
     ...(newPresets === undefined ? {} : { presets: newPresets }),
     ...(newScope === undefined ? {} : { scope: newScope }),
   });
-  if (command === "change" && changeSubcommand === "add") {
-    if (changeScopes === undefined || changeScopes.length === 0) {
-      throw new Error("skillset: change add requires at least one --scope");
-    }
-    if (changeBump === undefined) {
-      throw new Error(
-        "skillset: change add requires --bump major, minor, patch, or none"
-      );
-    }
-  }
-  if (
-    command === "change" &&
-    (changeSubcommand === "amend" ||
-      changeSubcommand === "reason" ||
-      changeSubcommand === "show") &&
-    changeRef === undefined
-  ) {
-    throw new Error(`skillset: change ${changeSubcommand} requires @ref`);
-  }
-  if (
-    command === "release" &&
-    releaseSubcommand === "amend" &&
-    releaseRef === undefined
-  ) {
-    throw new Error("skillset: release amend requires @ref");
-  }
   const options: SkillsetOptions = {
     ...(buildMode === undefined ? {} : { buildMode }),
     ...(scopes === undefined ? {} : { scopes }),
@@ -929,15 +882,6 @@ function parseArgs(
 
   return {
     command,
-    changeAppend,
-    ...(changeBump === undefined ? {} : { changeBump }),
-    ...(changeGroup === undefined ? {} : { changeGroup }),
-    ...(changeReason === undefined ? {} : { changeReason }),
-    ...(changeRef === undefined ? {} : { changeRef }),
-    ...(changeSince === undefined ? {} : { changeSince }),
-    changeStaged,
-    ...(changeScopes === undefined ? {} : { changeScopes }),
-    ...(changeSubcommand === undefined ? {} : { changeSubcommand }),
     hookAgentRuntime,
     ...(hookContextEvent === undefined ? {} : { hookContextEvent }),
     ...(hookContextFields === undefined ? {} : { hookContextFields }),
@@ -957,9 +901,6 @@ function parseArgs(
     lookupTargets,
     lookupViews,
     options,
-    ...(releaseSubcommand === undefined ? {} : { releaseSubcommand }),
-    ...(releaseReason === undefined ? {} : { releaseReason }),
-    ...(releaseRef === undefined ? {} : { releaseRef }),
     tryBackground,
     ...(tryClaudeSettingSources === undefined
       ? {}
@@ -975,7 +916,6 @@ function parseArgs(
     ...(tryTimeoutMs === undefined ? {} : { tryTimeoutMs }),
     rootExplicit,
     rootPath: resolveCliRoot(context, rootPath),
-    ...(reconcileChoice === undefined ? {} : { reconcileChoice }),
     ...(testName === undefined ? {} : { testName }),
     yes,
   };
@@ -983,49 +923,6 @@ function parseArgs(
 
 function createCliRequest(parsed: ParsedArgs): CliRequest {
   const { command, jsonOutput, options, rootPath, yes } = parsed;
-  if (command === "change")
-    return {
-      command,
-      request: {
-        changeAppend: parsed.changeAppend,
-        changeBump: parsed.changeBump,
-        changeGroup: parsed.changeGroup,
-        changeReason: parsed.changeReason,
-        changeRef: parsed.changeRef,
-        changeScopes: parsed.changeScopes,
-        changeSince: parsed.changeSince,
-        changeStaged: parsed.changeStaged,
-        changeSubcommand: parsed.changeSubcommand,
-        jsonOutput,
-        options,
-        rootPath,
-        yes,
-      },
-    };
-  if (command === "release")
-    return {
-      command,
-      request: {
-        jsonOutput,
-        options,
-        releaseReason: parsed.releaseReason,
-        releaseRef: parsed.releaseRef,
-        releaseSubcommand: parsed.releaseSubcommand,
-        rootPath,
-        yes,
-      },
-    };
-  if (command === "restore")
-    return {
-      command,
-      request: {
-        backupId: parsed.importPath,
-        jsonOutput,
-        options,
-        rootPath,
-        yes,
-      },
-    };
   if (command === "hooks")
     return {
       command,
@@ -1091,18 +988,6 @@ function createCliRequest(parsed: ParsedArgs): CliRequest {
       command,
       request: { jsonOutput, options, path: parsed.importPath, rootPath },
     };
-  if (command === "reconcile")
-    return {
-      command,
-      request: {
-        jsonOutput,
-        managedPath: parsed.importPath,
-        options,
-        reconcileChoice: parsed.reconcileChoice,
-        rootPath,
-        yes,
-      },
-    };
   if (command === "status")
     return { command, request: { jsonOutput, options, rootPath } };
   throw new Error(`skillset: unhandled command ${command}`);
@@ -1120,6 +1005,9 @@ export function parseCliRequest(
       );
     }
     const parsed = parseArgs(command, args, context);
+    if (command === "change") {
+      return { command, request: parseChangeCommandRequest(args, context) };
+    }
     if (command === "build") {
       return { command, request: parseBuildCommandRequest(args, context) };
     }
@@ -1153,6 +1041,18 @@ export function parseCliRequest(
     if (command === "new") {
       return { command, request: parseNewCommandRequest(args, context) };
     }
+    if (command === "reconcile") {
+      return {
+        command,
+        request: parseReconcileCommandRequest(args, context),
+      };
+    }
+    if (command === "release") {
+      return { command, request: parseReleaseCommandRequest(args, context) };
+    }
+    if (command === "restore") {
+      return { command, request: parseRestoreCommandRequest(args, context) };
+    }
     if (command === "update") {
       return { command, request: parseUpdateCommandRequest(args, context) };
     }
@@ -1166,33 +1066,6 @@ export function parseCliRequest(
   }
 }
 
-function isReleaseSubcommand(
-  value: string | undefined
-): value is ReleaseSubcommand {
-  return (
-    value === "amend" ||
-    value === "apply" ||
-    value === "audit" ||
-    value === "plan"
-  );
-}
-
-function isChangeSubcommand(
-  value: string | undefined
-): value is ChangeSubcommand {
-  return (
-    value === "add" ||
-    value === "amend" ||
-    value === "check" ||
-    value === "history" ||
-    value === "list" ||
-    value === "migrate" ||
-    value === "reason" ||
-    value === "show" ||
-    value === "status"
-  );
-}
-
 function isNewSourceKind(value: string | undefined): value is NewSourceKind {
   return value === "agent" || value === "hook" || value === "skill";
 }
@@ -1202,16 +1075,6 @@ function readNewSourceScope(value: string): NewSourceScope {
     return value;
   }
   throw new Error("skillset: new currently supports only --scope repo");
-}
-
-function readChangeScopes(value: string): readonly string[] {
-  const scopes = tokenizeCsv(value);
-  if (scopes.length === 0) {
-    throw new Error(
-      "skillset: --scope requires at least one source unit scope"
-    );
-  }
-  return scopes.map(sourceUnitSelector);
 }
 
 function readHookRuntimeContextFields(
@@ -1224,31 +1087,8 @@ function readHookRuntimeContextFields(
   return fields.map(readHookRuntimeContextField);
 }
 
-function readChangeBump(value: string): ChangeBump {
-  if (
-    value === "major" ||
-    value === "minor" ||
-    value === "none" ||
-    value === "patch"
-  ) {
-    return value;
-  }
-  throw new Error("skillset: expected --bump major, minor, patch, or none");
-}
-
-function setChangeReason(
-  current: ChangeReasonInput | undefined,
-  next: ChangeReasonInput
-): ChangeReasonInput {
-  if (current !== undefined) {
-    throw new Error("skillset: pass only one of --reason or --reason-file");
-  }
-  return next;
-}
-
-function validateChangeFlags(
+function validateLegacyChangeFlags(
   command: Command,
-  subcommand: ChangeSubcommand | undefined,
   change: {
     readonly append: boolean;
     readonly bump?: ChangeBump;
@@ -1257,7 +1097,6 @@ function validateChangeFlags(
     readonly ref?: string;
     readonly scopes?: readonly string[];
     readonly staged: boolean;
-    readonly yes: boolean;
   }
 ): void {
   const hasChangeFlag =
@@ -1273,63 +1112,10 @@ function validateChangeFlags(
       "skillset: change options are only supported with change commands"
     );
   }
-  if (command !== "change") {
-    return;
-  }
-  if (change.yes && subcommand !== "migrate") {
-    throw new Error("skillset: --yes is only supported with change migrate");
-  }
-  const allowed = {
-    append: subcommand === "reason",
-    bump: subcommand === "add",
-    group: subcommand === "add" || subcommand === "list",
-    reason:
-      subcommand === "add" || subcommand === "amend" || subcommand === "reason",
-    ref:
-      subcommand === "amend" ||
-      subcommand === "check" ||
-      subcommand === "history" ||
-      subcommand === "reason" ||
-      subcommand === "show",
-    scopes: subcommand === "add",
-    staged: subcommand === "check" || subcommand === "status",
-  };
-  if (change.append && !allowed.append) {
-    throw new Error("skillset: --append is only supported with change reason");
-  }
-  if (change.bump !== undefined && !allowed.bump) {
-    throw new Error("skillset: --bump is only supported with change add");
-  }
-  if (change.group !== undefined && !allowed.group) {
-    throw new Error(
-      "skillset: --group is only supported with change add or change list"
-    );
-  }
-  if (change.reason !== undefined && !allowed.reason) {
-    throw new Error(
-      "skillset: --reason and --reason-file are only supported with change add, change amend, or change reason"
-    );
-  }
-  if (change.ref !== undefined && !allowed.ref) {
-    throw new Error(
-      "skillset: --ref is only supported with change amend, change check, change history, change reason, or change show"
-    );
-  }
-  if (change.scopes !== undefined && !allowed.scopes) {
-    throw new Error(
-      "skillset: source-unit --scope is only supported with change add"
-    );
-  }
-  if (change.staged && !allowed.staged) {
-    throw new Error(
-      "skillset: --staged is only supported with change status or change check"
-    );
-  }
 }
 
-function validateReleaseFlags(
+function validateLegacyReleaseFlags(
   command: Command,
-  subcommand: ReleaseSubcommand | undefined,
   release: {
     readonly reason?: ChangeReasonInput;
     readonly ref?: string;
@@ -1341,18 +1127,6 @@ function validateReleaseFlags(
     throw new Error(
       "skillset: release options are only supported with release commands"
     );
-  }
-  if (command !== "release") {
-    return;
-  }
-
-  if (release.reason !== undefined && subcommand !== "amend") {
-    throw new Error(
-      "skillset: --reason and --reason-file are only supported with release amend"
-    );
-  }
-  if (release.ref !== undefined && subcommand !== "amend") {
-    throw new Error("skillset: --ref is only supported with release amend");
   }
 }
 
@@ -1502,30 +1276,6 @@ function validateListFlags(
   }
 }
 
-function validateRestoreFlags(
-  command: Command,
-  restore: {
-    readonly buildMode?: CompileBuildMode;
-    readonly changeSince?: string;
-    readonly distDir?: string;
-    readonly scopes?: readonly BuildScope[];
-    readonly sourceDir?: string;
-  }
-): void {
-  if (command !== "restore") {
-    return;
-  }
-  if (
-    restore.buildMode !== undefined ||
-    restore.changeSince !== undefined ||
-    restore.distDir !== undefined ||
-    restore.scopes !== undefined ||
-    restore.sourceDir !== undefined
-  ) {
-    throw new Error("skillset: restore only supports --root and --yes");
-  }
-}
-
 function validateStatusFlags(command: Command, args: readonly string[]): void {
   if (command !== "status") {
     return;
@@ -1550,37 +1300,14 @@ function validateStatusFlags(command: Command, args: readonly string[]): void {
   }
 }
 
-function validateReconcileFlags(
+function validateLegacyReconcileFlags(
   command: Command,
   reconcile: {
-    readonly buildMode?: CompileBuildMode;
-    readonly changeSince?: string;
-    readonly scopes?: readonly BuildScope[];
     readonly choice?: ReconcileChoice;
-    readonly yes: boolean;
   }
 ): void {
   if (reconcile.choice !== undefined && command !== "reconcile") {
     throw new Error("skillset: --use is only supported with reconcile");
-  }
-  if (command !== "reconcile") {
-    return;
-  }
-  if (reconcile.buildMode !== undefined) {
-    throw new Error(
-      "skillset: --updated and --all are not supported with reconcile"
-    );
-  }
-  if (reconcile.changeSince !== undefined) {
-    throw new Error("skillset: --since is not supported with reconcile");
-  }
-  if (reconcile.scopes !== undefined) {
-    throw new Error("skillset: --scope is not supported with reconcile");
-  }
-  if (reconcile.yes && reconcile.choice === undefined) {
-    throw new Error(
-      "skillset: reconcile --yes requires --use source or --use output"
-    );
   }
 }
 
