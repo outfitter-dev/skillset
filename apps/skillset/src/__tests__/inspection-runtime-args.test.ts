@@ -314,6 +314,19 @@ describe("SET-304 inspection and runtime route parsers", () => {
             CONTEXT
           ),
       },
+      {
+        message: "skillset: unknown option --jsonl",
+        run: () => parseListCommandRequest(["list", "--jsonl"], CONTEXT),
+      },
+      {
+        message: "skillset: unknown option --jsonl",
+        run: () => parseTestCommandRequest(["test", "--jsonl"], CONTEXT),
+      },
+      {
+        message: "skillset: unknown option --jsonl",
+        run: () =>
+          parseHooksCommandRequest(["hooks", "run", "stop", "--jsonl"], CONTEXT),
+      },
     ] as const;
     for (const { message, run } of cases) {
       expect(run).toThrow(message);

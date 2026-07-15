@@ -379,7 +379,7 @@ export const parseHooksCommandRequest = (
     throw new Error("skillset: --json is not supported for this command route");
   }
   if (jsonlOutput) {
-    throw new Error("skillset: --jsonl is only supported with dev");
+    throw new Error("skillset: unknown option --jsonl");
   }
   if (lookupField !== undefined || lookupTargets.length > 0 || lookupView) {
     throw new Error("skillset: lookup flags are only supported with lookup");

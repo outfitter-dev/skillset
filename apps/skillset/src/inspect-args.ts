@@ -589,7 +589,7 @@ const validateInspectionCrossFlags = (flags: InspectionCrossFlags): void => {
     );
   }
   if (flags.jsonl) {
-    throw new Error("skillset: --jsonl is only supported with dev");
+    throw new Error("skillset: unknown option --jsonl");
   }
   if (flags.lookup) {
     throw new Error("skillset: lookup flags are only supported with lookup");

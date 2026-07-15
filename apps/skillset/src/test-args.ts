@@ -411,7 +411,7 @@ export const parseTestCommandRequest = (
     yes,
   });
   if (jsonlOutput) {
-    throw new Error("skillset: --jsonl is only supported with dev");
+    throw new Error("skillset: unknown option --jsonl");
   }
   if (lookupField !== undefined || lookupTargets.length > 0 || lookupView) {
     throw new Error("skillset: lookup flags are only supported with lookup");
