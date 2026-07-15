@@ -10,6 +10,7 @@ import { assertBooleanOption, CliArgReader } from "./cli-arg-reader";
 import {
   mergeBuildMode,
   readBuildScopes,
+  readClaudeSettingSources,
   readPositiveInteger,
   readTargetNames,
   resolveCliRoot,
@@ -29,7 +30,6 @@ import type {
   HookRunner,
   HookSubcommand,
 } from "./runtime-hooks";
-import { readClaudeSettingSources } from "./try";
 
 export const parseHooksCommandRequest = (
   args: readonly string[],

@@ -14,6 +14,7 @@ import {
 import {
   mergeBuildMode,
   readBuildScopes,
+  readClaudeSettingSources,
   readPositiveInteger,
   readTargetNames,
   resolveCliRoot,
@@ -37,7 +38,6 @@ import {
   readHookRuntimeContextField,
   readHookRuntimeContextFormat,
 } from "./runtime-hooks";
-import { readClaudeSettingSources } from "./try";
 
 type LookupCommandRequest =
   | { readonly kind: "features"; readonly value: LookupFeaturesCommandRequest }

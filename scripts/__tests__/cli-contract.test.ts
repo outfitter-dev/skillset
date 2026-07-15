@@ -123,8 +123,8 @@ describe("SET-275 final CLI contract", () => {
       status: "skillset status ",
       test: "skillset test [name] ",
       "test list": "skillset test list ",
-      "test status": "skillset test <status|tail> ",
-      "test tail": "skillset test <status|tail> ",
+      "test status": "skillset test status ",
+      "test tail": "skillset test tail ",
       update: "skillset update ",
     } as const satisfies Record<(typeof FINITE_JSON_ROUTES)[number], string>;
     expect(Object.keys(helpFragmentByRoute).toSorted()).toEqual(
@@ -169,8 +169,8 @@ describe("SET-275 final CLI contract", () => {
         (entry) => entry.split(":", 1)[0] ?? ""
       ),
     ]);
-    expect([...classifiedRoutes].sort()).toEqual(
-      Object.keys(CLI_ROUTE_FLAGS).sort()
+    expect([...classifiedRoutes].toSorted()).toEqual(
+      Object.keys(CLI_ROUTE_FLAGS).toSorted()
     );
     expect(CLI_FLAGS["--json"].meaning).toContain("exactly one");
     expect(CLI_FLAGS["--jsonl"].meaning).toContain("newline-delimited");

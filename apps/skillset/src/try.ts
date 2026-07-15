@@ -23,11 +23,15 @@ import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { renderValidatedJson } from "@skillset/core/internal/structured-output";
 import type { BuildGraph, JsonRecord, SkillsetOptions, TargetName } from "@skillset/core/internal/types";
 
+import {
+  readClaudeSettingSources,
+  type ClaudeSettingSources,
+} from "./cli-arg-values";
 import { createCliEvent, renderCliEvent } from "./cli-output";
 
 export type TrySubcommand = "list" | "status" | "tail" | "worker";
 export type TryState = "building" | "failed" | "passed" | "queued" | "running";
-export type TryClaudeSettingSources = "isolated" | "local" | "project" | "user";
+export type TryClaudeSettingSources = ClaudeSettingSources;
 export type TryFailureClass = "auth" | "binary" | "render" | "runtime" | "setup" | "timeout";
 
 export interface TryRunOptions extends SkillsetOptions {
@@ -485,18 +489,6 @@ function resolveClaudeSettingSources(options: TryRunOptions): TryClaudeSettingSo
 
 function claudeSettingSourcesArg(value: TryClaudeSettingSources): string {
   return value === "isolated" ? ISOLATED_CLAUDE_SETTING_SOURCES_ARG : value;
-}
-
-export function readClaudeSettingSources(
-  value: string | undefined,
-  label: string
-): TryClaudeSettingSources | undefined {
-  if (value === undefined) return undefined;
-  const normalized = value.trim();
-  if (normalized === "isolated" || normalized === "user" || normalized === "project" || normalized === "local") {
-    return normalized;
-  }
-  throw new Error(`skillset: expected ${label} to be isolated, user, project, or local`);
 }
 
 function tryPluginDirs(

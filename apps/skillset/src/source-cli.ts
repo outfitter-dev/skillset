@@ -5,7 +5,8 @@ import type { SkillsetOptions } from "@skillset/core/internal/types";
 
 import { printCliJsonData } from "./cli-output";
 import { ImportBatchError, importSources } from "./import";
-import type { ImportKind, ImportProvider, ImportReport } from "./import";
+import type { ImportReport } from "./import";
+import type { ImportKind, ImportProvider } from "./source-arg-values";
 import { scaffoldSourceUnit } from "./new-source";
 import type {
   NewSourceKind,

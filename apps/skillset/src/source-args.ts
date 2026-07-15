@@ -7,8 +7,13 @@ import {
   resolveCliRoot,
 } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
-import type { ImportKind, ImportProvider } from "./import";
 import type { NewSourceKind, NewSourceScope } from "./new-source";
+import {
+  readImportKind,
+  readImportProvider,
+  type ImportKind,
+  type ImportProvider,
+} from "./source-arg-values";
 import type { ImportCommandRequest, NewCommandRequest } from "./source-cli";
 
 export interface ImportExplicitOptions {
@@ -230,20 +235,6 @@ export const parseNewCommandRequest = (
     rootPath: resolveCliRoot(context, explicit.root),
     yes: explicit.yes,
   };
-};
-
-const readImportKind = (value: string): ImportKind => {
-  if (isImportKind(value)) return value;
-  throw new Error(
-    "skillset: expected --kind skill, skills, plugin, or plugins"
-  );
-};
-
-const readImportProvider = (value: string): ImportProvider => {
-  if (isImportProvider(value)) return value;
-  throw new Error(
-    "skillset: expected --from claude, codex, cursor, agents, or skillset"
-  );
 };
 
 const isImportKind = (value: string | undefined): value is ImportKind =>

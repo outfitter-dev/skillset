@@ -5,6 +5,8 @@ import {
   resolveCliRoot,
 } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
+import { rejectProjectionForeignOption } from "./projection-foreign-args";
+import { readImportKind, readImportProvider } from "./source-arg-values";
 import type { UpdateCommandRequest } from "./update-cli";
 
 export const parseUpdateCommandRequest = (
@@ -18,6 +20,7 @@ export const parseUpdateCommandRequest = (
   let readinessFlag = false;
   let rootPath: string | undefined;
   let scopes: readonly string[] | undefined;
+  let sinceFlag = false;
   let yes = false;
   const reader = new CliArgReader(args, 1);
 
@@ -39,7 +42,11 @@ export const parseUpdateCommandRequest = (
         yes = true;
         break;
       case "--from":
+        readImportProvider(reader.readRequiredOptionValue(option));
+        break;
       case "--kind":
+        readImportKind(reader.readRequiredOptionValue(option));
+        break;
       case "--name":
         reader.readRequiredOptionValue(option);
         break;
@@ -60,15 +67,18 @@ export const parseUpdateCommandRequest = (
         readinessFlag = true;
         break;
       case "--only":
-      case "--report":
-      case "--since":
-        reader.readRequiredOptionValue(option);
+      case "--report": {
+        const value = reader.readRequiredOptionValue(option);
+        if (option.flag === "--only" && value !== "outputs") {
+          throw new Error("skillset: expected --only outputs");
+        }
         readinessFlag = true;
         break;
-      case "--include":
-      case "--targets":
+      }
+      case "--since":
         reader.readRequiredOptionValue(option);
-        throw new Error("skillset: setup options are only supported with init");
+        sinceFlag = true;
+        break;
       case "--write":
         assertBooleanOption(option);
         throw new Error(
@@ -83,12 +93,18 @@ export const parseUpdateCommandRequest = (
         jsonlOutput = true;
         break;
       default:
+        rejectProjectionForeignOption(reader, option);
         throw new Error(`skillset: unknown option ${option.raw}`);
     }
   }
 
   if (readinessFlag) {
     throw new Error("skillset: readiness flags are only supported with check");
+  }
+  if (sinceFlag) {
+    throw new Error(
+      "skillset: --since is only supported with check --ci or change commands"
+    );
   }
   if (buildMode !== undefined) {
     throw new Error("skillset: update does not support --updated or --all");

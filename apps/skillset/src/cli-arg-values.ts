@@ -11,6 +11,8 @@ export interface CliParseContext {
   readonly cwd: string;
 }
 
+export type ClaudeSettingSources = "isolated" | "local" | "project" | "user";
+
 export const tokenizeCsv = (value: string): readonly string[] =>
   value
     .split(",")
@@ -39,11 +41,37 @@ export const readPositiveInteger = (value: string, flag: string): number => {
   return parsed;
 };
 
+export const readClaudeSettingSources = (
+  value: string | undefined,
+  label: string
+): ClaudeSettingSources | undefined => {
+  if (value === undefined) return undefined;
+  const normalized = value.trim();
+  if (
+    normalized === "isolated" ||
+    normalized === "user" ||
+    normalized === "project" ||
+    normalized === "local"
+  ) {
+    return normalized;
+  }
+  throw new Error(
+    `skillset: expected ${label} to be isolated, user, project, or local`
+  );
+};
+
 export const readTargetName = (value: string): TargetName => {
   if (isTargetName(value)) {
     return value;
   }
   throw new Error(`skillset: expected --target ${targetNames().join(", ")}`);
+};
+
+export const readLookupTarget = (value: string): TargetName => {
+  if (isTargetName(value)) return value;
+  throw new Error(
+    `skillset: unknown lookup compatibility target ${value}; expected ${targetNames().join(", ")}`
+  );
 };
 
 export const readTargetNames = (
