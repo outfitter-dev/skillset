@@ -11,6 +11,7 @@ import {
 import type { CliParseContext } from "./cli-arg-values";
 import type { ReleaseSubcommand } from "./release";
 import type { ReleaseCommandRequest } from "./release-cli";
+import { readImportKind, readImportProvider } from "./source-arg-values";
 
 export const parseReleaseCommandRequest = (
   args: readonly string[],
@@ -126,9 +127,13 @@ export const parseReleaseCommandRequest = (
         scopes = readBuildScopes(reader.readRequiredOptionValue(option));
         break;
       case "--name":
-      case "--kind":
-      case "--from":
         reader.readRequiredOptionValue(option);
+        break;
+      case "--kind":
+        readImportKind(reader.readRequiredOptionValue(option));
+        break;
+      case "--from":
+        readImportProvider(reader.readRequiredOptionValue(option));
         break;
       default:
         throw new Error(`skillset: unknown option ${option.raw}`);

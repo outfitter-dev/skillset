@@ -22,6 +22,7 @@ import {
   readHookRuntimeContextField,
   readHookRuntimeContextFormat,
 } from "./runtime-hooks";
+import { readImportKind, readImportProvider } from "./source-arg-values";
 import type { TestCommandRequest } from "./test-cli";
 import type { TryClaudeSettingSources, TrySubcommand } from "./try";
 import { isTrySubcommand, validateTryFlags } from "./try-cli";
@@ -236,8 +237,10 @@ export const parseTestCommandRequest = (
         break;
       }
       case "--kind":
+        readImportKind(reader.readRequiredOptionValue(option));
+        break;
       case "--from": {
-        reader.readRequiredOptionValue(option);
+        readImportProvider(reader.readRequiredOptionValue(option));
         break;
       }
       case "--append":

@@ -9,6 +9,7 @@ import type {
   DistributionCommandRequest,
   MarketplaceCommandRequest,
 } from "./distribution-cli";
+import { readImportKind, readImportProvider } from "./source-arg-values";
 
 type DistributionSubcommand = "plan";
 type MarketplaceSubcommand = "check" | "update";
@@ -120,9 +121,13 @@ const parseDistributionOptions = (
         scopes = readBuildScopes(reader.readRequiredOptionValue(option));
         break;
       case "--name":
-      case "--kind":
-      case "--from":
         reader.readRequiredOptionValue(option);
+        break;
+      case "--kind":
+        readImportKind(reader.readRequiredOptionValue(option));
+        break;
+      case "--from":
+        readImportProvider(reader.readRequiredOptionValue(option));
         break;
       default:
         throw new Error(`skillset: unknown option ${option.raw}`);

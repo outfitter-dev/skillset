@@ -10,6 +10,65 @@ import { parseReleaseCommandRequest } from "../release-args";
 const CONTEXT = { cwd: "/workspace/repo" } as const;
 
 describe("SET-303 lifecycle and recovery route parsers", () => {
+  test("validates recognized import metadata before ignoring it", () => {
+    const cases = [
+      {
+        run: (flag: string, value: string) =>
+          parseChangeCommandRequest(
+            [
+              "change",
+              "add",
+              "--scope",
+              "plugin:demo",
+              "--bump",
+              "patch",
+              flag,
+              value,
+            ],
+            CONTEXT
+          ),
+      },
+      {
+        run: (flag: string, value: string) =>
+          parseReleaseCommandRequest(["release", "plan", flag, value], CONTEXT),
+      },
+      {
+        run: (flag: string, value: string) =>
+          parseRestoreCommandRequest(
+            ["restore", "backup-id", flag, value],
+            CONTEXT
+          ),
+      },
+    ] as const;
+
+    for (const { run } of cases) {
+      expect(() => run("--from", "typo")).toThrow(
+        "skillset: expected --from claude, codex, cursor, agents, or skillset"
+      );
+      expect(() => run("--kind", "typo")).toThrow(
+        "skillset: expected --kind skill, skills, plugin, or plugins"
+      );
+    }
+
+    expect(
+      parseChangeCommandRequest(
+        [
+          "change",
+          "add",
+          "--scope",
+          "plugin:demo",
+          "--bump",
+          "patch",
+          "--from",
+          "codex",
+          "--kind",
+          "skill",
+        ],
+        CONTEXT
+      )
+    ).toMatchObject({ changeBump: "patch", changeScopes: ["plugin:demo"] });
+  });
+
   test("change owns subcommands, refs, reasons, scopes, and repeat policy", () => {
     expect(
       parseChangeCommandRequest(
