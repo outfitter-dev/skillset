@@ -41,8 +41,15 @@ import {
   parseDistributionCommandRequest,
   parseMarketplaceCommandRequest,
 } from "./distribution-args";
+import { parseHooksCommandRequest } from "./hooks-args";
 import type { ImportKind, ImportProvider } from "./import";
 import { parseInitCommandRequest } from "./init-args";
+import {
+  parseExplainCommandRequest,
+  parseListCommandRequest,
+  parseLookupCommandRequest,
+  parseStatusCommandRequest,
+} from "./inspect-args";
 import {
   addLookupTarget,
   addLookupTargets,
@@ -78,6 +85,7 @@ import {
   parseImportCommandRequest,
   parseNewCommandRequest,
 } from "./source-args";
+import { parseTestCommandRequest } from "./test-args";
 import { readClaudeSettingSources } from "./try";
 import type { TryClaudeSettingSources, TrySubcommand } from "./try";
 import { isTrySubcommand, validateTryFlags } from "./try-cli";
@@ -87,49 +95,7 @@ type Command = CliCommand;
 type DistributionSubcommand = "plan";
 type MarketplaceSubcommand = "check" | "update";
 
-interface ParsedArgs {
-  readonly command: Command;
-  readonly hookAgentRuntime: boolean;
-  readonly hookContextEvent?: string;
-  readonly hookContextFields?: readonly HookRuntimeContextField[];
-  readonly hookContextFormat?: HookRuntimeContextFormat;
-  readonly hookPreCommit: boolean;
-  readonly hookPrePush: boolean;
-  readonly hookRunner?: HookRunner;
-  readonly hookRunEvent?: HookRunEvent;
-  readonly hookSubcommand?: HookSubcommand;
-  readonly hookTarget?: TargetName;
-  readonly importPath?: string;
-  readonly jsonOutput: boolean;
-  readonly lookupAspects: readonly string[];
-  readonly lookupField?: string;
-  readonly lookupFeatures: boolean;
-  readonly lookupSubject?: LookupSubject;
-  readonly lookupTargets: readonly TargetName[];
-  readonly lookupViews: readonly LookupView[];
-  readonly options: SkillsetOptions;
-  readonly tryBackground: boolean;
-  readonly tryClaudeSettingSources?: TryClaudeSettingSources;
-  readonly tryLines?: number;
-  readonly tryName?: string;
-  readonly tryPlugins: readonly string[];
-  readonly tryPrompt?: string;
-  readonly tryPromptFile?: string;
-  readonly tryRunId?: string;
-  readonly trySubcommand?: TrySubcommand;
-  readonly tryTarget?: TargetName;
-  readonly tryTimeoutMs?: number;
-  readonly rootExplicit: boolean;
-  readonly rootPath: string;
-  readonly testName?: string;
-  readonly yes: boolean;
-}
-
-function parseArgs(
-  command: Command,
-  args: readonly string[],
-  context: CliParseContext
-): ParsedArgs {
+function parseArgs(command: Command, args: readonly string[]): void {
   let changeSubcommand: ChangeSubcommand | undefined;
   let distributionName: string | undefined;
   let distributionSubcommand: DistributionSubcommand | undefined;
@@ -843,7 +809,6 @@ function parseArgs(
     rootExplicit
   );
   validateListFlags(command, buildMode);
-
   validateLegacyIsolatedFlag(command, isolated);
 
   validateLegacyReleaseFlags(command, {
@@ -872,125 +837,6 @@ function parseArgs(
     ...(newPresets === undefined ? {} : { presets: newPresets }),
     ...(newScope === undefined ? {} : { scope: newScope }),
   });
-  const options: SkillsetOptions = {
-    ...(buildMode === undefined ? {} : { buildMode }),
-    ...(scopes === undefined ? {} : { scopes }),
-    ...(sourceDir === undefined ? {} : { sourceDir }),
-    ...(distDir === undefined ? {} : { distDir }),
-    ...(isolated ? { isolated: true } : {}),
-  };
-
-  return {
-    command,
-    hookAgentRuntime,
-    ...(hookContextEvent === undefined ? {} : { hookContextEvent }),
-    ...(hookContextFields === undefined ? {} : { hookContextFields }),
-    ...(hookContextFormat === undefined ? {} : { hookContextFormat }),
-    hookPreCommit,
-    hookPrePush,
-    ...(hookRunner === undefined ? {} : { hookRunner }),
-    ...(hookRunEvent === undefined ? {} : { hookRunEvent }),
-    ...(hookSubcommand === undefined ? {} : { hookSubcommand }),
-    ...(hookTarget === undefined ? {} : { hookTarget }),
-    ...(importPath === undefined ? {} : { importPath }),
-    jsonOutput,
-    lookupAspects,
-    ...(lookupField === undefined ? {} : { lookupField }),
-    lookupFeatures,
-    ...(lookupSubject === undefined ? {} : { lookupSubject }),
-    lookupTargets,
-    lookupViews,
-    options,
-    tryBackground,
-    ...(tryClaudeSettingSources === undefined
-      ? {}
-      : { tryClaudeSettingSources }),
-    ...(tryLines === undefined ? {} : { tryLines }),
-    ...(tryName === undefined ? {} : { tryName }),
-    tryPlugins,
-    ...(tryPrompt === undefined ? {} : { tryPrompt }),
-    ...(tryPromptFile === undefined ? {} : { tryPromptFile }),
-    ...(tryRunId === undefined ? {} : { tryRunId }),
-    ...(trySubcommand === undefined ? {} : { trySubcommand }),
-    ...(tryTarget === undefined ? {} : { tryTarget }),
-    ...(tryTimeoutMs === undefined ? {} : { tryTimeoutMs }),
-    rootExplicit,
-    rootPath: resolveCliRoot(context, rootPath),
-    ...(testName === undefined ? {} : { testName }),
-    yes,
-  };
-}
-
-function createCliRequest(parsed: ParsedArgs): CliRequest {
-  const { command, jsonOutput, options, rootPath, yes } = parsed;
-  if (command === "hooks")
-    return {
-      command,
-      request: {
-        hookAgentRuntime: parsed.hookAgentRuntime,
-        hookContextEvent: parsed.hookContextEvent,
-        hookContextFields: parsed.hookContextFields,
-        hookContextFormat: parsed.hookContextFormat,
-        hookPreCommit: parsed.hookPreCommit,
-        hookPrePush: parsed.hookPrePush,
-        hookRunEvent: parsed.hookRunEvent,
-        hookRunner: parsed.hookRunner,
-        hookSubcommand: parsed.hookSubcommand,
-        hookTarget: parsed.hookTarget,
-        rootPath,
-      },
-    };
-  if (command === "test")
-    return {
-      command,
-      request: {
-        jsonOutput,
-        options,
-        rootPath,
-        testName: parsed.testName,
-        tryBackground: parsed.tryBackground,
-        tryClaudeSettingSources: parsed.tryClaudeSettingSources,
-        tryLines: parsed.tryLines,
-        tryName: parsed.tryName,
-        tryPlugins: parsed.tryPlugins,
-        tryPrompt: parsed.tryPrompt,
-        tryPromptFile: parsed.tryPromptFile,
-        tryRunId: parsed.tryRunId,
-        trySubcommand: parsed.trySubcommand,
-        tryTarget: parsed.tryTarget,
-        tryTimeoutMs: parsed.tryTimeoutMs,
-      },
-    };
-  if (command === "list")
-    return { command, request: { jsonOutput, options, rootPath } };
-  if (command === "lookup")
-    return {
-      command,
-      request: parsed.lookupFeatures
-        ? {
-            kind: "features",
-            value: { featureId: parsed.importPath, jsonOutput },
-          }
-        : {
-            kind: "query",
-            value: {
-              jsonOutput,
-              lookupAspects: parsed.lookupAspects,
-              lookupField: parsed.lookupField,
-              lookupSubject: parsed.lookupSubject,
-              lookupTargets: parsed.lookupTargets,
-              lookupViews: parsed.lookupViews,
-            },
-          },
-    };
-  if (command === "explain")
-    return {
-      command,
-      request: { jsonOutput, options, path: parsed.importPath, rootPath },
-    };
-  if (command === "status")
-    return { command, request: { jsonOutput, options, rootPath } };
-  throw new Error(`skillset: unhandled command ${command}`);
 }
 
 export function parseCliRequest(
@@ -1004,7 +850,7 @@ export function parseCliRequest(
         `skillset: expected command ${renderExpectedCliCommands()}\n${USAGE}`
       );
     }
-    const parsed = parseArgs(command, args, context);
+    parseArgs(command, args);
     if (command === "change") {
       return { command, request: parseChangeCommandRequest(args, context) };
     }
@@ -1026,11 +872,23 @@ export function parseCliRequest(
         request: parseDistributionCommandRequest(args, context),
       };
     }
+    if (command === "explain") {
+      return { command, request: parseExplainCommandRequest(args, context) };
+    }
+    if (command === "hooks") {
+      return { command, request: parseHooksCommandRequest(args, context) };
+    }
     if (command === "import") {
       return { command, request: parseImportCommandRequest(args, context) };
     }
     if (command === "init") {
       return { command, request: parseInitCommandRequest(args, context) };
+    }
+    if (command === "list") {
+      return { command, request: parseListCommandRequest(args, context) };
+    }
+    if (command === "lookup") {
+      return { command, request: parseLookupCommandRequest(args) };
     }
     if (command === "marketplace") {
       return {
@@ -1053,10 +911,16 @@ export function parseCliRequest(
     if (command === "restore") {
       return { command, request: parseRestoreCommandRequest(args, context) };
     }
+    if (command === "status") {
+      return { command, request: parseStatusCommandRequest(args, context) };
+    }
+    if (command === "test") {
+      return { command, request: parseTestCommandRequest(args, context) };
+    }
     if (command === "update") {
       return { command, request: parseUpdateCommandRequest(args, context) };
     }
-    return createCliRequest(parsed);
+    throw new Error(`skillset: unhandled command ${command}`);
   } catch (error) {
     if (error instanceof CliOutputError) {
       throw error;
