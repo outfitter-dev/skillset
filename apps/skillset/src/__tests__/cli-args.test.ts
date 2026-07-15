@@ -950,6 +950,37 @@ describe("SET-299 parser failure contract", () => {
       message: "skillset: unknown option --jsonl",
     },
     {
+      args: ["change", "add"],
+      command: "change add",
+      message: "skillset: change add requires at least one --scope",
+    },
+    {
+      args: ["change", "add", "--scope", "plugin:demo"],
+      command: "change add",
+      message:
+        "skillset: change add requires --bump major, minor, patch, or none",
+    },
+    {
+      args: ["change", "reason", "--reason", "why"],
+      command: "change reason",
+      message: "skillset: change reason requires @ref",
+    },
+    {
+      args: ["change", "amend", "--reason", "why"],
+      command: "change amend",
+      message: "skillset: change amend requires @ref",
+    },
+    {
+      args: ["change", "show"],
+      command: "change show",
+      message: "skillset: change show requires @ref",
+    },
+    {
+      args: ["release", "amend", "--reason", "why"],
+      command: "release amend",
+      message: "skillset: release amend requires @ref",
+    },
+    {
       args: ["build", "--json=true"],
       command: "build",
       message: "skillset: --json does not take a value",
