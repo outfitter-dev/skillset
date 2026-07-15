@@ -10,6 +10,7 @@ import { ADOPT_REPORT_DIR, adoptCandidateId, adoptSkillset } from "./adopt";
 import type { AdoptReport } from "./adopt";
 import { rememberKnownSkillsetWorkspace } from "./cli-known-workspaces";
 import { printCliJsonData } from "./cli-output";
+import { runInteractiveInit } from "./init-interactive";
 import {
   createInteractiveSession,
   type InteractiveSession,
@@ -54,7 +55,13 @@ export async function runInitCommand(
   const initCwd = resolve(rootPath);
   const explicitInitRootPath = rootExplicit ? initCwd : undefined;
   const setupRootPath = destination ?? explicitInitRootPath;
-  if (initAdopt !== undefined || initFrom !== undefined) {
+  const interactiveSession = jsonOutput
+    ? undefined
+    : (context.interactiveSession ?? createInteractiveSession());
+  if (
+    (initAdopt !== undefined || initFrom !== undefined) &&
+    (yes || interactiveSession === undefined)
+  ) {
     const writeMode = initAdopt !== undefined && yes;
     const inferredRoot =
       initFrom === undefined
@@ -114,62 +121,62 @@ export async function runInitCommand(
     }
     return;
   }
-  const interactiveSession = jsonOutput
-    ? undefined
-    : (context.interactiveSession ?? createInteractiveSession());
   if (!yes && interactiveSession !== undefined) {
     interactiveSession.banner();
-    const survey = await initSkillset({
-      cwd: initCwd,
-      ...(setupRootPath === undefined ? {} : { rootPath: setupRootPath }),
-      ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
-      ...(setupTargets === undefined ? {} : { targets: setupTargets }),
-      useGitRoot: setupRootPath === undefined,
-      write: false,
-    });
-    if (survey.importCandidates.length > 0) {
-      printSetupReport(survey, "interactive preview");
-      const selection = await promptForInitAdoption(
-        survey.importCandidates,
-        interactiveSession
-      );
-      if (selection.confirmed && selection.candidates.length > 0) {
-        const report = await adoptSkillset(destination ?? survey.rootPath, {
-          candidates: selection.candidates,
-          cwd: initCwd,
-          ...(importName === undefined ? {} : { name: importName }),
-          ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
-          ...(setupTargets === undefined ? {} : { targets: setupTargets }),
-          write: true,
-        });
-        printAdoptReport(
-          report,
-          report.write ? "written" : "blocked before write"
-        );
-        if (!report.ok) {
-          process.exitCode = 1;
-        } else {
-          await rememberKnownSkillsetWorkspace(report.rootPath, options);
-        }
-        return;
+    interactiveSession.write("Initialize a skillset:\n");
+    const result = await runInteractiveInit(
+      {
+        destination,
+        importName,
+        initAdopt,
+        initFrom,
+        rootExplicit,
+        rootPath,
+        setupIncludes,
+        setupTargets,
+      },
+      interactiveSession,
+      {
+        printPlan: (plan) => {
+          interactiveSession.write(
+            [
+              "Skillset will:",
+              `Mode: ${plan.mode}`,
+              ...(plan.source === undefined ? [] : [`Source: ${plan.source}`]),
+              ...(plan.destination === undefined
+                ? []
+                : [`Destination: ${plan.destination}`]),
+              `Adoption: ${plan.candidates.length === 0 ? "scaffold only" : plan.candidates.join(", ")}`,
+              `Targets: ${plan.targets.join(", ")}`,
+              `Integrations: ${plan.include.length === 0 ? "none" : plan.include.join(", ")}`,
+              "",
+            ].join("\n")
+          );
+          if (plan.kind === "adopt") {
+            printAdoptReport(plan.report, "interactive preview");
+          } else {
+            printSetupReport(plan.report, "interactive preview");
+          }
+        },
       }
-      if (!selection.confirmed) {
-        printSetupReport(survey, "write confirmation declined");
-        return;
+    );
+    if (result.kind === "adopt") {
+      if (result.reason !== "write confirmation declined") {
+        printAdoptReport(result.report, result.reason);
       }
-      const setup = await initSkillset({
-        cwd: initCwd,
-        ...(setupRootPath === undefined ? {} : { rootPath: setupRootPath }),
-        ...(importName === undefined ? {} : { name: importName }),
-        ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
-        ...(setupTargets === undefined ? {} : { targets: setupTargets }),
-        useGitRoot: setupRootPath === undefined,
-        write: true,
-      });
-      printSetupReport(setup, "written");
-      await rememberKnownSkillsetWorkspace(setup.rootPath, options);
-      return;
+      if (!result.report.ok) process.exitCode = 1;
+      if (result.reason === "written" && result.report.ok) {
+        await rememberKnownSkillsetWorkspace(result.report.rootPath, options);
+      }
+    } else {
+      if (result.reason !== "write confirmation declined") {
+        printSetupReport(result.report, result.reason);
+      }
+      if (result.reason === "written") {
+        await rememberKnownSkillsetWorkspace(result.report.rootPath, options);
+      }
     }
+    return;
   }
   const setup = await initSkillset({
     cwd: initCwd,
@@ -208,62 +215,6 @@ export async function runInitCommand(
     await rememberKnownSkillsetWorkspace(setup.rootPath, options);
   }
   return;
-}
-
-export function readInitAdoptionSelection(
-  answer: string,
-  candidates: readonly { readonly kind: string; readonly path: string }[]
-): readonly string[] {
-  const value = answer.trim();
-  if (value === "" || value === "none") {
-    return [];
-  }
-  const available = new Set(
-    candidates.map((candidate) => `${candidate.kind}:${candidate.path}`)
-  );
-  const selected =
-    value === "all"
-      ? [...available]
-      : value
-          .split(",")
-          .map((item) => item.trim())
-          .filter(Boolean);
-  for (const id of selected) {
-    if (!available.has(id))
-      throw new Error(`skillset: unknown adoption candidate ${id}`);
-  }
-  return [...new Set(selected)];
-}
-
-export async function promptForInitAdoption(
-  candidates: readonly { readonly kind: string; readonly path: string }[],
-  session: InteractiveSession
-): Promise<{
-  readonly candidates: readonly string[];
-  readonly confirmed: boolean;
-}> {
-  session.write("skillset: detected adoptable sources\n");
-  for (const candidate of candidates) {
-    session.write(`  ${adoptCandidateId(candidate)}\n`);
-  }
-  const answer = await session.prompts.input({
-    default: "none",
-    message: "Adopt all, comma-separated candidate ids, or none:",
-    validate: (value) => {
-      try {
-        readInitAdoptionSelection(value, candidates);
-        return true;
-      } catch (error) {
-        return error instanceof Error ? error.message : String(error);
-      }
-    },
-  });
-  const selected = readInitAdoptionSelection(answer, candidates);
-  const confirmed = await session.prompts.confirm({
-    default: false,
-    message: `Write init plan (${selected.length === 0 ? "scaffold only" : `${selected.length} adoption candidate(s)`})?`,
-  });
-  return { candidates: selected, confirmed };
 }
 
 function printAdoptReport(report: AdoptReport, reason: string): void {

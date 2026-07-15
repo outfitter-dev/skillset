@@ -10,7 +10,6 @@ import { createOperationalPathContext, resolveOperationalPath } from "@skillset/
 import { ADOPT_REPORT_DIR, adoptCandidateId, adoptSkillset, renderAdoptReportMarkdown } from "../adopt";
 import { ISOLATED_OUT_ROOT } from "@skillset/core";
 import { gitSafeEnv } from "../git-env";
-import { readInitAdoptionSelection } from "../init-cli";
 
 const AGENTS_CONTENT = "# Demo agents\n\nHandwritten instructions.\n";
 
@@ -30,17 +29,6 @@ const MARKETPLACE_FIXTURE: Record<string, string> = {
   "plugins/demo/skills/demo-skill/SKILL.md":
     "---\nname: demo-skill\ndescription: Demo skill.\n---\n\nBody.\n",
 };
-
-test("SET-277: interactive init selection supports all, individual candidates, and scaffold-only", () => {
-  const candidates = [
-    { kind: "plugin", path: "plugins/demo" },
-    { kind: "skills", path: ".agents/skills" },
-  ];
-  expect(readInitAdoptionSelection("all", candidates)).toEqual(["plugin:plugins/demo", "skills:.agents/skills"]);
-  expect(readInitAdoptionSelection("skills:.agents/skills", candidates)).toEqual(["skills:.agents/skills"]);
-  expect(readInitAdoptionSelection("none", candidates)).toEqual([]);
-  expect(() => readInitAdoptionSelection("plugin:missing", candidates)).toThrow("unknown adoption candidate plugin:missing");
-});
 
 test("SET-277: removed setup commands have no aliases", async () => {
   const create = await runSkillsetCli("create");
