@@ -810,6 +810,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     preCommit: hookPreCommit,
     prePush: hookPrePush,
     ...(hookRunner === undefined ? {} : { runner: hookRunner }),
+    rootExplicit,
     ...(scopes === undefined ? {} : { scopes }),
     ...(sourceDir === undefined ? {} : { sourceDir }),
     ...(hookSubcommand === undefined ? {} : { subcommand: hookSubcommand }),
@@ -893,14 +894,19 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(releaseSubcommand === undefined ? {} : { releaseSubcommand }),
   });
   if (jsonlOutput && command !== "dev") {
-    throw new Error("skillset: --jsonl is only supported with dev");
+    throw new Error("skillset: unknown option --jsonl");
   }
-  validateLookupFlags(command, args, {
-    features: lookupFeatures,
-    ...(lookupField === undefined ? {} : { field: lookupField }),
-    targets: lookupTargets,
-    views: lookupViews,
-  });
+  validateLookupFlags(
+    command,
+    args,
+    {
+      features: lookupFeatures,
+      ...(lookupField === undefined ? {} : { field: lookupField }),
+      targets: lookupTargets,
+      views: lookupViews,
+    },
+    rootExplicit
+  );
   validateSourceDiagnosticFlags(command, {
     ...(buildMode === undefined ? {} : { buildMode }),
     ...(checkOnly === undefined ? {} : { only: checkOnly }),
@@ -941,12 +947,14 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(releaseReason === undefined ? {} : { reason: releaseReason }),
     ...(releaseRef === undefined ? {} : { ref: releaseRef }),
   });
-  validateTestFlags(command, {
+  validateTestFlags(command, args, {
     adHoc: hasAdHocTestFlags,
     ...(buildMode === undefined ? {} : { buildMode }),
     ...(testName === undefined ? {} : { declaredName: testName }),
     ...(distDir === undefined ? {} : { distDir }),
     ...(scopes === undefined ? {} : { scopes }),
+    ...(tryRunId === undefined ? {} : { runId: tryRunId }),
+    ...(trySubcommand === undefined ? {} : { subcommand: trySubcommand }),
     yes,
   });
   validateRestoreFlags(command, {
@@ -978,6 +986,32 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(newPresets === undefined ? {} : { presets: newPresets }),
     ...(newScope === undefined ? {} : { scope: newScope }),
   });
+  if (command === "change" && changeSubcommand === "add") {
+    if (changeScopes === undefined || changeScopes.length === 0) {
+      throw new Error("skillset: change add requires at least one --scope");
+    }
+    if (changeBump === undefined) {
+      throw new Error(
+        "skillset: change add requires --bump major, minor, patch, or none"
+      );
+    }
+  }
+  if (
+    command === "change" &&
+    (changeSubcommand === "amend" ||
+      changeSubcommand === "reason" ||
+      changeSubcommand === "show") &&
+    changeRef === undefined
+  ) {
+    throw new Error(`skillset: change ${changeSubcommand} requires @ref`);
+  }
+  if (
+    command === "release" &&
+    releaseSubcommand === "amend" &&
+    releaseRef === undefined
+  ) {
+    throw new Error("skillset: release amend requires @ref");
+  }
   const options: SkillsetOptions = {
     ...(buildMode === undefined ? {} : { buildMode }),
     ...(scopes === undefined ? {} : { scopes }),
@@ -1527,6 +1561,7 @@ function validateHookFlags(
     readonly preCommit: boolean;
     readonly prePush: boolean;
     readonly runner?: HookRunner;
+    readonly rootExplicit: boolean;
     readonly scopes?: readonly BuildScope[];
     readonly sourceDir?: string;
     readonly subcommand?: HookSubcommand;
@@ -1574,6 +1609,9 @@ function validateHookFlags(
   }
   if (hooks.subcommand === "context" && hooks.contextEvent === undefined) {
     throw new Error("skillset: hooks context requires --event");
+  }
+  if (hooks.subcommand === "print" && hooks.rootExplicit) {
+    throw new Error("skillset: --root is not supported with hooks print");
   }
   if (
     hooks.buildMode !== undefined ||
@@ -1668,17 +1706,36 @@ function validateMarketplaceFlags(
 
 function validateTestFlags(
   command: Command,
+  args: readonly string[],
   test: {
     readonly adHoc: boolean;
     readonly buildMode?: CompileBuildMode;
     readonly declaredName?: string;
     readonly distDir?: string;
+    readonly runId?: string;
     readonly scopes?: readonly BuildScope[];
+    readonly subcommand?: TrySubcommand;
     readonly yes: boolean;
   }
 ): void {
   if (command !== "test") {
     return;
+  }
+  if (test.subcommand === "worker") {
+    if (test.runId === undefined) {
+      throw new Error("skillset: test worker requires run id");
+    }
+    const unsupportedFlag = args.slice(3).find((argument) => {
+      if (!argument.startsWith("--")) {
+        return false;
+      }
+      return argument.split("=", 1)[0] !== "--root";
+    });
+    if (unsupportedFlag !== undefined) {
+      throw new Error(
+        "skillset: test worker only supports <run-id> and --root <path>"
+      );
+    }
   }
   if (test.declaredName !== undefined && test.adHoc) {
     throw new Error(
@@ -2223,7 +2280,8 @@ function validateLookupFlags(
     readonly field?: string;
     readonly targets: readonly TargetName[];
     readonly views: readonly LookupView[];
-  }
+  },
+  rootExplicit: boolean
 ): void {
   if (command === "lookup") {
     if (lookup.features) {
@@ -2244,6 +2302,9 @@ function validateLookupFlags(
           "skillset: expected lookup features to use only an optional feature id and --json"
         );
       }
+    }
+    if (rootExplicit) {
+      throw new Error("skillset: --root is not supported with lookup");
     }
     return;
   }

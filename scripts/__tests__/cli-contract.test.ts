@@ -1,10 +1,16 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  CLI_COMMANDS as RUNTIME_CLI_COMMANDS,
+  CLI_LEAF_SUBCOMMANDS,
+} from "../../apps/skillset/src/cli-commands";
+import { USAGE } from "../../apps/skillset/src/cli-usage";
+import {
   CLI_COMMANDS,
   CLI_ENVIRONMENT,
   CLI_FLAGS,
   FINITE_JSON_ROUTES,
+  HIDDEN_CLI_ROUTES,
   JSONL_ROUTES,
   CLI_ROUTE_FLAGS,
   RETIRED_CLI_COMMANDS,
@@ -18,27 +24,28 @@ describe("SET-275 final CLI contract", () => {
     expect(CLI_COMMANDS).toHaveLength(20);
     expect(new Set(CLI_COMMANDS).size).toBe(CLI_COMMANDS.length);
     expect(CLI_COMMANDS).toEqual([
-      "init",
-      "import",
-      "new",
+      "build",
+      "change",
       "check",
       "dev",
-      "reconcile",
-      "build",
-      "update",
       "diff",
+      "distribute",
+      "explain",
+      "hooks",
+      "import",
+      "init",
+      "list",
+      "lookup",
+      "marketplace",
+      "new",
+      "release",
+      "reconcile",
       "restore",
       "status",
-      "list",
-      "explain",
-      "lookup",
       "test",
-      "change",
-      "release",
-      "marketplace",
-      "distribute",
-      "hooks",
+      "update",
     ]);
+    expect(CLI_COMMANDS).toEqual(RUNTIME_CLI_COMMANDS);
     for (const retired of RETIRED_CLI_COMMANDS) {
       expect(CLI_COMMANDS).not.toContain(retired as never);
     }
@@ -72,6 +79,68 @@ describe("SET-275 final CLI contract", () => {
       "--yes",
     ]);
     expect(CLI_ROUTE_FLAGS["lookup features"]).toEqual(["--json"]);
+    expect(CLI_ROUTE_FLAGS.lookup).not.toContain("--root");
+  });
+
+  test("records hidden protocol grammar outside public help routes", () => {
+    expect(HIDDEN_CLI_ROUTES).toEqual({ "test worker": ["--root"] });
+    expect(CLI_ROUTE_FLAGS).not.toHaveProperty("test worker");
+    expect(FINITE_JSON_ROUTES).not.toContain("test worker");
+    expect(CLI_LEAF_SUBCOMMANDS.test).toContain("worker");
+    expect(USAGE).not.toContain("test worker");
+  });
+
+  test("renders the reconciled finite JSON routes in public help", () => {
+    const helpFragmentByRoute = {
+      build: "skillset build ",
+      "change add": "skillset change add ",
+      "change amend": "skillset change amend ",
+      "change check": "skillset change check ",
+      "change history": "skillset change history ",
+      "change list": "skillset change list ",
+      "change migrate": "skillset change migrate ",
+      "change reason": "skillset change reason ",
+      "change show": "skillset change show ",
+      "change status": "skillset change status ",
+      check: "skillset check ",
+      diff: "skillset diff ",
+      "distribute plan": "skillset distribute plan ",
+      explain: "skillset explain ",
+      import: "skillset import <path> ",
+      init: "skillset init ",
+      list: "skillset list ",
+      lookup: "skillset lookup [subject] ",
+      "lookup features": "skillset lookup features ",
+      "marketplace check": "skillset marketplace check ",
+      "marketplace update": "skillset marketplace update ",
+      new: "skillset new ",
+      reconcile: "skillset reconcile ",
+      "release amend": "skillset release amend ",
+      "release apply": "skillset release apply ",
+      "release audit": "skillset release audit ",
+      "release plan": "skillset release plan ",
+      restore: "skillset restore ",
+      status: "skillset status ",
+      test: "skillset test [name] ",
+      "test list": "skillset test list ",
+      "test status": "skillset test <status|tail> ",
+      "test tail": "skillset test <status|tail> ",
+      update: "skillset update ",
+    } as const satisfies Record<(typeof FINITE_JSON_ROUTES)[number], string>;
+    expect(Object.keys(helpFragmentByRoute).toSorted()).toEqual(
+      [...FINITE_JSON_ROUTES].toSorted()
+    );
+    for (const [route, fragment] of Object.entries(helpFragmentByRoute)) {
+      const line = USAGE.split("\n").find((entry) => entry.includes(fragment));
+      expect(line, route).toContain("[--json]");
+    }
+    for (const fragment of [
+      "skillset import <claude|codex|cursor|agents> ",
+      "skillset change <status|check> --staged ",
+    ]) {
+      const line = USAGE.split("\n").find((entry) => entry.includes(fragment));
+      expect(line).toContain("[--json]");
+    }
   });
 
   test("hard-cuts try environment overrides to the test family", () => {
@@ -100,7 +169,9 @@ describe("SET-275 final CLI contract", () => {
         (entry) => entry.split(":", 1)[0] ?? ""
       ),
     ]);
-    expect([...classifiedRoutes].sort()).toEqual(Object.keys(CLI_ROUTE_FLAGS).sort());
+    expect([...classifiedRoutes].sort()).toEqual(
+      Object.keys(CLI_ROUTE_FLAGS).sort()
+    );
     expect(CLI_FLAGS["--json"].meaning).toContain("exactly one");
     expect(CLI_FLAGS["--jsonl"].meaning).toContain("newline-delimited");
     expect(JSONL_ROUTES).toEqual(["dev"]);
