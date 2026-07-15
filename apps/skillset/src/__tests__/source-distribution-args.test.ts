@@ -13,6 +13,35 @@ import {
 const CONTEXT = { cwd: "/workspace/repo" } as const;
 
 describe("SET-302 source and distribution route parsers", () => {
+  test("validates recognized distribution import metadata before ignoring it", () => {
+    for (const [flag, value, message] of [
+      [
+        "--from",
+        "typo",
+        "skillset: expected --from claude, codex, cursor, agents, or skillset",
+      ],
+      [
+        "--kind",
+        "typo",
+        "skillset: expected --kind skill, skills, plugin, or plugins",
+      ],
+    ] as const) {
+      expect(() =>
+        parseDistributionCommandRequest(
+          ["distribute", "plan", flag, value],
+          CONTEXT
+        )
+      ).toThrow(message);
+    }
+
+    expect(
+      parseDistributionCommandRequest(
+        ["distribute", "plan", "--from", "codex", "--kind", "skill"],
+        CONTEXT
+      )
+    ).toMatchObject({ distributionSubcommand: "plan" });
+  });
+
   test("init owns acquisition, adoption, setup, and confirmation inputs", () => {
     expect(
       parseInitCommandRequest(

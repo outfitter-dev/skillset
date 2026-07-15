@@ -954,6 +954,31 @@ describe("SET-300 CLI parse context", () => {
 
 describe("SET-299 parser failure contract", () => {
   const cases = [
+    ...[
+      {
+        args: ["change", "add", "--scope", "plugin:demo", "--bump", "patch"],
+        command: "change add",
+      },
+      { args: ["release", "plan"], command: "release plan" },
+      { args: ["restore", "backup-id"], command: "restore" },
+      { args: ["distribute", "plan"], command: "distribute plan" },
+      { args: ["list"], command: "list" },
+      { args: ["lookup", "hooks", "events"], command: "lookup" },
+      { args: ["test"], command: "test" },
+      { args: ["hooks", "print"], command: "hooks print" },
+    ].flatMap(({ args, command }) => [
+      {
+        args: [...args, "--from", "typo"],
+        command,
+        message:
+          "skillset: expected --from claude, codex, cursor, agents, or skillset",
+      },
+      {
+        args: [...args, "--kind", "typo"],
+        command,
+        message: "skillset: expected --kind skill, skills, plugin, or plugins",
+      },
+    ]),
     {
       args: ["missing"],
       command: "cli",

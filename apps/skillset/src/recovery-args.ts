@@ -14,6 +14,7 @@ import type {
   ReconcileCommandRequest,
   RestoreCommandRequest,
 } from "./recovery-cli";
+import { readImportKind, readImportProvider } from "./source-arg-values";
 
 export const parseRestoreCommandRequest = (
   args: readonly string[],
@@ -172,9 +173,13 @@ const parseRecoveryOptions = (
           "skillset: --write is only supported with check or dev"
         );
       case "--name":
-      case "--kind":
-      case "--from":
         reader.readRequiredOptionValue(option);
+        break;
+      case "--kind":
+        readImportKind(reader.readRequiredOptionValue(option));
+        break;
+      case "--from":
+        readImportProvider(reader.readRequiredOptionValue(option));
         break;
       default:
         throw new Error(`skillset: unknown option ${option.raw}`);

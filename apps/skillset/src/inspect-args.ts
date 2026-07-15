@@ -38,6 +38,7 @@ import {
   readHookRuntimeContextField,
   readHookRuntimeContextFormat,
 } from "./runtime-hooks";
+import { readImportKind, readImportProvider } from "./source-arg-values";
 
 type LookupCommandRequest =
   | { readonly kind: "features"; readonly value: LookupFeaturesCommandRequest }
@@ -174,9 +175,13 @@ export const parseLookupCommandRequest = (
       }
       case "--scope":
       case "--name":
-      case "--kind":
-      case "--from": {
         reader.readRequiredOptionValue(option);
+        break;
+      case "--kind":
+        readImportKind(reader.readRequiredOptionValue(option));
+        break;
+      case "--from": {
+        readImportProvider(reader.readRequiredOptionValue(option));
         break;
       }
       case "--updated":
@@ -681,9 +686,15 @@ const parseInspectionOptions = (
         break;
       }
       case "--name":
-      case "--kind":
-      case "--from": {
         reader.readRequiredOptionValue(option);
+        statusUnsupported = true;
+        break;
+      case "--kind":
+        readImportKind(reader.readRequiredOptionValue(option));
+        statusUnsupported = true;
+        break;
+      case "--from": {
+        readImportProvider(reader.readRequiredOptionValue(option));
         statusUnsupported = true;
         break;
       }

@@ -7,6 +7,7 @@ import type { ChangeReasonInput, ChangeSubcommand } from "./change-workflow";
 import { assertBooleanOption, CliArgReader } from "./cli-arg-reader";
 import { mergeBuildMode, resolveCliRoot, tokenizeCsv } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
+import { readImportKind, readImportProvider } from "./source-arg-values";
 
 export const parseChangeCommandRequest = (
   args: readonly string[],
@@ -109,9 +110,13 @@ export const parseChangeCommandRequest = (
         );
         break;
       case "--name":
-      case "--kind":
-      case "--from":
         reader.readRequiredOptionValue(option);
+        break;
+      case "--kind":
+        readImportKind(reader.readRequiredOptionValue(option));
+        break;
+      case "--from":
+        readImportProvider(reader.readRequiredOptionValue(option));
         break;
       default:
         throw new Error(`skillset: unknown option ${option.raw}`);

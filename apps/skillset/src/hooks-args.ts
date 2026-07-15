@@ -30,6 +30,7 @@ import type {
   HookRunner,
   HookSubcommand,
 } from "./runtime-hooks";
+import { readImportKind, readImportProvider } from "./source-arg-values";
 
 export const parseHooksCommandRequest = (
   args: readonly string[],
@@ -209,9 +210,15 @@ export const parseHooksCommandRequest = (
         break;
       }
       case "--name":
-      case "--kind":
-      case "--from": {
         reader.readRequiredOptionValue(option);
+        importMetadata = true;
+        break;
+      case "--kind":
+        readImportKind(reader.readRequiredOptionValue(option));
+        importMetadata = true;
+        break;
+      case "--from": {
+        readImportProvider(reader.readRequiredOptionValue(option));
         importMetadata = true;
         break;
       }

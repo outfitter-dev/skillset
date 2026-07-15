@@ -41,6 +41,38 @@ const readOutcome = (run: () => unknown) => {
 };
 
 describe("SET-304 inspection and runtime route parsers", () => {
+  test("validates recognized import metadata across inspection and runtime owners", () => {
+    const routes = [
+      ["list"],
+      ["lookup", "hooks", "events"],
+      ["test"],
+      ["hooks", "print"],
+    ] as const;
+
+    for (const args of routes) {
+      for (const [flag, value, message] of [
+        [
+          "--from",
+          "typo",
+          "skillset: expected --from claude, codex, cursor, agents, or skillset",
+        ],
+        [
+          "--kind",
+          "typo",
+          "skillset: expected --kind skill, skills, plugin, or plugins",
+        ],
+      ] as const) {
+        const input = [...args, flag, value];
+        expect(() => parseDirectRequest(input)).toThrow(message);
+        expect(() => parseCliRequest(input, CONTEXT)).toThrow(message);
+      }
+    }
+
+    expect(
+      parseListCommandRequest(["list", "--from", "codex"], CONTEXT)
+    ).toMatchObject({ options: {} });
+  });
+
   test("inspection routes own roots, scopes, machine mode, and paths", () => {
     expect(
       parseListCommandRequest(
@@ -325,7 +357,10 @@ describe("SET-304 inspection and runtime route parsers", () => {
       {
         message: "skillset: unknown option --jsonl",
         run: () =>
-          parseHooksCommandRequest(["hooks", "run", "stop", "--jsonl"], CONTEXT),
+          parseHooksCommandRequest(
+            ["hooks", "run", "stop", "--jsonl"],
+            CONTEXT
+          ),
       },
     ] as const;
     for (const { message, run } of cases) {
