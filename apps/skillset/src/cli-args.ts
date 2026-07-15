@@ -1,6 +1,3 @@
-import { resolve } from "node:path";
-
-import { isTargetName, targetNames } from "@skillset/core";
 import type { LookupSubject, LookupView } from "@skillset/core";
 import { sourceUnitSelector } from "@skillset/core/internal/source-unit-selector";
 import type {
@@ -12,6 +9,17 @@ import type {
 
 import type { ChangeBump } from "./change-entries";
 import type { ChangeReasonInput, ChangeSubcommand } from "./change-workflow";
+import { assertBooleanOption, CliArgReader } from "./cli-arg-reader";
+import {
+  mergeBuildMode,
+  readBuildScopes,
+  readPositiveInteger,
+  readTargetName,
+  readTargetNames,
+  resolveCliRoot,
+  tokenizeCsv,
+} from "./cli-arg-values";
+import type { CliParseContext } from "./cli-arg-values";
 import { isCliCommand, renderExpectedCliCommands } from "./cli-commands";
 import type { CliCommand } from "./cli-commands";
 import { CliOutputError, readCliCommand } from "./cli-output";
@@ -124,7 +132,10 @@ interface ParsedArgs {
   readonly yes: boolean;
 }
 
-function parseArgs(args: readonly string[]): ParsedArgs {
+function parseArgs(
+  args: readonly string[],
+  context: CliParseContext
+): ParsedArgs {
   const command = args[0];
   if (!isCliCommand(command)) {
     throw new Error(
@@ -195,7 +206,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   let newName: string | undefined;
   let newPresets: readonly string[] | undefined;
   let newScope: NewSourceScope | undefined;
-  let rootPath = process.cwd();
+  let rootPath: string | undefined;
   let rootExplicit = false;
   let sourceDir: string | undefined;
   let distDir: string | undefined;
@@ -413,15 +424,13 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     }
   }
 
-  for (; index < args.length; index += 1) {
-    const arg = args[index];
-    if (arg === undefined) {
+  const reader = new CliArgReader(args, index);
+  while (!reader.done) {
+    const option = reader.readOption();
+    if (option === undefined) {
       break;
     }
-    const equalsIndex = arg.indexOf("=");
-    const flag = equalsIndex === -1 ? arg : arg.slice(0, equalsIndex);
-    const inlineValue =
-      equalsIndex === -1 ? undefined : arg.slice(equalsIndex + 1);
+    const { flag, raw: arg } = option;
     if (
       flag !== "--root" &&
       flag !== "--id" &&
@@ -483,20 +492,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
 
     if (flag === "--compat") {
       lookupViews = addLookupView(lookupViews, "compat");
-      if (inlineValue !== undefined) {
-        lookupTargets = addLookupTargets(lookupTargets, inlineValue);
-        continue;
-      }
-      while (
-        args[index + 1] !== undefined &&
-        !args[index + 1]?.startsWith("--")
-      ) {
-        const value = args[index + 1];
-        if (value === undefined) {
-          break;
-        }
+      for (const value of reader.readOptionalOptionValues(option)) {
         lookupTargets = addLookupTargets(lookupTargets, value);
-        index += 1;
       }
       continue;
     }
@@ -524,17 +521,15 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       flag === "--schema" ||
       flag === "--background"
     ) {
-      if (inlineValue !== undefined) {
-        throw new Error(`skillset: ${flag} does not take a value`);
-      }
+      assertBooleanOption(option);
       if (flag === "--yes") {
         yes = true;
       }
       if (flag === "--updated") {
-        buildMode = setBuildMode(buildMode, "updated");
+        buildMode = mergeBuildMode(buildMode, "updated");
       }
       if (flag === "--all") {
-        buildMode = setBuildMode(buildMode, "all");
+        buildMode = mergeBuildMode(buildMode, "all");
       }
       if (flag === "--isolated") {
         isolated = true;
@@ -601,13 +596,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       continue;
     }
 
-    const value = inlineValue ?? args[index + 1];
-    if (value === undefined || value.startsWith("--")) {
-      throw new Error(`skillset: expected value after ${flag}`);
-    }
-    if (inlineValue === undefined) {
-      index += 1;
-    }
+    const value = reader.readRequiredOptionValue(option);
 
     if (flag === "--root") {
       rootPath = value;
@@ -727,7 +716,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       tryLines = readPositiveInteger(value, "--lines");
     }
     if (flag === "--targets") {
-      setupTargets = readSetupTargets(value);
+      setupTargets = readTargetNames(value);
     }
     if (flag === "--include") {
       setupIncludes = mergeSetupIncludes(setupIncludes, value);
@@ -1089,7 +1078,7 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     ...(tryTarget === undefined ? {} : { tryTarget }),
     ...(tryTimeoutMs === undefined ? {} : { tryTimeoutMs }),
     rootExplicit,
-    rootPath: resolve(rootPath),
+    rootPath: resolveCliRoot(context, rootPath),
     ...(setupIncludes === undefined ? {} : { setupIncludes }),
     ...(setupTargets === undefined ? {} : { setupTargets }),
     ...(reconcileChoice === undefined ? {} : { reconcileChoice }),
@@ -1326,9 +1315,12 @@ function createCliRequest(parsed: ParsedArgs): CliRequest {
   throw new Error(`skillset: unhandled command ${command}`);
 }
 
-export function parseCliRequest(args: readonly string[]): CliRequest {
+export function parseCliRequest(
+  args: readonly string[],
+  context: CliParseContext = { cwd: process.cwd() }
+): CliRequest {
   try {
-    return createCliRequest(parseArgs(args));
+    return createCliRequest(parseArgs(args, context));
   } catch (error) {
     if (error instanceof CliOutputError) {
       throw error;
@@ -1377,10 +1369,7 @@ function readNewSourceScope(value: string): NewSourceScope {
 }
 
 function readChangeScopes(value: string): readonly string[] {
-  const scopes = value
-    .split(",")
-    .map((scope) => scope.trim())
-    .filter((scope) => scope.length > 0);
+  const scopes = tokenizeCsv(value);
   if (scopes.length === 0) {
     throw new Error(
       "skillset: --scope requires at least one source unit scope"
@@ -1392,10 +1381,7 @@ function readChangeScopes(value: string): readonly string[] {
 function readHookRuntimeContextFields(
   value: string
 ): readonly HookRuntimeContextField[] {
-  const fields = value
-    .split(",")
-    .map((field) => field.trim())
-    .filter((field) => field.length > 0);
+  const fields = tokenizeCsv(value);
   if (fields.length === 0) {
     throw new Error("skillset: --context-fields requires at least one field");
   }
@@ -1412,17 +1398,6 @@ function readChangeBump(value: string): ChangeBump {
     return value;
   }
   throw new Error("skillset: expected --bump major, minor, patch, or none");
-}
-
-function readPositiveInteger(value: string, flag: string): number {
-  if (!/^[0-9]+$/u.test(value)) {
-    throw new Error(`skillset: expected ${flag} to be a positive integer`);
-  }
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
-    throw new Error(`skillset: expected ${flag} to be a positive integer`);
-  }
-  return parsed;
 }
 
 function setChangeReason(
@@ -1930,55 +1905,6 @@ function validateNewSourceFlags(
   }
 }
 
-function setBuildMode(
-  current: CompileBuildMode | undefined,
-  next: CompileBuildMode
-): CompileBuildMode {
-  if (current !== undefined && current !== next) {
-    throw new Error(
-      `skillset: conflicting build mode flags --${current} and --${next}`
-    );
-  }
-  return next;
-}
-
-function readBuildScopes(value: string): readonly BuildScope[] {
-  const scopes = value
-    .split(",")
-    .map((scope) => scope.trim())
-    .filter((scope) => scope.length > 0);
-  if (scopes.length === 0) {
-    throw new Error("skillset: --scope requires at least one scope");
-  }
-  if (scopes.includes("all")) {
-    if (scopes.length > 1) {
-      throw new Error(
-        "skillset: --scope all cannot be combined with other scopes"
-      );
-    }
-    return ["repo", "plugins", "project", "user"];
-  }
-  const seen = new Set<BuildScope>();
-  for (const scope of scopes) {
-    if (!isBuildScope(scope)) {
-      throw new Error(
-        "skillset: expected --scope repo, plugins, project, user, all, or a comma-separated combination"
-      );
-    }
-    seen.add(scope);
-  }
-  return [...seen];
-}
-
-function isBuildScope(value: string): value is BuildScope {
-  return (
-    value === "repo" ||
-    value === "plugins" ||
-    value === "project" ||
-    value === "user"
-  );
-}
-
 function readHookRunner(value: string): HookRunner {
   if (
     value === "git" ||
@@ -2000,21 +1926,11 @@ function readHookTarget(value: string): TargetName {
   throw new Error("skillset: expected --target claude or codex");
 }
 
-function readTargetName(value: string): TargetName {
-  if (isTargetName(value)) {
-    return value;
-  }
-  throw new Error(`skillset: expected --target ${targetNames().join(", ")}`);
-}
-
 function mergeSetupIncludes(
   current: readonly SetupInclude[] | undefined,
   value: string
 ): readonly SetupInclude[] {
-  const includes = value
-    .split(",")
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0);
+  const includes = tokenizeCsv(value);
   if (includes.length === 0) {
     throw new Error("skillset: --include requires at least one value");
   }
@@ -2024,26 +1940,6 @@ function mergeSetupIncludes(
       throw new Error("skillset: expected --include ci");
     }
     seen.add(include);
-  }
-  return [...seen];
-}
-
-function readSetupTargets(value: string): readonly TargetName[] {
-  const targets = value
-    .split(",")
-    .map((target) => target.trim())
-    .filter((target) => target.length > 0);
-  if (targets.length === 0) {
-    throw new Error("skillset: --targets requires at least one target");
-  }
-  const seen = new Set<TargetName>();
-  for (const target of targets) {
-    if (!isTargetName(target)) {
-      throw new Error(
-        `skillset: expected --targets ${targetNames().join(", ")}`
-      );
-    }
-    seen.add(target);
   }
   return [...seen];
 }
