@@ -872,32 +872,6 @@ function parseArgs(
     ...(newPresets === undefined ? {} : { presets: newPresets }),
     ...(newScope === undefined ? {} : { scope: newScope }),
   });
-  if (command === "change" && changeSubcommand === "add") {
-    if (changeScopes === undefined || changeScopes.length === 0) {
-      throw new Error("skillset: change add requires at least one --scope");
-    }
-    if (changeBump === undefined) {
-      throw new Error(
-        "skillset: change add requires --bump major, minor, patch, or none"
-      );
-    }
-  }
-  if (
-    command === "change" &&
-    (changeSubcommand === "amend" ||
-      changeSubcommand === "reason" ||
-      changeSubcommand === "show") &&
-    changeRef === undefined
-  ) {
-    throw new Error(`skillset: change ${changeSubcommand} requires @ref`);
-  }
-  if (
-    command === "release" &&
-    releaseSubcommand === "amend" &&
-    releaseRef === undefined
-  ) {
-    throw new Error("skillset: release amend requires @ref");
-  }
   const options: SkillsetOptions = {
     ...(buildMode === undefined ? {} : { buildMode }),
     ...(scopes === undefined ? {} : { scopes }),

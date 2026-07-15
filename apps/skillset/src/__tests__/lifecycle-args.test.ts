@@ -173,6 +173,39 @@ describe("SET-303 lifecycle and recovery route parsers", () => {
         message: "skillset: --use is only supported with reconcile",
       },
       {
+        run: () => parseChangeCommandRequest(["change", "add"], CONTEXT),
+        message: "skillset: change add requires at least one --scope",
+      },
+      {
+        run: () =>
+          parseChangeCommandRequest(
+            ["change", "add", "--scope", "plugin:demo"],
+            CONTEXT
+          ),
+        message:
+          "skillset: change add requires --bump major, minor, patch, or none",
+      },
+      {
+        run: () =>
+          parseChangeCommandRequest(
+            ["change", "reason", "--reason", "why"],
+            CONTEXT
+          ),
+        message: "skillset: change reason requires @ref",
+      },
+      {
+        run: () =>
+          parseChangeCommandRequest(
+            ["change", "amend", "--reason", "why"],
+            CONTEXT
+          ),
+        message: "skillset: change amend requires @ref",
+      },
+      {
+        run: () => parseChangeCommandRequest(["change", "show"], CONTEXT),
+        message: "skillset: change show requires @ref",
+      },
+      {
         run: () =>
           parseReleaseCommandRequest(
             ["release", "plan", "--reason", "why", "--scope", "plugins"],
@@ -214,6 +247,14 @@ describe("SET-303 lifecycle and recovery route parsers", () => {
             CONTEXT
           ),
         message: "skillset: --use is only supported with reconcile",
+      },
+      {
+        run: () =>
+          parseReleaseCommandRequest(
+            ["release", "amend", "--reason", "why"],
+            CONTEXT
+          ),
+        message: "skillset: release amend requires @ref",
       },
       {
         run: () => parseReconcileCommandRequest(["reconcile"], CONTEXT),

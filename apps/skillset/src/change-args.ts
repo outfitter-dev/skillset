@@ -131,6 +131,11 @@ export const parseChangeCommandRequest = (
   if (reconcileChoice !== undefined) {
     throw new Error("skillset: --use is only supported with reconcile");
   }
+  validateRequiredChangeInputs(changeSubcommand, {
+    bump: changeBump,
+    ref: changeRef,
+    scopes: changeScopes,
+  });
   const options: SkillsetOptions = {
     ...(buildMode === undefined ? {} : { buildMode }),
   };
@@ -286,5 +291,31 @@ const validateChangeOptions = (
     throw new Error(
       "skillset: --staged is only supported with change status or change check"
     );
+  }
+};
+
+const validateRequiredChangeInputs = (
+  subcommand: ChangeSubcommand,
+  change: {
+    readonly bump: ChangeBump | undefined;
+    readonly ref: string | undefined;
+    readonly scopes: readonly string[] | undefined;
+  }
+): void => {
+  if (subcommand === "add" && change.scopes === undefined) {
+    throw new Error("skillset: change add requires at least one --scope");
+  }
+  if (subcommand === "add" && change.bump === undefined) {
+    throw new Error(
+      "skillset: change add requires --bump major, minor, patch, or none"
+    );
+  }
+  if (
+    (subcommand === "amend" ||
+      subcommand === "reason" ||
+      subcommand === "show") &&
+    change.ref === undefined
+  ) {
+    throw new Error(`skillset: change ${subcommand} requires @ref`);
   }
 };

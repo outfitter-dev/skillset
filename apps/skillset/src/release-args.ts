@@ -171,6 +171,9 @@ export const parseReleaseCommandRequest = (
   if (reconcileChoice !== undefined) {
     throw new Error("skillset: --use is only supported with reconcile");
   }
+  if (releaseSubcommand === "amend" && releaseRef === undefined) {
+    throw new Error("skillset: release amend requires @ref");
+  }
   return {
     jsonOutput,
     options: {
