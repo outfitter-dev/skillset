@@ -30,6 +30,7 @@
     "skillset-toolkit": "dist/toolkit.js"
   },
   "dependencies": {
+    "@inquirer/prompts": "^8.5.2",
     "yaml": "^2.8.1"
   },
   "devDependencies": {

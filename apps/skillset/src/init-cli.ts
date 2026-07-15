@@ -1,5 +1,4 @@
 import { resolve } from "node:path";
-import { createInterface } from "node:readline/promises";
 
 import { sourceUnitDisplay } from "@skillset/core/internal/source-unit-selector";
 import type {
@@ -11,6 +10,10 @@ import { ADOPT_REPORT_DIR, adoptCandidateId, adoptSkillset } from "./adopt";
 import type { AdoptReport } from "./adopt";
 import { rememberKnownSkillsetWorkspace } from "./cli-known-workspaces";
 import { printCliJsonData } from "./cli-output";
+import {
+  createInteractiveSession,
+  type InteractiveSession,
+} from "./interactive-session";
 import { initSkillset } from "./setup";
 import type { SetupInclude, SetupReport } from "./setup";
 
@@ -28,19 +31,26 @@ export interface InitCommandRequest {
   readonly yes: boolean;
 }
 
-export async function runInitCommand({
-  importName,
-  destination,
-  initAdopt,
-  initFrom,
-  jsonOutput,
-  options,
-  rootExplicit,
-  rootPath,
-  setupIncludes,
-  setupTargets,
-  yes,
-}: InitCommandRequest): Promise<void> {
+export interface InitCommandContext {
+  readonly interactiveSession?: InteractiveSession;
+}
+
+export async function runInitCommand(
+  {
+    importName,
+    destination,
+    initAdopt,
+    initFrom,
+    jsonOutput,
+    options,
+    rootExplicit,
+    rootPath,
+    setupIncludes,
+    setupTargets,
+    yes,
+  }: InitCommandRequest,
+  context: InitCommandContext = {}
+): Promise<void> {
   const initCwd = resolve(rootPath);
   const explicitInitRootPath = rootExplicit ? initCwd : undefined;
   const setupRootPath = destination ?? explicitInitRootPath;
@@ -104,7 +114,11 @@ export async function runInitCommand({
     }
     return;
   }
-  if (!jsonOutput && !yes && process.stdin.isTTY && process.stdout.isTTY) {
+  const interactiveSession = jsonOutput
+    ? undefined
+    : (context.interactiveSession ?? createInteractiveSession());
+  if (!yes && interactiveSession !== undefined) {
+    interactiveSession.banner();
     const survey = await initSkillset({
       cwd: initCwd,
       ...(setupRootPath === undefined ? {} : { rootPath: setupRootPath }),
@@ -115,7 +129,10 @@ export async function runInitCommand({
     });
     if (survey.importCandidates.length > 0) {
       printSetupReport(survey, "interactive preview");
-      const selection = await promptForInitAdoption(survey.importCandidates);
+      const selection = await promptForInitAdoption(
+        survey.importCandidates,
+        interactiveSession
+      );
       if (selection.confirmed && selection.candidates.length > 0) {
         const report = await adoptSkillset(destination ?? survey.rootPath, {
           candidates: selection.candidates,
@@ -218,35 +235,35 @@ export function readInitAdoptionSelection(
   return [...new Set(selected)];
 }
 
-async function promptForInitAdoption(
-  candidates: readonly { readonly kind: string; readonly path: string }[]
+export async function promptForInitAdoption(
+  candidates: readonly { readonly kind: string; readonly path: string }[],
+  session: InteractiveSession
 ): Promise<{
   readonly candidates: readonly string[];
   readonly confirmed: boolean;
 }> {
-  console.log("skillset: detected adoptable sources");
+  session.write("skillset: detected adoptable sources\n");
   for (const candidate of candidates) {
-    console.log(`  ${adoptCandidateId(candidate)}`);
+    session.write(`  ${adoptCandidateId(candidate)}\n`);
   }
-  const prompt = createInterface({
-    input: process.stdin,
-    output: process.stdout,
+  const answer = await session.prompts.input({
+    default: "none",
+    message: "Adopt all, comma-separated candidate ids, or none:",
+    validate: (value) => {
+      try {
+        readInitAdoptionSelection(value, candidates);
+        return true;
+      } catch (error) {
+        return error instanceof Error ? error.message : String(error);
+      }
+    },
   });
-  try {
-    const answer = await prompt.question(
-      "Adopt all, comma-separated candidate ids, or none [none]: "
-    );
-    const selected = readInitAdoptionSelection(answer, candidates);
-    const confirmation = await prompt.question(
-      `Write init plan (${selected.length === 0 ? "scaffold only" : `${selected.length} adoption candidate(s)`})? [y/N]: `
-    );
-    return {
-      candidates: selected,
-      confirmed: /^(?:y|yes)$/iu.test(confirmation.trim()),
-    };
-  } finally {
-    prompt.close();
-  }
+  const selected = readInitAdoptionSelection(answer, candidates);
+  const confirmed = await session.prompts.confirm({
+    default: false,
+    message: `Write init plan (${selected.length === 0 ? "scaffold only" : `${selected.length} adoption candidate(s)`})?`,
+  });
+  return { candidates: selected, confirmed };
 }
 
 function printAdoptReport(report: AdoptReport, reason: string): void {
