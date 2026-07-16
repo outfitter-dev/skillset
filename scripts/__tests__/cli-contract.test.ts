@@ -134,11 +134,16 @@ describe("SET-275 final CLI contract", () => {
       const line = USAGE.split("\n").find((entry) => entry.includes(fragment));
       expect(line, route).toContain("[--json]");
     }
+    for (const fragment of ["skillset import <claude|codex|cursor|agents> "]) {
+      const line = USAGE.split("\n").find((entry) => entry.includes(fragment));
+      expect(line).toContain("[--json]");
+    }
     for (const fragment of [
-      "skillset import <claude|codex|cursor|agents> ",
-      "skillset change <status|check> --staged ",
+      "skillset change status ",
+      "skillset change check ",
     ]) {
       const line = USAGE.split("\n").find((entry) => entry.includes(fragment));
+      expect(line).toContain("[--staged]");
       expect(line).toContain("[--json]");
     }
   });

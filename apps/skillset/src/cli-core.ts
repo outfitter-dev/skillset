@@ -2,7 +2,7 @@ import { runBuildCommand, runDiffCommand } from "./build-cli";
 import { runChangeCommand } from "./change-cli";
 import { runCheckCommand } from "./check-cli";
 import { parseCliRequest } from "./cli-args";
-import { USAGE } from "./cli-usage";
+import { renderCliHelp } from "./cli-help";
 import { runDevCommand } from "./dev-cli";
 import {
   runDistributionCommand,
@@ -28,7 +28,7 @@ export async function runCli(
   rawArgs: readonly string[] = process.argv.slice(2)
 ): Promise<void> {
   if (rawArgs.some((arg) => arg === "--help" || arg === "-h")) {
-    console.log(USAGE);
+    console.log(renderCliHelp(rawArgs));
     return;
   }
 

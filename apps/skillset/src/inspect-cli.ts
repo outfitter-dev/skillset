@@ -16,16 +16,19 @@ import type {
 } from "@skillset/core/internal/types";
 import type { SkillsetCliDiagnostic } from "@skillset/schema";
 
+import { renderGeneratedEntryList } from "./cli-list-renderer";
 import { printCliJsonData } from "./cli-output";
 import { runLookupCommand } from "./lookup-cli";
 
 export interface ListCommandRequest {
+  readonly details: boolean;
   readonly jsonOutput: boolean;
   readonly options: SkillsetOptions;
   readonly rootPath: string;
 }
 
 export async function runListCommand({
+  details,
   jsonOutput,
   options,
   rootPath,
@@ -35,18 +38,7 @@ export async function runListCommand({
     printCliJsonData("list", { entries });
     return;
   }
-  for (const entry of entries) {
-    const feature = entry.feature === undefined ? "" : ` ${entry.feature}`;
-    const origin = entry.origin === undefined ? "" : ` (${entry.origin})`;
-    const dependencies =
-      entry.dependencies === undefined || entry.dependencies.length === 0
-        ? ""
-        : ` deps:${entry.dependencies.join(";")}`;
-    console.log(
-      `  [${entry.target}] ${entry.kind ?? "generated"}${feature}${origin} ${entry.sourcePath} -> ${entry.outputPath}${dependencies}`
-    );
-  }
-  console.log(`skillset: listed ${entries.length} generated entries`);
+  console.log(renderGeneratedEntryList(entries, details));
   return;
 }
 
