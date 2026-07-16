@@ -1,15 +1,19 @@
+import type { Readable, Writable } from "node:stream";
+
+import { intro } from "@clack/prompts";
+
 import packageJson from "../package.json";
 import {
-  InquirerPromptAdapter,
+  ClackPromptAdapter,
   type PromptAdapter,
   type PromptContext,
 } from "./prompt-adapter";
 
-interface TtyReadable extends NodeJS.ReadableStream {
+interface TtyReadable extends Readable {
   readonly isTTY?: boolean;
 }
 
-interface TtyWritable extends NodeJS.WritableStream {
+interface TtyWritable extends Writable {
   readonly isTTY?: boolean;
 }
 
@@ -61,11 +65,11 @@ export function createInteractiveSession(
     output,
     ...(options.signal === undefined ? {} : { signal: options.signal }),
   };
-  const prompts = options.adapter ?? new InquirerPromptAdapter(context);
+  const prompts = options.adapter ?? new ClackPromptAdapter(context);
   return {
     prompts,
     signal: options.signal,
-    banner: () => output.write(`Skillset v${packageJson.version}\n\n`),
+    banner: () => intro(`Skillset v${packageJson.version}`, { output }),
     write: (message) => output.write(message),
   };
 }

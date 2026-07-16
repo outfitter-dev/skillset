@@ -74,7 +74,7 @@ describe("SET-292 derived init choices", () => {
       "plugin:.claude/plugins/plugin-7",
     ];
     const { adapter, session } = scriptedSession([
-      { kind: "search-checkbox", value: selectedIds },
+      { kind: "search-multiselect", value: selectedIds },
     ]);
 
     await expect(
@@ -82,7 +82,7 @@ describe("SET-292 derived init choices", () => {
     ).resolves.toEqual(selectedIds);
     adapter.assertComplete();
     const prompt = adapter.prompts[0];
-    if (prompt?.kind !== "search-checkbox") {
+    if (prompt?.kind !== "search-multiselect") {
       throw new Error("expected searchable candidate prompt");
     }
     expect(prompt.prompt.choices).toHaveLength(9);
