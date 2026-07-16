@@ -37,7 +37,7 @@ export const USAGE = [
   "       skillset hooks run <post-tool-use|stop> [--root <path>]",
   "       skillset hooks context --event <event> [--format env|json] [--context-fields <field,...>] [--root <path>]",
   "       skillset init [destination] [--from <path|git-url>] [--adopt <all|candidate-id>] [--yes] [--targets claude,codex,cursor] [--include ci] [--name <name>] [--json] [--root <path>]",
-  "       skillset new <skill|agent|hook> [name] [--id <id>] [--name <name>] [--in <container>] [--scope repo] [--preset <preset>] [--yes] [--json] [--root <path>]",
+  "       skillset new [skill|agent|hook] [name] [--id <id>] [--name <name>] [--in <container>] [--scope repo] [--preset <preset>] [--yes] [--json] [--root <path>]",
   "       skillset explain <path> [--json] [--scope <scope>] [--root <path>]",
   "       skillset import <path> [--kind <skill|skills|plugin|plugins>] [--from <provider>] [--name <name>] [--json] [--root <path>]",
   "       skillset import <claude|codex|cursor|agents> [--json] [--root <path>]",

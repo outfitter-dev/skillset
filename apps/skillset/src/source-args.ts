@@ -7,7 +7,12 @@ import {
   resolveCliRoot,
 } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
-import type { NewSourceKind, NewSourceScope } from "./new-source";
+import {
+  isNewSourceKind,
+  parseSkillPresets,
+  type NewSourceKind,
+  type NewSourceScope,
+} from "./new-source";
 import {
   readImportKind,
   readImportProvider,
@@ -134,7 +139,7 @@ export const parseNewCommandRequest = (
   context: CliParseContext
 ): NewCommandRequest => {
   const kind = readNewSourceKind(args[1]);
-  let index = 2;
+  let index = kind === undefined ? 1 : 2;
   let positionalName: string | undefined;
   const positional = args[index];
   if (positional !== undefined && !positional.startsWith("--")) {
@@ -217,7 +222,7 @@ export const parseNewCommandRequest = (
     displayName,
     id,
     json,
-    presets,
+    presets: presets === undefined ? undefined : parseSkillPresets(presets),
     root,
     scope,
     yes,
@@ -250,9 +255,11 @@ const isImportProvider = (value: string | undefined): value is ImportProvider =>
   value === "cursor" ||
   value === "skillset";
 
-const readNewSourceKind = (value: string | undefined): NewSourceKind => {
-  if (value === "agent" || value === "hook" || value === "skill") return value;
-  throw new Error("skillset: expected new kind skill, agent, or hook");
+const readNewSourceKind = (
+  value: string | undefined
+): NewSourceKind | undefined => {
+  if (value === undefined || value.startsWith("--")) return undefined;
+  return isNewSourceKind(value) ? value : undefined;
 };
 
 const readNewSourceScope = (value: string): NewSourceScope => {

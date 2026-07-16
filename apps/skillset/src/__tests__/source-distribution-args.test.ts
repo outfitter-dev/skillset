@@ -132,8 +132,8 @@ describe("SET-302 source and distribution route parsers", () => {
           "--in",
           "quality",
           "--preset",
-          "base",
-          "--preset=security",
+          "support",
+          "--preset=evals",
           "--scope",
           "repo",
           "--root",
@@ -149,13 +149,29 @@ describe("SET-302 source and distribution route parsers", () => {
       newId: "review-agent",
       newKind: "agent",
       newName: "Reviewer",
-      newPresets: ["base", "security"],
+      newPresets: ["support", "evals"],
       newScope: "repo",
       options: {},
       positionalName: "reviewer",
       rootPath: "/workspace/repo/nested",
       yes: true,
     });
+    expect(
+      parseNewCommandRequest(["new", "--root", "nested"], CONTEXT)
+    ).toMatchObject({
+      newKind: undefined,
+      rootPath: "/workspace/repo/nested",
+    });
+    expect(
+      parseNewCommandRequest(["new", "Docs Expert", "--root", "nested"], CONTEXT)
+    ).toMatchObject({
+      newKind: undefined,
+      positionalName: "Docs Expert",
+      rootPath: "/workspace/repo/nested",
+    });
+    expect(() =>
+      parseNewCommandRequest(["new", "skill", "--preset", "missing"], CONTEXT)
+    ).toThrow("expected --preset minimal, support");
   });
 
   test("distribution routes own subcommands, names, machine mode, and writes", () => {

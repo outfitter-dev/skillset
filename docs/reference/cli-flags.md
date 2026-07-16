@@ -36,7 +36,7 @@ The entries below are the complete final public flag set. Positional arguments a
 | --- | --- | --- |
 | `init [destination]` | `--root`, `--from`, `--adopt`, `--targets`, `--include`, `--name`, `--yes`, `--json` | `--adopt all` or repeat stable candidate ids. A TTY guides missing mode, source, adoption, target, and integration choices, previews the derived plan, then confirms with No as the default. |
 | `import` | `--root`, `--from`, `--kind`, `--name`, `--json` | Repeated-use asset conversion; import itself remains explicit. |
-| `new` | `--root`, `--id`, `--name`, `--in`, `--scope`, `--preset`, `--yes`, `--json` | Preview by default. |
+| `new` | `--root`, `--id`, `--name`, `--in`, `--scope`, `--preset`, `--yes`, `--json` | Preview by default. A TTY guides missing kind, identity, valid container, and preset choices before a default-No confirmation. |
 | `check` | `--root`, `--only`, `--write`, `--ci`, `--fix`, `--since`, `--report`, `--json` | `--fix` requires `--ci`; `--since` and `--report` are CI-only. |
 | `dev` | `--root`, `--write`, `--jsonl` | Watching is the command's default; `--watch` and `--apply` disappear. |
 | `reconcile <path>` | `--root`, `--use source` or `--use output`, `--yes`, `--json` | Diagnosis is default; direction can be previewed before confirmation. |

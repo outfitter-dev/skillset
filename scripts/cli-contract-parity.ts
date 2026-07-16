@@ -294,6 +294,8 @@ function runtimeFlagArgs(flag: CliFlag, route: string): readonly string[] {
         return "1";
       case "--only":
         return "outputs";
+      case "--preset":
+        return "minimal";
       case "--ref":
         return "@example";
       case "--runner":
