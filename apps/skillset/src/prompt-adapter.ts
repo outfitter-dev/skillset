@@ -1,12 +1,16 @@
-import {
-  checkbox as inquirerCheckbox,
-  confirm as inquirerConfirm,
-  input as inquirerInput,
-  search as inquirerSearch,
-  select as inquirerSelect,
-} from "@inquirer/prompts";
+import type { Readable, Writable } from "node:stream";
 
-import { runSearchCheckbox } from "./search-checkbox";
+import {
+  autocomplete,
+  autocompleteMultiselect,
+  confirm,
+  isCancel,
+  log,
+  multiselect,
+  select,
+  text,
+  type Option,
+} from "@clack/prompts";
 
 export interface PromptChoice<Value> {
   readonly checked?: boolean;
@@ -50,7 +54,7 @@ export interface SearchPrompt<Value> {
   readonly source: (
     term: string | undefined,
     options: { readonly signal: AbortSignal }
-  ) => readonly PromptChoice<Value>[] | Promise<readonly PromptChoice<Value>[]>;
+  ) => readonly PromptChoice<Value>[];
 }
 
 export interface SearchCheckboxPrompt<Value> extends CheckboxPrompt<Value> {
@@ -73,8 +77,8 @@ export interface PromptAdapter {
 
 export interface PromptContext {
   readonly clearPromptOnDone?: boolean;
-  readonly input?: NodeJS.ReadableStream;
-  readonly output?: NodeJS.WritableStream;
+  readonly input?: Readable;
+  readonly output?: Writable;
   readonly signal?: AbortSignal;
 }
 
@@ -87,80 +91,203 @@ export class PromptCancelledError extends Error {
   }
 }
 
-const CANCELLATION_ERROR_NAMES = new Set([
-  "AbortPromptError",
-  "CancelPromptError",
-  "ExitPromptError",
-]);
-
 export function normalizePromptError(error: unknown): never {
-  if (
-    error instanceof PromptCancelledError ||
-    (error instanceof Error && CANCELLATION_ERROR_NAMES.has(error.name))
-  ) {
+  if (error instanceof PromptCancelledError || isCancel(error)) {
     throw new PromptCancelledError();
   }
   throw error;
 }
 
-export class InquirerPromptAdapter implements PromptAdapter {
+const SAVE_CURSOR = "\u001B[s";
+const RESTORE_CURSOR_AND_CLEAR = "\u001B[u\u001B[0J";
+
+export class ClackPromptAdapter implements PromptAdapter {
   readonly #context: PromptContext;
+  readonly #sourceSignal: AbortSignal;
 
   constructor(context: PromptContext = {}) {
     this.#context = context;
+    this.#sourceSignal = context.signal ?? new AbortController().signal;
   }
 
   async checkbox<Value>(
     prompt: CheckboxPrompt<Value>
   ): Promise<readonly Value[]> {
-    try {
-      return await inquirerCheckbox(prompt, this.#context);
-    } catch (error) {
-      return normalizePromptError(error);
-    }
+    return this.#run<readonly Value[]>(() =>
+      multiselect<unknown>({
+        ...this.#clackContext(),
+        initialValues: initialValues(prompt.choices),
+        ...(prompt.pageSize === undefined ? {} : { maxItems: prompt.pageSize }),
+        message: prompt.message,
+        options: prompt.choices.map((choice) => toClackOption(choice)),
+        required: prompt.required ?? false,
+      })
+    );
   }
 
   async confirm(prompt: ConfirmPrompt): Promise<boolean> {
-    try {
-      return await inquirerConfirm(prompt, this.#context);
-    } catch (error) {
-      return normalizePromptError(error);
-    }
+    return this.#run<boolean>(() =>
+      confirm({
+        ...this.#clackContext(),
+        ...(prompt.default === undefined
+          ? {}
+          : { initialValue: prompt.default }),
+        message: prompt.message,
+      })
+    );
   }
 
   async input(prompt: InputPrompt): Promise<string> {
-    try {
-      return await inquirerInput(prompt, this.#context);
-    } catch (error) {
-      return normalizePromptError(error);
-    }
+    return this.#run<string>(async () => {
+      let initialValue = prompt.default;
+      while (true) {
+        const result = await text({
+          ...this.#clackContext(),
+          ...(prompt.default === undefined
+            ? {}
+            : { defaultValue: prompt.default }),
+          ...(initialValue === undefined ? {} : { initialValue }),
+          message: prompt.message,
+        });
+        if (isCancel(result) || prompt.validate === undefined) return result;
+        const validation = await prompt.validate(result);
+        if (validation === true) return result;
+        log.warn(
+          typeof validation === "string"
+            ? validation
+            : "Please enter a valid value.",
+          this.#context.output === undefined
+            ? undefined
+            : { output: this.#context.output }
+        );
+        initialValue = result;
+      }
+    });
   }
 
   async search<Value>(prompt: SearchPrompt<Value>): Promise<Value> {
-    try {
-      return await inquirerSearch(prompt, this.#context);
-    } catch (error) {
-      return normalizePromptError(error);
-    }
+    const source = prompt.source;
+    const signal = this.#sourceSignal;
+    return this.#run<Value>(() =>
+      autocomplete<unknown>({
+        ...this.#clackContext(),
+        filter: () => true,
+        ...(prompt.default === undefined
+          ? {}
+          : { initialValue: prompt.default }),
+        ...(prompt.pageSize === undefined ? {} : { maxItems: prompt.pageSize }),
+        message: prompt.message,
+        options: function () {
+          return source(this.userInput || undefined, { signal }).map((choice) =>
+            toClackOption(choice)
+          );
+        },
+      })
+    );
   }
 
   async searchCheckbox<Value>(
     prompt: SearchCheckboxPrompt<Value>
   ): Promise<readonly Value[]> {
-    try {
-      return await runSearchCheckbox(prompt, this.#context);
-    } catch (error) {
-      return normalizePromptError(error);
-    }
+    const source = prompt.source;
+    return this.#run<readonly Value[]>(() =>
+      autocompleteMultiselect<unknown>({
+        ...this.#clackContext(),
+        filter: () => true,
+        initialValues: initialValues(prompt.choices),
+        ...(prompt.pageSize === undefined ? {} : { maxItems: prompt.pageSize }),
+        message: prompt.message,
+        options: function () {
+          return source(this.userInput || undefined, prompt.choices).map(
+            (choice) => toClackOption(choice)
+          );
+        },
+        ...(prompt.required === undefined ? {} : { required: prompt.required }),
+      })
+    );
   }
 
   async select<Value>(prompt: ChoicePrompt<Value>): Promise<Value> {
+    return this.#run<Value>(() =>
+      select<unknown>({
+        ...this.#clackContext(),
+        ...(prompt.default === undefined
+          ? {}
+          : { initialValue: prompt.default }),
+        ...(prompt.pageSize === undefined ? {} : { maxItems: prompt.pageSize }),
+        message: prompt.message,
+        options: prompt.choices.map((choice) => toClackOption(choice)),
+      })
+    );
+  }
+
+  #clackContext(): Pick<PromptContext, "input" | "output" | "signal"> {
+    const { input, output, signal } = this.#context;
+    return {
+      ...(input === undefined ? {} : { input: ensureRawMode(input) }),
+      ...(output === undefined ? {} : { output }),
+      ...(signal === undefined ? {} : { signal }),
+    };
+  }
+
+  async #run<Value>(
+    operation: () => Promise<unknown | symbol>
+  ): Promise<Value> {
+    const clear = this.#context.clearPromptOnDone === true;
+    if (clear) this.#context.output?.write(SAVE_CURSOR);
     try {
-      return await inquirerSelect(prompt, this.#context);
+      const result = await operation();
+      if (isCancel(result)) throw new PromptCancelledError();
+      // Every Clack call is supplied from the corresponding typed adapter
+      // request, so a non-cancel result has that request's value type.
+      return result as Value;
     } catch (error) {
       return normalizePromptError(error);
+    } finally {
+      if (clear) this.#context.output?.write(RESTORE_CURSOR_AND_CLEAR);
     }
   }
+}
+
+interface RawModeReadable extends Readable {
+  isTTY?: boolean;
+  setRawMode?: (mode: boolean) => unknown;
+}
+
+function ensureRawMode(input: Readable): Readable {
+  const ttyInput = input as RawModeReadable;
+  if (ttyInput.isTTY === true && ttyInput.setRawMode === undefined) {
+    // Clack correctly treats TTY streams as raw-capable terminals. Lightweight
+    // injected streams used by embedders and tests can signal TTY eligibility
+    // without implementing ReadStream#setRawMode, so give only that instance a
+    // no-op compatibility method instead of touching process-global streams.
+    ttyInput.setRawMode = () => input;
+  }
+  return input;
+}
+
+function toClackOption<Value>(choice: PromptChoice<Value>): Option<unknown> {
+  return {
+    ...(choice.disabled === undefined
+      ? {}
+      : { disabled: Boolean(choice.disabled) }),
+    ...(choice.description === undefined ? {} : { hint: choice.description }),
+    label:
+      choice.disabled === true
+        ? `${choice.name} (disabled)`
+        : typeof choice.disabled === "string"
+          ? `${choice.name} ${choice.disabled}`
+          : choice.name,
+    value: choice.value,
+  };
+}
+
+function initialValues<Value>(
+  choices: readonly PromptChoice<Value>[]
+): Value[] {
+  return choices
+    .filter((choice) => choice.checked === true && !choice.disabled)
+    .map((choice) => choice.value);
 }
 
 export type ScriptedPromptAnswer =
@@ -168,7 +295,7 @@ export type ScriptedPromptAnswer =
   | { readonly kind: "confirm"; readonly value: boolean }
   | { readonly kind: "input"; readonly value: string }
   | { readonly kind: "search"; readonly value: unknown }
-  | { readonly kind: "search-checkbox"; readonly value: readonly unknown[] }
+  | { readonly kind: "search-multiselect"; readonly value: readonly unknown[] }
   | { readonly kind: "select"; readonly value: unknown };
 
 export type RecordedPrompt =
@@ -177,7 +304,7 @@ export type RecordedPrompt =
   | { readonly kind: "input"; readonly prompt: InputPrompt }
   | { readonly kind: "search"; readonly prompt: SearchPrompt<unknown> }
   | {
-      readonly kind: "search-checkbox";
+      readonly kind: "search-multiselect";
       readonly prompt: SearchCheckboxPrompt<unknown>;
     }
   | { readonly kind: "select"; readonly prompt: ChoicePrompt<unknown> };
@@ -218,8 +345,8 @@ export class ScriptedPromptAdapter implements PromptAdapter {
     // The recorder erases generic values while preserving the callable prompt.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const recorded = prompt as unknown as SearchCheckboxPrompt<unknown>;
-    this.prompts.push({ kind: "search-checkbox", prompt: recorded });
-    return this.#read("search-checkbox") as readonly Value[];
+    this.prompts.push({ kind: "search-multiselect", prompt: recorded });
+    return this.#read("search-multiselect") as readonly Value[];
   }
 
   async select<Value>(prompt: ChoicePrompt<Value>): Promise<Value> {

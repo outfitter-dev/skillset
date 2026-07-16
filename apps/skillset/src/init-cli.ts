@@ -10,7 +10,10 @@ import { ADOPT_REPORT_DIR, adoptCandidateId, adoptSkillset } from "./adopt";
 import type { AdoptReport } from "./adopt";
 import { rememberKnownSkillsetWorkspace } from "./cli-known-workspaces";
 import { printCliJsonData } from "./cli-output";
-import { runInteractiveInit } from "./init-interactive";
+import {
+  formatInteractiveInitPlan,
+  runInteractiveInit,
+} from "./init-interactive";
 import {
   createInteractiveSession,
   type InteractiveSession,
@@ -123,7 +126,6 @@ export async function runInitCommand(
   }
   if (!yes && interactiveSession !== undefined) {
     interactiveSession.banner();
-    interactiveSession.write("Initialize a skillset:\n");
     const result = await runInteractiveInit(
       {
         destination,
@@ -137,27 +139,11 @@ export async function runInitCommand(
       },
       interactiveSession,
       {
-        printPlan: (plan) => {
-          interactiveSession.write(
-            [
-              "Skillset will:",
-              `Mode: ${plan.mode}`,
-              ...(plan.source === undefined ? [] : [`Source: ${plan.source}`]),
-              ...(plan.destination === undefined
-                ? []
-                : [`Destination: ${plan.destination}`]),
-              `Adoption: ${plan.candidates.length === 0 ? "scaffold only" : plan.candidates.join(", ")}`,
-              `Targets: ${plan.targets.join(", ")}`,
-              `Integrations: ${plan.include.length === 0 ? "none" : plan.include.join(", ")}`,
-              "",
-            ].join("\n")
-          );
-          if (plan.kind === "adopt") {
-            printAdoptReport(plan.report, "interactive preview");
-          } else {
-            printSetupReport(plan.report, "interactive preview");
-          }
-        },
+        printPlan: (plan) =>
+          interactiveSession.note(
+            formatInteractiveInitPlan(plan),
+            "Skillset will"
+          ),
       }
     );
     if (result.kind === "adopt") {

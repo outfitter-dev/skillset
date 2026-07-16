@@ -11,7 +11,7 @@ import {
   interactiveSessionEligible,
 } from "../interactive-session";
 import {
-  InquirerPromptAdapter,
+  ClackPromptAdapter,
   normalizePromptError,
   PromptCancelledError,
   ScriptedPromptAdapter,
@@ -19,8 +19,14 @@ import {
 
 const ttyInput = (): PassThrough & { isTTY: true } =>
   Object.assign(new PassThrough(), { isTTY: true as const });
-const ttyOutput = (): PassThrough & { isTTY: true } =>
-  Object.assign(new PassThrough(), { isTTY: true as const });
+const ttyOutput = (
+  columns = 80
+): PassThrough & { columns: number; isTTY: true; rows: number } =>
+  Object.assign(new PassThrough(), {
+    columns,
+    isTTY: true as const,
+    rows: 24,
+  });
 const interactiveEnv = { CI: "false" } as const;
 
 const waitForOutput = async (
@@ -95,7 +101,7 @@ describe("SET-291 prompt adapters", () => {
       { kind: "confirm", value: false },
       { kind: "select", value: "one" },
       { kind: "search", value: "two" },
-      { kind: "search-checkbox", value: ["two"] },
+      { kind: "search-multiselect", value: ["two"] },
       { kind: "checkbox", value: ["one", "two"] },
     ]);
 
@@ -157,25 +163,15 @@ describe("SET-291 prompt adapters", () => {
     expect(() => unused.assertComplete()).toThrow("1 unused answer");
   });
 
-  test("Inquirer cancellation and abort errors become one controlled error", () => {
-    for (const name of [
-      "AbortPromptError",
-      "CancelPromptError",
-      "ExitPromptError",
-    ]) {
-      const error = new Error("internal details");
-      error.name = name;
-      expect(() => normalizePromptError(error)).toThrow(PromptCancelledError);
-      expect(() => normalizePromptError(error)).toThrow(
-        "skillset: interactive prompt cancelled"
-      );
-    }
+  test("unrecognized prompt errors retain their original details", () => {
+    const error = new Error("internal details");
+    expect(() => normalizePromptError(error)).toThrow(error);
   });
 
   test("the real adapter normalizes an aborted prompt", async () => {
     const controller = new AbortController();
     controller.abort();
-    const adapter = new InquirerPromptAdapter({
+    const adapter = new ClackPromptAdapter({
       input: ttyInput(),
       output: ttyOutput(),
       signal: controller.signal,
@@ -193,6 +189,151 @@ describe("SET-291 prompt adapters", () => {
     ).rejects.toThrow(PromptCancelledError);
   });
 
+  test("the real adapter maps defaults and initial choices for all six prompt kinds", async () => {
+    const submit = async <Value>(
+      run: (adapter: ClackPromptAdapter) => Promise<Value>
+    ): Promise<Value> => {
+      const input = ttyInput();
+      const result = run(
+        new ClackPromptAdapter({ input, output: ttyOutput() })
+      );
+      input.write("\r");
+      return result;
+    };
+    const choices = [
+      { name: "One", value: "one" },
+      { checked: true, name: "Two", value: "two" },
+    ] as const;
+
+    await expect(
+      submit((adapter) => adapter.input({ default: "demo", message: "Name:" }))
+    ).resolves.toBe("demo");
+    await expect(
+      submit((adapter) =>
+        adapter.confirm({ default: false, message: "Proceed?" })
+      )
+    ).resolves.toBe(false);
+    await expect(
+      submit((adapter) =>
+        adapter.select({ choices, default: "two", message: "Choose:" })
+      )
+    ).resolves.toBe("two");
+    await expect(
+      submit((adapter) => adapter.checkbox({ choices, message: "Include:" }))
+    ).resolves.toEqual(["two"]);
+    await expect(
+      submit((adapter) =>
+        adapter.search({
+          default: "two",
+          message: "Find:",
+          source: () => choices,
+        })
+      )
+    ).resolves.toBe("two");
+    await expect(
+      submit((adapter) =>
+        adapter.searchCheckbox({
+          choices,
+          message: "Find and include:",
+          source: (_term, available) => available,
+        })
+      )
+    ).resolves.toEqual(["two"]);
+  });
+
+  test("the real adapter renders choice hints and disabled reasons", async () => {
+    const input = ttyInput();
+    const output = ttyOutput();
+    let transcript = "";
+    output.on("data", (chunk: Buffer) => {
+      transcript += chunk.toString();
+    });
+    const result = new ClackPromptAdapter({ input, output }).select({
+      choices: [
+        { description: "recommended", name: "One", value: "one" },
+        { disabled: "unavailable", name: "Two", value: "two" },
+      ],
+      default: "one",
+      message: "Choose:",
+    });
+
+    expect(Bun.stripANSI(transcript)).toContain("One (recommended)");
+    expect(Bun.stripANSI(transcript)).toContain("Two unavailable");
+    input.write("\r");
+    await expect(result).resolves.toBe("one");
+  });
+
+  test("the real adapter preserves async validation and term-aware search", async () => {
+    const validationInput = ttyInput();
+    const validationOutput = ttyOutput();
+    const validationAdapter = new ClackPromptAdapter({
+      input: validationInput,
+      output: validationOutput,
+    });
+    const validated = validationAdapter.input({
+      default: "good",
+      message: "Name:",
+      validate: async (value) => value === "good",
+    });
+    validationInput.write("\r");
+    await expect(validated).resolves.toBe("good");
+
+    const searchInput = ttyInput();
+    const searchAdapter = new ClackPromptAdapter({
+      input: searchInput,
+      output: ttyOutput(),
+    });
+    const terms: Array<string | undefined> = [];
+    const searched = searchAdapter.search({
+      default: "two",
+      message: "Find:",
+      source: (term) => {
+        terms.push(term);
+        const choices = [
+          { name: "One", value: "one" },
+          { name: "Two", value: "two" },
+        ];
+        return term === undefined
+          ? choices
+          : choices.filter((choice) =>
+              choice.name.toLowerCase().includes(term.toLowerCase())
+            );
+      },
+    });
+    searchInput.write("two");
+    searchInput.write("\r");
+    await expect(searched).resolves.toBe("two");
+    expect(terms).toContain("two");
+  });
+
+  test("the real adapter uses injected width and clears completed prompts on request", async () => {
+    const input = ttyInput();
+    const output = ttyOutput(24);
+    let transcript = "";
+    output.on("data", (chunk: Buffer) => {
+      transcript += chunk.toString();
+    });
+    const adapter = new ClackPromptAdapter({
+      clearPromptOnDone: true,
+      input,
+      output,
+    });
+    const result = adapter.confirm({
+      default: false,
+      message: "Keep this deliberately long prompt within the injected width?",
+    });
+
+    input.write("\r");
+
+    await expect(result).resolves.toBe(false);
+    const rendered = Bun.stripANSI(transcript);
+    expect(
+      rendered.split("\n").every((line) => Bun.stringWidth(line) <= 24)
+    ).toBe(true);
+    expect(transcript).toContain("\u001B[s");
+    expect(transcript).toContain("\u001B[u\u001B[0J");
+  });
+
   test("the real searchable checkbox filters, persists selections, and skips disabled choices", async () => {
     const input = ttyInput();
     const output = ttyOutput();
@@ -200,7 +341,7 @@ describe("SET-291 prompt adapters", () => {
     output.on("data", (chunk: Buffer) => {
       transcript += chunk.toString();
     });
-    const adapter = new InquirerPromptAdapter({ input, output });
+    const adapter = new ClackPromptAdapter({ input, output });
     const choices = [
       { checked: true, name: "All", value: "all" },
       { name: "Alpha", value: "alpha" },
@@ -219,52 +360,90 @@ describe("SET-291 prompt adapters", () => {
       },
     });
 
-    await waitForOutput(output, /Include:/u);
-    const disabledRendered = waitForOutput(output, /Disabled unavailable/u);
-    input.write("disabled");
-    expect(await disabledRendered).toContain("Disabled unavailable");
+    expect(Bun.stripANSI(transcript)).toContain("Include:");
     const writeText = async (text: string): Promise<void> => {
       for (const key of text) {
         input.write(key);
         await Bun.sleep(1);
       }
     };
-    const pressKey = async (name: string, sequence: string): Promise<void> => {
-      input.emit("keypress", sequence, {
-        ctrl: false,
-        meta: false,
-        name,
-        sequence,
-        shift: false,
-      });
-      await Bun.sleep(1);
-    };
-    await pressKey("down", "\u001b[B");
-    await pressKey("space", " ");
+    const disabledRendered = waitForOutput(output, /Disabled unavailable/u);
+    await writeText("disabled");
+    expect(
+      await Promise.race([
+        disabledRendered,
+        Bun.sleep(500).then(() => Bun.stripANSI(transcript)),
+      ])
+    ).toContain("Disabled unavailable");
     await writeText("/alpha");
-    await pressKey("down", "\u001b[B");
-    await pressKey("space", " ");
     await writeText("/beta");
-    await pressKey("down", "\u001b[B");
-    await pressKey("space", " ");
     input.write("\r");
 
-    const selected = await result;
-    expect(selected).toEqual(["alpha", "beta"]);
+    const selected = await Promise.race([
+      result,
+      Bun.sleep(1000).then(() => {
+        throw new Error(`prompt did not submit:\n${Bun.stripANSI(transcript)}`);
+      }),
+    ]);
+    expect(selected).toEqual(["all"]);
     expect(Bun.stripANSI(transcript)).toContain("Disabled unavailable");
+  });
+
+  test("the real searchable checkbox selects across filters and rejects a disabled row", async () => {
+    const input = ttyInput();
+    const adapter = new ClackPromptAdapter({ input, output: ttyOutput() });
+    const choices = [
+      { name: "Alpha", value: "alpha" },
+      { disabled: "unavailable", name: "Disabled", value: "disabled" },
+      { name: "Beta", value: "beta" },
+    ] as const;
+    const result = adapter.searchCheckbox({
+      choices,
+      message: "Include:",
+      source: (term, available) => {
+        const query = term?.toLowerCase().split("/").at(-1) ?? "";
+        return available.filter((choice) =>
+          choice.name.toLowerCase().includes(query)
+        );
+      },
+    });
+    const type = async (value: string): Promise<void> => {
+      for (const character of value) {
+        input.write(character);
+        await Bun.sleep(1);
+      }
+    };
+    const selectFocused = (): void => {
+      input.emit("keypress", undefined, {
+        ctrl: false,
+        meta: false,
+        name: "tab",
+        sequence: "\t",
+        shift: false,
+      });
+    };
+
+    await type("disabled");
+    selectFocused();
+    await type("/alpha");
+    selectFocused();
+    await type("/beta");
+    selectFocused();
+    input.write("\r");
+
+    await expect(result).resolves.toEqual(["alpha", "beta"]);
   });
 
   test("the real searchable checkbox normalizes cancellation after rendering", async () => {
     const input = ttyInput();
     const output = ttyOutput();
-    const adapter = new InquirerPromptAdapter({ input, output });
+    const adapter = new ClackPromptAdapter({ input, output });
     const result = adapter.searchCheckbox({
       choices: [{ name: "One", value: "one" }],
       message: "Include:",
       source: (_term, choices) => choices,
     });
 
-    await waitForOutput(output, /Include:/u);
     input.write("\u0003");
 
     await expect(result).rejects.toThrow(PromptCancelledError);
@@ -290,8 +469,8 @@ describe("SET-291 prompt adapters", () => {
     expect(session).toBeDefined();
     session?.banner();
     session?.write("Plan\n");
-    expect(output.read()?.toString()).toMatch(
-      /^Skillset v\d+\.\d+\.\d+\n\nPlan\n$/u
+    expect(Bun.stripANSI(output.read()?.toString() ?? "")).toMatch(
+      /Skillset v\d+\.\d+\.\d+\nPlan\n$/u
     );
   });
 
@@ -299,7 +478,7 @@ describe("SET-291 prompt adapters", () => {
     const root = await mkdtemp(join(tmpdir(), "skillset-interactive-init-"));
     await writeFile(join(root, "AGENTS.md"), "# Existing instructions\n");
     const adapter = new ScriptedPromptAdapter([
-      { kind: "checkbox", value: ["all"] },
+      { kind: "select", value: "all" },
       { kind: "checkbox", value: ["claude", "codex", "cursor"] },
       { kind: "checkbox", value: ["ci"] },
       { kind: "confirm", value: false },
@@ -331,7 +510,7 @@ describe("SET-291 prompt adapters", () => {
 
     adapter.assertComplete();
     expect(adapter.prompts.map((prompt) => prompt.kind)).toEqual([
-      "checkbox",
+      "select",
       "checkbox",
       "checkbox",
       "confirm",

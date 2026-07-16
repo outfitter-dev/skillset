@@ -12,11 +12,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 
+import { gitSafeEnv } from "../git-env";
 import {
+  formatInteractiveInitPlan,
+  interactiveRepositoryDisplay,
   interactiveTargetDefaults,
   promptForInteractiveCandidates,
   runInteractiveInit,
-  selectInteractiveCandidateIds,
   selectedInteractiveCandidates,
 } from "../init-interactive";
 import { createInteractiveSession } from "../interactive-session";
@@ -31,69 +33,177 @@ function scriptedSession(
   answers: ConstructorParameters<typeof ScriptedPromptAdapter>[0]
 ) {
   const adapter = new ScriptedPromptAdapter(answers);
+  const output = ttyOutput();
+  let transcript = "";
+  output.on("data", (chunk: Buffer) => {
+    transcript += chunk.toString();
+  });
   const session = createInteractiveSession({
     adapter,
     env: { CI: "false" },
     input: ttyInput(),
-    output: ttyOutput(),
+    output,
   });
   if (session === undefined) throw new Error("expected interactive session");
-  return { adapter, session };
+  return { adapter, readTranscript: () => transcript, session };
 }
 
 describe("SET-292 derived init choices", () => {
-  test("normalizes all, individual, and scaffold-only candidate choices", () => {
+  test("adoption intent selects everything without opening the item picker", async () => {
     const candidates = [
       { kind: "instructions" as const, path: "AGENTS.md" },
       { kind: "skills" as const, path: ".agents/skills" },
     ];
-    expect(selectInteractiveCandidateIds(candidates, ["all"])).toEqual([
-      "instructions:AGENTS.md",
-      "skills:.agents/skills",
+    const { adapter, readTranscript, session } = scriptedSession([
+      { kind: "select", value: "all" },
     ]);
-    expect(
-      selectInteractiveCandidateIds(candidates, ["skills:.agents/skills"])
-    ).toEqual(["skills:.agents/skills"]);
-    expect(
-      selectInteractiveCandidateIds(candidates, [
-        "all",
-        "skills:.agents/skills",
-      ])
-    ).toEqual(["skills:.agents/skills"]);
-    expect(selectInteractiveCandidateIds(candidates, [])).toEqual([]);
-    expect(selectInteractiveCandidateIds([], [])).toEqual([]);
+
+    await expect(
+      promptForInteractiveCandidates(candidates, session)
+    ).resolves.toEqual(["instructions:AGENTS.md", "skills:.agents/skills"]);
+    adapter.assertComplete();
+    expect(adapter.prompts).toEqual([
+      {
+        kind: "select",
+        prompt: expect.objectContaining({
+          default: "all",
+          message: "Adopt into your skillset:",
+        }),
+      },
+    ]);
+    expect(readTranscript()).toContain("Found existing material");
+    expect(readTranscript()).toContain("1 skill collection");
+    expect(readTranscript()).toContain("1 instruction file");
   });
 
-  test("large adoption inventories use searchable multi-select with stable actions", async () => {
-    const candidates = Array.from({ length: 8 }, (_, index) => ({
-      kind: "plugin" as const,
-      path: `.claude/plugins/plugin-${index}`,
-    }));
+  test("custom adoption uses a flat required picker with concise labels", async () => {
+    const candidates = [
+      {
+        kind: "plugin" as const,
+        path: "plugins/outfitter/claude",
+        plugin: {
+          identity: "outfitter",
+          paths: ["plugins/outfitter/claude", "plugins/outfitter/codex"],
+          providers: ["claude" as const, "codex" as const],
+          relation: "equivalent" as const,
+        },
+      },
+      { kind: "skills" as const, path: ".agents/skills" },
+      { kind: "skills" as const, path: ".claude/skills" },
+      { kind: "instructions" as const, path: "CLAUDE.md" },
+    ];
     const selectedIds = [
-      "plugin:.claude/plugins/plugin-2",
-      "plugin:.claude/plugins/plugin-7",
+      "plugin:plugins/outfitter/claude",
+      "instructions:CLAUDE.md",
     ];
     const { adapter, session } = scriptedSession([
-      { kind: "search-checkbox", value: selectedIds },
+      { kind: "select", value: "choose" },
+      { kind: "checkbox", value: selectedIds },
     ]);
 
     await expect(
       promptForInteractiveCandidates(candidates, session)
     ).resolves.toEqual(selectedIds);
     adapter.assertComplete();
-    const prompt = adapter.prompts[0];
-    if (prompt?.kind !== "search-checkbox") {
-      throw new Error("expected searchable candidate prompt");
+    const prompt = adapter.prompts[1];
+    if (prompt?.kind !== "checkbox") {
+      throw new Error("expected candidate checkbox prompt");
     }
-    expect(prompt.prompt.choices).toHaveLength(9);
-    expect(prompt.prompt.choices[0]).toEqual(
-      expect.objectContaining({ checked: true, value: "all" })
+    expect(prompt.prompt.message).toBe("Choose what to adopt:");
+    expect(prompt.prompt.required).toBe(true);
+    expect(prompt.prompt.choices).toEqual([
+      expect.objectContaining({
+        checked: true,
+        name: "plugin: outfitter (Claude, Codex)",
+        value: "plugin:plugins/outfitter/claude",
+      }),
+      expect.objectContaining({ checked: true, name: ".agents/skills" }),
+      expect.objectContaining({ checked: true, name: ".claude/skills" }),
+      expect.objectContaining({ checked: true, name: "CLAUDE.md" }),
+    ]);
+  });
+
+  test("nothing for now skips adoption and keeps the later import path visible", async () => {
+    const { adapter, session } = scriptedSession([
+      { kind: "select", value: "none" },
+    ]);
+
+    await expect(
+      promptForInteractiveCandidates(
+        [{ kind: "instructions", path: "AGENTS.md" }],
+        session
+      )
+    ).resolves.toEqual([]);
+    adapter.assertComplete();
+    const prompt = adapter.prompts[0];
+    if (prompt?.kind !== "select") throw new Error("expected adoption intent");
+    expect(prompt.prompt.choices).toContainEqual(
+      expect.objectContaining({
+        description: "You can import it later with skillset import",
+        name: "Nothing for now",
+        value: "none",
+      })
     );
-    expect(
-      prompt.prompt
-        .source("plugin-7", prompt.prompt.choices)
-        .map((choice) => choice.value)
-    ).toEqual(["all", "plugin:.claude/plugins/plugin-7"]);
+  });
+
+  test("opening language derives a GitHub repository and falls back to the cwd", async () => {
+    const repository = await mkdtemp(
+      join(tmpdir(), "skillset-init-label-git-")
+    );
+    await runGit(repository, "init", "-q");
+    await runGit(
+      repository,
+      "remote",
+      "add",
+      "origin",
+      "git@github.com:Outfitter-Dev/Skillset.git"
+    );
+    await expect(interactiveRepositoryDisplay(repository)).resolves.toBe(
+      "outfitter-dev/skillset"
+    );
+
+    const directory = await mkdtemp(join(tmpdir(), "skillset-init-label-cwd-"));
+    await expect(interactiveRepositoryDisplay(directory)).resolves.toBe(
+      directory
+    );
+  });
+
+  test("human plan describes intent without internal mode or candidate ids", async () => {
+    const root = await mkdtemp(join(tmpdir(), "skillset-init-human-plan-"));
+    await writeFile(join(root, "AGENTS.md"), "# Existing instructions\n");
+    const { adapter, session } = scriptedSession([
+      { kind: "select", value: "none" },
+      { kind: "checkbox", value: ["codex"] },
+      { kind: "checkbox", value: ["ci"] },
+      { kind: "confirm", value: false },
+    ]);
+    let rendered = "";
+
+    await runInteractiveInit(
+      {
+        destination: undefined,
+        importName: undefined,
+        initAdopt: undefined,
+        initFrom: undefined,
+        rootExplicit: true,
+        rootPath: root,
+        setupIncludes: undefined,
+        setupTargets: undefined,
+      },
+      session,
+      { printPlan: (plan) => (rendered = formatInteractiveInitPlan(plan)) }
+    );
+
+    adapter.assertComplete();
+    expect(rendered).toContain(`Set up a skillset in ${root}\n`);
+    expect(rendered).toContain("Leave the existing material unchanged\n");
+    expect(rendered).toContain("Generate for Codex\n");
+    expect(rendered).toContain("Add the Skillset GitHub Action\n");
+    expect(rendered).toContain(
+      "You can import it later with skillset import.\n"
+    );
+    expect(rendered).not.toContain("Mode:");
+    expect(rendered).not.toContain("instructions:AGENTS.md");
   });
 
   test("target defaults follow selected providers and reset for scaffold-only", () => {
@@ -135,7 +245,7 @@ describe("SET-292 derived init choices", () => {
     );
     const { adapter, session } = scriptedSession([
       { kind: "select", value: "current" },
-      { kind: "checkbox", value: ["all"] },
+      { kind: "select", value: "all" },
       { kind: "checkbox", value: ["claude", "codex", "cursor"] },
       { kind: "checkbox", value: [] },
       { kind: "confirm", value: false },
@@ -211,7 +321,9 @@ describe("SET-292 derived init choices", () => {
   });
 
   test("preset adoption copies the current repository into a positional destination", async () => {
-    const base = await mkdtemp(join(tmpdir(), "skillset-init-adopt-destination-"));
+    const base = await mkdtemp(
+      join(tmpdir(), "skillset-init-adopt-destination-")
+    );
     const root = join(base, "source");
     const destination = join(base, "imported");
     await mkdir(root);
@@ -323,7 +435,7 @@ describe("SET-292 derived init choices", () => {
       { kind: "select", value: "import" },
       { kind: "input", value: "imported" },
       { kind: "input", value: source },
-      { kind: "checkbox", value: ["all"] },
+      { kind: "select", value: "all" },
       { kind: "checkbox", value: ["claude", "codex", "cursor"] },
       { kind: "checkbox", value: [] },
       { kind: "confirm", value: false },
@@ -436,6 +548,7 @@ describe("SET-292 derived init choices", () => {
       "---\nname: demo\ndescription: Demo.\n---\n\nDemo.\n"
     );
     const { adapter, session } = scriptedSession([
+      { kind: "select", value: "choose" },
       { kind: "checkbox", value: ["instructions:AGENTS.md"] },
       { kind: "checkbox", value: ["codex"] },
       { kind: "checkbox", value: ["ci"] },
@@ -500,7 +613,7 @@ describe("SET-292 derived init choices", () => {
     }
     const destination = join(cwd, "imported");
     const { adapter, session } = scriptedSession([
-      { kind: "checkbox", value: ["all"] },
+      { kind: "select", value: "all" },
       { kind: "checkbox", value: ["codex"] },
       { kind: "checkbox", value: [] },
       { kind: "confirm", value: true },
@@ -572,3 +685,18 @@ describe("SET-292 derived init choices", () => {
     );
   });
 });
+
+async function runGit(root: string, ...args: readonly string[]): Promise<void> {
+  const proc = Bun.spawn({
+    cmd: ["git", ...args],
+    cwd: root,
+    env: gitSafeEnv(),
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [stderr, exitCode] = await Promise.all([
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  if (exitCode !== 0) throw new Error(stderr);
+}
