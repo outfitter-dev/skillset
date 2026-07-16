@@ -17,6 +17,7 @@ import {
   runLookupRoute,
   runStatusCommand,
 } from "./inspect-cli";
+import { PromptCancelledError } from "./prompt-adapter";
 import { runReconcileCommand, runRestoreCommand } from "./recovery-cli";
 import { runReleaseCommand } from "./release-cli";
 import { runImportCommand, runNewCommand } from "./source-cli";
@@ -81,5 +82,5 @@ export async function runCli(
 export function reportCliError(error: unknown): void {
   const message = error instanceof Error ? error.message : String(error);
   console.error(message);
-  process.exitCode = 1;
+  process.exitCode = error instanceof PromptCancelledError ? error.exitCode : 1;
 }
