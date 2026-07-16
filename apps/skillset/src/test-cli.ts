@@ -4,10 +4,15 @@ import type {
 } from "@skillset/core/internal/types";
 
 import { printCliJsonData } from "./cli-output";
-import { runSkillsetTest } from "./test-runner";
+import {
+  createInteractiveSession,
+  type InteractiveSession,
+} from "./interactive-session";
+import { resolveInteractiveTestSelection } from "./test-interactive";
+import { runAllSkillsetTests, runSkillsetTest } from "./test-runner";
 import type { SkillsetTestReport } from "./test-runner";
 import type { TryClaudeSettingSources, TrySubcommand } from "./try";
-import { runTryCommand } from "./try-cli";
+import { runTryCommand, validateTryFlags } from "./try-cli";
 
 export interface TestCommandRequest {
   readonly jsonOutput: boolean;
@@ -27,23 +32,75 @@ export interface TestCommandRequest {
   readonly tryTimeoutMs: number | undefined;
 }
 
-export async function runTestCommand({
-  jsonOutput,
-  options,
-  rootPath,
-  testName,
-  tryBackground,
-  tryClaudeSettingSources,
-  tryLines,
-  tryName,
-  tryPlugins,
-  tryPrompt,
-  tryPromptFile,
-  tryRunId,
-  trySubcommand,
-  tryTarget,
-  tryTimeoutMs,
-}: TestCommandRequest): Promise<void> {
+export interface TestCommandContext {
+  readonly interactiveSession?: InteractiveSession;
+}
+
+export async function runTestCommand(
+  request: TestCommandRequest,
+  context: TestCommandContext = {}
+): Promise<void> {
+  const {
+    jsonOutput,
+    options,
+    rootPath,
+    testName,
+    tryBackground,
+    tryClaudeSettingSources,
+    tryLines,
+    tryName,
+    tryPlugins,
+    tryPrompt,
+    tryPromptFile,
+    tryRunId,
+    trySubcommand,
+    tryTarget,
+    tryTimeoutMs,
+  } = request;
+  const interactiveSession =
+    context.interactiveSession ??
+    createInteractiveSession({
+      machineMode: jsonOutput,
+      rawProtocol: trySubcommand === "worker",
+    });
+  if (interactiveSession !== undefined && isBareTestRequest(request)) {
+    interactiveSession.banner();
+    interactiveSession.write("Run tests:\n");
+    const selection = await resolveInteractiveTestSelection(
+      { options, rootPath },
+      interactiveSession
+    );
+    if (selection.kind === "all") {
+      const suite = await runAllSkillsetTests(rootPath, options);
+      for (const report of suite.reports) printSkillsetTest(report);
+      const passed = suite.reports.filter((report) => report.ok).length;
+      console.log(
+        `skillset: test all ${suite.ok ? "passed" : "failed"} (${passed}/${suite.reports.length} passed)`
+      );
+      if (!suite.ok) process.exitCode = 1;
+      return;
+    }
+    if (selection.kind === "declared") {
+      await runDeclaredTest(rootPath, selection.name, options);
+      return;
+    }
+    validateTryFlags("test", undefined, {
+      background: selection.background,
+      plugins: [],
+      prompt: selection.prompt,
+      target: selection.target,
+      yes: false,
+    });
+    await runTryCommand(rootPath, {
+      background: selection.background,
+      json: false,
+      plugins: [],
+      prompt: selection.prompt,
+      skillsetOptions: options,
+      target: selection.target,
+    });
+    return;
+  }
   if (trySubcommand !== undefined || tryTarget !== undefined) {
     await runTryCommand(rootPath, {
       background: tryBackground,
@@ -74,6 +131,34 @@ export async function runTestCommand({
     process.exitCode = 1;
   }
   return;
+}
+
+function isBareTestRequest(request: TestCommandRequest): boolean {
+  return (
+    !request.jsonOutput &&
+    request.testName === undefined &&
+    !request.tryBackground &&
+    request.tryClaudeSettingSources === undefined &&
+    request.tryLines === undefined &&
+    request.tryName === undefined &&
+    request.tryPlugins.length === 0 &&
+    request.tryPrompt === undefined &&
+    request.tryPromptFile === undefined &&
+    request.tryRunId === undefined &&
+    request.trySubcommand === undefined &&
+    request.tryTarget === undefined &&
+    request.tryTimeoutMs === undefined
+  );
+}
+
+async function runDeclaredTest(
+  rootPath: string,
+  name: string,
+  options: SkillsetOptions
+): Promise<void> {
+  const report = await runSkillsetTest(rootPath, name, options);
+  printSkillsetTest(report);
+  if (!report.ok) process.exitCode = 1;
 }
 
 function printSkillsetTest(report: SkillsetTestReport): void {

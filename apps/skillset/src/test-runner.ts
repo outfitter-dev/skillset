@@ -53,6 +53,16 @@ export interface SkillsetTestOptions extends SkillsetOptions {
   readonly runtimeEnv?: Record<string, string | undefined>;
 }
 
+export interface SkillsetTestSummary {
+  readonly name: string;
+  readonly targets: readonly TargetName[];
+}
+
+export interface SkillsetTestSuiteReport {
+  readonly ok: boolean;
+  readonly reports: readonly SkillsetTestReport[];
+}
+
 export interface SkillsetRuntimeAssertionResult extends JsonRecord {
   readonly actual: boolean;
   readonly expected: string;
@@ -151,10 +161,60 @@ export async function runSkillsetTest(
   name: string | undefined,
   options: SkillsetTestOptions = {}
 ): Promise<SkillsetTestReport> {
-  await rejectRetiredWorkspaceTestConfig(rootPath, options);
-  const graph = await loadBuildGraph(rootPath, options);
+  const context = await loadTestDeclarationContext(
+    rootPath,
+    options
+  );
+  const selectedName = selectTestName(context.graph, context.names, name);
+  const source = context.tests[selectedName];
+  if (source === undefined) {
+    throw new Error(`skillset: test ${selectedName} is not configured`);
+  }
+  const declaration = await readTestObject(
+    context.graph,
+    source.record,
+    source.label,
+    selectedName,
+    context.defaultTargets
+  );
+  return runLoadedSkillsetTest(
+    rootPath,
+    context.graph,
+    declaration,
+    options
+  );
+}
+
+export async function runAllSkillsetTests(
+  rootPath: string,
+  options: SkillsetTestOptions = {}
+): Promise<SkillsetTestSuiteReport> {
+  const { declarations, graph } = await loadSkillsetTestContext(
+    rootPath,
+    options
+  );
+  if (declarations.length === 0) {
+    throw new Error(`skillset: ${testDeclarationRoot(graph)} must include tests.yaml or tests/*.yaml for skillset test`);
+  }
+  const reports: SkillsetTestReport[] = [];
+  for (const declaration of declarations) {
+    reports.push(
+      await runLoadedSkillsetTest(rootPath, graph, declaration, options)
+    );
+  }
+  return {
+    ok: reports.every((report) => report.ok),
+    reports,
+  };
+}
+
+async function runLoadedSkillsetTest(
+  rootPath: string,
+  graph: BuildGraph,
+  declaration: TestDeclaration,
+  options: SkillsetTestOptions
+): Promise<SkillsetTestReport> {
   const sourceDir = graph.sourceDir;
-  const declaration = await readTestDeclaration(graph, name);
   const buildOptions: SkillsetOptions = {
     buildMode: "all",
     ...(options.distDir === undefined ? {} : { distDir: options.distDir }),
@@ -276,6 +336,39 @@ export async function runSkillsetTest(
   }
 }
 
+export async function listSkillsetTests(
+  rootPath: string,
+  options: SkillsetTestOptions = {}
+): Promise<readonly SkillsetTestSummary[]> {
+  const { declarations } = await loadSkillsetTestContext(rootPath, options);
+  return declarations.map((declaration) => ({
+    name: declaration.name,
+    targets: declaration.targets,
+  }));
+}
+
+export async function listAdHocTestTargets(
+  rootPath: string,
+  options: SkillsetOptions = {}
+): Promise<readonly TargetName[]> {
+  const graph = await loadBuildGraph(rootPath, options);
+  return targetNames().filter((target) => graph.root.targets[target].enabled);
+}
+
+async function loadSkillsetTestContext(
+  rootPath: string,
+  options: SkillsetTestOptions
+): Promise<{
+  readonly declarations: readonly TestDeclaration[];
+  readonly graph: BuildGraph;
+}> {
+  const context = await loadTestDeclarationContext(rootPath, options);
+  return {
+    declarations: await parseTestDeclarations(context),
+    graph: context.graph,
+  };
+}
+
 async function rejectRetiredWorkspaceTestConfig(rootPath: string, options: SkillsetOptions): Promise<void> {
   const sourceDir = await detectWorkspaceSourceDir(rootPath, options);
   const configPaths = ["skillset.yaml"];
@@ -290,16 +383,11 @@ async function rejectRetiredWorkspaceTestConfig(rootPath: string, options: Skill
   }
 }
 
-async function readTestDeclaration(graph: BuildGraph, requestedName: string | undefined): Promise<TestDeclaration> {
-  const configPath = graph.rootConfigPath;
-  const config = parseYamlRecord(await readFile(configPath, "utf8"), configPath);
-  if (config.tests !== undefined) {
-    throw new Error(`skillset: ${configPath}.tests is retired; place test declarations in ${testDeclarationRoot(graph)}/tests.yaml or ${testDeclarationRoot(graph)}/tests/*.yaml`);
-  }
-  const defaultTargets = readEffectiveTargets(config, configPath);
-  const tests = await readTestDeclarations(graph);
-
-  const names = Object.keys(tests).sort(compareStrings);
+function selectTestName(
+  graph: BuildGraph,
+  names: readonly string[],
+  requestedName: string | undefined
+): string {
   if (names.length === 0) {
     throw new Error(`skillset: ${testDeclarationRoot(graph)} must include tests.yaml or tests/*.yaml for skillset test`);
   }
@@ -307,10 +395,54 @@ async function readTestDeclaration(graph: BuildGraph, requestedName: string | un
   if (name === undefined) {
     throw new Error(`skillset: multiple tests configured (${names.join(", ")}); pass a test name`);
   }
-  const declaration = tests[name];
-  if (declaration === undefined) throw new Error(`skillset: test ${name} is not configured; available tests: ${names.join(", ")}`);
+  if (!names.includes(name)) {
+    throw new Error(`skillset: test ${name} is not configured; available tests: ${names.join(", ")}`);
+  }
+  return name;
+}
 
-  return readTestObject(graph, declaration.record, declaration.label, name, defaultTargets);
+interface TestDeclarationContext {
+  readonly defaultTargets: readonly TargetName[];
+  readonly graph: BuildGraph;
+  readonly names: readonly string[];
+  readonly tests: Readonly<Record<string, TestDeclarationRecord>>;
+}
+
+async function loadTestDeclarationContext(
+  rootPath: string,
+  options: SkillsetTestOptions
+): Promise<TestDeclarationContext> {
+  await rejectRetiredWorkspaceTestConfig(rootPath, options);
+  const graph = await loadBuildGraph(rootPath, options);
+  const configPath = graph.rootConfigPath;
+  const config = parseYamlRecord(await readFile(configPath, "utf8"), configPath);
+  if (config.tests !== undefined) {
+    throw new Error(`skillset: ${configPath}.tests is retired; place test declarations in ${testDeclarationRoot(graph)}/tests.yaml or ${testDeclarationRoot(graph)}/tests/*.yaml`);
+  }
+  const defaultTargets = readEffectiveTargets(config, configPath);
+  const tests = await readTestDeclarations(graph);
+  const names = Object.keys(tests).sort(compareStrings);
+  return { defaultTargets, graph, names, tests };
+}
+
+async function parseTestDeclarations(
+  context: TestDeclarationContext
+): Promise<readonly TestDeclaration[]> {
+  const declarations: TestDeclaration[] = [];
+  for (const name of context.names) {
+    const declaration = context.tests[name];
+    if (declaration === undefined) continue;
+    declarations.push(
+      await readTestObject(
+        context.graph,
+        declaration.record,
+        declaration.label,
+        name,
+        context.defaultTargets
+      )
+    );
+  }
+  return declarations;
 }
 
 interface TestDeclarationRecord {
