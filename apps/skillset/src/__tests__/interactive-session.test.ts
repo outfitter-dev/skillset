@@ -478,7 +478,7 @@ describe("SET-291 prompt adapters", () => {
     const root = await mkdtemp(join(tmpdir(), "skillset-interactive-init-"));
     await writeFile(join(root, "AGENTS.md"), "# Existing instructions\n");
     const adapter = new ScriptedPromptAdapter([
-      { kind: "checkbox", value: ["all"] },
+      { kind: "select", value: "all" },
       { kind: "checkbox", value: ["claude", "codex", "cursor"] },
       { kind: "checkbox", value: ["ci"] },
       { kind: "confirm", value: false },
@@ -510,7 +510,7 @@ describe("SET-291 prompt adapters", () => {
 
     adapter.assertComplete();
     expect(adapter.prompts.map((prompt) => prompt.kind)).toEqual([
-      "checkbox",
+      "select",
       "checkbox",
       "checkbox",
       "confirm",

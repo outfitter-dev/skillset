@@ -1,6 +1,6 @@
 import type { Readable, Writable } from "node:stream";
 
-import { intro } from "@clack/prompts";
+import { intro, note } from "@clack/prompts";
 
 import packageJson from "../package.json";
 import {
@@ -32,6 +32,7 @@ export interface InteractiveSession {
   readonly prompts: PromptAdapter;
   readonly signal: AbortSignal | undefined;
   banner(): void;
+  note(message: string, title?: string): void;
   write(message: string): void;
 }
 
@@ -70,6 +71,7 @@ export function createInteractiveSession(
     prompts,
     signal: options.signal,
     banner: () => intro(`Skillset v${packageJson.version}`, { output }),
+    note: (message, title) => note(message.trimEnd(), title, { output }),
     write: (message) => output.write(message),
   };
 }

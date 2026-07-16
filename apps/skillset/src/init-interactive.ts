@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 
+import { normalizeKnownSkillsetIdentity } from "@skillset/core";
 import {
   defaultTargetNames,
   targetNames,
@@ -14,8 +15,8 @@ import {
   type AdoptOptions,
   type AdoptReport,
 } from "./adopt";
+import { gitSafeEnv } from "./git-env";
 import type { InteractiveSession } from "./interactive-session";
-import type { PromptChoice } from "./prompt-adapter";
 import {
   initSkillset,
   type SetupImportCandidate,
@@ -24,9 +25,7 @@ import {
 } from "./setup";
 
 export type InteractiveInitMode = "create" | "current" | "import";
-type CandidateSelection = "all" | string;
-
-const ADOPTION_SEARCH_THRESHOLD = 8;
+type InteractiveAdoptionIntent = "all" | "choose" | "none";
 
 export interface InteractiveInitRequest {
   readonly destination: string | undefined;
@@ -47,9 +46,12 @@ export type InteractiveInitPlan = (
   | { readonly kind: "adopt"; readonly report: AdoptReport }
   | { readonly kind: "setup"; readonly report: SetupReport }
 ) & {
+  readonly adoptionCandidates: readonly SetupImportCandidate[];
   readonly candidates: readonly string[];
   readonly destination: string | undefined;
+  readonly discoveredCandidates: readonly SetupImportCandidate[];
   readonly include: readonly SetupInclude[];
+  readonly location: string;
   readonly mode: InteractiveInitMode;
   readonly source: string | undefined;
   readonly targets: readonly TargetName[];
@@ -81,7 +83,8 @@ export async function runInteractiveInit(
   context: InteractiveInitContext
 ): Promise<InteractiveInitResult> {
   const cwd = resolve(request.rootPath);
-  const mode = await resolveMode(request, session);
+  const repositoryDisplay = await interactiveRepositoryDisplay(cwd);
+  const mode = await resolveMode(request, session, repositoryDisplay);
   const destination = await resolveDestination(request, mode, session);
   const source = await resolveSource(request, mode, session);
   const presetCurrentRoot =
@@ -145,9 +148,15 @@ export async function runInteractiveInit(
   });
   context.printPlan({
     ...plan,
+    adoptionCandidates: selectedCandidates,
     candidates,
     destination,
+    discoveredCandidates: discovered,
     include,
+    location:
+      mode === "current"
+        ? repositoryDisplay
+        : (destination ?? plan.report.rootPath),
     mode,
     source,
     targets,
@@ -270,7 +279,8 @@ function setupRootPath(input: ResolvedInteractiveInit): string | undefined {
 
 async function resolveMode(
   request: InteractiveInitRequest,
-  session: InteractiveSession
+  session: InteractiveSession,
+  repositoryDisplay: string
 ): Promise<InteractiveInitMode> {
   if (request.initFrom !== undefined) return "import";
   if (request.initAdopt !== undefined && request.destination !== undefined) {
@@ -280,12 +290,15 @@ async function resolveMode(
   if (request.rootExplicit || request.initAdopt !== undefined) return "current";
   return session.prompts.select({
     choices: [
-      { name: "Set up the current repository", value: "current" },
-      { name: "Create a new Skillset workspace", value: "create" },
-      { name: "Import an existing repository", value: "import" },
+      {
+        name: `In this repository (${repositoryDisplay})`,
+        value: "current",
+      },
+      { name: "In a new workspace elsewhere", value: "create" },
+      { name: "Import from elsewhere", value: "import" },
     ],
     default: "current",
-    message: "What would you like to initialize?",
+    message: "Set up a skillset:",
   });
 }
 
@@ -299,7 +312,7 @@ async function resolveDestination(
     return resolve(request.rootPath, request.destination);
   }
   const value = await session.prompts.input({
-    message: "Destination directory:",
+    message: "Create at:",
     validate: requiredValue("destination directory"),
   });
   return resolve(request.rootPath, value.trim());
@@ -314,7 +327,7 @@ async function resolveSource(
   if (request.initFrom !== undefined) return request.initFrom;
   if (request.initAdopt !== undefined) return undefined;
   const value = await session.prompts.input({
-    message: "Local path or Git URL to import:",
+    message: "Import from:",
     validate: requiredValue("import source"),
   });
   return value.trim();
@@ -325,55 +338,39 @@ export async function promptForInteractiveCandidates(
   session: InteractiveSession
 ): Promise<readonly string[]> {
   if (candidates.length === 0) return [];
-  const choices: readonly PromptChoice<CandidateSelection>[] = [
-    {
+  session.note(formatDiscoveredMaterial(candidates), "Found existing material");
+  const intent = await session.prompts.select<InteractiveAdoptionIntent>({
+    choices: [
+      {
+        description: "Adopt every detected source",
+        name: "Everything found (Recommended)",
+        value: "all",
+      },
+      {
+        description: "Review the detected sources",
+        name: "Choose what to adopt",
+        value: "choose",
+      },
+      {
+        description: "You can import it later with skillset import",
+        name: "Nothing for now",
+        value: "none",
+      },
+    ],
+    default: "all",
+    message: "Adopt into your skillset:",
+  });
+  if (intent === "all") return candidates.map(adoptCandidateId);
+  if (intent === "none") return [];
+  return session.prompts.checkbox({
+    choices: candidates.map((candidate) => ({
       checked: true,
-      description: "Select every detected source",
-      name: "All detected sources (recommended)",
-      value: "all",
-    },
-    ...candidates.map((candidate) => ({
-      name: `${candidate.kind} ${candidate.path}`,
+      name: interactiveCandidateLabel(candidate),
       value: adoptCandidateId(candidate),
     })),
-  ];
-  const prompt = {
-    choices,
-    message: "Sources to adopt (select none for scaffold only):",
-  };
-  const selected =
-    candidates.length >= ADOPTION_SEARCH_THRESHOLD
-      ? await session.prompts.searchCheckbox<CandidateSelection>({
-          ...prompt,
-          source: filterAdoptionChoices,
-        })
-      : await session.prompts.checkbox<CandidateSelection>(prompt);
-  return selectInteractiveCandidateIds(candidates, selected);
-}
-
-function filterAdoptionChoices(
-  term: string | undefined,
-  choices: readonly PromptChoice<CandidateSelection>[]
-): readonly PromptChoice<CandidateSelection>[] {
-  const query = term?.trim().toLowerCase() ?? "";
-  if (query.length === 0) return choices;
-  return choices.filter(
-    (choice) =>
-      choice.value === "all" ||
-      choice.name.toLowerCase().includes(query) ||
-      choice.description?.toLowerCase().includes(query)
-  );
-}
-
-export function selectInteractiveCandidateIds(
-  candidates: readonly SetupImportCandidate[],
-  selected: readonly CandidateSelection[]
-): readonly string[] {
-  const individual = selected.filter((candidate) => candidate !== "all");
-  if (individual.length === 0 && selected.includes("all")) {
-    return candidates.map(adoptCandidateId);
-  }
-  return [...new Set(individual)];
+    message: "Choose what to adopt:",
+    required: true,
+  });
 }
 
 export function selectedInteractiveCandidates(
@@ -419,13 +416,127 @@ async function promptForIntegrations(
     choices: [
       {
         checked: true,
-        description: "Add the repository CI workflow",
-        name: "Continuous integration",
+        description: "Run Skillset checks on pull requests",
+        name: "Skillset GitHub Action",
         value: "ci" as const,
       },
     ],
-    message: "Optional integrations:",
+    message: "Include automation:",
   });
+}
+
+export async function interactiveRepositoryDisplay(
+  rootPath: string
+): Promise<string> {
+  const remote = await gitOutput(rootPath, "remote", "get-url", "origin");
+  if (remote !== undefined) {
+    const identity = normalizeKnownSkillsetIdentity(remote);
+    if (identity?.startsWith("github:") === true) {
+      return identity.slice("github:".length);
+    }
+  }
+  return (
+    (await gitOutput(rootPath, "rev-parse", "--show-toplevel")) ??
+    resolve(rootPath)
+  );
+}
+
+export function formatInteractiveInitPlan(plan: InteractiveInitPlan): string {
+  const lines = [
+    `Set up a skillset in ${plan.location}`,
+    ...(plan.source === undefined ? [] : [`Import from ${plan.source}`]),
+    ...(plan.adoptionCandidates.length === 0
+      ? plan.discoveredCandidates.length === 0
+        ? []
+        : ["Leave the existing material unchanged"]
+      : [`Adopt ${formatCandidateCounts(plan.adoptionCandidates)}`]),
+    `Generate for ${formatHumanList(plan.targets.map(displayTarget))}`,
+    ...(plan.include.includes("ci") ? ["Add the Skillset GitHub Action"] : []),
+    ...(plan.adoptionCandidates.length > 0
+      ? ["Preserve the existing source files"]
+      : []),
+    "",
+    ...(plan.discoveredCandidates.length > 0 &&
+    plan.adoptionCandidates.length === 0
+      ? ["You can import it later with skillset import.", ""]
+      : []),
+  ];
+  return lines.join("\n");
+}
+
+function formatDiscoveredMaterial(
+  candidates: readonly SetupImportCandidate[]
+): string {
+  return [...candidateCountLabels(candidates)].join("\n");
+}
+
+function formatCandidateCounts(
+  candidates: readonly SetupImportCandidate[]
+): string {
+  return formatHumanList(candidateCountLabels(candidates));
+}
+
+function candidateCountLabels(
+  candidates: readonly SetupImportCandidate[]
+): string[] {
+  const counts = new Map<SetupImportCandidate["kind"], number>();
+  for (const candidate of candidates) {
+    counts.set(candidate.kind, (counts.get(candidate.kind) ?? 0) + 1);
+  }
+  const label = (
+    kind: SetupImportCandidate["kind"],
+    singular: string,
+    plural: string
+  ): string[] => {
+    const count = counts.get(kind) ?? 0;
+    return count === 0 ? [] : [`${count} ${count === 1 ? singular : plural}`];
+  };
+  return [
+    ...label("plugin", "plugin", "plugins"),
+    ...label("plugins", "plugin collection", "plugin collections"),
+    ...label("skills", "skill collection", "skill collections"),
+    ...label("instructions", "instruction file", "instruction files"),
+  ];
+}
+
+function interactiveCandidateLabel(candidate: SetupImportCandidate): string {
+  if (candidate.plugin !== undefined) {
+    const providers = candidate.plugin.providers.map(displayTarget);
+    const coverage = providers.length > 1 ? ` (${providers.join(", ")})` : "";
+    return `plugin: ${candidate.plugin.identity}${coverage}`;
+  }
+  return candidate.kind === "plugin"
+    ? `plugin: ${candidate.path}`
+    : candidate.path;
+}
+
+function displayTarget(target: TargetName): string {
+  return `${target[0]?.toUpperCase() ?? ""}${target.slice(1)}`;
+}
+
+function formatHumanList(values: readonly string[]): string {
+  if (values.length <= 1) return values.join("");
+  if (values.length === 2) return values.join(" and ");
+  return `${values.slice(0, -1).join(", ")}, and ${values.at(-1)}`;
+}
+
+async function gitOutput(
+  rootPath: string,
+  ...args: readonly string[]
+): Promise<string | undefined> {
+  const proc = Bun.spawn({
+    cmd: ["git", "-C", rootPath, ...args],
+    env: gitSafeEnv(),
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [stdout, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    proc.exited,
+  ]);
+  if (exitCode !== 0) return undefined;
+  const output = stdout.trim();
+  return output.length === 0 ? undefined : output;
 }
 
 function requiredValue(label: string): (value: string) => true | string {
