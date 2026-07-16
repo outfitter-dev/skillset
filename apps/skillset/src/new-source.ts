@@ -1,12 +1,56 @@
-import { mkdir, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { detectWorkspaceSourceDir } from "@skillset/core/internal/resolver";
-import { resolveInside, validateSlug } from "@skillset/core/internal/path";
+import {
+  detectWorkspaceSourceDir,
+  loadBuildGraph,
+} from "@skillset/core/internal/resolver";
+import {
+  compareStrings,
+  resolveInside,
+  validateSlug,
+} from "@skillset/core/internal/path";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
 
 export type NewSourceKind = "agent" | "hook" | "skill";
 export type NewSourceScope = "repo";
+
+export const NEW_HOOK_UNAVAILABLE_REASON =
+  "new hook is not available yet; current hook source is hooks/hooks.json";
+
+export interface NewSourceKindDefinition {
+  readonly description: string;
+  readonly enabled: boolean;
+  readonly id: NewSourceKind;
+  readonly name: string;
+  readonly reason?: string;
+}
+
+export const NEW_SOURCE_KINDS: readonly NewSourceKindDefinition[] = [
+  {
+    description: "Reusable source guidance with optional supporting files",
+    enabled: true,
+    id: "skill",
+    name: "Skill",
+  },
+  {
+    description: "Repository-level project agent",
+    enabled: true,
+    id: "agent",
+    name: "Project agent",
+  },
+  {
+    description: "Adaptive runtime hook",
+    enabled: false,
+    id: "hook",
+    name: "Hook",
+    reason: NEW_HOOK_UNAVAILABLE_REASON,
+  },
+];
+
+export const NEW_SOURCE_KIND_LIST_TEXT = formatList(
+  NEW_SOURCE_KINDS.map((kind) => kind.id)
+);
 
 export interface NewSourceOptions {
   readonly container?: string;
@@ -34,7 +78,7 @@ export interface NewSourceReport {
   readonly write: boolean;
 }
 
-type SkillPreset =
+export type SkillPreset =
   | "assets"
   | "evals"
   | "examples-file"
@@ -44,21 +88,41 @@ type SkillPreset =
   | "scripts"
   | "support";
 
+export interface SkillPresetDefinition {
+  readonly description: string;
+  readonly id: SkillPreset;
+  readonly name: string;
+}
+
 interface PlannedFile {
   readonly content: string;
   readonly path: string;
 }
 
-const SKILL_PRESETS = new Set<SkillPreset>([
-  "assets",
-  "evals",
-  "examples-file",
-  "minimal",
-  "reference-file",
-  "references",
-  "scripts",
-  "support",
-]);
+export const SKILL_PRESETS: readonly SkillPresetDefinition[] = [
+  { description: "Only SKILL.md", id: "minimal", name: "Minimal" },
+  {
+    description: "References, assets, and scripts directories",
+    id: "support",
+    name: "Support directories",
+  },
+  { description: "References directory", id: "references", name: "References" },
+  { description: "Assets directory", id: "assets", name: "Assets" },
+  { description: "Scripts directory", id: "scripts", name: "Scripts" },
+  { description: "Evaluation fixture", id: "evals", name: "Evals" },
+  {
+    description: "Top-level REFERENCE.md",
+    id: "reference-file",
+    name: "Reference file",
+  },
+  {
+    description: "Top-level EXAMPLES.md",
+    id: "examples-file",
+    name: "Examples file",
+  },
+];
+
+const SKILL_PRESET_IDS = new Set(SKILL_PRESETS.map((preset) => preset.id));
 
 export async function scaffoldSourceUnit(
   rootPath: string,
@@ -68,9 +132,7 @@ export async function scaffoldSourceUnit(
     throw new Error("skillset: new currently supports only --scope repo");
   }
   if (options.kind === "hook") {
-    throw new Error(
-      "skillset: new hook is not available yet; current hook source is hooks/hooks.json"
-    );
+    throw new Error(`skillset: ${NEW_HOOK_UNAVAILABLE_REASON}`);
   }
 
   const id = resolveSourceId(options);
@@ -107,6 +169,49 @@ export async function scaffoldSourceUnit(
   };
 }
 
+export function isNewSourceKind(value: unknown): value is NewSourceKind {
+  return NEW_SOURCE_KINDS.some((kind) => kind.id === value);
+}
+
+export async function listNewSourceContainers(
+  rootPath: string,
+  skillsetOptions: SkillsetOptions = {}
+): Promise<readonly string[]> {
+  const sourceRoot = await detectWorkspaceSourceDir(rootPath, skillsetOptions);
+  await assertWorkspaceInitialized(rootPath, sourceRoot);
+  const graph = await loadBuildGraph(rootPath, skillsetOptions);
+  return graph.plugins.map((plugin) => plugin.id);
+}
+
+export async function discoverNewSourceContainers(
+  rootPath: string,
+  skillsetOptions: SkillsetOptions = {}
+): Promise<readonly string[]> {
+  const sourceRoot = await detectWorkspaceSourceDir(rootPath, skillsetOptions);
+  await assertWorkspaceInitialized(rootPath, sourceRoot);
+  const pluginsPath = resolveInside(rootPath, join(sourceRoot, "plugins"));
+  let entries;
+  try {
+    entries = await readdir(pluginsPath, { withFileTypes: true });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw error;
+  }
+  const containers: string[] = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const id = validateSlug(entry.name, "plugin directory");
+    if (
+      await fileExists(
+        resolveInside(rootPath, join(sourceRoot, "plugins", id, "skillset.yaml"))
+      )
+    ) {
+      containers.push(id);
+    }
+  }
+  return containers.sort(compareStrings);
+}
+
 function resolveSourceId(options: NewSourceOptions): string {
   if (options.id !== undefined) return validateSlug(options.id, `${options.kind} id`);
   const name = options.name ?? options.displayName;
@@ -134,7 +239,14 @@ async function planSkill(
   const container = options.container === undefined
     ? undefined
     : validateSlug(options.container, "new --in container");
-  if (container !== undefined) await assertPluginContainer(rootPath, sourceRoot, container);
+  if (container !== undefined) {
+    await assertPluginContainer(
+      rootPath,
+      sourceRoot,
+      container,
+      options.skillsetOptions ?? {}
+    );
+  }
   const skillRoot = container === undefined
     ? join(sourceRoot, "skills", id)
     : join(sourceRoot, "plugins", container, "skills", id);
@@ -194,16 +306,31 @@ function planAgent(
 async function assertPluginContainer(
   rootPath: string,
   sourceRoot: string,
-  container: string
+  container: string,
+  skillsetOptions: SkillsetOptions
 ): Promise<void> {
   const pluginPath = join(sourceRoot, "plugins", container);
+  let hasCanonicalManifest = false;
   try {
     const stats = await stat(resolveInside(rootPath, pluginPath));
-    if (stats.isDirectory() && await hasPluginManifest(rootPath, pluginPath)) return;
+    hasCanonicalManifest =
+      stats.isDirectory() &&
+      (await fileExists(
+        resolveInside(rootPath, join(pluginPath, "skillset.yaml"))
+      ));
   } catch {
-    // Surface the normalized source-relative path below.
+    // Surface the stable source-relative diagnostic below.
   }
-  throw new Error(`skillset: new --in container does not exist or has no skillset.yaml: ${pluginPath}`);
+  if (!hasCanonicalManifest) throw missingPluginContainer(pluginPath);
+  const containers = await listNewSourceContainers(rootPath, skillsetOptions);
+  if (containers.includes(container)) return;
+  throw missingPluginContainer(pluginPath);
+}
+
+function missingPluginContainer(pluginPath: string): Error {
+  return new Error(
+    `skillset: new --in container does not exist or has no skillset.yaml: ${pluginPath}`
+  );
 }
 
 async function assertWorkspaceInitialized(rootPath: string, sourceDir: string): Promise<void> {
@@ -213,16 +340,19 @@ async function assertWorkspaceInitialized(rootPath: string, sourceDir: string): 
   );
 }
 
-function readSkillPresets(values: readonly string[] | undefined): readonly SkillPreset[] {
-  const raw = values === undefined || values.length === 0
-    ? ["minimal"]
-    : values.flatMap((value) => value.split(",")).map((value) => value.trim()).filter(Boolean);
+export function parseSkillPresets(
+  values: readonly string[]
+): readonly SkillPreset[] {
+  const raw = values
+    .flatMap((value) => value.split(","))
+    .map((value) => value.trim())
+    .filter(Boolean);
   const presets: SkillPreset[] = [];
   const seen = new Set<string>();
   for (const value of raw) {
-    if (!SKILL_PRESETS.has(value as SkillPreset)) {
+    if (!SKILL_PRESET_IDS.has(value as SkillPreset)) {
       throw new Error(
-        "skillset: expected --preset minimal, support, references, assets, scripts, evals, reference-file, or examples-file"
+        `skillset: expected --preset ${formatList(SKILL_PRESETS.map((preset) => preset.id))}`
       );
     }
     if (seen.has(value)) continue;
@@ -230,6 +360,17 @@ function readSkillPresets(values: readonly string[] | undefined): readonly Skill
     presets.push(value as SkillPreset);
   }
   return presets;
+}
+
+function readSkillPresets(
+  values: readonly string[] | undefined
+): readonly SkillPreset[] {
+  const presets = values === undefined ? [] : parseSkillPresets(values);
+  return presets.length === 0 ? ["minimal"] : presets;
+}
+
+function formatList(values: readonly string[]): string {
+  return `${values.slice(0, -1).join(", ")}, or ${values.at(-1)}`;
 }
 
 function uniquePlans(plans: readonly PlannedFile[]): readonly PlannedFile[] {
@@ -276,9 +417,4 @@ function yamlString(value: string): string {
 
 async function fileExists(path: string): Promise<boolean> {
   return Bun.file(path).exists();
-}
-
-async function hasPluginManifest(rootPath: string, pluginPath: string): Promise<boolean> {
-  return (await fileExists(resolveInside(rootPath, join(pluginPath, "skillset.yaml")))) ||
-    (await fileExists(resolveInside(rootPath, join(pluginPath, "config.yaml"))));
 }

@@ -679,8 +679,8 @@ describe("SET-299 CLI request characterization", () => {
         expected: { request: { initAdopt: ["one", "two"] } },
       },
       {
-        args: ["new", "skill", "--preset", "one", "--preset=two"],
-        expected: { request: { newPresets: ["one", "two"] } },
+        args: ["new", "skill", "--preset", "support", "--preset=evals"],
+        expected: { request: { newPresets: ["support", "evals"] } },
       },
       {
         args: [

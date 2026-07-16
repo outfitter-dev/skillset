@@ -6,13 +6,18 @@ import type { SkillsetOptions } from "@skillset/core/internal/types";
 import { printCliJsonData } from "./cli-output";
 import { ImportBatchError, importSources } from "./import";
 import type { ImportReport } from "./import";
-import type { ImportKind, ImportProvider } from "./source-arg-values";
+import {
+  createInteractiveSession,
+  type InteractiveSession,
+} from "./interactive-session";
+import { runInteractiveNew } from "./new-interactive";
 import { scaffoldSourceUnit } from "./new-source";
 import type {
   NewSourceKind,
   NewSourceReport,
   NewSourceScope,
 } from "./new-source";
+import type { ImportKind, ImportProvider } from "./source-arg-values";
 
 export interface ImportCommandRequest {
   readonly importKind: ImportKind | undefined;
@@ -112,19 +117,57 @@ export interface NewCommandRequest {
   readonly yes: boolean;
 }
 
-export async function runNewCommand({
-  positionalName,
-  jsonOutput,
-  newContainer,
-  newId,
-  newKind,
-  newName,
-  newPresets,
-  newScope,
-  options,
-  rootPath,
-  yes,
-}: NewCommandRequest): Promise<void> {
+export interface NewCommandContext {
+  readonly interactiveSession?: InteractiveSession;
+}
+
+export async function runNewCommand(
+  {
+    positionalName,
+    jsonOutput,
+    newContainer,
+    newId,
+    newKind,
+    newName,
+    newPresets,
+    newScope,
+    options,
+    rootPath,
+    yes,
+  }: NewCommandRequest,
+  context: NewCommandContext = {}
+): Promise<void> {
+  const interactiveSession = jsonOutput
+    ? undefined
+    : (context.interactiveSession ?? createInteractiveSession());
+  if (!yes && interactiveSession !== undefined) {
+    interactiveSession.banner();
+    interactiveSession.write("Create source:\n");
+    const result = await runInteractiveNew(
+      {
+        positionalName,
+        newContainer,
+        newId,
+        newKind,
+        newName,
+        newPresets,
+        newScope,
+        options,
+        rootPath,
+      },
+      interactiveSession,
+      {
+        printPlan: (plan) => {
+          interactiveSession.write("Skillset will:\n");
+          printNewSourceReport(plan, "interactive preview");
+        },
+      }
+    );
+    if (result.reason === "written") {
+      printNewSourceReport(result.report, result.reason);
+    }
+    return;
+  }
   if (newKind === undefined) {
     throw new Error("skillset: expected new kind skill, agent, or hook");
   }
