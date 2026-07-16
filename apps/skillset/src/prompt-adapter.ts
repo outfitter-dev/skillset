@@ -6,6 +6,8 @@ import {
   select as inquirerSelect,
 } from "@inquirer/prompts";
 
+import { runSearchCheckbox } from "./search-checkbox";
+
 export interface PromptChoice<Value> {
   readonly checked?: boolean;
   readonly description?: string;
@@ -51,11 +53,21 @@ export interface SearchPrompt<Value> {
   ) => readonly PromptChoice<Value>[] | Promise<readonly PromptChoice<Value>[]>;
 }
 
+export interface SearchCheckboxPrompt<Value> extends CheckboxPrompt<Value> {
+  readonly source: (
+    term: string | undefined,
+    choices: readonly PromptChoice<Value>[]
+  ) => readonly PromptChoice<Value>[];
+}
+
 export interface PromptAdapter {
   checkbox<Value>(prompt: CheckboxPrompt<Value>): Promise<readonly Value[]>;
   confirm(prompt: ConfirmPrompt): Promise<boolean>;
   input(prompt: InputPrompt): Promise<string>;
   search<Value>(prompt: SearchPrompt<Value>): Promise<Value>;
+  searchCheckbox<Value>(
+    prompt: SearchCheckboxPrompt<Value>
+  ): Promise<readonly Value[]>;
   select<Value>(prompt: ChoicePrompt<Value>): Promise<Value>;
 }
 
@@ -132,6 +144,16 @@ export class InquirerPromptAdapter implements PromptAdapter {
     }
   }
 
+  async searchCheckbox<Value>(
+    prompt: SearchCheckboxPrompt<Value>
+  ): Promise<readonly Value[]> {
+    try {
+      return await runSearchCheckbox(prompt, this.#context);
+    } catch (error) {
+      return normalizePromptError(error);
+    }
+  }
+
   async select<Value>(prompt: ChoicePrompt<Value>): Promise<Value> {
     try {
       return await inquirerSelect(prompt, this.#context);
@@ -146,6 +168,7 @@ export type ScriptedPromptAnswer =
   | { readonly kind: "confirm"; readonly value: boolean }
   | { readonly kind: "input"; readonly value: string }
   | { readonly kind: "search"; readonly value: unknown }
+  | { readonly kind: "search-checkbox"; readonly value: readonly unknown[] }
   | { readonly kind: "select"; readonly value: unknown };
 
 export type RecordedPrompt =
@@ -153,6 +176,10 @@ export type RecordedPrompt =
   | { readonly kind: "confirm"; readonly prompt: ConfirmPrompt }
   | { readonly kind: "input"; readonly prompt: InputPrompt }
   | { readonly kind: "search"; readonly prompt: SearchPrompt<unknown> }
+  | {
+      readonly kind: "search-checkbox";
+      readonly prompt: SearchCheckboxPrompt<unknown>;
+    }
   | { readonly kind: "select"; readonly prompt: ChoicePrompt<unknown> };
 
 export class ScriptedPromptAdapter implements PromptAdapter {
@@ -183,6 +210,16 @@ export class ScriptedPromptAdapter implements PromptAdapter {
   async search<Value>(prompt: SearchPrompt<Value>): Promise<Value> {
     this.prompts.push({ kind: "search", prompt });
     return this.#read("search") as Value;
+  }
+
+  async searchCheckbox<Value>(
+    prompt: SearchCheckboxPrompt<Value>
+  ): Promise<readonly Value[]> {
+    // The recorder erases generic values while preserving the callable prompt.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const recorded = prompt as unknown as SearchCheckboxPrompt<unknown>;
+    this.prompts.push({ kind: "search-checkbox", prompt: recorded });
+    return this.#read("search-checkbox") as readonly Value[];
   }
 
   async select<Value>(prompt: ChoicePrompt<Value>): Promise<Value> {

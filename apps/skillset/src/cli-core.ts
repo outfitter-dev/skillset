@@ -82,5 +82,9 @@ export async function runCli(
 export function reportCliError(error: unknown): void {
   const message = error instanceof Error ? error.message : String(error);
   console.error(message);
-  process.exitCode = error instanceof PromptCancelledError ? error.exitCode : 1;
+  process.exitCode = cliErrorExitCode(error);
+}
+
+export function cliErrorExitCode(error: unknown): number {
+  return error instanceof PromptCancelledError ? error.exitCode : 1;
 }

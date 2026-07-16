@@ -173,9 +173,18 @@ export async function adoptSkillset(
   source: string,
   options: AdoptOptions = {}
 ): Promise<AdoptReport> {
+  const basePath = options.cwd ?? process.cwd();
+  const acquired = await acquireAdoptSource(source, basePath);
+  return adoptAcquiredSkillset(acquired, options);
+}
+
+/** Reuses one surveyed acquisition so an interactive plan and write cannot drift. */
+export async function adoptAcquiredSkillset(
+  acquired: AdoptAcquisition,
+  options: AdoptOptions = {}
+): Promise<AdoptReport> {
   const { cwd, destination, targets, write, ...buildOptions } = options;
   const basePath = cwd ?? process.cwd();
-  const acquired = await acquireAdoptSource(source, basePath);
   if (destination !== undefined && write === true) {
     const preflight = await adoptResolvedRoot(acquired, {
       ...buildOptions,
