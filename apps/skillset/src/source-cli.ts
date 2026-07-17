@@ -142,7 +142,6 @@ export async function runNewCommand(
     : (context.interactiveSession ?? createInteractiveSession());
   if (!yes && interactiveSession !== undefined) {
     interactiveSession.banner();
-    interactiveSession.write("Create source:\n");
     const result = await runInteractiveNew(
       {
         positionalName,

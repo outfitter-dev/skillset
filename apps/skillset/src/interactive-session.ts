@@ -8,6 +8,10 @@ import {
   type PromptAdapter,
   type PromptContext,
 } from "./prompt-adapter";
+import {
+  createTerminalRenderer,
+  terminalColorEnabled,
+} from "./terminal-renderer";
 
 interface TtyReadable extends Readable {
   readonly isTTY?: boolean;
@@ -58,6 +62,7 @@ export function createInteractiveSession(
   if (!interactiveSessionEligible(options)) return undefined;
   const input = options.input ?? process.stdin;
   const output = options.output ?? process.stdout;
+  const env = options.env ?? process.env;
   const context: PromptContext = {
     ...(options.clearPromptOnDone === undefined
       ? {}
@@ -67,10 +72,18 @@ export function createInteractiveSession(
     ...(options.signal === undefined ? {} : { signal: options.signal }),
   };
   const prompts = options.adapter ?? new ClackPromptAdapter(context);
+  const renderer = createTerminalRenderer({
+    color: terminalColorEnabled({
+      ...(output.isTTY === undefined ? {} : { isTTY: output.isTTY }),
+      ...(env.NO_COLOR === undefined ? {} : { noColor: env.NO_COLOR }),
+      ...(env.TERM === undefined ? {} : { term: env.TERM }),
+    }),
+  });
   return {
     prompts,
     signal: options.signal,
-    banner: () => intro(`Skillset v${packageJson.version}`, { output }),
+    banner: () =>
+      intro(`skillset ${renderer.dim(`v${packageJson.version}`)}`, { output }),
     note: (message, title) => note(message.trimEnd(), title, { output }),
     write: (message) => output.write(message),
   };

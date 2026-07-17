@@ -455,7 +455,7 @@ describe("SET-291 prompt adapters", () => {
     expect(error.message).toBe("skillset: interactive prompt cancelled");
   });
 
-  test("sessions route banner and prompts through injected streams", () => {
+  test("sessions render a lowercase intro with a dimmed version", () => {
     const input = ttyInput();
     const output = ttyOutput();
     const adapter = new ScriptedPromptAdapter([]);
@@ -469,8 +469,27 @@ describe("SET-291 prompt adapters", () => {
     expect(session).toBeDefined();
     session?.banner();
     session?.write("Plan\n");
-    expect(Bun.stripANSI(output.read()?.toString() ?? "")).toMatch(
-      /Skillset v\d+\.\d+\.\d+\nPlan\n$/u
+    const rendered = output.read()?.toString() ?? "";
+    expect(rendered).toContain("\u001b[2m");
+    expect(Bun.stripANSI(rendered)).toMatch(
+      /skillset v\d+\.\d+\.\d+\nPlan\n$/u
+    );
+  });
+
+  test("sessions keep the intro version plain when color is disabled", () => {
+    const output = ttyOutput();
+    const session = createInteractiveSession({
+      adapter: new ScriptedPromptAdapter([]),
+      env: { ...interactiveEnv, NO_COLOR: "1" },
+      input: ttyInput(),
+      output,
+    });
+
+    session?.banner();
+    const rendered = output.read()?.toString() ?? "";
+    expect(rendered).not.toContain("\u001b[2m");
+    expect(Bun.stripANSI(rendered)).toMatch(
+      /skillset v\d+\.\d+\.\d+\n$/u
     );
   });
 

@@ -65,7 +65,6 @@ export async function runTestCommand(
     });
   if (interactiveSession !== undefined && isBareTestRequest(request)) {
     interactiveSession.banner();
-    interactiveSession.write("Run tests:\n");
     const selection = await resolveInteractiveTestSelection(
       { options, rootPath },
       interactiveSession

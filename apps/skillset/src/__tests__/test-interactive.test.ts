@@ -24,14 +24,15 @@ function scriptedSession(
   answers: ConstructorParameters<typeof ScriptedPromptAdapter>[0]
 ) {
   const adapter = new ScriptedPromptAdapter(answers);
+  const output = ttyOutput();
   const session = createInteractiveSession({
     adapter,
     env: { CI: "false" },
     input: ttyInput(),
-    output: ttyOutput(),
+    output,
   });
   if (session === undefined) throw new Error("expected interactive session");
-  return { adapter, session };
+  return { adapter, output, session };
 }
 
 async function workspace(): Promise<string> {
@@ -294,13 +295,16 @@ describe("SET-294 unified interactive test chooser", () => {
   test("the bare command runs the all selection through canonical retained executions", async () => {
     const root = await workspace();
     await writeDeclarations(root, ["zeta", "alpha"]);
-    const { adapter, session } = scriptedSession([
+    const { adapter, output, session } = scriptedSession([
       { kind: "select", value: { kind: "all" } },
     ]);
 
     await runTestCommand(request(root), { interactiveSession: session });
 
     adapter.assertComplete();
+    expect(Bun.stripANSI(output.read()?.toString() ?? "")).not.toContain(
+      "Run tests:"
+    );
     expect(adapter.prompts.map((prompt) => prompt.kind)).toEqual(["select"]);
   });
 
