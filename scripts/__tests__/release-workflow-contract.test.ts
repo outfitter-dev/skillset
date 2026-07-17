@@ -5,7 +5,14 @@ import { join } from "node:path";
 type Workflow = {
   jobs?: Record<string, {
     permissions?: Record<string, string>;
-    steps?: Array<{ if?: string; name?: string; run?: string }>;
+    steps?: Array<{
+      env?: Record<string, string>;
+      if?: string;
+      name?: string;
+      run?: string;
+      uses?: string;
+      with?: Record<string, unknown>;
+    }>;
   }>;
   on?: Record<string, unknown>;
 };
@@ -19,6 +26,24 @@ async function readWorkflow(name: string): Promise<Workflow> {
 }
 
 describe("generated release PR workflow contract", () => {
+  test("changeset coverage derives the pull request diff from git history", async () => {
+    const workflow = await readWorkflow("ci.yml");
+    const changeset = workflow.jobs?.changeset;
+    const steps = changeset?.steps ?? [];
+    const checkout = steps.find((step) => step.uses === "actions/checkout@v5");
+    const check = steps.find((step) => step.name === "Check changeset coverage");
+
+    expect(checkout?.with?.["fetch-depth"]).toBe(0);
+    expect(check?.env?.BASE_SHA).toBe("${{ github.event.pull_request.base.sha }}");
+    expect(check?.env?.HEAD_SHA).toBe("${{ github.event.pull_request.head.sha }}");
+    expect(check?.run).toContain('git diff --name-status "$BASE_SHA...$HEAD_SHA"');
+    expect(check?.run).toContain(
+      'bun run changeset:check -- --changed-files "$RUNNER_TEMP/changed-files.txt"'
+    );
+    expect(steps.map((step) => step.run ?? "").join("\n")).not.toContain("gh api");
+    expect(changeset?.permissions?.["pull-requests"]).toBeUndefined();
+  });
+
   test("CI exposes an explicit dispatch path for bot-authored release heads", async () => {
     const workflow = await readWorkflow("ci.yml");
     const steps = workflow.jobs?.["skillset-ci"]?.steps ?? [];

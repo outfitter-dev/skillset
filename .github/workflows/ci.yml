@@ -22,24 +22,21 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version
       - run: bun install --frozen-lockfile
-      - name: Read pull request file list
+      - name: Check changeset coverage
         env:
-          GH_REPO: ${{ github.repository }}
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: >-
-          gh api --paginate
-          "repos/$GH_REPO/pulls/$PR_NUMBER/files?per_page=100"
-          --jq '.[] | "\(.status)\t\(.filename)"'
-          > "$RUNNER_TEMP/changed-files.txt"
-      - run: bun run changeset:check -- --changed-files "$RUNNER_TEMP/changed-files.txt"
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git diff --name-status "$BASE_SHA...$HEAD_SHA" > "$RUNNER_TEMP/changed-files.txt"
+          bun run changeset:check -- --changed-files "$RUNNER_TEMP/changed-files.txt"
 
   check:
     runs-on: ubuntu-latest
