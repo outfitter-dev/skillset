@@ -28,13 +28,13 @@ export interface NewSourceKindDefinition {
 
 export const NEW_SOURCE_KINDS: readonly NewSourceKindDefinition[] = [
   {
-    description: "Reusable source guidance with optional supporting files",
+    description: "Skill directory, SKILL.md, and optional supporting files",
     enabled: true,
     id: "skill",
     name: "Skill",
   },
   {
-    description: "Repository-level project agent",
+    description: "Markdown file with repository-level agent instructions",
     enabled: true,
     id: "agent",
     name: "Project agent",

@@ -225,6 +225,19 @@ describe("SET-294 unified interactive test chooser", () => {
     expect(chooser.prompt.choices.map((choice) => choice.name)).toEqual([
       "Ad hoc test",
     ]);
+    expect(chooser.prompt.choices[0]?.description).toBe(
+      "Run a prompt against one target without saving a test"
+    );
+    const executionPrompt = adapter.prompts[3];
+    if (executionPrompt?.kind !== "select") {
+      throw new Error("expected execution prompt");
+    }
+    expect(
+      executionPrompt.prompt.choices.map((choice) => choice.description)
+    ).toEqual([
+      "Wait for the test to finish and show the result",
+      "Start the test and return to the shell",
+    ]);
   });
 
   test("one chooser contains all, each declaration, and ad hoc without redundant target prompts", async () => {
@@ -248,6 +261,12 @@ describe("SET-294 unified interactive test chooser", () => {
     ]);
     expect(chooser.prompt.choices[1]?.description).toBe(
       "Targets: claude, codex, cursor"
+    );
+    expect(chooser.prompt.choices[0]?.description).toBe(
+      "Run all 1 test declared in this workspace"
+    );
+    expect(chooser.prompt.choices[2]?.description).toBe(
+      "Run a prompt against one target without saving a test"
     );
   });
 

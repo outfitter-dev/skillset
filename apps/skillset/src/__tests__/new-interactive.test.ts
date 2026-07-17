@@ -69,6 +69,11 @@ describe("SET-293 derived new-source choices", () => {
       ["agent", true],
       ["hook", false],
     ]);
+    expect(NEW_SOURCE_KINDS.map((kind) => kind.description)).toEqual([
+      "Skill directory, SKILL.md, and optional supporting files",
+      "Markdown file with repository-level agent instructions",
+      "Adaptive runtime hook",
+    ]);
     expect(SKILL_PRESETS.map((preset) => preset.id)).toEqual([
       "minimal",
       "support",
