@@ -1,4 +1,11 @@
-import type { SkillsetOptions } from "@skillset/core/internal/types";
+import {
+  isTargetName,
+  targetNames,
+} from "@skillset/core/internal/targets";
+import type {
+  SkillsetOptions,
+  TargetName,
+} from "@skillset/core/internal/types";
 
 import { assertBooleanOption, CliArgReader } from "./cli-arg-reader";
 import {
@@ -149,6 +156,11 @@ export const parseNewCommandRequest = (
   let container: string | undefined;
   let buildMode: "all" | "updated" | undefined;
   let displayName: string | undefined;
+  let hookAttachment: string | undefined;
+  let hookCommand: string | undefined;
+  let hookEvents: string[] | undefined;
+  let hookProviders: TargetName[] | undefined;
+  let hookScript: string | undefined;
   let id: string | undefined;
   let importKind: ImportKind | undefined;
   let importProvider: ImportProvider | undefined;
@@ -173,6 +185,28 @@ export const parseNewCommandRequest = (
         break;
       case "--in":
         container = reader.readRequiredOptionValue(option);
+        break;
+      case "--attach":
+        hookAttachment = reader.readRequiredOptionValue(option);
+        break;
+      case "--command":
+        hookCommand = reader.readRequiredOptionValue(option);
+        break;
+      case "--event":
+        hookEvents = [...(hookEvents ?? []), reader.readRequiredOptionValue(option)];
+        break;
+      case "--provider": {
+        const value = reader.readRequiredOptionValue(option);
+        if (!isTargetName(value)) {
+          throw new Error(
+            `skillset: expected --provider ${targetNames().join(", ")}`
+          );
+        }
+        hookProviders = [...(hookProviders ?? []), value];
+        break;
+      }
+      case "--script":
+        hookScript = reader.readRequiredOptionValue(option);
         break;
       case "--preset":
         presets = [...(presets ?? []), reader.readRequiredOptionValue(option)];
@@ -228,6 +262,11 @@ export const parseNewCommandRequest = (
     yes,
   };
   return {
+    ...(hookAttachment === undefined ? {} : { hookAttachment }),
+    ...(hookCommand === undefined ? {} : { hookCommand }),
+    ...(hookEvents === undefined ? {} : { hookEvents }),
+    ...(hookProviders === undefined ? {} : { hookProviders }),
+    ...(hookScript === undefined ? {} : { hookScript }),
     jsonOutput: explicit.json,
     newContainer: explicit.container,
     newId: explicit.id,

@@ -435,6 +435,12 @@ export function validateAdaptiveHookUnitSource(value: unknown, path = "$"): Skil
   return result(diagnostics);
 }
 
+export function validateHookAttachmentsSource(value: unknown, path = "$"): SkillsetSchemaValidationResult {
+  const diagnostics: SkillsetSchemaDiagnostic[] = [];
+  checkHookAttachments(value as SchemaJsonValue | undefined, path, "schema/hook-attachments", diagnostics);
+  return result(diagnostics);
+}
+
 export function validateChangeEntryFrontmatter(value: unknown, path = "$"): SkillsetSchemaValidationResult {
   const diagnostics: SkillsetSchemaDiagnostic[] = [];
   if (!isSchemaRecord(value)) return result([diagnostic(path, "schema/change-entry/type", "change entry frontmatter must be an object")]);

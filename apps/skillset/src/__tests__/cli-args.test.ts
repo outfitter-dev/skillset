@@ -79,6 +79,21 @@ describe("SET-299 CLI request characterization", () => {
       },
     },
     {
+      route: "create",
+      args: ["create", "demo", "--root", ROOT],
+      expected: {
+        command: "create",
+        request: {
+          jsonOutput: false,
+          name: "demo",
+          options: {},
+          parentExplicit: true,
+          parentPath: ROOT,
+          yes: false,
+        },
+      },
+    },
+    {
       route: "dev",
       args: ["dev", "--root", ROOT],
       expected: {
@@ -877,8 +892,8 @@ describe("SET-299 CLI request characterization", () => {
         expected: { tryLines: 2 },
       },
       {
-        args: ["init", "--from", "first", "--from", "second"],
-        expected: { initFrom: "second" },
+        args: ["import", "source", "--from", "claude", "--from", "codex"],
+        expected: { importProvider: "codex" },
       },
     ] as const;
     for (const { args, expected } of rows) {
@@ -1091,7 +1106,7 @@ describe("SET-299 parser failure contract", () => {
           "skillset: declared test declared cannot be combined with ad hoc test flags",
       },
       {
-        args: ["init", "--kind", "skill", "--updated"],
+        args: ["init", "--adopt", "all", "--updated"],
         message:
           "skillset: build mode and scope flags are not supported with adopt; adoption always builds the full projection isolated",
       },

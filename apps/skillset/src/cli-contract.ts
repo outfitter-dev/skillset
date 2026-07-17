@@ -57,6 +57,11 @@ export const CLI_FLAGS = {
     meaning: "Append to an existing pending change reason.",
     value: "boolean",
   },
+  "--attach": {
+    family: "selection",
+    meaning: "Attach a new adaptive hook to an existing source-unit selector.",
+    value: "value",
+  },
   "--background": {
     family: "mode",
     meaning: "Queue an ad hoc test and return after recording it.",
@@ -83,6 +88,11 @@ export const CLI_FLAGS = {
     meaning: "Filter lookup facts by one or more providers.",
     value: "optional-value",
   },
+  "--command": {
+    family: "input",
+    meaning: "Set the command action for a new adaptive hook.",
+    value: "value",
+  },
   "--context-fields": {
     family: "selection",
     meaning: "Select normalized hook runtime context fields.",
@@ -95,8 +105,8 @@ export const CLI_FLAGS = {
   },
   "--event": {
     family: "input",
-    meaning: "Select the hook runtime event to normalize.",
-    value: "value",
+    meaning: "Select a hook event; repeat where the route permits.",
+    value: "repeatable-value",
   },
   "--events": {
     family: "selection",
@@ -233,6 +243,11 @@ export const CLI_FLAGS = {
     meaning: "Provide a source-local ad hoc test prompt file.",
     value: "value",
   },
+  "--provider": {
+    family: "selection",
+    meaning: "Constrain a new adaptive hook to a compatible provider.",
+    value: "repeatable-value",
+  },
   "--reason": {
     family: "input",
     meaning: "Provide change or release reason text, with '-' meaning stdin.",
@@ -275,6 +290,11 @@ export const CLI_FLAGS = {
     meaning:
       "Select a route-owned source unit or generated destination scope; never changes workspace roots.",
     value: "repeatable-value",
+  },
+  "--script": {
+    family: "input",
+    meaning: "Set the script action for a new adaptive hook.",
+    value: "value",
   },
   "--since": {
     family: "selection",
@@ -415,13 +435,18 @@ export const CLI_ROUTE_FLAGS = {
   "marketplace check": ["--json", "--root"],
   "marketplace update": ["--json", "--root", "--yes"],
   new: [
+    "--attach",
+    "--command",
+    "--event",
     "--id",
     "--in",
     "--json",
     "--name",
     "--preset",
+    "--provider",
     "--root",
     "--scope",
+    "--script",
     "--yes",
   ],
   reconcile: ["--json", "--root", "--use", "--yes"],

@@ -1,4 +1,4 @@
-import { mkdir, readdir, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import {
@@ -11,12 +11,15 @@ import {
   validateSlug,
 } from "@skillset/core/internal/path";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
+import type { TargetName } from "@skillset/core/internal/types";
+
+import { planNewAdaptiveHook } from "./new-hook";
 
 export type NewSourceKind = "agent" | "hook" | "instruction" | "skill";
 export type NewSourceScope = "repo";
 
 export const NEW_HOOK_UNAVAILABLE_REASON =
-  "Not available yet; author hooks in hooks/hooks.json";
+  "Complete hook intent requires an event, action, and attachment";
 
 export interface NewSourceKindDefinition {
   readonly description: string;
@@ -61,6 +64,11 @@ export const NEW_SOURCE_KIND_LIST_TEXT = formatList(
 export interface NewSourceOptions {
   readonly container?: string;
   readonly displayName?: string;
+  readonly hookAttachment?: string;
+  readonly hookCommand?: string;
+  readonly hookEvents?: readonly string[];
+  readonly hookProviders?: readonly TargetName[];
+  readonly hookScript?: string;
   readonly id?: string;
   readonly kind: NewSourceKind;
   readonly name?: string;
@@ -71,6 +79,7 @@ export interface NewSourceOptions {
 }
 
 export interface NewSourceFile {
+  readonly operation: "create" | "update";
   readonly path: string;
 }
 
@@ -100,8 +109,10 @@ export interface SkillPresetDefinition {
   readonly name: string;
 }
 
-interface PlannedFile {
+export interface NewSourcePlannedFile {
   readonly content: string;
+  readonly expectedContent?: string;
+  readonly operation?: "create" | "update";
   readonly path: string;
 }
 
@@ -137,10 +148,6 @@ export async function scaffoldSourceUnit(
   if (options.scope !== undefined && options.scope !== "repo") {
     throw new Error("skillset: new currently supports only --scope repo");
   }
-  if (options.kind === "hook") {
-    throw new Error(`skillset: ${NEW_HOOK_UNAVAILABLE_REASON}`);
-  }
-
   const id = resolveSourceId(options);
   const displayName = resolveDisplayName(options, id);
   const sourceDir = await detectWorkspaceSourceDir(rootPath, options.skillsetOptions ?? {});
@@ -155,7 +162,13 @@ export async function scaffoldSourceUnit(
   );
 
   for (const plan of plans) {
-    if (await fileExists(resolveInside(rootPath, plan.path))) {
+    const absolutePath = resolveInside(rootPath, plan.path);
+    if (plan.operation === "update") {
+      const current = await readFile(absolutePath, "utf8");
+      if (current !== plan.expectedContent) {
+        throw new Error(`skillset: source file changed while planning ${plan.path}`);
+      }
+    } else if (await fileExists(absolutePath)) {
       throw new Error(`skillset: refusing to overwrite existing source file ${plan.path}`);
     }
   }
@@ -170,7 +183,10 @@ export async function scaffoldSourceUnit(
 
   return {
     displayName,
-    files: plans.map((plan) => ({ path: plan.path })),
+    files: plans.map((plan) => ({
+      operation: plan.operation ?? "create",
+      path: plan.path,
+    })),
     id,
     kind: options.kind,
     rootPath,
@@ -185,7 +201,7 @@ async function planSourceUnit(
   id: string,
   displayName: string,
   options: NewSourceOptions
-): Promise<readonly PlannedFile[]> {
+): Promise<readonly NewSourcePlannedFile[]> {
   switch (options.kind) {
     case "agent":
       return planAgent(sourceRoot, id, displayName, options);
@@ -194,7 +210,16 @@ async function planSourceUnit(
     case "skill":
       return planSkill(rootPath, sourceRoot, id, displayName, options);
     case "hook":
-      throw new Error(`skillset: ${NEW_HOOK_UNAVAILABLE_REASON}`);
+      return planNewAdaptiveHook(rootPath, id, displayName, {
+        attachment: options.hookAttachment,
+        command: options.hookCommand,
+        container: options.container,
+        events: options.hookEvents,
+        providers: options.hookProviders,
+        presets: options.presets,
+        script: options.hookScript,
+        skillsetOptions: options.skillsetOptions ?? {},
+      });
   }
 }
 
@@ -264,7 +289,7 @@ async function planSkill(
   id: string,
   displayName: string,
   options: NewSourceOptions
-): Promise<readonly PlannedFile[]> {
+): Promise<readonly NewSourcePlannedFile[]> {
   const container = options.container === undefined
     ? undefined
     : validateSlug(options.container, "new --in container");
@@ -280,7 +305,7 @@ async function planSkill(
     ? join(sourceRoot, "skills", id)
     : join(sourceRoot, "plugins", container, "skills", id);
   const presets = readSkillPresets(options.presets);
-  const files: PlannedFile[] = [
+  const files: NewSourcePlannedFile[] = [
     {
       content: renderSkill(id, displayName),
       path: join(skillRoot, "SKILL.md"),
@@ -318,7 +343,7 @@ async function planInstruction(
   id: string,
   displayName: string,
   options: NewSourceOptions
-): Promise<readonly PlannedFile[]> {
+): Promise<readonly NewSourcePlannedFile[]> {
   if (options.presets !== undefined && options.presets.length > 0) {
     throw new Error("skillset: new instruction does not support --preset");
   }
@@ -349,7 +374,7 @@ function planAgent(
   id: string,
   displayName: string,
   options: NewSourceOptions
-): readonly PlannedFile[] {
+): readonly NewSourcePlannedFile[] {
   if (options.container !== undefined) {
     throw new Error("skillset: new agent does not support --in; project agents live at the repo source root");
   }
@@ -434,9 +459,9 @@ function formatList(values: readonly string[]): string {
   return `${values.slice(0, -1).join(", ")}, or ${values.at(-1)}`;
 }
 
-function uniquePlans(plans: readonly PlannedFile[]): readonly PlannedFile[] {
+function uniquePlans(plans: readonly NewSourcePlannedFile[]): readonly NewSourcePlannedFile[] {
   const seen = new Set<string>();
-  const unique: PlannedFile[] = [];
+  const unique: NewSourcePlannedFile[] = [];
   for (const plan of plans) {
     if (seen.has(plan.path)) continue;
     seen.add(plan.path);

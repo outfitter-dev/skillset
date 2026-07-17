@@ -1,7 +1,10 @@
 import { relative, resolve } from "node:path";
 
 import { sourceUnitDisplay } from "@skillset/core/internal/source-unit-selector";
-import type { SkillsetOptions } from "@skillset/core/internal/types";
+import type {
+  SkillsetOptions,
+  TargetName,
+} from "@skillset/core/internal/types";
 
 import { printCliJsonData } from "./cli-output";
 import { ImportBatchError, importSources } from "./import";
@@ -104,6 +107,11 @@ export async function runImportCommand({
 }
 
 export interface NewCommandRequest {
+  readonly hookAttachment?: string;
+  readonly hookCommand?: string;
+  readonly hookEvents?: readonly string[];
+  readonly hookProviders?: readonly TargetName[];
+  readonly hookScript?: string;
   readonly positionalName: string | undefined;
   readonly jsonOutput: boolean;
   readonly newContainer: string | undefined;
@@ -123,6 +131,11 @@ export interface NewCommandContext {
 
 export async function runNewCommand(
   {
+    hookAttachment,
+    hookCommand,
+    hookEvents,
+    hookProviders,
+    hookScript,
     positionalName,
     jsonOutput,
     newContainer,
@@ -144,6 +157,11 @@ export async function runNewCommand(
     interactiveSession.banner();
     const result = await runInteractiveNew(
       {
+        ...(hookAttachment === undefined ? {} : { hookAttachment }),
+        ...(hookCommand === undefined ? {} : { hookCommand }),
+        ...(hookEvents === undefined ? {} : { hookEvents }),
+        ...(hookProviders === undefined ? {} : { hookProviders }),
+        ...(hookScript === undefined ? {} : { hookScript }),
         positionalName,
         newContainer,
         newId,
@@ -176,6 +194,11 @@ export async function runNewCommand(
     ...(newContainer === undefined ? {} : { container: newContainer }),
     ...(newId === undefined ? {} : { id: newId }),
     kind: newKind,
+    ...(hookAttachment === undefined ? {} : { hookAttachment }),
+    ...(hookCommand === undefined ? {} : { hookCommand }),
+    ...(hookEvents === undefined ? {} : { hookEvents }),
+    ...(hookProviders === undefined ? {} : { hookProviders }),
+    ...(hookScript === undefined ? {} : { hookScript }),
     ...(newName === undefined ? {} : { displayName: newName }),
     ...(positionalName === undefined ? {} : { name: positionalName }),
     ...(newPresets === undefined ? {} : { presets: newPresets }),
@@ -257,7 +280,7 @@ function printImportReport(result: ImportReport): void {
 
 function printNewSourceReport(result: NewSourceReport, reason: string): void {
   for (const file of result.files) {
-    console.log(`  + ${file.path}`);
+    console.log(`  ${file.operation === "update" ? "~" : "+"} ${file.path}`);
   }
   const action = result.write ? "created" : "planned";
   console.log(`skillset: ${action} ${result.kind} ${result.id} (${reason})`);

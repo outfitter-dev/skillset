@@ -15,6 +15,7 @@ import {
   validateAdaptiveHookUnitSource,
   validateChangeEntryFrontmatter,
   validateHookDefinitionSource,
+  validateHookAttachmentsSource,
   validateInstructionFrontmatter,
   validateSkillFrontmatter,
   validateSourceMetadata,
@@ -274,6 +275,18 @@ describe("@skillset/schema contracts", () => {
       "schema/adaptive-hook/path",
       "schema/adaptive-hook/runtime-path-proof",
     ]));
+  });
+
+  it("validates reusable adaptive hook attachments", () => {
+    expect(validateHookAttachmentsSource({
+      auto: [{ hook: "shell-policy", providers: ["claude", "codex"] }],
+    }).diagnostics).toEqual([]);
+    expect(validateHookAttachmentsSource({
+      auto: [{ hook: "", providers: ["bad"] }],
+    }).diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
+      "schema/hook-attachments",
+      "schema/hook-attachments",
+    ]);
   });
 
   it("validates workspace config structure", () => {

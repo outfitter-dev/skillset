@@ -735,7 +735,7 @@ async function readAdaptiveHookScriptReferences(
   }];
 }
 
-function resolveAdaptiveHookScriptPath(
+export function resolveAdaptiveHookScriptPath(
   rootPath: string,
   ownerPath: string,
   hookSourcePath: string,
@@ -760,7 +760,7 @@ function resolveAdaptiveHookScriptPath(
   return resolveInside(ownerPath, reference);
 }
 
-async function validateAdaptiveHookScriptSource(
+export async function validateAdaptiveHookScriptSource(
   rootPath: string,
   sourcePath: string,
   hookSourcePath: string,

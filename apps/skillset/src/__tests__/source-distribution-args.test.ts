@@ -209,6 +209,33 @@ describe("SET-302 source and distribution route parsers", () => {
     expect(() =>
       parseNewCommandRequest(["new", "skill", "--preset", "missing"], CONTEXT)
     ).toThrow("expected --preset minimal, support");
+    expect(
+      parseNewCommandRequest([
+        "new",
+        "hook",
+        "shell-policy",
+        "--event",
+        "PreToolUse",
+        "--event=Stop",
+        "--command",
+        "echo check",
+        "--attach",
+        "plugin:guard",
+        "--provider",
+        "claude",
+        "--provider=codex",
+      ], CONTEXT)
+    ).toMatchObject({
+      hookAttachment: "plugin:guard",
+      hookCommand: "echo check",
+      hookEvents: ["PreToolUse", "Stop"],
+      hookProviders: ["claude", "codex"],
+      newKind: "hook",
+      positionalName: "shell-policy",
+    });
+    expect(() =>
+      parseNewCommandRequest(["new", "hook", "--provider", "unknown"], CONTEXT)
+    ).toThrow("expected --provider claude, codex, cursor");
   });
 
   test("distribution routes own subcommands, names, machine mode, and writes", () => {

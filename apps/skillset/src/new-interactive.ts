@@ -1,4 +1,7 @@
-import type { SkillsetOptions } from "@skillset/core/internal/types";
+import type {
+  SkillsetOptions,
+  TargetName,
+} from "@skillset/core/internal/types";
 
 import type { InteractiveSession } from "./interactive-session";
 import {
@@ -16,6 +19,11 @@ const WORKSPACE_CONTAINER = "__workspace__";
 const SEARCH_THRESHOLD = 8;
 
 export interface InteractiveNewRequest {
+  readonly hookAttachment?: string;
+  readonly hookCommand?: string;
+  readonly hookEvents?: readonly string[];
+  readonly hookProviders?: readonly TargetName[];
+  readonly hookScript?: string;
   readonly positionalName: string | undefined;
   readonly newContainer: string | undefined;
   readonly newId: string | undefined;
@@ -49,6 +57,11 @@ export async function runInteractiveNew(
     ...(container === undefined ? {} : { container }),
     ...(identity.id === undefined ? {} : { id: identity.id }),
     kind,
+    ...(request.hookAttachment === undefined ? {} : { hookAttachment: request.hookAttachment }),
+    ...(request.hookCommand === undefined ? {} : { hookCommand: request.hookCommand }),
+    ...(request.hookEvents === undefined ? {} : { hookEvents: request.hookEvents }),
+    ...(request.hookProviders === undefined ? {} : { hookProviders: request.hookProviders }),
+    ...(request.hookScript === undefined ? {} : { hookScript: request.hookScript }),
     ...(identity.displayName === undefined
       ? {}
       : { displayName: identity.displayName }),
