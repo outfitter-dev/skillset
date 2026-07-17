@@ -4,6 +4,7 @@ import {
   parseDistributionCommandRequest,
   parseMarketplaceCommandRequest,
 } from "../distribution-args";
+import { parseCreateCommandRequest } from "../create-args";
 import { parseInitCommandRequest } from "../init-args";
 import {
   parseImportCommandRequest,
@@ -42,7 +43,7 @@ describe("SET-302 source and distribution route parsers", () => {
     ).toMatchObject({ distributionSubcommand: "plan" });
   });
 
-  test("init owns acquisition, adoption, setup, and confirmation inputs", () => {
+  test("init owns existing-directory adoption, setup, and confirmation inputs", () => {
     expect(
       parseInitCommandRequest(
         [
@@ -50,13 +51,9 @@ describe("SET-302 source and distribution route parsers", () => {
           "destination",
           "--root",
           "nested",
-          "--from",
-          "source",
           "--adopt",
           "first",
           "--adopt=second",
-          "--name",
-          "Workspace",
           "--targets",
           "claude,codex",
           "--include",
@@ -68,10 +65,8 @@ describe("SET-302 source and distribution route parsers", () => {
         CONTEXT
       )
     ).toEqual({
-      destination: "destination",
-      importName: "Workspace",
+      directory: "destination",
       initAdopt: ["first", "second"],
-      initFrom: "source",
       jsonOutput: true,
       options: {},
       rootExplicit: true,
@@ -80,6 +75,48 @@ describe("SET-302 source and distribution route parsers", () => {
       setupTargets: ["claude", "codex"],
       yes: true,
     });
+  });
+
+  test("create owns a named child and CWD-default parent", () => {
+    expect(
+      parseCreateCommandRequest(
+        [
+          "create",
+          "Team Loadout",
+          "--root",
+          "parent",
+          "--targets",
+          "codex",
+          "--include",
+          "ci",
+          "--json",
+          "--yes",
+        ],
+        CONTEXT
+      )
+    ).toEqual({
+      jsonOutput: true,
+      name: "Team Loadout",
+      options: {},
+      parentExplicit: true,
+      parentPath: "/workspace/repo/parent",
+      setupIncludes: ["ci"],
+      setupTargets: ["codex"],
+      yes: true,
+    });
+    expect(parseCreateCommandRequest(["create"], CONTEXT)).toMatchObject({
+      name: undefined,
+      parentExplicit: false,
+      parentPath: CONTEXT.cwd,
+    });
+  });
+
+  test("init hard-cuts external acquisition and setup-name flags", () => {
+    for (const flag of ["--from", "--name"]) {
+      expect(() =>
+        parseInitCommandRequest(["init", flag, "value"], CONTEXT)
+      ).toThrow(`skillset: unknown option ${flag}`);
+    }
   });
 
   test("import owns positional inference and explicit source metadata", () => {

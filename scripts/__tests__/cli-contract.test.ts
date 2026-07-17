@@ -20,13 +20,14 @@ import {
 } from "../cli-contract";
 
 describe("SET-275 final CLI contract", () => {
-  test("pins the exact 20-command top-level roster without retired aliases", () => {
-    expect(CLI_COMMANDS).toHaveLength(20);
+  test("pins the exact 21-command top-level roster without retired aliases", () => {
+    expect(CLI_COMMANDS).toHaveLength(21);
     expect(new Set(CLI_COMMANDS).size).toBe(CLI_COMMANDS.length);
     expect(CLI_COMMANDS).toEqual([
       "build",
       "change",
       "check",
+      "create",
       "dev",
       "diff",
       "distribute",
@@ -113,6 +114,7 @@ describe("SET-275 final CLI contract", () => {
       "change show": "skillset change show ",
       "change status": "skillset change status ",
       check: "skillset check ",
+      create: "skillset create ",
       diff: "skillset diff ",
       "distribute plan": "skillset distribute plan ",
       explain: "skillset explain ",

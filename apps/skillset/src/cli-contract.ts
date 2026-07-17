@@ -376,6 +376,7 @@ export const CLI_ROUTE_FLAGS = {
     "--since",
     "--write",
   ],
+  create: ["--include", "--json", "--root", "--targets", "--yes"],
   dev: ["--jsonl", "--root", "--write"],
   diff: ["--all", "--isolated", "--json", "--root", "--scope", "--updated"],
   "distribute plan": ["--json", "--root"],
@@ -392,10 +393,8 @@ export const CLI_ROUTE_FLAGS = {
   import: ["--from", "--json", "--kind", "--name", "--root"],
   init: [
     "--adopt",
-    "--from",
     "--include",
     "--json",
-    "--name",
     "--root",
     "--targets",
     "--yes",
@@ -455,6 +454,7 @@ export const HIDDEN_CLI_ROUTES = {
 } as const;
 
 export const FINITE_JSON_ROUTES = [
+  "create",
   "init",
   "import",
   "new",

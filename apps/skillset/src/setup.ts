@@ -111,8 +111,11 @@ interface PlannedFile {
 
 export async function initSkillset(options: SetupOptions = {}): Promise<SetupReport> {
   const rootPath = await initRootPath(options);
-  if (options.rootPath !== undefined && await pathIsMissingOrEmpty(rootPath)) {
-    return createSkillset({ ...options, rootPath });
+  if (!await pathExists(rootPath)) {
+    throw new Error(`skillset: init directory does not exist: ${rootPath}`);
+  }
+  if (!(await stat(rootPath)).isDirectory()) {
+    throw new Error(`skillset: init target is not a directory: ${rootPath}`);
   }
   return applySetupPlan("init", rootPath, options);
 }
@@ -137,12 +140,6 @@ export async function createSkillset(options: SetupOptions = {}): Promise<SetupR
 
 export function defaultGlobalSourcePath(homeDir = process.env.HOME ?? "~"): string {
   return resolve(homeDir, DEFAULT_GLOBAL_SOURCE);
-}
-
-async function pathIsMissingOrEmpty(path: string): Promise<boolean> {
-  if (!await pathExists(path)) return true;
-  const stats = await stat(path);
-  return stats.isDirectory() && (await readdir(path)).length === 0;
 }
 
 async function applySetupPlan(

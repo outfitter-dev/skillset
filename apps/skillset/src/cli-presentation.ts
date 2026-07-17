@@ -152,13 +152,21 @@ const PRESENTATION = {
       "import <claude|codex|cursor|agents> [--json] [--root <path>]",
     ],
   },
+  create: {
+    group: "Author",
+    summary: "Create a named Skillset repository.",
+    synopses: [
+      "create [name] [--root <parent-directory>] [--yes] [--targets claude,codex,cursor] [--include ci] [--json]",
+    ],
+    examples: ["skillset create", "skillset create team-loadout --yes"],
+  },
   init: {
     group: "Author",
-    summary: "Initialize or adopt a Skillset workspace.",
+    summary: "Initialize Skillset in an existing directory.",
     synopses: [
-      "init [destination] [--from <path|git-url>] [--adopt <all|candidate-id>] [--yes] [--targets claude,codex,cursor] [--include ci] [--name <name>] [--json] [--root <path>]",
+      "init [directory] [--adopt <all|candidate-id>] [--yes] [--targets claude,codex,cursor] [--include ci] [--json] [--root <path>]",
     ],
-    examples: ["skillset init", "skillset init --from ../another-repo"],
+    examples: ["skillset init", "skillset init ../existing-repo"],
   },
   list: {
     group: "Inspect",

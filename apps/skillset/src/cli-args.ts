@@ -4,6 +4,7 @@ import {
 } from "./build-args";
 import { parseChangeCommandRequest } from "./change-args";
 import { parseCheckCommandRequest } from "./check-args";
+import { parseCreateCommandRequest } from "./create-args";
 import type { CliParseContext } from "./cli-arg-values";
 import { isCliCommand, renderExpectedCliCommands } from "./cli-commands";
 import { CliOutputError, readCliCommand } from "./cli-output";
@@ -65,6 +66,12 @@ export const parseCliRequest = (
         return {
           command,
           request: parseCheckCommandRequest(args, parseContext),
+        };
+      }
+      case "create": {
+        return {
+          command,
+          request: parseCreateCommandRequest(args, parseContext),
         };
       }
       case "dev": {

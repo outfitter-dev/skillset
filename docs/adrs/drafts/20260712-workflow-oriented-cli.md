@@ -51,7 +51,11 @@ Skillset ships a 20-command workflow-oriented CLI. Frequent authoring and compil
 | Distribution | `marketplace` · `distribute` |
 | Runtime | `hooks` |
 
-### Init is the one onboarding door
+### Init as the original consolidated onboarding door
+
+> Superseded in implementation by SET-312: `init` now owns existing-directory setup and repo-local adoption, `create` owns named child repositories, and `import` owns external conversion. This section preserves the rationale for the earlier consolidation.
+
+The current hard-cut mapping is `init [directory]` for existing repositories, `create [name]` for a new named child repository, and `import <source>` for external existing work. The historical text below describes the superseded consolidation rather than current grammar.
 
 `skillset init [destination]` owns new-repo creation, existing-repo setup, and whole-repo adoption. It specializes the [one-action adoption survey](20260610-one-action-repo-adoption.md#adoption-surveys-the-whole-repo-not-just-manifests) by making adoption a mode of onboarding rather than a second top-level workflow.
 

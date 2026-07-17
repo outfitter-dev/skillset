@@ -103,6 +103,7 @@ describe("SET-291 prompt adapters", () => {
       { kind: "search", value: "two" },
       { kind: "search-multiselect", value: ["two"] },
       { kind: "checkbox", value: ["one", "two"] },
+      { kind: "group-checkbox", value: ["two"] },
     ]);
 
     await expect(adapter.input({ message: "Name:" })).resolves.toBe("demo");
@@ -141,8 +142,14 @@ describe("SET-291 prompt adapters", () => {
         message: "Include:",
       })
     ).resolves.toEqual(["one", "two"]);
+    await expect(
+      adapter.groupedCheckbox({
+        groups: [{ choices: [{ name: "Two", value: "two" }], name: "Group" }],
+        message: "Include by group:",
+      })
+    ).resolves.toEqual(["two"]);
     adapter.assertComplete();
-    expect(adapter.prompts).toHaveLength(6);
+    expect(adapter.prompts).toHaveLength(7);
     expect(adapter.prompts[1]).toEqual({
       kind: "confirm",
       prompt: { default: false, message: "Proceed?" },
@@ -189,7 +196,7 @@ describe("SET-291 prompt adapters", () => {
     ).rejects.toThrow(PromptCancelledError);
   });
 
-  test("the real adapter maps defaults and initial choices for all six prompt kinds", async () => {
+  test("the real adapter maps defaults and initial choices for every prompt kind", async () => {
     const submit = async <Value>(
       run: (adapter: ClackPromptAdapter) => Promise<Value>
     ): Promise<Value> => {
@@ -220,6 +227,14 @@ describe("SET-291 prompt adapters", () => {
     ).resolves.toBe("two");
     await expect(
       submit((adapter) => adapter.checkbox({ choices, message: "Include:" }))
+    ).resolves.toEqual(["two"]);
+    await expect(
+      submit((adapter) =>
+        adapter.groupedCheckbox({
+          groups: [{ choices, name: "Examples" }],
+          message: "Include by group:",
+        })
+      )
     ).resolves.toEqual(["two"]);
     await expect(
       submit((adapter) =>
@@ -513,10 +528,8 @@ describe("SET-291 prompt adapters", () => {
 
     await runInitCommand(
       {
-        destination: undefined,
-        importName: undefined,
+        directory: undefined,
         initAdopt: undefined,
-        initFrom: undefined,
         jsonOutput: false,
         options: {},
         rootExplicit: true,
@@ -556,10 +569,8 @@ describe("SET-291 prompt adapters", () => {
 
     await runInitCommand(
       {
-        destination: undefined,
-        importName: undefined,
+        directory: undefined,
         initAdopt: ["instructions:AGENTS.md"],
-        initFrom: undefined,
         jsonOutput: false,
         options: {},
         rootExplicit: true,
@@ -594,10 +605,8 @@ describe("SET-291 prompt adapters", () => {
 
     await runInitCommand(
       {
-        destination: undefined,
-        importName: undefined,
+        directory: undefined,
         initAdopt: undefined,
-        initFrom: undefined,
         jsonOutput: true,
         options: {},
         rootExplicit: true,

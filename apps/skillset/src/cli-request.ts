@@ -1,6 +1,7 @@
 import type { BuildCommandRequest, DiffCommandRequest } from "./build-cli";
 import type { ChangeCommandRequest } from "./change-cli";
 import type { CheckCommandRequest } from "./check-cli";
+import type { CreateCommandRequest } from "./create-cli";
 import type { DevCommandRequest } from "./dev-cli";
 import type {
   DistributionCommandRequest,
@@ -28,6 +29,7 @@ export type CliRequest =
   | { readonly command: "build"; readonly request: BuildCommandRequest }
   | { readonly command: "change"; readonly request: ChangeCommandRequest }
   | { readonly command: "check"; readonly request: CheckCommandRequest }
+  | { readonly command: "create"; readonly request: CreateCommandRequest }
   | { readonly command: "dev"; readonly request: DevCommandRequest }
   | { readonly command: "diff"; readonly request: DiffCommandRequest }
   | {

@@ -49,7 +49,7 @@ From a content repo:
 
 ```bash
 skillset init               # preview root skillset.yaml + .skillset/ source for the current repo
-skillset init my-skillset   # preview a new source repo
+skillset create my-skillset # preview a named child source repo
 skillset build              # plan generated changes without writing
 skillset build --yes        # write generated outputs
 skillset build --isolated   # mirror the projection under .skillset/cache/latest/ (also: check --only outputs, diff)
@@ -69,7 +69,7 @@ skillset test --target codex --prompt "..." # run an ad hoc provider test
 skillset test status        # inspect the retained ad hoc test lifecycle (also: tail, list)
 ```
 
-`init` and `build` are plan-first: they print pending filesystem changes and write only with `--yes`. `skillset check` is read-only by default and combines source diagnostics with generated-output readiness. `check --only outputs` is the narrow freshness check. `check --write` repairs only source-driven drift: it refuses managed target-side edits and provider-format migrations, which must be reconciled or applied through `skillset update`. `check --ci` adds branch-aware Skillset change-entry and package Changesets gates; CI uses `--fix`, not `--write`, and may also emit a Markdown report with `--report`. Removed top-level readiness commands have no compatibility aliases. `skillset init --include ci` scaffolds the corresponding workflow (see [CI](docs/features/ci.md)).
+`init`, `create`, and `build` are plan-first: they print pending filesystem changes and write only with `--yes`. `skillset check` is read-only by default and combines source diagnostics with generated-output readiness. `check --only outputs` is the narrow freshness check. `check --write` repairs only source-driven drift: it refuses managed target-side edits and provider-format migrations, which must be reconciled or applied through `skillset update`. `check --ci` adds branch-aware Skillset change-entry and package Changesets gates; CI uses `--fix`, not `--write`, and may also emit a Markdown report with `--report`. Removed top-level readiness commands have no compatibility aliases. `skillset init --include ci` scaffolds the corresponding workflow (see [CI](docs/features/ci.md)).
 
 Inspection stays split by question: `status` summarizes current workspace health, `list` inventories generated entries, `explain` traces one path's provenance, and `lookup` answers static contract questions such as `lookup features`.
 
@@ -147,11 +147,11 @@ skillset init --root /path/to/content-repo --targets claude --include ci --yes
 Create a new source repo, defaulting to `my-skillset` under the current directory:
 
 ```bash
-skillset init my-skillset
-skillset init team-loadout --name team-loadout --targets claude,codex --yes
+skillset create my-skillset
+skillset create team-loadout --targets claude,codex --yes
 ```
 
-`skillset init [destination]` is the single setup entrypoint. It previews before writing, can scaffold an existing repository or a new destination, and never writes live Claude, Codex, Cursor, or `.agents` configuration. The published package ships the `skillset` and `skillset-toolkit` Bun-built bins; stable releases run from the default npm dist-tag with commands such as `npx skillset init my-skillset` or `bunx skillset init my-skillset`. Prerelease builds remain available through their explicit tag, such as `skillset@beta`.
+`skillset init [directory]` initializes an existing directory; `skillset create [name]` creates a named child under the current directory or `--root` parent and initializes Git. Both preview before writing and never write live Claude, Codex, Cursor, or `.agents` configuration. The published package ships the `skillset` and `skillset-toolkit` Bun-built bins; stable releases run from the default npm dist-tag with commands such as `npx skillset create my-skillset` or `bunx skillset create my-skillset`. Prerelease builds remain available through their explicit tag, such as `skillset@beta`.
 
 Setup creates source and repo-local operational ignore scaffolds only. In an existing repo, `init` creates root `skillset.yaml`, `.skillset/.gitkeep`, placeholders for the main source families under `.skillset/`, `.skillset/changes/.gitkeep`, `.skillset/.gitignore` that ignores the logical `.skillset/cache/` path, and a snapshots ignore sentinel. For a new destination, it also writes root `skillset.lock`, a root `.gitignore` that ignores `.skillset/cache/` and `.skillset/snapshots/` contents, README, lightweight agent guidance, and initializes Git. `--include ci` adds an optional user-owned GitHub Actions workflow. Generated manifests use `compile.targets`, keep source identity under `skillset`, and keep target adapter config in `claude` and `codex` blocks or root `defaults.<target>.<surface>`.
 
