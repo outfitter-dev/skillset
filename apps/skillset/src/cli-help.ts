@@ -1,4 +1,5 @@
 import { isCliCommand, type CliCommand } from "./cli-commands";
+import { readCliCommand } from "./cli-output";
 import {
   allCommandPresentations,
   CLI_PRESENTATION_CATALOG,
@@ -39,19 +40,14 @@ type HelpRequest =
 function readHelpRequest(args: readonly string[]): HelpRequest {
   const helpIndex = args.findIndex((arg) => arg === "--help" || arg === "-h");
   const beforeHelp = helpIndex === -1 ? args : args.slice(0, helpIndex);
-  const [command, subcommand] = beforeHelp;
-  if (command === undefined) {
+  const routeName = readCliCommand(beforeHelp);
+  if (routeName === "cli") {
     return args.includes("--all") ? { kind: "all" } : { kind: "root" };
   }
-  if (!isCliCommand(command)) return { kind: "root" };
-  const directRoute = routePresentation(command);
-  if (directRoute !== undefined) return { kind: "route", route: directRoute };
-  const route =
-    subcommand === undefined || subcommand.startsWith("-")
-      ? undefined
-      : routePresentation(`${command} ${subcommand}`);
+  const route = routePresentation(routeName);
   if (route !== undefined) return { kind: "route", route };
-  return { command, kind: "command" };
+  if (isCliCommand(routeName)) return { command: routeName, kind: "command" };
+  return { kind: "root" };
 }
 
 function renderRootHelp(renderer: TerminalRenderer): string {
