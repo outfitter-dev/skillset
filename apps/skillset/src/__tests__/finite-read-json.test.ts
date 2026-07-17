@@ -45,11 +45,8 @@ describe("SET-287 finite read-only JSON", () => {
     expect(writtenEnvelope.data.state).toBe("written");
     expect(writtenEnvelope.data.writes.length).toBeGreaterThan(0);
     expect(writtenEnvelope.data.writes.every((entry) => typeof entry === "string")).toBe(true);
-    expect(writtenEnvelope.data.writes).toContain(".git");
-
-    const seeded = await runJsonRoute("init", "--root", root, "--yes");
-    const seededEnvelope = JSON.parse(seeded.stdout) as SkillsetCliResult & { data: { writes: unknown[] } };
-    expect(seededEnvelope.data.writes).toEqual([".skillset/changes/state.json"]);
+    expect(writtenEnvelope.data.writes).not.toContain(".git");
+    expect(await Bun.file(path.join(root, ".git")).exists()).toBe(false);
 
     const unchanged = await runJsonRoute("init", "--root", root, "--yes");
     const unchangedEnvelope = JSON.parse(unchanged.stdout) as SkillsetCliResult & {
@@ -60,6 +57,7 @@ describe("SET-287 finite read-only JSON", () => {
 
   test("init JSON resolves a relative --root once from the invocation cwd", async () => {
     const parent = await mkdtemp(path.join(tmpdir(), "skillset-json-relative-root-"));
+    await mkdir(path.join(parent, "workspace"));
     const proc = Bun.spawn(
       [process.execPath, cli, "init", "--root", "workspace", "--yes", "--json"],
       {
@@ -89,6 +87,7 @@ describe("SET-287 finite read-only JSON", () => {
   test("init JSON stays stderr-clean when the known-workspace index is unwritable", async () => {
     const parent = await mkdtemp(path.join(tmpdir(), "skillset-json-init-xdg-"));
     const root = path.join(parent, "workspace");
+    await mkdir(root);
     const configHome = path.join(parent, "not-a-directory");
     await writeFile(configHome, "occupied\n");
     const proc = Bun.spawn([process.execPath, cli, "init", "--root", root, "--yes", "--json"], {
@@ -182,7 +181,7 @@ describe("SET-287 finite read-only JSON", () => {
     expect(envelope.data.writes.some((write) => write.startsWith(".skillset/cache/latest/"))).toBe(true);
   });
 
-  test("destination adoption JSON reports acquired source files", async () => {
+  test("init JSON rejects retired external acquisition grammar", async () => {
     const parent = await mkdtemp(path.join(tmpdir(), "skillset-json-adopt-destination-"));
     const source = path.join(parent, "source");
     const destination = path.join(parent, "destination");
@@ -196,12 +195,13 @@ describe("SET-287 finite read-only JSON", () => {
     const adopted = await runJsonRoute(
       "init", destination, "--from", source, "--adopt", "all", "--yes"
     );
-    const envelope = JSON.parse(adopted.stdout) as SkillsetCliResult & { data: { writes: string[] } };
+    const envelope = JSON.parse(adopted.stdout) as SkillsetCliResult;
 
-    expect(adopted.exitCode).toBe(0);
-    expect(envelope.data.writes).toContain("README.md");
-    expect(envelope.data.writes).toContain(".agents/skills/one/SKILL.md");
-    expect(envelope.data.writes).toContain(".git");
+    expect(adopted.exitCode).toBe(2);
+    expect(envelope.diagnostics).toContainEqual(
+      expect.objectContaining({ message: "skillset: unknown option --from" })
+    );
+    expect(await Bun.file(destination).exists()).toBe(false);
   });
 
   test("blocked init adoption JSON reports persisted audit writes", async () => {

@@ -1,7 +1,3 @@
-import {
-  isTargetName,
-  targetNames,
-} from "@skillset/core/internal/targets";
 import type {
   SkillsetOptions,
   TargetName,
@@ -11,6 +7,7 @@ import { assertBooleanOption, CliArgReader } from "./cli-arg-reader";
 import {
   mergeBuildMode,
   readBuildScopes,
+  readTargetNames,
   resolveCliRoot,
 } from "./cli-arg-values";
 import type { CliParseContext } from "./cli-arg-values";
@@ -197,12 +194,12 @@ export const parseNewCommandRequest = (
         break;
       case "--provider": {
         const value = reader.readRequiredOptionValue(option);
-        if (!isTargetName(value)) {
-          throw new Error(
-            `skillset: expected --provider ${targetNames().join(", ")}`
-          );
-        }
-        hookProviders = [...(hookProviders ?? []), value];
+        hookProviders = [
+          ...new Set([
+            ...(hookProviders ?? []),
+            ...readTargetNames(value, "--provider"),
+          ]),
+        ];
         break;
       }
       case "--script":

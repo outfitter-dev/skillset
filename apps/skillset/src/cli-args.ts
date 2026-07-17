@@ -1,7 +1,4 @@
-import {
-  parseBuildCommandRequest,
-  parseDiffCommandRequest,
-} from "./build-args";
+import { parseBuildCommandRequest, parseDiffCommandRequest } from "./build-args";
 import { parseChangeCommandRequest } from "./change-args";
 import { parseCheckCommandRequest } from "./check-args";
 import { parseCreateCommandRequest } from "./create-args";
@@ -69,10 +66,7 @@ export const parseCliRequest = (
         };
       }
       case "create": {
-        return {
-          command,
-          request: parseCreateCommandRequest(args, parseContext),
-        };
+        return { command, request: parseCreateCommandRequest(args, parseContext) };
       }
       case "dev": {
         return { command, request: parseDevCommandRequest(args, parseContext) };
