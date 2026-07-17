@@ -198,9 +198,9 @@ const PRESENTATION = {
   },
   new: {
     group: "Author",
-    summary: "Create a new skill, agent, or hook in source.",
+    summary: "Create a new skill, agent, instruction, or hook in source.",
     synopses: [
-      "new [skill|agent|hook] [name] [--id <id>] [--name <name>] [--in <container>] [--scope repo] [--preset <preset>] [--yes] [--json] [--root <path>]",
+      "new [skill|agent|instruction|hook] [name] [--id <id>] [--name <name>] [--in <container>] [--scope repo] [--preset <preset>] [--yes] [--json] [--root <path>]",
     ],
   },
   reconcile: {

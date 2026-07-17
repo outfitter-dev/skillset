@@ -12,7 +12,7 @@ import {
 } from "@skillset/core/internal/path";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
 
-export type NewSourceKind = "agent" | "hook" | "skill";
+export type NewSourceKind = "agent" | "hook" | "instruction" | "skill";
 export type NewSourceScope = "repo";
 
 export const NEW_HOOK_UNAVAILABLE_REASON =
@@ -38,6 +38,12 @@ export const NEW_SOURCE_KINDS: readonly NewSourceKindDefinition[] = [
     enabled: true,
     id: "agent",
     name: "Project agent",
+  },
+  {
+    description: "Instruction file under the canonical rules source directory",
+    enabled: true,
+    id: "instruction",
+    name: "Instruction",
   },
   {
     description: "Adaptive runtime hook",
@@ -140,9 +146,13 @@ export async function scaffoldSourceUnit(
   const sourceDir = await detectWorkspaceSourceDir(rootPath, options.skillsetOptions ?? {});
   await assertWorkspaceInitialized(rootPath, sourceDir);
   const sourceRoot = sourceDir;
-  const plans = options.kind === "skill"
-    ? await planSkill(rootPath, sourceRoot, id, displayName, options)
-    : planAgent(sourceRoot, id, displayName, options);
+  const plans = await planSourceUnit(
+    rootPath,
+    sourceRoot,
+    id,
+    displayName,
+    options
+  );
 
   for (const plan of plans) {
     if (await fileExists(resolveInside(rootPath, plan.path))) {
@@ -167,6 +177,25 @@ export async function scaffoldSourceUnit(
     sourceRoot,
     write: options.write === true,
   };
+}
+
+async function planSourceUnit(
+  rootPath: string,
+  sourceRoot: string,
+  id: string,
+  displayName: string,
+  options: NewSourceOptions
+): Promise<readonly PlannedFile[]> {
+  switch (options.kind) {
+    case "agent":
+      return planAgent(sourceRoot, id, displayName, options);
+    case "instruction":
+      return planInstruction(rootPath, sourceRoot, id, displayName, options);
+    case "skill":
+      return planSkill(rootPath, sourceRoot, id, displayName, options);
+    case "hook":
+      throw new Error(`skillset: ${NEW_HOOK_UNAVAILABLE_REASON}`);
+  }
 }
 
 export function isNewSourceKind(value: unknown): value is NewSourceKind {
@@ -283,6 +312,38 @@ async function planSkill(
   return uniquePlans(files);
 }
 
+async function planInstruction(
+  rootPath: string,
+  sourceRoot: string,
+  id: string,
+  displayName: string,
+  options: NewSourceOptions
+): Promise<readonly PlannedFile[]> {
+  if (options.presets !== undefined && options.presets.length > 0) {
+    throw new Error("skillset: new instruction does not support --preset");
+  }
+  const container = options.container === undefined
+    ? undefined
+    : validateSlug(options.container, "new --in container");
+  if (container !== undefined) {
+    await assertPluginContainer(
+      rootPath,
+      sourceRoot,
+      container,
+      options.skillsetOptions ?? {}
+    );
+  }
+  const rulesRoot = container === undefined
+    ? join(sourceRoot, "rules")
+    : join(sourceRoot, "plugins", container, "rules");
+  return [
+    {
+      content: renderInstruction(displayName),
+      path: join(rulesRoot, `${id}.md`),
+    },
+  ];
+}
+
 function planAgent(
   sourceRoot: string,
   id: string,
@@ -392,6 +453,10 @@ function renderSkill(id: string, displayName: string): string {
 function renderAgent(id: string, displayName: string): string {
   const description = `Use this agent for ${displayName} work.`;
   return `---\nname: ${id}\ndescription: ${yamlString(description)}\n---\n\nUse this agent for ${displayName} work.\n`;
+}
+
+function renderInstruction(displayName: string): string {
+  return `# ${displayName}\n\nAdd repository instructions here.\n`;
 }
 
 function kebabCase(value: string): string {

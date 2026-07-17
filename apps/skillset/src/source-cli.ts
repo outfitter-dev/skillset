@@ -168,7 +168,9 @@ export async function runNewCommand(
     return;
   }
   if (newKind === undefined) {
-    throw new Error("skillset: expected new kind skill, agent, or hook");
+    throw new Error(
+      "skillset: expected new kind skill, agent, instruction, or hook"
+    );
   }
   const report = await scaffoldSourceUnit(rootPath, {
     ...(newContainer === undefined ? {} : { container: newContainer }),

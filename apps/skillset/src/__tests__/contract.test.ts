@@ -7616,7 +7616,7 @@ test("SET-27: setup-only flags fail loudly outside their setup command", async (
 
   const createGlobalPath = await runSkillsetCli("create", "team-loadout", "--global");
   expect(createGlobalPath.exitCode).toBe(1);
-  expect(createGlobalPath.stderr).toContain("expected command");
+  expect(createGlobalPath.stderr).toContain("unknown option --global");
 });
 
 test("SET-9: explain resolves source and generated paths via lock provenance", async () => {

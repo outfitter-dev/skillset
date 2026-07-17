@@ -123,7 +123,10 @@ async function resolveContainer(
   kind: NewSourceKind,
   session: InteractiveSession
 ): Promise<string | undefined> {
-  if (kind !== "skill" || request.newContainer !== undefined) {
+  if (
+    (kind !== "skill" && kind !== "instruction") ||
+    request.newContainer !== undefined
+  ) {
     return request.newContainer;
   }
   const containers = await discoverNewSourceContainers(
@@ -133,12 +136,18 @@ async function resolveContainer(
   if (containers.length === 0) return undefined;
   const choices = [
     {
-      description: "Create under the workspace skills directory",
+      description:
+        kind === "skill"
+          ? "Create under the workspace skills directory"
+          : "Create under the workspace instruction directory",
       name: "Workspace",
       value: WORKSPACE_CONTAINER,
     },
     ...containers.map((container) => ({
-      description: "Create inside this plugin",
+      description:
+        kind === "skill"
+          ? "Create inside this plugin"
+          : "Create this instruction inside the plugin",
       name: container,
       value: container,
     })),

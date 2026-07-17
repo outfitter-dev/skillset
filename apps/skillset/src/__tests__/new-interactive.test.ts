@@ -67,11 +67,13 @@ describe("SET-293 derived new-source choices", () => {
     expect(NEW_SOURCE_KINDS.map((kind) => [kind.id, kind.enabled])).toEqual([
       ["skill", true],
       ["agent", true],
+      ["instruction", true],
       ["hook", false],
     ]);
     expect(NEW_SOURCE_KINDS.map((kind) => kind.description)).toEqual([
       "Skill directory, SKILL.md, and optional supporting files",
       "Markdown file with repository-level agent instructions",
+      "Instruction file under the canonical rules source directory",
       "Adaptive runtime hook",
     ]);
     expect(SKILL_PRESETS.map((preset) => preset.id)).toEqual([
@@ -201,6 +203,66 @@ describe("SET-293 derived new-source choices", () => {
         join(root, ".skillset/agents/release-reviewer.md")
       ).exists()
     ).toBe(true);
+  });
+
+  test("instruction uses the shared destination chooser and canonical report", async () => {
+    const root = await workspace();
+    await mkdir(join(root, ".skillset/plugins/acme"), { recursive: true });
+    await writeFile(
+      join(root, ".skillset/plugins/acme/skillset.yaml"),
+      "skillset:\n  name: acme\n"
+    );
+    const { adapter, session } = scriptedSession([
+      { kind: "select", value: "instruction" },
+      { kind: "input", value: "Review Guidance" },
+      { kind: "select", value: "__workspace__" },
+      { kind: "confirm", value: true },
+    ]);
+
+    await runNewCommand(request(root), { interactiveSession: session });
+
+    adapter.assertComplete();
+    expect(adapter.prompts.map((prompt) => prompt.kind)).toEqual([
+      "select",
+      "input",
+      "select",
+      "confirm",
+    ]);
+    expect(
+      await Bun.file(join(root, ".skillset/rules/review-guidance.md")).text()
+    ).toBe("# Review Guidance\n\nAdd repository instructions here.\n");
+    expect(await Bun.file(join(root, ".claude")).exists()).toBe(false);
+    expect(await Bun.file(join(root, ".agents")).exists()).toBe(false);
+  });
+
+  test("explicit instruction identity and plugin placement skip matching prompts", async () => {
+    const root = await workspace();
+    await mkdir(join(root, ".skillset/plugins/acme"), { recursive: true });
+    await writeFile(
+      join(root, ".skillset/plugins/acme/skillset.yaml"),
+      "skillset:\n  name: acme\n"
+    );
+    const { adapter, session } = scriptedSession([
+      { kind: "confirm", value: false },
+    ]);
+
+    await runNewCommand(
+      request(root, {
+        newContainer: "acme",
+        newId: "review-guidance",
+        newKind: "instruction",
+        newName: "Review Guidance",
+      }),
+      { interactiveSession: session }
+    );
+
+    adapter.assertComplete();
+    expect(adapter.prompts.map((prompt) => prompt.kind)).toEqual(["confirm"]);
+    expect(
+      await Bun.file(
+        join(root, ".skillset/plugins/acme/rules/review-guidance.md")
+      ).exists()
+    ).toBe(false);
   });
 
   test("explicit kind, id, name, container, and presets skip matching prompts", async () => {

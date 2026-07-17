@@ -38,7 +38,7 @@ test("SET-165: new skill previews by default and writes ordinary repo source wit
 
 test("SET-165: new skill separates stable id and display name in dedicated source repos", async () => {
   const parent = await mkdtemp(join(tmpdir(), "skillset-new-dedicated-"));
-  await expect(runSkillsetCli("init", "team-loadout", "--root", parent, "--yes")).resolves.toMatchObject({
+  await expect(runSkillsetCli("create", "team-loadout", "--root", parent, "--yes")).resolves.toMatchObject({
     exitCode: 0,
   });
   const root = join(parent, "team-loadout");
@@ -96,6 +96,106 @@ test("SET-165: new skill can place source inside an existing plugin container", 
   expect(written.exitCode).toBe(0);
   expect(written.stdout).toContain("+ .skillset/plugins/acme-tools/skills/docs-cli-expert/SKILL.md");
   expect(await fileExists(join(root, ".skillset/plugins/acme-tools/skills/docs-cli-expert/SKILL.md"))).toBe(true);
+});
+
+test("SET-309: new instruction previews and writes canonical workspace source", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-new-instruction-"));
+  await expect(
+    runSkillsetCli("init", "--root", root, "--yes")
+  ).resolves.toMatchObject({ exitCode: 0 });
+
+  const preview = await runSkillsetCli(
+    "new",
+    "instruction",
+    "Review Guidance",
+    "--root",
+    root
+  );
+  expect(preview.exitCode).toBe(0);
+  expect(preview.stdout).toContain("+ .skillset/rules/review-guidance.md");
+  expect(preview.stdout).toContain("write confirmation required");
+  expect(
+    await fileExists(join(root, ".skillset/rules/review-guidance.md"))
+  ).toBe(false);
+
+  const written = await runSkillsetCli(
+    "new",
+    "instruction",
+    "Review Guidance",
+    "--root",
+    root,
+    "--yes",
+    "--json"
+  );
+  expect(written.exitCode).toBe(0);
+  const result = JSON.parse(written.stdout);
+  expect(result.data.writes).toEqual([".skillset/rules/review-guidance.md"]);
+  expect(
+    await readFile(join(root, ".skillset/rules/review-guidance.md"), "utf8")
+  ).toBe("# Review Guidance\n\nAdd repository instructions here.\n");
+
+  await expect(
+    runSkillsetCli("build", "--root", root, "--yes")
+  ).resolves.toMatchObject({ exitCode: 0 });
+  await expect(runSkillsetCli("check", "--root", root)).resolves.toMatchObject({
+    exitCode: 0,
+  });
+});
+
+test("SET-309: new instruction supports plugin placement and collision safety", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-new-instruction-plugin-"));
+  await expect(
+    runSkillsetCli("init", "--root", root, "--yes")
+  ).resolves.toMatchObject({ exitCode: 0 });
+  await mkdir(join(root, ".skillset/plugins/acme"), { recursive: true });
+  await Bun.write(
+    join(root, ".skillset/plugins/acme/skillset.yaml"),
+    "skillset:\n  name: acme\n"
+  );
+
+  const written = await runSkillsetCli(
+    "new",
+    "instruction",
+    "Review Guidance",
+    "--in",
+    "acme",
+    "--root",
+    root,
+    "--yes"
+  );
+  expect(written.exitCode).toBe(0);
+  expect(written.stdout).toContain(
+    "+ .skillset/plugins/acme/rules/review-guidance.md"
+  );
+
+  const collision = await runSkillsetCli(
+    "new",
+    "instruction",
+    "Review Guidance",
+    "--in",
+    "acme",
+    "--root",
+    root,
+    "--yes"
+  );
+  expect(collision.exitCode).toBe(1);
+  expect(collision.stderr).toContain(
+    "refusing to overwrite existing source file"
+  );
+
+  const preset = await runSkillsetCli(
+    "new",
+    "instruction",
+    "Other Guidance",
+    "--preset",
+    "minimal",
+    "--root",
+    root
+  );
+  expect(preset.exitCode).toBe(1);
+  expect(preset.stderr).toContain(
+    "new instruction does not support --preset"
+  );
 });
 
 test("SET-165: new refuses collisions and missing plugin containers", async () => {

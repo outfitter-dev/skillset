@@ -37,7 +37,7 @@ The entries below are the complete final public flag set. Positional arguments a
 | `create [name]` | `--root`, `--targets`, `--include`, `--yes`, `--json` | Creates a normalized named child under the current directory or `--root` parent. A TTY asks for missing name, parent, provider, and integration intent, previews the child path and Git initialization, then confirms with No as the default. |
 | `init [directory]` | `--root`, `--adopt`, `--targets`, `--include`, `--yes`, `--json` | Initializes an existing directory. `--adopt all` or repeated stable candidate ids import detected repo-local sources; external work remains under `import`. |
 | `import` | `--root`, `--from`, `--kind`, `--name`, `--json` | Repeated-use asset conversion; import itself remains explicit. |
-| `new` | `--root`, `--id`, `--name`, `--in`, `--scope`, `--preset`, `--yes`, `--json` | Preview by default. A TTY guides missing kind, identity, valid container, and preset choices before a default-No confirmation. |
+| `new` | `--root`, `--id`, `--name`, `--in`, `--scope`, `--preset`, `--yes`, `--json` | Creates skills, project agents, instructions, and adaptive hooks. Preview is the default; a TTY guides only missing intent before a default-No confirmation. |
 | `check` | `--root`, `--only`, `--write`, `--ci`, `--fix`, `--since`, `--report`, `--json` | `--fix` requires `--ci`; `--since` and `--report` are CI-only. |
 | `dev` | `--root`, `--write`, `--jsonl` | Watching is the command's default; `--watch` and `--apply` disappear. |
 | `reconcile <path>` | `--root`, `--use source` or `--use output`, `--yes`, `--json` | Diagnosis is default; direction can be previewed before confirmation. |
