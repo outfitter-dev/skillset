@@ -14,6 +14,7 @@ import {
   validateAdaptiveHookScriptSource,
 } from "@skillset/core/internal/resolver";
 import { targetNames } from "@skillset/core/internal/targets";
+import { compareStrings } from "@skillset/core/internal/path";
 import {
   selectorForPluginConfig,
   selectorForPluginSkill,
@@ -47,6 +48,13 @@ export interface NewAdaptiveHookOptions {
   readonly presets: readonly string[] | undefined;
   readonly script: string | undefined;
   readonly skillsetOptions: SkillsetOptions;
+}
+
+export interface NewAdaptiveHookAttachmentTarget {
+  readonly description: string;
+  readonly name: string;
+  readonly scope: AdaptiveHookScope;
+  readonly selector: string;
 }
 
 interface HookOwner {
@@ -159,6 +167,60 @@ export async function planNewAdaptiveHook(
       path: relative(rootPath, owner.path),
     },
   ];
+}
+
+export async function listNewAdaptiveHookAttachmentTargets(
+  rootPath: string,
+  skillsetOptions: SkillsetOptions = {}
+): Promise<readonly NewAdaptiveHookAttachmentTarget[]> {
+  let graph: BuildGraph;
+  try {
+    graph = await loadBuildGraph(rootPath, skillsetOptions);
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes(
+        "no source plugins, skills, rules, project agents, or provider source found"
+      )
+    ) {
+      return [];
+    }
+    throw error;
+  }
+  const targets: NewAdaptiveHookAttachmentTarget[] = [];
+  for (const plugin of graph.plugins) {
+    targets.push({
+      description: "Attach to this plugin and place the hook in its source",
+      name: `Plugin: ${plugin.id}`,
+      scope: { kind: "plugin", pluginId: plugin.id },
+      selector: `plugin:${plugin.id}`,
+    });
+    for (const skill of plugin.skills) {
+      targets.push({
+        description: `Attach to skill ${skill.id} inside plugin ${plugin.id}`,
+        name: `Plugin skill: ${plugin.id}/${skill.id}`,
+        scope: { kind: "skill", pluginId: plugin.id, skillId: skill.id },
+        selector: selectorForPluginSkill(plugin.id, skill.id),
+      });
+    }
+  }
+  for (const skill of graph.standaloneSkills) {
+    targets.push({
+      description: "Attach to this standalone skill",
+      name: `Skill: ${skill.id}`,
+      scope: { kind: "skill", skillId: skill.id },
+      selector: selectorForStandaloneSkill(skill.id),
+    });
+  }
+  for (const agent of graph.projectAgents) {
+    targets.push({
+      description: "Attach to this project agent",
+      name: `Project agent: ${agent.outputName}`,
+      scope: { agentId: agent.outputName, kind: "agent" },
+      selector: selectorForProjectAgent(agent.outputName),
+    });
+  }
+  return targets.sort((left, right) => compareStrings(left.selector, right.selector));
 }
 
 function uniqueRequired(

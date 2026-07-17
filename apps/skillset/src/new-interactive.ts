@@ -2,8 +2,14 @@ import type {
   SkillsetOptions,
   TargetName,
 } from "@skillset/core/internal/types";
+import {
+  adaptiveHookEventDefinitions,
+  planAdaptiveHookCompatibility,
+} from "@skillset/core/internal/adaptive-hook-authoring";
+import { targetNames } from "@skillset/core/internal/targets";
 
 import type { InteractiveSession } from "./interactive-session";
+import { listNewAdaptiveHookAttachmentTargets } from "./new-hook";
 import {
   discoverNewSourceContainers,
   NEW_SOURCE_KINDS,
@@ -53,15 +59,14 @@ export async function runInteractiveNew(
   const identity = await resolveIdentity(request, kind, session);
   const container = await resolveContainer(request, kind, session);
   const presets = await resolvePresets(request, kind, session);
+  const hookIntent = kind === "hook"
+    ? await resolveHookIntent(request, session)
+    : {};
   const options = {
     ...(container === undefined ? {} : { container }),
     ...(identity.id === undefined ? {} : { id: identity.id }),
     kind,
-    ...(request.hookAttachment === undefined ? {} : { hookAttachment: request.hookAttachment }),
-    ...(request.hookCommand === undefined ? {} : { hookCommand: request.hookCommand }),
-    ...(request.hookEvents === undefined ? {} : { hookEvents: request.hookEvents }),
-    ...(request.hookProviders === undefined ? {} : { hookProviders: request.hookProviders }),
-    ...(request.hookScript === undefined ? {} : { hookScript: request.hookScript }),
+    ...hookIntent,
     ...(identity.displayName === undefined
       ? {}
       : { displayName: identity.displayName }),
@@ -87,6 +92,174 @@ export async function runInteractiveNew(
     write: true,
   });
   return { reason: "written", report };
+}
+
+async function resolveHookIntent(
+  request: InteractiveNewRequest,
+  session: InteractiveSession
+): Promise<{
+  readonly hookAttachment: string;
+  readonly hookCommand?: string;
+  readonly hookEvents: readonly string[];
+  readonly hookProviders?: readonly TargetName[];
+  readonly hookScript?: string;
+}> {
+  const targets = await listNewAdaptiveHookAttachmentTargets(
+    request.rootPath,
+    request.options
+  );
+  if (targets.length === 0) {
+    throw new Error(
+      "skillset: new hook requires an existing plugin, skill, or project agent attachment target"
+    );
+  }
+  const hookAttachment = request.hookAttachment ?? await session.prompts.search({
+    message: "Attach to:",
+    source: (term) => filterChoices(
+      term,
+      targets.map((target) => ({
+        description: target.description,
+        name: target.name,
+        value: target.selector,
+      }))
+    ),
+  });
+  const target = targets.find((item) => item.selector === hookAttachment);
+  if (target === undefined) {
+    throw new Error(
+      `skillset: hook attachment source unit ${hookAttachment} was not found`
+    );
+  }
+  const eventChoices = adaptiveHookEventDefinitions().map((event) => {
+    const plan = planAdaptiveHookCompatibility({
+      events: [event.id],
+      scope: target.scope,
+    });
+    return {
+      description: `Compatible providers: ${plan.providers.join(", ")}`,
+      ...(plan.providers.length === 0
+        ? { disabled: "No faithful provider destination for this attachment" }
+        : {}),
+      name: event.id,
+      value: event.id,
+    };
+  });
+  const hookEvents = request.hookEvents ?? await session.prompts.searchCheckbox({
+    choices: eventChoices,
+    message: "Events:",
+    required: true,
+    source: (term, choices) => filterChoices(term, choices),
+  });
+  const action = await resolveHookAction(request, session);
+  const hookProviders = request.hookProviders ?? await resolveHookProviders(
+    hookEvents,
+    target.scope,
+    session
+  );
+  return {
+    hookAttachment,
+    ...action,
+    hookEvents,
+    ...(hookProviders === undefined ? {} : { hookProviders }),
+  };
+}
+
+async function resolveHookAction(
+  request: InteractiveNewRequest,
+  session: InteractiveSession
+): Promise<{ readonly hookCommand?: string; readonly hookScript?: string }> {
+  if (request.hookCommand !== undefined || request.hookScript !== undefined) {
+    return {
+      ...(request.hookCommand === undefined ? {} : { hookCommand: request.hookCommand }),
+      ...(request.hookScript === undefined ? {} : { hookScript: request.hookScript }),
+    };
+  }
+  const kind = await session.prompts.select({
+    choices: [
+      {
+        description: "Run a shell command directly",
+        name: "Command",
+        value: "command" as const,
+      },
+      {
+        description: "Run an existing source script",
+        name: "Script",
+        value: "script" as const,
+      },
+    ],
+    default: "command" as const,
+    message: "Action:",
+  });
+  const value = await session.prompts.input({
+    message: kind === "command" ? "Command:" : "Script path:",
+    validate: (input) => input.trim().length > 0 || "Enter a hook action.",
+  });
+  return kind === "command"
+    ? { hookCommand: value }
+    : { hookScript: value };
+}
+
+async function resolveHookProviders(
+  events: readonly string[],
+  scope: Parameters<typeof planAdaptiveHookCompatibility>[0]["scope"],
+  session: InteractiveSession
+): Promise<readonly TargetName[] | undefined> {
+  const plan = planAdaptiveHookCompatibility({ events, scope });
+  const compatible = new Set(plan.providers);
+  const choices = targetNames().map((target) => {
+    const classification = plan.classifications.find(
+      (item) =>
+        item.target === target &&
+        !compatible.has(target) &&
+        item.reason !== undefined
+    );
+    return {
+      checked: compatible.has(target),
+      description: compatible.has(target)
+        ? "Compatible"
+        : (classification?.reason ?? "Not compatible with this hook intent"),
+      disabled: compatible.has(target) ? false : (classification?.reason ?? true),
+      name: target,
+      value: target,
+    };
+  });
+  session.note(
+    choices
+      .map((choice) =>
+        `${choice.name}: ${choice.disabled ? choice.description : "compatible"}`
+      )
+      .join("\n"),
+    "Compatibility"
+  );
+  if (plan.providers.length <= 1) {
+    return undefined;
+  }
+  const selected = await session.prompts.checkbox({
+    choices,
+    message: "Providers:",
+    required: true,
+  });
+  return selected.length === plan.providers.length ? undefined : selected;
+}
+
+function filterChoices<Value>(
+  term: string | undefined,
+  choices: readonly {
+    readonly description?: string;
+    readonly name: string;
+    readonly value: Value;
+  }[]
+): readonly {
+  readonly description?: string;
+  readonly name: string;
+  readonly value: Value;
+}[] {
+  const query = term?.trim().toLowerCase() ?? "";
+  return query.length === 0
+    ? choices
+    : choices.filter((choice) =>
+        `${choice.name} ${choice.description ?? ""}`.toLowerCase().includes(query)
+      );
 }
 
 async function promptForKind(

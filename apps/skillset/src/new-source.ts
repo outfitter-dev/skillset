@@ -18,9 +18,6 @@ import { planNewAdaptiveHook } from "./new-hook";
 export type NewSourceKind = "agent" | "hook" | "instruction" | "skill";
 export type NewSourceScope = "repo";
 
-export const NEW_HOOK_UNAVAILABLE_REASON =
-  "Complete hook intent requires an event, action, and attachment";
-
 export interface NewSourceKindDefinition {
   readonly description: string;
   readonly enabled: boolean;
@@ -50,10 +47,9 @@ export const NEW_SOURCE_KINDS: readonly NewSourceKindDefinition[] = [
   },
   {
     description: "Adaptive runtime hook",
-    enabled: false,
+    enabled: true,
     id: "hook",
     name: "Hook",
-    reason: NEW_HOOK_UNAVAILABLE_REASON,
   },
 ];
 

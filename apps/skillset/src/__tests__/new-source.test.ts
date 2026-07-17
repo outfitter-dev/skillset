@@ -244,6 +244,37 @@ test("SET-310: new hook previews and writes a schema-valid attached adaptive uni
   });
   expect(await readFile(configPath, "utf8")).toContain("auto:\n    - shell-policy");
 
+  await mkdir(join(root, ".skillset/plugins/guard/scripts"), {
+    recursive: true,
+  });
+  await Bun.write(
+    join(root, ".skillset/plugins/guard/scripts/check.sh"),
+    "#!/usr/bin/env sh\necho check\n"
+  );
+  const scriptHook = await runSkillsetCli(
+    "new",
+    "hook",
+    "Script Policy",
+    "--event",
+    "SessionStart",
+    "--script",
+    "{{scripts.dir}}/check.sh",
+    "--attach",
+    "plugin:guard",
+    "--root",
+    root,
+    "--yes"
+  );
+  expect(scriptHook.exitCode).toBe(0);
+  expect(
+    JSON.parse(
+      await readFile(
+        join(root, ".skillset/plugins/guard/hooks/script-policy.json"),
+        "utf8"
+      )
+    ).run
+  ).toEqual({ script: "{{scripts.dir}}/check.sh" });
+
   await expect(runSkillsetCli("build", "--root", root, "--yes")).resolves.toMatchObject({
     exitCode: 0,
   });
