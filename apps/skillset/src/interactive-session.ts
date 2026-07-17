@@ -1,10 +1,10 @@
 import type { Readable, Writable } from "node:stream";
 
-import { intro, note } from "@clack/prompts";
-
 import packageJson from "../package.json";
 import {
   ClackPromptAdapter,
+  renderPromptIntro,
+  renderPromptNote,
   type PromptAdapter,
   type PromptContext,
 } from "./prompt-adapter";
@@ -85,8 +85,11 @@ export function createInteractiveSession(
     prompts,
     signal: options.signal,
     banner: () =>
-      intro(`skillset ${renderer.dim(`v${packageJson.version}`)}`, { output }),
-    note: (message, title) => note(message.trimEnd(), title, { output }),
+      renderPromptIntro(
+        `skillset ${renderer.dim(`v${packageJson.version}`)}`,
+        output
+      ),
+    note: (message, title) => renderPromptNote(message, output, title),
     write: (message) => output.write(message),
   };
 }

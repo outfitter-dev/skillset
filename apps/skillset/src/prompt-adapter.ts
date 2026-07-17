@@ -5,9 +5,11 @@ import {
   autocompleteMultiselect,
   confirm,
   groupMultiselect,
+  intro,
   isCancel,
   log,
   multiselect,
+  note,
   select,
   text,
   type Option,
@@ -117,6 +119,18 @@ export function normalizePromptError(error: unknown): never {
     throw new PromptCancelledError();
   }
   throw error;
+}
+
+export function renderPromptIntro(message: string, output: Writable): void {
+  intro(message, { output });
+}
+
+export function renderPromptNote(
+  message: string,
+  output: Writable,
+  title?: string
+): void {
+  note(message.trimEnd(), title, { output });
 }
 
 const SAVE_CURSOR = "\u001B[s";
