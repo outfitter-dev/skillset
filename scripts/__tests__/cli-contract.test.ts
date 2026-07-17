@@ -90,6 +90,16 @@ describe("SET-275 final CLI contract", () => {
     expect(USAGE).not.toContain("test worker");
   });
 
+  test("renders one global prefix for legacy usage", () => {
+    const lines = USAGE.split("\n");
+
+    expect(lines[0]).toStartWith("usage: skillset ");
+    expect(lines.filter((line) => line.startsWith("usage:"))).toHaveLength(1);
+    expect(lines.slice(1).every((line) => /^ {7}skillset /.test(line))).toBe(
+      true
+    );
+  });
+
   test("renders the reconciled finite JSON routes in public help", () => {
     const helpFragmentByRoute = {
       build: "skillset build ",
@@ -134,11 +144,16 @@ describe("SET-275 final CLI contract", () => {
       const line = USAGE.split("\n").find((entry) => entry.includes(fragment));
       expect(line, route).toContain("[--json]");
     }
+    for (const fragment of ["skillset import <claude|codex|cursor|agents> "]) {
+      const line = USAGE.split("\n").find((entry) => entry.includes(fragment));
+      expect(line).toContain("[--json]");
+    }
     for (const fragment of [
-      "skillset import <claude|codex|cursor|agents> ",
-      "skillset change <status|check> --staged ",
+      "skillset change status ",
+      "skillset change check ",
     ]) {
       const line = USAGE.split("\n").find((entry) => entry.includes(fragment));
+      expect(line).toContain("[--staged]");
       expect(line).toContain("[--json]");
     }
   });

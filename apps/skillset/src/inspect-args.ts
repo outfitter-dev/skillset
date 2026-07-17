@@ -55,6 +55,7 @@ export const parseListCommandRequest = (
     );
   }
   return {
+    details: parsed.details,
     jsonOutput: parsed.jsonOutput,
     options: parsed.options,
     rootPath: parsed.rootPath,
@@ -332,6 +333,7 @@ export const parseLookupCommandRequest = (
 };
 
 interface InspectionOptions {
+  readonly details: boolean;
   readonly jsonOutput: boolean;
   readonly options: SkillsetOptions;
   readonly rootPath: string;
@@ -641,6 +643,7 @@ const parseInspectionOptions = (
   context: CliParseContext
 ): InspectionOptions => {
   let buildMode: "all" | "updated" | undefined;
+  let details = false;
   let jsonOutput = false;
   let rootPath: string | undefined;
   let scopes: SkillsetOptions["scopes"];
@@ -656,6 +659,14 @@ const parseInspectionOptions = (
       continue;
     }
     switch (option.flag) {
+      case "--details": {
+        assertBooleanOption(option);
+        if (route !== "list") {
+          throw new Error("skillset: --details is only supported with list");
+        }
+        details = true;
+        break;
+      }
       case "--root": {
         rootPath = reader.readRequiredOptionValue(option);
         break;
@@ -804,6 +815,7 @@ const parseInspectionOptions = (
   }
   validateInspectionLateFlags(cross);
   return {
+    details,
     jsonOutput,
     options: {
       ...(buildMode === undefined ? {} : { buildMode }),

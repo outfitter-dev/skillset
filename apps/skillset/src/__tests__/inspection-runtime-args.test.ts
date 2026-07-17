@@ -80,10 +80,14 @@ describe("SET-304 inspection and runtime route parsers", () => {
         CONTEXT
       )
     ).toEqual({
+      details: false,
       jsonOutput: true,
       options: { scopes: ["plugins"] },
       rootPath: "/workspace/repo/nested",
     });
+    expect(
+      parseListCommandRequest(["list", "--details"], CONTEXT)
+    ).toMatchObject({ details: true, jsonOutput: false });
     expect(
       parseStatusCommandRequest(["status", "--root=nested", "--json"], CONTEXT)
     ).toEqual({

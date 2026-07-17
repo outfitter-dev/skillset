@@ -1,44 +1,8 @@
-export const USAGE = [
-  "usage: skillset build [--yes] [--updated|--all] [--isolated] [--scope <scope>] [--json] [--root <path>]",
-  "       skillset diff [--updated|--all] [--isolated] [--scope <scope>] [--json] [--root <path>]",
-  "       skillset check [--write|--only outputs|--ci [--fix] [--since <ref>] [--report <path>]] [--json] [--root <path>]",
-  "       skillset list [--json] [--scope <scope>] [--root <path>]",
-  "       skillset status [--json] [--root <path>]",
-  "       skillset dev [--write] [--jsonl] [--root <path>]",
-  "       skillset change status [--since <ref>] [--json] [--root <path>]",
-  "       skillset change check [@ref|--ref <ref>] [--since <ref>] [--json] [--root <path>]",
-  "       skillset change <status|check> --staged [--json] [--root <path>]",
-  "       skillset change add --scope <source-unit> --bump <bump> [--group <group>] [--reason <text>|--reason-file <path>|--reason -] [--since <ref>] [--json] [--root <path>]",
-  "       skillset change reason <@ref> [--ref <ref>] [--append] [--reason <text>|--reason-file <path>|--reason -] [--json] [--root <path>]",
-  "       skillset change amend <@ref> [--ref <ref>] [--reason <text>|--reason-file <path>|--reason -] [--json] [--root <path>]",
-  "       skillset change migrate [--yes] [--json] [--root <path>]",
-  "       skillset change show <@ref> [--ref <ref>] [--json] [--root <path>]",
-  "       skillset change history [@ref] [--ref <ref>] [--json] [--root <path>]",
-  "       skillset change list [--group <group>] [--json] [--root <path>]",
-  "       skillset release audit [--json] [--root <path>]",
-  "       skillset release plan [--json] [--root <path>]",
-  "       skillset release apply [--yes] [--json] [--root <path>]",
-  "       skillset release amend <@ref> [--ref <ref>] [--reason <text>|--reason-file <path>|--reason -] [--json] [--root <path>]",
-  "       skillset restore <backup-id> [--yes] [--json] [--root <path>]",
-  "       skillset reconcile <managed-path> [--use <source|output> --yes] [--json] [--root <path>]",
-  "       skillset distribute plan [name] [--json] [--root <path>]",
-  "       skillset marketplace check [name] [--json] [--root <path>]",
-  "       skillset marketplace update [name] [--yes] [--json] [--root <path>]",
-  "       skillset update [--yes] [--json] [--root <path>]",
-  "       skillset lookup features [feature-id] [--json]",
-  "       skillset lookup [subject] [aspect...] [--frontmatter] [--fields] [--field <path>] [--values] [--events] [--compat [claude|codex|cursor...]] [--examples] [--schema] [--json]",
-  "       skillset test [name] [--json] [--root <path>]",
-  "       skillset test --target <claude|codex|cursor> [--prompt <text>|--prompt-file <path>] [--plugin <id>] [--name <name>] [--timeout-ms <ms>] [--claude-setting-sources <isolated|user|project|local>] [--background] [--json] [--root <path>]",
-  "       skillset test status [run-id] [--json] [--root <path>]",
-  "       skillset test tail [run-id] [--lines <count>] [--json] [--root <path>]",
-  "       skillset test list [--json] [--root <path>]",
-  "       skillset hooks print --runner <lefthook|husky|pre-commit|git> [--pre-commit] [--pre-push]",
-  "       skillset hooks print --target <claude|codex> --agent-runtime",
-  "       skillset hooks run <post-tool-use|stop> [--root <path>]",
-  "       skillset hooks context --event <event> [--format env|json] [--context-fields <field,...>] [--root <path>]",
-  "       skillset init [destination] [--from <path|git-url>] [--adopt <all|candidate-id>] [--yes] [--targets claude,codex,cursor] [--include ci] [--name <name>] [--json] [--root <path>]",
-  "       skillset new [skill|agent|hook] [name] [--id <id>] [--name <name>] [--in <container>] [--scope repo] [--preset <preset>] [--yes] [--json] [--root <path>]",
-  "       skillset explain <path> [--json] [--scope <scope>] [--root <path>]",
-  "       skillset import <path> [--kind <skill|skills|plugin|plugins>] [--from <provider>] [--name <name>] [--json] [--root <path>]",
-  "       skillset import <claude|codex|cursor|agents> [--json] [--root <path>]",
-].join("\n");
+import { CLI_PRESENTATION_CATALOG } from "./cli-presentation";
+
+export const USAGE = CLI_PRESENTATION_CATALOG.flatMap((entry) => entry.synopses)
+  .map(
+    (synopsis, index) =>
+      `${index === 0 ? "usage:" : "      "} skillset ${synopsis}`
+  )
+  .join("\n");

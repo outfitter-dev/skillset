@@ -172,7 +172,12 @@ describe("SET-299 CLI request characterization", () => {
       args: ["list", "--root", ROOT],
       expected: {
         command: "list",
-        request: { jsonOutput: false, options: {}, rootPath: ROOT },
+        request: {
+          details: false,
+          jsonOutput: false,
+          options: {},
+          rootPath: ROOT,
+        },
       },
     },
     {

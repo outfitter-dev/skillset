@@ -1478,40 +1478,35 @@ test("SET-25: CLI help succeeds before command validation", async () => {
   const rootHelp = await runSkillsetCli("--help");
   expect(rootHelp.exitCode).toBe(0);
   expect(rootHelp.stderr).toBe("");
-  expect(rootHelp.stdout).toContain("usage: skillset build");
-  expect(rootHelp.stdout).toContain("skillset check [--write|--only outputs|--ci [--fix]");
-  expect(rootHelp.stdout).not.toContain("skillset verify");
-  expect(rootHelp.stdout).not.toContain("skillset lint");
-  expect(rootHelp.stdout).not.toContain("skillset ci");
-  expect(rootHelp.stdout).toContain("skillset update [--yes] [--json] [--root <path>]");
-  expect(rootHelp.stdout).toContain("skillset dev [--write] [--jsonl] [--root <path>]");
-  expect(rootHelp.stdout).toContain("skillset list [--json] [--scope <scope>] [--root <path>]");
-  expect(rootHelp.stdout).not.toContain("skillset list [--updated|--all]");
-  expect(rootHelp.stdout).not.toContain("skillset <check|lint|list> [--updated|--all]");
-  expect(rootHelp.stdout).toContain(
-    "skillset change status [--since <ref>] [--json] [--root <path>]"
-  );
-  expect(rootHelp.stdout).toContain(
-    "skillset change check [@ref|--ref <ref>] [--since <ref>] [--json] [--root <path>]"
-  );
-  expect(rootHelp.stdout).not.toContain("skillset change status [--since <ref>] [--scope <scope>]");
-  expect(rootHelp.stdout).not.toContain("skillset change check [@ref|--ref <ref>] [--since <ref>] [--scope <scope>]");
-  expect(rootHelp.stdout).toContain("skillset explain <path>");
-  expect(rootHelp.stdout).toContain("skillset import <path> [--kind <skill|skills|plugin|plugins>]");
-  expect(rootHelp.stdout).toContain("skillset distribute plan [name]");
-  expect(rootHelp.stdout).not.toContain("skillset providers");
+  expect(rootHelp.stdout).toContain("skillset <command> [options]");
+  expect(rootHelp.stdout).toContain("build   Preview or write generated provider outputs.");
+  expect(rootHelp.stdout).not.toContain("--claude-setting-sources");
+
+  const exhaustiveHelp = await runSkillsetCli("--help", "--all");
+  expect(exhaustiveHelp.exitCode).toBe(0);
+  expect(exhaustiveHelp.stderr).toBe("");
+  expect(exhaustiveHelp.stdout).toContain("skillset check [--write|--only outputs|--ci [--fix]");
+  expect(exhaustiveHelp.stdout).toContain("skillset update [--yes] [--json] [--root <path>]");
+  expect(exhaustiveHelp.stdout).toContain("skillset dev [--write] [--jsonl] [--root <path>]");
+  expect(exhaustiveHelp.stdout).toContain("skillset list [--details] [--json] [--scope <scope>] [--root <path>]");
+  expect(exhaustiveHelp.stdout).toContain("skillset change check [@ref|--ref <ref>] [--since <ref>] [--staged] [--json]");
+  expect(exhaustiveHelp.stdout).not.toContain("skillset list [--updated|--all]");
+  expect(exhaustiveHelp.stdout).not.toContain("skillset verify");
+  expect(exhaustiveHelp.stdout).not.toContain("skillset lint");
+  expect(exhaustiveHelp.stdout).not.toContain("skillset providers");
 
   const shortHelp = await runSkillsetCli("-h");
   expect(shortHelp.exitCode).toBe(0);
   expect(shortHelp.stderr).toBe("");
-  expect(shortHelp.stdout).toContain("usage: skillset build");
+  expect(shortHelp.stdout).toContain("skillset <command> [options]");
 
   const buildHelp = await runSkillsetCli("build", "--help");
   expect(buildHelp.exitCode).toBe(0);
   expect(buildHelp.stderr).toBe("");
   expect(buildHelp.stdout).toContain("skillset build [--yes]");
-  expect(buildHelp.stdout).toContain("skillset release plan");
-  expect(buildHelp.stdout).toContain("skillset distribute plan");
+  expect(buildHelp.stdout).toContain("--updated");
+  expect(buildHelp.stdout).not.toContain("skillset release plan");
+  expect(buildHelp.stdout).not.toContain("skillset distribute plan");
 
   const explainHelp = await runSkillsetCli("explain", "--help");
   expect(explainHelp.exitCode).toBe(0);
@@ -3272,9 +3267,10 @@ Audit body.
   expect(codexSkill).toContain("external-tools range ^2.1.0 marketplace acme external");
   expect(codexSkill).toContain("Do not install or resolve them yourself");
 
-  const listed = await runSkillsetCli("list", "--root", root);
+  const listed = await runSkillsetCli("list", "--details", "--root", root);
   expect(listed.exitCode).toBe(0);
-  expect(listed.stdout).toContain("deps:external-tools range ^2.1.0 marketplace acme external");
+  expect(listed.stdout).toContain("deps: external-tools range");
+  expect(listed.stdout).toContain("^2.1.0 marketplace acme external");
   const explained = await runSkillsetCli("explain", ".skillset/plugins/audit", "--root", root);
   expect(explained.exitCode).toBe(0);
   expect(explained.stdout).toContain("dependencies: external-tools range ^2.1.0 marketplace acme external");
@@ -6303,7 +6299,7 @@ Repo body.
   expect(repoDiff.stdout).toContain(".claude/skills/repo-skill/SKILL.md");
   expect(repoDiff.stdout).not.toContain("plugins/alpha/claude");
 
-  const pluginList = await runSkillsetCli("list", "--root", root, "--scope", "plugins");
+  const pluginList = await runSkillsetCli("list", "--details", "--root", root, "--scope", "plugins");
   expect(pluginList.exitCode).toBe(0);
   expect(pluginList.stdout).toContain("plugins/alpha/claude");
   expect(pluginList.stdout).not.toContain(".claude/skills/repo-skill");
@@ -6449,7 +6445,7 @@ Body.
   expect(lock).toContain(`"origin": "explicit"`);
   expect(lock).toContain(`"sourcePointer": "repo:integrations/alpha-mcp.json"`);
 
-  const listed = await runSkillsetCli("list", "--root", root, "--scope", "plugins");
+  const listed = await runSkillsetCli("list", "--details", "--root", root, "--scope", "plugins");
   expect(listed.stdout).toContain("plugin-feature mcp (explicit)");
 
   const explained = await runSkillsetCli("explain", "plugins/alpha/claude/.mcp.json", "--root", root);
