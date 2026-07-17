@@ -248,7 +248,7 @@ describe("SET-291 prompt adapters", () => {
     output.on("data", (chunk: Buffer) => {
       transcript += chunk.toString();
     });
-    const result = new ClackPromptAdapter({ input, output }).select({
+    const result = new ClackPromptAdapter({ color: true, input, output }).select({
       choices: [
         { description: "recommended", name: "One", value: "one" },
         { disabled: "unavailable", name: "Two", value: "two" },
@@ -258,7 +258,8 @@ describe("SET-291 prompt adapters", () => {
     });
 
     expect(Bun.stripANSI(transcript)).toContain("One (recommended)");
-    expect(Bun.stripANSI(transcript)).toContain("Two unavailable");
+    expect(Bun.stripANSI(transcript)).toContain("Two (unavailable)");
+    expect(transcript).toContain("\u001B[9mTwo\u001B[29m");
     input.write("\r");
     await expect(result).resolves.toBe("one");
   });
@@ -367,14 +368,14 @@ describe("SET-291 prompt adapters", () => {
         await Bun.sleep(1);
       }
     };
-    const disabledRendered = waitForOutput(output, /Disabled unavailable/u);
+    const disabledRendered = waitForOutput(output, /Disabled \(unavailable\)/u);
     await writeText("disabled");
     expect(
       await Promise.race([
         disabledRendered,
         Bun.sleep(500).then(() => Bun.stripANSI(transcript)),
       ])
-    ).toContain("Disabled unavailable");
+    ).toContain("Disabled (unavailable)");
     await writeText("/alpha");
     await writeText("/beta");
     input.write("\r");
@@ -386,7 +387,7 @@ describe("SET-291 prompt adapters", () => {
       }),
     ]);
     expect(selected).toEqual(["all"]);
-    expect(Bun.stripANSI(transcript)).toContain("Disabled unavailable");
+    expect(Bun.stripANSI(transcript)).toContain("Disabled (unavailable)");
   });
 
   test("the real searchable checkbox selects across filters and rejects a disabled row", async () => {

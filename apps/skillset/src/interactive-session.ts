@@ -63,21 +63,23 @@ export function createInteractiveSession(
   const input = options.input ?? process.stdin;
   const output = options.output ?? process.stdout;
   const env = options.env ?? process.env;
+  const color = terminalColorEnabled({
+    ...(output.isTTY === undefined ? {} : { isTTY: output.isTTY }),
+    ...(env.NO_COLOR === undefined ? {} : { noColor: env.NO_COLOR }),
+    ...(env.TERM === undefined ? {} : { term: env.TERM }),
+  });
   const context: PromptContext = {
     ...(options.clearPromptOnDone === undefined
       ? {}
       : { clearPromptOnDone: options.clearPromptOnDone }),
     input,
     output,
+    color,
     ...(options.signal === undefined ? {} : { signal: options.signal }),
   };
   const prompts = options.adapter ?? new ClackPromptAdapter(context);
   const renderer = createTerminalRenderer({
-    color: terminalColorEnabled({
-      ...(output.isTTY === undefined ? {} : { isTTY: output.isTTY }),
-      ...(env.NO_COLOR === undefined ? {} : { noColor: env.NO_COLOR }),
-      ...(env.TERM === undefined ? {} : { term: env.TERM }),
-    }),
+    color,
   });
   return {
     prompts,

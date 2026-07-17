@@ -140,7 +140,7 @@ test("SET-165: new supports project agents and defers split hook scaffolding", a
 
   const hook = await runSkillsetCli("new", "hook", "source-change-guard", "--root", root);
   expect(hook.exitCode).toBe(1);
-  expect(hook.stderr).toContain("new hook is not available yet");
+  expect(hook.stderr).toContain("Not available yet; author hooks in hooks/hooks.json");
 });
 
 test("SET-165: new rejects import-only flags", async () => {

@@ -16,7 +16,7 @@ export type NewSourceKind = "agent" | "hook" | "skill";
 export type NewSourceScope = "repo";
 
 export const NEW_HOOK_UNAVAILABLE_REASON =
-  "new hook is not available yet; current hook source is hooks/hooks.json";
+  "Not available yet; author hooks in hooks/hooks.json";
 
 export interface NewSourceKindDefinition {
   readonly description: string;

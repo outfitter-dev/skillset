@@ -9,6 +9,7 @@ export interface TerminalRenderer {
   readonly accent: (value: string) => string;
   readonly bold: (value: string) => string;
   readonly dim: (value: string) => string;
+  readonly strikethrough: (value: string) => string;
   readonly width: number;
   readonly wrap: (value: string, indent?: number) => string;
 }
@@ -39,6 +40,7 @@ export function createTerminalRenderer(
     accent: (value) => apply("cyan", value),
     bold: (value) => apply("bold", value),
     dim: (value) => apply("dim", value),
+    strikethrough: (value) => apply("strikethrough", value),
     width,
     wrap: (value, indent = 0) => wrapWithIndent(value, width, indent),
   };

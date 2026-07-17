@@ -12,6 +12,12 @@ import {
   type Option,
 } from "@clack/prompts";
 
+import {
+  createTerminalRenderer,
+  terminalColorEnabled,
+  type TerminalRenderer,
+} from "./terminal-renderer";
+
 export interface PromptChoice<Value> {
   readonly checked?: boolean;
   readonly description?: string;
@@ -77,6 +83,7 @@ export interface PromptAdapter {
 
 export interface PromptContext {
   readonly clearPromptOnDone?: boolean;
+  readonly color?: boolean;
   readonly input?: Readable;
   readonly output?: Writable;
   readonly signal?: AbortSignal;
@@ -103,11 +110,28 @@ const RESTORE_CURSOR_AND_CLEAR = "\u001B[u\u001B[0J";
 
 export class ClackPromptAdapter implements PromptAdapter {
   readonly #context: PromptContext;
+  readonly #renderer: TerminalRenderer;
   readonly #sourceSignal: AbortSignal;
 
   constructor(context: PromptContext = {}) {
     this.#context = context;
     this.#sourceSignal = context.signal ?? new AbortController().signal;
+    const outputIsTTY = (
+      context.output as { readonly isTTY?: boolean } | undefined
+    )?.isTTY;
+    this.#renderer = createTerminalRenderer({
+      color:
+        context.color ??
+        terminalColorEnabled({
+          ...(outputIsTTY === undefined ? {} : { isTTY: outputIsTTY }),
+          ...(process.env.NO_COLOR === undefined
+            ? {}
+            : { noColor: process.env.NO_COLOR }),
+          ...(process.env.TERM === undefined
+            ? {}
+            : { term: process.env.TERM }),
+        }),
+    });
   }
 
   async checkbox<Value>(
@@ -119,7 +143,9 @@ export class ClackPromptAdapter implements PromptAdapter {
         initialValues: initialValues(prompt.choices),
         ...(prompt.pageSize === undefined ? {} : { maxItems: prompt.pageSize }),
         message: prompt.message,
-        options: prompt.choices.map((choice) => toClackOption(choice)),
+        options: prompt.choices.map((choice) =>
+          toClackOption(choice, this.#renderer)
+        ),
         required: prompt.required ?? false,
       })
     );
@@ -168,6 +194,7 @@ export class ClackPromptAdapter implements PromptAdapter {
   async search<Value>(prompt: SearchPrompt<Value>): Promise<Value> {
     const source = prompt.source;
     const signal = this.#sourceSignal;
+    const renderer = this.#renderer;
     return this.#run<Value>(() =>
       autocomplete<unknown>({
         ...this.#clackContext(),
@@ -179,7 +206,7 @@ export class ClackPromptAdapter implements PromptAdapter {
         message: prompt.message,
         options: function () {
           return source(this.userInput || undefined, { signal }).map((choice) =>
-            toClackOption(choice)
+            toClackOption(choice, renderer)
           );
         },
       })
@@ -190,6 +217,7 @@ export class ClackPromptAdapter implements PromptAdapter {
     prompt: SearchCheckboxPrompt<Value>
   ): Promise<readonly Value[]> {
     const source = prompt.source;
+    const renderer = this.#renderer;
     return this.#run<readonly Value[]>(() =>
       autocompleteMultiselect<unknown>({
         ...this.#clackContext(),
@@ -199,7 +227,7 @@ export class ClackPromptAdapter implements PromptAdapter {
         message: prompt.message,
         options: function () {
           return source(this.userInput || undefined, prompt.choices).map(
-            (choice) => toClackOption(choice)
+            (choice) => toClackOption(choice, renderer)
           );
         },
         ...(prompt.required === undefined ? {} : { required: prompt.required }),
@@ -216,7 +244,9 @@ export class ClackPromptAdapter implements PromptAdapter {
           : { initialValue: prompt.default }),
         ...(prompt.pageSize === undefined ? {} : { maxItems: prompt.pageSize }),
         message: prompt.message,
-        options: prompt.choices.map((choice) => toClackOption(choice)),
+        options: prompt.choices.map((choice) =>
+          toClackOption(choice, this.#renderer)
+        ),
       })
     );
   }
@@ -266,18 +296,24 @@ function ensureRawMode(input: Readable): Readable {
   return input;
 }
 
-function toClackOption<Value>(choice: PromptChoice<Value>): Option<unknown> {
+function toClackOption<Value>(
+  choice: PromptChoice<Value>,
+  renderer: TerminalRenderer
+): Option<unknown> {
+  const disabledReason =
+    typeof choice.disabled === "string" ? choice.disabled : undefined;
   return {
     ...(choice.disabled === undefined
       ? {}
       : { disabled: Boolean(choice.disabled) }),
-    ...(choice.description === undefined ? {} : { hint: choice.description }),
-    label:
-      choice.disabled === true
-        ? `${choice.name} (disabled)`
-        : typeof choice.disabled === "string"
-          ? `${choice.name} ${choice.disabled}`
-          : choice.name,
+    ...(choice.disabled || choice.description === undefined
+      ? {}
+      : { hint: choice.description }),
+    label: choice.disabled
+      ? `${renderer.strikethrough(choice.name)}${
+          disabledReason === undefined ? "" : ` (${disabledReason})`
+        }`
+      : choice.name,
     value: choice.value,
   };
 }
