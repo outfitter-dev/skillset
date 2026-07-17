@@ -1,5 +1,27 @@
 # skillset
 
+## 0.18.0
+
+### Minor Changes
+
+- 4a1b37c: Add a derived CLI presentation catalog with grouped root help, route-specific help, an exhaustive command reference, and source-oriented `skillset list` output with an optional `--details` view.
+
+### Patch Changes
+
+- 2ead702: Switch interactive prompt rendering to Clack, refine the guided init language and plan, and add an adoption-intent step before the flat source picker while preserving prompt defaults, cancellation, injected streams, and non-interactive command behavior.
+- a738c13: Reconcile CLI help and maintained argument contracts, including explicit reference flags, required lifecycle operands, and test status/tail grammar; reject previously ignored `lookup --root` and `hooks print --root` flags; constrain the hidden test worker to its internal protocol grammar; and make invalid grammar and undeclared-option diagnostics command-owned usage errors instead of leaking handler or global option-family behavior.
+- 946a581: Extract the shared policy-free CLI argument reader, scalar value helpers, and injectable parse context while preserving existing command behavior.
+- 9ed5256: Move inspection, lookup, test runtime, hidden worker, and hook argument handling into typed command-owned parsers.
+- eb783b5: Move change, release, reconcile, and restore argument handling into typed command-owned parsers, including parser-owned required operand errors.
+- 31d16e8: Restore provider and import-kind validation for recognized metadata options across command-owned CLI parsers.
+- b6da845: Move build, diff, check, dev, and update argument handling into typed command-owned parsers without changing their public CLI contracts.
+- 6205c82: Move source authoring, marketplace, and distribution argument handling into typed command-owned parsers while preserving validation and write timing.
+- 704edc6: Replace the global CLI argument bag with a small explicit typed parser facade and enforce runtime, help, hidden-route, and machine-output parity.
+- cd6e863: Complete the TTY `skillset init` onboarding flow with report-derived source selection, canonical target and integration choices, a read-only plan preview, and final default-No confirmation while preserving explicit and machine-mode behavior.
+- 85efded: Add derived TTY source scaffolding for `skillset new`, backed by shared kind, preset, and valid-container metadata with plan-first default-No confirmation.
+- a59607f: Add an app-local prompt adapter, deterministic scripted prompts, centralized interactive-session eligibility, and controlled prompt cancellation; migrate the existing interactive init adoption chooser onto the shared seam.
+- b90cdfb: Add a unified TTY test chooser for canonical declared tests, deterministic run-all execution, and current ad hoc retained runs.
+
 ## 0.17.1
 
 ### Patch Changes
