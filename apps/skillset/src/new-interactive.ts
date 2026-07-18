@@ -133,6 +133,7 @@ async function resolveHookIntent(
   const eventChoices = adaptiveHookEventDefinitions().map((event) => {
     const plan = planAdaptiveHookCompatibility({
       events: [event.id],
+      run: { command: "true" },
       scope: target.scope,
     });
     return {
@@ -152,6 +153,7 @@ async function resolveHookIntent(
   });
   const action = await resolveHookAction(request, session);
   const hookProviders = request.hookProviders ?? await resolveHookProviders(
+    action,
     hookEvents,
     target.scope,
     session
@@ -200,11 +202,16 @@ async function resolveHookAction(
 }
 
 async function resolveHookProviders(
+  action: { readonly hookCommand?: string; readonly hookScript?: string },
   events: readonly string[],
   scope: Parameters<typeof planAdaptiveHookCompatibility>[0]["scope"],
   session: InteractiveSession
 ): Promise<readonly TargetName[] | undefined> {
-  const plan = planAdaptiveHookCompatibility({ events, scope });
+  const plan = planAdaptiveHookCompatibility({
+    events,
+    run: hookRunForCompatibility(action),
+    scope,
+  });
   const compatible = new Set(plan.providers);
   const choices = targetNames().map((target) => {
     const classification = plan.classifications.find(
@@ -240,6 +247,22 @@ async function resolveHookProviders(
     required: true,
   });
   return selected.length === plan.providers.length ? undefined : selected;
+}
+
+function hookRunForCompatibility(action: {
+  readonly hookCommand?: string;
+  readonly hookScript?: string;
+}): { readonly command: string } | { readonly script: string } {
+  if (
+    (action.hookCommand === undefined) === (action.hookScript === undefined)
+  ) {
+    throw new Error(
+      "skillset: new hook requires exactly one of --command or --script"
+    );
+  }
+  return action.hookCommand === undefined
+    ? { script: action.hookScript ?? "" }
+    : { command: action.hookCommand };
 }
 
 function filterChoices<Value>(

@@ -332,6 +332,25 @@ test("SET-310: new hook rejects invalid intent, incompatible scopes, and collisi
   expect(incompatible.exitCode).toBe(1);
   expect(incompatible.stderr).toContain("no faithful skill-local hook destination");
 
+  const unsupportedFrontmatterEvent = await runSkillsetCli(
+    "new", "hook", "Workspace Policy", "--event", "WorkspaceOpen", "--command", "true",
+    "--attach", "plugin.guard.skill:writer", "--root", root, "--yes"
+  );
+  expect(unsupportedFrontmatterEvent.exitCode).toBe(1);
+  expect(unsupportedFrontmatterEvent.stderr).toContain(
+    "Claude does not support adaptive hook event WorkspaceOpen"
+  );
+
+  const unsupportedFrontmatterScript = await runSkillsetCli(
+    "new", "hook", "Scripted Skill Policy", "--event", "PreToolUse",
+    "--script", "{{scripts.dir}}/check.sh", "--attach", "plugin.guard.skill:writer",
+    "--root", root, "--yes"
+  );
+  expect(unsupportedFrontmatterScript.exitCode).toBe(1);
+  expect(unsupportedFrontmatterScript.stderr).toContain(
+    "frontmatter hook rendering does not have stable runtime path proof"
+  );
+
   const validArgs = [
     "new", "hook", "Shell Policy", "--event", "PreToolUse", "--command", "true",
     "--attach", "plugin:guard", "--root", root, "--yes",
@@ -344,6 +363,42 @@ test("SET-310: new hook rejects invalid intent, incompatible scopes, and collisi
   expect(await fileExists(join(root, ".skillset/plugins/guard/hooks/bad-event.json"))).toBe(false);
   expect(await fileExists(join(root, ".skillset/plugins/guard/hooks/script-policy.json"))).toBe(false);
   expect(await fileExists(join(root, ".skillset/plugins/guard/skills/writer/hooks/skill-policy.json"))).toBe(false);
+  expect(await fileExists(join(root, ".skillset/plugins/guard/skills/writer/hooks/workspace-policy.json"))).toBe(false);
+  expect(await fileExists(join(root, ".skillset/plugins/guard/skills/writer/hooks/scripted-skill-policy.json"))).toBe(false);
+});
+
+test("SET-310: non-hook source kinds reject hook-only flags", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-new-non-hook-options-"));
+  await expect(
+    runSkillsetCli("init", "--root", root, "--yes")
+  ).resolves.toMatchObject({ exitCode: 0 });
+
+  const result = await runSkillsetCli(
+    "new",
+    "skill",
+    "Demo",
+    "--event",
+    "PreToolUse",
+    "--command",
+    "true",
+    "--script",
+    "check.sh",
+    "--attach",
+    "skill:other",
+    "--provider",
+    "claude",
+    "--root",
+    root,
+    "--yes"
+  );
+
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain(
+    "new skill does not support hook options: --attach, --command, --event, --provider, --script"
+  );
+  expect(await fileExists(join(root, ".skillset/skills/demo/SKILL.md"))).toBe(
+    false
+  );
 });
 
 test("SET-165: new refuses collisions and missing plugin containers", async () => {

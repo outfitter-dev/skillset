@@ -48,10 +48,16 @@ export function adaptiveHookEventDefinitions(): readonly AdaptiveHookEventDefini
 export function planAdaptiveHookCompatibility(input: {
   readonly events: readonly string[];
   readonly providers?: readonly TargetName[];
+  readonly run: JsonRecord;
   readonly scope: AdaptiveHookScope;
 }): AdaptiveHookCompatibilityPlan {
   const requested = input.providers ?? targetNames();
-  const definition = hookDefinition(input.events, input.scope, requested);
+  const definition = hookDefinition(
+    input.events,
+    input.run,
+    input.scope,
+    requested
+  );
   const attachment = hookAttachment(input.scope, requested);
   const surface = input.scope.kind === "plugin" ? "plugin" : "frontmatter";
   const classifications = requested.flatMap((target) =>
@@ -139,12 +145,13 @@ export function appendAdaptiveHookAttachmentToMarkdown(
 
 function hookDefinition(
   events: readonly string[],
+  run: JsonRecord,
   scope: AdaptiveHookScope,
   providers: readonly TargetName[]
 ): SourceAdaptiveHook {
   return {
     events,
-    frontmatter: { events: [...events], providers: [...providers], run: { command: "true" } },
+    frontmatter: { events: [...events], providers: [...providers], run },
     name: "authoring-preview",
     providers,
     scope,

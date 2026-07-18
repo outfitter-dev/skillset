@@ -99,6 +99,7 @@ export async function planNewAdaptiveHook(
   const compatibility = planAdaptiveHookCompatibility({
     events: [...events],
     ...(options.providers === undefined ? {} : { providers: options.providers }),
+    run: action,
     scope: owner.scope,
   });
   const requestedProviders = options.providers;
@@ -106,16 +107,13 @@ export async function planNewAdaptiveHook(
     requestedProviders !== undefined &&
     compatibility.providers.length !== requestedProviders.length
   ) {
-    const reasons = compatibility.classifications
-      .filter((item) => !compatibility.providers.includes(item.target))
-      .flatMap((item) => item.reasons);
     throw new Error(
-      `skillset: adaptive hook cannot attach to ${owner.selector} for the selected providers: ${[...new Set(reasons)].join("; ")}`
+      `skillset: adaptive hook cannot attach to ${owner.selector} for the selected providers: ${compatibilityFailureReasons(compatibility).join("; ")}`
     );
   }
   if (compatibility.providers.length === 0) {
     throw new Error(
-      `skillset: adaptive hook has no compatible provider projection for ${owner.selector}`
+      `skillset: adaptive hook has no compatible provider projection for ${owner.selector}: ${compatibilityFailureReasons(compatibility).join("; ")}`
     );
   }
   const allProviders = targetNames();
@@ -166,6 +164,18 @@ export async function planNewAdaptiveHook(
       operation: "update",
       path: relative(rootPath, owner.path),
     },
+  ];
+}
+
+function compatibilityFailureReasons(
+  compatibility: ReturnType<typeof planAdaptiveHookCompatibility>
+): readonly string[] {
+  return [
+    ...new Set(
+      compatibility.classifications
+        .filter((item) => !compatibility.providers.includes(item.target))
+        .flatMap((item) => item.reasons)
+    ),
   ];
 }
 

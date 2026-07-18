@@ -144,6 +144,7 @@ export async function scaffoldSourceUnit(
   if (options.scope !== undefined && options.scope !== "repo") {
     throw new Error("skillset: new currently supports only --scope repo");
   }
+  assertHookOptionsMatchKind(options);
   const id = resolveSourceId(options);
   const displayName = resolveDisplayName(options, id);
   const sourceDir = await detectWorkspaceSourceDir(rootPath, options.skillsetOptions ?? {});
@@ -189,6 +190,22 @@ export async function scaffoldSourceUnit(
     sourceRoot,
     write: options.write === true,
   };
+}
+
+function assertHookOptionsMatchKind(options: NewSourceOptions): void {
+  if (options.kind === "hook") return;
+  const flags = [
+    ["--attach", options.hookAttachment],
+    ["--command", options.hookCommand],
+    ["--event", options.hookEvents],
+    ["--provider", options.hookProviders],
+    ["--script", options.hookScript],
+  ].flatMap(([flag, value]) => (value === undefined ? [] : [flag]));
+  if (flags.length > 0) {
+    throw new Error(
+      `skillset: new ${options.kind} does not support hook options: ${flags.join(", ")}`
+    );
+  }
 }
 
 async function planSourceUnit(

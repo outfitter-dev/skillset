@@ -31,12 +31,24 @@ describe("hook provider capabilities", () => {
     ]);
     expect(planAdaptiveHookCompatibility({
       events: ["PreToolUse"],
+      run: { command: "true" },
       scope: { kind: "plugin", pluginId: "guard" },
     }).providers).toEqual(["claude", "codex", "cursor"]);
     expect(planAdaptiveHookCompatibility({
       events: ["PreToolUse"],
+      run: { command: "true" },
       scope: { kind: "skill", skillId: "writer" },
     }).providers).toEqual(["claude"]);
+    expect(planAdaptiveHookCompatibility({
+      events: ["WorkspaceOpen"],
+      run: { command: "true" },
+      scope: { kind: "skill", skillId: "writer" },
+    }).providers).toEqual([]);
+    expect(planAdaptiveHookCompatibility({
+      events: ["PreToolUse"],
+      run: { script: "{{scripts.dir}}/check.sh" },
+      scope: { kind: "skill", skillId: "writer" },
+    }).providers).toEqual([]);
   });
 
   test("appends schema-valid auto attachments without replacing existing entries", () => {
