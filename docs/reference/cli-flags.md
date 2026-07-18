@@ -34,9 +34,10 @@ The entries below are the complete final public flag set. Positional arguments a
 
 | Route | Flags | Notes |
 | --- | --- | --- |
-| `init [destination]` | `--root`, `--from`, `--adopt`, `--targets`, `--include`, `--name`, `--yes`, `--json` | `--adopt all` or repeat stable candidate ids. A TTY guides missing mode, source, adoption, target, and integration choices, previews the derived plan, then confirms with No as the default. |
+| `create [name]` | `--root`, `--targets`, `--include`, `--yes`, `--json` | Creates a normalized named child under the current directory or `--root` parent. A TTY asks for missing name, parent, provider, and integration intent, previews the child path and Git initialization, then confirms with No as the default. |
+| `init [directory]` | `--root`, `--adopt`, `--targets`, `--include`, `--yes`, `--json` | Initializes an existing directory. `--adopt all` or repeated stable candidate ids import detected repo-local sources; external work remains under `import`. |
 | `import` | `--root`, `--from`, `--kind`, `--name`, `--json` | Repeated-use asset conversion; import itself remains explicit. |
-| `new` | `--root`, `--id`, `--name`, `--in`, `--scope`, `--preset`, `--yes`, `--json` | Preview by default. A TTY guides missing kind, identity, valid container, and preset choices before a default-No confirmation. |
+| `new` | `--root`, `--id`, `--name`, `--in`, `--scope`, `--preset`, `--event`, `--command`, `--script`, `--attach`, `--provider`, `--yes`, `--json` | Creates skills, project agents, instructions, and schema-valid adaptive hooks. Hook events and compatible providers are registry-derived; attachment selectors resolve existing source units. Preview is the default and no build runs implicitly. |
 | `check` | `--root`, `--only`, `--write`, `--ci`, `--fix`, `--since`, `--report`, `--json` | `--fix` requires `--ci`; `--since` and `--report` are CI-only. |
 | `dev` | `--root`, `--write`, `--jsonl` | Watching is the command's default; `--watch` and `--apply` disappear. |
 | `reconcile <path>` | `--root`, `--use source` or `--use output`, `--yes`, `--json` | Diagnosis is default; direction can be previewed before confirmation. |
@@ -87,7 +88,7 @@ The entries below are the complete final public flag set. Positional arguments a
 | `--source <dir>` | Removed; canonical `.skillset/` source is configured by the workspace. |
 | `--dist <dir>` | Removed; output roots are workspace configuration. |
 | `--layout root` or `--layout nested` | Removed; retired layout compatibility is not public. |
-| `--global` | Removed with top-level `create`; external destination uses `init [destination]`. |
+| `--global` | Removed; `create [name]` owns local named child repositories only. |
 | `--dry-run` | Removed; preview is already the default. |
 | `dev --watch --apply` | Becomes bare `dev` and explicit `dev --write`. |
 | `check --fix` | Becomes local `check --write`; `--fix` remains CI-only. |

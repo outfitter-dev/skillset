@@ -22,10 +22,8 @@ import { initSkillset } from "./setup";
 import type { SetupInclude, SetupReport } from "./setup";
 
 export interface InitCommandRequest {
-  readonly importName: string | undefined;
-  readonly destination: string | undefined;
+  readonly directory: string | undefined;
   readonly initAdopt: readonly string[] | undefined;
-  readonly initFrom: string | undefined;
   readonly jsonOutput: boolean;
   readonly options: SkillsetOptions;
   readonly rootExplicit: boolean;
@@ -41,10 +39,8 @@ export interface InitCommandContext {
 
 export async function runInitCommand(
   {
-    importName,
-    destination,
+    directory,
     initAdopt,
-    initFrom,
     jsonOutput,
     options,
     rootExplicit,
@@ -57,36 +53,28 @@ export async function runInitCommand(
 ): Promise<void> {
   const initCwd = resolve(rootPath);
   const explicitInitRootPath = rootExplicit ? initCwd : undefined;
-  const setupRootPath = destination ?? explicitInitRootPath;
+  const setupRootPath =
+    directory === undefined ? explicitInitRootPath : resolve(initCwd, directory);
   const interactiveSession = jsonOutput
     ? undefined
     : (context.interactiveSession ?? createInteractiveSession());
   if (
-    (initAdopt !== undefined || initFrom !== undefined) &&
+    initAdopt !== undefined &&
     (yes || interactiveSession === undefined)
   ) {
-    const writeMode = initAdopt !== undefined && yes;
-    const inferredRoot =
-      initFrom === undefined
-        ? (
-            await initSkillset({
-              cwd: initCwd,
-              ...(explicitInitRootPath === undefined
-                ? {}
-                : { rootPath: explicitInitRootPath }),
-              useGitRoot: !rootExplicit,
-              write: false,
-            })
-          ).rootPath
-        : rootPath;
-    const report = await adoptSkillset(initFrom ?? inferredRoot, {
-      cwd: initCwd,
-      ...(initAdopt === undefined ? {} : { candidates: initAdopt }),
-      ...(destination === undefined
-        ? {}
-        : { destination: resolve(initCwd, destination) }),
+    const writeMode = yes;
+    const inferredRoot = (
+      await initSkillset({
+        cwd: initCwd,
+        ...(setupRootPath === undefined ? {} : { rootPath: setupRootPath }),
+        useGitRoot: setupRootPath === undefined,
+        write: false,
+      })
+    ).rootPath;
+    const report = await adoptSkillset(inferredRoot, {
+      candidates: initAdopt,
+      cwd: inferredRoot,
       ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
-      ...(importName === undefined ? {} : { name: importName }),
       ...(setupTargets === undefined ? {} : { targets: setupTargets }),
       write: writeMode,
     });
@@ -128,10 +116,8 @@ export async function runInitCommand(
     interactiveSession.banner();
     const result = await runInteractiveInit(
       {
-        destination,
-        importName,
+        directory,
         initAdopt,
-        initFrom,
         rootExplicit,
         rootPath,
         setupIncludes,
@@ -167,7 +153,6 @@ export async function runInitCommand(
   const setup = await initSkillset({
     cwd: initCwd,
     ...(setupRootPath === undefined ? {} : { rootPath: setupRootPath }),
-    ...(importName === undefined ? {} : { name: importName }),
     ...(setupTargets === undefined ? {} : { targets: setupTargets }),
     ...(setupIncludes === undefined ? {} : { include: setupIncludes }),
     useGitRoot: setupRootPath === undefined,
@@ -266,7 +251,7 @@ function printAdoptReport(report: AdoptReport, reason: string): void {
   console.log(`skillset: adopt ${report.ok ? "passed" : "found problems"}`);
 }
 
-function printSetupReport(result: SetupReport, reason: string): void {
+export function printSetupReport(result: SetupReport, reason: string): void {
   for (const file of result.files) {
     const marker = file.status === "create" ? "+" : "=";
     console.log(`  ${marker} ${file.path}`);

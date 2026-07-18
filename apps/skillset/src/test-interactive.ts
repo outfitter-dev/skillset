@@ -51,12 +51,12 @@ export async function resolveInteractiveTestSelection(
   const background = await session.prompts.select({
     choices: [
       {
-        description: "Wait for the retained test result",
+        description: "Wait for the test to finish and show the result",
         name: "Foreground",
         value: false,
       },
       {
-        description: "Start the retained test and return immediately",
+        description: "Start the test and return to the shell",
         name: "Background",
         value: true,
       },
@@ -97,7 +97,7 @@ function selectionChoices(
       ? []
       : [
           {
-            description: `Run ${declarations.length} committed ${declarations.length === 1 ? "test" : "tests"}`,
+            description: `Run all ${declarations.length} ${declarations.length === 1 ? "test" : "tests"} declared in this workspace`,
             name: "All tests",
             value: { kind: "all" } as const,
           },
@@ -108,7 +108,7 @@ function selectionChoices(
       value: { kind: "declared", name: declaration.name } as const,
     })),
     {
-      description: "Run an isolated prompt against one enabled target",
+      description: "Run a prompt against one target without saving a test",
       name: "Ad hoc test",
       value: { kind: "ad-hoc" } as const,
     },

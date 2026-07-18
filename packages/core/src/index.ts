@@ -33,6 +33,15 @@ export {
   type ResolvedAdaptiveHookAttachment,
 } from "./adaptive-hook-attachments";
 export {
+  adaptiveHookEventDefinitions,
+  appendAdaptiveHookAttachment,
+  appendAdaptiveHookAttachmentToMarkdown,
+  appendAdaptiveHookAttachmentToYaml,
+  planAdaptiveHookCompatibility,
+  type AdaptiveHookCompatibilityPlan,
+  type AdaptiveHookEventDefinition,
+} from "./adaptive-hook-authoring";
+export {
   adaptiveHookIntentIsRenderable,
   classifyAdaptiveHookIntent,
   type AdaptiveHookIntentClassification,

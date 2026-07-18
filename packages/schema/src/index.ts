@@ -68,6 +68,7 @@ export {
   validateAdaptiveHookUnitSource,
   validateChangeEntryFrontmatter,
   validateHookDefinitionSource,
+  validateHookAttachmentsSource,
   validateInstructionFrontmatter,
   validateSkillFrontmatter,
   validateSourceMetadata,

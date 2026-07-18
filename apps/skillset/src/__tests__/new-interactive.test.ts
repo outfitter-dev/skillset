@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
@@ -7,7 +7,6 @@ import { PassThrough } from "node:stream";
 import { createInteractiveSession } from "../interactive-session";
 import {
   listNewSourceContainers,
-  NEW_HOOK_UNAVAILABLE_REASON,
   NEW_SOURCE_KINDS,
   parseSkillPresets,
   SKILL_PRESETS,
@@ -25,14 +24,15 @@ function scriptedSession(
   answers: ConstructorParameters<typeof ScriptedPromptAdapter>[0]
 ) {
   const adapter = new ScriptedPromptAdapter(answers);
+  const output = ttyOutput();
   const session = createInteractiveSession({
     adapter,
     env: { CI: "false" },
     input: ttyInput(),
-    output: ttyOutput(),
+    output,
   });
   if (session === undefined) throw new Error("expected interactive session");
-  return { adapter, session };
+  return { adapter, output, session };
 }
 
 async function workspace(): Promise<string> {
@@ -66,7 +66,14 @@ describe("SET-293 derived new-source choices", () => {
     expect(NEW_SOURCE_KINDS.map((kind) => [kind.id, kind.enabled])).toEqual([
       ["skill", true],
       ["agent", true],
-      ["hook", false],
+      ["instruction", true],
+      ["hook", true],
+    ]);
+    expect(NEW_SOURCE_KINDS.map((kind) => kind.description)).toEqual([
+      "Skill directory, SKILL.md, and optional supporting files",
+      "Markdown file with repository-level agent instructions",
+      "Instruction file under the canonical rules source directory",
+      "Adaptive runtime hook",
     ]);
     expect(SKILL_PRESETS.map((preset) => preset.id)).toEqual([
       "minimal",
@@ -89,7 +96,7 @@ describe("SET-293 derived new-source choices", () => {
 
   test("bare skill previews conditional prompts and defaults to no writes", async () => {
     const root = await workspace();
-    const { adapter, session } = scriptedSession([
+    const { adapter, output, session } = scriptedSession([
       { kind: "select", value: "skill" },
       { kind: "input", value: "Docs Expert" },
       { kind: "checkbox", value: ["minimal"] },
@@ -99,6 +106,9 @@ describe("SET-293 derived new-source choices", () => {
     await runNewCommand(request(root), { interactiveSession: session });
 
     adapter.assertComplete();
+    expect(Bun.stripANSI(output.read()?.toString() ?? "")).not.toContain(
+      "Create source:"
+    );
     expect(adapter.prompts.map((prompt) => prompt.kind)).toEqual([
       "select",
       "input",
@@ -110,10 +120,10 @@ describe("SET-293 derived new-source choices", () => {
     expect(kindPrompt.prompt.message).toBe("Create a new:");
     expect(kindPrompt.prompt.choices.at(-1)).toEqual(
       expect.objectContaining({
-        disabled: NEW_HOOK_UNAVAILABLE_REASON,
         value: "hook",
       })
     );
+    expect(kindPrompt.prompt.choices.at(-1)).not.toHaveProperty("disabled");
     const identityPrompt = adapter.prompts[1];
     if (identityPrompt?.kind !== "input") {
       throw new Error("expected identity prompt");
@@ -192,6 +202,267 @@ describe("SET-293 derived new-source choices", () => {
         join(root, ".skillset/agents/release-reviewer.md")
       ).exists()
     ).toBe(true);
+  });
+
+  test("instruction uses the shared destination chooser and canonical report", async () => {
+    const root = await workspace();
+    await mkdir(join(root, ".skillset/plugins/acme"), { recursive: true });
+    await writeFile(
+      join(root, ".skillset/plugins/acme/skillset.yaml"),
+      "skillset:\n  name: acme\n"
+    );
+    const { adapter, session } = scriptedSession([
+      { kind: "select", value: "instruction" },
+      { kind: "input", value: "Review Guidance" },
+      { kind: "select", value: "__workspace__" },
+      { kind: "confirm", value: true },
+    ]);
+
+    await runNewCommand(request(root), { interactiveSession: session });
+
+    adapter.assertComplete();
+    expect(adapter.prompts.map((prompt) => prompt.kind)).toEqual([
+      "select",
+      "input",
+      "select",
+      "confirm",
+    ]);
+    expect(
+      await Bun.file(join(root, ".skillset/rules/review-guidance.md")).text()
+    ).toBe("# Review Guidance\n\nAdd repository instructions here.\n");
+    expect(await Bun.file(join(root, ".claude")).exists()).toBe(false);
+    expect(await Bun.file(join(root, ".agents")).exists()).toBe(false);
+  });
+
+  test("explicit instruction identity and plugin placement skip matching prompts", async () => {
+    const root = await workspace();
+    await mkdir(join(root, ".skillset/plugins/acme"), { recursive: true });
+    await writeFile(
+      join(root, ".skillset/plugins/acme/skillset.yaml"),
+      "skillset:\n  name: acme\n"
+    );
+    const { adapter, session } = scriptedSession([
+      { kind: "confirm", value: false },
+    ]);
+
+    await runNewCommand(
+      request(root, {
+        newContainer: "acme",
+        newId: "review-guidance",
+        newKind: "instruction",
+        newName: "Review Guidance",
+      }),
+      { interactiveSession: session }
+    );
+
+    adapter.assertComplete();
+    expect(adapter.prompts.map((prompt) => prompt.kind)).toEqual(["confirm"]);
+    expect(
+      await Bun.file(
+        join(root, ".skillset/plugins/acme/rules/review-guidance.md")
+      ).exists()
+    ).toBe(false);
+  });
+
+  test("bare Hook uses searchable registry events and attachment targets before a default-No preview", async () => {
+    const root = await workspace();
+    await mkdir(join(root, ".skillset/plugins/guard"), { recursive: true });
+    await writeFile(
+      join(root, ".skillset/plugins/guard/skillset.yaml"),
+      "skillset:\n  name: guard\n"
+    );
+    const { adapter, output, session } = scriptedSession([
+      { kind: "select", value: "hook" },
+      { kind: "input", value: "Shell Policy" },
+      { kind: "search", value: "plugin:guard" },
+      { kind: "search-multiselect", value: ["PreToolUse"] },
+      { kind: "select", value: "command" },
+      { kind: "input", value: "echo checking shell" },
+      { kind: "checkbox", value: ["claude", "codex", "cursor"] },
+      { kind: "confirm", value: false },
+    ]);
+
+    await runNewCommand(request(root), { interactiveSession: session });
+
+    adapter.assertComplete();
+    expect(adapter.prompts.map((prompt) => prompt.kind)).toEqual([
+      "select",
+      "input",
+      "search",
+      "search-multiselect",
+      "select",
+      "input",
+      "checkbox",
+      "confirm",
+    ]);
+    const eventPrompt = adapter.prompts.find(
+      (prompt) => prompt.kind === "search-multiselect"
+    );
+    if (eventPrompt?.kind !== "search-multiselect") {
+      throw new Error("expected searchable event prompt");
+    }
+    expect(
+      eventPrompt.prompt.source("pretool", eventPrompt.prompt.choices)
+    ).toEqual([
+      expect.objectContaining({
+        description: "Compatible providers: claude, codex, cursor",
+        value: "PreToolUse",
+      }),
+    ]);
+    expect(
+      eventPrompt.prompt.source("permissionrequest", eventPrompt.prompt.choices)
+    ).toEqual([
+      expect.objectContaining({
+        description: "Compatible providers: claude, codex",
+        value: "PermissionRequest",
+      }),
+    ]);
+    expect(
+      eventPrompt.prompt.source("beforeshell", eventPrompt.prompt.choices)
+    ).toEqual([
+      expect.objectContaining({
+        description: "Compatible providers: cursor",
+        value: "BeforeShellExecution",
+      }),
+    ]);
+    const attachmentPrompt = adapter.prompts.find(
+      (prompt) => prompt.kind === "search"
+    );
+    if (attachmentPrompt?.kind !== "search") {
+      throw new Error("expected searchable attachment prompt");
+    }
+    expect(
+      attachmentPrompt.prompt.source("guard", {
+        signal: new AbortController().signal,
+      })
+    ).toEqual([
+      expect.objectContaining({ value: "plugin:guard" }),
+    ]);
+    const transcript = Bun.stripANSI(output.read()?.toString() ?? "");
+    expect(transcript).toContain("Compatibility");
+    expect(transcript).toContain("claude: compatible");
+    expect(
+      await Bun.file(
+        join(root, ".skillset/plugins/guard/hooks/shell-policy.json")
+      ).exists()
+    ).toBe(false);
+  });
+
+  test("guided Hook writes byte-equivalent output to the corresponding explicit request", async () => {
+    const interactiveRoot = await workspace();
+    const explicitRoot = await workspace();
+    for (const root of [interactiveRoot, explicitRoot]) {
+      await mkdir(join(root, ".skillset/plugins/guard"), { recursive: true });
+      await writeFile(
+        join(root, ".skillset/plugins/guard/skillset.yaml"),
+        "skillset:\n  name: guard\n"
+      );
+    }
+    const { adapter, session } = scriptedSession([
+      { kind: "select", value: "hook" },
+      { kind: "input", value: "Shell Policy" },
+      { kind: "search", value: "plugin:guard" },
+      { kind: "search-multiselect", value: ["PreToolUse"] },
+      { kind: "select", value: "command" },
+      { kind: "input", value: "echo checking shell" },
+      { kind: "checkbox", value: ["claude", "codex", "cursor"] },
+      { kind: "confirm", value: true },
+    ]);
+    await runNewCommand(request(interactiveRoot), {
+      interactiveSession: session,
+    });
+    adapter.assertComplete();
+
+    await runNewCommand(request(explicitRoot, {
+      hookAttachment: "plugin:guard",
+      hookCommand: "echo checking shell",
+      hookEvents: ["PreToolUse"],
+      newKind: "hook",
+      positionalName: "Shell Policy",
+      yes: true,
+    }));
+
+    for (const path of [
+      ".skillset/plugins/guard/hooks/shell-policy.json",
+      ".skillset/plugins/guard/skillset.yaml",
+    ]) {
+      expect(await readFile(join(interactiveRoot, path), "utf8")).toBe(
+        await readFile(join(explicitRoot, path), "utf8")
+      );
+    }
+  });
+
+  test("explicit Hook intent skips matching prompts and skill compatibility shows degradation", async () => {
+    const root = await workspace();
+    await mkdir(join(root, ".skillset/skills/writer"), { recursive: true });
+    await writeFile(
+      join(root, ".skillset/skills/writer/SKILL.md"),
+      "---\nname: writer\ndescription: Writer.\n---\n\nBody.\n"
+    );
+    const { adapter, output, session } = scriptedSession([
+      { kind: "confirm", value: false },
+    ]);
+    await runNewCommand(request(root, {
+      hookAttachment: "skill:writer",
+      hookCommand: "echo check",
+      hookEvents: ["PreToolUse"],
+      newKind: "hook",
+      positionalName: "Skill Policy",
+    }), { interactiveSession: session });
+    adapter.assertComplete();
+    expect(adapter.prompts.map((prompt) => prompt.kind)).toEqual(["confirm"]);
+    const transcript = Bun.stripANSI(output.read()?.toString() ?? "");
+    expect(transcript).toContain("Codex has no faithful skill-local hook destination");
+    expect(transcript).toContain("Cursor has no faithful skill-local hook destination");
+  });
+
+  test("bare Hook fails before action prompts when no attachment target exists", async () => {
+    const root = await workspace();
+    const { adapter, session } = scriptedSession([
+      { kind: "select", value: "hook" },
+      { kind: "input", value: "Orphan Hook" },
+    ]);
+    await expect(
+      runNewCommand(request(root), { interactiveSession: session })
+    ).rejects.toThrow(
+      "new hook requires an existing plugin, skill, or project agent attachment target"
+    );
+    adapter.assertComplete();
+    expect(adapter.prompts.map((prompt) => prompt.kind)).toEqual([
+      "select",
+      "input",
+    ]);
+    expect(
+      await Bun.file(join(root, ".skillset/hooks/orphan-hook.json")).exists()
+    ).toBe(false);
+  });
+
+  test("partial Hook requests prompt only for missing action and provider intent", async () => {
+    const root = await workspace();
+    await mkdir(join(root, ".skillset/plugins/guard"), { recursive: true });
+    await writeFile(
+      join(root, ".skillset/plugins/guard/skillset.yaml"),
+      "skillset:\n  name: guard\n"
+    );
+    const { adapter, session } = scriptedSession([
+      { kind: "select", value: "command" },
+      { kind: "input", value: "echo check" },
+      { kind: "checkbox", value: ["claude", "codex"] },
+      { kind: "confirm", value: false },
+    ]);
+    await runNewCommand(request(root, {
+      hookAttachment: "plugin:guard",
+      hookEvents: ["PermissionRequest"],
+      newKind: "hook",
+      positionalName: "Permission Policy",
+    }), { interactiveSession: session });
+    adapter.assertComplete();
+    expect(adapter.prompts.map((prompt) => prompt.kind)).toEqual([
+      "select",
+      "input",
+      "checkbox",
+      "confirm",
+    ]);
   });
 
   test("explicit kind, id, name, container, and presets skip matching prompts", async () => {
@@ -384,6 +655,37 @@ describe("SET-293 derived new-source choices", () => {
     expect(
       await Bun.file(join(root, ".skillset/skills/cancelled/SKILL.md")).exists()
     ).toBe(false);
+  });
+
+  test("Hook cancellation leaves definition and attachment sources untouched", async () => {
+    const root = await workspace();
+    await mkdir(join(root, ".skillset/plugins/guard"), { recursive: true });
+    const configPath = join(root, ".skillset/plugins/guard/skillset.yaml");
+    await writeFile(configPath, "skillset:\n  name: guard\n");
+    const controller = new AbortController();
+    controller.abort();
+    const session = createInteractiveSession({
+      env: { CI: "false" },
+      input: ttyInput(),
+      output: ttyOutput(),
+      signal: controller.signal,
+    });
+    if (session === undefined) throw new Error("expected interactive session");
+
+    await expect(
+      runNewCommand(request(root, {
+        newKind: "hook",
+        positionalName: "Cancelled Hook",
+      }), { interactiveSession: session })
+    ).rejects.toThrow(PromptCancelledError);
+    expect(
+      await Bun.file(
+        join(root, ".skillset/plugins/guard/hooks/cancelled-hook.json")
+      ).exists()
+    ).toBe(false);
+    expect(await readFile(configPath, "utf8")).toBe(
+      "skillset:\n  name: guard\n"
+    );
   });
 
   test("JSON and yes requests bypass an injected prompt session", async () => {

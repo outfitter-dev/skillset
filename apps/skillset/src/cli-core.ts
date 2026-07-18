@@ -1,6 +1,7 @@
 import { runBuildCommand, runDiffCommand } from "./build-cli";
 import { runChangeCommand } from "./change-cli";
 import { runCheckCommand } from "./check-cli";
+import { runCreateCommand } from "./create-cli";
 import { parseCliRequest } from "./cli-args";
 import { renderCliHelp } from "./cli-help";
 import { runDevCommand } from "./dev-cli";
@@ -40,6 +41,8 @@ export async function runCli(
       return runChangeCommand(route.request);
     case "check":
       return runCheckCommand(route.request);
+    case "create":
+      return runCreateCommand(route.request);
     case "dev":
       return runDevCommand(route.request);
     case "diff":

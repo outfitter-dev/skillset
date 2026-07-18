@@ -49,7 +49,7 @@ test("SET-210: dev watch plan covers ordinary source and ignores generated churn
 
 test("SET-210: dev watch plan covers created source repos", async () => {
   const parent = await mkdtemp(join(tmpdir(), "skillset-dev-watch-root-"));
-  await expect(runSkillsetCli("init", "team-loadout", "--root", parent, "--yes")).resolves.toMatchObject({
+  await expect(runSkillsetCli("create", "team-loadout", "--root", parent, "--yes")).resolves.toMatchObject({
     exitCode: 0,
   });
   const root = join(parent, "team-loadout");

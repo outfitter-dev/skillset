@@ -296,6 +296,8 @@ function runtimeFlagArgs(flag: CliFlag, route: string): readonly string[] {
         return "outputs";
       case "--preset":
         return "minimal";
+      case "--provider":
+        return "claude";
       case "--ref":
         return "@example";
       case "--runner":

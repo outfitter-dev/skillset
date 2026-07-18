@@ -7158,10 +7158,10 @@ test("SET-143: init accepts the canonical root config plus .skillset workspace",
   expect(initialized.stdout).toContain("= skillset.yaml");
 });
 
-test("SET-277: init creates a new source repo at an explicit destination", async () => {
+test("SET-312: create makes a named child under an explicit parent", async () => {
   const parent = await mkdtemp(join(tmpdir(), "skillset-setup-create-"));
 
-  const preview = await runSkillsetCli("init", "my-skillset", "--root", parent);
+  const preview = await runSkillsetCli("create", "my-skillset", "--root", parent);
   expect(preview.exitCode).toBe(0);
   expect(preview.stdout).toContain("my-skillset");
   expect(preview.stdout).toContain("+ README.md");
@@ -7171,7 +7171,7 @@ test("SET-277: init creates a new source repo at an explicit destination", async
   expect(await fileExists(join(parent, "my-skillset/skillset.yaml"))).toBe(false);
   expect(await fileExists(join(parent, "my-skillset/.git/config"))).toBe(false);
 
-  const written = await runSkillsetCli("init", "my-skillset", "--root", parent, "--yes");
+  const written = await runSkillsetCli("create", "my-skillset", "--root", parent, "--yes");
   expect(written.exitCode).toBe(0);
   const config = await readFile(join(parent, "my-skillset/skillset.yaml"), "utf8");
   const readme = await readFile(join(parent, "my-skillset/README.md"), "utf8");
@@ -7209,32 +7209,70 @@ test("SET-277: init creates a new source repo at an explicit destination", async
   await runGit(createdRoot, "ls-files", "--error-unmatch", ".skillset/snapshots/.gitignore");
 });
 
-test("SET-277: init supports custom path and explicit setup name", async () => {
+test("SET-312: create uses its normalized name as directory and identity", async () => {
   const parent = await mkdtemp(join(tmpdir(), "skillset-setup-create-custom-"));
 
   const written = await runSkillsetCli(
-    "init",
-    "team-loadout",
+    "create",
+    "Acme Loadout",
     "--root",
     parent,
-    "--name",
-    "acme-loadout",
     "--targets",
     "claude",
     "--yes"
   );
   expect(written.exitCode).toBe(0);
-  expect(written.stdout).toContain("team-loadout");
+  expect(written.stdout).toContain("acme-loadout");
   expect(written.stdout).toContain("+ .git");
 
-  const config = await readFile(join(parent, "team-loadout/skillset.yaml"), "utf8");
-  const readme = await readFile(join(parent, "team-loadout/README.md"), "utf8");
+  const config = await readFile(join(parent, "acme-loadout/skillset.yaml"), "utf8");
+  const readme = await readFile(join(parent, "acme-loadout/README.md"), "utf8");
   expect(config).toContain("name: acme-loadout");
   expect(config).toContain("    - claude");
   expect(config).not.toContain("    - codex");
   expect(readme).toContain("# acme-loadout");
   expect(readme).toContain("Default compile targets: claude.");
-  expect(await fileExists(join(parent, "team-loadout/.git/config"))).toBe(true);
+  expect(await fileExists(join(parent, "acme-loadout/.git/config"))).toBe(true);
+});
+
+test("SET-312: init refuses missing directories and create refuses collisions", async () => {
+  const parent = await mkdtemp(join(tmpdir(), "skillset-setup-boundaries-"));
+  const missing = await runSkillsetCli("init", "missing", "--root", parent);
+  expect(missing.exitCode).toBe(1);
+  expect(missing.stderr).toContain("init directory does not exist");
+
+  await mkdir(join(parent, "occupied"));
+  await writeFile(join(parent, "occupied/README.md"), "existing\n");
+  const occupied = await runSkillsetCli(
+    "create",
+    "occupied",
+    "--root",
+    parent,
+    "--yes"
+  );
+  expect(occupied.exitCode).toBe(1);
+  expect(occupied.stderr).toContain("create target must be empty");
+  expect(await readFile(join(parent, "occupied/README.md"), "utf8")).toBe(
+    "existing\n"
+  );
+});
+
+test("SET-312: create JSON remains prompt-free and plan-first", async () => {
+  const parent = await mkdtemp(join(tmpdir(), "skillset-setup-json-"));
+  const preview = await runSkillsetCli(
+    "create",
+    "json-demo",
+    "--root",
+    parent,
+    "--json"
+  );
+  expect(preview.exitCode).toBe(0);
+  const result = JSON.parse(preview.stdout);
+  expect(result.command).toBe("create");
+  expect(result.data.state).toBe("planned");
+  expect(result.data.writes).toEqual([]);
+  expect(result.data.report.rootPath).toBe(join(parent, "json-demo"));
+  expect(await fileExists(join(parent, "json-demo"))).toBe(false);
 });
 
 test("SET-27: create supports global source path without touching runtime config", async () => {
@@ -7258,7 +7296,7 @@ test("SET-27: create supports global source path without touching runtime config
 
   const removedCreate = await runSkillsetCli("create", "--global", "--root", home);
   expect(removedCreate.exitCode).toBe(1);
-  expect(removedCreate.stderr).toContain("expected command");
+  expect(removedCreate.stderr).toContain("unknown option --global");
 
   await expect(createSkillset({ global: true, homeDir: home, include: ["ci"], write: false }))
     .rejects.toThrow("global setup does not support optional scaffold includes");
@@ -7570,7 +7608,7 @@ test("SET-27: setup-only flags fail loudly outside their setup command", async (
 
   const createLayout = await runSkillsetCli("create", "--layout", "nested");
   expect(createLayout.exitCode).toBe(1);
-  expect(createLayout.stderr).toContain("expected command");
+  expect(createLayout.stderr).toContain("unknown option --layout");
 
   const buildTargets = await runSkillsetCli("build", "--targets", "claude");
   expect(buildTargets.exitCode).toBe(1);
@@ -7578,7 +7616,7 @@ test("SET-27: setup-only flags fail loudly outside their setup command", async (
 
   const createGlobalPath = await runSkillsetCli("create", "team-loadout", "--global");
   expect(createGlobalPath.exitCode).toBe(1);
-  expect(createGlobalPath.stderr).toContain("expected command");
+  expect(createGlobalPath.stderr).toContain("unknown option --global");
 });
 
 test("SET-9: explain resolves source and generated paths via lock provenance", async () => {

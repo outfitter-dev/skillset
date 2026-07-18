@@ -201,6 +201,10 @@ Unsupported cases include Codex skill/agent no-faithful-destination cases, Claud
 
 Use `skillset lookup hooks --events --compat <target>` for provider event, matcher, finite matcher value, handler, and support facts. Use `skillset lookup hooks adaptive --fields --schema --examples` for the adaptive hook unit source contract. Use `skillset lookup hooks toolkit --field context.env --values --compat <target>` for the normalized runtime context field matrix.
 
+Use `skillset new hook <name> --event <event> --command <command> --attach <source-unit>` to preview an attached adaptive hook. Repeat `--event` for a multi-event unit, use `--script <path>` instead of `--command` for schema-supported script actions, and repeat `--provider` only to narrow the registry-derived compatible provider set. Attachment selectors use existing source identities such as `plugin:guard`, `skill:writer`, `plugin.guard.skill:writer`, and `agent:reviewer`; the selected owner determines canonical hook placement and receives a `hooks.auto` attachment. Flat `hooks/<name>.json` is the deterministic default, while a local `./` script reference selects `hooks/<name>/hook.json`. Preview is the default, `--yes` writes both the hook and attachment, collisions fail, and no build runs implicitly.
+
+Bare interactive `skillset new` exposes the same operation: searchable attachment and event choices come from the live source graph and registry, event choices show compatible providers, unsupported attachment destinations show classifier-derived reasons, and explicit flags skip their matching prompts. The final preview and default-No confirmation still come from the shared scaffold report.
+
 Provider details are intentionally registry-backed instead of duplicated here. Claude has the broader hook surface; Codex support is narrower and currently centers on synchronous command handlers. `skillset lookup hooks --events --compat claude,codex` is the preferred way to inspect the current matrix. Skillset keeps provider-specific validation explicit so incompatible hooks fail visibly instead of being silently widened or dropped.
 
 Provider docs checked: 2026-06-25.

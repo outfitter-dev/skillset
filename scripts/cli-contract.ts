@@ -18,7 +18,6 @@ export type {
 export const RETIRED_CLI_COMMANDS = [
   "adopt",
   "ci",
-  "create",
   "doctor",
   "features",
   "lint",

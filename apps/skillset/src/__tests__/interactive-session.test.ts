@@ -103,6 +103,7 @@ describe("SET-291 prompt adapters", () => {
       { kind: "search", value: "two" },
       { kind: "search-multiselect", value: ["two"] },
       { kind: "checkbox", value: ["one", "two"] },
+      { kind: "group-checkbox", value: ["two"] },
     ]);
 
     await expect(adapter.input({ message: "Name:" })).resolves.toBe("demo");
@@ -141,8 +142,14 @@ describe("SET-291 prompt adapters", () => {
         message: "Include:",
       })
     ).resolves.toEqual(["one", "two"]);
+    await expect(
+      adapter.groupedCheckbox({
+        groups: [{ choices: [{ name: "Two", value: "two" }], name: "Group" }],
+        message: "Include by group:",
+      })
+    ).resolves.toEqual(["two"]);
     adapter.assertComplete();
-    expect(adapter.prompts).toHaveLength(6);
+    expect(adapter.prompts).toHaveLength(7);
     expect(adapter.prompts[1]).toEqual({
       kind: "confirm",
       prompt: { default: false, message: "Proceed?" },
@@ -189,7 +196,7 @@ describe("SET-291 prompt adapters", () => {
     ).rejects.toThrow(PromptCancelledError);
   });
 
-  test("the real adapter maps defaults and initial choices for all six prompt kinds", async () => {
+  test("the real adapter maps defaults and initial choices for every prompt kind", async () => {
     const submit = async <Value>(
       run: (adapter: ClackPromptAdapter) => Promise<Value>
     ): Promise<Value> => {
@@ -223,6 +230,14 @@ describe("SET-291 prompt adapters", () => {
     ).resolves.toEqual(["two"]);
     await expect(
       submit((adapter) =>
+        adapter.groupedCheckbox({
+          groups: [{ choices, name: "Examples" }],
+          message: "Include by group:",
+        })
+      )
+    ).resolves.toEqual(["two"]);
+    await expect(
+      submit((adapter) =>
         adapter.search({
           default: "two",
           message: "Find:",
@@ -248,7 +263,7 @@ describe("SET-291 prompt adapters", () => {
     output.on("data", (chunk: Buffer) => {
       transcript += chunk.toString();
     });
-    const result = new ClackPromptAdapter({ input, output }).select({
+    const result = new ClackPromptAdapter({ color: true, input, output }).select({
       choices: [
         { description: "recommended", name: "One", value: "one" },
         { disabled: "unavailable", name: "Two", value: "two" },
@@ -258,7 +273,8 @@ describe("SET-291 prompt adapters", () => {
     });
 
     expect(Bun.stripANSI(transcript)).toContain("One (recommended)");
-    expect(Bun.stripANSI(transcript)).toContain("Two unavailable");
+    expect(Bun.stripANSI(transcript)).toContain("Two (unavailable)");
+    expect(transcript).toContain("\u001B[9mTwo\u001B[29m");
     input.write("\r");
     await expect(result).resolves.toBe("one");
   });
@@ -367,14 +383,14 @@ describe("SET-291 prompt adapters", () => {
         await Bun.sleep(1);
       }
     };
-    const disabledRendered = waitForOutput(output, /Disabled unavailable/u);
+    const disabledRendered = waitForOutput(output, /Disabled \(unavailable\)/u);
     await writeText("disabled");
     expect(
       await Promise.race([
         disabledRendered,
         Bun.sleep(500).then(() => Bun.stripANSI(transcript)),
       ])
-    ).toContain("Disabled unavailable");
+    ).toContain("Disabled (unavailable)");
     await writeText("/alpha");
     await writeText("/beta");
     input.write("\r");
@@ -386,7 +402,7 @@ describe("SET-291 prompt adapters", () => {
       }),
     ]);
     expect(selected).toEqual(["all"]);
-    expect(Bun.stripANSI(transcript)).toContain("Disabled unavailable");
+    expect(Bun.stripANSI(transcript)).toContain("Disabled (unavailable)");
   });
 
   test("the real searchable checkbox selects across filters and rejects a disabled row", async () => {
@@ -455,7 +471,7 @@ describe("SET-291 prompt adapters", () => {
     expect(error.message).toBe("skillset: interactive prompt cancelled");
   });
 
-  test("sessions route banner and prompts through injected streams", () => {
+  test("sessions render a lowercase intro with a dimmed version", () => {
     const input = ttyInput();
     const output = ttyOutput();
     const adapter = new ScriptedPromptAdapter([]);
@@ -469,8 +485,27 @@ describe("SET-291 prompt adapters", () => {
     expect(session).toBeDefined();
     session?.banner();
     session?.write("Plan\n");
-    expect(Bun.stripANSI(output.read()?.toString() ?? "")).toMatch(
-      /Skillset v\d+\.\d+\.\d+\nPlan\n$/u
+    const rendered = output.read()?.toString() ?? "";
+    expect(rendered).toContain("\u001b[2m");
+    expect(Bun.stripANSI(rendered)).toMatch(
+      /skillset v\d+\.\d+\.\d+\nPlan\n$/u
+    );
+  });
+
+  test("sessions keep the intro version plain when color is disabled", () => {
+    const output = ttyOutput();
+    const session = createInteractiveSession({
+      adapter: new ScriptedPromptAdapter([]),
+      env: { ...interactiveEnv, NO_COLOR: "1" },
+      input: ttyInput(),
+      output,
+    });
+
+    session?.banner();
+    const rendered = output.read()?.toString() ?? "";
+    expect(rendered).not.toContain("\u001b[2m");
+    expect(Bun.stripANSI(rendered)).toMatch(
+      /skillset v\d+\.\d+\.\d+\n$/u
     );
   });
 
@@ -493,10 +528,8 @@ describe("SET-291 prompt adapters", () => {
 
     await runInitCommand(
       {
-        destination: undefined,
-        importName: undefined,
+        directory: undefined,
         initAdopt: undefined,
-        initFrom: undefined,
         jsonOutput: false,
         options: {},
         rootExplicit: true,
@@ -536,10 +569,8 @@ describe("SET-291 prompt adapters", () => {
 
     await runInitCommand(
       {
-        destination: undefined,
-        importName: undefined,
+        directory: undefined,
         initAdopt: ["instructions:AGENTS.md"],
-        initFrom: undefined,
         jsonOutput: false,
         options: {},
         rootExplicit: true,
@@ -574,10 +605,8 @@ describe("SET-291 prompt adapters", () => {
 
     await runInitCommand(
       {
-        destination: undefined,
-        importName: undefined,
+        directory: undefined,
         initAdopt: undefined,
-        initFrom: undefined,
         jsonOutput: true,
         options: {},
         rootExplicit: true,

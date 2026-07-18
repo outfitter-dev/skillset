@@ -24,14 +24,15 @@ function scriptedSession(
   answers: ConstructorParameters<typeof ScriptedPromptAdapter>[0]
 ) {
   const adapter = new ScriptedPromptAdapter(answers);
+  const output = ttyOutput();
   const session = createInteractiveSession({
     adapter,
     env: { CI: "false" },
     input: ttyInput(),
-    output: ttyOutput(),
+    output,
   });
   if (session === undefined) throw new Error("expected interactive session");
-  return { adapter, session };
+  return { adapter, output, session };
 }
 
 async function workspace(): Promise<string> {
@@ -224,6 +225,19 @@ describe("SET-294 unified interactive test chooser", () => {
     expect(chooser.prompt.choices.map((choice) => choice.name)).toEqual([
       "Ad hoc test",
     ]);
+    expect(chooser.prompt.choices[0]?.description).toBe(
+      "Run a prompt against one target without saving a test"
+    );
+    const executionPrompt = adapter.prompts[3];
+    if (executionPrompt?.kind !== "select") {
+      throw new Error("expected execution prompt");
+    }
+    expect(
+      executionPrompt.prompt.choices.map((choice) => choice.description)
+    ).toEqual([
+      "Wait for the test to finish and show the result",
+      "Start the test and return to the shell",
+    ]);
   });
 
   test("one chooser contains all, each declaration, and ad hoc without redundant target prompts", async () => {
@@ -247,6 +261,12 @@ describe("SET-294 unified interactive test chooser", () => {
     ]);
     expect(chooser.prompt.choices[1]?.description).toBe(
       "Targets: claude, codex, cursor"
+    );
+    expect(chooser.prompt.choices[0]?.description).toBe(
+      "Run all 1 test declared in this workspace"
+    );
+    expect(chooser.prompt.choices[2]?.description).toBe(
+      "Run a prompt against one target without saving a test"
     );
   });
 
@@ -294,13 +314,16 @@ describe("SET-294 unified interactive test chooser", () => {
   test("the bare command runs the all selection through canonical retained executions", async () => {
     const root = await workspace();
     await writeDeclarations(root, ["zeta", "alpha"]);
-    const { adapter, session } = scriptedSession([
+    const { adapter, output, session } = scriptedSession([
       { kind: "select", value: { kind: "all" } },
     ]);
 
     await runTestCommand(request(root), { interactiveSession: session });
 
     adapter.assertComplete();
+    expect(Bun.stripANSI(output.read()?.toString() ?? "")).not.toContain(
+      "Run tests:"
+    );
     expect(adapter.prompts.map((prompt) => prompt.kind)).toEqual(["select"]);
   });
 

@@ -10,6 +10,8 @@ Instructions are durable repo guidance authored under `.skillset/rules/**/*.md`.
 
 Instruction Markdown may include `name`, `dialect`, top-level `paths` for Claude path scoping, common `skillset` metadata, `supports`, and explicit provider target blocks such as `claude`, `codex`, and `cursor`. The active frontmatter contract is generated from `@skillset/schema`; see [schema reference](../reference/schemas/README.md) and [instruction frontmatter examples](../reference/examples/instruction-frontmatter.yaml) for the current field set and provider override shape. Bodies support preprocessing through nested `{{this.<field>}}` frontmatter references, instruction variables such as `{{skillset.repo_root}}`, source context such as `{{skillset.source_path}}` and `{{parent.tree depth:2}}`, triple-brace literal escapes such as `{{{this.title}}}`, path partials via `{{shared:path.md}}`, `{{plugin:path.md}}`, or a path relative to the source file, and named partials via `{{> intro}}`. Set `skillset.preprocess: false` when literal braces should be preserved.
 
+Use `skillset new instruction <name>` to preview a canonical workspace instruction at `.skillset/rules/<normalized-name>.md`. Add `--in <plugin>` to place it at `.skillset/plugins/<plugin>/rules/<normalized-name>.md`; the plugin must already exist. The command writes only with `--yes`, refuses collisions, and never runs a build implicitly. Bare interactive `skillset new` offers the same Instruction kind and invokes the same scaffold report.
+
 ## Target Rendering
 
 | Source | Claude output | Codex output | Status | Notes |

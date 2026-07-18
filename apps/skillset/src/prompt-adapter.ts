@@ -4,13 +4,22 @@ import {
   autocomplete,
   autocompleteMultiselect,
   confirm,
+  groupMultiselect,
+  intro,
   isCancel,
   log,
   multiselect,
+  note,
   select,
   text,
   type Option,
 } from "@clack/prompts";
+
+import {
+  createTerminalRenderer,
+  terminalColorEnabled,
+  type TerminalRenderer,
+} from "./terminal-renderer";
 
 export interface PromptChoice<Value> {
   readonly checked?: boolean;
@@ -47,6 +56,16 @@ export interface CheckboxPrompt<Value> extends Omit<
   readonly required?: boolean;
 }
 
+export interface GroupedCheckboxPrompt<Value> {
+  readonly groups: readonly {
+    readonly choices: readonly PromptChoice<Value>[];
+    readonly name: string;
+  }[];
+  readonly message: string;
+  readonly pageSize?: number;
+  readonly required?: boolean;
+}
+
 export interface SearchPrompt<Value> {
   readonly default?: Value;
   readonly message: string;
@@ -67,6 +86,9 @@ export interface SearchCheckboxPrompt<Value> extends CheckboxPrompt<Value> {
 export interface PromptAdapter {
   checkbox<Value>(prompt: CheckboxPrompt<Value>): Promise<readonly Value[]>;
   confirm(prompt: ConfirmPrompt): Promise<boolean>;
+  groupedCheckbox<Value>(
+    prompt: GroupedCheckboxPrompt<Value>
+  ): Promise<readonly Value[]>;
   input(prompt: InputPrompt): Promise<string>;
   search<Value>(prompt: SearchPrompt<Value>): Promise<Value>;
   searchCheckbox<Value>(
@@ -77,6 +99,7 @@ export interface PromptAdapter {
 
 export interface PromptContext {
   readonly clearPromptOnDone?: boolean;
+  readonly color?: boolean;
   readonly input?: Readable;
   readonly output?: Writable;
   readonly signal?: AbortSignal;
@@ -98,16 +121,45 @@ export function normalizePromptError(error: unknown): never {
   throw error;
 }
 
+export function renderPromptIntro(message: string, output: Writable): void {
+  intro(message, { output });
+}
+
+export function renderPromptNote(
+  message: string,
+  output: Writable,
+  title?: string
+): void {
+  note(message.trimEnd(), title, { output });
+}
+
 const SAVE_CURSOR = "\u001B[s";
 const RESTORE_CURSOR_AND_CLEAR = "\u001B[u\u001B[0J";
 
 export class ClackPromptAdapter implements PromptAdapter {
   readonly #context: PromptContext;
+  readonly #renderer: TerminalRenderer;
   readonly #sourceSignal: AbortSignal;
 
   constructor(context: PromptContext = {}) {
     this.#context = context;
     this.#sourceSignal = context.signal ?? new AbortController().signal;
+    const outputIsTTY = (
+      context.output as { readonly isTTY?: boolean } | undefined
+    )?.isTTY;
+    this.#renderer = createTerminalRenderer({
+      color:
+        context.color ??
+        terminalColorEnabled({
+          ...(outputIsTTY === undefined ? {} : { isTTY: outputIsTTY }),
+          ...(process.env.NO_COLOR === undefined
+            ? {}
+            : { noColor: process.env.NO_COLOR }),
+          ...(process.env.TERM === undefined
+            ? {}
+            : { term: process.env.TERM }),
+        }),
+    });
   }
 
   async checkbox<Value>(
@@ -119,7 +171,9 @@ export class ClackPromptAdapter implements PromptAdapter {
         initialValues: initialValues(prompt.choices),
         ...(prompt.pageSize === undefined ? {} : { maxItems: prompt.pageSize }),
         message: prompt.message,
-        options: prompt.choices.map((choice) => toClackOption(choice)),
+        options: prompt.choices.map((choice) =>
+          toClackOption(choice, this.#renderer)
+        ),
         required: prompt.required ?? false,
       })
     );
@@ -133,6 +187,29 @@ export class ClackPromptAdapter implements PromptAdapter {
           ? {}
           : { initialValue: prompt.default }),
         message: prompt.message,
+      })
+    );
+  }
+
+  async groupedCheckbox<Value>(
+    prompt: GroupedCheckboxPrompt<Value>
+  ): Promise<readonly Value[]> {
+    const choices = prompt.groups.flatMap((group) => group.choices);
+    return this.#run<readonly Value[]>(() =>
+      groupMultiselect<unknown>({
+        ...this.#clackContext(),
+        initialValues: initialValues(choices),
+        ...(prompt.pageSize === undefined ? {} : { maxItems: prompt.pageSize }),
+        message: prompt.message,
+        options: Object.fromEntries(
+          prompt.groups.map((group) => [
+            group.name,
+            group.choices.map((choice) =>
+              toClackOption(choice, this.#renderer)
+            ),
+          ])
+        ),
+        required: prompt.required ?? false,
       })
     );
   }
@@ -168,6 +245,7 @@ export class ClackPromptAdapter implements PromptAdapter {
   async search<Value>(prompt: SearchPrompt<Value>): Promise<Value> {
     const source = prompt.source;
     const signal = this.#sourceSignal;
+    const renderer = this.#renderer;
     return this.#run<Value>(() =>
       autocomplete<unknown>({
         ...this.#clackContext(),
@@ -179,7 +257,7 @@ export class ClackPromptAdapter implements PromptAdapter {
         message: prompt.message,
         options: function () {
           return source(this.userInput || undefined, { signal }).map((choice) =>
-            toClackOption(choice)
+            toClackOption(choice, renderer)
           );
         },
       })
@@ -190,6 +268,7 @@ export class ClackPromptAdapter implements PromptAdapter {
     prompt: SearchCheckboxPrompt<Value>
   ): Promise<readonly Value[]> {
     const source = prompt.source;
+    const renderer = this.#renderer;
     return this.#run<readonly Value[]>(() =>
       autocompleteMultiselect<unknown>({
         ...this.#clackContext(),
@@ -199,7 +278,7 @@ export class ClackPromptAdapter implements PromptAdapter {
         message: prompt.message,
         options: function () {
           return source(this.userInput || undefined, prompt.choices).map(
-            (choice) => toClackOption(choice)
+            (choice) => toClackOption(choice, renderer)
           );
         },
         ...(prompt.required === undefined ? {} : { required: prompt.required }),
@@ -216,7 +295,9 @@ export class ClackPromptAdapter implements PromptAdapter {
           : { initialValue: prompt.default }),
         ...(prompt.pageSize === undefined ? {} : { maxItems: prompt.pageSize }),
         message: prompt.message,
-        options: prompt.choices.map((choice) => toClackOption(choice)),
+        options: prompt.choices.map((choice) =>
+          toClackOption(choice, this.#renderer)
+        ),
       })
     );
   }
@@ -266,18 +347,24 @@ function ensureRawMode(input: Readable): Readable {
   return input;
 }
 
-function toClackOption<Value>(choice: PromptChoice<Value>): Option<unknown> {
+function toClackOption<Value>(
+  choice: PromptChoice<Value>,
+  renderer: TerminalRenderer
+): Option<unknown> {
+  const disabledReason =
+    typeof choice.disabled === "string" ? choice.disabled : undefined;
   return {
     ...(choice.disabled === undefined
       ? {}
       : { disabled: Boolean(choice.disabled) }),
-    ...(choice.description === undefined ? {} : { hint: choice.description }),
-    label:
-      choice.disabled === true
-        ? `${choice.name} (disabled)`
-        : typeof choice.disabled === "string"
-          ? `${choice.name} ${choice.disabled}`
-          : choice.name,
+    ...(choice.disabled || choice.description === undefined
+      ? {}
+      : { hint: choice.description }),
+    label: choice.disabled
+      ? `${renderer.strikethrough(choice.name)}${
+          disabledReason === undefined ? "" : ` (${disabledReason})`
+        }`
+      : choice.name,
     value: choice.value,
   };
 }
@@ -293,6 +380,7 @@ function initialValues<Value>(
 export type ScriptedPromptAnswer =
   | { readonly kind: "checkbox"; readonly value: readonly unknown[] }
   | { readonly kind: "confirm"; readonly value: boolean }
+  | { readonly kind: "group-checkbox"; readonly value: readonly unknown[] }
   | { readonly kind: "input"; readonly value: string }
   | { readonly kind: "search"; readonly value: unknown }
   | { readonly kind: "search-multiselect"; readonly value: readonly unknown[] }
@@ -301,6 +389,10 @@ export type ScriptedPromptAnswer =
 export type RecordedPrompt =
   | { readonly kind: "checkbox"; readonly prompt: CheckboxPrompt<unknown> }
   | { readonly kind: "confirm"; readonly prompt: ConfirmPrompt }
+  | {
+      readonly kind: "group-checkbox";
+      readonly prompt: GroupedCheckboxPrompt<unknown>;
+    }
   | { readonly kind: "input"; readonly prompt: InputPrompt }
   | { readonly kind: "search"; readonly prompt: SearchPrompt<unknown> }
   | {
@@ -327,6 +419,14 @@ export class ScriptedPromptAdapter implements PromptAdapter {
   async confirm(prompt: ConfirmPrompt): Promise<boolean> {
     this.prompts.push({ kind: "confirm", prompt });
     return this.#read("confirm") as boolean;
+  }
+
+  async groupedCheckbox<Value>(
+    prompt: GroupedCheckboxPrompt<Value>
+  ): Promise<readonly Value[]> {
+    const recorded = prompt as unknown as GroupedCheckboxPrompt<unknown>;
+    this.prompts.push({ kind: "group-checkbox", prompt: recorded });
+    return this.#read("group-checkbox") as readonly Value[];
   }
 
   async input(prompt: InputPrompt): Promise<string> {

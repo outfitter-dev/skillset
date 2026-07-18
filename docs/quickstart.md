@@ -8,7 +8,7 @@ Use a fresh source repo instead when the repo exists only to author Skillset
 loadouts:
 
 ```bash
-skillset init my-skillset --yes
+skillset create my-skillset --yes
 cd my-skillset
 ```
 

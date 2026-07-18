@@ -149,8 +149,7 @@ function adaptiveHookUnsupportedReason(
   const fieldReason = adaptiveHookUnsupportedFieldReason(item, target, surface);
   if (fieldReason !== undefined) return fieldReason;
 
-  if (surface === "plugin") return adaptiveHookUnsupportedCapabilityReason(item, target);
-  return undefined;
+  return adaptiveHookUnsupportedCapabilityReason(item, target);
 }
 
 function adaptiveHookProviderScopeReason(

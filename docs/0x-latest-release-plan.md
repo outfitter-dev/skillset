@@ -61,7 +61,7 @@ plainly:
 Before approving the release cut, run a fresh authoring pass from an empty or
 near-empty repo and record the result in SET-198 or its successor:
 
-1. Run `skillset init [destination]` in preview mode, then with `--yes`.
+1. Run `skillset create [name]` in preview mode, then with `--yes`.
 2. Add one simple skill and one rule through the documented source layout.
 3. Intentionally make one common frontmatter/config mistake and confirm
    Workbench diagnostics point to the source line with a suggested fix.

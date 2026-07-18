@@ -12,7 +12,7 @@ export interface CliSurfaceViolation {
 }
 
 const RETIRED_SURFACE = [
-  /(?:\bskillset|cli\.ts)\s+(?:adopt|ci|create|doctor|features|lint|providers|suggest-source|try|verify)\b/u,
+  /(?:\bskillset|cli\.ts)\s+(?:adopt|ci|doctor|features|lint|providers|suggest-source|try|verify)\b/u,
   /\bbun run skillset:(?:lint|verify)\b/u,
   /\b(?:build|diff)(?:\/|,\s*and\s+)verify\b/u,
   /\b(?:doctor\/explain|explain\/doctor)\b/u,

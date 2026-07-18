@@ -10,8 +10,67 @@ import {
   nativeHookEventName,
   validateAdaptiveHookUnitPaths,
 } from "../hook-capabilities";
+import {
+  adaptiveHookEventDefinitions,
+  appendAdaptiveHookAttachment,
+  appendAdaptiveHookAttachmentToMarkdown,
+  appendAdaptiveHookAttachmentToYaml,
+  planAdaptiveHookCompatibility,
+} from "../adaptive-hook-authoring";
 
 describe("hook provider capabilities", () => {
+  test("derives authoring events and compatible scopes from registry-backed capabilities", () => {
+    const events = adaptiveHookEventDefinitions();
+    expect(events.find((event) => event.id === "PreToolUse")?.providers).toEqual([
+      "claude",
+      "codex",
+      "cursor",
+    ]);
+    expect(events.find((event) => event.id === "Notification")?.providers).toEqual([
+      "claude",
+    ]);
+    expect(planAdaptiveHookCompatibility({
+      events: ["PreToolUse"],
+      run: { command: "true" },
+      scope: { kind: "plugin", pluginId: "guard" },
+    }).providers).toEqual(["claude", "codex", "cursor"]);
+    expect(planAdaptiveHookCompatibility({
+      events: ["PreToolUse"],
+      run: { command: "true" },
+      scope: { kind: "skill", skillId: "writer" },
+    }).providers).toEqual(["claude"]);
+    expect(planAdaptiveHookCompatibility({
+      events: ["WorkspaceOpen"],
+      run: { command: "true" },
+      scope: { kind: "skill", skillId: "writer" },
+    }).providers).toEqual([]);
+    expect(planAdaptiveHookCompatibility({
+      events: ["PreToolUse"],
+      run: { script: "{{scripts.dir}}/check.sh" },
+      scope: { kind: "skill", skillId: "writer" },
+    }).providers).toEqual([]);
+  });
+
+  test("appends schema-valid auto attachments without replacing existing entries", () => {
+    expect(appendAdaptiveHookAttachment({
+      hooks: { Stop: ["existing"] },
+      skillset: { name: "guard" },
+    }, "shell-policy")).toEqual({
+      hooks: { Stop: ["existing"], auto: ["shell-policy"] },
+      skillset: { name: "guard" },
+    });
+    expect(() => appendAdaptiveHookAttachment({
+      hooks: { auto: ["shell-policy"] },
+    }, "shell-policy")).toThrow("hook attachment shell-policy already exists");
+    expect(appendAdaptiveHookAttachmentToYaml(
+      "# keep this comment\nskillset:\n  name: guard\n",
+      "shell-policy"
+    )).toContain("# keep this comment");
+    expect(appendAdaptiveHookAttachmentToMarkdown(
+      "---\n# keep this comment\nname: writer\ndescription: Writer.\n---\n\nBody.\n",
+      "shell-policy"
+    )).toContain("# keep this comment\nname: writer");
+  });
   test("records event-level Claude and Codex hook support", () => {
     expect(hookEventSupported("claude", "Notification")).toBe(true);
     expect(hookEventSupported("codex", "Notification")).toBe(false);
