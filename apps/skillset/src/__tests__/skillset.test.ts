@@ -481,6 +481,60 @@ Changed after the generated lock was written.
   expect(status.sourceChanges.map((change) => change.id)).not.toContain("skill:demo");
 });
 
+test("release-state-only Cursor islands retain their source kind", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: cursor-release-state-root
+claude: false
+codex: false
+cursor: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+  });
+
+  await buildSkillset(root);
+  await commitFixture(root);
+  await writeReleaseState(
+    root,
+    {
+      scopes: {
+        "cursor.native:removed.txt": {
+          sourceHash: `sha256:${"a".repeat(64)}`,
+          version: "1.0.0",
+        },
+        "plugin.alpha.cursor.native:removed.txt": {
+          sourceHash: `sha256:${"b".repeat(64)}`,
+          version: "1.0.0",
+        },
+      },
+    },
+    { sourceDir: ".skillset" }
+  );
+
+  const status = await changeStatus(root);
+
+  expect(
+    status.sourceChanges
+      .filter((change) => change.id.includes("cursor.native"))
+      .map(({ id, kind, status: changeStatus }) => ({ id, kind, status: changeStatus }))
+  ).toEqual([
+    {
+      id: "cursor.native:removed.txt",
+      kind: "target-native-island",
+      status: "removed",
+    },
+    {
+      id: "plugin.alpha.cursor.native:removed.txt",
+      kind: "target-native-island",
+      status: "removed",
+    },
+  ]);
+});
+
 test("dedicated 1.0 release baseline seeding writes to .skillset/changes/state.json", async () => {
   const root = await fixture({
     "skillset.yaml": `

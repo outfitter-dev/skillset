@@ -38,7 +38,7 @@ Provider source should mirror only into the matching target root. It must not le
 
 Codex `.rules` files are execution policy for shell-command decisions. They are not `<source-root>/rules` and must not receive prose instruction rendering. The correct portable instruction path remains `<source-root>/rules/**/*.md` to Claude `.claude/rules/**/*.md` and Codex `AGENTS.md`. Codex `.rules` pass-through is accepted only from `<source-root>/_codex/rules/**/*.rules`; project `.rules` elsewhere and all Codex plugin `.rules` fail loudly.
 
-Provider source Markdown may carry source frontmatter for preprocessing, but it may not carry `claude`, `codex`, or `targets` overrides because the path already scopes the target. Known text and structured files use the SET-22 preprocessing and validation boundary; unknown and binary files copy byte-for-byte.
+Provider source Markdown may carry source frontmatter for preprocessing, but it may not carry `claude`, `codex`, `cursor`, or `targets` overrides because the path already scopes the target. Known text and structured files use the SET-22 preprocessing and validation boundary; unknown and binary files copy byte-for-byte.
 
 ## Diagnostics
 
