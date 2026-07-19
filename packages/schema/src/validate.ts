@@ -519,12 +519,35 @@ export function validateAdaptiveHookUnitSource(value: unknown, path = "$"): Skil
   checkAdaptiveHookEvents(value.events, `${path}.events`, diagnostics);
   checkAdaptiveHookProviders(value.providers, `${path}.providers`, diagnostics);
   checkAdaptiveHookMatch(value.match, `${path}.match`, diagnostics);
-  checkOptionalObject(value.claude, `${path}.claude`, "schema/adaptive-hook/provider-override", diagnostics);
-  checkOptionalObject(value.codex, `${path}.codex`, "schema/adaptive-hook/provider-override", diagnostics);
-  checkOptionalObject(value.cursor, `${path}.cursor`, "schema/adaptive-hook/provider-override", diagnostics);
+  checkAdaptiveHookProviderOverride(value, "claude", `${path}.claude`, diagnostics);
+  checkAdaptiveHookProviderOverride(value, "codex", `${path}.codex`, diagnostics);
+  checkAdaptiveHookProviderOverride(value, "cursor", `${path}.cursor`, diagnostics);
   checkAdaptiveHookContext(value.context, `${path}.context`, diagnostics);
   checkAdaptiveHookRun(value.run, `${path}.run`, diagnostics);
   return result(diagnostics);
+}
+
+function checkAdaptiveHookProviderOverride(
+  source: SchemaJsonRecord,
+  provider: "claude" | "codex" | "cursor",
+  path: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  const value = source[provider];
+  if (value === undefined) return;
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, "schema/adaptive-hook/provider-override", "adaptive hook provider override must be an object when present"));
+    return;
+  }
+  checkAllowedKeys(value, new Set(["context", "events", "match", "run"]), path, "schema/adaptive-hook/provider-override-key", diagnostics);
+  const providers = source.providers;
+  if (Array.isArray(providers) && !providers.includes(provider)) {
+    diagnostics.push(diagnostic(path, "schema/adaptive-hook/provider-override-provider", `adaptive hook ${provider} override requires ${provider} in providers`));
+  }
+  if (value.events !== undefined) checkAdaptiveHookEvents(value.events, `${path}.events`, diagnostics);
+  if (value.match !== undefined && value.match !== null) checkAdaptiveHookMatch(value.match, `${path}.match`, diagnostics);
+  if (value.context !== undefined && value.context !== null) checkAdaptiveHookContext(value.context, `${path}.context`, diagnostics);
+  if (value.run !== undefined) checkAdaptiveHookRun(value.run, `${path}.run`, diagnostics);
 }
 
 export function validateHookAttachmentsSource(value: unknown, path = "$"): SkillsetSchemaValidationResult {

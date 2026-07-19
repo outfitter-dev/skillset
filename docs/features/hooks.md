@@ -195,7 +195,11 @@ The implemented render slices support plugin-level command/script hooks, plugin-
 
 Skill-local and project-agent-local attachments currently render only to Claude frontmatter. Plugin-shipped agent frontmatter hooks are not implemented; use a plugin-level hook or provider-native aggregate source until that destination has a faithful render path. Scope Codex-incompatible skill or agent attachments with `providers: [claude]` when the intent is Claude-only. If Codex is enabled and an attachment cannot be faithfully rendered, build, diff, and output checks surface an `adaptive-hooks` `unsupported:error` render result instead of writing a broader plugin or project hook.
 
-Unsupported cases include Codex skill/agent no-faithful-destination cases, Claude-only plugin events, Codex-ignored plugin matchers, provider overrides, unsupported `run.args`/`run.cwd` fields, frontmatter `run.env` fields, and frontmatter `run.script` path-proof gaps.
+Provider blocks are closed, typed overrides for `events`, `match`, `context`, and `run`. An absent field inherits the portable unit; a supplied field replaces that complete semantic unit; `match: null` and `context: null` clear only those values. An override cannot enable a provider excluded by the unit's `providers` list. Skillset resolves this effective definition once per target before validating attachments, scripts, and target capabilities.
+
+Until generated hook renderers consume that effective definition, any provider override remains an explicit `adaptive-hooks` unsupported result. This temporary fail-loud gate prevents generated output from silently falling back to portable base values.
+
+Unsupported cases include Codex skill/agent no-faithful-destination cases, Claude-only plugin events, Codex-ignored matchers, unsupported `run.args`/`run.cwd` fields, frontmatter `run.env` fields, and frontmatter `run.script` path-proof gaps.
 
 ### Provider Reference
 

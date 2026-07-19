@@ -861,19 +861,19 @@ cursor: false
 skillset:
   name: demo
 hooks:
-  Stop:
+  SessionStart:
     - shell-policy
 `,
       ".skillset/plugins/demo/hooks/shell-policy.json": JSON.stringify({
-        claude: { status: "Checking" },
-        events: ["Stop"],
+        claude: { context: { strategy: "none" } },
+        events: ["SessionStart"],
         run: { command: "echo ok" },
       }),
     });
     await expectUnsupportedOutcome(providerOverrideRoot, {
       destination: "hooks",
       featureId: "adaptive-hooks",
-      reason: "Adaptive hook shell-policy uses claude provider overrides, but plugin hook rendering does not support overrides yet.",
+      reason: "Adaptive hook shell-policy uses claude provider overrides, but plugin hook rendering does not consume effective definitions yet.",
       sourceUnit: "plugin.demo.feature:hooks",
       target: "claude",
     });

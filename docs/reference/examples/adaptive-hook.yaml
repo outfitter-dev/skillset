@@ -1,7 +1,8 @@
 claude:
-  if: Bash(git *)
+  context:
+    strategy: none
 codex:
-  matcher: Bash
+  match: Bash
 context:
   env:
     - provider

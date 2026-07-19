@@ -27,11 +27,19 @@ export {
 } from "./build";
 export {
   readHookAttachments,
+  resolveAdaptiveHookAttachmentIdentities,
   resolveAdaptiveHookAttachments,
+  resolveAdaptiveHookAttachmentsForTarget,
   type AdaptiveHookAttachmentIssue,
   type AdaptiveHookResolution,
   type ResolvedAdaptiveHookAttachment,
 } from "./adaptive-hook-attachments";
+export {
+  resolveEffectiveAdaptiveHookDefinition,
+  type EffectiveAdaptiveHookDefinition,
+  type EffectiveAdaptiveHookJsonRecord,
+  type EffectiveAdaptiveHookJsonValue,
+} from "./adaptive-hook-effective";
 export {
   adaptiveHookEventDefinitions,
   appendAdaptiveHookAttachment,

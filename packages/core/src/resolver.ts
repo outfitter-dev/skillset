@@ -11,8 +11,11 @@ import {
 
 import {
   readHookAttachments,
+  resolveAdaptiveHookAttachmentIdentities,
   resolveAdaptiveHookAttachments,
+  resolveAdaptiveHookAttachmentsForTarget,
 } from "./adaptive-hook-attachments";
+import { resolveEffectiveAdaptiveHookDefinition } from "./adaptive-hook-effective";
 import {
   applyFeatureTargetDefaults,
   readCompileConfig,
@@ -20,6 +23,7 @@ import {
   readDistributionConfig,
   readMarketplaceCatalogConfig,
   readOutputConfig,
+  readRecord,
   readSkillsetMetadata,
   readSkillsetName,
   isTargetName,
@@ -54,6 +58,7 @@ import type {
   SkillsetOptions,
   SourceAdaptiveHook,
   SourceAdaptiveHookScriptReference,
+  SourceHookAttachment,
   SourceDialect,
   SourceOrigin,
   SourcePlugin,
@@ -64,6 +69,7 @@ import type {
   SourceRule,
   SourceSkill,
   StandaloneSkill,
+  ResolvedTarget,
   TargetName,
 } from "./types";
 import { validateSchemaField, validateVersionField } from "./versioning";
@@ -166,7 +172,7 @@ export async function loadBuildGraph(
   await rejectLegacySourceLayout(rootPath, sourceDir, sourceRootDir);
   await validateSupports(sourceManifest.supports, { label: metadataLabel, rootPath, warnings });
   const releaseState = await readReleaseState(rootPath, { ...options, sourceDir });
-  const rootAdaptiveHooks = await loadAdaptiveHooks(rootPath, sourceRootPath, { kind: "root" });
+  const rootAdaptiveHooks = await loadAdaptiveHooks(rootPath, sourceRootPath, { kind: "root" }, filteredTargets);
   const plugins = await loadPlugins(rootPath, sourceDir, sourceRootDir, filteredTargets, warnings, outputs);
   try {
     validatePluginDependencyGraph(plugins);
@@ -194,7 +200,12 @@ export async function loadBuildGraph(
     ...standaloneSkills.flatMap((skill) => skill.hookAttachments),
     ...projectAgents.flatMap((agent) => agent.hookAttachments),
   ];
-  validateAdaptiveHookAttachments(adaptiveHooks, hookAttachments);
+  validateAdaptiveHookAttachments(adaptiveHooks, hookAttachments, {
+    plugins,
+    projectAgents,
+    rootTargets: filteredTargets,
+    standaloneSkills,
+  });
 
   if (plugins.length === 0 && standaloneSkills.length === 0 && rules.length === 0 && projectAgents.length === 0 && projectIslands.length === 0 && Object.keys(marketplaces).length === 0) {
     throw new Error(`skillset: no source plugins, skills, rules, project agents, or provider source found under ${sourceRoot}/`);
@@ -480,7 +491,6 @@ async function loadProjectAgent(
   const outputName = sanitizeProjectAgentName(name, sourcePath);
   const scope = { agentId: outputName, kind: "agent" as const };
   const hookAttachments = readHookAttachments(parts.frontmatter.hooks, scope, sourceLabel);
-  const adaptiveHooks = await loadAdaptiveHooks(rootPath, join(agentsPath, basename(sourcePath, ".md")), scope);
   const description = readString(parts.frontmatter, "description");
   if (description === undefined) {
     throw new Error(`skillset: ${sourceLabel} project agent requires description`);
@@ -495,6 +505,7 @@ async function loadProjectAgent(
   readStringArray(parts.frontmatter, "skills");
   const targets = resolveFeatureTargets(parentTargets, parts.frontmatter, sourcePath, "agents");
   warnPortableModel(parts.frontmatter, targets, rootPath, sourcePath, warnings);
+  const adaptiveHooks = await loadAdaptiveHooks(rootPath, join(agentsPath, basename(sourcePath, ".md")), scope, targets);
 
   return {
     adaptiveHooks,
@@ -640,7 +651,8 @@ function normalizeRuleFrontmatter(frontmatter: SourceRule["frontmatter"], label:
 async function loadAdaptiveHooks(
   rootPath: string,
   ownerPath: string,
-  scope: SourceAdaptiveHook["scope"]
+  scope: SourceAdaptiveHook["scope"],
+  targets: Readonly<Record<TargetName, ResolvedTarget>>
 ): Promise<readonly SourceAdaptiveHook[]> {
   const hooksPath = join(ownerPath, "hooks");
   if (!(await exists(hooksPath))) return [];
@@ -711,7 +723,7 @@ async function loadAdaptiveHooks(
       frontmatter: parsed,
       name: classified.name,
       ...(providers === undefined ? {} : { providers }),
-      scriptReferences: await readAdaptiveHookScriptReferences(rootPath, ownerPath, file, classified.shape, parsed),
+      scriptReferences: await readAdaptiveHookScriptReferences(rootPath, ownerPath, file, classified.shape, parsed, providers, targets),
       scope,
       sourcePath: resolveInside(rootPath, relative(rootPath, file)),
     });
@@ -725,18 +737,36 @@ async function readAdaptiveHookScriptReferences(
   ownerPath: string,
   hookSourcePath: string,
   shape: "directory-hook" | "directory-named" | "flat",
-  parsed: JsonRecord
+  parsed: JsonRecord,
+  providers: readonly TargetName[] | undefined,
+  targets: Readonly<Record<TargetName, ResolvedTarget>>
 ): Promise<readonly SourceAdaptiveHookScriptReference[]> {
-  if (!isJsonRecord(parsed.run) || typeof parsed.run.script !== "string") return [];
-  const reference = parsed.run.script;
-  const sourcePath = resolveAdaptiveHookScriptPath(rootPath, ownerPath, hookSourcePath, shape, reference);
-  await validateAdaptiveHookScriptSource(rootPath, sourcePath, hookSourcePath, reference);
-  return [{
-    kind: reference.startsWith("{{scripts.dir}}/") ? "scripts-dir" : "hook-local",
-    reference,
-    runtimePath: reference,
-    sourcePath: resolveInside(rootPath, relative(rootPath, sourcePath)),
-  }];
+  const definition = {
+    events: readStringArray(parsed, "events") ?? [],
+    frontmatter: parsed,
+    name: "script-discovery",
+    ...(providers === undefined ? {} : { providers }),
+    scriptReferences: [],
+    scope: { kind: "root" as const },
+    sourcePath: hookSourcePath,
+  } satisfies SourceAdaptiveHook;
+  const references = new Set<string>();
+  for (const target of targetNames()) {
+    if (!targets[target].enabled || !targetAllows(providers, target)) continue;
+    const effective = resolveEffectiveAdaptiveHookDefinition(definition, target);
+    if (typeof effective.run.script === "string") references.add(effective.run.script);
+  }
+
+  return Promise.all([...references].sort(compareStrings).map(async (reference) => {
+    const sourcePath = resolveAdaptiveHookScriptPath(rootPath, ownerPath, hookSourcePath, shape, reference);
+    await validateAdaptiveHookScriptSource(rootPath, sourcePath, hookSourcePath, reference);
+    return {
+      kind: reference.startsWith("{{scripts.dir}}/") ? "scripts-dir" as const : "hook-local" as const,
+      reference,
+      runtimePath: reference,
+      sourcePath: resolveInside(rootPath, relative(rootPath, sourcePath)),
+    };
+  }));
 }
 
 export function resolveAdaptiveHookScriptPath(
@@ -793,10 +823,16 @@ export async function validateAdaptiveHookScriptSource(
 
 function validateAdaptiveHookAttachments(
   hooks: readonly SourceAdaptiveHook[],
-  attachments: BuildGraph["hookAttachments"]
+  attachments: BuildGraph["hookAttachments"],
+  targets: {
+    readonly plugins: readonly SourcePlugin[];
+    readonly projectAgents: readonly SourceProjectAgent[];
+    readonly rootTargets: Readonly<Record<TargetName, ResolvedTarget>>;
+    readonly standaloneSkills: readonly StandaloneSkill[];
+  }
 ): void {
-  const resolution = resolveAdaptiveHookAttachments(hooks, attachments);
-  const issue = resolution.issues[0];
+  const resolution = resolveAdaptiveHookAttachmentIdentities(hooks, attachments);
+  const issue = resolution.issues[0] ?? effectiveAttachmentIssue(resolution.resolved, targets);
   if (issue === undefined) return;
   throw new SkillsetFeatureDiagnosticError({
     code: issue.code,
@@ -804,6 +840,46 @@ function validateAdaptiveHookAttachments(
     message: `skillset: ${issue.message}`,
     ...(issue.paths[0] === undefined ? {} : { path: issue.paths[0] }),
   });
+}
+
+function effectiveAttachmentIssue(
+  resolved: ReturnType<typeof resolveAdaptiveHookAttachments>["resolved"],
+  targets: Parameters<typeof validateAdaptiveHookAttachments>[2]
+) {
+  for (const item of resolved) {
+    for (const target of targetNames()) {
+      if (!attachmentTargetEnabled(item.attachment.scope, target, targets) ||
+        !targetAllows(item.definition.providers, target) ||
+        !targetAllows(item.attachment.providers, target)) continue;
+      const issue = resolveAdaptiveHookAttachmentsForTarget([item.definition], [item.attachment], target).issues[0];
+      if (issue !== undefined) return issue;
+    }
+  }
+  return undefined;
+}
+
+function attachmentTargetEnabled(
+  scope: SourceHookAttachment["scope"],
+  target: TargetName,
+  targets: Parameters<typeof validateAdaptiveHookAttachments>[2]
+): boolean {
+  if (scope.kind === "plugin") {
+    return targets.plugins.find((plugin) => plugin.id === scope.pluginId)?.targets[target].enabled ?? false;
+  }
+  if (scope.kind === "skill") {
+    const skill = scope.pluginId === undefined
+      ? targets.standaloneSkills.find((candidate) => candidate.id === scope.skillId)
+      : targets.plugins.find((plugin) => plugin.id === scope.pluginId)?.skills.find((candidate) => candidate.id === scope.skillId);
+    return skill?.targets[target].enabled ?? false;
+  }
+  if (scope.kind === "agent") {
+    return targets.projectAgents.find((agent) => agent.outputName === scope.agentId)?.targets[target].enabled ?? false;
+  }
+  return targets.rootTargets[target].enabled;
+}
+
+function targetAllows(providers: readonly TargetName[] | undefined, target: TargetName): boolean {
+  return providers === undefined || providers.includes(target);
 }
 
 function readTargetArray(value: JsonValue | undefined): readonly TargetName[] | undefined {
@@ -896,7 +972,7 @@ async function loadPlugin(
     configuredOutputRoots(outputs)
   );
   const hookAttachments = readHookAttachments(config.hooks, { kind: "plugin", pluginId: id }, configRelativePath);
-  const adaptiveHooks = await loadAdaptiveHooks(rootPath, pluginPath, { kind: "plugin", pluginId: id });
+  const adaptiveHooks = await loadAdaptiveHooks(rootPath, pluginPath, { kind: "plugin", pluginId: id }, targets);
   const skills = await loadSkills(rootPath, sourceDir, sourceRootDir, pluginPath, inheritedTargets, warnings, id);
 
   if (await exists(join(pluginPath, "hooks.json"))) {
@@ -1112,9 +1188,9 @@ async function loadSkillsFromDirectory(
       skillId: id,
     };
     const hookAttachments = readHookAttachments(parts.frontmatter.hooks, scope, relative(rootPath, sourcePath));
-    const adaptiveHooks = await loadAdaptiveHooks(rootPath, dirname(sourcePath), scope);
     const targets = resolveFeatureTargets(parentTargets, parts.frontmatter, sourcePath, "skills");
     warnPortableModel(parts.frontmatter, targets, rootPath, sourcePath, warnings);
+    const adaptiveHooks = await loadAdaptiveHooks(rootPath, dirname(sourcePath), scope, targets);
     const relativePath = relative(relativeBasePath, sourcePath);
     const resources = await readSkillResources(parts.frontmatter.resources, {
       label: sourcePath,
