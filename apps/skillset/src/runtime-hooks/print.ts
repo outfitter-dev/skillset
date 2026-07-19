@@ -30,6 +30,9 @@ function validateHookPrintOptions(options: HookPrintOptions): void {
   }
   if (options.agentRuntime) {
     if (options.target === undefined) throw new Error("skillset: hooks print --agent-runtime requires --target claude or --target codex");
+    if (options.target === "cursor") {
+      throw new Error("skillset: hooks print --agent-runtime only supports --target claude or --target codex; Cursor has no documented runtime hook destination");
+    }
     if (options.preCommit || options.prePush) {
       throw new Error("skillset: hooks print --agent-runtime cannot be combined with --pre-commit or --pre-push");
     }
@@ -147,6 +150,9 @@ function renderGitSnippet(options: { readonly preCommit: boolean; readonly prePu
 
 function renderAgentRuntimeSnippet(target: TargetName | undefined): string {
   if (target === undefined) throw new Error("skillset: hooks print --agent-runtime requires --target");
+  if (target === "cursor") {
+    throw new Error("skillset: hooks print --agent-runtime only supports --target claude or --target codex; Cursor has no documented runtime hook destination");
+  }
   const note =
     "Generated suggestion only. Review before adding to project-local runtime config; Skillset does not install or trust hooks.";
   const value = {

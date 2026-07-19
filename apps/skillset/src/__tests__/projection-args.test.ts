@@ -217,7 +217,7 @@ describe("SET-301 projection and readiness route parsers", () => {
       {
         args: ["--from", "invalid"],
         message:
-          "skillset: expected --from claude, codex, cursor, agents, or skillset",
+          "skillset: expected --from claude, codex, or cursor; also agents or skillset",
       },
     ] as const;
 

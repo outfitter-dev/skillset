@@ -54,7 +54,7 @@ describe("SET-304 inspection and runtime route parsers", () => {
         [
           "--from",
           "typo",
-          "skillset: expected --from claude, codex, cursor, agents, or skillset",
+          "skillset: expected --from claude, codex, or cursor; also agents or skillset",
         ],
         [
           "--kind",
@@ -284,6 +284,10 @@ describe("SET-304 inspection and runtime route parsers", () => {
   });
 
   test("preserves exceptional validation and diagnostic precedence", () => {
+    expect(() =>
+      parseExplainCommandRequest(["explain", "README.md", "--target", "cursor"], CONTEXT)
+    ).toThrow("hook options are only supported with hooks print");
+
     const cases = [
       {
         message: "skillset: status only supports --root and --json",

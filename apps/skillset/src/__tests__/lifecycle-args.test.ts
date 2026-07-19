@@ -43,7 +43,7 @@ describe("SET-303 lifecycle and recovery route parsers", () => {
 
     for (const { run } of cases) {
       expect(() => run("--from", "typo")).toThrow(
-        "skillset: expected --from claude, codex, cursor, agents, or skillset"
+        "skillset: expected --from claude, codex, or cursor; also agents or skillset"
       );
       expect(() => run("--kind", "typo")).toThrow(
         "skillset: expected --kind skill, skills, plugin, or plugins"
@@ -61,6 +61,24 @@ describe("SET-303 lifecycle and recovery route parsers", () => {
           "patch",
           "--from",
           "codex",
+          "--kind",
+          "skill",
+        ],
+        CONTEXT
+      )
+    ).toMatchObject({ changeBump: "patch", changeScopes: ["plugin:demo"] });
+
+    expect(
+      parseChangeCommandRequest(
+        [
+          "change",
+          "add",
+          "--scope",
+          "plugin:demo",
+          "--bump",
+          "patch",
+          "--from",
+          "cursor",
           "--kind",
           "skill",
         ],

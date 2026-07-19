@@ -18,7 +18,7 @@ import {
 } from "./render-result";
 import { compareStrings } from "./path";
 import { pluginPathPartsForOutput, pluginTargetForOutputPath } from "./plugin-output";
-import { isTargetName, targetNames } from "./targets";
+import { isTargetName, targetDescriptor, targetNames } from "./targets";
 import { readClaudeNativeToolRules, readEffectiveToolsPolicy } from "./skill-policy";
 import {
   planToolsRealization,
@@ -768,13 +768,11 @@ function isCompanionPath(path: string, topLevelPath: string): boolean {
 
 function targetProjectRoot(graph: BuildGraph, target: TargetName): string {
   return readString(graph.root.targets[target].options, "projectRoot") ??
-    (target === "claude" ? ".claude" : target === "codex" ? ".codex" : ".cursor");
+    targetDescriptor(target).projectRoot;
 }
 
 function targetLabel(target: TargetName): string {
-  if (target === "claude") return "Claude";
-  if (target === "codex") return "Codex";
-  return "Cursor";
+  return targetDescriptor(target).displayLabel;
 }
 
 function pluginTargetSelected(graph: BuildGraph, pluginId: string, target: TargetName): boolean {

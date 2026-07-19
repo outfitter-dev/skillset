@@ -34,7 +34,10 @@ describe("SET-300 CLI scalar values", () => {
       "codex",
     ]);
     expect(() => readTargetName("other")).toThrow(
-      "skillset: expected --target"
+      "skillset: expected --target claude, codex, or cursor"
+    );
+    expect(() => readTargetNames("other")).toThrow(
+      "skillset: expected --targets claude, codex, or cursor"
     );
     expect(() => readTargetNames("")).toThrow(
       "skillset: --targets requires at least one target"

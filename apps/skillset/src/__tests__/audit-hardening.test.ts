@@ -278,6 +278,37 @@ Alpha body.
   await expect(lintSkillset(root)).rejects.toThrow("Codex does not support");
 });
 
+test("Cursor hook lint diagnostics identify Cursor", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: cursor-lint-root
+claude: false
+codex: false
+cursor: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/hooks/hooks.json": "not-json\n",
+    ".skillset/plugins/alpha/skills/alpha-skill/SKILL.md": `
+---
+name: alpha-skill
+description: Alpha skill.
+---
+
+Alpha body.
+`,
+  });
+
+  const lintReport = await inspectSkillset(await loadBuildGraph(root));
+  expect(lintReport.issues).toContainEqual(expect.objectContaining({
+    code: "hook-invalid-json",
+    message: expect.stringContaining("Cursor hook file"),
+  }));
+});
+
 test("Codex hooks reject non-command handler types", async () => {
   const root = await fixture({
     "skillset.yaml": `

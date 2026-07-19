@@ -2,6 +2,7 @@ import type {
   SkillsetOptions,
   TargetName,
 } from "@skillset/core/internal/types";
+import { TARGET_LIST_TEXT } from "@skillset/core";
 
 import type { InteractiveSession } from "./interactive-session";
 import type { PromptChoice } from "./prompt-adapter";
@@ -136,7 +137,7 @@ async function promptForTarget(
   const first = targets[0];
   if (first === undefined) {
     throw new Error(
-      "skillset: ad hoc test requires an enabled claude, codex, or cursor target"
+      `skillset: ad hoc test requires an enabled ${TARGET_LIST_TEXT} target`
     );
   }
   if (targets.length === 1) return first;

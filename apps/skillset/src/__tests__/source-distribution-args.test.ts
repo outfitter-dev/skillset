@@ -19,7 +19,7 @@ describe("SET-302 source and distribution route parsers", () => {
       [
         "--from",
         "typo",
-        "skillset: expected --from claude, codex, cursor, agents, or skillset",
+        "skillset: expected --from claude, codex, or cursor; also agents or skillset",
       ],
       [
         "--kind",
@@ -235,7 +235,7 @@ describe("SET-302 source and distribution route parsers", () => {
     });
     expect(() =>
       parseNewCommandRequest(["new", "hook", "--provider", "unknown"], CONTEXT)
-    ).toThrow("expected --provider claude, codex, cursor");
+    ).toThrow("expected --provider claude, codex, or cursor");
   });
 
   test("distribution routes own subcommands, names, machine mode, and writes", () => {

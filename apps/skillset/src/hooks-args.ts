@@ -12,6 +12,7 @@ import {
   readBuildScopes,
   readClaudeSettingSources,
   readPositiveInteger,
+  readTargetName,
   readTargetNames,
   resolveCliRoot,
   tokenizeCsv,
@@ -449,8 +450,5 @@ const readHookRunner = (value: string): HookRunner => {
 };
 
 const readHookTarget = (value: string): TargetName => {
-  if (value === "claude" || value === "codex") {
-    return value;
-  }
-  throw new Error("skillset: expected --target claude or codex");
+  return readTargetName(value);
 };

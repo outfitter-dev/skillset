@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
+import { TARGET_LIST_TEXT } from "@skillset/core";
 import {
   executeTryRun,
   listTryRuns,
@@ -128,7 +129,7 @@ export function validateTryFlags(
     throw new Error("skillset: build/write options are not supported with ad hoc test runs; test uses logical .skillset/cache/tests/ad-hoc");
   }
   if (subcommand === undefined) {
-    if (runtime.target === undefined) throw new Error("skillset: ad hoc test requires --target claude, codex, or cursor");
+    if (runtime.target === undefined) throw new Error(`skillset: ad hoc test requires --target ${TARGET_LIST_TEXT}`);
     if ((runtime.prompt === undefined && runtime.promptFile === undefined) || (runtime.prompt !== undefined && runtime.promptFile !== undefined)) {
       throw new Error("skillset: ad hoc test requires exactly one of --prompt or --prompt-file");
     }
@@ -153,7 +154,7 @@ async function readTryPrompt(
 }
 
 function requireTryTarget(target: TargetName | undefined): TargetName {
-  if (target === undefined) throw new Error("skillset: ad hoc test requires --target claude, codex, or cursor");
+  if (target === undefined) throw new Error(`skillset: ad hoc test requires --target ${TARGET_LIST_TEXT}`);
   return target;
 }
 

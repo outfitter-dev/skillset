@@ -6,11 +6,33 @@ import {
   readCompileConfig,
   readCompileTargets,
   readOutputConfig,
+  targetDescriptor,
   targetNames,
 } from "../config";
 import type { JsonRecord } from "../types";
 
 describe("target vocabulary", () => {
+  it("owns target-native project and generated-runtime conventions in one exhaustive descriptor", () => {
+    expect(targetDescriptor("claude")).toEqual({
+      displayLabel: "Claude",
+      generatedSessionIdExpression: "${CLAUDE_SESSION_ID:-}",
+      projectAgentExtension: "md",
+      projectRoot: ".claude",
+    });
+    expect(targetDescriptor("codex")).toEqual({
+      displayLabel: "Codex",
+      generatedSessionIdExpression: "${CODEX_SESSION_ID:-}",
+      projectAgentExtension: "toml",
+      projectRoot: ".codex",
+    });
+    expect(targetDescriptor("cursor")).toEqual({
+      displayLabel: "Cursor",
+      generatedSessionIdExpression: "${CURSOR_SESSION_ID:-}",
+      projectAgentExtension: "md",
+      projectRoot: ".cursor",
+    });
+  });
+
   it("includes cursor in the default target plan while preserving explicit narrowing", () => {
     const record: JsonRecord = {
       compile: {

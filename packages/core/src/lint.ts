@@ -16,7 +16,7 @@ import {
   readClaudeNativeToolRules,
   readToolsPolicyMetadata,
 } from "./skill-policy";
-import { targetNames } from "./targets";
+import { targetDescriptor, targetNames } from "./targets";
 import type {
   BuildGraph,
   JsonValue,
@@ -149,11 +149,9 @@ async function lintPluginHooks(graph: BuildGraph): Promise<readonly LintIssue[]>
   const issues: LintIssue[] = [];
 
   for (const plugin of graph.plugins) {
-    if (shouldLintPluginHook(graph, plugin, "claude")) {
-      issues.push(...(await lintHookFile(graph, plugin, join("hooks", "hooks.json"), "claude")));
-    }
-    if (shouldLintPluginHook(graph, plugin, "codex")) {
-      issues.push(...(await lintHookFile(graph, plugin, join("hooks", "hooks.json"), "codex")));
+    for (const target of targetNames()) {
+      if (!shouldLintPluginHook(graph, plugin, target)) continue;
+      issues.push(...(await lintHookFile(graph, plugin, join("hooks", "hooks.json"), target)));
     }
   }
 
@@ -186,7 +184,7 @@ async function lintHookFile(
     parsed = JSON.parse(await readFile(hookPath, "utf8")) as JsonValue;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const targetLabel = target === "claude" ? "Claude" : "Codex";
+    const targetLabel = targetDescriptor(target).displayLabel;
     return [
       {
         code: "hook-invalid-json",

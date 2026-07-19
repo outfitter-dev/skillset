@@ -28,6 +28,7 @@ import {
   readStringArray,
   resolveFeatureTargets,
   resolveTargets,
+  targetDescriptor,
   targetNames,
   targetRecord,
   validateConfigDocument,
@@ -45,6 +46,7 @@ import { DEFAULT_PLUGIN_OUTPUT_ROOT } from "./plugin-output";
 import { readReleaseState } from "./release-state";
 import { readSkillResources } from "./resources";
 import { validateSupports } from "./supports";
+import { TARGET_LIST_TEXT } from "./targets";
 import type {
   BuildGraph,
   JsonRecord,
@@ -1175,10 +1177,10 @@ function sourceFrontmatterSchemaMessage(diagnostic: SkillsetSchemaDiagnostic, fr
     );
   }
   if (diagnostic.code === "schema/skill-frontmatter/allowed-tools-key") {
-    return "target map to contain only claude, codex, or cursor keys";
+    return `target map to contain only ${TARGET_LIST_TEXT} keys`;
   }
   if (diagnostic.code === "schema/skill-frontmatter/implicit-invocation-key") {
-    return "target map to contain only claude, codex, or cursor keys";
+    return `target map to contain only ${TARGET_LIST_TEXT} keys`;
   }
   if (diagnostic.code === "schema/skill-frontmatter/version") {
     return `expected ${diagnostic.path} to be a semantic version`;
@@ -1434,13 +1436,11 @@ function targetProjectRoot(rootTargets: BuildGraph["root"]["targets"], target: T
 }
 
 function projectAgentOutputPath(projectRoot: string, target: TargetName, agent: SourceProjectAgent): string {
-  return join(projectRoot, "agents", `${agent.outputName}.${target === "codex" ? "toml" : "md"}`);
+  return join(projectRoot, "agents", `${agent.outputName}.${targetDescriptor(target).projectAgentExtension}`);
 }
 
 function defaultProjectRoot(target: TargetName): string {
-  if (target === "claude") return ".claude";
-  if (target === "codex") return ".codex";
-  return ".cursor";
+  return targetDescriptor(target).projectRoot;
 }
 
 function validateOutputRoots(

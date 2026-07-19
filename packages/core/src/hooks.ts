@@ -6,6 +6,7 @@ import {
   hookEventSupported,
   hookProviderCapabilities,
 } from "./hook-capabilities";
+import { targetDescriptor } from "./targets";
 export {
   CLAUDE_HOOK_EVENTS,
   CODEX_HOOK_EVENTS,
@@ -82,7 +83,5 @@ function formatHandlerTypes(types: ReadonlySet<string>): string {
 }
 
 function labelForTarget(target: TargetName): string {
-  if (target === "claude") return "Claude";
-  if (target === "codex") return "Codex";
-  return "Cursor";
+  return targetDescriptor(target).displayLabel;
 }
