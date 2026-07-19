@@ -6,8 +6,12 @@ import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { createOperationalPathContext, planDistributions, resolveOperationalPath } from "@skillset/core";
 
-import { buildSkillset, buildSkillsetResult, verifySkillset, verifySkillsetResult, diffSkillset, diffSkillsetResult } from "@skillset/core";
-import { changeStatus, collectSourceInventory } from "../change-status";
+import { buildSkillset, buildSkillsetResult, verifySkillset, verifySkillsetResult, diffSkillset, diffSkillsetResult, targetNames } from "@skillset/core";
+import {
+  changeStatus,
+  collectSourceInventory,
+  pluginTargetOptionsForSourceHash,
+} from "../change-status";
 import { doctorSkillset, explainPath } from "@skillset/core/internal/authoring";
 import { importSource, importSources, normalizeCopiedImportPath } from "../import";
 import { inspectSkillset, lintSkillset } from "@skillset/core";
@@ -3665,6 +3669,95 @@ Plugin body.
   expect(report.sourceChanges.map((change) => change.id)).toEqual(
     expect.arrayContaining(["plugin.alpha.skill:plugin-skill", "plugin:alpha"])
   );
+});
+
+test("SET-345: plugin aggregate hashes preserve legacy shape and include Cursor options", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: aggregate-root
+claude: true
+codex: false
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+  version: 0.1.0
+`,
+    ".skillset/plugins/alpha/skills/plugin-skill/SKILL.md": `
+---
+name: plugin-skill
+description: Plugin skill.
+version: 0.1.0
+---
+
+Plugin body.
+`,
+  });
+
+  const before = await collectSourceInventory(root);
+  const beforeGraph = await loadBuildGraph(root);
+  const legacyHash = before.units.find((unit) => unit.id === "plugin:alpha")?.hash;
+  expect(legacyHash).toBe("sha256:1a3416ee2ebfb3fcf875ed2aa85f53ffffaaed12cb3b35caa8a9ae7f6c844c5a");
+  expect(pluginTargetOptionsForSourceHash(beforeGraph.plugins[0]!)).toEqual({ claude: {}, codex: {} });
+
+  await Bun.write(
+    join(root, ".skillset/plugins/alpha/skillset.yaml"),
+    `
+skillset:
+  name: alpha
+  version: 0.1.0
+cursor:
+  marketplace:
+    displayName: Alpha Cursor Marketplace
+`
+  );
+
+  const after = await collectSourceInventory(root);
+  const afterGraph = await loadBuildGraph(root);
+  const targetOptions = pluginTargetOptionsForSourceHash(afterGraph.plugins[0]!);
+  expect(afterGraph.plugins[0]!.targets.cursor.options).not.toEqual({});
+  expect(targetOptions.cursor).toEqual(afterGraph.plugins[0]!.targets.cursor.options);
+  for (const target of targetNames()) {
+    if (Object.keys(afterGraph.plugins[0]!.targets[target].options).length > 0) {
+      expect(targetOptions).toHaveProperty(target);
+    }
+  }
+  expect(after.units.find((unit) => unit.id === "plugin:alpha")?.hash).not.toBe(legacyHash);
+});
+
+test("SET-345: Cursor project-agent prompt partials participate in source hashes", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: cursor-agent-hash-root
+claude: false
+codex: false
+cursor: true
+`,
+    ".skillset/agents/reviewer.md": `
+---
+description: Reviews Cursor changes.
+cursor:
+  initialPrompt: "{{shared:templates/cursor-prompt.md }}"
+---
+
+Review changes.
+`,
+    ".skillset/shared/templates/cursor-prompt.md": "Start with Cursor evidence.\n",
+  });
+
+  const before = await collectSourceInventory(root);
+  const beforeAgent = before.units.find((unit) => unit.id === "agent:reviewer");
+  expect(beforeAgent?.sourcePaths).toContain(".skillset/shared/templates/cursor-prompt.md");
+
+  await Bun.write(
+    join(root, ".skillset/shared/templates/cursor-prompt.md"),
+    "Start with updated Cursor evidence.\n"
+  );
+
+  const after = await collectSourceInventory(root);
+  expect(after.units.find((unit) => unit.id === "agent:reviewer")?.hash).not.toBe(beforeAgent?.hash);
 });
 
 test("SET-34: partial dependencies participate in source status hashes", async () => {
@@ -7851,23 +7944,26 @@ Audit body.
       docs: readonly string[];
       id: string;
       status: string;
-      targetSupport: { claude: { status: string }; codex: { status: string } };
+      targetSupport: Record<string, { status: string }>;
       title: string;
     }[];
   } }).data;
+  const nativeTargetSupport = Object.fromEntries(
+    targetNames().map((target) => [target, { status: "native" }])
+  );
   expect(skillReport.features).toEqual([
     {
       docs: ["docs/features/resources.md"],
       id: "resources",
       status: "implemented",
-      targetSupport: { claude: { status: "native" }, codex: { status: "native" } },
+      targetSupport: nativeTargetSupport,
       title: "Resources",
     },
     {
       docs: ["docs/features/skills.md"],
       id: "standalone-skills",
       status: "implemented",
-      targetSupport: { claude: { status: "native" }, codex: { status: "native" } },
+      targetSupport: nativeTargetSupport,
       title: "Standalone Skills",
     },
   ]);
@@ -7882,7 +7978,9 @@ Audit body.
   const featureText = await runSkillsetCli("lookup", "features", "plugin-bin");
   expect(featureText.exitCode).toBe(0);
   expect(featureText.stdout).toContain("feature plugin-bin: Plugin Bin");
-  expect(featureText.stdout).toContain("codex: unsupported");
+  for (const target of targetNames()) {
+    expect(featureText.stdout).toContain(`${target}:`);
+  }
 
   const featureJson = await runSkillsetCli("lookup", "features", "plugin-bin", "--json");
   expect(featureJson.exitCode).toBe(0);
@@ -7892,7 +7990,7 @@ Audit body.
       docs: readonly string[];
       id: string;
       status: string;
-      targetSupport: { claude: { status: string }; codex: { reason?: string; status: string } };
+      targetSupport: Record<string, { reason?: string; status: string }>;
       title: string;
     }[];
   } }).data;
@@ -7904,11 +8002,12 @@ Audit body.
       targetSupport: {
         claude: { status: "pass_through" },
         codex: expect.objectContaining({ status: "unsupported" }),
+        cursor: expect.objectContaining({ status: "unsupported" }),
       },
       title: "Plugin Bin",
     },
   ]);
-  expect(featureReport.features[0]?.targetSupport.codex.reason).toContain("Codex plugins");
+  expect(featureReport.features[0]?.targetSupport.codex?.reason ?? "").toContain("Codex plugins");
 
   const missingFeature = await runSkillsetCli("lookup", "features", "no-such-feature", "--json");
   expect(missingFeature.exitCode).toBe(1);
@@ -7917,20 +8016,23 @@ Audit body.
   const doctor = await runSkillsetCli("status", "--root", root);
   expect(doctor.stdout).toContain("features:");
   expect(doctor.stdout).toContain("status implemented");
-  expect(doctor.stdout).toContain("feature support: claude");
-  expect(doctor.stdout).toContain("feature support: codex");
+  for (const target of targetNames()) {
+    expect(doctor.stdout).toContain(`feature support: ${target}`);
+  }
   const doctorJson = await runSkillsetCli("status", "--root", root, "--json");
   expect(JSON.parse(doctorJson.stdout)).toMatchObject({ command: "status" });
   const doctorReport = (JSON.parse(doctorJson.stdout) as { readonly data: {
     featureCapabilities: {
-      byTargetSupport: { claude: Record<string, number>; codex: Record<string, number> };
+      byTargetSupport: Record<string, Record<string, number>>;
       featureIds: readonly string[];
       total: number;
     };
   } }).data;
   expect(doctorReport.featureCapabilities.total).toBeGreaterThan(0);
-  expect(doctorReport.featureCapabilities.byTargetSupport.claude.native).toBeGreaterThan(0);
-  expect(doctorReport.featureCapabilities.byTargetSupport.codex.native).toBeGreaterThan(0);
+  expect(Object.keys(doctorReport.featureCapabilities.byTargetSupport)).toEqual([...targetNames()]);
+  for (const target of targetNames()) {
+    expect(doctorReport.featureCapabilities.byTargetSupport[target]?.native).toBeGreaterThan(0);
+  }
   expect(doctorReport.featureCapabilities.featureIds).toContain("plugin-bin");
 
   for (const retired of ["doctor", "features"]) {
