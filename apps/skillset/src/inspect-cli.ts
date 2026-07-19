@@ -3,6 +3,7 @@ import type {
   LookupSubject,
   LookupView,
 } from "@skillset/core";
+import { targetNames } from "@skillset/core";
 import {
   doctorSkillset,
   explainPath,
@@ -191,8 +192,9 @@ export async function runExplainCommand({
   }
   for (const feature of result.features) {
     console.log(`  feature ${feature.id}: ${feature.title}`);
-    console.log(`    claude: ${feature.targetSupport.claude.status}`);
-    console.log(`    codex: ${feature.targetSupport.codex.status}`);
+    for (const target of targetNames()) {
+      console.log(`    ${target}: ${feature.targetSupport[target].status}`);
+    }
   }
   for (const outcome of result.renderResults) {
     printRenderResult(outcome);
@@ -268,12 +270,11 @@ export async function runStatusCommand({
   console.log(
     `  features: ${report.featureCapabilities.total} registry entries; status ${formatCountSummary(report.featureCapabilities.byFeatureStatus)}`
   );
-  console.log(
-    `  feature support: claude ${formatCountSummary(report.featureCapabilities.byTargetSupport.claude)}`
-  );
-  console.log(
-    `  feature support: codex ${formatCountSummary(report.featureCapabilities.byTargetSupport.codex)}`
-  );
+  for (const target of targetNames()) {
+    console.log(
+      `  feature support: ${target} ${formatCountSummary(report.featureCapabilities.byTargetSupport[target])}`
+    );
+  }
   for (const outcome of report.notableRenderResults) {
     printRenderResult(outcome);
   }
@@ -318,18 +319,15 @@ function formatSourceOrigin(origin: SourceOrigin): string {
 function printFeatureCapability(feature: FeatureCapability): void {
   console.log(`feature ${feature.id}: ${feature.title}`);
   console.log(`  status: ${feature.status}`);
-  console.log(
-    `  claude: ${formatFeatureSupport(feature.targetSupport.claude)}`
-  );
-  console.log(`  codex: ${formatFeatureSupport(feature.targetSupport.codex)}`);
+  for (const target of targetNames()) {
+    console.log(`  ${target}: ${formatFeatureSupport(feature.targetSupport[target])}`);
+  }
   if (feature.docs.length > 0) {
     console.log(`  docs: ${feature.docs.join(", ")}`);
   }
 }
 
-function formatFeatureSupport(
-  support: FeatureCapability["targetSupport"]["claude"]
-): string {
+function formatFeatureSupport(support: FeatureCapability["targetSupport"][TargetName]): string {
   const reason = support.reason === undefined ? "" : ` (${support.reason})`;
   const note = support.note === undefined ? "" : ` note: ${support.note}`;
   return `${support.status}${reason}${note}`;

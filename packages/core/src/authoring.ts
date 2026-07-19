@@ -17,7 +17,7 @@ import { compareStrings } from "./path";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
 import { readEffectiveToolsPolicy } from "./skill-policy";
-import { targetNames } from "./targets";
+import { targetNames, targetRecord } from "./targets";
 import { planToolsRealization, type ToolsRealizationPlanEntry } from "./tools-realization";
 import type { BuildGraph, GeneratedEntry, LintIssue, SkillsetOptions, SourceOrigin, TargetName } from "./types";
 import { isJsonRecord, parseMarkdown, stringifyMarkdown } from "./yaml";
@@ -66,13 +66,13 @@ export interface FeatureCapability {
   readonly docs: readonly string[];
   readonly id: string;
   readonly status: string;
-  readonly targetSupport: Readonly<Record<"claude" | "codex", FeatureSupportCapability>>;
+  readonly targetSupport: Readonly<Record<TargetName, FeatureSupportCapability>>;
   readonly title: string;
 }
 
 export interface FeatureCapabilitySummary {
   readonly byFeatureStatus: Readonly<Record<string, number>>;
-  readonly byTargetSupport: Readonly<Record<"claude" | "codex", Readonly<Record<string, number>>>>;
+  readonly byTargetSupport: Readonly<Record<TargetName, Readonly<Record<string, number>>>>;
   readonly featureIds: readonly string[];
   readonly total: number;
 }
@@ -354,10 +354,9 @@ export function summarizeFeatureCapabilities(
 ): FeatureCapabilitySummary {
   return {
     byFeatureStatus: countBy(features.map((feature) => feature.status)),
-    byTargetSupport: {
-      claude: countBy(features.map((feature) => feature.targetSupport.claude.status)),
-      codex: countBy(features.map((feature) => feature.targetSupport.codex.status)),
-    },
+    byTargetSupport: targetRecord((target) =>
+      countBy(features.map((feature) => feature.targetSupport[target].status))
+    ),
     featureIds: features.map((feature) => feature.id).sort(compareStrings),
     total: features.length,
   };
@@ -745,10 +744,7 @@ function featureCapability(feature: SkillsetFeatureEntry): FeatureCapability {
     docs: feature.docs,
     id: feature.id,
     status: feature.status,
-    targetSupport: {
-      claude: supportCapability(feature.targetSupport.claude),
-      codex: supportCapability(feature.targetSupport.codex),
-    },
+    targetSupport: targetRecord((target) => supportCapability(feature.targetSupport[target])),
     title: feature.title,
   };
 }

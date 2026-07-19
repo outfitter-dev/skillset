@@ -3,7 +3,13 @@ import { mkdir, mkdtemp, readdir, readFile, rename, rm, rmdir, stat, writeFile }
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 
-import { diffSkillset, isTargetName, type SkillsetDiff } from "@skillset/core";
+import {
+  diffSkillset,
+  isTargetName,
+  targetNames,
+  workspaceChangeFile,
+  type SkillsetDiff,
+} from "@skillset/core";
 import { readString } from "@skillset/core/internal/config";
 import { compareStrings, resolveInside } from "@skillset/core/internal/path";
 import { gitSafeEnv } from "./git-env";
@@ -39,7 +45,6 @@ import type {
   SourceRule,
   SourceSkill,
 } from "@skillset/core/internal/types";
-import { workspaceChangeFile } from "@skillset/core";
 import { isJsonRecord, parseMarkdown, parseYamlRecord, stringifyJson, stringifyYaml } from "@skillset/core/internal/yaml";
 
 export const SOURCE_HASH_SCHEMA = "skillset-source-unit-v2";
@@ -479,7 +484,7 @@ function pluginAggregateUnit(
   hash.update("\0metadata\0");
   hash.update(stringifyJson(plugin.metadata));
   hash.update("\0targets\0");
-  hash.update(stringifyJson({ claude: plugin.targets.claude.options, codex: plugin.targets.codex.options }));
+  hash.update(stringifyJson(pluginTargetOptionsForSourceHash(plugin)));
   hash.update("\0children\0");
   for (const child of childUnits) {
     hash.update(child.id);
@@ -500,6 +505,22 @@ function pluginAggregateUnit(
     sourcePath: relativePath(graph, plugin.configPath),
     sourcePaths,
   };
+}
+
+const PRE_CURSOR_PLUGIN_HASH_TARGET_COUNT = 2;
+
+export function pluginTargetOptionsForSourceHash(
+  plugin: Pick<SourcePlugin, "targets">
+): JsonRecord {
+  return Object.fromEntries(
+    targetNames().flatMap((target, index) => {
+      const options = plugin.targets[target].options;
+      // Preserve v2 hashes for configs whose only additional-target options are empty.
+      return index < PRE_CURSOR_PLUGIN_HASH_TARGET_COUNT || Object.keys(options).length > 0
+        ? [[target, options]]
+        : [];
+    })
+  );
 }
 
 async function sourcePathsForSkill(
@@ -669,8 +690,9 @@ async function projectAgentPreprocessDependencies(
 
   await collect(agent.body);
   await collect(readString(agent.frontmatter, "initialPrompt"));
-  await collect(readString(agent.targets.claude.options, "initialPrompt"));
-  await collect(readString(agent.targets.codex.options, "initialPrompt"));
+  for (const target of targetNames()) {
+    await collect(readString(agent.targets[target].options, "initialPrompt"));
+  }
   await collect(readString(agent.targets.codex.options, "developer_instructions"));
 
   return formattedPreprocessDependencies(graph, dependencies);
