@@ -22,7 +22,7 @@ import {
   type SkillsetFeatureEntry,
   type SkillsetRuntimeSupport,
 } from "../feature-registry";
-import { targetRecord } from "../targets";
+import { targetNames, targetRecord } from "../targets";
 
 const SEEDED_FEATURE_IDS = [
   "activation-probes",
@@ -79,6 +79,14 @@ const REPRESENTATIVE_DIAGNOSTIC_FEATURE_IDS = [
 ] as const;
 
 describe("feature registry", () => {
+  it("reports target-native islands as pass-through for every canonical target", () => {
+    const feature = getSkillsetFeature("target-native-islands");
+    expect(feature).toBeDefined();
+    for (const target of targetNames()) {
+      expect(feature?.targetSupport[target].status, target).toBe("pass_through");
+    }
+  });
+
   it("ships the current feature seed in deterministic order with docs and evidence", () => {
     const features = listSkillsetFeatures();
 

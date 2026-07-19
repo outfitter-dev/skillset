@@ -2882,6 +2882,8 @@ claude:
   projectRoot: project-claude
 codex:
   projectRoot: project-codex
+cursor:
+  projectRoot: project-cursor
 `,
     ".skillset/_codex/rules/deny.rules": `
 match = "rm -rf"
@@ -2898,6 +2900,9 @@ description: Reviews code.
 
 Use {{this.description}}.
 `,
+    ".skillset/_cursor/native.txt": `
+cursor only
+`,
     ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
@@ -2913,11 +2918,15 @@ skillset:
   expect(await readFile(join(root, "project-claude/agents/reviewer.md"), "utf8")).toContain(
     "Use Reviews code."
   );
+  expect(await readFile(join(root, "project-cursor/native.txt"), "utf8")).toContain("cursor only");
   expect(await exists(join(root, "project-codex/agents/reviewer.md"))).toBe(false);
   expect(await exists(join(root, "project-claude/rules/deny.rules"))).toBe(false);
+  expect(await exists(join(root, "project-claude/native.txt"))).toBe(false);
+  expect(await exists(join(root, "project-codex/native.txt"))).toBe(false);
   const codexLock = await readFile(join(root, "skillset.lock"), "utf8");
   expect(codexLock).toContain(`"kind": "island"`);
   expect(codexLock).toContain(`"outputPath": "project-codex/rules/deny.rules"`);
+  expect(codexLock).toContain(`"outputPath": "project-cursor/native.txt"`);
 });
 
 test("target-native islands reject frontmatter target escapes", async () => {
@@ -2927,10 +2936,11 @@ skillset:
   name: test-root
 claude: true
 codex: false
+cursor: true
 `,
-    ".skillset/_claude/agents/bad.md": `
+    ".skillset/_cursor/agents/bad.md": `
 ---
-codex: true
+claude: true
 ---
 
 Bad.
@@ -3106,6 +3116,7 @@ skillset:
   name: test-root
 claude: true
 codex: true
+cursor: true
 `,
     ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
@@ -3117,6 +3128,9 @@ skillset:
     ".skillset/plugins/alpha/_codex/config.json": `
 {"codex": true}
 `,
+    ".skillset/plugins/alpha/_cursor/native.txt": `
+cursor plugin only
+`,
   });
 
   await buildSkillset(root);
@@ -3125,6 +3139,9 @@ skillset:
   expect(await exists(join(root, "plugins/alpha/codex/commands/review.md"))).toBe(false);
   expect(await exists(join(root, "plugins/alpha/codex/config.json"))).toBe(true);
   expect(await exists(join(root, "plugins/alpha/claude/config.json"))).toBe(false);
+  expect(await readFile(join(root, "plugins/alpha/cursor/native.txt"), "utf8")).toContain("cursor plugin only");
+  expect(await exists(join(root, "plugins/alpha/claude/native.txt"))).toBe(false);
+  expect(await exists(join(root, "plugins/alpha/codex/native.txt"))).toBe(false);
 });
 
 test("plugin-local provider source requires a plugin manifest", async () => {

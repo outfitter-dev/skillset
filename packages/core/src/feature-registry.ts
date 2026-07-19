@@ -961,7 +961,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     sourceShape: ".skillset/_claude/**, .skillset/_codex/**, .skillset/_cursor/**, and plugin-local provider source subdirs",
     status: "implemented",
     summary: "Mirrors explicit provider-specific files only to their intended provider output.",
-    targetSupport: bothTargets("pass_through"),
+    targetSupport: targetRecord(() => ({ status: "pass_through" })),
     title: "Provider Source",
     validationOwner: "packages/core/src/resolver.ts",
   }),
