@@ -10,5 +10,8 @@
     ".": "./src/index.ts",
     "./cli": "./src/cli.ts",
     "./runtime": "./src/runtime.ts"
+  },
+  "dependencies": {
+    "@skillset/schema": "workspace:*"
   }
 }

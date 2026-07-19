@@ -8,8 +8,8 @@ const cliPath = join(repoRoot, "packages/toolkit/src/cli.ts");
 describe("@skillset/toolkit CLI", () => {
   test("prints deterministic JSON with normalized and raw namespaces", async () => {
     const result = await runToolkit(["runtime", "context", "--event", "Stop"], {
-      CODEX_REPO_ROOT: "/tmp/codex repo",
-      CODEX_SESSION_ID: "codex-session",
+      CURSOR_SESSION_ID: "cursor-session",
+      SKILLSET_PROVIDER: "cursor",
     });
 
     expect(result).toMatchObject({ exitCode: 0, stderr: "" });
@@ -21,10 +21,10 @@ describe("@skillset/toolkit CLI", () => {
       readonly session: { readonly id?: string };
     };
     expect(report.schemaVersion).toBe(1);
-    expect(report.provider).toBe("codex");
+    expect(report.provider).toBe("cursor");
     expect(report.hook.event).toBe("Stop");
-    expect(report.session.id).toBe("codex-session");
-    expect(report.raw.env.CODEX_REPO_ROOT).toBe("/tmp/codex repo");
+    expect(report.session.id).toBe("cursor-session");
+    expect(report.raw.env.CURSOR_SESSION_ID).toBe("cursor-session");
     expect(result.stdout).toBe(`${JSON.stringify(report, null, 2)}\n`);
   });
 
@@ -49,6 +49,12 @@ describe("@skillset/toolkit CLI", () => {
 
     const empty = await runShell(command, { SKILLSET_PROVIDER: "codex", SKILLSET_SESSION_ID: "" });
     expect(empty).toEqual({ exitCode: 0, stderr: "", stdout: "<codex>|<Stop Event>|<>" });
+
+    const cursor = await runShell(command, {
+      CURSOR_SESSION_ID: "cursor session",
+      SKILLSET_PROVIDER: "cursor",
+    });
+    expect(cursor).toEqual({ exitCode: 0, stderr: "", stdout: "<cursor>|<Stop Event>|<cursor session>" });
   });
 
   test("supports Python JSON consumption without provider-specific parsing", async () => {

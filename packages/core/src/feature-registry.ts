@@ -872,6 +872,8 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
         evidence: [
           docs("docs/features/hooks.md"),
           source("packages/toolkit/src/runtime.ts"),
+          test("packages/toolkit/src/__tests__/runtime.test.ts", "Cursor-like environment normalization"),
+          test("packages/core/src/__tests__/adaptive-hook-attachments.test.ts", "generated Cursor toolkit hook execution"),
         ],
         note: "Normalized fields are provider, hook.event, and session.id; raw Cursor environment remains available to the hook command.",
         status: "transformed",

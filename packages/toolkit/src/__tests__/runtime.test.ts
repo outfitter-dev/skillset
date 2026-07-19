@@ -15,13 +15,13 @@ describe("@skillset/toolkit runtime", () => {
       "session.id",
     ]);
     expect(RUNTIME_CONTEXT_FIELD_DEFINITIONS.find((definition) => definition.field === "session.id")).toMatchObject({
-      availability: { claude: "available", codex: "available", unknown: "unknown" },
+      availability: { claude: "available", codex: "available", cursor: "available", unknown: "unknown" },
       confidence: "provider",
       envName: "SKILLSET_SESSION_ID",
     });
   });
 
-  test("reads unknown, Claude, Codex, missing, and conflicting provider context", async () => {
+  test("reads unknown, Claude, Codex, Cursor, missing, and conflicting provider context", async () => {
     const unknown = await readRuntimeContext({
       cwd: "/tmp/repo",
       env: {},
@@ -56,6 +56,28 @@ describe("@skillset/toolkit runtime", () => {
     expect(codex.repoRoot).toBe("/tmp/codex");
     expect(codex.payload).toBeUndefined();
     expect(codex.payloadError).toContain("JSON");
+
+    const cursor = await readRuntimeContext({
+      cwd: "/tmp/repo",
+      env: { CURSOR_SESSION_ID: "session-3", SKILLSET_PROVIDER: "cursor" },
+      event: "afterAgentResponse",
+      rootPath: "/tmp/repo",
+    });
+    expect(cursor.provider).toBe("cursor");
+    expect(runtimeContextFieldValue(cursor, "session.id")).toBe("session-3");
+    expect(cursor.rawEnv).toEqual({
+      CURSOR_SESSION_ID: "session-3",
+      SKILLSET_PROVIDER: "cursor",
+    });
+
+    const nativeCursor = await readRuntimeContext({
+      cwd: "/tmp/repo",
+      env: { CURSOR_SESSION_ID: "native-cursor-session" },
+      event: "afterAgentResponse",
+      rootPath: "/tmp/repo",
+    });
+    expect(nativeCursor.provider).toBe("cursor");
+    expect(runtimeContextFieldValue(nativeCursor, "session.id")).toBe("native-cursor-session");
 
     const conflicting = await readRuntimeContext({
       cwd: "/tmp/repo",

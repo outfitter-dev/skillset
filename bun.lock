@@ -16,7 +16,7 @@
     },
     "apps/skillset": {
       "name": "skillset",
-      "version": "0.17.1",
+      "version": "0.18.1",
       "bin": {
         "skillset": "dist/cli.js",
         "skillset-toolkit": "dist/toolkit.js",
@@ -62,6 +62,9 @@
       "version": "0.0.0",
       "bin": {
         "skillset-toolkit": "./src/cli.ts",
+      },
+      "dependencies": {
+        "@skillset/schema": "workspace:*",
       },
     },
     "packages/transforms": {
