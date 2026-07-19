@@ -1,8 +1,10 @@
 import { readdir } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const auditRoot = dirname(fileURLToPath(import.meta.url));
+const auditRoot = process.argv[2]
+  ? resolve(process.argv[2])
+  : dirname(fileURLToPath(import.meta.url));
 const noteNames = (await readdir(auditRoot))
   .filter((name) => /^0[0-6]-.*\.md$/.test(name))
   .sort();
@@ -11,9 +13,6 @@ const allowedConfidence = new Set([
   "confirmed",
   "plausible",
   "decided-needed",
-  "open",
-  "observed",
-  "proposal",
 ]);
 const allowedDispositions = new Set(["open", "fixed", "wont-fix"]);
 const errors: string[] = [];
@@ -22,13 +21,37 @@ if (noteNames.length !== 7) {
   errors.push(`expected 7 finding notes, found ${noteNames.length}`);
 }
 
-const headingIds: string[] = [];
+const headingConfidence = new Map<string, string>();
+function confidenceFromHeading(heading: string): string | undefined {
+  if (heading.includes("(confirmed")) {
+    return "confirmed";
+  }
+  if (heading.includes("(plausible") || heading.includes("(observed") || heading.includes("(open")) {
+    return "plausible";
+  }
+  if (heading.includes("(decided-needed") || heading.includes("(proposal")) {
+    return "decided-needed";
+  }
+  return undefined;
+}
+
 for (const noteName of noteNames) {
   const source = await Bun.file(join(auditRoot, noteName)).text();
-  for (const match of source.matchAll(/^### (\d{2}\.\d+) — /gm)) {
-    headingIds.push(match[1]);
+  for (const heading of source.match(/^### \d{2}\.\d+ — .*$/gm) ?? []) {
+    const id = heading.match(/^### (\d{2}\.\d+) — /)?.[1];
+    const confidence = confidenceFromHeading(heading);
+    if (!id || !confidence) {
+      errors.push(`cannot classify finding heading: ${heading}`);
+      continue;
+    }
+    if (headingConfidence.has(id)) {
+      errors.push(`duplicate finding heading ${id}`);
+    }
+    headingConfidence.set(id, confidence);
   }
 }
+
+const headingIds = [...headingConfidence.keys()];
 
 const mapSource = await Bun.file(join(auditRoot, "FINDING-DISPOSITIONS.md")).text();
 const rows = mapSource
@@ -46,9 +69,6 @@ if (headingIds.length !== expectedFindingCount) {
 }
 if (rows.length !== expectedFindingCount) {
   errors.push(`expected ${expectedFindingCount} disposition rows, found ${rows.length}`);
-}
-for (const duplicate of duplicates(headingIds)) {
-  errors.push(`duplicate finding heading ${duplicate}`);
 }
 for (const duplicate of duplicates(rowIds)) {
   errors.push(`duplicate disposition row ${duplicate}`);
@@ -69,6 +89,10 @@ for (const row of rows) {
   if (!allowedConfidence.has(confidence)) {
     errors.push(`${id} has invalid confidence ${confidence}`);
   }
+  const expectedConfidence = headingConfidence.get(id);
+  if (expectedConfidence && confidence !== expectedConfidence) {
+    errors.push(`${id} confidence ${confidence} does not match source ${expectedConfidence}`);
+  }
   if (!allowedDispositions.has(disposition)) {
     errors.push(`${id} has invalid disposition ${disposition}`);
   }
@@ -76,10 +100,13 @@ for (const row of rows) {
   if (!/^SET-\d+$/.test(owner) || issueNumber < 313 || issueNumber > 351) {
     errors.push(`${id} has invalid owner ${owner}`);
   }
-  if (disposition === "fixed" && (!proof || proof === "—")) {
-    errors.push(`${id} is fixed without merged proof`);
+  const hasMergedProof =
+    /^https:\/\/github\.com\/outfitter-dev\/skillset\/pull\/\d+$/.test(proof) ||
+    /^[0-9a-f]{40}$/.test(proof);
+  if (disposition === "fixed" && !hasMergedProof) {
+    errors.push(`${id} is fixed without a merged PR URL or full commit SHA`);
   }
-  if (disposition === "wont-fix" && !notes) {
+  if (disposition === "wont-fix" && (!notes || notes === "—")) {
     errors.push(`${id} is wont-fix without a reason`);
   }
 }
