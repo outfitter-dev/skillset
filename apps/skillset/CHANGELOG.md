@@ -1,5 +1,12 @@
 # skillset
 
+## 0.18.1
+
+### Patch Changes
+
+- 0766978: Split existing-directory `skillset init` from named child-repository `skillset create`, add grouped detected-source selection and registry-derived provider defaults, scaffold canonical workspace or plugin instruction files, and add explicit plus guided schema-validated adaptive-hook authoring with searchable registry-derived events, compatibility, and source-unit attachments.
+- 0766978: Render interactive flows with a shared lowercase Skillset intro and dimmed version, without redundant command-owned action headings.
+
 ## 0.18.0
 
 ### Minor Changes
