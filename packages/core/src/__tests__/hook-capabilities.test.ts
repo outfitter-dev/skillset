@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import { getProviderHookEvidence } from "@skillset/registry";
 
 import {
   CODEX_HOOK_EVENTS,
   canonicalHookEventName,
   classifyAdaptiveHookUnitPath,
+  deriveCursorHookEventNames,
   hookEventSupported,
   hookHandlerTypesForEvent,
   hookProviderCapabilities,
@@ -128,6 +130,20 @@ describe("hook provider capabilities", () => {
   });
 
   test("records Cursor handler, scope, and native event-name constraints", () => {
+    const cursorEvidence = getProviderHookEvidence("cursor");
+    for (const { name } of cursorEvidence.events) {
+      const native = `${name[0]?.toLowerCase()}${name.slice(1)}`;
+      expect(nativeHookEventName("cursor", name), name).toBe(native);
+      expect(canonicalHookEventName("cursor", native), native).toBe(name);
+    }
+    const extended = deriveCursorHookEventNames([
+      ...cursorEvidence.events.map((event) => event.name),
+      "FutureCursorEvent",
+    ]);
+    expect(extended.nativeByCanonical.FutureCursorEvent).toBe("futureCursorEvent");
+    expect(extended.canonicalByNative.futureCursorEvent).toBe("FutureCursorEvent");
+    expect(nativeHookEventName("cursor", "AfterMCPExecution")).toBe("afterMCPExecution");
+
     const cursor = hookProviderCapabilities.cursor;
     expect(hookEventSupported("cursor", "SessionStart")).toBe(true);
     expect(hookEventSupported("cursor", "sessionStart")).toBe(true);
