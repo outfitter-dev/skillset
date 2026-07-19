@@ -1,4 +1,8 @@
-export type RuntimeProvider = "claude" | "codex" | "unknown";
+import { TARGET_NAMES } from "@skillset/schema";
+
+type RuntimeTarget = (typeof TARGET_NAMES)[number];
+
+export type RuntimeProvider = RuntimeTarget | "unknown";
 export type RuntimeContextField = "hook.event" | "provider" | "session.id";
 export type RuntimeContextFormat = "env" | "json";
 export type RuntimeContextFieldAvailability = "available" | "unavailable" | "unknown";
@@ -47,31 +51,58 @@ const CODEX_ENV_KEYS = [
   "CODEX_SESSION_ID",
   "OPENAI_WORKSPACE_ROOT",
 ] as const;
+const CURSOR_ENV_KEYS = ["CURSOR_SESSION_ID"] as const;
+const PROVIDER_ENV = {
+  claude: {
+    prefix: "CLAUDE_",
+    rawKeys: CLAUDE_ENV_KEYS,
+    sessionId: "CLAUDE_SESSION_ID",
+  },
+  codex: {
+    prefix: "CODEX_",
+    rawKeys: CODEX_ENV_KEYS,
+    sessionId: "CODEX_SESSION_ID",
+  },
+  cursor: {
+    prefix: "CURSOR_",
+    rawKeys: CURSOR_ENV_KEYS,
+    sessionId: "CURSOR_SESSION_ID",
+  },
+} as const satisfies Record<RuntimeTarget, {
+  readonly prefix: string;
+  readonly rawKeys: readonly string[];
+  readonly sessionId: string;
+}>;
 const SKILLSET_ENV_KEYS = [
   "SKILLSET_HOOK_COMMAND",
   "SKILLSET_HOOK_EVENT",
   "SKILLSET_PROVIDER",
   "SKILLSET_SESSION_ID",
 ] as const;
-const KNOWN_ENV_KEYS = [...CLAUDE_ENV_KEYS, ...CODEX_ENV_KEYS, ...SKILLSET_ENV_KEYS, "PWD"] as const;
+const RUNTIME_TARGETS = new Set<string>(TARGET_NAMES);
+const KNOWN_ENV_KEYS = [
+  ...TARGET_NAMES.flatMap((target) => PROVIDER_ENV[target].rawKeys),
+  ...SKILLSET_ENV_KEYS,
+  "PWD",
+] as const;
 
 export const RUNTIME_CONTEXT_FIELD_DEFINITIONS = [
   {
-    availability: { claude: "available", codex: "available", unknown: "unknown" },
+    availability: targetAvailability("available", "unknown"),
     confidence: "skillset",
     description: "Normalized provider lens selected from Skillset wrapper env or provider-specific environment.",
     envName: "SKILLSET_PROVIDER",
     field: "provider",
   },
   {
-    availability: { claude: "available", codex: "available", unknown: "available" },
+    availability: targetAvailability("available", "available"),
     confidence: "caller",
     description: "Hook event name passed by the generated wrapper or caller.",
     envName: "SKILLSET_HOOK_EVENT",
     field: "hook.event",
   },
   {
-    availability: { claude: "available", codex: "available", unknown: "unknown" },
+    availability: targetAvailability("available", "unknown"),
     confidence: "provider",
     description: "Provider session id when the runtime exposes one; absent when unavailable.",
     envName: "SKILLSET_SESSION_ID",
@@ -123,16 +154,45 @@ export function runtimeContextFieldValue(
     case "hook.event":
       return context.rawEnv.SKILLSET_HOOK_EVENT ?? context.event;
     case "session.id":
-      return context.rawEnv.SKILLSET_SESSION_ID ?? context.rawEnv.CLAUDE_SESSION_ID ?? context.rawEnv.CODEX_SESSION_ID;
+      if (context.rawEnv.SKILLSET_SESSION_ID !== undefined) return context.rawEnv.SKILLSET_SESSION_ID;
+      if (context.provider !== "unknown") {
+        return context.rawEnv[PROVIDER_ENV[context.provider].sessionId];
+      }
+      for (const target of TARGET_NAMES) {
+        const sessionId = context.rawEnv[PROVIDER_ENV[target].sessionId];
+        if (sessionId !== undefined) return sessionId;
+      }
+      return undefined;
   }
 }
 
 function detectProvider(env: Record<string, string | undefined>): RuntimeProvider {
-  if (env.SKILLSET_PROVIDER === "claude" || env.SKILLSET_PROVIDER === "codex") return env.SKILLSET_PROVIDER;
-  if (Object.keys(env).some((key) => key.startsWith("CLAUDE_"))) return "claude";
-  if (Object.keys(env).some((key) => key.startsWith("CODEX_"))) return "codex";
-  if (env.OPENAI_WORKSPACE_ROOT !== undefined) return "codex";
+  if (isRuntimeTarget(env.SKILLSET_PROVIDER)) return env.SKILLSET_PROVIDER;
+  const keys = Object.keys(env);
+  for (const target of TARGET_NAMES) {
+    const evidence = PROVIDER_ENV[target];
+    if (
+      keys.some((key) => key.startsWith(evidence.prefix)) ||
+      evidence.rawKeys.some((key) => env[key] !== undefined)
+    ) {
+      return target;
+    }
+  }
   return "unknown";
+}
+
+function isRuntimeTarget(value: string | undefined): value is RuntimeTarget {
+  return value !== undefined && RUNTIME_TARGETS.has(value);
+}
+
+function targetAvailability(
+  target: RuntimeContextFieldAvailability,
+  unknown: RuntimeContextFieldAvailability
+): Readonly<Record<RuntimeProvider, RuntimeContextFieldAvailability>> {
+  return Object.fromEntries([
+    ...TARGET_NAMES.map((provider) => [provider, target] as const),
+    ["unknown", unknown] as const,
+  ]) as Record<RuntimeProvider, RuntimeContextFieldAvailability>;
 }
 
 function relevantEnv(env: Record<string, string | undefined>): Readonly<Record<string, string>> {

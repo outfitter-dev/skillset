@@ -116,7 +116,7 @@ test("SET-220: lookup hooks adaptive lens shows adaptive hook fields", async () 
 });
 
 test("SET-232: lookup hooks toolkit lens reports runtime context support", async () => {
-  const result = await runSkillsetCli("lookup", "hooks", "toolkit", "--field", "context.env", "--values", "--compat", "codex", "--json");
+  const result = await runSkillsetCli("lookup", "hooks", "toolkit", "--field", "context.env", "--values", "--compat", "cursor", "--json");
 
   expect(result.exitCode).toBe(0);
   const report = readResultData(result.stdout) as {
@@ -132,9 +132,9 @@ test("SET-232: lookup hooks toolkit lens reports runtime context support", async
   expect(report.compatibility).toEqual([
     expect.objectContaining({
       featureId: "runtime-context",
-      note: expect.stringContaining("raw Codex environment remains available"),
+      note: expect.stringContaining("raw Cursor environment remains available"),
       status: "transformed",
-      target: "codex",
+      target: "cursor",
     }),
   ]);
 });

@@ -169,7 +169,7 @@ describe("lookupSkillsetReference", () => {
       aspects: ["toolkit"],
       field: "context.env",
       subject: "hooks",
-      targets: ["claude", "codex"],
+      targets: ["claude", "codex", "cursor"],
       views: ["fields", "values", "compat"],
     });
 
@@ -194,6 +194,12 @@ describe("lookupSkillsetReference", () => {
         note: expect.stringContaining("raw Codex environment remains available"),
         status: "transformed",
         target: "codex",
+      }),
+      expect.objectContaining({
+        featureId: "runtime-context",
+        note: expect.stringContaining("raw Cursor environment remains available"),
+        status: "transformed",
+        target: "cursor",
       }),
     ]);
 

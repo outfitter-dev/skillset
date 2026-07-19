@@ -553,6 +553,7 @@ skillset:
   name: adaptive-hook-toolkit-context-render
 claude: true
 codex: true
+cursor: true
 `,
       ".skillset/plugins/demo/skillset.yaml": `
 skillset:
@@ -567,19 +568,20 @@ hooks:
           strategy: "toolkit",
         },
         events: ["Stop"],
-        run: { command: "cat" },
+        run: { command: `printf '%s|%s|' "$SKILLSET_PROVIDER" "$SKILLSET_SESSION_ID"; cat` },
       }),
     }));
 
     const rendered = await renderBuildGraph(graph);
     const claudeHooks = renderedJson(rendered, "plugins/demo/claude/hooks/hooks.json");
     const codexHooks = renderedJson(rendered, "plugins/demo/codex/hooks/hooks.json");
+    const cursorHooks = renderedJson(rendered, "plugins/demo/cursor/hooks/hooks.json");
 
     expect(claudeHooks).toEqual({
       hooks: {
         Stop: [{
           hooks: [{
-            command: 'eval "$(SKILLSET_PROVIDER=claude SKILLSET_HOOK_EVENT=Stop skillset-toolkit runtime context --event Stop --format env --fields \'provider,hook.event,session.id\')" && cat',
+            command: 'eval "$(SKILLSET_PROVIDER=claude SKILLSET_HOOK_EVENT=Stop skillset-toolkit runtime context --event Stop --format env --fields \'provider,hook.event,session.id\')" && printf \'%s|%s|\' "$SKILLSET_PROVIDER" "$SKILLSET_SESSION_ID"; cat',
             type: "command",
           }],
         }],
@@ -589,7 +591,17 @@ hooks:
       hooks: {
         Stop: [{
           hooks: [{
-            command: 'eval "$(SKILLSET_PROVIDER=codex SKILLSET_HOOK_EVENT=Stop skillset-toolkit runtime context --event Stop --format env --fields \'provider,hook.event,session.id\')" && cat',
+            command: 'eval "$(SKILLSET_PROVIDER=codex SKILLSET_HOOK_EVENT=Stop skillset-toolkit runtime context --event Stop --format env --fields \'provider,hook.event,session.id\')" && printf \'%s|%s|\' "$SKILLSET_PROVIDER" "$SKILLSET_SESSION_ID"; cat',
+            type: "command",
+          }],
+        }],
+      },
+    });
+    expect(cursorHooks).toEqual({
+      hooks: {
+        stop: [{
+          hooks: [{
+            command: 'eval "$(SKILLSET_PROVIDER=cursor SKILLSET_HOOK_EVENT=Stop skillset-toolkit runtime context --event Stop --format env --fields \'provider,hook.event,session.id\')" && printf \'%s|%s|\' "$SKILLSET_PROVIDER" "$SKILLSET_SESSION_ID"; cat',
             type: "command",
           }],
         }],
@@ -600,7 +612,16 @@ hooks:
     expect(await runGeneratedHookCommand(String(command[0]?.command))).toEqual({
       exitCode: 0,
       stderr: "",
-      stdout: "payload",
+      stdout: "claude||payload",
+    });
+    const cursorCommand = ((cursorHooks.hooks as JsonRecord).stop as readonly JsonRecord[])[0]?.hooks as readonly JsonRecord[];
+    expect(await runGeneratedHookCommand(String(cursorCommand[0]?.command), {
+      CLAUDE_SESSION_ID: "wrong-claude-session",
+      CURSOR_SESSION_ID: "cursor-session",
+    })).toEqual({
+      exitCode: 0,
+      stderr: "",
+      stdout: "cursor|cursor-session|payload",
     });
   });
 
@@ -837,7 +858,7 @@ function renderedMarkdown(files: readonly { readonly content: Uint8Array; readon
   return parseMarkdown(new TextDecoder().decode(file?.content), path);
 }
 
-async function runGeneratedHookCommand(command: string): Promise<{
+async function runGeneratedHookCommand(command: string, providerEnv: Record<string, string> = {}): Promise<{
   readonly exitCode: number;
   readonly stderr: string;
   readonly stdout: string;
@@ -858,6 +879,7 @@ async function runGeneratedHookCommand(command: string): Promise<{
       HOME: process.env.HOME ?? "",
       PATH: `${binDir}:${process.env.PATH ?? ""}`,
       TMPDIR: process.env.TMPDIR ?? "/tmp",
+      ...providerEnv,
     },
     stderr: "pipe",
     stdout: "pipe",
