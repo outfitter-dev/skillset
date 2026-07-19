@@ -6,6 +6,8 @@ import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/
 
 import {
   resolveAdaptiveHookAttachments,
+  resolveAdaptiveHookAttachmentsForTarget,
+  resolveEffectiveAdaptiveHookDefinition,
   type SourceAdaptiveHook,
   type SourceHookAttachment,
 } from "@skillset/core";
@@ -16,10 +18,84 @@ import {
 import { renderBuildGraph } from "../render";
 import { loadBuildGraph } from "../resolver";
 import { targetNames } from "../targets";
-import type { JsonRecord } from "../types";
+import type { JsonRecord, JsonValue } from "../types";
 import { parseMarkdown } from "../yaml";
 
 describe("adaptive hook attachment resolution", () => {
+  test("resolves immutable target definitions before expanding attachments", () => {
+    const definition: SourceAdaptiveHook = {
+      events: ["SessionStart"],
+      frontmatter: {
+        claude: {
+          context: null,
+          events: ["PreToolUse"],
+          match: null,
+          run: { command: "echo claude" },
+        },
+        context: { strategy: "toolkit" },
+        events: ["SessionStart"],
+        match: "base-match",
+        run: { command: "echo base", env: { BASE: "1" } },
+      },
+      name: "session",
+      scriptReferences: [],
+      scope: { kind: "root" },
+      sourcePath: "hooks/session.json",
+    };
+    const attachment = { hook: "session", scope: { kind: "plugin", pluginId: "demo" }, sourcePath: "plugins/demo/skillset.yaml" } satisfies SourceHookAttachment;
+
+    const effective = resolveEffectiveAdaptiveHookDefinition(definition, "claude");
+    expect(effective).toEqual({
+      events: ["PreToolUse"],
+      run: { command: "echo claude" },
+      target: "claude",
+    });
+    expect(Object.isFrozen(effective)).toBe(true);
+    expect(Object.isFrozen(effective.events)).toBe(true);
+    expect(Object.isFrozen(effective.run)).toBe(true);
+    expect(resolveAdaptiveHookAttachmentsForTarget([definition], [attachment], "claude").resolved).toEqual([
+      expect.objectContaining({ event: "PreToolUse", target: "claude" }),
+    ]);
+    expect(resolveAdaptiveHookAttachmentsForTarget([definition], [attachment], "codex").resolved).toEqual([
+      expect.objectContaining({ event: "SessionStart", target: "codex" }),
+    ]);
+  });
+
+  test("deep-clones and freezes effective structured values", () => {
+    const definition: SourceAdaptiveHook = {
+      events: ["Stop"],
+      frontmatter: {
+        context: { env: ["provider"], strategy: "inline" },
+        events: ["Stop"],
+        match: { tool: ["Bash"] },
+        run: { args: ["--base"], command: "echo base", env: { BASE: "1" } },
+      },
+      name: "deep",
+      scriptReferences: [],
+      scope: { kind: "root" },
+      sourcePath: "hooks/deep.json",
+    };
+    const effective = resolveEffectiveAdaptiveHookDefinition(definition, "codex");
+    const sourceMatch = definition.frontmatter.match as JsonRecord;
+    const sourceContext = definition.frontmatter.context as JsonRecord;
+    const sourceRun = definition.frontmatter.run as JsonRecord;
+
+    (sourceMatch.tool as JsonValue[]).push("Write");
+    (sourceContext.env as JsonValue[]).push("hook.event");
+    (sourceRun.args as JsonValue[]).push("--mutated");
+
+    expect(effective.match).toEqual({ tool: ["Bash"] });
+    expect(effective.context).toEqual({ env: ["provider"], strategy: "inline" });
+    expect(effective.run).toEqual({ args: ["--base"], command: "echo base", env: { BASE: "1" } });
+    expect(Object.isFrozen(effective.match)).toBe(true);
+    expect(Object.isFrozen((effective.match as JsonRecord).tool)).toBe(true);
+    expect(Object.isFrozen(effective.context)).toBe(true);
+    expect(Object.isFrozen((effective.context as JsonRecord).env)).toBe(true);
+    expect(Object.isFrozen(effective.run)).toBe(true);
+    expect(Object.isFrozen((effective.run.args as JsonValue[]))).toBe(true);
+    expect(Object.isFrozen(effective.run.env)).toBe(true);
+  });
+
   test("resolves nearest definitions and expands auto attachments", () => {
     const root = hook("shared", ["SessionStart"], { kind: "root" }, "root/hooks/shared.json");
     const plugin = hook("shared", ["Stop"], { kind: "plugin", pluginId: "demo" }, "plugins/demo/hooks/shared.json");
@@ -283,6 +359,94 @@ Body.
     await expect(loadBuildGraph(root)).rejects.toThrow("adaptive hook attachment references missing hook missing");
   });
 
+  test("accepts explicit override-only attachment events for their eligible target", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-effective-event
+claude: false
+codex: false
+cursor: true
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  workspaceOpen:
+    - hook: session
+      providers: [cursor]
+`,
+      ".skillset/plugins/demo/hooks/session.json": JSON.stringify({
+        cursor: { events: ["workspaceOpen"] },
+        events: ["SessionStart"],
+        providers: ["cursor"],
+        run: { command: "echo session" },
+      }),
+    });
+
+    const graph = await loadBuildGraph(root);
+    expect(resolveAdaptiveHookAttachmentsForTarget(graph.adaptiveHooks, graph.hookAttachments, "cursor").resolved).toEqual([
+      expect.objectContaining({ event: "workspaceOpen", target: "cursor" }),
+    ]);
+  });
+
+  test("ignores disabled target overrides while validating attachment events", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-disabled-override
+claude: true
+codex: false
+cursor: true
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+cursor: false
+hooks:
+  SessionStart:
+    - session
+`,
+      ".skillset/plugins/demo/hooks/session.json": JSON.stringify({
+        cursor: { events: ["workspaceOpen"] },
+        events: ["SessionStart"],
+        run: { command: "echo session" },
+      }),
+    });
+
+    await expect(loadBuildGraph(root)).resolves.toEqual(expect.objectContaining({
+      hookAttachments: [expect.objectContaining({ event: "SessionStart", hook: "session" })],
+    }));
+  });
+
+  test("rejects attachment events absent from the eligible effective definition", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-effective-event-rejection
+claude: false
+codex: false
+cursor: true
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  SessionStart:
+    - hook: session
+      providers: [cursor]
+`,
+      ".skillset/plugins/demo/hooks/session.json": JSON.stringify({
+        cursor: { events: ["workspaceOpen"] },
+        events: ["SessionStart"],
+        providers: ["cursor"],
+        run: { command: "echo session" },
+      }),
+    });
+
+    await expect(loadBuildGraph(root)).rejects.toThrow("uses event SessionStart, but the hook declares workspaceOpen");
+  });
+
   test("resolves hook-local and shared script references", async () => {
     const root = await fixture({
       "skillset.yaml": `
@@ -308,6 +472,35 @@ skillset:
       "session:scripts-dir:{{scripts.dir}}/session.js:.skillset/scripts/session.js",
       "shell:hook-local:./check.js:.skillset/plugins/demo/hooks/shell/check.js",
     ]);
+  });
+
+  test("discovers and validates scripts from effective provider runs", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-provider-script
+claude: true
+codex: false
+cursor: false
+`,
+      ".skillset/hooks/session/hook.json": JSON.stringify({
+        claude: { run: { script: "./claude.js" } },
+        events: ["SessionStart"],
+        run: { script: "./base.js" },
+      }),
+      ".skillset/hooks/session/claude.js": "process.exit(0);\n",
+      ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo skill.
+---
+
+Body.
+`,
+    });
+    const graph = await loadBuildGraph(root);
+
+    expect(graph.adaptiveHooks[0]?.scriptReferences.map((reference) => reference.reference)).toEqual(["./claude.js"]);
   });
 
   test("rejects missing hook script references", async () => {
@@ -363,7 +556,7 @@ hooks:
     - shell-policy
 `,
       ".skillset/plugins/demo/hooks/shell-policy.json": JSON.stringify({
-        claude: { status: "Checking" },
+        claude: { run: { args: ["--check"], command: "echo ok" } },
         events: ["Stop"],
         run: { command: "echo ok" },
       }),

@@ -2,7 +2,7 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 import {
-  resolveAdaptiveHookAttachments,
+  resolveAdaptiveHookAttachmentsForTarget,
   type ResolvedAdaptiveHookAttachment,
 } from "./adaptive-hook-attachments";
 import { adaptiveHookUnsupportedRenderReason, type AdaptiveHookRenderSurface } from "./adaptive-hook-render-support";
@@ -371,8 +371,8 @@ function unsupportedAdaptiveHookOutcomes(
 
   const featureId = "adaptive-hooks";
   const outcomes: SkillsetRenderResult[] = [];
-  for (const item of resolveAdaptiveHookAttachments(graph.adaptiveHooks, graph.hookAttachments).resolved) {
-    for (const target of TARGETS) {
+  for (const target of TARGETS) {
+    for (const item of resolveAdaptiveHookAttachmentsForTarget(graph.adaptiveHooks, graph.hookAttachments, target).resolved) {
       if (!providerListAllows(item.definition.providers, target) || !providerListAllows(item.attachment.providers, target)) {
         continue;
       }

@@ -105,6 +105,39 @@ describe("adaptive hook intent classifier", () => {
     expect(adaptiveHookIntentIsRenderable(codexSkillHook)).toBe(false);
   });
 
+  test("classifies effective provider fields without treating the override itself as unsupported", () => {
+    const claudeArgs = classifyAdaptiveHookIntent(
+      hookItem({
+        event: "Stop",
+        frontmatter: {
+          claude: { run: { args: ["--check"], command: "echo claude" } },
+          codex: { match: "main" },
+          events: ["Stop"],
+          run: { command: "echo base" },
+        },
+      }),
+      "claude",
+      "plugin"
+    );
+    const codexMatcher = classifyAdaptiveHookIntent(
+      hookItem({
+        event: "Stop",
+        frontmatter: {
+          claude: { run: { args: ["--check"], command: "echo claude" } },
+          codex: { match: "main" },
+          events: ["Stop"],
+          run: { command: "echo base" },
+        },
+      }),
+      "codex",
+      "plugin"
+    );
+
+    expect(claudeArgs.reason).toBe("Adaptive hook demo-hook uses run.args, but plugin hook rendering only supports run.command, run.script, and run.env yet.");
+    expect(codexMatcher.reason).toBe("Codex ignores matchers for adaptive hook event Stop, so this attachment cannot render faithfully.");
+    expect(claudeArgs.reason).not.toContain("provider overrides");
+  });
+
   test("classifies lossy or unsupported hook shapes as unsupported", () => {
     const unsupportedEvent = classifyAdaptiveHookIntent(hookItem({ event: "Notification" }), "codex", "plugin");
     const ignoredMatcher = classifyAdaptiveHookIntent(hookItem({ event: "Stop", match: "main" }), "codex", "plugin");

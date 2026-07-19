@@ -262,14 +262,14 @@ export const hookContract = contract("hook", "Hook Definition", "Skillset hook d
 
 export const adaptiveHookContract = contract("adaptive-hook", "Adaptive Hook Unit", "Skillset adaptive hook unit source contract for reusable portable hooks.", {
   ...strictObjectSchema({
-    claude: { type: "object" },
+    claude: adaptiveHookProviderOverrideSchema(),
     context: strictObjectSchema({
       env: arraySchema(enumSchema(["hook.event", "provider", "session.id"]), { minItems: 1, uniqueItems: true }),
       includeRaw: { type: "boolean" },
       strategy: enumSchema(["inline", "none", "toolkit"]),
     }),
-    codex: { type: "object" },
-    cursor: { type: "object" },
+    codex: adaptiveHookProviderOverrideSchema(),
+    cursor: adaptiveHookProviderOverrideSchema(),
     description: nonEmptyStringSchema(),
     events: arraySchema(nonEmptyStringSchema(), { minItems: 1, uniqueItems: true }),
     match: {
@@ -294,6 +294,39 @@ export const adaptiveHookContract = contract("adaptive-hook", "Adaptive Hook Uni
   }),
   required: ["events", "run"],
 });
+
+function adaptiveHookProviderOverrideSchema(): SchemaJsonRecord {
+  return strictObjectSchema({
+    context: {
+      anyOf: [
+        { type: "null" },
+        strictObjectSchema({
+          env: arraySchema(enumSchema(["hook.event", "provider", "session.id"]), { minItems: 1, uniqueItems: true }),
+          includeRaw: { type: "boolean" },
+          strategy: enumSchema(["inline", "none", "toolkit"]),
+        }),
+      ],
+    },
+    events: arraySchema(nonEmptyStringSchema(), { minItems: 1, uniqueItems: true }),
+    match: {
+      anyOf: [
+        { type: "null" },
+        nonEmptyStringSchema(),
+        { type: "object" },
+      ],
+    },
+    run: strictObjectSchema({
+      args: arraySchema(nonEmptyStringSchema()),
+      command: nonEmptyStringSchema(),
+      cwd: nonEmptyStringSchema(),
+      env: {
+        additionalProperties: { type: "string" },
+        type: "object",
+      },
+      script: nonEmptyStringSchema(),
+    }),
+  });
+}
 
 export const changeEntryContract = contract("change-entry", "Change Entry", "Compatibility-only legacy pending change-entry frontmatter contract.", {
   additionalProperties: true,

@@ -256,6 +256,37 @@ describe("@skillset/schema contracts", () => {
     }).diagnostics).toEqual([]);
 
     expect(validateAdaptiveHookUnitSource({
+      claude: {
+        context: null,
+        events: ["PreToolUse"],
+        match: null,
+        run: { command: "echo claude" },
+      },
+      events: ["SessionStart"],
+      providers: ["claude"],
+      run: { command: "echo base" },
+    }).diagnostics).toEqual([]);
+
+    expect(validateAdaptiveHookUnitSource({
+      claude: {
+        description: "not an override field",
+        events: [],
+        match: 1,
+        run: { env: { INVALID: 1 } },
+      },
+      events: ["SessionStart"],
+      providers: ["codex"],
+      run: { command: "echo base" },
+    }).diagnostics.map((diagnostic) => diagnostic.code)).toEqual(expect.arrayContaining([
+      "schema/adaptive-hook/provider-override-key",
+      "schema/adaptive-hook/provider-override-provider",
+      "schema/adaptive-hook/events",
+      "schema/adaptive-hook/match",
+      "schema/adaptive-hook/run-env",
+      "schema/adaptive-hook/run-handler",
+    ]));
+
+    expect(validateAdaptiveHookUnitSource({
       events: ["PreToolUse", "PreToolUse", ""],
       providers: ["claude", "bad", "claude"],
       context: {

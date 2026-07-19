@@ -1,4 +1,8 @@
 import { compareStrings } from "./path";
+import {
+  resolveEffectiveAdaptiveHookDefinition,
+  type EffectiveAdaptiveHookDefinition,
+} from "./adaptive-hook-effective";
 import { isTargetName } from "./targets";
 import { isJsonRecord } from "./yaml";
 import type {
@@ -22,7 +26,9 @@ export interface AdaptiveHookAttachmentIssue {
 export interface ResolvedAdaptiveHookAttachment {
   readonly attachment: SourceHookAttachment;
   readonly definition: SourceAdaptiveHook;
+  readonly effectiveDefinition?: EffectiveAdaptiveHookDefinition;
   readonly event: string;
+  readonly target?: TargetName;
 }
 
 export interface AdaptiveHookResolution {
@@ -51,6 +57,31 @@ export function resolveAdaptiveHookAttachments(
   definitions: readonly SourceAdaptiveHook[],
   attachments: readonly SourceHookAttachment[]
 ): AdaptiveHookResolution {
+  return resolveAttachments(definitions, attachments);
+}
+
+/** Resolves visible hook identities without applying base or target event rules. */
+export function resolveAdaptiveHookAttachmentIdentities(
+  definitions: readonly SourceAdaptiveHook[],
+  attachments: readonly SourceHookAttachment[]
+): AdaptiveHookResolution {
+  return resolveAttachments(definitions, attachments, undefined, false);
+}
+
+export function resolveAdaptiveHookAttachmentsForTarget(
+  definitions: readonly SourceAdaptiveHook[],
+  attachments: readonly SourceHookAttachment[],
+  target: TargetName
+): AdaptiveHookResolution {
+  return resolveAttachments(definitions, attachments, target, true);
+}
+
+function resolveAttachments(
+  definitions: readonly SourceAdaptiveHook[],
+  attachments: readonly SourceHookAttachment[],
+  target?: TargetName,
+  validateEvents = true
+): AdaptiveHookResolution {
   const issues: AdaptiveHookAttachmentIssue[] = [...duplicateDefinitionIssues(definitions)];
   const resolved: ResolvedAdaptiveHookAttachment[] = [];
 
@@ -78,17 +109,27 @@ export function resolveAdaptiveHookAttachments(
 
     const definition = nearest[0];
     if (definition === undefined) continue;
-    const events = attachment.event === undefined ? definition.events : [attachment.event];
+    const effectiveDefinition = target === undefined
+      ? undefined
+      : resolveEffectiveAdaptiveHookDefinition(definition, target);
+    const events = attachment.event === undefined ? effectiveDefinition?.events ?? definition.events : [attachment.event];
     for (const event of events) {
-      if (!definition.events.includes(event)) {
+      if (validateEvents && !(effectiveDefinition?.events ?? definition.events).includes(event)) {
+        const declaredEvents = effectiveDefinition?.events ?? definition.events;
         issues.push({
           code: "adaptive-hook-attachment-event",
-          message: `adaptive hook attachment ${attachment.hook} uses event ${event}, but the hook declares ${definition.events.join(", ")}`,
+          message: `adaptive hook attachment ${attachment.hook} uses event ${event}, but the hook declares ${declaredEvents.join(", ")}`,
           paths: [attachment.sourcePath, definition.sourcePath].sort(compareStrings),
         });
         continue;
       }
-      resolved.push({ attachment, definition, event });
+      resolved.push({
+        attachment,
+        definition,
+        ...(effectiveDefinition === undefined ? {} : { effectiveDefinition }),
+        event,
+        ...(target === undefined ? {} : { target }),
+      });
     }
   }
 

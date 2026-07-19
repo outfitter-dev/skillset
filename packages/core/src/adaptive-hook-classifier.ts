@@ -1,5 +1,5 @@
 import type { ResolvedAdaptiveHookAttachment } from "./adaptive-hook-attachments";
-import { readRecord } from "./config";
+import { resolveEffectiveAdaptiveHookDefinition } from "./adaptive-hook-effective";
 import { canonicalHookEventName, hookProviderCapabilities } from "./hook-capabilities";
 import { targetDescriptor, targetNames } from "./targets";
 import type { AdaptiveHookScope, TargetName } from "./types";
@@ -186,12 +186,10 @@ function adaptiveHookUnsupportedFieldReason(
   target: TargetName,
   surface: AdaptiveHookRenderSurface
 ): string | undefined {
-  const providerOverride = item.definition.frontmatter[target];
-  if (providerOverride !== undefined) {
-    return `Adaptive hook ${item.definition.name} uses ${target} provider overrides, but ${surface} hook rendering does not support overrides yet.`;
-  }
-
-  const run = readRecord(item.definition.frontmatter, "run") ?? {};
+  const effective = item.effectiveDefinition?.target === target
+    ? item.effectiveDefinition
+    : resolveEffectiveAdaptiveHookDefinition(item.definition, target);
+  const run = effective.run;
   for (const key of ["args", "cwd"] as const) {
     if (run[key] !== undefined) {
       const supported = surface === "plugin" ? "run.command, run.script, and run.env" : "run.command";
@@ -220,7 +218,10 @@ function adaptiveHookUnsupportedCapabilityReason(
   if (!capabilities.documentedEvents.has(capabilityEvent)) {
     return `${label} does not support adaptive hook event ${item.event}.`;
   }
-  const matcher = item.attachment.match ?? item.definition.frontmatter.match;
+  const effective = item.effectiveDefinition?.target === target
+    ? item.effectiveDefinition
+    : resolveEffectiveAdaptiveHookDefinition(item.definition, target);
+  const matcher = item.attachment.match ?? effective.match;
   if (matcher !== undefined && capabilities.matcherByEvent[capabilityEvent] === "ignored") {
     return `${label} ignores matchers for adaptive hook event ${item.event}, so this attachment cannot render faithfully.`;
   }

@@ -348,10 +348,12 @@ export const skillsetSchemaExamples = [
     path: "adaptive-hook.yaml",
     value: {
       claude: {
-        if: "Bash(git *)",
+        context: {
+          strategy: "none",
+        },
       },
       codex: {
-        matcher: "Bash",
+        match: "Bash",
       },
       context: {
         env: ["provider", "hook.event", "session.id"],
