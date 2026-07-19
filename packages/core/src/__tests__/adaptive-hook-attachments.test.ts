@@ -9,8 +9,13 @@ import {
   type SourceAdaptiveHook,
   type SourceHookAttachment,
 } from "@skillset/core";
+import {
+  adaptiveHookIntentIsRenderable,
+  classifyAdaptiveHookIntent,
+} from "../adaptive-hook-classifier";
 import { renderBuildGraph } from "../render";
 import { loadBuildGraph } from "../resolver";
+import { targetNames } from "../targets";
 import type { JsonRecord } from "../types";
 import { parseMarkdown } from "../yaml";
 
@@ -52,6 +57,139 @@ describe("adaptive hook attachment resolution", () => {
 });
 
 describe("adaptive hook graph loading", () => {
+  test("preserves every canonical attachment provider in author order", async () => {
+    const providers = [...targetNames()].reverse();
+    const graph = await loadBuildGraph(await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-provider-order
+claude: true
+codex: true
+cursor: true
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  Stop:
+    - hook: shell-policy
+      providers: [${providers.join(", ")}]
+`,
+      ".skillset/plugins/demo/hooks/shell-policy.json": JSON.stringify({
+        events: ["Stop"],
+        run: { command: "echo ok" },
+      }),
+    }));
+
+    expect(graph.hookAttachments).toContainEqual(expect.objectContaining({
+      hook: "shell-policy",
+      providers,
+    }));
+  });
+
+  test("keeps Cursor-only attachments scoped through rendering", async () => {
+    const graph = await loadBuildGraph(await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-cursor-provider
+claude: true
+codex: true
+cursor: true
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  Stop:
+    - hook: shell-policy
+      providers: [cursor]
+`,
+      ".skillset/plugins/demo/hooks/shell-policy.json": JSON.stringify({
+        events: ["Stop"],
+        run: { command: "echo ok" },
+      }),
+    }));
+
+    expect(graph.hookAttachments).toContainEqual(expect.objectContaining({
+      hook: "shell-policy",
+      providers: ["cursor"],
+    }));
+    const resolution = resolveAdaptiveHookAttachments(graph.adaptiveHooks, graph.hookAttachments);
+    expect(resolution.issues).toEqual([]);
+    const classification = classifyAdaptiveHookIntent(resolution.resolved[0]!, "cursor", "plugin");
+    expect(classification).toEqual(expect.objectContaining({
+      reason: "Adaptive hook shell-policy is scoped to cursor.",
+      status: "provider-scoped-adaptive",
+      target: "cursor",
+    }));
+    expect(adaptiveHookIntentIsRenderable(classification)).toBe(true);
+    const hookOutputs = (await renderBuildGraph(graph))
+      .map((file) => file.path)
+      .filter((path) => path.endsWith("/hooks/hooks.json"));
+    expect(hookOutputs).toEqual(["plugins/demo/cursor/hooks/hooks.json"]);
+  });
+
+  test("keeps omitted attachment providers enabled for every configured target", async () => {
+    const graph = await loadBuildGraph(await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-omitted-providers
+claude: true
+codex: true
+cursor: true
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  Stop:
+    - shell-policy
+`,
+      ".skillset/plugins/demo/hooks/shell-policy.json": JSON.stringify({
+        events: ["Stop"],
+        run: { command: "echo ok" },
+      }),
+    }));
+
+    expect(graph.hookAttachments.find((attachment) => attachment.hook === "shell-policy")?.providers).toBeUndefined();
+    const hookOutputs = (await renderBuildGraph(graph))
+      .map((file) => file.path)
+      .filter((path) => path.endsWith("/hooks/hooks.json"));
+    expect(hookOutputs).toEqual([
+      "plugins/demo/claude/hooks/hooks.json",
+      "plugins/demo/codex/hooks/hooks.json",
+      "plugins/demo/cursor/hooks/hooks.json",
+    ]);
+  });
+
+  test("rejects invalid plugin attachment providers through schema diagnostics", async () => {
+    await expect(loadBuildGraph(await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-invalid-provider
+claude: true
+codex: true
+cursor: true
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  Stop:
+    - hook: shell-policy
+      providers: [bad]
+`,
+      ".skillset/plugins/demo/hooks/shell-policy.json": JSON.stringify({
+        events: ["Stop"],
+        run: { command: "echo ok" },
+      }),
+    }))).rejects.toMatchObject({
+      code: "plugin-manifest-invalid",
+      featureId: "plugin-manifests",
+      message: expect.stringContaining("hook attachment providers entries must be claude, codex, or cursor"),
+    });
+  });
+
   test("loads root, plugin, and skill-local definitions plus frontmatter attachments", async () => {
     const graph = await loadBuildGraph(await fixture({
       "skillset.yaml": `
