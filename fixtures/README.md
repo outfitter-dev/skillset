@@ -35,7 +35,7 @@ Current checked-in cases:
 
 ### External fixture repos (`fixtures/external/`)
 
-External fixtures are real published repos that Skillset should be able to adopt: `init` detects their import candidates, `import` lifts them into `.skillset/` source, `lint` and `build` succeed, and the generated Claude projection comes out substantially similar to the original. They are maintainer test material like the other tiers, but they track living upstreams instead of frozen fakes.
+External fixtures are real published repos that Skillset should be able to adopt: `init` detects their import candidates, `import` lifts them into `.skillset/` source, `lint` and `build` succeed, and each requested target projection is compared with the original. They are maintainer test material like the other tiers, but they track living upstreams instead of frozen fakes.
 
 - `fixtures/external/repos.yaml` is the committed manifest. Each entry pins a repo to a full commit SHA and may set `targets:` (default `claude`) and `notes:`.
 - `fixtures/external/repos/<name>/` holds gitignored clones at the pinned SHA. They are never scanned as this repo's own source.

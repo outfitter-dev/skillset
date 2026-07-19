@@ -74,7 +74,7 @@ The test: adding a runtime must not make `compile.targets` accept a new value. I
 | Gemini CLI | `planned` | Needs current extension/distribution docs and fixture evidence before Skillset claims rendering or distribution support. |
 | Devin | `future` | Tracked as a possible runtime, not a current target. |
 | Droid | `future` | Tracked as a possible runtime, not a current target. |
-| OpenCode | `planned` | Superpowers provides fixture evidence, but Skillset still needs target docs before claiming support. |
+| OpenCode | `planned` | Tracked as a possible runtime, but Skillset still needs target docs before claiming support. |
 
 ## Diagnostics
 
@@ -95,4 +95,4 @@ Runtime support records are registry evidence, not generated target files. Distr
 - [Provider Surface Evidence Matrix](../target-surfaces.md#cursor-provider-baseline) - Cursor evidence baseline and milestone boundary.
 - [Agents](agents.md) - project-agent support and Codex skill-preface shim.
 - [Tests and Evals](tests-and-evals.md) - activation/eval boundary.
-- `fixtures/external/repos.yaml` - pinned external multi-runtime fixture manifest, including Superpowers.
+- `fixtures/external/repos.yaml` - pinned external adoption fixtures across current targets.

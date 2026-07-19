@@ -7019,12 +7019,16 @@ test("SET-255: shared plugin lock does not hide authored plugin import candidate
       name: "demo-marketplace",
       plugins: [
         { name: "authored", source: "./plugins/authored" },
-        { name: "generated", source: "./plugins/generated/claude" },
+        { name: "generated-claude", source: "./plugins/generated/claude" },
+        { name: "generated-codex", source: "./plugins/generated/codex" },
+        { name: "generated-cursor", source: "./plugins/generated/cursor" },
       ],
     }),
     "plugins/skillset.lock": "{}",
     "plugins/authored/.claude-plugin/plugin.json": JSON.stringify({ name: "authored" }),
-    "plugins/generated/claude/.claude-plugin/plugin.json": JSON.stringify({ name: "generated" }),
+    "plugins/generated/claude/.claude-plugin/plugin.json": JSON.stringify({ name: "generated-claude" }),
+    "plugins/generated/codex/.codex-plugin/plugin.json": JSON.stringify({ name: "generated-codex" }),
+    "plugins/generated/cursor/.cursor-plugin/plugin.json": JSON.stringify({ name: "generated-cursor" }),
   });
 
   const report = await initSkillset({ cwd: root, useGitRoot: false, write: false });

@@ -13,11 +13,11 @@ repos:
     repo: https://github.com/hamelsmu/claude-review-loop
     ref: 244f4c7bc15e98552af7cc5a67e70dfcdea9ab12
     notes: "Nested marketplace-style Claude plugin under plugins/review-loop."
-  - name: superpowers
-    repo: https://github.com/obra/superpowers
-    ref: 6fd4507659784c351abbd2bc264c7162cfd386dc
-    targets: [claude, codex]
-    notes: "Large multi-agent plugin repo with Claude and Codex manifests, shared skills, hooks, assets, scripts, and repo-level instructions."
+  - name: cursor-browser-motion-plugin
+    repo: https://github.com/dusa89/cursor-browser-motion-plugin
+    ref: c892f0982756e4d39ad4a007b0aa0e45908b88f1
+    targets: [cursor]
+    notes: "Root Cursor-native browser-motion plugin with a .cursor-plugin/plugin.json manifest, skill, MCP configuration, and scripts."
   - name: mattpocock-skills
     repo: https://github.com/mattpocock/skills
     ref: 00ff03cac21a8a845b06256d826d183122f58c5e

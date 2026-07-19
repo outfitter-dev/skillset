@@ -41,7 +41,9 @@ import {
   resolveOperationalPath,
 } from "../../packages/core/src/operational-cache";
 import { compareStrings, validateSlug } from "../../packages/core/src/path";
+import { pluginTargetRoot } from "../../packages/core/src/plugin-output";
 import { loadBuildGraph } from "../../packages/core/src/resolver";
+import { isTargetName, TARGET_LIST_TEXT } from "../../packages/core/src/targets";
 import type { TargetName } from "../../packages/core/src/types";
 import { parseYamlRecord } from "../../packages/core/src/yaml";
 
@@ -142,9 +144,9 @@ function readManifestTargets(
   }
   const targets: TargetName[] = [];
   for (const target of raw) {
-    if (target !== "claude" && target !== "codex") {
+    if (!isTargetName(target)) {
       throw new Error(
-        `skillset: ${label} entry ${name} targets must be claude or codex`
+        `skillset: ${label} entry ${name} targets must be ${TARGET_LIST_TEXT}`
       );
     }
     targets.push(target);
@@ -214,6 +216,7 @@ export interface ExternalRoundTrip {
   readonly kind: "plugin" | "skill";
   readonly name: string;
   readonly originalRoot: string;
+  readonly target: TargetName;
 }
 
 /** What init's whole-repo survey saw: import candidates plus the recognized
@@ -289,7 +292,7 @@ async function cleanSkillsetLeftovers(clonePath: string): Promise<void> {
  * lint, and build with the isolated mirror (reported under the logical
  * .skillset/cache/latest/ path and stored in XDG cache). The harness adds only
  * what the product command does not own: the purity invariant and the
- * round-trip comparison of the original clone against the generated Claude
+ * round-trip comparison of the original clone against each requested target
  * projection.
  */
 export async function runExternalRepo(
@@ -389,27 +392,33 @@ export async function runExternalRepo(
     stages.push({ detail: errorMessage(error), ok: false, stage: "purity" });
   }
 
+  const graph = await loadBuildGraph(clonePath);
   for (const item of imported) {
-    const generatedRoot =
-      item.kind === "plugin"
-        ? join(ISOLATED_OUT_ROOT, "plugins", item.name, "claude")
-        : join(ISOLATED_OUT_ROOT, ".claude", "skills", item.name);
-    const generatedRootPath = resolveOperationalPath(cloneCacheContext, generatedRoot);
-    const originalRoot =
-      item.sourcePath === "." ? clonePath : join(clonePath, item.sourcePath);
-    roundTrips.push({
-      comparison: await compareTrees(
-        originalRoot,
-        generatedRootPath
-      ),
-      generatedRoot,
-      kind: item.kind,
-      name: item.name,
-      originalRoot:
-        relative(clonePath, originalRoot) === ""
-          ? "."
-          : relative(clonePath, originalRoot),
-    });
+    for (const target of targets) {
+      const generatedRoot = item.kind === "plugin"
+        ? join(
+            ISOLATED_OUT_ROOT,
+            pluginTargetRoot(graph.root.outputs.plugins[target], target, item.name)
+          )
+        : join(ISOLATED_OUT_ROOT, graph.root.outputs.skills[target], item.name);
+      const generatedRootPath = resolveOperationalPath(cloneCacheContext, generatedRoot);
+      const originalRoot =
+        item.sourcePath === "." ? clonePath : join(clonePath, item.sourcePath);
+      roundTrips.push({
+        comparison: await compareTrees(
+          originalRoot,
+          generatedRootPath
+        ),
+        generatedRoot,
+        kind: item.kind,
+        name: item.name,
+        originalRoot:
+          relative(clonePath, originalRoot) === ""
+            ? "."
+            : relative(clonePath, originalRoot),
+        target,
+      });
+    }
   }
 
   return {
@@ -462,7 +471,7 @@ export function renderRunReportMarkdown(
   for (const skip of report.survey.skips) {
     lines.push(`- skipped ${skip.surface} \`${skip.path}\`: ${skip.reason}`);
   }
-  lines.push("", "## Round-trip (Claude projection, report-only)", "");
+  lines.push("", "## Round-trip (target projections, report-only)", "");
   if (report.roundTrips.length === 0) {
     lines.push("No imported units to compare.");
   }
@@ -473,7 +482,9 @@ export function renderRunReportMarkdown(
       comparison.different.length +
       comparison.originalOnly.length;
     lines.push(
-      `### ${roundTrip.kind} ${roundTrip.name} (original \`${roundTrip.originalRoot}\` vs generated \`${roundTrip.generatedRoot}\`)`,
+      `### ${roundTrip.kind} ${roundTrip.name} (${roundTrip.target})`,
+      "",
+      `Original \`${roundTrip.originalRoot}\` vs generated \`${roundTrip.generatedRoot}\`.`,
       "",
       `- identical: ${comparison.identical.length}/${total} original files`,
       `- different: ${comparison.different.length}`,
@@ -694,7 +705,7 @@ async function main(): Promise<void> {
     for (const roundTrip of report.roundTrips) {
       const { comparison } = roundTrip;
       console.log(
-        `  round-trip ${roundTrip.kind} ${roundTrip.name}: ${comparison.identical.length} identical, ` +
+        `  round-trip ${roundTrip.kind} ${roundTrip.name} (${roundTrip.target}): ${comparison.identical.length} identical, ` +
           `${comparison.different.length} different, ${comparison.originalOnly.length} original-only, ` +
           `${comparison.generatedOnly.length} generated-only`
       );
