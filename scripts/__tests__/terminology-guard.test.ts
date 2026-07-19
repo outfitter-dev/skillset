@@ -66,6 +66,9 @@ describe("terminology guard", () => {
     expect(isScannablePath("docs/adrs/0001-root-compile-policy.md")).toBe(false);
     expect(isScannablePath(".claude/skills/x/SKILL.md")).toBe(false);
     expect(isScannablePath(".agents/plans/p/PLAN.md")).toBe(false);
+    expect(
+      isScannablePath(".agents/notes/2026-07-18-drift-audit/03-governance-and-docs-lag.md")
+    ).toBe(false);
     expect(isScannablePath(".changeset/x.md")).toBe(false);
     expect(isScannablePath("apps/skillset/CHANGELOG.md")).toBe(false);
     expect(isScannablePath("packages/transforms/src/engine.ts")).toBe(false);
