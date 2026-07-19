@@ -1,4 +1,5 @@
 import { compareStrings } from "./path";
+import { isTargetName } from "./targets";
 import { isJsonRecord } from "./yaml";
 import type {
   AdaptiveHookScope,
@@ -126,7 +127,7 @@ function readHookAttachmentEntry(
 
 function readProviders(value: JsonValue | undefined): readonly TargetName[] | undefined {
   if (!Array.isArray(value)) return undefined;
-  const providers = value.filter((item): item is TargetName => item === "claude" || item === "codex");
+  const providers = value.filter(isTargetName);
   return providers.length === 0 ? undefined : providers;
 }
 
