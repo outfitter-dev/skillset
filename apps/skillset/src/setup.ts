@@ -614,7 +614,7 @@ async function isManagedPluginOutputCandidate(rootPath: string, absolutePath: st
   const relativePath = relative(resolvedOutputRoot, resolvedPath).replaceAll("\\", "/");
   if (relativePath.length === 0) return true;
   const parts = relativePath.split("/");
-  return parts.length >= 2 && (parts[1] === "claude" || parts[1] === "codex");
+  return parts.length >= 2 && isTargetName(parts[1]);
 }
 
 function compareCandidate(left: SetupImportCandidate, right: SetupImportCandidate): number {

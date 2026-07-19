@@ -18,10 +18,10 @@ test("manifest parses, defaults targets to claude, and round-trips through rende
       "    repo: https://github.com/example/demo",
       `    ref: ${SHA}`,
       '    notes: "A demo repo."',
-      "  - name: both-targets",
-      "    repo: https://github.com/example/both",
+      "  - name: all-targets",
+      "    repo: https://github.com/example/all",
       `    ref: ${SHA}`,
-      "    targets: [claude, codex]",
+      "    targets: [claude, codex, cursor]",
       "",
     ].join("\n"),
     "test manifest"
@@ -36,10 +36,10 @@ test("manifest parses, defaults targets to claude, and round-trips through rende
       targets: ["claude"],
     },
     {
-      name: "both-targets",
+      name: "all-targets",
       ref: SHA,
-      repo: "https://github.com/example/both",
-      targets: ["claude", "codex"],
+      repo: "https://github.com/example/all",
+      targets: ["claude", "codex", "cursor"],
     },
   ]);
 
@@ -69,8 +69,8 @@ test("manifest rejects short refs, duplicate names, and unknown targets", () => 
     )
   ).toThrow("duplicate entry name");
   expect(() =>
-    parseExternalManifest(entry(`    ref: ${SHA}\n    targets: [cursor]`), "m")
-  ).toThrow("targets must be claude or codex");
+    parseExternalManifest(entry(`    ref: ${SHA}\n    targets: [future]`), "m")
+  ).toThrow("targets must be claude, codex, or cursor");
   expect(() => parseExternalManifest("repos: {}\n", "m")).toThrow("repos list");
 });
 
@@ -98,7 +98,7 @@ test("compareTrees buckets identical, different, and one-sided files", async () 
 test("runExternalRepo adopts a marketplace-shaped repo in place and reports round-trips", async () => {
   const clone = await gitFixture(marketplaceFiles());
 
-  const report = await runExternalRepo("demo-marketplace", clone, ["claude"]);
+  const report = await runExternalRepo("demo-marketplace", clone, ["claude", "cursor"]);
 
   expect(report.stages.map((stage) => [stage.stage, stage.ok])).toEqual([
     ["init", true],
@@ -140,8 +140,12 @@ test("runExternalRepo adopts a marketplace-shaped repo in place and reports roun
       surface: "commands",
     }),
   ]);
-  expect(report.roundTrips).toHaveLength(1);
-  const roundTrip = report.roundTrips[0];
+  expect(report.roundTrips).toHaveLength(2);
+  expect(report.roundTrips.map((entry) => [entry.target, entry.generatedRoot])).toEqual([
+    ["claude", ".skillset/cache/latest/plugins/demo/claude"],
+    ["cursor", ".skillset/cache/latest/plugins/demo/cursor"],
+  ]);
+  const roundTrip = report.roundTrips.find((entry) => entry.target === "claude");
   expect(roundTrip?.kind).toBe("plugin");
   expect(roundTrip?.name).toBe("demo");
   expect(roundTrip?.originalRoot).toBe("plugins/demo");
@@ -178,7 +182,20 @@ test("runExternalRepo adopts a marketplace-shaped repo in place and reports roun
   expect(markdown).toContain(
     "instructions:AGENTS.md -> .skillset/rules/agents.md"
   );
-  expect(markdown).toContain("### plugin demo");
+  expect(markdown).toContain("## Round-trip (target projections, report-only)");
+  expect(markdown).toContain("### plugin demo (claude)");
+  expect(markdown).toContain("### plugin demo (cursor)");
+});
+
+test("SET-344: runExternalRepo reports a Cursor-only target projection", async () => {
+  const clone = await gitFixture(marketplaceFiles());
+
+  const report = await runExternalRepo("cursor-marketplace", clone, ["cursor"]);
+
+  expect(report.ok).toBe(true);
+  expect(report.roundTrips.map((entry) => [entry.target, entry.generatedRoot])).toEqual([
+    ["cursor", ".skillset/cache/latest/plugins/demo/cursor"],
+  ]);
 });
 
 test("runExternalRepo passes when re-run on the same clone", async () => {
