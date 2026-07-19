@@ -12,6 +12,7 @@ import {
   readBuildScopes,
   readClaudeSettingSources,
   readPositiveInteger,
+  readTargetName,
   readTargetNames,
   resolveCliRoot,
   tokenizeCsv,
@@ -449,11 +450,5 @@ const readHookRunner = (value: string): HookRunner => {
 };
 
 const readHookTarget = (value: string): TargetName => {
-  if (value === "claude" || value === "codex") {
-    return value;
-  }
-  if (value === "cursor") {
-    throw new Error("skillset: hooks print --agent-runtime only supports --target claude or --target codex; Cursor has no documented runtime hook destination");
-  }
-  throw new Error("skillset: expected --target claude or codex");
+  return readTargetName(value);
 };
