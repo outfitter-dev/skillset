@@ -26,14 +26,14 @@ skillset-toolkit runtime context --event Stop --format env --fields provider,hoo
 
 ## Target Rendering
 
-| Source | Claude output | Codex output | Status | Notes |
-| --- | --- | --- | --- | --- |
-| Git hook-runner snippet | n/a | n/a | `implemented` | Prints additive snippets for existing hook runners; does not install. |
-| Agent runtime hook suggestion | reviewed config suggestion | reviewed config suggestion | `implemented` / `target_specific` | Prints project-local suggestions; must not mutate runtime config automatically. |
-| Agent runtime hook execution | `skillset hooks run post-tool-use`, `skillset hooks run stop` | `skillset hooks run post-tool-use`, `skillset hooks run stop` | `implemented` / `target_specific` | Core CLI behavior called by reviewed project-local runtime config. |
-| Runtime context helper | `skillset-toolkit runtime context --event <event> --format env|json` | `skillset-toolkit runtime context --event <event> --format env|json` | `implemented` / `target_specific` | Helper used by generated adaptive hook wrappers for `context.strategy: toolkit`; the shared context model lives in `@skillset/toolkit/runtime`. |
+| Source | Target output | Status | Notes |
+| --- | --- | --- | --- |
+| Git hook-runner snippet | n/a | `implemented` | Prints additive snippets for existing hook runners; does not install. |
+| Agent runtime hook suggestion | Claude/Codex reviewed config suggestion | `implemented` / `target_specific` | Prints project-local suggestions; must not mutate runtime config automatically. |
+| Agent runtime hook execution | `skillset hooks run post-tool-use`, `skillset hooks run stop` | `implemented` / `target_specific` | Core CLI behavior called by reviewed Claude/Codex project-local runtime config. |
+| Runtime context helper | Claude, Codex, and Cursor `skillset-toolkit runtime context --event <event> --format env|json` | `implemented` / `target_specific` | Helper used by generated adaptive hook wrappers for `context.strategy: toolkit`; the shared context model lives in `@skillset/toolkit/runtime`. |
 
-For the normalized runtime context support matrix, use `skillset lookup hooks toolkit --field context.env --values --compat claude,codex` or see [Hooks](hooks.md#runtime-context).
+For the normalized runtime context support matrix, use `skillset lookup hooks toolkit --field context.env --values --compat claude,codex,cursor` or see [Hooks](hooks.md#runtime-context).
 
 ## Diagnostics
 
@@ -53,7 +53,7 @@ Runtime hook execution resolves the Skillset command from the local compiler che
 
 ## Provenance
 
-Hook guardrails do not create source truth. They call Skillset commands that produce diagnostics from source entries, locks, and release state. Runtime context parsing is permissive: Claude-like env, Codex-like env, unknown env, and optional JSON stdin payloads are normalized at the boundary without making source-change safety depend on provider detection.
+Hook guardrails do not create source truth. They call Skillset commands that produce diagnostics from source entries, locks, and release state. Runtime context parsing is permissive: Claude-like env, Codex-like env, Cursor-like env, unknown env, and optional JSON stdin payloads are normalized at the boundary without making source-change safety depend on provider detection.
 
 ## Evidence
 
