@@ -9,6 +9,10 @@ import {
   type SourceAdaptiveHook,
   type SourceHookAttachment,
 } from "@skillset/core";
+import {
+  adaptiveHookIntentIsRenderable,
+  classifyAdaptiveHookIntent,
+} from "../adaptive-hook-classifier";
 import { renderBuildGraph } from "../render";
 import { loadBuildGraph } from "../resolver";
 import { targetNames } from "../targets";
@@ -110,6 +114,15 @@ hooks:
       hook: "shell-policy",
       providers: ["cursor"],
     }));
+    const resolution = resolveAdaptiveHookAttachments(graph.adaptiveHooks, graph.hookAttachments);
+    expect(resolution.issues).toEqual([]);
+    const classification = classifyAdaptiveHookIntent(resolution.resolved[0]!, "cursor", "plugin");
+    expect(classification).toEqual(expect.objectContaining({
+      reason: "Adaptive hook shell-policy is scoped to cursor.",
+      status: "provider-scoped-adaptive",
+      target: "cursor",
+    }));
+    expect(adaptiveHookIntentIsRenderable(classification)).toBe(true);
     const hookOutputs = (await renderBuildGraph(graph))
       .map((file) => file.path)
       .filter((path) => path.endsWith("/hooks/hooks.json"));
