@@ -12,6 +12,7 @@ import {
   startTryRun,
   tailTryRun,
 } from "../try";
+import { runTryCommand } from "../try-cli";
 import { runSkillsetTest } from "../test-runner";
 import { parseCliEventStream } from "../cli-output";
 
@@ -62,6 +63,16 @@ Use this skill to answer fixture questions.
 
   const runs = await listTryRuns(root, { xdg });
   expect(runs.map((run) => run.runId)).toContain(report.runId);
+});
+
+test("ad hoc test target diagnostics use the canonical target list", async () => {
+  await expect(runTryCommand("/tmp", {
+    background: false,
+    json: false,
+    plugins: [],
+    prompt: "Inspect the fixture.",
+    skillsetOptions: {},
+  })).rejects.toThrow("skillset: ad hoc test requires --target claude, codex, or cursor");
 });
 
 test("provider output cannot terminate the retained test event stream", async () => {

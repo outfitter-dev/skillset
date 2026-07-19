@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { isTargetName, targetNames } from "@skillset/core";
+import { isTargetName, TARGET_LIST_TEXT } from "@skillset/core";
 import type {
   BuildScope,
   CompileBuildMode,
@@ -64,13 +64,13 @@ export const readTargetName = (value: string): TargetName => {
   if (isTargetName(value)) {
     return value;
   }
-  throw new Error(`skillset: expected --target ${targetNames().join(", ")}`);
+  throw new Error(`skillset: expected --target ${TARGET_LIST_TEXT}`);
 };
 
 export const readLookupTarget = (value: string): TargetName => {
   if (isTargetName(value)) return value;
   throw new Error(
-    `skillset: unknown lookup compatibility target ${value}; expected ${targetNames().join(", ")}`
+    `skillset: unknown lookup compatibility target ${value}; expected ${TARGET_LIST_TEXT}`
   );
 };
 
@@ -85,7 +85,7 @@ export const readTargetNames = (
   const seen = new Set<TargetName>();
   for (const target of targets) {
     if (!isTargetName(target)) {
-      throw new Error(`skillset: expected ${flag} ${targetNames().join(", ")}`);
+      throw new Error(`skillset: expected ${flag} ${TARGET_LIST_TEXT}`);
     }
     seen.add(target);
   }

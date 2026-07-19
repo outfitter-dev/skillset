@@ -80,7 +80,7 @@ import type {
   StandaloneSkill,
   TargetName,
 } from "./types";
-import { targetNames } from "./targets";
+import { targetDescriptor, targetNames } from "./targets";
 import { pluginVersion, rootVersion, skillVersion, skillVersionLabel } from "./versioning";
 import { isJsonRecord, parseMarkdown, parseYamlRecord, stringifyJson } from "./yaml";
 
@@ -287,9 +287,7 @@ function renderRepositoryReadmes(graph: BuildGraph): readonly RenderedFile[] {
 }
 
 function targetLabel(target: TargetName): string {
-  if (target === "claude") return "Claude";
-  if (target === "codex") return "Codex";
-  return "Cursor";
+  return targetDescriptor(target).displayLabel;
 }
 
 function marketplaceReadmeLines(outputRoot: string, target: TargetName): readonly string[] {
@@ -1222,9 +1220,7 @@ function isTextIslandFile(path: string): boolean {
 function targetProjectRoot(graph: BuildGraph, target: TargetName): string {
   const configured = readString(graph.root.targets[target].options, "projectRoot");
   if (configured !== undefined) return configured;
-  if (target === "claude") return ".claude";
-  if (target === "codex") return ".codex";
-  return ".cursor";
+  return targetDescriptor(target).projectRoot;
 }
 
 async function renderStandaloneSkill(
@@ -2344,9 +2340,7 @@ function adaptiveHookContextAssignment(
 }
 
 function targetSessionIdExpression(target: TargetName): string {
-  if (target === "claude") return "${CLAUDE_SESSION_ID:-}";
-  if (target === "codex") return "${CODEX_SESSION_ID:-}";
-  return "${CURSOR_SESSION_ID:-}";
+  return targetDescriptor(target).generatedSessionIdExpression;
 }
 
 function shellLiteral(value: string): string {

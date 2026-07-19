@@ -67,6 +67,24 @@ describe("SET-303 lifecycle and recovery route parsers", () => {
         CONTEXT
       )
     ).toMatchObject({ changeBump: "patch", changeScopes: ["plugin:demo"] });
+
+    expect(
+      parseChangeCommandRequest(
+        [
+          "change",
+          "add",
+          "--scope",
+          "plugin:demo",
+          "--bump",
+          "patch",
+          "--from",
+          "cursor",
+          "--kind",
+          "skill",
+        ],
+        CONTEXT
+      )
+    ).toMatchObject({ changeBump: "patch", changeScopes: ["plugin:demo"] });
   });
 
   test("change owns subcommands, refs, reasons, scopes, and repeat policy", () => {

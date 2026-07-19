@@ -1,7 +1,7 @@
 import type { ResolvedAdaptiveHookAttachment } from "./adaptive-hook-attachments";
 import { readRecord } from "./config";
 import { canonicalHookEventName, hookProviderCapabilities } from "./hook-capabilities";
-import { targetNames } from "./targets";
+import { targetDescriptor, targetNames } from "./targets";
 import type { AdaptiveHookScope, TargetName } from "./types";
 
 export type AdaptiveHookRenderSurface = "frontmatter" | "plugin";
@@ -232,7 +232,5 @@ function providerListAllows(providers: readonly TargetName[] | undefined, target
 }
 
 function targetLabel(target: TargetName): string {
-  if (target === "claude") return "Claude";
-  if (target === "codex") return "Codex";
-  return "Cursor";
+  return targetDescriptor(target).displayLabel;
 }

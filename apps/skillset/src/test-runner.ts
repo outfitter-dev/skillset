@@ -3,7 +3,15 @@ import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } 
 import { tmpdir } from "node:os";
 
 import { buildSkillset, diffSkillset } from "@skillset/core";
-import { isTargetName, readCompileTargets, readRecord, readString, resolveTargets, targetNames } from "@skillset/core/internal/config";
+import {
+  isTargetName,
+  readCompileTargets,
+  readRecord,
+  readString,
+  resolveTargets,
+  targetDescriptor,
+  targetNames,
+} from "@skillset/core/internal/config";
 import { compareStrings, resolveInside } from "@skillset/core/internal/path";
 import { pluginManifestPath as pluginManifestOutputPath, pluginTargetRoot } from "@skillset/core/internal/plugin-output";
 import {
@@ -1278,7 +1286,7 @@ function activationExpectationCandidatePaths(
     const projectRoot = targetProjectRoot(graph, target);
     return graph.projectAgents
       .filter((agent) => agent.name === expect.name || agent.outputName === expect.name)
-      .map((agent) => join(projectRoot, "agents", `${agent.outputName}.${target === "codex" ? "toml" : "md"}`));
+      .map((agent) => join(projectRoot, "agents", `${agent.outputName}.${targetDescriptor(target).projectAgentExtension}`));
   }
 
   return [
@@ -1295,7 +1303,7 @@ function activationExpectationCandidatePaths(
 
 function targetProjectRoot(graph: BuildGraph, target: TargetName): string {
   return readString(graph.root.targets[target].options, "projectRoot") ??
-    (target === "claude" ? ".claude" : target === "codex" ? ".codex" : ".cursor");
+    targetDescriptor(target).projectRoot;
 }
 
 async function writeActivationProbes(

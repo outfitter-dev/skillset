@@ -1684,6 +1684,10 @@ test("SET-41: hooks print emits target runtime suggestions without installing", 
   expect(codex.stdout).toContain("skillset hooks run post-tool-use");
   expect(codex.stdout).toContain("skillset hooks run stop");
 
+  const cursor = await runSkillsetCli("hooks", "print", "--target", "cursor", "--agent-runtime");
+  expect(cursor.exitCode).toBe(1);
+  expect(cursor.stderr).toContain("only supports --target claude or --target codex");
+
   const invalid = await runSkillsetCli("hooks", "print", "--runner", "git", "--agent-runtime");
   expect(invalid.exitCode).toBe(1);
   expect(invalid.stderr).toContain("cannot be combined");

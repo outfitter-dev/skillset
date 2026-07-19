@@ -235,7 +235,7 @@ describe("SET-302 source and distribution route parsers", () => {
     });
     expect(() =>
       parseNewCommandRequest(["new", "hook", "--provider", "unknown"], CONTEXT)
-    ).toThrow("expected --provider claude, codex, cursor");
+    ).toThrow("expected --provider claude, codex, or cursor");
   });
 
   test("distribution routes own subcommands, names, machine mode, and writes", () => {

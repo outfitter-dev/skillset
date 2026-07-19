@@ -1,9 +1,10 @@
+import { isTargetName, targetNames } from "@skillset/core";
+import type { TargetName } from "@skillset/core/internal/types";
+
 export type ImportKind = "plugin" | "plugins" | "skill" | "skills";
 export type ImportProvider =
   | "agents"
-  | "claude"
-  | "codex"
-  | "cursor"
+  | TargetName
   | "skillset";
 
 export const readImportKind = (value: string): ImportKind => {
@@ -21,16 +22,10 @@ export const readImportKind = (value: string): ImportKind => {
 };
 
 export const readImportProvider = (value: string): ImportProvider => {
-  if (
-    value === "agents" ||
-    value === "claude" ||
-    value === "codex" ||
-    value === "cursor" ||
-    value === "skillset"
-  ) {
+  if (value === "agents" || isTargetName(value) || value === "skillset") {
     return value;
   }
   throw new Error(
-    "skillset: expected --from claude, codex, cursor, agents, or skillset"
+    `skillset: expected --from ${targetNames().join(", ")}, agents, or skillset`
   );
 };

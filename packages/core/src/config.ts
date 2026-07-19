@@ -38,7 +38,13 @@ import {
 } from "./targets";
 import { isJsonRecord } from "./yaml";
 
-export { defaultTargetNames, isTargetName, targetNames, targetRecord } from "./targets";
+export {
+  defaultTargetNames,
+  isTargetName,
+  targetDescriptor,
+  targetNames,
+  targetRecord,
+} from "./targets";
 
 export type FeatureSurface = "agents" | "instructions" | "plugins" | "skills";
 

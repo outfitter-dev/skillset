@@ -153,10 +153,13 @@ export {
   type FeatureRegistryDriftReport,
 } from "./feature-registry-check";
 export {
+  TARGET_LIST_TEXT,
   defaultTargetNames,
   isTargetName,
+  targetDescriptor,
   targetNames,
   targetRecord,
+  type TargetDescriptor,
 } from "./targets";
 export {
   assertNoHostLeaks,
