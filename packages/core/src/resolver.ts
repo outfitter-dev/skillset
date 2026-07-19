@@ -364,16 +364,18 @@ async function loadProjectIslands(
   if (!(await exists(srcPath))) return [];
 
   const islands: SourceIslandFile[] = [];
-  islands.push(...(await loadTargetIsland(rootPath, join(srcPath, PROVIDER_SOURCE_DIRS.claude), "claude")));
-  islands.push(...(await loadTargetIsland(rootPath, join(srcPath, PROVIDER_SOURCE_DIRS.codex), "codex")));
+  for (const target of targetNames()) {
+    islands.push(...(await loadTargetIsland(rootPath, join(srcPath, PROVIDER_SOURCE_DIRS[target]), target)));
+  }
 
   const pluginsPath = join(srcPath, "plugins");
   if (await exists(pluginsPath)) {
     await validatePluginIslandOwners(rootPath, pluginsPath, plugins);
     for (const plugin of plugins) {
       const pluginPath = join(pluginsPath, plugin.id);
-      islands.push(...(await loadTargetIsland(rootPath, join(pluginPath, PROVIDER_SOURCE_DIRS.claude), "claude", plugin.id)));
-      islands.push(...(await loadTargetIsland(rootPath, join(pluginPath, PROVIDER_SOURCE_DIRS.codex), "codex", plugin.id)));
+      for (const target of targetNames()) {
+        islands.push(...(await loadTargetIsland(rootPath, join(pluginPath, PROVIDER_SOURCE_DIRS[target]), target, plugin.id)));
+      }
     }
   }
 

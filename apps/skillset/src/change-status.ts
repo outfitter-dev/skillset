@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readdir, readFile, rename, rm, rmdir, stat, writeFile }
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 
-import { diffSkillset, type SkillsetDiff } from "@skillset/core";
+import { diffSkillset, isTargetName, type SkillsetDiff } from "@skillset/core";
 import { readString } from "@skillset/core/internal/config";
 import { compareStrings, resolveInside } from "@skillset/core/internal/path";
 import { gitSafeEnv } from "./git-env";
@@ -1061,7 +1061,9 @@ function kindForSourceUnitId(id: string): SourceUnitKind {
   if (/^plugin\.[^.]+\.config:/.test(selector)) return "plugin-config";
   if (/^plugin\.[^.]+\.feature:/.test(selector)) return "plugin-feature";
   if (/^plugin\.[^.]+\.skill:/.test(selector)) return "plugin-skill";
-  if (/^(?:plugin\.[^.]+\.)?(?:claude|codex)\.[^.]+:/.test(selector)) return "target-native-island";
+  const projectTarget = selector.match(/^([^.]+)\.[^.]+:/)?.[1];
+  const pluginTarget = selector.match(/^plugin\.[^.]+\.([^.]+)\.[^.]+:/)?.[1];
+  if (isTargetName(projectTarget) || isTargetName(pluginTarget)) return "target-native-island";
   return "root-config";
 }
 

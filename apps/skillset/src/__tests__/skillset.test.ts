@@ -481,6 +481,60 @@ Changed after the generated lock was written.
   expect(status.sourceChanges.map((change) => change.id)).not.toContain("skill:demo");
 });
 
+test("release-state-only Cursor islands retain their source kind", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: cursor-release-state-root
+claude: false
+codex: false
+cursor: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+  });
+
+  await buildSkillset(root);
+  await commitFixture(root);
+  await writeReleaseState(
+    root,
+    {
+      scopes: {
+        "cursor.native:removed.txt": {
+          sourceHash: `sha256:${"a".repeat(64)}`,
+          version: "1.0.0",
+        },
+        "plugin.alpha.cursor.native:removed.txt": {
+          sourceHash: `sha256:${"b".repeat(64)}`,
+          version: "1.0.0",
+        },
+      },
+    },
+    { sourceDir: ".skillset" }
+  );
+
+  const status = await changeStatus(root);
+
+  expect(
+    status.sourceChanges
+      .filter((change) => change.id.includes("cursor.native"))
+      .map(({ id, kind, status: changeStatus }) => ({ id, kind, status: changeStatus }))
+  ).toEqual([
+    {
+      id: "cursor.native:removed.txt",
+      kind: "target-native-island",
+      status: "removed",
+    },
+    {
+      id: "plugin.alpha.cursor.native:removed.txt",
+      kind: "target-native-island",
+      status: "removed",
+    },
+  ]);
+});
+
 test("dedicated 1.0 release baseline seeding writes to .skillset/changes/state.json", async () => {
   const root = await fixture({
     "skillset.yaml": `
@@ -2882,6 +2936,8 @@ claude:
   projectRoot: project-claude
 codex:
   projectRoot: project-codex
+cursor:
+  projectRoot: project-cursor
 `,
     ".skillset/_codex/rules/deny.rules": `
 match = "rm -rf"
@@ -2898,6 +2954,9 @@ description: Reviews code.
 
 Use {{this.description}}.
 `,
+    ".skillset/_cursor/native.txt": `
+cursor only
+`,
     ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
   name: alpha
@@ -2913,11 +2972,15 @@ skillset:
   expect(await readFile(join(root, "project-claude/agents/reviewer.md"), "utf8")).toContain(
     "Use Reviews code."
   );
+  expect(await readFile(join(root, "project-cursor/native.txt"), "utf8")).toContain("cursor only");
   expect(await exists(join(root, "project-codex/agents/reviewer.md"))).toBe(false);
   expect(await exists(join(root, "project-claude/rules/deny.rules"))).toBe(false);
+  expect(await exists(join(root, "project-claude/native.txt"))).toBe(false);
+  expect(await exists(join(root, "project-codex/native.txt"))).toBe(false);
   const codexLock = await readFile(join(root, "skillset.lock"), "utf8");
   expect(codexLock).toContain(`"kind": "island"`);
   expect(codexLock).toContain(`"outputPath": "project-codex/rules/deny.rules"`);
+  expect(codexLock).toContain(`"outputPath": "project-cursor/native.txt"`);
 });
 
 test("target-native islands reject frontmatter target escapes", async () => {
@@ -2927,10 +2990,11 @@ skillset:
   name: test-root
 claude: true
 codex: false
+cursor: true
 `,
-    ".skillset/_claude/agents/bad.md": `
+    ".skillset/_cursor/agents/bad.md": `
 ---
-codex: true
+claude: true
 ---
 
 Bad.
@@ -3106,6 +3170,7 @@ skillset:
   name: test-root
 claude: true
 codex: true
+cursor: true
 `,
     ".skillset/plugins/alpha/skillset.yaml": `
 skillset:
@@ -3117,6 +3182,9 @@ skillset:
     ".skillset/plugins/alpha/_codex/config.json": `
 {"codex": true}
 `,
+    ".skillset/plugins/alpha/_cursor/native.txt": `
+cursor plugin only
+`,
   });
 
   await buildSkillset(root);
@@ -3125,6 +3193,9 @@ skillset:
   expect(await exists(join(root, "plugins/alpha/codex/commands/review.md"))).toBe(false);
   expect(await exists(join(root, "plugins/alpha/codex/config.json"))).toBe(true);
   expect(await exists(join(root, "plugins/alpha/claude/config.json"))).toBe(false);
+  expect(await readFile(join(root, "plugins/alpha/cursor/native.txt"), "utf8")).toContain("cursor plugin only");
+  expect(await exists(join(root, "plugins/alpha/claude/native.txt"))).toBe(false);
+  expect(await exists(join(root, "plugins/alpha/codex/native.txt"))).toBe(false);
 });
 
 test("plugin-local provider source requires a plugin manifest", async () => {
