@@ -4,7 +4,6 @@ import { basename, dirname, join, relative, sep } from "node:path";
 import {
   validateAgentFrontmatter,
   validateAdaptiveHookUnitSource,
-  validateHookAttachmentsSource,
   validateInstructionFrontmatter,
   validateSkillFrontmatter,
   type SkillsetSchemaDiagnostic,
@@ -862,16 +861,7 @@ async function loadPlugin(
   let inheritedTargets: BuildGraph["root"]["targets"];
   let targets: SourcePlugin["targets"];
   try {
-    validateConfigDocument(config, configPath, { allowHooks: true, featureKeys: PLUGIN_FEATURE_KEYS });
-    const hookAttachmentDiagnostics = validateHookAttachmentsSource(
-      config.hooks,
-      `${configRelativePath}.hooks`
-    ).diagnostics;
-    if (hookAttachmentDiagnostics.length > 0) {
-      throw new Error(
-        `skillset: plugin ${configRelativePath} hook attachments failed schema validation: ${hookAttachmentDiagnostics.map((diagnostic) => diagnostic.message).join("; ")}`
-      );
-    }
+    validateConfigDocument(config, configPath, { allowHooks: true });
     await validateSupports(config.supports, { label: configRelativePath, rootPath, warnings });
     dependencies = readPluginDependencies(config.dependencies, configRelativePath);
     metadata = readSkillsetMetadata(config, configPath);

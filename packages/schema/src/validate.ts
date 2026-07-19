@@ -3,12 +3,15 @@ import {
   CLI_EVENT_SCHEMA_VERSION,
   CLI_RESULT_SCHEMA_VERSION,
   COMPILE_BUILD_MODES,
+  PLUGIN_CONFIG_KEYS,
+  ROOT_SOURCE_MANIFEST_KEYS,
+  SINGLE_FILE_ROOT_CONFIG_KEYS,
+  SPLIT_WORKSPACE_CONFIG_KEYS,
   SOURCE_LICENSE_IDS,
   SOURCE_LICENSE_NONE,
   SOURCE_METADATA_KEYS,
   TARGET_NAMES,
   UNSUPPORTED_DESTINATION_POLICIES,
-  WORKSPACE_CONFIG_KEYS,
 } from "./contracts";
 import { isSchemaRecord } from "./json";
 import type {
@@ -20,7 +23,10 @@ import type {
 
 type KeySet = ReadonlySet<string>;
 
-const workspaceKeys = new Set<string>(WORKSPACE_CONFIG_KEYS);
+const singleFileRootConfigKeys = new Set<string>(SINGLE_FILE_ROOT_CONFIG_KEYS);
+const splitWorkspaceConfigKeys = new Set<string>(SPLIT_WORKSPACE_CONFIG_KEYS);
+const rootSourceManifestKeys = new Set<string>(ROOT_SOURCE_MANIFEST_KEYS);
+const pluginConfigKeys = new Set<string>(PLUGIN_CONFIG_KEYS);
 const sourceMetadataKeys = new Set<string>(SOURCE_METADATA_KEYS);
 const agentFrontmatterKeys = new Set<string>(AGENT_FRONTMATTER_KEYS);
 const targetNames = new Set<string>(TARGET_NAMES);
@@ -91,22 +97,108 @@ function checkCliChange(value: SchemaJsonValue, path: string, diagnostics: Skill
 }
 
 export function validateWorkspaceConfig(value: unknown, path = "$"): SkillsetSchemaValidationResult {
-  const diagnostics: SkillsetSchemaDiagnostic[] = [];
-  if (!isSchemaRecord(value)) return result([diagnostic(path, "schema/workspace-config/type", "workspace config must be an object")]);
+  return validateConfigContext(value, path, {
+    code: "workspace-config",
+    keys: singleFileRootConfigKeys,
+    label: "workspace config",
+    supportsCompile: true,
+    supportsHooks: false,
+    supportsMarketplaces: true,
+    supportsSourceMetadata: true,
+    supportsWorkspace: true,
+  });
+}
 
-  checkAllowedKeys(value, workspaceKeys, path, "schema/workspace-config/key", diagnostics);
+/** Validates a root `skillset.yaml` that combines workspace and source metadata. */
+export function validateSingleFileRootConfig(value: unknown, path = "$"): SkillsetSchemaValidationResult {
+  return validateConfigContext(value, path, {
+    code: "single-file-root-config",
+    keys: singleFileRootConfigKeys,
+    label: "single-file root config",
+    supportsCompile: true,
+    supportsHooks: false,
+    supportsMarketplaces: true,
+    supportsSourceMetadata: true,
+    supportsWorkspace: true,
+  });
+}
+
+/** Validates split-layout `.skillset/config.yaml` workspace configuration. */
+export function validateSplitWorkspaceConfig(value: unknown, path = "$"): SkillsetSchemaValidationResult {
+  return validateConfigContext(value, path, {
+    code: "split-workspace-config",
+    keys: splitWorkspaceConfigKeys,
+    label: "split workspace config",
+    supportsCompile: true,
+    supportsHooks: false,
+    supportsMarketplaces: true,
+    supportsSourceMetadata: false,
+    supportsWorkspace: true,
+  });
+}
+
+/** Validates split-layout root `.skillset/skillset.yaml` source metadata. */
+export function validateRootSourceManifest(value: unknown, path = "$"): SkillsetSchemaValidationResult {
+  const diagnostics: SkillsetSchemaDiagnostic[] = [];
+  if (!isSchemaRecord(value)) return result([diagnostic(path, "schema/root-source-manifest/type", "root source manifest must be an object")]);
+
+  checkAllowedKeys(value, rootSourceManifestKeys, path, "schema/root-source-manifest/key", diagnostics);
   if (value.targets !== undefined) {
-    diagnostics.push(diagnostic(`${path}.targets`, "schema/workspace-config/targets", "workspace config must use compile.targets instead of targets"));
+    diagnostics.push(diagnostic(`${path}.targets`, "schema/root-source-manifest/targets", "root source manifest must use compile.targets in the split workspace config instead of targets"));
   }
-  checkTargetBlock(value.claude, `${path}.claude`, "schema/workspace-config/target", diagnostics);
-  checkTargetBlock(value.codex, `${path}.codex`, "schema/workspace-config/target", diagnostics);
-  checkTargetBlock(value.cursor, `${path}.cursor`, "schema/workspace-config/target", diagnostics);
-  checkCompile(value.compile, `${path}.compile`, diagnostics);
-  checkDependencies(value.dependencies, `${path}.dependencies`, "schema/workspace-config/dependencies", diagnostics);
-  checkMarketplaceCatalogs(value.marketplaces, `${path}.marketplaces`, diagnostics);
-  checkWorkspace(value.workspace, `${path}.workspace`, diagnostics);
+  checkDependencies(value.dependencies, `${path}.dependencies`, "schema/root-source-manifest/dependencies", diagnostics);
   checkSourceMetadata(value.skillset, `${path}.skillset`, diagnostics);
   checkSupports(value.supports, `${path}.supports`, diagnostics);
+  return result(diagnostics);
+}
+
+/** Validates a plugin `skillset.yaml` manifest. */
+export function validatePluginConfig(value: unknown, path = "$"): SkillsetSchemaValidationResult {
+  return validateConfigContext(value, path, {
+    code: "plugin-config",
+    keys: pluginConfigKeys,
+    label: "plugin config",
+    supportsCompile: false,
+    supportsHooks: true,
+    supportsMarketplaces: false,
+    supportsSourceMetadata: true,
+    supportsWorkspace: false,
+  });
+}
+
+interface ConfigValidationContext {
+  readonly code: string;
+  readonly keys: ReadonlySet<string>;
+  readonly label: string;
+  readonly supportsCompile: boolean;
+  readonly supportsHooks: boolean;
+  readonly supportsMarketplaces: boolean;
+  readonly supportsSourceMetadata: boolean;
+  readonly supportsWorkspace: boolean;
+}
+
+function validateConfigContext(
+  value: unknown,
+  path: string,
+  context: ConfigValidationContext
+): SkillsetSchemaValidationResult {
+  const diagnostics: SkillsetSchemaDiagnostic[] = [];
+  if (!isSchemaRecord(value)) return result([diagnostic(path, `schema/${context.code}/type`, `${context.label} must be an object`)]);
+
+  checkAllowedKeys(value, context.keys, path, `schema/${context.code}/key`, diagnostics);
+  if (value.targets !== undefined) {
+    diagnostics.push(diagnostic(`${path}.targets`, `schema/${context.code}/targets`, `${context.label} must use compile.targets instead of targets`));
+  }
+  checkTargetBlock(value.claude, `${path}.claude`, `schema/${context.code}/target`, diagnostics);
+  checkTargetBlock(value.codex, `${path}.codex`, `schema/${context.code}/target`, diagnostics);
+  checkTargetBlock(value.cursor, `${path}.cursor`, `schema/${context.code}/target`, diagnostics);
+  if (context.supportsCompile) checkCompile(value.compile, `${path}.compile`, diagnostics, `schema/${context.code}`);
+  checkDependencies(value.dependencies, `${path}.dependencies`, `schema/${context.code}/dependencies`, diagnostics);
+  if (context.supportsMarketplaces) checkMarketplaceCatalogs(value.marketplaces, `${path}.marketplaces`, diagnostics);
+  if (context.supportsWorkspace) checkWorkspace(value.workspace, `${path}.workspace`, diagnostics);
+  if (context.supportsSourceMetadata) checkSourceMetadata(value.skillset, `${path}.skillset`, diagnostics);
+  checkSupports(value.supports, `${path}.supports`, diagnostics);
+  if (context.supportsHooks) diagnostics.push(...validateHookAttachmentsSource(value.hooks, `${path}.hooks`).diagnostics);
   return result(diagnostics);
 }
 
@@ -468,36 +560,47 @@ function checkRetiredTargetsKey(
   if (value.targets !== undefined) diagnostics.push(diagnostic(`${path}.targets`, code, "unsupported key targets"));
 }
 
-function checkCompile(value: SchemaJsonValue | undefined, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+function checkCompile(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  diagnostics: SkillsetSchemaDiagnostic[],
+  codePrefix = "schema/workspace-config"
+): void {
   if (value === undefined) return;
   if (!isSchemaRecord(value)) {
-    diagnostics.push(diagnostic(path, "schema/workspace-config/compile", "compile must be an object"));
+    diagnostics.push(diagnostic(path, `${codePrefix}/compile`, "compile must be an object"));
     return;
   }
-  checkAllowedKeys(value, new Set(["build", "features", "skillset", "targets", "unsupportedDestination"]), path, "schema/workspace-config/compile-key", diagnostics);
+  checkAllowedKeys(value, new Set(["build", "features", "skillset", "targets", "unsupportedDestination"]), path, `${codePrefix}/compile-key`, diagnostics);
   if (value.build !== undefined && (typeof value.build !== "string" || !compileBuildModes.has(value.build))) {
-    diagnostics.push(diagnostic(`${path}.build`, "schema/workspace-config/compile-build", "compile.build must be all or updated"));
+    diagnostics.push(diagnostic(`${path}.build`, `${codePrefix}/compile-build`, "compile.build must be all or updated"));
   }
   if (value.unsupportedDestination !== undefined && (typeof value.unsupportedDestination !== "string" || !unsupportedDestinationPolicies.has(value.unsupportedDestination))) {
-    diagnostics.push(diagnostic(`${path}.unsupportedDestination`, "schema/workspace-config/unsupported-destination", "compile.unsupportedDestination must be one of error, warn, skip, force"));
+    diagnostics.push(diagnostic(`${path}.unsupportedDestination`, `${codePrefix}/unsupported-destination`, "compile.unsupportedDestination must be one of error, warn, skip, force"));
   }
-  if (value.targets !== undefined) checkTargets(value.targets, `${path}.targets`, diagnostics);
-  checkBooleanRecord(value.features, `${path}.features`, new Set(["promptArguments"]), diagnostics);
-  checkBooleanRecord(value.skillset, `${path}.skillset`, new Set(["metadata"]), diagnostics);
+  if (value.targets !== undefined) checkTargets(value.targets, `${path}.targets`, diagnostics, "compile.targets", codePrefix);
+  checkBooleanRecord(value.features, `${path}.features`, new Set(["promptArguments"]), diagnostics, codePrefix);
+  checkBooleanRecord(value.skillset, `${path}.skillset`, new Set(["metadata"]), diagnostics, codePrefix);
 }
 
-function checkTargets(value: SchemaJsonValue, path: string, diagnostics: SkillsetSchemaDiagnostic[], label = "compile.targets"): void {
+function checkTargets(
+  value: SchemaJsonValue,
+  path: string,
+  diagnostics: SkillsetSchemaDiagnostic[],
+  label = "compile.targets",
+  codePrefix = "schema/workspace-config"
+): void {
   if (!Array.isArray(value) || value.length === 0) {
-    diagnostics.push(diagnostic(path, "schema/workspace-config/targets", `${label} must be a non-empty array`));
+    diagnostics.push(diagnostic(path, `${codePrefix}/targets`, `${label} must be a non-empty array`));
     return;
   }
   const seen = new Set<string>();
   for (const [index, item] of value.entries()) {
     if (typeof item !== "string" || !targetNames.has(item)) {
-      diagnostics.push(diagnostic(`${path}[${index}]`, "schema/workspace-config/target", `${label} entries must be ${targetListText}`));
+      diagnostics.push(diagnostic(`${path}[${index}]`, `${codePrefix}/target`, `${label} entries must be ${targetListText}`));
       continue;
     }
-    if (seen.has(item)) diagnostics.push(diagnostic(`${path}[${index}]`, "schema/workspace-config/target-duplicate", `duplicate target ${item}`));
+    if (seen.has(item)) diagnostics.push(diagnostic(`${path}[${index}]`, `${codePrefix}/target-duplicate`, `duplicate target ${item}`));
     seen.add(item);
   }
 }
@@ -1267,15 +1370,21 @@ function isStringArray(value: SchemaJsonValue): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string" && item.trim().length > 0);
 }
 
-function checkBooleanRecord(value: SchemaJsonValue | undefined, path: string, allowedKeys: KeySet, diagnostics: SkillsetSchemaDiagnostic[]): void {
+function checkBooleanRecord(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  allowedKeys: KeySet,
+  diagnostics: SkillsetSchemaDiagnostic[],
+  codePrefix = "schema/workspace-config"
+): void {
   if (value === undefined) return;
   if (!isSchemaRecord(value)) {
-    diagnostics.push(diagnostic(path, "schema/workspace-config/boolean-record", `${path} must be an object`));
+    diagnostics.push(diagnostic(path, `${codePrefix}/boolean-record`, `${path} must be an object`));
     return;
   }
-  checkAllowedKeys(value, allowedKeys, path, "schema/workspace-config/boolean-record-key", diagnostics);
+  checkAllowedKeys(value, allowedKeys, path, `${codePrefix}/boolean-record-key`, diagnostics);
   for (const [key, item] of Object.entries(value)) {
-    if (item !== undefined && typeof item !== "boolean") diagnostics.push(diagnostic(`${path}.${key}`, "schema/workspace-config/boolean-record-value", `${path}.${key} must be a boolean`));
+    if (item !== undefined && typeof item !== "boolean") diagnostics.push(diagnostic(`${path}.${key}`, `${codePrefix}/boolean-record-value`, `${path}.${key} must be a boolean`));
   }
 }
 

@@ -1,8 +1,16 @@
 import {
   COMPILE_BUILD_MODES as SCHEMA_COMPILE_BUILD_MODES,
-  validateSourceMetadata,
-  validateWorkspaceConfig,
+  PLUGIN_CONFIG_KEYS as SCHEMA_PLUGIN_CONFIG_KEYS,
+  ROOT_SOURCE_MANIFEST_KEYS as SCHEMA_ROOT_SOURCE_MANIFEST_KEYS,
+  SINGLE_FILE_ROOT_CONFIG_KEYS as SCHEMA_SINGLE_FILE_ROOT_CONFIG_KEYS,
+  SPLIT_WORKSPACE_CONFIG_KEYS as SCHEMA_SPLIT_WORKSPACE_CONFIG_KEYS,
+  UNSUPPORTED_DESTINATION_POLICIES as SCHEMA_UNSUPPORTED_DESTINATION_POLICIES,
+  validatePluginConfig,
+  validateRootSourceManifest,
+  validateSingleFileRootConfig,
+  validateSplitWorkspaceConfig,
   type SkillsetSchemaDiagnostic,
+  type SkillsetSchemaValidationResult,
 } from "@skillset/schema";
 
 import type {
@@ -49,18 +57,17 @@ export {
 export type FeatureSurface = "agents" | "instructions" | "plugins" | "skills";
 
 const DEFAULT_SURFACES = new Set<FeatureSurface>(["agents", "instructions", "plugins", "skills"]);
-const CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "changes", "claude", "codex", "cursor", "defaults", "dependencies", "skillset", "supports"]);
-const PLUGIN_CONFIG_TOP_LEVEL_KEYS = new Set([...CONFIG_TOP_LEVEL_KEYS, "hooks"]);
-const ROOT_CONFIG_TOP_LEVEL_KEYS = new Set([...CONFIG_TOP_LEVEL_KEYS, "compile", "distributions", "marketplaces", "workspace"]);
-const WORKSPACE_CONFIG_TOP_LEVEL_KEYS = new Set(["agents", "changes", "claude", "codex", "cursor", "compile", "defaults", "dependencies", "distributions", "marketplaces", "workspace"]);
-const ROOT_SOURCE_MANIFEST_TOP_LEVEL_KEYS = new Set(["dependencies", "skillset", "supports"]);
+const BASE_CONFIG_TOP_LEVEL_KEYS = new Set<string>(
+  SCHEMA_PLUGIN_CONFIG_KEYS.filter((key) => key !== "bin" && key !== "hooks" && key !== "mcp")
+);
+const PLUGIN_CONFIG_TOP_LEVEL_KEYS = new Set<string>(SCHEMA_PLUGIN_CONFIG_KEYS);
+const ROOT_CONFIG_TOP_LEVEL_KEYS = new Set<string>(SCHEMA_SINGLE_FILE_ROOT_CONFIG_KEYS);
+const WORKSPACE_CONFIG_TOP_LEVEL_KEYS = new Set<string>(SCHEMA_SPLIT_WORKSPACE_CONFIG_KEYS);
+const ROOT_SOURCE_MANIFEST_TOP_LEVEL_KEYS = new Set<string>(SCHEMA_ROOT_SOURCE_MANIFEST_KEYS);
 const COMPILE_BUILD_MODES = new Set<CompileBuildMode>(SCHEMA_COMPILE_BUILD_MODES as readonly CompileBuildMode[]);
-const UNSUPPORTED_DESTINATION_POLICIES = new Set<UnsupportedDestinationPolicy>([
-  "error",
-  "warn",
-  "skip",
-  "force",
-]);
+const UNSUPPORTED_DESTINATION_POLICIES = new Set<UnsupportedDestinationPolicy>(
+  SCHEMA_UNSUPPORTED_DESTINATION_POLICIES as readonly UnsupportedDestinationPolicy[]
+);
 const DISTRIBUTION_RUNTIME_TARGETS: Readonly<Record<TargetName, readonly SkillsetRuntimeId[]>> = {
   claude: ["claude-code"],
   codex: ["codex-app", "codex-cli"],
@@ -325,39 +332,25 @@ export function readMarketplaceCatalogConfig(
 export function validateConfigDocument(
   record: JsonRecord,
   label: string,
-  options: { readonly allowCompile?: boolean; readonly allowHooks?: boolean; readonly featureKeys?: readonly string[] } = {}
+  options: { readonly allowCompile?: boolean; readonly allowHooks?: boolean } = {}
 ): void {
-  const supportedKeys = options.allowCompile === true
-    ? ROOT_CONFIG_TOP_LEVEL_KEYS
-    : options.allowHooks === true
-      ? PLUGIN_CONFIG_TOP_LEVEL_KEYS
-      : CONFIG_TOP_LEVEL_KEYS;
-  const featureKeys = new Set(options.featureKeys ?? []);
   if (options.allowCompile === true) {
-    validateWorkspaceSchemaDocument(record, label, supportedKeys, "top-level");
+    validateWorkspaceSchemaDocument(record, label, ROOT_CONFIG_TOP_LEVEL_KEYS, validateSingleFileRootConfig, "top-level");
     return;
   }
-  rejectTargetsKey(record, label);
-  for (const key of Object.keys(record)) {
-    if (!supportedKeys.has(key) && !featureKeys.has(key)) {
-      throw new Error(`skillset: unsupported top-level key ${key} in ${label}`);
-    }
+  if (options.allowHooks === true) {
+    validateWorkspaceSchemaDocument(record, label, PLUGIN_CONFIG_TOP_LEVEL_KEYS, validatePluginConfig, "top-level");
+    return;
   }
-  validateSourceMetadataDocument(record.skillset, label);
+  validateWorkspaceSchemaDocument(record, label, BASE_CONFIG_TOP_LEVEL_KEYS, validateSingleFileRootConfig, "top-level");
 }
 
 export function validateWorkspaceConfigDocument(record: JsonRecord, label: string): void {
-  validateWorkspaceSchemaDocument(record, label, WORKSPACE_CONFIG_TOP_LEVEL_KEYS, "workspace");
+  validateWorkspaceSchemaDocument(record, label, WORKSPACE_CONFIG_TOP_LEVEL_KEYS, validateSplitWorkspaceConfig, "workspace");
 }
 
 export function validateRootSourceManifestDocument(record: JsonRecord, label: string): void {
-  rejectTargetsKey(record, label);
-  for (const key of Object.keys(record)) {
-    if (!ROOT_SOURCE_MANIFEST_TOP_LEVEL_KEYS.has(key)) {
-      throw new Error(`skillset: unsupported root source manifest key ${key} in ${label}`);
-    }
-  }
-  validateSourceMetadataDocument(record.skillset, label);
+  validateWorkspaceSchemaDocument(record, label, ROOT_SOURCE_MANIFEST_TOP_LEVEL_KEYS, validateRootSourceManifest, "root-source-manifest");
 }
 
 export function resolveTargets(
@@ -514,7 +507,8 @@ function validateWorkspaceSchemaDocument(
   record: JsonRecord,
   label: string,
   supportedKeys: ReadonlySet<string>,
-  keyMessageKind: "top-level" | "workspace"
+  validator: (value: unknown, path?: string) => SkillsetSchemaValidationResult,
+  keyMessageKind: "top-level" | "workspace" | "root-source-manifest"
 ): void {
   const messages: string[] = [];
   for (const key of Object.keys(record)) {
@@ -525,8 +519,8 @@ function validateWorkspaceSchemaDocument(
     }
   }
 
-  for (const diagnostic of validateWorkspaceConfig(record, "$").diagnostics) {
-    if (diagnostic.code === "schema/workspace-config/unsupported-destination") continue;
+  for (const diagnostic of validator(record, "$").diagnostics) {
+    if (diagnostic.code.endsWith("/unsupported-destination")) continue;
     if (shouldDeferSourceMetadataDiagnostic(diagnostic)) continue;
     const topLevelKey = schemaTopLevelKey(diagnostic.path);
     if (topLevelKey !== undefined && !supportedKeys.has(topLevelKey)) {
@@ -543,11 +537,12 @@ function validateWorkspaceSchemaDocument(
 function unsupportedWorkspaceKeyMessage(
   key: string,
   label: string,
-  kind: "top-level" | "workspace"
+  kind: "top-level" | "workspace" | "root-source-manifest"
 ): string {
   if (kind === "workspace") {
     return `unsupported workspace config key ${key} in ${label}; move source identity and compatibility metadata to the workspace manifest`;
   }
+  if (kind === "root-source-manifest") return `unsupported root source manifest key ${key} in ${label}`;
   return `unsupported top-level key ${key} in ${label}`;
 }
 
@@ -555,11 +550,15 @@ function workspaceSchemaMessage(
   diagnostic: SkillsetSchemaDiagnostic,
   record: JsonRecord,
   label: string,
-  keyMessageKind: "top-level" | "workspace"
+  keyMessageKind: "top-level" | "workspace" | "root-source-manifest"
 ): string {
   const path = schemaPathToLabel(diagnostic.path, label);
   const key = diagnostic.path.split(".").at(-1) ?? "";
-  switch (diagnostic.code) {
+  const normalizedCode = diagnostic.code.replace(
+    /^schema\/(?:single-file-root-config|split-workspace-config)\//,
+    "schema/workspace-config/"
+  );
+  switch (normalizedCode) {
     case "schema/workspace-config/key":
       if (key === "targets") return `${label} uses unsupported targets key; use compile.targets`;
       return unsupportedWorkspaceKeyMessage(key, label, keyMessageKind);
@@ -619,28 +618,6 @@ function workspaceCompileBuildMessage(record: JsonRecord, label: string): string
   const value = isJsonRecord(compile) ? compile.build : undefined;
   if (typeof value !== "string") return `expected ${label}.compile.build to be one of: updated, all`;
   return `unsupported ${label}.compile.build ${JSON.stringify(value)}; expected one of: updated, all`;
-}
-
-function validateSourceMetadataDocument(value: JsonValue | undefined, label: string): void {
-  const diagnostics = validateSourceMetadata(value, "$.skillset").diagnostics.filter(
-    (diagnostic) => !shouldDeferSourceMetadataDiagnostic(diagnostic)
-  );
-  if (diagnostics.length === 0) return;
-  throw new Error(
-    `skillset: ${diagnostics.map((diagnostic) => sourceMetadataSchemaMessage(diagnostic, label)).join("; ")}`
-  );
-}
-
-function sourceMetadataSchemaMessage(diagnostic: SkillsetSchemaDiagnostic, label: string): string {
-  if (diagnostic.code === "schema/source-metadata/type") {
-    return `expected ${label}.skillset to be an object`;
-  }
-  if (diagnostic.code === "schema/source-metadata/key") {
-    const key = diagnostic.path.split(".").at(-1) ?? "";
-    if (key === "id") return `${label}.skillset uses unsupported skillset.id; use skillset.name`;
-    return `unsupported source metadata key ${key} in ${label}.skillset`;
-  }
-  return diagnostic.message.replaceAll("$.", `${label}.`).replaceAll("$", label);
 }
 
 function shouldDeferSourceMetadataDiagnostic(diagnostic: SkillsetSchemaDiagnostic): boolean {

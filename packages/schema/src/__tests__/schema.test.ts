@@ -8,6 +8,10 @@ import {
   deriveSkillsetExampleArtifacts,
   deriveSkillsetJsonSchemaArtifacts,
   instructionFrontmatterContract,
+  PLUGIN_CONFIG_KEYS,
+  ROOT_SOURCE_MANIFEST_KEYS,
+  SINGLE_FILE_ROOT_CONFIG_KEYS,
+  SPLIT_WORKSPACE_CONFIG_KEYS,
   skillFrontmatterContract,
   skillsetSchemaContracts,
   sourceMetadataContract,
@@ -17,8 +21,12 @@ import {
   validateHookDefinitionSource,
   validateHookAttachmentsSource,
   validateInstructionFrontmatter,
+  validatePluginConfig,
+  validateRootSourceManifest,
   validateSkillFrontmatter,
+  validateSingleFileRootConfig,
   validateSourceMetadata,
+  validateSplitWorkspaceConfig,
   validateTestDeclaration,
   validateWorkspaceConfig,
   workspaceConfigContract,
@@ -326,6 +334,45 @@ describe("@skillset/schema contracts", () => {
     });
 
     expect(valid).toEqual({ diagnostics: [], ok: true });
+  });
+
+  it("owns distinct root, split workspace, source manifest, and plugin key contracts", () => {
+    expect(SINGLE_FILE_ROOT_CONFIG_KEYS).toEqual([
+      "agents", "changes", "claude", "codex", "cursor", "defaults", "dependencies",
+      "skillset", "supports", "compile", "distributions", "marketplaces", "workspace",
+    ]);
+    expect(SPLIT_WORKSPACE_CONFIG_KEYS).toEqual([
+      "agents", "changes", "claude", "codex", "cursor", "compile", "defaults",
+      "dependencies", "distributions", "marketplaces", "workspace",
+    ]);
+    expect(ROOT_SOURCE_MANIFEST_KEYS).toEqual(["dependencies", "skillset", "supports"]);
+    expect(PLUGIN_CONFIG_KEYS).toEqual([
+      "agents", "changes", "claude", "codex", "cursor", "defaults", "dependencies",
+      "skillset", "supports", "bin", "hooks", "mcp",
+    ]);
+
+    expect(validateSingleFileRootConfig({
+      compile: { targets: ["cursor"] },
+      skillset: { name: "root" },
+      supports: ["bun >=1.0.0"],
+    }).diagnostics).toEqual([]);
+    expect(validateSplitWorkspaceConfig({ skillset: { name: "wrong-context" } }).diagnostics).toContainEqual({
+      code: "schema/split-workspace-config/key",
+      message: "unsupported key skillset",
+      path: "$.skillset",
+    });
+    expect(validateRootSourceManifest({ skillset: { name: "root" }, supports: [] }).diagnostics).toEqual([]);
+    expect(validateRootSourceManifest({ compile: { targets: ["claude"] } }).diagnostics).toContainEqual({
+      code: "schema/root-source-manifest/key",
+      message: "unsupported key compile",
+      path: "$.compile",
+    });
+    expect(validatePluginConfig({ bin: true, hooks: { Stop: ["shell-policy"] }, mcp: true, skillset: { name: "demo" } }).diagnostics).toEqual([]);
+    expect(validatePluginConfig({ compile: {} }).diagnostics).toContainEqual({
+      code: "schema/plugin-config/key",
+      message: "unsupported key compile",
+      path: "$.compile",
+    });
   });
 
   it("validates declared runtime test structure", () => {
