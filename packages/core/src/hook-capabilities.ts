@@ -71,35 +71,11 @@ const CLAUDE_HOOK_EVIDENCE = getProviderHookEvidence("claude");
 const CODEX_HOOK_EVIDENCE = getProviderHookEvidence("codex");
 const CURSOR_HOOK_EVIDENCE = getProviderHookEvidence("cursor");
 
-const CURSOR_NATIVE_EVENT_BY_CANONICAL: Readonly<Record<string, string>> = {
-  AfterAgentResponse: "afterAgentResponse",
-  AfterAgentThought: "afterAgentThought",
-  AfterFileEdit: "afterFileEdit",
-  AfterMCPExecution: "afterMCPExecution",
-  AfterShellExecution: "afterShellExecution",
-  AfterTabFileEdit: "afterTabFileEdit",
-  BeforeMCPExecution: "beforeMCPExecution",
-  BeforeReadFile: "beforeReadFile",
-  BeforeShellExecution: "beforeShellExecution",
-  BeforeSubmitPrompt: "beforeSubmitPrompt",
-  BeforeTabFileRead: "beforeTabFileRead",
-  PostCompact: "postCompact",
-  PostToolUse: "postToolUse",
-  PostToolUseFailure: "postToolUseFailure",
-  PreCompact: "preCompact",
-  PreToolUse: "preToolUse",
-  SessionEnd: "sessionEnd",
-  SessionStart: "sessionStart",
-  Stop: "stop",
-  SubagentStart: "subagentStart",
-  SubagentStop: "subagentStop",
-  UserPromptSubmit: "userPromptSubmit",
-  WorkspaceOpen: "workspaceOpen",
-};
-
-const CURSOR_CANONICAL_EVENT_BY_NATIVE: Readonly<Record<string, string>> = Object.fromEntries(
-  Object.entries(CURSOR_NATIVE_EVENT_BY_CANONICAL).map(([canonical, native]) => [native, canonical])
+const CURSOR_EVENT_NAMES = deriveCursorHookEventNames(
+  CURSOR_HOOK_EVIDENCE.events.map((event) => event.name)
 );
+const CURSOR_NATIVE_EVENT_BY_CANONICAL = CURSOR_EVENT_NAMES.nativeByCanonical;
+const CURSOR_CANONICAL_EVENT_BY_NATIVE = CURSOR_EVENT_NAMES.canonicalByNative;
 
 export const CLAUDE_HOOK_EVENTS: ReadonlySet<string> = eventSet(CLAUDE_HOOK_EVIDENCE);
 export const CODEX_HOOK_EVENTS: ReadonlySet<string> = eventSet(CODEX_HOOK_EVIDENCE);
@@ -197,6 +173,25 @@ export function canonicalHookEventName(provider: HookCapabilityProvider, event: 
 export function nativeHookEventName(provider: HookCapabilityProvider, event: string): string {
   if (provider !== "cursor") return event;
   return CURSOR_NATIVE_EVENT_BY_CANONICAL[event] ?? event;
+}
+
+export function deriveCursorHookEventNames(events: readonly string[]): {
+  readonly canonicalByNative: Readonly<Record<string, string>>;
+  readonly nativeByCanonical: Readonly<Record<string, string>>;
+} {
+  const nativeByCanonical = Object.fromEntries(
+    events.map((event) => [event, lowerFirst(event)])
+  );
+  return {
+    canonicalByNative: Object.fromEntries(
+      Object.entries(nativeByCanonical).map(([canonical, native]) => [native, canonical])
+    ),
+    nativeByCanonical,
+  };
+}
+
+function lowerFirst(value: string): string {
+  return `${value.charAt(0).toLowerCase()}${value.slice(1)}`;
 }
 
 export function classifyAdaptiveHookUnitPath(path: string): AdaptiveHookUnitPath {
