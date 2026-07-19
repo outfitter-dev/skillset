@@ -57,6 +57,9 @@ export {
 export type FeatureSurface = "agents" | "instructions" | "plugins" | "skills";
 
 const DEFAULT_SURFACES = new Set<FeatureSurface>(["agents", "instructions", "plugins", "skills"]);
+const BASE_CONFIG_TOP_LEVEL_KEYS = new Set<string>(
+  SCHEMA_PLUGIN_CONFIG_KEYS.filter((key) => key !== "bin" && key !== "hooks" && key !== "mcp")
+);
 const PLUGIN_CONFIG_TOP_LEVEL_KEYS = new Set<string>(SCHEMA_PLUGIN_CONFIG_KEYS);
 const ROOT_CONFIG_TOP_LEVEL_KEYS = new Set<string>(SCHEMA_SINGLE_FILE_ROOT_CONFIG_KEYS);
 const WORKSPACE_CONFIG_TOP_LEVEL_KEYS = new Set<string>(SCHEMA_SPLIT_WORKSPACE_CONFIG_KEYS);
@@ -339,7 +342,7 @@ export function validateConfigDocument(
     validateWorkspaceSchemaDocument(record, label, PLUGIN_CONFIG_TOP_LEVEL_KEYS, validatePluginConfig, "top-level");
     return;
   }
-  validateWorkspaceSchemaDocument(record, label, ROOT_CONFIG_TOP_LEVEL_KEYS, validateSingleFileRootConfig, "top-level");
+  validateWorkspaceSchemaDocument(record, label, BASE_CONFIG_TOP_LEVEL_KEYS, validateSingleFileRootConfig, "top-level");
 }
 
 export function validateWorkspaceConfigDocument(record: JsonRecord, label: string): void {

@@ -14,6 +14,9 @@ describe("schema-owned config document contexts", () => {
       skillset: { name: "root" },
       supports: ["bun >=1.0.0"],
     }, "skillset.yaml", { allowCompile: true })).not.toThrow();
+    expect(() => validateConfigDocument({ compile: {} }, "unscoped skillset.yaml")).toThrow(
+      "unsupported top-level key compile"
+    );
 
     expect(() => validateWorkspaceConfigDocument({ skillset: { name: "wrong-context" } }, ".skillset/config.yaml")).toThrow(
       "unsupported workspace config key skillset"

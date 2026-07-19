@@ -337,11 +337,19 @@ describe("@skillset/schema contracts", () => {
   });
 
   it("owns distinct root, split workspace, source manifest, and plugin key contracts", () => {
-    expect(SINGLE_FILE_ROOT_CONFIG_KEYS).toEqual(expect.arrayContaining(["compile", "skillset", "supports"]));
-    expect(SPLIT_WORKSPACE_CONFIG_KEYS).toEqual(expect.arrayContaining(["compile", "workspace"]));
-    expect(SPLIT_WORKSPACE_CONFIG_KEYS).not.toEqual(expect.arrayContaining(["skillset", "supports"]));
+    expect(SINGLE_FILE_ROOT_CONFIG_KEYS).toEqual([
+      "agents", "changes", "claude", "codex", "cursor", "defaults", "dependencies",
+      "skillset", "supports", "compile", "distributions", "marketplaces", "workspace",
+    ]);
+    expect(SPLIT_WORKSPACE_CONFIG_KEYS).toEqual([
+      "agents", "changes", "claude", "codex", "cursor", "compile", "defaults",
+      "dependencies", "distributions", "marketplaces", "workspace",
+    ]);
     expect(ROOT_SOURCE_MANIFEST_KEYS).toEqual(["dependencies", "skillset", "supports"]);
-    expect(PLUGIN_CONFIG_KEYS).toEqual(expect.arrayContaining(["hooks", "bin", "mcp", "skillset"]));
+    expect(PLUGIN_CONFIG_KEYS).toEqual([
+      "agents", "changes", "claude", "codex", "cursor", "defaults", "dependencies",
+      "skillset", "supports", "bin", "hooks", "mcp",
+    ]);
 
     expect(validateSingleFileRootConfig({
       compile: { targets: ["cursor"] },
