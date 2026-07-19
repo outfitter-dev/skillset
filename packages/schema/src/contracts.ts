@@ -22,7 +22,29 @@ export const SOURCE_LICENSE_IDS = [
 ] as const;
 export const SOURCE_LICENSE_NONE = "none";
 
-export const WORKSPACE_CONFIG_KEYS = [
+const SHARED_CONFIG_KEYS = [
+  "agents",
+  "changes",
+  "claude",
+  "codex",
+  "cursor",
+  "defaults",
+  "dependencies",
+  "skillset",
+  "supports",
+] as const;
+
+/** Allowed keys in a root `skillset.yaml` that combines workspace and source metadata. */
+export const SINGLE_FILE_ROOT_CONFIG_KEYS = [
+  ...SHARED_CONFIG_KEYS,
+  "compile",
+  "distributions",
+  "marketplaces",
+  "workspace",
+] as const;
+
+/** Allowed keys in split-layout `.skillset/config.yaml`. */
+export const SPLIT_WORKSPACE_CONFIG_KEYS = [
   "agents",
   "changes",
   "claude",
@@ -33,10 +55,17 @@ export const WORKSPACE_CONFIG_KEYS = [
   "dependencies",
   "distributions",
   "marketplaces",
-  "skillset",
-  "supports",
   "workspace",
 ] as const;
+
+/** Allowed keys in a split-layout root `.skillset/skillset.yaml` manifest. */
+export const ROOT_SOURCE_MANIFEST_KEYS = ["dependencies", "skillset", "supports"] as const;
+
+/** Allowed keys in a plugin `skillset.yaml` manifest. */
+export const PLUGIN_CONFIG_KEYS = [...SHARED_CONFIG_KEYS, "bin", "hooks", "mcp"] as const;
+
+/** @deprecated Use SINGLE_FILE_ROOT_CONFIG_KEYS for a root `skillset.yaml`. */
+export const WORKSPACE_CONFIG_KEYS = SINGLE_FILE_ROOT_CONFIG_KEYS;
 
 export const SOURCE_METADATA_KEYS = [
   "author",
