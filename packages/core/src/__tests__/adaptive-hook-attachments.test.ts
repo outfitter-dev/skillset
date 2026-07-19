@@ -616,6 +616,7 @@ hooks:
     });
     const cursorCommand = ((cursorHooks.hooks as JsonRecord).stop as readonly JsonRecord[])[0]?.hooks as readonly JsonRecord[];
     expect(await runGeneratedHookCommand(String(cursorCommand[0]?.command), {
+      CLAUDE_SESSION_ID: "wrong-claude-session",
       CURSOR_SESSION_ID: "cursor-session",
     })).toEqual({
       exitCode: 0,

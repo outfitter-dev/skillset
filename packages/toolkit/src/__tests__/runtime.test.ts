@@ -79,6 +79,32 @@ describe("@skillset/toolkit runtime", () => {
     expect(nativeCursor.provider).toBe("cursor");
     expect(runtimeContextFieldValue(nativeCursor, "session.id")).toBe("native-cursor-session");
 
+    const explicitCursorWithMixedEnv = await readRuntimeContext({
+      cwd: "/tmp/repo",
+      env: {
+        CLAUDE_SESSION_ID: "wrong-claude-session",
+        CURSOR_SESSION_ID: "right-cursor-session",
+        SKILLSET_PROVIDER: "cursor",
+      },
+      event: "afterAgentResponse",
+      rootPath: "/tmp/repo",
+    });
+    expect(explicitCursorWithMixedEnv.provider).toBe("cursor");
+    expect(runtimeContextFieldValue(explicitCursorWithMixedEnv, "session.id")).toBe("right-cursor-session");
+
+    const explicitCodexWithMixedEnv = await readRuntimeContext({
+      cwd: "/tmp/repo",
+      env: {
+        CLAUDE_SESSION_ID: "wrong-claude-session",
+        CODEX_SESSION_ID: "right-codex-session",
+        SKILLSET_PROVIDER: "codex",
+      },
+      event: "Stop",
+      rootPath: "/tmp/repo",
+    });
+    expect(explicitCodexWithMixedEnv.provider).toBe("codex");
+    expect(runtimeContextFieldValue(explicitCodexWithMixedEnv, "session.id")).toBe("right-codex-session");
+
     const conflicting = await readRuntimeContext({
       cwd: "/tmp/repo",
       env: {

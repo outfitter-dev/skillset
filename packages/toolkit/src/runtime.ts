@@ -155,6 +155,9 @@ export function runtimeContextFieldValue(
       return context.rawEnv.SKILLSET_HOOK_EVENT ?? context.event;
     case "session.id":
       if (context.rawEnv.SKILLSET_SESSION_ID !== undefined) return context.rawEnv.SKILLSET_SESSION_ID;
+      if (context.provider !== "unknown") {
+        return context.rawEnv[PROVIDER_ENV[context.provider].sessionId];
+      }
       for (const target of TARGET_NAMES) {
         const sessionId = context.rawEnv[PROVIDER_ENV[target].sessionId];
         if (sessionId !== undefined) return sessionId;
