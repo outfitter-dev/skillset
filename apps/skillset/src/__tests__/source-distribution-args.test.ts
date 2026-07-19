@@ -19,7 +19,7 @@ describe("SET-302 source and distribution route parsers", () => {
       [
         "--from",
         "typo",
-        "skillset: expected --from claude, codex, cursor, agents, or skillset",
+        "skillset: expected --from claude, codex, or cursor; also agents or skillset",
       ],
       [
         "--kind",

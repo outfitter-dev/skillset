@@ -54,7 +54,7 @@ describe("SET-304 inspection and runtime route parsers", () => {
         [
           "--from",
           "typo",
-          "skillset: expected --from claude, codex, cursor, agents, or skillset",
+          "skillset: expected --from claude, codex, or cursor; also agents or skillset",
         ],
         [
           "--kind",

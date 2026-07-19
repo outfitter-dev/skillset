@@ -1,4 +1,4 @@
-import { isTargetName, targetNames } from "@skillset/core";
+import { isTargetName, TARGET_LIST_TEXT } from "@skillset/core";
 import type { TargetName } from "@skillset/core/internal/types";
 
 export type ImportKind = "plugin" | "plugins" | "skill" | "skills";
@@ -26,6 +26,6 @@ export const readImportProvider = (value: string): ImportProvider => {
     return value;
   }
   throw new Error(
-    `skillset: expected --from ${targetNames().join(", ")}, agents, or skillset`
+    `skillset: expected --from ${TARGET_LIST_TEXT}; also agents or skillset`
   );
 };

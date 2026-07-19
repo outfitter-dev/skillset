@@ -991,7 +991,7 @@ describe("SET-299 parser failure contract", () => {
         args: [...args, "--from", "typo"],
         command,
         message:
-          "skillset: expected --from claude, codex, cursor, agents, or skillset",
+          "skillset: expected --from claude, codex, or cursor; also agents or skillset",
       },
       {
         args: [...args, "--kind", "typo"],
