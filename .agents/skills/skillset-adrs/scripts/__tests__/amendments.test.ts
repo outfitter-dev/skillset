@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -389,7 +389,7 @@ describe("ADR amendment validation", () => {
 });
 
 describe("ADR amendment command mutation safety", () => {
-  test("invalid promote leaves the draft, indexes, maps, and git state unchanged", async () => {
+  test("invalid promote preview and apply leave the draft, indexes, maps, and git state unchanged", async () => {
     const root = await mkdtemp(join(tmpdir(), "skillset-adr-promote-guard-"));
     const numberedDir = join(root, "docs/adrs");
     const draftsDir = join(numberedDir, "drafts");
@@ -418,14 +418,29 @@ describe("ADR amendment command mutation safety", () => {
       const paths = [draftPath, ...generatedPaths];
       const before = await snapshotCommandFiles(root, paths);
 
+      const command = [
+        process.execPath,
+        script,
+        "promote",
+        "amendment",
+        "--status",
+        "superseded",
+      ];
+      const previewResult = Bun.spawnSync(command, {
+        cwd: root,
+        stderr: "pipe",
+        stdout: "pipe",
+      });
+
+      expect(previewResult.exitCode).not.toBe(0);
+      expect(new TextDecoder().decode(previewResult.stderr)).toContain(
+        "superseded ADR with amends requires accepted later superseded_by replacements"
+      );
+      expect(await snapshotCommandFiles(root, paths)).toEqual(before);
+
       const result = Bun.spawnSync(
         [
-          process.execPath,
-          script,
-          "promote",
-          "amendment",
-          "--status",
-          "superseded",
+          ...command,
           "--yes",
         ],
         { cwd: root, stderr: "pipe", stdout: "pipe" }
@@ -444,7 +459,7 @@ describe("ADR amendment command mutation safety", () => {
     }
   });
 
-  test("invalid status update leaves the ADR, indexes, maps, and git state unchanged", async () => {
+  test("invalid status update preview and apply leave the ADR, indexes, maps, and git state unchanged", async () => {
     const root = await mkdtemp(join(tmpdir(), "skillset-adr-update-guard-"));
     const numberedDir = join(root, "docs/adrs");
     const draftsDir = join(numberedDir, "drafts");
@@ -473,14 +488,29 @@ describe("ADR amendment command mutation safety", () => {
       const paths = [amendmentPath, ...generatedPaths];
       const before = await snapshotCommandFiles(root, paths);
 
+      const command = [
+        process.execPath,
+        script,
+        "update",
+        "amendment",
+        "--status",
+        "superseded",
+      ];
+      const previewResult = Bun.spawnSync(command, {
+        cwd: root,
+        stderr: "pipe",
+        stdout: "pipe",
+      });
+
+      expect(previewResult.exitCode).not.toBe(0);
+      expect(new TextDecoder().decode(previewResult.stderr)).toContain(
+        "superseded ADR with amends requires accepted later superseded_by replacements"
+      );
+      expect(await snapshotCommandFiles(root, paths)).toEqual(before);
+
       const result = Bun.spawnSync(
         [
-          process.execPath,
-          script,
-          "update",
-          "amendment",
-          "--status",
-          "superseded",
+          ...command,
           "--yes",
         ],
         { cwd: root, stderr: "pipe", stdout: "pipe" }
@@ -558,6 +588,150 @@ describe("ADR amendment command mutation safety", () => {
         await Bun.file(join(numberedDir, "0002-proposed-successor.md")).exists()
       ).toBe(false);
     } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  test("combined slug and renumber preview and apply use one final identity", async () => {
+    const root = await mkdtemp(join(tmpdir(), "skillset-adr-combined-update-"));
+    const numberedDir = join(root, "docs/adrs");
+    const draftsDir = join(numberedDir, "drafts");
+    const script = join(import.meta.dir, "../adr.ts");
+    const originalPath = "docs/adrs/0002-amendment.md";
+
+    try {
+      await mkdir(draftsDir, { recursive: true });
+      await Bun.write(
+        join(numberedDir, "0001-base.md"),
+        commandDocument(
+          "id: 1\nslug: base\ntitle: Base\nstatus: accepted\ncreated: 2026-07-20\nupdated: 2026-07-20\nowners: ['owner']",
+          "ADR-0001: Base"
+        )
+      );
+      await Bun.write(
+        join(root, originalPath),
+        commandDocument(
+          "id: 2\nslug: amendment\ntitle: Amendment\nstatus: accepted\ncreated: 2026-07-20\nupdated: 2026-07-20\nowners: ['owner']\namends: [1]",
+          "ADR-0002: Amendment"
+        )
+      );
+      const generatedPaths = await writeGeneratedSentinels(root);
+      Bun.spawnSync(["git", "init", "--quiet"], { cwd: root });
+      Bun.spawnSync(["git", "add", "docs"], { cwd: root });
+      const paths = [originalPath, ...generatedPaths];
+      const before = await snapshotCommandFiles(root, paths);
+      const command = [
+        process.execPath,
+        script,
+        "update",
+        "amendment",
+        "--slug",
+        "narrower",
+        "--renumber",
+        "3",
+      ];
+
+      const previewResult = Bun.spawnSync(command, {
+        cwd: root,
+        stderr: "pipe",
+        stdout: "pipe",
+      });
+      const preview = new TextDecoder().decode(previewResult.stdout);
+
+      expect(previewResult.exitCode).toBe(0);
+      expect(preview).toContain('Slug → "narrower" (0003-narrower.md)');
+      expect(preview).toContain("Renumber → 0003 (0003-narrower.md)");
+      expect(preview).not.toContain("0002-narrower.md");
+      expect(preview).not.toContain("0003-amendment.md");
+      expect(await snapshotCommandFiles(root, paths)).toEqual(before);
+
+      const result = Bun.spawnSync([...command, "--yes"], {
+        cwd: root,
+        stderr: "pipe",
+        stdout: "pipe",
+      });
+      expect(result.exitCode).toBe(0);
+
+      const finalPath = join(numberedDir, "0003-narrower.md");
+      const parsed = parseFrontmatter(await Bun.file(finalPath).text());
+      expect(parsed.frontmatter.id).toBe(3);
+      expect(parsed.frontmatter.slug).toBe("narrower");
+      expect(parsed.body).toContain("# ADR-0003: Amendment");
+      expect(await Bun.file(join(root, originalPath)).exists()).toBe(false);
+      expect(
+        await Bun.file(join(numberedDir, "0002-narrower.md")).exists()
+      ).toBe(false);
+      expect(
+        await Bun.file(join(numberedDir, "0003-amendment.md")).exists()
+      ).toBe(false);
+
+      const index = await Bun.file(join(numberedDir, "README.md")).text();
+      expect(index).toContain("[0003](0003-narrower.md)");
+      const map = await Bun.file(join(numberedDir, "decision-map.json")).json();
+      expect(map.entries).toContainEqual(
+        expect.objectContaining({
+          number: "0003",
+          path: "docs/adrs/0003-narrower.md",
+          slug: "narrower",
+        })
+      );
+      expect(
+        await Bun.file(join(draftsDir, "decision-map.json")).json()
+      ).toEqual(expect.objectContaining({ entries: [] }));
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  test("renumber writes the validated final content before a move failure", async () => {
+    const root = await mkdtemp(join(tmpdir(), "skillset-adr-renumber-seam-"));
+    const numberedDir = join(root, "docs/adrs");
+    const draftsDir = join(numberedDir, "drafts");
+    const script = join(import.meta.dir, "../adr.ts");
+    const originalPath = join(numberedDir, "0002-amendment.md");
+    const destinationPath = join(numberedDir, "0003-amendment.md");
+
+    try {
+      await mkdir(draftsDir, { recursive: true });
+      await Bun.write(
+        join(numberedDir, "0001-base.md"),
+        commandDocument(
+          "id: 1\nslug: base\ntitle: Base\nstatus: accepted\ncreated: 2026-07-20\nupdated: 2026-07-20\nowners: ['owner']",
+          "ADR-0001: Base"
+        )
+      );
+      await Bun.write(
+        originalPath,
+        commandDocument(
+          "id: 2\nslug: amendment\ntitle: Amendment\nstatus: accepted\ncreated: 2026-07-20\nupdated: 2026-07-20\nowners: ['owner']\namends: [1]",
+          "ADR-0002: Amendment"
+        )
+      );
+      Bun.spawnSync(["git", "init", "--quiet"], { cwd: root });
+      Bun.spawnSync(["git", "add", "docs"], { cwd: root });
+      await chmod(numberedDir, 0o555);
+
+      const result = Bun.spawnSync(
+        [
+          process.execPath,
+          script,
+          "update",
+          "amendment",
+          "--renumber",
+          "3",
+          "--yes",
+        ],
+        { cwd: root, stderr: "pipe", stdout: "pipe" }
+      );
+
+      expect(result.exitCode).not.toBe(0);
+      const written = await Bun.file(originalPath).text();
+      const parsed = parseFrontmatter(written);
+      expect(parsed.frontmatter.id).toBe(3);
+      expect(parsed.body).toContain("# ADR-0003: Amendment");
+      expect(await Bun.file(destinationPath).exists()).toBe(false);
+    } finally {
+      await chmod(numberedDir, 0o755).catch(() => undefined);
       await rm(root, { force: true, recursive: true });
     }
   });

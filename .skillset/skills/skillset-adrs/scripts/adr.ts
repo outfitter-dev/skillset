@@ -186,10 +186,6 @@ const cmdPromote = (args: Args): void => {
     }
   }
 
-  if (!apply) {
-    return;
-  }
-
   const cleanTitle =
     adr.frontmatter.title ??
     extractTitle(adr.body)
@@ -237,6 +233,11 @@ const cmdPromote = (args: Args): void => {
     candidateNumbered,
     drafts.filter((entry) => entry.path !== adr.path)
   );
+
+  if (!apply) {
+    return;
+  }
+
   writeFileSync(adr.path, content, 'utf8');
 
   gitMove(adr.path, newPath);
@@ -588,37 +589,49 @@ const cmdUpdate = (args: Args): void => {
   previewBanner(args);
 
   const changes: string[] = [];
-  let newSlugFilename: string | undefined;
-  let newRenumberFilename: string | undefined;
+  const isDraft = adr.path.includes('/drafts/');
+  const currentPrefix =
+    adr.filename.match(/^(\d+)-/)?.[1] ??
+    (isDraft ? todayCompact() : '0000');
+  const currentSlug = adr.filename
+    .replace(/^\d+-/, '')
+    .replace(/\.md$/, '');
+  let newNumber: number | undefined;
+
+  if (args.renumber) {
+    if (isDraft) {
+      console.error('Error: cannot renumber a draft — promote it first');
+      process.exit(1);
+    }
+    newNumber = Number(args.renumber);
+    if (Number.isNaN(newNumber)) {
+      console.error(`Error: invalid number "${args.renumber}"`);
+      process.exit(1);
+    }
+  }
+
+  const finalPrefix =
+    newNumber === undefined ? currentPrefix : padNumber(newNumber);
+  const finalSlug = args.slug ?? currentSlug;
+  const changesIdentity = Boolean(args.slug || args.renumber);
+  const finalFilename = changesIdentity
+    ? `${finalPrefix}-${finalSlug}.md`
+    : adr.filename;
+  const finalPath = changesIdentity
+    ? join(dirname(adr.path), finalFilename)
+    : adr.path;
 
   if (args.title) {
     changes.push(`Title → "${args.title}"`);
   }
   if (args.slug) {
-    const isDraft = adr.path.includes('/drafts/');
-    const numPrefix = isDraft
-      ? (adr.filename.match(/^(\d+)-/)?.[1] ?? todayCompact())
-      : (adr.filename.match(/^(\d+)-/)?.[1] ?? '0000');
-    newSlugFilename = `${numPrefix}-${args.slug}.md`;
-    changes.push(`Slug → "${args.slug}" (${newSlugFilename})`);
+    changes.push(`Slug → "${args.slug}" (${finalFilename})`);
   }
   if (args.status) {
     changes.push(`Status → "${args.status}"`);
   }
-  if (args.renumber) {
-    if (adr.path.includes('/drafts/')) {
-      console.error('Error: cannot renumber a draft — promote it first');
-      process.exit(1);
-    }
-    const newNum = Number(args.renumber);
-    if (Number.isNaN(newNum)) {
-      console.error(`Error: invalid number "${args.renumber}"`);
-      process.exit(1);
-    }
-    const padded = padNumber(newNum);
-    const slug = adr.filename.replace(/^\d+-/, '').replace(/\.md$/, '');
-    newRenumberFilename = `${padded}-${slug}.md`;
-    changes.push(`Renumber → ${padded} (${newRenumberFilename})`);
+  if (newNumber !== undefined) {
+    changes.push(`Renumber → ${finalPrefix} (${finalFilename})`);
   }
 
   if (changes.length === 0) {
@@ -633,16 +646,10 @@ const cmdUpdate = (args: Args): void => {
     console.log(`  ${change}`);
   }
 
-  if (!apply) {
-    return;
-  }
-
   let { body } = adr;
   const fm = { ...adr.frontmatter };
-  let currentPath = adr.path;
 
   if (args.title) {
-    const isDraft = currentPath.includes('/drafts/');
     const num = parseAdrNumber(adr.filename);
     const prefix = isDraft ? 'ADR:' : `ADR-${padNumber(num ?? 0)}:`;
     body = body.replace(
@@ -662,36 +669,21 @@ const cmdUpdate = (args: Args): void => {
     fm.updated = today();
   }
 
-  let candidateBody = body;
-  const candidateFm = { ...fm };
-  if (args.renumber) {
-    const newNum = Number(args.renumber);
-    const padded = padNumber(newNum);
-    candidateBody = candidateBody.replace(
-      /^#\s+ADR-\d+:/m,
-      `# ADR-${padded}:`
-    );
-    candidateFm.id = newNum;
-    candidateFm.updated = today();
+  if (newNumber !== undefined) {
+    body = body.replace(/^#\s+ADR-\d+:/m, `# ADR-${finalPrefix}:`);
+    fm.id = newNumber;
+    fm.updated = today();
   }
 
-  const finalFilename = newRenumberFilename ?? newSlugFilename ?? adr.filename;
-  const finalPath =
-    newRenumberFilename || newSlugFilename
-      ? join(
-          newRenumberFilename ? ADR_DIR : dirname(adr.path),
-          finalFilename
-        )
-      : adr.path;
+  const content = `${serializeFrontmatter(fm as Frontmatter)}\n${body}`;
   if (args.slug || args.status || args.renumber) {
-    const candidateContent = `${serializeFrontmatter(candidateFm as Frontmatter)}\n${candidateBody}`;
     const candidate: AdrFile = {
       ...adr,
-      body: candidateBody,
+      body,
       filename: finalFilename,
-      frontmatter: candidateFm,
+      frontmatter: fm,
       path: finalPath,
-      raw: candidateContent,
+      raw: content,
     };
     assertValidAmendments(
       replaceAdr(listNumberedAdrs(), adr, candidate),
@@ -699,26 +691,14 @@ const cmdUpdate = (args: Args): void => {
     );
   }
 
-  const content = `${serializeFrontmatter(fm as Frontmatter)}\n${body}`;
-  writeFileSync(currentPath, content, 'utf8');
-
-  if (args.slug && newSlugFilename) {
-    const newPath = join(dirname(currentPath), newSlugFilename);
-    gitMove(currentPath, newPath);
-    currentPath = newPath;
+  if (!apply) {
+    return;
   }
 
-  if (args.renumber && newRenumberFilename) {
-    const newNum = Number(args.renumber);
-    const padded = padNumber(newNum);
-    body = body.replace(/^#\s+ADR-\d+:/m, `# ADR-${padded}:`);
-    fm.id = newNum;
-    fm.updated = today();
-    const updatedContent = `${serializeFrontmatter(fm as Frontmatter)}\n${body}`;
-    writeFileSync(currentPath, updatedContent, 'utf8');
+  writeFileSync(adr.path, content, 'utf8');
 
-    const newPath = join(ADR_DIR, newRenumberFilename);
-    gitMove(currentPath, newPath);
+  if (finalPath !== adr.path) {
+    gitMove(adr.path, finalPath);
   }
 
   rebuildIndex();
