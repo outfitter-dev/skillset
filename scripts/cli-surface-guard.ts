@@ -3,6 +3,7 @@ import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { gitSafeEnv } from "../apps/skillset/src/git-env";
+import { RETIRED_CLI_COMMANDS, RETIRED_CLI_FLAGS } from "./cli-contract";
 import { validateCliContractParity } from "./cli-contract-parity";
 
 export interface CliSurfaceViolation {
@@ -11,17 +12,31 @@ export interface CliSurfaceViolation {
   readonly text: string;
 }
 
+export function buildDirectRetiredSurfacePatterns(
+  commands: readonly string[],
+  flags: readonly string[]
+): readonly RegExp[] {
+  const commandAlternation = commands.map(escapeRegExp).join("|");
+  const flagAlternation = flags.map(escapeRegExp).join("|");
+  return [
+    new RegExp(`(?:^|[^\\w.-])(?:skillset|cli\\.ts)\\s+(?:${commandAlternation})(?![-\\w])`, "u"),
+    new RegExp(`\\bbun run skillset:(?:${commandAlternation})(?![-\\w])`, "u"),
+    new RegExp(`(?:^|[^\\w-])(?:${flagAlternation})(?![-\\w])`, "u"),
+  ];
+}
+
 const RETIRED_SURFACE = [
-  /(?:\bskillset|cli\.ts)\s+(?:adopt|ci|doctor|features|lint|providers|suggest-source|try|verify)\b/u,
-  /\bbun run skillset:(?:lint|verify)\b/u,
+  ...buildDirectRetiredSurfacePatterns(RETIRED_CLI_COMMANDS, RETIRED_CLI_FLAGS),
   /\b(?:build|diff)(?:\/|,\s*and\s+)verify\b/u,
   /\b(?:doctor\/explain|explain\/doctor)\b/u,
   /\bSKILLSET_TRY_[A-Z_]+\b/u,
-  /(?:^|[^\w-])--(?:apply|dist|dry-run|global|layout|source|watch)\b/u,
-  /(?:^|[^\w-])--(?:claude|codex|cursor)(?![-\w])/u,
   /["'`]skillset: [^"'`\n]*\btry\b/u,
   /["'`]try (?:command|config|failed|latest|passed|plugin|run|status|tail|list)\b/u,
 ] as const;
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
 
 const EXCLUDED = [
   ".agents/",

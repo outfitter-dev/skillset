@@ -3,7 +3,43 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { isCliSurfacePath, scanCliSurface } from "../cli-surface-guard";
+import {
+  buildDirectRetiredSurfacePatterns,
+  isCliSurfacePath,
+  scanCliSurface,
+} from "../cli-surface-guard";
+import { RETIRED_CLI_COMMANDS, RETIRED_CLI_FLAGS } from "../cli-contract";
+
+test("SET-346: CLI surface guard derives direct command and flag patterns", () => {
+  const patterns = buildDirectRetiredSurfacePatterns(
+    ["retire.command"],
+    ["--retire+flag"]
+  );
+  const matches = (text: string) => patterns.some((pattern) => pattern.test(text));
+
+  expect(matches("Run skillset retire.command before handoff.")).toBe(true);
+  expect(matches("Run cli.ts retire.command before handoff.")).toBe(true);
+  expect(matches("Use --retire+flag before handoff.")).toBe(true);
+  expect(matches("Run skillset retire.command-extra before handoff.")).toBe(false);
+  expect(matches("Use --retire+flag-extra before handoff.")).toBe(false);
+});
+
+test("SET-346: CLI surface guard covers every canonical retired command and flag", () => {
+  expect(scanCliSurface("README.md", "Run skillset verify before handoff.")).toHaveLength(1);
+  expect(scanCliSurface("README.md", "Run ./apps/skillset/src/cli.ts verify before handoff.")).toHaveLength(1);
+  for (const invocation of ["mycli.ts", "my-cli.ts", "foo.skillset", "my-skillset"]) {
+    expect(scanCliSurface("README.md", `Run ${invocation} verify before handoff.`)).toEqual([]);
+  }
+  for (const command of RETIRED_CLI_COMMANDS) {
+    expect(scanCliSurface("README.md", `Run skillset ${command} before handoff.`)).toHaveLength(1);
+    expect(scanCliSurface("README.md", `Run bun run skillset:${command} before handoff.`)).toHaveLength(1);
+    expect(scanCliSurface("README.md", `Run skillset ${command}-extended before handoff.`)).toEqual([]);
+  }
+  for (const flag of RETIRED_CLI_FLAGS) {
+    expect(scanCliSurface("README.md", `Use ${flag} before handoff.`)).toHaveLength(1);
+    expect(scanCliSurface("README.md", `Use ${flag}-extended before handoff.`)).toEqual([]);
+  }
+});
 
 test("SET-285: CLI surface guard rejects retired commands, flags, and environment", () => {
   const content = [
