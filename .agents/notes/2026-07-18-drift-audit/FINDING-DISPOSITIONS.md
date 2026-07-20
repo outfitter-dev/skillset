@@ -35,7 +35,7 @@ validate completeness and print the project finding counts.
 | 03.6 | confirmed | open | SET-326 | — | Finish the internal `try` to `test` hard cutover. |
 | 03.7 | plausible | open | SET-327 | — | Audit every remaining draft and record one evidence-backed disposition. |
 | 03.8 | confirmed | open | SET-339 | — | Refresh Cursor documentation after registry-backed table checks. |
-| 03.9 | decided-needed | open | SET-317 | — | Mechanically check target-support tables against registry evidence. |
+| 03.9 | decided-needed | fixed | SET-317 | https://github.com/outfitter-dev/skillset/pull/321 | Registry-owned matrices mechanically check feature status and every canonical target support status across 35 linked feature docs while preserving narrative prose. Merged as `941e4c64212065b959cdd532a54790f59d813ed9`. |
 | 03.10 | plausible | open | SET-339 | — | Verify and correct the lagging feature-doc status row. |
 | 04.1 | confirmed | fixed | SET-319 | https://github.com/outfitter-dev/skillset/pull/306 | Core derives context-specific configuration key sets and unsupported-destination policy from schema ownership. Merged as `7760699e9b10cb73e3a7b145dfcb73b5936ae46a`. |
 | 04.2 | confirmed | fixed | SET-323 | https://github.com/outfitter-dev/skillset/pull/312 | Schema owns the canonical SemVer contract and fresh RegExp factory, with exact-string parity across consumers. Merged as `ec7c5afcaee4f827969cff9ffdd4f7ab8408de85`. |
