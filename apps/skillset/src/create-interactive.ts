@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { targetNames } from "@skillset/core/internal/config";
 import { validateSlug } from "@skillset/core/internal/path";
 import type { TargetName } from "@skillset/core/internal/types";
+import { formatList } from "@skillset/schema";
 
 import type { InteractiveSession } from "./interactive-session";
 import {
@@ -138,7 +139,7 @@ export function formatInteractiveCreatePlan(
   return [
     `Create repository ${plan.report.rootPath}`,
     `Name it ${plan.name}`,
-    `Generate for ${formatHumanList(plan.targets.map(displayTarget))}`,
+    `Generate for ${formatList(plan.targets.map(displayTarget), "and")}`,
     "Create the canonical .skillset/ source layout",
     "Initialize a local Git repository",
     ...(plan.include.includes("ci") ? ["Add the Skillset GitHub Action"] : []),
@@ -167,10 +168,4 @@ function validateCreateName(value: string): true | string {
 
 function displayTarget(target: TargetName): string {
   return `${target[0]?.toUpperCase() ?? ""}${target.slice(1)}`;
-}
-
-function formatHumanList(values: readonly string[]): string {
-  if (values.length <= 1) return values.join("");
-  if (values.length === 2) return values.join(" and ");
-  return `${values.slice(0, -1).join(", ")}, and ${values.at(-1)}`;
 }

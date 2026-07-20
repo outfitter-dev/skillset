@@ -1,3 +1,5 @@
+import { createSemverRegExp } from "@skillset/schema";
+
 import { readString } from "./config";
 import { selectorForPluginSkill, selectorForRootConfig, selectorForStandaloneSkill, sourceUnitSelector } from "./source-unit-selector";
 import type { BuildGraph, JsonRecord, SourcePlugin, SourceSkill } from "./types";
@@ -12,8 +14,7 @@ export const DEFAULT_VERSION = "0.1.0";
  */
 export const SUPPORTED_SOURCE_SCHEMA = 1;
 
-const SEMVER_PATTERN =
-  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
+const semverPattern = createSemverRegExp();
 
 /**
  * Validate an explicit `skillset.schema` source marker. The schema is the source
@@ -44,7 +45,7 @@ export function validateVersionField(record: JsonRecord, label: string): void {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error(`skillset: expected ${label} to be a semantic version string`);
   }
-  if (!SEMVER_PATTERN.test(value.trim())) {
+  if (!semverPattern.test(value)) {
     throw new Error(`skillset: expected ${label} to be a semantic version`);
   }
 }

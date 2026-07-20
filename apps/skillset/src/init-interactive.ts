@@ -6,6 +6,7 @@ import {
   targetNames,
 } from "@skillset/core/internal/config";
 import type { TargetName } from "@skillset/core/internal/types";
+import { formatList } from "@skillset/schema";
 
 import { adoptCandidateId, adoptSkillset, type AdoptReport } from "./adopt";
 import { gitSafeEnv } from "./git-env";
@@ -322,7 +323,7 @@ export function formatInteractiveInitPlan(plan: InteractiveInitPlan): string {
         ? []
         : ["Keep the detected files unchanged"]
       : [`Import ${formatCandidateCounts(plan.adoptionCandidates)}`]),
-    `Generate for ${formatHumanList(plan.targets.map(displayTarget))}`,
+    `Generate for ${formatList(plan.targets.map(displayTarget), "and")}`,
     ...(plan.include.includes("ci") ? ["Add the Skillset GitHub Action"] : []),
     ...(plan.adoptionCandidates.length > 0
       ? ["Preserve the existing source files"]
@@ -340,7 +341,7 @@ function formatDiscoveredCandidates(
 function formatCandidateCounts(
   candidates: readonly SetupImportCandidate[]
 ): string {
-  return formatHumanList(candidateCountLabels(candidates));
+  return formatList(candidateCountLabels(candidates), "and");
 }
 
 function candidateCountLabels(
@@ -377,12 +378,6 @@ function interactiveCandidateLabel(candidate: SetupImportCandidate): string {
 
 function displayTarget(target: TargetName): string {
   return `${target[0]?.toUpperCase() ?? ""}${target.slice(1)}`;
-}
-
-function formatHumanList(values: readonly string[]): string {
-  if (values.length <= 1) return values.join("");
-  if (values.length === 2) return values.join(" and ");
-  return `${values.slice(0, -1).join(", ")}, and ${values.at(-1)}`;
 }
 
 async function gitOutput(

@@ -12,6 +12,7 @@ import {
 } from "@skillset/core/internal/path";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
 import type { TargetName } from "@skillset/core/internal/types";
+import { formatList } from "@skillset/schema";
 
 import { planNewAdaptiveHook } from "./new-hook";
 
@@ -466,10 +467,6 @@ function readSkillPresets(
 ): readonly SkillPreset[] {
   const presets = values === undefined ? [] : parseSkillPresets(values);
   return presets.length === 0 ? ["minimal"] : presets;
-}
-
-function formatList(values: readonly string[]): string {
-  return `${values.slice(0, -1).join(", ")}, or ${values.at(-1)}`;
 }
 
 function uniquePlans(plans: readonly NewSourcePlannedFile[]): readonly NewSourcePlannedFile[] {
