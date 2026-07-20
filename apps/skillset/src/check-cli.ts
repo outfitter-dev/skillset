@@ -18,8 +18,6 @@ import { rememberKnownSkillsetWorkspace } from "./cli-known-workspaces";
 import { printCliJsonData } from "./cli-output";
 import {
   printDiagnostics,
-  printGeneratedChangelogDriftHint,
-  printGeneratedChangelogPathHint,
 } from "./cli-renderers";
 
 export interface CheckCommandRequest {
@@ -131,6 +129,7 @@ function ciReportDiagnostics(
     ["check-build-error", report.buildError],
     ["check-change-error", report.changeError],
     ["check-changeset-error", report.changesetError],
+    ["check-provider-analysis-error", report.providerAnalysisError],
   ] as const) {
     if (message !== undefined) {
       diagnostics.push({ code, message, severity: "error" });
@@ -184,9 +183,8 @@ function printCiReport(report: CiReport): void {
     console.log(`  target-side generated edit ${path}`);
   }
   for (const path of report.providerUpdatePaths) {
-    console.log(`  provider-format update ${path} (run skillset update)`);
+    console.log(`  provider-format update ${path}`);
   }
-  printGeneratedChangelogPathHint(report.fixedPaths);
   const { drift } = report;
   for (const path of drift.added) {
     console.log(`  generated + ${path}`);
@@ -200,7 +198,6 @@ function printCiReport(report: CiReport): void {
   for (const path of drift.removed) {
     console.log(`  generated - ${path}`);
   }
-  printGeneratedChangelogDriftHint(drift);
   for (const suggestion of report.sourceSuggestions ?? []) {
     console.log(
       `  reconcile output ${suggestion.status}: ${suggestion.generatedPath}`
@@ -212,6 +209,20 @@ function printCiReport(report: CiReport): void {
   }
   if (report.buildError !== undefined) {
     console.log(`  build error: ${report.buildError}`);
+  }
+  if (report.providerAnalysisError !== undefined) {
+    console.log(`  provider-format analysis error: ${report.providerAnalysisError}`);
+  }
+  for (const recovery of report.recovery ?? []) {
+    const location = recovery.path === undefined ? "" : ` ${recovery.path}`;
+    const ref = recovery.ref === undefined ? "" : ` ${recovery.ref}`;
+    const scope = recovery.scope === undefined ? "" : ` (${recovery.scope})`;
+    console.log(
+      `  recovery ${recovery.blocked === true ? "blocked " : ""}${recovery.action}${location}${ref}${scope}: ${recovery.reason}`
+    );
+    for (const command of recovery.commands) {
+      console.log(`    next: ${command}`);
+    }
   }
 
   if (report.ok) {
@@ -246,7 +257,7 @@ function printCiReport(report: CiReport): void {
   }
   if (report.outputEditedPaths.length > 0) {
     problems.push(
-      `${report.outputEditedPaths.length} target-side generated edit(s) to reconcile`
+      `${report.outputEditedPaths.length} target-side generated edit(s)`
     );
   }
   if (report.providerUpdatePaths.length > 0) {
@@ -261,12 +272,13 @@ function printCiReport(report: CiReport): void {
     problems.push(`${outputErrors} generated-output diagnostic(s)`);
   }
   if (hasDrift(report.drift)) {
-    problems.push(
-      "generated-output drift (run skillset check --write, or check --ci --fix in CI)"
-    );
+    problems.push("generated-output drift");
   }
   if (report.buildError !== undefined) {
     problems.push("a build error");
+  }
+  if (report.providerAnalysisError !== undefined) {
+    problems.push("a provider-format analysis error");
   }
   console.log(`skillset: check found ${problems.join(" and ")}`);
 }

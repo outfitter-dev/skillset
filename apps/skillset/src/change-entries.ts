@@ -45,6 +45,10 @@ export interface ChangeCheckIssue {
   readonly code: string;
   readonly message: string;
   readonly path?: string;
+  /** Pending reason id when the diagnostic belongs to one entry. */
+  readonly ref?: string;
+  /** Source-unit selector when the diagnostic belongs to one source change. */
+  readonly scope?: string;
   readonly severity: ChangeCheckSeverity;
 }
 
@@ -159,6 +163,7 @@ async function validateChangeCheck(
       issues.push({
         code: "change-uncovered",
         message: `source change ${sourceUnitDisplay(change.id)} is missing a pending change entry`,
+        scope: change.id,
         severity: "error",
       });
     }
@@ -422,6 +427,7 @@ function validatePendingEntry(
       code: "change-frontmatter-compatibility",
       message: "frontmatter pending entries are compatibility-only; run `skillset change migrate --yes` to convert them to reason-only entries",
       path: entry.path,
+      ...(entry.id === undefined ? {} : { ref: `@${entry.id}` }),
       severity: "warning",
     });
   }
@@ -575,7 +581,13 @@ function expectedHashForScope(
 }
 
 function entryError(entry: PendingChangeEntry, code: string, message: string): ChangeCheckIssue {
-  return { code, message, path: entry.path, severity: "error" };
+  return {
+    code,
+    message,
+    path: entry.path,
+    ...(entry.id === undefined ? {} : { ref: `@${entry.id}` }),
+    severity: "error",
+  };
 }
 
 function readScopes(frontmatter: JsonRecord): readonly string[] {
