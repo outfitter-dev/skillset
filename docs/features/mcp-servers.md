@@ -18,10 +18,10 @@ Conventional `<source-root>/plugins/<plugin>/.mcp.json` is discovered automatica
 
 ## Target Rendering
 
-| Source | Claude output | Codex output | Status | Notes |
-| --- | --- | --- | --- | --- |
-| Conventional `.mcp.json` | `.mcp.json` and manifest `mcpServers` | `.mcp.json` and manifest `mcpServers` | `target_native` / `implemented` | Structured JSON validation. |
-| `mcp.source` | `.mcp.json` and manifest `mcpServers` | `.mcp.json` and manifest `mcpServers` | `target_native` / `implemented` | Source pointer must use `repo:` and stay outside generated roots. |
+| Source | Claude output | Codex output | Cursor output | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| Conventional `.mcp.json` | `.mcp.json` and manifest `mcpServers` | `.mcp.json` and manifest `mcpServers` | `mcp.json` and manifest `mcpServers` | `target_native` / `implemented` | Structured JSON validation. |
+| `mcp.source` | `.mcp.json` and manifest `mcpServers` | `.mcp.json` and manifest `mcpServers` | `mcp.json` and manifest `mcpServers` | `target_native` / `implemented` | Source pointer must use `repo:` and stay outside generated roots. |
 
 ## Diagnostics
 

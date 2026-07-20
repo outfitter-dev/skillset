@@ -11,7 +11,7 @@ Feature id: `instructions`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Instructions are durable repo guidance authored under `.skillset/rules/**/*.md`. Codex `.rules` files are a separate target-native command policy surface under `.skillset/_codex/rules/**/*.rules`.
+Instructions are durable repo guidance authored under `.skillset/rules/**/*.md`. Codex `.rules` files are a separate target-native command policy surface under `.skillset/_codex/rules/**/*.rules`; Cursor plugin `rules/` files are target-native companions, not portable instruction source.
 
 ## Authoring
 
@@ -21,10 +21,11 @@ Use `skillset new instruction <name>` to preview a canonical workspace instructi
 
 ## Target Rendering
 
-| Source | Claude output | Codex output | Status | Notes |
-| --- | --- | --- | --- | --- |
-| `<source-root>/rules/**/*.md` | `.claude/rules/**/*.md` | derived `AGENTS.md` files | `portable` / `implemented` | Claude keeps `paths`; Codex strips frontmatter and concatenates deterministic source sections. |
-| `<source-root>/_codex/rules/**/*.rules` | n/a | `.codex/rules/**/*.rules` | `target_native` / `implemented` | Execution policy, not instruction prose. |
+| Source | Claude output | Codex output | Cursor output | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `<source-root>/rules/**/*.md` | `.claude/rules/**/*.md` | derived `AGENTS.md` files | `.cursor/rules/**/*.mdc` | `portable` / `implemented` | Claude keeps `paths`; Codex strips frontmatter and concatenates deterministic source sections; Cursor renders Cursor rule frontmatter. |
+| `<source-root>/_codex/rules/**/*.rules` | n/a | `.codex/rules/**/*.rules` | n/a | `target_native` / `implemented` | Execution policy, not instruction prose. |
+| `<source-root>/plugins/<plugin>/rules/` | n/a | n/a | plugin root `rules/` | `target_native` / `implemented` | Cursor plugin companion rules remain provider-native. |
 
 ## Diagnostics
 

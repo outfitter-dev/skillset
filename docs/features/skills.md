@@ -21,13 +21,13 @@ Use `skillset new skill <name>` to create a minimal valid skill source file in t
 
 ## Target Rendering
 
-| Source | Claude output | Codex output | Status | Notes |
-| --- | --- | --- | --- | --- |
-| Plugin skill source | `plugins/<plugin>/claude/skills/<skill>/SKILL.md` | `plugins/<plugin>/codex/skills/<skill>/SKILL.md` plus sidecars when needed | `portable` / `implemented` | Plugin boundaries are preserved per target. |
-| Standalone skill source | `.claude/skills/<skill>/SKILL.md` | `.agents/skills/<skill>/SKILL.md` plus sidecars when needed | `portable` / `implemented` | Standalone roots are configured by target skill output paths. |
-| Release state / inline version fields | `metadata.version` and plugin manifest version | `metadata.version` and plugin manifest version | `metadata_only` / `implemented` | Release state wins after `skillset release apply`; inline versions remain the fallback. `skillset check --only outputs` reports generated version drift. |
-| `{{$ARGUMENTS...}}` source placeholders | native `$ARGUMENTS...` placeholders | preserved `{{$ARGUMENTS...}}` markers plus a one-line replacement instruction | `shimmed` / `implemented` | Enabled by default through `compile.features.promptArguments`; disable to reject the source markers. |
-| `compile.skillset.metadata: false` | suppress generated Skillset metadata | suppress generated Skillset metadata | `implemented` | Locks still carry provenance. |
+| Source | Claude output | Codex output | Cursor output | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| Plugin skill source | `plugins/<plugin>/claude/skills/<skill>/SKILL.md` | `plugins/<plugin>/codex/skills/<skill>/SKILL.md` plus Codex sidecars when needed | `plugins/<plugin>/cursor/skills/<skill>/SKILL.md` | `portable` / `implemented` | Plugin boundaries are preserved per target. |
+| Standalone skill source | `.claude/skills/<skill>/SKILL.md` | `.agents/skills/<skill>/SKILL.md` plus Codex sidecars when needed | `.cursor/skills/<skill>/SKILL.md` | `portable` / `implemented` | Standalone roots are configured by target skill output paths. |
+| Release state / inline version fields | `metadata.version` and plugin manifest version | `metadata.version` and plugin manifest version | `metadata.version` and plugin manifest version | `metadata_only` / `implemented` | Release state wins after `skillset release apply`; inline versions remain the fallback. `skillset check --only outputs` reports generated version drift. |
+| `{{$ARGUMENTS...}}` source placeholders | native `$ARGUMENTS...` placeholders | preserved `{{$ARGUMENTS...}}` markers plus a one-line replacement instruction | preserved `{{$ARGUMENTS...}}` markers | `shimmed` / `implemented` | Enabled by default through `compile.features.promptArguments`; disable to reject the source markers. |
+| `compile.skillset.metadata: false` | suppress generated Skillset metadata | suppress generated Skillset metadata | suppress generated Skillset metadata | `implemented` | Locks still carry provenance. |
 
 ## Diagnostics
 
