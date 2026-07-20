@@ -15,7 +15,7 @@ validate completeness and print the project finding counts.
 | 01.2 | confirmed | fixed | SET-315 | https://github.com/outfitter-dev/skillset/pull/301 | Cursor target-native islands load and align with registry evidence. Merged as `d7468f1145da59bc119f61124b96fe0c504e5a0a`. |
 | 01.3 | confirmed | fixed | SET-316 | https://github.com/outfitter-dev/skillset/pull/300 | Cursor hook-event casing derives from registry-owned evidence. Merged as `a2d421026d6b0853d3a488dd47564476cd9e1700`. |
 | 01.4 | confirmed | fixed | SET-318 | https://github.com/outfitter-dev/skillset/pull/305 | Target roots and project-agent extensions use exhaustive canonical descriptors without an implicit Cursor fallback. Merged as `0ea4c96b72da7bad975988aeafa652716f0ced91`. |
-| 01.5 | confirmed | open | SET-313 | — | Final Cursor default-target and ADR decision; decision evidence required. |
+| 01.5 | confirmed | fixed | SET-313 | https://github.com/outfitter-dev/skillset/pull/323 | Accepted ADR-0002 resolves the draft/default contradiction through schema-owned defaults, explicit narrower classifications, an omitted-target all-provider regression, and a redacted runtime receipt; it was promoted without amending ADR-0001. Merged as `b351e904d14a0af4a39a066d9258f7b1c175bc76`. |
 | 01.6 | confirmed | open | SET-339 | — | Refresh significant Cursor documentation after SET-317 and SET-313. |
 | 01.7 | confirmed | open | SET-339 | — | Refresh moderate Cursor documentation after SET-317 and SET-313. |
 | 01.8 | confirmed | open | SET-339 | — | Refresh minor Cursor documentation after SET-317 and SET-313. |
