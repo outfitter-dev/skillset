@@ -1,5 +1,11 @@
 # Hook Guardrails
 
+<!-- skillset:feature-support:start -->
+| Feature | Feature status | claude | codex | cursor |
+| --- | --- | --- | --- | --- |
+| `runtime-context` | `implemented` | `transformed` | `transformed` | `transformed` |
+<!-- skillset:feature-support:end -->
+
 Feature id: `hook-guardrails`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

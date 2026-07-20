@@ -1,5 +1,11 @@
 # Dependencies
 
+<!-- skillset:feature-support:start -->
+| Feature | Feature status | claude | codex | cursor |
+| --- | --- | --- | --- | --- |
+| `dependencies` | `implemented` | `native` | `degraded` | `planned` |
+<!-- skillset:feature-support:end -->
+
 Feature id: `dependencies`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

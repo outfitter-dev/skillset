@@ -1,5 +1,11 @@
 # Provider Source
 
+<!-- skillset:feature-support:start -->
+| Feature | Feature status | claude | codex | cursor |
+| --- | --- | --- | --- | --- |
+| `target-native-islands` | `implemented` | `pass_through` | `pass_through` | `pass_through` |
+<!-- skillset:feature-support:end -->
+
 Current internal feature id: `target-native-islands`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

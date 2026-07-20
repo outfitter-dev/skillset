@@ -1,5 +1,22 @@
 # Plugins
 
+<!-- skillset:feature-support:start -->
+| Feature | Feature status | claude | codex | cursor |
+| --- | --- | --- | --- | --- |
+| `plugin-assets` | `implemented` | `pass_through` | `pass_through` | `planned` |
+| `plugin-commands` | `implemented` | `pass_through` | `not_applicable` | `pass_through` |
+| `plugin-lsp-servers` | `implemented` | `pass_through` | `not_applicable` | `planned` |
+| `plugin-manifests` | `implemented` | `native` | `native` | `native` |
+| `plugin-monitors` | `implemented` | `pass_through` | `not_applicable` | `planned` |
+| `plugin-output-styles` | `implemented` | `pass_through` | `not_applicable` | `planned` |
+| `plugin-readme` | `implemented` | `pass_through` | `pass_through` | `planned` |
+| `plugin-rules` | `implemented` | `not_applicable` | `not_applicable` | `pass_through` |
+| `plugin-scripts` | `implemented` | `pass_through` | `pass_through` | `planned` |
+| `plugin-skills` | `implemented` | `native` | `native` | `native` |
+| `plugin-src` | `implemented` | `pass_through` | `pass_through` | `planned` |
+| `plugin-themes` | `implemented` | `pass_through` | `not_applicable` | `planned` |
+<!-- skillset:feature-support:end -->
+
 Feature id: `plugins`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

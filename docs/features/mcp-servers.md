@@ -1,5 +1,11 @@
 # MCP Servers
 
+<!-- skillset:feature-support:start -->
+| Feature | Feature status | claude | codex | cursor |
+| --- | --- | --- | --- | --- |
+| `plugin-mcp` | `implemented` | `native` | `native` | `native` |
+<!-- skillset:feature-support:end -->
+
 Feature id: `mcp-servers`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

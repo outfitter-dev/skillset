@@ -1,5 +1,12 @@
 # Skills
 
+<!-- skillset:feature-support:start -->
+| Feature | Feature status | claude | codex | cursor |
+| --- | --- | --- | --- | --- |
+| `plugin-skills` | `implemented` | `native` | `native` | `native` |
+| `standalone-skills` | `implemented` | `native` | `native` | `native` |
+<!-- skillset:feature-support:end -->
+
 Feature id: `skills`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

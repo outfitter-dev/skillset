@@ -1,5 +1,11 @@
 # Monitors
 
+<!-- skillset:feature-support:start -->
+| Feature | Feature status | claude | codex | cursor |
+| --- | --- | --- | --- | --- |
+| `plugin-monitors` | `implemented` | `pass_through` | `not_applicable` | `planned` |
+<!-- skillset:feature-support:end -->
+
 Feature id: `monitors`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

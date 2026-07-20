@@ -1,5 +1,12 @@
 # Feature Source Pointers
 
+<!-- skillset:feature-support:start -->
+| Feature | Feature status | claude | codex | cursor |
+| --- | --- | --- | --- | --- |
+| `plugin-bin` | `implemented` | `pass_through` | `unsupported` | `unsupported` |
+| `plugin-mcp` | `implemented` | `native` | `native` | `native` |
+<!-- skillset:feature-support:end -->
+
 Feature id: `feature-source-pointers`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

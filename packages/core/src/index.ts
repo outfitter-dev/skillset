@@ -156,6 +156,7 @@ export {
 } from "./feature-registry";
 export {
   checkFeatureRegistryDrift,
+  renderFeatureSupportMatrix,
   type FeatureRegistryDriftCode,
   type FeatureRegistryDriftIssue,
   type FeatureRegistryDriftReport,

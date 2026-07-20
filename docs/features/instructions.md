@@ -1,5 +1,12 @@
 # Instructions
 
+<!-- skillset:feature-support:start -->
+| Feature | Feature status | claude | codex | cursor |
+| --- | --- | --- | --- | --- |
+| `plugin-rules` | `implemented` | `not_applicable` | `not_applicable` | `pass_through` |
+| `project-instructions` | `implemented` | `transformed` | `transformed` | `transformed` |
+<!-- skillset:feature-support:end -->
+
 Feature id: `instructions`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

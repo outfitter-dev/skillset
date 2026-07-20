@@ -1,5 +1,12 @@
 # Commands
 
+<!-- skillset:feature-support:start -->
+| Feature | Feature status | claude | codex | cursor |
+| --- | --- | --- | --- | --- |
+| `future-companion-source-pointers` | `planned` | `planned` | `planned` | `planned` |
+| `plugin-commands` | `implemented` | `pass_through` | `not_applicable` | `pass_through` |
+<!-- skillset:feature-support:end -->
+
 Feature id: `commands`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

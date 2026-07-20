@@ -1,5 +1,11 @@
 # Dev Watch
 
+<!-- skillset:feature-support:start -->
+| Feature | Feature status | claude | codex | cursor |
+| --- | --- | --- | --- | --- |
+| `dev-watch` | `implemented` | `not_applicable` | `not_applicable` | `planned` |
+<!-- skillset:feature-support:end -->
+
 Feature id: `dev-watch`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

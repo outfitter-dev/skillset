@@ -1,5 +1,11 @@
 # LSP Servers
 
+<!-- skillset:feature-support:start -->
+| Feature | Feature status | claude | codex | cursor |
+| --- | --- | --- | --- | --- |
+| `plugin-lsp-servers` | `implemented` | `pass_through` | `not_applicable` | `planned` |
+<!-- skillset:feature-support:end -->
+
 Feature id: `lsp-servers`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

@@ -1,5 +1,11 @@
 # Resources
 
+<!-- skillset:feature-support:start -->
+| Feature | Feature status | claude | codex | cursor |
+| --- | --- | --- | --- | --- |
+| `resources` | `implemented` | `native` | `native` | `native` |
+<!-- skillset:feature-support:end -->
+
 Feature id: `resources`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

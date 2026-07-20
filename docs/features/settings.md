@@ -1,5 +1,11 @@
 # Settings
 
+<!-- skillset:feature-support:start -->
+| Feature | Feature status | claude | codex | cursor |
+| --- | --- | --- | --- | --- |
+| `future-companion-source-pointers` | `planned` | `planned` | `planned` | `planned` |
+<!-- skillset:feature-support:end -->
+
 Feature id: `settings`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

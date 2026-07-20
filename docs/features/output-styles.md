@@ -1,5 +1,11 @@
 # Output Styles
 
+<!-- skillset:feature-support:start -->
+| Feature | Feature status | claude | codex | cursor |
+| --- | --- | --- | --- | --- |
+| `plugin-output-styles` | `implemented` | `pass_through` | `not_applicable` | `planned` |
+<!-- skillset:feature-support:end -->
+
 Feature id: `output-styles`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
