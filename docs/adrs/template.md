@@ -7,6 +7,7 @@ created: YYYY-MM-DD
 updated: YYYY-MM-DD
 owners: ['[galligan](https://github.com/galligan)']
 # depends_on: [0, draft-slug]
+# amends: [0]
 ---
 
 # ADR-NNNN: Title in Title Case

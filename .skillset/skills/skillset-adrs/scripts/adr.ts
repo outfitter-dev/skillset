@@ -37,7 +37,7 @@ import {
   todayCompact,
 } from './lib/discovery.ts';
 import { extractTitle, serializeFrontmatter } from './lib/frontmatter.ts';
-import type { Frontmatter } from './lib/frontmatter.ts';
+import type { AdrFile, Frontmatter } from './lib/frontmatter.ts';
 import { gitMove } from './lib/git.ts';
 import { rebuildIndex } from './lib/index.ts';
 import { ADR_DIR, DRAFTS_DIR, INDEX_PATH, MAP_PATH } from './lib/paths.ts';
@@ -46,6 +46,28 @@ import {
   rewriteDraftLinks,
   rewriteFrontmatterSlugRefs,
 } from './lib/references.ts';
+import { validateAmendments } from './lib/amendments.ts';
+
+const assertValidAmendments = (
+  numbered: AdrFile[],
+  drafts: AdrFile[]
+): void => {
+  const amendmentIssues = validateAmendments(numbered, drafts);
+  if (amendmentIssues.length === 0) {
+    return;
+  }
+  for (const issue of amendmentIssues) {
+    console.error(`Error: ${issue.file}: ${issue.message}`);
+  }
+  process.exit(1);
+};
+
+const replaceAdr = (
+  adrs: AdrFile[],
+  current: AdrFile,
+  candidate: AdrFile
+): AdrFile[] =>
+  adrs.map((entry) => (entry.path === current.path ? candidate : entry));
 
 // ---------------------------------------------------------------------------
 // Commands
@@ -126,6 +148,10 @@ const cmdPromote = (args: Args): void => {
     process.exit(1);
   }
 
+  const numbered = listNumberedAdrs();
+  const drafts = listDrafts();
+  assertValidAmendments(numbered, drafts);
+
   const apply = shouldApply(args);
   previewBanner(args);
 
@@ -135,13 +161,24 @@ const cmdPromote = (args: Args): void => {
   const slug = adr.filename.replace(/^\d+-/, '').replace(/\.md$/, '');
   const newFilename = `${padded}-${slug}.md`;
   const newPath = join(ADR_DIR, newFilename);
+  const supersededAdr = args.supersedes
+    ? resolveAdr(args.supersedes)
+    : undefined;
+
+  if (supersededAdr?.path.includes('/drafts/')) {
+    console.error(
+      `Error: ${supersededAdr.filename} is a draft and cannot be superseded — promote it first`
+    );
+    process.exit(1);
+  }
 
   console.log(`Promote: ${adr.filename} → ${newFilename} (${status})`);
 
   if (args.supersedes) {
-    const oldAdr = resolveAdr(args.supersedes);
-    if (oldAdr) {
-      console.log(`Supersede: ${oldAdr.filename} → superseded by ${padded}`);
+    if (supersededAdr) {
+      console.log(
+        `Supersede: ${supersededAdr.filename} → superseded by ${padded}`
+      );
     } else {
       console.warn(
         `Warning: could not find ADR "${args.supersedes}" to supersede`
@@ -170,6 +207,36 @@ const cmdPromote = (args: Args): void => {
 
   const updatedBody = adr.body.replace(/^#\s+ADR:\s*/m, `# ADR-${padded}: `);
   const content = `${serializeFrontmatter(updatedFm as Frontmatter)}\n${updatedBody}`;
+  const promoted: AdrFile = {
+    ...adr,
+    body: updatedBody,
+    filename: newFilename,
+    frontmatter: updatedFm,
+    path: newPath,
+    raw: content,
+    title: cleanTitle,
+  };
+  let candidateNumbered = [...numbered, promoted];
+  if (supersededAdr) {
+    const superseded: AdrFile = {
+      ...supersededAdr,
+      frontmatter: {
+        ...supersededAdr.frontmatter,
+        status: 'superseded',
+        superseded_by: [String(num)],
+        updated: today(),
+      },
+    };
+    candidateNumbered = replaceAdr(
+      candidateNumbered,
+      supersededAdr,
+      superseded
+    );
+  }
+  assertValidAmendments(
+    candidateNumbered,
+    drafts.filter((entry) => entry.path !== adr.path)
+  );
   writeFileSync(adr.path, content, 'utf8');
 
   gitMove(adr.path, newPath);
@@ -184,18 +251,15 @@ const cmdPromote = (args: Args): void => {
   console.log('Rewriting peer draft frontmatter references...');
   rewriteFrontmatterSlugRefs(slug, num);
 
-  if (args.supersedes) {
-    const oldAdr = resolveAdr(args.supersedes);
-    if (oldAdr) {
-      const oldFm = {
-        ...oldAdr.frontmatter,
-        status: 'superseded',
-        superseded_by: [String(num)],
-        updated: today(),
-      };
-      const oldContent = `${serializeFrontmatter(oldFm as Frontmatter)}\n${oldAdr.body}`;
-      writeFileSync(oldAdr.path, oldContent, 'utf8');
-    }
+  if (supersededAdr) {
+    const oldFm = {
+      ...supersededAdr.frontmatter,
+      status: 'superseded',
+      superseded_by: [String(num)],
+      updated: today(),
+    };
+    const oldContent = `${serializeFrontmatter(oldFm as Frontmatter)}\n${supersededAdr.body}`;
+    writeFileSync(supersededAdr.path, oldContent, 'utf8');
   }
 
   rebuildIndex();
@@ -461,6 +525,11 @@ const cmdCheck = (args: Args): void => {
     checkAdr(adr, true);
   }
 
+  console.log('Checking amendment metadata...');
+  for (const issue of validateAmendments(listNumberedAdrs(), listDrafts())) {
+    report('error', issue.file, issue.message);
+  }
+
   console.log('Checking index...');
   if (existsSync(INDEX_PATH)) {
     const indexContent = readFileSync(INDEX_PATH, 'utf8');
@@ -591,6 +660,43 @@ const cmdUpdate = (args: Args): void => {
   if (args.status) {
     fm.status = args.status;
     fm.updated = today();
+  }
+
+  let candidateBody = body;
+  const candidateFm = { ...fm };
+  if (args.renumber) {
+    const newNum = Number(args.renumber);
+    const padded = padNumber(newNum);
+    candidateBody = candidateBody.replace(
+      /^#\s+ADR-\d+:/m,
+      `# ADR-${padded}:`
+    );
+    candidateFm.id = newNum;
+    candidateFm.updated = today();
+  }
+
+  const finalFilename = newRenumberFilename ?? newSlugFilename ?? adr.filename;
+  const finalPath =
+    newRenumberFilename || newSlugFilename
+      ? join(
+          newRenumberFilename ? ADR_DIR : dirname(adr.path),
+          finalFilename
+        )
+      : adr.path;
+  if (args.slug || args.status || args.renumber) {
+    const candidateContent = `${serializeFrontmatter(candidateFm as Frontmatter)}\n${candidateBody}`;
+    const candidate: AdrFile = {
+      ...adr,
+      body: candidateBody,
+      filename: finalFilename,
+      frontmatter: candidateFm,
+      path: finalPath,
+      raw: candidateContent,
+    };
+    assertValidAmendments(
+      replaceAdr(listNumberedAdrs(), adr, candidate),
+      replaceAdr(listDrafts(), adr, candidate)
+    );
   }
 
   const content = `${serializeFrontmatter(fm as Frontmatter)}\n${body}`;

@@ -9,8 +9,10 @@
       "files": [
         "skillset-adrs/SKILL.md",
         "skillset-adrs/assets/adr-management.md",
+        "skillset-adrs/scripts/__tests__/amendments.test.ts",
         "skillset-adrs/scripts/__tests__/promote-rewrite.test.ts",
         "skillset-adrs/scripts/adr.ts",
+        "skillset-adrs/scripts/lib/amendments.ts",
         "skillset-adrs/scripts/lib/cli.ts",
         "skillset-adrs/scripts/lib/decision-map.ts",
         "skillset-adrs/scripts/lib/discovery.ts",
@@ -22,9 +24,9 @@
       ],
       "kind": "standalone-skill",
       "name": "skillset-adrs",
-      "outputHash": "sha256:f7bc8cd2377ec948b02a7cf5d0c7607ce976c7a3533586c8b5c9320b47e437a3",
+      "outputHash": "sha256:a1117e9522cf60529aed936f84f76b514a6c360f9c66123cfd5d30ceb1003162",
       "outputPath": "skillset-adrs/SKILL.md",
-      "sourceHash": "sha256:84bcbf148d2b89413b93c51576c64f6ed7042e1f1f7a4472313acc312a8b4e4a",
+      "sourceHash": "sha256:9ae61356aead65450c500ac6d333bc8d095a35ddf1426e7b9e6379f420a9bb0a",
       "sourcePath": ".skillset/skills/skillset-adrs/SKILL.md",
       "version": "0.1.0"
     },
@@ -86,11 +88,19 @@
         },
         {
           "kind": "standalone-skill",
+          "path": ".claude/skills/skillset-adrs/scripts/__tests__/amendments.test.ts"
+        },
+        {
+          "kind": "standalone-skill",
           "path": ".claude/skills/skillset-adrs/scripts/__tests__/promote-rewrite.test.ts"
         },
         {
           "kind": "standalone-skill",
           "path": ".claude/skills/skillset-adrs/scripts/adr.ts"
+        },
+        {
+          "kind": "standalone-skill",
+          "path": ".claude/skills/skillset-adrs/scripts/lib/amendments.ts"
         },
         {
           "kind": "standalone-skill",
