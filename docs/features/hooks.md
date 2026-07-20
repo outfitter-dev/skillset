@@ -13,7 +13,7 @@ Feature id: `hooks`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Hooks are rendered definitions only. Skillset never installs, trusts, enables, or mutates user-level Claude or Codex configuration as a side effect of build, check, diff, import, init, or create.
+Hooks are rendered definitions only. Skillset never installs, trusts, enables, or mutates user-level Claude, Codex, or Cursor configuration as a side effect of build, check, diff, import, init, or create.
 
 Skillset supports two hook source styles:
 
@@ -34,11 +34,11 @@ Imported provider-native hook files stay native by default. Skillset should only
 
 ### Target Rendering
 
-| Source | Claude output | Codex output | Status | Notes |
-| --- | --- | --- | --- | --- |
-| `hooks/hooks.json` | `hooks/hooks.json` | `hooks/hooks.json` | `target_native` / `implemented` | Destination-specific native aggregate source rendered with a top-level `hooks` object. |
-| root `hooks.json` | n/a | n/a | `unsupported` | Move the file to `hooks/hooks.json`. |
-| Future `hooks.source` | n/a | n/a | `planned` | No feature-key source pointer exists in v1. |
+| Source | Claude output | Codex output | Cursor output | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `hooks/hooks.json` | `hooks/hooks.json` | `hooks/hooks.json` | `hooks/hooks.json` | `target_native` / `implemented` | Destination-specific native aggregate source rendered with a top-level `hooks` object. |
+| root `hooks.json` | n/a | n/a | n/a | `unsupported` | Move the file to `hooks/hooks.json`. |
+| Future `hooks.source` | n/a | n/a | n/a | `planned` | No feature-key source pointer exists in v1. |
 
 ## Adaptive Hook Units
 
@@ -72,7 +72,7 @@ Adaptive hook `run.script` references have two source-backed forms:
 
 Flat hook units such as `hooks/<name>.json` cannot use `./...` hook-local scripts because they do not own a private sidecar directory. Use a directory hook unit for colocated sidecars or `{{scripts.dir}}/...` for owner-level shared scripts.
 
-Plugin-level adaptive hook rendering copies referenced scripts into the generated plugin root and rewrites commands to provider runtime roots: `$CLAUDE_PLUGIN_ROOT` for Claude plugin hooks and `$PLUGIN_ROOT` for Codex plugin hooks.
+Plugin-level adaptive hook rendering copies referenced scripts into the generated plugin root and rewrites commands to provider runtime roots: `$CLAUDE_PLUGIN_ROOT` for Claude plugin hooks and `$PLUGIN_ROOT` for Codex and Cursor plugin hooks.
 
 ### Runtime Context
 
@@ -202,11 +202,11 @@ Nearest-first resolution only chooses named source definitions. It does not over
 
 The implemented render slices support plugin-level command/script hooks, plugin-level `run.env` shell assignments, and Claude frontmatter command hooks. When a plugin attachment resolves to a provider-compatible adaptive hook, Skillset writes provider-native `hooks/hooks.json` into generated provider plugin outputs and declares `hooks` in the plugin manifest. When a Claude skill-local or project-agent-local attachment resolves to a command hook, Skillset writes provider-native `hooks` frontmatter for the generated skill or agent.
 
-Skill-local and project-agent-local attachments currently render only to Claude frontmatter. Plugin-shipped agent frontmatter hooks are not implemented; use a plugin-level hook or provider-native aggregate source until that destination has a faithful render path. Scope Codex-incompatible skill or agent attachments with `providers: [claude]` when the intent is Claude-only. If Codex is enabled and an attachment cannot be faithfully rendered, build, diff, and output checks surface an `adaptive-hooks` `unsupported:error` render result instead of writing a broader plugin or project hook.
+Skill-local and project-agent-local attachments currently render only to Claude frontmatter. Plugin-shipped agent frontmatter hooks are not implemented; use a plugin-level hook or provider-native aggregate source until that destination has a faithful render path. Scope Codex- or Cursor-incompatible skill or agent attachments with `providers: [claude]` when the intent is Claude-only. If Codex or Cursor is enabled and an attachment cannot be faithfully rendered, build, diff, and output checks surface an `adaptive-hooks` `unsupported:error` render result instead of writing a broader plugin or project hook.
 
 Provider blocks are closed, typed overrides for `events`, `match`, `context`, and `run`. An absent field inherits the portable unit; a supplied field replaces that complete semantic unit; `match: null` and `context: null` clear only those values. An override cannot enable a provider excluded by the unit's `providers` list. Skillset resolves this effective definition once per target before validating attachments, scripts, and target capabilities.
 
-Unsupported cases include Codex skill/agent no-faithful-destination cases, Claude-only plugin events, Codex-ignored matchers, `context.includeRaw` until raw-context semantics exist, ambiguous hooks that define both `run.command` and `run.script`, unsupported `run.args`/`run.cwd` fields, frontmatter `run.env` fields, and frontmatter `run.script` path-proof gaps.
+Unsupported cases include Codex and Cursor skill/agent no-faithful-destination cases, Claude-only plugin events, Codex-ignored matchers, `context.includeRaw` until raw-context semantics exist, ambiguous hooks that define both `run.command` and `run.script`, unsupported `run.args`/`run.cwd` fields, frontmatter `run.env` fields, and frontmatter `run.script` path-proof gaps.
 
 ### Provider Reference
 
@@ -216,7 +216,7 @@ Use `skillset new hook <name> --event <event> --command <command> --attach <sour
 
 Bare interactive `skillset new` exposes the same operation: searchable attachment and event choices come from the live source graph and registry, event choices show compatible providers, unsupported attachment destinations show classifier-derived reasons, and explicit flags skip their matching prompts. The final preview and default-No confirmation still come from the shared scaffold report.
 
-Provider details are intentionally registry-backed instead of duplicated here. Claude has the broader hook surface; Codex support is narrower and currently centers on synchronous command handlers. `skillset lookup hooks --events --compat claude,codex` is the preferred way to inspect the current matrix. Skillset keeps provider-specific validation explicit so incompatible hooks fail visibly instead of being silently widened or dropped.
+Provider details are intentionally registry-backed instead of duplicated here. Claude has the broader hook surface; Codex and Cursor support are narrower and currently center on plugin-level command handlers. Cursor uses provider-native lower-camel event names. `skillset lookup hooks --events --compat claude,codex,cursor` is the preferred way to inspect the current matrix. Skillset keeps provider-specific validation explicit so incompatible hooks fail visibly instead of being silently widened or dropped.
 
 Provider docs checked: 2026-06-25.
 
@@ -226,6 +226,7 @@ Provider docs checked: 2026-06-25.
 - [Codex config reference](https://developers.openai.com/codex/config-reference)
 - [Codex advanced config](https://developers.openai.com/codex/config-advanced)
 - [Codex plugin build docs](https://developers.openai.com/codex/plugins/build)
+- [Cursor hooks docs](https://cursor.com/docs/hooks)
 
 ## Diagnostics
 

@@ -48,7 +48,7 @@ Backup manifests use schema version 2 and store backed-up bytes in a per-run bar
 
 Generated changelogs are the currently implemented managed-output case where "just rebuild it" can discard useful author intent. When `skillset diff`, `skillset change status`, or `skillset check --ci` reports drift for a managed `CHANGELOG.md`, treat the edit as a source-side correction request: use `skillset change reason <@ref>` for pending wording before release, `skillset change amend <@ref>` for applied history wording after release, or `skillset release amend <@ref>` for release-event metadata. `skillset check --ci --fix` may still mechanically restore the projection from source, but the diagnostics should make the source-side recovery path visible first.
 
-The broader recovery model is [Source Suggestions](source-suggestions.md). That future workflow should use lock ownership to explain the source path behind a generated edit, preview clean source-side patches, and refuse unsafe reverse patches. Until it lands, output safety remains conservative: back up or rebuild generated output, but do not silently accept generated edits as source truth.
+The broader recovery model is [Source Suggestions](source-suggestions.md). The implemented local reconciliation workflow uses lock ownership to explain the source path behind a generated edit, preview clean source-side patches, and refuse unsafe reverse patches. Automated CI writeback remains future work; output safety stays conservative and never silently accepts generated edits as source truth.
 
 ## Restore
 

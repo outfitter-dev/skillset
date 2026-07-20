@@ -32,7 +32,7 @@ Generated entity `CHANGELOG.md` files are managed projections. When one has been
 
 For added or changed generated paths, CI runs the same read-only ownership and safety classification used by `skillset reconcile`. Reports include the generated path, owning source path when known, whether output-wins is available or refused, and the next manual command. CI never chooses a conflict direction automatically.
 
-[Source Suggestions](source-suggestions.md) is the future recovery path for managed generated-output edits that should become source changes. CI writeback remains future-only until the local suggestion command can classify clean source patches, refusal cases, and stale lock/conflict risks.
+[Source Suggestions](source-suggestions.md) provides the implemented local recovery path for managed generated-output edits that should become source changes. CI writeback remains future-only and must retain the local reconciliation command's clean-patch, refusal, stale-lock, and conflict safeguards.
 
 `skillset init --include ci` scaffolds `.github/workflows/skillset-ci.yml`. The workflow is user-owned after creation: rerunning `init --include ci` reports an edited workflow as existing and never overwrites it. The scaffolded workflow:
 

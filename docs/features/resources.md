@@ -29,10 +29,10 @@ resources:
 
 ## Target Rendering
 
-| Source | Claude output | Codex output | Status | Notes |
-| --- | --- | --- | --- | --- |
-| Declared resource file | skill-local copied file | skill-local copied file | `portable` / `implemented` | Links and scripts remain relative to the generated skill directory. |
-| Declared resource directory | skill-local copied tree | skill-local copied tree | `portable` / `implemented` | Child links through resource URLs rewrite to generated paths. |
+| Source | Claude output | Codex output | Cursor output | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| Declared resource file | skill-local copied file | skill-local copied file | skill-local copied file | `portable` / `implemented` | Links and scripts remain relative to the generated skill directory. |
+| Declared resource directory | skill-local copied tree | skill-local copied tree | skill-local copied tree | `portable` / `implemented` | Child links through resource URLs rewrite to generated paths. |
 
 ## Diagnostics
 

@@ -28,7 +28,7 @@ Preview mode is read-only. Write mode is allowed only for clean, single-source c
 | Generated changelog edit after release | Refuse reconciliation and point to `skillset change amend` for applied-history wording or `skillset release amend` for release-event metadata | `implemented` |
 | Generated metadata, lock files, manifests, or version fields | Refuse; output resolution compares the exact generated frontmatter block with the current expected render and accepts body edits only | `implemented` |
 | Output from partials, shared resources, or multiple source files | Refuse with diagnostics until a richer mapping exists | `implemented` |
-| Provider-native output with no adaptive round trip | Refuse and explain the provider-specific source or manual path | `planned` |
+| Provider-native output with no adaptive round trip | Refuse and explain the provider-specific source or manual path | `implemented` |
 | Unmanaged files | Refuse; Skillset cannot claim source ownership without lock provenance | `implemented` |
 
 ## Diagnostics
@@ -81,7 +81,7 @@ Fork PRs, protected branches, stale branches, corrupt locks, concurrent pushes, 
 
 ## Tests and Fixtures
 
-[SET-151](https://linear.app/outfitter/issue/SET-151/implement-suggest-source-command-for-clean-generated-to-source) added tests for clean skill-body suggestions, generated changelog refusal, read-only previews, explicit write confirmation, and `explain`/suggestion provenance consistency. [SET-322](https://linear.app/outfitter/issue/SET-322/reconcile-detect-and-refuse-generated-side-frontmatter-divergence) adds expected-render frontmatter comparison, structured recovery, provider-transformed body-only coverage, and provider-native refusal coverage.
+[SET-151](https://linear.app/outfitter/issue/SET-151/implement-suggest-source-command-for-clean-generated-to-source) added tests for clean skill-body suggestions, generated changelog refusal, read-only previews, explicit write confirmation, and `explain`/suggestion provenance consistency. [SET-322](https://linear.app/outfitter/issue/SET-322/reconcile-detect-and-refuse-generated-side-frontmatter-divergence) adds expected-render frontmatter comparison, structured recovery, provider-transformed body-only coverage, and implemented provider-native refusal coverage.
 
 [SET-152](https://linear.app/outfitter/issue/SET-152/design-ci-source-suggestion-writeback-for-managed-generated-edits) should add tests for comment-only CI output, safe same-repo writeback, fork/protected-branch refusal, stale lock refusal, conflicts, and preservation of change-entry requirements.
 

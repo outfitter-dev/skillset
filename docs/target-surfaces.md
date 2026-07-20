@@ -72,7 +72,7 @@ artifacts.
 | Skills | `.cursor/skills/<skill>/SKILL.md` | Implemented | Project-level Cursor skills use `SKILL.md`; plugin skills live under plugin-root `skills/`. |
 | Rules | `.cursor/rules/**/*.mdc` | Implemented | Skillset renders project and plugin rules as Cursor `.mdc` files with Cursor frontmatter. |
 | Project subagents | `.cursor/agents/*.md` | Implemented | Cursor frontmatter includes `name`, `description`, `model`, `readonly`, and `is_background`; Cursor-specific fields stay provider-native until portable intent is proven. |
-| Plugins | `.cursor-plugin/plugin.json` plus plugin-root components | Implemented | Components include `rules/`, `skills/`, `agents/`, `commands/`, `hooks/hooks.json`, `mcp.json`, `assets/`, `scripts/`, and source companions. |
+| Plugins | `.cursor-plugin/plugin.json` plus plugin-root components | Implemented | Supported components are `rules/`, `skills/`, `agents/`, `commands/`, `hooks/hooks.json`, and `mcp.json`. |
 | Marketplace | `.cursor-plugin/marketplace.json` | Implemented | Multi-plugin repository catalog surface for generated local plugins. External plugin references remain governed by marketplace config and lock provenance. |
 | MCP | plugin-root `mcp.json` with `mcpServers` | Implemented | Cursor receives plugin-root `mcp.json`; manifest `mcpServers` is declared for the generated component path. |
 | Hooks | plugin-root `hooks/hooks.json` | Implemented | Cursor events are lower-camel provider-native names such as `sessionStart`, `beforeShellExecution`, `afterFileEdit`, `beforeSubmitPrompt`, `preCompact`, and `workspaceOpen`. |
@@ -186,10 +186,11 @@ Live-doc verified against `developers.openai.com/codex/plugins/build` and `devel
 
 ## Instructions
 
-| Source | Claude output | Codex output | Status |
-| --- | --- | --- | --- |
-| `<source-root>/rules/**/*.md` | `.claude/rules/**/*.md` (`paths` kept) | `AGENTS.md` at derived dirs, source-boundary comments | Implemented |
-| `<source-root>/_codex/rules/**/*.rules` | n/a | `.codex/rules/**/*.rules` | Provider-native / Implemented — Codex command execution policy, not instruction Markdown. |
+| Source | Claude output | Codex output | Cursor output | Status |
+| --- | --- | --- | --- | --- |
+| `<source-root>/rules/**/*.md` | `.claude/rules/**/*.md` (`paths` kept) | `AGENTS.md` at derived dirs, source-boundary comments | `.cursor/rules/**/*.mdc` with Cursor frontmatter | Implemented |
+| `<source-root>/_codex/rules/**/*.rules` | n/a | `.codex/rules/**/*.rules` | n/a | Provider-native / Implemented — Codex command execution policy, not instruction Markdown. |
+| `<source-root>/_cursor/rules/**/*.mdc` | n/a | n/a | `.cursor/rules/**/*.mdc` | Provider-native / Implemented — Cursor-native rules remain separate from portable instruction Markdown. |
 
 Codex truncates `AGENTS.md` beyond `project_doc_max_bytes` (32 KiB default); `skillset build` and `skillset check --only outputs` warn. Verified 2026-06-03 (`developers.openai.com/codex/guides/agents-md`, `openai/codex#7138`).
 
@@ -201,18 +202,18 @@ Codex `.rules` files are execution policy for shell command approval, prompt, or
 
 Verified 2026-07-02 against the provider capability registry, Codex hook schema snapshots, Claude hooks reference, and Cursor hooks docs. Provider-native hook validation is registry-backed for Claude, Codex, and Cursor.
 
-| Concern | Claude | Codex | Status |
-| --- | --- | --- | --- |
-| JSON-object shape | required | required | Implemented |
-| Supported events | registry allowlist | registry allowlist | Implemented |
-| Handler types | event-specific registry allowlist | synchronous `command` only | Implemented |
-| `async: true` command handlers | allowed | rejected (parsed-but-skipped) | Implemented |
+| Concern | Claude | Codex | Cursor | Status |
+| --- | --- | --- | --- | --- |
+| JSON-object shape | required | required | required | Implemented |
+| Supported events | registry allowlist | registry allowlist | registry allowlist | Implemented |
+| Handler types | event-specific registry allowlist | synchronous `command` only | synchronous `command` only | Implemented |
+| `async: true` command handlers | allowed | rejected (parsed-but-skipped) | rejected | Implemented |
 
 ## Tool policy
 
-| Source | Claude output | Codex output | Status |
-| --- | --- | --- | --- |
-| `tools` | `allowed-tools` / `disallowed-tools` (preapproval and denial rules) | `.skillset.tools.yaml` metadata | Implemented / Metadata-only (Codex) |
-| `tool_intent` | n/a | n/a | Retired — use `tools`. |
-| `allowed_tools` | `allowed-tools` | unset/false only | Implemented (Claude); Codex has no skill-local surface. |
-| `tools.<provider>.allow` / `deny` | native rules | `.skillset.tools.yaml` `target_native` | Implemented (provider-native block) |
+| Source | Claude output | Codex output | Cursor output | Status |
+| --- | --- | --- | --- | --- |
+| `tools` | `allowed-tools` / `disallowed-tools` (preapproval and denial rules) | `.skillset.tools.yaml` metadata | `.skillset.tools.yaml` metadata | Implemented / Metadata-only (Codex, Cursor) |
+| `tool_intent` | n/a | n/a | n/a | Retired — use `tools`. |
+| `allowed_tools` | `allowed-tools` | unset/false only | unset/false only | Implemented (Claude); Codex and Cursor have no skill-local surface. |
+| `tools.<provider>.allow` / `deny` | native rules | `.skillset.tools.yaml` `target_native` | `.skillset.tools.yaml` `target_native` | Implemented (provider-native block) |

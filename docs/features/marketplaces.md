@@ -25,6 +25,7 @@ marketplaces:
     targets:
       - claude
       - codex
+      - cursor
     plugins:
       - plugin: outfitter-core
       - plugin: trails-review
@@ -53,7 +54,7 @@ Optional plugin entry fields:
 | `version` | Version policy requested by the catalog source; plugin version authority stays in the plugin repo. |
 | `targets` | Provider targets for this entry, narrowing the catalog targets. |
 
-Provider output paths such as `plugins/<plugin>/<provider>`, `.claude-plugin`, or `.codex-plugin` are not part of the marketplace source contract. Provider-native source forms are derived output details for `marketplace update`.
+Provider output paths such as `plugins/<plugin>/<provider>`, `.claude-plugin`, `.codex-plugin`, or `.cursor-plugin` are not part of the marketplace source contract. Provider-native source forms are derived output details for `marketplace update`.
 
 For Claude, local entries render as relative plugin roots such as `./plugins/outfitter-core`. External entries render as provider-native git subdirectory sources that point at the referenced repo and the derived generated Claude plugin bundle path, such as:
 
@@ -66,7 +67,7 @@ For Claude, local entries render as relative plugin roots such as `./plugins/out
 }
 ```
 
-The authored Skillset source stays repo-shaped (`repo`, `ref`, `sha`, `channel`, `version`) rather than asking users to hand-author provider output roots. Codex plugin bundles are still verified as marketplace entries, but Codex does not currently have a provider-owned generated marketplace index in this repo; Codex marketplace activation/config remains outside `marketplace update`.
+The authored Skillset source stays repo-shaped (`repo`, `ref`, `sha`, `channel`, `version`) rather than asking users to hand-author provider output roots. Cursor renders its provider-owned marketplace index at `.cursor-plugin/marketplace.json` when selected. Codex plugin bundles are still verified as marketplace entries, but Codex does not currently have a provider-owned generated marketplace index in this repo; Codex marketplace activation/config remains outside `marketplace update`.
 
 ## Resolution
 

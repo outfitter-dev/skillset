@@ -25,17 +25,18 @@ Plugins group skills and target-native companion files while preserving provider
 
 ## Authoring
 
-Plugin identity derives from the directory unless `skillset.name` is present and agrees. `skillset.id` is rejected. Plugin source can configure `claude` and `codex` blocks for target opt-outs, output selection, defaults, and target-native options. Plugin-local `defaults.<target>.<surface>` is shorthand for target defaults, not provider selection.
+Plugin identity derives from the directory unless `skillset.name` is present and agrees. `skillset.id` is rejected. Plugin source can configure `claude`, `codex`, and `cursor` blocks for target opt-outs, output selection, defaults, and target-native options. Plugin-local `defaults.<target>.<surface>` is shorthand for target defaults, not provider selection.
 
 ## Target Rendering
 
-| Source | Claude output | Codex output | Status | Notes |
-| --- | --- | --- | --- | --- |
-| `<source-root>/plugins/<plugin>/skillset.yaml` | `.claude-plugin/plugin.json` | `.codex-plugin/plugin.json` | `portable` / `implemented` | Manifest fields derive from source metadata and target-supported companion paths. |
-| Plugin `skillset.license` or `LICENSE.txt` | `LICENSE.txt` | `LICENSE.txt` | `portable` / `implemented` | Generated as managed plugin-bundle output and inherited by plugin skills unless overridden or opted out. |
-| Plugin `skills/` | `skills/` | `skills/` | `portable` / `implemented` | Skill inclusion is per target and recorded in locks. |
-| Claude companion paths | commands, agents, hooks, MCP, LSP, output styles, themes, monitors, assets, scripts, src, bin | n/a unless separately supported | `target_native` / `implemented` | Target truth wins over fake portability. |
-| Codex companion paths | n/a unless separately supported | hooks, MCP, app manifest, assets, scripts, src | `target_native` / `implemented` | Codex plugin `agents/` and plugin `.rules` are unsupported. |
+| Source | Claude output | Codex output | Cursor output | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `<source-root>/plugins/<plugin>/skillset.yaml` | `.claude-plugin/plugin.json` | `.codex-plugin/plugin.json` | `.cursor-plugin/plugin.json` | `portable` / `implemented` | Manifest fields derive from source metadata and target-supported companion paths. |
+| Plugin `skillset.license` or `LICENSE.txt` | `LICENSE.txt` | `LICENSE.txt` | `LICENSE.txt` | `portable` / `implemented` | Generated as managed plugin-bundle output and inherited by plugin skills unless overridden or opted out. |
+| Plugin `skills/` | `skills/` | `skills/` | `skills/` | `portable` / `implemented` | Skill inclusion is per target and recorded in locks. |
+| Claude companion paths | commands, agents, hooks, MCP, LSP, output styles, themes, monitors, assets, scripts, src, bin | n/a unless separately supported | n/a unless separately supported | `target_native` / `implemented` | Target truth wins over fake portability. |
+| Codex companion paths | n/a unless separately supported | hooks, MCP, app manifest, assets, scripts, src | n/a unless separately supported | `target_native` / `implemented` | Codex plugin `agents/` and plugin `.rules` are unsupported. |
+| Cursor companion paths | n/a unless separately supported | n/a unless separately supported | commands, agents, hooks, MCP, rules, and provider source | `target_native` / `implemented` | The checked support matrix remains authoritative: assets, LSP, monitors, output styles, README, scripts, src, and themes are not implied by this row. |
 
 ## Manifest Field Authority
 
@@ -50,7 +51,7 @@ Each generated-manifest field has exactly one writer; competing authorities are 
 | Component wiring (`commands`, `agents`, `skills`, `hooks`, `mcpServers`, …) | compiler | Derived from source layout and feature keys; never authored in generated output. |
 | `dependencies` (Claude) | compiler, from source `dependencies` | A `claude.manifest.dependencies` override fails the build rather than competing. |
 
-Target-native `claude.manifest` / `codex.manifest` blocks remain the visible per-target escape hatch: an override wins over the source-owned value for that target only, and stays reviewable in source.
+Target-native `claude.manifest` / `codex.manifest` / `cursor.manifest` blocks remain the visible per-target escape hatch: an override wins over the source-owned value for that target only, and stays reviewable in source.
 
 ## Diagnostics
 

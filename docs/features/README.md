@@ -7,12 +7,12 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 ## Initial Pages
 
 - [Activation Probes](tests-and-evals.md#activation-probes): target-aware manual harness prompts generated inside `skillset test` runs.
-- [Agents](agents.md): portable project agents, Claude plugin agents, Codex project agents, and skill-local Codex policy boundaries.
+- [Agents](agents.md): portable project agents, Claude and Cursor plugin agents, Codex project agents, and skill-local policy boundaries.
 - [Apps](apps.md): Codex plugin `.app.json` pass-through and why there is no v1 `apps.source` feature key.
 - [Build Scopes](build-scopes.md): build mode, destination scopes, preview safety, diff/list/explain behavior, and lock semantics.
 - [Changes](changes.md): pending change entries, source coverage, compact refs, groups, and append-only history boundaries.
 - [CI](ci.md): the `skillset check --ci` aggregate check, mechanical drift rebuilds, PR-comment reports, and the `--include ci` workflow scaffold.
-- [Commands](commands.md): Claude plugin command pass-through, manifest wiring, and Codex unsupported boundaries.
+- [Commands](commands.md): Claude and Cursor plugin command pass-through, provider-native wiring, and Codex unsupported boundaries.
 - [Dependencies](dependencies.md): plugin dependency declarations, Claude rendering, Codex fallback notices, and provenance.
 - [Dev Watch](dev-watch.md): default-preview `skillset dev` for first-author source diagnostics, generated-output drift, and explicit write mode.
 - [Distributions](distributions.md): post-build distribution planning, destination reports, and build/distribution/activation boundaries.
@@ -21,7 +21,7 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Feature Registry](feature-registry.md): typed support matrix for feature ids, target capability claims, docs, evidence, render owners, and validation owners.
 - [Hook Guardrails](hook-guardrails.md): Git hook-runner snippets and optional agent-runtime nudges for change/release checks.
 - [Hooks](hooks.md): native aggregate hook emission, adaptive hook units, target validation, and activation boundaries.
-- [Instructions](instructions.md): source-root `rules/` rendering to Claude rules and Codex `AGENTS.md`, preprocessing, and collision safety.
+- [Instructions](instructions.md): source-root `rules/` rendering to Claude rules, Codex `AGENTS.md`, and Cursor `.mdc` rules, with preprocessing and collision safety.
 - [LSP Servers](lsp-servers.md): Claude plugin `.lsp.json` pass-through, manifest wiring, and future validation boundaries.
 - [Marketplaces](marketplaces.md): curated provider catalogs, external plugin references, readiness states, and check/update boundaries.
 - [MCP Servers](mcp-servers.md): plugin `.mcp.json`, `mcp.source`, manifest wiring, and structured validation.
@@ -35,7 +35,7 @@ Use these pages alongside the [target surface evidence matrix](../target-surface
 - [Runtime Adapters](runtime-adapters.md): runtime, distribution, and harness support records that stay separate from `compile.targets`.
 - [Settings](settings.md): future reviewed settings suggestion workflow and why build does not mutate runtime config.
 - [Skills](skills.md): standalone and plugin-bound skill frontmatter, target rendering, versions, metadata, and generated sidecars.
-- [Source Suggestions](source-suggestions.md): future managed-output edit recovery through source-side suggestions, distinct from settings suggestions.
+- [Source Suggestions](source-suggestions.md): implemented local managed-output reconciliation with source-side recovery suggestions, distinct from settings suggestions; CI writeback remains future work.
 - [Supports](supports.md): compatibility metadata, support ranges, source significance, and release severity boundaries.
 - [Provider Source](target-native-islands.md): explicit provider-native source islands, Codex `.rules` pass-through, and leakage rules.
 - [Tests and Evals](tests-and-evals.md): internal fixtures, dogfooding, deterministic `skillset test`, future adapter-aware evals, and generated run output boundaries.
@@ -102,8 +102,8 @@ Future schema generation can turn these fields into richer generated docs, but t
 
 These are tracked as future/reserved unless a later issue promotes them:
 
-- [Reviewed settings suggestion workflow](../adrs/drafts/20260604-reviewed-settings-suggestions.md): Skillset may eventually propose or review target settings changes, but `skillset build` must not mutate user-level Claude or Codex config.
-- [Source Suggestions](source-suggestions.md): managed generated-output edit recovery remains future-only until SET-151 and SET-152 implement local suggestions and CI writeback.
+- [Reviewed settings suggestion workflow](../adrs/drafts/20260604-reviewed-settings-suggestions.md): Skillset may eventually propose or review target settings changes, but `skillset build` must not mutate user-level Claude, Codex, or Cursor config.
+- [Source Suggestions](source-suggestions.md): local managed generated-output reconciliation is implemented; automated CI writeback remains future-only under SET-152.
 - [Model and reasoning alias profiles](../adrs/drafts/20260604-model-and-reasoning-alias-profiles.md): shared aliases such as `review`, `fast`, or `deep` remain deferred; use target-native model and effort fields where supported.
 - [First-class sets](../adrs/drafts/20260604-first-class-sets.md): grouped marketplaces, bundles, and curated collections remain future vocabulary; v1 keeps build scopes and entity selectors separate.
 - [Tests and evals](tests-and-evals.md): adapter-aware eval support and expanded test selectors remain planned/future; deterministic `skillset test` has a first isolated rendering slice.

@@ -4,7 +4,7 @@
 
 This is the stable doctrinal layer for the Skillset compiler. It describes what Skillset believes, how it decides between competing designs, and what agents should preserve when changing the source contract. When implementation or tactical docs drift from this document, bring the repo back into alignment or make a deliberate decision to change the tenets.
 
-Skillset exists to make reusable agent loadouts easier to author and safer to ship across Claude and Codex. It should make the happy path smaller, not make authors learn every provider-specific file shape before they can write a useful skill.
+Skillset exists to make reusable agent loadouts easier to author and safer to ship across Claude, Codex, and Cursor. It should make the happy path smaller, not make authors learn every provider-specific file shape before they can write a useful skill.
 
 ## Documentation Tiers
 
@@ -23,7 +23,7 @@ These are the foundational beliefs of Skillset. Every source-schema decision, pr
 
 ### Help the happy path
 
-Building agent loadouts with Skillset should be easier than hand-authoring parallel Claude and Codex trees. A small useful skill or plugin should not require authors to decide target output paths, repeat obvious names, duplicate descriptions, or learn provider-specific edge cases before they have a reason.
+Building agent loadouts with Skillset should be easier than hand-authoring parallel Claude, Codex, and Cursor trees. A small useful skill or plugin should not require authors to decide target output paths, repeat obvious names, duplicate descriptions, or learn provider-specific edge cases before they have a reason.
 
 Power should come from derivation, defaults, validation, and clear escape hatches. If a common authoring flow makes the user copy the same idea into several places, the compiler should treat that as design feedback.
 
@@ -35,7 +35,7 @@ Generated plugin repositories, standalone skill roots, lockfiles, and instructio
 
 ### One meaning, one key
 
-When Claude and Codex expose the same semantic feature, Skillset should provide one adaptive source key for that meaning. Exact matches do not deserve parallel `claude_*` and `codex_*` vocabulary just because provider manifests spell them differently.
+When first-class providers expose the same semantic feature, Skillset should provide one adaptive source key for that meaning. Exact matches do not deserve parallel provider-specific vocabulary just because manifests spell them differently.
 
 Provider-native aliases can be accepted when they are safe and unambiguous. The resolver should normalize aliases into the canonical Skillset concept before adapting source to provider output.
 
@@ -47,7 +47,7 @@ This applies to agents, subagents, hooks, instructions, resources, app/MCP manif
 
 ### Provider truth beats fake portability
 
-Adaptive source keys are for behavior Skillset can meaningfully adapt. Root provider selection is a compile concern, not provider-native semantics: a root `compile.targets` list may say which provider outputs to build, while `claude` and `codex` blocks stay reserved for provider-specific options, explicit provider toggles, and visible provider-native escape hatches.
+Adaptive source keys are for behavior Skillset can meaningfully adapt. Root provider selection is a compile concern, not provider-native semantics: a root `compile.targets` list may say which provider outputs to build, while `claude`, `codex`, and `cursor` blocks stay reserved for provider-specific options, explicit provider toggles, and visible provider-native escape hatches.
 
 It is better for a feature to be honestly provider-specific than falsely unified. Skillset should not introduce a shared abstraction when the providers do not offer a meaningfully equivalent destination.
 
@@ -65,7 +65,7 @@ Build output may define hooks, app manifests, MCP manifests, plugins, skills, an
 
 ### Codify the craft
 
-Skillset should learn what goes into excellent skills, agents, hooks, instructions, resources, and plugins, then turn that knowledge into tooling. The compiler should help authors keep versions current, declare minimum required metadata, link resources safely, avoid unsupported target features, and keep Claude and Codex renderings in sync.
+Skillset should learn what goes into excellent skills, agents, hooks, instructions, resources, and plugins, then turn that knowledge into tooling. The compiler should help authors keep versions current, declare minimum required metadata, link resources safely, avoid unsupported target features, and keep enabled target renderings in sync.
 
 Internal tooling is part of the product: scaffolds, lint rules, explain commands, fixtures, import helpers, review prompts, and self-hosted development skills should all make better loadout authoring easier.
 
@@ -79,7 +79,7 @@ Generated output should be deterministic, disposable, and reviewable. Rebuilding
 
 ### Provider output stays native
 
-Claude output should look like Claude. Codex output should look like Codex. Skillset can normalize source authoring without forcing targets into an unnatural shared shape.
+Claude output should look like Claude. Codex output should look like Codex. Cursor output should look like Cursor. Skillset can normalize source authoring without forcing first-class providers into an unnatural shared shape.
 
 ### Lockfiles carry heavy provenance
 
@@ -101,11 +101,11 @@ These are recurring design shapes that operationalize the principles and promise
 
 ### Normalize exact matches
 
-When a Claude and Codex feature is semantically the same, define an adaptive source key and adapt it to provider-native syntax. `implicit_invocation`, skill version metadata, source descriptions, and provider enablement are examples of this pattern.
+When a provider feature is semantically the same across enabled targets, define an adaptive source key and adapt it to provider-native syntax. `implicit_invocation`, skill version metadata, source descriptions, and provider enablement are examples of this pattern.
 
 ### Model near matches by intent
 
-When features are similar but not identical, name the intent first and design the provider adaptation second. Instructions that build to Claude rules and Codex `AGENTS.md` files, agent roles that may write differently per provider, and hook definitions that stay definitions rather than activation are examples of this pattern.
+When features are similar but not identical, name the intent first and design the provider adaptation second. Instructions that build to Claude rules, Codex `AGENTS.md` files, and Cursor `.mdc` rules, agent roles that may write differently per provider, and hook definitions that stay definitions rather than activation are examples of this pattern.
 
 ### Prefer defaults and scoped overrides
 
@@ -124,7 +124,7 @@ Provider-native escape hatches should be obvious in source. Provider blocks such
 These are not a replacement for the schema reference. They are examples of how the tenets should guide near-term design.
 
 - Prefer `tools` for adaptive tool-policy meaning, with provider-native `tools.<provider>.allow` / `deny` blocks for provider-specific vocabulary.
-- Prefer `instructions` as the source concept for repo guidance, even if Claude output still uses rules and Codex output still uses `AGENTS.md`.
+- Prefer `instructions` as the source concept for repo guidance, even if Claude output uses rules, Codex output uses `AGENTS.md`, and Cursor output uses `.mdc` rules.
 - Use `skillset.schema` for the version of the source contract or compiler schema, while generated skill product versions stay simple through fields like `metadata.version`.
 - Do not require a source name that is distinct from the real plugin or skill name unless there is a concrete identity problem that derivation cannot solve.
 - Use root `compile.targets` for provider selection. Keep bare top-level `targets:` out of the source contract, default to the current provider plan for adaptive source, and keep explicit provider blocks for provider-specific options and nested opt-outs.
@@ -132,6 +132,6 @@ These are not a replacement for the schema reference. They are examples of how t
 
 ## Posture
 
-Skillset is opinionated about source authoring and conservative about provider activation. It should give authors a small, clear, source-first contract while preserving the native expectations of Claude and Codex.
+Skillset is opinionated about source authoring and conservative about provider activation. It should give authors a small, clear, source-first contract while preserving the native expectations of Claude, Codex, and Cursor.
 
 It should grow deliberately. A new adaptive key is valuable when it removes repetition, prevents drift, and builds faithfully. A new provider-specific escape hatch is valuable when it keeps provider truth explicit. A new abstraction is justified only when it makes authoring easier without making the system less honest.

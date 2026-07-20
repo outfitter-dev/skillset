@@ -2,7 +2,7 @@
 
 This path starts in an existing repo and creates one standalone skill. It proves
 the source-first loop without installing, trusting, symlinking, or changing
-Claude or Codex runtime configuration.
+Claude, Codex, or Cursor runtime configuration.
 
 Use a fresh source repo instead when the repo exists only to author Skillset
 loadouts:
@@ -13,8 +13,9 @@ cd my-skillset
 ```
 
 Prefer to inspect a complete tiny source tree first? See the
-[First Author Example](../examples/first-author/README.md), which includes one
-skill and one instruction rule that build to Claude and Codex.
+[First Author Example](../examples/first-author/README.md), which deliberately
+narrows one skill and one instruction rule to Claude and Codex with explicit
+`compile.targets`.
 
 For an existing content repo, stay in that repo and initialize Skillset:
 
@@ -67,7 +68,7 @@ Use this skill when a notes document needs to become a short decision log.
 
 The directory name is the stable identity. The top-level `name` may stay aligned
 with it; `title` is human-facing skill display text; `description` is the
-triggering text that renders into both target skill formats.
+triggering text that renders into each enabled target's native skill format.
 
 ## Check And Build
 
@@ -87,8 +88,11 @@ On a fresh repo, the first build plan should list new generated files such as:
 
 ```text
 .claude/skills/review-notes/SKILL.md
+.claude/skills/skillset.lock
 .agents/skills/review-notes/SKILL.md
-skillset.lock
+.agents/skills/skillset.lock
+.cursor/skills/review-notes/SKILL.md
+.cursor/skills/skillset.lock
 ```
 
 Write the generated output:
@@ -110,16 +114,18 @@ The default layout writes standalone skill output to:
 ```text
 .claude/skills/review-notes/SKILL.md
 .agents/skills/review-notes/SKILL.md
+.cursor/skills/review-notes/SKILL.md
 ```
 
-Each target skill root also gets a `skillset.lock`, and the repo root gets a
-`skillset.lock`. Locks carry source paths, output paths, hashes, version state,
-target state, and generated metadata policy. They are review evidence for what
-Skillset rendered; the source remains `.skillset/skills/review-notes/`.
+Each target skill root also gets its own `skillset.lock`: `.claude/skills/`,
+`.agents/skills/`, and `.cursor/skills/`. These locks carry source paths, output
+paths, hashes, version state, target state, and generated metadata policy. They
+are review evidence for what Skillset rendered; the source remains
+`.skillset/skills/review-notes/`.
 
 Skillset does not make the generated skill live in a user runtime. It writes
 repo-local target-native files only. Activation, install, trust, and user-level
-Claude or Codex configuration stay separate.
+Claude, Codex, or Cursor configuration stay separate.
 
 ## Useful Next Commands
 
@@ -128,6 +134,7 @@ skillset diff
 skillset dev
 skillset explain .skillset/skills/review-notes/SKILL.md
 skillset explain .claude/skills/review-notes/SKILL.md
+skillset explain .cursor/skills/review-notes/SKILL.md
 skillset status
 ```
 
@@ -148,7 +155,8 @@ Before sharing a 0.16-era Skillset source repo with another author, make sure:
 - `skillset build --yes` has refreshed the repo-local generated output you expect.
 - `skillset check --only outputs` passes so checked-in generated output matches source.
 - The generated output locations are visible in review, usually `.claude/`,
-  `.agents/`, and `skillset.lock` for the default path.
+  `.agents/`, and `.cursor/`, each with its target-local `skillset.lock`, for
+  the default path.
 - Runtime activation is deliberately out of band: do not ask authors to install,
   trust, symlink, or mutate user-level provider config as part of this path.
 - Hook-dependent sharing stays deferred to the hook guardrail work. If a repo
