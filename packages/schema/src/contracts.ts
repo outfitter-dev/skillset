@@ -1,12 +1,11 @@
 import { sortSchemaRecord } from "./json";
 import type { SchemaJsonRecord, SkillsetSchemaContract } from "./types";
+import { SEMVER_PATTERN } from "./value-contracts";
 
 export const SKILLSET_SCHEMA_VERSION = "0.1.0";
 export const SKILLSET_SCHEMA_URI_BASE = "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas";
 export const CLI_RESULT_SCHEMA_VERSION = "skillset.cli.result@1";
 export const CLI_EVENT_SCHEMA_VERSION = "skillset.cli.event@1";
-const SEMVER_PATTERN =
-  "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$";
 
 export const TARGET_NAMES = ["claude", "codex", "cursor"] as const;
 export const DEFAULT_TARGET_NAMES = TARGET_NAMES;

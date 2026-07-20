@@ -1,6 +1,7 @@
+import { createSemverRegExp } from "@skillset/schema";
+
 const FULL_SHA_PATTERN = /^[0-9a-f]{40}$/u;
-const SEMVER_PATTERN =
-  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/u;
+const semverPattern = createSemverRegExp();
 
 export type RemoteRepositoryRevision =
   | { readonly kind: "default" }
@@ -90,7 +91,7 @@ export function validateRemoteRepositoryRevision(revision: RemoteRepositoryRevis
   if (revision.kind === "sha" && !FULL_SHA_PATTERN.test(revision.sha)) {
     throw new Error("skillset: remote repository sha must be a full lowercase 40-character commit");
   }
-  if (revision.kind === "version" && !SEMVER_PATTERN.test(revision.version)) {
+  if (revision.kind === "version" && !semverPattern.test(revision.version)) {
     throw new Error("skillset: remote repository version must be a semantic version");
   }
   if (revision.kind === "ref" && !isSafeRemoteRepositoryRef(revision.ref)) {
@@ -113,7 +114,7 @@ export function isFullRemoteRepositorySha(value: string): boolean {
 }
 
 export function isRemoteRepositoryVersion(value: string): boolean {
-  return SEMVER_PATTERN.test(value);
+  return semverPattern.test(value);
 }
 
 function canonicalRemote(

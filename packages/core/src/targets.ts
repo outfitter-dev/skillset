@@ -1,5 +1,6 @@
 import {
   DEFAULT_TARGET_NAMES as SCHEMA_DEFAULT_TARGET_NAMES,
+  formatList,
   TARGET_NAMES as SCHEMA_TARGET_NAMES,
 } from "@skillset/schema";
 
@@ -56,9 +57,4 @@ export function targetDescriptor(target: TargetName): TargetDescriptor {
 
 export function targetRecord<T>(create: (target: TargetName) => T): Record<TargetName, T> {
   return Object.fromEntries(TARGET_NAMES.map((target) => [target, create(target)])) as Record<TargetName, T>;
-}
-
-function formatList(values: readonly string[]): string {
-  if (values.length <= 1) return values.join("");
-  return `${values.slice(0, -1).join(", ")}, or ${values.at(-1)}`;
 }

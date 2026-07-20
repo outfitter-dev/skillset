@@ -50,6 +50,12 @@ export {
 } from "./artifacts";
 export { deriveSkillsetExampleArtifacts } from "./examples";
 export { isSchemaRecord, sortSchemaRecord } from "./json";
+export {
+  createSemverRegExp,
+  formatList,
+  SEMVER_PATTERN,
+  type ListConjunction,
+} from "./value-contracts";
 export type {
   SchemaJsonRecord,
   SchemaJsonScalar,

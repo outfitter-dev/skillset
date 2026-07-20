@@ -14,6 +14,7 @@ import {
   UNSUPPORTED_DESTINATION_POLICIES,
 } from "./contracts";
 import { isSchemaRecord } from "./json";
+import { createSemverRegExp, formatList } from "./value-contracts";
 import type {
   SchemaJsonRecord,
   SchemaJsonValue,
@@ -36,8 +37,7 @@ const unsupportedDestinationPolicies = new Set<string>(UNSUPPORTED_DESTINATION_P
 const sourceLicenseValues = new Set<string>([...SOURCE_LICENSE_IDS, SOURCE_LICENSE_NONE]);
 const toolsPolicyKeys = new Set<string>(["claude", "codex", "cursor", "mcp", "read", "search", "shell", "write"]);
 const toolsProviderKeys = new Set<string>(["allow", "deny", "mcp", "read", "search", "shell", "write"]);
-const semverPattern =
-  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
+const semverPattern = createSemverRegExp();
 const fullGitShaPattern = /^[0-9a-f]{40}$/;
 const safeGitRefPattern = /^[A-Za-z0-9][A-Za-z0-9._/-]*$/;
 
@@ -889,7 +889,7 @@ function checkOptionalSemverString(value: SchemaJsonValue | undefined, path: str
     diagnostics.push(diagnostic(path, code, `${path} must be a semantic version string`));
     return;
   }
-  if (!semverPattern.test(value.trim())) diagnostics.push(diagnostic(path, code, `${path} must be a semantic version`));
+  if (!semverPattern.test(value)) diagnostics.push(diagnostic(path, code, `${path} must be a semantic version`));
 }
 
 function checkOptionalNonEmptyString(value: SchemaJsonValue | undefined, path: string, code: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
@@ -1425,9 +1425,4 @@ function result(diagnostics: readonly SkillsetSchemaDiagnostic[]): SkillsetSchem
     diagnostics,
     ok: diagnostics.length === 0,
   };
-}
-
-function formatList(values: readonly string[]): string {
-  if (values.length <= 1) return values.join("");
-  return `${values.slice(0, -1).join(", ")}, or ${values.at(-1)}`;
 }

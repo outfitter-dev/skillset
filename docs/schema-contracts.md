@@ -8,6 +8,9 @@ The source of truth is `packages/schema/src/`:
 
 - `contracts.ts` defines the JSON Schema descriptors, exported vocabularies,
   and generated artifact shape.
+- `value-contracts.ts` owns reusable scalar and presentation contracts shared
+  by schema validation, Core, and the CLI, including exact semantic versions
+  and human-readable lists.
 - `validate.ts` defines the shared diagnostics used by compiler, Workbench, and
   CLI-adjacent checks.
 - `examples.ts` defines maximal examples that are checked against the same
