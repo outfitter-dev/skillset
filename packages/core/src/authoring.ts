@@ -92,6 +92,7 @@ export interface SourceSuggestionReport {
 }
 
 export interface SourceSuggestionOptions extends SkillsetOptions {
+  readonly ownershipEntries?: readonly GeneratedEntry[];
   readonly write?: boolean;
 }
 
@@ -250,7 +251,13 @@ export async function suggestSource(
   options: SourceSuggestionOptions = {}
 ): Promise<SourceSuggestionReport> {
   const write = options.write === true;
-  const explanation = await explainPath(rootPath, inputPath, options);
+  const explanation = (options.ownershipEntries?.length ?? 0) > 0
+    ? {
+        entries: options.ownershipEntries ?? [],
+        kind: "generated" as const,
+        path: normalizeRepoPath(rootPath, inputPath),
+      }
+    : await explainPath(rootPath, inputPath, options);
   const generatedPath = explanation.path;
   if (explanation.kind !== "generated" || explanation.entries.length === 0) {
     return refusedSourceSuggestion(generatedPath, explanation.entries, "No Skillset lock entry owns this generated path.", [
@@ -303,8 +310,49 @@ export async function suggestSource(
 
   const sourceAbsolute = resolve(rootPath, sourcePath);
   const generatedAbsolute = resolve(rootPath, generatedPath);
+  const generatedSource = await readFile(generatedAbsolute, "utf8");
+  const graph = await loadBuildGraph(rootPath, options);
+  const expectedGenerated = scopedRenderedFiles(
+    graph,
+    await renderBuildGraph(graph),
+    options.scopes
+  ).find((file) => file.path === generatedPath);
+  if (expectedGenerated === undefined) {
+    return refusedSourceSuggestion(generatedPath, explanation.entries, "The managed path is absent from the current rendered output.", [
+      "Update the adaptive source manually, then run `skillset build --yes`.",
+    ], sourcePath);
+  }
+  const expectedSourcePath = expectedGenerated.sourcePath === undefined
+    ? undefined
+    : normalizeRepoPath(rootPath, expectedGenerated.sourcePath);
+  if (expectedSourcePath === undefined || expectedSourcePath !== normalizeRepoPath(rootPath, sourcePath)) {
+    return refusedSourceSuggestion(
+      generatedPath,
+      explanation.entries,
+      "Current rendered ownership differs from the selected lock ownership; output resolution was refused.",
+      ["Re-run `skillset reconcile` from current repository state, or restore the generated output from source."],
+      sourcePath
+    );
+  }
+  const expectedGeneratedSource = textDecoder.decode(expectedGenerated.content);
+  parseMarkdown(expectedGeneratedSource, `${generatedPath} expected render`);
+  if (
+    normalizedMarkdownFrontmatterBlock(generatedSource) !==
+      normalizedMarkdownFrontmatterBlock(expectedGeneratedSource)
+  ) {
+    return refusedSourceSuggestion(
+      generatedPath,
+      explanation.entries,
+      "Generated frontmatter differs from the expected rendered frontmatter; output resolution accepts body edits only.",
+      [
+        "Move intentional metadata changes to adaptive or provider-specific source.",
+        `Run \`skillset reconcile ${generatedPath} --use source --yes\` to restore the generated output.`,
+      ],
+      sourcePath
+    );
+  }
+  const generatedParts = parseMarkdown(generatedSource, generatedPath);
   const sourceParts = parseMarkdown(await readFile(sourceAbsolute, "utf8"), sourcePath);
-  const generatedParts = parseMarkdown(await readFile(generatedAbsolute, "utf8"), generatedPath);
   if (sourceParts.body === generatedParts.body) {
     const lockPath = lockPathForEntry(primaryEntry);
     return {
@@ -340,6 +388,14 @@ export async function suggestSource(
     wouldWrite: true,
     wrote: write,
   };
+}
+
+function normalizedMarkdownFrontmatterBlock(source: string): string {
+  const normalized = source.replaceAll(/\r\n?/g, "\n");
+  const lines = normalized.split("\n");
+  if (lines[0] !== "---") return "";
+  const closingIndex = lines.findIndex((line, index) => index > 0 && line === "---");
+  return lines.slice(0, closingIndex + 1).join("\n");
 }
 
 export function listFeatureCapabilities(featureId?: string): readonly FeatureCapability[] {

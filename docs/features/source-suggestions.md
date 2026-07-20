@@ -26,7 +26,7 @@ Preview mode is read-only. Write mode is allowed only for clean, single-source c
 | Managed generated skill body edit | Preview source `SKILL.md` body replacement, optionally write with `--use output --yes` when clean | `implemented` |
 | Pending changelog wording before release | Do not reverse-patch from generated output; point to `skillset change reason <@ref>` because pending entries are not rendered into committed changelogs | `implemented` |
 | Generated changelog edit after release | Refuse reconciliation and point to `skillset change amend` for applied-history wording or `skillset release amend` for release-event metadata | `implemented` |
-| Generated metadata, lock files, manifests, or version fields | Refuse; source ownership is not a safe text patch | `planned` |
+| Generated metadata, lock files, manifests, or version fields | Refuse; output resolution compares the exact generated frontmatter block with the current expected render and accepts body edits only | `implemented` |
 | Output from partials, shared resources, or multiple source files | Refuse with diagnostics until a richer mapping exists | `implemented` |
 | Provider-native output with no adaptive round trip | Refuse and explain the provider-specific source or manual path | `planned` |
 | Unmanaged files | Refuse; Skillset cannot claim source ownership without lock provenance | `implemented` |
@@ -40,6 +40,13 @@ The first implementation should make diagnostics useful before attempting writes
 - show the source path and explicit write mode for clean cases;
 - explain the generated files that would need to be rebuilt after accepting the source edit;
 - keep refusal messages specific: metadata, multi-source rendering, provider-native no-round-trip, post-release changelog, unmanaged path, or stale/corrupt lock.
+
+Output resolution renders the exact managed path from current source and compares
+its frontmatter block with the actual generated frontmatter after normalizing line
+endings. It does not compare generated frontmatter with adaptive source
+frontmatter, because provider rendering intentionally strips, derives, and
+transforms fields. Any generated-side frontmatter difference—including comments
+or formatting—is refused before a source write; body-only edits remain eligible.
 
 `skillset check --ci --fix` remains mechanical generated-output repair. It may restore generated files from source, but it must not treat a managed generated edit as source truth. For generated changelogs, current diagnostics already point contributors toward `skillset change reason <@ref>` for pending wording before release, `skillset change amend <@ref>` for applied-history wording after release, and `skillset release amend <@ref>` for release-event metadata. Because committed changelog projections render applied history, not pending entries, a generated `CHANGELOG.md` edit is usually a released-history correction and refuses local reverse-patching.
 
@@ -74,7 +81,7 @@ Fork PRs, protected branches, stale branches, corrupt locks, concurrent pushes, 
 
 ## Tests and Fixtures
 
-[SET-151](https://linear.app/outfitter/issue/SET-151/implement-suggest-source-command-for-clean-generated-to-source) added tests for clean skill-body suggestions, generated changelog refusal, read-only previews, explicit write confirmation, and `explain`/suggestion provenance consistency. Broader refusal matrix coverage can grow with future source-suggestion cases.
+[SET-151](https://linear.app/outfitter/issue/SET-151/implement-suggest-source-command-for-clean-generated-to-source) added tests for clean skill-body suggestions, generated changelog refusal, read-only previews, explicit write confirmation, and `explain`/suggestion provenance consistency. [SET-322](https://linear.app/outfitter/issue/SET-322/reconcile-detect-and-refuse-generated-side-frontmatter-divergence) adds expected-render frontmatter comparison, structured recovery, provider-transformed body-only coverage, and provider-native refusal coverage.
 
 [SET-152](https://linear.app/outfitter/issue/SET-152/design-ci-source-suggestion-writeback-for-managed-generated-edits) should add tests for comment-only CI output, safe same-repo writeback, fork/protected-branch refusal, stale lock refusal, conflicts, and preservation of change-entry requirements.
 
