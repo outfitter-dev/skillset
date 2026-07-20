@@ -44,7 +44,7 @@ validate completeness and print the project finding counts.
 | 04.5 | confirmed | fixed | SET-323 | https://github.com/outfitter-dev/skillset/pull/312 | Schema owns the shared lowest-owner list formatter used across Schema, Core, and CLI. Merged as `ec7c5afcaee4f827969cff9ffdd4f7ab8408de85`. |
 | 04.6 | confirmed | fixed | SET-346 | https://github.com/outfitter-dev/skillset/pull/314 | The exported runtime distribution map and named exclusions form an exact partition of registered runtime IDs. Merged as `e468628c8ce62b115d3cb764313d7799f8d0ecfa`. |
 | 04.7 | plausible | wont-fix | SET-343 | — | Baseline counts are intentionally prose observations, not product contracts. |
-| 04.8 | decided-needed | open | SET-340 | — | Guard against target subsets and implicit fallbacks. |
+| 04.8 | decided-needed | fixed | SET-340 | https://github.com/outfitter-dev/skillset/pull/316 | The narrow AST topology guard rejects target subsets and implicit fallback chains through exact maintained exemptions, while exhaustive local target maps prevent implicit fallthrough. Merged as `dca901480f08b3e0d7da15255bcffe6c22020ebb`. |
 | 05.1 | confirmed | open | SET-332 | — | Prove the finite-command adapter; SET-347 owns downstream migration. |
 | 05.2 | confirmed | open | SET-333 | — | Extract the Core evaluation engine; SET-348 owns the app adapter split. |
 | 05.3 | confirmed | open | SET-334 | — | Extract a reusable Core source-readiness operation. |
