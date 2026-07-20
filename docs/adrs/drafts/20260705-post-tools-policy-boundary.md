@@ -5,7 +5,7 @@ status: draft
 created: 2026-07-05
 updated: 2026-07-05
 owners: ['[galligan](https://github.com/galligan)']
-depends_on: [0, 1, portable-agent-authority-intent, lowering-outcomes-and-loss-ledger, feature-reference-and-schema-registry, reviewed-settings-suggestions, cursor-is-a-first-class-provider]
+depends_on: [0, 1, portable-agent-authority-intent, lowering-outcomes-and-loss-ledger, feature-reference-and-schema-registry, reviewed-settings-suggestions, 2]
 ---
 
 # ADR: Post-Tools Policy Boundary
@@ -173,6 +173,6 @@ render truth.
 - [Lowering Outcomes and Loss Ledger](20260614-lowering-outcomes-and-loss-ledger.md) - render-result status and policy semantics that this ADR specializes.
 - [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - feature ids, support evidence, and conformance expectations.
 - [Reviewed Settings Suggestions](20260604-reviewed-settings-suggestions.md) - authority-changing provider settings remain reviewed plans, not build side effects.
-- [Cursor Is a First-Class Provider](20260702-cursor-is-a-first-class-provider.md) - Cursor provider evidence and activation boundary.
+- [Cursor Is a First-Class Provider](0002-cursor-is-a-first-class-provider.md) - Cursor provider evidence and activation boundary.
 - [Tools Policy](../../features/tools-policy.md) - current authoring and realization reference.
 - [Render Results](../../features/render-results.md) - current structured build-truth report.

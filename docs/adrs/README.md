@@ -16,3 +16,4 @@ ADRs document the significant design decisions behind Skillset: choices that, if
 | --- | --- | --- |
 | [0000](0000-source-first-loadouts.md) | Source-First Loadouts | Accepted |
 | [0001](0001-root-compile-policy.md) | Root Compile Policy | Accepted |
+| [0002](0002-cursor-is-a-first-class-provider.md) | Cursor Is a First-Class Provider | Accepted |

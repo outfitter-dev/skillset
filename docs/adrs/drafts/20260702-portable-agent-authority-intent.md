@@ -5,7 +5,7 @@ status: draft
 created: 2026-07-02
 updated: 2026-07-02
 owners: ['[galligan](https://github.com/galligan)']
-depends_on: [0, 1, feature-reference-and-schema-registry, agent-source-model, lowering-outcomes-and-loss-ledger, reviewed-settings-suggestions, cursor-is-a-first-class-provider]
+depends_on: [0, 1, feature-reference-and-schema-registry, agent-source-model, lowering-outcomes-and-loss-ledger, reviewed-settings-suggestions, 2]
 ---
 
 # ADR: Portable Tools Policy and Agent Authority
@@ -362,7 +362,7 @@ suggestions or must come from explicit provider-native source.
 - [Agent / Subagent Source Model](20260604-agent-source-model.md) - project-agent and plugin-agent boundaries.
 - [Lowering Outcomes and Loss Ledger](20260614-lowering-outcomes-and-loss-ledger.md) - visible degraded, lossy, and unsupported render results.
 - [Reviewed Settings Suggestions](20260604-reviewed-settings-suggestions.md) - authority-changing settings are reviewable plans, not build side effects.
-- [Cursor Is a First-Class Provider](20260702-cursor-is-a-first-class-provider.md) - Cursor-specific provider boundary this ADR specializes.
+- [Cursor Is a First-Class Provider](0002-cursor-is-a-first-class-provider.md) - Cursor-specific provider boundary this ADR specializes.
 - [Portable `tools` Policy — Locked Design](../../../.scratch/notes/20260702-tools-policy-locked-design.md) - detailed working note and rejected alternatives.
 - [Claude subagents docs](https://code.claude.com/docs/en/sub-agents) - subagent fields, tools, permission modes, MCP, hooks, background, and isolation, checked 2026-07-02.
 - [Codex subagents docs](https://developers.openai.com/codex/subagents) - custom agents as config layers and inherited sandbox/approval behavior, checked 2026-07-02.

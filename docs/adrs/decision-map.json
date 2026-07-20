@@ -12,6 +12,11 @@
           "fromPath": "docs/adrs/0001-root-compile-policy.md"
         },
         {
+          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source",
+          "from": "0002",
+          "fromPath": "docs/adrs/0002-cursor-is-a-first-class-provider.md"
+        },
+        {
           "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - baseline source-first compiler doctrine.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-agent-source-model.md"
@@ -133,6 +138,11 @@
           "fromPath": "docs/adrs/0000-source-first-loadouts.md"
         },
         {
+          "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - root",
+          "from": "0002",
+          "fromPath": "docs/adrs/0002-cursor-is-a-first-class-provider.md"
+        },
+        {
           "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - provider selection and unsupported-policy boundary.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-feature-reference-and-schema-registry.md"
@@ -191,6 +201,48 @@
       "superseded_by": null,
       "title": "Root Compile Policy",
       "updated": "2026-06-04"
+    },
+    {
+      "amended_by": [],
+      "amends": [],
+      "created": "2026-07-02",
+      "depends_on": [
+        "0",
+        "1",
+        "feature-reference-and-schema-registry",
+        "agent-source-model",
+        "lowering-outcomes-and-loss-ledger"
+      ],
+      "inbound": [
+        {
+          "context": "- [Cursor Is a First-Class Provider](0002-cursor-is-a-first-class-provider.md) - Cursor-specific provider boundary this ADR specializes.",
+          "from": "20260702",
+          "fromPath": "docs/adrs/drafts/20260702-portable-agent-authority-intent.md"
+        },
+        {
+          "context": "- [Cursor Is a First-Class Provider](0002-cursor-is-a-first-class-provider.md) - Cursor provider evidence and activation boundary.",
+          "from": "20260705",
+          "fromPath": "docs/adrs/drafts/20260705-post-tools-policy-boundary.md"
+        },
+        {
+          "context": "- [Cursor provider ADR](../adrs/0002-cursor-is-a-first-class-provider.md) - first-class Cursor provider contract.",
+          "from": "runtime-adapters",
+          "fromPath": "docs/features/runtime-adapters.md"
+        },
+        {
+          "context": "ADR](adrs/0002-cursor-is-a-first-class-provider.md). Provider evidence",
+          "from": "target-surfaces",
+          "fromPath": "docs/target-surfaces.md"
+        }
+      ],
+      "number": "0002",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0002-cursor-is-a-first-class-provider.md",
+      "slug": "cursor-is-a-first-class-provider",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Cursor Is a First-Class Provider",
+      "updated": "2026-07-20"
     }
   ],
   "version": 1
