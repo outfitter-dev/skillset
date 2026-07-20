@@ -1,6 +1,8 @@
 {
   "entries": [
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-06-04",
       "depends_on": [],
       "inbound": [
@@ -120,6 +122,8 @@
       "updated": "2026-06-04"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-06-04",
       "depends_on": ["0"],
       "inbound": [

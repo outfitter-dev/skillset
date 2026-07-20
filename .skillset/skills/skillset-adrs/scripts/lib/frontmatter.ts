@@ -9,6 +9,7 @@ export interface Frontmatter {
   updated?: string;
   owners?: string[];
   depends_on?: string[];
+  amends?: string[];
   superseded_by?: string[];
   [key: string]: unknown;
 }
@@ -47,10 +48,13 @@ export const parseFrontmatter = (
     const trimmed = value.trim();
     if (trimmed.startsWith('[')) {
       const inner = trimmed.slice(1, -1);
-      frontmatter[key] = inner.split(',').map((s) => {
-        const t = s.trim().replaceAll(/^['"]|['"]$/g, '');
-        return /^\d+$/.test(t) ? Number(t) : t;
-      });
+      frontmatter[key] =
+        inner.trim().length === 0
+          ? []
+          : inner.split(',').map((s) => {
+              const t = s.trim().replaceAll(/^['"]|['"]$/g, '');
+              return /^\d+$/.test(t) ? Number(t) : t;
+            });
     } else if (/^\d+$/.test(trimmed)) {
       frontmatter[key] = Number(trimmed);
     } else {
@@ -64,6 +68,9 @@ export const parseFrontmatter = (
   // internal consistency with `depends_on`.
   if (Array.isArray(frontmatter.depends_on)) {
     frontmatter.depends_on = frontmatter.depends_on.map(String);
+  }
+  if (Array.isArray(frontmatter.amends)) {
+    frontmatter.amends = frontmatter.amends.map(String);
   }
   if (Array.isArray(frontmatter.superseded_by)) {
     frontmatter.superseded_by = frontmatter.superseded_by.map(String);
@@ -98,6 +105,9 @@ export const serializeFrontmatter = (fm: Frontmatter): string => {
   }
   if (fm.depends_on && fm.depends_on.length > 0) {
     lines.push(`depends_on: [${fm.depends_on.join(', ')}]`);
+  }
+  if (fm.amends && fm.amends.length > 0) {
+    lines.push(`amends: [${fm.amends.join(', ')}]`);
   }
   if (fm.superseded_by && fm.superseded_by.length > 0) {
     const supersededStr = fm.superseded_by.map((n) => `'${n}'`).join(', ');

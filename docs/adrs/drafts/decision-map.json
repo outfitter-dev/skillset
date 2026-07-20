@@ -1,6 +1,8 @@
 {
   "entries": [
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-06-04",
       "depends_on": ["0"],
       "inbound": [
@@ -30,6 +32,8 @@
       "updated": "2026-06-04"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-06-04",
       "depends_on": ["0"],
       "inbound": [
@@ -64,6 +68,8 @@
       "updated": "2026-06-04"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-06-04",
       "depends_on": ["0", "1"],
       "inbound": [
@@ -143,6 +149,8 @@
       "updated": "2026-06-14"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-06-04",
       "depends_on": [
         "0",
@@ -173,6 +181,8 @@
       "updated": "2026-06-04"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-06-04",
       "depends_on": ["0"],
       "inbound": [
@@ -207,6 +217,8 @@
       "updated": "2026-06-04"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-06-04",
       "depends_on": [
         "0",
@@ -236,6 +248,8 @@
       "updated": "2026-06-04"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-06-04",
       "depends_on": [
         "0",
@@ -285,6 +299,8 @@
       "updated": "2026-06-04"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-06-09",
       "depends_on": ["0", "changelog-and-versioning"],
       "inbound": [
@@ -334,6 +350,8 @@
       "updated": "2026-06-09"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-06-09",
       "depends_on": [
         "0",
@@ -378,6 +396,8 @@
       "updated": "2026-06-09"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-06-09",
       "depends_on": [
         "0",
@@ -441,6 +461,8 @@
       "updated": "2026-06-09"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-06-10",
       "depends_on": [
         "0",
@@ -470,6 +492,8 @@
       "updated": "2026-06-11"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-06-12",
       "depends_on": [
         "0",
@@ -506,6 +530,8 @@
       "updated": "2026-06-15"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-06-13",
       "depends_on": [
         "0",
@@ -565,6 +591,8 @@
       "updated": "2026-06-13"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-06-14",
       "depends_on": [
         "0",
@@ -620,6 +648,8 @@
       "updated": "2026-06-14"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-06-18",
       "depends_on": [
         "0",
@@ -649,6 +679,8 @@
       "updated": "2026-06-18"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-06-22",
       "depends_on": [
         "0",
@@ -668,6 +700,8 @@
       "updated": "2026-06-22"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-06-22",
       "depends_on": [
         "0",
@@ -685,6 +719,8 @@
       "updated": "2026-06-22"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-06-25",
       "depends_on": [
         "0",
@@ -703,6 +739,8 @@
       "updated": "2026-06-25"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-06-27",
       "depends_on": ["skillset-workspace-layout"],
       "inbound": [],
@@ -716,6 +754,8 @@
       "updated": "2026-06-27"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-06-27",
       "depends_on": [
         "0",
@@ -740,6 +780,8 @@
       "updated": "2026-06-27"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-06-30",
       "depends_on": [
         "0",
@@ -768,6 +810,8 @@
       "updated": "2026-06-30"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-07-01",
       "depends_on": [
         "named-partials",
@@ -786,6 +830,8 @@
       "updated": "2026-07-01"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-07-02",
       "depends_on": [
         "0",
@@ -826,6 +872,8 @@
       "updated": "2026-07-02"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-07-02",
       "depends_on": [
         "0",
@@ -853,6 +901,8 @@
       "updated": "2026-07-02"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-07-05",
       "depends_on": [
         "0",
@@ -885,6 +935,8 @@
       "updated": "2026-07-05"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-07-10",
       "depends_on": ["0", "global-xdg-managed-installs-and-sync"],
       "inbound": [],
@@ -898,6 +950,8 @@
       "updated": "2026-07-10"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-07-12",
       "depends_on": [
         "0",
@@ -923,6 +977,8 @@
       "updated": "2026-07-12"
     },
     {
+      "amended_by": [],
+      "amends": [],
       "created": "2026-07-12",
       "depends_on": [
         "0",

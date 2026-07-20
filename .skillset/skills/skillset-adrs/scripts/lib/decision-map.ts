@@ -17,6 +17,7 @@ import {
   ROOT,
 } from './paths.ts';
 import type { AdrFile } from './frontmatter.ts';
+import { buildAmendedBy, validateAmendments } from './amendments.ts';
 import {
   listNumberedAdrs,
   listDrafts,
@@ -40,6 +41,8 @@ export interface DecisionMapEntry {
   path: string;
   owners: string[];
   depends_on: string[];
+  amends: string[];
+  amended_by: string[];
   superseded_by: string[] | null;
   inbound: InboundRef[];
 }
@@ -151,11 +154,16 @@ const monthFromFilename = (filename: string): string | null => {
   return `${match[1]}-${match[2]}`;
 };
 
-const buildNumberedEntries = (allFiles: AdrFile[]): DecisionMapEntry[] =>
+const buildNumberedEntries = (
+  allFiles: AdrFile[],
+  amendedBy: Map<number, string[]>
+): DecisionMapEntry[] =>
   listNumberedAdrs().map((adr): DecisionMapEntry => {
     const num = parseAdrNumber(adr.filename);
     const slug = adr.filename.replace(/^\d+-/, '').replace(/\.md$/, '');
     return {
+      amended_by: num === null ? [] : (amendedBy.get(num) ?? []),
+      amends: adr.frontmatter.amends ?? [],
       created: String(adr.frontmatter.created ?? ''),
       depends_on: (adr.frontmatter.depends_on as string[]) ?? [],
       inbound: findInboundRefs(adr.filename, allFiles),
@@ -177,6 +185,8 @@ const buildDraftEntries = (allFiles: AdrFile[]): DecisionMapEntry[] =>
       adr.frontmatter.created ?? dateFromFilename(adr.filename) ?? ''
     );
     return {
+      amended_by: [],
+      amends: adr.frontmatter.amends ?? [],
       created,
       depends_on: (adr.frontmatter.depends_on as string[]) ?? [],
       inbound: findInboundRefs(adr.filename, allFiles),
@@ -381,8 +391,21 @@ const writeJson = (path: string, data: unknown): void => {
  * - docs/adrs/drafts/README.md (generated index)
  */
 export const writeDecisionMap = (): void => {
-  const allFiles = [...listNumberedAdrs(), ...listDrafts()];
-  const numberedEntries = buildNumberedEntries(allFiles);
+  const numbered = listNumberedAdrs();
+  const drafts = listDrafts();
+  const allFiles = [...numbered, ...drafts];
+  const amendmentIssues = validateAmendments(numbered, drafts);
+  if (amendmentIssues.length > 0) {
+    throw new Error(
+      `Invalid ADR amendment metadata:\n${amendmentIssues
+        .map((issue) => `- ${issue.file}: ${issue.message}`)
+        .join('\n')}`
+    );
+  }
+  const numberedEntries = buildNumberedEntries(
+    allFiles,
+    buildAmendedBy(numbered)
+  );
   const draftEntries = buildDraftEntries(allFiles);
 
   // Accepted ADR map (stable — only changes when ADRs are promoted/modified)

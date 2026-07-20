@@ -125,10 +125,15 @@ created: YYYY-MM-DD
 updated: YYYY-MM-DD
 owners: ['[galligan](https://github.com/galligan)']
 # depends_on: [0, compile-target-selection]
+# amends: [0]
 ---
 ```
 
 `depends_on` accepts numbered ADR IDs and draft slugs (the filename without date prefix and `.md`). Use integers for numbered ADRs and slugs for drafts. The decision map renders these as graph edges.
+
+`amends` records a narrow change to one or more existing accepted decisions without replacing their historical body or status. Authors may declare it while the successor is a draft or numbered proposal, but targets must be accepted, numbered ADRs; draft slugs are not valid amendment identities. The relationship becomes active only when the successor is accepted. Decision maps preserve the authored `amends` list and derive the reciprocal `amended_by` list; never author `amended_by` directly.
+
+Use `supersedes` when the successor replaces the earlier decision as a whole. Supersession marks the predecessor `superseded` and records `superseded_by`; accepted later replacements, including recursively evidenced supersession chains, preserve previously accepted amendment history. A bare `status: superseded` edit or a proposed/rejected replacement is not acceptance-history evidence. Amendment leaves predecessor source unchanged.
 
 ## Content
 

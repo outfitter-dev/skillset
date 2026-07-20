@@ -34,6 +34,16 @@ Manual instructions for ADR lifecycle operations when the skill-local `scripts/a
 3. Update the old ADR's index entry status to `Superseded`
 4. In the new ADR's References, link to the predecessor
 
+## Amending an ADR
+
+1. Create the successor through the normal draft workflow
+2. Add `amends: [NNNN]` to the successor, targeting an existing accepted numbered ADR with a lower ID
+3. Describe the narrow change and link the predecessor in References
+4. Promote the successor when the amendment is approved; draft and proposed declarations are prospective only
+5. Regenerate the decision maps so the accepted successor's `amends` and the predecessor's derived `amended_by` appear together
+
+Do not edit the predecessor's body, status, or frontmatter for an amendment, and never author `amended_by`. Use supersession instead when the successor replaces the earlier decision as a whole. Accepted later replacements in the lifecycle's `superseded_by` chain preserve amendment history; bare superseded status and proposed or rejected replacements do not.
+
 ## Rejecting a draft
 
 1. Promote the draft to a numbered ADR (it needs a number to preserve in the index)

@@ -37,7 +37,7 @@ import {
   todayCompact,
 } from './lib/discovery.ts';
 import { extractTitle, serializeFrontmatter } from './lib/frontmatter.ts';
-import type { Frontmatter } from './lib/frontmatter.ts';
+import type { AdrFile, Frontmatter } from './lib/frontmatter.ts';
 import { gitMove } from './lib/git.ts';
 import { rebuildIndex } from './lib/index.ts';
 import { ADR_DIR, DRAFTS_DIR, INDEX_PATH, MAP_PATH } from './lib/paths.ts';
@@ -46,6 +46,28 @@ import {
   rewriteDraftLinks,
   rewriteFrontmatterSlugRefs,
 } from './lib/references.ts';
+import { validateAmendments } from './lib/amendments.ts';
+
+const assertValidAmendments = (
+  numbered: AdrFile[],
+  drafts: AdrFile[]
+): void => {
+  const amendmentIssues = validateAmendments(numbered, drafts);
+  if (amendmentIssues.length === 0) {
+    return;
+  }
+  for (const issue of amendmentIssues) {
+    console.error(`Error: ${issue.file}: ${issue.message}`);
+  }
+  process.exit(1);
+};
+
+const replaceAdr = (
+  adrs: AdrFile[],
+  current: AdrFile,
+  candidate: AdrFile
+): AdrFile[] =>
+  adrs.map((entry) => (entry.path === current.path ? candidate : entry));
 
 // ---------------------------------------------------------------------------
 // Commands
@@ -126,6 +148,10 @@ const cmdPromote = (args: Args): void => {
     process.exit(1);
   }
 
+  const numbered = listNumberedAdrs();
+  const drafts = listDrafts();
+  assertValidAmendments(numbered, drafts);
+
   const apply = shouldApply(args);
   previewBanner(args);
 
@@ -135,22 +161,29 @@ const cmdPromote = (args: Args): void => {
   const slug = adr.filename.replace(/^\d+-/, '').replace(/\.md$/, '');
   const newFilename = `${padded}-${slug}.md`;
   const newPath = join(ADR_DIR, newFilename);
+  const supersededAdr = args.supersedes
+    ? resolveAdr(args.supersedes)
+    : undefined;
+
+  if (supersededAdr?.path.includes('/drafts/')) {
+    console.error(
+      `Error: ${supersededAdr.filename} is a draft and cannot be superseded — promote it first`
+    );
+    process.exit(1);
+  }
 
   console.log(`Promote: ${adr.filename} → ${newFilename} (${status})`);
 
   if (args.supersedes) {
-    const oldAdr = resolveAdr(args.supersedes);
-    if (oldAdr) {
-      console.log(`Supersede: ${oldAdr.filename} → superseded by ${padded}`);
+    if (supersededAdr) {
+      console.log(
+        `Supersede: ${supersededAdr.filename} → superseded by ${padded}`
+      );
     } else {
       console.warn(
         `Warning: could not find ADR "${args.supersedes}" to supersede`
       );
     }
-  }
-
-  if (!apply) {
-    return;
   }
 
   const cleanTitle =
@@ -170,6 +203,41 @@ const cmdPromote = (args: Args): void => {
 
   const updatedBody = adr.body.replace(/^#\s+ADR:\s*/m, `# ADR-${padded}: `);
   const content = `${serializeFrontmatter(updatedFm as Frontmatter)}\n${updatedBody}`;
+  const promoted: AdrFile = {
+    ...adr,
+    body: updatedBody,
+    filename: newFilename,
+    frontmatter: updatedFm,
+    path: newPath,
+    raw: content,
+    title: cleanTitle,
+  };
+  let candidateNumbered = [...numbered, promoted];
+  if (supersededAdr) {
+    const superseded: AdrFile = {
+      ...supersededAdr,
+      frontmatter: {
+        ...supersededAdr.frontmatter,
+        status: 'superseded',
+        superseded_by: [String(num)],
+        updated: today(),
+      },
+    };
+    candidateNumbered = replaceAdr(
+      candidateNumbered,
+      supersededAdr,
+      superseded
+    );
+  }
+  assertValidAmendments(
+    candidateNumbered,
+    drafts.filter((entry) => entry.path !== adr.path)
+  );
+
+  if (!apply) {
+    return;
+  }
+
   writeFileSync(adr.path, content, 'utf8');
 
   gitMove(adr.path, newPath);
@@ -184,18 +252,15 @@ const cmdPromote = (args: Args): void => {
   console.log('Rewriting peer draft frontmatter references...');
   rewriteFrontmatterSlugRefs(slug, num);
 
-  if (args.supersedes) {
-    const oldAdr = resolveAdr(args.supersedes);
-    if (oldAdr) {
-      const oldFm = {
-        ...oldAdr.frontmatter,
-        status: 'superseded',
-        superseded_by: [String(num)],
-        updated: today(),
-      };
-      const oldContent = `${serializeFrontmatter(oldFm as Frontmatter)}\n${oldAdr.body}`;
-      writeFileSync(oldAdr.path, oldContent, 'utf8');
-    }
+  if (supersededAdr) {
+    const oldFm = {
+      ...supersededAdr.frontmatter,
+      status: 'superseded',
+      superseded_by: [String(num)],
+      updated: today(),
+    };
+    const oldContent = `${serializeFrontmatter(oldFm as Frontmatter)}\n${supersededAdr.body}`;
+    writeFileSync(supersededAdr.path, oldContent, 'utf8');
   }
 
   rebuildIndex();
@@ -461,6 +526,11 @@ const cmdCheck = (args: Args): void => {
     checkAdr(adr, true);
   }
 
+  console.log('Checking amendment metadata...');
+  for (const issue of validateAmendments(listNumberedAdrs(), listDrafts())) {
+    report('error', issue.file, issue.message);
+  }
+
   console.log('Checking index...');
   if (existsSync(INDEX_PATH)) {
     const indexContent = readFileSync(INDEX_PATH, 'utf8');
@@ -519,37 +589,49 @@ const cmdUpdate = (args: Args): void => {
   previewBanner(args);
 
   const changes: string[] = [];
-  let newSlugFilename: string | undefined;
-  let newRenumberFilename: string | undefined;
+  const isDraft = adr.path.includes('/drafts/');
+  const currentPrefix =
+    adr.filename.match(/^(\d+)-/)?.[1] ??
+    (isDraft ? todayCompact() : '0000');
+  const currentSlug = adr.filename
+    .replace(/^\d+-/, '')
+    .replace(/\.md$/, '');
+  let newNumber: number | undefined;
+
+  if (args.renumber) {
+    if (isDraft) {
+      console.error('Error: cannot renumber a draft — promote it first');
+      process.exit(1);
+    }
+    newNumber = Number(args.renumber);
+    if (Number.isNaN(newNumber)) {
+      console.error(`Error: invalid number "${args.renumber}"`);
+      process.exit(1);
+    }
+  }
+
+  const finalPrefix =
+    newNumber === undefined ? currentPrefix : padNumber(newNumber);
+  const finalSlug = args.slug ?? currentSlug;
+  const changesIdentity = Boolean(args.slug || args.renumber);
+  const finalFilename = changesIdentity
+    ? `${finalPrefix}-${finalSlug}.md`
+    : adr.filename;
+  const finalPath = changesIdentity
+    ? join(dirname(adr.path), finalFilename)
+    : adr.path;
 
   if (args.title) {
     changes.push(`Title → "${args.title}"`);
   }
   if (args.slug) {
-    const isDraft = adr.path.includes('/drafts/');
-    const numPrefix = isDraft
-      ? (adr.filename.match(/^(\d+)-/)?.[1] ?? todayCompact())
-      : (adr.filename.match(/^(\d+)-/)?.[1] ?? '0000');
-    newSlugFilename = `${numPrefix}-${args.slug}.md`;
-    changes.push(`Slug → "${args.slug}" (${newSlugFilename})`);
+    changes.push(`Slug → "${args.slug}" (${finalFilename})`);
   }
   if (args.status) {
     changes.push(`Status → "${args.status}"`);
   }
-  if (args.renumber) {
-    if (adr.path.includes('/drafts/')) {
-      console.error('Error: cannot renumber a draft — promote it first');
-      process.exit(1);
-    }
-    const newNum = Number(args.renumber);
-    if (Number.isNaN(newNum)) {
-      console.error(`Error: invalid number "${args.renumber}"`);
-      process.exit(1);
-    }
-    const padded = padNumber(newNum);
-    const slug = adr.filename.replace(/^\d+-/, '').replace(/\.md$/, '');
-    newRenumberFilename = `${padded}-${slug}.md`;
-    changes.push(`Renumber → ${padded} (${newRenumberFilename})`);
+  if (newNumber !== undefined) {
+    changes.push(`Renumber → ${finalPrefix} (${finalFilename})`);
   }
 
   if (changes.length === 0) {
@@ -564,16 +646,10 @@ const cmdUpdate = (args: Args): void => {
     console.log(`  ${change}`);
   }
 
-  if (!apply) {
-    return;
-  }
-
   let { body } = adr;
   const fm = { ...adr.frontmatter };
-  let currentPath = adr.path;
 
   if (args.title) {
-    const isDraft = currentPath.includes('/drafts/');
     const num = parseAdrNumber(adr.filename);
     const prefix = isDraft ? 'ADR:' : `ADR-${padNumber(num ?? 0)}:`;
     body = body.replace(
@@ -593,26 +669,36 @@ const cmdUpdate = (args: Args): void => {
     fm.updated = today();
   }
 
-  const content = `${serializeFrontmatter(fm as Frontmatter)}\n${body}`;
-  writeFileSync(currentPath, content, 'utf8');
-
-  if (args.slug && newSlugFilename) {
-    const newPath = join(dirname(currentPath), newSlugFilename);
-    gitMove(currentPath, newPath);
-    currentPath = newPath;
+  if (newNumber !== undefined) {
+    body = body.replace(/^#\s+ADR-\d+:/m, `# ADR-${finalPrefix}:`);
+    fm.id = newNumber;
+    fm.updated = today();
   }
 
-  if (args.renumber && newRenumberFilename) {
-    const newNum = Number(args.renumber);
-    const padded = padNumber(newNum);
-    body = body.replace(/^#\s+ADR-\d+:/m, `# ADR-${padded}:`);
-    fm.id = newNum;
-    fm.updated = today();
-    const updatedContent = `${serializeFrontmatter(fm as Frontmatter)}\n${body}`;
-    writeFileSync(currentPath, updatedContent, 'utf8');
+  const content = `${serializeFrontmatter(fm as Frontmatter)}\n${body}`;
+  if (args.slug || args.status || args.renumber) {
+    const candidate: AdrFile = {
+      ...adr,
+      body,
+      filename: finalFilename,
+      frontmatter: fm,
+      path: finalPath,
+      raw: content,
+    };
+    assertValidAmendments(
+      replaceAdr(listNumberedAdrs(), adr, candidate),
+      replaceAdr(listDrafts(), adr, candidate)
+    );
+  }
 
-    const newPath = join(ADR_DIR, newRenumberFilename);
-    gitMove(currentPath, newPath);
+  if (!apply) {
+    return;
+  }
+
+  writeFileSync(adr.path, content, 'utf8');
+
+  if (finalPath !== adr.path) {
+    gitMove(adr.path, finalPath);
   }
 
   rebuildIndex();
