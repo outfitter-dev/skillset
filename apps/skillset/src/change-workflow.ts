@@ -29,8 +29,21 @@ import {
 import type { JsonRecord, JsonValue, SkillsetOptions } from "@skillset/core/internal/types";
 import { workspaceChangeFile, workspaceChangesDir } from "@skillset/core";
 import { isJsonRecord, parseMarkdown, stringifyMarkdown } from "@skillset/core/internal/yaml";
+import {
+  refreshChangeEvidenceWithAppend,
+  type ChangeRefreshOptions,
+  type ChangeRefreshReport,
+} from "./change-refresh";
 
-export type ChangeSubcommand = "add" | "amend" | "check" | "history" | "list" | "migrate" | "reason" | "show" | "status";
+export type {
+  ChangeLedgerLockOptions,
+  ChangeRefreshEntry,
+  ChangeRefreshOptions,
+  ChangeRefreshReport,
+  ChangeRefreshScope,
+} from "./change-refresh";
+
+export type ChangeSubcommand = "add" | "amend" | "check" | "history" | "list" | "migrate" | "reason" | "refresh" | "show" | "status";
 
 export type ChangeReasonInput =
   | { readonly kind: "auto" }
@@ -353,6 +366,13 @@ export async function migratePendingChangeEntries(
     ledgerPath: workspaceChangeFile(storageOptions.sourceDir, "ledger.jsonl"),
     written: options.write,
   };
+}
+
+export async function refreshChangeEvidence(
+  rootPath: string,
+  options: ChangeRefreshOptions
+): Promise<ChangeRefreshReport> {
+  return refreshChangeEvidenceWithAppend(rootPath, options, appendLedgerEvents);
 }
 
 export async function readAppliedChangeRecords(

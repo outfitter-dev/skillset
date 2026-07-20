@@ -125,11 +125,13 @@ export const parseChangeCommandRequest = (
 
   validateChangeOptions(changeSubcommand, {
     append: changeAppend,
+    buildMode,
     bump: changeBump,
     group: changeGroup,
     reason: changeReason,
     ref: changeRef,
     scopes: changeScopes,
+    since: changeSince,
     staged: changeStaged,
     yes,
   });
@@ -171,6 +173,7 @@ export const isChangeSubcommand = (
   value === "list" ||
   value === "migrate" ||
   value === "reason" ||
+  value === "refresh" ||
   value === "show" ||
   value === "status";
 
@@ -209,7 +212,7 @@ export const setChangeReason = (
 const readChangeSubcommand = (value: string | undefined): ChangeSubcommand => {
   if (isChangeSubcommand(value)) return value;
   throw new Error(
-    "skillset: expected change subcommand add, amend, check, history, list, reason, show, or status"
+    "skillset: expected change subcommand add, amend, check, history, list, migrate, reason, refresh, show, or status"
   );
 };
 
@@ -218,6 +221,7 @@ const supportsPositionalRef = (subcommand: ChangeSubcommand): boolean =>
   subcommand === "check" ||
   subcommand === "history" ||
   subcommand === "reason" ||
+  subcommand === "refresh" ||
   subcommand === "show";
 
 const readInlineReason = (value: string): ChangeReasonInput =>
@@ -245,17 +249,22 @@ const validateChangeOptions = (
   subcommand: ChangeSubcommand,
   change: {
     readonly append: boolean;
+    readonly buildMode: "all" | "updated" | undefined;
     readonly bump: ChangeBump | undefined;
     readonly group: string | undefined;
     readonly reason: ChangeReasonInput | undefined;
     readonly ref: string | undefined;
     readonly scopes: readonly string[] | undefined;
+    readonly since: string | undefined;
     readonly staged: boolean;
     readonly yes: boolean;
   }
 ): void => {
-  if (change.yes && subcommand !== "migrate") {
-    throw new Error("skillset: --yes is only supported with change migrate");
+  if (subcommand === "refresh" && change.buildMode !== undefined) {
+    throw new Error("skillset: change refresh only supports @ref, --ref, --since, --yes, --json, and --root");
+  }
+  if (change.yes && subcommand !== "migrate" && subcommand !== "refresh") {
+    throw new Error("skillset: --yes is only supported with change migrate or change refresh");
   }
   if (change.append && subcommand !== "reason") {
     throw new Error("skillset: --append is only supported with change reason");
@@ -284,7 +293,7 @@ const validateChangeOptions = (
   }
   if (change.ref !== undefined && !supportsPositionalRef(subcommand)) {
     throw new Error(
-      "skillset: --ref is only supported with change amend, change check, change history, change reason, or change show"
+      "skillset: --ref is only supported with change amend, change check, change history, change reason, change refresh, or change show"
     );
   }
   if (change.scopes !== undefined && subcommand !== "add") {

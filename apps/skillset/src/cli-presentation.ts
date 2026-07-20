@@ -80,6 +80,11 @@ const PRESENTATION = {
       "change reason <@ref> [--ref <ref>] [--append] [--reason <text>|--reason-file <path>|--reason -] [--json] [--root <path>]",
     ],
   },
+  "change refresh": {
+    group: "Changes",
+    summary: "Refresh stale or missing pending change evidence.",
+    synopses: ["change refresh [@ref] [--ref <ref>] [--since <ref>] [--yes] [--json] [--root <path>]"],
+  },
   "change show": {
     group: "Changes",
     summary: "Show one pending change.",

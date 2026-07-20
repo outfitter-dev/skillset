@@ -55,6 +55,7 @@ The entries below are the complete final public flag set. Positional arguments a
 | `change status` | `--root`, `--since`, `--staged`, `--json` | Read-only ledger status. |
 | `change check` | `--root`, `--since`, `--staged`, `--ref`, `--json` | Read-only ledger gate. |
 | `change add` | `--root`, `--since`, `--scope`, `--bump`, `--group`, `--reason`, `--reason-file`, `--json` | The subcommand is already an explicit write; no generic write-mode flag. |
+| `change refresh` | `--root`, `--since`, `--ref`, `--yes`, `--json` | Preview stale or missing pending evidence by default; use the same `--since <ref>` as the failing check, then `--yes` to append evidence for that exact baseline. |
 | `change reason` | `--root`, `--ref`, `--reason`, `--reason-file`, `--append`, `--json` | Explicit pending-reason edit. |
 | `change amend` | `--root`, `--ref`, `--reason`, `--reason-file`, `--json` | Explicit applied-history correction. |
 | `change migrate` | `--root`, `--yes`, `--json` | Plan-first migration. |
