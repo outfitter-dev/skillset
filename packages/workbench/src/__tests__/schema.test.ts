@@ -103,7 +103,7 @@ describe("workbench source contract schema checks", () => {
     });
     expect(grammarDiagnostics.map((diagnostic) => diagnostic.message)).toEqual([
       "unsupported key invented",
-      "test output kind must be isolated",
+      "unsupported key output",
       "test checks must enable files, pluginManifests, or projection",
       "unsupported key imaginary",
     ]);
@@ -229,6 +229,18 @@ describe("workbench source contract schema checks", () => {
       ".skillset/rules/root.md:2: error: schema/instruction-frontmatter: dialect must be claude when present",
       ".skillset/rules/root.md:3: error: schema/instruction-frontmatter: claude must be true, false, or an object when present",
       ".skillset/rules/root.md:5: error: schema/instruction-frontmatter: unsupported supports key tools; v1 supports packages",
+    ]);
+  });
+
+  test("rejects unsupported Codex instruction symlink mode", () => {
+    const diagnostics = checkWorkbenchSourceContract({
+      content: "---\ncodex:\n  mode: symlink\n---\nFollow the repo.\n",
+      kind: "instruction",
+      path: ".skillset/rules/root.md",
+    });
+
+    expect(diagnostics.map(formatWorkbenchDiagnostic)).toEqual([
+      ".skillset/rules/root.md:3: error: schema/instruction-frontmatter: Codex instruction mode symlink is unsupported; use codex: true or codex: false",
     ]);
   });
 

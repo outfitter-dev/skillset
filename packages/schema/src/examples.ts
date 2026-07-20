@@ -423,7 +423,6 @@ export const skillsetSchemaExamples = [
       checks: {
         projection: true,
       },
-      output: { kind: "isolated" },
       select: {
         skills: { primary: ["docs-cli"] },
       },

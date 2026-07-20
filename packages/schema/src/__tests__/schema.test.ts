@@ -428,6 +428,14 @@ describe("@skillset/schema contracts", () => {
       "schema/test-declaration/runtime-expect",
       "schema/test-declaration/runtime-timeout",
     ]);
+    expect(validateTestDeclaration({
+      checks: { projection: true },
+      output: { kind: "isolated" },
+    }).diagnostics).toContainEqual({
+      code: "schema/test-declaration/key",
+      message: "unsupported key output",
+      path: "$.output",
+    });
   });
 
   it("reports invalid workspace config structure without raw schema noise", () => {
@@ -743,6 +751,11 @@ describe("@skillset/schema contracts", () => {
       code: "schema/instruction-frontmatter/paths",
       message: "$.paths entries must be strings",
       path: "$.paths[0]",
+    });
+    expect(validateInstructionFrontmatter({ codex: { mode: "symlink" } }).diagnostics).toContainEqual({
+      code: "schema/instruction-frontmatter/codex-mode",
+      message: "Codex instruction mode symlink is unsupported; use codex: true or codex: false",
+      path: "$.codex.mode",
     });
     expect(validateHookDefinitionSource({
       hooks: {

@@ -592,7 +592,7 @@ async function loadInstructions(
     const content = await readFile(sourcePath, "utf8");
     const parts = parseMarkdown(content, sourcePath);
     const relativePath = relative(canonicalPath, sourcePath);
-    const frontmatter = normalizeRuleFrontmatter(parts.frontmatter, sourcePath);
+    const frontmatter = parts.frontmatter;
     validateSourceFrontmatter(
       validateInstructionFrontmatter(frontmatter, relative(rootPath, sourcePath)).diagnostics,
       relative(rootPath, sourcePath),
@@ -634,18 +634,6 @@ function readDialect(frontmatter: JsonRecord, label: string): SourceDialect | un
   throw new Error(
     `skillset: ${label} declares unsupported dialect ${JSON.stringify(value)}; only "claude" is supported`
   );
-}
-
-function normalizeRuleFrontmatter(frontmatter: SourceRule["frontmatter"], label: string): SourceRule["frontmatter"] {
-  const codexMode = isJsonRecord(frontmatter.codex)
-    ? readString(frontmatter.codex, "mode")
-    : undefined;
-  if (frontmatter.codex === "symlink" || codexMode === "symlink") {
-    throw new Error(
-      `skillset: ${label} uses codex: symlink, which is not supported yet; use codex: true or codex: false`
-    );
-  }
-  return frontmatter;
 }
 
 async function loadAdaptiveHooks(

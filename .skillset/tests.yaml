@@ -5,5 +5,3 @@ self-hosted:
   checks:
     projection: true
     pluginManifests: true
-  output:
-    kind: isolated
