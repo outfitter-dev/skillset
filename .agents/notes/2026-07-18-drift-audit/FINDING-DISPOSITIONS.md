@@ -30,7 +30,7 @@ validate completeness and print the project finding counts.
 | 03.1 | confirmed | open | SET-324 | — | Accept a successor ADR for shipped unsupported-destination policy. |
 | 03.2 | confirmed | open | SET-327 | — | Audit every draft first; SET-325 is the evidence-gated promotion follow-on. |
 | 03.3 | confirmed | open | SET-327 | — | Record the supersession disposition before SET-325 acts. |
-| 03.4 | confirmed | open | SET-350 | — | Model amendments separately from supersession in the decision map. |
+| 03.4 | confirmed | fixed | SET-350 | https://github.com/outfitter-dev/skillset/pull/319 | Amendment relations are modeled separately from whole-decision supersession, with validated reciprocal decision-map edges and preview-safe ADR mutations. Merged as `12dadf7115ae15d4675f3270ae0623526538a7f9`. |
 | 03.5 | confirmed | open | SET-327 | — | Determine the required amendment before any promotion. |
 | 03.6 | confirmed | open | SET-326 | — | Finish the internal `try` to `test` hard cutover. |
 | 03.7 | plausible | open | SET-327 | — | Audit every remaining draft and record one evidence-backed disposition. |
