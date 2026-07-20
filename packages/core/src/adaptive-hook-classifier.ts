@@ -189,7 +189,13 @@ function adaptiveHookUnsupportedFieldReason(
   const effective = item.effectiveDefinition?.target === target
     ? item.effectiveDefinition
     : resolveEffectiveAdaptiveHookDefinition(item.definition, target);
+  if (effective.context?.includeRaw !== undefined) {
+    return `Adaptive hook ${item.definition.name} sets context.includeRaw, but raw runtime context rendering is not implemented yet; remove context.includeRaw.`;
+  }
   const run = effective.run;
+  if (run.command !== undefined && run.script !== undefined) {
+    return `Adaptive hook ${item.definition.name} defines both run.command and run.script; choose exactly one handler before rendering.`;
+  }
   for (const key of ["args", "cwd"] as const) {
     if (run[key] !== undefined) {
       const supported = surface === "plugin" ? "run.command, run.script, and run.env" : "run.command";

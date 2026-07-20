@@ -197,9 +197,7 @@ Skill-local and project-agent-local attachments currently render only to Claude 
 
 Provider blocks are closed, typed overrides for `events`, `match`, `context`, and `run`. An absent field inherits the portable unit; a supplied field replaces that complete semantic unit; `match: null` and `context: null` clear only those values. An override cannot enable a provider excluded by the unit's `providers` list. Skillset resolves this effective definition once per target before validating attachments, scripts, and target capabilities.
 
-Until generated hook renderers consume that effective definition, any provider override remains an explicit `adaptive-hooks` unsupported result. This temporary fail-loud gate prevents generated output from silently falling back to portable base values.
-
-Unsupported cases include Codex skill/agent no-faithful-destination cases, Claude-only plugin events, Codex-ignored matchers, unsupported `run.args`/`run.cwd` fields, frontmatter `run.env` fields, and frontmatter `run.script` path-proof gaps.
+Unsupported cases include Codex skill/agent no-faithful-destination cases, Claude-only plugin events, Codex-ignored matchers, `context.includeRaw` until raw-context semantics exist, ambiguous hooks that define both `run.command` and `run.script`, unsupported `run.args`/`run.cwd` fields, frontmatter `run.env` fields, and frontmatter `run.script` path-proof gaps.
 
 ### Provider Reference
 

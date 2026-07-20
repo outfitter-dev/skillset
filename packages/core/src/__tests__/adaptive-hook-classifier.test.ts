@@ -138,6 +138,44 @@ describe("adaptive hook intent classifier", () => {
     expect(claudeArgs.reason).not.toContain("provider overrides");
   });
 
+  test("rejects target-effective raw context and ambiguous handlers before rendering", () => {
+    const rawContext = classifyAdaptiveHookIntent(
+      hookItem({
+        event: "SessionStart",
+        frontmatter: {
+          claude: { context: { includeRaw: false, strategy: "none" } },
+          events: ["SessionStart"],
+          run: { command: "echo base" },
+        },
+      }),
+      "claude",
+      "plugin"
+    );
+    const ambiguousHandler = classifyAdaptiveHookIntent(
+      hookItem({
+        event: "SessionStart",
+        frontmatter: {
+          claude: { run: { command: "echo claude", script: "./claude.sh" } },
+          events: ["SessionStart"],
+          run: { command: "echo base" },
+        },
+      }),
+      "claude",
+      "plugin"
+    );
+
+    expect(rawContext).toEqual(expect.objectContaining({
+      reason: "Adaptive hook demo-hook sets context.includeRaw, but raw runtime context rendering is not implemented yet; remove context.includeRaw.",
+      status: "unsupported",
+    }));
+    expect(ambiguousHandler).toEqual(expect.objectContaining({
+      reason: "Adaptive hook demo-hook defines both run.command and run.script; choose exactly one handler before rendering.",
+      status: "unsupported",
+    }));
+    expect(adaptiveHookIntentIsRenderable(rawContext)).toBe(false);
+    expect(adaptiveHookIntentIsRenderable(ambiguousHandler)).toBe(false);
+  });
+
   test("classifies lossy or unsupported hook shapes as unsupported", () => {
     const unsupportedEvent = classifyAdaptiveHookIntent(hookItem({ event: "Notification" }), "codex", "plugin");
     const ignoredMatcher = classifyAdaptiveHookIntent(hookItem({ event: "Stop", match: "main" }), "codex", "plugin");
