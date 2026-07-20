@@ -1,5 +1,11 @@
 # Marketplaces
 
+<!-- skillset:feature-support:start -->
+| Feature | Feature status | claude | codex | cursor |
+| --- | --- | --- | --- | --- |
+| `marketplaces` | `implemented` | `native` | `future` | `native` |
+<!-- skillset:feature-support:end -->
+
 Feature id: `marketplaces`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

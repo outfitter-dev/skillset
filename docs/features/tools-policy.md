@@ -1,5 +1,11 @@
 # Tools Policy
 
+<!-- skillset:feature-support:start -->
+| Feature | Feature status | claude | codex | cursor |
+| --- | --- | --- | --- | --- |
+| `tools-policy` | `implemented` | `transformed` | `metadata_only` | `metadata_only` |
+<!-- skillset:feature-support:end -->
+
 Feature id: `tools-policy`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

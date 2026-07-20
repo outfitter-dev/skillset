@@ -1,5 +1,11 @@
 # Feature Registry
 
+<!-- skillset:feature-support:start -->
+| Feature | Feature status | claude | codex | cursor |
+| --- | --- | --- | --- | --- |
+| `feature-registry` | `implemented` | `not_applicable` | `not_applicable` | `planned` |
+<!-- skillset:feature-support:end -->
+
 Feature id: `feature-registry`
 
 Related vocabulary: [Feature Reference Vocabulary](README.md#feature-reference-vocabulary)

@@ -1,5 +1,11 @@
 # Runtime Adapters
 
+<!-- skillset:feature-support:start -->
+| Feature | Feature status | claude | codex | cursor |
+| --- | --- | --- | --- | --- |
+| `runtime-adapters` | `planned` | `not_applicable` | `not_applicable` | `planned` |
+<!-- skillset:feature-support:end -->
+
 Feature id: `runtime-adapters`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

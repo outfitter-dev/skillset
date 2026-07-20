@@ -1,5 +1,12 @@
 # Agents
 
+<!-- skillset:feature-support:start -->
+| Feature | Feature status | claude | codex | cursor |
+| --- | --- | --- | --- | --- |
+| `plugin-agents` | `implemented` | `pass_through` | `unsupported` | `pass_through` |
+| `project-agents` | `implemented` | `native` | `transformed` | `native` |
+<!-- skillset:feature-support:end -->
+
 Feature id: `agents`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

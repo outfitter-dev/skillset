@@ -1,5 +1,11 @@
 # Supports
 
+<!-- skillset:feature-support:start -->
+| Feature | Feature status | claude | codex | cursor |
+| --- | --- | --- | --- | --- |
+| `supports` | `implemented` | `metadata_only` | `metadata_only` | `planned` |
+<!-- skillset:feature-support:end -->
+
 Feature id: `supports`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

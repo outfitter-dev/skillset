@@ -1,5 +1,11 @@
 # Changes
 
+<!-- skillset:feature-support:start -->
+| Feature | Feature status | claude | codex | cursor |
+| --- | --- | --- | --- | --- |
+| `changes` | `implemented` | `not_applicable` | `not_applicable` | `planned` |
+<!-- skillset:feature-support:end -->
+
 Feature id: `changes`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

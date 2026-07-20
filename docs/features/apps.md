@@ -1,5 +1,12 @@
 # Apps
 
+<!-- skillset:feature-support:start -->
+| Feature | Feature status | claude | codex | cursor |
+| --- | --- | --- | --- | --- |
+| `future-companion-source-pointers` | `planned` | `planned` | `planned` | `planned` |
+| `plugin-apps` | `implemented` | `not_applicable` | `pass_through` | `planned` |
+<!-- skillset:feature-support:end -->
+
 Feature id: `apps`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

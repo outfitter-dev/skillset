@@ -1,5 +1,14 @@
 # Hooks
 
+<!-- skillset:feature-support:start -->
+| Feature | Feature status | claude | codex | cursor |
+| --- | --- | --- | --- | --- |
+| `adaptive-hooks` | `implemented` | `transformed` | `degraded` | `degraded` |
+| `future-companion-source-pointers` | `planned` | `planned` | `planned` | `planned` |
+| `plugin-hooks` | `implemented` | `pass_through` | `pass_through` | `pass_through` |
+| `runtime-context` | `implemented` | `transformed` | `transformed` | `transformed` |
+<!-- skillset:feature-support:end -->
+
 Feature id: `hooks`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)

@@ -1,5 +1,11 @@
 # Workbench Check
 
+<!-- skillset:feature-support:start -->
+| Feature | Feature status | claude | codex | cursor |
+| --- | --- | --- | --- | --- |
+| `workflows` | `implemented` | `not_applicable` | `not_applicable` | `planned` |
+<!-- skillset:feature-support:end -->
+
 Related feature id: `workflows`
 
 Support vocabulary: [Feature Reference](README.md#feature-reference-vocabulary)

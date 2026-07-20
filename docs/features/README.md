@@ -1,6 +1,6 @@
 # Feature Reference
 
-The feature reference is the human-readable support registry for Skillset v1. It explains how authored source maps to provider target surfaces, which features are portable, which are target-native, and where support is deferred or future-only. This directory is manual for now; future schema-backed generation is deliberately deferred until the page shape proves itself.
+The feature reference is the human-readable support registry for Skillset v1. It explains how authored source maps to provider target surfaces, which features are portable, which are target-native, and where support is deferred or future-only. Feature-page prose remains human-owned; each delimited feature-status and target-support matrix is rendered from the typed registry and checked for drift.
 
 Use these pages alongside the [target surface evidence matrix](../target-surfaces.md). The matrix is the compact target-fact table; feature pages explain authoring shape, target rendering, diagnostics, provenance, examples, and test coverage.
 
@@ -107,4 +107,4 @@ These are tracked as future/reserved unless a later issue promotes them:
 - [Model and reasoning alias profiles](../adrs/drafts/20260604-model-and-reasoning-alias-profiles.md): shared aliases such as `review`, `fast`, or `deep` remain deferred; use target-native model and effort fields where supported.
 - [First-class sets](../adrs/drafts/20260604-first-class-sets.md): grouped marketplaces, bundles, and curated collections remain future vocabulary; v1 keeps build scopes and entity selectors separate.
 - [Tests and evals](tests-and-evals.md): adapter-aware eval support and expanded test selectors remain planned/future; deterministic `skillset test` has a first isolated rendering slice.
-- Generated feature docs: docs remain manual until the feature reference shape is stable enough to generate from typed registry data.
+- Richer generated feature docs: only the bounded status matrices are registry-rendered today; narrative, examples, output paths, and caveats remain authored until the broader page shape is stable enough to generate.

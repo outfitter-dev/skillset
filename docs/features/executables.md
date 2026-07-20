@@ -1,5 +1,11 @@
 # Executables
 
+<!-- skillset:feature-support:start -->
+| Feature | Feature status | claude | codex | cursor |
+| --- | --- | --- | --- | --- |
+| `plugin-bin` | `implemented` | `pass_through` | `unsupported` | `unsupported` |
+<!-- skillset:feature-support:end -->
+
 Feature id: `executables`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
