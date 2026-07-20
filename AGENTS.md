@@ -50,12 +50,15 @@ bun test
 bun run check
 bun run package-ownership:guard
 bun run terminology:guard
+bun run target-topology:guard
 ./scripts/bootstrap.sh [repo|agent|codex|claude|doctor|teardown]
 ```
 
 `bun run package-ownership:guard` blocks app-level package facade files from returning under `apps/skillset/src/`. Prefer importing an owned package root API or a documented private workspace internal directly instead of adding `export * from "@skillset/<package>/internal/*"` shims in the CLI app.
 
 `bun run terminology:guard` blocks retired compiler vocabulary (the render-result and `compile.unsupportedDestination` cutover) from drifting back into active source, docs, generated guidance, CLI output, schema names, and tests. It runs inside `bun run check`. When it fails, prefer fixing the source to use the derive/render/destination vocabulary; only extend the explicit allowlists in `scripts/terminology-guard.ts` for deliberate historical (ADR) or deferred-concept context.
+
+`bun run target-topology:guard` uses the TypeScript AST and the canonical schema target registry to reject hand-enumerated target collections, same-subject target equality subsets, and implicit multi-target dispatch fallbacks. Deliberate schema declarations, historical migrations, and provider-native format boundaries require exact per-match allowlist evidence.
 
 `bun run skillset:check:ci` is the same aggregate check GitHub Actions runs (`.github/workflows/ci.yml`): lint, change-entry coverage, and generated drift. Pass `--fix` to rebuild stale generated output mechanically. Content repos scaffold the equivalent workflow with `skillset init --include ci`.
 
