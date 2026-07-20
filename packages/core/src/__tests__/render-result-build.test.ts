@@ -870,10 +870,73 @@ hooks:
         run: { command: "echo ok" },
       }),
     });
-    await expectUnsupportedOutcome(providerOverrideRoot, {
+    const providerOverridePreview = await diffSkillsetResult(providerOverrideRoot);
+    expect(providerOverridePreview.renderResults).not.toContainEqual(expect.objectContaining({
+      featureId: "adaptive-hooks",
+      status: "unsupported",
+      target: "claude",
+    }));
+
+    const rawContextOverrideRoot = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-policy-raw-context-override
+claude: true
+codex: false
+cursor: false
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  SessionStart:
+    - shell-policy
+`,
+      ".skillset/plugins/demo/hooks/shell-policy.json": JSON.stringify({
+        claude: { context: { includeRaw: false, strategy: "none" } },
+        events: ["SessionStart"],
+        run: { command: "echo ok" },
+      }),
+    });
+    await expectUnsupportedOutcome(rawContextOverrideRoot, {
       destination: "hooks",
       featureId: "adaptive-hooks",
-      reason: "Adaptive hook shell-policy uses claude provider overrides, but plugin hook rendering does not consume effective definitions yet.",
+      reason: "Adaptive hook shell-policy sets context.includeRaw, but raw runtime context rendering is not implemented yet; remove context.includeRaw.",
+      sourceUnit: "plugin.demo.feature:hooks",
+      target: "claude",
+    });
+
+    const ambiguousHandlerOverrideRoot = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-policy-ambiguous-handler-override
+claude: true
+codex: false
+cursor: false
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  SessionStart:
+    - shell-policy
+`,
+      ".skillset/plugins/demo/hooks/shell-policy.json": JSON.stringify({
+        claude: {
+          run: {
+            command: "echo claude",
+            script: "{{scripts.dir}}/claude.sh",
+          },
+        },
+        events: ["SessionStart"],
+        run: { command: "echo base" },
+      }),
+      ".skillset/plugins/demo/scripts/claude.sh": "#!/bin/sh\necho claude\n",
+    });
+    await expectUnsupportedOutcome(ambiguousHandlerOverrideRoot, {
+      destination: "hooks",
+      featureId: "adaptive-hooks",
+      reason: "Adaptive hook shell-policy defines both run.command and run.script; choose exactly one handler before rendering.",
       sourceUnit: "plugin.demo.feature:hooks",
       target: "claude",
     });

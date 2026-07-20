@@ -6,9 +6,14 @@ import { basename, dirname, join, relative } from "node:path";
 import { lowerTransform, recognizeTransforms } from "@skillset/transforms";
 
 import {
-  resolveAdaptiveHookAttachments,
+  resolveAdaptiveHookAttachmentsForTarget,
   type ResolvedAdaptiveHookAttachment,
 } from "./adaptive-hook-attachments";
+import type {
+  EffectiveAdaptiveHookDefinition,
+  EffectiveAdaptiveHookJsonRecord,
+  EffectiveAdaptiveHookJsonValue,
+} from "./adaptive-hook-effective";
 import { adaptiveHookUnsupportedRenderReason, type AdaptiveHookRenderSurface } from "./adaptive-hook-render-support";
 import {
   isOutputSelected,
@@ -2112,7 +2117,8 @@ function renderAdaptiveHookGroup(
   scriptFiles: Map<string, RenderedFile>
 ): JsonRecord {
   validateSupportedAdaptiveHookRenderFields(item, target);
-  const matcher = item.attachment.match ?? item.definition.frontmatter.match;
+  const effective = effectiveAdaptiveHookDefinition(item, target);
+  const matcher = item.attachment.match ?? materializeEffectiveAdaptiveHookValue(effective.match);
   const statusMessage = item.attachment.status ?? readString(item.definition.frontmatter, "status");
   const group: JsonRecord = {
     ...(matcher === undefined ? {} : { matcher }),
@@ -2143,9 +2149,9 @@ function adaptiveHookCommand(
   basePath: string,
   scriptFiles: Map<string, RenderedFile>
 ): string {
-  const run = readRecord(item.definition.frontmatter, "run") ?? {};
+  const run = materializeEffectiveAdaptiveHookRecord(effectiveAdaptiveHookDefinition(item, target).run);
   const command = readString(run, "command");
-  if (command !== undefined) return withAdaptiveHookContextCommand(withAdaptiveHookRunEnv(command, item), item, target);
+  if (command !== undefined) return withAdaptiveHookContextCommand(withAdaptiveHookRunEnv(command, item, target), item, target);
 
   const script = readString(run, "script");
   if (script === undefined) {
@@ -2168,7 +2174,7 @@ function adaptiveHookCommand(
     });
   }
   const pluginRoot = target === "claude" ? "$CLAUDE_PLUGIN_ROOT" : "$PLUGIN_ROOT";
-  return withAdaptiveHookContextCommand(withAdaptiveHookRunEnv(`${pluginRoot}/${relativeScriptPath}`, item), item, target);
+  return withAdaptiveHookContextCommand(withAdaptiveHookRunEnv(`${pluginRoot}/${relativeScriptPath}`, item, target), item, target);
 }
 
 function hasAdaptivePluginHookOutput(
@@ -2184,7 +2190,7 @@ function adaptivePluginHookAttachments(
   plugin: SourcePlugin,
   target: TargetName
 ): readonly ResolvedAdaptiveHookAttachment[] {
-  return resolveAdaptiveHookAttachments(graph.adaptiveHooks, graph.hookAttachments).resolved.filter((item) =>
+  return resolveAdaptiveHookAttachmentsForTarget(graph.adaptiveHooks, graph.hookAttachments, target).resolved.filter((item) =>
     item.attachment.scope.kind === "plugin" &&
     item.attachment.scope.pluginId === plugin.id &&
     supportsAdaptiveHookTarget(item, target, "plugin")
@@ -2235,7 +2241,8 @@ function renderAdaptiveFrontmatterHookGroup(
   target: TargetName
 ): JsonRecord {
   validateSupportedAdaptiveFrontmatterHookFields(item, target);
-  const matcher = item.attachment.match ?? item.definition.frontmatter.match;
+  const effective = effectiveAdaptiveHookDefinition(item, target);
+  const matcher = item.attachment.match ?? materializeEffectiveAdaptiveHookValue(effective.match);
   const statusMessage = item.attachment.status ?? readString(item.definition.frontmatter, "status");
   return {
     ...(matcher === undefined ? {} : { matcher }),
@@ -2258,7 +2265,7 @@ function validateSupportedAdaptiveFrontmatterHookFields(
 }
 
 function adaptiveFrontmatterHookCommand(item: ResolvedAdaptiveHookAttachment): string {
-  const run = readRecord(item.definition.frontmatter, "run") ?? {};
+  const run = materializeEffectiveAdaptiveHookRecord(effectiveAdaptiveHookDefinition(item, "claude").run);
   const command = readString(run, "command");
   if (command === undefined) {
     throw new Error(`skillset: adaptive hook ${item.definition.name} must define run.command for frontmatter hook rendering`);
@@ -2266,8 +2273,31 @@ function adaptiveFrontmatterHookCommand(item: ResolvedAdaptiveHookAttachment): s
   return withAdaptiveHookContextCommand(command, item, "claude");
 }
 
-function withAdaptiveHookRunEnv(command: string, item: ResolvedAdaptiveHookAttachment): string {
-  const run = readRecord(item.definition.frontmatter, "run") ?? {};
+function effectiveAdaptiveHookDefinition(
+  item: ResolvedAdaptiveHookAttachment,
+  target: TargetName
+): EffectiveAdaptiveHookDefinition {
+  const effective = item.effectiveDefinition;
+  if (effective?.target !== target) {
+    throw new Error(`skillset: adaptive hook ${item.definition.name} is missing its ${target} effective definition`);
+  }
+  return effective;
+}
+
+function materializeEffectiveAdaptiveHookValue(
+  value: EffectiveAdaptiveHookJsonValue | undefined
+): JsonValue | undefined {
+  // Core freezes effective definitions; rendering emits an independent JSON value
+  // through helpers whose legacy record types are mutable.
+  return value === undefined ? undefined : JSON.parse(JSON.stringify(value)) as JsonValue;
+}
+
+function materializeEffectiveAdaptiveHookRecord(value: EffectiveAdaptiveHookJsonRecord): JsonRecord {
+  return materializeEffectiveAdaptiveHookValue(value) as JsonRecord;
+}
+
+function withAdaptiveHookRunEnv(command: string, item: ResolvedAdaptiveHookAttachment, target: TargetName): string {
+  const run = materializeEffectiveAdaptiveHookRecord(effectiveAdaptiveHookDefinition(item, target).run);
   const env = readRecord(run, "env");
   if (env === undefined) return command;
   const assignments = Object.entries(env)
@@ -2290,17 +2320,18 @@ function withAdaptiveHookContextCommand(
   item: ResolvedAdaptiveHookAttachment,
   target: TargetName
 ): string {
-  const context = readRecord(item.definition.frontmatter, "context");
+  const context = effectiveAdaptiveHookDefinition(item, target).context;
   if (context === undefined) return command;
-  const strategy = readString(context, "strategy") ?? "none";
+  const materializedContext = materializeEffectiveAdaptiveHookRecord(context);
+  const strategy = readString(materializedContext, "strategy") ?? "none";
   if (strategy === "none") return command;
   if (strategy === "toolkit") {
-    return withAdaptiveHookToolkitContextCommand(command, item, target, readStringArray(context, "env") ?? []);
+    return withAdaptiveHookToolkitContextCommand(command, item, target, readStringArray(materializedContext, "env") ?? []);
   }
   if (strategy !== "inline") {
     throw new Error(`skillset: adaptive hook ${item.definition.name} context.strategy ${strategy} is not supported for rendering yet`);
   }
-  const fields = readStringArray(context, "env") ?? [];
+  const fields = readStringArray(materializedContext, "env") ?? [];
   if (fields.length === 0) {
     throw new Error(`skillset: adaptive hook ${item.definition.name} context.env must list fields for inline context rendering`);
   }
@@ -2353,7 +2384,7 @@ function adaptiveHookAttachmentsForScope(
   scope: ResolvedAdaptiveHookAttachment["attachment"]["scope"],
   target: TargetName
 ): readonly ResolvedAdaptiveHookAttachment[] {
-  return resolveAdaptiveHookAttachments(graph.adaptiveHooks, graph.hookAttachments).resolved.filter((item) =>
+  return resolveAdaptiveHookAttachmentsForTarget(graph.adaptiveHooks, graph.hookAttachments, target).resolved.filter((item) =>
     sameAdaptiveHookScope(item.attachment.scope, scope) &&
     supportsAdaptiveHookTarget(item, target, "frontmatter")
   );

@@ -629,6 +629,85 @@ hooks:
     ]));
   });
 
+  test("renders target-effective plugin hook definitions without leaking portable base values", async () => {
+    const graph = await loadBuildGraph(await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-target-effective-render
+claude: true
+codex: true
+cursor: true
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  auto:
+    - shell-policy
+`,
+      ".skillset/plugins/demo/hooks/shell-policy/hook.json": JSON.stringify({
+        codex: {
+          context: null,
+          events: ["Stop"],
+          match: null,
+          run: { env: { CODEX: "1" }, script: "./codex.sh" },
+        },
+        context: { env: ["provider"], strategy: "inline" },
+        cursor: {
+          context: null,
+          events: ["WorkspaceOpen"],
+          match: null,
+          run: { env: { CURSOR: "1" }, script: "./cursor.sh" },
+        },
+        events: ["PreToolUse"],
+        match: "Bash",
+        run: { env: { CLAUDE: "1" }, script: "./claude.sh" },
+      }),
+      ".skillset/plugins/demo/hooks/shell-policy/claude.sh": "#!/bin/sh\necho claude\n",
+      ".skillset/plugins/demo/hooks/shell-policy/codex.sh": "#!/bin/sh\necho codex\n",
+      ".skillset/plugins/demo/hooks/shell-policy/cursor.sh": "#!/bin/sh\necho cursor\n",
+    }));
+
+    const rendered = await renderBuildGraph(graph);
+
+    expect(renderedJson(rendered, "plugins/demo/claude/hooks/hooks.json")).toEqual({
+      hooks: {
+        PreToolUse: [{
+          hooks: [{
+            command: "SKILLSET_PROVIDER=claude env CLAUDE=1 sh -c '$CLAUDE_PLUGIN_ROOT/hooks/shell-policy/claude.sh'",
+            type: "command",
+          }],
+          matcher: "Bash",
+        }],
+      },
+    });
+    expect(renderedJson(rendered, "plugins/demo/codex/hooks/hooks.json")).toEqual({
+      hooks: {
+        Stop: [{
+          hooks: [{ command: "env CODEX=1 sh -c '$PLUGIN_ROOT/hooks/shell-policy/codex.sh'", type: "command" }],
+        }],
+      },
+    });
+    expect(renderedJson(rendered, "plugins/demo/cursor/hooks/hooks.json")).toEqual({
+      hooks: {
+        workspaceOpen: [{
+          hooks: [{ command: "env CURSOR=1 sh -c '$PLUGIN_ROOT/hooks/shell-policy/cursor.sh'", type: "command" }],
+        }],
+      },
+    });
+    expect(rendered.map((file) => file.path)).toEqual(expect.arrayContaining([
+      "plugins/demo/claude/hooks/shell-policy/claude.sh",
+      "plugins/demo/codex/hooks/shell-policy/codex.sh",
+      "plugins/demo/cursor/hooks/shell-policy/cursor.sh",
+    ]));
+    expect(rendered.map((file) => file.path)).not.toEqual(expect.arrayContaining([
+      "plugins/demo/claude/hooks/shell-policy/codex.sh",
+      "plugins/demo/claude/hooks/shell-policy/cursor.sh",
+      "plugins/demo/codex/hooks/shell-policy/claude.sh",
+      "plugins/demo/cursor/hooks/shell-policy/claude.sh",
+    ]));
+  });
+
   test("rejects plugin adaptive hook run.env keys that cannot render as shell assignments", async () => {
     const graph = await loadBuildGraph(await fixture({
       "skillset.yaml": `
@@ -876,6 +955,64 @@ Body.
         hooks: [{ command: "echo agent", type: "command" }],
         statusMessage: "Checking agent stop",
       }],
+    });
+  });
+
+  test("renders target-effective Claude frontmatter hook definitions", async () => {
+    const graph = await loadBuildGraph(await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-frontmatter-effective-render
+claude: true
+codex: false
+cursor: false
+`,
+      ".skillset/skills/writer/SKILL.md": `
+---
+name: writer
+description: Demo writer.
+hooks:
+  auto:
+    - local-shell
+---
+
+Body.
+`,
+      ".skillset/skills/writer/hooks/local-shell.json": JSON.stringify({
+        claude: { context: null, match: null, run: { command: "echo skill override" } },
+        context: { env: ["provider"], strategy: "inline" },
+        events: ["PreToolUse"],
+        match: "Bash",
+        run: { command: "echo skill base" },
+      }),
+      ".skillset/agents/helper.md": `
+---
+description: Demo helper.
+hooks:
+  auto:
+    - local-stop
+---
+
+Body.
+`,
+      ".skillset/agents/helper/hooks/local-stop.json": JSON.stringify({
+        claude: { context: null, match: null, run: { command: "echo agent override" } },
+        context: { env: ["provider"], strategy: "inline" },
+        events: ["Stop"],
+        match: "base-match",
+        run: { command: "echo agent base" },
+      }),
+    }));
+
+    const rendered = await renderBuildGraph(graph);
+    const skillFrontmatter = renderedMarkdown(rendered, ".claude/skills/writer/SKILL.md").frontmatter;
+    const agentFrontmatter = renderedMarkdown(rendered, ".claude/agents/helper.md").frontmatter;
+
+    expect(skillFrontmatter.hooks).toEqual({
+      PreToolUse: [{ hooks: [{ command: "echo skill override", type: "command" }] }],
+    });
+    expect(agentFrontmatter.hooks).toEqual({
+      Stop: [{ hooks: [{ command: "echo agent override", type: "command" }] }],
     });
   });
 

@@ -21,8 +21,5 @@ export function adaptiveHookUnsupportedRenderReason(
 ): string | undefined {
   const classification = classifyAdaptiveHookIntent(item, target, surface);
   if (!adaptiveHookIntentIsRenderable(classification)) return classification.reason;
-  if (item.definition.frontmatter[target] !== undefined) {
-    return `Adaptive hook ${item.definition.name} uses ${target} provider overrides, but ${surface} hook rendering does not consume effective definitions yet.`;
-  }
   return undefined;
 }
