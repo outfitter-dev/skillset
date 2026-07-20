@@ -355,7 +355,20 @@ test("SET-329 refresh heartbeats keep a live holder beyond its lease", async () 
   await writeReason(root, "abcdef123456", "This pending reason proves heartbeat freshness protects a live holder past the lease.");
   const entered = deferred<void>();
   const release = deferred<void>();
-  const lock = { heartbeatMs: 1, isProcessAlive: () => false, leaseMs: 5, pollMs: 1, timeoutMs: 12 } as const;
+  let heartbeatTick: (() => Promise<void>) | undefined;
+  let now = 0;
+  const lock = {
+    heartbeatMs: 1,
+    isProcessAlive: () => false,
+    leaseMs: 5,
+    now: () => now,
+    pollMs: 1,
+    startHeartbeat: (heartbeat: () => Promise<void>) => {
+      heartbeatTick = heartbeat;
+      return () => {};
+    },
+    timeoutMs: 12,
+  } as const;
   const holder = refreshChangeEvidence(root, {
     beforeFinalComparison: async () => {
       entered.resolve();
@@ -366,7 +379,10 @@ test("SET-329 refresh heartbeats keep a live holder beyond its lease", async () 
     write: true,
   });
   await entered.promise;
-  await Bun.sleep(15);
+  now = lock.leaseMs + 1;
+  if (heartbeatTick === undefined) throw new Error("missing change ledger heartbeat tick");
+  await heartbeatTick();
+  expect(await ledgerHeartbeatAt(root)).toBe(now);
   await expect(refreshChangeEvidence(root, { lock, since: "HEAD", write: true })).rejects.toThrow(
     "timed out waiting for change ledger lock"
   );
@@ -468,6 +484,15 @@ async function seedRawLedgerLock(root: string, ownerContent: string, heartbeatCo
   await writeFile(join(lockPath, `heartbeat-${VALID_OWNER_TOKEN}.json`), heartbeatContent, "utf8");
   const old = new Date(Date.now() - 120_000);
   await utimes(lockPath, old, old);
+}
+
+async function ledgerHeartbeatAt(root: string): Promise<unknown> {
+  const lockPath = join(root, ".skillset/changes/ledger.jsonl.lock");
+  const owner = JSON.parse(await readFile(join(lockPath, "owner.json"), "utf8")) as { readonly token: string };
+  const heartbeat = JSON.parse(
+    await readFile(join(lockPath, `heartbeat-${owner.token}.json`), "utf8")
+  ) as { readonly heartbeatAt?: unknown };
+  return heartbeat.heartbeatAt;
 }
 
 async function ledgerLockArtifacts(root: string): Promise<readonly string[]> {
