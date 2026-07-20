@@ -68,11 +68,17 @@ const COMPILE_BUILD_MODES = new Set<CompileBuildMode>(SCHEMA_COMPILE_BUILD_MODES
 const UNSUPPORTED_DESTINATION_POLICIES = new Set<UnsupportedDestinationPolicy>(
   SCHEMA_UNSUPPORTED_DESTINATION_POLICIES as readonly UnsupportedDestinationPolicy[]
 );
-const DISTRIBUTION_RUNTIME_TARGETS: Readonly<Record<TargetName, readonly SkillsetRuntimeId[]>> = {
+export const DISTRIBUTION_RUNTIME_TARGETS: Readonly<Record<TargetName, readonly SkillsetRuntimeId[]>> = {
   claude: ["claude-code"],
   codex: ["codex-app", "codex-cli"],
   cursor: ["cursor"],
 };
+export const NON_DISTRIBUTABLE_RUNTIME_IDS: ReadonlySet<SkillsetRuntimeId> = new Set([
+  "devin",
+  "droid",
+  "gemini-cli",
+  "opencode",
+]);
 const SOURCE_ONLY_KEYS = new Set([
   "agents",
   "allowed_tools",

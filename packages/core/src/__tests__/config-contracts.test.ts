@@ -1,11 +1,32 @@
 import { describe, expect, it } from "bun:test";
 
 import {
+  DISTRIBUTION_RUNTIME_TARGETS,
+  NON_DISTRIBUTABLE_RUNTIME_IDS,
   validateConfigDocument,
   validateRootSourceManifestDocument,
   validateWorkspaceConfigDocument,
 } from "../config";
+import { SKILLSET_RUNTIME_IDS } from "../feature-registry";
 import type { JsonRecord } from "../types";
+
+describe("distribution runtime contract", () => {
+  it("SET-346 partitions every registered runtime into one target or the named exclusion set", () => {
+    const mappedRuntimeIds = Object.values(DISTRIBUTION_RUNTIME_TARGETS).flat();
+    const registeredRuntimeIds = new Set<string>(SKILLSET_RUNTIME_IDS);
+
+    for (const runtime of SKILLSET_RUNTIME_IDS) {
+      const mappingCount = mappedRuntimeIds.filter((candidate) => candidate === runtime).length;
+      const partitionCount = mappingCount + Number(NON_DISTRIBUTABLE_RUNTIME_IDS.has(runtime));
+
+      expect(partitionCount).toBe(1);
+    }
+    expect(mappedRuntimeIds.filter((runtime) => !registeredRuntimeIds.has(runtime))).toEqual([]);
+    expect(
+      [...NON_DISTRIBUTABLE_RUNTIME_IDS].filter((runtime) => !registeredRuntimeIds.has(runtime))
+    ).toEqual([]);
+  });
+});
 
 describe("schema-owned config document contexts", () => {
   it("keeps Core validation aligned with each schema-owned document vocabulary", () => {
