@@ -1319,6 +1319,18 @@ async function writeActivationProbes(
   return activationRoot;
 }
 
+const ACTIVATION_HARNESSES = {
+  claude: "Manual Claude activation probe. Run against the generated workspace or plugin path and confirm the expected source unit is loaded or invoked.",
+  codex: "Manual Codex activation probe. Use generated Codex output or plugin-eval tooling when available; compatibility shims should be reported explicitly.",
+  cursor: "Manual Cursor activation probe. Run against the generated workspace or plugin path and confirm the expected source unit is loaded or invoked.",
+} satisfies Readonly<Record<TargetName, string>>;
+
+const ACTIVATION_STATUSES = {
+  claude: "manual-native",
+  codex: "manual-shimmed",
+  cursor: "manual-native",
+} satisfies Readonly<Record<TargetName, "manual-native" | "manual-shimmed">>;
+
 function activationProbeRecord(probe: ActivationProbe, target: TargetName): JsonRecord {
   return {
     execution: probe.runtime === undefined ? "manual" : "live",
@@ -1329,19 +1341,13 @@ function activationProbeRecord(probe: ActivationProbe, target: TargetName): Json
     name: slugifyProbeName(probe.name),
     prompt: probe.prompt,
     promptProvenance: probe.promptProvenance,
-    status: target === "codex" ? "manual-shimmed" : "manual-native",
+    status: ACTIVATION_STATUSES[target],
     target,
   };
 }
 
 function activationHarness(target: TargetName): string {
-  if (target === "claude") {
-    return "Manual Claude activation probe. Run against the generated workspace or plugin path and confirm the expected source unit is loaded or invoked.";
-  }
-  if (target === "cursor") {
-    return "Manual Cursor activation probe. Run against the generated workspace or plugin path and confirm the expected source unit is loaded or invoked.";
-  }
-  return "Manual Codex activation probe. Use generated Codex output or plugin-eval tooling when available; compatibility shims should be reported explicitly.";
+  return ACTIVATION_HARNESSES[target];
 }
 
 function renderActivationProbeMarkdown(record: JsonRecord): string {

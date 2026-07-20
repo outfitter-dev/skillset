@@ -2054,9 +2054,11 @@ Demo body.
   expect(await fileExists(cachePath(root, ".skillset/cache/tests/latest/activation/codex/fixture-guidance.md"))).toBe(true);
   const claudeProbe = await readFile(cachePath(root, ".skillset/cache/tests/latest/activation/claude/fixture-guidance.md"), "utf8");
   expect(claudeProbe).toContain("Manual Claude activation probe");
+  expect(claudeProbe).toContain("Status: manual-native");
   expect(claudeProbe).toContain("- skill: demo");
   const codexProbe = await readFile(cachePath(root, ".skillset/cache/tests/latest/activation/codex/probes.json"), "utf8");
   expect(codexProbe).toContain("manual-shimmed");
+  expect(codexProbe).toContain("Manual Codex activation probe");
   expect(codexProbe).toContain("fixture-guidance");
 });
 

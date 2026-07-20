@@ -148,9 +148,16 @@ function renderGitSnippet(options: { readonly preCommit: boolean; readonly prePu
   return sections.join("\n\n");
 }
 
+const AGENT_RUNTIME_DESTINATIONS = {
+  claude: ".claude/settings.local.json",
+  codex: ".codex/hooks/hooks.json",
+  cursor: undefined,
+} satisfies Readonly<Record<TargetName, string | undefined>>;
+
 function renderAgentRuntimeSnippet(target: TargetName | undefined): string {
   if (target === undefined) throw new Error("skillset: hooks print --agent-runtime requires --target");
-  if (target === "cursor") {
+  const path = AGENT_RUNTIME_DESTINATIONS[target];
+  if (path === undefined) {
     throw new Error("skillset: hooks print --agent-runtime only supports --target claude or --target codex; Cursor has no documented runtime hook destination");
   }
   const note =
@@ -180,7 +187,6 @@ function renderAgentRuntimeSnippet(target: TargetName | undefined): string {
       ],
     },
   };
-  const path = target === "claude" ? ".claude/settings.local.json" : ".codex/hooks/hooks.json";
   return [
     `# ${target} agent runtime hook snippet`,
     `# Suggested destination: ${path}`,
