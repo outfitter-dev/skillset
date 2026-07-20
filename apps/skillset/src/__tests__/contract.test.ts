@@ -4572,7 +4572,7 @@ Migrate should preserve evidence for every declared scope before rewriting this 
 test("SET-241: change write flags are scoped to explicit migration", async () => {
   const add = await runSkillsetCli("change", "add", "--yes");
   expect(add.exitCode).toBe(1);
-  expect(add.stderr).toContain("--yes is only supported with change migrate");
+  expect(add.stderr).toContain("--yes is only supported with change migrate or change refresh");
 
   const conflicting = await runSkillsetCli("change", "migrate", "--dry-run");
   expect(conflicting.exitCode).toBe(1);

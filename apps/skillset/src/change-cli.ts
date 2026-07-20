@@ -15,12 +15,14 @@ import {
   listChangeEntries,
   migratePendingChangeEntries,
   readChangeHistory,
+  refreshChangeEvidence,
   showChangeEntry,
   updateChangeReason,
 } from "./change-workflow";
 import type {
   ChangeEntryView,
   ChangeMigrationReport,
+  ChangeRefreshReport,
   ChangeReasonInput,
   ChangeSubcommand,
 } from "./change-workflow";
@@ -250,8 +252,25 @@ export async function runChangeCommand({
     }
     return;
   }
+  if (changeSubcommand === "refresh") {
+    const report = await refreshChangeEvidence(rootPath, {
+      ...changeOptions,
+      ...(changeRef === undefined ? {} : { ref: changeRef }),
+      write: yes,
+    });
+    if (jsonOutput) {
+      const writes = report.written ? [report.ledgerPath] : [];
+      printCliJsonData("change.refresh", { report, state: writes.length > 0 ? "written" : "planned", writes });
+    } else {
+      printChangeRefresh(report);
+      if (!yes && report.entries.length > 0) {
+        console.log("skillset: rerun change refresh with --yes to append current evidence");
+      }
+    }
+    return;
+  }
   throw new Error(
-    "skillset: expected change subcommand add, amend, check, history, list, migrate, reason, show, or status"
+    "skillset: expected change subcommand add, amend, check, history, list, migrate, reason, refresh, show, or status"
   );
 }
 
@@ -336,6 +355,19 @@ function printChangeMigration(report: ChangeMigrationReport): void {
   console.log(
     `skillset: ${report.written ? "migrated" : "previewed"} ${report.entries.length} frontmatter pending entr${report.entries.length === 1 ? "y" : "ies"}`
   );
+}
+
+function printChangeRefresh(report: ChangeRefreshReport): void {
+  for (const entry of report.entries) {
+    console.log(`${report.written ? "refreshed" : "would refresh"}: ${entry.ref} ${entry.path}`);
+    for (const scope of entry.scopes) {
+      console.log(`  scope: ${sourceUnitDisplay(scope.scope)}`);
+      console.log(`  prior hashes: ${scope.priorHashes.length === 0 ? "(missing)" : scope.priorHashes.join(", ")}`);
+      console.log(`  current hash: ${scope.currentHash}`);
+    }
+  }
+  console.log(`  ledger: ${report.ledgerPath}`);
+  console.log(`skillset: ${report.written ? "refreshed" : "previewed"} ${report.entries.length} pending change entr${report.entries.length === 1 ? "y" : "ies"}`);
 }
 
 function printChangeCheck(report: ChangeCheckReport): void {
