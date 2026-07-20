@@ -38,10 +38,10 @@ validate completeness and print the project finding counts.
 | 03.9 | decided-needed | open | SET-317 | — | Mechanically check target-support tables against registry evidence. |
 | 03.10 | plausible | open | SET-339 | — | Verify and correct the lagging feature-doc status row. |
 | 04.1 | confirmed | fixed | SET-319 | https://github.com/outfitter-dev/skillset/pull/306 | Core derives context-specific configuration key sets and unsupported-destination policy from schema ownership. Merged as `7760699e9b10cb73e3a7b145dfcb73b5936ae46a`. |
-| 04.2 | confirmed | open | SET-323 | — | Single-source the semver value contract. |
+| 04.2 | confirmed | fixed | SET-323 | https://github.com/outfitter-dev/skillset/pull/312 | Schema owns the canonical SemVer contract and fresh RegExp factory, with exact-string parity across consumers. Merged as `ec7c5afcaee4f827969cff9ffdd4f7ab8408de85`. |
 | 04.3 | confirmed | open | SET-346 | — | Derive retired-surface guards from canonical tooling contracts. |
 | 04.4 | confirmed | fixed | SET-318 | https://github.com/outfitter-dev/skillset/pull/305 | Canonical target descriptors own project roots, project-agent extensions, display labels, and generated session expressions. Merged as `0ea4c96b72da7bad975988aeafa652716f0ced91`. |
-| 04.5 | confirmed | open | SET-323 | — | Single-source list formatting at the lowest owner. |
+| 04.5 | confirmed | fixed | SET-323 | https://github.com/outfitter-dev/skillset/pull/312 | Schema owns the shared lowest-owner list formatter used across Schema, Core, and CLI. Merged as `ec7c5afcaee4f827969cff9ffdd4f7ab8408de85`. |
 | 04.6 | confirmed | open | SET-346 | — | Add explicit runtime-map partition coverage. |
 | 04.7 | plausible | wont-fix | SET-343 | — | Baseline counts are intentionally prose observations, not product contracts. |
 | 04.8 | decided-needed | open | SET-340 | — | Guard against target subsets and implicit fallbacks. |
