@@ -234,7 +234,7 @@ describe("SET-303 lifecycle and recovery route parsers", () => {
       {
         run: () => parseChangeCommandRequest(["change", "unknown"], CONTEXT),
         message:
-          "skillset: expected change subcommand add, amend, check, history, list, migrate, reason, refresh, show, or status",
+          "skillset: expected change subcommand add, amend, check, history, ignore, list, migrate, reason, refresh, show, or status",
       },
       {
         run: () =>

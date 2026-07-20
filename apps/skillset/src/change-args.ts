@@ -170,6 +170,7 @@ export const isChangeSubcommand = (
   value === "amend" ||
   value === "check" ||
   value === "history" ||
+  value === "ignore" ||
   value === "list" ||
   value === "migrate" ||
   value === "reason" ||
@@ -212,7 +213,7 @@ export const setChangeReason = (
 const readChangeSubcommand = (value: string | undefined): ChangeSubcommand => {
   if (isChangeSubcommand(value)) return value;
   throw new Error(
-    "skillset: expected change subcommand add, amend, check, history, list, migrate, reason, refresh, show, or status"
+    "skillset: expected change subcommand add, amend, check, history, ignore, list, migrate, reason, refresh, show, or status"
   );
 };
 
@@ -220,6 +221,7 @@ const supportsPositionalRef = (subcommand: ChangeSubcommand): boolean =>
   subcommand === "amend" ||
   subcommand === "check" ||
   subcommand === "history" ||
+  subcommand === "ignore" ||
   subcommand === "reason" ||
   subcommand === "refresh" ||
   subcommand === "show";
@@ -263,8 +265,11 @@ const validateChangeOptions = (
   if (subcommand === "refresh" && change.buildMode !== undefined) {
     throw new Error("skillset: change refresh only supports @ref, --ref, --since, --yes, --json, and --root");
   }
-  if (change.yes && subcommand !== "migrate" && subcommand !== "refresh") {
-    throw new Error("skillset: --yes is only supported with change migrate or change refresh");
+  if (subcommand === "ignore" && (change.buildMode !== undefined || change.since !== undefined)) {
+    throw new Error("skillset: change ignore only supports @ref, --ref, --yes, --json, and --root");
+  }
+  if (change.yes && subcommand !== "ignore" && subcommand !== "migrate" && subcommand !== "refresh") {
+    throw new Error("skillset: --yes is only supported with change ignore, change migrate, or change refresh");
   }
   if (change.append && subcommand !== "reason") {
     throw new Error("skillset: --append is only supported with change reason");
@@ -293,7 +298,7 @@ const validateChangeOptions = (
   }
   if (change.ref !== undefined && !supportsPositionalRef(subcommand)) {
     throw new Error(
-      "skillset: --ref is only supported with change amend, change check, change history, change reason, change refresh, or change show"
+      "skillset: --ref is only supported with change amend, change check, change history, change ignore, change reason, change refresh, or change show"
     );
   }
   if (change.scopes !== undefined && subcommand !== "add") {
@@ -326,6 +331,7 @@ const validateRequiredChangeInputs = (
   }
   if (
     (subcommand === "amend" ||
+      subcommand === "ignore" ||
       subcommand === "reason" ||
       subcommand === "show") &&
     change.ref === undefined

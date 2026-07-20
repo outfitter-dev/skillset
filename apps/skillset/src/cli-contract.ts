@@ -374,6 +374,7 @@ export const CLI_ROUTE_FLAGS = {
   "change amend": ["--json", "--reason", "--reason-file", "--ref", "--root"],
   "change check": ["--json", "--ref", "--root", "--since", "--staged"],
   "change history": ["--json", "--ref", "--root"],
+  "change ignore": ["--json", "--ref", "--root", "--yes"],
   "change list": ["--group", "--json", "--root"],
   "change migrate": ["--json", "--root", "--yes"],
   "change reason": [
@@ -503,6 +504,7 @@ export const FINITE_JSON_ROUTES = [
   "change amend",
   "change check",
   "change history",
+  "change ignore",
   "change list",
   "change migrate",
   "change reason",

@@ -345,7 +345,7 @@ export function renderCiReportMarkdown(report: CiReport): string {
     for (const path of report.outputEditedPaths) lines.push(`- \`${path}\``);
     lines.push(
       "",
-      "`skillset check --write` will not overwrite these edits. Reconcile them into source first, or intentionally discard them before rebuilding.",
+      "`skillset check --write` will not overwrite these edits. Use `skillset reconcile <path> --use output` to bring an edit into source, or `skillset reconcile <path> --use source` to intentionally discard the target-side edit before rebuilding.",
       ""
     );
   }

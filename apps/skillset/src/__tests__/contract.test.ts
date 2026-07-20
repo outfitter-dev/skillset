@@ -1494,6 +1494,7 @@ test("SET-25: CLI help succeeds before command validation", async () => {
   expect(exhaustiveHelp.stdout).toContain("skillset dev [--write] [--jsonl] [--root <path>]");
   expect(exhaustiveHelp.stdout).toContain("skillset list [--details] [--json] [--scope <scope>] [--root <path>]");
   expect(exhaustiveHelp.stdout).toContain("skillset change check [@ref|--ref <ref>] [--since <ref>] [--staged] [--json]");
+  expect(exhaustiveHelp.stdout).toContain("skillset change ignore <@ref> [--ref <ref>] [--yes] [--json]");
   expect(exhaustiveHelp.stdout).toContain("skillset change refresh [@ref] [--ref <ref>] [--since <ref>] [--yes] [--json]");
   expect(exhaustiveHelp.stdout).not.toContain("skillset list [--updated|--all]");
   expect(exhaustiveHelp.stdout).not.toContain("skillset verify");
@@ -4573,7 +4574,9 @@ Migrate should preserve evidence for every declared scope before rewriting this 
 test("SET-241: change write flags are scoped to explicit migration", async () => {
   const add = await runSkillsetCli("change", "add", "--yes");
   expect(add.exitCode).toBe(1);
-  expect(add.stderr).toContain("--yes is only supported with change migrate or change refresh");
+  expect(add.stderr).toContain(
+    "--yes is only supported with change ignore, change migrate, or change refresh"
+  );
 
   const conflicting = await runSkillsetCli("change", "migrate", "--dry-run");
   expect(conflicting.exitCode).toBe(1);

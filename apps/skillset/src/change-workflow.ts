@@ -34,6 +34,11 @@ import {
   type ChangeRefreshOptions,
   type ChangeRefreshReport,
 } from "./change-refresh";
+import {
+  ignorePendingChangeWithAppend,
+  type ChangeIgnoreOptions,
+  type ChangeIgnoreReport,
+} from "./change-ignore";
 
 export type {
   ChangeLedgerLockOptions,
@@ -43,7 +48,7 @@ export type {
   ChangeRefreshScope,
 } from "./change-refresh";
 
-export type ChangeSubcommand = "add" | "amend" | "check" | "history" | "list" | "migrate" | "reason" | "refresh" | "show" | "status";
+export type ChangeSubcommand = "add" | "amend" | "check" | "history" | "ignore" | "list" | "migrate" | "reason" | "refresh" | "show" | "status";
 
 export type ChangeReasonInput =
   | { readonly kind: "auto" }
@@ -89,6 +94,7 @@ export interface ChangeEntryView {
   readonly bump?: ChangeBump;
   readonly group?: ChangeGroup;
   readonly id: string;
+  readonly ignored: boolean;
   readonly path: string;
   readonly reason: string;
   readonly ref: string;
@@ -141,6 +147,8 @@ export interface ChangeMigrationReport {
   readonly ledgerPath: string;
   readonly written: boolean;
 }
+
+export type { ChangeIgnoreOptions, ChangeIgnoreReport } from "./change-ignore";
 
 export interface AppliedChangeRecord {
   readonly bump?: ChangeBump;
@@ -373,6 +381,13 @@ export async function refreshChangeEvidence(
   options: ChangeRefreshOptions
 ): Promise<ChangeRefreshReport> {
   return refreshChangeEvidenceWithAppend(rootPath, options, appendLedgerEvents);
+}
+
+export async function ignorePendingChange(
+  rootPath: string,
+  options: ChangeIgnoreOptions
+): Promise<ChangeIgnoreReport> {
+  return ignorePendingChangeWithAppend(rootPath, options, appendLedgerEvents);
 }
 
 export async function readAppliedChangeRecords(
@@ -676,6 +691,7 @@ function pendingView(entry: PendingChangeEntry, refs: ReadonlyMap<string, string
     ...(entry.bump === undefined ? {} : { bump: entry.bump }),
     ...(entry.group === undefined ? {} : { group: entry.group }),
     id: entry.id ?? "",
+    ignored: entry.ignored,
     path: entry.path,
     reason: entry.reason,
     ref: refs.get(entry.id ?? "") ?? `@${entry.id ?? ""}`,
@@ -700,6 +716,7 @@ function historyView(entry: HistoryEntry, refs: ReadonlyMap<string, string>): Ch
     ...(entry.bump === undefined ? {} : { bump: entry.bump }),
     ...(entry.group === undefined ? {} : { group: entry.group }),
     id: entry.id,
+    ignored: entry.ignored,
     path: entry.path,
     reason: entry.reason,
     ref: refs.get(entry.id) ?? `@${entry.id}`,

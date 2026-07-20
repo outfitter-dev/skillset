@@ -384,6 +384,11 @@ describe("SET-299 CLI request characterization", () => {
       expected: changeRequest({ changeRef: "@a", changeSubcommand: "history" }),
     },
     {
+      route: "change ignore",
+      args: ["change", "ignore", "@a", "--yes", "--root", ROOT, "--json"],
+      expected: changeRequest({ changeRef: "@a", changeSubcommand: "ignore", yes: true }),
+    },
+    {
       route: "change list",
       args: ["change", "list", "--group", "g", "--root", ROOT, "--json"],
       expected: changeRequest({ changeGroup: "g", changeSubcommand: "list" }),
@@ -1145,7 +1150,7 @@ describe("SET-299 parser failure contract", () => {
       },
       {
         args: ["change", "add", "--yes", "--scope", "plugin:a"],
-        message: "skillset: --yes is only supported with change migrate or change refresh",
+        message: "skillset: --yes is only supported with change ignore, change migrate, or change refresh",
       },
       {
         args: ["change", "refresh", "--updated"],

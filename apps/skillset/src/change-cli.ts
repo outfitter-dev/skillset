@@ -12,6 +12,7 @@ import {
   addChangeEntry,
   amendAppliedChange,
   groupRef,
+  ignorePendingChange,
   listChangeEntries,
   migratePendingChangeEntries,
   readChangeHistory,
@@ -21,6 +22,7 @@ import {
 } from "./change-workflow";
 import type {
   ChangeEntryView,
+  ChangeIgnoreReport,
   ChangeMigrationReport,
   ChangeRefreshReport,
   ChangeReasonInput,
@@ -200,6 +202,30 @@ export async function runChangeCommand({
     }
     return;
   }
+  if (changeSubcommand === "ignore") {
+    if (changeRef === undefined) {
+      throw new Error("skillset: change ignore requires @ref");
+    }
+    const report = await ignorePendingChange(rootPath, {
+      ...changeOptions,
+      ref: changeRef,
+      write: yes,
+    });
+    if (jsonOutput) {
+      const writes = report.written ? [report.ledgerPath] : [];
+      printCliJsonData("change.ignore", {
+        report,
+        state: writes.length > 0 ? "written" : "planned",
+        writes,
+      });
+    } else {
+      printChangeIgnore(report);
+      if (!yes && !report.alreadyIgnored) {
+        console.log("skillset: rerun change ignore with --yes to record the intentional ignore");
+      }
+    }
+    return;
+  }
   if (changeSubcommand === "history") {
     const report = await readChangeHistory(rootPath, {
       ...changeOptions,
@@ -270,7 +296,7 @@ export async function runChangeCommand({
     return;
   }
   throw new Error(
-    "skillset: expected change subcommand add, amend, check, history, list, migrate, reason, refresh, show, or status"
+    "skillset: expected change subcommand add, amend, check, history, ignore, list, migrate, reason, refresh, show, or status"
   );
 }
 
@@ -327,12 +353,21 @@ function printChangeList(entries: readonly ChangeEntryView[]): void {
     const group = groupRef(entry.group) ?? "-";
     const bump = entry.bump ?? "-";
     console.log(
-      `${entry.ref} ${entry.status} ${bump} ${group} ${sourceUnitDisplays(entry.scopes)} ${entry.path}`
+      `${entry.ref} ${entry.ignored ? "ignored" : entry.status} ${bump} ${group} ${sourceUnitDisplays(entry.scopes)} ${entry.path}`
     );
   }
   console.log(
     `skillset: listed ${entries.length} pending change entr${entries.length === 1 ? "y" : "ies"}`
   );
+}
+
+function printChangeIgnore(report: ChangeIgnoreReport): void {
+  if (report.alreadyIgnored) {
+    console.log(`skillset: change ${report.entry.ref} is already ignored`);
+    return;
+  }
+  console.log(`${report.written ? "ignored" : "would ignore"}: ${report.entry.ref} ${report.entry.path}`);
+  if (report.written) console.log(`  ledger: ${report.ledgerPath}`);
 }
 
 function printChangeHistory(entries: readonly ChangeEntryView[]): void {
