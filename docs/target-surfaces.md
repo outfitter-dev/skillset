@@ -60,7 +60,7 @@ Default behavior for unsupported or lossy build results is fail-loud. Softer mod
 
 Cursor provider support is implemented as a first-class compile target, not a
 Claude or Codex compatibility shim. The contract is defined by the [Cursor provider
-ADR](adrs/drafts/20260702-cursor-is-a-first-class-provider.md). Provider evidence
+ADR](adrs/0002-cursor-is-a-first-class-provider.md). Provider evidence
 was live-doc checked on 2026-07-02 against the official Cursor docs.
 
 Cursor participates in the default provider plan. Repos can still narrow

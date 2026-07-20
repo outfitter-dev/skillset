@@ -136,7 +136,7 @@ type SkillsetFeatureEntryInput = Omit<SkillsetFeatureEntry, "targetSupport"> & {
 };
 
 const CURSOR_PROVIDER_EVIDENCE = [
-  docs("docs/adrs/drafts/20260702-cursor-is-a-first-class-provider.md"),
+  docs("docs/adrs/0002-cursor-is-a-first-class-provider.md"),
   docs("docs/target-surfaces.md#cursor-provider-baseline"),
 ] as const satisfies readonly SkillsetFeatureEvidence[];
 
@@ -798,7 +798,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
         evidence: [
           docs("docs/features/runtime-adapters.md"),
           docs("docs/target-surfaces.md#cursor-provider-baseline"),
-          docs("docs/adrs/drafts/20260702-cursor-is-a-first-class-provider.md"),
+          docs("docs/adrs/0002-cursor-is-a-first-class-provider.md"),
           fixture("fixtures/external/repos.yaml"),
         ],
         mechanism: "Current Cursor build target projections feed Cursor plugin, project rule, project agent, hook, MCP, and skill surfaces.",

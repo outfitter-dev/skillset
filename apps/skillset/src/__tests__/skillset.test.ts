@@ -20,13 +20,11 @@ import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { renderValidatedToml } from "@skillset/core/internal/structured-output";
 import { runSkillsetTest } from "../test-runner";
 
-test("loads ordinary 1.0 workspace from skillset.yaml and .skillset", async () => {
+test("omitted compile.targets builds all first-class providers in canonical order", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
   name: ordinary-root
-claude: true
-codex: true
 `,
     ".skillset/skills/demo/SKILL.md": `
 ---
@@ -46,11 +44,13 @@ Demo ordinary workspace skill.
   expect(graph.sourceRoot).toBe(".skillset");
   expect(graph.sourceRootPath).toBe(join(root, ".skillset"));
   expect(graph.standaloneSkills.map((skill) => skill.id)).toEqual(["demo"]);
+  expect(graph.root.compile.targets).toEqual(["claude", "codex", "cursor"]);
 
   await buildSkillset(root);
 
   expect(await exists(join(root, ".claude/skills/demo/SKILL.md"))).toBe(true);
   expect(await exists(join(root, ".agents/skills/demo/SKILL.md"))).toBe(true);
+  expect(await exists(join(root, ".cursor/skills/demo/SKILL.md"))).toBe(true);
 });
 
 test("loads plugin-only workspace from root skillset.yaml and .skillset/plugins", async () => {
