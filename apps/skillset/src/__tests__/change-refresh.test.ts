@@ -89,6 +89,47 @@ test("SET-329 refresh handles missing evidence and an optional targeted ref", as
   expect((await runCli("change", "check", "--root", root, "--since", "HEAD")).exitCode).toBe(0);
 });
 
+test("SET-329 refresh preserves the explicit check baseline for a removed scope", async () => {
+  const root = await refreshFixture();
+  await runGit(root, "branch", "-M", "main");
+  const baselineA = await runGitOutput(root, "rev-parse", "HEAD");
+  const oldPath = join(root, ".skillset/skills/demo/SKILL.md");
+  await writeFile(oldPath, skill("Version B body on main."), "utf8");
+  await runGit(root, "add", ".skillset/skills/demo/SKILL.md");
+  await runGit(root, "commit", "-qm", "advance removed-scope baseline");
+  await runGit(root, "switch", "-qc", "feature/rename-demo");
+
+  const renamedPath = join(root, ".skillset/skills/renamed/SKILL.md");
+  await mkdir(join(root, ".skillset/skills/renamed"), { recursive: true });
+  await rename(oldPath, renamedPath);
+  await writeFile(
+    renamedPath,
+    "---\nname: renamed\ndescription: Renamed demo.\n---\n\nRenamed feature body.\n",
+    "utf8"
+  );
+  await writeReason(root, "abcdef123456", "Record removal of the old demo skill scope during the rename against the selected comparison baseline.");
+
+  const missing = await runCli("change", "check", "@abcdef", "--root", root, "--since", baselineA);
+  expect(missing.exitCode).toBe(1);
+  expect(missing.stdout).toContain("change-evidence-missing");
+
+  const defaultRefresh = jsonRefresh(
+    (await runCli("change", "refresh", "@abcdef", "--root", root, "--yes", "--json")).stdout
+  );
+  const defaultHash = defaultRefresh.report.entries[0]?.scopes[0]?.currentHash;
+  expect(defaultHash).toBeDefined();
+  const stillStale = await runCli("change", "check", "@abcdef", "--root", root, "--since", baselineA);
+  expect(stillStale.exitCode).toBe(1);
+  expect(stillStale.stdout).toContain("change-evidence-stale");
+
+  const matchedRefresh = jsonRefresh(
+    (await runCli("change", "refresh", "@abcdef", "--root", root, "--since", baselineA, "--yes", "--json")).stdout
+  );
+  expect(matchedRefresh.report.entries[0]?.scopes[0]?.currentHash).not.toBe(defaultHash);
+  expect((await runCli("change", "check", "@abcdef", "--root", root, "--since", baselineA)).exitCode).toBe(0);
+  expect(await ledgerLockArtifacts(root)).toEqual([]);
+});
+
 test("SET-329 refresh refuses invalid or uncovered entries and replans from current facts", async () => {
   const root = await refreshFixture();
   const skillPath = join(root, ".skillset/skills/demo/SKILL.md");
@@ -472,4 +513,20 @@ async function runGit(root: string, ...args: readonly string[]): Promise<void> {
     proc.exited,
   ]);
   if (exitCode !== 0) throw new Error(`git ${args.join(" ")} failed\n${stdout}${stderr}`);
+}
+
+async function runGitOutput(root: string, ...args: readonly string[]): Promise<string> {
+  const proc = Bun.spawn({
+    cmd: ["git", "-C", root, ...args],
+    env: gitSafeEnv(),
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  if (exitCode !== 0) throw new Error(`git ${args.join(" ")} failed\n${stdout}${stderr}`);
+  return stdout.trim();
 }

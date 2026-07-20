@@ -384,7 +384,7 @@ export const CLI_ROUTE_FLAGS = {
     "--ref",
     "--root",
   ],
-  "change refresh": ["--json", "--ref", "--root", "--yes"],
+  "change refresh": ["--json", "--ref", "--root", "--since", "--yes"],
   "change show": ["--json", "--ref", "--root"],
   "change status": ["--json", "--root", "--since", "--staged"],
   check: [

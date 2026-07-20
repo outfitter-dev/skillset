@@ -260,8 +260,8 @@ const validateChangeOptions = (
     readonly yes: boolean;
   }
 ): void => {
-  if (subcommand === "refresh" && (change.since !== undefined || change.buildMode !== undefined)) {
-    throw new Error("skillset: change refresh only supports @ref, --ref, --yes, --json, and --root");
+  if (subcommand === "refresh" && change.buildMode !== undefined) {
+    throw new Error("skillset: change refresh only supports @ref, --ref, --since, --yes, --json, and --root");
   }
   if (change.yes && subcommand !== "migrate" && subcommand !== "refresh") {
     throw new Error("skillset: --yes is only supported with change migrate or change refresh");

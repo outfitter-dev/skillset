@@ -163,6 +163,8 @@ skillset hooks run stop           # blocking runtime guardrail, source-gated
 
 `skillset check` is the comprehensive readiness command. Run it before writing generated output when you changed skills, hooks, resources, tool policy, or portability-sensitive content. Use `skillset change check` for focused pending-entry coverage and `skillset status` for a broader human health view.
 
+When `skillset change check --since <ref>` reports stale or missing evidence, preview `skillset change refresh --since <ref>` with the exact same baseline, then rerun it with `--yes` to append the planned evidence. Reusing the baseline matters for removed scopes and renames; the default release-state or trunk baseline can select a different historical source hash.
+
 `skillset check --only outputs` is generated-output freshness. Run it after `skillset build --yes`, before handoff, and whenever you need to prove managed outputs still match source. It reports missing or stale managed files and version drift; it is not a source-authoring linter.
 
 Workbench package diagnostics provide stable scopes, severities, rule ids, and `standard`/`strict` presets for tests and future CLI integration. Scopes are `source`, `workspace`, `provider`, `resource`, `runtime`, `generated`, and `release`. Treat `standard` as the ordinary local/CI bar and `strict` as opt-in convention hardening. Parser/schema checks cover YAML, TOML, JSON, Markdown frontmatter, ordinary workspace config, skills, agents, and hook definitions at the package layer. Resource/runtime/provider diagnostics report facts; they must not install hooks, trust plugins, execute scripts, or mutate provider settings.

@@ -143,13 +143,16 @@ describe("SET-303 lifecycle and recovery route parsers", () => {
     });
 
     expect(
-      parseChangeCommandRequest(["change", "refresh", "@abcdef", "--yes", "--json"], CONTEXT)
-    ).toMatchObject({ changeRef: "@abcdef", changeSubcommand: "refresh", jsonOutput: true, yes: true });
-    for (const option of [["--since", "HEAD"], ["--all"], ["--updated"]]) {
+      parseChangeCommandRequest(["change", "refresh", "@abcdef", "--since", "origin/main", "--yes", "--json"], CONTEXT)
+    ).toMatchObject({ changeRef: "@abcdef", changeSince: "origin/main", changeSubcommand: "refresh", jsonOutput: true, yes: true });
+    for (const option of [["--all"], ["--updated"]]) {
       expect(() => parseChangeCommandRequest(["change", "refresh", ...option], CONTEXT)).toThrow(
-        "skillset: change refresh only supports @ref, --ref, --yes, --json, and --root"
+        "skillset: change refresh only supports @ref, --ref, --since, --yes, --json, and --root"
       );
     }
+    expect(() => parseChangeCommandRequest(["change", "refresh", "--staged"], CONTEXT)).toThrow(
+      "skillset: --staged is only supported with change status or change check"
+    );
   });
 
   test("release owns amend input and apply confirmation", () => {

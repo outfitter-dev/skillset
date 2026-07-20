@@ -415,9 +415,10 @@ describe("SET-299 CLI request characterization", () => {
     },
     {
       route: "change refresh",
-      args: ["change", "refresh", "@a", "--yes", "--root", ROOT, "--json"],
+      args: ["change", "refresh", "@a", "--since", "origin/main", "--yes", "--root", ROOT, "--json"],
       expected: changeRequest({
         changeRef: "@a",
+        changeSince: "origin/main",
         changeSubcommand: "refresh",
         yes: true,
       }),
@@ -1147,8 +1148,8 @@ describe("SET-299 parser failure contract", () => {
         message: "skillset: --yes is only supported with change migrate or change refresh",
       },
       {
-        args: ["change", "refresh", "--since", "HEAD"],
-        message: "skillset: change refresh only supports @ref, --ref, --yes, --json, and --root",
+        args: ["change", "refresh", "--updated"],
+        message: "skillset: change refresh only supports @ref, --ref, --since, --yes, --json, and --root",
       },
       {
         args: ["new", "skill", "--from", "claude", "--updated"],
