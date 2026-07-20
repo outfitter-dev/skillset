@@ -108,6 +108,7 @@ export async function reconcileManagedPath(
     : outputExists
     ? await suggestSource(rootPath, managedPath, {
         ...skillsetOptions,
+        ownershipEntries,
         write: false,
       })
     : {
@@ -143,6 +144,7 @@ export async function reconcileManagedPath(
       try {
         outputResolution = await suggestSource(rootPath, managedPath, {
           ...skillsetOptions,
+          ownershipEntries,
           write: true,
         });
         if (!outputResolution.wrote) {
