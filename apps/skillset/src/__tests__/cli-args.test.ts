@@ -275,6 +275,7 @@ describe("SET-299 CLI request characterization", () => {
         request: {
           backupId: "backup-1",
           jsonOutput: false,
+          list: false,
           options: {},
           rootPath: ROOT,
           yes: false,
@@ -600,6 +601,20 @@ describe("SET-299 CLI request characterization", () => {
       expect(canonical(parseCliRequest(args))).toEqual(expected);
     });
   }
+
+  test("projects restore list mode without a backup id", () => {
+    expect(canonical(parseCliRequest(["restore", "--list", "--root", ROOT, "--json"]))).toEqual({
+      command: "restore",
+      request: {
+        backupId: undefined,
+        jsonOutput: true,
+        list: true,
+        options: {},
+        rootPath: ROOT,
+        yes: false,
+      },
+    });
+  });
 
   test("covers every maintained public route exactly once", () => {
     expect(

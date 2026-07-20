@@ -57,9 +57,12 @@ Use `restore` with a backup id from the warning or manifest path:
 ```bash
 skillset restore <backup-id> --root .
 skillset restore <backup-id> --root . --yes
+skillset restore --list --root .
 ```
 
 The first command previews the restore. The second writes the backed-up bytes back to the original target paths.
+
+`restore --list` is read-only. It checks each manifest and its Git-backed payload before reporting whether each run is `restorable-now`, `blocked-by-current-target`, or `corrupt-or-unavailable`. The list is stable and deliberately has no timestamp because backup manifests do not record one. A run is copyably restorable only when every record is `restorable-now`; `--list` cannot be combined with a backup id or `--yes`.
 
 Restore reads each backup payload from the manifest's Git commit and validates that it still matches the manifest hash. For overwrite backups, it also verifies that the current target still matches the generated replacement hash before restoring. If the target changed again after the backup, restore refuses so it does not clobber a newer edit. For delete backups, restore refuses if the target path already exists.
 

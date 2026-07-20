@@ -223,9 +223,23 @@ describe("SET-303 lifecycle and recovery route parsers", () => {
     ).toEqual({
       backupId: "backup-id",
       jsonOutput: true,
+      list: false,
       options: {},
       rootPath: "/workspace/repo/nested",
       yes: true,
+    });
+    expect(
+      parseRestoreCommandRequest(
+        ["restore", "--list", "--root", "nested", "--json"],
+        CONTEXT
+      )
+    ).toEqual({
+      backupId: undefined,
+      jsonOutput: true,
+      list: true,
+      options: {},
+      rootPath: "/workspace/repo/nested",
+      yes: false,
     });
   });
 
@@ -354,6 +368,18 @@ describe("SET-303 lifecycle and recovery route parsers", () => {
         message: "skillset: expected backup id to restore",
       },
       {
+        run: () => parseRestoreCommandRequest(["restore", "backup", "--list"], CONTEXT),
+        message: "skillset: restore --list cannot be combined with a backup id",
+      },
+      {
+        run: () => parseRestoreCommandRequest(["restore", "--list", "--yes"], CONTEXT),
+        message: "skillset: restore --list cannot be combined with --yes",
+      },
+      {
+        run: () => parseReconcileCommandRequest(["reconcile", "managed", "--list"], CONTEXT),
+        message: "skillset: --list is only supported with restore",
+      },
+      {
         run: () =>
           parseReconcileCommandRequest(
             ["reconcile", "managed", "--ref", "entry"],
@@ -403,7 +429,7 @@ describe("SET-303 lifecycle and recovery route parsers", () => {
             ["restore", "backup", "--updated", "--use", "source"],
             CONTEXT
           ),
-        message: "skillset: restore only supports --root and --yes",
+        message: "skillset: restore only supports --root, --yes, --json, and --list",
       },
       {
         run: () =>
@@ -411,7 +437,7 @@ describe("SET-303 lifecycle and recovery route parsers", () => {
             ["restore", "backup", "--updated", "--scope", "plugins"],
             CONTEXT
           ),
-        message: "skillset: restore only supports --root and --yes",
+        message: "skillset: restore only supports --root, --yes, --json, and --list",
       },
     ] as const;
     for (const { message, run } of cases) {

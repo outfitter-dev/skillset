@@ -36,6 +36,14 @@ describe("SET-307 CLI presentation", () => {
     expect(build).toContain("--updated");
     expect(build).not.toContain("skillset diff");
 
+    const restore = renderCliHelp(["restore", "--help"], {
+      color: false,
+      width: 80,
+    });
+    expect(restore).toContain("skillset restore <backup-id>");
+    expect(restore).toContain("skillset restore --list");
+    expect(restore).toContain("List integrity-checked generated-output backups");
+
     const change = renderCliHelp(["change", "--help"], {
       color: false,
       width: 80,

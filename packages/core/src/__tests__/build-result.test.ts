@@ -1,10 +1,16 @@
 import { describe, expect, it } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { buildSkillsetResult, diffSkillsetResult, getSkillsetFeature, restoreOutputBackup } from "@skillset/core";
+import {
+  buildSkillsetResult,
+  diffSkillsetResult,
+  getSkillsetFeature,
+  inspectOutputBackups,
+  restoreOutputBackup,
+} from "@skillset/core";
 
 const DEMO_FIXTURE: Record<string, string> = {
   "skillset.yaml": `
@@ -118,6 +124,218 @@ codex: true
     const restored = await restoreOutputBackup(root, backupRunId ?? "", { write: true });
     expect(restored.write).toBe(true);
     expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Hand Authored Instructions");
+  });
+
+  it("lists no backups without creating the missing snapshot root", async () => {
+    const root = await fixture(DEMO_FIXTURE);
+
+    expect(await inspectOutputBackups(root)).toEqual({ runs: [] });
+    expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(false);
+  });
+
+  it("lists valid backups and records in deterministic order", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: ordered-backups
+claude: false
+codex: true
+`,
+      ".skillset/rules/root.md": "# Generated Instructions\n",
+      "AGENTS.md": "# First hand-authored instructions\n",
+    });
+    const first = await buildSkillsetResult(root);
+    await Bun.write(join(root, "AGENTS.md"), "# Second hand-authored instructions\n");
+    const second = await buildSkillsetResult(root);
+
+    const inspection = await inspectOutputBackups(root);
+    const expectedRunIds = [first.writes.backupRunId, second.writes.backupRunId]
+      .filter((runId): runId is string => runId !== undefined)
+      .toSorted();
+
+    expect(inspection.runs.map((run) => run.runId)).toEqual(expectedRunIds);
+    expect(inspection.runs).toEqual(expect.arrayContaining(expectedRunIds.map((runId) => expect.objectContaining({
+      manifestPath: `.skillset/snapshots/${runId}/manifest.json`,
+      records: [expect.objectContaining({
+        action: "overwrite",
+        state: "restorable-now",
+        targetPath: "AGENTS.md",
+      })],
+      state: "restorable-now",
+    }))));
+    const selected = inspection.runs.find((run) => run.state === "restorable-now");
+    expect(selected).toBeDefined();
+    await expect(restoreOutputBackup(root, selected?.runId ?? "")).resolves.toMatchObject({
+      runId: selected?.runId,
+      write: false,
+    });
+  });
+
+  it("blocks overwrite and delete backups whose targets have reappeared or changed", async () => {
+    const overwriteRoot = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: blocked-overwrite
+claude: false
+codex: true
+`,
+      ".skillset/rules/root.md": "# Generated Instructions\n",
+      "AGENTS.md": "# Hand Authored Instructions\n",
+    });
+    const overwrite = await buildSkillsetResult(overwriteRoot);
+    await Bun.write(join(overwriteRoot, "AGENTS.md"), "# Changed after backup\n");
+
+    const overwriteInspection = await inspectOutputBackups(overwriteRoot);
+    expect(overwriteInspection.runs).toContainEqual(expect.objectContaining({
+      runId: overwrite.writes.backupRunId,
+      records: [expect.objectContaining({
+        state: "blocked-by-current-target",
+        targetPath: "AGENTS.md",
+      })],
+      state: "blocked-by-current-target",
+    }));
+
+    const deleteRoot = await fixture({
+      ...DEMO_FIXTURE,
+      ".skillset/skills/stale/SKILL.md": "---\nname: stale\ndescription: Stale skill.\n---\n\nStale.\n",
+    });
+    await buildSkillsetResult(deleteRoot);
+    await Bun.write(join(deleteRoot, ".claude/skills/stale/SKILL.md"), "hand edit\n");
+    await rm(join(deleteRoot, ".skillset/skills/stale/SKILL.md"));
+    const deletion = await buildSkillsetResult(deleteRoot);
+    await Bun.write(join(deleteRoot, ".claude/skills/stale/SKILL.md"), "reappeared\n");
+
+    const deleteInspection = await inspectOutputBackups(deleteRoot);
+    expect(deleteInspection.runs).toContainEqual(expect.objectContaining({
+      runId: deletion.writes.backupRunId,
+      records: [expect.objectContaining({
+        action: "delete",
+        state: "blocked-by-current-target",
+        targetPath: ".claude/skills/stale/SKILL.md",
+      })],
+      state: "blocked-by-current-target",
+    }));
+  });
+
+  it("isolates corrupt sibling backups and reports malformed manifests, missing stores, and invalid payload hashes", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: corrupt-backups
+claude: false
+codex: true
+`,
+      ".skillset/rules/root.md": "# Generated Instructions\n",
+      "AGENTS.md": "# Hand Authored Instructions\n",
+    });
+    const valid = await buildSkillsetResult(root);
+    const validRunId = valid.writes.backupRunId ?? "";
+    await mkdir(join(root, ".skillset/snapshots/badbeef1"), { recursive: true });
+    await Bun.write(join(root, ".skillset/snapshots/badbeef1/manifest.json"), "{}\n");
+
+    const malformedInspection = await inspectOutputBackups(root);
+    expect(malformedInspection.runs).toContainEqual(expect.objectContaining({
+      runId: validRunId,
+      state: "restorable-now",
+    }));
+    expect(malformedInspection.runs).toContainEqual(expect.objectContaining({
+      runId: "badbeef1",
+      records: [],
+      state: "corrupt-or-unavailable",
+    }));
+
+    const validManifestPath = join(root, `.skillset/snapshots/${validRunId}/manifest.json`);
+    const validManifest = JSON.parse(await readFile(validManifestPath, "utf8")) as { records: unknown[] };
+    validManifest.records.push({});
+    await Bun.write(validManifestPath, `${JSON.stringify(validManifest)}\n`);
+    const malformedSiblingInspection = await inspectOutputBackups(root);
+    expect(malformedSiblingInspection.runs).toContainEqual(expect.objectContaining({
+      runId: validRunId,
+      records: expect.arrayContaining([
+        expect.objectContaining({ state: "restorable-now", targetPath: "AGENTS.md" }),
+        expect.objectContaining({ state: "corrupt-or-unavailable" }),
+      ]),
+      state: "corrupt-or-unavailable",
+    }));
+
+    await rm(join(root, `.skillset/snapshots/${validRunId}/git`), { force: true, recursive: true });
+    const missingStoreInspection = await inspectOutputBackups(root);
+    expect(missingStoreInspection.runs).toContainEqual(expect.objectContaining({
+      runId: validRunId,
+      detail: expect.stringContaining("backup git store is missing"),
+      records: expect.arrayContaining([expect.objectContaining({
+        action: "overwrite",
+        state: "corrupt-or-unavailable",
+        targetPath: "AGENTS.md",
+      })]),
+      state: "corrupt-or-unavailable",
+    }));
+
+    const emptyRoot = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: empty-backup
+claude: false
+codex: true
+`,
+      ".skillset/rules/root.md": "# Generated Instructions\n",
+      "AGENTS.md": "# Hand Authored Instructions\n",
+    });
+    const emptyBackup = await buildSkillsetResult(emptyRoot);
+    const emptyRunId = emptyBackup.writes.backupRunId ?? "";
+    const emptyManifestPath = join(emptyRoot, `.skillset/snapshots/${emptyRunId}/manifest.json`);
+    const emptyManifest = JSON.parse(await readFile(emptyManifestPath, "utf8")) as {
+      generatedBy: string;
+      records: unknown[];
+    };
+    emptyManifest.generatedBy = "foreign@1.0.0";
+    await Bun.write(emptyManifestPath, `${JSON.stringify(emptyManifest)}\n`);
+    const foreignInspection = await inspectOutputBackups(emptyRoot);
+    expect(foreignInspection.runs).toContainEqual(expect.objectContaining({
+      detail: expect.stringContaining("invalid generatedBy binding"),
+      records: [],
+      runId: emptyRunId,
+      state: "corrupt-or-unavailable",
+    }));
+
+    emptyManifest.generatedBy = "skillset@0.1.0";
+    emptyManifest.records = [];
+    await Bun.write(emptyManifestPath, `${JSON.stringify(emptyManifest)}\n`);
+
+    const emptyInspection = await inspectOutputBackups(emptyRoot);
+    expect(emptyInspection.runs).toContainEqual(expect.objectContaining({
+      detail: expect.stringContaining("has no records"),
+      records: [],
+      runId: emptyRunId,
+      state: "corrupt-or-unavailable",
+    }));
+
+    const hashRoot = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: invalid-payload-hash
+claude: false
+codex: true
+`,
+      ".skillset/rules/root.md": "# Generated Instructions\n",
+      "AGENTS.md": "# Hand Authored Instructions\n",
+    });
+    const hashBackup = await buildSkillsetResult(hashRoot);
+    const hashRunId = hashBackup.writes.backupRunId ?? "";
+    const manifestPath = join(hashRoot, `.skillset/snapshots/${hashRunId}/manifest.json`);
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as { records: Array<{ originalHash: string }> };
+    manifest.records[0]!.originalHash = `sha256:${"0".repeat(64)}`;
+    await Bun.write(manifestPath, `${JSON.stringify(manifest)}\n`);
+
+    const hashInspection = await inspectOutputBackups(hashRoot);
+    expect(hashInspection.runs).toContainEqual(expect.objectContaining({
+      runId: hashRunId,
+      records: [expect.objectContaining({
+        detail: expect.stringContaining("backup payload hash changed"),
+        state: "corrupt-or-unavailable",
+      })],
+      state: "corrupt-or-unavailable",
+    }));
   });
 
   it("reports unmanaged collisions before writing backups", async () => {

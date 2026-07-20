@@ -1,7 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import type { Dirent } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, relative } from "node:path";
+import { dirname, isAbsolute, join, normalize, relative } from "node:path";
 
 import { compareStrings, resolveInside } from "./path";
 import { renderValidatedJson } from "./structured-output";
@@ -63,6 +64,36 @@ export interface OutputBackupRestoreReport {
   readonly restoredPaths: readonly string[];
   readonly runId: string;
   readonly write: boolean;
+}
+
+export type OutputBackupInspectionState =
+  | "restorable-now"
+  | "blocked-by-current-target"
+  | "corrupt-or-unavailable";
+
+export interface OutputBackupInspectionRecord {
+  readonly action?: OutputBackupAction;
+  readonly detail?: string;
+  readonly reason?: OutputBackupReason;
+  readonly sourcePath?: string;
+  readonly state: OutputBackupInspectionState;
+  readonly targetPath?: string;
+}
+
+export interface OutputBackupInspectionRun {
+  readonly detail?: string;
+  readonly manifestPath: string;
+  readonly records: readonly OutputBackupInspectionRecord[];
+  readonly runId: string;
+  readonly state: OutputBackupInspectionState;
+}
+
+export interface OutputBackupInspectionReport {
+  readonly runs: readonly OutputBackupInspectionRun[];
+}
+
+interface OutputBackupManifestEnvelope extends Omit<OutputBackupManifest, "records"> {
+  readonly rawRecords: readonly unknown[];
 }
 
 interface ParsedLock {
@@ -131,7 +162,7 @@ export async function prepareOutputBackups(
     records: finalized,
     runHash,
     runId,
-    schemaVersion: 2,
+    schemaVersion: 2 as const,
     storage,
   };
   const absoluteManifestPath = resolveInside(rootPath, manifestPath);
@@ -165,14 +196,16 @@ export async function restoreOutputBackup(
   }
 
   const manifestPath = join(OUTPUT_BACKUP_ROOT, runId, "manifest.json");
-  const manifest = await readBackupManifest(rootPath, manifestPath);
+  const manifest = await readBackupManifest(rootPath, manifestPath, runId);
+  await assertBackupStorage(rootPath, manifest);
   const restoredPaths: string[] = [];
   const backupContents = new Map<string, Uint8Array>();
 
   for (const record of manifest.records) {
     const targetPath = resolveInside(rootPath, record.targetPath);
     const backupContent = await readBackupContent(rootPath, manifest, record);
-    await assertRestoreIsSafe(record, targetPath, backupContent);
+    assertBackupPayloadIntegrity(record, backupContent);
+    await assertRestoreTargetIsSafe(record, targetPath);
     backupContents.set(record.targetPath, backupContent);
     restoredPaths.push(record.targetPath);
   }
@@ -191,6 +224,33 @@ export async function restoreOutputBackup(
     runId,
     write: options.write === true,
   };
+}
+
+/**
+ * Read backup state without creating snapshot roots or changing the filesystem.
+ *
+ * Each existing snapshot directory is isolated so that one damaged backup does
+ * not hide independently inspectable siblings. A run is selectable only when
+ * every one of its records is restorable at the instant of inspection; restore
+ * repeats these guards immediately before it writes to remain race-safe.
+ */
+export async function inspectOutputBackups(rootPath: string): Promise<OutputBackupInspectionReport> {
+  const backupRoot = resolveInside(rootPath, OUTPUT_BACKUP_ROOT);
+  let entries: readonly Dirent[];
+  try {
+    entries = await readdir(backupRoot, { withFileTypes: true });
+  } catch (error) {
+    if (isNotFound(error)) return { runs: [] };
+    throw error;
+  }
+
+  const runs = await Promise.all(
+    entries
+      .filter((entry) => entry.isDirectory())
+      .toSorted((left, right) => compareStrings(left.name, right.name))
+      .map((entry) => inspectOutputBackupRun(rootPath, entry.name))
+  );
+  return { runs };
 }
 
 export function withBackupSummary(
@@ -466,7 +526,131 @@ async function writeGitBackupStorage(
   }
 }
 
-async function readBackupManifest(rootPath: string, manifestPath: string): Promise<OutputBackupManifest> {
+async function inspectOutputBackupRun(rootPath: string, runId: string): Promise<OutputBackupInspectionRun> {
+  const manifestPath = join(OUTPUT_BACKUP_ROOT, runId, "manifest.json");
+  let envelope: OutputBackupManifestEnvelope;
+  try {
+    envelope = await readBackupManifestEnvelope(rootPath, manifestPath, runId);
+  } catch (error) {
+    return {
+      detail: inspectionDetail(error),
+      manifestPath,
+      records: [],
+      runId,
+      state: "corrupt-or-unavailable",
+    };
+  }
+
+  const parsedRecords = inspectBackupRecords(manifestPath, envelope.rawRecords);
+  if (parsedRecords.length === 0) {
+    return {
+      detail: `backup manifest ${manifestPath} has no records`,
+      manifestPath,
+      records: [],
+      runId,
+      state: "corrupt-or-unavailable",
+    };
+  }
+  const validRecords = parsedRecords.flatMap((entry) => entry.record === undefined ? [] : [entry.record]);
+  const manifest = materializeBackupManifest(envelope, validRecords);
+
+  try {
+    await assertBackupStorage(rootPath, manifest);
+  } catch (error) {
+    const detail = inspectionDetail(error);
+    return {
+      detail,
+      manifestPath,
+      records: parsedRecords.map((entry) => entry.record === undefined
+        ? entry.inspection
+        : { ...trustedBackupRecord(entry.record), detail, state: "corrupt-or-unavailable" }),
+      runId,
+      state: "corrupt-or-unavailable",
+    };
+  }
+
+  const records = await Promise.all(
+    parsedRecords.map((entry) => entry.record === undefined
+      ? entry.inspection
+      : inspectOutputBackupRecord(rootPath, manifest, entry.record))
+  );
+  const state = aggregateBackupInspectionState(records.map((record) => record.state));
+  return {
+    ...(state === "restorable-now" ? {} : { detail: inspectionRunDetail(state) }),
+    manifestPath,
+    records: records.toSorted(compareBackupInspectionRecords),
+    runId,
+    state,
+  };
+}
+
+async function inspectOutputBackupRecord(
+  rootPath: string,
+  manifest: OutputBackupManifest,
+  record: OutputBackupRecord
+): Promise<OutputBackupInspectionRecord> {
+  const trusted = trustedBackupRecord(record);
+
+  let backupContent: Uint8Array;
+  try {
+    backupContent = await readBackupContent(rootPath, manifest, record);
+    assertBackupPayloadIntegrity(record, backupContent);
+  } catch (error) {
+    return { ...trusted, detail: inspectionDetail(error), state: "corrupt-or-unavailable" };
+  }
+
+  const target = await inspectRestoreTarget(record, resolveInside(rootPath, record.targetPath));
+  if (target === undefined) return { ...trusted, state: "restorable-now" };
+  return { ...trusted, detail: target, state: "blocked-by-current-target" };
+}
+
+function trustedBackupRecord(record: OutputBackupRecord): Omit<OutputBackupInspectionRecord, "detail" | "state"> {
+  return {
+    action: record.action,
+    reason: record.reason,
+    ...(record.sourcePath === undefined ? {} : { sourcePath: record.sourcePath }),
+    targetPath: record.targetPath,
+  };
+}
+
+function aggregateBackupInspectionState(
+  states: readonly OutputBackupInspectionState[]
+): OutputBackupInspectionState {
+  if (states.includes("corrupt-or-unavailable")) return "corrupt-or-unavailable";
+  if (states.includes("blocked-by-current-target")) return "blocked-by-current-target";
+  return "restorable-now";
+}
+
+function compareBackupInspectionRecords(left: OutputBackupInspectionRecord, right: OutputBackupInspectionRecord): number {
+  return compareStrings(left.targetPath ?? "\uFFFF", right.targetPath ?? "\uFFFF");
+}
+
+function inspectionRunDetail(state: OutputBackupInspectionState): string {
+  if (state === "blocked-by-current-target") return "one or more backup targets no longer match their generated state";
+  if (state === "corrupt-or-unavailable") return "one or more backup records are corrupt or unavailable";
+  return "";
+}
+
+function inspectionDetail(error: unknown): string {
+  return error instanceof Error ? error.message.replace(/^skillset: /, "") : String(error);
+}
+
+async function readBackupManifest(
+  rootPath: string,
+  manifestPath: string,
+  expectedRunId: string
+): Promise<OutputBackupManifest> {
+  const envelope = await readBackupManifestEnvelope(rootPath, manifestPath, expectedRunId);
+  const records = envelope.rawRecords.map((record) => parseBackupRecord(manifestPath, record));
+  assertBackupRecordSet(manifestPath, records);
+  return materializeBackupManifest(envelope, records);
+}
+
+async function readBackupManifestEnvelope(
+  rootPath: string,
+  manifestPath: string,
+  expectedRunId: string
+): Promise<OutputBackupManifestEnvelope> {
   let parsed: unknown;
   try {
     parsed = JSON.parse(await readFile(resolveInside(rootPath, manifestPath), "utf8")) as unknown;
@@ -480,14 +664,57 @@ async function readBackupManifest(rootPath: string, manifestPath: string): Promi
   if (parsed.schemaVersion !== 2) {
     throw new Error(`skillset: backup manifest ${manifestPath} is malformed`);
   }
-  return {
+  const manifest = {
     generatedBy: typeof parsed.generatedBy === "string" ? parsed.generatedBy : "",
-    records: parsed.records.map((record) => parseBackupRecord(manifestPath, record)),
+    rawRecords: parsed.records,
     runHash: typeof parsed.runHash === "string" ? parsed.runHash : "",
     runId: parsed.runId,
-    schemaVersion: 2,
+    schemaVersion: 2 as const,
     storage: parseBackupStorage(manifestPath, parsed.storage),
   };
+  assertBackupManifestBinding(manifestPath, expectedRunId, manifest);
+  return manifest;
+}
+
+function materializeBackupManifest(
+  envelope: OutputBackupManifestEnvelope,
+  records: readonly OutputBackupRecord[]
+): OutputBackupManifest {
+  return {
+    generatedBy: envelope.generatedBy,
+    records,
+    runHash: envelope.runHash,
+    runId: envelope.runId,
+    schemaVersion: envelope.schemaVersion,
+    storage: envelope.storage,
+  };
+}
+
+interface InspectedBackupRecord {
+  readonly inspection: OutputBackupInspectionRecord;
+  readonly record?: OutputBackupRecord;
+}
+
+function inspectBackupRecords(manifestPath: string, rawRecords: readonly unknown[]): readonly InspectedBackupRecord[] {
+  const targetPaths = new Set<string>();
+  return rawRecords.map((value) => {
+    try {
+      const record = parseBackupRecord(manifestPath, value);
+      if (targetPaths.has(record.targetPath)) {
+        return {
+          inspection: {
+            ...trustedBackupRecord(record),
+            detail: `backup manifest ${manifestPath} has duplicate target paths`,
+            state: "corrupt-or-unavailable",
+          },
+        };
+      }
+      targetPaths.add(record.targetPath);
+      return { inspection: { ...trustedBackupRecord(record), state: "restorable-now" }, record };
+    } catch (error) {
+      return { inspection: { detail: inspectionDetail(error), state: "corrupt-or-unavailable" } };
+    }
+  });
 }
 
 function parseBackupRecord(manifestPath: string, value: unknown): OutputBackupRecord {
@@ -512,6 +739,15 @@ function parseBackupRecord(manifestPath: string, value: unknown): OutputBackupRe
   if (sourcePath !== undefined && typeof sourcePath !== "string") {
     throw new Error(`skillset: backup manifest ${manifestPath} has invalid sourcePath`);
   }
+  if (!isSafeBackupPath(targetPath) || backupPath !== `files/${targetPath}` || !isContentHash(originalHash)) {
+    throw new Error(`skillset: backup manifest ${manifestPath} has invalid backup path or originalHash`);
+  }
+  if (generatedHash !== undefined && !isContentHash(generatedHash)) {
+    throw new Error(`skillset: backup manifest ${manifestPath} has invalid generatedHash`);
+  }
+  if (sourcePath !== undefined && !isSafeBackupPath(sourcePath)) {
+    throw new Error(`skillset: backup manifest ${manifestPath} has invalid sourcePath`);
+  }
   return {
     action,
     backupPath,
@@ -521,6 +757,49 @@ function parseBackupRecord(manifestPath: string, value: unknown): OutputBackupRe
     ...(sourcePath === undefined ? {} : { sourcePath }),
     targetPath,
   };
+}
+
+function assertBackupManifestBinding(
+  manifestPath: string,
+  expectedRunId: string,
+  manifest: Pick<OutputBackupManifest, "generatedBy" | "runHash" | "runId" | "storage">
+): void {
+  if (!manifest.generatedBy.startsWith("skillset@")) {
+    throw new Error(`skillset: backup manifest ${manifestPath} has an invalid generatedBy binding`);
+  }
+  if (!/^[a-f0-9]{8,64}$/.test(expectedRunId) || manifest.runId !== expectedRunId) {
+    throw new Error(`skillset: backup manifest ${manifestPath} is bound to a different backup id`);
+  }
+  if (!/^sha256:[a-f0-9]{64}$/.test(manifest.runHash) || !manifest.runHash.startsWith(`sha256:${expectedRunId}`)) {
+    throw new Error(`skillset: backup manifest ${manifestPath} has an invalid runHash binding`);
+  }
+  if (manifest.storage.gitDir !== join(OUTPUT_BACKUP_ROOT, expectedRunId, "git")) {
+    throw new Error(`skillset: backup manifest ${manifestPath} has an invalid git directory binding`);
+  }
+  if (manifest.storage.ref !== `refs/skillset/backups/${expectedRunId}`) {
+    throw new Error(`skillset: backup manifest ${manifestPath} has an invalid git ref binding`);
+  }
+}
+
+function assertBackupRecordSet(manifestPath: string, records: readonly OutputBackupRecord[]): void {
+  if (records.length === 0) {
+    throw new Error(`skillset: backup manifest ${manifestPath} has no records`);
+  }
+  const targetPaths = new Set<string>();
+  for (const record of records) {
+    if (targetPaths.has(record.targetPath)) {
+      throw new Error(`skillset: backup manifest ${manifestPath} has duplicate target paths`);
+    }
+    targetPaths.add(record.targetPath);
+  }
+}
+
+function isSafeBackupPath(value: string): boolean {
+  return value.length > 0 && !isAbsolute(value) && !value.includes("\\") && normalize(value) === value && !value.split("/").includes("..");
+}
+
+function isContentHash(value: string): boolean {
+  return /^sha256:[a-f0-9]{64}$/.test(value);
 }
 
 function parseBackupStorage(manifestPath: string, value: unknown): OutputBackupGitStorage {
@@ -552,31 +831,65 @@ async function readBackupContent(
   if (!(await exists(gitDir))) {
     throw new Error(`skillset: backup git store is missing for ${record.targetPath}: ${manifest.storage.gitDir}`);
   }
-  const object = await runGit(["--git-dir", gitDir, "show", `${manifest.storage.commit}:${record.backupPath}`], { cwd: rootPath });
-  return object.stdout;
+  try {
+    const object = await runGit(["--git-dir", gitDir, "show", `${manifest.storage.commit}:${record.backupPath}`], { cwd: rootPath });
+    return object.stdout;
+  } catch {
+    throw new Error(`skillset: backup payload is unavailable for ${record.targetPath}`);
+  }
 }
 
-async function assertRestoreIsSafe(
+async function assertBackupStorage(rootPath: string, manifest: OutputBackupManifest): Promise<void> {
+  const gitDir = resolveInside(rootPath, manifest.storage.gitDir);
+  if (!(await exists(gitDir))) {
+    throw new Error(`skillset: backup git store is missing: ${manifest.storage.gitDir}`);
+  }
+  let ref: string;
+  try {
+    ref = (await runGit(["--git-dir", gitDir, "rev-parse", "--verify", manifest.storage.ref], { cwd: rootPath })).stdoutText.trim();
+  } catch {
+    throw new Error(`skillset: backup git ref is unavailable: ${manifest.storage.ref}`);
+  }
+  if (ref !== manifest.storage.commit) {
+    throw new Error(`skillset: backup git ref does not match manifest commit: ${manifest.storage.ref}`);
+  }
+}
+
+function assertBackupPayloadIntegrity(
   record: OutputBackupRecord,
-  targetPath: string,
   backupContent: Uint8Array
-): Promise<void> {
+): void {
   const backupHash = contentHash(backupContent);
   if (backupHash !== record.originalHash) {
     throw new Error(`skillset: backup payload hash changed for ${record.targetPath}`);
   }
+}
+
+async function assertRestoreTargetIsSafe(record: OutputBackupRecord, targetPath: string): Promise<void> {
+  const blocked = await inspectRestoreTarget(record, targetPath);
+  if (blocked !== undefined) throw new Error(`skillset: ${blocked}`);
+}
+
+async function inspectRestoreTarget(record: OutputBackupRecord, targetPath: string): Promise<string | undefined> {
   const targetExists = await exists(targetPath);
   if (record.generatedHash === undefined) {
     if (targetExists) {
-      throw new Error(`skillset: refusing ambiguous restore for ${record.targetPath}; target exists after a delete backup`);
+      return `refusing ambiguous restore for ${record.targetPath}; target exists after a delete backup`;
     }
-    return;
+    return undefined;
   }
-  if (!targetExists) return;
-  const currentHash = contentHash(await readFile(targetPath));
+  if (!targetExists) return undefined;
+  let current: Uint8Array;
+  try {
+    current = await readFile(targetPath);
+  } catch {
+    return `refusing ambiguous restore for ${record.targetPath}; current target cannot be read`;
+  }
+  const currentHash = contentHash(current);
   if (currentHash !== record.generatedHash) {
-    throw new Error(`skillset: refusing ambiguous restore for ${record.targetPath}; target changed since backup ${record.generatedHash}`);
+    return `refusing ambiguous restore for ${record.targetPath}; target changed since backup ${record.generatedHash}`;
   }
+  return undefined;
 }
 
 function corruptManagedLock(lockPath: string, displayLockPath: string, reason: string): Error {
@@ -683,11 +996,15 @@ async function exists(path: string): Promise<boolean> {
     await stat(path);
     return true;
   } catch (error) {
-    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
+    if (isNotFound(error)) {
       return false;
     }
     throw error;
   }
+}
+
+function isNotFound(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
 }
 
 async function collectFiles(root: string): Promise<readonly string[]> {

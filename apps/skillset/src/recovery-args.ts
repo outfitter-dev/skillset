@@ -20,18 +20,31 @@ export const parseRestoreCommandRequest = (
   args: readonly string[],
   context: CliParseContext
 ): RestoreCommandRequest => {
-  const backupId = readRequiredPath(args[1], "backup id to restore");
-  const parsed = parseRecoveryOptions(args, 2, context);
+  const backupId = args[1]?.startsWith("--")
+    ? undefined
+    : readRequiredPath(args[1], "backup id to restore");
+  const parsed = parseRecoveryOptions(args, backupId === undefined ? 1 : 2, context);
   validateRecoveryOwnership(parsed);
   if (parsed.buildMode !== undefined || parsed.scopes !== undefined) {
-    throw new Error("skillset: restore only supports --root and --yes");
+    throw new Error("skillset: restore only supports --root, --yes, --json, and --list");
   }
   if (parsed.choice !== undefined) {
     throw new Error("skillset: --use is only supported with reconcile");
   }
+  if (parsed.list) {
+    if (backupId !== undefined) {
+      throw new Error("skillset: restore --list cannot be combined with a backup id");
+    }
+    if (parsed.yes) {
+      throw new Error("skillset: restore --list cannot be combined with --yes");
+    }
+  } else if (backupId === undefined) {
+    throw new Error("skillset: expected backup id to restore");
+  }
   return {
     backupId,
     jsonOutput: parsed.jsonOutput,
+    list: parsed.list,
     options: {},
     rootPath: parsed.rootPath,
     yes: parsed.yes,
@@ -52,6 +65,9 @@ export const parseReconcileCommandRequest = (
   }
   if (parsed.scopes !== undefined) {
     throw new Error("skillset: --scope is not supported with reconcile");
+  }
+  if (parsed.list) {
+    throw new Error("skillset: --list is only supported with restore");
   }
   if (parsed.yes && parsed.choice === undefined) {
     throw new Error(
@@ -74,6 +90,7 @@ interface RecoveryOptions {
   readonly changeSince: string | undefined;
   readonly choice: ReconcileChoice | undefined;
   readonly jsonOutput: boolean;
+  readonly list: boolean;
   readonly rootPath: string;
   readonly scopes: SkillsetOptions["scopes"];
   readonly yes: boolean;
@@ -94,6 +111,7 @@ const parseRecoveryOptions = (
   let changeSince: string | undefined;
   let choice: ReconcileChoice | undefined;
   let jsonOutput = false;
+  let list = false;
   let rootPath: string | undefined;
   let scopes: SkillsetOptions["scopes"];
   let yes = false;
@@ -167,6 +185,10 @@ const parseRecoveryOptions = (
         assertBooleanOption(option);
         jsonOutput = true;
         break;
+      case "--list":
+        assertBooleanOption(option);
+        list = true;
+        break;
       case "--write":
         assertBooleanOption(option);
         throw new Error(
@@ -197,6 +219,7 @@ const parseRecoveryOptions = (
     changeSince,
     choice,
     jsonOutput,
+    list,
     rootPath: resolveCliRoot(context, rootPath),
     scopes,
     yes,
