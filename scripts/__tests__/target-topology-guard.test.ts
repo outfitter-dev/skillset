@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  formatTargetTopologyFailures,
   isTargetTopologySourcePath,
   scanTargetTopologySource,
+  scanTargetTopologySources,
 } from "../target-topology-guard";
 
 describe("target topology guard", () => {
@@ -313,5 +315,134 @@ const label = target === "claude" ? "Claude" : target === "codex" ? "Codex" : ta
       rule: "R2",
       text,
     }]);
+
+    expect(scanTargetTopologySources(
+      [{ content: source, file: "apps/example.ts" }],
+      ["claude", "codex", "cursor"],
+      allowlist
+    )).toEqual({ duplicateAllowlist: [], unmatchedAllowlist: [], violations });
+  });
+
+  test("complete scans fail a stale allowlist entry", () => {
+    const stale = {
+      column: 17,
+      file: "apps/example.ts",
+      line: 1,
+      owner: "targets",
+      rationale: "Fixture exemption that no longer has an observed match.",
+      rule: "R1" as const,
+      text: '["claude", "codex"]',
+    };
+    const result = scanTargetTopologySources(
+      [{ content: "const targets = targetNames();", file: "apps/example.ts" }],
+      ["claude", "codex", "cursor"],
+      [stale]
+    );
+
+    expect(result).toEqual({ duplicateAllowlist: [], unmatchedAllowlist: [stale], violations: [] });
+    expect(formatTargetTopologyFailures(result)).toEqual([
+      'apps/example.ts:1:17: [ALLOWLIST R1] targets: ["claude", "codex"] (unmatched exemption: Fixture exemption that no longer has an observed match.)',
+    ]);
+  });
+
+  test("complete scans pass when every allowlist entry is observed", () => {
+    const observed = {
+      column: 17,
+      file: "apps/example.ts",
+      line: 1,
+      owner: "targets",
+      rationale: "Fixture permits the exact declaration.",
+      rule: "R1" as const,
+      text: '["claude", "codex"]',
+    };
+
+    expect(scanTargetTopologySources(
+      [{ content: 'const targets = ["claude", "codex"];', file: "apps/example.ts" }],
+      ["claude", "codex", "cursor"],
+      [observed]
+    )).toEqual({ duplicateAllowlist: [], unmatchedAllowlist: [], violations: [] });
+  });
+
+  test("complete scans fail duplicate allowlist identities even when observed", () => {
+    const identity = {
+      column: 17,
+      file: "apps/example.ts",
+      line: 1,
+      owner: "targets",
+      rule: "R1" as const,
+      text: '["claude", "codex"]',
+    };
+    const result = scanTargetTopologySources(
+      [{ content: 'const targets = ["claude", "codex"];', file: "apps/example.ts" }],
+      ["claude", "codex", "cursor"],
+      [
+        { ...identity, rationale: "Second duplicate fixture." },
+        { ...identity, rationale: "First duplicate fixture." },
+      ]
+    );
+
+    expect(result).toEqual({
+      duplicateAllowlist: [{
+        ...identity,
+        count: 2,
+        rationales: ["First duplicate fixture.", "Second duplicate fixture."],
+      }],
+      unmatchedAllowlist: [],
+      violations: [],
+    });
+    expect(formatTargetTopologyFailures(result)).toEqual([
+      'apps/example.ts:1:17: [DUPLICATE ALLOWLIST R1] targets: ["claude", "codex"] (2 exemptions; rationales: ["First duplicate fixture.","Second duplicate fixture."])',
+    ]);
+  });
+
+  test("complete scan failures have deterministic diagnostic order", () => {
+    const staleZ = {
+      column: 1,
+      file: "scripts/z.ts",
+      line: 9,
+      owner: "z",
+      rationale: "Later stale fixture.",
+      rule: "R2" as const,
+      text: "z",
+    };
+    const staleA = {
+      column: 1,
+      file: "apps/a.ts",
+      line: 9,
+      owner: "a",
+      rationale: "Earlier stale fixture.",
+      rule: "R2" as const,
+      text: "a",
+    };
+    const duplicateIdentity = {
+      column: 17,
+      file: "scripts/observed.ts",
+      line: 1,
+      owner: "targets",
+      rule: "R1" as const,
+      text: '["claude", "codex"]',
+    };
+    const result = scanTargetTopologySources(
+      [
+        { content: 'const targets = ["claude", "cursor"];', file: "packages/z.ts" },
+        { content: 'const targets = ["claude", "codex"];', file: "apps/b.ts" },
+        { content: 'const targets = ["claude", "codex"];', file: "scripts/observed.ts" },
+      ],
+      ["claude", "codex", "cursor"],
+      [
+        staleZ,
+        { ...duplicateIdentity, rationale: "Second duplicate fixture." },
+        staleA,
+        { ...duplicateIdentity, rationale: "First duplicate fixture." },
+      ]
+    );
+
+    expect(formatTargetTopologyFailures(result)).toEqual([
+      'apps/b.ts:1:17: [R1] targets: ["claude", "codex"]',
+      'packages/z.ts:1:17: [R1] targets: ["claude", "cursor"]',
+      "apps/a.ts:9:1: [ALLOWLIST R2] a: a (unmatched exemption: Earlier stale fixture.)",
+      "scripts/z.ts:9:1: [ALLOWLIST R2] z: z (unmatched exemption: Later stale fixture.)",
+      'scripts/observed.ts:1:17: [DUPLICATE ALLOWLIST R1] targets: ["claude", "codex"] (2 exemptions; rationales: ["First duplicate fixture.","Second duplicate fixture."])',
+    ]);
   });
 });

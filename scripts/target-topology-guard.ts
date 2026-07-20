@@ -22,6 +22,22 @@ export interface TargetTopologyAllowlistEntry extends TargetTopologyViolation {
   readonly rationale: string;
 }
 
+export interface TargetTopologySource {
+  readonly content: string;
+  readonly file: string;
+}
+
+export interface TargetTopologyScanResult {
+  readonly duplicateAllowlist: readonly TargetTopologyDuplicateAllowlist[];
+  readonly unmatchedAllowlist: readonly TargetTopologyAllowlistEntry[];
+  readonly violations: readonly TargetTopologyViolation[];
+}
+
+export interface TargetTopologyDuplicateAllowlist extends TargetTopologyViolation {
+  readonly count: number;
+  readonly rationales: readonly string[];
+}
+
 export const TARGET_TOPOLOGY_ALLOWLIST: readonly TargetTopologyAllowlistEntry[] = [
   allow("packages/schema/src/contracts.ts", 10, 29, "TARGET_NAMES", "R1", '["claude", "codex", "cursor"]', "Canonical target registry declaration."),
   allow("packages/schema/src/examples.ts", 47, 18, "skillsetSchemaExamples", "R1", '["claude", "codex", "cursor"]', "Schema example demonstrates the complete targets field."),
@@ -130,6 +146,87 @@ export function scanTargetTopologySource(
   };
   visit(source);
   return violations;
+}
+
+export function scanTargetTopologySources(
+  sources: readonly TargetTopologySource[],
+  registeredTargets: readonly string[] = TARGET_NAMES,
+  allowlist: readonly TargetTopologyAllowlistEntry[] = TARGET_TOPOLOGY_ALLOWLIST
+): TargetTopologyScanResult {
+  const rawViolations = sources.flatMap(({ content, file }) =>
+    scanTargetTopologySource(file, content, registeredTargets, [])
+  );
+  const observedIdentities = new Set(rawViolations.map(targetTopologyIdentity));
+  const allowlistIdentities = new Set(allowlist.map(targetTopologyIdentity));
+  const allowlistGroups = new Map<string, TargetTopologyAllowlistEntry[]>();
+  for (const entry of allowlist) {
+    const identity = targetTopologyIdentity(entry);
+    const group = allowlistGroups.get(identity);
+    if (group === undefined) allowlistGroups.set(identity, [entry]);
+    else group.push(entry);
+  }
+  return {
+    duplicateAllowlist: [...allowlistGroups.values()]
+      .filter((entries) => entries.length > 1)
+      .map((entries): TargetTopologyDuplicateAllowlist => ({
+        column: entries[0]!.column,
+        count: entries.length,
+        file: entries[0]!.file,
+        line: entries[0]!.line,
+        owner: entries[0]!.owner,
+        rationales: entries.map(({ rationale }) => rationale).toSorted(),
+        rule: entries[0]!.rule,
+        text: entries[0]!.text,
+      }))
+      .toSorted(compareTargetTopologyMatch),
+    unmatchedAllowlist: allowlist
+      .filter((entry) => !observedIdentities.has(targetTopologyIdentity(entry)))
+      .toSorted(compareTargetTopologyAllowlistEntry),
+    violations: rawViolations
+      .filter((violation) => !allowlistIdentities.has(targetTopologyIdentity(violation)))
+      .toSorted(compareTargetTopologyMatch),
+  };
+}
+
+export function formatTargetTopologyFailures(result: TargetTopologyScanResult): readonly string[] {
+  return [
+    ...result.violations.map((violation) =>
+      `${violation.file}:${violation.line}:${violation.column}: [${violation.rule}] ${violation.owner}: ${violation.text}`
+    ),
+    ...result.unmatchedAllowlist.map((entry) =>
+      `${entry.file}:${entry.line}:${entry.column}: [ALLOWLIST ${entry.rule}] ${entry.owner}: ${entry.text} (unmatched exemption: ${entry.rationale})`
+    ),
+    ...result.duplicateAllowlist.map((entry) =>
+      `${entry.file}:${entry.line}:${entry.column}: [DUPLICATE ALLOWLIST ${entry.rule}] ${entry.owner}: ${entry.text} (${entry.count} exemptions; rationales: ${JSON.stringify(entry.rationales)})`
+    ),
+  ];
+}
+
+function targetTopologyIdentity(match: TargetTopologyViolation): string {
+  return JSON.stringify([
+    match.file,
+    match.line,
+    match.column,
+    match.rule,
+    match.owner,
+    match.text,
+  ]);
+}
+
+function compareTargetTopologyMatch(left: TargetTopologyViolation, right: TargetTopologyViolation): number {
+  return left.file.localeCompare(right.file) ||
+    left.line - right.line ||
+    left.column - right.column ||
+    left.rule.localeCompare(right.rule) ||
+    left.owner.localeCompare(right.owner) ||
+    left.text.localeCompare(right.text);
+}
+
+function compareTargetTopologyAllowlistEntry(
+  left: TargetTopologyAllowlistEntry,
+  right: TargetTopologyAllowlistEntry
+): number {
+  return compareTargetTopologyMatch(left, right) || left.rationale.localeCompare(right.rationale);
 }
 
 interface TargetEquality {
@@ -418,15 +515,17 @@ async function gitFiles(): Promise<readonly string[]> {
 
 async function main(): Promise<void> {
   const files = (await gitFiles()).filter(isTargetTopologySourcePath);
-  const violations: TargetTopologyViolation[] = [];
+  const sources: TargetTopologySource[] = [];
   for (const file of files) {
     const path = `${rootDir}/${file}`;
-    if (existsSync(path)) violations.push(...scanTargetTopologySource(file, await Bun.file(path).text()));
+    if (existsSync(path)) sources.push({ content: await Bun.file(path).text(), file });
   }
-  if (violations.length > 0) {
-    console.error(`skillset: target topology guard found ${violations.length} violation(s):`);
-    for (const violation of violations) {
-      console.error(`  ${violation.file}:${violation.line}:${violation.column}: [${violation.rule}] ${violation.owner}: ${violation.text}`);
+  const result = scanTargetTopologySources(sources);
+  const failures = formatTargetTopologyFailures(result);
+  if (failures.length > 0) {
+    console.error(`skillset: target topology guard found ${result.violations.length} violation(s), ${result.unmatchedAllowlist.length} unmatched allowlist entry(s), and ${result.duplicateAllowlist.length} duplicate allowlist identity(s):`);
+    for (const failure of failures) {
+      console.error(`  ${failure}`);
     }
     process.exit(1);
   }
