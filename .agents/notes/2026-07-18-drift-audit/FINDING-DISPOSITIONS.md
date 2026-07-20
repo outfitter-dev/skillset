@@ -22,7 +22,7 @@ validate completeness and print the project finding counts.
 | 01.9 | confirmed | open | SET-318 | — | Use the shared target-list formatter. |
 | 02.1 | confirmed | open | SET-320 | — | Define effective override semantics; SET-351 is the rendering follow-on. |
 | 02.2 | confirmed | open | SET-320 | — | `run.*` acceptance belongs to the effective-definition contract. |
-| 02.3 | confirmed | open | SET-321 | — | Remove only the inert definition-level status surface. |
+| 02.3 | confirmed | fixed | SET-321 | https://github.com/outfitter-dev/skillset/pull/193 | Audit evidence was stale: merged plugin (`537e3e7f9e06613fba557069ee0a311aa2fa131a`) and frontmatter (`dae73c666b5a14ab29216eb329ea57825f05122b`) renderers consume attachment status first, then definition status. SET-321 adds explicit fallback and precedence coverage. |
 | 02.4 | confirmed | open | SET-321 | — | Reject unsupported Codex symlink mode during validation. |
 | 02.5 | confirmed | open | SET-319 | — | Single-source context-specific configuration key contracts. |
 | 02.6 | confirmed | open | SET-321 | — | Remove the fixed-value test output kind if it carries no information. |

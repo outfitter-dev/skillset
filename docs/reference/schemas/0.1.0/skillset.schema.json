@@ -1092,6 +1092,16 @@
               "type": "boolean"
             },
             {
+              "not": {
+                "properties": {
+                  "mode": {
+                    "const": "symlink"
+                  }
+                },
+                "required": [
+                  "mode"
+                ]
+              },
               "type": "object"
             }
           ]
@@ -2295,16 +2305,6 @@
             },
             "projection": {
               "type": "boolean"
-            }
-          },
-          "type": "object"
-        },
-        "output": {
-          "additionalProperties": false,
-          "properties": {
-            "kind": {
-              "const": "isolated",
-              "type": "string"
             }
           },
           "type": "object"

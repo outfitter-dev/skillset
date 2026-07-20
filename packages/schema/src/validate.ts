@@ -205,13 +205,12 @@ function validateConfigContext(
 export function validateTestDeclaration(value: unknown, path = "$"): SkillsetSchemaValidationResult {
   const diagnostics: SkillsetSchemaDiagnostic[] = [];
   if (!isSchemaRecord(value)) return result([diagnostic(path, "schema/test-declaration/type", "test declaration must be an object")]);
-  checkAllowedKeys(value, new Set(["activation", "checks", "output", "select", "targets"]), path, "schema/test-declaration/key", diagnostics);
+  checkAllowedKeys(value, new Set(["activation", "checks", "select", "targets"]), path, "schema/test-declaration/key", diagnostics);
   if (!isSchemaRecord(value.checks)) {
     diagnostics.push(diagnostic(`${path}.checks`, "schema/test-declaration/checks", "test declaration checks must be an object"));
   } else {
     checkTestChecks(value.checks, `${path}.checks`, diagnostics);
   }
-  if (value.output !== undefined) checkTestOutput(value.output, `${path}.output`, diagnostics);
   if (value.select !== undefined) checkTestSelection(value.select, `${path}.select`, diagnostics);
   if (value.targets !== undefined) {
     checkTargetNameArray(value.targets, `${path}.targets`, "schema/test-declaration/targets", diagnostics);
@@ -254,17 +253,6 @@ function checkTestChecks(value: SchemaJsonRecord, path: string, diagnostics: Ski
   }
   if (value.files === undefined && value.pluginManifests !== true && value.projection !== true) {
     diagnostics.push(diagnostic(path, "schema/test-declaration/checks", "test checks must enable files, pluginManifests, or projection"));
-  }
-}
-
-function checkTestOutput(value: SchemaJsonValue, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
-  if (!isSchemaRecord(value)) {
-    diagnostics.push(diagnostic(path, "schema/test-declaration/output", "test output must be an object"));
-    return;
-  }
-  checkAllowedKeys(value, new Set(["kind"]), path, "schema/test-declaration/output-key", diagnostics);
-  if (value.kind !== undefined && value.kind !== "isolated") {
-    diagnostics.push(diagnostic(`${path}.kind`, "schema/test-declaration/output-kind", "test output kind must be isolated"));
   }
 }
 
@@ -486,6 +474,13 @@ export function validateInstructionFrontmatter(value: unknown, path = "$"): Skil
   checkOptionalStringArray(value.paths, `${path}.paths`, "schema/instruction-frontmatter/paths", diagnostics);
   checkTargetBlock(value.claude, `${path}.claude`, "schema/instruction-frontmatter/target", diagnostics);
   checkTargetBlock(value.codex, `${path}.codex`, "schema/instruction-frontmatter/target", diagnostics);
+  if (isSchemaRecord(value.codex) && value.codex.mode === "symlink") {
+    diagnostics.push(diagnostic(
+      `${path}.codex.mode`,
+      "schema/instruction-frontmatter/codex-mode",
+      "Codex instruction mode symlink is unsupported; use codex: true or codex: false"
+    ));
+  }
   checkTargetBlock(value.cursor, `${path}.cursor`, "schema/instruction-frontmatter/target", diagnostics);
   checkSourceMetadata(value.skillset, `${path}.skillset`, diagnostics);
   checkSupports(value.supports, `${path}.supports`, diagnostics);

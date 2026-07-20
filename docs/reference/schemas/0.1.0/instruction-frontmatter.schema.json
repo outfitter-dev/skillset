@@ -19,6 +19,16 @@
           "type": "boolean"
         },
         {
+          "not": {
+            "properties": {
+              "mode": {
+                "const": "symlink"
+              }
+            },
+            "required": [
+              "mode"
+            ]
+          },
           "type": "object"
         }
       ]

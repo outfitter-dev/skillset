@@ -236,7 +236,7 @@ export const instructionFrontmatterContract = contract("instruction-frontmatter"
   additionalProperties: true,
   properties: {
     claude: targetOverrideSchema(),
-    codex: targetOverrideSchema(),
+    codex: instructionCodexOverrideSchema(),
     cursor: targetOverrideSchema(),
     description: nonEmptyStringSchema(),
     dialect: { enum: ["claude"], type: "string" },
@@ -424,9 +424,6 @@ export const testDeclarationContract = contract("test-declaration", "Test Declar
         { properties: { pluginManifests: { const: true } }, required: ["pluginManifests"] },
         { properties: { projection: { const: true } }, required: ["projection"] },
       ],
-    },
-    output: {
-      ...strictObjectSchema({ kind: { const: "isolated", type: "string" } }),
     },
     select: {
       ...strictObjectSchema({
@@ -869,6 +866,21 @@ function targetOverrideSchema(): SchemaJsonRecord {
     anyOf: [
       { type: "boolean" },
       { type: "object" },
+    ],
+  };
+}
+
+function instructionCodexOverrideSchema(): SchemaJsonRecord {
+  return {
+    anyOf: [
+      { type: "boolean" },
+      {
+        not: {
+          properties: { mode: { const: "symlink" } },
+          required: ["mode"],
+        },
+        type: "object",
+      },
     ],
   };
 }

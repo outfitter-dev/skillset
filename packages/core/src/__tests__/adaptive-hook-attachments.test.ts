@@ -586,6 +586,7 @@ hooks:
 `,
       ".skillset/plugins/demo/hooks/shell-policy.json": JSON.stringify({
         events: ["PreToolUse"],
+        status: "Checking the definition",
         run: {
           env: {
             CHECK: "1",
@@ -627,6 +628,39 @@ hooks:
       "plugins/demo/claude/scripts/check.sh",
       "plugins/demo/codex/scripts/check.sh",
     ]));
+  });
+
+  test("renders definition hook status when an attachment does not override it", async () => {
+    const graph = await loadBuildGraph(await fixture({
+      "skillset.yaml": `
+skillset:
+  name: adaptive-hook-definition-status
+claude: true
+codex: false
+`,
+      ".skillset/plugins/demo/skillset.yaml": `
+skillset:
+  name: demo
+hooks:
+  PreToolUse:
+    - hook: shell-policy
+`,
+      ".skillset/plugins/demo/hooks/shell-policy.json": JSON.stringify({
+        events: ["PreToolUse"],
+        run: { command: "echo ok" },
+        status: "Checking the definition",
+      }),
+    }));
+
+    const rendered = await renderBuildGraph(graph);
+    expect(renderedJson(rendered, "plugins/demo/claude/hooks/hooks.json")).toEqual({
+      hooks: {
+        PreToolUse: [{
+          hooks: [{ command: "echo ok", type: "command" }],
+          statusMessage: "Checking the definition",
+        }],
+      },
+    });
   });
 
   test("renders target-effective plugin hook definitions without leaking portable base values", async () => {

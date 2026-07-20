@@ -208,16 +208,6 @@
       },
       "type": "object"
     },
-    "output": {
-      "additionalProperties": false,
-      "properties": {
-        "kind": {
-          "const": "isolated",
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
     "select": {
       "additionalProperties": false,
       "minProperties": 1,

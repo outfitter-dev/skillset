@@ -1943,8 +1943,6 @@ self:
   select:
     skills:
       primary: ["demo"]
-  output:
-    kind: isolated
   checks:
     projection: true
     files:

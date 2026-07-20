@@ -36,8 +36,6 @@ self-hosted:
   targets:
     - claude
     - codex
-  output:
-    kind: isolated
   checks:
     projection: true
     pluginManifests: true

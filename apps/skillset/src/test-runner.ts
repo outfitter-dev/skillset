@@ -532,7 +532,7 @@ async function readTestObject(
     if (key === "source") {
       throw new Error(`skillset: ${label}.source is retired; use ${label}.select`);
     }
-    if (key !== "activation" && key !== "checks" && key !== "output" && key !== "select" && key !== "targets") {
+    if (key !== "activation" && key !== "checks" && key !== "select" && key !== "targets") {
       throw new Error(`skillset: unsupported test key ${key} in ${label}`);
     }
   }
@@ -542,18 +542,6 @@ async function readTestObject(
   const checks = readChecks(record.checks, `${label}.checks`, selection);
   const activationProbes = await readActivationProbes(graph, record.activation, `${label}.activation`, targets);
   validateActivationProbeNames(activationProbes, targets);
-  const output = record.output;
-  if (output !== undefined) {
-    if (!isJsonRecord(output)) throw new Error(`skillset: expected ${label}.output to be an object`);
-    for (const key of Object.keys(output)) {
-      if (key !== "kind") throw new Error(`skillset: unsupported test output key ${key} in ${label}.output`);
-    }
-    const kind = readString(output, "kind");
-    if (kind !== undefined && kind !== "isolated") {
-      throw new Error(`skillset: ${label}.output.kind ${JSON.stringify(kind)} is not supported yet; use isolated`);
-    }
-  }
-
   return { activationProbes, checks, name, selection, targets };
 }
 

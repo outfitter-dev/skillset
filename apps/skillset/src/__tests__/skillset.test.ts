@@ -832,8 +832,6 @@ self:
   select:
     skills:
       primary: ["demo"]
-  output:
-    kind: isolated
   checks:
     projection: true
     files:
@@ -858,6 +856,35 @@ Demo ordinary workspace skill.
   expect(await exists(cachePath(root, ".skillset/cache/tests/latest/workspace/.skillset/snapshots/recovery/git/config"))).toBe(false);
 });
 
+test("skillset test rejects the removed output field without runtime probes", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: ordinary-root
+claude: true
+codex: false
+`,
+    ".skillset/tests.yaml": `
+self:
+  output:
+    kind: isolated
+  checks:
+    projection: true
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+description: Demo.
+---
+
+Demo.
+`,
+  });
+
+  await expect(runSkillsetTest(root, "self")).rejects.toThrow(
+    "unsupported test key output in .skillset/tests.yaml.self"
+  );
+});
+
 test("skillset test stages dedicated workspace source without copying unrelated repo files", async () => {
   const root = await fixture({
     "package.json": "{\"private\":true}\n",
@@ -871,8 +898,6 @@ codex: false
 select:
   skills:
     primary: ["demo"]
-output:
-  kind: isolated
 checks:
   projection: true
   files:
@@ -3748,7 +3773,7 @@ paths:
   await expect(verifySkillset(root)).rejects.toThrow("stale generated file: docs/AGENTS.md");
 });
 
-test("rules reject Codex symlink mode until target-clean symlinks are designed", async () => {
+test("rules reject Codex symlink mode during source validation", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -3768,7 +3793,9 @@ codex:
 `,
   });
 
-  await expect(buildSkillset(root)).rejects.toThrow("codex: symlink");
+  await expect(buildSkillset(root)).rejects.toThrow(
+    "frontmatter failed schema validation: Codex instruction mode symlink is unsupported"
+  );
 });
 
 test("build lowers normalized skill policy to Claude frontmatter and Codex agent metadata", async () => {
