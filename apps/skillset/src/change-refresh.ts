@@ -33,6 +33,8 @@ export interface ChangeLedgerLockOptions {
   readonly now?: () => number;
   readonly pid?: number;
   readonly pollMs?: number;
+  /** @internal Test seam for deterministically advancing an owned heartbeat. */
+  readonly startHeartbeat?: ChangeLedgerHeartbeatScheduler;
   readonly timeoutMs?: number;
 }
 
@@ -255,8 +257,14 @@ interface ChangeLedgerLockSettings {
   readonly now: () => number;
   readonly pid: number;
   readonly pollMs: number;
+  readonly startHeartbeat: ChangeLedgerHeartbeatScheduler;
   readonly timeoutMs: number;
 }
+
+type ChangeLedgerHeartbeatScheduler = (
+  heartbeat: () => Promise<void>,
+  heartbeatMs: number
+) => () => void;
 
 function changeLedgerLockSettings(input: ChangeLedgerLockOptions | undefined): ChangeLedgerLockSettings {
   return {
@@ -266,6 +274,7 @@ function changeLedgerLockSettings(input: ChangeLedgerLockOptions | undefined): C
     now: input?.now ?? Date.now,
     pid: input?.pid ?? process.pid,
     pollMs: input?.pollMs ?? 20,
+    startHeartbeat: input?.startHeartbeat ?? startDefaultChangeLedgerHeartbeat,
     timeoutMs: input?.timeoutMs ?? CHANGE_LEDGER_LOCK_TIMEOUT_MS,
   };
 }
@@ -276,8 +285,8 @@ function startChangeLedgerHeartbeat(
   settings: ChangeLedgerLockSettings
 ): () => Promise<void> {
   let inFlight: Promise<void> | undefined;
-  const timer = setInterval(() => {
-    if (inFlight !== undefined) return;
+  const heartbeat = (): Promise<void> => {
+    if (inFlight !== undefined) return inFlight;
     inFlight = (async () => {
       if ((await readChangeLedgerLockOwner(lockPath, settings))?.token !== token) return;
       try {
@@ -289,12 +298,24 @@ function startChangeLedgerHeartbeat(
     })().finally(() => {
       inFlight = undefined;
     });
-  }, settings.heartbeatMs);
-  timer.unref();
+    return inFlight;
+  };
+  const stop = settings.startHeartbeat(heartbeat, settings.heartbeatMs);
   return async () => {
-    clearInterval(timer);
+    stop();
     await inFlight;
   };
+}
+
+function startDefaultChangeLedgerHeartbeat(
+  heartbeat: () => Promise<void>,
+  heartbeatMs: number
+): () => void {
+  const timer = setInterval(() => {
+    void heartbeat();
+  }, heartbeatMs);
+  timer.unref();
+  return () => clearInterval(timer);
 }
 
 async function reclaimDeadChangeLedgerLock(
