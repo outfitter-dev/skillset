@@ -39,3 +39,4 @@ ADRs document the significant design decisions behind Skillset: choices that, if
 | [0022](0022-workflow-oriented-cli.md) | Workflow-Oriented CLI With A Flat Loop And Explicit Domains | Accepted |
 | [0023](0023-versioned-structured-output-for-cli-automation.md) | Versioned Structured Output For CLI Automation | Accepted |
 | [0024](0024-one-action-repo-adoption.md) | One-Action Repo Adoption | Accepted |
+| [0025](0025-baseline-record-evidence-bridges.md) | Baseline Records Are Evidence Bridges | Accepted |

@@ -4,14 +4,15 @@ slug: change-release-edge-decisions
 title: Change and Release Edge Decisions
 status: accepted
 created: 2026-06-09
-updated: 2026-07-20
+updated: 2026-07-21
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [0, 14, 15]
 ---
 
 # ADR-0016: Change and Release Edge Decisions
 
-Status: accepted for the implemented edge decisions below; baseline semantics remain deferred to SET-363.
+Status: accepted for the implemented edge decisions below; ADR-0025 separately
+settles baseline semantics without claiming implementation.
 
 ## Context
 
@@ -48,12 +49,14 @@ The CLI displays and accepts refs as `@<prefix>`. The displayed prefix is the sh
 
 This lets multiple entries share `group: linear:SET-31` or a similar external id without forcing them to release together. It also avoids duplicating the external id as both the entry id and group id. Each change keeps its own generated id; the group points at why several entries may be related.
 
-### Unresolved Baseline Semantics
+### Baseline Evidence Boundary
 
-This ADR does not accept a public baseline command or settle the meaning and
-required evidence of `baseline.recorded`. Normalizer/hash-schema migrations must
-continue to fail loudly instead of silently resetting state. SET-363 owns the
-remaining command, event, reason, and reconstruction decision.
+ADR-0025 defines `baseline.recorded` as exact append-only whole-inventory
+evidence for hash-schema migration or explicit adoption. It cannot supply
+reason, coverage, ignore, release, changelog, bump, or version authority, and
+invalid or inexact evidence fails loudly instead of resetting state. No public
+baseline command is accepted, and the existing permissive parser is not a
+conforming writer or replay implementation.
 
 ### Release-Tool Interop
 
@@ -73,10 +76,10 @@ are implemented and accepted. Pending reasons are now reason-only Markdown and
 machine evidence lives in the append-only ledger, so any earlier storage wording
 is historical context rather than a second contract.
 
-Baseline behavior is excluded from this acceptance. No public baseline command
-or settled baseline-record semantic is implied; SET-363 owns that decision.
-The unresolved baseline question does not defer the other proved edges. Current
-evidence is in the change, release, and supports feature pages,
+Baseline behavior was excluded from this record's original acceptance and is
+now settled narrowly by ADR-0025. This ADR still claims no baseline
+implementation or public command. Current evidence for the other proved edges
+is in the change, release, and supports feature pages,
 `change-ledger.ts`, compact-reference/group/support tests, and external-tool
 boundary tests.
 
@@ -84,3 +87,4 @@ boundary tests.
 
 - [Changelog and Version Bump Workflow](0013-changelog-and-versioning.md) - superseded historical design replaced by the ADR-0014/0015 lineage.
 - [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - source-first and generated-output doctrine.
+- [ADR-0025: Baseline Records Are Evidence Bridges](0025-baseline-record-evidence-bridges.md) - exact baseline evidence semantics and exclusions.
