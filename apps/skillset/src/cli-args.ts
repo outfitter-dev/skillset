@@ -1,34 +1,21 @@
-import { parseBuildCommandRequest, parseDiffCommandRequest } from "./build-args";
+import * as build from "./build-args";
 import { parseChangeCommandRequest } from "./change-args";
 import { parseCheckCommandRequest } from "./check-args";
-import { parseCreateCommandRequest } from "./create-args";
 import type { CliParseContext } from "./cli-arg-values";
 import { isCliCommand, renderExpectedCliCommands } from "./cli-commands";
 import { CliOutputError, readCliCommand } from "./cli-output";
 import type { CliRequest } from "./cli-request";
 import { USAGE } from "./cli-usage";
+import { parseCreateCommandRequest } from "./create-args";
 import { parseDevCommandRequest } from "./dev-args";
-import {
-  parseDistributionCommandRequest,
-  parseMarketplaceCommandRequest,
-} from "./distribution-args";
+import * as distribution from "./distribution-args";
 import { parseHooksCommandRequest } from "./hooks-args";
 import { parseInitCommandRequest } from "./init-args";
-import {
-  parseExplainCommandRequest,
-  parseListCommandRequest,
-  parseLookupCommandRequest,
-  parseStatusCommandRequest,
-} from "./inspect-args";
-import {
-  parseReconcileCommandRequest,
-  parseRestoreCommandRequest,
-} from "./recovery-args";
+import * as inspection from "./inspect-args";
+import { parseLookupCommandRequest } from "./lookup-args";
+import * as recovery from "./recovery-args";
 import { parseReleaseCommandRequest } from "./release-args";
-import {
-  parseImportCommandRequest,
-  parseNewCommandRequest,
-} from "./source-args";
+import * as source from "./source-args";
 import { parseTestCommandRequest } from "./test-args";
 import { parseUpdateCommandRequest } from "./update-args";
 
@@ -50,7 +37,7 @@ export const parseCliRequest = (
       case "build": {
         return {
           command,
-          request: parseBuildCommandRequest(args, parseContext),
+          request: build.parseBuildCommandRequest(args, parseContext),
         };
       }
       case "change": {
@@ -66,7 +53,10 @@ export const parseCliRequest = (
         };
       }
       case "create": {
-        return { command, request: parseCreateCommandRequest(args, parseContext) };
+        return {
+          command,
+          request: parseCreateCommandRequest(args, parseContext),
+        };
       }
       case "dev": {
         return { command, request: parseDevCommandRequest(args, parseContext) };
@@ -74,19 +64,22 @@ export const parseCliRequest = (
       case "diff": {
         return {
           command,
-          request: parseDiffCommandRequest(args, parseContext),
+          request: build.parseDiffCommandRequest(args, parseContext),
         };
       }
       case "distribute": {
         return {
           command,
-          request: parseDistributionCommandRequest(args, parseContext),
+          request: distribution.parseDistributionCommandRequest(
+            args,
+            parseContext
+          ),
         };
       }
       case "explain": {
         return {
           command,
-          request: parseExplainCommandRequest(args, parseContext),
+          request: inspection.parseExplainCommandRequest(args, parseContext),
         };
       }
       case "hooks": {
@@ -98,7 +91,7 @@ export const parseCliRequest = (
       case "import": {
         return {
           command,
-          request: parseImportCommandRequest(args, parseContext),
+          request: source.parseImportCommandRequest(args, parseContext),
         };
       }
       case "init": {
@@ -110,7 +103,7 @@ export const parseCliRequest = (
       case "list": {
         return {
           command,
-          request: parseListCommandRequest(args, parseContext),
+          request: inspection.parseListCommandRequest(args, parseContext),
         };
       }
       case "lookup": {
@@ -119,16 +112,22 @@ export const parseCliRequest = (
       case "marketplace": {
         return {
           command,
-          request: parseMarketplaceCommandRequest(args, parseContext),
+          request: distribution.parseMarketplaceCommandRequest(
+            args,
+            parseContext
+          ),
         };
       }
       case "new": {
-        return { command, request: parseNewCommandRequest(args, parseContext) };
+        return {
+          command,
+          request: source.parseNewCommandRequest(args, parseContext),
+        };
       }
       case "reconcile": {
         return {
           command,
-          request: parseReconcileCommandRequest(args, parseContext),
+          request: recovery.parseReconcileCommandRequest(args, parseContext),
         };
       }
       case "release": {
@@ -140,13 +139,13 @@ export const parseCliRequest = (
       case "restore": {
         return {
           command,
-          request: parseRestoreCommandRequest(args, parseContext),
+          request: recovery.parseRestoreCommandRequest(args, parseContext),
         };
       }
       case "status": {
         return {
           command,
-          request: parseStatusCommandRequest(args, parseContext),
+          request: inspection.parseStatusCommandRequest(args, parseContext),
         };
       }
       case "test": {

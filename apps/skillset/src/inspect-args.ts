@@ -1,8 +1,4 @@
-import type { LookupView } from "@skillset/core";
-import type {
-  SkillsetOptions,
-  TargetName,
-} from "@skillset/core/internal/types";
+import type { SkillsetOptions } from "@skillset/core/internal/types";
 
 import { readChangeBump, setChangeReason } from "./change-args";
 import type { ChangeReasonInput } from "./change-workflow";
@@ -25,25 +21,14 @@ import type { CliParseContext } from "./cli-arg-values";
 import type {
   ExplainCommandRequest,
   ListCommandRequest,
-  LookupFeaturesCommandRequest,
-  LookupRouteRequest,
   StatusCommandRequest,
 } from "./inspect-cli";
-import {
-  addLookupTargets,
-  addLookupView,
-  readLookupSubject,
-  setLookupField,
-} from "./lookup-cli";
+import { addLookupTargets, setLookupField } from "./lookup-cli";
 import {
   readHookRuntimeContextField,
   readHookRuntimeContextFormat,
 } from "./runtime-hooks";
 import { readImportKind, readImportProvider } from "./source-arg-values";
-
-type LookupCommandRequest =
-  | { readonly kind: "features"; readonly value: LookupFeaturesCommandRequest }
-  | { readonly kind: "query"; readonly value: LookupRouteRequest };
 
 export const parseListCommandRequest = (
   args: readonly string[],
@@ -92,247 +77,6 @@ export const parseExplainCommandRequest = (
   };
 };
 
-export const parseLookupCommandRequest = (
-  args: readonly string[]
-): LookupCommandRequest => {
-  let index = 1;
-  let featureId: string | undefined;
-  let features = false;
-  let lookupAspects: string[] = [];
-  let lookupField: string | undefined;
-  let lookupSubject: ReturnType<typeof readLookupSubject> | undefined;
-  let lookupTargets: TargetName[] = [];
-  let lookupViews: LookupView[] = [];
-  let jsonOutput = false;
-  let featureOption = false;
-  let rootExplicit = false;
-  let ignoredBuildMode: "all" | "updated" | undefined;
-  const cross = createInspectionCrossFlags();
-
-  const first = args[index];
-  if (first === "features") {
-    features = true;
-    index += 1;
-    const value = args[index];
-    if (value !== undefined && !value.startsWith("--")) {
-      featureId = value;
-      index += 1;
-    }
-  } else if (first !== undefined && !first.startsWith("--")) {
-    lookupSubject = readLookupSubject(first);
-    index += 1;
-    while (args[index] !== undefined && !args[index]?.startsWith("--")) {
-      const aspect = args[index];
-      if (aspect !== undefined) {
-        lookupAspects = [...lookupAspects, aspect];
-      }
-      index += 1;
-    }
-  }
-
-  const reader = new CliArgReader(args, index);
-  while (!reader.done) {
-    const option = reader.readOption();
-    if (option === undefined) {
-      break;
-    }
-    if (features && option.flag !== "--json") {
-      featureOption = true;
-    }
-    if (readInspectionCrossOption(reader, option, cross, true)) {
-      continue;
-    }
-    switch (option.flag) {
-      case "--compat": {
-        lookupViews = addLookupView(lookupViews, "compat");
-        for (const value of reader.readOptionalOptionValues(option)) {
-          lookupTargets = addLookupTargets(lookupTargets, value);
-        }
-        break;
-      }
-      case "--frontmatter":
-      case "--fields":
-      case "--values":
-      case "--events":
-      case "--examples":
-      case "--schema": {
-        assertBooleanOption(option);
-        lookupViews = addLookupView(
-          lookupViews,
-          option.flag.slice(2) as LookupView
-        );
-        break;
-      }
-      case "--field": {
-        lookupField = setLookupField(
-          lookupField,
-          reader.readRequiredOptionValue(option)
-        );
-        break;
-      }
-      case "--json": {
-        assertBooleanOption(option);
-        jsonOutput = true;
-        break;
-      }
-      case "--scope":
-      case "--name":
-        reader.readRequiredOptionValue(option);
-        break;
-      case "--kind":
-        readImportKind(reader.readRequiredOptionValue(option));
-        break;
-      case "--from": {
-        readImportProvider(reader.readRequiredOptionValue(option));
-        break;
-      }
-      case "--updated":
-      case "--all":
-        assertBooleanOption(option);
-        ignoredBuildMode = mergeBuildMode(
-          ignoredBuildMode,
-          option.flag === "--all" ? "all" : "updated"
-        );
-        break;
-      case "--yes": {
-        assertBooleanOption(option);
-        break;
-      }
-      case "--root": {
-        reader.readRequiredOptionValue(option);
-        rootExplicit = true;
-        break;
-      }
-      case "--append":
-      case "--staged": {
-        assertBooleanOption(option);
-        throw new Error(
-          "skillset: change options are only supported with change commands"
-        );
-      }
-      case "--bump":
-      case "--group":
-      case "--reason":
-      case "--reason-file":
-      case "--ref": {
-        reader.readRequiredOptionValue(option);
-        throw new Error(
-          "skillset: change options are only supported with change commands"
-        );
-      }
-      case "--targets":
-      case "--include": {
-        reader.readRequiredOptionValue(option);
-        throw new Error("skillset: setup options are only supported with init");
-      }
-      case "--adopt": {
-        reader.readRequiredOptionValue(option);
-        throw new Error(
-          "skillset: --adopt is only supported with init"
-        );
-      }
-      case "--fix":
-      case "--ci": {
-        assertBooleanOption(option);
-        throw new Error(
-          "skillset: readiness flags are only supported with check"
-        );
-      }
-      case "--only":
-      case "--report": {
-        const value = reader.readRequiredOptionValue(option);
-        if (option.flag === "--only" && value !== "outputs") {
-          throw new Error("skillset: expected --only outputs");
-        }
-        throw new Error(
-          "skillset: readiness flags are only supported with check"
-        );
-      }
-      case "--since": {
-        reader.readRequiredOptionValue(option);
-        throw new Error(
-          "skillset: --since is only supported with check --ci or change commands"
-        );
-      }
-      case "--write": {
-        assertBooleanOption(option);
-        throw new Error(
-          "skillset: --write is only supported with check or dev"
-        );
-      }
-      case "--isolated": {
-        assertBooleanOption(option);
-        if (features) {
-          featureOption = true;
-          break;
-        }
-        throw new Error(
-          "skillset: --isolated is only supported with build, check --only outputs, or diff"
-        );
-      }
-      case "--use": {
-        const value = reader.readRequiredOptionValue(option);
-        if (value !== "source" && value !== "output") {
-          throw new Error("skillset: --use expects source or output");
-        }
-        if (features) {
-          featureOption = true;
-          break;
-        }
-        throw new Error("skillset: --use is only supported with reconcile");
-      }
-      case "--id":
-      case "--in":
-      case "--preset": {
-        reader.readRequiredOptionValue(option);
-        if (features) {
-          featureOption = true;
-          break;
-        }
-        throw new Error("skillset: new options are only supported with new");
-      }
-      default: {
-        throw new Error(`skillset: unknown option ${option.raw}`);
-      }
-    }
-  }
-
-  validateInspectionCrossFlags(cross);
-
-  if (features) {
-    if (
-      lookupField !== undefined ||
-      lookupTargets.length > 0 ||
-      lookupViews.length > 0 ||
-      featureOption ||
-      cross.isolated ||
-      cross.newSource ||
-      cross.reconcile ||
-      rootExplicit
-    ) {
-      throw new Error(
-        "skillset: expected lookup features to use only an optional feature id and --json"
-      );
-    }
-    return { kind: "features", value: { featureId, jsonOutput } };
-  }
-  if (rootExplicit) {
-    throw new Error("skillset: --root is not supported with lookup");
-  }
-  validateInspectionLateFlags(cross);
-  return {
-    kind: "query",
-    value: {
-      jsonOutput,
-      lookupAspects,
-      lookupField,
-      lookupSubject,
-      lookupTargets,
-      lookupViews,
-    },
-  };
-};
-
 interface InspectionOptions {
   readonly details: boolean;
   readonly jsonOutput: boolean;
@@ -377,8 +121,7 @@ const createInspectionCrossFlags = (): InspectionCrossFlags => ({
 const readInspectionCrossOption = (
   reader: CliArgReader,
   option: CliOptionToken,
-  flags: InspectionCrossFlags,
-  lookupOwned: boolean
+  flags: InspectionCrossFlags
 ): boolean => {
   switch (option.flag) {
     case "--runner":
@@ -441,7 +184,6 @@ const readInspectionCrossOption = (
       flags.jsonl = true;
       return true;
     case "--compat":
-      if (lookupOwned) return false;
       addLookupTargets([], reader.readOptionalOptionValues(option).join(","));
       flags.lookup = true;
       return true;
@@ -451,12 +193,10 @@ const readInspectionCrossOption = (
     case "--events":
     case "--examples":
     case "--schema":
-      if (lookupOwned) return false;
       assertBooleanOption(option);
       flags.lookup = true;
       return true;
     case "--field":
-      if (lookupOwned) return false;
       flags.lookupField = setLookupField(
         flags.lookupField,
         reader.readRequiredOptionValue(option)
@@ -652,7 +392,7 @@ const parseInspectionOptions = (
     if (option === undefined) {
       break;
     }
-    if (readInspectionCrossOption(reader, option, cross, false)) {
+    if (readInspectionCrossOption(reader, option, cross)) {
       continue;
     }
     switch (option.flag) {
@@ -730,9 +470,7 @@ const parseInspectionOptions = (
       }
       case "--adopt": {
         reader.readRequiredOptionValue(option);
-        throw new Error(
-          "skillset: --adopt is only supported with init"
-        );
+        throw new Error("skillset: --adopt is only supported with init");
       }
       case "--fix":
       case "--ci": {

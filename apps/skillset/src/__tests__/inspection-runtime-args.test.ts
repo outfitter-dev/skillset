@@ -5,9 +5,9 @@ import { parseHooksCommandRequest } from "../hooks-args";
 import {
   parseExplainCommandRequest,
   parseListCommandRequest,
-  parseLookupCommandRequest,
   parseStatusCommandRequest,
 } from "../inspect-args";
+import { parseLookupCommandRequest } from "../lookup-args";
 import { parseTestCommandRequest } from "../test-args";
 
 const CONTEXT = { cwd: "/workspace/repo" } as const;
@@ -73,7 +73,7 @@ describe("SET-304 inspection and runtime route parsers", () => {
     ).toMatchObject({ options: {} });
   });
 
-  test("inspection routes own roots, scopes, machine mode, and paths", () => {
+  test("list, status, and explain own roots, scopes, machine mode, and paths", () => {
     expect(
       parseListCommandRequest(
         ["list", "--root", "nested", "--scope", "plugins", "--json"],
@@ -106,67 +106,6 @@ describe("SET-304 inspection and runtime route parsers", () => {
       path: "plugins/example",
       rootPath: "/workspace/repo",
     });
-  });
-
-  test("lookup owns optional compatibility values and feature grammar", () => {
-    expect(
-      parseLookupCommandRequest([
-        "lookup",
-        "hooks",
-        "events",
-        "--compat",
-        "claude",
-        "codex,cursor",
-        "--compat=codex",
-        "--fields",
-        "--field",
-        "payload.command",
-        "--json",
-      ])
-    ).toEqual({
-      kind: "query",
-      value: {
-        jsonOutput: true,
-        lookupAspects: ["events"],
-        lookupField: "payload.command",
-        lookupSubject: "hooks",
-        lookupTargets: ["claude", "codex", "cursor"],
-        lookupViews: ["compat", "fields"],
-      },
-    });
-    expect(parseLookupCommandRequest(["lookup", "--compat"])).toEqual({
-      kind: "query",
-      value: {
-        jsonOutput: false,
-        lookupAspects: [],
-        lookupField: undefined,
-        lookupSubject: undefined,
-        lookupTargets: [],
-        lookupViews: ["compat"],
-      },
-    });
-    expect(
-      parseLookupCommandRequest([
-        "lookup",
-        "features",
-        "hooks.runtime-context",
-        "--json",
-      ])
-    ).toEqual({
-      kind: "features",
-      value: { featureId: "hooks.runtime-context", jsonOutput: true },
-    });
-    expect(
-      parseLookupCommandRequest([
-        "lookup",
-        "--scope",
-        "plugins",
-        "--updated",
-        "--yes",
-        "--name",
-        "ignored",
-      ])
-    ).toMatchObject({ kind: "query" });
   });
 
   test("test owns declared, ad hoc, retained, and hidden worker grammar", () => {
@@ -285,7 +224,10 @@ describe("SET-304 inspection and runtime route parsers", () => {
 
   test("preserves exceptional validation and diagnostic precedence", () => {
     expect(() =>
-      parseExplainCommandRequest(["explain", "README.md", "--target", "cursor"], CONTEXT)
+      parseExplainCommandRequest(
+        ["explain", "README.md", "--target", "cursor"],
+        CONTEXT
+      )
     ).toThrow("hook options are only supported with hooks print");
 
     const cases = [
@@ -293,28 +235,6 @@ describe("SET-304 inspection and runtime route parsers", () => {
         message: "skillset: status only supports --root and --json",
         run: () =>
           parseStatusCommandRequest(["status", "--scope", "plugins"], CONTEXT),
-      },
-      {
-        message:
-          "skillset: expected lookup features to use only an optional feature id and --json",
-        run: () =>
-          parseLookupCommandRequest(["lookup", "features", "id", "--fields"]),
-      },
-      {
-        message:
-          "skillset: expected lookup features to use only an optional feature id and --json",
-        run: () =>
-          parseLookupCommandRequest([
-            "lookup",
-            "features",
-            "id",
-            "--scope",
-            "plugins",
-          ]),
-      },
-      {
-        message: "skillset: --root is not supported with lookup",
-        run: () => parseLookupCommandRequest(["lookup", "--root", "nested"]),
       },
       {
         message:
