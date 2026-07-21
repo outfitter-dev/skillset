@@ -228,7 +228,7 @@ export const parseLookupCommandRequest = (
       case "--adopt": {
         reader.readRequiredOptionValue(option);
         throw new Error(
-          "skillset: --adopt and init acquisition --from are only supported with init"
+          "skillset: --adopt is only supported with init"
         );
       }
       case "--fix":
@@ -579,9 +579,7 @@ const validateInspectionCrossFlags = (flags: InspectionCrossFlags): void => {
     throw new Error("skillset: setup options are only supported with init");
   }
   if (flags.adopt) {
-    throw new Error(
-      "skillset: --adopt and init acquisition --from are only supported with init"
-    );
+    throw new Error("skillset: --adopt is only supported with init");
   }
   if (flags.readiness) {
     throw new Error("skillset: readiness flags are only supported with check");
@@ -733,7 +731,7 @@ const parseInspectionOptions = (
       case "--adopt": {
         reader.readRequiredOptionValue(option);
         throw new Error(
-          "skillset: --adopt and init acquisition --from are only supported with init"
+          "skillset: --adopt is only supported with init"
         );
       }
       case "--fix":

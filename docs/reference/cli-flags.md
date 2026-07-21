@@ -13,7 +13,7 @@ The [workflow-oriented CLI ADR](../adrs/drafts/20260712-workflow-oriented-cli.md
 - `--fix` exists only with `check --ci`; it performs the same narrow repair as local `check --write`.
 - `--use source|output` selects reconciliation direction. Reconcile still requires `--yes` to apply the selected plan non-interactively.
 - `--scope` selects source units or generated destination groups owned by the route. It never redirects workspace roots.
-- `--from` always identifies input origin. Init accepts a path or Git URL; import accepts a provider origin.
+- `--from` selects a provider origin for local import. Init uses its existing-directory positional argument and `--adopt`; public Git URL acquisition is unsupported.
 - `--json` always selects one finite versioned result document. `--jsonl` always selects a versioned event stream. Protocol commands may retain route-specific `--format` where the value changes protocol encoding.
 - Removed flags fail as unknown. There are no aliases for `--apply`, `--dist`, `--dry-run`, `--global`, `--layout`, `--source`, or `--watch`.
 
@@ -35,8 +35,8 @@ The entries below are the complete final public flag set. Positional arguments a
 | Route | Flags | Notes |
 | --- | --- | --- |
 | `create [name]` | `--root`, `--targets`, `--include`, `--yes`, `--json` | Creates a normalized named child under the current directory or `--root` parent. A TTY asks for missing name, parent, provider, and integration intent, previews the child path and Git initialization, then confirms with No as the default. |
-| `init [directory]` | `--root`, `--adopt`, `--targets`, `--include`, `--yes`, `--json` | Initializes an existing directory. `--adopt all` or repeated stable candidate ids import detected repo-local sources; external work remains under `import`. |
-| `import` | `--root`, `--from`, `--kind`, `--name`, `--json` | Repeated-use asset conversion; import itself remains explicit. |
+| `init [directory]` | `--root`, `--adopt`, `--targets`, `--include`, `--yes`, `--json` | Initializes an existing directory. `--adopt all` or repeated stable candidate ids import detected repo-local sources; `init --from` is unsupported. |
+| `import` | `--root`, `--from`, `--kind`, `--name`, `--json` | Repeated-use local asset conversion from a positional path or provider-default root; `--from` selects the provider origin, not an external path or Git URL. |
 | `new` | `--root`, `--id`, `--name`, `--in`, `--scope`, `--preset`, `--event`, `--command`, `--script`, `--attach`, `--provider`, `--yes`, `--json` | Creates skills, project agents, instructions, and schema-valid adaptive hooks. Hook events and compatible providers are registry-derived; attachment selectors resolve existing source units. Preview is the default and no build runs implicitly. |
 | `check` | `--root`, `--only`, `--write`, `--ci`, `--fix`, `--since`, `--report`, `--json` | `--fix` requires `--ci`; `--since` and `--report` are CI-only. |
 | `dev` | `--root`, `--write`, `--jsonl` | Watching is the command's default; `--watch` and `--apply` disappear. |
