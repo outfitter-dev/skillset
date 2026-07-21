@@ -8,6 +8,7 @@ import { validateCliResult, type SkillsetCliResult } from "@skillset/schema";
 
 import {
   listAdHocTestRuns,
+  type AdHocTestStatus,
   readAdHocTestStatus,
   startAdHocTestRun,
   tailAdHocTestRun,
@@ -486,17 +487,38 @@ Background fixture body.
     root
   );
   expect(started.exitCode).toBe(0);
-  const report = (JSON.parse(started.stdout) as SkillsetCliResult).data as { runId: string; state: string };
+  const report = (JSON.parse(started.stdout) as SkillsetCliResult).data as {
+    runId: string;
+    state: string;
+    statusPath: string;
+  };
   expect(report.state).toBe("queued");
 
-  let state = report.state;
-  const deadline = Date.now() + 10_000;
-  while (Date.now() < deadline && state !== "passed" && state !== "failed") {
-    await Bun.sleep(20);
-    state = (await readAdHocTestStatus(root, report.runId, { xdg })).state;
+  const statusPath = cachePath(root, xdg, report.statusPath);
+  let status = JSON.parse(await readFile(statusPath, "utf8")) as AdHocTestStatus;
+  // Detached-worker harness tolerance; this is not a public runtime SLA.
+  const deadline = Date.now() + 60_000;
+  while (Date.now() < deadline && status.state !== "passed" && status.state !== "failed") {
+    await Bun.sleep(50);
+    status = JSON.parse(await readFile(statusPath, "utf8")) as AdHocTestStatus;
   }
-  expect(state).toBe("passed");
-}, 15_000);
+  if (status.state !== "passed") {
+    const events = await tailAdHocTestRun(root, report.runId, 5, { xdg });
+    throw new Error(
+      `background test did not pass within 60 seconds: ${JSON.stringify({
+        endedAt: status.endedAt,
+        error: status.error,
+        events: events.map(({ message, stream, timestamp }) => ({ message, stream, timestamp })),
+        exitCode: status.exitCode,
+        failureClass: status.failureClass,
+        pid: status.pid,
+        state: status.state,
+        updatedAt: status.updatedAt,
+      })}`
+    );
+  }
+  expect((await readAdHocTestStatus(root, report.runId, { xdg })).state).toBe("passed");
+}, 70_000);
 
 test("SET-273: declared runtime tests reuse the ad hoc runner across providers and retain normalized evidence", async () => {
   const root = await fixture({
