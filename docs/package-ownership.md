@@ -85,6 +85,56 @@ the caller is still a workspace-private CLI implementation detail.
 `bun run package-ownership:guard` now scans app source files and fails if a new
 app-level package-internal facade appears.
 
+## Core Internal Import Re-baseline (2026-07-21)
+
+SET-342 re-baselines direct `@skillset/core/internal/*` imports after the Core
+test-evaluation and source-readiness ownership moves. The inventory covers
+committed production TypeScript under `apps/skillset/src`, excludes `__tests__`
+directories and colocated `*.test.ts` files, and counts one TypeScript AST import
+declaration regardless of line count or imported binding count. Run it against a
+committed ref without checking out that ref:
+
+```bash
+bun scripts/core-internal-import-inventory.ts --ref 46e59ddda
+bun scripts/core-internal-import-inventory.ts --ref "$(git log --format=%H --grep='^refactor(core): extract source readiness operation' -1)"
+```
+
+The counts are dated evidence, not a threshold enforced against future changes:
+
+| Ref | Importing files | Import declarations | Distinct subpaths |
+| --- | ---: | ---: | ---: |
+| `origin/main` at `46e59ddda` | 62 | 147 | 17 |
+| SET-334 reachable commit | 62 | 145 | 16 |
+
+SET-334 replaced CI's raw `output-safety` import and one `resolver` import with
+the root `checkSkillsetSourceReadiness` operation. That stable, policy-neutral
+operation and result contract is the one justified public promotion from this
+re-baseline. The remaining SET-334-base imports are classified below; counts are
+shown as import declarations and distinct importing files.
+
+| Internal subpath | Declarations / files | Owner and consumer need | Disposition |
+| --- | ---: | --- | --- |
+| `adaptive-hook-authoring` | 2 / 2 | Core owns hook authoring mechanics used by the app's new-hook flows. | The required operations already have intentional root exports; this count does not justify another API. |
+| `authoring` | 5 / 5 | Core owns authoring analysis; app inspection, reconciliation, provider maintenance, CI, and recovery consume a mix of operations and private suggestion details. | Keep the private suggestion shapes internal; do not promote the module wholesale. |
+| `change-ledger` | 4 / 4 | App change commands consume Core's workspace-private ledger records. | Keep internal until change and release storage has a stable library operation. |
+| `config` | 11 / 10 | Setup, import, adoption, change, and try flows consume raw config readers, validators, and target helpers. | Canonical target helpers already have root exports; raw config parsing stays private or moves through `@skillset/schema` by contract. |
+| `path` | 15 / 15 | App authoring and recovery flows consume compiler path ordering, containment, and slug safety. | Keep private; no broad path utility API is warranted. |
+| `plugin-output` | 1 / 1 | The retained try workflow needs the compiler's private plugin destination calculation. | Keep internal as output-layout implementation detail. |
+| `preprocess` | 1 / 1 | Change status inspects compiler preprocessing dependencies. | Keep internal until exposed through a stable change-status operation. |
+| `release-state` | 3 / 3 | Adoption, change status, and release flows read or write workspace release state. | Keep internal while storage and workflow policy remain coupled. |
+| `resolver` | 10 / 10 | Adoption, change, development, import, new-source, release, and try flows still consume raw graph loading or source discovery. | Promote only future operation-shaped contracts with named library consumers; do not expose the raw resolver. |
+| `source-unit-selector` | 14 / 14 | Change, release, setup, import, and source commands share private source-unit identities. | Keep internal while selector identity remains tied to workspace workflows. |
+| `structured-output` | 3 / 3 | Retained runs, tests, and try use validated serialization inside app presentation adapters. | Keep internal; CLI serialization use alone is not a public Core contract. |
+| `targets` | 2 / 2 | New-hook interactive flows enumerate canonical targets. | `targetNames` is already a root API; these import sites do not require a new export. |
+| `test-evaluation` | 2 / 2 | SET-333's test runner and retained-runtime adapter consume the private Core evaluation seam. | Keep internal; process, retention, reporting, and CLI policy remain app-owned. |
+| `types` | 61 / 59 | App commands share a mixture of stable option/diagnostic types and private graph, source, and release models. | Use existing root types where appropriate on future touches; never promote this mixed module wholesale. |
+| `versioning` | 2 / 2 | Adoption and release workflows consume private version derivation. | Keep internal until a stable version operation has a non-CLI consumer. |
+| `yaml` | 9 / 9 | Import, setup, change, test, and Changesets flows parse or serialize workspace-owned documents. | Keep private; structural source contracts belong in `@skillset/schema`, not a general Core YAML API. |
+
+No further root promotion is warranted. Imports whose symbols already exist at
+the package root are ordinary routing hygiene, not evidence for expanding the
+public surface; broad import normalization is outside this closeout.
+
 ## Large Ownership Anchors
 
 Do not split large files only because they are large. Use ownership and
