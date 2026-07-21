@@ -35,14 +35,14 @@ Project-level provider source uses explicit provider directories:
 | `<source-root>/plugins/<plugin>/_claude/**` | Claude plugin bundle | n/a | n/a | `target_native` / `implemented` | Mirrors only when Claude plugin output is active. |
 | `<source-root>/plugins/<plugin>/_codex/**` | n/a | Codex plugin bundle | n/a | `target_native` / `implemented` | Mirrors only when Codex plugin output is active; Codex plugin `.rules` remains unsupported. |
 | `<source-root>/plugins/<plugin>/_cursor/**` | n/a | n/a | Cursor plugin bundle | `target_native` / `implemented` | Mirrors only when Cursor plugin output is active. |
-| `<source-root>/rules/**/*.md` | `.claude/rules/**/*.md` | `AGENTS.md` | n/a | `portable` / `implemented` | Durable repo guidance; not a provider source. |
+| `<source-root>/rules/**/*.md` | `.claude/rules/**/*.md` | `AGENTS.md` | `.cursor/rules/**/*.mdc` | `portable` / `implemented` | Durable repo guidance; not a provider source. |
 | `.codex/AGENTS.md` default guidance | n/a | n/a | n/a | `unsupported` | Codex project guidance belongs in `AGENTS.md` files at repo/scoped directories. |
 
 ## Target Rendering
 
 Provider source should mirror only into the matching target root. It must not leak into another provider, and confirmed builds must back up unmanaged target-file collisions before replacing them. Project provider-source files are tracked as file-level workspace-managed output in the root `skillset.lock`; `skillset build` must not claim or delete the whole `.claude/`, `.codex/`, or `.cursor/` directory. Known structured files should be validated after preprocessing where the target requires a schema. Unknown files can be opaque pass-through only when path safety, ownership, and lock provenance are clear.
 
-Codex `.rules` files are execution policy for shell-command decisions. They are not `<source-root>/rules` and must not receive prose instruction rendering. The correct portable instruction path remains `<source-root>/rules/**/*.md` to Claude `.claude/rules/**/*.md` and Codex `AGENTS.md`. Codex `.rules` pass-through is accepted only from `<source-root>/_codex/rules/**/*.rules`; project `.rules` elsewhere and all Codex plugin `.rules` fail loudly.
+Codex `.rules` files are execution policy for shell-command decisions. They are not `<source-root>/rules` and must not receive prose instruction rendering. The correct portable instruction path remains `<source-root>/rules/**/*.md` to Claude `.claude/rules/**/*.md`, Codex `AGENTS.md`, and Cursor `.cursor/rules/**/*.mdc`. Codex `.rules` pass-through is accepted only from `<source-root>/_codex/rules/**/*.rules`; project `.rules` elsewhere and all Codex plugin `.rules` fail loudly.
 
 Provider source Markdown may carry source frontmatter for preprocessing, but it may not carry `claude`, `codex`, `cursor`, or `targets` overrides because the path already scopes the target. Known text and structured files use the SET-22 preprocessing and validation boundary; unknown and binary files copy byte-for-byte.
 
