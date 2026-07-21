@@ -139,6 +139,22 @@ Global Skillset state uses Skillset-owned XDG directories, never provider runtim
 
 The managed known-Skillsets index lives at `$XDG_CONFIG_HOME/skillset/skillsets.json`. It records local checkout paths and normalized repo identities, such as `github:owner/repo`, for marketplace repo resolution convenience. It is machine-local config state, not committed source truth; CI and portable marketplace verification must still resolve from committed marketplace source and remote refs.
 
+The draft global-workspace contract reserves
+`$XDG_DATA_HOME/skillset/source/` for a root `skillset.yaml` and the normal flat
+`.skillset/` source tree, `$XDG_DATA_HOME/skillset/build/` for generated
+projection, `$XDG_CONFIG_HOME/skillset/config.yaml` for Skillset preferences,
+and `$XDG_STATE_HOME/skillset/activations.json` for future provider-specific
+activation ownership. These paths are not implemented as a public user-scope
+workflow: current commands remain repo-local by default, honor only their
+existing explicit root selection, and never fall back to a global workspace.
+ADR-0008 historically proposed `~/.skillset/src`; its nested `.skillset/src`
+workspace topology is retired and rejected by current source loading. The later
+`~/.skillset/source` default belongs only to an internal setup API. Neither path
+is canonical, auto-discovered, or migrated. Future install/sync work must be
+preview-first, require `--yes`, refuse collisions or tampered ledger entries,
+reverse only Skillset-owned activations, and never edit provider settings or
+trust. See the [global/XDG draft ADR](adrs/drafts/20260604-global-xdg-managed-installs-and-sync.md).
+
 Per-repo global cache buckets live directly under `$XDG_CACHE_HOME/skillset/<repo-key>/`; Skillset does not add a default `repos/` layer. Repo keys resolve in this order:
 
 1. `workspace.cacheKey` from the workspace manifest, when a repo intentionally needs a stable override.
