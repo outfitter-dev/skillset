@@ -4,7 +4,7 @@ import { mkdtemp, readdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { checkClonePurity, compareTrees, parseExternalManifest, renderExternalManifest, renderRunReportMarkdown, runExternalRepo } from '../external';
+import { checkClonePurity, compareTrees, parseExternalManifest, renderExternalManifest, renderRunReportMarkdown, runExternalRepo, writeExternalRunReport } from '../external';
 import type { ExternalRepoEntry } from '../external';
 import { gitSafeEnv } from '../../../apps/skillset/src/git-env';
 
@@ -243,6 +243,40 @@ test("runExternalRepo fails the run when no import candidates are detected", asy
   expect(markdown).toContain("- result: fail");
   expect(markdown).toContain("No adoptable surfaces recognized.");
   expect(markdown).toContain("No imported units to compare.");
+});
+
+test("SET-378: runExternalRepo preserves reports after a graph-load build failure", async () => {
+  const clone = await gitFixture({
+    "AGENTS.md": "---\ndialect: 1\n---\n\nImported instructions.\n",
+  });
+
+  const report = await runExternalRepo("invalid-instructions", clone, ["claude"]);
+
+  expect(report.ok).toBe(false);
+  expect(report.stages).toContainEqual(
+    expect.objectContaining({
+      detail: expect.stringContaining("dialect must be claude"),
+      ok: false,
+      stage: "build",
+    })
+  );
+  expect(report.stages).toContainEqual(expect.objectContaining({ ok: true, stage: "purity" }));
+  expect(report.roundTrips).toEqual([]);
+
+  const reportDir = await mkdtemp(join(tmpdir(), "skillset-external-report-"));
+  const entry = { ref: SHA, repo: "https://github.com/example/invalid" };
+  await writeExternalRunReport(reportDir, report, entry);
+
+  const markdown = await readFile(join(reportDir, "report.md"), "utf8");
+  expect(markdown).toContain("- result: fail");
+  expect(markdown).toContain("- FAIL build:");
+  expect(markdown).toContain("dialect must be claude");
+  const json = JSON.parse(await readFile(join(reportDir, "report.json"), "utf8")) as {
+    readonly ok: boolean;
+    readonly roundTrips: readonly unknown[];
+  };
+  expect(json.ok).toBe(false);
+  expect(json.roundTrips).toEqual([]);
 });
 
 test("runExternalRepo reports competing provider plugins before import", async () => {

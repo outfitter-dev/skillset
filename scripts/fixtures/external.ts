@@ -392,6 +392,12 @@ export async function runExternalRepo(
     stages.push({ detail: errorMessage(error), ok: false, stage: "purity" });
   }
 
+  // A failed isolated build already records the graph-load error. Retrying the
+  // load here would prevent the harness from returning its failed report.
+  if (adopt.buildError !== undefined) {
+    return { name, ok: false, roundTrips, stages, survey };
+  }
+
   const graph = await loadBuildGraph(clonePath);
   for (const item of imported) {
     for (const target of targets) {
@@ -497,6 +503,19 @@ export function renderRunReportMarkdown(
     appendCappedList(lines, "Generated-only", comparison.generatedOnly);
   }
   return `${lines.join("\n").trimEnd()}\n`;
+}
+
+export async function writeExternalRunReport(
+  reportDir: string,
+  report: ExternalRunReport,
+  entry: Pick<ExternalRepoEntry, "ref" | "repo">
+): Promise<void> {
+  await mkdir(reportDir, { recursive: true });
+  await writeFile(join(reportDir, "report.md"), renderRunReportMarkdown(report, entry));
+  await writeFile(
+    join(reportDir, "report.json"),
+    `${JSON.stringify(report, null, 2)}\n`
+  );
 }
 
 function appendCappedList(
@@ -690,13 +709,7 @@ async function main(): Promise<void> {
       reportCacheContext,
       join(REPORTS_DIR, entry.name)
     );
-    await mkdir(reportDir, { recursive: true });
-    const markdown = renderRunReportMarkdown(report, entry);
-    await writeFile(join(reportDir, "report.md"), markdown);
-    await writeFile(
-      join(reportDir, "report.json"),
-      `${JSON.stringify(report, null, 2)}\n`
-    );
+    await writeExternalRunReport(reportDir, report, entry);
     for (const stage of report.stages) {
       console.log(
         `  ${stage.ok ? "ok" : "FAIL"} ${stage.stage}: ${stage.detail.split("\n")[0]}`
