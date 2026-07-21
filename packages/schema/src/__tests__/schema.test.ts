@@ -399,6 +399,18 @@ describe("@skillset/schema contracts", () => {
       path: "$.compile",
     });
     expect(validatePluginConfig({ bin: true, hooks: { Stop: ["shell-policy"] }, mcp: true, skillset: { name: "demo" } }).diagnostics).toEqual([]);
+    for (const key of ["bin", "mcp"] as const) {
+      for (const value of [true, false, { source: "repo:features/demo" }] as const) {
+        expect(validatePluginConfig({ [key]: value }).diagnostics).toEqual([]);
+      }
+      for (const value of ["invalid", 1, [], null] as const) {
+        expect(validatePluginConfig({ [key]: value }).diagnostics).toContainEqual({
+          code: `schema/plugin-config/${key}`,
+          message: `$.${key} must be true, false, or an object`,
+          path: `$.${key}`,
+        });
+      }
+    }
     expect(validatePluginConfig({ compile: {} }).diagnostics).toContainEqual({
       code: "schema/plugin-config/key",
       message: "unsupported key compile",
