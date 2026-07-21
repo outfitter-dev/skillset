@@ -11,7 +11,7 @@ Draft map: `docs/adrs/drafts/decision-map.json`; numbered map: `docs/adrs/decisi
 - [First-Class Sets](20260604-first-class-sets.md)
   - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md), [ADR-0005: Feature Reference and Schema Registry](../0005-feature-reference-and-schema-registry.md), [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md), [Reviewed Settings Suggestions](20260604-reviewed-settings-suggestions.md)
 - [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md)
-  - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md)
+  - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md)
 - [Model and Reasoning Alias Profiles](20260604-model-and-reasoning-alias-profiles.md)
   - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md), [ADR-0005: Feature Reference and Schema Registry](../0005-feature-reference-and-schema-registry.md), [ADR-0006: Agent / Subagent Source Model](../0006-agent-source-model.md)
 - [Reviewed Settings Suggestions](20260604-reviewed-settings-suggestions.md)

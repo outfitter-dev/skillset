@@ -34,9 +34,9 @@
     },
     {
       "amended_by": [],
-      "amends": [],
+      "amends": ["8"],
       "created": "2026-06-04",
-      "depends_on": ["0"],
+      "depends_on": ["0", "1"],
       "inbound": [
         {
           "context": "- [Global / XDG Managed Installs and Sync](drafts/20260604-global-xdg-managed-installs-and-sync.md) - related non-goal for install and sync workflows.",
@@ -57,6 +57,11 @@
           "context": "- [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md) - establishes Skillset-owned XDG state and the no-activation boundary.",
           "from": "20260710",
           "fromPath": "docs/adrs/drafts/20260710-catalog-owned-marketplace-refresh-pull-requests.md"
+        },
+        {
+          "context": "provider settings or trust. See the [global/XDG draft ADR](adrs/drafts/20260604-global-xdg-managed-installs-and-sync.md).",
+          "from": "layout",
+          "fromPath": "docs/layout.md"
         }
       ],
       "number": null,
@@ -66,7 +71,7 @@
       "status": "draft",
       "superseded_by": null,
       "title": "Global / XDG Managed Installs and Sync",
-      "updated": "2026-06-04"
+      "updated": "2026-07-21"
     },
     {
       "amended_by": [],

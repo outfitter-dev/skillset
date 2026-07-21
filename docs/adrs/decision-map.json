@@ -188,6 +188,11 @@
           "fromPath": "docs/adrs/drafts/20260604-first-class-sets.md"
         },
         {
+          "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - explicit root selection and provider compile policy remain intact.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-global-xdg-managed-installs-and-sync.md"
+        },
+        {
           "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - provider selection and target-specific config boundaries.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-model-and-reasoning-alias-profiles.md"
@@ -447,6 +452,11 @@
           "context": "- [Unified Source Layout](0008-unified-source-layout.md) - earlier",
           "from": "0009",
           "fromPath": "docs/adrs/0009-skillset-workspace-layout.md"
+        },
+        {
+          "context": "- [ADR-0008: Unified Source Layout](../0008-unified-source-layout.md#repo-user-and-global-stay-separate) - this draft prospectively amends its unresolved user/global location examples while preserving",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-global-xdg-managed-installs-and-sync.md"
         }
       ],
       "number": "0008",
