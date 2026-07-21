@@ -22,6 +22,8 @@ skillset check --ci --report skillset-ci-report.md  # PR-comment/job-summary rep
 skillset init --include ci --yes            # scaffold .github/workflows/skillset-ci.yml
 ```
 
+Library consumers can call `checkSkillsetSourceReadiness(root, options)` from `@skillset/core` to obtain the source-readiness portion of this workflow without Git or CLI policy. The operation is read-only by default and returns structured graph, lint, and managed-output checks together with deterministic stale, remaining, and fixed paths. Passing `write: "outputs"` explicitly requests a neutral output rebuild after Core reloads and rechecks those facts. The CLI remains responsible for change coverage, Changesets, provider-format migrations, reconciliation policy, recovery guidance, reports, and exit status.
+
 This repo's `bun run check` remains the default local and hosted CI aggregate. It runs the tracked test corpus, which includes the fast deterministic projection and adapter conformance suites. Use `bun run conformance:fast` only when you want a focused rerun of those suites without the rest of the tests. `bun run conformance:external` remains an opt-in slower lane and must not be folded into `bun run check` or scaffolded CI while it needs network access or large cloned repos.
 
 Source-driven generated-output drift is the only mechanically repairable problem. With `--fix`, CI rebuilds only when the recovery guidance classifies generated output as the sole blocking condition and managed outputs still match their recorded hashes. Target-side edits are never overwritten, and drift identified as a provider-format migration remains the responsibility of `skillset update`. Lint issues, change-entry failures, unresolved baselines, package Changesets issues, and build errors stay report-only.
@@ -64,4 +66,4 @@ The Markdown report starts with the `<!-- skillset-ci-report -->` marker so work
 
 ## Evidence
 
-See `src/ci.ts`, `src/__tests__/ci.test.ts`, and this repo's own [.github/workflows/ci.yml](../../.github/workflows/ci.yml), which dogfoods the scaffolded workflow shape against the local compiler.
+See `packages/core/src/source-readiness.ts`, `packages/core/src/__tests__/source-readiness.test.ts`, `apps/skillset/src/ci.ts`, `apps/skillset/src/__tests__/ci.test.ts`, and this repo's own [.github/workflows/ci.yml](../../.github/workflows/ci.yml), which dogfoods the scaffolded workflow shape against the local compiler.

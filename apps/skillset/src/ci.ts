@@ -1,5 +1,4 @@
 import { changeCheck, type ChangeCheckIssue, type ChangeCheckReport } from "./change-entries";
-import { join } from "node:path";
 import {
   defaultChangesetBaseline,
   evaluateChangesetGuard,
@@ -7,19 +6,11 @@ import {
   type ChangedFile,
 } from "./changeset-awareness";
 import {
-  buildSkillset,
-  createOperationalPathContext,
-  diffSkillsetResult,
-  ISOLATED_OUT_ROOT,
-  logicalOperationalPath,
-  resolveOperationalPath,
+  checkSkillsetSourceReadiness,
   type SkillsetDiagnostic,
   type SkillsetDiff,
 } from "@skillset/core";
 import type { SourceSuggestionReport } from "@skillset/core/internal/authoring";
-import { inspectSkillset } from "@skillset/core";
-import { readManagedOutputState } from "@skillset/core/internal/output-safety";
-import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import type { LintIssue, SkillsetOptions } from "@skillset/core/internal/types";
 import { runProviderFormatUpdates, type ProviderFormatUpdateReport } from "./provider-format-updates";
 import { reconcileManagedPath } from "./reconcile";
@@ -70,8 +61,6 @@ export interface CiReport {
   readonly warnings: readonly string[];
 }
 
-const EMPTY_DRIFT: SkillsetDiff = { added: [], changed: [], missing: [], removed: [] };
-
 /**
  * Aggregate the checks a continuous-integration run needs: lint diagnostics,
  * change coverage, and generated-output drift. Source-driven drift is the only
@@ -84,36 +73,13 @@ const EMPTY_DRIFT: SkillsetDiff = { added: [], changed: [], missing: [], removed
 export async function ciSkillset(rootPath: string, options: CiOptions = {}): Promise<CiReport> {
   const { ci, fix, since, ...buildOptions } = options;
 
-  let lintIssues: readonly LintIssue[] = [];
-  let warnings: readonly string[] = [];
-  let outputEditedPaths: readonly string[] = [];
-  let managedOutputPaths: ReadonlySet<string> = new Set();
-  let buildError: string | undefined;
-  try {
-    const graph = await loadBuildGraph(rootPath, buildOptions);
-    lintIssues = (await inspectSkillset(graph)).issues;
-    warnings = graph.warnings;
-    const outPath = buildOptions.isolated === true
-      ? (path: string) => join(ISOLATED_OUT_ROOT, path)
-      : (path: string) => path;
-    const pathContext = createOperationalPathContext(rootPath, {
-      ...(graph.root.workspace.cacheKey === undefined ? {} : { workspaceCacheKey: graph.root.workspace.cacheKey }),
-      ...(buildOptions.xdg?.env === undefined ? {} : { env: buildOptions.xdg.env }),
-      ...(buildOptions.xdg?.homeDir === undefined ? {} : { homeDir: buildOptions.xdg.homeDir }),
-    });
-    const managed = await readManagedOutputState(
-      rootPath,
-      graph.outputRoots,
-      true,
-      outPath,
-      (path) => resolveOperationalPath(pathContext, path),
-      (path) => logicalOperationalPath(pathContext, path)
-    );
-    managedOutputPaths = managed.paths;
-    outputEditedPaths = [...managed.editedPaths].sort();
-  } catch (error) {
-    buildError = errorMessage(error);
-  }
+  const sourceReadiness = await checkSkillsetSourceReadiness(rootPath, buildOptions);
+  const lintIssues = sourceReadiness.data.checks.lint.issues;
+  const warnings = sourceReadiness.data.warnings;
+  let outputEditedPaths =
+    sourceReadiness.data.checks.managedOutputs.failures;
+  const managedOutputPaths = new Set(sourceReadiness.data.managedOutputPaths);
+  let buildError = sourceReadinessError(sourceReadiness.diagnostics);
 
   let changeIssues: readonly ChangeCheckIssue[] = [];
   let changeReport: ChangeCheckReport | undefined;
@@ -146,19 +112,8 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
     }
   }
 
-  let drift: SkillsetDiff = EMPTY_DRIFT;
-  let outputDiagnostics: readonly SkillsetDiagnostic[] = [];
-  if (buildError === undefined) {
-    try {
-      const result = await diffSkillsetResult(rootPath, buildOptions);
-      drift = result.data;
-      outputDiagnostics = result.diagnostics;
-    } catch (error) {
-      buildError = errorMessage(error);
-    }
-  }
-  const driftPaths = new Set([...drift.added, ...drift.changed, ...drift.missing, ...drift.removed]);
-  outputEditedPaths = outputEditedPaths.filter((path) => driftPaths.has(path));
+  let drift = sourceReadiness.data.drift;
+  let outputDiagnostics = sourceReadiness.data.outputDiagnostics;
 
   const changeErrors = changeIssues.filter((issue) => issue.severity === "error");
   const lintErrors = lintIssues.filter((issue) => issue.severity === "error");
@@ -243,17 +198,15 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
   // that --fix will write when the operation itself would refuse.
   let fixedPaths: readonly string[] = [];
   if (fix === true && mechanicalFixEligibility(recoveryInput()).eligible) {
-    const staleBefore = [...drift.added, ...drift.changed, ...drift.missing, ...drift.removed];
-    try {
-      await buildSkillset(rootPath, buildOptions);
-      const result = await diffSkillsetResult(rootPath, buildOptions);
-      drift = result.data;
-      outputDiagnostics = result.diagnostics;
-      const remaining = new Set([...drift.added, ...drift.changed, ...drift.missing, ...drift.removed]);
-      fixedPaths = staleBefore.filter((path) => !remaining.has(path));
-    } catch (error) {
-      buildError = errorMessage(error);
-    }
+    const rebuilt = await checkSkillsetSourceReadiness(rootPath, {
+      ...buildOptions,
+      write: "outputs",
+    });
+    buildError = sourceReadinessError(rebuilt.diagnostics);
+    drift = rebuilt.data.drift;
+    outputDiagnostics = rebuilt.data.outputDiagnostics;
+    outputEditedPaths = rebuilt.data.checks.managedOutputs.failures;
+    fixedPaths = rebuilt.data.fixedPaths;
   }
 
   const recovery = classifyRecoveryGuidance(recoveryInput());
@@ -510,6 +463,16 @@ async function sourceSuggestionsForDrift(
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function sourceReadinessError(
+  diagnostics: readonly SkillsetDiagnostic[]
+): string | undefined {
+  return diagnostics.find(
+    (diagnostic) =>
+      diagnostic.severity === "error" &&
+      diagnostic.code.startsWith("source-readiness-")
+  )?.message;
 }
 
 export const CI_WORKFLOW_PATH = ".github/workflows/skillset-ci.yml";

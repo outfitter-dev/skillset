@@ -201,6 +201,11 @@ export {
   lintSkillset,
 } from "./lint";
 export {
+  checkSkillsetSourceReadiness,
+  type CheckSkillsetSourceReadinessOptions,
+  type SkillsetSourceReadinessData,
+} from "./source-readiness";
+export {
   lookupSkillsetReference,
   type LookupCompatibility,
   type LookupDiagnostic,
@@ -284,6 +289,7 @@ export {
 export type {
   AdaptiveHookScope,
   AdaptiveHookScopeKind,
+  CheckResult,
   JsonValue,
   LintIssue,
   LintResult,
