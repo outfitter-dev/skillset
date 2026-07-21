@@ -28,6 +28,22 @@ describe("@skillset/toolkit CLI", () => {
     expect(result.stdout).toBe(`${JSON.stringify(report, null, 2)}\n`);
   });
 
+  test("reads the Cursor conversation id from hook stdin before the environment fallback", async () => {
+    const result = await runToolkit(
+      ["runtime", "context", "--event", "afterAgentResponse", "--fields", "session.id"],
+      {
+        CURSOR_SESSION_ID: "cursor-env-fallback",
+        SKILLSET_PROVIDER: "cursor",
+      },
+      JSON.stringify({ conversation_id: "cursor-hook-conversation" })
+    );
+
+    expect(result).toMatchObject({ exitCode: 0, stderr: "" });
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      session: { id: "cursor-hook-conversation" },
+    });
+  });
+
   test("prints eval-safe env output for empty, spaced, quoted, and missing values", async () => {
     const command = [
       "eval \"$(",
@@ -89,15 +105,22 @@ describe("@skillset/toolkit CLI", () => {
 
 async function runToolkit(
   args: readonly string[],
-  env: Record<string, string>
+  env: Record<string, string>,
+  stdinText?: string
 ): Promise<{ readonly exitCode: number; readonly stderr: string; readonly stdout: string }> {
   const proc = Bun.spawn({
     cmd: [process.execPath, cliPath, ...args],
     cwd: repoRoot,
     env: testEnv(env),
+    stdin: stdinText === undefined ? "ignore" : "pipe",
     stderr: "pipe",
     stdout: "pipe",
   });
+  if (stdinText !== undefined) {
+    if (proc.stdin === undefined) throw new Error("toolkit CLI stdin pipe was not created");
+    proc.stdin.write(stdinText);
+    proc.stdin.end();
+  }
   const [stdout, stderr, exitCode] = await Promise.all([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),

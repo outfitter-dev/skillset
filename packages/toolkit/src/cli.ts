@@ -9,6 +9,7 @@ import {
 
 export interface ToolkitCliIO {
   readonly stderr?: Pick<typeof process.stderr, "write">;
+  readonly stdinText?: string;
   readonly stdout?: Pick<typeof process.stdout, "write">;
 }
 
@@ -33,7 +34,15 @@ export async function runToolkitCli(rawArgs: readonly string[] = process.argv.sl
       return 0;
     }
     const options = parseRuntimeContextArgs(rawArgs);
-    stdout.write(await renderRuntimeContext(options));
+    const stdinText =
+      io.stdinText ??
+      (isCursorHookProcess() && !process.stdin.isTTY
+        ? await Bun.stdin.text()
+        : undefined);
+    stdout.write(await renderRuntimeContext({
+      ...options,
+      ...(stdinText === undefined ? {} : { stdinText }),
+    }));
     return 0;
   } catch (error) {
     stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
@@ -91,6 +100,13 @@ function readFlagValue(args: readonly string[], index: number, flag: string): st
   const value = args[index + 1];
   if (value === undefined || value.startsWith("--")) throw new Error(`skillset-toolkit: ${flag} requires a value`);
   return value;
+}
+
+function isCursorHookProcess(env: Record<string, string | undefined> = process.env): boolean {
+  if (env.SKILLSET_PROVIDER !== undefined) {
+    return env.SKILLSET_PROVIDER === "cursor";
+  }
+  return env.CURSOR_SESSION_ID !== undefined;
 }
 
 if (import.meta.main) {

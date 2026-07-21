@@ -115,7 +115,7 @@ For `context.strategy: toolkit`, generated hooks call the installable helper:
 skillset-toolkit runtime context --event <event> --format env --fields <field,...>
 ```
 
-The helper prints shell `export` statements for the requested `SKILLSET_*` values and preserves provider-native environment access for the hook command. It does not erase target-native variables such as `CLAUDE_SESSION_ID`, `CODEX_SESSION_ID`, or `CURSOR_SESSION_ID`; scripts that need provider-specific data can still read the raw environment deliberately.
+The helper prints shell `export` statements for the requested `SKILLSET_*` values and preserves provider-native environment access for the hook command. It does not erase target-native variables such as `CLAUDE_SESSION_ID`, `CODEX_SESSION_ID`, or `CURSOR_SESSION_ID`; scripts that need provider-specific data can still read the raw environment deliberately. For Cursor hooks, `session.id` resolves in deterministic order from an explicit `SKILLSET_SESSION_ID`, then the JSON stdin `conversation_id`, then `CURSOR_SESSION_ID` as a compatibility fallback. Claude and Codex continue to use their provider session environment variables after an explicit Skillset override.
 
 Generated hooks and out-of-repo scripts should use the `skillset-toolkit` CLI because it is shipped by the published `skillset` package. Repo-local tools that already depend on the internal workspace package can import the typed runtime surface directly:
 

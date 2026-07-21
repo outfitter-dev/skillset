@@ -907,7 +907,7 @@ hooks:
       hooks: {
         stop: [{
           hooks: [{
-            command: 'eval "$(SKILLSET_PROVIDER=cursor SKILLSET_HOOK_EVENT=Stop skillset-toolkit runtime context --event Stop --format env --fields \'provider,hook.event,session.id\')" && printf \'%s|%s|\' "$SKILLSET_PROVIDER" "$SKILLSET_SESSION_ID"; cat',
+            command: 'skillset_hook_payload="$(mktemp)" && trap \'rm -f "$skillset_hook_payload"\' 0 && cat > "$skillset_hook_payload" && eval "$(SKILLSET_PROVIDER=cursor SKILLSET_HOOK_EVENT=Stop skillset-toolkit runtime context --event Stop --format env --fields \'provider,hook.event,session.id\' < "$skillset_hook_payload")" && cat "$skillset_hook_payload" | ( printf \'%s|%s|\' "$SKILLSET_PROVIDER" "$SKILLSET_SESSION_ID"; cat )',
             type: "command",
           }],
         }],
@@ -915,19 +915,33 @@ hooks:
     });
 
     const command = ((claudeHooks.hooks as JsonRecord).Stop as readonly JsonRecord[])[0]?.hooks as readonly JsonRecord[];
-    expect(await runGeneratedHookCommand(String(command[0]?.command))).toEqual({
+    const codexCommand = ((codexHooks.hooks as JsonRecord).Stop as readonly JsonRecord[])[0]?.hooks as readonly JsonRecord[];
+    const cursorCommand = ((cursorHooks.hooks as JsonRecord).stop as readonly JsonRecord[])[0]?.hooks as readonly JsonRecord[];
+    const cursorPayload = '{"conversation_id":"cursor-hook-conversation","text":"payload"}\n';
+    const [claudeResult, codexResult, cursorResult] = await Promise.all([
+      runGeneratedHookCommand(String(command[0]?.command)),
+      runGeneratedHookCommand(String(codexCommand[0]?.command), {
+        CURSOR_SESSION_ID: "contaminated-cursor-session",
+      }),
+      runGeneratedHookCommand(String(cursorCommand[0]?.command), {
+        CLAUDE_SESSION_ID: "wrong-claude-session",
+        CURSOR_SESSION_ID: "cursor-session",
+      }, cursorPayload),
+    ]);
+    expect(claudeResult).toEqual({
       exitCode: 0,
       stderr: "",
       stdout: "claude||payload",
     });
-    const cursorCommand = ((cursorHooks.hooks as JsonRecord).stop as readonly JsonRecord[])[0]?.hooks as readonly JsonRecord[];
-    expect(await runGeneratedHookCommand(String(cursorCommand[0]?.command), {
-      CLAUDE_SESSION_ID: "wrong-claude-session",
-      CURSOR_SESSION_ID: "cursor-session",
-    })).toEqual({
+    expect(codexResult).toEqual({
       exitCode: 0,
       stderr: "",
-      stdout: "cursor|cursor-session|payload",
+      stdout: "codex||payload",
+    });
+    expect(cursorResult).toEqual({
+      exitCode: 0,
+      stderr: "",
+      stdout: `cursor|cursor-hook-conversation|${cursorPayload}`,
     });
   });
 
@@ -1222,7 +1236,11 @@ function renderedMarkdown(files: readonly { readonly content: Uint8Array; readon
   return parseMarkdown(new TextDecoder().decode(file?.content), path);
 }
 
-async function runGeneratedHookCommand(command: string, providerEnv: Record<string, string> = {}): Promise<{
+async function runGeneratedHookCommand(
+  command: string,
+  providerEnv: Record<string, string> = {},
+  payload = "payload"
+): Promise<{
   readonly exitCode: number;
   readonly stderr: string;
   readonly stdout: string;
@@ -1237,7 +1255,7 @@ async function runGeneratedHookCommand(command: string, providerEnv: Record<stri
   );
   await chmod(shim, 0o755);
   const proc = Bun.spawn({
-    cmd: ["/bin/sh", "-c", `printf payload | (${command})`],
+    cmd: ["/bin/sh", "-c", `printf %s ${shellQuote(payload)} | (${command})`],
     cwd: root,
     env: {
       HOME: process.env.HOME ?? "",
