@@ -4,7 +4,7 @@ slug: reason-only-change-ledger-derived-state
 title: Reason-Only Change Ledger and Derived State
 status: accepted
 created: 2026-06-30
-updated: 2026-07-20
+updated: 2026-07-21
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [0, 14]
 amends: [14]
@@ -89,7 +89,8 @@ Release/status state is derived from the event ledger, current source inventory,
 and locks. `.skillset/changes/state.json` is compatibility/cache output, not an
 authoring surface. Reconstructible facts are recomputed from ledger and source
 evidence; gaps that still depend on legacy baseline state fail loudly. This ADR
-does not claim full cache reconstruction or settle `baseline.recorded` semantics.
+does not claim full cache reconstruction. ADR-0025 defines the exact
+`baseline.recorded` evidence contract without claiming its implementation.
 
 The cache shape should separate:
 
@@ -157,10 +158,11 @@ remain supported boundaries rather than alternate source truth.
 
 SET-329 and SET-330 add the current refresh, ignore, lock ownership, heartbeat,
 fencing, stale-owner recovery, and replan-before-append guarantees. This ADR
-does not claim every compatibility cache is already reconstructible, and it
-does not settle the semantic meaning of `baseline.recorded`; SET-363 owns that
-remaining decision. This accepted record narrowly amends the broad provenance
-model without replacing it.
+does not claim every compatibility cache is already reconstructible. ADR-0025
+settles the meaning of `baseline.recorded` as exact whole-inventory
+migration/adoption evidence, but the permissive parser remains a placeholder;
+no conforming writer or replay path is claimed here. This accepted record
+narrowly amends the broad provenance model without replacing it.
 
 ## References
 
@@ -169,5 +171,6 @@ model without replacing it.
 - [Source Change, Release, and Dependency Provenance](0014-source-change-release-provenance.md) -
   current implemented source-change model.
 - [Change and Release Edge Decisions](0016-change-release-edge-decisions.md) -
-  compact ids, group semantics, release-tool interop, and the explicitly
-  unresolved baseline decision.
+  compact ids, group semantics, and release-tool interop.
+- [ADR-0025: Baseline Records Are Evidence Bridges](0025-baseline-record-evidence-bridges.md) -
+  exact baseline record/replay semantics and authority exclusions.

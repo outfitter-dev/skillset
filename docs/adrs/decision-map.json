@@ -97,6 +97,11 @@
           "fromPath": "docs/adrs/0024-one-action-repo-adoption.md"
         },
         {
+          "context": "- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - source",
+          "from": "0025",
+          "fromPath": "docs/adrs/0025-baseline-record-evidence-bridges.md"
+        },
+        {
           "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source-first and generated-output doctrine.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-first-class-sets.md"
@@ -607,7 +612,7 @@
       "updated": "2026-07-20"
     },
     {
-      "amended_by": ["15"],
+      "amended_by": ["15", "25"],
       "amends": [],
       "created": "2026-06-09",
       "depends_on": ["0"],
@@ -643,6 +648,11 @@
           "fromPath": "docs/adrs/0024-one-action-repo-adoption.md"
         },
         {
+          "context": "- [ADR-0014: Source Change, Release, and Dependency Provenance](0014-source-change-release-provenance.md) - broad change and release provenance model.",
+          "from": "0025",
+          "fromPath": "docs/adrs/0025-baseline-record-evidence-bridges.md"
+        },
+        {
           "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md), [Change and Release Edge Decisions](../adrs/0016-change-release-edge-decisions.md), and [Reas",
           "from": "changes",
           "fromPath": "docs/features/changes.md"
@@ -675,14 +685,19 @@
       "status": "accepted",
       "superseded_by": null,
       "title": "Source Change, Release, and Dependency Provenance",
-      "updated": "2026-07-20"
+      "updated": "2026-07-21"
     },
     {
-      "amended_by": [],
+      "amended_by": ["25"],
       "amends": ["14"],
       "created": "2026-06-30",
       "depends_on": ["0", "14"],
       "inbound": [
+        {
+          "context": "- [ADR-0015: Reason-Only Change Ledger and Derived State](0015-reason-only-change-ledger-derived-state.md) - append-only event vocabulary and derived-state boundary.",
+          "from": "0025",
+          "fromPath": "docs/adrs/0025-baseline-record-evidence-bridges.md"
+        },
         {
           "context": "The active cutover is a reason-only authoring model where humans write change reasons and Skillset derives ids, source hashes, coverage, and rebuildable state into a machine event ledger. See [Reason-",
           "from": "changes",
@@ -701,10 +716,10 @@
       "status": "accepted",
       "superseded_by": null,
       "title": "Reason-Only Change Ledger and Derived State",
-      "updated": "2026-07-20"
+      "updated": "2026-07-21"
     },
     {
-      "amended_by": [],
+      "amended_by": ["25"],
       "amends": [],
       "created": "2026-06-09",
       "depends_on": ["0", "14", "15"],
@@ -723,6 +738,11 @@
           "context": "- [Change and Release Edge Decisions](0016-change-release-edge-decisions.md) -",
           "from": "0015",
           "fromPath": "docs/adrs/0015-reason-only-change-ledger-derived-state.md"
+        },
+        {
+          "context": "- [ADR-0016: Change and Release Edge Decisions](0016-change-release-edge-decisions.md) - accepted edge decisions that deferred this contract.",
+          "from": "0025",
+          "fromPath": "docs/adrs/0025-baseline-record-evidence-bridges.md"
         },
         {
           "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md), [Change and Release Edge Decisions](../adrs/0016-change-release-edge-decisions.md), and [Reas",
@@ -752,7 +772,7 @@
       "status": "accepted",
       "superseded_by": null,
       "title": "Change and Release Edge Decisions",
-      "updated": "2026-07-20"
+      "updated": "2026-07-21"
     },
     {
       "amended_by": [],
@@ -1021,6 +1041,42 @@
       "superseded_by": null,
       "title": "One-Action Repo Adoption",
       "updated": "2026-07-20"
+    },
+    {
+      "amended_by": [],
+      "amends": ["14", "15", "16"],
+      "created": "2026-07-21",
+      "depends_on": ["0", "14", "15", "16"],
+      "inbound": [
+        {
+          "context": "- [ADR-0025: Baseline Records Are Evidence Bridges](0025-baseline-record-evidence-bridges.md) - exact migration/adoption baseline evidence contract.",
+          "from": "0014",
+          "fromPath": "docs/adrs/0014-source-change-release-provenance.md"
+        },
+        {
+          "context": "- [ADR-0025: Baseline Records Are Evidence Bridges](0025-baseline-record-evidence-bridges.md) -",
+          "from": "0015",
+          "fromPath": "docs/adrs/0015-reason-only-change-ledger-derived-state.md"
+        },
+        {
+          "context": "- [ADR-0025: Baseline Records Are Evidence Bridges](0025-baseline-record-evidence-bridges.md) - exact baseline evidence semantics and exclusions.",
+          "from": "0016",
+          "fromPath": "docs/adrs/0016-change-release-edge-decisions.md"
+        },
+        {
+          "context": "contract in [ADR-0025](../adrs/0025-baseline-record-evidence-bridges.md). The",
+          "from": "changes",
+          "fromPath": "docs/features/changes.md"
+        }
+      ],
+      "number": "0025",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0025-baseline-record-evidence-bridges.md",
+      "slug": "baseline-record-evidence-bridges",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Baseline Records Are Evidence Bridges",
+      "updated": "2026-07-21"
     }
   ],
   "version": 1

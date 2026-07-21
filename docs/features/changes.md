@@ -49,6 +49,13 @@ Skillset uses `.skillset/changes/ledger.jsonl` as the machine event stream for n
 
 The initial event vocabulary is `reason.created`, `reason.updated`, `change.covered`, `change.ignored`, `release.applied`, `change.amended`, `release.amended`, and `baseline.recorded`. Ledger records preserve append order and carry file/line diagnostics when malformed JSONL, unsupported event types, duplicate event ids, or invalid payloads are encountered.
 
+`baseline.recorded` is reserved for the exact whole-inventory migration/adoption
+contract in [ADR-0025](../adrs/0025-baseline-record-evidence-bridges.md). The
+current optional-reason/source-unit parser is a permissive placeholder, not a
+conforming writer or replay implementation. It grants no change coverage,
+ignore, release, changelog, bump, or version authority, and no public baseline
+command is defined.
+
 `skillset change add` writes `reason.created` and `change.covered` events alongside the reason-only Markdown file. `skillset change reason` appends `reason.updated` events while preserving the pending id. `skillset release apply --yes` appends `release.applied` events with selected change ids, resolved versions, tombstones, and source-unit hashes. Existing `history.jsonl`, `releases.jsonl`, `amendments.jsonl`, and `state.json` remain compatibility inputs while ledger projection becomes the release-state authority for scopes it can rebuild.
 
 ## Target Rendering
@@ -61,7 +68,7 @@ The initial event vocabulary is `reason.created`, `reason.updated`, `change.cove
 | `changes/history.jsonl` | n/a | n/a | `implemented` | Append-only applied history is read by `skillset change history`, written by release apply, and used by changelog renderings. |
 | `changes/amendments.jsonl` | n/a | n/a | `implemented` | Append-only corrections written by `skillset change amend <@ref>`; changelog renderings use the latest correction while original history remains auditable. |
 | `changes/ledger.jsonl` | n/a | n/a | `implemented` | Schema-versioned event stream for reason lifecycle, source-unit coverage, and release-state projection. |
-| `changes/baseline` records | n/a | n/a | `planned` | Explicit hash-schema baseline records, not changelog entries. |
+| `baseline.recorded` contract | n/a | n/a | `planned` | Exact complete-inventory evidence for hash-schema migration or explicit adoption; current parsing alone is not implementation and grants no change/release authority. |
 
 ## Diagnostics
 

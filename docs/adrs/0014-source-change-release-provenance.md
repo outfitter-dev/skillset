@@ -4,7 +4,7 @@ slug: source-change-release-provenance
 title: Source Change, Release, and Dependency Provenance
 status: accepted
 created: 2026-06-09
-updated: 2026-07-20
+updated: 2026-07-21
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [0]
 ---
@@ -110,11 +110,12 @@ bridge is explicitly configured.
 
 ## Open And Deferred
 
-The implemented edge decisions are recorded in ADR-0016. SET-363 still owns the
-unresolved baseline-record semantics. Future work may add author-declared body
-contract regions, model-based reason review, settings/marketplace suggestion
-workflows, first-class set install plans, and new provider-native dependency
-surfaces when evidence exists.
+The implemented edge decisions are recorded in ADR-0016. ADR-0025 now defines
+the exact append-only baseline evidence contract; its validator, writer, and
+replay implementation remain future work, and no public baseline command is
+implied. Future work may add author-declared body contract regions, model-based
+reason review, settings/marketplace suggestion workflows, first-class set
+install plans, and new provider-native dependency surfaces when evidence exists.
 
 ## Acceptance Evidence (2026-07-20)
 
@@ -140,4 +141,5 @@ trusts provider output. Current evidence is in the change/release feature pages,
 
 - [Changelog and Version Bump Workflow](0013-changelog-and-versioning.md) - earlier changesets-style design.
 - [Change and Release Edge Decisions](0016-change-release-edge-decisions.md) - SET-42 edge decisions.
+- [ADR-0025: Baseline Records Are Evidence Bridges](0025-baseline-record-evidence-bridges.md) - exact migration/adoption baseline evidence contract.
 - [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - source-first doctrine.

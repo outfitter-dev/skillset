@@ -59,7 +59,7 @@
           "fromPath": "docs/adrs/drafts/20260710-catalog-owned-marketplace-refresh-pull-requests.md"
         },
         {
-          "context": "provider settings or trust. See the [global/XDG draft ADR](adrs/drafts/20260604-global-xdg-managed-installs-and-sync.md).",
+          "context": "trust. See the [global/XDG draft ADR](adrs/drafts/20260604-global-xdg-managed-installs-and-sync.md).",
           "from": "layout",
           "fromPath": "docs/layout.md"
         }
