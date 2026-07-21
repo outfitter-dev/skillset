@@ -1,5 +1,4 @@
 import { describe, expect, it } from "bun:test";
-import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,6 +9,9 @@ import {
   verifySkillsetResult,
   diffSkillsetResult,
 } from "@skillset/core";
+
+import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
+import { runQuietCoreProcess } from "./quiet-core-process";
 
 const DEMO_FIXTURE: Record<string, string> = {
   "skillset.yaml": `
@@ -41,63 +43,57 @@ describe("@skillset/core consumer API", () => {
   it("supports a quiet preview-build-verify loop through public result APIs", async () => {
     const root = await fixture(DEMO_FIXTURE);
     const expectedOutput = ".claude/skills/demo/SKILL.md";
-    const cwd = process.cwd();
-    const previousExitCode = process.exitCode;
-    const calls: string[] = [];
-    const originalLog = console.log;
-    const originalWarn = console.warn;
-
-    process.exitCode = undefined;
-    console.log = (...args: unknown[]) => {
-      calls.push(`log:${args.join(" ")}`);
+    const child = await runQuietCoreProcess("consumer", root);
+    const evidence = child.evidence as {
+      readonly build: Awaited<ReturnType<typeof buildSkillsetResult>>;
+      readonly clean: Awaited<ReturnType<typeof diffSkillsetResult>>;
+      readonly cwdAfter: string;
+      readonly cwdBefore: string;
+      readonly preview: Awaited<ReturnType<typeof diffSkillsetResult>>;
+      readonly previewOutputExists: boolean;
+      readonly processExitCode: number | null;
+      readonly verified: Awaited<ReturnType<typeof verifySkillsetResult>>;
     };
-    console.warn = (...args: unknown[]) => {
-      calls.push(`warn:${args.join(" ")}`);
-    };
+    const { build, clean, preview, verified } = evidence;
 
-    try {
-      const preview = await diffSkillsetResult(root);
-      expect(preview.operation).toBe("diff");
-      expect(preview.writes).toEqual({
-        deletedPaths: [],
-        mode: "read",
-        paths: [],
-        writtenPaths: [],
-      });
-      expect(preview.diagnostics).toEqual([]);
-      expect(preview.data.added).toContain(expectedOutput);
-      expect(await Bun.file(join(root, expectedOutput)).exists()).toBe(false);
+    expect(child).toMatchObject({ exitCode: 0, stderr: "", stdout: "" });
+    expect(preview.operation).toBe("diff");
+    expect(preview.writes).toEqual({
+      deletedPaths: [],
+      mode: "read",
+      paths: [],
+      writtenPaths: [],
+    });
+    expect(preview.diagnostics).toEqual([]);
+    expect(preview.data.added).toContain(expectedOutput);
+    expect(evidence.previewOutputExists).toBe(false);
 
-      const build = await buildSkillsetResult(root);
-      expect(build.operation).toBe("build");
-      expect(build.writes.mode).toBe("write");
-      expect(build.writes.paths).toContain(expectedOutput);
-      expect(build.diagnostics).toEqual([]);
-      expect(await Bun.file(join(root, expectedOutput)).exists()).toBe(true);
+    expect(build.operation).toBe("build");
+    expect(build.writes.mode).toBe("write");
+    expect(build.writes.paths).toContain(expectedOutput);
+    expect(build.diagnostics).toEqual([]);
+    expect(await Bun.file(join(root, expectedOutput)).exists()).toBe(true);
 
-      const verified = await verifySkillsetResult(root);
-      expect(verified.operation).toBe("verify");
-      expect(verified.ok).toBe(true);
-      expect(verified.writes).toEqual({
-        deletedPaths: [],
-        mode: "read",
-        paths: [],
-        writtenPaths: [],
-      });
-      expect(verified.data.checkedFiles).toBe(build.data.length);
-      expect(verified.data.failures).toEqual([]);
-      expect(verified.diagnostics).toEqual([]);
+    expect(verified.operation).toBe("verify");
+    expect(verified.ok).toBe(true);
+    expect(verified.writes).toEqual({
+      deletedPaths: [],
+      mode: "read",
+      paths: [],
+      writtenPaths: [],
+    });
+    expect(verified.data.checkedFiles).toBe(build.data.length);
+    expect(verified.data.failures).toEqual([]);
+    expect(verified.diagnostics).toEqual([]);
 
-      const clean = await diffSkillsetResult(root);
-      expect(clean.data).toEqual({ added: [], changed: [], missing: [], removed: [] });
-      expect(calls).toEqual([]);
-      expect(process.cwd()).toBe(cwd);
-      expect(process.exitCode).toBeUndefined();
-    } finally {
-      console.log = originalLog;
-      console.warn = originalWarn;
-      process.exitCode = previousExitCode;
-    }
+    expect(clean.data).toEqual({
+      added: [],
+      changed: [],
+      missing: [],
+      removed: [],
+    });
+    expect(evidence.cwdAfter).toBe(evidence.cwdBefore);
+    expect(evidence.processExitCode).toBeNull();
   });
 
   it("returns structured verify drift while preserving the throwing convenience helper", async () => {
@@ -121,7 +117,9 @@ describe("@skillset/core consumer API", () => {
         severity: "error",
       })
     );
-    await expect(verifySkillset(root)).rejects.toThrow("skillset: generated output is not current");
+    await expect(verifySkillset(root)).rejects.toThrow(
+      "skillset: generated output is not current"
+    );
   });
 
   it("classifies missing generated output before a first build", async () => {
@@ -131,7 +129,9 @@ describe("@skillset/core consumer API", () => {
     const result = await verifySkillsetResult(root);
 
     expect(result.ok).toBe(false);
-    expect(result.data.failures).toContain(`missing generated file: ${expectedOutput}`);
+    expect(result.data.failures).toContain(
+      `missing generated file: ${expectedOutput}`
+    );
     expect(result.diagnostics).toContainEqual(
       expect.objectContaining({
         code: "generated-output-missing",
@@ -200,14 +200,36 @@ skillset:
 
     await buildSkillsetResult(root);
 
-    await expect(Bun.file(join(root, ".claude/skills/inherited/LICENSE.txt")).text()).resolves.toContain("SPDX-License-Identifier: MIT");
-    await expect(Bun.file(join(root, ".agents/skills/inherited/LICENSE.txt")).text()).resolves.toContain("MIT License");
-    await expect(Bun.file(join(root, ".claude/skills/local/LICENSE.txt")).text()).resolves.toBe("Local license text.\n");
-    expect(await Bun.file(join(root, ".claude/skills/none/LICENSE.txt")).exists()).toBe(false);
-    await expect(Bun.file(join(root, "plugins/demo/claude/LICENSE.txt")).text()).resolves.toContain("SPDX-License-Identifier: MIT");
-    await expect(Bun.file(join(root, "plugins/demo/codex/skills/override/LICENSE.txt")).text()).resolves.toContain("SPDX-License-Identifier: Apache-2.0");
-    const inheritedManifest = JSON.parse(await Bun.file(join(root, "plugins/demo/claude/.claude-plugin/plugin.json")).text()) as Record<string, unknown>;
-    const optoutManifest = JSON.parse(await Bun.file(join(root, "plugins/optout/claude/.claude-plugin/plugin.json")).text()) as Record<string, unknown>;
+    await expect(
+      Bun.file(join(root, ".claude/skills/inherited/LICENSE.txt")).text()
+    ).resolves.toContain("SPDX-License-Identifier: MIT");
+    await expect(
+      Bun.file(join(root, ".agents/skills/inherited/LICENSE.txt")).text()
+    ).resolves.toContain("MIT License");
+    await expect(
+      Bun.file(join(root, ".claude/skills/local/LICENSE.txt")).text()
+    ).resolves.toBe("Local license text.\n");
+    expect(
+      await Bun.file(join(root, ".claude/skills/none/LICENSE.txt")).exists()
+    ).toBe(false);
+    await expect(
+      Bun.file(join(root, "plugins/demo/claude/LICENSE.txt")).text()
+    ).resolves.toContain("SPDX-License-Identifier: MIT");
+    await expect(
+      Bun.file(
+        join(root, "plugins/demo/codex/skills/override/LICENSE.txt")
+      ).text()
+    ).resolves.toContain("SPDX-License-Identifier: Apache-2.0");
+    const inheritedManifest = JSON.parse(
+      await Bun.file(
+        join(root, "plugins/demo/claude/.claude-plugin/plugin.json")
+      ).text()
+    ) as Record<string, unknown>;
+    const optoutManifest = JSON.parse(
+      await Bun.file(
+        join(root, "plugins/optout/claude/.claude-plugin/plugin.json")
+      ).text()
+    ) as Record<string, unknown>;
     expect(inheritedManifest.license).toBe("MIT");
     expect(optoutManifest).not.toHaveProperty("license");
 
@@ -217,7 +239,9 @@ skillset:
     await rm(join(root, "plugins/demo/claude/LICENSE.txt"));
     const stale = await verifySkillsetResult(root);
     expect(stale.ok).toBe(false);
-    expect(stale.data.failures).toContain("missing managed generated file: plugins/demo/claude/LICENSE.txt");
+    expect(stale.data.failures).toContain(
+      "missing managed generated file: plugins/demo/claude/LICENSE.txt"
+    );
   });
 
   it("rejects local license files when the same scope opts out", async () => {
@@ -241,7 +265,9 @@ Conflict body.
 `,
     });
 
-    await expect(buildSkillsetResult(root)).rejects.toThrow("sets skillset.license to none but also has .skillset/skills/conflict/LICENSE.txt");
+    await expect(buildSkillsetResult(root)).rejects.toThrow(
+      "sets skillset.license to none but also has .skillset/skills/conflict/LICENSE.txt"
+    );
   });
 
   it("classifies deleted managed generated output", async () => {
@@ -253,7 +279,9 @@ Conflict body.
     const result = await verifySkillsetResult(root);
 
     expect(result.ok).toBe(false);
-    expect(result.data.failures).toEqual([`missing managed generated file: ${expectedOutput}`]);
+    expect(result.data.failures).toEqual([
+      `missing managed generated file: ${expectedOutput}`,
+    ]);
     expect(result.diagnostics).toContainEqual(
       expect.objectContaining({
         code: "generated-output-missing-managed",
@@ -275,7 +303,9 @@ Conflict body.
     const result = await verifySkillsetResult(root);
 
     expect(result.ok).toBe(false);
-    expect(result.data.failures).toContain(`stale generated file: ${expectedOutput}`);
+    expect(result.data.failures).toContain(
+      `stale generated file: ${expectedOutput}`
+    );
     expect(result.diagnostics).toContainEqual(
       expect.objectContaining({
         code: "generated-output-removed",
@@ -296,13 +326,17 @@ compile:
 `,
     });
 
-    await expect(verifySkillsetResult(root)).rejects.toThrow("unsupported target");
+    await expect(verifySkillsetResult(root)).rejects.toThrow(
+      "unsupported target"
+    );
   });
 });
 
 async function fixture(files: Record<string, string>): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "skillset-core-consumer-"));
-  for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
+  for (const [path, content] of Object.entries(
+    normalizeSkillsetFixtureFiles(files)
+  )) {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }
   return root;
