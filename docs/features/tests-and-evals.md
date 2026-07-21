@@ -10,7 +10,7 @@ Feature id: `tests-and-evals`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Tests and evals are reserved future surfaces. They are related because both prove confidence in a Skillset loadout, but they answer different questions. Deterministic tests ask whether selected source projects into expected files and lifecycle state. Evals ask whether a skill, plugin, or agent helps a model do the intended work.
+Skillset implements deterministic source-root test declarations, activation probes, and optional declared or ad hoc runtime tests; evals remain future and adapter-aware. Tests and evals are related because both prove confidence in a Skillset loadout, but they answer different questions. Deterministic tests ask whether selected source projects into expected files and lifecycle state. Evals ask whether a skill, plugin, or agent helps a model do the intended work.
 
 ## Current Boundary
 
@@ -19,7 +19,7 @@ Skillset currently uses internal compiler fixtures and validation commands:
 | Surface | Location | Status | Purpose |
 | --- | --- | --- | --- |
 | Internal fixtures | `fixtures/<case>/skillset.yaml` and `fixtures/<case>/.skillset/` ([convention](../../fixtures/README.md)) | `implemented` / internal | Fake repos copied into temp directories by compiler tests. |
-| Contract tests | `src/__tests__/` | `implemented` / internal | Unit, contract, and audit-hardening tests for compiler behavior. |
+| Contract tests | `apps/skillset/src/__tests__/` and `packages/*/src/__tests__/` | `implemented` / internal | Unit, contract, and audit-hardening tests for compiler behavior. |
 | Validation commands | `skillset check`, `skillset check --only outputs`, `status`, `diff`, `change check`, `release plan` | `implemented` | Public commands that validate or inspect real source and generated output. |
 | Dogfooding | repo scripts, Linear acceptance criteria, real Skillset source changes | internal practice | Proves workflows by using them on this repo. |
 | `skillset test` | `<source-root>/tests.yaml` and `<source-root>/tests/*.yaml` | `implemented` | Deterministic isolated projection and check runner for authored source. |
