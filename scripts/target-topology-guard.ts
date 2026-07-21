@@ -51,14 +51,14 @@ export const TARGET_TOPOLOGY_ALLOWLIST: readonly TargetTopologyAllowlistEntry[] 
   allow("scripts/bootstrap/main.ts", 59, 15, "parseBootstrapArgs", "R2", 'command === "claude" || command === "codex"', "Bootstrap exposes provider-specific setup commands only for the two supported runtimes."),
   allow("packages/core/src/render-result-collector.ts", 731, 10, "companionForPath", "R2", 'target === "claude" || target === "cursor"', "Commands are provider-native companion formats for Claude and Cursor."),
   allow("packages/core/src/render-result-collector.ts", 737, 10, "companionForPath", "R2", 'target === "claude" || target === "cursor"', "Agents are provider-native companion formats for Claude and Cursor."),
-  allow("packages/core/src/render.ts", 2043, 7, "copyPluginCompanionFiles", "R2", 'target === "codex" || target === "cursor"', "Codex and Cursor hooks require normalized provider-native output."),
-  allow("packages/core/src/render.ts", 2063, 10, "copyPluginCompanionFiles", "R2", 'target === "codex" || target === "cursor"', "Codex and Cursor skip copying Claude-native hook files."),
+  allow("packages/core/src/render.ts", 1251, 7, "copyPluginCompanionFiles", "R2", 'target === "codex" || target === "cursor"', "Codex and Cursor hooks require normalized provider-native output."),
+  allow("packages/core/src/render.ts", 1271, 10, "copyPluginCompanionFiles", "R2", 'target === "codex" || target === "cursor"', "Codex and Cursor skip copying Claude-native hook files."),
   allow("apps/skillset/src/provider-format-updates.ts", 195, 10, "displayProvider", "R3", 'provider === "codex" -> provider === "claude" -> else', "Provider display labels preserve unknown registry values."),
   allow("packages/core/src/provider-format-conformance.ts", 465, 5, "checkSkillMarkdown", "R3", 'target === "codex" -> target === "cursor" -> else', "Provider-native skill formats use distinct registry references."),
-  allow("packages/core/src/render.ts", 622, 5, "renderPluginManifest", "R3", 'target === "claude" -> target === "codex" -> else', "Provider-native plugin manifests have distinct formats."),
-  allow("packages/core/src/render.ts", 732, 3, "withOptionalSurfacePaths", "R3", 'target === "claude" -> target === "codex" -> else', "Provider-native plugin surfaces have distinct destination fields."),
-  allow("packages/core/src/render.ts", 2025, 5, "copyPluginCompanionFiles", "R3", 'target === "claude" -> target === "codex" -> else', "Provider-native companion file sets are intentionally distinct."),
-  allow("packages/core/src/render.ts", 299, 3, "marketplaceReadmeLines", "R3", 'target === "claude" -> target === "cursor" -> else', "Provider-native marketplace README guidance has distinct destination formats."),
+  allow("packages/core/src/render-plugin-manifest.ts", 66, 5, "renderPluginManifest", "R3", 'target === "claude" -> target === "codex" -> else', "Provider-native plugin manifests have distinct formats."),
+  allow("packages/core/src/render-plugin-manifest.ts", 239, 3, "withOptionalSurfacePaths", "R3", 'target === "claude" -> target === "codex" -> else', "Provider-native plugin surfaces have distinct destination fields."),
+  allow("packages/core/src/render.ts", 1233, 5, "copyPluginCompanionFiles", "R3", 'target === "claude" -> target === "codex" -> else', "Provider-native companion file sets are intentionally distinct."),
+  allow("packages/core/src/render.ts", 265, 3, "marketplaceReadmeLines", "R3", 'target === "claude" -> target === "cursor" -> else', "Provider-native marketplace README guidance has distinct destination formats."),
 ] as const;
 
 function allow(
