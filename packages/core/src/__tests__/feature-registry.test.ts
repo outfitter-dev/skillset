@@ -87,6 +87,21 @@ describe("feature registry", () => {
     }
   });
 
+  it("documents portable instruction rendering alongside every target-native island", async () => {
+    const feature = getSkillsetFeature("target-native-islands");
+    expect(feature?.docs).toContain("docs/features/target-native-islands.md");
+
+    const documentation = await Bun.file(
+      join(REPO_ROOT, "docs/features/target-native-islands.md")
+    ).text();
+    expect(documentation).toContain(
+      "| `<source-root>/rules/**/*.md` | `.claude/rules/**/*.md` | `AGENTS.md` | `.cursor/rules/**/*.mdc` |"
+    );
+    expect(documentation).toContain(
+      "Claude `.claude/rules/**/*.md`, Codex `AGENTS.md`, and Cursor `.cursor/rules/**/*.mdc`"
+    );
+  });
+
   it("ships the current feature seed in deterministic order with docs and evidence", () => {
     const features = listSkillsetFeatures();
 
