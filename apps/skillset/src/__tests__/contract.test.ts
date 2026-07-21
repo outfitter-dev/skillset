@@ -3736,7 +3736,7 @@ cursor:
   expect(after.units.find((unit) => unit.id === "plugin:alpha")?.hash).not.toBe(legacyHash);
 });
 
-test("SET-345: Cursor project-agent prompt partials participate in source hashes", async () => {
+test("SET-377: Cursor project-agent prompt partials stay literal and do not drift", async () => {
   const root = await contractFixture({
     "skillset.yaml": `
 skillset:
@@ -3757,9 +3757,15 @@ Review changes.
     ".skillset/shared/templates/cursor-prompt.md": "Start with Cursor evidence.\n",
   });
 
+  await buildSkillset(root);
+  await commitFixture(root);
+
   const before = await collectSourceInventory(root);
   const beforeAgent = before.units.find((unit) => unit.id === "agent:reviewer");
-  expect(beforeAgent?.sourcePaths).toContain(".skillset/shared/templates/cursor-prompt.md");
+  expect(beforeAgent?.sourcePaths).not.toContain(".skillset/shared/templates/cursor-prompt.md");
+  const generatedPath = join(root, ".cursor/agents/reviewer.md");
+  const generated = await readFile(generatedPath, "utf8");
+  expect(generated).toContain('initialPrompt: "{{shared:templates/cursor-prompt.md }}"');
 
   await Bun.write(
     join(root, ".skillset/shared/templates/cursor-prompt.md"),
@@ -3767,7 +3773,49 @@ Review changes.
   );
 
   const after = await collectSourceInventory(root);
-  expect(after.units.find((unit) => unit.id === "agent:reviewer")?.hash).not.toBe(beforeAgent?.hash);
+  expect(after.units.find((unit) => unit.id === "agent:reviewer")?.hash).toBe(beforeAgent?.hash);
+  const report = await changeStatus(root, { since: "HEAD" });
+  expect(report.sourceChanges.map((change) => change.id)).not.toContain("agent:reviewer");
+  expect(report.generatedDrift).toEqual({ added: [], changed: [], missing: [], removed: [] });
+  expect(await readFile(generatedPath, "utf8")).toBe(generated);
+});
+
+test("SET-377: Codex project-agent prompt partials remain source-significant", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: codex-agent-hash-root
+claude: false
+codex: true
+cursor: false
+`,
+    ".skillset/agents/reviewer.md": `
+---
+description: Reviews Codex changes.
+codex:
+  initialPrompt: "{{shared:templates/codex-prompt.md }}"
+---
+
+Review changes.
+`,
+    ".skillset/shared/templates/codex-prompt.md": "Start with Codex evidence.\n",
+  });
+
+  await buildSkillset(root);
+  await commitFixture(root);
+
+  const before = await collectSourceInventory(root);
+  const beforeAgent = before.units.find((unit) => unit.id === "agent:reviewer");
+  expect(beforeAgent?.sourcePaths).toContain(".skillset/shared/templates/codex-prompt.md");
+
+  await Bun.write(
+    join(root, ".skillset/shared/templates/codex-prompt.md"),
+    "Start with updated Codex evidence.\n"
+  );
+
+  const report = await changeStatus(root, { since: "HEAD" });
+  expect(report.sourceChanges.map((change) => change.id)).toContain("agent:reviewer");
+  expect(report.generatedDrift.changed).toContain(".codex/agents/reviewer.toml");
 });
 
 test("SET-34: partial dependencies participate in source status hashes", async () => {
