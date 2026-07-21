@@ -84,17 +84,17 @@ function request(
     options: {},
     rootPath,
     testName: undefined,
-    tryBackground: false,
-    tryClaudeSettingSources: undefined,
-    tryLines: undefined,
-    tryName: undefined,
-    tryPlugins: [],
-    tryPrompt: undefined,
-    tryPromptFile: undefined,
-    tryRunId: undefined,
-    trySubcommand: undefined,
-    tryTarget: undefined,
-    tryTimeoutMs: undefined,
+    adHocBackground: false,
+    adHocClaudeSettingSources: undefined,
+    adHocLines: undefined,
+    adHocName: undefined,
+    adHocPlugins: [],
+    adHocPrompt: undefined,
+    adHocPromptFile: undefined,
+    adHocRunId: undefined,
+    adHocSubcommand: undefined,
+    adHocTarget: undefined,
+    adHocTimeoutMs: undefined,
     ...overrides,
   };
 }
@@ -335,11 +335,11 @@ describe("SET-294 unified interactive test chooser", () => {
     await runTestCommand(request(root, { testName: "alpha" }), {
       interactiveSession: session,
     });
-    await runTestCommand(request(root, { trySubcommand: "list" }), {
+    await runTestCommand(request(root, { adHocSubcommand: "list" }), {
       interactiveSession: session,
     });
     await expect(
-      runTestCommand(request(root, { tryTarget: "codex" }), {
+      runTestCommand(request(root, { adHocTarget: "codex" }), {
         interactiveSession: session,
       })
     ).rejects.toThrow("ad hoc test requires --prompt or --prompt-file");
@@ -349,7 +349,7 @@ describe("SET-294 unified interactive test chooser", () => {
       })
     ).rejects.toThrow("multiple tests configured");
     await expect(
-      runTestCommand(request(root, { trySubcommand: "worker" }), {
+      runTestCommand(request(root, { adHocSubcommand: "worker" }), {
         interactiveSession: session,
       })
     ).rejects.toThrow("test worker requires run id");

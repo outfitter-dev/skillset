@@ -18,6 +18,8 @@ import { existsSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import ts from "typescript";
+
 export type TerminologyViolation = {
   readonly file: string;
   readonly label: string;
@@ -26,6 +28,18 @@ export type TerminologyViolation = {
 };
 
 type ForbiddenTerm = { readonly label: string; readonly pattern: RegExp };
+
+const RETIRED_AD_HOC_TEST_PATHS = new Set([
+  "apps/skillset/src/try.ts",
+  "apps/skillset/src/try-cli.ts",
+  "apps/skillset/src/__tests__/try.test.ts",
+]);
+
+const RETIRED_AD_HOC_TEST_MODULE_BASENAMES = new Set(["try", "try-cli"]);
+
+const AD_HOC_TEST_IDENTIFIER_ALLOWLIST = new Set([
+  "apps/skillset/src/change-workflow.ts:tryResolvePending",
+]);
 
 /** Retired terms that must not reappear in active surfaces. */
 export const FORBIDDEN_TERMS: readonly ForbiddenTerm[] = [
@@ -159,6 +173,87 @@ export function scanContent(file: string, content: string): readonly Terminology
   return violations;
 }
 
+/**
+ * Scan syntax-bearing source for the retired internal ad hoc-test vocabulary.
+ * This deliberately inspects identifiers and module specifiers rather than
+ * prose so ordinary JavaScript `try` statements and historical string evidence
+ * remain valid.
+ */
+export function scanInternalAdHocTestTerminology(
+  file: string,
+  content: string
+): readonly TerminologyViolation[] {
+  const violations: TerminologyViolation[] = [];
+  if (RETIRED_AD_HOC_TEST_PATHS.has(file)) {
+    violations.push({
+      file,
+      label: "retired ad hoc-test path",
+      line: 1,
+      text: file,
+    });
+  }
+  if (!/\.(?:js|ts|tsx)$/u.test(file)) return violations;
+
+  const scriptKind = file.endsWith(".tsx")
+    ? ts.ScriptKind.TSX
+    : file.endsWith(".js")
+      ? ts.ScriptKind.JS
+      : ts.ScriptKind.TS;
+  const source = ts.createSourceFile(
+    file,
+    content,
+    ts.ScriptTarget.Latest,
+    true,
+    scriptKind
+  );
+  const sourceLines = content.split(/\r?\n/u);
+  const report = (node: ts.Node, label: string): void => {
+    const start = source.getLineAndCharacterOfPosition(node.getStart(source));
+    const text = sourceLines[start.line]?.trim() ?? "";
+    violations.push({ file, label, line: start.line + 1, text });
+  };
+  const checkModuleSpecifier = (node: ts.StringLiteralLike): void => {
+    const basename = node.text.split("/").at(-1);
+    if (
+      basename !== undefined &&
+      RETIRED_AD_HOC_TEST_MODULE_BASENAMES.has(basename)
+    ) {
+      report(node, "retired ad hoc-test module specifier");
+    }
+  };
+  const visit = (node: ts.Node): void => {
+    if (ts.isIdentifier(node)) {
+      const name = node.text;
+      const retired = /(?:^|[a-z0-9_])Try(?=$|[A-Z0-9_])/u.test(name) ||
+        /^try[A-Z0-9_]/u.test(name) ||
+        /(?:^|_)TRY_/u.test(name);
+      if (retired && !AD_HOC_TEST_IDENTIFIER_ALLOWLIST.has(`${file}:${name}`)) {
+        report(node, "retired ad hoc-test identifier");
+      }
+    }
+    if (
+      (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+      node.moduleSpecifier !== undefined &&
+      ts.isStringLiteralLike(node.moduleSpecifier)
+    ) {
+      checkModuleSpecifier(node.moduleSpecifier);
+    }
+    if (
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+      node.arguments.length === 1
+    ) {
+      const argument = node.arguments[0];
+      if (argument !== undefined && ts.isStringLiteralLike(argument)) {
+        checkModuleSpecifier(argument);
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return violations;
+}
+
 const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));
 
 async function runText(command: readonly string[]): Promise<string> {
@@ -180,6 +275,7 @@ async function main(): Promise<void> {
     if (!existsSync(`${rootDir}/${file}`)) continue;
     const content = await Bun.file(`${rootDir}/${file}`).text();
     violations.push(...scanContent(file, content));
+    violations.push(...scanInternalAdHocTestTerminology(file, content));
   }
 
   if (violations.length === 0) {

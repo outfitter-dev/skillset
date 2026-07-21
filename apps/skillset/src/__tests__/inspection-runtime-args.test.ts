@@ -118,7 +118,7 @@ describe("SET-304 inspection and runtime route parsers", () => {
       jsonOutput: true,
       rootPath: "/workspace/repo/nested",
       testName: "declared",
-      tryPlugins: [],
+      adHocPlugins: [],
     });
     expect(
       parseTestCommandRequest(
@@ -138,11 +138,11 @@ describe("SET-304 inspection and runtime route parsers", () => {
         CONTEXT
       )
     ).toMatchObject({
-      tryBackground: true,
-      tryPlugins: ["first", "second"],
-      tryPrompt: "Run it",
-      tryTarget: "codex",
-      tryTimeoutMs: 5000,
+      adHocBackground: true,
+      adHocPlugins: ["first", "second"],
+      adHocPrompt: "Run it",
+      adHocTarget: "codex",
+      adHocTimeoutMs: 5000,
     });
     expect(
       parseTestCommandRequest(
@@ -151,9 +151,9 @@ describe("SET-304 inspection and runtime route parsers", () => {
       )
     ).toMatchObject({
       jsonOutput: true,
-      tryLines: 25,
-      tryRunId: "run-id",
-      trySubcommand: "tail",
+      adHocLines: 25,
+      adHocRunId: "run-id",
+      adHocSubcommand: "tail",
     });
     expect(
       parseTestCommandRequest(
@@ -162,8 +162,8 @@ describe("SET-304 inspection and runtime route parsers", () => {
       )
     ).toMatchObject({
       rootPath: "/workspace/repo/nested",
-      tryRunId: "run-id",
-      trySubcommand: "worker",
+      adHocRunId: "run-id",
+      adHocSubcommand: "worker",
     });
   });
 

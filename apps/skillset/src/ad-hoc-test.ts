@@ -29,15 +29,15 @@ import {
 } from "./cli-arg-values";
 import { createCliEvent, renderCliEvent } from "./cli-output";
 
-export type TrySubcommand = "list" | "status" | "tail" | "worker";
-export type TryState = "building" | "failed" | "passed" | "queued" | "running";
-export type TryClaudeSettingSources = ClaudeSettingSources;
-export type TryFailureClass = "auth" | "binary" | "render" | "runtime" | "setup" | "timeout";
+export type AdHocTestSubcommand = "list" | "status" | "tail" | "worker";
+export type AdHocTestState = "building" | "failed" | "passed" | "queued" | "running";
+export type AdHocTestClaudeSettingSources = ClaudeSettingSources;
+export type AdHocTestFailureClass = "auth" | "binary" | "render" | "runtime" | "setup" | "timeout";
 
-export interface TryRunOptions extends SkillsetOptions {
+export interface AdHocTestRunOptions extends SkillsetOptions {
   readonly background?: boolean;
   readonly cacheRootPath?: string;
-  readonly claudeSettingSources?: TryClaudeSettingSources;
+  readonly claudeSettingSources?: AdHocTestClaudeSettingSources;
   readonly env?: Record<string, string | undefined>;
   readonly name?: string;
   readonly plugins?: readonly string[];
@@ -53,12 +53,12 @@ interface EventAppendState {
 
 const eventAppendStates = new Map<string, EventAppendState>();
 
-export interface TryStatus {
+export interface AdHocTestStatus {
   readonly command?: readonly string[];
   readonly endedAt?: string;
   readonly error?: string;
   readonly exitCode?: number;
-  readonly failureClass?: TryFailureClass;
+  readonly failureClass?: AdHocTestFailureClass;
   readonly finalMessagePath?: string;
   readonly latestRoot: string;
   readonly kind: "ad-hoc";
@@ -71,13 +71,13 @@ export interface TryStatus {
   readonly runPath: string;
   readonly schemaVersion: 1;
   readonly startedAt: string;
-  readonly state: TryState;
+  readonly state: AdHocTestState;
   readonly target: TargetName;
   readonly timeoutMs: number;
   readonly updatedAt: string;
 }
 
-export interface TryEvidence {
+export interface AdHocTestEvidence {
   readonly finalMessage?: string;
   readonly outputPath: string;
   readonly reportPath: string;
@@ -86,7 +86,7 @@ export interface TryEvidence {
   readonly stdout: string;
 }
 
-export interface TryRunReport {
+export interface AdHocTestRunReport {
   readonly background: boolean;
   readonly kind: "ad-hoc";
   readonly latestPath: string;
@@ -94,29 +94,29 @@ export interface TryRunReport {
   readonly reportPath: string;
   readonly runId: string;
   readonly runPath: string;
-  readonly state: TryState;
+  readonly state: AdHocTestState;
   readonly statusPath: string;
   readonly tailPath: string;
 }
 
-export interface TryListEntry {
+export interface AdHocTestListEntry {
   readonly endedAt?: string;
   readonly name: string;
   readonly kind: "ad-hoc";
   readonly runId: string;
   readonly runPath: string;
   readonly startedAt: string;
-  readonly state: TryState;
+  readonly state: AdHocTestState;
   readonly target: TargetName;
 }
 
-export interface TryTailLine {
+export interface AdHocTestTailLine {
   readonly message: string;
   readonly stream: string;
   readonly timestamp: string;
 }
 
-interface TryRunPaths {
+interface AdHocTestRunPaths {
   readonly retained: RetainedRunPaths;
   readonly absolute: {
     readonly finalMessagePath: string;
@@ -139,8 +139,8 @@ interface TryRunPaths {
   };
 }
 
-interface TryStoredConfig {
-  readonly claudeSettingSources?: TryClaudeSettingSources;
+interface AdHocTestStoredConfig {
+  readonly claudeSettingSources?: AdHocTestClaudeSettingSources;
   readonly name: string;
   readonly plugins: readonly string[];
   readonly prompt: string;
@@ -151,16 +151,16 @@ interface TryStoredConfig {
 
 const RUNTIME_TEST_ROOT = ".skillset/cache/tests/ad-hoc";
 const DEFAULT_TIMEOUT_MS = 120_000;
-const DEFAULT_CLAUDE_SETTING_SOURCES: TryClaudeSettingSources = "isolated";
-const TRY_CLAUDE_SETTING_SOURCES_ENV = "SKILLSET_TEST_CLAUDE_SETTING_SOURCES";
+const DEFAULT_CLAUDE_SETTING_SOURCES: AdHocTestClaudeSettingSources = "isolated";
+const AD_HOC_TEST_CLAUDE_SETTING_SOURCES_ENV = "SKILLSET_TEST_CLAUDE_SETTING_SOURCES";
 // Empty --setting-sources keeps Claude probes independent from user/project/local settings while preserving env auth and explicit --plugin-dir inputs.
 const ISOLATED_CLAUDE_SETTING_SOURCES_ARG = "";
 const CLAUDE_SETTING_SOURCES_DISPLAY = "\"\"";
 
-export async function startTryRun(
+export async function startAdHocTestRun(
   rootPath: string,
-  options: TryRunOptions
-): Promise<TryRunReport> {
+  options: AdHocTestRunOptions
+): Promise<AdHocTestRunReport> {
   const root = resolve(rootPath);
   const cacheRoot = resolve(options.cacheRootPath ?? root);
   if (options.background === true && cacheRoot !== root) {
@@ -171,12 +171,12 @@ export async function startTryRun(
     throw new Error(`skillset: test target ${options.target} is not enabled by root target configuration`);
   }
   const name = options.name ?? `ad-hoc-${options.target}`;
-  const plugins = validateTryPlugins(graph, options.target, options.plugins ?? []);
+  const plugins = validateAdHocTestPlugins(graph, options.target, options.plugins ?? []);
   const runId = makeRetainedRunId(name, { fallbackName: "ad-hoc", includeName: true });
-  const paths = tryPaths(cacheRoot, graph, runId, options.xdg);
+  const paths = adHocTestPaths(cacheRoot, graph, runId, options.xdg);
   await mkdir(paths.absolute.runPath, { recursive: true });
 
-  const config: TryStoredConfig = {
+  const config: AdHocTestStoredConfig = {
     ...(options.target === "claude" ? { claudeSettingSources: resolveClaudeSettingSources(options) } : {}),
     name,
     plugins,
@@ -210,7 +210,7 @@ export async function startTryRun(
   await writeLatest(paths, runId);
 
   if (options.background === true) {
-    const pid = spawnTryWorker(root, runId);
+    const pid = spawnAdHocTestWorker(root, runId);
     const status = await readStatus(paths.absolute.statusPath);
     await writeStatus(paths, {
       ...status,
@@ -221,12 +221,12 @@ export async function startTryRun(
     return runReport(paths, runId, "queued", true);
   }
 
-  await executeTryRun(root, runId, options.env, options.xdg, cacheRoot);
+  await executeAdHocTestRun(root, runId, options.env, options.xdg, cacheRoot);
   const status = await readStatus(paths.absolute.statusPath);
   return runReport(paths, runId, status.state, false);
 }
 
-export async function executeTryRun(
+export async function executeAdHocTestRun(
   rootPath: string,
   runId: string,
   env: Record<string, string | undefined> = process.env,
@@ -234,7 +234,7 @@ export async function executeTryRun(
   cacheRootPath: string = rootPath
 ): Promise<void> {
   const root = resolve(rootPath);
-  const paths = tryPaths(resolve(cacheRootPath), await loadBuildGraph(root, xdg === undefined ? {} : { xdg }), runId, xdg);
+  const paths = adHocTestPaths(resolve(cacheRootPath), await loadBuildGraph(root, xdg === undefined ? {} : { xdg }), runId, xdg);
   const config = await readConfig(join(paths.absolute.runPath, "config.json"));
   const target = config.target;
   const runOptions: SkillsetOptions = {
@@ -270,7 +270,7 @@ export async function executeTryRun(
   const finalMessage = await readOptional(paths.absolute.finalMessagePath);
   const stdout = await readOptional(join(paths.absolute.runPath, "stdout.txt")) ?? "";
   const stderr = await readOptional(join(paths.absolute.runPath, "stderr.txt")) ?? "";
-  const failureClass = classifyTryFailure(result, `${stderr}\n${stdout}`);
+  const failureClass = classifyAdHocTestFailure(result, `${stderr}\n${stdout}`);
   const report: JsonRecord = {
     command: [...command.display],
     endedAt: new Date().toISOString(),
@@ -286,7 +286,7 @@ export async function executeTryRun(
     ...(failureClass === undefined ? {} : { failureClass }),
   };
   await writeFile(paths.absolute.reportPath, renderValidatedJson(report, paths.logical.reportPath), "utf8");
-  const nextState: TryState = report.ok === true ? "passed" : "failed";
+  const nextState: AdHocTestState = report.ok === true ? "passed" : "failed";
   await writeStatus(paths, {
     ...status,
     endedAt: String(report.endedAt),
@@ -303,14 +303,14 @@ export async function executeTryRun(
   await appendEvent(paths, "status", `test ${nextState}`);
 }
 
-export async function readTryEvidence(
+export async function readAdHocTestEvidence(
   rootPath: string,
   runId: string,
   options: Pick<SkillsetOptions, "xdg"> = {}
-): Promise<TryEvidence> {
+): Promise<AdHocTestEvidence> {
   const root = resolve(rootPath);
   const graph = await loadBuildGraph(root, options);
-  const paths = tryPaths(root, graph, runId, options.xdg);
+  const paths = adHocTestPaths(root, graph, runId, options.xdg);
   const finalMessage = await readOptional(paths.absolute.finalMessagePath);
   const stdout = await readOptional(join(paths.absolute.runPath, "stdout.txt")) ?? "";
   const stderr = await readOptional(join(paths.absolute.runPath, "stderr.txt")) ?? "";
@@ -319,13 +319,13 @@ export async function readTryEvidence(
     ...(finalMessage === undefined ? {} : { finalMessage }),
     outputPath: paths.logical.outputPath,
     reportPath: paths.logical.reportPath,
-    response: normalizeTryResponse(status.target, finalMessage, stdout),
+    response: normalizeAdHocTestResponse(status.target, finalMessage, stdout),
     stderr,
     stdout,
   };
 }
 
-function normalizeTryResponse(target: TargetName, finalMessage: string | undefined, stdout: string): string {
+function normalizeAdHocTestResponse(target: TargetName, finalMessage: string | undefined, stdout: string): string {
   if (finalMessage !== undefined) return finalMessage;
   if (target === "codex") return stdout;
   const candidates = [stdout.trim(), ...stdout.trim().split("\n").reverse()];
@@ -343,28 +343,28 @@ function normalizeTryResponse(target: TargetName, finalMessage: string | undefin
   return stdout;
 }
 
-export async function readTryStatus(
+export async function readAdHocTestStatus(
   rootPath: string,
   runId?: string,
   options: Pick<SkillsetOptions, "xdg"> = {}
-): Promise<TryStatus> {
+): Promise<AdHocTestStatus> {
   const root = resolve(rootPath);
   const graph = await loadBuildGraph(root, options);
   const resolvedRunId = runId ?? await readLatestRunId(root, graph, options.xdg);
-  const paths = tryPaths(root, graph, resolvedRunId, options.xdg);
+  const paths = adHocTestPaths(root, graph, resolvedRunId, options.xdg);
   return readStatus(paths.absolute.statusPath);
 }
 
-export async function listTryRuns(
+export async function listAdHocTestRuns(
   rootPath: string,
   options: Pick<SkillsetOptions, "xdg"> = {}
-): Promise<readonly TryListEntry[]> {
+): Promise<readonly AdHocTestListEntry[]> {
   const root = resolve(rootPath);
   const graph = await loadBuildGraph(root, options);
   const runsRoot = retainedRunRootPaths(root, graph, RUNTIME_TEST_ROOT, options.xdg).absolute.runsRoot;
   if (!await pathExists(runsRoot)) return [];
   const entries = await readdir(runsRoot, { withFileTypes: true });
-  const runs: TryListEntry[] = [];
+  const runs: AdHocTestListEntry[] = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
     try {
@@ -386,16 +386,16 @@ export async function listTryRuns(
   return runs.sort((left, right) => compareStrings(right.startedAt, left.startedAt));
 }
 
-export async function tailTryRun(
+export async function tailAdHocTestRun(
   rootPath: string,
   runId: string | undefined,
   lines: number,
   options: Pick<SkillsetOptions, "xdg"> = {}
-): Promise<readonly TryTailLine[]> {
+): Promise<readonly AdHocTestTailLine[]> {
   const root = resolve(rootPath);
   const graph = await loadBuildGraph(root, options);
   const resolvedRunId = runId ?? await readLatestRunId(root, graph, options.xdg);
-  const paths = tryPaths(root, graph, resolvedRunId, options.xdg);
+  const paths = adHocTestPaths(root, graph, resolvedRunId, options.xdg);
   const raw = await readOptional(paths.absolute.outputPath);
   if (raw === undefined) return [];
   return raw
@@ -408,15 +408,15 @@ export async function tailTryRun(
 function runtimeCommand(
   rootPath: string,
   graph: BuildGraph,
-  paths: TryRunPaths,
-  config: TryStoredConfig,
+  paths: AdHocTestRunPaths,
+  config: AdHocTestStoredConfig,
   env: Record<string, string | undefined>,
   xdg: SkillsetOptions["xdg"]
 ): { readonly cmd: readonly string[]; readonly cwd: string; readonly display: readonly string[] } {
   const latestRoot = resolveRetainedRunPath(rootPath, graph, ISOLATED_OUT_ROOT, xdg);
   if (config.target === "claude") {
     const bin = env.SKILLSET_TEST_CLAUDE_BIN ?? "claude";
-    const pluginArgs = tryPluginDirs(graph, latestRoot, config.target, config.plugins).flatMap((pluginDir) => [
+    const pluginArgs = adHocTestPluginDirs(graph, latestRoot, config.target, config.plugins).flatMap((pluginDir) => [
       "--plugin-dir",
       pluginDir,
     ]);
@@ -443,7 +443,7 @@ function runtimeCommand(
 
   if (config.target === "cursor") {
     const bin = env.SKILLSET_TEST_CURSOR_BIN ?? "cursor-agent";
-    const pluginArgs = tryPluginDirs(graph, latestRoot, config.target, config.plugins).flatMap((pluginDir) => [
+    const pluginArgs = adHocTestPluginDirs(graph, latestRoot, config.target, config.plugins).flatMap((pluginDir) => [
       "--plugin-dir",
       pluginDir,
     ]);
@@ -480,18 +480,18 @@ function runtimeCommand(
   return { cmd, cwd: latestRoot, display: cmd };
 }
 
-function resolveClaudeSettingSources(options: TryRunOptions): TryClaudeSettingSources {
+function resolveClaudeSettingSources(options: AdHocTestRunOptions): AdHocTestClaudeSettingSources {
   const env = options.env ?? process.env;
   return options.claudeSettingSources ??
-    readClaudeSettingSources(env[TRY_CLAUDE_SETTING_SOURCES_ENV], TRY_CLAUDE_SETTING_SOURCES_ENV) ??
+    readClaudeSettingSources(env[AD_HOC_TEST_CLAUDE_SETTING_SOURCES_ENV], AD_HOC_TEST_CLAUDE_SETTING_SOURCES_ENV) ??
     DEFAULT_CLAUDE_SETTING_SOURCES;
 }
 
-function claudeSettingSourcesArg(value: TryClaudeSettingSources): string {
+function claudeSettingSourcesArg(value: AdHocTestClaudeSettingSources): string {
   return value === "isolated" ? ISOLATED_CLAUDE_SETTING_SOURCES_ARG : value;
 }
 
-function tryPluginDirs(
+function adHocTestPluginDirs(
   graph: BuildGraph,
   latestRoot: string,
   target: "claude" | "cursor",
@@ -511,7 +511,7 @@ function tryPluginDirs(
     .map((plugin) => join(latestRoot, pluginTargetRoot(graph.root.outputs.plugins[target], target, plugin)));
 }
 
-function validateTryPlugins(
+function validateAdHocTestPlugins(
   graph: BuildGraph,
   target: TargetName,
   plugins: readonly string[]
@@ -542,7 +542,7 @@ function validateTryPlugins(
 async function runCommand(
   command: { readonly cmd: readonly string[]; readonly cwd: string },
   prompt: string,
-  paths: TryRunPaths,
+  paths: AdHocTestRunPaths,
   timeoutMs: number,
   env: Record<string, string | undefined>
 ): Promise<{ readonly exitCode: number; readonly timedOut: boolean }> {
@@ -573,7 +573,7 @@ async function runCommand(
 }
 
 async function collectStream(
-  paths: TryRunPaths,
+  paths: AdHocTestRunPaths,
   streamName: "stderr" | "stdout",
   stream: ReadableStream<Uint8Array>
 ): Promise<void> {
@@ -594,7 +594,7 @@ function cleanEnv(env: Record<string, string | undefined>): Record<string, strin
   return cleaned;
 }
 
-function spawnTryWorker(rootPath: string, runId: string): number | undefined {
+function spawnAdHocTestWorker(rootPath: string, runId: string): number | undefined {
   const cliPath = process.argv[1];
   if (cliPath === undefined) throw new Error("skillset: test cannot locate CLI entrypoint for background worker");
   const child = spawnNode(process.execPath, [cliPath, "test", "worker", runId, "--root", rootPath], {
@@ -607,12 +607,12 @@ function spawnTryWorker(rootPath: string, runId: string): number | undefined {
   return child.pid;
 }
 
-function tryPaths(
+function adHocTestPaths(
   rootPath: string,
   graph: BuildGraph,
   runId: string,
   xdg: SkillsetOptions["xdg"] = undefined
-): TryRunPaths {
+): AdHocTestRunPaths {
   const retained = retainedRunPaths(rootPath, graph, RUNTIME_TEST_ROOT, runId, xdg);
   return {
     retained,
@@ -639,21 +639,21 @@ function tryPaths(
 }
 
 async function updateRunState(
-  paths: TryRunPaths,
-  status: TryStatus,
-  state: TryState,
-  updates: Partial<TryStatus> = {}
-): Promise<TryStatus> {
+  paths: AdHocTestRunPaths,
+  status: AdHocTestStatus,
+  state: AdHocTestState,
+  updates: Partial<AdHocTestStatus> = {}
+): Promise<AdHocTestStatus> {
   const next = { ...status, ...updates, state, updatedAt: new Date().toISOString() };
   await writeStatus(paths, next);
   return next;
 }
 
 async function failRun(
-  paths: TryRunPaths,
-  status: TryStatus,
+  paths: AdHocTestRunPaths,
+  status: AdHocTestStatus,
   error: string,
-  failureClass: TryFailureClass
+  failureClass: AdHocTestFailureClass
 ): Promise<void> {
   const endedAt = new Date().toISOString();
   const report: JsonRecord = {
@@ -681,10 +681,10 @@ async function failRun(
   await appendEvent(paths, "status", `test failed: ${error}`);
 }
 
-function classifyTryFailure(
+function classifyAdHocTestFailure(
   result: { readonly exitCode: number; readonly timedOut: boolean },
   stderr: string
-): TryFailureClass | undefined {
+): AdHocTestFailureClass | undefined {
   if (result.timedOut) return "timeout";
   if (result.exitCode === 0) return undefined;
   if (/not logged in|unauthori[sz]ed|authentication|authenticate|credential|api[ -]?key|oauth|setup-token/iu.test(stderr)) {
@@ -698,12 +698,12 @@ function isMissingBinaryError(error: unknown): boolean {
   return /enoent|failed to spawn|no such file or directory/iu.test(messageFor(error));
 }
 
-async function writeStatus(paths: TryRunPaths, status: TryStatus): Promise<void> {
+async function writeStatus(paths: AdHocTestRunPaths, status: AdHocTestStatus): Promise<void> {
   await mkdir(paths.absolute.runPath, { recursive: true });
   await writeFile(paths.absolute.statusPath, renderValidatedJson(status as unknown as JsonRecord, paths.logical.statusPath), "utf8");
 }
 
-async function writeLatest(paths: TryRunPaths, runId: string): Promise<void> {
+async function writeLatest(paths: AdHocTestRunPaths, runId: string): Promise<void> {
   await mkdir(paths.absolute.runsRoot, { recursive: true });
   await writeRetainedRunLatest(paths.retained, {
     runId,
@@ -713,7 +713,7 @@ async function writeLatest(paths: TryRunPaths, runId: string): Promise<void> {
   });
 }
 
-async function appendEvent(paths: TryRunPaths, stream: string, message: string): Promise<void> {
+async function appendEvent(paths: AdHocTestRunPaths, stream: string, message: string): Promise<void> {
   const path = paths.absolute.outputPath;
   const state = eventAppendStates.get(path) ?? { queue: Promise.resolve() };
   const event = stream === "status" && message === "test passed"
@@ -763,7 +763,7 @@ async function readLatestRunId(
   return latest.runId;
 }
 
-async function readConfig(path: string): Promise<TryStoredConfig> {
+async function readConfig(path: string): Promise<AdHocTestStoredConfig> {
   const raw = JSON.parse(await readFile(path, "utf8")) as unknown;
   if (!isRecord(raw)) throw new Error("skillset: test config is malformed");
   if (!isTargetName(raw.target)) throw new Error("skillset: test config target is malformed");
@@ -782,12 +782,12 @@ async function readConfig(path: string): Promise<TryStoredConfig> {
   };
 }
 
-async function readStatus(path: string): Promise<TryStatus> {
+async function readStatus(path: string): Promise<AdHocTestStatus> {
   const raw = JSON.parse(await readFile(path, "utf8")) as unknown;
   if (!isRecord(raw) || typeof raw.runId !== "string" || !isTargetName(raw.target)) {
     throw new Error("skillset: test status is malformed");
   }
-  return raw as unknown as TryStatus;
+  return raw as unknown as AdHocTestStatus;
 }
 
 async function readOptional(path: string): Promise<string | undefined> {
@@ -807,7 +807,7 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-function parseTailLine(line: string): TryTailLine {
+function parseTailLine(line: string): AdHocTestTailLine {
   const parsed = JSON.parse(line) as unknown;
   if (!isRecord(parsed)) return { message: line, stream: "raw", timestamp: "" };
   const data = isRecord(parsed.data) ? parsed.data : parsed;
@@ -819,11 +819,11 @@ function parseTailLine(line: string): TryTailLine {
 }
 
 function runReport(
-  paths: TryRunPaths,
+  paths: AdHocTestRunPaths,
   runId: string,
-  state: TryState,
+  state: AdHocTestState,
   background: boolean
-): TryRunReport {
+): AdHocTestRunReport {
   return {
     background,
     kind: "ad-hoc",

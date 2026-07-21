@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { isScannablePath, scanContent } from "../terminology-guard";
+import {
+  isScannablePath,
+  scanContent,
+  scanInternalAdHocTestTerminology,
+} from "../terminology-guard";
 
 describe("terminology guard", () => {
   it("flags retired render-result vocabulary", () => {
@@ -83,5 +87,95 @@ describe("terminology guard", () => {
   it("ignores non-scannable extensions", () => {
     expect(isScannablePath("scripts/run.sh")).toBe(false);
     expect(isScannablePath("LICENSE")).toBe(false);
+  });
+
+  it("flags retired ad hoc-test identifiers structurally", () => {
+    const violations = scanInternalAdHocTestTerminology(
+      "apps/skillset/src/test-cli.ts",
+      [
+        "type TryState = string;",
+        "const tryRun = (): void => {};",
+        "const TRY_STATE = 'queued';",
+        "const startTryRun = (): void => {};",
+        "const runTryCommand = (): void => {};",
+        "const embeddedTryState = 'queued';",
+      ].join("\n")
+    );
+    expect(violations.map((violation) => violation.label)).toEqual([
+      "retired ad hoc-test identifier",
+      "retired ad hoc-test identifier",
+      "retired ad hoc-test identifier",
+      "retired ad hoc-test identifier",
+      "retired ad hoc-test identifier",
+      "retired ad hoc-test identifier",
+    ]);
+  });
+
+  it("keeps the exact unrelated resolver helper and ordinary try syntax", () => {
+    expect(
+      scanInternalAdHocTestTerminology(
+        "apps/skillset/src/change-workflow.ts",
+        [
+          "function tryResolvePending(): void {}",
+          "try { tryResolvePending(); } catch {}",
+          "const prose = 'try the command again';",
+          "const retry = true;",
+          "const entry = true;",
+          "const registry = true;",
+        ].join("\n")
+      )
+    ).toEqual([]);
+    expect(
+      scanInternalAdHocTestTerminology(
+        "apps/skillset/src/other.ts",
+        "function tryResolvePending(): void {}"
+      ).map((violation) => violation.label)
+    ).toEqual(["retired ad hoc-test identifier"]);
+  });
+
+  it("flags only exact retired module specifiers", () => {
+    const violations = scanInternalAdHocTestTerminology(
+      "apps/skillset/src/test-cli.ts",
+      [
+        'import { run } from "./try";',
+        'export { status } from "./try-cli";',
+        'const worker = import("../try");',
+        'const nested = import("../../try-cli");',
+        'const bare = import("try");',
+        'import { retry } from "./retry";',
+        'import { entry } from "entry";',
+        'import { registry } from "@scope/registry";',
+      ].join("\n")
+    );
+    expect(violations.map((violation) => violation.label)).toEqual([
+      "retired ad hoc-test module specifier",
+      "retired ad hoc-test module specifier",
+      "retired ad hoc-test module specifier",
+      "retired ad hoc-test module specifier",
+      "retired ad hoc-test module specifier",
+    ]);
+  });
+
+  it("flags the three exact retired scoped paths", () => {
+    for (const path of [
+      "apps/skillset/src/try.ts",
+      "apps/skillset/src/try-cli.ts",
+      "apps/skillset/src/__tests__/try.test.ts",
+    ]) {
+      expect(scanInternalAdHocTestTerminology(path, "")).toEqual([
+        {
+          file: path,
+          label: "retired ad hoc-test path",
+          line: 1,
+          text: path,
+        },
+      ]);
+    }
+    expect(
+      scanInternalAdHocTestTerminology(
+        "apps/skillset/src/__tests__/ad-hoc-test.test.ts",
+        ""
+      )
+    ).toEqual([]);
   });
 });
