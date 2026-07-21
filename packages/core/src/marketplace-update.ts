@@ -1,5 +1,4 @@
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 
 import { writeAtomicFileSet } from "./atomic-file-set";
 import { claudeMarketplacePluginRoot, claudeMarketplaceRepoSource } from "./claude-marketplace";
@@ -12,7 +11,8 @@ import {
 } from "./marketplace-check";
 import { compareStrings, resolveInside } from "./path";
 import { claudeMarketplacePath } from "./plugin-output";
-import { renderBuildGraph, renderClaudeMarketplaceDocument } from "./render";
+import { renderBuildGraph } from "./render";
+import { renderClaudeMarketplaceDocument } from "./render-marketplaces";
 import { loadBuildGraph } from "./resolver";
 import { renderValidatedJson } from "./structured-output";
 import type { BuildGraph, JsonRecord, JsonValue, SkillsetOptions, TargetName } from "./types";
