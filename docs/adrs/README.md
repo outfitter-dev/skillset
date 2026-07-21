@@ -7,6 +7,8 @@ ADRs document the significant design decisions behind Skillset: choices that, if
 - Numbered ADRs live at `docs/adrs/NNNN-slug.md`.
 - Draft ADRs live at `docs/adrs/drafts/YYYYMMDD-slug.md`.
 - New ADRs should start from [template.md](template.md).
+- The current factual review of unpromoted records lives in
+  [draft-dispositions.md](draft-dispositions.md).
 - Owners use `['[galligan](https://github.com/galligan)']` until a decision changes repository ownership metadata.
 - Use `bun scripts/adr.ts check` before handoff and `bun scripts/adr.ts map` after ADR lifecycle changes.
 
