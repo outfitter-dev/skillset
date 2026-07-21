@@ -95,8 +95,8 @@ function path(target: string) {
 `);
 
     expect(violations.map(({ rule, text }) => ({ rule, text }))).toEqual([
-      { rule: "R3", text: 'target === "claude" -> target === "codex" -> else' },
-      { rule: "R3", text: 'target === "claude" -> target === "codex" -> else' },
+      { rule: "R3", text: 'target === "claude" -> target === "codex" -> else [cursor]' },
+      { rule: "R3", text: 'target === "claude" -> target === "codex" -> else [cursor]' },
     ]);
   });
 
@@ -121,7 +121,7 @@ function historicalGuardedTernary(target: string) {
         line: 3,
         owner: "historicalReturnFallback",
         rule: "R3",
-        text: 'target === "claude" -> target === "cursor" -> else',
+        text: 'target === "claude" -> target === "cursor" -> else [codex]',
       },
       {
         column: 3,
@@ -129,7 +129,7 @@ function historicalGuardedTernary(target: string) {
         line: 9,
         owner: "historicalGuardedTernary",
         rule: "R3",
-        text: 'target === "cursor" -> target === "claude" -> else',
+        text: 'target === "cursor" -> target === "claude" -> else [codex]',
       },
     ]);
   });
@@ -268,6 +268,38 @@ const label = target === "claude" ? "Claude" : target === "codex" ? "Codex" : ta
 `, targets);
 
     expect(violations.map(({ rule }) => rule)).toEqual(["R1", "R3"]);
+  });
+
+  test("invalidates an allowlisted R3 fallback when the registry grows", () => {
+    const source = 'function render(target: string) { return target === "claude" ? "Claude" : target === "codex" ? "Codex" : "Other"; }';
+    const sources = [{ content: source, file: "apps/example.ts" }];
+    const currentTargets = ["claude", "codex", "cursor"] as const;
+    const current = scanTargetTopologySources(sources, currentTargets, []);
+    const observed = current.violations[0];
+    expect(current).toMatchObject({
+      duplicateAllowlist: [],
+      unmatchedAllowlist: [],
+      violations: [{ rule: "R3", text: 'target === "claude" -> target === "codex" -> else [cursor]' }],
+    });
+    expect(observed).toBeDefined();
+    if (observed === undefined) throw new Error("fixture must produce an R3 violation");
+    const exemption = { ...observed, rationale: "Fixture permits this exact current fallback." };
+
+    expect(scanTargetTopologySources(sources, currentTargets, [exemption])).toEqual({
+      duplicateAllowlist: [],
+      unmatchedAllowlist: [],
+      violations: [],
+    });
+
+    const futureTargets = ["claude", "codex", "cursor", "future"] as const;
+    expect(scanTargetTopologySources(sources, futureTargets, [exemption])).toEqual({
+      duplicateAllowlist: [],
+      unmatchedAllowlist: [exemption],
+      violations: [{
+        ...observed,
+        text: 'target === "claude" -> target === "codex" -> else [cursor, future]',
+      }],
+    });
   });
 
   test("filters generated, fixture, test, and non-TypeScript paths", () => {
