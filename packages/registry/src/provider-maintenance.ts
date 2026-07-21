@@ -3,18 +3,20 @@ import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import {
-  hashProviderSchemaSnapshot,
   listProviderDestinationFormatSnapshots,
+  type ProviderDestinationFormatSnapshot,
+} from "./index";
+import {
+  hashProviderSchemaSnapshot,
   listProviderSchemaSnapshots,
   providerSchemaManualOverlays,
-  type ProviderDestinationFormatSnapshot,
   type ProviderJsonSchemaSummary,
   type ProviderSchemaManualOverlay,
   type ProviderSchemaSetEntry,
   type ProviderSchemaSetSummary,
   type ProviderSchemaSnapshot,
   type ProviderSchemaSource,
-} from "@skillset/registry";
+} from "./schema-snapshots";
 
 export type ProviderMaintenanceSubcommand = "check" | "diff" | "update";
 
@@ -86,25 +88,47 @@ export async function runProviderMaintenance(
   command: ProviderMaintenanceSubcommand,
   options: ProviderMaintenanceOptions = {}
 ): Promise<ProviderMaintenanceReport> {
-  const schemaPath = options.schemaSnapshotPath ?? resolve(rootPath, "packages/registry/src/schema-snapshots.ts");
-  const schemaSnapshots = options.schemaSnapshots ?? listProviderSchemaSnapshots();
-  const destinationSnapshots = options.destinationSnapshots ?? listProviderDestinationFormatSnapshots();
+  const schemaPath =
+    options.schemaSnapshotPath ??
+    resolve(rootPath, "packages/registry/src/schema-snapshots.ts");
+  const schemaSnapshots =
+    options.schemaSnapshots ?? listProviderSchemaSnapshots();
+  const destinationSnapshots =
+    options.destinationSnapshots ?? listProviderDestinationFormatSnapshots();
   const fetcher = options.fetcher ?? fetch;
   const fetchedAt = options.now;
   const schemaResults = await Promise.all(
-    schemaSnapshots.map((snapshot) => checkSchemaSnapshot(snapshot, fetcher, fetchedAt))
+    schemaSnapshots.map((snapshot) =>
+      checkSchemaSnapshot(snapshot, fetcher, fetchedAt)
+    )
   );
-  const errors = schemaResults.filter((result) => result.status === "error").length;
-  const schemaChanged = schemaResults.filter((result) => result.status === "changed").length;
-  const schemaMatched = schemaResults.filter((result) => result.status === "matched").length;
+  const errors = schemaResults.filter(
+    (result) => result.status === "error"
+  ).length;
+  const schemaChanged = schemaResults.filter(
+    (result) => result.status === "changed"
+  ).length;
+  const schemaMatched = schemaResults.filter(
+    (result) => result.status === "matched"
+  ).length;
   let wrote = false;
 
-  if (command === "update" && options.write === true && errors === 0 && schemaChanged > 0) {
+  if (
+    command === "update" &&
+    options.write === true &&
+    errors === 0 &&
+    schemaChanged > 0
+  ) {
     const nextSnapshots = schemaSnapshots.map((snapshot) => {
-      const result = schemaResults.find((candidate) => candidate.id === snapshot.id);
+      const result = schemaResults.find(
+        (candidate) => candidate.id === snapshot.id
+      );
       return result?.updatedSnapshot ?? snapshot;
     });
-    const source = renderProviderSchemaSnapshotsSource(nextSnapshots, providerSchemaManualOverlays);
+    const source = renderProviderSchemaSnapshotsSource(
+      nextSnapshots,
+      providerSchemaManualOverlays
+    );
     const previous = await readFile(schemaPath, "utf8").catch(() => "");
     if (previous !== source) {
       await writeFile(schemaPath, source);
@@ -112,16 +136,16 @@ export async function runProviderMaintenance(
     }
   }
 
-  const ok = command === "check"
-    ? errors === 0 && schemaChanged === 0
-    : errors === 0;
+  const ok =
+    command === "check" ? errors === 0 && schemaChanged === 0 : errors === 0;
 
   return {
     command,
     destinationReviews: destinationSnapshots.map((snapshot) => ({
       contentHash: snapshot.provenance.contentHash,
       id: snapshot.id,
-      reason: "destination format snapshots are adopted from prose docs; no machine-readable upstream baseline is recorded",
+      reason:
+        "destination format snapshots are adopted from prose docs; no machine-readable upstream baseline is recorded",
       sources: snapshot.provenance.sources.map((source) => source.url),
       status: "manual-review",
       target: snapshot.target,
@@ -135,49 +159,6 @@ export async function runProviderMaintenance(
     schemaResults,
     wrote,
   };
-}
-
-export function renderProviderMaintenanceReport(report: ProviderMaintenanceReport): string {
-  const lines: string[] = [];
-  lines.push(`skillset: provider ${report.command} checked ${report.schemaResults.length} schema snapshots`);
-  for (const result of report.schemaResults) {
-    const marker = result.status === "matched" ? "=" : result.status === "changed" ? "~" : "!";
-    lines.push(`  ${marker} schema ${result.id}: ${result.status}`);
-    if (result.error !== undefined) lines.push(`    error: ${result.error}`);
-    if (result.snapshotHash !== undefined && result.snapshotHash.expected !== result.snapshotHash.actual) {
-      lines.push(`    snapshot: ${result.snapshotHash.expected} -> ${result.snapshotHash.actual}`);
-    }
-    if (report.command !== "check") {
-      for (const source of result.sources) {
-        const actual = source.actualHash ?? "unavailable";
-        if (source.status !== "matched") lines.push(`    source: ${source.url} ${source.expectedHash} -> ${actual}`);
-      }
-      for (const change of result.summaryChanges) lines.push(`    ${change}`);
-    }
-  }
-  lines.push(
-    `skillset: ${report.schemaMatched} matched, ${report.schemaChanged} changed, ${report.errors} failed; ` +
-      `${report.destinationReviews.length} destination format snapshots require manual review`
-  );
-  if (report.command === "diff") {
-    for (const review of report.destinationReviews) {
-      lines.push(`  ? destination ${review.id} [${review.target}]: ${review.status} ${review.contentHash}`);
-      lines.push(`    reason: ${review.reason}`);
-      for (const source of review.sources) lines.push(`    source: ${source}`);
-    }
-  }
-  if (report.command === "update") {
-    if (report.wrote) {
-      lines.push(`skillset: wrote ${report.schemaPath}`);
-    } else if (report.schemaChanged > 0 && report.errors === 0) {
-      lines.push("skillset: rerun providers update with --yes to refresh schema snapshots");
-    } else if (report.errors > 0) {
-      lines.push("skillset: provider schema snapshots were not updated because checks failed");
-    } else {
-      lines.push("skillset: provider schema snapshots are current");
-    }
-  }
-  return `${lines.join("\n")}\n`;
 }
 
 async function checkSchemaSnapshot(
@@ -194,19 +175,25 @@ async function checkSchemaSnapshot(
       return {
         actualHash: source.contentHash,
         expectedHash: previous?.contentHash ?? "",
-        status: previous?.contentHash === source.contentHash ? "matched" as const : "changed" as const,
+        status:
+          previous?.contentHash === source.contentHash
+            ? ("matched" as const)
+            : ("changed" as const),
         url: source.url,
       };
     });
     const summaryChanges = summarizeChanges(snapshot.summary, updated.summary);
-    const hasContentChanges = sources.some((source) => source.status === "changed") ||
+    const hasContentChanges =
+      sources.some((source) => source.status === "changed") ||
       summaryChanges.length > 0;
     const nextSnapshot = hasContentChanges ? updated : snapshot;
-    const snapshotHash = hasContentChanges ? hashProviderSchemaSnapshot(updated) : snapshot.provenance.contentHash;
-    const status = hasContentChanges ||
-      snapshot.provenance.contentHash !== snapshotHash
-      ? "changed"
-      : "matched";
+    const snapshotHash = hasContentChanges
+      ? hashProviderSchemaSnapshot(updated)
+      : snapshot.provenance.contentHash;
+    const status =
+      hasContentChanges || snapshot.provenance.contentHash !== snapshotHash
+        ? "changed"
+        : "matched";
     return {
       id: snapshot.id,
       snapshotHash: {
@@ -217,7 +204,17 @@ async function checkSchemaSnapshot(
       status,
       summaryChanges,
       title: snapshot.title,
-      ...(status === "changed" ? { updatedSnapshot: { ...nextSnapshot, provenance: { ...nextSnapshot.provenance, contentHash: snapshotHash } } } : {}),
+      ...(status === "changed"
+        ? {
+            updatedSnapshot: {
+              ...nextSnapshot,
+              provenance: {
+                ...nextSnapshot.provenance,
+                contentHash: snapshotHash,
+              },
+            },
+          }
+        : {}),
     };
   } catch (error) {
     return {
@@ -240,9 +237,12 @@ async function refreshJsonSchemaSnapshot(
   fetcher: ProviderFetch,
   fetchedAt: string | undefined
 ): Promise<ProviderSchemaSnapshot> {
-  const fetchedSources = await Promise.all(snapshot.provenance.sources.map((source) => fetchSource(source, fetcher)));
+  const fetchedSources = await Promise.all(
+    snapshot.provenance.sources.map((source) => fetchSource(source, fetcher))
+  );
   const primary = fetchedSources[0];
-  if (primary === undefined) throw new Error(`provider schema snapshot ${snapshot.id} has no source`);
+  if (primary === undefined)
+    throw new Error(`provider schema snapshot ${snapshot.id} has no source`);
   const schema = parseJson(primary.text, primary.url);
   const sources = fetchedSources.map((source) => ({
     ...(source.note === undefined ? {} : { note: source.note }),
@@ -267,25 +267,32 @@ async function refreshSchemaSetSnapshot(
   fetchedAt: string | undefined
 ): Promise<ProviderSchemaSnapshot> {
   const [listingSource] = snapshot.provenance.sources;
-  if (listingSource === undefined) throw new Error(`provider schema set ${snapshot.id} has no listing source`);
+  if (listingSource === undefined)
+    throw new Error(`provider schema set ${snapshot.id} has no listing source`);
   const listing = await fetchSource(listingSource, fetcher);
-  const entries = readGithubDirectoryEntries(parseJson(listing.text, listing.url));
-  const schemaEntries = await Promise.all(entries.map(async (entry) => {
-    const fetched = await fetchText(entry.url, fetcher);
-    const parsed = parseJson(fetched.text, entry.url);
-    const summary = summarizeJsonSchema(parsed);
-    return {
-      contentHash: fetched.contentHash,
-      name: entry.name,
-      properties: summary.properties ?? [],
-      required: summary.required ?? [],
-      title: summary.title ?? entry.name.replace(/\.schema\.json$/u, ""),
-      url: entry.url,
-    };
-  }));
+  const entries = readGithubDirectoryEntries(
+    parseJson(listing.text, listing.url)
+  );
+  const schemaEntries = await Promise.all(
+    entries.map(async (entry) => {
+      const fetched = await fetchText(entry.url, fetcher);
+      const parsed = parseJson(fetched.text, entry.url);
+      const summary = summarizeJsonSchema(parsed);
+      return {
+        contentHash: fetched.contentHash,
+        name: entry.name,
+        properties: summary.properties ?? [],
+        required: summary.required ?? [],
+        title: summary.title ?? entry.name.replace(/\.schema\.json$/u, ""),
+        url: entry.url,
+      };
+    })
+  );
   const summary: ProviderSchemaSetSummary = {
     entries: schemaEntries,
-    repositoryPath: isProviderSchemaSetSummary(snapshot.summary) ? snapshot.summary.repositoryPath : "",
+    repositoryPath: isProviderSchemaSetSummary(snapshot.summary)
+      ? snapshot.summary.repositoryPath
+      : "",
     schemaCount: schemaEntries.length,
   };
   return {
@@ -296,7 +303,9 @@ async function refreshSchemaSetSnapshot(
       rollingLatest: true,
       sources: [
         {
-          ...(listingSource.note === undefined ? {} : { note: listingSource.note }),
+          ...(listingSource.note === undefined
+            ? {}
+            : { note: listingSource.note }),
           contentHash: listing.contentHash,
           url: listing.url,
         },
@@ -306,7 +315,10 @@ async function refreshSchemaSetSnapshot(
   };
 }
 
-async function fetchSource(source: ProviderSchemaSource, fetcher: ProviderFetch): Promise<ProviderSchemaSource & { readonly text: string }> {
+async function fetchSource(
+  source: ProviderSchemaSource,
+  fetcher: ProviderFetch
+): Promise<ProviderSchemaSource & { readonly text: string }> {
   const fetched = await fetchText(source.url, fetcher);
   return {
     ...(source.note === undefined ? {} : { note: source.note }),
@@ -316,10 +328,15 @@ async function fetchSource(source: ProviderSchemaSource, fetcher: ProviderFetch)
   };
 }
 
-async function fetchText(url: string, fetcher: ProviderFetch): Promise<{ readonly contentHash: string; readonly text: string }> {
+async function fetchText(
+  url: string,
+  fetcher: ProviderFetch
+): Promise<{ readonly contentHash: string; readonly text: string }> {
   const response = await fetcher(url);
   if (!response.ok) {
-    throw new Error(`failed to fetch ${url}: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `failed to fetch ${url}: ${response.status} ${response.statusText}`
+    );
   }
   const text = await response.text();
   return {
@@ -348,18 +365,30 @@ function summarizeJsonSchema(value: unknown): ProviderJsonSchemaSummary {
   return summary;
 }
 
-function readGithubDirectoryEntries(value: unknown): readonly { readonly name: string; readonly url: string }[] {
-  if (!Array.isArray(value)) throw new Error("expected GitHub directory listing array");
+function readGithubDirectoryEntries(
+  value: unknown
+): readonly { readonly name: string; readonly url: string }[] {
+  if (!Array.isArray(value))
+    throw new Error("expected GitHub directory listing array");
   return value
     .map((entry) => {
       const record = readRecord(entry, "GitHub directory entry");
       const name = readString(record.name);
       const downloadUrl = readString(record.download_url);
       const type = readString(record.type);
-      if (name === undefined || downloadUrl === undefined || type !== "file" || !name.endsWith(".schema.json")) return undefined;
+      if (
+        name === undefined ||
+        downloadUrl === undefined ||
+        type !== "file" ||
+        !name.endsWith(".schema.json")
+      )
+        return undefined;
       return { name, url: downloadUrl };
     })
-    .filter((entry): entry is { readonly name: string; readonly url: string } => entry !== undefined)
+    .filter(
+      (entry): entry is { readonly name: string; readonly url: string } =>
+        entry !== undefined
+    )
     .sort((left, right) => left.name.localeCompare(right.name));
 }
 
@@ -368,22 +397,50 @@ function summarizeChanges(
   next: ProviderJsonSchemaSummary | ProviderSchemaSetSummary
 ): readonly string[] {
   if (stableStringify(previous) === stableStringify(next)) return [];
-  if (isProviderSchemaSetSummary(previous) && isProviderSchemaSetSummary(next)) {
+  if (
+    isProviderSchemaSetSummary(previous) &&
+    isProviderSchemaSetSummary(next)
+  ) {
     const previousNames = previous.entries.map((entry) => entry.name);
     const nextNames = next.entries.map((entry) => entry.name);
     return [
       ...collectionDiff("entries", previousNames, nextNames),
-      ...(previous.schemaCount === next.schemaCount ? [] : [`schemaCount: ${previous.schemaCount} -> ${next.schemaCount}`]),
+      ...(previous.schemaCount === next.schemaCount
+        ? []
+        : [`schemaCount: ${previous.schemaCount} -> ${next.schemaCount}`]),
       ...entryHashChanges(previous.entries, next.entries),
     ];
   }
-  if (!isProviderSchemaSetSummary(previous) && !isProviderSchemaSetSummary(next)) {
+  if (
+    !isProviderSchemaSetSummary(previous) &&
+    !isProviderSchemaSetSummary(next)
+  ) {
     return [
-      ...collectionDiff("properties", previous.properties ?? [], next.properties ?? []),
-      ...collectionDiff("required", previous.required ?? [], next.required ?? []),
-      ...collectionDiff("definitions", previous.definitions ?? [], next.definitions ?? []),
-      ...(previous.title === next.title ? [] : [`title: ${previous.title ?? "(none)"} -> ${next.title ?? "(none)"}`]),
-      ...(previous.topLevelType === next.topLevelType ? [] : [`topLevelType: ${previous.topLevelType ?? "(none)"} -> ${next.topLevelType ?? "(none)"}`]),
+      ...collectionDiff(
+        "properties",
+        previous.properties ?? [],
+        next.properties ?? []
+      ),
+      ...collectionDiff(
+        "required",
+        previous.required ?? [],
+        next.required ?? []
+      ),
+      ...collectionDiff(
+        "definitions",
+        previous.definitions ?? [],
+        next.definitions ?? []
+      ),
+      ...(previous.title === next.title
+        ? []
+        : [
+            `title: ${previous.title ?? "(none)"} -> ${next.title ?? "(none)"}`,
+          ]),
+      ...(previous.topLevelType === next.topLevelType
+        ? []
+        : [
+            `topLevelType: ${previous.topLevelType ?? "(none)"} -> ${next.topLevelType ?? "(none)"}`,
+          ]),
     ].filter((line) => line.length > 0);
   }
   return ["summary kind changed"];
@@ -397,21 +454,32 @@ function entryHashChanges(
   const changes: string[] = [];
   for (const entry of previous) {
     const candidate = nextByName.get(entry.name);
-    if (candidate !== undefined && candidate.contentHash !== entry.contentHash) {
-      changes.push(`entry ${entry.name}: ${entry.contentHash} -> ${candidate.contentHash}`);
+    if (
+      candidate !== undefined &&
+      candidate.contentHash !== entry.contentHash
+    ) {
+      changes.push(
+        `entry ${entry.name}: ${entry.contentHash} -> ${candidate.contentHash}`
+      );
     }
   }
   return changes;
 }
 
-function collectionDiff(label: string, previous: readonly string[], next: readonly string[]): readonly string[] {
+function collectionDiff(
+  label: string,
+  previous: readonly string[],
+  next: readonly string[]
+): readonly string[] {
   const previousSet = new Set(previous);
   const nextSet = new Set(next);
   const added = next.filter((item) => !previousSet.has(item));
   const removed = previous.filter((item) => !nextSet.has(item));
   return [
     ...(added.length === 0 ? [] : [`${label} added: ${added.join(", ")}`]),
-    ...(removed.length === 0 ? [] : [`${label} removed: ${removed.join(", ")}`]),
+    ...(removed.length === 0
+      ? []
+      : [`${label} removed: ${removed.join(", ")}`]),
   ];
 }
 
@@ -419,8 +487,15 @@ export function renderProviderSchemaSnapshotsSource(
   snapshots: readonly ProviderSchemaSnapshot[],
   manualOverlays: readonly ProviderSchemaManualOverlay[]
 ): string {
-  const orderedSnapshots = [...snapshots].sort((left, right) => left.id.localeCompare(right.id));
-  const orderedOverlays = [...manualOverlays].sort((left, right) => left.id.localeCompare(right.id));
+  const orderedSnapshots = [...snapshots].sort((left, right) =>
+    left.id.localeCompare(right.id)
+  );
+  const orderedOverlays = [...manualOverlays].sort((left, right) =>
+    left.id.localeCompare(right.id)
+  );
+  const orderedFormatSnapshotIds = [
+    ...new Set(orderedOverlays.map((overlay) => overlay.formatSnapshotId)),
+  ].sort();
   return `import { createHash } from "node:crypto";
 
 export const PROVIDER_SCHEMA_SNAPSHOT_SCHEMA = "skillset-provider-schema@1";
@@ -483,11 +558,7 @@ export interface ProviderSchemaSetSummary {
 
 export interface ProviderSchemaManualOverlay {
   readonly formatSnapshotId:
-    | "claude-skill"
-    | "claude-subagent"
-    | "codex-agents-md"
-    | "codex-plugin"
-    | "codex-subagent";
+${renderStringUnion(orderedFormatSnapshotIds, "    ")};
   readonly id: ProviderSchemaManualOverlayId;
   readonly note: string;
   readonly sources: readonly { readonly url: string }[];
@@ -603,11 +674,18 @@ function sortJson(value: unknown): unknown {
 `;
 }
 
-function renderStringUnion(values: readonly string[]): string {
-  return values.map((value) => `  | ${JSON.stringify(value)}`).join("\n");
+function renderStringUnion(
+  values: readonly string[],
+  indentation = "  "
+): string {
+  return values
+    .map((value) => `${indentation}| ${JSON.stringify(value)}`)
+    .join("\n");
 }
 
-function snapshotInput(snapshot: ProviderSchemaSnapshot): Omit<ProviderSchemaSnapshot, "schema"> {
+function snapshotInput(
+  snapshot: ProviderSchemaSnapshot
+): Omit<ProviderSchemaSnapshot, "schema"> {
   const { schema: _schema, ...input } = snapshot;
   return input;
 }
@@ -626,12 +704,15 @@ function parseJson(text: string, url: string): unknown {
   try {
     return JSON.parse(text);
   } catch (error) {
-    throw new Error(`failed to parse ${url}: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `failed to parse ${url}: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 
 function readRecord(value: unknown, label: string): Record<string, unknown> {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error(`expected ${label} object`);
+  if (value === null || typeof value !== "object" || Array.isArray(value))
+    throw new Error(`expected ${label} object`);
   return value as Record<string, unknown>;
 }
 
@@ -640,11 +721,15 @@ function readString(value: unknown): string | undefined {
 }
 
 function readStringArray(value: unknown): readonly string[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
 }
 
 function objectKeys(value: unknown): readonly string[] {
-  return value !== null && typeof value === "object" && !Array.isArray(value) ? Object.keys(value) : [];
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? Object.keys(value)
+    : [];
 }
 
 function sha256(text: string): string {
