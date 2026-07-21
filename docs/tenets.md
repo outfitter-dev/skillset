@@ -128,7 +128,7 @@ These are not a replacement for the schema reference. They are examples of how t
 - Use `skillset.schema` for the version of the source contract or compiler schema, while generated skill product versions stay simple through fields like `metadata.version`.
 - Do not require a source name that is distinct from the real plugin or skill name unless there is a concrete identity problem that derivation cannot solve.
 - Use root `compile.targets` for provider selection. Keep bare top-level `targets:` out of the source contract, default to the current provider plan for adaptive source, and keep explicit provider blocks for provider-specific options and nested opt-outs.
-- Treat root `compile.unsupportedDestination` as visible unsupported destination policy. The default is `error`; `warn` and `skip` must surface skipped source in diagnostics or lock provenance, and `force` must only render through an explicit provider-native destination rather than pretending unsupported behavior became portable.
+- Treat root `compile.unsupportedDestination` as visible unsupported destination policy. The default is `error`; `warn` and `skip` must surface skipped source in diagnostics or lock provenance. `force` may permit only a renderer-defined lossy or unsupported projection with visible provenance; it must not synthesize or broaden output, confer a target capability, or pretend unsupported behavior became portable.
 
 ## Posture
 

@@ -12,9 +12,14 @@
           "fromPath": "docs/adrs/0001-root-compile-policy.md"
         },
         {
-          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source",
+          "context": "- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - source",
           "from": "0002",
           "fromPath": "docs/adrs/0002-cursor-is-a-first-class-provider.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source and generated-output authority.",
+          "from": "0003",
+          "fromPath": "docs/adrs/0003-lossy-and-unsupported-output-policy.md"
         },
         {
           "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - baseline source-first compiler doctrine.",
@@ -127,7 +132,7 @@
       "updated": "2026-06-04"
     },
     {
-      "amended_by": [],
+      "amended_by": ["3"],
       "amends": [],
       "created": "2026-06-04",
       "depends_on": ["0"],
@@ -138,9 +143,14 @@
           "fromPath": "docs/adrs/0000-source-first-loadouts.md"
         },
         {
-          "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - root",
+          "context": "- [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - root",
           "from": "0002",
           "fromPath": "docs/adrs/0002-cursor-is-a-first-class-provider.md"
+        },
+        {
+          "context": "[ADR-0001](../0001-root-compile-policy.md) established",
+          "from": "0003",
+          "fromPath": "docs/adrs/0003-lossy-and-unsupported-output-policy.md"
         },
         {
           "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - provider selection and unsupported-policy boundary.",
@@ -188,7 +198,7 @@
           "fromPath": "docs/adrs/drafts/20260625-source-manifest-listing-metadata.md"
         },
         {
-          "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - root provider selection and reserved unsupported-destination policy.",
+          "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - root provider selection and the original unsupported-destination policy reservation.",
           "from": "20260705",
           "fromPath": "docs/adrs/drafts/20260705-post-tools-policy-boundary.md"
         }
@@ -242,6 +252,32 @@
       "status": "accepted",
       "superseded_by": null,
       "title": "Cursor Is a First-Class Provider",
+      "updated": "2026-07-20"
+    },
+    {
+      "amended_by": [],
+      "amends": ["1"],
+      "created": "2026-07-20",
+      "depends_on": ["0", "1"],
+      "inbound": [
+        {
+          "context": "diagnostics and lock provenance; [Lossy and Unsupported Output Policy](0003-lossy-and-unsupported-output-policy.md)",
+          "from": "20260614",
+          "fromPath": "docs/adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md"
+        },
+        {
+          "context": "satisfied it; [Lossy and Unsupported Output Policy](0003-lossy-and-unsupported-output-policy.md)",
+          "from": "20260705",
+          "fromPath": "docs/adrs/drafts/20260705-post-tools-policy-boundary.md"
+        }
+      ],
+      "number": "0003",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0003-lossy-and-unsupported-output-policy.md",
+      "slug": "lossy-and-unsupported-output-policy",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Lossy and Unsupported Output Policy",
       "updated": "2026-07-20"
     }
   ],

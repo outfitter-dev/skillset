@@ -36,5 +36,5 @@ Use this skill when working on the local `skillset` compiler from a Codex-orient
 - Keep shared source/config/frontmatter structural validation in `@skillset/schema`; do not add a compiler, Workbench, or docs-only field list for the same shape.
 - Keep target adapter config and defaults in provider-specific blocks such as `claude`, `codex`, or `cursor`; root `defaults.<target>` is shorthand, not provider selection.
 - Use target-specific model keys such as `claude.model`, `codex.model`, `cursor.model`, or defaults for model choices. Top-level skill `model` warns in v1.
-- `compile.unsupportedDestination` defaults to `error`, which gates unsupported/lossy/failed render from structured render results before writes; `warn`, `skip`, and `force` are reserved until their non-error semantics are implemented.
+- `compile.unsupportedDestination` defaults to `error`, which gates unsupported/lossy/failed render results before writes. `warn`, `skip`, and `force` soften only lossy or unsupported results while preserving warning diagnostics and lock provenance; failed results still block every policy.
 - Use `skillset.name` for root/plugin explicit identity. `skillset.id` is unsupported.

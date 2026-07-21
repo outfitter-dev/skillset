@@ -63,8 +63,8 @@ The schema intentionally keeps source identity and target output identity togeth
 | `target:disabled` | Target was disabled by config or source-level target toggle. |
 | `unsupported:error` | Unsupported/lossy render fails build, diff, and output checks before generated-output freshness is reported. |
 | `unsupported:warn` | Unsupported/lossy render is reported as warning diagnostics but does not fail. |
-| `unsupported:skip` | Unsupported/lossy render writes supported outputs, emits no unsupported target output, and records the skipped source/destination. |
-| `unsupported:force` | An explicit override allows the build to continue while preserving unsupported/lossy provenance; it does not pretend portability. |
+| `unsupported:skip` | Unsupported/lossy render keeps the renderer's already-defined output set without adding or pruning files and records the skipped or unsupported source/destination. |
+| `unsupported:force` | An explicit override may permit an already-defined lossy or unsupported projection while preserving provenance; it cannot synthesize or broaden output or pretend portability. |
 
 The default posture is error. Build, diff, and output checks enforce `failed`, `lossy`, and `unsupported` render results from the structured report before writing generated output. `compile.unsupportedDestination: warn`, `skip`, and `force` soften only `lossy` and `unsupported` render results. A `failed` render result still blocks every policy because the compiler could not produce safe output.
 
@@ -84,13 +84,14 @@ hand:
 
 The non-error semantics are:
 
-- `warn` writes supported outputs, keeps unsupported/lossy facts visible, and
-  makes warning counts machine-readable.
-- `skip` writes supported outputs, omits unsupported outputs, and records the
-  skipped source/destination in locks and reports.
-- `force` allows only an explicit provider-native or debug output path with
-  provenance; it must not pretend unsupported portable behavior became
-  faithful.
+- `warn` retains the renderer's defined output, keeps unsupported/lossy facts
+  visible, and makes warning counts machine-readable.
+- `skip` keeps the renderer's already-defined output set and records the
+  skipped or unsupported source/destination in locks and reports. It neither
+  adds destination output nor prunes an already-emitted lossy projection.
+- `force` may permit a lossy or unsupported projection the renderer already
+  defined, with provenance. It cannot synthesize or broaden output, confer a
+  target capability, or pretend unsupported portable behavior became faithful.
 
 If an enabled target would produce no usable output under a non-error policy,
 the command must still fail. A successful command with no output would be
@@ -124,7 +125,7 @@ The remaining status values are intentionally documented deferrals rather than f
 
 ## Diagnostics
 
-- Unsupported, lossy, and failed render results fail by default for enabled targets unless a scoped opt-out or future explicit unsupported destination policy applies.
+- Unsupported, lossy, and failed render results fail by default for enabled targets. An explicit `warn`, `skip`, or `force` policy can soften only unsupported or lossy results; scoped opt-outs remain visible, and failed results always block.
 - Degraded render results should remain visible because they represent useful but weaker behavior.
 - Skipped render results need policy provenance so a clean build is not confused with silent omission.
 - Adaptive hook attachments that target Codex skill-local or project-agent scopes produce `adaptive-hooks` `unsupported:error` render results, because Codex has no faithful component-local hook destination for those scopes. Codex plugin attachments also produce unsupported render results when the adaptive event is not documented by Codex or when the attachment uses a matcher for an event Codex ignores matchers for. Adaptive attachments also report structured unsupported render results for `context.includeRaw` until raw-context semantics exist, ambiguous definitions containing both `run.command` and `run.script`, unsupported plugin `run.args`/`run.cwd` fields, frontmatter `run.env` fields, and frontmatter `run.script` cases that do not yet have stable runtime path proof.

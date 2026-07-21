@@ -46,7 +46,7 @@ skillset.yaml
 skillset.lock
 ```
 
-The workspace manifest controls provider defaults, output roots, source identity, schema, version, owner, and root support metadata. Repos use root `skillset.yaml` with source in `.skillset/`. Use `compile.targets` for provider selection, `compile.build: updated | all` for the normalized build mode, `compile.skillset.metadata: false` to suppress generated skill metadata, and `compile.unsupportedDestination: error` for fail-loud unsupported destination. `skillset build` plans by default and writes only with `--yes`; `--scope repo`, `--scope plugins`, `--scope project`, or combinations filter generated destinations. Plugin configs use `<source-root>/plugins/<plugin-name>/skillset.yaml`. Portable plugin metadata lives under `skillset`; skill source can use top-level `title`, `summary`, `description`, and `version`. Target-specific adapter config, defaults, and overrides use top-level provider blocks such as `claude`, `codex`, and `cursor`; root `defaults.<target>.<surface>` is shorthand for target defaults without introducing a bare `targets:` map.
+The workspace manifest controls provider defaults, output roots, source identity, schema, version, owner, and root support metadata. Repos use root `skillset.yaml` with source in `.skillset/`. Use `compile.targets` for provider selection, `compile.build: updated | all` for the normalized build mode, `compile.skillset.metadata: false` to suppress generated skill metadata, and `compile.unsupportedDestination: error | warn | skip | force` for explicit lossy or unsupported destination policy. `error` remains the fail-loud default; non-error policies preserve warning diagnostics and lock provenance, and never soften failed render results. `skillset build` plans by default and writes only with `--yes`; `--scope repo`, `--scope plugins`, `--scope project`, or combinations filter generated destinations. Plugin configs use `<source-root>/plugins/<plugin-name>/skillset.yaml`. Portable plugin metadata lives under `skillset`; skill source can use top-level `title`, `summary`, `description`, and `version`. Target-specific adapter config, defaults, and overrides use top-level provider blocks such as `claude`, `codex`, and `cursor`; root `defaults.<target>.<surface>` is shorthand for target defaults without introducing a bare `targets:` map.
 
 Use setup commands when a repo does not have source yet:
 
@@ -198,7 +198,7 @@ skillset import agents --root .
 - Use root `compile.targets` for provider selection. Do not use bare top-level `targets:`.
 - Keep target adapter config in provider-specific blocks such as `claude`, `codex`, or `cursor`; use `defaults.<target>` only as shorthand for target defaults.
 - Use provider-specific model keys such as `claude.model`, `codex.model`, `cursor.model`, or target defaults for model choices; top-level skill `model` warns in v1.
-- Keep `compile.unsupportedDestination` on `error`; `warn`, `skip`, and `force` are reserved until their non-error semantics are implemented.
+- Keep `compile.unsupportedDestination` on its fail-loud `error` default unless a bounded migration or provider-drift exception needs `warn`, `skip`, or `force`. Non-error policies must retain warning diagnostics and lock provenance, and failed render results always block.
 - Use `skillset.name` for root/plugin explicit identity. `skillset.id` is unsupported.
 - Do not hand-edit generated outputs as source truth.
 - Keep Claude-only dynamic placeholders out of Codex-enabled skills unless a target-safe fallback exists.

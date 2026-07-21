@@ -7,7 +7,7 @@
       "depends_on": ["0"],
       "inbound": [
         {
-          "context": "- [Agent / Subagent Source Model](20260604-agent-source-model.md) - project and plugin agent boundaries.",
+          "context": "- [Agent / Subagent Source Model](drafts/20260604-agent-source-model.md) - project and plugin agent boundaries.",
           "from": "0002",
           "fromPath": "docs/adrs/0002-cursor-is-a-first-class-provider.md"
         },
@@ -74,7 +74,7 @@
       "depends_on": ["0", "1"],
       "inbound": [
         {
-          "context": "- [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - registry-backed capability claims and evidence.",
+          "context": "- [Feature Reference and Schema Registry](drafts/20260604-feature-reference-and-schema-registry.md) - registry-backed capability claims and evidence.",
           "from": "0002",
           "fromPath": "docs/adrs/0002-cursor-is-a-first-class-provider.md"
         },
@@ -603,9 +603,14 @@
       ],
       "inbound": [
         {
-          "context": "- [Lowering Outcomes and Loss Ledger](20260614-lowering-outcomes-and-loss-ledger.md) - visible transformed, metadata-only, and unsupported outcomes.",
+          "context": "- [Lowering Outcomes and Loss Ledger](drafts/20260614-lowering-outcomes-and-loss-ledger.md) - visible transformed, metadata-only, and unsupported outcomes.",
           "from": "0002",
           "fromPath": "docs/adrs/0002-cursor-is-a-first-class-provider.md"
+        },
+        {
+          "context": "- [Lowering Outcomes and Loss Ledger](20260614-lowering-outcomes-and-loss-ledger.md) - historical render-result and loss-ledger design.",
+          "from": "0003",
+          "fromPath": "docs/adrs/0003-lossy-and-unsupported-output-policy.md"
         },
         {
           "context": "- [Lowering Outcomes and Loss Ledger](20260614-lowering-outcomes-and-loss-ledger.md) - per-build outcome vocabulary that stays separate from registry capability status.",
@@ -872,6 +877,11 @@
         "2"
       ],
       "inbound": [
+        {
+          "context": "- [Post-Tools Policy Boundary](20260705-post-tools-policy-boundary.md) - policy ownership and the historical implementation bar.",
+          "from": "0003",
+          "fromPath": "docs/adrs/0003-lossy-and-unsupported-output-policy.md"
+        },
         {
           "context": "- [Post-Tools Policy Boundary](../adrs/drafts/20260705-post-tools-policy-boundary.md) defines how `tools`, provider-native policy, generated compatibility material, and unsupported-destination policy ",
           "from": "render-results",
