@@ -1,7 +1,8 @@
 import { mkdir, readdir, rename, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
-import { parseYamlRecord, stringifyYaml } from "../packages/core/src/yaml";
+import { stringifyYamlSourceDocument } from "../packages/core/src/source-document";
+import { parseYamlRecord } from "../packages/core/src/yaml";
 import { splitRootConfigRecord } from "./source-layout-migration";
 
 const SOURCE_DIR = ".skillset";
@@ -65,12 +66,12 @@ async function splitRootConfig(skillsetPath: string): Promise<void> {
     throw new Error(`skillset: ${manifestPath} already exists; split ${configPath} by hand`);
   }
   await mkdir(dirname(manifestPath), { recursive: true });
-  await writeFile(manifestPath, stringifyYaml(sourceManifest ?? {}), "utf8");
+  await writeFile(manifestPath, stringifyYamlSourceDocument(sourceManifest ?? {}), "utf8");
   await writeFile(configPath, stringifyConfig(workspaceConfig), "utf8");
 }
 
 function stringifyConfig(record: JsonRecord): string {
-  return Object.keys(record).length === 0 ? "" : stringifyYaml(record);
+  return Object.keys(record).length === 0 ? "" : stringifyYamlSourceDocument(record);
 }
 
 async function moveIfExists(from: string, to: string): Promise<void> {

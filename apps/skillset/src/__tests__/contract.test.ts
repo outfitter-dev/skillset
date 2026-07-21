@@ -4446,6 +4446,65 @@ Body.
   expect(ledger).toContain(`"reasonId":"${fullId}"`);
 });
 
+test("SET-368: legacy change reason keeps frontmatter verbatim", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: legacy-change-reason-root
+claude: true
+codex: false
+`,
+    ".skillset/skills/demo/SKILL.md": `
+---
+name: demo
+description: Demo.
+---
+
+Body.
+`,
+  });
+  await commitFixture(root);
+  await Bun.write(
+    join(root, ".skillset/skills/demo/SKILL.md"),
+    "---\nname: demo\ndescription: Demo.\n---\n\nChanged body.\n"
+  );
+  const status = await changeStatus(root, { since: "HEAD" });
+  const demo = status.sourceChanges.find((change) => change.id === "skill:demo");
+  const pendingPath = join(root, ".skillset/changes/legacy-order.md");
+  const frontmatter = [
+    "---",
+    "# preserve compatibility metadata bytes",
+    "scope: skill:demo",
+    "id: abcdef123456",
+    "bump: patch",
+    "evidence:",
+    "  - scope: skill:demo # preserve evidence comment",
+    `    currentHash: ${demo?.currentHash}`,
+    "---",
+    "",
+  ].join("\n");
+  await writePendingChange(
+    root,
+    "legacy-order.md",
+    `${frontmatter}Initial compatibility reason with enough detail to pass validation.\n`
+  );
+
+  const updated = await runSkillsetCli(
+    "change",
+    "reason",
+    "@abcdef123456",
+    "--root",
+    root,
+    "--reason",
+    "Updated compatibility reason while retaining the exact authored frontmatter block."
+  );
+
+  expect(updated.exitCode).toBe(0);
+  const source = await readFile(pendingPath, "utf8");
+  expect(source.startsWith(frontmatter)).toBe(true);
+  expect(source).toContain("Updated compatibility reason while retaining");
+});
+
 test("SET-241: change migrate converts frontmatter entries to reason-only ledger entries", async () => {
   const root = await contractFixture({
     "skillset.yaml": `
@@ -5028,6 +5087,9 @@ Original source body.
 
   const generatedPath = ".claude/skills/demo/SKILL.md";
   const generatedAbsolute = join(root, generatedPath);
+  const sourceAbsolute = join(root, ".skillset/skills/demo/SKILL.md");
+  const sourceBefore = await readFile(sourceAbsolute, "utf8");
+  const frontmatterBefore = sourceBefore.slice(0, sourceBefore.indexOf("Original source body."));
   const expected = await readFile(generatedAbsolute, "utf8");
   expect(expected).toContain("disable-model-invocation: true");
   await writeFile(
@@ -5052,8 +5114,10 @@ Original source body.
     root
   );
   expect(written.exitCode).toBe(0);
-  expect(await readFile(join(root, ".skillset/skills/demo/SKILL.md"), "utf8")).toContain(
-    "Edited generated body."
+  const sourceAfter = await readFile(sourceAbsolute, "utf8");
+  expect(sourceAfter).toContain("Edited generated body.");
+  expect(sourceAfter.slice(0, sourceAfter.indexOf("Edited generated body."))).toBe(
+    frontmatterBefore
   );
 });
 

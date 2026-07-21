@@ -1,5 +1,4 @@
 import { validateHookAttachmentsSource } from "@skillset/schema";
-import YAML from "yaml";
 
 import {
   adaptiveHookIntentIsRenderable,
@@ -8,6 +7,10 @@ import {
 } from "./adaptive-hook-classifier";
 import { hookProviderCapabilities } from "./hook-capabilities";
 import { compareStrings } from "./path";
+import {
+  updateMarkdownSourceDocument,
+  updateYamlSourceDocument,
+} from "./source-document";
 import { targetNames } from "./targets";
 import type {
   AdaptiveHookScope,
@@ -112,35 +115,25 @@ export function appendAdaptiveHookAttachmentToYaml(
   source: string,
   hook: string
 ): string {
-  const document = YAML.parseDocument(source);
-  if (document.errors.length > 0) {
-    throw new Error(`skillset: hook attachment owner is not valid YAML: ${document.errors[0]?.message ?? "unknown error"}`);
-  }
-  const current = document.toJS() as unknown;
-  if (!isJsonRecord(current)) {
-    throw new Error("skillset: hook attachment owner must contain a YAML object");
-  }
-  const next = appendAdaptiveHookAttachment(current, hook);
-  document.setIn(["hooks", "auto"], (next.hooks as JsonRecord).auto);
-  return document.toString({ lineWidth: 0 });
+  return updateYamlSourceDocument(
+    source,
+    "hook attachment owner",
+    (current) => appendAdaptiveHookAttachment(current, hook)
+  );
 }
 
 export function appendAdaptiveHookAttachmentToMarkdown(
   source: string,
   hook: string
 ): string {
-  const normalized = source.replaceAll(/\r\n?/g, "\n");
-  const lines = normalized.split("\n");
-  if (lines[0] !== "---") {
-    throw new Error("skillset: hook attachment owner requires Markdown frontmatter");
-  }
-  const closingIndex = lines.findIndex((line, index) => index > 0 && line === "---");
-  if (closingIndex === -1) {
-    throw new Error("skillset: hook attachment owner has unclosed Markdown frontmatter");
-  }
-  const frontmatter = lines.slice(1, closingIndex).join("\n");
-  const updated = appendAdaptiveHookAttachmentToYaml(frontmatter, hook).trimEnd();
-  return ["---", updated, "---", ...lines.slice(closingIndex + 1)].join("\n");
+  return updateMarkdownSourceDocument(
+    source,
+    "hook attachment owner",
+    (current) => ({
+      ...current,
+      frontmatter: appendAdaptiveHookAttachment(current.frontmatter, hook),
+    })
+  );
 }
 
 function hookDefinition(

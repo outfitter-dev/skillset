@@ -64,14 +64,22 @@ describe("hook provider capabilities", () => {
     expect(() => appendAdaptiveHookAttachment({
       hooks: { auto: ["shell-policy"] },
     }, "shell-policy")).toThrow("hook attachment shell-policy already exists");
-    expect(appendAdaptiveHookAttachmentToYaml(
-      "# keep this comment\nskillset:\n  name: guard\n",
+    const yaml = appendAdaptiveHookAttachmentToYaml(
+      "# heading\ndescription: Guard. # keep description\ncustom:\n  beta: 2 # keep nested\n  alpha: 1\nskillset:\n  # keep name\n  name: guard\ntail: true\n",
       "shell-policy"
-    )).toContain("# keep this comment");
-    expect(appendAdaptiveHookAttachmentToMarkdown(
+    );
+    expect(yaml.startsWith("skillset:\n  # keep name\n  name: guard\n")).toBe(true);
+    expect(yaml).toContain("# heading\ndescription: Guard. # keep description");
+    expect(yaml).toContain("beta: 2 # keep nested\n  alpha: 1");
+    expect(yaml.indexOf("description:")).toBeLessThan(yaml.indexOf("custom:"));
+    expect(yaml.indexOf("custom:")).toBeLessThan(yaml.indexOf("tail:"));
+
+    const markdown = appendAdaptiveHookAttachmentToMarkdown(
       "---\n# keep this comment\nname: writer\ndescription: Writer.\n---\n\nBody.\n",
       "shell-policy"
-    )).toContain("# keep this comment\nname: writer");
+    );
+    expect(markdown).toContain("# keep this comment\nname: writer");
+    expect(markdown).toEndWith("---\n\nBody.\n");
   });
   test("records event-level Claude and Codex hook support", () => {
     expect(hookEventSupported("claude", "Notification")).toBe(true);

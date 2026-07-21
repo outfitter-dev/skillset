@@ -1,15 +1,15 @@
 ---
-id: draft-yaml-formatting-and-bun-native-apis
+id: 26
 slug: yaml-formatting-and-bun-native-apis
 title: YAML Formatting and Bun Native APIs
-status: draft
+status: accepted
 created: 2026-06-22
-updated: 2026-06-22
+updated: 2026-07-21
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [0, 1, 19]
 ---
 
-# YAML Formatting and Bun Native APIs
+# ADR-0026: YAML Formatting and Bun Native APIs
 
 ## Context
 
@@ -28,15 +28,29 @@ An exploratory check found that `Bun.YAML.stringify` currently emits compact flo
 
 Use Bun-native APIs first for Skillset code and tooling when they meet the product contract. Prefer Bun APIs over third-party packages for new parsing, serialization, process, filesystem, and runtime needs, but do not swap an existing dependency into a user-visible output path without compatibility evidence.
 
-For YAML formatting, defer broad formatter doctrine. The desired near-term policy is:
+For YAML formatting, keep generated canonicalization separate from authored
+source mutation:
 
-- Skillset-authored YAML source should put `skillset` first when a `skillset` key exists.
-- This applies to scaffolded `skillset.yaml` files and Skillset-written Markdown frontmatter.
-- Other keys should remain deterministic, but Skillset should not enforce an elaborate hand-tuned order yet.
+- Explicit Skillset source mutations put root `skillset` first when that key
+  exists.
+- A dedicated `yaml` Document writer preserves the relative order, unknown
+  keys, and attached comments of other untouched root and nested nodes. This is
+  an AST-local guarantee, not a byte-for-byte formatting promise.
+- This applies to scaffolded and imported `skillset.yaml` files,
+  Skillset-written Markdown frontmatter, adaptive hook attachments, body-only
+  source reconciliation, and authored-source migrations.
 - Skillset should not lint or rewrite user-authored manifests only to satisfy key-order preference.
 - Formatting changes should happen only when Skillset is already writing a file for a source-management reason such as scaffold, import, migration, or explicit future format command.
+- Body-only Markdown mutations preserve the existing frontmatter block rather
+  than parsing and reserializing it.
+- The existing recursive alphabetical serializer remains the owner for
+  generated and deliberately normalized output.
 
 This means `skillset` first is a source readability default, not a project-wide formatting mandate.
+
+Core retains the `yaml` package for source Document parsing and writing. Bun
+YAML remains a Workbench parse-only boundary because its serializer does not
+provide the comment/AST controls required by authored source mutation.
 
 ## Consequences
 
@@ -44,13 +58,17 @@ This means `skillset` first is a source readability default, not a project-wide 
 
 - Keeps the source identity block where authors expect to see it.
 - Avoids creating a broad formatting rule before the source contract and common project preferences settle.
-- Preserves deterministic generated output and lock behavior as the stronger requirement.
+- Preserves deterministic generated output and lock behavior through the
+  existing canonical serializer.
 - Gives future dependency cleanup a clear rule: use Bun first, but verify byte shape and diagnostics before replacing existing output-affecting libraries.
 
 ### Tradeoffs
 
-- The current implementation may continue to show minor ordering differences between hand-rendered scaffolds and YAML rewritten through the shared serializer until a focused formatting slice lands.
-- Keeping the `yaml` package for now means dependency cleanup is deferred even though Bun has YAML APIs.
+- A changed source document may receive presentation normalization from the
+  `yaml` serializer even when untouched nodes retain their semantic value,
+  relative order, and comments.
+- Keeping the `yaml` package means dependency cleanup remains unavailable for
+  source writes even though Bun has YAML APIs.
 - A minimal `skillset`-first policy does not solve every human-preferred nested ordering, such as whether root identity fields should appear as `name`, `title`, `summary`, `description`, `version`, `schema`, and `owner`.
 
 ### What This Does NOT Decide
@@ -61,18 +79,23 @@ This means `skillset` first is a source readability default, not a project-wide 
 - It does not require a lint rule for YAML key order.
 - It does not change provider-native escape key ordering such as `_allow`, `_deny`, `_claude`, or `_codex`.
 
-## Future Implementation Shape
+## Implementation Boundary
 
-A small follow-up can implement this without a broad formatter:
+The implementation keeps the boundary narrow:
 
-1. Add a source-facing YAML serializer helper that preserves readable block YAML and orders `skillset` first when present.
-2. Use that helper only in Skillset source-write paths: setup scaffolds, import-origin writes, migration-created manifests, and Markdown frontmatter writes.
-3. Keep parse behavior order-agnostic.
-4. Add focused tests that assert `skillset` appears first in Skillset-written manifests and frontmatter.
-5. Separately evaluate Bun YAML parsing/stringifying against current fixtures before removing the `yaml` dependency.
+1. `packages/core/src/source-document.ts` owns authored YAML/Markdown
+   mutations and new source-document serialization.
+2. `packages/core/src/yaml.ts` retains recursive alphabetical serialization
+   for generated or normalized artifacts.
+3. Import, adoption, change-reason, source reconciliation, adaptive-hook, and
+   authored-source migration paths route through the source-document owner.
+4. Parse behavior remains order-agnostic, and no-op operations return the
+   original source without formatting.
+5. Comment-rich and body-only regressions prove the supported preservation
+   boundary.
 
 ## References
 
-- [Tenets](../../tenets.md) - source-first loadouts and deterministic generated output.
-- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - root manifest compile policy.
-- [Deterministic Projection and Adapter Conformance](../0019-deterministic-projection-and-adapter-conformance.md) - ordering drift and generated-output stability.
+- [Tenets](../tenets.md) - source-first loadouts and deterministic generated output.
+- [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - root manifest compile policy.
+- [Deterministic Projection and Adapter Conformance](0019-deterministic-projection-and-adapter-conformance.md) - ordering drift and generated-output stability.

@@ -5335,9 +5335,15 @@ Imported body.
 test("imports existing plugins into source layout", async () => {
   const root = await fixture({
     "external-plugin/skillset.yaml": `
+# preserve heading
+description: Imported plugin. # preserve scalar comment
 skillset:
+  # preserve name comment
   name: imported-plugin
   version: 0.4.0
+custom:
+  beta: 2
+  alpha: 1
 `,
     "external-plugin/skills/imported-skill/SKILL.md": `
 ---
@@ -5352,11 +5358,21 @@ Plugin skill body.
   const result = await importSource({
     kind: "plugin",
     rootPath: root,
+    sourceOrigin: (sourcePath) => ({ path: sourcePath }),
     sourcePath: join(root, "external-plugin"),
   });
 
   expect(result.name).toBe("imported-plugin");
-  expect(await exists(join(root, ".skillset/plugins/imported-plugin/skillset.yaml"))).toBe(true);
+  const importedManifest = await readFile(
+    join(root, ".skillset/plugins/imported-plugin/skillset.yaml"),
+    "utf8"
+  );
+  expect(importedManifest.indexOf("skillset:")).toBeLessThan(
+    importedManifest.indexOf("description:")
+  );
+  expect(importedManifest).toContain("# preserve name comment\n  name: imported-plugin");
+  expect(importedManifest).toContain("# preserve heading\ndescription: Imported plugin. # preserve scalar comment");
+  expect(importedManifest).toContain("beta: 2\n  alpha: 1");
   expect(await exists(join(root, ".skillset/plugins/imported-plugin/config.yaml"))).toBe(false);
   expect(await exists(join(root, ".skillset/plugins/imported-plugin/skills/imported-skill/SKILL.md"))).toBe(true);
 });

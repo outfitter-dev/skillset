@@ -63,7 +63,15 @@ Current public CLI selection stays intentionally small; `skillset check` runs th
 
 ## Parser And Schema Checks
 
-Workbench parser helpers use Bun-backed JSON, YAML, and TOML parsing plus Markdown/frontmatter extraction. Syntax diagnostics carry file and line information where the parser exposes it, and Markdown heading extraction ignores fenced code blocks so body facts stay stable.
+Workbench parser helpers use Bun-backed JSON, YAML, and TOML parsing plus
+Markdown/frontmatter extraction. Bun YAML is parse-only here: authored source
+mutations use Core's private `yaml` Document writer so root `skillset` ordering,
+other authored order, unknown nodes, and attached comments follow
+[ADR-0026](../adrs/0026-yaml-formatting-and-bun-native-apis.md). Generated and
+normalized YAML retain Core's recursive alphabetical serializer. Syntax
+diagnostics carry file and line information where the parser exposes it, and
+Markdown heading extraction ignores fenced code blocks so body facts stay
+stable.
 
 Workbench Markdown diagnostics also check code fence nesting inside Markdown-labeled examples. When a fenced Markdown example needs to show another fenced code block, the outer fence must use more backticks than any inner fence. For example, use four backticks around a `markdown`, `md`, `mdx`, or `gfm` snippet that contains triple-backtick examples. The `markdown/code-fence-nesting` rule reports the outer fence and the conflicting inner fence so authors can increment the outer fence length by one backtick beyond the longest inner fence.
 

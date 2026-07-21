@@ -188,6 +188,11 @@
           "fromPath": "docs/adrs/0021-post-tools-policy-boundary.md"
         },
         {
+          "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - root manifest compile policy.",
+          "from": "0026",
+          "fromPath": "docs/adrs/0026-yaml-formatting-and-bun-native-apis.md"
+        },
+        {
           "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - provider selection and target-specific config boundaries.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-first-class-sets.md"
@@ -206,11 +211,6 @@
           "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - provider selection and fail-loud unsupported behavior.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-reviewed-settings-suggestions.md"
-        },
-        {
-          "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - root manifest compile policy.",
-          "from": "20260622",
-          "fromPath": "docs/adrs/drafts/20260622-yaml-formatting-and-bun-native-apis.md"
         }
       ],
       "number": "0001",
@@ -889,8 +889,8 @@
         },
         {
           "context": "- [Deterministic Projection and Adapter Conformance](../0019-deterministic-projection-and-adapter-conformance.md) - ordering drift and generated-output stability.",
-          "from": "20260622",
-          "fromPath": "docs/adrs/drafts/20260622-yaml-formatting-and-bun-native-apis.md"
+          "from": "0026",
+          "fromPath": "docs/adrs/0026-yaml-formatting-and-bun-native-apis.md"
         },
         {
           "context": "- [Deterministic Projection and Adapter Conformance](../adrs/0019-deterministic-projection-and-adapter-conformance.md) defines how render results pair with the feature registry for conformance.",
@@ -1076,6 +1076,27 @@
       "status": "accepted",
       "superseded_by": null,
       "title": "Baseline Records Are Evidence Bridges",
+      "updated": "2026-07-21"
+    },
+    {
+      "amended_by": [],
+      "amends": [],
+      "created": "2026-06-22",
+      "depends_on": ["0", "1", "19"],
+      "inbound": [
+        {
+          "context": "[ADR-0026](../adrs/0026-yaml-formatting-and-bun-native-apis.md). Generated and",
+          "from": "workbench",
+          "fromPath": "docs/features/workbench.md"
+        }
+      ],
+      "number": "0026",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0026-yaml-formatting-and-bun-native-apis.md",
+      "slug": "yaml-formatting-and-bun-native-apis",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "YAML Formatting and Bun Native APIs",
       "updated": "2026-07-21"
     }
   ],

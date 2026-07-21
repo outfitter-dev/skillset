@@ -2,7 +2,8 @@ import { mkdir, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 import type { JsonRecord } from "../packages/core/src/types";
-import { parseYamlRecord, stringifyYaml } from "../packages/core/src/yaml";
+import { stringifyYamlSourceDocument } from "../packages/core/src/source-document";
+import { parseYamlRecord } from "../packages/core/src/yaml";
 import { splitRootConfigRecord } from "./source-layout-migration";
 
 const ORDINARY_DIR = ".skillset";
@@ -89,7 +90,11 @@ async function planWorkspaceManifest(rootPath: string, operations: Operation[]):
   const sourceManifest = hasLegacySourceManifest ? await readRecord(legacySourceManifestPath) : {};
   const combined = mergeRecords(sourceManifest, workspaceConfig, workspaceManifestPath);
 
-  operations.push({ content: stringifyYaml(combined), kind: "write", path: workspaceManifestPath });
+  operations.push({
+    content: stringifyYamlSourceDocument(combined),
+    kind: "write",
+    path: workspaceManifestPath,
+  });
   if (hasLegacyConfig) operations.push({ kind: "remove", path: legacyConfigPath });
   if (hasLegacySourceManifest) operations.push({ kind: "remove", path: legacySourceManifestPath });
 }

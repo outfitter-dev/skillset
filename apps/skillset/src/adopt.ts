@@ -27,7 +27,8 @@ import {
   removePreparedPluginAdoptionSource,
 } from "./plugin-adoption-source";
 import type { JsonRecord, LintIssue, SkillsetOptions, SourceOrigin, TargetName } from "@skillset/core/internal/types";
-import { isJsonRecord, parseMarkdown, stringifyMarkdown } from "@skillset/core/internal/yaml";
+import { updateMarkdownSourceDocument } from "@skillset/core/internal/source-document";
+import { isJsonRecord, parseMarkdown } from "@skillset/core/internal/yaml";
 
 export interface AdoptOptions extends SkillsetOptions {
   readonly candidates?: readonly string[];
@@ -701,8 +702,14 @@ function relativeOriginPath(rootPath: string, sourcePath: string, copiedFile?: s
 }
 
 async function writeMarkdownSourceOrigin(path: string, origin: SourceOrigin): Promise<void> {
-  const parts = parseMarkdown(await readFile(path, "utf8"), path);
-  await writeFile(path, stringifyMarkdown(withSkillsetOrigin(parts.frontmatter, origin), parts.body));
+  const source = await readFile(path, "utf8");
+  await writeFile(
+    path,
+    updateMarkdownSourceDocument(source, path, (parts) => ({
+      ...parts,
+      frontmatter: withSkillsetOrigin(parts.frontmatter, origin),
+    }))
+  );
 }
 
 function withSkillsetOrigin(record: JsonRecord, origin: SourceOrigin): JsonRecord {
@@ -730,7 +737,9 @@ async function normalizeImportedPromptArguments(path: string): Promise<void> {
   try {
     const parts = parseMarkdown(raw, path);
     const body = rewriteClaudePromptArguments(parts.body);
-    updated = body === parts.body ? raw : stringifyMarkdown(parts.frontmatter, body);
+    updated = body === parts.body
+      ? raw
+      : updateMarkdownSourceDocument(raw, path, (current) => ({ ...current, body }));
   } catch {
     updated = rewriteClaudePromptArguments(raw);
   }

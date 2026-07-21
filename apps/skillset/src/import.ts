@@ -17,7 +17,12 @@ import { compareStrings, resolveInside, validateSlug } from "@skillset/core/inte
 import { detectWorkspaceSourceDir } from "@skillset/core/internal/resolver";
 import { selectorForPluginConfig, selectorForPluginFeature, selectorForStandaloneSkill } from "@skillset/core/internal/source-unit-selector";
 import type { JsonRecord, SourceOrigin, TargetName } from "@skillset/core/internal/types";
-import { isJsonRecord, parseMarkdown, parseYamlRecord, stringifyMarkdown, stringifyYaml } from "@skillset/core/internal/yaml";
+import {
+  stringifyYamlSourceDocument,
+  updateMarkdownSourceDocument,
+  updateYamlSourceDocument,
+} from "@skillset/core/internal/source-document";
+import { isJsonRecord, parseMarkdown, parseYamlRecord } from "@skillset/core/internal/yaml";
 
 import {
   firstPortablePluginMetadataValue,
@@ -582,13 +587,22 @@ async function stampImportedOrigins(
 }
 
 async function writeYamlSourceOrigin(path: string, origin: SourceOrigin): Promise<void> {
-  const config = parseYamlRecord(await readFile(path, "utf8"), path);
-  await writeFile(path, stringifyYaml(withSkillsetOrigin(config, origin)));
+  const source = await readFile(path, "utf8");
+  await writeFile(
+    path,
+    updateYamlSourceDocument(source, path, (config) => withSkillsetOrigin(config, origin))
+  );
 }
 
 async function writeMarkdownSourceOrigin(path: string, origin: SourceOrigin): Promise<void> {
-  const parts = parseMarkdown(await readFile(path, "utf8"), path);
-  await writeFile(path, stringifyMarkdown(withSkillsetOrigin(parts.frontmatter, origin), parts.body));
+  const source = await readFile(path, "utf8");
+  await writeFile(
+    path,
+    updateMarkdownSourceDocument(source, path, (parts) => ({
+      ...parts,
+      frontmatter: withSkillsetOrigin(parts.frontmatter, origin),
+    }))
+  );
 }
 
 function withSkillsetOrigin(record: JsonRecord, origin: SourceOrigin): JsonRecord {
@@ -855,7 +869,7 @@ async function writeImportedPluginConfig(
   );
   await writeFile(
     join(targetPath, "skillset.yaml"),
-    stringifyYaml({
+    stringifyYamlSourceDocument({
       skillset: metadata,
       ...providerOverrides,
     })
