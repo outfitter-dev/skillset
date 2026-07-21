@@ -421,6 +421,9 @@ function withAdaptiveHookToolkitContextCommand(
   const fieldArgs =
     fields.length === 0 ? "" : ` --fields ${shellLiteral(fields.join(","))}`;
   const helper = `${provider} ${hookEvent} skillset-toolkit runtime context --event ${event} --format env${fieldArgs}`;
+  if (target === "cursor") {
+    return `skillset_hook_payload="$(mktemp)" && trap 'rm -f "$skillset_hook_payload"' 0 && cat > "$skillset_hook_payload" && eval "$(${helper} < "$skillset_hook_payload")" && cat "$skillset_hook_payload" | ( ${command} )`;
+  }
   return `eval "$(${helper})" && ${command}`;
 }
 

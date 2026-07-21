@@ -104,7 +104,7 @@ export const RUNTIME_CONTEXT_FIELD_DEFINITIONS = [
   {
     availability: targetAvailability("available", "unknown"),
     confidence: "provider",
-    description: "Provider session id when the runtime exposes one; absent when unavailable.",
+    description: "Provider session id when the runtime exposes one; Cursor prefers hook stdin conversation_id after an explicit Skillset override, then falls back to its environment.",
     envName: "SKILLSET_SESSION_ID",
     field: "session.id",
   },
@@ -155,6 +155,10 @@ export function runtimeContextFieldValue(
       return context.rawEnv.SKILLSET_HOOK_EVENT ?? context.event;
     case "session.id":
       if (context.rawEnv.SKILLSET_SESSION_ID !== undefined) return context.rawEnv.SKILLSET_SESSION_ID;
+      if (context.provider === "cursor") {
+        const conversationId = cursorConversationId(context.payload);
+        if (conversationId !== undefined) return conversationId;
+      }
       if (context.provider !== "unknown") {
         return context.rawEnv[PROVIDER_ENV[context.provider].sessionId];
       }
@@ -211,6 +215,12 @@ function parsePayload(stdinText: string | undefined): Pick<RuntimeContext, "payl
   } catch (error) {
     return { payloadError: error instanceof Error ? error.message : String(error) };
   }
+}
+
+function cursorConversationId(payload: unknown): string | undefined {
+  if (typeof payload !== "object" || payload === null || Array.isArray(payload)) return undefined;
+  const conversationId = (payload as Record<string, unknown>).conversation_id;
+  return typeof conversationId === "string" && conversationId.length > 0 ? conversationId : undefined;
 }
 
 async function gitRoot(cwd: string): Promise<string | undefined> {

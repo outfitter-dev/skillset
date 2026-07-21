@@ -79,6 +79,34 @@ describe("@skillset/toolkit runtime", () => {
     expect(nativeCursor.provider).toBe("cursor");
     expect(runtimeContextFieldValue(nativeCursor, "session.id")).toBe("native-cursor-session");
 
+    const cursorPayload = await readRuntimeContext({
+      cwd: "/tmp/repo",
+      env: {
+        CURSOR_SESSION_ID: "fallback-cursor-session",
+        SKILLSET_PROVIDER: "cursor",
+      },
+      event: "afterAgentResponse",
+      rootPath: "/tmp/repo",
+      stdinText: JSON.stringify({
+        conversation_id: "cursor-conversation",
+        generation_id: "not-a-session-id",
+      }),
+    });
+    expect(runtimeContextFieldValue(cursorPayload, "session.id")).toBe("cursor-conversation");
+
+    const explicitCursorSession = await readRuntimeContext({
+      cwd: "/tmp/repo",
+      env: {
+        CURSOR_SESSION_ID: "fallback-cursor-session",
+        SKILLSET_PROVIDER: "cursor",
+        SKILLSET_SESSION_ID: "explicit-session",
+      },
+      event: "afterAgentResponse",
+      rootPath: "/tmp/repo",
+      stdinText: JSON.stringify({ conversation_id: "cursor-conversation" }),
+    });
+    expect(runtimeContextFieldValue(explicitCursorSession, "session.id")).toBe("explicit-session");
+
     const explicitCursorWithMixedEnv = await readRuntimeContext({
       cwd: "/tmp/repo",
       env: {
