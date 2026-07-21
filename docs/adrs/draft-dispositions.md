@@ -37,11 +37,14 @@ Boundary and Source Manifest Listing Metadata must each use `depends_on: [0,
 - ADR-0008, ADR-0013, and ADR-0017 preserve the three superseded historical
   decisions; ADR-0009, ADR-0014, and ADR-0018 are their accepted successors.
 - ADR-0015 narrowly amends ADR-0014. No other new amendment relation was added.
-- Seven unresolved decisions remain drafts with the owners recorded below:
+- Seven unresolved decisions remained drafts after SET-325 with the owners
+  recorded below:
   First-Class Sets, Global/XDG Managed Installs and Sync, Model and Reasoning
   Alias Profiles, Reviewed Settings Suggestions, YAML Formatting and Bun Native
   APIs, Source References Resolve and Rename Together, and Catalog-Owned
   Marketplace Refresh Pull Requests.
+- On 2026-07-21, SET-368 amended and promoted YAML Formatting and Bun Native
+  APIs as ADR-0026, leaving six of those decisions unresolved.
 
 ## Per-draft disposition
 
@@ -63,7 +66,7 @@ Boundary and Source Manifest Listing Metadata must each use `depends_on: [0,
 | [Lowering Outcomes and Loss Ledger](0017-lowering-outcomes-and-loss-ledger.md) | **Supersede** | SET-122 deliberately replaced the decision identity, schema, result field, and principal status with Render Results: `skillset-render-result@1`, `renderResults`, and `rendered`. See [Render Results](../features/render-results.md), [`render-result.ts`](../../packages/core/src/render-result.ts), and [`terminology-guard.ts`](../../scripts/terminology-guard.ts). | Whole-decision successor must be a new full Render Results ADR. [ADR-0003](0003-lossy-and-unsupported-output-policy.md) is only the narrow unsupported/lossy policy amendment. | Do not rewrite or promote this record. Author/promote the full successor, then mark this draft superseded. |
 | [Unified Source Layout](0008-unified-source-layout.md) | **Supersede** | Its `.skillset/config.yaml` plus `.skillset/src/` topology was rejected by the root `skillset.yaml` plus flat `.skillset/` hard cut, and retired layout authoring now fails. See [layout](../layout.md) and [`resolver.ts`](../../packages/core/src/resolver.ts). | Whole-decision successor is Skillset Workspace Layout. | Do not promote. Amend/promote Skillset Workspace Layout first, then mark this record superseded. |
 | [Source Test Selection Shape](0011-source-test-selection-shape.md) | **Amend before promotion** | Source-owned declarations, merged aggregate/split forms, `select`, `targets`, `checks`, derived provider ceremony, file escape hatches, and XDG-backed run evidence exist; layout paths and the later test-family/provider inventory are stale. See [tests and evals](../features/tests-and-evals.md), [schema contracts](../../packages/schema/src/contracts.ts), and [`test-cli.ts`](../../apps/skillset/src/test-cli.ts). | Narrow layout/test-family amendment. | Use `.skillset/tests*`, remove the obsolete dedicated split, record declared/ad hoc/runtime/Cursor boundaries, then promote after Workspace Layout. |
-| [YAML Formatting and Bun-Native APIs](drafts/20260622-yaml-formatting-and-bun-native-apis.md) | **Remain draft with a named unresolved decision** | Bun-native parsing is used where compatible, but Core currently sorts source keys alphabetically and no proof establishes the draft's `skillset`-first ordering. See [`yaml.ts`](../../packages/core/src/yaml.ts) and [Workbench parser](../../packages/workbench/src/parser.ts). | No replacement yet; affirming alphabetical order may retire the proposal, while choosing `skillset`-first would require amendment and implementation. | [SET-368](https://linear.app/outfitter/issue/SET-368/decide-yaml-source-ordering-and-bun-serializer-boundary) owns the ordering and serializer decision. Do not promote first. |
+| [YAML Formatting and Bun Native APIs](0026-yaml-formatting-and-bun-native-apis.md) | **Accepted after SET-368 implementation proof** | Explicit source mutations now use a private `yaml` Document writer that puts root `skillset` first while preserving other authored order, unknown nodes, and attached comments at the AST level. Body-only Markdown updates keep frontmatter verbatim; generated and normalized output retain recursive alphabetical serialization; Workbench keeps Bun YAML parse-only. See [`source-document.ts`](../../packages/core/src/source-document.ts), [`yaml.ts`](../../packages/core/src/yaml.ts), and [Workbench](../features/workbench.md). | Amended and promoted without replacing another decision. | SET-368 owns the focused caller regressions and gate evidence for ADR-0026. |
 | [Source Manifest Listing Metadata](0007-source-manifest-listing-metadata.md) | **Promote as written** | SET-203 explicitly approved a reviewed, spec-only staged cutover. Current legacy schema fields are disclosed migration input rather than proof that no decision was made. See [source metadata example](../reference/examples/source-metadata.yaml), [schema contracts](../../packages/schema/src/contracts.ts), and [SET-203](https://linear.app/outfitter/issue/SET-203/spec-the-manifest-listing-block-and-source-vocabulary-cutover). | No amendment or successor; implementation remains separate. | Promote as written without claiming implementation. [SET-369](https://linear.app/outfitter/issue/SET-369/implement-source-manifest-listing-metadata-cutover) owns schema, renderers, authoring migration, generated artifacts, and compatibility diagnostics. |
 | [Named Partials](0010-named-partials.md) | **Promote as written** | Syntax, workspace/plugin lookup precedence, dependency inclusion, recursion, ambiguity/cycle/cross-plugin failures, docs, and focused tests match the decision. See [layout](../layout.md), [`preprocess.ts`](../../packages/core/src/preprocess.ts), and [skills](../features/skills.md). | No amendment or successor; depends on Workspace Layout. | Promote as written only after Skillset Workspace Layout is accepted. |
 | [Skillset Workspace Layout](0009-skillset-workspace-layout.md) | **Amend before promotion** | Root config, flat canonical workspace, plugin boundaries, retired-layout rejection, and XDG separation are proved; the draft omits `_cursor`, `partials/`, current cache wording, and local onboarding while retaining obsolete global creation language. See [layout](../layout.md), [`resolver.ts`](../../packages/core/src/resolver.ts), and [ADR-0002](0002-cursor-is-a-first-class-provider.md). | Narrow currency amendment; whole successor to Unified Source Layout. | Add current Cursor/partials/cache/onboarding facts, remove `create --global`, promote, then mark Unified Source Layout superseded. |
@@ -93,8 +96,9 @@ Boundary and Source Manifest Listing Metadata must each use `depends_on: [0,
    portable skill tools policy; amend/promote Post-Tools Policy Boundary.
 6. CLI lineage: amend/promote Workflow-Oriented CLI; Versioned Structured Output;
    One-Action Repo Adoption.
-7. Leave First-Class Sets, Global XDG, Model Aliases, Reviewed Settings, YAML
-   Formatting, Path References/Rename, and Catalog Refresh unpromoted.
+7. Leave First-Class Sets, Global XDG, Model Aliases, Reviewed Settings, Path
+   References/Rename, and Catalog Refresh unpromoted. SET-368 later amended and
+   promoted YAML Formatting as ADR-0026 after implementation proof.
 
 ## Rejected alternatives
 

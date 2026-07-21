@@ -16,11 +16,12 @@ import { inspectSkillset } from "./lint";
 import { compareStrings } from "./path";
 import { renderBuildGraph } from "./render";
 import { loadBuildGraph } from "./resolver";
+import { updateMarkdownSourceDocument } from "./source-document";
 import { readEffectiveToolsPolicy } from "./skill-policy";
 import { targetNames, targetRecord } from "./targets";
 import { planToolsRealization, type ToolsRealizationPlanEntry } from "./tools-realization";
 import type { BuildGraph, GeneratedEntry, LintIssue, SkillsetOptions, SourceOrigin, TargetName } from "./types";
-import { isJsonRecord, parseMarkdown, stringifyMarkdown } from "./yaml";
+import { isJsonRecord, parseMarkdown } from "./yaml";
 
 const textDecoder = new TextDecoder();
 
@@ -352,7 +353,8 @@ export async function suggestSource(
     );
   }
   const generatedParts = parseMarkdown(generatedSource, generatedPath);
-  const sourceParts = parseMarkdown(await readFile(sourceAbsolute, "utf8"), sourcePath);
+  const sourceDocument = await readFile(sourceAbsolute, "utf8");
+  const sourceParts = parseMarkdown(sourceDocument, sourcePath);
   if (sourceParts.body === generatedParts.body) {
     const lockPath = lockPathForEntry(primaryEntry);
     return {
@@ -369,7 +371,14 @@ export async function suggestSource(
   }
 
   if (write) {
-    await writeFile(sourceAbsolute, stringifyMarkdown(sourceParts.frontmatter, generatedParts.body), "utf8");
+    await writeFile(
+      sourceAbsolute,
+      updateMarkdownSourceDocument(sourceDocument, sourcePath, (current) => ({
+        ...current,
+        body: generatedParts.body,
+      })),
+      "utf8"
+    );
   }
   const lockPath = lockPathForEntry(primaryEntry);
 

@@ -148,21 +148,6 @@
     {
       "amended_by": [],
       "amends": [],
-      "created": "2026-06-22",
-      "depends_on": ["0", "1", "19"],
-      "inbound": [],
-      "number": null,
-      "owners": ["[galligan](https://github.com/galligan)"],
-      "path": "docs/adrs/drafts/20260622-yaml-formatting-and-bun-native-apis.md",
-      "slug": "yaml-formatting-and-bun-native-apis",
-      "status": "draft",
-      "superseded_by": null,
-      "title": "YAML Formatting and Bun Native APIs",
-      "updated": "2026-06-22"
-    },
-    {
-      "amended_by": [],
-      "amends": [],
       "created": "2026-07-01",
       "depends_on": ["10", "9", "first-class-sets", "6"],
       "inbound": [],

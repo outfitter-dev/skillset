@@ -28,7 +28,8 @@ import {
 } from "@skillset/core/internal/source-unit-selector";
 import type { JsonRecord, JsonValue, SkillsetOptions } from "@skillset/core/internal/types";
 import { workspaceChangeFile, workspaceChangesDir } from "@skillset/core";
-import { isJsonRecord, parseMarkdown, stringifyMarkdown } from "@skillset/core/internal/yaml";
+import { updateMarkdownSourceDocument } from "@skillset/core/internal/source-document";
+import { isJsonRecord, parseMarkdown } from "@skillset/core/internal/yaml";
 import {
   refreshChangeEvidenceWithAppend,
   type ChangeRefreshOptions,
@@ -251,9 +252,14 @@ export async function updateChangeReason(rootPath: string, options: ChangeReason
       },
     ]);
   } else {
-    const parts = parseMarkdown(await readFile(absolutePath, "utf8"), absolutePath);
+    const source = await readFile(absolutePath, "utf8");
+    const parts = parseMarkdown(source, absolutePath);
     const body = options.append ? `${parts.body.trimEnd()}\n\n${newReason}` : newReason;
-    await writeFile(absolutePath, stringifyMarkdown(parts.frontmatter, body), "utf8");
+    await writeFile(
+      absolutePath,
+      updateMarkdownSourceDocument(source, absolutePath, (current) => ({ ...current, body })),
+      "utf8"
+    );
   }
   const updated = resolvePendingChangeRef(await readPendingChangeEntries(rootPath, storageOptions), entry.id ?? options.ref);
   const refs = refIndex([updated], await readHistoryEntries(rootPath, storageOptions));

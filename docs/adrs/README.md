@@ -40,3 +40,4 @@ ADRs document the significant design decisions behind Skillset: choices that, if
 | [0023](0023-versioned-structured-output-for-cli-automation.md) | Versioned Structured Output For CLI Automation | Accepted |
 | [0024](0024-one-action-repo-adoption.md) | One-Action Repo Adoption | Accepted |
 | [0025](0025-baseline-record-evidence-bridges.md) | Baseline Records Are Evidence Bridges | Accepted |
+| [0026](0026-yaml-formatting-and-bun-native-apis.md) | YAML Formatting and Bun Native APIs | Accepted |
