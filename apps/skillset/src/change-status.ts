@@ -691,6 +691,8 @@ async function projectAgentPreprocessDependencies(
   await collect(agent.body);
   await collect(readString(agent.frontmatter, "initialPrompt"));
   for (const target of targetNames()) {
+    // Cursor emits initialPrompt verbatim in its generated frontmatter.
+    if (target === "cursor") continue;
     await collect(readString(agent.targets[target].options, "initialPrompt"));
   }
   await collect(readString(agent.targets.codex.options, "developer_instructions"));
