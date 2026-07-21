@@ -6,7 +6,7 @@
 | `future-companion-source-pointers` | `planned` | `planned` | `planned` | `planned` |
 <!-- skillset:feature-support:end -->
 
-Feature id: `settings`
+Feature id: `future-companion-source-pointers`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
