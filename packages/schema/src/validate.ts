@@ -104,6 +104,7 @@ export function validateWorkspaceConfig(value: unknown, path = "$"): SkillsetSch
     supportsCompile: true,
     supportsHooks: false,
     supportsMarketplaces: true,
+    supportsPluginFeatures: false,
     supportsSourceMetadata: true,
     supportsWorkspace: true,
   });
@@ -118,6 +119,7 @@ export function validateSingleFileRootConfig(value: unknown, path = "$"): Skills
     supportsCompile: true,
     supportsHooks: false,
     supportsMarketplaces: true,
+    supportsPluginFeatures: false,
     supportsSourceMetadata: true,
     supportsWorkspace: true,
   });
@@ -132,6 +134,7 @@ export function validateSplitWorkspaceConfig(value: unknown, path = "$"): Skills
     supportsCompile: true,
     supportsHooks: false,
     supportsMarketplaces: true,
+    supportsPluginFeatures: false,
     supportsSourceMetadata: false,
     supportsWorkspace: true,
   });
@@ -161,6 +164,7 @@ export function validatePluginConfig(value: unknown, path = "$"): SkillsetSchema
     supportsCompile: false,
     supportsHooks: true,
     supportsMarketplaces: false,
+    supportsPluginFeatures: true,
     supportsSourceMetadata: true,
     supportsWorkspace: false,
   });
@@ -173,6 +177,7 @@ interface ConfigValidationContext {
   readonly supportsCompile: boolean;
   readonly supportsHooks: boolean;
   readonly supportsMarketplaces: boolean;
+  readonly supportsPluginFeatures: boolean;
   readonly supportsSourceMetadata: boolean;
   readonly supportsWorkspace: boolean;
 }
@@ -195,6 +200,10 @@ function validateConfigContext(
   if (context.supportsCompile) checkCompile(value.compile, `${path}.compile`, diagnostics, `schema/${context.code}`);
   checkDependencies(value.dependencies, `${path}.dependencies`, `schema/${context.code}/dependencies`, diagnostics);
   if (context.supportsMarketplaces) checkMarketplaceCatalogs(value.marketplaces, `${path}.marketplaces`, diagnostics);
+  if (context.supportsPluginFeatures) {
+    checkPluginFeature(value.bin, `${path}.bin`, "schema/plugin-config/bin", diagnostics);
+    checkPluginFeature(value.mcp, `${path}.mcp`, "schema/plugin-config/mcp", diagnostics);
+  }
   if (context.supportsWorkspace) checkWorkspace(value.workspace, `${path}.workspace`, diagnostics);
   if (context.supportsSourceMetadata) checkSourceMetadata(value.skillset, `${path}.skillset`, diagnostics);
   checkSupports(value.supports, `${path}.supports`, diagnostics);
@@ -916,6 +925,12 @@ function checkTargetBlock(value: SchemaJsonValue | undefined, path: string, code
 
 function checkTargetFeature(value: SchemaJsonValue | undefined, path: string, code: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
   if (value !== undefined && value !== false && !isSchemaRecord(value)) diagnostics.push(diagnostic(path, code, `${path} must be false or an object`));
+}
+
+function checkPluginFeature(value: SchemaJsonValue | undefined, path: string, code: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
+  if (value !== undefined && value !== true && value !== false && !isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, code, `${path} must be true, false, or an object`));
+  }
 }
 
 function checkOptionalDialect(value: SchemaJsonValue | undefined, path: string, code: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
