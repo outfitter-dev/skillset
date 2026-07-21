@@ -1,8 +1,18 @@
+import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+
+import {
+  createProgram,
+  flattenDiagnosticMessageText,
+  getPreEmitDiagnostics,
+  ModuleKind,
+  ModuleResolutionKind,
+  ScriptTarget,
+} from "typescript";
 
 import {
   PROVIDER_DESTINATION_FORMAT_SNAPSHOT_SCHEMA,
@@ -14,34 +24,39 @@ import {
   type ProviderDestinationFormatSnapshot,
   type ProviderJsonSchemaSummary,
   type ProviderSchemaSnapshot,
-} from "@skillset/registry";
-import { describe, expect, test } from "bun:test";
-
+} from "../index";
 import {
-  renderProviderMaintenanceReport,
   renderProviderSchemaSnapshotsSource,
   runProviderMaintenance,
   type ProviderFetch,
 } from "../provider-maintenance";
 
-describe("provider maintainer commands", () => {
+describe("SET-335 registry-owned provider maintenance", () => {
   test("SET-191: check reports live schema hash and summary drift", async () => {
     const adoptedBody = schemaBody(["alpha"]);
     const liveBody = schemaBody(["alpha", "beta"]);
-    const snapshot = schemaSnapshot(adoptedBody, "https://example.com/schema.json");
+    const snapshot = schemaSnapshot(
+      adoptedBody,
+      "https://example.com/schema.json"
+    );
 
-    const report = await runProviderMaintenance("/tmp/skillset-provider-check", "check", {
-      destinationSnapshots: [],
-      fetcher: fetchMap({ "https://example.com/schema.json": liveBody }),
-      now: "2026-06-23T12:00:00.000Z",
-      schemaSnapshots: [snapshot],
-    });
+    const report = await runProviderMaintenance(
+      "/tmp/skillset-provider-check",
+      "check",
+      {
+        destinationSnapshots: [],
+        fetcher: fetchMap({ "https://example.com/schema.json": liveBody }),
+        now: "2026-06-23T12:00:00.000Z",
+        schemaSnapshots: [snapshot],
+      }
+    );
 
     expect(report.ok).toBe(false);
     expect(report.schemaChanged).toBe(1);
     expect(report.schemaMatched).toBe(0);
-    expect(report.schemaResults[0]?.summaryChanges).toContain("properties added: beta");
-    expect(renderProviderMaintenanceReport(report)).toContain("schema codex-hooks-schema: changed");
+    expect(report.schemaResults[0]?.summaryChanges).toContain(
+      "properties added: beta"
+    );
   });
 
   test("SET-191: update writes refreshed schema snapshots only after explicit write", async () => {
@@ -49,7 +64,10 @@ describe("provider maintainer commands", () => {
     const schemaPath = join(root, "schema-snapshots.ts");
     const adoptedBody = schemaBody(["alpha"]);
     const liveBody = schemaBody(["alpha", "beta"]);
-    const snapshot = schemaSnapshot(adoptedBody, "https://example.com/schema.json");
+    const snapshot = schemaSnapshot(
+      adoptedBody,
+      "https://example.com/schema.json"
+    );
 
     const preview = await runProviderMaintenance(root, "update", {
       destinationSnapshots: [],
@@ -80,12 +98,17 @@ describe("provider maintainer commands", () => {
   });
 
   test("SET-191: update preserves existing fetchedAt by default for deterministic CLI output", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-providers-deterministic-"));
+    const root = await mkdtemp(
+      join(tmpdir(), "skillset-providers-deterministic-")
+    );
     const firstPath = join(root, "first.ts");
     const secondPath = join(root, "second.ts");
     const adoptedBody = schemaBody(["alpha"]);
     const liveBody = schemaBody(["alpha", "beta"]);
-    const snapshot = schemaSnapshot(adoptedBody, "https://example.com/schema.json");
+    const snapshot = schemaSnapshot(
+      adoptedBody,
+      "https://example.com/schema.json"
+    );
     const fetcher = fetchMap({ "https://example.com/schema.json": liveBody });
 
     await runProviderMaintenance(root, "update", {
@@ -109,44 +132,118 @@ describe("provider maintainer commands", () => {
     expect(first).toContain("2026-06-22T12:00:00.000Z");
   });
 
+  test("SET-335: network failures are actionable and never write snapshots", async () => {
+    const root = await mkdtemp(join(tmpdir(), "skillset-providers-error-"));
+    const schemaPath = join(root, "schema-snapshots.ts");
+    const adoptedBody = schemaBody(["alpha"]);
+    const url = "https://example.com/unavailable-schema.json";
+
+    const report = await runProviderMaintenance(root, "update", {
+      destinationSnapshots: [],
+      fetcher: fetchMap({}),
+      now: "2026-06-23T12:00:00.000Z",
+      schemaSnapshotPath: schemaPath,
+      schemaSnapshots: [schemaSnapshot(adoptedBody, url)],
+      write: true,
+    });
+
+    expect(report.ok).toBe(false);
+    expect(report.errors).toBe(1);
+    expect(report.wrote).toBe(false);
+    expect(report.schemaResults[0]?.error).toBe(
+      `failed to fetch ${url}: 404 Not Found`
+    );
+    expect(await Bun.file(schemaPath).exists()).toBe(false);
+  });
+
   test("SET-191: diff includes destination format manual-review evidence", async () => {
     const body = schemaBody(["alpha"]);
     const destination = destinationSnapshot();
 
-    const report = await runProviderMaintenance("/tmp/skillset-provider-diff", "diff", {
-      destinationSnapshots: [destination],
-      fetcher: fetchMap({ "https://example.com/schema.json": body }),
-      now: "2026-06-23T12:00:00.000Z",
-      schemaSnapshots: [schemaSnapshot(body, "https://example.com/schema.json")],
-    });
+    const report = await runProviderMaintenance(
+      "/tmp/skillset-provider-diff",
+      "diff",
+      {
+        destinationSnapshots: [destination],
+        fetcher: fetchMap({ "https://example.com/schema.json": body }),
+        now: "2026-06-23T12:00:00.000Z",
+        schemaSnapshots: [
+          schemaSnapshot(body, "https://example.com/schema.json"),
+        ],
+      }
+    );
 
     expect(report.ok).toBe(true);
-    const rendered = renderProviderMaintenanceReport(report);
-    expect(rendered).toContain("destination codex-plugin [codex]: manual-review");
-    expect(rendered).toContain("no machine-readable upstream baseline is recorded");
-    expect(rendered).toContain("https://developers.openai.com/codex/plugins/build");
+    expect(report.destinationReviews).toEqual([
+      {
+        contentHash: destination.provenance.contentHash,
+        id: "codex-plugin",
+        reason:
+          "destination format snapshots are adopted from prose docs; no machine-readable upstream baseline is recorded",
+        sources: ["https://developers.openai.com/codex/plugins/build"],
+        status: "manual-review",
+        target: "codex",
+        title: "Codex Plugin Destination Format",
+      },
+    ]);
   });
 
-  test("SET-191: real schema snapshot source rendering stays importable", async () => {
+  test("SET-335: real schema snapshot source rendering is exact and importable", async () => {
     const root = await mkdtemp(join(tmpdir(), "skillset-provider-source-"));
     const path = join(root, "schema-snapshots.ts");
-    const source = renderProviderSchemaSnapshotsSource(listProviderSchemaSnapshots(), providerSchemaManualOverlays);
+    const source = renderProviderSchemaSnapshotsSource(
+      listProviderSchemaSnapshots(),
+      providerSchemaManualOverlays
+    );
 
-    expect(source).toContain("codex-hook-event-schemas");
-    expect(source).toContain("providerSchemaManualOverlays");
-    expect(source).toContain("hashProviderSchemaSnapshot");
-    expect(source).toContain("https://raw.githubusercontent.com/openai/codex/main/codex-rs/hooks/schema/generated/");
+    expect(
+      renderProviderSchemaSnapshotsSource(
+        listProviderSchemaSnapshots(),
+        providerSchemaManualOverlays
+      )
+    ).toBe(source);
+    const formatSnapshotUnion = source.match(
+      /readonly formatSnapshotId:\n([\s\S]*?);\n  readonly id:/u
+    )?.[1];
+    const expectedFormatSnapshotUnion = [
+      ...new Set(
+        providerSchemaManualOverlays.map((overlay) => overlay.formatSnapshotId)
+      ),
+    ]
+      .sort()
+      .map((id) => `    | ${JSON.stringify(id)}`)
+      .join("\n");
+    expect(formatSnapshotUnion).toBe(expectedFormatSnapshotUnion);
+    expect(formatSnapshotUnion).toContain('| "claude-hooks"');
+    expect(hashText(source)).toBe(
+      "sha256:340f6aada58c322156cd754f11c3ccc6c3ed1c87e6e3919c8bffae74b3180f52"
+    );
     await writeFile(path, source);
-    const imported = await import(pathToFileURL(path).href) as {
+    expect(typeDiagnostics(path)).toEqual([]);
+    const missingOverlayTypePath = join(
+      root,
+      "schema-snapshots-missing-overlay-type.ts"
+    );
+    await writeFile(
+      missingOverlayTypePath,
+      source.replace('    | "claude-hooks"\n', "")
+    );
+    expect(
+      typeDiagnostics(missingOverlayTypePath).map(({ code }) => code)
+    ).toContain(2322);
+    const imported = (await import(pathToFileURL(path).href)) as {
       readonly listProviderSchemaSnapshots: () => readonly ProviderSchemaSnapshot[];
     };
-    expect(imported.listProviderSchemaSnapshots().length).toBe(listProviderSchemaSnapshots().length);
+    expect(imported.listProviderSchemaSnapshots().length).toBe(
+      listProviderSchemaSnapshots().length
+    );
   });
 });
 
 function schemaBody(properties: readonly string[]): string {
   const propertyRecord: Record<string, unknown> = {};
-  for (const property of properties) propertyRecord[property] = { type: "string" };
+  for (const property of properties)
+    propertyRecord[property] = { type: "string" };
   return `${JSON.stringify({
     $schema: "http://json-schema.org/draft-07/schema#",
     properties: propertyRecord,
@@ -227,4 +324,24 @@ function fetchMap(responses: Record<string, string>): ProviderFetch {
 
 function hashText(text: string): string {
   return `sha256:${createHash("sha256").update(text).digest("hex")}`;
+}
+
+function typeDiagnostics(path: string) {
+  const program = createProgram([path], {
+    exactOptionalPropertyTypes: true,
+    module: ModuleKind.ESNext,
+    moduleResolution: ModuleResolutionKind.Bundler,
+    noEmit: true,
+    noUncheckedIndexedAccess: true,
+    skipLibCheck: true,
+    strict: true,
+    target: ScriptTarget.ES2023,
+    types: ["bun"],
+  });
+  return getPreEmitDiagnostics(program)
+    .filter((diagnostic) => diagnostic.file?.fileName === path)
+    .map((diagnostic) => ({
+      code: diagnostic.code,
+      message: flattenDiagnosticMessageText(diagnostic.messageText, "\n"),
+    }));
 }
