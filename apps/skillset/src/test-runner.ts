@@ -4,7 +4,6 @@ import { join } from "node:path";
 
 import { renderValidatedJson } from "@skillset/core/internal/structured-output";
 import {
-  evaluateSkillsetTestRuntime,
   evaluateSkillsetTestWorkspace,
   listEnabledSkillsetTestTargets,
   listSkillsetTestDeclarations,
@@ -15,7 +14,6 @@ import {
   slugifySkillsetTestProbeName,
   stageSkillsetTestWorkspace,
   type SkillsetActivationProbe,
-  type SkillsetRuntimeProbeRequest,
   type SkillsetRuntimeTestResult as CoreSkillsetRuntimeTestResult,
   type SkillsetTestCheckResult as CoreSkillsetTestCheckResult,
   type SkillsetTestDeclaration,
@@ -37,11 +35,10 @@ import {
   type RetainedRunPaths,
 } from "./retained-runs";
 import {
-  readTryEvidence,
-  readTryStatus,
-  startTryRun,
-  type TryState,
-} from "./try";
+  runDeclaredRuntimeTests,
+  toSkillsetRuntimeTestResult,
+  type SkillsetRuntimeTestResult,
+} from "./test-runtime-adapter";
 
 const TEST_BUILD_DIR = "cache/tests";
 const TEST_SCHEMA = 3;
@@ -86,22 +83,7 @@ export type SkillsetRuntimeFailureClass =
 export type SkillsetTestCheckResult = CoreSkillsetTestCheckResult;
 export type SkillsetTestSelectionReport = CoreSkillsetTestSelectionReport;
 
-export interface SkillsetRuntimeTestResult extends JsonRecord {
-  readonly assertions: SkillsetRuntimeAssertionResult[];
-  readonly command: string[];
-  readonly detail?: string;
-  readonly failureClass?: SkillsetRuntimeFailureClass;
-  readonly name: string;
-  readonly ok: boolean;
-  readonly outputPath?: string;
-  readonly promptPath?: string;
-  readonly promptProvenance: string;
-  readonly reportPath?: string;
-  readonly runId?: string;
-  readonly runPath?: string;
-  readonly state: TryState;
-  readonly target: TargetName;
-}
+export type { SkillsetRuntimeTestResult } from "./test-runtime-adapter";
 
 function testBuildRoot(_sourceDir: string): string {
   return join(".skillset", TEST_BUILD_DIR);
@@ -301,115 +283,6 @@ function checkRecord(check: SkillsetTestCheckResult): JsonRecord {
     kind: check.kind,
     ok: check.ok,
     ...(check.path === undefined ? {} : { path: check.path }),
-  };
-}
-
-async function runDeclaredRuntimeTests(
-  rootPath: string,
-  workspacePath: string,
-  declaration: SkillsetTestDeclaration,
-  options: SkillsetTestOptions
-): Promise<readonly SkillsetRuntimeTestResult[]> {
-  const evidenceByProbe = new Map<
-    string,
-    {
-      readonly outputPath: string;
-      readonly promptPath: string;
-      readonly reportPath: string;
-      readonly runId: string;
-      readonly runPath: string;
-      readonly state: TryState;
-    }
-  >();
-  const keyFor = (
-    request: Pick<SkillsetRuntimeProbeRequest, "name" | "target">
-  ): string => `${request.name}\0${request.target}`;
-
-  const runtimeTests = await evaluateSkillsetTestRuntime(
-    workspacePath,
-    declaration,
-    options,
-    {
-      run: async (request) => {
-        const run = await startTryRun(workspacePath, {
-          cacheRootPath: rootPath,
-          ...(request.claudeSettingSources === undefined
-            ? {}
-            : { claudeSettingSources: request.claudeSettingSources }),
-          ...(options.runtimeEnv === undefined
-            ? {}
-            : { env: options.runtimeEnv }),
-          name: request.name,
-          prompt: request.prompt,
-          target: request.target,
-          ...(request.timeoutMs === undefined
-            ? {}
-            : { timeoutMs: request.timeoutMs }),
-          ...(options.xdg === undefined ? {} : { xdg: options.xdg }),
-        });
-        const status = await readTryStatus(rootPath, run.runId, options);
-        const evidence = await readTryEvidence(rootPath, run.runId, options);
-        evidenceByProbe.set(keyFor(request), {
-          outputPath: evidence.outputPath,
-          promptPath: status.promptPath,
-          reportPath: evidence.reportPath,
-          runId: run.runId,
-          runPath: run.runPath,
-          state: status.state,
-        });
-        return {
-          command: status.command ?? [],
-          ...(status.error === undefined ? {} : { detail: status.error }),
-          ...(status.failureClass === undefined
-            ? {}
-            : { failureClass: status.failureClass }),
-          response: evidence.response,
-          state: status.state === "passed" ? "passed" : "failed",
-        };
-      },
-    }
-  );
-
-  return runtimeTests.map((result) => {
-    const evidence = evidenceByProbe.get(
-      `${declaration.name}-${slugifySkillsetTestProbeName(result.name)}-${result.target}\0${result.target}`
-    );
-    return toSkillsetRuntimeTestResult(result, evidence);
-  });
-}
-
-function toSkillsetRuntimeTestResult(
-  result: CoreSkillsetRuntimeTestResult,
-  evidence?: {
-    readonly outputPath: string;
-    readonly promptPath: string;
-    readonly reportPath: string;
-    readonly runId: string;
-    readonly runPath: string;
-    readonly state: TryState;
-  }
-): SkillsetRuntimeTestResult {
-  return {
-    assertions: [...result.assertions],
-    command: [...result.command],
-    ...(result.detail === undefined ? {} : { detail: result.detail }),
-    ...(result.failureClass === undefined
-      ? {}
-      : { failureClass: result.failureClass }),
-    name: result.name,
-    ok: result.ok,
-    ...(evidence === undefined
-      ? {}
-      : {
-          outputPath: evidence.outputPath,
-          promptPath: evidence.promptPath,
-          reportPath: evidence.reportPath,
-          runId: evidence.runId,
-          runPath: evidence.runPath,
-        }),
-    promptProvenance: result.promptProvenance,
-    state: evidence?.state ?? (result.state === "passed" ? "passed" : "failed"),
-    target: result.target,
   };
 }
 
