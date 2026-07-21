@@ -142,8 +142,7 @@ export const CLI_FLAGS = {
   },
   "--from": {
     family: "input",
-    meaning:
-      "Identify the external path, Git URL, or provider origin supplying input.",
+    meaning: "Select the provider origin for local import.",
     value: "value",
   },
   "--frontmatter": {

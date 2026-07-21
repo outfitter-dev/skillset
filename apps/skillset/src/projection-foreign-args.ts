@@ -146,7 +146,7 @@ export const rejectProjectionForeignOption = (
     case "--adopt": {
       reader.readRequiredOptionValue(option);
       throw new Error(
-        "skillset: --adopt and init acquisition --from are only supported with init"
+        "skillset: --adopt is only supported with init"
       );
     }
     case "--include": {

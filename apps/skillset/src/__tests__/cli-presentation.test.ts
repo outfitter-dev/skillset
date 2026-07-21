@@ -53,6 +53,23 @@ describe("SET-307 CLI presentation", () => {
     expect(change).not.toContain("test worker");
   });
 
+  test("presents init adoption and import origin without acquisition claims", () => {
+    const init = renderCliHelp(["init", "--help"], {
+      color: false,
+      width: 100,
+    });
+    expect(init).toContain("--adopt");
+    expect(init).not.toContain("--from");
+
+    const importHelp = renderCliHelp(["import", "--help"], {
+      color: false,
+      width: 100,
+    });
+    expect(importHelp).toContain("Select the provider origin for local import.");
+    expect(importHelp).not.toContain("Git URL");
+    expect(importHelp).not.toContain("external path");
+  });
+
   test("does not treat option or positional values as help route words", () => {
     for (const args of [
       ["build", "--root", "nested", "--help"],

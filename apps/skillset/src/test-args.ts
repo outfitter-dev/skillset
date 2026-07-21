@@ -369,9 +369,7 @@ export const parseTestCommandRequest = (
     throw new Error("skillset: setup options are only supported with init");
   }
   if (adoptFlag) {
-    throw new Error(
-      "skillset: --adopt and init acquisition --from are only supported with init"
-    );
+    throw new Error("skillset: --adopt is only supported with init");
   }
   if (readinessFlag) {
     throw new Error("skillset: readiness flags are only supported with check");

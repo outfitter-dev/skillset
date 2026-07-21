@@ -187,8 +187,7 @@ describe("SET-301 projection and readiness route parsers", () => {
       },
       {
         args: ["--adopt", "demo"],
-        message:
-          "skillset: --adopt and init acquisition --from are only supported with init",
+        message: "skillset: --adopt is only supported with init",
       },
       {
         args: ["--id", "demo"],
