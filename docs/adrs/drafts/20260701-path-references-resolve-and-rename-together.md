@@ -5,7 +5,7 @@ status: draft
 created: 2026-07-01
 updated: 2026-07-01
 owners: ['[galligan](https://github.com/galligan)']
-depends_on: [named-partials, skillset-workspace-layout, first-class-sets, agent-source-model]
+depends_on: [10, 9, first-class-sets, 6]
 ---
 
 # ADR: Source References Resolve And Rename Together

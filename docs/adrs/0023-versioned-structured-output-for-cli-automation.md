@@ -1,14 +1,15 @@
 ---
+id: 23
 slug: versioned-structured-output-for-cli-automation
 title: Versioned Structured Output For CLI Automation
-status: draft
+status: accepted
 created: 2026-07-12
-updated: 2026-07-12
+updated: 2026-07-20
 owners: ['[galligan](https://github.com/galligan)']
-depends_on: [0, workflow-oriented-cli, core-library-boundary, deterministic-projection-and-adapter-conformance, lowering-outcomes-and-loss-ledger]
+depends_on: [0, 4, 18, 19, 22]
 ---
 
-# ADR: Versioned Structured Output For CLI Automation
+# ADR-0023: Versioned Structured Output For CLI Automation
 
 ## Context
 
@@ -55,7 +56,7 @@ Every successful or controlled failed `--json` invocation emits exactly one JSON
   ],
   "changes": [],
   "meta": {
-    "schema": "https://schemas.skillset.dev/cli/result/v1.json"
+    "schema": "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/cli-result.schema.json"
   }
 }
 ```
@@ -78,7 +79,11 @@ Optional metadata may include duration, selected target, or a portable report id
 
 ### Command data is namespaced and versioned with the envelope
 
-The envelope is shared; `data` remains command-owned. Each supported leaf command has a JSON Schema that composes the envelope and fixes its `command`, `kind`, data shape, diagnostic codes, and change records. Pre-route failures use the reserved `cli` command identity and the shared usage-diagnostic envelope because no canonical leaf exists yet.
+The envelope is shared; `data` remains command-owned and typed at the route
+owner. Shared result and event schemas fix the framing, while route-specific
+contract tests fix `command`, `kind`, data shape, diagnostic codes, and change
+records. Pre-route failures use the reserved `cli` command identity and the
+shared usage-diagnostic envelope because no canonical leaf exists yet.
 
 The schema source belongs in `@skillset/schema`. Generated JSON Schema artifacts live under the existing versioned schema reference. TypeScript result types derive from or stay mechanically checked against that source; command renderers do not maintain parallel field lists.
 
@@ -162,7 +167,7 @@ Human and machine modes return the same code for the same outcome. A structured 
 
 | Command or leaf family | Class | Machine contract |
 | --- | --- | --- |
-| `init`, `new` | finite plan/mutation | `--json` |
+| `create`, `init`, `new` | finite plan/mutation | `--json` |
 | `import` | finite mutation | `--json` |
 | `check` | finite diagnostics/mutation | `--json` |
 | `dev` | continuous events | `--jsonl` |
@@ -185,13 +190,13 @@ Raw and protocol exceptions are deliberate. Wrapping a shell snippet or environm
 
 Root help does not imply every route supports every machine flag. Leaf help lists its output class and supported structured flags. Unknown or misplaced machine flags fail with exit 2 and a structured diagnostic when a machine flag was requested.
 
-### Contract tests use schemas, not prose snapshots
+### Contract tests use shared schemas and route-owned types
 
 Every supported finite leaf command has tests that assert:
 
 1. stdout parses as exactly one JSON value and ends with one newline;
 2. stderr is empty for controlled success and failure;
-3. the result validates against its generated command schema;
+3. the result validates against the generated shared envelope schema and its route-owned typed contract;
 4. `command`, `kind`, `ok`, and `exitCode` agree with process behavior;
 5. diagnostics use stable codes and relative/logical paths;
 6. human prose is absent.
@@ -220,7 +225,7 @@ Every streaming leaf has equivalent line-by-line schema validation, monotonic se
 
 - Existing unversioned JSON consumers must cut over before 1.0.
 - Parser setup must identify machine mode before it can validate the rest of the command.
-- Each leaf command needs a schema and both success/failure contract tests.
+- Each supported leaf command needs route-owned typed data and both success/failure contract tests.
 - Capturing subprocess chatter requires command adapters to return facts instead of printing directly.
 
 ### Risks
@@ -230,24 +235,45 @@ Every streaming leaf has equivalent line-by-line schema validation, monotonic se
 - JSONL processes can terminate without a terminal event after signals or hard crashes. Consumers must treat EOF without a terminal event as interrupted.
 - Absolute paths or prompt content can leak into automation artifacts. Host-leak checks and explicit redaction tests apply to schemas and fixtures.
 
-## Implementation Slices
+## Completed Implementation Slices
 
-1. **Envelope and schema kernel** - add result/event contracts, exit classification, early machine-mode selection, and reusable stdout-pure rendering.
-2. **Finite read-only routes** - migrate status/list/explain/lookup/diff/check and finite ledger/catalog reports.
-3. **Plan and mutation routes** - migrate init/new/import/build/update/reconcile/restore/release/marketplace writes with common change facts.
-4. **Runtime and continuous routes** - migrate test results, retained events, and dev JSONL while preserving provider-output capture.
-5. **Exceptions and closure** - prove hooks raw/protocol behavior, generate every schema artifact, and add full route-coverage guards under SET-285.
+1. **Envelope and schema kernel** - added result/event contracts, exit classification, early machine-mode selection, and reusable stdout-pure rendering.
+2. **Finite read-only routes** - migrated status/list/explain/lookup/diff/check and finite ledger/catalog reports.
+3. **Plan and mutation routes** - migrated init/new/import/build/update/reconcile/restore/release/marketplace writes with common change facts.
+4. **Runtime and continuous routes** - migrated test results, retained events, and dev JSONL while preserving provider-output capture.
+5. **Exceptions and closure** - proved hooks raw/protocol behavior, generated the shared schema artifacts, and added full route-coverage guards under SET-285.
 
-The command-family issues own their route migrations. SET-285 owns the final coverage inventory and rejects any supported leaf route without a schema-backed contract test.
+The command-family issues owned their route migrations. SET-285 closed the final
+coverage inventory with a guard that rejects any supported leaf route without a
+shared-schema and route-owned contract test.
+
+## Acceptance Evidence (2026-07-20)
+
+SET-284 and SET-285 verified that the public machine protocol uses shared
+`skillset.cli.result@1` and
+`skillset.cli.event@1` envelopes, early machine-mode selection, stdout purity,
+structured failures, stable exit classification, finite JSON, and monotonic
+JSONL streams. `create` is a finite route. Public exceptions are `hooks print`
+raw artifact output, `hooks run` protocol exit behavior, and `hooks context`
+with its own `--format`; hidden `test worker` is an internal raw protocol.
+
+The generated public artifacts are the shared result and event schemas under
+`docs/reference/schemas/0.1.0/`. Route-specific `data` remains typed and
+contract-tested in source; Skillset does not promise a separately published
+schema for every leaf. Tests validate shared envelopes/events plus route-owned
+command, kind, data, diagnostic, change, exit, sequencing, and exception facts.
+Current evidence is in `packages/schema/src/contracts.ts`, generated
+`cli-result.schema.json` and `cli-event.schema.json`, `cli-output.ts`,
+`cli-contract.ts`, and schema/finite-read/dev/parity tests.
 
 ## References
 
-- [Tenets](../../tenets.md) - deterministic output, source truth, no activation, and visible diagnostics.
-- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source and rendered output authority.
-- [Workflow-Oriented CLI With A Flat Loop And Explicit Domains](20260712-workflow-oriented-cli.md) - canonical command names and hard-cut policy.
-- [Core Library and CLI Boundary](20260612-core-library-boundary.md) - core returns facts while the CLI owns rendering.
-- [Deterministic Projection and Adapter Conformance](20260613-deterministic-projection-and-adapter-conformance.md) - stable structured result evidence and host normalization.
-- [Lowering Outcomes and Loss Ledger](20260614-lowering-outcomes-and-loss-ledger.md) - existing structured diagnostic and outcome vocabulary.
-- [CLI Flag Contract](../../reference/cli-flags.md) - canonical flag families and explicit SET-284 boundary.
+- [Tenets](../tenets.md) - deterministic output, source truth, no activation, and visible diagnostics.
+- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - source and rendered output authority.
+- [Workflow-Oriented CLI With A Flat Loop And Explicit Domains](0022-workflow-oriented-cli.md) - canonical command names and hard-cut policy.
+- [Core Library and CLI Boundary](0004-core-library-boundary.md) - core returns facts while the CLI owns rendering.
+- [Deterministic Projection and Adapter Conformance](0019-deterministic-projection-and-adapter-conformance.md) - stable structured result evidence and host normalization.
+- [Render Results](0018-render-results.md) - current structured diagnostic and outcome vocabulary.
+- [CLI Flag Contract](../reference/cli-flags.md) - canonical flag families and explicit SET-284 boundary.
 - [SET-284](https://linear.app/outfitter/issue/SET-284) - structured-output contract and implementation slicing.
 - [SET-285](https://linear.app/outfitter/issue/SET-285) - final docs, fixtures, generated guidance, and coverage closure.

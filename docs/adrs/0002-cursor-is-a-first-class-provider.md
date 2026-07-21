@@ -6,7 +6,7 @@ status: accepted
 created: 2026-07-02
 updated: 2026-07-20
 owners: ['[galligan](https://github.com/galligan)']
-depends_on: [0, 1, feature-reference-and-schema-registry, agent-source-model, lowering-outcomes-and-loss-ledger]
+depends_on: [0, 1]
 ---
 
 # ADR-0002: Cursor Is a First-Class Provider
@@ -172,9 +172,9 @@ product configuration or an ordinary runtime promise.
   remains the product and output remains target-native.
 - [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - root
   `compile.targets` selection and defaults this decision applies to Cursor.
-- [Feature Reference and Schema Registry](drafts/20260604-feature-reference-and-schema-registry.md) - registry-backed capability claims and evidence.
-- [Agent / Subagent Source Model](drafts/20260604-agent-source-model.md) - project and plugin agent boundaries.
-- [Lowering Outcomes and Loss Ledger](drafts/20260614-lowering-outcomes-and-loss-ledger.md) - visible transformed, metadata-only, and unsupported outcomes.
+- [Feature Reference and Schema Registry](0005-feature-reference-and-schema-registry.md) - registry-backed capability claims and evidence.
+- [Agent / Subagent Source Model](0006-agent-source-model.md) - project and plugin agent boundaries.
+- [Render Results](0018-render-results.md) - visible transformed, metadata-only, and unsupported outcomes.
 - [Provider Surface Evidence Matrix](../target-surfaces.md#cursor-provider-baseline) - current Cursor destinations and verification notes.
 - [Runtime Adapters](../features/runtime-adapters.md) - target/runtime and retained-test boundary.
 - [Cursor headless CLI docs](https://cursor.com/docs/cli/headless) - non-interactive CLI mode, checked 2026-07-02.

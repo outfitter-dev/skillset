@@ -5,7 +5,7 @@ status: draft
 created: 2026-06-04
 updated: 2026-06-04
 owners: ['[galligan](https://github.com/galligan)']
-depends_on: [0, 1, global-xdg-managed-installs-and-sync, feature-reference-and-schema-registry]
+depends_on: [0, 1, global-xdg-managed-installs-and-sync, 5]
 ---
 
 # ADR: Reviewed Settings Suggestions
@@ -183,7 +183,7 @@ The only accepted implementation work from this ADR is documentation and future 
 - [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - baseline source-first compiler doctrine.
 - [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - provider selection and fail-loud unsupported behavior.
 - [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md) - separates build from install/sync/trust and user-level mutation.
-- [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - tracks settings as future-only and target-native.
+- [Feature Reference and Schema Registry](../0005-feature-reference-and-schema-registry.md) - tracks settings as future-only and target-native.
 - [Tenets](../../tenets.md) - build does not imply trust and drift should be visible early.
 - [Target Surface Evidence Matrix](../../target-surfaces.md) - compact support matrix for target surfaces.
 - [Claude Code settings](https://code.claude.com/docs/en/settings) - official settings scopes, settings files, precedence, and plugin settings evidence.

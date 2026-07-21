@@ -1,14 +1,15 @@
 ---
+id: 4
 slug: core-library-boundary
 title: Core Library and CLI Boundary
-status: draft
+status: accepted
 created: 2026-06-12
-updated: 2026-06-15
+updated: 2026-07-20
 owners: ['[galligan](https://github.com/galligan)']
-depends_on: [0, 1, feature-reference-and-schema-registry, fixtures-tests-dogfooding-and-evals, one-action-repo-adoption, source-change-release-provenance]
+depends_on: [0, 1]
 ---
 
-# ADR: Core Library and CLI Boundary
+# ADR-0004: Core Library and CLI Boundary
 
 ## Context
 
@@ -74,11 +75,21 @@ This ADR does not decide the final public API surface, the publish timeline for 
 
 This ADR does not require renaming existing CLI modules immediately. Names such as `cli-core.ts` may become misleading as the package split proceeds, but module renames should happen only when they reduce confusion in a behavior-preserving slice.
 
+## Acceptance Evidence
+
+This decision is accepted as an incremental private-package boundary, not as a
+claim that extraction is complete or that `@skillset/core` is a public API.
+`docs/package-ownership.md`, `packages/core/package.json`, and
+`packages/core/src/operation-result.ts` show the shipped boundary.
+`scripts/package-ownership-guard.ts` and its focused tests prevent CLI-owned
+package facades from returning while Core continues to expose structured facts
+instead of argv, prompt, terminal, or process-exit policy.
+
 ## References
 
-- [Tenets](../../tenets.md) - source-first and target-native doctrine.
-- [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - future registry-backed feature docs.
-- [Fixtures, Tests, Dogfooding, and Evals](20260609-fixtures-tests-dogfooding-and-evals.md) - fixture, test, and dogfood boundaries.
-- [One-Action Repo Adoption](20260610-one-action-repo-adoption.md) - import/adopt/setup boundary context.
-- [Source Change, Release, and Dependency Provenance](20260609-source-change-release-provenance.md) - structured result and lifecycle context.
-- [Core library split research](../../../.scratch/research/session-019ebd10-core-library-split-2026-06-12.md) - prior session synthesis for the package split.
+- [Tenets](../tenets.md) - source-first and target-native doctrine.
+- [Feature Reference and Schema Registry](0005-feature-reference-and-schema-registry.md) - future registry-backed feature docs.
+- [Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tests-dogfooding-and-evals.md) - fixture, test, and dogfood boundaries.
+- [One-Action Repo Adoption](0024-one-action-repo-adoption.md) - import/adopt/setup boundary context.
+- [Source Change, Release, and Dependency Provenance](0014-source-change-release-provenance.md) - structured result and lifecycle context.
+- [Core library split research](../../.scratch/research/session-019ebd10-core-library-split-2026-06-12.md) - prior session synthesis for the package split.

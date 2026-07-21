@@ -1,18 +1,20 @@
 ---
+id: 22
 slug: workflow-oriented-cli
 title: Workflow-Oriented CLI With A Flat Loop And Explicit Domains
-status: draft
+status: accepted
 created: 2026-07-12
-updated: 2026-07-12
+updated: 2026-07-20
 owners: ['[galligan](https://github.com/galligan)']
-depends_on: [0, feature-reference-and-schema-registry, fixtures-tests-dogfooding-and-evals, one-action-repo-adoption, deterministic-projection-and-adapter-conformance]
+depends_on: [0, 5, 12, 19]
 ---
 
-# ADR: Workflow-Oriented CLI With A Flat Loop And Explicit Domains
+# ADR-0022: Workflow-Oriented CLI With A Flat Loop And Explicit Domains
 
 ## Context
 
-The Skillset CLI has grown to 28 top-level commands. The surface exposes implementation history rather than one authoring model:
+Before the hard cut, the Skillset CLI had grown to 28 top-level commands. The
+surface exposed implementation history rather than one authoring model:
 
 - setup is split across `init`, `create`, and `adopt` even though init already surveys adoptable source;
 - readiness is split across `check`, `lint`, `verify`, `doctor`, `change status`, and `ci` with overlapping reports and write modes;
@@ -26,7 +28,7 @@ Skillset is pre-1.0 and has no adoption burden that justifies carrying deprecate
 
 ## Decision
 
-Skillset ships a 20-command workflow-oriented CLI. Frequent authoring and compilation actions remain flat, related lifecycle operations share one domain command, maintainer-only operations leave the public CLI, and obsolete names are removed without aliases.
+Skillset ships a 21-command workflow-oriented CLI. Frequent authoring and compilation actions remain flat, related lifecycle operations share one domain command, maintainer-only operations leave the public CLI, and obsolete names are removed without aliases.
 
 ### Governing rules
 
@@ -42,7 +44,7 @@ Skillset ships a 20-command workflow-oriented CLI. Frequent authoring and compil
 
 | Area | Commands |
 | --- | --- |
-| Onboard | `init` · `import` |
+| Onboard | `create` · `init` · `import` |
 | Author | `new` · `check` · `dev` · `reconcile` |
 | Compile and maintain | `build` · `update` · `diff` · `restore` |
 | Inspect | `status` · `list` · `explain` · `lookup` |
@@ -51,26 +53,26 @@ Skillset ships a 20-command workflow-oriented CLI. Frequent authoring and compil
 | Distribution | `marketplace` · `distribute` |
 | Runtime | `hooks` |
 
-### Init as the original consolidated onboarding door
+### Onboarding has three explicit owners
 
-> Superseded in implementation by SET-312: `init` now owns existing-directory setup and repo-local adoption, `create` owns named child repositories, and `import` owns external conversion. This section preserves the rationale for the earlier consolidation.
+`skillset create [name]` creates a new named child repository. `skillset init
+[directory]` initializes an existing directory and specializes the [one-action
+adoption survey](0024-one-action-repo-adoption.md#adoption-surveys-the-whole-repo-not-just-manifests)
+through repo-local `--adopt`. `skillset import <source>` remains the repeated-use
+converter for a local path or provider-default root; its `--from` value selects
+the provider origin rather than an acquisition location.
 
-The current hard-cut mapping is `init [directory]` for existing repositories, `create [name]` for a new named child repository, and `import <source>` for external existing work. The historical text below describes the superseded consolidation rather than current grammar.
+When a TTY is available and adopt-compatible sources are detected, init offers
+to adopt all candidates, select individual candidates, or scaffold only. It
+prints the complete plan before final confirmation. The original target-native
+tree stays untouched; adoption writes Skillset source and retained provenance
+only. In non-interactive runs, adoption never happens merely because a generic
+write confirmation is present, and `init --yes` cannot silently expand
+scaffolding into adoption.
 
-`skillset init [destination]` owns new-repo creation, existing-repo setup, and whole-repo adoption. It specializes the [one-action adoption survey](20260610-one-action-repo-adoption.md#adoption-surveys-the-whole-repo-not-just-manifests) by making adoption a mode of onboarding rather than a second top-level workflow.
-
-When a TTY is available and adopt-compatible sources are detected, init offers to adopt all candidates, select individual candidates, or scaffold only. It prints the complete plan before final confirmation. The original target-native tree stays untouched; adoption writes Skillset source and retained provenance only.
-
-`--from <path|git-url>` identifies an external acquisition source. `--adopt` selects every or named detected candidate. In non-interactive runs, adoption never happens merely because a generic write confirmation is present.
-
-This means:
-
-- destination and acquisition source are never the same positional argument;
-- `init --yes` cannot silently expand scaffolding into adoption;
-- `import` remains the repeated-use converter for individual target-native assets;
-- migrate vocabulary stays available for future Skillset source/schema migrations.
-
-Top-level `create`, top-level `adopt`, and the `create-skillset` package bin are removed.
+Public `init --from`, Git URL acquisition, a top-level `adopt` command, and the
+`create-skillset` package bin are unsupported. The `create` route remains part
+of the current public CLI.
 
 ### Check is the one readiness family
 
@@ -86,7 +88,7 @@ Top-level `create`, top-level `adopt`, and the `create-skillset` package bin are
 
 `check --write` and `check --ci --fix` refuse provider/compiler format migrations, managed output-side edits, lossy or unsupported destination changes, ambiguous ownership, unmanaged collisions, and every write when a non-drift check fails.
 
-The narrow verification primitive remains reusable internally, but top-level `lint`, `verify`, and `ci` are removed. This preserves the [deterministic projection boundary](20260613-deterministic-projection-and-adapter-conformance.md#projection-comparison): check composes compiler evidence rather than inventing a second renderer.
+The narrow verification primitive remains reusable internally, but top-level `lint`, `verify`, and `ci` are removed. This preserves the [deterministic projection boundary](0019-deterministic-projection-and-adapter-conformance.md#projection-comparison): check composes compiler evidence rather than inventing a second renderer.
 
 ### Three drift directions have three owners
 
@@ -107,7 +109,7 @@ Reconcile reports ownership, lock provenance, affected paths, available resoluti
 
 ### Test is one evidence family
 
-`skillset test` owns committed declarations and ad hoc runtime evidence. This extends the separation between deterministic tests and evals in [Fixtures, Tests, Dogfooding, and Evals](20260609-fixtures-tests-dogfooding-and-evals.md#deterministic-tests-are-future-product-surface): the distinction is input and assertion strength, not a second top-level verb.
+`skillset test` owns committed declarations and ad hoc runtime evidence. This extends the separation between deterministic tests and evals in [Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tests-dogfooding-and-evals.md#deterministic-tests-are-implemented-product-surface): the distinction is input and assertion strength, not a second top-level verb.
 
 ```bash
 skillset test [name]
@@ -129,7 +131,7 @@ Top-level `try`, `.skillset/cache/runtime-tests/`, and every `SKILLSET_TRY_*` va
 - `status` replaces `doctor` as the read-only human workspace health and advisory view. It may summarize check and change facts but does not replace their exit contracts.
 - `list` inventories resolved source/output relationships without repurposing the existing source-root flag as a boolean selector.
 - `explain <path>` reports workspace-specific source/output provenance.
-- `lookup` teaches the static Skillset contract. `lookup features [id]` absorbs the feature registry command and continues to draw facts from the [registry-owned support model](20260604-feature-reference-and-schema-registry.md#decision).
+- `lookup` teaches the static Skillset contract. `lookup features [id]` absorbs the feature registry command and continues to draw facts from the [registry-owned support model](0005-feature-reference-and-schema-registry.md#decision).
 
 Top-level `doctor` and `features` are removed.
 
@@ -158,8 +160,8 @@ The shipped CLI has no `providers` route. Ordinary checks and builds remain offl
 | Today | Final contract |
 | --- | --- |
 | `init` | `init` |
-| `create` | `init [destination]` |
-| `adopt` | `init --adopt …` / `init --from … --adopt …` |
+| `create` | `create [name]` |
+| `adopt` | `init [directory] --adopt …` |
 | `import` | `import` |
 | `new` | `new` |
 | `suggest-source` | `reconcile` |
@@ -199,9 +201,9 @@ No compatibility aliases are added:
 
 ### Structured output remains a separate decision
 
-A follow-up ADR defines the structured-output contract: versioned envelopes, stdout purity, structured failures, canonical command identity, common result shapes, JSON versus streaming formats, exceptions, schemas, and contract tests.
+ADR-0023 defines the structured-output contract: versioned envelopes, stdout purity, structured failures, canonical command identity, common result shapes, JSON versus streaming formats, exceptions, schemas, and contract tests.
 
-The flag audit runs before parser-heavy implementation and reviews retired or duplicated vocabulary, including `--layout`, `--source`, `--dist`, and the mutation flag family.
+The completed flag audit ran before the parser-heavy implementation and reviewed retired or duplicated vocabulary, including `--layout`, `--source`, `--dist`, and the mutation flag family.
 
 ## Non-Goals
 
@@ -215,7 +217,7 @@ The flag audit runs before parser-heavy implementation and reviews retired or du
 
 ### Positive
 
-- Twenty top-level commands map to workflows rather than implementation history.
+- Twenty-one top-level commands map to workflows rather than implementation history.
 - Onboarding, readiness, tests, and managed drift each have one obvious entry point.
 - Ordinary writes, provider-format updates, and source/output reconciliation cannot silently collapse into each other.
 - Maintainer-only network refresh no longer expands the public product surface.
@@ -235,7 +237,7 @@ The flag audit runs before parser-heavy implementation and reviews retired or du
 - Flag-driven ad hoc tests could become ambiguous with named declarations. Runtime flags and lifecycle words are reserved and validated before execution.
 - Reconcile could imply unsafe bidirectional sync. Both directions remain explicit, plan-first, provenance-backed, and allowed only when losslessness is proven.
 
-## Implementation Map
+## Completed Implementation Map
 
 - [SET-274](https://linear.app/outfitter/issue/SET-274) - parent execution program.
 - [SET-276](https://linear.app/outfitter/issue/SET-276) - promote this ADR into the repository.
@@ -250,16 +252,35 @@ The flag audit runs before parser-heavy implementation and reviews retired or du
 - [SET-284](https://linear.app/outfitter/issue/SET-284) - define structured output separately.
 - [SET-285](https://linear.app/outfitter/issue/SET-285) - reconcile documentation, workflows, fixtures, and generated guidance.
 
+## Acceptance Evidence (2026-07-20)
+
+SET-312 and SET-366 verified the final onboarding grammar and roster before
+this decision was accepted. Skillset has 21 top-level commands: `build`,
+`change`, `check`, `create`, `dev`, `diff`,
+`distribute`, `explain`, `hooks`, `import`, `init`, `list`, `lookup`,
+`marketplace`, `new`, `release`, `reconcile`, `restore`, `status`, `test`, and
+`update`.
+
+Onboarding has three distinct owners. `create [name]` creates a named child
+repository. `init [directory]` initializes an existing directory and owns
+repo-local `--adopt`. `import` repeatedly converts a local path or
+provider-default root; its `--from` value selects provider origin. Public
+`init --from`, Git URL acquisition, and a top-level `adopt` command are
+unsupported. The old `create-skillset` package bin remains removed, but the
+`create` route is current. `cli-commands.ts`, `cli-contract.ts`, parser parity
+tests, `docs/reference/cli-flags.md`, and layout/adoption tests prove this final
+roster and hard cut.
+
 ## References
 
-- [Tenets](../../tenets.md) - source-first, no-trust, and visible-drift doctrine governing the command boundary.
-- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source remains the authored truth while commands inspect or render it.
-- [One-Action Repo Adoption](20260610-one-action-repo-adoption.md) - adoption survey, lowering, provenance, and original-tree guarantees specialized by `init`.
-- [Fixtures, Tests, Dogfooding, and Evals](20260609-fixtures-tests-dogfooding-and-evals.md) - separates deterministic tests, runtime evidence, and evals.
-- [Deterministic Projection and Adapter Conformance](20260613-deterministic-projection-and-adapter-conformance.md) - compiler verification primitives composed by check.
-- [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - registry-backed static support facts exposed through lookup.
-- [Tests and Evals](../../features/tests-and-evals.md) - current declared and ad hoc shared-runner behavior.
-- [Source Suggestions](../../features/source-suggestions.md) - current managed-output recovery safety model replaced by reconcile.
-- [Target Surfaces](../../target-surfaces.md) - provider evidence and safe update boundaries.
+- [Tenets](../tenets.md) - source-first, no-trust, and visible-drift doctrine governing the command boundary.
+- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - source remains the authored truth while commands inspect or render it.
+- [One-Action Repo Adoption](0024-one-action-repo-adoption.md) - adoption survey, lowering, provenance, and original-tree guarantees specialized by `init`.
+- [Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tests-dogfooding-and-evals.md) - separates deterministic tests, runtime evidence, and evals.
+- [Deterministic Projection and Adapter Conformance](0019-deterministic-projection-and-adapter-conformance.md) - compiler verification primitives composed by check.
+- [Feature Reference and Schema Registry](0005-feature-reference-and-schema-registry.md) - registry-backed static support facts exposed through lookup.
+- [Tests and Evals](../features/tests-and-evals.md) - current declared and ad hoc shared-runner behavior.
+- [Source Suggestions](../features/source-suggestions.md) - current managed-output recovery safety model replaced by reconcile.
+- [Target Surfaces](../target-surfaces.md) - provider evidence and safe update boundaries.
 - [Linear working ADR](https://linear.app/outfitter/document/adr-draft-workflow-oriented-cli-flat-loop-explicit-domains-56e12cc1025b) - discussion history and implementation map.
 - [SET-274](https://linear.app/outfitter/issue/SET-274) - parent implementation program for SET-275 through SET-285.

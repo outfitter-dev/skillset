@@ -1,14 +1,15 @@
 ---
+id: 10
 slug: named-partials
 title: Named Partials
-status: draft
+status: accepted
 created: 2026-06-27
-updated: 2026-06-27
+updated: 2026-07-20
 owners: ['[galligan](https://github.com/galligan)']
-depends_on: [skillset-workspace-layout]
+depends_on: [9]
 ---
 
-# ADR: Named Partials
+# ADR-0010: Named Partials
 
 ## Context
 
@@ -106,9 +107,18 @@ source-relative includes when physical placement matters.
 - Cross-plugin dependency management.
 - Git-backed snapshot and restore internals.
 
+## Acceptance Evidence
+
+`packages/core/src/preprocess.ts` implements the selected syntax, workspace and
+plugin lookup precedence, recursive expansion, and dependency inclusion.
+Focused tests prove missing, ambiguous, cyclic, traversal, and cross-plugin
+failures. `docs/layout.md` and the skill/instruction feature pages document the
+same boundary. This evidence accepts the decision without expanding partials
+into a general template language or cross-plugin import system.
+
 ## References
 
-- [Skillset Workspace Layout](20260627-skillset-workspace-layout.md) - canonical workspace and plugin boundaries.
-- [Layout](../../layout.md) - current source tree and preprocessing contract.
-- [Skills](../../features/skills.md) - skill body preprocessing behavior.
-- [Instructions](../../features/instructions.md) - rule body preprocessing behavior.
+- [Skillset Workspace Layout](0009-skillset-workspace-layout.md) - canonical workspace and plugin boundaries.
+- [Layout](../layout.md) - current source tree and preprocessing contract.
+- [Skills](../features/skills.md) - skill body preprocessing behavior.
+- [Instructions](../features/instructions.md) - rule body preprocessing behavior.

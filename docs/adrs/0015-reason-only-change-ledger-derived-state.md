@@ -1,27 +1,27 @@
 ---
+id: 15
 slug: reason-only-change-ledger-derived-state
 title: Reason-Only Change Ledger and Derived State
-status: draft
+status: accepted
 created: 2026-06-30
-updated: 2026-06-30
+updated: 2026-07-20
 owners: ['[galligan](https://github.com/galligan)']
-depends_on: [0, source-change-release-provenance, change-release-edge-decisions]
+depends_on: [0, 14]
+amends: [14]
 ---
 
-# ADR: Reason-Only Change Ledger and Derived State
+# ADR-0015: Reason-Only Change Ledger and Derived State
 
-Status: design (SET-204). This records the intended cutover away from
-hand-authored pending-entry frontmatter. Current v1 behavior remains documented
-in the feature pages until the implementation slices below land.
+Status: accepted and implemented, with explicit legacy-frontmatter migration.
 
 ## Context
 
-The current change and release implementation works, but it exposes too much
-machine structure as the authoring surface. Pending changes are Markdown files
+Before the cutover, the change and release implementation exposed too much
+machine structure as the authoring surface. Pending changes were Markdown files
 under `.skillset/changes/` with YAML frontmatter for `id`, `scope`, `bump`,
-`group`, and source-hash evidence. Release apply then consumes those files into
-`history.jsonl`, appends `releases.jsonl`, writes mutable `state.json`, and
-refreshes generated entity `CHANGELOG.md` projections.
+`group`, and source-hash evidence. Release apply consumed those files into
+history and release projections, wrote mutable cache state, and refreshed
+generated entity `CHANGELOG.md` projections.
 
 That shape proved the source-change workflow, but it has three design problems:
 
@@ -30,13 +30,13 @@ That shape proved the source-change workflow, but it has three design problems:
 - changelog wording, durable release events, and rebuildable status/cache state
   are mixed together in one mental model.
 
-The desired authoring flow is reason-first: an author should explain why a
+The accepted authoring flow is reason-first: an author explains why a
 change exists, optionally choose a bump or group, and let Skillset normalize the
 rest from current source inventory, release baselines, and command context.
 
 ## Decision
 
-Adopt a reason-only authoring model backed by a normalized event ledger and
+Use a reason-only authoring model backed by a normalized event ledger and
 derived state cache.
 
 ### Source Truth
@@ -54,10 +54,10 @@ Bump: minor
 Scope: plugin:skillset
 ```
 
-The exact syntax can be a small Markdown convention or a CLI-managed sidecar, but
-the principle is fixed: humans author reason text and high-level intent; Skillset
-owns generated ids, current source hashes, normalized selectors, and release
-evidence.
+The implemented syntax is Markdown prose plus readable `Refs:`, `Bump:`,
+`Group:`, and `Scope:` directives. Humans author reason text and high-level
+intent; Skillset owns generated ids, current source hashes, normalized
+selectors, and release evidence.
 
 ### Normalized Ledger
 
@@ -65,7 +65,7 @@ evidence.
 Events are machine-written JSON records with stable schema versions. They record
 what happened, not what the user must maintain by hand.
 
-The v1 event set should cover:
+The event set covers:
 
 - `reason.created` and `reason.updated` for pending reason lifecycle;
 - `change.covered` for source-unit coverage derived from current inventory;
@@ -86,12 +86,10 @@ derived projections, but the original event stream remains append-only.
 ### Derived State
 
 Release/status state is derived from the event ledger, current source inventory,
-and locks. The durable cache may still live under `.skillset/changes/state.json`
-for compatibility during the cutover, but it is not an authoring surface and
-should become rebuildable. If the cache is missing or stale, Skillset should be
-able to recompute it from `ledger.jsonl`, source files, and `skillset.lock`
-records. If recomputation is impossible because old events lack required data,
-the CLI should fail loudly and ask for an explicit baseline event.
+and locks. `.skillset/changes/state.json` is compatibility/cache output, not an
+authoring surface. Reconstructible facts are recomputed from ledger and source
+evidence; gaps that still depend on legacy baseline state fail loudly. This ADR
+does not claim full cache reconstruction or settle `baseline.recorded` semantics.
 
 The cache shape should separate:
 
@@ -111,40 +109,30 @@ sections. Pending wording changes update the reason source before release; after
 release, amendments append ledger events and generated changelogs render the
 latest correction while preserving original events.
 
-The `changes.changelog` configuration should default to tracked generated
+The `changes.changelog` configuration defaults to tracked generated
 entity-local changelogs. Alternate projection paths are allowed only as explicit
 configuration for repos that already own `CHANGELOG.md` with another release
 tool.
 
 ### Compatibility And Migration
 
-The existing frontmatter-backed pending entries remain a compatibility input
-until the cutover lands. The migration should read old `.skillset/changes/*.md`
-entries, write equivalent reason and ledger events, and leave the old files
-untouched unless the user explicitly runs a cleanup command. New commands should
-write the reason-only shape once the cutover branch lands.
+Existing frontmatter-backed pending entries remain compatibility input through
+the explicit `skillset change migrate --yes` boundary. New commands write the
+reason-only shape; mixed or incomplete legacy state fails loudly rather than
+becoming alternate source truth.
 
 `.changeset/` stays separate. Changesets records package-facing npm release
 intent for the `skillset` packages; Skillset's change ledger records workspace
 source-unit reasons and generated entity changelogs.
 
-## Implementation Split
+## Implementation Evidence
 
-1. Define ledger event types and readers. Add schema-versioned parsing for
-   `ledger.jsonl`, plus fixtures for pending reasons, release apply, amendments,
-   ignored entries, and baselines.
-2. Add reason-only pending entry authoring. Teach `skillset change add` and
-   `skillset change reason` to write human reason sources while deriving ids,
-   scopes, source hashes, and bump suggestions.
-3. Derive state from ledger events. Rebuild release baselines and pending
-   coverage from the ledger, then treat `state.json` as cache/compatibility
-   output instead of hand-authored source truth.
-4. Cut over docs, schema references, and generated examples. Retire the pending
-   change-entry frontmatter contract from user-facing docs once commands no
-   longer write it.
-5. Add migration/compatibility checks. `skillset change check` should explain
-   old frontmatter entries, offer the migration path, and reject mixed ambiguous
-   state once the compatibility window closes.
+Schema-versioned ledger parsing covers reason, coverage, ignore, release,
+amendment, and baseline events. `change add` and `change reason` write human
+reason sources while machine-owned evidence enters the ledger. Release and
+status readers derive current facts where evidence is sufficient, and explicit
+migration handles legacy frontmatter. Focused change-ledger, migration,
+refresh, ignore, release, and concurrency tests pin these boundaries.
 
 ## Consequences
 
@@ -154,14 +142,32 @@ the state/cache boundary clearer: authors commit reasons and ledgers; generated
 locks and rebuildable caches can be refreshed mechanically.
 
 The tradeoff is migration complexity. Old pending-entry files need compatibility
-readers, and the first implementation must be careful not to lose audit data
-while moving ids and hashes out of hand-authored frontmatter.
+readers, and explicit migration must not lose audit data while moving ids and
+hashes out of hand-authored frontmatter.
+
+## Acceptance Evidence (2026-07-20)
+
+The cutover described above is implemented. The ledger accepts eight
+schema-versioned event types: `reason.created`, `reason.updated`,
+`change.covered`, `change.ignored`, `release.applied`, `change.amended`,
+`release.amended`, and `baseline.recorded`. Reason-only Markdown is the authored
+surface; generated ids, hashes, coverage, release facts, locking/fencing, and
+replan evidence are machine-owned. Compatibility readers and explicit migration
+remain supported boundaries rather than alternate source truth.
+
+SET-329 and SET-330 add the current refresh, ignore, lock ownership, heartbeat,
+fencing, stale-owner recovery, and replan-before-append guarantees. This ADR
+does not claim every compatibility cache is already reconstructible, and it
+does not settle the semantic meaning of `baseline.recorded`; SET-363 owns that
+remaining decision. This accepted record narrowly amends the broad provenance
+model without replacing it.
 
 ## References
 
-- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) -
+- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) -
   source truth versus generated output.
-- [Source Change, Release, and Dependency Provenance](20260609-source-change-release-provenance.md) -
+- [Source Change, Release, and Dependency Provenance](0014-source-change-release-provenance.md) -
   current implemented source-change model.
-- [Change and Release Edge Decisions](20260609-change-release-edge-decisions.md) -
-  compact ids, group semantics, baselines, and release-tool interop.
+- [Change and Release Edge Decisions](0016-change-release-edge-decisions.md) -
+  compact ids, group semantics, release-tool interop, and the explicitly
+  unresolved baseline decision.

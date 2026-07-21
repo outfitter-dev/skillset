@@ -14,7 +14,9 @@ Render results are Skillset's per-build report for target truth. They record wha
 
 The feature registry answers a static question: "Can Claude or Codex generally represent this feature?" Render results answer a build question: "What did this build do with this source unit under this config, scope, and policy?"
 
-See the render-results ADR, currently filed as [Lowering Outcomes and Loss Ledger](../adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md), for the historical decision.
+See [ADR-0018: Render Results](../adrs/0018-render-results.md) for the current
+decision. [ADR-0017: Lowering Outcomes and Loss Ledger](../adrs/0017-lowering-outcomes-and-loss-ledger.md)
+preserves the superseded historical design.
 
 ## Current Boundary
 
@@ -146,9 +148,9 @@ Outcome provenance belongs in structured operation results, generated `skillset.
 
 ## Evidence
 
-- The render-results ADR, currently filed as [Lowering Outcomes and Loss Ledger](../adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md), defines the decision and status semantics.
-- [Post-Tools Policy Boundary](../adrs/drafts/20260705-post-tools-policy-boundary.md) defines how `tools`, provider-native policy, generated compatibility material, and unsupported-destination policy fit together after the `tools` cutover.
-- [Deterministic Projection and Adapter Conformance](../adrs/drafts/20260613-deterministic-projection-and-adapter-conformance.md) defines how render results pair with the feature registry for conformance.
+- [ADR-0018: Render Results](../adrs/0018-render-results.md) defines the current decision and status semantics; [ADR-0017](../adrs/0017-lowering-outcomes-and-loss-ledger.md) preserves the superseded design.
+- [Post-Tools Policy Boundary](../adrs/0021-post-tools-policy-boundary.md) defines how `tools`, provider-native policy, generated compatibility material, and unsupported-destination policy fit together after the `tools` cutover.
+- [Deterministic Projection and Adapter Conformance](../adrs/0019-deterministic-projection-and-adapter-conformance.md) defines how render results pair with the feature registry for conformance.
 - `packages/core/src/render-result.ts` defines the current schema, status values, policy values, and validation rules.
 - `packages/core/src/render-result-collector.ts` derives render results from generated locks, target-native companions, transformations, and unsupported plugin features.
 - `packages/core/src/build.ts` attaches build diagnostic refs, such as Codex `AGENTS.md` size warnings, to matching generated-output render results.

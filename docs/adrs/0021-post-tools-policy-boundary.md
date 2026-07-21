@@ -1,14 +1,15 @@
 ---
+id: 21
 slug: post-tools-policy-boundary
 title: Post-Tools Policy Boundary
-status: draft
+status: accepted
 created: 2026-07-05
-updated: 2026-07-05
+updated: 2026-07-20
 owners: ['[galligan](https://github.com/galligan)']
-depends_on: [0, 1, portable-agent-authority-intent, lowering-outcomes-and-loss-ledger, feature-reference-and-schema-registry, reviewed-settings-suggestions, 2]
+depends_on: [0, 1, 2, 3, 5, 18, 20]
 ---
 
-# ADR: Post-Tools Policy Boundary
+# ADR-0021: Post-Tools Policy Boundary
 
 ## Context
 
@@ -58,10 +59,11 @@ policy boundary is this:
    `tools.<provider>.allow` / `deny`, provider blocks, target-native islands,
    or reviewed settings suggestions when the source is intentionally tied to
    one provider.
-3. **Build truth belongs in render results.** Unsupported, lossy, degraded,
-   metadata-only, shimmed, externally managed, skipped, and failed behavior must
-   be visible in structured render results, diagnostics, reports, locks,
-   `doctor`, or `explain`.
+3. **Build truth belongs in Render Results.** `rendered`, `target_native`,
+   `transformed`, `metadata_only`, `degraded`, `lossy`, `unsupported`,
+   `externally_managed`, `intentionally_skipped`, and `failed` behavior must be
+   visible in structured results, diagnostics, reports, locks, `status`, or
+   `explain`.
 4. **Generated prose and scripts are never policy enforcement.** A Codex skill
    preface, an activation probe, a shimmed instruction, or a generated helper
    script can be useful compatibility material, but it cannot satisfy a policy
@@ -72,7 +74,7 @@ policy boundary is this:
    preserve diagnostics and lock/report evidence.
 
 This means `tools` can grow more capable without becoming a catch-all policy
-object. Future provider surfaces such as Codex sandbox suggestions, Cursor
+object. Stronger or external provider surfaces such as Codex sandbox suggestions, Cursor
 `readonly`, Claude permission modes, hook interception, MCP scoping, or managed
 settings are realization facts behind a portable key, provider-native escape
 hatches, or reviewed settings suggestions. They are not a reason to create a
@@ -93,7 +95,7 @@ parallel `policy.yaml` or `policy:` tree now.
 ### SET-18 Implementation Bar
 
 This section preserves the pre-implementation acceptance bar. SET-18 later
-satisfied it; [Lossy and Unsupported Output Policy](../0003-lossy-and-unsupported-output-policy.md)
+satisfied it; [Lossy and Unsupported Output Policy](0003-lossy-and-unsupported-output-policy.md)
 records the resulting amendment to ADR-0001.
 
 SET-18 can enable `warn`, `skip`, and `force` because the implementation proves
@@ -177,15 +179,34 @@ This ADR does not freeze the portable `tools` vocabulary. It freezes the rule
 that new portable policy meaning needs provider evidence and registry-backed
 render truth.
 
+## Acceptance Evidence (2026-07-20)
+
+`error`, `warn`, `skip`, and `force` are implemented unsupported-destination
+policies. Only `lossy` and `unsupported` Render Results can be softened;
+`failed` always blocks. The status vocabulary is `rendered`, `target_native`,
+`transformed`, `metadata_only`, `degraded`, `lossy`, `unsupported`,
+`externally_managed`, `intentionally_skipped`, and `failed`. Policy values are
+not statuses: for example, an `unsupported` result can carry
+`unsupported:error` policy.
+
+ADR-0003 owns the loss-policy semantics. This decision owns the broader
+no-catch-all portable-policy boundary: Skillset does not fake provider
+enforcement, silently widen permissions, mutate live runtime authority, or
+turn metadata into a capability claim. Codex/Cursor skill-tools policy remains
+metadata-only where stronger agent/settings surfaces are required. Current
+evidence is in the Render Results and tools-policy feature pages,
+`render-result.ts`, `build.ts`, tools realization code, and focused policy
+tests.
+
 ## References
 
-- [Tenets](../../tenets.md) - source-first, provider-native, fail-loud design principles.
-- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - root provider selection and the original unsupported-destination policy reservation.
-- [Lossy and Unsupported Output Policy](../0003-lossy-and-unsupported-output-policy.md) - successor decision recording how the reservation was satisfied.
-- [Portable Tools Policy and Agent Authority](20260702-portable-agent-authority-intent.md) - `tools` source shape and registry-backed realization model.
-- [Lowering Outcomes and Loss Ledger](20260614-lowering-outcomes-and-loss-ledger.md) - render-result status and policy semantics that this ADR specializes.
-- [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - feature ids, support evidence, and conformance expectations.
-- [Reviewed Settings Suggestions](20260604-reviewed-settings-suggestions.md) - authority-changing provider settings remain reviewed plans, not build side effects.
-- [Cursor Is a First-Class Provider](../0002-cursor-is-a-first-class-provider.md) - Cursor provider evidence and activation boundary.
-- [Tools Policy](../../features/tools-policy.md) - current authoring and realization reference.
-- [Render Results](../../features/render-results.md) - current structured build-truth report.
+- [Tenets](../tenets.md) - source-first, provider-native, fail-loud design principles.
+- [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - root provider selection and the original unsupported-destination policy reservation.
+- [Lossy and Unsupported Output Policy](0003-lossy-and-unsupported-output-policy.md) - narrow amendment recording how the reservation was satisfied.
+- [Portable Skill Tools Policy](0020-portable-skill-tools-policy.md) - `tools` source shape and registry-backed realization model.
+- [Render Results](0018-render-results.md) - current render-result statuses and provenance.
+- [Feature Reference and Schema Registry](0005-feature-reference-and-schema-registry.md) - feature ids, support evidence, and conformance expectations.
+- [Reviewed Settings Suggestions](drafts/20260604-reviewed-settings-suggestions.md) - authority-changing provider settings remain reviewed plans, not build side effects.
+- [Cursor Is a First-Class Provider](0002-cursor-is-a-first-class-provider.md) - Cursor provider evidence and activation boundary.
+- [Tools Policy](../features/tools-policy.md) - current authoring and realization reference.
+- [Render Results](../features/render-results.md) - current structured build-truth report.

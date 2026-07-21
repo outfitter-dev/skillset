@@ -1,14 +1,15 @@
 ---
+id: 7
 slug: source-manifest-listing-metadata
 title: Source Manifest Listing Metadata
-status: draft
+status: accepted
 created: 2026-06-25
-updated: 2026-06-25
+updated: 2026-07-20
 owners: ['[galligan](https://github.com/galligan)']
-depends_on: [0, 1, source-change-release-provenance, one-action-repo-adoption]
+depends_on: [0, 1]
 ---
 
-# ADR: Source Manifest Listing Metadata
+# ADR-0007: Source Manifest Listing Metadata
 
 ## Context
 
@@ -249,13 +250,23 @@ release-provenance model for generated artifact versions.
 This ADR does not decide a complete install-policy schema. It only keeps
 `strict` outside `listing` and outside display metadata.
 
+## Acceptance Evidence
+
+This is accepted as the reviewed staged cutover specification approved by
+SET-203, not as an implementation claim. The current schema and
+`docs/reference/examples/source-metadata.yaml` intentionally retain legacy
+`presentation` and top-level listing fields as migration input. SET-369 owns
+the schema, renderer, authoring migration, generated-artifact, and compatibility
+work required to implement this decision. That separation is part of the
+accepted contract.
+
 ## References
 
-- [Tenets](../../tenets.md) - source-first loadouts, one meaning/one key, derive by default, and target truth.
-- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - baseline source vocabulary doctrine.
-- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - compile concerns stay under `compile`, target-native options stay provider-specific.
-- ADR: Source Change, Release, and Dependency Provenance (draft) - release state owns generated artifact versions.
-- ADR: One-Action Repo Adoption (draft) - import/adopt paths should rewrite mechanical target-shaped fields into canonical source.
-- [Target Surface Evidence Matrix](../../target-surfaces.md) - current Claude and Codex manifest/interface render targets.
+- [Tenets](../tenets.md) - source-first loadouts, one meaning/one key, derive by default, and target truth.
+- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - baseline source vocabulary doctrine.
+- [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - compile concerns stay under `compile`, target-native options stay provider-specific.
+- [Source Change, Release, and Dependency Provenance](0014-source-change-release-provenance.md) - release state owns generated artifact versions.
+- [One-Action Repo Adoption](0024-one-action-repo-adoption.md) - import/adopt paths should rewrite mechanical target-shaped fields into canonical source.
+- [Target Surface Evidence Matrix](../target-surfaces.md) - current Claude and Codex manifest/interface render targets.
 - Linear: SET-203 - manifest `listing` block and source vocabulary cutover.
 - Linear document: Skillset DX - manifest and change-state redesign.

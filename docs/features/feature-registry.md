@@ -14,7 +14,7 @@ The feature registry is Skillset's typed support matrix. It records the features
 
 The registry is internal compiler infrastructure, not a public plugin system. It exists so docs, diagnostics, render results, drift checks, and future conformance tests can use the same feature ids and support vocabulary.
 
-See [Feature Reference and Schema Registry](../adrs/drafts/20260604-feature-reference-and-schema-registry.md) for the ADR-level decision.
+See [Feature Reference and Schema Registry](../adrs/0005-feature-reference-and-schema-registry.md) for the ADR-level decision.
 
 ## Current Boundary
 
@@ -98,7 +98,7 @@ Feature ids can appear in render results, `skillset.lock`, reports, status/expla
 
 ## Evidence
 
-- [Feature Reference and Schema Registry](../adrs/drafts/20260604-feature-reference-and-schema-registry.md) defines the decision.
+- [Feature Reference and Schema Registry](../adrs/0005-feature-reference-and-schema-registry.md) defines the decision.
 - `packages/core/src/feature-registry.ts` defines the current typed registry.
 - `packages/registry/src/index.ts` stores adopted provider destination-format snapshots used as registry evidence.
 - `packages/registry/src/schema-snapshots.ts` stores adopted provider JSON Schema snapshots and manual overlays used as registry evidence.

@@ -22,7 +22,7 @@ Compact ids are generated once at scaffold time as 12 lower-case hex characters.
 
 The workspace change directory is a committed ledger, not a generated-output lock. Pending entries are the `*.md` files in that directory. Applied history stays in `history.jsonl`, release records stay in `releases.jsonl`, release events and source-unit coverage stay in `ledger.jsonl`, and `state.json` remains compatibility/cache output. Generated-output ownership, hashes, render results, and current drift evidence stay in nearby `skillset.lock` files instead of being folded into human-authored change reasons.
 
-The active cutover is a reason-only authoring model where humans write change reasons and Skillset derives ids, source hashes, coverage, and rebuildable state into a machine event ledger. See [Reason-Only Change Ledger and Derived State](../adrs/drafts/20260630-reason-only-change-ledger-derived-state.md) for the design.
+The active cutover is a reason-only authoring model where humans write change reasons and Skillset derives ids, source hashes, coverage, and rebuildable state into a machine event ledger. See [Reason-Only Change Ledger and Derived State](../adrs/0015-reason-only-change-ledger-derived-state.md) for the design.
 
 ### Ledger Events
 
@@ -104,4 +104,4 @@ Fixtures cover unchanged deterministic status, body edits, source-only support/d
 
 ## Evidence
 
-See [Source Change, Release, and Dependency Provenance](../adrs/drafts/20260609-source-change-release-provenance.md), [Change and Release Edge Decisions](../adrs/drafts/20260609-change-release-edge-decisions.md), and [Reason-Only Change Ledger and Derived State](../adrs/drafts/20260630-reason-only-change-ledger-derived-state.md).
+See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md), [Change and Release Edge Decisions](../adrs/0016-change-release-edge-decisions.md), and [Reason-Only Change Ledger and Derived State](../adrs/0015-reason-only-change-ledger-derived-state.md).

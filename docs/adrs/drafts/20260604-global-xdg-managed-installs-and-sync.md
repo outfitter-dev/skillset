@@ -86,4 +86,4 @@ Do not implement install/sync in the compiler build path. A future slice would:
 
 - [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - baseline source-first compiler doctrine.
 - [Tenets](../../tenets.md) - build does not imply trust.
-- [Changelog and Version Bump Workflow](20260604-changelog-and-versioning.md) - related non-goal for install/sync behavior.
+- [Changelog and Version Bump Workflow](../0013-changelog-and-versioning.md) - related non-goal for install/sync behavior.

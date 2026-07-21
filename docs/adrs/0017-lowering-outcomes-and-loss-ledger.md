@@ -1,14 +1,16 @@
 ---
+id: 17
 slug: lowering-outcomes-and-loss-ledger
 title: Lowering Outcomes and Loss Ledger
-status: draft
+status: superseded
 created: 2026-06-14
-updated: 2026-06-14
+updated: 2026-07-20
 owners: ['[galligan](https://github.com/galligan)']
-depends_on: [0, 1, feature-reference-and-schema-registry, core-library-boundary, deterministic-projection-and-adapter-conformance]
+depends_on: [0, 1, 3]
+superseded_by: ['18']
 ---
 
-# ADR: Lowering Outcomes and Loss Ledger
+# ADR-0017: Lowering Outcomes and Loss Ledger
 
 ## Context
 
@@ -85,7 +87,7 @@ Skillset reserves these policy values:
 
 The preceding reservation is preserved as the historical implementation state
 of this draft. SET-18 later implemented the non-error gates with warning
-diagnostics and lock provenance; [Lossy and Unsupported Output Policy](../0003-lossy-and-unsupported-output-policy.md)
+diagnostics and lock provenance; [Lossy and Unsupported Output Policy](0003-lossy-and-unsupported-output-policy.md)
 records the current decision and amendment to ADR-0001.
 
 ### Clean Generated Output
@@ -146,11 +148,11 @@ This ADR does not decide whether pending lowering outcomes appear in committed g
 
 ## References
 
-- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - governing source and generated-output doctrine.
-- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - root target selection and unsupported policy context.
-- [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - static feature capability and registry evidence model.
-- [Core Library and CLI Boundary](20260612-core-library-boundary.md) - places structured compiler facts in `@skillset/core`.
-- [Deterministic Projection and Adapter Conformance](20260613-deterministic-projection-and-adapter-conformance.md) - uses lowering outcomes with the feature registry for adapter conformance.
-- [Lowering Outcomes](../../features/render-results.md) - reader-facing vocabulary and examples.
-- [Lossy and Unsupported Output Policy](../0003-lossy-and-unsupported-output-policy.md) - current policy decision and ADR-0001 amendment.
+- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - governing source and generated-output doctrine.
+- [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - root target selection and unsupported policy context.
+- [Feature Reference and Schema Registry](0005-feature-reference-and-schema-registry.md) - static feature capability and registry evidence model.
+- [Core Library and CLI Boundary](0004-core-library-boundary.md) - places structured compiler facts in `@skillset/core`.
+- [Deterministic Projection and Adapter Conformance](0019-deterministic-projection-and-adapter-conformance.md) - uses lowering outcomes with the feature registry for adapter conformance.
+- [Lowering Outcomes](../features/render-results.md) - reader-facing vocabulary and examples.
+- [Lossy and Unsupported Output Policy](0003-lossy-and-unsupported-output-policy.md) - current policy decision and ADR-0001 amendment.
 - SET-79, SET-82, SET-83, SET-84, SET-85, and SET-86 - historical implementation stack for vocabulary, persistence, diagnostics, gates, fixtures, and warning migration.

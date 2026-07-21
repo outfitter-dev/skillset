@@ -63,4 +63,4 @@ Hook guardrails do not create source truth. They call Skillset commands that pro
 
 ## Evidence
 
-See [Source Change, Release, and Dependency Provenance](../adrs/drafts/20260609-source-change-release-provenance.md) and [Reviewed Settings Suggestions](../adrs/drafts/20260604-reviewed-settings-suggestions.md).
+See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md) and [Reviewed Settings Suggestions](../adrs/drafts/20260604-reviewed-settings-suggestions.md).

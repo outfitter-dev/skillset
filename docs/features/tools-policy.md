@@ -142,7 +142,7 @@ render results cite realization-registry evidence and carry
 `tools-policy-realization` diagnostic refs for residual-risk and
 metadata-honesty notes.
 
-See the [Post-Tools Policy Boundary ADR](../adrs/drafts/20260705-post-tools-policy-boundary.md)
+See the [Post-Tools Policy Boundary ADR](../adrs/0021-post-tools-policy-boundary.md)
 for the rule that a generated instruction, probe, shim, helper script, or
 sidecar is compatibility/provenance material unless the provider itself
 enforces the behavior.
