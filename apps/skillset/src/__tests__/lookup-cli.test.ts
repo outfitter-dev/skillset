@@ -1,6 +1,139 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 
+test("SET-347: lookup preserves finite human and JSON success and failure parity", async () => {
+  const successHuman = await runSkillsetCli(
+    "lookup",
+    "workspace",
+    "--field",
+    "compile.targets",
+    "--values"
+  );
+  const successJson = await runSkillsetCli(
+    "lookup",
+    "workspace",
+    "--field",
+    "compile.targets",
+    "--values",
+    "--json"
+  );
+  const failureHuman = await runSkillsetCli(
+    "lookup",
+    "workspace",
+    "--field",
+    "no.such.field"
+  );
+  const failureJson = await runSkillsetCli(
+    "lookup",
+    "workspace",
+    "--field",
+    "no.such.field",
+    "--json"
+  );
+
+  expect(successHuman).toEqual({
+    exitCode: 0,
+    stderr: "",
+    stdout:
+      "skillset lookup workspace\n  fields:\n    compile.targets: array<enum> values: claude, codex, cursor\nskillset: lookup complete\n",
+  });
+  expect(failureHuman).toEqual({
+    exitCode: 1,
+    stderr: "",
+    stdout:
+      "skillset lookup workspace\n  error: lookup/field/not-found: workspace-config does not define field no.such.field.\nskillset: lookup reported diagnostics\n",
+  });
+
+  expect(readFiniteResult(successJson)).toMatchObject({
+    command: "lookup",
+    data: {
+      diagnostics: [],
+      fields: [
+        { path: "compile.targets", values: ["claude", "codex", "cursor"] },
+      ],
+      subject: "workspace",
+    },
+    diagnostics: [],
+    exitCode: 0,
+    kind: "data",
+    ok: true,
+  });
+  expect(readFiniteResult(failureJson)).toMatchObject({
+    command: "lookup",
+    data: {
+      diagnostics: [
+        {
+          code: "lookup/field/not-found",
+          severity: "error",
+        },
+      ],
+      fields: [],
+      subject: "workspace",
+    },
+    diagnostics: [
+      {
+        code: "lookup/field/not-found",
+        severity: "error",
+      },
+    ],
+    exitCode: 1,
+    kind: "diagnostics",
+    ok: false,
+  });
+});
+
+test("SET-347: lookup features preserves finite human and JSON success and sparse failure parity", async () => {
+  const successHuman = await runSkillsetCli("lookup", "features", "plugin-bin");
+  const successJson = await runSkillsetCli(
+    "lookup",
+    "features",
+    "plugin-bin",
+    "--json"
+  );
+  const failureHuman = await runSkillsetCli(
+    "lookup",
+    "features",
+    "no-such-feature"
+  );
+  const failureJson = await runSkillsetCli(
+    "lookup",
+    "features",
+    "no-such-feature",
+    "--json"
+  );
+
+  expect(successHuman).toEqual({
+    exitCode: 0,
+    stderr: "",
+    stdout:
+      "feature plugin-bin: Plugin Bin\n  status: implemented\n  claude: pass_through\n  codex: unsupported (Codex plugins do not expose a documented plugin-local bin contract.)\n  cursor: unsupported (Cursor plugins do not expose a documented plugin-local bin contract.)\n  docs: docs/features/executables.md, docs/features/feature-source-pointers.md\nskillset: listed 1 feature\n",
+  });
+  expect(failureHuman).toEqual({
+    exitCode: 1,
+    stderr: "",
+    stdout: "skillset: feature no-such-feature not found\n",
+  });
+
+  expect(readFiniteResult(successJson)).toMatchObject({
+    command: "lookup features",
+    data: { features: [{ id: "plugin-bin", title: "Plugin Bin" }] },
+    diagnostics: [],
+    exitCode: 0,
+    kind: "data",
+    ok: true,
+  });
+  expect(readFiniteResult(failureJson)).toEqual(
+    expect.objectContaining({
+      command: "lookup features",
+      data: { features: [] },
+      diagnostics: [],
+      exitCode: 1,
+      kind: "data",
+      ok: false,
+    })
+  );
+});
+
 test("SET-220: lookup without a subject lists static reference subjects", async () => {
   const result = await runSkillsetCli("lookup");
 
@@ -276,4 +409,19 @@ async function runSkillsetCli(...args: readonly string[]): Promise<{
 
 function readResultData(stdout: string): unknown {
   return (JSON.parse(stdout) as { readonly data: unknown }).data;
+}
+
+function readFiniteResult(
+  result: Awaited<ReturnType<typeof runSkillsetCli>>
+): Readonly<Record<string, unknown>> {
+  expect(result.stderr).toBe("");
+  expect(result.stdout.endsWith("\n")).toBe(true);
+  expect(result.stdout.trim().split("\n")).toHaveLength(1);
+  const parsed = JSON.parse(result.stdout) as Readonly<
+    Record<string, unknown>
+  > & {
+    readonly exitCode: number;
+  };
+  expect(parsed.exitCode).toBe(result.exitCode);
+  return parsed;
 }

@@ -22,7 +22,6 @@ import {
   type FiniteCommandWriter,
 } from "./cli-finite-command";
 import { renderGeneratedEntryList } from "./cli-list-renderer";
-import { printCliJsonData } from "./cli-output";
 import { runLookupCommand } from "./lookup-cli";
 
 export interface ListCommandRequest {
@@ -57,25 +56,37 @@ export interface LookupFeaturesCommandRequest {
 export function runLookupFeaturesCommand({
   featureId,
   jsonOutput,
-}: LookupFeaturesCommandRequest): void {
-  const features = listFeatureCapabilities(featureId);
-  if (jsonOutput) {
-    const exitCode = featureId !== undefined && features.length === 0 ? 1 : 0;
-    printCliJsonData("lookup features", { features }, exitCode);
-    return;
-  }
+}: LookupFeaturesCommandRequest): Promise<void> {
+  return runFiniteCommand({
+    execute: () => listFeatureCapabilities(featureId),
+    exitCode: (features) =>
+      featureId !== undefined && features.length === 0 ? 1 : 0,
+    json: (features) => ({
+      command: "lookup features",
+      data: { features },
+    }),
+    jsonOutput,
+    renderHuman: (features, writer) =>
+      printFeatureCapabilities(features, featureId, writer),
+  });
+}
+
+function printFeatureCapabilities(
+  features: readonly FeatureCapability[],
+  featureId: string | undefined,
+  writer: FiniteCommandWriter
+): void {
   if (features.length === 0) {
-    console.log(`skillset: feature ${featureId ?? ""} not found`);
-    process.exitCode = 1;
+    writeLine(writer, `skillset: feature ${featureId ?? ""} not found`);
     return;
   }
   for (const feature of features) {
-    printFeatureCapability(feature);
+    printFeatureCapability(feature, writer);
   }
-  console.log(
+  writeLine(
+    writer,
     `skillset: listed ${features.length} feature${features.length === 1 ? "" : "s"}`
   );
-  return;
 }
 
 export interface LookupRouteRequest {
@@ -94,8 +105,8 @@ export function runLookupRoute({
   lookupTargets,
   lookupViews,
   jsonOutput,
-}: LookupRouteRequest): void {
-  runLookupCommand({
+}: LookupRouteRequest): Promise<void> {
+  return runLookupCommand({
     aspects: lookupAspects,
     ...(lookupField === undefined ? {} : { field: lookupField }),
     json: jsonOutput,
@@ -103,7 +114,6 @@ export function runLookupRoute({
     targets: lookupTargets,
     views: lookupViews,
   });
-  return;
 }
 
 export interface ExplainCommandRequest {
@@ -350,14 +360,20 @@ function formatSourceOrigin(origin: SourceOrigin): string {
   return `${remote}path ${origin.path}`;
 }
 
-function printFeatureCapability(feature: FeatureCapability): void {
-  console.log(`feature ${feature.id}: ${feature.title}`);
-  console.log(`  status: ${feature.status}`);
+function printFeatureCapability(
+  feature: FeatureCapability,
+  writer: FiniteCommandWriter
+): void {
+  writeLine(writer, `feature ${feature.id}: ${feature.title}`);
+  writeLine(writer, `  status: ${feature.status}`);
   for (const target of targetNames()) {
-    console.log(`  ${target}: ${formatFeatureSupport(feature.targetSupport[target])}`);
+    writeLine(
+      writer,
+      `  ${target}: ${formatFeatureSupport(feature.targetSupport[target])}`
+    );
   }
   if (feature.docs.length > 0) {
-    console.log(`  docs: ${feature.docs.join(", ")}`);
+    writeLine(writer, `  docs: ${feature.docs.join(", ")}`);
   }
 }
 

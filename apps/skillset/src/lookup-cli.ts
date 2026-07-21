@@ -4,11 +4,13 @@ import {
   type LookupSubject,
   type LookupView,
 } from "@skillset/core";
-
 import type { TargetName } from "@skillset/core/internal/types";
-import type { SchemaJsonRecord } from "@skillset/schema";
+
 import { readLookupTarget } from "./cli-arg-values";
-import { renderCliDataResult } from "./cli-output";
+import {
+  runFiniteCommand,
+  type FiniteCommandWriter,
+} from "./cli-finite-command";
 
 export interface LookupCommandOptions {
   readonly aspects: readonly string[];
@@ -19,26 +21,33 @@ export interface LookupCommandOptions {
   readonly views: readonly LookupView[];
 }
 
-export function runLookupCommand(options: LookupCommandOptions): void {
-  const report = lookupSkillsetReference({
-    ...(options.aspects.length === 0 ? {} : { aspects: options.aspects }),
-    ...(options.field === undefined ? {} : { field: options.field }),
-    ...(options.subject === undefined ? {} : { subject: options.subject }),
-    ...(options.targets.length === 0 ? {} : { targets: options.targets }),
-    ...(options.views.length === 0 ? {} : { views: options.views }),
-  });
-  if (options.json) {
-    const failed = report.diagnostics.some((diagnostic) => diagnostic.severity === "error");
-    process.stdout.write(renderCliDataResult({
+export function runLookupCommand(options: LookupCommandOptions): Promise<void> {
+  return runFiniteCommand({
+    execute: () =>
+      lookupSkillsetReference({
+        ...(options.aspects.length === 0 ? {} : { aspects: options.aspects }),
+        ...(options.field === undefined ? {} : { field: options.field }),
+        ...(options.subject === undefined ? {} : { subject: options.subject }),
+        ...(options.targets.length === 0 ? {} : { targets: options.targets }),
+        ...(options.views.length === 0 ? {} : { views: options.views }),
+      }),
+    exitCode: (report) => (lookupFailed(report) ? 1 : 0),
+    json: (report) => ({
       command: "lookup",
-      data: report as unknown as SchemaJsonRecord,
-      ...(failed ? { diagnostics: report.diagnostics, kind: "diagnostics" } : {}),
-      exitCode: failed ? 1 : 0,
-    }));
-  } else {
-    printLookupReport(report);
-  }
-  if (report.diagnostics.some((diagnostic) => diagnostic.severity === "error")) process.exitCode = 1;
+      data: report,
+      ...(lookupFailed(report)
+        ? { diagnostics: report.diagnostics, kind: "diagnostics" }
+        : {}),
+    }),
+    jsonOutput: options.json,
+    renderHuman: printLookupReport,
+  });
+}
+
+function lookupFailed(report: LookupReport): boolean {
+  return report.diagnostics.some(
+    (diagnostic) => diagnostic.severity === "error"
+  );
 }
 
 export function readLookupSubject(value: string): LookupSubject {
@@ -76,74 +85,124 @@ export function setLookupField(current: string | undefined, value: string): stri
   return value;
 }
 
-function printLookupReport(report: LookupReport): void {
+function printLookupReport(
+  report: LookupReport,
+  writer: FiniteCommandWriter
+): void {
   if (report.subject === undefined) {
-    console.log("skillset lookup subjects");
+    writeLine(writer, "skillset lookup subjects");
     for (const subject of report.subjects) {
-      console.log(`  ${subject.subject}: ${subject.description}`);
-      console.log(`    views: ${subject.defaultViews.join(", ")}`);
+      writeLine(writer, `  ${subject.subject}: ${subject.description}`);
+      writeLine(writer, `    views: ${subject.defaultViews.join(", ")}`);
     }
-    console.log("  flags: --frontmatter --fields --field <path> --values --events --compat [claude|codex|cursor...] --examples --schema --json");
-    console.log(`skillset: listed ${report.subjects.length} lookup subjects`);
+    writeLine(
+      writer,
+      "  flags: --frontmatter --fields --field <path> --values --events --compat [claude|codex|cursor...] --examples --schema --json"
+    );
+    writeLine(
+      writer,
+      `skillset: listed ${report.subjects.length} lookup subjects`
+    );
     return;
   }
 
-  console.log(`skillset lookup ${report.subject}${report.aspects.length === 0 ? "" : ` ${report.aspects.join(" ")}`}`);
+  writeLine(
+    writer,
+    `skillset lookup ${report.subject}${report.aspects.length === 0 ? "" : ` ${report.aspects.join(" ")}`}`
+  );
   for (const diagnostic of report.diagnostics) {
-    console.log(`  ${diagnostic.severity}: ${diagnostic.code}: ${diagnostic.message}`);
+    writeLine(
+      writer,
+      `  ${diagnostic.severity}: ${diagnostic.code}: ${diagnostic.message}`
+    );
   }
   if (report.fields.length > 0) {
-    console.log("  fields:");
+    writeLine(writer, "  fields:");
     for (const field of report.fields) {
       const required = field.required ? " required" : "";
-      const values = field.values === undefined ? "" : ` values: ${field.values.map(formatLookupValue).join(", ")}`;
-      console.log(`    ${field.path}: ${field.type}${required}${values}`);
+      const values =
+        field.values === undefined
+          ? ""
+          : ` values: ${field.values.map(formatLookupValue).join(", ")}`;
+      writeLine(writer, `    ${field.path}: ${field.type}${required}${values}`);
     }
   }
   if (report.events.length > 0) {
-    console.log("  events:");
+    writeLine(writer, "  events:");
     for (const event of report.events) {
-      const required = event.fields.filter((field) => field.required).map((field) => field.name);
-      const suffix = required.length === 0 ? "" : ` required: ${required.join(", ")}`;
-      const handlers = event.handlerTypes.length === 0 ? "" : ` handlers: ${event.handlerTypes.join(", ")}`;
-      const values = event.matcherValues.length === 0 ? "" : ` values: ${event.matcherValues.join(", ")}`;
-      const outputs = event.outputFields.length === 0 ? "" : ` output: ${event.outputFields.join(", ")}`;
-      const unsupportedOutputs = event.unsupportedOutputFields.length === 0 ? "" : ` unsupported output: ${event.unsupportedOutputFields.join(", ")}`;
+      const required = event.fields
+        .filter((field) => field.required)
+        .map((field) => field.name);
+      const suffix =
+        required.length === 0 ? "" : ` required: ${required.join(", ")}`;
+      const handlers =
+        event.handlerTypes.length === 0
+          ? ""
+          : ` handlers: ${event.handlerTypes.join(", ")}`;
+      const values =
+        event.matcherValues.length === 0
+          ? ""
+          : ` values: ${event.matcherValues.join(", ")}`;
+      const outputs =
+        event.outputFields.length === 0
+          ? ""
+          : ` output: ${event.outputFields.join(", ")}`;
+      const unsupportedOutputs =
+        event.unsupportedOutputFields.length === 0
+          ? ""
+          : ` unsupported output: ${event.unsupportedOutputFields.join(", ")}`;
       const blocking = event.canBlock ? " blocks" : "";
-      console.log(`    [${event.target}] ${event.name} matcher: ${event.matcherKind}/${event.matcherEvaluation}${values}${handlers}${suffix}${outputs}${unsupportedOutputs}${blocking}`);
+      writeLine(
+        writer,
+        `    [${event.target}] ${event.name} matcher: ${event.matcherKind}/${event.matcherEvaluation}${values}${handlers}${suffix}${outputs}${unsupportedOutputs}${blocking}`
+      );
     }
   }
   if (report.compatibility.length > 0) {
-    console.log("  compatibility:");
+    writeLine(writer, "  compatibility:");
     for (const item of report.compatibility) {
       const reason = item.reason === undefined ? "" : ` (${item.reason})`;
       const note = item.note === undefined ? "" : ` note: ${item.note}`;
-      console.log(`    [${item.target}] ${item.featureId}: ${item.status}${reason}${note}`);
+      writeLine(
+        writer,
+        `    [${item.target}] ${item.featureId}: ${item.status}${reason}${note}`
+      );
     }
   }
   if (report.realizations.length > 0) {
-    console.log("  tools realization:");
+    writeLine(writer, "  tools realization:");
     for (const row of report.realizations) {
       const direction = row.direction === undefined ? "" : ` ${row.direction}`;
       const emits = row.emits === undefined ? "" : ` emits: ${row.emits}`;
       const rendered = row.rendered ? "" : " (not rendered)";
-      const diagnostic = row.diagnostic === undefined ? "" : ` note: ${row.diagnostic}`;
-      console.log(`    [${row.target}] ${row.aspect}${direction}: ${row.tier} via ${row.surface}${rendered}${emits}${diagnostic}`);
+      const diagnostic =
+        row.diagnostic === undefined ? "" : ` note: ${row.diagnostic}`;
+      writeLine(
+        writer,
+        `    [${row.target}] ${row.aspect}${direction}: ${row.tier} via ${row.surface}${rendered}${emits}${diagnostic}`
+      );
     }
   }
   if (report.examples.length > 0) {
-    console.log("  examples:");
+    writeLine(writer, "  examples:");
     for (const example of report.examples) {
-      console.log(`    ${example.path}: ${example.description}`);
+      writeLine(writer, `    ${example.path}: ${example.description}`);
     }
   }
   if (report.schema !== undefined) {
-    console.log(`  schema: ${report.schema.id} (${report.schema.title})`);
+    writeLine(writer, `  schema: ${report.schema.id} (${report.schema.title})`);
   }
-  console.log(`skillset: lookup ${report.diagnostics.some((diagnostic) => diagnostic.severity === "error") ? "reported diagnostics" : "complete"}`);
+  writeLine(
+    writer,
+    `skillset: lookup ${lookupFailed(report) ? "reported diagnostics" : "complete"}`
+  );
 }
 
 function formatLookupValue(value: unknown): string {
   if (typeof value === "string") return value;
   return JSON.stringify(value);
+}
+
+function writeLine(writer: FiniteCommandWriter, line: string): void {
+  writer.stdout.write(`${line}\n`);
 }
