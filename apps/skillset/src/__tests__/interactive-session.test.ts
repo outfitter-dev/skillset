@@ -17,6 +17,7 @@ import {
   PromptCancelledError,
   ScriptedPromptAdapter,
 } from "../prompt-adapter";
+import { runRealPromptProcess } from "./real-prompt-process";
 
 const ttyInput = (): PassThrough & { isTTY: true } =>
   Object.assign(new PassThrough(), { isTTY: true as const });
@@ -29,31 +30,6 @@ const ttyOutput = (
     rows: 24,
   });
 const interactiveEnv = { CI: "false" } as const;
-
-const waitForOutput = async (
-  output: PassThrough,
-  pattern: RegExp
-): Promise<string> =>
-  new Promise((resolve, reject) => {
-    let rendered = "";
-    const onData = (chunk: Buffer): void => {
-      rendered += chunk.toString();
-      if (pattern.test(rendered)) {
-        cleanup();
-        resolve(rendered);
-      }
-    };
-    const onEnd = (): void => {
-      cleanup();
-      reject(new Error(`output ended before ${pattern.source} rendered`));
-    };
-    const cleanup = (): void => {
-      output.off("data", onData);
-      output.off("end", onEnd);
-    };
-    output.on("data", onData);
-    output.on("end", onEnd);
-  });
 
 describe("SET-291 interactive session eligibility", () => {
   test("requires interactive input and output", () => {
@@ -282,30 +258,23 @@ describe("SET-291 prompt adapters", () => {
   });
 
   test("the real adapter renders choice hints and disabled reasons", async () => {
-    const input = ttyInput();
-    const output = ttyOutput();
-    let transcript = "";
-    output.on("data", (chunk: Buffer) => {
-      transcript += chunk.toString();
-    });
-    const result = new ClackPromptAdapter({
-      color: true,
-      input,
-      output,
-    }).select({
-      choices: [
-        { description: "recommended", name: "One", value: "one" },
-        { disabled: "unavailable", name: "Two", value: "two" },
-      ],
-      default: "one",
-      message: "Choose:",
-    });
+    const child = await runRealPromptProcess("choice-hints");
 
+    expect(child).toMatchObject({
+      exitCode: 0,
+      stderr: "",
+      stdout: "",
+    });
+    expect(child.evidence?.globalStdout).toEqual({
+      columns: null,
+      columnsDefined: false,
+      isTTY: false,
+    });
+    expect(child.evidence?.result).toBe("one");
+    const transcript = child.evidence?.transcript ?? "";
     expect(Bun.stripANSI(transcript)).toContain("One (recommended)");
     expect(Bun.stripANSI(transcript)).toContain("Two (unavailable)");
     expect(transcript).toContain("\u001B[9mTwo\u001B[29m");
-    input.write("\r");
-    await expect(result).resolves.toBe("one");
   });
 
   test("the real adapter preserves async validation and term-aware search", async () => {
@@ -380,58 +349,22 @@ describe("SET-291 prompt adapters", () => {
   });
 
   test("the real searchable checkbox filters, persists selections, and skips disabled choices", async () => {
-    const input = ttyInput();
-    const output = ttyOutput();
-    let transcript = "";
-    output.on("data", (chunk: Buffer) => {
-      transcript += chunk.toString();
-    });
-    const adapter = new ClackPromptAdapter({ input, output });
-    const choices = [
-      { checked: true, name: "All", value: "all" },
-      { name: "Alpha", value: "alpha" },
-      { disabled: "unavailable", name: "Disabled", value: "disabled" },
-      { name: "Beta", value: "beta" },
-    ] as const;
-    const result = adapter.searchCheckbox({
-      choices,
-      message: "Include:",
-      source: (term, available) => {
-        const query = term?.toLowerCase().split("/").at(-1) ?? "";
-        return available.filter(
-          (choice) =>
-            choice.value === "all" || choice.name.toLowerCase().includes(query)
-        );
-      },
-    });
+    const child = await runRealPromptProcess("searchable-checkbox");
 
-    expect(Bun.stripANSI(transcript)).toContain("Include:");
-    const writeText = async (text: string): Promise<void> => {
-      for (const key of text) {
-        input.write(key);
-        await Bun.sleep(1);
-      }
-    };
-    const disabledRendered = waitForOutput(output, /Disabled \(unavailable\)/u);
-    await writeText("disabled");
-    expect(
-      await Promise.race([
-        disabledRendered,
-        Bun.sleep(500).then(() => Bun.stripANSI(transcript)),
-      ])
-    ).toContain("Disabled (unavailable)");
-    await writeText("/alpha");
-    await writeText("/beta");
-    input.write("\r");
-
-    const selected = await Promise.race([
-      result,
-      Bun.sleep(1000).then(() => {
-        throw new Error(`prompt did not submit:\n${Bun.stripANSI(transcript)}`);
-      }),
-    ]);
-    expect(selected).toEqual(["all"]);
-    expect(Bun.stripANSI(transcript)).toContain("Disabled (unavailable)");
+    expect(child).toMatchObject({
+      exitCode: 0,
+      stderr: "",
+      stdout: "",
+    });
+    expect(child.evidence?.globalStdout).toEqual({
+      columns: null,
+      columnsDefined: false,
+      isTTY: false,
+    });
+    expect(child.evidence?.result).toEqual(["all"]);
+    const transcript = Bun.stripANSI(child.evidence?.transcript ?? "");
+    expect(transcript).toContain("Include:");
+    expect(transcript).toContain("Disabled (unavailable)");
   });
 
   test("the real searchable checkbox selects across filters and rejects a disabled row", async () => {
