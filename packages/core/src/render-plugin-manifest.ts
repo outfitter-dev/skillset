@@ -268,11 +268,17 @@ export function withOptionalSurfacePaths(
     if (pluginHasFeature(plugin, "mcp")) withPaths.mcpServers = "./.mcp.json";
     if (pluginHasPath(plugin, ".app.json")) withPaths.apps = "./.app.json";
   } else {
-    if (pluginHasPath(plugin, "rules")) withPaths.rules = "./rules/";
-    if (pluginHasPath(plugin, "commands")) withPaths.commands = "./commands/";
-    if (pluginHasPath(plugin, "agents")) withPaths.agents = "./agents/";
+    if (pluginHasSurfacePath(graph, plugin, target, "rules")) {
+      withPaths.rules = "./rules/";
+    }
+    if (pluginHasSurfacePath(graph, plugin, target, "commands")) {
+      withPaths.commands = "./commands/";
+    }
+    if (pluginHasSurfacePath(graph, plugin, target, "agents")) {
+      withPaths.agents = "./agents/";
+    }
     if (
-      pluginHasPath(plugin, "hooks/hooks.json") ||
+      pluginHasSurfacePath(graph, plugin, target, "hooks/hooks.json") ||
       hasAdaptivePluginHookOutput(graph, plugin, target)
     ) {
       withPaths.hooks = "./hooks/hooks.json";
@@ -307,6 +313,29 @@ function pluginHasPath(plugin: SourcePlugin, path: string): boolean {
   // Real file-system errors (EACCES, ELOOP, ...) must surface instead of being
   // read as "path absent"; only a missing path counts as no surface.
   return hasRenderableContent(join(plugin.path, path));
+}
+
+function pluginHasSurfacePath(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  target: TargetName,
+  path: string
+): boolean {
+  return pluginHasPath(plugin, path) || pluginHasTargetNativePath(graph, plugin, target, path);
+}
+
+function pluginHasTargetNativePath(
+  graph: BuildGraph,
+  plugin: SourcePlugin,
+  target: TargetName,
+  path: string
+): boolean {
+  return graph.projectIslands.some(
+    (island) =>
+      island.plugin === plugin.id &&
+      island.target === target &&
+      (island.relativePath === path || island.relativePath.startsWith(`${path}/`))
+  );
 }
 
 function hasRenderableContent(path: string): boolean {

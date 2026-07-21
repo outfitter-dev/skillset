@@ -775,7 +775,7 @@ async function renderTextIslandFile(
   preprocessDependencies: Set<string>
 ): Promise<string> {
   const source = await readFile(island.sourcePath, "utf8");
-  if (island.relativePath.endsWith(".md")) {
+  if (isMarkdownIslandFile(island.relativePath)) {
     const parsed = parseMarkdown(source, island.sourcePath);
     rejectIslandTargetEscape(parsed.frontmatter, island);
     const body = await preprocessText(parsed.body, {
@@ -810,7 +810,11 @@ function rejectIslandTargetEscape(frontmatter: JsonRecord, island: SourceIslandF
 }
 
 function isTextIslandFile(path: string): boolean {
-  return /\.(json|md|rules|toml|txt|ya?ml)$/.test(path);
+  return /\.(json|mdc?|rules|toml|txt|ya?ml)$/.test(path);
+}
+
+function isMarkdownIslandFile(path: string): boolean {
+  return /\.mdc?$/.test(path);
 }
 
 function targetProjectRoot(graph: BuildGraph, target: TargetName): string {

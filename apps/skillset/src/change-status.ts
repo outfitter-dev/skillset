@@ -706,7 +706,7 @@ async function islandPreprocessDependencies(
 
   const dependencies = new Set<string>();
   const source = await readFile(island.sourcePath, "utf8");
-  if (island.relativePath.endsWith(".md")) {
+  if (isMarkdownIslandFile(island.relativePath)) {
     const parsed = parseMarkdown(source, island.sourcePath);
     await preprocessText(parsed.body, {
       frontmatter: parsed.frontmatter,
@@ -738,7 +738,11 @@ function formattedPreprocessDependencies(
 }
 
 function isTextIslandFile(path: string): boolean {
-  return /\.(json|md|rules|toml|txt|ya?ml)$/.test(path);
+  return /\.(json|mdc?|rules|toml|txt|ya?ml)$/.test(path);
+}
+
+function isMarkdownIslandFile(path: string): boolean {
+  return /\.mdc?$/.test(path);
 }
 
 async function collectFiles(root: string): Promise<readonly string[]> {

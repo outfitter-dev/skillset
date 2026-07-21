@@ -3008,7 +3008,37 @@ skillset:
   expect(codexLock).toContain(`"outputPath": "project-cursor/native.txt"`);
 });
 
-test("target-native islands reject frontmatter target escapes", async () => {
+test("Cursor .mdc provider source preprocesses before rendering", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: cursor-mdc-root
+claude: false
+codex: false
+cursor: true
+`,
+    ".skillset/_cursor/rules/repo.mdc": `
+---
+description: Cursor rule.
+---
+
+{{shared:templates/policy.md}}
+`,
+    ".skillset/shared/templates/policy.md": "Follow {{this.description}}\n",
+  });
+
+  await buildSkillset(root);
+
+  const rendered = await readFile(join(root, ".cursor/rules/repo.mdc"), "utf8");
+  expect(rendered).toContain("Follow Cursor rule.");
+  expect(rendered).not.toContain("{{shared:templates/policy.md}}");
+  const island = (await collectSourceInventory(root)).units.find(
+    (unit) => unit.sourcePath === ".skillset/_cursor/rules/repo.mdc"
+  );
+  expect(island?.sourcePaths).toContain(".skillset/shared/templates/policy.md");
+});
+
+test("Cursor .mdc provider source rejects frontmatter target escapes", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -3017,7 +3047,7 @@ claude: true
 codex: false
 cursor: true
 `,
-    ".skillset/_cursor/agents/bad.md": `
+    ".skillset/_cursor/rules/bad.mdc": `
 ---
 claude: true
 ---
@@ -3221,6 +3251,38 @@ cursor plugin only
   expect(await readFile(join(root, "plugins/alpha/cursor/native.txt"), "utf8")).toContain("cursor plugin only");
   expect(await exists(join(root, "plugins/alpha/claude/native.txt"))).toBe(false);
   expect(await exists(join(root, "plugins/alpha/codex/native.txt"))).toBe(false);
+});
+
+test("plugin-local Cursor provider source declares native manifest surfaces", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: cursor-native-surface-root
+claude: false
+codex: false
+cursor: true
+`,
+    ".skillset/plugins/alpha/skillset.yaml": `
+skillset:
+  name: alpha
+`,
+    ".skillset/plugins/alpha/_cursor/rules/repo.mdc": "# Cursor rule\n",
+    ".skillset/plugins/alpha/_cursor/commands/review.md": "# Cursor command\n",
+    ".skillset/plugins/alpha/_cursor/agents/reviewer.md": "# Cursor agent\n",
+    ".skillset/plugins/alpha/_cursor/hooks/hooks.json": JSON.stringify({ hooks: {} }),
+  });
+
+  await buildSkillset(root);
+
+  const manifest = JSON.parse(
+    await readFile(join(root, "plugins/alpha/cursor/.cursor-plugin/plugin.json"), "utf8")
+  ) as Record<string, unknown>;
+  expect(manifest).toMatchObject({
+    agents: "./agents/",
+    commands: "./commands/",
+    hooks: "./hooks/hooks.json",
+    rules: "./rules/",
+  });
 });
 
 test("plugin-local provider source requires a plugin manifest", async () => {
