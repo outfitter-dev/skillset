@@ -32,6 +32,7 @@ export type ProviderFetch = (url: string) => Promise<ProviderFetchResponse>;
 export interface ProviderMaintenanceOptions {
   readonly destinationSnapshots?: readonly ProviderDestinationFormatSnapshot[];
   readonly fetcher?: ProviderFetch;
+  readonly manualOverlays?: readonly ProviderSchemaManualOverlay[];
   readonly now?: string;
   readonly schemaSnapshotPath?: string;
   readonly schemaSnapshots?: readonly ProviderSchemaSnapshot[];
@@ -88,6 +89,9 @@ export async function runProviderMaintenance(
   command: ProviderMaintenanceSubcommand,
   options: ProviderMaintenanceOptions = {}
 ): Promise<ProviderMaintenanceReport> {
+  const manualOverlays =
+    options.manualOverlays ?? providerSchemaManualOverlays;
+  assertManualOverlayDestinationFormatIds(manualOverlays);
   const schemaPath =
     options.schemaSnapshotPath ??
     resolve(rootPath, "packages/registry/src/schema-snapshots.ts");
@@ -127,7 +131,7 @@ export async function runProviderMaintenance(
     });
     const source = renderProviderSchemaSnapshotsSource(
       nextSnapshots,
-      providerSchemaManualOverlays
+      manualOverlays
     );
     const previous = await readFile(schemaPath, "utf8").catch(() => "");
     if (previous !== source) {
@@ -159,6 +163,23 @@ export async function runProviderMaintenance(
     schemaResults,
     wrote,
   };
+}
+
+function assertManualOverlayDestinationFormatIds(
+  manualOverlays: readonly ProviderSchemaManualOverlay[]
+): void {
+  const knownIds = new Set(
+    listProviderDestinationFormatSnapshots().map((snapshot) => snapshot.id)
+  );
+  for (const overlay of [...manualOverlays].sort((left, right) =>
+    left.id.localeCompare(right.id)
+  )) {
+    if (!knownIds.has(overlay.formatSnapshotId)) {
+      throw new Error(
+        `skillset: provider schema manual overlay ${overlay.id} references unknown destination format snapshot ${overlay.formatSnapshotId}`
+      );
+    }
+  }
 }
 
 async function checkSchemaSnapshot(

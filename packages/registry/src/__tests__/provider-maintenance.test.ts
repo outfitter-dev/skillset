@@ -23,6 +23,7 @@ import {
   providerSchemaManualOverlays,
   type ProviderDestinationFormatSnapshot,
   type ProviderJsonSchemaSummary,
+  type ProviderSchemaManualOverlay,
   type ProviderSchemaSnapshot,
 } from "../index";
 import {
@@ -154,6 +155,75 @@ describe("SET-335 registry-owned provider maintenance", () => {
       `failed to fetch ${url}: 404 Not Found`
     );
     expect(await Bun.file(schemaPath).exists()).toBe(false);
+  });
+
+  test("SET-382: unknown manual overlay formats fail before fetch or write", async () => {
+    const root = await mkdtemp(join(tmpdir(), "skillset-provider-overlay-"));
+    const schemaPath = join(root, "schema-snapshots.ts");
+    const unknownOverlay = {
+      ...providerSchemaManualOverlays[0],
+      formatSnapshotId: "missing-format-snapshot",
+    } as unknown as ProviderSchemaManualOverlay;
+    let fetches = 0;
+    const fetcher: ProviderFetch = async () => {
+      fetches += 1;
+      return new Response("unexpected fetch");
+    };
+    const options = {
+      destinationSnapshots: [],
+      fetcher,
+      manualOverlays: [unknownOverlay],
+      schemaSnapshotPath: schemaPath,
+      schemaSnapshots: [
+        schemaSnapshot(
+          schemaBody(["alpha"]),
+          "https://example.com/schema.json"
+        ),
+      ],
+      write: true,
+    };
+
+    await expect(
+      runProviderMaintenance(root, "update", options)
+    ).rejects.toThrow(
+      "skillset: provider schema manual overlay claude-hooks-overlay references unknown destination format snapshot missing-format-snapshot"
+    );
+    expect(fetches).toBe(0);
+    expect(await Bun.file(schemaPath).exists()).toBe(false);
+
+    await writeFile(schemaPath, "existing snapshot\n");
+    await expect(
+      runProviderMaintenance(root, "update", options)
+    ).rejects.toThrow(
+      "skillset: provider schema manual overlay claude-hooks-overlay references unknown destination format snapshot missing-format-snapshot"
+    );
+    expect(fetches).toBe(0);
+    expect(await readFile(schemaPath, "utf8")).toBe("existing snapshot\n");
+  });
+
+  test("SET-382: canonical manual overlay formats ignore the report snapshot seam", async () => {
+    const root = await mkdtemp(join(tmpdir(), "skillset-provider-overlay-"));
+    const schemaPath = join(root, "schema-snapshots.ts");
+    const adoptedBody = schemaBody(["alpha"]);
+    const liveBody = schemaBody(["alpha", "beta"]);
+
+    const report = await runProviderMaintenance(root, "update", {
+      destinationSnapshots: [],
+      fetcher: fetchMap({ "https://example.com/schema.json": liveBody }),
+      manualOverlays: [providerSchemaManualOverlays[0]!],
+      schemaSnapshotPath: schemaPath,
+      schemaSnapshots: [
+        schemaSnapshot(adoptedBody, "https://example.com/schema.json"),
+      ],
+      write: true,
+    });
+
+    expect(report.ok).toBe(true);
+    expect(report.destinationReviews).toEqual([]);
+    expect(report.wrote).toBe(true);
+    expect(await readFile(schemaPath, "utf8")).toContain(
+      'readonly formatSnapshotId:\n    | "claude-hooks";'
+    );
   });
 
   test("SET-191: diff includes destination format manual-review evidence", async () => {
