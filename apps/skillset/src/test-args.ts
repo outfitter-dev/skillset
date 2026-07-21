@@ -24,36 +24,36 @@ import {
 } from "./runtime-hooks";
 import { readImportKind, readImportProvider } from "./source-arg-values";
 import type { TestCommandRequest } from "./test-cli";
-import type { TryClaudeSettingSources, TrySubcommand } from "./try";
-import { isTrySubcommand, validateTryFlags } from "./try-cli";
+import type { AdHocTestClaudeSettingSources, AdHocTestSubcommand } from "./ad-hoc-test";
+import { isAdHocTestSubcommand, validateAdHocTestFlags } from "./ad-hoc-test-cli";
 
 export const parseTestCommandRequest = (
   args: readonly string[],
   context: CliParseContext
 ): TestCommandRequest => {
   let index = 1;
-  let trySubcommand: TrySubcommand | undefined;
+  let adHocSubcommand: AdHocTestSubcommand | undefined;
   const first = args[index];
-  if (isTrySubcommand(first)) {
-    trySubcommand = first;
+  if (isAdHocTestSubcommand(first)) {
+    adHocSubcommand = first;
     index += 1;
   }
 
-  let tryRunId: string | undefined;
+  let adHocRunId: string | undefined;
   if (
-    trySubcommand === "status" ||
-    trySubcommand === "tail" ||
-    trySubcommand === "worker"
+    adHocSubcommand === "status" ||
+    adHocSubcommand === "tail" ||
+    adHocSubcommand === "worker"
   ) {
     const value = args[index];
     if (value !== undefined && !value.startsWith("--")) {
-      tryRunId = value;
+      adHocRunId = value;
       index += 1;
     }
   }
 
   let testName: string | undefined;
-  if (trySubcommand === undefined) {
+  if (adHocSubcommand === undefined) {
     const value = args[index];
     if (value !== undefined && !value.startsWith("--")) {
       testName = value;
@@ -66,15 +66,15 @@ export const parseTestCommandRequest = (
   let jsonlOutput = false;
   let rootPath: string | undefined;
   let scopes: SkillsetOptions["scopes"];
-  let tryBackground = false;
-  let tryClaudeSettingSources: TryClaudeSettingSources | undefined;
-  let tryLines: number | undefined;
-  let tryName: string | undefined;
-  let tryPlugins: string[] = [];
-  let tryPrompt: string | undefined;
-  let tryPromptFile: string | undefined;
-  let tryTarget: TargetName | undefined;
-  let tryTimeoutMs: number | undefined;
+  let adHocBackground = false;
+  let adHocClaudeSettingSources: AdHocTestClaudeSettingSources | undefined;
+  let adHocLines: number | undefined;
+  let adHocName: string | undefined;
+  let adHocPlugins: string[] = [];
+  let adHocPrompt: string | undefined;
+  let adHocPromptFile: string | undefined;
+  let adHocTarget: TargetName | undefined;
+  let adHocTimeoutMs: number | undefined;
   let yes = false;
   let hookContext = false;
   let hookPrint = false;
@@ -97,7 +97,7 @@ export const parseTestCommandRequest = (
     if (option === undefined) {
       break;
     }
-    if (trySubcommand === "worker" && option.flag !== "--root") {
+    if (adHocSubcommand === "worker" && option.flag !== "--root") {
       workerUnsupported = true;
     }
     switch (option.flag) {
@@ -106,49 +106,49 @@ export const parseTestCommandRequest = (
         break;
       }
       case "--target": {
-        tryTarget = readTargetName(reader.readRequiredOptionValue(option));
+        adHocTarget = readTargetName(reader.readRequiredOptionValue(option));
         break;
       }
       case "--prompt": {
-        tryPrompt = reader.readRequiredOptionValue(option);
+        adHocPrompt = reader.readRequiredOptionValue(option);
         break;
       }
       case "--prompt-file": {
-        tryPromptFile = reader.readRequiredOptionValue(option);
+        adHocPromptFile = reader.readRequiredOptionValue(option);
         break;
       }
       case "--plugin": {
-        tryPlugins = [...tryPlugins, reader.readRequiredOptionValue(option)];
+        adHocPlugins = [...adHocPlugins, reader.readRequiredOptionValue(option)];
         break;
       }
       case "--claude-setting-sources": {
-        tryClaudeSettingSources = readClaudeSettingSources(
+        adHocClaudeSettingSources = readClaudeSettingSources(
           reader.readRequiredOptionValue(option),
           "--claude-setting-sources"
         );
         break;
       }
       case "--timeout-ms": {
-        tryTimeoutMs = readPositiveInteger(
+        adHocTimeoutMs = readPositiveInteger(
           reader.readRequiredOptionValue(option),
           "--timeout-ms"
         );
         break;
       }
       case "--lines": {
-        tryLines = readPositiveInteger(
+        adHocLines = readPositiveInteger(
           reader.readRequiredOptionValue(option),
           "--lines"
         );
         break;
       }
       case "--name": {
-        tryName = reader.readRequiredOptionValue(option);
+        adHocName = reader.readRequiredOptionValue(option);
         break;
       }
       case "--background": {
         assertBooleanOption(option);
-        tryBackground = true;
+        adHocBackground = true;
         break;
       }
       case "--updated":
@@ -381,34 +381,34 @@ export const parseTestCommandRequest = (
   }
 
   const hasAdHocFlags =
-    trySubcommand !== undefined ||
-    tryTarget !== undefined ||
-    tryPrompt !== undefined ||
-    tryPromptFile !== undefined ||
-    tryPlugins.length > 0 ||
-    tryName !== undefined ||
-    tryTimeoutMs !== undefined ||
-    tryClaudeSettingSources !== undefined ||
-    tryBackground;
+    adHocSubcommand !== undefined ||
+    adHocTarget !== undefined ||
+    adHocPrompt !== undefined ||
+    adHocPromptFile !== undefined ||
+    adHocPlugins.length > 0 ||
+    adHocName !== undefined ||
+    adHocTimeoutMs !== undefined ||
+    adHocClaudeSettingSources !== undefined ||
+    adHocBackground;
   if (testName !== undefined && hasAdHocFlags) {
     throw new Error(
       `skillset: declared test ${testName} cannot be combined with ad hoc test flags`
     );
   }
-  validateTryFlags("test", trySubcommand, {
-    background: tryBackground,
+  validateAdHocTestFlags("test", adHocSubcommand, {
+    background: adHocBackground,
     ...(buildMode === undefined ? {} : { buildMode }),
-    ...(tryClaudeSettingSources === undefined
+    ...(adHocClaudeSettingSources === undefined
       ? {}
-      : { claudeSettingSources: tryClaudeSettingSources }),
-    ...(tryLines === undefined ? {} : { lines: tryLines }),
-    ...(tryName === undefined ? {} : { name: tryName }),
-    plugins: tryPlugins,
-    ...(tryPrompt === undefined ? {} : { prompt: tryPrompt }),
-    ...(tryPromptFile === undefined ? {} : { promptFile: tryPromptFile }),
+      : { claudeSettingSources: adHocClaudeSettingSources }),
+    ...(adHocLines === undefined ? {} : { lines: adHocLines }),
+    ...(adHocName === undefined ? {} : { name: adHocName }),
+    plugins: adHocPlugins,
+    ...(adHocPrompt === undefined ? {} : { prompt: adHocPrompt }),
+    ...(adHocPromptFile === undefined ? {} : { promptFile: adHocPromptFile }),
     ...(scopes === undefined ? {} : { scopes }),
-    ...(tryTarget === undefined ? {} : { target: tryTarget }),
-    ...(tryTimeoutMs === undefined ? {} : { timeoutMs: tryTimeoutMs }),
+    ...(adHocTarget === undefined ? {} : { target: adHocTarget }),
+    ...(adHocTimeoutMs === undefined ? {} : { timeoutMs: adHocTimeoutMs }),
     yes,
   });
   if (jsonlOutput) {
@@ -422,8 +422,8 @@ export const parseTestCommandRequest = (
       "skillset: --isolated is only supported with build, check --only outputs, or diff"
     );
   }
-  if (trySubcommand === "worker") {
-    if (tryRunId === undefined) {
+  if (adHocSubcommand === "worker") {
+    if (adHocRunId === undefined) {
       throw new Error("skillset: test worker requires run id");
     }
     if (workerUnsupported) {
@@ -448,17 +448,17 @@ export const parseTestCommandRequest = (
     options: {},
     rootPath: resolveCliRoot(context, rootPath),
     testName,
-    tryBackground,
-    tryClaudeSettingSources,
-    tryLines,
-    tryName,
-    tryPlugins,
-    tryPrompt,
-    tryPromptFile,
-    tryRunId,
-    trySubcommand,
-    tryTarget,
-    tryTimeoutMs,
+    adHocBackground,
+    adHocClaudeSettingSources,
+    adHocLines,
+    adHocName,
+    adHocPlugins,
+    adHocPrompt,
+    adHocPromptFile,
+    adHocRunId,
+    adHocSubcommand,
+    adHocTarget,
+    adHocTimeoutMs,
   };
 };
 

@@ -3,26 +3,26 @@ import { resolve } from "node:path";
 
 import { TARGET_LIST_TEXT } from "@skillset/core";
 import {
-  executeTryRun,
-  listTryRuns,
-  readTryStatus,
-  startTryRun,
-  tailTryRun,
-  type TryClaudeSettingSources,
-  type TryListEntry,
-  type TryRunReport,
-  type TryState,
-  type TryStatus,
-  type TrySubcommand,
-  type TryTailLine,
-} from "./try";
+  executeAdHocTestRun,
+  listAdHocTestRuns,
+  readAdHocTestStatus,
+  startAdHocTestRun,
+  tailAdHocTestRun,
+  type AdHocTestClaudeSettingSources,
+  type AdHocTestListEntry,
+  type AdHocTestRunReport,
+  type AdHocTestState,
+  type AdHocTestStatus,
+  type AdHocTestSubcommand,
+  type AdHocTestTailLine,
+} from "./ad-hoc-test";
 import type { SchemaJsonRecord } from "@skillset/schema";
 import type { BuildScope, CompileBuildMode, SkillsetOptions, TargetName } from "@skillset/core/internal/types";
 import { renderCliDataResult } from "./cli-output";
 
-export interface TryCommandOptions {
+export interface AdHocTestCommandOptions {
   readonly background: boolean;
-  readonly claudeSettingSources?: TryClaudeSettingSources;
+  readonly claudeSettingSources?: AdHocTestClaudeSettingSources;
   readonly json: boolean;
   readonly lines?: number;
   readonly name?: string;
@@ -31,55 +31,55 @@ export interface TryCommandOptions {
   readonly promptFile?: string;
   readonly runId?: string;
   readonly skillsetOptions: SkillsetOptions;
-  readonly subcommand?: TrySubcommand;
+  readonly subcommand?: AdHocTestSubcommand;
   readonly target?: TargetName;
   readonly timeoutMs?: number;
 }
 
-export async function runTryCommand(rootPath: string, options: TryCommandOptions): Promise<void> {
+export async function runAdHocTestCommand(rootPath: string, options: AdHocTestCommandOptions): Promise<void> {
   if (options.subcommand === undefined) {
-    const report = await startTryRun(rootPath, {
+    const report = await startAdHocTestRun(rootPath, {
       ...options.skillsetOptions,
       background: options.background,
       ...(options.claudeSettingSources === undefined ? {} : { claudeSettingSources: options.claudeSettingSources }),
       ...(options.name === undefined ? {} : { name: options.name }),
       plugins: options.plugins,
-      prompt: await readTryPrompt(rootPath, options.prompt, options.promptFile),
-      target: requireTryTarget(options.target),
+      prompt: await readAdHocTestPrompt(rootPath, options.prompt, options.promptFile),
+      target: requireAdHocTestTarget(options.target),
       ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
     });
-    if (options.json) printTryJson("test", report, report.ok ? 0 : 1);
-    else printTryRun(report);
+    if (options.json) printAdHocTestJson("test", report, report.ok ? 0 : 1);
+    else printAdHocTestRun(report);
     if (!report.ok) process.exitCode = 1;
     return;
   }
   if (options.subcommand === "worker") {
     if (options.runId === undefined) throw new Error("skillset: test worker requires run id");
-    await executeTryRun(rootPath, options.runId);
+    await executeAdHocTestRun(rootPath, options.runId);
     return;
   }
   if (options.subcommand === "status") {
-    const status = await readTryStatus(rootPath, options.runId);
-    if (options.json) printTryJson("test status", status, status.state === "failed" ? 1 : 0);
-    else printTryStatus(status);
+    const status = await readAdHocTestStatus(rootPath, options.runId);
+    if (options.json) printAdHocTestJson("test status", status, status.state === "failed" ? 1 : 0);
+    else printAdHocTestStatus(status);
     if (status.state === "failed") process.exitCode = 1;
     return;
   }
   if (options.subcommand === "tail") {
-    const lines = await tailTryRun(rootPath, options.runId, options.lines ?? 40);
-    if (options.json) printTryJson("test tail", { lines: lines.map((line) => ({ ...line })) });
-    else printTryTail(lines);
+    const lines = await tailAdHocTestRun(rootPath, options.runId, options.lines ?? 40);
+    if (options.json) printAdHocTestJson("test tail", { lines: lines.map((line) => ({ ...line })) });
+    else printAdHocTestTail(lines);
     return;
   }
   if (options.subcommand === "list") {
-    const entries = await listTryRuns(rootPath);
-    if (options.json) printTryJson("test list", { runs: entries.map((entry) => ({ ...entry })) });
-    else printTryList(entries);
+    const entries = await listAdHocTestRuns(rootPath);
+    if (options.json) printAdHocTestJson("test list", { runs: entries.map((entry) => ({ ...entry })) });
+    else printAdHocTestList(entries);
     return;
   }
 }
 
-function printTryJson(command: string, data: unknown, exitCode = 0): void {
+function printAdHocTestJson(command: string, data: unknown, exitCode = 0): void {
   process.stdout.write(renderCliDataResult({
     command,
     data: data as SchemaJsonRecord,
@@ -88,17 +88,17 @@ function printTryJson(command: string, data: unknown, exitCode = 0): void {
   }));
 }
 
-export function isTrySubcommand(value: string | undefined): value is TrySubcommand {
+export function isAdHocTestSubcommand(value: string | undefined): value is AdHocTestSubcommand {
   return value === "list" || value === "status" || value === "tail" || value === "worker";
 }
 
-export function validateTryFlags(
+export function validateAdHocTestFlags(
   command: string,
-  subcommand: TrySubcommand | undefined,
+  subcommand: AdHocTestSubcommand | undefined,
   runtime: {
     readonly background: boolean;
     readonly buildMode?: CompileBuildMode;
-    readonly claudeSettingSources?: TryClaudeSettingSources;
+    readonly claudeSettingSources?: AdHocTestClaudeSettingSources;
     readonly distDir?: string;
     readonly lines?: number;
     readonly name?: string;
@@ -143,7 +143,7 @@ export function validateTryFlags(
   }
 }
 
-async function readTryPrompt(
+async function readAdHocTestPrompt(
   rootPath: string,
   prompt: string | undefined,
   promptFile: string | undefined
@@ -153,13 +153,13 @@ async function readTryPrompt(
   return readFile(resolve(rootPath, promptFile), "utf8");
 }
 
-function requireTryTarget(target: TargetName | undefined): TargetName {
+function requireAdHocTestTarget(target: TargetName | undefined): TargetName {
   if (target === undefined) throw new Error(`skillset: ad hoc test requires --target ${TARGET_LIST_TEXT}`);
   return target;
 }
 
-function printTryRun(report: TryRunReport): void {
-  console.log(`skillset: ad hoc test ${formatTryState(report.state)}${report.background ? " in background" : ""}`);
+function printAdHocTestRun(report: AdHocTestRunReport): void {
+  console.log(`skillset: ad hoc test ${formatAdHocTestState(report.state)}${report.background ? " in background" : ""}`);
   console.log(`  run: ${report.runPath}`);
   console.log(`  latest: ${report.latestPath}`);
   console.log(`  status: ${report.statusPath}`);
@@ -167,8 +167,8 @@ function printTryRun(report: TryRunReport): void {
   console.log(`  report: ${report.reportPath}`);
 }
 
-function printTryStatus(status: TryStatus): void {
-  console.log(`skillset: test ${status.runId} ${formatTryState(status.state)}`);
+function printAdHocTestStatus(status: AdHocTestStatus): void {
+  console.log(`skillset: test ${status.runId} ${formatAdHocTestState(status.state)}`);
   console.log(`  target: ${status.target}`);
   console.log(`  name: ${status.name}`);
   if (status.pid !== undefined) console.log(`  pid: ${status.pid}`);
@@ -186,24 +186,24 @@ function printTryStatus(status: TryStatus): void {
   if (status.finalMessagePath !== undefined) console.log(`  final: ${status.finalMessagePath}`);
 }
 
-function printTryTail(lines: readonly TryTailLine[]): void {
+function printAdHocTestTail(lines: readonly AdHocTestTailLine[]): void {
   for (const line of lines) {
     const prefix = line.timestamp.length === 0 ? line.stream : `${line.timestamp} ${line.stream}`;
     process.stdout.write(`${prefix}: ${line.message.endsWith("\n") ? line.message : `${line.message}\n`}`);
   }
 }
 
-function printTryList(entries: readonly TryListEntry[]): void {
+function printAdHocTestList(entries: readonly AdHocTestListEntry[]): void {
   if (entries.length === 0) {
     console.log("skillset: no ad hoc test runs");
     return;
   }
   for (const entry of entries) {
     const ended = entry.endedAt === undefined ? "" : ` ended ${entry.endedAt}`;
-    console.log(`${entry.runId} ${entry.target} ${formatTryState(entry.state)} started ${entry.startedAt}${ended} ${entry.name}`);
+    console.log(`${entry.runId} ${entry.target} ${formatAdHocTestState(entry.state)} started ${entry.startedAt}${ended} ${entry.name}`);
   }
 }
 
-function formatTryState(state: TryState): string {
+function formatAdHocTestState(state: AdHocTestState): string {
   return state;
 }

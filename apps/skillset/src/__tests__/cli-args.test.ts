@@ -29,8 +29,8 @@ describe("SET-299 CLI request characterization", () => {
       jsonOutput: true,
       options: {},
       rootPath: ROOT,
-      tryBackground: false,
-      tryPlugins: [],
+      adHocBackground: false,
+      adHocPlugins: [],
       ...request,
     },
   });
@@ -299,8 +299,8 @@ describe("SET-299 CLI request characterization", () => {
           jsonOutput: false,
           options: {},
           rootPath: ROOT,
-          tryBackground: false,
-          tryPlugins: [],
+          adHocBackground: false,
+          adHocPlugins: [],
         },
       },
     },
@@ -569,12 +569,12 @@ describe("SET-299 CLI request characterization", () => {
     {
       route: "test list",
       args: ["test", "list", "--root", ROOT, "--json"],
-      expected: testRequest({ trySubcommand: "list" }),
+      expected: testRequest({ adHocSubcommand: "list" }),
     },
     {
       route: "test status",
       args: ["test", "status", "run-1", "--root", ROOT, "--json"],
-      expected: testRequest({ tryRunId: "run-1", trySubcommand: "status" }),
+      expected: testRequest({ adHocRunId: "run-1", adHocSubcommand: "status" }),
     },
     {
       route: "test tail",
@@ -589,9 +589,9 @@ describe("SET-299 CLI request characterization", () => {
         "--json",
       ],
       expected: testRequest({
-        tryLines: 10,
-        tryRunId: "run-1",
-        trySubcommand: "tail",
+        adHocLines: 10,
+        adHocRunId: "run-1",
+        adHocSubcommand: "tail",
       }),
     },
   ];
@@ -631,10 +631,10 @@ describe("SET-299 CLI request characterization", () => {
         jsonOutput: false,
         options: {},
         rootPath: ROOT,
-        tryBackground: false,
-        tryPlugins: [],
-        tryRunId: "run-1",
-        trySubcommand: "worker",
+        adHocBackground: false,
+        adHocPlugins: [],
+        adHocRunId: "run-1",
+        adHocSubcommand: "worker",
       },
     });
   });
@@ -743,7 +743,7 @@ describe("SET-299 CLI request characterization", () => {
           "one",
           "--plugin=two",
         ],
-        expected: { request: { tryPlugins: ["one", "two"] } },
+        expected: { request: { adHocPlugins: ["one", "two"] } },
       },
       {
         args: [
@@ -872,7 +872,7 @@ describe("SET-299 CLI request characterization", () => {
           "--prompt",
           "go",
         ],
-        expected: { tryTarget: "codex" },
+        expected: { adHocTarget: "codex" },
       },
       {
         args: ["init", "--targets", "claude", "--targets", "codex,cursor"],
@@ -901,7 +901,7 @@ describe("SET-299 CLI request characterization", () => {
           "--prompt",
           "second",
         ],
-        expected: { tryPrompt: "second" },
+        expected: { adHocPrompt: "second" },
       },
       {
         args: [
@@ -915,11 +915,11 @@ describe("SET-299 CLI request characterization", () => {
           "--timeout-ms",
           "2",
         ],
-        expected: { tryTimeoutMs: 2 },
+        expected: { adHocTimeoutMs: 2 },
       },
       {
         args: ["test", "tail", "run", "--lines", "1", "--lines", "2"],
-        expected: { tryLines: 2 },
+        expected: { adHocLines: 2 },
       },
       {
         args: ["import", "source", "--from", "claude", "--from", "codex"],

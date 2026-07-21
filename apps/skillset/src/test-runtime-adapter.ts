@@ -12,11 +12,11 @@ import type {
 } from "@skillset/core/internal/types";
 
 import {
-  readTryEvidence,
-  readTryStatus,
-  startTryRun,
-  type TryState,
-} from "./try";
+  readAdHocTestEvidence,
+  readAdHocTestStatus,
+  startAdHocTestRun,
+  type AdHocTestState,
+} from "./ad-hoc-test";
 
 export interface SkillsetRuntimeTestAdapterOptions extends SkillsetOptions {
   readonly runtimeEnv?: Record<string, string | undefined>;
@@ -35,7 +35,7 @@ export interface SkillsetRuntimeTestResult extends JsonRecord {
   readonly reportPath?: string;
   readonly runId?: string;
   readonly runPath?: string;
-  readonly state: TryState;
+  readonly state: AdHocTestState;
   readonly target: TargetName;
 }
 
@@ -45,7 +45,7 @@ interface RuntimeTestEvidence {
   readonly reportPath: string;
   readonly runId: string;
   readonly runPath: string;
-  readonly state: TryState;
+  readonly state: AdHocTestState;
 }
 
 /**
@@ -70,7 +70,7 @@ export async function runDeclaredRuntimeTests(
     options,
     {
       run: async (request) => {
-        const run = await startTryRun(workspacePath, {
+        const run = await startAdHocTestRun(workspacePath, {
           cacheRootPath: rootPath,
           ...(request.claudeSettingSources === undefined
             ? {}
@@ -86,8 +86,8 @@ export async function runDeclaredRuntimeTests(
             : { timeoutMs: request.timeoutMs }),
           ...(options.xdg === undefined ? {} : { xdg: options.xdg }),
         });
-        const status = await readTryStatus(rootPath, run.runId, options);
-        const evidence = await readTryEvidence(rootPath, run.runId, options);
+        const status = await readAdHocTestStatus(rootPath, run.runId, options);
+        const evidence = await readAdHocTestEvidence(rootPath, run.runId, options);
         evidenceByProbe.set(keyFor(request), {
           outputPath: evidence.outputPath,
           promptPath: status.promptPath,

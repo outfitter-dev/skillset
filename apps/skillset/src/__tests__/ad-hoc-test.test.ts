@@ -7,16 +7,16 @@ import { createOperationalPathContext, resolveOperationalPath } from "@skillset/
 import { validateCliResult, type SkillsetCliResult } from "@skillset/schema";
 
 import {
-  listTryRuns,
-  readTryStatus,
-  startTryRun,
-  tailTryRun,
-} from "../try";
-import { runTryCommand } from "../try-cli";
+  listAdHocTestRuns,
+  readAdHocTestStatus,
+  startAdHocTestRun,
+  tailAdHocTestRun,
+} from "../ad-hoc-test";
+import { runAdHocTestCommand } from "../ad-hoc-test-cli";
 import { runSkillsetTest } from "../test-runner";
 import { parseCliEventStream } from "../cli-output";
 
-test("try runs a Codex prompt and records inspectable artifacts", async () => {
+test("ad hoc test runs a Codex prompt and records inspectable artifacts", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -26,7 +26,7 @@ codex: true
     ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
-description: Demo try skill.
+description: Demo ad hoc test skill.
 ---
 
 Use this skill to answer fixture questions.
@@ -35,7 +35,7 @@ Use this skill to answer fixture questions.
   const bin = await fakeCodexBin(root);
   const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
 
-  const report = await startTryRun(root, {
+  const report = await startAdHocTestRun(root, {
     env: { ...process.env, SKILLSET_TEST_CODEX_BIN: bin },
     prompt: "List the available fixture skills.",
     target: "codex",
@@ -48,25 +48,25 @@ Use this skill to answer fixture questions.
   expect(await exists(cachePath(root, xdg, report.tailPath))).toBe(true);
   expect(await readFile(cachePath(root, xdg, report.reportPath), "utf8")).toContain("fake codex final");
 
-  const status = await readTryStatus(root, report.runId, { xdg });
+  const status = await readAdHocTestStatus(root, report.runId, { xdg });
   expect(status.state).toBe("passed");
   expect(status.command?.join(" ")).toContain("--output-last-message");
   expect(status.command?.join(" ")).toContain("--skip-git-repo-check");
   expect(status.finalMessagePath).toBeDefined();
 
-  const tail = await tailTryRun(root, report.runId, 20, { xdg });
+  const tail = await tailAdHocTestRun(root, report.runId, 20, { xdg });
   expect(tail.map((line) => line.stream)).toContain("stdout");
   expect(tail.some((line) => line.message.includes("List the available fixture skills."))).toBe(true);
   const retainedEvents = parseCliEventStream(await readFile(cachePath(root, xdg, report.tailPath), "utf8"));
   expect(retainedEvents.at(-1)?.event).toBe("completed");
   expect(retainedEvents.every((event) => event.command === "test")).toBe(true);
 
-  const runs = await listTryRuns(root, { xdg });
+  const runs = await listAdHocTestRuns(root, { xdg });
   expect(runs.map((run) => run.runId)).toContain(report.runId);
 });
 
 test("ad hoc test target diagnostics use the canonical target list", async () => {
-  await expect(runTryCommand("/tmp", {
+  await expect(runAdHocTestCommand("/tmp", {
     background: false,
     json: false,
     plugins: [],
@@ -93,7 +93,7 @@ Body.
   });
   const bin = await fakeCodexStatusTextBin(root);
   const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
-  const report = await startTryRun(root, {
+  const report = await startAdHocTestRun(root, {
     env: { ...process.env, SKILLSET_TEST_CODEX_BIN: bin },
     prompt: "Print misleading status text.",
     target: "codex",
@@ -107,7 +107,7 @@ Body.
   expect(events.some((event) => event.event === "stderr" && typeof event.data.message === "string" && event.data.message.includes("test failed: provider text"))).toBe(true);
 });
 
-test("try runs a Claude prompt with isolated settings and explicit plugin dirs", async () => {
+test("ad hoc test runs a Claude prompt with isolated settings and explicit plugin dirs", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -124,7 +124,7 @@ claude: true
     ".skillset/plugins/acme/skills/demo/SKILL.md": `
 ---
 name: demo
-description: Demo Claude try skill.
+description: Demo Claude ad hoc test skill.
 ---
 
 Use this skill to answer fixture questions.
@@ -133,7 +133,7 @@ Use this skill to answer fixture questions.
   const bin = await fakeClaudeBin(root);
   const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
 
-  const report = await startTryRun(root, {
+  const report = await startAdHocTestRun(root, {
     env: { ...process.env, SKILLSET_TEST_CLAUDE_BIN: bin },
     plugins: ["acme"],
     prompt: "Inspect Claude fixture.",
@@ -144,17 +144,17 @@ Use this skill to answer fixture questions.
   expect(report.ok).toBe(true);
   expect(report.state).toBe("passed");
 
-  const status = await readTryStatus(root, report.runId, { xdg });
+  const status = await readAdHocTestStatus(root, report.runId, { xdg });
   const command = status.command?.join(" ");
   expect(command).toContain("--setting-sources \"\"");
   expect(command).toContain("--plugin-dir");
   expect(command).toContain("plugins/acme/claude");
 
-  const tail = await tailTryRun(root, report.runId, 20, { xdg });
+  const tail = await tailAdHocTestRun(root, report.runId, 20, { xdg });
   expect(tail.some((line) => line.message.includes("fake-claude prompt=Inspect Claude fixture."))).toBe(true);
 });
 
-test("try runs a Cursor prompt with trusted isolated workspace and explicit plugin dirs", async () => {
+test("ad hoc test runs a Cursor prompt with trusted isolated workspace and explicit plugin dirs", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -173,7 +173,7 @@ cursor: true
     ".skillset/plugins/acme/skills/demo/SKILL.md": `
 ---
 name: demo
-description: Demo Cursor try skill.
+description: Demo Cursor ad hoc test skill.
 ---
 
 Use this skill to answer fixture questions.
@@ -182,7 +182,7 @@ Use this skill to answer fixture questions.
   const bin = await fakeCursorBin(root);
   const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
 
-  const report = await startTryRun(root, {
+  const report = await startAdHocTestRun(root, {
     env: { ...process.env, SKILLSET_TEST_CURSOR_BIN: bin },
     plugins: ["acme"],
     prompt: "Inspect Cursor fixture.",
@@ -193,7 +193,7 @@ Use this skill to answer fixture questions.
   expect(report.ok).toBe(true);
   expect(report.state).toBe("passed");
 
-  const status = await readTryStatus(root, report.runId, { xdg });
+  const status = await readAdHocTestStatus(root, report.runId, { xdg });
   const command = status.command?.join(" ");
   expect(command).toContain("--print");
   expect(command).toContain("--output-format json");
@@ -203,11 +203,11 @@ Use this skill to answer fixture questions.
   expect(command).toContain("--plugin-dir");
   expect(command).toContain("plugins/acme/cursor");
 
-  const tail = await tailTryRun(root, report.runId, 20, { xdg });
+  const tail = await tailAdHocTestRun(root, report.runId, 20, { xdg });
   expect(tail.some((line) => line.message.includes("fake-cursor prompt=Inspect Cursor fixture."))).toBe(true);
 });
 
-test("try resolves Claude setting sources from defaults, env, and CLI options", async () => {
+test("ad hoc test resolves Claude setting sources from defaults, env, and CLI options", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -224,7 +224,7 @@ claude: true
     ".skillset/plugins/acme/skills/demo/SKILL.md": `
 ---
 name: demo
-description: Demo Claude try skill.
+description: Demo Claude ad hoc test skill.
 ---
 
 Use this skill to answer fixture questions.
@@ -233,15 +233,15 @@ Use this skill to answer fixture questions.
   const bin = await fakeClaudeBin(root);
   const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
 
-  const fromDefault = await startTryRun(root, {
+  const fromDefault = await startAdHocTestRun(root, {
     env: { ...process.env, SKILLSET_TEST_CLAUDE_BIN: bin },
     prompt: "Inspect Claude default fixture.",
     target: "claude",
     xdg,
   });
-  expect((await readTryStatus(root, fromDefault.runId, { xdg })).command?.join(" ")).toContain("--setting-sources \"\"");
+  expect((await readAdHocTestStatus(root, fromDefault.runId, { xdg })).command?.join(" ")).toContain("--setting-sources \"\"");
 
-  const fromEnv = await startTryRun(root, {
+  const fromEnv = await startAdHocTestRun(root, {
     env: {
       ...process.env,
       SKILLSET_TEST_CLAUDE_BIN: bin,
@@ -251,9 +251,9 @@ Use this skill to answer fixture questions.
     target: "claude",
     xdg,
   });
-  expect((await readTryStatus(root, fromEnv.runId, { xdg })).command?.join(" ")).toContain("--setting-sources user");
+  expect((await readAdHocTestStatus(root, fromEnv.runId, { xdg })).command?.join(" ")).toContain("--setting-sources user");
 
-  const fromOption = await startTryRun(root, {
+  const fromOption = await startAdHocTestRun(root, {
     claudeSettingSources: "local",
     env: {
       ...process.env,
@@ -264,10 +264,10 @@ Use this skill to answer fixture questions.
     target: "claude",
     xdg,
   });
-  expect((await readTryStatus(root, fromOption.runId, { xdg })).command?.join(" ")).toContain("--setting-sources local");
+  expect((await readAdHocTestStatus(root, fromOption.runId, { xdg })).command?.join(" ")).toContain("--setting-sources local");
 });
 
-test("try validates selected plugins before running", async () => {
+test("ad hoc test validates selected plugins before running", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -285,7 +285,7 @@ claude: true
     ".skillset/plugins/acme/skills/demo/SKILL.md": `
 ---
 name: demo
-description: Demo Claude try skill.
+description: Demo Claude ad hoc test skill.
 ---
 
 Use this skill to answer fixture questions.
@@ -301,7 +301,7 @@ codex: true
     ".skillset/plugins/codex-only/skills/demo/SKILL.md": `
 ---
 name: demo
-description: Demo Codex-only try skill.
+description: Demo Codex-only ad hoc test skill.
 ---
 
 Use this skill to answer fixture questions.
@@ -309,28 +309,28 @@ Use this skill to answer fixture questions.
   });
   const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
 
-  await expect(startTryRun(root, {
+  await expect(startAdHocTestRun(root, {
     plugins: ["missing"],
     prompt: "Inspect missing plugin.",
     target: "claude",
     xdg,
   })).rejects.toThrow("unknown test plugin \"missing\"; available plugins: acme, codex-only");
 
-  await expect(startTryRun(root, {
+  await expect(startAdHocTestRun(root, {
     plugins: ["acme", "acme"],
     prompt: "Inspect duplicate plugin.",
     target: "claude",
     xdg,
   })).rejects.toThrow("duplicate test plugin \"acme\"");
 
-  await expect(startTryRun(root, {
+  await expect(startAdHocTestRun(root, {
     plugins: ["codex-only"],
     prompt: "Inspect disabled plugin.",
     target: "claude",
     xdg,
   })).rejects.toThrow("test plugin \"codex-only\" is not enabled for claude");
 
-  await expect(startTryRun(root, {
+  await expect(startAdHocTestRun(root, {
     plugins: ["acme"],
     prompt: "Inspect Codex plugin selection.",
     target: "codex",
@@ -338,7 +338,7 @@ Use this skill to answer fixture questions.
   })).rejects.toThrow("test --plugin is only supported for targets with local plugin-dir support: claude, cursor");
 });
 
-test("SET-272: try CLI starts directly and supports status, tail, and list", async () => {
+test("SET-272: ad hoc test CLI starts directly and supports status, tail, and list", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -348,7 +348,7 @@ codex: true
     ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
-description: Demo try CLI skill.
+description: Demo ad hoc test CLI skill.
 ---
 
 CLI fixture body.
@@ -395,16 +395,16 @@ CLI fixture body.
   expect(listEnvelope.command).toBe("test list");
   expect(JSON.stringify(listEnvelope.data)).toContain(report.runId);
 
-  const oldTry = await runSkillsetCli(env, "try", "--target", "codex", "--prompt", "Old command.", "--root", root);
-  expect(oldTry.exitCode).toBe(1);
-  expect(oldTry.stderr).toContain("expected command");
+  const retiredCommand = await runSkillsetCli(env, "try", "--target", "codex", "--prompt", "Old command.", "--root", root);
+  expect(retiredCommand.exitCode).toBe(1);
+  expect(retiredCommand.stderr).toContain("expected command");
 
   const retired = await runSkillsetCli(env, "runtime-tester", "run", "--target", "codex", "--prompt", "Old command.", "--root", root);
   expect(retired.exitCode).toBe(1);
   expect(retired.stderr).toContain("expected command");
 });
 
-test("try CLI supports Claude setting source override", async () => {
+test("ad hoc test CLI supports Claude setting source override", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -414,7 +414,7 @@ claude: true
     ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
-description: Demo try CLI Claude skill.
+description: Demo ad hoc test CLI Claude skill.
 ---
 
 CLI Claude fixture body.
@@ -450,17 +450,17 @@ CLI Claude fixture body.
   expect(statusData.command.join(" ")).toContain("--setting-sources local");
 });
 
-test("SET-272: background tries complete through the renamed worker command", async () => {
+test("SET-272: background ad hoc tests complete through the renamed worker command", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
-  name: background-try-fixture
+  name: background-ad-hoc-test-fixture
 codex: true
 `,
     ".skillset/skills/demo/SKILL.md": `
 ---
 name: demo
-description: Background try fixture.
+description: Background ad hoc test fixture.
 ---
 
 Background fixture body.
@@ -493,12 +493,12 @@ Background fixture body.
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline && state !== "passed" && state !== "failed") {
     await Bun.sleep(20);
-    state = (await readTryStatus(root, report.runId, { xdg })).state;
+    state = (await readAdHocTestStatus(root, report.runId, { xdg })).state;
   }
   expect(state).toBe("passed");
 }, 15_000);
 
-test("SET-273: declared runtime tests reuse try across providers and retain normalized evidence", async () => {
+test("SET-273: declared runtime tests reuse the ad hoc runner across providers and retain normalized evidence", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -833,7 +833,7 @@ checks:
   await expect(runSkillsetTest(symlinkRoot, "runtime")).rejects.toThrow("resolves outside the source root");
 });
 
-test("SET-273: try classifies setup, auth, and timeout failures", async () => {
+test("SET-273: ad hoc test classifies setup, auth, and timeout failures", async () => {
   const root = await fixture({
     "skillset.yaml": `
 skillset:
@@ -852,27 +852,27 @@ Runtime failure body.
   });
   const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
 
-  const missing = await startTryRun(root, {
+  const missing = await startAdHocTestRun(root, {
     env: { ...process.env, SKILLSET_TEST_CODEX_BIN: join(root, "missing-codex") },
     name: "missing-runtime",
     prompt: "Missing runtime.",
     target: "codex",
     xdg,
   });
-  expect((await readTryStatus(root, missing.runId, { xdg })).failureClass).toBe("binary");
+  expect((await readAdHocTestStatus(root, missing.runId, { xdg })).failureClass).toBe("binary");
 
   const authBin = await fakeFailureBin(root, "auth-claude", "Not logged in. Run setup-token.", 1);
-  const auth = await startTryRun(root, {
+  const auth = await startAdHocTestRun(root, {
     env: { ...process.env, SKILLSET_TEST_CLAUDE_BIN: authBin },
     name: "auth-runtime",
     prompt: "Auth runtime.",
     target: "claude",
     xdg,
   });
-  expect((await readTryStatus(root, auth.runId, { xdg })).failureClass).toBe("auth");
+  expect((await readAdHocTestStatus(root, auth.runId, { xdg })).failureClass).toBe("auth");
 
   const timeoutBin = await fakeSleepingBin(root);
-  const timeout = await startTryRun(root, {
+  const timeout = await startAdHocTestRun(root, {
     env: { ...process.env, SKILLSET_TEST_CODEX_BIN: timeoutBin },
     name: "timeout-runtime",
     prompt: "Timeout runtime.",
@@ -880,14 +880,14 @@ Runtime failure body.
     timeoutMs: 10,
     xdg,
   });
-  const timeoutStatus = await readTryStatus(root, timeout.runId, { xdg });
+  const timeoutStatus = await readAdHocTestStatus(root, timeout.runId, { xdg });
   expect(timeoutStatus.failureClass).toBe("timeout");
   expect(timeoutStatus.error).toContain("test command timed out");
   expect(timeoutStatus.error).not.toContain("try command");
 });
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-try-"));
+  const root = await mkdtemp(join(tmpdir(), "skillset-ad-hoc-test-"));
   for (const [path, content] of Object.entries(files)) {
     const fullPath = join(root, path);
     await mkdir(dirname(fullPath), { recursive: true });

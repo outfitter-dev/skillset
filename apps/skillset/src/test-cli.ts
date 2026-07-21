@@ -11,25 +11,25 @@ import {
 import { resolveInteractiveTestSelection } from "./test-interactive";
 import { runAllSkillsetTests, runSkillsetTest } from "./test-runner";
 import type { SkillsetTestReport } from "./test-runner";
-import type { TryClaudeSettingSources, TrySubcommand } from "./try";
-import { runTryCommand, validateTryFlags } from "./try-cli";
+import type { AdHocTestClaudeSettingSources, AdHocTestSubcommand } from "./ad-hoc-test";
+import { runAdHocTestCommand, validateAdHocTestFlags } from "./ad-hoc-test-cli";
 
 export interface TestCommandRequest {
   readonly jsonOutput: boolean;
   readonly options: SkillsetOptions;
   readonly rootPath: string;
   readonly testName: string | undefined;
-  readonly tryBackground: boolean;
-  readonly tryClaudeSettingSources: TryClaudeSettingSources | undefined;
-  readonly tryLines: number | undefined;
-  readonly tryName: string | undefined;
-  readonly tryPlugins: readonly string[];
-  readonly tryPrompt: string | undefined;
-  readonly tryPromptFile: string | undefined;
-  readonly tryRunId: string | undefined;
-  readonly trySubcommand: TrySubcommand | undefined;
-  readonly tryTarget: TargetName | undefined;
-  readonly tryTimeoutMs: number | undefined;
+  readonly adHocBackground: boolean;
+  readonly adHocClaudeSettingSources: AdHocTestClaudeSettingSources | undefined;
+  readonly adHocLines: number | undefined;
+  readonly adHocName: string | undefined;
+  readonly adHocPlugins: readonly string[];
+  readonly adHocPrompt: string | undefined;
+  readonly adHocPromptFile: string | undefined;
+  readonly adHocRunId: string | undefined;
+  readonly adHocSubcommand: AdHocTestSubcommand | undefined;
+  readonly adHocTarget: TargetName | undefined;
+  readonly adHocTimeoutMs: number | undefined;
 }
 
 export interface TestCommandContext {
@@ -45,23 +45,23 @@ export async function runTestCommand(
     options,
     rootPath,
     testName,
-    tryBackground,
-    tryClaudeSettingSources,
-    tryLines,
-    tryName,
-    tryPlugins,
-    tryPrompt,
-    tryPromptFile,
-    tryRunId,
-    trySubcommand,
-    tryTarget,
-    tryTimeoutMs,
+    adHocBackground,
+    adHocClaudeSettingSources,
+    adHocLines,
+    adHocName,
+    adHocPlugins,
+    adHocPrompt,
+    adHocPromptFile,
+    adHocRunId,
+    adHocSubcommand,
+    adHocTarget,
+    adHocTimeoutMs,
   } = request;
   const interactiveSession =
     context.interactiveSession ??
     createInteractiveSession({
       machineMode: jsonOutput,
-      rawProtocol: trySubcommand === "worker",
+      rawProtocol: adHocSubcommand === "worker",
     });
   if (interactiveSession !== undefined && isBareTestRequest(request)) {
     interactiveSession.banner();
@@ -83,14 +83,14 @@ export async function runTestCommand(
       await runDeclaredTest(rootPath, selection.name, options);
       return;
     }
-    validateTryFlags("test", undefined, {
+    validateAdHocTestFlags("test", undefined, {
       background: selection.background,
       plugins: [],
       prompt: selection.prompt,
       target: selection.target,
       yes: false,
     });
-    await runTryCommand(rootPath, {
+    await runAdHocTestCommand(rootPath, {
       background: selection.background,
       json: false,
       plugins: [],
@@ -100,23 +100,23 @@ export async function runTestCommand(
     });
     return;
   }
-  if (trySubcommand !== undefined || tryTarget !== undefined) {
-    await runTryCommand(rootPath, {
-      background: tryBackground,
-      ...(tryClaudeSettingSources === undefined
+  if (adHocSubcommand !== undefined || adHocTarget !== undefined) {
+    await runAdHocTestCommand(rootPath, {
+      background: adHocBackground,
+      ...(adHocClaudeSettingSources === undefined
         ? {}
-        : { claudeSettingSources: tryClaudeSettingSources }),
+        : { claudeSettingSources: adHocClaudeSettingSources }),
       json: jsonOutput,
-      ...(tryLines === undefined ? {} : { lines: tryLines }),
-      ...(tryName === undefined ? {} : { name: tryName }),
-      plugins: tryPlugins,
-      ...(tryPrompt === undefined ? {} : { prompt: tryPrompt }),
-      ...(tryPromptFile === undefined ? {} : { promptFile: tryPromptFile }),
-      ...(tryRunId === undefined ? {} : { runId: tryRunId }),
+      ...(adHocLines === undefined ? {} : { lines: adHocLines }),
+      ...(adHocName === undefined ? {} : { name: adHocName }),
+      plugins: adHocPlugins,
+      ...(adHocPrompt === undefined ? {} : { prompt: adHocPrompt }),
+      ...(adHocPromptFile === undefined ? {} : { promptFile: adHocPromptFile }),
+      ...(adHocRunId === undefined ? {} : { runId: adHocRunId }),
       skillsetOptions: options,
-      ...(trySubcommand === undefined ? {} : { subcommand: trySubcommand }),
-      ...(tryTarget === undefined ? {} : { target: tryTarget }),
-      ...(tryTimeoutMs === undefined ? {} : { timeoutMs: tryTimeoutMs }),
+      ...(adHocSubcommand === undefined ? {} : { subcommand: adHocSubcommand }),
+      ...(adHocTarget === undefined ? {} : { target: adHocTarget }),
+      ...(adHocTimeoutMs === undefined ? {} : { timeoutMs: adHocTimeoutMs }),
     });
     return;
   }
@@ -136,17 +136,17 @@ function isBareTestRequest(request: TestCommandRequest): boolean {
   return (
     !request.jsonOutput &&
     request.testName === undefined &&
-    !request.tryBackground &&
-    request.tryClaudeSettingSources === undefined &&
-    request.tryLines === undefined &&
-    request.tryName === undefined &&
-    request.tryPlugins.length === 0 &&
-    request.tryPrompt === undefined &&
-    request.tryPromptFile === undefined &&
-    request.tryRunId === undefined &&
-    request.trySubcommand === undefined &&
-    request.tryTarget === undefined &&
-    request.tryTimeoutMs === undefined
+    !request.adHocBackground &&
+    request.adHocClaudeSettingSources === undefined &&
+    request.adHocLines === undefined &&
+    request.adHocName === undefined &&
+    request.adHocPlugins.length === 0 &&
+    request.adHocPrompt === undefined &&
+    request.adHocPromptFile === undefined &&
+    request.adHocRunId === undefined &&
+    request.adHocSubcommand === undefined &&
+    request.adHocTarget === undefined &&
+    request.adHocTimeoutMs === undefined
   );
 }
 

@@ -145,7 +145,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     docs: ["docs/features/tests-and-evals.md"],
     evidence: [
       test("apps/skillset/src/__tests__/contract.test.ts", "SET-112 activation probe coverage"),
-      test("apps/skillset/src/__tests__/try.test.ts", "SET-273 declared runtime provider coverage"),
+      test("apps/skillset/src/__tests__/ad-hoc-test.test.ts", "SET-273 declared runtime provider coverage"),
       test("packages/core/src/__tests__/test-evaluation.test.ts", "Core declaration, staging, and fake-probe coverage"),
     ],
     id: "activation-probes",
@@ -153,18 +153,18 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     renderOwner: "packages/core/src/test-evaluation.ts",
     runtimeSupport: {
       "claude-code": {
-        evidence: [test("apps/skillset/src/__tests__/try.test.ts", "SET-273 declared runtime provider coverage")],
-        mechanism: "Explicit runtime activation probes invoke Claude Code through the shared isolated try harness.",
+        evidence: [test("apps/skillset/src/__tests__/ad-hoc-test.test.ts", "SET-273 declared runtime provider coverage")],
+        mechanism: "Explicit runtime activation probes invoke Claude Code through the shared isolated ad hoc test harness.",
         status: "native",
       },
       "codex-cli": {
-        evidence: [test("apps/skillset/src/__tests__/try.test.ts", "SET-273 declared runtime provider coverage")],
-        mechanism: "Explicit runtime activation probes invoke Codex CLI through the shared isolated try harness.",
+        evidence: [test("apps/skillset/src/__tests__/ad-hoc-test.test.ts", "SET-273 declared runtime provider coverage")],
+        mechanism: "Explicit runtime activation probes invoke Codex CLI through the shared isolated ad hoc test harness.",
         status: "native",
       },
       cursor: {
-        evidence: [test("apps/skillset/src/__tests__/try.test.ts", "SET-273 declared runtime provider coverage")],
-        mechanism: "Explicit runtime activation probes invoke Cursor Agent through the shared isolated try harness.",
+        evidence: [test("apps/skillset/src/__tests__/ad-hoc-test.test.ts", "SET-273 declared runtime provider coverage")],
+        mechanism: "Explicit runtime activation probes invoke Cursor Agent through the shared isolated ad hoc test harness.",
         status: "native",
       },
     },
