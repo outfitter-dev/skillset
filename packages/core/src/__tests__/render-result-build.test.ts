@@ -628,6 +628,60 @@ echo alpha
     }
   });
 
+  it("soft unsupported destination policies reject provenance without usable output", async () => {
+    for (const policy of ["warn", "skip", "force"] as const) {
+      const root = await fixture({
+        "skillset.yaml": `
+skillset:
+  name: soft-policy-lock-only
+compile:
+  unsupportedDestination: ${policy}
+claude: false
+codex: true
+cursor: false
+`,
+        ".skillset/skills/writer/SKILL.md": `
+---
+name: writer
+description: Demo writer.
+hooks:
+  Stop:
+    - local-stop
+---
+
+Body.
+`,
+        ".skillset/skills/writer/hooks/local-stop.json": JSON.stringify({
+          events: ["Stop"],
+          run: { command: "echo skill" },
+        }),
+      });
+      const options = { scopes: ["project", "user"] as const };
+
+      try {
+        await buildSkillsetResult(root, options);
+        throw new Error("expected buildSkillsetResult to reject provenance-only output");
+      } catch (error) {
+        expect(error).toBeInstanceOf(SkillsetRenderResultError);
+        const failure = error as SkillsetRenderResultError;
+        expect(failure.message).toContain(
+          `unsupported destination policy ${policy} produced no usable target output`
+        );
+        expect(failure.message).toContain("at least one non-lock output must remain");
+        expect(failure.renderResults).toContainEqual(
+          expect.objectContaining({
+            destination: "skill-frontmatter",
+            featureId: "adaptive-hooks",
+            policy: `unsupported:${policy}`,
+            sourceUnit: "skill:writer",
+            status: "unsupported",
+            target: "codex",
+          })
+        );
+      }
+    }
+  });
+
   it("enforces unsupported adaptive hook outcomes for Codex component scopes", async () => {
     const skillRoot = await fixture({
       "skillset.yaml": `

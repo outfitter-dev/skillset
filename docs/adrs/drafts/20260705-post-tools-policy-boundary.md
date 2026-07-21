@@ -34,6 +34,10 @@ not all have the same owner or enforcement model:
 - `compile.unsupportedDestination` gates unsupported, lossy, and failed render
   results; only `error` is implemented today.
 
+The final bullet preserves the implementation state when this draft was
+written. SET-18 later satisfied the implementation bar below for `warn`,
+`skip`, and `force`.
+
 The failure mode is fake portability. If Skillset treats generated prose,
 scripts, or metadata sidecars as policy enforcement, a build can look
 synchronized while the provider still does not enforce the promised behavior.
@@ -88,6 +92,10 @@ parallel `policy.yaml` or `policy:` tree now.
 
 ### SET-18 Implementation Bar
 
+This section preserves the pre-implementation acceptance bar. SET-18 later
+satisfied it; [Lossy and Unsupported Output Policy](../0003-lossy-and-unsupported-output-policy.md)
+records the resulting amendment to ADR-0001.
+
 SET-18 can enable `warn`, `skip`, and `force` because the implementation proves
 these facts for every affected render result:
 
@@ -140,6 +148,10 @@ SET-18 becomes an implementation problem with a crisp bar: provenance first,
 softer unsupported-destination policies second. That makes `warn`, `skip`, and
 `force` safer to add because they cannot hide lost output.
 
+That consequence records the pre-implementation decision. SET-18 is now
+implemented, and the non-error policies retain the same provenance-first
+ordering.
+
 ### Tradeoffs
 
 Some useful provider authority remains metadata-only, advisory, or externally
@@ -168,11 +180,12 @@ render truth.
 ## References
 
 - [Tenets](../../tenets.md) - source-first, provider-native, fail-loud design principles.
-- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - root provider selection and reserved unsupported-destination policy.
+- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - root provider selection and the original unsupported-destination policy reservation.
+- [Lossy and Unsupported Output Policy](../0003-lossy-and-unsupported-output-policy.md) - successor decision recording how the reservation was satisfied.
 - [Portable Tools Policy and Agent Authority](20260702-portable-agent-authority-intent.md) - `tools` source shape and registry-backed realization model.
 - [Lowering Outcomes and Loss Ledger](20260614-lowering-outcomes-and-loss-ledger.md) - render-result status and policy semantics that this ADR specializes.
 - [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - feature ids, support evidence, and conformance expectations.
 - [Reviewed Settings Suggestions](20260604-reviewed-settings-suggestions.md) - authority-changing provider settings remain reviewed plans, not build side effects.
-- [Cursor Is a First-Class Provider](0002-cursor-is-a-first-class-provider.md) - Cursor provider evidence and activation boundary.
+- [Cursor Is a First-Class Provider](../0002-cursor-is-a-first-class-provider.md) - Cursor provider evidence and activation boundary.
 - [Tools Policy](../../features/tools-policy.md) - current authoring and realization reference.
 - [Render Results](../../features/render-results.md) - current structured build-truth report.

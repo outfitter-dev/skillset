@@ -65,7 +65,7 @@ Lowering outcomes record build facts, using statuses such as `emitted`, `target_
 
 The mapping is intentionally not one-to-one. A registry `native` capability usually produces an `emitted` outcome, not a `native` outcome. A registry `pass_through` capability produces `target_native` when the source was explicitly target-owned. A registry `degraded` capability can produce `degraded` only when the build actually emitted the fallback. A registry `unsupported` capability may produce `unsupported`, `intentionally_skipped`, or no outcome at all if the source unit is outside the current build scope.
 
-### Policy Semantics
+### Policy Semantics at Drafting
 
 The default unsupported policy is `error`. If source cannot lower faithfully to an enabled target, the safe default is a failing build/check with a structured outcome. Softer policies are escape hatches for migration and provider drift, not proof of portability.
 
@@ -82,6 +82,11 @@ Skillset reserves these policy values:
 | `unsupported:force` | A future explicit escape hatch allowed output despite unsupported portable semantics; forced output must stay target-native or debug-only and must not pretend portability. |
 
 `warn`, `skip`, and `force` are allowed vocabulary before they are allowed user-facing behavior. SET-84 owns the enforcement work that makes these policies authoritative build gates. Until then, implementation branches should prefer explicit errors for unsafe lowering and must never drop unsupported source silently.
+
+The preceding reservation is preserved as the historical implementation state
+of this draft. SET-18 later implemented the non-error gates with warning
+diagnostics and lock provenance; [Lossy and Unsupported Output Policy](../0003-lossy-and-unsupported-output-policy.md)
+records the current decision and amendment to ADR-0001.
 
 ### Clean Generated Output
 
@@ -107,6 +112,10 @@ Distribution destinations, global installs, marketplace activation, and runtime 
 
 This ADR does not define reverse sync from generated output to source, generated-output patch acceptance, provider runtime activation checks, public adapter APIs, eval scoring, or the final report file format for persisted outcomes. It also does not make `compile.unsupported: warn|skip|force` a fully implemented user-facing policy; those gates need explicit implementation and tests.
 
+The final sentence preserves the boundary when this draft was written. SET-18
+later implemented those gates under `compile.unsupportedDestination`; the
+successor policy ADR supersedes that implementation limitation.
+
 ## Consequences
 
 ### Positive
@@ -127,6 +136,10 @@ The current body-level semantic boundary is still limited. Frontmatter and confi
 
 Policy vocabulary can create false confidence if the compiler records `unsupported:skip` without a clear user-facing gate. SET-84 must make policy enforcement explicit, and SET-82/SET-83 must make persisted/reporting surfaces easy to inspect.
 
+That risk records the pre-implementation state. The current policy
+enforcement, diagnostics, and persisted reporting surfaces satisfy the named
+prerequisite and must remain inspectable.
+
 ## Non-Decisions
 
 This ADR does not decide whether pending lowering outcomes appear in committed generated changelogs, how runtime adapters execute activation probes, how Trails will consume Skillset as a library, or whether future source regions can carry author-declared semantic severity. Those decisions belong to the change/release, tests/evals, Trails integration, and source provenance tracks.
@@ -139,4 +152,5 @@ This ADR does not decide whether pending lowering outcomes appear in committed g
 - [Core Library and CLI Boundary](20260612-core-library-boundary.md) - places structured compiler facts in `@skillset/core`.
 - [Deterministic Projection and Adapter Conformance](20260613-deterministic-projection-and-adapter-conformance.md) - uses lowering outcomes with the feature registry for adapter conformance.
 - [Lowering Outcomes](../../features/render-results.md) - reader-facing vocabulary and examples.
-- SET-79, SET-82, SET-83, SET-84, SET-85, and SET-86 - implementation stack for vocabulary, persistence, diagnostics, gates, fixtures, and warning migration.
+- [Lossy and Unsupported Output Policy](../0003-lossy-and-unsupported-output-policy.md) - current policy decision and ADR-0001 amendment.
+- SET-79, SET-82, SET-83, SET-84, SET-85, and SET-86 - historical implementation stack for vocabulary, persistence, diagnostics, gates, fixtures, and warning migration.

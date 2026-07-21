@@ -76,7 +76,7 @@ The feature reference uses related but separate vocabularies. Feature entry stat
 | `unsupported` | The target cannot represent the feature faithfully through a portable render and must carry a reason. |
 | `lossy` | A possible target render would drop required meaning or behavior and must carry a reason. |
 
-Unsupported and lossy render must fail loudly by default. Softer policies such as warn, skip, or force require visible diagnostics and lock or status provenance before they can become runtime behavior.
+Unsupported and lossy render fails loudly by default. The implemented `warn`, `skip`, and `force` policies soften only those results while preserving visible diagnostics and lock or status provenance; failed render results still block.
 
 ### Render-Result Status
 
