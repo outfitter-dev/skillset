@@ -62,7 +62,8 @@ test("ci reports generated drift without writing when fix is off", async () => {
   expect(markdown).toContain("### Stale generated output");
   expect(markdown).toContain("### Reconciliation");
   expect(markdown).toContain("Generated Markdown body can be moved back to the source file");
-  expect(markdown).toContain("skillset build --yes");
+  expect(markdown).toContain("### Recovery guidance");
+  expect(markdown).toContain("`skillset reconcile .claude/skills/demo/SKILL.md`");
 });
 
 test("ci does not recommend output reconciliation that reconcile would refuse", async () => {
@@ -90,6 +91,19 @@ Other body.
   expect(report.sourceSuggestions?.every((suggestion) =>
     suggestion.message.includes("unrelated generated drift exists")
   )).toBe(true);
+  expect(report.sourceSuggestions?.every((suggestion) => suggestion.nextSteps.length === 0)).toBe(true);
+  expect(report.recovery?.every((item) => item.action !== "reconcile")).toBe(true);
+  expect(report.recovery).toEqual(expect.arrayContaining([
+    expect.objectContaining({ action: "manual-review", blocked: true, commands: [] }),
+  ]));
+  const markdown = renderCiReportMarkdown(report);
+  expect(markdown).not.toContain("--use source");
+  expect(markdown).not.toContain("--use output");
+
+  const json = await runSkillsetCli("check", "--root", root, "--json");
+  expect(json.exitCode).toBe(1);
+  expect(json.stdout).not.toContain("--use source");
+  expect(json.stdout).not.toContain("--use output");
 });
 
 test("check JSON promotes readiness failures to envelope diagnostics", async () => {
@@ -107,6 +121,95 @@ test("check JSON promotes readiness failures to envelope diagnostics", async () 
     exitCode: 1,
     kind: "diagnostics",
     ok: false,
+  });
+});
+
+test("check shares generated-only recovery guidance across terminal, Markdown, and JSON", async () => {
+  const root = await builtFixture();
+  const sourcePath = join(root, ".skillset/skills/demo/SKILL.md");
+  await writeFile(
+    sourcePath,
+    `${await readFile(sourcePath, "utf8").then((text) => text.trimEnd())}\n\nUpdated source body.\n`
+  );
+
+  const terminal = await runSkillsetCli("check", "--root", root);
+  const json = await runSkillsetCli("check", "--root", root, "--json");
+  const report = await ciSkillset(root);
+  const markdown = renderCiReportMarkdown(report);
+
+  expect(terminal.exitCode).toBe(1);
+  expect(terminal.stdout).toContain("recovery rebuild-generated-output:");
+  expect(terminal.stdout).toContain("next: skillset check --write");
+  expect(terminal.stdout).not.toContain("skillset check --ci --fix");
+
+  expect(markdown).toContain("### Recovery guidance");
+  expect(markdown).toContain("rebuild-generated-output");
+  expect(markdown).toContain("`skillset check --write`");
+  expect(markdown).not.toContain("`skillset check --ci --fix`");
+
+  expect(json.exitCode).toBe(1);
+  expect(JSON.parse(json.stdout)).toMatchObject({
+    data: {
+      recovery: [expect.objectContaining({
+        action: "rebuild-generated-output",
+        commands: ["skillset check --write"],
+        reason: "generated output is the sole blocking condition and can be rebuilt from current source",
+      })],
+    },
+  });
+});
+
+test("check suppresses mechanical rebuild guidance when change coverage also blocks", async () => {
+  const root = await builtFixture();
+  const sourcePath = join(root, ".skillset/skills/demo/SKILL.md");
+  await writeFile(
+    sourcePath,
+    `${await readFile(sourcePath, "utf8").then((text) => text.trimEnd())}\n\nUncovered source body.\n`
+  );
+
+  const terminal = await runSkillsetCli(
+    "check",
+    "--ci",
+    "--since",
+    "HEAD",
+    "--root",
+    root
+  );
+  const json = await runSkillsetCli(
+    "check",
+    "--ci",
+    "--since",
+    "HEAD",
+    "--root",
+    root,
+    "--json"
+  );
+  const report = await ciSkillset(root, { ci: true, since: "HEAD" });
+  const markdown = renderCiReportMarkdown(report);
+
+  expect(terminal.exitCode).toBe(1);
+  expect(terminal.stdout).toContain("recovery change-add (skill:demo):");
+  expect(terminal.stdout).toContain("--scope skill:demo");
+  expect(terminal.stdout).not.toContain("next: skillset check --ci --fix");
+
+  expect(markdown).toContain("change-add (skill:demo)");
+  expect(markdown).toContain("`skillset change add --scope skill:demo");
+  expect(markdown).not.toContain("`skillset check --ci --fix");
+
+  expect(json.exitCode).toBe(1);
+  expect(JSON.parse(json.stdout)).toMatchObject({
+    data: {
+      recovery: expect.arrayContaining([
+        expect.objectContaining({
+          action: "change-add",
+          scope: "skill:demo",
+        }),
+        expect.objectContaining({
+          action: "manual-review",
+          blocked: true,
+        }),
+      ]),
+    },
   });
 });
 
@@ -178,6 +281,61 @@ test("ci report explains generated changelog drift", () => {
   expect(markdown).toContain("skillset release amend <@ref>");
 });
 
+test("ci report renders recovery guidance for successful warning-only change reports", () => {
+  const path = ".skillset/changes/abcdef123456.md";
+  const markdown = renderCiReportMarkdown({
+    changeIssues: [{
+      code: "change-frontmatter-compatibility",
+      message: "frontmatter pending entries are compatibility-only",
+      path,
+      severity: "warning",
+    }],
+    drift: { added: [], changed: [], missing: [], removed: [] },
+    fixedPaths: [],
+    lintIssues: [],
+    ok: true,
+    outputEditedPaths: [],
+    outputDiagnostics: [],
+    providerUpdatePaths: [],
+    recovery: [{
+      action: "change-migrate",
+      commands: ["skillset change migrate", "skillset change migrate --yes"],
+      path,
+      reason: "legacy frontmatter pending entries are otherwise valid and can be previewed before migration",
+      ref: "@abcdef123456",
+    }],
+    warnings: [],
+  });
+
+  expect(markdown).toContain("All checks passed; the warnings and recovery guidance below are advisory");
+  expect(markdown).toContain("### Change entries");
+  expect(markdown).toContain("change-frontmatter-compatibility");
+  expect(markdown).toContain("### Recovery guidance");
+  expect(markdown).toContain("`skillset change migrate`");
+  expect(markdown).toContain("`skillset change migrate --yes`");
+  expect(markdown).not.toContain("All checks passed: source lint, change entries, and generated output are current.");
+});
+
+test("ci report uses a safe Markdown code fence for recovery commands containing backticks", () => {
+  const path = "custom/`demo`/SKILL.md";
+  const command = `skillset reconcile '${path}'`;
+  const markdown = renderCiReportMarkdown({
+    changeIssues: [],
+    drift: { added: [], changed: [], missing: [], removed: [] },
+    fixedPaths: [],
+    lintIssues: [],
+    ok: false,
+    outputEditedPaths: [],
+    outputDiagnostics: [],
+    providerUpdatePaths: [],
+    recovery: [{ action: "reconcile", commands: [command], path, reason: "preview exact path" }],
+    warnings: [],
+  });
+
+  expect(markdown).toContain(`- reconcile \`\` ${path} \`\`: preview exact path`);
+  expect(markdown).toContain(`  - \`\` ${command} \`\``);
+});
+
 test("check --write refuses target-side generated edits", async () => {
   const root = await builtFixture();
   const generatedPath = join(root, GENERATED_SKILL);
@@ -193,10 +351,10 @@ test("check --write refuses target-side generated edits", async () => {
   expect(await readFile(generatedPath, "utf8")).toContain("hand edit");
   const markdown = renderCiReportMarkdown(report);
   expect(markdown).toContain("### Target-side generated edits");
-  expect(markdown).toContain("will not overwrite");
-  expect(markdown).toContain("skillset reconcile <path> --use output");
-  expect(markdown).toContain("skillset reconcile <path> --use source");
+  expect(markdown).toContain("intentionally not overwritten by a mechanical rebuild");
   expect(markdown).toContain("### Reconciliation");
+  expect(markdown).toContain("### Recovery guidance");
+  expect(markdown).toContain("`skillset reconcile .claude/skills/demo/SKILL.md`");
 });
 
 test("check --write refuses unmanaged output collisions", async () => {
@@ -248,7 +406,7 @@ test("check --write refreshes stale locks after an output edit is reconciled", a
   expect(await readFile(generatedPath, "utf8")).toContain("Reconciled.");
 });
 
-test("ci --fix explains rebuilt generated changelog drift", async () => {
+test("ci --fix refuses unrepairable generated changelog drift", async () => {
   const root = await changelogFixture();
   const changelogPath = join(root, ".skillset/skills/demo/CHANGELOG.md");
   const original = await readFile(changelogPath, "utf8");
@@ -259,7 +417,9 @@ test("ci --fix explains rebuilt generated changelog drift", async () => {
 
   expect(result.exitCode).toBe(1);
   expect(result.stdout).not.toContain("fixed .skillset/skills/demo/CHANGELOG.md");
-  expect(result.stdout).toContain("generated CHANGELOG.md files are managed projections");
+  expect(result.stdout).toContain("recovery blocked manual-review .skillset/skills/demo/CHANGELOG.md:");
+  expect(result.stdout).toContain("Generated changelogs are managed projections, not source edit surfaces.");
+  expect(result.stdout).not.toContain("next: skillset reconcile .skillset/skills/demo/CHANGELOG.md");
   expect(await readFile(changelogPath, "utf8")).toContain("hand edit");
   const markdown = await readFile(reportPath, "utf8");
   expect(markdown).toContain("### Target-side generated edits");
@@ -467,7 +627,8 @@ test("ci CLI exits nonzero on drift and writes the markdown report", async () =>
   const fixed = await runSkillsetCli("check", "--ci", "--fix", "--root", root, "--since", "HEAD", "--report", reportPath);
   expect(fixed.exitCode).toBe(1);
   expect(fixed.stdout).toContain("target-side generated edit");
-  expect(await readFile(reportPath, "utf8")).toContain("will not overwrite");
+  expect(await readFile(reportPath, "utf8")).toContain("intentionally not overwritten by a mechanical rebuild");
+  expect(await readFile(reportPath, "utf8")).toContain("`skillset reconcile .claude/skills/demo/SKILL.md`");
 
   await buildSkillset(root);
   const clean = await runSkillsetCli("check", "--ci", "--root", root, "--since", "HEAD");

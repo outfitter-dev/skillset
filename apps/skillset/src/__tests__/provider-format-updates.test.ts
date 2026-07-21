@@ -46,7 +46,7 @@ test("SET-278: check write modes leave provider-format updates to update", async
 
   expect(local.exitCode).toBe(1);
   expect(local.stdout).toContain(`provider-format update ${CODEX_PLUGIN_MANIFEST}`);
-  expect(local.stdout).toContain("run skillset update");
+  expect(local.stdout).toContain("next: skillset update");
   expect(ci.exitCode).toBe(1);
   expect(await readFile(manifestPath, "utf8")).not.toBe(original);
 });

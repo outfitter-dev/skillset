@@ -1,4 +1,4 @@
-import { changeCheck, type ChangeCheckIssue } from "./change-entries";
+import { changeCheck, type ChangeCheckIssue, type ChangeCheckReport } from "./change-entries";
 import { join } from "node:path";
 import {
   defaultChangesetBaseline,
@@ -21,8 +21,14 @@ import { inspectSkillset } from "@skillset/core";
 import { readManagedOutputState } from "@skillset/core/internal/output-safety";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import type { LintIssue, SkillsetOptions } from "@skillset/core/internal/types";
-import { runProviderFormatUpdates } from "./provider-format-updates";
+import { runProviderFormatUpdates, type ProviderFormatUpdateReport } from "./provider-format-updates";
 import { reconcileManagedPath } from "./reconcile";
+import {
+  classifyRecoveryGuidance,
+  mechanicalFixEligibility,
+  type RecoveryGuidance,
+  type RecoveryGuidanceInput,
+} from "./recovery-guidance";
 
 export interface CiOptions extends SkillsetOptions {
   /** Include branch-aware source and package change gates. */
@@ -56,6 +62,10 @@ export interface CiReport {
   readonly outputDiagnostics: readonly SkillsetDiagnostic[];
   /** Drift owned by explicit provider-format migrations and therefore `update`. */
   readonly providerUpdatePaths: readonly string[];
+  /** Provider-format classification failure; recovery must fail closed. */
+  readonly providerAnalysisError?: string;
+  /** Ordered recovery guidance shared by terminal, Markdown, and JSON output. */
+  readonly recovery?: readonly RecoveryGuidance[];
   readonly sourceSuggestions?: readonly SourceSuggestionReport[];
   readonly warnings: readonly string[];
 }
@@ -106,13 +116,15 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
   }
 
   let changeIssues: readonly ChangeCheckIssue[] = [];
+  let changeReport: ChangeCheckReport | undefined;
   let changeError: string | undefined;
   if (ci === true || since !== undefined) {
     try {
-      changeIssues = (await changeCheck(rootPath, {
+      changeReport = await changeCheck(rootPath, {
         ...buildOptions,
         ...(since === undefined ? {} : { since }),
-      })).issues;
+      });
+      changeIssues = changeReport.issues;
     } catch (error) {
       changeError = errorMessage(error);
     }
@@ -154,10 +166,12 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
     ? await sourceSuggestionsForDrift(rootPath, drift, buildOptions)
     : [];
   let providerUpdatePaths: readonly string[] = [];
+  let providerReport: ProviderFormatUpdateReport | undefined;
+  let providerAnalysisError: string | undefined;
   let providerSourceDriftPaths: ReadonlySet<string> = new Set();
   if (buildError === undefined && hasDrift(drift)) {
     try {
-      const providerReport = await runProviderFormatUpdates(rootPath, "check", buildOptions);
+      providerReport = await runProviderFormatUpdates(rootPath, "check", buildOptions);
       const sourceDriftPaths = new Set(providerReport.sourceDriftPaths);
       providerSourceDriftPaths = sourceDriftPaths;
       const legacyLockOutputPaths = new Set(providerReport.legacyLockOutputPaths);
@@ -182,8 +196,8 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
               ))
           )
       )].sort();
-    } catch {
-      // The main readiness report already owns build and drift failures.
+    } catch (error) {
+      providerAnalysisError = errorMessage(error);
     }
   }
   const hasUnmanagedOutputCollisions = outputDiagnostics.some(
@@ -206,23 +220,29 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
       return !isEstablishedMarketplaceIndex;
     }
   );
+  const recoveryInput = (): RecoveryGuidanceInput => ({
+    ...(buildError === undefined ? {} : { buildError }),
+    ...(changeError === undefined ? {} : { changeError }),
+    ...(changeReport === undefined ? {} : { changeReport }),
+    ...(changesetError === undefined ? {} : { changesetError }),
+    changesetIssues,
+    drift,
+    lintIssues,
+    mode: ci === true ? "ci" : "local",
+    outputDiagnostics,
+    outputEditedPaths,
+    ...(providerAnalysisError === undefined ? {} : { providerAnalysisError }),
+    ...(providerReport === undefined ? {} : { providerReport }),
+    providerUpdatePaths,
+    sourceSuggestions,
+    unmanagedOutputCollisions: hasUnmanagedOutputCollisions,
+  });
 
-  // Rebuild only when drift is the sole problem: lint errors, change
-  // errors, or a build error mean the source is not trustworthy, and an
-  // unresolvable change baseline means the CI setup itself needs fixing before
-  // pushing rebuild commits. Lint warnings are advisory and do not block.
+  // Rebuild only when generated drift is the sole remaining blocker. This
+  // predicate is also the public recovery contract, so guidance cannot claim
+  // that --fix will write when the operation itself would refuse.
   let fixedPaths: readonly string[] = [];
-  if (
-    fix === true &&
-    hasDrift(drift) &&
-    buildError === undefined &&
-    changeError === undefined &&
-    changeErrors.length === 0 &&
-    lintErrors.length === 0 &&
-    outputEditedPaths.length === 0 &&
-    providerUpdatePaths.length === 0 &&
-    !hasUnmanagedOutputCollisions
-  ) {
+  if (fix === true && mechanicalFixEligibility(recoveryInput()).eligible) {
     const staleBefore = [...drift.added, ...drift.changed, ...drift.missing, ...drift.removed];
     try {
       await buildSkillset(rootPath, buildOptions);
@@ -235,6 +255,8 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
       buildError = errorMessage(error);
     }
   }
+
+  const recovery = classifyRecoveryGuidance(recoveryInput());
 
   return {
     ...(buildError === undefined ? {} : { buildError }),
@@ -250,6 +272,7 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
       buildError === undefined &&
       changeError === undefined &&
       changesetError === undefined &&
+      providerAnalysisError === undefined &&
       lintErrors.length === 0 &&
       changeErrors.length === 0 &&
       changesetIssues.length === 0 &&
@@ -257,7 +280,9 @@ export async function ciSkillset(rootPath: string, options: CiOptions = {}): Pro
       !hasDrift(drift),
     outputEditedPaths,
     outputDiagnostics,
+    ...(providerAnalysisError === undefined ? {} : { providerAnalysisError }),
     providerUpdatePaths,
+    recovery,
     ...(packageFiles.length === 0 ? {} : { packageFiles }),
     ...(sourceSuggestions.length === 0 ? {} : { sourceSuggestions }),
     warnings,
@@ -286,7 +311,14 @@ export function renderCiReportMarkdown(report: CiReport): string {
   const lintWarnings = report.lintIssues.filter((issue) => issue.severity === "warn");
   const outputWarnings = report.outputDiagnostics.filter((diagnostic) => diagnostic.severity !== "error");
 
-  if (report.ok && report.fixedPaths.length === 0 && lintWarnings.length === 0 && outputWarnings.length === 0) {
+  if (
+    report.ok &&
+    report.fixedPaths.length === 0 &&
+    lintWarnings.length === 0 &&
+    outputWarnings.length === 0 &&
+    report.changeIssues.length === 0 &&
+    (report.recovery?.length ?? 0) === 0
+  ) {
     lines.push("All checks passed: source lint, change entries, and generated output are current.", "");
     return `${lines.join("\n").trimEnd()}\n`;
   }
@@ -297,7 +329,7 @@ export function renderCiReportMarkdown(report: CiReport): string {
         ? "Generated output was stale and has been rebuilt mechanically. Review rebuilt generated changelogs below in case the edit should be recovered through source-side change history."
         : report.fixedPaths.length > 0
         ? "Generated output was stale and has been rebuilt mechanically. No source changes are needed."
-        : "All checks passed; the lint warnings below are advisory and do not fail CI.",
+        : "All checks passed; the warnings and recovery guidance below are advisory and do not fail CI.",
       ""
     );
   } else {
@@ -337,7 +369,7 @@ export function renderCiReportMarkdown(report: CiReport): string {
         "Generated `CHANGELOG.md` files are managed projections. Edit pending wording with `skillset change reason <@ref>` before release; use `skillset change amend <@ref>` for applied-history wording after release or `skillset release amend <@ref>` for release-event metadata instead of hand-editing generated changelogs."
       );
     }
-    lines.push("", "Run `skillset build --yes`, review the generated diff, and commit it.", "");
+    lines.push("");
   }
 
   if (report.outputEditedPaths.length > 0) {
@@ -345,7 +377,7 @@ export function renderCiReportMarkdown(report: CiReport): string {
     for (const path of report.outputEditedPaths) lines.push(`- \`${path}\``);
     lines.push(
       "",
-      "`skillset check --write` will not overwrite these edits. Use `skillset reconcile <path> --use output` to bring an edit into source, or `skillset reconcile <path> --use source` to intentionally discard the target-side edit before rebuilding.",
+      "Target-side edits are intentionally not overwritten by a mechanical rebuild; the recovery plan below keeps source/output authority explicit.",
       ""
     );
   }
@@ -353,7 +385,7 @@ export function renderCiReportMarkdown(report: CiReport): string {
   if (report.providerUpdatePaths.length > 0) {
     lines.push("### Provider-format updates", "");
     for (const path of report.providerUpdatePaths) lines.push(`- \`${path}\``);
-    lines.push("", "Run `skillset update` to preview these migrations, then `skillset update --yes` to apply them.", "");
+    lines.push("");
   }
 
   if (report.sourceSuggestions !== undefined && report.sourceSuggestions.length > 0) {
@@ -361,7 +393,6 @@ export function renderCiReportMarkdown(report: CiReport): string {
     for (const suggestion of report.sourceSuggestions) {
       const source = suggestion.sourcePath === undefined ? "" : ` source \`${suggestion.sourcePath}\``;
       lines.push(`- ${suggestion.status}: \`${suggestion.generatedPath}\`${source}: ${suggestion.message}`);
-      for (const step of suggestion.nextSteps) lines.push(`  - ${step}`);
     }
     lines.push("");
   }
@@ -390,11 +421,7 @@ export function renderCiReportMarkdown(report: CiReport): string {
       const path = issue.path === undefined ? "" : `\`${issue.path}\`: `;
       lines.push(`- ${issue.severity}: ${path}${issue.code}: ${issue.message}`);
     }
-    lines.push(
-      "",
-      "Add or fix pending changes with `skillset change add --scope <source-unit> --bump <bump> --reason \"...\"`, or migrate valid legacy frontmatter entries with `skillset change migrate --yes`.",
-      ""
-    );
+    lines.push("");
   }
 
   if (report.changesetError !== undefined) {
@@ -417,7 +444,30 @@ export function renderCiReportMarkdown(report: CiReport): string {
     lines.push("### Build error", "", codeBlock(report.buildError), "");
   }
 
+  if (report.providerAnalysisError !== undefined) {
+    lines.push("### Provider-format analysis error", "", codeBlock(report.providerAnalysisError), "");
+  }
+
+  if ((report.recovery?.length ?? 0) > 0) {
+    lines.push("### Recovery guidance", "");
+    for (const item of report.recovery ?? []) {
+      const location = item.path === undefined ? "" : ` ${markdownCode(item.path)}`;
+      const ref = item.ref === undefined ? "" : ` ${item.ref}`;
+      const scope = item.scope === undefined ? "" : ` (${item.scope})`;
+      lines.push(`- ${item.blocked === true ? "blocked " : ""}${item.action}${location}${ref}${scope}: ${item.reason}`);
+      for (const command of item.commands) lines.push(`  - ${markdownCode(command)}`);
+    }
+    lines.push("");
+  }
+
   return `${lines.join("\n").trimEnd()}\n`;
+}
+
+function markdownCode(value: string): string {
+  const longestRun = Math.max(0, ...(value.match(/`+/g) ?? []).map((run) => run.length));
+  if (longestRun === 0) return `\`${value}\``;
+  const fence = "`".repeat(longestRun + 1);
+  return `${fence} ${value} ${fence}`;
 }
 
 function codeBlock(content: string): string {
@@ -442,13 +492,13 @@ async function sourceSuggestionsForDrift(
   for (const path of paths) {
     try {
       const preview = await reconcileManagedPath(rootPath, path, options);
-      reports.push(preview.outputResolution);
+      reports.push({ ...preview.outputResolution, nextSteps: [] });
     } catch (error) {
       reports.push({
         entries: [],
         generatedPath: path,
         message: errorMessage(error),
-        nextSteps: ["Run `skillset explain <path>` and update the owning source manually."],
+        nextSteps: [],
         status: "refused",
         wouldWrite: false,
         wrote: false,
