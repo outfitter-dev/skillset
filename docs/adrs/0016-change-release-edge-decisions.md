@@ -1,20 +1,21 @@
 ---
+id: 16
 slug: change-release-edge-decisions
 title: Change and Release Edge Decisions
-status: draft
+status: accepted
 created: 2026-06-09
-updated: 2026-06-09
+updated: 2026-07-20
 owners: ['[galligan](https://github.com/galligan)']
-depends_on: [0, changelog-and-versioning]
+depends_on: [0, 14, 15]
 ---
 
-# ADR: Change and Release Edge Decisions
+# ADR-0016: Change and Release Edge Decisions
 
-Status: design (SET-42). This records the edge-case decisions needed before implementing source change entries, release state, supports metadata, plugin dependencies, and hook guardrails.
+Status: accepted for the implemented edge decisions below; baseline semantics remain deferred to SET-363.
 
 ## Context
 
-The source-change and release-provenance model separates normalized source identity, authored reasons, changelog projections, release state, supports metadata, and plugin dependencies. The broad model is settled enough to implement, but a few edge cases need explicit v1 behavior so implementation does not accidentally make silent inheritance, version drift, or release-tool coupling part of the contract.
+The source-change and release-provenance model separates normalized source identity, authored reasons, changelog projections, release state, supports metadata, and plugin dependencies. These implemented edge decisions prevent silent inheritance, version drift, or release-tool coupling from becoming part of the contract.
 
 ## Decisions
 
@@ -32,7 +33,12 @@ Build metadata may appear only as source/provenance metadata or an explicitly co
 
 ### Compact Change IDs And CLI Refs
 
-Pending change entries get a generated `id` once at scaffold time. The stored v1 id is 12 lower-case hexadecimal characters derived from a SHA-256 scaffold seed that includes the initial scope, creation timestamp, entry path, and a random nonce. The id is not derived from mutable reason prose, current source content, or current source hash.
+Pending reasons receive a generated `id` once at scaffold time, recorded in the
+machine ledger rather than human-authored frontmatter. The stored id is 12
+lower-case hexadecimal characters derived from a SHA-256 scaffold seed that
+includes initial scope, creation time, entry path, and a random nonce. It is not
+derived from mutable reason prose, current source content, or current source
+hash.
 
 The CLI displays and accepts refs as `@<prefix>`. The displayed prefix is the shortest unambiguous id prefix across pending entries and applied history, with a minimum of 6 hex characters. Ambiguous prefixes fail with candidate refs. If a generated 12-character id collides during scaffold, the CLI regenerates with a fresh nonce before writing.
 
@@ -42,11 +48,12 @@ The CLI displays and accepts refs as `@<prefix>`. The displayed prefix is the sh
 
 This lets multiple entries share `group: linear:SET-31` or a similar external id without forcing them to release together. It also avoids duplicating the external id as both the entry id and group id. Each change keeps its own generated id; the group points at why several entries may be related.
 
-### Hash-Schema Baselines
+### Unresolved Baseline Semantics
 
-Normalizer/hash-schema migrations use an explicit `skillset change baseline` flow. A baseline records the current normalized source-unit hashes under the new hash schema without creating artificial changelog entries or release bumps. The baseline record is append-only and machine-readable, and it must include the hash schema id, previous schema id when known, current source hashes, timestamp, and an authored reason.
-
-Baseline records are not changelog entries. They prove that later `change status` output is comparing against an intentional schema migration point rather than silently treating every source unit as changed. If the user does not run the baseline command, the new normalizer must fail or warn loudly rather than silently reset state.
+This ADR does not accept a public baseline command or settle the meaning and
+required evidence of `baseline.recorded`. Normalizer/hash-schema migrations must
+continue to fail loudly instead of silently resetting state. SET-363 owns the
+remaining command, event, reason, and reconstruction decision.
 
 ### Release-Tool Interop
 
@@ -56,9 +63,24 @@ Entity-local Skillset `CHANGELOG.md` projections remain generated Skillset artif
 
 ## Consequences
 
-These decisions favor explicit source truth over convenience. The cost is more authoring ceremony for inheritance, release grouping, and package-release interop. The benefit is that change status, release planning, and target lowering cannot silently widen support claims, rely on unproven target update behavior, or rewrite another release tool's state.
+These decisions favor explicit source truth over convenience. The cost is more authoring ceremony for inheritance, release grouping, and package-release interop. The benefit is that change status, release planning, and target rendering cannot silently widen support claims, rely on unproven target update behavior, or rewrite another release tool's state.
+
+## Acceptance Evidence (2026-07-20)
+
+The compact-ref, ambiguity, grouping/filtering, source-significant supports,
+ordinary SemVer, plugin-dependency, and external-release-tool decisions above
+are implemented and accepted. Pending reasons are now reason-only Markdown and
+machine evidence lives in the append-only ledger, so any earlier storage wording
+is historical context rather than a second contract.
+
+Baseline behavior is excluded from this acceptance. No public baseline command
+or settled baseline-record semantic is implied; SET-363 owns that decision.
+The unresolved baseline question does not defer the other proved edges. Current
+evidence is in the change, release, and supports feature pages,
+`change-ledger.ts`, compact-reference/group/support tests, and external-tool
+boundary tests.
 
 ## References
 
-- [Changelog and Version Bump Workflow](20260604-changelog-and-versioning.md) - earlier changesets-style design, now refined by this edge-case ADR.
-- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source-first and generated-output doctrine.
+- [Changelog and Version Bump Workflow](0013-changelog-and-versioning.md) - superseded historical design replaced by the ADR-0014/0015 lineage.
+- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - source-first and generated-output doctrine.

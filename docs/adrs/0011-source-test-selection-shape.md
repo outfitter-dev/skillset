@@ -1,18 +1,21 @@
 ---
+id: 11
 slug: source-test-selection-shape
 title: Source Test Selection Shape
-status: draft
+status: accepted
 created: 2026-06-22
-updated: 2026-06-22
+updated: 2026-07-20
 owners: ['[galligan](https://github.com/galligan)']
-depends_on: [0, 1, unified-source-layout, fixtures-tests-dogfooding-and-evals, deterministic-projection-and-adapter-conformance]
+depends_on: [0, 1, 9]
 ---
 
-# ADR: Source Test Selection Shape
+# ADR-0011: Source Test Selection Shape
 
 ## Context
 
-The first `skillset test` slice proves that an isolated build can render source and check generated files. The current self-hosted declaration is intentionally small but awkward:
+Before the accepted source-test cutover, the first `skillset test` slice proved
+an isolated build through a workspace-manifest declaration with generated-path
+assertions:
 
 ```yaml
 tests:
@@ -37,24 +40,16 @@ We need a better source-facing shape before the first test surface becomes habit
 - source selection is different from destination/build scope;
 - authors should select source-owned things, not generated filenames;
 - provider-specific output details should be derived when Skillset already knows them;
-- ordinary and dedicated layouts should mean the same thing at the config-key level.
+- one flat workspace layout should own one declaration shape.
 
 ## Decision
 
-Deterministic test declarations should move into the active source root, not a workspace-level manifest section as the primary authoring surface.
-
-For ordinary repos, the source-root test files are:
-
-```text
-.skillset/src/tests.yaml
-.skillset/src/tests/<test-name>.yaml
-```
-
-For dedicated Skillset repos, the equivalent files are:
+Deterministic test declarations live in the active `.skillset/` source root,
+not in the workspace manifest. The supported files are:
 
 ```text
-skillset/tests.yaml
-skillset/tests/<test-name>.yaml
+.skillset/tests.yaml
+.skillset/tests/<test-name>.yaml
 ```
 
 The two forms join into one test map. A single `tests.yaml` can hold many tests:
@@ -71,7 +66,7 @@ self-hosted:
 A split file has the same inner shape:
 
 ```yaml
-# skillset/tests/self-hosted.yaml
+# .skillset/tests/self-hosted.yaml
 select:
   plugins: ["skillset"]
 checks:
@@ -105,7 +100,7 @@ This means:
 - `select.skills.primary: true` selects skills directly under the active source root's `skills/` family.
 - `select.skills.plugin: true` is available as the skills-family spelling for plugin-bound skills, but `select.plugins.skills` is the clearer shape when the test starts from plugins.
 
-`primary` is the author-facing term for top-level source-root skills. It deliberately does not distinguish `.skillset/src/skills/` from `skillset/skills/`, and it avoids overloading `local`, `global`, `repo`, `root`, or the colder compiler term `standalone`.
+`primary` is the author-facing term for top-level `.skillset/skills/`. It avoids overloading `local`, `global`, `repo`, `root`, or the colder compiler term `standalone`.
 
 Examples:
 
@@ -136,11 +131,11 @@ plugin-skills:
     projection: true
 ```
 
-When `select.plugins: true` appears without further narrowing, Skillset should treat it as the whole plugin source family: plugin config, manifest metadata, plugin-bound skills, and supported plugin companion features. More specific object forms can narrow to config-only, skills-only, or feature-only behavior later, but the broad boolean should mean "prove the plugin," not "prove only the plugin's manifest file."
+When `select.plugins: true` appears without further narrowing, Skillset treats it as the whole plugin source family: plugin config, manifest metadata, plugin-bound skills, and supported plugin companion features. More specific object forms can narrow the set, but the broad boolean means "prove the plugin," not "prove only the plugin's manifest file."
 
-### Checks Should Absorb Common Provider Ceremony
+### Checks Absorb Common Provider Ceremony
 
-Tests should prefer high-level checks over generated path assertions for common Skillset promises.
+Tests prefer high-level checks over generated path assertions for common Skillset promises.
 
 ```yaml
 self-hosted:
@@ -149,6 +144,7 @@ self-hosted:
   targets:
     - claude
     - codex
+    - cursor
   output:
     kind: isolated
   checks:
@@ -158,7 +154,7 @@ self-hosted:
 
 `projection: true` means the isolated test workspace builds successfully after pruning unselected source units, and the selected source projection has no generated-output drift after the build.
 
-`pluginManifests: true` means Skillset derives the enabled provider targets, output roots, plugin ids, provider manifest paths, and expected manifest identity from the selected plugins. For each selected plugin and target, Skillset should check that the provider manifest exists, parses as JSON where applicable, has the expected name/version/metadata fields, and is covered by generated-output provenance.
+`pluginManifests: true` means Skillset derives the enabled provider targets, output roots, plugin ids, provider manifest paths, and expected manifest identity from the selected plugins. For each selected plugin and target, Skillset checks that the provider manifest exists, parses as JSON where applicable, has the expected identity fields, and is covered by generated-output provenance.
 
 Low-level file checks remain an escape hatch. The first implementation accepts explicit generated paths:
 
@@ -175,7 +171,9 @@ custom-manifest-field:
 
 Provider-relative output selectors such as `output: plugin`, `target: codex`, and `path: .codex-plugin/plugin.json` remain a future improvement once the test runner has a concrete source-to-output selection layer.
 
-The old workspace-manifest `assertions` vocabulary was useful for the first implementation slice, but it should not become part of the public source-test contract. This ADR is a clean cutover: source-root tests use `checks`, and the implementation should migrate this repo's existing self-hosted declaration rather than carrying long-lived `assertions` compatibility.
+The old workspace-manifest `assertions` vocabulary was first-slice scaffolding
+and is retired. Source-root tests use `checks`; the self-hosted declaration was
+migrated without long-lived `assertions` compatibility.
 
 ### Plugin-Local Defaults Stay Deferred
 
@@ -191,7 +189,7 @@ or:
 tests: ["self-hosted"]
 ```
 
-That should wait until the source-root test declaration contract is implemented. Starting with explicit source-root tests keeps the first public shape inspectable and avoids creating a second plugin inventory parallel to the source tree.
+That remains deferred. Explicit source-root tests keep the current public shape inspectable and avoid creating a second plugin inventory parallel to the source tree.
 
 ### Run Output Follows Operational State Layout
 
@@ -204,21 +202,17 @@ The default retained run output should follow the current workspace operational 
 .skillset/cache/tests/runs/<run-id>/
 ```
 
-If a future mode stores per-repo test output in a global XDG cache, it should use the same stable repo-key bucket as other per-repo operational output:
-
-```text
-$XDG_CACHE_HOME/skillset/<owner>--<repo>/tests/latest/
-$XDG_CACHE_HOME/skillset/<owner>--<repo>/tests/runs/<run-id>/
-```
-
-Global test output must remain rebuildable/cache-like. Authored test declarations, change state, locks, generated changelog projections, and source truth stay in the workspace. Global cache may index or mirror runs so agents can find them from anywhere, but it should not become the canonical home for authored tests.
+These logical paths resolve through the repository's stable XDG cache bucket.
+Run output remains rebuildable/cache-like. Authored test declarations, change
+state, locks, generated changelog projections, and source truth stay in the
+workspace; operational storage does not become the canonical home for tests.
 
 ## Consequences
 
 ### Positive
 
 - Authors can prove common Skillset source promises without copying provider output paths into every test.
-- The same test keys work for ordinary and dedicated layouts because the source root is resolved before reading tests.
+- One declaration shape works throughout the flat workspace.
 - `select.skills: true` matches the human reading of "skills in general," while `skills.primary` gives precise control without leaking layout names.
 - Built-in checks let Skillset codify common provider manifest expectations once instead of making every plugin author rediscover them.
 - Existing source selectors, build scopes, and target selection stay separate.
@@ -226,9 +220,9 @@ Global test output must remain rebuildable/cache-like. Authored test declaration
 ### Tradeoffs
 
 - Source pruning is source-family based in v1; finer-grained feature and provider-relative file selectors can build on the same selector vocabulary later.
-- `primary` is a new author-facing term and must be defined consistently in docs, diagnostics, and future schema messages.
+- `primary` is an author-facing term and must stay consistent in docs, diagnostics, and schema messages.
 - Supporting both aggregate and split test files adds collision handling and provenance responsibility.
-- Existing self-hosted tests need a one-time migration from workspace-manifest `assertions` to source-root `checks`.
+- Existing self-hosted tests completed the one-time migration from workspace-manifest `assertions` to source-root `checks`.
 
 ### Risks
 
@@ -239,17 +233,34 @@ Global test output must remain rebuildable/cache-like. Authored test declaration
 ### What This Does NOT Decide
 
 - It does not define provider-relative low-level file checks.
-- It does not require a long-lived compatibility path for workspace-manifest `tests`; implementation should treat the existing shape as pre-public scaffolding to migrate cleanly.
+- It does not retain compatibility for the retired workspace-manifest `tests` shape.
 - It does not define eval declarations.
 - It does not define runtime activation, trust, install, or publish behavior.
 - It does not decide every future selector for agents, instructions, target-native islands, dependencies, or sets.
 
+## Acceptance Evidence (2026-07-20)
+
+Declarations live at `.skillset/tests.yaml` and
+`.skillset/tests/<name>.yaml`; aggregate and split forms merge into the same
+canonical inventory. Implemented declarations use `select`, `targets`, and
+`checks`, with derived projection and plugin-manifest checks plus an explicit
+file escape hatch. Claude, Codex, and Cursor are first-class targets.
+
+The test family now includes deterministic declarations, activation probes,
+declared runtime literal assertions, and ad hoc runtime tests. Retained reports
+use logical `.skillset/cache/tests/...` paths backed by repository XDG storage.
+Plugin-local declarations, provider-relative output selectors, and behavioral
+evals remain outside this decision. The shared schema contracts, test runner,
+CLI, contract/try tests, and `docs/features/tests-and-evals.md` are the current
+implementation evidence; `.skillset/src/tests*` and root `skillset/tests*` are
+retired paths.
+
 ## References
 
-- [Tenets](../../tenets.md) - source-first loadouts, derive by default, and target truth.
-- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - governing source and generated-output doctrine.
-- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - compile targets remain provider selection, not source selection.
-- [Unified Source Layout](20260618-unified-source-layout.md) - ordinary and dedicated repos share one source-root model.
-- [Fixtures, Tests, Dogfooding, and Evals](20260609-fixtures-tests-dogfooding-and-evals.md) - original reserved deterministic test surface.
-- [Deterministic Projection and Adapter Conformance](20260613-deterministic-projection-and-adapter-conformance.md) - isolated projection and adapter conformance context.
-- [Tests and Evals](../../features/tests-and-evals.md) - current feature-facing test boundary.
+- [Tenets](../tenets.md) - source-first loadouts, derive by default, and target truth.
+- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - governing source and generated-output doctrine.
+- [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - compile targets remain provider selection, not source selection.
+- [Skillset Workspace Layout](0009-skillset-workspace-layout.md) - current flat source-root model, superseding the earlier unified-layout proposal.
+- [Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tests-dogfooding-and-evals.md) - original reserved deterministic test surface.
+- [Deterministic Projection and Adapter Conformance](0019-deterministic-projection-and-adapter-conformance.md) - isolated projection and adapter conformance context.
+- [Tests and Evals](../features/tests-and-evals.md) - current feature-facing test boundary.

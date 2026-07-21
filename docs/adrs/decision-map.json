@@ -17,24 +17,84 @@
           "fromPath": "docs/adrs/0002-cursor-is-a-first-class-provider.md"
         },
         {
-          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source and generated-output authority.",
+          "context": "- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - source and generated-output authority.",
           "from": "0003",
           "fromPath": "docs/adrs/0003-lossy-and-unsupported-output-policy.md"
         },
         {
-          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - baseline source-first compiler doctrine.",
-          "from": "20260604",
-          "fromPath": "docs/adrs/drafts/20260604-agent-source-model.md"
+          "context": "- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - baseline source-first compiler doctrine.",
+          "from": "0005",
+          "fromPath": "docs/adrs/0005-feature-reference-and-schema-registry.md"
         },
         {
-          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - baseline source-first compiler doctrine.",
-          "from": "20260604",
-          "fromPath": "docs/adrs/drafts/20260604-changelog-and-versioning.md"
+          "context": "- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - baseline source-first compiler doctrine.",
+          "from": "0006",
+          "fromPath": "docs/adrs/0006-agent-source-model.md"
         },
         {
-          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - baseline source-first compiler doctrine.",
-          "from": "20260604",
-          "fromPath": "docs/adrs/drafts/20260604-feature-reference-and-schema-registry.md"
+          "context": "- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - baseline source vocabulary doctrine.",
+          "from": "0007",
+          "fromPath": "docs/adrs/0007-source-manifest-listing-metadata.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - source remains the product.",
+          "from": "0008",
+          "fromPath": "docs/adrs/0008-unified-source-layout.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - governing source and generated-output doctrine.",
+          "from": "0011",
+          "fromPath": "docs/adrs/0011-source-test-selection-shape.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - source and generated-output doctrine.",
+          "from": "0012",
+          "fromPath": "docs/adrs/0012-fixtures-tests-dogfooding-and-evals.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - baseline source-first compiler doctrine.",
+          "from": "0013",
+          "fromPath": "docs/adrs/0013-changelog-and-versioning.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - source-first doctrine.",
+          "from": "0014",
+          "fromPath": "docs/adrs/0014-source-change-release-provenance.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) -",
+          "from": "0015",
+          "fromPath": "docs/adrs/0015-reason-only-change-ledger-derived-state.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - source-first and generated-output doctrine.",
+          "from": "0016",
+          "fromPath": "docs/adrs/0016-change-release-edge-decisions.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - governing source and generated-output doctrine.",
+          "from": "0017",
+          "fromPath": "docs/adrs/0017-lowering-outcomes-and-loss-ledger.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - governing source and generated-output doctrine.",
+          "from": "0019",
+          "fromPath": "docs/adrs/0019-deterministic-projection-and-adapter-conformance.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - source remains the authored truth while commands inspect or render it.",
+          "from": "0022",
+          "fromPath": "docs/adrs/0022-workflow-oriented-cli.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - source and rendered output authority.",
+          "from": "0023",
+          "fromPath": "docs/adrs/0023-versioned-structured-output-for-cli-automation.md"
+        },
+        {
+          "context": "- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - the source contract adoption migrates repos into.",
+          "from": "0024",
+          "fromPath": "docs/adrs/0024-one-action-repo-adoption.md"
         },
         {
           "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source-first and generated-output doctrine.",
@@ -57,69 +117,9 @@
           "fromPath": "docs/adrs/drafts/20260604-reviewed-settings-suggestions.md"
         },
         {
-          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source-first and generated-output doctrine.",
-          "from": "20260609",
-          "fromPath": "docs/adrs/drafts/20260609-change-release-edge-decisions.md"
-        },
-        {
-          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source and generated-output doctrine.",
-          "from": "20260609",
-          "fromPath": "docs/adrs/drafts/20260609-fixtures-tests-dogfooding-and-evals.md"
-        },
-        {
-          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source-first doctrine.",
-          "from": "20260609",
-          "fromPath": "docs/adrs/drafts/20260609-source-change-release-provenance.md"
-        },
-        {
-          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - the source contract adoption migrates repos into.",
-          "from": "20260610",
-          "fromPath": "docs/adrs/drafts/20260610-one-action-repo-adoption.md"
-        },
-        {
-          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - governing source and generated-output doctrine.",
-          "from": "20260613",
-          "fromPath": "docs/adrs/drafts/20260613-deterministic-projection-and-adapter-conformance.md"
-        },
-        {
-          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - governing source and generated-output doctrine.",
-          "from": "20260614",
-          "fromPath": "docs/adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md"
-        },
-        {
-          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source remains the product.",
-          "from": "20260618",
-          "fromPath": "docs/adrs/drafts/20260618-unified-source-layout.md"
-        },
-        {
-          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - governing source and generated-output doctrine.",
-          "from": "20260622",
-          "fromPath": "docs/adrs/drafts/20260622-source-test-selection-shape.md"
-        },
-        {
-          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - baseline source vocabulary doctrine.",
-          "from": "20260625",
-          "fromPath": "docs/adrs/drafts/20260625-source-manifest-listing-metadata.md"
-        },
-        {
-          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) -",
-          "from": "20260630",
-          "fromPath": "docs/adrs/drafts/20260630-reason-only-change-ledger-derived-state.md"
-        },
-        {
           "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source remains the reviewed product; generated catalog files remain output.",
           "from": "20260710",
           "fromPath": "docs/adrs/drafts/20260710-catalog-owned-marketplace-refresh-pull-requests.md"
-        },
-        {
-          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source and rendered output authority.",
-          "from": "20260712",
-          "fromPath": "docs/adrs/drafts/20260712-versioned-structured-output-for-cli-automation.md"
-        },
-        {
-          "context": "- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source remains the authored truth while commands inspect or render it.",
-          "from": "20260712",
-          "fromPath": "docs/adrs/drafts/20260712-workflow-oriented-cli.md"
         }
       ],
       "number": "0000",
@@ -148,14 +148,39 @@
           "fromPath": "docs/adrs/0002-cursor-is-a-first-class-provider.md"
         },
         {
-          "context": "[ADR-0001](../0001-root-compile-policy.md) established",
+          "context": "[ADR-0001](0001-root-compile-policy.md) established",
           "from": "0003",
           "fromPath": "docs/adrs/0003-lossy-and-unsupported-output-policy.md"
         },
         {
-          "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - provider selection and unsupported-policy boundary.",
-          "from": "20260604",
-          "fromPath": "docs/adrs/drafts/20260604-feature-reference-and-schema-registry.md"
+          "context": "- [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - provider selection and unsupported-policy boundary.",
+          "from": "0005",
+          "fromPath": "docs/adrs/0005-feature-reference-and-schema-registry.md"
+        },
+        {
+          "context": "- [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - compile concerns stay under `compile`, target-native options stay provider-specific.",
+          "from": "0007",
+          "fromPath": "docs/adrs/0007-source-manifest-listing-metadata.md"
+        },
+        {
+          "context": "- [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - `compile.targets` remains provider selection.",
+          "from": "0008",
+          "fromPath": "docs/adrs/0008-unified-source-layout.md"
+        },
+        {
+          "context": "- [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - compile targets remain provider selection, not source selection.",
+          "from": "0011",
+          "fromPath": "docs/adrs/0011-source-test-selection-shape.md"
+        },
+        {
+          "context": "- [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - root target selection and unsupported policy context.",
+          "from": "0017",
+          "fromPath": "docs/adrs/0017-lowering-outcomes-and-loss-ledger.md"
+        },
+        {
+          "context": "- [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - root provider selection and the original unsupported-destination policy reservation.",
+          "from": "0021",
+          "fromPath": "docs/adrs/0021-post-tools-policy-boundary.md"
         },
         {
           "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - provider selection and target-specific config boundaries.",
@@ -173,34 +198,9 @@
           "fromPath": "docs/adrs/drafts/20260604-reviewed-settings-suggestions.md"
         },
         {
-          "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - root target selection and unsupported policy context.",
-          "from": "20260614",
-          "fromPath": "docs/adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md"
-        },
-        {
-          "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - `compile.targets` remains provider selection.",
-          "from": "20260618",
-          "fromPath": "docs/adrs/drafts/20260618-unified-source-layout.md"
-        },
-        {
-          "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - compile targets remain provider selection, not source selection.",
-          "from": "20260622",
-          "fromPath": "docs/adrs/drafts/20260622-source-test-selection-shape.md"
-        },
-        {
           "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - root manifest compile policy.",
           "from": "20260622",
           "fromPath": "docs/adrs/drafts/20260622-yaml-formatting-and-bun-native-apis.md"
-        },
-        {
-          "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - compile concerns stay under `compile`, target-native options stay provider-specific.",
-          "from": "20260625",
-          "fromPath": "docs/adrs/drafts/20260625-source-manifest-listing-metadata.md"
-        },
-        {
-          "context": "- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - root provider selection and the original unsupported-destination policy reservation.",
-          "from": "20260705",
-          "fromPath": "docs/adrs/drafts/20260705-post-tools-policy-boundary.md"
         }
       ],
       "number": "0001",
@@ -216,23 +216,17 @@
       "amended_by": [],
       "amends": [],
       "created": "2026-07-02",
-      "depends_on": [
-        "0",
-        "1",
-        "feature-reference-and-schema-registry",
-        "agent-source-model",
-        "lowering-outcomes-and-loss-ledger"
-      ],
+      "depends_on": ["0", "1"],
       "inbound": [
         {
           "context": "- [Cursor Is a First-Class Provider](0002-cursor-is-a-first-class-provider.md) - Cursor-specific provider boundary this ADR specializes.",
-          "from": "20260702",
-          "fromPath": "docs/adrs/drafts/20260702-portable-agent-authority-intent.md"
+          "from": "0020",
+          "fromPath": "docs/adrs/0020-portable-skill-tools-policy.md"
         },
         {
           "context": "- [Cursor Is a First-Class Provider](0002-cursor-is-a-first-class-provider.md) - Cursor provider evidence and activation boundary.",
-          "from": "20260705",
-          "fromPath": "docs/adrs/drafts/20260705-post-tools-policy-boundary.md"
+          "from": "0021",
+          "fromPath": "docs/adrs/0021-post-tools-policy-boundary.md"
         },
         {
           "context": "- [Cursor provider ADR](../adrs/0002-cursor-is-a-first-class-provider.md) - first-class Cursor provider contract.",
@@ -262,13 +256,18 @@
       "inbound": [
         {
           "context": "diagnostics and lock provenance; [Lossy and Unsupported Output Policy](0003-lossy-and-unsupported-output-policy.md)",
-          "from": "20260614",
-          "fromPath": "docs/adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md"
+          "from": "0017",
+          "fromPath": "docs/adrs/0017-lowering-outcomes-and-loss-ledger.md"
+        },
+        {
+          "context": "- [ADR-0003](0003-lossy-and-unsupported-output-policy.md) - narrow lossy and unsupported policy specialization.",
+          "from": "0018",
+          "fromPath": "docs/adrs/0018-render-results.md"
         },
         {
           "context": "satisfied it; [Lossy and Unsupported Output Policy](0003-lossy-and-unsupported-output-policy.md)",
-          "from": "20260705",
-          "fromPath": "docs/adrs/drafts/20260705-post-tools-policy-boundary.md"
+          "from": "0021",
+          "fromPath": "docs/adrs/0021-post-tools-policy-boundary.md"
         }
       ],
       "number": "0003",
@@ -278,6 +277,739 @@
       "status": "accepted",
       "superseded_by": null,
       "title": "Lossy and Unsupported Output Policy",
+      "updated": "2026-07-20"
+    },
+    {
+      "amended_by": [],
+      "amends": [],
+      "created": "2026-06-12",
+      "depends_on": ["0", "1"],
+      "inbound": [
+        {
+          "context": "- [Core Library and CLI Boundary](0004-core-library-boundary.md) - places structured compiler facts in `@skillset/core`.",
+          "from": "0017",
+          "fromPath": "docs/adrs/0017-lowering-outcomes-and-loss-ledger.md"
+        },
+        {
+          "context": "- [Core Library and CLI Boundary](0004-core-library-boundary.md) - places structured compiler facts in `@skillset/core`.",
+          "from": "0019",
+          "fromPath": "docs/adrs/0019-deterministic-projection-and-adapter-conformance.md"
+        },
+        {
+          "context": "- [Core Library and CLI Boundary](0004-core-library-boundary.md) - core returns facts while the CLI owns rendering.",
+          "from": "0023",
+          "fromPath": "docs/adrs/0023-versioned-structured-output-for-cli-automation.md"
+        }
+      ],
+      "number": "0004",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0004-core-library-boundary.md",
+      "slug": "core-library-boundary",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Core Library and CLI Boundary",
+      "updated": "2026-07-20"
+    },
+    {
+      "amended_by": [],
+      "amends": [],
+      "created": "2026-06-04",
+      "depends_on": ["0", "1"],
+      "inbound": [
+        {
+          "context": "- [Feature Reference and Schema Registry](0005-feature-reference-and-schema-registry.md) - registry-backed capability claims and evidence.",
+          "from": "0002",
+          "fromPath": "docs/adrs/0002-cursor-is-a-first-class-provider.md"
+        },
+        {
+          "context": "- [Feature Reference and Schema Registry](0005-feature-reference-and-schema-registry.md) - future registry-backed feature docs.",
+          "from": "0004",
+          "fromPath": "docs/adrs/0004-core-library-boundary.md"
+        },
+        {
+          "context": "- [Feature Reference and Schema Registry](0005-feature-reference-and-schema-registry.md) - current feature docs and registry direction.",
+          "from": "0012",
+          "fromPath": "docs/adrs/0012-fixtures-tests-dogfooding-and-evals.md"
+        },
+        {
+          "context": "- [Feature Reference and Schema Registry](0005-feature-reference-and-schema-registry.md) - static feature capability and registry evidence model.",
+          "from": "0017",
+          "fromPath": "docs/adrs/0017-lowering-outcomes-and-loss-ledger.md"
+        },
+        {
+          "context": "- [Feature Reference and Schema Registry](0005-feature-reference-and-schema-registry.md) - registry-backed support and evidence model used by adapter conformance.",
+          "from": "0019",
+          "fromPath": "docs/adrs/0019-deterministic-projection-and-adapter-conformance.md"
+        },
+        {
+          "context": "- [Feature Reference and Schema Registry](0005-feature-reference-and-schema-registry.md) - registry-backed feature and capability evidence.",
+          "from": "0020",
+          "fromPath": "docs/adrs/0020-portable-skill-tools-policy.md"
+        },
+        {
+          "context": "- [Feature Reference and Schema Registry](0005-feature-reference-and-schema-registry.md) - feature ids, support evidence, and conformance expectations.",
+          "from": "0021",
+          "fromPath": "docs/adrs/0021-post-tools-policy-boundary.md"
+        },
+        {
+          "context": "- `lookup` teaches the static Skillset contract. `lookup features [id]` absorbs the feature registry command and continues to draw facts from the [registry-owned support model](0005-feature-reference-",
+          "from": "0022",
+          "fromPath": "docs/adrs/0022-workflow-oriented-cli.md"
+        },
+        {
+          "context": "- [Feature Reference and Schema Registry](../0005-feature-reference-and-schema-registry.md) - tracks first-class sets as future-only and keeps scopes/selectors separate.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-first-class-sets.md"
+        },
+        {
+          "context": "- [Feature Reference and Schema Registry](../0005-feature-reference-and-schema-registry.md) - tracks model/reasoning aliases as future-only.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-model-and-reasoning-alias-profiles.md"
+        },
+        {
+          "context": "- [Feature Reference and Schema Registry](../0005-feature-reference-and-schema-registry.md) - tracks settings as future-only and target-native.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-reviewed-settings-suggestions.md"
+        },
+        {
+          "context": "See [Feature Reference and Schema Registry](../adrs/0005-feature-reference-and-schema-registry.md) for the ADR-level decision.",
+          "from": "feature-registry",
+          "fromPath": "docs/features/feature-registry.md"
+        },
+        {
+          "context": "- [Feature registry](../adrs/0005-feature-reference-and-schema-registry.md) - schema-backed support and evidence direction.",
+          "from": "runtime-adapters",
+          "fromPath": "docs/features/runtime-adapters.md"
+        }
+      ],
+      "number": "0005",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0005-feature-reference-and-schema-registry.md",
+      "slug": "feature-reference-and-schema-registry",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Feature Reference and Schema Registry",
+      "updated": "2026-07-20"
+    },
+    {
+      "amended_by": [],
+      "amends": [],
+      "created": "2026-06-04",
+      "depends_on": ["0"],
+      "inbound": [
+        {
+          "context": "- [Agent / Subagent Source Model](0006-agent-source-model.md) - project and plugin agent boundaries.",
+          "from": "0002",
+          "fromPath": "docs/adrs/0002-cursor-is-a-first-class-provider.md"
+        },
+        {
+          "context": "- [Agent / Subagent Source Model](0006-agent-source-model.md) - project-agent and plugin-agent boundaries.",
+          "from": "0020",
+          "fromPath": "docs/adrs/0020-portable-skill-tools-policy.md"
+        },
+        {
+          "context": "- [Agent / Subagent Source Model](../0006-agent-source-model.md) - project agents as the first close-match surface.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-model-and-reasoning-alias-profiles.md"
+        }
+      ],
+      "number": "0006",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0006-agent-source-model.md",
+      "slug": "agent-source-model",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Agent / Subagent Source Model",
+      "updated": "2026-07-20"
+    },
+    {
+      "amended_by": [],
+      "amends": [],
+      "created": "2026-06-25",
+      "depends_on": ["0", "1"],
+      "inbound": [],
+      "number": "0007",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0007-source-manifest-listing-metadata.md",
+      "slug": "source-manifest-listing-metadata",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Source Manifest Listing Metadata",
+      "updated": "2026-07-20"
+    },
+    {
+      "amended_by": [],
+      "amends": [],
+      "created": "2026-06-18",
+      "depends_on": ["0", "1"],
+      "inbound": [
+        {
+          "context": "- [Unified Source Layout](0008-unified-source-layout.md) - earlier",
+          "from": "0009",
+          "fromPath": "docs/adrs/0009-skillset-workspace-layout.md"
+        }
+      ],
+      "number": "0008",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0008-unified-source-layout.md",
+      "slug": "unified-source-layout",
+      "status": "superseded",
+      "superseded_by": ["9"],
+      "title": "Unified Source Layout",
+      "updated": "2026-07-20"
+    },
+    {
+      "amended_by": [],
+      "amends": [],
+      "created": "2026-06-27",
+      "depends_on": ["0", "1", "2", "8"],
+      "inbound": [
+        {
+          "context": "- [Skillset Workspace Layout](0009-skillset-workspace-layout.md) - canonical workspace and plugin boundaries.",
+          "from": "0010",
+          "fromPath": "docs/adrs/0010-named-partials.md"
+        },
+        {
+          "context": "- [Skillset Workspace Layout](0009-skillset-workspace-layout.md) - current flat source-root model, superseding the earlier unified-layout proposal.",
+          "from": "0011",
+          "fromPath": "docs/adrs/0011-source-test-selection-shape.md"
+        }
+      ],
+      "number": "0009",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0009-skillset-workspace-layout.md",
+      "slug": "skillset-workspace-layout",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Skillset Workspace Layout",
+      "updated": "2026-07-20"
+    },
+    {
+      "amended_by": [],
+      "amends": [],
+      "created": "2026-06-27",
+      "depends_on": ["9"],
+      "inbound": [],
+      "number": "0010",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0010-named-partials.md",
+      "slug": "named-partials",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Named Partials",
+      "updated": "2026-07-20"
+    },
+    {
+      "amended_by": [],
+      "amends": [],
+      "created": "2026-06-22",
+      "depends_on": ["0", "1", "9"],
+      "inbound": [],
+      "number": "0011",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0011-source-test-selection-shape.md",
+      "slug": "source-test-selection-shape",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Source Test Selection Shape",
+      "updated": "2026-07-20"
+    },
+    {
+      "amended_by": [],
+      "amends": [],
+      "created": "2026-06-09",
+      "depends_on": ["0", "5", "11"],
+      "inbound": [
+        {
+          "context": "- [Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tests-dogfooding-and-evals.md) - fixture, test, and dogfood boundaries.",
+          "from": "0004",
+          "fromPath": "docs/adrs/0004-core-library-boundary.md"
+        },
+        {
+          "context": "- [Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tests-dogfooding-and-evals.md) - original reserved deterministic test surface.",
+          "from": "0011",
+          "fromPath": "docs/adrs/0011-source-test-selection-shape.md"
+        },
+        {
+          "context": "- [Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tests-dogfooding-and-evals.md) - separates fixtures, dogfooding, deterministic tests, and evals.",
+          "from": "0019",
+          "fromPath": "docs/adrs/0019-deterministic-projection-and-adapter-conformance.md"
+        },
+        {
+          "context": "`skillset test` owns committed declarations and ad hoc runtime evidence. This extends the separation between deterministic tests and evals in [Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tes",
+          "from": "0022",
+          "fromPath": "docs/adrs/0022-workflow-oriented-cli.md"
+        },
+        {
+          "context": "- [Fixtures, Tests, Dogfooding, and Evals](0012-fixtures-tests-dogfooding-and-evals.md) - external fixtures consume adoption; isolated output aligns with `skillset test` run isolation.",
+          "from": "0024",
+          "fromPath": "docs/adrs/0024-one-action-repo-adoption.md"
+        },
+        {
+          "context": "See [Fixtures, Tests, Dogfooding, and Evals](../adrs/0012-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../adrs/0019-deterministic-projection-and-adapter-",
+          "from": "tests-and-evals",
+          "fromPath": "docs/features/tests-and-evals.md"
+        }
+      ],
+      "number": "0012",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0012-fixtures-tests-dogfooding-and-evals.md",
+      "slug": "fixtures-tests-dogfooding-and-evals",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Fixtures, Tests, Dogfooding, and Evals",
+      "updated": "2026-07-20"
+    },
+    {
+      "amended_by": [],
+      "amends": [],
+      "created": "2026-06-04",
+      "depends_on": ["0"],
+      "inbound": [
+        {
+          "context": "- [Changelog and Version Bump Workflow](0013-changelog-and-versioning.md) - earlier changesets-style design.",
+          "from": "0014",
+          "fromPath": "docs/adrs/0014-source-change-release-provenance.md"
+        },
+        {
+          "context": "- [Changelog and Version Bump Workflow](0013-changelog-and-versioning.md) - superseded historical design replaced by the ADR-0014/0015 lineage.",
+          "from": "0016",
+          "fromPath": "docs/adrs/0016-change-release-edge-decisions.md"
+        },
+        {
+          "context": "- [Changelog and Version Bump Workflow](../0013-changelog-and-versioning.md) - related non-goal for install/sync behavior.",
+          "from": "20260604",
+          "fromPath": "docs/adrs/drafts/20260604-global-xdg-managed-installs-and-sync.md"
+        },
+        {
+          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md), [Changelog and Version Bump Workflow](../adrs/0013-changelog-and-versioning.md), [Change and ",
+          "from": "releases",
+          "fromPath": "docs/features/releases.md"
+        }
+      ],
+      "number": "0013",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0013-changelog-and-versioning.md",
+      "slug": "changelog-and-versioning",
+      "status": "superseded",
+      "superseded_by": ["14"],
+      "title": "Changelog and Version Bump Workflow",
+      "updated": "2026-07-20"
+    },
+    {
+      "amended_by": ["15"],
+      "amends": [],
+      "created": "2026-06-09",
+      "depends_on": ["0"],
+      "inbound": [
+        {
+          "context": "- [Source Change, Release, and Dependency Provenance](0014-source-change-release-provenance.md) - structured result and lifecycle context.",
+          "from": "0004",
+          "fromPath": "docs/adrs/0004-core-library-boundary.md"
+        },
+        {
+          "context": "- [Source Change, Release, and Dependency Provenance](0014-source-change-release-provenance.md) - release state owns generated artifact versions.",
+          "from": "0007",
+          "fromPath": "docs/adrs/0007-source-manifest-listing-metadata.md"
+        },
+        {
+          "context": "- [Source Change, Release, and Dependency Provenance](0014-source-change-release-provenance.md) - committed change ledger model.",
+          "from": "0009",
+          "fromPath": "docs/adrs/0009-skillset-workspace-layout.md"
+        },
+        {
+          "context": "- [Source Change, Release, and Dependency Provenance](0014-source-change-release-provenance.md) - source-change and release workflow this dogfood boundary must prove.",
+          "from": "0012",
+          "fromPath": "docs/adrs/0012-fixtures-tests-dogfooding-and-evals.md"
+        },
+        {
+          "context": "- [Source Change, Release, and Dependency Provenance](0014-source-change-release-provenance.md) -",
+          "from": "0015",
+          "fromPath": "docs/adrs/0015-reason-only-change-ledger-derived-state.md"
+        },
+        {
+          "context": "- [Source Change, Release, and Dependency Provenance](0014-source-change-release-provenance.md) - lock provenance vocabulary that origin records extend.",
+          "from": "0024",
+          "fromPath": "docs/adrs/0024-one-action-repo-adoption.md"
+        },
+        {
+          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md), [Change and Release Edge Decisions](../adrs/0016-change-release-edge-decisions.md), and [Reas",
+          "from": "changes",
+          "fromPath": "docs/features/changes.md"
+        },
+        {
+          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md) and [Change and Release Edge Decisions](../adrs/0016-change-release-edge-decisions.md).",
+          "from": "dependencies",
+          "fromPath": "docs/features/dependencies.md"
+        },
+        {
+          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md) and [Reviewed Settings Suggestions](../adrs/drafts/20260604-reviewed-settings-suggestions.md).",
+          "from": "hook-guardrails",
+          "fromPath": "docs/features/hook-guardrails.md"
+        },
+        {
+          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md), [Changelog and Version Bump Workflow](../adrs/0013-changelog-and-versioning.md), [Change and ",
+          "from": "releases",
+          "fromPath": "docs/features/releases.md"
+        },
+        {
+          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md) and [Change and Release Edge Decisions](../adrs/0016-change-release-edge-decisions.md).",
+          "from": "supports",
+          "fromPath": "docs/features/supports.md"
+        }
+      ],
+      "number": "0014",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0014-source-change-release-provenance.md",
+      "slug": "source-change-release-provenance",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Source Change, Release, and Dependency Provenance",
+      "updated": "2026-07-20"
+    },
+    {
+      "amended_by": [],
+      "amends": ["14"],
+      "created": "2026-06-30",
+      "depends_on": ["0", "14"],
+      "inbound": [
+        {
+          "context": "The active cutover is a reason-only authoring model where humans write change reasons and Skillset derives ids, source hashes, coverage, and rebuildable state into a machine event ledger. See [Reason-",
+          "from": "changes",
+          "fromPath": "docs/features/changes.md"
+        },
+        {
+          "context": "The reason-only ledger cutover keeps generated changelogs as tracked projections but treats release/status state as rebuildable from an append-only event ledger instead of as an authoring surface. New",
+          "from": "releases",
+          "fromPath": "docs/features/releases.md"
+        }
+      ],
+      "number": "0015",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0015-reason-only-change-ledger-derived-state.md",
+      "slug": "reason-only-change-ledger-derived-state",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Reason-Only Change Ledger and Derived State",
+      "updated": "2026-07-20"
+    },
+    {
+      "amended_by": [],
+      "amends": [],
+      "created": "2026-06-09",
+      "depends_on": ["0", "14", "15"],
+      "inbound": [
+        {
+          "context": "- [Change and Release Edge Decisions](0016-change-release-edge-decisions.md) - implemented release-edge decisions and the explicitly unresolved baseline boundary that test fixtures must not hide.",
+          "from": "0012",
+          "fromPath": "docs/adrs/0012-fixtures-tests-dogfooding-and-evals.md"
+        },
+        {
+          "context": "The stable id and group semantics are defined in [Change and Release Edge Decisions](0016-change-release-edge-decisions.md). One entry may cover multiple scopes only when the reason is one coherent in",
+          "from": "0014",
+          "fromPath": "docs/adrs/0014-source-change-release-provenance.md"
+        },
+        {
+          "context": "- [Change and Release Edge Decisions](0016-change-release-edge-decisions.md) -",
+          "from": "0015",
+          "fromPath": "docs/adrs/0015-reason-only-change-ledger-derived-state.md"
+        },
+        {
+          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md), [Change and Release Edge Decisions](../adrs/0016-change-release-edge-decisions.md), and [Reas",
+          "from": "changes",
+          "fromPath": "docs/features/changes.md"
+        },
+        {
+          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md) and [Change and Release Edge Decisions](../adrs/0016-change-release-edge-decisions.md).",
+          "from": "dependencies",
+          "fromPath": "docs/features/dependencies.md"
+        },
+        {
+          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md), [Changelog and Version Bump Workflow](../adrs/0013-changelog-and-versioning.md), [Change and ",
+          "from": "releases",
+          "fromPath": "docs/features/releases.md"
+        },
+        {
+          "context": "See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md) and [Change and Release Edge Decisions](../adrs/0016-change-release-edge-decisions.md).",
+          "from": "supports",
+          "fromPath": "docs/features/supports.md"
+        }
+      ],
+      "number": "0016",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0016-change-release-edge-decisions.md",
+      "slug": "change-release-edge-decisions",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Change and Release Edge Decisions",
+      "updated": "2026-07-20"
+    },
+    {
+      "amended_by": [],
+      "amends": [],
+      "created": "2026-06-14",
+      "depends_on": ["0", "1", "3"],
+      "inbound": [
+        {
+          "context": "- [Lowering Outcomes and Loss Ledger](0017-lowering-outcomes-and-loss-ledger.md) - historical render-result and loss-ledger design.",
+          "from": "0003",
+          "fromPath": "docs/adrs/0003-lossy-and-unsupported-output-policy.md"
+        },
+        {
+          "context": "decision. [ADR-0017: Lowering Outcomes and Loss Ledger](../adrs/0017-lowering-outcomes-and-loss-ledger.md)",
+          "from": "render-results",
+          "fromPath": "docs/features/render-results.md"
+        },
+        {
+          "context": "See [Fixtures, Tests, Dogfooding, and Evals](../adrs/0012-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../adrs/0019-deterministic-projection-and-adapter-",
+          "from": "tests-and-evals",
+          "fromPath": "docs/features/tests-and-evals.md"
+        }
+      ],
+      "number": "0017",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0017-lowering-outcomes-and-loss-ledger.md",
+      "slug": "lowering-outcomes-and-loss-ledger",
+      "status": "superseded",
+      "superseded_by": ["18"],
+      "title": "Lowering Outcomes and Loss Ledger",
+      "updated": "2026-07-20"
+    },
+    {
+      "amended_by": [],
+      "amends": [],
+      "created": "2026-07-20",
+      "depends_on": ["0", "1", "4", "5"],
+      "inbound": [
+        {
+          "context": "- [Render Results](0018-render-results.md) - visible transformed, metadata-only, and unsupported outcomes.",
+          "from": "0002",
+          "fromPath": "docs/adrs/0002-cursor-is-a-first-class-provider.md"
+        },
+        {
+          "context": "- [Render Results](0018-render-results.md) - per-build outcome vocabulary that stays separate from registry capability status.",
+          "from": "0005",
+          "fromPath": "docs/adrs/0005-feature-reference-and-schema-registry.md"
+        },
+        {
+          "context": "- [Render Results](0018-render-results.md) - visible degraded, lossy, and unsupported render results.",
+          "from": "0020",
+          "fromPath": "docs/adrs/0020-portable-skill-tools-policy.md"
+        },
+        {
+          "context": "- [Render Results](0018-render-results.md) - current render-result statuses and provenance.",
+          "from": "0021",
+          "fromPath": "docs/adrs/0021-post-tools-policy-boundary.md"
+        },
+        {
+          "context": "- [Render Results](0018-render-results.md) - current structured diagnostic and outcome vocabulary.",
+          "from": "0023",
+          "fromPath": "docs/adrs/0023-versioned-structured-output-for-cli-automation.md"
+        },
+        {
+          "context": "See [ADR-0018: Render Results](../adrs/0018-render-results.md) for the current",
+          "from": "render-results",
+          "fromPath": "docs/features/render-results.md"
+        },
+        {
+          "context": "See [Fixtures, Tests, Dogfooding, and Evals](../adrs/0012-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../adrs/0019-deterministic-projection-and-adapter-",
+          "from": "tests-and-evals",
+          "fromPath": "docs/features/tests-and-evals.md"
+        }
+      ],
+      "number": "0018",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0018-render-results.md",
+      "slug": "render-results",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Render Results",
+      "updated": "2026-07-20"
+    },
+    {
+      "amended_by": [],
+      "amends": [],
+      "created": "2026-06-13",
+      "depends_on": ["0", "4", "5", "12", "18"],
+      "inbound": [
+        {
+          "context": "- [Deterministic Projection and Adapter Conformance](0019-deterministic-projection-and-adapter-conformance.md) - conformance model that consumes registry support and render results together.",
+          "from": "0005",
+          "fromPath": "docs/adrs/0005-feature-reference-and-schema-registry.md"
+        },
+        {
+          "context": "- [Deterministic Projection and Adapter Conformance](0019-deterministic-projection-and-adapter-conformance.md) - isolated projection and adapter conformance context.",
+          "from": "0011",
+          "fromPath": "docs/adrs/0011-source-test-selection-shape.md"
+        },
+        {
+          "context": "- [Deterministic Projection and Adapter Conformance](0019-deterministic-projection-and-adapter-conformance.md) - uses lowering outcomes with the feature registry for adapter conformance.",
+          "from": "0017",
+          "fromPath": "docs/adrs/0017-lowering-outcomes-and-loss-ledger.md"
+        },
+        {
+          "context": "The narrow verification primitive remains reusable internally, but top-level `lint`, `verify`, and `ci` are removed. This preserves the [deterministic projection boundary](0019-deterministic-projectio",
+          "from": "0022",
+          "fromPath": "docs/adrs/0022-workflow-oriented-cli.md"
+        },
+        {
+          "context": "- [Deterministic Projection and Adapter Conformance](0019-deterministic-projection-and-adapter-conformance.md) - stable structured result evidence and host normalization.",
+          "from": "0023",
+          "fromPath": "docs/adrs/0023-versioned-structured-output-for-cli-automation.md"
+        },
+        {
+          "context": "- [Deterministic Projection and Adapter Conformance](../0019-deterministic-projection-and-adapter-conformance.md) - ordering drift and generated-output stability.",
+          "from": "20260622",
+          "fromPath": "docs/adrs/drafts/20260622-yaml-formatting-and-bun-native-apis.md"
+        },
+        {
+          "context": "- [Deterministic Projection and Adapter Conformance](../adrs/0019-deterministic-projection-and-adapter-conformance.md) defines how render results pair with the feature registry for conformance.",
+          "from": "render-results",
+          "fromPath": "docs/features/render-results.md"
+        },
+        {
+          "context": "See [Fixtures, Tests, Dogfooding, and Evals](../adrs/0012-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../adrs/0019-deterministic-projection-and-adapter-",
+          "from": "tests-and-evals",
+          "fromPath": "docs/features/tests-and-evals.md"
+        }
+      ],
+      "number": "0019",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0019-deterministic-projection-and-adapter-conformance.md",
+      "slug": "deterministic-projection-and-adapter-conformance",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Deterministic Projection and Adapter Conformance",
+      "updated": "2026-07-20"
+    },
+    {
+      "amended_by": [],
+      "amends": [],
+      "created": "2026-07-02",
+      "depends_on": ["0", "1", "2", "5", "18"],
+      "inbound": [
+        {
+          "context": "- [Portable Skill Tools Policy](0020-portable-skill-tools-policy.md) - `tools` source shape and registry-backed realization model.",
+          "from": "0021",
+          "fromPath": "docs/adrs/0021-post-tools-policy-boundary.md"
+        }
+      ],
+      "number": "0020",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0020-portable-skill-tools-policy.md",
+      "slug": "portable-skill-tools-policy",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Portable Skill Tools Policy",
+      "updated": "2026-07-20"
+    },
+    {
+      "amended_by": [],
+      "amends": [],
+      "created": "2026-07-05",
+      "depends_on": ["0", "1", "2", "3", "5", "18", "20"],
+      "inbound": [
+        {
+          "context": "- [Post-Tools Policy Boundary](0021-post-tools-policy-boundary.md) - policy ownership and the historical implementation bar.",
+          "from": "0003",
+          "fromPath": "docs/adrs/0003-lossy-and-unsupported-output-policy.md"
+        },
+        {
+          "context": "- [Post-Tools Policy Boundary](../adrs/0021-post-tools-policy-boundary.md) defines how `tools`, provider-native policy, generated compatibility material, and unsupported-destination policy fit togethe",
+          "from": "render-results",
+          "fromPath": "docs/features/render-results.md"
+        },
+        {
+          "context": "See the [Post-Tools Policy Boundary ADR](../adrs/0021-post-tools-policy-boundary.md)",
+          "from": "tools-policy",
+          "fromPath": "docs/features/tools-policy.md"
+        }
+      ],
+      "number": "0021",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0021-post-tools-policy-boundary.md",
+      "slug": "post-tools-policy-boundary",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Post-Tools Policy Boundary",
+      "updated": "2026-07-20"
+    },
+    {
+      "amended_by": [],
+      "amends": [],
+      "created": "2026-07-12",
+      "depends_on": ["0", "5", "12", "19"],
+      "inbound": [
+        {
+          "context": "- [Workflow-Oriented CLI With A Flat Loop And Explicit Domains](0022-workflow-oriented-cli.md) - canonical command names and hard-cut policy.",
+          "from": "0023",
+          "fromPath": "docs/adrs/0023-versioned-structured-output-for-cli-automation.md"
+        },
+        {
+          "context": "The [workflow-oriented CLI ADR](../adrs/0022-workflow-oriented-cli.md) fixes the top-level commands. This document fixes the flag vocabulary those command-family implementations consume. The machine-r",
+          "from": "cli-flags",
+          "fromPath": "docs/reference/cli-flags.md"
+        }
+      ],
+      "number": "0022",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0022-workflow-oriented-cli.md",
+      "slug": "workflow-oriented-cli",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Workflow-Oriented CLI With A Flat Loop And Explicit Domains",
+      "updated": "2026-07-20"
+    },
+    {
+      "amended_by": [],
+      "amends": [],
+      "created": "2026-07-12",
+      "depends_on": ["0", "4", "18", "19", "22"],
+      "inbound": [
+        {
+          "context": "- `--json` and `--jsonl` are mutually exclusive. Leaf-route support follows the [structured-output ADR](../adrs/0023-versioned-structured-output-for-cli-automation.md), not a permissive global parser.",
+          "from": "cli-flags",
+          "fromPath": "docs/reference/cli-flags.md"
+        }
+      ],
+      "number": "0023",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0023-versioned-structured-output-for-cli-automation.md",
+      "slug": "versioned-structured-output-for-cli-automation",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "Versioned Structured Output For CLI Automation",
+      "updated": "2026-07-20"
+    },
+    {
+      "amended_by": [],
+      "amends": [],
+      "created": "2026-06-10",
+      "depends_on": ["0", "9", "12", "14", "18", "22"],
+      "inbound": [
+        {
+          "context": "- [One-Action Repo Adoption](0024-one-action-repo-adoption.md) - import/adopt/setup boundary context.",
+          "from": "0004",
+          "fromPath": "docs/adrs/0004-core-library-boundary.md"
+        },
+        {
+          "context": "- [One-Action Repo Adoption](0024-one-action-repo-adoption.md) - import/adopt paths should rewrite mechanical target-shaped fields into canonical source.",
+          "from": "0007",
+          "fromPath": "docs/adrs/0007-source-manifest-listing-metadata.md"
+        },
+        {
+          "context": "adoption survey](0024-one-action-repo-adoption.md#adoption-surveys-the-whole-repo-not-just-manifests)",
+          "from": "0022",
+          "fromPath": "docs/adrs/0022-workflow-oriented-cli.md"
+        }
+      ],
+      "number": "0024",
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/0024-one-action-repo-adoption.md",
+      "slug": "one-action-repo-adoption",
+      "status": "accepted",
+      "superseded_by": null,
+      "title": "One-Action Repo Adoption",
       "updated": "2026-07-20"
     }
   ],

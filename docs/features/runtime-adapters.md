@@ -96,7 +96,7 @@ Runtime support records are registry evidence, not generated target files. Distr
 
 ## Evidence
 
-- [Feature registry](../adrs/drafts/20260604-feature-reference-and-schema-registry.md) - schema-backed support and evidence direction.
+- [Feature registry](../adrs/0005-feature-reference-and-schema-registry.md) - schema-backed support and evidence direction.
 - [Cursor provider ADR](../adrs/0002-cursor-is-a-first-class-provider.md) - first-class Cursor provider contract.
 - [Provider Surface Evidence Matrix](../target-surfaces.md#cursor-provider-baseline) - Cursor evidence baseline and milestone boundary.
 - [Agents](agents.md) - project-agent support and Codex skill-preface shim.

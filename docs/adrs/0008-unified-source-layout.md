@@ -1,14 +1,16 @@
 ---
+id: 8
 slug: unified-source-layout
 title: Unified Source Layout
-status: draft
+status: superseded
 created: 2026-06-18
-updated: 2026-06-18
+updated: 2026-07-20
 owners: ['[galligan](https://github.com/galligan)']
-depends_on: [0, 1, one-action-repo-adoption, fixtures-tests-dogfooding-and-evals]
+depends_on: [0, 1]
+superseded_by: ['9']
 ---
 
-# ADR: Unified Source Layout
+# ADR-0008: Unified Source Layout
 
 ## Context
 
@@ -168,8 +170,8 @@ A repository whose whole purpose is authoring a Skillset can use root `skillset.
 
 ## References
 
-- [Tenets](../../tenets.md) - source-first loadouts, provider truth, and explicit migration.
-- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source remains the product.
-- [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - `compile.targets` remains provider selection.
+- [Tenets](../tenets.md) - source-first loadouts, provider truth, and explicit migration.
+- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - source remains the product.
+- [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - `compile.targets` remains provider selection.
 - ADR: One-Action Repo Adoption (draft) - superseded for the old split layout; adoption should use the unified layout after this cutover.
 - ADR: Fixtures, Tests, Dogfooding, and Evals (draft) - fixtures should follow the current default source contract, not preserve old implementation history.

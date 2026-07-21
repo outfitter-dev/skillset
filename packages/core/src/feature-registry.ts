@@ -288,7 +288,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
   feature({
     docs: ["docs/features/feature-registry.md"],
     evidence: [
-      docs("docs/adrs/drafts/20260604-feature-reference-and-schema-registry.md"),
+      docs("docs/adrs/0005-feature-reference-and-schema-registry.md"),
       source("packages/core/src/feature-registry.ts"),
       test("packages/core/src/__tests__/feature-registry.test.ts", "registry ids, vocabulary, evidence, and guard coverage"),
       test("apps/skillset/src/__tests__/lint-rules.test.ts", "SET-76 lint diagnostics carry feature ids"),
@@ -307,7 +307,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
   feature({
     docs: ["docs/features/render-results.md"],
     evidence: [
-      docs("docs/adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md"),
+      docs("docs/adrs/0018-render-results.md"),
       source("packages/core/src/render-result.ts"),
       source("packages/core/src/render-result-collector.ts"),
       source("apps/skillset/src/import.ts"),

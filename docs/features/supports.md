@@ -50,4 +50,4 @@ Support constraints appear in source-unit provenance, history evidence, and `exp
 
 ## Evidence
 
-See [Source Change, Release, and Dependency Provenance](../adrs/drafts/20260609-source-change-release-provenance.md) and [Change and Release Edge Decisions](../adrs/drafts/20260609-change-release-edge-decisions.md).
+See [Source Change, Release, and Dependency Provenance](../adrs/0014-source-change-release-provenance.md) and [Change and Release Edge Decisions](../adrs/0016-change-release-edge-decisions.md).

@@ -6,7 +6,7 @@ status: draft
 created: 2026-06-22
 updated: 2026-06-22
 owners: ['[galligan](https://github.com/galligan)']
-depends_on: [0, 1, deterministic-projection-and-adapter-conformance]
+depends_on: [0, 1, 19]
 ---
 
 # YAML Formatting and Bun Native APIs
@@ -75,4 +75,4 @@ A small follow-up can implement this without a broad formatter:
 
 - [Tenets](../../tenets.md) - source-first loadouts and deterministic generated output.
 - [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - root manifest compile policy.
-- [Deterministic Projection and Adapter Conformance](20260613-deterministic-projection-and-adapter-conformance.md) - ordering drift and generated-output stability.
+- [Deterministic Projection and Adapter Conformance](../0019-deterministic-projection-and-adapter-conformance.md) - ordering drift and generated-output stability.

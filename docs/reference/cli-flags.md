@@ -2,7 +2,7 @@
 
 Status: accepted implementation input for SET-275 and the SET-284 structured-output ADR.
 
-The [workflow-oriented CLI ADR](../adrs/drafts/20260712-workflow-oriented-cli.md) fixes the top-level commands. This document fixes the flag vocabulary those command-family implementations consume. The machine-readable planning contract is `scripts/cli-contract.ts`; implementation slices move its facts into the owned CLI modules instead of creating a second runtime registry.
+The [workflow-oriented CLI ADR](../adrs/0022-workflow-oriented-cli.md) fixes the top-level commands. This document fixes the flag vocabulary those command-family implementations consume. The machine-readable planning contract is `scripts/cli-contract.ts`; implementation slices move its facts into the owned CLI modules instead of creating a second runtime registry.
 
 ## Rules
 
@@ -82,7 +82,7 @@ The entries below are the complete final public flag set. Positional arguments a
 - `--prompt` and `--prompt-file` are mutually exclusive and imply ad hoc `test`.
 - `--use` accepts exactly `source` or `output`; `--yes` without `--use` cannot apply reconcile.
 - `restore --list` is read-only and cannot be combined with a backup id or `--yes`.
-- `--json` and `--jsonl` are mutually exclusive. Leaf-route support follows the [structured-output ADR](../adrs/drafts/20260712-versioned-structured-output-for-cli-automation.md), not a permissive global parser.
+- `--json` and `--jsonl` are mutually exclusive. Leaf-route support follows the [structured-output ADR](../adrs/0023-versioned-structured-output-for-cli-automation.md), not a permissive global parser.
 
 ## Hard-cut inventory
 

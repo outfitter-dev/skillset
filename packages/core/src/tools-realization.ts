@@ -83,7 +83,7 @@ export interface ToolsNativeOverlayRealization {
 }
 
 const TOOLS_POLICY_DOCS = "docs/features/tools-policy.md";
-const TOOLS_POLICY_ADR = "docs/adrs/drafts/20260702-portable-agent-authority-intent.md";
+const TOOLS_POLICY_ADR = "docs/adrs/0020-portable-skill-tools-policy.md";
 const SKILL_POLICY_SOURCE = "packages/core/src/skill-policy.ts";
 const RENDER_SOURCE = "packages/core/src/render.ts";
 

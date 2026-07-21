@@ -1,6 +1,6 @@
 # Internal Fixtures
 
-`fixtures/` holds maintainer-owned fake content repos used by the compiler's tests. They are internal test material, not product source and not a `.skillset/tests/` contract. See [Fixtures, Tests, Dogfooding, and Evals](../docs/adrs/drafts/20260609-fixtures-tests-dogfooding-and-evals.md) and [Tests and Evals](../docs/features/tests-and-evals.md) for the surrounding boundary.
+`fixtures/` holds maintainer-owned fake content repos used by the compiler's tests. They are internal test material, not product source and not a `.skillset/tests/` contract. See [Fixtures, Tests, Dogfooding, and Evals](../docs/adrs/0012-fixtures-tests-dogfooding-and-evals.md) and [Tests and Evals](../docs/features/tests-and-evals.md) for the surrounding boundary.
 
 `fixtures/` is never scanned as this repo's own Skillset source.
 

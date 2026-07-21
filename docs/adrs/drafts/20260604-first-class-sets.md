@@ -5,7 +5,7 @@ status: draft
 created: 2026-06-04
 updated: 2026-06-04
 owners: ['[galligan](https://github.com/galligan)']
-depends_on: [0, 1, feature-reference-and-schema-registry, global-xdg-managed-installs-and-sync, reviewed-settings-suggestions]
+depends_on: [0, 1, 5, global-xdg-managed-installs-and-sync, reviewed-settings-suggestions]
 ---
 
 # ADR: First-Class Sets
@@ -179,7 +179,7 @@ This ADR defines future vocabulary so later work can implement the smallest safe
 
 - [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source-first and generated-output doctrine.
 - [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - provider selection and target-specific config boundaries.
-- [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - tracks first-class sets as future-only and keeps scopes/selectors separate.
+- [Feature Reference and Schema Registry](../0005-feature-reference-and-schema-registry.md) - tracks first-class sets as future-only and keeps scopes/selectors separate.
 - [Build Scopes](../../features/build-scopes.md) - destination scopes, dry-run safety, and lock semantics.
 - [Feature Source Pointers](../../features/feature-source-pointers.md) - typed feature ownership instead of generic component buckets.
 - [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md) - separates build from install, sync, trust, and user-level mutation.

@@ -1,14 +1,15 @@
 ---
+id: 9
 slug: skillset-workspace-layout
 title: Skillset Workspace Layout
-status: draft
+status: accepted
 created: 2026-06-27
-updated: 2026-06-27
+updated: 2026-07-20
 owners: ['[galligan](https://github.com/galligan)']
-depends_on: [0, 1, unified-source-layout, source-change-release-provenance]
+depends_on: [0, 1, 2, 8]
 ---
 
-# ADR: Skillset Workspace Layout
+# ADR-0009: Skillset Workspace Layout
 
 ## Context
 
@@ -42,8 +43,10 @@ skillset.yaml
   hooks/
   agents/
   shared/
+  partials/
   _claude/
   _codex/
+  _cursor/
   changes/
   cache/
   snapshots/
@@ -66,7 +69,8 @@ and source-adjacent state:
 | `.skillset/hooks/` | Workspace hook source, where supported. |
 | `.skillset/agents/*.md` | Adaptive project agents. |
 | `.skillset/shared/` | Workspace shared resources. |
-| `.skillset/_claude/`, `.skillset/_codex/` | Provider-native workspace source. |
+| `.skillset/partials/` | Named workspace partials. |
+| `.skillset/_claude/`, `.skillset/_codex/`, `.skillset/_cursor/` | Provider-native workspace source. |
 | `.skillset/changes/` | Committed change and release ledger. |
 | `.skillset/cache/` | Logical cache boundary; physical payloads resolve to XDG cache. |
 | `.skillset/snapshots/` | Repo-local recovery snapshots for confirmed output overwrites/deletes. |
@@ -76,8 +80,8 @@ Plugin-local config remains `skillset.yaml`. We are not introducing
 plugin intent, and keeping the same manifest filename lets workspace and plugin
 metadata share schema concepts without a second vocabulary.
 
-Provider-native directories keep their underscore prefix. `_claude` and
-`_codex` are explicit provider source, not adaptive source families.
+Provider-native directories keep their underscore prefix. `_claude`, `_codex`,
+and `_cursor` are explicit provider source, not adaptive source families.
 
 The retired homes are rejected with clear diagnostics instead of remaining
 public compatibility modes:
@@ -87,8 +91,8 @@ public compatibility modes:
 - `.skillset/src/`
 - root `skillset/`
 - plugin `config.yaml`
-- provider directories named `claude` or `codex` instead of `_claude` or
-  `_codex`
+- provider directories named `claude`, `codex`, or `cursor` instead of
+  `_claude`, `_codex`, or `_cursor`
 
 Migration helpers may normalize old source state for branch-local baselines,
 tests, or one-time conversion, but the compiler should not document or preserve
@@ -102,7 +106,7 @@ another plugin. Cross-plugin reuse belongs in the workspace:
 authors should move shared material to `.skillset/shared/` or another
 workspace-level source surface instead of importing from a sibling plugin.
 
-This keeps generated Claude and Codex plugin bundles faithful to provider
+This keeps generated Claude, Codex, and Cursor plugin bundles faithful to provider
 boundaries. If the source lets plugins import each other directly, the generated
 bundle boundary becomes misleading.
 
@@ -130,13 +134,31 @@ bundle boundary becomes misleading.
 ### What This Does NOT Decide
 
 - Git-backed snapshot and restore internals.
-- User/global source repository selection beyond the existing
-  `skillset create --global` source checkout.
+- User/global source repository selection and activation authority; `create`
+  and `init` remain repo-local workflows.
 - Runtime activation, trust, installation, or marketplace publication.
+
+## Acceptance Evidence (2026-07-20)
+
+A workspace uses root `skillset.yaml` with flat canonical source under
+`.skillset/`, including `plugins/`, `skills/`, `rules/`, `agents/`, `shared/`,
+workspace and plugin `partials/`, and provider-native `_claude/`, `_codex/`,
+and `_cursor/` islands. Plugin boundaries remain explicit. Retired
+`.skillset/config.yaml`, `.skillset/src/`, and root `skillset/` authoring shapes
+fail rather than silently coexisting.
+
+Operational cache paths such as `.skillset/cache/` are logical paths backed by
+the repository's XDG cache bucket; repo-local snapshots remain deliberately
+local. Onboarding is preview-first: `skillset create [name]` creates a named
+child and `skillset init [directory]` initializes an existing directory. Neither
+command installs output or mutates provider/global runtime configuration. This
+decision wholly replaces Unified Source Layout while retaining source-first
+ownership and target truth. Current proof is in `docs/layout.md`, ADR-0002,
+resolver/XDG/setup code, and workspace-layout contract tests.
 
 ## References
 
-- [Tenets](../../tenets.md) - source-first loadouts and explicit migration.
-- [Unified Source Layout](20260618-unified-source-layout.md) - earlier
+- [Tenets](../tenets.md) - source-first loadouts and explicit migration.
+- [Unified Source Layout](0008-unified-source-layout.md) - earlier
   intermediate layout design that this draft supersedes for current authoring.
-- [Source Change, Release, and Dependency Provenance](20260609-source-change-release-provenance.md) - committed change ledger model.
+- [Source Change, Release, and Dependency Provenance](0014-source-change-release-provenance.md) - committed change ledger model.

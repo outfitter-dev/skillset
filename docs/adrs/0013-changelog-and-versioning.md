@@ -1,14 +1,16 @@
 ---
+id: 13
 slug: changelog-and-versioning
 title: Changelog and Version Bump Workflow
-status: draft
+status: superseded
 created: 2026-06-04
-updated: 2026-06-04
+updated: 2026-07-20
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [0]
+superseded_by: ['14']
 ---
 
-# ADR: Changelog and Version Bump Workflow
+# ADR-0013: Changelog and Version Bump Workflow
 
 Status: design (SET-11). No implementation; this defines the model and a concrete plan for a future `skillset changes` command.
 
@@ -109,6 +111,6 @@ The tradeoff is that authors must write explicit change entries instead of relyi
 
 ## References
 
-- [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - baseline source-first compiler doctrine.
-- [Tenets](../../tenets.md) - lock provenance and generated-output promises.
-- [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md) - related non-goal for install and sync workflows.
+- [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - baseline source-first compiler doctrine.
+- [Tenets](../tenets.md) - lock provenance and generated-output promises.
+- [Global / XDG Managed Installs and Sync](drafts/20260604-global-xdg-managed-installs-and-sync.md) - related non-goal for install and sync workflows.

@@ -5,7 +5,7 @@ status: draft
 created: 2026-06-04
 updated: 2026-06-04
 owners: ['[galligan](https://github.com/galligan)']
-depends_on: [0, 1, agent-source-model, feature-reference-and-schema-registry]
+depends_on: [0, 1, 6, 5]
 ---
 
 # ADR: Model and Reasoning Alias Profiles
@@ -209,8 +209,8 @@ This ADR defines a future source contract and diagnostics so later work can impl
 
 - [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md) - source-first and target-native doctrine.
 - [ADR-0001: Root Compile Policy](../0001-root-compile-policy.md) - provider selection and target-specific config boundaries.
-- [Agent / Subagent Source Model](20260604-agent-source-model.md) - project agents as the first close-match surface.
-- [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - tracks model/reasoning aliases as future-only.
+- [Agent / Subagent Source Model](../0006-agent-source-model.md) - project agents as the first close-match surface.
+- [Feature Reference and Schema Registry](../0005-feature-reference-and-schema-registry.md) - tracks model/reasoning aliases as future-only.
 - [Tenets](../../tenets.md) - target truth beats fake portability, and defaults should be scoped.
 - [Target Surface Evidence Matrix](../../target-surfaces.md) - current target defaults and top-level model warning rows.
 - [Claude Code subagents](https://code.claude.com/docs/en/sub-agents) - official Claude agent model and effort fields.

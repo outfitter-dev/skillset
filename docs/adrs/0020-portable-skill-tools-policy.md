@@ -1,21 +1,21 @@
 ---
-slug: portable-agent-authority-intent
-title: Portable Tools Policy and Agent Authority
-status: draft
+id: 20
+slug: portable-skill-tools-policy
+title: Portable Skill Tools Policy
+status: accepted
 created: 2026-07-02
-updated: 2026-07-02
+updated: 2026-07-20
 owners: ['[galligan](https://github.com/galligan)']
-depends_on: [0, 1, feature-reference-and-schema-registry, agent-source-model, lowering-outcomes-and-loss-ledger, reviewed-settings-suggestions, 2]
+depends_on: [0, 1, 2, 5, 18]
 ---
 
-# ADR: Portable Tools Policy and Agent Authority
+# ADR-0020: Portable Skill Tools Policy
 
 ## Context
 
-Skillset's current portable tool-policy source shape is `tool_intent`. That
-name was chosen to avoid pretending provider tool preapproval was a portable
-security sandbox, but the result now reads like compiler metadata rather than
-author-facing source.
+Skillset's portable tool-policy source shape is the author-facing `tools`
+block. It expresses skill-local intent without pretending provider
+preapproval, metadata, or settings evidence is a universal security sandbox.
 
 The provider landscape also changed underneath the original split:
 
@@ -36,7 +36,7 @@ Skillset's internals instead of describing the operating envelope they want.
 
 ## Decision
 
-Replace `tool_intent` with a first-class `tools` block. The block has three
+Use a first-class `tools` block. The block has three
 layers, each with one job:
 
 1. **Macro layer:** named bundles such as `readonly` expand deterministically
@@ -109,15 +109,15 @@ The `tools` block is **open-world**. It describes deltas from provider defaults,
 not a closed capability envelope.
 
 - **Unset** emits nothing; the provider default applies.
-- **`true`** lowers to whatever grant or preapproval mechanism the surface has.
-- **`false`** lowers to whatever constraint mechanism the surface has.
+- **`true`** renders to a supported skill-local grant or preapproval mechanism.
+- **`false`** renders to a supported skill-local constraint or reviewable metadata fact.
 - **No surface for the intent** emits a diagnostic; never silently pretend
   portability.
 
 Never synthesize a closed allowlist from open-world source. For example, Claude
 subagent `tools` is a closed list: listing `Read` would deny everything
-unlisted. Lowering `read: true` into that field would be stricter than the
-author said. Grants lower to grants; denials lower to denials. If a surface only
+unlisted. Rendering `read: true` into that field would be stricter than the
+author said. Grants render to grants; denials render to denials. If a surface only
 offers a closed list, that realization is approximate or degraded and must be
 diagnosed.
 
@@ -175,12 +175,12 @@ tools:
 There is no macro-plus-overrides syntax in the first implementation. If an
 author wants to customize `readonly`, they write the three-line expansion.
 
-The composite "no writes, no state-changing shell" meaning is carried by
-`write: false`. Codex custom agents can realize that as
-`sandbox_mode = "read-only"` where appropriate. Cursor project agents can
-realize it as `readonly: true`. Claude gets the strongest honest combination of
-tool denials plus diagnostics for residual Bash/MCP mutation risk when the
-surface cannot enforce the envelope.
+The composite "no writes, no state-changing shell" intent is carried by
+`write: false`. Claude can render supported skill-local rules with residual
+Bash/MCP risk reported. Codex and Cursor retain reviewable
+`.skillset.tools.yaml` metadata plus `settings-required` evidence; this
+skill-local policy does not emit or control an enclosing sandbox or readonly
+agent setting.
 
 ## Portable Keys
 
@@ -191,7 +191,7 @@ The first implementation supports this fenced vocabulary:
 | `read` | `true` / `false` | Boolean only; path scoping is deferred. |
 | `search` | `true` / `false` | Boolean only; path scoping is deferred. |
 | `write` | `true` / `false` | Composite intent including file writes and state-changing shell. |
-| `shell` | `true` / `false` / flat list of pattern strings | Named `shell`, not `bash`; provider renderers lower to `Bash(...)`, `Shell`, sandbox rules, hooks, or diagnostics. |
+| `shell` | `true` / `false` / flat list of pattern strings | Named `shell`, not `bash`; Claude renders supported native rules, while Codex and Cursor retain reviewable metadata and report settings-required evidence for stronger enforcement. |
 | `mcp` | `false` / map of literal server -> `true`, `false`, or glob list | No wildcard server keys. |
 | `<provider>` | portable overrides plus native `allow` / `deny` strings | `claude`, `codex`, and `cursor` initially. |
 
@@ -215,7 +215,7 @@ tools:
     - gh pr view *
 ```
 
-Claude lowering renders these as `Bash(git status)`, `Bash(git diff *)`, and
+Claude rendering produces `Bash(git status)`, `Bash(git diff *)`, and
 `Bash(gh pr view *)`. Skillset does not introduce a shell family map such as
 `git: [status]`; shell patterns are one-dimensional strings, while MCP is
 genuinely two-dimensional.
@@ -230,12 +230,12 @@ tools:
     - git diff *
 ```
 
-`write: false` is the enforcement envelope. Explicit shell entries are
-invocation grants within it. Where the provider enforces the envelope, such as
-Codex sandboxing or Cursor `readonly`, a mutating command is blocked at runtime
-by the provider. Where the provider cannot enforce it, such as Claude tool
-preapproval alone, Skillset emits the residual-risk diagnostic. Skillset does
-not statically classify shell patterns as mutating or non-mutating.
+`write: false` is portable skill intent, not a universal enforcement envelope.
+Explicit shell entries are invocation grants within that intent. Claude emits
+the strongest supported skill-local rules plus residual-risk diagnostics;
+Codex and Cursor preserve metadata and stronger-setting requirements without
+claiming runtime enforcement. Skillset does not statically classify shell
+patterns as mutating or non-mutating.
 
 ## MCP
 
@@ -250,7 +250,10 @@ tools:
     slack: false
 ```
 
-`mcp: false` denies all MCP.
+`mcp: false` expresses whole-MCP denial intent. Claude renders that intent as a
+native denial; Codex and Cursor preserve reviewable metadata and
+settings-required evidence rather than claiming control of the enclosing MCP
+runtime.
 
 Provider facts backing this decision:
 
@@ -270,13 +273,13 @@ Lowering examples:
 | `github: true` | `mcp__github` | Whole-server allow. Both `mcp__github` and `mcp__github__*` are valid; Skillset emits the shorter form. |
 | `github: [get_*, list_*]` | `mcp__github__get_*`, `mcp__github__list_*` | Literal server plus tool globs. |
 | `linear: false` | `disallowed-tools: mcp__linear` | Whole-server denial. |
-| `mcp: false` | `disallowed-tools: mcp__*` | The only portable two-dimensional wildcard MCP denial. |
+| `mcp: false` | `disallowed-tools: mcp__*` | Claude rendering of whole-MCP denial intent; other providers retain metadata/settings-required evidence. |
 
-Current code incorrectly lowers `*` to regex-style `.*`, producing invalid rules
-such as `mcp__.*__.*`. That bug is tracked by SET-257 and should be folded into
-the `tools` cutover rather than patched twice if this redesign lands first.
+SET-257 corrected MCP glob rendering: literal server names retain provider-native
+tool globs and whole-MCP denial uses the documented wildcard form. Focused tests
+pin the valid output.
 
-## Registry and Lowering Architecture
+## Registry and Realization Architecture
 
 The registry describes facts keyed by base-layer aspects:
 
@@ -286,20 +289,20 @@ The registry describes facts keyed by base-layer aspects:
 - the realization tier: `native`, `transformed`, `derived`, `approximate`,
   `advisory`, `metadata-only`, `settings-required`, or `unsupported`;
 - the emitted provider field or rule when there is one;
-- diagnostics for partial or contradictory lowering;
+- diagnostics for partial or contradictory realization;
 - evidence backing the row.
 
 Transforms, such as converting `mcp.github: [get_*]` into
-`mcp__github__get_*`, stay in small provider-specific code. The registry should
-not become a declarative rules engine.
+`mcp__github__get_*`, stay in small provider-specific code. The registry is
+not a declarative rules engine.
 
-Renderers must consume registry facts instead of hard-coding all mappings in
-`skill-policy.ts` and `render.ts`. Codex per-tool enablement and Cursor hook
-matcher realizations need provider evidence before the registry claims them.
+Renderers consume registry facts instead of hard-coding all mappings in
+`skill-policy.ts` and `render.ts`. Unsupported stronger provider surfaces stay
+as explicit evidence gaps rather than inferred capabilities.
 
 ## Explain Output
 
-`skillset explain <unit> --target <provider>` should show a per-target,
+`skillset explain <unit> --target <provider>` shows a per-target,
 per-surface resolution table:
 
 ```text
@@ -311,7 +314,7 @@ overlay. This makes precedence and residual risk inspectable.
 
 Example diagnostics:
 
-- "rendered Cursor `readonly: true` for `write: false`";
+- "Cursor skill policy remains metadata-only; readonly enforcement requires settings";
 - "Claude tool allowlist removes Write/Edit, but Bash can still change state
   unless paired with hooks or permission settings";
 - "Cursor has no proven per-agent MCP allowlist; inherited MCP tools may remain
@@ -320,9 +323,10 @@ Example diagnostics:
 ## Settings Boundary
 
 `skillset build` must not mutate user, local, managed, or trusted-project
-provider configuration. Renderings that require settings, hooks, permission
-profiles, project config, or user config are emitted as reviewed settings
-suggestions or must come from explicit provider-native source.
+provider configuration. Realizations that require settings, hooks, permission
+profiles, project config, or user config are reported as `settings-required`
+evidence. Skillset does not emit those authority-changing settings; they must
+come from separately reviewed provider-native source or configuration.
 
 ## Consequences
 
@@ -331,9 +335,9 @@ suggestions or must come from explicit provider-native source.
 - Authors get a compact source shape: `tools: readonly` or lowercase portable
   keys.
 - Provider-native strings stay visibly provider-native.
-- Tool authority can lower to skills, agents, hooks, settings suggestions, and
-  diagnostics without forcing provider field names into the shared source
-  contract.
+- Skill-local tool intent renders to Claude-native rules or reviewable
+  Codex/Cursor metadata and diagnostics without forcing provider field names
+  into the shared source contract.
 - The registry gains a clear job: facts about realization, not string
   transforms or macro expansion.
 
@@ -355,15 +359,32 @@ suggestions or must come from explicit provider-native source.
 - Portable `web_fetch`, `web_search`, and `edit` after a provider-realization
   audit.
 
+## Acceptance Evidence (2026-07-20)
+
+The implemented source surface is a
+skill-local `tools` policy with `readonly`, five portable capability keys,
+provider overrides, native allow/deny overlays, open-world semantics,
+precedence, contradiction checks, literal MCP-server validation, registry-backed
+realization, and explainability.
+
+This policy does not control an enclosing Codex or Cursor agent, sandbox, hook
+runtime, MCP runtime, or provider settings. Claude can transform supported
+skill policy into native frontmatter, with residual Bash/MCP risk reported.
+Codex and Cursor retain reviewable `.skillset.tools.yaml` metadata; stronger
+sandbox or readonly settings are `settings-required` evidence and are not
+emitted. `write: false` is portable skill intent, not a universal enforcement
+claim. Current proof is in `docs/features/tools-policy.md`, `skill-policy.ts`,
+`tools-realization.ts`, and their focused tests.
+
 ## References
 
-- [Tenets](../../tenets.md) - source-first, provider-native, fail-loud design principles.
-- [Feature Reference and Schema Registry](20260604-feature-reference-and-schema-registry.md) - registry-backed feature and capability evidence.
-- [Agent / Subagent Source Model](20260604-agent-source-model.md) - project-agent and plugin-agent boundaries.
-- [Lowering Outcomes and Loss Ledger](20260614-lowering-outcomes-and-loss-ledger.md) - visible degraded, lossy, and unsupported render results.
-- [Reviewed Settings Suggestions](20260604-reviewed-settings-suggestions.md) - authority-changing settings are reviewable plans, not build side effects.
+- [Tenets](../tenets.md) - source-first, provider-native, fail-loud design principles.
+- [Feature Reference and Schema Registry](0005-feature-reference-and-schema-registry.md) - registry-backed feature and capability evidence.
+- [Agent / Subagent Source Model](0006-agent-source-model.md) - project-agent and plugin-agent boundaries.
+- [Render Results](0018-render-results.md) - visible degraded, lossy, and unsupported render results.
+- [Reviewed Settings Suggestions](drafts/20260604-reviewed-settings-suggestions.md) - authority-changing settings are reviewable plans, not build side effects.
 - [Cursor Is a First-Class Provider](0002-cursor-is-a-first-class-provider.md) - Cursor-specific provider boundary this ADR specializes.
-- [Portable `tools` Policy — Locked Design](../../../.scratch/notes/20260702-tools-policy-locked-design.md) - detailed working note and rejected alternatives.
+- [Portable `tools` Policy — Locked Design](../../.scratch/notes/20260702-tools-policy-locked-design.md) - detailed working note and rejected alternatives.
 - [Claude subagents docs](https://code.claude.com/docs/en/sub-agents) - subagent fields, tools, permission modes, MCP, hooks, background, and isolation, checked 2026-07-02.
 - [Codex subagents docs](https://developers.openai.com/codex/subagents) - custom agents as config layers and inherited sandbox/approval behavior, checked 2026-07-02.
 - [Codex approvals and security docs](https://developers.openai.com/codex/agent-approvals-security) - sandbox, approval, network, and permission controls, checked 2026-07-02.

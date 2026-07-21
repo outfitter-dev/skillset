@@ -332,4 +332,4 @@ Test runs record the source selector, target set, run id, generated output paths
 
 ## Evidence
 
-See [Fixtures, Tests, Dogfooding, and Evals](../adrs/drafts/20260609-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../adrs/drafts/20260613-deterministic-projection-and-adapter-conformance.md), the render-results ADR currently filed as [Lowering Outcomes and Loss Ledger](../adrs/drafts/20260614-lowering-outcomes-and-loss-ledger.md), [Build Scopes](build-scopes.md), [Changes](changes.md), and [Releases and Changelogs](releases.md).
+See [Fixtures, Tests, Dogfooding, and Evals](../adrs/0012-fixtures-tests-dogfooding-and-evals.md), [Deterministic Projection and Adapter Conformance](../adrs/0019-deterministic-projection-and-adapter-conformance.md), [Render Results](../adrs/0018-render-results.md), the superseded [Lowering Outcomes and Loss Ledger](../adrs/0017-lowering-outcomes-and-loss-ledger.md), [Build Scopes](build-scopes.md), [Changes](changes.md), and [Releases and Changelogs](releases.md).

@@ -108,8 +108,8 @@ locks, status, and explain remain the review surfaces.
 - [ADR-0000: Source-First Loadouts](0000-source-first-loadouts.md) - source and generated-output authority.
 - [ADR-0001: Root Compile Policy](0001-root-compile-policy.md) - original reservation this decision narrowly amends.
 - [Render Results](../features/render-results.md) - current policy vocabulary, provenance fields, and diagnostics.
-- [Post-Tools Policy Boundary](drafts/20260705-post-tools-policy-boundary.md) - policy ownership and the historical implementation bar.
-- [Lowering Outcomes and Loss Ledger](drafts/20260614-lowering-outcomes-and-loss-ledger.md) - historical render-result and loss-ledger design.
+- [Post-Tools Policy Boundary](0021-post-tools-policy-boundary.md) - policy ownership and the historical implementation bar.
+- [Lowering Outcomes and Loss Ledger](0017-lowering-outcomes-and-loss-ledger.md) - historical render-result and loss-ledger design.
 - [`render-result-policy.test.ts`](../../packages/core/src/__tests__/render-result-policy.test.ts) - default and non-error policy enforcement.
 - [`render-result-build.test.ts`](../../packages/core/src/__tests__/render-result-build.test.ts) - warning, policy-stamp, lock-provenance, and verification integration coverage.
 - SET-18 - implementation and acceptance evidence for unsupported-destination soft policies.
