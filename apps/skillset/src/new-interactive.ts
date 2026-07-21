@@ -1,13 +1,14 @@
-import type {
-  SkillsetOptions,
-  TargetName,
-} from "@skillset/core/internal/types";
 import {
   adaptiveHookEventDefinitions,
   planAdaptiveHookCompatibility,
 } from "@skillset/core/internal/adaptive-hook-authoring";
 import { targetNames } from "@skillset/core/internal/targets";
+import type {
+  SkillsetOptions,
+  TargetName,
+} from "@skillset/core/internal/types";
 
+import { confirmProceed } from "./interactive-session";
 import type { InteractiveSession } from "./interactive-session";
 import { listNewAdaptiveHookAttachmentTargets } from "./new-hook";
 import {
@@ -59,9 +60,8 @@ export async function runInteractiveNew(
   const identity = await resolveIdentity(request, kind, session);
   const container = await resolveContainer(request, kind, session);
   const presets = await resolvePresets(request, kind, session);
-  const hookIntent = kind === "hook"
-    ? await resolveHookIntent(request, session)
-    : {};
+  const hookIntent =
+    kind === "hook" ? await resolveHookIntent(request, session) : {};
   const options = {
     ...(container === undefined ? {} : { container }),
     ...(identity.id === undefined ? {} : { id: identity.id }),
@@ -80,10 +80,7 @@ export async function runInteractiveNew(
     write: false,
   });
   context.printPlan(plan);
-  const confirmed = await session.prompts.confirm({
-    default: false,
-    message: "Proceed?",
-  });
+  const confirmed = await confirmProceed(session);
   if (!confirmed) {
     return { reason: "write confirmation declined", report: plan };
   }
@@ -113,17 +110,20 @@ async function resolveHookIntent(
       "skillset: new hook requires an existing plugin, skill, or project agent attachment target"
     );
   }
-  const hookAttachment = request.hookAttachment ?? await session.prompts.search({
-    message: "Attach to:",
-    source: (term) => filterChoices(
-      term,
-      targets.map((target) => ({
-        description: target.description,
-        name: target.name,
-        value: target.selector,
-      }))
-    ),
-  });
+  const hookAttachment =
+    request.hookAttachment ??
+    (await session.prompts.search({
+      message: "Attach to:",
+      source: (term) =>
+        filterChoices(
+          term,
+          targets.map((target) => ({
+            description: target.description,
+            name: target.name,
+            value: target.selector,
+          }))
+        ),
+    }));
   const target = targets.find((item) => item.selector === hookAttachment);
   if (target === undefined) {
     throw new Error(
@@ -145,19 +145,18 @@ async function resolveHookIntent(
       value: event.id,
     };
   });
-  const hookEvents = request.hookEvents ?? await session.prompts.searchCheckbox({
-    choices: eventChoices,
-    message: "Events:",
-    required: true,
-    source: (term, choices) => filterChoices(term, choices),
-  });
+  const hookEvents =
+    request.hookEvents ??
+    (await session.prompts.searchCheckbox({
+      choices: eventChoices,
+      message: "Events:",
+      required: true,
+      source: (term, choices) => filterChoices(term, choices),
+    }));
   const action = await resolveHookAction(request, session);
-  const hookProviders = request.hookProviders ?? await resolveHookProviders(
-    action,
-    hookEvents,
-    target.scope,
-    session
-  );
+  const hookProviders =
+    request.hookProviders ??
+    (await resolveHookProviders(action, hookEvents, target.scope, session));
   return {
     hookAttachment,
     ...action,
@@ -172,8 +171,12 @@ async function resolveHookAction(
 ): Promise<{ readonly hookCommand?: string; readonly hookScript?: string }> {
   if (request.hookCommand !== undefined || request.hookScript !== undefined) {
     return {
-      ...(request.hookCommand === undefined ? {} : { hookCommand: request.hookCommand }),
-      ...(request.hookScript === undefined ? {} : { hookScript: request.hookScript }),
+      ...(request.hookCommand === undefined
+        ? {}
+        : { hookCommand: request.hookCommand }),
+      ...(request.hookScript === undefined
+        ? {}
+        : { hookScript: request.hookScript }),
     };
   }
   const kind = await session.prompts.select({
@@ -196,9 +199,7 @@ async function resolveHookAction(
     message: kind === "command" ? "Command:" : "Script path:",
     validate: (input) => input.trim().length > 0 || "Enter a hook action.",
   });
-  return kind === "command"
-    ? { hookCommand: value }
-    : { hookScript: value };
+  return kind === "command" ? { hookCommand: value } : { hookScript: value };
 }
 
 async function resolveHookProviders(
@@ -225,15 +226,18 @@ async function resolveHookProviders(
       description: compatible.has(target)
         ? "Compatible"
         : (classification?.reason ?? "Not compatible with this hook intent"),
-      disabled: compatible.has(target) ? false : (classification?.reason ?? true),
+      disabled: compatible.has(target)
+        ? false
+        : (classification?.reason ?? true),
       name: target,
       value: target,
     };
   });
   session.note(
     choices
-      .map((choice) =>
-        `${choice.name}: ${choice.disabled ? choice.description : "compatible"}`
+      .map(
+        (choice) =>
+          `${choice.name}: ${choice.disabled ? choice.description : "compatible"}`
       )
       .join("\n"),
     "Compatibility"
@@ -254,7 +258,8 @@ function hookRunForCompatibility(action: {
   readonly hookScript?: string;
 }): { readonly command: string } | { readonly script: string } {
   if (
-    (action.hookCommand === undefined) === (action.hookScript === undefined)
+    (action.hookCommand === undefined) ===
+    (action.hookScript === undefined)
   ) {
     throw new Error(
       "skillset: new hook requires exactly one of --command or --script"
@@ -281,7 +286,9 @@ function filterChoices<Value>(
   return query.length === 0
     ? choices
     : choices.filter((choice) =>
-        `${choice.name} ${choice.description ?? ""}`.toLowerCase().includes(query)
+        `${choice.name} ${choice.description ?? ""}`
+          .toLowerCase()
+          .includes(query)
       );
 }
 

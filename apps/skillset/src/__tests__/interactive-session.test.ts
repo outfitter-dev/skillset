@@ -7,6 +7,7 @@ import { PassThrough } from "node:stream";
 import { cliErrorExitCode } from "../cli-core";
 import { runInitCommand } from "../init-cli";
 import {
+  confirmProceed,
   createInteractiveSession,
   interactiveSessionEligible,
 } from "../interactive-session";
@@ -95,6 +96,30 @@ describe("SET-291 interactive session eligibility", () => {
 });
 
 describe("SET-291 prompt adapters", () => {
+  test("SET-341 shared confirmation is exact and defaults to no", async () => {
+    const adapter = new ScriptedPromptAdapter([
+      { kind: "confirm", value: false },
+    ]);
+    const session = createInteractiveSession({
+      adapter,
+      env: interactiveEnv,
+      input: ttyInput(),
+      output: ttyOutput(),
+    });
+
+    expect(session).toBeDefined();
+    if (session === undefined) {
+      throw new Error("expected interactive session");
+    }
+    await expect(confirmProceed(session)).resolves.toBe(false);
+    expect(adapter.prompts).toEqual([
+      {
+        kind: "confirm",
+        prompt: { default: false, message: "Proceed?" },
+      },
+    ]);
+  });
+
   test("scripted prompts are deterministic and record display contracts", async () => {
     const adapter = new ScriptedPromptAdapter([
       { kind: "input", value: "demo" },
@@ -263,7 +288,11 @@ describe("SET-291 prompt adapters", () => {
     output.on("data", (chunk: Buffer) => {
       transcript += chunk.toString();
     });
-    const result = new ClackPromptAdapter({ color: true, input, output }).select({
+    const result = new ClackPromptAdapter({
+      color: true,
+      input,
+      output,
+    }).select({
       choices: [
         { description: "recommended", name: "One", value: "one" },
         { disabled: "unavailable", name: "Two", value: "two" },
@@ -504,9 +533,7 @@ describe("SET-291 prompt adapters", () => {
     session?.banner();
     const rendered = output.read()?.toString() ?? "";
     expect(rendered).not.toContain("\u001b[2m");
-    expect(Bun.stripANSI(rendered)).toMatch(
-      /skillset v\d+\.\d+\.\d+\n$/u
-    );
+    expect(Bun.stripANSI(rendered)).toMatch(/skillset v\d+\.\d+\.\d+\n$/u);
   });
 
   test("the init orchestration boundary previews then leaves default-No repositories untouched", async () => {

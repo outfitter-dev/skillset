@@ -14,12 +14,18 @@ import {
   type InteractiveSession,
 } from "./interactive-session";
 import { runInteractiveNew } from "./new-interactive";
-import { scaffoldSourceUnit } from "./new-source";
 import type {
   NewSourceKind,
   NewSourceReport,
   NewSourceScope,
 } from "./new-source";
+import { scaffoldSourceUnit } from "./new-source";
+import {
+  formatScaffoldFileLine,
+  formatScaffoldNextStep,
+  formatScaffoldWriteHint,
+  scaffoldWriteReason,
+} from "./scaffold-report";
 import type { ImportKind, ImportProvider } from "./source-arg-values";
 
 export interface ImportCommandRequest {
@@ -213,12 +219,9 @@ export async function runNewCommand(
       writes: report.write ? report.files.map((file) => file.path) : [],
     });
   } else {
-    printNewSourceReport(
-      report,
-      yes ? "written" : "write confirmation required"
-    );
+    printNewSourceReport(report, scaffoldWriteReason(yes));
     if (!yes) {
-      console.log("skillset: rerun new with --yes to write source files");
+      console.log(formatScaffoldWriteHint("new with --yes", "source files"));
     }
   }
   return;
@@ -275,19 +278,19 @@ function printImportReport(result: ImportReport): void {
   for (const warning of result.warnings) {
     console.warn(`  warning: ${warning}`);
   }
-  console.log(`  next: ${result.nextChecks.join(", ")}`);
+  console.log(formatScaffoldNextStep(result.nextChecks.join(", ")));
 }
 
 function printNewSourceReport(result: NewSourceReport, reason: string): void {
   for (const file of result.files) {
-    console.log(`  ${file.operation === "update" ? "~" : "+"} ${file.path}`);
+    console.log(formatScaffoldFileLine(file.path, file.operation));
   }
   const action = result.write ? "created" : "planned";
   console.log(`skillset: ${action} ${result.kind} ${result.id} (${reason})`);
   console.log(`  source: ${result.sourceRoot}`);
   console.log(`  name: ${result.displayName}`);
   if (result.write) {
-    console.log("  next: skillset build --yes");
-    console.log("  next: skillset check");
+    console.log(formatScaffoldNextStep("skillset build --yes"));
+    console.log(formatScaffoldNextStep("skillset check"));
   }
 }

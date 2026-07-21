@@ -12,12 +12,16 @@ import {
   normalizeCreateName,
   runInteractiveCreate,
 } from "./create-interactive";
-import { printSetupReport } from "./init-cli";
 import {
   createInteractiveSession,
   type InteractiveSession,
 } from "./interactive-session";
+import {
+  formatScaffoldWriteHint,
+  scaffoldWriteReason,
+} from "./scaffold-report";
 import { createSkillset, type SetupInclude } from "./setup";
+import { printSetupReport } from "./setup-cli";
 
 export interface CreateCommandRequest {
   readonly jsonOutput: boolean;
@@ -44,20 +48,26 @@ export async function runCreateCommand(
   if (!request.yes && interactiveSession !== undefined) {
     interactiveSession.banner();
     const result = await runInteractiveCreate(request, interactiveSession, {
-      printPlan: (plan) => interactiveSession.note(
-        formatInteractiveCreatePlan(plan),
-        "Skillset will"
-      ),
+      printPlan: (plan) =>
+        interactiveSession.note(
+          formatInteractiveCreatePlan(plan),
+          "Skillset will"
+        ),
     });
     if (result.reason === "written") {
       printSetupReport(result.report, result.reason);
-      await rememberKnownSkillsetWorkspace(result.report.rootPath, request.options);
+      await rememberKnownSkillsetWorkspace(
+        result.report.rootPath,
+        request.options
+      );
     }
     return;
   }
 
   if (request.name === undefined) {
-    throw new Error("skillset: create requires a name outside an interactive terminal");
+    throw new Error(
+      "skillset: create requires a name outside an interactive terminal"
+    );
   }
   const name = normalizeCreateName(request.name);
   const parentPath = resolve(request.parentPath);
@@ -74,7 +84,11 @@ export async function runCreateCommand(
     write: request.yes,
   });
   if (request.jsonOutput && request.yes) {
-    await rememberKnownSkillsetWorkspace(report.rootPath, request.options, true);
+    await rememberKnownSkillsetWorkspace(
+      report.rootPath,
+      request.options,
+      true
+    );
   }
   if (request.jsonOutput) {
     const writes = request.yes
@@ -91,12 +105,9 @@ export async function runCreateCommand(
       writes,
     });
   } else {
-    printSetupReport(
-      report,
-      request.yes ? "written" : "write confirmation required"
-    );
+    printSetupReport(report, scaffoldWriteReason(request.yes));
     if (!request.yes) {
-      console.log("skillset: rerun create with --yes to write setup files");
+      console.log(formatScaffoldWriteHint("create with --yes", "setup files"));
     }
   }
   if (!request.jsonOutput && request.yes) {
