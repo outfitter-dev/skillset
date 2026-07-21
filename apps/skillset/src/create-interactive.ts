@@ -5,12 +5,9 @@ import { validateSlug } from "@skillset/core/internal/path";
 import type { TargetName } from "@skillset/core/internal/types";
 import { formatList } from "@skillset/schema";
 
+import { confirmProceed } from "./interactive-session";
 import type { InteractiveSession } from "./interactive-session";
-import {
-  createSkillset,
-  type SetupInclude,
-  type SetupReport,
-} from "./setup";
+import { createSkillset, type SetupInclude, type SetupReport } from "./setup";
 
 export interface InteractiveCreateRequest {
   readonly name: string | undefined;
@@ -42,23 +39,31 @@ export async function runInteractiveCreate(
   session: InteractiveSession,
   context: InteractiveCreateContext
 ): Promise<InteractiveCreateResult> {
-  const name = request.name === undefined
-    ? normalizeCreateName(await session.prompts.input({
-        message: "What should this Skillset be called?",
-        validate: (value) => validateCreateName(value),
-      }))
-    : normalizeCreateName(request.name);
+  const name =
+    request.name === undefined
+      ? normalizeCreateName(
+          await session.prompts.input({
+            message: "What should this Skillset be called?",
+            validate: (value) => validateCreateName(value),
+          })
+        )
+      : normalizeCreateName(request.name);
   const parentPath = request.parentExplicit
     ? resolve(request.parentPath)
-    : resolve(await session.prompts.input({
-        default: resolve(request.parentPath),
-        message: "Where should it be created?",
-        validate: (value) => value.trim().length > 0
-          ? true
-          : "skillset: parent directory is required",
-      }));
-  const targets = request.setupTargets ?? await promptForCreateTargets(session);
-  const include = request.setupIncludes ?? await promptForIntegrations(session);
+    : resolve(
+        await session.prompts.input({
+          default: resolve(request.parentPath),
+          message: "Where should it be created?",
+          validate: (value) =>
+            value.trim().length > 0
+              ? true
+              : "skillset: parent directory is required",
+        })
+      );
+  const targets =
+    request.setupTargets ?? (await promptForCreateTargets(session));
+  const include =
+    request.setupIncludes ?? (await promptForIntegrations(session));
   const report = await createSkillset({
     cwd: parentPath,
     include,
@@ -68,10 +73,7 @@ export async function runInteractiveCreate(
     write: false,
   });
   context.printPlan({ include, name, parentPath, report, targets });
-  const confirmed = await session.prompts.confirm({
-    default: false,
-    message: "Proceed?",
-  });
+  const confirmed = await confirmProceed(session);
   if (!confirmed) return { reason: "write confirmation declined", report };
   return {
     reason: "written",

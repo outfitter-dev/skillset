@@ -40,6 +40,12 @@ export interface InteractiveSession {
   write(message: string): void;
 }
 
+export const confirmProceed = (
+  session: InteractiveSession
+): Promise<boolean> => {
+  return session.prompts.confirm({ default: false, message: "Proceed?" });
+};
+
 export function interactiveSessionEligible({
   env = process.env,
   input = process.stdin,

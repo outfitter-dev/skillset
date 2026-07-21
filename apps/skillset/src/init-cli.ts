@@ -1,6 +1,5 @@
 import { resolve } from "node:path";
 
-import { sourceUnitDisplay } from "@skillset/core/internal/source-unit-selector";
 import type {
   SkillsetOptions,
   TargetName,
@@ -18,8 +17,14 @@ import {
   createInteractiveSession,
   type InteractiveSession,
 } from "./interactive-session";
+import {
+  formatScaffoldFileLine,
+  formatScaffoldWriteHint,
+  scaffoldWriteReason,
+} from "./scaffold-report";
 import { initSkillset } from "./setup";
-import type { SetupInclude, SetupReport } from "./setup";
+import type { SetupInclude } from "./setup";
+import { printSetupReport } from "./setup-cli";
 
 export interface InitCommandRequest {
   readonly directory: string | undefined;
@@ -54,14 +59,13 @@ export async function runInitCommand(
   const initCwd = resolve(rootPath);
   const explicitInitRootPath = rootExplicit ? initCwd : undefined;
   const setupRootPath =
-    directory === undefined ? explicitInitRootPath : resolve(initCwd, directory);
+    directory === undefined
+      ? explicitInitRootPath
+      : resolve(initCwd, directory);
   const interactiveSession = jsonOutput
     ? undefined
     : (context.interactiveSession ?? createInteractiveSession());
-  if (
-    initAdopt !== undefined &&
-    (yes || interactiveSession === undefined)
-  ) {
+  if (initAdopt !== undefined && (yes || interactiveSession === undefined)) {
     const writeMode = yes;
     const inferredRoot = (
       await initSkillset({
@@ -78,11 +82,7 @@ export async function runInitCommand(
       ...(setupTargets === undefined ? {} : { targets: setupTargets }),
       write: writeMode,
     });
-    const reason = writeMode
-      ? report.write
-        ? "written"
-        : "blocked before write"
-      : "write confirmation required";
+    const reason = scaffoldWriteReason(writeMode, report.write);
     if (jsonOutput && writeMode && report.ok) {
       await rememberKnownSkillsetWorkspace(report.rootPath, options, true);
     }
@@ -100,7 +100,10 @@ export async function runInitCommand(
       printAdoptReport(report, reason);
       if (!writeMode && report.ok && initAdopt !== undefined) {
         console.log(
-          "skillset: rerun init with --adopt and --yes to write adopted source"
+          formatScaffoldWriteHint(
+            "init with --adopt and --yes",
+            "adopted source"
+          )
         );
       }
     }
@@ -177,9 +180,9 @@ export async function runInitCommand(
       writes,
     });
   } else {
-    printSetupReport(setup, yes ? "written" : "write confirmation required");
+    printSetupReport(setup, scaffoldWriteReason(yes));
     if (!yes) {
-      console.log("skillset: rerun init with --yes to write setup files");
+      console.log(formatScaffoldWriteHint("init with --yes", "setup files"));
     }
   }
   if (!jsonOutput && yes) {
@@ -201,7 +204,7 @@ function printAdoptReport(report: AdoptReport, reason: string): void {
     );
   }
   for (const file of report.setupFiles) {
-    console.log(`  ${file.status === "create" ? "+" : "="} ${file.path}`);
+    console.log(formatScaffoldFileLine(file.path, file.status));
   }
   for (const candidate of report.candidates) {
     const sources =
@@ -249,58 +252,4 @@ function printAdoptReport(report: AdoptReport, reason: string): void {
   }
   console.log(`  report: ${ADOPT_REPORT_DIR}/report.md`);
   console.log(`skillset: adopt ${report.ok ? "passed" : "found problems"}`);
-}
-
-export function printSetupReport(result: SetupReport, reason: string): void {
-  for (const file of result.files) {
-    const marker = file.status === "create" ? "+" : "=";
-    console.log(`  ${marker} ${file.path}`);
-  }
-  if (result.git !== undefined) {
-    const marker = result.git.status === "create" ? "+" : "=";
-    console.log(`  ${marker} ${result.git.path}`);
-  }
-  for (const baseline of result.baselines) {
-    const marker = baseline.status === "create" ? "+" : "=";
-    console.log(
-      `  ${marker} baseline ${sourceUnitDisplay(baseline.scope)} ${baseline.version}`
-    );
-  }
-  for (const candidate of result.importCandidates) {
-    console.log(
-      `  ? import candidate ${candidate.kind} ${candidate.path} (id: ${adoptCandidateId(candidate)})`
-    );
-  }
-  for (const diagnostic of result.surveyDiagnostics) {
-    const marker = diagnostic.severity === "error" ? "FAIL" : "warning";
-    console.log(
-      `  ${marker} ${diagnostic.code} ${diagnostic.paths.join(", ")}: ${diagnostic.message}`
-    );
-    console.log(`    resolution: ${diagnostic.recommendation}`);
-  }
-  for (const skip of result.surveySkips) {
-    console.log(`  ! skipped ${skip.surface} ${skip.path}: ${skip.reason}`);
-  }
-  const created = result.files.filter(
-    (file) => file.status === "create"
-  ).length;
-  const existing = result.files.length - created;
-  const gitCreated = result.git?.status === "create" ? 1 : 0;
-  const gitExisting = result.git?.status === "exists" ? 1 : 0;
-  const baselines = result.baselines.filter(
-    (baseline) => baseline.status === "create"
-  ).length;
-  const candidates = result.importCandidates.length;
-  const details = [
-    `${created + gitCreated} to create`,
-    `${existing + gitExisting} already present`,
-    ...(baselines === 0
-      ? []
-      : [`${baselines} baseline${baselines === 1 ? "" : "s"} to adopt`]),
-    ...(candidates === 0
-      ? []
-      : [`${candidates} import candidate${candidates === 1 ? "" : "s"}`]),
-  ];
-  console.log(`skillset: ${result.kind} ${details.join(", ")} (${reason})`);
-  console.log(`  root: ${result.rootPath}`);
 }

@@ -10,6 +10,7 @@ import { formatList } from "@skillset/schema";
 
 import { adoptCandidateId, adoptSkillset, type AdoptReport } from "./adopt";
 import { gitSafeEnv } from "./git-env";
+import { confirmProceed } from "./interactive-session";
 import type { InteractiveSession } from "./interactive-session";
 import {
   initSkillset,
@@ -107,10 +108,7 @@ export async function runInteractiveInit(
     location: plan.report.rootPath,
     targets,
   });
-  const confirmed = await session.prompts.confirm({
-    default: false,
-    message: "Proceed?",
-  });
+  const confirmed = await confirmProceed(session);
   if (!confirmed) return { ...plan, reason: "write confirmation declined" };
   return executeInit(initial.rootPath, candidates, include, targets);
 }
@@ -188,7 +186,10 @@ export async function promptForInteractiveCandidates(
   session: InteractiveSession
 ): Promise<readonly string[]> {
   if (candidates.length === 0) return [];
-  session.note(formatDiscoveredCandidates(candidates), "Found in this repository");
+  session.note(
+    formatDiscoveredCandidates(candidates),
+    "Found in this repository"
+  );
   const intent = await session.prompts.select<InteractiveAdoptionIntent>({
     choices: [
       {
