@@ -146,10 +146,11 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     evidence: [
       test("apps/skillset/src/__tests__/contract.test.ts", "SET-112 activation probe coverage"),
       test("apps/skillset/src/__tests__/try.test.ts", "SET-273 declared runtime provider coverage"),
+      test("packages/core/src/__tests__/test-evaluation.test.ts", "Core declaration, staging, and fake-probe coverage"),
     ],
     id: "activation-probes",
     kind: "workflow",
-    renderOwner: "apps/skillset/src/test-runner.ts",
+    renderOwner: "packages/core/src/test-evaluation.ts",
     runtimeSupport: {
       "claude-code": {
         evidence: [test("apps/skillset/src/__tests__/try.test.ts", "SET-273 declared runtime provider coverage")],
@@ -172,7 +173,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
     summary: "Compiles target-aware manual activation assets and runs explicit declared runtime assertions through isolated provider harnesses.",
     targetSupport: notTargetRuntime(),
     title: "Activation Probes",
-    validationOwner: "apps/skillset/src/test-runner.ts",
+    validationOwner: "packages/core/src/test-declaration.ts",
   }),
   feature({
     docs: ["docs/features/changes.md"],
