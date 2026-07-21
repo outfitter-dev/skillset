@@ -387,12 +387,75 @@ codex: true
     }));
     expect(result.writes.backupRecords).toContainEqual(expect.objectContaining({
       action: "overwrite",
+      backupPath: `files/${outputPath}`,
       reason: "managed-target-edit",
+      sourcePath: ".skillset/skills/demo/SKILL.md",
       targetPath: outputPath,
     }));
 
+    const manifest = JSON.parse(await readFile(join(root, `.skillset/snapshots/${backupRunId}/manifest.json`), "utf8")) as {
+      readonly records: readonly unknown[];
+    };
+    expect(manifest.records).toContainEqual(expect.objectContaining({
+      backupPath: `files/${outputPath}`,
+      sourcePath: ".skillset/skills/demo/SKILL.md",
+      targetPath: outputPath,
+    }));
+    expect(await inspectOutputBackups(root)).toEqual(expect.objectContaining({
+      runs: expect.arrayContaining([expect.objectContaining({
+        records: expect.arrayContaining([expect.objectContaining({
+          state: "restorable-now",
+          targetPath: outputPath,
+        })]),
+        runId: backupRunId,
+        state: "restorable-now",
+      })]),
+    }));
+    await expect(restoreOutputBackup(root, backupRunId ?? "")).resolves.toMatchObject({
+      restoredPaths: [outputPath],
+      write: false,
+    });
+
     await restoreOutputBackup(root, backupRunId ?? "", { write: true });
     expect(await readFile(join(root, outputPath), "utf8")).toBe("hand edit\n");
+  });
+
+  it("rejects platform-specific and escaping backup manifest record paths", async () => {
+    const root = await fixture(DEMO_FIXTURE);
+    const outputPath = ".claude/skills/demo/SKILL.md";
+
+    await buildSkillsetResult(root);
+    await Bun.write(join(root, outputPath), "hand edit\n");
+    const backup = await buildSkillsetResult(root);
+    const backupRunId = backup.writes.backupRunId ?? "";
+    const manifestPath = join(root, `.skillset/snapshots/${backupRunId}/manifest.json`);
+    const original = JSON.parse(await readFile(manifestPath, "utf8")) as {
+      records: Array<{ backupPath: string; sourcePath?: string; targetPath: string }>;
+    };
+    const unsafePaths = ["C:/escape", "//server/share", "nested\\file.md", "nested/../file.md"];
+
+    for (const unsafePath of unsafePaths) {
+      const manifest = structuredClone(original);
+      manifest.records[0]!.backupPath = `files/${unsafePath}`;
+      manifest.records[0]!.targetPath = unsafePath;
+      await Bun.write(manifestPath, `${JSON.stringify(manifest)}\n`);
+      const inspection = await inspectOutputBackups(root);
+      expect(inspection.runs).toContainEqual(expect.objectContaining({
+        runId: backupRunId,
+        state: "corrupt-or-unavailable",
+      }));
+    }
+
+    for (const unsafePath of unsafePaths) {
+      const manifest = structuredClone(original);
+      manifest.records[0]!.sourcePath = unsafePath;
+      await Bun.write(manifestPath, `${JSON.stringify(manifest)}\n`);
+      const inspection = await inspectOutputBackups(root);
+      expect(inspection.runs).toContainEqual(expect.objectContaining({
+        runId: backupRunId,
+        state: "corrupt-or-unavailable",
+      }));
+    }
   });
 
   it("backs up edited multi-file outputs even when a sibling output is missing", async () => {

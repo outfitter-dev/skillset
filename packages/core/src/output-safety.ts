@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import type { Dirent } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, isAbsolute, join, normalize, relative } from "node:path";
+import { dirname, join, posix, relative } from "node:path";
 
 import { compareStrings, resolveInside } from "./path";
 import { renderValidatedJson } from "./structured-output";
@@ -418,8 +418,8 @@ async function collectOutputBackupRecords(
       generatedHash: contentHash(file.content),
       originalHash: contentHash(current),
       reason,
-      ...(file.sourcePath === undefined ? {} : { sourcePath: file.sourcePath }),
-      targetPath: file.path,
+      ...(file.sourcePath === undefined ? {} : { sourcePath: canonicalBackupRecordPath(file.sourcePath) }),
+      targetPath: canonicalBackupRecordPath(file.path),
     });
   }
 
@@ -434,7 +434,7 @@ async function collectOutputBackupRecords(
       content: current,
       originalHash: contentHash(current),
       reason: "managed-target-edit",
-      targetPath,
+      targetPath: canonicalBackupRecordPath(targetPath),
     });
   }
 
@@ -487,7 +487,7 @@ async function writeGitBackupStorage(
 
   try {
     for (const record of [...records].sort((left, right) => compareStrings(left.targetPath, right.targetPath))) {
-      const backupPath = `files/${record.targetPath}`;
+      const backupPath = backupTreePath(record.targetPath);
       const object = await runGit(["--git-dir", absoluteGitDir, "hash-object", "-w", "--stdin"], {
         cwd: rootPath,
         input: record.content,
@@ -739,7 +739,7 @@ function parseBackupRecord(manifestPath: string, value: unknown): OutputBackupRe
   if (sourcePath !== undefined && typeof sourcePath !== "string") {
     throw new Error(`skillset: backup manifest ${manifestPath} has invalid sourcePath`);
   }
-  if (!isSafeBackupPath(targetPath) || backupPath !== `files/${targetPath}` || !isContentHash(originalHash)) {
+  if (!isSafeBackupPath(targetPath) || backupPath !== backupTreePath(targetPath) || !isContentHash(originalHash)) {
     throw new Error(`skillset: backup manifest ${manifestPath} has invalid backup path or originalHash`);
   }
   if (generatedHash !== undefined && !isContentHash(generatedHash)) {
@@ -795,7 +795,24 @@ function assertBackupRecordSet(manifestPath: string, records: readonly OutputBac
 }
 
 function isSafeBackupPath(value: string): boolean {
-  return value.length > 0 && !isAbsolute(value) && !value.includes("\\") && normalize(value) === value && !value.split("/").includes("..");
+  return value.length > 0 &&
+    !/^[a-z]:/iu.test(value) &&
+    !value.includes("\\") &&
+    !posix.isAbsolute(value) &&
+    posix.normalize(value) === value &&
+    !value.split("/").includes("..");
+}
+
+function canonicalBackupRecordPath(value: string): string {
+  const canonical = value.replaceAll("\\", "/");
+  if (!isSafeBackupPath(canonical)) {
+    throw new Error(`skillset: refusing unsafe backup record path ${JSON.stringify(value)}`);
+  }
+  return canonical;
+}
+
+function backupTreePath(targetPath: string): string {
+  return `files/${targetPath}`;
 }
 
 function isContentHash(value: string): boolean {
