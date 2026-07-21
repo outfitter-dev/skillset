@@ -53,9 +53,9 @@ validate completeness and print the project finding counts.
 | 05.6 | confirmed | open | SET-337 | — | Required scope is the named `render.ts` seams; other large files are candidates only. |
 | 05.7 | confirmed | open | SET-336 | — | Split inspection parsers and share lexical readers. |
 | 05.8 | decided-needed | open | SET-342 | — | Re-baseline internal imports only after ownership moves. |
-| 06.1 | confirmed | open | SET-328 | — | Print structured terminal recovery guidance. |
-| 06.2 | confirmed | open | SET-329 | — | Add preview-first, idempotent change evidence refresh. |
-| 06.3 | confirmed | open | SET-330 | — | Add preview-first ignore semantics while retaining coverage evidence. |
-| 06.4 | confirmed | open | SET-331 | — | List backups with integrity-aware restore evidence. |
+| 06.1 | confirmed | fixed | SET-328 | https://github.com/outfitter-dev/skillset/pull/330 | Shared recovery classification now drives terminal, Markdown, and JSON with authority-safe actions, reasons, paths, refs, scopes, and copyable commands. Merged as `d1da3a518ce50789f3777e1713ddc359af4f27c3`. |
+| 06.2 | confirmed | fixed | SET-329 | https://github.com/outfitter-dev/skillset/pull/318 | Preview-first change refresh replans current evidence under an owner-fenced ledger lock, applies only with confirmation, and remains idempotent across concurrent callers. Merged as `936e1832d762cbdd69fc2dfece09eb748f8414e9`. |
+| 06.3 | confirmed | fixed | SET-330 | https://github.com/outfitter-dev/skillset/pull/327 | Preview-first change ignore appends one explicit audit disposition only with confirmation while retaining the pending reason and current coverage evidence. Merged as `85dff8c70aed57427fa97a07f12b77019b8046bd`. |
+| 06.4 | confirmed | fixed | SET-331 | https://github.com/outfitter-dev/skillset/pull/329 | Read-only restore listing validates manifests, Git payloads, portable paths, and current-target safety before reporting deterministic backup availability. Merged as `aeb62e19eaf72290fe19f8d67039f92417e1e5f0`. |
 | 06.5 | plausible | open | SET-338 | — | May be deferred only with demand evidence allowed by the issue contract. |
-| 06.6 | plausible | open | SET-328 | — | Identify which failures are fixable and print the correct recovery operation. |
+| 06.6 | plausible | fixed | SET-328 | https://github.com/outfitter-dev/skillset/pull/330 | Recovery guidance is classified from live change, provider, reconciliation, drift, and write-eligibility facts so each surface withholds commands that cannot repair the reported state. Merged as `d1da3a518ce50789f3777e1713ddc359af4f27c3`. |
