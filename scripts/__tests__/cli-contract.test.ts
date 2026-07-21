@@ -108,6 +108,7 @@ describe("SET-275 final CLI contract", () => {
       "change amend": "skillset change amend ",
       "change check": "skillset change check ",
       "change history": "skillset change history ",
+      "change ignore": "skillset change ignore ",
       "change list": "skillset change list ",
       "change migrate": "skillset change migrate ",
       "change reason": "skillset change reason ",

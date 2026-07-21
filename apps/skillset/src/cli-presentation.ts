@@ -63,6 +63,11 @@ const PRESENTATION = {
     summary: "Show applied change history.",
     synopses: ["change history [@ref] [--ref <ref>] [--json] [--root <path>]"],
   },
+  "change ignore": {
+    group: "Changes",
+    summary: "Record an intentional pending-change ignore.",
+    synopses: ["change ignore <@ref> [--ref <ref>] [--yes] [--json] [--root <path>]"],
+  },
   "change list": {
     group: "Changes",
     summary: "List pending changes.",

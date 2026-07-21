@@ -192,7 +192,7 @@ function refreshPlanKey(report: ChangeRefreshReport): string {
   return JSON.stringify(report.entries);
 }
 
-async function withChangeLedgerLock<T>(
+export async function withChangeLedgerLock<T>(
   rootPath: string,
   sourceDir: string | undefined,
   input: ChangeLedgerLockOptions | undefined,

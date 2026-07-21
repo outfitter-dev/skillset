@@ -194,6 +194,8 @@ test("check --write refuses target-side generated edits", async () => {
   const markdown = renderCiReportMarkdown(report);
   expect(markdown).toContain("### Target-side generated edits");
   expect(markdown).toContain("will not overwrite");
+  expect(markdown).toContain("skillset reconcile <path> --use output");
+  expect(markdown).toContain("skillset reconcile <path> --use source");
   expect(markdown).toContain("### Reconciliation");
 });
 
