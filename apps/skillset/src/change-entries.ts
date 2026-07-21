@@ -77,6 +77,7 @@ interface ChangeValidationContext {
 interface PendingLedgerFacts {
   readonly bump?: ChangeBump;
   readonly group?: ChangeGroup;
+  readonly ignoreEventRecorded: boolean;
   readonly ignored: boolean;
   readonly scopes: readonly string[];
   readonly sourceHashes: ReadonlyMap<string, readonly string[]>;
@@ -94,6 +95,12 @@ const DEFAULT_REASON_MIN_LENGTH = 40;
 const CHANGE_REF_MIN_LENGTH = 6;
 const PLACEHOLDER_REASON_PATTERN = /^(todo|tbd|placeholder|none|n\/a|fill me in|write reason)$/i;
 const BUMPS = new Set<ChangeBump>(["major", "minor", "none", "patch"]);
+const CHANGE_IGNORE_EVENT_ENTRIES = new WeakSet<PendingChangeEntry>();
+
+/** Whether this loaded entry has an explicit change.ignored event in the append-only ledger. */
+export function hasRecordedChangeIgnore(entry: PendingChangeEntry): boolean {
+  return CHANGE_IGNORE_EVENT_ENTRIES.has(entry);
+}
 
 export async function changeCheck(
   rootPath: string,
@@ -197,7 +204,7 @@ export async function readPendingChangeEntries(
       const ledgerFacts = id === undefined ? undefined : ledger.get(id);
       const group = directives.group ?? ledgerFacts?.group;
       const scopes = directives.scopes.length > 0 ? directives.scopes : ledgerFacts?.scopes ?? [];
-      entries.push({
+      const entry: PendingChangeEntry = {
         bump: directives.bump ?? ledgerFacts?.bump,
         format: "reason",
         ...(group === undefined ? {} : { group }),
@@ -208,7 +215,9 @@ export async function readPendingChangeEntries(
         schemaDiagnostics: [],
         scopes,
         sourceHashes: ledgerFacts?.sourceHashes ?? new Map(),
-      });
+      };
+      entries.push(entry);
+      if (ledgerFacts?.ignoreEventRecorded === true) CHANGE_IGNORE_EVENT_ENTRIES.add(entry);
       continue;
     }
 
@@ -244,6 +253,7 @@ async function readPendingLedgerFacts(
     {
       bump?: ChangeBump;
       group?: ChangeGroup;
+      ignoreEventRecorded: boolean;
       ignored: boolean;
       sourceHashes: Map<string, string[]>;
     }
@@ -252,12 +262,13 @@ async function readPendingLedgerFacts(
   const mutableFacts = (reasonId: string): {
     bump?: ChangeBump;
     group?: ChangeGroup;
+    ignoreEventRecorded: boolean;
     ignored: boolean;
     sourceHashes: Map<string, string[]>;
   } => {
     const existing = mutable.get(reasonId);
     if (existing !== undefined) return existing;
-    const created = { ignored: false, sourceHashes: new Map<string, string[]>() };
+    const created = { ignoreEventRecorded: false, ignored: false, sourceHashes: new Map<string, string[]>() };
     mutable.set(reasonId, created);
     return created;
   };
@@ -284,7 +295,10 @@ async function readPendingLedgerFacts(
       }
       if (event.payload.ignored === true) facts.ignored = true;
     }
-    if (event.type === "change.ignored") facts.ignored = true;
+    if (event.type === "change.ignored") {
+      facts.ignoreEventRecorded = true;
+      facts.ignored = true;
+    }
     addSourceUnits(reasonId, event.sourceUnits);
   }
 
@@ -298,6 +312,7 @@ async function readPendingLedgerFacts(
     readonlyFacts.set(reasonId, {
       ...(facts.bump === undefined ? {} : { bump: facts.bump }),
       ...(facts.group === undefined ? {} : { group: facts.group }),
+      ignoreEventRecorded: facts.ignoreEventRecorded,
       ignored: facts.ignored,
       scopes: [...sourceHashes.keys()].sort(compareStrings),
       sourceHashes,

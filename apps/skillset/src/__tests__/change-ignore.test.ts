@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import { expect, test } from "bun:test";
 
+import { ignorePendingChange } from "../change-workflow";
 import { gitSafeEnv } from "../git-env";
 
 test("SET-330 change ignore previews, preserves reason evidence, and remains idempotent", async () => {
@@ -95,6 +96,89 @@ test("SET-330 change ignore serializes concurrent confirmed dispositions", async
   expect(reports.filter((report) => report.writes.length === 0)).toHaveLength(7);
   const ledger = await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8");
   expect((ledger.match(/"type":"change.ignored"/gu) ?? [])).toHaveLength(1);
+  expect(await Bun.file(join(root, ".skillset/changes/ledger.jsonl.lock")).exists()).toBe(false);
+});
+
+test("SET-330 change ignore records a ledger disposition when only the reason body says ignored", async () => {
+  const root = await ignoreFixture();
+  await writeFile(join(root, ".skillset/skills/demo/SKILL.md"), skill("Body-directive changed body."), "utf8");
+  const added = await runCli(
+    "change", "add", "--root", root, "--since", "HEAD", "--scope", "skill:demo", "--bump", "patch",
+    "--reason", "This pending change has an authored ignored directive but still requires a durable audit disposition."
+  );
+  expect(added.exitCode).toBe(0);
+  const [changeFile] = (await readdir(join(root, ".skillset/changes"))).filter((path) => path.endsWith(".md"));
+  if (changeFile === undefined) throw new Error("missing change file");
+  const ref = `@${changeFile.slice(0, -".md".length)}`;
+  const file = join(root, ".skillset/changes", changeFile);
+  await writeFile(file, `${(await readFile(file, "utf8")).trimEnd()}\nIgnored: true\n`, "utf8");
+
+  const preview = jsonIgnore((await runCli("change", "ignore", ref, "--root", root, "--json")).stdout);
+  expect(preview).toMatchObject({ report: { alreadyIgnored: false }, state: "planned", writes: [] });
+
+  const applied = jsonIgnore((await runCli("change", "ignore", ref, "--yes", "--root", root, "--json")).stdout);
+  expect(applied).toMatchObject({ report: { alreadyIgnored: false }, state: "written", writes: [".skillset/changes/ledger.jsonl"] });
+  const ledger = join(root, ".skillset/changes/ledger.jsonl");
+  const after = await readFile(ledger, "utf8");
+  expect((after.match(/"type":"change.ignored"/gu) ?? [])).toHaveLength(1);
+
+  const repeated = jsonIgnore((await runCli("change", "ignore", ref, "--yes", "--root", root, "--json")).stdout);
+  expect(repeated).toMatchObject({ report: { alreadyIgnored: true }, state: "planned", writes: [] });
+  expect(await readFile(ledger, "utf8")).toBe(after);
+});
+
+test("SET-330 change ignore replans immediately before append and rejects stale source evidence", async () => {
+  const root = await ignoreFixture();
+  const skillPath = join(root, ".skillset/skills/demo/SKILL.md");
+  await writeFile(skillPath, skill("First race body."), "utf8");
+  const added = await runCli(
+    "change", "add", "--root", root, "--since", "HEAD", "--scope", "skill:demo", "--bump", "patch",
+    "--reason", "This pending change proves ignore revalidates source evidence immediately before appending its disposition."
+  );
+  expect(added.exitCode).toBe(0);
+  const [changeFile] = (await readdir(join(root, ".skillset/changes"))).filter((path) => path.endsWith(".md"));
+  if (changeFile === undefined) throw new Error("missing change file");
+
+  await expect(ignorePendingChange(root, {
+    beforeOwnershipVerification: async () => writeFile(skillPath, skill("Second race body."), "utf8"),
+    ref: `@${changeFile.slice(0, -".md".length)}`,
+    since: "HEAD",
+    write: true,
+  })).rejects.toThrow("change-evidence-stale");
+  const ledger = await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8");
+  expect(ledger).not.toContain('"type":"change.ignored"');
+  expect(await Bun.file(join(root, ".skillset/changes/ledger.jsonl.lock")).exists()).toBe(false);
+});
+
+test("SET-330 change ignore fails without appending when the pending plan never stabilizes", async () => {
+  const root = await ignoreFixture();
+  await writeFile(join(root, ".skillset/skills/demo/SKILL.md"), skill("Unstable reason body."), "utf8");
+  const added = await runCli(
+    "change", "add", "--root", root, "--since", "HEAD", "--scope", "skill:demo", "--bump", "patch",
+    "--reason", "This pending change begins with a valid reason before the stability retry regression changes it."
+  );
+  expect(added.exitCode).toBe(0);
+  const [changeFile] = (await readdir(join(root, ".skillset/changes"))).filter((path) => path.endsWith(".md"));
+  if (changeFile === undefined) throw new Error("missing change file");
+  const file = join(root, ".skillset/changes", changeFile);
+  let revision = 0;
+
+  await expect(ignorePendingChange(root, {
+    beforeFinalComparison: async () => {
+      revision += 1;
+      await writeFile(
+        file,
+        `This pending change remains valid but changes during stability comparison revision ${revision}.\n\nBump: patch\nScope: skill:demo\n`,
+        "utf8"
+      );
+    },
+    ref: `@${changeFile.slice(0, -".md".length)}`,
+    since: "HEAD",
+    write: true,
+  })).rejects.toThrow("kept changing while change ignore was applying");
+  expect(revision).toBe(3);
+  const ledger = await readFile(join(root, ".skillset/changes/ledger.jsonl"), "utf8");
+  expect(ledger).not.toContain('"type":"change.ignored"');
   expect(await Bun.file(join(root, ".skillset/changes/ledger.jsonl.lock")).exists()).toBe(false);
 });
 
