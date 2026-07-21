@@ -281,6 +281,41 @@ test("ci report explains generated changelog drift", () => {
   expect(markdown).toContain("skillset release amend <@ref>");
 });
 
+test("ci report renders recovery guidance for successful warning-only change reports", () => {
+  const path = ".skillset/changes/abcdef123456.md";
+  const markdown = renderCiReportMarkdown({
+    changeIssues: [{
+      code: "change-frontmatter-compatibility",
+      message: "frontmatter pending entries are compatibility-only",
+      path,
+      severity: "warning",
+    }],
+    drift: { added: [], changed: [], missing: [], removed: [] },
+    fixedPaths: [],
+    lintIssues: [],
+    ok: true,
+    outputEditedPaths: [],
+    outputDiagnostics: [],
+    providerUpdatePaths: [],
+    recovery: [{
+      action: "change-migrate",
+      commands: ["skillset change migrate", "skillset change migrate --yes"],
+      path,
+      reason: "legacy frontmatter pending entries are otherwise valid and can be previewed before migration",
+      ref: "@abcdef123456",
+    }],
+    warnings: [],
+  });
+
+  expect(markdown).toContain("All checks passed; the warnings and recovery guidance below are advisory");
+  expect(markdown).toContain("### Change entries");
+  expect(markdown).toContain("change-frontmatter-compatibility");
+  expect(markdown).toContain("### Recovery guidance");
+  expect(markdown).toContain("`skillset change migrate`");
+  expect(markdown).toContain("`skillset change migrate --yes`");
+  expect(markdown).not.toContain("All checks passed: source lint, change entries, and generated output are current.");
+});
+
 test("ci report uses a safe Markdown code fence for recovery commands containing backticks", () => {
   const path = "custom/`demo`/SKILL.md";
   const command = `skillset reconcile '${path}'`;

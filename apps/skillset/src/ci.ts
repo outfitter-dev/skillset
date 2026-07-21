@@ -311,7 +311,14 @@ export function renderCiReportMarkdown(report: CiReport): string {
   const lintWarnings = report.lintIssues.filter((issue) => issue.severity === "warn");
   const outputWarnings = report.outputDiagnostics.filter((diagnostic) => diagnostic.severity !== "error");
 
-  if (report.ok && report.fixedPaths.length === 0 && lintWarnings.length === 0 && outputWarnings.length === 0) {
+  if (
+    report.ok &&
+    report.fixedPaths.length === 0 &&
+    lintWarnings.length === 0 &&
+    outputWarnings.length === 0 &&
+    report.changeIssues.length === 0 &&
+    (report.recovery?.length ?? 0) === 0
+  ) {
     lines.push("All checks passed: source lint, change entries, and generated output are current.", "");
     return `${lines.join("\n").trimEnd()}\n`;
   }
@@ -322,7 +329,7 @@ export function renderCiReportMarkdown(report: CiReport): string {
         ? "Generated output was stale and has been rebuilt mechanically. Review rebuilt generated changelogs below in case the edit should be recovered through source-side change history."
         : report.fixedPaths.length > 0
         ? "Generated output was stale and has been rebuilt mechanically. No source changes are needed."
-        : "All checks passed; the lint warnings below are advisory and do not fail CI.",
+        : "All checks passed; the warnings and recovery guidance below are advisory and do not fail CI.",
       ""
     );
   } else {
