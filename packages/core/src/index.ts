@@ -331,8 +331,13 @@ export type {
 } from "./operation-result";
 export {
   OUTPUT_BACKUP_ROOT,
+  inspectOutputBackups,
   restoreOutputBackup,
   type OutputBackupAction,
+  type OutputBackupInspectionRecord,
+  type OutputBackupInspectionReport,
+  type OutputBackupInspectionRun,
+  type OutputBackupInspectionState,
   type OutputBackupManifest,
   type OutputBackupReason,
   type OutputBackupRecord,

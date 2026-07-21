@@ -1,4 +1,4 @@
-import { restoreOutputBackup } from "@skillset/core";
+import { inspectOutputBackups, restoreOutputBackup } from "@skillset/core";
 import type { OutputBackupRestoreReport } from "@skillset/core";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
 
@@ -9,6 +9,7 @@ import type { ReconcileChoice } from "./reconcile";
 export interface RestoreCommandRequest {
   readonly backupId: string | undefined;
   readonly jsonOutput: boolean;
+  readonly list: boolean;
   readonly options: SkillsetOptions;
   readonly rootPath: string;
   readonly yes: boolean;
@@ -17,10 +18,20 @@ export interface RestoreCommandRequest {
 export async function runRestoreCommand({
   backupId,
   jsonOutput,
+  list,
   options,
   rootPath,
   yes,
 }: RestoreCommandRequest): Promise<void> {
+  if (list) {
+    const report = await inspectOutputBackups(rootPath);
+    if (jsonOutput) {
+      printCliJsonData("restore", { report, state: "planned", writes: [] });
+    } else {
+      printOutputBackupInspection(report);
+    }
+    return;
+  }
   if (backupId === undefined) {
     throw new Error("skillset: expected backup id to restore");
   }
@@ -40,6 +51,40 @@ export async function runRestoreCommand({
     }
   }
   return;
+}
+
+function printOutputBackupInspection(
+  report: Awaited<ReturnType<typeof inspectOutputBackups>>
+): void {
+  if (report.runs.length === 0) {
+    console.log("skillset: no output backups found");
+    return;
+  }
+  console.log(
+    `skillset: ${report.runs.length} output backup run${report.runs.length === 1 ? "" : "s"}`
+  );
+  for (const run of report.runs) {
+    console.log(`  ${run.state}: ${run.runId}`);
+    console.log(`    manifest: ${run.manifestPath}`);
+    if (run.detail !== undefined) {
+      console.log(`    detail: ${run.detail}`);
+    }
+    for (const record of run.records) {
+      const metadata = [record.action, record.reason, record.targetPath]
+        .filter((value): value is string => value !== undefined)
+        .join(" ");
+      console.log(`    ${record.state}: ${metadata}`);
+      if (record.sourcePath !== undefined) {
+        console.log(`      source: ${record.sourcePath}`);
+      }
+      if (record.detail !== undefined) {
+        console.log(`      detail: ${record.detail}`);
+      }
+    }
+    if (run.state === "restorable-now") {
+      console.log(`    restore: skillset restore ${run.runId} --yes`);
+    }
+  }
 }
 
 export interface ReconcileCommandRequest {

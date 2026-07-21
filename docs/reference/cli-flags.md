@@ -44,7 +44,7 @@ The entries below are the complete final public flag set. Positional arguments a
 | `build` | `--root`, `--updated`, `--all`, `--isolated`, `--scope`, `--yes`, `--json` | Plan-first explicit compilation. |
 | `update` | `--root`, `--yes`, `--json` | Whole-workspace registered provider/compiler format migrations only. |
 | `diff` | `--root`, `--updated`, `--all`, `--isolated`, `--scope`, `--json` | Always read-only. |
-| `restore <backup-id>` | `--root`, `--yes`, `--json` | Preview by default. |
+| `restore <backup-id>` or `restore --list` | `--root`, `--yes`, `--json`, `--list` | Preview a selected backup by default, or list integrity-checked backups without writing. `--list` cannot be combined with an id or `--yes`. |
 | `status` | `--root`, `--json` | Read-only human health/advisory view. |
 | `list` | `--root`, `--scope`, `--json` | Inventory, not build-mode selection. |
 | `explain <path>` | `--root`, `--scope`, `--json` | Workspace-specific provenance. |
@@ -81,6 +81,7 @@ The entries below are the complete final public flag set. Positional arguments a
 - `--updated` and `--all` are mutually exclusive.
 - `--prompt` and `--prompt-file` are mutually exclusive and imply ad hoc `test`.
 - `--use` accepts exactly `source` or `output`; `--yes` without `--use` cannot apply reconcile.
+- `restore --list` is read-only and cannot be combined with a backup id or `--yes`.
 - `--json` and `--jsonl` are mutually exclusive. Leaf-route support follows the [structured-output ADR](../adrs/drafts/20260712-versioned-structured-output-for-cli-automation.md), not a permissive global parser.
 
 ## Hard-cut inventory

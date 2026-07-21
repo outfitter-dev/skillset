@@ -252,7 +252,7 @@ function runtimeRouteSeed(route: string, flag?: CliFlag): readonly string[] {
         ? ["reconcile", "managed/path", "--use", "source"]
         : ["reconcile", "managed/path"];
     case "restore":
-      return ["restore", "backup-id"];
+      return flag === "--list" ? ["restore"] : ["restore", "backup-id"];
     case "test":
       if (flag !== undefined && flag !== "--json" && flag !== "--root") {
         return flag === "--prompt" || flag === "--prompt-file"

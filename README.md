@@ -63,6 +63,7 @@ skillset diff               # show pending generated changes without writing
 skillset explain <path>     # explain a source or generated path (rendering, lock provenance, hashes; add --json for records)
 skillset lookup features [id]      # inspect registry feature capabilities and target support; add --json for records
 skillset restore <backup>   # preview restoring a generated-output backup; write with --yes
+skillset restore --list     # list integrity-checked generated-output backups without writing
 skillset status             # aggregate lint issues, drift, warnings, and render result advisories; add --json for records
 skillset test [name]        # run a committed deterministic/runtime declaration
 skillset test --target codex --prompt "..." # run an ad hoc provider test

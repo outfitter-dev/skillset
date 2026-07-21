@@ -6737,6 +6737,73 @@ codex: true
   expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Existing Instructions");
 });
 
+test("SET-331: CLI lists integrity-checked output backups without writing", async () => {
+  const root = await contractFixture({
+    "skillset.yaml": `
+skillset:
+  name: restore-list-root
+claude: false
+codex: true
+`,
+    ".skillset/rules/root.md": `
+# Generated Instructions
+`,
+    "AGENTS.md": `
+# Existing Instructions
+`,
+  });
+
+  const empty = await runSkillsetCli("restore", "--list", "--root", root);
+  expect(empty.exitCode).toBe(0);
+  expect(empty.stdout).toBe("skillset: no output backups found\n");
+  expect(await Bun.file(join(root, ".skillset/snapshots")).exists()).toBe(false);
+
+  const build = await runSkillsetCli("build", "--root", root, "--yes");
+  expect(build.exitCode).toBe(0);
+  const backupId = extractBackupId(build.stderr);
+  const manifestPath = `.skillset/snapshots/${backupId}/manifest.json`;
+  const manifestBefore = await readFile(join(root, manifestPath), "utf8");
+
+  const listed = await runSkillsetCli("restore", "--list", "--root", root);
+  expect(listed.exitCode).toBe(0);
+  expect(listed.stdout).toContain(`restorable-now: ${backupId}`);
+  expect(listed.stdout).toContain(`manifest: ${manifestPath}`);
+  expect(listed.stdout).toContain("restorable-now: overwrite unmanaged-collision AGENTS.md");
+  expect(listed.stdout).toContain(`restore: skillset restore ${backupId} --yes`);
+  expect(await readFile(join(root, manifestPath), "utf8")).toBe(manifestBefore);
+  expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Generated Instructions");
+
+  const structured = await runSkillsetCli("restore", "--list", "--root", root, "--json");
+  expect(structured.exitCode).toBe(0);
+  expect(structured.stderr).toBe("");
+  expect(structured.stdout.trim().split("\n")).toHaveLength(1);
+  expect(JSON.parse(structured.stdout)).toMatchObject({
+    command: "restore",
+    data: {
+      report: {
+        runs: [{
+          manifestPath,
+          records: [{
+            action: "overwrite",
+            reason: "unmanaged-collision",
+            state: "restorable-now",
+            targetPath: "AGENTS.md",
+          }],
+          runId: backupId,
+          state: "restorable-now",
+        }],
+      },
+      state: "planned",
+      writes: [],
+    },
+    ok: true,
+  });
+
+  const restored = await runSkillsetCli("restore", backupId, "--root", root, "--yes");
+  expect(restored.exitCode).toBe(0);
+  expect(await readFile(join(root, "AGENTS.md"), "utf8")).toContain("# Existing Instructions");
+});
+
 test("SET-25: CLI parses build mode and scope flags", async () => {
   const root = await contractFixture({
     "skillset.yaml": `

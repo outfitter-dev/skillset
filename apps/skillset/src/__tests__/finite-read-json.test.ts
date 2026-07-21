@@ -33,6 +33,25 @@ describe("SET-287 finite read-only JSON", () => {
     });
   }
 
+  test("restore --list emits a no-write finite result without creating snapshots", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "skillset-json-restore-list-"));
+    const result = await runJsonRoute("restore", "--list", "--root", root);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout.endsWith("\n")).toBe(true);
+    expect(result.stdout.trim().split("\n")).toHaveLength(1);
+    const envelope = JSON.parse(result.stdout) as SkillsetCliResult & {
+      readonly data: { readonly report: { readonly runs: readonly unknown[] }; readonly state: string; readonly writes: readonly string[] };
+    };
+    expect(validateCliResult(envelope)).toEqual({ diagnostics: [], ok: true });
+    expect(envelope).toMatchObject({
+      command: "restore",
+      data: { report: { runs: [] }, state: "planned", writes: [] },
+    });
+    expect(await readdir(root)).toEqual([]);
+  });
+
   test("init JSON preserves preview versus confirmed write authority", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "skillset-json-init-"));
     const preview = await runJsonRoute("init", "--root", root);

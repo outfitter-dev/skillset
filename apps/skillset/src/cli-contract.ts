@@ -202,6 +202,11 @@ export const CLI_FLAGS = {
     meaning: "Limit retained test output lines.",
     value: "value",
   },
+  "--list": {
+    family: "output",
+    meaning: "List integrity-checked generated-output backups without restoring them.",
+    value: "boolean",
+  },
   "--name": {
     family: "input",
     meaning:
@@ -456,7 +461,7 @@ export const CLI_ROUTE_FLAGS = {
   "release apply": ["--json", "--root", "--yes"],
   "release audit": ["--json", "--root"],
   "release plan": ["--json", "--root"],
-  restore: ["--json", "--root", "--yes"],
+  restore: ["--json", "--list", "--root", "--yes"],
   status: ["--json", "--root"],
   test: [
     "--background",

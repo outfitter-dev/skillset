@@ -246,7 +246,10 @@ const PRESENTATION = {
   restore: {
     group: "Changes",
     summary: "Restore a recorded generated-output backup.",
-    synopses: ["restore <backup-id> [--yes] [--json] [--root <path>]"],
+    synopses: [
+      "restore <backup-id> [--yes] [--json] [--root <path>]",
+      "restore --list [--json] [--root <path>]",
+    ],
   },
   status: {
     group: "Inspect",
