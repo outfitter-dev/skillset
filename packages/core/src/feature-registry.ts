@@ -1030,6 +1030,7 @@ export const skillsetFeatureRegistry = defineFeatureRegistry([
   feature({
     docs: ["docs/features/ci.md", "docs/features/build-scopes.md", "docs/features/workbench.md"],
     evidence: [
+      test("packages/core/src/__tests__/source-readiness.test.ts", "Core source-readiness operation"),
       test("apps/skillset/src/__tests__/ci.test.ts", "CI and build-scope coverage"),
       test("apps/skillset/src/__tests__/contract.test.ts", "CLI check/verify command coverage"),
       test("packages/workbench/src/__tests__/presets.test.ts", "Workbench presets"),

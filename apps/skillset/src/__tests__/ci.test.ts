@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 
 import { parseYamlRecord } from "@skillset/core/internal/yaml";
 import { gitSafeEnv } from "../git-env";
-import { buildSkillset, createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
+import { buildSkillset, checkSkillsetSourceReadiness, createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
 import { CI_REPORT_MARKER, CI_WORKFLOW_PATH, ciSkillset, renderCiReportMarkdown, renderCiWorkflow } from "../ci";
 import { initSkillset } from "../setup";
 
@@ -42,6 +42,27 @@ test("ci passes on a built fixture with no source changes", async () => {
   expect(report.buildError).toBeUndefined();
   expect(report.changeError).toBeUndefined();
   expect(renderCiReportMarkdown(report)).toContain("All checks passed");
+});
+
+test("ci preserves the reusable Core source-readiness facts", async () => {
+  const root = await builtFixture();
+  const sourcePath = join(root, ".skillset/skills/demo/SKILL.md");
+  await writeFile(
+    sourcePath,
+    `${await readFile(sourcePath, "utf8").then((text) => text.trimEnd())}\n\nUpdated source body.\n`
+  );
+
+  const core = await checkSkillsetSourceReadiness(root);
+  const report = await ciSkillset(root);
+
+  expect(report.buildError).toBeUndefined();
+  expect(report.drift).toEqual(core.data.drift);
+  expect(report.lintIssues).toEqual(core.data.checks.lint.issues);
+  expect(report.outputDiagnostics).toEqual(core.data.outputDiagnostics);
+  expect(report.outputEditedPaths).toEqual(
+    core.data.checks.managedOutputs.failures
+  );
+  expect(report.warnings).toEqual(core.data.warnings);
 });
 
 test("ci reports generated drift without writing when fix is off", async () => {
