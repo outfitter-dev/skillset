@@ -17,6 +17,7 @@ describe("SET-287 finite read-only JSON", () => {
     ["list", "--root", fixtureRoot],
     ["explain", ".skillset/plugins/kitchen/skills/sink/SKILL.md", "--root", fixtureRoot],
     ["lookup", "skill", "frontmatter"],
+    ["status", "--root", fixtureRoot],
   ] as const) {
     test(`${route.join(" ")} emits one versioned result`, async () => {
       const result = await runJsonRoute(...route);
@@ -27,6 +28,7 @@ describe("SET-287 finite read-only JSON", () => {
       expect(validateCliResult(envelope)).toEqual({ diagnostics: [], ok: true });
       expect(envelope.exitCode).toBe(result.exitCode);
       if (route[0] === "diff" || route[0] === "explain") expect(envelope.kind).toBe("data");
+      if (route[0] === "status") expect(envelope.kind).toBe("diagnostics");
       if (route[0] === "check") {
         expect(envelope.data).toHaveProperty("providerUpdatePaths");
       }

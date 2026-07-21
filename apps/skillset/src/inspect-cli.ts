@@ -17,6 +17,10 @@ import type {
 } from "@skillset/core/internal/types";
 import type { SkillsetCliDiagnostic } from "@skillset/schema";
 
+import {
+  runFiniteCommand,
+  type FiniteCommandWriter,
+} from "./cli-finite-command";
 import { renderGeneratedEntryList } from "./cli-list-renderer";
 import { printCliJsonData } from "./cli-output";
 import { runLookupCommand } from "./lookup-cli";
@@ -34,13 +38,15 @@ export async function runListCommand({
   options,
   rootPath,
 }: ListCommandRequest): Promise<void> {
-  const entries = await listGeneratedEntries(rootPath, options);
-  if (jsonOutput) {
-    printCliJsonData("list", { entries });
-    return;
-  }
-  console.log(renderGeneratedEntryList(entries, details));
-  return;
+  return runFiniteCommand({
+    execute: () => listGeneratedEntries(rootPath, options),
+    exitCode: () => 0,
+    json: (entries) => ({ command: "list", data: { entries } }),
+    jsonOutput,
+    renderHuman: (entries, writer) => {
+      writeLine(writer, renderGeneratedEntryList(entries, details));
+    },
+  });
 }
 
 export interface LookupFeaturesCommandRequest {
@@ -116,88 +122,105 @@ export async function runExplainCommand({
   if (path === undefined) {
     throw new Error("skillset: expected a path to explain");
   }
-  const result = await explainPath(rootPath, path, options);
-  if (jsonOutput) {
-    const exitCode = result.kind === "unknown" ? 1 : 0;
-    const diagnostics =
-      result.kind === "unknown"
-        ? result.notes.map(
-            (message): SkillsetCliDiagnostic => ({
-              code: "explain.path-unknown",
-              message,
-              path: result.path,
-              severity: "error",
-            })
-          )
-        : [];
-    printCliJsonData(
-      "explain",
-      result,
-      exitCode,
-      result.kind === "unknown" ? "diagnostics" : "data",
-      diagnostics
-    );
-    return;
-  }
-  console.log(`skillset: ${result.path} (${result.kind})`);
+  return runFiniteCommand({
+    execute: () => explainPath(rootPath, path, options),
+    exitCode: (result) => (result.kind === "unknown" ? 1 : 0),
+    json: (result) => ({
+      command: "explain",
+      data: result,
+      diagnostics: explainDiagnostics(result),
+      kind: result.kind === "unknown" ? "diagnostics" : "data",
+    }),
+    jsonOutput,
+    renderHuman: printExplainResult,
+  });
+}
+
+function explainDiagnostics(
+  result: Awaited<ReturnType<typeof explainPath>>
+): readonly SkillsetCliDiagnostic[] {
+  return result.kind === "unknown"
+    ? result.notes.map(
+        (message): SkillsetCliDiagnostic => ({
+          code: "explain.path-unknown",
+          message,
+          path: result.path,
+          severity: "error",
+        })
+      )
+    : [];
+}
+
+function printExplainResult(
+  result: Awaited<ReturnType<typeof explainPath>>,
+  writer: FiniteCommandWriter
+): void {
+  writeLine(writer, `skillset: ${result.path} (${result.kind})`);
   for (const entry of result.entries) {
-    console.log(
+    writeLine(
+      writer,
       `  [${entry.target}] ${entry.sourcePath} -> ${entry.outputPath}`
     );
     if (entry.version !== undefined) {
-      console.log(`    version: ${entry.version}`);
+      writeLine(writer, `    version: ${entry.version}`);
     }
     if (entry.targetState !== undefined) {
-      console.log(`    target state: ${entry.targetState}`);
+      writeLine(writer, `    target state: ${entry.targetState}`);
     }
     if (entry.validation !== undefined) {
-      console.log(`    validation: ${entry.validation}`);
+      writeLine(writer, `    validation: ${entry.validation}`);
     }
     if (entry.feature !== undefined) {
-      console.log(`    feature: ${entry.feature}`);
+      writeLine(writer, `    feature: ${entry.feature}`);
     }
     if (entry.origin !== undefined) {
-      console.log(`    origin: ${entry.origin}`);
+      writeLine(writer, `    origin: ${entry.origin}`);
     }
     if (entry.sourceOrigin !== undefined) {
-      console.log(
+      writeLine(
+        writer,
         `    source origin: ${formatSourceOrigin(entry.sourceOrigin)}`
       );
     }
     if (entry.sourcePointer !== undefined) {
-      console.log(`    source pointer: ${entry.sourcePointer}`);
+      writeLine(writer, `    source pointer: ${entry.sourcePointer}`);
     }
     if (entry.dependencies !== undefined && entry.dependencies.length > 0) {
-      console.log(`    dependencies: ${entry.dependencies.join(", ")}`);
+      writeLine(writer, `    dependencies: ${entry.dependencies.join(", ")}`);
     }
     if (
       entry.preprocessDependencies !== undefined &&
       entry.preprocessDependencies.length > 0
     ) {
-      console.log(
+      writeLine(
+        writer,
         `    preprocess dependencies: ${entry.preprocessDependencies.join(", ")}`
       );
     }
     if (entry.transforms !== undefined && entry.transforms.length > 0) {
-      console.log(
+      writeLine(
+        writer,
         `    transforms: ${entry.transforms.map((transform) => `${transform.intent} x${transform.count}`).join(", ")}`
       );
     }
     if (entry.sourceHash !== undefined) {
-      console.log(`    source hash: ${entry.sourceHash}`);
+      writeLine(writer, `    source hash: ${entry.sourceHash}`);
     }
     if (entry.outputHash !== undefined) {
-      console.log(`    output hash: ${entry.outputHash}`);
+      writeLine(writer, `    output hash: ${entry.outputHash}`);
     }
   }
   for (const feature of result.features) {
-    console.log(`  feature ${feature.id}: ${feature.title}`);
+    writeLine(writer, `  feature ${feature.id}: ${feature.title}`);
     for (const target of targetNames()) {
-      console.log(`    ${target}: ${feature.targetSupport[target].status}`);
+      writeLine(
+        writer,
+        `    ${target}: ${feature.targetSupport[target].status}`
+      );
     }
   }
   for (const outcome of result.renderResults) {
-    printRenderResult(outcome);
+    printRenderResult(outcome, writer);
   }
   for (const realization of result.toolsRealization) {
     if (realization.entries.length === 0) {
@@ -205,7 +228,7 @@ export async function runExplainCommand({
     }
     const macro =
       realization.macro === undefined ? "" : ` (macro: ${realization.macro})`;
-    console.log(`  tools realization [${realization.target}]${macro}:`);
+    writeLine(writer, `  tools realization [${realization.target}]${macro}:`);
     for (const entry of realization.entries) {
       const name =
         entry.kind === "native-overlay"
@@ -214,21 +237,18 @@ export async function runExplainCommand({
       const classified = entry.unclassified === true ? " (unclassified)" : "";
       const emits =
         entry.emits.length === 0 ? "" : ` -> ${entry.emits.join(", ")}`;
-      console.log(
+      writeLine(
+        writer,
         `    ${name}${classified}: ${entry.decidingLayer} -> ${entry.tier} via ${entry.surface}${emits}`
       );
       for (const diagnostic of entry.diagnostics) {
-        console.log(`      risk: ${diagnostic}`);
+        writeLine(writer, `      risk: ${diagnostic}`);
       }
     }
   }
   for (const note of result.notes) {
-    console.log(`  note: ${note}`);
+    writeLine(writer, `  note: ${note}`);
   }
-  if (result.kind === "unknown") {
-    process.exitCode = 1;
-  }
-  return;
 }
 
 export interface StatusCommandRequest {
@@ -244,45 +264,61 @@ export async function runStatusCommand({
 }: StatusCommandRequest): Promise<void> {
   // doctorSkillset carries source warnings in the structured report; the CLI
   // renders them below instead of relying on core operations to print.
-  const report = await doctorSkillset(rootPath, options);
-  if (jsonOutput) {
-    const exitCode = report.ok ? 0 : 1;
-    printCliJsonData("status", report, exitCode, "diagnostics");
-    return;
-  }
+  return runFiniteCommand({
+    execute: () => doctorSkillset(rootPath, options),
+    exitCode: (report) => (report.ok ? 0 : 1),
+    json: (report) => ({
+      command: "status",
+      data: report,
+      kind: "diagnostics",
+    }),
+    jsonOutput,
+    renderHuman: printStatusReport,
+  });
+}
+
+function printStatusReport(
+  report: Awaited<ReturnType<typeof doctorSkillset>>,
+  writer: FiniteCommandWriter
+): void {
   for (const issue of report.lintIssues) {
-    console.log(
+    writeLine(
+      writer,
       `  lint ${issue.severity}: ${issue.path}: ${issue.code}: ${issue.message}`
     );
   }
   if (report.buildError !== undefined) {
-    console.log(`  build error: ${report.buildError}`);
+    writeLine(writer, `  build error: ${report.buildError}`);
   }
   const { added, changed, removed } = report.drift;
   const { missing } = report.drift;
   const driftCount =
     added.length + changed.length + missing.length + removed.length;
   if (driftCount > 0) {
-    console.log(
+    writeLine(
+      writer,
       `  drift: ${added.length} added, ${changed.length} changed, ${missing.length} missing, ${removed.length} removed (run skillset build --yes)`
     );
   }
-  console.log(
+  writeLine(
+    writer,
     `  features: ${report.featureCapabilities.total} registry entries; status ${formatCountSummary(report.featureCapabilities.byFeatureStatus)}`
   );
   for (const target of targetNames()) {
-    console.log(
+    writeLine(
+      writer,
       `  feature support: ${target} ${formatCountSummary(report.featureCapabilities.byTargetSupport[target])}`
     );
   }
   for (const outcome of report.notableRenderResults) {
-    printRenderResult(outcome);
+    printRenderResult(outcome, writer);
   }
   if (report.ok) {
     if (report.notableRenderResults.length === 0) {
-      console.log("skillset: status found no problems");
+      writeLine(writer, "skillset: status found no problems");
     } else {
-      console.log(
+      writeLine(
+        writer,
         `skillset: status found ${report.notableRenderResults.length} render result advisor${report.notableRenderResults.length === 1 ? "y" : "ies"}`
       );
     }
@@ -302,10 +338,8 @@ export async function runStatusCommand({
         `${report.notableRenderResults.length} render result advisor${report.notableRenderResults.length === 1 ? "y" : "ies"}`
       );
     }
-    console.log(`skillset: status found ${problems.join(" and ")}`);
-    process.exitCode = 1;
+    writeLine(writer, `skillset: status found ${problems.join(" and ")}`);
   }
-  return;
 }
 
 function formatSourceOrigin(origin: SourceOrigin): string {
@@ -340,20 +374,23 @@ function formatCountSummary(counts: Readonly<Record<string, number>>): string {
     .join(", ");
 }
 
-function printRenderResult(outcome: {
-  readonly destination?: string;
-  readonly diagnostics?: readonly {
-    readonly code: string;
-    readonly path?: string;
-  }[];
-  readonly featureId: string;
-  readonly outputs?: readonly { readonly path: string }[];
-  readonly policy?: string;
-  readonly reason?: string;
-  readonly sourceUnit: string;
-  readonly status: string;
-  readonly target?: string;
-}): void {
+function printRenderResult(
+  outcome: {
+    readonly destination?: string;
+    readonly diagnostics?: readonly {
+      readonly code: string;
+      readonly path?: string;
+    }[];
+    readonly featureId: string;
+    readonly outputs?: readonly { readonly path: string }[];
+    readonly policy?: string;
+    readonly reason?: string;
+    readonly sourceUnit: string;
+    readonly status: string;
+    readonly target?: string;
+  },
+  writer: FiniteCommandWriter
+): void {
   const target = outcome.target ?? "workspace";
   const destination =
     outcome.destination === undefined ? "" : ` -> ${outcome.destination}`;
@@ -361,17 +398,24 @@ function printRenderResult(outcome: {
     outcome.policy === undefined ? "" : ` policy: ${outcome.policy}`;
   const reason =
     outcome.reason === undefined ? "" : ` reason: ${outcome.reason}`;
-  console.log(
+  writeLine(
+    writer,
     `  render [${target}] ${outcome.sourceUnit}: ${outcome.featureId}${destination} ${outcome.status}${policy}${reason}`
   );
   if (outcome.outputs !== undefined && outcome.outputs.length > 0) {
-    console.log(
+    writeLine(
+      writer,
       `    outputs: ${outcome.outputs.map((output) => output.path).join(", ")}`
     );
   }
   if (outcome.diagnostics !== undefined && outcome.diagnostics.length > 0) {
-    console.log(
+    writeLine(
+      writer,
       `    diagnostics: ${outcome.diagnostics.map((diagnostic) => `${diagnostic.code}${diagnostic.path === undefined ? "" : ` ${diagnostic.path}`}`).join(", ")}`
     );
   }
+}
+
+function writeLine(writer: FiniteCommandWriter, line: string): void {
+  writer.stdout.write(`${line}\n`);
 }
