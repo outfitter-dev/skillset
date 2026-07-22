@@ -268,6 +268,7 @@ export {
   writeKnownSkillsetsIndex,
   type KnownSkillsetEntry,
   type KnownSkillsetsIndex,
+  type KnownSkillsetsMaintenance,
   type RecordKnownSkillsetOptions,
   type ResolveKnownSkillsetOptions,
 } from "./known-skillsets";

@@ -16,6 +16,7 @@ import {
 
 const KNOWN_SKILLSETS_SCHEMA_VERSION = 1;
 const KNOWN_SKILLSETS_FILE = "skillsets.json";
+const KNOWN_SKILLSETS_STALE_PROBE_LIMIT = 128;
 
 export interface KnownSkillsetEntry {
   readonly cacheKey: string;
@@ -25,9 +26,20 @@ export interface KnownSkillsetEntry {
 }
 
 export interface KnownSkillsetsIndex {
+  readonly maintenance?: KnownSkillsetsMaintenance;
   readonly schemaVersion: 1;
   readonly skillsets: readonly KnownSkillsetEntry[];
 }
+
+export interface KnownSkillsetsMaintenance {
+  readonly staleSweepAfter?: string;
+}
+
+interface KnownSkillsetsUpdateTestOptions extends KnownSkillsetsTransactionTestOptions {
+  readonly inspectPath?: (path: string) => Promise<KnownSkillsetPathState>;
+}
+
+type KnownSkillsetPathState = "directory" | "stale" | "unknown";
 
 export interface RecordKnownSkillsetOptions extends SkillsetXdgOptions {
   readonly cacheKey?: string;
@@ -87,7 +99,7 @@ export async function recordKnownSkillsetWorkspace(
 export async function updateKnownSkillsetsIndexForTest(
   entry: KnownSkillsetEntry,
   options: SkillsetXdgOptions,
-  testOptions: KnownSkillsetsTransactionTestOptions
+  testOptions: KnownSkillsetsUpdateTestOptions
 ): Promise<void> {
   await updateKnownSkillsetsIndex(entry, options, testOptions);
 }
@@ -129,6 +141,7 @@ function upsertKnownSkillsetEntry(index: KnownSkillsetsIndex, entry: KnownSkills
     !candidate.identities.some((identity) => entry.identities.includes(identity))
   );
   return {
+    ...(index.maintenance === undefined ? {} : { maintenance: index.maintenance }),
     schemaVersion: KNOWN_SKILLSETS_SCHEMA_VERSION,
     skillsets: [...entries, entry].sort(compareKnownSkillsetEntries),
   };
@@ -137,7 +150,7 @@ function upsertKnownSkillsetEntry(index: KnownSkillsetsIndex, entry: KnownSkills
 async function updateKnownSkillsetsIndex(
   entry: KnownSkillsetEntry,
   options: SkillsetXdgOptions,
-  testOptions: KnownSkillsetsTransactionTestOptions = {}
+  testOptions: KnownSkillsetsUpdateTestOptions = {}
 ): Promise<void> {
   const path = knownSkillsetsIndexPath(options);
   await withKnownSkillsetsTransaction(path, async (transaction) => {
@@ -149,8 +162,40 @@ async function updateKnownSkillsetsIndex(
       await transaction.quarantine();
       index = emptyKnownSkillsetsIndex();
     }
-    await transaction.publish(stringifyKnownSkillsetsIndex(upsertKnownSkillsetEntry(index, entry)));
+    const compacted = await compactKnownSkillsetsIndex(index, testOptions.inspectPath ?? inspectKnownSkillsetPath);
+    await transaction.publish(stringifyKnownSkillsetsIndex(upsertKnownSkillsetEntry(compacted, entry)));
   }, testOptions);
+}
+
+async function compactKnownSkillsetsIndex(
+  index: KnownSkillsetsIndex,
+  inspectPath: (path: string) => Promise<KnownSkillsetPathState>
+): Promise<KnownSkillsetsIndex> {
+  const entries = index.skillsets.toSorted(compareKnownSkillsetEntries);
+  if (entries.length === 0) return index;
+  const cursor = index.maintenance?.staleSweepAfter;
+  const start = cursor === undefined
+    ? 0
+    : Math.max(0, entries.findIndex((entry) => entry.path.localeCompare(cursor) > 0));
+  const ordered = start === 0 ? entries : [...entries.slice(start), ...entries.slice(0, start)];
+  const probed = ordered.slice(0, KNOWN_SKILLSETS_STALE_PROBE_LIMIT);
+  const stalePaths = new Set<string>();
+  for (const candidate of probed) {
+    if (await inspectPath(candidate.path) === "stale") stalePaths.add(candidate.path);
+  }
+  return {
+    maintenance: { staleSweepAfter: probed.at(-1)!.path },
+    schemaVersion: KNOWN_SKILLSETS_SCHEMA_VERSION,
+    skillsets: entries.filter((candidate) => !stalePaths.has(candidate.path)),
+  };
+}
+
+async function inspectKnownSkillsetPath(path: string): Promise<KnownSkillsetPathState> {
+  try {
+    return (await stat(path)).isDirectory() ? "directory" : "stale";
+  } catch (error) {
+    return isConfirmedMissingError(error) ? "stale" : "unknown";
+  }
 }
 
 async function quarantineMalformedKnownSkillsetsIndex(
@@ -179,8 +224,21 @@ function parseKnownSkillsetsIndex(value: unknown, label: string): KnownSkillsets
     throw new Error(`skillset: expected ${label}.skillsets to be an array`);
   }
   return {
+    ...(readKnownSkillsetsMaintenance(value.maintenance, `${label}.maintenance`)),
     schemaVersion: KNOWN_SKILLSETS_SCHEMA_VERSION,
     skillsets: value.skillsets.map((item, index) => readKnownSkillsetEntry(item, `${label}.skillsets[${index}]`)),
+  };
+}
+
+function readKnownSkillsetsMaintenance(
+  value: JsonValue | undefined,
+  label: string
+): { readonly maintenance?: KnownSkillsetsMaintenance } {
+  if (value === undefined) return {};
+  if (!isJsonRecord(value)) throw new Error(`skillset: expected ${label} to be an object`);
+  if (value.staleSweepAfter === undefined) return { maintenance: {} };
+  return {
+    maintenance: { staleSweepAfter: readRequiredString(value.staleSweepAfter, `${label}.staleSweepAfter`) },
   };
 }
 
@@ -299,6 +357,10 @@ async function isExistingDirectory(path: string): Promise<boolean> {
 
 function isNotFoundError(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
+}
+
+function isConfirmedMissingError(error: unknown): boolean {
+  return error instanceof Error && "code" in error && (error.code === "ENOENT" || error.code === "ENOTDIR");
 }
 
 function compareKnownSkillsetEntries(left: KnownSkillsetEntry, right: KnownSkillsetEntry): number {
