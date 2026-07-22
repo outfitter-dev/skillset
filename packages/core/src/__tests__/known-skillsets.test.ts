@@ -220,6 +220,29 @@ describe("known Skillsets index", () => {
     expect(await transactionArtifacts(options)).toEqual([]);
   });
 
+  test("restores quarantined malformed bytes when publication fails", async () => {
+    const root = await mkdtemp(join(tmpdir(), "skillset-known-recovery-rollback-"));
+    const options = xdgOptions(root);
+    const workspacePath = join(root, "workspace");
+    await mkdir(workspacePath);
+    const malformed = Buffer.from('{"schemaVersion":1,"skillsets":[\0\0', "utf8");
+    const indexPath = knownSkillsetsIndexPath(options);
+    await mkdir(join(root, "config", "skillset"), { recursive: true });
+    await writeFile(indexPath, malformed);
+
+    await expect(updateKnownSkillsetsIndexForTest(entry(workspacePath, "failed"), options, {
+      beforePublish: () => {
+        throw new Error("injected late publication failure");
+      },
+    })).rejects.toThrow("injected late publication failure");
+
+    expect(await readFile(indexPath)).toEqual(malformed);
+    const files = await readdir(join(root, "config", "skillset"));
+    expect(files.filter((file) => file.startsWith("skillsets.corrupt-"))).toEqual([]);
+    await expect(resolveKnownSkillsetWorkspace("github:acme/docs", options)).rejects.toBeInstanceOf(SyntaxError);
+    expect(await transactionArtifacts(options)).toEqual([]);
+  });
+
   test("keeps malformed lookup strict and read-only", async () => {
     const root = await mkdtemp(join(tmpdir(), "skillset-known-readonly-"));
     const options = xdgOptions(root);
@@ -260,6 +283,32 @@ describe("known Skillsets index", () => {
       timeoutMs: 20,
     });
     expect((await readKnownSkillsetsIndex(options)).skillsets).toEqual([entry(workspacePath, "recovered")]);
+    expect(await transactionArtifacts(options)).toEqual([]);
+  });
+
+  test("reclaims an expired lock whose owner PID was reused by the waiter", async () => {
+    const root = await mkdtemp(join(tmpdir(), "skillset-known-pid-reuse-"));
+    const options = xdgOptions(root);
+    const workspacePath = join(root, "workspace");
+    await mkdir(workspacePath);
+    const lockPath = `${knownSkillsetsIndexPath(options)}.lock`;
+    const reusedPid = 42_424;
+    await seedLock(lockPath, {
+      createdAt: 0,
+      heartbeatAt: 0,
+      pid: reusedPid,
+      token: "c".repeat(32),
+    });
+
+    await updateKnownSkillsetsIndexForTest(entry(workspacePath, "reclaimed"), options, {
+      isProcessAlive: () => true,
+      leaseMs: 10,
+      now: () => 100,
+      pid: reusedPid,
+      pollMs: 1,
+      timeoutMs: 20,
+    });
+    expect((await readKnownSkillsetsIndex(options)).skillsets).toEqual([entry(workspacePath, "reclaimed")]);
     expect(await transactionArtifacts(options)).toEqual([]);
   });
 

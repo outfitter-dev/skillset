@@ -96,16 +96,33 @@ export async function withKnownSkillsetsTransaction<T>(
       throw new Error("skillset: lost ownership of known Skillsets index lock");
     }
   };
+  let quarantinedPath: string | undefined;
+  let published = false;
   try {
     await testOptions.afterLockAcquired?.();
-    return await operation({
-      assertOwned,
-      indexPath,
-      publish: async (content) => {
-        await publishAtomically(indexPath, content, assertOwned, testOptions);
-      },
-      quarantine: async () => quarantineIndex(indexPath, assertOwned),
-    });
+    try {
+      return await operation({
+        assertOwned,
+        indexPath,
+        publish: async (content) => {
+          await publishAtomically(indexPath, content, assertOwned, testOptions);
+          published = true;
+        },
+        quarantine: async () => {
+          quarantinedPath = await quarantineIndex(indexPath, assertOwned);
+          return quarantinedPath;
+        },
+      });
+    } catch (error) {
+      if (quarantinedPath !== undefined && !published) {
+        try {
+          await restoreQuarantinedIndex(indexPath, quarantinedPath, assertOwned);
+        } catch {
+          // Prefer the original failure; quarantine bytes remain for diagnosis.
+        }
+      }
+      throw error;
+    }
   } finally {
     await stopHeartbeat();
     await removeOwnedLock(lockPath, token, settings);
@@ -148,6 +165,16 @@ async function quarantineIndex(indexPath: string, assertOwned: () => Promise<voi
   await rename(indexPath, backupPath);
   await syncDirectory(dirname(indexPath));
   return backupPath;
+}
+
+async function restoreQuarantinedIndex(
+  indexPath: string,
+  backupPath: string,
+  assertOwned: () => Promise<void>
+): Promise<void> {
+  await assertOwned();
+  await rename(backupPath, indexPath);
+  await syncDirectory(dirname(indexPath));
 }
 
 async function syncDirectory(path: string): Promise<void> {
@@ -212,7 +239,11 @@ async function reclaimDeadLock(lockPath: string, settings: KnownSkillsetsLockSet
   const lock = await stat(lockPath).catch(() => undefined);
   const lastActiveAt = heartbeat ?? owner?.createdAt ?? lock?.mtimeMs;
   if (lastActiveAt === undefined || settings.now() - lastActiveAt <= settings.leaseMs) return false;
-  if (owner !== undefined && settings.isProcessAlive(owner.pid)) return false;
+  // A live PID matching this waiter is PID reuse: the recorded holder cannot be us
+  // (we do not hold the lock directory), so reclaim the expired orphan.
+  if (owner !== undefined && owner.pid !== settings.pid && settings.isProcessAlive(owner.pid)) {
+    return false;
+  }
   return fenceAndRemoveLock(lockPath, owner?.token, settings);
 }
 
