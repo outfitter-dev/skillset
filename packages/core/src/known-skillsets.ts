@@ -1,5 +1,5 @@
-import { mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { readFile, realpath, stat } from "node:fs/promises";
+import { join, resolve } from "node:path";
 
 import {
   readSkillsetWorkspaceConfig,
@@ -9,6 +9,10 @@ import {
 } from "./xdg";
 import { isJsonRecord, parseYamlRecord, stringifyJson } from "./yaml";
 import type { JsonRecord, JsonValue } from "./types";
+import {
+  type KnownSkillsetsTransactionTestOptions,
+  withKnownSkillsetsTransaction,
+} from "./known-skillsets-transaction";
 
 const KNOWN_SKILLSETS_SCHEMA_VERSION = 1;
 const KNOWN_SKILLSETS_FILE = "skillsets.json";
@@ -55,8 +59,10 @@ export async function writeKnownSkillsetsIndex(
   options: SkillsetXdgOptions = {}
 ): Promise<void> {
   const path = knownSkillsetsIndexPath(options);
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, stringifyKnownSkillsetsIndex(index), "utf8");
+  await withKnownSkillsetsTransaction(path, async (transaction) => {
+    await quarantineMalformedKnownSkillsetsIndex(options, transaction);
+    await transaction.publish(stringifyKnownSkillsetsIndex(index));
+  });
 }
 
 export async function recordKnownSkillsetWorkspace(
@@ -74,9 +80,16 @@ export async function recordKnownSkillsetWorkspace(
     ...(repository === undefined ? {} : { repository }),
   };
 
-  const index = await readKnownSkillsetsIndex(options);
-  await writeKnownSkillsetsIndex(upsertKnownSkillsetEntry(index, entry), options);
+  await updateKnownSkillsetsIndex(entry, options);
   return entry;
+}
+
+export async function updateKnownSkillsetsIndexForTest(
+  entry: KnownSkillsetEntry,
+  options: SkillsetXdgOptions,
+  testOptions: KnownSkillsetsTransactionTestOptions
+): Promise<void> {
+  await updateKnownSkillsetsIndex(entry, options, testOptions);
 }
 
 export async function resolveKnownSkillsetWorkspace(
@@ -119,6 +132,42 @@ function upsertKnownSkillsetEntry(index: KnownSkillsetsIndex, entry: KnownSkills
     schemaVersion: KNOWN_SKILLSETS_SCHEMA_VERSION,
     skillsets: [...entries, entry].sort(compareKnownSkillsetEntries),
   };
+}
+
+async function updateKnownSkillsetsIndex(
+  entry: KnownSkillsetEntry,
+  options: SkillsetXdgOptions,
+  testOptions: KnownSkillsetsTransactionTestOptions = {}
+): Promise<void> {
+  const path = knownSkillsetsIndexPath(options);
+  await withKnownSkillsetsTransaction(path, async (transaction) => {
+    let index: KnownSkillsetsIndex;
+    try {
+      index = await readKnownSkillsetsIndex(options);
+    } catch (error) {
+      if (!isMalformedKnownSkillsetsIndexError(error, path)) throw error;
+      await transaction.quarantine();
+      index = emptyKnownSkillsetsIndex();
+    }
+    await transaction.publish(stringifyKnownSkillsetsIndex(upsertKnownSkillsetEntry(index, entry)));
+  }, testOptions);
+}
+
+async function quarantineMalformedKnownSkillsetsIndex(
+  options: SkillsetXdgOptions,
+  transaction: { readonly indexPath: string; readonly quarantine: () => Promise<string> }
+): Promise<void> {
+  try {
+    await readKnownSkillsetsIndex(options);
+  } catch (error) {
+    if (!isMalformedKnownSkillsetsIndexError(error, transaction.indexPath)) throw error;
+    await transaction.quarantine();
+  }
+}
+
+function isMalformedKnownSkillsetsIndexError(error: unknown, path: string): boolean {
+  if (!(error instanceof Error)) return false;
+  return error instanceof SyntaxError || error.message.startsWith(`skillset: expected ${path}`);
 }
 
 function parseKnownSkillsetsIndex(value: unknown, label: string): KnownSkillsetsIndex {

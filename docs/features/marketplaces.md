@@ -84,6 +84,8 @@ Remote cache identity is derived from the canonical repository plus normalized r
 
 The known-Skillsets index lives at `$XDG_CONFIG_HOME/skillset/skillsets.json`, falling back to `~/.config/skillset/skillsets.json` when `XDG_CONFIG_HOME` is unset. Skillset updates this managed file opportunistically after successful local workspace commands such as `skillset build --yes`, build previews, `skillset check`, and successful `skillset init --yes` runs, including explicit adoption. Entries record the canonical local checkout path, the effective repo cache key, and normalized repository identities such as `github:outfitter-dev/trails`.
 
+Updates serialize the complete read-modify-write transaction across processes. Replacement JSON is flushed to a same-directory temporary file and atomically installed, so readers continue to see the previous complete document until publication. When an updating command encounters malformed index bytes, Skillset first copies and flushes those exact bytes to a unique sibling `skillsets.corrupt-*.json` file, then atomically replaces the disposable index with one rebuilt from the workspace being registered. If replacement fails, both the malformed active index and its byte-preserved sibling remain available for diagnosis. Recovery is automatic and does not require user action. Read-only marketplace lookup never performs this recovery or any other index maintenance.
+
 The index never records local filesystem paths in committed marketplace source, never mutates external plugin repos, and never writes Claude, Codex, or Cursor runtime settings. Stale, origin-mismatched, or commit-mismatched paths fall through to remote resolution instead of poisoning CI or marketplace checks.
 
 ## Readiness
