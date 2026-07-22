@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, utimes, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -410,6 +410,167 @@ describe("known Skillsets index", () => {
     }
     expect((await readKnownSkillsetsIndex(options)).skillsets.map((item) => item.cacheKey)).toEqual(["first", "second"]);
     expect(await transactionArtifacts(options)).toEqual([]);
+  });
+
+  test("probes at most 128 path-sorted entries and resumes after the compatible cursor", async () => {
+    const root = await mkdtemp(join(tmpdir(), "skillset-known-bounded-sweep-"));
+    const options = xdgOptions(root);
+    const currentPath = join(root, "workspace-current");
+    await mkdir(currentPath);
+    const seeded = Array.from({ length: 300 }, (_, index) =>
+      entry(join(root, `workspace-${index.toString().padStart(3, "0")}`), `seed-${index}`)
+    );
+    await writeKnownSkillsetsIndex({ schemaVersion: 1, skillsets: seeded }, options);
+    const firstProbes: string[] = [];
+    await updateKnownSkillsetsIndexForTest(entry(currentPath, "current"), options, {
+      inspectPath: async (path) => {
+        firstProbes.push(path);
+        return "directory";
+      },
+    });
+    expect(firstProbes).toEqual(seeded.slice(0, 128).map((item) => item.path));
+    expect((await readKnownSkillsetsIndex(options)).maintenance).toEqual({ staleSweepAfter: seeded[127]!.path });
+
+    const secondProbes: string[] = [];
+    await updateKnownSkillsetsIndexForTest(entry(currentPath, "current"), options, {
+      inspectPath: async (path) => {
+        secondProbes.push(path);
+        return "directory";
+      },
+    });
+    expect(secondProbes).toEqual(seeded.slice(128, 256).map((item) => item.path));
+    expect((await readKnownSkillsetsIndex(options)).skillsets).toHaveLength(301);
+  });
+
+  test("converges over a large stale index and becomes byte-idempotent", async () => {
+    const root = await mkdtemp(join(tmpdir(), "skillset-known-convergence-"));
+    const options = xdgOptions(root);
+    const currentPath = join(root, "zz-current");
+    await mkdir(currentPath);
+    const seeded = Array.from({ length: 300 }, (_, index) =>
+      entry(join(root, `stale-${index.toString().padStart(3, "0")}`), `stale-${index}`)
+    );
+    await writeKnownSkillsetsIndex({ schemaVersion: 1, skillsets: seeded }, options);
+
+    for (let registration = 0; registration < 3; registration += 1) {
+      let probes = 0;
+      await updateKnownSkillsetsIndexForTest(entry(currentPath, "current"), options, {
+        inspectPath: async (path) => {
+          probes += 1;
+          return path === currentPath ? "directory" : "stale";
+        },
+      });
+      expect(probes).toBeLessThanOrEqual(128);
+    }
+    expect((await readKnownSkillsetsIndex(options)).skillsets).toEqual([entry(currentPath, "current")]);
+    const converged = await readFile(knownSkillsetsIndexPath(options));
+    await updateKnownSkillsetsIndexForTest(entry(currentPath, "current"), options, {
+      inspectPath: async () => "directory",
+    });
+    expect(await readFile(knownSkillsetsIndexPath(options))).toEqual(converged);
+  });
+
+  test("prunes confirmed stale paths while retaining live and symlinked directories", async () => {
+    const root = await mkdtemp(join(tmpdir(), "skillset-known-mixed-sweep-"));
+    const options = xdgOptions(root);
+    const livePath = join(root, "live");
+    const symlinkPath = join(root, "linked-live");
+    const currentPath = join(root, "current");
+    const stalePath = join(root, "missing");
+    const filePath = join(root, "regular-file");
+    await Promise.all([mkdir(livePath), mkdir(currentPath)]);
+    await symlink(livePath, symlinkPath, "dir");
+    await writeFile(filePath, "not a directory\n", "utf8");
+    await writeKnownSkillsetsIndex({
+      schemaVersion: 1,
+      skillsets: [
+        entry(filePath, "file"),
+        entry(livePath, "live"),
+        entry(stalePath, "stale"),
+        entry(symlinkPath, "symlink"),
+      ],
+    }, options);
+
+    await updateKnownSkillsetsIndexForTest(entry(currentPath, "current"), options, {});
+
+    expect((await readKnownSkillsetsIndex(options)).skillsets.map((item) => item.cacheKey)).toEqual([
+      "current",
+      "symlink",
+      "live",
+    ]);
+  });
+
+  test("retains ambiguous inspection failures without failing registration", async () => {
+    const root = await mkdtemp(join(tmpdir(), "skillset-known-ambiguous-sweep-"));
+    const options = xdgOptions(root);
+    const currentPath = join(root, "current");
+    const ambiguousPath = join(root, "ambiguous");
+    await mkdir(currentPath);
+    await writeKnownSkillsetsIndex({
+      schemaVersion: 1,
+      skillsets: [entry(ambiguousPath, "ambiguous")],
+    }, options);
+
+    await updateKnownSkillsetsIndexForTest(entry(currentPath, "current"), options, {
+      inspectPath: async () => "unknown",
+    });
+
+    expect((await readKnownSkillsetsIndex(options)).skillsets.map((item) => item.cacheKey)).toEqual([
+      "ambiguous",
+      "current",
+    ]);
+  });
+
+  test("converges moved and re-registered identities onto the current workspace", async () => {
+    const root = await mkdtemp(join(tmpdir(), "skillset-known-moved-sweep-"));
+    const options = xdgOptions(root);
+    const oldPath = join(root, "old-workspace");
+    const currentPath = join(root, "current-workspace");
+    await mkdir(currentPath);
+    await writeKnownSkillsetsIndex({
+      schemaVersion: 1,
+      skillsets: [{
+        cacheKey: "shared",
+        identities: ["github:acme/docs"],
+        path: oldPath,
+        repository: "https://github.com/acme/docs.git",
+      }],
+    }, options);
+
+    await recordKnownSkillsetWorkspace(currentPath, {
+      ...options,
+      cacheKey: "shared",
+      repository: "git@github.com:Acme/docs.git",
+    });
+
+    expect((await readKnownSkillsetsIndex(options)).skillsets).toEqual([{
+      cacheKey: "shared",
+      identities: ["github:acme/docs"],
+      path: await realpath(currentPath),
+      repository: "git@github.com:Acme/docs.git",
+    }]);
+  });
+
+  test("keeps schema-v1 files without maintenance readable and round-trips an optional cursor", async () => {
+    const root = await mkdtemp(join(tmpdir(), "skillset-known-cursor-schema-"));
+    const options = xdgOptions(root);
+    const workspacePath = join(root, "workspace");
+    await mkdir(workspacePath);
+    await writeKnownSkillsetsIndex({ schemaVersion: 1, skillsets: [entry(workspacePath, "legacy")] }, options);
+    await expect(readKnownSkillsetsIndex(options)).resolves.toEqual({
+      schemaVersion: 1,
+      skillsets: [entry(workspacePath, "legacy")],
+    });
+    await writeKnownSkillsetsIndex({
+      maintenance: { staleSweepAfter: workspacePath },
+      schemaVersion: 1,
+      skillsets: [entry(workspacePath, "cursor")],
+    }, options);
+    await expect(readKnownSkillsetsIndex(options)).resolves.toEqual({
+      maintenance: { staleSweepAfter: workspacePath },
+      schemaVersion: 1,
+      skillsets: [entry(workspacePath, "cursor")],
+    });
   });
 });
 
