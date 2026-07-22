@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
-import { mkdir, open, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { copyFile, mkdir, open, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 
 const LOCK_HEARTBEAT_MS = 5_000;
@@ -17,7 +18,6 @@ interface KnownSkillsetsLockOwner {
 
 interface KnownSkillsetsLockSettings {
   readonly heartbeatMs: number;
-  readonly isProcessAlive: (pid: number) => boolean;
   readonly leaseMs: number;
   readonly now: () => number;
   readonly pid: number;
@@ -37,7 +37,6 @@ export interface KnownSkillsetsTransactionTestOptions {
   readonly beforeTemporarySync?: () => Promise<void> | void;
   readonly beforeTemporaryWrite?: () => Promise<void> | void;
   readonly heartbeatMs?: number;
-  readonly isProcessAlive?: (pid: number) => boolean;
   readonly leaseMs?: number;
   readonly now?: () => number;
   readonly onLockContention?: () => Promise<void> | void;
@@ -96,33 +95,16 @@ export async function withKnownSkillsetsTransaction<T>(
       throw new Error("skillset: lost ownership of known Skillsets index lock");
     }
   };
-  let quarantinedPath: string | undefined;
-  let published = false;
   try {
     await testOptions.afterLockAcquired?.();
-    try {
-      return await operation({
-        assertOwned,
-        indexPath,
-        publish: async (content) => {
-          await publishAtomically(indexPath, content, assertOwned, testOptions);
-          published = true;
-        },
-        quarantine: async () => {
-          quarantinedPath = await quarantineIndex(indexPath, assertOwned);
-          return quarantinedPath;
-        },
-      });
-    } catch (error) {
-      if (quarantinedPath !== undefined && !published) {
-        try {
-          await restoreQuarantinedIndex(indexPath, quarantinedPath, assertOwned);
-        } catch {
-          // Prefer the original failure; quarantine bytes remain for diagnosis.
-        }
-      }
-      throw error;
-    }
+    return await operation({
+      assertOwned,
+      indexPath,
+      publish: async (content) => {
+        await publishAtomically(indexPath, content, assertOwned, testOptions);
+      },
+      quarantine: async () => quarantineIndex(indexPath, assertOwned),
+    });
   } finally {
     await stopHeartbeat();
     await removeOwnedLock(lockPath, token, settings);
@@ -162,19 +144,15 @@ async function quarantineIndex(indexPath: string, assertOwned: () => Promise<voi
     dirname(indexPath),
     `skillsets.corrupt-${timestamp}-${randomBytes(8).toString("hex")}.json`
   );
-  await rename(indexPath, backupPath);
+  await copyFile(indexPath, backupPath, constants.COPYFILE_EXCL);
+  const backup = await open(backupPath, "r");
+  try {
+    await backup.sync();
+  } finally {
+    await backup.close();
+  }
   await syncDirectory(dirname(indexPath));
   return backupPath;
-}
-
-async function restoreQuarantinedIndex(
-  indexPath: string,
-  backupPath: string,
-  assertOwned: () => Promise<void>
-): Promise<void> {
-  await assertOwned();
-  await rename(backupPath, indexPath);
-  await syncDirectory(dirname(indexPath));
 }
 
 async function syncDirectory(path: string): Promise<void> {
@@ -192,7 +170,6 @@ async function syncDirectory(path: string): Promise<void> {
 function lockSettings(input: KnownSkillsetsTransactionTestOptions): KnownSkillsetsLockSettings {
   return {
     heartbeatMs: input.heartbeatMs ?? LOCK_HEARTBEAT_MS,
-    isProcessAlive: input.isProcessAlive ?? isProcessAlive,
     leaseMs: input.leaseMs ?? LOCK_LEASE_MS,
     now: input.now ?? Date.now,
     pid: input.pid ?? process.pid,
@@ -239,11 +216,6 @@ async function reclaimDeadLock(lockPath: string, settings: KnownSkillsetsLockSet
   const lock = await stat(lockPath).catch(() => undefined);
   const lastActiveAt = heartbeat ?? owner?.createdAt ?? lock?.mtimeMs;
   if (lastActiveAt === undefined || settings.now() - lastActiveAt <= settings.leaseMs) return false;
-  // A live PID matching this waiter is PID reuse: the recorded holder cannot be us
-  // (we do not hold the lock directory), so reclaim the expired orphan.
-  if (owner !== undefined && owner.pid !== settings.pid && settings.isProcessAlive(owner.pid)) {
-    return false;
-  }
   return fenceAndRemoveLock(lockPath, owner?.token, settings);
 }
 
@@ -338,15 +310,6 @@ function ownerPath(lockPath: string): string {
 
 function heartbeatPath(lockPath: string, token: string): string {
   return join(lockPath, `heartbeat-${token}.json`);
-}
-
-function isProcessAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return !(typeof error === "object" && error !== null && "code" in error && error.code === "ESRCH");
-  }
 }
 
 function isAlreadyExistsError(error: unknown): boolean {

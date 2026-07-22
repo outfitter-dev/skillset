@@ -220,26 +220,26 @@ describe("known Skillsets index", () => {
     expect(await transactionArtifacts(options)).toEqual([]);
   });
 
-  test("restores quarantined malformed bytes when publication fails", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-known-recovery-rollback-"));
+  test("keeps the malformed active index when recovery publication fails", async () => {
+    const root = await mkdtemp(join(tmpdir(), "skillset-known-recovery-failure-"));
     const options = xdgOptions(root);
     const workspacePath = join(root, "workspace");
     await mkdir(workspacePath);
     const malformed = Buffer.from('{"schemaVersion":1,"skillsets":[\0\0', "utf8");
     const indexPath = knownSkillsetsIndexPath(options);
-    await mkdir(join(root, "config", "skillset"), { recursive: true });
+    const configPath = join(root, "config", "skillset");
+    await mkdir(configPath, { recursive: true });
     await writeFile(indexPath, malformed);
 
     await expect(updateKnownSkillsetsIndexForTest(entry(workspacePath, "failed"), options, {
-      beforePublish: () => {
-        throw new Error("injected late publication failure");
-      },
-    })).rejects.toThrow("injected late publication failure");
+      beforePublish: () => { throw new Error("injected recovery publication failure"); },
+    })).rejects.toThrow("injected recovery publication failure");
 
+    const backups = (await readdir(configPath))
+      .filter((file) => file.startsWith("skillsets.corrupt-") && file.endsWith(".json"));
+    expect(backups).toHaveLength(1);
     expect(await readFile(indexPath)).toEqual(malformed);
-    const files = await readdir(join(root, "config", "skillset"));
-    expect(files.filter((file) => file.startsWith("skillsets.corrupt-"))).toEqual([]);
-    await expect(resolveKnownSkillsetWorkspace("github:acme/docs", options)).rejects.toBeInstanceOf(SyntaxError);
+    expect(await readFile(join(configPath, backups[0]!))).toEqual(malformed);
     expect(await transactionArtifacts(options)).toEqual([]);
   });
 
@@ -257,26 +257,16 @@ describe("known Skillsets index", () => {
     expect(await readdir(join(root, "config", "skillset"))).toEqual(beforeFiles);
   });
 
-  test("reclaims a dead expired owner but preserves a live one", async () => {
+  test("reclaims an expired owner despite PID reuse but preserves a fresh lease", async () => {
     const root = await mkdtemp(join(tmpdir(), "skillset-known-stale-lock-"));
     const options = xdgOptions(root);
     const workspacePath = join(root, "workspace");
     await mkdir(workspacePath);
     const lockPath = `${knownSkillsetsIndexPath(options)}.lock`;
     const token = "a".repeat(32);
-    await seedLock(lockPath, { createdAt: 0, heartbeatAt: 0, pid: 1234, token });
-
-    await expect(updateKnownSkillsetsIndexForTest(entry(workspacePath, "blocked"), options, {
-      isProcessAlive: () => true,
-      leaseMs: 10,
-      now: () => 100,
-      pollMs: 1,
-      timeoutMs: 5,
-    })).rejects.toThrow("timed out waiting for known Skillsets index lock");
-    expect(JSON.parse(await readFile(join(lockPath, "owner.json"), "utf8"))).toMatchObject({ token });
+    await seedLock(lockPath, { createdAt: 0, heartbeatAt: 0, pid: process.pid, token });
 
     await updateKnownSkillsetsIndexForTest(entry(workspacePath, "recovered"), options, {
-      isProcessAlive: () => false,
       leaseMs: 10,
       now: () => 100,
       pollMs: 1,
@@ -284,32 +274,16 @@ describe("known Skillsets index", () => {
     });
     expect((await readKnownSkillsetsIndex(options)).skillsets).toEqual([entry(workspacePath, "recovered")]);
     expect(await transactionArtifacts(options)).toEqual([]);
-  });
 
-  test("reclaims an expired lock whose owner PID was reused by the waiter", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-known-pid-reuse-"));
-    const options = xdgOptions(root);
-    const workspacePath = join(root, "workspace");
-    await mkdir(workspacePath);
-    const lockPath = `${knownSkillsetsIndexPath(options)}.lock`;
-    const reusedPid = 42_424;
-    await seedLock(lockPath, {
-      createdAt: 0,
-      heartbeatAt: 0,
-      pid: reusedPid,
-      token: "c".repeat(32),
-    });
-
-    await updateKnownSkillsetsIndexForTest(entry(workspacePath, "reclaimed"), options, {
-      isProcessAlive: () => true,
+    await seedLock(lockPath, { createdAt: 100, heartbeatAt: 100, pid: 1234, token });
+    await expect(updateKnownSkillsetsIndexForTest(entry(workspacePath, "blocked"), options, {
       leaseMs: 10,
       now: () => 100,
-      pid: reusedPid,
       pollMs: 1,
-      timeoutMs: 20,
-    });
-    expect((await readKnownSkillsetsIndex(options)).skillsets).toEqual([entry(workspacePath, "reclaimed")]);
-    expect(await transactionArtifacts(options)).toEqual([]);
+      timeoutMs: 5,
+    })).rejects.toThrow("timed out waiting for known Skillsets index lock");
+    expect(JSON.parse(await readFile(join(lockPath, "owner.json"), "utf8"))).toMatchObject({ token });
+    await rm(lockPath, { force: true, recursive: true });
   });
 
   test("renews the heartbeat so an over-lease live transaction is not reclaimed", async () => {
@@ -328,7 +302,6 @@ describe("known Skillsets index", () => {
         await release.promise;
       },
       heartbeatMs: 1,
-      isProcessAlive: () => false,
       leaseMs: 5,
       now: () => now,
       startHeartbeat: (heartbeat) => {
@@ -342,7 +315,6 @@ describe("known Skillsets index", () => {
     await heartbeatTick();
 
     await expect(updateKnownSkillsetsIndexForTest(entry(secondPath, "contender"), options, {
-      isProcessAlive: () => false,
       leaseMs: 5,
       now: () => now,
       pollMs: 1,
