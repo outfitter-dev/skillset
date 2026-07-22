@@ -137,7 +137,7 @@ Global Skillset state uses Skillset-owned XDG directories, never provider runtim
 | State | `XDG_STATE_HOME` | `~/.local/state` | `$XDG_STATE_HOME/skillset` |
 | Data | `XDG_DATA_HOME` | `~/.local/share` | `$XDG_DATA_HOME/skillset` |
 
-The managed known-Skillsets index lives at `$XDG_CONFIG_HOME/skillset/skillsets.json`. It records local checkout paths and normalized repo identities, such as `github:owner/repo`, for marketplace repo resolution convenience. It is machine-local config state, not committed source truth; CI and portable marketplace verification must still resolve from committed marketplace source and remote refs.
+The managed known-Skillsets index lives at `$XDG_CONFIG_HOME/skillset/skillsets.json`. It records local checkout paths and normalized repo identities, such as `github:owner/repo`, for marketplace repo resolution convenience. It is machine-local config state, not committed source truth; CI and portable marketplace verification must still resolve from committed marketplace source and remote refs. Writes are serialized and atomically replace the prior flushed document. A write-capable command preserves malformed bytes in a unique `skillsets.corrupt-*.json` sibling before rebuilding this disposable state; read-only lookup remains non-mutating.
 
 The draft global-workspace contract reserves
 `$XDG_DATA_HOME/skillset/source/` for a root `skillset.yaml` and the normal flat

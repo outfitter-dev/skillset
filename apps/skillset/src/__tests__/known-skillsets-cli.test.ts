@@ -98,6 +98,35 @@ test("SET-288: JSON build preview records the workspace in the managed index", a
   expect(index.skillsets.map((entry) => entry.path)).toEqual([await realpath(workspace)]);
 });
 
+test("SET-384: a successful command preserves and recovers a malformed managed index", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-known-recovery-cli-"));
+  const xdgConfigHome = join(root, "xdg-config");
+  const skillsetConfig = join(xdgConfigHome, "skillset");
+  const workspace = join(root, "workspace");
+  const malformed = Buffer.from('{"schemaVersion":1,"skillsets":[\0\0', "utf8");
+  await writeWorkspace(workspace);
+  await mkdir(skillsetConfig, { recursive: true });
+  await writeFile(join(skillsetConfig, "skillsets.json"), malformed);
+
+  const checked = await runSkillsetCli(
+    { XDG_CONFIG_HOME: xdgConfigHome },
+    "build",
+    "--yes",
+    "--root",
+    workspace
+  );
+
+  expect(checked.exitCode, checked.stderr).toBe(0);
+  const files = await readdir(skillsetConfig);
+  const backup = files.find((file) => file.startsWith("skillsets.corrupt-") && file.endsWith(".json"));
+  expect(backup).toBeDefined();
+  expect(await readFile(join(skillsetConfig, backup!))).toEqual(malformed);
+  expect(JSON.parse(await readFile(join(skillsetConfig, "skillsets.json"), "utf8"))).toMatchObject({
+    schemaVersion: 1,
+    skillsets: [{ path: await realpath(workspace) }],
+  });
+});
+
 async function writeWorkspace(root: string): Promise<void> {
   await mkdir(join(root, ".skillset/skills/demo"), { recursive: true });
   await writeFile(join(root, "skillset.yaml"), `
