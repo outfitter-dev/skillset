@@ -1,4 +1,6 @@
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import { relative } from "node:path";
 
 import { writeAtomicFileSet } from "./atomic-file-set";
 import { claudeMarketplacePluginRoot, claudeMarketplaceRepoSource } from "./claude-marketplace";
@@ -18,6 +20,7 @@ import { renderValidatedJson } from "./structured-output";
 import type { BuildGraph, JsonRecord, JsonValue, SkillsetOptions, TargetName } from "./types";
 
 export interface MarketplaceUpdateOptions extends SkillsetOptions {
+  readonly expectedPlanHash?: string;
   readonly name?: string;
   readonly write?: boolean;
 }
@@ -27,6 +30,8 @@ export interface MarketplaceUpdateReport {
   readonly files: readonly MarketplaceUpdateFile[];
   readonly lockPath: "skillset.lock";
   readonly ok: boolean;
+  readonly planHash?: string;
+  readonly reason?: string;
   readonly writtenPaths: readonly string[];
   readonly write: boolean;
 }
@@ -50,15 +55,34 @@ export async function updateMarketplaces(
     ? await renderMarketplaceUpdateFiles(rootPath, graph, check, resolution.sourceRoots)
     : { files: [], providerEntries: new Map<string, JsonRecord>() };
   const files = rendered.files;
-  const writtenPaths = options.write === true && check.ok
-    ? await writeMarketplaceUpdate(rootPath, graph, check, files, rendered.providerEntries)
+  const plan = check.ok
+    ? await prepareMarketplaceUpdate(
+        rootPath,
+        graph,
+        check,
+        files,
+        rendered.providerEntries
+      )
+    : undefined;
+  const planChanged = options.write === true &&
+    options.expectedPlanHash !== undefined &&
+    options.expectedPlanHash !== plan?.hash;
+  const writtenPaths = options.write === true && plan !== undefined && !planChanged
+    ? await writeMarketplaceUpdate(plan)
     : [];
 
   return {
     check,
     files,
     lockPath: "skillset.lock",
-    ok: check.ok,
+    ok: check.ok && !planChanged,
+    ...(plan === undefined ? {} : { planHash: plan.hash }),
+    ...(planChanged
+      ? {
+          reason:
+            "marketplace update changed after preview; review the latest plan before writing",
+        }
+      : {}),
     writtenPaths,
     write: options.write === true,
   };
@@ -167,19 +191,54 @@ function pluginRootPath(generatedPath: string): string {
   return claudeMarketplacePluginRoot(generatedPath);
 }
 
-async function writeMarketplaceUpdate(
+async function prepareMarketplaceUpdate(
   rootPath: string,
   graph: BuildGraph,
   check: MarketplaceCheckReport,
   files: readonly MarketplaceUpdateFileWithContent[],
   providerEntries: ReadonlyMap<string, JsonRecord>
-): Promise<readonly string[]> {
+): Promise<PreparedMarketplaceUpdate> {
   const lockContent = await renderMarketplaceLock(graph, check, files, providerEntries);
-  await writeAtomicFileSet([
+  const writes = [
     ...files.map((file) => ({ content: file.content, path: resolveInside(rootPath, file.path) })),
     { content: lockContent, path: resolveInside(rootPath, "skillset.lock") },
-  ]);
-  return [...files.map(({ path }) => path), "skillset.lock"].sort(compareStrings);
+  ];
+  return {
+    hash: hashMarketplaceUpdatePlan(rootPath, writes),
+    paths: [...files.map(({ path }) => path), "skillset.lock"].sort(compareStrings),
+    writes,
+  };
+}
+
+async function writeMarketplaceUpdate(
+  plan: PreparedMarketplaceUpdate
+): Promise<readonly string[]> {
+  await writeAtomicFileSet(plan.writes);
+  return plan.paths;
+}
+
+function hashMarketplaceUpdatePlan(
+  rootPath: string,
+  writes: PreparedMarketplaceUpdate["writes"]
+): string {
+  const hash = createHash("sha256");
+  const planned = writes.map((write) => ({
+    ...write,
+    planPath: normalizeMarketplaceUpdatePlanPath(
+      relative(rootPath, write.path)
+    ),
+  })).toSorted((left, right) => compareStrings(left.planPath, right.planPath));
+  for (const write of planned) {
+    hash.update(write.planPath);
+    hash.update("\0");
+    hash.update(write.content);
+    hash.update("\0");
+  }
+  return `sha256:${hash.digest("hex")}`;
+}
+
+export function normalizeMarketplaceUpdatePlanPath(path: string): string {
+  return path.replaceAll("\\", "/");
 }
 
 async function renderMarketplaceLock(
@@ -261,4 +320,13 @@ interface MarketplaceUpdateFileWithContent extends MarketplaceUpdateFile {
 interface RenderedMarketplaceUpdate {
   readonly files: readonly MarketplaceUpdateFileWithContent[];
   readonly providerEntries: ReadonlyMap<string, JsonRecord>;
+}
+
+interface PreparedMarketplaceUpdate {
+  readonly hash: string;
+  readonly paths: readonly string[];
+  readonly writes: readonly {
+    readonly content: Uint8Array | string;
+    readonly path: string;
+  }[];
 }

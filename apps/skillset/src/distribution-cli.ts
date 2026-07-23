@@ -1,5 +1,6 @@
 import {
   checkMarketplaces,
+  listMarketplaceCatalogs,
   planDistributions,
   updateMarketplaces,
 } from "@skillset/core";
@@ -12,6 +13,11 @@ import type { SkillsetOptions } from "@skillset/core/internal/types";
 import type { SkillsetCliDiagnostic } from "@skillset/schema";
 
 import { printCliJsonData } from "./cli-output";
+import {
+  confirmProceed,
+  createInteractiveSession,
+  type InteractiveSession,
+} from "./interactive-session";
 
 export interface DistributionCommandRequest {
   readonly distributionName: string | undefined;
@@ -52,14 +58,25 @@ export interface MarketplaceCommandRequest {
   readonly yes: boolean;
 }
 
-export async function runMarketplaceCommand({
-  jsonOutput,
-  marketplaceName,
-  marketplaceSubcommand,
-  options,
-  rootPath,
-  yes,
-}: MarketplaceCommandRequest): Promise<void> {
+export interface MarketplaceCommandContext {
+  readonly interactiveSession?: InteractiveSession;
+  readonly listCatalogs?: typeof listMarketplaceCatalogs;
+  readonly update?: typeof updateMarketplaces;
+  readonly write?: (value: string) => void;
+}
+
+export async function runMarketplaceCommand(
+  request: MarketplaceCommandRequest,
+  context: MarketplaceCommandContext = {}
+): Promise<void> {
+  const {
+    jsonOutput,
+    marketplaceName,
+    marketplaceSubcommand,
+    options,
+    rootPath,
+    yes,
+  } = request;
   if (marketplaceSubcommand === "check") {
     const report = await checkMarketplaces(rootPath, {
       ...options,
@@ -86,7 +103,7 @@ export async function runMarketplaceCommand({
         diagnostics
       );
     } else {
-      printMarketplaceCheck(report);
+      process.stdout.write(renderMarketplaceCheck(report));
     }
     if (!report.ok) {
       process.exitCode = 1;
@@ -94,7 +111,17 @@ export async function runMarketplaceCommand({
     return;
   }
   if (marketplaceSubcommand === "update") {
-    const report = await updateMarketplaces(rootPath, {
+    const interactiveSession =
+      context.interactiveSession ??
+      createInteractiveSession({ machineMode: jsonOutput });
+    if (interactiveSession !== undefined && !yes && !jsonOutput) {
+      return runInteractiveMarketplaceUpdate(
+        request,
+        interactiveSession,
+        context
+      );
+    }
+    const report = await (context.update ?? updateMarketplaces)(rootPath, {
       ...options,
       ...(marketplaceName === undefined ? {} : { name: marketplaceName }),
       write: yes,
@@ -111,7 +138,9 @@ export async function runMarketplaceCommand({
         report.ok ? 0 : 1
       );
     } else {
-      printMarketplaceUpdate(report);
+      (context.write ?? process.stdout.write.bind(process.stdout))(
+        renderMarketplaceUpdate(report)
+      );
     }
     if (!jsonOutput && !yes) {
       console.log("skillset: marketplace update preview wrote no files");
@@ -122,6 +151,60 @@ export async function runMarketplaceCommand({
     return;
   }
   throw new Error("skillset: expected marketplace subcommand check or update");
+}
+
+async function runInteractiveMarketplaceUpdate(
+  request: MarketplaceCommandRequest,
+  session: InteractiveSession,
+  context: MarketplaceCommandContext
+): Promise<void> {
+  const update = context.update ?? updateMarketplaces;
+  const write = context.write ?? process.stdout.write.bind(process.stdout);
+  session.banner();
+  let marketplaceName = request.marketplaceName;
+  if (marketplaceName === undefined) {
+    const catalogs = await (context.listCatalogs ?? listMarketplaceCatalogs)(
+      request.rootPath,
+      request.options
+    );
+    marketplaceName =
+      catalogs.length > 1
+        ? await session.prompts.select({
+            choices: catalogs.map((catalog) => ({
+              name: catalog,
+              value: catalog,
+            })),
+            message: "Marketplace:",
+          })
+        : catalogs[0];
+  }
+  const updateOptions = {
+    ...request.options,
+    ...(marketplaceName === undefined ? {} : { name: marketplaceName }),
+  };
+  const preview = await update(request.rootPath, {
+    ...updateOptions,
+    write: false,
+  });
+  write(renderMarketplaceUpdate(preview));
+  if (
+    !preview.ok ||
+    preview.check.marketplaces.length === 0 ||
+    !(await confirmProceed(session))
+  ) {
+    if (!preview.ok) process.exitCode = 1;
+    return;
+  }
+  if (preview.planHash === undefined) {
+    throw new Error("skillset: marketplace update preview is missing its plan hash");
+  }
+  const applied = await update(request.rootPath, {
+    ...updateOptions,
+    expectedPlanHash: preview.planHash,
+    write: true,
+  });
+  write(renderMarketplaceUpdate(applied));
+  if (!applied.ok) process.exitCode = 1;
 }
 
 function printDistributionPlan(report: DistributionPlanReport): void {
@@ -159,42 +242,45 @@ function printDistributionPlan(report: DistributionPlanReport): void {
   }
 }
 
-function printMarketplaceCheck(report: MarketplaceCheckReport): void {
+function renderMarketplaceCheck(report: MarketplaceCheckReport): string {
+  const lines: string[] = [];
   if (report.marketplaces.length === 0) {
-    console.log("skillset: no marketplaces configured");
-    return;
+    return "skillset: no marketplaces configured\n";
   }
-  console.log(
+  lines.push(
     `skillset: marketplace check ${report.ok ? "passed" : "failed"} ` +
       `(${report.entries.length} target entr${report.entries.length === 1 ? "y" : "ies"})`
   );
   for (const entry of report.entries) {
     const source = entry.repo ?? entry.source.repository ?? entry.source.kind;
-    console.log(
+    lines.push(
       `  ${entry.readiness}: ${entry.catalog}/${entry.entryId} ${entry.requestedTarget} ` +
         `plugin ${entry.plugin} source ${source}`
     );
-    console.log(`    reason: ${entry.reason}`);
+    lines.push(`    reason: ${entry.reason}`);
     if (entry.lock.state !== "locked") {
-      console.log(
+      lines.push(
         `    lock: ${entry.lock.state} ${entry.lock.policy} (${entry.lock.reason})`
       );
     }
     if (entry.generatedPath !== undefined) {
-      console.log(`    generated: ${entry.generatedPath}`);
+      lines.push(`    generated: ${entry.generatedPath}`);
     }
     if (entry.generatedPaths.length > 1) {
-      console.log(`    generated bundle: ${entry.generatedPaths.join(", ")}`);
+      lines.push(`    generated bundle: ${entry.generatedPaths.join(", ")}`);
     }
   }
+  return `${lines.join("\n")}\n`;
 }
 
-function printMarketplaceUpdate(report: MarketplaceUpdateReport): void {
+export function renderMarketplaceUpdate(
+  report: MarketplaceUpdateReport
+): string {
+  const lines: string[] = [];
   if (report.check.marketplaces.length === 0) {
-    console.log("skillset: no marketplaces configured");
-    return;
+    return "skillset: no marketplaces configured\n";
   }
-  console.log(
+  lines.push(
     `skillset: marketplace update ${report.ok ? "passed" : "failed"} ` +
       `(${report.check.entries.length} target entr${report.check.entries.length === 1 ? "y" : "ies"})`
   );
@@ -204,14 +290,20 @@ function printMarketplaceUpdate(report: MarketplaceUpdateReport): void {
         ? "wrote"
         : "unchanged"
       : "would write";
-    console.log(`  ${state}: ${file.path} (${file.catalog} ${file.target})`);
+    lines.push(`  ${state}: ${file.path} (${file.catalog} ${file.target})`);
   }
   if (report.ok) {
     const state = report.write ? "wrote" : "would write";
-    console.log(`  ${state}: ${report.lockPath}`);
-    return;
+    lines.push(`  ${state}: ${report.lockPath}`);
+    return `${lines.join("\n")}\n`;
   }
-  printMarketplaceCheck(report.check);
+  if (report.reason !== undefined) {
+    lines.push(`  reason: ${report.reason}`);
+  }
+  if (!report.check.ok) {
+    lines.push(renderMarketplaceCheck(report.check));
+  }
+  return `${lines.join("\n").trimEnd()}\n`;
 }
 
 function formatDistributionNoOp(noOp: boolean | "unknown"): string {

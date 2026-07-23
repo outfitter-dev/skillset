@@ -67,7 +67,7 @@ The entries below are the complete final public flag set. Positional arguments a
 | `release apply` | `--root`, `--yes`, `--json` | Plan-first ledger application. |
 | `release amend` | `--root`, `--ref`, `--reason`, `--reason-file`, `--json` | Explicit corrective record. |
 | `marketplace check` | `--root`, `--json` | Read-only catalog readiness. |
-| `marketplace update` | `--root`, `--yes`, `--json` | Plan-first provider index update. |
+| `marketplace update` | `--root`, `--yes`, `--json` | TTY catalog choice when needed, canonical plan, default-No confirmation; explicit catalog, `--yes`, JSON, and non-TTY bypass matching prompts. |
 | `distribute plan` | `--root`, `--json` | Read-only; no destination override. |
 | `hooks print` | `--runner`, `--pre-commit`, `--pre-push`, `--target`, `--agent-runtime` | Prints reviewed integration material. |
 | `hooks run` | `--root` | Event stays positional. |

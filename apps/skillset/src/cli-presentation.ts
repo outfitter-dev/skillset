@@ -207,8 +207,12 @@ const PRESENTATION = {
     synopses: ["marketplace check [name] [--json] [--root <path>]"],
   },
   "marketplace update": {
+    examples: [
+      "skillset marketplace update",
+      "skillset marketplace update outfitter",
+    ],
     group: "Distribute",
-    summary: "Update resolved marketplace artifacts.",
+    summary: "Preview and confirm resolved marketplace artifacts.",
     synopses: ["marketplace update [name] [--yes] [--json] [--root <path>]"],
   },
   new: {
