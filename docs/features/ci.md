@@ -26,6 +26,13 @@ Library consumers can call `checkSkillsetSourceReadiness(root, options)` from `@
 
 This repo's `bun run check` remains the default local and hosted CI aggregate. It runs the tracked test corpus, which includes the fast deterministic projection and adapter conformance suites. Use `bun run conformance:fast` only when you want a focused rerun of those suites without the rest of the tests. `bun run conformance:external` remains an opt-in slower lane and must not be folded into `bun run check` or scaffolded CI while it needs network access or large cloned repos.
 
+The repository's verification scripts share a canonical `bun run test:sandbox`
+runner. A top-level invocation owns one temporary sandbox, leaves `HOME`
+unchanged, isolates all four XDG roots, and passes a validated descriptor to
+nested commands through `SKILLSET_TEST_SANDBOX`. Cleanup is limited to the
+owned temporary path. `SKILLSET_TEST_SANDBOX_RETAIN=1` is an explicit debugging
+escape hatch and reports the retained descriptor and sandbox paths.
+
 Source-driven generated-output drift is the only mechanically repairable problem. With `--fix`, CI rebuilds only when the recovery guidance classifies generated output as the sole blocking condition and managed outputs still match their recorded hashes. Target-side edits are never overwritten, and drift identified as a provider-format migration remains the responsibility of `skillset update`. Lint issues, change-entry failures, unresolved baselines, package Changesets issues, and build errors stay report-only.
 
 Skillset uses two separate change ledgers. `.skillset/changes/` records source-unit and loadout provenance for Skillset releases. `.changeset/*.md` records npm-facing release intent for the published `skillset` package. `skillset check --ci` checks both against the branch baseline.

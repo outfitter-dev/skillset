@@ -47,10 +47,10 @@ post-write checks in disposable workspaces.
 Run the complete interaction and terminal surface with:
 
 ```bash
-bun test apps/skillset/src/__tests__/*interactive.test.ts
-bun test apps/skillset/src/__tests__/*pty.test.ts
-bun test apps/skillset/src/__tests__/interactive-session.test.ts
-bun test apps/skillset/src/__tests__/interactive-surface-inventory.test.ts
+bun run test:focused -- apps/skillset/src/__tests__/*interactive.test.ts
+bun run test:focused -- apps/skillset/src/__tests__/*pty.test.ts
+bun run test:focused -- apps/skillset/src/__tests__/interactive-session.test.ts
+bun run test:focused -- apps/skillset/src/__tests__/interactive-surface-inventory.test.ts
 ```
 
 The prompt-surface inventory keeps every command owner explicit and proves

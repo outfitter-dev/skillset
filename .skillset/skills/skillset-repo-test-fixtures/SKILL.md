@@ -27,5 +27,5 @@ Use this skill when changing Skillset's internal compiler fixtures, fixture docu
 ## Verification
 
 - For docs-only fixture changes, run `bun run check`.
-- For compiler behavior changes, run the smallest relevant `bun test apps/skillset/src/__tests__/<file>.test.ts` first, then `bun run check`.
+- For compiler behavior changes, run the smallest relevant `bun run test:focused -- apps/skillset/src/__tests__/<file>.test.ts` first, then `bun run check`.
 - If self-hosted source under `.skillset/` changes, run `bun run skillset:build`, inspect generated output, then run `bun run check`.

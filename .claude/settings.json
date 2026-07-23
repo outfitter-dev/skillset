@@ -40,7 +40,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./apps/skillset/src/cli.ts hooks run stop"
+            "command": "bun run test:sandbox -- bun ./apps/skillset/src/cli.ts hooks run stop"
           }
         ]
       }

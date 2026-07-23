@@ -46,7 +46,7 @@ bun run hooks:install
 bun run hooks:pre-push
 bun run ultracite:doctor
 bun run typecheck
-bun test
+bun run test
 bun run check
 bun run package-ownership:guard
 bun run terminology:guard

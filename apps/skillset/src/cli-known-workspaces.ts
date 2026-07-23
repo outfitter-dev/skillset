@@ -1,17 +1,15 @@
 import { recordKnownSkillsetWorkspace } from "@skillset/core";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
 
+import { resolveWorkspaceRegistrationPolicy } from "./verification-sandbox";
+
 export async function rememberKnownSkillsetWorkspace(
   rootPath: string,
   options: SkillsetOptions,
   quiet = false
 ): Promise<void> {
-  if (
-    process.env.NODE_ENV === "test" &&
-    process.env.XDG_CONFIG_HOME === undefined
-  ) {
-    return;
-  }
+  const policy = await resolveWorkspaceRegistrationPolicy();
+  if (policy === "suppressed") return;
   try {
     await recordKnownSkillsetWorkspace(rootPath, options.xdg);
   } catch (error) {

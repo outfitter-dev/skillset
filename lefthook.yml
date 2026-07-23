@@ -56,11 +56,13 @@ pre-push:
       group:
         parallel: true
         jobs:
+          # Each parallel aggregate owns its own XDG sandbox. Reusing the
+          # wrapper's marker would let concurrent checks race on config/cache.
           - name: check
             env:
               GIT_PAGER: cat
-            run: bun run check
+            run: env -u SKILLSET_TEST_SANDBOX bun run check
           - name: skillset-ci
             env:
               GIT_PAGER: cat
-            run: bun run skillset:check:ci:report
+            run: env -u SKILLSET_TEST_SANDBOX bun run skillset:check:ci:report

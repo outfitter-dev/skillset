@@ -113,7 +113,12 @@ describe("SET-287 finite read-only JSON", () => {
     await writeFile(configHome, "occupied\n");
     const proc = Bun.spawn([process.execPath, cli, "init", "--root", root, "--yes", "--json"], {
       cwd: repoRoot,
-      env: { ...process.env, NODE_ENV: "test", XDG_CONFIG_HOME: configHome },
+      env: {
+        ...process.env,
+        NODE_ENV: "development",
+        SKILLSET_TEST_SANDBOX: "",
+        XDG_CONFIG_HOME: configHome,
+      },
       stderr: "pipe",
       stdout: "pipe",
     });
@@ -299,7 +304,12 @@ describe("SET-287 finite read-only JSON", () => {
       [process.execPath, cli, "build", "--root", root, "--yes", "--json"],
       {
         cwd: repoRoot,
-        env: { ...process.env, NODE_ENV: "test", XDG_CONFIG_HOME: configHome },
+        env: {
+          ...process.env,
+          NODE_ENV: "development",
+          SKILLSET_TEST_SANDBOX: "",
+          XDG_CONFIG_HOME: configHome,
+        },
         stderr: "pipe",
         stdout: "pipe",
       }
