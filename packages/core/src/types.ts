@@ -156,6 +156,7 @@ export interface SourceSkill {
   readonly adaptiveHooks: readonly SourceAdaptiveHook[];
   readonly body: string;
   readonly dialect?: SourceDialect;
+  readonly evalDeclaration?: SourceSkillEval;
   readonly frontmatter: JsonRecord;
   readonly hookAttachments: readonly SourceHookAttachment[];
   readonly id: string;
@@ -165,6 +166,21 @@ export interface SourceSkill {
   readonly sourceOrigin?: SourceOrigin;
   readonly sourcePath: string;
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
+}
+
+/** One validated portable eval file owned by a source skill. */
+export interface SourceSkillEval {
+  readonly cases: readonly SourceSkillEvalCase[];
+  readonly relativePath: string;
+}
+
+export interface SourceSkillEvalCase {
+  readonly expectedOutput: string;
+  readonly expectations: readonly string[];
+  readonly files: readonly string[];
+  readonly id: number;
+  readonly prompt: string;
+  readonly targets: readonly TargetName[];
 }
 
 export interface SourceResource {

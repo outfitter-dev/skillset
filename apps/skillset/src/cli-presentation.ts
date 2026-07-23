@@ -122,6 +122,11 @@ const PRESENTATION = {
       "diff [--updated|--all] [--isolated] [--scope <scope>] [--json] [--root <path>]",
     ],
   },
+  "eval list": {
+    group: "Inspect",
+    summary: "List portable skill eval cases and their resolved target matrix.",
+    synopses: ["eval list [--json] [--root <path>]"],
+  },
   "distribute plan": {
     commandSummary: "Plan distribution-ready plugin artifacts.",
     group: "Distribute",

@@ -338,7 +338,7 @@ async function planSkill(
       files.push({ content: "", path: join(skillRoot, "scripts", ".gitkeep") });
     }
     if (preset === "evals") {
-      files.push({ content: "{\n  \"evals\": []\n}\n", path: join(skillRoot, "evals", "evals.json") });
+      files.push({ content: `{\n  "skill_name": "${id}",\n  "evals": []\n}\n`, path: join(skillRoot, "evals", "evals.json") });
     }
     if (preset === "reference-file") {
       files.push({ content: `# ${displayName} Reference\n\nAdd concise reference material here.\n`, path: join(skillRoot, "REFERENCE.md") });

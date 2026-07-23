@@ -10,6 +10,7 @@ import {
   cliResultContract,
   hookContract,
   instructionFrontmatterContract,
+  skillEvalContract,
   skillFrontmatterContract,
   skillsetSchemaContracts,
   sourceMetadataContract,
@@ -31,6 +32,7 @@ const schemaFileNames = {
   "cli-result": "cli-result.schema.json",
   hook: "hook.schema.json",
   "instruction-frontmatter": "instruction-frontmatter.schema.json",
+  "skill-eval": "skill-eval.schema.json",
   "skill-frontmatter": "skill-frontmatter.schema.json",
   "source-metadata": "source-metadata.schema.json",
   "test-declaration": "test-declaration.schema.json",
@@ -73,6 +75,7 @@ function combinedSchemaArtifact(): SkillsetJsonSchemaArtifact {
         { $ref: "#/$defs/skill-frontmatter" },
         { $ref: "#/$defs/agent-frontmatter" },
         { $ref: "#/$defs/instruction-frontmatter" },
+        { $ref: "#/$defs/skill-eval" },
         { $ref: "#/$defs/hook" },
         { $ref: "#/$defs/adaptive-hook" },
         { $ref: "#/$defs/change-entry" },
@@ -101,6 +104,7 @@ export const skillsetSourceMetadataJsonSchema = sourceMetadataContract.schema;
 export const skillsetSkillFrontmatterJsonSchema = skillFrontmatterContract.schema;
 export const skillsetAgentFrontmatterJsonSchema = agentFrontmatterContract.schema;
 export const skillsetInstructionFrontmatterJsonSchema = instructionFrontmatterContract.schema;
+export const skillsetSkillEvalJsonSchema = skillEvalContract.schema;
 export const skillsetHookJsonSchema = hookContract.schema;
 export const skillsetAdaptiveHookJsonSchema = adaptiveHookContract.schema;
 export const skillsetChangeEntryJsonSchema = changeEntryContract.schema;

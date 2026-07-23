@@ -5,6 +5,7 @@ import { runCreateCommand } from "./create-cli";
 import { parseCliRequest } from "./cli-args";
 import { renderCliHelp } from "./cli-help";
 import { runDevCommand } from "./dev-cli";
+import { runEvalCommand } from "./eval-cli";
 import {
   runDistributionCommand,
   runMarketplaceCommand,
@@ -47,6 +48,8 @@ export async function runCli(
       return runDevCommand(route.request);
     case "diff":
       return runDiffCommand(route.request);
+    case "eval":
+      return runEvalCommand(route.request);
     case "distribute":
       return runDistributionCommand(route.request);
     case "explain":

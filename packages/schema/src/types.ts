@@ -13,6 +13,7 @@ export type SkillsetSchemaContractId =
   | "cli-result"
   | "hook"
   | "instruction-frontmatter"
+  | "skill-eval"
   | "skill-frontmatter"
   | "source-metadata"
   | "test-declaration"
@@ -64,6 +65,16 @@ export interface SkillsetSchemaDiagnostic {
 export interface SkillsetSchemaValidationResult {
   readonly diagnostics: readonly SkillsetSchemaDiagnostic[];
   readonly ok: boolean;
+}
+
+/** Optional source-graph facts used to validate one portable skill eval file. */
+export interface SkillsetSkillEvalValidationContext {
+  /** Skill-root-relative files that the eval may reference. */
+  readonly files?: ReadonlySet<string>;
+  /** The owning source skill identity. */
+  readonly skillName?: string;
+  /** Targets enabled for the owning source skill in the build graph. */
+  readonly targets?: readonly string[];
 }
 
 export interface SkillsetSchemaContract {

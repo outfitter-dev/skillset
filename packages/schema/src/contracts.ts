@@ -465,6 +465,33 @@ export const testDeclarationContract = contract("test-declaration", "Test Declar
   type: "object",
 });
 
+/**
+ * Portable skill-local eval cases. The base fields intentionally follow the
+ * Anthropic skill-creator file shape; `skillset` is reserved for compiler
+ * metadata rather than adding provider vocabulary at the top level.
+ */
+export const skillEvalContract = contract("skill-eval", "Skill Eval", "Portable skill-local eval cases compatible with Anthropic skill-creator.", {
+  additionalProperties: false,
+  properties: {
+    evals: arraySchema({
+      additionalProperties: false,
+      properties: {
+        expected_output: nonEmptyStringSchema(),
+        expectations: arraySchema(nonEmptyStringSchema()),
+        files: arraySchema(nonEmptyStringSchema()),
+        id: { type: "integer" },
+        prompt: nonEmptyStringSchema(),
+        skillset: skillEvalExtensionSchema(),
+      },
+      required: ["id", "prompt", "expected_output"],
+      type: "object",
+    }),
+    skill_name: nonEmptyStringSchema(),
+  },
+  required: ["skill_name", "evals"],
+  type: "object",
+});
+
 export const cliResultContract = contract("cli-result", "Skillset CLI Result", "Finite machine-readable result emitted by a Skillset CLI command.", {
   additionalProperties: false,
   oneOf: [
@@ -503,6 +530,7 @@ export const skillsetSchemaContracts = [
   adaptiveHookContract,
   changeEntryContract,
   testDeclarationContract,
+  skillEvalContract,
 ] as const satisfies readonly SkillsetSchemaContract[];
 
 export function schemaUri(id: SkillsetSchemaContract["id"], version = SKILLSET_SCHEMA_VERSION): string {
@@ -563,6 +591,15 @@ function generatedMetadataSchema(): SchemaJsonRecord {
     },
     type: "object",
   };
+}
+
+function skillEvalExtensionSchema(): SchemaJsonRecord {
+  return strictObjectSchema({
+    targets: arraySchema(enumSchema(TARGET_NAMES), {
+      minItems: 1,
+      uniqueItems: true,
+    }),
+  });
 }
 
 function sourceOriginSchema(): SchemaJsonRecord {

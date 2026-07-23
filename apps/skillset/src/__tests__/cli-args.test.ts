@@ -128,6 +128,19 @@ describe("SET-299 CLI request characterization", () => {
       },
     },
     {
+      route: "eval list",
+      args: ["eval", "list", "--root", ROOT],
+      expected: {
+        command: "eval",
+        request: {
+          jsonOutput: false,
+          options: {},
+          rootPath: ROOT,
+          subcommand: "list",
+        },
+      },
+    },
+    {
       route: "explain",
       args: ["explain", "skill.md", "--root", ROOT],
       expected: {

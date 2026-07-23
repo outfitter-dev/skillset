@@ -26,7 +26,10 @@ test("SET-182: generated example files validate against generated schemas", asyn
     const schemaPath = join("docs", "reference", "schemas", SKILLSET_SCHEMA_VERSION, `${example.id}.schema.json`);
     const examplePath = join("docs", "reference", "examples", example.path);
     const schema = JSON.parse(await readFile(schemaPath, "utf8")) as SchemaJsonRecord;
-    const parsed = parseYamlRecord(await readFile(examplePath, "utf8"), examplePath);
+    const content = await readFile(examplePath, "utf8");
+    const parsed = example.format === "json"
+      ? JSON.parse(content)
+      : parseYamlRecord(content, examplePath);
 
     expect(validateAgainstSchema(parsed, schema)).toEqual([]);
   }

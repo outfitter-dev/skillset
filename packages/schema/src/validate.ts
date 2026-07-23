@@ -19,6 +19,7 @@ import type {
   SchemaJsonRecord,
   SchemaJsonValue,
   SkillsetSchemaDiagnostic,
+  SkillsetSkillEvalValidationContext,
   SkillsetSchemaValidationResult,
 } from "./types";
 
@@ -236,6 +237,133 @@ export function validateTestDeclaration(value: unknown, path = "$"): SkillsetSch
   return result(diagnostics);
 }
 
+export function validateSkillEval(
+  value: unknown,
+  path = "$",
+  context: SkillsetSkillEvalValidationContext = {}
+): SkillsetSchemaValidationResult {
+  const diagnostics: SkillsetSchemaDiagnostic[] = [];
+  if (!isSchemaRecord(value)) {
+    return result([diagnostic(path, "schema/skill-eval/type", "skill eval file must contain a JSON object")]);
+  }
+  checkAllowedKeys(value, new Set(["evals", "skill_name"]), path, "schema/skill-eval/key", diagnostics);
+  checkOptionalNonEmptyString(value.skill_name, `${path}.skill_name`, "schema/skill-eval/skill-name", diagnostics);
+  if (value.skill_name === undefined) {
+    diagnostics.push(diagnostic(`${path}.skill_name`, "schema/skill-eval/skill-name", "skill_name is required"));
+  } else if (context.skillName !== undefined && value.skill_name !== context.skillName) {
+    diagnostics.push(diagnostic(`${path}.skill_name`, "schema/skill-eval/skill-name", `skill_name ${value.skill_name} must match owning skill ${context.skillName}`));
+  }
+  if (!Array.isArray(value.evals)) {
+    diagnostics.push(diagnostic(`${path}.evals`, "schema/skill-eval/evals", "evals must be an array"));
+    return result(diagnostics);
+  }
+
+  const ids = new Set<number>();
+  for (const [index, entry] of value.evals.entries()) {
+    const entryPath = `${path}.evals[${index}]`;
+    if (!isSchemaRecord(entry)) {
+      diagnostics.push(diagnostic(entryPath, "schema/skill-eval/eval", "eval must be an object"));
+      continue;
+    }
+    checkAllowedKeys(entry, new Set(["expected_output", "expectations", "files", "id", "prompt", "skillset"]), entryPath, "schema/skill-eval/eval-key", diagnostics);
+    checkOptionalNonEmptyString(entry.prompt, `${entryPath}.prompt`, "schema/skill-eval/prompt", diagnostics);
+    checkOptionalNonEmptyString(entry.expected_output, `${entryPath}.expected_output`, "schema/skill-eval/expected-output", diagnostics);
+    if (entry.expectations !== undefined) {
+      checkStringArray(entry.expectations, `${entryPath}.expectations`, "expectations", "schema/skill-eval/expectations", diagnostics, false, true);
+    }
+    if (entry.files !== undefined) {
+      checkStringArray(entry.files, `${entryPath}.files`, "files", "schema/skill-eval/files", diagnostics, false, true);
+      checkSkillEvalFiles(entry.files, `${entryPath}.files`, context, diagnostics);
+    }
+    checkSkillEvalExtension(entry.skillset, `${entryPath}.skillset`, diagnostics, context);
+    if (entry.id === undefined) {
+      diagnostics.push(diagnostic(`${entryPath}.id`, "schema/skill-eval/id", "eval id is required"));
+    } else if (typeof entry.id !== "number" || !Number.isSafeInteger(entry.id)) {
+      diagnostics.push(diagnostic(`${entryPath}.id`, "schema/skill-eval/id", "eval id must be an integer"));
+    } else if (ids.has(entry.id)) {
+      diagnostics.push(diagnostic(`${entryPath}.id`, "schema/skill-eval/id-duplicate", `duplicate eval id ${entry.id}`));
+    } else {
+      ids.add(entry.id);
+    }
+    if (entry.prompt === undefined) {
+      diagnostics.push(diagnostic(`${entryPath}.prompt`, "schema/skill-eval/prompt", "eval prompt is required"));
+    }
+    if (entry.expected_output === undefined) {
+      diagnostics.push(diagnostic(`${entryPath}.expected_output`, "schema/skill-eval/expected-output", "eval expected_output is required"));
+    }
+  }
+  return result(diagnostics);
+}
+
+function checkSkillEvalExtension(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  diagnostics: SkillsetSchemaDiagnostic[],
+  context: SkillsetSkillEvalValidationContext
+): readonly string[] | undefined {
+  if (value === undefined) return undefined;
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, "schema/skill-eval/skillset", "skillset extension must be an object"));
+    return undefined;
+  }
+  checkAllowedKeys(value, new Set(["targets"]), path, "schema/skill-eval/skillset-key", diagnostics);
+  if (value.targets !== undefined) {
+    checkTargetNameArray(value.targets, `${path}.targets`, "schema/skill-eval/targets", diagnostics, "eval");
+    if (Array.isArray(value.targets) && value.targets.every((target) => typeof target === "string")) {
+      if (context.targets !== undefined) {
+        for (const target of value.targets) {
+          if (!context.targets.includes(target)) {
+            diagnostics.push(diagnostic(`${path}.targets`, "schema/skill-eval/target-unavailable", `eval target ${target} is not enabled for the owning skill`));
+          }
+        }
+      }
+      return value.targets;
+    }
+  }
+  return undefined;
+}
+
+function checkStringArray(
+  value: SchemaJsonValue,
+  path: string,
+  name: string,
+  code: string,
+  diagnostics: SkillsetSchemaDiagnostic[],
+  unique: boolean,
+  allowEmpty = false
+): void {
+  if (!Array.isArray(value) || (!allowEmpty && value.length === 0) || value.some((item) => typeof item !== "string" || item.trim().length === 0)) {
+    diagnostics.push(diagnostic(path, code, `${name} must be a${allowEmpty ? "" : " non-empty"} string array`));
+    return;
+  }
+  if (unique && new Set(value).size !== value.length) {
+    diagnostics.push(diagnostic(path, code, `${name} entries must be unique`));
+  }
+}
+
+function checkSkillEvalFiles(
+  value: SchemaJsonValue,
+  path: string,
+  context: SkillsetSkillEvalValidationContext,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  if (!Array.isArray(value)) return;
+  for (const [index, file] of value.entries()) {
+    if (typeof file !== "string" || file.trim().length === 0) continue;
+    const filePath = `${path}[${index}]`;
+    if (
+      file.startsWith("/") ||
+      file.startsWith("\\") ||
+      /^[A-Za-z]:[\\/]/.test(file) ||
+      file.split(/[\\/]+/).includes("..")
+    ) {
+      diagnostics.push(diagnostic(filePath, "schema/skill-eval/file-path", "eval file must stay inside the skill root"));
+    } else if (context.files !== undefined && !context.files.has(file)) {
+      diagnostics.push(diagnostic(filePath, "schema/skill-eval/file-missing", `eval file ${file} does not exist in the skill root`));
+    }
+  }
+}
+
 function checkTestChecks(value: SchemaJsonRecord, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {
   checkAllowedKeys(value, new Set(["files", "pluginManifests", "projection"]), path, "schema/test-declaration/check-key", diagnostics);
   for (const key of ["pluginManifests", "projection"] as const) {
@@ -397,14 +525,15 @@ function checkTargetNameArray(
   value: SchemaJsonValue,
   path: string,
   code: string,
-  diagnostics: SkillsetSchemaDiagnostic[]
+  diagnostics: SkillsetSchemaDiagnostic[],
+  subject = "test"
 ): void {
   if (!Array.isArray(value) || value.length === 0 || value.some((item) => typeof item !== "string" || !targetNames.has(item))) {
     diagnostics.push(diagnostic(path, code, `targets must be a non-empty array of ${targetListText}`));
     return;
   }
   if (new Set(value).size !== value.length) {
-    diagnostics.push(diagnostic(path, code, "test targets must be unique"));
+    diagnostics.push(diagnostic(path, code, `${subject} targets must be unique`));
   }
 }
 

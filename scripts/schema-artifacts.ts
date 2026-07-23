@@ -52,7 +52,9 @@ export function buildSchemaArtifacts(): readonly Artifact[] {
       ? `# yaml-language-server: $schema=${schemaUri("workspace-config")}\n`
       : "";
     artifacts.push({
-      content: `${comment}${stringifyYaml(example.value as JsonRecord)}`,
+      content: example.format === "json"
+        ? `${JSON.stringify(example.value, null, 2)}\n`
+        : `${comment}${stringifyYaml(example.value as JsonRecord)}`,
       path: example.path,
     });
   }

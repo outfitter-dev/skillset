@@ -19,6 +19,7 @@ The combined schema is [`skillset.schema.json`](./0.1.0/skillset.schema.json). U
 | `adaptive-hook` | [`adaptive-hook.schema.json`](./0.1.0/adaptive-hook.schema.json) | Skillset adaptive hook unit source contract for reusable portable hooks. |
 | `change-entry` | [`change-entry.schema.json`](./0.1.0/change-entry.schema.json) | Compatibility-only legacy pending change-entry frontmatter contract. |
 | `test-declaration` | [`test-declaration.schema.json`](./0.1.0/test-declaration.schema.json) | A deterministic Skillset test with optional explicit live-runtime activation assertions. |
+| `skill-eval` | [`skill-eval.schema.json`](./0.1.0/skill-eval.schema.json) | Portable skill-local eval cases compatible with Anthropic skill-creator. |
 
 ## Examples
 
@@ -34,6 +35,7 @@ The examples are generated from typed fixtures and checked against the same sche
 | `hook` | [`hook.yaml`](../examples/hook.yaml) | Hook definition source object. |
 | `adaptive-hook` | [`adaptive-hook.yaml`](../examples/adaptive-hook.yaml) | Adaptive reusable hook unit. |
 | `change-entry` | [`change-entry.yaml`](../examples/change-entry.yaml) | Compatibility-only legacy pending change-entry frontmatter. |
+| `skill-eval` | [`skill-eval.json`](../examples/skill-eval.json) | Skill-local portable eval cases compatible with Anthropic skill-creator. |
 | `test-declaration` | [`test-declaration.yaml`](../examples/test-declaration.yaml) | Deterministic test with an explicit live-runtime activation assertion. |
 
 ## Editor Integration
