@@ -64,6 +64,8 @@ skillset explain <path>     # explain a source or generated path (rendering, loc
 skillset lookup                    # navigate registry-backed subjects and views in a TTY; list subjects otherwise
 skillset lookup workspace --fields # inspect schema-backed workspace fields; add --json for records
 skillset lookup features [id]      # inspect registry feature capabilities and target support; add --json for records
+skillset reconcile                 # guide a TTY through path, safe report-derived direction, preview, and confirmation
+skillset reconcile <generated-path> --use output # explicit direction; confirms in a TTY, previews elsewhere
 skillset restore <backup>   # preview restoring a generated-output backup; write with --yes
 skillset restore --list     # list integrity-checked generated-output backups without writing
 skillset status             # aggregate lint issues, drift, warnings, and render result advisories; add --json for records
@@ -75,6 +77,8 @@ skillset test status        # inspect the retained ad hoc test lifecycle (also: 
 `init`, `create`, and `build` are plan-first: they print pending filesystem changes and write only with `--yes`. `skillset check` is read-only by default and combines source diagnostics with generated-output readiness. `check --only outputs` is the narrow freshness check. `check --write` repairs only source-driven drift: it refuses managed target-side edits and provider-format migrations, which must be reconciled or applied through `skillset update`. `check --ci` adds branch-aware Skillset change-entry and package Changesets gates; CI uses `--fix`, not `--write`, and may also emit a Markdown report with `--report`. Removed top-level readiness commands have no compatibility aliases. `skillset init --include ci` scaffolds the corresponding workflow (see [CI](docs/features/ci.md)).
 
 Inspection stays split by question: `status` summarizes current workspace health, `list` inventories generated entries, `explain` traces one path's provenance, and `lookup` answers static contract questions such as `lookup features`. Bare `skillset lookup` guides TTY users through registry-owned subjects, applicable views, compatibility targets, and searchable schema field paths, then prints the ordinary lookup report once. Explicit flags, JSON, pipes, and non-TTY execution remain prompt-free.
+
+Reconcile keeps ownership and mutation decisions in the existing operation report. In a TTY, it asks for a missing managed path, renders the canonical source/output preview, disables directions the report refuses, and confirms with No as the default before calling the same operation to write. An explicit `--use source` or `--use output` skips only the direction picker; `--yes`, JSON, pipes, and non-TTY execution remain prompt-free. Decline and cancellation do not write, while confirmed source-wins retains generated-output backup and restore guidance and output-wins retains source rollback.
 
 See [Workbench Check](docs/features/workbench.md) for the cohesive `check` family, package-level diagnostic scopes, built-in `standard` and `strict` presets, parser/schema checks, Workbench fixtures, and the bounded ast-grep proof point.
 

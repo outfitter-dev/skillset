@@ -219,10 +219,14 @@ const PRESENTATION = {
     ],
   },
   reconcile: {
+    examples: [
+      "skillset reconcile",
+      "skillset reconcile .claude/skills/demo/SKILL.md --use output",
+    ],
     group: "Changes",
     summary: "Reconcile a managed source/output conflict.",
     synopses: [
-      "reconcile <managed-path> [--use <source|output> --yes] [--json] [--root <path>]",
+      "reconcile [managed-path] [--use <source|output>] [--yes] [--json] [--root <path>]",
     ],
   },
   "release amend": {

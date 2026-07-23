@@ -3,8 +3,17 @@ import type { OutputBackupRestoreReport } from "@skillset/core";
 import type { SkillsetOptions } from "@skillset/core/internal/types";
 
 import { printCliJsonData } from "./cli-output";
+import {
+  confirmProceed,
+  createInteractiveSession,
+  type InteractiveSession,
+} from "./interactive-session";
 import { reconcileManagedPath, renderReconcileReport } from "./reconcile";
 import type { ReconcileChoice } from "./reconcile";
+import {
+  reconcileChoiceAvailable,
+  reconcileDirectionChoices,
+} from "./reconcile-interactive";
 
 export interface RestoreCommandRequest {
   readonly backupId: string | undefined;
@@ -96,22 +105,52 @@ export interface ReconcileCommandRequest {
   readonly yes: boolean;
 }
 
-export async function runReconcileCommand({
-  managedPath,
-  jsonOutput,
-  options,
-  reconcileChoice,
-  rootPath,
-  yes,
-}: ReconcileCommandRequest): Promise<void> {
+export interface ReconcileCommandContext {
+  readonly interactiveSession?: InteractiveSession;
+  readonly reconcile?: typeof reconcileManagedPath;
+  readonly write?: (value: string) => void;
+}
+
+export async function runReconcileCommand(
+  request: ReconcileCommandRequest,
+  context: ReconcileCommandContext = {}
+): Promise<void> {
+  const interactiveSession =
+    context.interactiveSession ??
+    createInteractiveSession({ machineMode: request.jsonOutput });
+  if (
+    interactiveSession !== undefined &&
+    !request.yes &&
+    !request.jsonOutput
+  ) {
+    return runInteractiveReconcile(request, interactiveSession, context);
+  }
+  return runExplicitReconcile(request, context);
+}
+
+async function runExplicitReconcile(
+  {
+    managedPath,
+    jsonOutput,
+    options,
+    reconcileChoice,
+    rootPath,
+    yes,
+  }: ReconcileCommandRequest,
+  context: ReconcileCommandContext
+): Promise<void> {
   if (managedPath === undefined) {
     throw new Error("skillset: expected a managed path to reconcile");
   }
-  const report = await reconcileManagedPath(rootPath, managedPath, {
-    ...options,
-    ...(reconcileChoice === undefined ? {} : { choice: reconcileChoice }),
-    write: reconcileChoice !== undefined && yes,
-  });
+  const report = await (context.reconcile ?? reconcileManagedPath)(
+    rootPath,
+    managedPath,
+    {
+      ...options,
+      ...(reconcileChoice === undefined ? {} : { choice: reconcileChoice }),
+      write: reconcileChoice !== undefined && yes,
+    }
+  );
   if (jsonOutput) {
     printCliJsonData("reconcile", {
       report,
@@ -119,9 +158,62 @@ export async function runReconcileCommand({
       writes: report.writtenPaths,
     });
   } else {
-    process.stdout.write(renderReconcileReport(report));
+    (context.write ?? process.stdout.write.bind(process.stdout))(
+      renderReconcileReport(report)
+    );
   }
   return;
+}
+
+async function runInteractiveReconcile(
+  request: ReconcileCommandRequest,
+  session: InteractiveSession,
+  context: ReconcileCommandContext
+): Promise<void> {
+  const reconcile = context.reconcile ?? reconcileManagedPath;
+  const write = context.write ?? process.stdout.write.bind(process.stdout);
+  session.banner();
+  const managedPath =
+    request.managedPath ??
+    (await session.prompts.input({ message: "Managed path:" }));
+  const preview = await reconcile(request.rootPath, managedPath, {
+    ...request.options,
+    write: false,
+  });
+  write(renderReconcileReport(preview));
+  const choices = reconcileDirectionChoices(preview);
+  const selected =
+    request.reconcileChoice ??
+    (choices.some((choice) => choice.disabled === undefined)
+      ? await session.prompts.select({
+          choices,
+          message: "Resolution:",
+        })
+      : undefined);
+  if (
+    selected === undefined ||
+    !reconcileChoiceAvailable(preview, selected)
+  ) {
+    return;
+  }
+  const selectedPreview = await reconcile(request.rootPath, managedPath, {
+    ...request.options,
+    choice: selected,
+    write: false,
+  });
+  write(renderReconcileReport(selectedPreview));
+  if (
+    !reconcileChoiceAvailable(selectedPreview, selected) ||
+    !(await confirmProceed(session))
+  ) {
+    return;
+  }
+  const applied = await reconcile(request.rootPath, managedPath, {
+    ...request.options,
+    choice: selected,
+    write: true,
+  });
+  write(renderReconcileReport(applied));
 }
 
 function printRestoreReport(report: OutputBackupRestoreReport): void {

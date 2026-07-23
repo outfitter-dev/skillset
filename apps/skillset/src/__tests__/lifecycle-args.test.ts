@@ -195,6 +195,13 @@ describe("SET-303 lifecycle and recovery route parsers", () => {
 
   test("recovery routes own required paths, choices, and confirmation", () => {
     expect(
+      parseReconcileCommandRequest(["reconcile"], CONTEXT)
+    ).toMatchObject({
+      managedPath: undefined,
+      reconcileChoice: undefined,
+      yes: false,
+    });
+    expect(
       parseReconcileCommandRequest(
         [
           "reconcile",
@@ -358,10 +365,6 @@ describe("SET-303 lifecycle and recovery route parsers", () => {
             CONTEXT
           ),
         message: "skillset: release amend requires @ref",
-      },
-      {
-        run: () => parseReconcileCommandRequest(["reconcile"], CONTEXT),
-        message: "skillset: expected a path to reconcile",
       },
       {
         run: () => parseRestoreCommandRequest(["restore"], CONTEXT),
