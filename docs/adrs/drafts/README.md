@@ -24,3 +24,4 @@ Draft map: `docs/adrs/drafts/decision-map.json`; numbered map: `docs/adrs/decisi
 - [Catalog-Owned Marketplace Refresh Pull Requests](20260710-catalog-owned-marketplace-refresh-pull-requests.md)
   - depends on [ADR-0000: Source-First Loadouts](../0000-source-first-loadouts.md), [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md)
 - [Portable Skill Eval Source Contract](20260723-portable-skill-eval-source-contract.md)
+- [Ungraded Cross-Provider Eval Runs](20260723-ungraded-cross-provider-eval-runs.md)

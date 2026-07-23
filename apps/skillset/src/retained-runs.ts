@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
@@ -7,10 +7,26 @@ import { createOperationalPathContext, resolveOperationalPath } from "@skillset/
 import { renderValidatedJson } from "@skillset/core/internal/structured-output";
 import type { BuildGraph, JsonRecord, SkillsetOptions } from "@skillset/core/internal/types";
 
+import { createCliEvent, renderCliEvent } from "./cli-output";
+
 export interface RetainedRunIdOptions {
   readonly fallbackName?: string;
   readonly includeName?: boolean;
 }
+
+export interface RetainedRunEvent {
+  readonly command: string;
+  readonly event: string;
+  readonly message: string;
+  readonly stream: string;
+}
+
+interface RetainedEventAppendState {
+  nextSequence?: number;
+  queue: Promise<void>;
+}
+
+const retainedEventAppendStates = new Map<string, RetainedEventAppendState>();
 
 export interface RetainedRunRootPaths {
   readonly absolute: {
@@ -74,6 +90,7 @@ export function retainedRunPaths(
   runId: string,
   xdg: SkillsetOptions["xdg"] = undefined
 ): RetainedRunPaths {
+  assertRetainedRunId(runId);
   const root = retainedRunRootPaths(rootPath, graph, logicalRoot, xdg);
   return {
     absolute: {
@@ -85,6 +102,16 @@ export function retainedRunPaths(
       runPath: normalizeLogicalPath(join(root.logical.runsRoot, runId)),
     },
   };
+}
+
+/**
+ * Retained run identifiers are public lookup operands, so keep them to one
+ * portable path segment before resolving an XDG-backed run directory.
+ */
+function assertRetainedRunId(runId: string): void {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(runId)) {
+    throw new Error("skillset: retained run id must be a single portable path segment");
+  }
 }
 
 export function resolveRetainedRunPath(
@@ -107,6 +134,34 @@ export async function writeRetainedRunLatest(
 ): Promise<void> {
   await mkdir(paths.absolute.rootPath, { recursive: true });
   await writeFile(paths.absolute.latestJsonPath, renderValidatedJson(record, paths.logical.latestJsonPath), "utf8");
+}
+
+/** Serializes JSONL appends so concurrent provider streams retain one event order. */
+export async function appendRetainedRunEvent(path: string, event: RetainedRunEvent): Promise<void> {
+  const state = retainedEventAppendStates.get(path) ?? { queue: Promise.resolve() };
+  const queued = state.queue.catch(() => undefined).then(async () => {
+    if (state.nextSequence === undefined) {
+      const existing = await readOptional(path) ?? "";
+      state.nextSequence = existing.split("\n").filter((line) => line.length > 0).length + 1;
+    }
+    const sequence = state.nextSequence;
+    await appendFile(path, renderCliEvent(createCliEvent({
+      command: event.command,
+      data: { message: event.message, stream: event.stream, timestamp: new Date().toISOString() },
+      event: event.event,
+      sequence,
+    })), "utf8");
+    state.nextSequence = sequence + 1;
+  });
+  state.queue = queued;
+  retainedEventAppendStates.set(path, state);
+  try {
+    await queued;
+  } finally {
+    if ((event.event === "completed" || event.event === "failed") && retainedEventAppendStates.get(path)?.queue === queued) {
+      retainedEventAppendStates.delete(path);
+    }
+  }
 }
 
 export async function readRetainedRunLatest(
@@ -132,4 +187,12 @@ function normalizeLogicalPath(path: string): string {
 
 function isJsonRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+async function readOptional(path: string): Promise<string | undefined> {
+  try {
+    return await readFile(path, "utf8");
+  } catch {
+    return undefined;
+  }
 }

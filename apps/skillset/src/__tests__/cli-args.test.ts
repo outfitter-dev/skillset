@@ -141,6 +141,30 @@ describe("SET-299 CLI request characterization", () => {
       },
     },
     {
+      route: "eval run",
+      args: ["eval", "run", "--timeout-ms", "10", "--root", ROOT],
+      expected: {
+        command: "eval",
+        request: { jsonOutput: false, options: {}, rootPath: ROOT, subcommand: "run", timeoutMs: 10 },
+      },
+    },
+    {
+      route: "eval status",
+      args: ["eval", "status", "run-1", "--root", ROOT],
+      expected: {
+        command: "eval",
+        request: { jsonOutput: false, options: {}, rootPath: ROOT, runId: "run-1", subcommand: "status" },
+      },
+    },
+    {
+      route: "eval tail",
+      args: ["eval", "tail", "run-1", "--lines", "10", "--root", ROOT],
+      expected: {
+        command: "eval",
+        request: { jsonOutput: false, lines: 10, options: {}, rootPath: ROOT, runId: "run-1", subcommand: "tail" },
+      },
+    },
+    {
       route: "explain",
       args: ["explain", "skill.md", "--root", ROOT],
       expected: {

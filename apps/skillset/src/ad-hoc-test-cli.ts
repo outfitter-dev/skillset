@@ -19,6 +19,7 @@ import {
 import type { SchemaJsonRecord } from "@skillset/schema";
 import type { BuildScope, CompileBuildMode, SkillsetOptions, TargetName } from "@skillset/core/internal/types";
 import { renderCliDataResult } from "./cli-output";
+import { withProcessSignalAbort } from "./process-signals";
 
 export interface AdHocTestCommandOptions {
   readonly background: boolean;
@@ -38,16 +39,21 @@ export interface AdHocTestCommandOptions {
 
 export async function runAdHocTestCommand(rootPath: string, options: AdHocTestCommandOptions): Promise<void> {
   if (options.subcommand === undefined) {
-    const report = await startAdHocTestRun(rootPath, {
+    const prompt = await readAdHocTestPrompt(rootPath, options.prompt, options.promptFile);
+    const start = (signal?: AbortSignal) => startAdHocTestRun(rootPath, {
       ...options.skillsetOptions,
       background: options.background,
       ...(options.claudeSettingSources === undefined ? {} : { claudeSettingSources: options.claudeSettingSources }),
       ...(options.name === undefined ? {} : { name: options.name }),
       plugins: options.plugins,
-      prompt: await readAdHocTestPrompt(rootPath, options.prompt, options.promptFile),
+      prompt,
+      ...(signal === undefined ? {} : { signal }),
       target: requireAdHocTestTarget(options.target),
       ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
     });
+    const report = options.background
+      ? await start()
+      : await withProcessSignalAbort((signal) => start(signal));
     if (options.json) printAdHocTestJson("test", report, report.ok ? 0 : 1);
     else printAdHocTestRun(report);
     if (!report.ok) process.exitCode = 1;
@@ -55,7 +61,14 @@ export async function runAdHocTestCommand(rootPath: string, options: AdHocTestCo
   }
   if (options.subcommand === "worker") {
     if (options.runId === undefined) throw new Error("skillset: test worker requires run id");
-    await executeAdHocTestRun(rootPath, options.runId);
+    await withProcessSignalAbort((signal) => executeAdHocTestRun(
+      rootPath,
+      options.runId!,
+      process.env,
+      undefined,
+      rootPath,
+      signal
+    ));
     return;
   }
   if (options.subcommand === "status") {

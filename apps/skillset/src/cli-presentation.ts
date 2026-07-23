@@ -127,6 +127,21 @@ const PRESENTATION = {
     summary: "List portable skill eval cases and their resolved target matrix.",
     synopses: ["eval list [--json] [--root <path>]"],
   },
+  "eval run": {
+    group: "Inspect",
+    summary: "Run declared eval cases through local provider adapters without grading.",
+    synopses: ["eval run [--timeout-ms <ms>] [--json] [--root <path>]"],
+  },
+  "eval status": {
+    group: "Inspect",
+    summary: "Show retained eval run status.",
+    synopses: ["eval status [run-id] [--json] [--root <path>]"],
+  },
+  "eval tail": {
+    group: "Inspect",
+    summary: "Tail retained eval run events.",
+    synopses: ["eval tail [run-id] [--lines <count>] [--json] [--root <path>]"],
+  },
   "distribute plan": {
     commandSummary: "Plan distribution-ready plugin artifacts.",
     group: "Distribute",

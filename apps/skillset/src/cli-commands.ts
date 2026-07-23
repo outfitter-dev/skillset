@@ -10,7 +10,7 @@ export type CliCommand = (typeof CLI_COMMANDS)[number];
 export const CLI_LEAF_SUBCOMMANDS: Readonly<Partial<Record<CliCommand, readonly string[]>>> = {
   change: ["add", "amend", "check", "history", "ignore", "list", "migrate", "reason", "refresh", "show", "status"],
   distribute: ["plan"],
-  eval: ["list"],
+  eval: ["list", "run", "status", "tail"],
   hooks: ["context", "print", "run"],
   lookup: ["features"],
   marketplace: ["check", "update"],

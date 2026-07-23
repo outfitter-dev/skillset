@@ -8,8 +8,8 @@ import {
 } from "@skillset/core";
 
 import { compareStrings } from "@skillset/core/internal/path";
-import { pluginTargetRoot } from "@skillset/core/internal/plugin-output";
 import {
+  appendRetainedRunEvent,
   makeRetainedRunId,
   readRetainedRunLatest,
   resolveRetainedRunPath,
@@ -27,12 +27,12 @@ import {
   readClaudeSettingSources,
   type ClaudeSettingSources,
 } from "./cli-arg-values";
-import { createCliEvent, renderCliEvent } from "./cli-output";
+import { createRuntimeProbeCommand, runRuntimeProbe, type RuntimeProbeCommand } from "./runtime-probe";
 
 export type AdHocTestSubcommand = "list" | "status" | "tail" | "worker";
 export type AdHocTestState = "building" | "failed" | "passed" | "queued" | "running";
 export type AdHocTestClaudeSettingSources = ClaudeSettingSources;
-export type AdHocTestFailureClass = "auth" | "binary" | "render" | "runtime" | "setup" | "timeout";
+export type AdHocTestFailureClass = "auth" | "binary" | "cancelled" | "render" | "runtime" | "setup" | "timeout";
 
 export interface AdHocTestRunOptions extends SkillsetOptions {
   readonly background?: boolean;
@@ -42,16 +42,10 @@ export interface AdHocTestRunOptions extends SkillsetOptions {
   readonly name?: string;
   readonly plugins?: readonly string[];
   readonly prompt: string;
+  readonly signal?: AbortSignal;
   readonly target: TargetName;
   readonly timeoutMs?: number;
 }
-
-interface EventAppendState {
-  nextSequence?: number;
-  queue: Promise<void>;
-}
-
-const eventAppendStates = new Map<string, EventAppendState>();
 
 export interface AdHocTestStatus {
   readonly command?: readonly string[];
@@ -154,8 +148,6 @@ const DEFAULT_TIMEOUT_MS = 120_000;
 const DEFAULT_CLAUDE_SETTING_SOURCES: AdHocTestClaudeSettingSources = "isolated";
 const AD_HOC_TEST_CLAUDE_SETTING_SOURCES_ENV = "SKILLSET_TEST_CLAUDE_SETTING_SOURCES";
 // Empty --setting-sources keeps Claude probes independent from user/project/local settings while preserving env auth and explicit --plugin-dir inputs.
-const ISOLATED_CLAUDE_SETTING_SOURCES_ARG = "";
-const CLAUDE_SETTING_SOURCES_DISPLAY = "\"\"";
 
 export async function startAdHocTestRun(
   rootPath: string,
@@ -221,7 +213,7 @@ export async function startAdHocTestRun(
     return runReport(paths, runId, "queued", true);
   }
 
-  await executeAdHocTestRun(root, runId, options.env, options.xdg, cacheRoot);
+  await executeAdHocTestRun(root, runId, options.env, options.xdg, cacheRoot, options.signal);
   const status = await readStatus(paths.absolute.statusPath);
   return runReport(paths, runId, status.state, false);
 }
@@ -231,7 +223,8 @@ export async function executeAdHocTestRun(
   runId: string,
   env: Record<string, string | undefined> = process.env,
   xdg: SkillsetOptions["xdg"] = undefined,
-  cacheRootPath: string = rootPath
+  cacheRootPath: string = rootPath,
+  signal?: AbortSignal
 ): Promise<void> {
   const root = resolve(rootPath);
   const paths = adHocTestPaths(resolve(cacheRootPath), await loadBuildGraph(root, xdg === undefined ? {} : { xdg }), runId, xdg);
@@ -262,9 +255,14 @@ export async function executeAdHocTestRun(
     command = runtimeCommand(root, graph, paths, config, env, xdg);
     await appendEvent(paths, "status", `running ${target} non-interactive prompt`);
     status = await updateRunState(paths, status, "running", { command: command.display });
-    result = await runCommand(command, config.prompt, paths, config.timeoutMs, env);
+    result = await runCommand(command, config.prompt, paths, config.timeoutMs, env, signal);
   } catch (error) {
-    await failRun(paths, status, messageFor(error), isMissingBinaryError(error) ? "binary" : "setup");
+    await failRun(
+      paths,
+      status,
+      messageFor(error),
+      isAbortError(error) ? "cancelled" : isMissingBinaryError(error) ? "binary" : "setup"
+    );
     return;
   }
   const finalMessage = await readOptional(paths.absolute.finalMessagePath);
@@ -414,70 +412,13 @@ function runtimeCommand(
   xdg: SkillsetOptions["xdg"]
 ): { readonly cmd: readonly string[]; readonly cwd: string; readonly display: readonly string[] } {
   const latestRoot = resolveRetainedRunPath(rootPath, graph, ISOLATED_OUT_ROOT, xdg);
-  if (config.target === "claude") {
-    const bin = env.SKILLSET_TEST_CLAUDE_BIN ?? "claude";
-    const pluginArgs = adHocTestPluginDirs(graph, latestRoot, config.target, config.plugins).flatMap((pluginDir) => [
-      "--plugin-dir",
-      pluginDir,
-    ]);
-    const settingSourcesArg = claudeSettingSourcesArg(config.claudeSettingSources ?? DEFAULT_CLAUDE_SETTING_SOURCES);
-    const cmd = [
-      bin,
-      "--print",
-      "--output-format",
-      "json",
-      "--setting-sources",
-      settingSourcesArg,
-      "--no-session-persistence",
-      "--permission-mode",
-      "dontAsk",
-      ...pluginArgs,
-      config.prompt,
-    ];
-    return {
-      cmd,
-      cwd: latestRoot,
-      display: cmd.map((arg) => arg === ISOLATED_CLAUDE_SETTING_SOURCES_ARG ? CLAUDE_SETTING_SOURCES_DISPLAY : arg),
-    };
-  }
-
-  if (config.target === "cursor") {
-    const bin = env.SKILLSET_TEST_CURSOR_BIN ?? "cursor-agent";
-    const pluginArgs = adHocTestPluginDirs(graph, latestRoot, config.target, config.plugins).flatMap((pluginDir) => [
-      "--plugin-dir",
-      pluginDir,
-    ]);
-    const cmd = [
-      bin,
-      "--print",
-      "--output-format",
-      "json",
-      "--mode",
-      "ask",
-      "--trust",
-      "--workspace",
-      latestRoot,
-      ...pluginArgs,
-      config.prompt,
-    ];
-    return { cmd, cwd: latestRoot, display: cmd };
-  }
-
-  const bin = env.SKILLSET_TEST_CODEX_BIN ?? "codex";
-  const cmd = [
-    bin,
-    "exec",
-    "--cd",
-    latestRoot,
-    "--ephemeral",
-    "--ignore-user-config",
-    "--json",
-    "--skip-git-repo-check",
-    "--output-last-message",
-    paths.absolute.finalMessagePath,
-    "-",
-  ];
-  return { cmd, cwd: latestRoot, display: cmd };
+  return createRuntimeProbeCommand(latestRoot, graph, {
+    ...(config.claudeSettingSources === undefined ? {} : { claudeSettingSources: config.claudeSettingSources }),
+    finalMessagePath: paths.absolute.finalMessagePath,
+    plugins: config.plugins,
+    prompt: config.prompt,
+    target: config.target,
+  }, env);
 }
 
 function resolveClaudeSettingSources(options: AdHocTestRunOptions): AdHocTestClaudeSettingSources {
@@ -485,30 +426,6 @@ function resolveClaudeSettingSources(options: AdHocTestRunOptions): AdHocTestCla
   return options.claudeSettingSources ??
     readClaudeSettingSources(env[AD_HOC_TEST_CLAUDE_SETTING_SOURCES_ENV], AD_HOC_TEST_CLAUDE_SETTING_SOURCES_ENV) ??
     DEFAULT_CLAUDE_SETTING_SOURCES;
-}
-
-function claudeSettingSourcesArg(value: AdHocTestClaudeSettingSources): string {
-  return value === "isolated" ? ISOLATED_CLAUDE_SETTING_SOURCES_ARG : value;
-}
-
-function adHocTestPluginDirs(
-  graph: BuildGraph,
-  latestRoot: string,
-  target: "claude" | "cursor",
-  plugins: readonly string[]
-): readonly string[] {
-  const selected = plugins.length === 0
-    ? graph.plugins.map((plugin) => plugin.id)
-    : plugins;
-  const enabled = new Set(
-    graph.plugins
-      .filter((plugin) => plugin.targets[target].enabled)
-      .map((plugin) => plugin.id)
-  );
-  return selected
-    .filter((plugin) => enabled.has(plugin))
-    .sort(compareStrings)
-    .map((plugin) => join(latestRoot, pluginTargetRoot(graph.root.outputs.plugins[target], target, plugin)));
 }
 
 function validateAdHocTestPlugins(
@@ -540,58 +457,23 @@ function validateAdHocTestPlugins(
 }
 
 async function runCommand(
-  command: { readonly cmd: readonly string[]; readonly cwd: string },
+  command: RuntimeProbeCommand,
   prompt: string,
   paths: AdHocTestRunPaths,
   timeoutMs: number,
-  env: Record<string, string | undefined>
+  env: Record<string, string | undefined>,
+  signal?: AbortSignal
 ): Promise<{ readonly exitCode: number; readonly timedOut: boolean }> {
-  const proc = Bun.spawn([...command.cmd], {
-    cwd: command.cwd,
-    env: cleanEnv(env),
-    stderr: "pipe",
-    stdin: "pipe",
-    stdout: "pipe",
+  return runRuntimeProbe(command, prompt, {
+    env,
+    onOutput: async (stream, text) => {
+      await appendEvent(paths, stream, text);
+      await appendFile(join(paths.absolute.runPath, `${stream}.txt`), text, "utf8");
+    },
+    onProcess: async (pid) => appendEvent(paths, "process", `pid ${pid}`),
+    ...(signal === undefined ? {} : { signal }),
+    timeoutMs,
   });
-  await appendEvent(paths, "process", `pid ${proc.pid}`);
-  proc.stdin.write(prompt);
-  proc.stdin.end();
-  let timedOut = false;
-  const timer = timeoutMs <= 0
-    ? undefined
-    : setTimeout(() => {
-      timedOut = true;
-      proc.kill();
-    }, timeoutMs);
-  const [exitCode] = await Promise.all([
-    proc.exited,
-    collectStream(paths, "stdout", proc.stdout),
-    collectStream(paths, "stderr", proc.stderr),
-  ]);
-  if (timer !== undefined) clearTimeout(timer);
-  return { exitCode, timedOut };
-}
-
-async function collectStream(
-  paths: AdHocTestRunPaths,
-  streamName: "stderr" | "stdout",
-  stream: ReadableStream<Uint8Array>
-): Promise<void> {
-  const decoder = new TextDecoder();
-  for await (const chunk of stream) {
-    const text = decoder.decode(chunk);
-    if (text.length === 0) continue;
-    await appendEvent(paths, streamName, text);
-    await appendFile(join(paths.absolute.runPath, `${streamName}.txt`), text, "utf8");
-  }
-}
-
-function cleanEnv(env: Record<string, string | undefined>): Record<string, string> {
-  const cleaned: Record<string, string> = {};
-  for (const [key, value] of Object.entries(env)) {
-    if (value !== undefined) cleaned[key] = value;
-  }
-  return cleaned;
 }
 
 function spawnAdHocTestWorker(rootPath: string, runId: string): number | undefined {
@@ -698,6 +580,10 @@ function isMissingBinaryError(error: unknown): boolean {
   return /enoent|failed to spawn|no such file or directory/iu.test(messageFor(error));
 }
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
+
 async function writeStatus(paths: AdHocTestRunPaths, status: AdHocTestStatus): Promise<void> {
   await mkdir(paths.absolute.runPath, { recursive: true });
   await writeFile(paths.absolute.statusPath, renderValidatedJson(status as unknown as JsonRecord, paths.logical.statusPath), "utf8");
@@ -714,41 +600,12 @@ async function writeLatest(paths: AdHocTestRunPaths, runId: string): Promise<voi
 }
 
 async function appendEvent(paths: AdHocTestRunPaths, stream: string, message: string): Promise<void> {
-  const path = paths.absolute.outputPath;
-  const state = eventAppendStates.get(path) ?? { queue: Promise.resolve() };
   const event = stream === "status" && message === "test passed"
     ? "completed"
     : stream === "status" && message.startsWith("test failed")
       ? "failed"
       : stream;
-  const queued = state.queue.catch(() => undefined).then(async () => {
-    const data = {
-      message,
-      stream,
-      timestamp: new Date().toISOString(),
-    };
-    if (state.nextSequence === undefined) {
-      const existing = await readOptional(path) ?? "";
-      state.nextSequence = existing.split("\n").filter((line) => line.length > 0).length + 1;
-    }
-    const sequence = state.nextSequence;
-    await appendFile(path, renderCliEvent(createCliEvent({
-      command: "test",
-      data,
-      event,
-      sequence,
-    })), "utf8");
-    state.nextSequence = sequence + 1;
-  });
-  state.queue = queued;
-  eventAppendStates.set(path, state);
-  try {
-    await queued;
-  } finally {
-    if ((event === "completed" || event === "failed") && eventAppendStates.get(path)?.queue === queued) {
-      eventAppendStates.delete(path);
-    }
-  }
+  await appendRetainedRunEvent(paths.absolute.outputPath, { command: "test", event, message, stream });
 }
 
 async function readLatestRunId(
