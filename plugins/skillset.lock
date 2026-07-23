@@ -31,10 +31,10 @@
       ],
       "kind": "plugin-skill",
       "name": "use-skillset",
-      "outputHash": "sha256:261e7bdcdcc9db598b8f129110ab3f633d46134f239f0a4650207ef004b89692",
+      "outputHash": "sha256:934ae0c2164fa16e4805f224d1a71066c668c71693e8513a347b1ab36c770cdd",
       "outputPath": "skillset/claude/skills/use-skillset/SKILL.md",
       "plugin": "skillset",
-      "sourceHash": "sha256:b979d6b3a08ea01c88b6fce32db0c1c663c48388f3798e3e5b96fefbd7f0f7d1",
+      "sourceHash": "sha256:fec4f7d2191cff9f196f7c64443b5a4fd2ac504941bd807c1e67703a575c30de",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "version": "0.1.1"
     },
@@ -64,10 +64,10 @@
       ],
       "kind": "plugin-skill",
       "name": "use-skillset",
-      "outputHash": "sha256:decf954e89354b0160c0b825db7cd87e0f22161802c6b5e232405cfbe703460b",
+      "outputHash": "sha256:f550c6bf044c45342e8bb8eefcc12f95cfd08a1424242545cb42851c003b81d2",
       "outputPath": "skillset/codex/skills/use-skillset/SKILL.md",
       "plugin": "skillset",
-      "sourceHash": "sha256:b979d6b3a08ea01c88b6fce32db0c1c663c48388f3798e3e5b96fefbd7f0f7d1",
+      "sourceHash": "sha256:fec4f7d2191cff9f196f7c64443b5a4fd2ac504941bd807c1e67703a575c30de",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "version": "0.1.1"
     },
@@ -97,10 +97,10 @@
       ],
       "kind": "plugin-skill",
       "name": "use-skillset",
-      "outputHash": "sha256:320cf58b15679982a864b2ee1587a3dabd3be11607621cd641720e7e6d1d71fb",
+      "outputHash": "sha256:54f750ab5e0aa3391880046211239c32542491df428520c0bcc8ff026b64bd22",
       "outputPath": "skillset/cursor/skills/use-skillset/SKILL.md",
       "plugin": "skillset",
-      "sourceHash": "sha256:b979d6b3a08ea01c88b6fce32db0c1c663c48388f3798e3e5b96fefbd7f0f7d1",
+      "sourceHash": "sha256:fec4f7d2191cff9f196f7c64443b5a4fd2ac504941bd807c1e67703a575c30de",
       "sourcePath": ".skillset/plugins/skillset/skills/use-skillset/SKILL.md",
       "version": "0.1.1"
     }
