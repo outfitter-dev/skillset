@@ -1,5 +1,13 @@
 # skillset
 
+## 0.18.3
+
+### Patch Changes
+
+- a3e08c2: Guide incomplete TTY lookup requests through registry-derived subjects, applicable views, target lenses, and searchable schema field paths while preserving explicit and machine behavior.
+- e023da1: Guide TTY marketplace updates through cheap configured-catalog selection, the canonical readiness/update preview, and default-No confirmation while binding confirmed writes to the exact Core-owned provider-output and lock plan.
+- c861d5d: Guide TTY reconcile through a managed path, canonical report-derived directions, and default-No confirmation while keeping explicit, machine, backup, and rollback behavior intact.
+
 ## 0.18.2
 
 ### Patch Changes
