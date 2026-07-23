@@ -117,6 +117,7 @@ export {
 } from "./distribution";
 export {
   checkMarketplaces,
+  listMarketplaceCatalogs,
   type MarketplaceCheckEntryReport,
   type MarketplaceCheckReport,
   type MarketplaceCheckSourceReport,

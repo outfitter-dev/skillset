@@ -150,6 +150,14 @@ export async function checkMarketplaces(
   return (await resolveMarketplaceChecks(rootPath, options)).report;
 }
 
+export async function listMarketplaceCatalogs(
+  rootPath: string,
+  options: SkillsetOptions = {}
+): Promise<readonly string[]> {
+  const graph = await loadBuildGraph(rootPath, options);
+  return Object.keys(graph.root.marketplaces).sort(compareStrings);
+}
+
 export async function resolveMarketplaceChecks(
   rootPath: string,
   options: MarketplaceCheckOptions = {}

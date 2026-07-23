@@ -9,13 +9,49 @@ import { createTestGitRemote, runTestGit } from "../../../../scripts/test-helper
 import { buildSkillsetResult, verifySkillsetResult } from "../build";
 import { storedClaudeMarketplaceProviderEntry } from "../claude-marketplace";
 import { detectHostLeaks } from "../host-leak";
-import { checkMarketplaces } from "../marketplace-check";
-import { updateMarketplaces } from "../marketplace-update";
+import {
+  checkMarketplaces,
+  listMarketplaceCatalogs,
+} from "../marketplace-check";
+import {
+  normalizeMarketplaceUpdatePlanPath,
+  updateMarketplaces,
+} from "../marketplace-update";
 import { writeKnownSkillsetsIndex } from "../known-skillsets";
 import { resolveRemoteRepositoryCache } from "../remote-repository-cache";
 import type { JsonRecord } from "../types";
 
 describe("marketplace check", () => {
+  test("SET-297: normalizes marketplace plan paths portably", () => {
+    expect(
+      normalizeMarketplaceUpdatePlanPath(
+        "plugins\\demo\\claude\\.claude-plugin\\marketplace.json"
+      )
+    ).toBe("plugins/demo/claude/.claude-plugin/marketplace.json");
+  });
+
+  test("SET-297: lists configured catalogs without resolving external repositories", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: marketplace-root
+marketplaces:
+  zeta:
+    targets: [claude]
+    plugins:
+      - plugin: remote-tools
+        repo: https://git.invalid/acme/remote-tools.git
+        sha: 0123456789abcdef0123456789abcdef01234567
+  alpha:
+    targets: [claude]
+    plugins:
+      - plugin: local-tools
+`,
+    });
+
+    expect(await listMarketplaceCatalogs(root)).toEqual(["alpha", "zeta"]);
+  });
+
   test("reports local generated and verified plugin targets as marketplace-ready", async () => {
     const root = await fixture(localMarketplaceFiles());
     await buildSkillsetResult(root);
@@ -492,6 +528,146 @@ Use this demo skill.
     expect(tamperedCheck.entries[0]?.lock.state).toBe("absent");
     expect(tamperedVerify.data.failures).toContain("stale generated file: skillset.lock");
   });
+
+  test("SET-297: a confirmed update refuses a floating ref that changed after preview", async () => {
+    const parent = await mkdtemp(join(tmpdir(), "skillset-marketplace-confirmed-plan-"));
+    const repository = "https://git.example/acme/confirmed-plan.git";
+    const marketplace = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: marketplace-root
+marketplaces:
+  outfitter:
+    targets: [claude]
+    plugins:
+      - plugin: remote-tools
+        repo: ${repository}
+        ref: main
+`,
+    }, parent);
+    const external = await fixture({
+      "skillset.yaml": "skillset:\n  name: confirmed-plan\n",
+      ".skillset/plugins/remote-tools/skillset.yaml": `
+skillset:
+  name: remote-tools
+  version: 1.0.0
+`,
+    }, parent);
+    await buildSkillsetResult(external);
+    const gitRoot = await mkdtemp(join(parent, "git-"));
+    const remote = await createTestGitRemote(external, {
+      repository,
+      rootPath: gitRoot,
+    });
+
+    const preview = await updateMarketplaces(marketplace, {
+      name: "outfitter",
+      xdg: remote.xdg,
+    });
+    if (preview.planHash === undefined) {
+      throw new Error("expected marketplace preview plan hash");
+    }
+
+    await writeFile(
+      join(external, ".skillset/plugins/remote-tools/skillset.yaml"),
+      "skillset:\n  name: remote-tools\n  version: 2.0.0\n"
+    );
+    await buildSkillsetResult(external);
+    await runTestGit(external, "add", "--all");
+    await runTestGit(external, "commit", "-m", "advance floating marketplace ref");
+    await runTestGit(external, "push", remote.remotePath, "main");
+    const advancedSha = await runTestGit(external, "rev-parse", "HEAD");
+
+    const applied = await updateMarketplaces(marketplace, {
+      expectedPlanHash: preview.planHash,
+      name: "outfitter",
+      write: true,
+      xdg: remote.xdg,
+    });
+
+    expect(applied.ok).toBe(false);
+    expect(applied.reason).toBe(
+      "marketplace update changed after preview; review the latest plan before writing"
+    );
+    expect(applied.planHash).not.toBe(preview.planHash);
+    expect(applied.check.entries[0]?.source.sha).toBe(advancedSha);
+    expect(applied.writtenPaths).toEqual([]);
+    expect(await Bun.file(join(marketplace, ".claude-plugin/marketplace.json")).exists()).toBe(false);
+    expect(await Bun.file(join(marketplace, "skillset.lock")).exists()).toBe(false);
+  }, 15_000);
+
+  test("SET-297: invalid apply-time resolution preserves prior marketplace bytes", async () => {
+    const parent = await mkdtemp(join(tmpdir(), "skillset-marketplace-invalid-apply-"));
+    const repository = "https://git.example/acme/invalid-apply.git";
+    const marketplace = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: marketplace-root
+marketplaces:
+  outfitter:
+    targets: [claude]
+    plugins:
+      - plugin: remote-tools
+        repo: ${repository}
+        ref: main
+`,
+    }, parent);
+    const external = await fixture({
+      "skillset.yaml": "skillset:\n  name: invalid-apply\n",
+      ".skillset/plugins/remote-tools/skillset.yaml": `
+skillset:
+  name: remote-tools
+  version: 1.0.0
+`,
+    }, parent);
+    await buildSkillsetResult(external);
+    const gitRoot = await mkdtemp(join(parent, "git-"));
+    const remote = await createTestGitRemote(external, {
+      repository,
+      rootPath: gitRoot,
+    });
+    expect((await updateMarketplaces(marketplace, {
+      name: "outfitter",
+      write: true,
+      xdg: remote.xdg,
+    })).ok).toBe(true);
+    const preview = await updateMarketplaces(marketplace, {
+      name: "outfitter",
+      xdg: remote.xdg,
+    });
+    if (preview.planHash === undefined) {
+      throw new Error("expected marketplace preview plan hash");
+    }
+    const indexPath = join(marketplace, ".claude-plugin/marketplace.json");
+    const lockPath = join(marketplace, "skillset.lock");
+    const beforeIndex = await readFile(indexPath);
+    const beforeLock = await readFile(lockPath);
+
+    await writeFile(
+      join(external, ".skillset/plugins/remote-tools/skillset.yaml"),
+      "skillset:\n  name: remote-tools\n  version: 2.0.0\n"
+    );
+    await runTestGit(external, "add", "--all");
+    await runTestGit(external, "commit", "-m", "invalidate floating marketplace output");
+    await runTestGit(external, "push", remote.remotePath, "main");
+
+    const applied = await updateMarketplaces(marketplace, {
+      expectedPlanHash: preview.planHash,
+      name: "outfitter",
+      write: true,
+      xdg: remote.xdg,
+    });
+
+    expect(applied.ok).toBe(false);
+    expect(applied.reason).toBe(
+      "marketplace update changed after preview; review the latest plan before writing"
+    );
+    expect(applied.check.entries[0]?.reason).toContain("version drift");
+    expect(applied.planHash).toBeUndefined();
+    expect(applied.writtenPaths).toEqual([]);
+    expect(await readFile(indexPath)).toEqual(beforeIndex);
+    expect(await readFile(lockPath)).toEqual(beforeLock);
+  }, 15_000);
 
   test("SET-268: sequential named catalog updates preserve the active offline marketplace", async () => {
     const parent = await mkdtemp(join(tmpdir(), "skillset-marketplace-catalog-selection-"));
