@@ -2,11 +2,14 @@ import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../test-helpers/skillset-config";
 import { mkdtemp, readdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { checkClonePurity, compareTrees, parseExternalManifest, renderExternalManifest, renderRunReportMarkdown, runExternalRepo, writeExternalRunReport } from '../external';
 import type { ExternalRepoEntry } from '../external';
-import { gitSafeEnv } from '../../../apps/skillset/src/git-env';
+import {
+  createTestGitFixtureRoot,
+  initializeTestGitRepository,
+} from "../../test-helpers/git-remote";
 
 const SHA = "4719dc509fdc45656a830e3ed6060f674e206076";
 
@@ -348,7 +351,10 @@ function marketplaceFiles(): Record<string, string> {
 }
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-external-test-"));
+  const disposableRoot = await createTestGitFixtureRoot(
+    "skillset-external-test-"
+  );
+  const root = await mkdtemp(join(disposableRoot, "repo-"));
   for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     await Bun.write(join(root, path), content);
   }
@@ -359,34 +365,8 @@ async function fixture(files: Record<string, string>): Promise<string> {
  * harness's git-backed clean and purity stages can run against it. */
 async function gitFixture(files: Record<string, string>): Promise<string> {
   const root = await fixture(files);
-  await testGit(root, "init", "-q");
-  await testGit(root, "add", "-A");
-  await testGit(
-    root,
-    "-c",
-    "user.email=test@example.com",
-    "-c",
-    "user.name=Skillset Test",
-    "commit",
-    "-q",
-    "-m",
-    "fixture"
-  );
-  return root;
-}
-
-async function testGit(cwd: string, ...args: readonly string[]): Promise<void> {
-  const proc = Bun.spawn({
-    cmd: ["git", "-C", cwd, ...args],
-    env: gitSafeEnv(),
-    stderr: "pipe",
-    stdout: "pipe",
+  await initializeTestGitRepository(root, {
+    disposableRoot: dirname(root),
   });
-  const [stderr, exitCode] = await Promise.all([
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  if (exitCode !== 0) {
-    throw new Error(`git ${args.join(" ")} failed in ${cwd}\n${stderr}`.trim());
-  }
+  return root;
 }

@@ -5,7 +5,11 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
-import { createTestGitRemote, runTestGit } from "../../../../scripts/test-helpers/git-remote";
+import {
+  createTestGitFixtureRoot,
+  createTestGitRemote,
+  runTestGit,
+} from "../../../../scripts/test-helpers/git-remote";
 import { buildSkillsetResult, verifySkillsetResult } from "../build";
 import { storedClaudeMarketplaceProviderEntry } from "../claude-marketplace";
 import { detectHostLeaks } from "../host-leak";
@@ -149,7 +153,7 @@ codex: false
   });
 
   test("resolves external plugin refs from the managed known-Skillsets index", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-marketplace-known-"));
+    const root = await createTestGitFixtureRoot("skillset-marketplace-known-");
     const external = await fixture({
       "skillset.yaml": `
 skillset:
@@ -163,6 +167,7 @@ skillset:
     await buildSkillsetResult(external);
     const gitRoot = await mkdtemp(join(root, "git-"));
     const remote = await createTestGitRemote(external, {
+      disposableRoot: root,
       repository: "https://github.com/outfitter-dev/trails.git",
       rootPath: gitRoot,
     });
@@ -392,7 +397,9 @@ marketplaces:
   });
 
   test("SET-268: resolves remote refs through XDG with portable check, update, and lock provenance", async () => {
-    const parent = await mkdtemp(join(tmpdir(), "skillset-marketplace-remote-"));
+    const parent = await createTestGitFixtureRoot(
+      "skillset-marketplace-remote-"
+    );
     const marketplace = await fixture({
       "skillset.yaml": `
 skillset:
@@ -429,6 +436,7 @@ Use this demo skill.
     await buildSkillsetResult(external);
     const gitRoot = await mkdtemp(join(parent, "git-"));
     const remote = await createTestGitRemote(external, {
+      disposableRoot: parent,
       repository: "https://git.example/acme/trails.git",
       rootPath: gitRoot,
     });
@@ -530,7 +538,9 @@ Use this demo skill.
   });
 
   test("SET-297: a confirmed update refuses a floating ref that changed after preview", async () => {
-    const parent = await mkdtemp(join(tmpdir(), "skillset-marketplace-confirmed-plan-"));
+    const parent = await createTestGitFixtureRoot(
+      "skillset-marketplace-confirmed-plan-"
+    );
     const repository = "https://git.example/acme/confirmed-plan.git";
     const marketplace = await fixture({
       "skillset.yaml": `
@@ -556,6 +566,7 @@ skillset:
     await buildSkillsetResult(external);
     const gitRoot = await mkdtemp(join(parent, "git-"));
     const remote = await createTestGitRemote(external, {
+      disposableRoot: parent,
       repository,
       rootPath: gitRoot,
     });
@@ -597,7 +608,9 @@ skillset:
   }, 15_000);
 
   test("SET-297: invalid apply-time resolution preserves prior marketplace bytes", async () => {
-    const parent = await mkdtemp(join(tmpdir(), "skillset-marketplace-invalid-apply-"));
+    const parent = await createTestGitFixtureRoot(
+      "skillset-marketplace-invalid-apply-"
+    );
     const repository = "https://git.example/acme/invalid-apply.git";
     const marketplace = await fixture({
       "skillset.yaml": `
@@ -623,6 +636,7 @@ skillset:
     await buildSkillsetResult(external);
     const gitRoot = await mkdtemp(join(parent, "git-"));
     const remote = await createTestGitRemote(external, {
+      disposableRoot: parent,
       repository,
       rootPath: gitRoot,
     });
@@ -670,7 +684,9 @@ skillset:
   }, 15_000);
 
   test("SET-268: sequential named catalog updates preserve the active offline marketplace", async () => {
-    const parent = await mkdtemp(join(tmpdir(), "skillset-marketplace-catalog-selection-"));
+    const parent = await createTestGitFixtureRoot(
+      "skillset-marketplace-catalog-selection-"
+    );
     const repository = "https://git.example/acme/catalog-plugins.git";
     const marketplace = await fixture({
       "skillset.yaml": `
@@ -703,7 +719,11 @@ marketplaces:
     await buildSkillsetResult(marketplace);
     await buildSkillsetResult(external);
     const gitRoot = await mkdtemp(join(parent, "git-"));
-    const remote = await createTestGitRemote(external, { repository, rootPath: gitRoot });
+    const remote = await createTestGitRemote(external, {
+      disposableRoot: parent,
+      repository,
+      rootPath: gitRoot,
+    });
 
     expect((await updateMarketplaces(marketplace, {
       name: "alpha",
@@ -729,7 +749,9 @@ marketplaces:
   }, 15_000);
 
   test("SET-268: acquisition failure leaves every marketplace output untouched", async () => {
-    const parent = await mkdtemp(join(tmpdir(), "skillset-marketplace-remote-failure-"));
+    const parent = await createTestGitFixtureRoot(
+      "skillset-marketplace-remote-failure-"
+    );
     const marketplace = await fixture({
       "skillset.yaml": `
 skillset:
@@ -755,6 +777,7 @@ marketplaces:
     await buildSkillsetResult(external);
     const gitRoot = await mkdtemp(join(parent, "git-"));
     const remote = await createTestGitRemote(external, {
+      disposableRoot: parent,
       repository: "https://git.example/acme/trails.git",
       rootPath: gitRoot,
     });
@@ -782,7 +805,9 @@ marketplaces:
   });
 
   test("SET-268: resolves two revisions from the same repository independently", async () => {
-    const parent = await mkdtemp(join(tmpdir(), "skillset-marketplace-revisions-"));
+    const parent = await createTestGitFixtureRoot(
+      "skillset-marketplace-revisions-"
+    );
     const external = await fixture({
       "skillset.yaml": "skillset:\n  name: revisions\n",
       ".skillset/plugins/revision-tools/skillset.yaml": `
@@ -802,6 +827,7 @@ First revision.
     await buildSkillsetResult(external);
     const gitRoot = await mkdtemp(join(parent, "git-"));
     const remote = await createTestGitRemote(external, {
+      disposableRoot: parent,
       repository: "https://git.example/acme/revisions.git",
       rootPath: gitRoot,
     });
@@ -851,7 +877,9 @@ marketplaces:
   });
 
   test("SET-268: blocks stale generated output acquired from a remote ref", async () => {
-    const parent = await mkdtemp(join(tmpdir(), "skillset-marketplace-stale-remote-"));
+    const parent = await createTestGitFixtureRoot(
+      "skillset-marketplace-stale-remote-"
+    );
     const external = await fixture({
       "skillset.yaml": "skillset:\n  name: stale-remote\n",
       ".skillset/plugins/stale-tools/skillset.yaml": `
@@ -863,6 +891,7 @@ skillset:
     await buildSkillsetResult(external);
     const gitRoot = await mkdtemp(join(parent, "git-"));
     const remote = await createTestGitRemote(external, {
+      disposableRoot: parent,
       repository: "https://git.example/acme/stale.git",
       rootPath: gitRoot,
     });
@@ -903,7 +932,9 @@ marketplaces:
   });
 
   test("SET-268: reports a wrong-origin cache without repairing or exposing its path", async () => {
-    const parent = await mkdtemp(join(tmpdir(), "skillset-marketplace-wrong-origin-"));
+    const parent = await createTestGitFixtureRoot(
+      "skillset-marketplace-wrong-origin-"
+    );
     const external = await fixture({
       "skillset.yaml": "skillset:\n  name: wrong-origin\n",
       ".skillset/plugins/origin-tools/skillset.yaml": "skillset:\n  name: origin-tools\n",
@@ -911,6 +942,7 @@ marketplaces:
     await buildSkillsetResult(external);
     const gitRoot = await mkdtemp(join(parent, "git-"));
     const remote = await createTestGitRemote(external, {
+      disposableRoot: parent,
       repository: "https://git.example/acme/origin.git",
       rootPath: gitRoot,
     });

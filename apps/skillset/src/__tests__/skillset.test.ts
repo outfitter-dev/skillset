@@ -1,6 +1,5 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
 
 import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
@@ -11,7 +10,6 @@ import { explainPath, listGeneratedEntries } from "@skillset/core/internal/autho
 import { buildSkillset, buildSkillsetResult, verifySkillset, diffSkillset } from "@skillset/core";
 import { changeStatus, collectSourceInventory } from "../change-status";
 import { addChangeEntry, readChangeHistory } from "../change-workflow";
-import { gitSafeEnv } from "../git-env";
 import { importSource } from "../import";
 import { inspectSkillset, lintSkillset } from "@skillset/core";
 import { applyRelease } from "../release";
@@ -19,6 +17,10 @@ import { writeReleaseState } from "@skillset/core/internal/release-state";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { renderValidatedToml } from "@skillset/core/internal/structured-output";
 import { runSkillsetTest } from "../test-runner";
+import {
+  createTestGitFixtureRoot,
+  initializeTestGitRepository,
+} from "../../../../scripts/test-helpers/git-remote";
 
 test("omitted compile.targets builds all first-class providers in canonical order", async () => {
   const root = await fixture({
@@ -5526,7 +5528,8 @@ External body.
 });
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-test-"));
+  const disposableRoot = await createTestGitFixtureRoot("skillset-test-");
+  const root = await mkdtemp(join(disposableRoot, "repo-"));
 
   for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     const outputPath = join(root, path);
@@ -5545,28 +5548,9 @@ function cachePath(root: string, logicalPath: string): string {
 }
 
 async function commitFixture(root: string): Promise<void> {
-  await runGit(root, "init", "-q");
-  await runGit(root, "config", "user.email", "skillset@example.com");
-  await runGit(root, "config", "user.name", "Skillset Test");
-  await runGit(root, "add", ".");
-  await runGit(root, "commit", "-qm", "baseline");
-}
-
-async function runGit(root: string, ...args: readonly string[]): Promise<void> {
-  const proc = Bun.spawn({
-    cmd: ["git", "-C", root, ...args],
-    env: gitSafeEnv(),
-    stderr: "pipe",
-    stdout: "pipe",
+  await initializeTestGitRepository(root, {
+    disposableRoot: join(root, ".."),
   });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  if (exitCode !== 0) {
-    throw new Error(`git ${args.join(" ")} failed\n${stdout}${stderr}`);
-  }
 }
 
 async function expectFeatureDiagnosticError(

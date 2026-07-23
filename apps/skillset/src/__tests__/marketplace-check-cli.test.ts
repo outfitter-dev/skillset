@@ -5,7 +5,10 @@ import { join } from "node:path";
 import { expect, test } from "bun:test";
 
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
-import { createTestGitRemote } from "../../../../scripts/test-helpers/git-remote";
+import {
+  createTestGitFixtureRoot,
+  createTestGitRemote,
+} from "../../../../scripts/test-helpers/git-remote";
 import { buildSkillsetResult } from "@skillset/core";
 
 test("SET-234: marketplace check reports readiness and supports JSON output", async () => {
@@ -98,7 +101,7 @@ skillset:
 });
 
 test("SET-236: marketplace update previews and writes an external Claude marketplace index", async () => {
-  const parent = await mkdtemp(join(tmpdir(), "skillset-marketplace-update-"));
+  const parent = await createTestGitFixtureRoot("skillset-marketplace-update-");
   const marketplace = await fixture({
     "skillset.yaml": `
 skillset:
@@ -136,6 +139,7 @@ Use this demo skill.
   await buildSkillsetResult(external);
   const gitRoot = await mkdtemp(join(parent, "git-"));
   const remote = await createTestGitRemote(external, {
+    disposableRoot: parent,
     repository: "https://github.com/outfitter-dev/trails.git",
     rootPath: gitRoot,
   });
@@ -221,7 +225,7 @@ Use this demo skill.
 });
 
 test("SET-236: marketplace update renders mixed local and external Claude entries", async () => {
-  const parent = await mkdtemp(join(tmpdir(), "skillset-marketplace-mixed-"));
+  const parent = await createTestGitFixtureRoot("skillset-marketplace-mixed-");
   const marketplace = await fixture({
     "skillset.yaml": `
 skillset:
@@ -272,6 +276,7 @@ Use this demo skill.
   await buildSkillsetResult(external);
   const gitRoot = await mkdtemp(join(parent, "git-"));
   const remote = await createTestGitRemote(external, {
+    disposableRoot: parent,
     repository: "https://github.com/outfitter-dev/trails.git",
     rootPath: gitRoot,
   });
@@ -308,7 +313,9 @@ Use this demo skill.
 }, 15_000);
 
 test("SET-268: marketplace update does not treat a warm floating cache as current while offline", async () => {
-  const parent = await mkdtemp(join(tmpdir(), "skillset-marketplace-floating-"));
+  const parent = await createTestGitFixtureRoot(
+    "skillset-marketplace-floating-"
+  );
   const marketplace = await fixture({
     "skillset.yaml": `
 skillset:
@@ -344,6 +351,7 @@ Use this demo skill.
   await buildSkillsetResult(external);
   const gitRoot = await mkdtemp(join(parent, "git-"));
   const remote = await createTestGitRemote(external, {
+    disposableRoot: parent,
     repository: "https://github.com/outfitter-dev/trails.git",
     rootPath: gitRoot,
   });

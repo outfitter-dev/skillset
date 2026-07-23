@@ -4,14 +4,18 @@ import { join } from "node:path";
 
 import { expect, test } from "bun:test";
 
-import { gitSafeEnv } from "../git-env";
+import {
+  createTestGitFixtureRoot,
+  initializeTestGitRepository,
+  runTestGit,
+} from "../../../../scripts/test-helpers/git-remote";
 
 test("SET-233: check records the workspace in the managed known-Skillsets index", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-known-cli-"));
+  const root = await createTestGitFixtureRoot("skillset-known-cli-");
   const xdgConfigHome = join(root, "xdg-config");
   const workspace = join(root, "workspace");
   await writeWorkspace(workspace);
-  await runGit(workspace, "init", "-q");
+  await initializeTestGitRepository(workspace, { disposableRoot: root });
   await runGit(workspace, "remote", "add", "origin", "git@github.com:Acme/docs-cli.git");
   await runSkillsetCli(
     { GIT_DIR: ".git", GIT_WORK_TREE: process.cwd(), XDG_CONFIG_HOME: xdgConfigHome },
@@ -52,11 +56,11 @@ test("SET-233: check records the workspace in the managed known-Skillsets index"
 });
 
 test("SET-288: JSON build records the workspace in the managed index", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-known-json-build-"));
+  const root = await createTestGitFixtureRoot("skillset-known-json-build-");
   const xdgConfigHome = join(root, "xdg-config");
   const workspace = join(root, "workspace");
   await writeWorkspace(workspace);
-  await runGit(workspace, "init", "-q");
+  await initializeTestGitRepository(workspace, { disposableRoot: root });
   await runGit(workspace, "remote", "add", "origin", "git@github.com:Acme/docs-cli.git");
 
   const built = await runSkillsetCli(
@@ -76,11 +80,11 @@ test("SET-288: JSON build records the workspace in the managed index", async () 
 });
 
 test("SET-288: JSON build preview records the workspace in the managed index", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-known-json-preview-"));
+  const root = await createTestGitFixtureRoot("skillset-known-json-preview-");
   const xdgConfigHome = join(root, "xdg-config");
   const workspace = join(root, "workspace");
   await writeWorkspace(workspace);
-  await runGit(workspace, "init", "-q");
+  await initializeTestGitRepository(workspace, { disposableRoot: root });
   await runGit(workspace, "remote", "add", "origin", "git@github.com:Acme/docs-cli.git");
 
   const preview = await runSkillsetCli(
@@ -167,6 +171,12 @@ test("SET-388: a valid sandbox marker registers only in isolated XDG state", asy
     state: join(sandbox, "xdg", "state"),
   };
   await Promise.all(Object.values(xdg).map((path) => mkdir(path, { recursive: true })));
+  const git = {
+    global: join(sandbox, "git", "global-config"),
+    system: join(sandbox, "git", "system-config"),
+  };
+  await mkdir(join(sandbox, "git"), { recursive: true });
+  await Promise.all(Object.values(git).map((path) => writeFile(path, "")));
   const marker = join(sandbox, "descriptor.json");
   await writeFile(marker, JSON.stringify({
     createdAt: new Date().toISOString(),
@@ -181,6 +191,9 @@ test("SET-388: a valid sandbox marker registers only in isolated XDG state", asy
   const checked = await runSkillsetCli(
     {
       NODE_ENV: "test",
+      GIT_CONFIG_GLOBAL: git.global,
+      GIT_CONFIG_SYSTEM: git.system,
+      GIT_TERMINAL_PROMPT: "0",
       SKILLSET_TEST_SANDBOX: marker,
       XDG_CACHE_HOME: xdg.cache,
       XDG_CONFIG_HOME: xdg.config,
@@ -275,16 +288,5 @@ async function runSkillsetCli(
 }
 
 async function runGit(root: string, ...args: readonly string[]): Promise<void> {
-  const proc = Bun.spawn({
-    cmd: ["git", ...args],
-    cwd: root,
-    env: gitSafeEnv(),
-    stderr: "pipe",
-    stdout: "pipe",
-  });
-  const [stderr, exitCode] = await Promise.all([
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  if (exitCode !== 0) throw new Error(`git ${args.join(" ")} failed: ${stderr}`);
+  await runTestGit(root, ...args);
 }

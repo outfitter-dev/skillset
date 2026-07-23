@@ -1,14 +1,17 @@
 import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { parseYamlRecord } from "@skillset/core/internal/yaml";
-import { gitSafeEnv } from "../git-env";
 import { buildSkillset, checkSkillsetSourceReadiness, createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
 import { CI_REPORT_MARKER, CI_WORKFLOW_PATH, ciSkillset, renderCiReportMarkdown, renderCiWorkflow } from "../ci";
 import { initSkillset } from "../setup";
+import {
+  createTestGitFixtureRoot,
+  initializeTestGitRepository,
+  runTestGit,
+} from "../../../../scripts/test-helpers/git-remote";
 
 const DEMO_FIXTURE: Record<string, string> = {
   "skillset.yaml": `
@@ -581,7 +584,10 @@ Edited source body.
 });
 
 test("ci normalizes old source layout only for git-ref baselines", async () => {
-  const root = await mkdtemp(join(tmpdir(), "skillset-ci-legacy-"));
+  const disposableRoot = await createTestGitFixtureRoot(
+    "skillset-ci-legacy-"
+  );
+  const root = await mkdtemp(join(disposableRoot, "repo-"));
   await writeRawFiles(root, {
 	".skillset/config.yaml": `
 claude: true
@@ -749,7 +755,8 @@ async function changelogFixture(): Promise<string> {
 }
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-ci-"));
+  const disposableRoot = await createTestGitFixtureRoot("skillset-ci-");
+  const root = await mkdtemp(join(disposableRoot, "repo-"));
   for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }
@@ -765,10 +772,9 @@ async function writeRawFiles(root: string, files: Record<string, string>): Promi
 }
 
 async function commitFixture(root: string): Promise<void> {
-  await runGit(root, "init", "-q");
-  await runGit(root, "config", "user.email", "skillset@example.com");
-  await runGit(root, "config", "user.name", "Skillset Test");
-  await commitAll(root, "baseline");
+  await initializeTestGitRepository(root, {
+    disposableRoot: dirname(root),
+  });
 }
 
 async function commitAll(root: string, message: string): Promise<void> {
@@ -777,20 +783,7 @@ async function commitAll(root: string, message: string): Promise<void> {
 }
 
 async function runGit(root: string, ...args: readonly string[]): Promise<void> {
-  const proc = Bun.spawn({
-    cmd: ["git", "-C", root, ...args],
-    env: gitSafeEnv(),
-    stderr: "pipe",
-    stdout: "pipe",
-  });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  if (exitCode !== 0) {
-    throw new Error(`git ${args.join(" ")} failed\n${stdout}${stderr}`);
-  }
+  await runTestGit(root, ...args);
 }
 
 async function runSkillsetCli(...args: readonly string[]): Promise<{

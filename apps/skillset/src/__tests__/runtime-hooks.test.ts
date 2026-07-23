@@ -4,7 +4,11 @@ import { join } from "node:path";
 
 import { expect, test } from "bun:test";
 
-import { gitSafeEnv } from "../git-env";
+import {
+  createTestGitFixtureRoot,
+  initializeTestGitRepository,
+  runTestGit,
+} from "../../../../scripts/test-helpers/git-remote";
 import {
   hasHookRelevantSourceChanges,
   hookRelevantSourcePaths,
@@ -29,7 +33,7 @@ test("runtime hook source gate catches tracked and untracked Skillset edits", as
   await writeFile(join(root, ".skillset/_claude/settings.json"), "{}\n");
   expect(await hasHookRelevantSourceChanges(root)).toBe(true);
 
-  await runGit(root, "checkout", "--", ".skillset/_claude/settings.json");
+  await runTestGit(root, "checkout", "--", ".skillset/_claude/settings.json");
   await mkdir(join(root, ".skillset/plugins/demo"), { recursive: true });
   await writeFile(join(root, ".skillset/plugins/demo/skillset.yaml"), "skillset:\n  name: demo\n");
 
@@ -204,36 +208,17 @@ function sourceGate(
 }
 
 async function gitFixture(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-hooks-run-"));
+  const disposableRoot = await createTestGitFixtureRoot(
+    "skillset-hooks-run-"
+  );
+  const root = await mkdtemp(join(disposableRoot, "repo-"));
   await mkdir(join(root, ".skillset/_claude"), { recursive: true });
   await mkdir(join(root, ".skillset/changes"), { recursive: true });
   await writeFile(join(root, "skillset.yaml"), "skillset:\n  schema: 1\n");
   await writeFile(join(root, ".skillset/_claude/settings.json"), "{\"hooks\":{}}\n");
   await writeFile(join(root, "README.md"), "initial\n");
-  await runGit(root, "init", "-q");
-  await runGit(root, "config", "user.email", "skillset@example.com");
-  await runGit(root, "config", "user.name", "Skillset Tests");
-  await runGit(root, "add", ".");
-  await runGit(root, "commit", "-m", "initial", "-q");
+  await initializeTestGitRepository(root, { disposableRoot });
   return root;
-}
-
-async function runGit(root: string, ...args: readonly string[]): Promise<void> {
-  const proc = Bun.spawn({
-    cmd: ["git", ...args],
-    cwd: root,
-    env: gitSafeEnv(),
-    stderr: "pipe",
-    stdout: "pipe",
-  });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  if (exitCode !== 0) {
-    throw new Error(`git ${args.join(" ")} failed (${exitCode})\n${stdout}${stderr}`);
-  }
 }
 
 async function resolveWithPath(commands: readonly string[]) {

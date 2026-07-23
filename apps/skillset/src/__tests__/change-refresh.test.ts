@@ -1,11 +1,14 @@
 import { mkdir, mkdtemp, readdir, readFile, rename, rm, utimes, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { expect, test } from "bun:test";
 
-import { gitSafeEnv } from "../git-env";
 import { refreshChangeEvidence } from "../change-workflow";
+import {
+  createTestGitFixtureRoot,
+  initializeTestGitRepository,
+  runTestGit,
+} from "../../../../scripts/test-helpers/git-remote";
 
 const DEAD_OWNER_TOKEN = "d".repeat(32);
 const LIVE_OWNER_TOKEN = "1".repeat(32);
@@ -437,15 +440,14 @@ function jsonRefresh(stdout: string): RefreshJsonData {
 }
 
 async function refreshFixture(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-change-refresh-"));
+  const disposableRoot = await createTestGitFixtureRoot(
+    "skillset-change-refresh-"
+  );
+  const root = await mkdtemp(join(disposableRoot, "repo-"));
   await mkdir(join(root, ".skillset/skills/demo"), { recursive: true });
   await writeFile(join(root, "skillset.yaml"), "skillset:\n  name: refresh-test\nclaude: true\ncodex: false\n", "utf8");
   await writeFile(join(root, ".skillset/skills/demo/SKILL.md"), skill("Baseline body."), "utf8");
-  await runGit(root, "init", "-q");
-  await runGit(root, "config", "user.email", "skillset@example.com");
-  await runGit(root, "config", "user.name", "Skillset Test");
-  await runGit(root, "add", ".");
-  await runGit(root, "commit", "-qm", "baseline");
+  await initializeTestGitRepository(root, { disposableRoot });
   return root;
 }
 
@@ -526,32 +528,9 @@ async function runCli(...args: readonly string[]): Promise<{ readonly exitCode: 
 }
 
 async function runGit(root: string, ...args: readonly string[]): Promise<void> {
-  const proc = Bun.spawn({
-    cmd: ["git", "-C", root, ...args],
-    env: gitSafeEnv(),
-    stderr: "pipe",
-    stdout: "pipe",
-  });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  if (exitCode !== 0) throw new Error(`git ${args.join(" ")} failed\n${stdout}${stderr}`);
+  await runTestGit(root, ...args);
 }
 
 async function runGitOutput(root: string, ...args: readonly string[]): Promise<string> {
-  const proc = Bun.spawn({
-    cmd: ["git", "-C", root, ...args],
-    env: gitSafeEnv(),
-    stderr: "pipe",
-    stdout: "pipe",
-  });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  if (exitCode !== 0) throw new Error(`git ${args.join(" ")} failed\n${stdout}${stderr}`);
-  return stdout.trim();
+  return runTestGit(root, ...args);
 }

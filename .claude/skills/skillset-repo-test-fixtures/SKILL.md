@@ -18,6 +18,9 @@ Use this skill when changing Skillset's internal compiler fixtures, fixture docu
 - Checked-in `fixtures/<case>/` repos use root `skillset.yaml` and source under `.skillset/`.
 - Plugins, standalone skills, rules, hooks, shared files, and provider source in checked-in fixtures should use `.skillset/plugins`, `.skillset/skills`, `.skillset/rules`, `.skillset/hooks`, `.skillset/shared`, and `.skillset/_claude` / `.skillset/_codex`.
 - Inline temp fixtures should use the same shape unless the test is specifically covering retired-layout migration behavior.
+- Build Git-backed fixtures with `scripts/test-helpers/git-remote.ts`: create the parent with `createTestGitFixtureRoot()`, create a fresh child beneath it, and pass the parent as `disposableRoot` to `initializeTestGitRepository()` or `createTestGitRemote()`.
+- Never run fixture `git init`, identity configuration, or commits against an arbitrary temp path. The shared helper proves sandbox ownership and rejects symlinks, existing repositories, bare repositories, linked worktrees, shared Git common directories, and the Skillset checkout before mutation.
+- Keep `HOME` unchanged. Repository verification owns empty global and system Git config files inside the test sandbox, disables prompts, and strips command-line config injection so host signing, hooks, templates, credentials, includes, excludes, attributes, default-branch policy, and identity cannot affect fixtures.
 
 ## Working Loop
 
