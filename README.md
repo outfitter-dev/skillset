@@ -61,6 +61,8 @@ skillset dev         # rerun source diagnostics and generated-output previews on
 skillset dev --write # write generated output after clean source edits
 skillset diff               # show pending generated changes without writing
 skillset explain <path>     # explain a source or generated path (rendering, lock provenance, hashes; add --json for records)
+skillset lookup                    # navigate registry-backed subjects and views in a TTY; list subjects otherwise
+skillset lookup workspace --fields # inspect schema-backed workspace fields; add --json for records
 skillset lookup features [id]      # inspect registry feature capabilities and target support; add --json for records
 skillset restore <backup>   # preview restoring a generated-output backup; write with --yes
 skillset restore --list     # list integrity-checked generated-output backups without writing
@@ -72,7 +74,7 @@ skillset test status        # inspect the retained ad hoc test lifecycle (also: 
 
 `init`, `create`, and `build` are plan-first: they print pending filesystem changes and write only with `--yes`. `skillset check` is read-only by default and combines source diagnostics with generated-output readiness. `check --only outputs` is the narrow freshness check. `check --write` repairs only source-driven drift: it refuses managed target-side edits and provider-format migrations, which must be reconciled or applied through `skillset update`. `check --ci` adds branch-aware Skillset change-entry and package Changesets gates; CI uses `--fix`, not `--write`, and may also emit a Markdown report with `--report`. Removed top-level readiness commands have no compatibility aliases. `skillset init --include ci` scaffolds the corresponding workflow (see [CI](docs/features/ci.md)).
 
-Inspection stays split by question: `status` summarizes current workspace health, `list` inventories generated entries, `explain` traces one path's provenance, and `lookup` answers static contract questions such as `lookup features`.
+Inspection stays split by question: `status` summarizes current workspace health, `list` inventories generated entries, `explain` traces one path's provenance, and `lookup` answers static contract questions such as `lookup features`. Bare `skillset lookup` guides TTY users through registry-owned subjects, applicable views, compatibility targets, and searchable schema field paths, then prints the ordinary lookup report once. Explicit flags, JSON, pipes, and non-TTY execution remain prompt-free.
 
 See [Workbench Check](docs/features/workbench.md) for the cohesive `check` family, package-level diagnostic scopes, built-in `standard` and `strict` presets, parser/schema checks, Workbench fixtures, and the bounded ast-grep proof point.
 

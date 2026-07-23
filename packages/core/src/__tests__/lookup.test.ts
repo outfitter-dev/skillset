@@ -1,7 +1,12 @@
 import { describe, expect, it } from "bun:test";
 import { getProviderHookEvidence, getProviderSchemaSnapshot } from "@skillset/registry";
 
-import { lookupSkillsetReference } from "@skillset/core";
+import {
+  listLookupFields,
+  listLookupSubjects,
+  listLookupViews,
+  lookupSkillsetReference,
+} from "@skillset/core";
 
 describe("lookupSkillsetReference", () => {
   it("lists lookup subjects when no subject is selected", () => {
@@ -17,6 +22,94 @@ describe("lookupSkillsetReference", () => {
       "plugin",
     ]);
     expect(report.diagnostics).toEqual([]);
+  });
+
+  it("derives applicable views from the owned lookup contracts", () => {
+    expect(listLookupViews("skill")).toEqual([
+      "fields",
+      "frontmatter",
+      "values",
+      "compat",
+      "examples",
+      "schema",
+    ]);
+    expect(listLookupViews("workspace")).toEqual([
+      "fields",
+      "values",
+      "examples",
+      "schema",
+    ]);
+    expect(listLookupViews("hooks")).toEqual([
+      "fields",
+      "values",
+      "events",
+      "compat",
+      "examples",
+      "schema",
+    ]);
+    expect(listLookupViews("plugin")).toEqual(["compat"]);
+  });
+
+  it("derives subjects applicable to a partial view request", () => {
+    expect(
+      listLookupSubjects({ views: ["frontmatter"] }).map(
+        (subject) => subject.subject
+      )
+    ).toEqual(["skill", "agent", "instruction"]);
+    expect(
+      listLookupSubjects({ views: ["events"] }).map(
+        (subject) => subject.subject
+      )
+    ).toEqual(["hooks"]);
+    expect(
+      listLookupSubjects({ views: ["fields"] }).map(
+        (subject) => subject.subject
+      )
+    ).toEqual(["skill", "agent", "instruction", "workspace", "hooks"]);
+    expect(
+      listLookupSubjects({ field: "compile.targets" }).map(
+        (subject) => subject.subject
+      )
+    ).toEqual(["workspace"]);
+    expect(
+      listLookupSubjects({ field: " compile.targets " }).map(
+        (subject) => subject.subject
+      )
+    ).toEqual(["workspace"]);
+    expect(
+      listLookupSubjects({ field: "does.not.exist" }).map(
+        (subject) => subject.subject
+      )
+    ).toEqual(["skill", "agent", "instruction", "workspace", "hooks"]);
+    expect(
+      listLookupSubjects({
+        aspects: ["adaptive"],
+        field: "context.env",
+      }).map((subject) => subject.subject)
+    ).toEqual(["hooks"]);
+  });
+
+  it("lists selectable nested field paths from the active schema contract", () => {
+    const workspace = listLookupFields({ subject: "workspace" });
+    expect(workspace).toContainEqual(
+      expect.objectContaining({
+        contractId: "workspace-config",
+        path: "compile.targets",
+        type: "array<enum>",
+      })
+    );
+
+    const adaptiveHooks = listLookupFields({
+      aspects: ["adaptive"],
+      subject: "hooks",
+    });
+    expect(adaptiveHooks).toContainEqual(
+      expect.objectContaining({
+        contractId: "adaptive-hook",
+        path: "context.env",
+      })
+    );
+    expect(listLookupFields({ subject: "plugin" })).toEqual([]);
   });
 
   it("derives skill frontmatter fields from the shared schema contract", () => {
@@ -73,6 +166,21 @@ describe("lookupSkillsetReference", () => {
         values: ["claude", "codex", "cursor"],
       }),
     ]);
+  });
+
+  it("returns top-level values when values has no field selection", () => {
+    const report = lookupSkillsetReference({
+      subject: "workspace",
+      views: ["values"],
+    });
+
+    expect(report.diagnostics).toEqual([]);
+    expect(report.fields.length).toBeGreaterThan(0);
+    expect(report.fields).toContainEqual(
+      expect.objectContaining({
+        path: "compile",
+      })
+    );
   });
 
   it("returns hook event facts from provider capabilities and schema snapshots", () => {

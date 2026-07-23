@@ -22,7 +22,15 @@ import {
   type FiniteCommandWriter,
 } from "./cli-finite-command";
 import { renderGeneratedEntryList } from "./cli-list-renderer";
+import {
+  createInteractiveSession,
+  type InteractiveSession,
+} from "./interactive-session";
 import { runLookupCommand } from "./lookup-cli";
+import {
+  lookupRequestNeedsPrompts,
+  resolveInteractiveLookup,
+} from "./lookup-interactive";
 
 export interface ListCommandRequest {
   readonly details: boolean;
@@ -98,22 +106,41 @@ export interface LookupRouteRequest {
   readonly jsonOutput: boolean;
 }
 
-export function runLookupRoute({
-  lookupAspects,
-  lookupField,
-  lookupSubject,
-  lookupTargets,
-  lookupViews,
-  jsonOutput,
-}: LookupRouteRequest): Promise<void> {
+export interface LookupRouteContext {
+  readonly interactiveSession?: InteractiveSession;
+}
+
+export async function runLookupRoute(
+  request: LookupRouteRequest,
+  context: LookupRouteContext = {}
+): Promise<void> {
+  const interactiveSession =
+    context.interactiveSession ??
+    createInteractiveSession({ machineMode: request.jsonOutput });
+  const resolved =
+    interactiveSession !== undefined && lookupRequestNeedsPrompts(request)
+      ? await resolveWithPrompts(request, interactiveSession)
+      : request;
   return runLookupCommand({
-    aspects: lookupAspects,
-    ...(lookupField === undefined ? {} : { field: lookupField }),
-    json: jsonOutput,
-    ...(lookupSubject === undefined ? {} : { subject: lookupSubject }),
-    targets: lookupTargets,
-    views: lookupViews,
+    aspects: resolved.lookupAspects,
+    ...(resolved.lookupField === undefined
+      ? {}
+      : { field: resolved.lookupField }),
+    json: resolved.jsonOutput,
+    ...(resolved.lookupSubject === undefined
+      ? {}
+      : { subject: resolved.lookupSubject }),
+    targets: resolved.lookupTargets,
+    views: resolved.lookupViews,
   });
+}
+
+async function resolveWithPrompts(
+  request: LookupRouteRequest,
+  session: InteractiveSession
+): Promise<LookupRouteRequest> {
+  session.banner();
+  return resolveInteractiveLookup(request, session);
 }
 
 export interface ExplainCommandRequest {

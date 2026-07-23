@@ -206,6 +206,9 @@ export {
   type SkillsetSourceReadinessData,
 } from "./source-readiness";
 export {
+  listLookupFields,
+  listLookupSubjects,
+  listLookupViews,
   lookupSkillsetReference,
   type LookupCompatibility,
   type LookupDiagnostic,
