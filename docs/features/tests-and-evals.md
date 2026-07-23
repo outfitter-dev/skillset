@@ -10,7 +10,7 @@ Feature id: `tests-and-evals`
 
 Support vocabulary: [Feature Reference](README.md#support-vocabulary)
 
-Skillset implements deterministic source-root test declarations, activation probes, and optional declared or ad hoc runtime tests; evals remain future and adapter-aware. Tests and evals are related because both prove confidence in a Skillset loadout, but they answer different questions. Deterministic tests ask whether selected source projects into expected files and lifecycle state. Evals ask whether a skill, plugin, or agent helps a model do the intended work.
+Skillset implements deterministic source-root test declarations, activation probes, optional declared or ad hoc runtime tests, and portable skill-local eval declarations. Eval execution remains future and adapter-aware. Tests and evals are related because both prove confidence in a Skillset loadout, but they answer different questions. Deterministic tests ask whether selected source projects into expected files and lifecycle state. Evals ask whether a skill, plugin, or agent helps a model do the intended work.
 
 ## Current Boundary
 
@@ -24,7 +24,7 @@ Skillset currently uses internal compiler fixtures and validation commands:
 | Dogfooding | repo scripts, Linear acceptance criteria, real Skillset source changes | internal practice | Proves workflows by using them on this repo. |
 | `skillset test` | `<source-root>/tests.yaml` and `<source-root>/tests/*.yaml` | `implemented` | Deterministic isolated projection and check runner for authored source. |
 | `skillset test --target …` | `.skillset/cache/tests/ad-hoc/` logical reports backed by XDG cache storage | `implemented` | Runs an ad hoc non-interactive provider test and retains status, output, tail, and report files. |
-| `.skillset/evals/` | n/a | `future` | Future adapter-aware behavioral eval declarations or pointers. |
+| `<skill>/evals/evals.json` | skill-local JSON | `implemented` / declaration | Portable case source, validation, and read-only target-matrix listing. |
 
 Checked-in internal fixtures use the current workspace layout: `fixtures/<case>/skillset.yaml` as the workspace manifest and `fixtures/<case>/.skillset/` as the source root.
 
@@ -296,17 +296,61 @@ The first durable dogfood pass should use a small self-hosted `skillset/` source
 
 ## Evals
 
-Evals are future and adapter-aware. Claude and Codex evaluation conventions differ, so Skillset should start by pointing to target-native eval files rather than forcing one portable schema.
+Each skill can own one portable declaration at `evals/evals.json`, relative to
+its `SKILL.md`. The base shape intentionally follows Anthropic's
+`skill-creator` convention: `skill_name`, `evals`, and each case's integer
+`id`, `prompt`, `expected_output`, optional `files`, and optional
+`expectations`. Existing skill-creator-compatible files therefore remain
+valid without rewrites. This is compatibility with that concrete file shape,
+not a claim that Agent Skills defines a formal cross-provider eval standard.
 
-Possible future shape:
-
-```yaml
-evals:
-  claude:
-    source: repo:evals/claude/skillset/evals.json
-  codex:
-    source: repo:evals/codex/skillset/benchmark.json
+```json
+{
+  "skill_name": "docs-cli",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Summarize evals/files/brief.txt.",
+      "expected_output": "A concise summary of the brief.",
+      "files": ["evals/files/brief.txt"],
+      "expectations": ["The response names the brief title."],
+      "skillset": {
+        "targets": ["codex"]
+      }
+    }
+  ]
+}
 ```
+
+The portable fields stay top-level so the file remains readable by
+`skill-creator`. Skillset-only behavior is namespaced under a case-local
+`skillset` object. Its only current key is `targets`, which narrows that case
+to targets already enabled for the owning skill. Without it, the case derives
+every target enabled for that skill in the build graph. Unknown fields,
+duplicate IDs, missing skill-root-relative files, and impossible target
+selections fail validation.
+
+Use the read-only command to inspect that derived matrix:
+
+```bash
+skillset eval list
+skillset eval list --json
+```
+
+`skillset eval list` validates source and derives rows; it never invokes a
+provider, grades output, creates a baseline, or writes a workspace. `skillset
+new skill <name> --preset evals` scaffolds a valid empty document with the
+matching `skill_name`.
+
+### Portable Source and Machine-Local Execution
+
+The declaration above is portable authored source. Provider runs, graders,
+benchmark workspaces, token measurements, baselines, trial reports, and human
+review are machine-local evaluation concerns. They remain out of scope for
+this contract and do not fold into deterministic `skillset test` behavior.
+Provider execution conventions may differ, so a future runner must establish
+its own target-native execution and retention contract rather than treating
+this declaration as proof of runtime portability.
 
 Generated eval output, if Skillset owns it later, should live under:
 
@@ -317,7 +361,7 @@ Generated eval output, if Skillset owns it later, should live under:
   runs/<run-id>/
 ```
 
-Evals may include prompts, baselines, graders, benchmark workspaces, token measurements, reports, and human review. They should stay distinct from deterministic compile and lifecycle tests.
+Future execution may include baselines, graders, benchmark workspaces, token measurements, reports, and human review. Those machine-local concerns stay distinct from deterministic compile and lifecycle tests.
 
 Eval execution should stay opt-in. Some target eval harnesses require credentials, write benchmark setup files, or touch target runtime configuration. Those workflows are useful, but they are not safe default checks and should not be wired into `skillset check`, `skillset check --only outputs`, or repo `bun run check` until a specific mode is proven deterministic, local, credential-free, and side-effect-free.
 

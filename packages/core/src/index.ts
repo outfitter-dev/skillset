@@ -1,4 +1,8 @@
 export {
+  listSkillEvals,
+  type SkillsetEvalListEntry,
+} from "./eval-list";
+export {
   doctorSkillset,
   explainPath,
   listFeatureCapabilities,

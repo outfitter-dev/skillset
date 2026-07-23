@@ -17,7 +17,7 @@ describe("SET-305 CLI contract parity", () => {
       path.join(import.meta.dir, "../../apps/skillset/src/cli-args.ts")
     ).text();
     expect(source.split("\n").length).toBeLessThan(180);
-    expect(source.match(/case "[a-z]+":/gu)).toHaveLength(21);
+    expect(source.match(/case "[a-z]+":/gu)).toHaveLength(22);
     for (const removed of [
       "ParsedArgs",
       "function parseArgs",

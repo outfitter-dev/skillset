@@ -8,6 +8,7 @@ import type { CliRequest } from "./cli-request";
 import { USAGE } from "./cli-usage";
 import { parseCreateCommandRequest } from "./create-args";
 import { parseDevCommandRequest } from "./dev-args";
+import { parseEvalCommandRequest } from "./eval-args";
 import * as distribution from "./distribution-args";
 import { parseHooksCommandRequest } from "./hooks-args";
 import { parseInitCommandRequest } from "./init-args";
@@ -67,6 +68,7 @@ export const parseCliRequest = (
           request: build.parseDiffCommandRequest(args, parseContext),
         };
       }
+      case "eval": return { command, request: parseEvalCommandRequest(args, parseContext) };
       case "distribute": {
         return {
           command,

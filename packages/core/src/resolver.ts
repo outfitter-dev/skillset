@@ -46,6 +46,7 @@ import {
 import { SkillsetFeatureDiagnosticError } from "./operation-result";
 import { compareStrings, resolveInside, validateSlug } from "./path";
 import { DEFAULT_PLUGIN_OUTPUT_ROOT } from "./plugin-output";
+import { loadSkillEvalDeclaration } from "./skill-eval";
 import { readReleaseState } from "./release-state";
 import { readSkillResources } from "./resources";
 import { validateSupports } from "./supports";
@@ -1187,11 +1188,13 @@ async function loadSkillsFromDirectory(
     });
 
     const dialect = readDialect(parts.frontmatter, relative(rootPath, sourcePath));
+    const evalDeclaration = await loadSkillEvalDeclaration(dirname(sourcePath), id, targets);
 
     skills.push({
       adaptiveHooks,
       body: parts.body,
       ...(dialect === undefined ? {} : { dialect }),
+      ...(evalDeclaration === undefined ? {} : { evalDeclaration }),
       frontmatter: parts.frontmatter,
       hookAttachments,
       id,

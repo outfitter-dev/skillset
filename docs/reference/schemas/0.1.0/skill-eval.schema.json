@@ -1,0 +1,75 @@
+{
+  "$id": "https://raw.githubusercontent.com/outfitter-dev/skillset/main/docs/reference/schemas/0.1.0/skill-eval.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "evals": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "expectations": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "expected_output": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "files": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "prompt": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "skillset": {
+            "additionalProperties": false,
+            "properties": {
+              "targets": {
+                "items": {
+                  "enum": [
+                    "claude",
+                    "codex",
+                    "cursor"
+                  ],
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array",
+                "uniqueItems": true
+              }
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "prompt",
+          "expected_output"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "skill_name": {
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "skill_name",
+    "evals"
+  ],
+  "title": "Skill Eval",
+  "type": "object"
+}

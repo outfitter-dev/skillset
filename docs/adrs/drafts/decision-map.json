@@ -174,6 +174,21 @@
       "superseded_by": null,
       "title": "Catalog-Owned Marketplace Refresh Pull Requests",
       "updated": "2026-07-10"
+    },
+    {
+      "amended_by": [],
+      "amends": ["12", "22"],
+      "created": "2026-07-23",
+      "depends_on": [],
+      "inbound": [],
+      "number": null,
+      "owners": ["[galligan](https://github.com/galligan)"],
+      "path": "docs/adrs/drafts/20260723-portable-skill-eval-source-contract.md",
+      "slug": "portable-skill-eval-source-contract",
+      "status": "draft",
+      "superseded_by": null,
+      "title": "Portable Skill Eval Source Contract",
+      "updated": "2026-07-23"
     }
   ],
   "version": 1

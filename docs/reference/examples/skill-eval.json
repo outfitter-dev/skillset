@@ -1,0 +1,28 @@
+{
+  "evals": [
+    {
+      "expected_output": "A concise summary of the supplied document.",
+      "expectations": [
+        "The response identifies the document title."
+      ],
+      "files": [
+        "evals/files/brief.txt"
+      ],
+      "id": 1,
+      "prompt": "Summarize evals/files/brief.txt.",
+      "skillset": {
+        "targets": [
+          "claude",
+          "codex"
+        ]
+      }
+    },
+    {
+      "expected_output": "A summary without local input files.",
+      "files": [],
+      "id": 2,
+      "prompt": "Summarize the guidance."
+    }
+  ],
+  "skill_name": "docs-cli"
+}
