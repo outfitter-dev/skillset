@@ -232,6 +232,16 @@ const ASPECT_FEATURES: Partial<Record<LookupSubject, Record<string, readonly Ski
   },
 };
 
+const LOOKUP_VIEW_ORDER = [
+  "fields",
+  "frontmatter",
+  "values",
+  "events",
+  "compat",
+  "examples",
+  "schema",
+] as const satisfies readonly LookupView[];
+
 export function lookupSkillsetReference(query: LookupQuery = {}): LookupReport {
   const subject = query.subject;
   const aspects = [...(query.aspects ?? [])].map((aspect) => aspect.trim()).filter(Boolean);
@@ -267,7 +277,12 @@ export function lookupSkillsetReference(query: LookupQuery = {}): LookupReport {
   }
 
   if (contract !== undefined) {
-    if (views.includes("fields") || views.includes("frontmatter") || query.field !== undefined) {
+    if (
+      views.includes("fields") ||
+      views.includes("frontmatter") ||
+      views.includes("values") ||
+      query.field !== undefined
+    ) {
       fields.push(...resolveFields(contract, query.field, views.includes("values"), diagnostics));
     }
     if (views.includes("schema")) schema = contract;
@@ -310,6 +325,47 @@ export function lookupSkillsetReference(query: LookupQuery = {}): LookupReport {
     targets,
     views,
   };
+}
+
+export function listLookupViews(subject: LookupSubject): readonly LookupView[] {
+  const contract = contractForLookup(subject, []);
+  return LOOKUP_VIEW_ORDER.filter((view) => {
+    if (view === "events") return subject === "hooks";
+    if (view === "compat") return SUBJECT_FEATURES[subject] !== undefined;
+    if (view === "frontmatter") {
+      return subject === "agent" || subject === "instruction" || subject === "skill";
+    }
+    return contract !== undefined;
+  });
+}
+
+export function listLookupSubjects(
+  query: Pick<LookupQuery, "aspects" | "field" | "views"> = {}
+): readonly LookupSubjectSummary[] {
+  const requiredViews = new Set(query.views ?? []);
+  if (query.field !== undefined) requiredViews.add("fields");
+  if (requiredViews.size === 0) return SUBJECTS;
+  const applicable = SUBJECTS.filter((summary) => {
+    const views = listLookupViews(summary.subject);
+    return [...requiredViews].every((view) => views.includes(view));
+  });
+  if (query.field === undefined) return applicable;
+  const fieldPath = query.field.trim();
+  const fieldOwners = applicable.filter((summary) =>
+    listLookupFields({
+      ...(query.aspects === undefined ? {} : { aspects: query.aspects }),
+      subject: summary.subject,
+    }).some((field) => field.path === fieldPath)
+  );
+  return fieldOwners.length === 0 ? applicable : fieldOwners;
+}
+
+export function listLookupFields(
+  query: Pick<LookupQuery, "aspects" | "subject">
+): readonly LookupField[] {
+  if (query.subject === undefined) return [];
+  const contract = contractForLookup(query.subject, query.aspects ?? []);
+  return contract === undefined ? [] : nestedFields(contract);
 }
 
 function isToolsPolicyAspect(aspect: string): boolean {
@@ -430,6 +486,35 @@ function topLevelFields(contract: SkillsetSchemaContract): readonly {
       required: schemaRequired(contract.schema).includes(path),
       schema,
     }));
+}
+
+function nestedFields(contract: SkillsetSchemaContract): readonly LookupField[] {
+  const fields: LookupField[] = [];
+  collectNestedFields(contract, contract.schema, "", fields);
+  return fields;
+}
+
+function collectNestedFields(
+  contract: SkillsetSchemaContract,
+  schema: SchemaJsonRecord,
+  prefix: string,
+  fields: LookupField[]
+): void {
+  const required = new Set(schemaRequired(schema));
+  for (const [name, child] of Object.entries(schemaProperties(schema)).sort(
+    ([left], [right]) => compareStrings(left, right)
+  )) {
+    const path = prefix.length === 0 ? name : `${prefix}.${name}`;
+    const description = schemaDescription(child);
+    fields.push({
+      contractId: contract.id,
+      ...(description === undefined ? {} : { description }),
+      path,
+      required: required.has(name),
+      type: summarizeSchemaType(child),
+    });
+    collectNestedFields(contract, child, path, fields);
+  }
 }
 
 function nestedField(

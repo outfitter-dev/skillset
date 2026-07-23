@@ -184,6 +184,11 @@ const PRESENTATION = {
     synopses: ["list [--details] [--json] [--scope <scope>] [--root <path>]"],
   },
   lookup: {
+    examples: [
+      "skillset lookup",
+      "skillset lookup workspace --field compile.targets --values",
+      "skillset lookup hooks --events --compat codex",
+    ],
     group: "Inspect",
     summary: "Look up schema, compatibility, and provider facts.",
     synopses: [

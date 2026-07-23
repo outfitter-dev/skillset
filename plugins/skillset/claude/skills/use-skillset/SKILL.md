@@ -153,6 +153,8 @@ skillset check --root .
 skillset check --only outputs --root .
 skillset diff --root .            # pending generated changes, no writes
 skillset explain <path> --root .  # rendering + lock provenance for a source/generated path; add --json for records
+skillset lookup                   # guided schema/compatibility lookup in a TTY; subject list otherwise
+skillset lookup hooks --events --compat codex
 skillset restore <backup> --root . # preview restore; add --yes to write
 skillset status --root .          # health, drift, warnings, and rendering advisories; add --json for records
 skillset hooks print --runner lefthook --pre-commit --pre-push
@@ -169,7 +171,7 @@ When `skillset change check --since <ref>` reports stale or missing evidence, pr
 
 Workbench package diagnostics provide stable scopes, severities, rule ids, and `standard`/`strict` presets for tests and future CLI integration. Scopes are `source`, `workspace`, `provider`, `resource`, `runtime`, `generated`, and `release`. Treat `standard` as the ordinary local/CI bar and `strict` as opt-in convention hardening. Parser/schema checks cover YAML, TOML, JSON, Markdown frontmatter, ordinary workspace config, skills, agents, and hook definitions at the package layer. Resource/runtime/provider diagnostics report facts; they must not install hooks, trust plugins, execute scripts, or mutate provider settings.
 
-`diff`, `explain`, and `status` are read-only authoring aids. They never write generated outputs, install, trust, publish, or mutate user-level config. `explain --json` and `status --json` include full render-result records for agents and automation. `status` exits non-zero on source issues, drift, or a build error, and summarizes notable rendering advisories such as degraded or unsupported render results.
+`diff`, `explain`, `lookup`, and `status` are read-only authoring aids. They never write generated outputs, install, trust, publish, or mutate user-level config. Bare `skillset lookup` guides TTY users through canonical subjects, applicable views, compatibility targets, and searchable schema fields, then renders one ordinary report. Explicit lookup arguments, JSON, pipes, and non-TTY execution remain prompt-free. `explain --json` and `status --json` include full render-result records for agents and automation. `status` exits non-zero on source issues, drift, or a build error, and summarizes notable rendering advisories such as degraded or unsupported render results.
 
 `hooks print` emits copy/paste snippets for existing hook runners or reviewed project-local provider runtime hook configuration. It does not install hooks, overwrite `.git/hooks`, mutate target runtime settings, or trust generated hook code. Pre-commit snippets call `skillset change check --staged`; pre-push snippets call `skillset change check --since origin/main` followed by the comprehensive `skillset check`. Runtime snippets call `skillset hooks run post-tool-use` and `skillset hooks run stop`; both first inspect only Skillset source/change-entry paths, including untracked files. `post-tool-use` is advisory and never blocks on `change status`; `stop` runs `change check` and the comprehensive `check` only when relevant Skillset source changed. Set `SKILLSET_HOOK_COMMAND` in reviewed runtime config only when the default local/installable CLI resolution needs an explicit override.
 
