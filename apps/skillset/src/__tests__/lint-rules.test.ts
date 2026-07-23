@@ -1,7 +1,6 @@
 import { afterAll, expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { getSkillsetFeature } from "@skillset/core";
@@ -9,9 +8,12 @@ import { lintRules, registerLintRule } from "@skillset/lint";
 
 import { buildSkillset } from "@skillset/core";
 import { ciSkillset, renderCiReportMarkdown } from "../ci";
-import { gitSafeEnv } from "../git-env";
 import { inspectSkillset, lintSkillset } from "@skillset/core";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
+import {
+  createTestGitFixtureRoot,
+  initializeTestGitRepository,
+} from "../../../../scripts/test-helpers/git-remote";
 
 const WARN_RULE_NAME = "test-warn-marker";
 
@@ -198,7 +200,10 @@ test("ci fails on error-severity lint issues", async () => {
 });
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-lint-rules-"));
+  const disposableRoot = await createTestGitFixtureRoot(
+    "skillset-lint-rules-"
+  );
+  const root = await mkdtemp(join(disposableRoot, "repo-"));
   for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     await Bun.write(join(root, path), content);
   }
@@ -206,26 +211,7 @@ async function fixture(files: Record<string, string>): Promise<string> {
 }
 
 async function commitFixture(root: string): Promise<void> {
-  await runGit(root, "init", "-q");
-  await runGit(root, "config", "user.email", "skillset@example.com");
-  await runGit(root, "config", "user.name", "Skillset Test");
-  await runGit(root, "add", ".");
-  await runGit(root, "commit", "-qm", "baseline");
-}
-
-async function runGit(root: string, ...args: readonly string[]): Promise<void> {
-  const proc = Bun.spawn({
-    cmd: ["git", "-C", root, ...args],
-    env: gitSafeEnv(),
-    stderr: "pipe",
-    stdout: "pipe",
+  await initializeTestGitRepository(root, {
+    disposableRoot: join(root, ".."),
   });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  if (exitCode !== 0) {
-    throw new Error(`git ${args.join(" ")} failed\n${stdout}${stderr}`);
-  }
 }

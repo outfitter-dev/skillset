@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 
-import { gitSafeEnv } from "../git-env";
+import {
+  createTestGitFixtureRoot,
+  initializeTestGitRepository,
+  runTestGit,
+} from "../../../../scripts/test-helpers/git-remote";
 import {
   formatInteractiveInitPlan,
   interactiveRepositoryDisplay,
@@ -130,8 +134,12 @@ describe("SET-312 existing-directory init", () => {
   });
 
   test("repository display derives GitHub identity and falls back to cwd", async () => {
-    const repository = await mkdtemp(join(tmpdir(), "skillset-init-label-git-"));
-    await runGit(repository, "init", "-q");
+    const disposableRoot = await createTestGitFixtureRoot(
+      "skillset-init-label-git-"
+    );
+    const repository = await mkdtemp(join(disposableRoot, "repo-"));
+    await writeFile(join(repository, "README.md"), "fixture\n");
+    await initializeTestGitRepository(repository, { disposableRoot });
     await runGit(repository, "remote", "add", "origin", "git@github.com:Outfitter-Dev/Skillset.git");
     await expect(interactiveRepositoryDisplay(repository)).resolves.toBe(
       "outfitter-dev/skillset"
@@ -166,11 +174,14 @@ describe("SET-312 existing-directory init", () => {
   });
 
   test("bare init immediately inspects the current Git repository", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-init-nested-root-"));
+    const disposableRoot = await createTestGitFixtureRoot(
+      "skillset-init-nested-root-"
+    );
+    const root = await mkdtemp(join(disposableRoot, "repo-"));
     const nested = join(root, "packages/demo");
     await mkdir(nested, { recursive: true });
     await writeFile(join(root, "AGENTS.md"), "# Root instructions\n");
-    await runGit(root, "init", "-q");
+    await initializeTestGitRepository(root, { disposableRoot });
     const { adapter, session } = scriptedSession([
       { kind: "select", value: "all" },
       { kind: "checkbox", value: ["claude", "codex", "cursor"] },
@@ -241,16 +252,5 @@ describe("SET-312 existing-directory init", () => {
 });
 
 async function runGit(root: string, ...args: readonly string[]): Promise<void> {
-  const proc = Bun.spawn({
-    cmd: ["git", ...args],
-    cwd: root,
-    env: gitSafeEnv(),
-    stderr: "pipe",
-    stdout: "pipe",
-  });
-  const [stderr, exitCode] = await Promise.all([
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  if (exitCode !== 0) throw new Error(stderr);
+  await runTestGit(root, ...args);
 }

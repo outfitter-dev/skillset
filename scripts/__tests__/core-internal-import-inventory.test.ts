@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
@@ -11,7 +10,10 @@ import {
   scanCoreInternalImportSource,
   summarizeCoreInternalImports,
 } from "../core-internal-import-inventory";
-import { runTestGit } from "../test-helpers/git-remote";
+import {
+  createTestGitFixtureRoot,
+  initializeTestGitRepository,
+} from "../test-helpers/git-remote";
 
 describe("core internal import inventory", () => {
   test("selects production app TypeScript and excludes tests by default", () => {
@@ -222,7 +224,10 @@ import { first } from "@skillset/core/internal/path";
   });
 
   test("reads committed Git blobs without observing or changing dirty files", async () => {
-    const root = await mkdtemp(join(tmpdir(), "skillset-core-imports-"));
+    const disposableRoot = await createTestGitFixtureRoot(
+      "skillset-core-imports-"
+    );
+    const root = await mkdtemp(join(disposableRoot, "repo-"));
     const sourcePath = join(root, "apps/skillset/src/example.ts");
     try {
       await mkdir(join(root, "apps/skillset/src/__tests__"), {
@@ -237,12 +242,9 @@ import { first } from "@skillset/core/internal/path";
         join(root, "apps/skillset/src/__tests__/example.test.ts"),
         'import type { BuildGraph } from "@skillset/core/internal/types";\n'
       );
-      await runTestGit(root, "init", "--initial-branch=main");
-      await runTestGit(root, "config", "user.email", "skillset@example.test");
-      await runTestGit(root, "config", "user.name", "Skillset Tests");
-      await runTestGit(root, "add", "--all");
-      await runTestGit(root, "commit", "-m", "fixture");
-      const commit = await runTestGit(root, "rev-parse", "HEAD");
+      const commit = await initializeTestGitRepository(root, {
+        disposableRoot,
+      });
       await writeFile(sourcePath, dirty);
 
       const inventory = await collectCoreInternalImportInventory(root);
@@ -261,7 +263,7 @@ import { first } from "@skillset/core/internal/path";
       ).rejects.toThrow("git rev-parse failed");
       expect(await readFile(sourcePath, "utf8")).toBe(dirty);
     } finally {
-      await rm(root, { force: true, recursive: true });
+      await rm(disposableRoot, { force: true, recursive: true });
     }
   });
 });

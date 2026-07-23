@@ -1,6 +1,4 @@
 import { expect, test } from "bun:test";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
@@ -9,6 +7,10 @@ import {
   scanCliSurface,
 } from "../cli-surface-guard";
 import { RETIRED_CLI_COMMANDS, RETIRED_CLI_FLAGS } from "../cli-contract";
+import {
+  createTestGitFixtureRoot,
+  runTestGit,
+} from "../test-helpers/git-remote";
 
 test("SET-346: CLI surface guard derives direct command and flag patterns", () => {
   const patterns = buildDirectRetiredSurfacePatterns(
@@ -72,9 +74,9 @@ test("SET-285: CLI surface guard preserves deliberate history and migration evid
 });
 
 test("SET-285: CLI surface guard ignores inherited repository targeting", async () => {
-  const gitDir = join(await mkdtemp(join(tmpdir(), "skillset-cli-guard-git-")), "foreign.git");
-  const initialized = Bun.spawnSync(["git", "init", "--bare", "-q", gitDir]);
-  expect(initialized.exitCode).toBe(0);
+  const root = await createTestGitFixtureRoot("skillset-cli-guard-git-");
+  const gitDir = join(root, "foreign.git");
+  await runTestGit(root, "init", "--bare", "-q", gitDir);
 
   const proc = Bun.spawn([process.execPath, join(import.meta.dir, "..", "cli-surface-guard.ts")], {
     env: { ...process.env, GIT_DIR: gitDir },

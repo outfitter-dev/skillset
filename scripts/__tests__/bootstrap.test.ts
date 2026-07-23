@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { mkdtemp } from "node:fs/promises";
 
 import {
   isBunVersionAllowed,
@@ -12,7 +13,6 @@ import {
   readPinnedBunVersion,
 } from "../bootstrap/bun";
 import { loadBootstrapConfig } from "../bootstrap/config";
-import { gitSafeEnv } from "../../apps/skillset/src/git-env";
 import { isLinkedWorktree, readRepoHealth } from "../bootstrap/git";
 import { detectHost, resolveRepoRoot } from "../bootstrap/host";
 import { parseBootstrapArgs } from "../bootstrap/main";
@@ -23,6 +23,11 @@ import {
 } from "../bootstrap/repo";
 import { isRepoRoot } from "../bootstrap/shared";
 import { resolveCleanupTarget } from "../bootstrap/teardown";
+import {
+  createTestGitFixtureRoot,
+  initializeTestGitRepository,
+  runTestGit,
+} from "../test-helpers/git-remote";
 import { collectToolStatus } from "../bootstrap/tools";
 
 const repoRoot = join(import.meta.dir, "..", "..");
@@ -360,45 +365,53 @@ describe("bootstrap repo policy", () => {
 });
 
 describe("readRepoHealth", () => {
-  const git = (root: string, ...args: string[]): void => {
-    Bun.spawnSync({ cmd: ["git", ...args], cwd: root, env: gitSafeEnv() });
-  };
-
-  const initRepo = (): string => {
-    const root = mkdtempSync(join(tmpdir(), "skillset-repo-health-"));
-    git(root, "init", "-q");
+  const initRepo = async (): Promise<string> => {
+    const disposableRoot = await createTestGitFixtureRoot(
+      "skillset-repo-health-"
+    );
+    const root = await mkdtemp(join(disposableRoot, "repo-"));
+    writeFileSync(join(root, "file.txt"), "x\n");
+    await initializeTestGitRepository(root, { disposableRoot });
     return root;
   };
 
-  test("reports a healthy repo", () => {
-    const root = initRepo();
+  test("reports a healthy repo", async () => {
+    const root = await initRepo();
     const health = readRepoHealth(root);
     expect(health.coreBare).toBe(false);
     expect(health.staleWorktrees).toEqual([]);
     rmSync(root, { force: true, recursive: true });
   });
 
-  test("flags core.bare corruption", () => {
-    const root = initRepo();
-    git(root, "config", "core.bare", "true");
+  test("flags core.bare corruption", async () => {
+    const root = await initRepo();
+    await runTestGit(root, "config", "core.bare", "true");
     expect(readRepoHealth(root).coreBare).toBe(true);
     rmSync(root, { force: true, recursive: true });
   });
 
-  test("flags worktrees locked by dead processes and keeps live locks", () => {
-    const root = initRepo();
-    git(root, "config", "user.email", "t@example.com");
-    git(root, "config", "user.name", "t");
-    writeFileSync(join(root, "file.txt"), "x\n");
-    git(root, "add", ".");
-    git(root, "commit", "-qm", "init");
-
+  test("flags worktrees locked by dead processes and keeps live locks", async () => {
+    const root = await initRepo();
     const deadPath = join(root, "wt-dead");
     const livePath = join(root, "wt-live");
-    git(root, "worktree", "add", "-q", deadPath);
-    git(root, "worktree", "add", "-q", livePath);
-    git(root, "worktree", "lock", "--reason", "agent x (pid 999999999 start now)", deadPath);
-    git(root, "worktree", "lock", "--reason", `agent y (pid ${process.pid} start now)`, livePath);
+    await runTestGit(root, "worktree", "add", "-q", deadPath);
+    await runTestGit(root, "worktree", "add", "-q", livePath);
+    await runTestGit(
+      root,
+      "worktree",
+      "lock",
+      "--reason",
+      "agent x (pid 999999999 start now)",
+      deadPath
+    );
+    await runTestGit(
+      root,
+      "worktree",
+      "lock",
+      "--reason",
+      `agent y (pid ${process.pid} start now)`,
+      livePath
+    );
 
     const health = readRepoHealth(root);
     // git reports realpath; macOS tmpdir is a symlink, so compare suffixes.
