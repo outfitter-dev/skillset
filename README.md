@@ -84,6 +84,8 @@ Reconcile keeps ownership and mutation decisions in the existing operation repor
 
 `marketplace update` derives configured catalog names from the local build graph without resolving remote repositories merely to open a picker. A TTY prompts only when multiple catalogs exist and no catalog was supplied, renders the existing marketplace update/readiness report, and confirms with No as the default before calling the same Core update transaction with writes enabled. Core hashes the complete provider-output and lock plan, so a floating ref or local input that changes after preview is refused instead of writing different bytes. An explicit catalog skips selection; `--yes`, JSON, pipes, and non-TTY execution remain prompt-free. Decline, cancellation, and changed-plan refusal leave provider marketplace output and `skillset.lock` unchanged.
 
+See [Interactive CLI](docs/features/interactive-cli.md) for the complete prompt eligibility, route ownership, accessibility, and controlled-terminal verification contract.
+
 See [Workbench Check](docs/features/workbench.md) for the cohesive `check` family, package-level diagnostic scopes, built-in `standard` and `strict` presets, parser/schema checks, Workbench fixtures, and the bounded ast-grep proof point.
 
 The default workspace layout is:
