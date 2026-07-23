@@ -55,8 +55,14 @@ export const parseReconcileCommandRequest = (
   args: readonly string[],
   context: CliParseContext
 ): ReconcileCommandRequest => {
-  const managedPath = readRequiredPath(args[1], "a path to reconcile");
-  const parsed = parseRecoveryOptions(args, 2, context);
+  const managedPath = args[1] === undefined || args[1].startsWith("--")
+    ? undefined
+    : readRequiredPath(args[1], "a path to reconcile");
+  const parsed = parseRecoveryOptions(
+    args,
+    managedPath === undefined ? 1 : 2,
+    context
+  );
   validateRecoveryOwnership(parsed);
   if (parsed.buildMode !== undefined) {
     throw new Error(

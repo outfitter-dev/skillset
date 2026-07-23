@@ -336,7 +336,7 @@ export function renderReconcileReport(report: ReconcileReport): string {
   const lines = [
     `skillset: reconcile ${report.generatedPath}`,
     `  source: ${report.sourcePath ?? "unknown"}`,
-    "  source wins: available; re-render managed output from source",
+    `  source wins: ${report.sourceResolutionAvailable ? "available; re-render managed output from source" : "refused; source resolution is unavailable"}`,
     `  output wins: ${report.outputResolution.wouldWrite ? "available" : "refused"}; ${report.outputResolution.message}`,
   ];
   if (report.applied) {

@@ -5397,6 +5397,39 @@ Stale source body.
   expect(await readFile(generatedAbsolute, "utf8")).toBe(originalGenerated);
 });
 
+test("SET-295: output resolution preserves the canonical ambiguous-ownership refusal", async () => {
+  const generatedPath = ".claude/skills/demo/SKILL.md";
+  const ownershipEntries = [
+    {
+      files: [generatedPath],
+      kind: "standalone-skill",
+      outputPath: generatedPath,
+      outputRoot: ".claude/skills",
+      sourcePath: ".skillset/skills/alpha/SKILL.md",
+      target: "claude",
+    },
+    {
+      files: [generatedPath],
+      kind: "standalone-skill",
+      outputPath: generatedPath,
+      outputRoot: ".claude/skills",
+      sourcePath: ".skillset/skills/beta/SKILL.md",
+      target: "claude",
+    },
+  ] as const;
+
+  const preview = await suggestSource("/workspace", generatedPath, {
+    ownershipEntries,
+  });
+
+  expect(preview).toMatchObject({
+    message: "Generated path has multiple source owners.",
+    status: "refused",
+    wouldWrite: false,
+    wrote: false,
+  });
+});
+
 test("SET-322: reconcile structurally refuses unclosed generated frontmatter", async () => {
   const root = await contractFixture({
     "skillset.yaml": `

@@ -40,7 +40,7 @@ The entries below are the complete final public flag set. Positional arguments a
 | `new` | `--root`, `--id`, `--name`, `--in`, `--scope`, `--preset`, `--event`, `--command`, `--script`, `--attach`, `--provider`, `--yes`, `--json` | Creates skills, project agents, instructions, and schema-valid adaptive hooks. Hook events and compatible providers are registry-derived; attachment selectors resolve existing source units. Preview is the default and no build runs implicitly. |
 | `check` | `--root`, `--only`, `--write`, `--ci`, `--fix`, `--since`, `--report`, `--json` | `--fix` requires `--ci`; `--since` and `--report` are CI-only. |
 | `dev` | `--root`, `--write`, `--jsonl` | Watching is the command's default; `--watch` and `--apply` disappear. |
-| `reconcile <path>` | `--root`, `--use source` or `--use output`, `--yes`, `--json` | Diagnosis is default; direction can be previewed before confirmation. |
+| `reconcile [path]` | `--root`, `--use source` or `--use output`, `--yes`, `--json` | A TTY can collect the path, renders the canonical report, offers only report-safe directions, and confirms default-No. Explicit `--use` skips direction selection; `--yes`, JSON, pipes, and non-TTY execution never prompt. |
 | `build` | `--root`, `--updated`, `--all`, `--isolated`, `--scope`, `--yes`, `--json` | Plan-first explicit compilation. |
 | `update` | `--root`, `--yes`, `--json` | Whole-workspace registered provider/compiler format migrations only. |
 | `diff` | `--root`, `--updated`, `--all`, `--isolated`, `--scope`, `--json` | Always read-only. |
@@ -80,7 +80,7 @@ The entries below are the complete final public flag set. Positional arguments a
 - `check --since` and `--report` without `--ci` fail.
 - `--updated` and `--all` are mutually exclusive.
 - `--prompt` and `--prompt-file` are mutually exclusive and imply ad hoc `test`.
-- `--use` accepts exactly `source` or `output`; `--yes` without `--use` cannot apply reconcile.
+- `--use` accepts exactly `source` or `output`; it skips the TTY direction picker but still previews and confirms unless paired with `--yes`. `--yes` without `--use` cannot apply reconcile.
 - `restore --list` is read-only and cannot be combined with a backup id or `--yes`.
 - `--json` and `--jsonl` are mutually exclusive. Leaf-route support follows the [structured-output ADR](../adrs/0023-versioned-structured-output-for-cli-automation.md), not a permissive global parser.
 
