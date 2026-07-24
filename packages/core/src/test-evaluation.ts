@@ -9,7 +9,7 @@ import {
   pluginTargetRoot,
 } from "./plugin-output";
 import { loadBuildGraph } from "./resolver";
-import { readAuthorRecord } from "./source-author";
+import { readAuthorName } from "./source-author";
 import { readSourceListing } from "./source-listing";
 import { targetDescriptor } from "./targets";
 import {
@@ -285,8 +285,8 @@ function expectedPluginManifestFields(
   }
   const base = stripUndefinedRecord({
     author:
-      readAuthorRecord(metadata.author) ??
-      readAuthorRecord(graph.root.metadata.author),
+      readAuthorName(metadata.author) ??
+      readAuthorName(graph.root.metadata.author),
     description,
     homepage: metadata.homepage,
     keywords: listing.keywords ?? metadata.keywords,

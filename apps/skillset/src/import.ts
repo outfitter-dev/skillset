@@ -1147,7 +1147,10 @@ function importedListing(
     ),
     keywords: hasListingConflict(conflicts, "listing.keywords")
       ? undefined
-      : copyJsonStringArray((cursorManifest ?? {}).tags),
+      : copyJsonStringArray((cursorManifest ?? {}).tags) ??
+        copyJsonStringArray(
+          firstPortablePluginMetadataValue(manifests, "keywords")
+        ),
   };
   return Object.values(listing).some((value) => value !== undefined)
     ? listing

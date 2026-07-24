@@ -870,10 +870,10 @@ Body.
         "utf8"
       )
     ) as {
-      author?: { name?: string };
+      author?: string;
       interface: { developerName?: string };
     };
-    expect(manifest.author?.name).toBe(expected);
+    expect(manifest.author).toBe(expected);
     expect(manifest.interface.developerName).toBe(expected);
   }
   const marketplace = JSON.parse(
@@ -947,7 +947,7 @@ Body.
       join(root, "plugins/listing/codex/.codex-plugin/plugin.json"),
       "utf8"
     )
-  ) as { interface: Record<string, unknown> };
+  ) as { author?: string; interface: Record<string, unknown> };
   const cursor = JSON.parse(
     await readFile(
       join(root, "plugins/listing/cursor/.cursor-plugin/plugin.json"),
@@ -956,7 +956,9 @@ Body.
   ) as Record<string, unknown>;
 
   expect(claude.description).toBe("Canonical summary.");
+  expect(claude.author).toBe("Canonical developer");
   expect(claude.keywords).toEqual(["canonical", "listing"]);
+  expect(codex.author).toBe("Canonical developer");
   expect(codex.interface).toEqual(
     expect.objectContaining({
       category: "Codex override",
@@ -1120,7 +1122,7 @@ test("SET-58: imported plugin manifests round-trip metadata fields through build
     name: "roundtrip",
     version: "2.4.6",
     description: "Round-trip fidelity plugin.",
-    author: { name: "Author Name", email: "author@example.com", url: "https://example.com/author" },
+    author: "Author Name",
     homepage: "https://example.com/home",
     repository: "https://github.com/example/roundtrip",
     license: "MIT",
@@ -2910,7 +2912,7 @@ Demo body.
   const claudeManifest = JSON.parse(
     await readFile(cachePath(root, ".skillset/cache/tests/latest/workspace/plugins/alpha/claude/.claude-plugin/plugin.json"), "utf8")
   ) as {
-    author?: { name?: string };
+    author?: string;
     keywords?: string[];
     license?: string;
     name?: string;
@@ -2919,19 +2921,19 @@ Demo body.
   const codexManifest = JSON.parse(
     await readFile(cachePath(root, ".skillset/cache/tests/latest/workspace/plugins/alpha/codex/.codex-plugin/plugin.json"), "utf8")
   ) as {
-    author?: { name?: string };
+    author?: string;
     keywords?: string[];
     license?: string;
     name?: string;
     version?: string;
   };
   expect(claudeManifest.name).toBe("alpha-claude");
-  expect(claudeManifest.author?.name).toBe("Alpha Author");
+  expect(claudeManifest.author).toBe("Alpha Author");
   expect(claudeManifest.version).toBe("2.3.4");
   expect(claudeManifest.license).toBe("MIT");
   expect(claudeManifest.keywords).toEqual(["alpha"]);
   expect(codexManifest.name).toBe("alpha-codex");
-  expect(codexManifest.author?.name).toBe("Alpha Author");
+  expect(codexManifest.author).toBe("Alpha Author");
   expect(codexManifest.version).toBe("2.3.4");
   expect(codexManifest.license).toBe("MIT");
   expect(codexManifest.keywords).toEqual(["alpha"]);

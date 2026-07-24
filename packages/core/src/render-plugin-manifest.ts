@@ -11,7 +11,7 @@ import { renderClaudePluginDependencies } from "./dependencies";
 import type { ResolvedLicense } from "./licenses";
 import { validateSlug } from "./path";
 import { hasAdaptivePluginHookOutput } from "./render-hooks";
-import { readAuthorName, readAuthorRecord } from "./source-author";
+import { readAuthorName } from "./source-author";
 import { readSourceListing } from "./source-listing";
 import type {
   BuildGraph,
@@ -49,8 +49,8 @@ export function renderPluginManifest(
       ? {}
       : {
           author:
-            readAuthorRecord(metadata.author) ??
-            readAuthorRecord(graph.root.metadata.author),
+            readAuthorName(metadata.author) ??
+            readAuthorName(graph.root.metadata.author),
           homepage: metadata.homepage,
           repository: metadata.repository,
           license: license?.manifestValue,
