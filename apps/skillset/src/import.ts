@@ -21,9 +21,19 @@ import {
 } from "@skillset/core/internal/config";
 import { compareStrings, resolveInside, validateSlug } from "@skillset/core/internal/path";
 import { detectWorkspaceSourceDir } from "@skillset/core/internal/resolver";
-import { selectorForPluginConfig, selectorForPluginFeature, selectorForStandaloneSkill } from "@skillset/core/internal/source-unit-selector";
+import {
+  selectorForPluginConfig,
+  selectorForPluginFeature,
+  selectorForPluginSkill,
+  selectorForStandaloneSkill,
+} from "@skillset/core/internal/source-unit-selector";
 import { readAuthorName } from "@skillset/core/internal/source-author";
-import type { JsonRecord, SourceOrigin, TargetName } from "@skillset/core/internal/types";
+import type {
+  BuildGraph,
+  JsonRecord,
+  SourceOrigin,
+  TargetName,
+} from "@skillset/core/internal/types";
 import { validateVersionField } from "@skillset/core/internal/versioning";
 import {
   stringifyYamlSourceDocument,
@@ -317,14 +327,35 @@ async function seedImportedBaselines(
     if (options.kind === "skill") return scope === `skill:${options.name}`;
     return scope === `plugin:${options.name}` || scope.startsWith(`plugin.${options.name}.`);
   };
+  let importedVersion:
+    | ((scope: string, graph: BuildGraph) => string | undefined)
+    | undefined;
+  if (
+    options.kind === "plugin" &&
+    options.baselineVersion !== undefined
+  ) {
+    importedVersion = (scope, graph) => {
+      const plugin = graph.plugins.find((item) => item.id === options.name);
+      const skill = plugin?.skills.find(
+        (item) =>
+          selectorForPluginSkill(options.name, item.id) === scope
+      );
+      return (
+        (skill === undefined
+          ? undefined
+          : readString(skill.frontmatter, "version")) ??
+        options.baselineVersion
+      );
+    };
+  }
   const report = await seedReleaseBaselines(
     rootPath,
     { sourceDir: options.sourceDir },
     {
       includeScope,
-      ...(options.baselineVersion === undefined
+      ...(importedVersion === undefined
         ? {}
-        : { sourceVersion: () => options.baselineVersion }),
+        : { sourceVersion: importedVersion }),
       write: true,
     }
   );

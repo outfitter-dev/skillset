@@ -346,6 +346,38 @@ test("SET-369: direct native import rejects conflicting provider versions", asyn
   expect(await exists(join(root, ".skillset/plugins/demo"))).toBe(false);
 });
 
+test("SET-369: native plugin imports preserve child skill versions", async () => {
+  const root = await pluginFixture({
+    "skillset.yaml": "skillset:\n  name: import-root\nclaude: true\n",
+    "native/.claude-plugin/plugin.json": manifest(
+      "demo",
+      "Demo",
+      "2.0.0"
+    ),
+    "native/skills/helper/SKILL.md":
+      "---\nname: helper\ndescription: Helper skill.\nversion: 1.4.0\n---\n\nShared.\n",
+  });
+
+  const report = await importSource({
+    kind: "plugin",
+    rootPath: root,
+    sourcePath: join(root, "native"),
+  });
+
+  expect(report.baselines).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        scope: "plugin:demo",
+        version: "2.0.0",
+      }),
+      expect.objectContaining({
+        scope: "plugin.demo.skill:helper",
+        version: "1.4.0",
+      }),
+    ])
+  );
+});
+
 test("SET-225: malformed native manifests become structured blockers", async () => {
   const root = await pluginFixture({
     "plugins/demo/.cursor-plugin/plugin.json": "{not json\n",
