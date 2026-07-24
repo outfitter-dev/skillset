@@ -1,5 +1,17 @@
 # skillset
 
+## 0.19.0
+
+### Minor Changes
+
+- a463e0b: Add portable skill-local eval declarations, shared validation, and read-only `skillset eval list` target-matrix inspection. Scaffold compatible eval source with `skillset new --preset evals`.
+- 9100695: Add opt-in, ungraded `skillset eval run`, `eval status`, and `eval tail` commands. Runs retain isolated target workspaces and target-native provider evidence without adding automatic grading or changing default checks.
+
+### Patch Changes
+
+- a3647db: Isolate repository verification from host Git configuration and require positive disposable-root proof before test helpers initialize repositories or write fixture identity.
+- dfab454: Make repository verification hermetic by isolating all XDG roots in one owned per-invocation sandbox and preventing test or Stop-hook checks from registering user workspaces.
+
 ## 0.18.3
 
 ### Patch Changes
