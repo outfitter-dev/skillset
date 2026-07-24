@@ -253,6 +253,15 @@ const PRESENTATION = {
       "reconcile [managed-path] [--use <source|output>] [--yes] [--json] [--root <path>]",
     ],
   },
+  rename: {
+    group: "Author",
+    summary: "Preview and atomically rename an authored source path.",
+    synopses: ["rename <from> <to> [--yes] [--json] [--root <path>]"],
+    examples: [
+      "skillset rename .skillset/skills/old .skillset/skills/new",
+      "skillset rename .skillset/skills/old .skillset/skills/new --yes",
+    ],
+  },
   "release amend": {
     commandSummary: "Audit, plan, apply, and amend releases.",
     group: "Changes",

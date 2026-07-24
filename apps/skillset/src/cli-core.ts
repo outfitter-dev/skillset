@@ -21,6 +21,7 @@ import {
 } from "./inspect-cli";
 import { PromptCancelledError } from "./prompt-adapter";
 import { runReconcileCommand, runRestoreCommand } from "./recovery-cli";
+import { runRenameCommand } from "./rename-cli";
 import { runReleaseCommand } from "./release-cli";
 import { runImportCommand, runNewCommand } from "./source-cli";
 import { runTestCommand } from "./test-cli";
@@ -72,6 +73,8 @@ export async function runCli(
       return runNewCommand(route.request);
     case "reconcile":
       return runReconcileCommand(route.request);
+    case "rename":
+      return runRenameCommand(route.request);
     case "release":
       return runReleaseCommand(route.request);
     case "restore":

@@ -51,6 +51,13 @@ Review diffs and call out correctness risks.
 
 The active frontmatter contract is generated from `@skillset/schema`; see [schema reference](../reference/schemas/README.md) and [agent frontmatter examples](../reference/examples/agent-frontmatter.yaml) for the current shared fields, common metadata blocks, `supports`, and provider override blocks. Provider-specific fields remain explicit inside `claude`, `codex`, and `cursor` blocks rather than being inferred from portable keys.
 
+Project-agent bodies and initial prompts can use resolve-only references such
+as `{{@references/guide.md}}` or `{{@shared:references/guide.md}}`. Skillset
+validates the source file and renders a path from each provider's generated
+agent document back to the committed `.skillset/` source. Project agents are
+not resource bundles, so this does not copy companion files and `plugin:`
+references are unavailable.
+
 Skillset must keep this separate from plugin `agents/` and skill-local Codex `agents/openai.yaml`. Reusing either surface would hide target differences and make project behavior look portable by accident.
 
 ## Support Table
@@ -88,7 +95,7 @@ The Codex behavior is intentionally classified as `shimmed`, not native, because
 ## Diagnostics
 
 - Duplicate or invalid resolved agent names fail before writing target files.
-- Missing `description`, empty bodies, invalid `skills`, and unsafe `initialPrompt` values fail before writing target files.
+- Missing `description`, empty bodies, unknown or target-disabled `skills`, and unsafe `initialPrompt` values fail before writing target files. Qualified plugin skills use `plugin.<plugin>.skill:<skill>` in source and lower to the provider namespace.
 - Top-level `model` warns unless every enabled target has a target-specific model from `claude.model`, `codex.model`, `cursor.model`, or target defaults.
 - A Codex-enabled plugin with Claude or Cursor plugin agents fails instead of silently dropping or promoting them.
 - User/global agent destinations should require explicit future setup workflow, not normal build.

@@ -84,3 +84,67 @@ export interface SkillsetSchemaContract {
   readonly title: string;
   readonly version: string;
 }
+
+/** Structural class of an authored source reference field. */
+export type SkillsetSourceReferenceKind =
+  | "generated-destination"
+  | "source-path"
+  | "source-unit-identity";
+
+/** Default treatment when a future Core operation changes a referenced entity. */
+export type SkillsetSourceReferenceMutationPolicy =
+  | "preserve"
+  | "rewrite"
+  | "warning-only";
+
+/** Authored contract family containing a source reference field. */
+export type SkillsetSourceReferenceContract =
+  | "adaptive-hook"
+  | "agent-frontmatter"
+  | "plugin-config"
+  | "root-source-manifest"
+  | "skill-eval"
+  | "skill-frontmatter"
+  | "workspace-config";
+
+/** Authoring scope a Core resolver uses to interpret a descriptor value. */
+export type SkillsetSourceReferenceScope =
+  | "adaptive-hook-runtime"
+  | "agent-visible-skills"
+  | "owner-visible-hooks"
+  | "skill-local-eval"
+  | "skill-resource"
+  | "workspace-or-plugin-config";
+
+/**
+ * Schema-owned inventory entry for a structured authored reference field.
+ * Path patterns describe source syntax, not resolved filesystem locations.
+ */
+export interface SkillsetSourceReferenceDescriptor {
+  readonly contracts: readonly SkillsetSourceReferenceContract[];
+  readonly id:
+    | "adaptive-hook-run-script"
+    | "agent-skills"
+    | "hook-attachment"
+    | "internal-plugin-dependency"
+    | "skill-eval-file"
+    | "skill-eval-skill-name"
+    | "skill-resource-destination"
+    | "skill-resource-source";
+  readonly kind: SkillsetSourceReferenceKind;
+  readonly mutationPolicy: SkillsetSourceReferenceMutationPolicy;
+  readonly notes: readonly string[];
+  readonly pathPatterns: readonly string[];
+  readonly scope: SkillsetSourceReferenceScope;
+}
+
+/** A source surface intentionally excluded from structured reference handling. */
+export interface SkillsetSourceReferenceExclusion {
+  readonly id:
+    | "append-only-history"
+    | "plugin-rename"
+    | "provider-native-opaque-values"
+    | "unmarked-prose-and-markdown"
+    | "workspace-test-declarations";
+  readonly reason: string;
+}

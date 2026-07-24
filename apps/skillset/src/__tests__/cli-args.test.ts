@@ -291,6 +291,20 @@ describe("SET-299 CLI request characterization", () => {
       },
     },
     {
+      route: "rename",
+      args: ["rename", "old", "new", "--root", ROOT],
+      expected: {
+        command: "rename",
+        request: {
+          from: "old",
+          jsonOutput: false,
+          rootPath: ROOT,
+          to: "new",
+          yes: false,
+        },
+      },
+    },
+    {
       route: "release plan",
       args: ["release", "plan", "--root", ROOT],
       expected: {

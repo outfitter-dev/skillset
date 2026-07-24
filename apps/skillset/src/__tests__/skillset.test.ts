@@ -1851,6 +1851,14 @@ Use the shared review checklist.
     ".skillset/shared/templates/prompt.md": `
 smallest complete review
 `,
+    ".skillset/skills/skillset-codex-development/SKILL.md": `
+---
+name: skillset-codex-development
+description: Develop Skillset safely.
+---
+
+Follow the Skillset development workflow.
+`,
     ".skillset/agents/reviewer.md": `
 ---
 name: Code Reviewer

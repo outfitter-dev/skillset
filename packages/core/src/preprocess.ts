@@ -24,7 +24,16 @@ export interface PreprocessContext {
   readonly sourceRoot: string;
   readonly target?: TargetName;
   readonly promptArguments?: boolean;
+  readonly renderPathReference?: (
+    reference: ResolvedPreprocessPathReference
+  ) => string;
   readonly variables?: Readonly<Record<string, string>>;
+}
+
+export interface ResolvedPreprocessPathReference {
+  readonly resolvedPath: string;
+  readonly scheme?: "plugin" | "shared";
+  readonly specifier: string;
 }
 
 export async function preprocessText(
@@ -40,6 +49,23 @@ export async function preprocessText(
   expanded = await expandPartials(expanded, context);
   expanded = escapeTripleBraceTokens(expanded, escapedTokens);
   expanded = await expandVariables(expanded, context);
+  return restoreTripleBraceTokens(expanded, escapedTokens);
+}
+
+export async function resolveMarkedPathReferences(
+  content: string,
+  context: PreprocessContext
+): Promise<string> {
+  if (isPreprocessDisabled(context.frontmatter)) {
+    return normalizeText(content);
+  }
+
+  const escapedTokens: string[] = [];
+  const normalized = escapeTripleBraceTokens(
+    normalizeText(content),
+    escapedTokens
+  );
+  const expanded = await expandPartials(normalized, context, "references-only");
   return restoreTripleBraceTokens(expanded, escapedTokens);
 }
 
@@ -82,7 +108,11 @@ export function isPreprocessDisabled(frontmatter: JsonRecord): boolean {
   );
 }
 
-async function expandPartials(content: string, context: PreprocessContext): Promise<string> {
+async function expandPartials(
+  content: string,
+  context: PreprocessContext,
+  mode: "all" | "references-only" = "all"
+): Promise<string> {
   const partialPattern = /\{\{\s*(?:>\s*([^}\s]+)|([^}\s]+))\s*\}\}/g;
   let expanded = "";
   let cursor = 0;
@@ -90,8 +120,16 @@ async function expandPartials(content: string, context: PreprocessContext): Prom
   for (const match of content.matchAll(partialPattern)) {
     const [token, namedSpecifier, specifier] = match;
     expanded += content.slice(cursor, match.index);
-    if (namedSpecifier !== undefined) {
+    if (mode === "references-only" && !specifier?.startsWith("@")) {
+      expanded += token;
+    } else if (namedSpecifier !== undefined) {
       expanded += await readPartial(namedSpecifier, context, "named");
+    } else if (
+      specifier !== undefined &&
+      specifier.startsWith("@") &&
+      isPartialSpecifier(specifier.slice(1))
+    ) {
+      expanded += await renderPathReference(specifier.slice(1), context);
     } else if (specifier !== undefined && isPartialSpecifier(specifier)) {
       expanded += await readPartial(specifier, context, "path");
     } else {
@@ -101,6 +139,54 @@ async function expandPartials(content: string, context: PreprocessContext): Prom
   }
 
   return `${expanded}${content.slice(cursor)}`;
+}
+
+async function renderPathReference(
+  specifier: string,
+  context: PreprocessContext
+): Promise<string> {
+  const source = relative(context.rootPath, context.sourcePath);
+  try {
+    const resolvedPath = resolvePreprocessPathReference(
+      specifier,
+      context
+    );
+    if (!(await isFile(resolvedPath))) {
+      throw new Error("referenced file was not found");
+    }
+    const [rawScheme] = splitSpecifier(specifier);
+    const scheme =
+      rawScheme === "root"
+        ? "shared"
+        : rawScheme === "plugin" || rawScheme === "shared"
+          ? rawScheme
+          : undefined;
+    const reference: ResolvedPreprocessPathReference = {
+      resolvedPath,
+      ...(scheme === undefined ? {} : { scheme }),
+      specifier,
+    };
+    return context.renderPathReference?.(reference) ?? specifier;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `skillset: failed to resolve path reference ${specifier} in ${source}: ${message}`
+    );
+  }
+}
+
+export function resolvePreprocessPathReference(
+  specifier: string,
+  context: PreprocessContext
+): string {
+  return resolvePartial(specifier, context);
+}
+
+export async function resolvePreprocessNamedPartialReference(
+  specifier: string,
+  context: PreprocessContext
+): Promise<string> {
+  return resolveNamedPartial(specifier, context);
 }
 
 async function readPartial(

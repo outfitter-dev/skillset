@@ -3,7 +3,7 @@ slug: path-references-resolve-and-rename-together
 title: Source References Resolve And Rename Together
 status: draft
 created: 2026-07-01
-updated: 2026-07-01
+updated: 2026-07-24
 owners: ['[galligan](https://github.com/galligan)']
 depends_on: [10, 9, first-class-sets, 6]
 ---
@@ -133,15 +133,32 @@ it as a real dependency of the document that referenced it.
   Markdown's own label mechanism for aliasing instead of inventing a
   pipe-delimited alias syntax.
 
-### `{{@specifier}}` applies uniformly to skills, rules, and agents
+### `{{@specifier}}` validates uniformly but lowers according to artifact topology
 
 Skills, rules, and project agents already run their bodies through the same
-`preprocessText` function. `{{@specifier}}` needs no per-surface plumbing —
-it works in a rule body or an agent's prose exactly as it does in a skill,
-with resolution scoped to that same file's own location the way path
-partials already are. A rule referencing a workspace-shared file, or an
-agent describing where its own supporting doc lives, gets the identical
-build-time validation skills get.
+`preprocessText` function, so every surface gets the same containment,
+existence, and provenance checks. Their generated artifacts do not have the
+same topology, however, and the emitted path must remain truthful:
+
+- Skills are bundles. Bare references retain their skill-relative spelling,
+  while declared `shared:` and `plugin:` resources lower to their copied
+  target paths inside the generated skill.
+- Rules and project agents are individual project documents, not bundles.
+  Their companion files are not copied. Resolve-only references therefore
+  lower to a path from each generated document back to the committed
+  `.skillset/` source file.
+
+The second mode deliberately carries a same-checkout contract: a generated
+rule or project agent that points back to `.skillset/` is useful in a source
+repository, but the generated file is not independently portable without its
+source workspace. Codex instructions make this distinction especially
+important because one rule may render into multiple directory-local
+`AGENTS.md` files, each requiring a different relative path.
+
+Rules and project agents do not gain a `resources` field. Bare and `shared:`
+references are valid for them; `plugin:` remains invalid because current
+adaptive rules and project agents are workspace-owned and have no
+plugin-bound preprocessing context.
 
 ### Skill-identity references are validated, not tokenized
 
@@ -150,13 +167,9 @@ token — it gets a direct existence check against the resolved source graph,
 the same way `resources.references` frontmatter gets checked directly rather
 than requiring authors to wrap it in a token.
 
-Resolution mirrors the algorithm named partials already use for a bare
-`{{> name}}` (`resolveNamedPartial`, `packages/core/src/preprocess.ts:469-518`)
-instead of inventing a second precedence rule: a bare entry resolves against
-standalone skills first, then falls back to the referencing agent's own
-plugin's skills if the agent is plugin-bound and no standalone match exists.
-This makes a plugin agent's own sibling skill referenceable by its short
-name, the same way a plugin's own partials are.
+Bare entries resolve against standalone skills. Adaptive project agents are
+workspace-owned today, so they do not have an owning plugin from which a
+plugin-local fallback could be resolved.
 
 The fully-qualified selector form is always valid too, in every context —
 cross-plugin, within-plugin, or from a standalone project agent — reusing the
@@ -170,7 +183,7 @@ qualified form instead of relying on the fallback:
 ```yaml
 skills:
   - skillset-codex-development          # standalone skill
-  - plugin.skillset.skill:use-skillset  # plugin-bound skill
+  - plugin.skillset.skill:use-skillset  # plugin skill
 ```
 
 An unresolvable entry — standalone or plugin-qualified — fails the build,
@@ -201,7 +214,7 @@ file can only ever be legally referenced from within that same skill's tree
 | A workspace shared file (`.skillset/shared/foo.md`) | Whole workspace | `{{@shared:<old>}}` |
 | A plugin shared file (`plugins/<p>/shared/foo.md`) | That plugin's own skills/rules | `{{@plugin:<old>}}` |
 | A named partial file | Same scoping rule as above, by partial root | `{{> old-name}}` -> `{{> new-name}}` |
-| A skill's own directory (its id) | Every project agent workspace-wide, plus the skill's own plugin's agents when plugin-bound | Every `skills:` entry naming `<old-id>` or `plugin.<p>.skill:<old-id>` |
+| A skill's own directory (its id) | Every project agent workspace-wide | Standalone `<old-id>` or qualified `plugin.<p>.skill:<old-id>` entries, according to skill ownership |
 | A rule file | Whole workspace, for symmetry with skills/agents; no known identity reference exists today | `{{@...}}`/`{{> name}}` occurrences pointing at it, if any |
 | An agent file | Whole workspace; no known identity reference exists today | `{{@...}}`/`{{> name}}` occurrences pointing at it, if any |
 
@@ -223,17 +236,24 @@ references a rule or an agent by id the way agents reference skills, so
 search, kept for symmetry and to future-proof against a surface later adding
 such a reference.
 
-Because a plugin-bound skill is reachable through two forms — a bare name
-falling back to its own plugin, or the fully-qualified selector reachable
-from anywhere — renaming one means searching for both: bare `<old-id>` in
-that skill's own plugin's agents, and `plugin.<p>.skill:<old-id>` in every
-agent, workspace-wide.
+Because adaptive project agents are workspace-owned, plugin skill references
+use the fully-qualified selector. Renaming a plugin skill searches for
+`plugin.<p>.skill:<old-id>` in every agent, workspace-wide.
 
 `skillset rename` also rewrites schema-known frontmatter path fields (for
 example `resources.references` entries) directly, because the compiler
 already knows structurally that those fields hold paths — no `{{@...}}`
 marker is needed to disambiguate frontmatter the way it is for free-form
 prose.
+
+Preview validates the renamed source in an isolated shadow workspace, refuses
+unmanaged generated collisions, and reports source edits plus generated
+creates, updates, and deletes. Preview and apply share one deterministic plan
+hash. Apply refuses a stale hash or stale managed output, then commits the
+source move, structural rewrites, generated files, lock provenance, and
+stale-output removals through one rollback-capable workspace transaction.
+Case-only renames use an internal staging path. A failed write restores both
+source and generated output to their exact pre-transaction bytes.
 
 What it does **not** do: rewrite a plain markdown link or backtick-wrapped
 mention that isn't `{{@...}}`. That text is ambiguous to the compiler — it
@@ -260,10 +280,8 @@ visibility without false confidence.
   `skillset rename` takes exactly one `<from>` and one `<to>`; a skill's own
   root directory is a special-cased single identity rename, not a general
   directory-move feature.
-- Deciding Claude's/Codex's exact generated-output form for a
-  plugin-qualified `skills:` entry. That is a target-lowering detail to
-  verify during implementation, not a source-contract decision (see
-  Non-Decisions).
+- Exposing provider-native skill identity syntax in adaptive source. Qualified
+  source selectors lower through the provider-owned rendering path.
 
 ## Consequences
 
@@ -290,10 +308,10 @@ visibility without false confidence.
 - Skills that keep using unmarked plain links get no retroactive protection
   until an author adopts `{{@...}}` (or runs `skillset rename` and sees the
   warning).
-- Frontmatter rewriting in `skillset rename` depends on the schema knowing
-  which fields are paths or identities; a new path-shaped or identity-shaped
-  frontmatter field has to be taught to the rename command explicitly, or it
-  silently falls back to the unmarked-mention warning path.
+- Frontmatter rewriting in `skillset rename` depends on the schema-owned
+  source-reference descriptor inventory. Core must provide one explicit
+  handler for every descriptor, so a new path-shaped or identity-shaped field
+  fails the contract gate rather than drifting into a parallel inventory.
 - Renaming a skill's own directory now has workspace-wide blast radius
   (every project agent, not just that skill's own tree), which is a bigger
   search than any other rename case this ADR covers.
@@ -308,18 +326,8 @@ visibility without false confidence.
   about which `{{@...}}` form resolves where. This mirrors the ambiguity
   named partials already accept via basename fallback and an explicit
   collision error; the same discipline applies here.
-- Claude's actual runtime convention for a cross-plugin skill reference in
-  generated `skills:` frontmatter has not been verified against current
-  Claude Code documentation. If it differs from the assumed lowering target,
-  the identity-validation and rename-rewrite logic for plugin-qualified
-  skills needs a follow-up correction before implementation ships.
-- The bare-name fallback inherits named partials' shadowing behavior: a
-  standalone skill match is always returned before the current plugin's own
-  skill is even considered, so a plugin skill with the same bare name as a
-  standalone skill is silently shadowed rather than flagged as a collision.
-  This is the precedent already accepted for partials, but it means the
-  "safety" this ADR adds comes from authors *using* the qualified form when
-  they want certainty, not from the bare form detecting the ambiguity itself.
+- If Skillset later introduces plugin-bound adaptive project agents, their
+  local skill-resolution precedence requires its own explicit contract.
 
 ## Non-Decisions
 
@@ -330,10 +338,6 @@ visibility without false confidence.
 - Directory renames or multi-file batch moves beyond the single skill-root
   identity-rename case.
 - An auto-backtick-wrap configuration surface.
-- The exact target-native lowering of a plugin-qualified `skills:` entry for
-  Claude and Codex output. Verify Claude's current documented convention
-  before implementation; this ADR only decides the source-authoring grammar
-  (reuse the existing selector, do not invent a second one).
 
 ## References
 
