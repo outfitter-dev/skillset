@@ -104,7 +104,11 @@ const PROVIDER_SOURCE_DIRS: Readonly<Record<TargetName, string>> = {
   codex: "_codex",
   cursor: "_cursor",
 };
-const PLUGIN_FEATURE_KEYS: readonly SourcePluginFeatureKey[] = ["bin", "mcp"];
+const PLUGIN_FEATURE_KEYS: readonly SourcePluginFeatureKey[] = [
+  "app",
+  "bin",
+  "mcp",
+];
 
 interface WorkspaceLayout {
   readonly configPath: string;
@@ -1040,7 +1044,12 @@ async function loadPluginFeatures(
     } catch (error) {
       throw featureDiagnosticError(error, {
         code: `plugin-${key}-invalid`,
-        featureId: key === "mcp" ? "plugin-mcp" : "plugin-bin",
+        featureId:
+          key === "app"
+            ? "plugin-apps"
+            : key === "mcp"
+              ? "plugin-mcp"
+              : "plugin-bin",
         path: relative(rootPath, configPath),
       });
     }
@@ -1061,6 +1070,11 @@ async function loadPluginFeature(
 ): Promise<SourcePluginFeature | undefined> {
   const raw = config[key];
   if (raw === false) return undefined;
+  if (key === "app" && raw !== undefined) {
+    throw new Error(
+      `skillset: plugin ${pluginId} feature app is conventional-only; author .app.json instead`
+    );
+  }
 
   const targetPath = pluginFeatureTargetPath(key);
   const conventionalSource = join(pluginPath, targetPath);
@@ -1089,8 +1103,10 @@ async function loadPluginFeature(
   }
 
   const stats = await stat(sourcePath);
-  if (key === "mcp" && !stats.isFile()) {
-    throw new Error(`skillset: plugin ${pluginId} feature mcp source must be a file`);
+  if ((key === "app" || key === "mcp") && !stats.isFile()) {
+    throw new Error(
+      `skillset: plugin ${pluginId} feature ${key} source must be a file`
+    );
   }
   if (key === "bin" && !stats.isDirectory()) {
     throw new Error(`skillset: plugin ${pluginId} feature bin source must be a directory`);
@@ -1101,11 +1117,25 @@ async function loadPluginFeature(
     origin,
     sourcePath,
     ...(sourcePointer === undefined ? {} : { sourcePointer }),
+    ...(key === "mcp" ? { subjects: await readMcpServerSubjects(sourcePath) } : {}),
     targetPath,
   };
 }
 
+async function readMcpServerSubjects(sourcePath: string): Promise<readonly string[]> {
+  let parsed: JsonValue;
+  try {
+    parsed = JSON.parse(await readFile(sourcePath, "utf8")) as JsonValue;
+  } catch {
+    // Existing structured-output validation owns the user-facing invalid JSON diagnostic.
+    return [];
+  }
+  if (!isJsonRecord(parsed) || !isJsonRecord(parsed.mcpServers)) return [];
+  return Object.keys(parsed.mcpServers).sort(compareStrings);
+}
+
 function pluginFeatureTargetPath(key: SourcePluginFeatureKey): string {
+  if (key === "app") return ".app.json";
   return key === "mcp" ? ".mcp.json" : "bin";
 }
 

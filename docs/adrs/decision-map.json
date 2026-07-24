@@ -1149,7 +1149,13 @@
       "amends": [],
       "created": "2026-07-24",
       "depends_on": ["0", "5", "12", "19", "22", "23"],
-      "inbound": [],
+      "inbound": [
+        {
+          "context": "See [ADR-0027](../adrs/0027-runtime-activation-readiness-is-observational.md) for the normative contract.",
+          "from": "runtime-activation-readiness",
+          "fromPath": "docs/features/runtime-activation-readiness.md"
+        }
+      ],
       "number": "0027",
       "owners": ["[galligan](https://github.com/galligan)"],
       "path": "docs/adrs/0027-runtime-activation-readiness-is-observational.md",

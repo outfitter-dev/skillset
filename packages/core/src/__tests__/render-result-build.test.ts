@@ -16,6 +16,9 @@ import {
   type SkillsetRenderResult,
   type SkillsetRenderResultStatus,
 } from "@skillset/core";
+import { collectRenderResults } from "../render-result-collector";
+import { renderBuildGraph } from "../render";
+import { loadBuildGraph } from "../resolver";
 
 const OUTCOME_FIXTURE: Record<string, string> = {
   "skillset.yaml": `
@@ -451,6 +454,12 @@ describe("build render results", () => {
         target: "claude",
       })
     );
+    expect(pluginLock.items).toContainEqual(
+      expect.objectContaining({
+        feature: "app",
+        validation: "structured",
+      })
+    );
 
     const codexSkill = await readFile(join(root, "plugins/alpha/codex/skills/plugin-skill/SKILL.md"), "utf8");
     expect(codexSkill).not.toContain("renderResults");
@@ -566,6 +575,120 @@ echo alpha
       reason: "Codex plugins do not expose a documented plugin-local bin contract.",
       sourceUnit: "plugin.alpha.feature:bin",
     });
+  });
+
+  it("reports Cursor dependencies as unsupported without fabricated outputs", async () => {
+    const source = {
+      "skillset.yaml": `
+skillset:
+  name: cursor-dependency
+compile:
+  targets: [cursor]
+  unsupportedDestination: warn
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+dependencies:
+  plugins:
+    - name: external-tools
+      range: ^1.0.0
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+name: helper
+description: Helper skill.
+---
+
+Help with the task.
+`,
+    };
+    const warningRoot = await fixture(source);
+    const warning = await diffSkillsetResult(warningRoot);
+    const cursorDependency = warning.renderResults.find(
+      (result) =>
+        result.featureId === "dependencies" && result.target === "cursor"
+    );
+    expect(cursorDependency).toMatchObject({
+      sourceUnit: "plugin.tools.feature:dependencies",
+      status: "unsupported",
+    });
+    expect(cursorDependency?.outputs).toBeUndefined();
+
+    const errorRoot = await fixture({
+      ...source,
+      "skillset.yaml": source["skillset.yaml"].replace(
+        "unsupportedDestination: warn",
+        "unsupportedDestination: error"
+      ),
+    });
+    await expect(diffSkillsetResult(errorRoot)).rejects.toThrow(
+      "unsupported destination policy blocked 1 render result"
+    );
+  });
+
+  it("does not claim a degraded Codex dependency without an emitted notice", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: codex-dependency
+compile:
+  targets: [codex]
+  unsupportedDestination: warn
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+dependencies:
+  plugins:
+    - name: external-tools
+      range: ^1.0.0
+`,
+      ".skillset/plugins/tools/skills/helper/SKILL.md": `
+---
+description: Help with repository tasks.
+---
+
+Help with the task.
+`,
+    });
+
+    const graph = await loadBuildGraph(root);
+    const rendered = (await renderBuildGraph(graph)).filter(
+      (file) => !file.path.endsWith("/SKILL.md")
+    );
+    const results = collectRenderResults(graph, rendered, {
+      includedPaths: new Set(rendered.map((file) => file.path)),
+    });
+    const dependency = results.find(
+      (result) =>
+        result.featureId === "dependencies" && result.target === "codex"
+    );
+    expect(dependency).toMatchObject({
+      sourceUnit: "plugin.tools.feature:dependencies",
+      status: "unsupported",
+    });
+    expect(dependency?.outputs).toBeUndefined();
+  });
+
+  it("validates conventional app JSON before claiming structured output", async () => {
+    const root = await fixture({
+      "skillset.yaml": `
+skillset:
+  name: invalid-app
+compile:
+  targets: [codex]
+`,
+      ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+`,
+      ".skillset/plugins/tools/.app.json": `{"apps": [}`,
+    });
+
+    await expect(diffSkillsetResult(root)).rejects.toThrow(
+      "invalid generated output"
+    );
   });
 
   it("soft unsupported destination policies keep diagnostics and lock provenance visible", async () => {

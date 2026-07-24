@@ -16,7 +16,7 @@
     },
     "apps/skillset": {
       "name": "skillset",
-      "version": "0.18.1",
+      "version": "0.21.0",
       "bin": {
         "skillset": "dist/cli.js",
         "skillset-toolkit": "dist/toolkit.js",
@@ -52,6 +52,9 @@
     "packages/registry": {
       "name": "@skillset/registry",
       "version": "0.0.0",
+      "dependencies": {
+        "@skillset/schema": "workspace:*",
+      },
     },
     "packages/schema": {
       "name": "@skillset/schema",

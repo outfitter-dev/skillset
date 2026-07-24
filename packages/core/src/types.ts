@@ -213,7 +213,7 @@ export interface SourcePlugin {
   readonly targets: Readonly<Record<TargetName, ResolvedTarget>>;
 }
 
-export type SourcePluginFeatureKey = "bin" | "mcp";
+export type SourcePluginFeatureKey = "app" | "bin" | "mcp";
 export type SourcePluginFeatureOrigin = "conventional" | "explicit";
 
 export interface SourcePluginFeature {
@@ -221,6 +221,8 @@ export interface SourcePluginFeature {
   readonly origin: SourcePluginFeatureOrigin;
   readonly sourcePath: string;
   readonly sourcePointer?: string;
+  /** Canonical capability subjects discovered from structured feature source. */
+  readonly subjects?: readonly string[];
   readonly targetPath: string;
 }
 

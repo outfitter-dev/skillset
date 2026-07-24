@@ -17,7 +17,11 @@ import {
   type SkillsetRenderResultPolicy,
 } from "./render-result";
 import { compareStrings } from "./path";
-import { pluginPathPartsForOutput, pluginTargetForOutputPath } from "./plugin-output";
+import {
+  pluginManifestPath,
+  pluginPathPartsForOutput,
+  pluginTargetForOutputPath,
+} from "./plugin-output";
 import { isTargetName, targetDescriptor, targetNames } from "./targets";
 import { readClaudeNativeToolRules, readEffectiveToolsPolicy } from "./skill-policy";
 import {
@@ -76,6 +80,12 @@ export function collectRenderResults(
   const mapOutputPath = options.mapOutputPath ?? ((path: string) => path);
   const outcomes: SkillsetRenderResult[] = [];
   const assignedOutputPaths = new Set<string>();
+  const renderedOutputPaths = rendered
+    .filter(
+      (file) =>
+        !file.path.endsWith(`/${LOCK_FILE}`) && file.path !== LOCK_FILE
+    )
+    .map((file) => file.path);
 
   for (const lockFile of rendered.filter((file) => file.path.endsWith(`/${LOCK_FILE}`) || file.path === LOCK_FILE)) {
     const lock = parseRenderedLock(lockFile);
@@ -83,7 +93,17 @@ export function collectRenderResults(
       const outputPaths = outputPathsForLockItem(lock.outputRoot, item);
       for (const path of outputPaths) assignedOutputPaths.add(path);
       outcomes.push(outcomeForLockItem(graph, lock, item, outputPaths, options.includedPaths, mapOutputPath));
-      outcomes.push(...featureOutcomesForLockItem(graph, lock, item, outputPaths, options.includedPaths, mapOutputPath));
+      outcomes.push(
+        ...featureOutcomesForLockItem(
+          graph,
+          lock,
+          item,
+          outputPaths,
+          renderedOutputPaths,
+          options.includedPaths,
+          mapOutputPath
+        )
+      );
     }
   }
 
@@ -211,6 +231,7 @@ function featureOutcomesForLockItem(
   lock: RenderedLock,
   item: RenderedLockItem,
   outputPaths: readonly string[],
+  renderedOutputPaths: readonly string[],
   includedPaths: ReadonlySet<string>,
   mapOutputPath: OutputPathMapper
 ): readonly SkillsetRenderResult[] {
@@ -218,17 +239,36 @@ function featureOutcomesForLockItem(
   const outcomes: SkillsetRenderResult[] = [];
 
   if (item.kind === "plugin" && item.dependencies !== undefined && item.dependencies.length > 0) {
+    const supportedDependencyStatus = dependencyRenderStatus(target);
+    const dependencyDestination =
+      supportedDependencyStatus === "rendered"
+        ? "plugin-manifest"
+        : supportedDependencyStatus === "degraded"
+          ? "skill-body"
+          : "plugin";
+    const dependencyOutputs = dependencyOutputPaths(
+      graph,
+      item.name,
+      target,
+      renderedOutputPaths,
+      dependencyDestination
+    );
+    const dependencyStatus =
+      supportedDependencyStatus === "degraded" &&
+      dependencyOutputs.length === 0
+        ? "unsupported"
+        : supportedDependencyStatus;
     outcomes.push(
       featureOutcome({
-        destination: "plugin-manifest",
+        destination: dependencyDestination,
         featureId: "dependencies",
         isIncluded: outputPaths.some((path) => includedPaths.has(path)),
         mapOutputPath,
         outputKind: item.kind,
-        outputPaths,
+        outputPaths: dependencyOutputs,
         sourcePath: item.sourcePath,
         sourceUnit: selectorForPluginFeature(item.name, "dependencies"),
-        status: target === "codex" ? "degraded" : "rendered",
+        status: dependencyStatus,
         target,
       })
     );
@@ -278,6 +318,51 @@ function featureOutcomesForLockItem(
   }
 
   return outcomes;
+}
+
+function dependencyRenderStatus(
+  target: TargetName | undefined
+): SkillsetRenderResultStatus {
+  if (target === undefined) {
+    throw new Error(
+      "skillset: plugin dependency render result requires a target"
+    );
+  }
+  const support = getSkillsetFeature("dependencies")?.targetSupport[target];
+  if (support?.status === "native") return "rendered";
+  if (support?.status === "degraded") return "degraded";
+  return "unsupported";
+}
+
+function dependencyOutputPaths(
+  graph: BuildGraph,
+  pluginId: string,
+  target: TargetName | undefined,
+  outputPaths: readonly string[],
+  destination: "plugin" | "plugin-manifest" | "skill-body"
+): readonly string[] {
+  if (target === undefined) return [];
+  if (destination === "plugin") return [];
+  if (destination === "plugin-manifest") {
+    const manifestPath = pluginManifestPath(
+      graph.root.outputs.plugins[target],
+      target,
+      pluginId
+    );
+    return outputPaths.filter((path) => path === manifestPath);
+  }
+  return outputPaths.filter((path) => {
+    const parts = pluginPathPartsForOutput(
+      graph.root.outputs.plugins[target],
+      target,
+      path
+    );
+    return (
+      parts?.pluginId === pluginId &&
+      parts.pluginPath.startsWith("skills/") &&
+      parts.pluginPath.endsWith("/SKILL.md")
+    );
+  });
 }
 
 function skillHasClaudeToolIntent(graph: BuildGraph, item: RenderedLockItem): boolean {
@@ -513,7 +598,7 @@ function featureOutcome(args: {
     ...(args.diagnostics === undefined ? {} : { diagnostics: args.diagnostics }),
     ...(evidence === undefined ? {} : { evidence }),
     featureId: args.featureId,
-    ...(args.isIncluded
+    ...(args.isIncluded && args.outputPaths.length > 0
       ? { outputs: args.outputPaths.map((path) => ({ kind: args.outputKind, path: args.mapOutputPath(path) })) }
       : {}),
     ...(args.isIncluded ? {} : { policy: "scope:excluded" as const }),
@@ -612,6 +697,9 @@ function featureIdForLockItem(item: RenderedLockItem): string {
   if (item.kind === "project-agent") return "project-agents";
   if (item.kind === "island") return "target-native-islands";
   if (item.kind === "changelog") return "releases";
+  if (item.kind === "plugin-feature" && item.feature === "app") {
+    return "plugin-apps";
+  }
   if (item.kind === "plugin-feature" && item.feature === "mcp") return "plugin-mcp";
   if (item.kind === "plugin-feature" && item.feature === "bin") return "plugin-bin";
   return item.feature ?? item.kind;

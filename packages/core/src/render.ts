@@ -1343,7 +1343,7 @@ async function copyPluginCompanionFiles(
           "src",
         ]
       : target === "codex"
-      ? ["README.md", ".app.json", "assets", "scripts", "src"]
+      ? ["README.md", "assets", "scripts", "src"]
       : ["README.md", "rules", "commands", "agents", "hooks", "assets", "scripts", "src"];
 
   if (target === "codex" || target === "cursor") {
@@ -1389,7 +1389,7 @@ async function renderPluginFeatureFiles(
     const files = (await copyPath(feature.sourcePath, join(basePath, targetPath)))
       .filter((file) => !file.path.endsWith(".gitkeep"))
       .map((file) =>
-        feature.key === "mcp"
+        pluginFeatureValidation(feature) === "structured"
           ? { ...file, sourcePath: relative(graph.rootPath, feature.sourcePath) }
           : file
       );
@@ -1410,6 +1410,7 @@ async function renderPluginFeatureFiles(
 }
 
 function pluginFeatureSupportsTarget(feature: SourcePluginFeature, target: TargetName): boolean {
+  if (feature.key === "app") return target === "codex";
   if (feature.key === "bin") return target === "claude";
   return true;
 }
@@ -1587,10 +1588,23 @@ async function lockItemForPluginFeature(args: {
     sourceHash: await hashPluginFeatureSource(args.feature),
     sourcePath: relative(args.graph.rootPath, args.feature.sourcePath),
     ...(args.feature.sourcePointer === undefined ? {} : { sourcePointer: args.feature.sourcePointer }),
-    targetState: args.feature.key === "bin" && args.target === "claude" ? "target-native" : "sync",
-    validation: args.feature.key === "mcp" ? "structured" : "opaque-copy",
+    targetState:
+      (args.feature.key === "app" && args.target === "codex") ||
+      (args.feature.key === "bin" && args.target === "claude")
+        ? "target-native"
+        : "sync",
+    validation:
+      pluginFeatureValidation(args.feature),
     version: pluginVersion(args.graph, args.plugin),
   };
+}
+
+function pluginFeatureValidation(
+  feature: SourcePluginFeature
+): "opaque-copy" | "structured" {
+  return feature.key === "app" || feature.key === "mcp"
+    ? "structured"
+    : "opaque-copy";
 }
 
 function lockItemForIsland(args: {
