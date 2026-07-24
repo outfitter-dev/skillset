@@ -44,6 +44,11 @@
           "fromPath": "docs/adrs/0013-changelog-and-versioning.md"
         },
         {
+          "context": "- [Global / XDG Managed Installs and Sync](drafts/20260604-global-xdg-managed-installs-and-sync.md) - future explicit activation mutation, out of scope here.",
+          "from": "0027",
+          "fromPath": "docs/adrs/0027-runtime-activation-readiness-is-observational.md"
+        },
+        {
           "context": "- [Global / XDG Managed Installs and Sync](20260604-global-xdg-managed-installs-and-sync.md) - separates build from install, sync, trust, and user-level mutation.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-first-class-sets.md"
@@ -116,6 +121,11 @@
           "fromPath": "docs/adrs/0021-post-tools-policy-boundary.md"
         },
         {
+          "context": "- [Reviewed Settings Suggestions](drafts/20260604-reviewed-settings-suggestions.md) - future settings planning and apply boundary.",
+          "from": "0027",
+          "fromPath": "docs/adrs/0027-runtime-activation-readiness-is-observational.md"
+        },
+        {
           "context": "- [Reviewed Settings Suggestions](20260604-reviewed-settings-suggestions.md) - keeps settings and marketplace activation out of build.",
           "from": "20260604",
           "fromPath": "docs/adrs/drafts/20260604-first-class-sets.md"
@@ -158,7 +168,7 @@
       "status": "draft",
       "superseded_by": null,
       "title": "Source References Resolve And Rename Together",
-      "updated": "2026-07-01"
+      "updated": "2026-07-24"
     },
     {
       "amended_by": [],
@@ -195,7 +205,13 @@
       "amends": ["12", "22"],
       "created": "2026-07-23",
       "depends_on": [],
-      "inbound": [],
+      "inbound": [
+        {
+          "context": "- [Ungraded Cross-Provider Eval Runs](drafts/20260723-ungraded-cross-provider-eval-runs.md) - current provider runtime evidence.",
+          "from": "0027",
+          "fromPath": "docs/adrs/0027-runtime-activation-readiness-is-observational.md"
+        }
+      ],
       "number": null,
       "owners": ["[galligan](https://github.com/galligan)"],
       "path": "docs/adrs/drafts/20260723-ungraded-cross-provider-eval-runs.md",
