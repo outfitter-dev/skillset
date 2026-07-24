@@ -2,7 +2,7 @@ import { cp, mkdir, readdir, readFile, rm, stat } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 
 import { buildSkillset, diffSkillset } from "./build";
-import { readRecord, readString } from "./config";
+import { readRecord, readString, readStringArray } from "./config";
 import { compareStrings, resolveInside } from "./path";
 import {
   pluginManifestPath as pluginManifestOutputPath,
@@ -265,7 +265,9 @@ function expectedPluginManifestFields(
     readString(metadata, "description") ??
     plugin.id;
   if (target === "cursor") {
-    const keywords = listing.keywords ?? metadata.keywords;
+    const tags =
+      readStringArray(portableManifest, "tags") ??
+      readStringArray(listing, "keywords");
     return stripUndefinedRecord({
       name: readString(portableManifest, "name") ?? plugin.id,
       description,
@@ -278,7 +280,7 @@ function expectedPluginManifestFields(
       logo:
         readString(portableManifest, "logo") ??
         readString(listing, "logo"),
-      tags: Array.isArray(keywords) ? [...keywords] : undefined,
+      tags: tags === undefined ? undefined : [...tags],
       ...targetManifest,
       version: pluginVersion(graph, plugin),
     });

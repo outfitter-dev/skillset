@@ -2858,6 +2858,7 @@ skillset:
   version: 2.3.4
 claude: true
 codex: true
+cursor: true
 `,
     ".skillset/tests.yaml": `
 plugin-manifests:
@@ -2876,12 +2877,18 @@ skillset:
   license: MIT
   keywords:
     - alpha
+  manifest:
+    tags:
+      - manifest-tag
 claude:
   manifest:
     name: alpha-claude
 codex:
   manifest:
     name: alpha-codex
+cursor:
+  manifest:
+    name: alpha-cursor
 `,
     ".skillset/plugins/alpha/skills/demo/SKILL.md": `
 ---
@@ -2927,6 +2934,19 @@ Demo body.
     name?: string;
     version?: string;
   };
+  const cursorManifest = JSON.parse(
+    await readFile(
+      cachePath(
+        root,
+        ".skillset/cache/tests/latest/workspace/plugins/alpha/cursor/.cursor-plugin/plugin.json"
+      ),
+      "utf8"
+    )
+  ) as {
+    name?: string;
+    tags?: string[];
+    version?: string;
+  };
   expect(claudeManifest.name).toBe("alpha-claude");
   expect(claudeManifest.author).toBe("Alpha Author");
   expect(claudeManifest.version).toBe("2.3.4");
@@ -2937,6 +2957,9 @@ Demo body.
   expect(codexManifest.version).toBe("2.3.4");
   expect(codexManifest.license).toBe("MIT");
   expect(codexManifest.keywords).toEqual(["alpha"]);
+  expect(cursorManifest.name).toBe("alpha-cursor");
+  expect(cursorManifest.tags).toEqual(["manifest-tag"]);
+  expect(cursorManifest.version).toBe("2.3.4");
 });
 
 test("SET-179: plugin manifest checks fail when selected plugins emit no manifests", async () => {
