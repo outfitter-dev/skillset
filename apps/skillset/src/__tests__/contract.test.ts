@@ -1,5 +1,5 @@
 import { chmod, mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, symlink, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
 import { expect, test } from "bun:test";
@@ -18,8 +18,12 @@ import { inspectSkillset, lintSkillset } from "@skillset/core";
 import { readReleaseState } from "@skillset/core/internal/release-state";
 import { loadBuildGraph } from "@skillset/core/internal/resolver";
 import { createSkillset, initSkillset } from "../setup";
-import { gitSafeEnv } from "../git-env";
 import { sourceUnitDisplay } from "@skillset/core/internal/source-unit-selector";
+import {
+  createTestGitFixtureRoot,
+  initializeTestGitRepository,
+  runTestGit,
+} from "../../../../scripts/test-helpers/git-remote";
 
 test("SET-52: source-unit selectors render conventional display labels", () => {
   const cases: Array<[string, string]> = [
@@ -9012,7 +9016,8 @@ Body.
 });
 
 async function contractFixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-contract-"));
+  const disposableRoot = await createTestGitFixtureRoot("skillset-contract-");
+  const root = await mkdtemp(join(disposableRoot, "repo-"));
   for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     await Bun.write(join(root, path), `${content.trim()}\n`);
   }
@@ -9155,28 +9160,13 @@ async function runSkillsetCliWithInput(input: string, ...args: readonly string[]
 }
 
 async function commitFixture(root: string): Promise<void> {
-  await runGit(root, "init", "-q");
-  await runGit(root, "config", "user.email", "skillset@example.com");
-  await runGit(root, "config", "user.name", "Skillset Test");
-  await runGit(root, "add", ".");
-  await runGit(root, "commit", "-qm", "baseline");
+  await initializeTestGitRepository(root, {
+    disposableRoot: dirname(root),
+  });
 }
 
 async function runGit(root: string, ...args: readonly string[]): Promise<void> {
-  const proc = Bun.spawn({
-    cmd: ["git", "-C", root, ...args],
-    env: gitSafeEnv(),
-    stderr: "pipe",
-    stdout: "pipe",
-  });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  if (exitCode !== 0) {
-    throw new Error(`git ${args.join(" ")} failed\n${stdout}${stderr}`);
-  }
+  await runTestGit(root, ...args);
 }
 
 async function sleepForMtime(): Promise<void> {

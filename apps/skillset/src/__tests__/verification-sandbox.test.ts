@@ -14,6 +14,7 @@ import {
   resolveWorkspaceRegistrationPolicy,
   TEST_SANDBOX_ENV,
   TEST_SANDBOX_SCHEMA_VERSION,
+  testSandboxGit,
   testSandboxXdg,
   validateTestSandbox,
 } from "../verification-sandbox";
@@ -31,6 +32,10 @@ test("SET-388: valid descriptors isolate all four XDG roots without changing HOM
     config: await realpath(fixture.xdg.config),
     data: await realpath(fixture.xdg.data),
     state: await realpath(fixture.xdg.state),
+  });
+  expect(validated.git).toEqual({
+    global: await realpath(fixture.git.global),
+    system: await realpath(fixture.git.system),
   });
   expect(env.HOME).toBe(home);
   expect(await resolveWorkspaceRegistrationPolicy(env)).toBe("isolated");
@@ -57,6 +62,29 @@ test("SET-388: nested validation rejects malformed, mismatched, and escaping sta
   await expect(
     validateTestSandbox(fixtureEnv(fixture), fixture.root)
   ).rejects.toThrow("different repository root");
+});
+
+test("SET-389: nested validation requires empty owned Git config and disabled prompts", async () => {
+  const fixture = await createDescriptor();
+  await expect(
+    validateTestSandbox({
+      ...fixtureEnv(fixture),
+      GIT_CONFIG_GLOBAL: join(fixture.root, "outside-gitconfig"),
+    })
+  ).rejects.toThrow("GIT_CONFIG_GLOBAL");
+
+  await writeFile(fixture.git.global, "[user]\nname = ambient\n");
+  await expect(validateTestSandbox(fixtureEnv(fixture))).rejects.toThrow(
+    "must remain an empty sandbox file"
+  );
+  await writeFile(fixture.git.global, "");
+
+  await expect(
+    validateTestSandbox({
+      ...fixtureEnv(fixture),
+      GIT_TERMINAL_PROMPT: "1",
+    })
+  ).rejects.toThrow("GIT_TERMINAL_PROMPT");
 });
 
 test("SET-388: descriptors reject foreign ownership and symlink escapes", async () => {
@@ -248,10 +276,13 @@ test("SET-388: test mode refuses registration without the canonical marker", asy
 async function createDescriptor() {
   const root = await mkdtemp(join(tmpdir(), "skillset-sandbox-contract-"));
   const sandboxPath = join(root, "skillset-test-owned");
+  const git = testSandboxGit(sandboxPath);
   const xdg = testSandboxXdg(sandboxPath);
   await Promise.all(
     Object.values(xdg).map((path) => mkdir(path, { recursive: true }))
   );
+  await mkdir(join(sandboxPath, "git"));
+  await Promise.all(Object.values(git).map((path) => writeFile(path, "")));
   const descriptorPath = join(sandboxPath, "descriptor.json");
   await writeFile(
     descriptorPath,
@@ -265,6 +296,7 @@ async function createDescriptor() {
   );
   return {
     descriptorPath,
+    git,
     root,
     sandboxPath: await realpath(sandboxPath),
     xdg,
@@ -278,6 +310,9 @@ function fixtureEnv(
   return {
     ...extra,
     HOME: extra.HOME ?? process.env.HOME,
+    GIT_CONFIG_GLOBAL: fixture.git.global,
+    GIT_CONFIG_SYSTEM: fixture.git.system,
+    GIT_TERMINAL_PROMPT: "0",
     NODE_ENV: "test",
     SKILLSET_TEST_SANDBOX: fixture.descriptorPath,
     XDG_CACHE_HOME: fixture.xdg.cache,

@@ -1,4 +1,4 @@
-import { lstat, realpath } from "node:fs/promises";
+import { lstat, realpath, stat } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
 
@@ -20,6 +20,10 @@ export interface TestSandboxDescriptor {
 export interface ValidatedTestSandbox {
   readonly descriptor: TestSandboxDescriptor;
   readonly descriptorPath: string;
+  readonly git: {
+    readonly global: string;
+    readonly system: string;
+  };
   readonly xdg: {
     readonly cache: string;
     readonly config: string;
@@ -35,6 +39,11 @@ const XDG_ENV = {
   config: "XDG_CONFIG_HOME",
   data: "XDG_DATA_HOME",
   state: "XDG_STATE_HOME",
+} as const;
+
+const GIT_CONFIG_ENV = {
+  global: "GIT_CONFIG_GLOBAL",
+  system: "GIT_CONFIG_SYSTEM",
 } as const;
 
 export async function resolveWorkspaceRegistrationPolicy(
@@ -131,7 +140,14 @@ export async function validateTestSandbox(
     data: await validateXdgRoot(env, "data", sandboxPath),
     state: await validateXdgRoot(env, "state", sandboxPath),
   };
-  return { descriptor, descriptorPath, xdg };
+  const git = {
+    global: await validateGitConfig(env, "global", sandboxPath),
+    system: await validateGitConfig(env, "system", sandboxPath),
+  };
+  if (env.GIT_TERMINAL_PROMPT !== "0") {
+    throw new Error("GIT_TERMINAL_PROMPT must be disabled in the owned test sandbox");
+  }
+  return { descriptor, descriptorPath, git, xdg };
 }
 
 export function testSandboxXdg(sandboxPath: string) {
@@ -141,6 +157,14 @@ export function testSandboxXdg(sandboxPath: string) {
     config: resolve(root, "config"),
     data: resolve(root, "data"),
     state: resolve(root, "state"),
+  };
+}
+
+export function testSandboxGit(sandboxPath: string) {
+  const root = resolve(sandboxPath, "git");
+  return {
+    global: resolve(root, "global-config"),
+    system: resolve(root, "system-config"),
   };
 }
 
@@ -218,6 +242,34 @@ async function validateXdgRoot(
   const expected = resolve(sandboxPath, "xdg", kind);
   if (canonical !== expected || !isInside(sandboxPath, canonical)) {
     throw new Error(`${name} does not match the owned test sandbox`);
+  }
+  return canonical;
+}
+
+async function validateGitConfig(
+  env: Record<string, string | undefined>,
+  kind: keyof typeof GIT_CONFIG_ENV,
+  sandboxPath: string
+): Promise<string> {
+  const name = GIT_CONFIG_ENV[kind];
+  const value = env[name];
+  if (!value || !isAbsolute(value))
+    throw new Error(`${name} must be an absolute path`);
+  const entry = await lstat(value).catch((error: unknown) => {
+    throw new Error(`${name} must name an existing sandbox file`, {
+      cause: error,
+    });
+  });
+  if (!entry.isFile() || entry.isSymbolicLink()) {
+    throw new Error(`${name} must name a regular sandbox file`);
+  }
+  const canonical = await realpath(value);
+  const expected = resolve(sandboxPath, "git", `${kind}-config`);
+  if (canonical !== expected || !isInside(sandboxPath, canonical)) {
+    throw new Error(`${name} does not match the owned test sandbox`);
+  }
+  if ((await stat(canonical)).size !== 0) {
+    throw new Error(`${name} must remain an empty sandbox file`);
   }
   return canonical;
 }

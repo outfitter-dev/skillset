@@ -3,6 +3,10 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import {
+  createTestGitFixtureRoot,
+  initializeTestGitRepository,
+} from "../../../../scripts/test-helpers/git-remote";
 
 const EXPECT = "/usr/bin/expect";
 const CLI = path.join(import.meta.dir, "..", "cli.ts");
@@ -115,8 +119,8 @@ test.skipIf(!existsSync(EXPECT))(
 test.skipIf(!existsSync(EXPECT))(
   "SET-298: controlled route PTYs prove navigation, empty search, and disabled reasons",
   async () => {
-    const surfaceRoot = await mkdtemp(
-      path.join(tmpdir(), "skillset-surface-pty-")
+    const surfaceRoot = await createTestGitFixtureRoot(
+      "skillset-surface-pty-"
     );
     const xdgRoot = await mkdtemp(
       path.join(tmpdir(), "skillset-surface-pty-xdg-")
@@ -125,11 +129,9 @@ test.skipIf(!existsSync(EXPECT))(
       const initRoot = path.join(surfaceRoot, "init");
       await mkdir(initRoot);
       await Bun.write(path.join(initRoot, "AGENTS.md"), "# Existing guidance\n");
-      const git = Bun.spawn(["git", "init", "-q", initRoot], {
-        stderr: "pipe",
-        stdout: "pipe",
+      await initializeTestGitRepository(initRoot, {
+        disposableRoot: surfaceRoot,
       });
-      expect(await git.exited).toBe(0);
       const initialized = await runSurfaceExpect(
         initRoot,
         xdgRoot,

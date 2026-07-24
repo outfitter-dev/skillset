@@ -6,6 +6,7 @@ import {
   TEST_SANDBOX_ENV,
   TEST_SANDBOX_RETAIN_ENV,
   TEST_SANDBOX_SCHEMA_VERSION,
+  testSandboxGit,
   testSandboxXdg,
   validateTestSandbox,
   type TestSandboxDescriptor,
@@ -35,6 +36,7 @@ if (inheritedMarker) {
 const tempRoot = await realpath(tmpdir());
 const sandboxPath = await mkdtemp(join(tempRoot, "skillset-test-"));
 const descriptorPath = join(sandboxPath, "descriptor.json");
+const git = testSandboxGit(sandboxPath);
 const xdg = testSandboxXdg(sandboxPath);
 const descriptor: TestSandboxDescriptor = {
   createdAt: new Date().toISOString(),
@@ -49,11 +51,18 @@ try {
   await Promise.all(
     Object.values(xdg).map((path) => mkdir(path, { recursive: true }))
   );
+  await mkdir(join(sandboxPath, "git"));
+  await Promise.all(
+    Object.values(git).map((path) => writeFile(path, "", { flag: "wx" }))
+  );
   await writeFile(descriptorPath, `${JSON.stringify(descriptor, null, 2)}\n`, {
     flag: "wx",
   });
-  const env = {
+  const env: Record<string, string | undefined> = {
     ...process.env,
+    GIT_CONFIG_GLOBAL: git.global,
+    GIT_CONFIG_SYSTEM: git.system,
+    GIT_TERMINAL_PROMPT: "0",
     NODE_ENV: "test",
     [TEST_SANDBOX_ENV]: descriptorPath,
     XDG_CACHE_HOME: xdg.cache,
@@ -61,6 +70,7 @@ try {
     XDG_DATA_HOME: xdg.data,
     XDG_STATE_HOME: xdg.state,
   };
+  scrubGitConfigParameters(env);
   await validateTestSandbox(env, repoRoot);
   process.exitCode = await run(command, env);
 } catch (error) {
@@ -83,6 +93,16 @@ try {
       console.error(
         `skillset: retained test sandbox ${sandboxPath} (descriptor: ${descriptorPath})`
       );
+    }
+  }
+}
+
+function scrubGitConfigParameters(
+  env: Record<string, string | undefined>
+): void {
+  for (const key of Object.keys(env)) {
+    if (/^GIT_CONFIG_(?:COUNT|KEY_\d+|VALUE_\d+)$/u.test(key)) {
+      delete env[key];
     }
   }
 }

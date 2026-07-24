@@ -2,14 +2,17 @@ import { expect, test } from "bun:test";
 import { normalizeSkillsetFixtureFiles } from "../../../../scripts/test-helpers/skillset-config";
 import { mkdir, mkdtemp, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, relative } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { createOperationalPathContext, resolveOperationalPath } from "@skillset/core";
 
 import { ADOPT_REPORT_DIR, adoptCandidateId, adoptSkillset, renderAdoptReportMarkdown } from "../adopt";
 import { ISOLATED_OUT_ROOT } from "@skillset/core";
-import { gitSafeEnv } from "../git-env";
+import {
+  createTestGitFixtureRoot,
+  initializeTestGitRepository,
+} from "../../../../scripts/test-helpers/git-remote";
 
 const AGENTS_CONTENT = "# Demo agents\n\nHandwritten instructions.\n";
 
@@ -763,7 +766,8 @@ test("adopt CLI rejects isolation and build-shape flags", async () => {
 });
 
 async function fixture(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-adopt-"));
+  const disposableRoot = await createTestGitFixtureRoot("skillset-adopt-");
+  const root = await mkdtemp(join(disposableRoot, "repo-"));
   for (const [path, content] of Object.entries(normalizeSkillsetFixtureFiles(files))) {
     await Bun.write(join(root, path), content);
   }
@@ -772,36 +776,10 @@ async function fixture(files: Record<string, string>): Promise<string> {
 
 async function gitFixture(files: Record<string, string>): Promise<string> {
   const root = await fixture(files);
-  await runGit(root, ["init"]);
-  await runGit(root, ["add", "."]);
-  await runGit(root, [
-    "-c",
-    "user.name=Skillset Test",
-    "-c",
-    "user.email=skillset@example.com",
-    "commit",
-    "-m",
-    "fixture",
-  ]);
-  return root;
-}
-
-async function runGit(cwd: string, args: readonly string[]): Promise<void> {
-  const proc = Bun.spawn({
-    cmd: ["git", ...args],
-    cwd,
-    env: gitSafeEnv(),
-    stderr: "pipe",
-    stdout: "pipe",
+  await initializeTestGitRepository(root, {
+    disposableRoot: dirname(root),
   });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  if (exitCode !== 0) {
-    throw new Error(`${stdout}${stderr}`.trim());
-  }
+  return root;
 }
 
 async function walkFiles(root: string): Promise<ReadonlySet<string>> {

@@ -18,6 +18,10 @@ Most coverage builds a small `.skillset/` tree inline and writes it to a temp di
 
 Use this for focused positive cases, negative/diagnostic cases, and change/release lifecycle scenarios. The fixture content lives next to the assertion that depends on it, so the test reads top to bottom. This is the common case by a wide margin and should stay inline — the maps are small and each is semantically distinct, so centralizing them would not meaningfully reduce volume.
 
+Git-backed fixtures must be created through `scripts/test-helpers/git-remote.ts`. The test runner supplies empty sandbox-owned global and system Git config files and disables terminal prompts while preserving `HOME`; the helper additionally strips command-line config injection before every Git subprocess. This boundary matters because repository-local operations can otherwise inherit signing, hooks, templates, credentials, includes, excludes, attributes, default-branch policy, or identity from a maintainer's machine.
+
+Use `createTestGitFixtureRoot()` for the owned parent, create a fresh child directory beneath it, then call `initializeTestGitRepository()` or `createTestGitRemote()` with that parent as `disposableRoot`. The helper refuses the Skillset checkout, symlinks, existing repositories, bare repositories, linked worktrees, shared Git common directories, and unrelated temp directories before running `git init` or writing deterministic fixture-only identity.
+
 ### Checked-in fixtures (`fixtures/<case>/`)
 
 A checked-in fixture is a durable fake content repo committed to the tree. Tests copy `fixtures/<case>` into a temp directory and run the compiler against it with `--root <temp>`. Reach for one only when a fixture:

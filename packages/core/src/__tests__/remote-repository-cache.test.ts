@@ -1,5 +1,14 @@
-import { mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import {
+  access,
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rename,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
@@ -9,6 +18,11 @@ import {
   parseRemoteRepositoryReference,
   resolveRemoteRepositoryCache,
 } from "../remote-repository-cache";
+import {
+  createTestGitFixtureRoot,
+  createTestGitRemote,
+  runTestGit as git,
+} from "../../../../scripts/test-helpers/git-remote";
 
 describe("remote repository cache", () => {
   test("normalizes supported references and derives deterministic XDG paths", () => {
@@ -93,6 +107,70 @@ describe("remote repository cache", () => {
     expect(second.rootPath).toBe(first.rootPath);
     expect(await git(first.rootPath, "status", "--porcelain")).toBe("");
     expect(await git(fixture.remote, "show-ref")).toBe(before);
+  });
+
+  test("isolated cache verification ignores inherited global and system Git config", async () => {
+    const fixture = await gitRemoteFixture();
+    const acquired = await acquireRemoteRepository({
+      repository: fixture.repository,
+      revision: { kind: "sha", sha: fixture.firstSha },
+      xdg: fixture.xdg,
+    });
+    const root = dirname(fixture.remote);
+    const hooks = join(root, "hostile-hooks");
+    const hookSentinel = join(root, "hook-ran");
+    const credentialSentinel = join(root, "credential-ran");
+    const attributes = join(root, "hostile-attributes");
+    const excludes = join(root, "hostile-excludes");
+    const template = join(root, "hostile-template");
+    const included = join(root, "hostile-include");
+    const global = join(root, "hostile-global");
+    const system = join(root, "hostile-system");
+    await mkdir(hooks);
+    await mkdir(template);
+    await writeFile(
+      join(hooks, "post-checkout"),
+      `#!/bin/sh\ntouch ${JSON.stringify(hookSentinel)}\n`
+    );
+    await chmod(join(hooks, "post-checkout"), 0o755);
+    await writeFile(attributes, "* hostile=true\n");
+    await writeFile(excludes, "*.hostile\n");
+    await writeFile(
+      included,
+      `[core]\n  bare = true\n  hooksPath = ${hooks}\n  attributesFile = ${attributes}\n  excludesFile = ${excludes}\n[credential]\n  helper = "!touch ${credentialSentinel}"\n[commit]\n  gpgSign = true\n[init]\n  defaultBranch = hostile\n  templateDir = ${template}\n`
+    );
+    await writeFile(global, `[include]\n  path = ${included}\n`);
+    await writeFile(system, `[include]\n  path = ${included}\n`);
+
+    for (const inherited of [
+      {
+        GIT_CONFIG_GLOBAL: global,
+        GIT_CONFIG_SYSTEM: "/dev/null",
+      },
+      {
+        GIT_CONFIG_GLOBAL: "/dev/null",
+        GIT_CONFIG_SYSTEM: system,
+      },
+    ]) {
+      const junk = join(acquired.rootPath, `ambient-${crypto.randomUUID()}`);
+      await writeFile(junk, "remove me\n");
+      const reused = await acquireRemoteRepository({
+        repository: fixture.repository,
+        revision: { kind: "sha", sha: fixture.firstSha },
+        xdg: {
+          ...fixture.xdg,
+          env: { ...fixture.xdg.env, ...inherited },
+        },
+      });
+
+      expect(reused).toMatchObject({
+        cacheHit: true,
+        sha: fixture.firstSha,
+      });
+      await expect(access(junk)).rejects.toThrow();
+      await expect(access(hookSentinel)).rejects.toThrow();
+      await expect(access(credentialSentinel)).rejects.toThrow();
+    }
   });
 
   test("refreshes floating refs in place and resolves version tags", async () => {
@@ -233,49 +311,16 @@ interface GitRemoteFixture {
 }
 
 async function gitRemoteFixture(): Promise<GitRemoteFixture> {
-  const root = await mkdtemp(join(tmpdir(), "skillset-remote-cache-"));
-  const work = join(root, "work");
-  const remote = join(root, "origin.git");
-  const repository = "https://git.example/acme/plugin.git";
-  await git(root, "init", "--initial-branch=main", work);
-  await git(work, "config", "user.email", "skillset@example.test");
-  await git(work, "config", "user.name", "Skillset Tests");
+  const root = await createTestGitFixtureRoot("skillset-remote-cache-");
+  const work = await mkdtemp(join(root, "work-"));
   await writeFile(join(work, "README.md"), "first\n");
-  await git(work, "add", "README.md");
-  await git(work, "commit", "-m", "first");
-  const firstSha = await git(work, "rev-parse", "HEAD");
-  await git(root, "clone", "--bare", work, remote);
+  const fixture = await createTestGitRemote(work, { disposableRoot: root });
 
   return {
-    firstSha,
-    remote,
-    repository,
+    firstSha: fixture.sha,
+    remote: fixture.remotePath,
+    repository: fixture.repository,
     work,
-    xdg: {
-      env: {
-        GIT_ALLOW_PROTOCOL: "file",
-        GIT_CONFIG_COUNT: "1",
-        GIT_CONFIG_KEY_0: `url.file://${remote}/.insteadOf`,
-        GIT_CONFIG_VALUE_0: repository,
-        XDG_CACHE_HOME: join(root, "cache"),
-      },
-      homeDir: join(root, "home"),
-    },
+    xdg: fixture.xdg,
   };
-}
-
-async function git(cwd: string, ...args: readonly string[]): Promise<string> {
-  const proc = Bun.spawn({
-    cmd: ["git", "-C", cwd, ...args],
-    env: process.env,
-    stderr: "pipe",
-    stdout: "pipe",
-  });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  if (exitCode !== 0) throw new Error(`${stdout}${stderr}`.trim());
-  return stdout.trim();
 }

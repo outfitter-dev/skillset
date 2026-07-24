@@ -5,6 +5,10 @@ import path from "node:path";
 
 import { validateCliResult, type SkillsetCliResult } from "@skillset/schema";
 import { buildSkillset } from "@skillset/core";
+import {
+  createTestGitFixtureRoot,
+  initializeTestGitRepository,
+} from "../../../../scripts/test-helpers/git-remote";
 
 const cli = path.join(import.meta.dir, "..", "cli.ts");
 const repoRoot = path.resolve(import.meta.dir, "../../../..");
@@ -399,7 +403,10 @@ describe("SET-287 finite read-only JSON", () => {
   });
 
   test("change entry JSON preserves source hash evidence", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "skillset-change-json-"));
+    const disposableRoot = await createTestGitFixtureRoot(
+      "skillset-change-json-"
+    );
+    const root = await mkdtemp(path.join(disposableRoot, "repo-"));
     const skillPath = path.join(root, ".skillset", "skills", "demo", "SKILL.md");
     await mkdir(path.dirname(skillPath), { recursive: true });
     await writeFile(
@@ -571,15 +578,7 @@ async function runRoute(...args: readonly string[]): Promise<{ exitCode: number;
 }
 
 async function commitFixture(root: string): Promise<void> {
-  await runGit(root, "init", "-q");
-  await runGit(root, "config", "user.email", "skillset@example.com");
-  await runGit(root, "config", "user.name", "Skillset Test");
-  await runGit(root, "add", ".");
-  await runGit(root, "commit", "-qm", "baseline");
-}
-
-async function runGit(root: string, ...args: readonly string[]): Promise<void> {
-  const proc = Bun.spawn(["git", ...args], { cwd: root, stderr: "pipe", stdout: "pipe" });
-  const [stderr, exitCode] = await Promise.all([new Response(proc.stderr).text(), proc.exited]);
-  if (exitCode !== 0) throw new Error(stderr.trim());
+  await initializeTestGitRepository(root, {
+    disposableRoot: path.dirname(root),
+  });
 }

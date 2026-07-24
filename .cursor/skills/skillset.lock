@@ -60,9 +60,9 @@
       ],
       "kind": "standalone-skill",
       "name": "skillset-repo-test-fixtures",
-      "outputHash": "sha256:91614f456d498fc5a592397b9a7f361ff9cfa098d324f4746dfe33568ea33e59",
+      "outputHash": "sha256:d2831aee6b4dd852676ecf638d708900271e86346ff6b3fc60f1e480830fe0d2",
       "outputPath": "skillset-repo-test-fixtures/SKILL.md",
-      "sourceHash": "sha256:bd80f491d8e292421186280e8b77734d3123a566e4b349c7b86b9b42d5af7cea",
+      "sourceHash": "sha256:c1aded6af00518a12584b1b4c5db0a592d4957e358ba72e5203afa66d3bfbe31",
       "sourcePath": ".skillset/skills/skillset-repo-test-fixtures/SKILL.md",
       "version": "0.1.2"
     }
