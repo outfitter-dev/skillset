@@ -1,5 +1,11 @@
 # skillset
 
+## 0.21.0
+
+### Minor Changes
+
+- 2305623: Validate schema-known source references and add plan-first atomic source renames with deterministic reference rewrites and generated-output rollback.
+
 ## 0.20.0
 
 ### Minor Changes
