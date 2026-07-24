@@ -15,11 +15,11 @@ import { parseInitCommandRequest } from "./init-args";
 import * as inspection from "./inspect-args";
 import { parseLookupCommandRequest } from "./lookup-args";
 import * as recovery from "./recovery-args";
+import { parseRenameCommandRequest } from "./rename-args";
 import { parseReleaseCommandRequest } from "./release-args";
 import * as source from "./source-args";
 import { parseTestCommandRequest } from "./test-args";
 import { parseUpdateCommandRequest } from "./update-args";
-
 // oxlint-disable-next-line eslint/complexity -- Explicit exhaustive dispatch is the facade contract.
 export const parseCliRequest = (
   args: readonly string[],
@@ -132,6 +132,7 @@ export const parseCliRequest = (
           request: recovery.parseReconcileCommandRequest(args, parseContext),
         };
       }
+      case "rename": return { command, request: parseRenameCommandRequest(args, parseContext) };
       case "release": {
         return {
           command,

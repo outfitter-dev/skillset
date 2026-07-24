@@ -110,6 +110,7 @@ export function renderCliResult(result: SkillsetCliResult): string {
 }
 
 export function renderCliDataResult(input: {
+  readonly changes?: readonly SkillsetCliChange[];
   readonly command: string;
   readonly data: SchemaJsonRecord;
   readonly diagnostics?: readonly SkillsetCliDiagnostic[];
@@ -117,6 +118,7 @@ export function renderCliDataResult(input: {
   readonly kind?: string;
 }): string {
   return renderCliResult(createCliResult({
+    ...(input.changes === undefined ? {} : { changes: input.changes }),
     command: input.command,
     data: input.data,
     ...(input.diagnostics === undefined ? {} : { diagnostics: input.diagnostics }),
@@ -130,9 +132,11 @@ export function printCliJsonData(
   data: unknown,
   exitCode = 0,
   kind = "data",
-  diagnostics: readonly SkillsetCliDiagnostic[] = []
+  diagnostics: readonly SkillsetCliDiagnostic[] = [],
+  changes: readonly SkillsetCliChange[] = []
 ): void {
   process.stdout.write(renderCliDataResult({
+    changes,
     command,
     data: data as SchemaJsonRecord,
     diagnostics,

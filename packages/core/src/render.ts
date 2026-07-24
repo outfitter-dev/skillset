@@ -41,6 +41,7 @@ import {
   formatPreprocessDependency,
   preprocessText,
   readPreprocessDependencySync,
+  resolveMarkedPathReferences,
 } from "./preprocess";
 import { resolveProjectAgentSkills } from "./project-agent-skills";
 import { renderChangelogProjections, type ChangelogProjection } from "./changelog";
@@ -520,7 +521,7 @@ async function renderCursorProjectAgent(
   const initialPrompt =
     rawInitialPrompt === undefined
       ? undefined
-      : await preprocessText(rawInitialPrompt, {
+      : await resolveMarkedPathReferences(rawInitialPrompt, {
           frontmatter: agent.frontmatter,
           preprocessDependencies,
           rootPath: graph.rootPath,
@@ -584,7 +585,7 @@ async function renderClaudeProjectAgent(
   const initialPrompt =
     rawInitialPrompt === undefined
       ? undefined
-      : await preprocessText(rawInitialPrompt, {
+      : await resolveMarkedPathReferences(rawInitialPrompt, {
           frontmatter: agent.frontmatter,
           preprocessDependencies,
           rootPath: graph.rootPath,

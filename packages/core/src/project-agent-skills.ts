@@ -1,6 +1,7 @@
 import { relative } from "node:path";
 
-import { readStringArray } from "./config";
+import { readStringArray, targetNames } from "./config";
+import { assertRewrittenSourceReference } from "./source-reference-contract";
 import type {
   BuildGraph,
   SourceProjectAgent,
@@ -23,6 +24,7 @@ export function resolveProjectAgentSkills(
   agent: SourceProjectAgent,
   target: TargetName
 ): readonly ResolvedProjectAgentSkill[] | undefined {
+  assertRewrittenSourceReference("agent-skills");
   const authored =
     readStringArray(agent.targets[target].options, "skills") ??
     readStringArray(agent.frontmatter, "skills");
@@ -45,7 +47,7 @@ export function validateProjectAgentSkills(
   >
 ): void {
   for (const agent of graph.projectAgents) {
-    for (const target of ["claude", "codex", "cursor"] as const) {
+    for (const target of targetNames()) {
       if (!agent.targets[target].enabled) continue;
       resolveProjectAgentSkills(graph, agent, target);
     }

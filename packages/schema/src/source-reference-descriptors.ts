@@ -39,7 +39,7 @@ export const skillsetSourceReferenceDescriptors = Object.freeze([
     mutationPolicy: "rewrite",
     notes: [
       "Includes shared skills and provider-specific overrides.",
-      "Schema records identities only; Core resolves standalone, plugin-local, and qualified selectors.",
+      "Schema records identities only; Core resolves standalone and qualified plugin selectors.",
     ],
     pathPatterns: ["skills[*]", ...targetOverridePaths],
     scope: "agent-visible-skills",
@@ -139,6 +139,21 @@ export const skillsetSourceReferenceDescriptors = Object.freeze([
     scope: "workspace-or-plugin-config",
   }),
 ] as const satisfies readonly SkillsetSourceReferenceDescriptor[]);
+
+export type SkillsetSourceReferenceDescriptorId =
+  (typeof skillsetSourceReferenceDescriptors)[number]["id"];
+
+export function getSkillsetSourceReferenceDescriptor(
+  id: SkillsetSourceReferenceDescriptorId
+): (typeof skillsetSourceReferenceDescriptors)[number] {
+  const descriptor = skillsetSourceReferenceDescriptors.find(
+    (candidate) => candidate.id === id
+  );
+  if (descriptor === undefined) {
+    throw new Error(`Unknown Skillset source reference descriptor: ${id}`);
+  }
+  return descriptor;
+}
 
 /** Source surfaces intentionally outside the first reference and rename contract. */
 export const skillsetSourceReferenceExclusions = Object.freeze([

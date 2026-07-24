@@ -66,6 +66,8 @@ skillset lookup workspace --fields # inspect schema-backed workspace fields; add
 skillset lookup features [id]      # inspect registry feature capabilities and target support; add --json for records
 skillset reconcile                 # guide a TTY through path, safe report-derived direction, preview, and confirmation
 skillset reconcile <generated-path> --use output # explicit direction; confirms in a TTY, previews elsewhere
+skillset rename <from> <to>        # preview source rewrites, generated effects, and collisions
+skillset rename <from> <to> --yes  # atomically write source and regenerated outputs
 skillset marketplace update        # choose a configured catalog when needed, preview, and confirm in a TTY
 skillset marketplace update outfitter # explicit catalog; confirms in a TTY, previews elsewhere
 skillset restore <backup>   # preview restoring a generated-output backup; write with --yes
@@ -76,7 +78,7 @@ skillset test --target codex --prompt "..." # run an ad hoc provider test
 skillset test status        # inspect the retained ad hoc test lifecycle (also: tail, list)
 ```
 
-`init`, `create`, and `build` are plan-first: they print pending filesystem changes and write only with `--yes`. `skillset check` is read-only by default and combines source diagnostics with generated-output readiness. `check --only outputs` is the narrow freshness check. `check --write` repairs only source-driven drift: it refuses managed target-side edits and provider-format migrations, which must be reconciled or applied through `skillset update`. `check --ci` adds branch-aware Skillset change-entry and package Changesets gates; CI uses `--fix`, not `--write`, and may also emit a Markdown report with `--report`. Removed top-level readiness commands have no compatibility aliases. `skillset init --include ci` scaffolds the corresponding workflow (see [CI](docs/features/ci.md)).
+`init`, `create`, `build`, and `rename` are plan-first: they print pending filesystem changes and write only with `--yes`. Rename accepts one source file or complete skill root, rejects boundary-crossing moves, rewrites schema-known references, and commits source plus regenerated outputs through one rollback-capable transaction. `skillset check` is read-only by default and combines source diagnostics with generated-output readiness. `check --only outputs` is the narrow freshness check. `check --write` repairs only source-driven drift: it refuses managed target-side edits and provider-format migrations, which must be reconciled or applied through `skillset update`. `check --ci` adds branch-aware Skillset change-entry and package Changesets gates; CI uses `--fix`, not `--write`, and may also emit a Markdown report with `--report`. Removed top-level readiness commands have no compatibility aliases. `skillset init --include ci` scaffolds the corresponding workflow (see [CI](docs/features/ci.md)).
 
 Inspection stays split by question: `status` summarizes current workspace health, `list` inventories generated entries, `explain` traces one path's provenance, and `lookup` answers static contract questions such as `lookup features`. Bare `skillset lookup` guides TTY users through registry-owned subjects, applicable views, compatibility targets, and searchable schema field paths, then prints the ordinary lookup report once. Explicit flags, JSON, pipes, and non-TTY execution remain prompt-free.
 

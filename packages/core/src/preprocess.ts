@@ -52,6 +52,23 @@ export async function preprocessText(
   return restoreTripleBraceTokens(expanded, escapedTokens);
 }
 
+export async function resolveMarkedPathReferences(
+  content: string,
+  context: PreprocessContext
+): Promise<string> {
+  if (isPreprocessDisabled(context.frontmatter)) {
+    return normalizeText(content);
+  }
+
+  const escapedTokens: string[] = [];
+  const normalized = escapeTripleBraceTokens(
+    normalizeText(content),
+    escapedTokens
+  );
+  const expanded = await expandPartials(normalized, context, "references-only");
+  return restoreTripleBraceTokens(expanded, escapedTokens);
+}
+
 export function formatPreprocessDependency(rootPath: string, dependency: string): string {
   if (isTreePreprocessDependency(dependency)) return dependency;
   return normalizePath(relative(rootPath, dependency));
@@ -91,7 +108,11 @@ export function isPreprocessDisabled(frontmatter: JsonRecord): boolean {
   );
 }
 
-async function expandPartials(content: string, context: PreprocessContext): Promise<string> {
+async function expandPartials(
+  content: string,
+  context: PreprocessContext,
+  mode: "all" | "references-only" = "all"
+): Promise<string> {
   const partialPattern = /\{\{\s*(?:>\s*([^}\s]+)|([^}\s]+))\s*\}\}/g;
   let expanded = "";
   let cursor = 0;
@@ -99,7 +120,9 @@ async function expandPartials(content: string, context: PreprocessContext): Prom
   for (const match of content.matchAll(partialPattern)) {
     const [token, namedSpecifier, specifier] = match;
     expanded += content.slice(cursor, match.index);
-    if (namedSpecifier !== undefined) {
+    if (mode === "references-only" && !specifier?.startsWith("@")) {
+      expanded += token;
+    } else if (namedSpecifier !== undefined) {
       expanded += await readPartial(namedSpecifier, context, "named");
     } else if (
       specifier !== undefined &&

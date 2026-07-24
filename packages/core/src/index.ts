@@ -211,6 +211,19 @@ export {
   type SkillsetSourceReadinessData,
 } from "./source-readiness";
 export {
+  planSourceRename,
+  renameSource,
+  SourceRenamePlanError,
+  type SourceRenameApplyRequest,
+  type SourceRenameKind,
+  type SourceRenameMoveOperation,
+  type SourceRenameOperation,
+  type SourceRenamePlan,
+  type SourceRenameReport,
+  type SourceRenameRequest,
+  type SourceRenameUpdateOperation,
+} from "./source-rename";
+export {
   listLookupFields,
   listLookupSubjects,
   listLookupViews,
