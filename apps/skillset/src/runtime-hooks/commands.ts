@@ -2,6 +2,7 @@ import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 import { gitSafeEnv } from "../git-env";
+import { SUPPRESS_WORKSPACE_REGISTRATION_ENV } from "../verification-sandbox";
 
 export interface ResolvedSkillsetCommand {
   readonly argv: readonly string[];
@@ -12,6 +13,7 @@ export interface RunSkillsetCommandOptions {
   readonly allowFailure: boolean;
   readonly env?: Record<string, string | undefined>;
   readonly rootPath: string;
+  readonly suppressWorkspaceRegistration?: true;
 }
 
 export type RunSkillsetCommand = (
@@ -45,7 +47,13 @@ export async function runSkillsetCommand(
   options: RunSkillsetCommandOptions
 ): Promise<number> {
   const command = await resolveSkillsetCommand(options.rootPath, options.env);
-  const env = gitSafeEnv({ ...process.env, ...options.env });
+  const env = gitSafeEnv({
+    ...process.env,
+    ...options.env,
+    ...(options.suppressWorkspaceRegistration
+      ? { [SUPPRESS_WORKSPACE_REGISTRATION_ENV]: "1" }
+      : {}),
+  });
   const exitCode = command.kind === "shell"
     ? await runShell(command.argv[0] ?? "", args, { cwd: options.rootPath, env })
     : await runArgv([...command.argv, ...args], { cwd: options.rootPath, env });

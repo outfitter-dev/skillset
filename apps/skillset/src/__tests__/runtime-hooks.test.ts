@@ -115,6 +115,7 @@ test("post-tool-use is advisory and only runs status when Skillset source change
   expect(changed.exitCode).toBe(0);
   expect(changed.ranCommands).toEqual(["change status --root ."]);
   expect(runner.calls.map((call) => call.args)).toEqual([["change", "status", "--root", "."]]);
+  expect(runner.calls[0]?.options.suppressWorkspaceRegistration).toBeUndefined();
 });
 
 test("stop hook runs change coverage then comprehensive check and propagates failures", async () => {
@@ -148,6 +149,9 @@ test("stop hook runs change coverage then comprehensive check and propagates fai
     ["change", "check", "--root", "."],
     ["check", "--root", "."],
   ]);
+  expect(
+    passes.calls.map((call) => call.options.suppressWorkspaceRegistration)
+  ).toEqual([true, true]);
 });
 
 test("source gate failures are soft for post-tool-use and blocking for stop", async () => {

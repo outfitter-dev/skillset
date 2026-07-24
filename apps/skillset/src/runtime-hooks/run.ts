@@ -62,12 +62,28 @@ export async function runHookEvent(
 
   const changeCheckArgs = ["change", "check", "--root", "."] as const;
   ranCommands.push(changeCheckArgs.join(" "));
-  const changeCheck = await runner(changeCheckArgs, commandOptions({ allowFailure: false, options, rootPath }));
+  const changeCheck = await runner(
+    changeCheckArgs,
+    commandOptions({
+      allowFailure: false,
+      options,
+      rootPath,
+      suppressWorkspaceRegistration: true,
+    })
+  );
   if (changeCheck !== 0) return result({ context, event, exitCode: changeCheck, gate, ranCommands });
 
   const checkArgs = ["check", "--root", "."] as const;
   ranCommands.push(checkArgs.join(" "));
-  const check = await runner(checkArgs, commandOptions({ allowFailure: false, options, rootPath }));
+  const check = await runner(
+    checkArgs,
+    commandOptions({
+      allowFailure: false,
+      options,
+      rootPath,
+      suppressWorkspaceRegistration: true,
+    })
+  );
   return result({ context, event, exitCode: check, gate, ranCommands });
 }
 
@@ -75,11 +91,15 @@ function commandOptions(args: {
   readonly allowFailure: boolean;
   readonly options: HookRunOptions;
   readonly rootPath: string;
+  readonly suppressWorkspaceRegistration?: true;
 }) {
   return {
     allowFailure: args.allowFailure,
     ...(args.options.env === undefined ? {} : { env: args.options.env }),
     rootPath: args.rootPath,
+    ...(args.suppressWorkspaceRegistration
+      ? { suppressWorkspaceRegistration: true as const }
+      : {}),
   };
 }
 

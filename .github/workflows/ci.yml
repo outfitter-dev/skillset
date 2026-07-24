@@ -98,7 +98,7 @@ jobs:
         id: skillset
         if: steps.stack.outputs.skip_skillset_ci != 'true' && (github.event_name != 'workflow_dispatch' || github.ref != 'refs/heads/changeset-release/main')
         run: >-
-          bun ./apps/skillset/src/cli.ts check --ci
+          bun run test:sandbox -- bun ./apps/skillset/src/cli.ts check --ci
           ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && '--fix' || '' }}
           --report "$RUNNER_TEMP/skillset-ci-report.md"
         continue-on-error: true

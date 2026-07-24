@@ -7,6 +7,21 @@ import path from "node:path";
 const EXPECT = "/usr/bin/expect";
 const CLI = path.join(import.meta.dir, "..", "cli.ts");
 
+test("SET-388: PTY children preserve runner-owned XDG roots", () => {
+  const inherited = {
+    SKILLSET_TEST_SANDBOX: "/tmp/skillset-test-owned/descriptor.json",
+    XDG_CACHE_HOME: "/tmp/skillset-test-owned/xdg/cache",
+    XDG_CONFIG_HOME: "/tmp/skillset-test-owned/xdg/config",
+    XDG_DATA_HOME: "/tmp/skillset-test-owned/xdg/data",
+    XDG_STATE_HOME: "/tmp/skillset-test-owned/xdg/state",
+  };
+
+  expect(ptyChildEnv("/tmp/legacy-config", inherited)).toMatchObject(inherited);
+  expect(
+    ptyChildEnv("/tmp/legacy-config", {}).XDG_CONFIG_HOME
+  ).toBe("/tmp/legacy-config");
+});
+
 test.skipIf(!existsSync(EXPECT))(
   "SET-298: controlled source-creation PTYs preserve default-No and cancellation before a checked write",
   async () => {
@@ -278,6 +293,7 @@ async function runExpect(
   readonly stderr: string;
   readonly stdout: string;
 }> {
+  const childEnv = ptyChildEnv(xdgRoot);
   const script = [
     "set timeout 15",
     `spawn -noecho /bin/sh -c "stty columns ${columns} rows 24; exec env CI=false NO_COLOR=1 TERM=xterm XDG_CONFIG_HOME=$env(XDG_ROOT) bun $env(SKILLSET_CLI) create $env(CREATE_NAME) --root $env(PARENT_ROOT) --targets codex --include ci"`,
@@ -287,11 +303,11 @@ async function runExpect(
   ].join("\n");
   const proc = Bun.spawn([EXPECT, "-c", script], {
     env: {
-      ...process.env,
+      ...childEnv,
       CREATE_NAME: name,
       PARENT_ROOT: parent,
       SKILLSET_CLI: CLI,
-      XDG_ROOT: xdgRoot,
+      XDG_ROOT: childEnv.XDG_CONFIG_HOME ?? xdgRoot,
     },
     stderr: "pipe",
     stdout: "pipe",
@@ -315,6 +331,7 @@ async function runSurfaceExpect(
   readonly stderr: string;
   readonly stdout: string;
 }> {
+  const childEnv = ptyChildEnv(xdgRoot);
   const script = [
     "set timeout 15",
     `spawn -noecho /bin/sh -c "stty columns ${columns} rows 24; exec env CI=false NO_COLOR=1 TERM=xterm XDG_CONFIG_HOME=$env(XDG_ROOT) bun $env(SKILLSET_CLI) ${cliArguments}"`,
@@ -324,10 +341,10 @@ async function runSurfaceExpect(
   ].join("\n");
   const proc = Bun.spawn([EXPECT, "-c", script], {
     env: {
-      ...process.env,
+      ...childEnv,
       SKILLSET_CLI: CLI,
       WORKSPACE_ROOT: root,
-      XDG_ROOT: xdgRoot,
+      XDG_ROOT: childEnv.XDG_CONFIG_HOME ?? xdgRoot,
     },
     stderr: "pipe",
     stdout: "pipe",
@@ -349,7 +366,7 @@ async function runCli(
   readonly stdout: string;
 }> {
   const proc = Bun.spawn(["bun", CLI, ...args], {
-    env: { ...process.env, XDG_CONFIG_HOME: xdgRoot },
+    env: ptyChildEnv(xdgRoot),
     stderr: "pipe",
     stdout: "pipe",
   });
@@ -359,4 +376,12 @@ async function runCli(
     proc.exited,
   ]);
   return { exitCode, stderr, stdout };
+}
+
+function ptyChildEnv(
+  fallbackConfigHome: string,
+  env: Record<string, string | undefined> = process.env
+): Record<string, string | undefined> {
+  if (env.SKILLSET_TEST_SANDBOX?.trim()) return { ...env };
+  return { ...env, XDG_CONFIG_HOME: fallbackConfigHome };
 }

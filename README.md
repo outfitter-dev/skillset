@@ -149,6 +149,14 @@ installs, `npx`, or `bunx`; the pin is for reproducible repo bootstrap and CI.
 
 The optional Lefthook setup mirrors the repo's local review gates, and `lefthook.yml` is their single source of truth. Pre-commit uses `bun run skillset:check:outputs`; pre-push runs the repo aggregate and `bun run skillset:check:ci:report`. Both range gates resolve the trunk via `scripts/git-trunk.sh` (`origin/HEAD`, typically `origin/main`).
 
+Repository verification commands run through `bun run test:sandbox`, which
+creates one owned temporary sandbox per top-level invocation, preserves `HOME`,
+and replaces `XDG_CONFIG_HOME`, `XDG_CACHE_HOME`, `XDG_DATA_HOME`, and
+`XDG_STATE_HOME`. Nested checks reuse the validated descriptor named by
+`SKILLSET_TEST_SANDBOX`. Use `bun run test:focused -- <test-files...>` for a
+focused test run. For debugging only, `SKILLSET_TEST_SANDBOX_RETAIN=1` retains
+the sandbox and prints both its path and descriptor path.
+
 Ultracite is installed with the documented Oxlint/Oxfmt provider setup (`oxlint.config.ts` extending `ultracite/oxlint/core`, `oxfmt.config.ts` extending `ultracite/oxfmt`). `bun run ultracite:doctor` is part of `bun run check` and must stay clean. `bun run ultracite:check` and `bun run ultracite:fix` are available for the strict formatting/lint cleanup pass, but they are not yet gating the repo because the first strict run has existing formatting and rule findings to resolve deliberately.
 
 Initialize Skillset source in an existing repo:

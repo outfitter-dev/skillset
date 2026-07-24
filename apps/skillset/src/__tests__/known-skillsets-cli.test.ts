@@ -127,6 +127,108 @@ test("SET-384: a successful command preserves and recovers a malformed managed i
   });
 });
 
+test("SET-388: direct test-mode checks refuse user-state mutation without a valid marker", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-known-hermetic-cli-"));
+  const xdgConfigHome = join(root, "xdg-config");
+  const indexPath = join(xdgConfigHome, "skillset", "skillsets.json");
+  const workspace = join(root, "workspace");
+  const decoy = Buffer.from('{"schemaVersion":1,"skillsets":[]}\n');
+  await writeWorkspace(workspace);
+  await mkdir(join(xdgConfigHome, "skillset"), { recursive: true });
+  await writeFile(indexPath, decoy);
+
+  const checked = await runSkillsetCli(
+    {
+      NODE_ENV: "test",
+      SKILLSET_TEST_SANDBOX: "",
+      XDG_CONFIG_HOME: xdgConfigHome,
+    },
+    "build",
+    "--yes",
+    "--root",
+    workspace
+  );
+
+  expect(checked.exitCode).toBe(1);
+  expect(`${checked.stdout}${checked.stderr}`).toContain("NODE_ENV=test requires");
+  expect(`${checked.stdout}${checked.stderr}`).toContain("bun run test:sandbox");
+  expect(await readFile(indexPath)).toEqual(decoy);
+  expect(await readdir(join(xdgConfigHome, "skillset"))).toEqual([
+    "skillsets.json",
+  ]);
+});
+
+test("SET-388: a valid sandbox marker registers only in isolated XDG state", async () => {
+  const sandbox = await mkdtemp(join(tmpdir(), "skillset-test-cli-registration-"));
+  const xdg = {
+    cache: join(sandbox, "xdg", "cache"),
+    config: join(sandbox, "xdg", "config"),
+    data: join(sandbox, "xdg", "data"),
+    state: join(sandbox, "xdg", "state"),
+  };
+  await Promise.all(Object.values(xdg).map((path) => mkdir(path, { recursive: true })));
+  const marker = join(sandbox, "descriptor.json");
+  await writeFile(marker, JSON.stringify({
+    createdAt: new Date().toISOString(),
+    invocationId: crypto.randomUUID(),
+    repoRoot: await realpath(process.cwd()),
+    sandboxPath: await realpath(sandbox),
+    schemaVersion: 1,
+  }));
+  const workspace = join(sandbox, "workspace");
+  await writeWorkspace(workspace);
+
+  const checked = await runSkillsetCli(
+    {
+      NODE_ENV: "test",
+      SKILLSET_TEST_SANDBOX: marker,
+      XDG_CACHE_HOME: xdg.cache,
+      XDG_CONFIG_HOME: xdg.config,
+      XDG_DATA_HOME: xdg.data,
+      XDG_STATE_HOME: xdg.state,
+    },
+    "build",
+    "--yes",
+    "--root",
+    workspace
+  );
+
+  expect(checked.exitCode, `${checked.stdout}${checked.stderr}`).toBe(0);
+  const index = JSON.parse(
+    await readFile(join(xdg.config, "skillset", "skillsets.json"), "utf8")
+  ) as { readonly skillsets: readonly { readonly path: string }[] };
+  expect(index.skillsets.map((entry) => entry.path)).toEqual([
+    await realpath(workspace),
+  ]);
+});
+
+test("SET-388: malformed sandbox markers fail before the registration warning boundary", async () => {
+  const root = await mkdtemp(join(tmpdir(), "skillset-known-marker-cli-"));
+  const marker = join(root, "descriptor.json");
+  const workspace = join(root, "workspace");
+  await writeWorkspace(workspace);
+  await writeFile(marker, "{");
+
+  const checked = await runSkillsetCli(
+    {
+      NODE_ENV: "test",
+      SKILLSET_TEST_SANDBOX: marker,
+    },
+    "build",
+    "--yes",
+    "--root",
+    workspace
+  );
+
+  expect(checked.exitCode).toBe(1);
+  expect(`${checked.stdout}${checked.stderr}`).toContain(
+    "invalid SKILLSET_TEST_SANDBOX descriptor JSON"
+  );
+  expect(`${checked.stdout}${checked.stderr}`).not.toContain(
+    "warning: could not update known Skillsets index"
+  );
+});
+
 async function writeWorkspace(root: string): Promise<void> {
   await mkdir(join(root, ".skillset/skills/demo"), { recursive: true });
   await writeFile(join(root, "skillset.yaml"), `
@@ -155,7 +257,12 @@ async function runSkillsetCli(
 }> {
   const proc = Bun.spawn({
     cmd: ["bun", join(import.meta.dir, "..", "cli.ts"), ...args],
-    env: { ...process.env, ...env },
+    env: {
+      ...process.env,
+      NODE_ENV: "development",
+      SKILLSET_TEST_SANDBOX: "",
+      ...env,
+    },
     stderr: "pipe",
     stdout: "pipe",
   });

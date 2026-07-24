@@ -26,6 +26,12 @@ Use this skill when working on the local `skillset` compiler from a Claude-orien
 5. Verify with `bun run skillset:check`, `bun run skillset:check:outputs`, and `bun run check`.
 6. If generated output is stale, rebuild from source and inspect the generated diff before committing.
 
+Run focused tests with `bun run test:focused -- <test-files...>`. Repository
+verification entrypoints create one per-invocation sandbox, preserve `HOME`,
+isolate all four XDG roots, and reuse the validated sandbox in nested commands
+through `SKILLSET_TEST_SANDBOX`. Set `SKILLSET_TEST_SANDBOX_RETAIN=1` only
+while debugging; the runner prints the retained sandbox and descriptor paths.
+
 ## Review Focus
 
 - Schema and resolver behavior should reject ambiguous source contracts, and shared structural validation should live in `@skillset/schema` rather than parallel compiler or Workbench field lists.
