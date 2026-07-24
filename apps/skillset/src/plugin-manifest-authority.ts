@@ -21,6 +21,7 @@ export interface PortablePluginMetadataConflict {
 export const NATIVE_LISTING_METADATA_FIELDS = [
   "listing.category",
   "listing.display_name",
+  "listing.keywords",
   "listing.logo",
 ] as const;
 
@@ -72,6 +73,9 @@ function nativeListingMetadataValue(
   field: NativeListingMetadataField
 ): JsonValue | undefined {
   const listingField = field.slice("listing.".length);
+  if (listingField === "keywords") {
+    return provider === "cursor" ? manifest.tags : manifest.keywords;
+  }
   if (provider === "codex") {
     const interfaceMetadata = asRecord(manifest.interface);
     if (listingField === "display_name") return interfaceMetadata?.displayName;

@@ -1038,7 +1038,8 @@ function importedManifestOverride(
       delete override.displayName;
     if (!hasListingConflict(listingConflicts, "listing.logo"))
       delete override.logo;
-    delete override.tags;
+    if (!hasListingConflict(listingConflicts, "listing.keywords"))
+      delete override.tags;
   }
   const nativeDescription = readString(manifest, "description");
   if (
@@ -1144,7 +1145,9 @@ function importedListing(
     screenshots: copyJsonStringArray(
       (codexInterface ?? {}).screenshots
     ),
-    keywords: copyJsonStringArray((cursorManifest ?? {}).tags),
+    keywords: hasListingConflict(conflicts, "listing.keywords")
+      ? undefined
+      : copyJsonStringArray((cursorManifest ?? {}).tags),
   };
   return Object.values(listing).some((value) => value !== undefined)
     ? listing

@@ -215,9 +215,11 @@ test("SET-369: conflicting native listing metadata stays a provider-specific war
         category: "productivity",
         developerName: "Codex Author",
       },
+      keywords: ["portable"],
     }),
     "plugins/demo/.cursor-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
       category: "development",
+      tags: ["cursor-only"],
     }),
     "plugins/demo/skills/helper/SKILL.md": skill("shared"),
   });
@@ -230,6 +232,7 @@ test("SET-369: conflicting native listing metadata stays a provider-specific war
       code: "plugin-listing-conflict",
       evidence: [
         "native listing.category differs across codex, cursor",
+        "native listing.keywords differs across codex, cursor",
       ],
       paths: ["plugins/demo"],
       severity: "warning",
@@ -253,6 +256,36 @@ test("SET-369: conflicting native listing metadata stays a provider-specific war
   expect(importedConfig).toContain("developerName: Codex Author");
   expect(importedConfig).toContain("cursor:");
   expect(importedConfig).toContain("category: development");
+  expect(importedConfig).toContain("keywords:");
+  expect(importedConfig).toContain("- portable");
+  expect(importedConfig).toContain("tags:");
+  expect(importedConfig).toContain("- cursor-only");
+
+  await buildSkillset(root, { isolated: true });
+  const generatedRoot = resolveOperationalPath(
+    createOperationalPathContext(root),
+    ISOLATED_OUT_ROOT
+  );
+  const codexManifest = JSON.parse(
+    await readFile(
+      join(
+        generatedRoot,
+        "plugins/demo/codex/.codex-plugin/plugin.json"
+      ),
+      "utf8"
+    )
+  ) as { keywords?: string[] };
+  const cursorManifest = JSON.parse(
+    await readFile(
+      join(
+        generatedRoot,
+        "plugins/demo/cursor/.cursor-plugin/plugin.json"
+      ),
+      "utf8"
+    )
+  ) as { tags?: string[] };
+  expect(codexManifest.keywords).toEqual(["portable"]);
+  expect(cursorManifest.tags).toEqual(["cursor-only"]);
 });
 
 test("SET-369: native Codex developerName conflicts warn and stay provider-specific", async () => {
