@@ -13,6 +13,7 @@ export {
   SOURCE_LICENSE_IDS,
   SOURCE_LICENSE_NONE,
   SOURCE_METADATA_KEYS,
+  SOURCE_LISTING_KEYS,
   SINGLE_FILE_ROOT_CONFIG_KEYS,
   SPLIT_WORKSPACE_CONFIG_KEYS,
   TARGET_NAMES,
@@ -34,6 +35,7 @@ export {
   workspaceConfigContract,
 } from "./contracts";
 export { skillsetSchemaExamples } from "./examples";
+export { diagnoseSourceMetadataCompatibility } from "./source-metadata-compatibility";
 export {
   deriveSkillsetJsonSchemaArtifacts,
   getSkillsetJsonSchemaArtifact,

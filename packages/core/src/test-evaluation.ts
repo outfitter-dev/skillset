@@ -2,13 +2,15 @@ import { cp, mkdir, readdir, readFile, rm, stat } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 
 import { buildSkillset, diffSkillset } from "./build";
-import { readRecord, readString } from "./config";
+import { readRecord, readString, readStringArray } from "./config";
 import { compareStrings, resolveInside } from "./path";
 import {
   pluginManifestPath as pluginManifestOutputPath,
   pluginTargetRoot,
 } from "./plugin-output";
 import { loadBuildGraph } from "./resolver";
+import { readAuthorName } from "./source-author";
+import { readSourceListing } from "./source-listing";
 import { targetDescriptor } from "./targets";
 import {
   type SkillsetActivationExpectation,
@@ -256,14 +258,40 @@ function expectedPluginManifestFields(
   const portableManifest = readRecord(metadata, "manifest") ?? {};
   const targetManifest =
     readRecord(plugin.targets[target].options, "manifest") ?? {};
+  const listing = readSourceListing(metadata);
+  const description =
+    readString(listing, "summary") ??
+    readString(listing, "description") ??
+    readString(metadata, "description") ??
+    plugin.id;
+  if (target === "cursor") {
+    const tags =
+      readStringArray(portableManifest, "tags") ??
+      readStringArray(listing, "keywords");
+    return stripUndefinedRecord({
+      name: readString(portableManifest, "name") ?? plugin.id,
+      description,
+      displayName:
+        readString(portableManifest, "displayName") ??
+        readString(listing, "display_name"),
+      category:
+        readString(portableManifest, "category") ??
+        readString(listing, "category"),
+      logo:
+        readString(portableManifest, "logo") ??
+        readString(listing, "logo"),
+      tags: tags === undefined ? undefined : [...tags],
+      ...targetManifest,
+      version: pluginVersion(graph, plugin),
+    });
+  }
   const base = stripUndefinedRecord({
-    author: metadata.author,
-    description:
-      readString(metadata, "summary") ??
-      readString(metadata, "description") ??
-      plugin.id,
+    author:
+      readAuthorName(metadata.author) ??
+      readAuthorName(graph.root.metadata.author),
+    description,
     homepage: metadata.homepage,
-    keywords: metadata.keywords,
+    keywords: listing.keywords ?? metadata.keywords,
     license: metadata.license,
     name: readString(portableManifest, "name") ?? plugin.id,
     repository: metadata.repository,

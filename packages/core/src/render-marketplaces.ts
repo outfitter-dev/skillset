@@ -20,6 +20,11 @@ import {
 } from "./plugin-output";
 import { parseRemoteRepositoryReference } from "./remote-repository-reference";
 import { GENERATED_BY, textFile, type LockRoot } from "./render-support";
+import { readAuthorRecord } from "./source-author";
+import {
+  readListingString,
+  readListingStringArray,
+} from "./source-listing";
 import { renderValidatedJson } from "./structured-output";
 import { targetNames } from "./targets";
 import type {
@@ -88,7 +93,8 @@ export async function renderClaudeMarketplace(
   if (plugins.length === 0) return [];
 
   const root = graph.root.metadata;
-  const owner = readRecord(root, "owner") ?? readRecord(root, "author") ?? {};
+  const owner =
+    readAuthorRecord(root.owner) ?? readAuthorRecord(root.author) ?? {};
   const portableMarketplace = readRecord(root, "marketplace") ?? {};
   const marketplace = mergeRecords(
     {
@@ -100,7 +106,8 @@ export async function renderClaudeMarketplace(
       owner,
       metadata: {
         description:
-          readString(root, "summary") ??
+          readListingString(root, "summary") ??
+          readListingString(root, "description") ??
           readString(root, "description") ??
           "Source-first Skillset plugins",
         version: rootVersion(graph),
@@ -138,19 +145,36 @@ async function renderClaudeMarketplacePlugin(
         plugin.id
       ),
       description:
-        readString(metadata, "summary") ??
+        readListingString(metadata, "summary") ??
+        readListingString(metadata, "description") ??
         readString(metadata, "description") ??
         plugin.id,
       version: pluginVersion(graph, plugin),
-      author: metadata.author,
+      author:
+        readAuthorRecord(metadata.author) ??
+        readAuthorRecord(graph.root.metadata.author),
       repository: metadata.repository,
       license: pluginLicense?.manifestValue,
-      keywords: metadata.keywords,
-      category: metadata.category,
+      keywords:
+        copyOptionalStrings(
+          readListingStringArray(metadata, "keywords") ??
+            (Array.isArray(metadata.keywords)
+              ? metadata.keywords.filter(
+                  (value): value is string => typeof value === "string"
+                )
+              : undefined)
+        ),
+      category: readListingString(metadata, "category"),
       strict: metadata.strict,
     },
     readRecord(plugin.targets.claude.options, "marketplace") ?? {}
   );
+}
+
+function copyOptionalStrings(
+  value: readonly string[] | undefined
+): string[] | undefined {
+  return value === undefined ? undefined : [...value];
 }
 
 export function renderClaudeMarketplaceDocument(
@@ -160,8 +184,8 @@ export function renderClaudeMarketplaceDocument(
   plugins: readonly JsonRecord[]
 ): JsonRecord {
   const root = graph.root.metadata;
-  const owner = readRecord(root, "owner") ??
-    readRecord(root, "author") ?? {
+  const owner = readAuthorRecord(root.owner) ??
+    readAuthorRecord(root.author) ?? {
       name: readString(root, "name") ?? catalogName,
     };
   return {
@@ -173,7 +197,8 @@ export function renderClaudeMarketplaceDocument(
     metadata: {
       description:
         catalog.description ??
-        readString(root, "summary") ??
+        readListingString(root, "summary") ??
+        readListingString(root, "description") ??
         readString(root, "description") ??
         "Source-first Skillset plugins",
       generatedBy: GENERATED_BY,
@@ -249,7 +274,8 @@ export async function renderCursorMarketplace(
             plugin.id
           ).replace(/^\.\//, ""),
           description:
-            readString(metadata, "summary") ??
+            readListingString(metadata, "summary") ??
+            readListingString(metadata, "description") ??
             readString(metadata, "description") ??
             plugin.id,
         },
@@ -261,7 +287,8 @@ export async function renderCursorMarketplace(
   if (plugins.length === 0) return [];
 
   const root = graph.root.metadata;
-  const owner = readRecord(root, "owner") ?? readRecord(root, "author") ?? {};
+  const owner =
+    readAuthorRecord(root.owner) ?? readAuthorRecord(root.author) ?? {};
   const portableMarketplace = readRecord(root, "marketplace") ?? {};
   const marketplace = mergeRecords(
     {
@@ -273,7 +300,8 @@ export async function renderCursorMarketplace(
       owner,
       metadata: {
         description:
-          readString(root, "summary") ??
+          readListingString(root, "summary") ??
+          readListingString(root, "description") ??
           readString(root, "description") ??
           "Source-first Skillset plugins",
       },

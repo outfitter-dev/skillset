@@ -12,11 +12,29 @@ import {
 import { listProviderPluginComponentManifestFields } from "@skillset/registry";
 
 import { seedReleaseBaselines, type ReleaseBaselineEntry } from "./adoption";
-import { readSkillsetMetadata, readSkillsetName, readString, targetNames } from "@skillset/core/internal/config";
+import {
+  readRecord,
+  readSkillsetMetadata,
+  readSkillsetName,
+  readString,
+  targetNames,
+} from "@skillset/core/internal/config";
 import { compareStrings, resolveInside, validateSlug } from "@skillset/core/internal/path";
 import { detectWorkspaceSourceDir } from "@skillset/core/internal/resolver";
-import { selectorForPluginConfig, selectorForPluginFeature, selectorForStandaloneSkill } from "@skillset/core/internal/source-unit-selector";
-import type { JsonRecord, SourceOrigin, TargetName } from "@skillset/core/internal/types";
+import {
+  selectorForPluginConfig,
+  selectorForPluginFeature,
+  selectorForPluginSkill,
+  selectorForStandaloneSkill,
+} from "@skillset/core/internal/source-unit-selector";
+import { readAuthorName } from "@skillset/core/internal/source-author";
+import type {
+  BuildGraph,
+  JsonRecord,
+  SourceOrigin,
+  TargetName,
+} from "@skillset/core/internal/types";
+import { validateVersionField } from "@skillset/core/internal/versioning";
 import {
   stringifyYamlSourceDocument,
   updateMarkdownSourceDocument,
@@ -26,6 +44,9 @@ import { isJsonRecord, parseMarkdown, parseYamlRecord } from "@skillset/core/int
 
 import {
   firstPortablePluginMetadataValue,
+  nativeListingMetadataConflicts,
+  type NativeListingMetadataConflict,
+  type NativeListingMetadataField,
   portablePluginMetadataConflicts,
   PORTABLE_PLUGIN_METADATA_FIELDS,
 } from "./plugin-manifest-authority";
@@ -196,13 +217,14 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
   let committed = false;
 
   try {
-    const copiedFiles = await copyImportSource({
+    const copied = await copyImportSource({
       kind: options.kind,
       name,
       rootPath: options.rootPath,
       sourcePath,
       targetPath: stagingPath,
     });
+    const copiedFiles = copied.files;
     if (options.sourceOrigin !== undefined) {
       await stampImportedOrigins(stagingPath, sourcePath, copiedFiles, options.kind, options.sourceOrigin);
     }
@@ -221,6 +243,9 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
     let baselineReport: { readonly entries: readonly ReleaseBaselineEntry[]; readonly path?: string };
     try {
       baselineReport = await seedImportedBaselines(options.rootPath, {
+        ...(copied.baselineVersion === undefined
+          ? {}
+          : { baselineVersion: copied.baselineVersion }),
         kind: options.kind,
         name,
         sourceDir,
@@ -257,7 +282,7 @@ export async function importSource(options: ImportOptions): Promise<ImportReport
       sourcePath,
       targetPath,
       unsupportedFields: classification.unsupported,
-      warnings: importWarnings(classification),
+      warnings: [...importWarnings(classification), ...copied.warnings],
     };
   } finally {
     if (!committed) {
@@ -292,6 +317,7 @@ function isMissingWorkspace(error: unknown): boolean {
 async function seedImportedBaselines(
   rootPath: string,
   options: {
+    readonly baselineVersion?: string;
     readonly kind: SingularImportKind;
     readonly name: string;
     readonly sourceDir: string;
@@ -301,10 +327,37 @@ async function seedImportedBaselines(
     if (options.kind === "skill") return scope === `skill:${options.name}`;
     return scope === `plugin:${options.name}` || scope.startsWith(`plugin.${options.name}.`);
   };
+  let importedVersion:
+    | ((scope: string, graph: BuildGraph) => string | undefined)
+    | undefined;
+  if (
+    options.kind === "plugin" &&
+    options.baselineVersion !== undefined
+  ) {
+    importedVersion = (scope, graph) => {
+      const plugin = graph.plugins.find((item) => item.id === options.name);
+      const skill = plugin?.skills.find(
+        (item) =>
+          selectorForPluginSkill(options.name, item.id) === scope
+      );
+      return (
+        (skill === undefined
+          ? undefined
+          : readString(skill.frontmatter, "version")) ??
+        options.baselineVersion
+      );
+    };
+  }
   const report = await seedReleaseBaselines(
     rootPath,
     { sourceDir: options.sourceDir },
-    { includeScope, write: true }
+    {
+      includeScope,
+      ...(importedVersion === undefined
+        ? {}
+        : { sourceVersion: importedVersion }),
+      write: true,
+    }
   );
   return {
     entries: report.entries,
@@ -541,7 +594,11 @@ async function copyImportSource(options: {
   readonly rootPath: string;
   readonly sourcePath: string;
   readonly targetPath: string;
-}): Promise<readonly string[]> {
+}): Promise<{
+  readonly baselineVersion?: string;
+  readonly files: readonly string[];
+  readonly warnings: readonly string[];
+}> {
   const { kind, name, rootPath, sourcePath, targetPath } = options;
   const stats = await stat(sourcePath);
   if (stats.isFile()) {
@@ -553,6 +610,8 @@ async function copyImportSource(options: {
   const copyRoot = stats.isFile() ? dirname(sourcePath) : sourcePath;
   const rootPluginImport = kind === "plugin" && await isSamePath(copyRoot, rootPath);
   const copied: string[] = [];
+  let baselineVersion: string | undefined;
+  let warnings: readonly string[] = [];
   const exclude = rootPluginImport ? (path: string) => isRootPluginImportScaffold(copyRoot, path) : undefined;
   for (const file of await collectFiles(copyRoot, exclude)) {
     const relativePath = relativeImportPath(copyRoot, file, kind);
@@ -562,11 +621,17 @@ async function copyImportSource(options: {
   }
 
   if (kind === "plugin" && !(await exists(join(targetPath, "skillset.yaml")))) {
-    await writeImportedPluginConfig(targetPath, name);
+    const importedConfig = await writeImportedPluginConfig(targetPath, name);
+    baselineVersion = importedConfig.baselineVersion;
+    warnings = importedConfig.warnings;
     copied.push("skillset.yaml");
   }
 
-  return copied.sort(compareStrings);
+  return {
+    ...(baselineVersion === undefined ? {} : { baselineVersion }),
+    files: copied.sort(compareStrings),
+    warnings,
+  };
 }
 
 async function stampImportedOrigins(
@@ -834,7 +899,10 @@ async function importChildren(
 async function writeImportedPluginConfig(
   targetPath: string,
   name: string
-): Promise<void> {
+): Promise<{
+  readonly baselineVersion?: string;
+  readonly warnings: readonly string[];
+}> {
   const nativeManifests = await readNativePluginManifests(targetPath);
   const metadataConflicts = portablePluginMetadataConflicts(nativeManifests);
   if (metadataConflicts.length > 0) {
@@ -842,20 +910,58 @@ async function writeImportedPluginConfig(
       `skillset: native plugin manifests disagree on portable metadata: ${metadataConflicts.map((conflict) => conflict.field).join(", ")}`
     );
   }
+  const listingConflicts = nativeListingMetadataConflicts(nativeManifests);
   const firstMetadataValue = (field: (typeof PORTABLE_PLUGIN_METADATA_FIELDS)[number]) =>
     firstPortablePluginMetadataValue(nativeManifests, field);
-  const version = [...nativeManifests.values()]
-    .map((manifest) => readString(manifest, "version"))
-    .find((value) => value !== undefined);
-  // Lift every manifest field the generated projection round-trips, so an
-  // imported plugin compiles back to a manifest substantially identical to
-  // its origin. `version` stays a source fallback: release state owns it once
-  // releases exist (see the field-authority table in docs/features/plugins.md).
+  const nativeVersions = [...nativeManifests.entries()].map(
+    ([provider, manifest]) => ({
+      provider,
+      value: readString(manifest, "version"),
+    })
+  );
+  if (
+    new Set(nativeVersions.map((entry) => entry.value ?? "<missing>")).size > 1
+  ) {
+    throw new Error(
+      `skillset: native plugin manifests disagree on version: ${nativeVersions
+        .map((entry) => `${entry.provider}=${entry.value ?? "missing"}`)
+        .join(", ")}`
+    );
+  }
+  const version = nativeVersions.find((entry) => entry.value !== undefined)
+    ?.value;
+  if (version !== undefined) {
+    validateVersionField(
+      { version },
+      "native plugin manifest version"
+    );
+  }
+  const manifestAuthor = firstMetadataValue("author");
+  const codexDeveloperName = readString(
+    readRecord(nativeManifests.get("codex") ?? {}, "interface") ?? {},
+    "developerName"
+  );
+  const canonicalAuthor = manifestAuthor ?? codexDeveloperName;
+  const canonicalAuthorName = readAuthorName(canonicalAuthor);
+  const developerNameConflict =
+    codexDeveloperName !== undefined &&
+    canonicalAuthorName !== undefined &&
+    codexDeveloperName !== canonicalAuthorName;
+  // Lift every manifest field the generated projection round-trips. The
+  // discovered version is migration input for release-state seeding, not a
+  // second authority in newly synthesized source.
+  const listing = importedListing(nativeManifests, listingConflicts);
+  const description = firstMetadataValue("description");
+  const canonicalManifestDescription =
+    readString(listing ?? {}, "summary") ??
+    readString(listing ?? {}, "description") ??
+    (typeof description === "string" ? description : undefined) ??
+    name;
   const metadata: JsonRecord = {
     name,
-    description: firstMetadataValue("description"),
-    version,
-    author: firstMetadataValue("author"),
+    description,
+    listing,
+    author: canonicalAuthor,
     homepage: firstMetadataValue("homepage"),
     repository: firstMetadataValue("repository"),
     license: firstMetadataValue("license"),
@@ -863,8 +969,27 @@ async function writeImportedPluginConfig(
   };
   const providerOverrides = Object.fromEntries(
     [...nativeManifests.entries()].flatMap(([provider, manifest]) => {
-      const override = importedManifestOverride(provider, manifest);
-      return Object.keys(override).length === 0 ? [] : [[provider, { manifest: override }]];
+      const override = importedManifestOverride(
+        provider,
+        manifest,
+        listingConflicts,
+        canonicalManifestDescription
+      );
+      const providerConfig: Record<string, JsonValue> = {};
+      if (Object.keys(override).length > 0) providerConfig.manifest = override;
+      if (provider === "codex") {
+        const interfaceOverride = importedCodexInterfaceOverride(
+          manifest,
+          listingConflicts,
+          canonicalAuthorName
+        );
+        if (Object.keys(interfaceOverride).length > 0) {
+          providerConfig.interface = interfaceOverride;
+        }
+      }
+      return Object.keys(providerConfig).length === 0
+        ? []
+        : [[provider, providerConfig]];
     })
   );
   await writeFile(
@@ -874,9 +999,28 @@ async function writeImportedPluginConfig(
       ...providerOverrides,
     })
   );
+  return {
+    ...(version === undefined ? {} : { baselineVersion: version }),
+    warnings: [
+      ...listingConflicts.map(
+        (conflict) =>
+          `Native ${conflict.field} differs across ${conflict.providers.join(", ")}; Skillset preserved provider-specific values instead of choosing a canonical listing value.`
+    ),
+      ...(developerNameConflict
+        ? [
+            `Native Codex interface.developerName differs from canonical author.name; Skillset preserved the Codex-specific value instead of choosing a canonical author.`,
+          ]
+        : []),
+    ],
+  };
 }
 
-function importedManifestOverride(provider: TargetName, manifest: JsonRecord): JsonRecord {
+function importedManifestOverride(
+  provider: TargetName,
+  manifest: JsonRecord,
+  listingConflicts: readonly NativeListingMetadataConflict[],
+  canonicalManifestDescription: string
+): JsonRecord {
   const override: Record<string, JsonValue> = {};
   for (const [key, value] of Object.entries(manifest)) {
     if (!SOURCE_OWNED_PLUGIN_MANIFEST_FIELDS.has(key) && value !== undefined) {
@@ -886,7 +1030,145 @@ function importedManifestOverride(provider: TargetName, manifest: JsonRecord): J
   for (const field of listProviderPluginComponentManifestFields(provider)) {
     removeManifestField(override, field.split("."));
   }
+  if (provider === "codex") delete override.interface;
+  if (provider === "cursor") {
+    if (!hasListingConflict(listingConflicts, "listing.category"))
+      delete override.category;
+    if (!hasListingConflict(listingConflicts, "listing.display_name"))
+      delete override.displayName;
+    if (!hasListingConflict(listingConflicts, "listing.logo"))
+      delete override.logo;
+    if (!hasListingConflict(listingConflicts, "listing.keywords"))
+      delete override.tags;
+  }
+  const nativeDescription = readString(manifest, "description");
+  if (
+    nativeDescription !== undefined &&
+    nativeDescription !== canonicalManifestDescription
+  ) {
+    override.description = nativeDescription;
+  }
   return override;
+}
+
+const LIFTED_CODEX_INTERFACE_FIELDS: ReadonlySet<string> = new Set([
+  "brandColor",
+  "capabilities",
+  "category",
+  "composerIcon",
+  "defaultPrompt",
+  "displayName",
+  "logo",
+  "longDescription",
+  "privacyPolicyURL",
+  "screenshots",
+  "shortDescription",
+  "termsOfServiceURL",
+  "websiteURL",
+]);
+
+function importedCodexInterfaceOverride(
+  manifest: JsonRecord,
+  listingConflicts: readonly NativeListingMetadataConflict[],
+  canonicalAuthorName: string | undefined
+): JsonRecord {
+  const nativeInterface = readRecord(manifest, "interface") ?? {};
+  return Object.fromEntries(
+    Object.entries(nativeInterface).filter(
+      ([field, value]) =>
+        !(
+          field === "developerName" &&
+          typeof value === "string" &&
+          value === canonicalAuthorName
+        ) &&
+        (shouldKeepCodexInterfaceField(field, listingConflicts) ||
+          !LIFTED_CODEX_INTERFACE_FIELDS.has(field)) &&
+        value !== undefined
+    )
+  );
+}
+
+function shouldKeepCodexInterfaceField(
+  field: string,
+  conflicts: readonly NativeListingMetadataConflict[]
+): boolean {
+  if (field === "category")
+    return hasListingConflict(conflicts, "listing.category");
+  if (field === "displayName")
+    return hasListingConflict(conflicts, "listing.display_name");
+  if (field === "logo")
+    return hasListingConflict(conflicts, "listing.logo");
+  return false;
+}
+
+function importedListing(
+  manifests: ReadonlyMap<TargetName, JsonRecord>,
+  conflicts: readonly NativeListingMetadataConflict[]
+): JsonRecord | undefined {
+  const codexInterface = readRecord(manifests.get("codex") ?? {}, "interface");
+  const cursorManifest = manifests.get("cursor");
+  const listing: JsonRecord = {
+    display_name:
+      hasListingConflict(conflicts, "listing.display_name")
+        ? undefined
+        : readString(codexInterface ?? {}, "displayName") ??
+          readString(cursorManifest ?? {}, "displayName"),
+    summary: readString(codexInterface ?? {}, "shortDescription"),
+    description: readString(codexInterface ?? {}, "longDescription"),
+    category:
+      hasListingConflict(conflicts, "listing.category")
+        ? undefined
+        : readString(codexInterface ?? {}, "category") ??
+          readString(cursorManifest ?? {}, "category"),
+    capabilities: copyJsonStringArray(
+      (codexInterface ?? {}).capabilities
+    ),
+    color: readString(codexInterface ?? {}, "brandColor"),
+    website_url: readString(codexInterface ?? {}, "websiteURL"),
+    privacy_policy_url: readString(
+      codexInterface ?? {},
+      "privacyPolicyURL"
+    ),
+    terms_of_service_url: readString(
+      codexInterface ?? {},
+      "termsOfServiceURL"
+    ),
+    default_prompt: copyJsonStringArray(
+      (codexInterface ?? {}).defaultPrompt
+    ),
+    composer_icon: readString(codexInterface ?? {}, "composerIcon"),
+    logo:
+      hasListingConflict(conflicts, "listing.logo")
+        ? undefined
+        : readString(codexInterface ?? {}, "logo") ??
+          readString(cursorManifest ?? {}, "logo"),
+    screenshots: copyJsonStringArray(
+      (codexInterface ?? {}).screenshots
+    ),
+    keywords: hasListingConflict(conflicts, "listing.keywords")
+      ? undefined
+      : copyJsonStringArray((cursorManifest ?? {}).tags) ??
+        copyJsonStringArray(
+          firstPortablePluginMetadataValue(manifests, "keywords")
+        ),
+  };
+  return Object.values(listing).some((value) => value !== undefined)
+    ? listing
+    : undefined;
+}
+
+function hasListingConflict(
+  conflicts: readonly NativeListingMetadataConflict[],
+  field: NativeListingMetadataField
+): boolean {
+  return conflicts.some((conflict) => conflict.field === field);
+}
+
+function copyJsonStringArray(value: JsonValue | undefined): string[] | undefined {
+  if (!Array.isArray(value) || !value.every((item) => typeof item === "string")) {
+    return undefined;
+  }
+  return [...value];
 }
 
 function removeManifestField(record: Record<string, JsonValue>, path: readonly string[]): void {

@@ -10,6 +10,7 @@ import {
   SOURCE_LICENSE_IDS,
   SOURCE_LICENSE_NONE,
   SOURCE_METADATA_KEYS,
+  SOURCE_LISTING_KEYS,
   TARGET_NAMES,
   UNSUPPORTED_DESTINATION_POLICIES,
 } from "./contracts";
@@ -30,6 +31,7 @@ const splitWorkspaceConfigKeys = new Set<string>(SPLIT_WORKSPACE_CONFIG_KEYS);
 const rootSourceManifestKeys = new Set<string>(ROOT_SOURCE_MANIFEST_KEYS);
 const pluginConfigKeys = new Set<string>(PLUGIN_CONFIG_KEYS);
 const sourceMetadataKeys = new Set<string>(SOURCE_METADATA_KEYS);
+const sourceListingKeys = new Set<string>(SOURCE_LISTING_KEYS);
 const agentFrontmatterKeys = new Set<string>(AGENT_FRONTMATTER_KEYS);
 const targetNames = new Set<string>(TARGET_NAMES);
 const targetListText = formatList(TARGET_NAMES);
@@ -903,6 +905,7 @@ function checkSourceMetadata(value: SchemaJsonValue | undefined, path: string, d
   checkOptionalNonEmptyString(value.description, `${path}.description`, "schema/source-metadata/description", diagnostics);
   checkOptionalString(value.homepage, `${path}.homepage`, "schema/source-metadata/homepage", diagnostics);
   checkOptionalLicense(value.license, `${path}.license`, diagnostics);
+  checkSourceListing(value.listing, `${path}.listing`, diagnostics);
   checkOptionalObject(value.manifest, `${path}.manifest`, "schema/source-metadata/manifest", diagnostics);
   checkOptionalObject(value.marketplace, `${path}.marketplace`, "schema/source-metadata/marketplace", diagnostics);
   checkSourceOrigin(value.origin, `${path}.origin`, diagnostics);
@@ -920,6 +923,33 @@ function checkSourceMetadata(value: SchemaJsonValue | undefined, path: string, d
     diagnostics.push(diagnostic(`${path}.strict`, "schema/source-metadata/strict", `${path}.strict must be a boolean`));
   }
   checkOptionalStringArray(value.keywords, `${path}.keywords`, "schema/source-metadata/keywords", diagnostics);
+}
+
+function checkSourceListing(
+  value: SchemaJsonValue | undefined,
+  path: string,
+  diagnostics: SkillsetSchemaDiagnostic[]
+): void {
+  if (value === undefined) return;
+  if (!isSchemaRecord(value)) {
+    diagnostics.push(diagnostic(path, "schema/source-metadata/listing", "listing must be an object"));
+    return;
+  }
+  checkAllowedKeys(value, sourceListingKeys, path, "schema/source-metadata/listing-key", diagnostics);
+  checkOptionalNonEmptyStringArray(value.capabilities, `${path}.capabilities`, "schema/source-metadata/listing-capabilities", diagnostics);
+  checkOptionalNonEmptyString(value.category, `${path}.category`, "schema/source-metadata/listing-category", diagnostics);
+  checkOptionalNonEmptyString(value.color, `${path}.color`, "schema/source-metadata/listing-color", diagnostics);
+  checkOptionalNonEmptyString(value.composer_icon, `${path}.composer_icon`, "schema/source-metadata/listing-composer-icon", diagnostics);
+  checkOptionalNonEmptyStringArray(value.default_prompt, `${path}.default_prompt`, "schema/source-metadata/listing-default-prompt", diagnostics);
+  checkOptionalNonEmptyString(value.description, `${path}.description`, "schema/source-metadata/listing-description", diagnostics);
+  checkOptionalNonEmptyString(value.display_name, `${path}.display_name`, "schema/source-metadata/listing-display-name", diagnostics);
+  checkOptionalNonEmptyStringArray(value.keywords, `${path}.keywords`, "schema/source-metadata/listing-keywords", diagnostics);
+  checkOptionalNonEmptyString(value.logo, `${path}.logo`, "schema/source-metadata/listing-logo", diagnostics);
+  checkOptionalNonEmptyString(value.privacy_policy_url, `${path}.privacy_policy_url`, "schema/source-metadata/listing-privacy-policy-url", diagnostics);
+  checkOptionalNonEmptyStringArray(value.screenshots, `${path}.screenshots`, "schema/source-metadata/listing-screenshots", diagnostics);
+  checkOptionalNonEmptyString(value.summary, `${path}.summary`, "schema/source-metadata/listing-summary", diagnostics);
+  checkOptionalNonEmptyString(value.terms_of_service_url, `${path}.terms_of_service_url`, "schema/source-metadata/listing-terms-of-service-url", diagnostics);
+  checkOptionalNonEmptyString(value.website_url, `${path}.website_url`, "schema/source-metadata/listing-website-url", diagnostics);
 }
 
 function checkSupports(value: SchemaJsonValue | undefined, path: string, diagnostics: SkillsetSchemaDiagnostic[]): void {

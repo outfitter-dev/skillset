@@ -251,6 +251,7 @@ describe("@skillset/schema contracts", () => {
       "homepage",
       "keywords",
       "license",
+      "listing",
       "manifest",
       "marketplace",
       "name",
@@ -265,6 +266,27 @@ describe("@skillset/schema contracts", () => {
       "summary",
       "title",
       "version",
+    ]);
+    const listing = sourceMetadataProperties.listing as {
+      additionalProperties: boolean;
+      properties: Record<string, unknown>;
+    };
+    expect(listing.additionalProperties).toBe(false);
+    expect(Object.keys(listing.properties).sort()).toEqual([
+      "capabilities",
+      "category",
+      "color",
+      "composer_icon",
+      "default_prompt",
+      "description",
+      "display_name",
+      "keywords",
+      "logo",
+      "privacy_policy_url",
+      "screenshots",
+      "summary",
+      "terms_of_service_url",
+      "website_url",
     ]);
 
     const supports = workspaceProperties.supports as { anyOf: Array<Record<string, unknown>> };
@@ -612,6 +634,22 @@ describe("@skillset/schema contracts", () => {
       homepage: "https://example.com",
       keywords: ["docs", "agents"],
       license: "Apache-2.0",
+      listing: {
+        capabilities: ["Read"],
+        category: "Developer Tools",
+        color: "#B06DFF",
+        composer_icon: "./assets/composer.svg",
+        default_prompt: ["Review this change."],
+        description: "Long listing description.",
+        display_name: "Demo",
+        keywords: ["docs"],
+        logo: "./assets/logo.svg",
+        privacy_policy_url: "https://example.com/privacy",
+        screenshots: ["./assets/screenshot.png"],
+        summary: "Short listing summary.",
+        terms_of_service_url: "https://example.com/terms",
+        website_url: "https://example.com",
+      },
       manifest: {},
       name: "demo",
       origin: { path: "skills/demo/SKILL.md" },
@@ -626,6 +664,24 @@ describe("@skillset/schema contracts", () => {
       title: "Demo",
       version: "1.0.0",
     }).ok).toBe(true);
+    expect(validateSourceMetadata({
+      listing: {
+        capabilities: ["Read", ""],
+        displayName: "Legacy casing",
+        display_name: "",
+        website_url: "",
+      },
+    }).diagnostics.map((diagnostic) => diagnostic.code)).toEqual(expect.arrayContaining([
+      "schema/source-metadata/listing-key",
+      "schema/source-metadata/listing-capabilities",
+      "schema/source-metadata/listing-display-name",
+      "schema/source-metadata/listing-website-url",
+    ]));
+    expect(validateSourceMetadata({ listing: "bad" }).diagnostics).toContainEqual({
+      code: "schema/source-metadata/listing",
+      message: "listing must be an object",
+      path: "$.listing",
+    });
     expect(validateSourceMetadata({ schema: "schema@0.1.0" }).diagnostics).toContainEqual({
       code: "schema/source-metadata/schema",
       message: "$.schema must be a positive integer",

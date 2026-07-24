@@ -37,6 +37,10 @@ export interface ReleaseBaselineReport {
 export interface SeedReleaseBaselinesOptions {
   readonly includeScope?: (scope: string) => boolean;
   readonly scopes?: readonly string[];
+  readonly sourceVersion?: (
+    scope: string,
+    graph: BuildGraph
+  ) => string | undefined;
   readonly write?: boolean;
 }
 
@@ -86,7 +90,9 @@ export async function seedReleaseBaselines(
     const scope = sourceUnitSelector(unit.id);
     if (scopeFilter !== undefined && !scopeFilter.has(scope)) continue;
     if (seedOptions.includeScope !== undefined && !seedOptions.includeScope(scope)) continue;
-    const version = sourceVersionForScope(graph, scope);
+    const version =
+      seedOptions.sourceVersion?.(scope, graph) ??
+      sourceVersionForScope(graph, scope);
     const existing = state.scopes[scope];
     if (existing?.removed === true) {
       conflicts.push({ existingVersion: existing.version, scope, sourceVersion: version });

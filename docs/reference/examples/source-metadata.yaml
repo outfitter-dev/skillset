@@ -1,13 +1,16 @@
 author:
   email: team@example.com
   name: Example Team
-category: Developer Tools
 description: Reusable source metadata example.
 homepage: https://example.com
 keywords:
   - agents
   - skillset
 license: Apache-2.0
+listing:
+  category: Developer Tools
+  display_name: Example Metadata
+  summary: Metadata summary.
 manifest:
   source: repo:skillset.yaml
 name: example
@@ -18,14 +21,7 @@ origin:
 outputs:
   claude: plugins
   codex: plugins
-owner:
-  name: Example Team
 preprocess: false
-presentation:
-  displayName: Example
 repository: https://github.com/example/team-skillset
 schema: 1
 strict: true
-summary: Metadata summary.
-title: Example Metadata
-version: 1.2.3

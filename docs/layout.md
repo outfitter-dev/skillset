@@ -249,7 +249,7 @@ Machine identity derives from directory names. A plugin's id is its directory un
 
 When an explicit identity is needed:
 
-- **Plugins and the root source manifest** keep their explicit identity under the `skillset` block, because that is where plugin/root source metadata lives (`schema`, `version`, presentation, author). Set `skillset.name` only when derivation is wrong. An explicit plugin `skillset.name` must equal the plugin directory name, so derivation and the override never disagree silently.
+- **Plugins and the root source manifest** keep their explicit identity under the `skillset` block, because that is where plugin/root source metadata lives (`schema`, compatibility version baselines, `author`, and canonical `listing`). Set `skillset.name` only when derivation is wrong. An explicit plugin `skillset.name` must equal the plugin directory name, so derivation and the override never disagree silently.
 - **Skills** use the standard Agent Skills top-level `name` and `version`.
 
 Obsolete identity keys fail the build rather than resolving silently: `skillset.id` is unsupported, and skill-local `skillset.name` / `skillset.id` are not used. There is no separate top-level `name` for plugins; introducing one would give a single meaning two homes.
@@ -313,14 +313,13 @@ Only declared resources are copied. Resource mappings may point at files or dire
 
 ## Source schema
 
-`skillset.schema` marks the version of the source contract a config was authored against. It is separate from every content version: `skillset.version` is the plugin/root content version, generated skill `metadata.version` is the artifact version, and each lock's `schemaVersion` is the generated-output provenance schema.
+`skillset.schema` marks the version of the source contract a config was authored against. It is separate from artifact versions: release state owns generated plugin and skill versions, while existing inline `skillset.version` and skill `version` fields remain compatibility baselines during migration. Each lock's `schemaVersion` is the generated-output provenance schema.
 
 `skillset.schema` is an integer. The current supported schema is `1`. It is optional and defaults to the current schema when absent, so existing source keeps building. A future or non-integer value fails the build, and a semver-style value is rejected so it cannot be confused with `skillset.version`:
 
 ```yaml
 skillset:
   schema: 1        # source contract schema (integer, optional)
-  version: 0.2.0   # content version (semver)
 ```
 
 Root and plugin source config support `skillset.schema`. The marker is source-only and never appears in generated artifacts; deeper provenance lives in `skillset.lock`.

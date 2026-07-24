@@ -7,6 +7,8 @@ import { compareStrings } from "@skillset/core/internal/path";
 import type { JsonRecord, TargetName } from "@skillset/core/internal/types";
 
 import {
+  nativeListingMetadataConflicts,
+  type NativeListingMetadataConflict,
   portablePluginMetadataConflicts,
   type PortablePluginMetadataConflict,
 } from "./plugin-manifest-authority";
@@ -26,6 +28,7 @@ export interface PluginAdoptionDiagnostic {
     | "competing-plugin-sources"
     | "invalid-plugin-manifest"
     | "plugin-identity-conflict"
+    | "plugin-listing-conflict"
     | "plugin-metadata-conflict"
     | "plugin-version-conflict"
     | "similar-plugin-sources";
@@ -116,6 +119,17 @@ export async function classifyPluginAdoptionCandidates(
         )
       );
       continue;
+    }
+    const listingConflicts = listingMetadataConflictsForSources(matches);
+    if (listingConflicts.length > 0) {
+      diagnostics.push(
+        listingMetadataConflictDiagnostic(
+          identity,
+          matches.map((source) => source.path),
+          providerUnion(matches),
+          listingConflicts
+        )
+      );
     }
     groups.push(groupForSources(matches, "equivalent"));
   }
@@ -260,6 +274,17 @@ async function inspectSource(
       )
     );
   }
+  const listingConflicts = nativeListingMetadataConflicts(manifests);
+  if (listingConflicts.length > 0) {
+    diagnostics.push(
+      listingMetadataConflictDiagnostic(
+        distinctNames[0] ?? basename(sourcePath),
+        [path],
+        providers,
+        listingConflicts
+      )
+    );
+  }
 
   const materialEntries = await collectMaterialEntries(sourcePath, excludedSourceRoots);
   return {
@@ -286,6 +311,14 @@ function metadataConflictsForSources(
   );
 }
 
+function listingMetadataConflictsForSources(
+  sources: readonly InspectedPluginSource[]
+): readonly NativeListingMetadataConflict[] {
+  return nativeListingMetadataConflicts(
+    sources.flatMap((source) => [...source.manifests.entries()])
+  );
+}
+
 function metadataConflictDiagnostic(
   identity: string,
   paths: readonly string[],
@@ -305,6 +338,28 @@ function metadataConflictDiagnostic(
     recommendation:
       "Align portable metadata across provider manifests before adoption; Skillset source keeps one canonical value for every portable field.",
     severity: "error",
+  };
+}
+
+function listingMetadataConflictDiagnostic(
+  identity: string,
+  paths: readonly string[],
+  providers: readonly TargetName[],
+  conflicts: readonly NativeListingMetadataConflict[]
+): PluginAdoptionDiagnostic {
+  return {
+    code: "plugin-listing-conflict",
+    evidence: conflicts.map(
+      (conflict) =>
+        `native ${conflict.field} differs across ${conflict.providers.join(", ")}`
+    ),
+    identity,
+    message: `Native plugin manifests for \`${identity}\` use different provider listing metadata.`,
+    paths,
+    providers,
+    recommendation:
+      "Skillset will preserve these values as provider overrides. Review them before choosing a shared canonical listing value.",
+    severity: "warning",
   };
 }
 

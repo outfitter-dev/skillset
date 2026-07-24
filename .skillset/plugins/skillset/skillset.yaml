@@ -1,10 +1,7 @@
 skillset:
   schema: 1
   name: skillset
-  title: Skillset
-  summary: Build source skills and plugins into Claude, Codex, and Cursor outputs.
   description: Skillset compiles portable source skills and plugin bundles into target-native Claude, Codex, and Cursor artifacts.
-  version: 0.1.0
   author:
     name: Skillset Maintainers
   license: MIT
@@ -14,9 +11,10 @@ skillset:
     - plugins
     - claude
     - codex
-  category: Developer Tools
-  strict: true
-  presentation:
+  listing:
+    display_name: Skillset
+    summary: Build source skills and plugins into Claude, Codex, and Cursor outputs.
+    category: Developer Tools
     capabilities:
       - Read
       - Write
@@ -24,6 +22,7 @@ skillset:
     default_prompt:
       - Build or check this skillset source tree.
     color: "#B06DFF"
+  strict: true
 
 claude: true
 codex: true

@@ -1,4 +1,5 @@
 import {
+  diagnoseSourceMetadataCompatibility,
   TARGET_NAMES,
   validateAgentFrontmatter,
   validateHookDefinitionSource,
@@ -233,9 +234,33 @@ function checkWorkspaceConfigContract(
 
   const data = parsed.data;
   const diagnostics = validateWorkspaceConfig(data).diagnostics;
-  return diagnostics
+  const structural = diagnostics
     .filter((diagnostic) => !isRedundantWorkspaceSchemaDiagnostic(diagnostic, diagnostics, data))
     .map((diagnostic) => workspaceSchemaDiagnostic(diagnostic, data, path, content));
+  const metadata = isRecord(data.skillset) ? data.skillset : undefined;
+  const compatibility =
+    metadata === undefined
+      ? []
+      : diagnoseSourceMetadataCompatibility(metadata).map((diagnostic) =>
+          schemaDiagnostic({
+            fix:
+              diagnostic.help === undefined
+                ? undefined
+                : { kind: "suggestion", message: diagnostic.help },
+            locationLine: sourceLineForSchemaPath(
+              content,
+              diagnostic.path ?? "$.skillset",
+              "yaml"
+            ),
+            message: diagnostic.message,
+            path,
+            ruleId: diagnostic.code,
+            scope: "workspace",
+            severity: "warning",
+            subjectKind: "workspace",
+          })
+        );
+  return [...structural, ...compatibility];
 }
 
 function checkTestDeclarationContract(
@@ -516,6 +541,7 @@ function schemaDiagnostic(args: {
   readonly path: string;
   readonly ruleId: string;
   readonly scope?: "source" | "workspace";
+  readonly severity?: "error" | "info" | "warning";
   readonly subjectKind: "agent" | "hook" | "instruction" | "skill" | "skill eval" | "test" | "workspace";
 }): WorkbenchDiagnostic {
   return createWorkbenchDiagnostic({
@@ -525,7 +551,7 @@ function schemaDiagnostic(args: {
     message: args.message,
     ruleId: args.ruleId,
     scope: args.scope ?? "source",
-    severity: "error",
+    severity: args.severity ?? "error",
     subject: { kind: args.subjectKind, path: args.path },
   });
 }

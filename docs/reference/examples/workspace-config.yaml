@@ -56,28 +56,24 @@ skillset:
   author:
     email: team@example.com
     name: Example Team
-  category: Developer Tools
   description: Source-first agent loadout for the example team.
   homepage: https://example.com/skillset
   keywords:
     - agents
     - docs
   license: MIT
-  name: example-team
-  owner:
-    name: Example Team
-  preprocess: true
-  presentation:
+  listing:
     capabilities:
       - Read
       - Write
-    displayName: Example Team
+    category: Developer Tools
+    display_name: Example Team
+    summary: Example team Skillset source.
+  name: example-team
+  preprocess: true
   repository: https://github.com/example/team-skillset
   schema: 1
   strict: true
-  summary: Example team Skillset source.
-  title: Example Team Skillset
-  version: 0.1.0
 supports:
   packages:
     - "@acme/docs-cli >=2.4.0 <3.0.0"

@@ -12,6 +12,7 @@ import {
 
 import { classifyPluginAdoptionCandidates } from "../plugin-adoption";
 import { adoptSkillset, renderAdoptReportMarkdown } from "../adopt";
+import { importSource } from "../import";
 
 test("SET-225: one source with Claude, Codex, and Cursor manifests stays one candidate", async () => {
   const root = await pluginFixture({
@@ -206,6 +207,210 @@ test("SET-225: conflicting same-path portable metadata becomes a structured bloc
   ]);
 });
 
+test("SET-369: conflicting native listing metadata stays a provider-specific warning", async () => {
+  const root = await pluginFixture({
+    "plugins/demo/.codex-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+      author: { name: "Canonical Author" },
+      interface: {
+        category: "productivity",
+        developerName: "Codex Author",
+      },
+      keywords: ["portable"],
+    }),
+    "plugins/demo/.cursor-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+      category: "development",
+      tags: ["cursor-only"],
+    }),
+    "plugins/demo/skills/helper/SKILL.md": skill("shared"),
+  });
+
+  const result = await classifyPluginAdoptionCandidates(root, ["plugins/demo"]);
+
+  expect(result.groups).toHaveLength(1);
+  expect(result.diagnostics).toEqual([
+    expect.objectContaining({
+      code: "plugin-listing-conflict",
+      evidence: [
+        "native listing.category differs across codex, cursor",
+        "native listing.keywords differs across codex, cursor",
+      ],
+      paths: ["plugins/demo"],
+      severity: "warning",
+    }),
+  ]);
+
+  const report = await adoptSkillset(root, { write: true });
+  expect(report.ok).toBe(true);
+  expect(report.surveyDiagnostics).toEqual([
+    expect.objectContaining({
+      code: "plugin-listing-conflict",
+      severity: "warning",
+    }),
+  ]);
+  const importedConfig = await readFile(
+    join(root, ".skillset/plugins/demo/skillset.yaml"),
+    "utf8"
+  );
+  expect(importedConfig).toContain("codex:");
+  expect(importedConfig).toContain("category: productivity");
+  expect(importedConfig).toContain("developerName: Codex Author");
+  expect(importedConfig).toContain("cursor:");
+  expect(importedConfig).toContain("category: development");
+  expect(importedConfig).toContain("keywords:");
+  expect(importedConfig).toContain("- portable");
+  expect(importedConfig).toContain("tags:");
+  expect(importedConfig).toContain("- cursor-only");
+
+  await buildSkillset(root, { isolated: true });
+  const generatedRoot = resolveOperationalPath(
+    createOperationalPathContext(root),
+    ISOLATED_OUT_ROOT
+  );
+  const codexManifest = JSON.parse(
+    await readFile(
+      join(
+        generatedRoot,
+        "plugins/demo/codex/.codex-plugin/plugin.json"
+      ),
+      "utf8"
+    )
+  ) as { keywords?: string[] };
+  const cursorManifest = JSON.parse(
+    await readFile(
+      join(
+        generatedRoot,
+        "plugins/demo/cursor/.cursor-plugin/plugin.json"
+      ),
+      "utf8"
+    )
+  ) as { tags?: string[] };
+  expect(codexManifest.keywords).toEqual(["portable"]);
+  expect(cursorManifest.tags).toEqual(["cursor-only"]);
+});
+
+test("SET-369: native Codex developerName conflicts warn and stay provider-specific", async () => {
+  const root = await pluginFixture({
+    "skillset.yaml": "skillset:\n  name: import-root\ncodex: true\n",
+    "native/.codex-plugin/plugin.json": manifest("demo", "Demo", "1.0.0", {
+      author: { name: "Canonical Author" },
+      interface: { developerName: "Codex Author" },
+    }),
+    "native/skills/helper/SKILL.md": skill("shared"),
+  });
+
+  const report = await importSource({
+    kind: "plugin",
+    rootPath: root,
+    sourcePath: join(root, "native"),
+  });
+
+  expect(report.warnings).toContain(
+    "Native Codex interface.developerName differs from canonical author.name; Skillset preserved the Codex-specific value instead of choosing a canonical author."
+  );
+  const importedConfig = await readFile(
+    join(root, ".skillset/plugins/demo/skillset.yaml"),
+    "utf8"
+  );
+  expect(importedConfig).toContain("name: Canonical Author");
+  expect(importedConfig).toContain("developerName: Codex Author");
+});
+
+test("SET-369: direct native import rejects conflicting provider versions", async () => {
+  const root = await pluginFixture({
+    "skillset.yaml": "skillset:\n  name: import-root\nclaude: true\ncodex: true\n",
+    "native/.claude-plugin/plugin.json": manifest(
+      "demo",
+      "Demo",
+      "1.0.0"
+    ),
+    "native/.codex-plugin/plugin.json": manifest(
+      "demo",
+      "Demo",
+      "2.0.0"
+    ),
+    "native/skills/helper/SKILL.md": skill("shared"),
+  });
+
+  await expect(
+    importSource({
+      kind: "plugin",
+      rootPath: root,
+      sourcePath: join(root, "native"),
+    })
+  ).rejects.toThrow(
+    "native plugin manifests disagree on version: claude=1.0.0, codex=2.0.0"
+  );
+  expect(
+    await exists(join(root, ".skillset/plugins/demo"))
+  ).toBe(false);
+
+  await Bun.write(
+    join(root, "native/.claude-plugin/plugin.json"),
+    manifest("demo", "Demo", "1.0.0", { version: undefined })
+  );
+  await expect(
+    importSource({
+      kind: "plugin",
+      rootPath: root,
+      sourcePath: join(root, "native"),
+    })
+  ).rejects.toThrow(
+    "native plugin manifests disagree on version: claude=missing, codex=2.0.0"
+  );
+  expect(await exists(join(root, ".skillset/plugins/demo"))).toBe(false);
+
+  await Bun.write(
+    join(root, "native/.claude-plugin/plugin.json"),
+    manifest("demo", "Demo", "latest")
+  );
+  await Bun.write(
+    join(root, "native/.codex-plugin/plugin.json"),
+    manifest("demo", "Demo", "latest")
+  );
+  await expect(
+    importSource({
+      kind: "plugin",
+      rootPath: root,
+      sourcePath: join(root, "native"),
+    })
+  ).rejects.toThrow(
+    "expected native plugin manifest version to be a semantic version"
+  );
+  expect(await exists(join(root, ".skillset/plugins/demo"))).toBe(false);
+});
+
+test("SET-369: native plugin imports preserve child skill versions", async () => {
+  const root = await pluginFixture({
+    "skillset.yaml": "skillset:\n  name: import-root\nclaude: true\n",
+    "native/.claude-plugin/plugin.json": manifest(
+      "demo",
+      "Demo",
+      "2.0.0"
+    ),
+    "native/skills/helper/SKILL.md":
+      "---\nname: helper\ndescription: Helper skill.\nversion: 1.4.0\n---\n\nShared.\n",
+  });
+
+  const report = await importSource({
+    kind: "plugin",
+    rootPath: root,
+    sourcePath: join(root, "native"),
+  });
+
+  expect(report.baselines).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        scope: "plugin:demo",
+        version: "2.0.0",
+      }),
+      expect.objectContaining({
+        scope: "plugin.demo.skill:helper",
+        version: "1.4.0",
+      }),
+    ])
+  );
+});
+
 test("SET-225: malformed native manifests become structured blockers", async () => {
   const root = await pluginFixture({
     "plugins/demo/.cursor-plugin/plugin.json": "{not json\n",
@@ -344,13 +549,14 @@ test("SET-225: adopt merges equivalent provider roots into one canonical plugin"
     "plugins/claude-demo/.claude-plugin/plugin.json": manifest("demo"),
     "plugins/claude-demo/skills/helper/SKILL.md": skill("shared"),
     "plugins/codex-demo/.codex-plugin/plugin.json": manifest("demo", "Demo plugin", "1.0.0", {
+      author: { name: "Demo Author" },
       homepage: "https://example.com/demo",
-      interface: { category: "productivity" },
+      interface: { category: "productivity", developerName: "Demo Author" },
       skills: "./skills/",
     }),
     "plugins/codex-demo/skills/helper/SKILL.md": skill("shared"),
     "plugins/cursor-demo/.cursor-plugin/plugin.json": manifest("demo", "Demo plugin", "1.0.0", {
-      category: "development",
+      category: "productivity",
       skills: "./skills/",
     }),
     "plugins/cursor-demo/skills/helper/SKILL.md": skill("shared"),
@@ -394,11 +600,18 @@ test("SET-225: adopt merges equivalent provider roots into one canonical plugin"
   expect(importedConfig.match(/description:/gu)).toHaveLength(1);
   expect(importedConfig).not.toContain("skills:");
   expect(importedConfig).toContain("homepage: https://example.com/demo");
+  expect(importedConfig).toContain("name: Demo Author");
+  expect(importedConfig).toContain("listing:");
+  expect(importedConfig).not.toContain("interface:");
+  expect(importedConfig).not.toContain("cursor:");
   expect(importedConfig).toContain("category: productivity");
-  expect(importedConfig).toContain("category: development");
+  expect(importedConfig.match(/category: productivity/gu)).toHaveLength(1);
   await Bun.write(
     configPath,
-    importedConfig.replace("description: Demo plugin", "description: Updated canonical description")
+    importedConfig
+      .replace("description: Demo plugin", "description: Updated canonical description")
+      .replace("name: Demo Author", "name: Updated Author")
+      .replace("category: productivity", "category: collaboration")
   );
   await rm(join(root, ".skillset/plugins/demo/skills"), { recursive: true });
   await buildSkillset(root, { isolated: true });
@@ -420,17 +633,22 @@ test("SET-225: adopt merges equivalent provider roots into one canonical plugin"
       category?: string;
       description?: string;
       homepage?: string;
-      interface?: { category?: string };
+      interface?: { category?: string; developerName?: string };
       skills?: string;
     };
     expect(generatedManifest.description).toBe("Updated canonical description");
-    expect(generatedManifest.homepage).toBe("https://example.com/demo");
+    if (provider === "cursor") {
+      expect(generatedManifest.homepage).toBeUndefined();
+    } else {
+      expect(generatedManifest.homepage).toBe("https://example.com/demo");
+    }
     expect(generatedManifest.skills).toBeUndefined();
     if (provider === "codex") {
-      expect(generatedManifest.interface?.category).toBe("productivity");
+      expect(generatedManifest.interface?.category).toBe("collaboration");
+      expect(generatedManifest.interface?.developerName).toBe("Updated Author");
     }
     if (provider === "cursor") {
-      expect(generatedManifest.category).toBe("development");
+      expect(generatedManifest.category).toBe("collaboration");
     }
   }
 });

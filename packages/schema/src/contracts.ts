@@ -73,6 +73,7 @@ export const SOURCE_METADATA_KEYS = [
   "homepage",
   "keywords",
   "license",
+  "listing",
   "manifest",
   "marketplace",
   "name",
@@ -87,6 +88,23 @@ export const SOURCE_METADATA_KEYS = [
   "summary",
   "title",
   "version",
+] as const;
+
+export const SOURCE_LISTING_KEYS = [
+  "capabilities",
+  "category",
+  "color",
+  "composer_icon",
+  "default_prompt",
+  "description",
+  "display_name",
+  "keywords",
+  "logo",
+  "privacy_policy_url",
+  "screenshots",
+  "summary",
+  "terms_of_service_url",
+  "website_url",
 ] as const;
 
 export const COMMON_FRONTMATTER_KEYS = [
@@ -565,6 +583,7 @@ function sourceMetadataSchema(): SchemaJsonRecord {
     homepage: { type: "string" },
     keywords: arraySchema({ type: "string" }),
     license: enumSchema([...SOURCE_LICENSE_IDS, SOURCE_LICENSE_NONE]),
+    listing: sourceListingSchema(),
     manifest: { type: "object" },
     marketplace: { type: "object" },
     name: nonEmptyStringSchema(),
@@ -579,6 +598,25 @@ function sourceMetadataSchema(): SchemaJsonRecord {
     summary: nonEmptyStringSchema(),
     title: nonEmptyStringSchema(),
     version: semverStringSchema(),
+  });
+}
+
+function sourceListingSchema(): SchemaJsonRecord {
+  return strictObjectSchema({
+    capabilities: arraySchema(nonEmptyStringSchema()),
+    category: nonEmptyStringSchema(),
+    color: nonEmptyStringSchema(),
+    composer_icon: nonEmptyStringSchema(),
+    default_prompt: arraySchema(nonEmptyStringSchema()),
+    description: nonEmptyStringSchema(),
+    display_name: nonEmptyStringSchema(),
+    keywords: arraySchema(nonEmptyStringSchema()),
+    logo: nonEmptyStringSchema(),
+    privacy_policy_url: nonEmptyStringSchema(),
+    screenshots: arraySchema(nonEmptyStringSchema()),
+    summary: nonEmptyStringSchema(),
+    terms_of_service_url: nonEmptyStringSchema(),
+    website_url: nonEmptyStringSchema(),
   });
 }
 

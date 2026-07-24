@@ -2,6 +2,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, dirname, join, relative, sep } from "node:path";
 
 import {
+  diagnoseSourceMetadataCompatibility,
   validateAgentFrontmatter,
   validateAdaptiveHookUnitSource,
   validateInstructionFrontmatter,
@@ -170,6 +171,11 @@ export async function loadBuildGraph(
   };
 
   const warnings: string[] = [];
+  appendSourceMetadataCompatibilityWarnings(
+    warnings,
+    metadata,
+    metadataLabel
+  );
   await rejectLegacySourceLayout(rootPath, sourceDir, sourceRootDir);
   await validateSupports(sourceManifest.supports, { label: metadataLabel, rootPath, warnings });
   const releaseState = await readReleaseState(rootPath, { ...options, sourceDir });
@@ -930,6 +936,11 @@ async function loadPlugin(
     await validateSupports(config.supports, { label: configRelativePath, rootPath, warnings });
     dependencies = readPluginDependencies(config.dependencies, configRelativePath);
     metadata = readSkillsetMetadata(config, configPath);
+    appendSourceMetadataCompatibilityWarnings(
+      warnings,
+      metadata,
+      configRelativePath
+    );
     validateSchemaField(metadata, `${configPath}.skillset.schema`);
     validateVersionField(metadata, `${configPath}.skillset.version`);
     sourceOrigin = readSourceOrigin(metadata, configPath);
@@ -986,6 +997,18 @@ async function loadPlugin(
     ...(sourceOrigin === undefined ? {} : { sourceOrigin }),
     targets,
   };
+}
+
+function appendSourceMetadataCompatibilityWarnings(
+  warnings: string[],
+  metadata: JsonRecord,
+  label: string
+): void {
+  for (const diagnostic of diagnoseSourceMetadataCompatibility(metadata)) {
+    warnings.push(
+      `skillset: ${label}: ${diagnostic.message}${diagnostic.help === undefined ? "" : `. ${diagnostic.help}`}`
+    );
+  }
 }
 
 async function loadPluginFeatures(

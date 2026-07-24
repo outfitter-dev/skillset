@@ -83,9 +83,9 @@ artifacts.
 
 | Source | Renders to | Status | Notes |
 | --- | --- | --- | --- |
-| `skillset.schema` (int) | (source-only) | Implemented | Source-contract marker, separate from `skillset.version`; never in generated output. |
-| root/plugin `skillset.version` (semver) | plugin manifest `version`, fallback skill `metadata.version` | Implemented | Content version; generated drift reported by `skillset check --only outputs`. |
-| skill top-level `version` (semver) | skill `metadata.version` | Implemented | Skill-local version; release state wins after `skillset release apply`. |
+| `skillset.schema` (int) | (source-only) | Implemented | Source-contract marker, separate from artifact versions; never in generated output. |
+| root/plugin `skillset.version` (semver) | plugin manifest `version`, fallback skill `metadata.version` | Compatibility | Existing inline baseline; new source should use release and change state. |
+| skill top-level `version` (semver) | skill `metadata.version` | Compatibility | Existing inline baseline; release state is authoritative after `skillset release apply`. |
 | `skillset.name` | machine identity | Implemented | Root and plugin explicit identity; directory names remain the default. `skillset.id` is unsupported. |
 | skill top-level `name` | skill identity | Implemented | Skill-local `skillset.name` / `skillset.id` are unsupported. |
 | root/plugin/skill `skillset.license` or local `LICENSE.txt` | managed `LICENSE.txt`; plugin manifest `license` when declared in plugin metadata | Implemented | Supports `Apache-2.0`, `BSD-2-Clause`, `BSD-3-Clause`, `ISC`, `MIT`, `MPL-2.0`, and `none`; child scopes inherit unless overridden or opted out. |
@@ -156,19 +156,27 @@ Live-doc verified against `code.claude.com/docs/en/sub-agents` (2026-06-04).
 
 ## Plugin manifest interface (Codex `.codex-plugin/plugin.json`, `interface`)
 
-Camel-cased presentation fields derived from portable `presentation` / `ui` metadata. Pinned by the Codex-interface golden test.
+Camel-cased presentation fields derived from canonical portable
+`skillset.listing` metadata. Legacy `presentation` remains a compatibility
+input during the staged cutover; provider-native `ui` is not part of the
+portable source contract. Pinned by the Codex-interface golden test.
 
-| Source (`presentation.*`, snake or camel) | Codex `interface` field | Status |
+| Source (`skillset.listing.*`) | Codex `interface` field | Status |
 | --- | --- | --- |
-| `display_name` / title | `displayName` | Implemented |
-| `summary` / `short_description` | `shortDescription` | Implemented |
-| `description` / `long_description` | `longDescription` | Implemented |
-| `developer_name` / author name | `developerName` | Implemented |
+| `display_name` | `displayName` | Implemented |
+| `summary` | `shortDescription` | Implemented |
+| `description` | `longDescription` | Implemented |
+| core `author.name` | `developerName` | Implemented |
 | `category` | `category` | Implemented |
 | `capabilities` | `capabilities` | Implemented |
-| `website_url` / homepage | `websiteURL` | Implemented |
+| `website_url` (falling back to core `homepage` / `repository`) | `websiteURL` | Implemented |
+| `privacy_policy_url` | `privacyPolicyURL` | Implemented |
+| `terms_of_service_url` | `termsOfServiceURL` | Implemented |
 | `default_prompt` | `defaultPrompt` | Implemented |
-| `color` / `brand_color` | `brandColor` | Implemented (defaults to `#B06DFF`) |
+| `color` | `brandColor` | Implemented (defaults to `#B06DFF`) |
+| `composer_icon` | `composerIcon` | Implemented |
+| `logo` | `logo` | Implemented |
+| `screenshots` | `screenshots` | Implemented |
 
 ## Plugin companion paths (Codex)
 

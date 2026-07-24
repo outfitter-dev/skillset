@@ -11,6 +11,8 @@ import { renderClaudePluginDependencies } from "./dependencies";
 import type { ResolvedLicense } from "./licenses";
 import { validateSlug } from "./path";
 import { hasAdaptivePluginHookOutput } from "./render-hooks";
+import { readAuthorName } from "./source-author";
+import { readSourceListing } from "./source-listing";
 import type {
   BuildGraph,
   JsonRecord,
@@ -34,18 +36,29 @@ export function renderPluginManifest(
   const metadata = plugin.metadata;
   const targetOptions = plugin.targets[target].options;
   const portableManifest = readRecord(metadata, "manifest") ?? {};
+  const listing = readSourceListing(metadata);
   const base: JsonRecord = {
     name: readString(portableManifest, "name") ?? plugin.id,
     version: pluginVersion(graph, plugin),
     description:
-      readString(metadata, "summary") ??
+      readString(listing, "summary") ??
+      readString(listing, "description") ??
       readString(metadata, "description") ??
       plugin.id,
-    author: metadata.author,
-    homepage: metadata.homepage,
-    repository: metadata.repository,
-    license: license?.manifestValue,
-    keywords: metadata.keywords,
+    ...(target === "cursor"
+      ? {}
+      : {
+          author:
+            readAuthorName(metadata.author) ??
+            readAuthorName(graph.root.metadata.author),
+          homepage: metadata.homepage,
+          repository: metadata.repository,
+          license: license?.manifestValue,
+          keywords: copyOptionalStrings(
+            readStringArray(listing, "keywords") ??
+              readStringArray(metadata, "keywords")
+          ),
+        }),
   };
   const dependencies =
     target === "claude"
@@ -108,13 +121,20 @@ function renderCursorPluginDisplayFields(
   metadata: JsonRecord,
   portableManifest: JsonRecord
 ): JsonRecord {
-  const tags = readStringArray(portableManifest, "tags");
+  const listing = readSourceListing(metadata);
+  const tags =
+    readStringArray(portableManifest, "tags") ??
+    readStringArray(listing, "keywords");
   return {
     displayName:
       readString(portableManifest, "displayName") ??
-      readString(metadata, "title"),
-    category: readString(portableManifest, "category"),
-    logo: readString(portableManifest, "logo") ?? readString(metadata, "logo"),
+      readString(listing, "display_name"),
+    category:
+      readString(portableManifest, "category") ??
+      readString(listing, "category"),
+    logo:
+      readString(portableManifest, "logo") ??
+      readString(listing, "logo"),
     ...(tags === undefined ? {} : { tags: [...tags] }),
   };
 }
@@ -124,95 +144,69 @@ export function renderCodexInterface(
   plugin: SourcePlugin
 ): JsonRecord {
   const metadata = plugin.metadata;
-  const presentation = mergeRecords(
+  const listing = readSourceListing(metadata);
+  const legacyPresentation = mergeRecords(
     readRecord(metadata, "ui") ?? {},
     readRecord(metadata, "presentation") ?? {}
   );
-  const author =
-    readRecord(metadata, "author") ??
-    readRecord(graph.root.metadata, "owner") ??
-    {};
+  const authorName =
+    readAuthorName(metadata.author) ??
+    readAuthorName(graph.root.metadata.author) ??
+    readAuthorName(graph.root.metadata.owner);
   const targetOptions = plugin.targets.codex.options;
   const interfaceOverrides = readRecord(targetOptions, "interface") ?? {};
   const color =
     readString(targetOptions, "color") ??
-    readPresentationString(
-      presentation,
-      "color",
-      "brand_color",
-      "brandColor"
-    ) ??
+    readString(listing, "color") ??
     DEFAULT_CODEX_COLOR;
   const website =
-    readPresentationString(presentation, "website_url", "websiteURL") ??
+    readString(listing, "website_url") ??
     readString(metadata, "homepage") ??
     readString(metadata, "repository");
-  const capabilities = readStringArray(presentation, "capabilities");
-  const defaultPrompt =
-    readStringArray(presentation, "default_prompt") ??
-    readStringArray(presentation, "defaultPrompt");
-  const screenshots = readStringArray(presentation, "screenshots");
+  const capabilities = readStringArray(listing, "capabilities");
+  const defaultPrompt = readStringArray(listing, "default_prompt");
+  const screenshots = readStringArray(listing, "screenshots");
 
   const base: JsonRecord = {
     displayName:
-      readPresentationString(presentation, "display_name", "displayName") ??
-      readString(metadata, "title") ??
+      readString(listing, "display_name") ??
       titleize(plugin.id),
     shortDescription:
-      readPresentationString(
-        presentation,
-        "summary",
-        "short_description",
-        "shortDescription"
-      ) ??
-      readString(metadata, "summary") ??
+      readString(listing, "summary") ??
+      readString(listing, "description") ??
       readString(metadata, "description") ??
       plugin.id,
     longDescription:
-      readPresentationString(
-        presentation,
-        "description",
-        "long_description",
-        "longDescription"
-      ) ??
+      readString(listing, "description") ??
       readString(metadata, "description") ??
-      readString(metadata, "summary") ??
+      readString(listing, "summary") ??
       plugin.id,
     developerName:
-      readPresentationString(presentation, "developer_name", "developerName") ??
-      readString(author, "name") ??
+      authorName ??
+      readAliasString(
+        legacyPresentation,
+        "developer_name",
+        "developerName"
+      ) ??
       "Skillset Maintainers",
     category:
-      readString(presentation, "category") ??
-      readString(metadata, "category") ??
+      readString(listing, "category") ??
       "Productivity",
     capabilities: [...(capabilities ?? ["Interactive", "Write"])],
     websiteURL: website,
-    privacyPolicyURL: readPresentationString(
-      presentation,
-      "privacy_policy_url",
-      "privacyPolicyURL"
-    ),
-    termsOfServiceURL: readPresentationString(
-      presentation,
-      "terms_of_service_url",
-      "termsOfServiceURL"
-    ),
+    privacyPolicyURL: readString(listing, "privacy_policy_url"),
+    termsOfServiceURL: readString(listing, "terms_of_service_url"),
     defaultPrompt: defaultPrompt ? [...defaultPrompt] : undefined,
     brandColor: color,
-    composerIcon: readPresentationString(
-      presentation,
-      "composer_icon",
-      "composerIcon"
-    ),
-    logo: readString(presentation, "logo"),
+    composerIcon: readString(listing, "composer_icon"),
+    logo: readString(listing, "logo"),
     screenshots: [...(screenshots ?? [])],
   };
 
   return mergeRecords(base, interfaceOverrides);
 }
 
-function readPresentationString(
+function readAliasString(
   record: JsonRecord,
   ...keys: readonly string[]
 ): string | undefined {
@@ -221,6 +215,12 @@ function readPresentationString(
     if (value !== undefined) return value;
   }
   return undefined;
+}
+
+function copyOptionalStrings(
+  value: readonly string[] | undefined
+): string[] | undefined {
+  return value === undefined ? undefined : [...value];
 }
 
 export function withOptionalSurfacePaths(

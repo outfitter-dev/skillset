@@ -100,26 +100,21 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
           email: "team@example.com",
           name: "Example Team",
         },
-        category: "Developer Tools",
         description: "Source-first agent loadout for the example team.",
         homepage: "https://example.com/skillset",
         keywords: ["agents", "docs"],
+        listing: {
+          capabilities: ["Read", "Write"],
+          category: "Developer Tools",
+          display_name: "Example Team",
+          summary: "Example team Skillset source.",
+        },
         license: "MIT",
         name: "example-team",
-        owner: {
-          name: "Example Team",
-        },
-        presentation: {
-          capabilities: ["Read", "Write"],
-          displayName: "Example Team",
-        },
         preprocess: true,
         repository: "https://github.com/example/team-skillset",
         schema: 1,
         strict: true,
-        summary: "Example team Skillset source.",
-        title: "Example Team Skillset",
-        version: "0.1.0",
       },
       supports: {
         packages: [
@@ -143,10 +138,14 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
         email: "team@example.com",
         name: "Example Team",
       },
-      category: "Developer Tools",
       description: "Reusable source metadata example.",
       homepage: "https://example.com",
       keywords: ["agents", "skillset"],
+      listing: {
+        category: "Developer Tools",
+        display_name: "Example Metadata",
+        summary: "Metadata summary.",
+      },
       license: "Apache-2.0",
       manifest: {
         source: "repo:skillset.yaml",
@@ -157,23 +156,14 @@ export const skillsetSchemaExamples: readonly SkillsetSchemaExample[] = [
         ref: "main",
         repo: "https://github.com/example/team-skillset",
       },
-      owner: {
-        name: "Example Team",
-      },
       outputs: {
         claude: "plugins",
         codex: "plugins",
-      },
-      presentation: {
-        displayName: "Example",
       },
       preprocess: false,
       repository: "https://github.com/example/team-skillset",
       schema: 1,
       strict: true,
-      summary: "Metadata summary.",
-      title: "Example Metadata",
-      version: "1.2.3",
     },
   },
   {
