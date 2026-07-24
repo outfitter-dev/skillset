@@ -8,6 +8,10 @@ import type {
   ActivationSubject,
   ProviderActivationInspector,
 } from "@skillset/core";
+import type {
+  ActivationProofIdentity,
+  ActivationProofReceipt,
+} from "@skillset/schema";
 import type { SkillsetRenderResult } from "@skillset/core/internal/render-result";
 import type { BuildGraph } from "@skillset/core/internal/types";
 import {
@@ -42,11 +46,15 @@ const MAX_VERSION_OUTPUT_BYTES = 512;
 
 export interface ActivationInspectionOptions {
   readonly allowActive: boolean;
+  readonly currentProofIdentities?: Readonly<
+    Record<string, readonly ActivationProofIdentity[]>
+  >;
   readonly env?: Record<string, string | undefined>;
   readonly graph: BuildGraph;
   readonly includeSourcePath?: (path: string) => boolean;
   readonly includeSubject?: (subject: ActivationSubject) => boolean;
   readonly renderResults: readonly SkillsetRenderResult[];
+  readonly proofReceipts?: readonly ActivationProofReceipt[];
   readonly rootPath: string;
   readonly runCommand?: ActivationProviderCommandRunner;
   readonly signal?: AbortSignal;
@@ -121,6 +129,9 @@ export async function inspectActivationReadiness(
         left.inspectorId.localeCompare(right.inspectorId)
       ),
     readiness: planActivationReadiness({
+      ...(options.currentProofIdentities === undefined
+        ? {}
+        : { currentProofIdentities: options.currentProofIdentities }),
       graph: options.graph,
       ...(options.includeSourcePath === undefined
         ? {}
@@ -129,6 +140,9 @@ export async function inspectActivationReadiness(
         ? {}
         : { includeSubject: options.includeSubject }),
       observations: runs.flatMap(({ observations }) => observations),
+      ...(options.proofReceipts === undefined
+        ? {}
+        : { proofReceipts: options.proofReceipts }),
       renderResults: options.renderResults,
       ...(options.untrustedOutputPaths === undefined
         ? {}

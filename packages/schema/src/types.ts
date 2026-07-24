@@ -9,6 +9,7 @@ export type SkillsetSchemaContractId =
   | "adaptive-hook"
   | "agent-frontmatter"
   | "activation-inspection"
+  | "activation-proof-receipt"
   | "change-entry"
   | "cli-event"
   | "cli-result"

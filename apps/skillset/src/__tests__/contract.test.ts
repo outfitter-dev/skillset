@@ -2332,7 +2332,7 @@ Demo body.
     workspacePath: string;
   };
   expect(firstLatest.runId).toMatch(/^\d{8}T\d{6}Z-[0-9a-f]{8}$/);
-  expect(firstLatest.schemaVersion).toBe(3);
+  expect(firstLatest.schemaVersion).toBe(4);
   expect(await fileExists(cachePath(root, join(firstLatest.runPath, "report.json")))).toBe(true);
   expect(await fileExists(cachePath(root, ".skillset/cache/tests/latest/report.json"))).toBe(true);
   expect(await fileExists(cachePath(root, ".skillset/cache/tests/latest/workspace/.claude/skills/demo/SKILL.md"))).toBe(true);
@@ -2343,7 +2343,7 @@ Demo body.
     schemaVersion: number;
     targets: readonly string[];
   };
-  expect(firstReport.schemaVersion).toBe(3);
+  expect(firstReport.schemaVersion).toBe(4);
   expect(firstReport.targets).toEqual(["claude"]);
 
   const structured = await runSkillsetCli("test", "self", "--root", root, "--json");

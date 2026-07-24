@@ -14,6 +14,7 @@ export {
   ACTIVATION_READINESS_SUMMARIES,
   ACTIVATION_REQUIREMENT_STAGES,
   ACTIVATION_REQUIREMENT_STATES,
+  isActivationCapability,
   type ActivationCapability,
   type ActivationEvidenceOrigin,
   type ActivationNextAction,
@@ -27,6 +28,15 @@ export {
   type ActivationTarget,
   validateActivationReadinessReport,
 } from "./activation-readiness";
+export {
+  ACTIVATION_PROOF_RECEIPT_OUTCOMES,
+  ACTIVATION_PROOF_RECEIPT_SCHEMA,
+  type ActivationProofClaim,
+  type ActivationProofIdentity,
+  type ActivationProofReceipt,
+  type ActivationProofReceiptOutcome,
+  validateActivationProofReceipt,
+} from "./activation-proof";
 export {
   AGENT_FRONTMATTER_KEYS,
   COMMON_FRONTMATTER_KEYS,
@@ -50,6 +60,7 @@ export {
   WORKSPACE_CONFIG_KEYS,
   adaptiveHookContract,
   activationInspectionContract,
+  activationProofReceiptContract,
   agentFrontmatterContract,
   changeEntryContract,
   cliEventContract,
@@ -77,6 +88,7 @@ export {
   getSkillsetJsonSchemaArtifact,
   skillsetAdaptiveHookJsonSchema,
   skillsetActivationInspectionJsonSchema,
+  skillsetActivationProofReceiptJsonSchema,
   skillsetAgentFrontmatterJsonSchema,
   skillsetChangeEntryJsonSchema,
   skillsetCliEventJsonSchema,

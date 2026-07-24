@@ -3,6 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { renderValidatedJson } from "@skillset/core/internal/structured-output";
+import { loadBuildGraph } from "@skillset/core/internal/resolver";
+import {
+  createActivationProofIdentity,
+  declaredTestActivationProofHash,
+  declaredTestActivationProofSourceUnits,
+  resolveActivationProofClaims,
+} from "@skillset/core";
 import {
   evaluateSkillsetTestWorkspace,
   listEnabledSkillsetTestTargets,
@@ -26,6 +33,10 @@ import type {
   SkillsetOptions,
   TargetName,
 } from "@skillset/core/internal/types";
+import {
+  ACTIVATION_PROOF_RECEIPT_SCHEMA,
+  type ActivationProofReceipt,
+} from "@skillset/schema";
 import { isJsonRecord } from "@skillset/core/internal/yaml";
 
 import {
@@ -41,7 +52,7 @@ import {
 } from "./test-runtime-adapter";
 
 const TEST_BUILD_DIR = "cache/tests";
-const TEST_SCHEMA = 3;
+const TEST_SCHEMA = 4;
 
 export interface SkillsetTestReport {
   readonly activationPath?: string;
@@ -51,6 +62,7 @@ export interface SkillsetTestReport {
   readonly latestPath: string;
   readonly name: string;
   readonly ok: boolean;
+  readonly proofReceipts: readonly ActivationProofReceipt[];
   readonly reportMarkdownPath: string;
   readonly reportPath: string;
   readonly runId: string;
@@ -180,6 +192,22 @@ async function runLoadedSkillsetTest(
       activationPath === undefined
         ? undefined
         : join(logicalRunPath, "activation").replaceAll("\\", "/");
+    const proofGraph =
+      evaluation.buildError === undefined
+        ? await loadBuildGraph(stagingWorkspacePath, buildOptions)
+        : undefined;
+    if (evaluation.ok) {
+      if (proofGraph === undefined) {
+        throw new Error(
+          "skillset: successful test evaluation is missing its proof graph"
+        );
+      }
+      validateDeclaredTestProofClaims(
+        declaration,
+        proofGraph,
+        evaluation.renderResults
+      );
+    }
 
     const runtimeTests =
       evaluation.buildError !== undefined
@@ -194,6 +222,16 @@ async function runLoadedSkillsetTest(
               options
             )
           : [];
+    const proofReceipts =
+      proofGraph === undefined
+        ? []
+        : createDeclaredTestProofReceipts({
+            declaration,
+            graph: proofGraph,
+            rendered: evaluation.rendered,
+            renderResults: evaluation.renderResults,
+            runtimeTests,
+          });
     const checks = evaluation.checks;
     const ok = evaluation.ok && runtimeTests.every((result) => result.ok);
     const reportPath = join(runPath, "report.json");
@@ -217,6 +255,7 @@ async function runLoadedSkillsetTest(
       generatedFiles: evaluation.generatedFiles,
       name: declaration.name,
       ok,
+      proofReceipts: proofReceipts as unknown as JsonRecord[],
       runId,
       schemaVersion: TEST_SCHEMA,
       selection: skillsetTestSelectionRecord(declaration.selection),
@@ -245,6 +284,7 @@ async function runLoadedSkillsetTest(
       latestPath: logicalLatestPath,
       name: declaration.name,
       ok,
+      proofReceipts,
       reportMarkdownPath: join(logicalRunPath, "report.md").replaceAll(
         "\\",
         "/"
@@ -261,6 +301,103 @@ async function runLoadedSkillsetTest(
   } finally {
     await rm(stagingRoot, { force: true, recursive: true });
   }
+}
+
+function validateDeclaredTestProofClaims(
+  declaration: SkillsetTestDeclaration,
+  graph: BuildGraph,
+  renderResults: Awaited<
+    ReturnType<typeof evaluateSkillsetTestWorkspace>
+  >["renderResults"]
+): void {
+  for (const probe of declaration.activationProbes) {
+    if (probe.runtime === undefined || probe.runtime.claims.length === 0) {
+      continue;
+    }
+    for (const target of probe.targets) {
+      resolveActivationProofClaims({
+        claims: probe.runtime.claims,
+        graph,
+        renderResults,
+        targets: [target],
+      });
+    }
+  }
+}
+
+function createDeclaredTestProofReceipts(input: {
+  readonly declaration: SkillsetTestDeclaration;
+  readonly graph: BuildGraph;
+  readonly rendered: Awaited<
+    ReturnType<typeof evaluateSkillsetTestWorkspace>
+  >["rendered"];
+  readonly renderResults: Awaited<
+    ReturnType<typeof evaluateSkillsetTestWorkspace>
+  >["renderResults"];
+  readonly runtimeTests: readonly SkillsetRuntimeTestResult[];
+}): readonly ActivationProofReceipt[] {
+  const probes = new Map(
+    input.declaration.activationProbes.flatMap((probe) =>
+      probe.targets.map((target) => [`${target}\0${probe.name}`, probe] as const)
+    )
+  );
+  return input.runtimeTests.flatMap((result) => {
+    const probe = probes.get(`${result.target}\0${result.name}`);
+    if (probe?.runtime === undefined || probe.runtime.claims.length === 0) {
+      return [];
+    }
+    const claims = probe.runtime.claims;
+    const evidencedClaims = claims.filter((claim) =>
+      result.activationEvidence.some(
+        (evidence) =>
+          evidence.capability === claim.capability &&
+          evidence.subject === claim.subject
+      )
+    );
+    if (evidencedClaims.length === 0) return [];
+    const claimIds = resolveActivationProofClaims({
+      claims: evidencedClaims,
+      graph: input.graph,
+      renderResults: input.renderResults,
+      targets: [result.target],
+    }).flatMap(({ requirementIds }) => requirementIds);
+    const identity = createActivationProofIdentity({
+      adapterId: result.adapterId,
+      declarationHash: declaredTestActivationProofHash({
+        declaration: input.declaration,
+        probe,
+        requirementIds: claimIds,
+        target: result.target,
+      }),
+      graph: input.graph,
+      projectionSourceUnits: declaredTestActivationProofSourceUnits(
+        input.declaration,
+        result.target,
+        input.renderResults
+      ),
+      rendered: input.rendered,
+      renderResults: input.renderResults,
+      requirementIds: claimIds,
+    });
+    return [{
+      claimIds,
+      identity,
+      outcome: runtimeProofOutcome(result),
+      ...(result.binaryVersion === undefined
+        ? {}
+        : { runtimeVersion: result.binaryVersion }),
+      schema: ACTIVATION_PROOF_RECEIPT_SCHEMA,
+    }];
+  });
+}
+
+function runtimeProofOutcome(
+  result: SkillsetRuntimeTestResult
+): ActivationProofReceipt["outcome"] {
+  if (result.ok) return "passed";
+  if (result.failureClass === "cancelled") return "cancelled";
+  if (result.failureClass === "timeout") return "timed_out";
+  return "failed";
 }
 
 export async function listSkillsetTests(

@@ -41,7 +41,12 @@ export async function loadSkillEvalDeclaration(
     throw new Error(`skillset: ${evalPath} must contain valid JSON: ${detail}`);
   }
   const files = await listSkillFiles(skillPath);
-  const enabledTargets = (Object.entries(targets) as readonly [TargetName, { readonly enabled: boolean }][])
+  const enabledTargets = (
+    Object.entries(targets) as readonly [
+      TargetName,
+      { readonly enabled: boolean },
+    ][]
+  )
     .filter(([, target]) => target.enabled)
     .map(([target]) => target);
   const validation = validateSkillEval(document, evalPath, {
@@ -68,10 +73,11 @@ function readEvalCase(
   value: unknown,
   defaultTargets: readonly TargetName[]
 ): SourceSkillEvalCase {
-  if (!isJsonRecord(value)) throw new Error("skillset: validated eval case must be an object");
+  if (!isJsonRecord(value))
+    throw new Error("skillset: validated eval case must be an object");
   const extension = isJsonRecord(value.skillset) ? value.skillset : undefined;
   const targets = Array.isArray(extension?.targets)
-    ? extension.targets as TargetName[]
+    ? (extension.targets as TargetName[])
     : defaultTargets;
   return {
     expectedOutput: String(value.expected_output),
@@ -83,7 +89,9 @@ function readEvalCase(
   };
 }
 
-function readStringArray(value: JsonRecord[string] | undefined): readonly string[] {
+function readStringArray(
+  value: JsonRecord[string] | undefined
+): readonly string[] {
   return Array.isArray(value) ? value.map(String) : [];
 }
 
@@ -92,14 +100,17 @@ async function listSkillFiles(skillPath: string): Promise<ReadonlySet<string>> {
   return new Set(paths);
 }
 
-async function listFiles(root: string, path: string): Promise<readonly string[]> {
+async function listFiles(
+  root: string,
+  path: string
+): Promise<readonly string[]> {
   const entries = await readdir(path, { withFileTypes: true });
   const files: string[] = [];
   for (const entry of entries) {
     if (entry.name === ".git") continue;
     const entryPath = join(path, entry.name);
     if (entry.isDirectory()) {
-      files.push(...await listFiles(root, entryPath));
+      files.push(...(await listFiles(root, entryPath)));
     } else if (entry.isFile()) {
       files.push(relative(root, entryPath).split(sep).join("/"));
     }

@@ -5,6 +5,7 @@ import {
   SKILLSET_SCHEMA_VERSION,
   adaptiveHookContract,
   activationInspectionContract,
+  activationProofReceiptContract,
   agentFrontmatterContract,
   changeEntryContract,
   cliEventContract,
@@ -29,6 +30,7 @@ const schemaFileNames = {
   "adaptive-hook": "adaptive-hook.schema.json",
   "agent-frontmatter": "agent-frontmatter.schema.json",
   "activation-inspection": "activation-inspection.schema.json",
+  "activation-proof-receipt": "activation-proof-receipt.schema.json",
   "change-entry": "change-entry.schema.json",
   "cli-event": "cli-event.schema.json",
   "cli-result": "cli-result.schema.json",
@@ -51,6 +53,7 @@ export function deriveSkillsetJsonSchemaArtifacts(): readonly SkillsetJsonSchema
     })),
     ...[
       activationInspectionContract,
+      activationProofReceiptContract,
       cliResultContract,
       cliEventContract,
     ].map((contract) => ({
@@ -118,4 +121,6 @@ export const skillsetTestDeclarationJsonSchema = testDeclarationContract.schema;
 export const skillsetCliResultJsonSchema = cliResultContract.schema;
 export const skillsetActivationInspectionJsonSchema =
   activationInspectionContract.schema;
+export const skillsetActivationProofReceiptJsonSchema =
+  activationProofReceiptContract.schema;
 export const skillsetCliEventJsonSchema = cliEventContract.schema;

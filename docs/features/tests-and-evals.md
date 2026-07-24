@@ -173,6 +173,9 @@ activation:
     expect:
       skill: docs-cli
     runtime:
+      claims:
+        - capability: mcp-server
+          subject: docs
       claude:
         settingSources: isolated
       timeoutMs: 30000
@@ -193,6 +196,19 @@ checks:
 
 `prompt` and `promptFile` are mutually exclusive. Prompt files resolve inside the active Skillset source root, so committed declarations remain portable. Probe `targets` select the provider invocations; the expected `skill`, `agent`, or `plugin` must be present in the isolated rendering before Skillset launches a runtime. `runtime.expect` supports literal `contains` and `notContains` assertions. This deliberately small vocabulary proves a repeatable fact without introducing model graders, scores, comparisons, or repeated trials.
 
+An optional `runtime.claims` array can bind a passing declaration to current
+activation readiness. Each claim names only a canonical `capability` and
+`subject`; authors never copy internal requirement IDs. Core resolves the claim
+for every selected target and source projection before provider execution.
+Unknown, ambiguous, disabled, or unsupported claims fail before the runtime is
+launched. A passing current receipt satisfies only the resolved `proven`
+requirements it names. Failed, cancelled, timed-out, stale, and successful but
+unclaimed runs prove nothing. Retained proof is bound to the current authored
+declaration: deleting it or changing its prompt, runtime expectations, claims,
+or selection makes the prior result stale. The selected rendered source
+projection is part of the receipt identity, so changing a selected source unit
+makes prior proof stale while unrelated unselected units do not.
+
 Run the declaration through the normal command:
 
 ```bash
@@ -208,6 +224,10 @@ The promotion path is intentionally direct: use `skillset test` to refine a prov
 ## Ad Hoc Runtime Tests
 
 The same `skillset test` family owns ad hoc live-runtime probes. A named test runs a committed declaration; `--target` plus exactly one prompt input starts an ad hoc provider process. Ad hoc success means the provider process completed. Committed runtime blocks retain their stronger declared assertion contract.
+
+Ad hoc runs are transport evidence only. They have no authored claim context
+and therefore cannot mint activation proof receipts, even when the provider
+process exits successfully.
 
 ```bash
 skillset test --target codex --prompt "What skills can you see?"
@@ -330,6 +350,12 @@ to targets already enabled for the owning skill. Without it, the case derives
 every target enabled for that skill in the build graph. Unknown fields,
 duplicate IDs, missing skill-root-relative files, and impossible target
 selections fail validation.
+
+Eval cases are deliberately ungraded. `expected_output` and `expectations` are
+retained as reviewer context, but a completed provider process, nonzero tool
+call count, or superficially related response cannot prove that a named
+capability was exercised. Evals therefore cannot declare activation claims and
+their reports never mint activation proof receipts.
 
 Use the read-only command to inspect that derived matrix:
 

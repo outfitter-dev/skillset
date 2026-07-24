@@ -60,6 +60,9 @@ test("SET-329 refresh previews, replans, and idempotently applies stacked stale 
   );
 
   const ledgerAfter = await readFile(ledgerPath, "utf8");
+  expect(nonCoverageLedgerEvents(ledgerAfter)).toEqual(
+    nonCoverageLedgerEvents(ledgerBefore)
+  );
   const repeated = jsonRefresh((await runCli("change", "refresh", "--root", root, "--yes", "--json")).stdout);
   expect(repeated.report.entries).toEqual([]);
   expect(repeated.writes).toEqual([]);
@@ -437,6 +440,17 @@ interface RefreshJsonData {
 
 function jsonRefresh(stdout: string): RefreshJsonData {
   return (JSON.parse(stdout) as { readonly data: RefreshJsonData }).data;
+}
+
+function nonCoverageLedgerEvents(ledger: string): readonly string[] {
+  return ledger
+    .split("\n")
+    .filter((line) => line.length > 0)
+    .filter(
+      (line) =>
+        (JSON.parse(line) as { readonly type?: string }).type !==
+        "change.covered"
+    );
 }
 
 async function refreshFixture(): Promise<string> {

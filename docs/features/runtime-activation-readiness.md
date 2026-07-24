@@ -49,6 +49,48 @@ The first Core slice derives:
 
 Stable requirement IDs combine target, capability, canonical subject, and stage. When several source units require the same subject, the requirement is deduplicated while retaining every owning source path and source-unit selector.
 
+## Declared Runtime Proof
+
+Only declared runtime tests can claim the informational `proven` stage. Test
+probes declare `runtime.claims` using the portable shape:
+
+```yaml
+claims:
+  - capability: mcp-server
+    subject: github
+```
+
+Core resolves each claim against the selected target and source projection
+before any provider process starts. The declaration names the canonical
+capability and subject, not an internal requirement ID. Missing, ambiguous,
+disabled, target-incompatible, and unsupported claims fail before runtime
+execution.
+
+Runs retain a versioned proof receipt only for resolved claims corroborated by
+structured provider invocation evidence for the exact capability and subject.
+Final response text, authored substring assertions, and generic process success
+cannot mint proof. Each receipt contains the corroborated requirement IDs and
+deterministic declaration, source, projection, target, and adapter identity.
+Provider binary version is retained as informational evidence but is not a
+freshness input. A receipt satisfies `proven` only while the current declaration
+still exists and every freshness identity matches.
+Deleting the declaration or changing its runtime-relevant prompt, expectations,
+claims, or selected projection makes a prior passing receipt `stale`, as does
+changing source or generated projection. Failed, cancelled, timed-out, and
+successful unclaimed runs leave proof `unverified`. Direct ad hoc tests can
+never mint proof.
+
+Skill evals remain ungraded. Their expected output and expectations are retained
+for inspection, but completion cannot establish that a capability or subject
+was exercised. Eval reports therefore never contain activation proof receipts.
+
+The CLI app reads retained reports and supplies structured receipts to Core.
+Core never reads XDG paths or app-owned runtime caches. Independent retained
+runs compose. Incomplete, unreadable, malformed, and schema-invalid retained
+proof reports remain untrusted advisory evidence: the app ignores them and
+leaves the applicable requirement unverified rather than failing activation
+inspection.
+
 ## Provider Observation
 
 Provider execution is deliberately outside the foundational Core planner. CLI-app adapters consume Core activation policy, which joins Registry-owned provider facts with Skillset-owned claims, reasons, actions, and fallback semantics, then supply sanitized observations. Active health checks may start configured processes or make connections; their effect is explicit and opt-in.
@@ -129,7 +171,9 @@ The complete JSON also contains stable requirement ids, source paths, source-uni
 - `packages/core/src/runtime-readiness.ts`
 - `packages/core/src/__tests__/runtime-readiness.test.ts`
 - `packages/schema/src/activation-inspection.ts`
+- `packages/schema/src/activation-proof.ts`
 - `docs/reference/schemas/0.1.0/activation-inspection.schema.json`
+- `docs/reference/schemas/0.1.0/activation-proof-receipt.schema.json`
 - `apps/skillset/src/provider-command.ts`
 - `apps/skillset/src/activation-parsers.ts`
 - `apps/skillset/src/activation-inspection.ts`
@@ -141,3 +185,4 @@ The complete JSON also contains stable requirement ids, source paths, source-uni
 - [SET-390](https://linear.app/outfitter/issue/SET-390/define-registry-backed-activation-readiness-and-static-planning)
 - [SET-391](https://linear.app/outfitter/issue/SET-391/add-bounded-provider-activation-evidence-adapters)
 - [SET-392](https://linear.app/outfitter/issue/SET-392/expose-activation-readiness-through-status-explain-and-lookup)
+- [SET-393](https://linear.app/outfitter/issue/SET-393/bind-activation-readiness-to-current-declared-runtime-proof)

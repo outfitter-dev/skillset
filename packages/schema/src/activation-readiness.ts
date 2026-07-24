@@ -65,6 +65,12 @@ export type ActivationRequirementState =
   (typeof ACTIVATION_REQUIREMENT_STATES)[number];
 export type ActivationTarget = (typeof TARGET_NAMES)[number];
 
+export function isActivationCapability(
+  value: unknown
+): value is ActivationCapability {
+  return ACTIVATION_CAPABILITIES.some((capability) => capability === value);
+}
+
 export interface ActivationNextAction {
   readonly id: string;
   readonly label: string;

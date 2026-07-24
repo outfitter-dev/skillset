@@ -1,7 +1,11 @@
 import { readdir, readFile, realpath, stat } from "node:fs/promises";
 import { extname, isAbsolute, join, relative, sep } from "node:path";
 
-import { validateTestDeclaration } from "@skillset/schema";
+import {
+  isActivationCapability,
+  validateTestDeclaration,
+} from "@skillset/schema";
+import type { ActivationProofClaim } from "@skillset/schema";
 
 import {
   isTargetName,
@@ -11,6 +15,10 @@ import {
 } from "./config";
 import { compareStrings, resolveInside } from "./path";
 import { detectWorkspaceSourceDir, loadBuildGraph } from "./resolver";
+import {
+  resolveActivationProofClaims,
+  type ResolvedActivationProofClaim,
+} from "./runtime-readiness";
 import { targetNames } from "./targets";
 import type {
   BuildGraph,
@@ -52,6 +60,7 @@ export interface SkillsetTestDeclaration {
   readonly checks: readonly SkillsetTestCheck[];
   readonly name: string;
   readonly selection: SkillsetTestSelection;
+  readonly sourcePath: string;
   readonly targets: readonly TargetName[];
 }
 
@@ -90,9 +99,11 @@ export interface SkillsetActivationProbe {
 }
 
 export interface SkillsetActivationRuntime {
+  readonly claims: readonly ActivationProofClaim[];
   readonly claudeSettingSources?: SkillsetClaudeSettingSources;
   readonly contains?: string;
   readonly notContains?: string;
+  readonly resolvedClaims: readonly ResolvedActivationProofClaim[];
   readonly timeoutMs?: number;
 }
 
@@ -347,7 +358,14 @@ async function readTestObject(
     targets
   );
   validateSkillsetActivationProbeNames(activationProbes, targets);
-  return { activationProbes, checks, name, selection, targets };
+  return {
+    activationProbes,
+    checks,
+    name,
+    selection,
+    sourcePath: label,
+    targets,
+  };
 }
 
 function usesDeclaredRuntimeContract(record: JsonRecord): boolean {
@@ -909,6 +927,17 @@ async function readSkillsetActivationProbe(
     value.runtime,
     `${label}.runtime`
   );
+  const resolvedRuntime =
+    runtime === undefined
+      ? undefined
+      : {
+          ...runtime,
+          resolvedClaims: resolveActivationProofClaims({
+            claims: runtime.claims,
+            graph,
+            targets,
+          }),
+        };
   return {
     expect,
     name: configuredName ?? activationProbeName(expect),
@@ -917,7 +946,7 @@ async function readSkillsetActivationProbe(
       promptFile === undefined
         ? "inline"
         : join(graph.sourceRoot, promptFile).replaceAll("\\", "/"),
-    ...(runtime === undefined ? {} : { runtime }),
+    ...(resolvedRuntime === undefined ? {} : { runtime: resolvedRuntime }),
     targets,
   };
 }
@@ -953,7 +982,12 @@ function readSkillsetActivationRuntime(
   if (!isJsonRecord(value))
     throw new Error(`skillset: expected ${label} to be an object`);
   for (const key of Object.keys(value)) {
-    if (key !== "claude" && key !== "expect" && key !== "timeoutMs") {
+    if (
+      key !== "claims" &&
+      key !== "claude" &&
+      key !== "expect" &&
+      key !== "timeoutMs"
+    ) {
       throw new Error(`skillset: unsupported runtime key ${key} in ${label}`);
     }
   }
@@ -981,12 +1015,40 @@ function readSkillsetActivationRuntime(
     value.claude,
     `${label}.claude`
   );
+  const claims = readActivationProofClaims(value.claims, `${label}.claims`);
   return {
+    claims,
     ...(claudeSettingSources === undefined ? {} : { claudeSettingSources }),
     ...(contains === undefined ? {} : { contains }),
     ...(notContains === undefined ? {} : { notContains }),
+    resolvedClaims: [],
     ...(timeoutMs === undefined ? {} : { timeoutMs }),
   };
+}
+
+function readActivationProofClaims(
+  value: JsonValue | undefined,
+  label: string
+): readonly ActivationProofClaim[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new Error(`skillset: ${label} must be a non-empty claim array`);
+  }
+  const claims: ActivationProofClaim[] = [];
+  for (const [index, entry] of value.entries()) {
+    if (!isJsonRecord(entry)) {
+      throw new Error(`skillset: ${label}[${index}] must be a claim object`);
+    }
+    const capability = readString(entry, "capability");
+    const subject = readString(entry, "subject");
+    if (!isActivationCapability(capability) || subject === undefined) {
+      throw new Error(
+        `skillset: ${label}[${index}] must name a capability and subject`
+      );
+    }
+    claims.push({ capability, subject: subject.trim() });
+  }
+  return claims;
 }
 
 function readRuntimeClaudeSettings(
@@ -1089,6 +1151,20 @@ export async function loadSkillsetTestDeclarations(
     );
   }
   return declarations;
+}
+
+export async function loadSkillsetTestDeclarationsFromGraph(
+  graph: BuildGraph
+): Promise<readonly SkillsetTestDeclaration[]> {
+  const tests = await readSkillsetTestDeclarations(graph);
+  return parseSkillsetTestDeclarations({
+    defaultTargets: targetNames().filter(
+      (target) => graph.root.targets[target].enabled
+    ),
+    graph,
+    names: Object.keys(tests).sort(compareStrings),
+    tests,
+  });
 }
 
 export async function loadSkillsetTestDeclaration(

@@ -11,9 +11,11 @@ const ISOLATED_CLAUDE_SETTING_SOURCES_ARG = "";
 const CLAUDE_SETTING_SOURCES_DISPLAY = '""';
 
 export interface RuntimeProbeCommand {
+  readonly adapterId: string;
   readonly cmd: readonly string[];
   readonly cwd: string;
   readonly display: readonly string[];
+  readonly versionCmd: readonly string[];
 }
 
 export interface RuntimeProbeCommandOptions {
@@ -25,6 +27,7 @@ export interface RuntimeProbeCommandOptions {
 }
 
 export interface RuntimeProbeExecutionOptions {
+  readonly captureVersion?: boolean;
   readonly env: Record<string, string | undefined>;
   readonly onOutput?: (
     stream: "stderr" | "stdout",
@@ -36,9 +39,14 @@ export interface RuntimeProbeExecutionOptions {
 }
 
 export interface RuntimeProbeExecutionResult {
+  readonly adapterId: string;
+  readonly binaryVersion?: string;
   readonly exitCode: number;
   readonly timedOut: boolean;
 }
+
+const RUNTIME_PROBE_ADAPTER_VERSION = 1;
+const MAX_RUNTIME_VERSION_BYTES = 512;
 
 /** Shared target-native process adapter for explicit test and eval probes. */
 export function createRuntimeProbeCommand(
@@ -64,7 +72,8 @@ export function createRuntimeProbeCommand(
       bin,
       "--print",
       "--output-format",
-      "json",
+      "stream-json",
+      "--verbose",
       "--setting-sources",
       settingSourcesArg,
       "--no-session-persistence",
@@ -74,6 +83,7 @@ export function createRuntimeProbeCommand(
       ...(options.prompt === undefined ? [] : [options.prompt]),
     ];
     return {
+      adapterId: runtimeProbeAdapterId(options.target),
       cmd,
       cwd: workspacePath,
       display: cmd.map((arg) =>
@@ -81,6 +91,7 @@ export function createRuntimeProbeCommand(
           ? CLAUDE_SETTING_SOURCES_DISPLAY
           : arg
       ),
+      versionCmd: [bin, "--version"],
     };
   }
 
@@ -105,7 +116,13 @@ export function createRuntimeProbeCommand(
       ...pluginArgs,
       ...(options.prompt === undefined ? [] : [options.prompt]),
     ];
-    return { cmd, cwd: workspacePath, display: cmd };
+    return {
+      adapterId: runtimeProbeAdapterId(options.target),
+      cmd,
+      cwd: workspacePath,
+      display: cmd,
+      versionCmd: [bin, "--version"],
+    };
   }
 
   const bin = env.SKILLSET_TEST_CODEX_BIN ?? "codex";
@@ -122,7 +139,13 @@ export function createRuntimeProbeCommand(
     options.finalMessagePath,
     "-",
   ];
-  return { cmd, cwd: workspacePath, display: cmd };
+  return {
+    adapterId: runtimeProbeAdapterId(options.target),
+    cmd,
+    cwd: workspacePath,
+    display: cmd,
+    versionCmd: [bin, "--version"],
+  };
 }
 
 export async function runRuntimeProbe(
@@ -130,6 +153,10 @@ export async function runRuntimeProbe(
   prompt: string,
   options: RuntimeProbeExecutionOptions
 ): Promise<RuntimeProbeExecutionResult> {
+  const binaryVersion =
+    options.captureVersion === true
+      ? await readRuntimeProbeBinaryVersion(command, options)
+      : undefined;
   const result = await runProviderCommand(command, {
     env: options.env,
     maxStderrBytes: 0,
@@ -142,7 +169,54 @@ export async function runRuntimeProbe(
     stdin: prompt,
     timeoutMs: options.timeoutMs,
   });
-  return { exitCode: result.exitCode, timedOut: result.timedOut };
+  return {
+    adapterId: command.adapterId,
+    ...(binaryVersion === undefined ? {} : { binaryVersion }),
+    exitCode: result.exitCode,
+    timedOut: result.timedOut,
+  };
+}
+
+export function runtimeProbeAdapterId(target: TargetName): string {
+  return `skillset.runtime-probe@${RUNTIME_PROBE_ADAPTER_VERSION}:${target}`;
+}
+
+async function readRuntimeProbeBinaryVersion(
+  command: RuntimeProbeCommand,
+  options: RuntimeProbeExecutionOptions
+): Promise<string | undefined> {
+  try {
+    const result = await runProviderCommand(
+      { cmd: command.versionCmd, cwd: command.cwd },
+      {
+        env: options.env,
+        maxStderrBytes: 0,
+        maxStdoutBytes: MAX_RUNTIME_VERSION_BYTES,
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+        timeoutMs: options.timeoutMs,
+      }
+    );
+    if (
+      result.exitCode !== 0 ||
+      result.timedOut ||
+      result.stdoutTruncated
+    ) {
+      return undefined;
+    }
+    const line = result.stdout.split(/\r?\n/u)[0]?.trim();
+    if (
+      line === undefined ||
+      line.length === 0 ||
+      line.length > 160 ||
+      !/^[A-Za-z0-9][A-Za-z0-9 .()+_-]*$/u.test(line) ||
+      /\b(?:api[-_ ]?key|credential|password|secret|token)\b/iu.test(line)
+    ) {
+      return undefined;
+    }
+    return line;
+  } catch {
+    return undefined;
+  }
 }
 
 function runtimeProbePluginDirs(

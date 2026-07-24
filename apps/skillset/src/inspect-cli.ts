@@ -173,6 +173,7 @@ export async function runExplainCommand(
       const activationReport = await withActivationSignal(context, (signal) =>
         inspectWorkspaceActivation({
           options,
+          proofRenderResults: drift.renderResults,
           renderResults: result.renderResults,
           rootPath,
           signal,
@@ -375,7 +376,14 @@ function outputDriftPaths(drift: {
   readonly missing: readonly string[];
   readonly removed: readonly string[];
 }): readonly string[] {
-  return [...drift.added, ...drift.changed, ...drift.missing, ...drift.removed];
+  return [
+    ...new Set([
+      ...drift.added,
+      ...drift.changed,
+      ...drift.missing,
+      ...drift.removed,
+    ]),
+  ];
 }
 
 function printStatusReport(

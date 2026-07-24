@@ -2543,6 +2543,32 @@
               "runtime": {
                 "additionalProperties": false,
                 "properties": {
+                  "claims": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "capability": {
+                          "enum": [
+                            "app",
+                            "mcp-server",
+                            "plugin-dependency"
+                          ],
+                          "type": "string"
+                        },
+                        "subject": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "capability",
+                        "subject"
+                      ],
+                      "type": "object"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
                   "claude": {
                     "additionalProperties": false,
                     "properties": {

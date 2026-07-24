@@ -158,6 +158,8 @@ Use this skill to answer fixture questions.
 
   const status = await readAdHocTestStatus(root, report.runId, { xdg });
   const command = status.command?.join(" ");
+  expect(command).toContain("--output-format stream-json");
+  expect(command).toContain("--verbose");
   expect(command).toContain("--setting-sources \"\"");
   expect(command).toContain("--plugin-dir");
   expect(command).toContain("plugins/acme/claude");
@@ -765,6 +767,237 @@ checks:
   }));
 });
 
+test("SET-393: declared runtime claims retain current proof receipts while ad hoc runs remain unclaimed", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: declared-runtime-proof
+compile:
+  targets: [codex]
+`,
+    ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+mcp: true
+`,
+    ".skillset/plugins/tools/.mcp.json": JSON.stringify({
+      mcpServers: {
+        github: { command: "github-mcp" },
+      },
+    }),
+    ".skillset/plugins/tools/skills/demo/SKILL.md": `
+---
+name: demo
+description: Runtime proof fixture.
+---
+
+Use the GitHub server.
+`,
+    ".skillset/tests/runtime-proof.yaml": `
+select:
+  plugins: [tools]
+targets: [codex]
+activation:
+  - name: github proof
+    prompt: Use the GitHub server.
+    expect:
+      plugin: tools
+    runtime:
+      claims:
+        - capability: mcp-server
+          subject: github
+      expect:
+        contains: fake codex final
+checks:
+  projection: true
+`,
+  });
+  const xdg = { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } };
+  const runtimeEnv = {
+    ...process.env,
+    SKILLSET_TEST_CODEX_BIN: await fakeCodexBin(root),
+  };
+
+  const declared = await runSkillsetTest(root, "runtime-proof", {
+    runtimeEnv,
+    xdg,
+  });
+  expect(declared.proofReceipts).toHaveLength(1);
+  expect(declared.proofReceipts[0]).toMatchObject({
+    claimIds: ["activation:codex:mcp-server:github:proven"],
+    identity: {
+      adapterId: "skillset.runtime-probe@1:codex",
+      target: "codex",
+    },
+    outcome: "passed",
+    schema: "skillset.activation-proof-receipt@2",
+  });
+  expect(declared.proofReceipts[0]?.runtimeVersion).toContain("fake-codex");
+
+  const generic = await runSkillsetTest(root, "runtime-proof", {
+    runtimeEnv: {
+      ...process.env,
+      SKILLSET_TEST_CODEX_BIN: await fakeGenericCodexBin(root),
+    },
+    xdg,
+  });
+  expect(generic.ok).toBe(true);
+  expect(generic.proofReceipts).toEqual([]);
+
+  const failed = await runSkillsetTest(root, "runtime-proof", {
+    runtimeEnv: {
+      ...process.env,
+      SKILLSET_TEST_CODEX_BIN: await fakeFailureBin(
+        root,
+        "failed-proof-codex",
+        "provider failed",
+        1
+      ),
+    },
+    xdg,
+  });
+  expect(failed.proofReceipts).toEqual([]);
+
+  const adHoc = await startAdHocTestRun(root, {
+    env: runtimeEnv,
+    prompt: "Explore without a declaration.",
+    target: "codex",
+    xdg,
+  });
+  const adHocReport = JSON.parse(
+    await readFile(cachePath(root, xdg, adHoc.reportPath), "utf8")
+  ) as Record<string, unknown>;
+  expect(adHocReport.proofReceipts).toBeUndefined();
+});
+
+test("SET-393: proof probes are keyed by target and name", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: target-qualified-proof
+compile:
+  targets: [claude, codex]
+`,
+    ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+mcp: true
+`,
+    ".skillset/plugins/tools/.mcp.json": JSON.stringify({
+      mcpServers: {
+        github: { command: "github-mcp" },
+        linear: { command: "linear-mcp" },
+      },
+    }),
+    ".skillset/tests/target-qualified-proof.yaml": `
+select:
+  plugins: [tools]
+targets: [claude, codex]
+activation:
+  - name: shared proof
+    targets: [claude]
+    prompt: Use github.
+    expect:
+      plugin: tools
+    runtime:
+      claims:
+        - capability: mcp-server
+          subject: github
+      expect:
+        contains: Use github.
+  - name: shared proof
+    targets: [codex]
+    prompt: Use linear.
+    expect:
+      plugin: tools
+    runtime:
+      claims:
+        - capability: mcp-server
+          subject: linear
+      expect:
+        contains: fake codex final
+checks:
+  projection: true
+`,
+  });
+  const report = await runSkillsetTest(root, "target-qualified-proof", {
+    runtimeEnv: {
+      ...process.env,
+      SKILLSET_TEST_CLAUDE_BIN: await fakeClaudeBin(root),
+      SKILLSET_TEST_CODEX_BIN: await fakeCodexBin(root),
+    },
+    xdg: { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } },
+  });
+
+  expect(
+    report.proofReceipts.map(({ claimIds, identity }) => ({
+      claimIds,
+      target: identity.target,
+    }))
+  ).toEqual([
+    {
+      claimIds: ["activation:claude:mcp-server:github:proven"],
+      target: "claude",
+    },
+    {
+      claimIds: ["activation:codex:mcp-server:linear:proven"],
+      target: "codex",
+    },
+  ]);
+});
+
+test("SET-393: declared claims preflight every target before provider launch", async () => {
+  const root = await fixture({
+    "skillset.yaml": `
+skillset:
+  name: target-proof-fixture
+compile:
+  targets: [claude, codex]
+`,
+    ".skillset/plugins/tools/skillset.yaml": `
+skillset:
+  name: tools
+`,
+    ".skillset/plugins/tools/_codex/.app.json": JSON.stringify({
+      name: "tools",
+    }),
+    ".skillset/tests/target-proof.yaml": `
+select:
+  plugins: [tools]
+targets: [claude, codex]
+activation:
+  - name: app proof
+    prompt: Use the app.
+    expect:
+      plugin: tools
+    runtime:
+      claims:
+        - capability: app
+          subject: tools
+      expect:
+        contains: ready
+checks:
+  projection: true
+`,
+  });
+  const marker = join(root, "provider-launched");
+  const bin = await invocationMarkerBin(root, marker);
+
+  await expect(
+    runSkillsetTest(root, "target-proof", {
+      runtimeEnv: {
+        ...process.env,
+        SKILLSET_TEST_CLAUDE_BIN: bin,
+        SKILLSET_TEST_CODEX_BIN: bin,
+      },
+      xdg: { env: { XDG_CACHE_HOME: join(root, "xdg-cache") } },
+    })
+  ).rejects.toThrow(
+    "activation proof claim app:tools does not match the selected target/source projection"
+  );
+  expect(await exists(marker)).toBe(false);
+});
+
 test("SET-273: declared runtime render failures stop before provider invocation", async () => {
   const root = await fixture({
     "skillset.yaml": `
@@ -825,7 +1058,13 @@ codex: true
 skillset:
   name: demo
 bin: true
+mcp: true
 `,
+    ".skillset/plugins/demo/.mcp.json": JSON.stringify({
+      mcpServers: {
+        github: { command: "github-mcp" },
+      },
+    }),
     ".skillset/plugins/demo/skills/helper/SKILL.md": `
 ---
 name: helper
@@ -844,6 +1083,9 @@ activation:
     expect:
       plugin: demo
     runtime:
+      claims:
+        - capability: mcp-server
+          subject: github
       expect:
         contains: never invoked
 checks:
@@ -859,6 +1101,7 @@ checks:
   expect(report.runtimeTests).toEqual([
     expect.objectContaining({ failureClass: "render", ok: false, target: "codex" }),
   ]);
+  expect(report.proofReceipts).toEqual([]);
 });
 
 test("SET-273: runtime prompt files stay source-local and are exclusive with inline prompts", async () => {
@@ -1007,6 +1250,10 @@ async function fakeCodexBin(root: string): Promise<string> {
   const bin = join(root, "bin", "fake-codex");
   await mkdir(dirname(bin), { recursive: true });
   await writeFile(bin, `#!/bin/sh
+if [ "$1" = "--version" ]; then
+  printf 'fake-codex 1.0.0\\n'
+  exit 0
+fi
 last=""
 prev=""
 for arg in "$@"; do
@@ -1018,10 +1265,59 @@ done
 input="$(cat)"
 echo "fake-codex cwd=$(pwd)"
 echo "fake-codex prompt=$input"
+case "$input" in
+  *linear*|*Linear*) server="linear" ;;
+  *) server="github" ;;
+esac
+printf '{"type":"item.completed","item":{"type":"mcp_tool_call","server":"%s","tool":"fixture","status":"completed"}}\\n' "$server"
 if [ -n "$last" ]; then
   printf 'fake codex final\\n' > "$last"
 fi
 `, "utf8");
+  await chmod(bin, 0o755);
+  return bin;
+}
+
+async function fakeGenericCodexBin(root: string): Promise<string> {
+  const bin = join(root, "bin", "fake-generic-codex");
+  await mkdir(dirname(bin), { recursive: true });
+  await writeFile(
+    bin,
+    `#!/bin/sh
+if [ "$1" = "--version" ]; then
+  printf 'fake-codex 1.0.0\\n'
+  exit 0
+fi
+last=""
+prev=""
+for arg in "$@"; do
+  if [ "$prev" = "--output-last-message" ]; then last="$arg"; fi
+  prev="$arg"
+done
+cat >/dev/null
+printf 'github was used successfully\\n'
+if [ -n "$last" ]; then printf 'fake codex final\\n' > "$last"; fi
+`,
+    "utf8"
+  );
+  await chmod(bin, 0o755);
+  return bin;
+}
+
+async function invocationMarkerBin(
+  root: string,
+  marker: string
+): Promise<string> {
+  const bin = join(root, "bin", "invocation-marker");
+  await mkdir(dirname(bin), { recursive: true });
+  await writeFile(
+    bin,
+    `#!/bin/sh
+touch ${JSON.stringify(marker)}
+exit 1
+`,
+    "utf8"
+  );
   await chmod(bin, 0o755);
   return bin;
 }
@@ -1050,6 +1346,7 @@ for arg in "$@"; do
 done
 echo "fake-claude cwd=$(pwd)"
 echo "fake-claude prompt=$last"
+printf '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"mcp__github__fixture"}]}}\\n'
 `, "utf8");
   await chmod(bin, 0o755);
   return bin;
